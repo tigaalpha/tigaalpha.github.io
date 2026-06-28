@@ -2127,6 +2127,25 @@ function ttsChunks(text, max = 130) {
 }
 /* Returns true if cloud audio started; on any failure calls onError (so the
    caller can fall back to the device Web Speech voice). */
+/* ── Voice character + warmth: Gemini 2.5 TTS takes a natural-language style
+   direction (it speaks only the quoted content, in that tone) — this is what
+   turns a flat read into a warm, human, world-class-teacher delivery. ── */
+const VM_VOICES = [
+  { k: "warm",     v: "Sulafat", th: "อบอุ่น",    en: "Warm",     zh: "温暖" },
+  { k: "deep",     v: "Charon",  th: "ทุ้มลึก",    en: "Deep",     zh: "低沉" },
+  { k: "friendly", v: "Achird",  th: "เป็นกันเอง", en: "Friendly", zh: "亲切" },
+  { k: "bright",   v: "Zephyr",  th: "สดใส",      en: "Bright",   zh: "明亮" },
+];
+function getVmVoiceKey() { try { return localStorage.getItem("tg_vmvoice") || "warm"; } catch (e) { return "warm"; } }
+function getVmVoiceName() { const f = VM_VOICES.find(x => x.k === getVmVoiceKey()); return f ? f.v : "Sulafat"; }
+function vmStyleFor(lang) {
+  return lang === "th" ? "อ่านข้อความในเครื่องหมายคำพูดด้วยน้ำเสียงครูสอนเปียโนระดับโลกที่อบอุ่น เป็นกันเอง ให้กำลังใจ พูดเป็นธรรมชาติเหมือนคนจริง จังหวะนุ่มนวลมีชีวิตชีวา ไม่ใช่หุ่นยนต์"
+    : lang === "zh" ? "用温暖、亲切、鼓励的世界级钢琴老师语气，像真人一样自然、富有表现力地朗读引号中的文字，不要机械感。"
+    : "Read the quoted text as a warm, encouraging, world-class piano teacher speaking naturally like a real person — friendly, clear, with gentle expressive pacing, never robotic.";
+}
+// wrap one chunk with the tone direction (quoted so the directive itself isn't spoken)
+function styleTTS(s, lang) { return vmStyleFor(lang) + "\n\n\"" + String(s).replace(/"/g, "'") + "\""; }
+
 async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
   stopCloudTTS();
   _ttsCancelled = false;
@@ -2144,7 +2163,7 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
       const res = await fetch(TTS_URL, {
         method: "POST",
         headers: API_HEADERS,
-        body: JSON.stringify({ text: s, lang }),
+        body: JSON.stringify({ text: styleTTS(s, lang), lang, voice: getVmVoiceName() }),
         signal: ctrl.signal,
       });
       if (!res.ok) {
@@ -2201,7 +2220,7 @@ async function fetchCloudClips(text, lang) {
   const fetchOne = (s) => {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 4500);
-    return fetch(TTS_URL, { method: "POST", headers: API_HEADERS, body: JSON.stringify({ text: s, lang }), signal: ctrl.signal })
+    return fetch(TTS_URL, { method: "POST", headers: API_HEADERS, body: JSON.stringify({ text: styleTTS(s, lang), lang, voice: getVmVoiceName() }), signal: ctrl.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error("tts " + res.status);
         const data = await res.json();
@@ -2310,7 +2329,7 @@ const L = {
     vmReady: "แตะ 'เริ่มคุย' แล้วพูดได้เลย", vmListening: "กำลังฟัง… พูดได้เลย", vmThinking: "กำลังคิด…", vmSpeaking: "กำลังพูด…", vmTapStop: "แตะเพื่อขัดจังหวะ", vmTypePh: "พิมพ์ถามก็ได้…", vmReListen: "แตะเพื่อฟังใหม่", vmMicDenied: "ไมโครโฟนถูกปิดกั้น — เปิดสิทธิ์ไมค์ในเบราว์เซอร์แล้วลองใหม่", vmNetRetry: "สัญญาณอ่อน… กำลังลองฟังใหม่",
     vmGreeting: "สวัสดีครับ! ผมครู TiGA วันนี้อยากฝึกอะไรดีครับ จะถามอะไรก็ได้ หรือจะลองเล่นอะไรให้ผมฟังสักหน่อย เดี๋ยวผมช่วยฟังแล้วแนะนำให้",
     vmYou: "คุณ", vmNotesLbl: "เพิ่งเล่น", vmPlayedCue: "ผมเพิ่งเล่นให้ครูฟัง ช่วยฟังแล้วติชมหน่อยครับ", vmNoSTT: "เบราว์เซอร์นี้ไม่รองรับการฟังเสียงพูด — แนะนำ Chrome หรือ Safari",
-    vmHint: "💡 พูดถามแล้วรอครูตอบ · เล่นเปียโนก่อนถามได้ ครูจะช่วยวิเคราะห์ · ครูเล่นโชว์ให้ฟังได้ด้วย", vmFastVoice: "เสียงเร็ว", vmHqVoice: "เสียงคมชัด", vmSpeedLbl: "ความเร็ว", vmGreetBack: "ยินดีต้อนรับกลับมาครับ! คราวก่อนเรายังติด {x} อยู่ ลองทบทวนกันไหม หรืออยากฝึกอะไรดีครับ", vmGreetHw: "ยินดีต้อนรับกลับมาครับ! คราวก่อนผมให้การบ้านไว้ว่า {x} ได้ลองฝึกหรือยังครับ ลองเล่นให้ผมฟังหน่อยสิ",
+    vmHint: "💡 พูดถามแล้วรอครูตอบ · เล่นเปียโนก่อนถามได้ ครูจะช่วยวิเคราะห์ · ครูเล่นโชว์ให้ฟังได้ด้วย", vmFastVoice: "เสียงเร็ว", vmHqVoice: "เสียงคมชัด", vmSpeedLbl: "ความเร็ว", vmVoiceLbl: "โทนเสียง", vmGreetBack: "ยินดีต้อนรับกลับมาครับ! คราวก่อนเรายังติด {x} อยู่ ลองทบทวนกันไหม หรืออยากฝึกอะไรดีครับ", vmGreetHw: "ยินดีต้อนรับกลับมาครับ! คราวก่อนผมให้การบ้านไว้ว่า {x} ได้ลองฝึกหรือยังครับ ลองเล่นให้ผมฟังหน่อยสิ",
     wlcTitle: "ยินดีต้อนรับสู่ TiGA! 🎹", wlcTip1: "แตะคีย์เปียโนเล่นได้เลย ครู AI ช่วยสอน", wlcTip2: "แตะ ☰ มุมซ้ายบน เพื่อเปิดเมนูไปหน้าต่างๆ", wlcTip3: "เล่นเกม เก็บดาว เลเวล และเหรียญ", wlcStart: "เริ่มเลย!",
     helpTitle: "วิธีใช้งาน", help1: "แตะ ☰ มุมซ้ายบน = เปิดเมนู ไปหน้าต่างๆ", help2: "แตะคีย์เปียโน = เล่นเสียงโน้ต", help3: "ปุ่มไมค์ 🎙️ = คุยกับครู AI สอนสด", help4: "ไปที่ 'ฝึกซ้อม' = เล่นเกมเก็บดาว", help5: "ปุ่ม 🔁 = ฟังครูเล่นซ้ำ", helpOk: "เข้าใจแล้ว!", signOut: "ออกจากระบบ",
     shopTitle: "ร้านค้า", shopSkins: "สกินคีย์", shopThemes: "ธีมพื้นหลัง", shopEquip: "ใช้", shopEquipped: "กำลังใช้",
@@ -2404,7 +2423,7 @@ const L = {
     vmReady: "Tap 'Start Talking' and just speak", vmListening: "Listening… go ahead", vmThinking: "Thinking…", vmSpeaking: "Speaking…", vmTapStop: "Tap to interrupt", vmTypePh: "or type your question…", vmReListen: "Tap to listen again", vmMicDenied: "Microphone blocked — allow mic access in your browser, then try again", vmNetRetry: "Weak signal… retrying to hear you",
     vmGreeting: "Hi! I'm Teacher TiGA. What would you like to work on today? Ask me anything, or play me something and I'll listen and help.",
     vmYou: "You", vmNotesLbl: "Just played", vmPlayedCue: "I just played that for you — listen and tell me how it was.", vmNoSTT: "This browser can't capture speech — try Chrome or Safari",
-    vmHint: "💡 Ask out loud then wait for the reply · play first and I will analyze it · I can play demos too", vmFastVoice: "Fast voice", vmHqVoice: "HQ voice", vmSpeedLbl: "Speed", vmGreetBack: "Welcome back! Last time {x} was tricky — want to review it, or work on something else?", vmGreetHw: "Welcome back! Last time I gave you homework: {x}. Did you get to practice it? Play it for me and let's hear.",
+    vmHint: "💡 Ask out loud then wait for the reply · play first and I will analyze it · I can play demos too", vmFastVoice: "Fast voice", vmHqVoice: "HQ voice", vmSpeedLbl: "Speed", vmVoiceLbl: "Voice", vmGreetBack: "Welcome back! Last time {x} was tricky — want to review it, or work on something else?", vmGreetHw: "Welcome back! Last time I gave you homework: {x}. Did you get to practice it? Play it for me and let's hear.",
     wlcTitle: "Welcome to TiGA! 🎹", wlcTip1: "Tap the keys to play — the AI tutor helps you", wlcTip2: "Tap ☰ top-left to open the menu and pages", wlcTip3: "Play games, collect stars, levels & coins", wlcStart: "Let's go!",
     helpTitle: "How to use", help1: "Tap ☰ top-left = open menu & pages", help2: "Tap the piano keys = play notes", help3: "Mic button 🎙️ = talk to your AI teacher", help4: "Go to 'Studio' = play games & earn stars", help5: "🔁 button = hear the teacher play again", helpOk: "Got it!", signOut: "Sign out",
     shopTitle: "Shop", shopSkins: "Key skins", shopThemes: "Themes", shopEquip: "Equip", shopEquipped: "Equipped",
@@ -2498,7 +2517,7 @@ const L = {
     vmReady: "点击'开始对话'然后直接说话", vmListening: "正在听…请说", vmThinking: "正在思考…", vmSpeaking: "正在说…", vmTapStop: "点击打断", vmTypePh: "也可以打字提问…", vmReListen: "点击重新聆听", vmMicDenied: "麦克风被拒绝 — 请在浏览器允许麦克风后重试", vmNetRetry: "网络较弱…正在重新聆听",
     vmGreeting: "你好！我是 TiGA 老师。今天想练什么？有什么尽管问，或者弹一段给我听，我来帮你看看。",
     vmYou: "你", vmNotesLbl: "刚弹了", vmPlayedCue: "我刚弹了这段，听听给点反馈吧。", vmNoSTT: "此浏览器不支持语音识别 — 建议用 Chrome 或 Safari",
-    vmHint: "💡 开口提问后等待回答 · 先弹一段，我会帮你分析 · 老师也能弹给你听", vmFastVoice: "快速语音", vmHqVoice: "高清语音", vmSpeedLbl: "速度", vmGreetBack: "欢迎回来！上次{x}有点难，要复习一下，还是练点别的？", vmGreetHw: "欢迎回来！上次我给你布置的作业是 {x}，练了吗？弹给我听听吧。",
+    vmHint: "💡 开口提问后等待回答 · 先弹一段，我会帮你分析 · 老师也能弹给你听", vmFastVoice: "快速语音", vmHqVoice: "高清语音", vmSpeedLbl: "速度", vmVoiceLbl: "音色", vmGreetBack: "欢迎回来！上次{x}有点难，要复习一下，还是练点别的？", vmGreetHw: "欢迎回来！上次我给你布置的作业是 {x}，练了吗？弹给我听听吧。",
     wlcTitle: "欢迎来到 TiGA! 🎹", wlcTip1: "点琴键即可弹奏，AI 老师来帮你", wlcTip2: "点左上角 ☰ 打开菜单进入各页面", wlcTip3: "玩游戏、收集星星、等级和金币", wlcStart: "开始吧！",
     helpTitle: "使用方法", help1: "点左上角 ☰ = 打开菜单和页面", help2: "点钢琴键 = 弹出音符", help3: "麦克风 🎙️ = 和 AI 老师对话", help4: "进入'练习' = 玩游戏赚星星", help5: "🔁 按钮 = 再听一次老师弹", helpOk: "明白了！", signOut: "退出登录",
     shopTitle: "商店", shopSkins: "琴键皮肤", shopThemes: "主题", shopEquip: "装备", shopEquipped: "已装备",
@@ -5800,6 +5819,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const vmFastRef = useRef(false);
   const [vmSpeed, setVmSpeed] = useState(1);    // demo playback speed: 1 / 1.25 / 1.5 / 1.75 / 2
   const vmSpeedRef = useRef(1);
+  const [vmVoice, setVmVoice] = useState(getVmVoiceKey());  // voice character (warm/deep/friendly/bright)
   const vmLastDemoRef = useRef(null);           // last [play]/[chord] demo → instant "again" replay
   const vmStreakRef = useRef(0);                // consecutive correct notes this session → adaptive pacing
   const vmMissRef = useRef(0);                  // consecutive misses → ease off
@@ -8161,6 +8181,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   {[1, 1.25, 1.5, 1.75, 2].map(s => (
                     <button key={s} className={`vmspeed-b${vmSpeed === s ? " on" : ""}`}
                       onClick={() => { setVmSpeed(s); vmSpeedRef.current = s; playUi("click"); }}>{s}x</button>
+                  ))}
+                </div>
+                <div className="vmspeed">
+                  <span className="vmspeed-lbl">{lc.vmVoiceLbl}</span>
+                  {VM_VOICES.map(v => (
+                    <button key={v.k} className={`vmspeed-b${vmVoice === v.k ? " on" : ""}`}
+                      onClick={() => { setVmVoice(v.k); try { localStorage.setItem("tg_vmvoice", v.k); } catch (e) {} playUi("click"); }}>{v[lang] || v.en}</button>
                   ))}
                 </div>
                 <button className="vmvoicetgl" onClick={() => { const v = !vmFast; setVmFast(v); vmFastRef.current = v; if (!v) vmCloudDeadRef.current = false; }}>
