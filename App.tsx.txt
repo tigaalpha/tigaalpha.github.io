@@ -2337,7 +2337,7 @@ const L = {
     dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
     setAmbient: "ดนตรีบรรยากาศ", setInstall: "ติดตั้งเป็นแอป", setBpm: "จังหวะ (BPM)", setTap: "แตะตามจังหวะ", setLang: "ภาษา", setOn: "เปิด", setOff: "ปิด",
-    upgrade: "อัปเกรด", prTitle: "อัปเกรดเป็น Premium", prSub: "ปลดล็อกครู AI เต็มพลัง เรียนได้ไม่จำกัด", prMonth: "เดือน", prActive: "ใช้งานอยู่", prGet: "สมัครเลย",
+    upgrade: "อัปเกรด", prTitle: "อัปเกรดเป็น Premium", prSub: "ปลดล็อกครู AI เต็มพลัง เรียนได้ไม่จำกัด", prMonth: "เดือน", prYear: "ปี", prSave3: "ประหยัด 3%", prBillMonth: "รายเดือน", prBillYear: "รายปี", prActive: "ใช้งานอยู่", prGet: "สมัครเลย",
     prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "ครู AI ติชมการเล่นไม่จำกัด", prF3: "โหมดเตรียมสอบเกรด", prF4: "แดชบอร์ดผู้ปกครอง", prF5: "เสียงครูคุณภาพสูง + ไม่มีโฆษณา",
     prFam1: "ทุกอย่างใน Premium", prFam2: "สูงสุด 3 โปรไฟล์ (ทั้งครอบครัว)", prFree1: "คีย์บอร์ด เกม บทเรียนพื้นฐาน", prFree2: "ครู AI (จำกัดรายวัน)",
     prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "ทุกอย่างใน Family · สูงสุด 6 โปรไฟล์", prMax3: "AI ตอบเร็วที่สุด + เสียงธรรมชาติคุณภาพสูงสุด", prMax4: "สร้างเพลงด้วย AI ไม่จำกัด + รายงานพัฒนาการ & แผนซ้อมรายสัปดาห์อัตโนมัติ", prMxf1: "ทุกอย่างใน Max", prMxf2: "สูงสุด 10 โปรไฟล์", prMxf3: "แดชบอร์ดครอบครัว + รายงาน AI รายคนอัตโนมัติ", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
@@ -2431,7 +2431,7 @@ const L = {
     dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
     setAmbient: "Ambient music", setInstall: "Install app", setBpm: "Tempo (BPM)", setTap: "Tap tempo", setLang: "Language", setOn: "On", setOff: "Off",
-    upgrade: "Upgrade", prTitle: "Go Premium", prSub: "Unlock the full AI teacher — learn without limits", prMonth: "mo", prActive: "Active", prGet: "Subscribe",
+    upgrade: "Upgrade", prTitle: "Go Premium", prSub: "Unlock the full AI teacher — learn without limits", prMonth: "mo", prYear: "yr", prSave3: "Save 3%", prBillMonth: "Monthly", prBillYear: "Yearly", prActive: "Active", prGet: "Subscribe",
     prF1: "Unlimited AI song creation", prF2: "Unlimited AI performance feedback", prF3: "Graded exam prep mode", prF4: "Parent dashboard", prF5: "HQ teacher voice + no ads",
     prFam1: "Everything in Premium", prFam2: "Up to 3 profiles (whole family)", prFree1: "Keyboard, games, core lessons", prFree2: "AI teacher (daily limit)",
     prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "Everything in Family · up to 6 profiles", prMax3: "Fastest priority AI + top-quality natural voice", prMax4: "Unlimited AI song creation + auto weekly progress report & practice plan", prMxf1: "Everything in Max", prMxf2: "Up to 10 profiles", prMxf3: "Family dashboard + per-member AI progress reports", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
@@ -2525,7 +2525,7 @@ const L = {
     dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
     setAmbient: "环境音乐", setInstall: "安装应用", setBpm: "速度 (BPM)", setTap: "点击打拍", setLang: "语言", setOn: "开", setOff: "关",
-    upgrade: "升级", prTitle: "升级 Premium", prSub: "解锁完整 AI 老师，无限学习", prMonth: "月", prActive: "已开通", prGet: "立即订阅",
+    upgrade: "升级", prTitle: "升级 Premium", prSub: "解锁完整 AI 老师，无限学习", prMonth: "月", prYear: "年", prSave3: "省3%", prBillMonth: "按月", prBillYear: "按年", prActive: "已开通", prGet: "立即订阅",
     prF1: "无限 AI 创作歌曲", prF2: "无限 AI 演奏点评", prF3: "考级备考模式", prF4: "家长仪表板", prF5: "高清老师语音 + 无广告",
     prFam1: "包含全部 Premium", prFam2: "最多 3 个档案（全家）", prFree1: "键盘、游戏、基础课程", prFree2: "AI 老师（每日限量）",
     prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "包含全部 Family · 最多 6 个档案", prMax3: "最快优先 AI + 最高质量自然语音", prMax4: "无限 AI 生成歌曲 + 每周自动进度报告与练习计划", prMxf1: "包含全部 Max", prMxf2: "最多 10 个档案", prMxf3: "家庭仪表盘 + 每位成员自动 AI 进度报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
@@ -2815,6 +2815,16 @@ const CSS = `
 .admstu-bar{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px}
 .admstu-bar-fill{width:100%;border-radius:4px 4px 0 0;min-height:4px}
 .admstu-bar-lbl{font-size:9px;color:#9b7d92;font-family:'Share Tech Mono',monospace}
+.admmg{background:#140a14;border:1px solid #ff2d7833;border-radius:13px;padding:13px;margin-bottom:14px}
+.admmg-h{font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1px;color:#ff5e9c;margin-bottom:6px}
+.admmg-cur{color:#c98bb0;font-size:12.5px;margin-bottom:9px}
+.admmg-row{display:flex;align-items:center;gap:8px}
+.admmg-sel{flex:1;background:#0e0a16;border:1px solid #ffffff1f;border-radius:9px;padding:9px 10px;color:#f3e3ee;font-size:14px}
+.admmg-days{width:64px;background:#0e0a16;border:1px solid #ffffff1f;border-radius:9px;padding:9px;color:#f3e3ee;font-size:14px;text-align:center}
+.admmg-d{color:#9b7d92;font-size:13px}
+.admmg-row2{display:flex;gap:8px;margin-top:8px}
+.admmg-row2 .songbtn{flex:1;padding:10px}
+.banscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;gap:12px}
 .adminchips{display:flex;flex-wrap:wrap;gap:7px;padding:10px 14px 4px;flex-shrink:0}
 .adminchip{background:rgba(255,45,120,.08);border:1px solid #ff2d7833;border-radius:16px;padding:7px 13px;cursor:pointer;color:#ffaad0;font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:600;transition:all .2s;text-align:left}
 .adminchip:hover{border-color:#ff2d78;background:rgba(255,45,120,.16);box-shadow:0 0 10px #ff2d7833;transform:translateY(-1px)}
@@ -3033,7 +3043,15 @@ const CSS = `
 @keyframes pagein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 /* coins pill + daily chest + mascot */
 .coinpill{display:flex;align-items:center;gap:3px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#ffd23f;background:#1a1605;border:1px solid #ffd23f3d;border-radius:20px;padding:4px 9px}
-.probadge{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:800;color:#06121f;background:linear-gradient(135deg,#ffd23f,#ff9e00);border-radius:20px;padding:4px 9px;letter-spacing:.5px}
+.probadge{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:800;color:#06121f;background:linear-gradient(135deg,#ffd23f,#ff9e00);border-radius:20px;padding:4px 9px;letter-spacing:.5px;white-space:nowrap}
+.probadge.fam{background:linear-gradient(135deg,#7ee8c8,#06d6a0)}
+.probadge.max{background:linear-gradient(135deg,#e8b8ff,#a855f7);color:#fff}
+.probadge.maxfam{background:linear-gradient(135deg,#ffd66b,#a855f7);color:#fff}
+.billtoggle{display:flex;gap:8px;background:#0e1a30;border-radius:24px;padding:4px;margin-bottom:14px}
+.billtog{flex:1;padding:9px;border-radius:20px;background:transparent;border:none;color:#9fb6c4;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.billtog.on{background:linear-gradient(135deg,#a855f7,#7b2fff);color:#fff}
+.billsave{font-family:'Orbitron',sans-serif;font-size:9px;background:#06d6a0;color:#04231a;border-radius:8px;padding:2px 5px}
+.pr-yrsave{color:#06d6a0;font-size:12px;font-weight:700;margin:-4px 0 8px}
 .upbtn{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:800;color:#06121f;background:linear-gradient(135deg,#ffd23f,#ff9e00);border:none;border-radius:20px;padding:5px 10px;cursor:pointer;animation:flamepulse 1.4s ease-in-out infinite alternate}
 .setcard.pricing{max-width:420px}
 .pr-sub{font-family:'Rajdhani',sans-serif;font-size:14px;color:#9fb6c4;text-align:center;margin:0 0 14px}
@@ -4335,6 +4353,24 @@ function setPlanLS(p) { try { localStorage.setItem("tg_plan", p); localStorage.s
 function isMaxPlan(p) { const v = p || getPlan(); return v === "max" || v === "maxfamily"; }
 const PLAN_PRICE = { premium: 1490, family: 2900, max: 3999, maxfamily: 9999 };
 const PLAN_LABEL = { premium: "⭐ Premium", family: "👨‍👩‍👧 Family", max: "👑 Max", maxfamily: "👑👨‍👩‍👧 Max Family" };
+// yearly = 12 months − 3% off the full price
+function yearPrice(p) { return Math.round((PLAN_PRICE[p] || 0) * 12 * 0.97); }
+const YEAR_PLANS = ["premium", "max", "maxfamily"];   // tiers that offer a yearly option
+// the live, authoritative plan for a profile row (admins = full; paid only while not expired)
+function effectivePlan(p) {
+  if (!p) return "free";
+  if (p.is_admin) return "maxfamily";
+  if (p.plan && p.plan !== "free" && p.plan_until && new Date(p.plan_until).getTime() > Date.now()) return p.plan;
+  return "free";
+}
+// short header badge per tier
+function planBadge(p) {
+  return p === "maxfamily" ? { t: "👑 MAX FAMILY", c: "maxfam" }
+    : p === "max" ? { t: "👑 MAX", c: "max" }
+    : p === "family" ? { t: "👨‍👩‍👧 FAMILY", c: "fam" }
+    : p === "premium" ? { t: "⭐ PRO", c: "" }
+    : null;
+}
 const FREE_LIMITS = { song: 2, critique: 3 };   // free actions per day
 function usageToday(key) { try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === dayKey() ? (u[key] || 0) : 0; } catch (e) { return 0; } }
 function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
@@ -4968,7 +5004,7 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
       const meta = (session.user.user_metadata) || {};
       const ins = await sb.from("payments").insert({
         user_id: uid, email: session.user.email || null, full_name: meta.full_name || meta.name || null,
-        plan: checkout.plan, amount, method: "promptpay", slip_path: path, status: "pending",
+        plan: checkout.plan, amount, method: "promptpay", slip_path: path, status: "pending", days: checkout.days || 30,
       });
       if (ins.error) throw ins.error;
       setSt("done"); playUi("levelup");
@@ -4988,7 +5024,7 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
             </div>
           ) : (
             <>
-              <div className="paysum"><span>{planLabel}</span><b className="prtier-price">฿{amount.toLocaleString()}<small>/{T("เดือน", "mo", "月")}</small></b></div>
+              <div className="paysum"><span>{planLabel}{checkout.cycle === "year" ? " · " + T("รายปี", "yearly", "年付") : ""}</span><b className="prtier-price">฿{amount.toLocaleString()}<small>/{checkout.cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b></div>
               {ppId ? (
                 <>
                   {qr ? <img className="payqr" src={qr} alt="PromptPay QR" /> : <div className="aicreate-err">{T("สร้าง QR ไม่ได้", "Couldn't make QR", "无法生成二维码")}</div>}
@@ -5032,10 +5068,29 @@ function AdminStudents({ lang }) {
   const [err, setErr] = useState("");
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState("");
+  const [mgPlan, setMgPlan] = useState("max");
+  const [mgDays, setMgDays] = useState(30);
+  const [mgBusy, setMgBusy] = useState(false);
+  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); };
+  async function applyPlan() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_set_plan", { target: sel.id, new_plan: mgPlan, days: Number(mgDays) || 30 });
+    setMgBusy(false); if (!error) { playUi("levelup"); setSel(null); load(); }
+  }
+  async function suspendPlan() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_set_plan", { target: sel.id, new_plan: "free", days: 0 });
+    setMgBusy(false); if (!error) { setSel(null); load(); }
+  }
+  async function toggleBan() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_set_ban", { target: sel.id, ban: !sel.banned });
+    setMgBusy(false); if (!error) { setSel(null); load(); }
+  }
   const load = useCallback(() => {
     setErr(""); setRows(null);
     sb.from("profiles")
-      .select("id,email,full_name,exp,lessons_done,streak,last_active,onboarded,created_at,is_admin,progress")
+      .select("id,email,full_name,exp,lessons_done,streak,last_active,onboarded,created_at,is_admin,banned,plan,plan_until,progress")
       .then(({ data, error }) => {
         if (error) { setErr(error.message || "error"); setRows([]); return; }
         const r = (data || []).slice().sort((a, b) => (b.last_active || "").localeCompare(a.last_active || "") || (b.exp || 0) - (a.exp || 0));
@@ -5062,9 +5117,29 @@ function AdminStudents({ lang }) {
         <div className="admstu-head">
           <div className="admstu-av">{(sel.full_name || sel.email || "?").trim().charAt(0).toUpperCase()}</div>
           <div>
-            <div className="admstu-nm">{sel.full_name || "—"} {sel.is_admin && <span className="admstu-badge">ADMIN</span>}</div>
+            <div className="admstu-nm">{sel.full_name || "—"} {sel.is_admin && <span className="admstu-badge">ADMIN</span>}{sel.banned && <span className="adminpay-badge rejected">BANNED</span>}</div>
             <div className="admstu-em">{sel.email || "—"}</div>
-            <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {pr.plan ? pr.plan.toUpperCase() : "FREE"} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
+            <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {(sel.plan || "free").toUpperCase()} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
+          </div>
+        </div>
+        {/* ⚙️ manage: change/suspend plan · ban */}
+        <div className="admmg">
+          <div className="admmg-h">⚙️ {T("จัดการผู้ใช้", "Manage user", "用户管理")}</div>
+          <div className="admmg-cur">{T("แพลนปัจจุบัน", "Current plan", "当前套餐")}: <b>{(sel.plan || "free").toUpperCase()}</b>{sel.plan_until ? " · " + T("ถึง", "until", "至") + " " + String(sel.plan_until).slice(0, 10) : ""}</div>
+          <div className="admmg-row">
+            <select className="admmg-sel" value={mgPlan} onChange={e => setMgPlan(e.target.value)}>
+              <option value="premium">⭐ Premium</option>
+              <option value="family">👨‍👩‍👧 Family</option>
+              <option value="max">👑 Max</option>
+              <option value="maxfamily">👑 Max Family</option>
+            </select>
+            <input className="admmg-days" type="number" min="1" value={mgDays} onChange={e => setMgDays(e.target.value)} />
+            <span className="admmg-d">{T("วัน", "days", "天")}</span>
+          </div>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={mgBusy} onClick={applyPlan}>💾 {T("ตั้ง / เปลี่ยนแพลน", "Set / change plan", "设置/更改套餐")}</button>
+          <div className="admmg-row2">
+            <button className="songbtn ghost" disabled={mgBusy} onClick={suspendPlan}>⏸ {T("ระงับ (เป็นฟรี)", "Suspend (free)", "暂停（免费）")}</button>
+            <button className={`songbtn ${sel.banned ? "go" : "ghost"}`} disabled={mgBusy} onClick={toggleBan}>{sel.banned ? "✓ " + T("ปลดแบน", "Unban", "解封") : "🚫 " + T("แบน ID", "Ban ID", "封禁")}</button>
           </div>
         </div>
         <div className="pd-stats">
@@ -5099,10 +5174,10 @@ function AdminStudents({ lang }) {
           const li = levelInfo(r.exp || 0);
           const sum = (r.progress && r.progress.summary) || {};
           return (
-            <button key={r.id} className="admstu-row" onClick={() => setSel(r)}>
+            <button key={r.id} className="admstu-row" onClick={() => openUser(r)}>
               <div className="admstu-av sm">{(r.full_name || r.email || "?").trim().charAt(0).toUpperCase()}</div>
               <div className="admstu-row-body">
-                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.is_admin && <span className="admstu-badge">ADMIN</span>}</div>
+                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.is_admin && <span className="admstu-badge">ADMIN</span>}{r.banned && <span className="adminpay-badge rejected">BAN</span>}{r.plan && r.plan !== "free" && <span className="adminpay-badge approved">{r.plan.toUpperCase()}</span>}</div>
                 <div className="admstu-row-meta">Lv {li.level} · {(r.exp || 0).toLocaleString()} EXP · {r.lessons_done || 0} {T("บท", "lessons", "课")} · {(r.streak || 0)}🔥{sum.games ? " · " + sum.games + " " + T("เกม", "games", "游戏") : ""}</div>
                 <div className="admstu-row-sub">{r.email}{r.last_active ? " · " + r.last_active : ""}</div>
               </div>
@@ -5178,7 +5253,7 @@ function AdminPayments({ lang }) {
   }
   async function review(approve) {
     if (!sel) return; setBusy(true);
-    const { error } = await sb.rpc("admin_review_payment", { pid: sel.id, approve, days: 30 });
+    const { error } = await sb.rpc("admin_review_payment", { pid: sel.id, approve, days: sel.days || 30 });
     setBusy(false);
     if (!error) { setSel(null); load(); }
   }
@@ -5203,7 +5278,7 @@ function AdminPayments({ lang }) {
         {aiText && <div className="aibox">{aiText}</div>}
         {st === "pending" ? (
           <div className="songready-btns" style={{ marginTop: 10 }}>
-            <button className="songbtn go" disabled={busy} onClick={() => review(true)}>✅ {T("อนุมัติ (เปิดสิทธิ์ 30 วัน)", "Approve (30 days)", "批准（30天）")}</button>
+            <button className="songbtn go" disabled={busy} onClick={() => review(true)}>✅ {T("อนุมัติ เปิดสิทธิ์ ", "Approve — ", "批准 — ")}{sel.days || 30} {T("วัน", "days", "天")}</button>
             <button className="songbtn ghost" disabled={busy} onClick={() => review(false)}>✕ {T("ปฏิเสธ", "Reject", "拒绝")}</button>
           </div>
         ) : <div className="admstu-empty">{T("ตรวจแล้ว", "Already reviewed", "已处理")}: {st}</div>}
@@ -5454,6 +5529,20 @@ function Splash() {
   );
 }
 
+function BannedScreen({ onSignOut }) {
+  return (
+    <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
+      <div className="scan" />
+      <div className="banscreen">
+        <div style={{ fontSize: 52 }}>🚫</div>
+        <div className="locktitle">บัญชีถูกระงับ · Account suspended</div>
+        <div className="locksub">บัญชีนี้ถูกระงับการใช้งาน หากคิดว่าผิดพลาด กรุณาติดต่อผู้ดูแล<br />This account has been suspended. Please contact the studio if you think this is a mistake.</div>
+        <button className="lockbtn" onClick={onSignOut}>ออกจากระบบ · Sign out</button>
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen() {
   return (
     <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
@@ -5542,15 +5631,13 @@ export default function App() {
     sb.from("profiles").select("*").eq("id", uid).maybeSingle().then(({ data }) => {
       setProfile(data || null);
       setProfileReady(true);
-      // Supabase is the authoritative subscription now — sync it down so the
-      // freemium gates can't be unlocked by editing localStorage. Admins always
+      // Supabase is the authoritative subscription now — sync it to localStorage so
+      // the freemium gates can't be unlocked by editing localStorage. Admins always
       // get full access; a paid plan counts only while plan_until is in the future.
+      // (PianoApp reads this on mount and re-syncs from the profile prop.)
       if (data) {
-        const active = data.is_admin ? "maxfamily"
-          : (data.plan && data.plan !== "free" && data.plan_until && new Date(data.plan_until).getTime() > Date.now()) ? data.plan
-          : "free";
+        const active = effectivePlan(data);
         try { setPlanLS(active); } catch (e) {}
-        setPlan(active); setPremium(active !== "free");
       }
     });
   }, []);
@@ -5575,6 +5662,7 @@ export default function App() {
   if (!authReady) return <Splash />;
   if (!session) return <LoginScreen />;
   if (!profileReady) return <Splash />;
+  if (profile && profile.banned && !profile.is_admin) return <BannedScreen onSignOut={signOut} />;
   if (!profile || !profile.onboarded) {
     return <ProfileForm session={session} onSignOut={signOut} onSaved={() => loadProfile(session.user.id)} />;
   }
@@ -5635,9 +5723,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [shopOpen, setShopOpen] = useState(false);
   const [premium, setPremium] = useState(isPremium());
   const [plan, setPlan] = useState(getPlan());   // free | premium | family | max — switchable any time
+  // keep the live plan/premium in sync with the authoritative server profile
+  useEffect(() => {
+    const active = effectivePlan(profile);
+    setPlan(active); setPremium(active !== "free");
+    try { setPlanLS(active); } catch (e) {}
+  }, [profile]);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [checkout, setCheckout] = useState(null);   // {plan, amount} → PromptPay payment modal
   const [shareGate, setShareGate] = useState(false);  // free-tier share-to-continue gate
+  const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
   const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
   const [upsell, setUpsell] = useState(null);   // {feat} when a gated action is blocked
   const [parentOpen, setParentOpen] = useState(false);
@@ -5737,6 +5832,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // secret: tap the TG logo 5 times quickly to reveal the lock screen
   function handleLogoTap() {
+    // Only real admin accounts (your two emails, flagged is_admin in Supabase) can
+    // reveal the admin lock — everyone else tapping the logo does nothing.
+    if (!(profile && profile.is_admin)) return;
     tapCount.current += 1;
     clearTimeout(tapTimer.current);
     tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1500);
@@ -7430,8 +7528,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (paid) { setPricingOpen(false); getAC(); playUi("levelup"); mascot("celebrate", 3200); }
     else { playUi("click"); }
   }
-  // real payment: open the PromptPay checkout for a paid plan
-  function startCheckout(planId) { playUi("click"); setPricingOpen(false); setCheckout({ plan: planId, amount: PLAN_PRICE[planId] || 0 }); }
+  // real payment: open the PromptPay checkout for a paid plan (monthly or yearly)
+  function startCheckout(planId, cycle = "month") {
+    playUi("click"); setPricingOpen(false);
+    const yr = cycle === "year";
+    setCheckout({ plan: planId, amount: yr ? yearPrice(planId) : (PLAN_PRICE[planId] || 0), cycle, days: yr ? 365 : 30 });
+  }
   // free-tier gate: after FREE_CONTENT_LIMIT contents, require a share (or premium).
   // Returns true if the learner may proceed; otherwise opens the share gate.
   function gateContent() {
@@ -7715,7 +7817,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
         <div className="hdr-r">
-          {premium && <span className="probadge" title="Premium">⭐ PRO</span>}
+          {premium && (() => { const b = planBadge(plan) || { t: "⭐ PRO", c: "" }; return <span className={`probadge ${b.c}`} title={PLAN_LABEL[plan] || "Premium"}>{b.t}</span>; })()}
           <button className="coinpill" onClick={() => { playUi("click"); setShopOpen(true); }} title={lc.shopTitle}>🪙 {coins}</button>
           {chestAvail && <button className="chestbtn" onClick={openChestNow} title={lc.chestTitle} aria-label="Daily reward">🎁</button>}
           {metroOn && <button className="metropill" onClick={() => setMetroOn(false)} title="Metronome" aria-label="Metronome on">🥁 {metroBpm}</button>}
@@ -8297,41 +8399,54 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="sethdr"><span>✦ {lc.prTitle}</span><button className="cbtn" onClick={() => setPricingOpen(false)}>{lc.close}</button></div>
             <div className="setbody">
               <p className="pr-sub">{lc.prSub}</p>
-              <div className={`prtier hot${plan === "premium" ? " cur" : ""}`}>
-                <div className="prtier-top"><span className="prtier-nm">⭐ Premium</span><span className="prtier-price">฿1,490<small>/{lc.prMonth}</small></span></div>
-                <ul className="prfeat">
-                  <li>✓ {lc.prF1}</li><li>✓ {lc.prF2}</li><li>✓ {lc.prF3}</li><li>✓ {lc.prF4}</li><li>✓ {lc.prF5}</li>
-                </ul>
-                {plan === "premium"
+              {(() => {
+                const yr = billCycle === "year";
+                const priceBlk = (tier) => yr
+                  ? <span className="prtier-price">฿{yearPrice(tier).toLocaleString()}<small>/{lc.prYear}</small></span>
+                  : <span className="prtier-price">฿{PLAN_PRICE[tier].toLocaleString()}<small>/{lc.prMonth}</small></span>;
+                const saveLine = (tier) => yr ? <div className="pr-yrsave">💚 {lc.prSave3} · ≈ ฿{Math.round(yearPrice(tier) / 12).toLocaleString()}/{lc.prMonth}</div> : null;
+                const buyBtn = (tier) => plan === tier
                   ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => startCheckout("premium")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>}
-              </div>
-              <div className={`prtier${plan === "family" ? " cur" : ""}`}>
-                <div className="prtier-top"><span className="prtier-nm">👨‍👩‍👧 Family</span><span className="prtier-price">฿2,900<small>/{lc.prMonth}</small></span></div>
-                <ul className="prfeat"><li>✓ {lc.prFam1}</li><li>✓ {lc.prFam2}</li></ul>
-                {plan === "family"
-                  ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => startCheckout("family")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>}
-              </div>
-              <div className={`prtier max${plan === "max" ? " cur" : ""}`}>
-                <div className="prtier-top"><span className="prtier-nm">👑 Max</span><span className="prtier-price">฿3,999<small>/{lc.prMonth}</small></span></div>
-                <ul className="prfeat"><li>✓ {lc.prMax1}</li><li>✓ {lc.prMax2}</li><li>✓ {lc.prMax3}</li><li>✓ {lc.prMax4}</li></ul>
-                {plan === "max"
-                  ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => startCheckout("max")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>}
-              </div>
-              <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`}>
-                <div className="prtier-top"><span className="prtier-nm">👑👨‍👩‍👧 Max Family</span><span className="prtier-price">฿9,999<small>/{lc.prMonth}</small></span></div>
-                <ul className="prfeat"><li>✓ {lc.prMxf1}</li><li>✓ {lc.prMxf2}</li><li>✓ {lc.prMxf3}</li></ul>
-                {plan === "maxfamily"
-                  ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => startCheckout("maxfamily")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>}
-              </div>
-              <div className={`prtier free${plan === "free" ? " cur" : ""}`}>
-                <div className="prtier-top"><span className="prtier-nm">🎁 Free</span><span className="prtier-price">฿0</span></div>
-                <ul className="prfeat"><li>✓ {lc.prFree1}</li><li>✓ {lc.prFree2}</li></ul>
-                {plan !== "free" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
-              </div>
+                  : <button className="songbtn go" onClick={() => startCheckout(tier, yr ? "year" : "month")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>;
+                return (
+                  <>
+                    <div className="billtoggle">
+                      <button className={`billtog${!yr ? " on" : ""}`} onClick={() => setBillCycle("month")}>{lc.prBillMonth}</button>
+                      <button className={`billtog${yr ? " on" : ""}`} onClick={() => setBillCycle("year")}>{lc.prBillYear} <span className="billsave">-3%</span></button>
+                    </div>
+                    <div className={`prtier hot${plan === "premium" ? " cur" : ""}`}>
+                      <div className="prtier-top"><span className="prtier-nm">⭐ Premium</span>{priceBlk("premium")}</div>
+                      {saveLine("premium")}
+                      <ul className="prfeat"><li>✓ {lc.prF1}</li><li>✓ {lc.prF2}</li><li>✓ {lc.prF3}</li><li>✓ {lc.prF4}</li><li>✓ {lc.prF5}</li></ul>
+                      {buyBtn("premium")}
+                    </div>
+                    {!yr && (
+                      <div className={`prtier${plan === "family" ? " cur" : ""}`}>
+                        <div className="prtier-top"><span className="prtier-nm">👨‍👩‍👧 Family</span><span className="prtier-price">฿2,900<small>/{lc.prMonth}</small></span></div>
+                        <ul className="prfeat"><li>✓ {lc.prFam1}</li><li>✓ {lc.prFam2}</li></ul>
+                        {buyBtn("family")}
+                      </div>
+                    )}
+                    <div className={`prtier max${plan === "max" ? " cur" : ""}`}>
+                      <div className="prtier-top"><span className="prtier-nm">👑 Max</span>{priceBlk("max")}</div>
+                      {saveLine("max")}
+                      <ul className="prfeat"><li>✓ {lc.prMax1}</li><li>✓ {lc.prMax2}</li><li>✓ {lc.prMax3}</li><li>✓ {lc.prMax4}</li></ul>
+                      {buyBtn("max")}
+                    </div>
+                    <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`}>
+                      <div className="prtier-top"><span className="prtier-nm">👑👨‍👩‍👧 Max Family</span>{priceBlk("maxfamily")}</div>
+                      {saveLine("maxfamily")}
+                      <ul className="prfeat"><li>✓ {lc.prMxf1}</li><li>✓ {lc.prMxf2}</li><li>✓ {lc.prMxf3}</li></ul>
+                      {buyBtn("maxfamily")}
+                    </div>
+                    <div className={`prtier free${plan === "free" ? " cur" : ""}`}>
+                      <div className="prtier-top"><span className="prtier-nm">🎁 Free</span><span className="prtier-price">฿0</span></div>
+                      <ul className="prfeat"><li>✓ {lc.prFree1}</li><li>✓ {lc.prFree2}</li></ul>
+                      {plan !== "free" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
+                    </div>
+                  </>
+                );
+              })()}
               <div className="pr-note">{lc.prNote}</div>
               <button className="pr-school" onClick={() => { setPricingOpen(false); reviewSchools(); }}>🏫 {lc.prSchool}</button>
             </div>
