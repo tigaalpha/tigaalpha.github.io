@@ -1609,6 +1609,49 @@ function playMiss() {
     osc.start(t0); osc.stop(t0 + 0.22);
   } catch (e) {}
 }
+// rocket launch — a quick airy whoosh (band-passed noise sweeping upward).
+// Pure noise = no periodic pitch, so the game's autocorrelation mic gate ignores it.
+function playWhoosh() {
+  try {
+    if (_sfxMuted) return;
+    const { ac, bus } = audioBus(), t0 = ac.currentTime;
+    const src = ac.createBufferSource(); src.buffer = _accNoise(ac); src.loop = true;
+    const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.2;
+    bp.frequency.setValueAtTime(420, t0);
+    bp.frequency.exponentialRampToValueAtTime(3400, t0 + 0.17);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.2, t0 + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+    src.connect(bp); bp.connect(g); g.connect(bus);
+    src.start(t0); src.stop(t0 + 0.22);
+  } catch (e) {}
+}
+// meteor impact — deep cinematic boom (sub sine drop) + debris crackle (filtered noise).
+// The sine sweep lives at 120→34Hz, far below the game's C4 (261.6Hz) note range,
+// and gets a suppression band anyway so the mic can never mistake it for a note.
+function playBoom(big) {
+  try {
+    if (_sfxMuted) return;
+    const { ac, bus } = audioBus(), t0 = ac.currentTime;
+    const o = ac.createOscillator(); o.type = "sine";
+    o.frequency.setValueAtTime(120, t0);
+    o.frequency.exponentialRampToValueAtTime(34, t0 + 0.28);
+    const og = ac.createGain();
+    og.gain.setValueAtTime(big ? 0.5 : 0.34, t0);
+    og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
+    o.connect(og); og.connect(bus); o.start(t0); o.stop(t0 + 0.34);
+    const n = ac.createBufferSource(); n.buffer = _accNoise(ac);
+    const lp = ac.createBiquadFilter(); lp.type = "lowpass";
+    lp.frequency.setValueAtTime(2600, t0);
+    lp.frequency.exponentialRampToValueAtTime(320, t0 + 0.25);
+    const ng = ac.createGain();
+    ng.gain.setValueAtTime(big ? 0.28 : 0.18, t0);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+    n.connect(lp); lp.connect(ng); ng.connect(bus); n.start(t0); n.stop(t0 + 0.3);
+    _accMarkSuppress(70, 1000, Date.now() + 350);
+  } catch (e) {}
+}
 
 /* ════════════════════════════════════════════════════════════
    GAME ACCOMPANIMENT — soft drums + bass + string/synth pad under the
@@ -2771,10 +2814,10 @@ const L = {
     pdTitle: "รายงานผู้ปกครอง", pdSessions: "ครั้งที่ฝึก/สัปดาห์", pdAcc: "ความแม่นยำเฉลี่ย", pdActivity: "การฝึก 6 สัปดาห์ล่าสุด", pdFocus: "จุดที่ควรเน้น", pdMastered: "ทำได้ดีแล้ว",
     exTitle: "เตรียมสอบเกรด", exSub: "ติ๊กความคืบหน้าตามหลักสูตรแต่ละเกรด ได้เหรียญทุกข้อที่ผ่าน",
     vmTitle: "AI ครูเสียง", vmStart: "เริ่มคุย", vmStop: "หยุด",
-    vmReady: "แตะ 'เริ่มคุย' แล้วพูดได้เลย", vmListening: "กำลังฟัง… พูดได้เลย", vmThinking: "กำลังคิด…", vmSpeaking: "กำลังพูด…", vmTapStop: "แตะเพื่อขัดจังหวะ", vmTypePh: "พิมพ์ถามก็ได้…", vmReListen: "แตะเพื่อฟังใหม่", vmMicDenied: "ไมโครโฟนถูกปิดกั้น — เปิดสิทธิ์ไมค์ในเบราว์เซอร์แล้วลองใหม่", vmNetRetry: "สัญญาณอ่อน… กำลังลองฟังใหม่",
+    vmReady: "แตะ 'เริ่มคุย' แล้วพูดได้เลย", vmListening: "กำลังฟัง… พูดได้เลย", vmThinking: "กำลังคิด…", vmSpeaking: "กำลังพูด…", vmTapStop: "พูดแทรกได้เลย หรือแตะเพื่อขัดจังหวะ", vmTypePh: "พิมพ์ถามก็ได้…", vmReListen: "แตะเพื่อฟังใหม่", vmMicDenied: "ไมโครโฟนถูกปิดกั้น — เปิดสิทธิ์ไมค์ในเบราว์เซอร์แล้วลองใหม่", vmNetRetry: "สัญญาณอ่อน… กำลังลองฟังใหม่",
     vmGreeting: "สวัสดีครับ! ผมครู TiGA วันนี้อยากฝึกอะไรดีครับ จะถามอะไรก็ได้ หรือจะลองเล่นอะไรให้ผมฟังสักหน่อย เดี๋ยวผมช่วยฟังแล้วแนะนำให้",
     vmYou: "คุณ", vmNotesLbl: "เพิ่งเล่น", vmPlayedCue: "ผมเพิ่งเล่นให้ครูฟัง ช่วยฟังแล้วติชมหน่อยครับ", vmNoSTT: "เบราว์เซอร์นี้ไม่รองรับการฟังเสียงพูด — แนะนำ Chrome หรือ Safari",
-    vmHint: "💡 พูดถามแล้วรอครูตอบ · เล่นเปียโนก่อนถามได้ ครูจะช่วยวิเคราะห์ · ครูเล่นโชว์ให้ฟังได้ด้วย", vmFastVoice: "เสียงเร็ว", vmHqVoice: "เสียงคมชัด", vmSpeedLbl: "ความเร็ว", vmVoiceLbl: "โทนเสียง", vmPolyOn: "🎹 ฟังคอร์ด: เปิด", vmPolyOff: "🎹 ฟังคอร์ด: ปิด", vmPolyHint: "เบต้า: ฟังคอร์ดหลายโน้ตพร้อมกันจากไมค์ (เปียโนจริง)", vmLangHint: "เปลี่ยนภาษาที่คุยกับครู", vmGreetBack: "ยินดีต้อนรับกลับมาครับ! คราวก่อนเรายังติด {x} อยู่ ลองทบทวนกันไหม หรืออยากฝึกอะไรดีครับ", vmGreetHw: "ยินดีต้อนรับกลับมาครับ! คราวก่อนผมให้การบ้านไว้ว่า {x} ได้ลองฝึกหรือยังครับ ลองเล่นให้ผมฟังหน่อยสิ",
+    vmHint: "💡 พูดถามแล้วรอครูตอบ · เล่นเปียโนก่อนถามได้ ครูจะช่วยวิเคราะห์ · ครูเล่นโชว์ให้ฟังได้ด้วย", vmFastVoice: "เสียงเร็ว", vmHqVoice: "เสียงคมชัด", vmSpeedLbl: "ความเร็ว", vmVoiceLbl: "โทนเสียง", vmPolyOn: "🎹 ฟังคอร์ด: เปิด", vmPolyOff: "🎹 ฟังคอร์ด: ปิด", vmPolyHint: "เบต้า: ฟังคอร์ดหลายโน้ตพร้อมกันจากไมค์ (เปียโนจริง)", vmLangHint: "เปลี่ยนภาษาที่คุยกับครู", vmSettings: "ตั้งค่าเสียง", vmGreetBack: "ยินดีต้อนรับกลับมาครับ! คราวก่อนเรายังติด {x} อยู่ ลองทบทวนกันไหม หรืออยากฝึกอะไรดีครับ", vmGreetHw: "ยินดีต้อนรับกลับมาครับ! คราวก่อนผมให้การบ้านไว้ว่า {x} ได้ลองฝึกหรือยังครับ ลองเล่นให้ผมฟังหน่อยสิ",
     wlcTitle: "ยินดีต้อนรับสู่ TiGA! 🎹", wlcTip1: "แตะคีย์เปียโนเล่นได้เลย ครู AI ช่วยสอน", wlcTip2: "แตะ ☰ มุมซ้ายบน เพื่อเปิดเมนูไปหน้าต่างๆ", wlcTip3: "เล่นเกม เก็บดาว เลเวล และเหรียญ", wlcStart: "เริ่มเลย!",
     helpTitle: "วิธีใช้งาน", help1: "แตะ ☰ มุมซ้ายบน = เปิดเมนู ไปหน้าต่างๆ", help2: "แตะคีย์เปียโน = เล่นเสียงโน้ต", help3: "ปุ่มไมค์ 🎙️ = คุยกับครู AI สอนสด", help4: "ไปที่ 'ฝึกซ้อม' = เล่นเกมเก็บดาว", help5: "ปุ่ม 🔁 = ฟังครูเล่นซ้ำ", helpOk: "เข้าใจแล้ว!", signOut: "ออกจากระบบ",
     shopTitle: "ร้านค้า", shopSkins: "สกินคีย์", shopThemes: "ธีมพื้นหลัง", shopEquip: "ใช้", shopEquipped: "กำลังใช้",
@@ -2865,10 +2908,10 @@ const L = {
     pdTitle: "Parent Report", pdSessions: "sessions/week", pdAcc: "avg accuracy", pdActivity: "Last 6 weeks of practice", pdFocus: "Focus areas", pdMastered: "Mastered",
     exTitle: "Grade Exam Prep", exSub: "Tick off your progress per grade — earn coins for each task.",
     vmTitle: "AI Voice Tutor", vmStart: "Start Talking", vmStop: "Stop",
-    vmReady: "Tap 'Start Talking' and just speak", vmListening: "Listening… go ahead", vmThinking: "Thinking…", vmSpeaking: "Speaking…", vmTapStop: "Tap to interrupt", vmTypePh: "or type your question…", vmReListen: "Tap to listen again", vmMicDenied: "Microphone blocked — allow mic access in your browser, then try again", vmNetRetry: "Weak signal… retrying to hear you",
+    vmReady: "Tap 'Start Talking' and just speak", vmListening: "Listening… go ahead", vmThinking: "Thinking…", vmSpeaking: "Speaking…", vmTapStop: "Just speak over me, or tap to interrupt", vmTypePh: "or type your question…", vmReListen: "Tap to listen again", vmMicDenied: "Microphone blocked — allow mic access in your browser, then try again", vmNetRetry: "Weak signal… retrying to hear you",
     vmGreeting: "Hi! I'm Teacher TiGA. What would you like to work on today? Ask me anything, or play me something and I'll listen and help.",
     vmYou: "You", vmNotesLbl: "Just played", vmPlayedCue: "I just played that for you — listen and tell me how it was.", vmNoSTT: "This browser can't capture speech — try Chrome or Safari",
-    vmHint: "💡 Ask out loud then wait for the reply · play first and I will analyze it · I can play demos too", vmFastVoice: "Fast voice", vmHqVoice: "HQ voice", vmSpeedLbl: "Speed", vmVoiceLbl: "Voice", vmPolyOn: "🎹 Chord ear: on", vmPolyOff: "🎹 Chord ear: off", vmPolyHint: "Beta: hears full chords from the mic (acoustic piano)", vmLangHint: "Switch the language you talk with the teacher in", vmGreetBack: "Welcome back! Last time {x} was tricky — want to review it, or work on something else?", vmGreetHw: "Welcome back! Last time I gave you homework: {x}. Did you get to practice it? Play it for me and let's hear.",
+    vmHint: "💡 Ask out loud then wait for the reply · play first and I will analyze it · I can play demos too", vmFastVoice: "Fast voice", vmHqVoice: "HQ voice", vmSpeedLbl: "Speed", vmVoiceLbl: "Voice", vmPolyOn: "🎹 Chord ear: on", vmPolyOff: "🎹 Chord ear: off", vmPolyHint: "Beta: hears full chords from the mic (acoustic piano)", vmLangHint: "Switch the language you talk with the teacher in", vmSettings: "Voice settings", vmGreetBack: "Welcome back! Last time {x} was tricky — want to review it, or work on something else?", vmGreetHw: "Welcome back! Last time I gave you homework: {x}. Did you get to practice it? Play it for me and let's hear.",
     wlcTitle: "Welcome to TiGA! 🎹", wlcTip1: "Tap the keys to play — the AI tutor helps you", wlcTip2: "Tap ☰ top-left to open the menu and pages", wlcTip3: "Play games, collect stars, levels & coins", wlcStart: "Let's go!",
     helpTitle: "How to use", help1: "Tap ☰ top-left = open menu & pages", help2: "Tap the piano keys = play notes", help3: "Mic button 🎙️ = talk to your AI teacher", help4: "Go to 'Studio' = play games & earn stars", help5: "🔁 button = hear the teacher play again", helpOk: "Got it!", signOut: "Sign out",
     shopTitle: "Shop", shopSkins: "Key skins", shopThemes: "Themes", shopEquip: "Equip", shopEquipped: "Equipped",
@@ -2959,10 +3002,10 @@ const L = {
     pdTitle: "家长报告", pdSessions: "每周练习次数", pdAcc: "平均准确率", pdActivity: "最近6周练习", pdFocus: "需加强", pdMastered: "已掌握",
     exTitle: "考级备考", exSub: "按每个级别勾选进度——每完成一项得金币。",
     vmTitle: "AI 语音老师", vmStart: "开始对话", vmStop: "停止",
-    vmReady: "点击'开始对话'然后直接说话", vmListening: "正在听…请说", vmThinking: "正在思考…", vmSpeaking: "正在说…", vmTapStop: "点击打断", vmTypePh: "也可以打字提问…", vmReListen: "点击重新聆听", vmMicDenied: "麦克风被拒绝 — 请在浏览器允许麦克风后重试", vmNetRetry: "网络较弱…正在重新聆听",
+    vmReady: "点击'开始对话'然后直接说话", vmListening: "正在听…请说", vmThinking: "正在思考…", vmSpeaking: "正在说…", vmTapStop: "可直接开口打断，或点击打断", vmTypePh: "也可以打字提问…", vmReListen: "点击重新聆听", vmMicDenied: "麦克风被拒绝 — 请在浏览器允许麦克风后重试", vmNetRetry: "网络较弱…正在重新聆听",
     vmGreeting: "你好！我是 TiGA 老师。今天想练什么？有什么尽管问，或者弹一段给我听，我来帮你看看。",
     vmYou: "你", vmNotesLbl: "刚弹了", vmPlayedCue: "我刚弹了这段，听听给点反馈吧。", vmNoSTT: "此浏览器不支持语音识别 — 建议用 Chrome 或 Safari",
-    vmHint: "💡 开口提问后等待回答 · 先弹一段，我会帮你分析 · 老师也能弹给你听", vmFastVoice: "快速语音", vmHqVoice: "高清语音", vmSpeedLbl: "速度", vmVoiceLbl: "音色", vmPolyOn: "🎹 和弦聆听：开", vmPolyOff: "🎹 和弦聆听：关", vmPolyHint: "Beta：用麦克风识别同时弹奏的和弦（原声钢琴）", vmLangHint: "切换和老师对话的语言", vmGreetBack: "欢迎回来！上次{x}有点难，要复习一下，还是练点别的？", vmGreetHw: "欢迎回来！上次我给你布置的作业是 {x}，练了吗？弹给我听听吧。",
+    vmHint: "💡 开口提问后等待回答 · 先弹一段，我会帮你分析 · 老师也能弹给你听", vmFastVoice: "快速语音", vmHqVoice: "高清语音", vmSpeedLbl: "速度", vmVoiceLbl: "音色", vmPolyOn: "🎹 和弦聆听：开", vmPolyOff: "🎹 和弦聆听：关", vmPolyHint: "Beta：用麦克风识别同时弹奏的和弦（原声钢琴）", vmLangHint: "切换和老师对话的语言", vmSettings: "语音设置", vmGreetBack: "欢迎回来！上次{x}有点难，要复习一下，还是练点别的？", vmGreetHw: "欢迎回来！上次我给你布置的作业是 {x}，练了吗？弹给我听听吧。",
     wlcTitle: "欢迎来到 TiGA! 🎹", wlcTip1: "点琴键即可弹奏，AI 老师来帮你", wlcTip2: "点左上角 ☰ 打开菜单进入各页面", wlcTip3: "玩游戏、收集星星、等级和金币", wlcStart: "开始吧！",
     helpTitle: "使用方法", help1: "点左上角 ☰ = 打开菜单和页面", help2: "点钢琴键 = 弹出音符", help3: "麦克风 🎙️ = 和 AI 老师对话", help4: "进入'练习' = 玩游戏赚星星", help5: "🔁 按钮 = 再听一次老师弹", helpOk: "明白了！", signOut: "退出登录",
     shopTitle: "商店", shopSkins: "琴键皮肤", shopThemes: "主题", shopEquip: "装备", shopEquipped: "已装备",
@@ -3166,6 +3209,10 @@ const CSS = `
 .vidslide{height:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;background:#000}
 .vidplayer{width:100%;height:100%;object-fit:contain;background:#000;border:none}
 .vidplaceholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;opacity:.25}
+.vidmute{position:absolute;right:12px;top:14px;z-index:6;background:rgba(10,15,30,.55);border:1px solid #ffffff2a;border-radius:50%;width:42px;height:42px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.vidpause{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:64px;color:#ffffffd6;pointer-events:none;text-shadow:0 2px 18px #000}
+.vidbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:#ffffff22;z-index:7}
+.vidbar span{display:block;height:100%;width:0;background:linear-gradient(90deg,#a855f7,#ff2d78)}
 .vidmeta{position:absolute;left:0;right:0;bottom:0;padding:18px 16px 22px;background:linear-gradient(transparent,rgba(0,0,0,.88));color:#fff;pointer-events:none}
 .vidtitle{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;margin-bottom:4px;text-shadow:0 1px 4px #000}
 .viddesc{font-size:13px;color:#c8f0ffcc;line-height:1.4;max-height:4.2em;overflow:hidden}
@@ -3804,8 +3851,8 @@ body[data-theme="forest"] .tg{background:radial-gradient(120% 90% at 40% 0%,#0c2
 .lbempty{text-align:center;font-family:'Rajdhani',sans-serif;font-size:13px;color:#8fb4c4;padding:14px}
 .songcard-badge{display:inline-block;margin-left:7px;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;color:#06121f;background:var(--sc,#06d6a0);border-radius:5px;padding:2px 5px;vertical-align:middle}
 /* AI voice tutor */
-.vmstage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:20px 16px 8px;flex-shrink:0}
-.vmorb{position:relative;width:128px;height:128px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:46px;background:radial-gradient(circle at 50% 38%,#0e2540,#0a1322);border:2px solid #2a4a60;transition:border-color .3s;cursor:pointer;padding:0;color:inherit;-webkit-tap-highlight-color:transparent}
+.vmstage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:12px 16px 6px;flex-shrink:0}
+.vmorb{position:relative;width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;background:radial-gradient(circle at 50% 38%,#0e2540,#0a1322);border:2px solid #2a4a60;transition:border-color .3s;cursor:pointer;padding:0;color:inherit;-webkit-tap-highlight-color:transparent}
 .vmorb.listening{border-color:#a855f7;animation:vmpulse 1.5s ease-out infinite}
 .vmorb.thinking{border-color:#ffb703;animation:vmspin 1.1s linear infinite}
 .vmorb.speaking{border-color:#ff2d78;box-shadow:0 0 30px -4px #ff2d78;animation:vmwave .7s ease-in-out infinite alternate}
@@ -3827,11 +3874,18 @@ body[data-theme="forest"] .tg{background:radial-gradient(120% 90% at 40% 0%,#0c2
 .vmtextin:focus{border-color:#a855f7aa}
 .vmtextsend{flex-shrink:0;width:42px;border-radius:12px;border:1px solid #a855f7aa;background:linear-gradient(160deg,#a855f7,#7b2fff);color:#fff;font-size:15px;cursor:pointer}
 .vmtextsend:active{transform:scale(.95)}
-.vmlog{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:10px 16px;width:100%;max-width:540px;margin:0 auto;scrollbar-width:thin;scrollbar-color:#7b2fff #0f0a1c}
+.vmlog{flex:1;min-height:118px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:10px 16px;width:100%;max-width:540px;margin:0 auto;scrollbar-width:thin;scrollbar-color:#7b2fff #0f0a1c;box-sizing:border-box}
 .vmbub{max-width:84%;padding:9px 13px;border-radius:14px;font-family:'Rajdhani',sans-serif;font-size:14px;line-height:1.4}
 .vmbub.user{align-self:flex-end;background:linear-gradient(135deg,#a855f7,#7b2fff);color:#06121f;font-weight:600}
 .vmbub.ai{align-self:flex-start;background:#0e1a30;border:1px solid #ffffff12;color:#eaf6ff}
-.vmfoot{display:flex;flex-direction:column;align-items:center;gap:9px;padding:11px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #ffffff10;flex-shrink:0}
+.vmfoot{position:relative;display:flex;flex-direction:column;align-items:center;gap:9px;padding:11px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #ffffff10;flex-shrink:0}
+/* ── ⋯ voice-settings popover (speed / voice tone / HQ / chord-ear live in here) ── */
+.vmmorewrap{position:absolute;right:10px;bottom:calc(100% + 10px);z-index:40}
+.vmmore{width:44px;height:44px;border-radius:50%;background:#111a2e;border:1px solid #ffffff26;color:#c8f0ff;font-size:22px;font-weight:900;line-height:1;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.vmmore:active{transform:scale(.93)}
+.vmmenu{position:absolute;bottom:52px;right:0;background:#0a1428;border:1px solid #a855f755;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:250px;box-shadow:0 10px 34px rgba(0,0,0,.55);animation:dropdown .18s ease-out}
+.vmmenu .vmspeed{justify-content:flex-start}
+.vmmenu .vmvoicetgl{align-self:flex-start;margin-bottom:0}
 .vmbig{padding:14px 42px;border-radius:40px;font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;cursor:pointer;border:none;color:#06121f;background:linear-gradient(135deg,#a855f7,#7b2fff);box-shadow:0 8px 26px -8px #a855f7}
 .vmbig.stop{background:linear-gradient(135deg,#ff2d78,#ff9e00);box-shadow:0 8px 26px -8px #ff2d78}
 .vmbig:active{transform:scale(.96)}
@@ -4402,40 +4456,117 @@ function driveFolderId(input) {
    viewer's browser), TikTok-style feed. Only the slide currently in view has
    its embed loaded, so at most one video plays at a time and nothing loads
    until it's actually scrolled to. ── */
+// Raw playback candidates for a public Drive file, most-reliable first. <video>
+// elements don't need CORS to play cross-origin media, and drive.usercontent is
+// Google's current direct-download host (confirm=t skips the big-file warning).
+function rawVideoUrls(fileId) {
+  return [
+    `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`,
+    `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`,
+  ];
+}
+// One TikTok-style slide: full-bleed native <video>, tap = pause/play, speaker
+// button = mute toggle, thin progress bar. If EVERY raw URL fails (Google
+// changes behavior, file too big to stream, permissions), the slide quietly
+// swaps to Google's own preview player so the lesson still plays no matter what.
+function VideoSlide({ s, active }) {
+  const vidRef = useRef(null);
+  const barRef = useRef(null);
+  const [srcIdx, setSrcIdx] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const srcs = rawVideoUrls(s.fileId);
+  useEffect(() => {
+    const v = vidRef.current;
+    if (!v || failed) return;
+    if (active) {
+      v.muted = false; setMuted(false); setPaused(false);
+      const p = v.play();
+      // browsers may veto unmuted autoplay — retry muted with a visible unmute button
+      if (p && p.catch) p.catch(() => { v.muted = true; setMuted(true); v.play().catch(() => {}); });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, failed, srcIdx]);
+  if (failed) {
+    return active
+      ? <iframe className="vidplayer" src={`https://drive.google.com/file/d/${s.fileId}/preview`}
+          allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
+      : <div className="vidplaceholder">🎬</div>;
+  }
+  if (!active) return <div className="vidplaceholder">🎬</div>;
+  return (
+    <>
+      <video ref={vidRef} className="vidplayer" src={srcs[srcIdx]} playsInline loop preload="auto"
+        onError={() => { if (srcIdx + 1 < srcs.length) setSrcIdx(srcIdx + 1); else setFailed(true); }}
+        onTimeUpdate={() => { const v = vidRef.current, b = barRef.current; if (v && b && v.duration) b.style.width = ((v.currentTime / v.duration) * 100) + "%"; }}
+        onClick={() => { const v = vidRef.current; if (!v) return; if (v.paused) { v.play().catch(() => {}); setPaused(false); } else { v.pause(); setPaused(true); } }} />
+      {paused && <div className="vidpause">▶</div>}
+      <button className="vidmute" onClick={(e) => { e.stopPropagation(); const v = vidRef.current; if (!v) return; v.muted = !v.muted; setMuted(v.muted); if (!v.muted) v.play().catch(() => {}); }}>
+        {muted ? "🔇" : "🔊"}
+      </button>
+      <div className="vidbar"><span ref={barRef} /></div>
+    </>
+  );
+}
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang }) {
   const lc = L[lang];
-  const [videos, setVideos] = useState(null); // null = loading
-  const [activeId, setActiveId] = useState(null);
+  const [slides, setSlides] = useState(null); // null = loading
+  const [activeKey, setActiveKey] = useState(null);
   const slideRefs = useRef([]);
 
   useEffect(() => {
     let cancelled = false;
-    sb.from("lesson_videos").select("*").eq("published", true)
-      .order("sort_order", { ascending: true }).order("created_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        const list = error ? [] : (data || []);
-        setVideos(list);
-        if (list.length) setActiveId(list[0].id);
-      });
+    (async () => {
+      const { data, error } = await sb.from("lesson_videos").select("*").eq("published", true)
+        .order("sort_order", { ascending: true }).order("created_at", { ascending: false });
+      if (cancelled) return;
+      const rows = error ? [] : (data || []);
+      // expand folder rows into one slide PER VIDEO FILE, listed via the drive-list
+      // edge function (server-side, no API key) and sorted by filename
+      const folderIds = [...new Set(rows.filter(r => r.drive_folder_id).map(r => r.drive_folder_id))];
+      const folderMap = {};
+      if (folderIds.length) {
+        try {
+          const { data: fl, error: fe } = await sb.functions.invoke("drive-list", { body: { folders: folderIds } });
+          if (!fe && fl && fl.folders) for (const f of fl.folders) folderMap[f.folder] = f.items || [];
+        } catch (e) {}
+      }
+      const isVid = (n) => /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(n);
+      const out = [];
+      for (const r of rows) {
+        if (r.drive_folder_id) {
+          let items = folderMap[r.drive_folder_id] || [];
+          if (items.some(it => isVid(it.name))) items = items.filter(it => isVid(it.name));
+          for (const it of items) out.push({ key: r.id + "-" + it.id, fileId: it.id, title: it.name.replace(/\.[a-z0-9]{2,4}$/i, ""), desc: r.title });
+          // listing unavailable → fall back to embedding the whole folder so nothing disappears
+          if (!items.length) out.push({ key: r.id, folderId: r.drive_folder_id, title: r.title, desc: r.description });
+        } else if (r.drive_file_id) {
+          out.push({ key: r.id, fileId: r.drive_file_id, title: r.title, desc: r.description });
+        }
+      }
+      if (cancelled) return;
+      setSlides(out);
+      if (out.length) setActiveKey(out[0].key);
+    })();
     return () => { cancelled = true; };
   }, []);
 
   // TikTok-style: whichever slide is mostly in view becomes "active" — only ITS
-  // iframe gets a src (loads/plays); scrolling away unmounts it (stops audio).
+  // player is mounted (loads/plays); scrolling away unmounts it (stops audio + bandwidth).
   useEffect(() => {
-    if (!videos || !videos.length) return;
+    if (!slides || !slides.length) return;
     const els = slideRefs.current.filter(Boolean);
     if (!els.length) return;
     const io = new IntersectionObserver((entries) => {
-      for (const e of entries) if (e.isIntersecting && e.intersectionRatio > 0.6) setActiveId(e.target.dataset.vid);
+      for (const e of entries) if (e.isIntersecting && e.intersectionRatio > 0.6) setActiveKey(e.target.dataset.vid);
     }, { threshold: [0, 0.6, 1] });
     els.forEach(v => io.observe(v));
     return () => io.disconnect();
-  }, [videos]);
+  }, [slides]);
 
-  if (videos === null) return <div className="pathpage"><div className="admstu-empty">…</div></div>;
-  if (!videos.length) return (
+  if (slides === null) return <div className="pathpage"><div className="admstu-empty">…</div></div>;
+  if (!slides.length) return (
     <div className="pathpage">
       <div className="pathhero"><div className="pathhero-glow" /><div className="pathbadge">🎬 {lc.navVideos}</div></div>
       <div className="admstu-empty">{lc.videosEmpty}</div>
@@ -4443,20 +4574,19 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang }) {
   );
   return (
     <div className="vidfeed">
-      {videos.map((v, i) => (
-        <div className="vidslide" key={v.id} data-vid={v.id} ref={el => (slideRefs.current[i] = el)}>
-          {v.drive_folder_id && activeId === v.id ? (
-            <iframe className="vidplayer" src={`https://drive.google.com/embeddedfolderview?id=${v.drive_folder_id}#grid`}
-              allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={v.title} />
-          ) : v.drive_file_id && activeId === v.id ? (
-            <iframe className="vidplayer" src={`https://drive.google.com/file/d/${v.drive_file_id}/preview`}
-              allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={v.title} />
+      {slides.map((s, i) => (
+        <div className="vidslide" key={s.key} data-vid={s.key} ref={el => (slideRefs.current[i] = el)}>
+          {s.folderId ? (
+            activeKey === s.key
+              ? <iframe className="vidplayer" src={`https://drive.google.com/embeddedfolderview?id=${s.folderId}#grid`}
+                  allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
+              : <div className="vidplaceholder">🎬</div>
           ) : (
-            <div className="vidplaceholder">🎬</div>
+            <VideoSlide s={s} active={activeKey === s.key} />
           )}
           <div className="vidmeta">
-            <div className="vidtitle">{v.title}</div>
-            {v.description && <div className="viddesc">{v.description}</div>}
+            <div className="vidtitle">{s.title}</div>
+            {s.desc && <div className="viddesc">{s.desc}</div>}
           </div>
         </div>
       ))}
@@ -6658,6 +6788,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const songStarsRef = useRef([]);     // parallax starfield, generated once per song
   const songRocketsRef = useRef([]);   // in-flight "rocket launch" anims (a hit → rocket climbs to the meteor)
   const songBlastsRef = useRef([]);    // impact explosions (particle bursts, purely time-derived — no per-frame physics state)
+  const songNebulaRef = useRef(null);  // pre-rendered deep-space nebula backdrop (rebuilt only on resize — cheap to draw each frame)
   const songCountdownRef = useRef(null);
   const songFinishedRef = useRef(false);
   const songPreviewRef = useRef([]);
@@ -6698,6 +6829,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const vmIdleNudgedRef = useRef(false); // has this silent stretch already gotten its one gentle check-in?
   const vmIdleTimerRef = useRef(null); // recurring watcher (a real teacher eventually breaks a long silence)
   const vmSelfSpeakingRef = useRef(false); // true while the idle-nudge plays over speakers WHILE the recognizer is still live — so the mic can't mishear its own voice as the learner talking
+  const vmEarResetRef = useRef(() => {});  // clears the live ear's partial-speech buffers (used when a typed message supersedes whatever was half-heard)
   const [vmFast, setVmFast] = useState(false);  // default = natural HQ cloud voice (falls back to device on weak signal)
   const vmFastRef = useRef(false);
   const [vmSpeed, setVmSpeed] = useState(1);    // demo playback speed: 1 / 1.25 / 1.5 / 1.75 / 2
@@ -6706,6 +6838,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [vmPoly, setVmPoly] = useState(() => { try { return localStorage.getItem("tg_vmpoly") === "1"; } catch (e) { return false; } }); // beta: hear chords from mic
   const vmPolyRef = useRef(false);
   const [vmLangOpen, setVmLangOpen] = useState(false);  // top-right language switcher inside voice mode
+  const [vmMenuOpen, setVmMenuOpen] = useState(false);  // ⋯ settings popover (speed/voice/HQ/chord-ear), bottom-right
   const langRef = useRef(lang);                          // lets an in-flight (stale-closure) recognizer still read the CURRENT language
   const vmLastDemoRef = useRef(null);           // last [play]/[chord] demo → instant "again" replay
   const vmStreakRef = useRef(0);                // consecutive correct notes this session → adaptive pacing
@@ -7272,16 +7405,43 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const ctx = cv.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const now = performance.now();
-    // deep-space backdrop + a quietly twinkling starfield (generated once, reused every frame)
-    ctx.fillStyle = "#050414"; ctx.fillRect(0, 0, W, H);
     const tSec = now / 1000;
+    const fever = songFeverRef.current;
+    // deep-space nebula backdrop — pre-rendered offscreen once per size, drawn each frame
+    let neb = songNebulaRef.current;
+    if (!neb || neb.w !== W || neb.h !== H) {
+      const nc = document.createElement("canvas"); nc.width = Math.max(1, W); nc.height = Math.max(1, H);
+      const nx = nc.getContext("2d");
+      nx.fillStyle = "#050414"; nx.fillRect(0, 0, W, H);
+      const blobs = [[0.22, 0.24, 0.55, "rgba(123,47,255,0.17)"], [0.82, 0.14, 0.45, "rgba(6,150,214,0.14)"], [0.55, 0.72, 0.6, "rgba(255,45,120,0.08)"], [0.1, 0.85, 0.4, "rgba(6,214,160,0.06)"]];
+      for (const [fx, fy, fr, col] of blobs) {
+        const g0 = nx.createRadialGradient(fx * W, fy * H, 0, fx * W, fy * H, fr * Math.max(W, H));
+        g0.addColorStop(0, col); g0.addColorStop(1, "rgba(0,0,0,0)");
+        nx.fillStyle = g0; nx.fillRect(0, 0, W, H);
+      }
+      neb = songNebulaRef.current = { cv: nc, w: W, h: H };
+    }
+    ctx.drawImage(neb.cv, 0, 0);
+    if (fever) { ctx.fillStyle = "rgba(255,45,120,0.06)"; ctx.fillRect(0, 0, W, H); } // fever = the whole sky heats up
+    // twinkling parallax starfield — bigger stars drift faster (depth), fever = warp speed
+    const drift = fever ? 0.06 : 0.012;
     for (const s of songStarsRef.current) {
       const tw = 0.5 + 0.5 * Math.sin(tSec * 1.4 + s.tw);
       ctx.globalAlpha = 0.2 + 0.55 * tw;
       ctx.fillStyle = "#bcd7ff";
-      ctx.beginPath(); ctx.arc(s.fx * W, s.fy * H, s.r, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(s.fx * W, ((s.fy + tSec * drift * s.r) % 1) * H, s.r, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
+    // a lone shooting star streaks by every ~7s (deterministic from time — no per-frame state)
+    const winId = Math.floor(tSec / 7), winT = (tSec % 7) / 0.9;
+    if (winT < 1) {
+      const rnd = Math.abs(Math.sin(winId * 127.1) * 43758.5453) % 1;
+      const sx = (0.15 + rnd * 0.7 + winT * 0.25) * W, sy = (0.05 + (rnd * 7 % 1) * 0.3 + winT * 0.22) * H;
+      ctx.globalAlpha = Math.sin(winT * Math.PI) * 0.8;
+      ctx.strokeStyle = "#eaf6ff"; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 26, sy - 18); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    }
     const hitY = H - 8;
     const pxPerSec = hitY / SONG_LEAD;
     // a faint glowing Earth horizon along the hit-line — what the meteors are falling toward
@@ -7313,28 +7473,52 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const y = yFrac * hitY;
       const h = Math.max(14, n.durSec * pxPerSec);
       const f = laneFrac[n.lane] || noteKeyFrac(n.note) || { cx: 0.5, w: 1 / 14 };
-      const w = Math.max(10, f.w * W - 4), x = f.cx * W - w / 2, top = y - h, hue = laneHue(n.note);
-      const mcx = x + w / 2, mcy = top + h / 2, mrad = Math.min(w, h) / 2;
-      // meteor: a few fading embers trailing above (where it fell from), then the fireball itself
+      const w = Math.max(10, f.w * W - 4), top = y - h, hue = laneHue(n.note);
+      const mcx = f.cx * W;
+      const rr = Math.max(7, Math.min(w / 2 - 1, 18)); // meteor head radius
+      const hy = y - rr;                               // head rides the leading (falling) edge
+      const spin = tSec * 1.6 + n.t * 2.3;             // slow tumble, phase unique per note
       if (!n.missed) {
-        for (let k = 3; k >= 1; k--) {
-          ctx.globalAlpha = (1 - k / 4) * 0.4;
-          ctx.fillStyle = `hsla(${hue},90%,55%,1)`;
-          ctx.beginPath(); ctx.arc(mcx, top - k * 6, mrad * (1 - k * 0.2), 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.globalAlpha = 1;
+        // fiery tail — its length IS the note's duration, drawn additively so it truly glows
+        ctx.globalCompositeOperation = "lighter";
+        const flick = 0.85 + 0.15 * Math.sin(now / 55 + n.t * 9);
+        const tailTop = top - 6;
+        const tg = ctx.createLinearGradient(mcx, hy, mcx, tailTop);
+        tg.addColorStop(0, `hsla(${hue},100%,62%,${0.5 * flick})`);
+        tg.addColorStop(0.5, `hsla(${(hue + 30) % 360},100%,55%,0.22)`);
+        tg.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = tg;
+        ctx.beginPath();
+        ctx.moveTo(mcx - rr * 0.85, hy);
+        ctx.quadraticCurveTo(mcx - rr * 0.3, (hy + tailTop) / 2, mcx, tailTop);
+        ctx.quadraticCurveTo(mcx + rr * 0.3, (hy + tailTop) / 2, mcx + rr * 0.85, hy);
+        ctx.closePath(); ctx.fill();
+        // heat halo hugging the head
+        const halo = ctx.createRadialGradient(mcx, hy, rr * 0.4, mcx, hy, rr * 2.1);
+        halo.addColorStop(0, `hsla(${hue},100%,64%,${0.5 * flick})`);
+        halo.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = halo;
+        ctx.beginPath(); ctx.arc(mcx, hy, rr * 2.1, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
       }
-      const glow = ctx.createRadialGradient(mcx, mcy, 0, mcx, mcy, mrad * 1.5);
-      if (n.missed) { glow.addColorStop(0, "rgba(150,150,165,0.45)"); glow.addColorStop(1, "rgba(90,90,100,0)"); }
-      else { glow.addColorStop(0, `hsla(${hue},100%,82%,1)`); glow.addColorStop(0.55, `hsla(${hue},95%,55%,0.85)`); glow.addColorStop(1, `hsla(${hue},90%,40%,0)`); }
-      ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.ellipse(mcx, mcy, w / 2 + 3, h / 2 + 3, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = n.missed ? "rgba(95,100,112,0.55)" : `hsla(${hue},45%,24%,0.9)`;
-      roundRect(ctx, x + 3, top + 3, Math.max(4, w - 6), Math.max(4, h - 6), 5); ctx.fill();
+      // the rock itself — an off-center highlight fakes a lit 3D sphere
+      const body = ctx.createRadialGradient(mcx - rr * 0.4, hy - rr * 0.4, rr * 0.15, mcx, hy, rr);
+      if (n.missed) { body.addColorStop(0, "rgba(150,156,168,0.5)"); body.addColorStop(0.7, "rgba(84,88,100,0.45)"); body.addColorStop(1, "rgba(52,56,66,0.4)"); }
+      else { body.addColorStop(0, `hsla(${hue},55%,72%,1)`); body.addColorStop(0.55, `hsla(${hue},50%,38%,1)`); body.addColorStop(1, `hsla(${hue},60%,16%,1)`); }
+      ctx.fillStyle = body;
+      ctx.beginPath(); ctx.arc(mcx, hy, rr, 0, Math.PI * 2); ctx.fill();
+      // tumbling craters sell the rotation
+      ctx.fillStyle = n.missed ? "rgba(40,44,54,0.5)" : `hsla(${hue},45%,14%,0.75)`;
+      for (let k = 0; k < 3; k++) {
+        const a = spin + k * 2.1;
+        const cxk = mcx + Math.cos(a) * rr * 0.5, cyk = hy + Math.sin(a) * rr * 0.42;
+        const crr = rr * (0.14 + k * 0.045);
+        ctx.beginPath(); ctx.ellipse(cxk, cyk, crr, crr * 0.75, a, 0, Math.PI * 2); ctx.fill();
+      }
       if (!n.missed) {
-        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        ctx.fillStyle = "rgba(255,255,255,0.96)";
         ctx.font = "bold 11px Rajdhani, sans-serif"; ctx.textAlign = "center";
-        ctx.fillText(pcOf(n.note), mcx, Math.min(mcy + 4, hitY - 5));
+        ctx.fillText(pcOf(n.note), mcx, hy + 4);
       }
     }
     // ── rockets: a hit launches one from the hit-line, climbing to blow the meteor up ──
@@ -7344,39 +7528,62 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const rx = (laneFrac[r.lane] || { cx: 0.5 }).cx * W, rTop = hitY - 95;
       if (t >= 1) {
         songBlastsRef.current.push({
-          x: rx, y: rTop, t0: now, dur: 420, hue: r.hue,
-          parts: Array.from({ length: 12 }, (_, k) => ({ a: (k / 12) * Math.PI * 2 + (Math.random() - 0.5) * 0.5, sp: 55 + Math.random() * 85, sz: 2 + Math.random() * 3 })),
+          x: rx, y: rTop, t0: now, dur: 520, hue: r.hue, big: r.big,
+          parts: Array.from({ length: 16 }, (_, k) => ({ a: (k / 16) * Math.PI * 2 + (Math.random() - 0.5) * 0.5, sp: 55 + Math.random() * (r.big ? 120 : 85), sz: 2 + Math.random() * 3 })),
         });
+        playBoom(r.big); // 💥 the payoff
         continue;
       }
       liveRockets.push(r);
       const ry = hitY + (rTop - hitY) * t;
-      ctx.globalAlpha = 0.75;
-      ctx.fillStyle = "rgba(255,170,50,0.85)";
-      ctx.beginPath(); ctx.ellipse(rx, ry + 9, 3, 8, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = "#eef3f8";
-      ctx.beginPath(); ctx.moveTo(rx, ry - 9); ctx.lineTo(rx - 4, ry + 1); ctx.lineTo(rx + 4, ry + 1); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "#9fb6c4";
-      ctx.fillRect(rx - 3, ry + 1, 6, 9);
+      // exhaust flame — additive + flickering
+      ctx.globalCompositeOperation = "lighter";
+      const fl = 0.7 + 0.3 * Math.sin(now / 28 + r.t0);
+      const fg = ctx.createRadialGradient(rx, ry + 13, 0, rx, ry + 13, 14 * fl);
+      fg.addColorStop(0, "rgba(255,235,170,0.95)"); fg.addColorStop(0.4, "rgba(255,150,40,0.7)"); fg.addColorStop(1, "rgba(255,60,10,0)");
+      ctx.fillStyle = fg;
+      ctx.beginPath(); ctx.ellipse(rx, ry + 14, 5, 13 * fl, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
+      // brushed-metal body + hue-tinted nose cone, fins and a glowing porthole
+      const met = ctx.createLinearGradient(rx - 5, 0, rx + 5, 0);
+      met.addColorStop(0, "#7e94a6"); met.addColorStop(0.5, "#f2f7fb"); met.addColorStop(1, "#8fa8bb");
+      ctx.fillStyle = met;
+      roundRect(ctx, rx - 4.5, ry - 6, 9, 15, 3); ctx.fill();
+      ctx.fillStyle = `hsl(${r.hue},85%,60%)`;
+      ctx.beginPath(); ctx.moveTo(rx, ry - 15); ctx.lineTo(rx - 4.5, ry - 5); ctx.lineTo(rx + 4.5, ry - 5); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(rx - 4.5, ry + 4); ctx.lineTo(rx - 9, ry + 10); ctx.lineTo(rx - 4.5, ry + 9); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(rx + 4.5, ry + 4); ctx.lineTo(rx + 9, ry + 10); ctx.lineTo(rx + 4.5, ry + 9); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#0af0ff";
+      ctx.beginPath(); ctx.arc(rx, ry - 1, 2.2, 0, Math.PI * 2); ctx.fill();
     }
     songRocketsRef.current = liveRockets;
-    // ── blasts: the impact explosion where a rocket met its meteor ──
+    // ── blasts: white-hot core + expanding shockwave + gravity-pulled embers ──
     const liveBlasts = [];
     for (const b of songBlastsRef.current) {
       const t = (now - b.t0) / b.dur;
       if (t >= 1) continue;
       liveBlasts.push(b);
       const fade = 1 - t;
-      ctx.globalAlpha = fade;
-      ctx.fillStyle = `hsla(${b.hue},100%,88%,${fade})`;
-      ctx.beginPath(); ctx.arc(b.x, b.y, 15 * (1 - fade * 0.4), 0, Math.PI * 2); ctx.fill();
-      for (const p of b.parts) {
+      ctx.globalCompositeOperation = "lighter";
+      const core = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 26 * (0.5 + t));
+      core.addColorStop(0, `rgba(255,255,255,${0.9 * fade})`);
+      core.addColorStop(0.4, `hsla(${b.hue},100%,70%,${0.6 * fade})`);
+      core.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = core;
+      ctx.beginPath(); ctx.arc(b.x, b.y, 26 * (0.5 + t), 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.75 * fade;
+      ctx.strokeStyle = `hsla(${b.hue},100%,80%,1)`;
+      ctx.lineWidth = 1 + 2.5 * fade;
+      ctx.beginPath(); ctx.arc(b.x, b.y, (b.big ? 95 : 66) * t + 6, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = 1; ctx.globalAlpha = 1;
+      for (let pi = 0; pi < b.parts.length; pi++) {
+        const p = b.parts[pi];
         const dist = p.sp * t;
-        ctx.fillStyle = `hsla(${b.hue},95%,65%,${fade})`;
-        ctx.beginPath(); ctx.arc(b.x + Math.cos(p.a) * dist, b.y + Math.sin(p.a) * dist, p.sz * fade, 0, Math.PI * 2); ctx.fill();
+        const ex = b.x + Math.cos(p.a) * dist, ey = b.y + Math.sin(p.a) * dist + 55 * t * t; // embers arc downward
+        ctx.fillStyle = pi % 2 ? `hsla(${b.hue},95%,65%,${fade})` : `hsla(35,100%,62%,${fade})`;
+        ctx.beginPath(); ctx.arc(ex, ey, p.sz * fade, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
     }
     songBlastsRef.current = liveBlasts;
     for (let i = 0; i < nLane; i++) {
@@ -7419,12 +7626,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const now = performance.now();
     if (best && bestd <= SONG_HITWINDOW) {
       best.hit = true;
-      songRocketsRef.current.push({ lane: best.lane, hue: laneHue(best.note), t0: now, dur: 170 }); // launch a rocket to blow up the meteor
+      const perfect = bestd <= SONG_PERFECT;
+      songRocketsRef.current.push({ lane: best.lane, hue: laneHue(best.note), t0: now, dur: 170, big: perfect }); // launch a rocket to blow up the meteor
+      playWhoosh(); // 🚀 lift-off
       songHitsRef.current++;
       songComboRef.current++;
       const combo = songComboRef.current;
       if (combo > songMaxComboRef.current) songMaxComboRef.current = combo;
-      const perfect = bestd <= SONG_PERFECT;
       if (perfect) songPerfectsRef.current++;
       // FEVER MODE — at a big combo the screen goes wild and score doubles
       if (!songFeverRef.current && combo >= 15) { songFeverRef.current = true; setSongFever(true); playUi("levelup"); triggerShake(); announce("🔥 FEVER!"); }
@@ -7698,11 +7906,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (!vmActiveRef.current) return;
     vmFillersRef.current = [];
     prefetchFillers();
-    if (vmStateRef.current === "listening" && vmRecRef.current) {
-      try { vmRecRef.current.onend = null; vmRecRef.current.onresult = null; vmRecRef.current.abort(); } catch (e) {}
-      vmRecRef.current = null;
-      vmStartListen();
-    }
+    vmSpawnEar(); // rec.lang is fixed at construction — respawn the persistent ear in the new language (any state)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
   // close the voice-mode language dropdown on outside click
@@ -7712,6 +7916,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, [vmLangOpen]);
+  // close the ⋯ settings popover on outside click
+  useEffect(() => {
+    if (!vmMenuOpen) return;
+    const close = () => setVmMenuOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [vmMenuOpen]);
   function vmSetState(s) { vmStateRef.current = s; setVmState(s); }
   // buffer notes the learner plays while we're listening (so the AI can react)
   function vmOnNote(d) {
@@ -7799,7 +8010,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       if (!vmActiveRef.current) return;
     }
   }
-  function vmStopFiller() { if (vmFillerSrcRef.current) { try { vmFillerSrcRef.current.onended = null; vmFillerSrcRef.current.stop(); } catch (e) {} vmFillerSrcRef.current = null; } }
+  function vmStopFiller() { if (vmFillerSrcRef.current) { try { vmFillerSrcRef.current.onended = null; vmFillerSrcRef.current.stop(); } catch (e) {} vmFillerSrcRef.current = null; vmSelfSpeakingRef.current = false; } }
   // play one random filler immediately; returns true if it spoke (else caller earcons)
   function vmPlayFiller() {
     const buffers = vmFillersRef.current;
@@ -7813,7 +8024,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const rate = 1 + ((vmSpeedRef.current || 1) - 1) * 0.5;
       if (rate !== 1) src.playbackRate.value = Math.max(0.5, Math.min(1.8, rate));
       src.connect(ac.destination);
-      src.onended = () => { if (vmFillerSrcRef.current === src) vmFillerSrcRef.current = null; };
+      // the ear is live while this plays — mute recognition so our own "mm-hmm"
+      // can never read as the learner barging in (same guard as the idle nudge)
+      vmSelfSpeakingRef.current = true;
+      src.onended = () => { if (vmFillerSrcRef.current === src) { vmFillerSrcRef.current = null; setTimeout(() => { vmSelfSpeakingRef.current = false; }, 250); } };
       vmFillerSrcRef.current = src;
       src.start();
       return true;
@@ -7853,6 +8067,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     prefetchFillers();   // warm up the active-listening clips (non-blocking)
     clearInterval(vmIdleTimerRef.current);
     vmIdleTimerRef.current = setInterval(() => vmCheckIdleRef.current(), 5000);
+    vmSpawnEar();        // the ear opens at second zero — you can even talk over the greeting
     if (!vmMsgsRef.current.length) {
       vmOpenGreeting();
     } else {
@@ -7897,46 +8112,66 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       startMicListener((d) => vmOnNote(d), null, null, { poly: v });
     }
   }
-  // Keep the ear OPEN and reliable. Continuous recognition + a short-silence
-  // finalizer means a natural pause no longer drops your sentence, and the
-  // recognizer is re-armed instantly so words spoken between turns aren't lost.
+  /* ═══ CONTINUITY CORE — the always-open ear ═══
+     Why the old flow felt discontinuous: it opened a FRESH recognizer for every
+     turn and killed it while the AI thought/spoke. That meant (1) a 0.3–0.7s
+     cold-start after EVERY reply during which the learner's first syllables
+     were simply lost, (2) total deafness while the AI talked — no interrupting
+     by voice, words spoken "too early" vanished — and (3) a long 1.0–1.6s
+     silence wait before each turn was considered finished. Stacked on the
+     unavoidable network round-trip, every exchange gained 2–3s of dead air.
+     New design: ONE continuous recognizer stays alive for the whole session,
+     like a human ear that never closes.
+     - state "listening": caption + finalize after a short pause (tightened)
+     - state "speaking"/"thinking": enough sustained speech = VOICE BARGE-IN —
+       the teacher stops mid-sentence and your words are already captured
+     - the engine's own periodic restarts re-arm instantly in ANY state. */
+  const VM_BARGE_MIN = 12; // chars (spaces stripped) heard mid-reply before we treat it as a real interruption — guards against speaker echo/noise
   function vmStartListen() {
     if (!vmActiveRef.current) return;
-    // a FRESH turn (we just finished talking/thinking) resets the silence clock;
-    // an internal re-arm of an already-listening recognizer must NOT reset it,
-    // or true long silence would never accumulate past the STT engine's own
-    // periodic restart interval.
+    // a FRESH turn resets the idle clock; re-entering listening never tears the ear down
     if (vmStateRef.current !== "listening") { vmLastActivityRef.current = Date.now(); vmIdleNudgedRef.current = false; }
     clearTimeout(vmPlayReactT.current);
     clearTimeout(vmSilenceT.current);
-    clearTimeout(vmRestartT.current);
-    clearTimeout(vmWatchdogT.current);
-    const SR = getSR();
-    if (!SR) { setVmErr(L[lang].vmNoSTT); vmSetState("error"); return; }
-    // tear down any previous recognizer so two never run at once (a big cause of
-    // "it can't hear me" — overlapping recognizers fight over the mic).
-    if (vmRecRef.current) { try { vmRecRef.current.onend = null; vmRecRef.current.onresult = null; vmRecRef.current.abort(); } catch (e) {} vmRecRef.current = null; }
     vmFrozenRef.current = false;
     setVmCaption("");
     vmSetState("listening");
+    if (!vmRecRef.current) vmSpawnEar(); // ear already hot? just flip state — zero-gap turn-taking
+  }
+  function vmSpawnEar() {
+    if (!vmActiveRef.current) return;
+    const SR = getSR();
+    if (!SR) { setVmErr(L[langRef.current].vmNoSTT); vmSetState("error"); return; }
+    // never two recognizers at once — they fight over the mic
+    if (vmRecRef.current) { try { vmRecRef.current.onend = null; vmRecRef.current.onresult = null; vmRecRef.current.abort(); } catch (e) {} vmRecRef.current = null; }
+    clearTimeout(vmRestartT.current);
+    clearTimeout(vmWatchdogT.current);
     const mySeq = ++vmListenSeqRef.current;
     let rec;
     try { rec = new SR(); } catch (e) { vmSetState("error"); return; }
-    rec.lang = TTS_LOCALES[langRef.current] || "en-US"; // read from a ref so even a stale-closure restart still hears the CURRENT language
+    rec.lang = TTS_LOCALES[langRef.current] || "en-US"; // ref, so engine restarts always hear the CURRENT language
     rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
-    let finalText = "", lastInterim = "", done = false;
+    let finalText = "", lastInterim = "";
     const stale = () => mySeq !== vmListenSeqRef.current;
-    const reArm = (ms) => { clearTimeout(vmRestartT.current); vmRestartT.current = setTimeout(() => { if (vmActiveRef.current && vmStateRef.current === "listening" && vmListenSeqRef.current === mySeq) vmStartListen(); }, ms); };
-    const finish = (useInterim) => {
-      if (done || stale()) return;
-      const t = finalText.trim() || (useInterim ? lastInterim.trim() : "");
-      if (!t) return;
-      done = true;
-      clearTimeout(vmSilenceT.current); clearTimeout(vmWatchdogT.current);
-      try { rec.onend = null; rec.stop(); } catch (e) {}
-      vmRecRef.current = null;
-      vmProcess(t);
+    const reArm = (ms) => { clearTimeout(vmRestartT.current); vmRestartT.current = setTimeout(() => { if (vmActiveRef.current && !vmRecRef.current && vmListenSeqRef.current === mySeq) vmSpawnEar(); }, ms); };
+    const armWatchdog = () => { // recover a silently-hung engine (no result, no end — Android does this)
+      clearTimeout(vmWatchdogT.current);
+      vmWatchdogT.current = setTimeout(() => {
+        if (vmActiveRef.current && vmListenSeqRef.current === mySeq && vmRecRef.current === rec && !finalText && !lastInterim) {
+          try { rec.onend = null; rec.abort(); } catch (e) {}
+          vmRecRef.current = null; vmSpawnEar();
+        }
+      }, 15000);
     };
+    const consume = (useInterim) => {
+      if (stale()) return;
+      const t = finalText.trim() || (useInterim ? lastInterim.trim() : "");
+      finalText = ""; lastInterim = "";
+      clearTimeout(vmSilenceT.current);
+      if (!t) return;
+      vmProcess(t); // the ear keeps running underneath (gated by state) — no teardown, no cold restart
+    };
+    vmEarResetRef.current = () => { finalText = ""; lastInterim = ""; clearTimeout(vmSilenceT.current); };
     rec.onresult = (e) => {
       if (stale() || vmSelfSpeakingRef.current) return; // ignore the mic hearing our own idle-nudge audio
       let interim = "";
@@ -7945,42 +8180,44 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript;
       }
       lastInterim = interim;
-      if (interim || finalText) { vmFrozenRef.current = true; clearTimeout(vmPlayReactT.current); vmLastActivityRef.current = Date.now(); }
+      armWatchdog();
+      const st = vmStateRef.current;
+      if (st === "speaking" || st === "thinking") {
+        // VOICE BARGE-IN: sustained speech over the teacher = the learner takes the floor.
+        const heard = (finalText + interim).replace(/\s+/g, "");
+        if (heard.length < VM_BARGE_MIN) return; // probably echo/noise — keep buffering silently
+        vmInterruptRef.current = true;
+        clearTimeout(vmPlayReactT.current);
+        vmStopFiller(); stopCloudTTS(); stopSpeaking();
+        vmSetState("listening"); // their words are ALREADY captured — nothing was lost
+      }
+      if (finalText || interim) { vmFrozenRef.current = true; clearTimeout(vmPlayReactT.current); vmLastActivityRef.current = Date.now(); }
       setVmCaption(finalText || interim);
-      // finalize after a brief pause: shorter once we already have a final result
+      // finalize after a natural pause — tightened from 1000/1600ms so the reply
+      // starts noticeably sooner after you stop talking
       clearTimeout(vmSilenceT.current);
-      if (finalText.trim() || interim.trim()) vmSilenceT.current = setTimeout(() => finish(true), finalText.trim() ? 1000 : 1600);
-      // reset the silent-death watchdog whenever we hear anything
-      clearTimeout(vmWatchdogT.current);
+      if (finalText.trim() || interim.trim()) vmSilenceT.current = setTimeout(() => consume(true), finalText.trim() ? 700 : 1100);
     };
     rec.onerror = (ev) => {
       if (stale()) return;
       const err = ev && ev.error;
-      if (err === "not-allowed" || err === "service-not-allowed") { setVmErr(L[lang].vmMicDenied); vmSetState("error"); return; }
-      if (err === "network") setVmCaption(L[lang].vmNetRetry);   // weak signal — show it, onend will re-arm
-      // mic couldn't be captured — usually the note-detection mic is holding the
-      // device mic. Free it so speech recognition can have it (taps still work).
+      if (err === "not-allowed" || err === "service-not-allowed") { setVmErr(L[langRef.current].vmMicDenied); vmSetState("error"); return; }
+      if (err === "network" && vmStateRef.current === "listening") setVmCaption(L[langRef.current].vmNetRetry); // weak signal — onend re-arms
+      // the note-detection mic can hold the device mic — free it so STT can capture
       if (err === "audio-capture") { try { stopPracticeListeners(); } catch (e) {} }
-      // no-speech / aborted → handled by onend
     };
     rec.onend = () => {
       if (stale()) return;
       vmRecRef.current = null;
-      if (!vmActiveRef.current || done) return;
+      if (!vmActiveRef.current) return;
+      // engine died mid-sentence → deliver what we had instead of losing it
       const t = finalText.trim() || lastInterim.trim();
-      if (t) { done = true; vmProcess(t); return; }
-      if (vmStateRef.current === "listening") reArm(250);   // nothing heard → reopen the ear fast
+      if (t && vmStateRef.current === "listening") { consume(true); }
+      reArm(180); // reopen in ANY state — the ear stays hot while the AI talks too
     };
     vmRecRef.current = rec;
-    try { rec.start(); }
+    try { rec.start(); armWatchdog(); }
     catch (e) { vmRecRef.current = null; reArm(500); }
-    // backstop: if a recognizer dies silently (no result, no end) reopen it
-    vmWatchdogT.current = setTimeout(() => {
-      if (vmActiveRef.current && vmStateRef.current === "listening" && vmListenSeqRef.current === mySeq && !done && !finalText.trim() && !lastInterim.trim()) {
-        try { rec.onend = null; rec.abort(); } catch (e) {}
-        vmRecRef.current = null; vmStartListen();
-      }
-    }, 9000);
   }
   function vmStudentContext() {
     const li = levelInfo((profile && profile.exp) || 0);
@@ -8136,7 +8373,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     else if (vmMissRef.current >= 2) { setTtsMood("gentle"); msg += `\n\n(Pacing: the learner missed ${vmMissRef.current} in a row — slow down, make the step smaller, and be extra encouraging.)`; }
     else setTtsMood("warm");
     vmStreakRef.current = 0; vmMissRef.current = 0;
-    if (vmRecRef.current) { try { vmRecRef.current.abort(); } catch (e) {} vmRecRef.current = null; }
+    // (the persistent ear keeps running underneath — gated by state, ready for voice barge-in)
     // Pipeline with cloud look-ahead: as each sentence streams in, parse it to
     // segments and immediately START fetching the cloud audio for spoken parts, so
     // the next sentence's voice is ready before the current finishes — gapless,
@@ -8273,7 +8510,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     });
   }
   async function vmSpeakAndAct(text) {
-    if (vmRecRef.current) { try { vmRecRef.current.abort(); } catch (e) {} vmRecRef.current = null; }
+    // the persistent ear stays live while we speak — barge-in by voice works even here
     const segs = vmParseSegments(text);
     for (const s of segs) {
       if (!vmActiveRef.current) return;
@@ -8394,7 +8631,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // tap the orb: interrupt while it talks/thinks, or re-open the ear while listening
   function vmOrbTap() {
     if (vmStateRef.current === "speaking" || vmStateRef.current === "thinking") vmInterrupt();
-    else if (vmStateRef.current === "listening") { haptic(); vmStartListen(); }
+    else if (vmStateRef.current === "listening") { haptic(); vmSpawnEar(); } // force a FRESH recognizer (unsticks a dead ear)
     else if (!vmActiveRef.current) startVoiceSession();
   }
   function exitVoice() {
@@ -9377,31 +9614,40 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               </div>
               <GamePiano litSet={vmLit} scroll onNote={(n) => vmOnNote({ note: n, freq: null, source: "tap" })} />
               <div className="vmfoot">
-                <div className="vmspeed">
-                  <span className="vmspeed-lbl">{lc.vmSpeedLbl}</span>
-                  {[1, 1.25, 1.5, 1.75, 2].map(s => (
-                    <button key={s} className={`vmspeed-b${vmSpeed === s ? " on" : ""}`}
-                      onClick={() => { setVmSpeed(s); vmSpeedRef.current = s; playUi("click"); }}>{s}x</button>
-                  ))}
+                {/* ⋯ all secondary controls live here now — one tidy button, bottom-right */}
+                <div className="vmmorewrap" onClick={e => e.stopPropagation()}>
+                  {vmMenuOpen && (
+                    <div className="vmmenu">
+                      <div className="vmspeed">
+                        <span className="vmspeed-lbl">{lc.vmSpeedLbl}</span>
+                        {[1, 1.25, 1.5, 1.75, 2].map(s => (
+                          <button key={s} className={`vmspeed-b${vmSpeed === s ? " on" : ""}`}
+                            onClick={() => { setVmSpeed(s); vmSpeedRef.current = s; playUi("click"); }}>{s}x</button>
+                        ))}
+                      </div>
+                      <div className="vmspeed">
+                        <span className="vmspeed-lbl">{lc.vmVoiceLbl}</span>
+                        {VM_VOICES.map(v => (
+                          <button key={v.k} className={`vmspeed-b${vmVoice === v.k ? " on" : ""}`}
+                            onClick={() => { setVmVoice(v.k); try { localStorage.setItem("tg_vmvoice", v.k); } catch (e) {} playUi("click"); }}>{v[lang] || v.en}</button>
+                        ))}
+                      </div>
+                      <button className="vmvoicetgl" onClick={() => { const v = !vmFast; setVmFast(v); vmFastRef.current = v; if (!v) vmCloudDeadRef.current = false; }}>
+                        {vmFast ? `⚡ ${lc.vmFastVoice}` : `🎙️ ${lc.vmHqVoice}`}
+                      </button>
+                      <button className={`vmvoicetgl${vmPoly ? " on" : ""}`} title={lc.vmPolyHint} onClick={vmTogglePoly}>
+                        {vmPoly ? lc.vmPolyOn : lc.vmPolyOff}
+                      </button>
+                    </div>
+                  )}
+                  <button className="vmmore" aria-label={lc.vmSettings} title={lc.vmSettings} aria-expanded={vmMenuOpen}
+                    onClick={() => { playUi("click"); setVmMenuOpen(o => !o); }}>⋯</button>
                 </div>
-                <div className="vmspeed">
-                  <span className="vmspeed-lbl">{lc.vmVoiceLbl}</span>
-                  {VM_VOICES.map(v => (
-                    <button key={v.k} className={`vmspeed-b${vmVoice === v.k ? " on" : ""}`}
-                      onClick={() => { setVmVoice(v.k); try { localStorage.setItem("tg_vmvoice", v.k); } catch (e) {} playUi("click"); }}>{v[lang] || v.en}</button>
-                  ))}
-                </div>
-                <button className="vmvoicetgl" onClick={() => { const v = !vmFast; setVmFast(v); vmFastRef.current = v; if (!v) vmCloudDeadRef.current = false; }}>
-                  {vmFast ? `⚡ ${lc.vmFastVoice}` : `🎙️ ${lc.vmHqVoice}`}
-                </button>
-                <button className={`vmvoicetgl${vmPoly ? " on" : ""}`} title={lc.vmPolyHint} onClick={vmTogglePoly}>
-                  {vmPoly ? lc.vmPolyOn : lc.vmPolyOff}
-                </button>
                 <form className="vmtextrow" onSubmit={(e) => {
                   e.preventDefault();
                   const t = vmInput.trim(); if (!t) return;
                   setVmInput("");
-                  if (vmRecRef.current) { try { vmRecRef.current.abort(); } catch (err) {} vmRecRef.current = null; }
+                  vmEarResetRef.current(); // typed message supersedes whatever the ear half-heard (ear stays hot)
                   if (!vmActiveRef.current) { vmActiveRef.current = true; getAC(); }
                   vmProcess(t);
                 }}>
