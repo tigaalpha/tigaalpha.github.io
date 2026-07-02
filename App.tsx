@@ -3207,13 +3207,35 @@ const CSS = `
 .vidfeed{flex:1;overflow-y:auto;scroll-snap-type:y mandatory;background:#000;scrollbar-width:none}
 .vidfeed::-webkit-scrollbar{display:none}
 .vidslide{height:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;background:#000}
-.vidplayer{width:100%;height:100%;object-fit:contain;background:#000;border:none}
+.vidplayer{width:100%;height:100%;object-fit:cover;background:#000;border:none}
+@media (min-aspect-ratio:3/4){video.vidplayer{object-fit:contain}}
 .vidplaceholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;opacity:.25}
 .vidmute{position:absolute;right:12px;top:14px;z-index:6;background:rgba(10,15,30,.55);border:1px solid #ffffff2a;border-radius:50%;width:42px;height:42px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
 .vidpause{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:64px;color:#ffffffd6;pointer-events:none;text-shadow:0 2px 18px #000}
 .vidbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:#ffffff22;z-index:7}
 .vidbar span{display:block;height:100%;width:0;background:linear-gradient(90deg,#a855f7,#ff2d78)}
-.vidmeta{position:absolute;left:0;right:0;bottom:0;padding:18px 16px 22px;background:linear-gradient(transparent,rgba(0,0,0,.88));color:#fff;pointer-events:none}
+/* ── TikTok chrome: top fade, right action rail, handle+music meta, hearts ── */
+.vidtopfade{position:absolute;top:0;left:0;right:0;height:64px;background:linear-gradient(rgba(0,0,0,.42),transparent);pointer-events:none;z-index:3}
+.vidrail{position:absolute;right:6px;bottom:92px;display:flex;flex-direction:column;align-items:center;gap:15px;z-index:8}
+.vidavatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#a855f7,#7b2fff);border:2px solid #fff;color:#fff;font-family:'Orbitron',sans-serif;font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center;margin-bottom:6px;position:relative}
+.vidavatar::after{content:'+';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:17px;height:17px;border-radius:50%;background:#fe2c55;color:#fff;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1}
+.vidact{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
+.vidact-ic{font-size:29px;filter:grayscale(1) brightness(1.9);text-shadow:0 1px 6px rgba(0,0,0,.55);transition:transform .12s;line-height:1}
+.vidact:active .vidact-ic{transform:scale(.85)}
+.vidact.on .vidact-ic,.vidact.fav .vidact-ic{filter:none;animation:heartpop .32s ease-out}
+.vidact-n{font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:#fff;text-shadow:0 1px 4px #000;min-height:13px}
+@keyframes heartpop{0%{transform:scale(.55)}55%{transform:scale(1.35)}100%{transform:scale(1)}}
+.viddisc{width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#3a3a45 28%,#15151b 62%);border:6px solid #232330;display:flex;align-items:center;justify-content:center;font-size:14px;animation:discspin 4.5s linear infinite;margin-top:2px}
+@keyframes discspin{to{transform:rotate(360deg)}}
+.vidhandle{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:15.5px;color:#fff;text-shadow:0 1px 5px #000;margin-bottom:3px}
+.vidmusic{display:flex;align-items:center;gap:7px;margin-top:8px;max-width:235px;color:#fff}
+.vidmusic-wrap{overflow:hidden;flex:1}
+.vidmusic-tx{display:inline-block;white-space:nowrap;font-family:'Rajdhani',sans-serif;font-size:12.5px;color:#fff;text-shadow:0 1px 4px #000;animation:musicmarq 8s linear infinite}
+@keyframes musicmarq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.vidheart{position:absolute;font-size:74px;pointer-events:none;z-index:9;animation:heartfloat .82s ease-out forwards}
+@keyframes heartfloat{0%{opacity:0;transform:scale(.4)}18%{opacity:1;transform:scale(1.15)}100%{opacity:0;transform:translateY(-110px) scale(1.35)}}
+.vidtoast{position:absolute;bottom:130px;left:50%;transform:translateX(-50%);background:rgba(12,16,30,.88);border:1px solid #ffffff2c;color:#fff;font-family:'Rajdhani',sans-serif;font-size:13px;border-radius:18px;padding:8px 16px;z-index:10;white-space:nowrap}
+.vidmeta{position:absolute;left:0;right:0;bottom:0;padding:18px 78px 18px 16px;background:linear-gradient(transparent,rgba(0,0,0,.88));color:#fff;pointer-events:none}
 .vidtitle{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;margin-bottom:4px;text-shadow:0 1px 4px #000}
 .viddesc{font-size:13px;color:#c8f0ffcc;line-height:1.4;max-height:4.2em;overflow:hidden}
 /* ── pathway page (hero + grid) ── */
@@ -4465,17 +4487,32 @@ function rawVideoUrls(fileId) {
     `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`,
   ];
 }
+// TikTok-style count formatting: 999 → "999", 1400 → "1.4K", 2.3M …
+function fmtLikes(n) {
+  if (!n) return "";
+  if (n < 1000) return String(n);
+  if (n < 1000000) return (n / 1000).toFixed(n < 10000 ? 1 : 0).replace(/\.0$/, "") + "K";
+  return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+}
+// local bookmark (🔖) state per video
+function readVidFav(id) { try { return !!JSON.parse(localStorage.getItem("tg_vidfavs") || "{}")[id]; } catch (e) { return false; } }
+function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("tg_vidfavs") || "{}"); if (v) m[id] = 1; else delete m[id]; localStorage.setItem("tg_vidfavs", JSON.stringify(m)); } catch (e) {} }
 // One TikTok-style slide: full-bleed native <video>, tap = pause/play, speaker
 // button = mute toggle, thin progress bar. If EVERY raw URL fails (Google
 // changes behavior, file too big to stream, permissions), the slide quietly
 // swaps to Google's own preview player so the lesson still plays no matter what.
-function VideoSlide({ s, active }) {
+function VideoSlide({ s, active, lang, onEnded, onAsk, likeN, likedByMe, onToggleLike }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const vidRef = useRef(null);
   const barRef = useRef(null);
+  const tapT = useRef(null);
   const [srcIdx, setSrcIdx] = useState(0);
   const [failed, setFailed] = useState(false);
   const [muted, setMuted] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [faved, setFaved] = useState(() => readVidFav(s.fileId));
+  const [hearts, setHearts] = useState([]);
+  const [copied, setCopied] = useState(false);
   const srcs = rawVideoUrls(s.fileId);
   useEffect(() => {
     const v = vidRef.current;
@@ -4486,34 +4523,111 @@ function VideoSlide({ s, active }) {
       // browsers may veto unmuted autoplay — retry muted with a visible unmute button
       if (p && p.catch) p.catch(() => { v.muted = true; setMuted(true); v.play().catch(() => {}); });
     }
+    return () => clearTimeout(tapT.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, failed, srcIdx]);
-  if (failed) {
-    return active
-      ? <iframe className="vidplayer" src={`https://drive.google.com/file/d/${s.fileId}/preview`}
-          allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
-      : <div className="vidplaceholder">🎬</div>;
-  }
+  const spawnHeart = (x, y) => {
+    const id = Date.now() + Math.random();
+    setHearts(h => [...h.slice(-5), { id, x, y, rot: -18 + Math.random() * 36 }]);
+    setTimeout(() => setHearts(h => h.filter(o => o.id !== id)), 820);
+  };
+  // TikTok tap grammar: single tap = pause/play, double tap = like + floating heart
+  const onTap = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    if (tapT.current) {
+      clearTimeout(tapT.current); tapT.current = null;
+      if (!likedByMe && onToggleLike) onToggleLike();
+      spawnHeart(x, y);
+    } else {
+      tapT.current = setTimeout(() => {
+        tapT.current = null;
+        const v = vidRef.current; if (!v) return;
+        if (v.paused) { v.play().catch(() => {}); setPaused(false); } else { v.pause(); setPaused(true); }
+      }, 260);
+    }
+  };
+  const share = async (e) => {
+    e.stopPropagation();
+    const url = "https://tigaalpha.github.io/";
+    try { await navigator.share({ title: "TiGA Piano — " + s.title, url }); }
+    catch (err) { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch (e2) {} }
+  };
   if (!active) return <div className="vidplaceholder">🎬</div>;
+  const rail = (
+    <div className="vidrail" onClick={e => e.stopPropagation()}>
+      <div className="vidavatar">TG</div>
+      <button className={`vidact${likedByMe ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); if (onToggleLike) onToggleLike(); }}>
+        <span className="vidact-ic">❤️</span>
+        <span className="vidact-n">{fmtLikes(likeN) || T("ถูกใจ", "Like", "赞")}</span>
+      </button>
+      <button className="vidact" onClick={(e) => { e.stopPropagation(); if (onAsk) onAsk(s.title); }}>
+        <span className="vidact-ic">💬</span>
+        <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
+      </button>
+      <button className={`vidact${faved ? " fav" : ""}`} onClick={(e) => { e.stopPropagation(); const v = !faved; setFaved(v); writeVidFav(s.fileId, v); }}>
+        <span className="vidact-ic">🔖</span>
+        <span className="vidact-n">{T("บันทึก", "Save", "收藏")}</span>
+      </button>
+      <button className="vidact" onClick={share}>
+        <span className="vidact-ic">↗️</span>
+        <span className="vidact-n">{T("แชร์", "Share", "分享")}</span>
+      </button>
+      <div className="viddisc">🎵</div>
+    </div>
+  );
+  const heartsJsx = hearts.map(hh => (
+    <span key={hh.id} className="vidheart" style={{ left: hh.x - 37, top: hh.y - 37 }}>
+      <span style={{ display: "inline-block", transform: `rotate(${hh.rot}deg)` }}>❤️</span>
+    </span>
+  ));
+  if (failed) {
+    // raw stream unavailable → Google's own player, but the TikTok chrome stays
+    return (
+      <>
+        <iframe className="vidplayer" src={`https://drive.google.com/file/d/${s.fileId}/preview`}
+          allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
+        {rail}
+        {copied && <div className="vidtoast">{T("คัดลอกลิงก์แล้ว!", "Link copied!", "已复制链接！")}</div>}
+      </>
+    );
+  }
   return (
     <>
-      <video ref={vidRef} className="vidplayer" src={srcs[srcIdx]} playsInline loop preload="auto"
+      <video ref={vidRef} className="vidplayer" src={srcs[srcIdx]} playsInline preload="auto"
+        onEnded={() => { if (onEnded) onEnded(); }}
         onError={() => { if (srcIdx + 1 < srcs.length) setSrcIdx(srcIdx + 1); else setFailed(true); }}
         onTimeUpdate={() => { const v = vidRef.current, b = barRef.current; if (v && b && v.duration) b.style.width = ((v.currentTime / v.duration) * 100) + "%"; }}
-        onClick={() => { const v = vidRef.current; if (!v) return; if (v.paused) { v.play().catch(() => {}); setPaused(false); } else { v.pause(); setPaused(true); } }} />
+        onClick={onTap} />
       {paused && <div className="vidpause">▶</div>}
       <button className="vidmute" onClick={(e) => { e.stopPropagation(); const v = vidRef.current; if (!v) return; v.muted = !v.muted; setMuted(v.muted); if (!v.muted) v.play().catch(() => {}); }}>
         {muted ? "🔇" : "🔊"}
       </button>
+      {rail}
+      {heartsJsx}
       <div className="vidbar"><span ref={barRef} /></div>
+      {copied && <div className="vidtoast">{T("คัดลอกลิงก์แล้ว!", "Link copied!", "已复制链接！")}</div>}
     </>
   );
 }
-const VideoLessonsPage = memo(function VideoLessonsPage({ lang }) {
+const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
   const lc = L[lang];
   const [slides, setSlides] = useState(null); // null = loading
   const [activeKey, setActiveKey] = useState(null);
+  const [likes, setLikes] = useState({});     // fileId -> {n, me} — REAL cross-user like counts
   const slideRefs = useRef([]);
+  function toggleLike(fid) {
+    const cur = likes[fid] || { n: 0, me: false };
+    const next = cur.me ? { n: Math.max(0, cur.n - 1), me: false } : { n: cur.n + 1, me: true };
+    setLikes(p => ({ ...p, [fid]: next })); // optimistic — the write follows in the background
+    playUi("click"); haptic(8);
+    sb.auth.getSession().then(({ data }) => {
+      const uid = data && data.session && data.session.user && data.session.user.id;
+      if (!uid) return;
+      if (cur.me) sb.from("video_likes").delete().eq("user_id", uid).eq("file_id", fid).then(() => {}, () => {});
+      else sb.from("video_likes").insert({ user_id: uid, file_id: fid }).then(() => {}, () => {});
+    }, () => {});
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -4548,6 +4662,16 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang }) {
       if (cancelled) return;
       setSlides(out);
       if (out.length) setActiveKey(out[0].key);
+      // pull the real like counts for every video in one call
+      const ids = [...new Set(out.filter(x => x.fileId).map(x => x.fileId))];
+      if (ids.length) {
+        sb.rpc("get_video_like_counts", { ids }).then(({ data: lk }) => {
+          if (cancelled || !lk) return;
+          const m = {};
+          for (const r of lk) m[r.file_id] = { n: Number(r.likes) || 0, me: !!r.liked_by_me };
+          setLikes(m);
+        }, () => {});
+      }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -4572,6 +4696,16 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang }) {
       <div className="admstu-empty">{lc.videosEmpty}</div>
     </div>
   );
+  // a finished clip auto-advances the feed to the next slide (binge flow) —
+  // scrolling it into view flips the IntersectionObserver's "active" slide,
+  // which mounts that video and autoplays it. After the last clip, wrap to
+  // the first (instant jump — smooth-scrolling back across 17 slides is dizzy).
+  const advance = (i) => {
+    const next = (i + 1) % slides.length;
+    const el = slideRefs.current[next];
+    if (el) el.scrollIntoView({ behavior: next > i ? "smooth" : "auto", block: "start" });
+  };
+  const musicTx = (lang === "th" ? "เสียงต้นฉบับ — TiGA Piano Studio" : lang === "zh" ? "原声 — TiGA Piano Studio" : "Original sound — TiGA Piano Studio");
   return (
     <div className="vidfeed">
       {slides.map((s, i) => (
@@ -4582,11 +4716,18 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang }) {
                   allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
               : <div className="vidplaceholder">🎬</div>
           ) : (
-            <VideoSlide s={s} active={activeKey === s.key} />
+            <VideoSlide s={s} active={activeKey === s.key} lang={lang} onEnded={() => advance(i)} onAsk={onAsk}
+              likeN={(likes[s.fileId] || {}).n || 0} likedByMe={!!(likes[s.fileId] || {}).me} onToggleLike={() => toggleLike(s.fileId)} />
           )}
+          <div className="vidtopfade" />
           <div className="vidmeta">
+            <div className="vidhandle">@TiGA.Piano.Studio</div>
             <div className="vidtitle">{s.title}</div>
             {s.desc && <div className="viddesc">{s.desc}</div>}
+            <div className="vidmusic">
+              <span>🎵</span>
+              <div className="vidmusic-wrap"><div className="vidmusic-tx">{musicTx} · {musicTx} · </div></div>
+            </div>
           </div>
         </div>
       ))}
@@ -6138,7 +6279,7 @@ function AdminAnalytics({ lang }) {
   return (
     <div className="adminpay">
       <div className="billtoggle">
-        {[["7", T("7 วัน", "7d", "7天")], ["30", T("30 วัน", "30d", "30天")], ["all", T("ทั้งหมด", "All time", "全部")]].map(([v, l]) => (
+        {[["1", T("1 วัน", "1d", "1天")], ["7", T("7 วัน", "7d", "7天")], ["30", T("30 วัน", "30d", "30天")], ["all", T("ทั้งหมด", "All time", "全部")]].map(([v, l]) => (
           <button key={v} className={`billtog${range === v ? " on" : ""}`} onClick={() => setRange(v)}>{l}</button>
         ))}
       </div>
@@ -9091,7 +9232,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: VIDEO LESSONS ─── */}
       {page === "videos" && (
-        <VideoLessonsPage lang={lang} />
+        <VideoLessonsPage lang={lang} onAsk={(t) => {
+          playUi("click");
+          setInput((lang === "th" ? 'ช่วยสอนเพิ่มเติมจากวิดีโอบทเรียน "' : lang === "zh" ? '请给我详细讲讲视频课程 "' : 'Teach me more about the video lesson "') + t + '"');
+          setPage("sensei");
+        }} />
       )}
 
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
