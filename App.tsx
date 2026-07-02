@@ -1,5 +1,42 @@
 import { useState, useRef, useEffect, useMemo, memo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
+import qrcode from "qrcode-generator";
+
+/* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
+   No gateway, no fees: money goes directly to the configured PromptPay ID. ── */
+function _ppTLV(id, val) { const l = String(val.length).padStart(2, "0"); return id + l + val; }
+function _ppCrc16(s) {
+  let crc = 0xffff;
+  for (let i = 0; i < s.length; i++) {
+    crc ^= s.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
+// target = mobile number (0xxxxxxxxx) or national/tax id (13 digits); amount in THB
+function promptPayPayload(target, amount) {
+  const digits = String(target || "").replace(/[^0-9]/g, "");
+  if (!digits) return "";
+  let acc, tag;
+  if (digits.length >= 13) { acc = digits.slice(0, 13); tag = "02"; }      // national / tax id
+  else {                                                                    // mobile → 0066 + 9 digits (13 total)
+    let local = digits; if (local.startsWith("66")) local = local.slice(2); local = local.replace(/^0+/, "");
+    acc = "0066" + local; tag = "01";
+  }
+  const merchant = _ppTLV("00", "A000000677010111") + _ppTLV(tag, acc);
+  let s = _ppTLV("00", "01") + _ppTLV("01", amount > 0 ? "12" : "11") + _ppTLV("29", merchant) + _ppTLV("53", "764") + _ppTLV("58", "TH");
+  if (amount > 0) s += _ppTLV("54", Number(amount).toFixed(2));
+  s += "6304";
+  return s + _ppCrc16(s);
+}
+function promptPayQR(target, amount) {
+  try {
+    const payload = promptPayPayload(target, amount);
+    if (!payload) return null;
+    const qr = qrcode(0, "M"); qr.addData(payload); qr.make();
+    return qr.createDataURL(6, 12);   // PNG data URL
+  } catch (e) { return null; }
+}
 
 /* ── Note frequencies ── */
 // Equal-temperament note frequencies, generated for a wide range (C2–C7) so the
@@ -111,6 +148,17 @@ function identifyScaleRun(pcs) {
   return best ? best.label : null;
 }
 function interpretPlayed(pcs) { return identifyChord(pcs) || identifyScaleRun(pcs); }
+// what the chat log SHOWS: strip the [play:]/[chord:]/... tool syntax and any
+// stray screenplay-style *action* text the model might slip into (never meant
+// to be read literally — cleanForTTS strips it from SPEECH; this keeps the
+// on-screen transcript matching what was actually said).
+function vmDisplayText(reply) {
+  return String(reply || "")
+    .replace(/\[(?:play|chord|highlight|staff|practice|song|metro|posture|ear)[^\]]*\]/gi, "")
+    .replace(/\*\*/g, "")               // strip bold markers FIRST (see cleanForTTS) so they can't
+    .replace(/\*[^*\n]{1,60}\*/g, "")   // mis-pair with the single-star stage-direction strip below
+    .replace(/\s{2,}/g, " ").trim();
+}
 // analyze timing from note onset timestamps (ms) → tempo + steadiness + rush/drag
 function rhythmReport(times) {
   if (!times || times.length < 3) return "";
@@ -973,7 +1021,281 @@ Music lowers cortisol, blood pressure and anxiety — used before/during surgery
 💡 要点：音乐是没有副作用的良药，疗愈身心。`,
     },
   },
+  {
+    id: "music-marketing", icon: "📣", level: 15, color: "#ff6ec7", group: "benefits",
+    title: { th: "การตลาดสำหรับศิลปิน", en: "Marketing for Artists", zh: "音乐人营销" },
+    subtitle: { th: "ทำเพลงให้ดังและขายได้", en: "Get heard & get paid", zh: "让作品被听见并变现" },
+    content: {
+      th: `📣 ยุคนี้ "เก่งอย่างเดียวไม่พอ" — ต้องทำให้คนได้ยินและรักคุณด้วย
+
+🎯 หัวใจ 3 ข้อ
+• สร้างฐานแฟน (fanbase) ที่ผูกพัน ไม่ใช่แค่ยอดวิว
+• เลือกแพลตฟอร์มให้ถูก — TikTok/Reels คือเครื่องมือค้นพบเบอร์ 1 ของยุคนี้
+• หารายได้หลายทาง: สตรีม + ทัวร์ + สินค้า (merch) + แฟนคลับโดยตรง
+
+💸 ความจริงเรื่องเงิน
+สตรีมมิ่งจ่ายน้อยมาก (ต่อสตรีม ~$0.003–0.005) ศิลปินยุคใหม่จึงโตด้วย "แฟนตัวจริง" ที่ยอมจ่าย — ทัวร์ เสื้อ ของสะสม และช่องทางตรงถึงแฟน
+
+👉 แตะกรณีศึกษาด้านล่างเพื่อดูว่าศิลปินระดับโลกทำการตลาดยังไง`,
+      en: `📣 Today, talent alone isn't enough — you must be heard and loved too.
+
+🎯 Three essentials
+• Build a real, bonded fanbase, not just view counts
+• Pick the right platform — short video (TikTok/Reels) is today's #1 discovery engine
+• Earn from many streams: streaming + touring + merch + direct-to-fan
+
+💸 The money truth
+Streaming pays very little (~$0.003–0.005 per stream), so modern artists grow on TRUE fans who pay — tours, shirts, collectibles and direct channels.
+
+👉 Tap a case study below to see how world-class artists market themselves.`,
+      zh: `📣 如今光有才华还不够——还必须被听见、被喜爱。
+
+🎯 三大要点
+• 打造真正有黏性的粉丝群，而不只是播放量
+• 选对平台——短视频（TikTok/Reels）是当今头号发现引擎
+• 多元收入：流媒体 + 巡演 + 周边 + 直接面向粉丝
+
+💸 关于钱的真相
+流媒体单次播放收入极低（约 $0.003–0.005），所以现代音乐人靠"真爱粉"变现——巡演、T恤、收藏品与直连渠道。
+
+👉 点击下方案例，看看世界级音乐人如何做营销。`,
+    },
+  },
 ];
+
+/* ── Local (non-AI) lesson content for the Pathway's core theory stages ──
+   Scale/interval/triad/7th-chord topics are 100% formulaic — the same key
+   + topic always deserves the exact same theory-accurate lesson, so we
+   build it from data already in this file (transposed demo notes + the
+   FEEL tables below) instead of re-asking the live AI every time. Instant,
+   free, and just as accurate. Anything NOT covered here (tension/block/
+   slash/pad chords, or a types-having stage with no type picked yet)
+   still asks the live AI exactly as before — prepared answer first, live
+   AI as the fallback, never the only option. */
+const INTERVAL_FEEL = {
+  m2: { th: "เสียงเสียดสีที่สุด ตึงเครียด ต้องการคลี่คลายทันที", en: "the sharpest, most dissonant clash — it wants to resolve immediately", zh: "最尖锐、最不协和，急切地想要解决" },
+  M2: { th: "ขั้นก้าวเล็ก ๆ ที่ทำนองส่วนใหญ่ใช้เดินเสียง", en: "a small melodic step — most tunes move by this distance", zh: "小步进，大多数旋律都靠它移动" },
+  m3: { th: "เศร้า อบอุ่น เป็นฐานของคอร์ดไมเนอร์ทุกตัว", en: "sad and warm — the backbone of every minor chord", zh: "忧伤而温暖，是所有小三和弦的基础" },
+  M3: { th: "สดใส มั่นคง เป็นฐานของคอร์ดเมเจอร์ทุกตัว", en: "bright and confident — the backbone of every major chord", zh: "明亮稳固，是所有大三和弦的基础" },
+  P4: { th: "เปิดกว้าง ค่อนข้างมั่นคง แต่ยังรอการคลี่คลาย", en: "open and fairly stable, but still leans toward resolving", zh: "开阔而较稳定，但仍倾向于解决" },
+  TT: { th: "ไม่มั่นคงที่สุดในดนตรี ฉายา 'ขั้นคู่ปีศาจ'", en: "the most unstable interval in music — nicknamed 'the devil's interval'", zh: "音乐中最不稳定的音程，绰号'魔鬼音程'" },
+  P5: { th: "มั่นคงและทรงพลังที่สุด เป็นฐานของคอร์ดแทบทุกชนิด", en: "the most stable and powerful — almost every chord is built on it", zh: "最稳定有力，几乎所有和弦都建立在它之上" },
+  m6: { th: "หวานปนเศร้า ให้ความรู้สึกโรแมนติก", en: "bittersweet — has a romantic, wistful color", zh: "苦乐参半，带着浪漫的色彩" },
+  M6: { th: "หวาน อบอุ่น ให้ความรู้สึกมีความหวัง", en: "sweet, warm, and hopeful", zh: "甜美温暖，充满希望" },
+  m7: { th: "กลิ่นอายแจ๊สซี่ อยากคลี่คลายลงมา", en: "jazzy — it wants to resolve downward", zh: "带着爵士味，渴望向下解决" },
+  M7: { th: "ฝันลอย ซับซ้อน หรูหรา", en: "dreamy, sophisticated, and lush", zh: "梦幻、精致、华丽" },
+  P8: { th: "โน้ตตัวเดียวกันในเสียงที่สูงขึ้น กลมกลืนที่สุดเท่าที่จะเป็นได้", en: "the same note an octave up — the most perfectly blended sound possible", zh: "同一个音高八度，是最完美融合的声音" },
+};
+const TRIAD_FEEL = {
+  major: { th: "เสียงสดใส มั่นคง มีความสุข", en: "bright, stable, happy", zh: "明亮、稳定、快乐", formula: "1–3–5" },
+  minor: { th: "เสียงเศร้า นุ่มลึก ให้ความรู้สึกดิบ", en: "sad, soft, and raw", zh: "忧伤、柔和、真实", formula: "1–♭3–5" },
+  dim: { th: "เสียงตึง อึดอัด ไม่มั่นคง มักใช้เชื่อมคอร์ด", en: "tense, uneasy, unstable — often used as a passing chord", zh: "紧张、压抑、不稳定，常用作过渡和弦", formula: "1–♭3–♭5" },
+  aug: { th: "เสียงแปลก ลึกลับ ล่องลอย", en: "strange, mysterious, floating", zh: "奇特、神秘、飘忽", formula: "1–3–♯5" },
+};
+const SEVENTH_FEEL = {
+  maj7: { th: "หรูหรา นุ่มนวล ฟังสบาย", en: "lush and smooth — easy on the ear", zh: "华丽、柔顺、悦耳", formula: "1–3–5–7" },
+  dom7: { th: "อยากคลี่คลายลงไป มักใช้ในบลูส์/แจ๊ส", en: "wants to resolve — a staple of blues and jazz", zh: "渴望解决，是蓝调与爵士的常客", formula: "1–3–5–♭7" },
+  min7: { th: "นุ่ม เท่ ผ่อนคลาย", en: "soft, cool, and relaxed", zh: "柔和、酷、放松", formula: "1–♭3–5–♭7" },
+  minmaj7: { th: "ลึกลับ สไตล์ธีมสายลับ", en: "mysterious — classic spy-movie sound", zh: "神秘，经典间谍片音色", formula: "1–♭3–5–7" },
+  halfdim: { th: "หม่นเศร้า ตึงเครียดเบา ๆ", en: "melancholy, gently tense", zh: "忧郁，略带紧张", formula: "1–♭3–♭5–♭7" },
+  dim7: { th: "ตึงที่สุดในกลุ่มนี้ ใช้เชื่อมคอร์ดได้อย่างนุ่มนวล", en: "the tensest of the group — a smooth connector between chords", zh: "此组中最紧张，是和弦间的圆滑过渡", formula: "1–♭3–♭5–♭♭7" },
+  aug7: { th: "โดมินันต์แปลกๆ อยากคลี่คลายแบบมีสีสัน", en: "an edgy dominant that resolves with extra color", zh: "另类属和弦，带着色彩感解决", formula: "1–3–♯5–♭7" },
+  augmaj7: { th: "ฝันลอย ล้ำสมัย", en: "dreamy and futuristic", zh: "梦幻、前卫", formula: "1–3–♯5–7" },
+};
+function degreeLabel(i, lang) {
+  const TH = ["ราก (Root)", "3rd", "5th", "7th"], EN = ["Root", "3rd", "5th", "7th"], ZH = ["根音 (Root)", "三音", "五音", "七音"];
+  const arr = lang === "th" ? TH : lang === "zh" ? ZH : EN;
+  return arr[i] || `#${i + 1}`;
+}
+// stage/key/type → ready-made lesson text, or null (→ caller falls through to the live AI)
+function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes, fullTitle, lang) {
+  const notesTxt = demoNotes.join(" ");
+  if (stage.demoMode === "scale" && !stage.types) {
+    const T = {
+      th: `🎼 ${fullTitle} · ${keyLabel}\n\nโน้ตทั้งหมด: ${notesTxt}\nสูตรระยะห่าง (Whole/Half step): W-W-H-W-W-W-H\n\nนี่คือบันไดเสียงเมเจอร์ — สูตรระยะห่างนี้ใช้ได้กับทุกคีย์เหมือนกันหมด แค่เปลี่ยนโน้ตเริ่มต้น เสียงจะให้ความรู้สึกสดใส มั่นคง เป็นฐานของเพลงส่วนใหญ่ที่เราคุ้นเคย\n\n💡 ฝึกแยกมือก่อน ไล่ขึ้น-ลงช้า ๆ ให้จังหวะสม่ำเสมอ นิ้วโป้งต้องสอดลอดใต้ฝ่ามือแบบนุ่มนวลไม่ยกข้อมือ (ดูเลขนิ้วในผังด้านล่าง) พอชัวร์แล้วค่อยเพิ่มความเร็ว`,
+      en: `🎼 ${fullTitle} · ${keyLabel}\n\nAll notes: ${notesTxt}\nStep formula: W-W-H-W-W-W-H (Whole-Whole-Half-Whole-Whole-Whole-Half)\n\nThis is the major scale — that exact step pattern is identical in every key, you just shift the starting note. It sounds bright and stable, and it's the foundation under most music you already know.\n\n💡 Practice hands separately first, slow and even up and down. The thumb should tuck smoothly under the palm without lifting the wrist (see the fingering chart below) — only speed up once it's steady.`,
+      zh: `🎼 ${fullTitle} · ${keyLabel}\n\n所有音符：${notesTxt}\n音程公式：W-W-H-W-W-W-H（全-全-半-全-全-全-半）\n\n这是大调音阶——这个公式在每个调都完全一样，只是起始音不同。听起来明亮稳定，是你熟悉的大多数音乐的基础。\n\n💡 先分手练习，上下行都要慢而均匀。大拇指要平顺地穿到手掌下方，不要抬起手腕（参考下方指法图），稳了再加速。`,
+    };
+    return T[lang] || T.en;
+  }
+  if (chordType && INTERVAL_FEEL[chordType.id]) {
+    const f = INTERVAL_FEEL[chordType.id];
+    const T = {
+      th: `📏 ${fullTitle} · ${keyLabel}\n\nโน้ต: ${notesTxt} (${degreeLabel(0, lang)} → ${chordType.symbol})\nลักษณะเสียง: ${f.th}\n\n💡 กดสองโน้ตนี้พร้อมกันฟังสีสันของมัน แล้วลองกดแยกทีละตัว (broken) เทียบความรู้สึก ลองหาขั้นคู่นี้ในเพลงที่ชอบดูว่าใช้ตรงไหน`,
+      en: `📏 ${fullTitle} · ${keyLabel}\n\nNotes: ${notesTxt} (${degreeLabel(0, lang)} → ${chordType.symbol})\nCharacter: ${f.en}\n\n💡 Play both notes together and listen to that color, then try them broken (one at a time) to compare. See if you can spot this interval in a song you like.`,
+      zh: `📏 ${fullTitle} · ${keyLabel}\n\n音符：${notesTxt}（${degreeLabel(0, lang)} → ${chordType.symbol}）\n音色：${f.zh}\n\n💡 同时按下这两个音感受它的色彩，再分开弹（broken）比较一下。试试在喜欢的歌里找找这个音程。`,
+    };
+    return T[lang] || T.en;
+  }
+  if (chordType && TRIAD_FEEL[chordType.id]) {
+    const f = TRIAD_FEEL[chordType.id];
+    const degs = demoNotes.map((n, i) => `${degreeLabel(i, lang)}=${n}`).join(", ");
+    const T = {
+      th: `🔺 ${fullTitle} · ${keyLabel}\n\nสูตร: ${f.formula}\nโน้ต: ${notesTxt} (${degs})\nลักษณะเสียง: ${f.th}\n\n💡 กดทั้ง 3 โน้ตพร้อมกันเป็น Block chord ก่อน ฟังสีสันให้ชิน แล้วลองไล่ทีละตัว (Broken/Arpeggio) จากล่างขึ้นบน`,
+      en: `🔺 ${fullTitle} · ${keyLabel}\n\nFormula: ${f.formula}\nNotes: ${notesTxt} (${degs})\nCharacter: ${f.en}\n\n💡 Play all 3 notes together as a block chord first and get used to the color, then try it broken (arpeggiated) from the bottom up.`,
+      zh: `🔺 ${fullTitle} · ${keyLabel}\n\n公式：${f.formula}\n音符：${notesTxt}（${degs}）\n音色：${f.zh}\n\n💡 先把3个音同时按下作为块状和弦，熟悉它的音色，再从下往上分解弹奏（琶音）。`,
+    };
+    return T[lang] || T.en;
+  }
+  if (chordType && SEVENTH_FEEL[chordType.id]) {
+    const f = SEVENTH_FEEL[chordType.id];
+    const degs = demoNotes.map((n, i) => `${degreeLabel(i, lang)}=${n}`).join(", ");
+    const T = {
+      th: `7️⃣ ${fullTitle} · ${keyLabel}\n\nสูตร: ${f.formula}\nโน้ต: ${notesTxt} (${degs})\nลักษณะเสียง: ${f.th}\n\n💡 กดพร้อมกันฟังก่อน แล้วลองไล่ทีละตัวจากล่างขึ้นบน คอร์ด 7 มักใช้ในแจ๊ส โซล และฟังก์`,
+      en: `7️⃣ ${fullTitle} · ${keyLabel}\n\nFormula: ${f.formula}\nNotes: ${notesTxt} (${degs})\nCharacter: ${f.en}\n\n💡 Play it as a block first, then roll it from the bottom up. 7th chords show up constantly in jazz, soul and funk.`,
+      zh: `7️⃣ ${fullTitle} · ${keyLabel}\n\n公式：${f.formula}\n音符：${notesTxt}（${degs}）\n音色：${f.zh}\n\n💡 先同时按下听听，再从下往上分解弹奏。七和弦在爵士、灵魂乐和放克中非常常见。`,
+    };
+    return T[lang] || T.en;
+  }
+  return null; // no local template for this combo — ask the live AI (2nd tier)
+}
+
+/* World-class case studies — clickable sub-topics under each "benefits" chapter */
+const BENEFIT_CASES = {
+  "why-music": [
+    { id: "elsistema", icon: "🇻🇪", title: { th: "El Sistema", en: "El Sistema", zh: "El Sistema 体系" },
+      content: { th: `🇻🇪 El Sistema — จากโรงรถร้างสู่เด็ก 1.2 ล้านคน\n\nปี 1975 José Antonio Abreu นักเศรษฐศาสตร์และนักดนตรีชาวเวเนซุเอลา รวมเด็ก 11 คนในโรงจอดรถร้างกลางกรุงการากัส เริ่มซ้อมดนตรีด้วยกัน เขาเรียกแนวคิดนี้ว่า 'ดนตรีเพื่อการเปลี่ยนแปลงทางสังคม' — และที่สำคัญคือให้กระทรวง 'สวัสดิการสังคม' เป็นผู้สนับสนุนงบ ไม่ใช่กระทรวงศิลปวัฒนธรรม ความตั้งใจชัดเจนตั้งแต่วันแรก: นี่ไม่ใช่โครงการปั้นนักเปียโนคอนเสิร์ต แต่เป็นการมอบสิ่งที่กล่องไวโอลินเก็บไว้ได้ แต่แก๊งอันธพาลแย่งไปไม่ได้ — วินัย ความรู้สึกเป็นส่วนหนึ่ง และเหตุผลให้มาโรงเรียนทุกวัน\n\nผ่านไป 50 ปี El Sistema (ชื่อทางการ FESNOJIV) เข้าถึงเด็กราว 1.2 ล้านคนทั่วเวเนซุเอลา จากที่มีเพียง 60,000 คนตอน Eduardo Méndez เข้ารับตำแหน่งผู้อำนวยการบริหารปี 2008 ศิษย์เก่าที่โด่งดังที่สุดคือ Gustavo Dudamel ผู้เริ่มเล่นไวโอลินตั้งแต่เด็กใน El Sistema และปัจจุบันเป็นผู้อำนวยการดนตรีของทั้ง LA Philharmonic และวง Simón Bolívar Symphony Orchestra ของเวเนซุเอลาเอง — วงเดียวกับที่ระบบนี้ปั้นเขาขึ้นมา ภายหลัง Dudamel ยังสร้าง YOLA (Youth Orchestra Los Angeles) ในสหรัฐฯ นำโมเดลของ El Sistema — แจกเครื่องดนตรีฟรี ซ้อมกลุ่มทุกวัน รุ่นพี่สอนรุ่นน้อง — ไปปลูกในย่านยากจนที่สุดของ LA\n\nแนวคิดนี้ถูกนำไปใช้ทั่วโลก ปัจจุบันมีโครงการที่ได้แรงบันดาลใจจาก El Sistema ในกว่า 70 ประเทศ รวมถึงอย่างน้อย 80 โครงการแยกกันในสหรัฐฯ เพียงประเทศเดียว\n\n💡 บทเรียน: El Sistema ไม่ได้สำเร็จเพราะสอนทฤษฎีดนตรีเร็วกว่าใคร แต่สำเร็จเพราะการเล่นดนตรีเป็นวง — การมาให้ตรงเวลา ฟังเพื่อนร่วมวง เล่นส่วนของตัวเองให้วงทั้งหมดฟังดี — สอนทักษะสังคมที่ชุมชนยากไร้ต้องการที่สุดโดยไม่รู้ตัว (วินัย การทำงานเป็นทีม คุณค่าในตัวเอง) สิ่งที่ Abreu คิดค้นจริงๆ ไม่ใช่หลักสูตร แต่คือการทำให้ดนตรีเป็น 'นโยบายสังคม' ไม่ใช่แค่ 'นโยบายศิลปะ'`,
+        en: `🇻🇪 El Sistema — from a garage to 1.2 million children\n\nIn 1975, Venezuelan economist, musician and activist José Antonio Abreu gathered just 11 students in an abandoned parking garage in Caracas and started rehearsing. He called his idea 'Music for Social Change' — and, crucially, had it funded not by the ministry of arts, but by the ministry of social welfare. The message was clear from day one: this was never really about producing concert pianists. It was about giving Venezuela's poorest children something a violin case can hold that a rival gang can't take away — discipline, belonging, and a reason to show up every single day.\n\nFifty years later, El Sistema (formally FESNOJIV) reaches an estimated 1.2 million children across Venezuela, up from about 60,000 when Eduardo Méndez became executive director in 2008. Its most famous graduate is Gustavo Dudamel, who started on the violin as a boy in El Sistema and now serves as Music & Artistic Director of both the Los Angeles Philharmonic and Venezuela's own Simón Bolívar Symphony Orchestra — the very orchestra the program built him toward. Dudamel later built YOLA (Youth Orchestra Los Angeles) in the US, transplanting El Sistema's model — free instruments, daily group rehearsal, older students teaching younger ones — into some of LA's poorest neighborhoods.\n\nThe idea proved exportable: comparable 'El Sistema-inspired' programs now operate in more than 70 countries, including at least 80 separate programs across the United States alone.\n\n💡 Lesson: El Sistema didn't succeed by teaching music theory faster. It succeeded because ensemble music — showing up, listening to each other, playing your part so the whole group sounds right — quietly teaches the exact social skills (discipline, teamwork, self-worth) struggling communities need most. Abreu's real invention wasn't a curriculum; it was funding music as social policy, not art policy.`,
+        zh: `🇻🇪 El Sistema——从废弃车库到120万儿童\n\n1975年，委内瑞拉经济学家兼音乐家何塞·安东尼奥·阿布雷乌（José Antonio Abreu）在加拉加斯一个废弃停车场里召集了11名学生，开始一起排练。他把这个构想称为"音乐促进社会变革"——关键在于，资助它的不是文化艺术部，而是社会福利部。从第一天起，目标就很清楚：这从来不是要培养音乐会钢琴家，而是给委内瑞拉最贫困的孩子一样帮派抢不走的东西——纪律、归属感，以及每天都愿意出现的理由。\n\n五十年后，El Sistema（正式名称FESNOJIV）覆盖委内瑞拉全国约120万儿童，而2008年Eduardo Méndez就任执行主任时这个数字仅约6万。最著名的毕业生是古斯塔沃·杜达梅尔（Gustavo Dudamel），他幼年在El Sistema学习小提琴，如今身兼洛杉矶爱乐乐团与委内瑞拉西蒙·玻利瓦尔交响乐团（正是培养他的那支乐团）的音乐总监。后来杜达梅尔在美国创立YOLA（洛杉矶青年管弦乐团），把El Sistema的模式——免费乐器、每日集体排练、高年级教低年级——移植到洛杉矶最贫困的社区。\n\n这个理念被证明可以输出：如今全球70多个国家都有受El Sistema启发的类似项目，仅美国一地就有至少80个独立项目。\n\n💡 启示：El Sistema的成功不是因为教乐理教得更快，而是因为合奏音乐——准时到场、倾听同伴、弹好自己的声部让整体听起来和谐——在不知不觉中教会了贫困社区最需要的社会技能（纪律、协作、自我价值感）。阿布雷乌真正的创造不是一套课程，而是把音乐当作"社会政策"而非"艺术政策"来投入资金。` } },
+    { id: "voyager", icon: "🛰️", title: { th: "แผ่นทองคำ Voyager", en: "NASA Golden Record", zh: "旅行者金唱片" },
+      content: { th: `🛰️ แผ่นเสียงทองคำ — เมื่อมนุษย์เลือก "ดนตรี" เป็นตัวแทนตัวเอง\n\nปี 1977 แผ่นเสียงทองแดงชุบทองคำที่เหมือนกันสองแผ่นถูกติดไว้ข้างยานอวกาศ Voyager 1 และ Voyager 2 ของนาซาก่อนปล่อยออกไปยังขอบระบบสุริยะ คณะกรรมการที่มีนักดาราศาสตร์ Carl Sagan เป็นประธาน — พร้อมด้วยผู้กำกับศิลป์ Ann Druyan, โปรดิวเซอร์ Timothy Ferris, นักชาติพันธุ์ดนตรีวิทยา Robert E. Brown และ Alan Lomax และวิศวกรเสียงหนุ่มชื่อ Jimmy Iovine (ผู้ภายหลังร่วมก่อตั้งค่าย Interscope Records และแบรนด์ Beats) — ต้องตัดสินใจภายในไม่กี่เดือนว่าอะไรคือตัวแทนที่ดีที่สุดของมวลมนุษยชาติ สำหรับใครก็ตามที่อาจพบแผ่นนี้สักวันหนึ่ง ที่ไหนสักแห่ง\n\nพวกเขาเลือกภาพ 116 ภาพ เสียงธรรมชาติอย่างลมและเสียงวาฬ คำทักทายใน 55 ภาษา — และหัวใจของแผ่นเสียงคือดนตรีความยาวราว 90 นาที รวม 27 เพลง ตั้งแต่ Bach และ Beethoven ไปจนถึงบทสวดกลางคืนของชาวนาวาโฮ จังหวะเพอร์คัสชันจากเซเนกัล ปี่แพนของเปรู และเพลงชากูฮาจิของญี่ปุ่น เพลงที่ถกเถียงกันมากที่สุดคือ "Johnny B. Goode" ของ Chuck Berry — Lomax แย้งว่าร็อกแอนด์โรลนั้น "เป็นแค่ของวัยรุ่น" ไม่ควรอยู่ในนั้น แต่คำตอบของ Sagan กลายเป็นหนึ่งในประโยคที่ถูกอ้างอิงมากที่สุดของโครงการนี้: "ในดาวเคราะห์ดวงนี้มีวัยรุ่นเยอะแยะนะ" ริฟฟ์กีตาร์ของ Berry จึงได้ไปต่อ\n\nอีกหนึ่งรายละเอียดที่คนไม่ค่อยพูดถึง: ทีมงานบันทึกคลื่นสมองและการเต้นของหัวใจของ Ann Druyan ผู้กำกับศิลป์เป็นเวลาราวหนึ่งชั่วโมง ขณะที่เธอคิดถึงประวัติศาสตร์โลก อารยธรรมต่างๆ และการตกหลุมรัก — แล้วบีบอัดชั่วโมงนั้นให้เหลือเสียงราวหนึ่งนาที บรรจุไว้ในแผ่นเดียวกัน\n\n💡 บทเรียน: จากทุกสิ่งที่มนุษย์เคยสร้างมา ทีมงานไม่ได้เลือกส่งสูตรคณิตศาสตร์หรือตำราปรัชญาไปเป็นบัตรแนะนำตัวของมนุษยชาติ พวกเขาเลือกส่ง "ดนตรี" — เพราะเชื่อว่านี่คือสิ่งเดียวที่อาจข้ามผ่านกำแพงภาษาที่อาจไม่ต้องใช้ภาษาเลยด้วยซ้ำ`,
+        en: `🛰️ The Golden Record — humanity picked music to speak for us\n\nIn 1977, two identical gold-plated copper phonograph records were bolted to the sides of NASA's Voyager 1 and Voyager 2 spacecraft before they launched toward, and eventually past, the edge of the solar system. A committee chaired by astronomer Carl Sagan — including creative director Ann Druyan, producer Timothy Ferris, ethnomusicologists Robert E. Brown and Alan Lomax, and a young sound engineer named Jimmy Iovine (who'd later co-found Interscope Records and Beats Electronics) — had to decide, in a few months, what best represented the entire human species to whoever might find it, someday, somewhere.\n\nThey chose 116 images, natural sounds like wind and whale song, spoken greetings in 55 languages — and, at the emotional center of the record, roughly 90 minutes of music: 27 tracks spanning Bach and Beethoven to a Navajo night chant, Senegalese percussion, Peruvian panpipes, and a Japanese shakuhachi piece. The most-debated inclusion was Chuck Berry's 'Johnny B. Goode.' Lomax argued rock and roll was 'adolescent' and didn't belong; Sagan's answer became one of the most quoted lines in the whole project: 'There are a lot of adolescents on the planet.' Berry's guitar riff won.\n\nOne more detail rarely makes it into the highlight reel: for about an hour, technicians recorded creative director Ann Druyan's own brainwaves and heartbeat while she thought about Earth's history, its civilizations, falling in love — then compressed that hour into roughly one minute of sound, riding along on the same record.\n\n💡 Lesson: given the entire span of human achievement to choose from, the team didn't send a mathematical proof or a philosophy text as humanity's calling card. They sent music — because it was the one thing they believed could cross a language barrier that might not even involve language at all.`,
+        zh: `🛰️ 金唱片——人类选择用"音乐"代表自己\n\n1977年，两张一模一样的镀金铜质唱片被固定在NASA旅行者1号和旅行者2号探测器的侧面，随后飞向并最终飞出太阳系边缘。一个由天文学家卡尔·萨根（Carl Sagan）担任主席的委员会——成员包括创意总监安·德鲁扬（Ann Druyan）、制作人蒂莫西·费里斯（Timothy Ferris）、民族音乐学家罗伯特·E·布朗和艾伦·洛马克斯，以及一位后来创办Interscope唱片公司和Beats品牌的年轻音响工程师吉米·艾欧文（Jimmy Iovine）——必须在短短几个月内决定：什么最能代表整个人类物种，留给未来某天、某处可能发现它的任何生命。\n\n他们最终选定116张图像、风声与鲸鸣等自然声音、55种语言的问候语——而唱片的情感核心，是约90分钟、27首曲目的音乐，横跨巴赫、贝多芬，到纳瓦霍夜间圣歌、塞内加尔打击乐、秘鲁排箫，以及日本尺八曲。争议最大的一首是查克·贝里（Chuck Berry）的《Johnny B. Goode》——洛马克斯认为摇滚乐"很幼稚"，不该收录；萨根的回应后来成了整个项目中被引用最多的一句话："这颗星球上幼稚的人可不少呢。"贝里的吉他即兴由此得以留下。\n\n还有一个鲜少被提起的细节：技术人员用约一小时记录了创意总监安·德鲁扬本人的脑电波与心跳，当时她正想着地球的历史、各种文明，以及坠入爱河的感觉——随后把这一小时压缩成约一分钟的声音，同样收录在唱片上。\n\n💡 启示：面对人类全部成就可供挑选，团队最终没有把数学定理或哲学著作当作人类的"名片"送出去。他们选择了音乐——因为他们相信，这是唯一可能跨越语言障碍、甚至根本不需要语言的东西。` } },
+    { id: "mozarteffect", icon: "🧠", title: { th: "Mozart Effect: จริงหรือมายา", en: "The Mozart Effect", zh: "莫扎特效应" },
+      content: { th: `🧠 ฟังโมสาร์ทแล้วฉลากขึ้น?\n• ความเชื่อ: ฟังเพลงโมสาร์ทแล้วไอคิวสูงขึ้น — งานวิจัยต้นฉบับ (1993) ถูกขยายเกินจริง ผลแค่ชั่วคราวและเล็กน้อย\n• ความจริง: การ "เล่น/เรียน" ดนตรีต่างหากที่เปลี่ยนสมองจริง — เพิ่มความจำ สมาธิ ภาษา และการประสานมือ-ตา\n💡 อย่าแค่ฟัง — ลงมือเล่น สมองถึงจะโตจริง`,
+        en: `🧠 Does Mozart make you smarter?\n• Myth: just listening raises IQ — the 1993 study was overhyped; the effect was tiny and temporary\n• Reality: LEARNING/playing music truly rewires the brain — memory, focus, language and coordination\n💡 Don't just listen — play. That's what grows the brain.`,
+        zh: `🧠 听莫扎特会变聪明吗？\n• 误解：光听就提高智商——1993年的研究被过度夸大，效果短暂且微弱\n• 真相：真正"学/弹"音乐才会重塑大脑——提升记忆、专注、语言与协调\n💡 别只听——动手弹，大脑才真正成长。` } },
+  ],
+  "music-business": [
+    { id: "intel", icon: "🔔", title: { th: "Intel 4 โน้ต", en: "Intel's 4 notes", zh: "英特尔4音" },
+      content: { th: `🔔 เสียง 4 โน้ตที่ดังที่สุดในโลก\n• Intel "bong" (1994) ยาวแค่ 3 วินาที แต่เคยถูกเล่นทุก ~5 นาทีที่ไหนสักแห่งบนโลก\n• กลายเป็นทรัพย์สินแบรนด์มูลค่ากว่า 200 ล้านดอลลาร์\n💡 sonic logo สั้น ๆ = จดจำได้ทั้งชีวิต`,
+        en: `🔔 The 4 most-played notes on Earth\n• Intel's "bong" (1994) is only 3 seconds, yet was once played every ~5 minutes somewhere in the world\n• Now a brand asset worth $200M+\n💡 A tiny sonic logo = a lifetime of recall.`,
+        zh: `🔔 全球最常被播放的4个音\n• 英特尔"bong"（1994）只有3秒，却曾每隔约5分钟就在世界某处响起\n• 如今是价值超2亿美元的品牌资产\n💡 极短的声音标志＝一生的记忆。` } },
+    { id: "mixue", icon: "🍦", title: { th: "Mixue ชานมจีน", en: "Mixue (China)", zh: "蜜雪冰城" },
+      content: { th: `🍦 เพลงเดียวดันแบรนด์โต 30,000+ สาขา\n• ปี 2021 Mixue ทำเพลงธีมจาก "Oh! Susanna" ร้องง่าย ติดหู\n• ไวรัลบน Douyin/TikTok ทะลุ 1,500 ล้านวิว คนแชร์-ล้อเลียนทั่วเอเชีย\n• ดันแบรนด์ชานม-ไอศกรีมราคาถูกโตระเบิด\n💡 ทำนองที่ "ติดหูและแชร์ง่าย" คือสื่อโฆษณาฟรี`,
+        en: `🍦 One song → 30,000+ stores\n• In 2021 Mixue's theme (from "Oh! Susanna") was simple and catchy\n• Went viral on Douyin/TikTok with 1.5B+ views, remixed across Asia\n• Powered explosive growth of the cheap tea-and-ice-cream chain\n💡 A catchy, shareable tune is free advertising.`,
+        zh: `🍦 一首歌 → 3万多家门店\n• 2021年蜜雪冰城主题曲（改编自《哦！苏珊娜》）简单洗脑\n• 在抖音/TikTok爆红，播放量超15亿，全亚洲二创\n• 推动这家平价茶饮冰淇淋连锁爆发式增长\n💡 洗脑又易传播的旋律＝免费广告。` } },
+    { id: "carabao", icon: "🐃", title: { th: "Carabao วงร็อก→แบรนด์โลก", en: "Carabao (Thailand)", zh: "卡拉宝（泰国）" },
+      content: { th: `🐃 จากวงเพื่อชีวิตสู่สปอนเซอร์บอลอังกฤษ\n• วงร็อก "คาราบาว" (แอ๊ด คาราบาว) ดังทั่วไทย\n• ต่อยอดเป็นเครื่องดื่มชูกำลัง Carabao Daeng\n• ซื้อสิทธิ์ตั้งชื่อ "Carabao Cup" ฟุตบอลอังกฤษ — ดังไปทั่วโลก\n💡 ชื่อเสียงทางดนตรี = สินทรัพย์แบรนด์ที่ต่อยอดได้มหาศาล`,
+        en: `🐃 From a rock band to an English football sponsor\n• "Carabao" (Add Carabao) was a famous Thai rock band\n• Extended into the Carabao Daeng energy drink\n• Bought naming rights to England's "Carabao Cup" — global fame\n💡 Musical fame is a brand asset you can build an empire on.`,
+        zh: `🐃 从摇滚乐队到英格兰足球赞助商\n• "卡拉宝"是泰国著名摇滚乐队\n• 延伸出卡拉宝能量饮料\n• 买下英格兰联赛杯冠名权"Carabao Cup"——闻名全球\n💡 音乐名气是可发展成帝国的品牌资产。` } },
+    { id: "mastercard", icon: "💳", title: { th: "Mastercard Sonic", en: "Mastercard Sonic", zh: "万事达声音品牌" },
+      content: { th: `💳 เสียงที่ดังทุกครั้งที่จ่ายเงิน\n• ปี 2019 Mastercard เปิดตัว "sonic brand" — เสียงสั้น ๆ ที่เล่นตอนจ่ายเงินสำเร็จทั่วโลก\n• สร้างความรู้สึกมั่นใจ-ปลอดภัยในเสี้ยววินาที\n• งานวิจัยชี้ แบรนด์ที่มี sonic logo ถูกจดจำมากขึ้นถึง ~8 เท่า\n💡 แม้แต่ "เสียงจ่ายเงิน" ก็เป็นการตลาด`,
+        en: `💳 The sound of every payment\n• In 2019 Mastercard launched a "sonic brand" — a short sound at successful checkout worldwide\n• Creates trust and reassurance in a split second\n• Brands with a sonic logo are recalled up to ~8× more\n💡 Even a payment sound is marketing.`,
+        zh: `💳 每次付款都会响起的声音\n• 2019年万事达推出"声音品牌"——全球付款成功时的短促之声\n• 在一瞬间营造信任与安心\n• 拥有声音标志的品牌记忆度可高出约8倍\n💡 连"付款声"都是营销。` } },
+  ],
+  "music-military": [
+    { id: "bagpipes", icon: "🎻", title: { th: "ปี่สก็อต อาวุธสงคราม", en: "Bagpipes of war", zh: "苏格兰风笛" },
+      content: { th: `🎻 เครื่องดนตรีที่ถูกขึ้นบัญชี "อาวุธ"\n• นักเป่าปี่สก็อต (piper) นำหน้าทหารเข้าสนามรบ เสียงปลุกใจฝ่ายตน-ข่มขวัญศัตรู\n• ในสงคราม เสียงปี่ดังทะลุเสียงปืน ทำให้ทหารไม่แตกแถว\n• เคยถูกศาลอังกฤษตัดสินว่าเป็น "เครื่องมือของสงคราม"\n💡 ดนตรี = ขวัญกำลังใจที่จับต้องได้ในสนามรบ`,
+        en: `🎻 An instrument once ruled a "weapon of war"\n• Scottish pipers led troops into battle — rallying their own, terrifying the enemy\n• Pipes cut through gunfire, keeping soldiers in formation\n• A British court once deemed them an "instrument of war"\n💡 Music = tangible morale on the battlefield.`,
+        zh: `🎻 曾被判定为"战争武器"的乐器\n• 苏格兰风笛手走在队伍最前带兵冲锋——鼓舞己方、震慑敌人\n• 笛声穿透枪炮声，让士兵保持队形\n• 英国法庭曾判定风笛为"战争工具"\n💡 音乐＝战场上看得见的士气。` } },
+    { id: "psyop", icon: "🔊", title: { th: "เสียงดังเป็นอาวุธ", en: "Loud music as a weapon", zh: "用音乐施压" },
+      content: { th: `🔊 ทหารใช้ "เสียง" กดดันจริง\n• ปี 1989 สหรัฐล้อมสถานทูตที่นายพล Noriega หลบอยู่ (ปานามา) เปิดเพลงร็อกดังต่อเนื่องเพื่อกดดันให้ยอมจำนน\n• กองทัพยุคใหม่มีหน่วย PSYOP ใช้เสียง/เพลงในปฏิบัติการจิตวิทยา\n💡 เสียงที่ "หนีไม่ได้" สร้างแรงกดดันมหาศาลต่อจิตใจ`,
+        en: `🔊 Armies really use sound to pressure\n• In 1989 U.S. forces blasted nonstop rock music at the embassy where Noriega hid (Panama) to force surrender\n• Modern militaries have PSYOP units using sound/music in psychological operations\n💡 Sound you can't escape is immense mental pressure.`,
+        zh: `🔊 军队真的用声音施压\n• 1989年美军在诺列加藏身的使馆外（巴拿马）持续高放摇滚乐，逼其投降\n• 现代军队设有心理战（PSYOP）部队，用声音/音乐作战\n💡 无法逃避的声音是巨大的心理压力。` } },
+    { id: "bugle", icon: "🥁", title: { th: "กลองและแตรสั่งการ", en: "Drums & bugle calls", zh: "战鼓与号角" },
+      content: { th: `🥁 "วิทยุสื่อสาร" ก่อนมีวิทยุ\n• ก่อนยุคไฟฟ้า กองทัพใช้กลอง แตร ปี่ ส่งคำสั่งในสนามรบ\n• เสียงเฉพาะ = คำสั่งเฉพาะ: ปลุก (reveille) บุก (charge) ถอย (retreat)\n• เสียงเดินทางไกล สั่งทหารหลายพันให้ขยับพร้อมกัน\n💡 จังหวะ = ภาษาคำสั่งที่เร็วและชัดในความโกลาหล`,
+        en: `🥁 "Radio" before radio existed\n• Before electronics, armies sent orders by drum, bugle and fife\n• Specific calls = specific orders: reveille, charge, retreat\n• Sound carried far, moving thousands in unison\n💡 Rhythm = a fast, clear command language amid chaos.`,
+        zh: `🥁 无线电之前的"无线电"\n• 在电子时代以前，军队用战鼓、号角传令\n• 特定号声＝特定命令：起床、冲锋、撤退\n• 声音传得远，让千军万马同步行动\n💡 节奏＝混乱中快速清晰的指挥语言。` } },
+  ],
+  "music-nation": [
+    { id: "kpop", icon: "🇰🇷", title: { th: "K-pop Soft Power", en: "K-pop soft power", zh: "K-pop 软实力" },
+      content: { th: `🇰🇷 เพลงคือยุทธศาสตร์ชาติ\n• รัฐบาลเกาหลีหนุน K-pop/หนัง/ซีรีส์เป็น "soft power" ส่งออกวัฒนธรรม\n• BTS วงเดียวเคยถูกประเมินว่าสร้างมูลค่าต่อเศรษฐกิจเกาหลีหลายพันล้านดอลลาร์ต่อปี\n• ดึงนักท่องเที่ยว ยอดขายสินค้า และภาพลักษณ์ประเทศ\n💡 ดนตรีส่งออกได้ทั้งวัฒนธรรมและเงินตรา`,
+        en: `🇰🇷 Music as national strategy\n• Korea's government backs K-pop/film/drama as "soft power" cultural exports\n• BTS alone was estimated to add billions/yr to Korea's economy\n• Drives tourism, product sales and national image\n💡 Music exports culture AND cash.`,
+        zh: `🇰🇷 音乐即国家战略\n• 韩国政府把K-pop/影视当作"软实力"文化输出\n• 仅BTS一团据估每年为韩国经济贡献数十亿美元\n• 带动旅游、商品销售与国家形象\n💡 音乐能输出文化，也能输出财富。` } },
+    { id: "anthem", icon: "🎌", title: { th: "เพลงชาติ รวมใจคน", en: "National anthems", zh: "国歌" },
+      content: { th: `🎌 ทำนองที่หล่อหลอม "ชาติ"\n• เพลงชาติถูกออกแบบให้ปลุกอารมณ์ร่วมและความเป็นหนึ่งเดียว\n• "La Marseillaise" ของฝรั่งเศสเกิดในยุคปฏิวัติ ปลุกใจประชาชน\n• ร้องพร้อมกันในสนามกีฬา/พิธี = พลังของคนหมู่มาก\n💡 ทำนองเดียวเปลี่ยนฝูงชนให้เป็น "พวกเดียวกัน"`,
+        en: `🎌 The tune that forges a nation\n• Anthems are engineered to stir shared emotion and unity\n• France's "La Marseillaise" was born in revolution to rally the people\n• Sung together at stadiums/ceremonies = the power of crowds\n💡 One melody turns a crowd into "us."`,
+        zh: `🎌 铸造"国家"的旋律\n• 国歌被设计来激发共同情感与团结\n• 法国《马赛曲》诞生于革命，鼓舞民众\n• 在体育场/典礼齐唱＝群体的力量\n💡 一段旋律把人群变成"我们"。` } },
+    { id: "pheua-chiwit", icon: "✊", title: { th: "เพลงเพื่อชีวิต", en: "Songs for life (Thailand)", zh: "为生活而歌（泰国）" },
+      content: { th: `✊ ดนตรีกับสังคมไทย\n• "เพลงเพื่อชีวิต" (เช่น คาราวาน, คาราบาว) สะท้อนปัญหาสังคมและการเมือง\n• เป็นเสียงของประชาชนในยุคเปลี่ยนแปลง ปลุกจิตสำนึกร่วม\n• ทั่วโลกก็มีเพลงประท้วง เช่น "We Shall Overcome" ในขบวนการสิทธิพลเมือง\n💡 ดนตรีให้เสียงกับคนที่ไม่มีเสียง`,
+        en: `✊ Music and Thai society\n• "Songs for life" (Caravan, Carabao) voiced social and political struggles\n• A people's voice in times of change, awakening shared conscience\n• Worldwide too: protest songs like "We Shall Overcome" in civil rights\n💡 Music gives a voice to the voiceless.`,
+        zh: `✊ 音乐与泰国社会\n• "为生活而歌"（Caravan、卡拉宝）唱出社会与政治议题\n• 在变革年代成为人民之声，唤醒共同良知\n• 全球亦然：民权运动的《We Shall Overcome》\n💡 音乐为无声者发声。` } },
+  ],
+  "music-elite": [
+    { id: "patronage", icon: "👑", title: { th: "ระบบอุปถัมภ์ราชสำนัก", en: "Royal patronage", zh: "宫廷赞助制" },
+      content: { th: `👑 เมื่อดนตรีคือเครื่องหมายอำนาจ\n• ในอดีต กษัตริย์/ขุนนางจ้าง "นักดนตรีประจำราชสำนัก"\n• Haydn ทำงานให้ตระกูล Esterházy นานหลายสิบปี แต่งเพลงตามคำสั่งเจ้านาย\n• Bach แต่งเพลงให้โบสถ์และเจ้าผู้ครองนคร\n💡 ดนตรีชั้นสูง = สัญลักษณ์สถานะและความมั่งคั่ง`,
+        en: `👑 When music signaled power\n• Kings and nobles once employed "court musicians"\n• Haydn served the Esterházy family for decades, composing on command\n• Bach wrote for churches and princes\n💡 Fine music = a symbol of status and wealth.`,
+        zh: `👑 当音乐象征权力\n• 昔日君主贵族雇用"宫廷乐师"\n• 海顿为埃斯特哈齐家族服务数十年，奉命作曲\n• 巴赫为教会与诸侯创作\n💡 高雅音乐＝地位与财富的象征。` } },
+    { id: "mozart-free", icon: "🎼", title: { th: "โมสาร์ท ศิลปินอิสระคนแรก ๆ", en: "Mozart goes freelance", zh: "莫扎特：自由职业" },
+      content: { th: `🎼 กบฏที่เปลี่ยนอาชีพนักดนตรี\n• โมสาร์ทเบื่อระบบอุปถัมภ์ ลาออกจากนายจ้าง (อาร์ชบิชอป) มาเป็นศิลปินอิสระในเวียนนา\n• หาเลี้ยงตัวด้วยการแสดง สอน และพิมพ์โน้ตขาย\n• เป็นต้นแบบ "ศิลปินที่ขายผลงานเอง" ก่อนยุคปัจจุบันหลายร้อยปี\n💡 อิสระ = เสี่ยงกว่า แต่เป็นเจ้าของผลงานตัวเอง`,
+        en: `🎼 The rebel who reinvented the job\n• Mozart tired of patronage, quit his employer (an archbishop) to freelance in Vienna\n• Lived off concerts, teaching and selling printed scores\n• A blueprint for the "self-selling artist" centuries early\n💡 Independence = riskier, but you own your work.`,
+        zh: `🎼 重塑职业的叛逆者\n• 莫扎特厌倦赞助制，辞别雇主（大主教），在维也纳做自由音乐人\n• 靠演出、教学和卖乐谱为生\n• 几百年前就是"自我变现艺术家"的范本\n💡 独立＝风险更高，但作品归你所有。` } },
+    { id: "salon", icon: "🥂", title: { th: "ซาลอนของชนชั้นสูง", en: "Elite salons", zh: "精英沙龙" },
+      content: { th: `🥂 ดนตรีในห้องรับแขกของผู้ดี\n• ศตวรรษที่ 19 "ซาลอน" คือปาร์ตี้ของชนชั้นสูงที่เชิญศิลปินมาเล่นใกล้ชิด\n• Chopin โด่งดังในซาลอนปารีส มากกว่าบนเวทีใหญ่\n• การได้ศิลปินดังมาเล่น = อวดรสนิยมและสถานะ\n💡 "วงในระดับสูง" คือช่องทางสร้างชื่อของศิลปินมาแต่ไหนแต่ไร`,
+        en: `🥂 Music in the drawing rooms of the rich\n• In the 1800s "salons" were elite gatherings where artists played intimately\n• Chopin shone in Paris salons more than big stages\n• Hosting a famous artist signaled taste and status\n💡 Elite inner circles have always made artists' names.`,
+        zh: `🥂 富人客厅里的音乐\n• 19世纪的"沙龙"是精英聚会，艺术家近距离演奏\n• 肖邦在巴黎沙龙比在大舞台更耀眼\n• 请到名家演奏＝彰显品味与地位\n💡 高端圈层自古就是艺术家成名之道。` } },
+  ],
+  "music-therapy": [
+    { id: "giffords", icon: "🗣️", title: { th: "Gabby Giffords พูดได้อีกครั้ง", en: "Gabby Giffords speaks again", zh: "吉福兹重获语言" },
+      content: { th: `🗣️ Gabby Giffords — ร้องเพลงเพื่อพากลับมาพูดได้\n\nวันที่ 8 มกราคม 2011 ส.ส.สหรัฐฯ Gabby Giffords ถูกยิงเข้าที่ศีรษะด้านซ้ายระหว่างงานพบปะประชาชนที่เมืองทูซอน รัฐแอริโซนา กระสุนทำลายสมองซีกซ้ายของเธอ รวมถึงบริเวณใกล้ "Broca's area" ซึ่งเป็นส่วนสมองที่รับผิดชอบการผลิตคำพูดโดยตรง ผลลัพธ์คือภาวะ "aphasia" (ภาวะพูดไม่ได้) ขั้นรุนแรง — Giffords ยังฟังเข้าใจทุกอย่าง คิดได้ปกติ จำคนที่เธอรักได้ทุกคน เพียงแต่พูดคำออกมาไม่ได้อย่างที่ตั้งใจ\n\nการฟื้นตัวของเธอพึ่งพาเทคนิคที่เรียกว่า "Melodic Intonation Therapy" (MIT) เป็นหลัก ซึ่งตั้งอยู่บนหลักการทางประสาทวิทยาที่เรียบง่ายแต่ทรงพลัง: การพูดปกติควบคุมโดยสมองซีกซ้าย แต่การ "ร้องเพลง" กลับพึ่งพาสมองซีกขวาเป็นหลัก — ซึ่งในกรณีของ Giffords ยังไม่ถูกทำลาย MIT จงใจใช้ประโยชน์จากช่องว่างนี้ นักบำบัดจะร้องประโยคสั้นๆ ง่ายๆ ด้วยทำนองที่เน้นเสียงชัดเจนเกินจริง แล้วให้ผู้ป่วยร้องตาม เพราะการร้องเพลงใช้วงจรประสาทต่างจากการพูด ผู้ป่วยจึงมักร้องคำออกมาได้ ก่อนที่จะพูดคำเดียวกันเป็นประโยคปกติได้เสียอีก\n\nการบำบัดของ Giffords เริ่มต้นง่ายที่สุดเท่าที่จะเป็นไปได้ นักบำบัดจะร้อง "Happy birthday to…" แล้ว Giffords ร้องกลับมาแค่คำว่า "you" คำเดียว จากจุดนั้น เซสชันค่อยๆ ต่อยอดผ่านเพลงคุ้นหูที่เธอรัก รวมถึง "American Pie" ของ Don McLean และ "Brown Eyed Girl" ของ Van Morrison ซึ่งเป็นหนึ่งในเพลงโปรดของเธอ — แต่ละเพลงช่วยเพิ่มคำและวลีที่กู้คืนได้ทีละนิด ผ่านไปหลายเดือน นักบำบัดค่อยๆ ลดทำนองลง เลื่อนวลีที่ร้องให้ใกล้จังหวะการพูดปกติมากขึ้นเรื่อยๆ จนสิ่งที่เริ่มจากการร้องเพลงกลายเป็นการพูดอีกครั้ง\n\n💡 บทเรียน: เรื่องนี้ไม่ใช่แค่เรื่องที่ว่าดนตรี "ผ่อนคลาย" หรือ "สร้างแรงบันดาลใจ" — แต่เป็นเรื่องของประสาทวิทยาจริงๆ ดนตรีกระตุ้นสมองในวงกว้างและซ้ำซ้อนกว่ากิจกรรมแทบทุกอย่างที่มนุษย์ทำ นั่นคือเหตุผลที่บางครั้งมันหาทางอ้อมผ่านความเสียหายที่ควรจะทำให้ใครสักคนพูดไม่ได้ไปตลอดกาล`,
+        en: `🗣️ Gabby Giffords — singing her way back to speech\n\nOn January 8, 2011, U.S. Congresswoman Gabby Giffords was shot through the left side of her head at a constituent event in Tucson, Arizona. The bullet damaged her brain's left hemisphere, including areas near Broca's area — the region most responsible for producing speech. The result was a severe form of aphasia: Giffords could still understand everything said to her, think clearly, and recognize people she loved — she simply couldn't reliably get words out.\n\nHer recovery leaned heavily on a technique called Melodic Intonation Therapy (MIT), built on a simple but powerful piece of brain science: language production is normally handled by the left hemisphere, but singing draws heavily on the right hemisphere — which, in Giffords' case, was undamaged. MIT deliberately exploits that split. A therapist sings a short, simple phrase in an exaggerated melodic pattern, and the patient sings it back — because singing recruits different neural circuitry than speaking, patients can often produce words in song long before they can say them in plain speech.\n\nGiffords' therapy started about as simply as it gets: her therapist would sing 'Happy birthday to...' and Giffords would sing back the single word 'you.' From there, sessions built up through familiar, well-loved songs — including Don McLean's 'American Pie' and Van Morrison's 'Brown Eyed Girl,' one of her favorites — each one adding a few more recoverable words and phrases. Over months, clinicians gradually stripped the melody away, sliding the sung phrases toward normal, spoken rhythm until what started as singing became speech again.\n\n💡 Lesson: this isn't really a story about music being 'relaxing' or 'inspiring' — it's a story about neuroscience. Music activates the brain more broadly and more redundantly than almost anything else we do, which is exactly why it can sometimes route around damage that would otherwise silence someone for good.`,
+        zh: `🗣️ 吉福兹——用歌唱唱回语言能力\n\n2011年1月8日，美国国会议员加布丽埃尔·吉福兹（Gabby Giffords）在亚利桑那州图森市的一场选民见面会上头部左侧中枪。子弹损伤了她的左脑，包括布洛卡区（Broca's area）附近区域——这正是负责产生语言的核心脑区。结果是严重的失语症：吉福兹仍能听懂别人说的一切，思维清晰，认得所有她爱的人——只是无法可靠地把词说出口。\n\n她的康复很大程度依赖一种叫"旋律语调疗法"（Melodic Intonation Therapy，MIT）的技术，其原理简单却强大：正常语言产生由左脑主导，而"唱歌"却主要调用右脑——在吉福兹的案例中，右脑并未受损。MIT刻意利用这一分工：治疗师用夸张的旋律唱出简短的短句，患者跟着唱回来——因为唱歌调用的神经回路与说话不同，患者往往能先用"唱"的方式说出词语，远早于能用平常语速把同一个词说出来。\n\n吉福兹的治疗从最简单的方式开始：治疗师唱"Happy birthday to…"，吉福兹只需唱回一个词"you"。从这里开始，训练逐渐通过她熟悉又喜爱的歌曲推进，包括唐·麦克莱恩（Don McLean）的《American Pie》，以及她最爱的歌曲之一——范·莫里森（Van Morrison）的《Brown Eyed Girl》——每一首都帮她多找回一些词语和短句。数月后，治疗师逐渐淡化旋律，把唱出的短句慢慢拉向正常说话的节奏，直到最初的"唱"重新变成了"说"。\n\n💡 启示：这其实不只是一个关于音乐"令人放松"或"激励人心"的故事——而是一个关于神经科学的故事。音乐比人类几乎任何其他活动都更广泛、更冗余地激活大脑，这正是它有时能绕开本会让人永远失声的损伤的原因。` } },
+    { id: "parkinson", icon: "🚶", title: { th: "จังหวะช่วยพาร์กินสันเดิน", en: "Rhythm for Parkinson's", zh: "节奏助帕金森行走" },
+      content: { th: `🚶 บีตที่ทำให้ก้าวเดินมั่นคง\n• ผู้ป่วยพาร์กินสันมักก้าวติดขัด/ค้าง (freezing)\n• เทคนิค Rhythmic Auditory Stimulation: เดินตามจังหวะเมโทรนอม/เพลง ช่วยให้ก้าวสม่ำเสมอและล้มน้อยลง\n• สมองใช้ "จังหวะภายนอก" แทนสัญญาณภายในที่บกพร่อง\n💡 จังหวะคือไม้เท้าที่มองไม่เห็น`,
+        en: `🚶 The beat that steadies each step\n• Parkinson's patients often freeze or shuffle\n• Rhythmic Auditory Stimulation: walking to a metronome/song makes steps even and reduces falls\n• The brain borrows an external beat for its faulty internal timing\n💡 Rhythm is an invisible walking stick.`,
+        zh: `🚶 让脚步稳定的节拍\n• 帕金森患者常出现冻结/拖步\n• "节奏听觉刺激"：跟着节拍器/歌曲走路，步伐更均匀、跌倒更少\n• 大脑借助外部节拍替代失灵的内部计时\n💡 节奏是一根看不见的拐杖。` } },
+    { id: "dementia", icon: "🧓", title: { th: "เพลงปลุกความทรงจำ", en: "Music & dementia", zh: "音乐与失智" },
+      content: { th: `🧓 เพลงเก่าที่ปลุกคนที่หลงลืม\n• ผู้ป่วยสมองเสื่อม/อัลไซเมอร์มักจำเพลงในวัยหนุ่มสาวได้แม้จำคนใกล้ตัวไม่ได้\n• สารคดี "Alive Inside" แสดงผู้ป่วยที่ "ตื่น" ขึ้นมามีชีวิตชีวาเมื่อได้ฟังเพลงโปรด\n• ความทรงจำดนตรีฝังลึกในสมองส่วนที่โรคทำลายช้าที่สุด\n💡 ดนตรีคือกุญแจสู่ความทรงจำที่ล็อกไว้`,
+        en: `🧓 Old songs that reawaken lost minds\n• People with dementia often recall youth songs even when they forget loved ones\n• The film "Alive Inside" shows patients "wake up" to favorite music\n• Musical memory sits in brain areas the disease harms last\n💡 Music is a key to locked memories.`,
+        zh: `🧓 唤醒失忆心灵的老歌\n• 失智/阿尔茨海默患者常记得年轻时的歌，却认不出亲人\n• 纪录片《Alive Inside》记录患者听到喜爱音乐时"苏醒"\n• 音乐记忆位于疾病最晚损害的脑区\n💡 音乐是开启被锁记忆的钥匙。` } },
+  ],
+  "music-marketing": [
+    { id: "taylor", icon: "🩷", title: { th: "Taylor Swift: เป็นเจ้าของผลงาน", en: "Taylor Swift: own your masters", zh: "霉霉：拥有母带" },
+      content: { th: `🩷 Taylor Swift — ศิลปินป๊อปที่ซื้อ "เสียงของตัวเอง" กลับคืนมา\n\nมิถุนายน 2019 บริษัท Ithaca Holdings ของ Scooter Braun ผู้จัดการศิลปิน จ่ายเงินราว 300 ล้านดอลลาร์เพื่อซื้อค่าย Big Machine Label Group — ค่ายที่ Taylor Swift อัดอัลบั้ม 6 ชุดแรกด้วย — จาก Scott Borchetta ผู้ก่อตั้ง ดีลนี้ทำให้ Braun เป็นเจ้าของมาสเตอร์เพลงของ Swift ตั้งแต่อัลบั้ม "Taylor Swift" (2006) จนถึง "Reputation" (2017) Swift บอกว่าเธอรู้เรื่องการขายนี้จากอินเทอร์เน็ตพร้อมๆ กับคนอื่นทุกคน และเรียกมันว่า "สถานการณ์เลวร้ายที่สุดที่เธอกลัว" — ชายที่เธอมีปัญหาขัดแย้งในที่สาธารณะมานานหลายปี กลับกลายเป็นเจ้าของต้นฉบับผลงานทั้งชีวิตของเธอ\n\nการเป็นเจ้าของ "มาสเตอร์" สำคัญเพราะมันคือตัวกำหนดว่าใครจะได้เงิน และใครมีสิทธิ์อนุญาตหรือปฏิเสธ ทุกครั้งที่เพลงถูกนำไปใช้ในหนัง โฆษณา แซมเปิล หรือซิงก์ — ไม่ใช่เครดิตการแต่งเพลง Swift เป็นเจ้าของลิขสิทธิ์การแต่งเพลงอยู่แล้ว แต่ไม่ได้เป็นเจ้าของ "การบันทึกเสียง" ที่แฟนๆ ฟังจริงบนสตรีมมิ่งทุกวัน\n\nแทนที่จะสู้แค่ในชั้นศาล Swift ทำสิ่งที่ศิลปินระดับเธอแทบไม่มีใครเคยลองมาก่อน — เธอประกาศว่าจะ "อัดใหม่ทั้ง 6 อัลบั้ม" ทีละโน้ตให้เหมือนเดิม แล้วเป็นเจ้าของมาสเตอร์ใหม่เองเต็มๆ เริ่มจากปี 2021 เธอปล่อย "Fearless (Taylor's Version)" ตามด้วย "Red" "Speak Now" และ "1989" — แต่ละอัลบั้มถูกทำการตลาดอย่างตั้งใจให้ดึงยอดสตรีมและยอดขายออกจากต้นฉบับเดิม แฟนๆ ส่วนใหญ่พร้อมใจกันย้ายไปฟังเวอร์ชันใหม่จำนวนมหาศาล จนเห็นผลชัดเจนบนชาร์ตและยอดสตรีมมิ่ง\n\nปี 2020 Braun ขายมาสเตอร์ต้นฉบับต่อให้บริษัทไพรเวทอิควิตี้ Shamrock Holdings — และในปี 2025 ด้วยจุดพลิกที่ปิดวงจรเรื่องนี้ Swift ซื้อมันกลับคืนมาเองจาก Shamrock ด้วยมูลค่าที่ไม่เปิดเผยแต่มีรายงานว่าสูงถึงระดับ 9 หลัก หกปีหลังจากการขายที่จุดชนวนเรื่องทั้งหมด ตอนนี้เธอเป็นเจ้าของทั้งต้นฉบับและเวอร์ชันที่อัดใหม่แล้ว\n\n💡 บทเรียน: Swift เปลี่ยนข้อพิพาททางกฎหมาย/ธุรกิจที่แฟนเพลงทั่วไปไม่น่าจะติดตามให้กลายเป็นบทเรียนทรัพย์สินทางปัญญาที่สาธารณะที่สุดครั้งหนึ่งที่วงการเพลงเคยเห็น — และทำได้ด้วยการทำให้ผู้ฟังธรรมดาหลายล้านคนรู้สึกว่าตัวเองมีส่วนช่วยให้เธอชนะได้จริงๆ`,
+        en: `🩷 Taylor Swift — the pop star who bought back her own voice\n\nIn June 2019, talent manager Scooter Braun's company Ithaca Holdings paid roughly $300 million to acquire Big Machine Label Group — the label Taylor Swift had recorded her first six albums with — from founder Scott Borchetta. The deal handed Braun ownership of the master recordings of Swift's music from 'Taylor Swift' (2006) through 'Reputation' (2017). Swift said she'd found out about the sale from the internet, along with everyone else, and called it 'my worst-case scenario' — the man she'd publicly clashed with for years now owned the original recordings of her life's work.\n\nMaster ownership matters because it's the master recording — not the songwriting credit — that determines who gets paid, and who gets to say yes or no, every time a song is licensed for a film, a commercial, a sample, or a sync. Swift did own the publishing rights to the songs themselves, but not the specific recorded performances fans actually stream and hear.\n\nRather than fight only in court, Swift did something few artists at her scale had tried: she announced she would simply re-record all six albums from scratch, note for note, and own the new masters outright. Starting in 2021 she released 'Fearless (Taylor's Version),' then 'Red,' 'Speak Now,' and '1989' — each one deliberately marketed to pull streaming and sales away from the originals. Fans, largely in solidarity, migrated to the new versions in huge numbers, visibly moving the needle on which version charted and streamed.\n\nIn 2020 Braun sold the original masters again, to private equity firm Shamrock Holdings — and in 2025, in the twist that closed the loop, Swift herself bought them back from Shamrock, for an undisclosed sum reported to be in the nine figures. Six years after the sale that started it all, she now owns both the originals and the re-recordings.\n\n💡 Lesson: Swift turned a legal/business dispute most fans would never normally follow into one of the most public masterclasses in intellectual property the music industry has ever seen — and did it by making millions of ordinary listeners feel personally invited to help her win.`,
+        zh: `🩷 泰勒·斯威夫特——买回自己"声音"的流行天后\n\n2019年6月，经纪人斯库特·布劳恩（Scooter Braun）旗下的Ithaca Holdings公司斥资约3亿美元，从创始人斯科特·博切塔（Scott Borchetta）手中收购了Big Machine唱片公司——正是泰勒·斯威夫特录制前六张专辑的那家公司。这笔交易让布劳恩拥有了斯威夫特从《Taylor Swift》（2006年）到《Reputation》（2017年）全部音乐的母带所有权。斯威夫特表示她和所有人一样，是从网上得知这笔交易的，并称之为"我最担心发生的情况"——那个她多年来公开与之交恶的人，如今拥有了她毕生心血的原始录音。\n\n母带所有权之所以重要，是因为决定谁能获得报酬、谁有权批准或拒绝一首歌被用于电影、广告、采样或影视配乐的，是母带录音本身——而不是词曲创作署名。斯威夫特本就拥有歌曲本身的版权，但并不拥有粉丝们每天在流媒体上实际听到的那些具体录音。\n\n她没有只在法庭上抗争，而是做了同等咖位艺人几乎从未尝试过的事：宣布把六张专辑逐音符重新录制一遍，完全拥有新的母带。从2021年起，她陆续发布了《Fearless (Taylor's Version)》，随后是《Red》《Speak Now》和《1989》——每一张都经过刻意的营销策划，把流媒体播放量和销量从原版身上拉走。粉丝们大规模地、几乎是出于声援般地转向新版本，切实地在榜单和播放数据上体现出来。\n\n2020年，布劳恩再次将原始母带出售给私募股权公司Shamrock Holdings——而在2025年这个让整个故事画上句点的转折中，斯威夫特亲自从Shamrock手中把母带买了回来，金额未公开，但据报道高达九位数。距离引发这一切的那笔交易过去六年后，她如今同时拥有原版母带和重录版本。\n\n💡 启示：斯威夫特把一场普通歌迷原本根本不会关注的法律/商业纠纷，变成了音乐行业史上最公开的一堂知识产权大师课——而她做到这一点的方式，是让数百万普通听众真切感觉到自己被邀请参与、并亲手帮她赢下这场仗。` } },
+    { id: "bts-army", icon: "💜", title: { th: "BTS & ARMY: พลังแฟนคลับ", en: "BTS & ARMY: fan power", zh: "BTS与ARMY：粉丝力量" },
+      content: { th: `💜 แฟนคลับที่จัดตั้งเหมือนทีม\n• กองทัพแฟน "ARMY" ช่วยกันสตรีม โหวต และดันแฮชแท็กให้ติดเทรนด์โลก\n• แฟนแปลภาษา ทำคอนเทนต์ และระดมทุนเพื่อการกุศลในนามวง\n• ค่าย HYBE สร้างระบบนิเวศ (แอป Weverse, สินค้า, คอนเทนต์เบื้องหลัง) ให้แฟนใกล้ชิด\n💡 บทเรียน: เปลี่ยนแฟนให้เป็น "ทีมการตลาด" ที่รักคุณ`,
+        en: `💜 A fandom organized like a team\n• The "ARMY" streams, votes and pushes hashtags to global trends together\n• Fans translate, make content and fundraise for charity in the band's name\n• Label HYBE built an ecosystem (Weverse app, merch, behind-scenes) to keep fans close\n💡 Lesson: turn fans into a marketing team that loves you.`,
+        zh: `💜 像团队一样有组织的粉丝群\n• "ARMY"齐心打榜、投票、把话题推上全球热搜\n• 粉丝翻译、做内容，并以乐队之名做公益募款\n• 公司HYBE打造生态（Weverse应用、周边、幕后内容）拉近与粉丝距离\n💡 启示：把粉丝变成爱你的营销团队。` } },
+    { id: "lilnasx", icon: "🐴", title: { th: "Lil Nas X: ไวรัลบน TikTok", en: "Lil Nas X: engineered virality", zh: "Lil Nas X：精心引爆" },
+      content: { th: `🐴 ออกแบบเพลงให้ไวรัล\n• "Old Town Road" ถูกปล่อยให้ดังบน TikTok ด้วยมีม #Yeehaw จนระเบิด\n• เขาทำมีม ตอบแฟน และปล่อยรีมิกซ์ต่อเนื่องเพื่อให้กระแสไม่ตก\n• ขึ้นอันดับ 1 Billboard นานเป็นประวัติการณ์ (19 สัปดาห์)\n💡 บทเรียน: ทำคลิปสั้นให้คน "เอาไปเล่นต่อ" ได้ คือเชื้อเพลิงไวรัล`,
+        en: `🐴 Design a song to go viral\n• "Old Town Road" was seeded on TikTok with the #Yeehaw meme and exploded\n• He made memes, replied to fans and dropped remix after remix to sustain it\n• Hit Billboard #1 for a record 19 weeks\n💡 Lesson: make short clips people can remix — that's viral fuel.`,
+        zh: `🐴 为爆红而设计歌曲\n• 《Old Town Road》借#Yeehaw梗在TikTok上引爆\n• 他做梗、回复粉丝、不断发布混音维持热度\n• 创纪录地连续19周登顶Billboard榜首\n💡 启示：做出人人能二创的短片，就是病毒燃料。` } },
+    { id: "chance", icon: "🆓", title: { th: "Chance the Rapper: ไม่ง้อค่าย", en: "Chance: no label needed", zh: "Chance：不靠唱片公司" },
+      content: { th: `🆓 อิสระแต่ทำเงินได้\n• Chance the Rapper ปล่อยมิกซ์เทปฟรี ไม่เซ็นค่ายใหญ่\n• หารายได้จากทัวร์ คอนเสิร์ต และสินค้า (merch) เอง เก็บกำไรเต็ม\n• เป็นคนแรก ๆ ที่ได้ Grammy จากผลงาน "สตรีมมิ่งอย่างเดียว"\n💡 บทเรียน: ยุคนี้สร้างฐานแฟน + ขายตรง = ไม่ต้องรอใครอนุญาต`,
+        en: `🆓 Independent, yet profitable\n• Chance the Rapper gave away mixtapes and signed no major label\n• Earned from touring, shows and his own merch — keeping full profit\n• Among the first to win a Grammy for a streaming-only release\n💡 Lesson: today, a fanbase + direct sales = no gatekeeper needed.`,
+        zh: `🆓 独立却能盈利\n• Chance the Rapper 免费发布混音带，不签大公司\n• 靠巡演、演出和自营周边赚钱，利润全留\n• 是最早凭"纯流媒体"作品获格莱美的人之一\n💡 启示：如今粉丝群＋直接销售＝无需守门人。` } },
+    { id: "milli-mango", icon: "🥭", title: { th: "MILLI: ข้าวเหนียวมะม่วงสะเทือนโลก", en: "MILLI: mango sticky rice", zh: "MILLI：泰国糯米芒果" },
+      content: { th: `🥭 MILLI — คำเดียวของขนม กลายเป็นโมเมนต์การตลาดระดับชาติ\n\nเมษายน 2022 MILLI (ดนุภา คณาธีรกุล) แร็ปเปอร์ไทยวัย 19 ปี กลายเป็นศิลปินเดี่ยวไทยคนแรกที่ได้ขึ้นเวที Coachella หนึ่งในเทศกาลดนตรีใหญ่ที่สุดของโลก กลางเซตการแสดง ระหว่างร้องเพลงอยู่ เธอหยิบจานข้าวเหนียวมะม่วงขึ้นมากินโชว์ต่อหน้าฝูงชน พร้อมตะโกน "Who wants mango and rice that is sticky?" — นี่ไม่ใช่อุบัติเหตุ แต่ถูกวางแผนไว้ในโชว์ตั้งแต่ต้น เพราะเธอแต่งเพลง "Mango Sticky Rice" ขึ้นมาโดยเฉพาะล่วงหน้าแล้ว\n\nคลิปนี้ระเบิดกระแสออนไลน์ทันที แฮชแท็ก #MILLILiveatCoachella ขึ้นเทรนด์อันดับต้นๆ บน Twitter ทั่วโลก มีทวีตราว 1.39 ล้านทวีต และยอดค้นหาคำว่า "mango sticky rice" บน Google พุ่งสูงถึง 20 เท่าของปกติแทบจะข้ามคืน ผลกระทบไม่ได้อยู่แค่ในโลกออนไลน์ — มันไปถึงเครื่องคิดเงินจริงๆ ร้านแม่วารีข้าวเหนียวมะม่วงชื่อดังของกรุงเทพฯ รายงานว่ายอดขายพุ่งขึ้นกว่า 100% ร้านอื่นๆ บอกว่ายอดขายเพิ่มเป็น 3 เท่า และคาดว่ากระแสจะอยู่ต่อไปอีกหลายเดือน พลเอกประยุทธ์ จันทร์โอชา นายกรัฐมนตรีในขณะนั้น ถึงกับพูดถึงการผลักดันข้าวเหนียวมะม่วงเข้าสู่บัญชีมรดกภูมิปัญญาทางวัฒนธรรมของ UNESCO จากกระแสนี้\n\nMILLI เองพูดชัดเจนว่านี่ไม่ใช่แค่มุกโชว์สุ่มๆ แต่เป็นการแสดงจุดยืนเรื่องอัตลักษณ์ ในบทสัมภาษณ์หลังการแสดง เธอบอกว่าเธอไม่ได้มาแสดง "ความเป็นไทยแบบขนบ" ให้ผู้ชมต่างชาติดู แต่มาเพื่อเป็นตัวแทนของตัวเองในฐานะคนไทยจริงๆ และปล่อยให้ของกินพื้นบ้านธรรมดาๆ ที่ไม่ได้ดูหรูหราเลย เป็นตัวส่งสารนั้นไปทั่วโลก แทนที่จะเป็นอะไรที่ถูกจัดแต่งให้ดูเอ็กโซติก\n\n💡 บทเรียน: รายละเอียดเดียวที่จำเพาะและเป็นตัวตนจริงๆ — ขนมหนึ่งจาน กินแค่สิบห้าวินาที — เอาชนะแคมเปญโฆษณาการท่องเที่ยวทั้งชุดได้ เพราะมันดูจริงไม่ใช่การแสดง ความจริงใจไปได้ไกลกว่าความอลังการของงานโปรดักชัน`,
+        en: `🥭 MILLI — one bite of dessert, a national marketing moment\n\nIn April 2022, 19-year-old Thai rapper MILLI (Danupha Khanatheerakul) became the first Thai solo artist ever to headline a set at Coachella, one of the world's biggest music festivals. Midway through her set, mid-song, she pulled out a plate of khao niew mamuang — mango sticky rice — and ate it on stage in front of the crowd, chanting 'Who wants mango and rice that is sticky?' It was written into the performance, not an accident: she'd built an entire song, 'Mango Sticky Rice,' around the dish beforehand.\n\nThe clip detonated online. The hashtag #MILLILiveatCoachella became one of the top trending topics on Twitter worldwide, racking up roughly 1.39 million tweets, and Google search interest in mango sticky rice spiked by as much as 20 times its normal level almost overnight. The effect wasn't just online buzz — it showed up in real cash registers. Bangkok's famous Mae Varee mango sticky rice shop reported sales jumping more than 100%; other vendors said sales tripled, with the surge expected to last for months. Thai Prime Minister Prayut Chan-o-cha publicly floated seeking UNESCO intangible cultural heritage status for the dish off the back of the attention.\n\nMILLI herself was explicit that this wasn't a random stunt but a statement about identity: in interviews after the show, she said she wasn't there to perform a 'conventional' version of Thainess for a foreign audience, but to represent who she actually is as a Thai person — and let a genuinely local, unglamorous comfort food carry that message globally, rather than something packaged to look exotic.\n\n💡 Lesson: a single, specific, deeply personal detail — one dish, eaten in fifteen seconds — outperformed an entire tourism-board ad campaign, because it read as true rather than staged. Authenticity travels further than production value.`,
+        zh: `🥭 MILLI——一口甜品，掀起一场国家级营销时刻\n\n2022年4月，19岁的泰国说唱歌手MILLI（Danupha Khanatheerakul）成为首位在科切拉音乐节（Coachella，全球最大音乐节之一）担纲独立演出的泰国艺人。表演进行到一半，她在台上当众拿出一盘"糯米芒果"（khao niew mamuang）吃了起来，同时高喊"谁想要又甜又糯的芒果饭？"——这并非意外，而是提前精心设计的桥段：她此前专门为这道甜品创作了一首歌《Mango Sticky Rice》。\n\n这段视频瞬间引爆网络。话题标签#MILLILiveatCoachella登上全球Twitter热搜榜前列，相关推文约达139万条，"mango sticky rice"（芒果糯米饭）的谷歌搜索量几乎一夜之间飙升至平时的20倍。影响不止停留在网上——它实实在在体现在了收银台上。曼谷知名的Mae Varee芒果糯米饭店铺报告销量猛涨超过100%，其他店家称销量翻了三倍，预计这股热潮还将持续数月。时任泰国总理巴育（Prayut Chan-o-cha）甚至公开提出，要借此推动将这道甜品申报为联合国教科文组织非物质文化遗产。\n\nMILLI本人明确表示，这不是随意的噱头，而是关于身份认同的表态。演出后接受采访时，她表示自己来这里不是要为外国观众表演"传统刻板印象"里的泰式风情，而是要代表她自己真实的泰国人身份——让一道地道、毫不华丽的家常美食把这个信息传向全世界，而不是刻意包装出异域风情。\n\n💡 启示：一个具体而深具个人色彩的细节——一份甜品，十五秒吃完——胜过了整套旅游局广告宣传campaign，因为它读起来是真实的，而非表演出来的。真诚比制作精良走得更远。` } },
+    { id: "d2f", icon: "🤝", title: { th: "ขายตรงถึงแฟน + วิดีโอสั้น", en: "Direct-to-fan + short video", zh: "直连粉丝＋短视频" },
+      content: { th: `🤝 เครื่องมือของศิลปินยุคนี้\n• วิดีโอสั้น (TikTok/Reels/Shorts) = เครื่องค้นพบเพลงเบอร์ 1 — ทำท่อนฮุก 15 วินาทีให้คนเอาไปทำคลิป\n• ขายตรงถึงแฟน: Bandcamp, Patreon, สมาชิกรายเดือน, สินค้า — ได้ส่วนแบ่งมากกว่าสตรีมมิ่งหลายเท่า\n• เก็บอีเมล/LINE แฟนไว้สื่อสารเอง ไม่ต้องพึ่งอัลกอริทึม\n💡 บทเรียน: ให้คนค้นพบด้วยคลิปสั้น แล้วเปลี่ยนเป็นแฟนที่จ่ายตรง`,
+        en: `🤝 The modern artist's toolkit\n• Short video (TikTok/Reels/Shorts) = the #1 music-discovery engine — make a 15-sec hook people can post with\n• Direct-to-fan: Bandcamp, Patreon, memberships, merch — far higher share than streaming\n• Keep fans' email/LINE so you reach them without the algorithm\n💡 Lesson: get discovered by short clips, then convert to fans who pay you directly.`,
+        zh: `🤝 现代音乐人的工具箱\n• 短视频（TikTok/Reels/Shorts）＝头号音乐发现引擎——做一个15秒、人人能配的钩子\n• 直连粉丝：Bandcamp、Patreon、会员、周边——分成远高于流媒体\n• 留存粉丝邮箱/LINE，无需依赖算法即可触达\n💡 启示：用短片被发现，再转化为直接付费的粉丝。` } },
+  ],
+};
+
+/* ── Prepared-answer index for free-typed chat questions ──────────────
+   Tier 1 of the AI chat: built once from content ALREADY bundled in the
+   app (chapter bodies + case studies above) — no new authoring, no AI
+   call. Tier 2 (live AI) only runs when nothing here clearly matches.
+   Matching is deliberately conservative: it only fires on a strong,
+   unambiguous textual match; a tie or a weak/generic hit falls through
+   to the live AI rather than risk showing the wrong canned answer. */
+const FAQ_TOPICS = (() => {
+  const list = [];
+  for (const st of PATHWAY) if (st.content) list.push({ title: st.title, content: st.content, key: st.id });
+  for (const gid in BENEFIT_CASES) for (const c of BENEFIT_CASES[gid]) list.push({ title: c.title, content: c.content, key: c.id });
+  return list;
+})();
+function _faqNorm(s) { return String(s || "").toLowerCase().replace(/[「」『』()（）"'".,!?！？、，。·]/g, "").trim(); }
+function matchFaqTopic(text, lang) {
+  const q = _faqNorm(text);
+  if (q.length < 2) return null;
+  let hit = null, hits = 0;
+  for (const topic of FAQ_TOPICS) {
+    const title = _faqNorm(tr(topic.title, lang));
+    const key = _faqNorm(topic.key);
+    if (!title) continue;
+    if ((key.length >= 3 && q.includes(key)) || (title.length >= 4 && q.includes(title))) {
+      hit = topic; hits++;
+    }
+  }
+  return hits === 1 ? hit : null; // 0 or 2+ matches → ambiguous, let the live AI handle it
+}
 
 /* Learning groups — shown as sections in the pathway menu */
 const PATH_GROUPS = {
@@ -981,19 +1303,19 @@ const PATH_GROUPS = {
     { id: "foundation", label: "รากฐาน", desc: "เริ่มที่นี่ — พื้นฐานที่ต้องรู้ก่อน", icon: "🌱" },
     { id: "chords", label: "คอร์ด", desc: "สร้างเสียงประสาน", icon: "🎹" },
     { id: "advanced", label: "ขั้นสูง", desc: "Harmony ระดับโปร", icon: "🚀" },
-    { id: "benefits", label: "ประโยชน์ของดนตรี", desc: "ดนตรีเปลี่ยนโลกอย่างไร — ธุรกิจ ทหาร ชาติ ชนชั้นสูง การบำบัด", icon: "🌍" },
+    { id: "benefits", label: "ประโยชน์ของดนตรี", desc: "ดนตรีเปลี่ยนโลกอย่างไร — ธุรกิจ ทหาร ชาติ ชนชั้นสูง การบำบัด & การตลาดศิลปิน · แตะดูกรณีศึกษาระดับโลก", icon: "🌍" },
   ],
   en: [
     { id: "foundation", label: "FOUNDATION", desc: "Start here — essential basics", icon: "🌱" },
     { id: "chords", label: "CHORDS", desc: "Building harmony", icon: "🎹" },
     { id: "advanced", label: "ADVANCED", desc: "Pro-level harmony", icon: "🚀" },
-    { id: "benefits", label: "WHY MUSIC MATTERS", desc: "How music shapes business, war, nations, elites & healing", icon: "🌍" },
+    { id: "benefits", label: "WHY MUSIC MATTERS", desc: "Business, war, nations, elites, healing & artist marketing · tap world-class case studies", icon: "🌍" },
   ],
   zh: [
     { id: "foundation", label: "基础", desc: "从这里开始 — 必备基础", icon: "🌱" },
     { id: "chords", label: "和弦", desc: "构建和声", icon: "🎹" },
     { id: "advanced", label: "进阶", desc: "专业级和声", icon: "🚀" },
-    { id: "benefits", label: "音乐的力量", desc: "音乐如何改变世界——商业、军事、国家、精英与疗愈", icon: "🌍" },
+    { id: "benefits", label: "音乐的力量", desc: "商业、军事、国家、精英、疗愈与音乐人营销 · 点击查看世界级案例", icon: "🌍" },
   ],
 };
 
@@ -1143,6 +1465,17 @@ const API_HEADERS = {
 /* ── Supabase client — Auth (Google/Facebook) + membership profiles ── */
 const SUPABASE_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co";
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Fire-and-forget usage tracking (nav clicks / pathway topics / page visits) so
+// the admin can see what's actually used. Never awaited, never blocks the UI,
+// and any failure (offline, RLS, whatever) is silently swallowed — a missed
+// analytics row is never worth degrading the learner's experience.
+function logUsage(kind, itemId) {
+  sb.auth.getSession().then(({ data }) => {
+    const uid = data && data.session && data.session.user && data.session.user.id;
+    if (!uid || !itemId) return;
+    sb.from("usage_events").insert({ user_id: uid, kind, item_id: String(itemId) }).then(() => {}, () => {});
+  }, () => {});
+}
 async function signInWith(provider) {
   try {
     await sb.auth.signInWithOAuth({
@@ -1291,11 +1624,33 @@ function _accNoise(ac) {
   for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
   _accNoiseBuf = b; _accNoiseRate = ac.sampleRate; return b;
 }
+// ── Self-noise suppression ──────────────────────────────────────────
+// The falling-notes game's backing track (drums/bass/pads) plays through
+// the SAME speaker the mic listens through, so on a phone without
+// headphones the mic can hear the app's own accompaniment and mistake it
+// for a note the player pressed. Since we generate that accompaniment
+// ourselves we know exactly which frequency is sounding and for how long,
+// so we blacklist those bands from pitch detection while they're active —
+// the player's live piano notes (any other frequency) are unaffected.
+let _accSuppress = [];
+function _accMarkSuppress(freq, tolCents, untilMs) {
+  if (!freq) return;
+  const lo = freq * Math.pow(2, -tolCents / 1200), hi = freq * Math.pow(2, tolCents / 1200);
+  _accSuppress.push({ lo, hi, until: untilMs });
+  if (_accSuppress.length > 64) _accSuppress.shift();
+}
+function _accIsSuppressed(freq) {
+  if (!freq || !_accSuppress.length) return false;
+  const now = Date.now();
+  _accSuppress = _accSuppress.filter(s => s.until > now);
+  return _accSuppress.some(s => freq >= s.lo && freq <= s.hi);
+}
 function _accKick(ac, dest, t, gain) {
   const o = ac.createOscillator(), g = ac.createGain();
   o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.12);
   g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
   o.connect(g); g.connect(dest); o.start(t); o.stop(t + 0.22);
+  _accMarkSuppress(90, 900, Date.now() + 250); // broad low-end sweep (150→48Hz) — brief, generous band
 }
 function _accSnare(ac, dest, t, gain) {
   const s = ac.createBufferSource(); s.buffer = _accNoise(ac);
@@ -1374,7 +1729,13 @@ function startAccompaniment(getSongTime, bpm, data, leadSec, tempo) {
           if (inBar === 0 || inBar === 2) _accKick(ac, g, t, 0.22);
           if (inBar === 1 || inBar === 3) _accSnare(ac, g, t, 0.13);
           _accBass(ac, g, t, NF[pc + "2"], 0.12, beatReal * 0.9);
-          if (inBar === 0) _accPad(ac, g, t, NF[pc + "3"], 0.04, beatReal * 4);
+          _accMarkSuppress(NF[pc + "2"], 70, Date.now() + beatReal * 900 + 80);
+          if (inBar === 0) {
+            _accPad(ac, g, t, NF[pc + "3"], 0.04, beatReal * 4);
+            // root only (octave 3, always < C4) — NOT the pad's ×1.5 fifth partial, which for some
+            // keys lands inside the game's own C4-B5 note range and could mask a real player note
+            _accMarkSuppress(NF[pc + "3"], 70, Date.now() + beatReal * 4000 + 150);
+          }
         }
       }
     }, 25);
@@ -1382,6 +1743,20 @@ function startAccompaniment(getSongTime, bpm, data, leadSec, tempo) {
   } catch (e) {}
 }
 
+// soft "got it, thinking…" earcon so the learner knows the AI heard them
+// (reassuring on slow networks where the reply takes a moment)
+function vmThinkCue() {
+  try {
+    if (_sfxMuted) return;
+    const { ac, bus } = audioBus();
+    const t0 = ac.currentTime;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(520, t0); o.frequency.exponentialRampToValueAtTime(720, t0 + 0.12);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.05, t0 + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
+    o.connect(g); g.connect(bus); o.start(t0); o.stop(t0 + 0.3);
+  } catch (e) {}
+}
 // short synthesized UI sounds (click / level-up / badge / reward)
 function playUi(kind) {
   try {
@@ -1497,6 +1872,61 @@ function autoCorrelate(buf, sampleRate) {
   return T0 ? sampleRate / T0 : -1;
 }
 
+/* ── Polyphonic (chord) pitch detection from a microphone ──────────────
+   The autocorrelation detector above is monophonic — it locks onto ONE
+   pitch, so a learner playing a triad on an acoustic piano only ever gets
+   the loudest note named. This detector reads the FFT magnitude spectrum
+   and uses HARMONIC SUMMATION: for every candidate piano note it sums the
+   energy at that note's fundamental + first few harmonics. A real note has
+   strong partials lined up on its harmonic series, so its summed salience
+   spikes; the spikes of 2–4 simultaneous notes survive together. We then
+   peak-pick, suppress octave/harmonic ghosts, and return the chord.
+   It is intentionally conservative (high thresholds) — better to miss a
+   note than to invent one — and only runs when the learner opts in. */
+function _interpMag(mag, bin) {                 // linear-interpolate magnitude at a fractional bin
+  const i = Math.floor(bin); if (i < 0 || i + 1 >= mag.length) return 0;
+  const f = bin - i; return mag[i] * (1 - f) + mag[i + 1] * f;
+}
+// magSpectrum: Float32Array of linear magnitudes (NOT dB). Returns ascending note names (with octave).
+function detectPolyNotes(mag, sampleRate, fftSize) {
+  const binHz = sampleRate / fftSize;
+  const HARM = 7;                                // partials summed per candidate
+  const W = [0, 1, 0.85, 0.7, 0.55, 0.42, 0.32, 0.24]; // harmonic weights (index = partial #)
+  const LO = 43, HI = 91;                        // G2 .. G6 — the realistic teaching range
+  const sal = {}, fund = {};                     // total salience + bare-fundamental energy per MIDI note
+  let maxSal = 0;
+  for (let m = LO; m <= HI; m++) {
+    const f0 = 440 * Math.pow(2, (m - 69) / 12);
+    let s = 0;
+    for (let h = 1; h <= HARM; h++) {
+      const f = f0 * h; if (f >= sampleRate / 2) break;
+      const e = _interpMag(mag, f / binHz);
+      s += e * W[h]; if (h === 1) fund[m] = e;    // remember the note's own fundamental
+    }
+    sal[m] = s; if (s > maxSal) maxSal = s;
+  }
+  if (maxSal <= 0) return [];
+  // keep notes that are a clear local peak AND a healthy fraction of the strongest
+  const REL = 0.3;                               // ≥30% of the loudest note's salience
+  const cands = [];
+  for (let m = LO; m <= HI; m++) {
+    const s = sal[m];
+    if (s < maxSal * REL) continue;
+    if (s < (sal[m - 1] || 0) || s < (sal[m + 1] || 0)) continue; // must be a local max
+    cands.push({ m, s });
+  }
+  // semitone offsets at which one note's harmonics land on another (octave, +fifth, 2-oct, +3rd, ...)
+  const GHOST = [12, 19, 24, 28, 31];
+  // (a) upper harmonic ghost: a higher candidate fully explained by a much louder lower note → drop it
+  let kept = cands.filter(c => !cands.some(o => o.m < c.m && o.s > c.s * 1.6 && GHOST.includes(c.m - o.m)));
+  // (b) subharmonic ghost: a LOWER candidate whose own fundamental is barely there, sitting a
+  //     harmonic interval below a real note (it's that note's even-harmonic echo) → drop it.
+  //     A genuinely-played bass note keeps a strong fundamental, so it survives.
+  kept = kept.filter(c => !kept.some(o => GHOST.includes(o.m - c.m) && (fund[c.m] || 0) < 0.4 * (fund[o.m] || 0)));
+  kept.sort((a, b) => b.s - a.s);               // strongest first
+  return kept.slice(0, 4).sort((a, b) => a.m - b.m).map(c => midiToNoteName(c.m));
+}
+
 // median of a small array (smooths pitch jitter before we commit to a note)
 function median(arr) {
   if (!arr.length) return 0;
@@ -1548,7 +1978,8 @@ async function startMidiListener(onDetect, onReady) {
     return true;
   } catch (e) { return false; }
 }
-async function startMicListener(onDetect, onReady, onError) {
+async function startMicListener(onDetect, onReady, onError, opts) {
+  opts = opts || {};
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true }, // AGC boosts soft notes so light presses register
@@ -1556,34 +1987,72 @@ async function startMicListener(onDetect, onReady, onError) {
     const ac = getAC();
     const src = ac.createMediaStreamSource(stream);
     const analyser = ac.createAnalyser();
-    analyser.fftSize = 2048;
-    src.connect(analyser);
-    const buf = new Float32Array(analyser.fftSize);
-    let last = null, stable = 0, silence = 2, fired = false, raf = 0;
-    const recent = []; // last few raw frequencies → median smooths jitter & octave glitches
-    const tick = () => {
-      analyser.getFloatTimeDomainData(buf);
-      const f = autoCorrelate(buf, ac.sampleRate);
-      const note = f > 0 ? freqToNoteName(f) : null;
-      if (note) {
-        silence = 0;
-        recent.push(f); if (recent.length > 4) recent.shift();
-        if (note === last) { stable++; } else { last = note; stable = 1; fired = false; } // a NEW pitch re-arms
-        // fire once per fresh note as soon as it's confirmed (2 frames) — works for
-        // legato/fast playing too, since a pitch change re-arms even without a gap
-        if (stable >= 2 && !fired) {
-          fired = true;
-          const med = median(recent.slice(-3));
-          onDetect({ note: freqToNoteName(med) || note, freq: med, source: "mic" });
+    let raf = 0;
+    if (opts.poly) {
+      // ── Polyphonic (chord) path: onset-triggered harmonic-summation ──
+      analyser.fftSize = 16384;                 // ~2.7 Hz/bin @44.1k — fine enough to split chord tones
+      analyser.smoothingTimeConstant = 0;
+      src.connect(analyser);
+      const time = new Float32Array(analyser.fftSize);
+      const db = new Float32Array(analyser.frequencyBinCount);
+      const mag = new Float32Array(analyser.frequencyBinCount);
+      let floor = 0.004, armed = true, captureAt = 0, lastFire = 0;
+      const tick = () => {
+        const t = (typeof performance !== "undefined" && performance.now) ? performance.now() : 0;
+        analyser.getFloatTimeDomainData(time);
+        let rms = 0; for (let i = 0; i < time.length; i++) rms += time[i] * time[i];
+        rms = Math.sqrt(rms / time.length);
+        floor = floor * 0.995 + rms * 0.005;     // slow EMA of the room/noise floor
+        // a chord ATTACK = energy jumps well above the floor while we're armed
+        if (armed && captureAt === 0 && rms > Math.max(0.012, floor * 3) && (t - lastFire) > 220) {
+          captureAt = t + 85;                    // let the attack transient settle (~85ms)
         }
-      } else {
-        if (silence < 10) silence++;
-        if (silence >= 2) { last = null; stable = 0; fired = false; recent.length = 0; } // brief gap re-arms repeats
-      }
+        if (captureAt && t >= captureAt) {
+          analyser.getFloatFrequencyData(db);    // dB → linear magnitude
+          for (let i = 0; i < db.length; i++) { const v = db[i]; mag[i] = v <= -160 ? 0 : Math.pow(10, v / 20); }
+          const notes = detectPolyNotes(mag, ac.sampleRate, analyser.fftSize);
+          captureAt = 0; armed = false; lastFire = t;
+          if (notes.length) onDetect(notes.length === 1
+            ? { note: notes[0], freq: null, source: "mic" }
+            : { note: notes[0], notes, freq: null, source: "mic", poly: true });
+        }
+        if (!armed && rms < Math.max(0.008, floor * 1.6)) armed = true; // re-arm once it quiets
+        raf = requestAnimationFrame(tick);
+      };
+      if (onReady) onReady();
       raf = requestAnimationFrame(tick);
-    };
-    if (onReady) onReady();
-    raf = requestAnimationFrame(tick);
+    } else {
+      // ── Monophonic path (default): autocorrelation, best one note at a time ──
+      analyser.fftSize = 2048;
+      src.connect(analyser);
+      const buf = new Float32Array(analyser.fftSize);
+      let last = null, stable = 0, silence = 2, fired = false;
+      const recent = []; // last few raw frequencies → median smooths jitter & octave glitches
+      const tick = () => {
+        analyser.getFloatTimeDomainData(buf);
+        let f = autoCorrelate(buf, ac.sampleRate);
+        if (f > 0 && _accIsSuppressed(f)) f = -1; // ignore the game's own backing track, not a real key press
+        const note = f > 0 ? freqToNoteName(f) : null;
+        if (note) {
+          silence = 0;
+          recent.push(f); if (recent.length > 4) recent.shift();
+          if (note === last) { stable++; } else { last = note; stable = 1; fired = false; } // a NEW pitch re-arms
+          // fire once per fresh note as soon as it's confirmed (2 frames) — works for
+          // legato/fast playing too, since a pitch change re-arms even without a gap
+          if (stable >= 2 && !fired) {
+            fired = true;
+            const med = median(recent.slice(-3));
+            onDetect({ note: freqToNoteName(med) || note, freq: med, source: "mic" });
+          }
+        } else {
+          if (silence < 10) silence++;
+          if (silence >= 2) { last = null; stable = 0; fired = false; recent.length = 0; } // brief gap re-arms repeats
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      if (onReady) onReady();
+      raf = requestAnimationFrame(tick);
+    }
     _practiceStop.mic = () => {
       try { cancelAnimationFrame(raf); src.disconnect(); stream.getTracks().forEach(t => t.stop()); } catch (e) {}
     };
@@ -1939,8 +2408,15 @@ function bestVoice(locale, prefer = "male") {
   return cands[0];
 }
 function cleanForTTS(t) {
-  return t.replace(/[◈▶⏸⤢✕•🔊⏹🔇🎹🎵]/g, "")
-    .replace(/\*\*/g, "").replace(/[*_`~]/g, "")
+  return t.replace(/[◈▶⏸⤢✕•🔊⏹🔇🎹🎵⚠💡🪙🎁]/g, "")
+    .replace(/\*\*/g, "")               // markdown bold markers → drop just the ** (keep the inner words)
+    // then strip whole *stage-direction* spans (e.g. "*chuckles*", "*plays a note*") —
+    // the model is told to sound expressive, but if it ever slips into
+    // screenplay-style action text this must never be read aloud word-for-word.
+    // Must run AFTER the ** strip above, else "**bold**" mis-pairs across the
+    // inner two asterisks and eats the words instead of just the markers.
+    .replace(/\*[^*\n]{1,60}\*/g, "")
+    .replace(/[*_`~]/g, "")
     .replace(/\n{2,}/g, ". ").replace(/\n/g, " ")
     .replace(/\s+/g, " ").trim();
 }
@@ -2076,6 +2552,45 @@ function ttsChunks(text, max = 130) {
 }
 /* Returns true if cloud audio started; on any failure calls onError (so the
    caller can fall back to the device Web Speech voice). */
+/* ── Voice character + warmth: Gemini 2.5 TTS takes a natural-language style
+   direction (it speaks only the quoted content, in that tone) — this is what
+   turns a flat read into a warm, human, world-class-teacher delivery. ── */
+const VM_VOICES = [
+  { k: "warm",     v: "Sulafat", th: "อบอุ่น",    en: "Warm",     zh: "温暖" },
+  { k: "deep",     v: "Charon",  th: "ทุ้มลึก",    en: "Deep",     zh: "低沉" },
+  { k: "friendly", v: "Achird",  th: "เป็นกันเอง", en: "Friendly", zh: "亲切" },
+  { k: "bright",   v: "Zephyr",  th: "สดใส",      en: "Bright",   zh: "明亮" },
+];
+function getVmVoiceKey() { try { return localStorage.getItem("tg_vmvoice") || "warm"; } catch (e) { return "warm"; } }
+function getVmVoiceName() { const f = VM_VOICES.find(x => x.k === getVmVoiceKey()); return f ? f.v : "Sulafat"; }
+// the teacher's emotional tone adapts to the moment (a master teacher never sounds flat)
+let _ttsMood = "warm";
+function setTtsMood(m) { _ttsMood = m || "warm"; }
+function vmStyleFor(lang, mood) {
+  const m = mood || _ttsMood || "warm";
+  const D = {
+    warm: {
+      th: "อ่านข้อความในเครื่องหมายคำพูดด้วยน้ำเสียงครูสอนเปียโนระดับโลกที่อบอุ่น เป็นกันเอง ให้กำลังใจ พูดเป็นธรรมชาติเหมือนคนจริง จังหวะนุ่มนวลมีชีวิตชีวา ไม่ใช่หุ่นยนต์",
+      zh: "用温暖、亲切、鼓励的世界级钢琴老师语气，像真人一样自然、富有表现力地朗读引号中的文字，不要机械感。",
+      en: "Read the quoted text as a warm, encouraging, world-class piano teacher speaking naturally like a real person — friendly, clear, with gentle expressive pacing, never robotic.",
+    },
+    celebrate: {
+      th: "อ่านข้อความในเครื่องหมายคำพูดด้วยน้ำเสียงครูเปียโนที่ตื่นเต้น ดีใจ และภูมิใจในตัวลูกศิษย์มาก พลังบวกเต็มเปี่ยม ยิ้มขณะพูด เป็นธรรมชาติเหมือนคนจริง",
+      zh: "用兴奋、自豪、为学生由衷高兴的钢琴老师语气，充满正能量、面带微笑、像真人一样自然地朗读引号中的文字。",
+      en: "Read the quoted text as a piano teacher who is excited, proud and genuinely delighted with the student — upbeat, smiling and energetic, natural like a real person.",
+    },
+    gentle: {
+      th: "อ่านข้อความในเครื่องหมายคำพูดด้วยน้ำเสียงครูเปียโนที่อ่อนโยน ใจเย็น ปลอบใจและให้กำลังใจอย่างนุ่มนวล ไม่กดดัน เป็นธรรมชาติเหมือนคนจริง",
+      zh: "用温柔、耐心、给予安慰和轻声鼓励的钢琴老师语气，不带压力、像真人一样自然地朗读引号中的文字。",
+      en: "Read the quoted text as a piano teacher who is gentle, calm and reassuring — soft, patient and comforting, never pressuring, natural like a real person.",
+    },
+  };
+  const set = D[m] || D.warm;
+  return set[lang] || set.en;
+}
+// wrap one chunk with the (mood-aware) tone direction (quoted so the directive isn't spoken)
+function styleTTS(s, lang) { return vmStyleFor(lang) + "\n\n\"" + String(s).replace(/"/g, "'") + "\""; }
+
 async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
   stopCloudTTS();
   _ttsCancelled = false;
@@ -2093,7 +2608,7 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
       const res = await fetch(TTS_URL, {
         method: "POST",
         headers: API_HEADERS,
-        body: JSON.stringify({ text: s, lang }),
+        body: JSON.stringify({ text: styleTTS(s, lang), lang, voice: getVmVoiceName() }),
         signal: ctrl.signal,
       });
       if (!res.ok) {
@@ -2150,7 +2665,7 @@ async function fetchCloudClips(text, lang) {
   const fetchOne = (s) => {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 4500);
-    return fetch(TTS_URL, { method: "POST", headers: API_HEADERS, body: JSON.stringify({ text: s, lang }), signal: ctrl.signal })
+    return fetch(TTS_URL, { method: "POST", headers: API_HEADERS, body: JSON.stringify({ text: styleTTS(s, lang), lang, voice: getVmVoiceName() }), signal: ctrl.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error("tts " + res.status);
         const data = await res.json();
@@ -2191,13 +2706,13 @@ const L = {
     speak: "🔊 ฟัง", speaking: "⏹ หยุด",
     welcome: "สวัสดีครับ! ผมคือ TiGA AI ครูเปียโน 🎹\n\nถามได้เลยครับ — คอร์ด, สเกล, เทคนิค, โน้ต, ทฤษฎีดนตรีทุกอย่าง!\nลองกดคีย์เปียโนด้านบนได้เลยครับ 🎵",
     sys: "คุณคือ TiGA AI ครูเปียโน Tiga Studio ตอบเฉพาะเรื่องเปียโน กระชับ ตรงประเด็น ไม่เกิน 50 คำ ตอบภาษาไทย เมื่อพูดถึงคอร์ด/สเกลให้ระบุโน้ตเช่น C4 E4 G4 ปฏิเสธคำถามนอกเรื่องเปียโนสั้นๆ",
-    err: "⚠ ไม่สามารถเชื่อมต่อได้ชั่วคราว กรุณาลองใหม่อีกครั้งครับ",
+    err: "ขอโทษครับ ครูไม่ได้ยินชัดเลย ลองพูดอีกทีได้ไหมครับ",
     ttsNo: "🔇 อุปกรณ์นี้ไม่รองรับเสียง",
     ttsBlocked: "🔇 เสียงถูกบล็อกใน preview — กดเปิดในแท็บใหม่ (มุมขวาบน ⋮ › Open in new tab) แล้วลองอีกครั้งครับ",
-    navSensei: "TIGA AI", navPath: "เส้นทางเรียนรู้",
+    navSensei: "TIGA AI", navPath: "เส้นทางเรียนรู้", navVideos: "วิดีโอสอน", videosEmpty: "ยังไม่มีวิดีโอสอนตอนนี้", admVideos: "วิดีโอ", admVidUpload: "อัปโหลดวิดีโอใหม่", admVidTitle: "ชื่อวิดีโอ", admVidDesc: "คำอธิบาย (ไม่บังคับ)", admVidPick: "เลือกไฟล์วิดีโอ", admVidUploading: "กำลังอัปโหลด…", admVidPublished: "เผยแพร่แล้ว", admVidDraft: "ฉบับร่าง", admVidPublish: "เผยแพร่", admVidUnpublish: "ซ่อน", admVidDelete: "ลบ", admVidEmpty: "ยังไม่มีวิดีโอ อัปโหลดอันแรกได้เลย", admVidTooBig: "ไฟล์ใหญ่เกินไป (สูงสุด 500MB)", admVidErr: "อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง",
     playDemo: "▶ เล่นตัวอย่าง", pathTitle: "เส้นทางการเรียนรู้", pathSub: "เลือกหัวข้อ แล้ว AI จะสอนให้",
     pathGuide: "เริ่มจากบนลงล่าง: รากฐาน → คอร์ด → ขั้นสูง เรียนตามลำดับแล้วเก่งแน่นอน",
-    learnBtn: "เรียนเรื่องนี้", readBtn: "อ่านบทเรียน", keysLearned: "เรียนแล้ว {n} คีย์", pathFoot: "◈ แตะหัวข้อใดก็ได้ AI จะสอนพร้อมเล่นบนเปียโนให้ ◈",
+    learnBtn: "เรียนเรื่องนี้", readBtn: "อ่านบทเรียน", caseOverview: "ภาพรวม", caseSub: "เลือกกรณีศึกษา", keysLearned: "เรียนแล้ว {n} คีย์", pathFoot: "◈ แตะหัวข้อใดก็ได้ AI จะสอนพร้อมเล่นบนเปียโนให้ ◈",
     pickKey: "เลือกคีย์ที่ต้องการเรียน", pickKeyHint: "เลือกได้ทั้ง 12 คีย์ — AI จะสอนคีย์ที่คุณเลือก",
     pickType: "เลือกชนิดที่ต้องการเรียน", pickTypeHint: "เลือกชนิดก่อน แล้วเลือกคีย์",
     adminTitle: "ADMIN CONSOLE", adminSub: "โหมดผู้ดูแลระบบ — สอน AI ได้อิสระ",
@@ -2256,10 +2771,10 @@ const L = {
     pdTitle: "รายงานผู้ปกครอง", pdSessions: "ครั้งที่ฝึก/สัปดาห์", pdAcc: "ความแม่นยำเฉลี่ย", pdActivity: "การฝึก 6 สัปดาห์ล่าสุด", pdFocus: "จุดที่ควรเน้น", pdMastered: "ทำได้ดีแล้ว",
     exTitle: "เตรียมสอบเกรด", exSub: "ติ๊กความคืบหน้าตามหลักสูตรแต่ละเกรด ได้เหรียญทุกข้อที่ผ่าน",
     vmTitle: "AI ครูเสียง", vmStart: "เริ่มคุย", vmStop: "หยุด",
-    vmReady: "แตะ 'เริ่มคุย' แล้วพูดได้เลย", vmListening: "กำลังฟัง…", vmThinking: "กำลังคิด…", vmSpeaking: "กำลังพูด…", vmTapStop: "แตะเพื่อขัดจังหวะ", vmTypePh: "พิมพ์ถามก็ได้…",
+    vmReady: "แตะ 'เริ่มคุย' แล้วพูดได้เลย", vmListening: "กำลังฟัง… พูดได้เลย", vmThinking: "กำลังคิด…", vmSpeaking: "กำลังพูด…", vmTapStop: "แตะเพื่อขัดจังหวะ", vmTypePh: "พิมพ์ถามก็ได้…", vmReListen: "แตะเพื่อฟังใหม่", vmMicDenied: "ไมโครโฟนถูกปิดกั้น — เปิดสิทธิ์ไมค์ในเบราว์เซอร์แล้วลองใหม่", vmNetRetry: "สัญญาณอ่อน… กำลังลองฟังใหม่",
     vmGreeting: "สวัสดีครับ! ผมครู TiGA วันนี้อยากฝึกอะไรดีครับ จะถามอะไรก็ได้ หรือจะลองเล่นอะไรให้ผมฟังสักหน่อย เดี๋ยวผมช่วยฟังแล้วแนะนำให้",
     vmYou: "คุณ", vmNotesLbl: "เพิ่งเล่น", vmPlayedCue: "ผมเพิ่งเล่นให้ครูฟัง ช่วยฟังแล้วติชมหน่อยครับ", vmNoSTT: "เบราว์เซอร์นี้ไม่รองรับการฟังเสียงพูด — แนะนำ Chrome หรือ Safari",
-    vmHint: "💡 พูดถามแล้วรอครูตอบ · เล่นเปียโนก่อนถามได้ ครูจะช่วยวิเคราะห์ · ครูเล่นโชว์ให้ฟังได้ด้วย", vmFastVoice: "เสียงเร็ว", vmHqVoice: "เสียงคมชัด", vmSpeedLbl: "ความเร็ว", vmGreetBack: "ยินดีต้อนรับกลับมาครับ! คราวก่อนเรายังติด {x} อยู่ ลองทบทวนกันไหม หรืออยากฝึกอะไรดีครับ", vmGreetHw: "ยินดีต้อนรับกลับมาครับ! คราวก่อนผมให้การบ้านไว้ว่า {x} ได้ลองฝึกหรือยังครับ ลองเล่นให้ผมฟังหน่อยสิ",
+    vmHint: "💡 พูดถามแล้วรอครูตอบ · เล่นเปียโนก่อนถามได้ ครูจะช่วยวิเคราะห์ · ครูเล่นโชว์ให้ฟังได้ด้วย", vmFastVoice: "เสียงเร็ว", vmHqVoice: "เสียงคมชัด", vmSpeedLbl: "ความเร็ว", vmVoiceLbl: "โทนเสียง", vmPolyOn: "🎹 ฟังคอร์ด: เปิด", vmPolyOff: "🎹 ฟังคอร์ด: ปิด", vmPolyHint: "เบต้า: ฟังคอร์ดหลายโน้ตพร้อมกันจากไมค์ (เปียโนจริง)", vmLangHint: "เปลี่ยนภาษาที่คุยกับครู", vmGreetBack: "ยินดีต้อนรับกลับมาครับ! คราวก่อนเรายังติด {x} อยู่ ลองทบทวนกันไหม หรืออยากฝึกอะไรดีครับ", vmGreetHw: "ยินดีต้อนรับกลับมาครับ! คราวก่อนผมให้การบ้านไว้ว่า {x} ได้ลองฝึกหรือยังครับ ลองเล่นให้ผมฟังหน่อยสิ",
     wlcTitle: "ยินดีต้อนรับสู่ TiGA! 🎹", wlcTip1: "แตะคีย์เปียโนเล่นได้เลย ครู AI ช่วยสอน", wlcTip2: "แตะ ☰ มุมซ้ายบน เพื่อเปิดเมนูไปหน้าต่างๆ", wlcTip3: "เล่นเกม เก็บดาว เลเวล และเหรียญ", wlcStart: "เริ่มเลย!",
     helpTitle: "วิธีใช้งาน", help1: "แตะ ☰ มุมซ้ายบน = เปิดเมนู ไปหน้าต่างๆ", help2: "แตะคีย์เปียโน = เล่นเสียงโน้ต", help3: "ปุ่มไมค์ 🎙️ = คุยกับครู AI สอนสด", help4: "ไปที่ 'ฝึกซ้อม' = เล่นเกมเก็บดาว", help5: "ปุ่ม 🔁 = ฟังครูเล่นซ้ำ", helpOk: "เข้าใจแล้ว!", signOut: "ออกจากระบบ",
     shopTitle: "ร้านค้า", shopSkins: "สกินคีย์", shopThemes: "ธีมพื้นหลัง", shopEquip: "ใช้", shopEquipped: "กำลังใช้",
@@ -2267,14 +2782,14 @@ const L = {
     dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
     setAmbient: "ดนตรีบรรยากาศ", setInstall: "ติดตั้งเป็นแอป", setBpm: "จังหวะ (BPM)", setTap: "แตะตามจังหวะ", setLang: "ภาษา", setOn: "เปิด", setOff: "ปิด",
-    upgrade: "อัปเกรด", prTitle: "อัปเกรดเป็น Premium", prSub: "ปลดล็อกครู AI เต็มพลัง เรียนได้ไม่จำกัด", prMonth: "เดือน", prActive: "ใช้งานอยู่", prGet: "สมัครเลย",
+    upgrade: "อัปเกรด", prTitle: "อัปเกรดเป็น Premium", prSub: "ปลดล็อกครู AI เต็มพลัง เรียนได้ไม่จำกัด", prMonth: "เดือน", prYear: "ปี", prSave3: "ประหยัด 3%", prBillMonth: "รายเดือน", prBillYear: "รายปี", prActive: "ใช้งานอยู่", prGet: "สมัครเลย",
     prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "ครู AI ติชมการเล่นไม่จำกัด", prF3: "โหมดเตรียมสอบเกรด", prF4: "แดชบอร์ดผู้ปกครอง", prF5: "เสียงครูคุณภาพสูง + ไม่มีโฆษณา",
     prFam1: "ทุกอย่างใน Premium", prFam2: "สูงสุด 3 โปรไฟล์ (ทั้งครอบครัว)", prFree1: "คีย์บอร์ด เกม บทเรียนพื้นฐาน", prFree2: "ครู AI (จำกัดรายวัน)",
     prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "ทุกอย่างใน Family · สูงสุด 6 โปรไฟล์", prMax3: "AI ตอบเร็วที่สุด + เสียงธรรมชาติคุณภาพสูงสุด", prMax4: "สร้างเพลงด้วย AI ไม่จำกัด + รายงานพัฒนาการ & แผนซ้อมรายสัปดาห์อัตโนมัติ", prMxf1: "ทุกอย่างใน Max", prMxf2: "สูงสุด 10 โปรไฟล์", prMxf3: "แดชบอร์ดครอบครัว + รายงาน AI รายคนอัตโนมัติ", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
     schoolInfo: "🏫 TiGA สำหรับโรงเรียนและครูเปียโน\n\n• ใช้เป็น 'เพื่อนซ้อมที่บ้าน' ให้นักเรียนระหว่างคาบเรียน — AI ช่วยฝึกทุกวัน ครูเห็นความก้าวหน้า\n• โหมดไฮบริด: AI สอนทุกวัน + ครูจริงเช็คเดือนละครั้ง\n• ราคาสถาบัน + แดชบอร์ดติดตามนักเรียนทั้งห้อง\n\nสนใจติดต่อ: LINE @tiga.ai 🎹",
     octaveHint: "เลื่อนช่วงคีย์ขึ้น-ลง",
-    vmSys: "คุณคือ 'ครู TiGA' ครูเปียโนระดับโลก จบคอนเซอร์วาทอรี อบอุ่น ใจเย็น สอนเก่งมาก กำลังสอนตัวต่อตัวแบบสดผ่านเสียง ยึดแนวครูชั้นครู: Suzuki (ฟังเยอะ+แบ่งขั้นเล็กจิ๋ว), Taubman (เทคนิคผ่อนคลายไม่บาดเจ็บ ข้อมือนุ่ม นิ้วโค้ง ใช้น้ำหนักแขน), Kodály/Dalcroze (จังหวะและโสตประสาท)\n\nวิธีสอนทุกครั้ง (วงจร): 1) วินิจฉัย—ถามหรือดูระดับและเป้าหมาย 2) ให้ 'หนึ่งขั้นเล็กที่สุด' 3) อธิบาย 'ทำไม' สั้นๆ 4) สาธิตด้วยการเล่นจริง 5) ชวนผู้เรียนลองเล่นแล้วฟัง 6) ประเมินจากสิ่งที่เขาเล่นจริง (ระบบบอกโน้ต/คอร์ด/สเกลที่ตรวจพบให้)—ชมจุดที่ถูก บอก 'โน้ตที่ผิดเป๊ะๆ' และวิธีแก้ 7) ทำซ้ำหรือเลื่อนขั้น\n\nเน้นเทคนิค: ข้อมือผ่อนคลาย นิ้วโค้งมน ใช้น้ำหนักแขน นั่งหลังตรง · เลขนิ้วถูกต้อง · แยกมือก่อนค่อยรวมสองมือ · ช้าก่อนค่อยเร็ว ('ซ้อมช้าเพื่อเล่นเร็ว')\nดนตรี: จังหวะคงที่ นับจังหวะ เปิดเมโทรนอมช่วยได้ สอนเสียงดัง-เบาและการวลี ไม่ใช่แค่โน้ตถูก\nทฤษฎีต้องแม่นยำเสมอ: เมเจอร์สเกล = ระยะครึ่งเสียง 2-2-1-2-2-2-1 จากตั้งต้น · คอร์ดเมเจอร์ = ราก +4 +7 ครึ่งเสียง · ไมเนอร์ = ราก +3 +7 · ตรวจให้ชัวร์ก่อนบอกโน้ต และเชื่อข้อมูลโน้ตที่ระบบตรวจให้\nปรับตามวัย: เด็ก—สนุก สั้น ชมบ่อย / ผู้ใหญ่—ลงทฤษฎีลึกได้ ใช้ growth mindset ชมที่ความพยายาม อดทน เจาะจง\n\nเครื่องมือที่สั่งได้ (ใส่ในข้อความ):\n- เล่นทำนองทีละโน้ต: [play: C4 D4 E4]  (ใส่ - เพื่อเว้นจังหวะ)\n- เล่นคอร์ดพร้อมกัน: [chord: C4 E4 G4]\n- ไฮไลต์คีย์ให้ดูตำแหน่งนิ้ว (ไม่มีเสียง): [highlight: C4 E4 G4]\n- เปิดเมโทรนอมตามจังหวะ: [metro: 80]\n- สั่งการบ้านตอนจบคาบ (สั่งครั้งละ 1 อย่างชัดเจน): [homework: ฝึกสเกล C เมเจอร์ ช้าๆ วันละ 5 รอบ] — ระบบจะจำไว้และคาบหน้าจะเตือนให้คุณถามว่าทำหรือยัง\n- โชว์โน้ตบนบรรทัด 5 เส้นพร้อมไฟคีย์ขณะสอน: [staff: C4 E4 G4]\n- เริ่มแบบฝึกทีละโน้ตให้ผู้เรียนเล่นตาม: [practice: C4 D4 E4 F4 G4]\n- เปิดเกมเล่นตามเพลง: [song: twinkle] (id: scale, twinkle, happy, row, london, saints, furelise) หรือ [song] เพื่อเปิดรายการเพลง\n- เช็คท่ามือผู้เรียนด้วยกล้อง: [posture]\n- ฝึกโสตประสาท เล่นโจทย์ให้ทายด้วยหู ไม่โชว์คีย์: [ear: interval] หรือ [ear: chord] หรือ [ear: note] ผู้เรียนตอบโดยเล่นหรือพูด แล้วระบบจะบอกคำตอบที่ถูกและสิ่งที่เขาทำให้คุณ คุณแค่ตรวจแล้วออกข้อใหม่\nเวลาคุณโชว์/เล่นโน้ต ผู้เรียนจะเห็น ✓/✗ ทันทีตอนลองเล่น และผู้เรียนแตะเพื่อขัดจังหวะคุณได้ทุกเมื่อ จึงพูดสั้นๆ แล้วให้เขาลองเล่น\nนอกจากนี้คุณยังได้รับข้อมูล 'จังหวะ' (BPM/ความสม่ำเสมอ/เร่ง-อืด) และ 'น้ำหนัก/ไดนามิก' (สม่ำเสมอหรือไม่ เบา/กลาง/ดัง ค่อยดังขึ้น/ค่อยเบาลง) ให้ติชมทั้งจังหวะและไดนามิกเหมือนครูที่ฟังออก ไม่ใช่แค่โน้ตถูก\nเมื่อคุณโชว์โน้ตแล้วผู้เรียนเล่นตาม ระบบจะส่ง 'ผลตรวจลำดับ' บอกโน้ตผิดตัวแรกเป๊ะๆ ให้ใช้แก้ให้ตรงจุด (\"โน้ตตัวที่ 3 ต้องเป็น E แต่เล่น F\")\nใช้ชื่อโน้ตพร้อมเลขออกเทฟ ช่วง C4 ถึง B5 ใช้เครื่องมือบ่อยๆ เช่น 'วางนิ้วตรงนี้นะ [highlight: C4 E4 G4] แล้วลองเล่นตาม' หรือ 'ฟังจังหวะนะ [metro: 80]'\n\nสไตล์ตอบ: พูดคุยเป็นธรรมชาติเหมือนคนจริงๆ สั้นกระชับ (1-2 ประโยคสั้นๆ) ทีละขั้น จบด้วยการชวนเล่นหรือถามคำถามเสมอ ห้ามใช้มาร์กดาวน์/บูลเล็ต/สัญลักษณ์อื่นนอกจากคำสั่ง ตอบเป็นภาษาไทยเสมอ\n\nสำคัญมาก ทำตัวเหมือนครูมนุษย์จริงๆ: บางครั้งผู้เรียนจะเล่นให้ฟังโดยไม่พูด (ระบบจะส่งโน้ตที่เขาเพิ่งเล่นมาให้) ให้ทักทันทีเหมือนครูที่กำลังตั้งใจฟังอยู่ข้างๆ ชมจุดที่ดีก่อน บอกสิ่งที่ควรปรับทีละอย่างเดียว แล้วชวนลองใหม่ เรียกชื่อผู้เรียนถ้ารู้ นำคาบเรียนเอง (ทบทวนสั้นๆ แล้วโฟกัสวันนี้เรื่องเดียว สาธิต ให้ลอง ติชม แล้วต่อด้วยขั้นเล็กๆ) ฉลองความก้าวหน้าเล็กๆ อย่างจริงใจ อดทน ไม่เร่ง ไม่เทเนื้อหาทีเดียวเยอะ ถ้าผู้เรียนเล่นพลาดให้กำลังใจแล้วซอยให้ง่ายลง อ่านอารมณ์ผู้เรียนแล้วปรับโทนให้เหมาะ",
+    vmSys: "คุณคือ 'ครู TiGA' ครูเปียโนระดับโลก จบคอนเซอร์วาทอรี อบอุ่น ใจเย็น สอนเก่งมาก กำลังสอนตัวต่อตัวแบบสดผ่านเสียง ยึดแนวครูชั้นครู: Suzuki (ฟังเยอะ+แบ่งขั้นเล็กจิ๋ว), Taubman (เทคนิคผ่อนคลายไม่บาดเจ็บ ข้อมือนุ่ม นิ้วโค้ง ใช้น้ำหนักแขน), Kodály/Dalcroze (จังหวะและโสตประสาท)\n\nแนวทางสอนของคุณเป็นชุดเครื่องมือที่ยืดหยุ่น ไม่ใช่สคริปต์ตายตัวที่ต้องทำทุกครั้ง: รู้ระดับและเป้าหมายของเขา ให้ 'ขั้นเล็กที่สุด' ทีละก้าว อธิบาย 'ทำไม' เฉพาะตอนที่ช่วยได้จริง สาธิตด้วยการเล่นจริง ให้เขาลอง แล้วตอบสนองจากสิ่งที่เขาเล่นจริง (ระบบบอกโน้ต/คอร์ด/สเกลที่ตรวจพบให้)—ชมจุดที่ถูกจริงๆ บอกโน้ตที่ผิดเป๊ะๆ และวิธีแก้ แต่บทเรียนจริงไม่ได้วนซ้ำรูปแบบเดิมทุกครั้ง บางทีก็แค่ตอบสั้นๆ แล้วปล่อยให้เขาเล่นต่อ บางทีก็ถาม บางทีก็เล่าอะไรที่น่าสนใจ บางทีก็แค่นั่งฟังเงียบๆ ให้เหมือนบทสนทนาจริงที่จังหวะไม่ซ้ำกัน ไม่ใช่ทำตามเช็คลิสต์\n\nเน้นเทคนิค: ข้อมือผ่อนคลาย นิ้วโค้งมน ใช้น้ำหนักแขน นั่งหลังตรง · เลขนิ้วถูกต้อง · แยกมือก่อนค่อยรวมสองมือ · ช้าก่อนค่อยเร็ว ('ซ้อมช้าเพื่อเล่นเร็ว')\nดนตรี: จังหวะคงที่ นับจังหวะ เปิดเมโทรนอมช่วยได้ สอนเสียงดัง-เบาและการวลี ไม่ใช่แค่โน้ตถูก\nทฤษฎีต้องแม่นยำเสมอ: เมเจอร์สเกล = ระยะครึ่งเสียง 2-2-1-2-2-2-1 จากตั้งต้น · คอร์ดเมเจอร์ = ราก +4 +7 ครึ่งเสียง · ไมเนอร์ = ราก +3 +7 · ตรวจให้ชัวร์ก่อนบอกโน้ต และเชื่อข้อมูลโน้ตที่ระบบตรวจให้\nปรับตามวัย: เด็ก—สนุก สั้น ชมบ่อย / ผู้ใหญ่—ลงทฤษฎีลึกได้ ใช้ growth mindset ชมที่ความพยายาม อดทน เจาะจง\n\nเครื่องมือที่สั่งได้ (ใส่ในข้อความ):\n- เล่นทำนองทีละโน้ต: [play: C4 D4 E4]  (ใส่ - เพื่อเว้นจังหวะ)\n- เล่นคอร์ดพร้อมกัน: [chord: C4 E4 G4]\n- ไฮไลต์คีย์ให้ดูตำแหน่งนิ้ว (ไม่มีเสียง): [highlight: C4 E4 G4]\n- เปิดเมโทรนอมตามจังหวะ: [metro: 80]\n- สั่งการบ้านตอนจบคาบ (สั่งครั้งละ 1 อย่างชัดเจน): [homework: ฝึกสเกล C เมเจอร์ ช้าๆ วันละ 5 รอบ] — ระบบจะจำไว้และคาบหน้าจะเตือนให้คุณถามว่าทำหรือยัง\n- โชว์โน้ตบนบรรทัด 5 เส้นพร้อมไฟคีย์ขณะสอน: [staff: C4 E4 G4]\n- เริ่มแบบฝึกทีละโน้ตให้ผู้เรียนเล่นตาม: [practice: C4 D4 E4 F4 G4]\n- เปิดเกมเล่นตามเพลง: [song: twinkle] (id: scale, twinkle, happy, row, london, saints, furelise) หรือ [song] เพื่อเปิดรายการเพลง\n- เช็คท่ามือผู้เรียนด้วยกล้อง: [posture]\n- ฝึกโสตประสาท เล่นโจทย์ให้ทายด้วยหู ไม่โชว์คีย์: [ear: interval] หรือ [ear: chord] หรือ [ear: note] ผู้เรียนตอบโดยเล่นหรือพูด แล้วระบบจะบอกคำตอบที่ถูกและสิ่งที่เขาทำให้คุณ คุณแค่ตรวจแล้วออกข้อใหม่\nเวลาคุณโชว์/เล่นโน้ต ผู้เรียนจะเห็น ✓/✗ ทันทีตอนลองเล่น และผู้เรียนแตะเพื่อขัดจังหวะคุณได้ทุกเมื่อ จึงพูดสั้นๆ แล้วให้เขาลองเล่น\nนอกจากนี้คุณยังได้รับข้อมูล 'จังหวะ' (BPM/ความสม่ำเสมอ/เร่ง-อืด) และ 'น้ำหนัก/ไดนามิก' (สม่ำเสมอหรือไม่ เบา/กลาง/ดัง ค่อยดังขึ้น/ค่อยเบาลง) ให้ติชมทั้งจังหวะและไดนามิกเหมือนครูที่ฟังออก ไม่ใช่แค่โน้ตถูก ข้อมูลพวกนี้ (รวมถึงตัวเลขดิบอื่นๆ ที่คุณได้รับ เช่น มิลลิวินาทีหรือเปอร์เซ็นต์) มีไว้ให้ 'คุณใช้ตัดสินใจเอง' เท่านั้น ให้แปลงเป็นคำพูดแบบที่ครูมนุษย์จะพูดจริงๆ (\"ช่วงนี้เร่งไปนิดนะ\", \"สม่ำเสมอขึ้นเยอะแล้ว\", \"โน้ตนี้หนักไปหน่อย\") ห้ามพูดตัวเลขดิบออกมาเด็ดขาด ครูจริงไม่มีใครพูดเป็นมิลลิวินาทีหรือเปอร์เซ็นต์\nเมื่อคุณโชว์โน้ตแล้วผู้เรียนเล่นตาม ระบบจะส่ง 'ผลตรวจลำดับ' บอกโน้ตผิดตัวแรกเป๊ะๆ ให้ใช้แก้ให้ตรงจุด (\"โน้ตตัวที่ 3 ต้องเป็น E แต่เล่น F\")\nถ้าผู้เรียนเล่นถูกติดต่อกันหลายครั้ง ระบบจะบอกให้เลื่อนขั้น ถ้าพลาดซ้ำ ๆ จะบอกให้ช้าลง ทำตามจังหวะนั้น สอนเพลงแบบทีละวรรค: เล่นวรรคสั้น ๆ ด้วย [play:] ให้เขาเล่นตาม ดูผลตรวจลำดับ แล้วค่อยไปวรรคถัดไป คำสั่ง \"อีกที/ช้าลง/เร็วขึ้น\" ระบบจัดการให้เองอัตโนมัติ\nทำตัวเป็นครูระดับเทพ: เปลี่ยนทั้งคำพูดและ 'รูปแบบ/ความยาว' ของคำตอบทุกครั้ง (ห้ามตอบด้วยโครงสร้างซ้ำเดิมสองครั้งติดกัน) พูดให้น้อยให้เขาเล่นเยอะ แต่ละจุดที่แก้ให้ใช้การเปรียบเป็นภาพ (\"เบา ๆ เหมือนนิ้วจุ่มลงบนหมอน\") ชมจุดที่ดีแบบเฉพาะเจาะจงและจริงใจก่อนติเสมอ อ่านอารมณ์ผู้เรียนแล้วปรับพลังงานให้เข้ากัน (จริงจังตอนเขาตั้งใจ สนุกสนานตอนเขาเพลิน อ่อนโยนไม่เร่งตอนเขาท้อ) และต่อยอดจากสิ่งที่เขาทำคราวก่อนทุกครั้ง ครูจริงบางทีก็แค่หัวเราะเบาๆ ชมแค่คำเดียว หรือพูดเรื่องที่ไม่เกี่ยวกับเทคนิคเลยก็ได้ (ความตั้งใจของเขา มุกตลกเล็กๆ ความอยากรู้ว่าเขารู้สึกยังไง) ให้มีความเป็นคนจริงๆ แบบนั้นบ้าง ไม่ใช่สั่งสอนอย่างเดียวตลอดเวลา\nใช้ชื่อโน้ตพร้อมเลขออกเทฟ ช่วง C4 ถึง B5 ใช้เครื่องมือบ่อยๆ เช่น 'วางนิ้วตรงนี้นะ [highlight: C4 E4 G4] แล้วลองเล่นตาม' หรือ 'ฟังจังหวะนะ [metro: 80]'\n\nสไตล์ตอบ: พูดเหมือนคนจริงกำลังคุยสดๆ ไม่ใช่ครูอ่านแผนการสอน ส่วนใหญ่ตอบสั้นแค่ประโยคเดียวที่เป็นธรรมชาติ แต่ให้ 'ความยาวและรูปแบบ' เปลี่ยนไปเรื่อยๆ บางทีแค่ 2-4 คำ (\"เยี่ยม!\", \"ใช่เลยครับ\", \"อือ ใกล้แล้ว\") บางทีเป็นประโยคเต็ม นานๆ ทีถ้าอธิบายเรื่องใหม่จริงๆ ก็ยาวขึ้นได้บ้าง ห้ามจบทุกคำตอบด้วยคำถามหรือชวนเล่นเสมอไป เพราะแค่ไม่กี่ครั้งก็จะรู้สึกเหมือนหุ่นยนต์ทันที บ่อยครั้งแค่ตอบรับสั้นๆ แล้วปล่อยให้ความเงียบหรือการเล่นของเขาเป็นจังหวะถัดไปก็พอ พูดแบบภาษาพูดจริงๆ ไม่ใช่ภาษาตำรา ห้ามเขียนบทบรรยายท่าทางหรือการกระทำแบบ *หัวเราะ* หรือ (ยิ้ม) เด็ดขาด เพราะทุกอย่างที่คุณเขียนจะถูกอ่านออกเสียงตรงตัวทั้งหมด ให้เขียนแค่คำที่จะพูดจริงๆ ถ้าอยากให้ฟังดูขำหรืออบอุ่นก็เลือกใช้คำที่มีน้ำเสียงแบบนั้นแทน ไม่ใช่บรรยายการกระทำ ห้ามใช้มาร์กดาวน์/บูลเล็ต/สัญลักษณ์อื่นนอกจากคำสั่ง ตอบเป็นภาษาไทยเสมอ\n\nสำคัญมาก ทำตัวเหมือนครูมนุษย์จริงๆ: บางครั้งผู้เรียนจะเล่นให้ฟังโดยไม่พูด (ระบบจะส่งโน้ตที่เขาเพิ่งเล่นมาให้) ให้ทักทันทีเหมือนครูที่กำลังตั้งใจฟังอยู่ข้างๆ ชมจุดที่ดีก่อน บอกสิ่งที่ควรปรับทีละอย่างเดียว แล้วชวนลองใหม่ เรียกชื่อผู้เรียนถ้ารู้ นำคาบเรียนเอง (ทบทวนสั้นๆ แล้วโฟกัสวันนี้เรื่องเดียว สาธิต ให้ลอง ติชม แล้วต่อด้วยขั้นเล็กๆ) ฉลองความก้าวหน้าเล็กๆ อย่างจริงใจ อดทน ไม่เร่ง ไม่เทเนื้อหาทีเดียวเยอะ ถ้าผู้เรียนเล่นพลาดให้กำลังใจแล้วซอยให้ง่ายลง อ่านอารมณ์ผู้เรียนแล้วปรับโทนให้เหมาะ",
   },
   en: {
     ph: "Ask about piano, e.g. What is a C major scale?",
@@ -2285,13 +2800,13 @@ const L = {
     speak: "🔊 LISTEN", speaking: "⏹ STOP",
     welcome: "Hello! I'm TiGA, your AI piano teacher 🎹\n\nAsk me anything — chords, scales, technique, music theory!\nPress the piano keys above to hear them 🎵",
     sys: "You are TiGA AI, a piano teacher by Tiga Studio. Answer ONLY piano questions, concise and direct, under 50 words. List note names e.g. C4 E4 G4 for chords/scales. Decline off-topic questions briefly.",
-    err: "⚠ Connection hiccup — please try again.",
+    err: "Sorry, I didn't quite catch that — mind saying it again?",
     ttsNo: "🔇 Speech not supported on this device",
     ttsBlocked: "🔇 Audio is blocked in preview — open in a new tab (top-right ⋮ › Open in new tab), then try again.",
-    navSensei: "TIGA AI", navPath: "PATHWAY",
+    navSensei: "TIGA AI", navPath: "PATHWAY", navVideos: "Video Lessons", videosEmpty: "No video lessons yet", admVideos: "Videos", admVidUpload: "Upload a new video", admVidTitle: "Video title", admVidDesc: "Description (optional)", admVidPick: "Choose video file", admVidUploading: "Uploading…", admVidPublished: "Published", admVidDraft: "Draft", admVidPublish: "Publish", admVidUnpublish: "Unpublish", admVidDelete: "Delete", admVidEmpty: "No videos yet — upload the first one", admVidTooBig: "File too large (max 500MB)", admVidErr: "Upload failed — please try again",
     playDemo: "▶ PLAY DEMO", pathTitle: "PATHWAY OF LEARNING", pathSub: "Pick a topic, AI will teach you",
     pathGuide: "Go top to bottom: Foundation → Chords → Advanced. Follow the order to master piano.",
-    learnBtn: "LEARN THIS", readBtn: "READ", keysLearned: "{n} keys learned", pathFoot: "◈ Tap any topic — AI teaches it and plays it on the piano ◈",
+    learnBtn: "LEARN THIS", readBtn: "READ", caseOverview: "Overview", caseSub: "Pick a case study", keysLearned: "{n} keys learned", pathFoot: "◈ Tap any topic — AI teaches it and plays it on the piano ◈",
     pickKey: "Pick a key to learn", pickKeyHint: "All 12 keys available — AI teaches your chosen key",
     pickType: "Select a type", pickTypeHint: "Choose a type first, then pick a key",
     adminTitle: "ADMIN CONSOLE", adminSub: "Admin mode — train AI freely",
@@ -2350,10 +2865,10 @@ const L = {
     pdTitle: "Parent Report", pdSessions: "sessions/week", pdAcc: "avg accuracy", pdActivity: "Last 6 weeks of practice", pdFocus: "Focus areas", pdMastered: "Mastered",
     exTitle: "Grade Exam Prep", exSub: "Tick off your progress per grade — earn coins for each task.",
     vmTitle: "AI Voice Tutor", vmStart: "Start Talking", vmStop: "Stop",
-    vmReady: "Tap 'Start Talking' and just speak", vmListening: "Listening…", vmThinking: "Thinking…", vmSpeaking: "Speaking…", vmTapStop: "Tap to interrupt", vmTypePh: "or type your question…",
+    vmReady: "Tap 'Start Talking' and just speak", vmListening: "Listening… go ahead", vmThinking: "Thinking…", vmSpeaking: "Speaking…", vmTapStop: "Tap to interrupt", vmTypePh: "or type your question…", vmReListen: "Tap to listen again", vmMicDenied: "Microphone blocked — allow mic access in your browser, then try again", vmNetRetry: "Weak signal… retrying to hear you",
     vmGreeting: "Hi! I'm Teacher TiGA. What would you like to work on today? Ask me anything, or play me something and I'll listen and help.",
     vmYou: "You", vmNotesLbl: "Just played", vmPlayedCue: "I just played that for you — listen and tell me how it was.", vmNoSTT: "This browser can't capture speech — try Chrome or Safari",
-    vmHint: "💡 Ask out loud then wait for the reply · play first and I will analyze it · I can play demos too", vmFastVoice: "Fast voice", vmHqVoice: "HQ voice", vmSpeedLbl: "Speed", vmGreetBack: "Welcome back! Last time {x} was tricky — want to review it, or work on something else?", vmGreetHw: "Welcome back! Last time I gave you homework: {x}. Did you get to practice it? Play it for me and let's hear.",
+    vmHint: "💡 Ask out loud then wait for the reply · play first and I will analyze it · I can play demos too", vmFastVoice: "Fast voice", vmHqVoice: "HQ voice", vmSpeedLbl: "Speed", vmVoiceLbl: "Voice", vmPolyOn: "🎹 Chord ear: on", vmPolyOff: "🎹 Chord ear: off", vmPolyHint: "Beta: hears full chords from the mic (acoustic piano)", vmLangHint: "Switch the language you talk with the teacher in", vmGreetBack: "Welcome back! Last time {x} was tricky — want to review it, or work on something else?", vmGreetHw: "Welcome back! Last time I gave you homework: {x}. Did you get to practice it? Play it for me and let's hear.",
     wlcTitle: "Welcome to TiGA! 🎹", wlcTip1: "Tap the keys to play — the AI tutor helps you", wlcTip2: "Tap ☰ top-left to open the menu and pages", wlcTip3: "Play games, collect stars, levels & coins", wlcStart: "Let's go!",
     helpTitle: "How to use", help1: "Tap ☰ top-left = open menu & pages", help2: "Tap the piano keys = play notes", help3: "Mic button 🎙️ = talk to your AI teacher", help4: "Go to 'Studio' = play games & earn stars", help5: "🔁 button = hear the teacher play again", helpOk: "Got it!", signOut: "Sign out",
     shopTitle: "Shop", shopSkins: "Key skins", shopThemes: "Themes", shopEquip: "Equip", shopEquipped: "Equipped",
@@ -2361,14 +2876,14 @@ const L = {
     dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
     setAmbient: "Ambient music", setInstall: "Install app", setBpm: "Tempo (BPM)", setTap: "Tap tempo", setLang: "Language", setOn: "On", setOff: "Off",
-    upgrade: "Upgrade", prTitle: "Go Premium", prSub: "Unlock the full AI teacher — learn without limits", prMonth: "mo", prActive: "Active", prGet: "Subscribe",
+    upgrade: "Upgrade", prTitle: "Go Premium", prSub: "Unlock the full AI teacher — learn without limits", prMonth: "mo", prYear: "yr", prSave3: "Save 3%", prBillMonth: "Monthly", prBillYear: "Yearly", prActive: "Active", prGet: "Subscribe",
     prF1: "Unlimited AI song creation", prF2: "Unlimited AI performance feedback", prF3: "Graded exam prep mode", prF4: "Parent dashboard", prF5: "HQ teacher voice + no ads",
     prFam1: "Everything in Premium", prFam2: "Up to 3 profiles (whole family)", prFree1: "Keyboard, games, core lessons", prFree2: "AI teacher (daily limit)",
     prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "Everything in Family · up to 6 profiles", prMax3: "Fastest priority AI + top-quality natural voice", prMax4: "Unlimited AI song creation + auto weekly progress report & practice plan", prMxf1: "Everything in Max", prMxf2: "Up to 10 profiles", prMxf3: "Family dashboard + per-member AI progress reports", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
     schoolInfo: "🏫 TiGA for schools & piano teachers\n\n• Use it as the at-home practice companion between lessons — AI coaches daily, you see progress.\n• Hybrid mode: AI every day + a real teacher check-in monthly.\n• Institutional pricing + a whole-class progress dashboard.\n\nContact: LINE @tiga.ai 🎹",
     octaveHint: "Shift the keyboard range",
-    vmSys: "You are 'Teacher TiGA', a world-class, conservatory-trained piano teacher — warm, patient and brilliant — giving a live one-on-one voice lesson. You draw on master pedagogies: Suzuki (lots of listening + tiny incremental steps), Taubman (relaxed, injury-free technique — soft wrist, curved fingers, arm weight), Kodály/Dalcroze (rhythm & ear training).\n\nYour method every time (loop): 1) Diagnose — ask or sense their level and goal. 2) Give ONE smallest next step. 3) Explain the WHY briefly. 4) Demonstrate by playing. 5) Invite them to try, then listen. 6) Assess from what they actually played (you're told the detected notes/chord/scale) — praise what's right, name the EXACT wrong note and the fix. 7) Repeat or level up.\n\nTechnique to emphasize: relaxed wrist, curved fingers, arm weight, upright posture; correct fingering; hands separately before together; slow before fast ('practice slow to play fast').\nMusicality: steady pulse, count the beat, offer the metronome; teach dynamics and phrasing, not just right notes.\nAlways be theory-accurate: major scale = semitone pattern 2-2-1-2-2-2-1 from the root; major triad = root +4 +7 semitones; minor triad = root +3 +7; double-check before stating notes, and trust the detected-notes data the app gives you.\nAdapt to age: kids — playful, short, lots of praise; adults — go deeper into theory. Use a growth mindset, praise effort, be patient and specific.\n\nTools you can command (put in your message):\n- Melody, one note at a time: [play: C4 D4 E4]  (use - for a rest)\n- A chord together: [chord: C4 E4 G4]\n- Highlight keys to show finger placement (no sound): [highlight: C4 E4 G4]\n- Start the metronome at a tempo: [metro: 80]\n- Assign homework at the end of a good lesson (ONE clear task): [homework: practice C major scale slowly, 5 times a day] — it is saved and you'll be reminded to check it next session.\n- Show notes on a music staff while you teach (also lights the keys): [staff: C4 E4 G4]\n- Start a step-by-step practice drill of these notes for them to play: [practice: C4 D4 E4 F4 G4]\n- Launch a play-along song game: [song: twinkle] (ids: scale, twinkle, happy, row, london, saints, furelise) — or [song] to open the song list\n- Check the learner's hand posture with the camera: [posture]\n- Ear training — play a target for them to identify BY EAR, nothing shown: [ear: interval] or [ear: chord] or [ear: note]. They answer by playing or saying it; the app then tells you the correct answer and what they did, so you grade and offer another.\nWhen you show or play notes, the learner gets an instant ✓/✗ as they try them, and they can TAP to interrupt you any time — so keep turns short and let them play.\nYou are also given the detected RHYTHM (BPM / evenness / rushing-dragging) and TOUCH/DYNAMICS (even or uneven, soft/medium/loud, crescendo/diminuendo) — coach timing AND dynamics like a teacher who can hear it, not just right notes.\nWhen you showed notes and they play them back, the app gives you a SEQUENCE CHECK naming the exact first wrong note — use it to correct precisely (\"note 3 should be E, you played F\").\nUse note names with octave, range C4 to B5. Use tools often, e.g. \"Put your fingers here [highlight: C4 E4 G4] now try it\" or \"Feel the beat [metro: 80]\".\n\nStyle: talk naturally like a real person, short and snappy (1-2 short sentences), one step at a time, always end by inviting them to play or asking a question. No markdown/bullets/symbols other than the commands. Always reply in English.\n\nVery important — behave like a real human teacher: the learner will sometimes PLAY for you without talking (the app sends you the notes they just played) — react instantly like a teacher sitting right next to them: praise what is good first, name just ONE thing to fix, then invite another try. Use the learner's name if you know it. Lead the lesson yourself (quick review, then ONE focus for today, demo, let them try, feedback, then a tiny next step). Celebrate small wins sincerely. Be patient, never rush or dump too much at once; if they stumble, encourage them and make the step smaller. Read their mood and adjust your tone.",
+    vmSys: "You are 'Teacher TiGA', a world-class, conservatory-trained piano teacher — warm, patient and brilliant — giving a live one-on-one voice lesson. You draw on master pedagogies: Suzuki (lots of listening + tiny incremental steps), Taubman (relaxed, injury-free technique — soft wrist, curved fingers, arm weight), Kodály/Dalcroze (rhythm & ear training).\n\nYou have a natural teaching flow to draw from — NOT a script to run every single turn: sense their level and goal, offer one small next step, explain the why only when it actually helps, demonstrate by playing, let them try, then react to what they actually played (you're told the detected notes/chord/scale) — praise what's genuinely right, name the exact wrong note and the fix. But a real lesson doesn't repeat the same shape turn after turn — sometimes you just react in a few words and let them keep playing, sometimes you ask something, sometimes you mention something interesting, sometimes you just listen quietly while they work it out. Mix it up like an actual conversation, not a checklist.\n\nTechnique to emphasize: relaxed wrist, curved fingers, arm weight, upright posture; correct fingering; hands separately before together; slow before fast ('practice slow to play fast').\nMusicality: steady pulse, count the beat, offer the metronome; teach dynamics and phrasing, not just right notes.\nAlways be theory-accurate: major scale = semitone pattern 2-2-1-2-2-2-1 from the root; major triad = root +4 +7 semitones; minor triad = root +3 +7; double-check before stating notes, and trust the detected-notes data the app gives you.\nAdapt to age: kids — playful, short, lots of praise; adults — go deeper into theory. Use a growth mindset, praise effort, be patient and specific.\n\nTools you can command (put in your message):\n- Melody, one note at a time: [play: C4 D4 E4]  (use - for a rest)\n- A chord together: [chord: C4 E4 G4]\n- Highlight keys to show finger placement (no sound): [highlight: C4 E4 G4]\n- Start the metronome at a tempo: [metro: 80]\n- Assign homework at the end of a good lesson (ONE clear task): [homework: practice C major scale slowly, 5 times a day] — it is saved and you'll be reminded to check it next session.\n- Show notes on a music staff while you teach (also lights the keys): [staff: C4 E4 G4]\n- Start a step-by-step practice drill of these notes for them to play: [practice: C4 D4 E4 F4 G4]\n- Launch a play-along song game: [song: twinkle] (ids: scale, twinkle, happy, row, london, saints, furelise) — or [song] to open the song list\n- Check the learner's hand posture with the camera: [posture]\n- Ear training — play a target for them to identify BY EAR, nothing shown: [ear: interval] or [ear: chord] or [ear: note]. They answer by playing or saying it; the app then tells you the correct answer and what they did, so you grade and offer another.\nWhen you show or play notes, the learner gets an instant ✓/✗ as they try them, and they can TAP to interrupt you any time — so keep turns short and let them play.\nYou are also given the detected RHYTHM (BPM / evenness / rushing-dragging) and TOUCH/DYNAMICS (even or uneven, soft/medium/loud, crescendo/diminuendo) — coach timing AND dynamics like a teacher who can hear it, not just right notes. This data (and anything else you're given in milliseconds, percentages or raw numbers) is for YOUR judgment only — translate it into how a human teacher would actually say it (\"you're rushing that bit\", \"nice and even now\", \"a touch heavy on that note\"); never read the raw numbers back to them, no real teacher talks in milliseconds or percentages.\nWhen you showed notes and they play them back, the app gives you a SEQUENCE CHECK naming the exact first wrong note — use it to correct precisely (\"note 3 should be E, you played F\").\nWhen the learner plays several correct in a row you'll be told to level up; after repeated misses you'll be told to slow down — follow that pacing. Teach songs PHRASE BY PHRASE: play ONE short phrase with [play:], have them echo it, use the sequence check, then the next phrase. The app already handles \"again\", \"slower\" and \"faster\" by itself.\nBe a world-class MASTER teacher: vary your wording AND the shape/length of every turn (never repeat the same sentence or the same reply structure back to back), talk less and let them play more, give each fix a concrete physical image (\"light, like your finger sinks into a pillow\"), praise something specific and genuine before any correction, read their mood and mirror their energy (matter-of-fact when they're focused, playful when they're enjoying it, unhurried and extra gentle when they're frustrated), and always build on what they did last time. A real teacher sometimes just chuckles, gives one word of praise, or says something that has nothing to do with technique at all (their focus, a small joke, genuine curiosity about how it felt) — let a little of that real personality through instead of only ever instructing.\nUse note names with octave, range C4 to B5. Use tools often, e.g. \"Put your fingers here [highlight: C4 E4 G4] now try it\" or \"Feel the beat [metro: 80]\".\n\nStyle: talk like a real person in a live conversation, not a teacher reading from a lesson plan. Most turns are one short natural sentence — but let the LENGTH and SHAPE vary constantly: sometimes just 2-4 words (\"Nice!\", \"Yes — exactly that.\", \"Ooh, closer.\"), sometimes a full thought, occasionally a bit more when you're explaining something genuinely new. Do NOT end every turn with a question or an invitation to play — that pattern gets robotic within a few turns; often the right move is to just react and let silence, or their own playing, be what happens next. Use contractions and everyday words (you're, let's, that's, gonna) instead of textbook phrasing. Never write stage directions or actions like *chuckles* or (smiling warmly) — everything you write is spoken aloud verbatim by a voice engine, so only write the actual words you'd say; if you want to sound amused or warm, choose words that carry that tone, don't describe the action. No markdown/bullets/symbols other than the commands. Always reply in English.\n\nVery important — behave like a real human teacher: the learner will sometimes PLAY for you without talking (the app sends you the notes they just played) — react instantly like a teacher sitting right next to them: praise what is good first, name just ONE thing to fix, then invite another try. Use the learner's name if you know it. Lead the lesson yourself (quick review, then ONE focus for today, demo, let them try, feedback, then a tiny next step). Celebrate small wins sincerely. Be patient, never rush or dump too much at once; if they stumble, encourage them and make the step smaller. Read their mood and adjust your tone.",
   },
   zh: {
     ph: "询问钢琴问题，例如 C大调音阶是什么？",
@@ -2379,13 +2894,13 @@ const L = {
     speak: "🔊 收听", speaking: "⏹ 停止",
     welcome: "您好！我是TiGA，您的AI钢琴导师 🎹\n\n随时提问——和弦、音阶、技巧、乐理！\n点击上方钢琴键试听 🎵",
     sys: "您是TiGA AI，Tiga Studio钢琴教师。只答钢琴话题，简洁直接，不超过50字。和弦/音阶列出音名如 C4 E4 G4。礼貌简短拒绝无关问题。",
-    err: "⚠ 连接出现问题，请重试。",
+    err: "不好意思，我没听清楚，可以再说一次吗？",
     ttsNo: "🔇 此设备不支持语音",
     ttsBlocked: "🔇 预览中音频被屏蔽 — 请在新标签页打开（右上角 ⋮ › Open in new tab）后重试。",
-    navSensei: "TIGA AI", navPath: "学习路径",
+    navSensei: "TIGA AI", navPath: "学习路径", navVideos: "视频课程", videosEmpty: "暂无视频课程", admVideos: "视频", admVidUpload: "上传新视频", admVidTitle: "视频标题", admVidDesc: "描述（可选）", admVidPick: "选择视频文件", admVidUploading: "上传中…", admVidPublished: "已发布", admVidDraft: "草稿", admVidPublish: "发布", admVidUnpublish: "取消发布", admVidDelete: "删除", admVidEmpty: "还没有视频，上传第一个吧", admVidTooBig: "文件过大（最大500MB）", admVidErr: "上传失败，请重试",
     playDemo: "▶ 播放示例", pathTitle: "学习路径", pathSub: "选择主题，AI为您讲解",
     pathGuide: "从上到下：基础 → 和弦 → 进阶。按顺序学习，定能精通。",
-    learnBtn: "学习此项", readBtn: "阅读", keysLearned: "已学 {n} 个调", pathFoot: "◈ 点击任意主题 — AI讲解并在钢琴上演奏 ◈",
+    learnBtn: "学习此项", readBtn: "阅读", caseOverview: "概览", caseSub: "选择案例", keysLearned: "已学 {n} 个调", pathFoot: "◈ 点击任意主题 — AI讲解并在钢琴上演奏 ◈",
     pickKey: "选择要学习的调", pickKeyHint: "全部12个调可选 — AI讲解您选的调",
     pickType: "选择类型", pickTypeHint: "先选类型，再选调",
     adminTitle: "ADMIN CONSOLE", adminSub: "管理员模式 — 自由训练AI",
@@ -2444,10 +2959,10 @@ const L = {
     pdTitle: "家长报告", pdSessions: "每周练习次数", pdAcc: "平均准确率", pdActivity: "最近6周练习", pdFocus: "需加强", pdMastered: "已掌握",
     exTitle: "考级备考", exSub: "按每个级别勾选进度——每完成一项得金币。",
     vmTitle: "AI 语音老师", vmStart: "开始对话", vmStop: "停止",
-    vmReady: "点击'开始对话'然后直接说话", vmListening: "正在听…", vmThinking: "正在思考…", vmSpeaking: "正在说…", vmTapStop: "点击打断", vmTypePh: "也可以打字提问…",
+    vmReady: "点击'开始对话'然后直接说话", vmListening: "正在听…请说", vmThinking: "正在思考…", vmSpeaking: "正在说…", vmTapStop: "点击打断", vmTypePh: "也可以打字提问…", vmReListen: "点击重新聆听", vmMicDenied: "麦克风被拒绝 — 请在浏览器允许麦克风后重试", vmNetRetry: "网络较弱…正在重新聆听",
     vmGreeting: "你好！我是 TiGA 老师。今天想练什么？有什么尽管问，或者弹一段给我听，我来帮你看看。",
     vmYou: "你", vmNotesLbl: "刚弹了", vmPlayedCue: "我刚弹了这段，听听给点反馈吧。", vmNoSTT: "此浏览器不支持语音识别 — 建议用 Chrome 或 Safari",
-    vmHint: "💡 开口提问后等待回答 · 先弹一段，我会帮你分析 · 老师也能弹给你听", vmFastVoice: "快速语音", vmHqVoice: "高清语音", vmSpeedLbl: "速度", vmGreetBack: "欢迎回来！上次{x}有点难，要复习一下，还是练点别的？", vmGreetHw: "欢迎回来！上次我给你布置的作业是 {x}，练了吗？弹给我听听吧。",
+    vmHint: "💡 开口提问后等待回答 · 先弹一段，我会帮你分析 · 老师也能弹给你听", vmFastVoice: "快速语音", vmHqVoice: "高清语音", vmSpeedLbl: "速度", vmVoiceLbl: "音色", vmPolyOn: "🎹 和弦聆听：开", vmPolyOff: "🎹 和弦聆听：关", vmPolyHint: "Beta：用麦克风识别同时弹奏的和弦（原声钢琴）", vmLangHint: "切换和老师对话的语言", vmGreetBack: "欢迎回来！上次{x}有点难，要复习一下，还是练点别的？", vmGreetHw: "欢迎回来！上次我给你布置的作业是 {x}，练了吗？弹给我听听吧。",
     wlcTitle: "欢迎来到 TiGA! 🎹", wlcTip1: "点琴键即可弹奏，AI 老师来帮你", wlcTip2: "点左上角 ☰ 打开菜单进入各页面", wlcTip3: "玩游戏、收集星星、等级和金币", wlcStart: "开始吧！",
     helpTitle: "使用方法", help1: "点左上角 ☰ = 打开菜单和页面", help2: "点钢琴键 = 弹出音符", help3: "麦克风 🎙️ = 和 AI 老师对话", help4: "进入'练习' = 玩游戏赚星星", help5: "🔁 按钮 = 再听一次老师弹", helpOk: "明白了！", signOut: "退出登录",
     shopTitle: "商店", shopSkins: "琴键皮肤", shopThemes: "主题", shopEquip: "装备", shopEquipped: "已装备",
@@ -2455,14 +2970,14 @@ const L = {
     dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
     setAmbient: "环境音乐", setInstall: "安装应用", setBpm: "速度 (BPM)", setTap: "点击打拍", setLang: "语言", setOn: "开", setOff: "关",
-    upgrade: "升级", prTitle: "升级 Premium", prSub: "解锁完整 AI 老师，无限学习", prMonth: "月", prActive: "已开通", prGet: "立即订阅",
+    upgrade: "升级", prTitle: "升级 Premium", prSub: "解锁完整 AI 老师，无限学习", prMonth: "月", prYear: "年", prSave3: "省3%", prBillMonth: "按月", prBillYear: "按年", prActive: "已开通", prGet: "立即订阅",
     prF1: "无限 AI 创作歌曲", prF2: "无限 AI 演奏点评", prF3: "考级备考模式", prF4: "家长仪表板", prF5: "高清老师语音 + 无广告",
     prFam1: "包含全部 Premium", prFam2: "最多 3 个档案（全家）", prFree1: "键盘、游戏、基础课程", prFree2: "AI 老师（每日限量）",
     prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "包含全部 Family · 最多 6 个档案", prMax3: "最快优先 AI + 最高质量自然语音", prMax4: "无限 AI 生成歌曲 + 每周自动进度报告与练习计划", prMxf1: "包含全部 Max", prMxf2: "最多 10 个档案", prMxf3: "家庭仪表盘 + 每位成员自动 AI 进度报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
     schoolInfo: "🏫 TiGA 面向学校与钢琴老师\n\n• 作为课后'在家练习伙伴'——AI 每天辅导，老师查看进度。\n• 混合模式：AI 每日教学 + 真人老师每月检查。\n• 机构价格 + 全班进度仪表板。\n\n联系：LINE @tiga.ai 🎹",
     octaveHint: "移动键盘音区",
-    vmSys: "你是'TiGA 老师'，一位世界级、音乐学院出身的钢琴老师——温暖、耐心、出色，正在用语音进行一对一实时授课。你融合大师教学法：铃木（多听+极小步骤）、Taubman（放松不受伤的技巧——手腕柔软、手指弯曲、用手臂重量）、柯达伊/达尔克罗兹（节奏与听觉训练）。\n\n每次的教学循环：1) 诊断—询问或判断其水平与目标。2) 给出'最小的一步'。3) 简短解释'为什么'。4) 弹奏示范。5) 邀请学员尝试，然后聆听。6) 根据他实际弹的内容评估（系统会告诉你检测到的音/和弦/音阶）——表扬正确处，指出'具体弹错的音'和改法。7) 重复或进阶。\n\n强调技巧：手腕放松、手指弯曲、用手臂重量、坐姿端正；正确指法；先分手再合手；先慢后快（'慢练才能快弹'）。\n音乐性：稳定的拍子，数拍，可开节拍器；教强弱与乐句，不只是弹对音。\n务必理论准确：大调音阶=从主音起半音 2-2-1-2-2-2-1；大三和弦=根音 +4 +7 半音；小三和弦=根音 +3 +7；说音名前先核对，并信任系统给的检测音数据。\n因龄施教：孩子—有趣、简短、多表扬；成人—可深入理论。用成长型思维，表扬努力，耐心而具体。\n\n你可使用的指令（写在回复中）：\n- 旋律逐个音：[play: C4 D4 E4]（用 - 表示停顿）\n- 同时弹和弦：[chord: C4 E4 G4]\n- 高亮琴键以示范指位（无声）：[highlight: C4 E4 G4]\n- 按速度开节拍器：[metro: 80]\n- 课程结束时布置作业（一次一个明确任务）：[homework: 每天慢练 C 大调音阶 5 遍]——系统会保存，下次提醒你检查。\n- 教学时在五线谱上显示音符并点亮琴键：[staff: C4 E4 G4]\n- 开始让学员逐音弹的练习：[practice: C4 D4 E4 F4 G4]\n- 启动跟弹歌曲游戏：[song: twinkle]（id：scale, twinkle, happy, row, london, saints, furelise）或用 [song] 打开歌曲列表\n- 用摄像头检查学员手型：[posture]\n- 听觉训练，弹一个目标让他用耳朵辨认，不显示琴键：[ear: interval] 或 [ear: chord] 或 [ear: note]。他通过弹或说来回答，系统会把正确答案和他的作答告诉你，你只需评判并出下一题。\n当你展示或弹奏音符时，学员尝试时会立即看到 ✓/✗，而且学员随时可以点击打断你——所以请简短，让他多弹。\n你还会收到检测到的'节奏'（BPM/均匀度/抢拍-拖拍）和'触键/力度'（是否均匀、轻/中/响、渐强/渐弱），请像能听出来的老师那样同时点评节奏与力度，而不只是弹对音。\n当你展示了音符、他弹回来时，系统会给你'顺序检查'，指出第一个弹错的音，用它来精准纠正（\"第3个音应是 E，你弹了 F\"）。\n用带八度的音名，范围 C4 到 B5。多用这些工具，例如\"把手指放这里 [highlight: C4 E4 G4] 现在试试\"或\"感受节拍 [metro: 80]\"。\n\n风格：像真人一样自然交谈，简短利落（1-2句简短），一次一步，结尾总是邀请弹奏或提问。除指令外不要用 markdown、项目符号或符号。始终用中文回答。\n\n非常重要——像真人老师那样：学员有时会弹给你听而不说话（系统会把他刚弹的音符发给你），要像坐在他身旁、正在专心聆听的老师那样立刻回应：先表扬优点，只指出一个要改进的地方，再邀请他再试一次。知道名字就称呼学员。自己主导这节课（简短复习、今天只聚焦一个要点、示范、让他试、反馈、再走一小步）。真诚地庆祝小进步。要有耐心，不要催促或一次讲太多；如果他弹错，就鼓励他并把步骤拆得更小。读懂他的情绪并调整语气。",
+    vmSys: "你是'TiGA 老师'，一位世界级、音乐学院出身的钢琴老师——温暖、耐心、出色，正在用语音进行一对一实时授课。你融合大师教学法：铃木（多听+极小步骤）、Taubman（放松不受伤的技巧——手腕柔软、手指弯曲、用手臂重量）、柯达伊/达尔克罗兹（节奏与听觉训练）。\n\n你的教学方式是一套灵活的工具，不是每次都要照做的固定流程：了解他的水平和目标，给出'最小的一步'，只在真正有帮助时才简短解释'为什么'，弹奏示范，让他试，再根据他实际弹的内容回应（系统会告诉你检测到的音/和弦/音阶）——表扬真正做对的地方，指出具体弹错的音和改法。但真正的一节课不会每次都用同一个套路：有时你只是简短回应一句就让他继续弹，有时你会提问，有时你会聊点有趣的东西，有时你就只是安静地听。像真实对话一样，节奏每次都不一样，不是在走流程。\n\n强调技巧：手腕放松、手指弯曲、用手臂重量、坐姿端正；正确指法；先分手再合手；先慢后快（'慢练才能快弹'）。\n音乐性：稳定的拍子，数拍，可开节拍器；教强弱与乐句，不只是弹对音。\n务必理论准确：大调音阶=从主音起半音 2-2-1-2-2-2-1；大三和弦=根音 +4 +7 半音；小三和弦=根音 +3 +7；说音名前先核对，并信任系统给的检测音数据。\n因龄施教：孩子—有趣、简短、多表扬；成人—可深入理论。用成长型思维，表扬努力，耐心而具体。\n\n你可使用的指令（写在回复中）：\n- 旋律逐个音：[play: C4 D4 E4]（用 - 表示停顿）\n- 同时弹和弦：[chord: C4 E4 G4]\n- 高亮琴键以示范指位（无声）：[highlight: C4 E4 G4]\n- 按速度开节拍器：[metro: 80]\n- 课程结束时布置作业（一次一个明确任务）：[homework: 每天慢练 C 大调音阶 5 遍]——系统会保存，下次提醒你检查。\n- 教学时在五线谱上显示音符并点亮琴键：[staff: C4 E4 G4]\n- 开始让学员逐音弹的练习：[practice: C4 D4 E4 F4 G4]\n- 启动跟弹歌曲游戏：[song: twinkle]（id：scale, twinkle, happy, row, london, saints, furelise）或用 [song] 打开歌曲列表\n- 用摄像头检查学员手型：[posture]\n- 听觉训练，弹一个目标让他用耳朵辨认，不显示琴键：[ear: interval] 或 [ear: chord] 或 [ear: note]。他通过弹或说来回答，系统会把正确答案和他的作答告诉你，你只需评判并出下一题。\n当你展示或弹奏音符时，学员尝试时会立即看到 ✓/✗，而且学员随时可以点击打断你——所以请简短，让他多弹。\n你还会收到检测到的'节奏'（BPM/均匀度/抢拍-拖拍）和'触键/力度'（是否均匀、轻/中/响、渐强/渐弱），请像能听出来的老师那样同时点评节奏与力度，而不只是弹对音。这些数据（以及任何以毫秒、百分比等原始数字给你的信息）只是给'你自己判断'用的——要转换成真人老师会说的话（\"这里抢拍了一点\"\"现在均匀多了\"\"这个音弹重了一点\"），绝对不要把原始数字念出来，真正的老师不会说毫秒或百分比。\n当你展示了音符、他弹回来时，系统会给你'顺序检查'，指出第一个弹错的音，用它来精准纠正（\"第3个音应是 E，你弹了 F\"）。\n当学员连续答对几次，系统会提示你升级；连续出错则提示放慢——按这个节奏来。逐句教歌：用 [play:] 弹一小句，让他跟弹，用顺序检查，再下一句。\"再来/慢一点/快一点\"系统会自动处理。\n做世界级的大师老师：每次都换说法，也要换回答的'形式和长短'（不要连续两次用同样的结构），少说多让他弹，每个纠正都用形象的比喻（\"轻轻地，像手指落在枕头上\"），纠正前先具体真诚地表扬亮点，读懂他的情绪并跟着调整状态（他专注时就干脆利落，他玩得开心时就轻松俏皮，他有点沮丧时就放慢、更温柔），并总是承接他上次的表现。真正的老师有时只是笑一下、说一个字的表扬，或聊几句和技巧完全无关的话（他的用心、一个小玩笑、真心好奇他弹起来感觉如何）——让一点真实的个性流露出来，而不是永远只在指导。\n用带八度的音名，范围 C4 到 B5。多用这些工具，例如\"把手指放这里 [highlight: C4 E4 G4] 现在试试\"或\"感受节拍 [metro: 80]\"。\n\n风格：像真人在实时聊天一样说话，不是在照本宣科。大多数时候只回一句自然的短话，但'长度和形式'要不断变化——有时只有两三个字（\"不错！\"\"对，就是这样\"\"嗯，更接近了\"），有时是完整的一句话，讲真正新的东西时偶尔可以稍长一点。不要每次都以提问或邀请弹奏收尾，那样几个回合内就会显得像机器人；很多时候简单回应一下，把接下来交给沉默或他的琴声就够了。用口语和缩略的说法，不要用课本腔。绝对不要写 *笑* 或 (微笑) 这样的动作、舞台指示文字——你写的一切都会被语音引擎逐字念出来，所以只写你真正要说的话；想表现出温暖或觉得好笑，就选带有那种语气的词，而不是描述动作。除指令外不要用 markdown、项目符号或符号。始终用中文回答。\n\n非常重要——像真人老师那样：学员有时会弹给你听而不说话（系统会把他刚弹的音符发给你），要像坐在他身旁、正在专心聆听的老师那样立刻回应：先表扬优点，只指出一个要改进的地方，再邀请他再试一次。知道名字就称呼学员。自己主导这节课（简短复习、今天只聚焦一个要点、示范、让他试、反馈、再走一小步）。真诚地庆祝小进步。要有耐心，不要催促或一次讲太多；如果他弹错，就鼓励他并把步骤拆得更小。读懂他的情绪并调整语气。",
   },
 };
 
@@ -2645,6 +3160,15 @@ const CSS = `
 .navbtn.on::before{opacity:1}
 .navbtn.on .nicon{transform:scale(1.1);filter:drop-shadow(0 0 5px var(--nav-c,#a855f7))}
 .navbtn:active{transform:scale(.95)}
+/* ── vertical video lessons feed (TikTok-style, one video per screen) ── */
+.vidfeed{flex:1;overflow-y:auto;scroll-snap-type:y mandatory;background:#000;scrollbar-width:none}
+.vidfeed::-webkit-scrollbar{display:none}
+.vidslide{height:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;background:#000}
+.vidplayer{width:100%;height:100%;object-fit:contain;background:#000;border:none}
+.vidplaceholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;opacity:.25}
+.vidmeta{position:absolute;left:0;right:0;bottom:0;padding:18px 16px 22px;background:linear-gradient(transparent,rgba(0,0,0,.88));color:#fff;pointer-events:none}
+.vidtitle{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;margin-bottom:4px;text-shadow:0 1px 4px #000}
+.viddesc{font-size:13px;color:#c8f0ffcc;line-height:1.4;max-height:4.2em;overflow:hidden}
 /* ── pathway page (hero + grid) ── */
 .pathpage{flex:1;overflow-y:auto;padding:0 0 24px;scrollbar-width:thin;scrollbar-color:#7b2fff #0f0a1c}
 .pathpage::-webkit-scrollbar{width:4px}
@@ -2745,6 +3269,16 @@ const CSS = `
 .admstu-bar{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px}
 .admstu-bar-fill{width:100%;border-radius:4px 4px 0 0;min-height:4px}
 .admstu-bar-lbl{font-size:9px;color:#9b7d92;font-family:'Share Tech Mono',monospace}
+.admmg{background:#140a14;border:1px solid #ff2d7833;border-radius:13px;padding:13px;margin-bottom:14px}
+.admmg-h{font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1px;color:#ff5e9c;margin-bottom:6px}
+.admmg-cur{color:#c98bb0;font-size:12.5px;margin-bottom:9px}
+.admmg-row{display:flex;align-items:center;gap:8px}
+.admmg-sel{flex:1;background:#0e0a16;border:1px solid #ffffff1f;border-radius:9px;padding:9px 10px;color:#f3e3ee;font-size:14px}
+.admmg-days{width:64px;background:#0e0a16;border:1px solid #ffffff1f;border-radius:9px;padding:9px;color:#f3e3ee;font-size:14px;text-align:center}
+.admmg-d{color:#9b7d92;font-size:13px}
+.admmg-row2{display:flex;gap:8px;margin-top:8px}
+.admmg-row2 .songbtn{flex:1;padding:10px}
+.banscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;gap:12px}
 .adminchips{display:flex;flex-wrap:wrap;gap:7px;padding:10px 14px 4px;flex-shrink:0}
 .adminchip{background:rgba(255,45,120,.08);border:1px solid #ff2d7833;border-radius:16px;padding:7px 13px;cursor:pointer;color:#ffaad0;font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:600;transition:all .2s;text-align:left}
 .adminchip:hover{border-color:#ff2d78;background:rgba(255,45,120,.16);box-shadow:0 0 10px #ff2d7833;transform:translateY(-1px)}
@@ -2924,6 +3458,7 @@ const CSS = `
 .songhdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #ffffff10;flex-shrink:0}
 .songhtitle{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:#fff;display:flex;align-items:center;gap:9px}
 .songhtitle small{color:#ffd166;font-size:12px;letter-spacing:1px}
+.vmhdrbtns{display:flex;align-items:center;gap:8px}
 .songhud{display:flex;justify-content:space-around;gap:8px;padding:9px 14px;font-family:'Rajdhani',sans-serif;font-size:12px;color:#9fd8e6;flex-shrink:0}
 .songhud b{font-family:'Orbitron',sans-serif;color:#fff;font-size:15px}
 .songhud .hot b{color:#ff5e9c;text-shadow:0 0 10px #ff2d78}
@@ -2963,7 +3498,15 @@ const CSS = `
 @keyframes pagein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 /* coins pill + daily chest + mascot */
 .coinpill{display:flex;align-items:center;gap:3px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#ffd23f;background:#1a1605;border:1px solid #ffd23f3d;border-radius:20px;padding:4px 9px}
-.probadge{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:800;color:#06121f;background:linear-gradient(135deg,#ffd23f,#ff9e00);border-radius:20px;padding:4px 9px;letter-spacing:.5px}
+.probadge{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:800;color:#06121f;background:linear-gradient(135deg,#ffd23f,#ff9e00);border-radius:20px;padding:4px 9px;letter-spacing:.5px;white-space:nowrap}
+.probadge.fam{background:linear-gradient(135deg,#7ee8c8,#06d6a0)}
+.probadge.max{background:linear-gradient(135deg,#e8b8ff,#a855f7);color:#fff}
+.probadge.maxfam{background:linear-gradient(135deg,#ffd66b,#a855f7);color:#fff}
+.billtoggle{display:flex;gap:8px;background:#0e1a30;border-radius:24px;padding:4px;margin-bottom:14px}
+.billtog{flex:1;padding:9px;border-radius:20px;background:transparent;border:none;color:#9fb6c4;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.billtog.on{background:linear-gradient(135deg,#a855f7,#7b2fff);color:#fff}
+.billsave{font-family:'Orbitron',sans-serif;font-size:9px;background:#06d6a0;color:#04231a;border-radius:8px;padding:2px 5px}
+.pr-yrsave{color:#06d6a0;font-size:12px;font-weight:700;margin:-4px 0 8px}
 .upbtn{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:800;color:#06121f;background:linear-gradient(135deg,#ffd23f,#ff9e00);border:none;border-radius:20px;padding:5px 10px;cursor:pointer;animation:flamepulse 1.4s ease-in-out infinite alternate}
 .setcard.pricing{max-width:420px}
 .pr-sub{font-family:'Rajdhani',sans-serif;font-size:14px;color:#9fb6c4;text-align:center;margin:0 0 14px}
@@ -2979,6 +3522,35 @@ const CSS = `
 .prtier-nm{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:800;color:#eaf6ff}
 .prtier-price{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:#ffd23f}
 .prtier-price small{font-size:11px;color:#9fb6c4;font-weight:600}
+.paysum{display:flex;align-items:center;justify-content:space-between;padding:6px 0 12px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:16px;color:#eaf6ff}
+.payqr{display:block;width:230px;max-width:74%;margin:4px auto 12px;border-radius:14px;background:#fff;padding:10px}
+.payinfo{background:#0e1a30;border:1px solid #ffffff14;border-radius:12px;padding:11px 13px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:#cfe3ee;margin-bottom:10px}
+.payinfo b{color:#fff;font-family:'Share Tech Mono',monospace}
+.payok{text-align:center;padding:10px 4px}
+.payok-h{font-family:'Orbitron',sans-serif;font-size:17px;font-weight:800;color:#06d6a0;margin:6px 0 8px}
+.sharebtn{width:100%;padding:12px;border-radius:12px;border:none;color:#fff;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:9px;display:flex;align-items:center;justify-content:center;gap:6px}
+.sharebtn.fb{background:#1877f2}
+.sharebtn.tk{background:linear-gradient(90deg,#25f4ee,#000,#fe2c55)}
+.sharebtn.done{opacity:.7;box-shadow:inset 0 0 0 2px #06d6a0}
+.sharebtn:active{transform:scale(.97)}
+.adminpay{flex:1;min-height:0;overflow-y:auto;padding:10px 14px 28px}
+.adminpay-cfg{background:#140a14;border:1px solid #ff2d7833;border-radius:13px;padding:12px;margin-bottom:14px}
+.anrow{display:flex;align-items:center;gap:8px;padding:6px 0;font-family:'Rajdhani',sans-serif}
+.anrow-rank{color:#6a8a9a;font-size:11px;font-family:'Orbitron',sans-serif;width:22px;flex-shrink:0}
+.anrow-name{color:#f3e3ee;font-size:13px;flex-shrink:0;width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.anrow-barwrap{flex:1;height:8px;background:#0e0a16;border-radius:4px;overflow:hidden}
+.anrow-bar{display:block;height:100%;background:linear-gradient(90deg,#ff2d78,#a855f7);border-radius:4px}
+.anrow-hits{color:#ffd23f;font-family:'Orbitron',sans-serif;font-size:12px;width:34px;text-align:right;flex-shrink:0}
+.adminpay-cfg input{width:100%;background:#0e0a16;border:1px solid #ffffff18;border-radius:9px;padding:9px 11px;color:#f3e3ee;font-size:13.5px;margin-top:7px;box-sizing:border-box}
+.adminpay-row{display:flex;align-items:center;gap:11px;background:#140a14;border:1px solid #ffffff12;border-radius:13px;padding:11px 13px;margin-bottom:8px;text-align:left;width:100%;cursor:pointer}
+.adminpay-row.pending{border-color:#ffd23f55}
+.adminpay-row.approved{opacity:.6}
+.adminpay-badge{font-size:9px;font-family:'Orbitron',sans-serif;padding:3px 7px;border-radius:6px}
+.adminpay-badge.pending{background:#ffd23f;color:#1a1205}
+.adminpay-badge.approved{background:#06d6a0;color:#04231a}
+.adminpay-badge.rejected{background:#ff5e9c;color:#2a0713}
+.payslip{width:100%;max-width:320px;display:block;margin:10px auto;border-radius:12px;border:1px solid #ffffff1c}
+.aibox{background:#0e1a30;border:1px solid #06d6a055;border-radius:11px;padding:10px 12px;font-size:13px;color:#bfe9dd;white-space:pre-wrap;margin:8px 0}
 .prfeat{list-style:none;margin:0 0 11px;padding:0;display:flex;flex-direction:column;gap:5px}
 .prfeat li{font-family:'Rajdhani',sans-serif;font-size:13px;color:#cfe6f0}
 .prtier .songbtn{width:100%}
@@ -3265,6 +3837,7 @@ body[data-theme="forest"] .tg{background:radial-gradient(120% 90% at 40% 0%,#0c2
 .vmbig:active{transform:scale(.96)}
 .vmvoicetgl{align-self:center;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:#9fd8e6;background:rgba(255,255,255,.05);border:1px solid #ffffff1f;border-radius:14px;padding:4px 12px;cursor:pointer;margin-bottom:2px}
 .vmvoicetgl:active{transform:scale(.95)}
+.vmvoicetgl.on{color:#0a1020;background:linear-gradient(90deg,#7fe0c0,#5bd0e6);border-color:transparent}
 .vmspeed{display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:center}
 .vmspeed-lbl{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:#7fa6b6;margin-right:2px}
 .vmspeed-b{font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;color:#9fd8e6;background:rgba(255,255,255,.05);border:1px solid #ffffff1f;border-radius:10px;padding:4px 9px;cursor:pointer;transition:all .15s}
@@ -3592,6 +4165,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead }) {
 
   function openCard(st) {
     if (openStageId === st.id) { setOpenStageId(null); setSelectedType(null); return; }
+    logUsage("pathway", st.id);
     setOpenStageId(st.id);
     setSelectedType(null);
   }
@@ -3641,7 +4215,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead }) {
                 return (
                   <button key={st.id} className={`pcard${isOpen ? " active" : ""}${pathDone.has(st.id) ? " done" : ""}${st.id === currentId ? " current" : ""}`}
                     style={{ "--ac": st.color }}
-                    onClick={() => isRead ? onRead(st) : openCard(st)}>
+                    onClick={() => isRead ? (BENEFIT_CASES[st.id] ? openCard(st) : onRead(st)) : openCard(st)}>
                     <span className="pcardglow" />
                     {pathDone.has(st.id) && <span className="pcarddone">✓</span>}
                     {st.id === currentId && <span className="pcardhere">{lc.pathHere}</span>}
@@ -3679,12 +4253,28 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead }) {
                     </span>
                   )}
                   <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "9px", color: openStage.color, whiteSpace: "nowrap" }}>
-                    {openStage.types && !selectedType ? lc.pickType : lc.pickKey}
+                    {openStage.content ? lc.caseSub : openStage.types && !selectedType ? lc.pickType : lc.pickKey}
                   </span>
                 </div>
 
+                {/* READ CHAPTER: overview + world-class case-study sub-topics */}
+                {openStage.content && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+                    <button onClick={() => onRead(openStage)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "5px", padding: "12px 11px", borderRadius: "11px", cursor: "pointer", background: "linear-gradient(160deg,#1a2a40,#0e1a2c)", border: `1px solid ${openStage.color}55`, textAlign: "left" }}>
+                      <span style={{ fontSize: "18px" }}>📖</span>
+                      <span style={{ fontSize: "11px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "#dCeaf5", lineHeight: 1.25 }}>{lc.caseOverview}</span>
+                    </button>
+                    {(BENEFIT_CASES[openStage.id] || []).map(c => (
+                      <button key={c.id} onClick={() => onRead(openStage, c)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "5px", padding: "12px 11px", borderRadius: "11px", cursor: "pointer", background: "linear-gradient(160deg,#16243a,#0c1626)", border: "1px solid #ffffff14", textAlign: "left" }}>
+                        <span style={{ fontSize: "18px" }}>{c.icon}</span>
+                        <span style={{ fontSize: "11px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "#cfe3ee", lineHeight: 1.25 }}>{tr(c.title, lang)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {/* STEP 1: type picker */}
-                {openStage.types && !selectedType && (
+                {!openStage.content && openStage.types && !selectedType && (
                   <>
                     <div style={{ fontSize: "9.5px", color: "#6a9aaa", fontFamily: "'Share Tech Mono',monospace", marginBottom: "10px", textAlign: "center" }}>
                       {lc.pickTypeHint}
@@ -3707,7 +4297,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead }) {
                 )}
 
                 {/* STEP 2: key picker (after type selected, or stage has no types) */}
-                {(!openStage.types || selectedType) && (
+                {!openStage.content && (!openStage.types || selectedType) && (
                   <>
                     {selectedType && (
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
@@ -3782,6 +4372,94 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           </button>
         ))}
       </div>
+    </div>
+  );
+});
+
+// Extract a Google Drive file ID from any share-link format, or accept a bare ID —
+// admin.google.com/.../file/d/ID/view, .../open?id=ID, .../uc?id=ID, or just the ID itself.
+function driveFileId(input) {
+  const s = String(input || "").trim();
+  let m = s.match(/\/d\/([a-zA-Z0-9_-]{15,})/);
+  if (m) return m[1];
+  m = s.match(/[?&]id=([a-zA-Z0-9_-]{15,})/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_-]{15,}$/.test(s)) return s;
+  return null;
+}
+// Extract a Google Drive FOLDER id from a folder share link — drive.google.com/drive/folders/ID(...).
+// Whole-folder mode needs no Google API key: Google's own embeddedfolderview iframe renders the
+// folder's file browser directly (grid/list of everything shared "Anyone with the link"), so
+// connecting a folder works immediately without any extra setup.
+function driveFolderId(input) {
+  const s = String(input || "").trim();
+  const m = s.match(/\/folders\/([a-zA-Z0-9_-]{15,})/);
+  return m ? m[1] : null;
+}
+
+/* ── Vertical video lessons — teaching videos hosted on the admin's own Google
+   Drive (not stored on our servers — Drive serves the bytes straight to the
+   viewer's browser), TikTok-style feed. Only the slide currently in view has
+   its embed loaded, so at most one video plays at a time and nothing loads
+   until it's actually scrolled to. ── */
+const VideoLessonsPage = memo(function VideoLessonsPage({ lang }) {
+  const lc = L[lang];
+  const [videos, setVideos] = useState(null); // null = loading
+  const [activeId, setActiveId] = useState(null);
+  const slideRefs = useRef([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    sb.from("lesson_videos").select("*").eq("published", true)
+      .order("sort_order", { ascending: true }).order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        const list = error ? [] : (data || []);
+        setVideos(list);
+        if (list.length) setActiveId(list[0].id);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // TikTok-style: whichever slide is mostly in view becomes "active" — only ITS
+  // iframe gets a src (loads/plays); scrolling away unmounts it (stops audio).
+  useEffect(() => {
+    if (!videos || !videos.length) return;
+    const els = slideRefs.current.filter(Boolean);
+    if (!els.length) return;
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting && e.intersectionRatio > 0.6) setActiveId(e.target.dataset.vid);
+    }, { threshold: [0, 0.6, 1] });
+    els.forEach(v => io.observe(v));
+    return () => io.disconnect();
+  }, [videos]);
+
+  if (videos === null) return <div className="pathpage"><div className="admstu-empty">…</div></div>;
+  if (!videos.length) return (
+    <div className="pathpage">
+      <div className="pathhero"><div className="pathhero-glow" /><div className="pathbadge">🎬 {lc.navVideos}</div></div>
+      <div className="admstu-empty">{lc.videosEmpty}</div>
+    </div>
+  );
+  return (
+    <div className="vidfeed">
+      {videos.map((v, i) => (
+        <div className="vidslide" key={v.id} data-vid={v.id} ref={el => (slideRefs.current[i] = el)}>
+          {v.drive_folder_id && activeId === v.id ? (
+            <iframe className="vidplayer" src={`https://drive.google.com/embeddedfolderview?id=${v.drive_folder_id}#grid`}
+              allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={v.title} />
+          ) : v.drive_file_id && activeId === v.id ? (
+            <iframe className="vidplayer" src={`https://drive.google.com/file/d/${v.drive_file_id}/preview`}
+              allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={v.title} />
+          ) : (
+            <div className="vidplaceholder">🎬</div>
+          )}
+          <div className="vidmeta">
+            <div className="vidtitle">{v.title}</div>
+            {v.description && <div className="viddesc">{v.description}</div>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 });
@@ -4210,16 +4888,27 @@ function recordMemory(label, acc) {
     if (!m.mastered.includes(label)) m.mastered = [label, ...m.mastered].slice(0, 12);
     m.struggles = (m.struggles || []).filter(s => s.label !== label);
   } else if (acc < 65) {
-    m.struggles = [{ label, acc }, ...(m.struggles || []).filter(s => s.label !== label)].slice(0, 6);
+    const prev = (m.struggles || []).find(s => s.label === label);
+    // keep a timestamp + count so the teacher can space-repeat reviews like a master
+    m.struggles = [{ label, acc, last: Date.now(), count: ((prev && prev.count) || 0) + 1 }, ...(m.struggles || []).filter(s => s.label !== label)].slice(0, 6);
   }
   writeMemory(m);
 }
+// stamp the end of a voice session so next time we know how long they were away
+function touchSessionMemory() { try { const m = readMemory(); m.lastSession = Date.now(); m.sessions = (m.sessions || 0) + 1; writeMemory(m); } catch (e) {} }
 function memoryContext(lang) {
   const m = readMemory(), parts = [];
+  const now = Date.now();
+  const dAgo = (t) => t ? Math.max(0, Math.floor((now - t) / 86400000)) : null;
+  // SPACED REPETITION: struggles not revisited for 2+ days are due for a quick review
+  const due = (m.struggles || []).filter(s => s.last && (now - s.last) >= 2 * 86400000).slice(0, 3);
+  if (due.length) parts.push((lang === "th" ? "⏰ ครบกำหนดทบทวน (แทรกการทบทวนสั้น ๆ ให้เขาแบบเนียน ๆ): " : lang === "zh" ? "⏰ 到复习时间（自然地带入简短回顾）：" : "⏰ Due for spaced review (weave in a quick revisit): ") + due.map(s => `${s.label} (${dAgo(s.last)}d)`).join(", "));
   if (m.struggles && m.struggles.length) parts.push((lang === "th" ? "เคยติด: " : lang === "zh" ? "曾困难: " : "Struggled with: ") + m.struggles.slice(0, 3).map(s => s.label).join(", "));
   if (m.mastered && m.mastered.length) parts.push((lang === "th" ? "ทำได้ดีแล้ว: " : lang === "zh" ? "已掌握: " : "Mastered: ") + m.mastered.slice(0, 3).join(", "));
   if (m.recent && m.recent.length) parts.push((lang === "th" ? "ฝึกล่าสุด: " : lang === "zh" ? "最近练习: " : "Recently practiced: ") + m.recent.slice(0, 2).map(r => r.label).join(", "));
-  return parts.length ? ("\n\n[" + (lang === "th" ? "ความจำผู้เรียน (อ้างถึงได้เพื่อความต่อเนื่อง)" : lang === "zh" ? "学员记忆（可引用以保持连贯）" : "Learner memory (reference it for continuity)") + ": " + parts.join(" · ") + "]") : "";
+  const gap = dAgo(m.lastSession);
+  if (gap != null && gap >= 1) parts.push((lang === "th" ? "ห่างหายไป " + gap + " วัน (ทักทายอบอุ่นแบบคิดถึง)" : lang === "zh" ? "已隔 " + gap + " 天（温暖地问候，像想念他）" : "Returning after " + gap + " days (greet warmly like you missed them)"));
+  return parts.length ? ("\n\n[" + (lang === "th" ? "ความจำผู้เรียน (อ้างถึงเพื่อความต่อเนื่อง + ทบทวนตามจังหวะ)" : lang === "zh" ? "学员记忆（用于连贯与按时复习）" : "Learner memory (use for continuity + spaced review)") + ": " + parts.join(" · ") + "]") : "";
 }
 
 /* ── homework + lesson plan (assigned by the AI, tracked across sessions) ── */
@@ -4240,10 +4929,39 @@ function getPlan() { try { return localStorage.getItem("tg_plan") || (isPremium(
 function setPlanLS(p) { try { localStorage.setItem("tg_plan", p); localStorage.setItem("tg_premium", p === "free" ? "0" : "1"); } catch (e) {} }
 // Voice Mode (AI voice teacher) is a Max / Max Family exclusive.
 function isMaxPlan(p) { const v = p || getPlan(); return v === "max" || v === "maxfamily"; }
+const PLAN_PRICE = { premium: 1490, family: 2900, max: 3999, maxfamily: 9999 };
+const PLAN_LABEL = { premium: "⭐ Premium", family: "👨‍👩‍👧 Family", max: "👑 Max", maxfamily: "👑👨‍👩‍👧 Max Family" };
+// yearly = 12 months − 3% off the full price
+function yearPrice(p) { return Math.round((PLAN_PRICE[p] || 0) * 12 * 0.97); }
+const YEAR_PLANS = ["premium", "max", "maxfamily"];   // tiers that offer a yearly option
+// the live, authoritative plan for a profile row (admins = full; paid only while not expired)
+function effectivePlan(p) {
+  if (!p) return "free";
+  if (p.is_admin) return "maxfamily";
+  if (p.plan && p.plan !== "free" && p.plan_until && new Date(p.plan_until).getTime() > Date.now()) return p.plan;
+  return "free";
+}
+// short header badge per tier
+function planBadge(p) {
+  return p === "maxfamily" ? { t: "👑 MAX FAMILY", c: "maxfam" }
+    : p === "max" ? { t: "👑 MAX", c: "max" }
+    : p === "family" ? { t: "👨‍👩‍👧 FAMILY", c: "fam" }
+    : p === "premium" ? { t: "⭐ PRO", c: "" }
+    : null;
+}
 const FREE_LIMITS = { song: 2, critique: 3 };   // free actions per day
 function usageToday(key) { try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === dayKey() ? (u[key] || 0) : 0; } catch (e) { return 0; } }
 function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
 function canUse(key) { return isPremium() || usageToday(key) < (FREE_LIMITS[key] || 0); }
+
+/* ── Free-tier share gate: after 5 contents, free users share FB + TikTok to keep going ── */
+const SHARE_FB = "https://www.facebook.com/share/1AxGLtF5Dw/";
+const SHARE_TIKTOK = "https://www.tiktok.com/@tiga.piano_studio?_r=1&_t=ZS-97aTZMZ8oOC";
+const FREE_CONTENT_LIMIT = 5;
+function freeContentPlays() { try { return parseInt(localStorage.getItem("tg_content_plays") || "0", 10) || 0; } catch (e) { return 0; } }
+function bumpContentPlays() { try { localStorage.setItem("tg_content_plays", String(freeContentPlays() + 1)); } catch (e) {} }
+function hasSharedUnlock() { try { return localStorage.getItem("tg_shared") === "1"; } catch (e) { return false; } }
+function setSharedUnlock() { try { localStorage.setItem("tg_shared", "1"); } catch (e) {} }
 
 /* ── graded exam-prep curriculum (premium) ── */
 const EXAM_GRADES = [
@@ -4801,6 +5519,126 @@ function LockScreen({ lang, onUnlock }) {
   );
 }
 
+/* ── Share gate: free users share FB + TikTok to keep playing past the free limit ── */
+function ShareGate({ lang, onClose, onUnlock, onUpgrade }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [fb, setFb] = useState(false);
+  const [tk, setTk] = useState(false);
+  const open = (url, which) => { try { window.open(url, "_blank", "noopener"); } catch (e) {} which === "fb" ? setFb(true) : setTk(true); };
+  const ready = fb && tk;
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+        <div className="sethdr"><span>🎁 {T("เล่นต่อฟรี", "Keep playing free", "继续免费玩")}</span><button className="cbtn" onClick={onClose}>✕</button></div>
+        <div className="setbody">
+          <p className="pr-sub">{T("คุณเล่นครบ 5 เนื้อหาฟรีแล้ว! แค่แชร์/ติดตามเพจของเราทั้ง 2 ช่อง ก็เล่นต่อฟรีไม่อั้นเลย 💜", "You've enjoyed 5 free contents! Just share & follow our two pages to keep playing free, unlimited 💜", "你已体验5个免费内容！分享并关注我们的两个主页即可继续无限免费畅玩 💜")}</p>
+          <button className={`sharebtn fb${fb ? " done" : ""}`} onClick={() => open(SHARE_FB, "fb")}>{fb ? "✓ " : "📘 "}{T("แชร์ Facebook", "Share on Facebook", "分享 Facebook")}</button>
+          <button className={`sharebtn tk${tk ? " done" : ""}`} onClick={() => open(SHARE_TIKTOK, "tk")}>{tk ? "✓ " : "🎵 "}{T("ติดตาม TikTok", "Follow on TikTok", "关注 TikTok")}</button>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 12 }} disabled={!ready} onClick={onUnlock}>
+            {ready ? "🔓 " + T("ปลดล็อก เล่นต่อเลย!", "Unlock & keep playing!", "解锁，继续玩！") : T("แตะแชร์ทั้ง 2 ช่องก่อน", "Tap both above first", "请先点上面两个")}
+          </button>
+          {onUpgrade && <button className="memberlink" style={{ marginTop: 10 }} onClick={onUpgrade}>{T("หรือสมัครพรีเมียม เล่นไม่อั้นไม่ต้องแชร์ →", "or go Premium — unlimited, no sharing →", "或升级 Premium — 无限畅玩免分享 →")}</button>}
+          <button className="memberlink" style={{ marginTop: 6 }} onClick={onClose}>{T("ภายหลัง", "Later", "稍后")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Checkout: PromptPay QR for a plan + slip upload (verified by admin) ── */
+function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [st, setSt] = useState("idle");   // idle · uploading · done · error
+  const [cfg, setCfg] = useState(payCfg); // refreshed live so a just-set PromptPay works without reload
+  const [pp, setPp] = useState(""); const [nm, setNm] = useState(""); const [bk, setBk] = useState(""); const [savingCfg, setSavingCfg] = useState(false);
+  const fileRef = useRef(null);
+  const amount = checkout.amount;
+  const planLabel = PLAN_LABEL[checkout.plan] || checkout.plan;
+  useEffect(() => {
+    sb.from("app_settings").select("value").eq("key", "payment").maybeSingle()
+      .then(({ data }) => { if (data && data.value) setCfg(data.value); }, () => {});
+  }, []);
+  const ppId = cfg && cfg.promptpay;
+  async function saveCfgInline() {
+    if (!pp.trim()) return;
+    setSavingCfg(true);
+    const value = { promptpay: pp.trim(), name: nm.trim(), bank: bk.trim() };
+    const { error } = await sb.from("app_settings").upsert({ key: "payment", value, updated_at: new Date().toISOString() });
+    setSavingCfg(false);
+    if (!error) { setCfg(value); playUi("levelup"); }
+  }
+  const qr = useMemo(() => ppId ? promptPayQR(ppId, amount) : null, [ppId, amount]);
+  const uid = session && session.user && session.user.id;
+  async function onFile(e) {
+    const f = e.target.files && e.target.files[0]; e.target.value = "";
+    if (!f || !uid) return;
+    if (f.size > 6 * 1024 * 1024) { setSt("error"); return; }
+    setSt("uploading");
+    try {
+      const ext = ((f.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
+      const path = `${uid}/${Date.now()}.${ext}`;
+      const up = await sb.storage.from("slips").upload(path, f, { contentType: f.type, upsert: false });
+      if (up.error) throw up.error;
+      const meta = (session.user.user_metadata) || {};
+      const ins = await sb.from("payments").insert({
+        user_id: uid, email: session.user.email || null, full_name: meta.full_name || meta.name || null,
+        plan: checkout.plan, amount, method: "promptpay", slip_path: path, status: "pending", days: checkout.days || 30,
+      });
+      if (ins.error) throw ins.error;
+      setSt("done"); playUi("levelup");
+    } catch (err) { setSt("error"); }
+  }
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard pricing" onClick={e => e.stopPropagation()}>
+        <div className="sethdr"><span>💳 {T("ชำระเงิน", "Checkout", "结账")}</span><button className="cbtn" onClick={onClose}>✕</button></div>
+        <div className="setbody">
+          {st === "done" ? (
+            <div className="payok">
+              <div style={{ fontSize: 46 }}>✅</div>
+              <div className="payok-h">{T("ได้รับสลิปแล้ว!", "Slip received!", "已收到凭证！")}</div>
+              <p className="pr-sub">{T("กำลังตรวจสอบการชำระเงิน — ระบบจะเปิดสิทธิ์ให้อัตโนมัติเมื่อตรวจผ่าน (ปกติไม่เกิน 24 ชม.)", "We're verifying your payment — your plan unlocks automatically once approved (usually within 24h).", "正在核对付款，通过后自动开通（通常24小时内）。")}</p>
+              <button className="songbtn go" style={{ width: "100%" }} onClick={onClose}>{T("เสร็จสิ้น", "Done", "完成")}</button>
+            </div>
+          ) : (
+            <>
+              <div className="paysum"><span>{planLabel}{checkout.cycle === "year" ? " · " + T("รายปี", "yearly", "年付") : ""}</span><b className="prtier-price">฿{amount.toLocaleString()}<small>/{checkout.cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b></div>
+              {ppId ? (
+                <>
+                  {qr ? <img className="payqr" src={qr} alt="PromptPay QR" /> : <div className="aicreate-err">{T("สร้าง QR ไม่ได้", "Couldn't make QR", "无法生成二维码")}</div>}
+                  <div className="payinfo">
+                    <div>📱 PromptPay: <b>{ppId}</b></div>
+                    {cfg.name && <div>👤 {cfg.name}</div>}
+                    {cfg.bank && <div>🏦 {cfg.bank}</div>}
+                  </div>
+                  <p className="pr-sub">{T("สแกน QR ด้วยแอปธนาคาร โอนตามยอด แล้วอัปโหลดสลิปเพื่อยืนยัน", "Scan with your banking app, pay the exact amount, then upload the slip.", "用银行App扫码付款，然后上传凭证。")}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload slip", "上传凭证")}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              ) : isAdmin ? (
+                <div className="adminpay-cfg" style={{ marginBottom: 0 }}>
+                  <div className="admstu-nm" style={{ fontSize: 15 }}>⚙️ {T("ตั้งเลขรับเงินตรงนี้เลย (เห็นเฉพาะแอดมิน)", "Set your payout PromptPay here (admin only)", "在此设置收款 PromptPay（仅管理员）")}</div>
+                  <input value={pp} onChange={e => setPp(e.target.value)} placeholder={T("เบอร์ PromptPay หรือเลขผู้เสียภาษี", "PromptPay number or tax ID", "PromptPay 号码或税号")} inputMode="numeric" />
+                  <input value={nm} onChange={e => setNm(e.target.value)} placeholder={T("ชื่อบัญชี / ชื่อร้าน", "Account / shop name", "账户/店名")} />
+                  <input value={bk} onChange={e => setBk(e.target.value)} placeholder={T("ธนาคาร (ไม่บังคับ)", "Bank (optional)", "银行（可选）")} />
+                  <button className="songbtn go" style={{ width: "100%", marginTop: 9 }} disabled={savingCfg || !pp.trim()} onClick={saveCfgInline}>
+                    {savingCfg ? "⏳ " + T("กำลังบันทึก…", "Saving…", "保存中…") : "💾 " + T("บันทึก แล้วสร้าง QR", "Save & show QR", "保存并生成二维码")}
+                  </button>
+                </div>
+              ) : (
+                <div className="aicreate-err">{T("ร้านกำลังตั้งค่าการรับเงิน ลองใหม่อีกครั้งภายหลัง หรือทักแอดมินได้เลย", "Payment is being set up — please try again shortly or contact us.", "收款正在设置中，请稍后再试或联系我们。")}</div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin: all students' progress (reads every profile via admin RLS) ── */
 function AdminStudents({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
@@ -4808,10 +5646,29 @@ function AdminStudents({ lang }) {
   const [err, setErr] = useState("");
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState("");
+  const [mgPlan, setMgPlan] = useState("max");
+  const [mgDays, setMgDays] = useState(30);
+  const [mgBusy, setMgBusy] = useState(false);
+  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); };
+  async function applyPlan() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_set_plan", { target: sel.id, new_plan: mgPlan, days: Number(mgDays) || 30 });
+    setMgBusy(false); if (!error) { playUi("levelup"); setSel(null); load(); }
+  }
+  async function suspendPlan() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_set_plan", { target: sel.id, new_plan: "free", days: 0 });
+    setMgBusy(false); if (!error) { setSel(null); load(); }
+  }
+  async function toggleBan() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_set_ban", { target: sel.id, ban: !sel.banned });
+    setMgBusy(false); if (!error) { setSel(null); load(); }
+  }
   const load = useCallback(() => {
     setErr(""); setRows(null);
     sb.from("profiles")
-      .select("id,email,full_name,exp,lessons_done,streak,last_active,onboarded,created_at,is_admin,progress")
+      .select("id,email,full_name,exp,lessons_done,streak,last_active,onboarded,created_at,is_admin,banned,plan,plan_until,progress")
       .then(({ data, error }) => {
         if (error) { setErr(error.message || "error"); setRows([]); return; }
         const r = (data || []).slice().sort((a, b) => (b.last_active || "").localeCompare(a.last_active || "") || (b.exp || 0) - (a.exp || 0));
@@ -4838,9 +5695,29 @@ function AdminStudents({ lang }) {
         <div className="admstu-head">
           <div className="admstu-av">{(sel.full_name || sel.email || "?").trim().charAt(0).toUpperCase()}</div>
           <div>
-            <div className="admstu-nm">{sel.full_name || "—"} {sel.is_admin && <span className="admstu-badge">ADMIN</span>}</div>
+            <div className="admstu-nm">{sel.full_name || "—"} {sel.is_admin && <span className="admstu-badge">ADMIN</span>}{sel.banned && <span className="adminpay-badge rejected">BANNED</span>}</div>
             <div className="admstu-em">{sel.email || "—"}</div>
-            <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {pr.plan ? pr.plan.toUpperCase() : "FREE"} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
+            <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {(sel.plan || "free").toUpperCase()} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
+          </div>
+        </div>
+        {/* ⚙️ manage: change/suspend plan · ban */}
+        <div className="admmg">
+          <div className="admmg-h">⚙️ {T("จัดการผู้ใช้", "Manage user", "用户管理")}</div>
+          <div className="admmg-cur">{T("แพลนปัจจุบัน", "Current plan", "当前套餐")}: <b>{(sel.plan || "free").toUpperCase()}</b>{sel.plan_until ? " · " + T("ถึง", "until", "至") + " " + String(sel.plan_until).slice(0, 10) : ""}</div>
+          <div className="admmg-row">
+            <select className="admmg-sel" value={mgPlan} onChange={e => setMgPlan(e.target.value)}>
+              <option value="premium">⭐ Premium</option>
+              <option value="family">👨‍👩‍👧 Family</option>
+              <option value="max">👑 Max</option>
+              <option value="maxfamily">👑 Max Family</option>
+            </select>
+            <input className="admmg-days" type="number" min="1" value={mgDays} onChange={e => setMgDays(e.target.value)} />
+            <span className="admmg-d">{T("วัน", "days", "天")}</span>
+          </div>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={mgBusy} onClick={applyPlan}>💾 {T("ตั้ง / เปลี่ยนแพลน", "Set / change plan", "设置/更改套餐")}</button>
+          <div className="admmg-row2">
+            <button className="songbtn ghost" disabled={mgBusy} onClick={suspendPlan}>⏸ {T("ระงับ (เป็นฟรี)", "Suspend (free)", "暂停（免费）")}</button>
+            <button className={`songbtn ${sel.banned ? "go" : "ghost"}`} disabled={mgBusy} onClick={toggleBan}>{sel.banned ? "✓ " + T("ปลดแบน", "Unban", "解封") : "🚫 " + T("แบน ID", "Ban ID", "封禁")}</button>
           </div>
         </div>
         <div className="pd-stats">
@@ -4875,10 +5752,10 @@ function AdminStudents({ lang }) {
           const li = levelInfo(r.exp || 0);
           const sum = (r.progress && r.progress.summary) || {};
           return (
-            <button key={r.id} className="admstu-row" onClick={() => setSel(r)}>
+            <button key={r.id} className="admstu-row" onClick={() => openUser(r)}>
               <div className="admstu-av sm">{(r.full_name || r.email || "?").trim().charAt(0).toUpperCase()}</div>
               <div className="admstu-row-body">
-                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.is_admin && <span className="admstu-badge">ADMIN</span>}</div>
+                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.is_admin && <span className="admstu-badge">ADMIN</span>}{r.banned && <span className="adminpay-badge rejected">BAN</span>}{r.plan && r.plan !== "free" && <span className="adminpay-badge approved">{r.plan.toUpperCase()}</span>}</div>
                 <div className="admstu-row-meta">Lv {li.level} · {(r.exp || 0).toLocaleString()} EXP · {r.lessons_done || 0} {T("บท", "lessons", "课")} · {(r.streak || 0)}🔥{sum.games ? " · " + sum.games + " " + T("เกม", "games", "游戏") : ""}</div>
                 <div className="admstu-row-sub">{r.email}{r.last_active ? " · " + r.last_active : ""}</div>
               </div>
@@ -4888,6 +5765,263 @@ function AdminStudents({ lang }) {
         })}
         {!list.length && <div className="admstu-empty">{T("ไม่พบนักเรียน", "No students found", "未找到学生")}</div>}
       </div>
+    </div>
+  );
+}
+
+/* ── Admin: payment review — PromptPay config, slip list, AI slip read, approve ── */
+function AdminPayments({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [rows, setRows] = useState(null);
+  const [sel, setSel] = useState(null);
+  const [cfg, setCfg] = useState({ promptpay: "", name: "", bank: "" });
+  const [cfgSaved, setCfgSaved] = useState(false);
+  const [slipUrl, setSlipUrl] = useState(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiText, setAiText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    setRows(null);
+    sb.from("payments").select("*").order("created_at", { ascending: false })
+      .then(({ data, error }) => setRows(error ? [] : (data || [])), () => setRows([]));
+  }, []);
+  useEffect(() => {
+    load();
+    sb.from("app_settings").select("value").eq("key", "payment").maybeSingle()
+      .then(({ data }) => { if (data && data.value) setCfg({ promptpay: data.value.promptpay || "", name: data.value.name || "", bank: data.value.bank || "" }); });
+  }, [load]);
+  async function saveCfg() {
+    setCfgSaved(false);
+    const value = { promptpay: cfg.promptpay.trim(), name: cfg.name.trim(), bank: cfg.bank.trim() };
+    const { error } = await sb.from("app_settings").upsert({ key: "payment", value, updated_at: new Date().toISOString() });
+    if (!error) { setCfgSaved(true); setTimeout(() => setCfgSaved(false), 2500); }
+  }
+  async function openSel(p) {
+    setSel(p); setAiText(p.ai_check ? aiSummary(p.ai_check, p.amount) : ""); setSlipUrl(null);
+    if (p.slip_path) { const { data } = await sb.storage.from("slips").createSignedUrl(p.slip_path, 600); setSlipUrl((data && data.signedUrl) || null); }
+  }
+  function aiSummary(c, amount) {
+    if (!c) return "";
+    if (c.raw) return c.raw;
+    const match = c.match != null ? c.match : (Math.abs((c.amount || 0) - amount) < 1);
+    return `฿${c.amount} · ${c.date || ""} ${c.time || ""}\n→ ${c.recipient || "?"}\n${T("จาก", "from", "来自")} ${c.sender || "?"} · ref ${c.ref || "-"}\n` +
+      (match ? T("✅ ยอดตรง", "✅ amount matches", "✅ 金额相符") : T("⚠️ ยอดไม่ตรง (ควรเป็น ฿", "⚠️ amount mismatch (expected ฿", "⚠️ 金额不符（应为 ฿") + amount + ")");
+  }
+  async function aiRead() {
+    if (!sel || !sel.slip_path) return;
+    setAiBusy(true); setAiText("");
+    try {
+      const { data } = await sb.storage.from("slips").createSignedUrl(sel.slip_path, 600);
+      const url = data && data.signedUrl; if (!url) throw new Error("no url");
+      const blob = await (await fetch(url)).blob();
+      const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+      const media = blob.type || "image/jpeg";
+      const sys = "You verify Thai bank-transfer / PromptPay slips. Read the slip image and return ONLY minified JSON: {\"amount\":number,\"date\":string,\"time\":string,\"sender\":string,\"recipient\":string,\"ref\":string,\"bank\":string}. Use null for any unreadable field.";
+      const body = { model: API_MODEL, max_tokens: 600, system: sys, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: media, data: String(b64).split(",")[1] } }, { type: "text", text: "Extract the payment details from this slip. The expected amount is " + sel.amount + " THB." }] }] };
+      const res = await fetch(API_URL, { method: "POST", headers: API_HEADERS, body: JSON.stringify(body) });
+      const d = await res.json();
+      const txt = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+      let parsed = null; try { const m = txt.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; } catch (e) {}
+      if (parsed) parsed.match = Math.abs((parsed.amount || 0) - sel.amount) < 1;
+      const store = parsed || { raw: txt.slice(0, 500) };
+      setAiText(aiSummary(store, sel.amount));
+      sb.from("payments").update({ ai_check: store }).eq("id", sel.id).then(() => {}, () => {});
+    } catch (e) { setAiText(T("อ่านสลิปไม่สำเร็จ (ฟีเจอร์รูปภาพต้องรันนอก preview)", "Couldn't read slip (image AI needs to run outside preview)", "读取失败（图片AI需在预览外运行）")); }
+    setAiBusy(false);
+  }
+  async function review(approve) {
+    if (!sel) return; setBusy(true);
+    const { error } = await sb.rpc("admin_review_payment", { pid: sel.id, approve, days: sel.days || 30 });
+    setBusy(false);
+    if (!error) { setSel(null); load(); }
+  }
+
+  if (sel) {
+    const st = sel.status;
+    return (
+      <div className="adminpay">
+        <button className="admstu-back" onClick={() => setSel(null)}>‹ {T("กลับ", "Back", "返回")}</button>
+        <div className="admstu-head">
+          <div className="admstu-av">{(sel.full_name || sel.email || "?").trim().charAt(0).toUpperCase()}</div>
+          <div>
+            <div className="admstu-nm">{sel.full_name || sel.email || "—"} <span className={`adminpay-badge ${st}`}>{st.toUpperCase()}</span></div>
+            <div className="admstu-em">{sel.email}</div>
+            <div className="admstu-lv">{(PLAN_LABEL[sel.plan] || sel.plan)} · <b style={{ color: "#ffd23f" }}>฿{(sel.amount || 0).toLocaleString()}</b> · {(sel.created_at || "").slice(0, 16).replace("T", " ")}</div>
+          </div>
+        </div>
+        {slipUrl ? <img className="payslip" src={slipUrl} alt="slip" /> : <div className="admstu-empty">{sel.slip_path ? T("กำลังโหลดสลิป…", "Loading slip…", "加载中…") : T("ไม่มีสลิป", "No slip", "无凭证")}</div>}
+        <button className="songbtn ghost" style={{ width: "100%" }} disabled={aiBusy || !sel.slip_path} onClick={aiRead}>
+          {aiBusy ? "⏳ " + T("AI กำลังอ่าน…", "AI reading…", "AI 读取中…") : "🤖 " + T("ให้ AI อ่านสลิป", "AI: read this slip", "AI 读取凭证")}
+        </button>
+        {aiText && <div className="aibox">{aiText}</div>}
+        {st === "pending" ? (
+          <div className="songready-btns" style={{ marginTop: 10 }}>
+            <button className="songbtn go" disabled={busy} onClick={() => review(true)}>✅ {T("อนุมัติ เปิดสิทธิ์ ", "Approve — ", "批准 — ")}{sel.days || 30} {T("วัน", "days", "天")}</button>
+            <button className="songbtn ghost" disabled={busy} onClick={() => review(false)}>✕ {T("ปฏิเสธ", "Reject", "拒绝")}</button>
+          </div>
+        ) : <div className="admstu-empty">{T("ตรวจแล้ว", "Already reviewed", "已处理")}: {st}</div>}
+      </div>
+    );
+  }
+
+  const list = rows || [];
+  const pending = list.filter(p => p.status === "pending");
+  return (
+    <div className="adminpay">
+      <div className="adminpay-cfg">
+        <div className="admstu-nm" style={{ fontSize: 15 }}>⚙️ {T("ตั้งค่ารับเงิน (PromptPay)", "Payment settings (PromptPay)", "收款设置（PromptPay）")}</div>
+        <input value={cfg.promptpay} onChange={e => setCfg({ ...cfg, promptpay: e.target.value })} placeholder={T("เบอร์ PromptPay หรือเลขผู้เสียภาษี", "PromptPay number or tax ID", "PromptPay 号码或税号")} inputMode="numeric" />
+        <input value={cfg.name} onChange={e => setCfg({ ...cfg, name: e.target.value })} placeholder={T("ชื่อบัญชี / ชื่อร้าน", "Account / shop name", "账户/店名")} />
+        <input value={cfg.bank} onChange={e => setCfg({ ...cfg, bank: e.target.value })} placeholder={T("ธนาคาร (ไม่บังคับ)", "Bank (optional)", "银行（可选）")} />
+        <button className="songbtn go" style={{ width: "100%", marginTop: 9 }} onClick={saveCfg}>{cfgSaved ? "✓ " + T("บันทึกแล้ว", "Saved", "已保存") : T("บันทึกการตั้งค่า", "Save settings", "保存设置")}</button>
+      </div>
+      <div className="admstu-count">{pending.length} {T("รอตรวจ", "pending", "待处理")} · {list.length} {T("ทั้งหมด", "total", "全部")}</div>
+      {rows === null ? <div className="admstu-msg">⏳</div> : !list.length ? <div className="admstu-empty">{T("ยังไม่มีรายการชำระเงิน", "No payments yet", "暂无付款")}</div> : (
+        <div className="admstu-list">
+          {list.map(p => (
+            <button key={p.id} className={`adminpay-row ${p.status}`} onClick={() => openSel(p)}>
+              <div className="admstu-av sm">{(p.full_name || p.email || "?").trim().charAt(0).toUpperCase()}</div>
+              <div className="admstu-row-body">
+                <div className="admstu-row-nm">{p.full_name || p.email || "—"} <span className={`adminpay-badge ${p.status}`}>{p.status}</span></div>
+                <div className="admstu-row-meta">{(PLAN_LABEL[p.plan] || p.plan)} · ฿{(p.amount || 0).toLocaleString()} · {(p.created_at || "").slice(0, 10)}</div>
+              </div>
+              <span className="admstu-row-go">›</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Admin: upload + manage vertical teaching videos ── */
+function AdminVideos({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [rows, setRows] = useState(null);
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [link, setLink] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
+
+  const load = useCallback(() => {
+    setRows(null);
+    sb.from("lesson_videos").select("*").order("created_at", { ascending: false })
+      .then(({ data, error }) => setRows(error ? [] : (data || [])), () => setRows([]));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function addVideo() {
+    if (!title.trim()) { setErr("notitle"); return; }
+    // a folder link (drive.google.com/drive/folders/…) embeds Google's own folder
+    // browser with every video inside it — a single file link embeds just that video
+    const folderId = driveFolderId(link);
+    const fileId = folderId ? null : driveFileId(link);
+    if (!folderId && !fileId) { setErr("badlink"); return; }
+    setErr(false); setBusy(true);
+    try {
+      const row = { title: title.trim(), description: desc.trim() || null, published: true };
+      if (folderId) row.drive_folder_id = folderId; else row.drive_file_id = fileId;
+      const ins = await sb.from("lesson_videos").insert(row);
+      if (ins.error) throw ins.error;
+      setTitle(""); setDesc(""); setLink("");
+      playUi("levelup");
+      load();
+    } catch (e) { setErr("fail"); }
+    setBusy(false);
+  }
+  async function toggle(v) { await sb.from("lesson_videos").update({ published: !v.published }).eq("id", v.id); load(); }
+  async function del(v) { await sb.from("lesson_videos").delete().eq("id", v.id); load(); }
+
+  const list = rows || [];
+  return (
+    <div className="adminpay">
+      <div className="adminpay-cfg">
+        <div className="admstu-nm" style={{ fontSize: 15 }}>🎬 {T("เพิ่มวิดีโอ/โฟลเดอร์ใหม่จาก Google Drive", "Add a new video or folder from Google Drive", "从 Google Drive 添加新视频/文件夹")}</div>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={T("ชื่อวิดีโอ", "Video title", "视频标题")} />
+        <input value={desc} onChange={e => setDesc(e.target.value)} placeholder={T("คำอธิบาย (ไม่บังคับ)", "Description (optional)", "描述（可选）")} />
+        <input value={link} onChange={e => setLink(e.target.value)} placeholder={T("วางลิงก์ไฟล์วิดีโอ หรือลิงก์โฟลเดอร์ Google Drive", "Paste a video-file link OR a folder link", "粘贴视频文件链接或文件夹链接")} />
+        <button className="songbtn go" style={{ width: "100%", marginTop: 9 }} disabled={busy} onClick={addVideo}>
+          {busy ? "⏳ " + T("กำลังเพิ่ม…", "Adding…", "添加中…") : "➕ " + T("เพิ่ม", "Add", "添加")}
+        </button>
+        {err === "notitle" && <div className="admstu-empty" style={{ color: "#ff6b6b" }}>{T("ใส่ชื่อวิดีโอก่อนนะ", "Add a title first", "请先填写标题")}</div>}
+        {err === "badlink" && <div className="admstu-empty" style={{ color: "#ff6b6b" }}>{T("อ่านลิงก์ Google Drive ไม่ออก ลองคัดลอกลิงก์แชร์มาใหม่", "Couldn't read that Google Drive link — copy the share link again", "无法识别该 Google Drive 链接，请重新复制共享链接")}</div>}
+        {err === "fail" && <div className="admstu-empty" style={{ color: "#ff6b6b" }}>{T("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง", "Save failed — try again", "保存失败，请重试")}</div>}
+        <div className="admstu-empty" style={{ fontSize: 11, marginTop: 6 }}>{T("💡 ไฟล์เดี่ยว: คลิกขวาไฟล์ → แชร์ → \"ทุกคนที่มีลิงก์\" → คัดลอกลิงก์ · ทั้งโฟลเดอร์: คลิกขวาโฟลเดอร์ → แชร์ → \"ทุกคนที่มีลิงก์\" → คัดลอกลิงก์ แล้ววางที่นี่", "💡 Single file: right-click → Share → \"Anyone with the link\" → copy · Whole folder: right-click the folder → Share → \"Anyone with the link\" → copy — either link works here", "💡 单个文件：右键 → 共享 → “知道链接的任何人” → 复制 · 整个文件夹：右键文件夹 → 共享 → “知道链接的任何人” → 复制，两种链接都可以粘贴到这里")}</div>
+      </div>
+      <div className="admstu-count">{list.length} {T("รายการทั้งหมด", "items total", "个项目")}</div>
+      {rows === null ? <div className="admstu-msg">⏳</div> : !list.length ? <div className="admstu-empty">{T("ยังไม่มีวิดีโอ เพิ่มอันแรกได้เลย", "No videos yet — add the first one", "还没有视频，添加第一个吧")}</div> : (
+        <div className="admstu-list">
+          {list.map(v => (
+            <div key={v.id} className="adminpay-row" style={{ cursor: "default" }}>
+              <div className="admstu-av sm">{v.drive_folder_id ? "📁" : "🎬"}</div>
+              <div className="admstu-row-body">
+                <div className="admstu-row-nm">{v.title} <span className={`adminpay-badge ${v.published ? "approved" : "pending"}`}>{v.published ? T("เผยแพร่แล้ว", "Published", "已发布") : T("ฉบับร่าง", "Draft", "草稿")}</span></div>
+                <div className="admstu-row-meta">{v.drive_folder_id ? T("โฟลเดอร์ · ", "Folder · ", "文件夹 · ") : ""}{(v.created_at || "").slice(0, 10)}{v.description ? " · " + v.description : ""}</div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button className="songbtn ghost" style={{ padding: "6px 10px", fontSize: 12 }} onClick={() => toggle(v)}>{v.published ? T("ซ่อน", "Unpublish", "取消发布") : T("เผยแพร่", "Publish", "发布")}</button>
+                <button className="songbtn ghost" style={{ padding: "6px 10px", fontSize: 12, color: "#ff6b6b" }} onClick={() => del(v)}>{T("ลบ", "Delete", "删除")}</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Admin: usage analytics — which Pathway topics / nav buttons / pages get
+   used most, so development effort can follow real usage. ── */
+function AdminAnalytics({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [range, setRange] = useState("all"); // '7' | '30' | 'all'
+  const [stats, setStats] = useState(null);
+  const NAV_LABELS = { pathway: "⬡ PATHWAY", sensei: "◈ TIGA AI", studio: "▶ STUDIO", videos: "🎬 " + T("วิดีโอสอน", "Video Lessons", "视频课程"), profile: "PROFILE", admin: "ADMIN" };
+
+  const load = useCallback(() => {
+    setStats(null);
+    const since = range === "all" ? null : new Date(Date.now() - Number(range) * 86400000).toISOString();
+    sb.rpc("get_usage_stats", { p_kind: null, p_since: since })
+      .then(({ data, error }) => setStats(error ? [] : (data || [])), () => setStats([]));
+  }, [range]);
+  useEffect(() => { load(); }, [load]);
+
+  const byKind = (k) => (stats || []).filter(r => r.kind === k);
+  const Panel = ({ title, rows, labelFor }) => {
+    const max = rows.length ? Math.max(...rows.map(r => Number(r.hits))) : 1;
+    return (
+      <div className="adminpay-cfg">
+        <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>{title}</div>
+        {!rows.length ? <div className="admstu-empty">{T("ยังไม่มีข้อมูล", "No data yet", "暂无数据")}</div> : rows.map((r, i) => (
+          <div key={r.item_id} className="anrow">
+            <span className="anrow-rank">#{i + 1}</span>
+            <span className="anrow-name">{labelFor ? labelFor(r.item_id) : r.item_id}</span>
+            <span className="anrow-barwrap"><span className="anrow-bar" style={{ width: `${Math.max(6, (Number(r.hits) / max) * 100)}%` }} /></span>
+            <span className="anrow-hits">{r.hits}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="adminpay">
+      <div className="billtoggle">
+        {[["7", T("7 วัน", "7d", "7天")], ["30", T("30 วัน", "30d", "30天")], ["all", T("ทั้งหมด", "All time", "全部")]].map(([v, l]) => (
+          <button key={v} className={`billtog${range === v ? " on" : ""}`} onClick={() => setRange(v)}>{l}</button>
+        ))}
+      </div>
+      {stats === null ? <div className="admstu-msg">⏳</div> : (
+        <>
+          <Panel title={T("⬡ หัวข้อเส้นทางการเรียนรู้ (Pathway)", "⬡ Pathway topics", "⬡ 学习路径主题")} rows={byKind("pathway")}
+            labelFor={(id) => { const st = PATHWAY.find(s => s.id === id); return st ? tr(st.title, lang) : id; }} />
+          <Panel title={T("☰ ปุ่มนำทาง (Nav bar)", "☰ Nav bar buttons", "☰ 导航栏按钮")} rows={byKind("nav")}
+            labelFor={(id) => NAV_LABELS[id] || id} />
+          <Panel title={T("📄 หน้าที่เข้าชม", "📄 Pages visited", "📄 访问的页面")} rows={byKind("page")}
+            labelFor={(id) => NAV_LABELS[id] || id} />
+        </>
+      )}
     </div>
   );
 }
@@ -5033,9 +6167,12 @@ function AdminPage({ lang, onExit }) {
       <div className="admintabs">
         <button className={`admintab${adminTab === "ai" ? " on" : ""}`} onClick={() => setAdminTab("ai")}>🤖 {lang === "th" ? "สอน AI" : lang === "zh" ? "训练 AI" : "Teach AI"}</button>
         <button className={`admintab${adminTab === "students" ? " on" : ""}`} onClick={() => setAdminTab("students")}>👥 {lang === "th" ? "นักเรียน" : lang === "zh" ? "学生" : "Students"}</button>
+        <button className={`admintab${adminTab === "payments" ? " on" : ""}`} onClick={() => setAdminTab("payments")}>💳 {lang === "th" ? "ชำระเงิน" : lang === "zh" ? "付款" : "Payments"}</button>
+        <button className={`admintab${adminTab === "videos" ? " on" : ""}`} onClick={() => setAdminTab("videos")}>🎬 {lang === "th" ? "วิดีโอ" : lang === "zh" ? "视频" : "Videos"}</button>
+        <button className={`admintab${adminTab === "analytics" ? " on" : ""}`} onClick={() => setAdminTab("analytics")}>📊 {lang === "th" ? "สถิติ" : lang === "zh" ? "统计" : "Analytics"}</button>
       </div>
 
-      {adminTab === "students" ? <AdminStudents lang={lang} /> : (<>
+      {adminTab === "students" ? <AdminStudents lang={lang} /> : adminTab === "payments" ? <AdminPayments lang={lang} /> : adminTab === "videos" ? <AdminVideos lang={lang} /> : adminTab === "analytics" ? <AdminAnalytics lang={lang} /> : (<>
 
       <div className="mmsgs">
         {msgs.map((m, i) => (
@@ -5100,6 +6237,20 @@ function Splash() {
     <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
       <div className="scan" />
       <div className="lockicon" style={{ fontSize: 44 }}>🎹</div>
+    </div>
+  );
+}
+
+function BannedScreen({ onSignOut }) {
+  return (
+    <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
+      <div className="scan" />
+      <div className="banscreen">
+        <div style={{ fontSize: 52 }}>🚫</div>
+        <div className="locktitle">บัญชีถูกระงับ · Account suspended</div>
+        <div className="locksub">บัญชีนี้ถูกระงับการใช้งาน หากคิดว่าผิดพลาด กรุณาติดต่อผู้ดูแล<br />This account has been suspended. Please contact the studio if you think this is a mistake.</div>
+        <button className="lockbtn" onClick={onSignOut}>ออกจากระบบ · Sign out</button>
+      </div>
     </div>
   );
 }
@@ -5192,6 +6343,14 @@ export default function App() {
     sb.from("profiles").select("*").eq("id", uid).maybeSingle().then(({ data }) => {
       setProfile(data || null);
       setProfileReady(true);
+      // Supabase is the authoritative subscription now — sync it to localStorage so
+      // the freemium gates can't be unlocked by editing localStorage. Admins always
+      // get full access; a paid plan counts only while plan_until is in the future.
+      // (PianoApp reads this on mount and re-syncs from the profile prop.)
+      if (data) {
+        const active = effectivePlan(data);
+        try { setPlanLS(active); } catch (e) {}
+      }
     });
   }, []);
 
@@ -5199,6 +6358,13 @@ export default function App() {
     if (session && session.user && session.user.id) loadProfile(session.user.id);
     else { setProfile(null); setProfileReady(false); }
   }, [session, loadProfile]);
+
+  // load the shop's PromptPay config (for the checkout QR)
+  useEffect(() => {
+    if (!session) return;
+    sb.from("app_settings").select("value").eq("key", "payment").maybeSingle()
+      .then(({ data }) => setPayCfg((data && data.value) || null), () => {});
+  }, [session]);
 
   async function signOut() {
     try { await sb.auth.signOut(); } catch (e) {}
@@ -5208,6 +6374,7 @@ export default function App() {
   if (!authReady) return <Splash />;
   if (!session) return <LoginScreen />;
   if (!profileReady) return <Splash />;
+  if (profile && profile.banned && !profile.is_admin) return <BannedScreen onSignOut={signOut} />;
   if (!profile || !profile.onboarded) {
     return <ProfileForm session={session} onSignOut={signOut} onSaved={() => loadProfile(session.user.id)} />;
   }
@@ -5268,7 +6435,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [shopOpen, setShopOpen] = useState(false);
   const [premium, setPremium] = useState(isPremium());
   const [plan, setPlan] = useState(getPlan());   // free | premium | family | max — switchable any time
+  // keep the live plan/premium in sync with the authoritative server profile
+  useEffect(() => {
+    const active = effectivePlan(profile);
+    setPlan(active); setPremium(active !== "free");
+    try { setPlanLS(active); } catch (e) {}
+  }, [profile]);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [checkout, setCheckout] = useState(null);   // {plan, amount} → PromptPay payment modal
+  const [shareGate, setShareGate] = useState(false);  // free-tier share-to-continue gate
+  const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
+  const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
   const [upsell, setUpsell] = useState(null);   // {feat} when a gated action is blocked
   const [parentOpen, setParentOpen] = useState(false);
   const [examOpen, setExamOpen] = useState(false);
@@ -5360,6 +6537,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // ── routing + secret admin unlock ──
   const [page, setPage] = useState("pathway");  // home = pathway; sensei (chat) is secondary | pathway | profile | admin
+  useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [showLock, setShowLock] = useState(false);
   const tapCount = useRef(0);
@@ -5367,6 +6545,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // secret: tap the TG logo 5 times quickly to reveal the lock screen
   function handleLogoTap() {
+    // Only real admin accounts (your two emails, flagged is_admin in Supabase) can
+    // reveal the admin lock — everyone else tapping the logo does nothing.
+    if (!(profile && profile.is_admin)) return;
     tapCount.current += 1;
     clearTimeout(tapTimer.current);
     tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1500);
@@ -5474,6 +6655,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const songHitsRef = useRef(0);
   const songMissRef = useRef(0);
   const songLaneFlashRef = useRef({});
+  const songStarsRef = useRef([]);     // parallax starfield, generated once per song
+  const songRocketsRef = useRef([]);   // in-flight "rocket launch" anims (a hit → rocket climbs to the meteor)
+  const songBlastsRef = useRef([]);    // impact explosions (particle bursts, purely time-derived — no per-frame physics state)
   const songCountdownRef = useRef(null);
   const songFinishedRef = useRef(false);
   const songPreviewRef = useRef([]);
@@ -5505,11 +6689,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const vmNotesRef = useRef([]);
   const vmFrozenRef = useRef(false);
   const vmPlayReactT = useRef(null);   // fires after the learner plays then pauses → AI reacts like a listening teacher
+  const vmSilenceT = useRef(null);     // finalize speech after a short pause (continuous STT)
+  const vmRestartT = useRef(null);     // quick re-arm of the recognizer so the ear stays open
+  const vmWatchdogT = useRef(null);    // backstop: recover a silently-dead recognizer
+  const vmListenSeqRef = useRef(0);    // invalidates stale recognizer callbacks across restarts
   const vmEndRef = useRef(null);
+  const vmLastActivityRef = useRef(0); // last time we heard speech OR a played note, while listening
+  const vmIdleNudgedRef = useRef(false); // has this silent stretch already gotten its one gentle check-in?
+  const vmIdleTimerRef = useRef(null); // recurring watcher (a real teacher eventually breaks a long silence)
+  const vmSelfSpeakingRef = useRef(false); // true while the idle-nudge plays over speakers WHILE the recognizer is still live — so the mic can't mishear its own voice as the learner talking
   const [vmFast, setVmFast] = useState(false);  // default = natural HQ cloud voice (falls back to device on weak signal)
   const vmFastRef = useRef(false);
   const [vmSpeed, setVmSpeed] = useState(1);    // demo playback speed: 1 / 1.25 / 1.5 / 1.75 / 2
   const vmSpeedRef = useRef(1);
+  const [vmVoice, setVmVoice] = useState(getVmVoiceKey());  // voice character (warm/deep/friendly/bright)
+  const [vmPoly, setVmPoly] = useState(() => { try { return localStorage.getItem("tg_vmpoly") === "1"; } catch (e) { return false; } }); // beta: hear chords from mic
+  const vmPolyRef = useRef(false);
+  const [vmLangOpen, setVmLangOpen] = useState(false);  // top-right language switcher inside voice mode
+  const langRef = useRef(lang);                          // lets an in-flight (stale-closure) recognizer still read the CURRENT language
+  const vmLastDemoRef = useRef(null);           // last [play]/[chord] demo → instant "again" replay
+  const vmStreakRef = useRef(0);                // consecutive correct notes this session → adaptive pacing
+  const vmMissRef = useRef(0);                  // consecutive misses → ease off
+  const vmFillersRef = useRef([]);              // pre-decoded "mm-hmm / okay" active-listening clips (same warm voice)
+  const vmFillerSrcRef = useRef(null);          // currently-playing filler (stopped the instant real speech starts)
   const vmCloudDeadRef = useRef(false);  // cloud TTS failed this session → stick to the local voice (smooth on weak signal)
   const [vmLit, setVmLit] = useState([]);       // keys the AI highlights on the voice-mode piano
   const vmLitT = useRef(null);
@@ -5981,6 +7183,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   async function startSongPlay() {
     const data = songDataRef.current;
     if (!data) return;
+    if (!gateContent()) return;   // free limit reached → share to continue
+    bumpContentPlays();
     setSongBest(loadBest());
     songSamplesRef.current = [];
     try { songGhostDataRef.current = JSON.parse(localStorage.getItem("tg_ghost_" + (songMeta ? (songMeta.id || songMeta.en) : "x")) || "null"); } catch (e) { songGhostDataRef.current = null; }
@@ -5995,6 +7199,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     songHitsRef.current = 0; songMissRef.current = 0; songPerfectsRef.current = 0;
     songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
     songLaneFlashRef.current = {}; songCountdownRef.current = null; songFinishedRef.current = false;
+    songRocketsRef.current = []; songBlastsRef.current = [];
+    if (!songStarsRef.current.length) songStarsRef.current = Array.from({ length: 50 }, () => ({ fx: Math.random(), fy: Math.random(), r: 0.4 + Math.random() * 1.3, tw: Math.random() * Math.PI * 2 }));
     songDebounceRef.current = {}; songEchoRef.current = {};
     songTempoRef.current = songTempo || 1;
     setSongHud({ score: 0, combo: 0, acc: 100, progress: 0 });
@@ -6065,9 +7271,23 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
     const ctx = cv.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
+    const now = performance.now();
+    // deep-space backdrop + a quietly twinkling starfield (generated once, reused every frame)
+    ctx.fillStyle = "#050414"; ctx.fillRect(0, 0, W, H);
+    const tSec = now / 1000;
+    for (const s of songStarsRef.current) {
+      const tw = 0.5 + 0.5 * Math.sin(tSec * 1.4 + s.tw);
+      ctx.globalAlpha = 0.2 + 0.55 * tw;
+      ctx.fillStyle = "#bcd7ff";
+      ctx.beginPath(); ctx.arc(s.fx * W, s.fy * H, s.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
     const hitY = H - 8;
     const pxPerSec = hitY / SONG_LEAD;
+    // a faint glowing Earth horizon along the hit-line — what the meteors are falling toward
+    const earthGrad = ctx.createLinearGradient(0, hitY - 30, 0, hitY + 20);
+    earthGrad.addColorStop(0, "rgba(6,150,214,0)"); earthGrad.addColorStop(1, "rgba(6,150,214,0.28)");
+    ctx.fillStyle = earthGrad; ctx.fillRect(0, hitY - 30, W, 38);
     // Each lane's x-position is the actual key it maps to, so a falling note lands
     // directly above the piano key (and the lit key) the learner must press.
     const laneFrac = lanes.map(ln => noteKeyFrac(ln) || { cx: 0.5, w: 1 / 14 });
@@ -6079,7 +7299,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
     ctx.strokeStyle = "rgba(168,85,247,0.55)"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, hitY); ctx.lineTo(W, hitY); ctx.stroke(); ctx.lineWidth = 1;
-    const now = performance.now();
     for (const n of notes) {
       const hitAt = n.t + SONG_LEAD;
       if (!n.hit && !n.missed && songTime > hitAt + SONG_MISSWINDOW) {
@@ -6095,14 +7314,71 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const h = Math.max(14, n.durSec * pxPerSec);
       const f = laneFrac[n.lane] || noteKeyFrac(n.note) || { cx: 0.5, w: 1 / 14 };
       const w = Math.max(10, f.w * W - 4), x = f.cx * W - w / 2, top = y - h, hue = laneHue(n.note);
-      ctx.fillStyle = n.missed ? "rgba(120,130,140,0.22)" : `hsla(${hue},85%,60%,0.95)`;
-      roundRect(ctx, x, top, w, h, 6); ctx.fill();
+      const mcx = x + w / 2, mcy = top + h / 2, mrad = Math.min(w, h) / 2;
+      // meteor: a few fading embers trailing above (where it fell from), then the fireball itself
       if (!n.missed) {
-        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        for (let k = 3; k >= 1; k--) {
+          ctx.globalAlpha = (1 - k / 4) * 0.4;
+          ctx.fillStyle = `hsla(${hue},90%,55%,1)`;
+          ctx.beginPath(); ctx.arc(mcx, top - k * 6, mrad * (1 - k * 0.2), 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+      const glow = ctx.createRadialGradient(mcx, mcy, 0, mcx, mcy, mrad * 1.5);
+      if (n.missed) { glow.addColorStop(0, "rgba(150,150,165,0.45)"); glow.addColorStop(1, "rgba(90,90,100,0)"); }
+      else { glow.addColorStop(0, `hsla(${hue},100%,82%,1)`); glow.addColorStop(0.55, `hsla(${hue},95%,55%,0.85)`); glow.addColorStop(1, `hsla(${hue},90%,40%,0)`); }
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.ellipse(mcx, mcy, w / 2 + 3, h / 2 + 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = n.missed ? "rgba(95,100,112,0.55)" : `hsla(${hue},45%,24%,0.9)`;
+      roundRect(ctx, x + 3, top + 3, Math.max(4, w - 6), Math.max(4, h - 6), 5); ctx.fill();
+      if (!n.missed) {
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
         ctx.font = "bold 11px Rajdhani, sans-serif"; ctx.textAlign = "center";
-        ctx.fillText(pcOf(n.note), x + w / 2, Math.min(y - 5, hitY - 5));
+        ctx.fillText(pcOf(n.note), mcx, Math.min(mcy + 4, hitY - 5));
       }
     }
+    // ── rockets: a hit launches one from the hit-line, climbing to blow the meteor up ──
+    const liveRockets = [];
+    for (const r of songRocketsRef.current) {
+      const t = (now - r.t0) / r.dur;
+      const rx = (laneFrac[r.lane] || { cx: 0.5 }).cx * W, rTop = hitY - 95;
+      if (t >= 1) {
+        songBlastsRef.current.push({
+          x: rx, y: rTop, t0: now, dur: 420, hue: r.hue,
+          parts: Array.from({ length: 12 }, (_, k) => ({ a: (k / 12) * Math.PI * 2 + (Math.random() - 0.5) * 0.5, sp: 55 + Math.random() * 85, sz: 2 + Math.random() * 3 })),
+        });
+        continue;
+      }
+      liveRockets.push(r);
+      const ry = hitY + (rTop - hitY) * t;
+      ctx.globalAlpha = 0.75;
+      ctx.fillStyle = "rgba(255,170,50,0.85)";
+      ctx.beginPath(); ctx.ellipse(rx, ry + 9, 3, 8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#eef3f8";
+      ctx.beginPath(); ctx.moveTo(rx, ry - 9); ctx.lineTo(rx - 4, ry + 1); ctx.lineTo(rx + 4, ry + 1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#9fb6c4";
+      ctx.fillRect(rx - 3, ry + 1, 6, 9);
+    }
+    songRocketsRef.current = liveRockets;
+    // ── blasts: the impact explosion where a rocket met its meteor ──
+    const liveBlasts = [];
+    for (const b of songBlastsRef.current) {
+      const t = (now - b.t0) / b.dur;
+      if (t >= 1) continue;
+      liveBlasts.push(b);
+      const fade = 1 - t;
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = `hsla(${b.hue},100%,88%,${fade})`;
+      ctx.beginPath(); ctx.arc(b.x, b.y, 15 * (1 - fade * 0.4), 0, Math.PI * 2); ctx.fill();
+      for (const p of b.parts) {
+        const dist = p.sp * t;
+        ctx.fillStyle = `hsla(${b.hue},95%,65%,${fade})`;
+        ctx.beginPath(); ctx.arc(b.x + Math.cos(p.a) * dist, b.y + Math.sin(p.a) * dist, p.sz * fade, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    songBlastsRef.current = liveBlasts;
     for (let i = 0; i < nLane; i++) {
       const fl = songLaneFlashRef.current[i];
       if (fl && fl.until > now) {
@@ -6143,6 +7419,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const now = performance.now();
     if (best && bestd <= SONG_HITWINDOW) {
       best.hit = true;
+      songRocketsRef.current.push({ lane: best.lane, hue: laneHue(best.note), t0: now, dur: 170 }); // launch a rocket to blow up the meteor
       songHitsRef.current++;
       songComboRef.current++;
       const combo = songComboRef.current;
@@ -6412,6 +7689,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [camOpen, camTry]);
 
   // ════ AI VOICE TUTOR (turn-based, hands-free) ════
+  // Switching language mid-session (top-right button): keep the ref fresh for any
+  // in-flight recognizer, drop the now-wrong-language filler cache, and if the ear
+  // is actively listening right now, restart it immediately so it hears the new
+  // language on the very next word instead of waiting for the next natural turn.
+  useEffect(() => {
+    langRef.current = lang;
+    if (!vmActiveRef.current) return;
+    vmFillersRef.current = [];
+    prefetchFillers();
+    if (vmStateRef.current === "listening" && vmRecRef.current) {
+      try { vmRecRef.current.onend = null; vmRecRef.current.onresult = null; vmRecRef.current.abort(); } catch (e) {}
+      vmRecRef.current = null;
+      vmStartListen();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
+  // close the voice-mode language dropdown on outside click
+  useEffect(() => {
+    if (!vmLangOpen) return;
+    const close = () => setVmLangOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [vmLangOpen]);
   function vmSetState(s) { vmStateRef.current = s; setVmState(s); }
   // buffer notes the learner plays while we're listening (so the AI can react)
   function vmOnNote(d) {
@@ -6423,14 +7723,37 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       vmInterrupt();
     }
     if (vmStateRef.current !== "listening" || vmFrozenRef.current) return;
+    const now = Date.now();
+    vmLastActivityRef.current = now;
+    // ── chord (poly beta): several pitch classes detected in one strike ──
+    if (d.notes && d.notes.length > 1) {
+      const pcs = [...new Set(d.notes.map(pcOf))];
+      if (vmExpectRef.current && vmExpectRef.current.size) {
+        const ok = pcs.some(p => vmExpectRef.current.has(p));   // any expected tone present → ✓
+        setVmInstant({ ok, id: now });
+        clearTimeout(vmInstantT.current);
+        vmInstantT.current = setTimeout(() => setVmInstant(null), 650);
+        if (ok) { vmStreakRef.current++; vmMissRef.current = 0; }
+        else { vmMissRef.current++; vmStreakRef.current = 0; }
+      }
+      vmNotesRef.current = vmNotesRef.current.filter(x => now - x.t < 12000);
+      for (const p of pcs) vmNotesRef.current.push({ note: p, t: now, vel: d.vel || 0, chord: true });
+      if (vmNotesRef.current.length > 16) vmNotesRef.current = vmNotesRef.current.slice(-16);
+      setVmNotes(vmNotesRef.current.map(x => x.note));
+      clearTimeout(vmPlayReactT.current);
+      vmPlayReactT.current = setTimeout(() => vmReactToPlaying(), 1700); // chords resolve fast → react a touch sooner
+      return;
+    }
     // instant local feedback: ✓ if the played pitch is one the teacher just showed
     if (vmExpectRef.current && vmExpectRef.current.size) {
       const ok = vmExpectRef.current.has(pcOf(d.note));
-      setVmInstant({ ok, id: Date.now() });
+      setVmInstant({ ok, id: now });
       clearTimeout(vmInstantT.current);
       vmInstantT.current = setTimeout(() => setVmInstant(null), 650);
+      // track a correct/missed streak so the teacher can adapt the pace
+      if (ok) { vmStreakRef.current++; vmMissRef.current = 0; }
+      else { vmMissRef.current++; vmStreakRef.current = 0; }
     }
-    const now = Date.now();
     vmNotesRef.current = vmNotesRef.current.filter(x => now - x.t < 12000);
     vmNotesRef.current.push({ note: pcOf(d.note), t: now, vel: d.vel || 0 });
     if (vmNotesRef.current.length > 16) vmNotesRef.current.shift();
@@ -6438,7 +7761,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     // a human teacher reacts when you PLAY, not only when you talk — once the
     // learner plays a little then pauses (and isn't speaking), comment on it.
     clearTimeout(vmPlayReactT.current);
-    vmPlayReactT.current = setTimeout(() => vmReactToPlaying(), 2500);
+    vmPlayReactT.current = setTimeout(() => vmReactToPlaying(), 2000);
   }
   function vmReactToPlaying() {
     if (!vmActiveRef.current || vmStateRef.current !== "listening" || vmFrozenRef.current) return;
@@ -6452,6 +7775,72 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (!sttSupported()) { setVmErr(L[lang].vmNoSTT); vmSetState("error"); return; }
     startVoiceSession();
   }
+  // Pre-fetch short "active listening" clips in the warm voice so the teacher can
+  // say "mm-hmm / okay / let's see" the instant you finish — no dead air, no delay.
+  const VM_FILLERS = {
+    th: ["อืม", "โอเคครับ", "เดี๋ยวนะ", "ดีมาก ฟังนะ", "เข้าใจแล้ว"],
+    en: ["Mm-hmm.", "Okay.", "Let's see.", "Nice, listen.", "Got it."],
+    zh: ["嗯。", "好的。", "我看看。", "不错。", "明白了。"],
+  };
+  // said ONCE, gently, if the learner goes quiet for a while — a real teacher
+  // doesn't just sit in silence forever without saying anything.
+  const VM_IDLE_NUDGE = {
+    th: ["ค่อยๆ นะครับ ไม่ต้องรีบ", "ครูรออยู่นะครับ ใจเย็นๆ", "พร้อมเมื่อไหร่ค่อยเล่นก็ได้นะ"],
+    en: ["Take your time.", "No rush, I'm still here.", "Whenever you're ready."],
+    zh: ["慢慢来，不着急。", "老师还在呢，别紧张。", "准备好了再开始就行。"],
+  };
+  const VM_IDLE_MS = 24000; // how long of true silence before the one gentle check-in
+  async function prefetchFillers() {
+    vmFillersRef.current = [];
+    if (vmFastRef.current || vmCloudDeadRef.current) return;   // device voice: skip (no cached clips)
+    const list = VM_FILLERS[lang] || VM_FILLERS.en;
+    for (const t of list) {
+      try { const clips = await fetchCloudClips(t, lang); if (clips && clips[0]) vmFillersRef.current.push(clips[0]); } catch (e) {}
+      if (!vmActiveRef.current) return;
+    }
+  }
+  function vmStopFiller() { if (vmFillerSrcRef.current) { try { vmFillerSrcRef.current.onended = null; vmFillerSrcRef.current.stop(); } catch (e) {} vmFillerSrcRef.current = null; } }
+  // play one random filler immediately; returns true if it spoke (else caller earcons)
+  function vmPlayFiller() {
+    const buffers = vmFillersRef.current;
+    if (_sfxMuted || !buffers || !buffers.length) return false;
+    try {
+      const ac = getAC();
+      const buf = buffers[Math.floor(Math.random() * buffers.length)];
+      vmStopFiller();
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      const rate = 1 + ((vmSpeedRef.current || 1) - 1) * 0.5;
+      if (rate !== 1) src.playbackRate.value = Math.max(0.5, Math.min(1.8, rate));
+      src.connect(ac.destination);
+      src.onended = () => { if (vmFillerSrcRef.current === src) vmFillerSrcRef.current = null; };
+      vmFillerSrcRef.current = src;
+      src.start();
+      return true;
+    } catch (e) { return false; }
+  }
+  // A real teacher never just sits in dead silence forever — if the learner goes
+  // quiet (not speaking, not playing) for a while during "listening", say one
+  // short, gentle line ONCE, without disrupting the mic/state (same non-intrusive
+  // approach as the active-listening fillers). Checked on a slow interval, so it's
+  // cheap and never competes with the STT engine's own restart cycling.
+  function vmCheckIdle() {
+    if (!vmActiveRef.current || vmStateRef.current !== "listening" || vmFrozenRef.current) return;
+    if (vmIdleNudgedRef.current) return;
+    if (Date.now() - vmLastActivityRef.current < VM_IDLE_MS) return;
+    vmIdleNudgedRef.current = true;
+    const list = VM_IDLE_NUDGE[lang] || VM_IDLE_NUDGE.en;
+    const line = list[Math.floor(Math.random() * list.length)];
+    // the recognizer stays live through this (still "listening") — mute its
+    // results while our own voice is in the air, plus a short tail for echo/reverb
+    vmSelfSpeakingRef.current = true;
+    vmSpeakP(line).then(() => { setTimeout(() => { vmSelfSpeakingRef.current = false; }, 400); });
+  }
+  // the interval below is armed ONCE per session but must always run the LATEST
+  // vmCheckIdle (which closes over the current `lang`) — same stale-closure risk
+  // langRef solves for STT, via the same trampoline-ref trick used throughout.
+  const vmCheckIdleRef = useRef(() => {});
+  useEffect(() => { vmCheckIdleRef.current = vmCheckIdle; });
   function startVoiceSession() {
     if (!sttSupported()) { setVmErr(L[lang].vmNoSTT); vmSetState("error"); return; }
     getAC();
@@ -6459,58 +7848,139 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     vmCloudDeadRef.current = false; // give the natural cloud voice a fresh try each session
     vmNotesRef.current = []; setVmNotes([]); setVmCaption("");
     stopPracticeListeners();
-    startMicListener((d) => vmOnNote(d), null, null); // best-effort note buffer
+    vmPolyRef.current = vmPoly;                  // reflect the current beta-toggle choice
+    startMicListener((d) => vmOnNote(d), null, null, { poly: vmPolyRef.current }); // best-effort note buffer (chord-aware if poly on)
+    prefetchFillers();   // warm up the active-listening clips (non-blocking)
+    clearInterval(vmIdleTimerRef.current);
+    vmIdleTimerRef.current = setInterval(() => vmCheckIdleRef.current(), 5000);
     if (!vmMsgsRef.current.length) {
-      const mem = readMemory();
-      const topStruggle = mem.struggles && mem.struggles.length ? mem.struggles[0].label : null;
-      // open like a returning teacher: check homework first, else last struggle, else hello
-      const greet = (homework && homework.text) ? lc.vmGreetHw.replace("{x}", homework.text)
-        : topStruggle ? lc.vmGreetBack.replace("{x}", topStruggle)
-        : L[lang].vmGreeting;
-      vmMsgsRef.current = [{ role: "ai", text: greet }];
-      setVmMsgs(vmMsgsRef.current);
-      vmSetState("speaking");
-      vmSpeakAndAct(greet).then(() => { if (vmActiveRef.current) vmStartListen(); });
+      vmOpenGreeting();
     } else {
       vmStartListen();
     }
   }
+  // A hardcoded opening line said verbatim every session is the fastest way to feel
+  // like a bot. Instead, let the teacher (Gemini, on the natural-conversation system
+  // prompt) improvise its own opening — the system prompt already gets homework /
+  // struggle / mastered / days-since-last-session context via memoryContext() and
+  // homeworkContext(), so this cue can stay short and the greeting still lands warm,
+  // relevant and different every single time. Falls back to a static line offline.
+  async function vmOpenGreeting() {
+    vmSetState("thinking");
+    if (!vmPlayFiller()) vmThinkCue();
+    const cue = "(This is the very start of a brand-new voice lesson — the learner just opened the app, they haven't said anything yet. Greet them the way you'd actually greet a student walking in: brief, warm, in character. Use whatever you know about them from memory/homework context if it's there, otherwise just a natural hello. Never the same opening line twice — genuinely improvise it.)";
+    let greet = "";
+    try { greet = (await vmFetchAI(cue, [], null)).trim(); } catch (e) { greet = ""; }
+    if (!vmActiveRef.current) return;
+    if (!greet) {
+      const mem = readMemory();
+      const topStruggle = mem.struggles && mem.struggles.length ? mem.struggles[0].label : null;
+      greet = (homework && homework.text) ? lc.vmGreetHw.replace("{x}", homework.text)
+        : topStruggle ? lc.vmGreetBack.replace("{x}", topStruggle)
+        : L[lang].vmGreeting;
+    }
+    vmStopFiller();
+    vmMsgsRef.current = [{ role: "ai", text: vmDisplayText(greet) || greet }];
+    setVmMsgs(vmMsgsRef.current);
+    vmSetState("speaking");
+    vmSpeakAndAct(greet).then(() => { if (vmActiveRef.current) vmStartListen(); });
+  }
+  // Toggle the beta "chord ear" mid-session: re-arm just the mic listener with
+  // the new mode (mono ↔ poly). STT and everything else keep running.
+  function vmTogglePoly() {
+    const v = !vmPoly;
+    setVmPoly(v); vmPolyRef.current = v;
+    try { localStorage.setItem("tg_vmpoly", v ? "1" : "0"); } catch (e) {}
+    playUi("click");
+    if (vmActiveRef.current) {
+      if (_practiceStop.mic) { try { _practiceStop.mic(); } catch (e) {} _practiceStop.mic = null; }
+      startMicListener((d) => vmOnNote(d), null, null, { poly: v });
+    }
+  }
+  // Keep the ear OPEN and reliable. Continuous recognition + a short-silence
+  // finalizer means a natural pause no longer drops your sentence, and the
+  // recognizer is re-armed instantly so words spoken between turns aren't lost.
   function vmStartListen() {
     if (!vmActiveRef.current) return;
+    // a FRESH turn (we just finished talking/thinking) resets the silence clock;
+    // an internal re-arm of an already-listening recognizer must NOT reset it,
+    // or true long silence would never accumulate past the STT engine's own
+    // periodic restart interval.
+    if (vmStateRef.current !== "listening") { vmLastActivityRef.current = Date.now(); vmIdleNudgedRef.current = false; }
     clearTimeout(vmPlayReactT.current);
+    clearTimeout(vmSilenceT.current);
+    clearTimeout(vmRestartT.current);
+    clearTimeout(vmWatchdogT.current);
     const SR = getSR();
     if (!SR) { setVmErr(L[lang].vmNoSTT); vmSetState("error"); return; }
+    // tear down any previous recognizer so two never run at once (a big cause of
+    // "it can't hear me" — overlapping recognizers fight over the mic).
+    if (vmRecRef.current) { try { vmRecRef.current.onend = null; vmRecRef.current.onresult = null; vmRecRef.current.abort(); } catch (e) {} vmRecRef.current = null; }
     vmFrozenRef.current = false;
     setVmCaption("");
     vmSetState("listening");
+    const mySeq = ++vmListenSeqRef.current;
     let rec;
     try { rec = new SR(); } catch (e) { vmSetState("error"); return; }
-    rec.lang = TTS_LOCALES[lang] || "en-US";
-    rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 1;
-    let finalText = "";
+    rec.lang = TTS_LOCALES[langRef.current] || "en-US"; // read from a ref so even a stale-closure restart still hears the CURRENT language
+    rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+    let finalText = "", lastInterim = "", done = false;
+    const stale = () => mySeq !== vmListenSeqRef.current;
+    const reArm = (ms) => { clearTimeout(vmRestartT.current); vmRestartT.current = setTimeout(() => { if (vmActiveRef.current && vmStateRef.current === "listening" && vmListenSeqRef.current === mySeq) vmStartListen(); }, ms); };
+    const finish = (useInterim) => {
+      if (done || stale()) return;
+      const t = finalText.trim() || (useInterim ? lastInterim.trim() : "");
+      if (!t) return;
+      done = true;
+      clearTimeout(vmSilenceT.current); clearTimeout(vmWatchdogT.current);
+      try { rec.onend = null; rec.stop(); } catch (e) {}
+      vmRecRef.current = null;
+      vmProcess(t);
+    };
     rec.onresult = (e) => {
+      if (stale() || vmSelfSpeakingRef.current) return; // ignore the mic hearing our own idle-nudge audio
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
-        if (r.isFinal) finalText += r[0].transcript;
-        else interim += r[0].transcript;
+        if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript;
       }
-      if (interim || finalText) { vmFrozenRef.current = true; clearTimeout(vmPlayReactT.current); } // speech wins over the play-reaction
+      lastInterim = interim;
+      if (interim || finalText) { vmFrozenRef.current = true; clearTimeout(vmPlayReactT.current); vmLastActivityRef.current = Date.now(); }
       setVmCaption(finalText || interim);
+      // finalize after a brief pause: shorter once we already have a final result
+      clearTimeout(vmSilenceT.current);
+      if (finalText.trim() || interim.trim()) vmSilenceT.current = setTimeout(() => finish(true), finalText.trim() ? 1000 : 1600);
+      // reset the silent-death watchdog whenever we hear anything
+      clearTimeout(vmWatchdogT.current);
     };
-    rec.onerror = () => {}; // no-speech / aborted handled by onend
+    rec.onerror = (ev) => {
+      if (stale()) return;
+      const err = ev && ev.error;
+      if (err === "not-allowed" || err === "service-not-allowed") { setVmErr(L[lang].vmMicDenied); vmSetState("error"); return; }
+      if (err === "network") setVmCaption(L[lang].vmNetRetry);   // weak signal — show it, onend will re-arm
+      // mic couldn't be captured — usually the note-detection mic is holding the
+      // device mic. Free it so speech recognition can have it (taps still work).
+      if (err === "audio-capture") { try { stopPracticeListeners(); } catch (e) {} }
+      // no-speech / aborted → handled by onend
+    };
     rec.onend = () => {
+      if (stale()) return;
       vmRecRef.current = null;
-      if (!vmActiveRef.current) return;
-      const t = finalText.trim();
-      if (t) vmProcess(t);
-      else if (vmStateRef.current === "listening") vmStartListen(); // keep an open ear
+      if (!vmActiveRef.current || done) return;
+      const t = finalText.trim() || lastInterim.trim();
+      if (t) { done = true; vmProcess(t); return; }
+      if (vmStateRef.current === "listening") reArm(250);   // nothing heard → reopen the ear fast
     };
     vmRecRef.current = rec;
-    // if the recognizer can't start (mic briefly busy on Android), retry instead
-    // of silently dying with no open ear.
     try { rec.start(); }
-    catch (e) { vmRecRef.current = null; setTimeout(() => { if (vmActiveRef.current && vmStateRef.current === "listening" && !vmRecRef.current) vmStartListen(); }, 500); }
+    catch (e) { vmRecRef.current = null; reArm(500); }
+    // backstop: if a recognizer dies silently (no result, no end) reopen it
+    vmWatchdogT.current = setTimeout(() => {
+      if (vmActiveRef.current && vmStateRef.current === "listening" && vmListenSeqRef.current === mySeq && !done && !finalText.trim() && !lastInterim.trim()) {
+        try { rec.onend = null; rec.abort(); } catch (e) {}
+        vmRecRef.current = null; vmStartListen();
+      }
+    }, 9000);
   }
   function vmStudentContext() {
     const li = levelInfo((profile && profile.exp) || 0);
@@ -6590,18 +8060,46 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
     throw lastErr;
   }
+  // Handle the most common requests instantly (no AI round-trip) so the lesson
+  // feels responsive: "again", "slower", "faster", "stop".
+  function vmLocalCommand(text) {
+    const t = (text || "").toLowerCase().trim().replace(/[\s.!?。！？．,]+$/g, "");
+    if (!t || t.length > 18) return false;
+    const hit = (arr) => arr.indexOf(t) >= 0;
+    const SPEEDS = [1, 1.25, 1.5, 1.75, 2];
+    const AGAIN = ["again", "repeat", "one more", "once more", "play again", "play it again", "อีกที", "อีกครั้ง", "ขออีกที", "ซ้ำ", "ซ้ำอีกที", "เล่นอีกที", "再来", "再一次", "重来", "再来一次", "再弹一次"];
+    const SLOWER = ["slower", "slow down", "too fast", "ช้าลง", "ช้าๆ", "ช้า ๆ", "ช้ากว่านี้", "ช้าหน่อย", "慢一点", "慢点", "太快了", "慢一些"];
+    const FASTER = ["faster", "speed up", "too slow", "เร็วขึ้น", "เร็วกว่านี้", "เร็วหน่อย", "快一点", "快点", "太慢了", "快一些"];
+    const STOP = ["stop", "stop it", "หยุด", "พอแล้ว", "พอก่อน", "停", "停下", "停一下", "别弹了"];
+    const replay = () => { const d = vmLastDemoRef.current; if (d) { vmSetState("speaking"); vmPlayDemo(d.mode, d.notes).then(() => { if (vmActiveRef.current && !vmInterruptRef.current) vmStartListen(); }); } else { vmStartListen(); } };
+    const bump = (dir) => { let i = SPEEDS.indexOf(vmSpeedRef.current || 1); if (i < 0) i = 0; i = Math.max(0, Math.min(SPEEDS.length - 1, i + dir)); vmSpeedRef.current = SPEEDS[i]; setVmSpeed(SPEEDS[i]); };
+    if (hit(AGAIN)) { replay(); return true; }
+    if (hit(SLOWER)) { bump(-1); replay(); return true; }
+    if (hit(FASTER)) { bump(1); replay(); return true; }
+    if (hit(STOP)) { vmStop(); return true; }
+    return false;
+  }
   async function vmProcess(text) {
     if (!vmActiveRef.current) return;
     clearTimeout(vmPlayReactT.current);
+    // instant local commands (not the "I just played" cue) → no AI round-trip
+    if (text !== L[lang].vmPlayedCue && vmLocalCommand(text)) return;
     const myTurn = ++vmTurnRef.current;        // newer turn supersedes any in-flight (barged-in) one
     vmInterruptRef.current = false;            // fresh turn — clear any prior barge-in
     const expSeq = vmSeqRef.current;           // capture the ordered target + ear test before clearing
     const ear = vmEarRef.current;
     vmExpectRef.current = null; vmSeqRef.current = null; vmEarRef.current = null; setVmStaff(null);
     vmSetState("thinking");
+    if (!vmPlayFiller()) vmThinkCue();          // warm "mm-hmm/okay" the instant they finish (else a soft cue)
     const notes = vmNotesRef.current.map(x => x.note);
     const times = vmNotesRef.current.map(x => x.t);
     const vels = vmNotesRef.current.map(x => x.vel);
+    // poly beta: group notes that struck together (same timestamp) → name each chord cleanly
+    const chordGroups = (() => {
+      const by = {};
+      for (const x of vmNotesRef.current) if (x.chord) (by[x.t] = by[x.t] || []).push(x.note);
+      return Object.keys(by).map(t => [...new Set(by[t])]).filter(g => g.length >= 2);
+    })();
     vmNotesRef.current = []; setVmNotes([]);
     const history = buildAlternatingHistory(vmMsgsRef.current, 10);
     vmMsgsRef.current = [...vmMsgsRef.current, { role: "user", text }];
@@ -6609,10 +8107,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setVmCaption("");
     let msg = text;
     if (notes.length) {
-      const interp = interpretPlayed(notes);     // local music engine: name the chord/scale
+      // name each struck-together chord (poly beta); else fall back to whole-buffer interpretation
+      const chordNames = chordGroups.map(g => { const n = identifyChord(g); return n ? n + " (" + g.join("+") + ")" : g.join("+"); });
+      const interp = chordNames.length ? chordNames.join(", ") : interpretPlayed(notes); // local music engine: name the chord/scale
       const rhythm = rhythmReport(times);        // tempo + steadiness + rush/drag (like a human ear)
       const dyn = vmDynReport(vels);             // touch/dynamics + crescendo (MIDI velocity)
-      msg += `\n\n(${L[lang].vmNotesLbl}: ${notes.join(" ")}${interp ? " = " + interp : ""}${rhythm ? "; rhythm: " + rhythm : ""}${dyn ? "; " + dyn : ""})`;
+      const metroT = metroTimingReport(times);   // ms-precise timing vs the running metronome
+      const lbl = chordNames.length ? (notes.join(" ") + " — chord(s): " + chordNames.join(", ")) : (notes.join(" ") + (interp ? " = " + interp : ""));
+      msg += `\n\n(${L[lang].vmNotesLbl}: ${lbl}${rhythm ? "; rhythm: " + rhythm : ""}${dyn ? "; " + dyn : ""}${metroT ? "; " + metroT : ""})`;
     }
     // Real-time sequence correction: pinpoint exactly where the attempt diverged.
     if (expSeq && expSeq.length && notes.length && !ear) {
@@ -6628,6 +8130,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (ear) {
       msg += `\n\n(Ear-training — I just played by ear (no keys shown): ${ear.label} [${ear.notes.map(pcOf).join(" ")}]. The learner's answer is above${notes.length ? " (played: " + notes.join(" ") + ")" : ""}. Say if they got it right, reveal what it was, and offer another with [ear: ${ear.kind}].)`;
     }
+    // Adaptive pacing from this session's instant ✓/✗ streak.
+    // voice tone adapts to the moment: proud on a streak, gentle after misses
+    if (vmStreakRef.current >= 3) { setTtsMood("celebrate"); msg += `\n\n(Pacing: the learner just played ${vmStreakRef.current} correct in a row — sounding confident, consider leveling up or adding a small challenge.)`; }
+    else if (vmMissRef.current >= 2) { setTtsMood("gentle"); msg += `\n\n(Pacing: the learner missed ${vmMissRef.current} in a row — slow down, make the step smaller, and be extra encouraging.)`; }
+    else setTtsMood("warm");
+    vmStreakRef.current = 0; vmMissRef.current = 0;
     if (vmRecRef.current) { try { vmRecRef.current.abort(); } catch (e) {} vmRecRef.current = null; }
     // Pipeline with cloud look-ahead: as each sentence streams in, parse it to
     // segments and immediately START fetching the cloud audio for spoken parts, so
@@ -6649,7 +8157,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const pump = async () => {
       if (pumping) return; pumping = true;
       while (segQ.length && live()) {
-        if (!started) { started = true; vmSetState("speaking"); }
+        if (!started) { started = true; vmStopFiller(); vmSetState("speaking"); }
         const s = segQ.shift();
         if (s.type === "say") await vmSpeakSeg(s);
         else await vmActSeg(s);
@@ -6663,7 +8171,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (!vmActiveRef.current) return;
     if (!vmInterruptRef.current && !reply.trim()) { reply = lc.err; await vmSpeakAndAct(reply); }
     if (reply.trim() && !vmInterruptRef.current) {
-      const display = reply.replace(/\[(?:play|chord|highlight|staff|practice|song|metro|posture|ear)[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
+      const display = vmDisplayText(reply);
       vmMsgsRef.current = [...vmMsgsRef.current, { role: "ai", text: display || reply }];
       setVmMsgs(vmMsgsRef.current);
     }
@@ -6675,7 +8183,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (vmStateRef.current !== "speaking" && vmStateRef.current !== "thinking") return;
     vmInterruptRef.current = true;
     clearTimeout(vmPlayReactT.current);
-    stopCloudTTS(); stopSpeaking();
+    vmStopFiller(); stopCloudTTS(); stopSpeaking();
     vmStartListen();
   }
   // ── speak the reply and play any [play:…]/[chord:…] demos inline, in order ──
@@ -6718,6 +8226,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const vmWait = (ms) => new Promise(r => setTimeout(r, ms));
   async function vmPlayDemo(mode, notes) {
     const sp = vmSpeedRef.current || 1;            // 1 / 1.25 / 1.5 / 1.75 / 2 — faster = shorter gaps
+    vmLastDemoRef.current = { mode, notes: notes.slice() };  // remember for an instant "again"
     clearTimeout(vmLitT.current);                  // take over the highlight while we demo
     if (mode === "chord") {
       const lit = notes.filter(n => n !== "-" && NF[n]);
@@ -6872,17 +8381,33 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }
   function vmStop() { // pause the session but keep the overlay open
     vmActiveRef.current = false;
-    clearTimeout(vmPlayReactT.current);
-    if (vmRecRef.current) { try { vmRecRef.current.abort(); } catch (e) {} vmRecRef.current = null; }
-    stopCloudTTS(); stopSpeaking();
+    vmListenSeqRef.current++;   // invalidate any in-flight recognizer callbacks
+    clearTimeout(vmPlayReactT.current); clearTimeout(vmSilenceT.current); clearTimeout(vmRestartT.current); clearTimeout(vmWatchdogT.current);
+    clearInterval(vmIdleTimerRef.current); vmIdleTimerRef.current = null;
+    vmSelfSpeakingRef.current = false;
+    if (vmRecRef.current) { try { vmRecRef.current.onend = null; vmRecRef.current.abort(); } catch (e) {} vmRecRef.current = null; }
+    vmStopFiller(); stopCloudTTS(); stopSpeaking();
+    touchSessionMemory();   // remember when this session ended (for return-gap greetings)
     vmSetState("idle");
   }
   function vmToggle() { if (vmActiveRef.current) vmStop(); else startVoiceSession(); }
+  // tap the orb: interrupt while it talks/thinks, or re-open the ear while listening
+  function vmOrbTap() {
+    if (vmStateRef.current === "speaking" || vmStateRef.current === "thinking") vmInterrupt();
+    else if (vmStateRef.current === "listening") { haptic(); vmStartListen(); }
+    else if (!vmActiveRef.current) startVoiceSession();
+  }
   function exitVoice() {
     vmActiveRef.current = false;
+    vmListenSeqRef.current++;
     clearTimeout(vmPlayReactT.current); clearTimeout(vmInstantT.current); clearTimeout(vmLitT.current);
-    if (vmRecRef.current) { try { vmRecRef.current.abort(); } catch (e) {} vmRecRef.current = null; }
-    stopCloudTTS(); stopSpeaking(); stopPracticeListeners();
+    clearTimeout(vmSilenceT.current); clearTimeout(vmRestartT.current); clearTimeout(vmWatchdogT.current);
+    clearInterval(vmIdleTimerRef.current); vmIdleTimerRef.current = null;
+    vmSelfSpeakingRef.current = false;
+    if (vmRecRef.current) { try { vmRecRef.current.onend = null; vmRecRef.current.abort(); } catch (e) {} vmRecRef.current = null; }
+    vmStopFiller(); stopCloudTTS(); stopSpeaking(); stopPracticeListeners();
+    touchSessionMemory();   // remember when this session ended (for return-gap greetings)
+    vmFillersRef.current = [];
     vmExpectRef.current = null; vmSeqRef.current = null; vmEarRef.current = null;
     setVmStaff(null); setVmLit([]); setVmInstant(null);
     vmSetState("idle"); setVmOpen(false); setVmCaption("");
@@ -6891,15 +8416,34 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // ── metronome engine ──
   const metroBeatRef = useRef(0);
+  const metroBeatTimesRef = useRef([]);   // recent metronome beat timestamps → grade timing vs the click
   useEffect(() => {
-    if (!metroOn) return;
+    if (!metroOn) { metroBeatTimesRef.current = []; return; }
     getAC();
     metroBeatRef.current = 0;
-    const tick = () => { playClick(metroBeatRef.current % 4 === 0); metroBeatRef.current++; };
+    const tick = () => {
+      playClick(metroBeatRef.current % 4 === 0); metroBeatRef.current++;
+      const a = metroBeatTimesRef.current; a.push(Date.now()); if (a.length > 64) a.shift();
+    };
     tick();
     const id = setInterval(tick, 60000 / metroBpm);
     return () => clearInterval(id);
   }, [metroOn, metroBpm]);
+  // grade the learner's note onsets against the actual metronome clicks (ms-precise)
+  function metroTimingReport(noteTimes) {
+    const beats = metroBeatTimesRef.current;
+    if (!metroOn || beats.length < 2 || !noteTimes || noteTimes.length < 2) return null;
+    const offs = [];
+    for (const t of noteTimes) {
+      let best = 1e9; for (const b of beats) { const d = t - b; if (Math.abs(d) < Math.abs(best)) best = d; }
+      if (Math.abs(best) < 60000 / metroBpm) offs.push(best);   // ignore notes with no nearby beat
+    }
+    if (offs.length < 2) return null;
+    const avg = Math.round(offs.reduce((s, x) => s + x, 0) / offs.length);
+    const offBeat = offs.filter(o => Math.abs(o) > 70).length;
+    const dir = avg > 25 ? "behind/dragging" : avg < -25 ? "ahead/rushing" : "right on the beat";
+    return `vs metronome: avg ${avg >= 0 ? "+" : ""}${avg}ms (${dir}); ${offBeat}/${offs.length} notes off by >70ms`;
+  }
   useEffect(() => { if (ambientOn) startAmbient(); else stopAmbient(); return () => stopAmbient(); }, [ambientOn]);
   // capture the install prompt → lets us offer "Add to home screen" (external trigger)
   const [installEvt, setInstallEvt] = useState(null);
@@ -6967,6 +8511,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPremiumLS(paid); setPremium(paid);
     if (paid) { setPricingOpen(false); getAC(); playUi("levelup"); mascot("celebrate", 3200); }
     else { playUi("click"); }
+  }
+  // real payment: open the PromptPay checkout for a paid plan (monthly or yearly)
+  function startCheckout(planId, cycle = "month") {
+    playUi("click"); setPricingOpen(false);
+    const yr = cycle === "year";
+    setCheckout({ plan: planId, amount: yr ? yearPrice(planId) : (PLAN_PRICE[planId] || 0), cycle, days: yr ? 365 : 30 });
+  }
+  // free-tier gate: after FREE_CONTENT_LIMIT contents, require a share (or premium).
+  // Returns true if the learner may proceed; otherwise opens the share gate.
+  function gateContent() {
+    if (premium || hasSharedUnlock()) return true;
+    if (freeContentPlays() >= FREE_CONTENT_LIMIT) { setShareGate(true); playUi("click"); haptic(20); return false; }
+    return true;
   }
   function activatePremium() { choosePlan("premium"); }
   function buyFreeze() {
@@ -7129,12 +8686,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setInput("");
     setMsgs(prev => [...prev, { role: "user", text: t }]);
     playPianoNote("C5", 0.1);
-    callClaude(t);
+    // tier 1: does this clearly match a prepared Pathway chapter/case study already in the app?
+    const faq = matchFaqTopic(t, lang);
+    if (faq) {
+      topicHint.current = LESSON_MODE; // curated reading content — don't auto-detect notes from it
+      setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
+    } else {
+      callClaude(t); // tier 2: no prepared match — ask the live AI
+    }
     gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
   }
 
   // ── learn a topic+key from the pathway menu: send to AI + go to sensei page ──
   function learnTopic(stage, key, chordType = null) {
+    if (!gateContent()) return;   // free limit reached → share to continue
+    bumpContentPlays();
     if (stage && stage.id) { markPathDone(stage.id); if (key && key.id) markKeyDone(stage.id, key.id); }
     const basePrompt = stage.learn[lang] || stage.learn.en;
     const keyId = key ? key.id : "C";
@@ -7203,23 +8769,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const intro = [{ role: "user", text: `📚 ${stage.icon} ${fullTitle} · ${keyLabel}` }];
     // when no specific type chosen, show the curated type reference card
     if (stage.typesInfo && !chordType) intro.push({ role: "ai", text: tr(stage.typesInfo, lang) });
+    // tier 1: scale/interval/triad/7th topics are formulaic — answer instantly from
+    // the app's own theory engine instead of asking the live AI every time
+    const local = localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes, fullTitle, lang);
+    if (local) intro.push({ role: "ai", text: local });
     setMsgs(prev => [...prev, ...intro]);
     const dt = setTimeout(() => playSequence(demoParsed), 300);
     seqTimers.current.push(dt);
-    callClaude(prompt);
+    if (!local) callClaude(prompt); // tier 2: no prepared answer — ask the live AI
     gainExp(EXP.lesson, { lesson: true, quest: true }); // reward practicing a pathway topic
   }
 
   // open a "benefits of music" knowledge chapter — show curated content in the chat
-  function readChapter(stage) {
+  function readChapter(stage, caseObj) {
+    if (!caseObj && stage && stage.id) logUsage("pathway", stage.id); // top-level card tap only, not a case-study drill-down
     if (stage && stage.id) markPathDone(stage.id);
-    const title = tr(stage.title, lang);
-    const body = tr(stage.content, lang);
+    const title = caseObj ? tr(caseObj.title, lang) : tr(stage.title, lang);
+    const body = caseObj ? tr(caseObj.content, lang) : tr(stage.content, lang);
+    const icon = caseObj ? (caseObj.icon || stage.icon) : stage.icon;
     topicHint.current = LESSON_MODE;   // don't auto-detect/play notes from this text
     lessonKey.current = null;
     setPage("sensei");
     setMsgs(prev => [...prev,
-      { role: "user", text: `📚 ${stage.icon} ${title}` },
+      { role: "user", text: `📚 ${icon} ${title}` },
       { role: "ai", text: body },
     ]);
     gainExp(EXP.chapter, { quest: true }); // reward reading a knowledge chapter
@@ -7242,7 +8814,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
         <div className="hdr-r">
-          {premium && <span className="probadge" title="Premium">⭐ PRO</span>}
+          {premium && (() => { const b = planBadge(plan) || { t: "⭐ PRO", c: "" }; return <span className={`probadge ${b.c}`} title={PLAN_LABEL[plan] || "Premium"}>{b.t}</span>; })()}
           <button className="coinpill" onClick={() => { playUi("click"); setShopOpen(true); }} title={lc.shopTitle}>🪙 {coins}</button>
           {chestAvail && <button className="chestbtn" onClick={openChestNow} title={lc.chestTitle} aria-label="Daily reward">🎁</button>}
           {metroOn && <button className="metropill" onClick={() => setMetroOn(false)} title="Metronome" aria-label="Metronome on">🥁 {metroBpm}</button>}
@@ -7278,6 +8850,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: PATHWAY ─── */}
       {page === "pathway" && (
         <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} />
+      )}
+
+      {/* ─── PAGE: VIDEO LESSONS ─── */}
+      {page === "videos" && (
+        <VideoLessonsPage lang={lang} />
       )}
 
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
@@ -7448,11 +9025,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "pathway", ic: "⬡", c: "#7b2fff", t: lc.navPath },
           { p: "sensei", ic: "◈", c: "#a855f7", t: lc.navSensei },
           { p: "studio", ic: "▶", c: "#ff9e00", t: lc.navStudio },
+          { p: "videos", ic: "🎬", c: "#06d6a0", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           ...(adminUnlocked ? [{ p: "admin", ic: "⬢", c: "#ff2d78", t: "ADMIN" }] : []),
         ].map(it => (
           <button key={it.p} className={`draweritem${page === it.p ? " on" : ""}`} style={{ "--nav-c": it.c }}
-            onClick={() => { playUi("click"); haptic(6); setPage(it.p); if (it.p === "studio") setStudioView("menu"); setNavOpen(false); }}>
+            onClick={() => { playUi("click"); haptic(6); logUsage("nav", it.p); setPage(it.p); if (it.p === "studio") setStudioView("menu"); setNavOpen(false); }}>
             <span className="drawericon" aria-hidden="true">{it.ic}</span>
             <span className="drawerlabel">{it.t}</span>
             {page === it.p && <span className="drawerdot" />}
@@ -7753,15 +9331,35 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <div className="songov vmov">
           <div className="songhdr">
             <div className="songhtitle">🎙️ {lc.vmTitle} <small style={{ color: "#06d6a0" }}>AI</small></div>
-            <button className="cbtn" onClick={exitVoice}>{lc.close}</button>
+            <div className="vmhdrbtns">
+              <div className="flagwrap" onClick={e => e.stopPropagation()}>
+                <button className="flagbtn" onClick={() => setVmLangOpen(o => !o)}
+                  aria-label="Language" aria-expanded={vmLangOpen} title={lc.vmLangHint}>
+                  <span>{FLAGS[lang]}</span>
+                  <span className="caret">{vmLangOpen ? "▲" : "▼"}</span>
+                </button>
+                {vmLangOpen && (
+                  <div className="flagmenu">
+                    {["th", "en", "zh"].map(lg => (
+                      <button key={lg} className={`flagitem${lang === lg ? " active" : ""}`}
+                        onClick={() => { setLang(lg); setVmLangOpen(false); playUi("click"); }}>
+                        <span>{FLAGS[lg]}</span>
+                        <span className="fn">{FLAG_NAMES[lg]}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button className="cbtn" onClick={exitVoice}>{lc.close}</button>
+            </div>
           </div>
           {vmState === "error" ? (
             <div className="camoverlay err" style={{ position: "static", flex: 1 }}>{vmErr || lc.vmNoSTT}</div>
           ) : (
             <>
               <div className="vmstage">
-                <button className={`vmorb ${vmState}`} onClick={vmInterrupt}
-                  title={(vmState === "speaking" || vmState === "thinking") ? lc.vmTapStop : ""}>
+                <button className={`vmorb ${vmState}`} onClick={vmOrbTap}
+                  title={(vmState === "speaking" || vmState === "thinking") ? lc.vmTapStop : vmState === "listening" ? lc.vmReListen : ""}>
                   {vmState === "speaking" ? "🔊" : vmState === "thinking" ? "💭" : vmState === "listening" ? "🎤" : "🎙️"}
                   {vmInstant && <span className={`vminstant ${vmInstant.ok ? "ok" : "bad"}`} key={vmInstant.id}>{vmInstant.ok ? "✓" : "✗"}</span>}
                 </button>
@@ -7786,8 +9384,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                       onClick={() => { setVmSpeed(s); vmSpeedRef.current = s; playUi("click"); }}>{s}x</button>
                   ))}
                 </div>
+                <div className="vmspeed">
+                  <span className="vmspeed-lbl">{lc.vmVoiceLbl}</span>
+                  {VM_VOICES.map(v => (
+                    <button key={v.k} className={`vmspeed-b${vmVoice === v.k ? " on" : ""}`}
+                      onClick={() => { setVmVoice(v.k); try { localStorage.setItem("tg_vmvoice", v.k); } catch (e) {} playUi("click"); }}>{v[lang] || v.en}</button>
+                  ))}
+                </div>
                 <button className="vmvoicetgl" onClick={() => { const v = !vmFast; setVmFast(v); vmFastRef.current = v; if (!v) vmCloudDeadRef.current = false; }}>
                   {vmFast ? `⚡ ${lc.vmFastVoice}` : `🎙️ ${lc.vmHqVoice}`}
+                </button>
+                <button className={`vmvoicetgl${vmPoly ? " on" : ""}`} title={lc.vmPolyHint} onClick={vmTogglePoly}>
+                  {vmPoly ? lc.vmPolyOn : lc.vmPolyOff}
                 </button>
                 <form className="vmtextrow" onSubmit={(e) => {
                   e.preventDefault();
@@ -7817,47 +9425,68 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="sethdr"><span>✦ {lc.prTitle}</span><button className="cbtn" onClick={() => setPricingOpen(false)}>{lc.close}</button></div>
             <div className="setbody">
               <p className="pr-sub">{lc.prSub}</p>
-              <div className={`prtier hot${plan === "premium" ? " cur" : ""}`}>
-                <div className="prtier-top"><span className="prtier-nm">⭐ Premium</span><span className="prtier-price">฿1,490<small>/{lc.prMonth}</small></span></div>
-                <ul className="prfeat">
-                  <li>✓ {lc.prF1}</li><li>✓ {lc.prF2}</li><li>✓ {lc.prF3}</li><li>✓ {lc.prF4}</li><li>✓ {lc.prF5}</li>
-                </ul>
-                {plan === "premium"
+              {(() => {
+                const yr = billCycle === "year";
+                const priceBlk = (tier) => yr
+                  ? <span className="prtier-price">฿{yearPrice(tier).toLocaleString()}<small>/{lc.prYear}</small></span>
+                  : <span className="prtier-price">฿{PLAN_PRICE[tier].toLocaleString()}<small>/{lc.prMonth}</small></span>;
+                const saveLine = (tier) => yr ? <div className="pr-yrsave">💚 {lc.prSave3} · ≈ ฿{Math.round(yearPrice(tier) / 12).toLocaleString()}/{lc.prMonth}</div> : null;
+                const buyBtn = (tier) => plan === tier
                   ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => choosePlan("premium")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>}
-              </div>
-              <div className={`prtier${plan === "family" ? " cur" : ""}`}>
-                <div className="prtier-top"><span className="prtier-nm">👨‍👩‍👧 Family</span><span className="prtier-price">฿2,900<small>/{lc.prMonth}</small></span></div>
-                <ul className="prfeat"><li>✓ {lc.prFam1}</li><li>✓ {lc.prFam2}</li></ul>
-                {plan === "family"
-                  ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => choosePlan("family")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>}
-              </div>
-              <div className={`prtier max${plan === "max" ? " cur" : ""}`}>
-                <div className="prtier-top"><span className="prtier-nm">👑 Max</span><span className="prtier-price">฿3,999<small>/{lc.prMonth}</small></span></div>
-                <ul className="prfeat"><li>✓ {lc.prMax1}</li><li>✓ {lc.prMax2}</li><li>✓ {lc.prMax3}</li><li>✓ {lc.prMax4}</li></ul>
-                {plan === "max"
-                  ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => choosePlan("max")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>}
-              </div>
-              <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`}>
-                <div className="prtier-top"><span className="prtier-nm">👑👨‍👩‍👧 Max Family</span><span className="prtier-price">฿9,999<small>/{lc.prMonth}</small></span></div>
-                <ul className="prfeat"><li>✓ {lc.prMxf1}</li><li>✓ {lc.prMxf2}</li><li>✓ {lc.prMxf3}</li></ul>
-                {plan === "maxfamily"
-                  ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => choosePlan("maxfamily")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>}
-              </div>
-              <div className={`prtier free${plan === "free" ? " cur" : ""}`}>
-                <div className="prtier-top"><span className="prtier-nm">🎁 Free</span><span className="prtier-price">฿0</span></div>
-                <ul className="prfeat"><li>✓ {lc.prFree1}</li><li>✓ {lc.prFree2}</li></ul>
-                {plan !== "free" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
-              </div>
+                  : <button className="songbtn go" onClick={() => startCheckout(tier, yr ? "year" : "month")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>;
+                return (
+                  <>
+                    <div className="billtoggle">
+                      <button className={`billtog${!yr ? " on" : ""}`} onClick={() => setBillCycle("month")}>{lc.prBillMonth}</button>
+                      <button className={`billtog${yr ? " on" : ""}`} onClick={() => setBillCycle("year")}>{lc.prBillYear} <span className="billsave">-3%</span></button>
+                    </div>
+                    <div className={`prtier hot${plan === "premium" ? " cur" : ""}`}>
+                      <div className="prtier-top"><span className="prtier-nm">⭐ Premium</span>{priceBlk("premium")}</div>
+                      {saveLine("premium")}
+                      <ul className="prfeat"><li>✓ {lc.prF1}</li><li>✓ {lc.prF2}</li><li>✓ {lc.prF3}</li><li>✓ {lc.prF4}</li><li>✓ {lc.prF5}</li></ul>
+                      {buyBtn("premium")}
+                    </div>
+                    {!yr && (
+                      <div className={`prtier${plan === "family" ? " cur" : ""}`}>
+                        <div className="prtier-top"><span className="prtier-nm">👨‍👩‍👧 Family</span><span className="prtier-price">฿2,900<small>/{lc.prMonth}</small></span></div>
+                        <ul className="prfeat"><li>✓ {lc.prFam1}</li><li>✓ {lc.prFam2}</li></ul>
+                        {buyBtn("family")}
+                      </div>
+                    )}
+                    <div className={`prtier max${plan === "max" ? " cur" : ""}`}>
+                      <div className="prtier-top"><span className="prtier-nm">👑 Max</span>{priceBlk("max")}</div>
+                      {saveLine("max")}
+                      <ul className="prfeat"><li>✓ {lc.prMax1}</li><li>✓ {lc.prMax2}</li><li>✓ {lc.prMax3}</li><li>✓ {lc.prMax4}</li></ul>
+                      {buyBtn("max")}
+                    </div>
+                    <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`}>
+                      <div className="prtier-top"><span className="prtier-nm">👑👨‍👩‍👧 Max Family</span>{priceBlk("maxfamily")}</div>
+                      {saveLine("maxfamily")}
+                      <ul className="prfeat"><li>✓ {lc.prMxf1}</li><li>✓ {lc.prMxf2}</li><li>✓ {lc.prMxf3}</li></ul>
+                      {buyBtn("maxfamily")}
+                    </div>
+                    <div className={`prtier free${plan === "free" ? " cur" : ""}`}>
+                      <div className="prtier-top"><span className="prtier-nm">🎁 Free</span><span className="prtier-price">฿0</span></div>
+                      <ul className="prfeat"><li>✓ {lc.prFree1}</li><li>✓ {lc.prFree2}</li></ul>
+                      {plan !== "free" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
+                    </div>
+                  </>
+                );
+              })()}
               <div className="pr-note">{lc.prNote}</div>
               <button className="pr-school" onClick={() => { setPricingOpen(false); reviewSchools(); }}>🏫 {lc.prSchool}</button>
             </div>
           </div>
         </div>
       )}
+
+      {/* CHECKOUT — PromptPay QR + slip upload */}
+      {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} />}
+
+      {/* FREE-TIER SHARE GATE — share FB + TikTok to keep playing */}
+      {shareGate && <ShareGate lang={lang} onClose={() => setShareGate(false)}
+        onUnlock={() => { setSharedUnlock(); setShareGate(false); playUi("levelup"); mascot("celebrate", 2400); }}
+        onUpgrade={() => { setShareGate(false); setPricingOpen(true); }} />}
 
       {/* PARENT DASHBOARD (premium) */}
       {parentOpen && (() => {
