@@ -1464,7 +1464,7 @@ const API_HEADERS = {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "12.1.0";
+const APP_VER = "12.1.1";
 /* ── Supabase client — Auth (Google/Facebook) + membership profiles ── */
 const SUPABASE_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co";
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -2713,6 +2713,7 @@ const L = {
     lbTitle: "กระดานผู้นำ", lbYou: "อันดับคุณ", lbYouTag: "คุณ", lbLoad: "กำลังโหลด…",
     lbEmpty: "ยังไม่มีข้อมูล — เริ่มสะสม EXP กันเลย!", lbErr: "โหลดกระดานไม่สำเร็จ",
     studioVoice: "AI โหมดเสียง", studioVoiceSub: "คุยกับครู AI ด้วยเสียง สอนสดแบบเรียลไทม์", studioVoiceMax: "เฉพาะแพ็กเกจ Max ขึ้นไป — แตะเพื่อดู",
+    studioEarSub: "ฝึกหูรายวัน — ขั้นคู่ คอร์ด เล่นตามทำนอง", studioReadSub: "คอร์สอ่านโน้ต 5 ด่าน กุญแจซอล-ฟา",
     studioExam: "เตรียมสอบเกรด", studioExamSub: "หลักสูตรไล่ระดับ + เช็กลิสต์สอบ",
     pdTitle: "รายงานผู้ปกครอง", pdSessions: "ครั้งที่ฝึก/สัปดาห์", pdAcc: "ความแม่นยำเฉลี่ย", pdActivity: "การฝึก 6 สัปดาห์ล่าสุด", pdFocus: "จุดที่ควรเน้น", pdMastered: "ทำได้ดีแล้ว",
     exTitle: "เตรียมสอบเกรด", exSub: "ติ๊กความคืบหน้าตามหลักสูตรแต่ละเกรด ได้เหรียญทุกข้อที่ผ่าน",
@@ -2808,6 +2809,7 @@ const L = {
     lbTitle: "Leaderboard", lbYou: "Your rank", lbYouTag: "You", lbLoad: "Loading…",
     lbEmpty: "No data yet — start earning EXP!", lbErr: "Couldn't load leaderboard",
     studioVoice: "AI Voice Mode", studioVoiceSub: "Talk to your AI teacher, live in real time", studioVoiceMax: "Max plan & up only — tap to see",
+    studioEarSub: "Daily ear training — intervals, chords, echo", studioReadSub: "5-level notation course, treble & bass",
     studioExam: "Exam Prep", studioExamSub: "Graded curriculum + exam checklist",
     pdTitle: "Parent Report", pdSessions: "sessions/week", pdAcc: "avg accuracy", pdActivity: "Last 6 weeks of practice", pdFocus: "Focus areas", pdMastered: "Mastered",
     exTitle: "Grade Exam Prep", exSub: "Tick off your progress per grade — earn coins for each task.",
@@ -2903,6 +2905,7 @@ const L = {
     lbTitle: "排行榜", lbYou: "你的排名", lbYouTag: "你", lbLoad: "加载中…",
     lbEmpty: "暂无数据 — 快来赚取 EXP！", lbErr: "排行榜加载失败",
     studioVoice: "AI 语音模式", studioVoiceSub: "用语音和 AI 老师实时对话", studioVoiceMax: "仅限 Max 及以上套餐 — 点击查看",
+    studioEarSub: "每日听力训练 — 音程、和弦、旋律模仿", studioReadSub: "五关识谱课 — 高音与低音谱号",
     studioExam: "考级备考", studioExamSub: "分级课程 + 考试清单",
     pdTitle: "家长报告", pdSessions: "每周练习次数", pdAcc: "平均准确率", pdActivity: "最近6周练习", pdFocus: "需加强", pdMastered: "已掌握",
     exTitle: "考级备考", exSub: "按每个级别勾选进度——每完成一项得金币。",
@@ -4450,7 +4453,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
 const EG_ROUND = 8;
 const EG_INT_BASE = [2, 4, 5, 7, 12];
 const EG_INT_FULL = [2, 3, 4, 5, 7, 8, 9, 12];
-const EarGymPage = memo(function EarGymPage({ lang, onReward }) {
+const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack }) {
   const T = {
     th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", q: "ข้อ", listen: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶" },
     en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", q: "Q", listen: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶" },
@@ -4557,6 +4560,12 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward }) {
   const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo]];
   return (
     <div className="pathpage">
+      {onBack && (
+        <button onClick={() => { playUi("click"); onBack(); }}
+          style={{ margin: "12px 2px 0", background: "none", border: "1px solid #3a2430", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+          ← {L[lang].navStudio}
+        </button>
+      )}
       <div className="v12hero">
         <div className="v12title">👂 {T.title}</div>
         <div className="v12sub">{T.sub}</div>
@@ -4635,7 +4644,7 @@ const RC_LEVELS = [
   { n: 4, icon: "♯", clef: "treble", pool: ["C#4", "D#4", "F#4", "G#4", "A#4", "C#5", "F#5"], seq: 1, qn: 10 },
   { n: 5, icon: "🎼", clef: "treble", pool: ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5"], seq: 3, qn: 5 },
 ];
-const ReadingPage = memo(function ReadingPage({ lang, onReward }) {
+const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
   const T = {
     th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน" },
     en: { title: "Note Reading", sub: "Real notation literacy, step by step — treble → ledger lines → bass clef → sharps → phrases", lvl: "Level", locked: "Earn ⭐⭐ on the previous level first", q: "Q", what: "Which note is this?", seqWhat: "Tap the note names in order", right: "Correct! 🎉", wrong: "Answer: ", done: "Level complete!", again: "Play again ▶", play: "Start ▶", back: "← Levels", score: "Score" },
@@ -4716,6 +4725,12 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward }) {
   if (!lvl) {
     return (
       <div className="pathpage">
+        {onBack && (
+          <button onClick={() => { playUi("click"); onBack(); }}
+            style={{ margin: "12px 2px 0", background: "none", border: "1px solid #3a2430", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+            ← {L[lang].navStudio}
+          </button>
+        )}
         <div className="v12hero"><div className="v12title">🎼 {T.title}</div><div className="v12sub">{T.sub}</div></div>
         {RC_LEVELS.map(L => {
           const open = unlocked(L.n);
@@ -5014,15 +5029,17 @@ const ReportPage = memo(function ReportPage({ lang, profile }) {
 
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, voiceLocked = false }) {
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, voiceLocked = false }) {
   const lc = L[lang];
   const cards = [
     // Voice Mode is a Max-tier exclusive — other plans don't even see the card
     ...(voiceLocked ? [] : [{ k: "voice", ic: "🎙️", c: "#06d6a0", t: lc.studioVoice, s: lc.studioVoiceSub, fn: onVoice, badge: "👑 MAX" }]),
-    { k: "songs",  ic: "🎵", c: "#ff9e00", t: lc.studioPlayAlong, s: lc.studioPlayAlongSub, fn: onSongs },
-    { k: "exam",   ic: "🎓", c: "#ffd23f", t: lc.studioExam,      s: lc.studioExamSub,      fn: onExam, badge: "PRO" },
-    { k: "sight",  ic: "📄", c: "#ff4f9e", t: lc.studioSight,     s: lc.studioSightSub,     fn: onSight },
-    { k: "camera", ic: "✋", c: "#e6117e", t: lc.studioCamera,    s: lc.studioCameraSub,    fn: onCamera },
+    { k: "songs",   ic: "🎵", c: "#ff9e00", t: lc.studioPlayAlong, s: lc.studioPlayAlongSub, fn: onSongs },
+    { k: "eargym",  ic: "👂", c: "#ff6ec7", t: lc.navEar,          s: lc.studioEarSub,       fn: onEarGym },
+    { k: "reading", ic: "🎼", c: "#ff9ccb", t: lc.navRead,         s: lc.studioReadSub,      fn: onReading },
+    { k: "exam",    ic: "🎓", c: "#ffd23f", t: lc.studioExam,      s: lc.studioExamSub,      fn: onExam, badge: "PRO" },
+    { k: "sight",   ic: "📄", c: "#ff4f9e", t: lc.studioSight,     s: lc.studioSightSub,     fn: onSight },
+    { k: "camera",  ic: "✋", c: "#e6117e", t: lc.studioCamera,    s: lc.studioCameraSub,    fn: onCamera },
   ];
   return (
     <div className="pathpage songpage">
@@ -10159,10 +10176,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
       )}
       {page === "eargym" && (
-        <EarGymPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
+        <EarGymPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "reading" && (
-        <ReadingPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
+        <ReadingPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "insights" && (
         <InsightsPage lang={lang} profile={profile} onSong={chooseSong} onBack={() => setPage("profile")} />
@@ -10189,7 +10206,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "studio" && (
         studioView === "songs"
           ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} onUpsell={() => setPricingOpen(true)} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
-          : <StudioPage lang={lang} voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)} onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }} onSongs={() => setStudioView("songs")} onSight={openSight} onCamera={openCamera} onExam={() => { playUi("click"); premium ? setExamOpen(true) : setPricingOpen(true); }} />
+          : <StudioPage lang={lang} voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)} onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }} onSongs={() => setStudioView("songs")} onSight={openSight} onCamera={openCamera} onExam={() => { playUi("click"); premium ? setExamOpen(true) : setPricingOpen(true); }} onEarGym={() => { playUi("click"); logUsage("nav", "studio-eargym"); setPage("eargym"); }} onReading={() => { playUi("click"); logUsage("nav", "studio-reading"); setPage("reading"); }} />
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
@@ -10368,8 +10385,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "sensei", ic: "◈", c: "#ff4f9e", t: lc.navSensei },
           { p: "studio", sv: "menu", ic: "▶", c: "#ff9e00", t: lc.navStudio },
           { p: "studio", sv: "songs", ic: "🎵", c: "#ffd166", t: lc.navPlayAlong },
-          { p: "eargym", ic: "👂", c: "#ff6ec7", t: lc.navEar },
-          { p: "reading", ic: "🎼", c: "#ff9ccb", t: lc.navRead },
           { p: "videos", ic: "🎬", c: "#06d6a0", t: lc.navVideos },
           { p: "report", ic: "🏅", c: "#e76f51", t: lc.navReport },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
