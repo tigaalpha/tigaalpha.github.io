@@ -1462,6 +1462,9 @@ const API_HEADERS = {
   "apikey": SUPABASE_ANON_KEY,
 };
 
+// Shown in the ☰ drawer so you can instantly verify which build is live
+// after a manual upload. Keep in sync with package.json on every release.
+const APP_VER = "12.0.1";
 /* ── Supabase client — Auth (Google/Facebook) + membership profiles ── */
 const SUPABASE_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co";
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1706,6 +1709,7 @@ function playUi(kind) {
     const seq = kind === "levelup" ? [[523, 0], [659, 0.09], [784, 0.18], [1047, 0.28]]
       : kind === "badge" ? [[784, 0], [1175, 0.1]]
       : kind === "reward" ? [[659, 0], [988, 0.08]]
+      : kind === "wrong" ? [[233, 0], [185, 0.1]]
       : [[620, 0]]; // click
     const isClick = kind === "click";
     for (const [f, t] of seq) {
@@ -2691,6 +2695,7 @@ const L = {
     songStart: "เริ่มเล่น", songRetry: "เล่นอีกครั้ง", songPreview: "ฟังตัวอย่าง", songBackList: "เลือกเพลงอื่น",
     songInputHint: "🎤 เล่นเปียโนจริง / ต่อ MIDI / หรือแตะแป้นด้านล่างก็ได้",
     navStudio: "ฝึกซ้อม", navPlayAlong: "เล่นตามเพลง", back: "กลับ",
+    navToday: "ซ้อมวันนี้", navEar: "ยิมหู", navRead: "อ่านโน้ต", navStats: "สถิติของฉัน", navReport: "สมุดพก",
     studioTitle: "ห้องฝึกซ้อม", studioSub: "เลือกโหมดฝึก — เล่นตามเพลง อ่านโน้ต หรือโค้ชท่ามือ",
     studioPlayAlong: "เล่นตามเพลง", studioPlayAlongSub: "โน้ตไหลลงมา เล่นตามจังหวะ",
     studioSight: "อ่านโน้ต", studioSightSub: "ฝึกอ่านโน้ตบนบรรทัด 5 เส้น",
@@ -2785,6 +2790,7 @@ const L = {
     songStart: "Start", songRetry: "Play Again", songPreview: "Preview", songBackList: "Other Songs",
     songInputHint: "🎤 Play a real piano / connect MIDI / or tap the keys below",
     navStudio: "STUDIO", navPlayAlong: "Play Along", back: "Back",
+    navToday: "Practice Today", navEar: "Ear Gym", navRead: "Note Reading", navStats: "My Stats", navReport: "Report Card",
     studioTitle: "Practice Studio", studioSub: "Pick a mode — play along, read notes, or hand coach",
     studioPlayAlong: "Play Along", studioPlayAlongSub: "Falling notes, play in time",
     studioSight: "Sight-Reading", studioSightSub: "Read notes on the staff",
@@ -2879,6 +2885,7 @@ const L = {
     songStart: "开始", songRetry: "再玩一次", songPreview: "试听", songBackList: "其他歌曲",
     songInputHint: "🎤 弹真钢琴 / 连接 MIDI / 或点击下方琴键",
     navStudio: "练习", navPlayAlong: "跟弹练习", back: "返回",
+    navToday: "今日练习", navEar: "听力房", navRead: "识谱课", navStats: "我的数据", navReport: "成绩单",
     studioTitle: "练习室", studioSub: "选择模式 — 弹奏歌曲、读谱或手型教练",
     studioPlayAlong: "弹奏歌曲", studioPlayAlongSub: "音符下落，跟着节奏弹",
     studioSight: "读谱", studioSightSub: "在五线谱上认音符",
@@ -3145,6 +3152,30 @@ const CSS = `
 .pgdesc{font-size:11px;color:#6a9aaa;font-family:'Rajdhani',sans-serif;margin-top:2px}
 .pgstep{font-family:'Share Tech Mono',monospace;font-size:9px;color:#3a6578;letter-spacing:1px;flex-shrink:0}
 .pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+/* ── v12 value pages (Today / Ear gym / Reading / Insights / Report) ── */
+.v12hero{text-align:center;padding:16px 12px 12px}
+.v12title{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:#eaf6ff;letter-spacing:1px}
+.v12sub{font-size:12.5px;color:#7fa6b6;font-family:'Rajdhani',sans-serif;margin-top:5px;line-height:1.5}
+.v12card{background:linear-gradient(160deg,#101c30,#0a1322);border:1px solid #ffffff12;border-radius:14px;padding:14px 13px;margin:0 0 10px}
+.tdstep{display:flex;align-items:center;gap:12px;padding:13px 12px;border-radius:13px;background:linear-gradient(160deg,#101c30,#0a1322);border:1px solid #ffffff14;margin-bottom:9px}
+.tdstep.done{border-color:#06d6a066;background:linear-gradient(160deg,#0c2418,#08160f)}
+.tdico{font-size:22px;flex-shrink:0}
+.tdtag{font-size:9.5px;color:#7fa6b6;font-family:'Share Tech Mono',monospace;letter-spacing:.6px}
+.tdlbl{font-size:14px;color:#dceaf5;font-family:'Rajdhani',sans-serif;font-weight:700;line-height:1.3}
+.tdgo{flex-shrink:0;padding:9px 16px;border-radius:10px;border:1px solid #a855f766;background:rgba(168,85,247,.1);color:#c9b6ff;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer}
+.tdgo.done{border-color:#06d6a0;color:#06d6a0;background:rgba(6,214,160,.08);cursor:default}
+.tdbar{height:10px;border-radius:6px;background:#0e1a30;overflow:hidden;border:1px solid #ffffff12}
+.tdfill{height:100%;background:linear-gradient(90deg,#7b2fff,#06d6a0);transition:width .4s}
+.egopt{padding:12px 8px;border-radius:12px;border:1px solid #2a3e58;background:linear-gradient(160deg,#1a2a40,#0e1a2c);color:#dceaf5;font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:700;cursor:pointer;text-align:center;line-height:1.25}
+.egopt.ok{border-color:#06d6a0;color:#06d6a0;background:rgba(6,214,160,.1)}
+.egopt.bad{border-color:#ff2d78;color:#ff6e91;background:rgba(255,45,120,.08)}
+.insbarwrap{display:flex;align-items:flex-end;gap:4px;height:90px;padding:4px 2px 0}
+.insbar{flex:1;background:linear-gradient(180deg,#a855f7,#7b2fff);border-radius:4px 4px 0 0;min-height:2px}
+.instile{flex:1;background:linear-gradient(160deg,#101c30,#0a1322);border:1px solid #ffffff12;border-radius:12px;padding:11px 6px;text-align:center;min-width:0}
+.instile b{display:block;font-family:'Orbitron',sans-serif;font-size:16px;color:#06d6a0;margin-bottom:3px}
+.instile span{font-size:9.5px;color:#7fa6b6;font-family:'Rajdhani',sans-serif;font-weight:600;line-height:1.2;display:block}
+.certrow{display:flex;align-items:center;gap:11px;padding:12px;border-radius:13px;border:1px solid #ffffff14;background:linear-gradient(160deg,#101c30,#0a1322);margin-bottom:9px}
+.certrow.earned{border-color:#ffd16666;background:linear-gradient(160deg,#221a08,#120e04)}
 .pcard{position:relative;display:flex;flex-direction:column;text-align:left;background:linear-gradient(160deg,#0e1a30,#0a1322);border:1px solid #ffffff12;border-top:2px solid var(--ac);border-radius:13px;padding:13px;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s;overflow:hidden;font-family:'Rajdhani',sans-serif;color:#c8f0ff;min-height:152px;width:100%}
 .pcardglow{position:absolute;top:-30px;right:-30px;width:90px;height:90px;border-radius:50%;background:var(--ac);opacity:.1;transition:opacity .25s;pointer-events:none}
 .pcard.done{border-color:#06d6a055}
@@ -4313,6 +4344,668 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead }) {
   );
 });
 
+/* ════════════════════════════════════════════════════════════
+   PRACTICE TODAY — a one-tap daily plan built from the learner's real
+   state (progress, homework, activity log). Removes the "what should I
+   practice?" decision that kills most practice habits.
+════════════════════════════════════════════════════════════ */
+const _v12wait = (ms) => new Promise(r => setTimeout(r, ms));
+const PC_SOLFA = { C: "do", D: "re", E: "mi", F: "fa", G: "sol", A: "la", B: "ti" };
+const PC_SOLFA_TH = { C: "โด", D: "เร", E: "มี", F: "ฟา", G: "ซอล", A: "ลา", B: "ที" };
+const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward }) {
+  const T = {
+    th: { title: "ซ้อมวันนี้", sub: "แผนซ้อมส่วนตัวของคุณ — สร้างใหม่ให้ทุกวันจากความคืบหน้าจริง ไล่ทำทีละข้อได้เลย", warm: "วอร์มอัพนิ้ว", hw: "การบ้านจากครู", review: "ทบทวนของเดิม", learn: "เรียนเรื่องใหม่", song: "เพลงปิดท้าย", start: "เริ่ม ▶", done: "เสร็จแล้ว ✓", hwBtn: "ทำแล้ว ✓", progress: "ความคืบหน้าวันนี้", allDone: "ครบทุกข้อแล้ว! สุดยอดไปเลยครับ 🎉", bonus: "รับโบนัสประจำวัน +40 EXP · +20 🪙", claimed: "รับโบนัสของวันนี้แล้ว ✓" },
+    en: { title: "Practice Today", sub: "Your personal plan — rebuilt every day from your real progress. Just work down the list.", warm: "Finger warm-up", hw: "Teacher's homework", review: "Review", learn: "Something new", song: "Closing song", start: "Start ▶", done: "Done ✓", hwBtn: "Done ✓", progress: "Today's progress", allDone: "All done — amazing work! 🎉", bonus: "Claim daily bonus +40 EXP · +20 🪙", claimed: "Today's bonus claimed ✓" },
+    zh: { title: "今日练习", sub: "你的专属计划 — 每天根据真实进度重新生成，逐项完成即可。", warm: "手指热身", hw: "老师的作业", review: "复习", learn: "学点新的", song: "结尾曲", start: "开始 ▶", done: "完成 ✓", hwBtn: "已完成 ✓", progress: "今日进度", allDone: "全部完成，太棒了！🎉", bonus: "领取每日奖励 +40 EXP · +20 🪙", claimed: "今日奖励已领取 ✓" },
+  }[lang];
+  const [, setTick] = useState(0);
+  const bump = () => setTick(t => t + 1);
+  const doneLog = todayEntries();
+  const seed = daySeed();
+  const doneP = pathDoneSet();
+  const keyMap = keyDoneMap();
+
+  const warm = MAJOR_SCALE_SONGS[seed % MAJOR_SCALE_SONGS.length];
+  const hw = homework && homework.text ? homework : null;
+
+  // review = the finished (non-chapter) topic you've gone longest without touching
+  const lessonLast = {};
+  for (const e of readActLog()) if (e.k === "lesson") { const sid = e.id.split("/")[0]; lessonLast[sid] = Math.max(lessonLast[sid] || 0, e.t); }
+  const reviewables = PATHWAY.filter(s => !s.content && doneP.has(s.id))
+    .sort((a, b) => (lessonLast[a.id] || 0) - (lessonLast[b.id] || 0));
+  const review = reviewables[0] || null;
+  const reviewKey = review
+    ? (KEYS_12.find(k => (keyMap[review.id] || []).includes(k.id.toLowerCase())) || KEYS_12[seed % KEYS_12.length])
+    : null;
+
+  // new = the next Pathway stage not finished yet (chapters open as a read)
+  const nextStage = PATHWAY.find(s => !doneP.has(s.id)) || null;
+  const nextKey = nextStage && !nextStage.content
+    ? (KEYS_12.find(k => !(keyMap[nextStage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0])
+    : null;
+
+  // closing song matched to level
+  const lvl = levelInfo(exp).level;
+  const pool = (lvl >= 10 ? ["furelise"] : lvl >= 5 ? ["happy", "london", "saints"] : ["twinkle", "row"])
+    .map(id => SONGS.find(s => s.id === id)).filter(Boolean);
+  const song = pool.length ? pool[seed % pool.length] : SONGS[0];
+
+  const steps = [
+    { id: "warm", icon: "🎹", tag: T.warm, label: tr(warm, lang), isDone: doneLog.some(e => e.k === "game" && e.id === warm.id), go: () => onSong(warm) },
+    ...(hw ? [{ id: "hw", icon: "📘", tag: T.hw, label: hw.text, isDone: hwDoneToday(), hwStep: true }] : []),
+    ...(review ? [{ id: "review", icon: "🔁", tag: T.review, label: tr(review.title, lang) + (reviewKey ? " · " + reviewKey.name : ""), isDone: doneLog.some(e => e.k === "lesson" && e.id.split("/")[0] === review.id), go: () => onLearn(review, reviewKey, review.types ? review.types[0] : null) }] : []),
+    ...(nextStage ? [{ id: "new", icon: "✨", tag: T.learn, label: tr(nextStage.title, lang) + (nextKey ? " · " + nextKey.name : ""), isDone: doneLog.some(e => (e.k === "lesson" || e.k === "read-chapter") && e.id.split("/")[0] === nextStage.id), go: () => nextStage.content ? onRead(nextStage) : onLearn(nextStage, nextKey, nextStage.types ? nextStage.types[0] : null) }] : []),
+    { id: "song", icon: "🚀", tag: T.song, label: tr(song, lang), isDone: doneLog.some(e => e.k === "game" && e.id === song.id), go: () => onSong(song) },
+  ];
+  const nDone = steps.filter(s => s.isDone).length;
+  const allDone = nDone === steps.length;
+  const pct = Math.round((nDone / steps.length) * 100);
+
+  return (
+    <div className="pathpage">
+      <div className="v12hero">
+        <div className="v12title">📅 {T.title}</div>
+        <div className="v12sub">{T.sub}</div>
+      </div>
+      <div className="v12card">
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "7px" }}>
+          <span style={{ fontSize: "11px", color: "#7fa6b6", fontFamily: "'Share Tech Mono',monospace" }}>{T.progress}</span>
+          <span style={{ fontSize: "11px", color: "#06d6a0", fontFamily: "'Orbitron',sans-serif", fontWeight: 700 }}>{nDone}/{steps.length}</span>
+        </div>
+        <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
+      </div>
+      {steps.map(s => (
+        <div key={s.id} className={`tdstep${s.isDone ? " done" : ""}`}>
+          <span className="tdico">{s.isDone ? "✅" : s.icon}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tdtag">{s.tag}</div>
+            <div className="tdlbl">{s.label}</div>
+          </div>
+          {s.hwStep
+            ? (s.isDone
+              ? <span className="tdgo done">{T.done}</span>
+              : <button className="tdgo" onClick={() => { playUi("click"); markHwDone(); onReward(10, 0); bump(); }}>{T.hwBtn}</button>)
+            : (s.isDone
+              ? <span className="tdgo done">{T.done}</span>
+              : <button className="tdgo" onClick={() => { playUi("click"); logUsage("pathway", "today-" + s.id); s.go(); }}>{T.start}</button>)}
+        </div>
+      ))}
+      {allDone && (
+        <div className="v12card" style={{ textAlign: "center", borderColor: "#ffd16666" }}>
+          <div style={{ fontSize: "15px", color: "#ffd166", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, marginBottom: "9px" }}>{T.allDone}</div>
+          {todayBonusClaimed()
+            ? <div style={{ fontSize: "12px", color: "#06d6a0", fontFamily: "'Share Tech Mono',monospace" }}>{T.claimed}</div>
+            : <button className="tdgo" style={{ borderColor: "#ffd166", color: "#ffd166", background: "rgba(255,209,102,.1)" }}
+                onClick={() => { playUi("reward"); claimTodayBonus(); onReward(40, 20); bump(); }}>{T.bonus}</button>}
+        </div>
+      )}
+    </div>
+  );
+});
+
+/* ════════════════════════════════════════════════════════════
+   EAR GYM — daily listening workouts (intervals / chord quality /
+   melody echo). Practicable anywhere, even without a piano.
+════════════════════════════════════════════════════════════ */
+const EG_ROUND = 8;
+const EG_INT_BASE = [2, 4, 5, 7, 12];
+const EG_INT_FULL = [2, 3, 4, 5, 7, 8, 9, 12];
+const EarGymPage = memo(function EarGymPage({ lang, onReward }) {
+  const T = {
+    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", q: "ข้อ", listen: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶" },
+    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", q: "Q", listen: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶" },
+    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", q: "第", listen: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶" },
+  }[lang];
+  const [tab, setTab] = useState("int");
+  const [phase, setPhase] = useState("idle");   // idle | play | done
+  const [idx, setIdx] = useState(0);
+  const [score, setScore] = useState(0);
+  const [cur, setCur] = useState(null);          // { notes, chord, answer, options[{key,label}] }
+  const [fb, setFb] = useState(null);            // { ok, answerLabel, pickedKey }
+  const [taps, setTaps] = useState([]);
+  const [result, setResult] = useState(null);
+  const startTRef = useRef(0);
+  const roundRef = useRef(0);
+  const ROOTS = ["C4", "D4", "E4", "F4", "G4", "A4"];
+
+  async function playCur(c) {
+    const q = c || cur;
+    if (!q) return;
+    if (q.chord) { for (const n of q.notes) playPianoNote(n, 1.5); }
+    else { for (const n of q.notes) { playPianoNote(n, 0.55); await _v12wait(430); } }
+  }
+  function genQ(kind) {
+    const root = ROOTS[Math.floor(Math.random() * ROOTS.length)];
+    if (kind === "int") {
+      const pool = (earBest().int || 0) >= 7 ? EG_INT_FULL : EG_INT_BASE;
+      const semi = pool[Math.floor(Math.random() * pool.length)];
+      const opts = [...new Set([semi, ...[...pool].sort(() => Math.random() - 0.5)])].slice(0, 4).sort(() => Math.random() - 0.5);
+      return {
+        notes: [root, transposeNotes([root], semi)[0]], chord: false, answer: String(semi),
+        options: opts.map(s => ({ key: String(s), label: (INTERVAL_DEFS.find(d => d.semi === s) || {})[lang] || String(s) })),
+      };
+    }
+    if (kind === "chord") {
+      const q = TRIAD_TYPES[Math.floor(Math.random() * TRIAD_TYPES.length)];
+      return {
+        notes: _ascNotes(chordNotesOf(pcOf(root), q.key), 4), chord: true, answer: q.key,
+        options: TRIAD_TYPES.map(t => ({ key: t.key, label: t.lab[lang] || t.lab.en })),
+      };
+    }
+    const len = (earBest().echo || 0) >= 7 ? 4 : 3;
+    const pcs = [];
+    for (let i = 0; i < len; i++) pcs.push(["C", "D", "E", "F", "G", "A", "B"][Math.floor(Math.random() * 7)]);
+    return { notes: pcs.map(p => p + "4"), chord: false, answer: pcs.join(" "), pcs };
+  }
+  function nextQ(kind, myRound) {
+    const q = genQ(kind);
+    setCur(q); setFb(null); setTaps([]);
+    setTimeout(() => { if (roundRef.current === myRound) playCur(q); }, 350);
+  }
+  function startRound() {
+    playUi("click");
+    const myRound = ++roundRef.current;
+    setScore(0); setIdx(0); setResult(null); setPhase("play");
+    startTRef.current = Date.now();
+    nextQ(tab, myRound);
+  }
+  function finishRound(finalScore) {
+    const secs = Math.round((Date.now() - startTRef.current) / 1000);
+    const acc = Math.round((finalScore / EG_ROUND) * 100);
+    const stars = finalScore >= 8 ? 3 : finalScore >= 6 ? 2 : finalScore >= 4 ? 1 : 0;
+    const xp = 10 + finalScore * 3;
+    setEarBest(tab, finalScore);
+    logActivity("ear", tab, finalScore, EG_ROUND - finalScore, Math.max(30, secs));
+    logPractice(acc);
+    onReward(xp, stars * 5);
+    setResult({ score: finalScore, stars, xp, coins: stars * 5 });
+    setPhase("done");
+    playUi(stars >= 2 ? "levelup" : "click");
+  }
+  function answered(ok, answerLabel, pickedKey) {
+    const ns = ok ? score + 1 : score;
+    setScore(ns);
+    setFb({ ok, answerLabel, pickedKey });
+    playUi(ok ? "click" : "wrong");
+    const myRound = roundRef.current;
+    setTimeout(() => {
+      if (roundRef.current !== myRound) return;
+      if (idx + 1 >= EG_ROUND) { finishRound(ns); return; }
+      setIdx(idx + 1);
+      nextQ(tab, myRound);
+    }, ok ? 900 : 1600);
+  }
+  function pickOption(o) {
+    if (!cur || fb) return;
+    const okAns = o.key === cur.answer;
+    const ansLabel = cur.chord
+      ? (TRIAD_TYPES.find(t => t.key === cur.answer) || { lab: {} }).lab[lang]
+      : (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+    answered(okAns, ansLabel || cur.answer, o.key);
+  }
+  function tapEcho(pc) {
+    if (!cur || fb || !cur.pcs) return;
+    playPianoNote(pc + "4", 0.4);
+    const nt = [...taps, pc];
+    setTaps(nt);
+    if (nt.length >= cur.pcs.length) {
+      const okAns = nt.join(" ") === cur.pcs.join(" ");
+      answered(okAns, cur.pcs.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" · "), null);
+    }
+  }
+  const best = earBest();
+  const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo]];
+  return (
+    <div className="pathpage">
+      <div className="v12hero">
+        <div className="v12title">👂 {T.title}</div>
+        <div className="v12sub">{T.sub}</div>
+      </div>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+        {tabs.map(([k, ic, lb]) => (
+          <button key={k} onClick={() => { if (phase === "play") return; playUi("click"); setTab(k); setPhase("idle"); setResult(null); }}
+            style={{ flex: 1, padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "13px",
+              border: tab === k ? "1px solid #ff6ec7" : "1px solid #2a3e58", color: tab === k ? "#ff6ec7" : "#8fb4c4",
+              background: tab === k ? "rgba(255,110,199,.1)" : "linear-gradient(160deg,#101c30,#0a1322)" }}>
+            {ic} {lb}<div style={{ fontSize: "9px", color: "#6a8a9a", marginTop: "2px" }}>{T.best}: {best[k] || 0}/{EG_ROUND}</div>
+          </button>
+        ))}
+      </div>
+      {phase !== "play" && (
+        <div className="v12card" style={{ textAlign: "center", padding: "24px 14px" }}>
+          {result && (
+            <div style={{ marginBottom: "14px" }}>
+              <div style={{ fontSize: "26px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
+              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "17px", color: "#eaf6ff", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
+              <div style={{ fontSize: "12px", color: "#06d6a0", fontFamily: "'Share Tech Mono',monospace" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+            </div>
+          )}
+          <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startRound}>{result ? T.again : T.start}</button>
+        </div>
+      )}
+      {phase === "play" && cur && (
+        <div className="v12card" style={{ textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "#7fa6b6" }}>
+            <span>{T.q} {idx + 1}/{EG_ROUND}</span><span>{T.score}: {score}</span>
+          </div>
+          <button onClick={() => playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #8ad4ff55", background: "rgba(138,212,255,.08)", color: "#8ad4ff", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listen}</button>
+          <div style={{ fontSize: "12px", color: "#8fb4c4", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
+            {tab === "int" ? T.pickInt : tab === "chord" ? T.pickChord : T.pickEcho}
+          </div>
+          {tab !== "echo" && cur.options && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+              {cur.options.map(o => (
+                <button key={o.key} className={`egopt${fb && o.key === cur.answer ? " ok" : fb && fb.pickedKey === o.key && !fb.ok ? " bad" : ""}`} onClick={() => pickOption(o)}>{o.label}</button>
+              ))}
+            </div>
+          )}
+          {tab === "echo" && (
+            <>
+              <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ffd166", fontSize: "14px", letterSpacing: "2px" }}>
+                {taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
+                {["C", "D", "E", "F", "G", "A", "B"].map(p => (
+                  <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapEcho(p)}>
+                    <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
+                    <div style={{ fontSize: "9px", color: "#6a8a9a" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
+                  </button>
+                ))}
+              </div>
+              {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid #2a3a4a", borderRadius: "7px", color: "#8a9aaa", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>{T.clear}</button>}
+            </>
+          )}
+          <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#06d6a0" : "#ff6e91") : "transparent" }}>
+            {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+/* ════════════════════════════════════════════════════════════
+   NOTE-READING COURSE — a graded path to real notation literacy:
+   treble → ledger lines → bass clef → accidentals → short sequences.
+════════════════════════════════════════════════════════════ */
+const RC_LEVELS = [
+  { n: 1, icon: "🌱", clef: "treble", pool: ["C4", "D4", "E4", "F4", "G4", "A4", "B4"], seq: 1, qn: 10 },
+  { n: 2, icon: "🌿", clef: "treble", pool: ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5", "F5", "G5", "A5"], seq: 1, qn: 10 },
+  { n: 3, icon: "🎻", clef: "bass", pool: ["F2", "G2", "A2", "B2", "C3", "D3", "E3", "F3", "G3", "A3", "B3", "C4"], seq: 1, qn: 10 },
+  { n: 4, icon: "♯", clef: "treble", pool: ["C#4", "D#4", "F#4", "G#4", "A#4", "C#5", "F#5"], seq: 1, qn: 10 },
+  { n: 5, icon: "🎼", clef: "treble", pool: ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5"], seq: 3, qn: 5 },
+];
+const ReadingPage = memo(function ReadingPage({ lang, onReward }) {
+  const T = {
+    th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน" },
+    en: { title: "Note Reading", sub: "Real notation literacy, step by step — treble → ledger lines → bass clef → sharps → phrases", lvl: "Level", locked: "Earn ⭐⭐ on the previous level first", q: "Q", what: "Which note is this?", seqWhat: "Tap the note names in order", right: "Correct! 🎉", wrong: "Answer: ", done: "Level complete!", again: "Play again ▶", play: "Start ▶", back: "← Levels", score: "Score" },
+    zh: { title: "识谱课", sub: "循序渐进学会读谱 — 高音谱号 → 加线 → 低音谱号 → 升号 → 短句", lvl: "关卡", locked: "先在上一关拿到 ⭐⭐", q: "第", what: "这是什么音？", seqWhat: "按顺序点击音名", right: "正确！🎉", wrong: "答案：", done: "本关完成！", again: "再来一次 ▶", play: "开始 ▶", back: "← 选关", score: "得分" },
+  }[lang];
+  const [lvl, setLvl] = useState(null);
+  const [idx, setIdx] = useState(0);
+  const [score, setScore] = useState(0);
+  const [cur, setCur] = useState(null);   // { notes, answerPcs, options }
+  const [fb, setFb] = useState(null);
+  const [taps, setTaps] = useState([]);
+  const [result, setResult] = useState(null);
+  const startTRef = useRef(0);
+  const runRef = useRef(0);
+
+  function genQ(L) {
+    const pick = () => L.pool[Math.floor(Math.random() * L.pool.length)];
+    const notes = [];
+    for (let i = 0; i < L.seq; i++) { let n = pick(); if (L.seq > 1) while (i > 0 && n === notes[i - 1]) n = pick(); notes.push(n); }
+    const answerPcs = notes.map(pcOf);
+    let options = null;
+    if (L.seq === 1) {
+      const pcsAll = [...new Set(L.pool.map(pcOf))];
+      const others = pcsAll.filter(p => p !== answerPcs[0]).sort(() => Math.random() - 0.5).slice(0, 3);
+      options = [answerPcs[0], ...others].sort(() => Math.random() - 0.5);
+    }
+    return { notes, answerPcs, options };
+  }
+  function nextQ(L) { setCur(genQ(L)); setFb(null); setTaps([]); }
+  function startLevel(L) {
+    playUi("click");
+    runRef.current++;
+    setLvl(L); setIdx(0); setScore(0); setResult(null);
+    startTRef.current = Date.now();
+    nextQ(L);
+  }
+  function finishLevel(finalScore, L) {
+    const secs = Math.round((Date.now() - startTRef.current) / 1000);
+    const acc = Math.round((finalScore / L.qn) * 100);
+    const stars = finalScore >= Math.ceil(L.qn * 0.9) ? 3 : finalScore >= Math.ceil(L.qn * 0.7) ? 2 : finalScore >= Math.ceil(L.qn * 0.5) ? 1 : 0;
+    const xp = 15 + Math.round((finalScore / L.qn) * 30);
+    setReadCourseStars(L.n, stars);
+    logActivity("read", "L" + L.n, finalScore, L.qn - finalScore, Math.max(30, secs));
+    logPractice(acc);
+    onReward(xp, stars * 5);
+    setResult({ score: finalScore, stars, xp, coins: stars * 5, qn: L.qn });
+    playUi(stars >= 2 ? "levelup" : "click");
+  }
+  function answered(ok, L) {
+    const ns = ok ? score + 1 : score;
+    setScore(ns);
+    setFb({ ok });
+    playUi(ok ? "click" : "wrong");
+    if (ok) playPianoNote(cur.notes[0], 0.5);
+    const run = runRef.current;
+    setTimeout(() => {
+      if (runRef.current !== run) return;
+      if (idx + 1 >= L.qn) { finishLevel(ns, L); return; }
+      setIdx(idx + 1);
+      nextQ(L);
+    }, ok ? 750 : 1500);
+  }
+  function pickPc(pc) {
+    if (!cur || fb || !lvl) return;
+    answered(pc === cur.answerPcs[0], lvl);
+  }
+  function tapSeq(pc) {
+    if (!cur || fb || !lvl) return;
+    playPianoNote(pc + "4", 0.35);
+    const nt = [...taps, pc];
+    setTaps(nt);
+    if (nt.length >= cur.answerPcs.length) answered(nt.join(" ") === cur.answerPcs.join(" "), lvl);
+  }
+  const stars = readCourseStars();
+  const unlocked = (n) => n === 1 || (stars[n - 1] || 0) >= 2;
+  const pcLabel = (p) => p.replace("#", "♯");
+
+  if (!lvl) {
+    return (
+      <div className="pathpage">
+        <div className="v12hero"><div className="v12title">🎼 {T.title}</div><div className="v12sub">{T.sub}</div></div>
+        {RC_LEVELS.map(L => {
+          const open = unlocked(L.n);
+          const st = stars[L.n] || 0;
+          return (
+            <button key={L.n} className="tdstep" style={{ width: "100%", cursor: open ? "pointer" : "default", opacity: open ? 1 : 0.55, textAlign: "left" }}
+              onClick={() => open && startLevel(L)}>
+              <span className="tdico">{open ? L.icon : "🔒"}</span>
+              <div style={{ flex: 1 }}>
+                <div className="tdtag">{T.lvl} {L.n} · {L.clef === "bass" ? "𝄢" : "𝄞"}{L.seq > 1 ? " · x" + L.seq : ""}</div>
+                <div className="tdlbl">{open ? ("⭐".repeat(st) || "—") : T.locked}</div>
+              </div>
+              {open && <span className="tdgo">{T.play}</span>}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+  return (
+    <div className="pathpage">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px 10px" }}>
+        <button onClick={() => { playUi("click"); runRef.current++; setLvl(null); setResult(null); }} style={{ background: "none", border: "1px solid #2a3a4a", borderRadius: "8px", color: "#8a9aaa", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>{T.back}</button>
+        <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "#7fa6b6" }}>
+          {result ? T.done : `${T.q} ${idx + 1}/${lvl.qn} · ${T.score}: ${score}`}
+        </span>
+      </div>
+      {result ? (
+        <div className="v12card" style={{ textAlign: "center", padding: "26px 14px" }}>
+          <div style={{ fontSize: "28px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "18px", color: "#eaf6ff", fontWeight: 900, margin: "8px 0" }}>{result.score}/{result.qn}</div>
+          <div style={{ fontSize: "12px", color: "#06d6a0", fontFamily: "'Share Tech Mono',monospace", marginBottom: "14px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+          <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={() => startLevel(lvl)}>{T.again}</button>
+        </div>
+      ) : cur && (
+        <div className="v12card" style={{ textAlign: "center" }}>
+          <div style={{ background: "#0a1626", borderRadius: "12px", padding: "8px 6px", marginBottom: "13px", border: "1px solid #ffffff10" }}>
+            <StaffNotes notes={cur.notes} hideNames clef={lvl.clef} />
+          </div>
+          <div style={{ fontSize: "12.5px", color: "#8fb4c4", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
+            {lvl.seq === 1 ? T.what : T.seqWhat}
+          </div>
+          {lvl.seq === 1 && cur.options && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+              {cur.options.map(p => (
+                <button key={p} className={`egopt${fb && p === cur.answerPcs[0] ? " ok" : ""}`} onClick={() => pickPc(p)}>
+                  <div style={{ fontSize: "17px", fontFamily: "'Orbitron',sans-serif" }}>{pcLabel(p)}</div>
+                  {!p.includes("#") && <div style={{ fontSize: "9.5px", color: "#6a8a9a" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>}
+                </button>
+              ))}
+            </div>
+          )}
+          {lvl.seq > 1 && (
+            <>
+              <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ffd166", fontSize: "14px", letterSpacing: "2px" }}>{taps.join(" ")}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
+                {["C", "D", "E", "F", "G", "A", "B"].map(p => (
+                  <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapSeq(p)}>
+                    <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
+                    <div style={{ fontSize: "9px", color: "#6a8a9a" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
+                  </button>
+                ))}
+              </div>
+              {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid #2a3a4a", borderRadius: "7px", color: "#8a9aaa", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>✕</button>}
+            </>
+          )}
+          <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#06d6a0" : "#ff6e91") : "transparent" }}>
+            {fb ? (fb.ok ? T.right : T.wrong + cur.answerPcs.map(pcLabel).join(" ")) : "·"}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+/* ════════════════════════════════════════════════════════════
+   MY STATS (insights) — turns the activity log the app already keeps
+   into visible progress: minutes, accuracy, weak spots, best hour.
+════════════════════════════════════════════════════════════ */
+const InsightsPage = memo(function InsightsPage({ lang, profile, onSong }) {
+  const T = {
+    th: { title: "สถิติของฉัน", sub: "ความคืบหน้าจริงจากการซ้อมของคุณ — ยิ่งซ้อม กราฟยิ่งโต", mins: "นาทีรวม", notes: "โน้ตที่เล่นถูก", days: "วันที่ซ้อม (14 วัน)", streak: "สตรีค", chart: "นาทีซ้อมย้อนหลัง 14 วัน", acc: "ความแม่นยำ", accNow: "7 วันนี้", accPrev: "7 วันก่อน", weak: "จุดที่ควรเก็บ", weakGo: "ซ้อมเลย ▶", weakNone: "ยังไม่มีข้อมูลพอ — ซ้อมต่อไปเรื่อยๆ เดี๋ยวระบบจะชี้จุดให้เอง", hour: "ช่วงเวลาที่คุณซ้อมบ่อยที่สุด", empty: "ยังไม่มีข้อมูลการซ้อม — เริ่มจากหน้า 'ซ้อมวันนี้' ได้เลย!" },
+    en: { title: "My Stats", sub: "Real progress from your real practice — the more you play, the more this grows", mins: "Total minutes", notes: "Correct notes", days: "Days practiced (14d)", streak: "Streak", chart: "Practice minutes — last 14 days", acc: "Accuracy", accNow: "This 7 days", accPrev: "Previous 7", weak: "Spots to polish", weakGo: "Practice ▶", weakNone: "Not enough data yet — keep practicing and this will fill in", hour: "Your most frequent practice time", empty: "No practice data yet — start with 'Practice Today'!" },
+    zh: { title: "我的数据", sub: "来自真实练习的真实进步 — 练得越多，这里越丰富", mins: "总分钟", notes: "弹对音符", days: "练习天数(14天)", streak: "连续", chart: "近14天练习分钟", acc: "准确率", accNow: "近7天", accPrev: "前7天", weak: "待加强", weakGo: "去练 ▶", weakNone: "数据还不够 — 继续练习，这里会自动填充", hour: "你最常练习的时间", empty: "还没有练习数据 — 从'今日练习'开始吧！" },
+  }[lang];
+  const log = readActLog();
+  const dayMs = 86400000;
+  const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+  const start14 = t0.getTime() - 13 * dayMs;
+  const now = Date.now();
+  const mins = Array(14).fill(0);
+  const hourSec = Array(24).fill(0);
+  let ok7 = 0, miss7 = 0, okP = 0, missP = 0, totalSec = 0, totalOk = 0;
+  const daysSet = new Set();
+  for (const e of log) {
+    const di = Math.floor((e.t - start14) / dayMs);
+    if (di >= 0 && di < 14) { mins[di] += e.sec; if (e.sec > 0) daysSet.add(di); }
+    if (e.t >= now - 7 * dayMs) { ok7 += e.ok; miss7 += e.miss; }
+    else if (e.t >= now - 14 * dayMs) { okP += e.ok; missP += e.miss; }
+    hourSec[new Date(e.t).getHours()] += e.sec;
+    totalSec += e.sec; totalOk += e.ok;
+  }
+  const acc7 = ok7 + miss7 > 0 ? Math.round(ok7 / (ok7 + miss7) * 100) : null;
+  const accP = okP + missP > 0 ? Math.round(okP / (okP + missP) * 100) : null;
+  const byTopic = {};
+  for (const e of log) {
+    if (e.k === "voice" || e.ok + e.miss < 1) continue;
+    const key = e.k + "|" + e.id;
+    const b = byTopic[key] || (byTopic[key] = { e, ok: 0, miss: 0 });
+    b.ok += e.ok; b.miss += e.miss;
+  }
+  const weak = Object.values(byTopic)
+    .filter(b => b.ok + b.miss >= 4 && b.miss > 0)
+    .map(b => ({ ...b, rate: b.miss / (b.ok + b.miss) }))
+    .sort((a, b) => b.rate - a.rate).slice(0, 3);
+  const bestHour = hourSec.some(s => s > 0) ? hourSec.indexOf(Math.max(...hourSec)) : null;
+  const maxMin = Math.max(60, ...mins);
+  const WD = { th: ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"], en: ["S", "M", "T", "W", "T", "F", "S"], zh: ["日", "一", "二", "三", "四", "五", "六"] }[lang];
+  const hasData = log.length > 0;
+  return (
+    <div className="pathpage">
+      <div className="v12hero"><div className="v12title">📊 {T.title}</div><div className="v12sub">{T.sub}</div></div>
+      {!hasData && <div className="v12card" style={{ textAlign: "center", color: "#8fb4c4", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, fontSize: "13.5px", padding: "22px 14px" }}>{T.empty}</div>}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+        <div className="instile"><b>{Math.round(totalSec / 60)}</b><span>{T.mins}</span></div>
+        <div className="instile"><b>{totalOk}</b><span>{T.notes}</span></div>
+        <div className="instile"><b>{daysSet.size}</b><span>{T.days}</span></div>
+        <div className="instile"><b>{(profile && profile.streak) || 0}🔥</b><span>{T.streak}</span></div>
+      </div>
+      <div className="v12card">
+        <div style={{ fontSize: "11px", color: "#7fa6b6", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>{T.chart}</div>
+        <div className="insbarwrap">
+          {mins.map((m, i) => <div key={i} className="insbar" style={{ height: Math.max(2, Math.round(m / maxMin * 88)) + "%", opacity: m > 0 ? 1 : 0.25 }} title={Math.round(m / 60) + " min"} />)}
+        </div>
+        <div style={{ display: "flex", gap: "4px", padding: "2px 2px 0" }}>
+          {mins.map((_, i) => { const d = new Date(start14 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "8px", color: "#5a7a8a", fontFamily: "'Share Tech Mono',monospace" }}>{WD[d.getDay()]}</div>; })}
+        </div>
+      </div>
+      <div className="v12card">
+        <div style={{ fontSize: "11px", color: "#7fa6b6", fontFamily: "'Share Tech Mono',monospace", marginBottom: "8px" }}>{T.acc}</div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <div className="instile"><b style={{ color: acc7 != null && accP != null ? (acc7 >= accP ? "#06d6a0" : "#ff9e00") : "#06d6a0" }}>{acc7 == null ? "—" : acc7 + "%"}</b><span>{T.accNow}</span></div>
+          <div className="instile"><b style={{ color: "#8fb4c4" }}>{accP == null ? "—" : accP + "%"}</b><span>{T.accPrev}</span></div>
+        </div>
+      </div>
+      <div className="v12card">
+        <div style={{ fontSize: "11px", color: "#7fa6b6", fontFamily: "'Share Tech Mono',monospace", marginBottom: "8px" }}>🎯 {T.weak}</div>
+        {weak.length === 0 && <div style={{ fontSize: "12.5px", color: "#6a8a9a", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.weakNone}</div>}
+        {weak.map((w, i) => {
+          const song = actSongOf(w.e);
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 0", borderTop: i ? "1px solid #ffffff0c" : "none" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "13px", color: "#dceaf5", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>{actTopicLabel(w.e, lang)}</div>
+                <div style={{ fontSize: "10px", color: "#ff6e91", fontFamily: "'Share Tech Mono',monospace" }}>{Math.round(w.rate * 100)}% miss · {w.ok + w.miss} n</div>
+              </div>
+              {song && <button className="tdgo" onClick={() => { playUi("click"); onSong(song); }}>{T.weakGo}</button>}
+            </div>
+          );
+        })}
+      </div>
+      {bestHour != null && (
+        <div className="v12card" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "11px", color: "#7fa6b6", fontFamily: "'Share Tech Mono',monospace", marginBottom: "5px" }}>⏰ {T.hour}</div>
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "19px", color: "#8ad4ff", fontWeight: 900 }}>{String(bestHour).padStart(2, "0")}:00 – {String((bestHour + 1) % 24).padStart(2, "0")}:00</div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+/* ════════════════════════════════════════════════════════════
+   REPORT CARD — a weekly parent-friendly summary with a written
+   teacher's comment, plus downloadable certificates per finished
+   Pathway chapter and a shareable weekly PNG.
+════════════════════════════════════════════════════════════ */
+const ReportPage = memo(function ReportPage({ lang, profile }) {
+  const T = {
+    th: { title: "สมุดพก", sub: "สรุปผลการเรียนรายสัปดาห์ + ใบประกาศนียบัตร — บันทึกเป็นรูปส่งให้ผู้ปกครองหรือแชร์ได้เลย", week: "สัปดาห์นี้ (7 วันล่าสุด)", mins: "นาที", days: "วัน", accL: "แม่นยำ", topicsL: "หัวข้อ", gamesL: "เกม", comment: "คำติชมจากครู TiGA", certs: "ใบประกาศนียบัตร", certGet: "⬇ บันทึกใบประกาศ", certLock: "เรียนให้ครบทุกหัวข้อในหมวดนี้", share: "⬇ บันทึกสมุดพกเป็นรูป", making: "กำลังสร้างรูป…", student: "นักเรียน TiGA" },
+    en: { title: "Report Card", sub: "A weekly summary with a teacher's comment + downloadable certificates — save as an image for parents or sharing", week: "This week (last 7 days)", mins: "min", days: "days", accL: "accuracy", topicsL: "topics", gamesL: "games", comment: "Teacher TiGA's comment", certs: "Certificates", certGet: "⬇ Save certificate", certLock: "Finish every topic in this chapter", share: "⬇ Save report as image", making: "Rendering…", student: "TiGA Student" },
+    zh: { title: "成绩单", sub: "每周学习总结 + 老师评语 + 可下载证书 — 保存成图片给家长或分享", week: "本周（近7天）", mins: "分钟", days: "天", accL: "准确率", topicsL: "主题", gamesL: "游戏", comment: "TiGA 老师评语", certs: "证书", certGet: "⬇ 保存证书", certLock: "完成本章全部主题", share: "⬇ 保存成绩单图片", making: "生成中…", student: "TiGA 学员" },
+  }[lang];
+  const [busy, setBusy] = useState(false);
+  const log = readActLog();
+  const now = Date.now();
+  const dayMs = 86400000;
+  function stat(from, to) {
+    let sec = 0, ok = 0, miss = 0, games = 0;
+    const days = new Set(), topics = new Set();
+    for (const e of log) {
+      if (e.t < from || e.t >= to) continue;
+      sec += e.sec; ok += e.ok; miss += e.miss;
+      if (e.sec > 0) days.add(e.d);
+      if (e.k === "game") games++;
+      if (e.k === "lesson" || e.k === "read-chapter") topics.add(e.id.split("/")[0]);
+    }
+    return { min: Math.round(sec / 60), days: days.size, ok, miss, acc: ok + miss > 0 ? Math.round(ok / (ok + miss) * 100) : null, topics: topics.size, games };
+  }
+  const a = stat(now - 7 * dayMs, now + 1), b = stat(now - 14 * dayMs, now - 7 * dayMs);
+  // teacher's written comment — honest, data-driven, template-based (no AI cost)
+  let comment;
+  if (a.min === 0) {
+    comment = lang === "th" ? "สัปดาห์นี้ยังไม่ได้เริ่มซ้อมเลยครับ ไม่เป็นไรเลย — เริ่มใหม่วันนี้ที่หน้า 'ซ้อมวันนี้' แค่วันละ 15 นาที เดี๋ยวสัปดาห์หน้าสมุดพกหน้านี้จะสวยขึ้นแน่นอนครับ"
+      : lang === "zh" ? "这周还没开始练习也没关系 — 今天就从「今日练习」开始，每天15分钟，下周的成绩单一定会更漂亮。"
+      : "No practice yet this week — that's okay! Start today with 'Practice Today', just 15 minutes a day, and next week's report will look very different.";
+  } else {
+    const p1 = lang === "th" ? `สัปดาห์นี้ซ้อม ${a.days} วัน รวม ${a.min} นาที` : lang === "zh" ? `本周练习 ${a.days} 天，共 ${a.min} 分钟` : `Practiced ${a.days} day(s) this week, ${a.min} minutes total`;
+    let p2 = "";
+    if (a.acc != null && b.acc != null) {
+      const d = a.acc - b.acc;
+      p2 = d >= 0
+        ? (lang === "th" ? ` ความแม่นยำ ${a.acc}% ${d > 0 ? `ดีขึ้น +${d}% จากสัปดาห์ก่อน` : "คงที่"} — เยี่ยมมากครับ` : lang === "zh" ? ` 准确率 ${a.acc}%${d > 0 ? `，比上周提升 ${d}%` : "，保持稳定"} — 非常棒` : ` — accuracy ${a.acc}%${d > 0 ? `, up ${d}% from last week` : ", holding steady"} — excellent`)
+        : (lang === "th" ? ` ความแม่นยำ ${a.acc}% ลดลงนิดหน่อย ไม่ต้องกังวลครับ ลองซ้อมช้าลงอีกนิดแล้วค่อยเร่ง` : lang === "zh" ? ` 准确率 ${a.acc}%，略有下降，别担心 — 先放慢再加速` : ` — accuracy ${a.acc}%, a little dip; slow the tempo down first, then speed up`);
+    } else if (a.acc != null) {
+      p2 = lang === "th" ? ` ความแม่นยำ ${a.acc}%` : lang === "zh" ? ` 准确率 ${a.acc}%` : ` — accuracy ${a.acc}%`;
+    }
+    const p3 = a.topics > 0
+      ? (lang === "th" ? ` และได้เรียน ${a.topics} หัวข้อใหม่ รักษาจังหวะนี้ไว้นะครับ 💪` : lang === "zh" ? `，学习了 ${a.topics} 个主题。保持这个节奏！💪` : `, and covered ${a.topics} topic(s). Keep this rhythm going! 💪`)
+      : (lang === "th" ? ` สัปดาห์หน้าลองเปิดหัวข้อใหม่ใน Pathway สักเรื่องนะครับ 💪` : lang === "zh" ? `。下周试着在学习之路开一个新主题吧！💪` : `. Next week, try opening one new Pathway topic! 💪`);
+    comment = p1 + p2 + p3;
+  }
+  // 7-day minute bars
+  const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+  const start7 = t0.getTime() - 6 * dayMs;
+  const mins7 = Array(7).fill(0);
+  for (const e of log) { const di = Math.floor((e.t - start7) / dayMs); if (di >= 0 && di < 7) mins7[di] += e.sec; }
+  const maxM = Math.max(60, ...mins7);
+  const WD = { th: ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"], en: ["S", "M", "T", "W", "T", "F", "S"], zh: ["日", "一", "二", "三", "四", "五", "六"] }[lang];
+  const doneP = pathDoneSet();
+  const name = (profile && profile.full_name) || T.student;
+  async function saveWeekly() {
+    if (busy) return; setBusy(true); playUi("click");
+    try {
+      const url = await renderWeeklyPNG({ name, mins: a.min, days: a.days, acc: a.acc, topics: a.topics, streak: (profile && profile.streak) || 0, lang });
+      downloadDataURL(url, "tiga-weekly-report.png");
+    } catch (e) {}
+    setBusy(false);
+  }
+  async function saveCert(g) {
+    if (busy) return; setBusy(true); playUi("reward");
+    try {
+      const url = await renderCertificatePNG({ name, course: g.icon + " " + g.label, dateStr: new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "long", day: "numeric" }), lang });
+      downloadDataURL(url, "tiga-certificate-" + g.id + ".png");
+    } catch (e) {}
+    setBusy(false);
+  }
+  return (
+    <div className="pathpage">
+      <div className="v12hero"><div className="v12title">🏅 {T.title}</div><div className="v12sub">{T.sub}</div></div>
+      <div className="v12card">
+        <div style={{ fontSize: "11px", color: "#7fa6b6", fontFamily: "'Share Tech Mono',monospace", marginBottom: "8px" }}>{T.week}</div>
+        <div style={{ display: "flex", gap: "7px", marginBottom: "12px" }}>
+          <div className="instile"><b>{a.min}</b><span>{T.mins}</span></div>
+          <div className="instile"><b>{a.days}/7</b><span>{T.days}</span></div>
+          <div className="instile"><b>{a.acc == null ? "—" : a.acc + "%"}</b><span>{T.accL}</span></div>
+          <div className="instile"><b>{a.topics}</b><span>{T.topicsL}</span></div>
+          <div className="instile"><b>{a.games}</b><span>{T.gamesL}</span></div>
+        </div>
+        <div className="insbarwrap" style={{ height: "64px" }}>
+          {mins7.map((m, i) => <div key={i} className="insbar" style={{ height: Math.max(3, Math.round(m / maxM * 88)) + "%", opacity: m > 0 ? 1 : 0.25 }} />)}
+        </div>
+        <div style={{ display: "flex", gap: "4px" }}>
+          {mins7.map((_, i) => { const d = new Date(start7 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "8.5px", color: "#5a7a8a", fontFamily: "'Share Tech Mono',monospace" }}>{WD[d.getDay()]}</div>; })}
+        </div>
+      </div>
+      <div className="v12card" style={{ borderColor: "#a855f744" }}>
+        <div style={{ fontSize: "11px", color: "#c9b6ff", fontFamily: "'Share Tech Mono',monospace", marginBottom: "7px" }}>💬 {T.comment}</div>
+        <div style={{ fontSize: "13.5px", color: "#dceaf5", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, lineHeight: 1.65 }}>{comment}</div>
+      </div>
+      <button className="tdgo" disabled={busy} onClick={saveWeekly} style={{ width: "100%", padding: "13px", fontSize: "11.5px", marginBottom: "16px" }}>{busy ? T.making : T.share}</button>
+      <div style={{ fontSize: "11px", color: "#7fa6b6", fontFamily: "'Share Tech Mono',monospace", margin: "2px 2px 9px" }}>🎓 {T.certs}</div>
+      {PATH_GROUPS[lang].map(g => {
+        const stages = STAGES_BY_GROUP[g.id] || [];
+        const done = stages.filter(s => doneP.has(s.id)).length;
+        const earned = stages.length > 0 && done === stages.length;
+        return (
+          <div key={g.id} className={`certrow${earned ? " earned" : ""}`}>
+            <span style={{ fontSize: "22px" }}>{earned ? "🏆" : g.icon}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: "13.5px", color: earned ? "#ffd166" : "#dceaf5", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>{g.label}</div>
+              <div style={{ fontSize: "10px", color: "#7fa6b6", fontFamily: "'Share Tech Mono',monospace" }}>{done}/{stages.length}{earned ? "" : " · " + T.certLock}</div>
+            </div>
+            {earned && <button className="tdgo" style={{ borderColor: "#ffd166", color: "#ffd166", background: "rgba(255,209,102,.08)" }} disabled={busy} onClick={() => saveCert(g)}>{busy ? T.making : T.certGet}</button>}
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
 const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, voiceLocked = false }) {
@@ -4836,12 +5529,14 @@ const StaffSVG = memo(function StaffSVG({ note, clef = "treble" }) {
   );
 });
 
-/* ── Several notes on one staff, with names underneath (voice-mode [staff:]) ── */
-const StaffNotes = memo(function StaffNotes({ notes }) {
+/* ── Several notes on one staff, with names underneath (voice-mode [staff:]).
+   hideNames + clef props let the Reading course reuse it as a quiz card
+   (names would spoil the answer; bass drills must force the bass clef). ── */
+const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, clef: clefProp = null }) {
   const list = (notes || []).filter(Boolean);
   const W = 300, H = 152, baseY = 100, half = 8;
   const octs = list.map(n => parseInt((n.match(/\d/) || ["4"])[0], 10));
-  const clef = octs.length && Math.min(...octs) < 4 ? "bass" : "treble"; // low notes → bass clef
+  const clef = clefProp || (octs.length && Math.min(...octs) < 4 ? "bass" : "treble"); // low notes → bass clef
   const startX = 58, gap = Math.min(36, (W - startX - 18) / Math.max(1, list.length));
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="staffsvg" width="100%" preserveAspectRatio="xMidYMid meet">
@@ -4860,7 +5555,7 @@ const StaffNotes = memo(function StaffNotes({ notes }) {
             {ledgers.map((ly, k) => <line key={k} x1={x - 12} y1={ly} x2={x + 12} y2={ly} stroke="#9fd0e0" strokeWidth="1.3" />)}
             {n.includes("#") && <text x={x - 21} y={y + 5} fontSize="20" fill="#c9b6ff" style={{ fontFamily: "Georgia, serif" }}>&#9839;</text>}
             <ellipse cx={x} cy={y} rx="9" ry="6.8" fill="#a855f7" transform={`rotate(-18 ${x} ${y})`} />
-            <text x={x} y={baseY + 30} fontSize="11" fill="#7fa6b6" textAnchor="middle" style={{ fontFamily: "'Share Tech Mono',monospace" }}>{pcOf(n)}</text>
+            {!hideNames && <text x={x} y={baseY + 30} fontSize="11" fill="#7fa6b6" textAnchor="middle" style={{ fontFamily: "'Share Tech Mono',monospace" }}>{pcOf(n)}</text>}
           </g>
         );
       })}
@@ -4979,6 +5674,164 @@ function logGame(g) {
 }
 const HEAT_COLORS = ["#11203a", "#0e4d3a", "#0c8f5f", "#06d6a0"];
 function heatColor(l) { return HEAT_COLORS[l] || HEAT_COLORS[0]; }
+
+/* ════════════════════════════════════════════════════════════
+   ACTIVITY LOG — one unified local journal of everything practiced
+   (what, how accurate, how long). The Today plan, Insights page and
+   weekly Report Card are all views over this single stream, so every
+   mode only has to report here once.
+════════════════════════════════════════════════════════════ */
+const ACT_LOG_KEY = "tg_act_log";
+function readActLog() { try { return JSON.parse(localStorage.getItem(ACT_LOG_KEY) || "[]") || []; } catch (e) { return []; } }
+function logActivity(kind, id, ok, miss, sec) {
+  try {
+    const a = readActLog();
+    a.push({ t: Date.now(), d: dayKey(), k: kind, id: String(id || ""), ok: Math.max(0, Math.round(ok || 0)), miss: Math.max(0, Math.round(miss || 0)), sec: Math.max(0, Math.round(sec || 0)) });
+    localStorage.setItem(ACT_LOG_KEY, JSON.stringify(a.slice(-1500)));
+  } catch (e) {}
+}
+// friendly display label for an activity entry (drill ids, "stage/key" lessons, …)
+function actTopicLabel(e, lang) {
+  if (e.k === "lesson" || e.k === "read-chapter") {
+    const [sid, key] = e.id.split("/");
+    const st = PATHWAY.find(s => s.id === sid);
+    const base = st ? tr(st.title, lang) : sid;
+    return key ? base + " · " + key.toUpperCase() : base;
+  }
+  if (e.k === "game") {
+    const all = [...SONGS, ...MAJOR_SCALE_SONGS, ...INTERVAL_SONGS,
+      ...Object.values(MINOR_SCALE_SONGS).flat(), ...Object.values(TRIAD_SONGS).flat(), ...Object.values(SEVENTH_SONGS).flat()];
+    const s = all.find(x => x.id === e.id);
+    return s ? tr(s, lang) : e.id;
+  }
+  if (e.k === "ear") return (lang === "th" ? "ยิมหู · " : lang === "zh" ? "听力房 · " : "Ear gym · ") + e.id;
+  if (e.k === "read") return (lang === "th" ? "อ่านโน้ต · " : lang === "zh" ? "识谱 · " : "Reading · ") + e.id;
+  if (e.k === "voice") return lang === "th" ? "คาบเรียนโหมดเสียง" : lang === "zh" ? "语音课" : "Voice lesson";
+  return e.id;
+}
+// find the runnable game/drill meta for an activity entry (for "practice this now")
+function actSongOf(e) {
+  if (e.k !== "game") return null;
+  const all = [...SONGS, ...MAJOR_SCALE_SONGS, ...INTERVAL_SONGS,
+    ...Object.values(MINOR_SCALE_SONGS).flat(), ...Object.values(TRIAD_SONGS).flat(), ...Object.values(SEVENTH_SONGS).flat()];
+  return all.find(x => x.id === e.id) || null;
+}
+
+/* ── "Practice Today" plan — deterministic per calendar day ── */
+function daySeed() { return [...dayKey()].reduce((s, c) => s + c.charCodeAt(0), 0); }
+function todayEntries() { const d = dayKey(); return readActLog().filter(e => e.d === d); }
+function hwDoneToday() { try { return localStorage.getItem("tg_hw_done") === dayKey(); } catch (e) { return false; } }
+function markHwDone() { try { localStorage.setItem("tg_hw_done", dayKey()); } catch (e) {} }
+function todayBonusClaimed() { try { return localStorage.getItem("tg_today_bonus") === dayKey(); } catch (e) { return false; } }
+function claimTodayBonus() { try { localStorage.setItem("tg_today_bonus", dayKey()); } catch (e) {} }
+
+/* ── Reading-course progress (stars per level) ── */
+function readCourseStars() { try { return JSON.parse(localStorage.getItem("tg_readcourse") || "{}") || {}; } catch (e) { return {}; } }
+function setReadCourseStars(lvl, stars) {
+  try { const s = readCourseStars(); if ((s[lvl] || 0) < stars) { s[lvl] = stars; localStorage.setItem("tg_readcourse", JSON.stringify(s)); } } catch (e) {}
+}
+/* ── Ear-gym personal bests ── */
+function earBest() { try { return JSON.parse(localStorage.getItem("tg_eargym") || "{}") || {}; } catch (e) { return {}; } }
+function setEarBest(game, score) {
+  try { const s = earBest(); if ((s[game] || 0) < score) { s[game] = score; localStorage.setItem("tg_eargym", JSON.stringify(s)); } } catch (e) {}
+}
+
+/* ════════════════════════════════════════════════════════════
+   CERTIFICATES & SHARE CARDS — drawn on a canvas so the learner gets a
+   real PNG they can keep, print, or post. No servers, no libraries.
+════════════════════════════════════════════════════════════ */
+function downloadDataURL(url, fname) {
+  try { const a = document.createElement("a"); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove(); } catch (e) {}
+}
+async function renderCertificatePNG({ name, course, dateStr, lang }) {
+  try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+  const W = 1200, H = 850;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  const bg = x.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#120a24"); bg.addColorStop(0.55, "#0a0613"); bg.addColorStop(1, "#0c1428");
+  x.fillStyle = bg; x.fillRect(0, 0, W, H);
+  // twin border
+  x.strokeStyle = "#a855f7"; x.lineWidth = 3; x.strokeRect(28, 28, W - 56, H - 56);
+  x.strokeStyle = "#ffd16688"; x.lineWidth = 1.5; x.strokeRect(44, 44, W - 88, H - 88);
+  // corner sparks
+  x.fillStyle = "#ffd166";
+  for (const [cx, cy] of [[44, 44], [W - 44, 44], [44, H - 44], [W - 44, H - 44]]) {
+    x.beginPath(); x.arc(cx, cy, 5, 0, Math.PI * 2); x.fill();
+  }
+  x.textAlign = "center";
+  x.fillStyle = "#a855f7";
+  x.font = "700 30px Orbitron, sans-serif";
+  x.fillText("TG · TIGA.AI PIANO ACADEMY", W / 2, 118);
+  x.fillStyle = "#eaf6ff";
+  x.font = "900 64px Orbitron, sans-serif";
+  x.fillText(lang === "th" ? "ประกาศนียบัตร" : lang === "zh" ? "结业证书" : "CERTIFICATE", W / 2, 226);
+  x.fillStyle = "#8fa8c0";
+  x.font = "600 26px Rajdhani, sans-serif";
+  x.fillText(lang === "th" ? "มอบให้เพื่อรับรองว่า" : lang === "zh" ? "兹证明" : "This certifies that", W / 2, 300);
+  x.fillStyle = "#ffd166";
+  x.font = "700 58px Rajdhani, sans-serif";
+  x.fillText(name, W / 2, 386);
+  x.strokeStyle = "#ffd16655"; x.lineWidth = 1;
+  x.beginPath(); x.moveTo(W / 2 - 300, 408); x.lineTo(W / 2 + 300, 408); x.stroke();
+  x.fillStyle = "#8fa8c0";
+  x.font = "600 26px Rajdhani, sans-serif";
+  x.fillText(lang === "th" ? "ได้เรียนจบหลักสูตร" : lang === "zh" ? "已完成课程" : "has successfully completed", W / 2, 464);
+  x.fillStyle = "#eaf6ff";
+  x.font = "700 40px Rajdhani, sans-serif";
+  x.fillText(course, W / 2, 528);
+  x.fillStyle = "#6a8a9a";
+  x.font = "500 22px Rajdhani, sans-serif";
+  x.fillText((lang === "th" ? "เส้นทางเรียนรู้เปียโน TiGA · " : lang === "zh" ? "TiGA 钢琴学习之路 · " : "TiGA Piano Pathway of Learning · ") + dateStr, W / 2, 596);
+  // signature block
+  x.strokeStyle = "#8fa8c066"; x.beginPath(); x.moveTo(W / 2 - 170, 700); x.lineTo(W / 2 + 170, 700); x.stroke();
+  x.fillStyle = "#a855f7";
+  x.font = "700 26px Orbitron, sans-serif";
+  x.fillText("TiGA AI", W / 2, 738);
+  x.fillStyle = "#6a8a9a";
+  x.font = "500 19px Rajdhani, sans-serif";
+  x.fillText(lang === "th" ? "ครูผู้สอน — TiGA AI Piano Studio" : lang === "zh" ? "指导老师 — TiGA AI 钢琴工作室" : "Instructor — TiGA AI Piano Studio", W / 2, 768);
+  return c.toDataURL("image/png");
+}
+async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) {
+  try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+  const W = 1080, H = 1080;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  const bg = x.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#1a1030"); bg.addColorStop(1, "#0a0613");
+  x.fillStyle = bg; x.fillRect(0, 0, W, H);
+  x.strokeStyle = "#a855f7"; x.lineWidth = 3; x.strokeRect(26, 26, W - 52, H - 52);
+  x.textAlign = "center";
+  x.fillStyle = "#a855f7"; x.font = "700 30px Orbitron, sans-serif";
+  x.fillText("TG · TIGA.AI", W / 2, 112);
+  x.fillStyle = "#eaf6ff"; x.font = "900 56px Orbitron, sans-serif";
+  x.fillText(lang === "th" ? "สมุดพกประจำสัปดาห์" : lang === "zh" ? "本周成绩单" : "WEEKLY REPORT", W / 2, 200);
+  x.fillStyle = "#ffd166"; x.font = "700 44px Rajdhani, sans-serif";
+  x.fillText(name, W / 2, 272);
+  const rows = [
+    [lang === "th" ? "นาทีที่ซ้อม" : lang === "zh" ? "练习分钟" : "Minutes practiced", String(mins)],
+    [lang === "th" ? "วันที่ได้ซ้อม" : lang === "zh" ? "练习天数" : "Days practiced", days + " / 7"],
+    [lang === "th" ? "ความแม่นยำ" : lang === "zh" ? "准确率" : "Accuracy", acc == null ? "—" : acc + "%"],
+    [lang === "th" ? "หัวข้อที่เรียน" : lang === "zh" ? "学习主题" : "Topics studied", String(topics)],
+    [lang === "th" ? "สตรีคต่อเนื่อง" : lang === "zh" ? "连续打卡" : "Streak", streak + (lang === "th" ? " วัน" : lang === "zh" ? " 天" : " days")],
+  ];
+  let y = 380;
+  for (const [k, v] of rows) {
+    x.fillStyle = "#0e1a30cc";
+    x.fillRect(120, y - 52, W - 240, 84);
+    x.strokeStyle = "#ffffff18"; x.lineWidth = 1; x.strokeRect(120, y - 52, W - 240, 84);
+    x.textAlign = "left"; x.fillStyle = "#8fb4c4"; x.font = "600 30px Rajdhani, sans-serif";
+    x.fillText(k, 152, y + 2);
+    x.textAlign = "right"; x.fillStyle = "#06d6a0"; x.font = "800 40px Orbitron, sans-serif";
+    x.fillText(v, W - 152, y + 4);
+    y += 118;
+  }
+  x.textAlign = "center";
+  x.fillStyle = "#6a8a9a"; x.font = "500 24px Rajdhani, sans-serif";
+  x.fillText(lang === "th" ? "เรียนเปียโนกับครู AI ที่ TiGA AI" : lang === "zh" ? "在 TiGA AI 与 AI 老师学钢琴" : "Learning piano with an AI teacher at TiGA AI", W / 2, H - 96);
+  return c.toDataURL("image/png");
+}
 
 /* ── coins (soft currency) + daily reward chest, all localStorage ── */
 function getCoins() { try { return +(localStorage.getItem("tg_coins") || 0); } catch (e) { return 0; } }
@@ -6907,6 +7760,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const vmSpokenRef = useRef("");               // rolling tail of what the teacher just SAID aloud → self-echo filter
   const vmSpokeAtRef = useRef(0);               // when the teacher's audio last started/ended (echo freshness window)
   const vmSessionStartRef = useRef(0);          // lesson clock — a human teacher paces the session & wraps up on time
+  const vmActStartRef = useRef(0);              // activity-log segment start (survives pause/resume without double counting)
   const vmFillerLastRef = useRef(-1);           // never play the exact same "mm-hmm" clip twice in a row
   const [vmInput, setVmInput] = useState("");   // typed message (STT fallback / by choice)
 
@@ -7322,6 +8176,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setMsgs(prev => [...prev, { role: "user", text: summary }]);
 
     logPractice(accuracy);
+    logActivity("drill", label || "drill", hits, miss, Math.max(20, total * 2));
     recordMemory(practiceLabelRef.current, accuracy);
     earnCoins(5 + Math.round(accuracy / 20));
     gainExp(20 + Math.round(accuracy / 5), { quest: true }); // 20–40 EXP scaled by accuracy
@@ -7761,6 +8616,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     logPractice(acc);
     recordMemory(tr(songMeta, lang), acc);
     logGame({ song: tr(songMeta, lang), acc, score, stars });
+    logActivity("game", (songMeta && songMeta.id) || "song", hits, Math.max(0, total - hits),
+      songDataRef.current && songDataRef.current.dur ? songDataRef.current.dur / (songTempoRef.current || 1) + SONG_LEAD : 60);
     const coinReward = 5 + stars * 10 + (allPerfect ? 20 : fullCombo ? 10 : 0);
     earnCoins(coinReward);
     bumpWeekly("games", 1); if (perfects) bumpWeekly("perfect", perfects);
@@ -7844,6 +8701,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const reward = 25 + Math.round(acc / 4); // 25..50 EXP
     setSightDone({ correct, miss, acc, reward });
     logPractice(acc);
+    logActivity("read", "sight-" + sightClefRef.current, correct, miss, 90);
     recordMemory(lang === "th" ? "อ่านโน้ต" : lang === "zh" ? "视奏" : "Sight-reading", acc);
     earnCoins(5 + Math.round(acc / 20));
     gainExp(reward, { quest: true });
@@ -8115,6 +8973,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     vmCloudDeadRef.current = false; // give the natural cloud voice a fresh try each session
     vmTallyOkRef.current = 0; vmTallyMissRef.current = 0; vmDeafCountRef.current = 0;
     if (!vmMsgsRef.current.length) vmSessionStartRef.current = Date.now(); // fresh lesson starts the clock; resume keeps it
+    vmActStartRef.current = Date.now(); // each start/resume opens a new activity-log segment
     vmSpokenRef.current = ""; vmSpokeAtRef.current = 0;
     vmNotesRef.current = []; setVmNotes([]); setVmCaption("");
     stopPracticeListeners();
@@ -8804,7 +9663,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const lvl = mean > 95 ? "loud (f)" : mean > 60 ? "medium (mf)" : "soft (p)";
     return `touch ${even}, ${lvl}, ${trend}`;
   }
+  // close the current voice segment into the activity log (once per start/resume)
+  function vmLogSegment() {
+    if (!vmActStartRef.current) return;
+    const sec = (Date.now() - vmActStartRef.current) / 1000;
+    vmActStartRef.current = 0;
+    if (sec >= 20) logActivity("voice", "session", vmTallyOkRef.current, vmTallyMissRef.current, sec);
+  }
   function vmStop() { // pause the session but keep the overlay open
+    vmLogSegment();
     vmActiveRef.current = false;
     vmListenSeqRef.current++;   // invalidate any in-flight recognizer callbacks
     clearTimeout(vmPlayReactT.current); clearTimeout(vmSilenceT.current); clearTimeout(vmRestartT.current); clearTimeout(vmWatchdogT.current);
@@ -8823,6 +9690,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     else if (!vmActiveRef.current) startVoiceSession();
   }
   function exitVoice() {
+    vmLogSegment();
     vmActiveRef.current = false;
     vmListenSeqRef.current++;
     clearTimeout(vmPlayReactT.current); clearTimeout(vmInstantT.current); clearTimeout(vmLitT.current);
@@ -9130,6 +9998,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const basePrompt = stage.learn[lang] || stage.learn.en;
     const keyId = key ? key.id : "C";
     const keyLabel = key ? key.name : "C";
+    logActivity("lesson", stage.id + "/" + keyId.toLowerCase(), 0, 0, 180); // ~3 min of study per topic-in-key
 
     // Use chord-type's demo notes if a type was selected, otherwise stage defaults
     const demoSrc = chordType || stage;
@@ -9209,6 +10078,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function readChapter(stage, caseObj) {
     if (!caseObj && stage && stage.id) logUsage("pathway", stage.id); // top-level card tap only, not a case-study drill-down
     if (stage && stage.id) markPathDone(stage.id);
+    if (stage && stage.id) logActivity("read-chapter", stage.id, 0, 0, 120); // ~2 min of reading
     const title = caseObj ? tr(caseObj.title, lang) : tr(stage.title, lang);
     const body = caseObj ? tr(caseObj.content, lang) : tr(stage.content, lang);
     const icon = caseObj ? (caseObj.icon || stage.icon) : stage.icon;
@@ -9274,6 +10144,25 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: PATHWAY ─── */}
       {page === "pathway" && (
         <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} />
+      )}
+
+      {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
+      {page === "today" && (
+        <TodayPage lang={lang} exp={(profile && profile.exp) || 0} homework={homework}
+          onLearn={learnTopic} onRead={readChapter} onSong={chooseSong}
+          onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
+      )}
+      {page === "eargym" && (
+        <EarGymPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
+      )}
+      {page === "reading" && (
+        <ReadingPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
+      )}
+      {page === "insights" && (
+        <InsightsPage lang={lang} profile={profile} onSong={chooseSong} />
+      )}
+      {page === "report" && (
+        <ReportPage lang={lang} profile={profile} />
       )}
 
       {/* ─── PAGE: VIDEO LESSONS ─── */}
@@ -9452,14 +10341,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       <nav className={`drawer${navOpen ? " open" : ""}`} aria-hidden={!navOpen}>
         <div className="drawer-brand">
           <div className="lbox">TG</div>
-          <div><div className="lname">TIGA.AI</div></div>
+          <div>
+            <div className="lname">TIGA.AI</div>
+            <div className="lsub">v{APP_VER}</div>
+          </div>
         </div>
         {[
           { p: "pathway", ic: "⬡", c: "#7b2fff", t: lc.navPath },
+          { p: "today", ic: "📅", c: "#06d6a0", t: lc.navToday },
           { p: "sensei", ic: "◈", c: "#a855f7", t: lc.navSensei },
           { p: "studio", sv: "menu", ic: "▶", c: "#ff9e00", t: lc.navStudio },
           { p: "studio", sv: "songs", ic: "🎵", c: "#ffd166", t: lc.navPlayAlong },
+          { p: "eargym", ic: "👂", c: "#ff6ec7", t: lc.navEar },
+          { p: "reading", ic: "🎼", c: "#8ad4ff", t: lc.navRead },
           { p: "videos", ic: "🎬", c: "#06d6a0", t: lc.navVideos },
+          { p: "insights", ic: "📊", c: "#ffd166", t: lc.navStats },
+          { p: "report", ic: "🏅", c: "#e76f51", t: lc.navReport },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           ...(adminUnlocked ? [{ p: "admin", ic: "⬢", c: "#ff2d78", t: "ADMIN" }] : []),
         ].map(it => {
