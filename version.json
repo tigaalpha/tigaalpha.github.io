@@ -1,0 +1,6 @@
+{
+  "version": "11.6.0",
+  "apkReady": false,
+  "apkUrl": "https://tigaalpha.github.io/app/tiga-ai.apk",
+  "notes": "Android app foundation — flip apkReady to true after uploading the APK next to this file"
+}
