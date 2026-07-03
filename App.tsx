@@ -1653,13 +1653,6 @@ function playBoom(big) {
   } catch (e) {}
 }
 
-/* ════════════════════════════════════════════════════════════
-   GAME ACCOMPANIMENT — just soft drums under the falling-notes game.
-   Deliberately minimal: the old sawtooth string/synth pad AND the
-   triangle-wave bass were both removed because any sustained pitched
-   layer competes with the melody notes the learner is trying to hear —
-   only unpitched percussion (kick/snare/hat) is safe background.
-════════════════════════════════════════════════════════════ */
 let _accNoiseBuf = null, _accNoiseRate = 0;
 function _accNoise(ac) {
   if (_accNoiseBuf && _accNoiseRate === ac.sampleRate) return _accNoiseBuf;
@@ -1670,13 +1663,13 @@ function _accNoise(ac) {
   _accNoiseBuf = b; _accNoiseRate = ac.sampleRate; return b;
 }
 // ── Self-noise suppression ──────────────────────────────────────────
-// The falling-notes game's backing track (drums) plays through
-// the SAME speaker the mic listens through, so on a phone without
-// headphones the mic can hear the app's own accompaniment and mistake it
-// for a note the player pressed. Since we generate that accompaniment
-// ourselves we know exactly which frequency is sounding and for how long,
-// so we blacklist those bands from pitch detection while they're active —
-// the player's live piano notes (any other frequency) are unaffected.
+// The falling-notes game's own sound effects (e.g. the meteor-impact boom)
+// play through the SAME speaker the mic listens through, so on a phone
+// without headphones the mic can hear them and mistake it for a note the
+// player pressed. Since we generate those sounds ourselves we know exactly
+// which frequency is sounding and for how long, so we blacklist those bands
+// from pitch detection while they're active — the player's live piano notes
+// (any other frequency) are unaffected.
 let _accSuppress = [];
 function _accMarkSuppress(freq, tolCents, untilMs) {
   if (!freq) return;
@@ -1689,65 +1682,6 @@ function _accIsSuppressed(freq) {
   const now = Date.now();
   _accSuppress = _accSuppress.filter(s => s.until > now);
   return _accSuppress.some(s => freq >= s.lo && freq <= s.hi);
-}
-function _accKick(ac, dest, t, gain) {
-  const o = ac.createOscillator(), g = ac.createGain();
-  o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.12);
-  g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
-  o.connect(g); g.connect(dest); o.start(t); o.stop(t + 0.22);
-  _accMarkSuppress(90, 900, Date.now() + 250); // broad low-end sweep (150→48Hz) — brief, generous band
-}
-function _accSnare(ac, dest, t, gain) {
-  const s = ac.createBufferSource(); s.buffer = _accNoise(ac);
-  const hp = ac.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1400;
-  const g = ac.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
-  s.connect(hp); hp.connect(g); g.connect(dest); s.start(t); s.stop(t + 0.17);
-}
-function _accHat(ac, dest, t, gain) {
-  const s = ac.createBufferSource(); s.buffer = _accNoise(ac);
-  const hp = ac.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7500;
-  const g = ac.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
-  s.connect(hp); hp.connect(g); g.connect(dest); s.start(t); s.stop(t + 0.06);
-}
-let _accomp = null;
-function stopAccompaniment() {
-  if (!_accomp) return;
-  const a = _accomp; _accomp = null;
-  try { clearInterval(a.timer); } catch (e) {}
-  try { a.gain.gain.cancelScheduledValues(0); a.gain.gain.value = 0; } catch (e) {}
-  setTimeout(() => { try { a.gain.disconnect(); } catch (e) {} }, 250);
-}
-// getSongTime() → current song time (sec, tempo-adjusted). leadSec = count-in
-// before the first note hits the line.
-function startAccompaniment(getSongTime, bpm, data, leadSec) {
-  stopAccompaniment();
-  try {
-    if (_sfxMuted || !data || !data.notes || !data.notes.length) return;
-    const { ac, bus } = audioBus();
-    const g = ac.createGain(); g.gain.value = 0.9; g.connect(bus);
-    const spb = 60 / Math.max(40, bpm || 100);   // song seconds per beat
-    const eighth = spb / 2;
-    const steps = Math.ceil((data.dur + spb) / eighth);
-    let next = 0;
-    const timer = setInterval(() => {
-      if (_sfxMuted) return;
-      const music = getSongTime() - leadSec;       // 0 = first beat at the hit line
-      const now = ac.currentTime;
-      while (next < steps && next * eighth <= music + 0.06) {
-        const step = next++;
-        const onBeat = step % 2 === 0;
-        const beat = step >> 1;
-        const inBar = beat % 4;
-        const t = now + 0.02;
-        _accHat(ac, g, t, onBeat ? 0.05 : 0.035);
-        if (onBeat) {
-          if (inBar === 0 || inBar === 2) _accKick(ac, g, t, 0.22);
-          if (inBar === 1 || inBar === 3) _accSnare(ac, g, t, 0.13);
-        }
-      }
-    }, 25);
-    _accomp = { timer, gain: g };
-  } catch (e) {}
 }
 
 // soft "got it, thinking…" earcon so the learner knows the AI heard them
@@ -2756,7 +2690,7 @@ const L = {
     recCritique: "ให้ครูติชม", recCritiqueUser: "🎙️ ครูครับ ช่วยฟังที่ผมเพิ่งเล่นแล้วติชมหน่อยครับ ว่าเล่นถูกไหม จังหวะเป็นยังไง ควรปรับอะไร",
     songStart: "เริ่มเล่น", songRetry: "เล่นอีกครั้ง", songPreview: "ฟังตัวอย่าง", songBackList: "เลือกเพลงอื่น",
     songInputHint: "🎤 เล่นเปียโนจริง / ต่อ MIDI / หรือแตะแป้นด้านล่างก็ได้",
-    navStudio: "ฝึกซ้อม", back: "กลับ",
+    navStudio: "ฝึกซ้อม", navPlayAlong: "เล่นตามเพลง", back: "กลับ",
     studioTitle: "ห้องฝึกซ้อม", studioSub: "เลือกโหมดฝึก — เล่นตามเพลง อ่านโน้ต หรือโค้ชท่ามือ",
     studioPlayAlong: "เล่นตามเพลง", studioPlayAlongSub: "โน้ตไหลลงมา เล่นตามจังหวะ",
     studioSight: "อ่านโน้ต", studioSightSub: "ฝึกอ่านโน้ตบนบรรทัด 5 เส้น",
@@ -2850,7 +2784,7 @@ const L = {
     recCritique: "Get feedback", recCritiqueUser: "🎙️ Teacher, please listen to what I just played and give feedback — was it right, how was the timing, what should I improve?",
     songStart: "Start", songRetry: "Play Again", songPreview: "Preview", songBackList: "Other Songs",
     songInputHint: "🎤 Play a real piano / connect MIDI / or tap the keys below",
-    navStudio: "STUDIO", back: "Back",
+    navStudio: "STUDIO", navPlayAlong: "Play Along", back: "Back",
     studioTitle: "Practice Studio", studioSub: "Pick a mode — play along, read notes, or hand coach",
     studioPlayAlong: "Play Along", studioPlayAlongSub: "Falling notes, play in time",
     studioSight: "Sight-Reading", studioSightSub: "Read notes on the staff",
@@ -2944,7 +2878,7 @@ const L = {
     recCritique: "请老师点评", recCritiqueUser: "🎙️ 老师，请听听我刚才弹的，给点评价——弹得对吗？节奏如何？该改进什么？",
     songStart: "开始", songRetry: "再玩一次", songPreview: "试听", songBackList: "其他歌曲",
     songInputHint: "🎤 弹真钢琴 / 连接 MIDI / 或点击下方琴键",
-    navStudio: "练习", back: "返回",
+    navStudio: "练习", navPlayAlong: "跟弹练习", back: "返回",
     studioTitle: "练习室", studioSub: "选择模式 — 弹奏歌曲、读谱或手型教练",
     studioPlayAlong: "弹奏歌曲", studioPlayAlongSub: "音符下落，跟着节奏弹",
     studioSight: "读谱", studioSightSub: "在五线谱上认音符",
@@ -3699,8 +3633,6 @@ body[data-theme="forest"] .tg{background:radial-gradient(120% 90% at 40% 0%,#0c2
 .songtempo{display:flex;gap:8px}
 .songtempobtn{padding:7px 15px;border-radius:10px;background:#0e1a30;border:1px solid #ffffff18;color:#8fb4c4;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;cursor:pointer}
 .songtempobtn.on{border-color:#a855f7;color:#a855f7;background:rgba(168,85,247,.08)}
-.songmusictog{margin-top:4px;padding:7px 16px;border-radius:20px;background:#0e1a30;border:1px solid #ffffff18;color:#8fb4c4;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
-.songmusictog.on{border-color:#06d6a0;color:#06d6a0;background:rgba(6,214,160,.08)}
 .songready-btns{display:flex;gap:11px;flex-wrap:wrap;justify-content:center}
 .songbtn{padding:12px 22px;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border:1px solid}
 .songbtn.go{background:linear-gradient(135deg,#a855f7,#7b2fff);border-color:transparent;color:#06121f;box-shadow:0 6px 22px -8px #a855f7}
@@ -6724,7 +6656,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [songMeta, setSongMeta] = useState(null);          // the SONGS entry being played
   const [songPhase, setSongPhase] = useState("ready");     // ready | playing | done
   const [songTempo, setSongTempo] = useState(1);
-  const [gameMusic, setGameMusic] = useState(() => { try { return localStorage.getItem("tg_gamemusic") !== "0"; } catch (e) { return true; } });
   const [songHud, setSongHud] = useState({ score: 0, combo: 0, acc: 100, progress: 0 });
   const [songResult, setSongResult] = useState(null);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
@@ -7465,7 +7396,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     getAC();
     songStartClockRef.current = getAC().currentTime;
     songRunRef.current = true;
-    if (gameMusic) startAccompaniment(() => (getAC().currentTime - songStartClockRef.current) * songTempoRef.current, (songMeta && songMeta.bpm) || 100, data, SONG_LEAD);
     const onDetect = (d) => songInputRef.current(d);
     const midiOk = await startMidiListener(onDetect, () => setSongSrc({ type: "midi" }));
     if (!midiOk) await startMicListener(onDetect, () => setSongSrc({ type: "mic" }), () => setSongSrc({ type: "error" }));
@@ -7501,7 +7431,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     clearInterval(songHudTimerRef.current);
     clearSongPreview();
     stopPracticeListeners();
-    stopAccompaniment();
     setSongOpen(false);
     setSongPhase("ready");
     setSongResult(null);
@@ -7813,7 +7742,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     cancelAnimationFrame(songRafRef.current);
     clearInterval(songHudTimerRef.current);
     stopPracticeListeners();
-    stopAccompaniment();
     const total = songTotalRef.current || 1;
     const hits = songHitsRef.current;
     const acc = Math.round(hits / total * 100);
@@ -9529,18 +9457,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         {[
           { p: "pathway", ic: "⬡", c: "#7b2fff", t: lc.navPath },
           { p: "sensei", ic: "◈", c: "#a855f7", t: lc.navSensei },
-          { p: "studio", ic: "▶", c: "#ff9e00", t: lc.navStudio },
+          { p: "studio", sv: "menu", ic: "▶", c: "#ff9e00", t: lc.navStudio },
+          { p: "studio", sv: "songs", ic: "🎵", c: "#ffd166", t: lc.navPlayAlong },
           { p: "videos", ic: "🎬", c: "#06d6a0", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           ...(adminUnlocked ? [{ p: "admin", ic: "⬢", c: "#ff2d78", t: "ADMIN" }] : []),
-        ].map(it => (
-          <button key={it.p} className={`draweritem${page === it.p ? " on" : ""}`} style={{ "--nav-c": it.c }}
-            onClick={() => { playUi("click"); haptic(6); logUsage("nav", it.p); setPage(it.p); if (it.p === "studio") setStudioView("menu"); setNavOpen(false); }}>
+        ].map(it => {
+          const isOn = it.p === "studio" ? (page === "studio" && studioView === it.sv) : page === it.p;
+          return (
+          <button key={it.p + (it.sv || "")} className={`draweritem${isOn ? " on" : ""}`} style={{ "--nav-c": it.c }}
+            onClick={() => { playUi("click"); haptic(6); logUsage("nav", it.p + (it.sv ? "-" + it.sv : "")); setPage(it.p); if (it.p === "studio") setStudioView(it.sv); setNavOpen(false); }}>
             <span className="drawericon" aria-hidden="true">{it.ic}</span>
             <span className="drawerlabel">{it.t}</span>
-            {page === it.p && <span className="drawerdot" />}
+            {isOn && <span className="drawerdot" />}
           </button>
-        ))}
+          );
+        })}
         <div className="drawer-foot">
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setShopOpen(true); }}><span className="drawericon">🪙</span><span className="drawerlabel">{lc.shopTitle} · {coins}</span></button>
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon">✦</span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>
@@ -9699,10 +9631,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                       <button key={tp} className={`songtempobtn${songTempo === tp ? " on" : ""}`} onClick={() => setSongTempo(tp)}>{tp === 1 ? "1×" : tp + "×"}</button>
                     ))}
                   </div>
-                  <button className={`songmusictog${gameMusic ? " on" : ""}`}
-                    onClick={() => { haptic(); setGameMusic(v => { const nv = !v; try { localStorage.setItem("tg_gamemusic", nv ? "1" : "0"); } catch (e) {} return nv; }); }}>
-                    {gameMusic ? "🥁 " : "🔇 "}{lang === "th" ? "ดนตรีประกอบ" : lang === "zh" ? "伴奏" : "Backing band"}{gameMusic ? " ON" : " OFF"}
-                  </button>
                   <div className="songready-btns">
                     <button className="songbtn ghost" onClick={previewSong}>▶ {lc.songPreview}</button>
                     <button className="songbtn go" onClick={startSongPlay}>▶ {lc.songStart}</button>
