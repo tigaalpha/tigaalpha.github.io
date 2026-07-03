@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/services/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { BASE_PATH } from "@/lib/constants";
 
 export function LoginCard() {
   const [loading, setLoading] = useState(false);
@@ -11,10 +12,12 @@ export function LoginCard() {
   async function signInWithGoogle() {
     setLoading(true);
     const supabase = createClient();
+    // No server callback route in this static export — the browser client
+    // detects the OAuth code in the URL on load and exchanges it automatically.
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}${BASE_PATH}/dashboard/`,
       },
     });
   }

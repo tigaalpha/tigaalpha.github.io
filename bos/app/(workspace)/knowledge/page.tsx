@@ -1,11 +1,23 @@
-import { createClient } from "@/services/supabase/server";
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { KnowledgeManager } from "@/features/knowledge/components/knowledge-manager";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Tables } from "@/types/database";
 
-export default async function KnowledgePage() {
-  const supabase = await createClient();
-  const repos = createRepositories(supabase);
-  const documents = await repos.knowledge.listDocuments();
+export default function KnowledgePage() {
+  const [documents, setDocuments] = useState<Tables<"knowledge_documents">[] | null>(null);
+
+  const reload = useCallback(() => {
+    const repos = createRepositories(createClient());
+    repos.knowledge.listDocuments().then(setDocuments);
+  }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   return (
     <div className="space-y-6">
@@ -13,7 +25,7 @@ export default async function KnowledgePage() {
         <h1 className="text-2xl font-semibold text-secondary">Knowledge Base</h1>
         <p className="text-sm text-secondary/50">The AI always searches this before answering a customer</p>
       </div>
-      <KnowledgeManager documents={documents} />
+      {documents ? <KnowledgeManager documents={documents} onChanged={reload} /> : <Skeleton className="h-64" />}
     </div>
   );
 }

@@ -1,10 +1,17 @@
-# API Reference
+# Edge Function Reference
 
-All routes live under `app/api/`. Except the LINE webhook, every route
-requires an authenticated staff session (enforced by `middleware.ts`); there
-is no public customer-facing API yet.
+The frontend is a static export — there are no Next.js API routes. Anything
+needing a secret key runs as a Supabase Edge Function under
+`supabase/functions/`, called from the browser via
+`supabase.functions.invoke(name, { body })` (adds the caller's JWT
+automatically) or, for LINE, called directly by LINE's servers.
 
-## `POST /api/ai/chat`
+Every function except `line-webhook` requires a valid Supabase session
+(`verify_jwt: true`) **and** a matching row in `profiles` (checked inside the
+function via `requireStaff()`) — a signed-in Google account alone is not
+enough.
+
+## `ai-chat` (verify_jwt: true)
 
 Send a message to the AI on behalf of a web-chat conversation.
 
@@ -16,53 +23,52 @@ Send a message to the AI on behalf of a web-chat conversation.
 { "conversationId": "uuid", "reply": "string", "needsReview": false }
 ```
 
-## `POST /api/line/webhook`
+## `line-webhook` (verify_jwt: false)
 
 LINE Messaging API webhook. Verifies `X-Line-Signature` against
-`LINE_CHANNEL_SECRET`; not session-authenticated. Configure this URL in the
-LINE Developers console for OA `422gobjh`.
+`LINE_CHANNEL_SECRET` itself, since it can't carry a Supabase session.
+Configure this function's URL in the LINE Developers console for OA
+`422gobjh`.
 
-## `GET /api/bookings?start=ISO&end=ISO&teacherId=uuid`
+## `bookings` (verify_jwt: true)
 
-Lists bookings in a time range, optionally filtered by teacher.
-
-## `POST /api/bookings`
-
-Creates a booking (checks conflicts, creates the Google Calendar event with
-the correct title/color, consumes one lesson hour on completion).
+Single endpoint, dispatches on `action`:
 
 ```json
-{ "customerId": "uuid", "teacherId": "uuid", "startTime": "ISO", "endTime": "ISO" }
+{ "action": "create", "customerId": "uuid", "teacherId": "uuid", "startTime": "ISO", "endTime": "ISO" }
+{ "action": "reschedule", "bookingId": "uuid", "newStart": "ISO", "newEnd": "ISO" }
+{ "action": "cancel", "bookingId": "uuid" }
+{ "action": "complete", "bookingId": "uuid" }
 ```
 
-## `PATCH /api/bookings/:id`
+`create` checks for an active course with remaining hours and teacher
+conflicts, then creates the Google Calendar event with the correct
+title/color before writing the booking row.
+
+## `calendar-sync` (verify_jwt: true)
 
 ```json
-{ "action": "reschedule", "newStart": "ISO", "newEnd": "ISO" }
-{ "action": "cancel" }
-{ "action": "complete" }
+// Request
+{ "start": "ISO (optional, default now)", "end": "ISO (optional, default +14d)" }
+
+// Response
+{ "checked": 12, "drifted": 1 }
 ```
-
-## `DELETE /api/bookings/:id`
-
-Cancels the booking and removes its Google Calendar event.
-
-## `GET /api/calendar/sync?start=ISO&end=ISO`
 
 Reconciles bookings against the live Google Calendar; raises a
 `conflict_booking` notification for any booking whose event was deleted or
-moved outside the app. Intended to be called on a schedule (cron / edge
-function trigger).
+moved outside the app. Intended to be called on a schedule (a Supabase
+cron trigger, or any external scheduler hitting the function URL with a
+service-role/staff JWT).
 
-## `POST /api/knowledge/upload`
+## `knowledge-upload` (verify_jwt: true)
 
-Adds a knowledge base document: chunks the text, embeds each chunk via the
-configured AI provider, and stores it for RAG search.
+Adds a knowledge base document: chunks the text, embeds each chunk via
+Gemini, and stores it for RAG search.
 
 ```json
 { "title": "string", "sourceType": "pricing|promotion|teachers|policies|faq|school_info|holiday|internal_sop", "content": "string" }
 ```
 
-## `DELETE /api/knowledge/upload?id=uuid`
-
-Deletes a knowledge document and its chunks (cascade).
+Deletion happens directly from the browser (`knowledge_documents` delete is
+allowed by RLS for staff) — no Edge Function needed for that.

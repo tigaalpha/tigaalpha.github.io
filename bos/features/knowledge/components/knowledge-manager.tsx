@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { BookOpen, Trash2 } from "lucide-react";
+import { createClient } from "@/services/supabase/client";
+import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -14,8 +15,12 @@ const SOURCE_TYPES: KnowledgeSourceType[] = [
   "pricing", "promotion", "teachers", "policies", "faq", "school_info", "holiday", "internal_sop",
 ];
 
-export function KnowledgeManager({ documents }: { documents: Tables<"knowledge_documents">[] }) {
-  const router = useRouter();
+interface KnowledgeManagerProps {
+  documents: Tables<"knowledge_documents">[];
+  onChanged: () => void;
+}
+
+export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps) {
   const [title, setTitle] = useState("");
   const [sourceType, setSourceType] = useState<KnowledgeSourceType>("faq");
   const [content, setContent] = useState("");
@@ -28,21 +33,28 @@ export function KnowledgeManager({ documents }: { documents: Tables<"knowledge_d
     setError(null);
 
     try {
-      const response = await fetch("/api/knowledge/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, sourceType, content }),
+      const supabase = createClient();
+      // Chunking + embedding needs the Gemini key, which stays server-side —
+      // this invokes the Supabase Edge Function that holds it.
+      const { error: fnError } = await supabase.functions.invoke("knowledge-upload", {
+        body: { title, sourceType, content },
       });
-      if (!response.ok) throw new Error(await response.text());
+      if (fnError) throw fnError;
 
       setTitle("");
       setContent("");
-      router.refresh();
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save document");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleDelete(id: string) {
+    const repos = createRepositories(createClient());
+    await repos.knowledge.deleteDocument(id);
+    onChanged();
   }
 
   return (
@@ -97,16 +109,9 @@ export function KnowledgeManager({ documents }: { documents: Tables<"knowledge_d
                       {doc.source_type.replace(/_/g, " ")}
                     </Badge>
                   </div>
-                  <form
-                    action={async () => {
-                      await fetch(`/api/knowledge/upload?id=${doc.id}`, { method: "DELETE" });
-                      router.refresh();
-                    }}
-                  >
-                    <Button variant="ghost" size="icon" type="submit">
-                      <Trash2 className="h-4 w-4 text-danger" />
-                    </Button>
-                  </form>
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id)}>
+                    <Trash2 className="h-4 w-4 text-danger" />
+                  </Button>
                 </li>
               ))}
             </ul>

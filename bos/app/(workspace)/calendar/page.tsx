@@ -1,18 +1,29 @@
-import { createClient } from "@/services/supabase/server";
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
-import { CalendarView } from "@/features/calendar/components/calendar-view";
+import { CalendarView, type CalendarBookingEvent } from "@/features/calendar/components/calendar-view";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default async function CalendarPage() {
-  const supabase = await createClient();
-  const repos = createRepositories(supabase);
+export default function CalendarPage() {
+  const [events, setEvents] = useState<CalendarBookingEvent[] | null>(null);
 
-  const now = new Date();
-  const rangeStart = new Date(now);
-  rangeStart.setDate(rangeStart.getDate() - 14);
-  const rangeEnd = new Date(now);
-  rangeEnd.setDate(rangeEnd.getDate() + 45);
+  useEffect(() => {
+    const repos = createRepositories(createClient());
 
-  const bookings = await repos.bookings.listBetween(rangeStart.toISOString(), rangeEnd.toISOString());
+    const now = new Date();
+    const rangeStart = new Date(now);
+    rangeStart.setDate(rangeStart.getDate() - 14);
+    const rangeEnd = new Date(now);
+    rangeEnd.setDate(rangeEnd.getDate() + 45);
+
+    repos.bookings.listBetween(rangeStart.toISOString(), rangeEnd.toISOString()).then((bookings) => {
+      setEvents(
+        bookings.map((b) => ({ id: b.id, title: b.title, start: b.start_time, end: b.end_time, lessonType: b.lesson_type }))
+      );
+    });
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -20,9 +31,7 @@ export default async function CalendarPage() {
         <h1 className="text-2xl font-semibold text-secondary">Calendar</h1>
         <p className="text-sm text-secondary/50">Yellow = normal lesson · Green = final lesson (collect payment / renew)</p>
       </div>
-      <CalendarView
-        events={bookings.map((b) => ({ id: b.id, title: b.title, start: b.start_time, end: b.end_time, lessonType: b.lesson_type }))}
-      />
+      {events ? <CalendarView events={events} /> : <Skeleton className="h-[600px]" />}
     </div>
   );
 }

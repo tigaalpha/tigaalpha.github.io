@@ -39,7 +39,7 @@ export function PipelineBoard({ customers }: { customers: Tables<"customers">[] 
                 <EmptyState icon={KanbanSquare} title="Empty" className="p-6" />
               ) : (
                 items.map((customer) => (
-                  <Link key={customer.id} href={`/students/${customer.id}`}>
+                  <Link key={customer.id} href={`/students/detail?id=${customer.id}`}>
                     <Card className="p-3 transition-shadow hover:shadow-card">
                       <p className="text-sm font-medium text-secondary">{customer.name}</p>
                       <p className="mt-0.5 truncate text-xs text-secondary/50">{customer.learning_goal ?? customer.phone ?? "—"}</p>

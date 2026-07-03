@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { GraduationCap } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,8 +9,12 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Tables } from "@/types/database";
 
-export function TeachersManager({ teachers }: { teachers: Tables<"teachers">[] }) {
-  const router = useRouter();
+interface TeachersManagerProps {
+  teachers: Tables<"teachers">[];
+  onChanged: () => void;
+}
+
+export function TeachersManager({ teachers, onChanged }: TeachersManagerProps) {
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -23,7 +26,7 @@ export function TeachersManager({ teachers }: { teachers: Tables<"teachers">[] }
     await supabase.from("teachers").insert({ name: name.trim() });
     setName("");
     setSubmitting(false);
-    router.refresh();
+    onChanged();
   }
 
   return (

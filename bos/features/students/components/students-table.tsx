@@ -46,7 +46,7 @@ export function StudentsTable({ students }: { students: StudentRow[] }) {
           {students.map((student) => (
             <tr key={student.id} className="hover:bg-black/[0.02]">
               <td className="px-4 py-3">
-                <Link href={`/students/${student.id}`} className="font-medium text-secondary hover:text-primary-accent">
+                <Link href={`/students/detail?id=${student.id}`} className="font-medium text-secondary hover:text-primary-accent">
                   {student.name}
                 </Link>
               </td>

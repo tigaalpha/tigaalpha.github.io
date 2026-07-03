@@ -1,11 +1,19 @@
-import { createClient } from "@/services/supabase/server";
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { NotificationsCard } from "@/features/dashboard/components/notifications-card";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Tables } from "@/types/database";
 
-export default async function NotificationsPage() {
-  const supabase = await createClient();
-  const repos = createRepositories(supabase);
-  const notifications = await repos.notifications.listAll(100);
+export default function NotificationsPage() {
+  const [notifications, setNotifications] = useState<Tables<"notifications">[] | null>(null);
+
+  useEffect(() => {
+    const repos = createRepositories(createClient());
+    repos.notifications.listAll(100).then(setNotifications);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -13,7 +21,7 @@ export default async function NotificationsPage() {
         <h1 className="text-2xl font-semibold text-secondary">Notifications</h1>
         <p className="text-sm text-secondary/50">Lesson reminders, conflicts, renewals, and AI escalations</p>
       </div>
-      <NotificationsCard notifications={notifications} />
+      {notifications ? <NotificationsCard notifications={notifications} /> : <Skeleton className="h-64" />}
     </div>
   );
 }
