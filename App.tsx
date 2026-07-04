@@ -1456,15 +1456,22 @@ const LESSON_MODE = "__lesson__";
 const API_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co/functions/v1/piano-chat";
 const TTS_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co/functions/v1/piano-tts";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzYXFnYnJhY3hudWNkbXRtY3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTM1MzAsImV4cCI6MjA5NzM4OTUzMH0.vwhXn9usX4YRJdGEL8VU-E86mYfg6mZQbjkernMNXT4";
-const API_HEADERS = {
-  "Content-Type": "application/json",
-  "Authorization": "Bearer " + SUPABASE_ANON_KEY,
-  "apikey": SUPABASE_ANON_KEY,
-};
+// piano-chat/piano-tts require a genuine per-user session (not just the public
+// anon key) so they can't be called anonymously off the project's AI budget.
+// Kept up to date by the auth-state listener in App() — every fetch below reads
+// it fresh via apiHeaders() rather than a stale captured header object.
+let _accessToken = null;
+function apiHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + (_accessToken || SUPABASE_ANON_KEY),
+    "apikey": SUPABASE_ANON_KEY,
+  };
+}
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "12.2.0";
+const APP_VER = "12.5.0";
 /* ── Supabase client — Auth (Google/Facebook) + membership profiles ── */
 const SUPABASE_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co";
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -2552,7 +2559,7 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
     try {
       const res = await fetch(TTS_URL, {
         method: "POST",
-        headers: API_HEADERS,
+        headers: apiHeaders(),
         body: JSON.stringify({ text: styleTTS(s, lang), lang, voice: getVmVoiceName() }),
         signal: ctrl.signal,
       });
@@ -2610,7 +2617,7 @@ async function fetchCloudClips(text, lang) {
   const fetchOne = (s) => {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 4500);
-    return fetch(TTS_URL, { method: "POST", headers: API_HEADERS, body: JSON.stringify({ text: styleTTS(s, lang), lang, voice: getVmVoiceName() }), signal: ctrl.signal })
+    return fetch(TTS_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ text: styleTTS(s, lang), lang, voice: getVmVoiceName() }), signal: ctrl.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error("tts " + res.status);
         const data = await res.json();
@@ -4355,7 +4362,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead }) {
 const _v12wait = (ms) => new Promise(r => setTimeout(r, ms));
 const PC_SOLFA = { C: "do", D: "re", E: "mi", F: "fa", G: "sol", A: "la", B: "ti" };
 const PC_SOLFA_TH = { C: "โด", D: "เร", E: "มี", F: "ฟา", G: "ซอล", A: "ลา", B: "ที" };
-const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward }) {
+const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack }) {
   const T = {
     th: { title: "ซ้อมวันนี้", sub: "แผนซ้อมส่วนตัวของคุณ — สร้างใหม่ให้ทุกวันจากความคืบหน้าจริง ไล่ทำทีละข้อได้เลย", warm: "วอร์มอัพนิ้ว", hw: "การบ้านจากครู", review: "ทบทวนของเดิม", learn: "เรียนเรื่องใหม่", song: "เพลงปิดท้าย", start: "เริ่ม ▶", done: "เสร็จแล้ว ✓", hwBtn: "ทำแล้ว ✓", progress: "ความคืบหน้าวันนี้", allDone: "ครบทุกข้อแล้ว! สุดยอดไปเลยครับ 🎉", bonus: "รับโบนัสประจำวัน +40 EXP · +20 🪙", claimed: "รับโบนัสของวันนี้แล้ว ✓" },
     en: { title: "Practice Today", sub: "Your personal plan — rebuilt every day from your real progress. Just work down the list.", warm: "Finger warm-up", hw: "Teacher's homework", review: "Review", learn: "Something new", song: "Closing song", start: "Start ▶", done: "Done ✓", hwBtn: "Done ✓", progress: "Today's progress", allDone: "All done — amazing work! 🎉", bonus: "Claim daily bonus +40 EXP · +20 🪙", claimed: "Today's bonus claimed ✓" },
@@ -4406,6 +4413,12 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
 
   return (
     <div className="pathpage">
+      {onBack && (
+        <button onClick={() => { playUi("click"); onBack(); }}
+          style={{ margin: "12px 2px 0", background: "none", border: "1px solid #3a2430", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+          ← {L[lang].navStudio}
+        </button>
+      )}
       <div className="v12hero">
         <div className="v12title">📅 {T.title}</div>
         <div className="v12sub">{T.sub}</div>
@@ -4818,8 +4831,11 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
   }[lang];
   const log = readActLog();
   const dayMs = 86400000;
-  const t0 = new Date(); t0.setHours(0, 0, 0, 0);
-  const start14 = t0.getTime() - 13 * dayMs;
+  // day boundary must match dayKey()/dayDate() (DAY_TZ_OFFSET_MIN — currently UTC),
+  // not the device's local midnight, or "days practiced" and this chart disagree
+  const _n0 = new Date();
+  const t0 = Date.UTC(_n0.getUTCFullYear(), _n0.getUTCMonth(), _n0.getUTCDate());
+  const start14 = t0 - 13 * dayMs;
   const now = Date.now();
   const mins = Array(14).fill(0);
   const hourSec = Array(24).fill(0);
@@ -4872,7 +4888,7 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
           {mins.map((m, i) => <div key={i} className="insbar" style={{ height: Math.max(2, Math.round(m / maxMin * 88)) + "%", opacity: m > 0 ? 1 : 0.25 }} title={Math.round(m / 60) + " min"} />)}
         </div>
         <div style={{ display: "flex", gap: "4px", padding: "2px 2px 0" }}>
-          {mins.map((_, i) => { const d = new Date(start14 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "8px", color: "#826575", fontFamily: "'Share Tech Mono',monospace" }}>{WD[d.getDay()]}</div>; })}
+          {mins.map((_, i) => { const d = new Date(start14 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "8px", color: "#826575", fontFamily: "'Share Tech Mono',monospace" }}>{WD[d.getUTCDay()]}</div>; })}
         </div>
       </div>
       <div className="v12card">
@@ -4958,9 +4974,11 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
       : (lang === "th" ? ` สัปดาห์หน้าลองเปิดหัวข้อใหม่ใน Pathway สักเรื่องนะครับ 💪` : lang === "zh" ? `。下周试着在学习之路开一个新主题吧！💪` : `. Next week, try opening one new Pathway topic! 💪`);
     comment = p1 + p2 + p3;
   }
-  // 7-day minute bars
-  const t0 = new Date(); t0.setHours(0, 0, 0, 0);
-  const start7 = t0.getTime() - 6 * dayMs;
+  // 7-day minute bars — boundary must match dayKey()/dayDate() (currently UTC),
+  // not device-local midnight, or these bars disagree with the "days" stat above
+  const _n0 = new Date();
+  const t0 = Date.UTC(_n0.getUTCFullYear(), _n0.getUTCMonth(), _n0.getUTCDate());
+  const start7 = t0 - 6 * dayMs;
   const mins7 = Array(7).fill(0);
   for (const e of log) { const di = Math.floor((e.t - start7) / dayMs); if (di >= 0 && di < 7) mins7[di] += e.sec; }
   const maxM = Math.max(60, ...mins7);
@@ -5005,7 +5023,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
           {mins7.map((m, i) => <div key={i} className="insbar" style={{ height: Math.max(3, Math.round(m / maxM * 88)) + "%", opacity: m > 0 ? 1 : 0.25 }} />)}
         </div>
         <div style={{ display: "flex", gap: "4px" }}>
-          {mins7.map((_, i) => { const d = new Date(start7 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "8.5px", color: "#826575", fontFamily: "'Share Tech Mono',monospace" }}>{WD[d.getDay()]}</div>; })}
+          {mins7.map((_, i) => { const d = new Date(start7 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "8.5px", color: "#826575", fontFamily: "'Share Tech Mono',monospace" }}>{WD[d.getUTCDay()]}</div>; })}
         </div>
       </div>
       <div className="v12card" style={{ borderColor: "#fc2d8e44" }}>
@@ -5035,11 +5053,12 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, voiceLocked = false }) {
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false }) {
   const lc = L[lang];
   const cards = [
     // Voice Mode is a Max-tier exclusive — other plans don't even see the card
     ...(voiceLocked ? [] : [{ k: "voice", ic: "🎙️", c: "#06d6a0", t: lc.studioVoice, s: lc.studioVoiceSub, fn: onVoice, badge: "👑 MAX" }]),
+    { k: "today",   ic: "📅", c: "#06d6a0", t: lc.navToday,        s: lang === "th" ? "แผนซ้อมวันนี้ — สร้างใหม่ทุกวันจากความคืบหน้าจริง" : lang === "zh" ? "今日计划 — 每天根据真实进度生成" : "Today's plan — rebuilt daily from your real progress", fn: onToday },
     { k: "songs",   ic: "🎵", c: "#ff9e00", t: lc.studioPlayAlong, s: lc.studioPlayAlongSub, fn: onSongs },
     { k: "eargym",  ic: "👂", c: "#ff76d8", t: lc.navEar,          s: lc.studioEarSub,       fn: onEarGym },
     { k: "reading", ic: "🎼", c: "#ff94e0", t: lc.navRead,         s: lc.studioReadSub,      fn: onReading },
@@ -5120,7 +5139,7 @@ function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("t
 // button = mute toggle, thin progress bar. If EVERY raw URL fails (Google
 // changes behavior, file too big to stream, permissions), the slide quietly
 // swaps to Google's own preview player so the lesson still plays no matter what.
-function VideoSlide({ s, active, lang, onEnded, onAsk, likeN, likedByMe, onToggleLike }) {
+function VideoSlide({ s, active, preload, lang, onEnded, onAsk, likeN, likedByMe, onToggleLike }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const vidRef = useRef(null);
   const barRef = useRef(null);
@@ -5132,6 +5151,11 @@ function VideoSlide({ s, active, lang, onEnded, onAsk, likeN, likedByMe, onToggl
   const [faved, setFaved] = useState(() => readVidFav(s.fileId));
   const [hearts, setHearts] = useState([]);
   const srcs = rawVideoUrls(s.fileId);
+  const mounted = active || preload; // preload: the slide right after active buffers
+  // quietly in the background (muted, hidden, paused) so auto-advance on "ended"
+  // plays the next clip instantly instead of starting its fetch from zero. The
+  // <video> tag stays the SAME element across the preload→active transition
+  // (same JSX position/type below) so the browser's buffered data carries over.
   useEffect(() => {
     const v = vidRef.current;
     if (!v || failed) return;
@@ -5140,10 +5164,12 @@ function VideoSlide({ s, active, lang, onEnded, onAsk, likeN, likedByMe, onToggl
       const p = v.play();
       // browsers may veto unmuted autoplay — retry muted with a visible unmute button
       if (p && p.catch) p.catch(() => { v.muted = true; setMuted(true); v.play().catch(() => {}); });
+    } else if (preload) {
+      v.muted = true; // never plays here — just lets the browser buffer ahead
     }
     return () => clearTimeout(tapT.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, failed, srcIdx]);
+  }, [active, preload, failed, srcIdx]);
   const spawnHeart = (x, y) => {
     const id = Date.now() + Math.random();
     setHearts(h => [...h.slice(-5), { id, x, y, rot: -18 + Math.random() * 36 }]);
@@ -5165,8 +5191,8 @@ function VideoSlide({ s, active, lang, onEnded, onAsk, likeN, likedByMe, onToggl
       }, 260);
     }
   };
-  if (!active) return <div className="vidplaceholder">🎬</div>;
-  const rail = (
+  if (!mounted) return <div className="vidplaceholder">🎬</div>;
+  const rail = !active ? null : (
     <div className="vidrail" onClick={e => e.stopPropagation()}>
       <button className={`vidact${likedByMe ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); if (onToggleLike) onToggleLike(); }}>
         <span className="vidact-ic">❤️</span>
@@ -5188,7 +5214,9 @@ function VideoSlide({ s, active, lang, onEnded, onAsk, likeN, likedByMe, onToggl
     </span>
   ));
   if (failed) {
-    // raw stream unavailable → Google's own player, but the action rail stays
+    // raw stream unavailable → Google's own player, but only once this slide is
+    // actually active (never show/load an iframe for an off-screen preload slide)
+    if (!active) return <div className="vidplaceholder">🎬</div>;
     return (
       <>
         <iframe className="vidplayer" src={`https://drive.google.com/file/d/${s.fileId}/preview`}
@@ -5200,17 +5228,20 @@ function VideoSlide({ s, active, lang, onEnded, onAsk, likeN, likedByMe, onToggl
   return (
     <>
       <video ref={vidRef} className="vidplayer" src={srcs[srcIdx]} playsInline preload="auto"
-        onEnded={() => { if (onEnded) onEnded(); }}
+        style={!active ? { visibility: "hidden" } : undefined}
+        onEnded={() => { if (active && onEnded) onEnded(); }}
         onError={() => { if (srcIdx + 1 < srcs.length) setSrcIdx(srcIdx + 1); else setFailed(true); }}
-        onTimeUpdate={() => { const v = vidRef.current, b = barRef.current; if (v && b && v.duration) b.style.width = ((v.currentTime / v.duration) * 100) + "%"; }}
-        onClick={onTap} />
-      {paused && <div className="vidpause">▶</div>}
-      <button className="vidmute" onClick={(e) => { e.stopPropagation(); const v = vidRef.current; if (!v) return; v.muted = !v.muted; setMuted(v.muted); if (!v.muted) v.play().catch(() => {}); }}>
-        {muted ? "🔇" : "🔊"}
-      </button>
+        onTimeUpdate={() => { if (!active) return; const v = vidRef.current, b = barRef.current; if (v && b && v.duration) b.style.width = ((v.currentTime / v.duration) * 100) + "%"; }}
+        onClick={active ? onTap : undefined} />
+      {active && paused && <div className="vidpause">▶</div>}
+      {active && (
+        <button className="vidmute" onClick={(e) => { e.stopPropagation(); const v = vidRef.current; if (!v) return; v.muted = !v.muted; setMuted(v.muted); if (!v.muted) v.play().catch(() => {}); }}>
+          {muted ? "🔇" : "🔊"}
+        </button>
+      )}
       {rail}
-      {heartsJsx}
-      <div className="vidbar"><span ref={barRef} /></div>
+      {active && heartsJsx}
+      {active && <div className="vidbar"><span ref={barRef} /></div>}
     </>
   );
 }
@@ -5309,6 +5340,8 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
     const el = slideRefs.current[next];
     if (el) el.scrollIntoView({ behavior: next > i ? "smooth" : "auto", block: "start" });
   };
+  const activeIdx = slides.findIndex(s => s.key === activeKey);
+  const preloadKey = activeIdx >= 0 ? slides[(activeIdx + 1) % slides.length].key : null;
   return (
     <div className="vidfeed">
       {slides.map((s, i) => (
@@ -5319,7 +5352,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
                   allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
               : <div className="vidplaceholder">🎬</div>
           ) : (
-            <VideoSlide s={s} active={activeKey === s.key} lang={lang} onEnded={() => advance(i)} onAsk={onAsk}
+            <VideoSlide s={s} active={activeKey === s.key} preload={preloadKey === s.key} lang={lang} onEnded={() => advance(i)} onAsk={onAsk}
               likeN={(likes[s.fileId] || {}).n || 0} likedByMe={!!(likes[s.fileId] || {}).me} onToggleLike={() => toggleLike(s.fileId)} />
           )}
           <div className="vidtopfade" />
@@ -5361,7 +5394,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     setGenerating(true); setGenErr(false);
     try {
       const sys = "You turn a song request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON, no prose, no markdown: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names from C4 to B5 only; use \"R\" for a rest; beats are 0.5, 1, 1.5 or 2. Keep it 16-48 notes and recognizable.";
-      const res = await fetch(API_URL, { method: "POST", headers: API_HEADERS, body: JSON.stringify({ message: "Create this song: " + genText, conversationHistory: [], system: sys }) });
+      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Create this song: " + genText, conversationHistory: [], system: sys }) });
       if (!res.ok || !res.body) throw new Error("http");
       const reader = res.body.getReader(), dec = new TextDecoder();
       let acc = "", buf = "";
@@ -6875,7 +6908,7 @@ function AdminPayments({ lang }) {
       const media = blob.type || "image/jpeg";
       const sys = "You verify Thai bank-transfer / PromptPay slips. Read the slip image and return ONLY minified JSON: {\"amount\":number,\"date\":string,\"time\":string,\"sender\":string,\"recipient\":string,\"ref\":string,\"bank\":string}. Use null for any unreadable field.";
       const body = { model: API_MODEL, max_tokens: 600, system: sys, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: media, data: String(b64).split(",")[1] } }, { type: "text", text: "Extract the payment details from this slip. The expected amount is " + sel.amount + " THB." }] }] };
-      const res = await fetch(API_URL, { method: "POST", headers: API_HEADERS, body: JSON.stringify(body) });
+      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify(body) });
       const d = await res.json();
       const txt = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("");
       let parsed = null; try { const m = txt.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; } catch (e) {}
@@ -7183,7 +7216,7 @@ function AdminPage({ lang, onExit }) {
       } else {
         const res = await fetch(API_URL, {
           method: "POST",
-          headers: API_HEADERS,
+          headers: apiHeaders(),
           body: JSON.stringify(body)
         });
         const data = await res.json();
@@ -7386,10 +7419,12 @@ export default function App() {
     sb.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session || null);
+      _accessToken = (data.session && data.session.access_token) || null;
       setAuthReady(true);
     });
     const { data: sub } = sb.auth.onAuthStateChange((_e, s) => {
       setSession(s || null);
+      _accessToken = (s && s.access_token) || null; // kept fresh across silent token refreshes too
       setAuthReady(true);
     });
     return () => { mounted = false; if (sub && sub.subscription) sub.subscription.unsubscribe(); };
@@ -7685,6 +7720,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const practiceTargetRef = useRef([]);
   const practiceKeyRef = useRef(null);   // scale/chord key so practice can recompute fingering per hand
   const practiceModeRef = useRef("seq");
+  const practiceAscRef = useRef([]);     // ascending-only notes (pre up+down expansion) — lets a hand switch mid-scale recompute correctly
   const practiceIdxRef = useRef(0);
   const practiceHitsRef = useRef(0);
   const practiceMissRef = useRef(0);
@@ -7834,9 +7870,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [hand]);
 
   // Practice Mode: recompute the on-key finger numbers when the hand is switched.
+  // Recomputes from the ASCENDING-only notes (fingering data is keyed to that
+  // length), then re-expands up+down for scales — matching startPractice().
   useEffect(() => {
     if (!practiceOpen) return;
-    const pf = fingersForNotes(practiceKeyRef.current, practiceModeRef.current, practiceTargetRef.current, hand);
+    const ascNotes = practiceAscRef.current.length ? practiceAscRef.current : practiceTargetRef.current;
+    let pf = fingersForNotes(practiceKeyRef.current, practiceModeRef.current, ascNotes, hand);
+    if (pf && practiceModeRef.current === "scale" && practiceTargetRef.current.length > ascNotes.length) {
+      pf = pf.concat(pf.slice(0, -1).reverse());
+    }
     if (pf) setPracticeFingers(pf);
   }, [hand, practiceOpen]);
 
@@ -8139,7 +8181,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   async function startPractice() {
     const seq = lastSeq.current;
     if (!seq || !seq.notes || !seq.notes.length) return;
-    practiceTargetRef.current = seq.notes.slice();
+    // finger numbers for the currently selected hand (falls back to the played fingers)
+    const pf = fingersForNotes(seq.key, seq.mode, seq.notes, hand);
+    let notes = seq.notes.slice();
+    let fingers = pf || (seq.fingers ? seq.fingers.slice() : []);
+    practiceAscRef.current = notes;
+    // a full scale is drilled ascending THEN descending — same as the audio demo
+    // and the app's own fingering rule ("descending = the same fingers in
+    // reverse"), and correct for whichever hand is selected since `fingers` was
+    // already recomputed for `hand` above. Chords / custom AI drills stay as-is.
+    if (seq.mode === "scale" && notes.length > 1) {
+      notes = notes.concat(notes.slice(0, -1).reverse());
+      if (fingers.length) fingers = fingers.concat(fingers.slice(0, -1).reverse());
+    }
+    practiceTargetRef.current = notes;
     practiceKeyRef.current = seq.key || null;
     practiceModeRef.current = seq.mode || "seq";
     practiceIdxRef.current = 0;
@@ -8147,10 +8202,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     practiceMissRef.current = 0;
     practiceLabelRef.current = seq.label || "";
     practiceActiveRef.current = true;
-    setPracticeTarget(seq.notes.slice());
-    // finger numbers for the currently selected hand (falls back to the played fingers)
-    const pf = fingersForNotes(seq.key, seq.mode, seq.notes, hand);
-    setPracticeFingers(pf || (seq.fingers ? seq.fingers.slice() : []));
+    setPracticeTarget(notes);
+    setPracticeFingers(fingers);
     setPracticeLabel(seq.label || "");
     setPracticeIdx(0);
     setPracticeMiss(0);
@@ -8160,6 +8213,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     tuneOffsetRef.current = 0; // re-learn tuning for whatever piano is used now
     setPracticeOpen(true);
     getAC(); // unlock/resume audio inside the click gesture
+    stopPracticeListeners(); // release any mic/MIDI another mode left open — never stack listeners
     const onDetect = (d) => practiceHandlerRef.current(d);
     const midiOk = await startMidiListener(onDetect, () => setPracticeSrc({ type: "midi" }));
     if (!midiOk) {
@@ -8280,6 +8334,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     getAC();
     songStartClockRef.current = getAC().currentTime;
     songRunRef.current = true;
+    stopPracticeListeners(); // release any mic/MIDI another mode left open — never stack listeners
     const onDetect = (d) => songInputRef.current(d);
     const midiOk = await startMidiListener(onDetect, () => setSongSrc({ type: "midi" }));
     if (!midiOk) await startMicListener(onDetect, () => setSongSrc({ type: "mic" }), () => setSongSrc({ type: "error" }));
@@ -8697,6 +8752,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     newSightNote();
     setSightOpen(true);
     getAC();
+    stopPracticeListeners(); // release any mic/MIDI another mode left open — never stack listeners
     const onDetect = (d) => sightHandlerRef.current(d);
     const midiOk = await startMidiListener(onDetect, () => setSightSrc({ type: "midi" }));
     if (!midiOk) await startMicListener(onDetect, () => setSightSrc({ type: "mic" }), () => setSightSrc({ type: "error" }));
@@ -8768,7 +8824,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
         { type: "text", text: lang === "th" ? "ดูมือผมแล้วแนะนำหน่อยครับ" : lang === "zh" ? "看看我的手，给点建议" : "Check my hands and give feedback." }
       ] }] };
-      const res = await fetch(API_URL, { method: "POST", headers: API_HEADERS, body: JSON.stringify(body) });
+      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) throw new Error("http");
       const reply = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
@@ -9337,7 +9393,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         if (final) { const tail = acc.slice(spoken); if (tail.trim()) { onSentence(tail); emittedAny = true; spoken = acc.length; } }
       };
       try {
-        const res = await fetch(API_URL, { method: "POST", headers: API_HEADERS, body, signal: ctrl.signal });
+        const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body, signal: ctrl.signal });
         if (!res.ok || !res.body) throw new Error("http " + res.status);
         const reader = res.body.getReader(), dec = new TextDecoder();
         while (true) {
@@ -9916,7 +9972,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try {
       const res = await fetch(API_URL, {
         method: "POST",
-        headers: API_HEADERS,
+        headers: apiHeaders(),
         body: JSON.stringify({ message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) }),
       });
 
@@ -10179,7 +10235,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "today" && (
         <TodayPage lang={lang} exp={(profile && profile.exp) || 0} homework={homework}
           onLearn={learnTopic} onRead={readChapter} onSong={chooseSong}
-          onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
+          onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }}
+          onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "eargym" && (
         <EarGymPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
@@ -10212,7 +10269,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "studio" && (
         studioView === "songs"
           ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} onUpsell={() => setPricingOpen(true)} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
-          : <StudioPage lang={lang} voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)} onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }} onSongs={() => setStudioView("songs")} onSight={openSight} onCamera={openCamera} onExam={() => { playUi("click"); premium ? setExamOpen(true) : setPricingOpen(true); }} onEarGym={() => { playUi("click"); logUsage("nav", "studio-eargym"); setPage("eargym"); }} onReading={() => { playUi("click"); logUsage("nav", "studio-reading"); setPage("reading"); }} />
+          : <StudioPage lang={lang} voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)} onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }} onSongs={() => setStudioView("songs")} onSight={openSight} onCamera={openCamera} onExam={() => { playUi("click"); premium ? setExamOpen(true) : setPricingOpen(true); }} onEarGym={() => { playUi("click"); logUsage("nav", "studio-eargym"); setPage("eargym"); }} onReading={() => { playUi("click"); logUsage("nav", "studio-reading"); setPage("reading"); }} onToday={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }} />
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
@@ -10396,7 +10453,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         {[
           { p: "pathway", ic: "⬡", c: "#943c64", t: lc.navPath },
-          { p: "today", ic: "📅", c: "#06d6a0", t: lc.navToday },
           { p: "sensei", ic: "◈", c: "#fc2d8e", t: lc.navSensei },
           { p: "studio", sv: "menu", ic: "▶", c: "#ff9e00", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#06d6a0", t: lc.navVideos },
@@ -10406,7 +10462,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           const isOn = it.p === "studio" ? (page === "studio" && studioView === it.sv) : page === it.p;
           return (
           <button key={it.p + (it.sv || "")} className={`draweritem${isOn ? " on" : ""}`} style={{ "--nav-c": it.c }}
-            onClick={() => { playUi("click"); haptic(6); logUsage("nav", it.p + (it.sv ? "-" + it.sv : "")); setPage(it.p); if (it.p === "studio") setStudioView(it.sv); setNavOpen(false); }}>
+            onClick={() => { playUi("click"); haptic(6); logUsage("nav", it.p + (it.sv ? "-" + it.sv : "")); stopPracticeListeners(); setPage(it.p); if (it.p === "studio") setStudioView(it.sv); setNavOpen(false); }}>
             <span className="drawericon" aria-hidden="true">{it.ic}</span>
             <span className="drawerlabel">{it.t}</span>
             {isOn && <span className="drawerdot" />}
