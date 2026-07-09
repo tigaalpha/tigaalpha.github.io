@@ -9,34 +9,57 @@ import type { User } from "@supabase/supabase-js";
 
 /**
  * Static export has no server middleware, so route protection happens
- * client-side: check the session on mount, redirect to /login if absent.
- * The real security boundary is Postgres RLS (is_staff()), not this guard —
- * this only spares an authenticated-looking flash of UI before redirecting.
+ * client-side. `detectSessionInUrl` is off on the client (see
+ * services/supabase/client.ts) — this is the single place that exchanges a
+ * PKCE `?code=` for a session, so there's no race between automatic
+ * detection and an eager redirect-to-login wiping out a pending sign-in.
+ * The real security boundary is Postgres RLS (is_staff()), not this guard.
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null | "loading">("loading");
   const [profileName, setProfileName] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const supabase = createClient();
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", session.user.id)
-          .single()
-          .then(({ data }) => setProfileName(data?.full_name ?? null));
+    async function init() {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.error("OAuth code exchange failed:", error.message);
+        }
+        url.searchParams.delete("code");
+        window.history.replaceState({}, "", url.toString());
       }
-    });
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (cancelled) return;
+
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const { data } = await supabase.from("profiles").select("full_name").eq("id", session.user.id).single();
+        if (!cancelled) setProfileName(data?.full_name ?? null);
+      }
+    }
+
+    init();
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
       setUser(session?.user ?? null);
     });
 
-    return () => subscription.subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

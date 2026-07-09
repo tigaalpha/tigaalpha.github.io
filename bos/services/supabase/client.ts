@@ -6,13 +6,20 @@ let cachedClient: SupabaseClient<Database> | null = null;
 
 /**
  * Single browser Supabase client, session persisted in localStorage.
- * `detectSessionInUrl` (default true) automatically completes the OAuth
- * PKCE exchange when Supabase redirects back with `?code=`, so no server
- * callback route is needed in this static-export build.
+ * `detectSessionInUrl` is off — AuthGuard exchanges the PKCE `?code=` itself
+ * (see features/auth/components/auth-guard.tsx) so there's exactly one
+ * place doing the exchange, no race with automatic detection.
  */
 export function createClient(): SupabaseClient<Database> {
   if (!cachedClient) {
-    cachedClient = createSupabaseClient<Database>(env.supabase.url(), env.supabase.anonKey());
+    cachedClient = createSupabaseClient<Database>(env.supabase.url(), env.supabase.anonKey(), {
+      auth: {
+        flowType: "pkce",
+        detectSessionInUrl: false,
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    });
   }
   return cachedClient;
 }
