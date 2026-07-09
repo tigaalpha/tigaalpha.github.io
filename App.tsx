@@ -237,9 +237,15 @@ const FINGERINGS_RH = {
   "e major scale":  [1,2,3,1,2,3,4,5],
   "b major scale":  [1,2,3,1,2,3,4,5],
   "f major scale":  [1,2,3,4,1,2,3,4],
+  "f# major scale": [2,3,4,1,2,3,1,2],
+  "db major scale": [2,3,1,2,3,4,1,2],
+  "ab major scale": [3,4,1,2,3,1,2,3],
+  "eb major scale": [3,1,2,3,4,1,2,3],
+  "bb major scale": [2,1,2,3,1,2,3,4],
   "a minor scale":  [1,2,3,1,2,3,4,5],
   "e minor scale":  [1,2,3,1,2,3,4,5],
   "d minor scale":  [1,2,3,1,2,3,4,5],
+  "f minor scale":  [1,2,3,4,1,2,3,4],
   "c scale":        [1,2,3,1,2,3,4,5],
   "g scale":        [1,2,3,1,2,3,4,5],
   "pentatonic":     [1,2,3,4,5,1],
@@ -256,9 +262,15 @@ const FINGERINGS_LH = {
   "e major scale":  [5,4,3,2,1,3,2,1],
   "b major scale":  [4,3,2,1,4,3,2,1],
   "f major scale":  [5,4,3,2,1,3,2,1],
+  "f# major scale": [4,3,2,1,3,2,1,4],
+  "db major scale": [3,2,1,4,3,2,1,3],
+  "ab major scale": [3,2,1,4,3,2,1,3],
+  "eb major scale": [3,2,1,4,3,2,1,3],
+  "bb major scale": [3,2,1,4,3,2,1,2],
   "a minor scale":  [5,4,3,2,1,3,2,1],
   "e minor scale":  [5,4,3,2,1,3,2,1],
   "d minor scale":  [5,4,3,2,1,3,2,1],
+  "f minor scale":  [5,4,3,2,1,3,2,1],
   "c scale":        [5,4,3,2,1,3,2,1],
   "g scale":        [5,4,3,2,1,3,2,1],
   "pentatonic":     [5,4,3,2,1,5],
@@ -278,9 +290,17 @@ const FINGERING_REF =
   "\n\n[FINGERING FACTS — authoritative. Use these EXACT finger numbers; never invent or guess them. 1=thumb,2=index,3=middle,4=ring,5=pinky.]\n" +
   "Scales, ASCENDING (low→high pitch):\n" +
   "• Right hand — C, G, D, A, E, B major and A, E, D minor = 1 2 3 1 2 3 4 5\n" +
-  "• Right hand — F major = 1 2 3 4 1 2 3 4\n" +
-  "• Left hand — C, G, D, A, E, F major and A, E, D minor = 5 4 3 2 1 3 2 1\n" +
+  "• Right hand — F major and F minor = 1 2 3 4 1 2 3 4\n" +
+  "• Right hand — F# major = 2 3 4 1 2 3 1 2\n" +
+  "• Right hand — Db major = 2 3 1 2 3 4 1 2\n" +
+  "• Right hand — Ab major = 3 4 1 2 3 1 2 3\n" +
+  "• Right hand — Eb major = 3 1 2 3 4 1 2 3\n" +
+  "• Right hand — Bb major = 2 1 2 3 1 2 3 4\n" +
+  "• Left hand — C, G, D, A, E, F major and A, E, D, F minor = 5 4 3 2 1 3 2 1\n" +
   "• Left hand — B major = 4 3 2 1 4 3 2 1\n" +
+  "• Left hand — F# major = 4 3 2 1 3 2 1 4\n" +
+  "• Left hand — Db, Ab, Eb major = 3 2 1 4 3 2 1 3\n" +
+  "• Left hand — Bb major = 3 2 1 4 3 2 1 2\n" +
   "• DESCENDING = the very same fingers played in reverse order.\n" +
   "Triads (root position): right hand = 1 3 5 · left hand = 5 3 1.\n" +
   "Technique: ascending right hand passes the THUMB UNDER (after finger 3); ascending left hand crosses finger 3 OVER the thumb. " +
@@ -1471,10 +1491,52 @@ function apiHeaders() {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "12.6.0";
+const APP_VER = "13.1.0";
 /* ── Supabase client — Auth (Google/Facebook) + membership profiles ── */
 const SUPABASE_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co";
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ── Web Push (re-engagement notifications) ──
+   This public key is safe to ship in client code — VAPID public keys are
+   meant to be public, the matching private key (kept only as a Supabase Edge
+   Function secret, never in this file) is what actually authorizes sending.
+   REPLACE_WITH_YOUR_VAPID_PUBLIC_KEY: generate a pair with
+   `npx web-push generate-vapid-keys`, paste the public half here, and set
+   VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY as secrets on the send-reminders
+   function. Push stays silently unavailable (no crash) until this is set. */
+const VAPID_PUBLIC_KEY = "REPLACE_WITH_YOUR_VAPID_PUBLIC_KEY";
+function urlBase64ToUint8Array(base64) {
+  const pad = "=".repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + pad).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(b64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+function pushSupported() {
+  return VAPID_PUBLIC_KEY !== "REPLACE_WITH_YOUR_VAPID_PUBLIC_KEY" &&
+    "serviceWorker" in navigator && "PushManager" in window && typeof Notification !== "undefined";
+}
+async function subscribePush(userId) {
+  if (!pushSupported()) return false;
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") return false;
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+  const j = sub.toJSON();
+  await sb.from("push_subscriptions").upsert({
+    user_id: userId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+  }, { onConflict: "endpoint" });
+  return true;
+}
+async function unsubscribePush() {
+  if (!("serviceWorker" in navigator)) return;
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg && await reg.pushManager.getSubscription();
+  if (!sub) return;
+  try { await sb.from("push_subscriptions").delete().eq("endpoint", sub.endpoint); } catch (e) {}
+  await sub.unsubscribe();
+}
 // Fire-and-forget usage tracking (nav clicks / pathway topics / page visits) so
 // the admin can see what's actually used. Never awaited, never blocks the UI,
 // and any failure (offline, RLS, whatever) is silently swallowed — a missed
@@ -2677,6 +2739,8 @@ const L = {
     navProfile: "โปรไฟล์", profTitle: "โปรไฟล์ของฉัน",
     profExpStat: "EXP สะสม", profLessonsStat: "บทเรียนที่ฝึก", profStreakBest: "วันต่อเนื่อง",
     profRanks: "เส้นทางสู่ตำนาน", profContact: "ข้อมูลติดต่อ", profSignOut: "ออกจากระบบ",
+    profContactEdit: "แก้ไข", profContactSave: "บันทึก", profContactCancel: "ยกเลิก",
+    profContactNudge: "เพิ่ม LINE หรือเบอร์โทรไว้ ให้ครูติดต่อได้ง่ายขึ้น",
     profMaxRank: "ถึงระดับสูงสุดแล้ว 🏆", profLevelWord: "เลเวล", levelUpWord: "เลเวลอัพ!",
     practiceBtn: "🎯 ฝึกเล่นท่อนนี้", practiceTitle: "โหมดฝึกเล่น",
     practiceNoSeq: "เลือกบทเรียนหรือเล่นตัวอย่างก่อน แล้วค่อยกดฝึก",
@@ -2687,7 +2751,7 @@ const L = {
     practiceHint: "เล่นโน้ตที่ไฮไลต์บนเปียโน แอปจะไปต่อเมื่อเล่นถูก",
     practiceMicTip: "💡 รองรับเปียโนเพี้ยนเล็กน้อย (ปรับจูนอัตโนมัติ) · ไม่มีไมค์/MIDI ก็แตะคีย์บนจอได้",
     profQuests: "ภารกิจวันนี้", profBadges: "เหรียญรางวัล",
-    pathHere: "อยู่ตรงนี้", weeklyTitle: "ชาเลนจ์รายสัปดาห์", profProgress: "ความก้าวหน้า", profActiveDays: "วันที่ฝึก", profAccTrend: "แนวโน้มความแม่นยำ", profLess: "น้อย", profMore: "มาก", profNoData: "เริ่มฝึกเพื่อดูสถิติ",
+    pathHere: "อยู่ตรงนี้", backChangeKey: "เปลี่ยนคีย์",  weeklyTitle: "ชาเลนจ์รายสัปดาห์", profProgress: "ความก้าวหน้า", profActiveDays: "วันที่ฝึก", profAccTrend: "แนวโน้มความแม่นยำ", profLess: "น้อย", profMore: "มาก", profNoData: "เริ่มฝึกเพื่อดูสถิติ",
     dashTitle: "แดชบอร์ดวัดผล", r1: "1 วัน", r7: "7 วัน", r14: "14 วัน", r30: "30 วัน", r1m: "1 เดือน", r3m: "3 เดือน", r6m: "6 เดือน", r1y: "1 ปี", dashActive: "วันที่ฝึก", dashSessions: "รอบที่ฝึก", dashAcc: "ความแม่นยำเฉลี่ย", dashExp: "EXP ที่ได้", dashActivity: "กิจกรรมการฝึก", dashAccTrend: "แนวโน้มความแม่นยำ",
     gameStatsTitle: "ผลเล่นเกมโน้ตตก", gameStatsPlays: "เล่นทั้งหมด", gameStatsBest: "คะแนนสูงสุด", gameStatsAcc: "ความแม่นยำแต่ละรอบ",
     questText: "ทำกิจกรรมเรียน/ฝึกวันนี้", questDoneText: "สำเร็จแล้ว! 🎉",
@@ -2736,6 +2800,9 @@ const L = {
     dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
     setAmbient: "ดนตรีบรรยากาศ", setInstall: "ติดตั้งเป็นแอป", setBpm: "จังหวะ (BPM)", setTap: "แตะตามจังหวะ", setLang: "ภาษา", setOn: "เปิด", setOff: "ปิด",
+    installBannerTitle: "ติดตั้ง TiGA AI ไว้ที่หน้าจอโฮม", installBannerSub: "เปิดได้ไวขึ้น ไม่ต้องหา URL ทุกครั้ง",
+    setPush: "🔔 แจ้งเตือน",
+    pushBannerTitle: "อย่าให้สตรีคหลุด!", pushBannerSub: "เปิดแจ้งเตือนไว้ เดี๋ยวเราจะเตือนถ้าลืมซ้อมวันนี้", pushBannerBtn: "เปิดแจ้งเตือน",
     upgrade: "อัปเกรด", prTitle: "อัปเกรดเป็น Premium", prSub: "ปลดล็อกครู AI เต็มพลัง เรียนได้ไม่จำกัด", prMonth: "เดือน", prYear: "ปี", prSave3: "ประหยัด 3%", prBillMonth: "รายเดือน", prBillYear: "รายปี", prActive: "ใช้งานอยู่", prGet: "สมัครเลย",
     prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "ครู AI ติชมการเล่นไม่จำกัด", prF3: "โหมดเตรียมสอบเกรด", prF4: "แดชบอร์ดผู้ปกครอง", prF5: "เสียงครูคุณภาพสูง + ไม่มีโฆษณา",
     prFam1: "ทุกอย่างใน Premium", prFam2: "สูงสุด 3 โปรไฟล์ (ทั้งครอบครัว)", prFree1: "คีย์บอร์ด เกม บทเรียนพื้นฐาน", prFree2: "ครู AI (จำกัดรายวัน)",
@@ -2773,6 +2840,8 @@ const L = {
     navProfile: "PROFILE", profTitle: "MY PROFILE",
     profExpStat: "total EXP", profLessonsStat: "lessons", profStreakBest: "day streak",
     profRanks: "ROAD TO LEGEND", profContact: "CONTACT INFO", profSignOut: "Sign out",
+    profContactEdit: "Edit", profContactSave: "Save", profContactCancel: "Cancel",
+    profContactNudge: "Add your LINE or phone so the teacher can reach you",
     profMaxRank: "Max rank reached 🏆", profLevelWord: "LV", levelUpWord: "LEVEL UP!",
     practiceBtn: "🎯 PRACTICE THIS", practiceTitle: "Practice Mode",
     practiceNoSeq: "Learn a topic or play a demo first, then practice",
@@ -2783,7 +2852,7 @@ const L = {
     practiceHint: "Play the highlighted key — it advances when you're correct",
     practiceMicTip: "💡 Tolerates a slightly out-of-tune piano (auto-tuning) · no mic/MIDI? tap the keys",
     profQuests: "DAILY QUEST", profBadges: "ACHIEVEMENTS",
-    pathHere: "YOU ARE HERE", weeklyTitle: "WEEKLY CHALLENGES", profProgress: "PROGRESS", profActiveDays: "active days", profAccTrend: "Accuracy trend", profLess: "Less", profMore: "More", profNoData: "Practice to see your stats",
+    pathHere: "YOU ARE HERE", backChangeKey: "Change key", weeklyTitle: "WEEKLY CHALLENGES", profProgress: "PROGRESS", profActiveDays: "active days", profAccTrend: "Accuracy trend", profLess: "Less", profMore: "More", profNoData: "Practice to see your stats",
     dashTitle: "PROGRESS DASHBOARD", r1: "1D", r7: "7D", r14: "14D", r30: "30D", r1m: "1M", r3m: "3M", r6m: "6M", r1y: "1Y", dashActive: "Active days", dashSessions: "Sessions", dashAcc: "Avg accuracy", dashExp: "EXP gained", dashActivity: "Practice activity", dashAccTrend: "Accuracy trend",
     gameStatsTitle: "GAME RESULTS", gameStatsPlays: "Total plays", gameStatsBest: "Best score", gameStatsAcc: "Accuracy per play",
     questText: "learning activities today", questDoneText: "Complete! 🎉",
@@ -2832,6 +2901,9 @@ const L = {
     dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
     setAmbient: "Ambient music", setInstall: "Install app", setBpm: "Tempo (BPM)", setTap: "Tap tempo", setLang: "Language", setOn: "On", setOff: "Off",
+    installBannerTitle: "Add TiGA AI to your home screen", installBannerSub: "Open it faster — no more hunting for the URL",
+    setPush: "🔔 Notifications",
+    pushBannerTitle: "Don't lose your streak!", pushBannerSub: "Turn on notifications and we'll remind you if you forget to practice today", pushBannerBtn: "Enable notifications",
     upgrade: "Upgrade", prTitle: "Go Premium", prSub: "Unlock the full AI teacher — learn without limits", prMonth: "mo", prYear: "yr", prSave3: "Save 3%", prBillMonth: "Monthly", prBillYear: "Yearly", prActive: "Active", prGet: "Subscribe",
     prF1: "Unlimited AI song creation", prF2: "Unlimited AI performance feedback", prF3: "Graded exam prep mode", prF4: "Parent dashboard", prF5: "HQ teacher voice + no ads",
     prFam1: "Everything in Premium", prFam2: "Up to 3 profiles (whole family)", prFree1: "Keyboard, games, core lessons", prFree2: "AI teacher (daily limit)",
@@ -2869,6 +2941,8 @@ const L = {
     navProfile: "个人", profTitle: "我的资料",
     profExpStat: "累计 EXP", profLessonsStat: "已学课程", profStreakBest: "天连续",
     profRanks: "传奇之路", profContact: "联系方式", profSignOut: "退出登录",
+    profContactEdit: "编辑", profContactSave: "保存", profContactCancel: "取消",
+    profContactNudge: "添加 LINE 或电话，方便老师联系你",
     profMaxRank: "已达最高等级 🏆", profLevelWord: "LV", levelUpWord: "升级了！",
     practiceBtn: "🎯 练习这段", practiceTitle: "练习模式",
     practiceNoSeq: "请先学习一个主题或播放示例，再开始练习",
@@ -2879,7 +2953,7 @@ const L = {
     practiceHint: "弹奏钢琴上高亮的琴键，弹对后会自动前进",
     practiceMicTip: "💡 可容忍轻微走音（自动校音）· 没有麦克风/MIDI？点击琴键也行",
     profQuests: "每日任务", profBadges: "成就",
-    pathHere: "你在这里", weeklyTitle: "每周挑战", profProgress: "进度", profActiveDays: "练习天数", profAccTrend: "准确率趋势", profLess: "少", profMore: "多", profNoData: "开始练习以查看数据",
+    pathHere: "你在这里", backChangeKey: "更换调号", weeklyTitle: "每周挑战", profProgress: "进度", profActiveDays: "练习天数", profAccTrend: "准确率趋势", profLess: "少", profMore: "多", profNoData: "开始练习以查看数据",
     dashTitle: "进度仪表盘", r1: "1天", r7: "7天", r14: "14天", r30: "30天", r1m: "1个月", r3m: "3个月", r6m: "6个月", r1y: "1年", dashActive: "练习天数", dashSessions: "练习次数", dashAcc: "平均准确率", dashExp: "获得 EXP", dashActivity: "练习活动", dashAccTrend: "准确率趋势",
     gameStatsTitle: "游戏成绩", gameStatsPlays: "总游玩", gameStatsBest: "最高分", gameStatsAcc: "每局准确率",
     questText: "今日学习/练习活动", questDoneText: "已完成！🎉",
@@ -2928,6 +3002,9 @@ const L = {
     dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
     setAmbient: "环境音乐", setInstall: "安装应用", setBpm: "速度 (BPM)", setTap: "点击打拍", setLang: "语言", setOn: "开", setOff: "关",
+    installBannerTitle: "把 TiGA AI 添加到主屏幕", installBannerSub: "打开更快 — 不用每次找网址",
+    setPush: "🔔 通知",
+    pushBannerTitle: "别让连续记录中断！", pushBannerSub: "打开通知，忘记练习时我们会提醒你", pushBannerBtn: "开启通知",
     upgrade: "升级", prTitle: "升级 Premium", prSub: "解锁完整 AI 老师，无限学习", prMonth: "月", prYear: "年", prSave3: "省3%", prBillMonth: "按月", prBillYear: "按年", prActive: "已开通", prGet: "立即订阅",
     prF1: "无限 AI 创作歌曲", prF2: "无限 AI 演奏点评", prF3: "考级备考模式", prF4: "家长仪表板", prF5: "高清老师语音 + 无广告",
     prFam1: "包含全部 Premium", prFam2: "最多 3 个档案（全家）", prFree1: "键盘、游戏、基础课程", prFree2: "AI 老师（每日限量）",
@@ -3310,7 +3387,11 @@ const CSS = `
 .lockerr{color:#ff5252;font-size:11px;font-family:'Share Tech Mono',monospace;min-height:14px;animation:shake .3s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 /* ── membership / login ── */
+.loginhero{display:flex;flex-direction:column;align-items:center;gap:8px;padding:26px 22px 2px;text-align:center;flex-shrink:0}
+.loginpiano{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:6px 0}
+.loginpiano-hint{font-family:'Share Tech Mono',monospace;font-size:10px;color:#7a5d6e;letter-spacing:1px;text-align:center;min-height:14px}
 .memberwrap{display:flex;flex-direction:column;align-items:center;gap:13px;padding:30px 22px;width:100%;max-width:340px;text-align:center}
+.loginwrap{flex-shrink:0;margin:0 auto;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
 .oauthbtn{display:flex;align-items:center;justify-content:center;gap:11px;width:100%;padding:13px 16px;border-radius:12px;border:none;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;transition:all .2s}
 .oauthbtn:active{transform:scale(.97)}
 .oauthbtn .oauthico{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-family:'Orbitron',sans-serif;font-weight:900;font-size:13px}
@@ -3374,6 +3455,15 @@ const CSS = `
 .profsignout:active{transform:scale(.98)}
 /* exp toast */
 .exptoast{position:fixed;top:64px;left:50%;z-index:1200;display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#943c64,#fc2d8e);color:#04121a;font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;letter-spacing:1px;padding:9px 18px;border-radius:22px;box-shadow:0 8px 26px -6px #fc2d8e,inset 0 0 0 1px #ffffff22;animation:exppop 2.2s ease-out forwards;pointer-events:none}
+/* one-time "add to home screen" banner, shown after the first real win */
+.installbanner{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:1300;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#22101a,#150c12);border:1px solid #fc2d8e55;border-radius:16px;padding:11px 12px;box-shadow:0 10px 30px -8px #000,0 0 20px -8px #fc2d8e66;animation:installin .3s ease-out}
+@keyframes installin{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+.installbanner-ic{font-size:26px;flex-shrink:0}
+.installbanner-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.installbanner-tx b{font-size:13px;color:#f5e9f0;font-family:'Rajdhani',sans-serif;font-weight:700;line-height:1.25}
+.installbanner-tx span{font-size:11px;color:#b58ba0;line-height:1.2}
+.installbanner-go{flex-shrink:0;background:linear-gradient(135deg,#fc2d8e,#943c64);color:#fff;border:none;border-radius:11px;padding:9px 14px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;white-space:nowrap}
+.installbanner-x{flex-shrink:0;background:none;border:none;color:#9a7488;font-size:20px;line-height:1;cursor:pointer;padding:4px 2px}
 @keyframes exppop{0%{opacity:0;transform:translateX(-50%) translateY(-14px) scale(.7)}14%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.06)}26%{transform:translateX(-50%) translateY(0) scale(1)}78%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.96)}}
 /* level-up overlay */
 .lvup{position:fixed;inset:0;z-index:1300;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,5,9,.82);backdrop-filter:blur(4px);animation:fadein .3s;pointer-events:none}
@@ -3627,6 +3717,11 @@ const CSS = `
 .dailyrec-ic{font-size:18px;flex-shrink:0}
 .dailyrec-txt{flex:1;min-width:0;font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:600;color:#faf0f5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dailyrec-go{color:#fc2d8e;font-weight:800;flex-shrink:0}
+/* quick "change key" back button on the Sensei page — returns to Pathway with
+   the same topic's key picker already open, instead of a ☰-menu round trip */
+.senseiback{display:flex;align-items:center;gap:6px;margin:8px 12px 0;padding:8px 13px;border-radius:20px;border:1px solid #fc2d8e44;background:rgba(252,45,142,.08);color:#ffa6fc;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer;align-self:flex-start}
+.senseiback:active{transform:scale(.97);background:rgba(252,45,142,.16)}
+.senseiback span:first-child{font-size:15px}
 .hwbar{display:flex;align-items:center;gap:9px;margin:6px 12px 0;padding:9px 13px;width:calc(100% - 24px);border-radius:13px;border:1px solid #fc2d8e33;background:linear-gradient(135deg,#2a1012,#120a10)}
 .hwbar-ic{font-size:17px;flex-shrink:0}
 .hwbar-tx{flex:1;min-width:0;font-family:'Rajdhani',sans-serif;font-size:13px;color:#faf0f5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -4161,11 +4256,20 @@ function Input({ val, onChange, onSend, loading, ph }) {
 
 
 /* ── Pathway Page ── */
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOpenStageId }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
-  const [openStageId, setOpenStageId] = useState(null);
+  // initialOpenStageId re-opens the topic the learner just came from (via the
+  // Sensei page's "change key" back button) so its key picker is right there —
+  // this only matters on first mount, same as any other useState initializer.
+  const [openStageId, setOpenStageId] = useState(initialOpenStageId || null);
   const [selectedType, setSelectedType] = useState(null); // type obj from stage.types, or null
+  useEffect(() => {
+    if (!initialOpenStageId) return;
+    const el = document.getElementById("pcard-" + initialOpenStageId);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function openCard(st) {
     if (openStageId === st.id) { setOpenStageId(null); setSelectedType(null); return; }
@@ -4223,7 +4327,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead }) {
                 const panelHere = rowEnd && openIdx >= si - (si % 2) && openIdx <= si;
                 return (
                   <Fragment key={st.id}>
-                  <button className={`pcard${isOpen ? " active" : ""}${pathDone.has(st.id) ? " done" : ""}${st.id === currentId ? " current" : ""}`}
+                  <button id={"pcard-" + st.id} className={`pcard${isOpen ? " active" : ""}${pathDone.has(st.id) ? " done" : ""}${st.id === currentId ? " current" : ""}`}
                     style={{ "--ac": st.color }}
                     onClick={() => isRead ? (BENEFIT_CASES[st.id] ? openCard(st) : onRead(st)) : openCard(st)}>
                     <span className="pcardglow" />
@@ -4659,9 +4763,12 @@ const RC_LEVELS = [
 ];
 const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
   const T = {
-    th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน" },
-    en: { title: "Note Reading", sub: "Real notation literacy, step by step — treble → ledger lines → bass clef → sharps → phrases", lvl: "Level", locked: "Earn ⭐⭐ on the previous level first", q: "Q", what: "Which note is this?", seqWhat: "Tap the note names in order", right: "Correct! 🎉", wrong: "Answer: ", done: "Level complete!", again: "Play again ▶", play: "Start ▶", back: "← Levels", score: "Score" },
-    zh: { title: "识谱课", sub: "循序渐进学会读谱 — 高音谱号 → 加线 → 低音谱号 → 升号 → 短句", lvl: "关卡", locked: "先在上一关拿到 ⭐⭐", q: "第", what: "这是什么音？", seqWhat: "按顺序点击音名", right: "正确！🎉", wrong: "答案：", done: "本关完成！", again: "再来一次 ▶", play: "开始 ▶", back: "← 选关", score: "得分" },
+    th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน",
+        tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน" },
+    en: { title: "Note Reading", sub: "Real notation literacy, step by step — treble → ledger lines → bass clef → sharps → phrases", lvl: "Level", locked: "Earn ⭐⭐ on the previous level first", q: "Q", what: "Which note is this?", seqWhat: "Tap the note names in order", right: "Correct! 🎉", wrong: "Answer: ", done: "Level complete!", again: "Play again ▶", play: "Start ▶", back: "← Levels", score: "Score",
+        tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead" },
+    zh: { title: "识谱课", sub: "循序渐进学会读谱 — 高音谱号 → 加线 → 低音谱号 → 升号 → 短句", lvl: "关卡", locked: "先在上一关拿到 ⭐⭐", q: "第", what: "这是什么音？", seqWhat: "按顺序点击音名", right: "正确！🎉", wrong: "答案：", done: "本关完成！", again: "再来一次 ▶", play: "开始 ▶", back: "← 选关", score: "得分",
+        tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式" },
   }[lang];
   const [lvl, setLvl] = useState(null);
   const [idx, setIdx] = useState(0);
@@ -4672,6 +4779,44 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
   const [result, setResult] = useState(null);
   const startTRef = useRef(0);
   const runRef = useRef(0);
+  // ── answer by playing a real piano/MIDI keyboard instead of tapping ──
+  // reuses the same mic/MIDI singleton every other listening mode shares.
+  const [micMode, setMicMode] = useState(false);
+  const [micSrc, setMicSrc] = useState(null);   // {type:"midi"|"mic"|"error"}
+  const [micHeard, setMicHeard] = useState(null); // last detected note, for a flash of feedback
+  const micTapsRef = useRef([]);
+  const curRef = useRef(null); curRef.current = cur;
+  const fbRef = useRef(null); fbRef.current = fb;
+  function micInput(d) {
+    if (!curRef.current || fbRef.current || !lvl) return;
+    const pc = pcOf(d.note);
+    playPianoNote(d.note, 0.3);
+    setMicHeard(d.note);
+    if (lvl.seq === 1) {
+      answered(pc === curRef.current.answerPcs[0], lvl);
+    } else {
+      micTapsRef.current = [...micTapsRef.current, pc];
+      setTaps(micTapsRef.current);
+      if (micTapsRef.current.length >= curRef.current.answerPcs.length) {
+        answered(micTapsRef.current.join(" ") === curRef.current.answerPcs.join(" "), lvl);
+      }
+    }
+  }
+  const micHandlerRef = useRef(() => {});
+  micHandlerRef.current = micInput;
+  useEffect(() => {
+    if (!micMode || !lvl || result) { stopPracticeListeners(); setMicSrc(null); return; }
+    getAC();
+    stopPracticeListeners(); // release any listener another mode left open — never stack
+    const onDetect = (d) => micHandlerRef.current(d);
+    (async () => {
+      const midiOk = await startMidiListener(onDetect, () => setMicSrc({ type: "midi" }));
+      if (!midiOk) await startMicListener(onDetect, () => setMicSrc({ type: "mic" }), () => setMicSrc({ type: "error" }));
+    })();
+    return () => stopPracticeListeners();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [micMode, lvl, result]);
+  useEffect(() => () => stopPracticeListeners(), []); // belt-and-braces: release on unmount
 
   function genQ(L) {
     const pick = () => L.pool[Math.floor(Math.random() * L.pool.length)];
@@ -4686,7 +4831,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
     }
     return { notes, answerPcs, options };
   }
-  function nextQ(L) { setCur(genQ(L)); setFb(null); setTaps([]); }
+  function nextQ(L) { setCur(genQ(L)); setFb(null); setTaps([]); micTapsRef.current = []; setMicHeard(null); }
   function startLevel(L) {
     playUi("click");
     runRef.current++;
@@ -4722,6 +4867,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
   }
   function pickPc(pc) {
     if (!cur || fb || !lvl) return;
+    playPianoNote(pc + "4", 0.35); // hear the note you picked, right or wrong — that's the lesson
     answered(pc === cur.answerPcs[0], lvl);
   }
   function tapSeq(pc) {
@@ -4765,11 +4911,17 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
   }
   return (
     <div className="pathpage">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px 10px" }}>
-        <button onClick={() => { playUi("click"); runRef.current++; setLvl(null); setResult(null); }} style={{ background: "none", border: "1px solid #3a2430", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>{T.back}</button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px 10px", gap: "8px", flexWrap: "wrap" }}>
+        <button onClick={() => { playUi("click"); runRef.current++; setLvl(null); setResult(null); }} style={{ background: "none", border: "1px solid #3a2430", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, flexShrink: 0 }}>{T.back}</button>
         <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "#b58ba0" }}>
           {result ? T.done : `${T.q} ${idx + 1}/${lvl.qn} · ${T.score}: ${score}`}
         </span>
+        {!result && (
+          <button onClick={() => { playUi("click"); setMicMode(m => !m); }}
+            style={{ marginLeft: "auto", background: micMode ? "rgba(252,45,142,.14)" : "none", border: `1px solid ${micMode ? "#fc2d8e" : "#3a2430"}`, borderRadius: "20px", color: micMode ? "#fc2d8e" : "#a88b9b", padding: "6px 12px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, flexShrink: 0 }}>
+            {micMode ? T.tapMode : T.pianoMode}
+          </button>
+        )}
       </div>
       {result ? (
         <div className="v12card" style={{ textAlign: "center", padding: "26px 14px" }}>
@@ -4786,28 +4938,47 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
           <div style={{ fontSize: "12.5px", color: "#c99fb2", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
             {lvl.seq === 1 ? T.what : T.seqWhat}
           </div>
-          {lvl.seq === 1 && cur.options && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
-              {cur.options.map(p => (
-                <button key={p} className={`egopt${fb && p === cur.answerPcs[0] ? " ok" : ""}`} onClick={() => pickPc(p)}>
-                  <div style={{ fontSize: "17px", fontFamily: "'Orbitron',sans-serif" }}>{pcLabel(p)}</div>
-                  {!p.includes("#") && <div style={{ fontSize: "9.5px", color: "#9a7488" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>}
-                </button>
-              ))}
+          {micMode ? (
+            <div style={{ padding: "18px 10px", borderRadius: "12px", border: `1px solid ${micSrc && micSrc.type === "error" ? "#ff5252" : "#fc2d8e44"}`, background: "rgba(252,45,142,.06)" }}>
+              {micSrc && micSrc.type === "error" ? (
+                <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.listenErr}</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: "26px", marginBottom: "6px" }} className={micHeard ? "" : "flicker"}>{micSrc ? "🎹" : "🎤"}</div>
+                  <div style={{ fontSize: "12.5px", color: "#ffa6fc", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>
+                    {micSrc ? T.listenReady : T.listening}
+                  </div>
+                  {lvl.seq > 1 && <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.join(" ")}</div>}
+                  {micHeard && <div style={{ marginTop: "6px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "#9a7488" }}>♪ {micHeard}</div>}
+                </>
+              )}
             </div>
-          )}
-          {lvl.seq > 1 && (
+          ) : (
             <>
-              <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.join(" ")}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
-                {["C", "D", "E", "F", "G", "A", "B"].map(p => (
-                  <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapSeq(p)}>
-                    <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
-                    <div style={{ fontSize: "9px", color: "#9a7488" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
-                  </button>
-                ))}
-              </div>
-              {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid #3a2430", borderRadius: "7px", color: "#a88b9b", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>✕</button>}
+              {lvl.seq === 1 && cur.options && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+                  {cur.options.map(p => (
+                    <button key={p} className={`egopt${fb && p === cur.answerPcs[0] ? " ok" : ""}`} onClick={() => pickPc(p)}>
+                      <div style={{ fontSize: "17px", fontFamily: "'Orbitron',sans-serif" }}>{pcLabel(p)}</div>
+                      {!p.includes("#") && <div style={{ fontSize: "9.5px", color: "#9a7488" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {lvl.seq > 1 && (
+                <>
+                  <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.join(" ")}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
+                    {["C", "D", "E", "F", "G", "A", "B"].map(p => (
+                      <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapSeq(p)}>
+                        <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
+                        <div style={{ fontSize: "9px", color: "#9a7488" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid #3a2430", borderRadius: "7px", color: "#a88b9b", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>✕</button>}
+                </>
+              )}
             </>
           )}
           <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#fc2d8e" : "#ff6e91") : "transparent" }}>
@@ -6047,7 +6218,7 @@ function canUse(key) { return isPremium() || usageToday(key) < (FREE_LIMITS[key]
 /* ── Free-tier share gate: after 5 contents, free users share FB + TikTok to keep going ── */
 const SHARE_FB = "https://www.facebook.com/share/1AxGLtF5Dw/";
 const SHARE_TIKTOK = "https://www.tiktok.com/@tiga.piano_studio?_r=1&_t=ZS-97aTZMZ8oOC";
-const FREE_CONTENT_LIMIT = 5;
+const FREE_CONTENT_LIMIT = 20; // raised from 5 — was exhausted in a single first session
 function freeContentPlays() { try { return parseInt(localStorage.getItem("tg_content_plays") || "0", 10) || 0; } catch (e) { return 0; } }
 function bumpContentPlays() { try { localStorage.setItem("tg_content_plays", String(freeContentPlays() + 1)); } catch (e) {} }
 function hasSharedUnlock() { try { return localStorage.getItem("tg_shared") === "1"; } catch (e) { return false; } }
@@ -6390,12 +6561,32 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
     : lang === "zh" ? `还差 ${info.need.toLocaleString()} EXP → 升级`
     : `${info.need.toLocaleString()} EXP → next level`;
 
+  // contact fields are optional at signup now — let people fill them in later
+  // right here instead of only on the one-time onboarding screen.
+  const [contactEdit, setContactEdit] = useState(false);
+  const [cLine, setCLine] = useState((profile && profile.line_id) || "");
+  const [cPhone, setCPhone] = useState((profile && profile.phone) || "");
+  const [cIg, setCIg] = useState((profile && profile.instagram) || "");
+  const [cSaving, setCSaving] = useState(false);
+  const [localContact, setLocalContact] = useState(null); // optimistic override after save
+  const liveLine = localContact ? localContact.line_id : (profile && profile.line_id);
+  const livePhone = localContact ? localContact.phone : (profile && profile.phone);
+  const liveIg = localContact ? localContact.instagram : (profile && profile.instagram);
+  async function saveContact() {
+    if (!session || !session.user) return;
+    setCSaving(true);
+    const vals = { line_id: cLine.trim() || null, phone: cPhone.trim() || null, instagram: cIg.trim() || null };
+    const { error } = await sb.from("profiles").update({ ...vals, updated_at: new Date().toISOString() }).eq("id", session.user.id);
+    setCSaving(false);
+    if (!error) { setLocalContact(vals); setContactEdit(false); }
+  }
   const contacts = [
     { ico: "📧", val: (profile && profile.email) || (session && session.user && session.user.email) },
-    { ico: "💬", val: profile && profile.line_id },
-    { ico: "📱", val: profile && profile.phone },
-    { ico: "📸", val: profile && profile.instagram },
+    { ico: "💬", val: liveLine },
+    { ico: "📱", val: livePhone },
+    { ico: "📸", val: liveIg },
   ];
+  const missingContact = !liveLine && !livePhone;
 
   // ── progress dashboard data (practice heatmap + accuracy trend) ──
   const plog = readPracticeLog();
@@ -6569,15 +6760,42 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       </div>
 
       <div className="profsec">
-        <div className="profsec-h">{lc.profContact}</div>
-        <div className="contactcard">
-          {contacts.map((c, i) => (
-            <div key={i} className="contactrow">
-              <span className="contactico" aria-hidden="true">{c.ico}</span>
-              <span className={`contactval${c.val ? "" : " empty"}`}>{c.val || "—"}</span>
-            </div>
-          ))}
+        <div className="profsec-h" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span>{lc.profContact}</span>
+          {!contactEdit && (
+            <button className="memberlink" style={{ fontSize: 12 }} onClick={() => { setCLine(liveLine || ""); setCPhone(livePhone || ""); setCIg(liveIg || ""); setContactEdit(true); }}>
+              ✎ {lc.profContactEdit}
+            </button>
+          )}
         </div>
+        {contactEdit ? (
+          <div className="contactcard" style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12 }}>
+            <input className="memberinput" placeholder="LINE ID" value={cLine} onChange={e => setCLine(e.target.value)} />
+            <input className="memberinput" placeholder="เบอร์โทรศัพท์ (Phone)" value={cPhone} onChange={e => setCPhone(e.target.value)} inputMode="tel" />
+            <input className="memberinput" placeholder="Instagram" value={cIg} onChange={e => setCIg(e.target.value)} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="lockbtn" style={{ flex: 1 }} disabled={cSaving} onClick={saveContact}>{cSaving ? "…" : lc.profContactSave}</button>
+              <button className="memberlink" onClick={() => setContactEdit(false)}>{lc.profContactCancel}</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="contactcard">
+              {contacts.map((c, i) => (
+                <div key={i} className="contactrow">
+                  <span className="contactico" aria-hidden="true">{c.ico}</span>
+                  <span className={`contactval${c.val ? "" : " empty"}`}>{c.val || "—"}</span>
+                </div>
+              ))}
+            </div>
+            {missingContact && (
+              <div style={{ fontSize: 12.5, color: "#b58ba0", marginTop: 6, cursor: "pointer" }}
+                onClick={() => { setCLine(""); setCPhone(""); setCIg(liveIg || ""); setContactEdit(true); }}>
+                💡 {lc.profContactNudge}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {onSignOut && <button className="profsignout" onClick={onSignOut}>⏻ {lc.profSignOut}</button>}
@@ -7345,14 +7563,31 @@ function BannedScreen({ onSignOut }) {
   );
 }
 
+// Guest visitors get a real, playable keyboard right on the login screen —
+// no account needed to hear what the app sounds like. Nothing here is saved;
+// signing in is framed as "keep this progress" rather than a locked door.
 function LoginScreen() {
+  const [guestNote, setGuestNote] = useState(null);
+  const hintT = useRef(null);
+  const onGuestNote = (n) => {
+    setGuestNote(n);
+    clearTimeout(hintT.current);
+    hintT.current = setTimeout(() => setGuestNote(null), 1400);
+  };
   return (
-    <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
+    <div className="tg">
       <div className="scan" />
-      <div className="memberwrap">
-        <div className="lbox flicker" style={{ width: 56, height: 56, fontSize: 18 }}>TG</div>
-        <div className="locktitle" style={{ marginTop: 14 }}>TIGA AI</div>
-        <div className="locksub">เข้าสู่ระบบเพื่อเริ่มเรียนเปียโน<br />Sign in to start learning</div>
+      <div className="loginhero">
+        <div className="lbox flicker" style={{ width: 52, height: 52, fontSize: 17 }}>TG</div>
+        <div className="locktitle" style={{ marginTop: 12, color: "#fc2d8e", textShadow: "0 0 10px #fc2d8e66" }}>TIGA AI</div>
+        <div className="locksub">ลองแตะเปียโนด้านล่างได้เลย ไม่ต้องเข้าสู่ระบบ<br />Try the piano below — no sign-in needed</div>
+      </div>
+      <div className="loginpiano">
+        <Piano small onNote={onGuestNote} />
+        <div className="loginpiano-hint">{guestNote ? `♪ ${guestNote}` : "แตะคีย์เพื่อฟังเสียง · tap a key"}</div>
+      </div>
+      <div className="memberwrap loginwrap">
+        <div className="locksub" style={{ marginBottom: 2 }}>อยากบันทึกความคืบหน้า และเรียนกับ AI ครูสอนเปียโน?<br />Want to save progress & learn with your AI teacher?</div>
         <button className="oauthbtn google" onClick={() => signInWith("google")}>
           <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google
         </button>
@@ -7373,7 +7608,6 @@ function ProfileForm({ session, onSaved, onSignOut }) {
   const [err, setErr] = useState("");
   async function save() {
     if (!email.trim()) { setErr("กรุณากรอกอีเมล"); return; }
-    if (!line.trim() && !phone.trim()) { setErr("กรุณากรอกอย่างน้อย LINE หรือเบอร์โทร"); return; }
     setSaving(true); setErr("");
     const { error } = await sb.from("profiles").update({
       email: email.trim(),
@@ -7391,15 +7625,15 @@ function ProfileForm({ session, onSaved, onSignOut }) {
     <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
       <div className="scan" />
       <div className="memberwrap">
-        <div className="lockicon" style={{ fontSize: 36 }}>📝</div>
-        <div className="locktitle">ข้อมูลสมาชิก</div>
-        <div className="locksub">กรอกข้อมูลติดต่อเพื่อเริ่มใช้งาน<br />{meta.full_name || userEmail}</div>
+        <div className="lockicon" style={{ fontSize: 36 }}>👋</div>
+        <div className="locktitle">ยินดีต้อนรับ</div>
+        <div className="locksub">แค่นี้ก็เริ่มเรียนได้เลย — ส่วนที่เหลือกรอกทีหลังก็ได้<br />{meta.full_name || userEmail}</div>
         <input className="memberinput" type="email" placeholder="อีเมล (Email)" value={email} onChange={e => setEmail(e.target.value)} inputMode="email" />
-        <input className="memberinput" placeholder="LINE ID" value={line} onChange={e => setLine(e.target.value)} />
-        <input className="memberinput" placeholder="เบอร์โทรศัพท์ (Phone)" value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" />
+        <input className="memberinput" placeholder="LINE ID (ไม่บังคับ)" value={line} onChange={e => setLine(e.target.value)} />
+        <input className="memberinput" placeholder="เบอร์โทรศัพท์ (ไม่บังคับ)" value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" />
         <input className="memberinput" placeholder="Instagram (ไม่บังคับ)" value={ig} onChange={e => setIg(e.target.value)} />
         <div className="lockerr">{err}</div>
-        <button className="lockbtn" disabled={saving} onClick={save}>{saving ? "กำลังบันทึก..." : "บันทึกและเริ่มเรียน"}</button>
+        <button className="lockbtn" disabled={saving} onClick={save}>{saving ? "กำลังบันทึก..." : "เริ่มเรียนเลย ▶"}</button>
         <button className="memberlink" onClick={onSignOut}>ออกจากระบบ</button>
       </div>
     </div>
@@ -7662,6 +7896,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function exitAdmin() {
     setAdminUnlocked(false);
     setShowLock(false);
+    setActiveStageId(null);
     setPage("sensei");
   }
 
@@ -7671,6 +7906,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const lastSeq = useRef(null);   // remembers last played sequence for the replay button
   const topicHint = useRef(null); // "scale" | "chord" — what the current lesson is about
   const lessonKey = useRef(null); // the key id picked in the lesson (e.g. "F", "Bb") — forces correct key
+  // Which Pathway topic is currently being studied on the Sensei page, so a
+  // "back" button can jump straight to that topic's key picker re-opened —
+  // instead of the ☰ menu → Pathway → find-the-card-again round trip.
+  const [activeStageId, setActiveStageId] = useState(null);
 
   // ── gamification refs: mirror EXP/lessons so rapid awards never read stale state ──
   const uid = session && session.user && session.user.id;
@@ -9836,6 +10075,32 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { await installEvt.userChoice; } catch (e) {}
     setInstallEvt(null);
   }
+  // A one-time "add to home screen" nudge shown right after the learner's first
+  // real win, instead of only sitting buried in Settings where nobody finds it.
+  // A home-screen icon is one of the biggest levers for people actually opening
+  // the app again — so the ask needs to land the moment they're happiest, not later.
+  const [installBannerSeen, setInstallBannerSeen] = useState(() => { try { return localStorage.getItem("tg_install_banner_seen") === "1"; } catch (e) { return false; } });
+  const showInstallBanner = !!installEvt && !installBannerSeen && freeContentPlays() >= 1;
+  function dismissInstallBanner() {
+    setInstallBannerSeen(true);
+    try { localStorage.setItem("tg_install_banner_seen", "1"); } catch (e) {}
+  }
+  async function installFromBanner() { dismissInstallBanner(); await doInstall(); }
+  // Re-engagement push: toggle in Settings, plus a one-time prompt the first
+  // time a real streak is actually at risk — the exact moment a reminder
+  // would matter, tied to the same streakAtRisk() the in-app UI already uses.
+  const [pushOn, setPushOn] = useState(() => typeof Notification !== "undefined" && Notification.permission === "granted");
+  async function togglePush() {
+    if (pushOn) { await unsubscribePush(); setPushOn(false); }
+    else { const ok = await subscribePush(session.user.id); setPushOn(ok); }
+  }
+  const [pushBannerSeen, setPushBannerSeen] = useState(() => { try { return localStorage.getItem("tg_push_banner_seen") === "1"; } catch (e) { return false; } });
+  const showPushBanner = pushSupported() && !pushOn && !pushBannerSeen && streakAtRisk() && (profile && profile.streak > 0);
+  function dismissPushBanner() {
+    setPushBannerSeen(true);
+    try { localStorage.setItem("tg_push_banner_seen", "1"); } catch (e) {}
+  }
+  async function enablePushFromBanner() { dismissPushBanner(); await togglePush(); }
   const tapTimesRef = useRef([]);
   function tapTempo() {
     const now = Date.now();
@@ -9850,6 +10115,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // coins + mascot + daily chest
   function earnCoins(n) { const v = getCoins() + n; setCoinsLS(v); setCoins(v); }
   function reviewTopic(t) {
+    setActiveStageId(null); // free-text question, not a Pathway topic+key — no "change key" back button
     setPage("sensei");
     topicHint.current = null; lessonKey.current = null;
     const q = lc.recAsk.replace("{x}", t);
@@ -9858,6 +10124,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     callClaude(q);
   }
   function reviewSchools() {
+    setActiveStageId(null);
     setPage("sensei");
     setMsgs(prev => [...prev, { role: "ai", text: lc.schoolInfo }]);
   }
@@ -10079,7 +10346,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function learnTopic(stage, key, chordType = null) {
     if (!gateContent()) return;   // free limit reached → share to continue
     bumpContentPlays();
-    if (stage && stage.id) { markPathDone(stage.id); if (key && key.id) markKeyDone(stage.id, key.id); }
+    if (stage && stage.id) { markPathDone(stage.id); if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); }
     const basePrompt = stage.learn[lang] || stage.learn.en;
     const keyId = key ? key.id : "C";
     const keyLabel = key ? key.name : "C";
@@ -10094,9 +10361,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (stage.demoMode === "scale") {
       // Per-key scale fingering is irregular — reusing C's is wrong for F/B/flat keys.
       // Look up the verified fingering for the ACTUAL key; show nothing if unknown
-      // (an honest blank beats teaching a wrong fingering).
-      const rootPC = CHROMA[semisFromC(keyId)].toLowerCase();
-      const scaleKey = rootPC + " major scale";
+      // (an honest blank beats teaching a wrong fingering). Use the picker's own
+      // spelling (keyId) directly — routing it through CHROMA (sharps-only) would
+      // silently respell Db/Ab/Eb/Bb as C#/G#/D#/A# and miss the lookup entirely.
+      const scaleKey = keyId.toLowerCase() + " major scale";
       const map = hand === "left" ? FINGERINGS_LH : FINGERINGS_RH;
       const fk = map[scaleKey];
       demoFingers = fk ? fk.slice(0, demoNotes.length) : null;
@@ -10169,6 +10437,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const icon = caseObj ? (caseObj.icon || stage.icon) : stage.icon;
     topicHint.current = LESSON_MODE;   // don't auto-detect/play notes from this text
     lessonKey.current = null;
+    setActiveStageId(null); // reading chapters have no key picker — no "change key" back button
     setPage("sensei");
     setMsgs(prev => [...prev,
       { role: "user", text: `📚 ${icon} ${title}` },
@@ -10228,7 +10497,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: PATHWAY ─── */}
       {page === "pathway" && (
-        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} />
+        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} initialOpenStageId={activeStageId} />
       )}
 
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
@@ -10261,6 +10530,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <VideoLessonsPage lang={lang} onAsk={(t) => {
           playUi("click");
           setInput((lang === "th" ? 'ช่วยสอนเพิ่มเติมจากวิดีโอบทเรียน "' : lang === "zh" ? '请给我详细讲讲视频课程 "' : 'Teach me more about the video lesson "') + t + '"');
+          setActiveStageId(null);
           setPage("sensei");
         }} />
       )}
@@ -10339,6 +10609,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: SENSEI (default) ─── */}
       {page === "sensei" && (
         <>
+          {activeStageId && (
+            <button className="senseiback" onClick={() => { playUi("click"); setPage("pathway"); }}>
+              <span>←</span> {lc.backChangeKey}
+            </button>
+          )}
           {(() => {
             const rec = recommendNext();
             return (
@@ -11042,6 +11317,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <button className="setbtn wide" onClick={tapTempo}>{lc.setTap}</button>
                 <button className="setbtn" onClick={() => setMetroBpm(b => Math.min(208, b + 5))}>+5</button>
               </div>
+              {pushSupported() && (
+                <div className="setrow">
+                  <label>{lc.setPush}</label>
+                  <button className={`settoggle${pushOn ? " on" : ""}`} onClick={togglePush}>
+                    {pushOn ? lc.setOn : lc.setOff}
+                  </button>
+                </div>
+              )}
               <div className="setdiv" />
               <div className="setrow col">
                 <label>🌐 {lc.setLang}</label>
@@ -11057,7 +11340,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   <button className="setbtn wide" style={{ width: "100%" }} onClick={doInstall}>📲 {lc.setInstall}</button>
                 </>
               )}
-              <div className="setver">TiGA AI v10.66</div>
+              <div className="setver">TiGA AI v{APP_VER}</div>
             </div>
           </div>
         </div>
@@ -11186,6 +11469,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="lvup-burst" aria-hidden="true">{badgeUp.icon}</div>
           <div className="lvup-title">{lc.badgeUnlocked}</div>
           <div className="lvup-rank">{tr(badgeUp, lang)}</div>
+        </div>
+      )}
+
+      {showInstallBanner && (
+        <div className="installbanner">
+          <span className="installbanner-ic" aria-hidden="true">📲</span>
+          <div className="installbanner-tx">
+            <b>{lc.installBannerTitle}</b>
+            <span>{lc.installBannerSub}</span>
+          </div>
+          <button className="installbanner-go" onClick={installFromBanner}>{lc.setInstall}</button>
+          <button className="installbanner-x" onClick={dismissInstallBanner} aria-label="close">×</button>
+        </div>
+      )}
+      {!showInstallBanner && showPushBanner && (
+        <div className="installbanner">
+          <span className="installbanner-ic" aria-hidden="true">🔥</span>
+          <div className="installbanner-tx">
+            <b>{lc.pushBannerTitle}</b>
+            <span>{lc.pushBannerSub}</span>
+          </div>
+          <button className="installbanner-go" onClick={enablePushFromBanner}>{lc.pushBannerBtn}</button>
+          <button className="installbanner-x" onClick={dismissPushBanner} aria-label="close">×</button>
         </div>
       )}
     </div>
