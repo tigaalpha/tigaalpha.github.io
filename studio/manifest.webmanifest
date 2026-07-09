@@ -1,0 +1,13 @@
+{
+  "name": "Tiga AI Business Operating System",
+  "short_name": "Tiga AI BOS",
+  "description": "AI-first admin, booking, CRM, and sales platform for Tiga Studio",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FF5FA2",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
