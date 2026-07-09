@@ -18,6 +18,7 @@ import type { User } from "@supabase/supabase-js";
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null | "loading">("loading");
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,11 +30,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          console.error("OAuth code exchange failed:", error.message);
-        }
         url.searchParams.delete("code");
         window.history.replaceState({}, "", url.toString());
+
+        if (error) {
+          if (!cancelled) {
+            setAuthError(error.message);
+            setUser(null);
+          }
+          return;
+        }
       }
 
       const {
@@ -64,9 +70,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (user === null) {
-      window.location.href = `${BASE_PATH}/login/`;
+      const target = new URL(`${window.location.origin}${BASE_PATH}/login/`);
+      if (authError) target.searchParams.set("authError", authError);
+      window.location.href = target.toString();
     }
-  }, [user]);
+  }, [user, authError]);
 
   if (user === "loading" || user === null) {
     return (

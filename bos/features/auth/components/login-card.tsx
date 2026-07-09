@@ -1,10 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/services/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BASE_PATH } from "@/lib/constants";
+
+function AuthErrorBanner() {
+  const searchParams = useSearchParams();
+  const authError = searchParams.get("authError");
+
+  if (!authError) return null;
+
+  return (
+    <p className="mb-3 rounded-xl bg-danger/10 px-3 py-2 text-xs text-danger">
+      Sign-in failed: {authError}
+    </p>
+  );
+}
 
 export function LoginCard() {
   const [loading, setLoading] = useState(false);
@@ -12,8 +26,8 @@ export function LoginCard() {
   async function signInWithGoogle() {
     setLoading(true);
     const supabase = createClient();
-    // No server callback route in this static export — the browser client
-    // detects the OAuth code in the URL on load and exchanges it automatically.
+    // AuthGuard (on the destination page) explicitly exchanges the PKCE
+    // ?code= param — see features/auth/components/auth-guard.tsx.
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -30,6 +44,9 @@ export function LoginCard() {
         <CardDescription>Sign in to manage your studio</CardDescription>
       </CardHeader>
       <CardContent>
+        <Suspense fallback={null}>
+          <AuthErrorBanner />
+        </Suspense>
         <Button className="w-full" onClick={signInWithGoogle} disabled={loading}>
           {loading ? "Redirecting…" : "Continue with Google"}
         </Button>
