@@ -69,8 +69,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     init();
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
+      // INITIAL_SESSION re-reads storage independently of init() above and
+      // can resolve after it with a stale "no session yet" snapshot taken
+      // before the code exchange saved the new session — applying it here
+      // would bounce a freshly-signed-in user straight back to /login.
+      if (event === "INITIAL_SESSION") return;
       setUser(session?.user ?? null);
     });
 
