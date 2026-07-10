@@ -24,11 +24,11 @@ export function StudentDetail({ customer, courses, history }: StudentDetailProps
           <Row label="Experience" value={customer.experience_level} />
           <Row label="Preferred schedule" value={customer.preferred_schedule} />
           <Row label="Parent" value={customer.parent_name} />
-          <div className="flex items-center justify-between border-t border-black/5 pt-3">
+          <div className="flex items-center justify-between border-t border-line/5 pt-3">
             <span className="text-secondary/50">Sales status</span>
             <Badge>{customer.sales_status.replace(/_/g, " ")}</Badge>
           </div>
-          {customer.notes ? <p className="rounded-xl bg-black/5 p-3 text-secondary/70">{customer.notes}</p> : null}
+          {customer.notes ? <p className="rounded-xl bg-line/5 p-3 text-secondary/70">{customer.notes}</p> : null}
         </CardContent>
       </Card>
 
@@ -41,14 +41,14 @@ export function StudentDetail({ customer, courses, history }: StudentDetailProps
             <p className="text-sm text-secondary/50">No courses yet.</p>
           ) : (
             courses.map((course) => (
-              <div key={course.id} className="rounded-xl border border-black/5 p-4">
+              <div key={course.id} className="rounded-xl border border-line/5 p-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-secondary">{course.total_hours}-hour course</span>
                   <span className="text-secondary/50">
                     {course.current_hour} / {course.total_hours} hrs completed
                   </span>
                 </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/5">
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-line/5">
                   <div
                     className="h-full rounded-full bg-primary-gradient"
                     style={{ width: `${(course.current_hour / course.total_hours) * 100}%` }}
@@ -59,7 +59,7 @@ export function StudentDetail({ customer, courses, history }: StudentDetailProps
             ))
           )}
 
-          <div className="border-t border-black/5 pt-4">
+          <div className="border-t border-line/5 pt-4">
             <h3 className="mb-2 text-sm font-medium text-secondary">Sales Status History</h3>
             <ul className="space-y-1.5 text-xs text-secondary/60">
               {history.map((h) => (

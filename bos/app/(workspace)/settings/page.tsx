@@ -36,8 +36,8 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-secondary/70">
             <p>AI provider, model, and integration credentials are configured as Supabase Edge Function secrets — never shipped to the browser.</p>
-            <p>See <code className="rounded bg-black/5 px-1 py-0.5 text-xs">supabase/functions/*</code> and the README for the full list (AI_PROVIDER, AI_MODEL, GEMINI_API_KEY, GOOGLE_*, LINE_*).</p>
-            <p>Edit AI behavior by updating the markdown files in <code className="rounded bg-black/5 px-1 py-0.5 text-xs">/prompts</code> and redeploying the Edge Functions — no frontend rebuild required.</p>
+            <p>See <code className="rounded bg-line/5 px-1 py-0.5 text-xs">supabase/functions/*</code> and the README for the full list (AI_PROVIDER, AI_MODEL, GEMINI_API_KEY, GOOGLE_*, LINE_*).</p>
+            <p>Edit AI behavior by updating the markdown files in <code className="rounded bg-line/5 px-1 py-0.5 text-xs">/prompts</code> and redeploying the Edge Functions — no frontend rebuild required.</p>
           </CardContent>
         </Card>
       </div>

@@ -3,8 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --background: 255 255 255;
   --foreground: 18 18 18;
+  --page: 250 250 250;
+  --card: 255 255 255;
+  --line: 18 18 18;
+}
+
+.dark {
+  --foreground: 237 237 240;
+  --page: 9 9 11;
+  --card: 24 24 27;
+  --line: 255 255 255;
 }
 
 html,
@@ -13,12 +22,12 @@ body {
 }
 
 body {
-  background-color: rgb(var(--background));
+  background-color: rgb(var(--page));
   color: rgb(var(--foreground));
 }
 
 * {
-  border-color: rgba(18, 18, 18, 0.08);
+  border-color: rgb(var(--line) / 0.08);
 }
 
 ::-webkit-scrollbar {
@@ -27,6 +36,6 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(18, 18, 18, 0.15);
+  background: rgb(var(--line) / 0.15);
   border-radius: 999px;
 }

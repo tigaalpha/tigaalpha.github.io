@@ -69,7 +69,7 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
             <select
               value={sourceType}
               onChange={(e) => setSourceType(e.target.value as KnowledgeSourceType)}
-              className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               {SOURCE_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -102,7 +102,7 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
           ) : (
             <ul className="space-y-2">
               {documents.map((doc) => (
-                <li key={doc.id} className="flex items-center justify-between gap-3 rounded-xl border border-black/5 px-4 py-3">
+                <li key={doc.id} className="flex items-center justify-between gap-3 rounded-xl border border-line/5 px-4 py-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-secondary">{doc.title}</p>
                     <Badge variant="outline" className="mt-1">

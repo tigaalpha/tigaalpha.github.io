@@ -25,7 +25,7 @@ export function NotificationsCard({ notifications }: { notifications: Tables<"no
         ) : (
           <ul className="space-y-2">
             {notifications.map((n) => (
-              <li key={n.id} className="flex items-start gap-3 rounded-xl border border-black/5 px-3 py-2">
+              <li key={n.id} className="flex items-start gap-3 rounded-xl border border-line/5 px-3 py-2">
                 <Badge variant={TONE[n.type]} className="mt-0.5 shrink-0">
                   {n.type.replace(/_/g, " ")}
                 </Badge>

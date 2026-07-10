@@ -22,7 +22,7 @@ export function LessonListCard({ title, lessons }: { title: string; lessons: Les
         ) : (
           <ul className="space-y-2">
             {lessons.map((lesson) => (
-              <li key={lesson.id} className="flex items-center justify-between rounded-xl border border-black/5 px-3 py-2">
+              <li key={lesson.id} className="flex items-center justify-between rounded-xl border border-line/5 px-3 py-2">
                 <div>
                   <p className="text-sm font-medium text-secondary">{lesson.title}</p>
                   <p className="text-xs text-secondary/50">

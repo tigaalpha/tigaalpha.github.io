@@ -28,7 +28,7 @@ export function CalendarView({ events }: { events: CalendarBookingEvent[] }) {
   }
 
   return (
-    <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-soft [--fc-border-color:rgba(18,18,18,0.06)] [--fc-today-bg-color:rgba(255,95,162,0.06)]">
+    <div className="rounded-2xl border border-line/5 bg-card p-4 shadow-soft [--fc-border-color:rgba(18,18,18,0.06)] [--fc-today-bg-color:rgba(255,95,162,0.06)]">
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"

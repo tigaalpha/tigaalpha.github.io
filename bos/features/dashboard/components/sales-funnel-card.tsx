@@ -28,7 +28,7 @@ export function SalesFunnelCard({ counts }: { counts: Record<SalesStatus, number
         {(Object.keys(LABELS) as SalesStatus[]).map((status) => (
           <div key={status} className="flex items-center gap-3">
             <span className="w-32 shrink-0 text-xs text-secondary/60">{LABELS[status]}</span>
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/5">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-line/5">
               <div
                 className="h-full rounded-full bg-primary-gradient"
                 style={{ width: `${(counts[status] / max) * 100}%` }}

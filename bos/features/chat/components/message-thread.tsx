@@ -78,7 +78,7 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
               className={cn(
                 "max-w-[75%] rounded-2xl px-4 py-2 text-sm",
                 message.sender === "customer"
-                  ? "bg-black/5 text-secondary"
+                  ? "bg-line/5 text-secondary"
                   : message.sender === "ai"
                     ? "bg-primary/10 text-secondary"
                     : "bg-primary-gradient text-white"
@@ -90,7 +90,7 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
         ))}
         <div ref={bottomRef} />
       </div>
-      <div className="flex items-end gap-2 border-t border-black/5 p-3">
+      <div className="flex items-end gap-2 border-t border-line/5 p-3">
         <Textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

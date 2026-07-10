@@ -44,7 +44,7 @@ export function SidebarNav() {
               "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-primary-gradient text-white shadow-soft"
-                : "text-secondary/70 hover:bg-black/5 hover:text-secondary"
+                : "text-secondary/70 hover:bg-line/5 hover:text-secondary"
             )}
           >
             <Icon className="h-4 w-4" />

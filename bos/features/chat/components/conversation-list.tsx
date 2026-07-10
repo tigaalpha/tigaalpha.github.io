@@ -24,7 +24,7 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
           <button
             onClick={() => onSelect(conversation.id)}
             className={cn(
-              "flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-black/5",
+              "flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-line/5",
               selectedId === conversation.id && "bg-primary/5"
             )}
           >

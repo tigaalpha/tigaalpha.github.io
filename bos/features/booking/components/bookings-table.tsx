@@ -17,9 +17,9 @@ export function BookingsTable({ bookings }: { bookings: Tables<"bookings">[] }) 
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-black/5 bg-white shadow-soft">
+    <div className="overflow-x-auto rounded-2xl border border-line/5 bg-card shadow-soft">
       <table className="w-full min-w-[640px] text-left text-sm">
-        <thead className="border-b border-black/5 text-xs text-secondary/50">
+        <thead className="border-b border-line/5 text-xs text-secondary/50">
           <tr>
             <th className="px-4 py-3 font-medium">Lesson</th>
             <th className="px-4 py-3 font-medium">Start</th>
