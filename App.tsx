@@ -1491,7 +1491,7 @@ function apiHeaders() {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.1.0";
+const APP_VER = "13.2.0";
 /* ── Supabase client — Auth (Google/Facebook) + membership profiles ── */
 const SUPABASE_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co";
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -2751,7 +2751,7 @@ const L = {
     practiceHint: "เล่นโน้ตที่ไฮไลต์บนเปียโน แอปจะไปต่อเมื่อเล่นถูก",
     practiceMicTip: "💡 รองรับเปียโนเพี้ยนเล็กน้อย (ปรับจูนอัตโนมัติ) · ไม่มีไมค์/MIDI ก็แตะคีย์บนจอได้",
     profQuests: "ภารกิจวันนี้", profBadges: "เหรียญรางวัล",
-    pathHere: "อยู่ตรงนี้", backChangeKey: "เปลี่ยนคีย์",  weeklyTitle: "ชาเลนจ์รายสัปดาห์", profProgress: "ความก้าวหน้า", profActiveDays: "วันที่ฝึก", profAccTrend: "แนวโน้มความแม่นยำ", profLess: "น้อย", profMore: "มาก", profNoData: "เริ่มฝึกเพื่อดูสถิติ",
+    pathHere: "อยู่ตรงนี้", backChangeKey: "เปลี่ยนคีย์",  chordBroken: "🎵 กดแยก", chordBlock: "🎶 กดพร้อมกัน", weeklyTitle: "ชาเลนจ์รายสัปดาห์", profProgress: "ความก้าวหน้า", profActiveDays: "วันที่ฝึก", profAccTrend: "แนวโน้มความแม่นยำ", profLess: "น้อย", profMore: "มาก", profNoData: "เริ่มฝึกเพื่อดูสถิติ",
     dashTitle: "แดชบอร์ดวัดผล", r1: "1 วัน", r7: "7 วัน", r14: "14 วัน", r30: "30 วัน", r1m: "1 เดือน", r3m: "3 เดือน", r6m: "6 เดือน", r1y: "1 ปี", dashActive: "วันที่ฝึก", dashSessions: "รอบที่ฝึก", dashAcc: "ความแม่นยำเฉลี่ย", dashExp: "EXP ที่ได้", dashActivity: "กิจกรรมการฝึก", dashAccTrend: "แนวโน้มความแม่นยำ",
     gameStatsTitle: "ผลเล่นเกมโน้ตตก", gameStatsPlays: "เล่นทั้งหมด", gameStatsBest: "คะแนนสูงสุด", gameStatsAcc: "ความแม่นยำแต่ละรอบ",
     questText: "ทำกิจกรรมเรียน/ฝึกวันนี้", questDoneText: "สำเร็จแล้ว! 🎉",
@@ -2852,7 +2852,7 @@ const L = {
     practiceHint: "Play the highlighted key — it advances when you're correct",
     practiceMicTip: "💡 Tolerates a slightly out-of-tune piano (auto-tuning) · no mic/MIDI? tap the keys",
     profQuests: "DAILY QUEST", profBadges: "ACHIEVEMENTS",
-    pathHere: "YOU ARE HERE", backChangeKey: "Change key", weeklyTitle: "WEEKLY CHALLENGES", profProgress: "PROGRESS", profActiveDays: "active days", profAccTrend: "Accuracy trend", profLess: "Less", profMore: "More", profNoData: "Practice to see your stats",
+    pathHere: "YOU ARE HERE", backChangeKey: "Change key", chordBroken: "🎵 Broken", chordBlock: "🎶 Block", weeklyTitle: "WEEKLY CHALLENGES", profProgress: "PROGRESS", profActiveDays: "active days", profAccTrend: "Accuracy trend", profLess: "Less", profMore: "More", profNoData: "Practice to see your stats",
     dashTitle: "PROGRESS DASHBOARD", r1: "1D", r7: "7D", r14: "14D", r30: "30D", r1m: "1M", r3m: "3M", r6m: "6M", r1y: "1Y", dashActive: "Active days", dashSessions: "Sessions", dashAcc: "Avg accuracy", dashExp: "EXP gained", dashActivity: "Practice activity", dashAccTrend: "Accuracy trend",
     gameStatsTitle: "GAME RESULTS", gameStatsPlays: "Total plays", gameStatsBest: "Best score", gameStatsAcc: "Accuracy per play",
     questText: "learning activities today", questDoneText: "Complete! 🎉",
@@ -2953,7 +2953,7 @@ const L = {
     practiceHint: "弹奏钢琴上高亮的琴键，弹对后会自动前进",
     practiceMicTip: "💡 可容忍轻微走音（自动校音）· 没有麦克风/MIDI？点击琴键也行",
     profQuests: "每日任务", profBadges: "成就",
-    pathHere: "你在这里", backChangeKey: "更换调号", weeklyTitle: "每周挑战", profProgress: "进度", profActiveDays: "练习天数", profAccTrend: "准确率趋势", profLess: "少", profMore: "多", profNoData: "开始练习以查看数据",
+    pathHere: "你在这里", backChangeKey: "更换调号", chordBroken: "🎵 分解", chordBlock: "🎶 同时按", weeklyTitle: "每周挑战", profProgress: "进度", profActiveDays: "练习天数", profAccTrend: "准确率趋势", profLess: "少", profMore: "多", profNoData: "开始练习以查看数据",
     dashTitle: "进度仪表盘", r1: "1天", r7: "7天", r14: "14天", r30: "30天", r1m: "1个月", r3m: "3个月", r6m: "6个月", r1y: "1年", dashActive: "练习天数", dashSessions: "练习次数", dashAcc: "平均准确率", dashExp: "获得 EXP", dashActivity: "练习活动", dashAccTrend: "准确率趋势",
     gameStatsTitle: "游戏成绩", gameStatsPlays: "总游玩", gameStatsBest: "最高分", gameStatsAcc: "每局准确率",
     questText: "今日学习/练习活动", questDoneText: "已完成！🎉",
@@ -3094,6 +3094,11 @@ const CSS = `
 .replayicon{font-size:13px;font-weight:700;display:inline-block}
 .replaybtn:hover .replayicon{animation:spin .6s ease}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+/* broken-vs-block chord voicing toggle — shown whenever the loaded demo is a
+   chord (triad/7th/tension/slash/block/pad-chord topics all share this) */
+.chordstylerow{display:flex;gap:6px;margin:0 2px 8px;padding:3px;background:#150c12;border:1px solid #ffffff10;border-radius:12px}
+.chordstylebtn{flex:1;background:none;border:none;border-radius:9px;padding:7px 6px;cursor:pointer;color:#a88b9b;font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;transition:all .2s}
+.chordstylebtn.on{background:linear-gradient(135deg,rgba(252,45,142,.22),rgba(148,60,100,.16));color:#fff;box-shadow:0 0 12px -4px #fc2d8e}
 /* hand selector */
 /* persistent fingering chart */
 .fchart{margin-top:10px;padding:9px 10px;background:linear-gradient(160deg,#140a11,#10080e);border:1px solid #ffffff10;border-radius:11px}
@@ -4037,7 +4042,7 @@ function useInjectCSS() {
 }
 
 /* ── Piano with finger numbers ── */
-const Piano = memo(function Piano({ litNote = null, fingerMap = {}, small = false, onNote = null, baseOct = 4 }) {
+const Piano = memo(function Piano({ litNote = null, litSet = null, fingerMap = {}, small = false, onNote = null, baseOct = 4 }) {
   const wW = small ? 22 : 27, bW = small ? 14 : 17;
   const wH = small ? 66 : 78, bH = small ? 42 : 48;
   const keys = baseOct === 4 ? KEYS : keysFor(baseOct);
@@ -4050,7 +4055,7 @@ const Piano = memo(function Piano({ litNote = null, fingerMap = {}, small = fals
   return (
     <div className="kr" style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: "1px", overflowX: "auto", padding: "0 4px 20px" }}>
       {keys.map(k => {
-        const lit = litNote === k.n;
+        const lit = litNote === k.n || (litSet != null && litSet.includes(k.n));
         const finger = fingerMap[k.n];
         const style = k.t === "w"
           ? { width: wW, height: wH }
@@ -7735,8 +7740,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState(false);
   const [litNote, setLitNote] = useState(null);
+  const [litSet, setLitSet] = useState(null);   // multiple simultaneously-lit keys, for block-chord demos
   const [fingerMap, setFingerMap] = useState({});
   const [fingerChart, setFingerChart] = useState(null); // {label, notes:[{note,finger}], mode} — persistent chart
+  // How chord demos are voiced: one note at a time (broken/arpeggiated) or all
+  // together (block). Toggling replays the current chord immediately in the
+  // new style — comparing both is the whole point (triad/7th/tension/slash/
+  // block/pad chord topics all go through the same "chord" demo mode).
+  const [chordStyle, setChordStyle] = useState("broken"); // "broken" | "block"
+  const [seqIsChord, setSeqIsChord] = useState(false);
   const [hand, setHand] = useState("right");   // "right" | "left"
   const [activeSpk, setActiveSpk] = useState(null);
   const [flagOpen, setFlagOpen] = useState(false);
@@ -8239,15 +8251,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     seqTimers.current.forEach(t => clearTimeout(t));
     seqTimers.current = [];
     setLitNote(null);
+    setLitSet(null);
     setFingerMap({});
   }
 
   /* Play a sequence: ascending then descending, with finger numbers */
-  function playSequence(parsed) {
+  function playSequence(parsed, styleOverride) {
     clearSeq();
     lastSeq.current = parsed;   // remember for replay
     setHasSeq(true);            // enable the Practice button
     const { notes, mode } = parsed;
+    setSeqIsChord(mode === "chord");
 
     // recompute fingering for the currently selected hand
     let fingers = parsed.fingers;
@@ -8267,6 +8281,23 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       setFingerChart({ label: parsed.label, notes: pairs, mode, key: parsed.key || null });
     } else {
       setFingerChart(null);
+    }
+
+    // Chords can be voiced two ways: broken (one note at a time, like the
+    // scale/sequence path below) or block (every note struck together, so
+    // the full triad/7th/tension/slash/pad-chord shape is heard and seen at
+    // once). Triads, sevenths, tension, block/slash/pad-chord topics all
+    // share this same "chord" demo mode, so the toggle covers all of them.
+    if (mode === "chord" && (styleOverride || chordStyle) === "block") {
+      const dur = 2.6;
+      notes.forEach(n => playPianoNote(n, dur));
+      setLitSet(notes);
+      const fmap = {};
+      if (fingers) notes.forEach((n, i) => { if (fingers[i] != null) fmap[n] = fingers[i]; });
+      setFingerMap(fmap);
+      const tEnd = setTimeout(() => { setLitSet(null); setFingerMap({}); }, dur * 1000 + 200);
+      seqTimers.current.push(tEnd);
+      return;
     }
 
     let order, fingerOrder;
@@ -8297,6 +8328,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     });
     const tEnd = setTimeout(() => { setLitNote(null); setFingerMap({}); }, order.length * interval + 400);
     seqTimers.current.push(tEnd);
+  }
+  function toggleChordStyle() {
+    playUi("click");
+    const next = chordStyle === "block" ? "broken" : "block";
+    setChordStyle(next);
+    if (lastSeq.current && lastSeq.current.mode === "chord") playSequence(lastSeq.current, next);
   }
 
   // replay the last taught sequence (for the replay button on the piano)
@@ -10638,7 +10675,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <span>{lc.replay}</span>
               </button>
             </div>
-            <Piano litNote={litNote} fingerMap={fingerMap} baseOct={pianoOct} onNote={handleMainKey} />
+            {seqIsChord && (
+              <div className="chordstylerow">
+                <button className={`chordstylebtn${chordStyle === "broken" ? " on" : ""}`} onClick={() => chordStyle !== "broken" && toggleChordStyle()}>{lc.chordBroken}</button>
+                <button className={`chordstylebtn${chordStyle === "block" ? " on" : ""}`} onClick={() => chordStyle !== "block" && toggleChordStyle()}>{lc.chordBlock}</button>
+              </div>
+            )}
+            <Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} baseOct={pianoOct} onNote={handleMainKey} />
             <div className="recbar">
               <button className={`recbtn${recording ? " on" : ""}`} onClick={toggleRecord}>
                 {recording ? `■ ${lc.recStop}` : `● ${lc.recRecord}`}
@@ -10759,7 +10802,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="mlbl"><div className="dot" />⤢ {lc.aiLabel}</div>
           <button className="cbtn" onClick={() => setModal(false)}>{lc.close}</button>
         </div>
-        <div className="mpw"><Piano litNote={litNote} fingerMap={fingerMap} small /></div>
+        <div className="mpw"><Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} small /></div>
         <div className="mmsgs">
           {msgs.map((m, i) => (
             <Msg key={i} m={m} idx={i} lang={lang}
