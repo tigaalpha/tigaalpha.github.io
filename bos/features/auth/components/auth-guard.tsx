@@ -5,7 +5,11 @@ import { createClient } from "@/services/supabase/client";
 import { AppShell } from "@/features/dashboard/components/app-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BASE_PATH } from "@/lib/constants";
-import type { User } from "@supabase/supabase-js";
+import { isAuthRetryableFetchError, type User } from "@supabase/supabase-js";
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Static export has no server middleware, so route protection happens
@@ -29,7 +33,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       const code = url.searchParams.get("code");
 
       if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        let error = (await supabase.auth.exchangeCodeForSession(code)).error;
+
+        // Mobile networks occasionally drop this one request right after the
+        // OAuth redirect; Supabase itself marks these as safe to retry.
+        for (let attempt = 0; error && isAuthRetryableFetchError(error) && attempt < 2; attempt++) {
+          await delay(750 * (attempt + 1));
+          error = (await supabase.auth.exchangeCodeForSession(code)).error;
+        }
+
         url.searchParams.delete("code");
         window.history.replaceState({}, "", url.toString());
 
