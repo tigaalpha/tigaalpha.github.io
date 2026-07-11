@@ -54,7 +54,15 @@ Deno.serve(async (req: Request) => {
         .neq("status", "cancelled")
         .lt("start_time", body.endTime)
         .gt("end_time", body.startTime);
-      if (conflicts && conflicts.length > 0) return jsonResponse({ error: "Teacher already booked in this time range" }, 409);
+      if (conflicts && conflicts.length > 0) {
+        await admin.from("notifications").insert({
+          type: "conflict_booking",
+          title: "Booking conflict",
+          body: `Attempted lesson for ${customer.name} at ${body.startTime} clashes with an existing booking for this teacher.`,
+          customer_id: body.customerId,
+        });
+        return jsonResponse({ error: "Teacher already booked in this time range" }, 409);
+      }
 
       const lessonNumber = course.current_hour + 1;
       const lessonType = lessonNumber >= course.total_hours ? "final" : "normal";
@@ -123,6 +131,17 @@ Deno.serve(async (req: Request) => {
         .select("*")
         .single();
       if (error) throw error;
+
+      if (updated.lesson_type === "final") {
+        await admin.from("notifications").insert({
+          type: "payment_reminder",
+          title: "Collect payment for completed course",
+          body: `Final lesson "${updated.title}" is done — collect payment and offer renewal.`,
+          customer_id: updated.customer_id,
+          booking_id: updated.id,
+        });
+      }
+
       return jsonResponse(updated);
     }
 

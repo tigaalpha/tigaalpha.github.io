@@ -13,6 +13,7 @@ import type { KnowledgeSourceType, Tables } from "@/types/database";
 
 const SOURCE_TYPES: KnowledgeSourceType[] = [
   "pricing", "promotion", "teachers", "policies", "faq", "school_info", "holiday", "internal_sop",
+  "sales_script", "objection_handling", "rule", "example",
 ];
 
 interface KnowledgeManagerProps {
@@ -78,7 +79,7 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
               ))}
             </select>
             <Textarea
-              placeholder="Paste pricing, FAQ, policy text, etc."
+              placeholder="Paste pricing, FAQ, policy text, a sales script, how to handle an objection, a rule, or an example conversation…"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               className="min-h-40"

@@ -62,4 +62,17 @@ export class CustomersRepository {
     const { error } = await this.db.from("customers").update({ last_contact_at: new Date().toISOString() }).eq("id", id);
     if (error) throw error;
   }
+
+  /** Lead counts grouped by lead_source, for the Reports page. Unset sources are grouped as "Unknown". */
+  async countByLeadSource(): Promise<Record<string, number>> {
+    const { data, error } = await this.db.from("customers").select("lead_source");
+    if (error) throw error;
+
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) {
+      const key = row.lead_source?.trim() || "Unknown";
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { Send, PenLine, Check } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
@@ -14,6 +14,10 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
   const [messages, setMessages] = useState<Tables<"messages">[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [correctingId, setCorrectingId] = useState<string | null>(null);
+  const [correctionDraft, setCorrectionDraft] = useState("");
+  const [savingCorrection, setSavingCorrection] = useState(false);
+  const [correctedIds, setCorrectedIds] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,6 +66,42 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
     setSending(false);
   }
 
+  function startCorrection(messageId: string) {
+    setCorrectingId(messageId);
+    setCorrectionDraft("");
+  }
+
+  async function saveCorrection(aiMessage: Tables<"messages">) {
+    if (!correctionDraft.trim()) return;
+    setSavingCorrection(true);
+
+    const index = messages.findIndex((m) => m.id === aiMessage.id);
+    const precedingCustomerMessage = [...messages.slice(0, index)].reverse().find((m) => m.sender === "customer");
+
+    const content = [
+      precedingCustomerMessage ? `Customer asked: ${precedingCustomerMessage.content}` : null,
+      `AI previously replied (incorrect or incomplete): ${aiMessage.content}`,
+      `Correct answer: ${correctionDraft.trim()}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const supabase = createClient();
+    const { error } = await supabase.functions.invoke("knowledge-upload", {
+      body: {
+        title: `Correction: ${(precedingCustomerMessage?.content ?? aiMessage.content).slice(0, 60)}`,
+        sourceType: "correction",
+        content,
+      },
+    });
+
+    setSavingCorrection(false);
+    if (!error) {
+      setCorrectedIds((prev) => new Set(prev).add(aiMessage.id));
+      setCorrectingId(null);
+    }
+  }
+
   if (!conversationId) {
     return <EmptyState icon={MessagesSquare} title="Select a conversation" className="m-auto" />;
   }
@@ -70,10 +110,7 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
     <div className="flex h-full flex-col">
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn("flex", message.sender === "customer" ? "justify-start" : "justify-end")}
-          >
+          <div key={message.id} className={cn("flex flex-col", message.sender === "customer" ? "items-start" : "items-end")}>
             <div
               className={cn(
                 "max-w-[75%] rounded-2xl px-4 py-2 text-sm",
@@ -86,6 +123,39 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
             >
               {message.content}
             </div>
+
+            {message.sender === "ai" ? (
+              correctedIds.has(message.id) ? (
+                <span className="mt-1 flex items-center gap-1 text-xs text-success">
+                  <Check className="h-3 w-3" /> Saved as a correction — the AI will use this going forward
+                </span>
+              ) : correctingId === message.id ? (
+                <div className="mt-1 w-full max-w-[75%] space-y-2 rounded-xl border border-line/10 bg-card p-2">
+                  <Textarea
+                    value={correctionDraft}
+                    onChange={(e) => setCorrectionDraft(e.target.value)}
+                    placeholder="What should the AI have said instead?"
+                    className="min-h-16 text-sm"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setCorrectingId(null)}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={() => void saveCorrection(message)} disabled={savingCorrection || !correctionDraft.trim()}>
+                      {savingCorrection ? "Saving…" : "Teach AI this correction"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => startCorrection(message.id)}
+                  className="mt-1 flex items-center gap-1 text-xs text-secondary/40 hover:text-secondary"
+                >
+                  <PenLine className="h-3 w-3" /> Correct this reply
+                </button>
+              )
+            ) : null}
           </div>
         ))}
         <div ref={bottomRef} />

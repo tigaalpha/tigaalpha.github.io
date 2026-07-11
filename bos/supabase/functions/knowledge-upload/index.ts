@@ -2,7 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
-import { embed, chunkText } from "../_shared/gemini.ts";
+import { embed } from "../_shared/ai-provider.ts";
+import { chunkText } from "../_shared/text.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);

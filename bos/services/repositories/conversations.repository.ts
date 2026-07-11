@@ -77,4 +77,21 @@ export class ConversationsRepository {
     await this.db.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
     return data;
   }
+
+  /** How much of the AI's work needed a human — the "AI Performance" dashboard/report metric. */
+  async aiResolutionStats(): Promise<{ total: number; resolvedByAi: number; needsReview: number; resolutionRate: number }> {
+    const [totalRes, reviewRes] = await Promise.all([
+      this.db.from("conversations").select("id", { count: "exact", head: true }),
+      this.db.from("conversations").select("id", { count: "exact", head: true }).eq("needs_review", true),
+    ]);
+    if (totalRes.error) throw totalRes.error;
+    if (reviewRes.error) throw reviewRes.error;
+
+    const total = totalRes.count ?? 0;
+    const needsReview = reviewRes.count ?? 0;
+    const resolvedByAi = total - needsReview;
+    const resolutionRate = total > 0 ? Math.round((resolvedByAi / total) * 100) : 0;
+
+    return { total, resolvedByAi, needsReview, resolutionRate };
+  }
 }

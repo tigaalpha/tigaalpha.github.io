@@ -32,7 +32,20 @@ export type NotificationType =
   | "ai_needs_review"
   | "new_customer";
 
-export type KnowledgeSourceType = "pricing" | "promotion" | "teachers" | "policies" | "faq" | "school_info" | "holiday" | "internal_sop";
+export type KnowledgeSourceType =
+  | "pricing"
+  | "promotion"
+  | "teachers"
+  | "policies"
+  | "faq"
+  | "school_info"
+  | "holiday"
+  | "internal_sop"
+  | "sales_script"
+  | "objection_handling"
+  | "rule"
+  | "example"
+  | "correction";
 
 export interface Database {
   public: {

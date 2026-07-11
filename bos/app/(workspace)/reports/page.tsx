@@ -10,6 +10,9 @@ import type { SalesStatus } from "@/types/database";
 interface ReportsData {
   funnel: Record<SalesStatus, number>;
   bookingCounts: { total: number; completed: number; cancelled: number };
+  revenue: number;
+  teacherPerformance: { teacherId: string; teacherName: string; completedLessons: number }[];
+  leadSources: Record<string, number>;
 }
 
 export default function ReportsPage() {
@@ -17,8 +20,20 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const repos = createRepositories(createClient());
-    Promise.all([repos.sales.funnelCounts(), repos.bookings.countAll()]).then(([funnel, bookingCounts]) => {
-      setData({ funnel, bookingCounts });
+    Promise.all([
+      repos.sales.funnelCounts(),
+      repos.bookings.countAll(),
+      repos.courses.totalRevenue(),
+      repos.bookings.countCompletedByTeacher(),
+      repos.teachers.listActive(),
+      repos.customers.countByLeadSource(),
+    ]).then(([funnel, bookingCounts, revenue, completedByTeacher, teachers, leadSources]) => {
+      const teacherPerformance = teachers.map((teacher) => ({
+        teacherId: teacher.id,
+        teacherName: teacher.name,
+        completedLessons: completedByTeacher[teacher.id] ?? 0,
+      }));
+      setData({ funnel, bookingCounts, revenue, teacherPerformance, leadSources });
     });
   }, []);
 
@@ -34,6 +49,9 @@ export default function ReportsPage() {
           totalBookings={data.bookingCounts.total}
           completedBookings={data.bookingCounts.completed}
           cancelledBookings={data.bookingCounts.cancelled}
+          revenue={data.revenue}
+          teacherPerformance={data.teacherPerformance}
+          leadSources={data.leadSources}
         />
       ) : (
         <Skeleton className="h-64" />

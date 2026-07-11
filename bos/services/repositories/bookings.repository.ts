@@ -79,6 +79,25 @@ export class BookingsRepository {
     return { total: total.count ?? 0, completed: completed.count ?? 0, cancelled: cancelled.count ?? 0 };
   }
 
+  async countPending(): Promise<number> {
+    const { count, error } = await this.db.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending");
+    if (error) throw error;
+    return count ?? 0;
+  }
+
+  /** Completed-lesson count per teacher, for the Teacher Performance report. */
+  async countCompletedByTeacher(): Promise<Record<string, number>> {
+    const { data, error } = await this.db.from("bookings").select("teacher_id").eq("status", "completed");
+    if (error) throw error;
+
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) {
+      if (!row.teacher_id) continue;
+      counts[row.teacher_id] = (counts[row.teacher_id] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   async create(input: Database["public"]["Tables"]["bookings"]["Insert"]): Promise<Tables<"bookings">> {
     const { data, error } = await this.db.from("bookings").insert(input).select("*").single();
     if (error) throw error;

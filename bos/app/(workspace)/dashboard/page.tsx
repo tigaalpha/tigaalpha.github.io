@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarClock, MessagesSquare, Clock3, Users2 } from "lucide-react";
+import { CalendarClock, MessagesSquare, Clock3, Users2, CalendarPlus, Hourglass, Wallet, Bot } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { StatCard } from "@/features/dashboard/components/stat-card";
@@ -9,6 +9,7 @@ import { LessonListCard } from "@/features/dashboard/components/lesson-list-card
 import { SalesFunnelCard } from "@/features/dashboard/components/sales-funnel-card";
 import { NotificationsCard } from "@/features/dashboard/components/notifications-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatCurrency } from "@/lib/utils";
 import type { SalesStatus, Tables } from "@/types/database";
 
 interface DashboardData {
@@ -18,6 +19,10 @@ interface DashboardData {
   notifications: Tables<"notifications">[];
   conversations: Tables<"conversations">[];
   nearRenewal: Tables<"courses">[];
+  pendingBookings: number;
+  remainingHours: number;
+  revenue: number;
+  aiResolutionRate: number;
 }
 
 export default function DashboardPage() {
@@ -33,9 +38,37 @@ export default function DashboardPage() {
       repos.notifications.listUnread(8),
       repos.conversations.listNeedingReview(),
       repos.courses.listNearingCompletion(1),
-    ]).then(([today, tomorrow, funnel, notifications, conversations, nearRenewal]) => {
-      setData({ today, tomorrow, funnel, notifications, conversations, nearRenewal });
-    });
+      repos.bookings.countPending(),
+      repos.courses.sumRemainingHours(),
+      repos.courses.totalRevenue(),
+      repos.conversations.aiResolutionStats(),
+    ]).then(
+      ([
+        today,
+        tomorrow,
+        funnel,
+        notifications,
+        conversations,
+        nearRenewal,
+        pendingBookings,
+        remainingHours,
+        revenue,
+        aiStats,
+      ]) => {
+        setData({
+          today,
+          tomorrow,
+          funnel,
+          notifications,
+          conversations,
+          nearRenewal,
+          pendingBookings,
+          remainingHours,
+          revenue,
+          aiResolutionRate: aiStats.resolutionRate,
+        });
+      }
+    );
   }, []);
 
   if (!data) {
@@ -43,7 +76,7 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))}
         </div>
@@ -55,7 +88,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { today, tomorrow, funnel, notifications, conversations, nearRenewal } = data;
+  const { today, tomorrow, funnel, notifications, conversations, nearRenewal, pendingBookings, remainingHours, revenue, aiResolutionRate } = data;
 
   return (
     <div className="space-y-6">
@@ -69,6 +102,13 @@ export default function DashboardPage() {
         <StatCard label="Pending Chats" value={conversations.length} icon={MessagesSquare} tone={conversations.length > 0 ? "danger" : "default"} />
         <StatCard label="Near Renewal" value={nearRenewal.length} icon={Clock3} tone="warning" />
         <StatCard label="New Leads" value={funnel.new_lead} icon={Users2} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Booking Requests" value={pendingBookings} icon={CalendarPlus} tone={pendingBookings > 0 ? "warning" : "default"} />
+        <StatCard label="Remaining Hours" value={remainingHours} icon={Hourglass} hint="Across all active courses" />
+        <StatCard label="Revenue" value={formatCurrency(revenue)} icon={Wallet} tone="success" />
+        <StatCard label="AI Performance" value={`${aiResolutionRate}%`} icon={Bot} hint="Conversations resolved without escalation" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

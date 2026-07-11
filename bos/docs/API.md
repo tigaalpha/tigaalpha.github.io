@@ -67,8 +67,14 @@ Adds a knowledge base document: chunks the text, embeds each chunk via
 Gemini, and stores it for RAG search.
 
 ```json
-{ "title": "string", "sourceType": "pricing|promotion|teachers|policies|faq|school_info|holiday|internal_sop", "content": "string" }
+{ "title": "string", "sourceType": "pricing|promotion|teachers|policies|faq|school_info|holiday|internal_sop|sales_script|objection_handling|rule|example|correction", "content": "string" }
 ```
+
+The last five source types are how the owner "trains" the AI (PRD "AI
+Training") without touching code: `sales_script`/`objection_handling`/`rule`/`example`
+are added from the Knowledge Base page; `correction` is written automatically
+when the owner clicks "Correct this reply" on an AI message in the Inbox —
+all of them just become more RAG-searchable knowledge, no fine-tuning.
 
 Deletion happens directly from the browser (`knowledge_documents` delete is
 allowed by RLS for staff) — no Edge Function needed for that.

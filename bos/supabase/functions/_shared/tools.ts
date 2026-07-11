@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-import type { ToolDefinition, ToolCall } from "./gemini.ts";
-import { embed, chunkText } from "./gemini.ts";
+import type { ToolDefinition, ToolCall } from "./ai-types.ts";
+import { embed } from "./ai-provider.ts";
 import * as calendar from "./calendar.ts";
 
 export const AI_TOOLS: ToolDefinition[] = [
@@ -139,6 +139,23 @@ export async function executeTool(call: ToolCall, db: SupabaseClient): Promise<u
         .maybeSingle();
       if (courseErr || !course) throw new Error("No active course with remaining hours");
 
+      const { data: conflicts } = await db
+        .from("bookings")
+        .select("id")
+        .eq("teacher_id", args.teacherId)
+        .neq("status", "cancelled")
+        .lt("start_time", String(args.endTime))
+        .gt("end_time", String(args.startTime));
+      if (conflicts && conflicts.length > 0) {
+        await db.from("notifications").insert({
+          type: "conflict_booking",
+          title: "AI attempted a conflicting booking",
+          body: `${customer.name} wanted ${args.startTime}, but this teacher already has a lesson then.`,
+          customer_id: args.customerId as string,
+        });
+        throw new Error("Teacher already booked in this time range");
+      }
+
       const lessonNumber = course.current_hour + 1;
       const lessonType = lessonNumber >= course.total_hours ? "final" : "normal";
       const title = `${lessonNumber}${String(customer.name).trim().replace(/\s+/g, "").toUpperCase()}`;
@@ -257,5 +274,3 @@ export async function executeTool(call: ToolCall, db: SupabaseClient): Promise<u
       throw new Error(`Unknown tool: ${call.name}`);
   }
 }
-
-export { chunkText };

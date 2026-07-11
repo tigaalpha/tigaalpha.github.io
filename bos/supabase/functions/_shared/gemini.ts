@@ -1,34 +1,10 @@
-// Thin Gemini REST wrapper (Deno-compatible, no SDK). Mirrors the interface
-// used by the AI provider layer in /bos/services/ai — kept intentionally
-// separate since Edge Functions run in Deno, not Next.js.
+// Thin Gemini REST wrapper (Deno-compatible, no SDK). This is the only file
+// that knows Gemini's request/response shape — everything else talks to the
+// AIProvider interface in ai-provider.ts.
+
+import type { AIProvider, ChatMessage, GenerateResult, ToolDefinition } from "./ai-types.ts";
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-
-export type ChatRole = "system" | "user" | "assistant" | "tool";
-
-export interface ChatMessage {
-  role: ChatRole;
-  content: string;
-  toolCallId?: string;
-  toolCalls?: ToolCall[];
-}
-
-export interface ToolCall {
-  id: string;
-  name: string;
-  arguments: Record<string, unknown>;
-}
-
-export interface ToolDefinition {
-  name: string;
-  description: string;
-  parameters: Record<string, unknown>;
-}
-
-export interface GenerateResult {
-  message: ChatMessage;
-  finishReason: "stop" | "tool_calls" | "length" | "error";
-}
 
 interface GeminiPart {
   text?: string;
@@ -83,7 +59,7 @@ function toGeminiContents(messages: ChatMessage[]): GeminiContent[] {
   return contents;
 }
 
-export async function generate(
+async function generate(
   messages: ChatMessage[],
   tools?: ToolDefinition[],
   temperature = 0.6,
@@ -130,7 +106,7 @@ export async function generate(
   const parts = candidate?.content?.parts ?? [];
   const text = parts.map((p) => p.text ?? "").join("").trim();
 
-  const toolCalls: ToolCall[] = parts
+  const toolCalls = parts
     .filter((part): part is GeminiPart & { functionCall: NonNullable<GeminiPart["functionCall"]> } => Boolean(part.functionCall))
     .map((part, index) => ({ id: `${part.functionCall.name}-${index}`, name: part.functionCall.name, arguments: part.functionCall.args }));
 
@@ -140,7 +116,7 @@ export async function generate(
   };
 }
 
-export async function embed(text: string): Promise<number[]> {
+async function embed(text: string): Promise<number[]> {
   const response = await fetch(`${BASE_URL}/${embeddingModel()}:embedContent?key=${apiKey()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -155,20 +131,4 @@ export async function embed(text: string): Promise<number[]> {
   return data.embedding?.values ?? [];
 }
 
-const CHUNK_SIZE = 800;
-const CHUNK_OVERLAP = 100;
-
-export function chunkText(text: string): string[] {
-  const normalized = text.replace(/\r\n/g, "\n").trim();
-  if (normalized.length <= CHUNK_SIZE) return [normalized];
-
-  const chunks: string[] = [];
-  let start = 0;
-  while (start < normalized.length) {
-    const end = Math.min(start + CHUNK_SIZE, normalized.length);
-    chunks.push(normalized.slice(start, end).trim());
-    if (end === normalized.length) break;
-    start = end - CHUNK_OVERLAP;
-  }
-  return chunks.filter(Boolean);
-}
+export const geminiProvider: AIProvider = { generate, embed };

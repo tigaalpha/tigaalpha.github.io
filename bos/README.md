@@ -47,7 +47,7 @@ Postgres RLS, not this guard.
 /supabase
   /migrations            SQL migrations (schema, RLS policies, triggers)
   /functions
-    /_shared             gemini.ts, calendar.ts (fetch-based, no SDKs), line.ts, prompts.ts, tools.ts, chat-core.ts, auth.ts, cors.ts, supabase-admin.ts
+    /_shared             ai-provider.ts (vendor-agnostic interface, selects by AI_PROVIDER), ai-types.ts, gemini.ts (the Gemini implementation), calendar.ts (fetch-based, no SDKs), line.ts, prompts.ts, tools.ts, chat-core.ts, text.ts, auth.ts, cors.ts, supabase-admin.ts
     /ai-chat             Web chat endpoint (verify_jwt=true)
     /line-webhook        LINE webhook (verify_jwt=false — authenticated by X-Line-Signature instead)
     /bookings            Create/reschedule/cancel/complete a lesson (verify_jwt=true)
@@ -64,7 +64,7 @@ Postgres RLS, not this guard.
 - **Calendar color rules**: yellow (Banana) for a normal lesson, green (Basil) for the final lesson of a course — final lesson also means "collect payment / discuss renewal"
 - **Automatic hour tracking**: a DB trigger increments `current_hour` / decrements `remaining_hour` whenever a booking flips to `completed`, and fires renewal notifications at 1 hour remaining and at course completion (`supabase/migrations/0008_hour_tracking.sql`)
 - **No double-booking**: a DB constraint trigger rejects overlapping bookings per teacher; the `bookings` Edge Function also pre-checks before writing
-- **AI cost optimization order** (PRD priority): Knowledge Base search → conversation memory → Gemini generation, so the model is only called when the knowledge base can't answer directly
+- **AI cost optimization** (`supabase/functions/_shared/chat-core.ts`): opening-message replies are cached (`ai_response_cache`, 6h TTL) so identical FAQ questions from different customers don't each cost a Gemini call; message history sent to the model is capped at 12 messages, with everything older compressed into a one-time conversation summary instead of silently dropped; knowledge base search happens via function-calling before the model needs to guess
 
 ## Getting started
 
@@ -97,6 +97,7 @@ supabase functions deploy knowledge-upload
 Then set their secrets (Project Settings → Edge Functions → Secrets, or `supabase secrets set`):
 
 ```
+AI_PROVIDER=gemini
 GEMINI_API_KEY=...
 AI_MODEL=gemini-flash-latest
 AI_EMBEDDING_MODEL=text-embedding-004
@@ -129,7 +130,9 @@ produces `/out` — copy its contents into a `/studio` folder at the repo root
 and commit, so it's served at `https://tigaalpha.github.io/studio/`
 alongside the existing site at the repo root. Change `BASE_PATH` in
 `lib/constants.ts` (and `next.config.ts`, which imports it) if you want a
-different path.
+different path — also update the hardcoded `/studio` paths in
+`public/manifest.webmanifest` (`start_url`, `scope`, icon `src`s), since a
+static manifest can't reference the TS constant.
 
 ## Environment variables
 
@@ -138,6 +141,6 @@ section above for secrets. No vendor key ever ships in the static bundle.
 
 ## Notes
 
-- `public/manifest.webmanifest` references `public/icons/icon-192.png` and `icon-512.png` — add real PNG icons before shipping as an installable PWA.
+- PWA installable: `public/icons/icon-{192,512}.png` (generated) + `public/sw.js` (minimal network-first service worker, registered from `components/service-worker-register.tsx`) satisfy Chrome/Edge's "Add to Home Screen" criteria.
 - `GOOGLE_REFRESH_TOKEN` is a single-tenant refresh token for the studio's own Google Calendar (obtained once via an OAuth consent flow); there's no UI to (re)generate it yet.
 - The dynamic `/students/[id]` route was intentionally changed to `/students/detail?id=...` — static export can't pre-render dynamic segments for IDs that don't exist at build time.
