@@ -23,6 +23,7 @@ export function StudentDetail({ customer, courses, history }: StudentDetailProps
           <Row label="Budget" value={customer.budget} />
           <Row label="Experience" value={customer.experience_level} />
           <Row label="Preferred schedule" value={customer.preferred_schedule} />
+          <Row label="Practice frequency" value={customer.practice_frequency} />
           <Row label="Parent" value={customer.parent_name} />
           <div className="flex items-center justify-between border-t border-line/5 pt-3">
             <span className="text-secondary/50">Sales status</span>

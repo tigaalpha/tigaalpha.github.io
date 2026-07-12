@@ -73,6 +73,7 @@ export const AI_TOOLS: ToolDefinition[] = [
         budget: { type: "string" },
         experienceLevel: { type: "string" },
         preferredSchedule: { type: "string" },
+        practiceFrequency: { type: "string", description: "How often the customer plans to practice (e.g. daily, few times a week, weekends only)." },
         preferredTeacherId: { type: "string", description: "Teacher id from list_teachers, if the customer names a preference." },
         parentName: { type: "string", description: "For a minor student, the parent/guardian's name." },
         parentPhone: { type: "string", description: "For a minor student, the parent/guardian's phone number." },
@@ -250,13 +251,14 @@ export async function executeTool(call: ToolCall, db: SupabaseClient): Promise<u
 
     case "update_customer_profile": {
       const {
-        customerId, learningGoal, experienceLevel, preferredSchedule, age, budget,
+        customerId, learningGoal, experienceLevel, preferredSchedule, practiceFrequency, age, budget,
         preferredTeacherId, parentName, parentPhone, leadSource, notes,
       } = args as Record<string, string | number>;
       const patch: Record<string, unknown> = {};
       if (learningGoal) patch.learning_goal = learningGoal;
       if (experienceLevel) patch.experience_level = experienceLevel;
       if (preferredSchedule) patch.preferred_schedule = preferredSchedule;
+      if (practiceFrequency) patch.practice_frequency = practiceFrequency;
       if (age) patch.age = Number(age);
       if (budget) patch.budget = budget;
       if (preferredTeacherId) patch.preferred_teacher_id = preferredTeacherId;

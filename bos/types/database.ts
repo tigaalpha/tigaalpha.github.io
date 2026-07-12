@@ -88,6 +88,7 @@ export interface Database {
           experience_level: string | null;
           preferred_teacher_id: string | null;
           preferred_schedule: string | null;
+          practice_frequency: string | null;
           parent_name: string | null;
           parent_phone: string | null;
           sales_status: SalesStatus;

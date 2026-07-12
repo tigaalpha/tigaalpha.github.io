@@ -147,6 +147,38 @@ different path — also update the hardcoded `/studio` paths in
 `public/manifest.webmanifest` (`start_url`, `scope`, icon `src`s), since a
 static manifest can't reference the TS constant.
 
+## Performance (PRD targets, verified)
+
+PRD targets: First Load <2s, Search <300ms, Calendar Update <500ms, AI
+Response 3-5s. Measured against the actual production build (`npm run
+build`, served locally, Playwright, 5 samples each, 2026-07-12):
+
+| Target | PRD | Measured | Result |
+|---|---|---|---|
+| First Load — `/login` | <2000ms | avg 48ms | ✅ |
+| First Load — `/dashboard` shell | <2000ms | avg 48ms | ✅ |
+| First Load — `/calendar` (heaviest bundle, 252kB) | <2000ms | avg 54ms | ✅ |
+| Search (in-memory filter, 500 records) | <300ms | 0.2ms | ✅ |
+
+These are app-rendering time only (local server, no CDN/network latency to
+GitHub Pages or the user's connection) — they isolate the one thing the code
+controls. Real-world load time will be higher by whatever the network adds,
+but the app itself has no rendering bottleneck close to the 2s budget.
+
+**Calendar Update (<500ms) and AI Response (3-5s)** depend on live
+third-party API latency (Google Calendar API, Gemini API) that can only be
+observed from real production traffic with a signed-in staff session —
+something this session has no credentials for. Historical Edge Function
+logs (`get_logs`) show two `ai-chat` calls from earlier in this build (before
+the AI provider abstraction and current prompt/tool set existed) that failed
+after 13.6s and 18.1s — that code path has since been rewritten and
+redeployed multiple times, so it isn't representative of the current
+function. There is no fresh successful invocation to cite a real number
+from. Recommended next step: after connecting Google Calendar and Gemini,
+send one message via the in-app chat tester (`/chat`) and check
+Supabase → Edge Functions → Logs for the actual `ai-chat` execution time —
+that will be the first genuine data point against the 3-5s target.
+
 ## Environment variables
 
 See `.env.example` for the frontend (public-only) and the Edge Functions
