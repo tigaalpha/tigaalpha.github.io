@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Copy, Check, Trash2, Sparkles } from "lucide-react";
+import { FileText, Copy, Check, Trash2, Sparkles, Shuffle } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { STANDING_TOPICS, pickRandomTopic } from "@/features/content/topics";
 import type { ArticleStatus, Tables } from "@/types/database";
 
 interface ContentManagerProps {
@@ -44,8 +45,7 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
 
   const selected = articles.find((a) => a.id === selectedId) ?? null;
 
-  async function handleGenerate(e: React.FormEvent) {
-    e.preventDefault();
+  async function runGenerate(topicValue: string, keywordValue: string, languageValue: "th" | "en") {
     setGenerating(true);
     setError(null);
 
@@ -54,7 +54,7 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
       // Chunking, embedding, and the Gemini call need the key, which stays
       // server-side — this invokes the Supabase Edge Function that holds it.
       const { data, error: fnError } = await supabase.functions.invoke<{ article: Tables<"articles"> }>("generate-article", {
-        body: { topic, targetKeyword, language },
+        body: { topic: topicValue, targetKeyword: keywordValue, language: languageValue },
       });
       if (fnError) throw fnError;
 
@@ -67,6 +67,18 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
     } finally {
       setGenerating(false);
     }
+  }
+
+  function handleGenerate(e: React.FormEvent) {
+    e.preventDefault();
+    void runGenerate(topic, targetKeyword, language);
+  }
+
+  function handleQuickContent(topicOverride?: string) {
+    const picked = topicOverride ?? pickRandomTopic();
+    setTopic(picked);
+    setTargetKeyword(picked);
+    void runGenerate(picked, picked, language);
   }
 
   async function handleDelete(id: string) {
@@ -124,6 +136,32 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
               {generating ? "กำลังเขียนบทความ… (อาจใช้เวลาสักครู่)" : "สร้างบทความ"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>หัวข้อประจำ</CardTitle>
+          <CardDescription>กดหัวข้อไหนก็ได้เพื่อสร้างบทความทันที หรือกด &quot;Content ด่วน&quot; ให้ระบบสุ่มหัวข้อให้เอง</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button onClick={() => handleQuickContent()} disabled={generating} className="w-full sm:w-auto">
+            <Shuffle className="h-4 w-4" />
+            {generating ? "กำลังเขียนบทความ…" : "Content ด่วน (สุ่มหัวข้อ)"}
+          </Button>
+          <div className="flex flex-wrap gap-2">
+            {STANDING_TOPICS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                disabled={generating}
+                onClick={() => handleQuickContent(t)}
+                className="rounded-full border border-line/10 px-3 py-1.5 text-xs text-secondary/70 transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-secondary disabled:opacity-50"
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
