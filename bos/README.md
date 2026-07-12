@@ -53,6 +53,9 @@ Postgres RLS, not this guard.
     /bookings            Create/reschedule/cancel/complete a lesson (verify_jwt=true)
     /calendar-sync       Reconciles bookings vs. live Google Calendar (verify_jwt=true)
     /knowledge-upload    Chunks + embeds a knowledge base document (verify_jwt=true)
+    /google-oauth-start  Builds the Google consent URL for Settings > Integrations (verify_jwt=true)
+    /google-oauth-callback  Google redirects here after consent; exchanges code for a refresh token (verify_jwt=false — protected by a one-time state nonce instead)
+    /integrations-status Tests LINE / Google Calendar / Gemini connectivity for Settings > Integrations (verify_jwt=true)
 /prompts                 Source-of-truth markdown for AI prompts (mirrored into supabase/functions/_shared/prompts.ts, since Edge Functions can't read arbitrary repo files at runtime — keep both in sync)
 /types                    Shared TypeScript types (database schema)
 /docs/API.md              Edge Function reference
@@ -101,15 +104,21 @@ AI_PROVIDER=gemini
 GEMINI_API_KEY=...
 AI_MODEL=gemini-flash-latest
 AI_EMBEDDING_MODEL=text-embedding-004
-GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
-GOOGLE_REFRESH_TOKEN=...
 GOOGLE_CALENDAR_ID=primary
 LINE_CHANNEL_SECRET=...
 LINE_CHANNEL_ACCESS_TOKEN=...
 ```
 
 (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically by Supabase — no need to set them.)
+
+`GOOGLE_CLIENT_ID` and `GOOGLE_REFRESH_TOKEN` are **not** set as secrets —
+they're connected from the app itself at Settings → Integrations (paste the
+Client ID, click "Connect Google Calendar," approve the Google consent
+screen). That flow stores them in the `integration_settings` table;
+`calendar.ts` reads from there first and falls back to the
+`GOOGLE_CLIENT_ID` / `GOOGLE_REFRESH_TOKEN` secrets only for a project set
+up the old way, before this UI existed.
 
 ### 4. First login / granting yourself access
 
@@ -142,5 +151,5 @@ section above for secrets. No vendor key ever ships in the static bundle.
 ## Notes
 
 - PWA installable: `public/icons/icon-{192,512}.png` (generated) + `public/sw.js` (minimal network-first service worker, registered from `components/service-worker-register.tsx`) satisfy Chrome/Edge's "Add to Home Screen" criteria.
-- `GOOGLE_REFRESH_TOKEN` is a single-tenant refresh token for the studio's own Google Calendar (obtained once via an OAuth consent flow); there's no UI to (re)generate it yet.
+- Settings → Integrations is the in-app connection UI for LINE, Google Calendar, and Gemini: live connection status, a "Connect Google Calendar" button that runs the OAuth consent flow end to end, the exact webhook/redirect URLs to paste into LINE Developers Console and Google Cloud Console, and step-by-step setup instructions for whichever secrets genuinely can't be entered through the app (LINE tokens, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY` — Supabase Edge Function secrets, never DB rows).
 - The dynamic `/students/[id]` route was intentionally changed to `/students/detail?id=...` — static export can't pre-render dynamic segments for IDs that don't exist at build time.

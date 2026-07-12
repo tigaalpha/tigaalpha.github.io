@@ -9,6 +9,7 @@ import { ConversationsRepository } from "./conversations.repository";
 import { KnowledgeRepository } from "./knowledge.repository";
 import { TeachersRepository } from "./teachers.repository";
 import { AuditRepository } from "./audit.repository";
+import { IntegrationsRepository } from "./integrations.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -26,6 +27,7 @@ export function createRepositories(db: SupabaseClient<Database>) {
     knowledge: new KnowledgeRepository(db),
     teachers: new TeachersRepository(db),
     audit: new AuditRepository(db),
+    integrations: new IntegrationsRepository(db),
   };
 }
 

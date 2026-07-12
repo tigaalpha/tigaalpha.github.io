@@ -261,6 +261,16 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["audit_log"]["Row"]>;
         Relationships: [];
       };
+      integration_settings: {
+        Row: {
+          key: string;
+          value: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["integration_settings"]["Row"]> & { key: string };
+        Update: Partial<Database["public"]["Tables"]["integration_settings"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

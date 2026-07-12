@@ -78,3 +78,39 @@ all of them just become more RAG-searchable knowledge, no fine-tuning.
 
 Deletion happens directly from the browser (`knowledge_documents` delete is
 allowed by RLS for staff) — no Edge Function needed for that.
+
+## `google-oauth-start` (verify_jwt: true)
+
+Called from Settings → Integrations when the owner clicks "Connect Google
+Calendar." Reads `google_client_id` from `integration_settings`, mints a
+one-time state nonce (stored in the same table, 10-minute TTL), and returns
+the Google consent-screen URL for the frontend to redirect to.
+
+```json
+// Response
+{ "url": "https://accounts.google.com/o/oauth2/v2/auth?...", "redirectUri": "https://<project>.supabase.co/functions/v1/google-oauth-callback" }
+```
+
+## `google-oauth-callback` (verify_jwt: false)
+
+Google redirects the browser here after consent — no Supabase session is
+attached, so this can't require a JWT; it's protected by the state nonce
+from `google-oauth-start` instead. Exchanges `code` for tokens, stores the
+`refresh_token` in `integration_settings`, and redirects back to
+`/studio/settings/?googleCalendar=connected` (or `=error&googleCalendarError=...`).
+
+## `integrations-status` (verify_jwt: true)
+
+```json
+// Response
+{
+  "line": { "connected": true, "detail": "Connected as \"Tiga Studio\"" },
+  "googleCalendar": { "connected": false, "detail": "Google Calendar is not connected yet — connect it from Settings > Integrations." },
+  "gemini": { "connected": true, "detail": "GEMINI_API_KEY is set" }
+}
+```
+
+Live-tests LINE (`GET /v2/bot/info`) and Google Calendar (lists a 1-minute
+window of events) using whatever credentials are currently configured;
+Gemini is only checked for key presence, not a real call, to avoid burning
+quota on every status refresh.
