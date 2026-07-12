@@ -57,6 +57,11 @@ export const AI_TOOLS: ToolDefinition[] = [
     parameters: { type: "object", properties: { customerId: { type: "string" }, lineUserId: { type: "string" } } },
   },
   {
+    name: "list_teachers",
+    description: "List active teachers with their id, name, and specialties — use this to resolve a teacher's name to their id before booking or saving a preferred teacher.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
     name: "update_customer_profile",
     description: "Update qualification fields collected during a sales conversation.",
     parameters: {
@@ -68,6 +73,10 @@ export const AI_TOOLS: ToolDefinition[] = [
         budget: { type: "string" },
         experienceLevel: { type: "string" },
         preferredSchedule: { type: "string" },
+        preferredTeacherId: { type: "string", description: "Teacher id from list_teachers, if the customer names a preference." },
+        parentName: { type: "string", description: "For a minor student, the parent/guardian's name." },
+        parentPhone: { type: "string", description: "For a minor student, the parent/guardian's phone number." },
+        leadSource: { type: "string", description: "How the customer found the school, if they mention it (e.g. Facebook, friend referral, walk-in)." },
         notes: { type: "string" },
       },
       required: ["customerId"],
@@ -120,6 +129,12 @@ export async function executeTool(call: ToolCall, db: SupabaseClient): Promise<u
         .map((m: { similarity: number; content: string }, i: number) => `[${i + 1}] (similarity ${m.similarity.toFixed(2)}) ${m.content}`)
         .join("\n\n");
       return { context };
+    }
+
+    case "list_teachers": {
+      const { data, error } = await db.from("teachers").select("id, name, specialties").eq("active", true);
+      if (error) throw error;
+      return { teachers: data };
     }
 
     case "check_calendar_availability":
@@ -234,13 +249,20 @@ export async function executeTool(call: ToolCall, db: SupabaseClient): Promise<u
     }
 
     case "update_customer_profile": {
-      const { customerId, learningGoal, experienceLevel, preferredSchedule, age, budget, notes } = args as Record<string, string | number>;
+      const {
+        customerId, learningGoal, experienceLevel, preferredSchedule, age, budget,
+        preferredTeacherId, parentName, parentPhone, leadSource, notes,
+      } = args as Record<string, string | number>;
       const patch: Record<string, unknown> = {};
       if (learningGoal) patch.learning_goal = learningGoal;
       if (experienceLevel) patch.experience_level = experienceLevel;
       if (preferredSchedule) patch.preferred_schedule = preferredSchedule;
       if (age) patch.age = Number(age);
       if (budget) patch.budget = budget;
+      if (preferredTeacherId) patch.preferred_teacher_id = preferredTeacherId;
+      if (parentName) patch.parent_name = parentName;
+      if (parentPhone) patch.parent_phone = parentPhone;
+      if (leadSource) patch.lead_source = leadSource;
       if (notes) patch.notes = notes;
 
       const { data, error } = await db.from("customers").update(patch).eq("id", customerId).select("*").single();

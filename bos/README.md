@@ -56,6 +56,8 @@ Postgres RLS, not this guard.
     /google-oauth-start  Builds the Google consent URL for Settings > Integrations (verify_jwt=true)
     /google-oauth-callback  Google redirects here after consent; exchanges code for a refresh token (verify_jwt=false — protected by a one-time state nonce instead)
     /integrations-status Tests LINE / Google Calendar / Gemini connectivity for Settings > Integrations (verify_jwt=true)
+    /follow-up-conversations  Recovers abandoned sales conversations on a schedule (verify_jwt=false — protected by a cron secret instead, called by pg_cron + pg_net)
+/lib/extract-file-text.ts  Client-side .txt/.pdf/.docx text extraction for the Knowledge Base upload flow (pdfjs-dist + mammoth) — no server round-trip
 /prompts                 Source-of-truth markdown for AI prompts (mirrored into supabase/functions/_shared/prompts.ts, since Edge Functions can't read arbitrary repo files at runtime — keep both in sync)
 /types                    Shared TypeScript types (database schema)
 /docs/API.md              Edge Function reference
@@ -68,6 +70,8 @@ Postgres RLS, not this guard.
 - **Automatic hour tracking**: a DB trigger increments `current_hour` / decrements `remaining_hour` whenever a booking flips to `completed`, and fires renewal notifications at 1 hour remaining and at course completion (`supabase/migrations/0008_hour_tracking.sql`)
 - **No double-booking**: a DB constraint trigger rejects overlapping bookings per teacher; the `bookings` Edge Function also pre-checks before writing
 - **AI cost optimization** (`supabase/functions/_shared/chat-core.ts`): opening-message replies are cached (`ai_response_cache`, 6h TTL) so identical FAQ questions from different customers don't each cost a Gemini call; message history sent to the model is capped at 12 messages, with everything older compressed into a one-time conversation summary instead of silently dropped; knowledge base search happens via function-calling before the model needs to guess
+- **Abandoned conversation recovery**: `follow-up-conversations` Edge Function runs every 6 hours (`supabase/migrations/0015_conversation_followup.sql`), finds LINE conversations mid-sales-funnel gone quiet for 48h+, and sends one natural AI follow-up per lead via LINE push
+- **Full CRM qualification capture**: the AI's `update_customer_profile` tool can save every field the PRD's "Customer Qualification" section lists — age, goal, budget, experience, preferred schedule, preferred teacher (resolved via the `list_teachers` tool), parent info, and lead source
 
 ## Getting started
 
@@ -153,3 +157,4 @@ section above for secrets. No vendor key ever ships in the static bundle.
 - PWA installable: `public/icons/icon-{192,512}.png` (generated) + `public/sw.js` (minimal network-first service worker, registered from `components/service-worker-register.tsx`) satisfy Chrome/Edge's "Add to Home Screen" criteria.
 - Settings → Integrations is the in-app connection UI for LINE, Google Calendar, and Gemini: live connection status, a "Connect Google Calendar" button that runs the OAuth consent flow end to end, the exact webhook/redirect URLs to paste into LINE Developers Console and Google Cloud Console, and step-by-step setup instructions for whichever secrets genuinely can't be entered through the app (LINE tokens, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY` — Supabase Edge Function secrets, never DB rows).
 - The dynamic `/students/[id]` route was intentionally changed to `/students/detail?id=...` — static export can't pre-render dynamic segments for IDs that don't exist at build time.
+- Knowledge Base accepts `.txt`, `.pdf`, and `.docx` uploads directly (in addition to pasting text) — extraction happens client-side, so no file ever leaves the browser unparsed.

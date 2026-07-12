@@ -79,6 +79,33 @@ all of them just become more RAG-searchable knowledge, no fine-tuning.
 Deletion happens directly from the browser (`knowledge_documents` delete is
 allowed by RLS for staff) — no Edge Function needed for that.
 
+PDF and DOCX files never touch this function or a server at all: the
+Knowledge Base page extracts plain text from `.txt`/`.pdf`/`.docx` files
+entirely in the browser (`pdfjs-dist` for PDF, `mammoth` for DOCX — see
+`lib/extract-file-text.ts`) before calling this endpoint with the extracted
+text, same as pasting it by hand.
+
+## `follow-up-conversations` (verify_jwt: false)
+
+"Recover abandoned conversations" (PRD, AI Sales Employee). Runs on a
+schedule via `pg_cron` + `pg_net` (migration `0015_conversation_followup`,
+every 6 hours) — public because `pg_net` has no Supabase session to attach;
+authenticated instead by a random secret in `integration_settings` (key
+`cron_secret`, generated server-side, never committed to git) sent as the
+`x-cron-secret` header.
+
+Finds LINE conversations for customers still mid-funnel (`contacted` through
+`renew_pending`) with no message in the last 48 hours, writes one natural
+follow-up message per conversation via Gemini (referencing the conversation
+summary if one exists), sends it with `push()`, and records
+`last_followed_up_at` so the same lead isn't re-pinged every 6 hours.
+Capped at 20 conversations per run.
+
+```json
+// Response
+{ "checked": 3, "followedUp": 2 }
+```
+
 ## `google-oauth-start` (verify_jwt: true)
 
 Called from Settings → Integrations when the owner clicks "Connect Google

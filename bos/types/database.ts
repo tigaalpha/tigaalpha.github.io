@@ -170,6 +170,7 @@ export interface Database {
           line_user_id: string | null;
           summary: string | null;
           needs_review: boolean;
+          last_followed_up_at: string | null;
           created_at: string;
           updated_at: string;
         };

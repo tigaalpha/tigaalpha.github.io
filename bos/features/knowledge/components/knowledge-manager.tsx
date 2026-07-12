@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { BookOpen, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { BookOpen, Trash2, Upload } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
+import { extractFileText } from "@/lib/extract-file-text";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -26,7 +27,28 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
   const [sourceType, setSourceType] = useState<KnowledgeSourceType>("faq");
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setError(null);
+    setExtracting(true);
+    try {
+      const text = await extractFileText(file);
+      if (!text.trim()) throw new Error("Couldn't find any text in that file.");
+      setContent(text);
+      if (!title) setTitle(file.name.replace(/\.(txt|pdf|docx)$/i, ""));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to read file");
+    } finally {
+      setExtracting(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -85,6 +107,17 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
               className="min-h-40"
               required
             />
+            <input ref={fileInputRef} type="file" accept=".txt,.pdf,.docx" className="hidden" onChange={handleFileSelected} />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={extracting}
+            >
+              <Upload className="h-4 w-4" />
+              {extracting ? "กำลังอ่านไฟล์…" : "หรืออัปโหลดไฟล์ (.txt, .pdf, .docx)"}
+            </Button>
             {error ? <p className="text-xs text-danger">{error}</p> : null}
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? "Saving…" : "Save to Knowledge Base"}
