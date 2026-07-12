@@ -10,7 +10,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { STANDING_TOPICS, pickRandomTopic } from "@/features/content/topics";
+import { STANDING_TOPICS, pickRandomTopic, getMissingCoreKeywords } from "@/features/content/topics";
 import type { ArticleStatus, Tables } from "@/types/database";
 
 interface ContentManagerProps {
@@ -53,7 +53,10 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
       const supabase = createClient();
       // Chunking, embedding, and the Gemini call need the key, which stays
       // server-side — this invokes the Supabase Edge Function that holds it.
-      const { data, error: fnError } = await supabase.functions.invoke<{ article: Tables<"articles"> }>("generate-article", {
+      const { data, error: fnError } = await supabase.functions.invoke<{
+        article: Tables<"articles">;
+        missingCoreKeywords: string[];
+      }>("generate-article", {
         body: { topic: topicValue, targetKeyword: keywordValue, language: languageValue },
       });
       if (fnError) throw fnError;
@@ -62,6 +65,9 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
       setTargetKeyword("");
       onChanged();
       if (data?.article) setSelectedId(data.article.id);
+      if (data?.missingCoreKeywords?.length) {
+        setError(`เตือน: บทความนี้ยังขาดคีย์เวิร์ดหลัก: ${data.missingCoreKeywords.join(", ")} — กรุณาแก้ไขเพิ่มเติมด้วยตนเอง`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate article");
     } finally {
@@ -191,6 +197,9 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
                           {article.status === "published" ? "เผยแพร่แล้ว" : "ฉบับร่าง"}
                         </Badge>
                         <span className="text-xs text-secondary/40">{article.target_keyword}</span>
+                        {getMissingCoreKeywords(`${article.title}\n${article.content}`).length > 0 ? (
+                          <Badge variant="warning">ขาดคีย์เวิร์ด</Badge>
+                        ) : null}
                       </div>
                     </button>
                   </li>
@@ -237,6 +246,7 @@ function ArticleEditor({
   const [dirty, setDirty] = useState(false);
 
   const fullMarkdown = `# ${title}\n\n${content}`;
+  const missingKeywords = getMissingCoreKeywords(`${title}\n${content}`);
 
   function markDirty<T>(setter: (v: T) => void) {
     return (v: T) => {
@@ -270,6 +280,12 @@ function ArticleEditor({
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {missingKeywords.length > 0 ? (
+          <p className="rounded-xl bg-warning/10 px-3 py-2 text-xs text-warning">
+            ยังขาดคีย์เวิร์ดหลัก: {missingKeywords.join(", ")}
+          </p>
+        ) : null}
+
         <Field label="Title Tag / H1" hint={`${title.length} ตัวอักษร (แนะนำไม่เกิน 60)`}>
           <div className="flex items-center gap-2">
             <Input value={title} onChange={(e) => markDirty(setTitle)(e.target.value)} />

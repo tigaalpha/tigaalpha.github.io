@@ -15,3 +15,10 @@ export const STANDING_TOPICS: string[] = [
 export function pickRandomTopic(): string {
   return STANDING_TOPICS[Math.floor(Math.random() * STANDING_TOPICS.length)]!;
 }
+
+/** Core keywords every generated article must include — mirrored in supabase/functions/generate-article/index.ts. */
+export const CORE_KEYWORDS: string[] = ["เรียนเปียโน", "สอนเปียโน", "เรียนดนตรี", "สอนดนตรี", "คอร์สเรียนเปียโน", "คอร์สเรียนดนตรี"];
+
+export function getMissingCoreKeywords(text: string): string[] {
+  return CORE_KEYWORDS.filter((k) => !text.includes(k));
+}
