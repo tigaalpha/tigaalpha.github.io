@@ -36,7 +36,7 @@ Postgres RLS, not this guard.
 
 ```
 /app                    Next.js routes (App Router, all client components)
-  /(workspace)          Authenticated shell: dashboard, calendar, chat, students, sales, booking, knowledge, reports, settings, notifications
+  /(workspace)          Authenticated shell: dashboard, calendar, chat, students, sales, booking, knowledge, content (SEO/AEO), reports, settings, notifications
   /login
 /components/ui          Reusable design-system primitives (Button, Card, Badge, Input, EmptyState, Skeleton)
 /features/<name>        Feature-scoped components/hooks, one folder per PRD module
@@ -57,6 +57,7 @@ Postgres RLS, not this guard.
     /google-oauth-callback  Google redirects here after consent; exchanges code for a refresh token (verify_jwt=false — protected by a one-time state nonce instead)
     /integrations-status Tests LINE / Google Calendar / Gemini connectivity for Settings > Integrations (verify_jwt=true)
     /follow-up-conversations  Recovers abandoned sales conversations on a schedule (verify_jwt=false — protected by a cron secret instead, called by pg_cron + pg_net)
+    /generate-article    Writes one SEO/AEO article grounded in the knowledge base for the Content page (verify_jwt=true)
 /lib/extract-file-text.ts  Client-side .txt/.pdf/.docx text extraction for the Knowledge Base upload flow (pdfjs-dist + mammoth) — no server round-trip
 /prompts                 Source-of-truth markdown for AI prompts (mirrored into supabase/functions/_shared/prompts.ts, since Edge Functions can't read arbitrary repo files at runtime — keep both in sync)
 /types                    Shared TypeScript types (database schema)
@@ -190,3 +191,4 @@ section above for secrets. No vendor key ever ships in the static bundle.
 - Settings → Integrations is the in-app connection UI for LINE, Google Calendar, and Gemini: live connection status, a "Connect Google Calendar" button that runs the OAuth consent flow end to end, the exact webhook/redirect URLs to paste into LINE Developers Console and Google Cloud Console, and step-by-step setup instructions for whichever secrets genuinely can't be entered through the app (LINE tokens, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY` — Supabase Edge Function secrets, never DB rows).
 - The dynamic `/students/[id]` route was intentionally changed to `/students/detail?id=...` — static export can't pre-render dynamic segments for IDs that don't exist at build time.
 - Knowledge Base accepts `.txt`, `.pdf`, and `.docx` uploads directly (in addition to pasting text) — extraction happens client-side, so no file ever leaves the browser unparsed.
+- Content (`/content`) is an SEO/AEO article writer: describe a topic and target keyword, and the AI writes a full article grounded in the knowledge base (never invents pricing/teacher names), with a title tag, meta description, slug, FAQ section, and internal link ideas — following the direct-answer-first, entity-clear, schema-ready structure that both Google and AI answer engines (ChatGPT, Perplexity, AI Overviews) favor. This app doesn't manage the public marketing site's CMS, so articles are drafted here for the owner to review, edit, and copy into wherever the site actually publishes content.

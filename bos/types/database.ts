@@ -47,6 +47,13 @@ export type KnowledgeSourceType =
   | "example"
   | "correction";
 
+export type ArticleStatus = "draft" | "published";
+
+export interface ArticleFaqItem {
+  question: string;
+  answer: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -271,6 +278,32 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["integration_settings"]["Row"]> & { key: string };
         Update: Partial<Database["public"]["Tables"]["integration_settings"]["Row"]>;
+        Relationships: [];
+      };
+      articles: {
+        Row: {
+          id: string;
+          title: string;
+          slug: string;
+          target_keyword: string;
+          meta_description: string;
+          content: string;
+          faq: ArticleFaqItem[];
+          internal_link_ideas: string[];
+          language: string;
+          status: ArticleStatus;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["articles"]["Row"]> & {
+          title: string;
+          slug: string;
+          target_keyword: string;
+          meta_description: string;
+          content: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["articles"]["Row"]>;
         Relationships: [];
       };
     };

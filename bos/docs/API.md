@@ -106,6 +106,24 @@ Capped at 20 conversations per run.
 { "checked": 3, "followedUp": 2 }
 ```
 
+## `generate-article` (verify_jwt: true)
+
+Generates one SEO/AEO-optimized article for the Content page (`/content`).
+RAG-searches the knowledge base (same `match_knowledge_chunks` search the
+customer-facing AI uses) so pricing, teacher names, and policies in the
+article are grounded in real data, never invented. Forces structured output
+via a single-tool function call (`return_article`) rather than parsing free
+text, so the result is always well-formed. Saves the result as a `draft`
+row in `articles` and returns it.
+
+```json
+// Request
+{ "topic": "string", "targetKeyword": "string", "language": "th" | "en" }
+
+// Response
+{ "article": { "id": "uuid", "title": "string", "slug": "string", "meta_description": "string", "content": "markdown", "faq": [{ "question": "string", "answer": "string" }], "internal_link_ideas": ["string"], "status": "draft", ... } }
+```
+
 ## `google-oauth-start` (verify_jwt: true)
 
 Called from Settings → Integrations when the owner clicks "Connect Google
