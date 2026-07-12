@@ -11,6 +11,7 @@ import { TeachersRepository } from "./teachers.repository";
 import { AuditRepository } from "./audit.repository";
 import { IntegrationsRepository } from "./integrations.repository";
 import { ArticlesRepository } from "./articles.repository";
+import { TransactionsRepository } from "./transactions.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -30,6 +31,7 @@ export function createRepositories(db: SupabaseClient<Database>) {
     audit: new AuditRepository(db),
     integrations: new IntegrationsRepository(db),
     articles: new ArticlesRepository(db),
+    transactions: new TransactionsRepository(db),
   };
 }
 

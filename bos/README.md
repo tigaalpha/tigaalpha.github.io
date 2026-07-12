@@ -36,7 +36,7 @@ Postgres RLS, not this guard.
 
 ```
 /app                    Next.js routes (App Router, all client components)
-  /(workspace)          Authenticated shell: dashboard, calendar, chat, students, sales, booking, knowledge, content (SEO/AEO), reports, settings, notifications
+  /(workspace)          Authenticated shell: dashboard, calendar, chat, students, sales, booking, knowledge, content (SEO/AEO), accounting, reports, settings, notifications
   /login
 /components/ui          Reusable design-system primitives (Button, Card, Badge, Input, EmptyState, Skeleton)
 /features/<name>        Feature-scoped components/hooks, one folder per PRD module
@@ -192,3 +192,4 @@ section above for secrets. No vendor key ever ships in the static bundle.
 - The dynamic `/students/[id]` route was intentionally changed to `/students/detail?id=...` — static export can't pre-render dynamic segments for IDs that don't exist at build time.
 - Knowledge Base accepts `.txt`, `.pdf`, and `.docx` uploads directly (in addition to pasting text) — extraction happens client-side, so no file ever leaves the browser unparsed.
 - Content (`/content`) is an SEO/AEO article writer: describe a topic and target keyword, and the AI writes a full article grounded in the knowledge base (never invents pricing/teacher names), with a title tag, meta description, slug, FAQ section, and internal link ideas — following the direct-answer-first, entity-clear, schema-ready structure that both Google and AI answer engines (ChatGPT, Perplexity, AI Overviews) favor. This app doesn't manage the public marketing site's CMS, so articles are drafted here for the owner to review, edit, and copy into wherever the site actually publishes content.
+- Accounting (`/accounting`) is a manual income/expense ledger for the business's own finances (rent, salaries, marketing spend, tuition income, etc.) — separate from the CRM/sales revenue metric, which only reflects course pricing. Period summary (income, expense, net profit), per-category breakdown, and CSV export for handing off to an actual accountant. `transactions` RLS is owner/admin-only (`is_owner_or_admin()`), not staff-wide like most tables — financial records are more sensitive than customer/booking data.

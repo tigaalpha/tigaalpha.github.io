@@ -14,6 +14,7 @@ import {
   BarChart3,
   Bell,
   Settings,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/booking", label: "Bookings", icon: CalendarPlus },
   { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
   { href: "/content", label: "SEO/AEO Content", icon: FileText },
+  { href: "/accounting", label: "Accounting", icon: Wallet },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },

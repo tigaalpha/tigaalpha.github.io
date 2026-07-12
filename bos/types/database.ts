@@ -54,6 +54,8 @@ export interface ArticleFaqItem {
   answer: string;
 }
 
+export type TransactionType = "income" | "expense";
+
 export interface Database {
   public: {
     Tables: {
@@ -304,6 +306,28 @@ export interface Database {
           content: string;
         };
         Update: Partial<Database["public"]["Tables"]["articles"]["Row"]>;
+        Relationships: [];
+      };
+      transactions: {
+        Row: {
+          id: string;
+          type: TransactionType;
+          category: string;
+          amount: number;
+          description: string | null;
+          transaction_date: string;
+          payment_method: string | null;
+          customer_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["transactions"]["Row"]> & {
+          type: TransactionType;
+          category: string;
+          amount: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["transactions"]["Row"]>;
         Relationships: [];
       };
     };
