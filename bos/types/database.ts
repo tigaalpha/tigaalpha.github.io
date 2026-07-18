@@ -20,7 +20,7 @@ export type LessonEventType = "normal" | "final";
 
 export type BookingStatus = "pending" | "confirmed" | "rescheduled" | "cancelled" | "completed";
 
-export type ConversationChannel = "line" | "web" | "phone" | "walk_in";
+export type ConversationChannel = "line" | "web" | "phone" | "walk_in" | "internal";
 
 export type MessageSender = "customer" | "ai" | "owner";
 
@@ -328,6 +328,60 @@ export interface Database {
           amount: number;
         };
         Update: Partial<Database["public"]["Tables"]["transactions"]["Row"]>;
+        Relationships: [];
+      };
+      generated_images: {
+        Row: {
+          id: string;
+          prompt: string;
+          mime_type: string;
+          image_base64: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["generated_images"]["Row"]> & {
+          prompt: string;
+          mime_type: string;
+          image_base64: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["generated_images"]["Row"]>;
+        Relationships: [];
+      };
+      video_scripts: {
+        Row: {
+          id: string;
+          topic: string;
+          hook: string;
+          script: string;
+          caption: string;
+          hashtags: string[];
+          language: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["video_scripts"]["Row"]> & {
+          topic: string;
+          hook: string;
+          script: string;
+          caption: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["video_scripts"]["Row"]>;
+        Relationships: [];
+      };
+      voiceover_scripts: {
+        Row: {
+          id: string;
+          topic: string;
+          script: string;
+          language: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["voiceover_scripts"]["Row"]> & {
+          topic: string;
+          script: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["voiceover_scripts"]["Row"]>;
         Relationships: [];
       };
     };

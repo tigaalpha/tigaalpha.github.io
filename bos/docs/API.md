@@ -17,11 +17,19 @@ Send a message to the AI on behalf of a web-chat conversation.
 
 ```json
 // Request
-{ "conversationId": "uuid (optional — creates a new conversation if omitted)", "message": "string" }
+{ "conversationId": "uuid (optional — creates a new conversation if omitted)", "message": "string", "mode": "owner (optional)" }
 
 // Response
 { "conversationId": "uuid", "reply": "string", "needsReview": false }
 ```
+
+`mode: "owner"` is the Floating AI Assistant (bottom-right button on every page) —
+the owner/staff commanding the AI directly rather than a customer conversation.
+It creates the conversation on its own `internal` channel (excluded from the
+customer Inbox) and uses the owner-oriented system prompt, but has access to
+the exact same tools (`book_lesson`, `update_customer_profile`,
+`change_sales_status`, `search_knowledge_base`, etc.) so it can act on any
+department directly from the chat.
 
 ## `line-webhook` (verify_jwt: false)
 
@@ -124,6 +132,51 @@ row in `articles` and returns it.
 { "article": { "id": "uuid", "title": "string", "slug": "string", "meta_description": "string", "content": "markdown", "faq": [{ "question": "string", "answer": "string" }], "internal_link_ideas": ["string"], "status": "draft", ... } }
 ```
 
+## `generate-image` (verify_jwt: true)
+
+Generates one still image via Gemini (`gemini-2.5-flash-image`, override with
+`AI_IMAGE_MODEL`) for the Image Studio page (`/images`) — raw material for
+the Vertical Video page. Stores the result as base64 directly in
+`generated_images` (small-business scale, no Storage bucket needed).
+
+```json
+// Request
+{ "prompt": "string" }
+
+// Response
+{ "image": { "id": "uuid", "prompt": "string", "mime_type": "string", "image_base64": "string", ... } }
+```
+
+## `generate-video-script` (verify_jwt: true)
+
+Writes a short vertical-video script (TikTok/Reels/Shorts) for the Video
+Articles page (`/video-articles`) — hook, scene-by-scene script, caption,
+and hashtags, grounded in the knowledge base. Forces structured output via
+`return_video_script`.
+
+```json
+// Request
+{ "topic": "string", "language": "th" | "en" }
+
+// Response
+{ "script": { "id": "uuid", "topic": "string", "hook": "string", "script": "string", "caption": "string", "hashtags": ["string"], ... } }
+```
+
+## `generate-voiceover` (verify_jwt: true)
+
+Writes a voice-over narration script for lifestyle/travel video content, for
+the Voice Over Scripts page (`/voice-over`) — a separate audience/tone from
+the other writers (upper-class/upper-middle-class mothers, aspirational,
+not sales-pitchy). Forces structured output via `return_voiceover`.
+
+```json
+// Request
+{ "topic": "string", "language": "th" | "en" }
+
+// Response
+{ "script": { "id": "uuid", "topic": "string", "script": "string", ... } }
+```
+
 ## `google-oauth-start` (verify_jwt: true)
 
 Called from Settings → Integrations when the owner clicks "Connect Google
@@ -151,11 +204,12 @@ from `google-oauth-start` instead. Exchanges `code` for tokens, stores the
 {
   "line": { "connected": true, "detail": "Connected as \"Tiga Studio\"" },
   "googleCalendar": { "connected": false, "detail": "Google Calendar is not connected yet — connect it from Settings > Integrations." },
-  "gemini": { "connected": true, "detail": "GEMINI_API_KEY is set" }
+  "gemini": { "connected": true, "detail": "Gemini API key is valid" }
 }
 ```
 
-Live-tests LINE (`GET /v2/bot/info`) and Google Calendar (lists a 1-minute
-window of events) using whatever credentials are currently configured;
-Gemini is only checked for key presence, not a real call, to avoid burning
-quota on every status refresh.
+Live-tests all three: LINE (`GET /v2/bot/info`), Google Calendar (lists a
+1-minute window of events), and Gemini (a minimal `embedContent` call) —
+using whatever credentials are currently configured. A key-presence-only
+check for Gemini would report "connected" for an expired or wrong-project
+key, which is exactly the failure mode this must catch.

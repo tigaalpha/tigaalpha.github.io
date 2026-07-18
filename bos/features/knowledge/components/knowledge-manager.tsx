@@ -5,6 +5,7 @@ import { BookOpen, Trash2, Upload } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { extractFileText } from "@/lib/extract-file-text";
+import { describeFunctionError } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -68,7 +69,7 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
       setContent("");
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save document");
+      setError(await describeFunctionError(err));
     } finally {
       setSubmitting(false);
     }

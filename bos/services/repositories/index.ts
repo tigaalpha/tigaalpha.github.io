@@ -12,6 +12,9 @@ import { AuditRepository } from "./audit.repository";
 import { IntegrationsRepository } from "./integrations.repository";
 import { ArticlesRepository } from "./articles.repository";
 import { TransactionsRepository } from "./transactions.repository";
+import { GeneratedImagesRepository } from "./generated-images.repository";
+import { VideoScriptsRepository } from "./video-scripts.repository";
+import { VoiceoverScriptsRepository } from "./voiceover-scripts.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -32,6 +35,9 @@ export function createRepositories(db: SupabaseClient<Database>) {
     integrations: new IntegrationsRepository(db),
     articles: new ArticlesRepository(db),
     transactions: new TransactionsRepository(db),
+    generatedImages: new GeneratedImagesRepository(db),
+    videoScripts: new VideoScriptsRepository(db),
+    voiceoverScripts: new VoiceoverScriptsRepository(db),
   };
 }
 

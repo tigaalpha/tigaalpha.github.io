@@ -35,10 +35,12 @@ export class ConversationsRepository {
     return data ?? [];
   }
 
+  /** Customer-facing Inbox list — excludes 'internal' (Floating AI Assistant) conversations. */
   async listRecent(limit = 30): Promise<Tables<"conversations">[]> {
     const { data, error } = await this.db
       .from("conversations")
       .select("*")
+      .neq("channel", "internal")
       .order("updated_at", { ascending: false })
       .limit(limit);
     if (error) throw error;

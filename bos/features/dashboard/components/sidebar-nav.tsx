@@ -15,6 +15,11 @@ import {
   Bell,
   Settings,
   Wallet,
+  Image as ImageIcon,
+  Clapperboard,
+  Captions,
+  Mic,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +32,11 @@ const NAV_ITEMS = [
   { href: "/booking", label: "Bookings", icon: CalendarPlus },
   { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
   { href: "/content", label: "SEO/AEO Content", icon: FileText },
+  { href: "/images", label: "Image Studio", icon: ImageIcon },
+  { href: "/vertical-video", label: "Vertical Video", icon: Clapperboard },
+  { href: "/video-articles", label: "Video Articles", icon: Captions },
+  { href: "/voice-over", label: "Voice Over Scripts", icon: Mic },
+  { href: "/post", label: "Post ทุกช่องทาง", icon: Share2 },
   { href: "/accounting", label: "Accounting", icon: Wallet },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/notifications", label: "Notifications", icon: Bell },

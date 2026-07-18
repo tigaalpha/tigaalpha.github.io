@@ -3,9 +3,9 @@
 // change (AI_PROVIDER), not a code change.
 
 import { geminiProvider } from "./gemini.ts";
-import type { AIProvider, ChatMessage, GenerateResult, ToolDefinition } from "./ai-types.ts";
+import type { AIProvider, ChatMessage, GeneratedImage, GenerateResult, ToolDefinition } from "./ai-types.ts";
 
-export type { AIProvider, ChatMessage, ChatRole, GenerateResult, ToolCall, ToolDefinition } from "./ai-types.ts";
+export type { AIProvider, ChatMessage, ChatRole, GeneratedImage, GenerateResult, ToolCall, ToolDefinition } from "./ai-types.ts";
 
 const PROVIDERS: Record<string, AIProvider> = {
   gemini: geminiProvider,
@@ -29,4 +29,8 @@ export function generate(
 
 export function embed(text: string): Promise<number[]> {
   return getProvider().embed(text);
+}
+
+export function generateImage(prompt: string): Promise<GeneratedImage> {
+  return getProvider().generateImage(prompt);
 }

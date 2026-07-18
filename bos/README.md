@@ -108,7 +108,8 @@ Then set their secrets (Project Settings → Edge Functions → Secrets, or `sup
 AI_PROVIDER=gemini
 GEMINI_API_KEY=...
 AI_MODEL=gemini-flash-latest
-AI_EMBEDDING_MODEL=text-embedding-004
+AI_EMBEDDING_MODEL=gemini-embedding-001
+AI_IMAGE_MODEL=gemini-2.5-flash-image
 GOOGLE_CLIENT_SECRET=...
 GOOGLE_CALENDAR_ID=primary
 LINE_CHANNEL_SECRET=...
@@ -193,3 +194,6 @@ section above for secrets. No vendor key ever ships in the static bundle.
 - Knowledge Base accepts `.txt`, `.pdf`, and `.docx` uploads directly (in addition to pasting text) — extraction happens client-side, so no file ever leaves the browser unparsed.
 - Content (`/content`) is an SEO/AEO article writer: describe a topic and target keyword, and the AI writes a full article grounded in the knowledge base (never invents pricing/teacher names), with a title tag, meta description, slug, FAQ section, and internal link ideas — following the direct-answer-first, entity-clear, schema-ready structure that both Google and AI answer engines (ChatGPT, Perplexity, AI Overviews) favor. This app doesn't manage the public marketing site's CMS, so articles are drafted here for the owner to review, edit, and copy into wherever the site actually publishes content.
 - Accounting (`/accounting`) is a manual income/expense ledger for the business's own finances (rent, salaries, marketing spend, tuition income, etc.) — separate from the CRM/sales revenue metric, which only reflects course pricing. Period summary (income, expense, net profit), per-category breakdown, and CSV export for handing off to an actual accountant. `transactions` RLS is owner/admin-only (`is_owner_or_admin()`), not staff-wide like most tables — financial records are more sensitive than customer/booking data.
+- A Floating AI Assistant (bottom-right button, every workspace page) lets the owner/staff command the AI directly — "add this lead", "book a trial for...", "change X's sales status" — using the exact same tools the customer-facing AI has (`book_lesson`, `update_customer_profile`, `change_sales_status`, `search_knowledge_base`, etc.). It runs `ai-chat` with `mode: "owner"`, which puts it on its own `internal` conversation channel (excluded from the customer Inbox) and swaps in an owner-oriented system prompt instead of the sales/customer-service one.
+- The content-creation suite has four more pages beyond SEO/AEO Content: **Image Studio** (`/images`, generates still images via Gemini), **Vertical Video** (`/vertical-video`, turns those stills into a downloadable 9:16 slideshow video entirely client-side via Canvas + MediaRecorder — no paid video-generation API involved), **Video Articles** (`/video-articles`, TikTok/Reels/Shorts scripts: hook, scene-by-scene script, caption, hashtags), and **Voice Over Scripts** (`/voice-over`, narration scripts for lifestyle/travel content aimed at an upper-class/upper-middle-class mom audience — a deliberately different tone from the piano-school sales voice).
+- Post ทุกช่องทาง (`/post`) is a UI/workflow mockup for one-click multi-channel posting — no channel (Facebook, Instagram, LINE, TikTok) is actually connected yet, since each needs its own Developer App and credentials set up separately. It's clearly labeled as not-yet-live; queuing here doesn't post anywhere. Wire up real posting per channel once the owner decides which ones to connect.

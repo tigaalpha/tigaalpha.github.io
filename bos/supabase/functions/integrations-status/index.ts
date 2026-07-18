@@ -36,11 +36,35 @@ async function checkGoogleCalendar(): Promise<CheckResult> {
   }
 }
 
-function checkGemini(): CheckResult {
+// Actually calls Gemini (a real key-presence check would falsely report
+// "connected" for an expired/typo'd/wrong-project key — the exact failure
+// mode that made ai-chat/generate-article/knowledge-upload fail silently).
+async function checkGemini(): Promise<CheckResult> {
   const key = Deno.env.get("GEMINI_API_KEY");
-  return key
-    ? { connected: true, detail: "GEMINI_API_KEY is set" }
-    : { connected: false, detail: "GEMINI_API_KEY is not set." };
+  if (!key) return { connected: false, detail: "GEMINI_API_KEY is not set." };
+
+  const model = Deno.env.get("AI_EMBEDDING_MODEL") ?? "gemini-embedding-001";
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: `models/${model}`,
+          content: { parts: [{ text: "ping" }] },
+          outputDimensionality: 768,
+        }),
+      }
+    );
+    if (!response.ok) {
+      const body = await response.text();
+      return { connected: false, detail: `Gemini rejected the API key (${response.status}): ${body.slice(0, 200)}` };
+    }
+    return { connected: true, detail: "Gemini API key is valid" };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : "Request to Gemini failed." };
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -51,8 +75,7 @@ Deno.serve(async (req: Request) => {
     const admin = createAdminClient();
     await requireStaff(admin, req);
 
-    const [line, googleCalendar] = await Promise.all([checkLine(), checkGoogleCalendar()]);
-    const gemini = checkGemini();
+    const [line, googleCalendar, gemini] = await Promise.all([checkLine(), checkGoogleCalendar(), checkGemini()]);
 
     return jsonResponse({ line, googleCalendar, gemini });
   } catch (error) {

@@ -28,8 +28,14 @@ export interface GenerateResult {
   finishReason: "stop" | "tool_calls" | "length" | "error";
 }
 
+export interface GeneratedImage {
+  mimeType: string;
+  base64: string;
+}
+
 /** Implemented once per vendor (Gemini today; swap in OpenAI/Claude/etc without touching business logic). */
 export interface AIProvider {
   generate(messages: ChatMessage[], tools?: ToolDefinition[], temperature?: number, maxOutputTokens?: number): Promise<GenerateResult>;
   embed(text: string): Promise<number[]>;
+  generateImage(prompt: string): Promise<GeneratedImage>;
 }

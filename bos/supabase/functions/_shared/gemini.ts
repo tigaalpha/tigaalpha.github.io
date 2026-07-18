@@ -10,6 +10,7 @@ interface GeminiPart {
   text?: string;
   functionCall?: { name: string; args: Record<string, unknown> };
   functionResponse?: { name: string; response: Record<string, unknown> };
+  inlineData?: { mimeType: string; data: string };
 }
 
 interface GeminiContent {
@@ -26,8 +27,17 @@ function model(): string {
 }
 
 function embeddingModel(): string {
-  return Deno.env.get("AI_EMBEDDING_MODEL") ?? "text-embedding-004";
+  return Deno.env.get("AI_EMBEDDING_MODEL") ?? "gemini-embedding-001";
 }
+
+function imageModel(): string {
+  return Deno.env.get("AI_IMAGE_MODEL") ?? "gemini-2.5-flash-image";
+}
+
+// knowledge_chunks.embedding is vector(768) — gemini-embedding-001 defaults to
+// 3072 dims, so truncate via outputDimensionality. pgvector's <=> operator
+// normalizes by vector norm, so truncation without re-normalizing is fine.
+const EMBEDDING_DIMENSIONS = 768;
 
 function toGeminiContents(messages: ChatMessage[]): GeminiContent[] {
   const contents: GeminiContent[] = [];
@@ -120,7 +130,11 @@ async function embed(text: string): Promise<number[]> {
   const response = await fetch(`${BASE_URL}/${embeddingModel()}:embedContent?key=${apiKey()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: `models/${embeddingModel()}`, content: { parts: [{ text }] } }),
+    body: JSON.stringify({
+      model: `models/${embeddingModel()}`,
+      content: { parts: [{ text }] },
+      outputDimensionality: EMBEDDING_DIMENSIONS,
+    }),
   });
 
   if (!response.ok) {
@@ -131,4 +145,32 @@ async function embed(text: string): Promise<number[]> {
   return data.embedding?.values ?? [];
 }
 
-export const geminiProvider: AIProvider = { generate, embed };
+interface GeneratedImage {
+  mimeType: string;
+  base64: string;
+}
+
+async function generateImage(prompt: string): Promise<GeneratedImage> {
+  const response = await fetch(`${BASE_URL}/${imageModel()}:generateContent?key=${apiKey()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini image generateContent failed (${response.status}): ${await response.text()}`);
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: GeminiPart[] } }>;
+  };
+
+  const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
+  if (!imagePart?.inlineData) {
+    throw new Error("Gemini didn't return an image for this prompt — try rephrasing it.");
+  }
+
+  return { mimeType: imagePart.inlineData.mimeType, base64: imagePart.inlineData.data };
+}
+
+export const geminiProvider: AIProvider = { generate, embed, generateImage };

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { CalendarView, type CalendarBookingEvent } from "@/features/calendar/components/calendar-view";
+import { GoogleCalendarBanner } from "@/features/calendar/components/google-calendar-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CalendarPage() {
@@ -31,6 +32,7 @@ export default function CalendarPage() {
         <h1 className="text-2xl font-semibold text-secondary">Calendar</h1>
         <p className="text-sm text-secondary/50">Yellow = normal lesson · Green = final lesson (collect payment / renew)</p>
       </div>
+      <GoogleCalendarBanner />
       {events ? <CalendarView events={events} /> : <Skeleton className="h-[600px]" />}
     </div>
   );

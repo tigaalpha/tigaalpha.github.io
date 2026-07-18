@@ -5,6 +5,7 @@ import { Menu, X } from "lucide-react";
 import { SidebarNav } from "./sidebar-nav";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { FloatingAssistant } from "@/features/assistant/components/floating-assistant";
 import { cn } from "@/lib/utils";
 
 interface AppShellProps {
@@ -60,6 +61,8 @@ export function AppShell({ userName, userEmail, children }: AppShellProps) {
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-8">{children}</main>
       </div>
+
+      <FloatingAssistant />
     </div>
   );
 }

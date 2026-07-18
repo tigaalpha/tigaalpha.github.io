@@ -6,7 +6,7 @@ import { createClient } from "@/services/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, describeFunctionError } from "@/lib/utils";
 
 interface TesterMessage {
   role: "customer" | "ai";
@@ -47,11 +47,7 @@ export function AiTester({ onReplied }: { onReplied?: () => void }) {
       setMessages((prev) => [...prev, { role: "ai", content: data.reply }]);
       onReplied?.();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to reach the AI assistant — check that GEMINI_API_KEY is set for the ai-chat Edge Function."
-      );
+      setError(await describeFunctionError(err));
     } finally {
       setSending(false);
     }

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { cn } from "@/lib/utils";
+import { cn, describeFunctionError } from "@/lib/utils";
 import { STANDING_TOPICS, pickRandomTopic, getMissingCoreKeywords } from "@/features/content/topics";
 import type { ArticleStatus, Tables } from "@/types/database";
 
@@ -69,7 +69,7 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
         setError(`เตือน: บทความนี้ยังขาดคีย์เวิร์ดหลัก: ${data.missingCoreKeywords.join(", ")} — กรุณาแก้ไขเพิ่มเติมด้วยตนเอง`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate article");
+      setError(await describeFunctionError(err));
     } finally {
       setGenerating(false);
     }
