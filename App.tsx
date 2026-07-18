@@ -6717,7 +6717,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
                 <div className="atdash-last-d">{new Date(last.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
               </div>
             ) : (
-              <div className="atdash-empty">{lang === "th" ? "ยังไม่มีคำแนะนำ — ไปฝึกในสตูดิโอเพื่อรับคำแนะนำแบบเรียลไทม์" : lang === "zh" ? "暂无建议——去工作室练习以获得实时指导" : "No tips yet — practice in the Studio to get real-time coaching"}</div>
+              <div className="atdash-empty">{lang === "th" ? "ยังไม่มีคำแนะนำ — กลับไปหน้าเส้นทางการเรียนรู้เพื่อรับคำแนะนำแบบเรียลไทม์" : lang === "zh" ? "暂无建议——返回学习路径页面以获得实时指导" : "No tips yet — head to the Pathway page to get real-time coaching"}</div>
             )}
           </div>
         );
@@ -7455,9 +7455,9 @@ function AdminAutoTeach({ lang }) {
       <div className="admmg">
         <div className="admmg-h">⏱️ {T("ความถี่ Auto Teaching (ค่าเริ่มต้นทั้งระบบ)", "Auto Teaching frequency (platform default)", "自动教学频率（系统默认）")}</div>
         <div className="admstu-row-sub" style={{ marginBottom: 10 }}>
-          {T("ทุกกี่นาทีจะมี pop up จากครู AI แนะนำจุดอ่อนระหว่างที่ผู้เรียน Max ซ้อมอยู่ในสตูดิโอ ผู้เรียนสามารถตั้งค่าของตัวเองทับค่านี้ได้",
-            "How often the AI coach pops up with a real-time tip while a Max learner practices in the Studio. Learners can override this with their own pick.",
-            "Max 学员在工作室练习时，AI 教练多久弹出一次实时建议。学员可以设置自己的偏好覆盖此默认值。")}
+          {T("ทุกกี่นาทีจะมี pop up จากครู AI แนะนำจุดอ่อนระหว่างที่ผู้เรียน Max อยู่หน้าเส้นทางการเรียนรู้ ผู้เรียนสามารถตั้งค่าของตัวเองทับค่านี้ได้",
+            "How often the AI coach pops up with a real-time tip while a Max learner is on the Pathway (home) page. Learners can override this with their own pick.",
+            "Max 学员在学习路径页面时，AI 教练多久弹出一次实时建议。学员可以设置自己的偏好覆盖此默认值。")}
         </div>
         <div className="setlangs">
           <button className={`setlangbtn${min === 0 ? " on" : ""}`} disabled={busy} onClick={() => save(0)}>{T("ปิด", "Off", "关闭")}</button>
@@ -7922,7 +7922,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     sb.from("app_settings").select("value").eq("key", "payment").maybeSingle()
       .then(({ data }) => setPayCfg((data && data.value) || null), () => {});
   }, [session]);
-  // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer while in the Studio) ──
+  // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer while on the Pathway page) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
   useEffect(() => {
     if (!session) return;
@@ -8024,8 +8024,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [page, setPage] = useState("pathway");  // home = pathway; sensei (chat) is secondary | pathway | profile | admin
   useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
 
-  // ── Auto Teaching: while a Max-plan learner is in the Studio, fire a short real-time
-  // coaching card every N minutes (learner's own pick, else the admin's platform default). ──
+  // ── Auto Teaching: while a Max-plan learner is on the Pathway (home) page, fire a short
+  // real-time coaching card every N minutes (learner's own pick, else the admin's platform default). ──
   const autoTeachTipRef = useRef(null);
   useEffect(() => { autoTeachTipRef.current = autoTeachTip; }, [autoTeachTip]);
   async function fetchAutoTeachTip() {
@@ -8037,9 +8037,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
       const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "none flagged yet — infer the most likely weak spot from recent practice";
       const sysByLang = {
-        th: `คุณคือ "ครู TiGA" กำลังส่งการ์ดแนะนำสั้นๆ แบบเรียลไทม์ให้ผู้เรียนที่กำลังฝึกเปียโนอยู่ตอนนี้ (ไม่ใช่บทสนทนา) ข้อมูลฝึกล่าสุด: ${recentTxt} จุดอ่อนตอนนี้: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."]} — weakness สั้นไม่เกิน 12 คำ steps มี 2-4 ข้อ วิธีฝึกแก้ทีละขั้น แต่ละข้อไม่เกิน 15 คำ ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
-        zh: `你是"TiGA老师"，正在给正在练琴的学员发一张简短的实时指导卡（不是对话）。最近练习：${recentTxt} 当前薄弱点：${struggleTxt}\n\n只回JSON，格式 {"weakness":"...","steps":["...","..."]} — weakness 不超过12字，steps 为2-4个简短练习步骤，每条不超过15字，用中文，JSON外不要任何文字`,
-        en: `You are "Teacher TiGA", sending a short real-time coaching card to a learner actively practicing piano right now (not a conversation). Recent practice: ${recentTxt}. Current weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."]} — weakness under 12 words, steps has 2-4 short fix-it practice steps, each under 15 words, in English. No text outside the JSON.`,
+        th: `คุณคือ "ครู TiGA" กำลังส่งการ์ดแนะนำสั้นๆ ให้ผู้เรียนที่กำลังดูหน้าเส้นทางการเรียนรู้อยู่ (ไม่ใช่บทสนทนา) โดยอิงจากข้อมูลการฝึกที่ผ่านมา: ${recentTxt} จุดอ่อนล่าสุด: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."]} — weakness สั้นไม่เกิน 12 คำ steps มี 2-4 ข้อ วิธีฝึกแก้ทีละขั้น แต่ละข้อไม่เกิน 15 คำ ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
+        zh: `你是"TiGA老师"，正在给正在查看学习路径页面的学员发一张简短的指导卡（不是对话），依据以往的练习数据。最近练习：${recentTxt} 当前薄弱点：${struggleTxt}\n\n只回JSON，格式 {"weakness":"...","steps":["...","..."]} — weakness 不超过12字，steps 为2-4个简短练习步骤，每条不超过15字，用中文，JSON外不要任何文字`,
+        en: `You are "Teacher TiGA", sending a short coaching card to a learner currently viewing their Learning Pathway page (not a conversation), based on their past practice history. Recent practice: ${recentTxt}. Current weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."]} — weakness under 12 words, steps has 2-4 short fix-it practice steps, each under 15 words, in English. No text outside the JSON.`,
       };
       const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me a real-time coaching tip.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en }) });
       const data = await res.json();
@@ -8059,7 +8059,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const autoTeachMin = resolveAutoTeachMin(profile, autoTeachDefaultMin);
   useEffect(() => {
     clearInterval(autoTeachTimer.current);
-    if (page !== "studio" || !isMaxPlan(plan) || !(autoTeachMin > 0)) return;
+    if (page !== "pathway" || !isMaxPlan(plan) || !(autoTeachMin > 0)) return;
     autoTeachTimer.current = setInterval(fetchAutoTeachTip, autoTeachMin * 60 * 1000);
     return () => clearInterval(autoTeachTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -11578,7 +11578,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   </div>
                   <span className="setsub">{profile.auto_teach_interval_min == null
                     ? (lang === "th" ? `ตามค่าระบบ (ทุก ${autoTeachDefaultMin ?? AUTO_TEACH_FALLBACK_MIN} นาที)` : lang === "zh" ? `跟随系统默认（每 ${autoTeachDefaultMin ?? AUTO_TEACH_FALLBACK_MIN} 分钟）` : `Following the platform default (every ${autoTeachDefaultMin ?? AUTO_TEACH_FALLBACK_MIN} min)`)
-                    : (lang === "th" ? "ครู AI จะแนะนำจุดอ่อนแบบสั้นๆ ระหว่างซ้อมในสตูดิโอ" : lang === "zh" ? "AI 会在你于工作室练习时提示薄弱环节" : "The AI coach flags a weak spot while you practice in the Studio")}</span>
+                    : (lang === "th" ? "ครู AI จะแนะนำจุดอ่อนแบบสั้นๆ ตอนอยู่หน้าเส้นทางการเรียนรู้" : lang === "zh" ? "AI 会在你查看学习路径页面时提示薄弱环节" : "The AI coach flags a weak spot while you're on the Pathway page")}</span>
                 </div>
               )}
               <div className="setdiv" />
@@ -11751,7 +11751,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* Auto Teaching — real-time coaching card (Max plan, fires on a timer while in the Studio) */}
+      {/* Auto Teaching — real-time coaching card (Max plan, fires on a timer while on the Pathway page) */}
       {autoTeachTip && (
         <div className="atpopup" onClick={() => setAutoTeachTip(null)}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>
