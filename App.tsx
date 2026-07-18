@@ -6244,8 +6244,8 @@ const AUTO_TEACH_FALLBACK_MIN = 15;
 const AUTO_TEACH_INTERVALS = [5, 10, 15, 30, 60];
 function resolveAutoTeachMin(profile, adminDefaultMin) {
   const own = profile && profile.auto_teach_interval_min;
-  if (own === 0 || own > 0) return own;
-  if (adminDefaultMin === 0 || adminDefaultMin > 0) return adminDefaultMin;
+  if (own != null) return own;
+  if (adminDefaultMin != null) return adminDefaultMin;
   return AUTO_TEACH_FALLBACK_MIN;
 }
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
@@ -6714,7 +6714,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
               <div className="atdash-last">
                 <div className="atdash-last-w">{last.weakness}</div>
                 <div className="atdash-last-t">{last.tip}</div>
-                <div className="atdash-last-d">{new Date(last.t).toLocaleString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US")}</div>
+                <div className="atdash-last-d">{new Date(last.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
               </div>
             ) : (
               <div className="atdash-empty">{lang === "th" ? "ยังไม่มีคำแนะนำ — ไปฝึกในสตูดิโอเพื่อรับคำแนะนำแบบเรียลไทม์" : lang === "zh" ? "暂无建议——去工作室练习以获得实时指导" : "No tips yet — practice in the Studio to get real-time coaching"}</div>
@@ -7829,20 +7829,6 @@ export default function App() {
     else { setProfile(null); setProfileReady(false); }
   }, [session, loadProfile]);
 
-  // load the shop's PromptPay config (for the checkout QR)
-  useEffect(() => {
-    if (!session) return;
-    sb.from("app_settings").select("value").eq("key", "payment").maybeSingle()
-      .then(({ data }) => setPayCfg((data && data.value) || null), () => {});
-  }, [session]);
-
-  // load the admin's platform-wide Auto Teaching default interval
-  useEffect(() => {
-    if (!session) return;
-    sb.from("app_settings").select("value").eq("key", "auto_teach").maybeSingle()
-      .then(({ data }) => setAutoTeachDefaultMin((data && data.value && data.value.default_min) ?? AUTO_TEACH_FALLBACK_MIN), () => {});
-  }, [session]);
-
   async function signOut() {
     try { await sb.auth.signOut(); } catch (e) {}
     setSession(null); setProfile(null);
@@ -7930,10 +7916,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [shareGate, setShareGate] = useState(false);  // free-tier share-to-continue gate
   const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
   const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
+  // load the shop's PromptPay config (for the checkout QR)
+  useEffect(() => {
+    if (!session) return;
+    sb.from("app_settings").select("value").eq("key", "payment").maybeSingle()
+      .then(({ data }) => setPayCfg((data && data.value) || null), () => {});
+  }, [session]);
   // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer while in the Studio) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
+  useEffect(() => {
+    if (!session) return;
+    sb.from("app_settings").select("value").eq("key", "auto_teach").maybeSingle()
+      .then(({ data }) => setAutoTeachDefaultMin((data && data.value && data.value.default_min) ?? AUTO_TEACH_FALLBACK_MIN), () => {});
+  }, [session]);
   const [autoTeachTip, setAutoTeachTip] = useState(null);   // {weakness, tip} currently shown, or null
-  const [autoTeachBusy, setAutoTeachBusy] = useState(false);
+  const autoTeachBusyRef = useRef(false);
   const autoTeachTimer = useRef(null);
   const [upsell, setUpsell] = useState(null);   // {feat} when a gated action is blocked
   const [parentOpen, setParentOpen] = useState(false);
@@ -8032,8 +8029,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const autoTeachTipRef = useRef(null);
   useEffect(() => { autoTeachTipRef.current = autoTeachTip; }, [autoTeachTip]);
   async function fetchAutoTeachTip() {
-    if (autoTeachTipRef.current || autoTeachBusy) return; // don't clobber an unread tip
-    setAutoTeachBusy(true);
+    if (autoTeachTipRef.current || autoTeachBusyRef.current) return; // don't clobber an unread tip
+    autoTeachBusyRef.current = true;
     try {
       const mem = readMemory();
       const struggle = (mem.struggles || [])[0];
@@ -8054,18 +8051,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         logAutoTeachTip(obj.weakness, obj.steps.join(" / "));
       }
     } catch (e) { /* a missed real-time tip silently skips — not worth an error popup mid-practice */ }
-    setAutoTeachBusy(false);
+    autoTeachBusyRef.current = false;
   }
+  // resolves to a primitive (not the whole profile object), so unrelated profile writes
+  // (EXP gain, streak bump, etc. all replace the profile object on every practice round)
+  // don't restart this effect and keep resetting the countdown before it ever fires
+  const autoTeachMin = resolveAutoTeachMin(profile, autoTeachDefaultMin);
   useEffect(() => {
     clearInterval(autoTeachTimer.current);
-    const min = resolveAutoTeachMin(profile, autoTeachDefaultMin);
-    if (page !== "studio" || !isMaxPlan(plan) || !(min > 0)) return;
-    autoTeachTimer.current = setInterval(fetchAutoTeachTip, min * 60 * 1000);
+    if (page !== "studio" || !isMaxPlan(plan) || !(autoTeachMin > 0)) return;
+    autoTeachTimer.current = setInterval(fetchAutoTeachTip, autoTeachMin * 60 * 1000);
     return () => clearInterval(autoTeachTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, plan, profile, autoTeachDefaultMin, lang]);
+  }, [page, plan, autoTeachMin, lang]);
 
   const [adminUnlocked, setAdminUnlocked] = useState(false);
+  // real gate is server-side admin_tier (checked inside every admin_* RPC); adminUnlocked
+  // (tap-5x + code) just remains as a second, cosmetic entry path for the original 2 owners
+  const canSeeAdmin = adminUnlocked || (profile && profile.admin_tier > 0);
   const [showLock, setShowLock] = useState(false);
   const tapCount = useRef(0);
   const tapTimer = useRef(null);
@@ -10721,7 +10724,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: ADMIN ─── */}
       {page === "admin" && (
-        (adminUnlocked || (profile && profile.admin_tier > 0))
+        canSeeAdmin
           ? <AdminPage lang={lang} onExit={exitAdmin} adminTier={(profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0)} />
           : <LockScreen lang={lang} onUnlock={tryUnlock} />
       )}
@@ -10969,7 +10972,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "studio", sv: "menu", ic: "▶", c: "#fc2d8e", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#fc2d8e", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
-          ...((adminUnlocked || (profile && profile.admin_tier > 0)) ? [{ p: "admin", ic: "⬢", c: "#ff5252", t: "ADMIN" }] : []),
+          ...(canSeeAdmin ? [{ p: "admin", ic: "⬢", c: "#ff5252", t: "ADMIN" }] : []),
         ].map(it => {
           const isOn = it.p === "studio" ? (page === "studio" && studioView === it.sv) : page === it.p;
           return (
