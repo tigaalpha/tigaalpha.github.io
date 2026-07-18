@@ -3661,6 +3661,11 @@ const CSS = `
 .pd-tag{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;border-radius:8px;padding:4px 9px}
 .pd-tag.focus{color:#ff94e0;background:rgba(252,45,142,.12);border:1px solid #fc2d8e33}
 .pd-tag.good{color:#fc2d8e;background:rgba(252,45,142,.1);border:1px solid #fc2d8e33}
+.atdash-last{margin-top:10px;border:1px solid #ffffff12;border-radius:12px;padding:11px 12px;background:#160c13}
+.atdash-last-w{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:#ff94e0;margin-bottom:3px}
+.atdash-last-t{font-family:'Rajdhani',sans-serif;font-size:12.5px;color:#c9a3b5;line-height:1.5}
+.atdash-last-d{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:#754a5f;margin-top:6px;letter-spacing:.5px}
+.atdash-empty{font-family:'Rajdhani',sans-serif;font-size:12.5px;color:#8a6577;margin-top:8px}
 /* exam prep */
 .exgrade{border:1px solid #ffffff12;border-radius:13px;padding:12px 13px;margin-bottom:11px;background:#160c13}
 .exgrade-top{display:flex;justify-content:space-between;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#faf0f5;margin-bottom:7px}
@@ -3863,6 +3868,17 @@ body[data-theme="forest"] .tg{background:radial-gradient(120% 90% at 40% 0%,#0c2
 .camcoach-load{font-family:'Rajdhani',sans-serif;font-size:14px;color:#ffc4dd;text-align:center;animation:flamepulse .8s ease-in-out infinite alternate}
 .camcoach-hd{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:#ffa8d2;margin-bottom:6px}
 .camcoach-tx{font-family:'Rajdhani',sans-serif;font-size:14px;line-height:1.5;color:#faf0f5;white-space:pre-wrap;margin-bottom:8px}
+/* Auto Teaching real-time coaching card */
+.atpopup{position:fixed;inset:0;z-index:1300;display:flex;align-items:flex-end;justify-content:center;background:rgba(10,5,9,.72);backdrop-filter:blur(3px);animation:fadein .25s;padding:0 12px calc(14px + env(safe-area-inset-bottom,0px))}
+.atpopup-card{width:100%;max-width:420px;background:linear-gradient(160deg,#1c0f18,#12090f);border:1px solid #fc2d8e55;border-radius:18px;padding:16px 17px;box-shadow:0 -10px 34px -10px #000,0 0 26px -10px #fc2d8e66;animation:installin .28s ease-out}
+.atpopup-hd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.atpopup-ic{font-size:20px}
+.atpopup-tt{flex:1;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:.4px;color:#ffa8d2}
+.atpopup-x{background:none;border:none;color:#b58ba0;font-size:20px;line-height:1;cursor:pointer;padding:2px 4px}
+.atpopup-weak{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:#faf0f5;margin-bottom:10px}
+.atpopup-steps{margin:0 0 14px;padding-left:20px;font-family:'Rajdhani',sans-serif;font-size:14px;line-height:1.6;color:#e3c9d6}
+.atpopup-steps li{margin-bottom:4px}
+.atpopup-ok{width:100%;background:linear-gradient(135deg,#fc2d8e,#943c64);color:#fff;border:none;border-radius:12px;padding:11px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer}
 .camfoot-btns{display:flex;gap:8px;justify-content:center}
 .cammsg{position:absolute;left:0;right:0;bottom:14px;text-align:center;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:#fff;text-shadow:0 2px 10px #000;padding:0 16px}
 .camfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid #ffffff10;flex-shrink:0}
@@ -3975,6 +3991,7 @@ body[data-theme="forest"] .tg{background:radial-gradient(120% 90% at 40% 0%,#0c2
 .setlangs{display:flex;gap:7px}
 .setlangbtn{flex:1;padding:9px 6px;border-radius:10px;border:1px solid #ffffff14;background:#150c12;color:#c9a3b5;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
 .setlangbtn.on{background:linear-gradient(135deg,#943c64,#fc2d8e);color:#0e0710;border-color:transparent}
+.setsub{font-family:'Rajdhani',sans-serif;font-size:11.5px;color:#8a6577;line-height:1.4}
 .setver{text-align:center;font-family:'Share Tech Mono',monospace;font-size:9px;color:#754a5f;margin-top:14px;letter-spacing:1px}
 /* progress dashboard (profile) */
 .heatcard{background:linear-gradient(180deg,#130a11,#110910);border:1px solid #ffffff12;border-radius:14px;padding:13px 14px}
@@ -5928,6 +5945,18 @@ function logActivity(kind, id, ok, miss, sec) {
     localStorage.setItem(ACT_LOG_KEY, JSON.stringify(a.slice(-1500)));
   } catch (e) {}
 }
+
+// Auto Teaching tip history (local, same pattern as the practice/activity logs above) —
+// powers the small "recent tips" dashboard list. Not synced server-side.
+const AUTOTEACH_LOG_KEY = "tg_autoteach_log";
+function readAutoTeachLog() { try { return JSON.parse(localStorage.getItem(AUTOTEACH_LOG_KEY) || "[]") || []; } catch (e) { return []; } }
+function logAutoTeachTip(weakness, tip) {
+  try {
+    const log = readAutoTeachLog();
+    log.push({ t: Date.now(), d: dayKey(), weakness: String(weakness || ""), tip: String(tip || "") });
+    localStorage.setItem(AUTOTEACH_LOG_KEY, JSON.stringify(log.slice(-50)));
+  } catch (e) {}
+}
 // friendly display label for an activity entry (drill ids, "stage/key" lessons, …)
 function actTopicLabel(e, lang) {
   if (e.k === "lesson" || e.k === "read-chapter") {
@@ -6207,6 +6236,20 @@ function effectivePlan(p) {
   if (p.plan && p.plan !== "free" && p.plan_until && new Date(p.plan_until).getTime() > Date.now()) return p.plan;
   return "free";
 }
+
+// Auto Teaching (Max-only real-time coaching popups): resolve the effective interval in
+// minutes — the learner's own override if they picked one, else the admin's platform
+// default, else a safe built-in fallback. 0 = off.
+const AUTO_TEACH_FALLBACK_MIN = 15;
+const AUTO_TEACH_INTERVALS = [5, 10, 15, 30, 60];
+function resolveAutoTeachMin(profile, adminDefaultMin) {
+  const own = profile && profile.auto_teach_interval_min;
+  if (own === 0 || own > 0) return own;
+  if (adminDefaultMin === 0 || adminDefaultMin > 0) return adminDefaultMin;
+  return AUTO_TEACH_FALLBACK_MIN;
+}
+// Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
+function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
 // short header badge per tier
 function planBadge(p) {
   return p === "maxfamily" ? { t: "👑 MAX FAMILY", c: "maxfam" }
@@ -6656,6 +6699,30 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       {/* interactive progress dashboard — range selector + period comparison + charts + game stats */}
       <ProgressDashboard lang={lang} />
 
+      {/* Auto Teaching recap — current weak spots + the most recent real-time tip (Max plan) */}
+      {isMaxPlan(effectivePlan(profile)) && (() => {
+        const atLog = readAutoTeachLog();
+        const last = atLog[atLog.length - 1];
+        const struggles = (readMemory().struggles || []).slice(0, 5);
+        return (
+          <div className="profsec">
+            <div className="profsec-h">🎯 Auto Teaching</div>
+            {struggles.length > 0 && (
+              <div className="pd-tags">{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div>
+            )}
+            {last ? (
+              <div className="atdash-last">
+                <div className="atdash-last-w">{last.weakness}</div>
+                <div className="atdash-last-t">{last.tip}</div>
+                <div className="atdash-last-d">{new Date(last.t).toLocaleString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US")}</div>
+              </div>
+            ) : (
+              <div className="atdash-empty">{lang === "th" ? "ยังไม่มีคำแนะนำ — ไปฝึกในสตูดิโอเพื่อรับคำแนะนำแบบเรียลไทม์" : lang === "zh" ? "暂无建议——去工作室练习以获得实时指导" : "No tips yet — practice in the Studio to get real-time coaching"}</div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* practice heatmap (consistency) + accuracy trend */}
       <div className="profsec">
         <div className="profsec-h">
@@ -6953,7 +7020,8 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
 }
 
 /* ── Admin: all students' progress (reads every profile via admin RLS) ── */
-function AdminStudents({ lang }) {
+function AdminStudents({ lang, viewerTier }) {
+  const tier = viewerTier || 0;
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [rows, setRows] = useState(null);   // null = loading
   const [err, setErr] = useState("");
@@ -6962,7 +7030,8 @@ function AdminStudents({ lang }) {
   const [mgPlan, setMgPlan] = useState("max");
   const [mgDays, setMgDays] = useState(30);
   const [mgBusy, setMgBusy] = useState(false);
-  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); };
+  const [appointTier, setAppointTier] = useState(0);
+  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); setAppointTier(r.admin_tier || 0); };
   async function applyPlan() {
     if (!sel) return; setMgBusy(true);
     const { error } = await sb.rpc("admin_set_plan", { target: sel.id, new_plan: mgPlan, days: Number(mgDays) || 30 });
@@ -6978,10 +7047,14 @@ function AdminStudents({ lang }) {
     const { error } = await sb.rpc("admin_set_ban", { target: sel.id, ban: !sel.banned });
     setMgBusy(false); if (!error) { setSel(null); load(); }
   }
+  async function doAppoint() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_appoint", { target: sel.id, new_tier: appointTier });
+    setMgBusy(false); if (!error) { setSel(null); load(); } else { alert(error.message || "error"); }
+  }
   const load = useCallback(() => {
     setErr(""); setRows(null);
-    sb.from("profiles")
-      .select("id,email,full_name,exp,lessons_done,streak,last_active,onboarded,created_at,is_admin,banned,plan,plan_until,progress")
+    sb.rpc("admin_list_students")
       .then(({ data, error }) => {
         if (error) { setErr(error.message || "error"); setRows([]); return; }
         const r = (data || []).slice().sort((a, b) => (b.last_active || "").localeCompare(a.last_active || "") || (b.exp || 0) - (a.exp || 0));
@@ -7008,31 +7081,51 @@ function AdminStudents({ lang }) {
         <div className="admstu-head">
           <div className="admstu-av">{(sel.full_name || sel.email || "?").trim().charAt(0).toUpperCase()}</div>
           <div>
-            <div className="admstu-nm">{sel.full_name || "—"} {sel.is_admin && <span className="admstu-badge">ADMIN</span>}{sel.banned && <span className="adminpay-badge rejected">BANNED</span>}</div>
+            <div className="admstu-nm">{sel.full_name || "—"} {sel.admin_tier > 0 && <span className="admstu-badge">{adminTierStars(sel.admin_tier)} ADMIN</span>}{sel.banned && <span className="adminpay-badge rejected">BANNED</span>}</div>
             <div className="admstu-em">{sel.email || "—"}</div>
             <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {(sel.plan || "free").toUpperCase()} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
           </div>
         </div>
-        {/* ⚙️ manage: change/suspend plan · ban */}
-        <div className="admmg">
-          <div className="admmg-h">⚙️ {T("จัดการผู้ใช้", "Manage user", "用户管理")}</div>
-          <div className="admmg-cur">{T("แพลนปัจจุบัน", "Current plan", "当前套餐")}: <b>{(sel.plan || "free").toUpperCase()}</b>{sel.plan_until ? " · " + T("ถึง", "until", "至") + " " + String(sel.plan_until).slice(0, 10) : ""}</div>
-          <div className="admmg-row">
-            <select className="admmg-sel" value={mgPlan} onChange={e => setMgPlan(e.target.value)}>
-              <option value="premium">⭐ Premium</option>
-              <option value="family">👨‍👩‍👧 Family</option>
-              <option value="max">👑 Max</option>
-              <option value="maxfamily">👑 Max Family</option>
-            </select>
-            <input className="admmg-days" type="number" min="1" value={mgDays} onChange={e => setMgDays(e.target.value)} />
-            <span className="admmg-d">{T("วัน", "days", "天")}</span>
+        {/* ⚙️ manage: change/suspend plan (Top Tier only) · ban (tier ≥2) */}
+        {(tier >= 2) && (
+          <div className="admmg">
+            <div className="admmg-h">⚙️ {T("จัดการผู้ใช้", "Manage user", "用户管理")}</div>
+            {tier >= 3 && (<>
+              <div className="admmg-cur">{T("แพลนปัจจุบัน", "Current plan", "当前套餐")}: <b>{(sel.plan || "free").toUpperCase()}</b>{sel.plan_until ? " · " + T("ถึง", "until", "至") + " " + String(sel.plan_until).slice(0, 10) : ""}</div>
+              <div className="admmg-row">
+                <select className="admmg-sel" value={mgPlan} onChange={e => setMgPlan(e.target.value)}>
+                  <option value="premium">⭐ Premium</option>
+                  <option value="family">👨‍👩‍👧 Family</option>
+                  <option value="max">👑 Max</option>
+                  <option value="maxfamily">👑 Max Family</option>
+                </select>
+                <input className="admmg-days" type="number" min="1" value={mgDays} onChange={e => setMgDays(e.target.value)} />
+                <span className="admmg-d">{T("วัน", "days", "天")}</span>
+              </div>
+              <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={mgBusy} onClick={applyPlan}>💾 {T("ตั้ง / เปลี่ยนแพลน", "Set / change plan", "设置/更改套餐")}</button>
+            </>)}
+            <div className="admmg-row2">
+              {tier >= 3 && <button className="songbtn ghost" disabled={mgBusy} onClick={suspendPlan}>⏸ {T("ระงับ (เป็นฟรี)", "Suspend (free)", "暂停（免费）")}</button>}
+              <button className={`songbtn ${sel.banned ? "go" : "ghost"}`} disabled={mgBusy} onClick={toggleBan}>{sel.banned ? "✓ " + T("ปลดแบน", "Unban", "解封") : "🚫 " + T("แบน ID", "Ban ID", "封禁")}</button>
+            </div>
           </div>
-          <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={mgBusy} onClick={applyPlan}>💾 {T("ตั้ง / เปลี่ยนแพลน", "Set / change plan", "设置/更改套餐")}</button>
-          <div className="admmg-row2">
-            <button className="songbtn ghost" disabled={mgBusy} onClick={suspendPlan}>⏸ {T("ระงับ (เป็นฟรี)", "Suspend (free)", "暂停（免费）")}</button>
-            <button className={`songbtn ${sel.banned ? "go" : "ghost"}`} disabled={mgBusy} onClick={toggleBan}>{sel.banned ? "✓ " + T("ปลดแบน", "Unban", "解封") : "🚫 " + T("แบน ID", "Ban ID", "封禁")}</button>
+        )}
+        {/* 👑 appoint / re-tier admin — Top Tier only */}
+        {tier >= 3 && (
+          <div className="admmg">
+            <div className="admmg-h">👑 {T("สิทธิ์แอดมิน", "Admin access", "管理员权限")}</div>
+            <div className="admmg-cur">{T("ระดับปัจจุบัน", "Current tier", "当前等级")}: <b>{sel.admin_tier > 0 ? adminTierStars(sel.admin_tier) : T("ไม่ใช่แอดมิน", "Not an admin", "非管理员")}</b></div>
+            <div className="admmg-row">
+              <select className="admmg-sel" value={appointTier} onChange={e => setAppointTier(Number(e.target.value))}>
+                <option value={0}>{T("ไม่ใช่แอดมิน", "Not an admin", "非管理员")}</option>
+                <option value={1}>★ {T("ซัพพอร์ต (ดูอย่างเดียว)", "Support (view only)", "支持（仅查看）")}</option>
+                <option value={2}>★★ {T("ปฏิบัติการ (แบน/ตั้งค่าสอน)", "Operations (ban / Auto Teaching)", "运营（封禁/自动教学）")}</option>
+                <option value={3}>★★★ {T("Top Tier (สิทธิ์เต็ม)", "Top Tier (full access)", "最高级（完全权限）")}</option>
+              </select>
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={mgBusy} onClick={doAppoint}>👑 {T("บันทึกระดับแอดมิน", "Save admin tier", "保存管理员等级")}</button>
           </div>
-        </div>
+        )}
         <div className="pd-stats">
           {Stat((sel.exp || 0).toLocaleString(), "EXP")}
           {Stat(sel.lessons_done || 0, T("บทเรียน", "Lessons", "课程"))}
@@ -7068,7 +7161,7 @@ function AdminStudents({ lang }) {
             <button key={r.id} className="admstu-row" onClick={() => openUser(r)}>
               <div className="admstu-av sm">{(r.full_name || r.email || "?").trim().charAt(0).toUpperCase()}</div>
               <div className="admstu-row-body">
-                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.is_admin && <span className="admstu-badge">ADMIN</span>}{r.banned && <span className="adminpay-badge rejected">BAN</span>}{r.plan && r.plan !== "free" && <span className="adminpay-badge approved">{r.plan.toUpperCase()}</span>}</div>
+                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.admin_tier > 0 && <span className="admstu-badge">{adminTierStars(r.admin_tier)}</span>}{r.banned && <span className="adminpay-badge rejected">BAN</span>}{r.plan && r.plan !== "free" && <span className="adminpay-badge approved">{r.plan.toUpperCase()}</span>}</div>
                 <div className="admstu-row-meta">Lv {li.level} · {(r.exp || 0).toLocaleString()} EXP · {r.lessons_done || 0} {T("บท", "lessons", "课")} · {(r.streak || 0)}🔥{sum.games ? " · " + sum.games + " " + T("เกม", "games", "游戏") : ""}</div>
                 <div className="admstu-row-sub">{r.email}{r.last_active ? " · " + r.last_active : ""}</div>
               </div>
@@ -7339,8 +7432,48 @@ function AdminAnalytics({ lang }) {
   );
 }
 
+/* ── Admin: Auto Teaching platform-default interval (tier ≥2) ── */
+function AdminAutoTeach({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [min, setMin] = useState(null);   // null = loading
+  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    sb.from("app_settings").select("value").eq("key", "auto_teach").maybeSingle()
+      .then(({ data }) => setMin((data && data.value && data.value.default_min) ?? AUTO_TEACH_FALLBACK_MIN), () => setMin(AUTO_TEACH_FALLBACK_MIN));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  async function save(v) {
+    setBusy(true); setSaved(false);
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "auto_teach", p_value: { default_min: v } });
+    setBusy(false);
+    if (!error) { setMin(v); setSaved(true); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
+  }
+  if (min === null) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
+  return (
+    <div className="admstu">
+      <div className="admmg">
+        <div className="admmg-h">⏱️ {T("ความถี่ Auto Teaching (ค่าเริ่มต้นทั้งระบบ)", "Auto Teaching frequency (platform default)", "自动教学频率（系统默认）")}</div>
+        <div className="admstu-row-sub" style={{ marginBottom: 10 }}>
+          {T("ทุกกี่นาทีจะมี pop up จากครู AI แนะนำจุดอ่อนระหว่างที่ผู้เรียน Max ซ้อมอยู่ในสตูดิโอ ผู้เรียนสามารถตั้งค่าของตัวเองทับค่านี้ได้",
+            "How often the AI coach pops up with a real-time tip while a Max learner practices in the Studio. Learners can override this with their own pick.",
+            "Max 学员在工作室练习时，AI 教练多久弹出一次实时建议。学员可以设置自己的偏好覆盖此默认值。")}
+        </div>
+        <div className="setlangs">
+          <button className={`setlangbtn${min === 0 ? " on" : ""}`} disabled={busy} onClick={() => save(0)}>{T("ปิด", "Off", "关闭")}</button>
+          {AUTO_TEACH_INTERVALS.map(m => (
+            <button key={m} className={`setlangbtn${min === m ? " on" : ""}`} disabled={busy} onClick={() => save(m)}>{m}{T("น.", "m", "分")}</button>
+          ))}
+        </div>
+        {saved && <div className="admstu-row-sub" style={{ color: "#fc2d8e", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin chat (free-form AI + web search + image/link learning) ── */
-function AdminPage({ lang, onExit }) {
+function AdminPage({ lang, onExit, adminTier }) {
+  const tier = adminTier || 0;
   const lc = L[lang];
   const [msgs, setMsgs] = useState([{
     role: "ai",
@@ -7354,7 +7487,7 @@ function AdminPage({ lang, onExit }) {
   const [loading, setLoading] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
   const [attachedImg, setAttachedImg] = useState(null); // {dataUrl, mediaType, name}
-  const [adminTab, setAdminTab] = useState("ai");        // "ai" chat · "students" back-office
+  const [adminTab, setAdminTab] = useState(tier >= 3 ? "ai" : "students"); // "ai" chat · "students" back-office · "autoteach"
   const endRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -7478,14 +7611,20 @@ function AdminPage({ lang, onExit }) {
       </div>
 
       <div className="admintabs">
-        <button className={`admintab${adminTab === "ai" ? " on" : ""}`} onClick={() => setAdminTab("ai")}>🤖 {lang === "th" ? "สอน AI" : lang === "zh" ? "训练 AI" : "Teach AI"}</button>
+        {tier >= 3 && <button className={`admintab${adminTab === "ai" ? " on" : ""}`} onClick={() => setAdminTab("ai")}>🤖 {lang === "th" ? "สอน AI" : lang === "zh" ? "训练 AI" : "Teach AI"}</button>}
         <button className={`admintab${adminTab === "students" ? " on" : ""}`} onClick={() => setAdminTab("students")}>👥 {lang === "th" ? "นักเรียน" : lang === "zh" ? "学生" : "Students"}</button>
-        <button className={`admintab${adminTab === "payments" ? " on" : ""}`} onClick={() => setAdminTab("payments")}>💳 {lang === "th" ? "ชำระเงิน" : lang === "zh" ? "付款" : "Payments"}</button>
-        <button className={`admintab${adminTab === "videos" ? " on" : ""}`} onClick={() => setAdminTab("videos")}>🎬 {lang === "th" ? "วิดีโอ" : lang === "zh" ? "视频" : "Videos"}</button>
-        <button className={`admintab${adminTab === "analytics" ? " on" : ""}`} onClick={() => setAdminTab("analytics")}>📊 {lang === "th" ? "สถิติ" : lang === "zh" ? "统计" : "Analytics"}</button>
+        {tier >= 3 && <button className={`admintab${adminTab === "payments" ? " on" : ""}`} onClick={() => setAdminTab("payments")}>💳 {lang === "th" ? "ชำระเงิน" : lang === "zh" ? "付款" : "Payments"}</button>}
+        {tier >= 3 && <button className={`admintab${adminTab === "videos" ? " on" : ""}`} onClick={() => setAdminTab("videos")}>🎬 {lang === "th" ? "วิดีโอ" : lang === "zh" ? "视频" : "Videos"}</button>}
+        {tier >= 3 && <button className={`admintab${adminTab === "analytics" ? " on" : ""}`} onClick={() => setAdminTab("analytics")}>📊 {lang === "th" ? "สถิติ" : lang === "zh" ? "统计" : "Analytics"}</button>}
+        {tier >= 2 && <button className={`admintab${adminTab === "autoteach" ? " on" : ""}`} onClick={() => setAdminTab("autoteach")}>⏱️ {lang === "th" ? "ตั้งเวลาสอน" : lang === "zh" ? "自动教学" : "Auto Teaching"}</button>}
       </div>
 
-      {adminTab === "students" ? <AdminStudents lang={lang} /> : adminTab === "payments" ? <AdminPayments lang={lang} /> : adminTab === "videos" ? <AdminVideos lang={lang} /> : adminTab === "analytics" ? <AdminAnalytics lang={lang} /> : (<>
+      {adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
+        : adminTab === "payments" && tier >= 3 ? <AdminPayments lang={lang} />
+        : adminTab === "videos" && tier >= 3 ? <AdminVideos lang={lang} />
+        : adminTab === "analytics" && tier >= 3 ? <AdminAnalytics lang={lang} />
+        : adminTab === "autoteach" && tier >= 2 ? <AdminAutoTeach lang={lang} />
+        : adminTab === "ai" && tier >= 3 ? (<>
 
       <div className="mmsgs">
         {msgs.map((m, i) => (
@@ -7539,7 +7678,7 @@ function AdminPage({ lang, onExit }) {
         <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFileChosen} />
       </div>
 
-      </>)}
+      </>) : <AdminStudents lang={lang} viewerTier={tier} />}
     </div>
   );
 }
@@ -7697,6 +7836,13 @@ export default function App() {
       .then(({ data }) => setPayCfg((data && data.value) || null), () => {});
   }, [session]);
 
+  // load the admin's platform-wide Auto Teaching default interval
+  useEffect(() => {
+    if (!session) return;
+    sb.from("app_settings").select("value").eq("key", "auto_teach").maybeSingle()
+      .then(({ data }) => setAutoTeachDefaultMin((data && data.value && data.value.default_min) ?? AUTO_TEACH_FALLBACK_MIN), () => {});
+  }, [session]);
+
   async function signOut() {
     try { await sb.auth.signOut(); } catch (e) {}
     setSession(null); setProfile(null);
@@ -7784,6 +7930,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [shareGate, setShareGate] = useState(false);  // free-tier share-to-continue gate
   const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
   const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
+  // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer while in the Studio) ──
+  const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
+  const [autoTeachTip, setAutoTeachTip] = useState(null);   // {weakness, tip} currently shown, or null
+  const [autoTeachBusy, setAutoTeachBusy] = useState(false);
+  const autoTeachTimer = useRef(null);
   const [upsell, setUpsell] = useState(null);   // {feat} when a gated action is blocked
   const [parentOpen, setParentOpen] = useState(false);
   const [examOpen, setExamOpen] = useState(false);
@@ -7875,6 +8026,45 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // ── routing + secret admin unlock ──
   const [page, setPage] = useState("pathway");  // home = pathway; sensei (chat) is secondary | pathway | profile | admin
   useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
+
+  // ── Auto Teaching: while a Max-plan learner is in the Studio, fire a short real-time
+  // coaching card every N minutes (learner's own pick, else the admin's platform default). ──
+  const autoTeachTipRef = useRef(null);
+  useEffect(() => { autoTeachTipRef.current = autoTeachTip; }, [autoTeachTip]);
+  async function fetchAutoTeachTip() {
+    if (autoTeachTipRef.current || autoTeachBusy) return; // don't clobber an unread tip
+    setAutoTeachBusy(true);
+    try {
+      const mem = readMemory();
+      const struggle = (mem.struggles || [])[0];
+      const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
+      const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "none flagged yet — infer the most likely weak spot from recent practice";
+      const sysByLang = {
+        th: `คุณคือ "ครู TiGA" กำลังส่งการ์ดแนะนำสั้นๆ แบบเรียลไทม์ให้ผู้เรียนที่กำลังฝึกเปียโนอยู่ตอนนี้ (ไม่ใช่บทสนทนา) ข้อมูลฝึกล่าสุด: ${recentTxt} จุดอ่อนตอนนี้: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."]} — weakness สั้นไม่เกิน 12 คำ steps มี 2-4 ข้อ วิธีฝึกแก้ทีละขั้น แต่ละข้อไม่เกิน 15 คำ ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
+        zh: `你是"TiGA老师"，正在给正在练琴的学员发一张简短的实时指导卡（不是对话）。最近练习：${recentTxt} 当前薄弱点：${struggleTxt}\n\n只回JSON，格式 {"weakness":"...","steps":["...","..."]} — weakness 不超过12字，steps 为2-4个简短练习步骤，每条不超过15字，用中文，JSON外不要任何文字`,
+        en: `You are "Teacher TiGA", sending a short real-time coaching card to a learner actively practicing piano right now (not a conversation). Recent practice: ${recentTxt}. Current weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."]} — weakness under 12 words, steps has 2-4 short fix-it practice steps, each under 15 words, in English. No text outside the JSON.`,
+      };
+      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me a real-time coaching tip.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en }) });
+      const data = await res.json();
+      const txt = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+      const m = txt.match(/\{[\s\S]*\}/);
+      const obj = m ? JSON.parse(m[0]) : null;
+      if (obj && obj.weakness && Array.isArray(obj.steps) && obj.steps.length) {
+        setAutoTeachTip(obj);
+        logAutoTeachTip(obj.weakness, obj.steps.join(" / "));
+      }
+    } catch (e) { /* a missed real-time tip silently skips — not worth an error popup mid-practice */ }
+    setAutoTeachBusy(false);
+  }
+  useEffect(() => {
+    clearInterval(autoTeachTimer.current);
+    const min = resolveAutoTeachMin(profile, autoTeachDefaultMin);
+    if (page !== "studio" || !isMaxPlan(plan) || !(min > 0)) return;
+    autoTeachTimer.current = setInterval(fetchAutoTeachTip, min * 60 * 1000);
+    return () => clearInterval(autoTeachTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, plan, profile, autoTeachDefaultMin, lang]);
+
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [showLock, setShowLock] = useState(false);
   const tapCount = useRef(0);
@@ -10131,6 +10321,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (pushOn) { await unsubscribePush(); setPushOn(false); }
     else { const ok = await subscribePush(session.user.id); setPushOn(ok); }
   }
+  function saveAutoTeachInterval(min) {
+    setProfile(p => (p ? { ...p, auto_teach_interval_min: min } : p));
+    sb.from("profiles").update({ auto_teach_interval_min: min }).eq("id", session.user.id).then(() => {}, () => {});
+  }
   const [pushBannerSeen, setPushBannerSeen] = useState(() => { try { return localStorage.getItem("tg_push_banner_seen") === "1"; } catch (e) { return false; } });
   const showPushBanner = pushSupported() && !pushOn && !pushBannerSeen && streakAtRisk() && (profile && profile.streak > 0);
   function dismissPushBanner() {
@@ -10527,8 +10721,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: ADMIN ─── */}
       {page === "admin" && (
-        adminUnlocked
-          ? <AdminPage lang={lang} onExit={exitAdmin} />
+        (adminUnlocked || (profile && profile.admin_tier > 0))
+          ? <AdminPage lang={lang} onExit={exitAdmin} adminTier={(profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0)} />
           : <LockScreen lang={lang} onUnlock={tryUnlock} />
       )}
 
@@ -10775,7 +10969,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "studio", sv: "menu", ic: "▶", c: "#fc2d8e", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#fc2d8e", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
-          ...(adminUnlocked ? [{ p: "admin", ic: "⬢", c: "#ff5252", t: "ADMIN" }] : []),
+          ...((adminUnlocked || (profile && profile.admin_tier > 0)) ? [{ p: "admin", ic: "⬢", c: "#ff5252", t: "ADMIN" }] : []),
         ].map(it => {
           const isOn = it.p === "studio" ? (page === "studio" && studioView === it.sv) : page === it.p;
           return (
@@ -11368,6 +11562,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   </button>
                 </div>
               )}
+              {isMaxPlan(plan) && (
+                <div className="setrow col">
+                  <label>🎯 Auto Teaching</label>
+                  <div className="setlangs">
+                    <button className={`setlangbtn${profile.auto_teach_interval_min === 0 ? " on" : ""}`}
+                      onClick={() => saveAutoTeachInterval(0)}>{lang === "th" ? "ปิด" : lang === "zh" ? "关闭" : "Off"}</button>
+                    {AUTO_TEACH_INTERVALS.map(m => (
+                      <button key={m} className={`setlangbtn${profile.auto_teach_interval_min === m ? " on" : ""}`}
+                        onClick={() => saveAutoTeachInterval(m)}>{m}{lang === "th" ? "น." : lang === "zh" ? "分" : "m"}</button>
+                    ))}
+                  </div>
+                  <span className="setsub">{profile.auto_teach_interval_min == null
+                    ? (lang === "th" ? `ตามค่าระบบ (ทุก ${autoTeachDefaultMin ?? AUTO_TEACH_FALLBACK_MIN} นาที)` : lang === "zh" ? `跟随系统默认（每 ${autoTeachDefaultMin ?? AUTO_TEACH_FALLBACK_MIN} 分钟）` : `Following the platform default (every ${autoTeachDefaultMin ?? AUTO_TEACH_FALLBACK_MIN} min)`)
+                    : (lang === "th" ? "ครู AI จะแนะนำจุดอ่อนแบบสั้นๆ ระหว่างซ้อมในสตูดิโอ" : lang === "zh" ? "AI 会在你于工作室练习时提示薄弱环节" : "The AI coach flags a weak spot while you practice in the Studio")}</span>
+                </div>
+              )}
               <div className="setdiv" />
               <div className="setrow col">
                 <label>🌐 {lc.setLang}</label>
@@ -11535,6 +11745,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
           <button className="installbanner-go" onClick={enablePushFromBanner}>{lc.pushBannerBtn}</button>
           <button className="installbanner-x" onClick={dismissPushBanner} aria-label="close">×</button>
+        </div>
+      )}
+
+      {/* Auto Teaching — real-time coaching card (Max plan, fires on a timer while in the Studio) */}
+      {autoTeachTip && (
+        <div className="atpopup" onClick={() => setAutoTeachTip(null)}>
+          <div className="atpopup-card" onClick={e => e.stopPropagation()}>
+            <div className="atpopup-hd">
+              <span className="atpopup-ic" aria-hidden="true">🎯</span>
+              <div className="atpopup-tt">{lang === "th" ? "ครู TiGA แนะนำ" : lang === "zh" ? "TiGA老师建议" : "Coach TiGA's Tip"}</div>
+              <button className="atpopup-x" onClick={() => setAutoTeachTip(null)} aria-label="close">×</button>
+            </div>
+            <div className="atpopup-weak">{autoTeachTip.weakness}</div>
+            <ol className="atpopup-steps">
+              {autoTeachTip.steps.map((s, i) => <li key={i}>{s}</li>)}
+            </ol>
+            <button className="atpopup-ok" onClick={() => setAutoTeachTip(null)}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
+          </div>
         </div>
       )}
     </div>
