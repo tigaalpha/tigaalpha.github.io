@@ -3021,26 +3021,10 @@ const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文" };
 
 /* ── Styles ── */
 const CSS = `
-/* ── Light/dark mode variables — dark values below match the app's original hardcoded
-   palette exactly (so default/unset behavior is pixel-identical to before); the
-   html[data-theme="light"] block is the only thing that changes when the learner toggles it. ── */
+/* ── Light/dark mode variables — light is the CSS baseline (:root) so a first-time visit
+   paints light immediately with no flash-of-dark before React mounts and sets the attribute;
+   html[data-theme="dark"] is the opt-in override for anyone who picks Dark in Settings. ── */
 :root{
-  --bg: #070508;
-  --card: #150c12;
-  --card2: #0e0710;
-  --card3: #120a10;
-  --grad1: #2a1012;
-  --text: #faf0f5;
-  --text2: #e6a8c8;
-  --muted: #c9a3b5;
-  --bd1: #ffffff12;
-  --bd2: #ffffff14;
-  --bd3: #ffffff10;
-  --bd4: #ffffff1f;
-  --bd5: #ffffff22;
-  --bd6: #ffffff0d;
-}
-html[data-theme="light"]{
   --bg: #fdf6f9;
   --card: #ffffff;
   --card2: #fbeef4;
@@ -3055,6 +3039,22 @@ html[data-theme="light"]{
   --bd4: #0000001f;
   --bd5: #00000022;
   --bd6: #0000000d;
+}
+html[data-theme="dark"]{
+  --bg: #070508;
+  --card: #150c12;
+  --card2: #0e0710;
+  --card3: #120a10;
+  --grad1: #2a1012;
+  --text: #faf0f5;
+  --text2: #e6a8c8;
+  --muted: #c9a3b5;
+  --bd1: #ffffff12;
+  --bd2: #ffffff14;
+  --bd3: #ffffff10;
+  --bd4: #ffffff1f;
+  --bd5: #ffffff22;
+  --bd6: #ffffff0d;
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600&family=Share+Tech+Mono&display=swap');
@@ -8107,7 +8107,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [owned, setOwned] = useState(getOwned());
   const [skin, setSkin] = useState(getEquip("skin", "aqua"));
   const [theme, setTheme] = useState(getEquip("theme", "midnight"));
-  const [mode, setMode] = useState(getEquip("mode", "dark"));   // "dark" | "light" — whole-app color scheme
+  const [mode, setMode] = useState(getEquip("mode", "light"));   // "dark" | "light" — whole-app color scheme; light is the preset for first-time visitors, a saved preference always wins
   const [recording, setRecording] = useState(false);
   const [hasClip, setHasClip] = useState(false);
   const [playingClip, setPlayingClip] = useState(false);
@@ -8222,18 +8222,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [page, plan, autoTeachMin, lang]);
 
   const [adminUnlocked, setAdminUnlocked] = useState(false);
-  // real gate is server-side admin_tier (checked inside every admin_* RPC); adminUnlocked
-  // (tap-5x + code) just remains as a second, cosmetic entry path for the original 2 owners
-  const canSeeAdmin = adminUnlocked || (profile && profile.admin_tier > 0);
   const [showLock, setShowLock] = useState(false);
   const tapCount = useRef(0);
   const tapTimer = useRef(null);
 
   // secret: tap the TG logo 5 times quickly to reveal the lock screen
   function handleLogoTap() {
-    // Only real admin accounts (your two emails, flagged is_admin in Supabase) can
-    // reveal the admin lock — everyone else tapping the logo does nothing.
-    if (!(profile && profile.is_admin)) return;
+    // Any admin tier can reveal the lock screen — everyone else tapping the logo does
+    // nothing. This plus the code is the ONLY way into /admin; no nav-bar entry point,
+    // so a regular learner never even sees that an admin console exists.
+    if (!(profile && profile.admin_tier > 0)) return;
     tapCount.current += 1;
     clearTimeout(tapTimer.current);
     tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1500);
@@ -10919,9 +10917,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       </div>}
 
-      {/* ─── PAGE: ADMIN ─── */}
+      {/* ─── PAGE: ADMIN — reachable ONLY via the 5-tap logo + code, never a nav link ─── */}
       {page === "admin" && (
-        canSeeAdmin
+        adminUnlocked
           ? <AdminPage lang={lang} onExit={exitAdmin} adminTier={(profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0)} />
           : <LockScreen lang={lang} onUnlock={tryUnlock} />
       )}
@@ -11174,7 +11172,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "videos", ic: "🎬", c: "#fc2d8e", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "coach", ic: "🎯", c: "#fc2d8e", t: lang === "th" ? "โค้ช AI" : lang === "zh" ? "AI 教练" : "AI Coach", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
-          ...(canSeeAdmin ? [{ p: "admin", ic: "⬢", c: "#ff5252", t: "ADMIN" }] : []),
+          // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
+          // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
         ].map(it => {
           const isOn = it.p === "studio" ? (page === "studio" && studioView === it.sv) : page === it.p;
           return (
