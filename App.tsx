@@ -5956,10 +5956,10 @@ function logActivity(kind, id, ok, miss, sec) {
 // powers the small "recent tips" dashboard list. Not synced server-side.
 const AUTOTEACH_LOG_KEY = "tg_autoteach_log";
 function readAutoTeachLog() { try { return JSON.parse(localStorage.getItem(AUTOTEACH_LOG_KEY) || "[]") || []; } catch (e) { return []; } }
-function logAutoTeachTip(weakness, tip) {
+function logAutoTeachTip(weakness, tip, feature) {
   try {
     const log = readAutoTeachLog();
-    log.push({ t: Date.now(), d: dayKey(), weakness: String(weakness || ""), tip: String(tip || "") });
+    log.push({ t: Date.now(), d: dayKey(), weakness: String(weakness || ""), tip: String(tip || ""), feature: feature || "pathway" });
     localStorage.setItem(AUTOTEACH_LOG_KEY, JSON.stringify(log.slice(-50)));
   } catch (e) {}
 }
@@ -6253,6 +6253,41 @@ function resolveAutoTeachMin(profile, adminDefaultMin) {
   if (own != null) return own;
   if (adminDefaultMin != null) return adminDefaultMin;
   return AUTO_TEACH_FALLBACK_MIN;
+}
+
+// Fixed, safe set of real in-app destinations the AI coach can point a learner to — the
+// model only ever picks a KEY from this list (never invents one), and the actual navigation
+// for each key is wired up in PianoApp, so a recommendation is always a working link.
+const COACH_FEATURE_LABELS = {
+  sight_reading: { th: "ฝึกอ่านโน้ต (Sight-Reading)", en: "Sight-Reading practice", zh: "识谱练习（Sight-Reading）" },
+  hand_coach: { th: "ให้ครูดูท่ามือ (Hand Coach)", en: "Hand Coach (camera)", zh: "手型检测（Hand Coach）" },
+  play_along: { th: "เล่นตามเพลง (Play Along)", en: "Play Along songs", zh: "跟弹歌曲（Play Along）" },
+  ear_training: { th: "ฝึกโสตประสาท (Ear Training)", en: "Ear Training games", zh: "听力训练（Ear Training）" },
+  reading_course: { th: "คอร์สฝึกอ่านโน้ตทีละบท (Reading)", en: "Note-Reading course", zh: "识谱课程（Reading）" },
+  pathway: { th: "ทบทวนบทเรียนในเส้นทางการเรียนรู้", en: "Review Pathway lessons", zh: "复习学习路径课程" },
+};
+// Shared core of the AI coaching analysis — used by both the Auto Teaching popup (timer-driven,
+// PianoApp) and the dedicated Coach nav page (on-demand, CoachPage). Module-level (not inside
+// either component) since it only needs `lang` and the module-level readMemory()/apiHeaders().
+async function generateCoachTip(lang) {
+  const mem = readMemory();
+  const struggle = (mem.struggles || [])[0];
+  const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
+  const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "none flagged yet — infer the most likely weak spot from recent practice";
+  const featureKeys = Object.keys(COACH_FEATURE_LABELS).join(", ");
+  const sysByLang = {
+    th: `คุณคือ "ครู TiGA" กำลังให้คำแนะนำการฝึกซ้อมส่วนตัว อิงจากข้อมูลการฝึกที่ผ่านมา: ${recentTxt} จุดอ่อนล่าสุด: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness สั้นไม่เกิน 15 คำ บอกปัญหาตอนนี้ steps มี 2-4 ข้อ วิธีฝึกแก้ทีละขั้น เน้นว่าต้องฝึกสม่ำเสมอทุกวันแล้วจะดีขึ้น แต่ละข้อไม่เกิน 15 คำ feature ต้องเป็นค่าจากรายการนี้เท่านั้น (เลือกตัวที่ช่วยแก้จุดอ่อนนี้ได้ดีที่สุด): ${featureKeys} ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
+    zh: `你是"TiGA老师"，正在给出个性化的练习建议，依据以往的练习数据：${recentTxt} 当前薄弱点：${struggleTxt}\n\n只回JSON {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness 不超过15字，说明当前问题，steps 为2-4个简短练习步骤，强调坚持每天练习会进步，每条不超过15字，feature 必须是以下之一（选择最能解决该薄弱点的）：${featureKeys}，用中文，JSON外不要任何文字`,
+    en: `You are "Teacher TiGA" giving personalized practice coaching, based on past practice history: ${recentTxt}. Current weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness under 15 words naming the current problem, steps has 2-4 short fix-it steps emphasizing consistent daily practice, each under 15 words, feature must be exactly one of: ${featureKeys} (pick whichever helps this weak spot most). No text outside the JSON.`,
+  };
+  const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me my current coaching recommendation.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en }) });
+  const data = await res.json();
+  const txt = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+  const m = txt.match(/\{[\s\S]*\}/);
+  const obj = m ? JSON.parse(m[0]) : null;
+  if (!obj || !obj.weakness || !Array.isArray(obj.steps) || !obj.steps.length) return null;
+  if (!COACH_FEATURE_LABELS[obj.feature]) obj.feature = "pathway"; // guard against a hallucinated key
+  return obj;
 }
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
 function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
@@ -6877,6 +6912,89 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       </div>
 
       {onSignOut && <button className="profsignout" onClick={onSignOut}>⏻ {lc.profSignOut}</button>}
+    </div>
+  );
+});
+
+/* ── Coach page (nav bar, Max plan): the same AI coaching analysis the Pathway-page popup
+   shows, always available on demand — current problem, how to fix it, and which in-app
+   feature to practice with, so acting on the advice is one tap away. ── */
+const CoachPage = memo(function CoachPage({ lang, onNavigate }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [current, setCurrent] = useState(() => { const log = readAutoTeachLog(); return log[log.length - 1] || null; });
+  const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState(() => readAutoTeachLog().slice(0, -1).slice(-6).reverse());
+  const struggles = (readMemory().struggles || []).slice(0, 6);
+
+  const refresh = useCallback(async () => {
+    setBusy(true);
+    try {
+      const obj = await generateCoachTip(lang);
+      if (obj) {
+        logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature);
+        setCurrent({ t: Date.now(), weakness: obj.weakness, tip: obj.steps.join(" / "), feature: obj.feature, steps: obj.steps });
+        setHistory(readAutoTeachLog().slice(0, -1).slice(-6).reverse());
+      }
+    } catch (e) {}
+    setBusy(false);
+  }, [lang]);
+
+  useEffect(() => { if (!current) refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const steps = current && (current.steps || (current.tip ? current.tip.split(" / ") : []));
+  const feature = current && COACH_FEATURE_LABELS[current.feature || "pathway"];
+
+  return (
+    <div className="profscroll">
+      <div className="profsec">
+        <div className="profsec-h">🎯 {T("โค้ช AI", "AI Coach", "AI 教练")}</div>
+        <div className="admstu-row-sub" style={{ marginBottom: 12 }}>
+          {T("สรุปจุดอ่อนตอนนี้ วิธีแก้ และควรฝึกด้วยฟีเจอร์ไหนของแอป — อัปเดตทุกครั้งที่กดวิเคราะห์ใหม่",
+            "Your current weak spot, how to fix it, and which app feature to practice with — refresh any time.",
+            "当前薄弱点、解决方法，以及应该用哪个功能来练习——随时可以重新分析。")}
+        </div>
+
+        {struggles.length > 0 && (
+          <div className="pd-tags" style={{ marginBottom: 14 }}>{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div>
+        )}
+
+        {busy && !current ? (
+          <div className="atdash-empty">⏳ {T("กำลังวิเคราะห์...", "Analyzing...", "正在分析...")}</div>
+        ) : current ? (
+          <div className="atdash-last">
+            <div className="atdash-last-w">{current.weakness}</div>
+            {steps && steps.length > 0 && (
+              <ol className="songanalysis-steps" style={{ marginTop: 8 }}>
+                {steps.map((s, i) => <li key={i}>{s}</li>)}
+              </ol>
+            )}
+            {feature && (
+              <button className="songbtn go" style={{ width: "100%", marginTop: 12 }}
+                onClick={() => onNavigate(current.feature || "pathway")}>
+                ▶ {T("ไปฝึก: ", "Practice: ", "去练习：") + feature[lang]}
+              </button>
+            )}
+            <div className="atdash-last-d">{new Date(current.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
+          </div>
+        ) : (
+          <div className="atdash-empty">{T("ยังไม่มีข้อมูลการซ้อม — ลองฝึกในสตูดิโอก่อน แล้วกลับมาดูคำแนะนำ", "No practice data yet — try the Studio first, then come back for coaching.", "暂无练习数据——先去工作室练习，再回来查看建议。")}</div>
+        )}
+
+        <button className="songbtn ghost" style={{ width: "100%", marginTop: 14 }} disabled={busy} onClick={refresh}>
+          {busy ? "⏳" : "🔄"} {T("วิเคราะห์ใหม่", "Re-analyze", "重新分析")}
+        </button>
+
+        {history.length > 0 && (<>
+          <div className="admstu-sec" style={{ marginTop: 18 }}>{T("คำแนะนำก่อนหน้า", "Earlier tips", "以往建议")}</div>
+          {history.map((h, i) => (
+            <div key={i} className="atdash-last" style={{ marginTop: 8 }}>
+              <div className="atdash-last-w">{h.weakness}</div>
+              <div className="atdash-last-t">{h.tip}</div>
+              <div className="atdash-last-d">{new Date(h.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
+            </div>
+          ))}
+        </>)}
+      </div>
     </div>
   );
 });
@@ -8040,23 +8158,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (autoTeachTipRef.current || autoTeachBusyRef.current) return; // don't clobber an unread tip
     autoTeachBusyRef.current = true;
     try {
-      const mem = readMemory();
-      const struggle = (mem.struggles || [])[0];
-      const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
-      const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "none flagged yet — infer the most likely weak spot from recent practice";
-      const sysByLang = {
-        th: `คุณคือ "ครู TiGA" กำลังส่งการ์ดแนะนำสั้นๆ ให้ผู้เรียนที่กำลังดูหน้าเส้นทางการเรียนรู้อยู่ (ไม่ใช่บทสนทนา) โดยอิงจากข้อมูลการฝึกที่ผ่านมา: ${recentTxt} จุดอ่อนล่าสุด: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."]} — weakness สั้นไม่เกิน 12 คำ steps มี 2-4 ข้อ วิธีฝึกแก้ทีละขั้น แต่ละข้อไม่เกิน 15 คำ ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
-        zh: `你是"TiGA老师"，正在给正在查看学习路径页面的学员发一张简短的指导卡（不是对话），依据以往的练习数据。最近练习：${recentTxt} 当前薄弱点：${struggleTxt}\n\n只回JSON，格式 {"weakness":"...","steps":["...","..."]} — weakness 不超过12字，steps 为2-4个简短练习步骤，每条不超过15字，用中文，JSON外不要任何文字`,
-        en: `You are "Teacher TiGA", sending a short coaching card to a learner currently viewing their Learning Pathway page (not a conversation), based on their past practice history. Recent practice: ${recentTxt}. Current weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."]} — weakness under 12 words, steps has 2-4 short fix-it practice steps, each under 15 words, in English. No text outside the JSON.`,
-      };
-      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me a real-time coaching tip.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en }) });
-      const data = await res.json();
-      const txt = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
-      const m = txt.match(/\{[\s\S]*\}/);
-      const obj = m ? JSON.parse(m[0]) : null;
-      if (obj && obj.weakness && Array.isArray(obj.steps) && obj.steps.length) {
+      const obj = await generateCoachTip(lang);
+      if (obj) {
         setAutoTeachTip(obj);
-        logAutoTeachTip(obj.weakness, obj.steps.join(" / "));
+        logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature);
       }
     } catch (e) { /* a missed real-time tip silently skips — not worth an error popup mid-practice */ }
     autoTeachBusyRef.current = false;
@@ -9310,6 +9415,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // ════ HAND-POSTURE COACH (camera) ════
   function openCamera() { setCamOpen(true); }
   function exitCamera() { setCamOpen(false); setCamCoach(null); }
+  // Where the Coach page's "▶ Practice: …" button sends the learner — maps a fixed,
+  // known-safe COACH_FEATURE_LABELS key to a real navigation action.
+  function handleCoachNavigate(key) {
+    playUi("click"); haptic(6); stopPracticeListeners();
+    if (key === "sight_reading") { setPage("studio"); setStudioView("menu"); openSight(); }
+    else if (key === "hand_coach") { setPage("studio"); setStudioView("menu"); openCamera(); }
+    else if (key === "play_along") { setPage("studio"); setStudioView("songs"); }
+    else if (key === "ear_training") { logUsage("nav", "studio-eargym"); setPage("eargym"); }
+    else if (key === "reading_course") { logUsage("nav", "studio-reading"); setPage("reading"); }
+    else { setPage("pathway"); }
+  }
   // snapshot the camera and ask the AI teacher to critique hand posture/technique
   async function analyzeHands() {
     if (!premium) { setPricingOpen(true); return; }
@@ -10878,6 +10994,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
+      {/* ─── PAGE: COACH (Max plan) ─── */}
+      {page === "coach" && <CoachPage lang={lang} onNavigate={handleCoachNavigate} />}
+
       {/* ─── PAGE: SENSEI (default) ─── */}
       {page === "sensei" && (
         <>
@@ -11010,14 +11129,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "studio", sv: "menu", ic: "▶", c: "#fc2d8e", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#fc2d8e", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
+          { p: "coach", ic: "🎯", c: "#fc2d8e", t: lang === "th" ? "โค้ช AI" : lang === "zh" ? "AI 教练" : "AI Coach", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
           ...(canSeeAdmin ? [{ p: "admin", ic: "⬢", c: "#ff5252", t: "ADMIN" }] : []),
         ].map(it => {
           const isOn = it.p === "studio" ? (page === "studio" && studioView === it.sv) : page === it.p;
           return (
           <button key={it.p + (it.sv || "")} className={`draweritem${isOn ? " on" : ""}`} style={{ "--nav-c": it.c }}
-            onClick={() => { playUi("click"); haptic(6); logUsage("nav", it.p + (it.sv ? "-" + it.sv : "")); stopPracticeListeners(); setPage(it.p); if (it.p === "studio") setStudioView(it.sv); setNavOpen(false); }}>
+            onClick={() => {
+              playUi("click"); haptic(6);
+              if (it.locked) { setNavOpen(false); setPricingOpen(true); return; }
+              logUsage("nav", it.p + (it.sv ? "-" + it.sv : "")); stopPracticeListeners(); setPage(it.p); if (it.p === "studio") setStudioView(it.sv); setNavOpen(false);
+            }}>
             <span className="drawericon" aria-hidden="true">{it.ic}</span>
-            <span className="drawerlabel">{it.t}</span>
+            <span className="drawerlabel">{it.t}{it.locked && " 🔒"}</span>
             {isOn && <span className="drawerdot" />}
           </button>
           );
