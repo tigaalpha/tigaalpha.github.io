@@ -3023,22 +3023,25 @@ const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文" };
 const CSS = `
 /* ── Light/dark mode variables — light is the CSS baseline (:root) so a first-time visit
    paints light immediately with no flash-of-dark before React mounts and sets the attribute;
-   html[data-theme="dark"] is the opt-in override for anyone who picks Dark in Settings. ── */
+   html[data-theme="dark"] is the opt-in override for anyone who picks Dark in Settings.
+   Light mode's neutrals (bg/card/text/borders) follow Anthropic's own brand palette —
+   #faf9f5 warm cream, #141413 near-black text, #e8e6dc/#b0aea5 warm grays — with this
+   app's own pink (#fc2d8e, unchanged, not a variable) staying the one accent color. ── */
 :root{
-  --bg: #fdf6f9;
+  --bg: #faf9f5;
   --card: #ffffff;
-  --card2: #fbeef4;
-  --card3: #f7e3ec;
-  --grad1: #f7d9e8;
-  --text: #2a1420;
-  --text2: #5c3348;
-  --muted: #8a6577;
-  --bd1: #00000012;
-  --bd2: #00000014;
-  --bd3: #00000010;
-  --bd4: #0000001f;
-  --bd5: #00000022;
-  --bd6: #0000000d;
+  --card2: #e8e6dc;
+  --card3: #ddd9cc;
+  --grad1: #e2ded1;
+  --text: #141413;
+  --text2: #4a463f;
+  --muted: #7d7a70;
+  --bd1: #14141312;
+  --bd2: #14141314;
+  --bd3: #14141310;
+  --bd4: #1414131f;
+  --bd5: #14141322;
+  --bd6: #1414130d;
 }
 html[data-theme="dark"]{
   --bg: #070508;
@@ -3056,6 +3059,12 @@ html[data-theme="dark"]{
   --bd5: #ffffff22;
   --bd6: #ffffff0d;
 }
+/* index.html has a static (pre-JS-paint) copy of the light --bg value on these same
+   three selectors, purely so first paint isn't a flash of white before this stylesheet
+   loads — this rule is what actually keeps the root background in sync with the toggle
+   afterward (it wins the cascade: this <style> tag is injected, so it's later in the DOM
+   than the one already in <head>, and both rules have equal specificity). */
+html, body, #root{background:var(--bg)}
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600&family=Share+Tech+Mono&display=swap');
 .tg{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text2);height:100vh;display:flex;flex-direction:column;overflow:hidden;position:relative}
@@ -10617,7 +10626,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }
   function mascot(mood, ms = 2200) { setMascotMood(mood); clearTimeout(mascotT.current); mascotT.current = setTimeout(() => setMascotMood("idle"), ms); }
   useEffect(() => { setChestAvail(chestAvailable()); }, []);
-  useEffect(() => { document.body.dataset.skin = skin; document.body.dataset.theme = theme; document.documentElement.dataset.theme = mode; }, [skin, theme, mode]);
+  useEffect(() => {
+    document.body.dataset.skin = skin; document.body.dataset.theme = theme;
+    document.documentElement.dataset.theme = mode;
+    const tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute("content", mode === "dark" ? "#070508" : "#faf9f5");
+  }, [skin, theme, mode]);
   function buyOrEquip(kind, item) {
     if (owned.includes(item.id)) {
       if (kind === "skin") { setSkin(item.id); setEquipLS("skin", item.id); } else { setTheme(item.id); setEquipLS("theme", item.id); }

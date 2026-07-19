@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp dist/index.template.html index.html",
+    "build": "vite build && cp dist/index.template.html index.html && cp public/manifest.webmanifest manifest.webmanifest && cp public/icon.svg icon.svg",
     "preview": "vite preview"
   },
   "dependencies": {
