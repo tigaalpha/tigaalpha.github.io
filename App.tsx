@@ -2795,7 +2795,7 @@ const L = {
     vmHint: "💡 พูดถามแล้วรอครูตอบ · เล่นเปียโนก่อนถามได้ ครูจะช่วยวิเคราะห์ · ครูเล่นโชว์ให้ฟังได้ด้วย", vmFastVoice: "เสียงเร็ว", vmHqVoice: "เสียงคมชัด", vmSpeedLbl: "ความเร็ว", vmVoiceLbl: "โทนเสียง", vmPolyOn: "🎹 ฟังคอร์ด: เปิด", vmPolyOff: "🎹 ฟังคอร์ด: ปิด", vmPolyHint: "เบต้า: ฟังคอร์ดหลายโน้ตพร้อมกันจากไมค์ (เปียโนจริง)", vmLangHint: "เปลี่ยนภาษาที่คุยกับครู", vmSettings: "ตั้งค่าเสียง", vmEarReset: "ปรับหูครูใหม่แล้ว ลองพูดอีกครั้งได้เลยครับ", vmGreetBack: "ยินดีต้อนรับกลับมาครับ! คราวก่อนเรายังติด {x} อยู่ ลองทบทวนกันไหม หรืออยากฝึกอะไรดีครับ", vmGreetHw: "ยินดีต้อนรับกลับมาครับ! คราวก่อนผมให้การบ้านไว้ว่า {x} ได้ลองฝึกหรือยังครับ ลองเล่นให้ผมฟังหน่อยสิ",
     wlcTitle: "ยินดีต้อนรับสู่ TiGA! 🎹", wlcTip1: "แตะคีย์เปียโนเล่นได้เลย ครู AI ช่วยสอน", wlcTip2: "แตะ ☰ มุมซ้ายบน เพื่อเปิดเมนูไปหน้าต่างๆ", wlcTip3: "เล่นเกม เก็บดาว เลเวล และเหรียญ", wlcStart: "เริ่มเลย!",
     helpTitle: "วิธีใช้งาน", help1: "แตะ ☰ มุมซ้ายบน = เปิดเมนู ไปหน้าต่างๆ", help2: "แตะคีย์เปียโน = เล่นเสียงโน้ต", help3: "ปุ่มไมค์ 🎙️ = คุยกับครู AI สอนสด", help4: "ไปที่ 'ฝึกซ้อม' = เล่นเกมเก็บดาว", help5: "ปุ่ม 🔁 = ฟังครูเล่นซ้ำ", helpOk: "เข้าใจแล้ว!", signOut: "ออกจากระบบ",
-    shopTitle: "ร้านค้า", shopSkins: "สกินคีย์", shopThemes: "ธีมพื้นหลัง", shopEquip: "ใช้", shopEquipped: "กำลังใช้",
+    shopTitle: "ร้านค้า", shopSkins: "สกินคีย์", shopThemes: "ธีมพื้นหลัง", shopFrames: "กรอบรูปโปรไฟล์", shopEquip: "ใช้", shopEquipped: "กำลังใช้", shopNew: "ใหม่", shopRareC: "ทั่วไป", shopRareR: "หายาก", shopRareE: "พิเศษ", shopRareL: "ตำนาน",
     chestTitle: "ของขวัญรายวัน", chestOpening: "กำลังเปิด…", chestGot: "ได้รับรางวัล!", chestDay: "วันต่อเนื่อง", chestClaim: "รับเลย!", chestBig: "รางวัลใหญ่",
     dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
@@ -2896,7 +2896,7 @@ const L = {
     vmHint: "💡 Ask out loud then wait for the reply · play first and I will analyze it · I can play demos too", vmFastVoice: "Fast voice", vmHqVoice: "HQ voice", vmSpeedLbl: "Speed", vmVoiceLbl: "Voice", vmPolyOn: "🎹 Chord ear: on", vmPolyOff: "🎹 Chord ear: off", vmPolyHint: "Beta: hears full chords from the mic (acoustic piano)", vmLangHint: "Switch the language you talk with the teacher in", vmSettings: "Voice settings", vmEarReset: "Re-tuned my ear — try speaking again", vmGreetBack: "Welcome back! Last time {x} was tricky — want to review it, or work on something else?", vmGreetHw: "Welcome back! Last time I gave you homework: {x}. Did you get to practice it? Play it for me and let's hear.",
     wlcTitle: "Welcome to TiGA! 🎹", wlcTip1: "Tap the keys to play — the AI tutor helps you", wlcTip2: "Tap ☰ top-left to open the menu and pages", wlcTip3: "Play games, collect stars, levels & coins", wlcStart: "Let's go!",
     helpTitle: "How to use", help1: "Tap ☰ top-left = open menu & pages", help2: "Tap the piano keys = play notes", help3: "Mic button 🎙️ = talk to your AI teacher", help4: "Go to 'Studio' = play games & earn stars", help5: "🔁 button = hear the teacher play again", helpOk: "Got it!", signOut: "Sign out",
-    shopTitle: "Shop", shopSkins: "Key skins", shopThemes: "Themes", shopEquip: "Equip", shopEquipped: "Equipped",
+    shopTitle: "Shop", shopSkins: "Key skins", shopThemes: "Themes", shopFrames: "Avatar frames", shopEquip: "Equip", shopEquipped: "Equipped", shopNew: "NEW", shopRareC: "Common", shopRareR: "Rare", shopRareE: "Epic", shopRareL: "Legendary",
     chestTitle: "Daily reward", chestOpening: "Opening…", chestGot: "You got!", chestDay: "day streak", chestClaim: "Claim!", chestBig: "BIG WIN",
     dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
@@ -2997,7 +2997,7 @@ const L = {
     vmHint: "💡 开口提问后等待回答 · 先弹一段，我会帮你分析 · 老师也能弹给你听", vmFastVoice: "快速语音", vmHqVoice: "高清语音", vmSpeedLbl: "速度", vmVoiceLbl: "音色", vmPolyOn: "🎹 和弦聆听：开", vmPolyOff: "🎹 和弦聆听：关", vmPolyHint: "Beta：用麦克风识别同时弹奏的和弦（原声钢琴）", vmLangHint: "切换和老师对话的语言", vmSettings: "语音设置", vmEarReset: "已重新调整听力，请再说一次", vmGreetBack: "欢迎回来！上次{x}有点难，要复习一下，还是练点别的？", vmGreetHw: "欢迎回来！上次我给你布置的作业是 {x}，练了吗？弹给我听听吧。",
     wlcTitle: "欢迎来到 TiGA! 🎹", wlcTip1: "点琴键即可弹奏，AI 老师来帮你", wlcTip2: "点左上角 ☰ 打开菜单进入各页面", wlcTip3: "玩游戏、收集星星、等级和金币", wlcStart: "开始吧！",
     helpTitle: "使用方法", help1: "点左上角 ☰ = 打开菜单和页面", help2: "点钢琴键 = 弹出音符", help3: "麦克风 🎙️ = 和 AI 老师对话", help4: "进入'练习' = 玩游戏赚星星", help5: "🔁 按钮 = 再听一次老师弹", helpOk: "明白了！", signOut: "退出登录",
-    shopTitle: "商店", shopSkins: "琴键皮肤", shopThemes: "主题", shopEquip: "装备", shopEquipped: "已装备",
+    shopTitle: "商店", shopSkins: "琴键皮肤", shopThemes: "主题", shopFrames: "头像框", shopEquip: "装备", shopEquipped: "已装备", shopNew: "新品", shopRareC: "普通", shopRareR: "稀有", shopRareE: "史诗", shopRareL: "传说",
     chestTitle: "每日奖励", chestOpening: "开启中…", chestGot: "获得奖励！", chestDay: "连续天数", chestClaim: "领取！", chestBig: "大奖",
     dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
@@ -3465,9 +3465,19 @@ html, body, #root{background:var(--bg)}
 .profpage::-webkit-scrollbar-thumb{background:#fc2d8e;border-radius:2px}
 .profhero{position:relative;text-align:center;padding:26px 16px 22px;overflow:hidden;border-bottom:1px solid #fc2d8e1f}
 .profhero-glow{position:absolute;top:-70%;left:50%;transform:translateX(-50%);width:300px;height:300px;pointer-events:none}
-.profava{position:relative;width:92px;height:92px;border-radius:50%;margin:0 auto 13px;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:31px;font-weight:900;color:#fff;background: #fc2d8e;box-shadow:0 0 28px -4px var(--lv-c,#fc2d8e);overflow:hidden}
+/* the ring and purchased frame both extend beyond the avatar's own edge, so they
+   have to sit outside .profava's overflow:hidden (needed to clip the photo into
+   a circle) — .profava-wrap is the unclipped positioning context for both. */
+.profava-wrap{position:relative;width:92px;height:92px;margin:0 auto 13px}
+.profava{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:31px;font-weight:900;color:#fff;background: #fc2d8e;box-shadow:0 0 28px -4px var(--lv-c,#fc2d8e);overflow:hidden}
 .profava img{width:100%;height:100%;object-fit:cover}
 .profava-ring{position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--lv-c,#fc2d8e);opacity:.55}
+.profava-frame{position:absolute;inset:-10px;border-radius:50%;pointer-events:none}
+body[data-frame="fr-bronze"] .profava-frame{border:3px solid #cd7f32;box-shadow:0 0 10px -2px #cd7f32}
+body[data-frame="fr-silver"] .profava-frame{border:3px solid #d7d7de;box-shadow:0 0 14px -2px #d7d7de}
+body[data-frame="fr-gold"] .profava-frame{border:3px solid #ffd23f;box-shadow:0 0 18px -2px #ffd23f,0 0 30px -8px #ffd23f}
+body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow:0 0 20px -2px #8ad4ff,0 0 34px -6px #a855f7;animation:diamondshine 2.4s ease-in-out infinite}
+@keyframes diamondshine{0%,100%{box-shadow:0 0 20px -2px #8ad4ff,0 0 34px -6px #a855f7}50%{box-shadow:0 0 26px -2px #a855f7,0 0 40px -6px #8ad4ff}}
 .profname{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;color:var(--text);text-shadow:0 0 12px #fc2d8e66;margin-bottom:8px}
 .profrankbadge{display:inline-flex;align-items:center;gap:7px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--lv-c,#fc2d8e);border:1px solid var(--lv-c,#fc2d8e);border-radius:20px;padding:5px 14px;background:rgba(252,45,142,.06)}
 .expwrap{max-width:430px;margin:18px auto 0;padding:0 6px}
@@ -3798,13 +3808,24 @@ html, body, #root{background:var(--bg)}
 @keyframes mascothop{0%{transform:translateY(0)}40%{transform:translateY(-16px)}100%{transform:translateY(0)}}
 @keyframes mascotcheer{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-12px) rotate(6deg)}}
 /* cosmetics shop + key-skins + themes */
-.shopsec{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--text2);letter-spacing:1px;margin:12px 0 8px}
+.shopsec{display:flex;align-items:center;gap:8px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--text2);letter-spacing:1px;margin:16px 0 8px}
+.shopsec:first-child{margin-top:0}
 .shopgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.shopitem{display:flex;flex-direction:column;align-items:center;gap:3px;padding:11px 6px;border-radius:12px;border:1px solid var(--bd2);background:var(--card);color:var(--text2);cursor:pointer}
+.shopitem{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 6px 10px;border-radius:12px;border:1px solid var(--bd2);background:var(--card);color:var(--text2);cursor:pointer}
 .shopitem:active{transform:scale(.96)}
 .shopitem.equipped{border-color:#fc2d8e;box-shadow:0 0 0 1px #fc2d8e,0 0 14px -4px #fc2d8e}
-.shopitem-ic{font-size:24px}
+/* rarity border tint — common stays neutral, higher tiers get a colored ring so
+   pricier items visibly look more special even before reading the coin cost */
+.shopitem.rare{border-color:#6a9bcc77}
+.shopitem.epic{border-color:#a855f777;box-shadow:0 0 10px -4px #a855f7aa}
+.shopitem.legendary{border-color:#ffd23f;box-shadow:0 0 14px -3px #ffd23faa}
+.shopitem.legendary.equipped{border-color:#fc2d8e;box-shadow:0 0 0 1px #fc2d8e,0 0 16px -3px #fc2d8e}
+.shopitem-new{position:absolute;top:-6px;right:-6px;background:#fc2d8e;color:#fff;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:800;letter-spacing:.5px;padding:2px 6px;border-radius:8px;box-shadow:0 2px 6px -2px #fc2d8e;z-index:1}
+.shopitem-swwrap{position:relative;width:36px;height:36px;flex-shrink:0}
+.shopitem-sw{display:block;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--bd4)}
+.shopitem-ic{position:absolute;bottom:-3px;right:-3px;font-size:14px;line-height:1;background:var(--card);border-radius:50%;padding:1px}
 .shopitem-nm{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600}
+.shopitem-rare{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.5px;color:var(--muted);text-transform:uppercase}
 .shopitem-tag{font-family:'Share Tech Mono',monospace;font-size:10px;color:#fc2d8e}
 .shopitem.equipped .shopitem-tag{color:#fc2d8e}
 body[data-skin="sunset"] .pk.w.lit{background:linear-gradient(180deg,#ff9e00,#ff5d3a 40%,#fff);box-shadow:0 0 16px #ff7a3d,0 0 40px #ff7a3d66}
@@ -3815,11 +3836,28 @@ body[data-skin="candy"] .pk.w.lit{background:linear-gradient(180deg,#ff76d8,#ff9
 body[data-skin="candy"] .pk.b.lit{background:linear-gradient(180deg,#ff76d8,#cc1b7a);box-shadow:0 0 14px #ff76d8}
 body[data-skin="gold"] .pk.w.lit{background:linear-gradient(180deg,#ffd23f,#e0a800 40%,#fff6d8);box-shadow:0 0 16px #ffd23f,0 0 40px #ffd23f66}
 body[data-skin="gold"] .pk.b.lit{background:linear-gradient(180deg,#ffd23f,#9a7400);box-shadow:0 0 14px #ffd23f}
+body[data-skin="ocean"] .pk.w.lit{background:linear-gradient(180deg,#00d4ff,#0077b6 40%,#fff);box-shadow:0 0 16px #00d4ff,0 0 40px #00d4ff66}
+body[data-skin="ocean"] .pk.b.lit{background:linear-gradient(180deg,#00d4ff,#023e5c);box-shadow:0 0 14px #00d4ff}
+body[data-skin="ice"] .pk.w.lit{background:linear-gradient(180deg,#d0f4ff,#7dd3ec 40%,#fff);box-shadow:0 0 16px #a5f3fc,0 0 40px #a5f3fc66}
+body[data-skin="ice"] .pk.b.lit{background:linear-gradient(180deg,#a5f3fc,#0891b2);box-shadow:0 0 14px #a5f3fc}
+body[data-skin="fire"] .pk.w.lit{background:linear-gradient(180deg,#ff6b35,#c1121f 40%,#fff);box-shadow:0 0 16px #ff6b35,0 0 40px #ff6b3566}
+body[data-skin="fire"] .pk.b.lit{background:linear-gradient(180deg,#ff6b35,#6b0f16);box-shadow:0 0 14px #ff6b35}
+body[data-skin="galaxy"] .pk.w.lit{background:linear-gradient(180deg,#c084fc,#7c3aed 40%,#fff);box-shadow:0 0 16px #a855f7,0 0 40px #a855f766}
+body[data-skin="galaxy"] .pk.b.lit{background:linear-gradient(180deg,#a855f7,#4c1d95);box-shadow:0 0 14px #a855f7}
+/* Prism is the one legendary skin allowed to keep a moving multi-hue gradient —
+   unlike the app's own default styling, a purchased cosmetic's whole value is
+   looking different/special, so this is exempt from the one-flat-pink rule. */
+body[data-skin="prism"] .pk.w.lit,body[data-skin="prism"] .pk.b.lit{background:linear-gradient(180deg,#ff5252,#ffd23f,#06ffa5,#00d4ff,#a855f7,#ff76d8);background-size:100% 400%;animation:prismshift 3s linear infinite;box-shadow:0 0 16px #fc2d8e,0 0 40px #fc2d8e66}
+@keyframes prismshift{0%{background-position:50% 0%}100%{background-position:50% 400%}}
 /* Shop-purchased cosmetic backgrounds only apply in dark mode — a light-mode choice
    must always win, so equipping Aurora/Ember/Forest can't force a dark screen back on. */
 html[data-theme="dark"] body[data-theme="aurora"] .tg{background:radial-gradient(120% 90% at 30% 0%,#0b2a3a,#0a1326 60%,#070a16)}
 html[data-theme="dark"] body[data-theme="ember"] .tg{background:radial-gradient(120% 90% at 70% 0%,var(--grad1),#180b10 55%,#0a0708)}
 html[data-theme="dark"] body[data-theme="forest"] .tg{background:radial-gradient(120% 90% at 40% 0%,#0c2a1c,#0a1a16 60%,#070f0c)}
+html[data-theme="dark"] body[data-theme="sakura"] .tg{background:radial-gradient(120% 90% at 50% 0%,#3a1a2e,#220f1c 55%,#120810)}
+html[data-theme="dark"] body[data-theme="deepsea"] .tg{background:radial-gradient(120% 90% at 30% 0%,#052030,#031824 60%,#01080c)}
+html[data-theme="dark"] body[data-theme="volcano"] .tg{background:radial-gradient(120% 90% at 60% 0%,#3a1005,#220a08 55%,#100403)}
+html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradient(120% 90% at 40% 0%,#1a0a3a,#12082a 55%,#08041a)}
 .songready{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:rgba(5,9,16,.5);backdrop-filter:blur(2px);padding:20px;text-align:center}
 .songready-info{font-family:'Rajdhani',sans-serif;font-size:15px;color:#ffcfe9}
 .songtempo{display:flex;gap:8px}
@@ -6452,17 +6490,33 @@ function syncProgress(uid) {
 
 /* ── cosmetics shop: key-skins + background themes (bought with coins) ── */
 const SHOP_SKINS = [
-  { id: "aqua",   icon: "🩵", cost: 0,   th: "อความารีน", en: "Aqua",   zh: "水蓝" },
-  { id: "sunset", icon: "🧡", cost: 120, th: "ตะวันตกดิน", en: "Sunset", zh: "日落" },
-  { id: "neon",   icon: "💚", cost: 180, th: "นีออน",      en: "Neon",   zh: "霓虹" },
-  { id: "candy",  icon: "💗", cost: 180, th: "แคนดี้",     en: "Candy",  zh: "糖果" },
-  { id: "gold",   icon: "💛", cost: 320, th: "ทองคำ",      en: "Gold",   zh: "黄金" },
+  { id: "aqua",   icon: "🩵", cost: 0,   rarity: "common",    th: "อความารีน", en: "Aqua",   zh: "水蓝", sw: ["#8ad4ff", "#0e7ab0"] },
+  { id: "sunset", icon: "🧡", cost: 120, rarity: "common",    th: "ตะวันตกดิน", en: "Sunset", zh: "日落", sw: ["#ff9e00", "#ff5d3a"] },
+  { id: "neon",   icon: "💚", cost: 180, rarity: "rare",      th: "นีออน",      en: "Neon",   zh: "霓虹", sw: ["#06ffa5", "#00d488"] },
+  { id: "candy",  icon: "💗", cost: 180, rarity: "rare",      th: "แคนดี้",     en: "Candy",  zh: "糖果", sw: ["#ff76d8", "#cc1b7a"] },
+  { id: "ocean",  icon: "🌊", cost: 200, rarity: "rare",      th: "มหาสมุทร",   en: "Ocean",  zh: "海洋", sw: ["#00d4ff", "#0077b6"], isNew: true },
+  { id: "ice",    icon: "❄️", cost: 200, rarity: "rare",      th: "น้ำแข็ง",    en: "Ice",    zh: "冰霜", sw: ["#d0f4ff", "#0891b2"], isNew: true },
+  { id: "gold",   icon: "💛", cost: 320, rarity: "epic",      th: "ทองคำ",      en: "Gold",   zh: "黄金", sw: ["#ffd23f", "#9a7400"] },
+  { id: "fire",   icon: "🔥", cost: 260, rarity: "epic",      th: "เพลิง",      en: "Fire",   zh: "烈焰", sw: ["#ff6b35", "#6b0f16"], isNew: true },
+  { id: "galaxy", icon: "🪐", cost: 300, rarity: "epic",      th: "กาแล็กซี่",  en: "Galaxy", zh: "银河", sw: ["#c084fc", "#4c1d95"], isNew: true },
+  { id: "prism",  icon: "🌈", cost: 550, rarity: "legendary", th: "ปริซึม",     en: "Prism",  zh: "棱镜", sw: ["#ff5252", "#a855f7", "#00d4ff"], isNew: true },
 ];
 const SHOP_THEMES = [
-  { id: "midnight", icon: "🌌", cost: 0,   th: "เที่ยงคืน", en: "Midnight", zh: "午夜" },
-  { id: "aurora",   icon: "🌠", cost: 150, th: "ออโรร่า",   en: "Aurora",   zh: "极光" },
-  { id: "ember",    icon: "🔥", cost: 150, th: "ถ่านไฟ",    en: "Ember",    zh: "余烬" },
-  { id: "forest",   icon: "🌲", cost: 150, th: "ป่าไม้",    en: "Forest",   zh: "森林" },
+  { id: "midnight",  icon: "🌌", cost: 0,   rarity: "common",    th: "เที่ยงคืน", en: "Midnight",  zh: "午夜", sw: ["#150c12", "#0a0608"] },
+  { id: "aurora",    icon: "🌠", cost: 150, rarity: "rare",      th: "ออโรร่า",   en: "Aurora",    zh: "极光", sw: ["#0b2a3a", "#0a1326"] },
+  { id: "ember",     icon: "🔥", cost: 150, rarity: "rare",      th: "ถ่านไฟ",    en: "Ember",     zh: "余烬", sw: ["#2a1012", "#180b10"] },
+  { id: "forest",    icon: "🌲", cost: 150, rarity: "rare",      th: "ป่าไม้",    en: "Forest",    zh: "森林", sw: ["#0c2a1c", "#0a1a16"] },
+  { id: "sakura",    icon: "🌸", cost: 200, rarity: "epic",      th: "ซากุระ",    en: "Sakura",    zh: "樱花", sw: ["#3a1a2e", "#220f1c"], isNew: true },
+  { id: "deepsea",   icon: "🐋", cost: 240, rarity: "epic",      th: "ใต้สมุทร",  en: "Deep Sea",  zh: "深海", sw: ["#052030", "#031824"], isNew: true },
+  { id: "volcano",   icon: "🌋", cost: 260, rarity: "epic",      th: "ภูเขาไฟ",   en: "Volcano",   zh: "火山", sw: ["#3a1005", "#220a08"], isNew: true },
+  { id: "starlight", icon: "✨", cost: 450, rarity: "legendary", th: "แสงดาว",    en: "Starlight", zh: "星光", sw: ["#1a0a3a", "#12082a"], isNew: true },
+];
+const SHOP_FRAMES = [
+  { id: "fr-none",    icon: "⭕", cost: 0,   rarity: "common",    th: "ไม่มีกรอบ", en: "No Frame", zh: "无边框", sw: ["#b0aea5", "#b0aea5"] },
+  { id: "fr-bronze",  icon: "🥉", cost: 100, rarity: "common",    th: "บรอนซ์",    en: "Bronze",   zh: "青铜", sw: ["#cd7f32", "#8a531f"], isNew: true },
+  { id: "fr-silver",  icon: "🥈", cost: 280, rarity: "rare",      th: "เงิน",      en: "Silver",   zh: "白银", sw: ["#d7d7de", "#9a9aa5"], isNew: true },
+  { id: "fr-gold",    icon: "🥇", cost: 500, rarity: "epic",      th: "ทอง",       en: "Gold",     zh: "黄金", sw: ["#ffd23f", "#c9960a"], isNew: true },
+  { id: "fr-diamond", icon: "💎", cost: 900, rarity: "legendary", th: "เพชร",      en: "Diamond",  zh: "钻石", sw: ["#8ad4ff", "#a855f7"], isNew: true },
 ];
 // generate a shareable achievement card image (Web Share API, else download)
 async function shareCard({ title, big, sub, lines = [] }) {
@@ -6490,7 +6544,7 @@ async function shareCard({ title, big, sub, lines = [] }) {
     }
   } catch (e) {}
 }
-function getOwned() { try { return JSON.parse(localStorage.getItem("tg_owned") || "[\"aqua\",\"midnight\"]"); } catch (e) { return ["aqua", "midnight"]; } }
+function getOwned() { try { return JSON.parse(localStorage.getItem("tg_owned") || "[\"aqua\",\"midnight\",\"fr-none\"]"); } catch (e) { return ["aqua", "midnight", "fr-none"]; } }
 function setOwnedLS(a) { try { localStorage.setItem("tg_owned", JSON.stringify(a)); } catch (e) {} }
 function getEquip(k, def) { try { return localStorage.getItem("tg_" + k) || def; } catch (e) { return def; } }
 function setEquipLS(k, v) { try { localStorage.setItem("tg_" + k, v); } catch (e) {} }
@@ -6746,9 +6800,12 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
     <div className="profpage" style={{ "--lv-c": color }}>
       <div className="profhero">
         <div className="profhero-glow" />
-        <div className="profava">
+        <div className="profava-wrap">
           <div className="profava-ring" />
-          {avatar ? <img src={avatar} alt="" referrerPolicy="no-referrer" /> : <span>{initials}</span>}
+          <div className="profava-frame" />
+          <div className="profava">
+            {avatar ? <img src={avatar} alt="" referrerPolicy="no-referrer" /> : <span>{initials}</span>}
+          </div>
         </div>
         <div className="profname">{name}</div>
         <div className="profrankbadge">
@@ -8117,6 +8174,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [owned, setOwned] = useState(getOwned());
   const [skin, setSkin] = useState(getEquip("skin", "aqua"));
   const [theme, setTheme] = useState(getEquip("theme", "midnight"));
+  const [frame, setFrame] = useState(getEquip("frame", "fr-none"));
   const [mode, setMode] = useState(getEquip("mode", "light"));   // "dark" | "light" — whole-app color scheme; light is the preset for first-time visitors, a saved preference always wins
   const [recording, setRecording] = useState(false);
   const [hasClip, setHasClip] = useState(false);
@@ -10628,22 +10686,40 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function mascot(mood, ms = 2200) { setMascotMood(mood); clearTimeout(mascotT.current); mascotT.current = setTimeout(() => setMascotMood("idle"), ms); }
   useEffect(() => { setChestAvail(chestAvailable()); }, []);
   useEffect(() => {
-    document.body.dataset.skin = skin; document.body.dataset.theme = theme;
+    document.body.dataset.skin = skin; document.body.dataset.theme = theme; document.body.dataset.frame = frame;
     document.documentElement.dataset.theme = mode;
     const tc = document.querySelector('meta[name="theme-color"]');
     if (tc) tc.setAttribute("content", mode === "dark" ? "#070508" : "#faf9f5");
-  }, [skin, theme, mode]);
+  }, [skin, theme, frame, mode]);
+  const EQUIP_SETTERS = { skin: setSkin, theme: setTheme, frame: setFrame };
   function buyOrEquip(kind, item) {
+    const setEquip = EQUIP_SETTERS[kind];
     if (owned.includes(item.id)) {
-      if (kind === "skin") { setSkin(item.id); setEquipLS("skin", item.id); } else { setTheme(item.id); setEquipLS("theme", item.id); }
+      setEquip(item.id); setEquipLS(kind, item.id);
       playUi("click"); haptic(6);
       return;
     }
     if (coins < item.cost) { mascot("sad", 1200); return; }
     const v = getCoins() - item.cost; setCoinsLS(v); setCoins(v);
     const no = [...owned, item.id]; setOwned(no); setOwnedLS(no);
-    if (kind === "skin") { setSkin(item.id); setEquipLS("skin", item.id); } else { setTheme(item.id); setEquipLS("theme", item.id); }
+    setEquip(item.id); setEquipLS(kind, item.id);
     playUi("reward"); mascot("celebrate", 1800);
+  }
+  const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL };
+  function renderShopItem(kind, it, equippedId) {
+    const own = owned.includes(it.id), eq = equippedId === it.id;
+    return (
+      <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}`} onClick={() => buyOrEquip(kind, it)}>
+        {it.isNew && !own && <span className="shopitem-new">{lc.shopNew}</span>}
+        <span className="shopitem-swwrap">
+          <span className="shopitem-sw" style={{ background: `linear-gradient(135deg,${it.sw.join(",")})` }} />
+          <span className="shopitem-ic">{it.icon}</span>
+        </span>
+        <span className="shopitem-nm">{tr(it, lang)}</span>
+        <span className="shopitem-rare">{RARITY_LABEL[it.rarity]}</span>
+        <span className="shopitem-tag">{eq ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost}</span>
+      </button>
+    );
   }
   function openChestNow() {
     if (chestOpening) return;
@@ -11884,29 +11960,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="setbody">
               <div className="shopsec">🎹 {lc.shopSkins}</div>
               <div className="shopgrid">
-                {SHOP_SKINS.map(it => {
-                  const own = owned.includes(it.id), eq = skin === it.id;
-                  return (
-                    <button key={it.id} className={`shopitem skin-${it.id}${eq ? " equipped" : ""}`} onClick={() => buyOrEquip("skin", it)}>
-                      <span className="shopitem-ic">{it.icon}</span>
-                      <span className="shopitem-nm">{tr(it, lang)}</span>
-                      <span className="shopitem-tag">{eq ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost}</span>
-                    </button>
-                  );
-                })}
+                {SHOP_SKINS.map(it => renderShopItem("skin", it, skin))}
               </div>
               <div className="shopsec">🎨 {lc.shopThemes}</div>
               <div className="shopgrid">
-                {SHOP_THEMES.map(it => {
-                  const own = owned.includes(it.id), eq = theme === it.id;
-                  return (
-                    <button key={it.id} className={`shopitem theme-${it.id}${eq ? " equipped" : ""}`} onClick={() => buyOrEquip("theme", it)}>
-                      <span className="shopitem-ic">{it.icon}</span>
-                      <span className="shopitem-nm">{tr(it, lang)}</span>
-                      <span className="shopitem-tag">{eq ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost}</span>
-                    </button>
-                  );
-                })}
+                {SHOP_THEMES.map(it => renderShopItem("theme", it, theme))}
+              </div>
+              <div className="shopsec">🖼️ {lc.shopFrames}</div>
+              <div className="shopgrid">
+                {SHOP_FRAMES.map(it => renderShopItem("frame", it, frame))}
               </div>
             </div>
           </div>
