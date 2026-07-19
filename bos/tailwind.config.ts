@@ -11,9 +11,9 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#FF5FA2",
-          light: "#FF86C8",
-          accent: "#FF4FA0",
+          DEFAULT: "#C15F3C",
+          light: "#DE7356",
+          accent: "#B8523C",
         },
         secondary: "rgb(var(--foreground) / <alpha-value>)",
         success: "#00C853",
@@ -24,7 +24,7 @@ const config: Config = {
         line: "rgb(var(--line) / <alpha-value>)",
       },
       backgroundImage: {
-        "primary-gradient": "linear-gradient(180deg, #FF5FA2 0%, #FF86C8 100%)",
+        "primary-gradient": "linear-gradient(180deg, #C15F3C 0%, #DE7356 100%)",
       },
       borderRadius: {
         xl: "1rem",
