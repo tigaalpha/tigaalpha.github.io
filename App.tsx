@@ -3844,6 +3844,12 @@ body[data-theme="forest"] .tg{background:radial-gradient(120% 90% at 40% 0%,#0c2
 .songresult-grid>div{background:#150c12;border:1px solid #ffffff12;border-radius:12px;padding:11px}
 .songresult-grid span{display:block;font-family:'Rajdhani',sans-serif;font-size:11px;color:#c99fb2}
 .songresult-grid b{font-family:'Orbitron',sans-serif;font-size:18px;color:#fc2d8e}
+.songanalysis{width:100%;max-width:300px;text-align:left;background:#150c12;border:1px solid #ffffff12;border-radius:12px;padding:12px 13px}
+.songanalysis-load{font-family:'Rajdhani',sans-serif;font-size:13px;color:#c99fb2;text-align:center;animation:flamepulse .8s ease-in-out infinite alternate}
+.songanalysis-hd{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:.4px;color:#ffa8d2;margin-bottom:6px}
+.songanalysis-weak{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:#faf0f5;margin-bottom:8px}
+.songanalysis-steps{margin:0;padding-left:18px;font-family:'Rajdhani',sans-serif;font-size:12.5px;line-height:1.6;color:#e3c9d6}
+.songanalysis-steps li{margin-bottom:3px}
 .studioback{position:absolute;left:12px;top:12px;background:rgba(255,255,255,.06);border:1px solid #ffffff1f;color:#f4cfe4;border-radius:9px;padding:6px 12px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer;z-index:2}
 /* sight-reading */
 .sightov .practicebody{align-items:stretch}
@@ -7969,6 +7975,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [songTempo, setSongTempo] = useState(1);
   const [songHud, setSongHud] = useState({ score: 0, combo: 0, acc: 100, progress: 0 });
   const [songResult, setSongResult] = useState(null);
+  const [songAnalysis, setSongAnalysis] = useState(null);   // {weakness, steps} — per-song mistake breakdown, this page only
+  const [songAnalysisBusy, setSongAnalysisBusy] = useState(false);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
   const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
   const [songBest, setSongBest] = useState(0);
@@ -8753,6 +8761,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     songDataRef.current = expandSong(meta);
     setSongMeta(meta);
     setSongResult(null);
+    setSongAnalysis(null);
     setSongPhase("ready");
     setSongSrc(null);
     setSongCountdown(null);
@@ -8797,6 +8806,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     songTempoRef.current = songTempo || 1;
     setSongHud({ score: 0, combo: 0, acc: 100, progress: 0 });
     setSongResult(null);
+    setSongAnalysis(null);
     setSongCountdown(null);
     setSongSrc(null);
     setSongPhase("playing");
@@ -9176,10 +9186,38 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     bumpWeekly("games", 1); if (perfects) bumpWeekly("perfect", perfects);
     setSongCountdown(null);
     setSongNextLit(null);
-    setSongResult({ acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect });
+    const missedNotes = songNotesRef.current.filter(n => n.missed).map(n => n.note);
+    setSongResult({ acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes });
     setSongPhase("done");
     gainExp(reward, { quest: true });
   }
+  // Per-song mistake breakdown — separate from Auto Teaching, only ever shown on this
+  // song-result screen. Fires once automatically when a song finishes.
+  async function fetchSongAnalysis(result, label) {
+    setSongAnalysisBusy(true);
+    try {
+      const missed = (result.missedNotes || []).slice(0, 30);
+      const missedTxt = missed.length ? missed.join(", ") : "none — every note was hit";
+      const sysByLang = {
+        th: `คุณคือ "ครู TiGA" ผู้เรียนเพิ่งเล่นเพลง "${label}" จบ ความแม่นยำ ${result.acc}% (เล่นถูก ${result.hits}/${result.total} โน้ต) โน้ตที่พลาด (เรียงตามลำดับที่เล่น): ${missedTxt}\n\nวิเคราะห์ว่าพลาดตรงไหน/รูปแบบอะไร แล้วให้วิธีฝึกแก้ ตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."]} — weakness สั้นไม่เกิน 15 คำ บอกจุด/รูปแบบที่พลาด (หรือชมถ้าไม่พลาดเลย) steps มี 2-4 ข้อ วิธีฝึกแก้ทีละขั้น แต่ละข้อไม่เกิน 15 คำ ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
+        zh: `你是"TiGA老师"，学员刚弹完歌曲"${label}"，准确率 ${result.acc}%（弹对 ${result.hits}/${result.total} 个音）。弹错的音（按演奏顺序）：${missedTxt}\n\n分析弹错的位置/模式，并给出练习建议。只回JSON {"weakness":"...","steps":["...","..."]} — weakness 不超过15字，说明错误的位置/模式（若全对则给予表扬），steps 为2-4个简短练习步骤，每条不超过15字，用中文，JSON外不要任何文字`,
+        en: `You are "Teacher TiGA". The learner just finished playing "${label}" at ${result.acc}% accuracy (${result.hits}/${result.total} notes hit). Notes they missed, in play order: ${missedTxt}.\n\nAnalyze where/what pattern they missed, then give a fix. Reply with JSON only: {"weakness":"...","steps":["...","..."]} — weakness under 15 words naming the spot/pattern they missed (or praise if nothing was missed), steps has 2-4 short fix-it practice steps, each under 15 words, in English. No text outside the JSON.`,
+      };
+      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Analyze my run of this song.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en }) });
+      const data = await res.json();
+      const txt = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+      const m = txt.match(/\{[\s\S]*\}/);
+      const obj = m ? JSON.parse(m[0]) : null;
+      if (obj && obj.weakness && Array.isArray(obj.steps) && obj.steps.length) setSongAnalysis(obj);
+    } catch (e) { /* silent — the score/stars result above already shown, this is a bonus */ }
+    setSongAnalysisBusy(false);
+  }
+  useEffect(() => {
+    if (songPhase === "done" && songResult && !songAnalysis && !songAnalysisBusy) {
+      fetchSongAnalysis(songResult, tr(songMeta, lang));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songPhase, songResult]);
   songLoopRef.current = songLoop;
   songInputRef.current = handleSongInput;
   songFinishRef.current = finishSong;
@@ -11175,6 +11213,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <div><span>✓</span><b>{songResult.hits}/{songResult.total}</b></div>
                 <div><span>EXP</span><b>+{songResult.exp}</b></div>
                 <div><span>🪙</span><b>+{songResult.coins}</b></div>
+              </div>
+              <div className="songanalysis">
+                {songAnalysisBusy ? (
+                  <div className="songanalysis-load">🎯 {lang === "th" ? "กำลังวิเคราะห์การเล่น..." : lang === "zh" ? "正在分析演奏..." : "Analyzing your run..."}</div>
+                ) : songAnalysis ? (<>
+                  <div className="songanalysis-hd">🎯 {lang === "th" ? "จุดที่ควรแก้" : lang === "zh" ? "需要改进的地方" : "What to fix"}</div>
+                  <div className="songanalysis-weak">{songAnalysis.weakness}</div>
+                  <ol className="songanalysis-steps">
+                    {songAnalysis.steps.map((s, i) => <li key={i}>{s}</li>)}
+                  </ol>
+                </>) : null}
               </div>
               <div className="songready-btns">
                 <button className="songbtn ghost" onClick={exitSong}>↩ {lc.songBackList}</button>
