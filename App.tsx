@@ -6628,7 +6628,7 @@ const GameStats = memo(function GameStats({ lang }) {
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, coins }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -6911,6 +6911,12 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         )}
       </div>
 
+      {(onOpenShop || onOpenHelp) && (
+        <div className="profsec">
+          {onOpenShop && <button className="songbtn ghost" style={{ width: "100%", marginBottom: 8 }} onClick={onOpenShop}>🪙 {lc.shopTitle} · {coins}</button>}
+          {onOpenHelp && <button className="songbtn ghost" style={{ width: "100%" }} onClick={onOpenHelp}>❓ {lc.helpTitle}</button>}
+        </div>
+      )}
       {onSignOut && <button className="profsignout" onClick={onSignOut}>⏻ {lc.profSignOut}</button>}
     </div>
   );
@@ -10990,7 +10996,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             </div>
             <span className="tdgo">→</span>
           </button>
-          <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} />
+          <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins}
+            onOpenShop={() => setShopOpen(true)} onOpenHelp={() => setHelpOpen(true)} />
         </div>
       )}
 
@@ -11147,9 +11154,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           );
         })}
         <div className="drawer-foot">
-          <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setShopOpen(true); }}><span className="drawericon">🪙</span><span className="drawerlabel">{lc.shopTitle} · {coins}</span></button>
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon">✦</span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>
-          <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setHelpOpen(true); }}><span className="drawericon">❓</span><span className="drawerlabel">{lc.helpTitle}</span></button>
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setSettingsOpen(true); }}><span className="drawericon">⚙️</span><span className="drawerlabel">{lc.setTitle}</span></button>
           {onSignOut && <button className="draweritem sub" onClick={() => { playUi("click"); onSignOut(); }}><span className="drawericon">⏻</span><span className="drawerlabel">{lc.signOut}</span></button>}
         </div>
