@@ -6452,16 +6452,30 @@ async function generateCoachTip(lang, profile) {
   const profileTxt = coachStatsToText(computeCoachStats(profile, lang));
   const featureKeys = Object.keys(COACH_FEATURE_LABELS).join(", ");
   const sysByLang = {
-    th: `คุณคือ "ครู TiGA" กำลังให้คำแนะนำการฝึกซ้อมส่วนตัว อิงจากข้อมูลบัญชีผู้เรียนทั้งหมด: ${profileTxt} เซสชันฝึกล่าสุด: ${recentTxt} จุดอ่อนที่เพิ่งถูกบันทึก: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness สั้นไม่เกิน 15 คำ บอกปัญหาตอนนี้ (พิจารณาทั้งภาพรวมบัญชีและข้อมูลล่าสุดประกอบกัน) steps มีสูงสุด 3 ข้อเท่านั้น (ไม่เกิน 3 เด็ดขาด) แต่ละข้อต้องเป็นสิ่งที่ทำได้จริงวันนี้เลย เจาะจงมาก ระบุหัวข้อ/ท่อน/เพลงที่ควรฝึกจากข้อมูลด้านบนโดยตรง ไม่ใช่คำแนะนำทั่วไปลอยๆ แบบ "ฝึกให้มากขึ้น" — ทำตามแล้วต้องเก่งขึ้นจริง แต่ละข้อไม่เกิน 15 คำ feature ต้องเป็นค่าจากรายการนี้เท่านั้น (เลือกตัวที่ช่วยแก้จุดอ่อนนี้ได้ดีที่สุด): ${featureKeys} ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
-    zh: `你是"TiGA老师"，正在给出个性化的练习建议，依据学员账户的完整数据：${profileTxt} 最近的练习记录：${recentTxt} 刚被记录的薄弱点：${struggleTxt}\n\n只回JSON {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness 不超过15字，说明当前问题（综合账户整体情况和最近数据），steps 最多3条（绝不超过3条），每条必须是今天就能做到的具体行动，直接指出上面数据中该练哪个主题/曲目，不要「多加练习」这类空泛建议 — 照做后水平必须真正提升，每条不超过15字，feature 必须是以下之一（选择最能解决该薄弱点的）：${featureKeys}，用中文，JSON外不要任何文字`,
-    en: `You are "Teacher TiGA" giving personalized practice coaching, based on the learner's full account data: ${profileTxt} Recent practice sessions: ${recentTxt}. Most recently flagged weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness under 15 words naming the current problem (weigh both the overall account picture and the recent data), steps has AT MOST 3 items (never more than 3), each one a concrete action doable today, naming the specific topic/piece from the data above rather than generic advice like "practice more" — a learner who follows these should measurably improve, each under 15 words, feature must be exactly one of: ${featureKeys} (pick whichever helps this weak spot most). No text outside the JSON.`,
+    th: `คุณคือ "ครู TiGA" กำลังให้คำแนะนำการฝึกซ้อมส่วนตัว อิงจากข้อมูลบัญชีผู้เรียนทั้งหมด: ${profileTxt} เซสชันฝึกล่าสุด: ${recentTxt} จุดอ่อนที่เพิ่งถูกบันทึก: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness สั้นไม่เกิน 15 คำ บอกปัญหาตอนนี้ (พิจารณาทั้งภาพรวมบัญชีและข้อมูลล่าสุดประกอบกัน) steps มีสูงสุด 3 ข้อเท่านั้น (ไม่เกิน 3 เด็ดขาด) แต่ละข้อต้องเป็นสิ่งที่ทำได้จริงวันนี้เลย เจาะจงมาก ระบุหัวข้อ/ท่อน/เพลงที่ควรฝึกจากข้อมูลด้านบนโดยตรง ไม่ใช่คำแนะนำทั่วไปลอยๆ แบบ "ฝึกให้มากขึ้น" — ทำตามแล้วต้องเก่งขึ้นจริง แต่ละข้อไม่เกิน 15 คำ feature ต้องเป็นค่าจากรายการนี้เท่านั้น (เลือกตัวที่ช่วยแก้จุดอ่อนนี้ได้ดีที่สุด): ${featureKeys} ภาษาไทย ตอบเป็น JSON ดิบเท่านั้น ห้ามใช้ \`\`\` ครอบ ห้ามมีข้อความอื่นก่อนหรือหลัง JSON`,
+    zh: `你是"TiGA老师"，正在给出个性化的练习建议，依据学员账户的完整数据：${profileTxt} 最近的练习记录：${recentTxt} 刚被记录的薄弱点：${struggleTxt}\n\n只回JSON {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness 不超过15字，说明当前问题（综合账户整体情况和最近数据），steps 最多3条（绝不超过3条），每条必须是今天就能做到的具体行动，直接指出上面数据中该练哪个主题/曲目，不要「多加练习」这类空泛建议 — 照做后水平必须真正提升，每条不超过15字，feature 必须是以下之一（选择最能解决该薄弱点的）：${featureKeys}，用中文。只回原始JSON对象，不要用\`\`\`包裹，JSON前后不要任何文字`,
+    en: `You are "Teacher TiGA" giving personalized practice coaching, based on the learner's full account data: ${profileTxt} Recent practice sessions: ${recentTxt}. Most recently flagged weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness under 15 words naming the current problem (weigh both the overall account picture and the recent data), steps has AT MOST 3 items (never more than 3), each one a concrete action doable today, naming the specific topic/piece from the data above rather than generic advice like "practice more" — a learner who follows these should measurably improve, each under 15 words, feature must be exactly one of: ${featureKeys} (pick whichever helps this weak spot most). Reply with the raw JSON object only — no markdown code fences, no text before or after it.`,
   };
-  const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me my current coaching recommendation.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en }) });
-  const data = await res.json();
-  const txt = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
-  const m = txt.match(/\{[\s\S]*\}/);
-  const obj = m ? JSON.parse(m[0]) : null;
-  if (!obj || !obj.weakness || !Array.isArray(obj.steps) || !obj.steps.length) return null;
+  const sys = sysByLang[lang] || sysByLang.en;
+  // One attempt: fetch + pull the JSON object out of the model's text. Wrapped so any
+  // failure (network, non-JSON reply, a stray markdown fence, extra prose around the
+  // object) degrades to null instead of throwing — generateCoachTip retries once below
+  // rather than letting a single flaky reply surface as a hard error.
+  async function attempt() {
+    try {
+      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me my current coaching recommendation.", conversationHistory: [], system: sys }) });
+      const data = await res.json();
+      const txt = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+      const fenced = txt.match(/```(?:json)?\s*([\s\S]*?)```/i); // some replies wrap the JSON in a code fence despite being told not to
+      const body = fenced ? fenced[1] : txt;
+      const m = body.match(/\{[\s\S]*\}/);
+      return m ? JSON.parse(m[0]) : null;
+    } catch (e) { return null; }
+  }
+  const isValid = o => o && o.weakness && Array.isArray(o.steps) && o.steps.length;
+  let obj = await attempt();
+  if (!isValid(obj)) obj = await attempt(); // a single malformed/non-JSON reply shouldn't be a dead end
+  if (!isValid(obj)) return null;
   if (!COACH_FEATURE_LABELS[obj.feature]) obj.feature = "pathway"; // guard against a hallucinated key
   obj.steps = obj.steps.slice(0, 3); // enforce the "at most 3" cap even if the model overshoots
   return obj;
@@ -8403,7 +8417,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // real-time coaching card every N minutes (learner's own pick, else the admin's platform default). ──
   const autoTeachTipRef = useRef(null);
   useEffect(() => { autoTeachTipRef.current = autoTeachTip; }, [autoTeachTip]);
+  // Read fresh inside the timer callback instead of gating the effect below on `page` —
+  // `page` changes on every navigation, and putting it in that effect's deps was clearing
+  // + restarting the countdown from zero every time the learner left the Pathway page, so
+  // in practice it needed 15+ *uninterrupted* minutes there to ever fire even once.
+  const pageRef = useRef(page);
+  useEffect(() => { pageRef.current = page; }, [page]);
   async function fetchAutoTeachTip() {
+    if (pageRef.current !== "pathway") return; // only surface the card while actually on Pathway
     if (autoTeachTipRef.current || autoTeachBusyRef.current) return; // don't clobber an unread tip
     autoTeachBusyRef.current = true;
     try {
@@ -8421,11 +8442,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const autoTeachMin = resolveAutoTeachMin(profile, autoTeachDefaultMin);
   useEffect(() => {
     clearInterval(autoTeachTimer.current);
-    if (page !== "pathway" || !isMaxPlan(plan) || !(autoTeachMin > 0)) return;
+    if (!isMaxPlan(plan) || !(autoTeachMin > 0)) return;
     autoTeachTimer.current = setInterval(fetchAutoTeachTip, autoTeachMin * 60 * 1000);
     return () => clearInterval(autoTeachTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, plan, autoTeachMin, lang]);
+  }, [plan, autoTeachMin, lang]);
 
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [showLock, setShowLock] = useState(false);
