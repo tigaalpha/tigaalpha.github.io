@@ -2812,6 +2812,7 @@ const L = {
     judgePerfect: "เพอร์เฟกต์!", judgeGood: "ดี!", judgeMiss: "พลาด", songBest: "สถิติ", songNewBest: "ทำลายสถิติ!", songFullCombo: "คอมโบเต็ม", songAllPerfect: "เพอร์เฟกต์ทั้งหมด",
     shareBtn: "แชร์", lockedLv: "ปลดล็อก Lv.", songAll: "ทั้งหมด", songFav: "โปรด", songContinue: "เล่นต่อ", songFavEmpty: "ยังไม่มีเพลงโปรด — แตะ ☆ เพื่อบันทึก", aiCreate: "AI สร้างเพลง", aiCreateHint: "พิมพ์ชื่อเพลงหรือบรรยายทำนอง แล้ว AI จะสร้างเป็นเกมโน้ตตกให้เล่นทันที", aiCreatePh: "เช่น Happy Birthday, เพลงช้าง...", aiCreateGo: "สร้างเพลง", aiCreating: "กำลังสร้าง...", aiCreateErr: "สร้างไม่สำเร็จ ลองใหม่หรือเปลี่ยนชื่อเพลง",
     recRecord: "อัดเสียง", recStop: "หยุดอัด", recPlay: "เล่นที่อัด", recPlaying: "กำลังเล่น…",
+    demoPause: "หยุดเสียงโชว์", demoPlay: "เล่นโชว์อีกครั้ง",
     recCritique: "ให้ครูติชม", recCritiqueUser: "🎙️ ครูครับ ช่วยฟังที่ผมเพิ่งเล่นแล้วติชมหน่อยครับ ว่าเล่นถูกไหม จังหวะเป็นยังไง ควรปรับอะไร",
     songStart: "เริ่มเล่น", songRetry: "เล่นอีกครั้ง", songPreview: "ฟังตัวอย่าง", songBackList: "เลือกเพลงอื่น",
     songInputHint: "🎤 เล่นเปียโนจริง / ต่อ MIDI / หรือแตะแป้นด้านล่างก็ได้",
@@ -2913,6 +2914,7 @@ const L = {
     judgePerfect: "PERFECT!", judgeGood: "GOOD!", judgeMiss: "MISS", songBest: "Best", songNewBest: "NEW BEST!", songFullCombo: "FULL COMBO", songAllPerfect: "ALL PERFECT",
     shareBtn: "Share", lockedLv: "Unlock Lv.", songAll: "All", songFav: "Favorites", songContinue: "Continue", songFavEmpty: "No favorites yet — tap ☆ to save", aiCreate: "AI Create Song", aiCreateHint: "Type a song name or describe a melody — AI builds a playable falling-notes chart instantly.", aiCreatePh: "e.g. Happy Birthday, a slow sad tune...", aiCreateGo: "Create song", aiCreating: "Creating...", aiCreateErr: "Couldn't create — try again or another song.",
     recRecord: "Record", recStop: "Stop", recPlay: "Play back", recPlaying: "Playing…",
+    demoPause: "Pause demo", demoPlay: "Play demo again",
     recCritique: "Get feedback", recCritiqueUser: "🎙️ Teacher, please listen to what I just played and give feedback — was it right, how was the timing, what should I improve?",
     songStart: "Start", songRetry: "Play Again", songPreview: "Preview", songBackList: "Other Songs",
     songInputHint: "🎤 Play a real piano / connect MIDI / or tap the keys below",
@@ -3014,6 +3016,7 @@ const L = {
     judgePerfect: "完美!", judgeGood: "不错!", judgeMiss: "失误", songBest: "最佳", songNewBest: "新纪录!", songFullCombo: "全连", songAllPerfect: "全完美",
     shareBtn: "分享", lockedLv: "解锁 Lv.", songAll: "全部", songFav: "收藏", songContinue: "继续", songFavEmpty: "还没有收藏 — 点 ☆ 保存", aiCreate: "AI 创作歌曲", aiCreateHint: "输入歌名或描述旋律，AI 立即生成可玩的下落音符谱。", aiCreatePh: "例如 生日快乐、两只老虎...", aiCreateGo: "生成歌曲", aiCreating: "生成中...", aiCreateErr: "生成失败 — 请重试或换一首。",
     recRecord: "录制", recStop: "停止", recPlay: "回放", recPlaying: "播放中…",
+    demoPause: "暂停示范", demoPlay: "再次播放示范",
     recCritique: "请老师点评", recCritiqueUser: "🎙️ 老师，请听听我刚才弹的，给点评价——弹得对吗？节奏如何？该改进什么？",
     songStart: "开始", songRetry: "再玩一次", songPreview: "试听", songBackList: "其他歌曲",
     songInputHint: "🎤 弹真钢琴 / 连接 MIDI / 或点击下方琴键",
@@ -8439,6 +8442,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // ── practice mode (listen to the learner play) ──
   const [hasSeq, setHasSeq] = useState(false);          // is there a sequence to practice?
+  const [seqPlaying, setSeqPlaying] = useState(false);  // is the demo actively lighting up/sounding right now?
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceTarget, setPracticeTarget] = useState([]); // note names to play, in order
   const [practiceFingers, setPracticeFingers] = useState([]);
@@ -8927,6 +8931,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setLitNote(null);
     setLitSet(null);
     setFingerMap({});
+    setSeqPlaying(false);
   }
 
   /* Play a sequence: ascending then descending, with finger numbers */
@@ -8934,6 +8939,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     clearSeq();
     lastSeq.current = parsed;   // remember for replay
     setHasSeq(true);            // enable the Practice button
+    setSeqPlaying(true);
     const { notes, mode } = parsed;
     setSeqIsChord(mode === "chord");
 
@@ -8969,7 +8975,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const fmap = {};
       if (fingers) notes.forEach((n, i) => { if (fingers[i] != null) fmap[n] = fingers[i]; });
       setFingerMap(fmap);
-      const tEnd = setTimeout(() => { setLitSet(null); setFingerMap({}); }, dur * 1000 + 200);
+      const tEnd = setTimeout(() => { setLitSet(null); setFingerMap({}); setSeqPlaying(false); }, dur * 1000 + 200);
       seqTimers.current.push(tEnd);
       return;
     }
@@ -9000,8 +9006,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       }, i * interval);
       seqTimers.current.push(t);
     });
-    const tEnd = setTimeout(() => { setLitNote(null); setFingerMap({}); }, order.length * interval + 400);
+    const tEnd = setTimeout(() => { setLitNote(null); setFingerMap({}); setSeqPlaying(false); }, order.length * interval + 400);
     seqTimers.current.push(tEnd);
+  }
+  function togglePlayPause() {
+    playUi("click");
+    if (seqPlaying) clearSeq();       // stop right away — no need to wait it out
+    else if (lastSeq.current) playSequence(lastSeq.current); // "once more" = restart the same demo from the top
   }
   function toggleChordStyle() {
     playUi("click");
@@ -11432,6 +11443,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className={`recbtn${recording ? " on" : ""}`} onClick={toggleRecord}>
                 {recording ? `■ ${lc.recStop}` : `● ${lc.recRecord}`}
               </button>
+              {hasSeq && <button className="recbtn" onClick={togglePlayPause} title={seqPlaying ? lc.demoPause : lc.demoPlay}>
+                {seqPlaying ? "⏸" : "▶"} {seqPlaying ? lc.demoPause : lc.demoPlay}
+              </button>}
               {hasClip && !recording && <button className="recbtn ghost" onClick={playClip} disabled={playingClip}>
                 ▶ {playingClip ? lc.recPlaying : lc.recPlay}
               </button>}
