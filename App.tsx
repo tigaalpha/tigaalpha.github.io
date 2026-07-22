@@ -497,7 +497,7 @@ const PATHWAY = [
   },
   {
     id: "interval", icon: "📏", title: { th: "ขั้นคู่ (Interval)", en: "Interval", zh: "音程 (Interval)" }, subtitle: { th: "ระยะห่างระหว่างโน้ต 2 ตัว", en: "Distance between two notes", zh: "两个音之间的距离" },
-    level: 2, color: "#ff94e0", group: "foundation",
+    level: 2, color: "#d97757", group: "foundation",
     demo: ["C4","E4"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'ขั้นคู่ (Interval)' บนเปียโนให้หน่อยครับ อธิบายว่าขั้นคู่คืออะไร ขั้นคู่หลักที่ต้องรู้ (3rd, 5th, octave) ความแตกต่างของ Major 3rd กับ Minor 3rd และ Perfect 5th ตอบภาษาไทยและระบุชื่อโน้ต",
@@ -584,7 +584,7 @@ C–E–G♯ · 奇异、神秘
   },
   {
     id: "seventh", icon: "7️⃣", title: { th: "เซเวนท์คอร์ด (7th Chord)", en: "7th Chord", zh: "七和弦 (7th Chord)" }, subtitle: { th: "เพิ่มมิติด้วยโน้ตตัวที่ 4", en: "Add depth with a 4th note", zh: "用第四个音增添层次" },
-    level: 4, color: "#ff59c7", group: "chords",
+    level: 4, color: "#d97757", group: "chords",
     demo: ["C4","E4","G4","B4"], demoMode: "chord", demoFingers: [1,2,3,5],
     learn: {
       th: "ช่วยสอนเรื่อง 'เซเวนท์คอร์ด (7th Chord)' บนเปียโนให้หน่อยครับ อธิบาย maj7, dominant 7, min7 ความแตกต่างของอารมณ์แต่ละแบบ และการใช้ในเพลง Jazz/Soul/Funk ตอบภาษาไทยและระบุชื่อโน้ต เช่น Cmaj7 = C4 E4 G4 B4",
@@ -687,7 +687,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   {
     id: "tension", icon: "⚡", title: { th: "เทนชั่น (Tension)", en: "Tension", zh: "张力音 (Tension)" }, subtitle: { th: "โน้ตสีสัน 9, 11, 13", en: "Color notes — 9, 11, 13", zh: "色彩音 — 9、11、13" },
-    level: 5, color: "#ff94e0", group: "advanced",
+    level: 5, color: "#d97757", group: "advanced",
     demo: ["C4","E4","G4","B4","D5"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'เทนชั่น (Tension)' บนเปียโนให้หน่อยครับ อธิบายว่า tension คืออะไร โน้ต 9th, 11th, 13th การสร้าง extended chord และการ resolve ตอบภาษาไทยและระบุชื่อโน้ต เช่น Cmaj9 = C4 E4 G4 B4 D5",
@@ -697,7 +697,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   {
     id: "blockchord", icon: "🧱", title: { th: "บล็อกคอร์ดใต้ทำนอง", en: "Block Chords", zh: "块状和弦" }, subtitle: { th: "เล่นคอร์ดพร้อมเมโลดี้", en: "Block Chord Under the Melody", zh: "在旋律下弹奏块状和弦" },
-    level: 6, color: "#ff76d8", group: "advanced",
+    level: 6, color: "#d97757", group: "advanced",
     demo: ["C4","E4","G4"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'Block Chord ใต้ทำนอง (Block Chord Under the Melody)' บนเปียโนให้หน่อยครับ อธิบายเทคนิคเล่นคอร์ดเต็มพร้อมโน้ตทำนองบนสุด สไตล์ George Shearing และการประยุกต์ใน solo piano ตอบภาษาไทยและระบุชื่อโน้ต",
@@ -717,7 +717,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   {
     id: "padchord", icon: "🌫️", title: { th: "แพดคอร์ด (Pad Chord)", en: "Pad Chord", zh: "铺底和弦 (Pad Chord)" }, subtitle: { th: "Harmony ขั้นสูง — เสียงพื้นหลังที่ลอย", en: "Advanced harmony — floating background", zh: "高级和声 — 漂浮的背景音" },
-    level: 8, color: "#ffb8d0", group: "advanced",
+    level: 8, color: "#d97757", group: "advanced",
     demo: ["C4","G4","B4","D5","E5"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'แพดคอร์ด (Pad Chord)' และ voicing ขั้นสูงบนเปียโนให้หน่อยครับ อธิบาย open voicing การกระจายโน้ตแบบ 4th/5th และการใช้ใน EDM/Ambient/Neo Soul เพื่อสร้างบรรยากาศล้ำๆ ตอบภาษาไทยและระบุชื่อโน้ต",
@@ -727,7 +727,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   /* ───────── BENEFITS OF MUSIC — knowledge chapters (read, no key) ───────── */
   {
-    id: "why-music", icon: "🌍", level: 9, color: "#ff76d8", group: "benefits",
+    id: "why-music", icon: "🌍", level: 9, color: "#d97757", group: "benefits",
     title: { th: "ประโยชน์ของดนตรี", en: "Why Music Matters", zh: "音乐的力量" },
     subtitle: { th: "ทำไมดนตรีถึงทรงพลัง", en: "The power of music", zh: "为何音乐如此重要" },
     content: {
@@ -877,7 +877,7 @@ Modern armies have blasted loud music to pressure opponents — e.g. the operati
     },
   },
   {
-    id: "music-nation", icon: "🇹🇭", level: 12, color: "#ff76d8", group: "benefits",
+    id: "music-nation", icon: "🇹🇭", level: 12, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีกับความเป็นชาติ", en: "Music & National Identity", zh: "音乐与国家认同" },
     subtitle: { th: "เสียงที่หลอมรวมผู้คน", en: "Sound that unites a people", zh: "凝聚人民的声音" },
     content: {
@@ -929,7 +929,7 @@ The most powerful nation-building tool. Thailand plays its anthem nationwide eve
     },
   },
   {
-    id: "music-elite", icon: "👑", level: 13, color: "#ff59c7", group: "benefits",
+    id: "music-elite", icon: "👑", level: 13, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีกับชนชั้นสูง", en: "Music & the Elite", zh: "音乐与精英阶层" },
     subtitle: { th: "สัญลักษณ์ของอำนาจและรสนิยม", en: "A symbol of power and taste", zh: "权力与品味的象征" },
     content: {
@@ -1042,7 +1042,7 @@ Music lowers cortisol, blood pressure and anxiety — used before/during surgery
     },
   },
   {
-    id: "music-marketing", icon: "📣", level: 15, color: "#ff76d8", group: "benefits",
+    id: "music-marketing", icon: "📣", level: 15, color: "#d97757", group: "benefits",
     title: { th: "การตลาดสำหรับศิลปิน", en: "Marketing for Artists", zh: "音乐人营销" },
     subtitle: { th: "ทำเพลงให้ดังและขายได้", en: "Get heard & get paid", zh: "让作品被听见并变现" },
     content: {
@@ -3932,7 +3932,7 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .gpw span{font-family:'Share Tech Mono',monospace;font-size:clamp(8px,1.7vw,14px);color:var(--muted);pointer-events:none}
 .gpw:active{transform:translateY(2px)}
 .gpw.lit{background:#d97757;box-shadow:0 0 16px #d97757,0 0 38px #d9775766}
-.gpb{position:absolute;top:0;height:62%;background:var(--card3);border:1px solid var(--card3);border-radius:0 0 5px 5px;z-index:2;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.8);-webkit-tap-highlight-color:transparent}
+.gpb{position:absolute;top:0;height:62%;background:#1a1a1a;border:1px solid #111;border-radius:0 0 5px 5px;z-index:2;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.8);-webkit-tap-highlight-color:transparent}
 .gpb:active{transform:translateY(1px)}
 .gpb.lit{background:#d97757;box-shadow:0 0 14px #d97757}
 .gpw.flash{animation:keypop .32s ease-out}
