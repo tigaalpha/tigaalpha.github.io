@@ -2858,6 +2858,7 @@ const L = {
     prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "ครู AI ติชมการเล่นไม่จำกัด", prF3: "โหมดเตรียมสอบเกรด", prF4: "แดชบอร์ดผู้ปกครอง", prF5: "เสียงครูคุณภาพสูง + ไม่มีโฆษณา",
     prFam1: "ทุกอย่างใน Premium", prFam2: "สูงสุด 3 โปรไฟล์ (ทั้งครอบครัว)", prFree1: "คีย์บอร์ด เกม บทเรียนพื้นฐาน", prFree2: "ครู AI (จำกัดรายวัน)",
     prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "ทุกอย่างใน Family · สูงสุด 6 โปรไฟล์", prMax3: "AI ตอบเร็วที่สุด + เสียงธรรมชาติคุณภาพสูงสุด", prMax4: "สร้างเพลงด้วย AI ไม่จำกัด + รายงานพัฒนาการ & แผนซ้อมรายสัปดาห์อัตโนมัติ", prMxf1: "ทุกอย่างใน Max", prMxf2: "สูงสุด 10 โปรไฟล์", prMxf3: "แดชบอร์ดครอบครัว + รายงาน AI รายคนอัตโนมัติ", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
+    trialBanner: "🎁 ทดลองใช้ฟรี", trialDaysLeft: "วันที่เหลือ", trialUpgrade: "อัปเกรดแผน", trialExpired: "หมดเวลาทดลองใช้แล้ว — เลือกแผนเพื่อเรียนต่อ",
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
     schoolInfo: "🏫 TiGA สำหรับโรงเรียนและครูเปียโน\n\n• ใช้เป็น 'เพื่อนซ้อมที่บ้าน' ให้นักเรียนระหว่างคาบเรียน — AI ช่วยฝึกทุกวัน ครูเห็นความก้าวหน้า\n• โหมดไฮบริด: AI สอนทุกวัน + ครูจริงเช็คเดือนละครั้ง\n• ราคาสถาบัน + แดชบอร์ดติดตามนักเรียนทั้งห้อง\n\nสนใจติดต่อ: LINE @tiga.ai 🎹",
     octaveHint: "เลื่อนช่วงคีย์ขึ้น-ลง",
@@ -2960,6 +2961,7 @@ const L = {
     prF1: "Unlimited AI song creation", prF2: "Unlimited AI performance feedback", prF3: "Graded exam prep mode", prF4: "Parent dashboard", prF5: "HQ teacher voice + no ads",
     prFam1: "Everything in Premium", prFam2: "Up to 3 profiles (whole family)", prFree1: "Keyboard, games, core lessons", prFree2: "AI teacher (daily limit)",
     prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "Everything in Family · up to 6 profiles", prMax3: "Fastest priority AI + top-quality natural voice", prMax4: "Unlimited AI song creation + auto weekly progress report & practice plan", prMxf1: "Everything in Max", prMxf2: "Up to 10 profiles", prMxf3: "Family dashboard + per-member AI progress reports", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
+    trialBanner: "🎁 Free Trial", trialDaysLeft: "days left", trialUpgrade: "Upgrade now", trialExpired: "Your free trial has ended — choose a plan to continue",
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
     schoolInfo: "🏫 TiGA for schools & piano teachers\n\n• Use it as the at-home practice companion between lessons — AI coaches daily, you see progress.\n• Hybrid mode: AI every day + a real teacher check-in monthly.\n• Institutional pricing + a whole-class progress dashboard.\n\nContact: LINE @tiga.ai 🎹",
     octaveHint: "Shift the keyboard range",
@@ -3062,6 +3064,7 @@ const L = {
     prF1: "无限 AI 创作歌曲", prF2: "无限 AI 演奏点评", prF3: "考级备考模式", prF4: "家长仪表板", prF5: "高清老师语音 + 无广告",
     prFam1: "包含全部 Premium", prFam2: "最多 3 个档案（全家）", prFree1: "键盘、游戏、基础课程", prFree2: "AI 老师（每日限量）",
     prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "包含全部 Family · 最多 6 个档案", prMax3: "最快优先 AI + 最高质量自然语音", prMax4: "无限 AI 生成歌曲 + 每周自动进度报告与练习计划", prMxf1: "包含全部 Max", prMxf2: "最多 10 个档案", prMxf3: "家庭仪表盘 + 每位成员自动 AI 进度报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
+    trialBanner: "🎁 免费试用", trialDaysLeft: "天剩余", trialUpgrade: "立即升级", trialExpired: "免费试用已结束 — 选择套餐以继续使用",
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
     schoolInfo: "🏫 TiGA 面向学校与钢琴老师\n\n• 作为课后'在家练习伙伴'——AI 每天辅导，老师查看进度。\n• 混合模式：AI 每日教学 + 真人老师每月检查。\n• 机构价格 + 全班进度仪表板。\n\n联系：LINE @tiga.ai 🎹",
     octaveHint: "移动键盘音区",
@@ -3703,6 +3706,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .probadge.fam{background: #d97757}
 .probadge.max{background: #d97757;color:#fff}
 .probadge.maxfam{background: #d97757;color:#fff}
+.probadge.trial{background:transparent;color:#d97757;border:1.5px solid #d97757}
+.trial-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 16px;background:#d97757;color:#fff}
+.trial-banner-txt{font-size:13px;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:.3px}
+.trial-banner-btn{flex-shrink:0;background:rgba(255,255,255,.22);border:1.5px solid rgba(255,255,255,.5);color:#fff;border-radius:8px;padding:5px 13px;font-size:12px;font-weight:800;font-family:'Orbitron',sans-serif;cursor:pointer;white-space:nowrap}
+.trial-expired{background:var(--card2);border-left:3px solid #d97757;padding:12px 16px;margin:8px 16px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .billtoggle{display:flex;gap:8px;background:var(--card);border-radius:24px;padding:4px;margin-bottom:14px}
 .billtog{flex:1;padding:9px;border-radius:20px;background:transparent;border:none;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .billtog.on{background: #d97757;color:#fff}
@@ -6382,7 +6390,16 @@ function effectivePlan(p) {
   if (!p) return "free";
   if (p.is_admin) return "maxfamily";
   if (p.plan && p.plan !== "free" && p.plan_until && new Date(p.plan_until).getTime() > Date.now()) return p.plan;
+  // 7-day free trial: new accounts get premium-tier access for their first 7 days
+  if (p.created_at && (Date.now() - new Date(p.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000) return "trial";
   return "free";
+}
+// returns days remaining in trial (1–7), or -1 if not in trial / trial has expired
+function trialDaysLeft(p) {
+  if (!p || !p.created_at) return -1;
+  const elapsed = Date.now() - new Date(p.created_at).getTime();
+  const left = 7 - elapsed / (24 * 60 * 60 * 1000);
+  return left > 0 ? Math.ceil(left) : -1;
 }
 
 // Auto Teaching (Max-only real-time coaching popups): resolve the effective interval in
@@ -6516,6 +6533,7 @@ function planBadge(p) {
     : p === "max" ? { t: "👑 MAX", c: "max" }
     : p === "family" ? { t: "👨‍👩‍👧 FAMILY", c: "fam" }
     : p === "premium" ? { t: "⭐ PRO", c: "" }
+    : p === "trial" ? { t: "🎁 TRIAL", c: "trial" }
     : null;
 }
 const FREE_LIMITS = { song: 2, critique: 3 };   // free actions per day
@@ -11276,6 +11294,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       </div>}
 
+      {/* ─── TRIAL BANNER — shown on all pages while trial is active ─── */}
+      {plan === "trial" && (() => {
+        const dLeft = trialDaysLeft(profile);
+        if (dLeft <= 0) return null;
+        return (
+          <div className="trial-banner">
+            <span className="trial-banner-txt">{lc.trialBanner} · {dLeft} {lc.trialDaysLeft}</span>
+            <button className="trial-banner-btn" onClick={() => { playUi("click"); setPricingOpen(true); }}>{lc.trialUpgrade}</button>
+          </div>
+        );
+      })()}
+
       {/* ─── PAGE: ADMIN — reachable ONLY via the 5-tap logo + code, never a nav link ─── */}
       {page === "admin" && (
         adminUnlocked
@@ -11954,6 +11984,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="setcard pricing" onClick={e => e.stopPropagation()}>
             <div className="sethdr"><span>✦ {lc.prTitle}</span><button className="cbtn" onClick={() => setPricingOpen(false)}>{lc.close}</button></div>
             <div className="setbody">
+              {plan === "trial" && trialDaysLeft(profile) > 0 && (
+                <div style={{ background: "rgba(217,119,87,.12)", border: "1.5px solid #d97757", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+                  🎁 {lc.trialBanner} · {trialDaysLeft(profile)} {lc.trialDaysLeft}
+                </div>
+              )}
               <p className="pr-sub">{lc.prSub}</p>
               {(() => {
                 const yr = billCycle === "year";
@@ -11963,7 +11998,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 const saveLine = (tier) => yr ? <div className="pr-yrsave">💚 {lc.prSave3} · ≈ ฿{Math.round(yearPrice(tier) / 12).toLocaleString()}/{lc.prMonth}</div> : null;
                 const buyBtn = (tier) => plan === tier
                   ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => startCheckout(tier, yr ? "year" : "month")}>{plan === "free" ? lc.prGet : lc.prSwitch}</button>;
+                  : <button className="songbtn go" onClick={() => startCheckout(tier, yr ? "year" : "month")}>{(plan === "free" || plan === "trial") ? lc.prGet : lc.prSwitch}</button>;
                 return (
                   <>
                     <div className="billtoggle">
@@ -11998,7 +12033,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     <div className={`prtier free${plan === "free" ? " cur" : ""}`}>
                       <div className="prtier-top"><span className="prtier-nm">🎁 Free</span><span className="prtier-price">฿0</span></div>
                       <ul className="prfeat"><li>✓ {lc.prFree1}</li><li>✓ {lc.prFree2}</li></ul>
-                      {plan !== "free" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
+                      {plan !== "free" && plan !== "trial" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
                     </div>
                   </>
                 );
