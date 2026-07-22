@@ -6086,6 +6086,12 @@ function logActivity(kind, id, ok, miss, sec) {
   } catch (e) {}
 }
 
+// Admin broadcast popup — which id this device has already dismissed, so a re-check
+// (poll, reload, relaunch) doesn't show the same announcement again.
+const BROADCAST_SEEN_KEY = "tg_broadcast_seen";
+function readBroadcastSeen() { try { return localStorage.getItem(BROADCAST_SEEN_KEY); } catch (e) { return null; } }
+function markBroadcastSeen(id) { try { localStorage.setItem(BROADCAST_SEEN_KEY, String(id)); } catch (e) {} }
+
 // Auto Teaching tip history (local, same pattern as the practice/activity logs above) —
 // powers the small "recent tips" dashboard list. Not synced server-side.
 const AUTOTEACH_LOG_KEY = "tg_autoteach_log";
@@ -7856,6 +7862,75 @@ function AdminAutoTeach({ lang }) {
   );
 }
 
+/* ── Admin: broadcast a popup announcement (text + optional image) to every learner's
+   home page, on demand — a one-off push, not a recurring schedule like Auto Teaching. ── */
+function AdminBroadcast({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [cur, setCur] = useState(undefined); // undefined = loading, null = never sent one, object = current
+  const [msg, setMsg] = useState("");
+  const [img, setImg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const load = useCallback(() => {
+    sb.from("app_settings").select("value").eq("key", "broadcast").maybeSingle()
+      .then(({ data }) => setCur((data && data.value) || null), () => setCur(null));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function send() {
+    if (!msg.trim()) return;
+    setBusy(true); setSaved(false);
+    const value = { id: Date.now(), message: msg.trim(), image_url: img.trim() || null, active: true };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
+    setBusy(false);
+    if (!error) { setCur(value); setMsg(""); setImg(""); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
+  }
+  async function takeDown() {
+    if (!cur) return;
+    setBusy(true);
+    const value = { ...cur, active: false };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
+    setBusy(false);
+    if (!error) setCur(value);
+  }
+
+  if (cur === undefined) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
+  return (
+    <div className="admstu">
+      <div className="admmg">
+        <div className="admmg-h">📢 {T("ส่งประกาศเด้งหน้าแรก", "Send a home-page popup", "发送首页弹窗公告")}</div>
+        <div className="admstu-row-sub" style={{ marginBottom: 10, whiteSpace: "normal" }}>
+          {T("ข้อความนี้จะเด้งเป็น pop-up ที่หน้าเส้นทางการเรียนรู้ของผู้เรียนทุกคน (เห็นภายในไม่ถึงนาที)",
+            "This shows as a popup on every learner's Pathway (home) page — live within under a minute.",
+            "此消息将以弹窗形式出现在所有学员的学习路径（首页）——不到一分钟内生效。")}
+        </div>
+        <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={3} className="admstu-search"
+          placeholder={T("พิมพ์ข้อความประกาศ...", "Write the announcement...", "输入公告内容…")}
+          style={{ width: "100%", resize: "vertical", boxSizing: "border-box", marginBottom: 8, fontFamily: "'Rajdhani',sans-serif" }} />
+        <input value={img} onChange={e => setImg(e.target.value)} className="admstu-search"
+          placeholder={T("ลิงก์รูปภาพ (ไม่บังคับ)", "Image URL (optional)", "图片链接（可选）")}
+          style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }} />
+        {img.trim() && <img src={img.trim()} alt="" style={{ maxWidth: "100%", borderRadius: 10, marginBottom: 10, display: "block" }} onError={e => { e.target.style.display = "none"; }} />}
+        <button className="songbtn go" style={{ width: "100%" }} disabled={busy || !msg.trim()} onClick={send}>
+          {busy ? "⏳" : "📢"} {T("ส่งเลย", "Send now", "立即发送")}
+        </button>
+        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10, whiteSpace: "normal" }}>✓ {T("ส่งแล้ว — ขึ้นหน้าแรกผู้เรียนทันที", "Sent — now live on every learner's home page", "已发送——已在学员首页生效")}</div>}
+      </div>
+
+      {cur && cur.active && (
+        <div className="admmg" style={{ marginTop: 12 }}>
+          <div className="admmg-h">{T("กำลังแสดงอยู่ตอนนี้", "Currently live", "当前正在展示")}</div>
+          <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>{cur.message}</div>
+          {cur.image_url && <img src={cur.image_url} alt="" style={{ maxWidth: "100%", borderRadius: 10, marginBottom: 8, display: "block" }} />}
+          <button className="songbtn ghost" style={{ width: "100%", color: "#ff5252" }} disabled={busy} onClick={takeDown}>
+            {T("ยกเลิกประกาศนี้", "Take this down", "撤下此公告")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Admin chat (free-form AI + web search + image/link learning) ── */
 function AdminPage({ lang, onExit, adminTier }) {
   const tier = adminTier || 0;
@@ -8002,6 +8077,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         {tier >= 3 && <button className={`admintab${adminTab === "videos" ? " on" : ""}`} onClick={() => setAdminTab("videos")}>🎬 {lang === "th" ? "วิดีโอ" : lang === "zh" ? "视频" : "Videos"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "analytics" ? " on" : ""}`} onClick={() => setAdminTab("analytics")}>📊 {lang === "th" ? "สถิติ" : lang === "zh" ? "统计" : "Analytics"}</button>}
         {tier >= 2 && <button className={`admintab${adminTab === "autoteach" ? " on" : ""}`} onClick={() => setAdminTab("autoteach")}>⏱️ {lang === "th" ? "ตั้งเวลาสอน" : lang === "zh" ? "自动教学" : "Auto Teaching"}</button>}
+        {tier >= 3 && <button className={`admintab${adminTab === "broadcast" ? " on" : ""}`} onClick={() => setAdminTab("broadcast")}>📢 {lang === "th" ? "ประกาศ" : lang === "zh" ? "公告" : "Broadcast"}</button>}
       </div>
 
       {adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
@@ -8009,6 +8085,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "videos" && tier >= 3 ? <AdminVideos lang={lang} />
         : adminTab === "analytics" && tier >= 3 ? <AdminAnalytics lang={lang} />
         : adminTab === "autoteach" && tier >= 2 ? <AdminAutoTeach lang={lang} />
+        : adminTab === "broadcast" && tier >= 3 ? <AdminBroadcast lang={lang} />
         : adminTab === "ai" && tier >= 3 ? (<>
 
       <div className="mmsgs">
@@ -8317,6 +8394,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [autoTeachTip, setAutoTeachTip] = useState(null);   // {weakness, tip} currently shown, or null
   const autoTeachBusyRef = useRef(false);
   const autoTeachTimer = useRef(null);
+  // ── Admin broadcast: an announcement (text + optional image) an admin can push to
+  // every learner's home page on demand — checked on load and polled while the app is
+  // open, so it appears without needing a reload; shown once per broadcast id per device. ──
+  const [broadcast, setBroadcast] = useState(null); // {id, message, image_url, active} currently shown, or null
+  useEffect(() => {
+    if (!session) return;
+    let alive = true;
+    const check = () => {
+      sb.from("app_settings").select("value").eq("key", "broadcast").maybeSingle()
+        .then(({ data }) => {
+          if (!alive) return;
+          const v = data && data.value;
+          if (v && v.active && String(v.id) !== readBroadcastSeen()) setBroadcast(v);
+        }, () => {});
+    };
+    check();
+    const t = setInterval(check, 45000);
+    return () => { alive = false; clearInterval(t); };
+  }, [session]);
+  function dismissBroadcast() {
+    if (broadcast) markBroadcastSeen(broadcast.id);
+    setBroadcast(null);
+  }
   const [upsell, setUpsell] = useState(null);   // {feat} when a gated action is blocked
   const [parentOpen, setParentOpen] = useState(false);
   const [examOpen, setExamOpen] = useState(false);
@@ -12209,8 +12309,28 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
+      {/* Admin broadcast — an announcement pushed on demand, shown once per device; takes
+          priority over the Auto Teaching tip if both would otherwise be eligible at once. */}
+      {broadcast && page === "pathway" && (
+        <div className="atpopup" onClick={dismissBroadcast}>
+          <div className="atpopup-card" onClick={e => e.stopPropagation()}>
+            <div className="atpopup-hd">
+              <span className="atpopup-ic" aria-hidden="true">📢</span>
+              <div className="atpopup-tt">{lang === "th" ? "ประกาศจาก TiGA" : lang === "zh" ? "TiGA 公告" : "Announcement"}</div>
+              <button className="atpopup-x" onClick={dismissBroadcast} aria-label="close">×</button>
+            </div>
+            {broadcast.image_url && (
+              <img src={broadcast.image_url} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block" }}
+                onError={e => { e.target.style.display = "none"; }} />
+            )}
+            <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{broadcast.message}</div>
+            <button className="atpopup-ok" onClick={dismissBroadcast}>{lang === "th" ? "รับทราบ" : lang === "zh" ? "知道了" : "Got it"}</button>
+          </div>
+        </div>
+      )}
+
       {/* Auto Teaching — real-time coaching card (Max plan, fires on a timer while on the Pathway page) */}
-      {autoTeachTip && (
+      {autoTeachTip && !(broadcast && page === "pathway") && (
         <div className="atpopup" onClick={() => setAutoTeachTip(null)}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>
             <div className="atpopup-hd">
