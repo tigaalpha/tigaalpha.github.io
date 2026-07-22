@@ -3733,10 +3733,15 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .prtier-price small{font-size:11px;color:var(--muted);font-weight:600}
 .paysum{display:flex;align-items:center;justify-content:space-between;padding:6px 0 12px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:16px;color:var(--text)}
 .payqr{display:block;width:230px;max-width:74%;margin:4px auto 12px;border-radius:14px;background:#fff;padding:10px}
+.payqr.ext{border-radius:10px}
 .payinfo{background:var(--card);border:1px solid var(--bd2);border-radius:12px;padding:11px 13px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--text2);margin-bottom:10px}
 .payinfo b{color:var(--text);font-family:'Share Tech Mono',monospace}
 .payok{text-align:center;padding:10px 4px}
 .payok-h{font-family:'Orbitron',sans-serif;font-size:17px;font-weight:800;color:#d97757;margin:6px 0 8px}
+.paychans{display:flex;gap:7px;margin:8px 0}
+.paychanbtn{flex:1;padding:9px 6px;border:1.5px solid var(--bd2);border-radius:10px;background:var(--surface-2);cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);transition:all .15s;text-align:center}
+.paychanbtn.on{border-color:var(--accent);background:rgba(217,119,87,.12);color:var(--accent)}
+.paychan-ic{font-size:16px;vertical-align:middle;margin-right:3px}
 .adminpay{flex:1;min-height:0;overflow-y:auto;padding:10px 14px 28px}
 .adminpay-cfg{background:var(--card3);border:1px solid #ff525233;border-radius:13px;padding:12px;margin-bottom:14px}
 .anrow{display:flex;align-items:center;gap:8px;padding:6px 0;font-family:'Rajdhani',sans-serif}
@@ -6385,10 +6390,25 @@ function getPlan() { try { return localStorage.getItem("tg_plan") || (isPremium(
 function setPlanLS(p) { try { localStorage.setItem("tg_plan", p); localStorage.setItem("tg_premium", p === "free" ? "0" : "1"); } catch (e) {} }
 // Voice Mode (AI voice teacher) is a Max / Max Family exclusive.
 function isMaxPlan(p) { const v = p || getPlan(); return v === "max" || v === "maxfamily"; }
-const PLAN_PRICE = { premium: 1490, family: 2900, max: 3999, maxfamily: 9999 };
+const PLAN_PRICE     = { premium: 1490,  family: 2900,  max: 3999,   maxfamily: 9999  }; // THB
+const PLAN_PRICE_USD = { premium: 44.99, family: 89.99, max: 119.99, maxfamily: 149.99 }; // USD
+const PLAN_PRICE_CNY = { premium: 328,   family: 648,   max: 888,    maxfamily: 1088  }; // CNY
+const CURRENCY_BY_LANG: Record<string,string> = { th: "thb", en: "usd", zh: "cny" };
 const PLAN_LABEL = { premium: "⭐ Premium", family: "👨‍👩‍👧 Family", max: "👑 Max", maxfamily: "👑👨‍👩‍👧 Max Family" };
-// yearly = 12 months − 3% off the full price
-function yearPrice(p) { return Math.round((PLAN_PRICE[p] || 0) * 12 * 0.97); }
+// yearly = 12 months − 3% off
+function yearPrice(p: string) { return Math.round((PLAN_PRICE[p] || 0) * 12 * 0.97); }
+function planPriceByCur(cur: string, p: string): number {
+  return cur === "usd" ? (PLAN_PRICE_USD[p] || 0) : cur === "cny" ? (PLAN_PRICE_CNY[p] || 0) : (PLAN_PRICE[p] || 0);
+}
+function yearPriceByCur(cur: string, p: string): number {
+  const n = planPriceByCur(cur, p) * 12 * 0.97;
+  return cur === "usd" ? Math.round(n * 100) / 100 : Math.round(n);
+}
+function fmtPrice(cur: string, amount: number): string {
+  if (cur === "usd") return "US$" + amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (cur === "cny") return "¥" + amount.toLocaleString();
+  return "฿" + amount.toLocaleString();
+}
 const YEAR_PLANS = ["premium", "max", "maxfamily"];   // tiers that offer a yearly option
 // the live, authoritative plan for a profile row (admins = full; paid only while not expired)
 function effectivePlan(p) {
@@ -7308,33 +7328,62 @@ function LockScreen({ lang, onUnlock }) {
 
 /* ── Share gate: free users share FB + TikTok to keep playing past the free limit ── */
 
-/* ── Checkout: PromptPay QR for a plan + slip upload (verified by admin) ── */
+/* ── Checkout modal — multi-gateway: Stripe (th+en), PromptPay (th), Alipay+WeChat (zh) ── */
 function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const [st, setSt] = useState("idle");   // idle · uploading · done · error
-  const [cfg, setCfg] = useState(payCfg); // refreshed live so a just-set PromptPay works without reload
-  const [pp, setPp] = useState(""); const [nm, setNm] = useState(""); const [bk, setBk] = useState(""); const [savingCfg, setSavingCfg] = useState(false);
+  const [st, setSt] = useState("idle");   // idle · uploading · done · error · stripe-err
+  const [cfg, setCfg] = useState(payCfg);
+  const [savingCfg, setSavingCfg] = useState(false);
+  const [pp, setPp] = useState(""); const [nm, setNm] = useState(""); const [bk, setBk] = useState("");
+  const [aliQrField, setAliQrField] = useState(""); const [wxQrField, setWxQrField] = useState("");
+  const [stripeLoading, setStripeLoading] = useState(false);
   const fileRef = useRef(null);
-  const amount = checkout.amount;
+  const amountThb = checkout.amount;                        // always THB (for slip DB record)
+  const cur = checkout.cur || CURRENCY_BY_LANG[lang] || "thb";
+  const dispAmt = checkout.disp != null ? checkout.disp : amountThb;
   const planLabel = PLAN_LABEL[checkout.plan] || checkout.plan;
+  const cnySt = checkout.cycle === "year" ? yearPriceByCur("cny", checkout.plan) : planPriceByCur("cny", checkout.plan);
+
   useEffect(() => {
     sb.from("app_settings").select("value").eq("key", "payment").maybeSingle()
       .then(({ data }) => { if (data && data.value) setCfg(data.value); }, () => {});
   }, []);
-  const ppId = cfg && cfg.promptpay;
-  async function saveCfgInline() {
-    if (!pp.trim()) return;
-    setSavingCfg(true);
-    const value = { promptpay: pp.trim(), name: nm.trim(), bank: bk.trim() };
-    const { error } = await sb.from("app_settings").upsert({ key: "payment", value, updated_at: new Date().toISOString() });
-    setSavingCfg(false);
-    if (!error) { setCfg(value); playUi("levelup"); }
-  }
-  const qr = useMemo(() => ppId ? promptPayQR(ppId, amount) : null, [ppId, amount]);
+
+  const ppId   = cfg && cfg.promptpay;
+  const aliQr  = cfg && cfg.alipay_qr;
+  const wxQr   = cfg && cfg.wechat_qr;
+  const stripeOn = !!(cfg && cfg.stripe);
+
+  // payment channels available for this language
+  const channels = [
+    ...(lang === "zh" && aliQr ? [{ k: "ali", ic: "🔵", label: "Alipay 支付宝", method: "alipay" }] : []),
+    ...(lang === "zh" && wxQr  ? [{ k: "wx",  ic: "🟢", label: "WeChat 微信",   method: "wechat"  }] : []),
+    ...(lang === "th" && ppId  ? [{ k: "pp",  ic: "🇹🇭", label: "PromptPay",    method: "promptpay" }] : []),
+  ];
+  const [chanKey, setChanKey] = useState("");
+  const selChan = channels.find(c => c.k === chanKey) || channels[0] || null;
+
+  const qr = useMemo(() => ppId ? promptPayQR(ppId, amountThb) : null, [ppId, amountThb]);
   const uid = session && session.user && session.user.id;
+
+  async function openStripe() {
+    if (!uid || stripeLoading) return;
+    setStripeLoading(true);
+    try {
+      const res = await fetch(API_URL.replace("/chat", "").replace(/\/+$/, "") + "/functions/v1/stripe-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: checkout.plan, cycle: checkout.cycle || "month", cur }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || "no url");
+      window.location.href = data.url;
+    } catch { setSt("stripe-err"); setStripeLoading(false); }
+  }
+
   async function onFile(e) {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
-    if (!f || !uid) return;
+    if (!f || !uid || !selChan) return;
     if (f.size > 6 * 1024 * 1024) { setSt("error"); return; }
     setSt("uploading");
     try {
@@ -7345,12 +7394,30 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
       const meta = (session.user.user_metadata) || {};
       const ins = await sb.from("payments").insert({
         user_id: uid, email: session.user.email || null, full_name: meta.full_name || meta.name || null,
-        plan: checkout.plan, amount, method: "promptpay", slip_path: path, status: "pending", days: checkout.days || 30,
+        plan: checkout.plan, amount: amountThb, method: selChan.method, slip_path: path, status: "pending", days: checkout.days || 30,
       });
       if (ins.error) throw ins.error;
       setSt("done"); playUi("levelup");
-    } catch (err) { setSt("error"); }
+    } catch { setSt("error"); }
   }
+
+  async function saveCfgInline() {
+    if (!pp.trim()) return;
+    setSavingCfg(true);
+    const value = {
+      ...cfg, promptpay: pp.trim(), name: nm.trim(), bank: bk.trim(),
+      ...(aliQrField.trim() ? { alipay_qr: aliQrField.trim() } : {}),
+      ...(wxQrField.trim() ? { wechat_qr: wxQrField.trim() } : {}),
+    };
+    const { error } = await sb.from("app_settings").upsert({ key: "payment", value, updated_at: new Date().toISOString() });
+    setSavingCfg(false);
+    if (!error) { setCfg(value); playUi("levelup"); }
+  }
+
+  const showStripeBtn = stripeOn && (lang === "th" || lang === "en");
+  const hasQrChannel = channels.length > 0;
+  const nothingConfigured = !showStripeBtn && !hasQrChannel;
+
   return (
     <div className="setov" onClick={onClose}>
       <div className="setcard pricing" onClick={e => e.stopPropagation()}>
@@ -7365,14 +7432,44 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
             </div>
           ) : (
             <>
-              <div className="paysum"><span>{planLabel}{checkout.cycle === "year" ? " · " + T("รายปี", "yearly", "年付") : ""}</span><b className="prtier-price">฿{amount.toLocaleString()}<small>/{checkout.cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b></div>
-              {ppId ? (
+              {/* ── price summary ── */}
+              <div className="paysum">
+                <span>{planLabel}{checkout.cycle === "year" ? " · " + T("รายปี", "yearly", "年付") : ""}</span>
+                <b className="prtier-price">{fmtPrice(cur, dispAmt)}<small>/{checkout.cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b>
+              </div>
+
+              {/* ── Stripe button (Thai + English) ── */}
+              {showStripeBtn && (
+                <>
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={stripeLoading} onClick={openStripe}>
+                    {stripeLoading ? "⏳ " + T("กำลังเปิดหน้าชำระเงินปลอดภัย...", "Opening secure checkout...", "正在打开安全支付页...") : "💳 " + T("จ่ายด้วยบัตร (รองรับทั่วโลก)", "Pay by card — worldwide", "银行卡支付（支持全球）")}
+                  </button>
+                  {st === "stripe-err" && <div className="aicreate-err">{T("ไม่สามารถเชื่อมต่อ Stripe ได้ ลองใหม่หรือใช้ QR", "Stripe unavailable — try again or use QR below", "Stripe 连接失败，请重试或用下方二维码")}</div>}
+                  {hasQrChannel && <div className="aiNotice">🌍 {T("หรือสแกน QR ด้านล่าง", "Or scan a QR below", "或扫描下方二维码")}</div>}
+                </>
+              )}
+
+              {/* ── QR channel selector (Chinese: Alipay/WeChat; Thai: PromptPay) ── */}
+              {hasQrChannel && channels.length > 1 && (
+                <div className="paychans">
+                  {channels.map(c => (
+                    <button key={c.k} className={`paychanbtn${selChan && selChan.k === c.k ? " on" : ""}`}
+                      onClick={() => { playUi("click"); setChanKey(c.k); }}>
+                      <span className="paychan-ic">{c.ic}</span> {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* ── PromptPay ── */}
+              {selChan && selChan.k === "pp" && (
                 <>
                   {qr ? <img className="payqr" src={qr} alt="PromptPay QR" /> : <div className="aicreate-err">{T("สร้าง QR ไม่ได้", "Couldn't make QR", "无法生成二维码")}</div>}
                   <div className="payinfo">
                     <div>📱 PromptPay: <b>{ppId}</b></div>
                     {cfg.name && <div>👤 {cfg.name}</div>}
                     {cfg.bank && <div>🏦 {cfg.bank}</div>}
+                    {cur !== "thb" && <div>💵 {T("ยอดโอน", "Amount to pay", "转账金额")}: <b>฿{amountThb.toLocaleString()}</b></div>}
                   </div>
                   <p className="pr-sub">{T("สแกน QR ด้วยแอปธนาคาร โอนตามยอด แล้วอัปโหลดสลิปเพื่อยืนยัน", "Scan with your banking app, pay the exact amount, then upload the slip.", "用银行App扫码付款，然后上传凭证。")}</p>
                   <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
@@ -7381,17 +7478,55 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
                   {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
                   <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
                 </>
-              ) : isAdmin ? (
+              )}
+
+              {/* ── Alipay ── */}
+              {selChan && selChan.k === "ali" && (
+                <>
+                  <img className="payqr ext" src={aliQr} alt="Alipay QR" />
+                  <p className="pr-sub">{`打开支付宝 → 扫一扫 → 支付 ¥${cnySt.toLocaleString()}，然后上传付款截图。`}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ 上传中..." : "📤 上传付款截图"}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">上传失败，请重试</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+
+              {/* ── WeChat Pay ── */}
+              {selChan && selChan.k === "wx" && (
+                <>
+                  <img className="payqr ext" src={wxQr} alt="WeChat Pay QR" />
+                  <p className="pr-sub">{`打开微信 → 扫一扫 → 支付 ¥${cnySt.toLocaleString()}，然后上传付款截图。`}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ 上传中..." : "📤 上传付款截图"}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">上传失败，请重试</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+
+              {/* ── English: Stripe-only, nothing else to show ── */}
+              {lang === "en" && !hasQrChannel && !showStripeBtn && (
+                <div className="aicreate-err">Payment is being set up — please try again shortly or contact us.</div>
+              )}
+
+              {/* ── Admin config (shown when nothing is configured) ── */}
+              {nothingConfigured && isAdmin && (
                 <div className="adminpay-cfg" style={{ marginBottom: 0 }}>
-                  <div className="admstu-nm" style={{ fontSize: 15 }}>⚙️ {T("ตั้งเลขรับเงินตรงนี้เลย (เห็นเฉพาะแอดมิน)", "Set your payout PromptPay here (admin only)", "在此设置收款 PromptPay（仅管理员）")}</div>
+                  <div className="admstu-nm" style={{ fontSize: 14 }}>⚙️ {T("ตั้งค่าช่องทางรับเงิน (แอดมิน)", "Configure payment channels (admin)", "配置收款渠道（管理员）")}</div>
                   <input value={pp} onChange={e => setPp(e.target.value)} placeholder={T("เบอร์ PromptPay หรือเลขผู้เสียภาษี", "PromptPay number or tax ID", "PromptPay 号码或税号")} inputMode="numeric" />
-                  <input value={nm} onChange={e => setNm(e.target.value)} placeholder={T("ชื่อบัญชี / ชื่อร้าน", "Account / shop name", "账户/店名")} />
-                  <input value={bk} onChange={e => setBk(e.target.value)} placeholder={T("ธนาคาร (ไม่บังคับ)", "Bank (optional)", "银行（可选）")} />
+                  <input value={nm} onChange={e => setNm(e.target.value)} placeholder={T("ชื่อบัญชี / ร้าน", "Account / shop name", "账户/店名")} />
+                  <input value={bk} onChange={e => setBk(e.target.value)} placeholder={T("ธนาคาร", "Bank (optional)", "银行（可选）")} />
+                  <input value={aliQrField} onChange={e => setAliQrField(e.target.value)} placeholder="Alipay QR path (e.g. ./payqr/alipay.jpg)" />
+                  <input value={wxQrField}  onChange={e => setWxQrField(e.target.value)}  placeholder="WeChat QR path (e.g. ./payqr/wechat.png)" />
                   <button className="songbtn go" style={{ width: "100%", marginTop: 9 }} disabled={savingCfg || !pp.trim()} onClick={saveCfgInline}>
-                    {savingCfg ? "⏳ " + T("กำลังบันทึก…", "Saving…", "保存中…") : "💾 " + T("บันทึก แล้วสร้าง QR", "Save & show QR", "保存并生成二维码")}
+                    {savingCfg ? "⏳ " + T("กำลังบันทึก…", "Saving…", "保存中…") : "💾 " + T("บันทึก", "Save", "保存")}
                   </button>
                 </div>
-              ) : (
+              )}
+
+              {nothingConfigured && !isAdmin && (
                 <div className="aicreate-err">{T("ร้านกำลังตั้งค่าการรับเงิน ลองใหม่อีกครั้งภายหลัง หรือทักแอดมินได้เลย", "Payment is being set up — please try again shortly or contact us.", "收款正在设置中，请稍后再试或联系我们。")}</div>
               )}
             </>
@@ -7563,7 +7698,7 @@ function AdminPayments({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [rows, setRows] = useState(null);
   const [sel, setSel] = useState(null);
-  const [cfg, setCfg] = useState({ promptpay: "", name: "", bank: "" });
+  const [cfg, setCfg] = useState({ promptpay: "", name: "", bank: "", stripe: false, alipay_qr: "", wechat_qr: "" });
   const [cfgSaved, setCfgSaved] = useState(false);
   const [slipUrl, setSlipUrl] = useState(null);
   const [aiBusy, setAiBusy] = useState(false);
@@ -7577,11 +7712,16 @@ function AdminPayments({ lang }) {
   useEffect(() => {
     load();
     sb.from("app_settings").select("value").eq("key", "payment").maybeSingle()
-      .then(({ data }) => { if (data && data.value) setCfg({ promptpay: data.value.promptpay || "", name: data.value.name || "", bank: data.value.bank || "" }); });
+      .then(({ data }) => {
+        if (data && data.value) {
+          const v = data.value;
+          setCfg({ promptpay: v.promptpay || "", name: v.name || "", bank: v.bank || "", stripe: !!v.stripe, alipay_qr: v.alipay_qr || "", wechat_qr: v.wechat_qr || "" });
+        }
+      });
   }, [load]);
   async function saveCfg() {
     setCfgSaved(false);
-    const value = { promptpay: cfg.promptpay.trim(), name: cfg.name.trim(), bank: cfg.bank.trim() };
+    const value = { promptpay: cfg.promptpay.trim(), name: cfg.name.trim(), bank: cfg.bank.trim(), stripe: cfg.stripe, alipay_qr: cfg.alipay_qr.trim(), wechat_qr: cfg.wechat_qr.trim() };
     const { error } = await sb.from("app_settings").upsert({ key: "payment", value, updated_at: new Date().toISOString() });
     if (!error) { setCfgSaved(true); setTimeout(() => setCfgSaved(false), 2500); }
   }
@@ -7658,11 +7798,26 @@ function AdminPayments({ lang }) {
   return (
     <div className="adminpay">
       <div className="adminpay-cfg">
-        <div className="admstu-nm" style={{ fontSize: 15 }}>⚙️ {T("ตั้งค่ารับเงิน (PromptPay)", "Payment settings (PromptPay)", "收款设置（PromptPay）")}</div>
+        <div className="admstu-nm" style={{ fontSize: 15 }}>⚙️ {T("ตั้งค่าช่องทางรับเงิน", "Payment channel settings", "收款渠道设置")}</div>
+
+        <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, marginTop: 8, marginBottom: 2 }}>🇹🇭 PromptPay (ไทย)</div>
         <input value={cfg.promptpay} onChange={e => setCfg({ ...cfg, promptpay: e.target.value })} placeholder={T("เบอร์ PromptPay หรือเลขผู้เสียภาษี", "PromptPay number or tax ID", "PromptPay 号码或税号")} inputMode="numeric" />
         <input value={cfg.name} onChange={e => setCfg({ ...cfg, name: e.target.value })} placeholder={T("ชื่อบัญชี / ชื่อร้าน", "Account / shop name", "账户/店名")} />
         <input value={cfg.bank} onChange={e => setCfg({ ...cfg, bank: e.target.value })} placeholder={T("ธนาคาร (ไม่บังคับ)", "Bank (optional)", "银行（可选）")} />
-        <button className="songbtn go" style={{ width: "100%", marginTop: 9 }} onClick={saveCfg}>{cfgSaved ? "✓ " + T("บันทึกแล้ว", "Saved", "已保存") : T("บันทึกการตั้งค่า", "Save settings", "保存设置")}</button>
+
+        <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, marginTop: 12, marginBottom: 2 }}>💳 Stripe (ไทย + อังกฤษ)</div>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+          <input type="checkbox" checked={!!cfg.stripe} onChange={e => setCfg({ ...cfg, stripe: e.target.checked })} style={{ width: 16, height: 16 }} />
+          {T("เปิดใช้ Stripe (เชื่อม edge function stripe-checkout)", "Enable Stripe (connects stripe-checkout edge function)", "启用 Stripe（连接 stripe-checkout 边缘函数）")}
+        </label>
+
+        <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, marginTop: 12, marginBottom: 2 }}>🔵 Alipay 支付宝 (中文)</div>
+        <input value={cfg.alipay_qr} onChange={e => setCfg({ ...cfg, alipay_qr: e.target.value })} placeholder="QR image path — e.g. ./payqr/alipay.jpg" />
+
+        <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, marginTop: 8, marginBottom: 2 }}>🟢 WeChat Pay 微信支付 (中文)</div>
+        <input value={cfg.wechat_qr} onChange={e => setCfg({ ...cfg, wechat_qr: e.target.value })} placeholder="QR image path — e.g. ./payqr/wechat.png" />
+
+        <button className="songbtn go" style={{ width: "100%", marginTop: 12 }} onClick={saveCfg}>{cfgSaved ? "✓ " + T("บันทึกแล้ว", "Saved", "已保存") : T("บันทึกการตั้งค่า", "Save settings", "保存设置")}</button>
       </div>
       <div className="admstu-count">{pending.length} {T("รอตรวจ", "pending", "待处理")} · {list.length} {T("ทั้งหมด", "total", "全部")}</div>
       {rows === null ? <div className="admstu-msg">⏳</div> : !list.length ? <div className="admstu-empty">{T("ยังไม่มีรายการชำระเงิน", "No payments yet", "暂无付款")}</div> : (
@@ -10921,11 +11076,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (paid) { setPricingOpen(false); getAC(); playUi("levelup"); mascot("celebrate", 3200); }
     else { playUi("click"); }
   }
-  // real payment: open the PromptPay checkout for a paid plan (monthly or yearly)
+  // open the checkout modal — carries THB amount (for slip records) + display currency
   function startCheckout(planId, cycle = "month") {
     playUi("click"); setPricingOpen(false);
     const yr = cycle === "year";
-    setCheckout({ plan: planId, amount: yr ? yearPrice(planId) : (PLAN_PRICE[planId] || 0), cycle, days: yr ? 365 : 30 });
+    const cur = CURRENCY_BY_LANG[lang] || "thb";
+    const disp = yr ? yearPriceByCur(cur, planId) : planPriceByCur(cur, planId);
+    setCheckout({ plan: planId, amount: yr ? yearPrice(planId) : (PLAN_PRICE[planId] || 0), disp, cur, cycle, days: yr ? 365 : 30 });
   }
   function activatePremium() { choosePlan("premium"); }
   function buyFreeze() {
@@ -11985,14 +12142,31 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <p className="pr-sub">{lc.prSub}</p>
               {(() => {
                 const yr = billCycle === "year";
+                const cur = CURRENCY_BY_LANG[lang] || "thb";
+                const dispMo = (tier) => fmtPrice(cur, planPriceByCur(cur, tier));
+                const dispYr = (tier) => fmtPrice(cur, yearPriceByCur(cur, tier));
+                const dispPerMoFromYr = (tier) => {
+                  const n = yearPriceByCur(cur, tier) / 12;
+                  return fmtPrice(cur, cur === "usd" ? Math.round(n * 100) / 100 : Math.round(n));
+                };
                 const priceBlk = (tier) => yr
-                  ? <span className="prtier-price">฿{yearPrice(tier).toLocaleString()}<small>/{lc.prYear}</small></span>
-                  : <span className="prtier-price">฿{PLAN_PRICE[tier].toLocaleString()}<small>/{lc.prMonth}</small></span>;
-                const saveLine = (tier) => yr ? <div className="pr-yrsave">💚 {lc.prSave3} · ≈ ฿{Math.round(yearPrice(tier) / 12).toLocaleString()}/{lc.prMonth}</div> : null;
+                  ? <span className="prtier-price">{dispYr(tier)}<small>/{lc.prYear}</small></span>
+                  : <span className="prtier-price">{dispMo(tier)}<small>/{lc.prMonth}</small></span>;
+                const saveLine = (tier) => yr
+                  ? <div className="pr-yrsave">💚 {lc.prSave3} · ≈ {dispPerMoFromYr(tier)}/{lc.prMonth}</div>
+                  : null;
                 const buyBtn = (tier) => plan === tier
                   ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
                   : <button className="songbtn go" onClick={() => startCheckout(tier, yr ? "year" : "month")}>{(plan === "free" || plan === "trial") ? lc.prGet : lc.prSwitch}</button>;
-                const mxfSavings = (10 * PLAN_PRICE.max - PLAN_PRICE.maxfamily).toLocaleString();
+                // Max Family savings vs 10 × individual Max
+                const mxfMaxUnit = planPriceByCur(cur, "max");
+                const mxfFamilyUnit = planPriceByCur(cur, "maxfamily");
+                const mxfSave = 10 * mxfMaxUnit - mxfFamilyUnit;
+                const mxfSaveStr = fmtPrice(cur, cur === "usd" ? Math.round(mxfSave * 100) / 100 : Math.round(mxfSave));
+                // per-person price (Max Family / 10, Family / 3)
+                const perPersonMxf = fmtPrice(cur, cur === "usd" ? Math.round(mxfFamilyUnit / 10 * 100) / 100 : Math.round(mxfFamilyUnit / 10));
+                const perPersonFam = fmtPrice(cur, cur === "usd" ? Math.round(planPriceByCur(cur,"family") / 3 * 100) / 100 : Math.round(planPriceByCur(cur,"family") / 3));
+                const freeLabel = cur === "usd" ? "US$0" : cur === "cny" ? "¥0" : "฿0";
                 return (
                   <>
                     <div className="billtoggle">
@@ -12011,13 +12185,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         <div style={{ textAlign: "right" }}>
                           {priceBlk("maxfamily")}
                           <div style={{ fontSize: "9px", color: "#d97757", fontWeight: 800, marginTop: 2 }}>
-                            {lang === "th" ? "≈ ฿1,000/คน/เดือน" : lang === "zh" ? "≈ ฿1,000/人/月" : "≈ ฿1,000/person/mo"}
+                            ≈ {perPersonMxf}/{lang === "th" ? "คน/เดือน" : lang === "zh" ? "人/月" : "person/mo"}
                           </div>
                         </div>
                       </div>
                       {saveLine("maxfamily")}
                       <div style={{ background: "rgba(217,119,87,.12)", border: "1px solid rgba(217,119,87,.35)", borderRadius: 8, padding: "7px 12px", margin: "6px 0 8px", fontSize: "11px", color: "#d97757", fontWeight: 700, textAlign: "center" }}>
-                        💰 {lang === "th" ? `ประหยัด ฿${mxfSavings}/เดือน เทียบซื้อ Max 10 คนแยก` : lang === "zh" ? `比10人分别买Max每月省฿${mxfSavings}` : `Save ฿${mxfSavings}/mo vs 10 separate Max plans`}
+                        💰 {lang === "th" ? `ประหยัด ${mxfSaveStr}/เดือน เทียบซื้อ Max 10 คนแยก` : lang === "zh" ? `比10人分别买Max每月省${mxfSaveStr}` : `Save ${mxfSaveStr}/mo vs 10 separate Max plans`}
                       </div>
                       <ul className="prfeat">
                         <li>✓ {lc.prMxf1}</li>
@@ -12056,9 +12230,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         <div className="prtier-top">
                           <span className="prtier-nm">👨‍👩‍👧 Family</span>
                           <div style={{ textAlign: "right" }}>
-                            <span className="prtier-price">฿2,900<small>/{lc.prMonth}</small></span>
+                            {priceBlk("family")}
                             <div style={{ fontSize: "9px", color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>
-                              ≈ ฿967/{lang === "th" ? "คน" : lang === "zh" ? "人" : "person"}
+                              ≈ {perPersonFam}/{lang === "th" ? "คน" : lang === "zh" ? "人" : "person"}
                             </div>
                           </div>
                         </div>
@@ -12077,7 +12251,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
                     {/* ── FREE ── */}
                     <div className={`prtier free${plan === "free" ? " cur" : ""}`}>
-                      <div className="prtier-top"><span className="prtier-nm">🎁 Free</span><span className="prtier-price">฿0</span></div>
+                      <div className="prtier-top"><span className="prtier-nm">🎁 Free</span><span className="prtier-price">{freeLabel}</span></div>
                       <ul className="prfeat"><li>{lc.prFree1}</li><li>{lc.prFree2}</li></ul>
                       {plan !== "free" && plan !== "trial" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
                     </div>
@@ -12091,7 +12265,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* CHECKOUT — PromptPay QR + slip upload */}
+      {/* CHECKOUT — Stripe / PromptPay / Alipay / WeChat */}
       {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} />}
 
       {/* AI WEEKLY REPORT / AI PRACTICE PLAN MODAL (Max exclusive) */}
