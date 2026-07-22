@@ -6473,10 +6473,17 @@ async function generateCoachTip(lang, profile) {
   async function attempt() {
     try {
       const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me my current coaching recommendation.", conversationHistory: [], system: sys }) });
-      const data = await res.json();
-      const txt = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
-      const fenced = txt.match(/```(?:json)?\s*([\s\S]*?)```/i); // some replies wrap the JSON in a code fence despite being told not to
-      const body = fenced ? fenced[1] : txt;
+      if (!res.ok || !res.body) return null;
+      const reader = res.body.getReader(), dec = new TextDecoder();
+      let acc = "", buf = "";
+      while (true) {
+        const { done, value } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop() || "";
+        for (const line of lines) { const t = line.trim(); if (!t.startsWith("data:")) continue; const p = t.slice(5).trim(); if (!p || p === "[DONE]") continue; try { const e = JSON.parse(p); if (e.content) acc += e.content; } catch (_) {} }
+      }
+      const fenced = acc.match(/```(?:json)?\s*([\s\S]*?)```/i);
+      const body = fenced ? fenced[1] : acc;
       const m = body.match(/\{[\s\S]*\}/);
       return m ? JSON.parse(m[0]) : null;
     } catch (e) { return null; }
@@ -11975,7 +11982,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     <div className={`prtier hot${plan === "premium" ? " cur" : ""}`}>
                       <div className="prtier-top"><span className="prtier-nm">⭐ Premium</span>{priceBlk("premium")}</div>
                       {saveLine("premium")}
-                      <ul className="prfeat"><li>✓ {lc.prF1}</li><li>✓ {lc.prF2}</li><li>✓ {lc.prF3}</li><li>✓ {lc.prF4}</li><li>✓ {lc.prF5}</li></ul>
+                      <ul className="prfeat"><li>✓ {lc.prF2}</li><li>✓ {lc.prF3}</li><li>✓ {lc.prF4}</li><li>✓ {lc.prF5}</li></ul>
                       {buyBtn("premium")}
                     </div>
                     {!yr && (
