@@ -5392,8 +5392,6 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false }) {
   const lc = L[lang];
   const cards = [
-    // Voice Mode is a Max-tier exclusive — other plans don't even see the card
-    ...(voiceLocked ? [] : [{ k: "voice", ic: "🎙️", c: "#d97757", t: lc.studioVoice, s: lc.studioVoiceSub, fn: onVoice, badge: "👑 MAX" }]),
     { k: "today",   ic: "📅", c: "#d97757", t: lc.navToday,        s: lang === "th" ? "แผนซ้อมวันนี้ — สร้างใหม่ทุกวันจากความคืบหน้าจริง" : lang === "zh" ? "今日计划 — 每天根据真实进度生成" : "Today's plan — rebuilt daily from your real progress", fn: onToday },
     { k: "songs",   ic: "🎵", c: "#d97757", t: lc.studioPlayAlong, s: lc.studioPlayAlongSub, fn: onSongs },
     { k: "eargym",  ic: "👂", c: "#ff76d8", t: lc.navEar,          s: lc.studioEarSub,       fn: onEarGym },
@@ -11988,7 +11986,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     <div className={`prtier max${plan === "max" ? " cur" : ""}`}>
                       <div className="prtier-top"><span className="prtier-nm">👑 Max</span>{priceBlk("max")}</div>
                       {saveLine("max")}
-                      <ul className="prfeat"><li>✓ {lc.prMax1}</li><li>✓ {lc.prMax2}</li><li>✓ {lc.prMax3}</li><li>✓ {lc.prMax4}</li></ul>
+                      <ul className="prfeat"><li>✓ {lc.prMax2}</li><li>✓ {lc.prMax3}</li><li>✓ {lc.prMax4}</li></ul>
                       {buyBtn("max")}
                     </div>
                     <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`}>
