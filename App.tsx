@@ -2196,7 +2196,7 @@ const SONGS = [
     seq: [["E4",1],["E4",1],["E4",2],["E4",1],["E4",1],["E4",2],
           ["E4",1],["G4",1],["C4",1],["D4",1],["E4",4],
           ["F4",1],["F4",1],["F4",1],["F4",1],["F4",1],["E4",1],["E4",1],["E4",1],["E4",1],["D4",1],["D4",1],["E4",1],["D4",2],["G4",2]] },
-  { id: "birthday", diff: 3, bpm: 100,
+  { id: "birthday", diff: 3, bpm: 100, maxOnly: true,
     th: "สุขสันต์วันเกิด", en: "Happy Birthday", zh: "生日快乐",
     seq: [["G4",1],["G4",1],["A4",1],["G4",1],["C5",1],["B4",2],
           ["G4",1],["G4",1],["A4",1],["G4",1],["D5",1],["C5",2],
@@ -2220,7 +2220,7 @@ const SONGS = [
           ["C4",1],["E4",1],["F4",1],["G4",2],["E4",1],["C4",1],["E4",1],["D4",3],
           ["E4",1],["E4",1],["D4",1],["C4",2],["C4",1],["E4",1],["G4",2],["G4",1],["F4",1],
           ["E4",1],["F4",1],["G4",1],["E4",1],["C4",1],["D4",1],["C4",3]] },
-  { id: "furelise", diff: 3, bpm: 80,
+  { id: "furelise", diff: 3, bpm: 80, maxOnly: true,
     th: "ฟือร์ เอลีเซ", en: "Für Elise", zh: "致爱丽丝",
     seq: [["E5",0.5],["D#5",0.5],["E5",0.5],["D#5",0.5],["E5",0.5],["B4",0.5],["D5",0.5],["C5",0.5],["A4",1],
           ["C4",0.5],["E4",0.5],["A4",0.5],["B4",1],["E4",0.5],["G#4",0.5],["B4",0.5],["C5",1],
@@ -2857,7 +2857,7 @@ const L = {
     upgrade: "อัปเกรด", prTitle: "อัปเกรดเป็น Premium", prSub: "ปลดล็อกครู AI เต็มพลัง เรียนได้ไม่จำกัด", prMonth: "เดือน", prYear: "ปี", prSave3: "ประหยัด 3%", prBillMonth: "รายเดือน", prBillYear: "รายปี", prActive: "ใช้งานอยู่", prGet: "สมัครเลย",
     prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "ครู AI ติชมการเล่นไม่จำกัด", prF3: "โหมดเตรียมสอบเกรด", prF4: "แดชบอร์ดผู้ปกครอง", prF5: "เสียงครูคุณภาพสูง + ไม่มีโฆษณา",
     prFam1: "ทุกอย่างใน Premium", prFam2: "สูงสุด 3 โปรไฟล์ (ทั้งครอบครัว)", prFree1: "คีย์บอร์ด เกม บทเรียนพื้นฐาน", prFree2: "ครู AI (จำกัดรายวัน)",
-    prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "ทุกอย่างใน Family · สูงสุด 6 โปรไฟล์", prMax3: "AI ตอบเร็วที่สุด + เสียงธรรมชาติคุณภาพสูงสุด", prMax4: "สร้างเพลงด้วย AI ไม่จำกัด + รายงานพัฒนาการ & แผนซ้อมรายสัปดาห์อัตโนมัติ", prMxf1: "ทุกอย่างใน Max", prMxf2: "สูงสุด 10 โปรไฟล์", prMxf3: "แดชบอร์ดครอบครัว + รายงาน AI รายคนอัตโนมัติ", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
+    prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "ทุกอย่างใน Family · สูงสุด 6 โปรไฟล์", prMax3: "รายงานพัฒนาการ AI รายสัปดาห์ + แผนซ้อมส่วนตัว AI", prMax4: "XP & เหรียญ ×2 · Streak Freeze 4 ใบ/เดือน", prMax5: "คลังเพลง Max Exclusive", prMax6: "แดชบอร์ดวิเคราะห์การเรียนรู้ขั้นสูง", prMxf1: "ทุกอย่างใน Max", prMxf2: "สูงสุด 10 โปรไฟล์", prMxf3: "แดชบอร์ดครอบครัว + รายงาน AI รายคนอัตโนมัติ", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
     trialBanner: "🎁 ทดลองใช้ฟรี", trialDaysLeft: "วันที่เหลือ", trialUpgrade: "อัปเกรดแผน", trialExpired: "หมดเวลาทดลองใช้แล้ว — เลือกแผนเพื่อเรียนต่อ",
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
     schoolInfo: "🏫 TiGA สำหรับโรงเรียนและครูเปียโน\n\n• ใช้เป็น 'เพื่อนซ้อมที่บ้าน' ให้นักเรียนระหว่างคาบเรียน — AI ช่วยฝึกทุกวัน ครูเห็นความก้าวหน้า\n• โหมดไฮบริด: AI สอนทุกวัน + ครูจริงเช็คเดือนละครั้ง\n• ราคาสถาบัน + แดชบอร์ดติดตามนักเรียนทั้งห้อง\n\nสนใจติดต่อ: LINE @tiga.ai 🎹",
@@ -2960,7 +2960,7 @@ const L = {
     upgrade: "Upgrade", prTitle: "Go Premium", prSub: "Unlock the full AI teacher — learn without limits", prMonth: "mo", prYear: "yr", prSave3: "Save 3%", prBillMonth: "Monthly", prBillYear: "Yearly", prActive: "Active", prGet: "Subscribe",
     prF1: "Unlimited AI song creation", prF2: "Unlimited AI performance feedback", prF3: "Graded exam prep mode", prF4: "Parent dashboard", prF5: "HQ teacher voice + no ads",
     prFam1: "Everything in Premium", prFam2: "Up to 3 profiles (whole family)", prFree1: "Keyboard, games, core lessons", prFree2: "AI teacher (daily limit)",
-    prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "Everything in Family · up to 6 profiles", prMax3: "Fastest priority AI + top-quality natural voice", prMax4: "Unlimited AI song creation + auto weekly progress report & practice plan", prMxf1: "Everything in Max", prMxf2: "Up to 10 profiles", prMxf3: "Family dashboard + per-member AI progress reports", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
+    prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "Everything in Family · up to 6 profiles", prMax3: "AI Weekly Report + Personalized AI Practice Plan", prMax4: "XP & Coins ×2 · Streak Freeze 4/month", prMax5: "Max Exclusive Song Library", prMax6: "Learning Analytics Dashboard", prMxf1: "Everything in Max", prMxf2: "Up to 10 profiles", prMxf3: "Family dashboard + per-member AI progress reports", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
     trialBanner: "🎁 Free Trial", trialDaysLeft: "days left", trialUpgrade: "Upgrade now", trialExpired: "Your free trial has ended — choose a plan to continue",
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
     schoolInfo: "🏫 TiGA for schools & piano teachers\n\n• Use it as the at-home practice companion between lessons — AI coaches daily, you see progress.\n• Hybrid mode: AI every day + a real teacher check-in monthly.\n• Institutional pricing + a whole-class progress dashboard.\n\nContact: LINE @tiga.ai 🎹",
@@ -3063,7 +3063,7 @@ const L = {
     upgrade: "升级", prTitle: "升级 Premium", prSub: "解锁完整 AI 老师，无限学习", prMonth: "月", prYear: "年", prSave3: "省3%", prBillMonth: "按月", prBillYear: "按年", prActive: "已开通", prGet: "立即订阅",
     prF1: "无限 AI 创作歌曲", prF2: "无限 AI 演奏点评", prF3: "考级备考模式", prF4: "家长仪表板", prF5: "高清老师语音 + 无广告",
     prFam1: "包含全部 Premium", prFam2: "最多 3 个档案（全家）", prFree1: "键盘、游戏、基础课程", prFree2: "AI 老师（每日限量）",
-    prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "包含全部 Family · 最多 6 个档案", prMax3: "最快优先 AI + 最高质量自然语音", prMax4: "无限 AI 生成歌曲 + 每周自动进度报告与练习计划", prMxf1: "包含全部 Max", prMxf2: "最多 10 个档案", prMxf3: "家庭仪表盘 + 每位成员自动 AI 进度报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
+    prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "包含全部 Family · 最多 6 个档案", prMax3: "AI 每周进度报告 + 个性化 AI 练习计划", prMax4: "XP & 金币 ×2 · 每月4次连续保护", prMax5: "Max 专属曲库", prMax6: "学习分析仪表盘", prMxf1: "包含全部 Max", prMxf2: "最多 10 个档案", prMxf3: "家庭仪表盘 + 每位成员自动 AI 进度报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
     trialBanner: "🎁 免费试用", trialDaysLeft: "天剩余", trialUpgrade: "立即升级", trialExpired: "免费试用已结束 — 选择套餐以继续使用",
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
     schoolInfo: "🏫 TiGA 面向学校与钢琴老师\n\n• 作为课后'在家练习伙伴'——AI 每天辅导，老师查看进度。\n• 混合模式：AI 每日教学 + 真人老师每月检查。\n• 机构价格 + 全班进度仪表板。\n\n联系：LINE @tiga.ai 🎹",
@@ -5701,7 +5701,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
 
 /* ── Song picker page (falling-notes play-along) ── */
 const SONG_REQ = { 1: 1, 2: 2, 3: 4 };   // level required to unlock by difficulty
-const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell }) {
+const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, plan = "" }) {
   const lc = L[lang];
   const [filter, setFilter] = useState(-1);   // -1 all · 0 favorites · 1/2/3 by difficulty
   const [favs, setFavs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_favs") || "[]"); } catch (e) { return []; } });
@@ -5774,21 +5774,22 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     const isFav = favs.includes(s.id);
     const req = SONG_REQ[s.diff] || 1;
     const locked = !s.custom && level < req;
+    const maxLocked = !s.custom && s.maxOnly && !isMaxPlan(plan);
     return (
-      <button key={pfx + s.id} className={`songcard${locked ? " locked" : ""}`} style={{ "--sc": `hsl(${hue},70%,56%)` }}
-        onClick={() => { if (locked) { haptic(20); playMiss(); } else play(s); }}>
-        <div className="songcard-ic">{locked ? "🔒" : s.custom ? "🎼" : "🎵"}</div>
+      <button key={pfx + s.id} className={`songcard${locked || maxLocked ? " locked" : ""}`} style={{ "--sc": `hsl(${hue},70%,56%)` }}
+        onClick={() => { if (locked) { haptic(20); playMiss(); } else if (maxLocked) { haptic(20); if (onUpsell) onUpsell(); } else play(s); }}>
+        <div className="songcard-ic">{locked ? "🔒" : maxLocked ? "👑" : s.custom ? "🎼" : "🎵"}</div>
         <div className="songcard-body">
           <div className="songcard-nm">{tr(s, lang)}</div>
           <div className="songcard-meta">
             <span className="songdiff" aria-label={`difficulty ${s.diff}`}>{s.custom ? "✨ AI" : "★".repeat(s.diff) + "☆".repeat(3 - s.diff)}</span>
-            <span>{locked ? lc.lockedLv + req : s.bpm + " BPM"}</span>
+            <span>{locked ? lc.lockedLv + req : maxLocked ? (lang === "th" ? "👑 Max เท่านั้น" : lang === "zh" ? "👑 Max 专属" : "👑 Max only") : s.bpm + " BPM"}</span>
           </div>
         </div>
-        <span className="songcard-go">{locked ? "🔒" : "▶"}</span>
+        <span className="songcard-go">{locked ? "🔒" : maxLocked ? "👑" : "▶"}</span>
         {s.custom
           ? <span className="favbtn del" role="button" tabIndex={0} aria-label="Delete" onClick={(e) => { e.stopPropagation(); haptic(); delSong(s.id); }}>🗑</span>
-          : !locked && <span className={`favbtn${isFav ? " on" : ""}`} role="button" tabIndex={0} aria-label="Favorite" aria-pressed={isFav}
+          : !locked && !maxLocked && <span className={`favbtn${isFav ? " on" : ""}`} role="button" tabIndex={0} aria-label="Favorite" aria-pressed={isFav}
             onClick={(e) => { e.stopPropagation(); haptic(); toggleFav(s.id); }}>{isFav ? "★" : "☆"}</span>}
       </button>
     );
@@ -6290,6 +6291,15 @@ function bumpStreak() {  // call when the learner actually practices
 }
 function streakAtRisk() { const s = readStreak(); return (s.count || 0) > 0 && s.last !== dayKey(); }
 function addFreeze(n) { const s = readStreak(); s.freezes = (s.freezes || 0) + n; writeStreak(s); return s; }
+function grantMonthlyFreezes() {
+  try {
+    if (!isMaxPlan()) return;
+    const mk = new Date().toISOString().slice(0, 7);
+    if (localStorage.getItem("tg_freeze_month") === mk) return;
+    addFreeze(4);
+    localStorage.setItem("tg_freeze_month", mk);
+  } catch (e) {}
+}
 
 /* ── learner memory (cross-session) → personalized AI + adaptive path ── */
 function readMemory() { try { return JSON.parse(localStorage.getItem("tg_memory") || "null") || { struggles: [], mastered: [], recent: [] }; } catch (e) { return { struggles: [], mastered: [], recent: [] }; } }
@@ -8361,6 +8371,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     navigator.serviceWorker.addEventListener("message", handler);
     return () => navigator.serviceWorker.removeEventListener("message", handler);
   }, []);
+  useEffect(() => { if (isMaxPlan(plan)) grantMonthlyFreezes(); }, [plan]);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiModalType, setAiModalType] = useState<"report"|"plan">("report");
+  const [aiModalText, setAiModalText] = useState("");
+  const [aiModalLoading, setAiModalLoading] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [checkout, setCheckout] = useState(null);   // {plan, amount} → PromptPay payment modal
   const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
@@ -10862,7 +10877,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
   }
   // coins + mascot + daily chest
-  function earnCoins(n) { const v = getCoins() + n; setCoinsLS(v); setCoins(v); }
+  function earnCoins(n) { const mult = isMaxPlan(plan) ? 2 : 1; const v = getCoins() + n * mult; setCoinsLS(v); setCoins(v); }
   function reviewTopic(t) {
     setActiveStageId(null); // free-text question, not a Pathway topic+key — no "change key" back button
     setPage("sensei");
@@ -11313,7 +11328,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
       {page === "studio" && (
         studioView === "songs"
-          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} onUpsell={() => setPricingOpen(true)} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
+          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
           : <StudioPage lang={lang} voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)} onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }} onSongs={() => setStudioView("songs")} onSight={openSight} onCamera={openCamera} onExam={() => { playUi("click"); premium ? setExamOpen(true) : setPricingOpen(true); }} onEarGym={() => { playUi("click"); logUsage("nav", "studio-eargym"); setPage("eargym"); }} onReading={() => { playUi("click"); logUsage("nav", "studio-reading"); setPage("reading"); }} onToday={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }} />
       )}
 
@@ -11340,8 +11355,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     </div>
                     <div className="dh-goalbar"><div style={{ width: qPct + "%" }} /></div>
                     <div className="dh-actions">
-                      {(sInfo.freezes || 0) > 0 && <span className="dh-freeze">🛡️ {sInfo.freezes}</span>}
-                      {(sInfo.freezes || 0) === 0 && <button className="dh-buyfreeze" onClick={buyFreeze}>🛡️ {lc.dhFreeze} 120🪙</button>}
+                      {(sInfo.freezes || 0) > 0 && <span className="dh-freeze">🛡️ {sInfo.freezes}{isMaxPlan(plan) ? " · Max" : ""}</span>}
+                      {(sInfo.freezes || 0) === 0 && (isMaxPlan(plan)
+                        ? <span className="dh-freeze" style={{ opacity: 0.65, fontSize: "10px" }}>🛡️ {lang === "th" ? "รับ 4 ใบ/เดือน · Max" : lang === "zh" ? "每月4次 · Max" : "4 free/month · Max"}</span>
+                        : <button className="dh-buyfreeze" onClick={buyFreeze}>🛡️ {lc.dhFreeze} 120🪙</button>)}
                     </div>
                   </div>
                   {chestAvail
@@ -11360,13 +11377,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           })()}
           {/* My Stats + Report Card live as sub-pages of Profile (moved out of the nav) */}
           <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
-            onClick={() => { playUi("click"); logUsage("nav", "profile-stats"); setPage("insights"); }}>
+            onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } logUsage("nav", "profile-stats"); setPage("insights"); }}>
             <span className="tdico">📊</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="tdlbl">{lc.navStats}</div>
+              <div className="tdlbl">{lc.navStats}{!isMaxPlan(plan) && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
               <div className="tdtag">{lang === "th" ? "กราฟการซ้อม · จุดที่ควรเก็บ · ช่วงเวลาที่ซ้อมบ่อย" : lang === "zh" ? "练习图表 · 待加强 · 常练时间" : "Practice charts · weak spots · best hours"}</div>
             </div>
-            <span className="tdgo">→</span>
+            <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
           </button>
           <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
             onClick={() => { playUi("click"); logUsage("nav", "profile-report"); setPage("report"); }}>
@@ -11376,6 +11393,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="tdtag">{lang === "th" ? "สรุปรายสัปดาห์ · คำติชมครู · ใบประกาศนียบัตร" : lang === "zh" ? "每周总结 · 老师评语 · 证书" : "Weekly summary · teacher comment · certificates"}</div>
             </div>
             <span className="tdgo">→</span>
+          </button>
+          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
+            onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } setAiModalType("report"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}>
+            <span className="tdico">📋</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="tdlbl">{lang === "th" ? "รายงานพัฒนาการ AI" : lang === "zh" ? "AI 进度报告" : "AI Weekly Report"}{!isMaxPlan(plan) && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+              <div className="tdtag">{lang === "th" ? "รายงานพัฒนาการรายสัปดาห์ที่ AI สร้างเป็นการส่วนตัว" : lang === "zh" ? "AI 个性化生成的每周进度总结" : "AI-generated personal weekly progress report"}</div>
+            </div>
+            <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
+          </button>
+          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
+            onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } setAiModalType("plan"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}>
+            <span className="tdico">🗓️</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="tdlbl">{lang === "th" ? "แผนซ้อมส่วนตัว AI" : lang === "zh" ? "AI 练习计划" : "AI Practice Plan"}{!isMaxPlan(plan) && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+              <div className="tdtag">{lang === "th" ? "แผนซ้อม 7 วัน AI วิเคราะห์จุดอ่อนส่วนตัว" : lang === "zh" ? "AI 根据弱点生成的7天个性化练习计划" : "Personalized 7-day AI plan based on your weak spots"}</div>
+            </div>
+            <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
           </button>
           <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins}
             onOpenShop={() => setShopOpen(true)} onOpenHelp={() => setHelpOpen(true)} />
@@ -11979,7 +12014,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     <div className={`prtier max${plan === "max" ? " cur" : ""}`}>
                       <div className="prtier-top"><span className="prtier-nm">👑 Max</span>{priceBlk("max")}</div>
                       {saveLine("max")}
-                      <ul className="prfeat"><li>✓ {lc.prMax2}</li><li>✓ {lc.prMax3}</li><li>✓ {lc.prMax4}</li></ul>
+                      <ul className="prfeat"><li>✓ {lc.prMax2}</li><li>✓ {lc.prMax3}</li><li>✓ {lc.prMax4}</li><li>✓ {lc.prMax5}</li><li>✓ {lc.prMax6}</li></ul>
                       {buyBtn("max")}
                     </div>
                     <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`}>
@@ -12005,6 +12040,79 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* CHECKOUT — PromptPay QR + slip upload */}
       {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} />}
+
+      {/* AI WEEKLY REPORT / AI PRACTICE PLAN MODAL (Max exclusive) */}
+      {aiModalOpen && (
+        <div className="setov" onClick={() => { if (!aiModalLoading) setAiModalOpen(false); }}>
+          <div className="setcard" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+            <div className="sethdr">
+              <span>{aiModalType === "report"
+                ? (lang === "th" ? "📋 รายงานพัฒนาการ AI" : lang === "zh" ? "📋 AI 进度报告" : "📋 AI Weekly Report")
+                : (lang === "th" ? "🗓️ แผนซ้อมส่วนตัว AI" : lang === "zh" ? "🗓️ AI 练习计划" : "🗓️ AI Practice Plan")}</span>
+              <button className="cbtn" onClick={() => { if (!aiModalLoading) setAiModalOpen(false); }}>{lc.close}</button>
+            </div>
+            <div className="setbody" style={{ padding: "12px 16px" }}>
+              {!aiModalText && !aiModalLoading && (
+                <button className="songbtn go" style={{ width: "100%", marginTop: 8 }}
+                  onClick={async () => {
+                    setAiModalLoading(true);
+                    const log = readPracticeLog();
+                    const mem = readMemory();
+                    const st = readStreak();
+                    let sessW = 0, accSumW = 0, accNW = 0;
+                    for (let i = 0; i < 7; i++) {
+                      const d = new Date(); d.setDate(d.getDate() - i);
+                      const e = log[dayKey(d)]; if (e) { sessW += e.n; accSumW += (e.accSum || 0); accNW += e.n; }
+                    }
+                    const wkAcc = accNW ? Math.round(accSumW / accNW) : null;
+                    const struggles = (mem.struggles || []).slice(0, 3).map((s) => s.label).join(", ");
+                    const mastered = (mem.mastered || []).slice(0, 3).join(", ");
+                    const ctx = `Streak: ${st.count || 0} days. This week: ${sessW} sessions, accuracy ${wkAcc != null ? wkAcc + "%" : "no data"}. Weak spots: ${struggles || "none"}. Mastered: ${mastered || "none"}.`;
+                    const prompt = aiModalType === "report"
+                      ? (lang === "th"
+                        ? `คุณเป็นครูสอนเปียโน AI ที่เป็นกันเอง เขียนรายงานพัฒนาการเปียโนรายสัปดาห์ที่อบอุ่นและให้กำลังใจ (ประมาณ 150-200 คำ) โดยอิงจากข้อมูลนี้: ${ctx} เขียนเป็นภาษาไทย`
+                        : lang === "zh"
+                        ? `你是一位亲切的AI钢琴老师。根据以下数据撰写一份温暖、鼓励性的每周钢琴进度报告（约150-200字）：${ctx} 请用中文撰写。`
+                        : `You are a friendly AI piano teacher. Write a warm, encouraging weekly piano progress report (~150-200 words) based on: ${ctx}`)
+                      : (lang === "th"
+                        ? `คุณเป็นครูสอนเปียโน AI ที่เชี่ยวชาญ สร้างแผนซ้อมเปียโนส่วนตัว 7 วัน (รายวัน) โดยอิงจากข้อมูลนี้: ${ctx} รายละเอียดแต่ละวัน: ชื่อกิจกรรม เวลาโดยประมาณ เหตุผลที่เหมาะกับผู้เรียน เขียนเป็นภาษาไทย`
+                        : lang === "zh"
+                        ? `你是一位专业的AI钢琴老师。根据以下数据，为学生制定一份7天个性化练习计划（每天详细说明练习内容和大概时长）：${ctx} 请用中文撰写。`
+                        : `You are an expert AI piano teacher. Create a personalized 7-day piano practice schedule (with daily details: activity, estimated time, why it suits this learner) based on: ${ctx}`);
+                    try {
+                      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: prompt, conversationHistory: [], stream: false }) });
+                      if (!res.ok) throw new Error("http");
+                      const data = await res.json();
+                      const txt = (typeof data.text === "string" ? data.text : "") || (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+                      setAiModalText(txt || (lang === "th" ? "ไม่สามารถสร้างได้ในขณะนี้ กรุณาลองใหม่" : lang === "zh" ? "暂时无法生成，请重试" : "Could not generate. Please try again."));
+                    } catch (_) {
+                      setAiModalText(lang === "th" ? "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" : lang === "zh" ? "出错了，请重试" : "An error occurred. Please try again.");
+                    }
+                    setAiModalLoading(false);
+                  }}>
+                  {lang === "th" ? "✨ สร้างเลย" : lang === "zh" ? "✨ 立即生成" : "✨ Generate"}
+                </button>
+              )}
+              {aiModalLoading && (
+                <div style={{ textAlign: "center", padding: "28px 0", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, fontSize: "14px" }}>
+                  ⏳ {lang === "th" ? "กำลังสร้าง..." : lang === "zh" ? "生成中..." : "Generating..."}
+                </div>
+              )}
+              {aiModalText && (
+                <>
+                  <div style={{ fontSize: "13.5px", lineHeight: 1.75, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "pre-wrap", padding: "4px 0 8px" }}>
+                    {aiModalText}
+                  </div>
+                  <button className="songbtn" style={{ width: "100%", marginTop: 4 }}
+                    onClick={() => { setAiModalText(""); setAiModalLoading(false); }}>
+                    {lang === "th" ? "🔄 สร้างใหม่" : lang === "zh" ? "🔄 重新生成" : "🔄 Regenerate"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PARENT DASHBOARD (premium) */}
       {parentOpen && (() => {
