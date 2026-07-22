@@ -3990,7 +3990,7 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .studioback{position:absolute;left:12px;top:12px;background:rgba(255,255,255,.06);border:1px solid var(--bd4);color:var(--text2);border-radius:9px;padding:6px 12px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer;z-index:2}
 /* sight-reading */
 .sightov .practicebody{align-items:stretch}
-.staffwrap{background:var(--card2);border:1px solid var(--bd2);border-radius:16px;padding:14px 8px;margin:6px 0;transition:box-shadow .2s,border-color .2s}
+.staffwrap{background:#ffffff;border:1px solid var(--bd2);border-radius:16px;padding:14px 8px;margin:6px 0;transition:box-shadow .2s,border-color .2s}
 .staffwrap.ok{border-color:#d97757;box-shadow:0 0 24px -8px #d97757}
 .staffwrap.bad{border-color:#ff5252;box-shadow:0 0 24px -8px #ff5252}
 .staffsvg{display:block;max-height:175px}
@@ -5916,11 +5916,11 @@ const StaffSVG = memo(function StaffSVG({ note, clef = "treble" }) {
   const stemUp = step < 4;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="staffsvg" width="100%" preserveAspectRatio="xMidYMid meet">
-      {lineYs.map((ly, i) => <line key={i} x1="14" y1={ly} x2={W - 14} y2={ly} stroke="var(--muted)" strokeWidth="1.4" />)}
+      {lineYs.map((ly, i) => <line key={i} x1="14" y1={ly} x2={W - 14} y2={ly} stroke="#d97757" strokeWidth="1.4" />)}
       {clef === "bass"
-        ? <text x="20" y={baseY - 2 * half + 4} fontSize="64" fill="var(--text)" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119074;</text>
-        : <text x="18" y={baseY + 6} fontSize="78" fill="var(--text)" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119070;</text>}
-      {ledgers.map((ly, i) => <line key={"l" + i} x1={noteX - 16} y1={ly} x2={noteX + 16} y2={ly} stroke="var(--muted)" strokeWidth="1.4" />)}
+        ? <text x="20" y={baseY - 2 * half + 4} fontSize="64" fill="#d97757" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119074;</text>
+        : <text x="18" y={baseY + 6} fontSize="78" fill="#d97757" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119070;</text>}
+      {ledgers.map((ly, i) => <line key={"l" + i} x1={noteX - 16} y1={ly} x2={noteX + 16} y2={ly} stroke="#d97757" strokeWidth="1.4" />)}
       <line x1={stemUp ? noteX + 9 : noteX - 9} y1={y} x2={stemUp ? noteX + 9 : noteX - 9} y2={y + (stemUp ? -46 : 46)} stroke="#d97757" strokeWidth="2.4" />
       <ellipse cx={noteX} cy={y} rx="10" ry="7.5" fill="#d97757" transform={`rotate(-18 ${noteX} ${y})`} />
     </svg>
@@ -7161,83 +7161,45 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
   );
 });
 
-/* ── Coach page (nav bar, Max plan): the same AI coaching analysis the Pathway-page popup
-   shows, always available on demand — current problem, how to fix it, and which in-app
-   feature to practice with, so acting on the advice is one tap away. ── */
+/* ── Daily Mentor page: shows practice stats, 7-day activity chart, and weak spots. ── */
 const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const [current, setCurrent] = useState(() => { const log = readAutoTeachLog(); return log[log.length - 1] || null; });
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(false);
-  const [history, setHistory] = useState(() => readAutoTeachLog().slice(0, -1).slice(-6).reverse());
-  const mem = readMemory();
-  const struggles = (mem.struggles || []).slice(0, 6);
-  // "has data" now also checks the full activity journal (readActLog) — a learner who's
-  // only done lessons/ear-training/reading has plenty to analyze even with an empty
-  // struggles/recent cache, which only Practice Mode/Play Along/Sight-Reading feed.
-  const hasData = (mem.recent || []).length > 0 || struggles.length > 0 || readActLog().length > 0;
-  // Local, synchronous — renders instantly without waiting on the AI call, and is the exact
-  // same numbers generateCoachTip's prompt reasons over (see coachStatsToText).
   const stats = useMemo(() => computeCoachStats(profile, lang), [profile, lang]);
   const accDelta = stats.acc7 != null && stats.accPrev != null ? stats.acc7 - stats.accPrev : null;
-
-  const refresh = useCallback(async () => {
-    setBusy(true);
-    setErr(false);
-    try {
-      const obj = await generateCoachTip(lang, profile);
-      if (obj) {
-        logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature);
-        setCurrent({ t: Date.now(), weakness: obj.weakness, tip: obj.steps.join(" / "), feature: obj.feature, steps: obj.steps });
-        setHistory(readAutoTeachLog().slice(0, -1).slice(-6).reverse());
-      } else {
-        setErr(true);
-      }
-    } catch (e) { setErr(true); }
-    setBusy(false);
-  }, [lang, profile]);
-
-  // Skip auto-firing on a genuinely blank profile — nothing to analyze yet, and asking the
-  // AI to invent a "weakness" out of zero data would just show a brand-new learner a made-up tip.
-  useEffect(() => { if (!current && hasData) refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const steps = current && (current.steps || (current.tip ? current.tip.split(" / ") : []));
-  const feature = current && COACH_FEATURE_LABELS[current.feature || "pathway"];
+  const hasData = readActLog().length > 0;
 
   return (
     <div className="profscroll">
       <div className="profsec">
         <div className="profsec-h">🎯 {T("Daily Mentor", "Daily Mentor", "Daily Mentor")}</div>
         <div className="admstu-row-sub" style={{ marginBottom: 12, whiteSpace: "normal", overflow: "visible", textOverflow: "clip" }}>
-          {T("สรุปจุดอ่อนตอนนี้ วิธีแก้ และควรฝึกด้วยฟีเจอร์ไหนของแอป — อัปเดตทุกครั้งที่กดวิเคราะห์ใหม่",
-            "Your current weak spot, how to fix it, and which app feature to practice with — refresh any time.",
-            "当前薄弱点、解决方法，以及应该用哪个功能来练习——随时可以重新分析。")}
+          {T("สถิติการซ้อมและจุดที่ควรฝึกเพิ่ม อัปเดตอัตโนมัติหลังทุกเซสชัน",
+            "Your practice stats and weak spots — updated automatically after every session.",
+            "练习统计与待提升项目——每次练习后自动更新。")}
         </div>
 
-        {hasData && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-            <div className="instile" style={{ minWidth: 0 }}><b>{stats.level}</b><span>{T("เลเวล", "Level", "等级")}</span></div>
-            <div className="instile" style={{ minWidth: 0 }}><b>{stats.streak}🔥</b><span>{T("สตรีค", "Streak", "连续")}</span></div>
-            <div className="instile" style={{ minWidth: 0 }}><b>{stats.days7}/7</b><span>{T("วันที่ซ้อม", "Days practiced", "练习天数")}</span></div>
-            <div className="instile" style={{ minWidth: 0 }}>
-              <b>{stats.acc7 == null ? "—" : stats.acc7 + "%"}
-                {accDelta != null && accDelta !== 0 && (
-                  <span style={{ fontSize: 9, marginLeft: 3, color: accDelta > 0 ? "#d97757" : "#ff5252" }}>
-                    {accDelta > 0 ? "▲" : "▼"}{Math.abs(accDelta)}
-                  </span>
-                )}
-              </b>
-              <span>{T("แม่นยำ 7 วัน", "7-day accuracy", "7天准确率")}</span>
-            </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <div className="instile" style={{ minWidth: 0 }}><b>{stats.level}</b><span>{T("เลเวล", "Level", "等级")}</span></div>
+          <div className="instile" style={{ minWidth: 0 }}><b>{stats.streak}🔥</b><span>{T("สตรีค", "Streak", "连续")}</span></div>
+          <div className="instile" style={{ minWidth: 0 }}><b>{stats.days7}/7</b><span>{T("วันที่ซ้อม", "Days practiced", "练习天数")}</span></div>
+          <div className="instile" style={{ minWidth: 0 }}>
+            <b>{stats.acc7 == null ? "—" : stats.acc7 + "%"}
+              {accDelta != null && accDelta !== 0 && (
+                <span style={{ fontSize: 9, marginLeft: 3, color: accDelta > 0 ? "#d97757" : "#ff5252" }}>
+                  {accDelta > 0 ? "▲" : "▼"}{Math.abs(accDelta)}
+                </span>
+              )}
+            </b>
+            <span>{T("แม่นยำ 7 วัน", "7-day accuracy", "7天准确率")}</span>
           </div>
-        )}
+        </div>
 
         {stats.daily && stats.daily.some(d => d.practiced) && (() => {
           const maxMin = Math.max(1, ...stats.daily.map(d => d.min));
           const dayLabels = ["Su","Mo","Tu","We","Th","Fr","Sa"];
           const accent = "#d97757";
           return (
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 16 }}>
               <div className="admstu-sec" style={{ marginBottom: 8 }}>📈 {T("กิจกรรม 7 วัน", "7-Day Activity", "近7天练习")}</div>
               <svg viewBox="0 0 280 72" style={{ width: "100%", height: 72, overflow: "visible" }}>
                 {stats.daily.map((d, i) => {
@@ -7268,8 +7230,8 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
           );
         })()}
 
-        {stats.weakest.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
+        {stats.weakest.length > 0 ? (
+          <div style={{ marginBottom: 8 }}>
             <div className="admstu-sec" style={{ marginBottom: 6 }}>📊 {T("จุดที่ควรเก็บ (อัตราพลาด)", "Spots to polish (miss rate)", "待加强项目（错误率）")}</div>
             {stats.weakest.map((w, i) => (
               <div key={i} className="wkrow">
@@ -7279,47 +7241,28 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {busy && !current ? (
-          <div className="atdash-empty">⏳ {T("กำลังวิเคราะห์...", "Analyzing...", "正在分析...")}</div>
-        ) : current ? (
-          <div className="atdash-last">
-            <div className="atdash-last-w">{current.weakness}</div>
-            {steps && steps.length > 0 && (
-              <ol className="songanalysis-steps" style={{ marginTop: 8 }}>
-                {steps.map((s, i) => <li key={i}>{s}</li>)}
-              </ol>
-            )}
-            {feature && (
-              <button className="songbtn go" style={{ width: "100%", marginTop: 12 }}
-                onClick={() => onNavigate(current.feature || "pathway")}>
-                ▶ {T("ไปฝึก: ", "Practice: ", "去练习：") + feature[lang]}
-              </button>
-            )}
-            <div className="atdash-last-d">{new Date(current.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
-          </div>
-        ) : err ? (
-          <div className="atdash-empty">{T("วิเคราะห์ไม่สำเร็จ — เช็กอินเทอร์เน็ตแล้วลองใหม่ด้วยปุ่มด้านล่าง", "Couldn't analyze right now — check your connection and try again below.", "分析失败——请检查网络连接，然后点击下方按钮重试。")}</div>
-        ) : (
-          <div className="atdash-empty">{T("ยังไม่มีข้อมูลการซ้อม — ลองฝึกในสตูดิโอก่อน แล้วกลับมาดูคำแนะนำ", "No practice data yet — try the Studio first, then come back for coaching.", "暂无练习数据——先去工作室练习，再回来查看建议。")}</div>
-        )}
-
-        <button className="songbtn ghost" style={{ width: "100%", marginTop: 14 }} disabled={busy} onClick={refresh}>
-          {busy ? "⏳" : "🔄"} {T("วิเคราะห์ใหม่", "Re-analyze", "重新分析")}
-        </button>
-
-        {history.length > 0 && (<>
-          <div className="admstu-sec" style={{ marginTop: 18 }}>{T("คำแนะนำก่อนหน้า", "Earlier tips", "以往建议")}</div>
-          {history.map((h, i) => (
-            <div key={i} className="atdash-last" style={{ marginTop: 8 }}>
-              <div className="atdash-last-w">{h.weakness}</div>
-              <div className="atdash-last-t">{h.tip}</div>
-              <div className="atdash-last-d">{new Date(h.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
+            <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--card2)", borderRadius: 12, borderLeft: "3px solid #d97757" }}>
+              <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>
+                💡 {T("คำแนะนำ", "Recommendation", "建议")}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.6 }}>
+                {T(
+                  `ควรฝึกซ้อมเพิ่มใน${stats.weakest.slice(0, 3).map(w => w.label).join(", ")} เพื่อเพิ่มความแม่นยำและลดอัตราการพลาด`,
+                  `Focus your practice on ${stats.weakest.slice(0, 3).map(w => w.label).join(", ")} to improve accuracy and reduce errors.`,
+                  `建议重点练习${stats.weakest.slice(0, 3).map(w => w.label).join("、")}，以提高准确率并减少失误。`
+                )}
+              </div>
             </div>
-          ))}
-        </>)}
+          </div>
+        ) : hasData ? (
+          <div style={{ padding: "14px", background: "var(--card2)", borderRadius: 12, textAlign: "center", color: "var(--text2)", fontSize: 13 }}>
+            🎉 {T("ยอดเยี่ยม! ยังไม่มีจุดที่พลาดซ้ำในช่วงนี้ ฝึกต่อไปเลย!", "Great job! No repeated mistakes found yet. Keep practicing!", "太棒了！目前没有重复失误。继续加油！")}
+          </div>
+        ) : (
+          <div style={{ padding: "14px", background: "var(--card2)", borderRadius: 12, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+            {T("ยังไม่มีข้อมูลการซ้อม — เริ่มฝึกในสตูดิโอแล้วกลับมาดูข้อมูลที่นี่", "No practice data yet — start a session in Studio to see your stats here.", "暂无练习数据——先去练习，数据会自动显示在这里。")}
+          </div>
+        )}
       </div>
     </div>
   );
