@@ -6400,19 +6400,55 @@ const COACH_FEATURE_LABELS = {
   reading_course: { th: "คอร์สฝึกอ่านโน้ตทีละบท (Reading)", en: "Note-Reading course", zh: "识谱课程（Reading）" },
   pathway: { th: "ทบทวนบทเรียนในเส้นทางการเรียนรู้", en: "Review Pathway lessons", zh: "复习学习路径课程" },
 };
+// Gathers the same data the Profile page's own dashboards (My Stats heatmap/trend, badges,
+// daily quest, streak) are built from, condensed into one text block — so a coaching
+// analysis reasons over the learner's whole account, not just a handful of locally-flagged
+// struggles. Reuses the exact aggregation InsightsPage already uses for "My Stats".
+function buildCoachContext(profile, lang) {
+  const log = readActLog();
+  const now = Date.now(), dayMs = 86400000;
+  let ok7 = 0, miss7 = 0, sec7 = 0, okPrev = 0, missPrev = 0;
+  const days7 = new Set();
+  const byTopic = {};
+  for (const e of log) {
+    if (e.t >= now - 7 * dayMs) {
+      ok7 += e.ok; miss7 += e.miss; sec7 += e.sec;
+      if (e.sec > 0) days7.add(e.d);
+    } else if (e.t >= now - 14 * dayMs) {
+      okPrev += e.ok; missPrev += e.miss;
+    }
+    if (e.k !== "voice" && e.ok + e.miss >= 1) {
+      const key = e.k + "|" + e.id;
+      const b = byTopic[key] || (byTopic[key] = { e, ok: 0, miss: 0 });
+      b.ok += e.ok; b.miss += e.miss;
+    }
+  }
+  const acc7 = ok7 + miss7 > 0 ? Math.round(ok7 / (ok7 + miss7) * 100) : null;
+  const accPrev = okPrev + missPrev > 0 ? Math.round(okPrev / (okPrev + missPrev) * 100) : null;
+  const weakest = Object.values(byTopic)
+    .filter(b => b.ok + b.miss >= 4 && b.miss > 0)
+    .map(b => ({ label: actTopicLabel(b.e, lang), rate: Math.round(b.miss / (b.ok + b.miss) * 100), n: b.ok + b.miss }))
+    .sort((a, b) => b.rate - a.rate).slice(0, 5);
+  const info = levelInfo((profile && profile.exp) || 0);
+  const badgeCount = unlockedBadgeIds(profile).length;
+  const questOk = questToday(profile) >= QUEST_GOAL;
+  const weakestTxt = weakest.length ? weakest.map(w => `${w.label} (${w.rate}% miss over ${w.n} tries)`).join("; ") : "none with enough attempts yet";
+  return `Level ${info.level}, ${(profile && profile.streak) || 0}-day streak, ${(profile && profile.lessons_done) || 0} lessons completed, ${badgeCount}/${BADGES.length} badges earned, today's quest ${questOk ? "done" : "not done yet"}. Last 7 days: practiced ${days7.size}/7 days (${Math.round(sec7 / 60)} min total), accuracy ${acc7 == null ? "no data" : acc7 + "%"}${accPrev != null ? ` (previous week was ${accPrev}%)` : ""}. Weakest topics by miss rate across all history: ${weakestTxt}.`;
+}
 // Shared core of the AI coaching analysis — used by both the Auto Teaching popup (timer-driven,
 // PianoApp) and the dedicated Coach nav page (on-demand, CoachPage). Module-level (not inside
-// either component) since it only needs `lang` and the module-level readMemory()/apiHeaders().
-async function generateCoachTip(lang) {
+// either component) since it only needs `lang`/`profile` and the module-level helpers above.
+async function generateCoachTip(lang, profile) {
   const mem = readMemory();
   const struggle = (mem.struggles || [])[0];
   const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
   const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "none flagged yet — infer the most likely weak spot from recent practice";
+  const profileTxt = buildCoachContext(profile, lang);
   const featureKeys = Object.keys(COACH_FEATURE_LABELS).join(", ");
   const sysByLang = {
-    th: `คุณคือ "ครู TiGA" กำลังให้คำแนะนำการฝึกซ้อมส่วนตัว อิงจากข้อมูลการฝึกที่ผ่านมา: ${recentTxt} จุดอ่อนล่าสุด: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness สั้นไม่เกิน 15 คำ บอกปัญหาตอนนี้ steps มี 2-4 ข้อ วิธีฝึกแก้ทีละขั้น เน้นว่าต้องฝึกสม่ำเสมอทุกวันแล้วจะดีขึ้น แต่ละข้อไม่เกิน 15 คำ feature ต้องเป็นค่าจากรายการนี้เท่านั้น (เลือกตัวที่ช่วยแก้จุดอ่อนนี้ได้ดีที่สุด): ${featureKeys} ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
-    zh: `你是"TiGA老师"，正在给出个性化的练习建议，依据以往的练习数据：${recentTxt} 当前薄弱点：${struggleTxt}\n\n只回JSON {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness 不超过15字，说明当前问题，steps 为2-4个简短练习步骤，强调坚持每天练习会进步，每条不超过15字，feature 必须是以下之一（选择最能解决该薄弱点的）：${featureKeys}，用中文，JSON外不要任何文字`,
-    en: `You are "Teacher TiGA" giving personalized practice coaching, based on past practice history: ${recentTxt}. Current weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness under 15 words naming the current problem, steps has 2-4 short fix-it steps emphasizing consistent daily practice, each under 15 words, feature must be exactly one of: ${featureKeys} (pick whichever helps this weak spot most). No text outside the JSON.`,
+    th: `คุณคือ "ครู TiGA" กำลังให้คำแนะนำการฝึกซ้อมส่วนตัว อิงจากข้อมูลบัญชีผู้เรียนทั้งหมด: ${profileTxt} เซสชันฝึกล่าสุด: ${recentTxt} จุดอ่อนที่เพิ่งถูกบันทึก: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness สั้นไม่เกิน 15 คำ บอกปัญหาตอนนี้ (พิจารณาทั้งภาพรวมบัญชีและข้อมูลล่าสุดประกอบกัน) steps มี 2-4 ข้อ วิธีฝึกแก้ทีละขั้น เน้นว่าต้องฝึกสม่ำเสมอทุกวันแล้วจะดีขึ้น แต่ละข้อไม่เกิน 15 คำ feature ต้องเป็นค่าจากรายการนี้เท่านั้น (เลือกตัวที่ช่วยแก้จุดอ่อนนี้ได้ดีที่สุด): ${featureKeys} ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
+    zh: `你是"TiGA老师"，正在给出个性化的练习建议，依据学员账户的完整数据：${profileTxt} 最近的练习记录：${recentTxt} 刚被记录的薄弱点：${struggleTxt}\n\n只回JSON {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness 不超过15字，说明当前问题（综合账户整体情况和最近数据），steps 为2-4个简短练习步骤，强调坚持每天练习会进步，每条不超过15字，feature 必须是以下之一（选择最能解决该薄弱点的）：${featureKeys}，用中文，JSON外不要任何文字`,
+    en: `You are "Teacher TiGA" giving personalized practice coaching, based on the learner's full account data: ${profileTxt} Recent practice sessions: ${recentTxt}. Most recently flagged weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness under 15 words naming the current problem (weigh both the overall account picture and the recent data), steps has 2-4 short fix-it steps emphasizing consistent daily practice, each under 15 words, feature must be exactly one of: ${featureKeys} (pick whichever helps this weak spot most). No text outside the JSON.`,
   };
   const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me my current coaching recommendation.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en }) });
   const data = await res.json();
@@ -7078,7 +7114,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
 /* ── Coach page (nav bar, Max plan): the same AI coaching analysis the Pathway-page popup
    shows, always available on demand — current problem, how to fix it, and which in-app
    feature to practice with, so acting on the advice is one tap away. ── */
-const CoachPage = memo(function CoachPage({ lang, onNavigate }) {
+const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [current, setCurrent] = useState(() => { const log = readAutoTeachLog(); return log[log.length - 1] || null; });
   const [busy, setBusy] = useState(false);
@@ -7086,13 +7122,16 @@ const CoachPage = memo(function CoachPage({ lang, onNavigate }) {
   const [history, setHistory] = useState(() => readAutoTeachLog().slice(0, -1).slice(-6).reverse());
   const mem = readMemory();
   const struggles = (mem.struggles || []).slice(0, 6);
-  const hasData = (mem.recent || []).length > 0 || struggles.length > 0;
+  // "has data" now also checks the full activity journal (readActLog) — a learner who's
+  // only done lessons/ear-training/reading has plenty to analyze even with an empty
+  // struggles/recent cache, which only Practice Mode/Play Along/Sight-Reading feed.
+  const hasData = (mem.recent || []).length > 0 || struggles.length > 0 || readActLog().length > 0;
 
   const refresh = useCallback(async () => {
     setBusy(true);
     setErr(false);
     try {
-      const obj = await generateCoachTip(lang);
+      const obj = await generateCoachTip(lang, profile);
       if (obj) {
         logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature);
         setCurrent({ t: Date.now(), weakness: obj.weakness, tip: obj.steps.join(" / "), feature: obj.feature, steps: obj.steps });
@@ -7102,7 +7141,7 @@ const CoachPage = memo(function CoachPage({ lang, onNavigate }) {
       }
     } catch (e) { setErr(true); }
     setBusy(false);
-  }, [lang]);
+  }, [lang, profile]);
 
   // Skip auto-firing on a genuinely blank profile — nothing to analyze yet, and asking the
   // AI to invent a "weakness" out of zero data would just show a brand-new learner a made-up tip.
@@ -8329,7 +8368,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (autoTeachTipRef.current || autoTeachBusyRef.current) return; // don't clobber an unread tip
     autoTeachBusyRef.current = true;
     try {
-      const obj = await generateCoachTip(lang);
+      const obj = await generateCoachTip(lang, profile);
       if (obj) {
         setAutoTeachTip(obj);
         logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature);
@@ -11188,7 +11227,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: COACH (Max plan) ─── */}
-      {page === "coach" && <CoachPage lang={lang} onNavigate={handleCoachNavigate} />}
+      {page === "coach" && <CoachPage lang={lang} profile={profile} onNavigate={handleCoachNavigate} />}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
       {page === "sensei" && (
