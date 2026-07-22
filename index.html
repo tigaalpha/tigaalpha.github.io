@@ -2266,7 +2266,7 @@ Analyze where/what pattern they missed, then give a fix. Reply with JSON only: {
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
-          navigator.serviceWorker.register("./sw.js").catch(function () {});
+          navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).catch(function () {});
         });
       }
     </script>
