@@ -6401,10 +6401,11 @@ const COACH_FEATURE_LABELS = {
   pathway: { th: "ทบทวนบทเรียนในเส้นทางการเรียนรู้", en: "Review Pathway lessons", zh: "复习学习路径课程" },
 };
 // Gathers the same data the Profile page's own dashboards (My Stats heatmap/trend, badges,
-// daily quest, streak) are built from, condensed into one text block — so a coaching
-// analysis reasons over the learner's whole account, not just a handful of locally-flagged
-// struggles. Reuses the exact aggregation InsightsPage already uses for "My Stats".
-function buildCoachContext(profile, lang) {
+// daily quest, streak) are built from, as a plain structured object — the single source
+// both the AI prompt text (coachStatsToText below) and Daily Mentor's on-screen chart
+// render from, so what the learner reads and what the AI reasons over never disagree.
+// Reuses the exact aggregation InsightsPage already uses for "My Stats".
+function computeCoachStats(profile, lang) {
   const log = readActLog();
   const now = Date.now(), dayMs = 86400000;
   let ok7 = 0, miss7 = 0, sec7 = 0, okPrev = 0, missPrev = 0;
@@ -6430,10 +6431,15 @@ function buildCoachContext(profile, lang) {
     .map(b => ({ label: actTopicLabel(b.e, lang), rate: Math.round(b.miss / (b.ok + b.miss) * 100), n: b.ok + b.miss }))
     .sort((a, b) => b.rate - a.rate).slice(0, 5);
   const info = levelInfo((profile && profile.exp) || 0);
-  const badgeCount = unlockedBadgeIds(profile).length;
-  const questOk = questToday(profile) >= QUEST_GOAL;
-  const weakestTxt = weakest.length ? weakest.map(w => `${w.label} (${w.rate}% miss over ${w.n} tries)`).join("; ") : "none with enough attempts yet";
-  return `Level ${info.level}, ${(profile && profile.streak) || 0}-day streak, ${(profile && profile.lessons_done) || 0} lessons completed, ${badgeCount}/${BADGES.length} badges earned, today's quest ${questOk ? "done" : "not done yet"}. Last 7 days: practiced ${days7.size}/7 days (${Math.round(sec7 / 60)} min total), accuracy ${acc7 == null ? "no data" : acc7 + "%"}${accPrev != null ? ` (previous week was ${accPrev}%)` : ""}. Weakest topics by miss rate across all history: ${weakestTxt}.`;
+  return {
+    level: info.level, streak: (profile && profile.streak) || 0, lessonsDone: (profile && profile.lessons_done) || 0,
+    badgeCount: unlockedBadgeIds(profile).length, badgeTotal: BADGES.length, questOk: questToday(profile) >= QUEST_GOAL,
+    days7: days7.size, min7: Math.round(sec7 / 60), acc7, accPrev, weakest,
+  };
+}
+function coachStatsToText(s) {
+  const weakestTxt = s.weakest.length ? s.weakest.map(w => `${w.label} (${w.rate}% miss over ${w.n} tries)`).join("; ") : "none with enough attempts yet";
+  return `Level ${s.level}, ${s.streak}-day streak, ${s.lessonsDone} lessons completed, ${s.badgeCount}/${s.badgeTotal} badges earned, today's quest ${s.questOk ? "done" : "not done yet"}. Last 7 days: practiced ${s.days7}/7 days (${s.min7} min total), accuracy ${s.acc7 == null ? "no data" : s.acc7 + "%"}${s.accPrev != null ? ` (previous week was ${s.accPrev}%)` : ""}. Weakest topics by miss rate across all history: ${weakestTxt}.`;
 }
 // Shared core of the AI coaching analysis — used by both the Auto Teaching popup (timer-driven,
 // PianoApp) and the dedicated Coach nav page (on-demand, CoachPage). Module-level (not inside
@@ -6443,12 +6449,12 @@ async function generateCoachTip(lang, profile) {
   const struggle = (mem.struggles || [])[0];
   const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
   const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "none flagged yet — infer the most likely weak spot from recent practice";
-  const profileTxt = buildCoachContext(profile, lang);
+  const profileTxt = coachStatsToText(computeCoachStats(profile, lang));
   const featureKeys = Object.keys(COACH_FEATURE_LABELS).join(", ");
   const sysByLang = {
-    th: `คุณคือ "ครู TiGA" กำลังให้คำแนะนำการฝึกซ้อมส่วนตัว อิงจากข้อมูลบัญชีผู้เรียนทั้งหมด: ${profileTxt} เซสชันฝึกล่าสุด: ${recentTxt} จุดอ่อนที่เพิ่งถูกบันทึก: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness สั้นไม่เกิน 15 คำ บอกปัญหาตอนนี้ (พิจารณาทั้งภาพรวมบัญชีและข้อมูลล่าสุดประกอบกัน) steps มี 2-4 ข้อ วิธีฝึกแก้ทีละขั้น เน้นว่าต้องฝึกสม่ำเสมอทุกวันแล้วจะดีขึ้น แต่ละข้อไม่เกิน 15 คำ feature ต้องเป็นค่าจากรายการนี้เท่านั้น (เลือกตัวที่ช่วยแก้จุดอ่อนนี้ได้ดีที่สุด): ${featureKeys} ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
-    zh: `你是"TiGA老师"，正在给出个性化的练习建议，依据学员账户的完整数据：${profileTxt} 最近的练习记录：${recentTxt} 刚被记录的薄弱点：${struggleTxt}\n\n只回JSON {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness 不超过15字，说明当前问题（综合账户整体情况和最近数据），steps 为2-4个简短练习步骤，强调坚持每天练习会进步，每条不超过15字，feature 必须是以下之一（选择最能解决该薄弱点的）：${featureKeys}，用中文，JSON外不要任何文字`,
-    en: `You are "Teacher TiGA" giving personalized practice coaching, based on the learner's full account data: ${profileTxt} Recent practice sessions: ${recentTxt}. Most recently flagged weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness under 15 words naming the current problem (weigh both the overall account picture and the recent data), steps has 2-4 short fix-it steps emphasizing consistent daily practice, each under 15 words, feature must be exactly one of: ${featureKeys} (pick whichever helps this weak spot most). No text outside the JSON.`,
+    th: `คุณคือ "ครู TiGA" กำลังให้คำแนะนำการฝึกซ้อมส่วนตัว อิงจากข้อมูลบัญชีผู้เรียนทั้งหมด: ${profileTxt} เซสชันฝึกล่าสุด: ${recentTxt} จุดอ่อนที่เพิ่งถูกบันทึก: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness สั้นไม่เกิน 15 คำ บอกปัญหาตอนนี้ (พิจารณาทั้งภาพรวมบัญชีและข้อมูลล่าสุดประกอบกัน) steps มีสูงสุด 3 ข้อเท่านั้น (ไม่เกิน 3 เด็ดขาด) แต่ละข้อต้องเป็นสิ่งที่ทำได้จริงวันนี้เลย เจาะจงมาก ระบุหัวข้อ/ท่อน/เพลงที่ควรฝึกจากข้อมูลด้านบนโดยตรง ไม่ใช่คำแนะนำทั่วไปลอยๆ แบบ "ฝึกให้มากขึ้น" — ทำตามแล้วต้องเก่งขึ้นจริง แต่ละข้อไม่เกิน 15 คำ feature ต้องเป็นค่าจากรายการนี้เท่านั้น (เลือกตัวที่ช่วยแก้จุดอ่อนนี้ได้ดีที่สุด): ${featureKeys} ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
+    zh: `你是"TiGA老师"，正在给出个性化的练习建议，依据学员账户的完整数据：${profileTxt} 最近的练习记录：${recentTxt} 刚被记录的薄弱点：${struggleTxt}\n\n只回JSON {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness 不超过15字，说明当前问题（综合账户整体情况和最近数据），steps 最多3条（绝不超过3条），每条必须是今天就能做到的具体行动，直接指出上面数据中该练哪个主题/曲目，不要「多加练习」这类空泛建议 — 照做后水平必须真正提升，每条不超过15字，feature 必须是以下之一（选择最能解决该薄弱点的）：${featureKeys}，用中文，JSON外不要任何文字`,
+    en: `You are "Teacher TiGA" giving personalized practice coaching, based on the learner's full account data: ${profileTxt} Recent practice sessions: ${recentTxt}. Most recently flagged weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness under 15 words naming the current problem (weigh both the overall account picture and the recent data), steps has AT MOST 3 items (never more than 3), each one a concrete action doable today, naming the specific topic/piece from the data above rather than generic advice like "practice more" — a learner who follows these should measurably improve, each under 15 words, feature must be exactly one of: ${featureKeys} (pick whichever helps this weak spot most). No text outside the JSON.`,
   };
   const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me my current coaching recommendation.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en }) });
   const data = await res.json();
@@ -6457,6 +6463,7 @@ async function generateCoachTip(lang, profile) {
   const obj = m ? JSON.parse(m[0]) : null;
   if (!obj || !obj.weakness || !Array.isArray(obj.steps) || !obj.steps.length) return null;
   if (!COACH_FEATURE_LABELS[obj.feature]) obj.feature = "pathway"; // guard against a hallucinated key
+  obj.steps = obj.steps.slice(0, 3); // enforce the "at most 3" cap even if the model overshoots
   return obj;
 }
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
@@ -7126,6 +7133,10 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
   // only done lessons/ear-training/reading has plenty to analyze even with an empty
   // struggles/recent cache, which only Practice Mode/Play Along/Sight-Reading feed.
   const hasData = (mem.recent || []).length > 0 || struggles.length > 0 || readActLog().length > 0;
+  // Local, synchronous — renders instantly without waiting on the AI call, and is the exact
+  // same numbers generateCoachTip's prompt reasons over (see coachStatsToText).
+  const stats = useMemo(() => computeCoachStats(profile, lang), [profile, lang]);
+  const accDelta = stats.acc7 != null && stats.accPrev != null ? stats.acc7 - stats.accPrev : null;
 
   const refresh = useCallback(async () => {
     setBusy(true);
@@ -7154,14 +7165,42 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
     <div className="profscroll">
       <div className="profsec">
         <div className="profsec-h">🎯 {T("Daily Mentor", "Daily Mentor", "Daily Mentor")}</div>
-        <div className="admstu-row-sub" style={{ marginBottom: 12 }}>
+        <div className="admstu-row-sub" style={{ marginBottom: 12, whiteSpace: "normal", overflow: "visible", textOverflow: "clip" }}>
           {T("สรุปจุดอ่อนตอนนี้ วิธีแก้ และควรฝึกด้วยฟีเจอร์ไหนของแอป — อัปเดตทุกครั้งที่กดวิเคราะห์ใหม่",
             "Your current weak spot, how to fix it, and which app feature to practice with — refresh any time.",
             "当前薄弱点、解决方法，以及应该用哪个功能来练习——随时可以重新分析。")}
         </div>
 
-        {struggles.length > 0 && (
-          <div className="pd-tags" style={{ marginBottom: 14 }}>{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div>
+        {hasData && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <div className="instile" style={{ minWidth: 0 }}><b>{stats.level}</b><span>{T("เลเวล", "Level", "等级")}</span></div>
+            <div className="instile" style={{ minWidth: 0 }}><b>{stats.streak}🔥</b><span>{T("สตรีค", "Streak", "连续")}</span></div>
+            <div className="instile" style={{ minWidth: 0 }}><b>{stats.days7}/7</b><span>{T("วันที่ซ้อม", "Days practiced", "练习天数")}</span></div>
+            <div className="instile" style={{ minWidth: 0 }}>
+              <b>{stats.acc7 == null ? "—" : stats.acc7 + "%"}
+                {accDelta != null && accDelta !== 0 && (
+                  <span style={{ fontSize: 9, marginLeft: 3, color: accDelta > 0 ? "#d97757" : "#ff5252" }}>
+                    {accDelta > 0 ? "▲" : "▼"}{Math.abs(accDelta)}
+                  </span>
+                )}
+              </b>
+              <span>{T("แม่นยำ 7 วัน", "7-day accuracy", "7天准确率")}</span>
+            </div>
+          </div>
+        )}
+
+        {stats.weakest.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div className="admstu-sec" style={{ marginBottom: 6 }}>📊 {T("จุดที่ควรเก็บ (อัตราพลาด)", "Spots to polish (miss rate)", "待加强项目（错误率）")}</div>
+            {stats.weakest.map((w, i) => (
+              <div key={i} className="wkrow">
+                <div className="wkbody">
+                  <div className="wktop"><span>{w.label}</span><b style={{ color: "#ff5252" }}>{w.rate}% · {w.n}×</b></div>
+                  <div className="wkbar"><div style={{ width: w.rate + "%", background: "#ff5252" }} /></div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         {busy && !current ? (
