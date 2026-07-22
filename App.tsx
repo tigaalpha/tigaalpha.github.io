@@ -12201,7 +12201,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <ol className="atpopup-steps">
               {autoTeachTip.steps.map((s, i) => <li key={i}>{s}</li>)}
             </ol>
-            <button className="atpopup-ok" onClick={() => setAutoTeachTip(null)}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { setAutoTeachTip(null); setPage("coach"); }}>
+                {lang === "th" ? "ดูรายละเอียด" : lang === "zh" ? "查看详情" : "Details"}
+              </button>
+              <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => setAutoTeachTip(null)}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
+            </div>
           </div>
         </div>
       )}
