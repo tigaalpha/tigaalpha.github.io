@@ -3737,11 +3737,6 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .payinfo b{color:var(--text);font-family:'Share Tech Mono',monospace}
 .payok{text-align:center;padding:10px 4px}
 .payok-h{font-family:'Orbitron',sans-serif;font-size:17px;font-weight:800;color:#d97757;margin:6px 0 8px}
-.sharebtn{width:100%;padding:12px;border-radius:12px;border:none;color:#fff;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:9px;display:flex;align-items:center;justify-content:center;gap:6px}
-.sharebtn.fb{background:#1877f2}
-.sharebtn.tk{background:linear-gradient(90deg,#25f4ee,#000,#fe2c55)}
-.sharebtn.done{opacity:.7;box-shadow:inset 0 0 0 2px #d97757}
-.sharebtn:active{transform:scale(.97)}
 .adminpay{flex:1;min-height:0;overflow-y:auto;padding:10px 14px 28px}
 .adminpay-cfg{background:var(--card3);border:1px solid #ff525233;border-radius:13px;padding:12px;margin-bottom:14px}
 .anrow{display:flex;align-items:center;gap:8px;padding:6px 0;font-family:'Rajdhani',sans-serif}
@@ -6541,14 +6536,6 @@ function usageToday(key) { try { const u = JSON.parse(localStorage.getItem("tg_u
 function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
 function canUse(key) { return isPremium() || usageToday(key) < (FREE_LIMITS[key] || 0); }
 
-/* ── Free-tier share gate: after 5 contents, free users share FB + TikTok to keep going ── */
-const SHARE_FB = "https://www.facebook.com/share/1AxGLtF5Dw/";
-const SHARE_TIKTOK = "https://www.tiktok.com/@tiga.piano_studio?_r=1&_t=ZS-97aTZMZ8oOC";
-const FREE_CONTENT_LIMIT = 20; // raised from 5 — was exhausted in a single first session
-function freeContentPlays() { try { return parseInt(localStorage.getItem("tg_content_plays") || "0", 10) || 0; } catch (e) { return 0; } }
-function bumpContentPlays() { try { localStorage.setItem("tg_content_plays", String(freeContentPlays() + 1)); } catch (e) {} }
-function hasSharedUnlock() { try { return localStorage.getItem("tg_shared") === "1"; } catch (e) { return false; } }
-function setSharedUnlock() { try { localStorage.setItem("tg_shared", "1"); } catch (e) {} }
 
 /* ── graded exam-prep curriculum (premium) ── */
 const EXAM_GRADES = [
@@ -7310,30 +7297,6 @@ function LockScreen({ lang, onUnlock }) {
 }
 
 /* ── Share gate: free users share FB + TikTok to keep playing past the free limit ── */
-function ShareGate({ lang, onClose, onUnlock, onUpgrade }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const [fb, setFb] = useState(false);
-  const [tk, setTk] = useState(false);
-  const open = (url, which) => { try { window.open(url, "_blank", "noopener"); } catch (e) {} which === "fb" ? setFb(true) : setTk(true); };
-  const ready = fb && tk;
-  return (
-    <div className="setov" onClick={onClose}>
-      <div className="setcard" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-        <div className="sethdr"><span>🎁 {T("เล่นต่อฟรี", "Keep playing free", "继续免费玩")}</span><button className="cbtn" onClick={onClose}>✕</button></div>
-        <div className="setbody">
-          <p className="pr-sub">{T("คุณเล่นครบ 5 เนื้อหาฟรีแล้ว! แค่แชร์/ติดตามเพจของเราทั้ง 2 ช่อง ก็เล่นต่อฟรีไม่อั้นเลย 💜", "You've enjoyed 5 free contents! Just share & follow our two pages to keep playing free, unlimited 💜", "你已体验5个免费内容！分享并关注我们的两个主页即可继续无限免费畅玩 💜")}</p>
-          <button className={`sharebtn fb${fb ? " done" : ""}`} onClick={() => open(SHARE_FB, "fb")}>{fb ? "✓ " : "📘 "}{T("แชร์ Facebook", "Share on Facebook", "分享 Facebook")}</button>
-          <button className={`sharebtn tk${tk ? " done" : ""}`} onClick={() => open(SHARE_TIKTOK, "tk")}>{tk ? "✓ " : "🎵 "}{T("ติดตาม TikTok", "Follow on TikTok", "关注 TikTok")}</button>
-          <button className="songbtn go" style={{ width: "100%", marginTop: 12 }} disabled={!ready} onClick={onUnlock}>
-            {ready ? "🔓 " + T("ปลดล็อก เล่นต่อเลย!", "Unlock & keep playing!", "解锁，继续玩！") : T("แตะแชร์ทั้ง 2 ช่องก่อน", "Tap both above first", "请先点上面两个")}
-          </button>
-          {onUpgrade && <button className="memberlink" style={{ marginTop: 10 }} onClick={onUpgrade}>{T("หรือสมัครพรีเมียม เล่นไม่อั้นไม่ต้องแชร์ →", "or go Premium — unlimited, no sharing →", "或升级 Premium — 无限畅玩免分享 →")}</button>}
-          <button className="memberlink" style={{ marginTop: 6 }} onClick={onClose}>{T("ภายหลัง", "Later", "稍后")}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ── Checkout: PromptPay QR for a plan + slip upload (verified by admin) ── */
 function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
@@ -8394,7 +8357,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [profile]);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [checkout, setCheckout] = useState(null);   // {plan, amount} → PromptPay payment modal
-  const [shareGate, setShareGate] = useState(false);  // free-tier share-to-continue gate
   const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
   const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
   // load the shop's PromptPay config (for the checkout QR)
@@ -9284,8 +9246,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   async function startSongPlay() {
     const data = songDataRef.current;
     if (!data) return;
-    if (!gateContent()) return;   // free limit reached → share to continue
-    bumpContentPlays();
     setSongBest(loadBest());
     songSamplesRef.current = [];
     try { songGhostDataRef.current = JSON.parse(localStorage.getItem("tg_ghost_" + (songMeta ? (songMeta.id || songMeta.en) : "x")) || "null"); } catch (e) { songGhostDataRef.current = null; }
@@ -10946,13 +10906,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const yr = cycle === "year";
     setCheckout({ plan: planId, amount: yr ? yearPrice(planId) : (PLAN_PRICE[planId] || 0), cycle, days: yr ? 365 : 30 });
   }
-  // free-tier gate: after FREE_CONTENT_LIMIT contents, require a share (or premium).
-  // Returns true if the learner may proceed; otherwise opens the share gate.
-  function gateContent() {
-    if (premium || hasSharedUnlock()) return true;
-    if (freeContentPlays() >= FREE_CONTENT_LIMIT) { setShareGate(true); playUi("click"); haptic(20); return false; }
-    return true;
-  }
   function activatePremium() { choosePlan("premium"); }
   function buyFreeze() {
     const cost = 120;
@@ -11150,8 +11103,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // ── learn a topic+key from the pathway menu: send to AI + go to sensei page ──
   function learnTopic(stage, key, chordType = null) {
-    if (!gateContent()) return;   // free limit reached → share to continue
-    bumpContentPlays();
     if (stage && stage.id) { markPathDone(stage.id); if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); }
     const basePrompt = stage.learn[lang] || stage.learn.en;
     const keyId = key ? key.id : "C";
@@ -12047,11 +11998,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* CHECKOUT — PromptPay QR + slip upload */}
       {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} />}
-
-      {/* FREE-TIER SHARE GATE — share FB + TikTok to keep playing */}
-      {shareGate && <ShareGate lang={lang} onClose={() => setShareGate(false)}
-        onUnlock={() => { setSharedUnlock(); setShareGate(false); playUi("levelup"); mascot("celebrate", 2400); }}
-        onUpgrade={() => { setShareGate(false); setPricingOpen(true); }} />}
 
       {/* PARENT DASHBOARD (premium) */}
       {parentOpen && (() => {
