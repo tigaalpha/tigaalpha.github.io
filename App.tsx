@@ -7418,14 +7418,14 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
   }, []);
 
   const ppId   = cfg && cfg.promptpay;
-  const aliQr  = cfg && cfg.alipay_qr;
-  const wxQr   = cfg && cfg.wechat_qr;
+  const aliQr  = (cfg && cfg.alipay_qr) || "./payqr/alipay.jpg";
+  const wxQr   = (cfg && cfg.wechat_qr) || "./payqr/wechat.png";
   const stripeOn = !!(cfg && cfg.stripe);
 
   // payment channels available for this language
   const channels = [
-    ...(lang === "zh" && aliQr ? [{ k: "ali", ic: "🔵", label: "Alipay 支付宝", method: "alipay" }] : []),
-    ...(lang === "zh" && wxQr  ? [{ k: "wx",  ic: "🟢", label: "WeChat 微信",   method: "wechat"  }] : []),
+    ...(lang === "zh" ? [{ k: "ali", ic: "🔵", label: "Alipay 支付宝", method: "alipay" }] : []),
+    ...(lang === "zh" ? [{ k: "wx",  ic: "🟢", label: "WeChat 微信",   method: "wechat"  }] : []),
     ...(lang === "th" && ppId  ? [{ k: "pp",  ic: "🇹🇭", label: "PromptPay",    method: "promptpay" }] : []),
   ];
   const [chanKey, setChanKey] = useState("");
