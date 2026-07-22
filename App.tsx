@@ -2854,10 +2854,10 @@ const L = {
     installBannerTitle: "ติดตั้ง TiGA AI ไว้ที่หน้าจอโฮม", installBannerSub: "เปิดได้ไวขึ้น ไม่ต้องหา URL ทุกครั้ง",
     setPush: "🔔 แจ้งเตือน",
     pushBannerTitle: "อย่าให้สตรีคหลุด!", pushBannerSub: "เปิดแจ้งเตือนไว้ เดี๋ยวเราจะเตือนถ้าลืมซ้อมวันนี้", pushBannerBtn: "เปิดแจ้งเตือน",
-    upgrade: "อัปเกรด", prTitle: "อัปเกรดเป็น Premium", prSub: "ปลดล็อกครู AI เต็มพลัง เรียนได้ไม่จำกัด", prMonth: "เดือน", prYear: "ปี", prSave3: "ประหยัด 3%", prBillMonth: "รายเดือน", prBillYear: "รายปี", prActive: "ใช้งานอยู่", prGet: "สมัครเลย",
-    prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "ครู AI ติชมการเล่นไม่จำกัด", prF3: "โหมดเตรียมสอบเกรด", prF4: "แดชบอร์ดผู้ปกครอง", prF5: "เสียงครูคุณภาพสูง + ไม่มีโฆษณา",
-    prFam1: "ทุกอย่างใน Premium", prFam2: "สูงสุด 3 โปรไฟล์ (ทั้งครอบครัว)", prFree1: "คีย์บอร์ด เกม บทเรียนพื้นฐาน", prFree2: "ครู AI (จำกัดรายวัน)",
-    prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "ทุกอย่างใน Family · สูงสุด 6 โปรไฟล์", prMax3: "รายงานพัฒนาการ AI รายสัปดาห์ + แผนซ้อมส่วนตัว AI", prMax4: "XP & เหรียญ ×2 · Streak Freeze 4 ใบ/เดือน", prMax5: "คลังเพลง Max Exclusive", prMax6: "แดชบอร์ดวิเคราะห์การเรียนรู้ขั้นสูง", prMxf1: "ทุกอย่างใน Max", prMxf2: "สูงสุด 10 โปรไฟล์", prMxf3: "แดชบอร์ดครอบครัว + รายงาน AI รายคนอัตโนมัติ", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
+    upgrade: "อัปเกรด", prTitle: "เลือกแผนที่ใช่สำหรับคุณ", prSub: "ครู AI ส่วนตัว 24/7 · ถูกกว่าเรียนพิเศษ 20 เท่า · ยกเลิกได้ทุกเมื่อ", prMonth: "เดือน", prYear: "ปี", prSave3: "ประหยัด 3%", prBillMonth: "รายเดือน", prBillYear: "รายปี", prActive: "ใช้งานอยู่", prGet: "สมัครเลย",
+    prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "🎯 ครู AI ติชมทุกโน้ตที่เล่น ไม่จำกัดครั้ง", prF3: "📝 โหมดเตรียมสอบเกรด + สร้างเพลงด้วย AI ไม่จำกัด", prF4: "👨‍👩‍👧 แดชบอร์ดผู้ปกครอง ติดตามพัฒนาการลูกแบบเรียลไทม์", prF5: "🔈 เสียงครูธรรมชาติคุณภาพสูง + ไม่มีโฆษณาตลอดการใช้",
+    prFam1: "⭐ Premium ครบทุกฟีเจอร์ ไม่มีตัดออก", prFam2: "👨‍👩‍👧‍👦 3 โปรไฟล์ใช้ได้พร้อมกัน", prFree1: "🎹 คีย์บอร์ดอินเทอร์แอคทีฟ + เกมฝึกหู + บทเรียนพื้นฐาน", prFree2: "🤖 ถามครู AI ได้ (จำกัดวันละ 5 ครั้ง)",
+    prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "✓ ทุกอย่างใน Family · สูงสุด 6 โปรไฟล์", prMax3: "🎙️ โหมดเสียง AI — คุยกับครู 1:1 สดๆ 24/7", prMax4: "📋 รายงาน AI รายสัปดาห์ + แผนซ้อม 7 วันส่วนตัว", prMax5: "🪙 XP & เหรียญ ×2 · 🛡️ Streak Freeze 4 ใบ/เดือน", prMax6: "🎵 เพลง Exclusive + 📊 แดชบอร์ดวิเคราะห์ขั้นสูง", prMxf1: "👑 Max ครบทุกฟีเจอร์ สำหรับทุกคนในบ้าน", prMxf2: "สูงสุด 10 โปรไฟล์ · ≈ เพียง ฿1,000/คน/เดือน", prMxf3: "📊 แดชบอร์ดครอบครัว + รายงาน AI แยกทุกโปรไฟล์", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
     trialBanner: "🎁 ทดลองใช้ฟรี", trialDaysLeft: "วันที่เหลือ", trialUpgrade: "อัปเกรดแผน", trialExpired: "หมดเวลาทดลองใช้แล้ว — เลือกแผนเพื่อเรียนต่อ",
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
     schoolInfo: "🏫 TiGA สำหรับโรงเรียนและครูเปียโน\n\n• ใช้เป็น 'เพื่อนซ้อมที่บ้าน' ให้นักเรียนระหว่างคาบเรียน — AI ช่วยฝึกทุกวัน ครูเห็นความก้าวหน้า\n• โหมดไฮบริด: AI สอนทุกวัน + ครูจริงเช็คเดือนละครั้ง\n• ราคาสถาบัน + แดชบอร์ดติดตามนักเรียนทั้งห้อง\n\nสนใจติดต่อ: LINE @tiga.ai 🎹",
@@ -2957,10 +2957,10 @@ const L = {
     installBannerTitle: "Add TiGA AI to your home screen", installBannerSub: "Open it faster — no more hunting for the URL",
     setPush: "🔔 Notifications",
     pushBannerTitle: "Don't lose your streak!", pushBannerSub: "Turn on notifications and we'll remind you if you forget to practice today", pushBannerBtn: "Enable notifications",
-    upgrade: "Upgrade", prTitle: "Go Premium", prSub: "Unlock the full AI teacher — learn without limits", prMonth: "mo", prYear: "yr", prSave3: "Save 3%", prBillMonth: "Monthly", prBillYear: "Yearly", prActive: "Active", prGet: "Subscribe",
-    prF1: "Unlimited AI song creation", prF2: "Unlimited AI performance feedback", prF3: "Graded exam prep mode", prF4: "Parent dashboard", prF5: "HQ teacher voice + no ads",
-    prFam1: "Everything in Premium", prFam2: "Up to 3 profiles (whole family)", prFree1: "Keyboard, games, core lessons", prFree2: "AI teacher (daily limit)",
-    prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "Everything in Family · up to 6 profiles", prMax3: "AI Weekly Report + Personalized AI Practice Plan", prMax4: "XP & Coins ×2 · Streak Freeze 4/month", prMax5: "Max Exclusive Song Library", prMax6: "Learning Analytics Dashboard", prMxf1: "Everything in Max", prMxf2: "Up to 10 profiles", prMxf3: "Family dashboard + per-member AI progress reports", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
+    upgrade: "Upgrade", prTitle: "Choose Your Plan", prSub: "Personal AI teacher 24/7 · 20× cheaper than private lessons · cancel anytime", prMonth: "mo", prYear: "yr", prSave3: "Save 3%", prBillMonth: "Monthly", prBillYear: "Yearly", prActive: "Active", prGet: "Subscribe",
+    prF1: "Unlimited AI song creation", prF2: "🎯 AI feedback on every note you play — unlimited", prF3: "📝 Graded exam prep mode + unlimited AI song creation", prF4: "👨‍👩‍👧 Parent dashboard · track your child's real progress", prF5: "🔈 Premium natural teacher voice + no ads ever",
+    prFam1: "⭐ Full Premium — every feature, nothing removed", prFam2: "👨‍👩‍👧‍👦 3 profiles sharing simultaneously", prFree1: "🎹 Interactive keyboard · ear games · core lessons", prFree2: "🤖 AI teacher (5 questions/day limit)",
+    prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "✓ Everything in Family · up to 6 profiles", prMax3: "🎙️ AI Voice Mode — live 1:1 chat with teacher 24/7", prMax4: "📋 AI weekly report + personalized 7-day practice plan", prMax5: "🪙 XP & coins ×2 · 🛡️ Streak Freeze 4 tokens/month", prMax6: "🎵 Max exclusive songs + 📊 analytics dashboard", prMxf1: "👑 Full Max features for every family member", prMxf2: "Up to 10 profiles · only ≈ ฿1,000/person/month", prMxf3: "📊 Family dashboard + individual AI reports per profile", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
     trialBanner: "🎁 Free Trial", trialDaysLeft: "days left", trialUpgrade: "Upgrade now", trialExpired: "Your free trial has ended — choose a plan to continue",
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
     schoolInfo: "🏫 TiGA for schools & piano teachers\n\n• Use it as the at-home practice companion between lessons — AI coaches daily, you see progress.\n• Hybrid mode: AI every day + a real teacher check-in monthly.\n• Institutional pricing + a whole-class progress dashboard.\n\nContact: LINE @tiga.ai 🎹",
@@ -3060,10 +3060,10 @@ const L = {
     installBannerTitle: "把 TiGA AI 添加到主屏幕", installBannerSub: "打开更快 — 不用每次找网址",
     setPush: "🔔 通知",
     pushBannerTitle: "别让连续记录中断！", pushBannerSub: "打开通知，忘记练习时我们会提醒你", pushBannerBtn: "开启通知",
-    upgrade: "升级", prTitle: "升级 Premium", prSub: "解锁完整 AI 老师，无限学习", prMonth: "月", prYear: "年", prSave3: "省3%", prBillMonth: "按月", prBillYear: "按年", prActive: "已开通", prGet: "立即订阅",
-    prF1: "无限 AI 创作歌曲", prF2: "无限 AI 演奏点评", prF3: "考级备考模式", prF4: "家长仪表板", prF5: "高清老师语音 + 无广告",
-    prFam1: "包含全部 Premium", prFam2: "最多 3 个档案（全家）", prFree1: "键盘、游戏、基础课程", prFree2: "AI 老师（每日限量）",
-    prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "包含全部 Family · 最多 6 个档案", prMax3: "AI 每周进度报告 + 个性化 AI 练习计划", prMax4: "XP & 金币 ×2 · 每月4次连续保护", prMax5: "Max 专属曲库", prMax6: "学习分析仪表盘", prMxf1: "包含全部 Max", prMxf2: "最多 10 个档案", prMxf3: "家庭仪表盘 + 每位成员自动 AI 进度报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
+    upgrade: "升级", prTitle: "选择适合您的套餐", prSub: "24/7 专属AI老师 · 比私教便宜20倍 · 随时取消", prMonth: "月", prYear: "年", prSave3: "省3%", prBillMonth: "按月", prBillYear: "按年", prActive: "已开通", prGet: "立即订阅",
+    prF1: "无限 AI 创作歌曲", prF2: "🎯 AI点评每一个弹奏音符，次数不限", prF3: "📝 考级备考模式 + 无限AI生成歌曲", prF4: "👨‍👩‍👧 家长仪表板，实时追踪孩子进度", prF5: "🔈 高品质自然老师语音 + 彻底无广告",
+    prFam1: "⭐ Premium全部功能，一个不少", prFam2: "👨‍👩‍👧‍👦 3个档案同时使用", prFree1: "🎹 互动键盘·听力游戏·基础课程", prFree2: "🤖 AI老师（每天限5次）",
+    prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "✓ 包含全部 Family · 最多 6 个档案", prMax3: "🎙️ AI语音模式 — 与老师实时1对1对话 24/7", prMax4: "📋 AI每周进度报告 + 7天个性化练习计划", prMax5: "🪙 XP & 金币×2 · 🛡️ 每月4次连续保护", prMax6: "🎵 Max专属曲库 + 📊 学习分析仪表盘", prMxf1: "👑 Max全部功能惠及家中每位成员", prMxf2: "最多10个档案 · 仅 ≈ ฿1,000/人/月", prMxf3: "📊 家庭仪表盘 + 每个档案独立AI报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
     trialBanner: "🎁 免费试用", trialDaysLeft: "天剩余", trialUpgrade: "立即升级", trialExpired: "免费试用已结束 — 选择套餐以继续使用",
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
     schoolInfo: "🏫 TiGA 面向学校与钢琴老师\n\n• 作为课后'在家练习伙伴'——AI 每天辅导，老师查看进度。\n• 混合模式：AI 每日教学 + 真人老师每月检查。\n• 机构价格 + 全班进度仪表板。\n\n联系：LINE @tiga.ai 🎹",
@@ -11992,40 +11992,93 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 const buyBtn = (tier) => plan === tier
                   ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
                   : <button className="songbtn go" onClick={() => startCheckout(tier, yr ? "year" : "month")}>{(plan === "free" || plan === "trial") ? lc.prGet : lc.prSwitch}</button>;
+                const mxfSavings = (10 * PLAN_PRICE.max - PLAN_PRICE.maxfamily).toLocaleString();
                 return (
                   <>
                     <div className="billtoggle">
                       <button className={`billtog${!yr ? " on" : ""}`} onClick={() => setBillCycle("month")}>{lc.prBillMonth}</button>
                       <button className={`billtog${yr ? " on" : ""}`} onClick={() => setBillCycle("year")}>{lc.prBillYear} <span className="billsave">-3%</span></button>
                     </div>
-                    <div className={`prtier hot${plan === "premium" ? " cur" : ""}`}>
-                      <div className="prtier-top"><span className="prtier-nm">⭐ Premium</span>{priceBlk("premium")}</div>
-                      {saveLine("premium")}
-                      <ul className="prfeat"><li>✓ {lc.prF2}</li><li>✓ {lc.prF3}</li><li>✓ {lc.prF4}</li><li>✓ {lc.prF5}</li></ul>
-                      {buyBtn("premium")}
+
+                    {/* ── MAX FAMILY — ไฮไลต์สุด ── */}
+                    <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`}
+                      style={{ border: "2.5px solid #d97757", position: "relative", marginTop: 24, paddingTop: 14 }}>
+                      <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "#d97757", color: "#fff", padding: "4px 18px", borderRadius: 20, fontSize: "11px", fontWeight: 900, letterSpacing: 0.5, whiteSpace: "nowrap" }}>
+                        {lang === "th" ? "🏆 คุ้มที่สุด — เลือกไว้เลย" : lang === "zh" ? "🏆 最超值 — 全家共享" : "🏆 Best Value — Most Complete"}
+                      </div>
+                      <div className="prtier-top">
+                        <span className="prtier-nm">👑👨‍👩‍👧 Max Family</span>
+                        <div style={{ textAlign: "right" }}>
+                          {priceBlk("maxfamily")}
+                          <div style={{ fontSize: "9px", color: "#d97757", fontWeight: 800, marginTop: 2 }}>
+                            {lang === "th" ? "≈ ฿1,000/คน/เดือน" : lang === "zh" ? "≈ ฿1,000/人/月" : "≈ ฿1,000/person/mo"}
+                          </div>
+                        </div>
+                      </div>
+                      {saveLine("maxfamily")}
+                      <div style={{ background: "rgba(217,119,87,.12)", border: "1px solid rgba(217,119,87,.35)", borderRadius: 8, padding: "7px 12px", margin: "6px 0 8px", fontSize: "11px", color: "#d97757", fontWeight: 700, textAlign: "center" }}>
+                        💰 {lang === "th" ? `ประหยัด ฿${mxfSavings}/เดือน เทียบซื้อ Max 10 คนแยก` : lang === "zh" ? `比10人分别买Max每月省฿${mxfSavings}` : `Save ฿${mxfSavings}/mo vs 10 separate Max plans`}
+                      </div>
+                      <ul className="prfeat">
+                        <li>✓ {lc.prMxf1}</li>
+                        <li>✓ {lc.prMxf2}</li>
+                        <li>✓ {lc.prMxf3}</li>
+                      </ul>
+                      {plan === "maxfamily"
+                        ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
+                        : <button className="songbtn go" style={{ fontWeight: 900 }} onClick={() => startCheckout("maxfamily", yr ? "year" : "month")}>
+                            {(plan === "free" || plan === "trial")
+                              ? (lang === "th" ? "🚀 สมัคร Max Family เลย" : lang === "zh" ? "🚀 立即订阅 Max Family" : "🚀 Get Max Family Now")
+                              : lc.prSwitch}
+                          </button>}
                     </div>
+
+                    {/* ── MAX ── */}
+                    <div className={`prtier max${plan === "max" ? " cur" : ""}`} style={{ position: "relative", marginTop: 6 }}>
+                      <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "#d97757", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
+                        ⚡ {lang === "th" ? "สุดยอด" : lang === "zh" ? "最受欢迎" : "Most Popular"}
+                      </div>
+                      <div className="prtier-top"><span className="prtier-nm">👑 Max</span>{priceBlk("max")}</div>
+                      {saveLine("max")}
+                      <ul className="prfeat">
+                        <li>{lc.prMax2}</li>
+                        <li>{lc.prMax3}</li>
+                        <li>{lc.prMax4}</li>
+                        <li>{lc.prMax5}</li>
+                        <li>{lc.prMax6}</li>
+                      </ul>
+                      {buyBtn("max")}
+                    </div>
+
+                    {/* ── FAMILY (monthly only) ── */}
                     {!yr && (
                       <div className={`prtier${plan === "family" ? " cur" : ""}`}>
-                        <div className="prtier-top"><span className="prtier-nm">👨‍👩‍👧 Family</span><span className="prtier-price">฿2,900<small>/{lc.prMonth}</small></span></div>
-                        <ul className="prfeat"><li>✓ {lc.prFam1}</li><li>✓ {lc.prFam2}</li></ul>
+                        <div className="prtier-top">
+                          <span className="prtier-nm">👨‍👩‍👧 Family</span>
+                          <div style={{ textAlign: "right" }}>
+                            <span className="prtier-price">฿2,900<small>/{lc.prMonth}</small></span>
+                            <div style={{ fontSize: "9px", color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>
+                              ≈ ฿967/{lang === "th" ? "คน" : lang === "zh" ? "人" : "person"}
+                            </div>
+                          </div>
+                        </div>
+                        <ul className="prfeat"><li>{lc.prFam1}</li><li>{lc.prFam2}</li></ul>
                         {buyBtn("family")}
                       </div>
                     )}
-                    <div className={`prtier max${plan === "max" ? " cur" : ""}`}>
-                      <div className="prtier-top"><span className="prtier-nm">👑 Max</span>{priceBlk("max")}</div>
-                      {saveLine("max")}
-                      <ul className="prfeat"><li>✓ {lc.prMax2}</li><li>✓ {lc.prMax3}</li><li>✓ {lc.prMax4}</li><li>✓ {lc.prMax5}</li><li>✓ {lc.prMax6}</li></ul>
-                      {buyBtn("max")}
+
+                    {/* ── PREMIUM ── */}
+                    <div className={`prtier${plan === "premium" ? " cur" : ""}`}>
+                      <div className="prtier-top"><span className="prtier-nm">⭐ Premium</span>{priceBlk("premium")}</div>
+                      {saveLine("premium")}
+                      <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li><li>{lc.prF4}</li><li>{lc.prF5}</li></ul>
+                      {buyBtn("premium")}
                     </div>
-                    <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`}>
-                      <div className="prtier-top"><span className="prtier-nm">👑👨‍👩‍👧 Max Family</span>{priceBlk("maxfamily")}</div>
-                      {saveLine("maxfamily")}
-                      <ul className="prfeat"><li>✓ {lc.prMxf1}</li><li>✓ {lc.prMxf2}</li><li>✓ {lc.prMxf3}</li></ul>
-                      {buyBtn("maxfamily")}
-                    </div>
+
+                    {/* ── FREE ── */}
                     <div className={`prtier free${plan === "free" ? " cur" : ""}`}>
                       <div className="prtier-top"><span className="prtier-nm">🎁 Free</span><span className="prtier-price">฿0</span></div>
-                      <ul className="prfeat"><li>✓ {lc.prFree1}</li><li>✓ {lc.prFree2}</li></ul>
+                      <ul className="prfeat"><li>{lc.prFree1}</li><li>{lc.prFree2}</li></ul>
                       {plan !== "free" && plan !== "trial" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
                     </div>
                   </>
