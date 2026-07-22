@@ -5443,25 +5443,6 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       fn: () => { playUi("click"); isMax ? onAnalytics && onAnalytics() : onUpsell && onUpsell(); },
     },
     {
-      k: "freeze",
-      ic: "🛡️",
-      t: T("Streak Freeze", "Streak Freeze", "连击保护"),
-      s: isMax
-        ? T(`${freezeCount} ใบคงเหลือ — รับ 4 ใบ/เดือนอัตโนมัติ`, `${freezeCount} remaining — auto-granted 4/month`, `剩余 ${freezeCount} 张 — 每月自动赠送4张`)
-        : T("Max ได้ 4 ใบ/เดือนฟรี — ป้องกันสตรีคหาย", "Max gets 4 free/month — shields your streak", "Max 每月免费4张 — 保护连击不中断"),
-      fn: () => { playUi("click"); if (!isMax) { onUpsell && onUpsell(); } },
-    },
-    {
-      k: "multiplier",
-      ic: "🪙",
-      t: T("XP & Coin ×2", "XP & Coin ×2", "XP & 金币 ×2"),
-      s: isMax
-        ? T("คุณรับ XP และเหรียญเป็น 2 เท่า — ใช้งานอยู่แล้ว ✓", "You earn double XP & coins — active ✓", "你正在获得双倍 XP 和金币 — 已激活 ✓")
-        : T("Max รับ XP และเหรียญ 2 เท่าทุกครั้งที่ฝึก", "Max users earn double XP & coins every session", "Max 用户每次练习获得双倍 XP 和金币"),
-      fn: () => { playUi("click"); if (!isMax) { onUpsell && onUpsell(); } },
-      active: isMax,
-    },
-    {
       k: "maxsongs",
       ic: "👑",
       t: T("เพลง Max Exclusive", "Max Exclusive Songs", "Max 专属歌曲"),
