@@ -2266,7 +2266,24 @@ Analyze where/what pattern they missed, then give a fix. Reply with JSON only: {
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
-          navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).catch(function () {});
+          // Unregister any stale SW registrations on a different script URL, then register fresh.
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            var kept = null;
+            var kills = [];
+            regs.forEach(function (r) {
+              if (r.active && r.active.scriptURL && r.active.scriptURL.indexOf("sw.js") !== -1) {
+                kept = r;
+              } else {
+                kills.push(r.unregister());
+              }
+            });
+            return Promise.all(kills);
+          }).then(function () {
+            return navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+          }).then(function (reg) {
+            // Force immediate update check — bypasses 24-hour throttle
+            reg.update();
+          }).catch(function () {});
         });
       }
     </script>

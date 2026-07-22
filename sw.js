@@ -1,7 +1,7 @@
 /* TiGA Piano service worker — app-shell cache for offline use.
    Network-first for navigations (so updates show when online), cache fallback
    when offline. Cross-origin requests (AI API, fonts) are left untouched. */
-const CACHE = "tiga-v4"; // bumped: force staff white bg refresh
+const CACHE = "tiga-v5"; // bumped: white staff bg + orange clef
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
