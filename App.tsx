@@ -4067,6 +4067,14 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .lbexp small{font-size:9px;color:var(--muted)}
 .lbempty{text-align:center;font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--muted);padding:14px}
 .songcard-badge{display:inline-block;margin-left:7px;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;color:var(--card2);background:var(--sc,#d97757);border-radius:5px;padding:2px 5px;vertical-align:middle}
+/* Studio Max section */
+.studio-max-hdr{display:flex;align-items:center;gap:8px;padding:18px 14px 6px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--muted);border-top:1px solid var(--bd2);margin-top:8px}
+.studio-max-badge{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:900;letter-spacing:1px;color:#fff;background:#d97757;border-radius:6px;padding:2px 7px}
+.studio-max-unlock{margin-left:auto;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;color:#d97757;background:rgba(217,119,87,.12);border:1px solid rgba(217,119,87,.4);border-radius:12px;padding:2px 10px;cursor:pointer}
+.studio-max-card.locked{opacity:.7}
+.studio-max-card.locked .songcard-go{color:#d97757}
+.studio-max-card.active{background:rgba(217,119,87,.07)}
+.max-lock-ico{position:absolute;bottom:-4px;right:-4px;font-size:11px;line-height:1}
 /* AI voice tutor */
 .vmstage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:12px 16px 6px;flex-shrink:0}
 .vmorb{position:relative;width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;background:var(--card2);border:2px solid var(--bd4);transition:border-color .3s;cursor:pointer;padding:0;color:inherit;-webkit-tap-highlight-color:transparent}
@@ -5397,10 +5405,12 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false }) {
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell }) {
   const lc = L[lang];
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const isMax = isMaxPlan(plan);
   const cards = [
-    { k: "today",   ic: "📅", c: "#d97757", t: lc.navToday,        s: lang === "th" ? "แผนซ้อมวันนี้ — สร้างใหม่ทุกวันจากความคืบหน้าจริง" : lang === "zh" ? "今日计划 — 每天根据真实进度生成" : "Today's plan — rebuilt daily from your real progress", fn: onToday },
+    { k: "today",   ic: "📅", c: "#d97757", t: lc.navToday,        s: T("แผนซ้อมวันนี้ — สร้างใหม่ทุกวันจากความคืบหน้าจริง", "Today's plan — rebuilt daily from your real progress", "今日计划 — 每天根据真实进度生成"), fn: onToday },
     { k: "songs",   ic: "🎵", c: "#d97757", t: lc.studioPlayAlong, s: lc.studioPlayAlongSub, fn: onSongs },
     { k: "eargym",  ic: "👂", c: "#ff76d8", t: lc.navEar,          s: lc.studioEarSub,       fn: onEarGym },
     { k: "reading", ic: "🎼", c: "#ff94e0", t: lc.navRead,         s: lc.studioReadSub,      fn: onReading },
@@ -5408,6 +5418,58 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     { k: "sight",   ic: "📄", c: "#d97757", t: lc.studioSight,     s: lc.studioSightSub,     fn: onSight },
     { k: "camera",  ic: "✋", c: "#d97757", t: lc.studioCamera,    s: lc.studioCameraSub,    fn: onCamera },
   ];
+
+  // Max-exclusive feature cards — shown for all users; locked = upsell if not Max
+  const maxCards = [
+    {
+      k: "ai-report",
+      ic: "📋",
+      t: T("รายงาน AI รายสัปดาห์", "AI Weekly Report", "AI 周进度报告"),
+      s: T("วิเคราะห์พัฒนาการ 7 วันที่ผ่านมาโดย AI", "AI-generated progress analysis every 7 days", "AI 自动生成7天进度分析"),
+      fn: () => { playUi("click"); isMax ? onAiReport && onAiReport() : onUpsell && onUpsell(); },
+    },
+    {
+      k: "ai-plan",
+      ic: "🗓️",
+      t: T("แผนซ้อมส่วนตัว 7 วัน", "AI Practice Plan", "AI 7日练习计划"),
+      s: T("AI สร้างตารางซ้อม 7 วันเฉพาะสำหรับคุณ", "Personalised 7-day schedule built by AI", "AI 为你量身定制7天练习表"),
+      fn: () => { playUi("click"); isMax ? onAiPlan && onAiPlan() : onUpsell && onUpsell(); },
+    },
+    {
+      k: "analytics",
+      ic: "📊",
+      t: T("แดชบอร์ดวิเคราะห์ขั้นสูง", "Learning Analytics", "学习数据分析"),
+      s: T("EXP, สตรีค, ทักษะ — กราฟเจาะลึกทุกด้าน", "Deep charts: EXP, streak, skill breakdown", "深度图表：EXP、连击、技能分布"),
+      fn: () => { playUi("click"); isMax ? onAnalytics && onAnalytics() : onUpsell && onUpsell(); },
+    },
+    {
+      k: "freeze",
+      ic: "🛡️",
+      t: T("Streak Freeze", "Streak Freeze", "连击保护"),
+      s: isMax
+        ? T(`${freezeCount} ใบคงเหลือ — รับ 4 ใบ/เดือนอัตโนมัติ`, `${freezeCount} remaining — auto-granted 4/month`, `剩余 ${freezeCount} 张 — 每月自动赠送4张`)
+        : T("Max ได้ 4 ใบ/เดือนฟรี — ป้องกันสตรีคหาย", "Max gets 4 free/month — shields your streak", "Max 每月免费4张 — 保护连击不中断"),
+      fn: () => { playUi("click"); if (!isMax) { onUpsell && onUpsell(); } },
+    },
+    {
+      k: "multiplier",
+      ic: "🪙",
+      t: T("XP & Coin ×2", "XP & Coin ×2", "XP & 金币 ×2"),
+      s: isMax
+        ? T("คุณรับ XP และเหรียญเป็น 2 เท่า — ใช้งานอยู่แล้ว ✓", "You earn double XP & coins — active ✓", "你正在获得双倍 XP 和金币 — 已激活 ✓")
+        : T("Max รับ XP และเหรียญ 2 เท่าทุกครั้งที่ฝึก", "Max users earn double XP & coins every session", "Max 用户每次练习获得双倍 XP 和金币"),
+      fn: () => { playUi("click"); if (!isMax) { onUpsell && onUpsell(); } },
+      active: isMax,
+    },
+    {
+      k: "maxsongs",
+      ic: "👑",
+      t: T("เพลง Max Exclusive", "Max Exclusive Songs", "Max 专属歌曲"),
+      s: T("เพลงพิเศษสงวนไว้สำหรับ Max เท่านั้น", "Premium songs reserved for Max members only", "仅 Max 会员专享的特选曲目"),
+      fn: () => { playUi("click"); isMax ? onSongs && onSongs() : onUpsell && onUpsell(); },
+    },
+  ];
+
   return (
     <div className="pathpage songpage">
       <div className="pathhero">
@@ -5418,13 +5480,38 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       </div>
       <div className="songgrid">
         {cards.map(c => (
-          <button key={c.k} className="songcard" style={{ "--sc": c.c }} onClick={c.fn}>
+          <button key={c.k} className="songcard" style={{ "--sc": c.c } as React.CSSProperties} onClick={c.fn}>
             <div className="songcard-ic">{c.ic}</div>
             <div className="songcard-body">
               <div className="songcard-nm">{c.t}{c.badge && <span className="songcard-badge">{c.badge}</span>}</div>
               <div className="songcard-meta"><span>{c.s}</span></div>
             </div>
             <span className="songcard-go">▶</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Max Exclusive section ── */}
+      <div className="studio-max-hdr">
+        <span className="studio-max-badge">👑 MAX</span>
+        <span>{T("ฟีเจอร์พิเศษเฉพาะ Max", "Max Exclusive Features", "Max 专属功能")}</span>
+        {!isMax && <button className="studio-max-unlock" onClick={() => { playUi("click"); onUpsell && onUpsell(); }}>
+          {T("อัปเกรด →", "Upgrade →", "升级 →")}
+        </button>}
+      </div>
+      <div className="songgrid">
+        {maxCards.map(c => (
+          <button key={c.k} className={`songcard studio-max-card${isMax ? "" : " locked"}${c.active ? " active" : ""}`}
+            style={{ "--sc": "#d97757" } as React.CSSProperties} onClick={c.fn}>
+            <div className="songcard-ic" style={{ position: "relative" }}>
+              {c.ic}
+              {!isMax && <span className="max-lock-ico">🔒</span>}
+            </div>
+            <div className="songcard-body">
+              <div className="songcard-nm">{c.t}</div>
+              <div className="songcard-meta"><span>{c.s}</span></div>
+            </div>
+            <span className="songcard-go">{isMax ? (c.active ? "✓" : "▶") : "👑"}</span>
           </button>
         ))}
       </div>
@@ -11486,7 +11573,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "studio" && (
         studioView === "songs"
           ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
-          : <StudioPage lang={lang} voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)} onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }} onSongs={() => setStudioView("songs")} onSight={openSight} onCamera={openCamera} onExam={() => { playUi("click"); premium ? setExamOpen(true) : setPricingOpen(true); }} onEarGym={() => { playUi("click"); logUsage("nav", "studio-eargym"); setPage("eargym"); }} onReading={() => { playUi("click"); logUsage("nav", "studio-reading"); setPage("reading"); }} onToday={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }} />
+          : <StudioPage lang={lang} plan={plan} freezeCount={readStreak().freezes || 0}
+              voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
+              onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
+              onSongs={() => setStudioView("songs")}
+              onSight={openSight} onCamera={openCamera}
+              onExam={() => { playUi("click"); premium ? setExamOpen(true) : setPricingOpen(true); }}
+              onEarGym={() => { playUi("click"); logUsage("nav", "studio-eargym"); setPage("eargym"); }}
+              onReading={() => { playUi("click"); logUsage("nav", "studio-reading"); setPage("reading"); }}
+              onToday={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }}
+              onAiReport={() => { logUsage("nav", "studio-ai-report"); setAiModalType("report"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}
+              onAiPlan={() => { logUsage("nav", "studio-ai-plan"); setAiModalType("plan"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}
+              onAnalytics={() => { logUsage("nav", "studio-analytics"); setPage("insights"); }}
+              onUpsell={() => setPricingOpen(true)} />
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
