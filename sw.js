@@ -1,8 +1,9 @@
 /* TiGA Piano service worker — app-shell cache for offline use.
-   Network-first for navigations (so updates show when online), cache fallback
-   when offline. Cross-origin requests (AI API, fonts) are left untouched. */
-const CACHE = "tiga-v8";
-const SHELL = ["./manifest.webmanifest", "./icon.svg"]; // index.html intentionally excluded
+   Stale-while-revalidate for navigations: serve cached index.html instantly
+   then update cache in background so next visit is always fresh.
+   Cross-origin requests (AI API, fonts) are left untouched. */
+const CACHE = "tiga-v9";
+const SHELL = ["./", "./manifest.webmanifest", "./icon.svg", "./alipay.jpg", "./wechat.png"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
@@ -25,8 +26,21 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
 
-  // Never intercept navigation — always let the browser fetch index.html fresh
-  if (req.mode === "navigate") return;
+  // Navigation: stale-while-revalidate — serve cached shell immediately, update in background
+  if (req.mode === "navigate") {
+    e.respondWith(
+      caches.open(CACHE).then((cache) =>
+        cache.match(req).then((cached) => {
+          const networkFetch = fetch(req).then((resp) => {
+            if (resp && resp.status === 200) cache.put(req, resp.clone());
+            return resp;
+          }).catch(() => cached);
+          return cached || networkFetch;
+        })
+      )
+    );
+    return;
+  }
 
   e.respondWith(
     caches.match(req).then((cached) =>
