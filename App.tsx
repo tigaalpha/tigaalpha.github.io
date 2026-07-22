@@ -7438,9 +7438,9 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
     if (!uid || stripeLoading) return;
     setStripeLoading(true);
     try {
-      const res = await fetch(API_URL.replace("/chat", "").replace(/\/+$/, "") + "/functions/v1/stripe-checkout", {
+      const res = await fetch(SUPABASE_URL + "/functions/v1/stripe-checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...apiHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ plan: checkout.plan, cycle: checkout.cycle || "month", cur }),
       });
       const data = await res.json();
@@ -7482,7 +7482,7 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
     if (!error) { setCfg(value); playUi("levelup"); }
   }
 
-  const showStripeBtn = stripeOn && (lang === "th" || lang === "en");
+  const showStripeBtn = lang === "th" || lang === "en";
   const hasQrChannel = channels.length > 0;
   const nothingConfigured = !showStripeBtn && !hasQrChannel;
 
@@ -8603,6 +8603,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [checkout, setCheckout] = useState(null);   // {plan, amount} → PromptPay payment modal
   const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
   const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
+  const [stripeReturn, setStripeReturn] = useState<null|"pending"|"done">(null); // ?paid=1 return state
+  // Detect Stripe success redirect (?paid=1) — clear URL param, refresh profile after webhook delay
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("paid") !== "1") return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("paid");
+    window.history.replaceState({}, "", url.pathname + (url.search || ""));
+    setStripeReturn("pending");
+    playUi("levelup");
+    // Give Stripe webhook ~4s to update the profile, then re-fetch
+    const t = setTimeout(() => {
+      sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
+        .then(({ data }) => { if (data) { setProfile(data); } setStripeReturn("done"); });
+      setTimeout(() => setStripeReturn(null), 4000);
+    }, 4000);
+    return () => clearTimeout(t);
+  }, []);
   // load the shop's PromptPay config (for the checkout QR)
   useEffect(() => {
     if (!session) return;
@@ -12670,6 +12688,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="chesttitle">{lc.chestOpening}</div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Stripe payment success banner */}
+      {stripeReturn && (
+        <div className="exptoast" style={{ background: stripeReturn === "done" ? "#4caf50" : "#d97757", top: 72 }}>
+          <span>{stripeReturn === "done" ? "✅" : "⏳"}</span>
+          <span>{stripeReturn === "done"
+            ? (lang === "th" ? "เปิดใช้งานแผนแล้ว!" : lang === "zh" ? "套餐已激活！" : "Plan activated!")
+            : (lang === "th" ? "ชำระเงินสำเร็จ กำลังเปิดใช้งาน..." : lang === "zh" ? "支付成功，正在激活..." : "Payment received, activating...")}</span>
         </div>
       )}
 
