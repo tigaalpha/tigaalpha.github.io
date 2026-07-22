@@ -7406,6 +7406,8 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
   const [savingCfg, setSavingCfg] = useState(false);
   const [pp, setPp] = useState(""); const [nm, setNm] = useState(""); const [bk, setBk] = useState("");
   const [aliQrField, setAliQrField] = useState(""); const [wxQrField, setWxQrField] = useState("");
+  const [zhTab, setZhTab] = useState<"ali"|"wx">("ali"); // Chinese tab: alipay | wechat
+  const zhFileRef = useRef(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const fileRef = useRef(null);
   const amountThb = checkout.amount;                        // always THB (for slip DB record)
@@ -7486,7 +7488,7 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
 
   const showStripeBtn = lang === "th" || lang === "en";
   const hasQrChannel = channels.length > 0;
-  const nothingConfigured = !showStripeBtn && !hasQrChannel;
+  const nothingConfigured = !showStripeBtn && !hasQrChannel && lang !== "zh";
 
   return (
     <div className="setov" onClick={onClose}>
@@ -7508,6 +7510,32 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
                 <b className="prtier-price">{fmtPrice(cur, dispAmt)}<small>/{checkout.cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b>
               </div>
 
+              {/* ── Chinese: Alipay + WeChat QR (hardcoded, no config needed) ── */}
+              {lang === "zh" && (
+                <>
+                  <div className="paychans">
+                    <button className={`paychanbtn${zhTab === "ali" ? " on" : ""}`} onClick={() => { playUi("click"); setZhTab("ali"); }}>
+                      <span className="paychan-ic">🔵</span> Alipay 支付宝
+                    </button>
+                    <button className={`paychanbtn${zhTab === "wx" ? " on" : ""}`} onClick={() => { playUi("click"); setZhTab("wx"); }}>
+                      <span className="paychan-ic">🟢</span> WeChat 微信
+                    </button>
+                  </div>
+                  <img className="payqr ext" src={zhTab === "wx" ? WECHAT_QR : ALIPAY_QR} alt={zhTab === "wx" ? "WeChat Pay QR" : "Alipay QR"} style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />
+                  <p className="pr-sub" style={{ textAlign: "center" }}>
+                    {zhTab === "wx"
+                      ? `打开微信 → 扫一扫 → 支付 ¥${cnySt.toLocaleString()}`
+                      : `打开支付宝 → 扫一扫 → 支付 ¥${cnySt.toLocaleString()}`}
+                  </p>
+                  <p className="pr-sub" style={{ textAlign: "center", marginTop: 0 }}>付款后上传截图以确认订单</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => zhFileRef.current && zhFileRef.current.click()}>
+                    {st === "uploading" ? "⏳ 上传中..." : "📤 上传付款截图"}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">上传失败，请重试</div>}
+                  <input ref={zhFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+
               {/* ── Stripe button (Thai + English) ── */}
               {showStripeBtn && (
                 <>
@@ -7519,27 +7547,14 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
                 </>
               )}
 
-              {/* ── QR channel selector (Chinese: Alipay/WeChat; Thai: PromptPay) ── */}
-              {hasQrChannel && channels.length > 1 && (
-                <div className="paychans">
-                  {channels.map(c => (
-                    <button key={c.k} className={`paychanbtn${selChan && selChan.k === c.k ? " on" : ""}`}
-                      onClick={() => { playUi("click"); setChanKey(c.k); }}>
-                      <span className="paychan-ic">{c.ic}</span> {c.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* ── PromptPay ── */}
+              {/* ── Thai: PromptPay ── */}
               {selChan && selChan.k === "pp" && (
                 <>
                   {qr ? <img className="payqr" src={qr} alt="PromptPay QR" /> : <div className="aicreate-err">{T("สร้าง QR ไม่ได้", "Couldn't make QR", "无法生成二维码")}</div>}
                   <div className="payinfo">
                     <div>📱 PromptPay: <b>{ppId}</b></div>
-                    {cfg.name && <div>👤 {cfg.name}</div>}
-                    {cfg.bank && <div>🏦 {cfg.bank}</div>}
-                    {cur !== "thb" && <div>💵 {T("ยอดโอน", "Amount to pay", "转账金额")}: <b>฿{amountThb.toLocaleString()}</b></div>}
+                    {cfg && cfg.name && <div>👤 {cfg.name}</div>}
+                    {cfg && cfg.bank && <div>🏦 {cfg.bank}</div>}
                   </div>
                   <p className="pr-sub">{T("สแกน QR ด้วยแอปธนาคาร โอนตามยอด แล้วอัปโหลดสลิปเพื่อยืนยัน", "Scan with your banking app, pay the exact amount, then upload the slip.", "用银行App扫码付款，然后上传凭证。")}</p>
                   <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
@@ -7550,46 +7565,13 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
                 </>
               )}
 
-              {/* ── Alipay ── */}
-              {selChan && selChan.k === "ali" && (
-                <>
-                  <img className="payqr ext" src={aliQr} alt="Alipay QR" />
-                  <p className="pr-sub">{`打开支付宝 → 扫一扫 → 支付 ¥${cnySt.toLocaleString()}，然后上传付款截图。`}</p>
-                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
-                    {st === "uploading" ? "⏳ 上传中..." : "📤 上传付款截图"}
-                  </button>
-                  {st === "error" && <div className="aicreate-err">上传失败，请重试</div>}
-                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
-                </>
-              )}
-
-              {/* ── WeChat Pay ── */}
-              {selChan && selChan.k === "wx" && (
-                <>
-                  <img className="payqr ext" src={wxQr} alt="WeChat Pay QR" />
-                  <p className="pr-sub">{`打开微信 → 扫一扫 → 支付 ¥${cnySt.toLocaleString()}，然后上传付款截图。`}</p>
-                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
-                    {st === "uploading" ? "⏳ 上传中..." : "📤 上传付款截图"}
-                  </button>
-                  {st === "error" && <div className="aicreate-err">上传失败，请重试</div>}
-                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
-                </>
-              )}
-
-              {/* ── English: Stripe-only, nothing else to show ── */}
-              {lang === "en" && !hasQrChannel && !showStripeBtn && (
-                <div className="aicreate-err">Payment is being set up — please try again shortly or contact us.</div>
-              )}
-
-              {/* ── Admin config (shown when nothing is configured) ── */}
+              {/* ── Admin config (Thai/English only, when nothing is configured) ── */}
               {nothingConfigured && isAdmin && (
                 <div className="adminpay-cfg" style={{ marginBottom: 0 }}>
                   <div className="admstu-nm" style={{ fontSize: 14 }}>⚙️ {T("ตั้งค่าช่องทางรับเงิน (แอดมิน)", "Configure payment channels (admin)", "配置收款渠道（管理员）")}</div>
                   <input value={pp} onChange={e => setPp(e.target.value)} placeholder={T("เบอร์ PromptPay หรือเลขผู้เสียภาษี", "PromptPay number or tax ID", "PromptPay 号码或税号")} inputMode="numeric" />
                   <input value={nm} onChange={e => setNm(e.target.value)} placeholder={T("ชื่อบัญชี / ร้าน", "Account / shop name", "账户/店名")} />
                   <input value={bk} onChange={e => setBk(e.target.value)} placeholder={T("ธนาคาร", "Bank (optional)", "银行（可选）")} />
-                  <input value={aliQrField} onChange={e => setAliQrField(e.target.value)} placeholder="Alipay QR path (e.g. ./payqr/alipay.jpg)" />
-                  <input value={wxQrField}  onChange={e => setWxQrField(e.target.value)}  placeholder="WeChat QR path (e.g. ./payqr/wechat.png)" />
                   <button className="songbtn go" style={{ width: "100%", marginTop: 9 }} disabled={savingCfg || !pp.trim()} onClick={saveCfgInline}>
                     {savingCfg ? "⏳ " + T("กำลังบันทึก…", "Saving…", "保存中…") : "💾 " + T("บันทึก", "Save", "保存")}
                   </button>
