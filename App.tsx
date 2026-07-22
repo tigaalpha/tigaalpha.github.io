@@ -1901,6 +1901,31 @@ function autoCorrelate(buf, sampleRate) {
   if (a) T0 = T0 - bb / (2 * a);
   return T0 ? sampleRate / T0 : -1;
 }
+// TIMBRE GATE: is this spectrum piano-shaped, or does it carry a vowel formant?
+// A struck piano string's overtones roll off in a fairly smooth curve (some natural
+// ripple from the hammer-strike position, but no single harmonic jumps out). A sung/
+// hummed/spoken vowel has a FORMANT — a resonance band fixed in absolute frequency no
+// matter what pitch is sung — so whichever harmonic happens to land inside it gets
+// boosted well above what the smooth rolloff around it would predict. That mismatch is
+// what this checks for, using the FFT magnitude data the caller already has on hand.
+// A generous margin is used on purpose: rejecting a real piano note is a worse failure
+// than occasionally letting a very piano-like hum slip through.
+function hasFormantSpike(db, sampleRate, fftSize, f0) {
+  if (!f0 || !db || !db.length) return false;
+  const binHz = sampleRate / fftSize;
+  const magAt = (freq) => {
+    const bin = Math.round(freq / binHz);
+    if (bin < 1 || bin >= db.length - 1) return -160;
+    return Math.max(db[bin - 1], db[bin], db[bin + 1]); // ±1 bin tolerates quantization
+  };
+  const H = 6; // fundamental + 5 overtones
+  const mags = []; for (let n = 1; n <= H; n++) mags.push(magAt(f0 * n));
+  for (let i = 1; i < H - 1; i++) {
+    const neighborAvg = (mags[i - 1] + mags[i + 1]) / 2;
+    if (mags[i] - neighborAvg > 14) return true; // one harmonic way louder than its neighbors predict
+  }
+  return false;
+}
 
 /* ── Polyphonic (chord) pitch detection from a microphone ──────────────
    The autocorrelation detector above is monophonic — it locks onto ONE
@@ -2056,6 +2081,7 @@ async function startMicListener(onDetect, onReady, onError, opts) {
       analyser.fftSize = 2048;
       src.connect(analyser);
       const buf = new Float32Array(analyser.fftSize);
+      const db = new Float32Array(analyser.frequencyBinCount);
       let last = null, stable = 0, silence = 2, fired = false;
       const recent = []; // last few raw frequencies → median smooths jitter & octave glitches
       const tick = () => {
@@ -2066,13 +2092,21 @@ async function startMicListener(onDetect, onReady, onError, opts) {
         if (note) {
           silence = 0;
           recent.push(f); if (recent.length > 4) recent.shift();
-          if (note === last) { stable++; } else { last = note; stable = 1; fired = false; } // a NEW pitch re-arms
-          // fire once per fresh note as soon as it's confirmed (2 frames) — works for
-          // legato/fast playing too, since a pitch change re-arms even without a gap
-          if (stable >= 2 && !fired) {
-            fired = true;
+          // PITCH-STABILITY GATE: compare raw frequency (not just the quantized note
+          // name) within a tight 25-cent window. A struck piano string holds dead-steady
+          // once it rings; a sung/hummed/spoken note wanders — even gentle vibrato is
+          // 50+ cents — so anything that drifts resets the streak instead of accumulating.
+          if (last != null && Math.abs(1200 * Math.log2(f / last)) < 25) { stable++; } else { last = f; stable = 1; fired = false; }
+          // fire once per fresh, held-steady note (3 frames ≈ 140ms) — still fast enough
+          // for legato/fast playing, since a pitch change re-arms even without a gap
+          if (stable >= 3 && !fired) {
             const med = median(recent.slice(-3));
-            onDetect({ note: freqToNoteName(med) || note, freq: med, source: "mic" });
+            const medNote = freqToNoteName(med) || note;
+            analyser.getFloatFrequencyData(db);
+            if (!hasFormantSpike(db, ac.sampleRate, analyser.fftSize, med)) {
+              fired = true;
+              onDetect({ note: medNote, freq: med, source: "mic" });
+            }
           }
         } else {
           if (silence < 10) silence++;
