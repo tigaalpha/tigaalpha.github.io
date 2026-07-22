@@ -1629,6 +1629,12 @@ function playPianoNote(note, dur = 0.7) {
   try {
     if (_sfxMuted) return;
     const f = NF[note]; if (!f) return;
+    // This plays through the same speaker any active mic-based pitch listener is
+    // listening to (Practice Mode's "correct!" confirmation, Play Along, etc.) — on
+    // a phone without headphones the mic hears its own echo and can misread it as
+    // the learner's next note. Blacklist this exact pitch for as long as it's
+    // audible, same mechanism the falling-notes game already uses for its own sfx.
+    _accMarkSuppress(f, 50, Date.now() + dur * 1000 + 300);
     const { ac, bus } = audioBus();
     const t0 = ac.currentTime;
     const lp = ac.createBiquadFilter();   // mellow the top end a touch
@@ -1803,6 +1809,10 @@ function playComboTone(step) {
     const ac = getAC(), t0 = ac.currentTime;
     const semis = _COMBO_SEMIS[Math.min(step - 1, _COMBO_SEMIS.length - 1)] || 0;
     const f = 523.25 * Math.pow(2, semis / 12);
+    // Same self-echo guard as playPianoNote/playBoom — this is a clean tone inside the
+    // piano's detectable range, fired on every Play Along hit while the mic keeps listening,
+    // so without this the reward chime itself could be misheard as the next note.
+    _accMarkSuppress(f, 50, Date.now() + 380);
     const o = ac.createOscillator(), g = ac.createGain();
     o.type = "triangle"; o.frequency.value = f;
     g.gain.setValueAtTime(0.0001, t0);
@@ -1861,7 +1871,7 @@ function freqToNoteName(freq) {
 }
 function pcOf(note) { return note.replace(/-?\d+$/, ""); } // pitch class (drop octave)
 
-// Autocorrelation pitch detector (returns Hz, or -1 for silence/no pitch).
+// Autocorrelation pitch detector (returns Hz, or -1 for silence/no pitch/not tonal).
 // Based on the well-known ACF2+/PitchDetect approach.
 function autoCorrelate(buf, sampleRate) {
   let SIZE = buf.length, rms = 0;
@@ -1880,6 +1890,12 @@ function autoCorrelate(buf, sampleRate) {
   for (let i = d; i < SIZE; i++) if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
   let T0 = maxpos;
   if (T0 <= 0) return -1;
+  // CLARITY GATE: how strongly the signal repeats at its own best period, normalized
+  // by its energy at lag 0. A clean piano note self-correlates near 1.0; unpitched
+  // sound (room noise, speech, a cough) has no stable period and scores much lower.
+  // This is what actually stops the detector from "hearing" a note in silence/noise —
+  // the RMS gate above only checks loudness, not whether the sound is tonal at all.
+  if (c[0] <= 0 || maxval / c[0] < 0.85) return -1;
   const x1 = c[T0 - 1] || 0, x2 = c[T0] || 0, x3 = c[T0 + 1] || 0;
   const a = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2;
   if (a) T0 = T0 - bb / (2 * a);
@@ -2843,7 +2859,7 @@ const L = {
     profContactEdit: "Edit", profContactSave: "Save", profContactCancel: "Cancel",
     profContactNudge: "Add your LINE or phone so the teacher can reach you",
     profMaxRank: "Max rank reached 🏆", profLevelWord: "LV", levelUpWord: "LEVEL UP!",
-    practiceBtn: "🎯 PRACTICE THIS", practiceTitle: "Practice Mode",
+    practiceBtn: "🎯 PRACTICE", practiceTitle: "Practice Mode",
     practiceNoSeq: "Learn a topic or play a demo first, then practice",
     practiceMidi: "🎹 MIDI piano connected", practiceMic: "🎤 Listening via microphone",
     practiceMicErr: "Mic unavailable — tap the on-screen keys, or connect a MIDI piano / allow mic",
@@ -3540,7 +3556,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .practicebtn:hover{border-color:#d97757;box-shadow:0 0 16px -4px #d97757;transform:translateY(-1px)}
 .practicebtn:active{transform:scale(.98)}
 .practicebtn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
-.practiceov{position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;background:rgba(10,5,9,.98);animation:fadein .25s}
+.practiceov{position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;background:var(--bg);animation:fadein .25s}
 .practicehdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #d9775733;background:var(--card2);flex-shrink:0;position:relative;z-index:1}
 .practicehtitle{font-family:'Orbitron',sans-serif;font-size:12px;color:#d97757;letter-spacing:1.5px;display:flex;flex-direction:column;gap:3px}
 .practicehtitle small{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.5px;text-transform:none}
@@ -7032,23 +7048,31 @@ const CoachPage = memo(function CoachPage({ lang, onNavigate }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [current, setCurrent] = useState(() => { const log = readAutoTeachLog(); return log[log.length - 1] || null; });
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
   const [history, setHistory] = useState(() => readAutoTeachLog().slice(0, -1).slice(-6).reverse());
-  const struggles = (readMemory().struggles || []).slice(0, 6);
+  const mem = readMemory();
+  const struggles = (mem.struggles || []).slice(0, 6);
+  const hasData = (mem.recent || []).length > 0 || struggles.length > 0;
 
   const refresh = useCallback(async () => {
     setBusy(true);
+    setErr(false);
     try {
       const obj = await generateCoachTip(lang);
       if (obj) {
         logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature);
         setCurrent({ t: Date.now(), weakness: obj.weakness, tip: obj.steps.join(" / "), feature: obj.feature, steps: obj.steps });
         setHistory(readAutoTeachLog().slice(0, -1).slice(-6).reverse());
+      } else {
+        setErr(true);
       }
-    } catch (e) {}
+    } catch (e) { setErr(true); }
     setBusy(false);
   }, [lang]);
 
-  useEffect(() => { if (!current) refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Skip auto-firing on a genuinely blank profile — nothing to analyze yet, and asking the
+  // AI to invent a "weakness" out of zero data would just show a brand-new learner a made-up tip.
+  useEffect(() => { if (!current && hasData) refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const steps = current && (current.steps || (current.tip ? current.tip.split(" / ") : []));
   const feature = current && COACH_FEATURE_LABELS[current.feature || "pathway"];
@@ -7056,7 +7080,7 @@ const CoachPage = memo(function CoachPage({ lang, onNavigate }) {
   return (
     <div className="profscroll">
       <div className="profsec">
-        <div className="profsec-h">🎯 {T("โค้ช AI", "AI Coach", "AI 教练")}</div>
+        <div className="profsec-h">🎯 {T("Daily Mentor", "Daily Mentor", "Daily Mentor")}</div>
         <div className="admstu-row-sub" style={{ marginBottom: 12 }}>
           {T("สรุปจุดอ่อนตอนนี้ วิธีแก้ และควรฝึกด้วยฟีเจอร์ไหนของแอป — อัปเดตทุกครั้งที่กดวิเคราะห์ใหม่",
             "Your current weak spot, how to fix it, and which app feature to practice with — refresh any time.",
@@ -7085,6 +7109,8 @@ const CoachPage = memo(function CoachPage({ lang, onNavigate }) {
             )}
             <div className="atdash-last-d">{new Date(current.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
           </div>
+        ) : err ? (
+          <div className="atdash-empty">{T("วิเคราะห์ไม่สำเร็จ — เช็กอินเทอร์เน็ตแล้วลองใหม่ด้วยปุ่มด้านล่าง", "Couldn't analyze right now — check your connection and try again below.", "分析失败——请检查网络连接，然后点击下方按钮重试。")}</div>
         ) : (
           <div className="atdash-empty">{T("ยังไม่มีข้อมูลการซ้อม — ลองฝึกในสตูดิโอก่อน แล้วกลับมาดูคำแนะนำ", "No practice data yet — try the Studio first, then come back for coaching.", "暂无练习数据——先去工作室练习，再回来查看建议。")}</div>
         )}
@@ -11262,7 +11288,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "studio", sv: "menu", ic: "▶", c: "#d97757", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
-          { p: "coach", ic: "🎯", c: "#d97757", t: lang === "th" ? "โค้ช AI" : lang === "zh" ? "AI 教练" : "AI Coach", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
+          { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
           // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
           // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
         ].map(it => {
