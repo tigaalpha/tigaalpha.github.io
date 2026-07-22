@@ -5917,14 +5917,14 @@ const StaffSVG = memo(function StaffSVG({ note, clef = "treble" }) {
   const stemUp = step < 4;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="staffsvg" width="100%" preserveAspectRatio="xMidYMid meet" style={{ background: "#ffffff", borderRadius: 12 }}>
-      <rect width={W} height={H} fill="#ffffff" rx="8" />
-      {lineYs.map((ly, i) => <line key={i} x1="14" y1={ly} x2={W - 14} y2={ly} stroke="#d97757" strokeWidth="1.4" />)}
+      <rect width={W} height={H} style={{ fill: "#ffffff" }} rx="8" />
+      {lineYs.map((ly, i) => <line key={i} x1="14" y1={ly} x2={W - 14} y2={ly} style={{ stroke: "#d97757" }} strokeWidth="1.4" />)}
       {clef === "bass"
-        ? <text x="20" y={baseY - 2 * half + 4} fontSize="64" fill="#d97757" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119074;</text>
-        : <text x="18" y={baseY + 6} fontSize="78" fill="#d97757" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119070;</text>}
-      {ledgers.map((ly, i) => <line key={"l" + i} x1={noteX - 16} y1={ly} x2={noteX + 16} y2={ly} stroke="#d97757" strokeWidth="1.4" />)}
-      <line x1={stemUp ? noteX + 9 : noteX - 9} y1={y} x2={stemUp ? noteX + 9 : noteX - 9} y2={y + (stemUp ? -46 : 46)} stroke="#d97757" strokeWidth="2.4" />
-      <ellipse cx={noteX} cy={y} rx="10" ry="7.5" fill="#d97757" transform={`rotate(-18 ${noteX} ${y})`} />
+        ? <text x="20" y={baseY - 2 * half + 4} fontSize="64" style={{ fontFamily: "Georgia, 'Times New Roman', serif", fill: "#d97757" }}>&#119074;</text>
+        : <text x="18" y={baseY + 6} fontSize="78" style={{ fontFamily: "Georgia, 'Times New Roman', serif", fill: "#d97757" }}>&#119070;</text>}
+      {ledgers.map((ly, i) => <line key={"l" + i} x1={noteX - 16} y1={ly} x2={noteX + 16} y2={ly} style={{ stroke: "#d97757" }} strokeWidth="1.4" />)}
+      <line x1={stemUp ? noteX + 9 : noteX - 9} y1={y} x2={stemUp ? noteX + 9 : noteX - 9} y2={y + (stemUp ? -46 : 46)} style={{ stroke: "#d97757" }} strokeWidth="2.4" />
+      <ellipse cx={noteX} cy={y} rx="10" ry="7.5" style={{ fill: "#d97757" }} transform={`rotate(-18 ${noteX} ${y})`} />
     </svg>
   );
 });
