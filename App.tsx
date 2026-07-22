@@ -5915,7 +5915,8 @@ const StaffSVG = memo(function StaffSVG({ note, clef = "treble" }) {
   for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);
   const stemUp = step < 4;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="staffsvg" width="100%" preserveAspectRatio="xMidYMid meet">
+    <svg viewBox={`0 0 ${W} ${H}`} className="staffsvg" width="100%" preserveAspectRatio="xMidYMid meet" style={{ background: "#ffffff", borderRadius: 12 }}>
+      <rect width={W} height={H} fill="#ffffff" rx="8" />
       {lineYs.map((ly, i) => <line key={i} x1="14" y1={ly} x2={W - 14} y2={ly} stroke="#d97757" strokeWidth="1.4" />)}
       {clef === "bass"
         ? <text x="20" y={baseY - 2 * half + 4} fontSize="64" fill="#d97757" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119074;</text>
