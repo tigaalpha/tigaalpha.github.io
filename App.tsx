@@ -8355,6 +8355,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPlan(active); setPremium(active !== "free");
     try { setPlanLS(active); } catch (e) {}
   }, [profile]);
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const handler = (e) => { if (e.data && e.data.type === "SW_RELOAD") window.location.reload(); };
+    navigator.serviceWorker.addEventListener("message", handler);
+    return () => navigator.serviceWorker.removeEventListener("message", handler);
+  }, []);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [checkout, setCheckout] = useState(null);   // {plan, amount} → PromptPay payment modal
   const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
