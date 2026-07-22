@@ -6472,18 +6472,15 @@ async function generateCoachTip(lang, profile) {
   // rather than letting a single flaky reply surface as a hard error.
   async function attempt() {
     try {
-      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me my current coaching recommendation.", conversationHistory: [], system: sys }) });
-      if (!res.ok || !res.body) return null;
-      const reader = res.body.getReader(), dec = new TextDecoder();
-      let acc = "", buf = "";
-      while (true) {
-        const { done, value } = await reader.read(); if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split("\n"); buf = lines.pop() || "";
-        for (const line of lines) { const t = line.trim(); if (!t.startsWith("data:")) continue; const p = t.slice(5).trim(); if (!p || p === "[DONE]") continue; try { const e = JSON.parse(p); if (e.content) acc += e.content; } catch (_) {} }
-      }
-      const fenced = acc.match(/```(?:json)?\s*([\s\S]*?)```/i);
-      const body = fenced ? fenced[1] : acc;
+      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me my current coaching recommendation.", conversationHistory: [], system: sys, stream: false }) });
+      if (!res.ok) return null;
+      const data = await res.json();
+      // edge function returns {text: "..."} when stream:false
+      const txt = (typeof data.text === "string" ? data.text : "")
+        || (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+      if (!txt) return null;
+      const fenced = txt.match(/```(?:json)?\s*([\s\S]*?)```/i);
+      const body = fenced ? fenced[1] : txt;
       const m = body.match(/\{[\s\S]*\}/);
       return m ? JSON.parse(m[0]) : null;
     } catch (e) { return null; }
