@@ -6423,7 +6423,7 @@ function computeCoachStats(profile, lang) {
   for (const e of log) {
     if (e.t >= now - 7 * dayMs) {
       ok7 += e.ok; miss7 += e.miss; sec7 += e.sec;
-      if (e.sec > 0) days7.add(e.d);
+      if (e.sec > 0 || e.ok > 0) days7.add(e.d);
     } else if (e.t >= now - 14 * dayMs) {
       okPrev += e.ok; missPrev += e.miss;
     }
@@ -6440,10 +6440,20 @@ function computeCoachStats(profile, lang) {
     .map(b => ({ label: actTopicLabel(b.e, lang), rate: Math.round(b.miss / (b.ok + b.miss) * 100), n: b.ok + b.miss }))
     .sort((a, b) => b.rate - a.rate).slice(0, 5);
   const info = levelInfo((profile && profile.exp) || 0);
+  // per-day breakdown for 7 days (index 0 = 6 days ago, index 6 = today)
+  const daily = [];
+  for (let i = 6; i >= 0; i--) {
+    const dKey = dayKey(new Date(now - i * dayMs));
+    const de = log.filter(e => e.d === dKey);
+    const dok = de.reduce((s, e) => s + e.ok, 0);
+    const dmiss = de.reduce((s, e) => s + e.miss, 0);
+    const dsec = de.reduce((s, e) => s + e.sec, 0);
+    daily.push({ dKey, practiced: de.length > 0, acc: dok + dmiss > 0 ? Math.round(dok / (dok + dmiss) * 100) : null, min: Math.round(dsec / 60) });
+  }
   return {
     level: info.level, streak: (profile && profile.streak) || 0, lessonsDone: (profile && profile.lessons_done) || 0,
     badgeCount: unlockedBadgeIds(profile).length, badgeTotal: BADGES.length, questOk: questToday(profile) >= QUEST_GOAL,
-    days7: days7.size, min7: Math.round(sec7 / 60), acc7, accPrev, weakest,
+    days7: days7.size, min7: Math.round(sec7 / 60), acc7, accPrev, weakest, daily,
   };
 }
 function coachStatsToText(s) {
@@ -6457,31 +6467,37 @@ async function generateCoachTip(lang, profile) {
   const mem = readMemory();
   const struggle = (mem.struggles || [])[0];
   const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
-  const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "none flagged yet — infer the most likely weak spot from recent practice";
+  const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "—";
   const profileTxt = coachStatsToText(computeCoachStats(profile, lang));
   const featureKeys = Object.keys(COACH_FEATURE_LABELS).join(", ");
+  // Short system = far fewer tokens → avoids Gemini rate-limit. All learner data goes in message.
   const sysByLang = {
-    th: `คุณคือ "ครู TiGA" กำลังให้คำแนะนำการฝึกซ้อมส่วนตัว อิงจากข้อมูลบัญชีผู้เรียนทั้งหมด: ${profileTxt} เซสชันฝึกล่าสุด: ${recentTxt} จุดอ่อนที่เพิ่งถูกบันทึก: ${struggleTxt}\n\nตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness สั้นไม่เกิน 15 คำ บอกปัญหาตอนนี้ (พิจารณาทั้งภาพรวมบัญชีและข้อมูลล่าสุดประกอบกัน) steps มีสูงสุด 3 ข้อเท่านั้น (ไม่เกิน 3 เด็ดขาด) แต่ละข้อต้องเป็นสิ่งที่ทำได้จริงวันนี้เลย เจาะจงมาก ระบุหัวข้อ/ท่อน/เพลงที่ควรฝึกจากข้อมูลด้านบนโดยตรง ไม่ใช่คำแนะนำทั่วไปลอยๆ แบบ "ฝึกให้มากขึ้น" — ทำตามแล้วต้องเก่งขึ้นจริง แต่ละข้อไม่เกิน 15 คำ feature ต้องเป็นค่าจากรายการนี้เท่านั้น (เลือกตัวที่ช่วยแก้จุดอ่อนนี้ได้ดีที่สุด): ${featureKeys} ภาษาไทย ตอบเป็น JSON ดิบเท่านั้น ห้ามใช้ \`\`\` ครอบ ห้ามมีข้อความอื่นก่อนหรือหลัง JSON`,
-    zh: `你是"TiGA老师"，正在给出个性化的练习建议，依据学员账户的完整数据：${profileTxt} 最近的练习记录：${recentTxt} 刚被记录的薄弱点：${struggleTxt}\n\n只回JSON {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness 不超过15字，说明当前问题（综合账户整体情况和最近数据），steps 最多3条（绝不超过3条），每条必须是今天就能做到的具体行动，直接指出上面数据中该练哪个主题/曲目，不要「多加练习」这类空泛建议 — 照做后水平必须真正提升，每条不超过15字，feature 必须是以下之一（选择最能解决该薄弱点的）：${featureKeys}，用中文。只回原始JSON对象，不要用\`\`\`包裹，JSON前后不要任何文字`,
-    en: `You are "Teacher TiGA" giving personalized practice coaching, based on the learner's full account data: ${profileTxt} Recent practice sessions: ${recentTxt}. Most recently flagged weak spot: ${struggleTxt}.\n\nReply with JSON only: {"weakness":"...","steps":["...","..."],"feature":"..."} — weakness under 15 words naming the current problem (weigh both the overall account picture and the recent data), steps has AT MOST 3 items (never more than 3), each one a concrete action doable today, naming the specific topic/piece from the data above rather than generic advice like "practice more" — a learner who follows these should measurably improve, each under 15 words, feature must be exactly one of: ${featureKeys} (pick whichever helps this weak spot most). Reply with the raw JSON object only — no markdown code fences, no text before or after it.`,
+    th: `คุณคือครูเปียโน TiGA ตอบเป็น JSON ดิบเท่านั้น ไม่มีข้อความอื่น: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
+    zh: `你是TiGA钢琴AI老师，只回原始JSON，无其他文字：{"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
+    en: `You are TiGA AI piano teacher. Reply ONLY with raw JSON, no other text: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
+  };
+  const msgByLang = {
+    th: `ข้อมูลผู้เรียน: ${profileTxt}\nซ้อมล่าสุด: ${recentTxt}\nจุดอ่อน: ${struggleTxt}\nfeature ที่เลือกได้: ${featureKeys}\n\nวิเคราะห์แล้วตอบ JSON: weakness ไม่เกิน 12 คำ, steps สูงสุด 3 ข้อ (เจาะจงชื่อเพลง/หัวข้อ ไม่ใช่คำแนะนำทั่วไป), feature เลือกจากรายการเท่านั้น`,
+    zh: `学员数据：${profileTxt}\n最近练习：${recentTxt}\n薄弱点：${struggleTxt}\n可选feature：${featureKeys}\n\n分析后回JSON：weakness≤12字，steps最多3条（具体指明曲目/主题），feature必须从列表选`,
+    en: `Learner data: ${profileTxt}\nRecent sessions: ${recentTxt}\nWeak spot: ${struggleTxt}\nAvailable features: ${featureKeys}\n\nAnalyze and reply JSON: weakness ≤12 words, steps max 3 (name specific song/topic, not generic advice), feature from list only`,
   };
   const sys = sysByLang[lang] || sysByLang.en;
+  const msg = msgByLang[lang] || msgByLang.en;
   // One attempt: fetch + pull the JSON object out of the model's text. Wrapped so any
   // failure (network, non-JSON reply, a stray markdown fence, extra prose around the
   // object) degrades to null instead of throwing — generateCoachTip retries once below
   // rather than letting a single flaky reply surface as a hard error.
   async function attempt() {
     try {
-      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Give me my current coaching recommendation.", conversationHistory: [], system: sys, stream: false }) });
+      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: msg, conversationHistory: [], system: sys, stream: false }) });
       if (!res.ok) return null;
       const data = await res.json();
-      // edge function returns {text: "..."} when stream:false
       const txt = (typeof data.text === "string" ? data.text : "")
         || (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
       if (!txt) return null;
       const fenced = txt.match(/```(?:json)?\s*([\s\S]*?)```/i);
-      const body = fenced ? fenced[1] : txt;
-      const m = body.match(/\{[\s\S]*\}/);
+      const body2 = fenced ? fenced[1] : txt;
+      const m = body2.match(/\{[\s\S]*\}/);
       return m ? JSON.parse(m[0]) : null;
     } catch (e) { return null; }
   }
@@ -7215,6 +7231,42 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
             </div>
           </div>
         )}
+
+        {stats.daily && stats.daily.some(d => d.practiced) && (() => {
+          const maxMin = Math.max(1, ...stats.daily.map(d => d.min));
+          const dayLabels = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+          const accent = "#d97757";
+          return (
+            <div style={{ marginBottom: 14 }}>
+              <div className="admstu-sec" style={{ marginBottom: 8 }}>📈 {T("กิจกรรม 7 วัน", "7-Day Activity", "近7天练习")}</div>
+              <svg viewBox="0 0 280 72" style={{ width: "100%", height: 72, overflow: "visible" }}>
+                {stats.daily.map((d, i) => {
+                  const x = i * 40 + 4;
+                  const isToday = i === 6;
+                  const barH = d.practiced ? Math.max(6, Math.round((d.min / maxMin) * 46)) : 4;
+                  const barY = 56 - barH;
+                  const barColor = d.practiced ? (isToday ? accent : "rgba(217,119,87,.55)") : "var(--card3)";
+                  const realDate = new Date(Date.now() - (6 - i) * 86400000);
+                  const dow = dayDate(realDate).getDay();
+                  return (
+                    <g key={i}>
+                      <rect x={x} y={barY} width={32} height={barH} rx={4} fill={barColor} />
+                      {d.acc != null && (
+                        <text x={x + 16} y={barY - 3} textAnchor="middle" fontSize={8} fill={d.practiced ? accent : "var(--muted)"} fontWeight="600">{d.acc}%</text>
+                      )}
+                      {d.min > 0 && (
+                        <text x={x + 16} y={56} textAnchor="middle" fontSize={7} fill="var(--text2)">{d.min}m</text>
+                      )}
+                      <text x={x + 16} y={68} textAnchor="middle" fontSize={8} fill={isToday ? accent : "var(--muted)"} fontWeight={isToday ? "700" : "400"}>
+                        {isToday ? T("วันนี้", "Today", "今天") : dayLabels[dow]}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
+          );
+        })()}
 
         {stats.weakest.length > 0 && (
           <div style={{ marginBottom: 14 }}>
