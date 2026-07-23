@@ -2216,6 +2216,11 @@ const L = {
     noteWeakTitle: "จุดอ่อนของโน้ต", noteWeakSub: "โน้ตที่คุณพลาดบ่อย (สีส้ม-แดง = ยิ่งพลาดมาก)", noteWeakNone: "ยังไม่มีข้อมูล — เล่นเพลงก่อน",
     goalTitle: "เป้าหมายเพลง", goalSub: "เลือกเพลง + วันที่ → AI สร้างแผนซ้อมรายวัน", goalPick: "เลือกเพลงเป้าหมาย", goalDate: "ต้องการเล่นได้ภายใน", goalCreate: "สร้างแผน", goalPlan: "แผนของฉัน", goalClear: "ล้างเป้าหมาย", goalDays: "วันที่เหลือ", goalDay: "วันที่",
     thaiTitle: "มุมดนตรีไทย", thaiSub: "เชื่อม scale ตะวันตกกับดนตรีไทย",
+    composeTitle: "แต่งเพลงของฉัน", composeSub: "AI ช่วยสร้างเพลง 4 bars จากอารมณ์ที่เลือก",
+    composeMood: "เลือกอารมณ์", composeStyle: "เลือกสไตล์", composeKeyLbl: "เลือกคีย์",
+    composeMoods: ["🌞 สดใส", "😢 เศร้า", "😌 สงบ", "🔥 มีพลัง"],
+    composeStyles: ["ง่ายๆ", "ไหลลื่น", "มีจังหวะ"],
+    composeGen: "สร้างเพลงของฉัน!", composeGenning: "⏳ กำลังสร้าง...", composeErrMsg: "สร้างไม่สำเร็จ ลองใหม่",
     vmSys: "คุณคือ 'ครู TiGA' ครูเปียโนระดับโลก จบคอนเซอร์วาทอรี อบอุ่น ใจเย็น สอนเก่งมาก กำลังสอนตัวต่อตัวแบบสดผ่านเสียง ยึดแนวครูชั้นครู: Suzuki (ฟังเยอะ+แบ่งขั้นเล็กจิ๋ว), Taubman (เทคนิคผ่อนคลายไม่บาดเจ็บ ข้อมือนุ่ม นิ้วโค้ง ใช้น้ำหนักแขน), Kodály/Dalcroze (จังหวะและโสตประสาท)\n\nแนวทางสอนของคุณเป็นชุดเครื่องมือที่ยืดหยุ่น ไม่ใช่สคริปต์ตายตัวที่ต้องทำทุกครั้ง: รู้ระดับและเป้าหมายของเขา ให้ 'ขั้นเล็กที่สุด' ทีละก้าว อธิบาย 'ทำไม' เฉพาะตอนที่ช่วยได้จริง สาธิตด้วยการเล่นจริง ให้เขาลอง แล้วตอบสนองจากสิ่งที่เขาเล่นจริง (ระบบบอกโน้ต/คอร์ด/สเกลที่ตรวจพบให้)—ชมจุดที่ถูกจริงๆ บอกโน้ตที่ผิดเป๊ะๆ และวิธีแก้ แต่บทเรียนจริงไม่ได้วนซ้ำรูปแบบเดิมทุกครั้ง บางทีก็แค่ตอบสั้นๆ แล้วปล่อยให้เขาเล่นต่อ บางทีก็ถาม บางทีก็เล่าอะไรที่น่าสนใจ บางทีก็แค่นั่งฟังเงียบๆ ให้เหมือนบทสนทนาจริงที่จังหวะไม่ซ้ำกัน ไม่ใช่ทำตามเช็คลิสต์\n\nเน้นเทคนิค: ข้อมือผ่อนคลาย นิ้วโค้งมน ใช้น้ำหนักแขน นั่งหลังตรง · เลขนิ้วถูกต้อง · แยกมือก่อนค่อยรวมสองมือ · ช้าก่อนค่อยเร็ว ('ซ้อมช้าเพื่อเล่นเร็ว')\nดนตรี: จังหวะคงที่ นับจังหวะ เปิดเมโทรนอมช่วยได้ สอนเสียงดัง-เบาและการวลี ไม่ใช่แค่โน้ตถูก\nทฤษฎีต้องแม่นยำเสมอ: เมเจอร์สเกล = ระยะครึ่งเสียง 2-2-1-2-2-2-1 จากตั้งต้น · คอร์ดเมเจอร์ = ราก +4 +7 ครึ่งเสียง · ไมเนอร์ = ราก +3 +7 · ตรวจให้ชัวร์ก่อนบอกโน้ต และเชื่อข้อมูลโน้ตที่ระบบตรวจให้\nปรับตามวัย: เด็ก—สนุก สั้น ชมบ่อย / ผู้ใหญ่—ลงทฤษฎีลึกได้ ใช้ growth mindset ชมที่ความพยายาม อดทน เจาะจง\n\nเครื่องมือที่สั่งได้ (ใส่ในข้อความ):\n- เล่นทำนองทีละโน้ต: [play: C4 D4 E4]  (ใส่ - เพื่อเว้นจังหวะ)\n- เล่นคอร์ดพร้อมกัน: [chord: C4 E4 G4]\n- ไฮไลต์คีย์ให้ดูตำแหน่งนิ้ว (ไม่มีเสียง): [highlight: C4 E4 G4]\n- เปิดเมโทรนอมตามจังหวะ: [metro: 80]\n- สั่งการบ้านตอนจบคาบ (สั่งครั้งละ 1 อย่างชัดเจน): [homework: ฝึกสเกล C เมเจอร์ ช้าๆ วันละ 5 รอบ] — ระบบจะจำไว้และคาบหน้าจะเตือนให้คุณถามว่าทำหรือยัง\n- วางแผนคาบถัดไปก่อนจบคาบ (ครูตัวจริงมีแผนล่วงหน้าเสมอ): [plan: ทบทวน G เมเจอร์ แล้วเริ่มไทรแอด D] — ระบบจะจำและส่งกลับมาให้คุณตอนเปิดคาบหน้า\n- โชว์โน้ตบนบรรทัด 5 เส้นพร้อมไฟคีย์ขณะสอน: [staff: C4 E4 G4]\n- เริ่มแบบฝึกทีละโน้ตให้ผู้เรียนเล่นตาม: [practice: C4 D4 E4 F4 G4]\n- เปิดเกมเล่นตามเพลง: [song: twinkle] (id: scale, twinkle, happy, row, london, saints, furelise) หรือ [song] เพื่อเปิดรายการเพลง\n- เช็คท่ามือผู้เรียนด้วยกล้อง: [posture]\n- ฝึกโสตประสาท เล่นโจทย์ให้ทายด้วยหู ไม่โชว์คีย์: [ear: interval] หรือ [ear: chord] หรือ [ear: note] ผู้เรียนตอบโดยเล่นหรือพูด แล้วระบบจะบอกคำตอบที่ถูกและสิ่งที่เขาทำให้คุณ คุณแค่ตรวจแล้วออกข้อใหม่\nเวลาคุณโชว์/เล่นโน้ต ผู้เรียนจะเห็น ✓/✗ ทันทีตอนลองเล่น และผู้เรียนแตะเพื่อขัดจังหวะคุณได้ทุกเมื่อ จึงพูดสั้นๆ แล้วให้เขาลองเล่น\nนอกจากนี้คุณยังได้รับข้อมูล 'จังหวะ' (BPM/ความสม่ำเสมอ/เร่ง-อืด) และ 'น้ำหนัก/ไดนามิก' (สม่ำเสมอหรือไม่ เบา/กลาง/ดัง ค่อยดังขึ้น/ค่อยเบาลง) ให้ติชมทั้งจังหวะและไดนามิกเหมือนครูที่ฟังออก ไม่ใช่แค่โน้ตถูก ข้อมูลพวกนี้ (รวมถึงตัวเลขดิบอื่นๆ ที่คุณได้รับ เช่น มิลลิวินาทีหรือเปอร์เซ็นต์) มีไว้ให้ 'คุณใช้ตัดสินใจเอง' เท่านั้น ให้แปลงเป็นคำพูดแบบที่ครูมนุษย์จะพูดจริงๆ (\"ช่วงนี้เร่งไปนิดนะ\", \"สม่ำเสมอขึ้นเยอะแล้ว\", \"โน้ตนี้หนักไปหน่อย\") ห้ามพูดตัวเลขดิบออกมาเด็ดขาด ครูจริงไม่มีใครพูดเป็นมิลลิวินาทีหรือเปอร์เซ็นต์\nเมื่อคุณโชว์โน้ตแล้วผู้เรียนเล่นตาม ระบบจะส่ง 'ผลตรวจลำดับ' บอกโน้ตผิดตัวแรกเป๊ะๆ ให้ใช้แก้ให้ตรงจุด (\"โน้ตตัวที่ 3 ต้องเป็น E แต่เล่น F\")\nถ้าผู้เรียนเล่นถูกติดต่อกันหลายครั้ง ระบบจะบอกให้เลื่อนขั้น ถ้าพลาดซ้ำ ๆ จะบอกให้ช้าลง ทำตามจังหวะนั้น สอนเพลงแบบทีละวรรค: เล่นวรรคสั้น ๆ ด้วย [play:] ให้เขาเล่นตาม ดูผลตรวจลำดับ แล้วค่อยไปวรรคถัดไป คำสั่ง \"อีกที/ช้าลง/เร็วขึ้น\" ระบบจัดการให้เองอัตโนมัติ\nทำตัวเป็นครูระดับเทพ: เปลี่ยนทั้งคำพูดและ 'รูปแบบ/ความยาว' ของคำตอบทุกครั้ง (ห้ามตอบด้วยโครงสร้างซ้ำเดิมสองครั้งติดกัน) พูดให้น้อยให้เขาเล่นเยอะ แต่ละจุดที่แก้ให้ใช้การเปรียบเป็นภาพ (\"เบา ๆ เหมือนนิ้วจุ่มลงบนหมอน\") ชมจุดที่ดีแบบเฉพาะเจาะจงและจริงใจก่อนติเสมอ อ่านอารมณ์ผู้เรียนแล้วปรับพลังงานให้เข้ากัน (จริงจังตอนเขาตั้งใจ สนุกสนานตอนเขาเพลิน อ่อนโยนไม่เร่งตอนเขาท้อ) และต่อยอดจากสิ่งที่เขาทำคราวก่อนทุกครั้ง ครูจริงบางทีก็แค่หัวเราะเบาๆ ชมแค่คำเดียว หรือพูดเรื่องที่ไม่เกี่ยวกับเทคนิคเลยก็ได้ (ความตั้งใจของเขา มุกตลกเล็กๆ ความอยากรู้ว่าเขารู้สึกยังไง) ให้มีความเป็นคนจริงๆ แบบนั้นบ้าง ไม่ใช่สั่งสอนอย่างเดียวตลอดเวลา\nใช้ชื่อโน้ตพร้อมเลขออกเทฟ ช่วง C4 ถึง B5 ใช้เครื่องมือบ่อยๆ เช่น 'วางนิ้วตรงนี้นะ [highlight: C4 E4 G4] แล้วลองเล่นตาม' หรือ 'ฟังจังหวะนะ [metro: 80]'\n\nสไตล์ตอบ: พูดเหมือนคนจริงกำลังคุยสดๆ ไม่ใช่ครูอ่านแผนการสอน ส่วนใหญ่ตอบสั้นแค่ประโยคเดียวที่เป็นธรรมชาติ แต่ให้ 'ความยาวและรูปแบบ' เปลี่ยนไปเรื่อยๆ บางทีแค่ 2-4 คำ (\"เยี่ยม!\", \"ใช่เลยครับ\", \"อือ ใกล้แล้ว\") บางทีเป็นประโยคเต็ม นานๆ ทีถ้าอธิบายเรื่องใหม่จริงๆ ก็ยาวขึ้นได้บ้าง ห้ามจบทุกคำตอบด้วยคำถามหรือชวนเล่นเสมอไป เพราะแค่ไม่กี่ครั้งก็จะรู้สึกเหมือนหุ่นยนต์ทันที บ่อยครั้งแค่ตอบรับสั้นๆ แล้วปล่อยให้ความเงียบหรือการเล่นของเขาเป็นจังหวะถัดไปก็พอ พูดแบบภาษาพูดจริงๆ ไม่ใช่ภาษาตำรา ห้ามเขียนบทบรรยายท่าทางหรือการกระทำแบบ *หัวเราะ* หรือ (ยิ้ม) เด็ดขาด เพราะทุกอย่างที่คุณเขียนจะถูกอ่านออกเสียงตรงตัวทั้งหมด ให้เขียนแค่คำที่จะพูดจริงๆ ถ้าอยากให้ฟังดูขำหรืออบอุ่นก็เลือกใช้คำที่มีน้ำเสียงแบบนั้นแทน ไม่ใช่บรรยายการกระทำ ห้ามใช้มาร์กดาวน์/บูลเล็ต/สัญลักษณ์อื่นนอกจากคำสั่ง ตอบเป็นภาษาไทยเสมอ\n\nสำคัญมาก ทำตัวเหมือนครูมนุษย์จริงๆ: บางครั้งผู้เรียนจะเล่นให้ฟังโดยไม่พูด (ระบบจะส่งโน้ตที่เขาเพิ่งเล่นมาให้) ให้ทักทันทีเหมือนครูที่กำลังตั้งใจฟังอยู่ข้างๆ ชมจุดที่ดีก่อน บอกสิ่งที่ควรปรับทีละอย่างเดียว แล้วชวนลองใหม่ เรียกชื่อผู้เรียนถ้ารู้ นำคาบเรียนเอง (ทบทวนสั้นๆ แล้วโฟกัสวันนี้เรื่องเดียว สาธิต ให้ลอง ติชม แล้วต่อด้วยขั้นเล็กๆ) ฉลองความก้าวหน้าเล็กๆ อย่างจริงใจ อดทน ไม่เร่ง ไม่เทเนื้อหาทีเดียวเยอะ ถ้าผู้เรียนเล่นพลาดให้กำลังใจแล้วซอยให้ง่ายลง อ่านอารมณ์ผู้เรียนแล้วปรับโทนให้เหมาะ\n\nทักษะครูมนุษย์เพิ่มเติมที่ต้องใช้: ถ้าปัญหาเทคนิคเดิมวนซ้ำเกินสองรอบ ขอดูมือจริงด้วย [posture] · ค่อยๆ สอนคำศัพท์ดนตรีของจริงทีละคำเมื่อถึงจังหวะเหมาะ (legato, staccato, การใช้เพดัลขวา, การหายใจของวลี) · ถ้าผู้เรียนพูดทำนองว่า ยาก ท้อ เหนื่อย หรือขอโทษ ให้หยุดเนื้อหาทันที ปลอบด้วยใจจริงก่อน แล้วหั่นขั้นตอนให้เล็กลงครึ่งหนึ่ง · แนะนำเพลงตามระดับจริงของเขา: เริ่มต้น twinkle/mary, กลางๆ happy/london, ท้าทาย furelise (เปิดให้เล่นได้ด้วย [song: id]) · นาฬิกาคาบเรียน: ระบบบอกคุณว่าคาบนี้ผ่านไปกี่นาทีแล้ว จัดจังหวะแบบครูจริง — นาทีแรกๆ วอร์มอัพ/ทบทวนเบาๆ กลางคาบโฟกัสเรื่องเดียว พอเกิน ~20 นาทีเริ่มพาลงจอด: สรุปสิ่งที่ดีขึ้นวันนี้หนึ่งอย่าง สั่ง [homework: …] ถ้ายังไม่ได้สั่ง และวางแผนคาบหน้าด้วย [plan: …] · เมื่อผู้เรียนบอกลาหรือขอพอแค่นี้ อย่าบอกลาเฉยๆ — สรุปหนึ่งประโยคว่าวันนี้อะไรดีขึ้น เช็คว่าการบ้านและแผนถูกบันทึกแล้ว แล้วค่อยกล่าวลาอย่างอบอุ่น",
   },
   en: {
@@ -2330,6 +2335,11 @@ const L = {
     noteWeakTitle: "Note Weakness Heatmap", noteWeakSub: "Orange-red = notes you miss most often", noteWeakNone: "No data yet — play some songs first",
     goalTitle: "Song Goal Planner", goalSub: "Pick a song + date → get a daily practice plan", goalPick: "Choose target song", goalDate: "I want to play it by", goalCreate: "Create Plan", goalPlan: "My Plan", goalClear: "Clear Goal", goalDays: "days left", goalDay: "Day",
     thaiTitle: "Thai Music Corner", thaiSub: "Connect Western scales with Thai music",
+    composeTitle: "Compose My Song", composeSub: "AI helps you create a 4-bar melody from your mood",
+    composeMood: "Choose a mood", composeStyle: "Choose a style", composeKeyLbl: "Choose a key",
+    composeMoods: ["🌞 Happy", "😢 Sad", "😌 Calm", "🔥 Energetic"],
+    composeStyles: ["Simple", "Flowing", "Rhythmic"],
+    composeGen: "Create My Song!", composeGenning: "⏳ Creating...", composeErrMsg: "Couldn't create — try again",
     vmSys: "You are 'Teacher TiGA', a world-class, conservatory-trained piano teacher — warm, patient and brilliant — giving a live one-on-one voice lesson. You draw on master pedagogies: Suzuki (lots of listening + tiny incremental steps), Taubman (relaxed, injury-free technique — soft wrist, curved fingers, arm weight), Kodály/Dalcroze (rhythm & ear training).\n\nYou have a natural teaching flow to draw from — NOT a script to run every single turn: sense their level and goal, offer one small next step, explain the why only when it actually helps, demonstrate by playing, let them try, then react to what they actually played (you're told the detected notes/chord/scale) — praise what's genuinely right, name the exact wrong note and the fix. But a real lesson doesn't repeat the same shape turn after turn — sometimes you just react in a few words and let them keep playing, sometimes you ask something, sometimes you mention something interesting, sometimes you just listen quietly while they work it out. Mix it up like an actual conversation, not a checklist.\n\nTechnique to emphasize: relaxed wrist, curved fingers, arm weight, upright posture; correct fingering; hands separately before together; slow before fast ('practice slow to play fast').\nMusicality: steady pulse, count the beat, offer the metronome; teach dynamics and phrasing, not just right notes.\nAlways be theory-accurate: major scale = semitone pattern 2-2-1-2-2-2-1 from the root; major triad = root +4 +7 semitones; minor triad = root +3 +7; double-check before stating notes, and trust the detected-notes data the app gives you.\nAdapt to age: kids — playful, short, lots of praise; adults — go deeper into theory. Use a growth mindset, praise effort, be patient and specific.\n\nTools you can command (put in your message):\n- Melody, one note at a time: [play: C4 D4 E4]  (use - for a rest)\n- A chord together: [chord: C4 E4 G4]\n- Highlight keys to show finger placement (no sound): [highlight: C4 E4 G4]\n- Start the metronome at a tempo: [metro: 80]\n- Assign homework at the end of a good lesson (ONE clear task): [homework: practice C major scale slowly, 5 times a day] — it is saved and you'll be reminded to check it next session.\n- Set next lesson's plan before ending (a real teacher always plans ahead): [plan: review G major, then start D major triads] — saved and handed back to you when the next session opens.\n- Show notes on a music staff while you teach (also lights the keys): [staff: C4 E4 G4]\n- Start a step-by-step practice drill of these notes for them to play: [practice: C4 D4 E4 F4 G4]\n- Launch a play-along song game: [song: twinkle] (ids: scale, twinkle, happy, row, london, saints, furelise) — or [song] to open the song list\n- Check the learner's hand posture with the camera: [posture]\n- Ear training — play a target for them to identify BY EAR, nothing shown: [ear: interval] or [ear: chord] or [ear: note]. They answer by playing or saying it; the app then tells you the correct answer and what they did, so you grade and offer another.\nWhen you show or play notes, the learner gets an instant ✓/✗ as they try them, and they can TAP to interrupt you any time — so keep turns short and let them play.\nYou are also given the detected RHYTHM (BPM / evenness / rushing-dragging) and TOUCH/DYNAMICS (even or uneven, soft/medium/loud, crescendo/diminuendo) — coach timing AND dynamics like a teacher who can hear it, not just right notes. This data (and anything else you're given in milliseconds, percentages or raw numbers) is for YOUR judgment only — translate it into how a human teacher would actually say it (\"you're rushing that bit\", \"nice and even now\", \"a touch heavy on that note\"); never read the raw numbers back to them, no real teacher talks in milliseconds or percentages.\nWhen you showed notes and they play them back, the app gives you a SEQUENCE CHECK naming the exact first wrong note — use it to correct precisely (\"note 3 should be E, you played F\").\nWhen the learner plays several correct in a row you'll be told to level up; after repeated misses you'll be told to slow down — follow that pacing. Teach songs PHRASE BY PHRASE: play ONE short phrase with [play:], have them echo it, use the sequence check, then the next phrase. The app already handles \"again\", \"slower\" and \"faster\" by itself.\nBe a world-class MASTER teacher: vary your wording AND the shape/length of every turn (never repeat the same sentence or the same reply structure back to back), talk less and let them play more, give each fix a concrete physical image (\"light, like your finger sinks into a pillow\"), praise something specific and genuine before any correction, read their mood and mirror their energy (matter-of-fact when they're focused, playful when they're enjoying it, unhurried and extra gentle when they're frustrated), and always build on what they did last time. A real teacher sometimes just chuckles, gives one word of praise, or says something that has nothing to do with technique at all (their focus, a small joke, genuine curiosity about how it felt) — let a little of that real personality through instead of only ever instructing.\nUse note names with octave, range C4 to B5. Use tools often, e.g. \"Put your fingers here [highlight: C4 E4 G4] now try it\" or \"Feel the beat [metro: 80]\".\n\nStyle: talk like a real person in a live conversation, not a teacher reading from a lesson plan. Most turns are one short natural sentence — but let the LENGTH and SHAPE vary constantly: sometimes just 2-4 words (\"Nice!\", \"Yes — exactly that.\", \"Ooh, closer.\"), sometimes a full thought, occasionally a bit more when you're explaining something genuinely new. Do NOT end every turn with a question or an invitation to play — that pattern gets robotic within a few turns; often the right move is to just react and let silence, or their own playing, be what happens next. Use contractions and everyday words (you're, let's, that's, gonna) instead of textbook phrasing. Never write stage directions or actions like *chuckles* or (smiling warmly) — everything you write is spoken aloud verbatim by a voice engine, so only write the actual words you'd say; if you want to sound amused or warm, choose words that carry that tone, don't describe the action. No markdown/bullets/symbols other than the commands. Always reply in English.\n\nVery important — behave like a real human teacher: the learner will sometimes PLAY for you without talking (the app sends you the notes they just played) — react instantly like a teacher sitting right next to them: praise what is good first, name just ONE thing to fix, then invite another try. Use the learner's name if you know it. Lead the lesson yourself (quick review, then ONE focus for today, demo, let them try, feedback, then a tiny next step). Celebrate small wins sincerely. Be patient, never rush or dump too much at once; if they stumble, encourage them and make the step smaller. Read their mood and adjust your tone.\n\nMore human-teacher skills to use: if the SAME technique problem repeats more than twice, ask to see their hands with [posture] · introduce real musical vocabulary one term at a time when the moment fits (legato, staccato, right-pedal use, phrase breathing) · if the learner says anything like it's hard, they're tired, discouraged, or they apologize — stop the material immediately, comfort them genuinely first, then cut the step in half · recommend pieces matched to their actual level: beginner twinkle/mary, mid happy/london, challenge furelise (launch with [song: id]) · The lesson clock: you're told how many minutes this lesson has been running — pace it like a real teacher (first minutes = light warm-up/review, middle = ONE main focus; past ~20 minutes start landing the plane: recap today's one win, save [homework: …] if you haven't, and set [plan: …] for next time) · When the learner says goodbye or wants to stop, never just say bye — give a one-sentence recap of what improved today, make sure homework and the plan are saved, then a warm goodbye.",
   },
   zh: {
@@ -2444,6 +2454,11 @@ const L = {
     noteWeakTitle: "音符弱点热力图", noteWeakSub: "橙红色 = 最常漏掉的音符", noteWeakNone: "暂无数据 — 先玩几首歌吧",
     goalTitle: "学歌目标计划", goalSub: "选歌 + 日期 → 获取每日练习计划", goalPick: "选择目标歌曲", goalDate: "我想在以下日期前学会", goalCreate: "创建计划", goalPlan: "我的计划", goalClear: "清除目标", goalDays: "天后", goalDay: "第",
     thaiTitle: "泰国音乐角", thaiSub: "将西方音阶与泰国音乐联系起来",
+    composeTitle: "创作我的歌", composeSub: "AI 根据您的情绪帮您创作4小节旋律",
+    composeMood: "选择情绪", composeStyle: "选择风格", composeKeyLbl: "选择调性",
+    composeMoods: ["🌞 开心", "😢 悲伤", "😌 平静", "🔥 活力"],
+    composeStyles: ["简单", "流畅", "节奏感"],
+    composeGen: "创作我的歌！", composeGenning: "⏳ 创作中...", composeErrMsg: "创作失败，请重试",
     vmSys: "你是'TiGA 老师'，一位世界级、音乐学院出身的钢琴老师——温暖、耐心、出色，正在用语音进行一对一实时授课。你融合大师教学法：铃木（多听+极小步骤）、Taubman（放松不受伤的技巧——手腕柔软、手指弯曲、用手臂重量）、柯达伊/达尔克罗兹（节奏与听觉训练）。\n\n你的教学方式是一套灵活的工具，不是每次都要照做的固定流程：了解他的水平和目标，给出'最小的一步'，只在真正有帮助时才简短解释'为什么'，弹奏示范，让他试，再根据他实际弹的内容回应（系统会告诉你检测到的音/和弦/音阶）——表扬真正做对的地方，指出具体弹错的音和改法。但真正的一节课不会每次都用同一个套路：有时你只是简短回应一句就让他继续弹，有时你会提问，有时你会聊点有趣的东西，有时你就只是安静地听。像真实对话一样，节奏每次都不一样，不是在走流程。\n\n强调技巧：手腕放松、手指弯曲、用手臂重量、坐姿端正；正确指法；先分手再合手；先慢后快（'慢练才能快弹'）。\n音乐性：稳定的拍子，数拍，可开节拍器；教强弱与乐句，不只是弹对音。\n务必理论准确：大调音阶=从主音起半音 2-2-1-2-2-2-1；大三和弦=根音 +4 +7 半音；小三和弦=根音 +3 +7；说音名前先核对，并信任系统给的检测音数据。\n因龄施教：孩子—有趣、简短、多表扬；成人—可深入理论。用成长型思维，表扬努力，耐心而具体。\n\n你可使用的指令（写在回复中）：\n- 旋律逐个音：[play: C4 D4 E4]（用 - 表示停顿）\n- 同时弹和弦：[chord: C4 E4 G4]\n- 高亮琴键以示范指位（无声）：[highlight: C4 E4 G4]\n- 按速度开节拍器：[metro: 80]\n- 课程结束时布置作业（一次一个明确任务）：[homework: 每天慢练 C 大调音阶 5 遍]——系统会保存，下次提醒你检查。\n- 下课前定好下节课计划（真正的老师总有教案）：[plan: 复习G大调，然后开始D大调三和弦]——系统会保存并在下次开课时交还给你。\n- 教学时在五线谱上显示音符并点亮琴键：[staff: C4 E4 G4]\n- 开始让学员逐音弹的练习：[practice: C4 D4 E4 F4 G4]\n- 启动跟弹歌曲游戏：[song: twinkle]（id：scale, twinkle, happy, row, london, saints, furelise）或用 [song] 打开歌曲列表\n- 用摄像头检查学员手型：[posture]\n- 听觉训练，弹一个目标让他用耳朵辨认，不显示琴键：[ear: interval] 或 [ear: chord] 或 [ear: note]。他通过弹或说来回答，系统会把正确答案和他的作答告诉你，你只需评判并出下一题。\n当你展示或弹奏音符时，学员尝试时会立即看到 ✓/✗，而且学员随时可以点击打断你——所以请简短，让他多弹。\n你还会收到检测到的'节奏'（BPM/均匀度/抢拍-拖拍）和'触键/力度'（是否均匀、轻/中/响、渐强/渐弱），请像能听出来的老师那样同时点评节奏与力度，而不只是弹对音。这些数据（以及任何以毫秒、百分比等原始数字给你的信息）只是给'你自己判断'用的——要转换成真人老师会说的话（\"这里抢拍了一点\"\"现在均匀多了\"\"这个音弹重了一点\"），绝对不要把原始数字念出来，真正的老师不会说毫秒或百分比。\n当你展示了音符、他弹回来时，系统会给你'顺序检查'，指出第一个弹错的音，用它来精准纠正（\"第3个音应是 E，你弹了 F\"）。\n当学员连续答对几次，系统会提示你升级；连续出错则提示放慢——按这个节奏来。逐句教歌：用 [play:] 弹一小句，让他跟弹，用顺序检查，再下一句。\"再来/慢一点/快一点\"系统会自动处理。\n做世界级的大师老师：每次都换说法，也要换回答的'形式和长短'（不要连续两次用同样的结构），少说多让他弹，每个纠正都用形象的比喻（\"轻轻地，像手指落在枕头上\"），纠正前先具体真诚地表扬亮点，读懂他的情绪并跟着调整状态（他专注时就干脆利落，他玩得开心时就轻松俏皮，他有点沮丧时就放慢、更温柔），并总是承接他上次的表现。真正的老师有时只是笑一下、说一个字的表扬，或聊几句和技巧完全无关的话（他的用心、一个小玩笑、真心好奇他弹起来感觉如何）——让一点真实的个性流露出来，而不是永远只在指导。\n用带八度的音名，范围 C4 到 B5。多用这些工具，例如\"把手指放这里 [highlight: C4 E4 G4] 现在试试\"或\"感受节拍 [metro: 80]\"。\n\n风格：像真人在实时聊天一样说话，不是在照本宣科。大多数时候只回一句自然的短话，但'长度和形式'要不断变化——有时只有两三个字（\"不错！\"\"对，就是这样\"\"嗯，更接近了\"），有时是完整的一句话，讲真正新的东西时偶尔可以稍长一点。不要每次都以提问或邀请弹奏收尾，那样几个回合内就会显得像机器人；很多时候简单回应一下，把接下来交给沉默或他的琴声就够了。用口语和缩略的说法，不要用课本腔。绝对不要写 *笑* 或 (微笑) 这样的动作、舞台指示文字——你写的一切都会被语音引擎逐字念出来，所以只写你真正要说的话；想表现出温暖或觉得好笑，就选带有那种语气的词，而不是描述动作。除指令外不要用 markdown、项目符号或符号。始终用中文回答。\n\n非常重要——像真人老师那样：学员有时会弹给你听而不说话（系统会把他刚弹的音符发给你），要像坐在他身旁、正在专心聆听的老师那样立刻回应：先表扬优点，只指出一个要改进的地方，再邀请他再试一次。知道名字就称呼学员。自己主导这节课（简短复习、今天只聚焦一个要点、示范、让他试、反馈、再走一小步）。真诚地庆祝小进步。要有耐心，不要催促或一次讲太多；如果他弹错，就鼓励他并把步骤拆得更小。读懂他的情绪并调整语气。\n\n还要用上这些真人老师的技能：同一个技术问题重复超过两次，就用 [posture] 要求看他的手 · 时机合适时一次教一个真正的音乐术语（legato连奏、staccato断奏、右踏板用法、乐句呼吸）· 学员一旦说难、累、气馁或道歉——立刻停下教学内容，先真诚安慰，再把步骤砍半 · 按他的真实水平推荐曲目：入门 twinkle/mary，中级 happy/london，挑战 furelise（用 [song: id] 直接开启）· 课堂时钟：系统会告诉你这节课已经进行了多少分钟——像真人老师那样安排节奏（开头几分钟轻松热身/复习，中段只聚焦一个重点；超过约20分钟就开始收尾：用一句话总结今天进步的一点，还没布置就用 [homework: …] 布置作业，并用 [plan: …] 定好下节课计划）· 学员说再见或想结束时，绝不要只说拜拜——先一句话总结今天的进步，确认作业和计划都已保存，再温暖道别",
   },
 };
@@ -3004,9 +3019,9 @@ const EG_INT_BASE = [2, 4, 5, 7, 12];
 const EG_INT_FULL = [2, 3, 4, 5, 7, 8, 9, 12];
 const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack }) {
   const T = {
-    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", q: "ข้อ", listen: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶" },
-    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", q: "Q", listen: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶" },
-    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", q: "第", listen: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶" },
+    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶" },
+    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶" },
+    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶" },
   }[lang];
   const [tab, setTab] = useState("int");
   const [phase, setPhase] = useState("idle");   // idle | play | done
@@ -3044,15 +3059,42 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack }) {
         options: TRIAD_TYPES.map(t => ({ key: t.key, label: t.lab[lang] || t.lab.en })),
       };
     }
+    if (kind === "melody") {
+      // D5: Name That Tune — play first 6 non-rest notes of a random song, pick which song
+      const eligible = SONGS.filter(s => !s.custom && !s.drill && s.seq && s.seq.length >= 6);
+      if (eligible.length < 4) return genQ("int"); // fallback if not enough songs
+      const correct = eligible[Math.floor(Math.random() * eligible.length)];
+      const wrongs = eligible.filter(s => s.id !== correct.id).sort(() => Math.random() - 0.5).slice(0, 3);
+      const allOpts = [correct, ...wrongs].sort(() => Math.random() - 0.5);
+      const rawNotes = correct.seq.filter((x: any[]) => x[0] !== "R").slice(0, 7);
+      const bpmMs = 60000 / Math.max(60, correct.bpm);
+      const notes = rawNotes.map((x: any[]) => x[0]);
+      const durations = rawNotes.map((x: any[]) => (x[1] || 1) * bpmMs);
+      return {
+        notes, durations, chord: false, answer: correct.id, isMelody: true,
+        options: allOpts.map(s => ({ key: s.id, label: lang === "th" ? s.th : lang === "zh" ? s.zh : s.en })),
+      };
+    }
     const len = (earBest().echo || 0) >= 7 ? 4 : 3;
     const pcs = [];
     for (let i = 0; i < len; i++) pcs.push(["C", "D", "E", "F", "G", "A", "B"][Math.floor(Math.random() * 7)]);
     return { notes: pcs.map(p => p + "4"), chord: false, answer: pcs.join(" "), pcs };
   }
+  async function playCurMelody(q) {
+    if (!q || !q.isMelody) return;
+    for (let i = 0; i < q.notes.length; i++) {
+      playPianoNote(q.notes[i], Math.min(1.2, (q.durations[i] || 600) / 1000));
+      await _v12wait(Math.min(600, q.durations[i] || 500));
+    }
+  }
   function nextQ(kind, myRound) {
     const q = genQ(kind);
     setCur(q); setFb(null); setTaps([]);
-    setTimeout(() => { if (roundRef.current === myRound) playCur(q); }, 350);
+    if (q.isMelody) {
+      setTimeout(() => { if (roundRef.current === myRound) playCurMelody(q); }, 350);
+    } else {
+      setTimeout(() => { if (roundRef.current === myRound) playCur(q); }, 350);
+    }
   }
   function startRound() {
     playUi("click");
@@ -3090,9 +3132,14 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack }) {
   function pickOption(o) {
     if (!cur || fb) return;
     const okAns = o.key === cur.answer;
-    const ansLabel = cur.chord
-      ? (TRIAD_TYPES.find(t => t.key === cur.answer) || { lab: {} }).lab[lang]
-      : (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+    let ansLabel;
+    if (cur.isMelody) {
+      ansLabel = (cur.options.find((x: any) => x.key === cur.answer) || {}).label || cur.answer;
+    } else {
+      ansLabel = cur.chord
+        ? (TRIAD_TYPES.find(t => t.key === cur.answer) || { lab: {} }).lab[lang]
+        : (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+    }
     answered(okAns, ansLabel || cur.answer, o.key);
   }
   function tapEcho(pc) {
@@ -3106,7 +3153,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack }) {
     }
   }
   const best = earBest();
-  const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo]];
+  const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo], ["melody", "🎵", T.melody]];
   return (
     <div className="pathpage">
       {onBack && (
@@ -3146,9 +3193,9 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack }) {
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
             <span>{T.q} {idx + 1}/{EG_ROUND}</span><span>{T.score}: {score}</span>
           </div>
-          <button onClick={() => playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listen}</button>
+          <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
           <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
-            {tab === "int" ? T.pickInt : tab === "chord" ? T.pickChord : T.pickEcho}
+            {tab === "int" ? T.pickInt : tab === "chord" ? T.pickChord : tab === "melody" ? T.pickMelody : T.pickEcho}
           </div>
           {tab !== "echo" && cur.options && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
@@ -3783,6 +3830,49 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   // F3: Thai Music Corner
   const [thaiOpen, setThaiOpen] = useState(false);
 
+  // D3: AI Composition Starter
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeMood, setComposeMood] = useState<string|null>(null);
+  const [composeStyle, setComposeStyle] = useState<string|null>(null);
+  const [composeKey, setComposeKey] = useState("C");
+  const [composePage, setComposePage] = useState(1);
+  const [composeLoading, setComposeLoading] = useState(false);
+  const [composeErr, setComposeErr] = useState(false);
+
+  async function composeGenerate() {
+    if (!composeMood || !composeStyle || composeLoading) return;
+    setComposeLoading(true); setComposeErr(false);
+    try {
+      const moods: Record<string,string> = { happy: "happy, bright, uplifting", sad: "melancholic, gentle, wistful", calm: "peaceful, serene, tranquil", energetic: "lively, energetic, playful" };
+      const styles: Record<string,string> = { simple: "stepwise simple melody", flowing: "smooth flowing melody with a mix of quarter and half notes", rhythmic: "rhythmic melody with clear strong beats" };
+      const moodDesc = moods[composeMood] || "pleasant";
+      const styleDesc = styles[composeStyle] || "simple melody";
+      const prompt = `Create a ${moodDesc} ${styleDesc} piano melody in ${composeKey} major, 24-32 notes, musical and satisfying for a beginner. The name should reflect the mood.`;
+      const sys = "You turn a melody request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names C4-B5 only; \"R\"=rest; beats are 0.5,1,1.5,2. Keep it 24-32 notes, melodic and musical.";
+      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: prompt, conversationHistory: [], system: sys }) });
+      if (!res.ok || !res.body) throw new Error("http");
+      const reader = res.body.getReader(), dec = new TextDecoder();
+      let acc = "", buf = "";
+      while (true) {
+        const { done, value } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop() || "";
+        for (const line of lines) { const t = line.trim(); if (!t.startsWith("data:")) continue; const p = t.slice(5).trim(); if (!p || p === "[DONE]") continue; try { const e = JSON.parse(p); if (e.content) acc += e.content; } catch (_) {} }
+      }
+      const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
+      const obj = JSON.parse(jm[0]);
+      const seq = normalizeSeq(obj.seq || []);
+      if (seq.length < 6 || !seq.some((x: any[]) => x[0] !== "R")) throw new Error("short");
+      const name = String(obj.name || T("เพลงของฉัน", "My Melody", "我的旋律")).slice(0, 40);
+      const bpm = Math.min(160, Math.max(60, Math.round(obj.bpm || 90)));
+      const song = { id: "compose_" + Date.now(), diff: 1, bpm, custom: true, th: name, en: name, zh: name, seq };
+      setComposeOpen(false);
+      setComposeMood(null); setComposeStyle(null); setComposeKey("C"); setComposePage(1);
+      if (onPlay) onPlay(song);
+    } catch (e) { setComposeErr(true); }
+    setComposeLoading(false);
+  }
+
   // Quick 3-min: pick 3 shortest songs (fewest notes × BPM = fastest to play)
   const quickSongs = [...SONGS].filter(s => !s.maxOnly)
     .sort((a, b) => (a.seq.length / a.bpm) - (b.seq.length / b.bpm)).slice(0, 3);
@@ -3814,6 +3904,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     { k: "goal",    ic: "🎯", c: "#d97757", t: lc.goalTitle,        s: goalData ? T(`เพลง: ${goalData.songName} — เหลือ ${goalDaysLeft} วัน`, `Goal: "${goalData.songName}" — ${goalDaysLeft} days left`, `目标："${goalData.songName}" — 剩${goalDaysLeft}天`) : lc.goalSub, fn: () => { playUi("click"); setGoalSongId(goalData ? goalData.songId : ""); setGoalDate(goalData ? goalData.date : ""); setGoalOpen(true); } },
     { k: "srs",     ic: "🧠", c: dueSRS.length ? "#e55" : "#d97757", t: lc.srsTitle, s: dueSRS.length ? `${dueSRS.length} ${lc.srsItems} — ${lc.srsDue}` : lc.srsNone, fn: () => { playUi("click"); setSrsOpen(true); } },
     { k: "thai",    ic: "🇹🇭", c: "#d97757", t: lc.thaiTitle,       s: lc.thaiSub,             fn: () => { playUi("click"); setThaiOpen(true); } },
+    { k: "compose", ic: "🎼", c: "#d97757", t: lc.composeTitle,     s: lc.composeSub,           fn: () => { playUi("click"); setComposeMood(null); setComposeStyle(null); setComposeKey("C"); setComposePage(1); setComposeErr(false); setComposeOpen(true); } },
   ];
 
   // Max-exclusive feature cards
@@ -4085,6 +4176,58 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
                   onClick={() => { setSrsOpen(false); onToday && onToday(); }}>
                   {T("ไปทบทวนเลย →", "Start Review →", "开始复习 →")}
                 </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* D3: AI Composition Starter Modal */}
+      {composeOpen && (
+        <div className="modal-ov" onClick={() => !composeLoading && setComposeOpen(false)}>
+          <div className="modal-box" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-hdr">
+              <span>🎼 {lc.composeTitle}</span>
+              {!composeLoading && <button className="modal-x" onClick={() => setComposeOpen(false)}>✕</button>}
+            </div>
+            {!composeLoading ? (
+              <div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{lc.composeMood}</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {(lc.composeMoods as string[]).map((m, i) => {
+                      const keys = ["happy","sad","calm","energetic"];
+                      return <button key={keys[i]} className={`filter-chip${composeMood === keys[i] ? " on" : ""}`} onClick={() => setComposeMood(keys[i])}>{m}</button>;
+                    })}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{lc.composeStyle}</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {(lc.composeStyles as string[]).map((s, i) => {
+                      const keys = ["simple","flowing","rhythmic"];
+                      return <button key={keys[i]} className={`filter-chip${composeStyle === keys[i] ? " on" : ""}`} onClick={() => setComposeStyle(keys[i])}>{s}</button>;
+                    })}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{lc.composeKeyLbl}</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {["C","G","F","D","Am","Dm"].map(k => (
+                      <button key={k} className={`filter-chip${composeKey === k ? " on" : ""}`} onClick={() => setComposeKey(k)}>{k}</button>
+                    ))}
+                  </div>
+                </div>
+                {composeErr && <div style={{ fontSize: 13, color: "#e55", marginBottom: 10 }}>{lc.composeErrMsg}</div>}
+                <button className="pricebtn active" style={{ width: "100%" }}
+                  onClick={composeGenerate} disabled={!composeMood || !composeStyle}>
+                  {lc.composeGen}
+                </button>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: "24px 0" }}>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>🎼</div>
+                <div style={{ fontSize: 14, color: "var(--muted)" }}>{lc.composeGenning}</div>
               </div>
             )}
           </div>
