@@ -5566,6 +5566,13 @@ const SHOP_FRAMES = [
   { id: "fr-gold",    icon: "🥇", cost: 500, rarity: "epic",      th: "ทอง",       en: "Gold",     zh: "黄金", sw: ["#ffd23f", "#c9960a"], isNew: true },
   { id: "fr-diamond", icon: "💎", cost: 900, rarity: "legendary", th: "เพชร",      en: "Diamond",  zh: "钻石", sw: ["#8ad4ff", "#a855f7"], isNew: true },
 ];
+// F2: LINE achievement share — opens LINE app on mobile, fallback clipboard on desktop
+function shareLine(text: string) {
+  const url = "https://line.me/R/share?text=" + encodeURIComponent(text);
+  if (!window.open(url, "_blank", "noopener")) {
+    try { navigator.clipboard.writeText(text); } catch (_) {}
+  }
+}
 // generate a shareable achievement card image (Web Share API, else download)
 async function shareCard({ title, big, sub, lines = [] }) {
   try {
@@ -10992,6 +10999,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="songready-btns">
                 <button className="songbtn ghost" onClick={exitSong}>↩ {lc.songBackList}</button>
                 <button className="songbtn ghost" onClick={() => shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: "★".repeat(songResult.stars) + "☆".repeat(3 - songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] })}>📤 {lc.shareBtn}</button>
+                <button className="songbtn ghost" style={{ borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${tr(songMeta, lang)} — ${"★".repeat(songResult.stars)} ${songResult.acc}% 🎵 TiGA Piano AI tigaalpha.github.io`)}>🟢 LINE</button>
                 <button className="songbtn go" onClick={startSongPlay}>↻ {lc.songRetry}</button>
               </div>
               {/* D2: Style Transformer — shown after getting ≥1 star */}
@@ -11445,7 +11453,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 </div>
                 {mem.struggles && mem.struggles.length > 0 && <><div className="pd-sec">{lc.pdFocus}</div><div className="pd-tags">{mem.struggles.slice(0, 5).map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div></>}
                 {mem.mastered && mem.mastered.length > 0 && <><div className="pd-sec">{lc.pdMastered}</div><div className="pd-tags">{mem.mastered.slice(0, 6).map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
-                <button className="songbtn ghost" style={{ width: "100%", marginTop: 14 }} onClick={() => shareCard({ title: nm, big: (st.count || 0) + "🔥", sub: lc.profLevelWord + " " + li.level, lines: [`${sess} ${lc.pdSessions} · ${wkAcc}% ${lc.pdAcc}`] })}>📤 {lc.shareBtn}</button>
+                <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                  <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => shareCard({ title: nm, big: (st.count || 0) + "🔥", sub: lc.profLevelWord + " " + li.level, lines: [`${sess} ${lc.pdSessions} · ${wkAcc}% ${lc.pdAcc}`] })}>📤 {lc.shareBtn}</button>
+                  <button className="songbtn ghost" style={{ flex: 1, borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${nm} ${lc.profLevelWord} ${li.level} · ${(st.count || 0)}🔥 streak — TiGA Piano AI tigaalpha.github.io`)}>🟢 LINE</button>
+                </div>
               </div>
             </div>
           </div>
@@ -11694,7 +11705,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="lvup-burst" aria-hidden="true">{levelUp.tier.icon}</div>
           <div className="lvup-title">{lc.levelUpWord}</div>
           <div className="lvup-rank">{lc.profLevelWord} {levelUp.level} · {tr(levelUp.tier, lang)}</div>
-          <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: lc.levelUpWord, big: lc.profLevelWord + " " + levelUp.level, sub: tr(levelUp.tier, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: lc.levelUpWord, big: lc.profLevelWord + " " + levelUp.level, sub: tr(levelUp.tier, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
+            <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(`🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>
+          </div>
         </div>
       )}
 
@@ -11704,7 +11718,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="lvup-burst" aria-hidden="true">{badgeUp.icon}</div>
           <div className="lvup-title">{lc.badgeUnlocked}</div>
           <div className="lvup-rank">{tr(badgeUp, lang)}</div>
-          <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareCard({ title: lc.badgeUnlocked, big: badgeUp.icon, sub: tr(badgeUp, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareCard({ title: lc.badgeUnlocked, big: badgeUp.icon, sub: tr(badgeUp, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
+            <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareLine(`🎹 ${lc.badgeUnlocked} ${badgeUp.icon} "${tr(badgeUp, lang)}" — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>
+          </div>
         </div>
       )}
 
