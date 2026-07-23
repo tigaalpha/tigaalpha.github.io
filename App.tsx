@@ -7590,6 +7590,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [songResult, setSongResult] = useState(null);
   const [songAnalysis, setSongAnalysis] = useState(null);   // {weakness, steps} — per-song mistake breakdown, this page only
   const [songAnalysisBusy, setSongAnalysisBusy] = useState(false);
+  // D2: Style Transformer
+  const [stylePickOpen, setStylePickOpen] = useState(false);
+  const [styleLoading, setStyleLoading] = useState(false);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
   const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
   const [songBest, setSongBest] = useState(0);
@@ -8842,6 +8845,45 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     } catch (e) { /* silent — the score/stars result above already shown, this is a bonus */ }
     setSongAnalysisBusy(false);
   }
+  // D2: Style Transformer — regenerate current song in a different style
+  async function styleTransform(style: string) {
+    if (!songMeta || styleLoading) return;
+    setStyleLoading(true); setStylePickOpen(false);
+    try {
+      const styleDesc: Record<string, string> = {
+        jazz: "jazz arrangement with swung notes and syncopated rhythm",
+        pop: "modern pop arrangement with simple clear melody and strong beat",
+        classical: "classical arrangement with smooth legato phrasing",
+      };
+      const songName = tr(songMeta, lang);
+      const seqStr = JSON.stringify((songMeta.seq || []).slice(0, 20));
+      const prompt = `Rearrange the piano melody "${songName}" in a ${styleDesc[style] || style} style for a beginner falling-notes game. The original melody starts: ${seqStr}. Keep it recognizable but add ${style} character. 20-32 notes.`;
+      const sys = "Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes: C4-B5 only; R=rest; beats: 0.5,1,1.5,2.";
+      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: prompt, conversationHistory: [], system: sys }) });
+      if (!res.ok || !res.body) throw new Error("http");
+      const reader = res.body.getReader(), dec = new TextDecoder();
+      let acc = "", buf = "";
+      while (true) {
+        const { done, value } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop() || "";
+        for (const line of lines) { const t = line.trim(); if (!t.startsWith("data:")) continue; const p = t.slice(5).trim(); if (!p || p === "[DONE]") continue; try { const e = JSON.parse(p); if (e.content) acc += e.content; } catch (_) {} }
+      }
+      const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
+      const obj = JSON.parse(jm[0]);
+      const seq = normalizeSeq(obj.seq || []);
+      if (seq.length < 6 || !seq.some((x: any[]) => x[0] !== "R")) throw new Error("short");
+      const styleLabel = { jazz: "Jazz", pop: "Pop", classical: "Classical" }[style] || style;
+      const name = `${songName} (${styleLabel})`;
+      const bpm = Math.min(180, Math.max(60, Math.round(obj.bpm || (songMeta.bpm || 90))));
+      const newSong = { id: "style_" + Date.now(), diff: songMeta.diff || 2, bpm, custom: true, th: name, en: name, zh: name, seq };
+      songDataRef.current = expandSong(newSong);
+      setSongResult(null); setSongAnalysis(null); setSongPhase("ready");
+      setSongMeta(newSong);
+    } catch (e) { /* silent fail — user stays on result screen */ }
+    setStyleLoading(false);
+  }
+
   useEffect(() => {
     if (songPhase === "done" && songResult && !songAnalysis && !songAnalysisBusy) {
       fetchSongAnalysis(songResult, tr(songMeta, lang));
@@ -10952,6 +10994,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <button className="songbtn ghost" onClick={() => shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: "★".repeat(songResult.stars) + "☆".repeat(3 - songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] })}>📤 {lc.shareBtn}</button>
                 <button className="songbtn go" onClick={startSongPlay}>↻ {lc.songRetry}</button>
               </div>
+              {/* D2: Style Transformer — shown after getting ≥1 star */}
+              {songResult.stars >= 1 && (
+                <div style={{ marginTop: 10 }}>
+                  {!stylePickOpen && !styleLoading && (
+                    <button className="songbtn ghost" style={{ width: "100%" }} onClick={() => setStylePickOpen(true)}>
+                      🎭 {lang === "th" ? "ลองในสไตล์อื่น" : lang === "zh" ? "试试其他风格" : "Try in another style"}
+                    </button>
+                  )}
+                  {styleLoading && <div style={{ textAlign: "center", fontSize: 13, color: "var(--muted)", padding: "8px 0" }}>⏳ {lang === "th" ? "กำลังสร้างสไตล์ใหม่..." : lang === "zh" ? "正在生成新风格..." : "Generating new style..."}</div>}
+                  {stylePickOpen && (
+                    <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "center" }}>
+                      {[["jazz","🎷 Jazz"],["pop","🎤 Pop"],["classical","🎻 Classical"]].map(([s,l]) => (
+                        <button key={s} className="filter-chip" style={{ flex: 1 }} onClick={() => styleTransform(s)}>{l}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
