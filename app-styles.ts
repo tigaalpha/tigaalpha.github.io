@@ -1171,6 +1171,38 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 /* Filter chip (mood/time picker) */
 .filter-chip{padding:7px 14px;border-radius:20px;border:1px solid var(--bd2);background:var(--card);color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .18s}
 .filter-chip.on{background:#d97757;color:#fff;border-color:transparent}
+/* B2: Note Weakness Heatmap */
+.noteheat-card{padding:16px;background:var(--card2);border-radius:14px;border:1px solid var(--bd2)}
+.noteheat-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.noteheat-keys{position:relative;height:78px;user-select:none}
+.noteheat-white-row{display:flex;gap:3px;height:78px;align-items:stretch}
+.noteheat-white{flex:1;border-radius:4px;border:1px solid var(--bd4);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:4px;cursor:default;min-width:0;transition:background .3s}
+.noteheat-pc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);font-weight:700}
+.noteheat-n{font-family:'Orbitron',sans-serif;font-size:8px;color:#d97757;font-weight:700}
+.noteheat-black-row{position:absolute;top:0;left:0;right:0;height:48px;pointer-events:none}
+.noteheat-black{position:absolute;width:calc(100%/9);height:100%;border-radius:3px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;transform:translateX(-50%);transition:background .3s}
+.noteheat-bpc{font-family:'Share Tech Mono',monospace;font-size:7px;color:#fff8;font-weight:700;line-height:1}
+.noteheat-gap{display:inline-block}
+/* B1: SRS list */
+.srs-list{display:flex;flex-direction:column;gap:8px}
+.srs-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card2);border-radius:10px;border:1px solid var(--bd2)}
+.srs-ic{font-size:16px}
+.srs-label{flex:1;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--text)}
+.srs-count{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--muted)}
+/* A2: Goal Planner */
+.goal-song-name{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:#d97757;margin-bottom:4px}
+.goal-days-left{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--muted);margin-bottom:16px}
+.goal-plan-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto}
+.goal-plan-step{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--card2);border-radius:10px;border:1px solid var(--bd2)}
+.goal-step-num{font-family:'Orbitron',sans-serif;font-size:9px;color:#d97757;font-weight:700;white-space:nowrap;padding-top:1px}
+.goal-step-txt{font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--text);line-height:1.4}
+/* F3: Thai Music Corner */
+.thai-cards{display:flex;flex-direction:column;gap:12px}
+.thai-card{padding:14px;background:var(--card2);border-radius:12px;border:1px solid var(--bd2)}
+.thai-card-h{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:#d97757;margin-bottom:8px}
+.thai-card-b{font-size:13px;color:var(--text);line-height:1.55;margin-bottom:10px}
+.thai-play-btn{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;background:rgba(217,119,87,.15);color:#d97757;border:1px solid rgba(217,119,87,.4);border-radius:16px;padding:6px 14px;cursor:pointer}
+.thai-play-btn:hover{background:rgba(217,119,87,.25)}
 `;
 
 export function useInjectCSS() {
