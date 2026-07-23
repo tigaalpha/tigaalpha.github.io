@@ -2154,6 +2154,9 @@ const L = {
     songScore: "คะแนน", songCombo: "คอมโบ", songMaxCombo: "คอมโบสูงสุด", songNotes: "โน้ต",
     judgePerfect: "เพอร์เฟกต์!", judgeGood: "ดี!", judgeMiss: "พลาด", songBest: "สถิติ", songNewBest: "ทำลายสถิติ!", songFullCombo: "คอมโบเต็ม", songAllPerfect: "เพอร์เฟกต์ทั้งหมด",
     shareBtn: "แชร์", lockedLv: "ปลดล็อก Lv.", songAll: "ทั้งหมด", songFav: "โปรด", songContinue: "เล่นต่อ", songFavEmpty: "ยังไม่มีเพลงโปรด — แตะ ☆ เพื่อบันทึก", aiCreate: "AI สร้างเพลง", aiCreateHint: "พิมพ์ชื่อเพลงหรือบรรยายทำนอง แล้ว AI จะสร้างเป็นเกมโน้ตตกให้เล่นทันที", aiCreatePh: "เช่น Happy Birthday, เพลงช้าง...", aiCreateGo: "สร้างเพลง", aiCreating: "กำลังสร้าง...", aiCreateErr: "สร้างไม่สำเร็จ ลองใหม่หรือเปลี่ยนชื่อเพลง",
+    aiHumBtn: "🎤 เล่นโน้ต — AI แปลงเป็นบรรยาย", aiHumStop: "หยุดฟัง", aiHumHint: "เล่นท่อนสั้นๆ แล้ว AI จะใช้โน้ตนั้นสร้างเพลง",
+    commuteTitle: "ฟังทฤษฎีดนตรี", commuteSub: "ฟังบทเรียนขณะเดินทาง ไม่ต้องดูหน้าจอ", commuteStop: "หยุดเสียง", commutePlaying: "กำลังอ่าน…",
+    kruTitle: "โหมดครู / Kru Mode", kruSub: "จัดการชั้นเรียน + ส่ง assignment code", kruClass: "รายชื่อนักเรียน", kruCode: "สร้างโค้ด", kruEnter: "ใช้โค้ด", kruAddPh: "ชื่อนักเรียน", kruAdd: "เพิ่ม", kruAssign: "เพลงที่มอบหมาย", kruMakeCode: "สร้างโค้ด", kruCopied: "คัดลอกแล้ว!", kruPastePh: "วางโค้ด assignment", kruApply: "เปิดเพลง", kruNoSong: "เลือกเพลงก่อน", kruBadCode: "โค้ดไม่ถูกต้อง", kruNoStudents: "ยังไม่มีนักเรียน",
     recRecord: "อัดเสียง", recStop: "หยุดอัด", recPlay: "เล่นที่อัด", recPlaying: "กำลังเล่น…",
     demoPause: "หยุดเสียงโชว์", demoPlay: "เล่นโชว์อีกครั้ง",
     recCritique: "ให้ครูติชม", recCritiqueUser: "🎙️ ครูครับ ช่วยฟังที่ผมเพิ่งเล่นแล้วติชมหน่อยครับ ว่าเล่นถูกไหม จังหวะเป็นยังไง ควรปรับอะไร",
@@ -2273,6 +2276,9 @@ const L = {
     songScore: "Score", songCombo: "Combo", songMaxCombo: "Max Combo", songNotes: "notes",
     judgePerfect: "PERFECT!", judgeGood: "GOOD!", judgeMiss: "MISS", songBest: "Best", songNewBest: "NEW BEST!", songFullCombo: "FULL COMBO", songAllPerfect: "ALL PERFECT",
     shareBtn: "Share", lockedLv: "Unlock Lv.", songAll: "All", songFav: "Favorites", songContinue: "Continue", songFavEmpty: "No favorites yet — tap ☆ to save", aiCreate: "AI Create Song", aiCreateHint: "Type a song name or describe a melody — AI builds a playable falling-notes chart instantly.", aiCreatePh: "e.g. Happy Birthday, a slow sad tune...", aiCreateGo: "Create song", aiCreating: "Creating...", aiCreateErr: "Couldn't create — try again or another song.",
+    aiHumBtn: "🎤 Play notes — AI transcribes", aiHumStop: "Stop", aiHumHint: "Play a short phrase on your piano — AI uses those notes to create a song",
+    commuteTitle: "Commute Lessons", commuteSub: "Listen to theory — no screen needed", commuteStop: "Stop audio", commutePlaying: "Playing…",
+    kruTitle: "Kru / Teacher Mode", kruSub: "Manage a class & share assignment codes", kruClass: "Class roster", kruCode: "Make code", kruEnter: "Use code", kruAddPh: "Student name", kruAdd: "Add", kruAssign: "Assigned song", kruMakeCode: "Generate code", kruCopied: "Copied!", kruPastePh: "Paste assignment code", kruApply: "Open song", kruNoSong: "Pick a song first", kruBadCode: "Invalid code", kruNoStudents: "No students yet",
     recRecord: "Record", recStop: "Stop", recPlay: "Play back", recPlaying: "Playing…",
     demoPause: "Pause demo", demoPlay: "Play demo again",
     recCritique: "Get feedback", recCritiqueUser: "🎙️ Teacher, please listen to what I just played and give feedback — was it right, how was the timing, what should I improve?",
@@ -2392,6 +2398,9 @@ const L = {
     songScore: "得分", songCombo: "连击", songMaxCombo: "最高连击", songNotes: "音符",
     judgePerfect: "完美!", judgeGood: "不错!", judgeMiss: "失误", songBest: "最佳", songNewBest: "新纪录!", songFullCombo: "全连", songAllPerfect: "全完美",
     shareBtn: "分享", lockedLv: "解锁 Lv.", songAll: "全部", songFav: "收藏", songContinue: "继续", songFavEmpty: "还没有收藏 — 点 ☆ 保存", aiCreate: "AI 创作歌曲", aiCreateHint: "输入歌名或描述旋律，AI 立即生成可玩的下落音符谱。", aiCreatePh: "例如 生日快乐、两只老虎...", aiCreateGo: "生成歌曲", aiCreating: "生成中...", aiCreateErr: "生成失败 — 请重试或换一首。",
+    aiHumBtn: "🎤 弹奏音符 — AI识谱", aiHumStop: "停止", aiHumHint: "在键盘弹几个音 — AI用这些音创作歌曲",
+    commuteTitle: "通勤乐理课", commuteSub: "边通勤边听音乐理论课", commuteStop: "停止播放", commutePlaying: "播放中…",
+    kruTitle: "教师模式", kruSub: "管理班级 + 分配练习码", kruClass: "班级名单", kruCode: "生成码", kruEnter: "使用码", kruAddPh: "学生姓名", kruAdd: "添加", kruAssign: "指定歌曲", kruMakeCode: "生成练习码", kruCopied: "已复制!", kruPastePh: "粘贴练习码", kruApply: "打开歌曲", kruNoSong: "请先选择歌曲", kruBadCode: "无效码", kruNoStudents: "还没有学生",
     recRecord: "录制", recStop: "停止", recPlay: "回放", recPlaying: "播放中…",
     demoPause: "暂停示范", demoPlay: "再次播放示范",
     recCritique: "请老师点评", recCritiqueUser: "🎙️ 老师，请听听我刚才弹的，给点评价——弹得对吗？节奏如何？该改进什么？",
@@ -3724,7 +3733,7 @@ const CHORD_MOODS = [
     desc: { th: "E–B–A–E · สนุกสนาน ตื่นเต้น", en: "E–B–A–E · Festive & exciting", zh: "E–B–A–E · 欢快刺激" } },
 ];
 
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onPlay = null }) {
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onPlay = null, onParent = null }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan);
@@ -3733,6 +3742,19 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   const [quickOpen, setQuickOpen] = useState(false);
   // B5: Warmup banner
   const [warmupDone, setWarmupDone] = useState(() => readStreak().last === dayKey());
+  // E2: Commute Mode (audio theory lessons via SpeechSynthesis)
+  const [commuteOpen, setCommuteOpen] = useState(false);
+  const [commutePlaying, setCommutePlaying] = useState(false);
+  const [commuteIdx, setCommuteIdx] = useState<number|null>(null);
+  // C4+F4: Kru/Teacher Mode
+  const [kruOpen, setKruOpen] = useState(false);
+  const [kruTab, setKruTab] = useState<"class"|"code"|"enter">("class");
+  const [kruStudents, setKruStudents] = useState<any[]>(() => { try { return JSON.parse(localStorage.getItem("tg_kru") || "[]"); } catch { return []; } });
+  const [kruNewName, setKruNewName] = useState("");
+  const [kruCodeSong, setKruCodeSong] = useState("");
+  const [kruInputCode, setKruInputCode] = useState("");
+  const [kruMsg, setKruMsg] = useState("");
+  const [kruGenResult, setKruGenResult] = useState("");
   // D4: Chord Mood Board
   const [moodBoardOpen, setMoodBoardOpen] = useState(false);
   const [activeMood, setActiveMood] = useState(null);
@@ -3764,6 +3786,82 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   function playChord(notesCsv) {
     const notes = notesCsv.split(",").map(n => n.trim());
     notes.forEach((n, i) => setTimeout(() => playPianoNote(n, 1.2), i * 60));
+  }
+
+  // E2: Commute Mode — pre-written audio theory lessons
+  const COMMUTE_LESSONS = lang === "th" ? [
+    { title: "คอร์ด Major คืออะไร?", text: "คอร์ด Major คือกลุ่มโน้ต 3 ตัวที่เล่นพร้อมกัน ประกอบด้วย Root, Third, และ Fifth ตัวอย่างเช่น คอร์ด C Major ใช้โน้ต C, E, G เสียงของคอร์ด Major จะดูสดใส มีพลัง คุณสามารถสร้างคอร์ด Major ได้ทุก key โดยนับ 4 ครึ่งเสียง แล้วนับอีก 3 ครึ่งเสียง" },
+    { title: "ไมเนอร์ vs เมเจอร์", text: "คอร์ด Minor ฟังดูเศร้ากว่า Major เพราะ Third ถูกลดลง 1 ครึ่งเสียง ตัวอย่าง C Minor ใช้ C, อีแฟลต, G แทน C, E, G ความแตกต่างแค่ครึ่งเสียงเดียว แต่อารมณ์เพลงเปลี่ยนไปมาก เพลงแฮปปี้มักใช้เมเจอร์ เพลงอารมณ์ลึกใช้ไมเนอร์" },
+    { title: "Octave คืออะไร?", text: "Octave คือระยะห่างระหว่างโน้ตที่ชื่อเดียวกัน เช่น C ตัวล่างกับ C ตัวบน มีระยะห่าง 12 ครึ่งเสียง โน้ตที่ห่างกัน 1 Octave มีเสียงเหมือนกันแต่ระดับต่างกัน นี่คือพื้นฐานที่สำคัญที่สุดในดนตรีสากล" },
+    { title: "Circle of Fifths", text: "Circle of Fifths คือแผนที่ของ 12 keys ในดนตรี เรียงตาม Fifth ขึ้นไป คือ C G D A E B keys ที่อยู่ใกล้กันใน Circle มักฟังดูดีด้วยกัน และการเปลี่ยน key ระหว่างกันฟังดูลื่นไหลเป็นธรรมชาติ" },
+    { title: "จังหวะ 4/4", text: "จังหวะ 4 ต่อ 4 คือจังหวะที่พบบ่อยที่สุดในเพลงสมัยใหม่ นับ 1 2 3 4 แต่ละห้องมี 4 beat โน้ต Quarter note เท่ากับ 1 beat Half note เท่ากับ 2 beat Whole note เท่ากับ 4 beat ลองฝึกนับจังหวะขณะฟังเพลงที่คุณชอบ" },
+  ] : lang === "zh" ? [
+    { title: "什么是大调和弦", text: "大调和弦由三个音组成：根音、大三度和纯五度。以C大调为例：C、E、G。听起来明亮积极。你可以在任何调上建立大调和弦：向上数4个半音，再数3个半音。" },
+    { title: "小调与大调的区别", text: "小调和弦听起来比大调更忧郁，因为三度音降低了半个音。C小调是C、降E、G，而不是C、E、G。只差半音，情绪却截然不同。欢快的歌曲用大调，深情的歌曲用小调。" },
+    { title: "什么是八度", text: "八度是两个同名音之间的距离，比如低C和高C。相距12个半音。相差一个八度的音听起来相似，只是高低不同。这是音乐中最基础的音程。" },
+    { title: "五度圈", text: "五度圈将12个调按五度顺序排列成圆形：C、G、D、A、E、B。相邻的调共享很多音符和和弦，听起来很和谐，转调时也很流畅。" },
+    { title: "拍号", text: "四四拍是流行音乐中最常见的拍号。每小节数一二三四。四分音符占一拍，二分音符占两拍，全音符占四拍。试着跟着喜欢的歌曲打拍子。" },
+  ] : [
+    { title: "What is a Major Chord?", text: "A major chord has three notes: the root, the major third, and the perfect fifth. Take C major: C, E, G. The sound is bright and positive. You can build it in any key by going up 4 half-steps, then 3 more." },
+    { title: "Minor vs Major", text: "A minor chord sounds sadder because the third is lowered by one half step. C minor is C, E-flat, G instead of C, E, G. Just one half step changes the whole mood. Happy songs use major; emotional songs use minor." },
+    { title: "What is an Octave?", text: "An octave is the distance between two notes with the same letter name, like low C and high C. It spans 12 half steps. Notes an octave apart sound similar but at different pitches. This is the most fundamental interval in music." },
+    { title: "The Circle of Fifths", text: "The circle of fifths maps all 12 keys in a circle, each step being a fifth apart: C, G, D, A, E, B. Keys next to each other share many notes and chords, so they sound great together. Modulating between neighbors always sounds smooth." },
+    { title: "Time Signatures", text: "Four-four time is the most common in popular music. Count one, two, three, four per measure. A quarter note gets one beat, a half note gets two, and a whole note fills all four beats. Try counting along to any song you like." },
+  ];
+
+  function speakLesson(idx: number) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const lesson = COMMUTE_LESSONS[idx];
+    if (!lesson) return;
+    setCommuteIdx(idx);
+    const utt = new SpeechSynthesisUtterance(lesson.title + ". " + lesson.text);
+    utt.lang = lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US";
+    utt.rate = 0.9;
+    utt.onend = () => setCommutePlaying(false);
+    utt.onerror = () => setCommutePlaying(false);
+    setCommutePlaying(true);
+    window.speechSynthesis.speak(utt);
+  }
+  function stopSpeaking() {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    setCommutePlaying(false);
+  }
+
+  // C4+F4: Kru/Teacher Mode helpers
+  function kruSave(arr: any[]) {
+    setKruStudents(arr);
+    try { localStorage.setItem("tg_kru", JSON.stringify(arr)); } catch {}
+  }
+  function kruAddStudent() {
+    if (!kruNewName.trim()) return;
+    kruSave([...kruStudents, { name: kruNewName.trim(), songId: "", done: false }]);
+    setKruNewName("");
+  }
+  function kruSetSong(idx: number, songId: string) {
+    const arr = kruStudents.map((s, i) => i === idx ? { ...s, songId } : s);
+    kruSave(arr);
+  }
+  function kruToggleDone(idx: number) {
+    const arr = kruStudents.map((s, i) => i === idx ? { ...s, done: !s.done } : s);
+    kruSave(arr);
+  }
+  function kruRemove(idx: number) {
+    kruSave(kruStudents.filter((_, i) => i !== idx));
+  }
+  function kruMakeCode(songId: string): string {
+    try { return btoa(JSON.stringify({ v: 1, t: "song", id: songId })); } catch { return ""; }
+  }
+  function kruUseCode(code: string) {
+    setKruMsg("");
+    try {
+      const obj = JSON.parse(atob(code.trim()));
+      if (obj.t === "song") {
+        const s = SONGS.find((x: any) => x.id === obj.id);
+        if (s) { setKruOpen(false); onPlay && onPlay(s); return; }
+      }
+      setKruMsg(T("โค้ดไม่ถูกต้อง", "Invalid code", "无效码"));
+    } catch { setKruMsg(T("โค้ดไม่ถูกต้อง", "Invalid code", "无效码")); }
   }
 
   // B1: SRS — how many topics are due for review
@@ -3913,6 +4011,9 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       fn: () => { playUi("click"); setEvName(eventData ? eventData.name : ""); setEvDate(eventData ? eventData.date : ""); setEventOpen(true); } },
     { k: "detect",  ic: "🔍", c: "#d97757", t: T("ทายเพลงจากการเล่น", "Song Detector", "猜歌"), s: T("เล่นโน้ตสักไม่กี่ตัว — AI ทายชื่อเพลง", "Play a few notes — AI names the song", "弹几个音符 — AI 猜出歌名"), fn: () => { playUi("click"); setDetectNotes([]); setDetectMatch(null); setDetectListening(false); setDetectOpen(true); } },
     { k: "battle",  ic: "⚔️", c: "#d97757", t: T("Family Battle 👨‍👩‍👧", "Family Battle", "家庭对战"), s: T("ผลัดกันเล่นเพลงเดียวกัน — ดูว่าใครชนะ!", "Take turns playing the same song — see who wins!", "轮流弹同一首歌 — 看谁赢!"), fn: () => { playUi("click"); setBattleData(null); setBattlePickOpen(true); } },
+    { k: "commute", ic: "🎧", c: "#d97757", t: lc.commuteTitle, s: lc.commuteSub, fn: () => { playUi("click"); stopSpeaking(); setCommuteIdx(null); setCommuteOpen(true); } },
+    { k: "parent",  ic: "👨‍👩‍👧", c: "#d97757", t: lc.pdTitle, s: T("ดูพัฒนาการและรายงานความก้าวหน้า", "Track your child's progress", "查看孩子进度报告"), fn: () => { playUi("click"); onParent ? onParent() : null; } },
+    { k: "kru",     ic: "📋", c: "#d97757", t: lc.kruTitle, s: lc.kruSub, fn: () => { playUi("click"); setKruMsg(""); setKruGenResult(""); setKruTab("class"); setKruOpen(true); } },
   ];
 
   // Max-exclusive feature cards
@@ -4398,6 +4499,134 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           )}
         </div>
       )}
+
+      {/* E2: Commute Mode — audio theory lessons */}
+      {commuteOpen && (
+        <div className="practiceov" onClick={() => { stopSpeaking(); setCommuteOpen(false); }}>
+          <div className="practiceov-box" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+            <div className="practicetitle">🎧 {lc.commuteTitle}</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>{lc.commuteSub}</div>
+            {commutePlaying && commuteIdx !== null && (
+              <div style={{ background: "var(--accent)", color: "#fff", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 14 }}>
+                🔊 {COMMUTE_LESSONS[commuteIdx].title}
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+              {COMMUTE_LESSONS.map((lesson, i) => (
+                <button key={i} className={`songbtn${commuteIdx === i && commutePlaying ? " go" : " ghost"}`}
+                  style={{ textAlign: "left", fontSize: 13, padding: "10px 14px" }}
+                  onClick={() => commutePlaying && commuteIdx === i ? stopSpeaking() : speakLesson(i)}>
+                  {commuteIdx === i && commutePlaying ? "⏹ " : "▶ "}{lesson.title}
+                </button>
+              ))}
+            </div>
+            {commutePlaying && (
+              <button className="songbtn ghost" style={{ width: "100%", color: "#e55" }} onClick={stopSpeaking}>
+                ⏹ {lc.commuteStop}
+              </button>
+            )}
+            <button className="songbtn ghost" style={{ width: "100%", marginTop: 8 }} onClick={() => { stopSpeaking(); setCommuteOpen(false); }}>
+              {lc.close}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* C4+F4: Kru / Teacher Mode */}
+      {kruOpen && (
+        <div className="practiceov" onClick={() => setKruOpen(false)}>
+          <div className="practiceov-box" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div className="practicetitle">📋 {lc.kruTitle}</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {(["class", "code", "enter"] as const).map(tab => (
+                <button key={tab} className={`songfilter${kruTab === tab ? " on" : ""}`} onClick={() => { setKruTab(tab); setKruMsg(""); setKruGenResult(""); }}>
+                  {tab === "class" ? lc.kruClass : tab === "code" ? lc.kruCode : lc.kruEnter}
+                </button>
+              ))}
+            </div>
+
+            {kruTab === "class" && (
+              <div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  <input className="aicreate-in" style={{ flex: 1 }} value={kruNewName}
+                    onChange={e => setKruNewName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && kruAddStudent()}
+                    placeholder={lc.kruAddPh} />
+                  <button className="songbtn go" style={{ padding: "0 14px" }} onClick={kruAddStudent}>{lc.kruAdd}</button>
+                </div>
+                {kruStudents.length === 0 ? (
+                  <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, padding: 16 }}>{lc.kruNoStudents}</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto" }}>
+                    {kruStudents.map((st, i) => (
+                      <div key={i} style={{ background: "var(--glass)", borderRadius: 10, padding: "8px 12px", display: "flex", gap: 8, alignItems: "center" }}>
+                        <button style={{ fontSize: 18, background: "none", border: "none", cursor: "pointer" }} onClick={() => kruToggleDone(i)}>
+                          {st.done ? "✅" : "⬜"}
+                        </button>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{st.name}</div>
+                          {st.songId && <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                            {(SONGS as any[]).find((s: any) => s.id === st.songId) ? tr((SONGS as any[]).find((s: any) => s.id === st.songId), lang) : st.songId}
+                          </div>}
+                        </div>
+                        <select style={{ fontSize: 12, border: "1px solid var(--glass2)", borderRadius: 6, padding: "2px 4px", background: "var(--bg)", color: "var(--fg)" }}
+                          value={st.songId || ""}
+                          onChange={e => kruSetSong(i, e.target.value)}>
+                          <option value="">{lc.kruAssign}…</option>
+                          {(SONGS as any[]).map((s: any) => <option key={s.id} value={s.id}>{tr(s, lang)}</option>)}
+                        </select>
+                        <button style={{ background: "none", border: "none", color: "#e55", cursor: "pointer", fontSize: 16 }} onClick={() => kruRemove(i)}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {kruTab === "code" && (
+              <div>
+                <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 10 }}>{T("เลือกเพลงแล้วกดสร้างโค้ด — ส่งโค้ดให้นักเรียน", "Pick a song and generate a code to share with students", "选歌后生成练习码发给学生")}</div>
+                <select className="aicreate-in" value={kruCodeSong} onChange={e => { setKruCodeSong(e.target.value); setKruGenResult(""); }}>
+                  <option value="">{T("เลือกเพลง...", "Select a song...", "选择歌曲...")}</option>
+                  {(SONGS as any[]).map((s: any) => <option key={s.id} value={s.id}>{tr(s, lang)}</option>)}
+                </select>
+                <button className="songbtn go" style={{ width: "100%", marginTop: 10 }}
+                  disabled={!kruCodeSong}
+                  onClick={() => {
+                    const code = kruMakeCode(kruCodeSong);
+                    setKruGenResult(code);
+                    try { navigator.clipboard.writeText(code); setKruMsg(lc.kruCopied); } catch {}
+                  }}>
+                  {lc.kruMakeCode}
+                </button>
+                {kruGenResult && (
+                  <div style={{ background: "var(--glass)", borderRadius: 8, padding: "10px 12px", marginTop: 10, fontSize: 12, wordBreak: "break-all", fontFamily: "monospace" }}>
+                    {kruGenResult}
+                  </div>
+                )}
+                {kruMsg && <div style={{ textAlign: "center", color: "var(--accent)", fontSize: 13, marginTop: 6 }}>{kruMsg}</div>}
+              </div>
+            )}
+
+            {kruTab === "enter" && (
+              <div>
+                <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 10 }}>{T("วางโค้ดที่ครูส่งให้แล้วกดเปิด", "Paste the code from your teacher and tap Open", "粘贴老师发的练习码后点击打开")}</div>
+                <input className="aicreate-in" value={kruInputCode}
+                  onChange={e => { setKruInputCode(e.target.value); setKruMsg(""); }}
+                  placeholder={lc.kruPastePh} />
+                {kruMsg && <div style={{ color: "#e55", fontSize: 13, marginTop: 6 }}>{kruMsg}</div>}
+                <button className="songbtn go" style={{ width: "100%", marginTop: 10 }}
+                  disabled={!kruInputCode.trim()}
+                  onClick={() => kruUseCode(kruInputCode)}>
+                  🎹 {lc.kruApply}
+                </button>
+              </div>
+            )}
+
+            <button className="songbtn ghost" style={{ width: "100%", marginTop: 12 }} onClick={() => setKruOpen(false)}>{lc.close}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
@@ -4690,6 +4919,10 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   const [genText, setGenText] = useState("");
   const [generating, setGenerating] = useState(false);
   const [genErr, setGenErr] = useState(false);
+  // A3: Hum / Play-to-Create
+  const [humming, setHumming] = useState(false);
+  const [humNotes, setHumNotes] = useState<string[]>([]);
+  const humTimerRef = useRef<any>(null);
   // Play-Along categories: songs · scales · chords · intervals (all on this one page)
   const [cat, setCat] = useState("songs");
   const [minorType, setMinorType] = useState("natural minor");
@@ -4733,6 +4966,34 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   function delSong(id) {
     const saved = mySongs.filter(s => s.id !== id);
     setMySongs(saved); try { localStorage.setItem("tg_mysongs", JSON.stringify(saved)); } catch (e) {}
+  }
+
+  // A3: Hum/Play-to-Create — mic records notes, fills AI prompt
+  async function startHum() {
+    if (humming) return;
+    const notes: string[] = [];
+    const ok = await startMicListener(
+      (e: any) => {
+        const pc = (e.note as string).replace(/\d/, "");
+        if (notes.length < 10 && (notes.length === 0 || notes[notes.length - 1] !== pc)) {
+          notes.push(pc); setHumNotes([...notes]);
+        }
+      },
+      () => setHumming(true),
+      () => setHumming(false),
+      {}
+    );
+    if (!ok) return;
+    humTimerRef.current = setTimeout(() => {
+      stopPracticeListeners();
+      setHumming(false);
+      if (notes.length >= 2) setGenText("melody using these notes: " + notes.join("-"));
+    }, 8000);
+  }
+  function stopHum() {
+    clearTimeout(humTimerRef.current);
+    stopPracticeListeners();
+    setHumming(false);
   }
 
   const filters = [
@@ -4836,6 +5097,18 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
                 <div className="sethdr"><span>✨ {lc.aiCreate}</span><button className="cbtn" onClick={() => !generating && setCreateOpen(false)}>{lc.close}</button></div>
                 <div className="setbody">
                   <p className="aicreate-hint">{lc.aiCreateHint}</p>
+                  {/* A3: Hum / Play-to-Create button */}
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <button className="songbtn ghost" style={{ flex: 1, fontSize: 13 }}
+                      onClick={humming ? stopHum : startHum} disabled={generating}>
+                      {humming ? `⏹ ${lc.aiHumStop} (${humNotes.length})` : lc.aiHumBtn}
+                    </button>
+                  </div>
+                  {humNotes.length > 0 && (
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6, textAlign: "center", letterSpacing: 1 }}>
+                      {humNotes.join(" · ")}
+                    </div>
+                  )}
                   <input className="aicreate-in" value={genText} onChange={e => setGenText(e.target.value)}
                     placeholder={lc.aiCreatePh} onKeyDown={e => { if (e.key === "Enter") generateSong(); }} disabled={generating} />
                   {genErr && <div className="aicreate-err">{lc.aiCreateErr}</div>}
@@ -10761,7 +11034,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               onAiPlan={() => { logUsage("nav", "studio-ai-plan"); setAiModalType("plan"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}
               onAnalytics={() => { logUsage("nav", "studio-analytics"); setPage("insights"); }}
               onUpsell={() => setPricingOpen(true)}
-              onPlay={(s) => { logUsage("nav", "studio-quick"); chooseSong(s); }} />
+              onPlay={(s) => { logUsage("nav", "studio-quick"); chooseSong(s); }}
+              onParent={() => { playUi("click"); premium ? setParentOpen(true) : setPricingOpen(true); }} />
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
