@@ -7499,6 +7499,27 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
   const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
   const [stripeReturn, setStripeReturn] = useState<null|"pending"|"done">(null); // ?paid=1 return state
+  // E1: Register service worker for offline caching
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
+  // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const raw = p.get("challenge");
+    if (!raw) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("challenge");
+    window.history.replaceState({}, "", url.pathname + (url.search || ""));
+    const parts = raw.split(":");
+    if (parts.length < 2) return;
+    const [cSongId, cScore, ...rest] = parts;
+    const cName = rest.join(":") || "Friend";
+    const cSong = SONGS.find(s => s.id === cSongId);
+    if (cSong) setChallengeData({ song: cSong, score: Number(cScore) || 0, name: decodeURIComponent(cName) });
+  }, []);
   // Detect Stripe success redirect (?paid=1) — clear URL param, refresh profile after webhook delay
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -7600,6 +7621,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // D2: Style Transformer
   const [stylePickOpen, setStylePickOpen] = useState(false);
   const [styleLoading, setStyleLoading] = useState(false);
+  // C1: Friend Challenge — detected from URL param ?challenge=songId:score:playerName
+  const [challengeData, setChallengeData] = useState<any>(null);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
   const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
   const [songBest, setSongBest] = useState(0);
@@ -11002,6 +11025,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <button className="songbtn ghost" style={{ borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${tr(songMeta, lang)} — ${"★".repeat(songResult.stars)} ${songResult.acc}% 🎵 TiGA Piano AI tigaalpha.github.io`)}>🟢 LINE</button>
                 <button className="songbtn go" onClick={startSongPlay}>↻ {lc.songRetry}</button>
               </div>
+              {/* C1: Friend Challenge — share a challenge link */}
+              <button className="songbtn ghost" style={{ width: "100%", marginTop: 6, fontSize: 12 }}
+                onClick={() => {
+                  const name = encodeURIComponent((profile && (profile.full_name || profile.email)) || "Friend");
+                  const link = `${window.location.origin}${window.location.pathname}?challenge=${songMeta.id}:${songResult.acc}:${name}`;
+                  const txt = lang === "th"
+                    ? `🏆 ฉันทำได้ ${songResult.acc}% ใน "${tr(songMeta, lang)}" บน TiGA Piano AI — แกสู้ได้ไหม? ${link}`
+                    : lang === "zh"
+                    ? `🏆 我在TiGA Piano AI弹 "${tr(songMeta, lang)}" 得了 ${songResult.acc}%，你能超过我吗？${link}`
+                    : `🏆 I scored ${songResult.acc}% on "${tr(songMeta, lang)}" in TiGA Piano AI — can you beat me? ${link}`;
+                  try { navigator.clipboard.writeText(txt); } catch (_) {}
+                  shareLine(txt);
+                }}>
+                🏆 {lang === "th" ? "ท้าเพื่อน!" : lang === "zh" ? "挑战朋友!" : "Challenge a Friend!"}
+              </button>
               {/* D2: Style Transformer — shown after getting ≥1 star */}
               {songResult.stars >= 1 && (
                 <div style={{ marginTop: 10 }}>
@@ -11725,6 +11763,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
+      {/* C1: Friend Challenge banner — shown when app launched with ?challenge= URL param */}
+      {challengeData && !songOpen && (
+        <div className="lvup lvup-badge" onClick={() => setChallengeData(null)}>
+          <div className="lvup-burst" aria-hidden="true">🏆</div>
+          <div className="lvup-title">{lang === "th" ? "ถูกท้า!" : lang === "zh" ? "挑战来了!" : "You're Challenged!"}</div>
+          <div className="lvup-rank" style={{ fontSize: 13, margin: "4px 0" }}>
+            {challengeData.name} · {lang === "th" ? "ทำได้" : lang === "zh" ? "得了" : "scored"} {challengeData.score}%
+          </div>
+          <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{tr(challengeData.song, lang)}</div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <button className="lvup-share" style={{ background: "var(--accent)", color: "#fff" }}
+              onClick={(e) => { e.stopPropagation(); setChallengeData(null); setSongMeta(challengeData.song); songDataRef.current = expandSong(challengeData.song); setSongPhase("ready"); setSongResult(null); setSongOpen(true); }}>
+              🎹 {lang === "th" ? "รับคำท้า!" : lang === "zh" ? "接受挑战!" : "Accept!"}
+            </button>
+            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); setChallengeData(null); }}>✕</button>
+          </div>
+        </div>
+      )}
       {showInstallBanner && (
         <div className="installbanner">
           <span className="installbanner-ic" aria-hidden="true">📲</span>
