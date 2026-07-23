@@ -3905,6 +3905,12 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     { k: "srs",     ic: "🧠", c: dueSRS.length ? "#e55" : "#d97757", t: lc.srsTitle, s: dueSRS.length ? `${dueSRS.length} ${lc.srsItems} — ${lc.srsDue}` : lc.srsNone, fn: () => { playUi("click"); setSrsOpen(true); } },
     { k: "thai",    ic: "🇹🇭", c: "#d97757", t: lc.thaiTitle,       s: lc.thaiSub,             fn: () => { playUi("click"); setThaiOpen(true); } },
     { k: "compose", ic: "🎼", c: "#d97757", t: lc.composeTitle,     s: lc.composeSub,           fn: () => { playUi("click"); setComposeMood(null); setComposeStyle(null); setComposeKey("C"); setComposePage(1); setComposeErr(false); setComposeOpen(true); } },
+    { k: "event",   ic: "🎪", c: eventData && eventDaysLeft !== null && eventDaysLeft <= 7 ? "#e55" : "#d97757",
+      t: lc.eventTitle,
+      s: eventData
+          ? (eventDaysLeft !== null && eventDaysLeft <= 0 ? T("ผ่านมาแล้ว 🎉", "Event passed 🎉", "演出已结束 🎉") : `${eventData.name} — ${eventDaysLeft} ${lc.eventDays}`)
+          : lc.eventSet,
+      fn: () => { playUi("click"); setEvName(eventData ? eventData.name : ""); setEvDate(eventData ? eventData.date : ""); setEventOpen(true); } },
   ];
 
   // Max-exclusive feature cards
