@@ -3911,6 +3911,8 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           ? (eventDaysLeft !== null && eventDaysLeft <= 0 ? T("ผ่านมาแล้ว 🎉", "Event passed 🎉", "演出已结束 🎉") : `${eventData.name} — ${eventDaysLeft} ${lc.eventDays}`)
           : lc.eventSet,
       fn: () => { playUi("click"); setEvName(eventData ? eventData.name : ""); setEvDate(eventData ? eventData.date : ""); setEventOpen(true); } },
+    { k: "detect",  ic: "🔍", c: "#d97757", t: T("ทายเพลงจากการเล่น", "Song Detector", "猜歌"), s: T("เล่นโน้ตสักไม่กี่ตัว — AI ทายชื่อเพลง", "Play a few notes — AI names the song", "弹几个音符 — AI 猜出歌名"), fn: () => { playUi("click"); setDetectNotes([]); setDetectMatch(null); setDetectListening(false); setDetectOpen(true); } },
+    { k: "battle",  ic: "⚔️", c: "#d97757", t: T("Family Battle 👨‍👩‍👧", "Family Battle", "家庭对战"), s: T("ผลัดกันเล่นเพลงเดียวกัน — ดูว่าใครชนะ!", "Take turns playing the same song — see who wins!", "轮流弹同一首歌 — 看谁赢!"), fn: () => { playUi("click"); setBattleData(null); setBattlePickOpen(true); } },
   ];
 
   // Max-exclusive feature cards
@@ -4266,6 +4268,134 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* E5: Song Detector Modal */}
+      {detectOpen && (
+        <div className="practiceov" onClick={() => { stopPracticeListeners(); setDetectOpen(false); }}>
+          <div className="practiceov-box" style={{ maxWidth: 360 }} onClick={e => e.stopPropagation()}>
+            <div className="practicetitle">🔍 {T("ทายเพลงจากการเล่น", "Song Detector", "猜歌")}</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>
+              {T("เล่นโน้ต 6–8 ตัวบนเปียโน/คีย์บอร์ด แล้ว AI จะทายว่าเป็นเพลงอะไร", "Play 6–8 notes on your piano/keyboard — AI will guess the song", "在钢琴上弹6-8个音 — AI 猜出歌名")}
+            </div>
+            {!detectListening && !detectMatch && (
+              <button className="songbtn go" style={{ width: "100%" }} onClick={async () => {
+                setDetectListening(true); setDetectNotes([]); setDetectMatch(null);
+                const collected: string[] = []; let lastNote = "";
+                await startMicListener((d: any) => {
+                  if (!d.note || d.note === lastNote) return;
+                  lastNote = d.note;
+                  collected.push(d.note);
+                  setDetectNotes([...collected]);
+                  if (collected.length >= 8) {
+                    stopPracticeListeners();
+                    setDetectListening(false);
+                    setDetectMatch(detectSongMatch(collected));
+                  }
+                }, () => {}, () => { setDetectListening(false); }, { mono: true });
+              }}>🎤 {T("เริ่มฟัง", "Start Listening", "开始聆听")}</button>
+            )}
+            {detectListening && (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 28, margin: "8px 0" }}>🎵 {detectNotes.map(n => n.replace(/\d/, "")).join(" ")}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>{detectNotes.length}/8 {T("โน้ต", "notes", "音符")}</div>
+                <button className="songbtn ghost" style={{ marginTop: 8 }} onClick={() => { stopPracticeListeners(); setDetectListening(false); }}>⏹ {T("หยุด", "Stop", "停止")}</button>
+              </div>
+            )}
+            {detectMatch && detectMatch.length > 0 && (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{T("น่าจะเป็น...", "This could be...", "可能是...")}</div>
+                {detectMatch.map((m: any, i: number) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--bdr)" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>{tr(m.song, lang)}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{"★".repeat(Math.round(m.score / 4))}</div>
+                    </div>
+                    <button className="songbtn go" style={{ fontSize: 12, padding: "4px 10px" }}
+                      onClick={() => { setDetectOpen(false); if (onPlay) onPlay(m.song); }}>▶ {T("เล่น", "Play", "弹")}</button>
+                  </div>
+                ))}
+                <button className="songbtn ghost" style={{ width: "100%", marginTop: 10 }} onClick={() => { setDetectNotes([]); setDetectMatch(null); }}>
+                  {T("ลองใหม่", "Try Again", "再试")}
+                </button>
+              </div>
+            )}
+            {detectMatch && detectMatch.length === 0 && (
+              <div style={{ textAlign: "center", color: "var(--muted)", padding: 16 }}>
+                {T("ไม่พบเพลงที่ตรงกัน ลองเล่นใหม่", "No match found — try again", "未找到匹配 — 再试一次")}
+              </div>
+            )}
+            <button className="practicex" onClick={() => { stopPracticeListeners(); setDetectOpen(false); }}>×</button>
+          </div>
+        </div>
+      )}
+
+      {/* C5: Family Battle — song picker */}
+      {battlePickOpen && !battleData && (
+        <div className="practiceov" onClick={() => setBattlePickOpen(false)}>
+          <div className="practiceov-box" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+            <div className="practicetitle">⚔️ {T("Family Battle", "Family Battle", "家庭对战")}</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>
+              {T("เลือกเพลงแล้วผลัดกันเล่น — ดูว่าใครได้คะแนนสูงกว่า!", "Pick a song and take turns — see who scores higher!", "选一首歌轮流弹 — 看谁得分更高!")}
+            </div>
+            <div style={{ maxHeight: 300, overflowY: "auto" }}>
+              {SONGS.filter(s => !s.maxOnly || isMaxPlan(plan)).map(s => (
+                <button key={s.id} className="songbtn ghost" style={{ width: "100%", marginBottom: 6, textAlign: "left" }}
+                  onClick={() => { setBattlePickOpen(false); setBattleData({ song: s, scores: [], phase: "p1" }); if (onPlay) onPlay(s); }}>
+                  {tr(s, lang)} · {["","⭐","⭐⭐","⭐⭐⭐"][s.diff] || "⭐"} · {s.bpm} BPM
+                </button>
+              ))}
+            </div>
+            <button className="practicex" onClick={() => setBattlePickOpen(false)}>×</button>
+          </div>
+        </div>
+      )}
+
+      {/* C5: Family Battle — between-round & result overlay */}
+      {battleData && songPhase === "done" && (
+        <div className="lvup lvup-badge" onClick={e => e.stopPropagation()}>
+          {battleData.phase === "p2" && (
+            <>
+              <div className="lvup-burst">🎮</div>
+              <div className="lvup-title">{T("Player 1 เสร็จแล้ว!", "Player 1 done!", "玩家1完成!")}</div>
+              <div className="lvup-rank">{battleData.scores[0]?.acc}% · {"★".repeat(battleData.scores[0]?.stars)}</div>
+              <button className="lvup-share" style={{ background: "var(--accent)", color: "#fff" }}
+                onClick={() => { setBattleData((bd: any) => ({ ...bd, phase: "p2" })); startSongPlay(); }}>
+                🎹 {T("Player 2 เล่นเลย!", "Player 2, go!", "玩家2，出发!")}
+              </button>
+            </>
+          )}
+          {battleData.phase === "done" && battleData.scores.length >= 2 && (
+            <>
+              <div className="lvup-burst">{battleData.scores[0].acc >= battleData.scores[1].acc ? "🥇" : "🥈"}</div>
+              <div className="lvup-title">{T("ผลการแข่งขัน", "Battle Result!", "对战结果!")}</div>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", margin: "8px 0", fontSize: 14 }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontWeight: 700 }}>P1</div>
+                  <div>{battleData.scores[0].acc}% · {"★".repeat(battleData.scores[0].stars)}</div>
+                </div>
+                <div style={{ color: "var(--accent)", fontWeight: 700, alignSelf: "center" }}>VS</div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontWeight: 700 }}>P2</div>
+                  <div>{battleData.scores[1].acc}% · {"★".repeat(battleData.scores[1].stars)}</div>
+                </div>
+              </div>
+              <div className="lvup-rank">
+                {battleData.scores[0].acc > battleData.scores[1].acc
+                  ? T("🏆 Player 1 ชนะ!", "🏆 Player 1 wins!", "🏆 玩家1胜利!")
+                  : battleData.scores[1].acc > battleData.scores[0].acc
+                  ? T("🏆 Player 2 ชนะ!", "🏆 Player 2 wins!", "🏆 玩家2胜利!")
+                  : T("🤝 เสมอ!", "🤝 Draw!", "🤝 平局!")}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="lvup-share" onClick={() => { setBattleData(null); setBattlePickOpen(true); }}>↻ {T("เล่นใหม่", "Play Again", "再玩")}</button>
+                <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }}
+                  onClick={() => { const s = battleData.scores; shareLine(T(`⚔️ Family Battle บน TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 ชนะ!" : s[1].acc > s[0].acc ? "P2 ชนะ!" : "เสมอ!"} tigaalpha.github.io`, `⚔️ Family Battle on TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 wins!" : s[1].acc > s[0].acc ? "P2 wins!" : "Draw!"} tigaalpha.github.io`, `⚔️ TiGA Piano AI家庭对战! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1胜!" : s[1].acc > s[0].acc ? "P2胜!" : "平局!"} tigaalpha.github.io`)); }}>🟢 LINE</button>
+                <button className="lvup-share" onClick={() => { setBattleData(null); }}>✕</button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -5572,6 +5702,38 @@ function shareLine(text: string) {
   if (!window.open(url, "_blank", "noopener")) {
     try { navigator.clipboard.writeText(text); } catch (_) {}
   }
+}
+// D1: Backing chord helpers
+const _PC = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+function _backingChordNotes(rootPc: string, startOct: number): string[] {
+  const ri = _PC.indexOf(rootPc); if (ri < 0) return [];
+  return [0, 4, 7].map(s => { const ni = ri + s; return _PC[ni % 12] + (startOct + Math.floor(ni / 12)); });
+}
+function playBackingChord(rootPc: string) {
+  const notes = _backingChordNotes(rootPc, 4);
+  notes.forEach((n, i) => setTimeout(() => playPianoNote(n, 0.6), i * 70));
+}
+function songTonic(meta: any): string {
+  const seq = (meta.seq || []).filter(([n]: any) => n !== "R");
+  const last = seq[seq.length - 1]?.[0] || "C4";
+  return last.replace(/\d/, "");
+}
+// E5: Song detector — match note sequence against song openings
+function detectSongMatch(heardNotes: string[]): any[] {
+  if (!heardNotes.length) return [];
+  const norm = (n: string) => n.replace(/\d/, "");
+  const heard = heardNotes.map(norm);
+  const results: any[] = [];
+  for (const s of SONGS) {
+    const openNotes = (s.seq || []).filter(([n]: any) => n !== "R").slice(0, 8).map(([n]: any) => norm(n));
+    let score = 0;
+    for (let i = 0; i < Math.min(heard.length, openNotes.length); i++) {
+      if (heard[i] === openNotes[i]) score += 2;
+      else if (openNotes.includes(heard[i])) score += 0.5;
+    }
+    results.push({ song: s, score });
+  }
+  return results.filter(r => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 3);
 }
 // generate a shareable achievement card image (Web Share API, else download)
 async function shareCard({ title, big, sub, lines = [] }) {
@@ -7623,6 +7785,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [styleLoading, setStyleLoading] = useState(false);
   // C1: Friend Challenge — detected from URL param ?challenge=songId:score:playerName
   const [challengeData, setChallengeData] = useState<any>(null);
+  // D1: AI Accompaniment — backing chord loop during song play
+  const [backingOn, setBackingOn] = useState(false);
+  const backingTimerRef = useRef<any>(null);
+  // E5: Song Detector — "What song am I playing?"
+  const [detectOpen, setDetectOpen] = useState(false);
+  const [detectNotes, setDetectNotes] = useState<string[]>([]);
+  const [detectMatch, setDetectMatch] = useState<any>(null);
+  const [detectListening, setDetectListening] = useState(false);
+  const detectStopRef = useRef<any>(null);
+  // C5: Family Battle — same device turn-based competition
+  const [battleData, setBattleData] = useState<any>(null); // null | {song, scores:[{score,acc,stars},...], phase:'p1'|'p2'|'done'}
+  const [battlePickOpen, setBattlePickOpen] = useState(false);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
   const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
   const [songBest, setSongBest] = useState(0);
@@ -8469,6 +8643,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     getAC();
     songStartClockRef.current = getAC().currentTime;
     songRunRef.current = true;
+    // D1: Start backing chord loop if enabled
+    if (backingOn && songMeta) {
+      const tonic = songTonic(songMeta);
+      const ri = _PC.indexOf(tonic); if (ri >= 0) {
+        const IVpc = _PC[(ri + 5) % 12]; const Vpc = _PC[(ri + 7) % 12];
+        const chords = [tonic, IVpc, Vpc, tonic];
+        const beatMs = (60 / (songMeta.bpm || 90)) * 1000;
+        let ci = 0;
+        const tick = () => { if (!songRunRef.current) return; playBackingChord(chords[ci % chords.length]); ci++; backingTimerRef.current = setTimeout(tick, beatMs * 4); };
+        backingTimerRef.current = setTimeout(tick, 200);
+      }
+    }
     stopPracticeListeners(); // release any mic/MIDI another mode left open — never stack listeners
     const onDetect = (d) => songInputRef.current(d);
     const midiOk = await startMidiListener(onDetect, () => setSongSrc({ type: "midi" }));
@@ -8505,6 +8691,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     clearInterval(songHudTimerRef.current);
     clearSongPreview();
     stopPracticeListeners();
+    clearTimeout(backingTimerRef.current); backingTimerRef.current = null;
     setSongOpen(false);
     setSongPhase("ready");
     setSongResult(null);
@@ -8846,6 +9033,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (missedNotes.length) recordNoteMisses(missedNotes);
     setSongResult({ acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes });
     gainExp(reward, { quest: true });
+    // C5: Family Battle — capture score for current player
+    setBattleData((bd: any) => {
+      if (!bd || bd.phase === "done") return bd;
+      const newScores = [...(bd.scores || []), { acc, stars, score }];
+      return { ...bd, scores: newScores, phase: bd.phase === "p1" ? "p2" : "done" };
+    });
+    // D1: stop backing chords when song finishes
+    clearTimeout(backingTimerRef.current); backingTimerRef.current = null;
     // auto-loop: if enabled, restart after a brief pause instead of showing result screen
     if (songAutoLoopRef.current) {
       clearTimeout(songLoopRetryT.current);
@@ -10972,6 +11167,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   <div className="songtempo" style={{ marginTop: 6 }}>
                     <button className={`songtempobtn${songAutoLoop ? " on" : ""}`} onClick={() => setSongAutoLoop(v => !v)}>
                       {songAutoLoop ? lc.songLoop : lc.songNoLoop}
+                    </button>
+                    <button className={`songtempobtn${backingOn ? " on" : ""}`} onClick={() => setBackingOn(v => !v)} title={lang === "th" ? "เปิด/ปิดเสียงคอร์ดประกอบ" : lang === "zh" ? "开关和弦伴奏" : "Toggle backing chords"}>
+                      🎸 {lang === "th" ? "คอร์ดประกอบ" : lang === "zh" ? "和弦伴奏" : "Backing"}
                     </button>
                   </div>
                   <div className="songready-btns">
