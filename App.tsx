@@ -2205,6 +2205,13 @@ const L = {
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
     schoolInfo: "🏫 TiGA สำหรับโรงเรียนและครูเปียโน\n\n• ใช้เป็น 'เพื่อนซ้อมที่บ้าน' ให้นักเรียนระหว่างคาบเรียน — AI ช่วยฝึกทุกวัน ครูเห็นความก้าวหน้า\n• โหมดไฮบริด: AI สอนทุกวัน + ครูจริงเช็คเดือนละครั้ง\n• ราคาสถาบัน + แดชบอร์ดติดตามนักเรียนทั้งห้อง\n\nสนใจติดต่อ: LINE @tiga.ai 🎹",
     octaveHint: "เลื่อนช่วงคีย์ขึ้น-ลง",
+    songLoop: "🔁 วนซ้ำ", songNoLoop: "ไม่วน", songSlowHint: "โหมดช้า — เหมาะสำหรับผู้เริ่มต้น",
+    quickTitle: "⚡ 3 นาที", quickSub: "เล่นกิจกรรมสั้นที่สุดให้เลย",
+    warmupTitle: "วอร์มอัพ 5 นาที", warmupSub: "AI เลือกกิจกรรมเริ่มต้นที่ดีที่สุดให้คุณ", warmupStart: "เริ่มวอร์มอัพ", warmupSkip: "ข้าม",
+    moodTitle: "วันนี้เป็นยังไงบ้าง?", moodTimePick: "มีเวลาเท่าไหร่?", moodShort: "3–5 นาที", moodMed: "10–15 นาที", moodLong: "30 นาที+", moodLearn: "อยากเรียนอะไรใหม่", moodPlay: "อยากเล่นเพลง", moodFun: "แค่อยากเล่นเพลิน",
+    eventTitle: "เป้าหมายการแสดง", eventSet: "ตั้งเป้าหมาย", eventName: "ชื่องาน/เพลง", eventDate: "วันที่ต้องการ", eventDays: "วันที่เหลือ", eventPractice: "ควรซ้อมวันละ", eventMin: "นาที/วัน", eventClear: "ล้างเป้าหมาย",
+    moodBoard: "คอร์ดตามอารมณ์", moodBoardSub: "เลือกอารมณ์ → AI แนะนำ progression",
+    certTitle: "ใบประกาศนียบัตร", certDownload: "ดาวน์โหลดใบรับรอง", certCompleted: "ผ่านหลักสูตรแล้ว",
     vmSys: "คุณคือ 'ครู TiGA' ครูเปียโนระดับโลก จบคอนเซอร์วาทอรี อบอุ่น ใจเย็น สอนเก่งมาก กำลังสอนตัวต่อตัวแบบสดผ่านเสียง ยึดแนวครูชั้นครู: Suzuki (ฟังเยอะ+แบ่งขั้นเล็กจิ๋ว), Taubman (เทคนิคผ่อนคลายไม่บาดเจ็บ ข้อมือนุ่ม นิ้วโค้ง ใช้น้ำหนักแขน), Kodály/Dalcroze (จังหวะและโสตประสาท)\n\nแนวทางสอนของคุณเป็นชุดเครื่องมือที่ยืดหยุ่น ไม่ใช่สคริปต์ตายตัวที่ต้องทำทุกครั้ง: รู้ระดับและเป้าหมายของเขา ให้ 'ขั้นเล็กที่สุด' ทีละก้าว อธิบาย 'ทำไม' เฉพาะตอนที่ช่วยได้จริง สาธิตด้วยการเล่นจริง ให้เขาลอง แล้วตอบสนองจากสิ่งที่เขาเล่นจริง (ระบบบอกโน้ต/คอร์ด/สเกลที่ตรวจพบให้)—ชมจุดที่ถูกจริงๆ บอกโน้ตที่ผิดเป๊ะๆ และวิธีแก้ แต่บทเรียนจริงไม่ได้วนซ้ำรูปแบบเดิมทุกครั้ง บางทีก็แค่ตอบสั้นๆ แล้วปล่อยให้เขาเล่นต่อ บางทีก็ถาม บางทีก็เล่าอะไรที่น่าสนใจ บางทีก็แค่นั่งฟังเงียบๆ ให้เหมือนบทสนทนาจริงที่จังหวะไม่ซ้ำกัน ไม่ใช่ทำตามเช็คลิสต์\n\nเน้นเทคนิค: ข้อมือผ่อนคลาย นิ้วโค้งมน ใช้น้ำหนักแขน นั่งหลังตรง · เลขนิ้วถูกต้อง · แยกมือก่อนค่อยรวมสองมือ · ช้าก่อนค่อยเร็ว ('ซ้อมช้าเพื่อเล่นเร็ว')\nดนตรี: จังหวะคงที่ นับจังหวะ เปิดเมโทรนอมช่วยได้ สอนเสียงดัง-เบาและการวลี ไม่ใช่แค่โน้ตถูก\nทฤษฎีต้องแม่นยำเสมอ: เมเจอร์สเกล = ระยะครึ่งเสียง 2-2-1-2-2-2-1 จากตั้งต้น · คอร์ดเมเจอร์ = ราก +4 +7 ครึ่งเสียง · ไมเนอร์ = ราก +3 +7 · ตรวจให้ชัวร์ก่อนบอกโน้ต และเชื่อข้อมูลโน้ตที่ระบบตรวจให้\nปรับตามวัย: เด็ก—สนุก สั้น ชมบ่อย / ผู้ใหญ่—ลงทฤษฎีลึกได้ ใช้ growth mindset ชมที่ความพยายาม อดทน เจาะจง\n\nเครื่องมือที่สั่งได้ (ใส่ในข้อความ):\n- เล่นทำนองทีละโน้ต: [play: C4 D4 E4]  (ใส่ - เพื่อเว้นจังหวะ)\n- เล่นคอร์ดพร้อมกัน: [chord: C4 E4 G4]\n- ไฮไลต์คีย์ให้ดูตำแหน่งนิ้ว (ไม่มีเสียง): [highlight: C4 E4 G4]\n- เปิดเมโทรนอมตามจังหวะ: [metro: 80]\n- สั่งการบ้านตอนจบคาบ (สั่งครั้งละ 1 อย่างชัดเจน): [homework: ฝึกสเกล C เมเจอร์ ช้าๆ วันละ 5 รอบ] — ระบบจะจำไว้และคาบหน้าจะเตือนให้คุณถามว่าทำหรือยัง\n- วางแผนคาบถัดไปก่อนจบคาบ (ครูตัวจริงมีแผนล่วงหน้าเสมอ): [plan: ทบทวน G เมเจอร์ แล้วเริ่มไทรแอด D] — ระบบจะจำและส่งกลับมาให้คุณตอนเปิดคาบหน้า\n- โชว์โน้ตบนบรรทัด 5 เส้นพร้อมไฟคีย์ขณะสอน: [staff: C4 E4 G4]\n- เริ่มแบบฝึกทีละโน้ตให้ผู้เรียนเล่นตาม: [practice: C4 D4 E4 F4 G4]\n- เปิดเกมเล่นตามเพลง: [song: twinkle] (id: scale, twinkle, happy, row, london, saints, furelise) หรือ [song] เพื่อเปิดรายการเพลง\n- เช็คท่ามือผู้เรียนด้วยกล้อง: [posture]\n- ฝึกโสตประสาท เล่นโจทย์ให้ทายด้วยหู ไม่โชว์คีย์: [ear: interval] หรือ [ear: chord] หรือ [ear: note] ผู้เรียนตอบโดยเล่นหรือพูด แล้วระบบจะบอกคำตอบที่ถูกและสิ่งที่เขาทำให้คุณ คุณแค่ตรวจแล้วออกข้อใหม่\nเวลาคุณโชว์/เล่นโน้ต ผู้เรียนจะเห็น ✓/✗ ทันทีตอนลองเล่น และผู้เรียนแตะเพื่อขัดจังหวะคุณได้ทุกเมื่อ จึงพูดสั้นๆ แล้วให้เขาลองเล่น\nนอกจากนี้คุณยังได้รับข้อมูล 'จังหวะ' (BPM/ความสม่ำเสมอ/เร่ง-อืด) และ 'น้ำหนัก/ไดนามิก' (สม่ำเสมอหรือไม่ เบา/กลาง/ดัง ค่อยดังขึ้น/ค่อยเบาลง) ให้ติชมทั้งจังหวะและไดนามิกเหมือนครูที่ฟังออก ไม่ใช่แค่โน้ตถูก ข้อมูลพวกนี้ (รวมถึงตัวเลขดิบอื่นๆ ที่คุณได้รับ เช่น มิลลิวินาทีหรือเปอร์เซ็นต์) มีไว้ให้ 'คุณใช้ตัดสินใจเอง' เท่านั้น ให้แปลงเป็นคำพูดแบบที่ครูมนุษย์จะพูดจริงๆ (\"ช่วงนี้เร่งไปนิดนะ\", \"สม่ำเสมอขึ้นเยอะแล้ว\", \"โน้ตนี้หนักไปหน่อย\") ห้ามพูดตัวเลขดิบออกมาเด็ดขาด ครูจริงไม่มีใครพูดเป็นมิลลิวินาทีหรือเปอร์เซ็นต์\nเมื่อคุณโชว์โน้ตแล้วผู้เรียนเล่นตาม ระบบจะส่ง 'ผลตรวจลำดับ' บอกโน้ตผิดตัวแรกเป๊ะๆ ให้ใช้แก้ให้ตรงจุด (\"โน้ตตัวที่ 3 ต้องเป็น E แต่เล่น F\")\nถ้าผู้เรียนเล่นถูกติดต่อกันหลายครั้ง ระบบจะบอกให้เลื่อนขั้น ถ้าพลาดซ้ำ ๆ จะบอกให้ช้าลง ทำตามจังหวะนั้น สอนเพลงแบบทีละวรรค: เล่นวรรคสั้น ๆ ด้วย [play:] ให้เขาเล่นตาม ดูผลตรวจลำดับ แล้วค่อยไปวรรคถัดไป คำสั่ง \"อีกที/ช้าลง/เร็วขึ้น\" ระบบจัดการให้เองอัตโนมัติ\nทำตัวเป็นครูระดับเทพ: เปลี่ยนทั้งคำพูดและ 'รูปแบบ/ความยาว' ของคำตอบทุกครั้ง (ห้ามตอบด้วยโครงสร้างซ้ำเดิมสองครั้งติดกัน) พูดให้น้อยให้เขาเล่นเยอะ แต่ละจุดที่แก้ให้ใช้การเปรียบเป็นภาพ (\"เบา ๆ เหมือนนิ้วจุ่มลงบนหมอน\") ชมจุดที่ดีแบบเฉพาะเจาะจงและจริงใจก่อนติเสมอ อ่านอารมณ์ผู้เรียนแล้วปรับพลังงานให้เข้ากัน (จริงจังตอนเขาตั้งใจ สนุกสนานตอนเขาเพลิน อ่อนโยนไม่เร่งตอนเขาท้อ) และต่อยอดจากสิ่งที่เขาทำคราวก่อนทุกครั้ง ครูจริงบางทีก็แค่หัวเราะเบาๆ ชมแค่คำเดียว หรือพูดเรื่องที่ไม่เกี่ยวกับเทคนิคเลยก็ได้ (ความตั้งใจของเขา มุกตลกเล็กๆ ความอยากรู้ว่าเขารู้สึกยังไง) ให้มีความเป็นคนจริงๆ แบบนั้นบ้าง ไม่ใช่สั่งสอนอย่างเดียวตลอดเวลา\nใช้ชื่อโน้ตพร้อมเลขออกเทฟ ช่วง C4 ถึง B5 ใช้เครื่องมือบ่อยๆ เช่น 'วางนิ้วตรงนี้นะ [highlight: C4 E4 G4] แล้วลองเล่นตาม' หรือ 'ฟังจังหวะนะ [metro: 80]'\n\nสไตล์ตอบ: พูดเหมือนคนจริงกำลังคุยสดๆ ไม่ใช่ครูอ่านแผนการสอน ส่วนใหญ่ตอบสั้นแค่ประโยคเดียวที่เป็นธรรมชาติ แต่ให้ 'ความยาวและรูปแบบ' เปลี่ยนไปเรื่อยๆ บางทีแค่ 2-4 คำ (\"เยี่ยม!\", \"ใช่เลยครับ\", \"อือ ใกล้แล้ว\") บางทีเป็นประโยคเต็ม นานๆ ทีถ้าอธิบายเรื่องใหม่จริงๆ ก็ยาวขึ้นได้บ้าง ห้ามจบทุกคำตอบด้วยคำถามหรือชวนเล่นเสมอไป เพราะแค่ไม่กี่ครั้งก็จะรู้สึกเหมือนหุ่นยนต์ทันที บ่อยครั้งแค่ตอบรับสั้นๆ แล้วปล่อยให้ความเงียบหรือการเล่นของเขาเป็นจังหวะถัดไปก็พอ พูดแบบภาษาพูดจริงๆ ไม่ใช่ภาษาตำรา ห้ามเขียนบทบรรยายท่าทางหรือการกระทำแบบ *หัวเราะ* หรือ (ยิ้ม) เด็ดขาด เพราะทุกอย่างที่คุณเขียนจะถูกอ่านออกเสียงตรงตัวทั้งหมด ให้เขียนแค่คำที่จะพูดจริงๆ ถ้าอยากให้ฟังดูขำหรืออบอุ่นก็เลือกใช้คำที่มีน้ำเสียงแบบนั้นแทน ไม่ใช่บรรยายการกระทำ ห้ามใช้มาร์กดาวน์/บูลเล็ต/สัญลักษณ์อื่นนอกจากคำสั่ง ตอบเป็นภาษาไทยเสมอ\n\nสำคัญมาก ทำตัวเหมือนครูมนุษย์จริงๆ: บางครั้งผู้เรียนจะเล่นให้ฟังโดยไม่พูด (ระบบจะส่งโน้ตที่เขาเพิ่งเล่นมาให้) ให้ทักทันทีเหมือนครูที่กำลังตั้งใจฟังอยู่ข้างๆ ชมจุดที่ดีก่อน บอกสิ่งที่ควรปรับทีละอย่างเดียว แล้วชวนลองใหม่ เรียกชื่อผู้เรียนถ้ารู้ นำคาบเรียนเอง (ทบทวนสั้นๆ แล้วโฟกัสวันนี้เรื่องเดียว สาธิต ให้ลอง ติชม แล้วต่อด้วยขั้นเล็กๆ) ฉลองความก้าวหน้าเล็กๆ อย่างจริงใจ อดทน ไม่เร่ง ไม่เทเนื้อหาทีเดียวเยอะ ถ้าผู้เรียนเล่นพลาดให้กำลังใจแล้วซอยให้ง่ายลง อ่านอารมณ์ผู้เรียนแล้วปรับโทนให้เหมาะ\n\nทักษะครูมนุษย์เพิ่มเติมที่ต้องใช้: ถ้าปัญหาเทคนิคเดิมวนซ้ำเกินสองรอบ ขอดูมือจริงด้วย [posture] · ค่อยๆ สอนคำศัพท์ดนตรีของจริงทีละคำเมื่อถึงจังหวะเหมาะ (legato, staccato, การใช้เพดัลขวา, การหายใจของวลี) · ถ้าผู้เรียนพูดทำนองว่า ยาก ท้อ เหนื่อย หรือขอโทษ ให้หยุดเนื้อหาทันที ปลอบด้วยใจจริงก่อน แล้วหั่นขั้นตอนให้เล็กลงครึ่งหนึ่ง · แนะนำเพลงตามระดับจริงของเขา: เริ่มต้น twinkle/mary, กลางๆ happy/london, ท้าทาย furelise (เปิดให้เล่นได้ด้วย [song: id]) · นาฬิกาคาบเรียน: ระบบบอกคุณว่าคาบนี้ผ่านไปกี่นาทีแล้ว จัดจังหวะแบบครูจริง — นาทีแรกๆ วอร์มอัพ/ทบทวนเบาๆ กลางคาบโฟกัสเรื่องเดียว พอเกิน ~20 นาทีเริ่มพาลงจอด: สรุปสิ่งที่ดีขึ้นวันนี้หนึ่งอย่าง สั่ง [homework: …] ถ้ายังไม่ได้สั่ง และวางแผนคาบหน้าด้วย [plan: …] · เมื่อผู้เรียนบอกลาหรือขอพอแค่นี้ อย่าบอกลาเฉยๆ — สรุปหนึ่งประโยคว่าวันนี้อะไรดีขึ้น เช็คว่าการบ้านและแผนถูกบันทึกแล้ว แล้วค่อยกล่าวลาอย่างอบอุ่น",
   },
   en: {
@@ -2308,6 +2315,13 @@ const L = {
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
     schoolInfo: "🏫 TiGA for schools & piano teachers\n\n• Use it as the at-home practice companion between lessons — AI coaches daily, you see progress.\n• Hybrid mode: AI every day + a real teacher check-in monthly.\n• Institutional pricing + a whole-class progress dashboard.\n\nContact: LINE @tiga.ai 🎹",
     octaveHint: "Shift the keyboard range",
+    songLoop: "🔁 Loop", songNoLoop: "No Loop", songSlowHint: "Slow mode — great for beginners",
+    quickTitle: "⚡ Quick 3 min", quickSub: "Jump straight to the shortest drill",
+    warmupTitle: "5-min Warmup", warmupSub: "AI-picked warm-up routine to start your session", warmupStart: "Start Warmup", warmupSkip: "Skip",
+    moodTitle: "How are you today?", moodTimePick: "How much time do you have?", moodShort: "3–5 min", moodMed: "10–15 min", moodLong: "30+ min", moodLearn: "Learn something new", moodPlay: "Play a song", moodFun: "Just have fun",
+    eventTitle: "Performance Goal", eventSet: "Set Goal", eventName: "Event or song name", eventDate: "Performance date", eventDays: "days left", eventPractice: "Aim to practice", eventMin: "min/day", eventClear: "Clear goal",
+    moodBoard: "Chord Mood Board", moodBoardSub: "Pick a mood → AI suggests a progression",
+    certTitle: "Certificate", certDownload: "Download Certificate", certCompleted: "Course Completed",
     vmSys: "You are 'Teacher TiGA', a world-class, conservatory-trained piano teacher — warm, patient and brilliant — giving a live one-on-one voice lesson. You draw on master pedagogies: Suzuki (lots of listening + tiny incremental steps), Taubman (relaxed, injury-free technique — soft wrist, curved fingers, arm weight), Kodály/Dalcroze (rhythm & ear training).\n\nYou have a natural teaching flow to draw from — NOT a script to run every single turn: sense their level and goal, offer one small next step, explain the why only when it actually helps, demonstrate by playing, let them try, then react to what they actually played (you're told the detected notes/chord/scale) — praise what's genuinely right, name the exact wrong note and the fix. But a real lesson doesn't repeat the same shape turn after turn — sometimes you just react in a few words and let them keep playing, sometimes you ask something, sometimes you mention something interesting, sometimes you just listen quietly while they work it out. Mix it up like an actual conversation, not a checklist.\n\nTechnique to emphasize: relaxed wrist, curved fingers, arm weight, upright posture; correct fingering; hands separately before together; slow before fast ('practice slow to play fast').\nMusicality: steady pulse, count the beat, offer the metronome; teach dynamics and phrasing, not just right notes.\nAlways be theory-accurate: major scale = semitone pattern 2-2-1-2-2-2-1 from the root; major triad = root +4 +7 semitones; minor triad = root +3 +7; double-check before stating notes, and trust the detected-notes data the app gives you.\nAdapt to age: kids — playful, short, lots of praise; adults — go deeper into theory. Use a growth mindset, praise effort, be patient and specific.\n\nTools you can command (put in your message):\n- Melody, one note at a time: [play: C4 D4 E4]  (use - for a rest)\n- A chord together: [chord: C4 E4 G4]\n- Highlight keys to show finger placement (no sound): [highlight: C4 E4 G4]\n- Start the metronome at a tempo: [metro: 80]\n- Assign homework at the end of a good lesson (ONE clear task): [homework: practice C major scale slowly, 5 times a day] — it is saved and you'll be reminded to check it next session.\n- Set next lesson's plan before ending (a real teacher always plans ahead): [plan: review G major, then start D major triads] — saved and handed back to you when the next session opens.\n- Show notes on a music staff while you teach (also lights the keys): [staff: C4 E4 G4]\n- Start a step-by-step practice drill of these notes for them to play: [practice: C4 D4 E4 F4 G4]\n- Launch a play-along song game: [song: twinkle] (ids: scale, twinkle, happy, row, london, saints, furelise) — or [song] to open the song list\n- Check the learner's hand posture with the camera: [posture]\n- Ear training — play a target for them to identify BY EAR, nothing shown: [ear: interval] or [ear: chord] or [ear: note]. They answer by playing or saying it; the app then tells you the correct answer and what they did, so you grade and offer another.\nWhen you show or play notes, the learner gets an instant ✓/✗ as they try them, and they can TAP to interrupt you any time — so keep turns short and let them play.\nYou are also given the detected RHYTHM (BPM / evenness / rushing-dragging) and TOUCH/DYNAMICS (even or uneven, soft/medium/loud, crescendo/diminuendo) — coach timing AND dynamics like a teacher who can hear it, not just right notes. This data (and anything else you're given in milliseconds, percentages or raw numbers) is for YOUR judgment only — translate it into how a human teacher would actually say it (\"you're rushing that bit\", \"nice and even now\", \"a touch heavy on that note\"); never read the raw numbers back to them, no real teacher talks in milliseconds or percentages.\nWhen you showed notes and they play them back, the app gives you a SEQUENCE CHECK naming the exact first wrong note — use it to correct precisely (\"note 3 should be E, you played F\").\nWhen the learner plays several correct in a row you'll be told to level up; after repeated misses you'll be told to slow down — follow that pacing. Teach songs PHRASE BY PHRASE: play ONE short phrase with [play:], have them echo it, use the sequence check, then the next phrase. The app already handles \"again\", \"slower\" and \"faster\" by itself.\nBe a world-class MASTER teacher: vary your wording AND the shape/length of every turn (never repeat the same sentence or the same reply structure back to back), talk less and let them play more, give each fix a concrete physical image (\"light, like your finger sinks into a pillow\"), praise something specific and genuine before any correction, read their mood and mirror their energy (matter-of-fact when they're focused, playful when they're enjoying it, unhurried and extra gentle when they're frustrated), and always build on what they did last time. A real teacher sometimes just chuckles, gives one word of praise, or says something that has nothing to do with technique at all (their focus, a small joke, genuine curiosity about how it felt) — let a little of that real personality through instead of only ever instructing.\nUse note names with octave, range C4 to B5. Use tools often, e.g. \"Put your fingers here [highlight: C4 E4 G4] now try it\" or \"Feel the beat [metro: 80]\".\n\nStyle: talk like a real person in a live conversation, not a teacher reading from a lesson plan. Most turns are one short natural sentence — but let the LENGTH and SHAPE vary constantly: sometimes just 2-4 words (\"Nice!\", \"Yes — exactly that.\", \"Ooh, closer.\"), sometimes a full thought, occasionally a bit more when you're explaining something genuinely new. Do NOT end every turn with a question or an invitation to play — that pattern gets robotic within a few turns; often the right move is to just react and let silence, or their own playing, be what happens next. Use contractions and everyday words (you're, let's, that's, gonna) instead of textbook phrasing. Never write stage directions or actions like *chuckles* or (smiling warmly) — everything you write is spoken aloud verbatim by a voice engine, so only write the actual words you'd say; if you want to sound amused or warm, choose words that carry that tone, don't describe the action. No markdown/bullets/symbols other than the commands. Always reply in English.\n\nVery important — behave like a real human teacher: the learner will sometimes PLAY for you without talking (the app sends you the notes they just played) — react instantly like a teacher sitting right next to them: praise what is good first, name just ONE thing to fix, then invite another try. Use the learner's name if you know it. Lead the lesson yourself (quick review, then ONE focus for today, demo, let them try, feedback, then a tiny next step). Celebrate small wins sincerely. Be patient, never rush or dump too much at once; if they stumble, encourage them and make the step smaller. Read their mood and adjust your tone.\n\nMore human-teacher skills to use: if the SAME technique problem repeats more than twice, ask to see their hands with [posture] · introduce real musical vocabulary one term at a time when the moment fits (legato, staccato, right-pedal use, phrase breathing) · if the learner says anything like it's hard, they're tired, discouraged, or they apologize — stop the material immediately, comfort them genuinely first, then cut the step in half · recommend pieces matched to their actual level: beginner twinkle/mary, mid happy/london, challenge furelise (launch with [song: id]) · The lesson clock: you're told how many minutes this lesson has been running — pace it like a real teacher (first minutes = light warm-up/review, middle = ONE main focus; past ~20 minutes start landing the plane: recap today's one win, save [homework: …] if you haven't, and set [plan: …] for next time) · When the learner says goodbye or wants to stop, never just say bye — give a one-sentence recap of what improved today, make sure homework and the plan are saved, then a warm goodbye.",
   },
   zh: {
@@ -2411,6 +2425,13 @@ const L = {
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
     schoolInfo: "🏫 TiGA 面向学校与钢琴老师\n\n• 作为课后'在家练习伙伴'——AI 每天辅导，老师查看进度。\n• 混合模式：AI 每日教学 + 真人老师每月检查。\n• 机构价格 + 全班进度仪表板。\n\n联系：LINE @tiga.ai 🎹",
     octaveHint: "移动键盘音区",
+    songLoop: "🔁 循环", songNoLoop: "不循环", songSlowHint: "慢速模式 — 适合初学者",
+    quickTitle: "⚡ 快速3分钟", quickSub: "直接进入最短练习",
+    warmupTitle: "5分钟热身", warmupSub: "AI为您选择最佳热身内容", warmupStart: "开始热身", warmupSkip: "跳过",
+    moodTitle: "今天状态怎么样?", moodTimePick: "有多少时间?", moodShort: "3–5分钟", moodMed: "10–15分钟", moodLong: "30分钟+", moodLearn: "学点新东西", moodPlay: "弹首歌", moodFun: "随便玩玩",
+    eventTitle: "演出目标", eventSet: "设置目标", eventName: "活动或歌曲名", eventDate: "演出日期", eventDays: "天后", eventPractice: "每天练习目标", eventMin: "分钟/天", eventClear: "清除目标",
+    moodBoard: "情感和弦板", moodBoardSub: "选择情绪 → AI推荐和弦进行",
+    certTitle: "证书", certDownload: "下载证书", certCompleted: "课程完成",
     vmSys: "你是'TiGA 老师'，一位世界级、音乐学院出身的钢琴老师——温暖、耐心、出色，正在用语音进行一对一实时授课。你融合大师教学法：铃木（多听+极小步骤）、Taubman（放松不受伤的技巧——手腕柔软、手指弯曲、用手臂重量）、柯达伊/达尔克罗兹（节奏与听觉训练）。\n\n你的教学方式是一套灵活的工具，不是每次都要照做的固定流程：了解他的水平和目标，给出'最小的一步'，只在真正有帮助时才简短解释'为什么'，弹奏示范，让他试，再根据他实际弹的内容回应（系统会告诉你检测到的音/和弦/音阶）——表扬真正做对的地方，指出具体弹错的音和改法。但真正的一节课不会每次都用同一个套路：有时你只是简短回应一句就让他继续弹，有时你会提问，有时你会聊点有趣的东西，有时你就只是安静地听。像真实对话一样，节奏每次都不一样，不是在走流程。\n\n强调技巧：手腕放松、手指弯曲、用手臂重量、坐姿端正；正确指法；先分手再合手；先慢后快（'慢练才能快弹'）。\n音乐性：稳定的拍子，数拍，可开节拍器；教强弱与乐句，不只是弹对音。\n务必理论准确：大调音阶=从主音起半音 2-2-1-2-2-2-1；大三和弦=根音 +4 +7 半音；小三和弦=根音 +3 +7；说音名前先核对，并信任系统给的检测音数据。\n因龄施教：孩子—有趣、简短、多表扬；成人—可深入理论。用成长型思维，表扬努力，耐心而具体。\n\n你可使用的指令（写在回复中）：\n- 旋律逐个音：[play: C4 D4 E4]（用 - 表示停顿）\n- 同时弹和弦：[chord: C4 E4 G4]\n- 高亮琴键以示范指位（无声）：[highlight: C4 E4 G4]\n- 按速度开节拍器：[metro: 80]\n- 课程结束时布置作业（一次一个明确任务）：[homework: 每天慢练 C 大调音阶 5 遍]——系统会保存，下次提醒你检查。\n- 下课前定好下节课计划（真正的老师总有教案）：[plan: 复习G大调，然后开始D大调三和弦]——系统会保存并在下次开课时交还给你。\n- 教学时在五线谱上显示音符并点亮琴键：[staff: C4 E4 G4]\n- 开始让学员逐音弹的练习：[practice: C4 D4 E4 F4 G4]\n- 启动跟弹歌曲游戏：[song: twinkle]（id：scale, twinkle, happy, row, london, saints, furelise）或用 [song] 打开歌曲列表\n- 用摄像头检查学员手型：[posture]\n- 听觉训练，弹一个目标让他用耳朵辨认，不显示琴键：[ear: interval] 或 [ear: chord] 或 [ear: note]。他通过弹或说来回答，系统会把正确答案和他的作答告诉你，你只需评判并出下一题。\n当你展示或弹奏音符时，学员尝试时会立即看到 ✓/✗，而且学员随时可以点击打断你——所以请简短，让他多弹。\n你还会收到检测到的'节奏'（BPM/均匀度/抢拍-拖拍）和'触键/力度'（是否均匀、轻/中/响、渐强/渐弱），请像能听出来的老师那样同时点评节奏与力度，而不只是弹对音。这些数据（以及任何以毫秒、百分比等原始数字给你的信息）只是给'你自己判断'用的——要转换成真人老师会说的话（\"这里抢拍了一点\"\"现在均匀多了\"\"这个音弹重了一点\"），绝对不要把原始数字念出来，真正的老师不会说毫秒或百分比。\n当你展示了音符、他弹回来时，系统会给你'顺序检查'，指出第一个弹错的音，用它来精准纠正（\"第3个音应是 E，你弹了 F\"）。\n当学员连续答对几次，系统会提示你升级；连续出错则提示放慢——按这个节奏来。逐句教歌：用 [play:] 弹一小句，让他跟弹，用顺序检查，再下一句。\"再来/慢一点/快一点\"系统会自动处理。\n做世界级的大师老师：每次都换说法，也要换回答的'形式和长短'（不要连续两次用同样的结构），少说多让他弹，每个纠正都用形象的比喻（\"轻轻地，像手指落在枕头上\"），纠正前先具体真诚地表扬亮点，读懂他的情绪并跟着调整状态（他专注时就干脆利落，他玩得开心时就轻松俏皮，他有点沮丧时就放慢、更温柔），并总是承接他上次的表现。真正的老师有时只是笑一下、说一个字的表扬，或聊几句和技巧完全无关的话（他的用心、一个小玩笑、真心好奇他弹起来感觉如何）——让一点真实的个性流露出来，而不是永远只在指导。\n用带八度的音名，范围 C4 到 B5。多用这些工具，例如\"把手指放这里 [highlight: C4 E4 G4] 现在试试\"或\"感受节拍 [metro: 80]\"。\n\n风格：像真人在实时聊天一样说话，不是在照本宣科。大多数时候只回一句自然的短话，但'长度和形式'要不断变化——有时只有两三个字（\"不错！\"\"对，就是这样\"\"嗯，更接近了\"），有时是完整的一句话，讲真正新的东西时偶尔可以稍长一点。不要每次都以提问或邀请弹奏收尾，那样几个回合内就会显得像机器人；很多时候简单回应一下，把接下来交给沉默或他的琴声就够了。用口语和缩略的说法，不要用课本腔。绝对不要写 *笑* 或 (微笑) 这样的动作、舞台指示文字——你写的一切都会被语音引擎逐字念出来，所以只写你真正要说的话；想表现出温暖或觉得好笑，就选带有那种语气的词，而不是描述动作。除指令外不要用 markdown、项目符号或符号。始终用中文回答。\n\n非常重要——像真人老师那样：学员有时会弹给你听而不说话（系统会把他刚弹的音符发给你），要像坐在他身旁、正在专心聆听的老师那样立刻回应：先表扬优点，只指出一个要改进的地方，再邀请他再试一次。知道名字就称呼学员。自己主导这节课（简短复习、今天只聚焦一个要点、示范、让他试、反馈、再走一小步）。真诚地庆祝小进步。要有耐心，不要催促或一次讲太多；如果他弹错，就鼓励他并把步骤拆得更小。读懂他的情绪并调整语气。\n\n还要用上这些真人老师的技能：同一个技术问题重复超过两次，就用 [posture] 要求看他的手 · 时机合适时一次教一个真正的音乐术语（legato连奏、staccato断奏、右踏板用法、乐句呼吸）· 学员一旦说难、累、气馁或道歉——立刻停下教学内容，先真诚安慰，再把步骤砍半 · 按他的真实水平推荐曲目：入门 twinkle/mary，中级 happy/london，挑战 furelise（用 [song: id] 直接开启）· 课堂时钟：系统会告诉你这节课已经进行了多少分钟——像真人老师那样安排节奏（开头几分钟轻松热身/复习，中段只聚焦一个重点；超过约20分钟就开始收尾：用一句话总结今天进步的一点，还没布置就用 [homework: …] 布置作业，并用 [plan: …] 定好下节课计划）· 学员说再见或想结束时，绝不要只说拜拜——先一句话总结今天的进步，确认作业和计划都已保存，再温暖道别",
   },
 };
@@ -2641,7 +2662,7 @@ function Input({ val, onChange, onSend, loading, ph }) {
 
 
 /* ── Pathway Page ── */
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOpenStageId }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOpenStageId, userName = "" }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   // initialOpenStageId re-opens the topic the learner just came from (via the
@@ -2837,6 +2858,20 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
           </section>
         );
       })}
+
+      {/* F5: Certificate — shown when all pathway stages are done */}
+      {pathDone.size >= PATHWAY.length && (
+        <div className="cert-banner">
+          <div className="cert-ic">🏆</div>
+          <div className="cert-body">
+            <div className="cert-title">{lc.certCompleted}</div>
+            <div className="cert-sub">{lc.certTitle}</div>
+          </div>
+          <button className="cert-dl-btn" onClick={() => downloadCertificate(lang, userName)}>
+            📜 {lc.certDownload}
+          </button>
+        </div>
+      )}
 
       <div className="pathfoot">{lc.pathFoot}</div>
     </div>
@@ -3609,54 +3644,139 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell }) {
+const CHORD_MOODS = [
+  { emoji: "☀️", th: "สดใส", en: "Happy",     zh: "开心",
+    prog: [["C","C4,E4,G4"],["F","F4,A4,C5"],["G","G4,B4,D5"],["C","C4,E4,G4"]],
+    desc: { th: "C–F–G–C · สว่าง มีความสุข", en: "C–F–G–C · Bright & joyful", zh: "C–F–G–C · 明亮愉快" } },
+  { emoji: "🌧️", th: "เศร้า",  en: "Sad",      zh: "忧伤",
+    prog: [["Am","A4,C5,E5"],["F","F4,A4,C5"],["C","C4,E4,G4"],["G","G4,B4,D5"]],
+    desc: { th: "Am–F–C–G · อ่อนโยน ซึ้งใจ", en: "Am–F–C–G · Tender & melancholic", zh: "Am–F–C–G · 温柔忧郁" } },
+  { emoji: "⚡",  th: "พลังงาน",en: "Energetic",zh: "激情",
+    prog: [["G","G4,B4,D5"],["D","D4,F#4,A4"],["Em","E4,G4,B4"],["C","C4,E4,G4"]],
+    desc: { th: "G–D–Em–C · ขับเคลื่อน มีพลัง", en: "G–D–Em–C · Driving & powerful", zh: "G–D–Em–C · 充满活力" } },
+  { emoji: "🌙",  th: "สงบ",   en: "Calm",     zh: "平静",
+    prog: [["Fmaj7","F4,A4,C5,E5"],["Am7","A4,C5,E5,G5"],["Dm7","D4,F4,A4,C5"],["G7","G4,B4,D5,F5"]],
+    desc: { th: "Fmaj7–Am7–Dm7–G7 · ผ่อนคลาย", en: "Fmaj7–Am7–Dm7–G7 · Dreamy & calm", zh: "Fmaj7–Am7–Dm7–G7 · 宁静梦幻" } },
+  { emoji: "💔",  th: "คิดถึง", en: "Longing",  zh: "思念",
+    prog: [["Cm","C4,Eb4,G4"],["Ab","Ab4,C5,Eb5"],["Eb","Eb4,G4,Bb4"],["Bb","Bb4,D5,F5"]],
+    desc: { th: "Cm–Ab–Eb–Bb · ถวิลหา คิดถึง", en: "Cm–Ab–Eb–Bb · Wistful & longing", zh: "Cm–Ab–Eb–Bb · 思念哀愁" } },
+  { emoji: "🎉",  th: "ตื่นเต้น",en: "Excited", zh: "兴奋",
+    prog: [["E","E4,G#4,B4"],["B","B4,D#5,F#5"],["A","A4,C#5,E5"],["E","E4,G#4,B4"]],
+    desc: { th: "E–B–A–E · สนุกสนาน ตื่นเต้น", en: "E–B–A–E · Festive & exciting", zh: "E–B–A–E · 欢快刺激" } },
+];
+
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onPlay = null }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan);
+
+  // B3: Quick 3-min modal
+  const [quickOpen, setQuickOpen] = useState(false);
+  // B5: Warmup banner
+  const [warmupDone, setWarmupDone] = useState(() => readStreak().last === dayKey());
+  // D4: Chord Mood Board
+  const [moodBoardOpen, setMoodBoardOpen] = useState(false);
+  const [activeMood, setActiveMood] = useState(null);
+  const [playingChord, setPlayingChord] = useState(null);
+  // E3: Mood-based session
+  const [moodOpen, setMoodOpen] = useState(false);
+  const [moodTime, setMoodTime] = useState(null);
+  const [moodFeel, setMoodFeel] = useState(null);
+  // E4: Event countdown
+  const [eventOpen, setEventOpen] = useState(false);
+  const [eventData, setEventData] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_event") || "null"); } catch (_) { return null; } });
+  const [evName, setEvName] = useState("");
+  const [evDate, setEvDate] = useState("");
+
+  // Days until event
+  const eventDaysLeft = eventData ? Math.max(0, Math.ceil((new Date(eventData.date).getTime() - Date.now()) / 86400000)) : null;
+
+  function saveEvent() {
+    if (!evName.trim() || !evDate) return;
+    const d = { name: evName.trim(), date: evDate };
+    setEventData(d); try { localStorage.setItem("tg_event", JSON.stringify(d)); } catch (_) {}
+    setEventOpen(false);
+  }
+  function clearEvent() {
+    setEventData(null); try { localStorage.removeItem("tg_event"); } catch (_) {}
+    setEventOpen(false);
+  }
+
+  function playChord(notesCsv) {
+    const notes = notesCsv.split(",").map(n => n.trim());
+    notes.forEach((n, i) => setTimeout(() => playPianoNote(n, 1.2), i * 60));
+  }
+
+  // Quick 3-min: pick 3 shortest songs (fewest notes × BPM = fastest to play)
+  const quickSongs = [...SONGS].filter(s => !s.maxOnly)
+    .sort((a, b) => (a.seq.length / a.bpm) - (b.seq.length / b.bpm)).slice(0, 3);
+
+  // Warmup: first diff-1 song
+  const warmupSong = SONGS.find(s => s.diff === 1 && s.id === "scale") || SONGS[0];
+
+  function handleMoodGo() {
+    setMoodOpen(false);
+    if (!moodFeel) { onToday && onToday(); return; }
+    if (moodFeel === "learn") { onToday && onToday(); }
+    else if (moodFeel === "play") {
+      if (!moodTime || moodTime === "long") { onSongs && onSongs(); }
+      else { setQuickOpen(true); }
+    } else { onEarGym && onEarGym(); }
+  }
+
   const cards = [
     { k: "today",   ic: "📅", c: "#d97757", t: lc.navToday,        s: T("แผนซ้อมวันนี้ — สร้างใหม่ทุกวันจากความคืบหน้าจริง", "Today's plan — rebuilt daily from your real progress", "今日计划 — 每天根据真实进度生成"), fn: onToday },
     { k: "songs",   ic: "🎵", c: "#d97757", t: lc.studioPlayAlong, s: lc.studioPlayAlongSub, fn: onSongs },
+    { k: "quick",   ic: "⚡", c: "#d97757", t: lc.quickTitle,       s: lc.quickSub,          fn: () => { playUi("click"); setQuickOpen(true); } },
     { k: "eargym",  ic: "👂", c: "#ff76d8", t: lc.navEar,          s: lc.studioEarSub,       fn: onEarGym },
     { k: "reading", ic: "🎼", c: "#ff94e0", t: lc.navRead,         s: lc.studioReadSub,      fn: onReading },
     { k: "exam",    ic: "🎓", c: "#d97757", t: lc.studioExam,      s: lc.studioExamSub,      fn: onExam, badge: "PRO" },
     { k: "sight",   ic: "📄", c: "#d97757", t: lc.studioSight,     s: lc.studioSightSub,     fn: onSight },
     { k: "camera",  ic: "✋", c: "#d97757", t: lc.studioCamera,    s: lc.studioCameraSub,    fn: onCamera },
+    { k: "chordmood",ic:"🎭", c: "#d97757", t: lc.moodBoard,       s: lc.moodBoardSub,       fn: () => { playUi("click"); setMoodBoardOpen(true); } },
+    { k: "moodpick",ic: "🧭", c: "#d97757", t: lc.moodTitle,       s: T("เลือกเวลา+อารมณ์ → AI แนะนำกิจกรรม", "Pick time & mood → get the right activity", "按时间和心情推荐练习"), fn: () => { playUi("click"); setMoodTime(null); setMoodFeel(null); setMoodOpen(true); } },
   ];
 
-  // Max-exclusive feature cards — shown for all users; locked = upsell if not Max
+  // Max-exclusive feature cards
   const maxCards = [
-    {
-      k: "ai-report",
-      ic: "📋",
-      t: T("รายงาน AI รายสัปดาห์", "AI Weekly Report", "AI 周进度报告"),
-      s: T("วิเคราะห์พัฒนาการ 7 วันที่ผ่านมาโดย AI", "AI-generated progress analysis every 7 days", "AI 自动生成7天进度分析"),
-      fn: () => { playUi("click"); isMax ? onAiReport && onAiReport() : onUpsell && onUpsell(); },
-    },
-    {
-      k: "ai-plan",
-      ic: "🗓️",
-      t: T("แผนซ้อมส่วนตัว 7 วัน", "AI Practice Plan", "AI 7日练习计划"),
-      s: T("AI สร้างตารางซ้อม 7 วันเฉพาะสำหรับคุณ", "Personalised 7-day schedule built by AI", "AI 为你量身定制7天练习表"),
-      fn: () => { playUi("click"); isMax ? onAiPlan && onAiPlan() : onUpsell && onUpsell(); },
-    },
-    {
-      k: "analytics",
-      ic: "📊",
-      t: T("แดชบอร์ดวิเคราะห์ขั้นสูง", "Learning Analytics", "学习数据分析"),
-      s: T("EXP, สตรีค, ทักษะ — กราฟเจาะลึกทุกด้าน", "Deep charts: EXP, streak, skill breakdown", "深度图表：EXP、连击、技能分布"),
-      fn: () => { playUi("click"); isMax ? onAnalytics && onAnalytics() : onUpsell && onUpsell(); },
-    },
-    {
-      k: "maxsongs",
-      ic: "👑",
-      t: T("เพลง Max Exclusive", "Max Exclusive Songs", "Max 专属歌曲"),
-      s: T("เพลงพิเศษสงวนไว้สำหรับ Max เท่านั้น", "Premium songs reserved for Max members only", "仅 Max 会员专享的特选曲目"),
-      fn: () => { playUi("click"); isMax ? onSongs && onSongs() : onUpsell && onUpsell(); },
-    },
+    { k: "ai-report", ic: "📋", t: T("รายงาน AI รายสัปดาห์", "AI Weekly Report", "AI 周进度报告"), s: T("วิเคราะห์พัฒนาการ 7 วันที่ผ่านมาโดย AI", "AI-generated progress analysis every 7 days", "AI 自动生成7天进度分析"), fn: () => { playUi("click"); isMax ? onAiReport && onAiReport() : onUpsell && onUpsell(); } },
+    { k: "ai-plan",   ic: "🗓️", t: T("แผนซ้อมส่วนตัว 7 วัน", "AI Practice Plan", "AI 7日练习计划"),   s: T("AI สร้างตารางซ้อม 7 วันเฉพาะสำหรับคุณ", "Personalised 7-day schedule built by AI", "AI 为你量身定制7天练习表"), fn: () => { playUi("click"); isMax ? onAiPlan && onAiPlan() : onUpsell && onUpsell(); } },
+    { k: "analytics", ic: "📊", t: T("แดชบอร์ดวิเคราะห์ขั้นสูง", "Learning Analytics", "学习数据分析"),    s: T("EXP, สตรีค, ทักษะ — กราฟเจาะลึกทุกด้าน", "Deep charts: EXP, streak, skill breakdown", "深度图表：EXP、连击、技能分布"), fn: () => { playUi("click"); isMax ? onAnalytics && onAnalytics() : onUpsell && onUpsell(); } },
+    { k: "maxsongs",  ic: "👑", t: T("เพลง Max Exclusive", "Max Exclusive Songs", "Max 专属歌曲"),        s: T("เพลงพิเศษสงวนไว้สำหรับ Max เท่านั้น", "Premium songs reserved for Max members only", "仅 Max 会员专享的特选曲目"), fn: () => { playUi("click"); isMax ? onSongs && onSongs() : onUpsell && onUpsell(); } },
   ];
 
   return (
     <div className="pathpage songpage">
+      {/* B5: Daily Warmup Banner */}
+      {!warmupDone && (
+        <div className="warmup-banner">
+          <div className="warmup-banner-ic">🌅</div>
+          <div className="warmup-banner-body">
+            <div className="warmup-banner-title">{lc.warmupTitle}</div>
+            <div className="warmup-banner-sub">{lc.warmupSub}</div>
+          </div>
+          <button className="warmup-banner-btn" onClick={() => { playUi("click"); setWarmupDone(true); if (onPlay) onPlay(warmupSong); }}>
+            {lc.warmupStart}
+          </button>
+          <button className="warmup-banner-skip" onClick={() => { setWarmupDone(true); }}>{lc.warmupSkip}</button>
+        </div>
+      )}
+
+      {/* E4: Event Countdown */}
+      {eventData && eventDaysLeft !== null && (
+        <div className="event-countdown" onClick={() => { playUi("click"); setEvName(eventData.name); setEvDate(eventData.date); setEventOpen(true); }}>
+          <span className="event-ic">🎯</span>
+          <span className="event-name">{eventData.name}</span>
+          <span className="event-days">{eventDaysLeft > 0 ? `${eventDaysLeft} ${lc.eventDays}` : T("วันนี้!", "Today!", "今天!")}</span>
+          {eventDaysLeft > 0 && <span className="event-hint">{lc.eventPractice} ~{Math.round(30 / Math.max(1, eventDaysLeft) * 60)} {lc.eventMin}</span>}
+        </div>
+      )}
+      {!eventData && (
+        <button className="event-set-btn" onClick={() => { playUi("click"); setEvName(""); setEvDate(""); setEventOpen(true); }}>
+          🎯 {lc.eventSet}
+        </button>
+      )}
+
       <div className="pathhero">
         <div className="pathhero-glow" />
         <div className="pathbadge">▶ STUDIO ▶</div>
@@ -3700,6 +3820,118 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           </button>
         ))}
       </div>
+
+      {/* B3: Quick 3-min Modal */}
+      {quickOpen && (
+        <div className="modal-ov" onClick={() => setQuickOpen(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-hdr"><span>⚡ {lc.quickTitle}</span><button className="modal-x" onClick={() => setQuickOpen(false)}>✕</button></div>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--muted)" }}>{lc.quickSub}</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {quickSongs.map(s => (
+                <button key={s.id} className="songcard" style={{ "--sc": "#d97757" } as React.CSSProperties}
+                  onClick={() => { setQuickOpen(false); if (onPlay) onPlay(s); }}>
+                  <div className="songcard-ic">🎵</div>
+                  <div className="songcard-body">
+                    <div className="songcard-nm">{lang === "th" ? s.th : lang === "zh" ? s.zh : s.en}</div>
+                    <div className="songcard-meta"><span>{"★".repeat(s.diff)}{"☆".repeat(3 - s.diff)}</span><span>{s.bpm} BPM</span><span>{s.seq.length} {T("โน้ต", "notes", "音符")}</span></div>
+                  </div>
+                  <span className="songcard-go">▶</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* E3: Mood Picker Modal */}
+      {moodOpen && (
+        <div className="modal-ov" onClick={() => setMoodOpen(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-hdr"><span>🧭 {lc.moodTitle}</span><button className="modal-x" onClick={() => setMoodOpen(false)}>✕</button></div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{lc.moodTimePick}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {[["short", lc.moodShort], ["med", lc.moodMed], ["long", lc.moodLong]].map(([k, label]) => (
+                  <button key={k} className={`filter-chip${moodTime === k ? " on" : ""}`} onClick={() => setMoodTime(k)}>{label}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{T("อยากทำอะไร?", "What do you feel like?", "你想做什么?")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {[["learn", lc.moodLearn], ["play", lc.moodPlay], ["fun", lc.moodFun]].map(([k, label]) => (
+                  <button key={k} className={`filter-chip${moodFeel === k ? " on" : ""}`} onClick={() => setMoodFeel(k)}>{label}</button>
+                ))}
+              </div>
+            </div>
+            <button className="pricebtn active" style={{ width: "100%", marginTop: 4 }} onClick={handleMoodGo}>
+              {T("ไปเลย →", "Let's go →", "出发 →")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* D4: Chord Mood Board Modal */}
+      {moodBoardOpen && (
+        <div className="modal-ov" onClick={() => setMoodBoardOpen(false)}>
+          <div className="modal-box" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-hdr"><span>🎭 {lc.moodBoard}</span><button className="modal-x" onClick={() => setMoodBoardOpen(false)}>✕</button></div>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--muted)" }}>{lc.moodBoardSub}</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+              {CHORD_MOODS.map((m, i) => (
+                <button key={i} className={`filter-chip${activeMood === i ? " on" : ""}`}
+                  style={{ fontSize: 15 }} onClick={() => { playUi("click"); setActiveMood(activeMood === i ? null : i); }}>
+                  {m.emoji} {lang === "th" ? m.th : lang === "zh" ? m.zh : m.en}
+                </button>
+              ))}
+            </div>
+            {activeMood !== null && (
+              <div className="chord-mood-panel">
+                <div className="chord-mood-desc">{CHORD_MOODS[activeMood].desc[lang === "zh" ? "zh" : lang === "th" ? "th" : "en"]}</div>
+                <div className="chord-mood-grid">
+                  {CHORD_MOODS[activeMood].prog.map(([name, notes], ci) => (
+                    <button key={ci} className={`chord-btn${playingChord === `${activeMood}-${ci}` ? " playing" : ""}`}
+                      onClick={() => {
+                        setPlayingChord(`${activeMood}-${ci}`);
+                        playChord(notes);
+                        setTimeout(() => setPlayingChord(null), 1200);
+                      }}>
+                      <span className="chord-btn-name">{name}</span>
+                      <span className="chord-btn-play">▶</span>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>
+                  {T("แตะคอร์ดเพื่อฟัง — ฝึกเล่นทีละคอร์ด", "Tap each chord to hear it — practice them one by one", "点击每个和弦试听 — 逐个练习")}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* E4: Event Goal Modal */}
+      {eventOpen && (
+        <div className="modal-ov" onClick={() => setEventOpen(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-hdr"><span>🎯 {lc.eventTitle}</span><button className="modal-x" onClick={() => setEventOpen(false)}>✕</button></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+              <label style={{ fontSize: 13, color: "var(--muted)" }}>{lc.eventName}</label>
+              <input className="chat-input" style={{ fontSize: 14, padding: "10px 14px" }}
+                value={evName} onChange={e => setEvName(e.target.value)}
+                placeholder={T("ชื่องาน / ชื่อเพลง", "Event name / song title", "活动名称 / 歌曲名")} />
+              <label style={{ fontSize: 13, color: "var(--muted)" }}>{lc.eventDate}</label>
+              <input type="date" className="chat-input" style={{ fontSize: 14, padding: "10px 14px" }}
+                value={evDate} onChange={e => setEvDate(e.target.value)} />
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="pricebtn active" style={{ flex: 1 }} onClick={saveEvent}>{lc.eventSet}</button>
+              {eventData && <button className="pricebtn" style={{ flex: 1 }} onClick={clearEvent}>{lc.eventClear}</button>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
@@ -4052,6 +4284,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     const req = SONG_REQ[s.diff] || 1;
     const locked = !s.custom && level < req;
     const maxLocked = !s.custom && s.maxOnly && !isMaxPlan(plan);
+    let pb = 0; try { pb = +(localStorage.getItem("tg_best_" + s.id) || 0); } catch (_) {}
     return (
       <button key={pfx + s.id} className={`songcard${locked || maxLocked ? " locked" : ""}`} style={{ "--sc": `hsl(${hue},70%,56%)` }}
         onClick={() => { if (locked) { haptic(20); playMiss(); } else if (maxLocked) { haptic(20); if (onUpsell) onUpsell(); } else play(s); }}>
@@ -4061,6 +4294,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           <div className="songcard-meta">
             <span className="songdiff" aria-label={`difficulty ${s.diff}`}>{s.custom ? "✨ AI" : "★".repeat(s.diff) + "☆".repeat(3 - s.diff)}</span>
             <span>{locked ? lc.lockedLv + req : maxLocked ? (lang === "th" ? "👑 Max เท่านั้น" : lang === "zh" ? "👑 Max 专属" : "👑 Max only") : s.bpm + " BPM"}</span>
+            {pb > 0 && <span className="songcard-pb">PB {pb.toLocaleString()}</span>}
           </div>
         </div>
         <span className="songcard-go">{locked ? "🔒" : maxLocked ? "👑" : "▶"}</span>
@@ -4986,6 +5220,61 @@ async function shareCard({ title, big, sub, lines = [] }) {
     }
   } catch (e) {}
 }
+function downloadCertificate(lang, name) {
+  try {
+    const W = 1000, H = 700, c = document.createElement("canvas"); c.width = W; c.height = H;
+    const x = c.getContext("2d");
+    // Background
+    const bg = x.createLinearGradient(0, 0, W, H); bg.addColorStop(0, "#1c1b19"); bg.addColorStop(1, "#0e0d0b");
+    x.fillStyle = bg; x.fillRect(0, 0, W, H);
+    // Outer border
+    x.strokeStyle = "#d97757"; x.lineWidth = 6; x.strokeRect(22, 22, W - 44, H - 44);
+    x.strokeStyle = "rgba(217,119,87,.3)"; x.lineWidth = 2; x.strokeRect(34, 34, W - 68, H - 68);
+    // Corner ornaments
+    [[ 22, 22], [W - 22, 22], [22, H - 22], [W - 22, H - 22]].forEach(([cx, cy]) => {
+      x.beginPath(); x.arc(cx, cy, 10, 0, Math.PI * 2); x.fillStyle = "#d97757"; x.fill();
+    });
+    x.textAlign = "center";
+    // Logo & title
+    x.fillStyle = "#d97757"; x.font = "bold 22px Arial"; x.fillText("TiGA Piano AI", W / 2, 90);
+    x.fillStyle = "rgba(217,119,87,.35)"; x.fillRect(100, 106, W - 200, 2);
+    // Certificate word
+    const certWord = lang === "th" ? "ใบประกาศนียบัตร" : lang === "zh" ? "结业证书" : "CERTIFICATE OF COMPLETION";
+    x.fillStyle = "#faf9f5"; x.font = "bold 42px Arial"; x.fillText(certWord, W / 2, 175);
+    // Presented to
+    const toWord = lang === "th" ? "มอบให้แก่" : lang === "zh" ? "颁发给" : "This is presented to";
+    x.fillStyle = "#8f8b82"; x.font = "22px Arial"; x.fillText(toWord, W / 2, 245);
+    // Name
+    x.fillStyle = "#d97757"; x.font = "bold 52px Arial"; x.fillText(name || "___________________", W / 2, 310);
+    x.fillStyle = "rgba(217,119,87,.3)"; x.fillRect(200, 330, W - 400, 2);
+    // Course
+    const courseWord = lang === "th" ? "สำหรับการผ่านหลักสูตร TiGA Piano Learning Pathway ครบทุกบทเรียน"
+      : lang === "zh" ? "完成 TiGA Piano 学习路径的全部课程"
+      : "for completing the full TiGA Piano Learning Pathway";
+    x.fillStyle = "#c9c6bd"; x.font = "22px Arial";
+    const words = courseWord.split(" ");
+    let line = "", lines = [], maxW = W - 200;
+    for (const w of words) {
+      const test = line ? line + " " + w : w;
+      if (x.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test;
+    }
+    if (line) lines.push(line);
+    lines.forEach((ln, i) => x.fillText(ln, W / 2, 390 + i * 36));
+    // Date
+    const dateStr = new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US", { year: "numeric", month: "long", day: "numeric" });
+    x.fillStyle = "#8f8b82"; x.font = "20px Arial"; x.fillText(dateStr, W / 2, 520);
+    // Signature line
+    x.fillStyle = "#8f8b82"; x.fillRect(W / 2 - 100, 590, 200, 1);
+    x.fillStyle = "#d97757"; x.font = "bold 18px Arial"; x.fillText("TiGA Piano AI", W / 2, 610);
+    x.fillStyle = "#8f8b82"; x.font = "16px Arial"; x.fillText("tigaalpha.github.io", W / 2, 640);
+    // Download
+    c.toBlob(blob => {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tiga-certificate.png"; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    }, "image/png");
+  } catch (e) {}
+}
+
 function getOwned() { try { return JSON.parse(localStorage.getItem("tg_owned") || "[\"aqua\",\"midnight\",\"fr-none\"]"); } catch (e) { return ["aqua", "midnight", "fr-none"]; } }
 function setOwnedLS(a) { try { localStorage.setItem("tg_owned", JSON.stringify(a)); } catch (e) {} }
 function getEquip(k, def) { try { return localStorage.getItem("tg_" + k) || def; } catch (e) { return def; } }
@@ -6912,6 +7201,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const songAnnounceT = useRef(null);
   const [songSrc, setSongSrc] = useState(null);            // {type:"midi"|"mic"|"error"}
   const [songCountdown, setSongCountdown] = useState(null);
+  const [songAutoLoop, setSongAutoLoop] = useState(false);
+  const songAutoLoopRef = useRef(false);
+  const songLoopRetryT = useRef(null);
 
   // ── studio sub-nav + sight-reading + hand coach ──
   const [studioView, setStudioView] = useState("menu");    // menu | songs
@@ -6953,6 +7245,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // in practice it needed 15+ *uninterrupted* minutes there to ever fire even once.
   const pageRef = useRef(page);
   useEffect(() => { pageRef.current = page; }, [page]);
+  useEffect(() => { songAutoLoopRef.current = songAutoLoop; }, [songAutoLoop]);
   async function fetchAutoTeachTip() {
     if (pageRef.current !== "pathway") return; // only surface the card while actually on Pathway
     if (autoTeachTipRef.current || autoTeachBusyRef.current) return; // don't clobber an unread tip
@@ -8105,8 +8398,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setSongNextLit(null);
     const missedNotes = songNotesRef.current.filter(n => n.missed).map(n => n.note);
     setSongResult({ acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes });
-    setSongPhase("done");
     gainExp(reward, { quest: true });
+    // auto-loop: if enabled, restart after a brief pause instead of showing result screen
+    if (songAutoLoopRef.current) {
+      clearTimeout(songLoopRetryT.current);
+      songLoopRetryT.current = setTimeout(() => { startSongPlay(); }, 1800);
+    } else {
+      setSongPhase("done");
+    }
   }
   // Per-song mistake breakdown — separate from Auto Teaching, only ever shown on this
   // song-result screen. Fires once automatically when a song finishes.
@@ -9725,7 +10024,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: PATHWAY ─── */}
       {page === "pathway" && (
-        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} initialOpenStageId={activeStageId} />
+        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} initialOpenStageId={activeStageId} userName={(profile && profile.full_name) || ""} />
       )}
 
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
@@ -9779,7 +10078,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               onAiReport={() => { logUsage("nav", "studio-ai-report"); setAiModalType("report"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}
               onAiPlan={() => { logUsage("nav", "studio-ai-plan"); setAiModalType("plan"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}
               onAnalytics={() => { logUsage("nav", "studio-analytics"); setPage("insights"); }}
-              onUpsell={() => setPricingOpen(true)} />
+              onUpsell={() => setPricingOpen(true)}
+              onPlay={(s) => { logUsage("nav", "studio-quick"); chooseSong(s); }} />
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
@@ -10176,9 +10476,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <div className="songready">
                   <div className="songready-info">{tr(songMeta, lang)} · {songDataRef.current ? songDataRef.current.total : 0} {lc.songNotes} · {songMeta.bpm} BPM</div>
                   <div className="songtempo">
-                    {[0.75, 1, 1.25].map(tp => (
-                      <button key={tp} className={`songtempobtn${songTempo === tp ? " on" : ""}`} onClick={() => setSongTempo(tp)}>{tp === 1 ? "1×" : tp + "×"}</button>
+                    {[0.5, 0.75, 1, 1.25].map(tp => (
+                      <button key={tp} className={`songtempobtn${songTempo === tp ? " on" : ""}`} onClick={() => setSongTempo(tp)} title={tp === 0.5 ? lc.songSlowHint : undefined}>
+                        {tp === 1 ? "1×" : tp + "×"}{tp === 0.5 ? " 🐢" : ""}
+                      </button>
                     ))}
+                  </div>
+                  <div className="songtempo" style={{ marginTop: 6 }}>
+                    <button className={`songtempobtn${songAutoLoop ? " on" : ""}`} onClick={() => setSongAutoLoop(v => !v)}>
+                      {songAutoLoop ? lc.songLoop : lc.songNoLoop}
+                    </button>
                   </div>
                   <div className="songready-btns">
                     <button className="songbtn ghost" onClick={previewSong}>▶ {lc.songPreview}</button>
@@ -10906,21 +11213,23 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* level-up celebration overlay */}
       {levelUp && (
-        <div className="lvup">
+        <div className="lvup" onClick={() => { clearTimeout(lvUpTimer.current); setLevelUp(null); }}>
           <div className="lvup-rays" aria-hidden="true" />
           <div className="confetti" aria-hidden="true">{Array.from({ length: 24 }).map((_, i) => <i key={i} style={{ left: (i * 4.1) + "%", animationDelay: (i % 6 * 0.08) + "s", background: ["#d97757", "#ffd23f", "#6a9bcc", "#788c5d", "#ff5252"][i % 5] }} />)}</div>
           <div className="lvup-burst" aria-hidden="true">{levelUp.tier.icon}</div>
           <div className="lvup-title">{lc.levelUpWord}</div>
           <div className="lvup-rank">{lc.profLevelWord} {levelUp.level} · {tr(levelUp.tier, lang)}</div>
+          <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: lc.levelUpWord, big: lc.profLevelWord + " " + levelUp.level, sub: tr(levelUp.tier, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
         </div>
       )}
 
       {/* achievement-unlock celebration overlay */}
       {badgeUp && !levelUp && (
-        <div className="lvup lvup-badge">
+        <div className="lvup lvup-badge" onClick={() => { clearTimeout(badgeTimer.current); setBadgeUp(null); }}>
           <div className="lvup-burst" aria-hidden="true">{badgeUp.icon}</div>
           <div className="lvup-title">{lc.badgeUnlocked}</div>
           <div className="lvup-rank">{tr(badgeUp, lang)}</div>
+          <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareCard({ title: lc.badgeUnlocked, big: badgeUp.icon, sub: tr(badgeUp, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
         </div>
       )}
 

@@ -566,6 +566,9 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .badge.got .badge-ic{filter:none}
 .badge-nm{font-family:'Rajdhani',sans-serif;font-size:9px;font-weight:600;line-height:1.2;color:var(--muted)}
 .badge.got .badge-nm{color:#d97757}
+.lvup{pointer-events:all}
+.lvup-share{margin-top:20px;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;background:rgba(217,119,87,.2);color:#d97757;border:1px solid rgba(217,119,87,.5);border-radius:20px;padding:9px 22px;cursor:pointer;animation:lvbounce .7s .28s both cubic-bezier(.2,1.4,.4,1)}
+.lvup-share:hover{background:rgba(217,119,87,.35)}
 /* badge unlock overlay (reuses .lvup container) */
 .lvup-badge .lvup-burst{filter:drop-shadow(0 0 18px #d97757)}
 .lvup-badge .lvup-title{color:#d97757;text-shadow:0 0 22px #d97757}
@@ -581,6 +584,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .songcard-nm{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
 .songcard-meta{display:flex;gap:11px;align-items:center;margin-top:3px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted)}
 .songdiff{color:#d97757;letter-spacing:1px}
+.songcard-pb{margin-left:auto;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:#d97757;opacity:.85;letter-spacing:.5px;white-space:nowrap}
 .songcard-go{font-size:15px;color:var(--sc,#d97757)}
 .songov{position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;background:var(--bg);animation:fadein .25s}
 .songhdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--bd3);flex-shrink:0}
@@ -991,6 +995,31 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .lbexp small{font-size:9px;color:var(--muted)}
 .lbempty{text-align:center;font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--muted);padding:14px}
 .songcard-badge{display:inline-block;margin-left:7px;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;color:var(--card2);background:var(--sc,#d97757);border-radius:5px;padding:2px 5px;vertical-align:middle}
+/* B5: Warmup banner */
+.warmup-banner{display:flex;align-items:center;gap:12px;margin:10px 14px 0;padding:14px 16px;background:rgba(217,119,87,.1);border:1px solid rgba(217,119,87,.3);border-radius:14px;animation:fadein .3s}
+.warmup-banner-ic{font-size:26px;flex-shrink:0}
+.warmup-banner-body{flex:1;min-width:0}
+.warmup-banner-title{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text)}
+.warmup-banner-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.warmup-banner-btn{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;background:#d97757;color:#fff;border:none;border-radius:10px;padding:7px 14px;cursor:pointer;flex-shrink:0}
+.warmup-banner-skip{font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;flex-shrink:0;padding:4px}
+/* E4: Event countdown */
+.event-countdown{display:flex;align-items:center;gap:10px;margin:10px 14px 0;padding:12px 16px;background:rgba(217,119,87,.08);border:1px solid rgba(217,119,87,.25);border-radius:14px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:12px}
+.event-ic{font-size:18px;flex-shrink:0}
+.event-name{flex:1;color:var(--text);font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.event-days{color:#d97757;font-weight:700;flex-shrink:0}
+.event-hint{font-size:11px;color:var(--muted);flex-shrink:0}
+.event-set-btn{display:block;width:calc(100% - 28px);margin:10px 14px 0;padding:10px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--muted);background:transparent;border:1px dashed var(--bd2);border-radius:12px;cursor:pointer;text-align:center}
+.event-set-btn:hover{border-color:var(--bd4);color:var(--text)}
+/* D4: Chord Mood Board */
+.chord-mood-panel{background:var(--card3);border-radius:12px;padding:14px;border:1px solid var(--bd1)}
+.chord-mood-desc{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5}
+.chord-mood-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.chord-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;background:var(--card2);border:1px solid var(--bd1);border-radius:10px;cursor:pointer;transition:all .2s;font-family:inherit}
+.chord-btn:hover{border-color:#d97757;background:rgba(217,119,87,.08)}
+.chord-btn.playing{border-color:#d97757;background:rgba(217,119,87,.15);transform:scale(1.06)}
+.chord-btn-name{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text)}
+.chord-btn-play{font-size:10px;color:#d97757}
 /* Studio Max section */
 .studio-max-hdr{display:flex;align-items:center;gap:8px;padding:18px 14px 6px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--muted);border-top:1px solid var(--bd2);margin-top:8px}
 .studio-max-badge{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:900;letter-spacing:1px;color:#fff;background:#d97757;border-radius:6px;padding:2px 7px}
@@ -1126,6 +1155,22 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
 }
 @media(max-width:480px){.lname{font-size:11px;letter-spacing:1px}.bbl{font-size:12px;padding:8px 11px}.pk.w{width:22px!important;height:66px!important}.pk.b{width:14px!important;height:42px!important;margin-left:-7px!important;margin-right:-7px!important}}
+/* F5: Certificate banner */
+.cert-banner{display:flex;align-items:center;gap:14px;margin:14px 14px 0;padding:18px 16px;background:linear-gradient(135deg,rgba(217,119,87,.15),rgba(217,119,87,.05));border:2px solid rgba(217,119,87,.4);border-radius:16px;animation:fadein .4s}
+.cert-ic{font-size:36px;flex-shrink:0}
+.cert-body{flex:1;min-width:0}
+.cert-title{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
+.cert-sub{font-size:11px;color:#d97757;margin-top:2px;font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:1px}
+.cert-dl-btn{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;background:#d97757;color:#fff;border:none;border-radius:10px;padding:9px 14px;cursor:pointer;flex-shrink:0;white-space:nowrap}
+.cert-dl-btn:hover{background:#c86846}
+/* Shared modal overlay + box (used by StudioPage quick/mood/event/chord modals) */
+.modal-ov{position:fixed;inset:0;z-index:1350;background:rgba(9,4,8,.78);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:18px;animation:fadein .2s}
+.modal-box{width:100%;max-width:380px;max-height:88vh;overflow-y:auto;background:var(--card3);border:1px solid #d9775726;border-radius:18px;box-shadow:0 24px 60px -20px #000;padding:18px}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text)}
+.modal-x{font-size:15px;color:var(--muted);background:none;border:none;cursor:pointer;padding:2px 6px;line-height:1}
+/* Filter chip (mood/time picker) */
+.filter-chip{padding:7px 14px;border-radius:20px;border:1px solid var(--bd2);background:var(--card);color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .18s}
+.filter-chip.on{background:#d97757;color:#fff;border-color:transparent}
 `;
 
 export function useInjectCSS() {
