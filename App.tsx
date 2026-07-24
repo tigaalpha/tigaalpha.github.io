@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } fro
 import { createClient } from "@supabase/supabase-js";
 import qrcode from "qrcode-generator";
 import { PATHWAY } from "./pathway-data";
-import { SONGS } from "./songs-data";
+import { SONGS, SONG_GENRES } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
 
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
@@ -4954,6 +4954,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   const humTimerRef = useRef<any>(null);
   // Play-Along categories: songs · scales · chords · intervals (all on this one page)
   const [cat, setCat] = useState("songs");
+  const [genreFilter, setGenreFilter] = useState("all");
   const [minorType, setMinorType] = useState("natural minor");
   const [triadQual, setTriadQual] = useState("major");
   const [seventhQual, setSeventhQual] = useState("maj7");
@@ -5032,6 +5033,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   let list = ALL.slice();
   if (filter === 0) list = list.filter(s => favs.includes(s.id));
   else if (filter > 0) list = list.filter(s => s.diff === filter && !s.custom);
+  if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "classical") === genreFilter);
   list.sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
 
   const Card = (s, pfx = "") => {
@@ -5118,6 +5120,21 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
         <>
           <div className="songfilters">
             {filters.map(f => <button key={f.k} className={`songfilter${filter === f.k ? " on" : ""}`} onClick={() => setFilter(f.k)}>{f.label}</button>)}
+          </div>
+          <div className="genrefilters">
+            {([
+              { code:"all",       label:{ th:"🎵 ทั้งหมด",     en:"🎵 All",       zh:"🎵 全部" } },
+              { code:"kids",      label:{ th:"👶 เด็ก",         en:"👶 Kids",      zh:"👶 儿歌" } },
+              { code:"classical", label:{ th:"🎹 คลาสสิก",     en:"🎹 Classical", zh:"🎹 古典" } },
+              { code:"folk",      label:{ th:"🌿 โฟล์ค",        en:"🌿 Folk",      zh:"🌿 民谣" } },
+              { code:"carol",     label:{ th:"🎄 คริสต์มาส",   en:"🎄 Carols",    zh:"🎄 圣诞" } },
+              { code:"cn",        label:{ th:"🀄 จีน",          en:"🀄 Chinese",   zh:"🀄 中文" } },
+            ] as const).map(g => (
+              <button key={g.code} className={"genrechip" + (genreFilter === g.code ? " active" : "")}
+                onClick={() => { haptic(); setGenreFilter(g.code); }}>
+                {g.label[lang] ?? g.label.en}
+              </button>
+            ))}
           </div>
           <button className="aicreate" onClick={() => { setGenErr(false); setCreateOpen(true); }}>✨ {lc.aiCreate}</button>
           {createOpen && (

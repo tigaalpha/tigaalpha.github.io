@@ -1310,3 +1310,70 @@ export const SONGS = [
           ["C5",0.5],["D5",0.5],["C5",0.5],["A4",0.5],["C5",1],["D5",1],["E5",1],["D5",1],
           ["C5",0.5],["A4",0.5],["G4",0.5],["E4",0.5],["G4",4]] },
 ];
+
+export const SONG_GENRES: Record<string, string> = {
+  // 👶 Kids — nursery rhymes & children's songs
+  twinkle:"kids", mary:"kids", birthday:"kids", row:"kids", london:"kids",
+  hot_cross_buns:"kids", yankee_doodle:"kids", merrily:"kids", skip_lou:"kids",
+  this_old_man:"kids", michael_row:"kids", tigers:"kids",
+
+  // 🎄 Carols — Christmas songs
+  jingle:"carol", o_xmas_tree:"carol", silent_night:"carol", joy_world:"carol",
+  deck_halls:"carol", first_noel:"carol", o_come:"carol",
+
+  // 🀄 Chinese — Chinese traditional & modern folk
+  molihua:"cn", songbie:"cn", caiyun:"cn",
+  spring_river_cn:"cn", high_mtn_cn:"cn", plum_var_cn:"cn", fishermen_cn:"cn",
+  suwu_cn:"cn", longing_cn:"cn", lullaby_cn:"cn", drizzle_cn:"cn",
+  flower_moon_cn:"cn", shanghai_n_cn:"cn", when_return_cn:"cn", two_tigers_cn:"cn",
+  moon_high_cn:"cn", east_red_cn:"cn", butterfly_cn:"cn", red_bean_cn:"cn",
+  soldier_cn:"cn", wild_goose_cn:"cn", kite_cn:"cn", lantern_fest_cn:"cn",
+
+  // 🌿 Folk — traditional folk, spirituals, patriotic, Celtic, Thai
+  oh_susanna:"folk", camptown:"folk", amazing_grace:"folk", greensleeves:"folk",
+  scarborough:"folk", old_folks_home:"folk", my_bonnie:"folk", red_river:"folk",
+  he_whole_world:"folk", molly_malone:"folk", down_valley:"folk",
+  auld_lang_syne:"folk", beautiful_dreamer:"folk", simple_gifts:"folk",
+  battle_hymn:"folk", home_sweet_home:"folk", clementine:"folk",
+  danny_boy:"folk", shenandoah:"folk", swing_low:"folk", deep_river:"folk",
+  wayfaring_st:"folk", go_tell_mnt:"folk", marines_hymn:"folk",
+  long_long_ago:"folk", old_kentucky:"folk", comin_thro:"folk", believe_me:"folk",
+  charlie_is:"folk", minstrel_boy:"folk", loch_lomond:"folk", barbara_allen:"folk",
+  drink_to_me:"folk", green_grow:"folk", home_road:"folk", turkey_straw:"folk",
+  old_brass_wag:"folk", come_sing:"folk", carry_me_back:"folk", polly_wolly:"folk",
+  auld_robin:"folk", old_hundredth:"folk", she_coming:"folk", saints:"folk",
+  lao_duang_deuan:"folk", maew_miao:"folk",
+
+  // 🎹 Classical — Western art music
+  scale:"classical", ode:"classical", furelise:"classical", minuet_g:"classical",
+  entertainer:"classical", turkish_march:"classical", blue_danube:"classical",
+  william_tell:"classical", symphony5:"classical", spring_vivaldi:"classical",
+  canon_d:"classical", prelude_c:"classical", moonlight:"classical",
+  gymnopedié:"classical", nocturne_op9:"classical", ave_maria:"classical",
+  clair_lune:"classical", air_g:"classical", jesu_joy:"classical",
+  toccata_dm:"classical", invention1:"classical", hallelujah_h:"classical",
+  queen_sheba:"classical", water_music:"classical", sarabande:"classical",
+  winter_viv:"classical", summer_viv:"classical", autumn_viv:"classical",
+  surprise_h:"classical", serenade_h:"classical", emperor_h:"classical",
+  kleine_n:"classical", piano_545:"classical", sym40_moz:"classical",
+  lacrimosa:"classical", sonatina_g:"classical", pathetique:"classical",
+  spring_son:"classical", serenade_sch:"classical", military_sch:"classical",
+  wedding_men:"classical", spring_song_men:"classical", traumerei:"classical",
+  happy_farmer:"classical", waltz_min:"classical", raindrop_ch:"classical",
+  lullaby_bra:"classical", hungarian5:"classical", humoresque_dv:"classical",
+  new_world:"classical", morning_gr:"classical", mountain_king:"classical",
+  anitra_gr:"classical", swan_lake_t:"classical", nutcracker_t:"classical",
+  sugar_plum:"classical", sleeping_b:"classical", piano_con_t:"classical",
+  the_swan:"classical", liebestraum:"classical", can_can:"classical",
+  habanera:"classical", toreador:"classical", la_donna:"classical",
+  grand_march_v:"classical", nessun_dorma:"classical", mi_babbino:"classical",
+  bridal_wag:"classical", land_hope:"classical", finlandia:"classical",
+  radetzky:"classical", night_bald:"classical", flight_bumb:"classical",
+  polots_bor:"classical", minuet_boc:"classical", wild_rose:"classical",
+  maple_leaf:"classical", study_czerny:"classical", clementi_son:"classical",
+  burgmuller_ar:"classical", beethoven_sot:"classical", handel_mess:"classical",
+  nimrod_el:"classical", caprice24:"classical", barcarolle:"classical",
+  slavonic_dv:"classical", dance_hours:"classical", intermezzo_br:"classical",
+  wild_horse_sch:"classical", violin_men:"classical", tristesse_ch:"classical",
+  promenade_mus:"classical",
+};

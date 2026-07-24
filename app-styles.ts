@@ -886,6 +886,10 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .songfilters::-webkit-scrollbar{display:none}
 .songfilter{flex:0 0 auto;padding:7px 14px;border-radius:20px;border:1px solid var(--bd2);background:var(--card);color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 .songfilter.on{background: #d97757;color:var(--card2);border-color:transparent}
+.genrefilters{display:flex;gap:6px;overflow-x:auto;padding:0 14px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.genrefilters::-webkit-scrollbar{display:none}
+.genrechip{flex:0 0 auto;padding:5px 13px;border-radius:18px;border:1.5px solid var(--bd2);background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
+.genrechip.active{background:#6c47ff;border-color:#6c47ff;color:#fff}
 .drillhint{padding:0 16px 10px;margin:0;color:var(--muted);font-size:12.5px;line-height:1.45}
 .songcontinue{padding:0 14px 4px}
 .songcontinue-lbl{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#d97757;letter-spacing:1px;margin-bottom:6px}
