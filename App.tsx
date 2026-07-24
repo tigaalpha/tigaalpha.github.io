@@ -2200,9 +2200,9 @@ const L = {
     setPush: "🔔 แจ้งเตือน",
     pushBannerTitle: "อย่าให้สตรีคหลุด!", pushBannerSub: "เปิดแจ้งเตือนไว้ เดี๋ยวเราจะเตือนถ้าลืมซ้อมวันนี้", pushBannerBtn: "เปิดแจ้งเตือน",
     upgrade: "อัปเกรด", prTitle: "เลือกแผนที่ใช่สำหรับคุณ", prSub: "ครู AI ส่วนตัว 24/7 · ถูกกว่าเรียนพิเศษ 20 เท่า · ยกเลิกได้ทุกเมื่อ", prMonth: "เดือน", prYear: "ปี", prSave3: "ประหยัด 3%", prBillMonth: "รายเดือน", prBillYear: "รายปี", prActive: "ใช้งานอยู่", prGet: "สมัครเลย",
-    prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "🎯 ครู AI ติชมทุกโน้ตที่เล่น ไม่จำกัดครั้ง", prF3: "📝 โหมดเตรียมสอบเกรด + สร้างเพลงด้วย AI ไม่จำกัด", prF4: "👨‍👩‍👧 แดชบอร์ดผู้ปกครอง ติดตามพัฒนาการลูกแบบเรียลไทม์", prF5: "🔈 เสียงครูธรรมชาติคุณภาพสูง + ไม่มีโฆษณาตลอดการใช้",
-    prFam1: "⭐ Premium ครบทุกฟีเจอร์ ไม่มีตัดออก", prFam2: "👨‍👩‍👧‍👦 3 โปรไฟล์ใช้ได้พร้อมกัน", prFree1: "🎹 คีย์บอร์ดอินเทอร์แอคทีฟ + เกมฝึกหู + บทเรียนพื้นฐาน", prFree2: "🤖 ถามครู AI ได้ (จำกัดวันละ 5 ครั้ง)",
-    prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "✓ ทุกอย่างใน Family · สูงสุด 6 โปรไฟล์", prMax3: "🎙️ โหมดเสียง AI — คุยกับครู 1:1 สดๆ 24/7", prMax4: "📋 รายงาน AI รายสัปดาห์ + แผนซ้อม 7 วันส่วนตัว", prMax5: "🪙 XP & เหรียญ ×2 · 🛡️ Streak Freeze 4 ใบ/เดือน", prMax6: "🎵 เพลง Exclusive + 📊 แดชบอร์ดวิเคราะห์ขั้นสูง", prMxf1: "👑 Max ครบทุกฟีเจอร์ สำหรับทุกคนในบ้าน", prMxf2: "สูงสุด 10 โปรไฟล์ · ≈ เพียง ฿1,000/คน/เดือน", prMxf3: "📊 แดชบอร์ดครอบครัว + รายงาน AI แยกทุกโปรไฟล์", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
+    prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "♾️ ครู AI + สร้างเพลง + วิจารณ์การเล่น — ไม่จำกัดครั้ง ทุกวัน", prF3: "🧑‍🏫 Auto Teaching — ครู AI โผล่สอนขณะซ้อม Pathway แบบเรียลไทม์", prF4: "🎓 เตรียมสอบเกรด + 👨‍👩‍👧 แดชบอร์ดผู้ปกครองดูพัฒนาการลูก", prF5: "🔈 เสียงครูธรรมชาติคุณภาพสูง + ไม่มีโฆษณาตลอดการใช้",
+    prFam1: "⭐ Premium ครบทุกฟีเจอร์ รวม Auto Teaching ไม่มีตัดออก", prFam2: "👨‍👩‍👧‍👦 3 โปรไฟล์ใช้ได้พร้อมกัน", prFree1: "🎹 เพลง 180+ ชิ้น · บทเรียน · เกมฝึกหู · Sight Reading · Hand Coach · Goal Planner — ฟรีทั้งหมด", prFree2: "🤖 ครู AI 5 ครั้ง/วัน · สร้างเพลง AI 2 ครั้ง/วัน · วิจารณ์การเล่น 3 ครั้ง/วัน",
+    prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "✓ ทุกอย่างใน Premium รวม Auto Teaching ครบ", prMax3: "🎙️ AI Voice Teacher — คุยด้วยเสียง ครู AI ตอบกลับสด 24/7", prMax4: "📊 Daily Mentor · รายงาน AI รายสัปดาห์ · แผนซ้อม 7 วันส่วนตัว", prMax5: "🪙 XP & เหรียญ ×2 ทุกวัน · 🛡️ Streak Freeze 4 ใบ/เดือน ฟรี ไม่ต้องซื้อ", prMax6: "👑 เพลง Exclusive: Für Elise · Moonlight · Clair de Lune + อีก 3 ชิ้น", prMxf1: "👑 Max ครบทุกฟีเจอร์ ไม่มีตัดออก — สำหรับทุกคนในครอบครัว", prMxf2: "สูงสุด 10 โปรไฟล์ · ใช้งานพร้อมกันได้ทุกคนในบ้าน", prMxf3: "📊 แดชบอร์ดครอบครัว + รายงาน AI แยกทุกโปรไฟล์", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
     trialBanner: "🎁 ทดลองใช้ฟรี", trialDaysLeft: "วันที่เหลือ", trialUpgrade: "อัปเกรดแผน", trialExpired: "หมดเวลาทดลองใช้แล้ว — เลือกแผนเพื่อเรียนต่อ",
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
     schoolInfo: "🏫 TiGA สำหรับโรงเรียนและครูเปียโน\n\n• ใช้เป็น 'เพื่อนซ้อมที่บ้าน' ให้นักเรียนระหว่างคาบเรียน — AI ช่วยฝึกทุกวัน ครูเห็นความก้าวหน้า\n• โหมดไฮบริด: AI สอนทุกวัน + ครูจริงเช็คเดือนละครั้ง\n• ราคาสถาบัน + แดชบอร์ดติดตามนักเรียนทั้งห้อง\n\nสนใจติดต่อ: LINE @tiga.ai 🎹",
@@ -2322,9 +2322,9 @@ const L = {
     setPush: "🔔 Notifications",
     pushBannerTitle: "Don't lose your streak!", pushBannerSub: "Turn on notifications and we'll remind you if you forget to practice today", pushBannerBtn: "Enable notifications",
     upgrade: "Upgrade", prTitle: "Choose Your Plan", prSub: "Personal AI teacher 24/7 · 20× cheaper than private lessons · cancel anytime", prMonth: "mo", prYear: "yr", prSave3: "Save 3%", prBillMonth: "Monthly", prBillYear: "Yearly", prActive: "Active", prGet: "Subscribe",
-    prF1: "Unlimited AI song creation", prF2: "🎯 AI feedback on every note you play — unlimited", prF3: "📝 Graded exam prep mode + unlimited AI song creation", prF4: "👨‍👩‍👧 Parent dashboard · track your child's real progress", prF5: "🔈 Premium natural teacher voice + no ads ever",
-    prFam1: "⭐ Full Premium — every feature, nothing removed", prFam2: "👨‍👩‍👧‍👦 3 profiles sharing simultaneously", prFree1: "🎹 Interactive keyboard · ear games · core lessons", prFree2: "🤖 AI teacher (5 questions/day limit)",
-    prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "✓ Everything in Family · up to 6 profiles", prMax3: "🎙️ AI Voice Mode — live 1:1 chat with teacher 24/7", prMax4: "📋 AI weekly report + personalized 7-day practice plan", prMax5: "🪙 XP & coins ×2 · 🛡️ Streak Freeze 4 tokens/month", prMax6: "🎵 Max exclusive songs + 📊 analytics dashboard", prMxf1: "👑 Full Max features for every family member", prMxf2: "Up to 10 profiles · only ≈ ฿1,000/person/month", prMxf3: "📊 Family dashboard + individual AI reports per profile", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
+    prF1: "Unlimited AI song creation", prF2: "♾️ AI tutor + song creation + play critique — fully unlimited, every day", prF3: "🧑‍🏫 Auto Teaching — AI coach pops up while you practice Pathway, in real time", prF4: "🎓 Grade exam prep + 👨‍👩‍👧 parent dashboard with real-time progress", prF5: "🔈 Premium natural teacher voice + no ads ever",
+    prFam1: "⭐ Full Premium — every feature including Auto Teaching, nothing removed", prFam2: "👨‍👩‍👧‍👦 3 profiles sharing simultaneously", prFree1: "🎹 180+ songs · lessons · ear training · sight reading · hand coach · goal planner — all free", prFree2: "🤖 AI tutor 5/day · AI song creator 2/day · AI play critique 3/day",
+    prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "✓ Everything in Premium — Auto Teaching + all Premium features, fully unlocked", prMax3: "🎙️ AI Voice Teacher — speak naturally, get live spoken responses 24/7", prMax4: "📊 Daily Mentor · AI Weekly Report · personalized 7-day practice plan", prMax5: "🪙 2× XP & coins every session · 🛡️ 4 free Streak Freezes per month", prMax6: "👑 Exclusive pieces: Für Elise · Moonlight Sonata · Clair de Lune + 3 more", prMxf1: "👑 Full Max — every feature, for every family member, nothing removed", prMxf2: "Up to 10 profiles — all family members active simultaneously", prMxf3: "📊 Family dashboard + individual AI reports per profile", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
     trialBanner: "🎁 Free Trial", trialDaysLeft: "days left", trialUpgrade: "Upgrade now", trialExpired: "Your free trial has ended — choose a plan to continue",
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
     schoolInfo: "🏫 TiGA for schools & piano teachers\n\n• Use it as the at-home practice companion between lessons — AI coaches daily, you see progress.\n• Hybrid mode: AI every day + a real teacher check-in monthly.\n• Institutional pricing + a whole-class progress dashboard.\n\nContact: LINE @tiga.ai 🎹",
@@ -2444,9 +2444,9 @@ const L = {
     setPush: "🔔 通知",
     pushBannerTitle: "别让连续记录中断！", pushBannerSub: "打开通知，忘记练习时我们会提醒你", pushBannerBtn: "开启通知",
     upgrade: "升级", prTitle: "选择适合您的套餐", prSub: "24/7 专属AI老师 · 比私教便宜20倍 · 随时取消", prMonth: "月", prYear: "年", prSave3: "省3%", prBillMonth: "按月", prBillYear: "按年", prActive: "已开通", prGet: "立即订阅",
-    prF1: "无限 AI 创作歌曲", prF2: "🎯 AI点评每一个弹奏音符，次数不限", prF3: "📝 考级备考模式 + 无限AI生成歌曲", prF4: "👨‍👩‍👧 家长仪表板，实时追踪孩子进度", prF5: "🔈 高品质自然老师语音 + 彻底无广告",
-    prFam1: "⭐ Premium全部功能，一个不少", prFam2: "👨‍👩‍👧‍👦 3个档案同时使用", prFree1: "🎹 互动键盘·听力游戏·基础课程", prFree2: "🤖 AI老师（每天限5次）",
-    prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "✓ 包含全部 Family · 最多 6 个档案", prMax3: "🎙️ AI语音模式 — 与老师实时1对1对话 24/7", prMax4: "📋 AI每周进度报告 + 7天个性化练习计划", prMax5: "🪙 XP & 金币×2 · 🛡️ 每月4次连续保护", prMax6: "🎵 Max专属曲库 + 📊 学习分析仪表盘", prMxf1: "👑 Max全部功能惠及家中每位成员", prMxf2: "最多10个档案 · 仅 ≈ ฿1,000/人/月", prMxf3: "📊 家庭仪表盘 + 每个档案独立AI报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
+    prF1: "无限 AI 创作歌曲", prF2: "♾️ AI老师 + 作曲 + 演奏点评 — 完全无限制，每天随时用", prF3: "🧑‍🏫 Auto Teaching — 练习学习路径时，AI实时弹出针对性辅导", prF4: "🎓 考级备考模式 + 👨‍👩‍👧 家长仪表板，实时追踪孩子进度", prF5: "🔈 高品质自然老师语音 + 彻底无广告",
+    prFam1: "⭐ Premium全部功能，含Auto Teaching，一个不少", prFam2: "👨‍👩‍👧‍👦 3个档案同时使用", prFree1: "🎹 180+首曲目 · 课程 · 听力训练 · 视奏 · 手型指导 · 目标规划 — 全部免费", prFree2: "🤖 AI老师5次/天 · AI作曲2次/天 · AI演奏点评3次/天",
+    prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "✓ 包含Premium全部功能，Auto Teaching完整版", prMax3: "🎙️ AI语音教师 — 开口说话，AI实时语音回应，24/7随时在线", prMax4: "📊 Daily Mentor · AI每周进度报告 · 个性化7日练习计划", prMax5: "🪙 经验值&金币×2 · 🛡️ 每月4张免费连击保护卡，无需购买", prMax6: "👑 独家曲目: 致爱丽丝 · 月光奏鸣曲 · 月光曲 + 另外3首", prMxf1: "👑 Max全部功能，一个不少 — 全家共享，人人享有", prMxf2: "最多10个档案 — 全家成员同时使用", prMxf3: "📊 家庭仪表盘 + 每个档案独立AI报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
     trialBanner: "🎁 免费试用", trialDaysLeft: "天剩余", trialUpgrade: "立即升级", trialExpired: "免费试用已结束 — 选择套餐以继续使用",
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
     schoolInfo: "🏫 TiGA 面向学校与钢琴老师\n\n• 作为课后'在家练习伙伴'——AI 每天辅导，老师查看进度。\n• 混合模式：AI 每日教学 + 真人老师每月检查。\n• 机构价格 + 全班进度仪表板。\n\n联系：LINE @tiga.ai 🎹",
@@ -8560,7 +8560,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const autoTeachMin = resolveAutoTeachMin(profile, autoTeachDefaultMin);
   useEffect(() => {
     clearInterval(autoTeachTimer.current);
-    if (!isMaxPlan(plan) || !(autoTeachMin > 0)) return;
+    if (!premium || !(autoTeachMin > 0)) return;
     autoTeachTimer.current = setInterval(fetchAutoTeachTip, autoTeachMin * 60 * 1000);
     return () => clearInterval(autoTeachTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -12503,7 +12503,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   </button>
                 </div>
               )}
-              {isMaxPlan(plan) && (
+              {premium && (
                 <div className="setrow col">
                   <label>🎯 Auto Teaching</label>
                   <div className="setlangs">
