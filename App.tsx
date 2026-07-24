@@ -2007,9 +2007,9 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
   const chunks = ttsChunks(clean);
 
   const fetchBuf = async (s) => {
-    // Generous timeout so slow connections can still deliver full-length articles.
+    // 20-second timeout per chunk — enough for slow connections.
     const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 8000);
+    const to = setTimeout(() => ctrl.abort(), 20000);
     try {
       const res = await fetch(TTS_URL, {
         method: "POST",
@@ -2033,10 +2033,13 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
     let firstStarted = false;
     for (let i = 0; i < chunks.length; i++) {
       const curP = nextP;
-      if (i + 1 < chunks.length) nextP = fetchBuf(chunks[i + 1]); // prefetch next while this plays
       let buf;
       try { buf = await curP; }
       catch (e) { if (i === 0) throw e; else continue; } // first fails -> fallback; later -> skip chunk and keep playing
+      // Prefetch the next chunk only AFTER the current one downloads — this ensures
+      // the next chunk's timeout starts fresh (not while we were still waiting for
+      // the current chunk, which could be several seconds on slow connections).
+      if (i + 1 < chunks.length) nextP = fetchBuf(chunks[i + 1]);
       if (_ttsCancelled) return true;
       if (!firstStarted) { firstStarted = true; if (onStart) onStart(); }
       await new Promise((resolve) => {
