@@ -2007,10 +2007,9 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
   const chunks = ttsChunks(clean);
 
   const fetchBuf = async (s) => {
-    // Hard timeout so a weak signal fails FAST and we fall back to the local
-    // device voice instead of leaving a long silent gap mid-lesson.
+    // Generous timeout so slow connections can still deliver full-length articles.
     const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 4500);
+    const to = setTimeout(() => ctrl.abort(), 8000);
     try {
       const res = await fetch(TTS_URL, {
         method: "POST",
@@ -2037,7 +2036,7 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
       if (i + 1 < chunks.length) nextP = fetchBuf(chunks[i + 1]); // prefetch next while this plays
       let buf;
       try { buf = await curP; }
-      catch (e) { if (i === 0) throw e; else break; } // first fails -> fallback; later -> stop gracefully
+      catch (e) { if (i === 0) throw e; else continue; } // first fails -> fallback; later -> skip chunk and keep playing
       if (_ttsCancelled) return true;
       if (!firstStarted) { firstStarted = true; if (onStart) onStart(); }
       await new Promise((resolve) => {
@@ -4500,6 +4499,36 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
         </div>
       )}
 
+      {/* Gamification: Mystery Chest overlay */}
+      {mysteryChest && (
+        <div className="practiceov" style={{ zIndex: 2200 }} onClick={() => setMysteryChest(null)}>
+          <div className="practiceov-box" style={{ maxWidth: 320, textAlign: "center" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 64, marginBottom: 8, animation: "pop 0.5s ease" }}>{mysteryChest.icon}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>
+              {T("🎊 กล่องลึกลับ!", "🎊 Mystery Chest!", "🎊 神秘宝箱！")}
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#d97757", marginBottom: 4 }}>+{mysteryChest.xp} EXP</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#f5a623", marginBottom: 16 }}>+{mysteryChest.coins} 🪙</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
+              {T("รางวัลพิเศษสำหรับการเล่นที่ดีเยี่ยม!", "Special reward for your great play!", "超水平发挥的特别奖励！")}
+            </div>
+            <button className="songbtn go" style={{ width: "100%" }} onClick={() => setMysteryChest(null)}>
+              {T("เก็บรางวัล ✨", "Collect ✨", "领取奖励 ✨")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Gamification: Lucky Bonus toast */}
+      {luckyToast && (
+        <div style={{ position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)", zIndex: 2300,
+          background: "linear-gradient(135deg,#d97757,#f5a623)", color: "#fff", borderRadius: 20,
+          padding: "10px 22px", fontWeight: 700, fontSize: 15, pointerEvents: "none",
+          boxShadow: "0 4px 20px rgba(217,119,87,0.5)", animation: "pop 0.4s ease" }}>
+          ⚡ {T(`LUCKY BONUS! +${luckyToast.xp} EXP`, `LUCKY BONUS! +${luckyToast.xp} EXP`, `幸运奖励! +${luckyToast.xp} EXP`)}
+        </div>
+      )}
+
       {/* E2: Commute Mode — audio theory lessons */}
       {commuteOpen && (
         <div className="practiceov" onClick={() => { stopSpeaking(); setCommuteOpen(false); }}>
@@ -6695,12 +6724,20 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
               <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>
                 💡 {T("คำแนะนำ", "Recommendation", "建议")}
               </div>
-              <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.6 }}>
-                {T(
-                  `ควรฝึกซ้อมเพิ่มใน${stats.weakest.slice(0, 3).map(w => w.label).join(", ")} เพื่อเพิ่มความแม่นยำและลดอัตราการพลาด`,
-                  `Focus your practice on ${stats.weakest.slice(0, 3).map(w => w.label).join(", ")} to improve accuracy and reduce errors.`,
-                  `建议重点练习${stats.weakest.slice(0, 3).map(w => w.label).join("、")}，以提高准确率并减少失误。`
-                )}
+              <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8 }}>
+                {stats.weakest.slice(0, 3).map((w, wi) => {
+                  const mins = w.rate > 50 ? 15 : w.rate > 20 ? 10 : 5;
+                  const intensity = w.rate > 50 ? T("พลาดบ่อยมาก — ซ้อมเพิ่ม", "miss rate high — practice", "错误率高，练习") : w.rate > 20 ? T("พลาดปานกลาง — ซ้อมเพิ่ม", "moderate misses — practice", "中等错误率，练习") : T("พลาดเล็กน้อย — ทบทวน", "few misses — review", "少量失误，复习");
+                  return (
+                    <div key={wi} style={{ padding: "4px 0", borderBottom: wi < Math.min(2, stats.weakest.length - 1) ? "1px solid var(--border)" : "none" }}>
+                      <span style={{ fontWeight: 600, color: "var(--text)" }}>• {w.label}</span>
+                      {" — "}<span style={{ color: "var(--muted)" }}>{intensity}</span>{" "}
+                      <span style={{ fontWeight: 700, color: "#d97757" }}>
+                        {T(`${mins} นาที/วัน`, `${mins} min/day`, `每天 ${mins} 分钟`)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -7477,6 +7514,134 @@ function AdminBroadcast({ lang }) {
 }
 
 /* ── Admin chat (free-form AI + web search + image/link learning) ── */
+/* ── Admin: manage Music Games list (stored in app_settings key "music_games") ── */
+function AdminGames({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [games, setGames] = useState<any[] | null>(null);
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [link, setLink] = useState("");
+  const [cover, setCover] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const load = useCallback(() => {
+    setGames(null);
+    sb.from("app_settings").select("value").eq("key", "music_games").maybeSingle()
+      .then(({ data }) => setGames(data && data.value ? data.value : []), () => setGames([]));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function addGame() {
+    if (!title.trim()) { setErr("notitle"); return; }
+    if (!link.trim() || !link.startsWith("http")) { setErr("badlink"); return; }
+    setErr(""); setBusy(true);
+    const cur = games || [];
+    const next = [...cur, { id: Date.now(), title: title.trim(), desc: desc.trim(), link: link.trim(), cover: cover.trim() }];
+    const { error } = await sb.from("app_settings").upsert({ key: "music_games", value: next, updated_at: new Date().toISOString() });
+    setBusy(false);
+    if (!error) { setTitle(""); setDesc(""); setLink(""); setCover(""); playUi("levelup"); setGames(next); }
+    else setErr("fail");
+  }
+  async function delGame(id: number) {
+    const next = (games || []).filter((g: any) => g.id !== id);
+    await sb.from("app_settings").upsert({ key: "music_games", value: next, updated_at: new Date().toISOString() });
+    setGames(next);
+  }
+
+  const list = games || [];
+  return (
+    <div className="adminpay">
+      <div className="adminpay-cfg">
+        <div className="admstu-nm" style={{ fontSize: 15 }}>🎮 {T("เพิ่มเกมดนตรีใหม่", "Add a new music game", "添加新音乐游戏")}</div>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={T("ชื่อเกม", "Game name", "游戏名称")} />
+        <input value={desc} onChange={e => setDesc(e.target.value)} placeholder={T("คำอธิบาย", "Description", "描述")} />
+        <input value={link} onChange={e => setLink(e.target.value)} placeholder={T("ลิงก์ URL ของเกม (https://...)", "Game URL (https://...)", "游戏链接 (https://...)")} />
+        <input value={cover} onChange={e => setCover(e.target.value)} placeholder={T("URL รูปหน้าปก (ไม่บังคับ)", "Cover image URL (optional)", "封面图片URL（可选）")} />
+        <button className="songbtn go" style={{ width: "100%", marginTop: 9 }} disabled={busy} onClick={addGame}>
+          {busy ? "⏳" : "➕ " + T("เพิ่มเกม", "Add Game", "添加游戏")}
+        </button>
+        {err === "notitle" && <div style={{ color: "#ff5252", fontSize: 12, marginTop: 4 }}>{T("ใส่ชื่อเกมก่อนนะ", "Add a game name first", "请先填写游戏名称")}</div>}
+        {err === "badlink" && <div style={{ color: "#ff5252", fontSize: 12, marginTop: 4 }}>{T("URL ต้องขึ้นต้นด้วย https://", "URL must start with https://", "URL必须以https://开头")}</div>}
+        {err === "fail" && <div style={{ color: "#ff5252", fontSize: 12, marginTop: 4 }}>{T("บันทึกไม่สำเร็จ", "Save failed", "保存失败")}</div>}
+      </div>
+      <div className="admstu-count">{list.length} {T("เกม", "games", "个游戏")}</div>
+      {games === null ? <div className="admstu-msg">⏳</div> : !list.length ? (
+        <div className="admstu-empty">{T("ยังไม่มีเกม เพิ่มอันแรกได้เลย", "No games yet — add the first one", "还没有游戏，添加第一个吧")}</div>
+      ) : (
+        <div className="admstu-list">
+          {list.map((g: any) => (
+            <div key={g.id} className="adminpay-row" style={{ cursor: "default", alignItems: "flex-start" }}>
+              {g.cover ? <img src={g.cover} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} /> : <div className="admstu-av sm">🎮</div>}
+              <div className="admstu-row-body" style={{ minWidth: 0 }}>
+                <div className="admstu-row-nm">{g.title}</div>
+                {g.desc && <div className="admstu-row-meta" style={{ fontSize: 11 }}>{g.desc}</div>}
+                <div className="admstu-row-meta" style={{ fontSize: 11, wordBreak: "break-all" }}>{g.link}</div>
+              </div>
+              <button className="songbtn ghost" style={{ padding: "6px 10px", fontSize: 12, color: "#ff5252", flexShrink: 0 }} onClick={() => delGame(g.id)}>{T("ลบ", "Delete", "删除")}</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Music Games page — shows game cards loaded from admin-managed list ── */
+const GamesPage = memo(function GamesPage({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [games, setGames] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    sb.from("app_settings").select("value").eq("key", "music_games").maybeSingle()
+      .then(({ data }) => setGames(data && data.value ? data.value : []), () => setGames([]));
+  }, []);
+
+  return (
+    <div className="profilewrap">
+      <div className="profhdr">
+        <div className="profavwrap">
+          <div style={{ fontSize: 36 }}>🎮</div>
+        </div>
+        <div className="profname">Music Games</div>
+        <div className="profxp-lbl" style={{ color: "var(--muted)", fontSize: 13 }}>
+          {T("เกมดนตรีจากทั่วโลก — กดเพื่อเล่น!", "Music games from around the world — tap to play!", "来自世界各地的音乐游戏 — 点击即玩！")}
+        </div>
+      </div>
+      <div style={{ padding: "0 14px 24px" }}>
+        {games === null ? (
+          <div style={{ textAlign: "center", padding: 40, color: "var(--muted)" }}>⏳</div>
+        ) : games.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 40, color: "var(--muted)", fontSize: 14 }}>
+            {T("ยังไม่มีเกม — แอดมินกำลังเพิ่มเกมใหม่เร็วๆ นี้!", "No games yet — admin is adding games soon!", "暂无游戏 — 管理员即将添加新游戏！")}
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 14, marginTop: 12 }}>
+            {games.map((g: any) => (
+              <a key={g.id} href={g.link} target="_blank" rel="noopener noreferrer"
+                style={{ textDecoration: "none", display: "flex", flexDirection: "column", background: "var(--card)", borderRadius: 16, overflow: "hidden", border: "1px solid var(--bd6)", transition: "transform .15s", boxShadow: "0 2px 12px rgba(0,0,0,.12)" }}
+                onClick={() => { try { playUi("click"); } catch(_) {} }}>
+                {g.cover ? (
+                  <img src={g.cover} alt={g.title} style={{ width: "100%", height: 110, objectFit: "cover" }} />
+                ) : (
+                  <div style={{ width: "100%", height: 110, background: "linear-gradient(135deg,#d97757,#f5a623)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 44 }}>🎮</div>
+                )}
+                <div style={{ padding: "10px 12px 14px" }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text)", marginBottom: 4 }}>{g.title}</div>
+                  {g.desc && <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>{g.desc}</div>}
+                  <div style={{ marginTop: 10, display: "inline-block", background: "#d97757", color: "#fff", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700 }}>
+                    ▶ {T("เล่น", "Play", "开始游戏")}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
 function AdminPage({ lang, onExit, adminTier }) {
   const tier = adminTier || 0;
   const lc = L[lang];
@@ -7623,6 +7788,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         {tier >= 3 && <button className={`admintab${adminTab === "analytics" ? " on" : ""}`} onClick={() => setAdminTab("analytics")}>📊 {lang === "th" ? "สถิติ" : lang === "zh" ? "统计" : "Analytics"}</button>}
         {tier >= 2 && <button className={`admintab${adminTab === "autoteach" ? " on" : ""}`} onClick={() => setAdminTab("autoteach")}>⏱️ {lang === "th" ? "ตั้งเวลาสอน" : lang === "zh" ? "自动教学" : "Auto Teaching"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "broadcast" ? " on" : ""}`} onClick={() => setAdminTab("broadcast")}>📢 {lang === "th" ? "ประกาศ" : lang === "zh" ? "公告" : "Broadcast"}</button>}
+        {tier >= 3 && <button className={`admintab${adminTab === "games" ? " on" : ""}`} onClick={() => setAdminTab("games")}>🎮 {lang === "th" ? "เกม" : lang === "zh" ? "游戏" : "Games"}</button>}
       </div>
 
       {adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
@@ -7631,6 +7797,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "analytics" && tier >= 3 ? <AdminAnalytics lang={lang} />
         : adminTab === "autoteach" && tier >= 2 ? <AdminAutoTeach lang={lang} />
         : adminTab === "broadcast" && tier >= 3 ? <AdminBroadcast lang={lang} />
+        : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "ai" && tier >= 3 ? (<>
 
       <div className="mmsgs">
@@ -8070,6 +8237,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // C5: Family Battle — same device turn-based competition
   const [battleData, setBattleData] = useState<any>(null); // null | {song, scores:[{score,acc,stars},...], phase:'p1'|'p2'|'done'}
   const [battlePickOpen, setBattlePickOpen] = useState(false);
+  // Gamification: mystery chest + lucky bonus
+  const [mysteryChest, setMysteryChest] = useState<any>(null); // {xp, coins, label} | null
+  const [luckyToast, setLuckyToast] = useState<any>(null); // {xp, label} | null
+  const luckyToastTimer = useRef<any>(null);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
   const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
   const [songBest, setSongBest] = useState(0);
@@ -9228,6 +9399,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       if (perfect) spawnBurst("perfect");
       // combo-tier shout-outs
       if (combo % 10 === 0) { triggerShake(); spawnBurst("combo"); announce(comboWord(combo)); }
+      // milestone bonus XP at 25/50/100 combo
+      if (combo === 25 || combo === 50 || combo === 100) {
+        const bonusXp = combo === 100 ? 200 : combo === 50 ? 100 : 50;
+        gainExp(bonusXp, {});
+        spawnBurst("combo"); spawnBurst("combo"); spawnBurst("combo");
+        setSongBonus({ id: Date.now(), text: `🎯 x${combo} +${bonusXp} EXP!` });
+        clearTimeout(songBonusT.current); songBonusT.current = setTimeout(() => setSongBonus(null), 1500);
+        playUi("levelup");
+      }
       // surprise variable bonus on a lucky perfect
       if (perfect && Math.random() < 0.06) {
         const bonus = 8 + Math.floor(Math.random() * 18);
@@ -9306,6 +9486,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (missedNotes.length) recordNoteMisses(missedNotes);
     setSongResult({ acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes });
     gainExp(reward, { quest: true });
+    // Gamification: variable reward — mystery chest (20% chance on acc >= 70%)
+    if (acc >= 70 && Math.random() < 0.20) {
+      const chestRewards = [[50,5,"💎"],[100,10,"🎁"],[75,8,"⭐"],[150,15,"🏆"],[30,3,"🎵"]];
+      const [cxp, ccoins, cicon] = chestRewards[Math.floor(Math.random() * chestRewards.length)];
+      setTimeout(() => {
+        gainExp(cxp, {}); earnCoins(ccoins);
+        setMysteryChest({ xp: cxp, coins: ccoins, icon: cicon });
+        playUi("levelup");
+      }, 2200);
+    }
+    // Gamification: lucky bonus XP (15% chance after any song completion)
+    if (Math.random() < 0.15) {
+      const bonusXp = [50, 75, 100][Math.floor(Math.random() * 3)];
+      setTimeout(() => {
+        gainExp(bonusXp, {});
+        setLuckyToast({ xp: bonusXp });
+        clearTimeout(luckyToastTimer.current);
+        luckyToastTimer.current = setTimeout(() => setLuckyToast(null), 3000);
+      }, 1000);
+    }
     // C5: Family Battle — capture score for current player
     setBattleData((bd: any) => {
       if (!bd || bd.phase === "done") return bd;
@@ -11126,6 +11326,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: COACH (Max plan) ─── */}
       {page === "coach" && <CoachPage lang={lang} profile={profile} onNavigate={handleCoachNavigate} />}
 
+      {/* ─── PAGE: MUSIC GAMES ─── */}
+      {page === "gamepage" && <GamesPage lang={lang} />}
+
       {/* ─── PAGE: SENSEI (default) ─── */}
       {page === "sensei" && (
         <>
@@ -11263,6 +11466,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
+          { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games" },
           // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
           // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
         ].map(it => {
