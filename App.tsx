@@ -7518,12 +7518,22 @@ function AdminBroadcast({ lang }) {
 function AdminGames({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [games, setGames] = useState<any[] | null>(null);
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
-  const [link, setLink] = useState("");
-  const [cover, setCover] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [editId, setEditId] = useState<number | null>(null);
+
+  // Add-form state
+  const [aTitle, setATitle] = useState("");
+  const [aDesc, setADesc] = useState("");
+  const [aLink, setALink] = useState("");
+  const [aCover, setACover] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // Edit-form state
+  const [eTitle, setETitle] = useState("");
+  const [eDesc, setEDesc] = useState("");
+  const [eLink, setELink] = useState("");
+  const [eCover, setECover] = useState("");
 
   const load = useCallback(() => {
     setGames(null);
@@ -7532,53 +7542,192 @@ function AdminGames({ lang }) {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  async function saveList(next: any[]) {
+    const { error } = await sb.from("app_settings").upsert({ key: "music_games", value: next, updated_at: new Date().toISOString() });
+    if (!error) { setGames(next); return true; }
+    return false;
+  }
+
   async function addGame() {
-    if (!title.trim()) { setErr("notitle"); return; }
-    if (!link.trim() || !link.startsWith("http")) { setErr("badlink"); return; }
+    if (!aTitle.trim()) { setErr("notitle"); return; }
+    if (!aLink.trim() || !aLink.startsWith("http")) { setErr("badlink"); return; }
     setErr(""); setBusy(true);
     const cur = games || [];
-    const next = [...cur, { id: Date.now(), title: title.trim(), desc: desc.trim(), link: link.trim(), cover: cover.trim() }];
-    const { error } = await sb.from("app_settings").upsert({ key: "music_games", value: next, updated_at: new Date().toISOString() });
+    const next = [...cur, { id: Date.now(), title: aTitle.trim(), desc: aDesc.trim(), link: aLink.trim(), cover: aCover.trim() }];
+    const ok = await saveList(next);
     setBusy(false);
-    if (!error) { setTitle(""); setDesc(""); setLink(""); setCover(""); playUi("levelup"); setGames(next); }
+    if (ok) { setATitle(""); setADesc(""); setALink(""); setACover(""); setShowAddForm(false); try { playUi("levelup"); } catch(_) {} }
     else setErr("fail");
   }
+
+  async function saveEdit(id: number) {
+    if (!eTitle.trim()) return;
+    if (!eLink.trim() || !eLink.startsWith("http")) { setErr("elink"); return; }
+    setBusy(true);
+    const next = (games || []).map((g: any) => g.id === id ? { ...g, title: eTitle.trim(), desc: eDesc.trim(), link: eLink.trim(), cover: eCover.trim() } : g);
+    const ok = await saveList(next);
+    setBusy(false);
+    if (ok) { setEditId(null); setErr(""); }
+    else setErr("fail");
+  }
+
+  function startEdit(g: any) {
+    setEditId(g.id); setETitle(g.title); setEDesc(g.desc || ""); setELink(g.link); setECover(g.cover || ""); setErr("");
+  }
+
   async function delGame(id: number) {
+    if (!confirm(T("ลบเกมนี้?", "Delete this game?", "删除此游戏？"))) return;
     const next = (games || []).filter((g: any) => g.id !== id);
-    await sb.from("app_settings").upsert({ key: "music_games", value: next, updated_at: new Date().toISOString() });
-    setGames(next);
+    await saveList(next);
+    if (editId === id) setEditId(null);
+  }
+
+  async function moveGame(idx: number, dir: -1 | 1) {
+    const arr = [...(games || [])];
+    const swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= arr.length) return;
+    [arr[idx], arr[swapIdx]] = [arr[swapIdx], arr[idx]];
+    await saveList(arr);
   }
 
   const list = games || [];
+  const inputStyle: any = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1.5px solid var(--bd6)", background: "var(--input)", color: "var(--fg)", fontSize: 13, marginBottom: 8, outline: "none" };
+  const errMsg = (key: string, msg: string) => err === key && <div style={{ color: "#ff5252", fontSize: 12, marginBottom: 6 }}>{msg}</div>;
+
   return (
-    <div className="adminpay">
-      <div className="adminpay-cfg">
-        <div className="admstu-nm" style={{ fontSize: 15 }}>🎮 {T("เพิ่มเกมดนตรีใหม่", "Add a new music game", "添加新音乐游戏")}</div>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={T("ชื่อเกม", "Game name", "游戏名称")} />
-        <input value={desc} onChange={e => setDesc(e.target.value)} placeholder={T("คำอธิบาย", "Description", "描述")} />
-        <input value={link} onChange={e => setLink(e.target.value)} placeholder={T("ลิงก์ URL ของเกม (https://...)", "Game URL (https://...)", "游戏链接 (https://...)")} />
-        <input value={cover} onChange={e => setCover(e.target.value)} placeholder={T("URL รูปหน้าปก (ไม่บังคับ)", "Cover image URL (optional)", "封面图片URL（可选）")} />
-        <button className="songbtn go" style={{ width: "100%", marginTop: 9 }} disabled={busy} onClick={addGame}>
-          {busy ? "⏳" : "➕ " + T("เพิ่มเกม", "Add Game", "添加游戏")}
+    <div style={{ padding: "0 4px 24px" }}>
+      {/* Header + Add button */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>🎮 {T("จัดการเกมดนตรี", "Manage Music Games", "管理音乐游戏")}</div>
+          <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 2 }}>{list.length} {T("เกมทั้งหมด", "games total", "个游戏")}</div>
+        </div>
+        <button className="songbtn go" style={{ padding: "9px 18px", fontSize: 13 }} onClick={() => { setShowAddForm(f => !f); setErr(""); }}>
+          {showAddForm ? "✕ " + T("ยกเลิก", "Cancel", "取消") : "➕ " + T("เพิ่มเกมใหม่", "Add Game", "添加游戏")}
         </button>
-        {err === "notitle" && <div style={{ color: "#ff5252", fontSize: 12, marginTop: 4 }}>{T("ใส่ชื่อเกมก่อนนะ", "Add a game name first", "请先填写游戏名称")}</div>}
-        {err === "badlink" && <div style={{ color: "#ff5252", fontSize: 12, marginTop: 4 }}>{T("URL ต้องขึ้นต้นด้วย https://", "URL must start with https://", "URL必须以https://开头")}</div>}
-        {err === "fail" && <div style={{ color: "#ff5252", fontSize: 12, marginTop: 4 }}>{T("บันทึกไม่สำเร็จ", "Save failed", "保存失败")}</div>}
       </div>
-      <div className="admstu-count">{list.length} {T("เกม", "games", "个游戏")}</div>
-      {games === null ? <div className="admstu-msg">⏳</div> : !list.length ? (
-        <div className="admstu-empty">{T("ยังไม่มีเกม เพิ่มอันแรกได้เลย", "No games yet — add the first one", "还没有游戏，添加第一个吧")}</div>
+
+      {/* Add-form panel */}
+      {showAddForm && (
+        <div style={{ background: "var(--card)", borderRadius: 16, border: "1.5px solid var(--bd6)", padding: "18px 16px", marginBottom: 18 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>➕ {T("เพิ่มเกมใหม่", "New Game", "添加新游戏")}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("ชื่อเกม *", "Game Name *", "游戏名称 *")}</div>
+              <input style={inputStyle} value={aTitle} onChange={e => setATitle(e.target.value)} placeholder={T("เช่น Piano Tiles 2", "e.g. Piano Tiles 2", "例如 Piano Tiles 2")} />
+              {errMsg("notitle", T("ใส่ชื่อเกมก่อน", "Game name required", "请填写游戏名称"))}
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("ลิงก์ URL *", "Game URL *", "游戏链接 *")}</div>
+              <input style={inputStyle} value={aLink} onChange={e => setALink(e.target.value)} placeholder="https://..." />
+              {errMsg("badlink", T("URL ต้องขึ้นต้นด้วย https://", "URL must start with https://", "URL必须以https://"))}
+            </div>
+            <div style={{ gridColumn: "1/-1" }}>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("คำอธิบาย", "Description", "描述")}</div>
+              <input style={inputStyle} value={aDesc} onChange={e => setADesc(e.target.value)} placeholder={T("อธิบายเกมสั้นๆ", "Short description", "简短描述")} />
+            </div>
+            <div style={{ gridColumn: "1/-1" }}>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("URL รูปหน้าปก", "Cover Image URL", "封面图片URL")}</div>
+              <input style={inputStyle} value={aCover} onChange={e => setACover(e.target.value)} placeholder="https://...jpg / png (optional)" />
+            </div>
+          </div>
+          {/* Image preview */}
+          {aCover && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, background: "var(--bg2)", borderRadius: 12, padding: "10px 12px" }}>
+              <img src={aCover} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover" }} onError={e => { (e.target as any).style.display = "none"; }} />
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>{T("preview รูปหน้าปก", "Cover preview", "封面预览")}</div>
+            </div>
+          )}
+          {errMsg("fail", T("บันทึกไม่สำเร็จ ลองใหม่", "Save failed. Try again.", "保存失败，请重试"))}
+          <button className="songbtn go" style={{ width: "100%", marginTop: 4 }} disabled={busy} onClick={addGame}>
+            {busy ? "⏳" : "✅ " + T("บันทึกเกม", "Save Game", "保存游戏")}
+          </button>
+        </div>
+      )}
+
+      {/* Game list */}
+      {games === null ? (
+        <div style={{ textAlign: "center", padding: 40, color: "var(--muted)" }}>⏳</div>
+      ) : !list.length ? (
+        <div style={{ textAlign: "center", padding: 40, color: "var(--muted)", fontSize: 14, background: "var(--card)", borderRadius: 16, border: "1.5px dashed var(--bd6)" }}>
+          🎮 {T("ยังไม่มีเกม กด \"เพิ่มเกมใหม่\" เพื่อเริ่ม", "No games yet — click \"Add Game\" to start", "还没有游戏 — 点击\"添加游戏\"开始")}
+        </div>
       ) : (
-        <div className="admstu-list">
-          {list.map((g: any) => (
-            <div key={g.id} className="adminpay-row" style={{ cursor: "default", alignItems: "flex-start" }}>
-              {g.cover ? <img src={g.cover} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} /> : <div className="admstu-av sm">🎮</div>}
-              <div className="admstu-row-body" style={{ minWidth: 0 }}>
-                <div className="admstu-row-nm">{g.title}</div>
-                {g.desc && <div className="admstu-row-meta" style={{ fontSize: 11 }}>{g.desc}</div>}
-                <div className="admstu-row-meta" style={{ fontSize: 11, wordBreak: "break-all" }}>{g.link}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {list.map((g: any, idx: number) => (
+            <div key={g.id} style={{ background: "var(--card)", borderRadius: 16, border: editId === g.id ? "2px solid var(--acc)" : "1.5px solid var(--bd6)", overflow: "hidden" }}>
+              {/* Row header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
+                {/* Order controls */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                  <button onClick={() => moveGame(idx, -1)} disabled={idx === 0} style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", fontSize: 14, opacity: idx === 0 ? 0.25 : 0.7, padding: "0 4px", lineHeight: 1 }}>▲</button>
+                  <button onClick={() => moveGame(idx, 1)} disabled={idx === list.length - 1} style={{ background: "none", border: "none", cursor: idx === list.length - 1 ? "default" : "pointer", fontSize: 14, opacity: idx === list.length - 1 ? 0.25 : 0.7, padding: "0 4px", lineHeight: 1 }}>▼</button>
+                </div>
+                {/* Cover */}
+                {g.cover ? (
+                  <img src={g.cover} alt="" style={{ width: 54, height: 54, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 54, height: 54, borderRadius: 10, background: "linear-gradient(135deg,#d97757,#f5a623)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>🎮</div>
+                )}
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.title}</div>
+                  {g.desc && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.desc}</div>}
+                  <a href={g.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "var(--acc)", wordBreak: "break-all", display: "block", marginTop: 2, textDecoration: "none" }} onClick={e => e.stopPropagation()}>🔗 {g.link.replace(/^https?:\/\//, "").slice(0, 40)}{g.link.length > 50 ? "…" : ""}</a>
+                </div>
+                {/* Action buttons */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                  <button className="songbtn ghost" style={{ padding: "5px 12px", fontSize: 12 }}
+                    onClick={() => editId === g.id ? setEditId(null) : startEdit(g)}>
+                    {editId === g.id ? "✕" : "✏️ " + T("แก้ไข", "Edit", "编辑")}
+                  </button>
+                  <button className="songbtn ghost" style={{ padding: "5px 12px", fontSize: 12, color: "#ff5252" }}
+                    onClick={() => delGame(g.id)}>
+                    🗑 {T("ลบ", "Delete", "删除")}
+                  </button>
+                </div>
               </div>
-              <button className="songbtn ghost" style={{ padding: "6px 10px", fontSize: 12, color: "#ff5252", flexShrink: 0 }} onClick={() => delGame(g.id)}>{T("ลบ", "Delete", "删除")}</button>
+
+              {/* Inline edit form */}
+              {editId === g.id && (
+                <div style={{ borderTop: "1.5px solid var(--bd6)", padding: "14px 16px", background: "var(--bg2)" }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>✏️ {T("แก้ไขข้อมูลเกม", "Edit Game Details", "编辑游戏信息")}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("ชื่อเกม *", "Game Name *", "游戏名称 *")}</div>
+                      <input style={inputStyle} value={eTitle} onChange={e => setETitle(e.target.value)} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("ลิงก์ URL *", "Game URL *", "游戏链接 *")}</div>
+                      <input style={inputStyle} value={eLink} onChange={e => setELink(e.target.value)} />
+                      {errMsg("elink", T("URL ต้องขึ้นต้นด้วย https://", "URL must start with https://", "URL必须以https://"))}
+                    </div>
+                    <div style={{ gridColumn: "1/-1" }}>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("คำอธิบาย", "Description", "描述")}</div>
+                      <input style={inputStyle} value={eDesc} onChange={e => setEDesc(e.target.value)} />
+                    </div>
+                    <div style={{ gridColumn: "1/-1" }}>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("URL รูปหน้าปก", "Cover Image URL", "封面图片URL")}</div>
+                      <input style={inputStyle} value={eCover} onChange={e => setECover(e.target.value)} />
+                    </div>
+                  </div>
+                  {eCover && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, background: "var(--card)", borderRadius: 10, padding: "8px 12px" }}>
+                      <img src={eCover} alt="" style={{ width: 54, height: 54, borderRadius: 8, objectFit: "cover" }} onError={e => { (e.target as any).style.display = "none"; }} />
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{T("preview รูปใหม่", "New cover preview", "新封面预览")}</div>
+                    </div>
+                  )}
+                  {errMsg("fail", T("บันทึกไม่สำเร็จ", "Save failed", "保存失败"))}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="songbtn go" style={{ flex: 1 }} disabled={busy} onClick={() => saveEdit(g.id)}>
+                      {busy ? "⏳" : "✅ " + T("บันทึก", "Save Changes", "保存更改")}
+                    </button>
+                    <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { setEditId(null); setErr(""); }}>
+                      {T("ยกเลิก", "Cancel", "取消")}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
