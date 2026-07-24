@@ -2004,12 +2004,13 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
   const clean = cleanForTTS(text);
   if (!clean) { if (onDone) onDone(); return false; }
   const ac = getAC(); // resume/unlock the audio context inside the user gesture
-  const chunks = ttsChunks(clean);
+  // 800-char chunks: most AI responses (~200-600 chars) fit in 1 request → zero gaps.
+  // For longer text, chunk 2 is prefetched while chunk 1 plays → near-gapless.
+  const chunks = ttsChunks(clean, 800);
 
   const fetchBuf = async (s) => {
-    // 20-second timeout per chunk — enough for slow connections.
     const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 20000);
+    const to = setTimeout(() => ctrl.abort(), 25000);
     try {
       const res = await fetch(TTS_URL, {
         method: "POST",
@@ -2029,19 +2030,21 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
   };
 
   try {
-    let nextP = fetchBuf(chunks[0]); // kick off the first clip right away
+    let nextP = fetchBuf(chunks[0]);
     let firstStarted = false;
     for (let i = 0; i < chunks.length; i++) {
       const curP = nextP;
       let buf;
       try { buf = await curP; }
-      catch (e) { if (i === 0) throw e; else continue; } // first fails -> fallback; later -> skip chunk and keep playing
-      // Prefetch the next chunk only AFTER the current one downloads — this ensures
-      // the next chunk's timeout starts fresh (not while we were still waiting for
-      // the current chunk, which could be several seconds on slow connections).
-      if (i + 1 < chunks.length) nextP = fetchBuf(chunks[i + 1]);
+      catch (e) { if (i === 0) throw e; else continue; }
       if (_ttsCancelled) return true;
       if (!firstStarted) { firstStarted = true; if (onStart) onStart(); }
+      // Resume AudioContext if iOS/Android suspended it between chunks
+      if (ac.state !== "running") { try { await ac.resume(); } catch (_) {} }
+      // Start prefetching the next chunk NOW — its timeout ticks during the current
+      // clip's playback, not from the start of the loop. This fixes the old race where
+      // chunks[1]'s timer expired before chunks[0] even finished playing.
+      if (i + 1 < chunks.length) nextP = fetchBuf(chunks[i + 1]);
       await new Promise((resolve) => {
         const src = ac.createBufferSource();
         src.buffer = buf;
