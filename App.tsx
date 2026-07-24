@@ -7526,14 +7526,18 @@ function AdminGames({ lang }) {
   const [aTitle, setATitle] = useState("");
   const [aDesc, setADesc] = useState("");
   const [aLink, setALink] = useState("");
-  const [aCover, setACover] = useState("");
+  const [aCover, setACover] = useState("");       // data URL or https URL
+  const [aImgBusy, setAImgBusy] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const aFileRef = useRef<HTMLInputElement>(null);
 
   // Edit-form state
   const [eTitle, setETitle] = useState("");
   const [eDesc, setEDesc] = useState("");
   const [eLink, setELink] = useState("");
   const [eCover, setECover] = useState("");
+  const [eImgBusy, setEImgBusy] = useState(false);
+  const eFileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     setGames(null);
@@ -7541,6 +7545,36 @@ function AdminGames({ lang }) {
       .then(({ data }) => setGames(data && data.value ? data.value : []), () => setGames([]));
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  // Compress image file → JPEG data URL (max 600px wide, quality 0.78)
+  function compressImg(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 600;
+          let w = img.width, h = img.height;
+          if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+          const c = document.createElement("canvas");
+          c.width = w; c.height = h;
+          c.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          resolve(c.toDataURL("image/jpeg", 0.78));
+        };
+        img.onerror = reject;
+        img.src = ev.target!.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleImgPick(file: File, setter: (v: string) => void, setBusy: (v: boolean) => void) {
+    if (!file.type.startsWith("image/")) return;
+    setBusy(true);
+    try { setter(await compressImg(file)); } catch (_) {}
+    setBusy(false);
+  }
 
   async function saveList(next: any[]) {
     const { error } = await sb.from("app_settings").upsert({ key: "music_games", value: next, updated_at: new Date().toISOString() });
@@ -7553,7 +7587,7 @@ function AdminGames({ lang }) {
     if (!aLink.trim() || !aLink.startsWith("http")) { setErr("badlink"); return; }
     setErr(""); setBusy(true);
     const cur = games || [];
-    const next = [...cur, { id: Date.now(), title: aTitle.trim(), desc: aDesc.trim(), link: aLink.trim(), cover: aCover.trim() }];
+    const next = [...cur, { id: Date.now(), title: aTitle.trim(), desc: aDesc.trim(), link: aLink.trim(), cover: aCover }];
     const ok = await saveList(next);
     setBusy(false);
     if (ok) { setATitle(""); setADesc(""); setALink(""); setACover(""); setShowAddForm(false); try { playUi("levelup"); } catch(_) {} }
@@ -7564,7 +7598,7 @@ function AdminGames({ lang }) {
     if (!eTitle.trim()) return;
     if (!eLink.trim() || !eLink.startsWith("http")) { setErr("elink"); return; }
     setBusy(true);
-    const next = (games || []).map((g: any) => g.id === id ? { ...g, title: eTitle.trim(), desc: eDesc.trim(), link: eLink.trim(), cover: eCover.trim() } : g);
+    const next = (games || []).map((g: any) => g.id === id ? { ...g, title: eTitle.trim(), desc: eDesc.trim(), link: eLink.trim(), cover: eCover } : g);
     const ok = await saveList(next);
     setBusy(false);
     if (ok) { setEditId(null); setErr(""); }
@@ -7593,6 +7627,56 @@ function AdminGames({ lang }) {
   const list = games || [];
   const inputStyle: any = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1.5px solid var(--bd6)", background: "var(--input)", color: "var(--fg)", fontSize: 13, marginBottom: 8, outline: "none" };
   const errMsg = (key: string, msg: string) => err === key && <div style={{ color: "#ff5252", fontSize: 12, marginBottom: 6 }}>{msg}</div>;
+
+  // Shared cover-picker UI (used in both add and edit forms)
+  function CoverPicker({ cover, setCover, fileRef, imgBusy, setImgBusy }: any) {
+    return (
+      <div style={{ gridColumn: "1/-1" }}>
+        <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6 }}>{T("รูปหน้าปก", "Cover Image", "封面图片")}</div>
+        {/* Upload zone */}
+        <div
+          onClick={() => fileRef.current?.click()}
+          onDragOver={e => e.preventDefault()}
+          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleImgPick(f, setCover, setImgBusy); }}
+          style={{ border: "2px dashed var(--bd6)", borderRadius: 12, padding: cover ? "10px" : "20px 10px", textAlign: "center", cursor: "pointer", background: "var(--bg2)", marginBottom: 8, transition: "border-color .2s" }}>
+          {imgBusy ? (
+            <div style={{ color: "var(--muted)", fontSize: 13 }}>⏳ {T("กำลังประมวลผล…", "Processing…", "处理中…")}</div>
+          ) : cover ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <img src={cover} alt="" style={{ width: 72, height: 54, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>{T("รูปที่เลือก", "Image selected", "已选择图片")} ✅</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{T("คลิกเพื่อเปลี่ยนรูป", "Click to change", "点击更换")}</div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 28, marginBottom: 6 }}>📷</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{T("คลิกหรือลากรูปมาวางที่นี่", "Click or drag image here", "点击或拖拽图片到这里")}</div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{T("รองรับ JPG, PNG, WebP · ย่อขนาดอัตโนมัติ", "JPG, PNG, WebP — auto-compressed", "支持 JPG/PNG/WebP · 自动压缩")}</div>
+            </div>
+          )}
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleImgPick(f, setCover, setImgBusy); e.target.value = ""; }} />
+        {/* OR: paste URL */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <div style={{ flex: 1, height: 1, background: "var(--bd6)" }} />
+          <div style={{ fontSize: 11, color: "var(--muted)" }}>{T("หรือวาง URL", "or paste URL", "或粘贴网址")}</div>
+          <div style={{ flex: 1, height: 1, background: "var(--bd6)" }} />
+        </div>
+        <input style={{ ...inputStyle, marginBottom: 0 }}
+          value={cover.startsWith("data:") ? "" : cover}
+          onChange={e => setCover(e.target.value)}
+          placeholder="https://example.com/cover.jpg" />
+        {cover && (
+          <button onClick={() => setCover("")} style={{ background: "none", border: "none", color: "#ff5252", fontSize: 11, cursor: "pointer", marginTop: 4, padding: 0 }}>
+            ✕ {T("ลบรูปออก", "Remove image", "删除图片")}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "0 4px 24px" }}>
@@ -7626,20 +7710,10 @@ function AdminGames({ lang }) {
               <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("คำอธิบาย", "Description", "描述")}</div>
               <input style={inputStyle} value={aDesc} onChange={e => setADesc(e.target.value)} placeholder={T("อธิบายเกมสั้นๆ", "Short description", "简短描述")} />
             </div>
-            <div style={{ gridColumn: "1/-1" }}>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("URL รูปหน้าปก", "Cover Image URL", "封面图片URL")}</div>
-              <input style={inputStyle} value={aCover} onChange={e => setACover(e.target.value)} placeholder="https://...jpg / png (optional)" />
-            </div>
+            <CoverPicker cover={aCover} setCover={setACover} fileRef={aFileRef} imgBusy={aImgBusy} setImgBusy={setAImgBusy} />
           </div>
-          {/* Image preview */}
-          {aCover && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, background: "var(--bg2)", borderRadius: 12, padding: "10px 12px" }}>
-              <img src={aCover} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover" }} onError={e => { (e.target as any).style.display = "none"; }} />
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>{T("preview รูปหน้าปก", "Cover preview", "封面预览")}</div>
-            </div>
-          )}
           {errMsg("fail", T("บันทึกไม่สำเร็จ ลองใหม่", "Save failed. Try again.", "保存失败，请重试"))}
-          <button className="songbtn go" style={{ width: "100%", marginTop: 4 }} disabled={busy} onClick={addGame}>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 14 }} disabled={busy || aImgBusy} onClick={addGame}>
             {busy ? "⏳" : "✅ " + T("บันทึกเกม", "Save Game", "保存游戏")}
           </button>
         </div>
@@ -7663,17 +7737,17 @@ function AdminGames({ lang }) {
                   <button onClick={() => moveGame(idx, -1)} disabled={idx === 0} style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", fontSize: 14, opacity: idx === 0 ? 0.25 : 0.7, padding: "0 4px", lineHeight: 1 }}>▲</button>
                   <button onClick={() => moveGame(idx, 1)} disabled={idx === list.length - 1} style={{ background: "none", border: "none", cursor: idx === list.length - 1 ? "default" : "pointer", fontSize: 14, opacity: idx === list.length - 1 ? 0.25 : 0.7, padding: "0 4px", lineHeight: 1 }}>▼</button>
                 </div>
-                {/* Cover */}
+                {/* Cover thumbnail */}
                 {g.cover ? (
-                  <img src={g.cover} alt="" style={{ width: 54, height: 54, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
+                  <img src={g.cover} alt="" style={{ width: 60, height: 45, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
                 ) : (
-                  <div style={{ width: 54, height: 54, borderRadius: 10, background: "linear-gradient(135deg,#d97757,#f5a623)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>🎮</div>
+                  <div style={{ width: 60, height: 45, borderRadius: 10, background: "linear-gradient(135deg,#d97757,#f5a623)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎮</div>
                 )}
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.title}</div>
                   {g.desc && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.desc}</div>}
-                  <a href={g.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "var(--acc)", wordBreak: "break-all", display: "block", marginTop: 2, textDecoration: "none" }} onClick={e => e.stopPropagation()}>🔗 {g.link.replace(/^https?:\/\//, "").slice(0, 40)}{g.link.length > 50 ? "…" : ""}</a>
+                  <a href={g.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "var(--acc)", wordBreak: "break-all", display: "block", marginTop: 2, textDecoration: "none" }} onClick={e => e.stopPropagation()}>🔗 {g.link.replace(/^https?:\/\//, "").slice(0, 38)}{g.link.length > 48 ? "…" : ""}</a>
                 </div>
                 {/* Action buttons */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
@@ -7706,20 +7780,11 @@ function AdminGames({ lang }) {
                       <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("คำอธิบาย", "Description", "描述")}</div>
                       <input style={inputStyle} value={eDesc} onChange={e => setEDesc(e.target.value)} />
                     </div>
-                    <div style={{ gridColumn: "1/-1" }}>
-                      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{T("URL รูปหน้าปก", "Cover Image URL", "封面图片URL")}</div>
-                      <input style={inputStyle} value={eCover} onChange={e => setECover(e.target.value)} />
-                    </div>
+                    <CoverPicker cover={eCover} setCover={setECover} fileRef={eFileRef} imgBusy={eImgBusy} setImgBusy={setEImgBusy} />
                   </div>
-                  {eCover && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, background: "var(--card)", borderRadius: 10, padding: "8px 12px" }}>
-                      <img src={eCover} alt="" style={{ width: 54, height: 54, borderRadius: 8, objectFit: "cover" }} onError={e => { (e.target as any).style.display = "none"; }} />
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{T("preview รูปใหม่", "New cover preview", "新封面预览")}</div>
-                    </div>
-                  )}
                   {errMsg("fail", T("บันทึกไม่สำเร็จ", "Save failed", "保存失败"))}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button className="songbtn go" style={{ flex: 1 }} disabled={busy} onClick={() => saveEdit(g.id)}>
+                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                    <button className="songbtn go" style={{ flex: 1 }} disabled={busy || eImgBusy} onClick={() => saveEdit(g.id)}>
                       {busy ? "⏳" : "✅ " + T("บันทึก", "Save Changes", "保存更改")}
                     </button>
                     <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { setEditId(null); setErr(""); }}>
