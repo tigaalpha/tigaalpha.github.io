@@ -344,8 +344,9 @@ html, body, #root{background:var(--bg)}
 .adminexit:hover{background:rgba(255,82,82,.14);box-shadow:0 0 10px #ff525255}
 .adminbbl{border-color:#ff525233!important;background:var(--card3)!important}
 .adminatag{color:#d97757!important}
-.admintabs{display:flex;gap:8px;padding:10px 14px 4px;flex-shrink:0}
-.admintab{flex:1;padding:9px 10px;border-radius:10px;background:var(--card3);border:1px solid #ff525233;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer}
+.admintabs{display:flex;gap:8px;padding:10px 14px 4px;flex-shrink:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.admintabs::-webkit-scrollbar{display:none}
+.admintab{flex:0 0 auto;padding:9px 12px;border-radius:10px;background:var(--card3);border:1px solid #ff525233;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
 .admintab.on{background: #ff5252;color:#fff;border-color:transparent}
 .admstu{flex:1;min-height:0;overflow-y:auto;padding:10px 14px 28px}
 .admstu-msg,.admstu-empty{color:var(--muted);text-align:center;padding:24px 8px;font-size:14px}
