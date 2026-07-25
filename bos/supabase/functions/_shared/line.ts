@@ -1,16 +1,20 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 const LINE_API_BASE = "https://api.line.me/v2/bot";
 
-export function verifySignature(rawBody: string, signature: string | null): boolean {
+export async function verifySignature(rawBody: string, signature: string | null): Promise<boolean> {
   if (!signature) return false;
+  const secret = Deno.env.get("LINE_CHANNEL_SECRET");
+  if (!secret) return false;
 
-  const expected = createHmac("sha256", Deno.env.get("LINE_CHANNEL_SECRET")!).update(rawBody).digest("base64");
-  const expectedBuf = Buffer.from(expected);
-  const actualBuf = Buffer.from(signature);
-
-  if (expectedBuf.length !== actualBuf.length) return false;
-  return timingSafeEqual(expectedBuf, actualBuf);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const expectedBytes = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+  const expectedB64 = btoa(String.fromCharCode(...new Uint8Array(expectedBytes)));
+  return expectedB64 === signature;
 }
 
 async function call(path: string, body: unknown): Promise<void> {
