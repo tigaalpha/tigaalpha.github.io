@@ -420,8 +420,14 @@ html, body, #root{background:var(--bg)}
 .lockerr{color:#ff5252;font-size:11px;font-family:'Share Tech Mono',monospace;min-height:14px;animation:shake .3s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 /* ── membership / login ── */
-.loginhero{display:flex;flex-direction:column;align-items:center;gap:8px;padding:26px 22px 2px;text-align:center;flex-shrink:0}
-.loginpiano{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:6px 0}
+.loginhero{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 22px 2px;text-align:center;flex-shrink:0}
+.login-features{display:flex;gap:8px;padding:10px 14px 4px;overflow-x:auto;scrollbar-width:none;flex-shrink:0;width:100%;box-sizing:border-box}
+.login-features::-webkit-scrollbar{display:none}
+.login-feat{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--card2);border:1px solid var(--bd2);border-radius:12px;padding:9px 12px;min-width:76px}
+.login-feat-ic{font-size:20px;line-height:1}
+.login-feat-t{font-size:9.5px;font-weight:700;color:var(--text);text-align:center;line-height:1.3;font-family:'Rajdhani',sans-serif;letter-spacing:.3px}
+.login-feat-s{font-size:8.5px;color:var(--muted);text-align:center;font-family:'Share Tech Mono',monospace}
+.loginpiano{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:4px 0}
 .loginpiano-hint{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;text-align:center;min-height:14px}
 .memberwrap{display:flex;flex-direction:column;align-items:center;gap:13px;padding:30px 22px;width:100%;max-width:340px;text-align:center}
 .loginwrap{flex-shrink:0;margin:0 auto;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}

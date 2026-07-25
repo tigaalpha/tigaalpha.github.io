@@ -8270,11 +8270,25 @@ function LoginScreen() {
       <div className="loginhero">
         <div className="lbox flicker" style={{ width: 52, height: 52, fontSize: 17 }}>TG</div>
         <div className="locktitle" style={{ marginTop: 12, color: "#d97757", textShadow: "0 0 10px #d9775766" }}>TIGA AI</div>
-        <div className="locksub">ลองแตะเปียโนด้านล่างได้เลย ไม่ต้องเข้าสู่ระบบ<br />Try the piano below — no sign-in needed</div>
+        <div className="locksub" style={{ fontSize: 12, maxWidth: 300 }}>แอปเรียนเปียโนด้วย AI · ฟรีบนทุกอุปกรณ์<br />AI-powered piano learning · free on any device</div>
+      </div>
+      <div className="login-features">
+        {[
+          { ic: "🤖", t: "AI ครูสอนเปียโน", s: "AI Piano Teacher" },
+          { ic: "🎵", t: "เพลง 180+ บท", s: "180+ Songs" },
+          { ic: "🎯", t: "Quest รายวัน", s: "Daily Quests" },
+          { ic: "📊", t: "ติดตามความคืบหน้า", s: "Track Progress" },
+        ].map(f => (
+          <div key={f.ic} className="login-feat">
+            <span className="login-feat-ic">{f.ic}</span>
+            <span className="login-feat-t">{f.t}</span>
+            <span className="login-feat-s">{f.s}</span>
+          </div>
+        ))}
       </div>
       <div className="loginpiano">
         <Piano small onNote={onGuestNote} />
-        <div className="loginpiano-hint">{guestNote ? `♪ ${guestNote}` : "แตะคีย์เพื่อฟังเสียง · tap a key"}</div>
+        <div className="loginpiano-hint">{guestNote ? `♪ ${guestNote}` : "ลองแตะคีย์ได้เลย ไม่ต้องสมัคร · tap a key, no sign-in needed"}</div>
       </div>
       <div className="memberwrap loginwrap">
         <div className="locksub" style={{ marginBottom: 2 }}>อยากบันทึกความคืบหน้า และเรียนกับ AI ครูสอนเปียโน?<br />Want to save progress & learn with your AI teacher?</div>
