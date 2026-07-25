@@ -2021,15 +2021,21 @@ let _ttsDbP = null;
 function ttsDb() {
   if (_ttsDbP) return _ttsDbP;
   _ttsDbP = new Promise((resolve) => {
+    // The cache must never be able to delay speech. An open() that is blocked by
+    // another tab mid-upgrade fires neither onsuccess nor onerror, so this races a
+    // deadline: past it we simply run memory-only rather than leave audio waiting.
+    const done = (v) => { clearTimeout(t); resolve(v); };
+    const t = setTimeout(() => resolve(null), 2000);
     try {
       const req = indexedDB.open(TTS_DB, 1);
       req.onupgradeneeded = () => {
         const d = req.result;
         if (!d.objectStoreNames.contains(TTS_STORE)) d.createObjectStore(TTS_STORE);
       };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => resolve(null);                // private mode / quota off → memory only
-    } catch (e) { resolve(null); }
+      req.onsuccess = () => done(req.result);
+      req.onerror = () => done(null);                   // private mode / quota off → memory only
+      req.onblocked = () => done(null);
+    } catch (e) { done(null); }
   });
   return _ttsDbP;
 }
