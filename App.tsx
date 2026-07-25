@@ -424,11 +424,17 @@ function extractNotes(text, hand = "right", hint = null, forceKey = null) {
     }
   }
 
+  // A key name only counts when it stands as its own word. Plain substring
+  // matching meant the ordinary phrase "the major scale" contained "e major
+  // scale", so a D-major lesson silently played, highlighted and labelled
+  // itself as E major.
+  const mentions = (k) => new RegExp("(?<![a-z#])" + k + "(?![a-z])").test(lo);
+
   // helper: among entries of the required mode, find the one whose key appears in text
   function matchInMode(mode) {
     const pool = KNOWN.filter(e => e.m === mode);
     for (const e of pool) {
-      if (lo.includes(e.k)) return e;
+      if (mentions(e.k)) return e;
     }
     return null;
   }
@@ -442,9 +448,14 @@ function extractNotes(text, hand = "right", hint = null, forceKey = null) {
       const roots = ["a#","c#","d#","f#","g#","ab","bb","db","eb","gb","a","b","c","d","e","f","g"];
       const qualifiers = lo.includes("minor") || lo.includes("min ") || /\bm\b/.test(lo) ? "minor" : "major";
       let foundRoot = null;
+      // Our own lesson text states the key in its header ("🎼 Major scale · D").
+      // That is authoritative — trust it over whatever the prose happens to contain.
+      const hdr = /·[ \t]*([A-Ga-g][#b♯♭]?)[ \t]*$/m.exec(text);
+      if (hdr) foundRoot = hdr[1].toLowerCase().replace(/♯/g, "#").replace(/♭/g, "b");
       for (const r of roots) {
-        if (lo.includes(r + " major") || lo.includes(r + " minor") || lo.includes(r + "major") || lo.includes(r + "minor")) {
-          foundRoot = r; break;
+        if (foundRoot) break;
+        if (mentions(r + " major") || mentions(r + " minor") || mentions(r + "major") || mentions(r + "minor")) {
+          foundRoot = r;
         }
       }
       if (foundRoot) {
@@ -462,7 +473,7 @@ function extractNotes(text, hand = "right", hint = null, forceKey = null) {
 
   // no forced mode (or nothing matched): plain longest-key-first scan
   for (const e of KNOWN) {
-    if (lo.includes(e.k)) {
+    if (mentions(e.k)) {
       const fingers = getFingers(e.k, e.m, hand);
       return { notes: e.n, label: e.k.toUpperCase(), mode: e.m, fingers, key: e.k };
     }
