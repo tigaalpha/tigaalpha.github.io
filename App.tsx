@@ -1963,13 +1963,13 @@ function ttsChunks(text, max = 130) {
    direction (it speaks only the quoted content, in that tone) — this is what
    turns a flat read into a warm, human, world-class-teacher delivery. ── */
 const VM_VOICES = [
-  { k: "warm",     v: "Sulafat", th: "อบอุ่น",    en: "Warm",     zh: "温暖" },
-  { k: "deep",     v: "Charon",  th: "ทุ้มลึก",    en: "Deep",     zh: "低沉" },
+  { k: "warm",     v: "Charon",  th: "อบอุ่น",    en: "Warm",     zh: "温暖" },
+  { k: "deep",     v: "Fenrir",  th: "ทุ้มลึก",    en: "Deep",     zh: "低沉" },
   { k: "friendly", v: "Achird",  th: "เป็นกันเอง", en: "Friendly", zh: "亲切" },
-  { k: "bright",   v: "Zephyr",  th: "สดใส",      en: "Bright",   zh: "明亮" },
+  { k: "bright",   v: "Puck",    th: "สดใส",      en: "Bright",   zh: "明亮" },
 ];
 function getVmVoiceKey() { try { return localStorage.getItem("tg_vmvoice") || "warm"; } catch (e) { return "warm"; } }
-function getVmVoiceName() { const f = VM_VOICES.find(x => x.k === getVmVoiceKey()); return f ? f.v : "Sulafat"; }
+function getVmVoiceName() { const f = VM_VOICES.find(x => x.k === getVmVoiceKey()); return f ? f.v : "Charon"; }
 // the teacher's emotional tone adapts to the moment (a master teacher never sounds flat)
 let _ttsMood = "warm";
 function setTtsMood(m) { _ttsMood = m || "warm"; }
