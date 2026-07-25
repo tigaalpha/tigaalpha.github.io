@@ -8,7 +8,7 @@ const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 interface GeminiPart {
   text?: string;
-  functionCall?: { name: string; args: Record<string, unknown> };
+  functionCall?: { name: string; args: Record<string, unknown>; thoughtSignature?: string };
   functionResponse?: { name: string; response: Record<string, unknown> };
   inlineData?: { mimeType: string; data: string };
 }
@@ -57,7 +57,7 @@ function toGeminiContents(messages: ChatMessage[]): GeminiContent[] {
       const parts: GeminiPart[] = [];
       if (message.content) parts.push({ text: message.content });
       for (const call of message.toolCalls ?? []) {
-        parts.push({ functionCall: { name: call.name, args: call.arguments } });
+        parts.push({ functionCall: { name: call.name, args: call.arguments, thoughtSignature: call.thoughtSignature } });
       }
       contents.push({ role: "model", parts });
       continue;
@@ -118,7 +118,12 @@ async function generate(
 
   const toolCalls = parts
     .filter((part): part is GeminiPart & { functionCall: NonNullable<GeminiPart["functionCall"]> } => Boolean(part.functionCall))
-    .map((part, index) => ({ id: `${part.functionCall.name}-${index}`, name: part.functionCall.name, arguments: part.functionCall.args }));
+    .map((part, index) => ({
+      id: `${part.functionCall.name}-${index}`,
+      name: part.functionCall.name,
+      arguments: part.functionCall.args,
+      thoughtSignature: part.functionCall.thoughtSignature,
+    }));
 
   return {
     message: { role: "assistant", content: text, toolCalls: toolCalls.length > 0 ? toolCalls : undefined },
