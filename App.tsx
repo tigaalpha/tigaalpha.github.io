@@ -2061,6 +2061,7 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
     return true;
   } catch (e) {
     stopCloudTTS();
+    console.error("[TIGA TTS] Cloud TTS failed, falling back to device voice:", e);
     if (onError) onError(e);
     return false;
   }
@@ -8338,11 +8339,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
   const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
   const [stripeReturn, setStripeReturn] = useState<null|"pending"|"done">(null); // ?paid=1 return state
-  // E1: Register service worker for offline caching
+  // E1: Register service worker; auto-reload when a new version activates
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    const onMsg = (e) => { if (e.data && e.data.type === "SW_UPDATED") window.location.reload(); };
+    navigator.serviceWorker.addEventListener("message", onMsg);
+    return () => navigator.serviceWorker.removeEventListener("message", onMsg);
   }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
   useEffect(() => {
