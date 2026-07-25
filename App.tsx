@@ -1962,14 +1962,17 @@ function ttsChunks(text, max = 130) {
 /* ── Voice character + warmth: Gemini 2.5 TTS takes a natural-language style
    direction (it speaks only the quoted content, in that tone) — this is what
    turns a flat read into a warm, human, world-class-teacher delivery. ── */
+// All male, chosen for a natural, unhurried teaching delivery. Gemini's own
+// descriptors: Algieba = smooth, Schedar = even, Achird = friendly, Puck = upbeat.
+// Keys are unchanged so a saved tg_vmvoice preference still resolves.
 const VM_VOICES = [
-  { k: "warm",     v: "Charon",  th: "อบอุ่น",    en: "Warm",     zh: "温暖" },
-  { k: "deep",     v: "Fenrir",  th: "ทุ้มลึก",    en: "Deep",     zh: "低沉" },
+  { k: "warm",     v: "Algieba", th: "นุ่มนวล",    en: "Smooth",   zh: "柔和" },
+  { k: "deep",     v: "Schedar", th: "ทุ้มนิ่ง",    en: "Steady",   zh: "沉稳" },
   { k: "friendly", v: "Achird",  th: "เป็นกันเอง", en: "Friendly", zh: "亲切" },
   { k: "bright",   v: "Puck",    th: "สดใส",      en: "Bright",   zh: "明亮" },
 ];
 function getVmVoiceKey() { try { return localStorage.getItem("tg_vmvoice") || "warm"; } catch (e) { return "warm"; } }
-function getVmVoiceName() { const f = VM_VOICES.find(x => x.k === getVmVoiceKey()); return f ? f.v : "Charon"; }
+function getVmVoiceName() { const f = VM_VOICES.find(x => x.k === getVmVoiceKey()); return f ? f.v : "Algieba"; }
 // the teacher's emotional tone adapts to the moment (a master teacher never sounds flat)
 let _ttsMood = "warm";
 function setTtsMood(m) { _ttsMood = m || "warm"; }
@@ -1998,6 +2001,74 @@ function vmStyleFor(lang, mood) {
 // wrap one chunk with the (mood-aware) tone direction (quoted so the directive isn't spoken)
 function styleTTS(s, lang) { return vmStyleFor(lang) + "\n\n\"" + String(s).replace(/"/g, "'") + "\""; }
 
+/* ── Synthesized-speech cache ──
+   Replaying a reply used to re-synthesize it: a billed request and a 3-8s wait
+   every single time. Clips are now kept in memory for the session and in
+   IndexedDB across reloads, keyed by voice+language+text. A repeat listen is
+   therefore instant, costs nothing, and works with no connection at all — which
+   is also what keeps playback smooth on a weak one.
+   Note: decodeAudioData detaches the ArrayBuffer it is given, so every path here
+   hands out a private copy and never lets the cached bytes reach a decoder. */
+const TTS_DB = "tiga-tts", TTS_STORE = "clips", TTS_CACHE_MAX = 80;
+const _ttsMem = new Map();
+function ttsKey(text, lang, voice) {
+  const s = lang + "|" + voice + "|" + text;
+  let h = 0x811c9dc5;                                   // FNV-1a, plenty for a cache key
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36) + "-" + s.length.toString(36);
+}
+let _ttsDbP = null;
+function ttsDb() {
+  if (_ttsDbP) return _ttsDbP;
+  _ttsDbP = new Promise((resolve) => {
+    try {
+      const req = indexedDB.open(TTS_DB, 1);
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        if (!d.objectStoreNames.contains(TTS_STORE)) d.createObjectStore(TTS_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);                // private mode / quota off → memory only
+    } catch (e) { resolve(null); }
+  });
+  return _ttsDbP;
+}
+async function ttsCacheGet(key) {
+  const hit = _ttsMem.get(key);
+  if (hit) return hit.slice(0);
+  const db = await ttsDb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const r = db.transaction(TTS_STORE, "readonly").objectStore(TTS_STORE).get(key);
+      r.onsuccess = () => {
+        const v = r.result;
+        if (v) _ttsMem.set(key, v);
+        resolve(v ? v.slice(0) : null);
+      };
+      r.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+async function ttsCachePut(key, buf) {
+  let copy;
+  try { copy = buf.slice(0); } catch (e) { return; }    // already detached → nothing to store
+  _ttsMem.set(key, copy);
+  if (_ttsMem.size > TTS_CACHE_MAX) _ttsMem.delete(_ttsMem.keys().next().value);
+  const db = await ttsDb();
+  if (!db) return;
+  try {
+    const store = db.transaction(TTS_STORE, "readwrite").objectStore(TTS_STORE);
+    store.put(copy, key);                               // structured-cloned, does not detach
+    const cnt = store.count();
+    cnt.onsuccess = () => {                             // keep the on-disk cache bounded
+      if (cnt.result <= TTS_CACHE_MAX) return;
+      const c = store.openCursor();
+      c.onsuccess = () => { const cur = c.result; if (cur) cur.delete(); };
+    };
+  } catch (e) {}
+}
+
 /* ── TTS request pacing + retry ──
    Gemini's TTS model is rate-limited per minute. Bursting requests makes it reject
    the follow-ups almost instantly (the Edge Function surfaces that as a 500 in
@@ -2013,6 +2084,10 @@ async function ttsThrottle() {
   _ttsLastReqAt = Date.now();
 }
 async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000) {
+  const voice = getVmVoiceName();
+  const key = ttsKey(s, lang, voice);
+  const cached = await ttsCacheGet(key);                // free, instant, offline-safe
+  if (cached) { try { return await ac.decodeAudioData(cached); } catch (e) {} }
   let lastErr = null;
   for (let n = 0; n < tries; n++) {
     if (n > 0) await new Promise((r) => setTimeout(r, 1200 * Math.pow(2, n - 1))); // 1.2s, 2.4s
@@ -2024,7 +2099,7 @@ async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000) {
       const res = await fetch(TTS_URL, {
         method: "POST",
         headers: apiHeaders(),
-        body: JSON.stringify({ text: styleTTS(s, lang), lang, voice: getVmVoiceName() }),
+        body: JSON.stringify({ text: styleTTS(s, lang), lang, voice }),
         signal: ctrl.signal,
       });
       if (!res.ok) {
@@ -2034,7 +2109,9 @@ async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000) {
       }
       const data = await res.json();
       if (!data || !data.audio) throw new Error("no audio");
-      return await ac.decodeAudioData(b64ToArrayBuffer(data.audio));
+      const bytes = b64ToArrayBuffer(data.audio);
+      ttsCachePut(key, bytes);                           // copies first; safe before decode
+      return await ac.decodeAudioData(bytes);
     } catch (e) {
       lastErr = e;
       if (_ttsCancelled) throw e;
