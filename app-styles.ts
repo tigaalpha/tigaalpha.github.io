@@ -192,7 +192,9 @@ html, body, #root{background:var(--bg)}
 .snd:hover{transform:scale(1.06);box-shadow:0 0 18px #d97757}
 .snd:disabled{opacity:.35;cursor:not-allowed;transform:none}
 .hint{font-size:9px;color:var(--muted);text-align:center;margin-top:5px;font-family:'Share Tech Mono',monospace}
-.mov{display:none;position:fixed;inset:0;background:rgba(10,5,9,.97);z-index:1000;flex-direction:column}
+/* A full-screen panel, not a scrim — it must follow the theme. It used to hardcode
+   a near-black, which left the expanded chat dark while the app was in light mode. */
+.mov{display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;flex-direction:column}
 .mov.open{display:flex}
 .mhdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #d9775733;background:var(--card3);flex-shrink:0}
 .mlbl{font-family:'Orbitron',sans-serif;font-size:10px;color:#d97757;letter-spacing:1.5px;display:flex;align-items:center;gap:7px}

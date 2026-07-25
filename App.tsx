@@ -2726,6 +2726,12 @@ const GamePiano = memo(function GamePiano({ litNote = null, litSet = null, onNot
   );
 });
 
+/* Read-aloud in the chat is switched off while the Gemini TTS quota is sorted
+   out — the free tier runs out within a few taps, so the button mostly failed.
+   Flip this back to true to restore it; the button and everything behind it is
+   left intact and needs no other change. */
+const TTS_ENABLED = false;
+
 /* ── Speaker button (robust, with fallback message) ── */
 const SpeakBtn = memo(function SpeakBtn({ text, lang, id, activeId, setActiveId }) {
   const lc = L[lang];
@@ -2782,10 +2788,14 @@ const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay })
         {m.img && <img src={m.img} alt="" className="adminimg" />}
         <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{m.text}</p>
       </div>
-      {m.role === "ai" && (
+      {/* the row is skipped entirely when it would be empty, so turning TTS off
+          leaves no stray gap under messages that carry no notes */}
+      {m.role === "ai" && (TTS_ENABLED || parsed) && (
         <div className="mact">
-          <SpeakBtn text={m.text} lang={lang} id={idx}
-            activeId={activeSpk} setActiveId={setActiveSpk} />
+          {TTS_ENABLED && (
+            <SpeakBtn text={m.text} lang={lang} id={idx}
+              activeId={activeSpk} setActiveId={setActiveSpk} />
+          )}
           {parsed && (
             <button className="playbtn" onClick={() => onPlay(parsed)}>
               <span>▶</span><span>{lang === "th" ? "เล่นโน้ต" : lang === "zh" ? "演奏" : "PLAY"}</span>
