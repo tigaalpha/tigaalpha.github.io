@@ -1998,19 +1998,28 @@ function vmStyleFor(lang, mood) {
 // wrap one chunk with the (mood-aware) tone direction (quoted so the directive isn't spoken)
 function styleTTS(s, lang) { return vmStyleFor(lang) + "\n\n\"" + String(s).replace(/"/g, "'") + "\""; }
 
-async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
-  stopCloudTTS();
-  _ttsCancelled = false;
-  const clean = cleanForTTS(text);
-  if (!clean) { if (onDone) onDone(); return false; }
-  const ac = getAC(); // resume/unlock the audio context inside the user gesture
-  // 800-char chunks: most AI responses (~200-600 chars) fit in 1 request → zero gaps.
-  // For longer text, chunk 2 is prefetched while chunk 1 plays → near-gapless.
-  const chunks = ttsChunks(clean, 800);
-
-  const fetchBuf = async (s) => {
+/* ── TTS request pacing + retry ──
+   Gemini's TTS model is rate-limited per minute. Bursting requests makes it reject
+   the follow-ups almost instantly (the Edge Function surfaces that as a 500 in
+   ~230ms, vs ~4s for a real synthesis). That is what used to cut playback off after
+   the first line: the failed chunks were being skipped silently. Two guards below —
+   a global minimum gap between outgoing requests, and backoff retries — mean a
+   transient limit costs a short pause instead of the rest of the message. */
+let _ttsLastReqAt = 0;
+const TTS_MIN_GAP_MS = 1200;
+async function ttsThrottle() {
+  const wait = _ttsLastReqAt + TTS_MIN_GAP_MS - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  _ttsLastReqAt = Date.now();
+}
+async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000) {
+  let lastErr = null;
+  for (let n = 0; n < tries; n++) {
+    if (n > 0) await new Promise((r) => setTimeout(r, 1200 * Math.pow(2, n - 1))); // 1.2s, 2.4s
+    if (_ttsCancelled) throw new Error("cancelled");
+    await ttsThrottle();
     const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 25000);
+    const to = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
       const res = await fetch(TTS_URL, {
         method: "POST",
@@ -2026,17 +2035,42 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
       const data = await res.json();
       if (!data || !data.audio) throw new Error("no audio");
       return await ac.decodeAudioData(b64ToArrayBuffer(data.audio));
+    } catch (e) {
+      lastErr = e;
+      if (_ttsCancelled) throw e;
     } finally { clearTimeout(to); }
-  };
+  }
+  throw lastErr || new Error("TTS failed");
+}
+
+async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
+  stopCloudTTS();
+  _ttsCancelled = false;
+  const clean = cleanForTTS(text);
+  if (!clean) { if (onDone) onDone(); return false; }
+  const ac = getAC(); // resume/unlock the audio context inside the user gesture
+  // One request for the whole reply. The Edge Function caps the prompt at 4000
+  // chars including the style directive, so 3600 leaves room for it — and replies
+  // are capped at ~50 words by the chat system prompt, so this is a single request
+  // in practice. One request = one continuous clip: no seams between clips (the
+  // "choppy" complaint) and no second call to trip Gemini's rate limit (the
+  // "stops after one line" complaint).
+  const chunks = ttsChunks(clean, 3600);
 
   try {
-    let nextP = fetchBuf(chunks[0]);
+    let nextP = ttsFetchBuffer(chunks[0], lang, ac);
     let firstStarted = false;
     for (let i = 0; i < chunks.length; i++) {
       const curP = nextP;
       let buf;
       try { buf = await curP; }
-      catch (e) { if (i === 0) throw e; else continue; }
+      catch (e) {
+        if (i === 0) throw e; // nothing played yet → let the caller fall back to the device voice
+        // Retries are already exhausted here. Stop cleanly instead of silently
+        // dropping this chunk and every one after it.
+        console.error("[TIGA TTS] chunk " + (i + 1) + "/" + chunks.length + " failed after retries:", e);
+        break;
+      }
       if (_ttsCancelled) return true;
       if (!firstStarted) { firstStarted = true; if (onStart) onStart(); }
       // Resume AudioContext if iOS/Android suspended it between chunks
@@ -2044,7 +2078,10 @@ async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
       // Start prefetching the next chunk NOW — its timeout ticks during the current
       // clip's playback, not from the start of the loop. This fixes the old race where
       // chunks[1]'s timer expired before chunks[0] even finished playing.
-      if (i + 1 < chunks.length) nextP = fetchBuf(chunks[i + 1]);
+      if (i + 1 < chunks.length) {
+        nextP = ttsFetchBuffer(chunks[i + 1], lang, ac);
+        nextP.catch(() => {}); // mark handled: the user may stop playback before we await it
+      }
       await new Promise((resolve) => {
         const src = ac.createBufferSource();
         src.buffer = buf;
@@ -2074,20 +2111,13 @@ async function fetchCloudClips(text, lang) {
   const clean = cleanForTTS(text);
   if (!clean) return [];
   const ac = getAC();
-  const chunks = ttsChunks(clean);
-  const fetchOne = (s) => {
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 4500);
-    return fetch(TTS_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ text: styleTTS(s, lang), lang, voice: getVmVoiceName() }), signal: ctrl.signal })
-      .then(async (res) => {
-        if (!res.ok) throw new Error("tts " + res.status);
-        const data = await res.json();
-        if (!data || !data.audio) throw new Error("no audio");
-        return ac.decodeAudioData(b64ToArrayBuffer(data.audio));
-      })
-      .finally(() => clearTimeout(to));
-  };
-  return Promise.all(chunks.map(fetchOne)); // fetch all chunks in parallel, keep order
+  // Same single-request rule as speakCloud. This used to Promise.all every chunk,
+  // which fired 3-5 synthesis requests at once — a guaranteed rate-limit trip that
+  // left most of the line silent. Sequential + throttled + retried instead.
+  const chunks = ttsChunks(clean, 3600);
+  const out = [];
+  for (const s of chunks) out.push(await ttsFetchBuffer(s, lang, ac, 2, 15000));
+  return out;
 }
 /* Play already-decoded clips back-to-back through the shared context. */
 async function playCloudClips(clips, rateMul, isCancelled) {
