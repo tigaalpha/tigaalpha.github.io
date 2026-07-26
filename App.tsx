@@ -3873,7 +3873,10 @@ const CHORD_MOODS = [
     desc: { th: "E–B–A–E · สนุกสนาน ตื่นเต้น", en: "E–B–A–E · Festive & exciting", zh: "E–B–A–E · 欢快刺激" } },
 ];
 
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onPlay = null, onParent = null }) {
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onPlay = null, onParent = null,
+  detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
+  battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
+  mysteryChest = null, setMysteryChest, luckyToast = null }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan);
@@ -11126,7 +11129,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // A home-screen icon is one of the biggest levers for people actually opening
   // the app again — so the ask needs to land the moment they're happiest, not later.
   const [installBannerSeen, setInstallBannerSeen] = useState(() => { try { return localStorage.getItem("tg_install_banner_seen") === "1"; } catch (e) { return false; } });
-  const showInstallBanner = !!installEvt && !installBannerSeen && freeContentPlays() >= 1;
+  const showInstallBanner = !!installEvt && !installBannerSeen && getCoins() > 0;
   function dismissInstallBanner() {
     setInstallBannerSeen(true);
     try { localStorage.setItem("tg_install_banner_seen", "1"); } catch (e) {}
@@ -11632,7 +11635,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               onAnalytics={() => { logUsage("nav", "studio-analytics"); setPage("insights"); }}
               onUpsell={() => setPricingOpen(true)}
               onPlay={(s) => { logUsage("nav", "studio-quick"); chooseSong(s); }}
-              onParent={() => { playUi("click"); premium ? setParentOpen(true) : setPricingOpen(true); }} />
+              onParent={() => { playUi("click"); premium ? setParentOpen(true) : setPricingOpen(true); }}
+              detectOpen={detectOpen} setDetectOpen={setDetectOpen} detectNotes={detectNotes} setDetectNotes={setDetectNotes}
+              detectMatch={detectMatch} setDetectMatch={setDetectMatch} detectListening={detectListening} setDetectListening={setDetectListening}
+              battlePickOpen={battlePickOpen} setBattlePickOpen={setBattlePickOpen} battleData={battleData} setBattleData={setBattleData}
+              songPhase={songPhase} startSongPlay={startSongPlay}
+              mysteryChest={mysteryChest} setMysteryChest={setMysteryChest} luckyToast={luckyToast} />
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
