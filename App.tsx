@@ -6585,8 +6585,8 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       {/* interactive progress dashboard — range selector + period comparison + charts + game stats */}
       <ProgressDashboard lang={lang} />
 
-      {/* Auto Teaching recap — current weak spots + the most recent real-time tip (Max plan) */}
-      {isMaxPlan(effectivePlan(profile)) && (() => {
+      {/* Auto Teaching recap — current weak spots + the most recent real-time tip (Premium plan and up) */}
+      {effectivePlan(profile) !== "free" && (() => {
         const atLog = readAutoTeachLog();
         const last = atLog[atLog.length - 1];
         const struggles = (readMemory().struggles || []).slice(0, 5);
@@ -10652,7 +10652,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // speaking almost immediately instead of waiting for the whole reply.
   async function vmFetchAI(message, history, onSentence) {
     const TERM = ".!?…\n。！？";
-    const body = JSON.stringify({ message, conversationHistory: history, system: L[lang].vmSys + FINGERING_REF + vmStudentContext() + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) });
+    const body = JSON.stringify({ message, conversationHistory: history, system: L[langRef.current].vmSys + FINGERING_REF + vmStudentContext() + memoryContext(langRef.current) + homeworkContext(langRef.current) + curriculumContext(langRef.current) });
     let lastErr;
     // Try up to twice. On a weak signal a stall watchdog aborts a frozen stream;
     // if nothing was spoken yet we retry, and if a partial reply was already
@@ -10735,7 +10735,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (!vmActiveRef.current) return;
     clearTimeout(vmPlayReactT.current);
     // instant local commands (not the "I just played" cue) → no AI round-trip
-    if (text !== L[lang].vmPlayedCue && vmLocalCommand(text)) return;
+    if (text !== L[langRef.current].vmPlayedCue && vmLocalCommand(text)) return;
     const myTurn = ++vmTurnRef.current;        // newer turn supersedes any in-flight (barged-in) one
     vmInterruptRef.current = false;            // fresh turn — clear any prior barge-in
     const expSeq = vmSeqRef.current;           // capture the ordered target + ear test before clearing
@@ -10766,7 +10766,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const dyn = vmDynReport(vels);             // touch/dynamics + crescendo (MIDI velocity)
       const metroT = metroTimingReport(times);   // ms-precise timing vs the running metronome
       const lbl = chordNames.length ? (notes.join(" ") + " — chord(s): " + chordNames.join(", ")) : (notes.join(" ") + (interp ? " = " + interp : ""));
-      msg += `\n\n(${L[lang].vmNotesLbl}: ${lbl}${rhythm ? "; rhythm: " + rhythm : ""}${dyn ? "; " + dyn : ""}${metroT ? "; " + metroT : ""})`;
+      msg += `\n\n(${L[langRef.current].vmNotesLbl}: ${lbl}${rhythm ? "; rhythm: " + rhythm : ""}${dyn ? "; " + dyn : ""}${metroT ? "; " + metroT : ""})`;
     }
     // Real-time sequence correction: pinpoint exactly where the attempt diverged.
     if (expSeq && expSeq.length && notes.length && !ear) {
@@ -10800,7 +10800,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         if (s.type === "say") {
           const t = (s.text || "").trim();
           if (!t) continue;
-          segQ.push({ type: "say", text: t, clips: uc ? fetchCloudClips(t, lang).catch(() => null) : undefined });
+          segQ.push({ type: "say", text: t, clips: uc ? fetchCloudClips(t, langRef.current).catch(() => null) : undefined });
         } else segQ.push(s);
       }
       pump();
@@ -10918,11 +10918,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const rateMul = 1 + ((vmSpeedRef.current || 1) - 1) * 0.5;
       // device voice when: user picked Fast, OR cloud already failed this session
       // (sticky fallback keeps speech smooth on a weak signal — no per-sentence retries).
-      if ((vmFastRef.current || vmCloudDeadRef.current) && ttsSupported()) { speakRobust(text, lang, finish, finish, rateMul); return; }
-      speakCloud(text, lang, null, finish, () => {
+      if ((vmFastRef.current || vmCloudDeadRef.current) && ttsSupported()) { speakRobust(text, langRef.current, finish, finish, rateMul); return; }
+      speakCloud(text, langRef.current, null, finish, () => {
         vmCloudDeadRef.current = true; // first cloud failure → stay on the device voice from now on
         if (!ttsSupported()) { finish(); return; }
-        speakRobust(text, lang, finish, finish, rateMul);
+        speakRobust(text, langRef.current, finish, finish, rateMul);
       }, rateMul);
     });
   }
