@@ -12,12 +12,12 @@ const RETURN_SCRIPT_TOOL: ToolDefinition = {
   parameters: {
     type: "object",
     properties: {
-      hook: { type: "string", description: "The first 1-2 seconds of spoken/on-screen text — must stop the scroll." },
+      hook: { type: "string", description: "The first 1-2 seconds of spoken/on-screen text — must stop the scroll. Plain text only, no brackets or scene descriptions." },
       script: {
         type: "string",
-        description: "Full numbered scene-by-scene script. Each scene: one short spoken line plus a one-line visual direction in brackets. Ends with the CTA scene.",
+        description: "Full article paragraphs as plain text narration only. NO scene descriptions, NO visual directions, NO bracketed text, NO camera angles. Pure text meant to be read aloud. Ends with the CTA.",
       },
-      caption: { type: "string", description: "Short social caption, 1-3 sentences." },
+      caption: { type: "string", description: "Short social caption, 1-3 sentences. Plain text only." },
       hashtags: { type: "array", items: { type: "string" }, description: "5-8 hashtags, no leading # needed." },
     },
     required: ["hook", "script", "caption", "hashtags"],
