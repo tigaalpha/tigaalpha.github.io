@@ -4855,6 +4855,7 @@ function VideoSlide({ s, active, preload, lang, onEnded, onAsk, likeN, likedByMe
   const vidRef = useRef(null);
   const barRef = useRef(null);
   const tapT = useRef(null);
+  const fallbackT = useRef(null);
   const [srcIdx, setSrcIdx] = useState(0);
   const [failed, setFailed] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -4870,15 +4871,21 @@ function VideoSlide({ s, active, preload, lang, onEnded, onAsk, likeN, likedByMe
   useEffect(() => {
     const v = vidRef.current;
     if (!v || failed) return;
+    clearTimeout(fallbackT.current);
     if (active) {
       v.muted = false; setMuted(false); setPaused(false);
       const p = v.play();
       // browsers may veto unmuted autoplay — retry muted with a visible unmute button
       if (p && p.catch) p.catch(() => { v.muted = true; setMuted(true); v.play().catch(() => {}); });
+      // if video hasn't started playing within 5s (Drive restrictions), fall back to iframe
+      fallbackT.current = setTimeout(() => {
+        const vv = vidRef.current;
+        if (vv && vv.readyState < 2) setFailed(true);
+      }, 5000);
     } else if (preload) {
       v.muted = true; // never plays here — just lets the browser buffer ahead
     }
-    return () => clearTimeout(tapT.current);
+    return () => { clearTimeout(tapT.current); clearTimeout(fallbackT.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, preload, failed, srcIdx]);
   const spawnHeart = (x, y) => {
