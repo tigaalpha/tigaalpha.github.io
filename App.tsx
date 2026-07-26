@@ -4979,7 +4979,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
     let cancelled = false;
     (async () => {
       const { data, error } = await sb.from("lesson_videos").select("*").eq("published", true)
-        .order("sort_order", { ascending: true }).order("created_at", { ascending: false });
+        .order("created_at", { ascending: false });
       if (cancelled) return;
       const rows = error ? [] : (data || []);
       // expand folder rows into one slide PER VIDEO FILE, listed via the drive-list
