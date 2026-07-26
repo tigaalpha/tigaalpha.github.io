@@ -3693,7 +3693,7 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
       <div className="v12card">
         <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "8px" }}>{T.acc}</div>
         <div style={{ display: "flex", gap: "8px" }}>
-          <div className="instile"><b style={{ color: acc7 != null && accP != null ? (acc7 >= accP ? "#d97757" : "#d97757") : "#d97757" }}>{acc7 == null ? "—" : acc7 + "%"}</b><span>{T.accNow}</span></div>
+          <div className="instile"><b style={{ color: acc7 != null && accP != null ? (acc7 >= accP ? "#4caf50" : "#ff5252") : "#d97757" }}>{acc7 == null ? "—" : acc7 + "%"}</b><span>{T.accNow}</span></div>
           <div className="instile"><b style={{ color: "var(--muted)" }}>{accP == null ? "—" : accP + "%"}</b><span>{T.accPrev}</span></div>
         </div>
       </div>
@@ -5178,7 +5178,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   list.sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
 
   const Card = (s, pfx = "") => {
-    const hue = laneHue(s.seq.find(x => x[0] !== "R")[0]);
+    const hue = laneHue((s.seq.find(x => x[0] !== "R") || ["C4"])[0]);
     const isFav = favs.includes(s.id);
     const req = SONG_REQ[s.diff] || 1;
     const locked = !s.custom && level < req;
@@ -5206,7 +5206,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   };
   // A drill card (scale / chord / interval) — no lock, no fav, just launch.
   const DrillCard = (s, icon) => {
-    const fn = s.seq.find(x => x[0] !== "R");
+    const fn = s.seq.find(x => x[0] !== "R") || ["C4"];
     const nNotes = s.seq.filter(x => x[0] !== "R").length;
     return (
       <button key={s.id} className="songcard" style={{ "--sc": `hsl(${laneHue(fn[0])},70%,56%)` }} onClick={() => play(s)}>
@@ -5354,8 +5354,8 @@ const StaffSVG = memo(function StaffSVG({ note, clef = "treble" }) {
   for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);
   const stemUp = step < 4;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="staffsvg" width="100%" preserveAspectRatio="xMidYMid meet" style={{ background: "#ffffff", borderRadius: 12 }}>
-      <rect width={W} height={H} style={{ fill: "#ffffff" }} rx="8" />
+    <svg viewBox={`0 0 ${W} ${H}`} className="staffsvg" width="100%" preserveAspectRatio="xMidYMid meet" style={{ background: "var(--card)", borderRadius: 12 }}>
+      <rect width={W} height={H} style={{ fill: "var(--card)" }} rx="8" />
       {lineYs.map((ly, i) => <line key={i} x1="14" y1={ly} x2={W - 14} y2={ly} style={{ stroke: "#d97757" }} strokeWidth="1.4" />)}
       {clef === "bass"
         ? <text x="20" y={baseY - 2 * half + 4} fontSize="64" style={{ fontFamily: "Georgia, 'Times New Roman', serif", fill: "#d97757" }}>&#119074;</text>
@@ -8806,9 +8806,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const t = setTimeout(() => syncProgress(uid), 4000);
     const iv = setInterval(() => syncProgress(uid), 90000);
     const onHide = () => { if (document.visibilityState === "hidden") syncProgress(uid); };
+    const onPageHide = () => syncProgress(uid);
     document.addEventListener("visibilitychange", onHide);
-    window.addEventListener("pagehide", () => syncProgress(uid));
-    return () => { clearTimeout(t); clearInterval(iv); document.removeEventListener("visibilitychange", onHide); };
+    window.addEventListener("pagehide", onPageHide);
+    return () => { clearTimeout(t); clearInterval(iv); document.removeEventListener("visibilitychange", onHide); window.removeEventListener("pagehide", onPageHide); };
   }, [uid]);
 
   // celebrate the first newly-unlocked achievement between two stat snapshots
@@ -10245,7 +10246,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function vmReactToPlaying() {
     if (!vmActiveRef.current || vmStateRef.current !== "listening" || vmFrozenRef.current) return;
     if (vmNotesRef.current.length < 2) return; // ignore a stray single note
-    vmProcess(L[lang].vmPlayedCue);            // implicit "I just played — what do you think?"
+    vmProcess(L[langRef.current].vmPlayedCue);            // implicit "I just played — what do you think?"
   }
   function openVoice() {
     setVmOpen(true);
@@ -10620,19 +10621,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const li = levelInfo((profile && profile.exp) || 0);
     const meta = (session && session.user && session.user.user_metadata) || {};
     const nm = (profile && profile.full_name) || meta.full_name || meta.name || "";
-    const tierName = li.tier[lang] || li.tier.en;
+    const lg = langRef.current;
+    const tierName = li.tier[lg] || li.tier.en;
     const ld = (profile && profile.lessons_done) || 0;
-    const lbl = lang === "th" ? "ข้อมูลผู้เรียน" : lang === "zh" ? "学员信息" : "Student profile";
+    const lbl = lg === "th" ? "ข้อมูลผู้เรียน" : lg === "zh" ? "学员信息" : "Student profile";
     const parts = [];
-    if (nm) parts.push((lang === "th" ? "ชื่อ: " : lang === "zh" ? "姓名: " : "Name: ") + nm);
-    parts.push((lang === "th" ? "ระดับ: " : lang === "zh" ? "等级: " : "Level: ") + li.level + " (" + tierName + ")");
-    parts.push((lang === "th" ? "เรียนจบ " : lang === "zh" ? "已完成 " : "Lessons done: ") + ld + (lang === "th" ? " บท" : lang === "zh" ? " 节" : ""));
+    if (nm) parts.push((lg === "th" ? "ชื่อ: " : lg === "zh" ? "姓名: " : "Name: ") + nm);
+    parts.push((lg === "th" ? "ระดับ: " : lg === "zh" ? "等级: " : "Level: ") + li.level + " (" + tierName + ")");
+    parts.push((lg === "th" ? "เรียนจบ " : lg === "zh" ? "已完成 " : "Lessons done: ") + ld + (lg === "th" ? " บท" : lg === "zh" ? " 节" : ""));
     // live lesson stats — a human teacher keeps score of the whole session, not just the last attempt
     const ok = vmTallyOkRef.current, ms = vmTallyMissRef.current;
-    if (ok + ms > 0) parts.push((lang === "th" ? "คาบนี้เล่นถูก " + ok + " / พลาด " + ms + " โน้ต" : lang === "zh" ? "本课已弹对 " + ok + " 音 / 弹错 " + ms + " 音" : "This session: " + ok + " correct / " + ms + " missed notes"));
+    if (ok + ms > 0) parts.push((lg === "th" ? "คาบนี้เล่นถูก " + ok + " / พลาด " + ms + " โน้ต" : lg === "zh" ? "本课已弹对 " + ok + " 音 / 弹错 " + ms + " 音" : "This session: " + ok + " correct / " + ms + " missed notes"));
     // the lesson clock — lets the teacher pace the session and wrap up on time
     const mins = vmSessionStartRef.current ? Math.floor((Date.now() - vmSessionStartRef.current) / 60000) : 0;
-    if (mins >= 1) parts.push(lang === "th" ? "เวลาเรียนผ่านไป " + mins + " นาที" : lang === "zh" ? "本课已进行 " + mins + " 分钟" : "Lesson running " + mins + " min");
+    if (mins >= 1) parts.push(lg === "th" ? "เวลาเรียนผ่านไป " + mins + " นาที" : lg === "zh" ? "本课已进行 " + mins + " 分钟" : "Lesson running " + mins + " min");
     return "\n\n[" + lbl + ": " + parts.join(" · ") + "]";
   }
   // stream the reply; call onSentence(chunk) as soon as each complete sentence
@@ -12533,7 +12535,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         const meta = (session && session.user && session.user.user_metadata) || {};
         const nm = (profile && profile.full_name) || meta.full_name || meta.name || "TiGA";
         let sess = 0, accSum = 0, accN = 0;
-        for (let i = 0; i < 7; i++) { const d = new Date(); d.setDate(d.getDate() - i); const e = plog[dayKey(d)]; if (e) { sess += e.n; accSum += e.accSum; accN += e.n; } }
+        for (let i = 0; i < 7; i++) { const d = new Date(); d.setDate(d.getDate() - i); const e = plog[dayKey(d)]; if (e) { sess += e.n; accSum += (e.accSum || 0); accN += e.n; } }
         const wkAcc = accN ? Math.round(accSum / accN) : 0;
         const heat = [];
         for (let i = 41; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const n = plog[dayKey(d)] ? plog[dayKey(d)].n : 0; heat.push(n === 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : 3); }
