@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Share2, Facebook, Instagram, MessageCircle, Music2, Clock, AlertTriangle } from "lucide-react";
+import { Share2, Facebook, Instagram, MessageCircle, Music2, Clock, AlertTriangle, Youtube } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
@@ -19,6 +19,7 @@ const CHANNELS: Channel[] = [
   { id: "instagram", label: "Instagram", icon: Instagram },
   { id: "line", label: "LINE OA", icon: MessageCircle },
   { id: "tiktok", label: "TikTok", icon: Music2 },
+  { id: "youtube", label: "YouTube", icon: Youtube },
 ];
 
 interface QueueItem {
@@ -79,7 +80,7 @@ export function MultiChannelPost() {
 
           <div>
             <p className="mb-2 text-sm font-medium text-secondary">ช่องทาง</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               {CHANNELS.map((ch) => {
                 const Icon = ch.icon;
                 const active = selected.includes(ch.id);
