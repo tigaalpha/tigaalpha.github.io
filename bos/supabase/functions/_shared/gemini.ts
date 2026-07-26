@@ -47,7 +47,7 @@ function toGeminiContents(messages: ChatMessage[]): GeminiContent[] {
 
     if (message.role === "tool") {
       contents.push({
-        role: "function",
+        role: "user",
         parts: [{ functionResponse: { name: message.toolCallId ?? "tool", response: { content: message.content } } }],
       });
       continue;
