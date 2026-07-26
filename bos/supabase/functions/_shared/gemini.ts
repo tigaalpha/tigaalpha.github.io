@@ -23,7 +23,7 @@ function apiKey(): string {
 }
 
 function model(): string {
-  return Deno.env.get("AI_MODEL") ?? "gemini-flash-latest";
+  return Deno.env.get("AI_MODEL") ?? "gemini-2.0-flash";
 }
 
 function embeddingModel(): string {
