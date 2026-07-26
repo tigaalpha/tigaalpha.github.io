@@ -10,21 +10,9 @@ interface LineEvent {
   replyToken?: string;
 }
 
-// Public webhook — authenticated by the LINE signature, not a Supabase JWT.
-// Deploy with verify_jwt=false.
-Deno.serve(async (req: Request) => {
-  const rawBody = await req.text();
-  const signature = req.headers.get("x-line-signature");
-
-  if (!verifySignature(rawBody, signature)) {
-    return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401 });
-  }
-
-  const admin = createAdminClient();
-  const body = JSON.parse(rawBody) as { events: LineEvent[] };
-
+async function processEvents(admin: ReturnType<typeof createAdminClient>, events: LineEvent[]): Promise<void> {
   await Promise.all(
-    body.events.map(async (event) => {
+    events.map(async (event) => {
       if (event.type !== "message" || event.message?.type !== "text" || !event.source.userId || !event.replyToken) {
         return;
       }
@@ -60,6 +48,22 @@ Deno.serve(async (req: Request) => {
       await reply(replyToken, text);
     })
   );
+}
+
+// Public webhook — authenticated by the LINE signature, not a Supabase JWT.
+// Deploy with verify_jwt=false.
+Deno.serve(async (req: Request) => {
+  const rawBody = await req.text();
+  const signature = req.headers.get("x-line-signature");
+
+  if (!await verifySignature(rawBody, signature)) {
+    return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401 });
+  }
+
+  const admin = createAdminClient();
+  const body = JSON.parse(rawBody) as { events: LineEvent[] };
+
+  EdgeRuntime.waitUntil(processEvents(admin, body.events));
 
   return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
 });

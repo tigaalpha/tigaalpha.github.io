@@ -56,6 +56,10 @@ export interface ArticleFaqItem {
 
 export type TransactionType = "income" | "expense";
 
+export type SocialPlatform = "facebook" | "instagram" | "tiktok" | "youtube" | "line";
+
+export type SocialPostStatus = "queued" | "posting" | "success" | "failed";
+
 export interface Database {
   public: {
     Tables: {
@@ -382,6 +386,49 @@ export interface Database {
           script: string;
         };
         Update: Partial<Database["public"]["Tables"]["voiceover_scripts"]["Row"]>;
+        Relationships: [];
+      };
+      social_accounts: {
+        Row: {
+          id: string;
+          user_id: string;
+          platform: "facebook" | "instagram" | "tiktok" | "youtube" | "line";
+          account_name: string;
+          access_token: string;
+          refresh_token: string | null;
+          token_expires_at: string | null;
+          metadata: Record<string, unknown>;
+          connected_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["social_accounts"]["Row"]> & {
+          user_id: string;
+          platform: "facebook" | "instagram" | "tiktok" | "youtube" | "line";
+          account_name: string;
+          access_token: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["social_accounts"]["Row"]>;
+        Relationships: [];
+      };
+      social_posts: {
+        Row: {
+          id: string;
+          user_id: string;
+          content: string;
+          platforms: string[];
+          posted_at: string | null;
+          status: "queued" | "posting" | "success" | "failed";
+          error_message: string | null;
+          external_ids: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["social_posts"]["Row"]> & {
+          user_id: string;
+          content: string;
+          platforms: string[];
+        };
+        Update: Partial<Database["public"]["Tables"]["social_posts"]["Row"]>;
         Relationships: [];
       };
     };

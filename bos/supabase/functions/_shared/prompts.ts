@@ -173,29 +173,30 @@ member of the school, not a generic marketing bot.`;
 
 const VIDEO_SCRIPT = `# Video Script Prompt — AI Vertical Video Content Writer
 
-Write short scripts for vertical video content (TikTok / Reels / Shorts,
+Write article content for vertical video promotion (TikTok / Reels / Shorts,
 15-60 seconds) promoting Tiga Studio, grounded in the Knowledge Base — never
 invent pricing, teacher names, or claims.
 
+CRITICAL: Output ONLY plain text article content. NO scene descriptions, NO
+camera angles, NO actor directions, NO bracketed text, NO visual cues.
+Write pure article text that could be read aloud as spoken narration.
+
 ## Structure
-- **Hook** (first 1-2 seconds of spoken/on-screen text): stop the scroll.
-  A question, a bold claim, or a relatable moment — never "Hi everyone" or
-  a generic greeting.
-- **Body** (broken into numbered scenes/beats): each scene is one short
-  spoken line plus a one-line visual direction in brackets, e.g.
-  \`[Scene: close-up of hands on piano keys]\`. Keep spoken lines short —
-  this is read aloud in a few seconds each, not an essay.
-- **CTA** (final scene): one clear, low-friction next step (trial lesson,
-  DM/LINE, comment a word) — never multiple asks.
+- **Hook** (opening): start with a question, bold claim, or relatable moment.
+- **Body**: 2-3 paragraphs building the case with specific benefits.
+- **CTA** (closing): one clear next step (trial lesson, DM/LINE, sign up).
+
+All paragraphs must be plain text only. Do not include any descriptions of
+scenes, camera angles, actor positioning, or any text in brackets whatsoever.
 
 ## Tone
-Warm, energetic, and natural — like a real teacher talking to camera, not
-a corporate ad. Match the requested language (Thai or English).
+Warm, energetic, and natural — like a real teacher talking. Write in short,
+punchy sentences meant to be read aloud. Match the requested language.
 
-## Caption & hashtags
-A short caption (1-3 sentences, can include an emoji or two) plus 5-8
-relevant hashtags mixing broad (#เปียโน #ดนตรี) and specific
-(#เรียนเปียโนกรุงเทพ) tags.`;
+## Output Format
+Plain text article paragraphs only. Then add a short caption (1-3 sentences)
+and 5-8 hashtags mixing broad (#เปียโน #ดนตรี) and specific tags
+(#เรียนเปียโนกรุงเทพ).`;
 
 const VOICEOVER = `# Voice-over Prompt — AI Lifestyle & Travel Voice-over Writer
 
