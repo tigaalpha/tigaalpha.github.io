@@ -4899,28 +4899,18 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
         .order("created_at", { ascending: false });
       if (cancelled) return;
       const rows = error ? [] : (data || []);
-      // expand folder rows into one slide PER VIDEO FILE, listed via the drive-list
-      // edge function (server-side, no API key) and sorted by filename
-      const folderIds = [...new Set(rows.filter(r => r.drive_folder_id).map(r => r.drive_folder_id))];
-      const folderMap = {};
-      if (folderIds.length) {
-        try {
-          const { data: fl, error: fe } = await sb.functions.invoke("drive-list", { body: { folders: folderIds } });
-          if (!fe && fl && fl.folders) for (const f of fl.folders) folderMap[f.folder] = f.items || [];
-        } catch (e) {}
-      }
-      const isVid = (n) => /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(n);
+      // Folder rows embed Google's own folder-grid view directly (drive.google.com/
+      // embeddedfolderview) — a supported, reliable Google embed. An earlier version
+      // tried expanding a folder into one slide per file by scraping that same page's
+      // HTML server-side to list its contents, but that scrape depends on Google's
+      // undocumented internal markup for the page; when it mis-parses (or the file it
+      // finds isn't actually playable) the resulting fileId embeds as permanently
+      // broken with nothing to fall back to. The folder grid always works because
+      // it's the same page Google intends people to embed, just shown as-is.
       const out = [];
       for (const r of rows) {
-        if (r.drive_folder_id) {
-          let items = folderMap[r.drive_folder_id] || [];
-          if (items.some(it => isVid(it.name))) items = items.filter(it => isVid(it.name));
-          for (const it of items) out.push({ key: r.id + "-" + it.id, fileId: it.id, title: it.name.replace(/\.[a-z0-9]{2,4}$/i, ""), desc: r.title });
-          // listing unavailable → fall back to embedding the whole folder so nothing disappears
-          if (!items.length) out.push({ key: r.id, folderId: r.drive_folder_id, title: r.title, desc: r.description });
-        } else if (r.drive_file_id) {
-          out.push({ key: r.id, fileId: r.drive_file_id, title: r.title, desc: r.description });
-        }
+        if (r.drive_folder_id) out.push({ key: r.id, folderId: r.drive_folder_id, title: r.title, desc: r.description });
+        else if (r.drive_file_id) out.push({ key: r.id, fileId: r.drive_file_id, title: r.title, desc: r.description });
       }
       if (cancelled) return;
       setSlides(out);
