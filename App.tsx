@@ -4824,6 +4824,18 @@ function driveFolderId(input) {
   const m = s.match(/\/folders\/([a-zA-Z0-9_-]{15,})/);
   return m ? m[1] : null;
 }
+// Extract a YouTube playlist id from a playlist share link (youtube.com/playlist?list=ID,
+// or any watch URL with a &list= param), or accept a bare id (playlist ids are typically
+// 13–34 chars, usually starting "PL"/"UU"/"LL"/"FL"). Playlists are the actual per-category
+// video source — the app fetches each playlist's contents server-side via the YouTube Data
+// API (see the youtube-playlist edge function) and shows every item as its own swipeable slide.
+function youtubePlaylistId(input) {
+  const s = String(input || "").trim();
+  const m = s.match(/[?&]list=([a-zA-Z0-9_-]{10,64})/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_-]{10,64}$/.test(s)) return s;
+  return null;
+}
 
 /* ── Vertical video lessons — teaching videos hosted on the admin's own Google
    Drive (not stored on our servers — Drive serves the bytes straight to the
@@ -4840,19 +4852,44 @@ function fmtLikes(n) {
 // local bookmark (🔖) state per video
 function readVidFav(id) { try { return !!JSON.parse(localStorage.getItem("tg_vidfavs") || "{}")[id]; } catch (e) { return false; } }
 function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("tg_vidfavs") || "{}"); if (v) m[id] = 1; else delete m[id]; localStorage.setItem("tg_vidfavs", JSON.stringify(m)); } catch (e) {} }
-// Opens the file in a new tab instead of embedding it. Two prior versions tried
-// embedding directly in-page — first a native <video> hotlinking Drive's direct-
-// download URLs, then Google's own /preview iframe — and both showed the same
-// permanently-broken player. Confirmed why: modern mobile Chrome blocks/partitions
-// third-party cookies for an iframe whose origin (drive.google.com) differs from
-// the page embedding it, and Google's viewer depends on those cookies even for a
-// publicly-shared file. The exact same URL opened as a normal top-level navigation
-// (a new tab, first-party to google.com) works fine — verified live. No iframe
-// embed of Drive content can work around that from our side, so this opens one.
 function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [faved, setFaved] = useState(() => readVidFav(s.key));
   if (!active) return <div className="vidplaceholder">🎬</div>;
+  const rail = (
+    <div className="vidrail" onClick={e => e.stopPropagation()}>
+      <button className={`vidact${likedByMe ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); if (onToggleLike) onToggleLike(); }}>
+        <span className="vidact-ic">❤️</span>
+        <span className="vidact-n">{fmtLikes(likeN) || T("ถูกใจ", "Like", "赞")}</span>
+      </button>
+      <button className="vidact" onClick={(e) => { e.stopPropagation(); if (onAsk) onAsk(s.title); }}>
+        <span className="vidact-ic">💬</span>
+        <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
+      </button>
+      <button className={`vidact${faved ? " fav" : ""}`} onClick={(e) => { e.stopPropagation(); const v = !faved; setFaved(v); writeVidFav(s.key, v); }}>
+        <span className="vidact-ic">🔖</span>
+        <span className="vidact-n">{T("บันทึก", "Save", "收藏")}</span>
+      </button>
+    </div>
+  );
+  // YouTube's iframe embed is built for third-party sites — unlike Google Drive's
+  // viewer (see the git history on this file for why that never worked in-page),
+  // it plays fine cross-origin with no cookie dependency, so this is a real
+  // in-app TikTok-style player, not just a launcher into another app.
+  if (s.youtubeId) {
+    return (
+      <>
+        <iframe className="vidplayer"
+          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3`}
+          allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
+        {rail}
+      </>
+    );
+  }
+  // Legacy Google Drive rows (pre-YouTube-migration): no reliable in-page embed
+  // exists for Drive content, so this opens it in a new tab instead — a normal
+  // top-level navigation to google.com, which plays fine (iframing it does not,
+  // regardless of which Drive embed URL is used — verified live).
   const url = s.folderId
     ? `https://drive.google.com/embeddedfolderview?id=${s.folderId}#grid`
     : `https://drive.google.com/file/d/${s.fileId}/view`;
@@ -4863,28 +4900,17 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
         <div className="vidopen-t">{s.title}</div>
         <div className="vidopen-h">{T("แตะเพื่อเปิดใน Google Drive", "Tap to open in Google Drive", "点击在 Google Drive 中打开")}</div>
       </div>
-      <div className="vidrail" onClick={e => e.stopPropagation()}>
-        <button className={`vidact${likedByMe ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); if (onToggleLike) onToggleLike(); }}>
-          <span className="vidact-ic">❤️</span>
-          <span className="vidact-n">{fmtLikes(likeN) || T("ถูกใจ", "Like", "赞")}</span>
-        </button>
-        <button className="vidact" onClick={(e) => { e.stopPropagation(); if (onAsk) onAsk(s.title); }}>
-          <span className="vidact-ic">💬</span>
-          <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
-        </button>
-        <button className={`vidact${faved ? " fav" : ""}`} onClick={(e) => { e.stopPropagation(); const v = !faved; setFaved(v); writeVidFav(s.key, v); }}>
-          <span className="vidact-ic">🔖</span>
-          <span className="vidact-n">{T("บันทึก", "Save", "收藏")}</span>
-        </button>
-      </div>
+      {rail}
     </>
   );
 }
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
   const lc = L[lang];
-  const [slides, setSlides] = useState(null); // null = loading
+  const [categories, setCategories] = useState(null);  // null = loading; each row is one published lesson_videos entry
+  const [activeCat, setActiveCat] = useState(null);     // lesson_videos.id of the selected category
+  const [slides, setSlides] = useState(null);           // null = loading this category's videos
   const [activeKey, setActiveKey] = useState(null);
-  const [likes, setLikes] = useState({});     // slide key -> {n, me} — REAL cross-user like counts
+  const [likes, setLikes] = useState({});               // slide key -> {n, me} — REAL cross-user like counts
   const slideRefs = useRef([]);
   function toggleLike(key) {
     const cur = likes[key] || { n: 0, me: false };
@@ -4899,17 +4925,42 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
     }, () => {});
   }
 
+  // Each published lesson_videos row is one CATEGORY (its title is the chip
+  // label) — pointing at a YouTube playlist, or (legacy) a Drive folder/file.
   useEffect(() => {
     let cancelled = false;
+    sb.from("lesson_videos").select("*").eq("published", true).order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        const rows = error ? [] : (data || []);
+        setCategories(rows);
+        if (rows.length) setActiveCat(rows[0].id);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Expand the SELECTED category into individual slides. A YouTube playlist is
+  // resolved server-side via the official YouTube Data API (see the
+  // youtube-playlist edge function) — one slide per video in the playlist, so
+  // switching categories only pays for the API call of the one you picked.
+  useEffect(() => {
+    if (!categories) return;
+    const cat = categories.find(c => c.id === activeCat);
+    if (!cat) { setSlides([]); return; }
+    let cancelled = false;
+    setSlides(null);
+    setActiveKey(null);
     (async () => {
-      const { data, error } = await sb.from("lesson_videos").select("*").eq("published", true)
-        .order("created_at", { ascending: false });
-      if (cancelled) return;
-      const rows = error ? [] : (data || []);
-      const out = [];
-      for (const r of rows) {
-        if (r.drive_folder_id) out.push({ key: r.id, folderId: r.drive_folder_id, title: r.title, desc: r.description });
-        else if (r.drive_file_id) out.push({ key: r.id, fileId: r.drive_file_id, title: r.title, desc: r.description });
+      let out = [];
+      if (cat.youtube_playlist_id) {
+        try {
+          const { data: pl, error } = await sb.functions.invoke("youtube-playlist", { body: { playlistId: cat.youtube_playlist_id } });
+          if (!error && pl && pl.items) out = pl.items.map(it => ({ key: cat.id + "-" + it.videoId, youtubeId: it.videoId, title: it.title }));
+        } catch (e) {}
+      } else if (cat.drive_folder_id) {
+        out = [{ key: cat.id, folderId: cat.drive_folder_id, title: cat.title, desc: cat.description }];
+      } else if (cat.drive_file_id) {
+        out = [{ key: cat.id, fileId: cat.drive_file_id, title: cat.title, desc: cat.description }];
       }
       if (cancelled) return;
       setSlides(out);
@@ -4926,7 +4977,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [activeCat, categories]);
 
   // TikTok-style: whichever slide is mostly in view becomes "active" — only ITS
   // player is mounted (loads/plays); scrolling away unmounts it (stops audio + bandwidth).
@@ -4941,22 +4992,37 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
     return () => io.disconnect();
   }, [slides]);
 
-  if (slides === null) return <div className="pathpage"><div className="admstu-empty">…</div></div>;
-  if (!slides.length) return (
+  if (categories === null) return <div className="pathpage"><div className="admstu-empty">…</div></div>;
+  if (!categories.length) return (
     <div className="pathpage">
       <div className="pathhero"><div className="pathhero-glow" /><div className="pathbadge">🎬 {lc.navVideos}</div></div>
       <div className="admstu-empty">{lc.videosEmpty}</div>
     </div>
   );
   return (
-    <div className="vidfeed">
-      {slides.map((s, i) => (
-        <div className="vidslide" key={s.key} data-vid={s.key} ref={el => (slideRefs.current[i] = el)}>
-          <VideoSlide s={s} active={activeKey === s.key} lang={lang} onAsk={onAsk}
-            likeN={(likes[s.key] || {}).n || 0} likedByMe={!!(likes[s.key] || {}).me} onToggleLike={() => toggleLike(s.key)} />
-          <div className="vidtopfade" />
+    <div className="vidwrap">
+      {categories.length > 1 && (
+        <div className="vidcatbar">
+          {categories.map(c => (
+            <button key={c.id} className={"vidcat" + (activeCat === c.id ? " on" : "")} onClick={() => { playUi("click"); setActiveCat(c.id); }}>
+              {c.title}
+            </button>
+          ))}
         </div>
-      ))}
+      )}
+      <div className="vidfeed">
+        {slides === null ? (
+          <div className="vidplaceholder">…</div>
+        ) : !slides.length ? (
+          <div className="vidplaceholder" style={{ opacity: .6, fontSize: 15 }}>{lc.videosEmpty}</div>
+        ) : slides.map((s, i) => (
+          <div className="vidslide" key={s.key} data-vid={s.key} ref={el => (slideRefs.current[i] = el)}>
+            <VideoSlide s={s} active={activeKey === s.key} lang={lang} onAsk={onAsk}
+              likeN={(likes[s.key] || {}).n || 0} likedByMe={!!(likes[s.key] || {}).me} onToggleLike={() => toggleLike(s.key)} />
+            <div className="vidtopfade" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 });
@@ -7338,15 +7404,20 @@ function AdminVideos({ lang }) {
 
   async function addVideo() {
     if (!title.trim()) { setErr("notitle"); return; }
-    // a folder link (drive.google.com/drive/folders/…) embeds Google's own folder
-    // browser with every video inside it — a single file link embeds just that video
-    const folderId = driveFolderId(link);
-    const fileId = folderId ? null : driveFileId(link);
-    if (!folderId && !fileId) { setErr("badlink"); return; }
+    // A YouTube playlist becomes one CATEGORY — every video in it shows as its own
+    // swipeable slide, resolved server-side via the YouTube Data API. Google Drive
+    // links still work for backward compatibility, but Drive content can't embed
+    // in-page (third-party cookie restrictions) and only opens in a new tab.
+    const ytPlaylistId = youtubePlaylistId(link);
+    const folderId = ytPlaylistId ? null : driveFolderId(link);
+    const fileId = (ytPlaylistId || folderId) ? null : driveFileId(link);
+    if (!ytPlaylistId && !folderId && !fileId) { setErr("badlink"); return; }
     setErr(false); setBusy(true);
     try {
       const row = { title: title.trim(), description: desc.trim() || null, published: true };
-      if (folderId) row.drive_folder_id = folderId; else row.drive_file_id = fileId;
+      if (ytPlaylistId) row.youtube_playlist_id = ytPlaylistId;
+      else if (folderId) row.drive_folder_id = folderId;
+      else row.drive_file_id = fileId;
       const ins = await sb.from("lesson_videos").insert(row);
       if (ins.error) throw ins.error;
       setTitle(""); setDesc(""); setLink("");
@@ -7362,27 +7433,27 @@ function AdminVideos({ lang }) {
   return (
     <div className="adminpay">
       <div className="adminpay-cfg">
-        <div className="admstu-nm" style={{ fontSize: 15 }}>🎬 {T("เพิ่มวิดีโอ/โฟลเดอร์ใหม่จาก Google Drive", "Add a new video or folder from Google Drive", "从 Google Drive 添加新视频/文件夹")}</div>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={T("ชื่อวิดีโอ", "Video title", "视频标题")} />
+        <div className="admstu-nm" style={{ fontSize: 15 }}>🎬 {T("เพิ่มหมวดหมู่วิดีโอใหม่ (YouTube Playlist)", "Add a new video category (YouTube playlist)", "添加新的视频分类（YouTube 播放列表）")}</div>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={T("ชื่อหมวดหมู่ (แสดงเป็นชื่อแท็บ)", "Category name (shown as the tab label)", "分类名称（显示为标签）")} />
         <input value={desc} onChange={e => setDesc(e.target.value)} placeholder={T("คำอธิบาย (ไม่บังคับ)", "Description (optional)", "描述（可选）")} />
-        <input value={link} onChange={e => setLink(e.target.value)} placeholder={T("วางลิงก์ไฟล์วิดีโอ หรือลิงก์โฟลเดอร์ Google Drive", "Paste a video-file link OR a folder link", "粘贴视频文件链接或文件夹链接")} />
+        <input value={link} onChange={e => setLink(e.target.value)} placeholder={T("วางลิงก์ YouTube playlist (หรือลิงก์ Google Drive)", "Paste a YouTube playlist link (or a Google Drive link)", "粘贴 YouTube 播放列表链接（或 Google Drive 链接）")} />
         <button className="songbtn go" style={{ width: "100%", marginTop: 9 }} disabled={busy} onClick={addVideo}>
           {busy ? "⏳ " + T("กำลังเพิ่ม…", "Adding…", "添加中…") : "➕ " + T("เพิ่ม", "Add", "添加")}
         </button>
         {err === "notitle" && <div className="admstu-empty" style={{ color: "#ff5252" }}>{T("ใส่ชื่อวิดีโอก่อนนะ", "Add a title first", "请先填写标题")}</div>}
-        {err === "badlink" && <div className="admstu-empty" style={{ color: "#ff5252" }}>{T("อ่านลิงก์ Google Drive ไม่ออก ลองคัดลอกลิงก์แชร์มาใหม่", "Couldn't read that Google Drive link — copy the share link again", "无法识别该 Google Drive 链接，请重新复制共享链接")}</div>}
+        {err === "badlink" && <div className="admstu-empty" style={{ color: "#ff5252" }}>{T("อ่านลิงก์ไม่ออก ลองคัดลอกลิงก์ playlist จาก YouTube มาใหม่", "Couldn't read that link — copy the playlist link from YouTube again", "无法识别该链接，请重新从 YouTube 复制播放列表链接")}</div>}
         {err === "fail" && <div className="admstu-empty" style={{ color: "#ff5252" }}>{T("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง", "Save failed — try again", "保存失败，请重试")}</div>}
-        <div className="admstu-empty" style={{ fontSize: 11, marginTop: 6 }}>{T("💡 ไฟล์เดี่ยว: คลิกขวาไฟล์ → แชร์ → \"ทุกคนที่มีลิงก์\" → คัดลอกลิงก์ · ทั้งโฟลเดอร์: คลิกขวาโฟลเดอร์ → แชร์ → \"ทุกคนที่มีลิงก์\" → คัดลอกลิงก์ แล้ววางที่นี่", "💡 Single file: right-click → Share → \"Anyone with the link\" → copy · Whole folder: right-click the folder → Share → \"Anyone with the link\" → copy — either link works here", "💡 单个文件：右键 → 共享 → “知道链接的任何人” → 复制 · 整个文件夹：右键文件夹 → 共享 → “知道链接的任何人” → 复制，两种链接都可以粘贴到这里")}</div>
+        <div className="admstu-empty" style={{ fontSize: 11, marginTop: 6 }}>{T("💡 เปิด playlist บน YouTube → กด Share → คัดลอกลิงก์ (ต้องตั้งเป็น Public หรือ Unlisted ไม่ใช่ Private) แล้ววางที่นี่ — ทุกวิดีโอใน playlist จะแสดงเป็นหมวดหมู่เดียวกัน", "💡 Open the playlist on YouTube → Share → copy the link (must be Public or Unlisted, not Private) and paste it here — every video in it becomes one category", "💡 在 YouTube 上打开播放列表 → 分享 → 复制链接（必须是公开或不公开列出，不能是私享）粘贴到这里 — 播放列表中的所有视频将归为同一分类")}</div>
       </div>
-      <div className="admstu-count">{list.length} {T("รายการทั้งหมด", "items total", "个项目")}</div>
+      <div className="admstu-count">{list.length} {T("หมวดหมู่ทั้งหมด", "categories total", "个分类")}</div>
       {rows === null ? <div className="admstu-msg">⏳</div> : !list.length ? <div className="admstu-empty">{T("ยังไม่มีวิดีโอ เพิ่มอันแรกได้เลย", "No videos yet — add the first one", "还没有视频，添加第一个吧")}</div> : (
         <div className="admstu-list">
           {list.map(v => (
             <div key={v.id} className="adminpay-row" style={{ cursor: "default" }}>
-              <div className="admstu-av sm">{v.drive_folder_id ? "📁" : "🎬"}</div>
+              <div className="admstu-av sm">{v.youtube_playlist_id ? "▶️" : v.drive_folder_id ? "📁" : "🎬"}</div>
               <div className="admstu-row-body">
                 <div className="admstu-row-nm">{v.title} <span className={`adminpay-badge ${v.published ? "approved" : "pending"}`}>{v.published ? T("เผยแพร่แล้ว", "Published", "已发布") : T("ฉบับร่าง", "Draft", "草稿")}</span></div>
-                <div className="admstu-row-meta">{v.drive_folder_id ? T("โฟลเดอร์ · ", "Folder · ", "文件夹 · ") : ""}{(v.created_at || "").slice(0, 10)}{v.description ? " · " + v.description : ""}</div>
+                <div className="admstu-row-meta">{v.youtube_playlist_id ? T("YouTube playlist · ", "YouTube playlist · ", "YouTube 播放列表 · ") : v.drive_folder_id ? T("โฟลเดอร์ · ", "Folder · ", "文件夹 · ") : ""}{(v.created_at || "").slice(0, 10)}{v.description ? " · " + v.description : ""}</div>
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                 <button className="songbtn ghost" style={{ padding: "6px 10px", fontSize: 12 }} onClick={() => toggle(v)}>{v.published ? T("ซ่อน", "Unpublish", "取消发布") : T("เผยแพร่", "Publish", "发布")}</button>

@@ -228,6 +228,11 @@ html, body, #root{background:var(--bg)}
 .navbtn.on .nicon{transform:scale(1.1);filter:drop-shadow(0 0 5px var(--nav-c,#d97757))}
 .navbtn:active{transform:scale(.95)}
 /* ── vertical video lessons feed (TikTok-style, one video per screen) ── */
+.vidwrap{flex:1;display:flex;flex-direction:column;min-height:0;background:#000}
+.vidcatbar{display:flex;gap:8px;padding:10px 14px 10px 62px;overflow-x:auto;scrollbar-width:none;background:#000;flex-shrink:0;-webkit-overflow-scrolling:touch}
+.vidcatbar::-webkit-scrollbar{display:none}
+.vidcat{flex:0 0 auto;padding:6px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.25);background:transparent;color:rgba(255,255,255,.7);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
+.vidcat.on{background:#fff;border-color:#fff;color:#000}
 .vidfeed{flex:1;overflow-y:auto;scroll-snap-type:y mandatory;background:#000;scrollbar-width:none}
 .vidfeed::-webkit-scrollbar{display:none}
 .vidslide{height:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;background:#000}
