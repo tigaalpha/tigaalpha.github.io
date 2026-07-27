@@ -4852,9 +4852,23 @@ function fmtLikes(n) {
 // local bookmark (🔖) state per video
 function readVidFav(id) { try { return !!JSON.parse(localStorage.getItem("tg_vidfavs") || "{}")[id]; } catch (e) { return false; } }
 function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("tg_vidfavs") || "{}"); if (v) m[id] = 1; else delete m[id]; localStorage.setItem("tg_vidfavs", JSON.stringify(m)); } catch (e) {} }
+// Browsers block autoplay-with-sound until the visitor has actually interacted —
+// the first clip always starts muted, but the moment they tap 🔇 once, every
+// clip after that (this session and future ones) autoplays with sound already on.
+function readVidSound() { try { return localStorage.getItem("tg_vid_sound") === "1"; } catch (e) { return false; } }
+function writeVidSound(v) { try { localStorage.setItem("tg_vid_sound", v ? "1" : "0"); } catch (e) {} }
 function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [faved, setFaved] = useState(() => readVidFav(s.key));
+  const [muted, setMuted] = useState(() => !readVidSound());
+  const ytRef = useRef(null);
+  const toggleMute = () => {
+    const next = !muted;
+    setMuted(next);
+    writeVidSound(!next);
+    const w = ytRef.current && ytRef.current.contentWindow;
+    if (w) w.postMessage(JSON.stringify({ event: "command", func: next ? "mute" : "unMute", args: [] }), "*");
+  };
   if (!active) return <div className="vidplaceholder">🎬</div>;
   const rail = (
     <div className="vidrail" onClick={e => e.stopPropagation()}>
@@ -4879,9 +4893,10 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   if (s.youtubeId) {
     return (
       <>
-        <iframe className="vidplayer"
-          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3`}
+        <iframe ref={ytRef} className="vidplayer"
+          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?autoplay=1&mute=${muted ? 1 : 0}&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&enablejsapi=1`}
           allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
+        <button className="vidmute" onClick={(e) => { e.stopPropagation(); toggleMute(); }}>{muted ? "🔇" : "🔊"}</button>
         {rail}
       </>
     );
