@@ -234,6 +234,10 @@ html, body, #root{background:var(--bg)}
 .vidplayer{width:100%;height:100%;object-fit:cover;background:#000;border:none}
 @media (min-aspect-ratio:3/4){video.vidplayer{object-fit:contain}}
 .vidplaceholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;opacity:.25}
+.vidopen{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;padding:32px;text-align:center;background:linear-gradient(135deg,#1a1a2e,#16213e)}
+.vidopen-ic{font-size:64px}
+.vidopen-t{font-size:17px;font-weight:700;color:#fff;max-width:300px}
+.vidopen-h{font-size:13px;color:rgba(255,255,255,.55)}
 .vidmute{position:absolute;right:12px;top:14px;z-index:6;background:rgba(18,8,14,.55);border:1px solid #ffffff2a;border-radius:50%;width:42px;height:42px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
 .vidpause{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:64px;color:#ffffffd6;pointer-events:none;text-shadow:0 2px 18px #000}
 .vidbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--bd5);z-index:7}

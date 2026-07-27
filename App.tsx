@@ -4816,9 +4816,9 @@ function driveFileId(input) {
   return null;
 }
 // Extract a Google Drive FOLDER id from a folder share link — drive.google.com/drive/folders/ID(...).
-// Whole-folder mode needs no Google API key: Google's own embeddedfolderview iframe renders the
-// folder's file browser directly (grid/list of everything shared "Anyone with the link"), so
-// connecting a folder works immediately without any extra setup.
+// Whole-folder mode needs no Google API key: Google's own embeddedfolderview page shows the
+// folder's file browser (grid/list of everything shared "Anyone with the link"), opened directly
+// rather than embedded, so connecting a folder works immediately without any extra setup.
 function driveFolderId(input) {
   const s = String(input || "").trim();
   const m = s.match(/\/folders\/([a-zA-Z0-9_-]{15,})/);
@@ -4840,22 +4840,29 @@ function fmtLikes(n) {
 // local bookmark (🔖) state per video
 function readVidFav(id) { try { return !!JSON.parse(localStorage.getItem("tg_vidfavs") || "{}")[id]; } catch (e) { return false; } }
 function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("tg_vidfavs") || "{}"); if (v) m[id] = 1; else delete m[id]; localStorage.setItem("tg_vidfavs", JSON.stringify(m)); } catch (e) {} }
-// One TikTok-style slide. Plays via Google's own /preview embed — the same
-// officially-supported embed Google provides for third-party sites, and the
-// same mechanism the folder view below already uses reliably. An earlier
-// version tried hotlinking Drive's direct-download URLs into a native
-// <video> tag for a fully custom player; Google does not guarantee that
-// endpoint stays embeddable (permissions, file size, and backend changes all
-// break it silently, with no error event to catch), so it's dropped in favor
-// of the embed Google actually intends people to use.
+// Opens the file in a new tab instead of embedding it. Two prior versions tried
+// embedding directly in-page — first a native <video> hotlinking Drive's direct-
+// download URLs, then Google's own /preview iframe — and both showed the same
+// permanently-broken player. Confirmed why: modern mobile Chrome blocks/partitions
+// third-party cookies for an iframe whose origin (drive.google.com) differs from
+// the page embedding it, and Google's viewer depends on those cookies even for a
+// publicly-shared file. The exact same URL opened as a normal top-level navigation
+// (a new tab, first-party to google.com) works fine — verified live. No iframe
+// embed of Drive content can work around that from our side, so this opens one.
 function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const [faved, setFaved] = useState(() => readVidFav(s.fileId));
+  const [faved, setFaved] = useState(() => readVidFav(s.key));
   if (!active) return <div className="vidplaceholder">🎬</div>;
+  const url = s.folderId
+    ? `https://drive.google.com/embeddedfolderview?id=${s.folderId}#grid`
+    : `https://drive.google.com/file/d/${s.fileId}/view`;
   return (
     <>
-      <iframe className="vidplayer" src={`https://drive.google.com/file/d/${s.fileId}/preview`}
-        allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
+      <div className="vidopen" onClick={() => window.open(url, "_blank", "noopener")}>
+        <div className="vidopen-ic">{s.folderId ? "🎬" : "▶️"}</div>
+        <div className="vidopen-t">{s.title}</div>
+        <div className="vidopen-h">{T("แตะเพื่อเปิดใน Google Drive", "Tap to open in Google Drive", "点击在 Google Drive 中打开")}</div>
+      </div>
       <div className="vidrail" onClick={e => e.stopPropagation()}>
         <button className={`vidact${likedByMe ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); if (onToggleLike) onToggleLike(); }}>
           <span className="vidact-ic">❤️</span>
@@ -4865,7 +4872,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
           <span className="vidact-ic">💬</span>
           <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
         </button>
-        <button className={`vidact${faved ? " fav" : ""}`} onClick={(e) => { e.stopPropagation(); const v = !faved; setFaved(v); writeVidFav(s.fileId, v); }}>
+        <button className={`vidact${faved ? " fav" : ""}`} onClick={(e) => { e.stopPropagation(); const v = !faved; setFaved(v); writeVidFav(s.key, v); }}>
           <span className="vidact-ic">🔖</span>
           <span className="vidact-n">{T("บันทึก", "Save", "收藏")}</span>
         </button>
@@ -4877,18 +4884,18 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
   const lc = L[lang];
   const [slides, setSlides] = useState(null); // null = loading
   const [activeKey, setActiveKey] = useState(null);
-  const [likes, setLikes] = useState({});     // fileId -> {n, me} — REAL cross-user like counts
+  const [likes, setLikes] = useState({});     // slide key -> {n, me} — REAL cross-user like counts
   const slideRefs = useRef([]);
-  function toggleLike(fid) {
-    const cur = likes[fid] || { n: 0, me: false };
+  function toggleLike(key) {
+    const cur = likes[key] || { n: 0, me: false };
     const next = cur.me ? { n: Math.max(0, cur.n - 1), me: false } : { n: cur.n + 1, me: true };
-    setLikes(p => ({ ...p, [fid]: next })); // optimistic — the write follows in the background
+    setLikes(p => ({ ...p, [key]: next })); // optimistic — the write follows in the background
     playUi("click"); haptic(8);
     sb.auth.getSession().then(({ data }) => {
       const uid = data && data.session && data.session.user && data.session.user.id;
       if (!uid) return;
-      if (cur.me) sb.from("video_likes").delete().eq("user_id", uid).eq("file_id", fid).then(() => {}, () => {});
-      else sb.from("video_likes").insert({ user_id: uid, file_id: fid }).then(() => {}, () => {});
+      if (cur.me) sb.from("video_likes").delete().eq("user_id", uid).eq("file_id", key).then(() => {}, () => {});
+      else sb.from("video_likes").insert({ user_id: uid, file_id: key }).then(() => {}, () => {});
     }, () => {});
   }
 
@@ -4899,14 +4906,6 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
         .order("created_at", { ascending: false });
       if (cancelled) return;
       const rows = error ? [] : (data || []);
-      // Folder rows embed Google's own folder-grid view directly (drive.google.com/
-      // embeddedfolderview) — a supported, reliable Google embed. An earlier version
-      // tried expanding a folder into one slide per file by scraping that same page's
-      // HTML server-side to list its contents, but that scrape depends on Google's
-      // undocumented internal markup for the page; when it mis-parses (or the file it
-      // finds isn't actually playable) the resulting fileId embeds as permanently
-      // broken with nothing to fall back to. The folder grid always works because
-      // it's the same page Google intends people to embed, just shown as-is.
       const out = [];
       for (const r of rows) {
         if (r.drive_folder_id) out.push({ key: r.id, folderId: r.drive_folder_id, title: r.title, desc: r.description });
@@ -4916,7 +4915,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
       setSlides(out);
       if (out.length) setActiveKey(out[0].key);
       // pull the real like counts for every video in one call
-      const ids = [...new Set(out.filter(x => x.fileId).map(x => x.fileId))];
+      const ids = [...new Set(out.map(x => x.key))];
       if (ids.length) {
         sb.rpc("get_video_like_counts", { ids }).then(({ data: lk }) => {
           if (cancelled || !lk) return;
@@ -4953,15 +4952,8 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
     <div className="vidfeed">
       {slides.map((s, i) => (
         <div className="vidslide" key={s.key} data-vid={s.key} ref={el => (slideRefs.current[i] = el)}>
-          {s.folderId ? (
-            activeKey === s.key
-              ? <iframe className="vidplayer" src={`https://drive.google.com/embeddedfolderview?id=${s.folderId}#grid`}
-                  allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
-              : <div className="vidplaceholder">🎬</div>
-          ) : (
-            <VideoSlide s={s} active={activeKey === s.key} lang={lang} onAsk={onAsk}
-              likeN={(likes[s.fileId] || {}).n || 0} likedByMe={!!(likes[s.fileId] || {}).me} onToggleLike={() => toggleLike(s.fileId)} />
-          )}
+          <VideoSlide s={s} active={activeKey === s.key} lang={lang} onAsk={onAsk}
+            likeN={(likes[s.key] || {}).n || 0} likedByMe={!!(likes[s.key] || {}).me} onToggleLike={() => toggleLike(s.key)} />
           <div className="vidtopfade" />
         </div>
       ))}
