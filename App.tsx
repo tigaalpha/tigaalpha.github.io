@@ -4830,15 +4830,6 @@ function driveFolderId(input) {
    viewer's browser), TikTok-style feed. Only the slide currently in view has
    its embed loaded, so at most one video plays at a time and nothing loads
    until it's actually scrolled to. ── */
-// Raw playback candidates for a public Drive file, most-reliable first. <video>
-// elements don't need CORS to play cross-origin media, and drive.usercontent is
-// Google's current direct-download host (confirm=t skips the big-file warning).
-function rawVideoUrls(fileId) {
-  return [
-    `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`,
-    `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`,
-  ];
-}
 // TikTok-style count formatting: 999 → "999", 1400 → "1.4K", 2.3M …
 function fmtLikes(n) {
   if (!n) return "";
@@ -4849,120 +4840,36 @@ function fmtLikes(n) {
 // local bookmark (🔖) state per video
 function readVidFav(id) { try { return !!JSON.parse(localStorage.getItem("tg_vidfavs") || "{}")[id]; } catch (e) { return false; } }
 function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("tg_vidfavs") || "{}"); if (v) m[id] = 1; else delete m[id]; localStorage.setItem("tg_vidfavs", JSON.stringify(m)); } catch (e) {} }
-// One TikTok-style slide: full-bleed native <video>, tap = pause/play, speaker
-// button = mute toggle, thin progress bar. If EVERY raw URL fails (Google
-// changes behavior, file too big to stream, permissions), the slide quietly
-// swaps to Google's own preview player so the lesson still plays no matter what.
-function VideoSlide({ s, active, preload, lang, onEnded, onAsk, likeN, likedByMe, onToggleLike }) {
+// One TikTok-style slide. Plays via Google's own /preview embed — the same
+// officially-supported embed Google provides for third-party sites, and the
+// same mechanism the folder view below already uses reliably. An earlier
+// version tried hotlinking Drive's direct-download URLs into a native
+// <video> tag for a fully custom player; Google does not guarantee that
+// endpoint stays embeddable (permissions, file size, and backend changes all
+// break it silently, with no error event to catch), so it's dropped in favor
+// of the embed Google actually intends people to use.
+function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const vidRef = useRef(null);
-  const barRef = useRef(null);
-  const tapT = useRef(null);
-  const fallbackT = useRef(null);
-  const [srcIdx, setSrcIdx] = useState(0);
-  const [failed, setFailed] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [paused, setPaused] = useState(false);
   const [faved, setFaved] = useState(() => readVidFav(s.fileId));
-  const [hearts, setHearts] = useState([]);
-  const srcs = rawVideoUrls(s.fileId);
-  const mounted = active || preload; // preload: the slide right after active buffers
-  // quietly in the background (muted, hidden, paused) so auto-advance on "ended"
-  // plays the next clip instantly instead of starting its fetch from zero. The
-  // <video> tag stays the SAME element across the preload→active transition
-  // (same JSX position/type below) so the browser's buffered data carries over.
-  useEffect(() => {
-    const v = vidRef.current;
-    if (!v || failed) return;
-    clearTimeout(fallbackT.current);
-    if (active) {
-      v.muted = false; setMuted(false); setPaused(false);
-      const p = v.play();
-      // browsers may veto unmuted autoplay — retry muted with a visible unmute button
-      if (p && p.catch) p.catch(() => { v.muted = true; setMuted(true); v.play().catch(() => {}); });
-      // if video hasn't started playing within 5s (Drive restrictions), fall back to iframe
-      fallbackT.current = setTimeout(() => {
-        const vv = vidRef.current;
-        if (vv && vv.readyState < 2) setFailed(true);
-      }, 5000);
-    } else if (preload) {
-      v.muted = true; // never plays here — just lets the browser buffer ahead
-    }
-    return () => { clearTimeout(tapT.current); clearTimeout(fallbackT.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, preload, failed, srcIdx]);
-  const spawnHeart = (x, y) => {
-    const id = Date.now() + Math.random();
-    setHearts(h => [...h.slice(-5), { id, x, y, rot: -18 + Math.random() * 36 }]);
-    setTimeout(() => setHearts(h => h.filter(o => o.id !== id)), 820);
-  };
-  // TikTok tap grammar: single tap = pause/play, double tap = like + floating heart
-  const onTap = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left, y = e.clientY - rect.top;
-    if (tapT.current) {
-      clearTimeout(tapT.current); tapT.current = null;
-      if (!likedByMe && onToggleLike) onToggleLike();
-      spawnHeart(x, y);
-    } else {
-      tapT.current = setTimeout(() => {
-        tapT.current = null;
-        const v = vidRef.current; if (!v) return;
-        if (v.paused) { v.play().catch(() => {}); setPaused(false); } else { v.pause(); setPaused(true); }
-      }, 260);
-    }
-  };
-  if (!mounted) return <div className="vidplaceholder">🎬</div>;
-  const rail = !active ? null : (
-    <div className="vidrail" onClick={e => e.stopPropagation()}>
-      <button className={`vidact${likedByMe ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); if (onToggleLike) onToggleLike(); }}>
-        <span className="vidact-ic">❤️</span>
-        <span className="vidact-n">{fmtLikes(likeN) || T("ถูกใจ", "Like", "赞")}</span>
-      </button>
-      <button className="vidact" onClick={(e) => { e.stopPropagation(); if (onAsk) onAsk(s.title); }}>
-        <span className="vidact-ic">💬</span>
-        <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
-      </button>
-      <button className={`vidact${faved ? " fav" : ""}`} onClick={(e) => { e.stopPropagation(); const v = !faved; setFaved(v); writeVidFav(s.fileId, v); }}>
-        <span className="vidact-ic">🔖</span>
-        <span className="vidact-n">{T("บันทึก", "Save", "收藏")}</span>
-      </button>
-    </div>
-  );
-  const heartsJsx = hearts.map(hh => (
-    <span key={hh.id} className="vidheart" style={{ left: hh.x - 37, top: hh.y - 37 }}>
-      <span style={{ display: "inline-block", transform: `rotate(${hh.rot}deg)` }}>❤️</span>
-    </span>
-  ));
-  if (failed) {
-    // raw stream unavailable → Google's own player, but only once this slide is
-    // actually active (never show/load an iframe for an off-screen preload slide)
-    if (!active) return <div className="vidplaceholder">🎬</div>;
-    return (
-      <>
-        <iframe className="vidplayer" src={`https://drive.google.com/file/d/${s.fileId}/preview`}
-          allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
-        {rail}
-      </>
-    );
-  }
+  if (!active) return <div className="vidplaceholder">🎬</div>;
   return (
     <>
-      <video ref={vidRef} className="vidplayer" src={srcs[srcIdx]} playsInline preload="auto"
-        style={!active ? { visibility: "hidden" } : undefined}
-        onEnded={() => { if (active && onEnded) onEnded(); }}
-        onError={() => { if (srcIdx + 1 < srcs.length) setSrcIdx(srcIdx + 1); else setFailed(true); }}
-        onTimeUpdate={() => { if (!active) return; const v = vidRef.current, b = barRef.current; if (v && b && v.duration) b.style.width = ((v.currentTime / v.duration) * 100) + "%"; }}
-        onClick={active ? onTap : undefined} />
-      {active && paused && <div className="vidpause">▶</div>}
-      {active && (
-        <button className="vidmute" onClick={(e) => { e.stopPropagation(); const v = vidRef.current; if (!v) return; v.muted = !v.muted; setMuted(v.muted); if (!v.muted) v.play().catch(() => {}); }}>
-          {muted ? "🔇" : "🔊"}
+      <iframe className="vidplayer" src={`https://drive.google.com/file/d/${s.fileId}/preview`}
+        allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
+      <div className="vidrail" onClick={e => e.stopPropagation()}>
+        <button className={`vidact${likedByMe ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); if (onToggleLike) onToggleLike(); }}>
+          <span className="vidact-ic">❤️</span>
+          <span className="vidact-n">{fmtLikes(likeN) || T("ถูกใจ", "Like", "赞")}</span>
         </button>
-      )}
-      {rail}
-      {active && heartsJsx}
-      {active && <div className="vidbar"><span ref={barRef} /></div>}
+        <button className="vidact" onClick={(e) => { e.stopPropagation(); if (onAsk) onAsk(s.title); }}>
+          <span className="vidact-ic">💬</span>
+          <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
+        </button>
+        <button className={`vidact${faved ? " fav" : ""}`} onClick={(e) => { e.stopPropagation(); const v = !faved; setFaved(v); writeVidFav(s.fileId, v); }}>
+          <span className="vidact-ic">🔖</span>
+          <span className="vidact-n">{T("บันทึก", "Save", "收藏")}</span>
+        </button>
+      </div>
     </>
   );
 }
@@ -5052,17 +4959,6 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
       <div className="admstu-empty">{lc.videosEmpty}</div>
     </div>
   );
-  // a finished clip auto-advances the feed to the next slide (binge flow) —
-  // scrolling it into view flips the IntersectionObserver's "active" slide,
-  // which mounts that video and autoplays it. After the last clip, wrap to
-  // the first (instant jump — smooth-scrolling back across 17 slides is dizzy).
-  const advance = (i) => {
-    const next = (i + 1) % slides.length;
-    const el = slideRefs.current[next];
-    if (el) el.scrollIntoView({ behavior: next > i ? "smooth" : "auto", block: "start" });
-  };
-  const activeIdx = slides.findIndex(s => s.key === activeKey);
-  const preloadKey = activeIdx >= 0 ? slides[(activeIdx + 1) % slides.length].key : null;
   return (
     <div className="vidfeed">
       {slides.map((s, i) => (
@@ -5073,7 +4969,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
                   allow="autoplay; encrypted-media" allowFullScreen frameBorder="0" title={s.title} />
               : <div className="vidplaceholder">🎬</div>
           ) : (
-            <VideoSlide s={s} active={activeKey === s.key} preload={preloadKey === s.key} lang={lang} onEnded={() => advance(i)} onAsk={onAsk}
+            <VideoSlide s={s} active={activeKey === s.key} lang={lang} onAsk={onAsk}
               likeN={(likes[s.fileId] || {}).n || 0} likedByMe={!!(likes[s.fileId] || {}).me} onToggleLike={() => toggleLike(s.fileId)} />
           )}
           <div className="vidtopfade" />
