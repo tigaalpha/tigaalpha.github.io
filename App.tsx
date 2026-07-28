@@ -1586,7 +1586,7 @@ function expandSong(song) {
   let beat = 0;
   const notes = [];
   for (const [note, dur] of song.seq) {
-    if (note !== "R") notes.push({ note, t: beat * spb, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0 });
+    if (note !== "R") notes.push({ note, t: beat * spb, beat, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0 });
     beat += dur;
   }
   const lanes = Array.from(new Set(notes.map(n => n.note))).sort((a, b) => noteToMidi(a) - noteToMidi(b));
@@ -5361,26 +5361,45 @@ const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, clef: cl
    C4–B5 (see songs-data.ts), so treble clef alone covers all of it — no
    auto bass-clef switch needed here, unlike StaffNotes above. Colors are
    fixed rather than theme-variable: this sits on the game's own dark
-   starfield canvas regardless of the app's light/dark mode. ── */
+   starfield canvas regardless of the app's light/dark mode.
+   `notes` is a sliding window of {note, beat, state}, state one of
+   past|current|future — already-played, the one to read right now, and
+   what's coming — each rendered in a clearly different color/weight so a
+   learner always knows exactly where they are on the page. Bar lines are
+   drawn wherever the beat count crosses a 4-beat measure boundary (every
+   song in this app is straightforward 4/4, there's no time-signature field
+   to read one from). ── */
 const PlayAlongStaff = memo(function PlayAlongStaff({ notes }) {
-  const list = (notes || []).slice(0, 5);
-  const W = 340, H = 130, baseY = 82, half = 6;
-  const startX = 50, gap = Math.min(56, (W - startX - 20) / Math.max(1, list.length));
+  const list = (notes || []).slice(0, 7);
+  const W = 480, H = 150, baseY = 95, half = 7;
+  const startX = 58, gap = Math.min(64, (W - startX - 20) / Math.max(1, list.length));
+  const lineYs = [0, 2, 4, 6, 8].map(s => baseY - s * half);
+  const COLOR = { past: "rgba(255,255,255,.32)", current: "#ffd166", future: "#d97757" };
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
-      {[0, 2, 4, 6, 8].map((s, i) => { const ly = baseY - s * half; return <line key={i} x1="8" y1={ly} x2={W - 8} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.2" />; })}
-      <text x="8" y={baseY + 4} fontSize="46" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif" }}>&#119070;</text>
+      {lineYs.map((ly, i) => <line key={i} x1="8" y1={ly} x2={W - 8} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.4" />)}
+      <text x="8" y={baseY + 4} fontSize="53" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif" }}>&#119070;</text>
       {list.map((n, i) => {
-        const step = staffStep(n, "treble");
+        const step = staffStep(n.note, "treble");
         const y = baseY - step * half, x = startX + i * gap;
         const ledgers = [];
         for (let s = -2; s >= step; s -= 2) ledgers.push(baseY - s * half);
         for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);
-        const isNext = i === 0;
+        const isCurrent = n.state === "current";
+        const color = COLOR[n.state] || COLOR.future;
+        // a bar line goes just before this note if it starts a new 4-beat measure
+        const prevMeasure = i > 0 ? Math.floor(list[i - 1].beat / 4) : null;
+        const measure = Math.floor(n.beat / 4);
+        const showBar = prevMeasure != null && measure !== prevMeasure;
         return (
-          <g key={i} opacity={isNext ? 1 : 0.5}>
-            {ledgers.map((ly, k) => <line key={k} x1={x - 10} y1={ly} x2={x + 10} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.2" />)}
-            <ellipse cx={x} cy={y} rx={isNext ? 7.5 : 6.5} ry={isNext ? 5.6 : 5} fill={isNext ? "#f5a623" : "#d97757"} transform={`rotate(-18 ${x} ${y})`} />
+          <g key={i}>
+            {showBar && <line x1={x - gap / 2} y1={lineYs[0]} x2={x - gap / 2} y2={lineYs[4]} stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />}
+            {isCurrent && <>
+              <rect className="pastaff-cur" x={x - 15} y={lineYs[4] - 6} width="30" height={lineYs[0] - lineYs[4] + 12} rx="8" fill="#ffd16633" />
+              <path d={`M${x - 8},${H - 10} L${x + 8},${H - 10} L${x},${H - 22} Z`} fill="#ffd166" />
+            </>}
+            {ledgers.map((ly, k) => <line key={k} x1={x - 12} y1={ly} x2={x + 12} y2={ly} stroke={n.state === "past" ? "rgba(255,255,255,.25)" : "rgba(255,255,255,.45)"} strokeWidth="1.4" />)}
+            <ellipse cx={x} cy={y} rx={isCurrent ? 9 : 7.5} ry={isCurrent ? 6.5 : 5.5} fill={color} transform={`rotate(-18 ${x} ${y})`} />
           </g>
         );
       })}
@@ -9497,11 +9516,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         acc: done > 0 ? Math.round(songHitsRef.current / done * 100) : 100,
         progress: Math.round(done / total * 100),
       });
-      // guide: light the next upcoming note on the in-game piano, and feed the
-      // next few notes to the reading staff (sight-reading while playing)
-      const upcoming = songNotesRef.current.filter(n => !n.hit && !n.missed).sort((a, b) => a.t - b.t).slice(0, 5);
-      setSongNextLit(upcoming.length ? upcoming[0].note : null);
-      setSongStaffNotes(upcoming.map(n => n.note));
+      // guide: light the next upcoming note on the in-game piano, and feed a
+      // sliding window (a couple already-played + the current + a few ahead)
+      // to the reading staff so the learner can see where they are, not just
+      // what's next — sight-reading while playing, not just a note preview.
+      const allNotes = songNotesRef.current;
+      let curIdx = allNotes.findIndex(n => !n.hit && !n.missed);
+      if (curIdx === -1) curIdx = allNotes.length;
+      setSongNextLit(curIdx < allNotes.length ? allNotes[curIdx].note : null);
+      const winStart = Math.max(0, curIdx - 2);
+      const winEnd = Math.min(allNotes.length, curIdx + 5);
+      setSongStaffNotes(allNotes.slice(winStart, winEnd).map((n, i) => ({
+        note: n.note, beat: n.beat,
+        state: (winStart + i) < curIdx ? "past" : (winStart + i) === curIdx ? "current" : "future",
+      })));
       // ghost race vs your best run
       const st = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
       songSamplesRef.current.push({ t: +st.toFixed(2), s: songScoreRef.current });
