@@ -615,6 +615,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .songhud .hot b{color:#d97757;text-shadow:0 0 10px #ff5252}
 .songprog{height:5px;background:var(--card3);flex-shrink:0}
 .songprog>div{height:100%;background: #d97757;transition:width .15s}
+.songstaffwrap{flex-shrink:0;padding:4px 0;background:#000}
+.pastaff{width:100%;height:76px;display:block}
 .songstage{position:relative;flex:1;min-height:0;overflow:hidden}
 .songcanvas{width:100%;height:100%;display:block}
 .songcount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:90px;font-weight:900;color:#fff;text-shadow:0 0 40px #d97757;animation:popcount .9s ease-out;pointer-events:none}

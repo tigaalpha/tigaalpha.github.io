@@ -5355,6 +5355,39 @@ const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, clef: cl
   );
 });
 
+/* ── Reading staff overlaid on the Play Along falling-notes stage — the same
+   note stream driving the game, shown left-to-right on a standard staff so
+   every song doubles as sight-reading practice. Every song stays within
+   C4–B5 (see songs-data.ts), so treble clef alone covers all of it — no
+   auto bass-clef switch needed here, unlike StaffNotes above. Colors are
+   fixed rather than theme-variable: this sits on the game's own dark
+   starfield canvas regardless of the app's light/dark mode. ── */
+const PlayAlongStaff = memo(function PlayAlongStaff({ notes }) {
+  const list = (notes || []).slice(0, 5);
+  const W = 340, H = 130, baseY = 82, half = 6;
+  const startX = 50, gap = Math.min(56, (W - startX - 20) / Math.max(1, list.length));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
+      {[0, 2, 4, 6, 8].map((s, i) => { const ly = baseY - s * half; return <line key={i} x1="8" y1={ly} x2={W - 8} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.2" />; })}
+      <text x="8" y={baseY + 4} fontSize="46" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif" }}>&#119070;</text>
+      {list.map((n, i) => {
+        const step = staffStep(n, "treble");
+        const y = baseY - step * half, x = startX + i * gap;
+        const ledgers = [];
+        for (let s = -2; s >= step; s -= 2) ledgers.push(baseY - s * half);
+        for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);
+        const isNext = i === 0;
+        return (
+          <g key={i} opacity={isNext ? 1 : 0.5}>
+            {ledgers.map((ly, k) => <line key={k} x1={x - 10} y1={ly} x2={x + 10} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.2" />)}
+            <ellipse cx={x} cy={y} rx={isNext ? 7.5 : 6.5} ry={isNext ? 5.6 : 5} fill={isNext ? "#f5a623" : "#d97757"} transform={`rotate(-18 ${x} ${y})`} />
+          </g>
+        );
+      })}
+    </svg>
+  );
+});
+
 /* ── Leaderboard (top players by EXP) — privacy-safe RPC, names + stats only ── */
 const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
   const lc = L[lang];
@@ -8590,6 +8623,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const luckyToastTimer = useRef<any>(null);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
   const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
+  const [songStaffNotes, setSongStaffNotes] = useState([]); // upcoming notes shown on the reading staff
   const [songBest, setSongBest] = useState(0);
   const [songBursts, setSongBursts] = useState([]);   // particle bursts
   const [songShake, setSongShake] = useState(false);  // screen shake on milestones
@@ -9463,10 +9497,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         acc: done > 0 ? Math.round(songHitsRef.current / done * 100) : 100,
         progress: Math.round(done / total * 100),
       });
-      // guide: light the next upcoming note on the in-game piano
-      let nx = null, nxt = 1e9;
-      for (const n of songNotesRef.current) { if (n.hit || n.missed) continue; if (n.t < nxt) { nxt = n.t; nx = n; } }
-      setSongNextLit(nx ? nx.note : null);
+      // guide: light the next upcoming note on the in-game piano, and feed the
+      // next few notes to the reading staff (sight-reading while playing)
+      const upcoming = songNotesRef.current.filter(n => !n.hit && !n.missed).sort((a, b) => a.t - b.t).slice(0, 5);
+      setSongNextLit(upcoming.length ? upcoming[0].note : null);
+      setSongStaffNotes(upcoming.map(n => n.note));
       // ghost race vs your best run
       const st = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
       songSamplesRef.current.push({ t: +st.toFixed(2), s: songScoreRef.current });
@@ -9489,6 +9524,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setSongResult(null);
     setSongCountdown(null);
     setSongNextLit(null);
+    setSongStaffNotes([]);
     setSongJudge(null);
     setSongBursts([]); setSongShake(false); setSongGo(false); setSongGhost(null); setSongBonus(null);
     songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
@@ -9830,6 +9866,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     bumpWeekly("games", 1); if (perfects) bumpWeekly("perfect", perfects);
     setSongCountdown(null);
     setSongNextLit(null);
+    setSongStaffNotes([]);
     const missedNotes = songNotesRef.current.filter(n => n.missed).map(n => n.note);
     if (missedNotes.length) recordNoteMisses(missedNotes);
     setSongResult({ acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes });
@@ -11963,6 +12000,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 {songGhost && <span className={`ghoststat ${songGhost.diff >= 0 ? "ahead" : "behind"}`}>👻 {songGhost.diff >= 0 ? "▲" : "▼"}{Math.abs(songGhost.diff)}</span>}
               </div>
               <div className="songprog"><div style={{ width: songHud.progress + "%" }} /></div>
+              <div className="songstaffwrap"><PlayAlongStaff notes={songStaffNotes} /></div>
             </>
           )}
 
