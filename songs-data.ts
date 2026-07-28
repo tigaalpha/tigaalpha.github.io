@@ -1377,3 +1377,11 @@ export const SONG_GENRES: Record<string, string> = {
   wild_horse_sch:"classical", violin_men:"classical", tristesse_ch:"classical",
   promenade_mus:"classical",
 };
+
+// Time signature shown on the Play Along reading staff. Only pieces whose
+// meter is true by the form itself (minuets and waltzes are triple meter by
+// definition, as is "The Blue Danube" specifically) are marked — everything
+// else defaults to 4/4 rather than guessing at an unverified meter.
+export const SONG_TIMESIG: Record<string, string> = {
+  minuet_g: "3/4", minuet_boc: "3/4", waltz_min: "3/4", blue_danube: "3/4",
+};

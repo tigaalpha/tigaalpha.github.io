@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } fro
 import { createClient } from "@supabase/supabase-js";
 import qrcode from "qrcode-generator";
 import { PATHWAY } from "./pathway-data";
-import { SONGS, SONG_GENRES } from "./songs-data";
+import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
 
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
@@ -5366,19 +5366,31 @@ const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, clef: cl
    past|current|future — already-played, the one to read right now, and
    what's coming — each rendered in a clearly different color/weight so a
    learner always knows exactly where they are on the page. Bar lines are
-   drawn wherever the beat count crosses a 4-beat measure boundary (every
-   song in this app is straightforward 4/4, there's no time-signature field
-   to read one from). ── */
-const PlayAlongStaff = memo(function PlayAlongStaff({ notes }) {
+   drawn wherever the beat count crosses a measure boundary, using the
+   song's own time signature (SONG_TIMESIG, defaulting to 4/4).
+   Key signature: every song's notes are natural-only (no sharps/flats
+   anywhere in songs-data.ts, by this app's own beginner-friendly design),
+   so the true key signature is always empty (C major/A minor) — drawing
+   sharp/flat glyphs here would be actively wrong. Instead this shows a
+   plain "Key: <letter>" label using the song's last note as its tonic
+   (the same beginner heuristic — "a tune usually resolves home" — the
+   AI-accompaniment backing chords already use via songTonic()). ── */
+const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta }) {
   const list = (notes || []).slice(0, 7);
-  const W = 480, H = 150, baseY = 95, half = 7;
-  const startX = 58, gap = Math.min(64, (W - startX - 20) / Math.max(1, list.length));
+  const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
+  const beatsPerBar = parseInt(timeSig.split("/")[0], 10) || 4;
+  const keyName = songMeta ? songTonic(songMeta) : "C";
+  const W = 520, H = 150, baseY = 95, half = 7;
+  const startX = 92, gap = Math.min(64, (W - startX - 20) / Math.max(1, list.length));
   const lineYs = [0, 2, 4, 6, 8].map(s => baseY - s * half);
   const COLOR = { past: "rgba(255,255,255,.32)", current: "#ffd166", future: "#d97757" };
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
+      <text x="8" y="20" fontSize="14" fill="rgba(255,255,255,.6)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>Key: {keyName}</text>
       {lineYs.map((ly, i) => <line key={i} x1="8" y1={ly} x2={W - 8} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.4" />)}
       <text x="8" y={baseY + 4} fontSize="53" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif" }}>&#119070;</text>
+      <text x="64" y={lineYs[3] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[0]}</text>
+      <text x="64" y={lineYs[1] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[1]}</text>
       {list.map((n, i) => {
         const step = staffStep(n.note, "treble");
         const y = baseY - step * half, x = startX + i * gap;
@@ -5387,9 +5399,9 @@ const PlayAlongStaff = memo(function PlayAlongStaff({ notes }) {
         for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);
         const isCurrent = n.state === "current";
         const color = COLOR[n.state] || COLOR.future;
-        // a bar line goes just before this note if it starts a new 4-beat measure
-        const prevMeasure = i > 0 ? Math.floor(list[i - 1].beat / 4) : null;
-        const measure = Math.floor(n.beat / 4);
+        // a bar line goes just before this note if it starts a new measure
+        const prevMeasure = i > 0 ? Math.floor(list[i - 1].beat / beatsPerBar) : null;
+        const measure = Math.floor(n.beat / beatsPerBar);
         const showBar = prevMeasure != null && measure !== prevMeasure;
         return (
           <g key={i}>
@@ -12028,7 +12040,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 {songGhost && <span className={`ghoststat ${songGhost.diff >= 0 ? "ahead" : "behind"}`}>👻 {songGhost.diff >= 0 ? "▲" : "▼"}{Math.abs(songGhost.diff)}</span>}
               </div>
               <div className="songprog"><div style={{ width: songHud.progress + "%" }} /></div>
-              <div className="songstaffwrap"><PlayAlongStaff notes={songStaffNotes} /></div>
+              <div className="songstaffwrap"><PlayAlongStaff notes={songStaffNotes} songMeta={songMeta} /></div>
             </>
           )}
 
