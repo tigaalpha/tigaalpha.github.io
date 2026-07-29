@@ -37,7 +37,24 @@ export function MultiChannelPost() {
 
   async function loadQueue() {
     try {
-      const response = await fetch("/api/social-posts");
+      const { createClient } = await import("@/services/supabase/client");
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) return;
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/social-posts`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
       if (response.ok) {
         const data = await response.json();
         setQueue(data.posts || []);
@@ -55,11 +72,26 @@ export function MultiChannelPost() {
     if (!content.trim() || selected.length === 0) return;
     setLoading(true);
     try {
-      const response = await fetch("/api/social-posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: content.trim(), platforms: selected }),
-      });
+      const { createClient } = await import("@/services/supabase/client");
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/social-posts`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content: content.trim(), platforms: selected }),
+        }
+      );
+
       if (response.ok) {
         const data = await response.json();
         setQueue((prev) => [data.post, ...prev]);
@@ -81,8 +113,28 @@ export function MultiChannelPost() {
 
   async function deletePost(id: string) {
     try {
-      await fetch(`/api/social-posts/${id}`, { method: "DELETE" });
-      setQueue((prev) => prev.filter((p) => p.id !== id));
+      const { createClient } = await import("@/services/supabase/client");
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/social-posts-delete?id=${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        setQueue((prev) => prev.filter((p) => p.id !== id));
+      }
     } catch (error) {
       console.error("Failed to delete post:", error);
     }
@@ -134,7 +186,7 @@ export function MultiChannelPost() {
             </div>
           </div>
 
-          <Button className="w-full" onClick={handleQueue} disabled={!content.trim() || selected.length === 0 || loading} loading={loading}>
+          <Button className="w-full" onClick={handleQueue} disabled={!content.trim() || selected.length === 0 || loading}>
             <Share2 className="h-4 w-4" />
             {loading ? "กำลังคิว..." : `คิวโพสต์ (${selected.length})`}
           </Button>
@@ -154,7 +206,7 @@ export function MultiChannelPost() {
                     <Clock className="h-3 w-3" />
                     {new Date(item.created_at).toLocaleString("th-TH")}
                   </span>
-                  <Badge variant={item.status === "success" ? "success" : item.status === "failed" ? "destructive" : "warning"}>
+                  <Badge variant={item.status === "success" ? "success" : item.status === "failed" ? "danger" : "warning"}>
                     {item.status === "queued" && "รอโพสต์"}
                     {item.status === "posting" && "กำลังโพสต์"}
                     {item.status === "success" && "โพสต์แล้ว"}
