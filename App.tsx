@@ -13118,7 +13118,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         {b2bYearNote("plus")}
                         <ul className="prfeat"><li>{lc.prMax2}</li><li>{lc.prMax4}</li></ul>
                         <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
-                        <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk3}</li><li>{lc.prB2bPerk4}</li></ul>
+                        <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk4}</li></ul>
                         <button className="songbtn go" onClick={() => { setPricingOpen(false); setSchoolCheckout({ tier: "plus" }); }}>{lc.prB2bCta}</button>
                       </div>
 
@@ -13134,7 +13134,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         {b2bYearNote("standard")}
                         <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li><li>{lc.prF4}</li></ul>
                         <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
-                        <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk3}</li><li>{lc.prB2bPerk4}</li></ul>
+                        <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk4}</li></ul>
                         <button className="songbtn go" onClick={() => { setPricingOpen(false); setSchoolCheckout({ tier: "standard" }); }}>{lc.prB2bCta}</button>
                       </div>
 
