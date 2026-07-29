@@ -2287,6 +2287,7 @@ const L = {
     aiHumBtn: "🎤 เล่นโน้ต — AI แปลงเป็นบรรยาย", aiHumStop: "หยุดฟัง", aiHumHint: "เล่นท่อนสั้นๆ แล้ว AI จะใช้โน้ตนั้นสร้างเพลง",
     commuteTitle: "ฟังทฤษฎีดนตรี", commuteSub: "ฟังบทเรียนขณะเดินทาง ไม่ต้องดูหน้าจอ", commuteStop: "หยุดเสียง", commutePlaying: "กำลังอ่าน…",
     kruTitle: "โหมดครู / Kru Mode", kruSub: "จัดการชั้นเรียน + ส่ง assignment code", kruClass: "รายชื่อนักเรียน", kruCode: "สร้างโค้ด", kruEnter: "ใช้โค้ด", kruAddPh: "ชื่อนักเรียน", kruAdd: "เพิ่ม", kruAssign: "เพลงที่มอบหมาย", kruMakeCode: "สร้างโค้ด", kruCopied: "คัดลอกแล้ว!", kruPastePh: "วางโค้ด assignment", kruApply: "เปิดเพลง", kruNoSong: "เลือกเพลงก่อน", kruBadCode: "โค้ดไม่ถูกต้อง", kruNoStudents: "ยังไม่มีนักเรียน",
+    schoolDashTitle: "แดชบอร์ดโรงเรียน", schoolDashSub: "ดูพัฒนาการนักเรียนจริง มอบหมายเพลงได้ทันที", schoolRoster: "รายชื่อนักเรียน", schoolInvite: "เชิญเข้าร่วม", schoolSeats: "ที่นั่ง", schoolCode: "โค้ดเข้าร่วม", schoolCodeHint: "ให้นักเรียนกรอกโค้ดนี้ในโหมดครูของแอพ เพื่อเชื่อมบัญชีเข้าโรงเรียน", schoolCodeCopy: "คัดลอกโค้ด", schoolCodeRegen: "สร้างโค้ดใหม่", schoolAddByEmail: "เพิ่มด้วยอีเมล", schoolAddByEmailPh: "อีเมลที่เคยเข้าสู่ระบบ TiGA แล้ว", schoolAddBtn: "เพิ่ม", schoolAssignBtn: "มอบหมายเพลงนี้", schoolAssignedTo: "มอบหมายล่าสุด", schoolAckYes: "ฝึกแล้ว", schoolAckNo: "ยังไม่ฝึก", schoolRemoveBtn: "นำออกจากโรงเรียน", schoolRemoveConfirm: "นำนักเรียนคนนี้ออกจากโรงเรียน?", schoolMyCard: "โรงเรียนของฉัน", schoolMyRoleTeacher: "ครู", schoolMyRoleStudent: "นักเรียน", schoolLeaveBtn: "ออกจากโรงเรียน", schoolNoRoster: "ยังไม่มีนักเรียนในโรงเรียนนี้", hwFromTeacher: "การบ้านจากครู", schoolBack: "ย้อนกลับ",
     recRecord: "อัดเสียง", recStop: "หยุดอัด", recPlay: "เล่นที่อัด", recPlaying: "กำลังเล่น…",
     demoPause: "หยุดเสียงโชว์", demoPlay: "เล่นโชว์อีกครั้ง",
     recCritique: "ให้ครูติชม", recCritiqueUser: "🎙️ ครูครับ ช่วยฟังที่ผมเพิ่งเล่นแล้วติชมหน่อยครับ ว่าเล่นถูกไหม จังหวะเป็นยังไง ควรปรับอะไร",
@@ -2409,6 +2410,7 @@ const L = {
     aiHumBtn: "🎤 Play notes — AI transcribes", aiHumStop: "Stop", aiHumHint: "Play a short phrase on your piano — AI uses those notes to create a song",
     commuteTitle: "Commute Lessons", commuteSub: "Listen to theory — no screen needed", commuteStop: "Stop audio", commutePlaying: "Playing…",
     kruTitle: "Kru / Teacher Mode", kruSub: "Manage a class & share assignment codes", kruClass: "Class roster", kruCode: "Make code", kruEnter: "Use code", kruAddPh: "Student name", kruAdd: "Add", kruAssign: "Assigned song", kruMakeCode: "Generate code", kruCopied: "Copied!", kruPastePh: "Paste assignment code", kruApply: "Open song", kruNoSong: "Pick a song first", kruBadCode: "Invalid code", kruNoStudents: "No students yet",
+    schoolDashTitle: "School Dashboard", schoolDashSub: "Real student progress, assign songs instantly", schoolRoster: "Roster", schoolInvite: "Invite", schoolSeats: "seats", schoolCode: "Join code", schoolCodeHint: "Have students enter this code in the app's Kru Mode to link their account to your school", schoolCodeCopy: "Copy code", schoolCodeRegen: "Regenerate", schoolAddByEmail: "Add by email", schoolAddByEmailPh: "Email already signed into TiGA", schoolAddBtn: "Add", schoolAssignBtn: "Assign this song", schoolAssignedTo: "Latest assignment", schoolAckYes: "Practiced", schoolAckNo: "Not yet", schoolRemoveBtn: "Remove from school", schoolRemoveConfirm: "Remove this student from the school?", schoolMyCard: "My School", schoolMyRoleTeacher: "Teacher", schoolMyRoleStudent: "Student", schoolLeaveBtn: "Leave school", schoolNoRoster: "No students in this school yet", hwFromTeacher: "Assigned by your teacher", schoolBack: "Back",
     recRecord: "Record", recStop: "Stop", recPlay: "Play back", recPlaying: "Playing…",
     demoPause: "Pause demo", demoPlay: "Play demo again",
     recCritique: "Get feedback", recCritiqueUser: "🎙️ Teacher, please listen to what I just played and give feedback — was it right, how was the timing, what should I improve?",
@@ -2531,6 +2533,7 @@ const L = {
     aiHumBtn: "🎤 弹奏音符 — AI识谱", aiHumStop: "停止", aiHumHint: "在键盘弹几个音 — AI用这些音创作歌曲",
     commuteTitle: "通勤乐理课", commuteSub: "边通勤边听音乐理论课", commuteStop: "停止播放", commutePlaying: "播放中…",
     kruTitle: "教师模式", kruSub: "管理班级 + 分配练习码", kruClass: "班级名单", kruCode: "生成码", kruEnter: "使用码", kruAddPh: "学生姓名", kruAdd: "添加", kruAssign: "指定歌曲", kruMakeCode: "生成练习码", kruCopied: "已复制!", kruPastePh: "粘贴练习码", kruApply: "打开歌曲", kruNoSong: "请先选择歌曲", kruBadCode: "无效码", kruNoStudents: "还没有学生",
+    schoolDashTitle: "学校仪表盘", schoolDashSub: "查看真实学生进度，立即布置曲目", schoolRoster: "名单", schoolInvite: "邀请", schoolSeats: "席位", schoolCode: "加入码", schoolCodeHint: "让学生在教师模式中输入此码，即可关联到你的学校", schoolCodeCopy: "复制码", schoolCodeRegen: "重新生成", schoolAddByEmail: "用邮箱添加", schoolAddByEmailPh: "已登录过TiGA的邮箱", schoolAddBtn: "添加", schoolAssignBtn: "布置这首曲子", schoolAssignedTo: "最新布置", schoolAckYes: "已练习", schoolAckNo: "尚未练习", schoolRemoveBtn: "移出学校", schoolRemoveConfirm: "确定将该学生移出学校？", schoolMyCard: "我的学校", schoolMyRoleTeacher: "教师", schoolMyRoleStudent: "学生", schoolLeaveBtn: "退出学校", schoolNoRoster: "该学校暂无学生", hwFromTeacher: "教师布置的作业", schoolBack: "返回",
     recRecord: "录制", recStop: "停止", recPlay: "回放", recPlaying: "播放中…",
     demoPause: "暂停示范", demoPlay: "再次播放示范",
     recCritique: "请老师点评", recCritiqueUser: "🎙️ 老师，请听听我刚才弹的，给点评价——弹得对吗？节奏如何？该改进什么？",
@@ -3876,7 +3879,7 @@ const CHORD_MOODS = [
 const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onPlay = null, onParent = null,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
-  mysteryChest = null, setMysteryChest, luckyToast = null }) {
+  mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan);
@@ -3995,16 +3998,21 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   function kruMakeCode(songId: string): string {
     try { return btoa(JSON.stringify({ v: 1, t: "song", id: songId })); } catch { return ""; }
   }
-  function kruUseCode(code: string) {
+  async function kruUseCode(code: string) {
     setKruMsg("");
+    const raw = code.trim();
     try {
-      const obj = JSON.parse(atob(code.trim()));
+      const obj = JSON.parse(atob(raw));
       if (obj.t === "song") {
         const s = SONGS.find((x: any) => x.id === obj.id);
         if (s) { setKruOpen(false); onPlay && onPlay(s); return; }
       }
-      setKruMsg(T("โค้ดไม่ถูกต้อง", "Invalid code", "无效码"));
-    } catch { setKruMsg(T("โค้ดไม่ถูกต้อง", "Invalid code", "无效码")); }
+    } catch {}
+    // Not a song-assignment code — try it as a real school join code (School Plan Pro).
+    const { data, error } = await sb.rpc("school_join", { p_code: raw });
+    if (error) { setKruMsg(T("โค้ดไม่ถูกต้อง", "Invalid code", "无效码")); return; }
+    setKruOpen(false);
+    onSchoolJoined && onSchoolJoined(data);
   }
 
   // B1: SRS — how many topics are due for review
@@ -7304,6 +7312,341 @@ function AdminStudents({ lang, viewerTier }) {
   );
 }
 
+/* ── School Dashboard (teacher-facing, School Plan Pro) — tenant-scoped roster,
+   real per-student progress, real cross-device song assignments. Reached only
+   via a hidden link handed to onboarded teachers directly, never a nav item —
+   but that hidden link is a discoverability veil, not the real lock: every
+   RPC re-checks is_school_teacher() against the school_members table server
+   side, so a teacher structurally cannot see another studio's roster even if
+   they somehow found this page. ── */
+const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const lc = L[lang];
+  const schoolId = profile.school_id;
+  const [tab, setTab] = useState("roster");
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState("");
+  const [sel, setSel] = useState(null);
+  const [q, setQ] = useState("");
+  const [school, setSchool] = useState(null);
+  const [assignSong, setAssignSong] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState("student");
+  const [addMsg, setAddMsg] = useState("");
+
+  const load = useCallback(() => {
+    setErr(""); setRows(null);
+    sb.rpc("school_roster", { p_school_id: schoolId }).then(({ data, error }) => {
+      if (error) { setErr(error.message || "error"); setRows([]); return; }
+      const r = (data || []).slice().sort((a, b) => (b.role || "").localeCompare(a.role || "") || (b.last_active || "").localeCompare(a.last_active || ""));
+      setRows(r);
+    }, (e) => { setErr("" + (e && e.message || e)); setRows([]); });
+  }, [schoolId]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    sb.from("schools").select("*").eq("id", schoolId).maybeSingle().then(({ data }) => setSchool(data || null));
+  }, [schoolId]);
+
+  async function assign() {
+    if (!sel || !assignSong) return; setBusy(true);
+    const { error } = await sb.rpc("school_assign_song", { p_member_id: sel.member_id, p_song_id: assignSong });
+    setBusy(false); if (!error) { setAssignSong(""); load(); }
+  }
+  async function removeMember() {
+    if (!sel) return;
+    if (!window.confirm(lc.schoolRemoveConfirm)) return;
+    setBusy(true);
+    const { error } = await sb.rpc("school_remove_member", { p_member_id: sel.member_id });
+    setBusy(false); if (!error) { setSel(null); load(); }
+  }
+  async function addByEmail() {
+    if (!addEmail.trim()) return; setBusy(true); setAddMsg("");
+    const { error } = await sb.rpc("school_add_member_by_email", { p_school_id: schoolId, p_email: addEmail.trim(), p_role: addRole });
+    setBusy(false);
+    if (error) { setAddMsg(error.message || "error"); return; }
+    setAddEmail(""); setAddMsg(lc.schoolAddBtn + " ✓"); load();
+  }
+  async function regenCode() {
+    setBusy(true);
+    const { data, error } = await sb.rpc("school_rotate_join_code", { p_school_id: schoolId });
+    setBusy(false); if (!error && data) setSchool(s => s ? { ...s, join_code: data } : s);
+  }
+  function copyCode() {
+    if (!school) return;
+    try { navigator.clipboard.writeText(school.join_code); } catch {}
+  }
+
+  if (rows === null) return <div className="admstu"><div className="admstu-msg">⏳ {T("กำลังโหลด...", "Loading...", "正在加载...")}</div></div>;
+
+  if (sel) {
+    const li = levelInfo(sel.exp || 0);
+    const pr = sel.progress || {};
+    const sum = pr.summary || {};
+    const mem = pr.memory || {};
+    const struggles = (mem.struggles || []).slice(0, 8);
+    const mastered = (mem.mastered || []).slice(0, 12);
+    const plog = pr.practiceLog || {};
+    const Stat = (num, lbl) => <div className="pd-stat"><div className="pd-num">{num}</div><div className="pd-lbl">{lbl}</div></div>;
+    return (
+      <div className="admstu schooldash">
+        <button className="admstu-back" onClick={() => setSel(null)}>‹ {T("กลับ", "Back", "返回")}</button>
+        <div className="admstu-head">
+          <div className="admstu-av">{(sel.full_name || sel.email || "?").trim().charAt(0).toUpperCase()}</div>
+          <div>
+            <div className="admstu-nm">{sel.full_name || "—"} <span className="schoolrole-badge">{sel.role === "teacher" ? lc.schoolMyRoleTeacher : lc.schoolMyRoleStudent}</span></div>
+            <div className="admstu-em">{sel.email || "—"}</div>
+            <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
+          </div>
+        </div>
+        {sel.role === "student" && (
+          <div className="admmg">
+            <div className="admmg-h">🎵 {lc.schoolAssignBtn}</div>
+            {sel.assigned_song_id && (
+              <div className="admmg-cur">{lc.schoolAssignedTo}: <b>{tr(SONGS.find(s => s.id === sel.assigned_song_id), lang) || sel.assigned_song_id}</b>
+                {" · "}{sel.ack_at ? "✅ " + lc.schoolAckYes : "⏳ " + lc.schoolAckNo}</div>
+            )}
+            <div className="admmg-row">
+              <select className="admmg-sel" value={assignSong} onChange={e => setAssignSong(e.target.value)}>
+                <option value="">{T("เลือกเพลง...", "Select a song...", "选择歌曲...")}</option>
+                {SONGS.map(s => <option key={s.id} value={s.id}>{tr(s, lang)}</option>)}
+              </select>
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy || !assignSong} onClick={assign}>🎵 {lc.schoolAssignBtn}</button>
+          </div>
+        )}
+        <div className="pd-stats">
+          {Stat((sel.exp || 0).toLocaleString(), "EXP")}
+          {Stat(sel.lessons_done || 0, T("บทเรียน", "Lessons", "课程"))}
+          {Stat((sel.streak || 0) + "🔥", T("ต่อเนื่อง", "Streak", "连续"))}
+          {Stat(sum.games || (pr.gameLog || []).length || 0, T("เล่นเกม", "Games", "游戏"))}
+          {Stat((sum.avgAcc || 0) + "%", T("แม่นยำเฉลี่ย", "Avg acc", "平均准确"))}
+        </div>
+        <ProgressDashboard lang={lang} plog={plog} gameLog={pr.gameLog || []} />
+        {struggles.length > 0 && <><div className="admstu-sec">{T("ต้องฝึกเพิ่ม", "Needs work", "需加强")}</div><div className="pd-tags">{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label || s}</span>)}</div></>}
+        {mastered.length > 0 && <><div className="admstu-sec">{T("ทำได้ดีแล้ว", "Mastered", "已掌握")}</div><div className="pd-tags">{mastered.map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
+        {sel.role === "student" && (
+          <button className="songbtn ghost" style={{ width: "100%", marginTop: 12 }} disabled={busy} onClick={removeMember}>✕ {lc.schoolRemoveBtn}</button>
+        )}
+      </div>
+    );
+  }
+
+  const list = rows.filter(r => { const s = ((r.full_name || "") + " " + (r.email || "")).toLowerCase(); return s.includes(q.toLowerCase()); });
+  const studentCount = rows.filter(r => r.role === "student").length;
+  return (
+    <div className="admstu schooldash">
+      <div className="schoolhdr">
+        <button className="admstu-back" onClick={onBack}>‹ {lc.schoolBack}</button>
+        <div className="admstu-nm">🏫 {(school && school.name) || lc.schoolDashTitle}</div>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--muted)", margin: "2px 0 10px" }}>{lc.schoolDashSub}</div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {["roster", "invite"].map(t => (
+          <button key={t} className={`songfilter${tab === t ? " on" : ""}`} onClick={() => setTab(t)}>
+            {t === "roster" ? lc.schoolRoster : lc.schoolInvite}
+          </button>
+        ))}
+      </div>
+
+      {tab === "roster" && (<>
+        {school && <div className="schoolseat">{studentCount}/{school.seat_quota} {lc.schoolSeats}</div>}
+        <div className="admstu-top">
+          <input className="admstu-search" value={q} onChange={e => setQ(e.target.value)} placeholder={T("ค้นหานักเรียน...", "Search students...", "搜索学生...")} />
+          <button className="admstu-refresh" onClick={load}>↻</button>
+        </div>
+        {err && <div className="admstu-err">{err}</div>}
+        <div className="admstu-list">
+          {list.map(r => {
+            const li = levelInfo(r.exp || 0);
+            return (
+              <button key={r.member_id} className="admstu-row" onClick={() => setSel(r)}>
+                <div className="admstu-av sm">{(r.full_name || r.email || "?").trim().charAt(0).toUpperCase()}</div>
+                <div className="admstu-row-body">
+                  <div className="admstu-row-nm">{r.full_name || r.email || "—"} <span className="schoolrole-badge">{r.role === "teacher" ? lc.schoolMyRoleTeacher : lc.schoolMyRoleStudent}</span></div>
+                  <div className="admstu-row-meta">Lv {li.level} · {(r.exp || 0).toLocaleString()} EXP · {(r.streak || 0)}🔥{r.assigned_song_id ? " · " + (r.ack_at ? "✅" : "⏳") + " " + (tr(SONGS.find(s => s.id === r.assigned_song_id), lang) || r.assigned_song_id) : ""}</div>
+                  <div className="admstu-row-sub">{r.email}{r.last_active ? " · " + r.last_active : ""}</div>
+                </div>
+                <span className="admstu-row-go">›</span>
+              </button>
+            );
+          })}
+          {!list.length && <div className="admstu-empty">{lc.schoolNoRoster}</div>}
+        </div>
+      </>)}
+
+      {tab === "invite" && (<>
+        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>{lc.schoolCodeHint}</div>
+        {school && <div className="schoolcode">{school.join_code}</div>}
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button className="songbtn go" style={{ flex: 1 }} onClick={copyCode}>📋 {lc.schoolCodeCopy}</button>
+          <button className="songbtn ghost" style={{ flex: 1 }} disabled={busy} onClick={regenCode}>↻ {lc.schoolCodeRegen}</button>
+        </div>
+        <div className="admmg" style={{ marginTop: 16 }}>
+          <div className="admmg-h">✉️ {lc.schoolAddByEmail}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input className="aicreate-in" style={{ flex: 1 }} value={addEmail} onChange={e => { setAddEmail(e.target.value); setAddMsg(""); }} placeholder={lc.schoolAddByEmailPh} />
+            <select className="admmg-sel" style={{ maxWidth: 110 }} value={addRole} onChange={e => setAddRole(e.target.value)}>
+              <option value="student">{lc.schoolMyRoleStudent}</option>
+              <option value="teacher">{lc.schoolMyRoleTeacher}</option>
+            </select>
+          </div>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy || !addEmail.trim()} onClick={addByEmail}>➕ {lc.schoolAddBtn}</button>
+          {addMsg && <div style={{ textAlign: "center", color: "var(--accent)", fontSize: 13, marginTop: 6 }}>{addMsg}</div>}
+        </div>
+      </>)}
+    </div>
+  );
+});
+
+/* ── Admin: Schools — staff-facing B2B provisioning (School Plan Pro). Tier ≥1
+   can view (same floor as AdminStudents), tier ≥3 can create/renew/adjust seats
+   (same floor as plan changes there). ── */
+function AdminSchools({ lang, viewerTier }) {
+  const tier = viewerTier || 0;
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPlan, setNewPlan] = useState("school_standard");
+  const [newSeats, setNewSeats] = useState(15);
+  const [newTeacherSeats, setNewTeacherSeats] = useState(3);
+  const [newDays, setNewDays] = useState(365);
+  const [msg, setMsg] = useState("");
+  const [sel, setSel] = useState(null);
+  const [seatEdit, setSeatEdit] = useState(0);
+  const [teacherSeatEdit, setTeacherSeatEdit] = useState(0);
+  const [renewPlan, setRenewPlan] = useState("school_standard");
+  const [renewDays, setRenewDays] = useState(365);
+
+  const load = useCallback(() => {
+    setErr(""); setRows(null);
+    sb.rpc("admin_list_schools").then(({ data, error }) => {
+      if (error) { setErr(error.message || "error"); setRows([]); return; }
+      setRows((data || []).slice());
+    }, (e) => { setErr("" + (e && e.message || e)); setRows([]); });
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function createSchool() {
+    if (!newName.trim() || !newEmail.trim()) return;
+    setBusy(true); setMsg("");
+    const { error } = await sb.rpc("admin_create_school", {
+      p_name: newName.trim(), p_owner_email: newEmail.trim(), p_plan: newPlan,
+      p_seat_quota: Number(newSeats) || 0, p_teacher_seat_quota: Number(newTeacherSeats) || 3, p_days: Number(newDays) || 365,
+    });
+    setBusy(false);
+    if (error) { setMsg(error.message || "error"); return; }
+    setNewName(""); setNewEmail(""); setNewSeats(15); setShowNew(false); load();
+  }
+  function openSchool(s) {
+    setSel(s); setSeatEdit(s.seat_quota); setTeacherSeatEdit(s.teacher_seat_quota); setRenewPlan(s.plan); setRenewDays(365);
+  }
+  async function saveSeats() {
+    if (!sel) return; setBusy(true);
+    const { error } = await sb.rpc("admin_set_school_seats", { p_school_id: sel.id, p_seat_quota: Number(seatEdit) || 0, p_teacher_seat_quota: Number(teacherSeatEdit) || 0 });
+    setBusy(false); if (!error) { setSel(null); load(); }
+  }
+  async function renew() {
+    if (!sel) return; setBusy(true);
+    const { error } = await sb.rpc("admin_renew_school", { p_school_id: sel.id, p_plan: renewPlan, p_days: Number(renewDays) || 365 });
+    setBusy(false); if (!error) { setSel(null); load(); }
+  }
+
+  if (rows === null) return <div className="admstu"><div className="admstu-msg">⏳ {T("กำลังโหลด...", "Loading...", "正在加载...")}</div></div>;
+
+  if (sel) {
+    return (
+      <div className="admstu">
+        <button className="admstu-back" onClick={() => setSel(null)}>‹ {T("กลับ", "Back", "返回")}</button>
+        <div className="admstu-head">
+          <div className="admstu-av">🏫</div>
+          <div>
+            <div className="admstu-nm">{sel.name}</div>
+            <div className="admstu-em">{sel.owner_email}</div>
+            <div className="admstu-lv">{sel.plan.toUpperCase()} · {sel.student_count}/{sel.seat_quota} {T("นักเรียน", "students", "学生")} · {sel.teacher_count}/{sel.teacher_seat_quota} {T("ครู", "teachers", "教师")}</div>
+          </div>
+        </div>
+        {tier >= 3 && (<>
+          <div className="admmg">
+            <div className="admmg-h">🪑 {T("ปรับที่นั่ง", "Adjust seats", "调整席位")}</div>
+            <div className="admmg-row">
+              <input className="admmg-days" type="number" min="0" value={seatEdit} onChange={e => setSeatEdit(e.target.value)} />
+              <span className="admmg-d">{T("นักเรียน", "students", "学生")}</span>
+              <input className="admmg-days" type="number" min="0" value={teacherSeatEdit} onChange={e => setTeacherSeatEdit(e.target.value)} />
+              <span className="admmg-d">{T("ครู", "teachers", "教师")}</span>
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy} onClick={saveSeats}>💾 {T("บันทึก", "Save", "保存")}</button>
+          </div>
+          <div className="admmg">
+            <div className="admmg-h">🔄 {T("ต่ออายุ / เปลี่ยนแพลน", "Renew / change plan", "续费/更改套餐")}</div>
+            <div className="admmg-cur">{sel.plan_until ? T("ถึง", "Until", "至") + " " + String(sel.plan_until).slice(0, 10) : ""}</div>
+            <div className="admmg-row">
+              <select className="admmg-sel" value={renewPlan} onChange={e => setRenewPlan(e.target.value)}>
+                <option value="school_standard">Standard</option>
+                <option value="school_plus">Plus</option>
+              </select>
+              <input className="admmg-days" type="number" min="1" value={renewDays} onChange={e => setRenewDays(e.target.value)} />
+              <span className="admmg-d">{T("วัน", "days", "天")}</span>
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy} onClick={renew}>🔄 {T("ต่ออายุ", "Renew", "续费")}</button>
+          </div>
+        </>)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="admstu">
+      <div className="admstu-top">
+        <div className="admstu-count">{rows.length} {T("โรงเรียน", "schools", "学校")}</div>
+        {tier >= 3 && <button className="admstu-refresh" onClick={() => setShowNew(v => !v)}>{showNew ? "✕" : "➕"}</button>}
+      </div>
+      {showNew && tier >= 3 && (
+        <div className="admmg">
+          <div className="admmg-h">🏫 {T("สร้างโรงเรียนใหม่", "Create new school", "创建新学校")}</div>
+          <input className="aicreate-in" style={{ marginBottom: 8 }} value={newName} onChange={e => setNewName(e.target.value)} placeholder={T("ชื่อสถาบัน", "Institution name", "机构名称")} />
+          <input className="aicreate-in" style={{ marginBottom: 8 }} value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder={T("อีเมลเจ้าของ/ครูใหญ่ (ต้องเคยล็อกอินแล้ว)", "Owner/head-teacher email (must have signed in once)", "负责人邮箱（须已登录过）")} />
+          <div className="admmg-row">
+            <select className="admmg-sel" value={newPlan} onChange={e => setNewPlan(e.target.value)}>
+              <option value="school_standard">Standard</option>
+              <option value="school_plus">Plus</option>
+            </select>
+            <input className="admmg-days" type="number" min="1" value={newSeats} onChange={e => setNewSeats(e.target.value)} />
+            <span className="admmg-d">{T("ที่นั่ง", "seats", "席位")}</span>
+          </div>
+          <div className="admmg-row">
+            <input className="admmg-days" type="number" min="1" value={newTeacherSeats} onChange={e => setNewTeacherSeats(e.target.value)} />
+            <span className="admmg-d">{T("ครู", "teachers", "教师")}</span>
+            <input className="admmg-days" type="number" min="1" value={newDays} onChange={e => setNewDays(e.target.value)} />
+            <span className="admmg-d">{T("วัน", "days", "天")}</span>
+          </div>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy || !newName.trim() || !newEmail.trim()} onClick={createSchool}>✓ {T("สร้าง", "Create", "创建")}</button>
+          {msg && <div style={{ textAlign: "center", color: "#e55", fontSize: 13, marginTop: 6 }}>{msg}</div>}
+        </div>
+      )}
+      {err && <div className="admstu-err">{err}</div>}
+      <div className="admstu-list">
+        {rows.map(s => (
+          <button key={s.id} className="admstu-row" onClick={() => openSchool(s)}>
+            <div className="admstu-av sm">🏫</div>
+            <div className="admstu-row-body">
+              <div className="admstu-row-nm">{s.name} <span className="adminpay-badge approved">{s.plan.replace("school_", "").toUpperCase()}</span></div>
+              <div className="admstu-row-meta">{s.student_count}/{s.seat_quota} {T("นักเรียน", "students", "学生")} · {s.teacher_count}/{s.teacher_seat_quota} {T("ครู", "teachers", "教师")}</div>
+              <div className="admstu-row-sub">{s.owner_email}{s.plan_until ? " · " + T("ถึง", "until", "至") + " " + String(s.plan_until).slice(0, 10) : ""}</div>
+            </div>
+            <span className="admstu-row-go">›</span>
+          </button>
+        ))}
+        {!rows.length && <div className="admstu-empty">{T("ยังไม่มีโรงเรียน", "No schools yet", "还没有学校")}</div>}
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin: payment review — PromptPay config, slip list, AI slip read, approve ── */
 function AdminPayments({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
@@ -8178,6 +8521,7 @@ function AdminPage({ lang, onExit, adminTier }) {
       <div className="admintabs">
         {tier >= 3 && <button className={`admintab${adminTab === "ai" ? " on" : ""}`} onClick={() => setAdminTab("ai")}>🤖 {lang === "th" ? "สอน AI" : lang === "zh" ? "训练 AI" : "Teach AI"}</button>}
         <button className={`admintab${adminTab === "students" ? " on" : ""}`} onClick={() => setAdminTab("students")}>👥 {lang === "th" ? "นักเรียน" : lang === "zh" ? "学生" : "Students"}</button>
+        <button className={`admintab${adminTab === "schools" ? " on" : ""}`} onClick={() => setAdminTab("schools")}>🏫 {lang === "th" ? "โรงเรียน" : lang === "zh" ? "学校" : "Schools"}</button>
         {tier >= 3 && <button className={`admintab${adminTab === "payments" ? " on" : ""}`} onClick={() => setAdminTab("payments")}>💳 {lang === "th" ? "ชำระเงิน" : lang === "zh" ? "付款" : "Payments"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "videos" ? " on" : ""}`} onClick={() => setAdminTab("videos")}>🎬 {lang === "th" ? "วิดีโอ" : lang === "zh" ? "视频" : "Videos"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "analytics" ? " on" : ""}`} onClick={() => setAdminTab("analytics")}>📊 {lang === "th" ? "สถิติ" : lang === "zh" ? "统计" : "Analytics"}</button>}
@@ -8187,6 +8531,7 @@ function AdminPage({ lang, onExit, adminTier }) {
       </div>
 
       {adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
+        : adminTab === "schools" ? <AdminSchools lang={lang} viewerTier={tier} />
         : adminTab === "payments" && tier >= 3 ? <AdminPayments lang={lang} />
         : adminTab === "videos" && tier >= 3 ? <AdminVideos lang={lang} />
         : adminTab === "analytics" && tier >= 3 ? <AdminAnalytics lang={lang} />
@@ -8594,6 +8939,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [examOpen, setExamOpen] = useState(false);
   const [examProgress, setExamProgress] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_exam") || "{}"); } catch (e) { return {}; } });
   const [homework, setHomework] = useState(readHomework());
+  // School Plan Pro: a real, DB-backed, cross-device assignment from a linked
+  // teacher — takes priority over the local AI-assigned homework below when present.
+  const [schoolHW, setSchoolHW] = useState(null);
+  useEffect(() => {
+    if (!(profile && profile.school_role === "student")) { setSchoolHW(null); return; }
+    sb.from("school_assignments").select("*").order("assigned_at", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => setSchoolHW(data || null));
+  }, [profile && profile.school_id, profile && profile.school_role]);
+  const [mySchoolName, setMySchoolName] = useState("");
+  useEffect(() => {
+    if (!(profile && profile.school_id)) { setMySchoolName(""); return; }
+    sb.from("schools").select("name").eq("id", profile.school_id).maybeSingle().then(({ data }) => setMySchoolName((data && data.name) || ""));
+  }, [profile && profile.school_id]);
+  function leaveSchool() {
+    if (!(profile && profile.school_id)) return;
+    if (!window.confirm(L[lang].schoolRemoveConfirm)) return;
+    sb.rpc("school_leave", { p_school_id: profile.school_id }).then(() => {
+      sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle().then(({ data }) => { if (data) setProfile(data); });
+    });
+  }
   const [welcomeOpen, setWelcomeOpen] = useState(() => { try { return !localStorage.getItem("tg_welcomed"); } catch (e) { return false; } });
   const [owned, setOwned] = useState(getOwned());
   const [skin, setSkin] = useState(getEquip("skin", "aqua"));
@@ -8710,6 +9075,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // ── routing + secret admin unlock ──
   const [page, setPage] = useState("pathway");  // home = pathway; sensei (chat) is secondary | pathway | profile | admin
   useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
+
+  // School Plan Pro: the teacher dashboard has no nav entry anywhere — it's reached
+  // only via a hidden link TIGA hands directly to onboarded teachers. The link is
+  // just a discoverability veil, not the real lock: every RPC/RLS check the dashboard
+  // makes still re-verifies real school_members membership server-side regardless of
+  // how this page was reached, so this client-side hash check is safe to keep simple.
+  useEffect(() => {
+    if (window.location.hash === "#teacher-portal" && profile && profile.school_role === "teacher") {
+      setPage("school");
+    }
+  }, [profile]);
 
   // ── Auto Teaching: while a Max-plan learner is on the Pathway (home) page, fire a short
   // real-time coaching card every N minutes (learner's own pick, else the admin's platform default). ──
@@ -11666,7 +12042,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               detectMatch={detectMatch} setDetectMatch={setDetectMatch} detectListening={detectListening} setDetectListening={setDetectListening}
               battlePickOpen={battlePickOpen} setBattlePickOpen={setBattlePickOpen} battleData={battleData} setBattleData={setBattleData}
               songPhase={songPhase} startSongPlay={startSongPlay}
-              mysteryChest={mysteryChest} setMysteryChest={setMysteryChest} luckyToast={luckyToast} />
+              mysteryChest={mysteryChest} setMysteryChest={setMysteryChest} luckyToast={luckyToast}
+              onSchoolJoined={() => {
+                sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
+                  .then(({ data }) => { if (data) setProfile(data); });
+              }} />
+      )}
+
+      {/* ─── PAGE: SCHOOL DASHBOARD (School Plan Pro, teacher-only, hidden entry) ─── */}
+      {page === "school" && profile && profile.school_id && profile.school_role === "teacher" && (
+        <SchoolDashboard lang={lang} profile={profile} onBack={() => setPage("pathway")} />
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
@@ -11702,16 +12087,32 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     ? <button className="dh-chest" onClick={openChestNow}>🎁<span>{lc.dhClaim}</span></button>
                     : <button className="dh-chest done" onClick={() => { setPage("studio"); setStudioView("menu"); }}>🎮<span>{lc.dhPlay}</span></button>}
                 </div>
-                {homework && homework.text && (
+                {(schoolHW || (homework && homework.text)) && (
                   <div className="hwbar">
-                    <span className="hwbar-ic">📝</span>
-                    <span className="hwbar-tx"><b>{lc.hwLabel}</b> {homework.text}</span>
-                    <button className="hwbar-done" onClick={() => { setHomeworkLS(null); setHomework(null); playUi("reward"); earnCoins(10); }} aria-label="done">✓</button>
+                    <span className="hwbar-ic">{schoolHW ? "🏫" : "📝"}</span>
+                    <span className="hwbar-tx"><b>{schoolHW ? lc.hwFromTeacher : lc.hwLabel}</b> {schoolHW
+                      ? (tr(SONGS.find(s => s.id === schoolHW.song_id), lang) || schoolHW.song_id) + (schoolHW.note ? " — " + schoolHW.note : "") + (schoolHW.ack_at ? " ✅" : "")
+                      : homework.text}</span>
+                    <button className="hwbar-done" aria-label="done" onClick={() => {
+                      if (schoolHW) {
+                        if (!schoolHW.ack_at) sb.rpc("school_ack_assignment", { p_assignment_id: schoolHW.id }).then(() => setSchoolHW(h => h ? { ...h, ack_at: new Date().toISOString() } : h));
+                      } else { setHomeworkLS(null); setHomework(null); }
+                      playUi("reward"); earnCoins(10);
+                    }}>✓</button>
                   </div>
                 )}
               </div>
             );
           })()}
+          {profile && profile.school_id && (
+            <div className="profsec" style={{ margin: "0 14px 10px" }}>
+              <div className="profsec-h">🏫 {lc.schoolMyCard}{mySchoolName ? " — " + mySchoolName : ""}</div>
+              <span className="schoolrole-badge">{profile.school_role === "teacher" ? lc.schoolMyRoleTeacher : lc.schoolMyRoleStudent}</span>
+              {profile.school_role === "student" && (
+                <button className="songbtn ghost" style={{ width: "100%", marginTop: 10 }} onClick={leaveSchool}>✕ {lc.schoolLeaveBtn}</button>
+              )}
+            </div>
+          )}
           {/* My Stats + Report Card live as sub-pages of Profile (moved out of the nav) */}
           <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
             onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } logUsage("nav", "profile-stats"); setPage("insights"); }}>

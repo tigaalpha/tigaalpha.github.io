@@ -396,6 +396,10 @@ html, body, #root{background:var(--bg)}
 .admmg-d{color:var(--muted);font-size:13px}
 .admmg-row2{display:flex;gap:8px;margin-top:8px}
 .admmg-row2 .songbtn{flex:1;padding:10px}
+.schoolhdr{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.schoolseat{font-size:12px;color:var(--muted);margin:4px 0 8px}
+.schoolcode{background:var(--card3);border:1px solid #ff525233;border-radius:10px;padding:14px 12px;font-family:'Share Tech Mono',monospace;font-size:22px;letter-spacing:3px;text-align:center;color:#d97757}
+.schoolrole-badge{display:inline-block;background:#d97757;color:#fff;font-size:9px;font-family:'Orbitron',sans-serif;padding:2px 6px;border-radius:6px;vertical-align:middle;margin-left:6px}
 .banscreen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;gap:12px}
 .adminchips{display:flex;flex-wrap:wrap;gap:7px;padding:10px 14px 4px;flex-shrink:0}
 .adminchip{background:rgba(255,82,82,.08);border:1px solid #ff525233;border-radius:16px;padding:7px 13px;cursor:pointer;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:600;transition:all .2s;text-align:left}
