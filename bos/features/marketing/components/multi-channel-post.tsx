@@ -1,68 +1,101 @@
 "use client";
 
-import { useState } from "react";
-import { Share2, Facebook, Instagram, MessageCircle, Music2, Clock, AlertTriangle, Youtube } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Share2, Facebook, Instagram, MessageCircle, Music2, Clock, AlertTriangle, Youtube, Copy, Check, Trash2, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { SocialPost, SocialPlatform } from "@/types/database";
 
 interface Channel {
-  id: string;
+  id: SocialPlatform;
   label: string;
   icon: typeof Facebook;
+  url?: string;
 }
 
 const CHANNELS: Channel[] = [
-  { id: "facebook", label: "Facebook", icon: Facebook },
-  { id: "instagram", label: "Instagram", icon: Instagram },
-  { id: "line", label: "LINE OA", icon: MessageCircle },
-  { id: "tiktok", label: "TikTok", icon: Music2 },
-  { id: "youtube", label: "YouTube", icon: Youtube },
+  { id: "facebook", label: "Facebook", icon: Facebook, url: "https://facebook.com" },
+  { id: "instagram", label: "Instagram", icon: Instagram, url: "https://instagram.com" },
+  { id: "line", label: "LINE OA", icon: MessageCircle, url: "https://manager.line.biz" },
+  { id: "tiktok", label: "TikTok", icon: Music2, url: "https://tiktok.com/creator" },
+  { id: "youtube", label: "YouTube", icon: Youtube, url: "https://studio.youtube.com" },
 ];
 
-interface QueueItem {
-  id: string;
-  content: string;
-  channels: string[];
-  queuedAt: string;
-}
-
-/**
- * UI/workflow only — no channel is actually connected yet (each one needs
- * its own Developer App + credentials, set up separately). Queuing here is
- * local to this browser tab so it's honest about not actually posting
- * anywhere; wire up real posting once the owner decides which channels to
- * connect for real.
- */
 export function MultiChannelPost() {
   const [content, setContent] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [selected, setSelected] = useState<SocialPlatform[]>([]);
+  const [queue, setQueue] = useState<SocialPost[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  function toggleChannel(id: string) {
+  useEffect(() => {
+    loadQueue();
+  }, []);
+
+  async function loadQueue() {
+    try {
+      const response = await fetch("/api/social-posts");
+      if (response.ok) {
+        const data = await response.json();
+        setQueue(data.posts || []);
+      }
+    } catch (error) {
+      console.error("Failed to load queue:", error);
+    }
+  }
+
+  function toggleChannel(id: SocialPlatform) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
   }
 
-  function handleQueue() {
+  async function handleQueue() {
     if (!content.trim() || selected.length === 0) return;
-    setQueue((prev) => [
-      { id: crypto.randomUUID(), content: content.trim(), channels: [...selected], queuedAt: new Date().toLocaleString("th-TH") },
-      ...prev,
-    ]);
-    setContent("");
-    setSelected([]);
+    setLoading(true);
+    try {
+      const response = await fetch("/api/social-posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: content.trim(), platforms: selected }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setQueue((prev) => [data.post, ...prev]);
+        setContent("");
+        setSelected([]);
+      }
+    } catch (error) {
+      console.error("Failed to queue post:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function copyToClipboard(text: string, id: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function deletePost(id: string) {
+    try {
+      await fetch(`/api/social-posts/${id}`, { method: "DELETE" });
+      setQueue((prev) => prev.filter((p) => p.id !== id));
+    } catch (error) {
+      console.error("Failed to delete post:", error);
+    }
   }
 
   return (
     <div className="space-y-6">
       <Card>
-        <CardContent className="flex items-start gap-3 pt-6 text-sm text-warning">
+        <CardContent className="flex items-start gap-3 pt-6 text-sm text-info">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
-            หน้านี้ยังเป็น UI ตัวอย่างเท่านั้น — ยังไม่ได้เชื่อมต่อ API จริงของแต่ละช่องทาง (แต่ละที่ต้องสมัคร Developer
-            App และขอสิทธิ์แยกกัน) กดคิวโพสต์ที่นี่จะยังไม่ถูกโพสต์ขึ้นช่องทางจริง
+            ระบบคิวโพสต์: เขียนคอนเทนต์ครั้งเดียว เลือกช่องทาง แล้วคิวไว้ ให้ดูความพร้อมและ copy เนื้อหา แล้วโพสต์ไปแต่ละ platform
+            ด้วยมือ (ลิงก์โดยตรงมีในคิวเพื่อให้ง่าย)
           </p>
         </CardContent>
       </Card>
@@ -71,15 +104,15 @@ export function MultiChannelPost() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Share2 className="h-4 w-4 text-primary-accent" />
-            โพสต์คอนเทนต์
+            เขียนคอนเทนต์
           </CardTitle>
-          <CardDescription>เขียนคอนเทนต์ครั้งเดียว เลือกช่องทางที่ต้องการ แล้วกดปุ่มเดียวคิวไปทุกช่องทางพร้อมกัน</CardDescription>
+          <CardDescription>เขียนครั้งเดียว เลือกช่องทาง แล้วคิวโพสต์</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea placeholder="เขียนคอนเทนต์ที่จะโพสต์…" value={content} onChange={(e) => setContent(e.target.value)} className="min-h-32" />
 
           <div>
-            <p className="mb-2 text-sm font-medium text-secondary">ช่องทาง</p>
+            <p className="mb-2 text-sm font-medium text-secondary">เลือกช่องทาง</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               {CHANNELS.map((ch) => {
                 const Icon = ch.icon;
@@ -95,18 +128,15 @@ export function MultiChannelPost() {
                   >
                     <Icon className="h-5 w-5" />
                     {ch.label}
-                    <Badge variant="outline" className="text-[10px]">
-                      ยังไม่เชื่อมต่อ
-                    </Badge>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <Button className="w-full" onClick={handleQueue} disabled={!content.trim() || selected.length === 0}>
+          <Button className="w-full" onClick={handleQueue} disabled={!content.trim() || selected.length === 0 || loading} loading={loading}>
             <Share2 className="h-4 w-4" />
-            คิวโพสต์ไปทุกช่องทางที่เลือก ({selected.length})
+            {loading ? "กำลังคิว..." : `คิวโพสต์ (${selected.length})`}
           </Button>
         </CardContent>
       </Card>
@@ -116,24 +146,74 @@ export function MultiChannelPost() {
           <CardHeader>
             <CardTitle>คิวโพสต์ ({queue.length})</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {queue.map((item) => (
-              <div key={item.id} className="rounded-xl border border-line/10 p-3">
-                <div className="mb-2 flex items-center justify-between">
+              <div key={item.id} className="rounded-xl border border-line/10 p-4">
+                <div className="mb-3 flex items-center justify-between">
                   <span className="flex items-center gap-1 text-xs text-secondary/50">
                     <Clock className="h-3 w-3" />
-                    {item.queuedAt}
+                    {new Date(item.created_at).toLocaleString("th-TH")}
                   </span>
-                  <Badge variant="warning">รอเชื่อมต่อ API</Badge>
+                  <Badge variant={item.status === "success" ? "success" : item.status === "failed" ? "destructive" : "warning"}>
+                    {item.status === "queued" && "รอโพสต์"}
+                    {item.status === "posting" && "กำลังโพสต์"}
+                    {item.status === "success" && "โพสต์แล้ว"}
+                    {item.status === "failed" && "ล้มเหลว"}
+                  </Badge>
                 </div>
-                <p className="mb-2 text-sm text-secondary">{item.content}</p>
-                <div className="flex flex-wrap gap-1">
-                  {item.channels.map((c) => (
-                    <Badge key={c} variant="outline">
-                      {CHANNELS.find((ch) => ch.id === c)?.label ?? c}
+
+                <p className="mb-3 text-sm text-secondary">{item.content}</p>
+
+                <div className="mb-3 flex flex-wrap gap-1">
+                  {(item.platforms as SocialPlatform[]).map((platform) => (
+                    <Badge key={platform} variant="outline">
+                      {CHANNELS.find((ch) => ch.id === platform)?.label ?? platform}
                     </Badge>
                   ))}
                 </div>
+
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {(item.platforms as SocialPlatform[]).map((platform) => {
+                    const channel = CHANNELS.find((ch) => ch.id === platform);
+                    return (
+                      <div key={platform} className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(item.content, `${item.id}-${platform}`)}
+                          className="text-xs"
+                        >
+                          {copied === `${item.id}-${platform}` ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              คัดลอก
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              คัดลอก
+                            </>
+                          )}
+                        </Button>
+                        {channel?.url && (
+                          <a href={channel.url} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" variant="ghost" className="text-xs">
+                              <ExternalLink className="h-3 w-3" />
+                              โพสต์
+                            </Button>
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {item.error_message && <p className="mb-2 text-xs text-destructive">{item.error_message}</p>}
+
+                <Button size="sm" variant="ghost" onClick={() => deletePost(item.id)} className="text-destructive hover:text-destructive">
+                  <Trash2 className="h-3 w-3" />
+                  ลบ
+                </Button>
               </div>
             ))}
           </CardContent>
