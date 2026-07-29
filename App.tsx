@@ -7187,6 +7187,199 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
   );
 }
 
+/* ── School Plan Pro (B2B) checkout — real payment page behind the pricing modal's
+   "Contact us" CTA. Two steps: collect institution/seats/cycle, then pay. The amount
+   shown here is a client-side preview only (same b2bPriceByCur math the pricing cards
+   already use) — the authoritative amount is recomputed server-side by
+   school_submit_payment_request() the moment a channel is chosen, so nothing typed
+   here can under-pay. Reuses the exact same QR/slip-upload machinery as CheckoutModal
+   (promptPayQR, ALIPAY_QR/WECHAT_QR, the "slips" storage bucket) for visual and
+   behavioral consistency, but writes to a separate school_payment_requests table
+   rather than touching the existing consumer `payments` table at all. ── */
+function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onClose }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const tier = schoolCheckout.tier === "plus" ? "school_plus" : "school_standard";
+  const tierLabel = schoolCheckout.tier === "plus" ? "Plus" : "Standard";
+  const cur = CURRENCY_BY_LANG[lang] || "thb";
+  const uid = session && session.user && session.user.id;
+
+  const [step, setStep] = useState("details"); // details | pay
+  const [instName, setInstName] = useState("");
+  const [seats, setSeats] = useState(15);
+  const [cycle, setCycle] = useState("month");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [stripeLoading, setStripeLoading] = useState(false);
+
+  const [reqId, setReqId] = useState(null);
+  const [amount, setAmount] = useState(0);       // THB, authoritative once set (from the RPC response)
+  const [activeChan, setActiveChan] = useState(null); // "promptpay" | "alipay" | "wechat" once chosen
+  const [zhTab, setZhTab] = useState<"alipay"|"wechat">("alipay");
+  const [st, setSt] = useState("idle");          // idle · uploading · done · error
+  const fileRef = useRef(null);
+
+  const unitPreview = cycle === "year" ? b2bYearPriceByCur(cur, schoolCheckout.tier) : b2bPriceByCur(cur, schoolCheckout.tier);
+  const totalPreview = unitPreview * (Number(seats) || 0);
+
+  const ppId = payCfg && payCfg.promptpay;
+  const aliQr = (payCfg && payCfg.alipay_qr) || ALIPAY_QR;
+  const wxQr = (payCfg && payCfg.wechat_qr) || WECHAT_QR;
+  const qr = useMemo(() => (activeChan === "promptpay" && ppId && amount) ? promptPayQR(ppId, amount) : null, [activeChan, ppId, amount]);
+
+  function continueToPay() {
+    if (!instName.trim()) { setErr(T("กรอกชื่อสถาบันก่อน", "Enter an institution name", "请输入机构名称")); return; }
+    if ((Number(seats) || 0) < 15) { setErr(T("ขั้นต่ำ 15 ที่นั่ง", "Minimum 15 seats", "最低15个席位")); return; }
+    setErr(""); setStep("pay");
+  }
+
+  async function submitRequest(method) {
+    if (!uid || busy) return null;
+    setBusy(true); setErr("");
+    const { data, error } = await sb.rpc("school_submit_payment_request", {
+      p_institution_name: instName.trim(), p_tier: tier, p_seats: Number(seats), p_cycle: cycle, p_method: method,
+    });
+    setBusy(false);
+    if (error) { setErr(error.message || T("ส่งคำขอไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't submit — try again", "提交失败，请重试")); return null; }
+    setReqId(data.id); setAmount(data.amount);
+    return data;
+  }
+
+  async function payWithStripe() {
+    const data = await submitRequest("stripe");
+    if (!data) return;
+    setStripeLoading(true);
+    try {
+      const res = await fetch(SUPABASE_URL + "/functions/v1/school-stripe-checkout", {
+        method: "POST",
+        headers: { ...apiHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: data.id }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.url) throw new Error(j.error || "no url");
+      window.location.href = j.url;
+    } catch { setErr(T("เชื่อมต่อ Stripe ไม่ได้ ลองใหม่หรือใช้ QR", "Stripe unavailable — try again or use QR", "Stripe 连接失败，请重试或用二维码")); setStripeLoading(false); }
+  }
+
+  async function payWithQr(method) {
+    const data = await submitRequest(method);
+    if (!data) return;
+    setActiveChan(method);
+  }
+
+  async function onFile(e) {
+    const f = e.target.files && e.target.files[0]; e.target.value = "";
+    if (!f || !uid || !reqId) return;
+    if (f.size > 6 * 1024 * 1024) { setSt("error"); return; }
+    setSt("uploading");
+    try {
+      const ext = ((f.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
+      const path = `${uid}/school-${Date.now()}.${ext}`;
+      const up = await sb.storage.from("slips").upload(path, f, { contentType: f.type, upsert: false });
+      if (up.error) throw up.error;
+      const { error } = await sb.rpc("school_attach_slip", { p_id: reqId, p_slip_path: path });
+      if (error) throw error;
+      setSt("done"); playUi("levelup");
+    } catch { setSt("error"); }
+  }
+
+  const showStripeBtn = lang === "th" || lang === "en";
+  const showPromptPay = lang === "th" && !!ppId;
+
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard pricing" onClick={e => e.stopPropagation()}>
+        <div className="sethdr"><span>🏫 {T("สมัคร School Plan", "School Plan sign-up", "学校方案申请")} — {tierLabel}</span><button className="cbtn" onClick={onClose}>✕</button></div>
+        <div className="setbody">
+          {st === "done" ? (
+            <div className="payok">
+              <div style={{ fontSize: 46 }}>✅</div>
+              <div className="payok-h">{T("ได้รับสลิปแล้ว!", "Slip received!", "已收到凭证！")}</div>
+              <p className="pr-sub">{T("ทีมงานจะตรวจสอบและติดต่อกลับเพื่อเปิดใช้งานภายใน 24 ชม.", "Our team will verify and reach out to activate your school within 24h.", "我们将核实并在24小时内联系您开通账户。")}</p>
+              <button className="songbtn go" style={{ width: "100%" }} onClick={onClose}>{T("เสร็จสิ้น", "Done", "完成")}</button>
+            </div>
+          ) : step === "details" ? (
+            <>
+              <p className="pr-sub">{T("กรอกข้อมูลสถาบันเพื่อคำนวณยอดชำระ", "Tell us about your institution to calculate the total", "填写机构信息以计算总额")}</p>
+              <input className="aicreate-in" style={{ marginBottom: 10 }} value={instName} onChange={e => setInstName(e.target.value)} placeholder={T("ชื่อสถาบัน/โรงเรียน", "Institution / school name", "机构/学校名称")} />
+              <div className="admmg-row" style={{ marginBottom: 10 }}>
+                <input className="admmg-days" style={{ width: 80 }} type="number" min={15} value={seats} onChange={e => setSeats(e.target.value)} />
+                <span className="admmg-d">{T("ที่นั่ง (ขั้นต่ำ 15)", "seats (min. 15)", "个席位（最低15）")}</span>
+              </div>
+              <div className="billtoggle" style={{ marginBottom: 14 }}>
+                <button className={`billtog${cycle === "month" ? " on" : ""}`} onClick={() => setCycle("month")}>{T("รายเดือน", "Monthly", "按月")}</button>
+                <button className={`billtog${cycle === "year" ? " on" : ""}`} onClick={() => setCycle("year")}>{T("รายปี", "Yearly", "按年")}</button>
+              </div>
+              <div className="paysum">
+                <span>{tierLabel} × {Number(seats) || 0} {T("ที่นั่ง", "seats", "席位")}</span>
+                <b className="prtier-price">{fmtPrice(cur, totalPreview)}<small>/{cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b>
+              </div>
+              {err && <div className="aicreate-err">{err}</div>}
+              <button className="songbtn go" style={{ width: "100%", marginTop: 10 }} onClick={continueToPay}>{T("ถัดไป: เลือกวิธีชำระเงิน", "Next: choose payment method", "下一步：选择付款方式")}</button>
+            </>
+          ) : (
+            <>
+              <div className="paysum">
+                <span>{instName} · {tierLabel} × {seats}</span>
+                <b className="prtier-price">{fmtPrice(cur, totalPreview)}<small>/{cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b>
+              </div>
+
+              {!activeChan && (<>
+                {showStripeBtn && (
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy || stripeLoading} onClick={payWithStripe}>
+                    {stripeLoading ? "⏳ " + T("กำลังเปิดหน้าชำระเงินปลอดภัย...", "Opening secure checkout...", "正在打开安全支付页...") : "💳 " + T("จ่ายด้วยบัตร (รองรับทั่วโลก)", "Pay by card — worldwide", "银行卡支付（支持全球）")}
+                  </button>
+                )}
+                {showPromptPay && (
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => payWithQr("promptpay")}>🇹🇭 {T("จ่ายผ่าน PromptPay", "Pay via PromptPay", "PromptPay 付款")}</button>
+                )}
+                {lang === "zh" && (<>
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("alipay"); payWithQr("alipay"); }}>🔵 {T("จ่ายผ่าน Alipay", "Pay via Alipay", "支付宝付款")}</button>
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("wechat"); payWithQr("wechat"); }}>🟢 {T("จ่ายผ่าน WeChat", "Pay via WeChat", "微信付款")}</button>
+                </>)}
+                {err && <div className="aicreate-err">{err}</div>}
+                <button className="songbtn ghost" style={{ width: "100%", marginTop: 4 }} onClick={() => setStep("details")}>‹ {T("กลับ", "Back", "返回")}</button>
+              </>)}
+
+              {activeChan === "promptpay" && (
+                <>
+                  {qr ? <img className="payqr" src={qr} alt="PromptPay QR" /> : <div className="aicreate-err">{T("สร้าง QR ไม่ได้", "Couldn't make QR", "无法生成二维码")}</div>}
+                  <div className="payinfo">
+                    <div>📱 PromptPay: <b>{ppId}</b></div>
+                    {payCfg && payCfg.name && <div>👤 {payCfg.name}</div>}
+                  </div>
+                  <p className="pr-sub">{T("สแกน QR ด้วยแอปธนาคาร โอนตามยอด แล้วอัปโหลดสลิปเพื่อยืนยัน", "Scan with your banking app, pay the exact amount, then upload the slip.", "用银行App扫码付款，然后上传凭证。")}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload slip", "上传凭证")}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+
+              {(activeChan === "alipay" || activeChan === "wechat") && (
+                <>
+                  <img className="payqr ext" src={activeChan === "wechat" ? wxQr : aliQr} alt={activeChan === "wechat" ? "WeChat Pay QR" : "Alipay QR"} style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />
+                  <p className="pr-sub" style={{ textAlign: "center" }}>
+                    {activeChan === "wechat"
+                      ? `打开微信 → 扫一扫 → 支付 ¥${amount.toLocaleString()}`
+                      : `打开支付宝 → 扫一扫 → 支付 ¥${amount.toLocaleString()}`}
+                  </p>
+                  <p className="pr-sub" style={{ textAlign: "center", marginTop: 0 }}>付款后上传截图以确认订单</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ 上传中..." : "📤 上传付款截图"}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">上传失败，请重试</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin: all students' progress (reads every profile via admin RLS) ── */
 function AdminStudents({ lang, viewerTier }) {
   const tier = viewerTier || 0;
@@ -7562,6 +7755,30 @@ function AdminSchools({ lang, viewerTier }) {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  // B2B payment requests (real School Plan Pro checkout) — pending/paid ones need a
+  // human look before the school actually gets provisioned, same as every other
+  // manual-review payment channel in this app.
+  const [payReqs, setPayReqs] = useState([]);
+  const loadPayReqs = useCallback(() => {
+    sb.rpc("admin_list_school_payment_requests").then(({ data }) => setPayReqs((data || []).filter(r => r.status !== "rejected")), () => {});
+  }, []);
+  useEffect(() => { loadPayReqs(); }, [loadPayReqs]);
+  async function reviewPayReq(id, approve) {
+    setBusy(true);
+    const { error } = await sb.rpc("admin_review_school_payment", { p_id: id, p_approve: approve });
+    setBusy(false);
+    if (!error) loadPayReqs();
+  }
+  function prefillFromPayReq(r) {
+    setNewName(r.institution_name); setNewEmail(r.contact_email);
+    setNewPlan(r.tier); setNewSeats(r.seats); setNewDays(r.cycle === "year" ? 365 : 30);
+    setShowNew(true);
+  }
+  async function viewSlip(path) {
+    const { data } = await sb.storage.from("slips").createSignedUrl(path, 600);
+    if (data && data.signedUrl) window.open(data.signedUrl, "_blank", "noopener");
+  }
+
   async function createSchool() {
     if (!newName.trim() || !newEmail.trim()) return;
     setBusy(true); setMsg("");
@@ -7632,6 +7849,26 @@ function AdminSchools({ lang, viewerTier }) {
 
   return (
     <div className="admstu">
+      {payReqs.length > 0 && (
+        <div className="admmg" style={{ borderColor: "#4caf5033" }}>
+          <div className="admmg-h" style={{ color: "#4caf50" }}>💰 {T("คำขอชำระเงิน B2B", "B2B payment requests", "B2B付款请求")} ({payReqs.length})</div>
+          {payReqs.map(r => (
+            <div key={r.id} style={{ background: "var(--card3)", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+              <div className="admstu-row-nm">{r.institution_name} <span className="adminpay-badge approved">{r.status.toUpperCase()}</span></div>
+              <div className="admstu-row-meta">{r.tier.replace("school_", "")} × {r.seats} {T("ที่นั่ง", "seats", "席位")} · {r.cycle === "year" ? T("รายปี", "yearly", "年付") : T("รายเดือน", "monthly", "月付")} · ฿{Number(r.amount).toLocaleString()} · {r.method}</div>
+              <div className="admstu-row-sub">{r.contact_email}</div>
+              {tier >= 3 && (
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  {r.slip_path && <button className="songbtn ghost" style={{ padding: "8px 12px" }} onClick={() => viewSlip(r.slip_path)}>📎 {T("ดูสลิป", "View slip", "查看凭证")}</button>}
+                  <button className="songbtn go" style={{ flex: 1, padding: 8 }} disabled={busy} onClick={() => { reviewPayReq(r.id, true); prefillFromPayReq(r); }}>✓ {T("อนุมัติ", "Approve", "批准")}</button>
+                  <button className="songbtn ghost" style={{ flex: 1, padding: 8 }} disabled={busy} onClick={() => reviewPayReq(r.id, false)}>✕ {T("ปฏิเสธ", "Reject", "拒绝")}</button>
+                </div>
+              )}
+            </div>
+          ))}
+          {tier >= 3 && <div style={{ fontSize: 11, color: "var(--muted)" }}>{T("กด อนุมัติ จะเติมฟอร์ม \"สร้างโรงเรียนใหม่\" ด้านล่างให้อัตโนมัติ — ต้องกด สร้าง อีกครั้งเพื่อเปิดใช้งานจริง", "Approve pre-fills the \"Create new school\" form below — you still need to hit Create to actually provision it.", "点击批准会自动填充下方\"创建新学校\"表单——仍需再点创建才会真正开通。")}</div>}
+        </div>
+      )}
       <div className="admstu-top">
         <div className="admstu-count">{rows.length} {T("โรงเรียน", "schools", "学校")}</div>
         {tier >= 3 && <button className="admstu-refresh" onClick={() => setShowNew(v => !v)}>{showNew ? "✕" : "➕"}</button>}
@@ -8883,6 +9120,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [aiModalLoading, setAiModalLoading] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [checkout, setCheckout] = useState(null);   // {plan, amount} → PromptPay payment modal
+  const [schoolCheckout, setSchoolCheckout] = useState(null); // {tier} → School Plan Pro (B2B) checkout modal
+  const [schoolPayReturn, setSchoolPayReturn] = useState<null|"pending"|"paid"|"error">(null); // ?school_paid=1 return state
   const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
   const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
   const [stripeReturn, setStripeReturn] = useState<null|"pending"|"done">(null); // ?paid=1 return state
@@ -8925,6 +9164,28 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       setTimeout(() => setStripeReturn(null), 4000);
     }, 4000);
     return () => clearTimeout(t);
+  }, []);
+
+  // Detect School Plan Pro Stripe success redirect (?school_paid=1&req=&session_id=) —
+  // clear the URL params, then verify server-side with Stripe (no webhook dependency,
+  // unlike the consumer flow above — verify-school-payment re-checks the session
+  // directly using the secret key before ever marking the request "paid").
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("school_paid") == null) return;
+    const reqId = p.get("req"), sessionId = p.get("session_id");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("school_paid"); url.searchParams.delete("req"); url.searchParams.delete("session_id");
+    window.history.replaceState({}, "", url.pathname + (url.search || ""));
+    if (p.get("school_paid") !== "1" || !reqId || !sessionId) return;
+    setSchoolPayReturn("pending");
+    fetch(SUPABASE_URL + "/functions/v1/verify-school-payment", {
+      method: "POST", headers: { ...apiHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId: reqId, sessionId }),
+    }).then(r => r.json()).then(j => {
+      setSchoolPayReturn(j && j.status === "paid" ? "paid" : "error");
+      playUi(j && j.status === "paid" ? "levelup" : "click");
+    }).catch(() => setSchoolPayReturn("error"));
   }, []);
   // load the shop's PromptPay config (for the checkout QR)
   useEffect(() => {
@@ -12858,7 +13119,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         <ul className="prfeat"><li>{lc.prMax2}</li><li>{lc.prMax3}</li><li>{lc.prMax4}</li></ul>
                         <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
                         <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk3}</li><li>{lc.prB2bPerk4}</li></ul>
-                        <button className="songbtn go" onClick={() => { setPricingOpen(false); reviewSchools(); }}>{lc.prB2bCta}</button>
+                        <button className="songbtn go" onClick={() => { setPricingOpen(false); setSchoolCheckout({ tier: "plus" }); }}>{lc.prB2bCta}</button>
                       </div>
 
                       {/* ── B2B STANDARD (Premium-equivalent) ── */}
@@ -12874,7 +13135,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li><li>{lc.prF4}</li></ul>
                         <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
                         <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk3}</li><li>{lc.prB2bPerk4}</li></ul>
-                        <button className="songbtn go" onClick={() => { setPricingOpen(false); reviewSchools(); }}>{lc.prB2bCta}</button>
+                        <button className="songbtn go" onClick={() => { setPricingOpen(false); setSchoolCheckout({ tier: "standard" }); }}>{lc.prB2bCta}</button>
                       </div>
 
                       <div className="pr-note">{lc.prB2bSeatNote}</div>
@@ -12976,6 +13237,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* CHECKOUT — Stripe / PromptPay / Alipay / WeChat */}
       {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} />}
+      {schoolCheckout && <SchoolCheckoutModal lang={lang} schoolCheckout={schoolCheckout} payCfg={payCfg} session={session} onClose={() => setSchoolCheckout(null)} />}
 
       {/* AI WEEKLY REPORT / AI PRACTICE PLAN MODAL (Max exclusive) */}
       {aiModalOpen && (
@@ -13312,6 +13574,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <span>{stripeReturn === "done"
             ? (lang === "th" ? "เปิดใช้งานแผนแล้ว!" : lang === "zh" ? "套餐已激活！" : "Plan activated!")
             : (lang === "th" ? "ชำระเงินสำเร็จ กำลังเปิดใช้งาน..." : lang === "zh" ? "支付成功，正在激活..." : "Payment received, activating...")}</span>
+        </div>
+      )}
+
+      {schoolPayReturn && (
+        <div className="exptoast" style={{ background: schoolPayReturn === "paid" ? "#4caf50" : schoolPayReturn === "error" ? "#e55" : "#d97757", top: 72 }}>
+          <span>{schoolPayReturn === "paid" ? "✅" : schoolPayReturn === "error" ? "⚠️" : "⏳"}</span>
+          <span>{schoolPayReturn === "paid"
+            ? (lang === "th" ? "รับชำระเงินแล้ว ทีมงานจะติดต่อกลับเพื่อเปิดใช้งาน" : lang === "zh" ? "已收到付款，团队将联系您开通" : "Payment received — our team will follow up to activate")
+            : schoolPayReturn === "error"
+            ? (lang === "th" ? "ยืนยันการชำระเงินไม่สำเร็จ ติดต่อทีมงานหากถูกตัดเงินแล้ว" : lang === "zh" ? "支付确认失败，如已扣款请联系我们" : "Couldn't confirm payment — contact us if you were charged")
+            : (lang === "th" ? "กำลังตรวจสอบการชำระเงิน..." : lang === "zh" ? "正在核实付款..." : "Verifying payment...")}</span>
         </div>
       )}
 
