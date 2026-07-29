@@ -3578,7 +3578,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
         </div>
       ) : cur && (
         <div className="v12card" style={{ textAlign: "center" }}>
-          <div style={{ background: "#10080d", borderRadius: "12px", padding: "8px 6px", marginBottom: "13px", border: "1px solid #ffffff10" }}>
+          <div style={{ background: "var(--card)", borderRadius: "12px", padding: "8px 6px", marginBottom: "13px", border: "1px solid var(--bd1)" }}>
             <StaffNotes notes={cur.notes} hideNames clef={lvl.clef} />
           </div>
           <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
