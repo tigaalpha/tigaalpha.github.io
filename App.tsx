@@ -2337,10 +2337,10 @@ const L = {
     prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "✓ ทุกอย่างใน Premium รวม Auto Teaching ครบ", prMax3: "🎙️ AI Voice Teacher — คุยด้วยเสียง ครู AI ตอบกลับสด 24/7", prMax4: "📊 Daily Mentor · รายงาน AI รายสัปดาห์ · แผนซ้อม 7 วันส่วนตัว", prMax5: "🪙 XP & เหรียญ ×2 ทุกวัน · 🛡️ Streak Freeze 4 ใบ/เดือน ฟรี ไม่ต้องซื้อ", prMax6: "👑 เพลง Exclusive: Für Elise · Moonlight · Clair de Lune + อีก 3 ชิ้น", prMxf1: "👑 Max ครบทุกฟีเจอร์ ไม่มีตัดออก — สำหรับทุกคนในครอบครัว", prMxf2: "สูงสุด 10 โปรไฟล์ · ใช้งานพร้อมกันได้ทุกคนในบ้าน", prMxf3: "📊 แดชบอร์ดครอบครัว + รายงาน AI แยกทุกโปรไฟล์", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
     trialBanner: "🎁 ทดลองใช้ฟรี", trialDaysLeft: "วันที่เหลือ", trialUpgrade: "อัปเกรดแผน", trialExpired: "หมดเวลาทดลองใช้แล้ว — เลือกแผนเพื่อเรียนต่อ",
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
-    prBillB2B: "🏫 โรงเรียน", prSeat: "ที่นั่ง", prB2bSub: "สำหรับสถาบัน/โรงเรียนสอนดนตรี · ราคาต่อที่นั่ง · ขั้นต่ำ 15 ที่นั่ง/สัญญา",
+    prBillB2B: "🏫 สำหรับธุรกิจ (B2B)", prSeat: "ที่นั่ง", prB2bSub: "สำหรับสถาบัน/โรงเรียนสอนดนตรี · ราคาต่อที่นั่ง · ขั้นต่ำ 15 ที่นั่ง/สัญญา",
     prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "เทียบเท่า Premium ทุกฟีเจอร์", prB2bPlusSub: "เทียบเท่า Max ทุกฟีเจอร์ + AI Voice Teacher",
     prB2bPerk1: "👤 ผู้ดูแลบัญชีคนไทยประจำสถาบัน", prB2bPerk2: "⚡ ซัพพอร์ตด่วน ตอบกลับภายใน 24 ชม.", prB2bPerk3: "🧾 ใบกำกับภาษี/ใบแจ้งหนี้บริษัท", prB2bPerk4: "📊 แดชบอร์ดครูดูภาพรวมนักเรียนจริง",
-    prB2bSeatNote: "ขั้นต่ำ 15 ที่นั่ง/สัญญา · สถาบันขนาดใหญ่ติดต่อทีมงานเพื่อราคาพิเศษ", prB2bCta: "💬 ติดต่อทีมงานเพื่อเริ่มต้น",
+    prB2bSeatNote: "ขั้นต่ำ 15 ที่นั่ง/สัญญา · สถาบันขนาดใหญ่ติดต่อทีมงานเพื่อราคาพิเศษ", prB2bCta: "🎓 ลงทะเบียน",
     prB2bPerksLabel: "＋ สิทธิพิเศษสำหรับสถาบัน", prB2bOrYearly: "🗓️ หรือจ่ายรายปี {x}",
     schoolInfo: "🏫 TiGA สำหรับโรงเรียนและครูเปียโน\n\n• ใช้เป็น 'เพื่อนซ้อมที่บ้าน' ให้นักเรียนระหว่างคาบเรียน — AI ช่วยฝึกทุกวัน ครูเห็นความก้าวหน้า\n• โหมดไฮบริด: AI สอนทุกวัน + ครูจริงเช็คเดือนละครั้ง\n• ราคาสถาบัน + แดชบอร์ดติดตามนักเรียนทั้งห้อง\n\nสนใจติดต่อ: LINE @tiga.ai 🎹",
     octaveHint: "เลื่อนช่วงคีย์ขึ้น-ลง",
@@ -2465,10 +2465,10 @@ const L = {
     prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "✓ Everything in Premium — Auto Teaching + all Premium features, fully unlocked", prMax3: "🎙️ AI Voice Teacher — speak naturally, get live spoken responses 24/7", prMax4: "📊 Daily Mentor · AI Weekly Report · personalized 7-day practice plan", prMax5: "🪙 2× XP & coins every session · 🛡️ 4 free Streak Freezes per month", prMax6: "👑 Exclusive pieces: Für Elise · Moonlight Sonata · Clair de Lune + 3 more", prMxf1: "👑 Full Max — every feature, for every family member, nothing removed", prMxf2: "Up to 10 profiles — all family members active simultaneously", prMxf3: "📊 Family dashboard + individual AI reports per profile", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
     trialBanner: "🎁 Free Trial", trialDaysLeft: "days left", trialUpgrade: "Upgrade now", trialExpired: "Your free trial has ended — choose a plan to continue",
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
-    prBillB2B: "🏫 Schools", prSeat: "seat", prB2bSub: "For music schools & studios · priced per seat · 15-seat minimum per contract",
+    prBillB2B: "🏫 FOR BUSINESS (B2B)", prSeat: "seat", prB2bSub: "For music schools & studios · priced per seat · 15-seat minimum per contract",
     prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "Every Premium feature, included", prB2bPlusSub: "Every Max feature + AI Voice Teacher, included",
     prB2bPerk1: "👤 Dedicated Thai account manager", prB2bPerk2: "⚡ Priority support, 24h response", prB2bPerk3: "🧾 Company invoice / tax receipt", prB2bPerk4: "📊 Real teacher dashboard for your roster",
-    prB2bSeatNote: "15-seat minimum per contract · larger institutions, contact us for custom pricing", prB2bCta: "💬 Contact us to get started",
+    prB2bSeatNote: "15-seat minimum per contract · larger institutions, contact us for custom pricing", prB2bCta: "🎓 Enroll",
     prB2bPerksLabel: "+ Institutional perks", prB2bOrYearly: "🗓️ or billed annually at {x}",
     schoolInfo: "🏫 TiGA for schools & piano teachers\n\n• Use it as the at-home practice companion between lessons — AI coaches daily, you see progress.\n• Hybrid mode: AI every day + a real teacher check-in monthly.\n• Institutional pricing + a whole-class progress dashboard.\n\nContact: LINE @tiga.ai 🎹",
     octaveHint: "Shift the keyboard range",
@@ -2593,10 +2593,10 @@ const L = {
     prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "✓ 包含Premium全部功能，Auto Teaching完整版", prMax3: "🎙️ AI语音教师 — 开口说话，AI实时语音回应，24/7随时在线", prMax4: "📊 Daily Mentor · AI每周进度报告 · 个性化7日练习计划", prMax5: "🪙 经验值&金币×2 · 🛡️ 每月4张免费连击保护卡，无需购买", prMax6: "👑 独家曲目: 致爱丽丝 · 月光奏鸣曲 · 月光曲 + 另外3首", prMxf1: "👑 Max全部功能，一个不少 — 全家共享，人人享有", prMxf2: "最多10个档案 — 全家成员同时使用", prMxf3: "📊 家庭仪表盘 + 每个档案独立AI报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
     trialBanner: "🎁 免费试用", trialDaysLeft: "天剩余", trialUpgrade: "立即升级", trialExpired: "免费试用已结束 — 选择套餐以继续使用",
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
-    prBillB2B: "🏫 学校", prSeat: "席位", prB2bSub: "面向音乐学校/机构 · 按席位计价 · 每份合同最低15个席位",
+    prBillB2B: "🏫 企业版 (B2B)", prSeat: "席位", prB2bSub: "面向音乐学校/机构 · 按席位计价 · 每份合同最低15个席位",
     prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "包含Premium全部功能", prB2bPlusSub: "包含Max全部功能 + AI语音教师",
     prB2bPerk1: "👤 专属泰语客户经理", prB2bPerk2: "⚡ 24小时优先支持", prB2bPerk3: "🧾 公司发票/税务收据", prB2bPerk4: "📊 真实的教师班级仪表盘",
-    prB2bSeatNote: "每份合同最低15个席位 · 大型机构可联系我们定制报价", prB2bCta: "💬 联系我们开始使用",
+    prB2bSeatNote: "每份合同最低15个席位 · 大型机构可联系我们定制报价", prB2bCta: "🎓 报名",
     prB2bPerksLabel: "＋ 机构专属权益", prB2bOrYearly: "🗓️ 或按年支付 {x}",
     schoolInfo: "🏫 TiGA 面向学校与钢琴老师\n\n• 作为课后'在家练习伙伴'——AI 每天辅导，老师查看进度。\n• 混合模式：AI 每日教学 + 真人老师每月检查。\n• 机构价格 + 全班进度仪表板。\n\n联系：LINE @tiga.ai 🎹",
     octaveHint: "移动键盘音区",
@@ -13097,7 +13097,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     <div className="billtoggle">
                       <button className={`billtog${billCycle === "month" ? " on" : ""}`} onClick={() => setBillCycle("month")}>{lc.prBillMonth}</button>
                       <button className={`billtog${billCycle === "year" ? " on" : ""}`} onClick={() => setBillCycle("year")}>{lc.prBillYear} <span className="billsave">-3%</span></button>
-                      <button className={`billtog${isB2B ? " on" : ""}`} onClick={() => setBillCycle("b2b")}>{lc.prBillB2B}</button>
+                      <button className={`billtog billtog-b2b${isB2B ? " on" : ""}`} onClick={() => setBillCycle("b2b")}>{lc.prBillB2B}</button>
                     </div>
 
                     {isB2B ? (<>

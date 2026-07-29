@@ -669,6 +669,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .billtoggle{display:flex;gap:8px;background:var(--card);border-radius:24px;padding:4px;margin-bottom:14px}
 .billtog{flex:1;padding:9px;border-radius:20px;background:transparent;border:none;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .billtog.on{background: #d97757;color:#fff}
+.billtog-b2b{font-size:10.5px;line-height:1.2;letter-spacing:.2px;white-space:normal}
 .billsave{font-family:'Orbitron',sans-serif;font-size:9px;background:#d97757;color:var(--grad1);border-radius:8px;padding:2px 5px}
 .pr-yrsave{color:#d97757;font-size:12px;font-weight:700;margin:-4px 0 8px}
 .upbtn{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:800;color:var(--card2);background: #d97757;border:none;border-radius:20px;padding:5px 10px;cursor:pointer;animation:flamepulse 1.4s ease-in-out infinite alternate}
