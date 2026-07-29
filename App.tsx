@@ -2337,6 +2337,11 @@ const L = {
     prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "✓ ทุกอย่างใน Premium รวม Auto Teaching ครบ", prMax3: "🎙️ AI Voice Teacher — คุยด้วยเสียง ครู AI ตอบกลับสด 24/7", prMax4: "📊 Daily Mentor · รายงาน AI รายสัปดาห์ · แผนซ้อม 7 วันส่วนตัว", prMax5: "🪙 XP & เหรียญ ×2 ทุกวัน · 🛡️ Streak Freeze 4 ใบ/เดือน ฟรี ไม่ต้องซื้อ", prMax6: "👑 เพลง Exclusive: Für Elise · Moonlight · Clair de Lune + อีก 3 ชิ้น", prMxf1: "👑 Max ครบทุกฟีเจอร์ ไม่มีตัดออก — สำหรับทุกคนในครอบครัว", prMxf2: "สูงสุด 10 โปรไฟล์ · ใช้งานพร้อมกันได้ทุกคนในบ้าน", prMxf3: "📊 แดชบอร์ดครอบครัว + รายงาน AI แยกทุกโปรไฟล์", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
     trialBanner: "🎁 ทดลองใช้ฟรี", trialDaysLeft: "วันที่เหลือ", trialUpgrade: "อัปเกรดแผน", trialExpired: "หมดเวลาทดลองใช้แล้ว — เลือกแผนเพื่อเรียนต่อ",
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
+    prBillB2B: "🏫 โรงเรียน", prSeat: "ที่นั่ง", prB2bSub: "สำหรับสถาบัน/โรงเรียนสอนดนตรี · ราคาต่อที่นั่ง · ขั้นต่ำ 15 ที่นั่ง/สัญญา",
+    prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "เทียบเท่า Premium ทุกฟีเจอร์", prB2bPlusSub: "เทียบเท่า Max ทุกฟีเจอร์ + AI Voice Teacher",
+    prB2bPerk1: "👤 ผู้ดูแลบัญชีคนไทยประจำสถาบัน", prB2bPerk2: "⚡ ซัพพอร์ตด่วน ตอบกลับภายใน 24 ชม.", prB2bPerk3: "🧾 ใบกำกับภาษี/ใบแจ้งหนี้บริษัท", prB2bPerk4: "📊 แดชบอร์ดครูดูภาพรวมนักเรียนจริง",
+    prB2bSeatNote: "ขั้นต่ำ 15 ที่นั่ง/สัญญา · สถาบันขนาดใหญ่ติดต่อทีมงานเพื่อราคาพิเศษ", prB2bCta: "💬 ติดต่อทีมงานเพื่อเริ่มต้น",
+    prB2bPerksLabel: "＋ สิทธิพิเศษสำหรับสถาบัน", prB2bOrYearly: "🗓️ หรือจ่ายรายปี {x}",
     schoolInfo: "🏫 TiGA สำหรับโรงเรียนและครูเปียโน\n\n• ใช้เป็น 'เพื่อนซ้อมที่บ้าน' ให้นักเรียนระหว่างคาบเรียน — AI ช่วยฝึกทุกวัน ครูเห็นความก้าวหน้า\n• โหมดไฮบริด: AI สอนทุกวัน + ครูจริงเช็คเดือนละครั้ง\n• ราคาสถาบัน + แดชบอร์ดติดตามนักเรียนทั้งห้อง\n\nสนใจติดต่อ: LINE @tiga.ai 🎹",
     octaveHint: "เลื่อนช่วงคีย์ขึ้น-ลง",
     songLoop: "🔁 วนซ้ำ", songNoLoop: "ไม่วน", songSlowHint: "โหมดช้า — เหมาะสำหรับผู้เริ่มต้น",
@@ -2460,6 +2465,11 @@ const L = {
     prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "✓ Everything in Premium — Auto Teaching + all Premium features, fully unlocked", prMax3: "🎙️ AI Voice Teacher — speak naturally, get live spoken responses 24/7", prMax4: "📊 Daily Mentor · AI Weekly Report · personalized 7-day practice plan", prMax5: "🪙 2× XP & coins every session · 🛡️ 4 free Streak Freezes per month", prMax6: "👑 Exclusive pieces: Für Elise · Moonlight Sonata · Clair de Lune + 3 more", prMxf1: "👑 Full Max — every feature, for every family member, nothing removed", prMxf2: "Up to 10 profiles — all family members active simultaneously", prMxf3: "📊 Family dashboard + individual AI reports per profile", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
     trialBanner: "🎁 Free Trial", trialDaysLeft: "days left", trialUpgrade: "Upgrade now", trialExpired: "Your free trial has ended — choose a plan to continue",
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
+    prBillB2B: "🏫 Schools", prSeat: "seat", prB2bSub: "For music schools & studios · priced per seat · 15-seat minimum per contract",
+    prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "Every Premium feature, included", prB2bPlusSub: "Every Max feature + AI Voice Teacher, included",
+    prB2bPerk1: "👤 Dedicated Thai account manager", prB2bPerk2: "⚡ Priority support, 24h response", prB2bPerk3: "🧾 Company invoice / tax receipt", prB2bPerk4: "📊 Real teacher dashboard for your roster",
+    prB2bSeatNote: "15-seat minimum per contract · larger institutions, contact us for custom pricing", prB2bCta: "💬 Contact us to get started",
+    prB2bPerksLabel: "+ Institutional perks", prB2bOrYearly: "🗓️ or billed annually at {x}",
     schoolInfo: "🏫 TiGA for schools & piano teachers\n\n• Use it as the at-home practice companion between lessons — AI coaches daily, you see progress.\n• Hybrid mode: AI every day + a real teacher check-in monthly.\n• Institutional pricing + a whole-class progress dashboard.\n\nContact: LINE @tiga.ai 🎹",
     octaveHint: "Shift the keyboard range",
     songLoop: "🔁 Loop", songNoLoop: "No Loop", songSlowHint: "Slow mode — great for beginners",
@@ -2583,6 +2593,11 @@ const L = {
     prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "✓ 包含Premium全部功能，Auto Teaching完整版", prMax3: "🎙️ AI语音教师 — 开口说话，AI实时语音回应，24/7随时在线", prMax4: "📊 Daily Mentor · AI每周进度报告 · 个性化7日练习计划", prMax5: "🪙 经验值&金币×2 · 🛡️ 每月4张免费连击保护卡，无需购买", prMax6: "👑 独家曲目: 致爱丽丝 · 月光奏鸣曲 · 月光曲 + 另外3首", prMxf1: "👑 Max全部功能，一个不少 — 全家共享，人人享有", prMxf2: "最多10个档案 — 全家成员同时使用", prMxf3: "📊 家庭仪表盘 + 每个档案独立AI报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
     trialBanner: "🎁 免费试用", trialDaysLeft: "天剩余", trialUpgrade: "立即升级", trialExpired: "免费试用已结束 — 选择套餐以继续使用",
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
+    prBillB2B: "🏫 学校", prSeat: "席位", prB2bSub: "面向音乐学校/机构 · 按席位计价 · 每份合同最低15个席位",
+    prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "包含Premium全部功能", prB2bPlusSub: "包含Max全部功能 + AI语音教师",
+    prB2bPerk1: "👤 专属泰语客户经理", prB2bPerk2: "⚡ 24小时优先支持", prB2bPerk3: "🧾 公司发票/税务收据", prB2bPerk4: "📊 真实的教师班级仪表盘",
+    prB2bSeatNote: "每份合同最低15个席位 · 大型机构可联系我们定制报价", prB2bCta: "💬 联系我们开始使用",
+    prB2bPerksLabel: "＋ 机构专属权益", prB2bOrYearly: "🗓️ 或按年支付 {x}",
     schoolInfo: "🏫 TiGA 面向学校与钢琴老师\n\n• 作为课后'在家练习伙伴'——AI 每天辅导，老师查看进度。\n• 混合模式：AI 每日教学 + 真人老师每月检查。\n• 机构价格 + 全班进度仪表板。\n\n联系：LINE @tiga.ai 🎹",
     octaveHint: "移动键盘音区",
     songLoop: "🔁 循环", songNoLoop: "不循环", songSlowHint: "慢速模式 — 适合初学者",
@@ -5902,6 +5917,22 @@ function fmtPrice(cur: string, amount: number): string {
   if (cur === "usd") return "US$" + amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   if (cur === "cny") return "¥" + amount.toLocaleString();
   return "฿" + amount.toLocaleString();
+}
+// B2B "Studio Partner Plan": always at least 15% above the matching individual plan,
+// in every currency and cadence, by deliberate design — no volume discount, the premium
+// is justified by dedicated account service (see prB2bPerk*), not a cheaper per-seat
+// deal. Standard tracks Premium, Plus tracks Max, so a price change to either consumer
+// tier keeps B2B correctly pegged automatically instead of needing a manual re-sync.
+// Math.ceil (never round-to-nearest) is what guarantees the ≥15% floor survives rounding.
+const B2B_MULT = 1.15;
+function b2bBaseTier(tier: string) { return tier === "plus" ? "max" : "premium"; }
+function b2bPriceByCur(cur: string, tier: string): number {
+  const n = planPriceByCur(cur, b2bBaseTier(tier)) * B2B_MULT;
+  return cur === "usd" ? Math.ceil(n) - 0.01 : Math.ceil(n / 10) * 10;
+}
+function b2bYearPriceByCur(cur: string, tier: string): number {
+  const n = yearPriceByCur(cur, b2bBaseTier(tier)) * B2B_MULT;
+  return cur === "usd" ? Math.ceil(n) - 0.01 : Math.ceil(n / 10) * 10;
 }
 const YEAR_PLANS = ["premium", "max", "maxfamily"];   // tiers that offer a yearly option
 // the live, authoritative plan for a profile row (admins = full; paid only while not expired)
@@ -12797,12 +12828,57 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 const perPersonMxf = fmtPrice(cur, cur === "usd" ? Math.round(mxfFamilyUnit / 10 * 100) / 100 : Math.round(mxfFamilyUnit / 10));
                 const perPersonFam = fmtPrice(cur, cur === "usd" ? Math.round(planPriceByCur(cur,"family") / 3 * 100) / 100 : Math.round(planPriceByCur(cur,"family") / 3));
                 const freeLabel = cur === "usd" ? "US$0" : cur === "cny" ? "¥0" : "฿0";
+                const isB2B = billCycle === "b2b";
+                const b2bPriceBlk = (tier) => <span className="prtier-price">{fmtPrice(cur, b2bPriceByCur(cur, tier))}<small>/{lc.prMonth}/{lc.prSeat}</small></span>;
+                const b2bYearNote = (tier) => <div className="pr-yrsave">{lc.prB2bOrYearly.replace("{x}", fmtPrice(cur, b2bYearPriceByCur(cur, tier)) + "/" + lc.prYear + "/" + lc.prSeat)}</div>;
                 return (
                   <>
                     <div className="billtoggle">
-                      <button className={`billtog${!yr ? " on" : ""}`} onClick={() => setBillCycle("month")}>{lc.prBillMonth}</button>
-                      <button className={`billtog${yr ? " on" : ""}`} onClick={() => setBillCycle("year")}>{lc.prBillYear} <span className="billsave">-3%</span></button>
+                      <button className={`billtog${billCycle === "month" ? " on" : ""}`} onClick={() => setBillCycle("month")}>{lc.prBillMonth}</button>
+                      <button className={`billtog${billCycle === "year" ? " on" : ""}`} onClick={() => setBillCycle("year")}>{lc.prBillYear} <span className="billsave">-3%</span></button>
+                      <button className={`billtog${isB2B ? " on" : ""}`} onClick={() => setBillCycle("b2b")}>{lc.prBillB2B}</button>
                     </div>
+
+                    {isB2B ? (<>
+                      <p className="pr-sub" style={{ margin: "-4px 0 14px" }}>{lc.prB2bSub}</p>
+
+                      {/* ── B2B PLUS (Max-equivalent) ── */}
+                      <div className="prtier max" style={{ position: "relative", marginTop: 6 }}>
+                        <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "#d97757", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
+                          ⚡ {lang === "th" ? "แนะนำ" : lang === "zh" ? "推荐" : "Recommended"}
+                        </div>
+                        <div className="prtier-top">
+                          <div>
+                            <span className="prtier-nm">👑 {lc.prB2bPlusNm}</span>
+                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{lc.prB2bPlusSub}</div>
+                          </div>
+                          {b2bPriceBlk("plus")}
+                        </div>
+                        {b2bYearNote("plus")}
+                        <ul className="prfeat"><li>{lc.prMax2}</li><li>{lc.prMax3}</li><li>{lc.prMax4}</li></ul>
+                        <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
+                        <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk3}</li><li>{lc.prB2bPerk4}</li></ul>
+                        <button className="songbtn go" onClick={() => { setPricingOpen(false); reviewSchools(); }}>{lc.prB2bCta}</button>
+                      </div>
+
+                      {/* ── B2B STANDARD (Premium-equivalent) ── */}
+                      <div className="prtier">
+                        <div className="prtier-top">
+                          <div>
+                            <span className="prtier-nm">⭐ {lc.prB2bStdNm}</span>
+                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{lc.prB2bStdSub}</div>
+                          </div>
+                          {b2bPriceBlk("standard")}
+                        </div>
+                        {b2bYearNote("standard")}
+                        <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li><li>{lc.prF4}</li></ul>
+                        <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
+                        <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk3}</li><li>{lc.prB2bPerk4}</li></ul>
+                        <button className="songbtn go" onClick={() => { setPricingOpen(false); reviewSchools(); }}>{lc.prB2bCta}</button>
+                      </div>
+
+                      <div className="pr-note">{lc.prB2bSeatNote}</div>
+                    </>) : (<>
 
                     {/* ── MAX FAMILY — ไฮไลต์สุด ── */}
                     <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`}
@@ -12885,11 +12961,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                       <ul className="prfeat"><li>{lc.prFree1}</li><li>{lc.prFree2}</li></ul>
                       {plan !== "free" && plan !== "trial" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
                     </div>
+                    </>)}
                   </>
                 );
               })()}
-              <div className="pr-note">{lc.prNote}</div>
-              <button className="pr-school" onClick={() => { setPricingOpen(false); reviewSchools(); }}>🏫 {lc.prSchool}</button>
+              {billCycle !== "b2b" && (<>
+                <div className="pr-note">{lc.prNote}</div>
+                <button className="pr-school" onClick={() => setBillCycle("b2b")}>🏫 {lc.prSchool}</button>
+              </>)}
             </div>
           </div>
         </div>
