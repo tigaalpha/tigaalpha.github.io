@@ -56,7 +56,16 @@ export async function respond(
 
   await db.from("messages").insert({ conversation_id: conversationId, sender: "customer", content: customerMessage });
 
-  const { data: conversation } = await db.from("conversations").select("summary").eq("id", conversationId).single();
+  const { data: conversation } = await db.from("conversations").select("summary, customer_id, channel").eq("id", conversationId).single();
+
+  // Only "internal" conversations (the owner/staff Floating Assistant) are
+  // allowed to act on an arbitrary customer named in the message — every
+  // other channel is a real customer talking about themselves, so tool
+  // calls are pinned to whichever customer this conversation is already
+  // tied to (see executeTool in tools.ts for why: an unpinned customerId
+  // would let a crafted message get the model to write to someone else's
+  // record).
+  const boundCustomerId: string | null = conversation?.channel === "internal" ? null : (conversation?.customer_id ?? null);
 
   const { data: history } = await db
     .from("messages")
@@ -109,7 +118,7 @@ export async function respond(
     messages.push(result.message);
 
     for (const call of result.message.toolCalls) {
-      const toolResult = await executeTool(call, db).catch((error: unknown) => ({
+      const toolResult = await executeTool(call, db, boundCustomerId).catch((error: unknown) => ({
         error: error instanceof Error ? error.message : String(error),
       }));
       messages.push({ role: "tool", toolCallId: call.id, content: JSON.stringify(toolResult) });

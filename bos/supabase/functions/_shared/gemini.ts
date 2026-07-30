@@ -22,6 +22,30 @@ function apiKey(): string {
   return Deno.env.get("GEMINI_API_KEY")!;
 }
 
+// The friendly-message wrapper below only changes *what the user sees* on
+// failure — it does nothing for *whether the request actually succeeds*.
+// 429 (per-minute quota) and 5xx are frequently transient; a bare fetch
+// with no retry means every one of those blips hard-fails the whole
+// feature (chat reply, article/video/voiceover draft, embedding) even
+// though the exact same request would likely succeed a second later.
+// Capped at 2 retries with exponential backoff + jitter to stay well
+// inside the edge function's execution time budget.
+const MAX_RETRIES = 2;
+const BASE_DELAY_MS = 500;
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetch(url, init);
+    if (response.ok || attempt >= MAX_RETRIES || !RETRYABLE_STATUS.has(response.status)) {
+      return response;
+    }
+    await response.body?.cancel().catch(() => {});
+    const delay = BASE_DELAY_MS * 2 ** attempt + Math.random() * 250;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+}
+
 // Gemini's error bodies are raw Google API JSON (quota metrics, rpc types,
 // retry info) — never fit for a user-facing chat bubble. Translate the
 // common cases into plain Thai and fall back to a short generic message
@@ -126,7 +150,7 @@ async function generate(
     ];
   }
 
-  const response = await fetch(`${BASE_URL}/${model()}:generateContent?key=${apiKey()}`, {
+  const response = await fetchWithRetry(`${BASE_URL}/${model()}:generateContent?key=${apiKey()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -160,7 +184,7 @@ async function generate(
 }
 
 async function embed(text: string): Promise<number[]> {
-  const response = await fetch(`${BASE_URL}/${embeddingModel()}:embedContent?key=${apiKey()}`, {
+  const response = await fetchWithRetry(`${BASE_URL}/${embeddingModel()}:embedContent?key=${apiKey()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -184,7 +208,7 @@ interface GeneratedImage {
 }
 
 async function generateImage(prompt: string): Promise<GeneratedImage> {
-  const response = await fetch(`${BASE_URL}/${imageModel()}:generateContent?key=${apiKey()}`, {
+  const response = await fetchWithRetry(`${BASE_URL}/${imageModel()}:generateContent?key=${apiKey()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] }),

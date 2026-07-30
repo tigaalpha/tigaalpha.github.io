@@ -142,8 +142,18 @@ export async function listEventsBetween(timeMin: string, timeMax: string): Promi
   }));
 }
 
-export async function findAvailableSlots(timeMin: string, timeMax: string, durationMinutes: number): Promise<{ start: string; end: string }[]> {
-  const busy = await listEventsBetween(timeMin, timeMax);
+/**
+ * Pure slot-finding over an already-known list of busy ranges — decoupled
+ * from Google Calendar so callers that have a better (teacher-scoped)
+ * source of busy time, like our own `bookings` table, don't have to go
+ * through the shared, teacher-agnostic Google Calendar event list.
+ */
+export function computeAvailableSlots(
+  busy: { start: string; end: string }[],
+  timeMin: string,
+  timeMax: string,
+  durationMinutes: number
+): { start: string; end: string }[] {
   const slots: { start: string; end: string }[] = [];
   const durationMs = durationMinutes * 60 * 1000;
 
@@ -168,4 +178,10 @@ export async function findAvailableSlots(timeMin: string, timeMax: string, durat
   }
 
   return slots;
+}
+
+/** Whole-calendar (not teacher-scoped) availability — kept for any caller that genuinely wants "is anything on the shared calendar at this time". */
+export async function findAvailableSlots(timeMin: string, timeMax: string, durationMinutes: number): Promise<{ start: string; end: string }[]> {
+  const busy = await listEventsBetween(timeMin, timeMax);
+  return computeAvailableSlots(busy, timeMin, timeMax, durationMinutes);
 }

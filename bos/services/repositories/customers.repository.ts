@@ -17,22 +17,38 @@ export class CustomersRepository {
   }
 
   async search(query: string, limit = 20): Promise<Tables<"customers">[]> {
+    // .or() takes a raw PostgREST filter string, not a parameterized query —
+    // "," separates clauses and "()" nests them, so interpolating user input
+    // unsanitized let a search string containing those characters inject
+    // extra filter clauses or break the grammar. A name/phone search box
+    // never legitimately needs them, so strip rather than escape.
+    const safe = query.replace(/[,()]/g, "").slice(0, 200);
     const { data, error } = await this.db
       .from("customers")
       .select("*")
-      .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
+      .or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`)
       .order("updated_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
     return data ?? [];
   }
 
+  // Both queries below were previously unbounded (`select("*")` with no
+  // `.limit()`), unlike every other list method in this file — fine at
+  // today's row counts, but at production scale it means every visit to
+  // Students/Sales pulls the *entire* customers table (every column,
+  // including notes/PII) to the browser. LIMIT_SAFETY_NET caps the worst
+  // case; it is not real pagination — the Students/Sales pages still need
+  // proper cursor/page-based UI to genuinely scale past a few thousand rows.
+  private static readonly LIMIT_SAFETY_NET = 500;
+
   async listByStatus(status: SalesStatus): Promise<Tables<"customers">[]> {
     const { data, error } = await this.db
       .from("customers")
       .select("*")
       .eq("sales_status", status)
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false })
+      .limit(CustomersRepository.LIMIT_SAFETY_NET);
     if (error) throw error;
     return data ?? [];
   }
@@ -41,7 +57,8 @@ export class CustomersRepository {
     const { data, error } = await this.db
       .from("customers")
       .select("*")
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false })
+      .limit(CustomersRepository.LIMIT_SAFETY_NET);
     if (error) throw error;
     return data ?? [];
   }
