@@ -27,15 +27,26 @@ function StudentDetailContent() {
       return;
     }
 
+    // Without this flag, clicking through the student list quickly (id A
+    // then id B before A's fetch resolves) could let A's slower response
+    // land after B's and overwrite the screen with the wrong customer —
+    // the same pattern message-thread.tsx already guards against.
+    let cancelled = false;
     const repos = createRepositories(createClient());
     repos.customers.findById(id).then(async (customer) => {
+      if (cancelled) return;
       if (!customer) {
         setData("not_found");
         return;
       }
       const [courses, history] = await Promise.all([repos.courses.listForCustomer(id), repos.sales.history(id)]);
+      if (cancelled) return;
       setData({ customer, courses, history });
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (data === null) return <Skeleton className="h-96" />;

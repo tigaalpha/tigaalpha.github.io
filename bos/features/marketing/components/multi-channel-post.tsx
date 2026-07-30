@@ -30,6 +30,7 @@ export function MultiChannelPost() {
   const [queue, setQueue] = useState<SocialPost[]>([]);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     loadQueue();
@@ -105,10 +106,18 @@ export function MultiChannelPost() {
     }
   }
 
-  function copyToClipboard(text: string, id: string) {
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 2000);
+  async function copyToClipboard(text: string, id: string) {
+    // navigator.clipboard.writeText() can reject (denied permission, non-HTTPS,
+    // no user-gesture context in some browsers) — previously the "copied"
+    // checkmark showed unconditionally, telling the user it worked when it
+    // may not have.
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(id);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      setActionError("คัดลอกไม่สำเร็จ — เบราว์เซอร์ไม่อนุญาตให้เข้าถึงคลิปบอร์ด");
+    }
   }
 
   async function deletePost(id: string) {
@@ -134,9 +143,15 @@ export function MultiChannelPost() {
 
       if (response.ok) {
         setQueue((prev) => prev.filter((p) => p.id !== id));
+      } else {
+        // Previously a failed delete (expired session, 404, server error)
+        // did nothing at all — the item stayed in the queue with no
+        // indication anything went wrong.
+        setActionError("ลบโพสต์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
       }
     } catch (error) {
       console.error("Failed to delete post:", error);
+      setActionError("ลบโพสต์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     }
   }
 
@@ -151,6 +166,20 @@ export function MultiChannelPost() {
           </p>
         </CardContent>
       </Card>
+
+      {actionError ? (
+        <Card>
+          <CardContent className="flex items-start justify-between gap-3 pt-6 text-sm text-danger">
+            <span className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              {actionError}
+            </span>
+            <button onClick={() => setActionError(null)} className="text-xs text-danger/70 hover:text-danger">
+              ปิด
+            </button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

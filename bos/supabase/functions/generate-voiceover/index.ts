@@ -5,6 +5,7 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { generate, embed } from "../_shared/ai-provider.ts";
 import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
+import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
 const RETURN_VOICEOVER_TOOL: ToolDefinition = {
   name: "return_voiceover",
@@ -32,6 +33,7 @@ Deno.serve(async (req: Request) => {
   try {
     const admin = createAdminClient();
     const userId = await requireStaff(admin, req);
+    await enforceRateLimit(admin, userId, "generate-voiceover", { windowMinutes: 60, maxRequests: 10 });
 
     const { topic, language } = await req.json();
     if (!topic) return jsonResponse({ error: "topic is required" }, 400);
@@ -77,6 +79,7 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ script }, 201);
   } catch (error) {
+    if (error instanceof RateLimitError) return jsonResponse({ error: error.message }, 429);
     return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
