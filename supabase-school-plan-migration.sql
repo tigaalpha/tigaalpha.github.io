@@ -41,6 +41,13 @@ create table if not exists school_members (
 );
 create index if not exists school_members_school_idx on school_members (school_id) where status = 'active';
 create index if not exists school_members_user_idx   on school_members (user_id)   where status = 'active';
+-- is_school_teacher() below is the single most-called function in this file — every
+-- teacher action (assign a song, remove a member, roster fetch, rotate join code) and
+-- every school_assignments/school_members RLS check goes through it. It filters on
+-- (school_id, user_id, role, status) together; the two single-column indexes above
+-- would otherwise force Postgres into a bitmap-index-intersection for that lookup
+-- instead of a single composite index scan. Cheap to add, meaningfully cheaper at scale.
+create index if not exists school_members_teacher_lookup_idx on school_members (user_id, school_id) where status = 'active' and role = 'teacher';
 
 -- ── school_assignments: real, DB-backed replacement for the old local checkbox ──
 create table if not exists school_assignments (
@@ -211,6 +218,47 @@ begin
     where id = p_school_id;
 end; $$;
 
+-- Staff-only recovery path for a "headless" school (every teacher left, or the
+-- founding teacher's account got removed) — school_add_member_by_email requires the
+-- caller to already be an active teacher of that school, which is exactly the
+-- condition that can't be met once there are none left. Without this, such a school
+-- has no route back to being manageable short of a direct SQL edit. Same quota/
+-- prior-plan-snapshot logic as school_add_member_by_email, just gated on admin_tier
+-- instead of school membership.
+create or replace function public.admin_add_school_member(p_school_id uuid, p_email text, p_role text default 'teacher')
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_tier smallint; v_school schools%rowtype; v_target uuid; v_count int; v_quota int; v_member_id uuid;
+  v_prior_plan text; v_prior_until timestamptz;
+begin
+  select admin_tier into v_tier from profiles where id = auth.uid();
+  if coalesce(v_tier, 0) < 3 then raise exception 'insufficient admin tier'; end if;
+  if p_role not in ('teacher','student') then raise exception 'invalid role'; end if;
+  select * into v_school from schools where id = p_school_id for update;
+  if not found then raise exception 'school not found'; end if;
+
+  select id into v_target from profiles where lower(email) = lower(trim(p_email)) limit 1;
+  if v_target is null then raise exception 'no TiGA account found for that email yet — ask them to sign in once first'; end if;
+  if exists (select 1 from school_members where user_id = v_target and status = 'active') then
+    raise exception 'already an active member of a school';
+  end if;
+
+  v_quota := case p_role when 'teacher' then v_school.teacher_seat_quota else v_school.seat_quota end;
+  select count(*) into v_count from school_members where school_id = p_school_id and role = p_role and status = 'active';
+  if v_count >= v_quota then raise exception '% seats are full', p_role; end if;
+
+  select plan, plan_until into v_prior_plan, v_prior_until from profiles where id = v_target;
+  insert into school_members (school_id, user_id, role, prior_plan, prior_plan_until, created_by)
+    values (p_school_id, v_target, p_role, v_prior_plan, v_prior_until, auth.uid())
+    returning id into v_member_id;
+
+  perform set_config('tiga.allow_school_field_change', 'on', true);
+  update profiles set plan = _school_plan_to_individual(v_school.plan), plan_until = v_school.plan_until where id = v_target;
+
+  return jsonb_build_object('member_id', v_member_id);
+end; $$;
+
 create or replace function public.admin_renew_school(p_school_id uuid, p_plan text, p_days int)
 returns void
 language plpgsql security definer set search_path = public as $$
@@ -248,7 +296,10 @@ begin
       (select count(*) from school_members m where m.school_id = s.id and m.role = 'teacher' and m.status = 'active'),
       s.created_at
     from schools s left join profiles o on o.id = s.owner_id
-    order by s.created_at desc;
+    order by s.created_at desc
+    limit 500; -- defensive cap, not real pagination: fine at today's scale (a handful
+               -- of B2B contracts), but this needs proper offset/cursor pagination in
+               -- the admin UI well before the business realistically has 500 schools
 end; $$;
 
 -- ── teacher/student self-serve RPCs (this is what stops staff from having to

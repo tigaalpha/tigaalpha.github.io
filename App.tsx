@@ -7008,6 +7008,11 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
   const zhFileRef = useRef(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const fileRef = useRef(null);
+  // guards against a fast double-click/double-tap firing openStripe/onFile twice before
+  // React re-renders with the disabled button — state (stripeLoading/st) alone isn't
+  // enough since its updated value isn't visible to a second click that dispatches
+  // before the first render commits; a ref updates synchronously so it closes that gap
+  const submittingRef = useRef(false);
   const amountThb = checkout.amount;                        // always THB (for slip DB record)
   const cur = checkout.cur || CURRENCY_BY_LANG[lang] || "thb";
   const dispAmt = checkout.disp != null ? checkout.disp : amountThb;
@@ -7037,7 +7042,8 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
   const uid = session && session.user && session.user.id;
 
   async function openStripe() {
-    if (!uid || stripeLoading) return;
+    if (!uid || stripeLoading || submittingRef.current) return;
+    submittingRef.current = true;
     setStripeLoading(true);
     try {
       const res = await fetch(SUPABASE_URL + "/functions/v1/stripe-checkout", {
@@ -7048,13 +7054,14 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error || "no url");
       window.location.href = data.url;
-    } catch { setSt("stripe-err"); setStripeLoading(false); }
+    } catch { setSt("stripe-err"); setStripeLoading(false); submittingRef.current = false; }
   }
 
   async function onFile(e) {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
-    if (!f || !uid || !selChan) return;
+    if (!f || !uid || !selChan || submittingRef.current) return;
     if (f.size > 6 * 1024 * 1024) { setSt("error"); return; }
+    submittingRef.current = true;
     setSt("uploading");
     try {
       const ext = ((f.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
@@ -7068,7 +7075,7 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
       });
       if (ins.error) throw ins.error;
       setSt("done"); playUi("levelup");
-    } catch { setSt("error"); }
+    } catch { setSt("error"); submittingRef.current = false; }
   }
 
   async function saveCfgInline() {
@@ -7217,6 +7224,11 @@ function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onClose })
   const [zhTab, setZhTab] = useState<"alipay"|"wechat">("alipay");
   const [st, setSt] = useState("idle");          // idle · uploading · done · error
   const fileRef = useRef(null);
+  // ref-based guards (not state) against a fast double-click firing submitRequest or
+  // onFile twice before React re-renders with the disabled button — see CheckoutModal's
+  // submittingRef for why a ref is needed here instead of relying on busy/st alone
+  const submitRef = useRef(false);
+  const uploadRef = useRef(false);
 
   const unitPreview = cycle === "year" ? b2bYearPriceByCur(cur, schoolCheckout.tier) : b2bPriceByCur(cur, schoolCheckout.tier);
   const totalPreview = unitPreview * (Number(seats) || 0);
@@ -7232,19 +7244,30 @@ function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onClose })
     setErr(""); setStep("pay");
   }
 
+  const [submittedMethod, setSubmittedMethod] = useState(null);
+
+  // Idempotent by method: if this exact method already has a submitted request (e.g.
+  // the Stripe redirect step failed on a flaky connection and the user retries the
+  // same button), reuse it instead of creating a second school_payment_requests row.
+  // Switching to a DIFFERENT method after a failure still submits a fresh one — the
+  // row's `method` column is set at creation and not worth reconciling for what should
+  // be a rare path, staff can tell from context which one the buyer actually paid.
   async function submitRequest(method) {
-    if (!uid || busy) return null;
+    if (reqId && submittedMethod === method) return { id: reqId, amount };
+    if (!uid || busy || submitRef.current) return null;
+    submitRef.current = true;
     setBusy(true); setErr("");
     const { data, error } = await sb.rpc("school_submit_payment_request", {
       p_institution_name: instName.trim(), p_tier: tier, p_seats: Number(seats), p_cycle: cycle, p_method: method,
     });
     setBusy(false);
-    if (error) { setErr(error.message || T("ส่งคำขอไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't submit — try again", "提交失败，请重试")); return null; }
-    setReqId(data.id); setAmount(data.amount);
+    if (error) { setErr(error.message || T("ส่งคำขอไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't submit — try again", "提交失败，请重试")); submitRef.current = false; return null; }
+    setReqId(data.id); setAmount(data.amount); setSubmittedMethod(method);
     return data;
   }
 
   async function payWithStripe() {
+    if (stripeLoading) return;
     const data = await submitRequest("stripe");
     if (!data) return;
     setStripeLoading(true);
@@ -7268,8 +7291,9 @@ function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onClose })
 
   async function onFile(e) {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
-    if (!f || !uid || !reqId) return;
+    if (!f || !uid || !reqId || uploadRef.current) return;
     if (f.size > 6 * 1024 * 1024) { setSt("error"); return; }
+    uploadRef.current = true;
     setSt("uploading");
     try {
       const ext = ((f.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
@@ -7279,7 +7303,7 @@ function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onClose })
       const { error } = await sb.rpc("school_attach_slip", { p_id: reqId, p_slip_path: path });
       if (error) throw error;
       setSt("done"); playUi("levelup");
-    } catch { setSt("error"); }
+    } catch { setSt("error"); uploadRef.current = false; }
   }
 
   const showStripeBtn = lang === "th" || lang === "en";
@@ -7745,6 +7769,10 @@ function AdminSchools({ lang, viewerTier }) {
   const [teacherSeatEdit, setTeacherSeatEdit] = useState(0);
   const [renewPlan, setRenewPlan] = useState("school_standard");
   const [renewDays, setRenewDays] = useState(365);
+  const [fulfillingReqId, setFulfillingReqId] = useState(null); // payment-request id the create-school form below is currently fulfilling, if any
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState("teacher");
+  const [addMsg, setAddMsg] = useState("");
 
   const load = useCallback(() => {
     setErr(""); setRows(null);
@@ -7760,7 +7788,10 @@ function AdminSchools({ lang, viewerTier }) {
   // manual-review payment channel in this app.
   const [payReqs, setPayReqs] = useState([]);
   const loadPayReqs = useCallback(() => {
-    sb.rpc("admin_list_school_payment_requests").then(({ data }) => setPayReqs((data || []).filter(r => r.status !== "rejected")), () => {});
+    // only surface what still needs a human look — fulfilled/rejected requests stay in
+    // the table for audit history but drop out of this "needs attention" panel so it
+    // can't grow unbounded as the school gradually accumulates fulfilled contracts
+    sb.rpc("admin_list_school_payment_requests").then(({ data }) => setPayReqs((data || []).filter(r => r.status !== "rejected" && !r.fulfilled_at)), () => {});
   }, []);
   useEffect(() => { loadPayReqs(); }, [loadPayReqs]);
   async function reviewPayReq(id, approve) {
@@ -7772,7 +7803,7 @@ function AdminSchools({ lang, viewerTier }) {
   function prefillFromPayReq(r) {
     setNewName(r.institution_name); setNewEmail(r.contact_email);
     setNewPlan(r.tier); setNewSeats(r.seats); setNewDays(r.cycle === "year" ? 365 : 30);
-    setShowNew(true);
+    setFulfillingReqId(r.id); setShowNew(true);
   }
   async function viewSlip(path) {
     const { data } = await sb.storage.from("slips").createSignedUrl(path, 600);
@@ -7786,12 +7817,18 @@ function AdminSchools({ lang, viewerTier }) {
       p_name: newName.trim(), p_owner_email: newEmail.trim(), p_plan: newPlan,
       p_seat_quota: Number(newSeats) || 0, p_teacher_seat_quota: Number(newTeacherSeats) || 3, p_days: Number(newDays) || 365,
     });
+    if (error) { setBusy(false); setMsg(error.message || "error"); return; }
+    // mark the originating payment request fulfilled so it can't be double-provisioned
+    // or silently forgotten — separate from admin_create_school's own success/failure,
+    // this best-effort call intentionally doesn't block the school from having been
+    // created even if it itself fails (e.g. transient network blip)
+    if (fulfillingReqId) { await sb.rpc("admin_mark_school_payment_fulfilled", { p_id: fulfillingReqId }); loadPayReqs(); }
     setBusy(false);
-    if (error) { setMsg(error.message || "error"); return; }
-    setNewName(""); setNewEmail(""); setNewSeats(15); setShowNew(false); load();
+    setNewName(""); setNewEmail(""); setNewSeats(15); setShowNew(false); setFulfillingReqId(null); load();
   }
   function openSchool(s) {
     setSel(s); setSeatEdit(s.seat_quota); setTeacherSeatEdit(s.teacher_seat_quota); setRenewPlan(s.plan); setRenewDays(365);
+    setAddEmail(""); setAddRole("teacher"); setAddMsg("");
   }
   async function saveSeats() {
     if (!sel) return; setBusy(true);
@@ -7802,6 +7839,16 @@ function AdminSchools({ lang, viewerTier }) {
     if (!sel) return; setBusy(true);
     const { error } = await sb.rpc("admin_renew_school", { p_school_id: sel.id, p_plan: renewPlan, p_days: Number(renewDays) || 365 });
     setBusy(false); if (!error) { setSel(null); load(); }
+  }
+  // Recovery path for a "headless" school (every teacher left) — school_add_member_by_email
+  // requires the caller to already be a teacher there, which a headless school has none of.
+  async function addMemberAdmin() {
+    if (!sel || !addEmail.trim()) return;
+    setBusy(true); setAddMsg("");
+    const { error } = await sb.rpc("admin_add_school_member", { p_school_id: sel.id, p_email: addEmail.trim(), p_role: addRole });
+    setBusy(false);
+    if (error) { setAddMsg(error.message || "error"); return; }
+    setAddEmail(""); setAddMsg(T("เพิ่มแล้ว ✓", "Added ✓", "已添加 ✓")); load();
   }
 
   if (rows === null) return <div className="admstu"><div className="admstu-msg">⏳ {T("กำลังโหลด...", "Loading...", "正在加载...")}</div></div>;
@@ -7842,6 +7889,19 @@ function AdminSchools({ lang, viewerTier }) {
             </div>
             <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy} onClick={renew}>🔄 {T("ต่ออายุ", "Renew", "续费")}</button>
           </div>
+          <div className="admmg">
+            <div className="admmg-h">🛟 {T("เพิ่มสมาชิก (กู้คืน)", "Add member (recovery)", "添加成员（恢复）")}</div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>{T("ใช้เมื่อโรงเรียนไม่มีครูเหลืออยู่เลย — ครูปกติเชิญกันเองได้ผ่านโค้ดเข้าร่วม ใช้ตรงนี้เฉพาะกรณีกู้คืนเท่านั้น", "For when a school has no active teacher left to invite anyone — normal invites go through the join code; use this only to recover", "仅用于该学校已无在职教师、无法自行邀请的恢复场景 — 正常邀请请使用加入码")}</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input className="aicreate-in" style={{ flex: 1 }} value={addEmail} onChange={e => { setAddEmail(e.target.value); setAddMsg(""); }} placeholder={T("อีเมล (ต้องเคยล็อกอินแล้ว)", "Email (must have signed in once)", "邮箱（须已登录过）")} />
+              <select className="admmg-sel" style={{ maxWidth: 110 }} value={addRole} onChange={e => setAddRole(e.target.value)}>
+                <option value="teacher">{T("ครู", "Teacher", "教师")}</option>
+                <option value="student">{T("นักเรียน", "Student", "学生")}</option>
+              </select>
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy || !addEmail.trim()} onClick={addMemberAdmin}>➕ {T("เพิ่ม", "Add", "添加")}</button>
+            {addMsg && <div style={{ textAlign: "center", color: "var(--accent)", fontSize: 13, marginTop: 6 }}>{addMsg}</div>}
+          </div>
         </>)}
       </div>
     );
@@ -7854,14 +7914,21 @@ function AdminSchools({ lang, viewerTier }) {
           <div className="admmg-h" style={{ color: "#4caf50" }}>💰 {T("คำขอชำระเงิน B2B", "B2B payment requests", "B2B付款请求")} ({payReqs.length})</div>
           {payReqs.map(r => (
             <div key={r.id} style={{ background: "var(--card3)", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
-              <div className="admstu-row-nm">{r.institution_name} <span className="adminpay-badge approved">{r.status.toUpperCase()}</span></div>
+              <div className="admstu-row-nm">{r.institution_name} <span className="adminpay-badge approved">{r.fulfilled_at ? T("จัดเตรียมแล้ว", "PROVISIONED", "已开通") : r.status.toUpperCase()}</span></div>
               <div className="admstu-row-meta">{r.tier.replace("school_", "")} × {r.seats} {T("ที่นั่ง", "seats", "席位")} · {r.cycle === "year" ? T("รายปี", "yearly", "年付") : T("รายเดือน", "monthly", "月付")} · ฿{Number(r.amount).toLocaleString()} · {r.method}</div>
               <div className="admstu-row-sub">{r.contact_email}</div>
-              {tier >= 3 && (
+              {tier >= 3 && !r.fulfilled_at && (r.status === "pending" || r.status === "paid") && (
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   {r.slip_path && <button className="songbtn ghost" style={{ padding: "8px 12px" }} onClick={() => viewSlip(r.slip_path)}>📎 {T("ดูสลิป", "View slip", "查看凭证")}</button>}
                   <button className="songbtn go" style={{ flex: 1, padding: 8 }} disabled={busy} onClick={() => { reviewPayReq(r.id, true); prefillFromPayReq(r); }}>✓ {T("อนุมัติ", "Approve", "批准")}</button>
                   <button className="songbtn ghost" style={{ flex: 1, padding: 8 }} disabled={busy} onClick={() => reviewPayReq(r.id, false)}>✕ {T("ปฏิเสธ", "Reject", "拒绝")}</button>
+                </div>
+              )}
+              {tier >= 3 && !r.fulfilled_at && r.status === "approved" && (
+                <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+                  {r.slip_path && <button className="songbtn ghost" style={{ padding: "8px 12px" }} onClick={() => viewSlip(r.slip_path)}>📎 {T("ดูสลิป", "View slip", "查看凭证")}</button>}
+                  <span style={{ fontSize: 11, color: "#d97757" }}>⏳ {T("อนุมัติแล้ว รอสร้างโรงเรียน", "Approved — still needs the school created", "已批准——仍需创建学校")}</span>
+                  <button className="songbtn go" style={{ padding: "8px 12px" }} disabled={busy} onClick={() => prefillFromPayReq(r)}>🏫 {T("เติมฟอร์ม", "Prefill form", "填充表单")}</button>
                 </div>
               )}
             </div>

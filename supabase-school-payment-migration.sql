@@ -28,7 +28,9 @@ create table if not exists school_payment_requests (
   status             text not null default 'pending' check (status in ('pending','paid','approved','rejected')),
   created_at         timestamptz not null default now(),
   reviewed_at        timestamptz,
-  reviewed_by        uuid references auth.users (id)
+  reviewed_by        uuid references auth.users (id),
+  fulfilled_at       timestamptz,   -- set once staff has actually run admin_create_school for this
+  fulfilled_by       uuid references auth.users (id)
 );
 create index if not exists school_payment_requests_status_idx on school_payment_requests (status, created_at desc);
 
@@ -97,7 +99,11 @@ declare v_tier smallint;
 begin
   select admin_tier into v_tier from profiles where id = auth.uid();
   if coalesce(v_tier, 0) < 1 then raise exception 'insufficient admin tier'; end if;
-  return query select * from school_payment_requests order by created_at desc;
+  -- defensive cap, not real pagination — see admin_list_schools() for the same note.
+  -- The client additionally filters this down to non-fulfilled/non-rejected rows, so
+  -- in practice the visible "needs attention" list stays small regardless; this limit
+  -- only guards the raw query itself against unbounded growth of the underlying table.
+  return query select * from school_payment_requests order by created_at desc limit 500;
 end; $$;
 
 -- Approve/reject only — deliberately does NOT auto-create the school. A human staffer
@@ -115,4 +121,19 @@ begin
     set status = case when p_approve then 'approved' else 'rejected' end,
         reviewed_at = now(), reviewed_by = auth.uid()
     where id = p_id;
+end; $$;
+
+-- Marks a payment request as actually provisioned. Called by the client right after
+-- admin_create_school succeeds for a request that was opened via "Approve" (which
+-- pre-fills the create-school form but does not create anything itself). Without this,
+-- an approved-but-not-yet-created request looks identical to an approved-and-already-
+-- created one in the admin list, risking either a forgotten school (customer paid,
+-- never provisioned) or a duplicate one (staff re-runs Create by mistake).
+create or replace function public.admin_mark_school_payment_fulfilled(p_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_tier smallint;
+begin
+  select admin_tier into v_tier from profiles where id = auth.uid();
+  if coalesce(v_tier, 0) < 3 then raise exception 'insufficient admin tier'; end if;
+  update school_payment_requests set fulfilled_at = now(), fulfilled_by = auth.uid() where id = p_id;
 end; $$;
