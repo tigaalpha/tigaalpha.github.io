@@ -7439,10 +7439,17 @@ function AdminStudents({ lang, viewerTier }) {
   }
   const load = useCallback(() => {
     setErr(""); setRows(null);
+    // admin_list_students() itself has no LIMIT (its SQL isn't in this repo — it was
+    // created directly via the Supabase SQL editor in an earlier session — so it can't
+    // safely be edited blind here). At real scale this fetches and JSON-parses every
+    // registered user in one response before this code ever runs, which no client-side
+    // change can undo; capping here only stops the *second* cost — sorting and
+    // rendering an unbounded array — from compounding the first. The real fix is a
+    // LIMIT + real search/pagination on the RPC itself.
     sb.rpc("admin_list_students")
       .then(({ data, error }) => {
         if (error) { setErr(error.message || "error"); setRows([]); return; }
-        const r = (data || []).slice().sort((a, b) => (b.last_active || "").localeCompare(a.last_active || "") || (b.exp || 0) - (a.exp || 0));
+        const r = (data || []).slice(0, 5000).sort((a, b) => (b.last_active || "").localeCompare(a.last_active || "") || (b.exp || 0) - (a.exp || 0));
         setRows(r);
       }, (e) => { setErr("" + (e && e.message || e)); setRows([]); });
   }, []);
