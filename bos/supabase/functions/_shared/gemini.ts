@@ -22,6 +22,34 @@ function apiKey(): string {
   return Deno.env.get("GEMINI_API_KEY")!;
 }
 
+// Gemini's error bodies are raw Google API JSON (quota metrics, rpc types,
+// retry info) — never fit for a user-facing chat bubble. Translate the
+// common cases into plain Thai and fall back to a short generic message
+// rather than ever surfacing the raw body to the frontend.
+async function friendlyErrorMessage(response: Response, context: string): Promise<string> {
+  const rawText = await response.text();
+
+  if (response.status === 429) {
+    return "ระบบ AI มีผู้ใช้งานเยอะในขณะนี้ (โควต้าเต็ม) กรุณาลองใหม่อีกครั้งในอีกสักครู่";
+  }
+
+  let apiMessage: string | undefined;
+  try {
+    const parsed = JSON.parse(rawText) as { error?: { message?: string } };
+    apiMessage = parsed.error?.message;
+  } catch {
+    // not JSON — ignore, we'll use the generic fallback below
+  }
+
+  if (response.status >= 500) {
+    return "ระบบ AI ขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง";
+  }
+
+  return apiMessage
+    ? `${context}: ${apiMessage}`
+    : `${context} ล้มเหลว (${response.status}) กรุณาลองใหม่อีกครั้ง`;
+}
+
 function model(): string {
   return Deno.env.get("AI_MODEL") ?? "gemini-2.0-flash";
 }
@@ -105,7 +133,7 @@ async function generate(
   });
 
   if (!response.ok) {
-    throw new Error(`Gemini generateContent failed (${response.status}): ${await response.text()}`);
+    throw new Error(await friendlyErrorMessage(response, "AI ตอบกลับ"));
   }
 
   const data = (await response.json()) as {
@@ -143,7 +171,7 @@ async function embed(text: string): Promise<number[]> {
   });
 
   if (!response.ok) {
-    throw new Error(`Gemini embedContent failed (${response.status}): ${await response.text()}`);
+    throw new Error(await friendlyErrorMessage(response, "การค้นหาข้อมูล"));
   }
 
   const data = (await response.json()) as { embedding?: { values?: number[] } };
@@ -163,7 +191,7 @@ async function generateImage(prompt: string): Promise<GeneratedImage> {
   });
 
   if (!response.ok) {
-    throw new Error(`Gemini image generateContent failed (${response.status}): ${await response.text()}`);
+    throw new Error(await friendlyErrorMessage(response, "การสร้างภาพ"));
   }
 
   const data = (await response.json()) as {
@@ -172,7 +200,7 @@ async function generateImage(prompt: string): Promise<GeneratedImage> {
 
   const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
   if (!imagePart?.inlineData) {
-    throw new Error("Gemini didn't return an image for this prompt — try rephrasing it.");
+    throw new Error("AI ไม่สามารถสร้างภาพจากคำสั่งนี้ได้ ลองปรับคำอธิบายแล้วลองใหม่อีกครั้ง");
   }
 
   return { mimeType: imagePart.inlineData.mimeType, base64: imagePart.inlineData.data };
