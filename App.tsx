@@ -5083,7 +5083,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
 
   async function generateSong() {
     if (!genText.trim() || generating) return;
-    if (!canUse("song")) { setCreateOpen(false); if (onUpsell) onUpsell(); return; }
+    if (!canUse("song", premium)) { setCreateOpen(false); if (onUpsell) onUpsell(); return; }
     setGenerating(true); setGenErr(false);
     try {
       const sys = "You turn a song request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON, no prose, no markdown: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names from C4 to B5 only; use \"R\" for a rest; beats are 0.5, 1, 1.5 or 2. Keep it 16-48 notes and recognizable.";
@@ -6089,7 +6089,11 @@ function planBadge(p) {
 const FREE_LIMITS = { song: 2, critique: 3 };   // free actions per day
 function usageToday(key) { try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === dayKey() ? (u[key] || 0) : 0; } catch (e) { return 0; } }
 function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
-function canUse(key) { return isPremium() || usageToday(key) < (FREE_LIMITS[key] || 0); }
+// `premium` must be the caller's real, server-synced plan state — never isPremium(),
+// which reads raw localStorage. localStorage.setItem("tg_premium","1") is a one-line
+// browser-console edit that would otherwise remove these daily caps on two endpoints
+// that call a real, real-money AI backend (generateSong/critiqueRecording → piano-chat).
+function canUse(key, premium) { return premium || usageToday(key) < (FREE_LIMITS[key] || 0); }
 
 
 /* ── graded exam-prep curriculum (premium) ── */
@@ -7086,7 +7090,11 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
       ...(aliQrField.trim() ? { alipay_qr: aliQrField.trim() } : {}),
       ...(wxQrField.trim() ? { wechat_qr: wxQrField.trim() } : {}),
     };
-    const { error } = await sb.from("app_settings").upsert({ key: "payment", value, updated_at: new Date().toISOString() });
+    // admin_set_app_setting (not a raw client upsert) — this row controls where every
+    // paying customer's PromptPay/Alipay/WeChat payment gets sent app-wide, so it goes
+    // through the same admin-gated RPC path already used for auto_teach/broadcast
+    // rather than relying solely on app_settings' table-level RLS.
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "payment", p_value: value });
     setSavingCfg(false);
     if (!error) { setCfg(value); playUi("levelup"); }
   }
@@ -8018,7 +8026,7 @@ function AdminPayments({ lang }) {
   async function saveCfg() {
     setCfgSaved(false);
     const value = { promptpay: cfg.promptpay.trim(), name: cfg.name.trim(), bank: cfg.bank.trim(), stripe: cfg.stripe, alipay_qr: cfg.alipay_qr.trim(), wechat_qr: cfg.wechat_qr.trim() };
-    const { error } = await sb.from("app_settings").upsert({ key: "payment", value, updated_at: new Date().toISOString() });
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "payment", p_value: value });
     if (!error) { setCfgSaved(true); setTimeout(() => setCfgSaved(false), 2500); }
   }
   async function openSel(p) {
@@ -8443,7 +8451,7 @@ function AdminGames({ lang }) {
   }
 
   async function saveList(next: any[]) {
-    const { error } = await sb.from("app_settings").upsert({ key: "music_games", value: next, updated_at: new Date().toISOString() });
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "music_games", p_value: next });
     if (!error) { setGames(next); return true; }
     return false;
   }
@@ -9098,6 +9106,22 @@ export default function App() {
     if (session && session.user && session.user.id) loadProfile(session.user.id);
     else { setProfile(null); setProfileReady(false); }
   }, [session, loadProfile]);
+
+  // banned/plan/admin_tier are otherwise only re-checked once per session (on the
+  // initial loadProfile above) — a tab left open through a ban stays fully usable
+  // until the next reload, and there's no realtime subscription on `profiles`. This
+  // silently re-fetches (no setProfileReady(false), so no splash-screen flash) whenever
+  // the tab regains focus, closing most of that gap without needing a full realtime
+  // channel. Still not a substitute for server-side enforcement of `banned` on
+  // sensitive RPCs — a still-valid JWT used outside this SPA is unaffected either way.
+  useEffect(() => {
+    const uid = session && session.user && session.user.id;
+    if (!uid) return;
+    const recheck = () => { if (document.visibilityState === "visible") sb.from("profiles").select("*").eq("id", uid).maybeSingle().then(({ data }) => { if (data) setProfile(data); }); };
+    document.addEventListener("visibilitychange", recheck);
+    window.addEventListener("focus", recheck);
+    return () => { document.removeEventListener("visibilitychange", recheck); window.removeEventListener("focus", recheck); };
+  }, [session && session.user && session.user.id]);
 
   async function signOut() {
     try { await sb.auth.signOut(); } catch (e) {}
@@ -10021,7 +10045,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function critiqueRecording() {
     const clip = clipRef.current;
     if (!clip.length || recordingRef.current || loading) return;
-    if (!canUse("critique")) { setPricingOpen(true); return; }
+    if (!canUse("critique", premium)) { setPricingOpen(true); return; }
     if (!premium) bumpUsage("critique");
     stopClip();
     setPage("sensei");
