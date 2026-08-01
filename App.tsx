@@ -798,6 +798,24 @@ function levelInfo(exp) {
   };
 }
 
+/* Prestige: level 10 (the top of LEVELS) used to be a dead end — once reached,
+   EXP kept accumulating with zero further feedback. Past that cap, every extra
+   PRESTIGE_STEP EXP earns a "Legend Star". Purely DERIVED from exp (same trick
+   as BADGES below) — never stored or reset, so it can't be forged by writing a
+   smaller exp value (the anti-cheat trigger only blocks increases, not decreases;
+   see supabase-security-hardening-migration.sql). */
+const PRESTIGE_STEP = 2000;
+function prestigeInfo(exp) {
+  const e = Math.max(0, exp || 0);
+  const cap = LEVELS[LEVELS.length - 1].min; // 5200 — top of the level ladder
+  if (e < cap) return { tier: 0, into: 0, need: PRESTIGE_STEP };
+  const past = e - cap;
+  return { tier: Math.floor(past / PRESTIGE_STEP), into: past % PRESTIGE_STEP, need: PRESTIGE_STEP - (past % PRESTIGE_STEP) };
+}
+
+/* face shown by the floating mascot companion, keyed by mascotMood (see mascot()) */
+const MASCOT_FACE = { idle: "🙂", happy: "😊", celebrate: "🤩", sad: "🥺" };
+
 /* Daily reset (streak, daily quest, gift box) runs on ONE fixed time zone so the
    day boundary is the SAME on every device instead of each phone's local clock.
    0 = GMT/UTC. Bangkok/ICT is 420 (UTC+7) — flip this one number to change it. */
@@ -2265,6 +2283,7 @@ const L = {
     profContactEdit: "แก้ไข", profContactSave: "บันทึก", profContactCancel: "ยกเลิก",
     profContactNudge: "เพิ่ม LINE หรือเบอร์โทรไว้ ให้ครูติดต่อได้ง่ายขึ้น",
     profMaxRank: "ถึงระดับสูงสุดแล้ว 🏆", profLevelWord: "เลเวล", levelUpWord: "เลเวลอัพ!",
+    prestigeWord: "ตำนานดาวที่", prestigeUpWord: "เลื่อนขั้นตำนาน!",
     practiceBtn: "🎯 ฝึกเล่นท่อนนี้", practiceTitle: "โหมดฝึกเล่น",
     practiceNoSeq: "เลือกบทเรียนหรือเล่นตัวอย่างก่อน แล้วค่อยกดฝึก",
     practiceMidi: "🎹 เชื่อมเปียโน MIDI แล้ว", practiceMic: "🎤 กำลังฟังผ่านไมโครโฟน",
@@ -2287,7 +2306,7 @@ const L = {
     aiHumBtn: "🎤 เล่นโน้ต — AI แปลงเป็นบรรยาย", aiHumStop: "หยุดฟัง", aiHumHint: "เล่นท่อนสั้นๆ แล้ว AI จะใช้โน้ตนั้นสร้างเพลง",
     commuteTitle: "ฟังทฤษฎีดนตรี", commuteSub: "ฟังบทเรียนขณะเดินทาง ไม่ต้องดูหน้าจอ", commuteStop: "หยุดเสียง", commutePlaying: "กำลังอ่าน…",
     kruTitle: "โหมดครู / Kru Mode", kruSub: "จัดการชั้นเรียน + ส่ง assignment code", kruClass: "รายชื่อนักเรียน", kruCode: "สร้างโค้ด", kruEnter: "ใช้โค้ด", kruAddPh: "ชื่อนักเรียน", kruAdd: "เพิ่ม", kruAssign: "เพลงที่มอบหมาย", kruMakeCode: "สร้างโค้ด", kruCopied: "คัดลอกแล้ว!", kruPastePh: "วางโค้ด assignment", kruApply: "เปิดเพลง", kruNoSong: "เลือกเพลงก่อน", kruBadCode: "โค้ดไม่ถูกต้อง", kruNoStudents: "ยังไม่มีนักเรียน",
-    schoolDashTitle: "แดชบอร์ดโรงเรียน", schoolDashSub: "ดูพัฒนาการนักเรียนจริง มอบหมายเพลงได้ทันที", schoolRoster: "รายชื่อนักเรียน", schoolInvite: "เชิญเข้าร่วม", schoolSeats: "ที่นั่ง", schoolCode: "โค้ดเข้าร่วม", schoolCodeHint: "ให้นักเรียนกรอกโค้ดนี้ในโหมดครูของแอพ เพื่อเชื่อมบัญชีเข้าโรงเรียน", schoolCodeCopy: "คัดลอกโค้ด", schoolCodeRegen: "สร้างโค้ดใหม่", schoolAddByEmail: "เพิ่มด้วยอีเมล", schoolAddByEmailPh: "อีเมลที่เคยเข้าสู่ระบบ TiGA แล้ว", schoolAddBtn: "เพิ่ม", schoolAssignBtn: "มอบหมายเพลงนี้", schoolAssignedTo: "มอบหมายล่าสุด", schoolAckYes: "ฝึกแล้ว", schoolAckNo: "ยังไม่ฝึก", schoolRemoveBtn: "นำออกจากโรงเรียน", schoolRemoveConfirm: "นำนักเรียนคนนี้ออกจากโรงเรียน?", schoolMyCard: "โรงเรียนของฉัน", schoolMyRoleTeacher: "ครู", schoolMyRoleStudent: "นักเรียน", schoolLeaveBtn: "ออกจากโรงเรียน", schoolNoRoster: "ยังไม่มีนักเรียนในโรงเรียนนี้", hwFromTeacher: "การบ้านจากครู", schoolBack: "ย้อนกลับ",
+    schoolDashTitle: "แดชบอร์ดโรงเรียน", schoolDashSub: "ดูพัฒนาการนักเรียนจริง มอบหมายเพลงได้ทันที", schoolRoster: "รายชื่อนักเรียน", schoolInvite: "เชิญเข้าร่วม", schoolSeats: "ที่นั่ง", schoolCode: "โค้ดเข้าร่วม", schoolCodeHint: "ให้นักเรียนกรอกโค้ดนี้ในโหมดครูของแอพ เพื่อเชื่อมบัญชีเข้าโรงเรียน", schoolCodeCopy: "คัดลอกโค้ด", schoolCodeRegen: "สร้างโค้ดใหม่", schoolAddByEmail: "เพิ่มด้วยอีเมล", schoolAddByEmailPh: "อีเมลที่เคยเข้าสู่ระบบ TiGA แล้ว", schoolAddBtn: "เพิ่ม", schoolAssignBtn: "มอบหมายเพลงนี้", schoolAssignedTo: "มอบหมายล่าสุด", schoolAckYes: "ฝึกแล้ว", schoolAckNo: "ยังไม่ฝึก", schoolRemoveBtn: "นำออกจากโรงเรียน", schoolRemoveConfirm: "นำนักเรียนคนนี้ออกจากโรงเรียน?", schoolMyCard: "โรงเรียนของฉัน", schoolMyRoleTeacher: "ครู", schoolMyRoleStudent: "นักเรียน", schoolLeaveBtn: "ออกจากโรงเรียน", schoolLbTitle: "อันดับในโรงเรียน", cqTitle: "ภารกิจร่วมของห้อง", cqMine: "คุณช่วยได้", schoolNoRoster: "ยังไม่มีนักเรียนในโรงเรียนนี้", hwFromTeacher: "การบ้านจากครู", schoolBack: "ย้อนกลับ",
     recRecord: "อัดเสียง", recStop: "หยุดอัด", recPlay: "เล่นที่อัด", recPlaying: "กำลังเล่น…",
     demoPause: "หยุดเสียงโชว์", demoPlay: "เล่นโชว์อีกครั้ง",
     recCritique: "ให้ครูติชม", recCritiqueUser: "🎙️ ครูครับ ช่วยฟังที่ผมเพิ่งเล่นแล้วติชมหน่อยครับ ว่าเล่นถูกไหม จังหวะเป็นยังไง ควรปรับอะไร",
@@ -2311,6 +2330,18 @@ const L = {
     camCoachBtn: "ให้ครูดูมือ", camCoachLoad: "ครูกำลังดูมือ...", camCoachTitle: "คำแนะนำจากครู", camCoachErr: "วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง",
     lbTitle: "กระดานผู้นำ", lbYou: "อันดับคุณ", lbYouTag: "คุณ", lbLoad: "กำลังโหลด…",
     lbEmpty: "ยังไม่มีข้อมูล — เริ่มสะสม EXP กันเลย!", lbErr: "โหลดกระดานไม่สำเร็จ",
+    leagueTitle: "ลีกประจำสัปดาห์", leagueEmpty: "เริ่มสะสม EXP สัปดาห์นี้เพื่อเข้าลีก!",
+    leagueReset: "รีเซ็ตทุกวันจันทร์ — อันดับคำนวณจาก EXP ที่ได้ในสัปดาห์นี้เท่านั้น",
+    frTitle: "เพื่อน", frTabFriends: "เพื่อน", frTabRequests: "คำขอ", frTabDuels: "การแข่งขัน",
+    frEmailPh: "อีเมลเพื่อน", frAdd: "เพิ่ม", frEmpty: "ยังไม่มีเพื่อน — เพิ่มด้วยอีเมลด้านบน",
+    frChallenge: "ท้าแข่ง", frAutoAccept: "เป็นเพื่อนกันแล้ว ✓", frSent: "ส่งคำขอแล้ว ✓",
+    frIncoming: "คำขอที่ได้รับ", frOutgoing: "คำขอที่ส่งไป",
+    frNoneIncoming: "ไม่มีคำขอเข้ามา", frNoneOutgoing: "ไม่มีคำขอที่ส่งไป",
+    frAccept: "ตอบรับ", frPending: "รอตอบรับ", frNoDuels: "ยังไม่มีการแข่งขัน", frVs: "พบกับ",
+    frDone: "จบแล้ว", frExpired: "หมดเวลา", frRespond: "เล่นสู้กลับ", frYou: "คุณ",
+    frNoScore: "ยังไม่มีคะแนนเพลงนี้ — ไปเล่นก่อนนะ", frChallengeSent: "ส่งคำท้าแล้ว ✓",
+    frPlayFirst: "เล่นเพลงสักเพลงก่อน แล้วค่อยกลับมาท้าเพื่อน",
+    gemsLabel: "เพชร", gemExchange: "แลก 5💎→125🪙", gemHint: "ได้เพชรจากการเลื่อนขั้นตำนาน (Prestige) เท่านั้น",
     studioVoice: "AI โหมดเสียง", studioVoiceSub: "คุยกับครู AI ด้วยเสียง สอนสดแบบเรียลไทม์", studioVoiceMax: "เฉพาะแพ็กเกจ Max ขึ้นไป — แตะเพื่อดู",
     studioEarSub: "ฝึกหูรายวัน — ขั้นคู่ คอร์ด เล่นตามทำนอง", studioReadSub: "คอร์สอ่านโน้ต 5 ด่าน กุญแจซอล-ฟา",
     studioExam: "เตรียมสอบเกรด", studioExamSub: "หลักสูตรไล่ระดับ + เช็กลิสต์สอบ",
@@ -2393,6 +2424,7 @@ const L = {
     profContactEdit: "Edit", profContactSave: "Save", profContactCancel: "Cancel",
     profContactNudge: "Add your LINE or phone so the teacher can reach you",
     profMaxRank: "Max rank reached 🏆", profLevelWord: "LV", levelUpWord: "LEVEL UP!",
+    prestigeWord: "LEGEND STAR", prestigeUpWord: "PRESTIGE UP!",
     practiceBtn: "🎯 PRACTICE", practiceTitle: "Practice Mode",
     practiceNoSeq: "Learn a topic or play a demo first, then practice",
     practiceMidi: "🎹 MIDI piano connected", practiceMic: "🎤 Listening via microphone",
@@ -2415,7 +2447,7 @@ const L = {
     aiHumBtn: "🎤 Play notes — AI transcribes", aiHumStop: "Stop", aiHumHint: "Play a short phrase on your piano — AI uses those notes to create a song",
     commuteTitle: "Commute Lessons", commuteSub: "Listen to theory — no screen needed", commuteStop: "Stop audio", commutePlaying: "Playing…",
     kruTitle: "Kru / Teacher Mode", kruSub: "Manage a class & share assignment codes", kruClass: "Class roster", kruCode: "Make code", kruEnter: "Use code", kruAddPh: "Student name", kruAdd: "Add", kruAssign: "Assigned song", kruMakeCode: "Generate code", kruCopied: "Copied!", kruPastePh: "Paste assignment code", kruApply: "Open song", kruNoSong: "Pick a song first", kruBadCode: "Invalid code", kruNoStudents: "No students yet",
-    schoolDashTitle: "School Dashboard", schoolDashSub: "Real student progress, assign songs instantly", schoolRoster: "Roster", schoolInvite: "Invite", schoolSeats: "seats", schoolCode: "Join code", schoolCodeHint: "Have students enter this code in the app's Kru Mode to link their account to your school", schoolCodeCopy: "Copy code", schoolCodeRegen: "Regenerate", schoolAddByEmail: "Add by email", schoolAddByEmailPh: "Email already signed into TiGA", schoolAddBtn: "Add", schoolAssignBtn: "Assign this song", schoolAssignedTo: "Latest assignment", schoolAckYes: "Practiced", schoolAckNo: "Not yet", schoolRemoveBtn: "Remove from school", schoolRemoveConfirm: "Remove this student from the school?", schoolMyCard: "My School", schoolMyRoleTeacher: "Teacher", schoolMyRoleStudent: "Student", schoolLeaveBtn: "Leave school", schoolNoRoster: "No students in this school yet", hwFromTeacher: "Assigned by your teacher", schoolBack: "Back",
+    schoolDashTitle: "School Dashboard", schoolDashSub: "Real student progress, assign songs instantly", schoolRoster: "Roster", schoolInvite: "Invite", schoolSeats: "seats", schoolCode: "Join code", schoolCodeHint: "Have students enter this code in the app's Kru Mode to link their account to your school", schoolCodeCopy: "Copy code", schoolCodeRegen: "Regenerate", schoolAddByEmail: "Add by email", schoolAddByEmailPh: "Email already signed into TiGA", schoolAddBtn: "Add", schoolAssignBtn: "Assign this song", schoolAssignedTo: "Latest assignment", schoolAckYes: "Practiced", schoolAckNo: "Not yet", schoolRemoveBtn: "Remove from school", schoolRemoveConfirm: "Remove this student from the school?", schoolMyCard: "My School", schoolMyRoleTeacher: "Teacher", schoolMyRoleStudent: "Student", schoolLeaveBtn: "Leave school", schoolLbTitle: "School Leaderboard", cqTitle: "Class Quest", cqMine: "You contributed", schoolNoRoster: "No students in this school yet", hwFromTeacher: "Assigned by your teacher", schoolBack: "Back",
     recRecord: "Record", recStop: "Stop", recPlay: "Play back", recPlaying: "Playing…",
     demoPause: "Pause demo", demoPlay: "Play demo again",
     recCritique: "Get feedback", recCritiqueUser: "🎙️ Teacher, please listen to what I just played and give feedback — was it right, how was the timing, what should I improve?",
@@ -2439,6 +2471,18 @@ const L = {
     camCoachBtn: "Coach my hands", camCoachLoad: "Teacher is looking...", camCoachTitle: "Teacher's feedback", camCoachErr: "Couldn't analyze — try again.",
     lbTitle: "Leaderboard", lbYou: "Your rank", lbYouTag: "You", lbLoad: "Loading…",
     lbEmpty: "No data yet — start earning EXP!", lbErr: "Couldn't load leaderboard",
+    leagueTitle: "WEEKLY LEAGUE", leagueEmpty: "Earn EXP this week to join a league!",
+    leagueReset: "Resets every Monday — ranked by this week's EXP only",
+    frTitle: "Friends", frTabFriends: "Friends", frTabRequests: "Requests", frTabDuels: "Duels",
+    frEmailPh: "Friend's email", frAdd: "Add", frEmpty: "No friends yet — add one by email above",
+    frChallenge: "Challenge", frAutoAccept: "You're now friends ✓", frSent: "Request sent ✓",
+    frIncoming: "Incoming", frOutgoing: "Outgoing",
+    frNoneIncoming: "No incoming requests", frNoneOutgoing: "No outgoing requests",
+    frAccept: "Accept", frPending: "Pending", frNoDuels: "No duels yet", frVs: "vs",
+    frDone: "Done", frExpired: "Expired", frRespond: "Play to respond", frYou: "You",
+    frNoScore: "No score for this song yet — play it first", frChallengeSent: "Challenge sent ✓",
+    frPlayFirst: "Play a song first, then come back to challenge a friend",
+    gemsLabel: "Gems", gemExchange: "Exchange 5💎→125🪙", gemHint: "Gems come only from Prestige tier-ups",
     studioVoice: "AI Voice Mode", studioVoiceSub: "Talk to your AI teacher, live in real time", studioVoiceMax: "Max plan & up only — tap to see",
     studioEarSub: "Daily ear training — intervals, chords, echo", studioReadSub: "5-level notation course, treble & bass",
     studioExam: "Exam Prep", studioExamSub: "Graded curriculum + exam checklist",
@@ -2521,6 +2565,7 @@ const L = {
     profContactEdit: "编辑", profContactSave: "保存", profContactCancel: "取消",
     profContactNudge: "添加 LINE 或电话，方便老师联系你",
     profMaxRank: "已达最高等级 🏆", profLevelWord: "LV", levelUpWord: "升级了！",
+    prestigeWord: "传奇星", prestigeUpWord: "传奇晋级！",
     practiceBtn: "🎯 练习这段", practiceTitle: "练习模式",
     practiceNoSeq: "请先学习一个主题或播放示例，再开始练习",
     practiceMidi: "🎹 已连接 MIDI 钢琴", practiceMic: "🎤 正在通过麦克风聆听",
@@ -2543,7 +2588,7 @@ const L = {
     aiHumBtn: "🎤 弹奏音符 — AI识谱", aiHumStop: "停止", aiHumHint: "在键盘弹几个音 — AI用这些音创作歌曲",
     commuteTitle: "通勤乐理课", commuteSub: "边通勤边听音乐理论课", commuteStop: "停止播放", commutePlaying: "播放中…",
     kruTitle: "教师模式", kruSub: "管理班级 + 分配练习码", kruClass: "班级名单", kruCode: "生成码", kruEnter: "使用码", kruAddPh: "学生姓名", kruAdd: "添加", kruAssign: "指定歌曲", kruMakeCode: "生成练习码", kruCopied: "已复制!", kruPastePh: "粘贴练习码", kruApply: "打开歌曲", kruNoSong: "请先选择歌曲", kruBadCode: "无效码", kruNoStudents: "还没有学生",
-    schoolDashTitle: "学校仪表盘", schoolDashSub: "查看真实学生进度，立即布置曲目", schoolRoster: "名单", schoolInvite: "邀请", schoolSeats: "席位", schoolCode: "加入码", schoolCodeHint: "让学生在教师模式中输入此码，即可关联到你的学校", schoolCodeCopy: "复制码", schoolCodeRegen: "重新生成", schoolAddByEmail: "用邮箱添加", schoolAddByEmailPh: "已登录过TiGA的邮箱", schoolAddBtn: "添加", schoolAssignBtn: "布置这首曲子", schoolAssignedTo: "最新布置", schoolAckYes: "已练习", schoolAckNo: "尚未练习", schoolRemoveBtn: "移出学校", schoolRemoveConfirm: "确定将该学生移出学校？", schoolMyCard: "我的学校", schoolMyRoleTeacher: "教师", schoolMyRoleStudent: "学生", schoolLeaveBtn: "退出学校", schoolNoRoster: "该学校暂无学生", hwFromTeacher: "教师布置的作业", schoolBack: "返回",
+    schoolDashTitle: "学校仪表盘", schoolDashSub: "查看真实学生进度，立即布置曲目", schoolRoster: "名单", schoolInvite: "邀请", schoolSeats: "席位", schoolCode: "加入码", schoolCodeHint: "让学生在教师模式中输入此码，即可关联到你的学校", schoolCodeCopy: "复制码", schoolCodeRegen: "重新生成", schoolAddByEmail: "用邮箱添加", schoolAddByEmailPh: "已登录过TiGA的邮箱", schoolAddBtn: "添加", schoolAssignBtn: "布置这首曲子", schoolAssignedTo: "最新布置", schoolAckYes: "已练习", schoolAckNo: "尚未练习", schoolRemoveBtn: "移出学校", schoolRemoveConfirm: "确定将该学生移出学校？", schoolMyCard: "我的学校", schoolMyRoleTeacher: "教师", schoolMyRoleStudent: "学生", schoolLeaveBtn: "退出学校", schoolLbTitle: "校内排行榜", cqTitle: "班级共同任务", cqMine: "你贡献了", schoolNoRoster: "该学校暂无学生", hwFromTeacher: "教师布置的作业", schoolBack: "返回",
     recRecord: "录制", recStop: "停止", recPlay: "回放", recPlaying: "播放中…",
     demoPause: "暂停示范", demoPlay: "再次播放示范",
     recCritique: "请老师点评", recCritiqueUser: "🎙️ 老师，请听听我刚才弹的，给点评价——弹得对吗？节奏如何？该改进什么？",
@@ -2567,6 +2612,18 @@ const L = {
     camCoachBtn: "请老师看手", camCoachLoad: "老师正在看...", camCoachTitle: "老师的建议", camCoachErr: "分析失败，请重试。",
     lbTitle: "排行榜", lbYou: "你的排名", lbYouTag: "你", lbLoad: "加载中…",
     lbEmpty: "暂无数据 — 快来赚取 EXP！", lbErr: "排行榜加载失败",
+    leagueTitle: "每周联赛", leagueEmpty: "本周开始赚取 EXP 加入联赛吧！",
+    leagueReset: "每周一重置 — 仅按本周 EXP 排名",
+    frTitle: "好友", frTabFriends: "好友", frTabRequests: "请求", frTabDuels: "对决",
+    frEmailPh: "好友邮箱", frAdd: "添加", frEmpty: "还没有好友 — 在上方用邮箱添加",
+    frChallenge: "挑战", frAutoAccept: "已成为好友 ✓", frSent: "请求已发送 ✓",
+    frIncoming: "收到的请求", frOutgoing: "发出的请求",
+    frNoneIncoming: "没有收到的请求", frNoneOutgoing: "没有发出的请求",
+    frAccept: "接受", frPending: "待处理", frNoDuels: "还没有对决", frVs: "对战",
+    frDone: "已结束", frExpired: "已过期", frRespond: "去应战", frYou: "你",
+    frNoScore: "还没有这首歌的分数 — 先去玩一下", frChallengeSent: "挑战已发送 ✓",
+    frPlayFirst: "先玩一首歌，再回来挑战好友",
+    gemsLabel: "钻石", gemExchange: "兑换 5💎→125🪙", gemHint: "钻石仅通过传奇晋级 (Prestige) 获得",
     studioVoice: "AI 语音模式", studioVoiceSub: "用语音和 AI 老师实时对话", studioVoiceMax: "仅限 Max 及以上套餐 — 点击查看",
     studioEarSub: "每日听力训练 — 音程、和弦、旋律模仿", studioReadSub: "五关识谱课 — 高音与低音谱号",
     studioExam: "考级备考", studioExamSub: "分级课程 + 考试清单",
@@ -2902,7 +2959,8 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
         const openStage = stages.find(s => s.id === openStageId);
         const openIdx = openStage ? stages.indexOf(openStage) : -1;
         return (
-          <section className="pgroup" key={g.id}>
+          <Fragment key={g.id}>
+          <section className="pgroup pisland" style={{ "--gc": gc }}>
             <header className="pgrouphdr">
               <span className="pgbar" style={{ background: gc }} />
               <span className="pgicon">{g.icon}</span>
@@ -3050,6 +3108,13 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
               })}
             </div>
           </section>
+          {gi < groups.length - 1 && (
+            <div className="ptrail" aria-hidden="true">
+              <span className="ptrail-line" style={{ background: `linear-gradient(180deg, ${gc}, ${STAGES_BY_GROUP[groups[gi + 1].id][0].color})` }} />
+              <span className="ptrail-node" style={{ borderColor: STAGES_BY_GROUP[groups[gi + 1].id][0].color }}>{groups[gi + 1].icon}</span>
+            </div>
+          )}
+          </Fragment>
         );
       })}
 
@@ -5443,6 +5508,127 @@ const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta }) {
 });
 
 /* ── Leaderboard (top players by EXP) — privacy-safe RPC, names + stats only ── */
+/* Weekly League — a resetting, tier-scoped companion to the all-time global
+   leaderboard above. A user's tier is DERIVED live (server-side, via
+   get_my_league) from how much EXP they earned THIS week — no stored
+   promotion/demotion state, so there's nothing to get stuck. See
+   supabase-gamification-leagues-migration.sql for the RPCs. */
+const LEAGUE_TIERS = [
+  { tier: 1, icon: "🥉", th: "บรอนซ์", en: "Bronze", zh: "青铜" },
+  { tier: 2, icon: "🥈", th: "ซิลเวอร์", en: "Silver", zh: "白银" },
+  { tier: 3, icon: "🥇", th: "โกลด์", en: "Gold", zh: "黄金" },
+  { tier: 4, icon: "💎", th: "แพลทินัม", en: "Platinum", zh: "铂金" },
+  { tier: 5, icon: "👑", th: "ไดมอนด์", en: "Diamond", zh: "钻石" },
+];
+/* School-scoped leaderboard — the teacher-facing SchoolDashboard already shows
+   every student's stats; students themselves had zero peer visibility until
+   now. Reuses profiles.school_id (School Plan Pro) — no new table needed, see
+   get_school_leaderboard in supabase-gamification-school-migration.sql. */
+const SchoolLeaderboardSection = memo(function SchoolLeaderboardSection({ lang, schoolId }) {
+  const lc = L[lang];
+  const [rows, setRows] = useState(null); // null=loading, false=error
+  useEffect(() => {
+    if (!schoolId) return;
+    let alive = true;
+    sb.rpc("get_school_leaderboard", { p_school_id: schoolId }).then(({ data, error }) => {
+      if (alive) setRows(error ? false : (data || []));
+    });
+    return () => { alive = false; };
+  }, [schoolId]);
+  if (rows === false || (rows && rows.length === 0)) return null; // quiet — this is a bonus, not core
+  return (
+    <div className="profsec" style={{ margin: "0 14px 10px" }}>
+      <div className="profsec-h">🏫 {lc.schoolLbTitle}</div>
+      {rows == null ? <div className="lbempty">{lc.lbLoad}</div> : (
+        <div className="lblist">
+          {rows.map((r, i) => (
+            <div key={i} className={`lbrow${r.is_me ? " me" : ""}`} style={{ animationDelay: (i * 35) + "ms" }}>
+              <span className="lbrank">{i + 1}</span>
+              <span className="lbname">{r.name}{r.is_me ? ` · ${lc.lbYouTag}` : ""}</span>
+              <span className="lbexp">{(r.exp || 0).toLocaleString()} <small>EXP</small></span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+/* Class Quest — a teacher-set, cooperative (not competitive) shared EXP goal
+   for the whole school. See school_set_quest/school_quest_bump/get_school_quest
+   in supabase-gamification-school-migration.sql. Deliberately shown only when
+   a quest is actually active — most schools most of the time have none set,
+   and an empty "no quest" card every time would just be clutter. */
+const ClassQuestSection = memo(function ClassQuestSection({ lang, schoolId }) {
+  const lc = L[lang];
+  const [q, setQ] = useState(null); // null=loading, false=error, {active:false}, or full quest data
+  const celebratedRef = useRef(false);
+  useEffect(() => {
+    if (!schoolId) return;
+    let alive = true;
+    sb.rpc("get_school_quest", { p_school_id: schoolId }).then(({ data, error }) => {
+      if (alive) setQ(error ? false : data);
+    });
+    return () => { alive = false; };
+  }, [schoolId]);
+  useEffect(() => {
+    if (q && q.active && q.complete && !celebratedRef.current) { celebratedRef.current = true; playUi("levelup"); }
+  }, [q]);
+  if (q === false || (q && q.active === false)) return null;
+  const pct = q ? Math.min(100, Math.round((q.total_exp / q.goal_exp) * 100)) : 0;
+  return (
+    <div className="profsec" style={{ margin: "0 14px 10px" }}>
+      <div className="profsec-h">🎯 {lc.cqTitle}</div>
+      {q == null ? <div className="lbempty">{lc.lbLoad}</div> : (
+        <>
+          <div className="cqbar"><div style={{ width: pct + "%" }} /></div>
+          <div className="cqstat">{q.total_exp.toLocaleString()} / {q.goal_exp.toLocaleString()} EXP {q.complete ? "🎉" : ""}</div>
+          <div className="leaguereset">{lc.cqMine}: {q.my_exp.toLocaleString()} EXP</div>
+        </>
+      )}
+    </div>
+  );
+});
+
+const WeeklyLeagueSection = memo(function WeeklyLeagueSection({ lang }) {
+  const lc = L[lang];
+  const [data, setData] = useState(null); // null=loading, false=fetch failed
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data: d, error } = await sb.rpc("get_my_league", { p_week_key: weekKey() });
+        if (error) throw error;
+        if (alive) setData(d);
+      } catch (e) { if (alive) setData(false); }
+    })();
+    return () => { alive = false; };
+  }, []);
+  if (data === false) return null; // bonus section — fail quietly rather than show an error block
+  const tierInfo = data ? LEAGUE_TIERS[Math.max(0, Math.min(LEAGUE_TIERS.length - 1, data.tier - 1))] : null;
+  const members = data ? (data.members || []) : [];
+  return (
+    <div className="profsec">
+      <div className="profsec-h">
+        {lc.leagueTitle}
+        {tierInfo && <span className="lbmine">{tierInfo.icon} {tr(tierInfo, lang)}</span>}
+      </div>
+      {data == null ? <div className="lbempty">{lc.lbLoad}</div>
+        : members.length === 0 ? <div className="lbempty">{lc.leagueEmpty}</div>
+        : <div className="lblist">
+            {members.map((m, i) => (
+              <div key={i} className={`lbrow${m.is_me ? " me" : ""}`} style={{ animationDelay: (i * 35) + "ms" }}>
+                <span className="lbrank">{i + 1}</span>
+                <span className="lbname">{m.name}{m.is_me ? ` · ${lc.lbYouTag}` : ""}</span>
+                <span className="lbexp">{m.exp.toLocaleString()} <small>EXP</small></span>
+              </div>
+            ))}
+          </div>}
+      <div className="leaguereset">{lc.leagueReset}</div>
+    </div>
+  );
+});
+
 const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
   const lc = L[lang];
   const [rows, setRows] = useState(null); // null = loading
@@ -5508,6 +5694,142 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
               ))}
             </div>
           </>}
+    </div>
+  );
+});
+
+/* Friends + async duels (also powers Family Battle, via the same duels table
+   with mode:'family' — see supabase-gamification-social-migration.sql). A
+   duel's real result always comes from the player's own recorded game log
+   (readGameLog) — never a typed-in number — so a challenge score is exactly
+   as trustworthy as any other score already shown in this app's own stats. */
+const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
+  const lc = L[lang];
+  const [tab, setTab] = useState("friends"); // friends | requests | duels
+  const [data, setData] = useState(null);    // {friends, incoming, outgoing} | false=error
+  const [duels, setDuels] = useState(null);
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [challengeFor, setChallengeFor] = useState(null);
+  const busyRef = useRef(false);
+
+  const load = useCallback(() => {
+    sb.rpc("friend_list").then(({ data: d, error }) => setData(error ? false : (d || { friends: [], incoming: [], outgoing: [] })));
+    sb.rpc("duel_list").then(({ data: d, error }) => setDuels(error ? [] : (d || [])));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function sendRequest() {
+    if (!email.trim() || busyRef.current) return;
+    busyRef.current = true; setBusy(true); setMsg("");
+    const { data: r, error } = await sb.rpc("friend_request", { p_email: email.trim() });
+    busyRef.current = false; setBusy(false);
+    if (error) { setMsg(error.message || "error"); return; }
+    setEmail(""); setMsg(r && r.status === "accepted" ? lc.frAutoAccept : lc.frSent);
+    load();
+  }
+  async function respond(id, accept) { await sb.rpc("friend_respond", { p_id: id, p_accept: accept }); load(); }
+  async function removeFriend(id) { await sb.rpc("friend_remove", { p_id: id }); load(); }
+  async function sendChallenge(friend, song) {
+    const best = readGameLog().filter(g => g.song === song.id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+    if (!best) { setMsg(lc.frNoScore); return; }
+    const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: song.id, p_score: best, p_mode: "duel" });
+    if (error) setMsg(error.message || "error"); else { setMsg(lc.frChallengeSent); setChallengeFor(null); load(); }
+  }
+  async function respondDuel(duel) {
+    const best = readGameLog().filter(g => g.song === duel.song_id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+    if (!best) { setMsg(lc.frNoScore); return; }
+    const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: best });
+    if (!error) { playUi("reward"); load(); }
+  }
+  const playedSongs = challengeFor
+    ? Array.from(new Set(readGameLog().map(g => g.song))).map(id => SONGS.find(s => s.id === id)).filter(Boolean)
+    : [];
+
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard" onClick={e => e.stopPropagation()}>
+        <div className="sethdr">
+          <span>👥 {lc.frTitle}</span>
+          <button className="cbtn" onClick={onClose}>{lc.close}</button>
+        </div>
+        <div className="frtabs">
+          <button className={tab === "friends" ? "active" : ""} onClick={() => setTab("friends")}>{lc.frTabFriends}</button>
+          <button className={tab === "requests" ? "active" : ""} onClick={() => setTab("requests")}>
+            {lc.frTabRequests}{data && data.incoming && data.incoming.length > 0 ? ` (${data.incoming.length})` : ""}
+          </button>
+          <button className={tab === "duels" ? "active" : ""} onClick={() => setTab("duels")}>{lc.frTabDuels}</button>
+        </div>
+        <div className="setbody">
+          {msg && <div className="frmsg">{msg}</div>}
+          {data === false ? <div className="lbempty">{lc.lbErr}</div> : tab === "friends" ? (
+            <>
+              <div className="fradd">
+                <input value={email} onChange={e => setEmail(e.target.value)} placeholder={lc.frEmailPh} type="email" />
+                <button disabled={busy} onClick={sendRequest}>{lc.frAdd}</button>
+              </div>
+              {!data ? <div className="lbempty">{lc.lbLoad}</div>
+                : data.friends.length === 0 ? <div className="lbempty">{lc.frEmpty}</div>
+                : data.friends.map(f => (
+                  <div key={f.id} className="frrow">
+                    <div className="frrow-nm">{f.name}<span className="frrow-sub">Lv{levelInfo(f.exp || 0).level} · 🔥{f.streak || 0}</span></div>
+                    <button className="frrow-go" onClick={() => setChallengeFor(f)}>🎯 {lc.frChallenge}</button>
+                    <button className="frrow-x" onClick={() => removeFriend(f.id)}>✕</button>
+                  </div>
+                ))}
+            </>
+          ) : tab === "requests" ? (
+            <>
+              <div className="profsec-h" style={{ fontSize: "11px" }}>{lc.frIncoming}</div>
+              {(!data || data.incoming.length === 0) ? <div className="lbempty">{lc.frNoneIncoming}</div> : data.incoming.map(r => (
+                <div key={r.id} className="frrow">
+                  <div className="frrow-nm">{r.name}</div>
+                  <button className="frrow-go" onClick={() => respond(r.id, true)}>✓ {lc.frAccept}</button>
+                  <button className="frrow-x" onClick={() => respond(r.id, false)}>✕</button>
+                </div>
+              ))}
+              <div className="profsec-h" style={{ fontSize: "11px", marginTop: 14 }}>{lc.frOutgoing}</div>
+              {(!data || data.outgoing.length === 0) ? <div className="lbempty">{lc.frNoneOutgoing}</div> : data.outgoing.map(r => (
+                <div key={r.id} className="frrow"><div className="frrow-nm">{r.name}</div><span className="frrow-pending">{lc.frPending}</span></div>
+              ))}
+            </>
+          ) : (
+            <>
+              {(!duels || duels.length === 0) ? <div className="lbempty">{lc.frNoDuels}</div> : duels.map(d => (
+                <div key={d.id} className="frduel">
+                  <div className="frduel-top">
+                    <span>{d.mode === "family" ? "👨‍👩‍👧 " : "⚔️ "}{lc.frVs} {d.opp_name}</span>
+                    <span className={`frduel-status ${d.status}`}>{d.status === "done" ? lc.frDone : d.status === "expired" ? lc.frExpired : lc.frPending}</span>
+                  </div>
+                  <div className="frduel-score">
+                    <span>{lc.frYou}: {d.my_score ?? "—"}</span>
+                    <span>{d.opp_name}: {d.opp_score ?? "—"}</span>
+                  </div>
+                  {d.status === "pending" && !d.i_am_a && (
+                    <button className="frrow-go" onClick={() => respondDuel(d)}>{lc.frRespond}</button>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        {challengeFor && (
+          <div className="setov" onClick={() => setChallengeFor(null)}>
+            <div className="setcard" style={{ maxWidth: 320 }} onClick={e => e.stopPropagation()}>
+              <div className="sethdr"><span>🎯 {challengeFor.name}</span><button className="cbtn" onClick={() => setChallengeFor(null)}>{lc.close}</button></div>
+              <div className="setbody">
+                {playedSongs.length === 0 ? <div className="lbempty">{lc.frPlayFirst}</div> : (
+                  <div className="frsonglist">
+                    {playedSongs.map(s => <button key={s.id} className="frsongpick" onClick={() => sendChallenge(challengeFor, s)}>{tr(s, lang)}</button>)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 });
@@ -5788,6 +6110,18 @@ function claimChest() {
   else if (r < 0.22) { mult = 2; kind = "big"; }      // 17% big
   else { mult = 1 + Math.random() * 0.6; kind = "normal"; } // variable 1x–1.6x
   return { coins: Math.round(20 * day * mult), exp: Math.round(15 * day * mult), streak, day, kind };
+}
+
+/* Spin-wheel presentation for the chest above — the reward MATH is already fully
+   resolved by claimChest() before the wheel ever spins; this only picks which of
+   the wheel's 8 fixed wedges to land the pointer on, so the animation always
+   agrees with the real payout (never "looks like jackpot, pays normal"). */
+const CHEST_WHEEL = ["normal", "normal", "big", "normal", "jackpot", "normal", "big", "normal"];
+function chestSpinAngle(kind) {
+  const idxs = CHEST_WHEEL.map((k, i) => k === kind ? i : -1).filter(i => i >= 0);
+  const idx = idxs[Math.floor(Math.random() * idxs.length)];
+  const center = idx * 45 + 22.5; // ° clockwise from the pointer at top (0°)
+  return 5 * 360 - center; // a few extra full spins, landing exactly on `center`
 }
 
 /* ── engagement streak (consecutive practice days) + streak-freeze ── */
@@ -6122,16 +6456,35 @@ const EXAM_GRADES = [
 ];
 
 
-/* ── weekly challenges (rotating, localStorage, auto-rewarded) ── */
-const CHALLENGES = [
-  { id: "games",   goal: 5,   icon: "🎮", th: "เล่นเกม 5 รอบ", en: "Play 5 games",    zh: "玩 5 局游戏" },
-  { id: "exp",     goal: 300, icon: "✦",  th: "เก็บ 300 EXP",  en: "Earn 300 EXP",    zh: "赚 300 EXP" },
-  { id: "perfect", goal: 30,  icon: "🎯", th: "ทำ 30 Perfect", en: "Hit 30 Perfects", zh: "打出 30 完美" },
+/* ── weekly challenges (rotating pool, localStorage, auto-rewarded) ──
+   9 challenges across the 3 stats bumpWeekly() already tracks (games/exp/
+   perfect) at 3 difficulty tiers each — every week's 3 active picks are
+   derived deterministically from weekKey() (a simple hash, no server call),
+   so every device/client picks the SAME 3 without needing to sync anything. */
+const CHALLENGE_POOL = [
+  { id: "games_s", type: "games",   goal: 3,   icon: "🎮", th: "เล่นเกม 3 รอบ",    en: "Play 3 games",    zh: "玩 3 局游戏" },
+  { id: "games_m", type: "games",   goal: 8,   icon: "🎮", th: "เล่นเกม 8 รอบ",    en: "Play 8 games",    zh: "玩 8 局游戏" },
+  { id: "games_l", type: "games",   goal: 15,  icon: "🕹️", th: "เล่นเกม 15 รอบ",   en: "Play 15 games",   zh: "玩 15 局游戏" },
+  { id: "exp_s",   type: "exp",     goal: 150, icon: "✦",  th: "เก็บ 150 EXP",     en: "Earn 150 EXP",    zh: "赚 150 EXP" },
+  { id: "exp_m",   type: "exp",     goal: 400, icon: "✦",  th: "เก็บ 400 EXP",     en: "Earn 400 EXP",    zh: "赚 400 EXP" },
+  { id: "exp_l",   type: "exp",     goal: 900, icon: "💫", th: "เก็บ 900 EXP",     en: "Earn 900 EXP",    zh: "赚 900 EXP" },
+  { id: "perf_s",  type: "perfect", goal: 15,  icon: "🎯", th: "ทำ 15 Perfect",   en: "Hit 15 Perfects", zh: "打出 15 完美" },
+  { id: "perf_m",  type: "perfect", goal: 40,  icon: "🎯", th: "ทำ 40 Perfect",   en: "Hit 40 Perfects", zh: "打出 40 完美" },
+  { id: "perf_l",  type: "perfect", goal: 80,  icon: "🏹", th: "ทำ 80 Perfect",   en: "Hit 80 Perfects", zh: "打出 80 完美" },
 ];
 const CHALLENGE_REWARD = 50;
 function weekKey(d = new Date()) {
   const x = dayDate(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day);
   return x.getFullYear() + "-" + (x.getMonth() + 1) + "-" + x.getDate();
+}
+function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
+/* This week's 3 active challenges — same result on every device for the same
+   weekKey(), since it depends only on that string, never on local state. */
+function activeChallenges(wk = weekKey()) {
+  const seed = hashStr(wk), n = CHALLENGE_POOL.length;
+  const idxs = Array.from(new Set([seed % n, (seed * 7 + 3) % n, (seed * 13 + 11) % n]));
+  for (let k = 17; idxs.length < 3; k++) { const c = (seed + k * 29) % n; if (!idxs.includes(c)) idxs.push(c); }
+  return idxs.slice(0, 3).map(i => CHALLENGE_POOL[i]);
 }
 function readWeekly() {
   try {
@@ -6521,7 +6874,7 @@ const GameStats = memo(function GameStats({ lang }) {
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, coins }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, coins, gems = 0 }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -6538,7 +6891,11 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
   const qDone = qToday >= QUEST_GOAL;
   const gotBadges = unlockedBadgeIds(profile);
 
-  const toNext = info.isMax ? lc.profMaxRank
+  const pInfo = prestigeInfo(exp);
+  const toNext = info.isMax
+    ? (lang === "th" ? `⭐ ${pInfo.tier > 0 ? `${lc.prestigeWord} ${pInfo.tier} · ` : ""}อีก ${pInfo.need.toLocaleString()} EXP → ดาวถัดไป`
+      : lang === "zh" ? `⭐ ${pInfo.tier > 0 ? `${lc.prestigeWord} ${pInfo.tier} · ` : ""}还差 ${pInfo.need.toLocaleString()} EXP → 下一星`
+      : `⭐ ${pInfo.tier > 0 ? `${lc.prestigeWord} ${pInfo.tier} · ` : ""}${pInfo.need.toLocaleString()} EXP → next star`)
     : lang === "th" ? `อีก ${info.need.toLocaleString()} EXP → เลเวลถัดไป`
     : lang === "zh" ? `还差 ${info.need.toLocaleString()} EXP → 升级`
     : `${info.need.toLocaleString()} EXP → next level`;
@@ -6582,6 +6939,8 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
   }
   const activeDays = heatDays.filter(d => d.n > 0).length;
   const weekly = readWeekly();
+  const weekChallenges = activeChallenges();
+  const weekDoneCount = weekChallenges.filter(ch => weekly.claimed && weekly.claimed.includes(ch.id)).length;
   const trend = (Array.isArray(plog._recent) ? plog._recent : []).slice(-14);
   const trendPts = trend.map((p, i) => {
     const x = trend.length > 1 ? (i / (trend.length - 1)) * 100 : 50;
@@ -6748,11 +7107,19 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         </div>
       </div>
 
-      {/* weekly challenges */}
+      {/* weekly challenges — pool rotates every week (see activeChallenges) */}
       <div className="profsec">
-        <div className="profsec-h">{lc.weeklyTitle}</div>
-        {CHALLENGES.map(ch => {
-          const v = Math.min(weekly[ch.id] || 0, ch.goal), done = v >= ch.goal;
+        <div className="profsec-h">
+          {lc.weeklyTitle}
+          <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+            {weekDoneCount}/{weekChallenges.length}
+          </span>
+        </div>
+        <div className="wktrack">
+          {weekChallenges.map((ch, i) => <div key={ch.id} className={`wktrack-seg${i < weekDoneCount ? " done" : ""}`} />)}
+        </div>
+        {weekChallenges.map(ch => {
+          const v = Math.min(weekly[ch.type] || 0, ch.goal), done = v >= ch.goal;
           return (
             <div key={ch.id} className={`wkrow${done ? " done" : ""}`}>
               <span className="wkic">{ch.icon}</span>
@@ -6785,6 +7152,8 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           })}
         </div>
       </div>
+
+      <WeeklyLeagueSection lang={lang} />
 
       <LeaderboardSection lang={lang} />
 
@@ -6848,9 +7217,20 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         )}
       </div>
 
-      {(onOpenShop || onOpenHelp) && (
+      {gems > 0 && onExchangeGems && (
+        <div className="profsec">
+          <div className="gemrow">
+            <span className="gemrow-bal">💎 {gems} {lc.gemsLabel}</span>
+            <button className="gemrow-x" disabled={gems < 5} onClick={() => onExchangeGems(5)}>{lc.gemExchange}</button>
+          </div>
+          <div className="leaguereset">{lc.gemHint}</div>
+        </div>
+      )}
+
+      {(onOpenShop || onOpenFriends || onOpenHelp) && (
         <div className="profsec">
           {onOpenShop && <button className="songbtn ghost" style={{ width: "100%", marginBottom: 8 }} onClick={onOpenShop}>🪙 {lc.shopTitle} · {coins}</button>}
+          {onOpenFriends && <button className="songbtn ghost" style={{ width: "100%", marginBottom: 8 }} onClick={onOpenFriends}>👥 {lc.frTitle}</button>}
           {onOpenHelp && <button className="songbtn ghost" style={{ width: "100%" }} onClick={onOpenHelp}>❓ {lc.helpTitle}</button>}
         </div>
       )}
@@ -7602,6 +7982,23 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
   const [addEmail, setAddEmail] = useState("");
   const [addRole, setAddRole] = useState("student");
   const [addMsg, setAddMsg] = useState("");
+  const [questGoal, setQuestGoal] = useState(500);
+  const [questBusy, setQuestBusy] = useState(false);
+  const [questMsg, setQuestMsg] = useState("");
+  const [curQuest, setCurQuest] = useState(null);
+  const loadQuest = useCallback(() => {
+    sb.rpc("get_school_quest", { p_school_id: schoolId }).then(({ data, error }) => setCurQuest(error ? null : data));
+  }, [schoolId]);
+  useEffect(() => { loadQuest(); }, [loadQuest]);
+  async function startQuest() {
+    const goal = Number(questGoal) || 0;
+    if (goal <= 0 || questBusy) return;
+    setQuestBusy(true); setQuestMsg("");
+    const { error } = await sb.rpc("school_set_quest", { p_school_id: schoolId, p_goal_exp: goal, p_days: 7 });
+    setQuestBusy(false);
+    if (error) { setQuestMsg(error.message || "error"); return; }
+    setQuestMsg("✓"); loadQuest();
+  }
 
   const load = useCallback(() => {
     setErr(""); setRows(null);
@@ -7761,6 +8158,19 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
           </div>
           <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy || !addEmail.trim()} onClick={addByEmail}>➕ {lc.schoolAddBtn}</button>
           {addMsg && <div style={{ textAlign: "center", color: "var(--accent)", fontSize: 13, marginTop: 6 }}>{addMsg}</div>}
+        </div>
+        <div className="admmg" style={{ marginTop: 16 }}>
+          <div className="admmg-h">🎯 {lc.cqTitle}</div>
+          {curQuest && curQuest.active ? (
+            <div className="cqstat" style={{ marginBottom: 8 }}>{curQuest.total_exp.toLocaleString()} / {curQuest.goal_exp.toLocaleString()} EXP {curQuest.complete ? "🎉" : ""}</div>
+          ) : (
+            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{T("ยังไม่มีภารกิจที่กำลังทำงาน", "No active quest right now", "目前没有进行中的任务")}</div>
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <input className="aicreate-in" style={{ flex: 1 }} type="number" min="1" value={questGoal} onChange={e => setQuestGoal(e.target.value)} placeholder="500" />
+            <button className="songbtn go" disabled={questBusy} onClick={startQuest}>{T("เริ่มภารกิจใหม่ (7 วัน)", "Start new (7d)", "开始新任务(7天)")}</button>
+          </div>
+          {questMsg && <div style={{ textAlign: "center", color: "var(--accent)", fontSize: 13, marginTop: 6 }}>{questMsg}</div>}
         </div>
       </>)}
     </div>
@@ -8392,6 +8802,90 @@ function AdminBroadcast({ lang }) {
   );
 }
 
+/* ── Admin: seasonal/limited-time event — same app_settings + admin_set_app_setting
+   mechanism as AdminBroadcast above (key "event" instead of "broadcast"), applying
+   temporary EXP/coin multipliers instead of a popup message. See the activeEvent
+   poll + gainExp/earnCoins in PianoApp for how the client consumes this. ── */
+function AdminEvent({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [cur, setCur] = useState(undefined); // undefined = loading, null = none, object = current
+  const [nameTh, setNameTh] = useState("");
+  const [nameEn, setNameEn] = useState("");
+  const [nameZh, setNameZh] = useState("");
+  const [expMult, setExpMult] = useState(2);
+  const [coinMult, setCoinMult] = useState(2);
+  const [days, setDays] = useState(2);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const load = useCallback(() => {
+    sb.from("app_settings").select("value").eq("key", "event").maybeSingle()
+      .then(({ data }) => setCur((data && data.value) || null), () => setCur(null));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function start() {
+    if (!nameTh.trim() && !nameEn.trim()) return;
+    setBusy(true); setSaved(false);
+    const value = {
+      active: true,
+      name_th: nameTh.trim() || nameEn.trim(), name_en: nameEn.trim() || nameTh.trim(), name_zh: nameZh.trim() || nameEn.trim() || nameTh.trim(),
+      expMult: Number(expMult) || 1, coinMult: Number(coinMult) || 1,
+      ends_at: new Date(Date.now() + (Number(days) || 1) * 86400000).toISOString(),
+    };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "event", p_value: value });
+    setBusy(false);
+    if (!error) { setCur(value); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
+  }
+  async function stop() {
+    if (!cur) return;
+    setBusy(true);
+    const value = { ...cur, active: false };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "event", p_value: value });
+    setBusy(false);
+    if (!error) setCur(value);
+  }
+
+  if (cur === undefined) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
+  const isLive = cur && cur.active && (!cur.ends_at || new Date(cur.ends_at).getTime() > Date.now());
+  return (
+    <div className="admstu">
+      {isLive && (
+        <div className="admmg" style={{ marginBottom: 12 }}>
+          <div className="admmg-h">{T("กำลังจัดอีเว้นท์อยู่ตอนนี้", "Currently live", "当前正在进行")}</div>
+          <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>
+            {tr({ th: cur.name_th, en: cur.name_en, zh: cur.name_zh }, lang)} · {cur.expMult}× EXP · {cur.coinMult}× 🪙 · {T("จนถึง", "until", "至")} {new Date(cur.ends_at).toLocaleString()}
+          </div>
+          <button className="songbtn ghost" style={{ width: "100%", color: "#ff5252" }} disabled={busy} onClick={stop}>{T("จบอีเว้นท์นี้ตอนนี้", "End this event now", "立即结束此活动")}</button>
+        </div>
+      )}
+      <div className="admmg">
+        <div className="admmg-h">🎉 {T("เริ่มอีเว้นท์ใหม่", "Start a new event", "开始新活动")}</div>
+        <input className="admstu-search" value={nameTh} onChange={e => setNameTh(e.target.value)} placeholder={T("ชื่ออีเว้นท์ (ไทย) เช่น สงกรานต์ EXP คูณ 2", "Event name (Thai)", "活动名称（泰文）")} style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }} />
+        <input className="admstu-search" value={nameEn} onChange={e => setNameEn(e.target.value)} placeholder={T("ชื่ออีเว้นท์ (อังกฤษ)", "Event name (English)", "活动名称（英文）")} style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }} />
+        <input className="admstu-search" value={nameZh} onChange={e => setNameZh(e.target.value)} placeholder={T("ชื่ออีเว้นท์ (จีน) — ไม่บังคับ", "Event name (Chinese) — optional", "活动名称（中文）— 可选")} style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }} />
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <div style={{ flex: 1 }}>
+            <div className="admstu-row-sub" style={{ marginBottom: 4 }}>{T("ตัวคูณ EXP", "EXP multiplier", "EXP 倍数")}</div>
+            <input className="admstu-search" type="number" min="1" max="10" step="0.5" value={expMult} onChange={e => setExpMult(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="admstu-row-sub" style={{ marginBottom: 4 }}>{T("ตัวคูณเหรียญ", "Coin multiplier", "金币倍数")}</div>
+            <input className="admstu-search" type="number" min="1" max="10" step="0.5" value={coinMult} onChange={e => setCoinMult(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="admstu-row-sub" style={{ marginBottom: 4 }}>{T("จำนวนวัน", "Days", "天数")}</div>
+            <input className="admstu-search" type="number" min="1" max="30" value={days} onChange={e => setDays(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+          </div>
+        </div>
+        <button className="songbtn go" style={{ width: "100%" }} disabled={busy || (!nameTh.trim() && !nameEn.trim())} onClick={start}>
+          {busy ? "⏳" : "🎉"} {T("เริ่มเลย", "Start now", "立即开始")}
+        </button>
+        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10, whiteSpace: "normal" }}>✓ {T("เริ่มแล้ว — ผู้เรียนเห็นแบนเนอร์ทันที", "Started — the banner is now live for every learner", "已开始——横幅已对所有学员生效")}</div>}
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin chat (free-form AI + web search + image/link learning) ── */
 /* ── Admin: manage Music Games list (stored in app_settings key "music_games") ── */
 function AdminGames({ lang }) {
@@ -8882,6 +9376,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         {tier >= 3 && <button className={`admintab${adminTab === "analytics" ? " on" : ""}`} onClick={() => setAdminTab("analytics")}>📊 {lang === "th" ? "สถิติ" : lang === "zh" ? "统计" : "Analytics"}</button>}
         {tier >= 2 && <button className={`admintab${adminTab === "autoteach" ? " on" : ""}`} onClick={() => setAdminTab("autoteach")}>⏱️ {lang === "th" ? "ตั้งเวลาสอน" : lang === "zh" ? "自动教学" : "Auto Teaching"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "broadcast" ? " on" : ""}`} onClick={() => setAdminTab("broadcast")}>📢 {lang === "th" ? "ประกาศ" : lang === "zh" ? "公告" : "Broadcast"}</button>}
+        {tier >= 3 && <button className={`admintab${adminTab === "event" ? " on" : ""}`} onClick={() => setAdminTab("event")}>🎉 {lang === "th" ? "อีเว้นท์" : lang === "zh" ? "活动" : "Event"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "games" ? " on" : ""}`} onClick={() => setAdminTab("games")}>🎮 {lang === "th" ? "เกม" : lang === "zh" ? "游戏" : "Games"}</button>}
       </div>
 
@@ -8892,6 +9387,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "analytics" && tier >= 3 ? <AdminAnalytics lang={lang} />
         : adminTab === "autoteach" && tier >= 2 ? <AdminAutoTeach lang={lang} />
         : adminTab === "broadcast" && tier >= 3 ? <AdminBroadcast lang={lang} />
+        : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "ai" && tier >= 3 ? (<>
 
@@ -9195,13 +9691,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [pianoOct, setPianoOct] = useState(4);   // base octave for the on-screen keyboard
   // coins · daily chest · mascot companion
   const [coins, setCoins] = useState(getCoins());
+  const [gems, setGems] = useState(0); // server-authoritative only — no localStorage, unlike coins
   const [chestAvail, setChestAvail] = useState(false);
   const [chestOpen, setChestOpen] = useState(false);
   const [chestOpening, setChestOpening] = useState(false);
   const [chestReward, setChestReward] = useState(null);
+  const [chestSpinDeg, setChestSpinDeg] = useState(0);
   const [mascotMood, setMascotMood] = useState("idle");
   const mascotT = useRef(null);
   const [shopOpen, setShopOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
   const [premium, setPremium] = useState(isPremium());
   const [plan, setPlan] = useState(getPlan());   // free | premium | family | max — switchable any time
   // keep the live plan/premium in sync with the authoritative server profile
@@ -9329,6 +9828,25 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (broadcast) markBroadcastSeen(broadcast.id);
     setBroadcast(null);
   }
+  // ── Seasonal / limited-time event: same app_settings + admin_set_app_setting
+  // mechanism as broadcast above (key "event" instead of "broadcast"), polled the
+  // same way. Applies EXP/coin multipliers while live (see gainExp/earnCoins). ──
+  const [activeEvent, setActiveEvent] = useState(null);
+  useEffect(() => {
+    if (!session) return;
+    let alive = true;
+    const check = () => {
+      sb.from("app_settings").select("value").eq("key", "event").maybeSingle()
+        .then(({ data }) => {
+          if (!alive) return;
+          const v = data && data.value;
+          setActiveEvent(v && v.active && (!v.ends_at || new Date(v.ends_at).getTime() > Date.now()) ? v : null);
+        }, () => {});
+    };
+    check();
+    const t = setInterval(check, 45000);
+    return () => { alive = false; clearInterval(t); };
+  }, [session]);
   const [upsell, setUpsell] = useState(null);   // {feat} when a gated action is blocked
   const [parentOpen, setParentOpen] = useState(false);
   const [examOpen, setExamOpen] = useState(false);
@@ -9593,6 +10111,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setCoins(merged);
     if (merged !== profile.coins && uid) sb.from("profiles").update({ coins: merged }).eq("id", uid).then(() => {}, () => {});
   }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // gems have no client write path at all (see supabase-gamification-gems-migration.sql)
+  // so this just mirrors whatever the server RPCs have already granted/spent
+  useEffect(() => { setGems((profile && profile.gems) || 0); }, [profile && profile.gems]);
 
   // Periodically snapshot the learner's progress to Supabase so a teacher/admin
   // can review each student's learning from the back office (also on app hide).
@@ -9825,8 +10346,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // opts.lesson=true also increments the lessons-completed counter.
   function gainExp(amount, opts = {}) {
     if (!amount || !uid) return;
+    if (activeEvent && activeEvent.expMult > 1) amount = Math.round(amount * activeEvent.expMult);
     mascot("happy", 1400);
     bumpWeekly("exp", amount);
+    sb.rpc("league_bump_exp", { p_week_key: weekKey(), p_amount: amount }).then(() => {}, () => {});
+    sb.rpc("school_quest_bump", { p_amount: amount }).then(() => {}, () => {}); // no-ops silently if not in a school / no active quest
     const beforeExp = expRef.current;
     const beforeLessons = lessonsRef.current;
 
@@ -9858,6 +10382,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       playUi("levelup"); mascot("celebrate", 3200);
       clearTimeout(lvUpTimer.current);
       lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
+    } else if (prestigeInfo(after).tier > prestigeInfo(beforeExp).tier) {
+      // past the level-10 cap: celebrate each new Legend Star the same way a
+      // level-up is celebrated, so the loyalest players still get feedback
+      leveled = true;
+      const pTier = prestigeInfo(after).tier;
+      setLevelUp({ level: 10, tier: LEVELS[LEVELS.length - 1], prestige: pTier });
+      playUi("levelup"); mascot("celebrate", 3200);
+      clearTimeout(lvUpTimer.current);
+      lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
+      earnCoins(150);
+      // gems are granted server-side (re-derived from real exp, idempotent) —
+      // this app.tsx client never decides or sends a gem amount itself
+      sb.rpc("grant_gems_for_prestige").then(({ data: r }) => {
+        if (r && r.granted > 0 && setProfile) setProfile(p => ({ ...(p || {}), gems: ((p && p.gems) || 0) + r.granted }));
+      }, () => {});
     }
     // achievement unlock (skip the toast if a level-up already shows this tick)
     if (!leveled) {
@@ -11963,7 +12502,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
   }
   // coins + mascot + daily chest
-  function earnCoins(n) { const mult = isMaxPlan(plan) ? 2 : 1; const v = getCoins() + n * mult; setCoinsLS(v); setCoins(v); if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {}); }
+  function earnCoins(n) { const mult = (isMaxPlan(plan) ? 2 : 1) * (activeEvent && activeEvent.coinMult > 1 ? activeEvent.coinMult : 1); const v = getCoins() + n * mult; setCoinsLS(v); setCoins(v); if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {}); }
   function reviewTopic(t) {
     setActiveStageId(null); // free-text question, not a Pathway topic+key — no "change key" back button
     setPage("sensei");
@@ -12016,6 +12555,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setCheckout({ plan: planId, amount: yr ? yearPrice(planId) : (PLAN_PRICE[planId] || 0), disp, cur, cycle, days: yr ? 365 : 30 });
   }
   function activatePremium() { choosePlan("premium"); }
+  // gems -> coins conversion. The RPC itself already updates profiles.coins
+  // server-side (see supabase-gamification-gems-migration.sql) — this only
+  // mirrors that result into local state, it never writes coins again itself.
+  async function exchangeGems(n) {
+    const { data: r, error } = await sb.rpc("spend_gems_for_coins", { p_gems: n });
+    if (error || !r) { mascot("sad", 1200); return false; }
+    setProfile(p => ({ ...(p || {}), gems: Math.max(0, ((p && p.gems) || 0) - r.spent) }));
+    const v = getCoins() + r.coins; setCoinsLS(v); setCoins(v);
+    playUi("reward"); mascot("celebrate", 1600);
+    return true;
+  }
   function buyFreeze() {
     const cost = 120;
     if (getCoins() < cost) { mascot("sad", 1200); playMiss(); return; }
@@ -12026,8 +12576,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const w = readWeekly();
     w[type] = (w[type] || 0) + n;
     if (!Array.isArray(w.claimed)) w.claimed = [];
-    for (const ch of CHALLENGES) {
-      if ((w[ch.id] || 0) >= ch.goal && !w.claimed.includes(ch.id)) { w.claimed.push(ch.id); earnCoins(CHALLENGE_REWARD); playUi("reward"); }
+    for (const ch of activeChallenges()) {
+      if ((w[ch.type] || 0) >= ch.goal && !w.claimed.includes(ch.id)) { w.claimed.push(ch.id); earnCoins(CHALLENGE_REWARD); playUi("reward"); }
     }
     writeWeekly(w);
   }
@@ -12072,14 +12622,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function openChestNow() {
     if (chestOpening) return;
     getAC();
-    setChestOpen(true); setChestOpening(true); setChestReward(null);
+    // resolve the real reward FIRST — the wheel only ever plays back a result
+    // that's already locked in, it never decides the outcome itself
+    const r = claimChest();
+    setChestOpen(true); setChestOpening(true); setChestReward(r); setChestSpinDeg(0);
     playUi("reward");
+    setTimeout(() => setChestSpinDeg(chestSpinAngle(r.kind)), 30); // next tick so the CSS transition animates from 0°
     setTimeout(() => {
-      const r = claimChest();
       earnCoins(r.coins); gainExp(r.exp);
-      setChestReward(r); setChestAvail(false); setChestOpening(false);
+      setChestAvail(false); setChestOpening(false);
       playUi("levelup"); mascot("celebrate", 3200);
-    }, 850);
+    }, 2500);
   }
 
   function handleAIReply(text) {
@@ -12508,6 +13061,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               )}
             </div>
           )}
+          {profile && profile.school_id && <ClassQuestSection lang={lang} schoolId={profile.school_id} />}
+          {profile && profile.school_id && <SchoolLeaderboardSection lang={lang} schoolId={profile.school_id} />}
           {/* My Stats + Report Card live as sub-pages of Profile (moved out of the nav) */}
           <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
             onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } logUsage("nav", "profile-stats"); setPage("insights"); }}>
@@ -12545,8 +13100,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             </div>
             <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
           </button>
-          <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins}
-            onOpenShop={() => setShopOpen(true)} onOpenHelp={() => setHelpOpen(true)} />
+          <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins} gems={gems}
+            onOpenShop={() => setShopOpen(true)} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} />
         </div>
       )}
 
@@ -13620,6 +14175,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* COSMETICS SHOP */}
+      {friendsOpen && <FriendsModal lang={lang} onClose={() => setFriendsOpen(false)} />}
+
       {shopOpen && (
         <div className="setov" onClick={() => setShopOpen(false)}>
           <div className="setcard" onClick={e => e.stopPropagation()}>
@@ -13646,13 +14203,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* DAILY CHEST modal */}
+      {/* DAILY CHEST modal — the reward is already resolved before this shows
+          (see openChestNow); the wheel only plays back that real outcome */}
       {chestOpen && (
         <div className="chestov" onClick={() => { if (!chestOpening) setChestOpen(false); }}>
           <div className="chestcard" onClick={e => e.stopPropagation()}>
-            <div className={`chestbig${chestOpening ? " opening" : " open"}`}>🎁</div>
-            {chestReward ? (
+            {chestOpening ? (
               <>
+                <div className="chestwheel">
+                  <div className="chestwheel-ring" style={{ transform: `rotate(${chestSpinDeg}deg)` }}>
+                    {CHEST_WHEEL.map((k, i) => (
+                      <span key={i} className={`cw-seg cw-${k}`} style={{ transform: `rotate(${i * 45 + 22.5}deg) translateY(-52px) rotate(${-(i * 45 + 22.5)}deg)` }}>
+                        {k === "jackpot" ? "🎉" : k === "big" ? "✨" : "🪙"}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="chestwheel-ptr">▼</div>
+                  <div className="chestwheel-hub">🎁</div>
+                </div>
+                <div className="chesttitle">{lc.chestOpening}</div>
+              </>
+            ) : (
+              <>
+                <div className="chestbig open">🎁</div>
                 <div className={`chesttitle${chestReward.kind === "jackpot" ? " jackpot" : ""}`}>
                   {chestReward.kind === "jackpot" ? "🎉 JACKPOT! 🎉" : chestReward.kind === "big" ? "✨ " + lc.chestBig + " ✨" : lc.chestGot}
                 </div>
@@ -13663,8 +14236,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <div className="cheststreak">🔥 {lc.chestDay} {chestReward.streak}</div>
                 <button className="songbtn go" onClick={() => setChestOpen(false)}>{lc.chestClaim}</button>
               </>
-            ) : (
-              <div className="chesttitle">{lc.chestOpening}</div>
             )}
           </div>
         </div>
@@ -13699,17 +14270,41 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
+      {/* seasonal / limited-time event banner — see the activeEvent poll above */}
+      {activeEvent && (
+        <div className="eventbanner">
+          <span className="eventbanner-ic" aria-hidden="true">🎉</span>
+          <span className="eventbanner-tx">{tr({ th: activeEvent.name_th, en: activeEvent.name_en, zh: activeEvent.name_zh }, lang)}</span>
+          {(activeEvent.expMult > 1 || activeEvent.coinMult > 1) && (
+            <span className="eventbanner-mult">
+              {activeEvent.expMult > 1 ? `${activeEvent.expMult}× EXP` : ""}
+              {activeEvent.expMult > 1 && activeEvent.coinMult > 1 ? " · " : ""}
+              {activeEvent.coinMult > 1 ? `${activeEvent.coinMult}× 🪙` : ""}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* mascot companion — the CSS/animation for this (.mascot, mascotidle/
+          mascothop/mascotcheer keyframes) already existed from an earlier build;
+          mascotMood already tracks the right moments (EXP gain, purchases,
+          level-ups...) — it just never had a JSX element to actually show it */}
+      <div className={`mascot ${mascotMood}`} onClick={() => mascot("happy", 900)} role="button" tabIndex={-1} aria-hidden="true">
+        <span className="mascot-face">{MASCOT_FACE[mascotMood] || MASCOT_FACE.idle}</span>
+        {mascotMood === "celebrate" && <span className="mascot-spark">✨</span>}
+      </div>
+
       {/* level-up celebration overlay */}
       {levelUp && (
         <div className="lvup" onClick={() => { clearTimeout(lvUpTimer.current); setLevelUp(null); }}>
           <div className="lvup-rays" aria-hidden="true" />
           <div className="confetti" aria-hidden="true">{Array.from({ length: 24 }).map((_, i) => <i key={i} style={{ left: (i * 4.1) + "%", animationDelay: (i % 6 * 0.08) + "s", background: ["#d97757", "#ffd23f", "#6a9bcc", "#788c5d", "#ff5252"][i % 5] }} />)}</div>
-          <div className="lvup-burst" aria-hidden="true">{levelUp.tier.icon}</div>
-          <div className="lvup-title">{lc.levelUpWord}</div>
-          <div className="lvup-rank">{lc.profLevelWord} {levelUp.level} · {tr(levelUp.tier, lang)}</div>
+          <div className="lvup-burst" aria-hidden="true">{levelUp.prestige ? "⭐" : levelUp.tier.icon}</div>
+          <div className="lvup-title">{levelUp.prestige ? lc.prestigeUpWord : lc.levelUpWord}</div>
+          <div className="lvup-rank">{levelUp.prestige ? `${lc.prestigeWord} ${levelUp.prestige}` : `${lc.profLevelWord} ${levelUp.level} · ${tr(levelUp.tier, lang)}`}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: lc.levelUpWord, big: lc.profLevelWord + " " + levelUp.level, sub: tr(levelUp.tier, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
-            <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(`🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>
+            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: levelUp.prestige ? lc.prestigeUpWord : lc.levelUpWord, big: levelUp.prestige ? `⭐ ${levelUp.prestige}` : lc.profLevelWord + " " + levelUp.level, sub: levelUp.prestige ? lc.prestigeWord : tr(levelUp.tier, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
+            <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(levelUp.prestige ? `🎹 ${lc.prestigeUpWord} ${lc.prestigeWord} ${levelUp.prestige} — TiGA Piano AI tigaalpha.github.io` : `🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>
           </div>
         </div>
       )}

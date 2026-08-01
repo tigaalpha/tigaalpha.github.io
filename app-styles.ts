@@ -272,6 +272,15 @@ html, body, #root{background:var(--bg)}
 .pathh1{position:relative;font-family:'Orbitron',sans-serif;font-size:19px;font-weight:900;color:var(--text);text-shadow:0 0 16px #d9775777;letter-spacing:1px;margin-bottom:13px}
 .pathguide{position:relative;font-size:12px;color:var(--text2);line-height:1.65;background: rgba(217,119,87,.07);border:1px solid #d9775722;border-radius:10px;padding:11px 14px;font-family:'Rajdhani',sans-serif;max-width:430px;margin:0 auto}
 .pgroup{padding:0 14px;margin-bottom:22px}
+/* world-map re-skin: each topic group reads as an "island" zone, connected to
+   the next by a short trail — same cards/grid/unlock logic underneath, purely
+   presentational (see PathwayPage) */
+.pgroup.pisland{position:relative;border-radius:18px;padding-top:14px;padding-bottom:18px;border:1px dashed var(--gc,#d97757)}
+.pgroup.pisland::before{content:'';position:absolute;inset:0;background:var(--gc,#d97757);opacity:.06;border-radius:17px;pointer-events:none;z-index:0}
+.pgroup.pisland>*{position:relative;z-index:1}
+.ptrail{display:flex;flex-direction:column;align-items:center;height:30px}
+.ptrail-line{width:3px;flex:1;border-radius:2px;opacity:.55}
+.ptrail-node{width:26px;height:26px;border-radius:50%;background:var(--card2);border:2px solid var(--bd4);display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:-3px;box-shadow:0 2px 8px -2px #000;flex-shrink:0}
 .pgrouphdr{display:flex;align-items:center;gap:11px;margin-bottom:13px}
 .pgbar{width:4px;height:34px;border-radius:3px;flex-shrink:0;box-shadow:0 0 10px currentColor}
 .pgicon{font-size:21px;line-height:1;flex-shrink:0}
@@ -759,6 +768,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .chestrewards span:last-child{color:#d97757}
 .cheststreak{font-family:'Rajdhani',sans-serif;font-size:14px;color:#d97757}
 .chesttitle.jackpot{color:#d97757;font-size:24px;text-shadow:0 0 22px #d97757;animation:popcount .6s ease-out}
+.chestwheel{position:relative;width:150px;height:150px;margin:8px auto 4px}
+.chestwheel-ring{position:absolute;inset:0;border-radius:50%;background:repeating-conic-gradient(#2a2a3a 0deg 45deg,#1c1c28 45deg 90deg);border:3px solid #d97757;box-shadow:0 0 30px -4px #d9775799,inset 0 0 16px -4px #000;transition:transform 2.4s cubic-bezier(.15,.68,.14,1)}
+.cw-seg{position:absolute;top:50%;left:50%;width:24px;height:24px;margin:-12px 0 0 -12px;display:flex;align-items:center;justify-content:center;font-size:19px}
+.chestwheel-ptr{position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:20px;color:#ffd23f;filter:drop-shadow(0 0 6px #ffd23f);z-index:2}
+.chestwheel-hub{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:var(--card);border:2px solid #d97757;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 14px -2px #000;z-index:1}
 .songbonus{position:absolute;left:0;right:0;top:28%;text-align:center;font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:#d97757;text-shadow:0 0 18px #d97757;pointer-events:none;animation:judgepop .9s ease-out forwards;z-index:6}
 /* fever mode + flying score popups + combo shouts (dopamine) */
 .feverbg{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.5;background:linear-gradient(125deg,#ff5252,#ffd23f,#d97757,#6a9bcc,#788c5d,#ff5252);background-size:400% 400%;animation:feverflow 2.2s linear infinite;mix-blend-mode:screen}
@@ -816,14 +830,18 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .wlc-tip{display:flex;align-items:center;gap:11px;text-align:left;background:var(--card);border:1px solid var(--bd1);border-radius:12px;padding:11px 13px}
 .wlc-tip span{font-size:24px;flex-shrink:0}
 .wlc-tip b{font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:600;color:var(--text2)}
+.eventbanner{position:fixed;top:0;left:0;right:0;z-index:850;display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px;padding-top:calc(6px + env(safe-area-inset-top,0px));background:linear-gradient(90deg,#d97757,#a855f7);font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:#fff;text-align:center;flex-wrap:wrap;box-shadow:0 2px 10px -2px #000}
+.eventbanner-mult{font-family:'Orbitron',sans-serif;font-size:10px;background:rgba(255,255,255,.2);border-radius:10px;padding:2px 8px}
 .mascot{position:fixed;right:12px;bottom:84px;z-index:900;cursor:pointer;animation:mascotidle 2.6s ease-in-out infinite;will-change:transform}
 .mascot-face{font-size:38px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))}
 .mascot.happy{animation:mascothop .5s ease-out}
 .mascot.celebrate{animation:mascotcheer .6s ease-out infinite}
+.mascot.sad{animation:mascotsad .5s ease-in-out}
 .mascot-spark{position:absolute;top:-6px;right:-6px;font-size:18px;animation:flamepulse .5s ease-in-out infinite alternate}
 @keyframes mascotidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 @keyframes mascothop{0%{transform:translateY(0)}40%{transform:translateY(-16px)}100%{transform:translateY(0)}}
 @keyframes mascotcheer{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-12px) rotate(6deg)}}
+@keyframes mascotsad{0%,100%{transform:translateY(0) rotate(0)}30%{transform:translateY(4px) rotate(-4deg)}60%{transform:translateY(4px) rotate(4deg)}}
 /* cosmetics shop + key-skins + themes */
 .shopsec{display:flex;align-items:center;gap:8px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--text2);letter-spacing:1px;margin:16px 0 8px}
 .shopsec:first-child{margin-top:0}
@@ -1007,6 +1025,17 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .lbpod-nm{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:var(--text);max-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lbpod-exp{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#d97757}
 .lbtonext{text-align:center;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;color:#d97757;margin-bottom:8px}
+.leaguereset{font-size:10px;color:var(--muted);font-family:'Share Tech Mono',monospace;text-align:center;margin-top:10px;letter-spacing:.3px}
+.gemrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.gemrow-bal{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:#a855f7}
+.gemrow-x{background:rgba(168,85,247,.12);color:#a855f7;border:1px solid #a855f755;border-radius:9px;padding:8px 12px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.gemrow-x:disabled{opacity:.4;cursor:default}
+.cqbar{height:10px;border-radius:6px;background:var(--card2);overflow:hidden;margin-bottom:6px}
+.cqbar div{height:100%;border-radius:6px;background:linear-gradient(90deg,#788c5d,#d97757);transition:width .5s}
+.cqstat{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--text);text-align:center}
+.wktrack{display:flex;gap:5px;margin-bottom:10px}
+.wktrack-seg{flex:1;height:6px;border-radius:4px;background:var(--card);border:1px solid var(--bd2)}
+.wktrack-seg.done{background:#d97757;border-color:#d97757;box-shadow:0 0 8px -1px #d97757aa}
 .wkrow{display:flex;align-items:center;gap:11px;padding:9px 4px}
 .wkic{font-size:22px;flex-shrink:0}
 .wkbody{flex:1;min-width:0}
@@ -1121,6 +1150,30 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .setcard{width:100%;max-width:420px;max-height:88vh;overflow-y:auto;background:var(--card3);border:1px solid #d9775726;border-radius:18px;box-shadow:0 24px 60px -20px #000}
 .sethdr{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:1px solid var(--bd3);font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--text);position:sticky;top:0;background:var(--card3);z-index:1}
 .setbody{padding:14px 16px 18px}
+/* friends + duels modal */
+.frtabs{display:flex;gap:4px;padding:10px 16px 0;border-bottom:1px solid var(--bd3)}
+.frtabs button{flex:1;padding:8px 4px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:700;cursor:pointer}
+.frtabs button.active{color:#d97757;border-bottom-color:#d97757}
+.frmsg{font-size:11.5px;color:#d97757;font-family:'Rajdhani',sans-serif;font-weight:700;text-align:center;padding:6px 0 10px}
+.fradd{display:flex;gap:8px;margin-bottom:14px}
+.fradd input{flex:1;background:var(--card2);border:1px solid var(--bd2);border-radius:9px;padding:9px 11px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px}
+.fradd button{background:#d97757;color:#fff;border:none;border-radius:9px;padding:0 16px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;cursor:pointer}
+.fradd button:disabled{opacity:.5;cursor:default}
+.frrow{display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--bd1)}
+.frrow:last-child{border-bottom:none}
+.frrow-nm{flex:1;min-width:0;font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:700;color:var(--text2);display:flex;flex-direction:column;gap:2px}
+.frrow-sub{font-size:10.5px;font-weight:600;color:var(--muted);font-family:'Share Tech Mono',monospace}
+.frrow-go{background:rgba(217,119,87,.12);color:#d97757;border:1px solid #d9775755;border-radius:8px;padding:6px 10px;font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+.frrow-x{background:none;border:1px solid var(--bd4);color:var(--muted);border-radius:8px;width:28px;height:28px;cursor:pointer;flex-shrink:0}
+.frrow-pending{font-size:10.5px;color:var(--muted);font-family:'Share Tech Mono',monospace}
+.frduel{background:var(--card2);border:1px solid var(--bd2);border-radius:12px;padding:11px 13px;margin-bottom:9px}
+.frduel-top{display:flex;justify-content:space-between;align-items:center;font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:700;color:var(--text2);margin-bottom:8px}
+.frduel-status{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:var(--card3);color:var(--muted)}
+.frduel-status.done{color:#d97757;background:rgba(217,119,87,.12)}
+.frduel-score{display:flex;justify-content:space-between;font-family:'Orbitron',sans-serif;font-size:12px;color:var(--text);margin-bottom:8px}
+.frsonglist{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto}
+.frsongpick{text-align:left;background:var(--card2);border:1px solid var(--bd2);border-radius:9px;padding:10px 12px;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
+.frsongpick:hover{border-color:#d97757}
 .setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0}
 .setrow.col{flex-direction:column;align-items:stretch;gap:8px}
 .setrow.setbtns{justify-content:center;gap:8px}
