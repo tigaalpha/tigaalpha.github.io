@@ -287,7 +287,7 @@ returns table(
 language plpgsql security definer set search_path = public as $$
 declare v_tier smallint;
 begin
-  select admin_tier into v_tier from profiles where id = auth.uid();
+  select admin_tier into v_tier from profiles where profiles.id = auth.uid();
   if coalesce(v_tier,0) < 1 then raise exception 'insufficient admin tier'; end if;
   return query
     select s.id, s.name, s.owner_id, o.email, o.full_name,
