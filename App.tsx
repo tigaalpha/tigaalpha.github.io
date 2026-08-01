@@ -7445,23 +7445,28 @@ function AdminStudents({ lang, viewerTier }) {
     const { error } = await sb.rpc("admin_appoint", { target: sel.id, new_tier: appointTier });
     setMgBusy(false); if (!error) { setSel(null); load(); } else { alert(error.message || "error"); }
   }
-  const load = useCallback(() => {
+  // admin_list_students_v2 — bounded (server-side LIMIT) and server-side searched,
+  // replacing the old admin_list_students() (unbounded, no search, client-side
+  // sort/filter over the entire user base). See
+  // supabase-security-hardening-migration.sql for why this is a new function
+  // rather than an edit to the old one.
+  const load = useCallback((searchQ) => {
     setErr(""); setRows(null);
-    // admin_list_students() itself has no LIMIT (its SQL isn't in this repo — it was
-    // created directly via the Supabase SQL editor in an earlier session — so it can't
-    // safely be edited blind here). At real scale this fetches and JSON-parses every
-    // registered user in one response before this code ever runs, which no client-side
-    // change can undo; capping here only stops the *second* cost — sorting and
-    // rendering an unbounded array — from compounding the first. The real fix is a
-    // LIMIT + real search/pagination on the RPC itself.
-    sb.rpc("admin_list_students")
+    sb.rpc("admin_list_students_v2", { p_search: searchQ || null, p_limit: 200 })
       .then(({ data, error }) => {
         if (error) { setErr(error.message || "error"); setRows([]); return; }
-        const r = (data || []).slice(0, 5000).sort((a, b) => (b.last_active || "").localeCompare(a.last_active || "") || (b.exp || 0) - (a.exp || 0));
-        setRows(r);
+        setRows(data || []);
       }, (e) => { setErr("" + (e && e.message || e)); setRows([]); });
   }, []);
-  useEffect(() => { load(); }, [load]);
+  // loads immediately on mount; debounces subsequent calls as the admin types into
+  // the search box, instead of the old instant client-side filter over an
+  // unbounded already-fetched array
+  const firstLoadRef = useRef(true);
+  useEffect(() => {
+    if (firstLoadRef.current) { firstLoadRef.current = false; load(q); return; }
+    const t = setTimeout(() => load(q), 300);
+    return () => clearTimeout(t);
+  }, [q, load]);
 
   if (rows === null) return <div className="admstu"><div className="admstu-msg">⏳ {T("กำลังโหลดข้อมูลนักเรียน...", "Loading students...", "正在加载学生...")}</div></div>;
 
@@ -7544,12 +7549,12 @@ function AdminStudents({ lang, viewerTier }) {
     );
   }
 
-  const list = rows.filter(r => { const s = ((r.full_name || "") + " " + (r.email || "")).toLowerCase(); return s.includes(q.toLowerCase()); });
+  const list = rows; // search now happens server-side (admin_list_students_v2), not client-side
   return (
     <div className="admstu">
       <div className="admstu-top">
         <input className="admstu-search" value={q} onChange={e => setQ(e.target.value)} placeholder={T("ค้นหานักเรียน...", "Search students...", "搜索学生...")} />
-        <button className="admstu-refresh" onClick={load}>↻</button>
+        <button className="admstu-refresh" onClick={() => load(q)}>↻</button>
       </div>
       {err && <div className="admstu-err">{T("อ่านข้อมูลไม่ได้ (ต้องเข้าสู่ระบบด้วยบัญชีแอดมิน)", "Can't read data (sign in with an admin account)", "无法读取（需用管理员账号登录）")}: {err}</div>}
       <div className="admstu-count">{list.length} {T("นักเรียน", "students", "名学生")}</div>
