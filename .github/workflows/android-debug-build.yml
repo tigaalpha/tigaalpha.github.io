@@ -1,0 +1,66 @@
+name: Android debug build
+
+# Runs on GitHub's own servers (not the sandbox that otherwise develops this
+# app), specifically because that sandbox's network policy blocks the
+# Android SDK download host — this is the workaround: build it here instead.
+# Produces an UNSIGNED debug APK for trying the app on a device. It is NOT
+# the signed release build described in MOBILE_BUILD.md's "Android — direct
+# download" section (that one needs a real signing keystore and is meant to
+# be the long-lived, in-app-banner-linked download); this one is just for
+# testing right now.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [claude/upbeat-fermi-dey70w]
+    paths:
+      - "App.tsx"
+      - "app-styles.ts"
+      - "app-*.ts"
+      - "*-data.ts"
+      - "android/**"
+      - "capacitor.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "index.template.html"
+      - "public/**"
+      - ".github/workflows/android-debug-build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app + sync Capacitor
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Publish to a stable-URL release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk tiga-ai-debug.apk
+          gh release delete android-debug-latest --yes --cleanup-tag || true
+          gh release create android-debug-latest tiga-ai-debug.apk \
+            --repo "${{ github.repository }}" \
+            --title "TiGA AI — Android debug build (auto)" \
+            --notes "Automatically rebuilt from commit ${{ github.sha }} on every push. **Debug/unsigned build for testing only** — not the production release described in MOBILE_BUILD.md. Android will warn about an unknown source; that's expected for a debug build." \
+            --prerelease
