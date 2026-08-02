@@ -798,6 +798,24 @@ function levelInfo(exp) {
   };
 }
 
+/* Prestige: level 10 (the top of LEVELS) used to be a dead end — once reached,
+   EXP kept accumulating with zero further feedback. Past that cap, every extra
+   PRESTIGE_STEP EXP earns a "Legend Star". Purely DERIVED from exp (same trick
+   as BADGES below) — never stored or reset, so it can't be forged by writing a
+   smaller exp value (the anti-cheat trigger only blocks increases, not decreases;
+   see supabase-security-hardening-migration.sql). */
+const PRESTIGE_STEP = 2000;
+function prestigeInfo(exp) {
+  const e = Math.max(0, exp || 0);
+  const cap = LEVELS[LEVELS.length - 1].min; // 5200 — top of the level ladder
+  if (e < cap) return { tier: 0, into: 0, need: PRESTIGE_STEP };
+  const past = e - cap;
+  return { tier: Math.floor(past / PRESTIGE_STEP), into: past % PRESTIGE_STEP, need: PRESTIGE_STEP - (past % PRESTIGE_STEP) };
+}
+
+/* face shown by the floating mascot companion, keyed by mascotMood (see mascot()) */
+const MASCOT_FACE = { idle: "🙂", happy: "😊", celebrate: "🤩", sad: "🥺" };
+
 /* Daily reset (streak, daily quest, gift box) runs on ONE fixed time zone so the
    day boundary is the SAME on every device instead of each phone's local clock.
    0 = GMT/UTC. Bangkok/ICT is 420 (UTC+7) — flip this one number to change it. */
@@ -2265,6 +2283,7 @@ const L = {
     profContactEdit: "แก้ไข", profContactSave: "บันทึก", profContactCancel: "ยกเลิก",
     profContactNudge: "เพิ่ม LINE หรือเบอร์โทรไว้ ให้ครูติดต่อได้ง่ายขึ้น",
     profMaxRank: "ถึงระดับสูงสุดแล้ว 🏆", profLevelWord: "เลเวล", levelUpWord: "เลเวลอัพ!",
+    prestigeWord: "ตำนานดาวที่", prestigeUpWord: "เลื่อนขั้นตำนาน!",
     practiceBtn: "🎯 ฝึกเล่นท่อนนี้", practiceTitle: "โหมดฝึกเล่น",
     practiceNoSeq: "เลือกบทเรียนหรือเล่นตัวอย่างก่อน แล้วค่อยกดฝึก",
     practiceMidi: "🎹 เชื่อมเปียโน MIDI แล้ว", practiceMic: "🎤 กำลังฟังผ่านไมโครโฟน",
@@ -2287,6 +2306,7 @@ const L = {
     aiHumBtn: "🎤 เล่นโน้ต — AI แปลงเป็นบรรยาย", aiHumStop: "หยุดฟัง", aiHumHint: "เล่นท่อนสั้นๆ แล้ว AI จะใช้โน้ตนั้นสร้างเพลง",
     commuteTitle: "ฟังทฤษฎีดนตรี", commuteSub: "ฟังบทเรียนขณะเดินทาง ไม่ต้องดูหน้าจอ", commuteStop: "หยุดเสียง", commutePlaying: "กำลังอ่าน…",
     kruTitle: "โหมดครู / Kru Mode", kruSub: "จัดการชั้นเรียน + ส่ง assignment code", kruClass: "รายชื่อนักเรียน", kruCode: "สร้างโค้ด", kruEnter: "ใช้โค้ด", kruAddPh: "ชื่อนักเรียน", kruAdd: "เพิ่ม", kruAssign: "เพลงที่มอบหมาย", kruMakeCode: "สร้างโค้ด", kruCopied: "คัดลอกแล้ว!", kruPastePh: "วางโค้ด assignment", kruApply: "เปิดเพลง", kruNoSong: "เลือกเพลงก่อน", kruBadCode: "โค้ดไม่ถูกต้อง", kruNoStudents: "ยังไม่มีนักเรียน",
+    schoolDashTitle: "แดชบอร์ดโรงเรียน", schoolDashSub: "ดูพัฒนาการนักเรียนจริง มอบหมายเพลงได้ทันที", schoolRoster: "รายชื่อนักเรียน", schoolInvite: "เชิญเข้าร่วม", schoolSeats: "ที่นั่ง", schoolCode: "โค้ดเข้าร่วม", schoolCodeHint: "ให้นักเรียนกรอกโค้ดนี้ในโหมดครูของแอพ เพื่อเชื่อมบัญชีเข้าโรงเรียน", schoolCodeCopy: "คัดลอกโค้ด", schoolCodeRegen: "สร้างโค้ดใหม่", schoolAddByEmail: "เพิ่มด้วยอีเมล", schoolAddByEmailPh: "อีเมลที่เคยเข้าสู่ระบบ TiGA แล้ว", schoolAddBtn: "เพิ่ม", schoolAssignBtn: "มอบหมายเพลงนี้", schoolAssignedTo: "มอบหมายล่าสุด", schoolAckYes: "ฝึกแล้ว", schoolAckNo: "ยังไม่ฝึก", schoolRemoveBtn: "นำออกจากโรงเรียน", schoolRemoveConfirm: "นำนักเรียนคนนี้ออกจากโรงเรียน?", schoolMyCard: "โรงเรียนของฉัน", schoolMyRoleTeacher: "ครู", schoolMyRoleStudent: "นักเรียน", schoolLeaveBtn: "ออกจากโรงเรียน", schoolLbTitle: "อันดับในโรงเรียน", cqTitle: "ภารกิจร่วมของห้อง", cqMine: "คุณช่วยได้", schoolNoRoster: "ยังไม่มีนักเรียนในโรงเรียนนี้", hwFromTeacher: "การบ้านจากครู", schoolBack: "ย้อนกลับ",
     recRecord: "อัดเสียง", recStop: "หยุดอัด", recPlay: "เล่นที่อัด", recPlaying: "กำลังเล่น…",
     demoPause: "หยุดเสียงโชว์", demoPlay: "เล่นโชว์อีกครั้ง",
     recCritique: "ให้ครูติชม", recCritiqueUser: "🎙️ ครูครับ ช่วยฟังที่ผมเพิ่งเล่นแล้วติชมหน่อยครับ ว่าเล่นถูกไหม จังหวะเป็นยังไง ควรปรับอะไร",
@@ -2310,6 +2330,18 @@ const L = {
     camCoachBtn: "ให้ครูดูมือ", camCoachLoad: "ครูกำลังดูมือ...", camCoachTitle: "คำแนะนำจากครู", camCoachErr: "วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง",
     lbTitle: "กระดานผู้นำ", lbYou: "อันดับคุณ", lbYouTag: "คุณ", lbLoad: "กำลังโหลด…",
     lbEmpty: "ยังไม่มีข้อมูล — เริ่มสะสม EXP กันเลย!", lbErr: "โหลดกระดานไม่สำเร็จ",
+    leagueTitle: "ลีกประจำสัปดาห์", leagueEmpty: "เริ่มสะสม EXP สัปดาห์นี้เพื่อเข้าลีก!",
+    leagueReset: "รีเซ็ตทุกวันจันทร์ — อันดับคำนวณจาก EXP ที่ได้ในสัปดาห์นี้เท่านั้น",
+    frTitle: "เพื่อน", frTabFriends: "เพื่อน", frTabRequests: "คำขอ", frTabDuels: "การแข่งขัน",
+    frEmailPh: "อีเมลเพื่อน", frAdd: "เพิ่ม", frEmpty: "ยังไม่มีเพื่อน — เพิ่มด้วยอีเมลด้านบน",
+    frChallenge: "ท้าแข่ง", frAutoAccept: "เป็นเพื่อนกันแล้ว ✓", frSent: "ส่งคำขอแล้ว ✓",
+    frIncoming: "คำขอที่ได้รับ", frOutgoing: "คำขอที่ส่งไป",
+    frNoneIncoming: "ไม่มีคำขอเข้ามา", frNoneOutgoing: "ไม่มีคำขอที่ส่งไป",
+    frAccept: "ตอบรับ", frPending: "รอตอบรับ", frNoDuels: "ยังไม่มีการแข่งขัน", frVs: "พบกับ",
+    frDone: "จบแล้ว", frExpired: "หมดเวลา", frRespond: "เล่นสู้กลับ", frYou: "คุณ",
+    frNoScore: "ยังไม่มีคะแนนเพลงนี้ — ไปเล่นก่อนนะ", frChallengeSent: "ส่งคำท้าแล้ว ✓",
+    frPlayFirst: "เล่นเพลงสักเพลงก่อน แล้วค่อยกลับมาท้าเพื่อน",
+    gemsLabel: "เพชร", gemExchange: "แลก 5💎→125🪙", gemHint: "ได้เพชรจากการเลื่อนขั้นตำนาน (Prestige) เท่านั้น",
     studioVoice: "AI โหมดเสียง", studioVoiceSub: "คุยกับครู AI ด้วยเสียง สอนสดแบบเรียลไทม์", studioVoiceMax: "เฉพาะแพ็กเกจ Max ขึ้นไป — แตะเพื่อดู",
     studioEarSub: "ฝึกหูรายวัน — ขั้นคู่ คอร์ด เล่นตามทำนอง", studioReadSub: "คอร์สอ่านโน้ต 5 ด่าน กุญแจซอล-ฟา",
     studioExam: "เตรียมสอบเกรด", studioExamSub: "หลักสูตรไล่ระดับ + เช็กลิสต์สอบ",
@@ -2336,6 +2368,11 @@ const L = {
     prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "✓ ทุกอย่างใน Premium รวม Auto Teaching ครบ", prMax3: "🎙️ AI Voice Teacher — คุยด้วยเสียง ครู AI ตอบกลับสด 24/7", prMax4: "📊 Daily Mentor · รายงาน AI รายสัปดาห์ · แผนซ้อม 7 วันส่วนตัว", prMax5: "🪙 XP & เหรียญ ×2 ทุกวัน · 🛡️ Streak Freeze 4 ใบ/เดือน ฟรี ไม่ต้องซื้อ", prMax6: "👑 เพลง Exclusive: Für Elise · Moonlight · Clair de Lune + อีก 3 ชิ้น", prMxf1: "👑 Max ครบทุกฟีเจอร์ ไม่มีตัดออก — สำหรับทุกคนในครอบครัว", prMxf2: "สูงสุด 10 โปรไฟล์ · ใช้งานพร้อมกันได้ทุกคนในบ้าน", prMxf3: "📊 แดชบอร์ดครอบครัว + รายงาน AI แยกทุกโปรไฟล์", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
     trialBanner: "🎁 ทดลองใช้ฟรี", trialDaysLeft: "วันที่เหลือ", trialUpgrade: "อัปเกรดแผน", trialExpired: "หมดเวลาทดลองใช้แล้ว — เลือกแผนเพื่อเรียนต่อ",
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
+    prBillB2B: "🏫 สำหรับธุรกิจ (B2B)", prSeat: "ที่นั่ง", prB2bSub: "สำหรับสถาบัน/โรงเรียนสอนดนตรี · ราคาต่อที่นั่ง · ขั้นต่ำ 15 ที่นั่ง/สัญญา",
+    prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "เทียบเท่า Premium ทุกฟีเจอร์", prB2bPlusSub: "เทียบเท่า Max ทุกฟีเจอร์ + AI Voice Teacher",
+    prB2bPerk1: "👤 ผู้ดูแลบัญชีคนไทยประจำสถาบัน", prB2bPerk2: "⚡ ซัพพอร์ตด่วน ตอบกลับภายใน 24 ชม.", prB2bPerk3: "🧾 ใบกำกับภาษี/ใบแจ้งหนี้บริษัท", prB2bPerk4: "📊 แดชบอร์ดครูดูภาพรวมนักเรียนจริง",
+    prB2bSeatNote: "ขั้นต่ำ 15 ที่นั่ง/สัญญา · สถาบันขนาดใหญ่ติดต่อทีมงานเพื่อราคาพิเศษ", prB2bCta: "🎓 ลงทะเบียน",
+    prB2bPerksLabel: "＋ สิทธิพิเศษสำหรับสถาบัน", prB2bOrYearly: "🗓️ หรือจ่ายรายปี {x}",
     schoolInfo: "🏫 TiGA สำหรับโรงเรียนและครูเปียโน\n\n• ใช้เป็น 'เพื่อนซ้อมที่บ้าน' ให้นักเรียนระหว่างคาบเรียน — AI ช่วยฝึกทุกวัน ครูเห็นความก้าวหน้า\n• โหมดไฮบริด: AI สอนทุกวัน + ครูจริงเช็คเดือนละครั้ง\n• ราคาสถาบัน + แดชบอร์ดติดตามนักเรียนทั้งห้อง\n\nสนใจติดต่อ: LINE @tiga.ai 🎹",
     octaveHint: "เลื่อนช่วงคีย์ขึ้น-ลง",
     songLoop: "🔁 วนซ้ำ", songNoLoop: "ไม่วน", songSlowHint: "โหมดช้า — เหมาะสำหรับผู้เริ่มต้น",
@@ -2387,6 +2424,7 @@ const L = {
     profContactEdit: "Edit", profContactSave: "Save", profContactCancel: "Cancel",
     profContactNudge: "Add your LINE or phone so the teacher can reach you",
     profMaxRank: "Max rank reached 🏆", profLevelWord: "LV", levelUpWord: "LEVEL UP!",
+    prestigeWord: "LEGEND STAR", prestigeUpWord: "PRESTIGE UP!",
     practiceBtn: "🎯 PRACTICE", practiceTitle: "Practice Mode",
     practiceNoSeq: "Learn a topic or play a demo first, then practice",
     practiceMidi: "🎹 MIDI piano connected", practiceMic: "🎤 Listening via microphone",
@@ -2409,6 +2447,7 @@ const L = {
     aiHumBtn: "🎤 Play notes — AI transcribes", aiHumStop: "Stop", aiHumHint: "Play a short phrase on your piano — AI uses those notes to create a song",
     commuteTitle: "Commute Lessons", commuteSub: "Listen to theory — no screen needed", commuteStop: "Stop audio", commutePlaying: "Playing…",
     kruTitle: "Kru / Teacher Mode", kruSub: "Manage a class & share assignment codes", kruClass: "Class roster", kruCode: "Make code", kruEnter: "Use code", kruAddPh: "Student name", kruAdd: "Add", kruAssign: "Assigned song", kruMakeCode: "Generate code", kruCopied: "Copied!", kruPastePh: "Paste assignment code", kruApply: "Open song", kruNoSong: "Pick a song first", kruBadCode: "Invalid code", kruNoStudents: "No students yet",
+    schoolDashTitle: "School Dashboard", schoolDashSub: "Real student progress, assign songs instantly", schoolRoster: "Roster", schoolInvite: "Invite", schoolSeats: "seats", schoolCode: "Join code", schoolCodeHint: "Have students enter this code in the app's Kru Mode to link their account to your school", schoolCodeCopy: "Copy code", schoolCodeRegen: "Regenerate", schoolAddByEmail: "Add by email", schoolAddByEmailPh: "Email already signed into TiGA", schoolAddBtn: "Add", schoolAssignBtn: "Assign this song", schoolAssignedTo: "Latest assignment", schoolAckYes: "Practiced", schoolAckNo: "Not yet", schoolRemoveBtn: "Remove from school", schoolRemoveConfirm: "Remove this student from the school?", schoolMyCard: "My School", schoolMyRoleTeacher: "Teacher", schoolMyRoleStudent: "Student", schoolLeaveBtn: "Leave school", schoolLbTitle: "School Leaderboard", cqTitle: "Class Quest", cqMine: "You contributed", schoolNoRoster: "No students in this school yet", hwFromTeacher: "Assigned by your teacher", schoolBack: "Back",
     recRecord: "Record", recStop: "Stop", recPlay: "Play back", recPlaying: "Playing…",
     demoPause: "Pause demo", demoPlay: "Play demo again",
     recCritique: "Get feedback", recCritiqueUser: "🎙️ Teacher, please listen to what I just played and give feedback — was it right, how was the timing, what should I improve?",
@@ -2432,6 +2471,18 @@ const L = {
     camCoachBtn: "Coach my hands", camCoachLoad: "Teacher is looking...", camCoachTitle: "Teacher's feedback", camCoachErr: "Couldn't analyze — try again.",
     lbTitle: "Leaderboard", lbYou: "Your rank", lbYouTag: "You", lbLoad: "Loading…",
     lbEmpty: "No data yet — start earning EXP!", lbErr: "Couldn't load leaderboard",
+    leagueTitle: "WEEKLY LEAGUE", leagueEmpty: "Earn EXP this week to join a league!",
+    leagueReset: "Resets every Monday — ranked by this week's EXP only",
+    frTitle: "Friends", frTabFriends: "Friends", frTabRequests: "Requests", frTabDuels: "Duels",
+    frEmailPh: "Friend's email", frAdd: "Add", frEmpty: "No friends yet — add one by email above",
+    frChallenge: "Challenge", frAutoAccept: "You're now friends ✓", frSent: "Request sent ✓",
+    frIncoming: "Incoming", frOutgoing: "Outgoing",
+    frNoneIncoming: "No incoming requests", frNoneOutgoing: "No outgoing requests",
+    frAccept: "Accept", frPending: "Pending", frNoDuels: "No duels yet", frVs: "vs",
+    frDone: "Done", frExpired: "Expired", frRespond: "Play to respond", frYou: "You",
+    frNoScore: "No score for this song yet — play it first", frChallengeSent: "Challenge sent ✓",
+    frPlayFirst: "Play a song first, then come back to challenge a friend",
+    gemsLabel: "Gems", gemExchange: "Exchange 5💎→125🪙", gemHint: "Gems come only from Prestige tier-ups",
     studioVoice: "AI Voice Mode", studioVoiceSub: "Talk to your AI teacher, live in real time", studioVoiceMax: "Max plan & up only — tap to see",
     studioEarSub: "Daily ear training — intervals, chords, echo", studioReadSub: "5-level notation course, treble & bass",
     studioExam: "Exam Prep", studioExamSub: "Graded curriculum + exam checklist",
@@ -2458,6 +2509,11 @@ const L = {
     prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "✓ Everything in Premium — Auto Teaching + all Premium features, fully unlocked", prMax3: "🎙️ AI Voice Teacher — speak naturally, get live spoken responses 24/7", prMax4: "📊 Daily Mentor · AI Weekly Report · personalized 7-day practice plan", prMax5: "🪙 2× XP & coins every session · 🛡️ 4 free Streak Freezes per month", prMax6: "👑 Exclusive pieces: Für Elise · Moonlight Sonata · Clair de Lune + 3 more", prMxf1: "👑 Full Max — every feature, for every family member, nothing removed", prMxf2: "Up to 10 profiles — all family members active simultaneously", prMxf3: "📊 Family dashboard + individual AI reports per profile", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
     trialBanner: "🎁 Free Trial", trialDaysLeft: "days left", trialUpgrade: "Upgrade now", trialExpired: "Your free trial has ended — choose a plan to continue",
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
+    prBillB2B: "🏫 FOR BUSINESS (B2B)", prSeat: "seat", prB2bSub: "For music schools & studios · priced per seat · 15-seat minimum per contract",
+    prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "Every Premium feature, included", prB2bPlusSub: "Every Max feature + AI Voice Teacher, included",
+    prB2bPerk1: "👤 Dedicated Thai account manager", prB2bPerk2: "⚡ Priority support, 24h response", prB2bPerk3: "🧾 Company invoice / tax receipt", prB2bPerk4: "📊 Real teacher dashboard for your roster",
+    prB2bSeatNote: "15-seat minimum per contract · larger institutions, contact us for custom pricing", prB2bCta: "🎓 Enroll",
+    prB2bPerksLabel: "+ Institutional perks", prB2bOrYearly: "🗓️ or billed annually at {x}",
     schoolInfo: "🏫 TiGA for schools & piano teachers\n\n• Use it as the at-home practice companion between lessons — AI coaches daily, you see progress.\n• Hybrid mode: AI every day + a real teacher check-in monthly.\n• Institutional pricing + a whole-class progress dashboard.\n\nContact: LINE @tiga.ai 🎹",
     octaveHint: "Shift the keyboard range",
     songLoop: "🔁 Loop", songNoLoop: "No Loop", songSlowHint: "Slow mode — great for beginners",
@@ -2509,6 +2565,7 @@ const L = {
     profContactEdit: "编辑", profContactSave: "保存", profContactCancel: "取消",
     profContactNudge: "添加 LINE 或电话，方便老师联系你",
     profMaxRank: "已达最高等级 🏆", profLevelWord: "LV", levelUpWord: "升级了！",
+    prestigeWord: "传奇星", prestigeUpWord: "传奇晋级！",
     practiceBtn: "🎯 练习这段", practiceTitle: "练习模式",
     practiceNoSeq: "请先学习一个主题或播放示例，再开始练习",
     practiceMidi: "🎹 已连接 MIDI 钢琴", practiceMic: "🎤 正在通过麦克风聆听",
@@ -2531,6 +2588,7 @@ const L = {
     aiHumBtn: "🎤 弹奏音符 — AI识谱", aiHumStop: "停止", aiHumHint: "在键盘弹几个音 — AI用这些音创作歌曲",
     commuteTitle: "通勤乐理课", commuteSub: "边通勤边听音乐理论课", commuteStop: "停止播放", commutePlaying: "播放中…",
     kruTitle: "教师模式", kruSub: "管理班级 + 分配练习码", kruClass: "班级名单", kruCode: "生成码", kruEnter: "使用码", kruAddPh: "学生姓名", kruAdd: "添加", kruAssign: "指定歌曲", kruMakeCode: "生成练习码", kruCopied: "已复制!", kruPastePh: "粘贴练习码", kruApply: "打开歌曲", kruNoSong: "请先选择歌曲", kruBadCode: "无效码", kruNoStudents: "还没有学生",
+    schoolDashTitle: "学校仪表盘", schoolDashSub: "查看真实学生进度，立即布置曲目", schoolRoster: "名单", schoolInvite: "邀请", schoolSeats: "席位", schoolCode: "加入码", schoolCodeHint: "让学生在教师模式中输入此码，即可关联到你的学校", schoolCodeCopy: "复制码", schoolCodeRegen: "重新生成", schoolAddByEmail: "用邮箱添加", schoolAddByEmailPh: "已登录过TiGA的邮箱", schoolAddBtn: "添加", schoolAssignBtn: "布置这首曲子", schoolAssignedTo: "最新布置", schoolAckYes: "已练习", schoolAckNo: "尚未练习", schoolRemoveBtn: "移出学校", schoolRemoveConfirm: "确定将该学生移出学校？", schoolMyCard: "我的学校", schoolMyRoleTeacher: "教师", schoolMyRoleStudent: "学生", schoolLeaveBtn: "退出学校", schoolLbTitle: "校内排行榜", cqTitle: "班级共同任务", cqMine: "你贡献了", schoolNoRoster: "该学校暂无学生", hwFromTeacher: "教师布置的作业", schoolBack: "返回",
     recRecord: "录制", recStop: "停止", recPlay: "回放", recPlaying: "播放中…",
     demoPause: "暂停示范", demoPlay: "再次播放示范",
     recCritique: "请老师点评", recCritiqueUser: "🎙️ 老师，请听听我刚才弹的，给点评价——弹得对吗？节奏如何？该改进什么？",
@@ -2554,6 +2612,18 @@ const L = {
     camCoachBtn: "请老师看手", camCoachLoad: "老师正在看...", camCoachTitle: "老师的建议", camCoachErr: "分析失败，请重试。",
     lbTitle: "排行榜", lbYou: "你的排名", lbYouTag: "你", lbLoad: "加载中…",
     lbEmpty: "暂无数据 — 快来赚取 EXP！", lbErr: "排行榜加载失败",
+    leagueTitle: "每周联赛", leagueEmpty: "本周开始赚取 EXP 加入联赛吧！",
+    leagueReset: "每周一重置 — 仅按本周 EXP 排名",
+    frTitle: "好友", frTabFriends: "好友", frTabRequests: "请求", frTabDuels: "对决",
+    frEmailPh: "好友邮箱", frAdd: "添加", frEmpty: "还没有好友 — 在上方用邮箱添加",
+    frChallenge: "挑战", frAutoAccept: "已成为好友 ✓", frSent: "请求已发送 ✓",
+    frIncoming: "收到的请求", frOutgoing: "发出的请求",
+    frNoneIncoming: "没有收到的请求", frNoneOutgoing: "没有发出的请求",
+    frAccept: "接受", frPending: "待处理", frNoDuels: "还没有对决", frVs: "对战",
+    frDone: "已结束", frExpired: "已过期", frRespond: "去应战", frYou: "你",
+    frNoScore: "还没有这首歌的分数 — 先去玩一下", frChallengeSent: "挑战已发送 ✓",
+    frPlayFirst: "先玩一首歌，再回来挑战好友",
+    gemsLabel: "钻石", gemExchange: "兑换 5💎→125🪙", gemHint: "钻石仅通过传奇晋级 (Prestige) 获得",
     studioVoice: "AI 语音模式", studioVoiceSub: "用语音和 AI 老师实时对话", studioVoiceMax: "仅限 Max 及以上套餐 — 点击查看",
     studioEarSub: "每日听力训练 — 音程、和弦、旋律模仿", studioReadSub: "五关识谱课 — 高音与低音谱号",
     studioExam: "考级备考", studioExamSub: "分级课程 + 考试清单",
@@ -2580,6 +2650,11 @@ const L = {
     prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "✓ 包含Premium全部功能，Auto Teaching完整版", prMax3: "🎙️ AI语音教师 — 开口说话，AI实时语音回应，24/7随时在线", prMax4: "📊 Daily Mentor · AI每周进度报告 · 个性化7日练习计划", prMax5: "🪙 经验值&金币×2 · 🛡️ 每月4张免费连击保护卡，无需购买", prMax6: "👑 独家曲目: 致爱丽丝 · 月光奏鸣曲 · 月光曲 + 另外3首", prMxf1: "👑 Max全部功能，一个不少 — 全家共享，人人享有", prMxf2: "最多10个档案 — 全家成员同时使用", prMxf3: "📊 家庭仪表盘 + 每个档案独立AI报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
     trialBanner: "🎁 免费试用", trialDaysLeft: "天剩余", trialUpgrade: "立即升级", trialExpired: "免费试用已结束 — 选择套餐以继续使用",
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
+    prBillB2B: "🏫 企业版 (B2B)", prSeat: "席位", prB2bSub: "面向音乐学校/机构 · 按席位计价 · 每份合同最低15个席位",
+    prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "包含Premium全部功能", prB2bPlusSub: "包含Max全部功能 + AI语音教师",
+    prB2bPerk1: "👤 专属泰语客户经理", prB2bPerk2: "⚡ 24小时优先支持", prB2bPerk3: "🧾 公司发票/税务收据", prB2bPerk4: "📊 真实的教师班级仪表盘",
+    prB2bSeatNote: "每份合同最低15个席位 · 大型机构可联系我们定制报价", prB2bCta: "🎓 报名",
+    prB2bPerksLabel: "＋ 机构专属权益", prB2bOrYearly: "🗓️ 或按年支付 {x}",
     schoolInfo: "🏫 TiGA 面向学校与钢琴老师\n\n• 作为课后'在家练习伙伴'——AI 每天辅导，老师查看进度。\n• 混合模式：AI 每日教学 + 真人老师每月检查。\n• 机构价格 + 全班进度仪表板。\n\n联系：LINE @tiga.ai 🎹",
     octaveHint: "移动键盘音区",
     songLoop: "🔁 循环", songNoLoop: "不循环", songSlowHint: "慢速模式 — 适合初学者",
@@ -2884,7 +2959,8 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
         const openStage = stages.find(s => s.id === openStageId);
         const openIdx = openStage ? stages.indexOf(openStage) : -1;
         return (
-          <section className="pgroup" key={g.id}>
+          <Fragment key={g.id}>
+          <section className="pgroup pisland" style={{ "--gc": gc }}>
             <header className="pgrouphdr">
               <span className="pgbar" style={{ background: gc }} />
               <span className="pgicon">{g.icon}</span>
@@ -3032,6 +3108,13 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
               })}
             </div>
           </section>
+          {gi < groups.length - 1 && (
+            <div className="ptrail" aria-hidden="true">
+              <span className="ptrail-line" style={{ background: `linear-gradient(180deg, ${gc}, ${STAGES_BY_GROUP[groups[gi + 1].id][0].color})` }} />
+              <span className="ptrail-node" style={{ borderColor: STAGES_BY_GROUP[groups[gi + 1].id][0].color }}>{groups[gi + 1].icon}</span>
+            </div>
+          )}
+          </Fragment>
         );
       })}
 
@@ -3560,7 +3643,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
         </div>
       ) : cur && (
         <div className="v12card" style={{ textAlign: "center" }}>
-          <div style={{ background: "#10080d", borderRadius: "12px", padding: "8px 6px", marginBottom: "13px", border: "1px solid #ffffff10" }}>
+          <div style={{ background: "var(--card)", borderRadius: "12px", padding: "8px 6px", marginBottom: "13px", border: "1px solid var(--bd1)" }}>
             <StaffNotes notes={cur.notes} hideNames clef={lvl.clef} />
           </div>
           <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
@@ -3876,7 +3959,7 @@ const CHORD_MOODS = [
 const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onPlay = null, onParent = null,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
-  mysteryChest = null, setMysteryChest, luckyToast = null }) {
+  mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan);
@@ -3995,16 +4078,21 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   function kruMakeCode(songId: string): string {
     try { return btoa(JSON.stringify({ v: 1, t: "song", id: songId })); } catch { return ""; }
   }
-  function kruUseCode(code: string) {
+  async function kruUseCode(code: string) {
     setKruMsg("");
+    const raw = code.trim();
     try {
-      const obj = JSON.parse(atob(code.trim()));
+      const obj = JSON.parse(atob(raw));
       if (obj.t === "song") {
         const s = SONGS.find((x: any) => x.id === obj.id);
         if (s) { setKruOpen(false); onPlay && onPlay(s); return; }
       }
-      setKruMsg(T("โค้ดไม่ถูกต้อง", "Invalid code", "无效码"));
-    } catch { setKruMsg(T("โค้ดไม่ถูกต้อง", "Invalid code", "无效码")); }
+    } catch {}
+    // Not a song-assignment code — try it as a real school join code (School Plan Pro).
+    const { data, error } = await sb.rpc("school_join", { p_code: raw });
+    if (error) { setKruMsg(T("โค้ดไม่ถูกต้อง", "Invalid code", "无效码")); return; }
+    setKruOpen(false);
+    onSchoolJoined && onSchoolJoined(data);
   }
 
   // B1: SRS — how many topics are due for review
@@ -5060,7 +5148,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
 
   async function generateSong() {
     if (!genText.trim() || generating) return;
-    if (!canUse("song")) { setCreateOpen(false); if (onUpsell) onUpsell(); return; }
+    if (!canUse("song", premium)) { setCreateOpen(false); if (onUpsell) onUpsell(); return; }
     setGenerating(true); setGenErr(false);
     try {
       const sys = "You turn a song request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON, no prose, no markdown: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names from C4 to B5 only; use \"R\" for a rest; beats are 0.5, 1, 1.5 or 2. Keep it 16-48 notes and recognizable.";
@@ -5420,6 +5508,127 @@ const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta }) {
 });
 
 /* ── Leaderboard (top players by EXP) — privacy-safe RPC, names + stats only ── */
+/* Weekly League — a resetting, tier-scoped companion to the all-time global
+   leaderboard above. A user's tier is DERIVED live (server-side, via
+   get_my_league) from how much EXP they earned THIS week — no stored
+   promotion/demotion state, so there's nothing to get stuck. See
+   supabase-gamification-leagues-migration.sql for the RPCs. */
+const LEAGUE_TIERS = [
+  { tier: 1, icon: "🥉", th: "บรอนซ์", en: "Bronze", zh: "青铜" },
+  { tier: 2, icon: "🥈", th: "ซิลเวอร์", en: "Silver", zh: "白银" },
+  { tier: 3, icon: "🥇", th: "โกลด์", en: "Gold", zh: "黄金" },
+  { tier: 4, icon: "💎", th: "แพลทินัม", en: "Platinum", zh: "铂金" },
+  { tier: 5, icon: "👑", th: "ไดมอนด์", en: "Diamond", zh: "钻石" },
+];
+/* School-scoped leaderboard — the teacher-facing SchoolDashboard already shows
+   every student's stats; students themselves had zero peer visibility until
+   now. Reuses profiles.school_id (School Plan Pro) — no new table needed, see
+   get_school_leaderboard in supabase-gamification-school-migration.sql. */
+const SchoolLeaderboardSection = memo(function SchoolLeaderboardSection({ lang, schoolId }) {
+  const lc = L[lang];
+  const [rows, setRows] = useState(null); // null=loading, false=error
+  useEffect(() => {
+    if (!schoolId) return;
+    let alive = true;
+    sb.rpc("get_school_leaderboard", { p_school_id: schoolId }).then(({ data, error }) => {
+      if (alive) setRows(error ? false : (data || []));
+    });
+    return () => { alive = false; };
+  }, [schoolId]);
+  if (rows === false || (rows && rows.length === 0)) return null; // quiet — this is a bonus, not core
+  return (
+    <div className="profsec" style={{ margin: "0 14px 10px" }}>
+      <div className="profsec-h">🏫 {lc.schoolLbTitle}</div>
+      {rows == null ? <div className="lbempty">{lc.lbLoad}</div> : (
+        <div className="lblist">
+          {rows.map((r, i) => (
+            <div key={i} className={`lbrow${r.is_me ? " me" : ""}`} style={{ animationDelay: (i * 35) + "ms" }}>
+              <span className="lbrank">{i + 1}</span>
+              <span className="lbname">{r.name}{r.is_me ? ` · ${lc.lbYouTag}` : ""}</span>
+              <span className="lbexp">{(r.exp || 0).toLocaleString()} <small>EXP</small></span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+/* Class Quest — a teacher-set, cooperative (not competitive) shared EXP goal
+   for the whole school. See school_set_quest/school_quest_bump/get_school_quest
+   in supabase-gamification-school-migration.sql. Deliberately shown only when
+   a quest is actually active — most schools most of the time have none set,
+   and an empty "no quest" card every time would just be clutter. */
+const ClassQuestSection = memo(function ClassQuestSection({ lang, schoolId }) {
+  const lc = L[lang];
+  const [q, setQ] = useState(null); // null=loading, false=error, {active:false}, or full quest data
+  const celebratedRef = useRef(false);
+  useEffect(() => {
+    if (!schoolId) return;
+    let alive = true;
+    sb.rpc("get_school_quest", { p_school_id: schoolId }).then(({ data, error }) => {
+      if (alive) setQ(error ? false : data);
+    });
+    return () => { alive = false; };
+  }, [schoolId]);
+  useEffect(() => {
+    if (q && q.active && q.complete && !celebratedRef.current) { celebratedRef.current = true; playUi("levelup"); }
+  }, [q]);
+  if (q === false || (q && q.active === false)) return null;
+  const pct = q ? Math.min(100, Math.round((q.total_exp / q.goal_exp) * 100)) : 0;
+  return (
+    <div className="profsec" style={{ margin: "0 14px 10px" }}>
+      <div className="profsec-h">🎯 {lc.cqTitle}</div>
+      {q == null ? <div className="lbempty">{lc.lbLoad}</div> : (
+        <>
+          <div className="cqbar"><div style={{ width: pct + "%" }} /></div>
+          <div className="cqstat">{q.total_exp.toLocaleString()} / {q.goal_exp.toLocaleString()} EXP {q.complete ? "🎉" : ""}</div>
+          <div className="leaguereset">{lc.cqMine}: {q.my_exp.toLocaleString()} EXP</div>
+        </>
+      )}
+    </div>
+  );
+});
+
+const WeeklyLeagueSection = memo(function WeeklyLeagueSection({ lang }) {
+  const lc = L[lang];
+  const [data, setData] = useState(null); // null=loading, false=fetch failed
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data: d, error } = await sb.rpc("get_my_league", { p_week_key: weekKey() });
+        if (error) throw error;
+        if (alive) setData(d);
+      } catch (e) { if (alive) setData(false); }
+    })();
+    return () => { alive = false; };
+  }, []);
+  if (data === false) return null; // bonus section — fail quietly rather than show an error block
+  const tierInfo = data ? LEAGUE_TIERS[Math.max(0, Math.min(LEAGUE_TIERS.length - 1, data.tier - 1))] : null;
+  const members = data ? (data.members || []) : [];
+  return (
+    <div className="profsec">
+      <div className="profsec-h">
+        {lc.leagueTitle}
+        {tierInfo && <span className="lbmine">{tierInfo.icon} {tr(tierInfo, lang)}</span>}
+      </div>
+      {data == null ? <div className="lbempty">{lc.lbLoad}</div>
+        : members.length === 0 ? <div className="lbempty">{lc.leagueEmpty}</div>
+        : <div className="lblist">
+            {members.map((m, i) => (
+              <div key={i} className={`lbrow${m.is_me ? " me" : ""}`} style={{ animationDelay: (i * 35) + "ms" }}>
+                <span className="lbrank">{i + 1}</span>
+                <span className="lbname">{m.name}{m.is_me ? ` · ${lc.lbYouTag}` : ""}</span>
+                <span className="lbexp">{m.exp.toLocaleString()} <small>EXP</small></span>
+              </div>
+            ))}
+          </div>}
+      <div className="leaguereset">{lc.leagueReset}</div>
+    </div>
+  );
+});
+
 const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
   const lc = L[lang];
   const [rows, setRows] = useState(null); // null = loading
@@ -5485,6 +5694,142 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
               ))}
             </div>
           </>}
+    </div>
+  );
+});
+
+/* Friends + async duels (also powers Family Battle, via the same duels table
+   with mode:'family' — see supabase-gamification-social-migration.sql). A
+   duel's real result always comes from the player's own recorded game log
+   (readGameLog) — never a typed-in number — so a challenge score is exactly
+   as trustworthy as any other score already shown in this app's own stats. */
+const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
+  const lc = L[lang];
+  const [tab, setTab] = useState("friends"); // friends | requests | duels
+  const [data, setData] = useState(null);    // {friends, incoming, outgoing} | false=error
+  const [duels, setDuels] = useState(null);
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [challengeFor, setChallengeFor] = useState(null);
+  const busyRef = useRef(false);
+
+  const load = useCallback(() => {
+    sb.rpc("friend_list").then(({ data: d, error }) => setData(error ? false : (d || { friends: [], incoming: [], outgoing: [] })));
+    sb.rpc("duel_list").then(({ data: d, error }) => setDuels(error ? [] : (d || [])));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function sendRequest() {
+    if (!email.trim() || busyRef.current) return;
+    busyRef.current = true; setBusy(true); setMsg("");
+    const { data: r, error } = await sb.rpc("friend_request", { p_email: email.trim() });
+    busyRef.current = false; setBusy(false);
+    if (error) { setMsg(error.message || "error"); return; }
+    setEmail(""); setMsg(r && r.status === "accepted" ? lc.frAutoAccept : lc.frSent);
+    load();
+  }
+  async function respond(id, accept) { await sb.rpc("friend_respond", { p_id: id, p_accept: accept }); load(); }
+  async function removeFriend(id) { await sb.rpc("friend_remove", { p_id: id }); load(); }
+  async function sendChallenge(friend, song) {
+    const best = readGameLog().filter(g => g.song === song.id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+    if (!best) { setMsg(lc.frNoScore); return; }
+    const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: song.id, p_score: best, p_mode: "duel" });
+    if (error) setMsg(error.message || "error"); else { setMsg(lc.frChallengeSent); setChallengeFor(null); load(); }
+  }
+  async function respondDuel(duel) {
+    const best = readGameLog().filter(g => g.song === duel.song_id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+    if (!best) { setMsg(lc.frNoScore); return; }
+    const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: best });
+    if (!error) { playUi("reward"); load(); }
+  }
+  const playedSongs = challengeFor
+    ? Array.from(new Set(readGameLog().map(g => g.song))).map(id => SONGS.find(s => s.id === id)).filter(Boolean)
+    : [];
+
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard" onClick={e => e.stopPropagation()}>
+        <div className="sethdr">
+          <span>👥 {lc.frTitle}</span>
+          <button className="cbtn" onClick={onClose}>{lc.close}</button>
+        </div>
+        <div className="frtabs">
+          <button className={tab === "friends" ? "active" : ""} onClick={() => setTab("friends")}>{lc.frTabFriends}</button>
+          <button className={tab === "requests" ? "active" : ""} onClick={() => setTab("requests")}>
+            {lc.frTabRequests}{data && data.incoming && data.incoming.length > 0 ? ` (${data.incoming.length})` : ""}
+          </button>
+          <button className={tab === "duels" ? "active" : ""} onClick={() => setTab("duels")}>{lc.frTabDuels}</button>
+        </div>
+        <div className="setbody">
+          {msg && <div className="frmsg">{msg}</div>}
+          {data === false ? <div className="lbempty">{lc.lbErr}</div> : tab === "friends" ? (
+            <>
+              <div className="fradd">
+                <input value={email} onChange={e => setEmail(e.target.value)} placeholder={lc.frEmailPh} type="email" />
+                <button disabled={busy} onClick={sendRequest}>{lc.frAdd}</button>
+              </div>
+              {!data ? <div className="lbempty">{lc.lbLoad}</div>
+                : data.friends.length === 0 ? <div className="lbempty">{lc.frEmpty}</div>
+                : data.friends.map(f => (
+                  <div key={f.id} className="frrow">
+                    <div className="frrow-nm">{f.name}<span className="frrow-sub">Lv{levelInfo(f.exp || 0).level} · 🔥{f.streak || 0}</span></div>
+                    <button className="frrow-go" onClick={() => setChallengeFor(f)}>🎯 {lc.frChallenge}</button>
+                    <button className="frrow-x" onClick={() => removeFriend(f.id)}>✕</button>
+                  </div>
+                ))}
+            </>
+          ) : tab === "requests" ? (
+            <>
+              <div className="profsec-h" style={{ fontSize: "11px" }}>{lc.frIncoming}</div>
+              {(!data || data.incoming.length === 0) ? <div className="lbempty">{lc.frNoneIncoming}</div> : data.incoming.map(r => (
+                <div key={r.id} className="frrow">
+                  <div className="frrow-nm">{r.name}</div>
+                  <button className="frrow-go" onClick={() => respond(r.id, true)}>✓ {lc.frAccept}</button>
+                  <button className="frrow-x" onClick={() => respond(r.id, false)}>✕</button>
+                </div>
+              ))}
+              <div className="profsec-h" style={{ fontSize: "11px", marginTop: 14 }}>{lc.frOutgoing}</div>
+              {(!data || data.outgoing.length === 0) ? <div className="lbempty">{lc.frNoneOutgoing}</div> : data.outgoing.map(r => (
+                <div key={r.id} className="frrow"><div className="frrow-nm">{r.name}</div><span className="frrow-pending">{lc.frPending}</span></div>
+              ))}
+            </>
+          ) : (
+            <>
+              {(!duels || duels.length === 0) ? <div className="lbempty">{lc.frNoDuels}</div> : duels.map(d => (
+                <div key={d.id} className="frduel">
+                  <div className="frduel-top">
+                    <span>{d.mode === "family" ? "👨‍👩‍👧 " : "⚔️ "}{lc.frVs} {d.opp_name}</span>
+                    <span className={`frduel-status ${d.status}`}>{d.status === "done" ? lc.frDone : d.status === "expired" ? lc.frExpired : lc.frPending}</span>
+                  </div>
+                  <div className="frduel-score">
+                    <span>{lc.frYou}: {d.my_score ?? "—"}</span>
+                    <span>{d.opp_name}: {d.opp_score ?? "—"}</span>
+                  </div>
+                  {d.status === "pending" && !d.i_am_a && (
+                    <button className="frrow-go" onClick={() => respondDuel(d)}>{lc.frRespond}</button>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        {challengeFor && (
+          <div className="setov" onClick={() => setChallengeFor(null)}>
+            <div className="setcard" style={{ maxWidth: 320 }} onClick={e => e.stopPropagation()}>
+              <div className="sethdr"><span>🎯 {challengeFor.name}</span><button className="cbtn" onClick={() => setChallengeFor(null)}>{lc.close}</button></div>
+              <div className="setbody">
+                {playedSongs.length === 0 ? <div className="lbempty">{lc.frPlayFirst}</div> : (
+                  <div className="frsonglist">
+                    {playedSongs.map(s => <button key={s.id} className="frsongpick" onClick={() => sendChallenge(challengeFor, s)}>{tr(s, lang)}</button>)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 });
@@ -5767,6 +6112,18 @@ function claimChest() {
   return { coins: Math.round(20 * day * mult), exp: Math.round(15 * day * mult), streak, day, kind };
 }
 
+/* Spin-wheel presentation for the chest above — the reward MATH is already fully
+   resolved by claimChest() before the wheel ever spins; this only picks which of
+   the wheel's 8 fixed wedges to land the pointer on, so the animation always
+   agrees with the real payout (never "looks like jackpot, pays normal"). */
+const CHEST_WHEEL = ["normal", "normal", "big", "normal", "jackpot", "normal", "big", "normal"];
+function chestSpinAngle(kind) {
+  const idxs = CHEST_WHEEL.map((k, i) => k === kind ? i : -1).filter(i => i >= 0);
+  const idx = idxs[Math.floor(Math.random() * idxs.length)];
+  const center = idx * 45 + 22.5; // ° clockwise from the pointer at top (0°)
+  return 5 * 360 - center; // a few extra full spins, landing exactly on `center`
+}
+
 /* ── engagement streak (consecutive practice days) + streak-freeze ── */
 function readStreak() { try { return JSON.parse(localStorage.getItem("tg_streak") || "null") || { count: 0, last: "", freezes: 0 }; } catch (e) { return { count: 0, last: "", freezes: 0 }; } }
 function writeStreak(s) { try { localStorage.setItem("tg_streak", JSON.stringify(s)); } catch (e) {} }
@@ -5894,6 +6251,22 @@ function fmtPrice(cur: string, amount: number): string {
   if (cur === "usd") return "US$" + amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   if (cur === "cny") return "¥" + amount.toLocaleString();
   return "฿" + amount.toLocaleString();
+}
+// B2B "Studio Partner Plan": always at least 15% above the matching individual plan,
+// in every currency and cadence, by deliberate design — no volume discount, the premium
+// is justified by dedicated account service (see prB2bPerk*), not a cheaper per-seat
+// deal. Standard tracks Premium, Plus tracks Max, so a price change to either consumer
+// tier keeps B2B correctly pegged automatically instead of needing a manual re-sync.
+// Math.ceil (never round-to-nearest) is what guarantees the ≥15% floor survives rounding.
+const B2B_MULT = 1.15;
+function b2bBaseTier(tier: string) { return tier === "plus" ? "max" : "premium"; }
+function b2bPriceByCur(cur: string, tier: string): number {
+  const n = planPriceByCur(cur, b2bBaseTier(tier)) * B2B_MULT;
+  return cur === "usd" ? Math.ceil(n) - 0.01 : Math.ceil(n / 10) * 10;
+}
+function b2bYearPriceByCur(cur: string, tier: string): number {
+  const n = yearPriceByCur(cur, b2bBaseTier(tier)) * B2B_MULT;
+  return cur === "usd" ? Math.ceil(n) - 0.01 : Math.ceil(n / 10) * 10;
 }
 const YEAR_PLANS = ["premium", "max", "maxfamily"];   // tiers that offer a yearly option
 // the live, authoritative plan for a profile row (admins = full; paid only while not expired)
@@ -6050,7 +6423,11 @@ function planBadge(p) {
 const FREE_LIMITS = { song: 2, critique: 3 };   // free actions per day
 function usageToday(key) { try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === dayKey() ? (u[key] || 0) : 0; } catch (e) { return 0; } }
 function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
-function canUse(key) { return isPremium() || usageToday(key) < (FREE_LIMITS[key] || 0); }
+// `premium` must be the caller's real, server-synced plan state — never isPremium(),
+// which reads raw localStorage. localStorage.setItem("tg_premium","1") is a one-line
+// browser-console edit that would otherwise remove these daily caps on two endpoints
+// that call a real, real-money AI backend (generateSong/critiqueRecording → piano-chat).
+function canUse(key, premium) { return premium || usageToday(key) < (FREE_LIMITS[key] || 0); }
 
 
 /* ── graded exam-prep curriculum (premium) ── */
@@ -6079,16 +6456,35 @@ const EXAM_GRADES = [
 ];
 
 
-/* ── weekly challenges (rotating, localStorage, auto-rewarded) ── */
-const CHALLENGES = [
-  { id: "games",   goal: 5,   icon: "🎮", th: "เล่นเกม 5 รอบ", en: "Play 5 games",    zh: "玩 5 局游戏" },
-  { id: "exp",     goal: 300, icon: "✦",  th: "เก็บ 300 EXP",  en: "Earn 300 EXP",    zh: "赚 300 EXP" },
-  { id: "perfect", goal: 30,  icon: "🎯", th: "ทำ 30 Perfect", en: "Hit 30 Perfects", zh: "打出 30 完美" },
+/* ── weekly challenges (rotating pool, localStorage, auto-rewarded) ──
+   9 challenges across the 3 stats bumpWeekly() already tracks (games/exp/
+   perfect) at 3 difficulty tiers each — every week's 3 active picks are
+   derived deterministically from weekKey() (a simple hash, no server call),
+   so every device/client picks the SAME 3 without needing to sync anything. */
+const CHALLENGE_POOL = [
+  { id: "games_s", type: "games",   goal: 3,   icon: "🎮", th: "เล่นเกม 3 รอบ",    en: "Play 3 games",    zh: "玩 3 局游戏" },
+  { id: "games_m", type: "games",   goal: 8,   icon: "🎮", th: "เล่นเกม 8 รอบ",    en: "Play 8 games",    zh: "玩 8 局游戏" },
+  { id: "games_l", type: "games",   goal: 15,  icon: "🕹️", th: "เล่นเกม 15 รอบ",   en: "Play 15 games",   zh: "玩 15 局游戏" },
+  { id: "exp_s",   type: "exp",     goal: 150, icon: "✦",  th: "เก็บ 150 EXP",     en: "Earn 150 EXP",    zh: "赚 150 EXP" },
+  { id: "exp_m",   type: "exp",     goal: 400, icon: "✦",  th: "เก็บ 400 EXP",     en: "Earn 400 EXP",    zh: "赚 400 EXP" },
+  { id: "exp_l",   type: "exp",     goal: 900, icon: "💫", th: "เก็บ 900 EXP",     en: "Earn 900 EXP",    zh: "赚 900 EXP" },
+  { id: "perf_s",  type: "perfect", goal: 15,  icon: "🎯", th: "ทำ 15 Perfect",   en: "Hit 15 Perfects", zh: "打出 15 完美" },
+  { id: "perf_m",  type: "perfect", goal: 40,  icon: "🎯", th: "ทำ 40 Perfect",   en: "Hit 40 Perfects", zh: "打出 40 完美" },
+  { id: "perf_l",  type: "perfect", goal: 80,  icon: "🏹", th: "ทำ 80 Perfect",   en: "Hit 80 Perfects", zh: "打出 80 完美" },
 ];
 const CHALLENGE_REWARD = 50;
 function weekKey(d = new Date()) {
   const x = dayDate(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day);
   return x.getFullYear() + "-" + (x.getMonth() + 1) + "-" + x.getDate();
+}
+function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
+/* This week's 3 active challenges — same result on every device for the same
+   weekKey(), since it depends only on that string, never on local state. */
+function activeChallenges(wk = weekKey()) {
+  const seed = hashStr(wk), n = CHALLENGE_POOL.length;
+  const idxs = Array.from(new Set([seed % n, (seed * 7 + 3) % n, (seed * 13 + 11) % n]));
+  for (let k = 17; idxs.length < 3; k++) { const c = (seed + k * 29) % n; if (!idxs.includes(c)) idxs.push(c); }
+  return idxs.slice(0, 3).map(i => CHALLENGE_POOL[i]);
 }
 function readWeekly() {
   try {
@@ -6478,7 +6874,7 @@ const GameStats = memo(function GameStats({ lang }) {
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, coins }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, coins, gems = 0 }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -6495,7 +6891,11 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
   const qDone = qToday >= QUEST_GOAL;
   const gotBadges = unlockedBadgeIds(profile);
 
-  const toNext = info.isMax ? lc.profMaxRank
+  const pInfo = prestigeInfo(exp);
+  const toNext = info.isMax
+    ? (lang === "th" ? `⭐ ${pInfo.tier > 0 ? `${lc.prestigeWord} ${pInfo.tier} · ` : ""}อีก ${pInfo.need.toLocaleString()} EXP → ดาวถัดไป`
+      : lang === "zh" ? `⭐ ${pInfo.tier > 0 ? `${lc.prestigeWord} ${pInfo.tier} · ` : ""}还差 ${pInfo.need.toLocaleString()} EXP → 下一星`
+      : `⭐ ${pInfo.tier > 0 ? `${lc.prestigeWord} ${pInfo.tier} · ` : ""}${pInfo.need.toLocaleString()} EXP → next star`)
     : lang === "th" ? `อีก ${info.need.toLocaleString()} EXP → เลเวลถัดไป`
     : lang === "zh" ? `还差 ${info.need.toLocaleString()} EXP → 升级`
     : `${info.need.toLocaleString()} EXP → next level`;
@@ -6539,6 +6939,8 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
   }
   const activeDays = heatDays.filter(d => d.n > 0).length;
   const weekly = readWeekly();
+  const weekChallenges = activeChallenges();
+  const weekDoneCount = weekChallenges.filter(ch => weekly.claimed && weekly.claimed.includes(ch.id)).length;
   const trend = (Array.isArray(plog._recent) ? plog._recent : []).slice(-14);
   const trendPts = trend.map((p, i) => {
     const x = trend.length > 1 ? (i / (trend.length - 1)) * 100 : 50;
@@ -6705,11 +7107,19 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         </div>
       </div>
 
-      {/* weekly challenges */}
+      {/* weekly challenges — pool rotates every week (see activeChallenges) */}
       <div className="profsec">
-        <div className="profsec-h">{lc.weeklyTitle}</div>
-        {CHALLENGES.map(ch => {
-          const v = Math.min(weekly[ch.id] || 0, ch.goal), done = v >= ch.goal;
+        <div className="profsec-h">
+          {lc.weeklyTitle}
+          <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+            {weekDoneCount}/{weekChallenges.length}
+          </span>
+        </div>
+        <div className="wktrack">
+          {weekChallenges.map((ch, i) => <div key={ch.id} className={`wktrack-seg${i < weekDoneCount ? " done" : ""}`} />)}
+        </div>
+        {weekChallenges.map(ch => {
+          const v = Math.min(weekly[ch.type] || 0, ch.goal), done = v >= ch.goal;
           return (
             <div key={ch.id} className={`wkrow${done ? " done" : ""}`}>
               <span className="wkic">{ch.icon}</span>
@@ -6742,6 +7152,8 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           })}
         </div>
       </div>
+
+      <WeeklyLeagueSection lang={lang} />
 
       <LeaderboardSection lang={lang} />
 
@@ -6805,9 +7217,20 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         )}
       </div>
 
-      {(onOpenShop || onOpenHelp) && (
+      {gems > 0 && onExchangeGems && (
+        <div className="profsec">
+          <div className="gemrow">
+            <span className="gemrow-bal">💎 {gems} {lc.gemsLabel}</span>
+            <button className="gemrow-x" disabled={gems < 5} onClick={() => onExchangeGems(5)}>{lc.gemExchange}</button>
+          </div>
+          <div className="leaguereset">{lc.gemHint}</div>
+        </div>
+      )}
+
+      {(onOpenShop || onOpenFriends || onOpenHelp) && (
         <div className="profsec">
           {onOpenShop && <button className="songbtn ghost" style={{ width: "100%", marginBottom: 8 }} onClick={onOpenShop}>🪙 {lc.shopTitle} · {coins}</button>}
+          {onOpenFriends && <button className="songbtn ghost" style={{ width: "100%", marginBottom: 8 }} onClick={onOpenFriends}>👥 {lc.frTitle}</button>}
           {onOpenHelp && <button className="songbtn ghost" style={{ width: "100%" }} onClick={onOpenHelp}>❓ {lc.helpTitle}</button>}
         </div>
       )}
@@ -6969,6 +7392,11 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
   const zhFileRef = useRef(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const fileRef = useRef(null);
+  // guards against a fast double-click/double-tap firing openStripe/onFile twice before
+  // React re-renders with the disabled button — state (stripeLoading/st) alone isn't
+  // enough since its updated value isn't visible to a second click that dispatches
+  // before the first render commits; a ref updates synchronously so it closes that gap
+  const submittingRef = useRef(false);
   const amountThb = checkout.amount;                        // always THB (for slip DB record)
   const cur = checkout.cur || CURRENCY_BY_LANG[lang] || "thb";
   const dispAmt = checkout.disp != null ? checkout.disp : amountThb;
@@ -6998,7 +7426,8 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
   const uid = session && session.user && session.user.id;
 
   async function openStripe() {
-    if (!uid || stripeLoading) return;
+    if (!uid || stripeLoading || submittingRef.current) return;
+    submittingRef.current = true;
     setStripeLoading(true);
     try {
       const res = await fetch(SUPABASE_URL + "/functions/v1/stripe-checkout", {
@@ -7009,13 +7438,14 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error || "no url");
       window.location.href = data.url;
-    } catch { setSt("stripe-err"); setStripeLoading(false); }
+    } catch { setSt("stripe-err"); setStripeLoading(false); submittingRef.current = false; }
   }
 
   async function onFile(e) {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
-    if (!f || !uid || !selChan) return;
+    if (!f || !uid || !selChan || submittingRef.current) return;
     if (f.size > 6 * 1024 * 1024) { setSt("error"); return; }
+    submittingRef.current = true;
     setSt("uploading");
     try {
       const ext = ((f.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
@@ -7029,7 +7459,7 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
       });
       if (ins.error) throw ins.error;
       setSt("done"); playUi("levelup");
-    } catch { setSt("error"); }
+    } catch { setSt("error"); submittingRef.current = false; }
   }
 
   async function saveCfgInline() {
@@ -7040,7 +7470,11 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
       ...(aliQrField.trim() ? { alipay_qr: aliQrField.trim() } : {}),
       ...(wxQrField.trim() ? { wechat_qr: wxQrField.trim() } : {}),
     };
-    const { error } = await sb.from("app_settings").upsert({ key: "payment", value, updated_at: new Date().toISOString() });
+    // admin_set_app_setting (not a raw client upsert) — this row controls where every
+    // paying customer's PromptPay/Alipay/WeChat payment gets sent app-wide, so it goes
+    // through the same admin-gated RPC path already used for auto_teach/broadcast
+    // rather than relying solely on app_settings' table-level RLS.
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "payment", p_value: value });
     setSavingCfg(false);
     if (!error) { setCfg(value); playUi("levelup"); }
   }
@@ -7148,6 +7582,216 @@ function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose }) {
   );
 }
 
+/* ── School Plan Pro (B2B) checkout — real payment page behind the pricing modal's
+   "Contact us" CTA. Two steps: collect institution/seats/cycle, then pay. The amount
+   shown here is a client-side preview only (same b2bPriceByCur math the pricing cards
+   already use) — the authoritative amount is recomputed server-side by
+   school_submit_payment_request() the moment a channel is chosen, so nothing typed
+   here can under-pay. Reuses the exact same QR/slip-upload machinery as CheckoutModal
+   (promptPayQR, ALIPAY_QR/WECHAT_QR, the "slips" storage bucket) for visual and
+   behavioral consistency, but writes to a separate school_payment_requests table
+   rather than touching the existing consumer `payments` table at all. ── */
+function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onClose }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const tier = schoolCheckout.tier === "plus" ? "school_plus" : "school_standard";
+  const tierLabel = schoolCheckout.tier === "plus" ? "Plus" : "Standard";
+  const cur = CURRENCY_BY_LANG[lang] || "thb";
+  const uid = session && session.user && session.user.id;
+
+  const [step, setStep] = useState("details"); // details | pay
+  const [instName, setInstName] = useState("");
+  const [seats, setSeats] = useState(15);
+  const [cycle, setCycle] = useState("month");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [stripeLoading, setStripeLoading] = useState(false);
+
+  const [reqId, setReqId] = useState(null);
+  const [amount, setAmount] = useState(0);       // THB, authoritative once set (from the RPC response)
+  const [activeChan, setActiveChan] = useState(null); // "promptpay" | "alipay" | "wechat" once chosen
+  const [zhTab, setZhTab] = useState<"alipay"|"wechat">("alipay");
+  const [st, setSt] = useState("idle");          // idle · uploading · done · error
+  const fileRef = useRef(null);
+  // ref-based guards (not state) against a fast double-click firing submitRequest or
+  // onFile twice before React re-renders with the disabled button — see CheckoutModal's
+  // submittingRef for why a ref is needed here instead of relying on busy/st alone
+  const submitRef = useRef(false);
+  const uploadRef = useRef(false);
+
+  const unitPreview = cycle === "year" ? b2bYearPriceByCur(cur, schoolCheckout.tier) : b2bPriceByCur(cur, schoolCheckout.tier);
+  const totalPreview = unitPreview * (Number(seats) || 0);
+
+  const ppId = payCfg && payCfg.promptpay;
+  const aliQr = (payCfg && payCfg.alipay_qr) || ALIPAY_QR;
+  const wxQr = (payCfg && payCfg.wechat_qr) || WECHAT_QR;
+  const qr = useMemo(() => (activeChan === "promptpay" && ppId && amount) ? promptPayQR(ppId, amount) : null, [activeChan, ppId, amount]);
+
+  function continueToPay() {
+    if (!instName.trim()) { setErr(T("กรอกชื่อสถาบันก่อน", "Enter an institution name", "请输入机构名称")); return; }
+    if ((Number(seats) || 0) < 15) { setErr(T("ขั้นต่ำ 15 ที่นั่ง", "Minimum 15 seats", "最低15个席位")); return; }
+    setErr(""); setStep("pay");
+  }
+
+  const [submittedMethod, setSubmittedMethod] = useState(null);
+
+  // Idempotent by method: if this exact method already has a submitted request (e.g.
+  // the Stripe redirect step failed on a flaky connection and the user retries the
+  // same button), reuse it instead of creating a second school_payment_requests row.
+  // Switching to a DIFFERENT method after a failure still submits a fresh one — the
+  // row's `method` column is set at creation and not worth reconciling for what should
+  // be a rare path, staff can tell from context which one the buyer actually paid.
+  async function submitRequest(method) {
+    if (reqId && submittedMethod === method) return { id: reqId, amount };
+    if (!uid || busy || submitRef.current) return null;
+    submitRef.current = true;
+    setBusy(true); setErr("");
+    const { data, error } = await sb.rpc("school_submit_payment_request", {
+      p_institution_name: instName.trim(), p_tier: tier, p_seats: Number(seats), p_cycle: cycle, p_method: method,
+    });
+    setBusy(false);
+    if (error) { setErr(error.message || T("ส่งคำขอไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't submit — try again", "提交失败，请重试")); submitRef.current = false; return null; }
+    setReqId(data.id); setAmount(data.amount); setSubmittedMethod(method);
+    return data;
+  }
+
+  async function payWithStripe() {
+    if (stripeLoading) return;
+    const data = await submitRequest("stripe");
+    if (!data) return;
+    setStripeLoading(true);
+    try {
+      const res = await fetch(SUPABASE_URL + "/functions/v1/school-stripe-checkout", {
+        method: "POST",
+        headers: { ...apiHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: data.id }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.url) throw new Error(j.error || "no url");
+      window.location.href = j.url;
+    } catch { setErr(T("เชื่อมต่อ Stripe ไม่ได้ ลองใหม่หรือใช้ QR", "Stripe unavailable — try again or use QR", "Stripe 连接失败，请重试或用二维码")); setStripeLoading(false); }
+  }
+
+  async function payWithQr(method) {
+    const data = await submitRequest(method);
+    if (!data) return;
+    setActiveChan(method);
+  }
+
+  async function onFile(e) {
+    const f = e.target.files && e.target.files[0]; e.target.value = "";
+    if (!f || !uid || !reqId || uploadRef.current) return;
+    if (f.size > 6 * 1024 * 1024) { setSt("error"); return; }
+    uploadRef.current = true;
+    setSt("uploading");
+    try {
+      const ext = ((f.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
+      const path = `${uid}/school-${Date.now()}.${ext}`;
+      const up = await sb.storage.from("slips").upload(path, f, { contentType: f.type, upsert: false });
+      if (up.error) throw up.error;
+      const { error } = await sb.rpc("school_attach_slip", { p_id: reqId, p_slip_path: path });
+      if (error) throw error;
+      setSt("done"); playUi("levelup");
+    } catch { setSt("error"); uploadRef.current = false; }
+  }
+
+  const showStripeBtn = lang === "th" || lang === "en";
+  const showPromptPay = lang === "th" && !!ppId;
+
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard pricing" onClick={e => e.stopPropagation()}>
+        <div className="sethdr"><span>🏫 {T("สมัคร School Plan", "School Plan sign-up", "学校方案申请")} — {tierLabel}</span><button className="cbtn" onClick={onClose}>✕</button></div>
+        <div className="setbody">
+          {st === "done" ? (
+            <div className="payok">
+              <div style={{ fontSize: 46 }}>✅</div>
+              <div className="payok-h">{T("ได้รับสลิปแล้ว!", "Slip received!", "已收到凭证！")}</div>
+              <p className="pr-sub">{T("ทีมงานจะตรวจสอบและติดต่อกลับเพื่อเปิดใช้งานภายใน 24 ชม.", "Our team will verify and reach out to activate your school within 24h.", "我们将核实并在24小时内联系您开通账户。")}</p>
+              <button className="songbtn go" style={{ width: "100%" }} onClick={onClose}>{T("เสร็จสิ้น", "Done", "完成")}</button>
+            </div>
+          ) : step === "details" ? (
+            <>
+              <p className="pr-sub">{T("กรอกข้อมูลสถาบันเพื่อคำนวณยอดชำระ", "Tell us about your institution to calculate the total", "填写机构信息以计算总额")}</p>
+              <input className="aicreate-in" style={{ marginBottom: 10 }} value={instName} onChange={e => setInstName(e.target.value)} placeholder={T("ชื่อสถาบัน/โรงเรียน", "Institution / school name", "机构/学校名称")} />
+              <div className="admmg-row" style={{ marginBottom: 10 }}>
+                <input className="admmg-days" style={{ width: 80 }} type="number" min={15} value={seats} onChange={e => setSeats(e.target.value)} />
+                <span className="admmg-d">{T("ที่นั่ง (ขั้นต่ำ 15)", "seats (min. 15)", "个席位（最低15）")}</span>
+              </div>
+              <div className="billtoggle" style={{ marginBottom: 14 }}>
+                <button className={`billtog${cycle === "month" ? " on" : ""}`} onClick={() => setCycle("month")}>{T("รายเดือน", "Monthly", "按月")}</button>
+                <button className={`billtog${cycle === "year" ? " on" : ""}`} onClick={() => setCycle("year")}>{T("รายปี", "Yearly", "按年")}</button>
+              </div>
+              <div className="paysum">
+                <span>{tierLabel} × {Number(seats) || 0} {T("ที่นั่ง", "seats", "席位")}</span>
+                <b className="prtier-price">{fmtPrice(cur, totalPreview)}<small>/{cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b>
+              </div>
+              {err && <div className="aicreate-err">{err}</div>}
+              <button className="songbtn go" style={{ width: "100%", marginTop: 10 }} onClick={continueToPay}>{T("ถัดไป: เลือกวิธีชำระเงิน", "Next: choose payment method", "下一步：选择付款方式")}</button>
+            </>
+          ) : (
+            <>
+              <div className="paysum">
+                <span>{instName} · {tierLabel} × {seats}</span>
+                <b className="prtier-price">{fmtPrice(cur, totalPreview)}<small>/{cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b>
+              </div>
+
+              {!activeChan && (<>
+                {showStripeBtn && (
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy || stripeLoading} onClick={payWithStripe}>
+                    {stripeLoading ? "⏳ " + T("กำลังเปิดหน้าชำระเงินปลอดภัย...", "Opening secure checkout...", "正在打开安全支付页...") : "💳 " + T("จ่ายด้วยบัตร (รองรับทั่วโลก)", "Pay by card — worldwide", "银行卡支付（支持全球）")}
+                  </button>
+                )}
+                {showPromptPay && (
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => payWithQr("promptpay")}>🇹🇭 {T("จ่ายผ่าน PromptPay", "Pay via PromptPay", "PromptPay 付款")}</button>
+                )}
+                {lang === "zh" && (<>
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("alipay"); payWithQr("alipay"); }}>🔵 {T("จ่ายผ่าน Alipay", "Pay via Alipay", "支付宝付款")}</button>
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("wechat"); payWithQr("wechat"); }}>🟢 {T("จ่ายผ่าน WeChat", "Pay via WeChat", "微信付款")}</button>
+                </>)}
+                {err && <div className="aicreate-err">{err}</div>}
+                <button className="songbtn ghost" style={{ width: "100%", marginTop: 4 }} onClick={() => setStep("details")}>‹ {T("กลับ", "Back", "返回")}</button>
+              </>)}
+
+              {activeChan === "promptpay" && (
+                <>
+                  {qr ? <img className="payqr" src={qr} alt="PromptPay QR" /> : <div className="aicreate-err">{T("สร้าง QR ไม่ได้", "Couldn't make QR", "无法生成二维码")}</div>}
+                  <div className="payinfo">
+                    <div>📱 PromptPay: <b>{ppId}</b></div>
+                    {payCfg && payCfg.name && <div>👤 {payCfg.name}</div>}
+                  </div>
+                  <p className="pr-sub">{T("สแกน QR ด้วยแอปธนาคาร โอนตามยอด แล้วอัปโหลดสลิปเพื่อยืนยัน", "Scan with your banking app, pay the exact amount, then upload the slip.", "用银行App扫码付款，然后上传凭证。")}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload slip", "上传凭证")}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+
+              {(activeChan === "alipay" || activeChan === "wechat") && (
+                <>
+                  <img className="payqr ext" src={activeChan === "wechat" ? wxQr : aliQr} alt={activeChan === "wechat" ? "WeChat Pay QR" : "Alipay QR"} style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />
+                  <p className="pr-sub" style={{ textAlign: "center" }}>
+                    {activeChan === "wechat"
+                      ? `打开微信 → 扫一扫 → 支付 ¥${amount.toLocaleString()}`
+                      : `打开支付宝 → 扫一扫 → 支付 ¥${amount.toLocaleString()}`}
+                  </p>
+                  <p className="pr-sub" style={{ textAlign: "center", marginTop: 0 }}>付款后上传截图以确认订单</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ 上传中..." : "📤 上传付款截图"}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">上传失败，请重试</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin: all students' progress (reads every profile via admin RLS) ── */
 function AdminStudents({ lang, viewerTier }) {
   const tier = viewerTier || 0;
@@ -7181,16 +7825,28 @@ function AdminStudents({ lang, viewerTier }) {
     const { error } = await sb.rpc("admin_appoint", { target: sel.id, new_tier: appointTier });
     setMgBusy(false); if (!error) { setSel(null); load(); } else { alert(error.message || "error"); }
   }
-  const load = useCallback(() => {
+  // admin_list_students_v2 — bounded (server-side LIMIT) and server-side searched,
+  // replacing the old admin_list_students() (unbounded, no search, client-side
+  // sort/filter over the entire user base). See
+  // supabase-security-hardening-migration.sql for why this is a new function
+  // rather than an edit to the old one.
+  const load = useCallback((searchQ) => {
     setErr(""); setRows(null);
-    sb.rpc("admin_list_students")
+    sb.rpc("admin_list_students_v2", { p_search: searchQ || null, p_limit: 200 })
       .then(({ data, error }) => {
         if (error) { setErr(error.message || "error"); setRows([]); return; }
-        const r = (data || []).slice().sort((a, b) => (b.last_active || "").localeCompare(a.last_active || "") || (b.exp || 0) - (a.exp || 0));
-        setRows(r);
+        setRows(data || []);
       }, (e) => { setErr("" + (e && e.message || e)); setRows([]); });
   }, []);
-  useEffect(() => { load(); }, [load]);
+  // loads immediately on mount; debounces subsequent calls as the admin types into
+  // the search box, instead of the old instant client-side filter over an
+  // unbounded already-fetched array
+  const firstLoadRef = useRef(true);
+  useEffect(() => {
+    if (firstLoadRef.current) { firstLoadRef.current = false; load(q); return; }
+    const t = setTimeout(() => load(q), 300);
+    return () => clearTimeout(t);
+  }, [q, load]);
 
   if (rows === null) return <div className="admstu"><div className="admstu-msg">⏳ {T("กำลังโหลดข้อมูลนักเรียน...", "Loading students...", "正在加载学生...")}</div></div>;
 
@@ -7273,12 +7929,12 @@ function AdminStudents({ lang, viewerTier }) {
     );
   }
 
-  const list = rows.filter(r => { const s = ((r.full_name || "") + " " + (r.email || "")).toLowerCase(); return s.includes(q.toLowerCase()); });
+  const list = rows; // search now happens server-side (admin_list_students_v2), not client-side
   return (
     <div className="admstu">
       <div className="admstu-top">
         <input className="admstu-search" value={q} onChange={e => setQ(e.target.value)} placeholder={T("ค้นหานักเรียน...", "Search students...", "搜索学生...")} />
-        <button className="admstu-refresh" onClick={load}>↻</button>
+        <button className="admstu-refresh" onClick={() => load(q)}>↻</button>
       </div>
       {err && <div className="admstu-err">{T("อ่านข้อมูลไม่ได้ (ต้องเข้าสู่ระบบด้วยบัญชีแอดมิน)", "Can't read data (sign in with an admin account)", "无法读取（需用管理员账号登录）")}: {err}</div>}
       <div className="admstu-count">{list.length} {T("นักเรียน", "students", "名学生")}</div>
@@ -7299,6 +7955,458 @@ function AdminStudents({ lang, viewerTier }) {
           );
         })}
         {!list.length && <div className="admstu-empty">{T("ไม่พบนักเรียน", "No students found", "未找到学生")}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ── School Dashboard (teacher-facing, School Plan Pro) — tenant-scoped roster,
+   real per-student progress, real cross-device song assignments. Reached only
+   via a hidden link handed to onboarded teachers directly, never a nav item —
+   but that hidden link is a discoverability veil, not the real lock: every
+   RPC re-checks is_school_teacher() against the school_members table server
+   side, so a teacher structurally cannot see another studio's roster even if
+   they somehow found this page. ── */
+const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const lc = L[lang];
+  const schoolId = profile.school_id;
+  const [tab, setTab] = useState("roster");
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState("");
+  const [sel, setSel] = useState(null);
+  const [q, setQ] = useState("");
+  const [school, setSchool] = useState(null);
+  const [assignSong, setAssignSong] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState("student");
+  const [addMsg, setAddMsg] = useState("");
+  const [questGoal, setQuestGoal] = useState(500);
+  const [questBusy, setQuestBusy] = useState(false);
+  const [questMsg, setQuestMsg] = useState("");
+  const [curQuest, setCurQuest] = useState(null);
+  const loadQuest = useCallback(() => {
+    sb.rpc("get_school_quest", { p_school_id: schoolId }).then(({ data, error }) => setCurQuest(error ? null : data));
+  }, [schoolId]);
+  useEffect(() => { loadQuest(); }, [loadQuest]);
+  async function startQuest() {
+    const goal = Number(questGoal) || 0;
+    if (goal <= 0 || questBusy) return;
+    setQuestBusy(true); setQuestMsg("");
+    const { error } = await sb.rpc("school_set_quest", { p_school_id: schoolId, p_goal_exp: goal, p_days: 7 });
+    setQuestBusy(false);
+    if (error) { setQuestMsg(error.message || "error"); return; }
+    setQuestMsg("✓"); loadQuest();
+  }
+
+  const load = useCallback(() => {
+    setErr(""); setRows(null);
+    sb.rpc("school_roster", { p_school_id: schoolId }).then(({ data, error }) => {
+      if (error) { setErr(error.message || "error"); setRows([]); return; }
+      const r = (data || []).slice().sort((a, b) => (b.role || "").localeCompare(a.role || "") || (b.last_active || "").localeCompare(a.last_active || ""));
+      setRows(r);
+    }, (e) => { setErr("" + (e && e.message || e)); setRows([]); });
+  }, [schoolId]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    sb.from("schools").select("*").eq("id", schoolId).maybeSingle().then(({ data }) => setSchool(data || null));
+  }, [schoolId]);
+
+  async function assign() {
+    if (!sel || !assignSong) return; setBusy(true);
+    const { error } = await sb.rpc("school_assign_song", { p_member_id: sel.member_id, p_song_id: assignSong });
+    setBusy(false); if (!error) { setAssignSong(""); load(); }
+  }
+  async function removeMember() {
+    if (!sel) return;
+    if (!window.confirm(lc.schoolRemoveConfirm)) return;
+    setBusy(true);
+    const { error } = await sb.rpc("school_remove_member", { p_member_id: sel.member_id });
+    setBusy(false); if (!error) { setSel(null); load(); }
+  }
+  async function addByEmail() {
+    if (!addEmail.trim()) return; setBusy(true); setAddMsg("");
+    const { error } = await sb.rpc("school_add_member_by_email", { p_school_id: schoolId, p_email: addEmail.trim(), p_role: addRole });
+    setBusy(false);
+    if (error) { setAddMsg(error.message || "error"); return; }
+    setAddEmail(""); setAddMsg(lc.schoolAddBtn + " ✓"); load();
+  }
+  async function regenCode() {
+    setBusy(true);
+    const { data, error } = await sb.rpc("school_rotate_join_code", { p_school_id: schoolId });
+    setBusy(false); if (!error && data) setSchool(s => s ? { ...s, join_code: data } : s);
+  }
+  function copyCode() {
+    if (!school) return;
+    try { navigator.clipboard.writeText(school.join_code); } catch {}
+  }
+
+  if (rows === null) return <div className="admstu"><div className="admstu-msg">⏳ {T("กำลังโหลด...", "Loading...", "正在加载...")}</div></div>;
+
+  if (sel) {
+    const li = levelInfo(sel.exp || 0);
+    const pr = sel.progress || {};
+    const sum = pr.summary || {};
+    const mem = pr.memory || {};
+    const struggles = (mem.struggles || []).slice(0, 8);
+    const mastered = (mem.mastered || []).slice(0, 12);
+    const plog = pr.practiceLog || {};
+    const Stat = (num, lbl) => <div className="pd-stat"><div className="pd-num">{num}</div><div className="pd-lbl">{lbl}</div></div>;
+    return (
+      <div className="admstu schooldash">
+        <button className="admstu-back" onClick={() => setSel(null)}>‹ {T("กลับ", "Back", "返回")}</button>
+        <div className="admstu-head">
+          <div className="admstu-av">{(sel.full_name || sel.email || "?").trim().charAt(0).toUpperCase()}</div>
+          <div>
+            <div className="admstu-nm">{sel.full_name || "—"} <span className="schoolrole-badge">{sel.role === "teacher" ? lc.schoolMyRoleTeacher : lc.schoolMyRoleStudent}</span></div>
+            <div className="admstu-em">{sel.email || "—"}</div>
+            <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
+          </div>
+        </div>
+        {sel.role === "student" && (
+          <div className="admmg">
+            <div className="admmg-h">🎵 {lc.schoolAssignBtn}</div>
+            {sel.assigned_song_id && (
+              <div className="admmg-cur">{lc.schoolAssignedTo}: <b>{tr(SONGS.find(s => s.id === sel.assigned_song_id), lang) || sel.assigned_song_id}</b>
+                {" · "}{sel.ack_at ? "✅ " + lc.schoolAckYes : "⏳ " + lc.schoolAckNo}</div>
+            )}
+            <div className="admmg-row">
+              <select className="admmg-sel" value={assignSong} onChange={e => setAssignSong(e.target.value)}>
+                <option value="">{T("เลือกเพลง...", "Select a song...", "选择歌曲...")}</option>
+                {SONGS.map(s => <option key={s.id} value={s.id}>{tr(s, lang)}</option>)}
+              </select>
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy || !assignSong} onClick={assign}>🎵 {lc.schoolAssignBtn}</button>
+          </div>
+        )}
+        <div className="pd-stats">
+          {Stat((sel.exp || 0).toLocaleString(), "EXP")}
+          {Stat(sel.lessons_done || 0, T("บทเรียน", "Lessons", "课程"))}
+          {Stat((sel.streak || 0) + "🔥", T("ต่อเนื่อง", "Streak", "连续"))}
+          {Stat(sum.games || (pr.gameLog || []).length || 0, T("เล่นเกม", "Games", "游戏"))}
+          {Stat((sum.avgAcc || 0) + "%", T("แม่นยำเฉลี่ย", "Avg acc", "平均准确"))}
+        </div>
+        <ProgressDashboard lang={lang} plog={plog} gameLog={pr.gameLog || []} />
+        {struggles.length > 0 && <><div className="admstu-sec">{T("ต้องฝึกเพิ่ม", "Needs work", "需加强")}</div><div className="pd-tags">{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label || s}</span>)}</div></>}
+        {mastered.length > 0 && <><div className="admstu-sec">{T("ทำได้ดีแล้ว", "Mastered", "已掌握")}</div><div className="pd-tags">{mastered.map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
+        {sel.role === "student" && (
+          <button className="songbtn ghost" style={{ width: "100%", marginTop: 12 }} disabled={busy} onClick={removeMember}>✕ {lc.schoolRemoveBtn}</button>
+        )}
+      </div>
+    );
+  }
+
+  const list = rows.filter(r => { const s = ((r.full_name || "") + " " + (r.email || "")).toLowerCase(); return s.includes(q.toLowerCase()); });
+  const studentCount = rows.filter(r => r.role === "student").length;
+  return (
+    <div className="admstu schooldash">
+      <div className="schoolhdr">
+        <button className="admstu-back" onClick={onBack}>‹ {lc.schoolBack}</button>
+        <div className="admstu-nm">🏫 {(school && school.name) || lc.schoolDashTitle}</div>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--muted)", margin: "2px 0 10px" }}>{lc.schoolDashSub}</div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {["roster", "invite"].map(t => (
+          <button key={t} className={`songfilter${tab === t ? " on" : ""}`} onClick={() => setTab(t)}>
+            {t === "roster" ? lc.schoolRoster : lc.schoolInvite}
+          </button>
+        ))}
+      </div>
+
+      {tab === "roster" && (<>
+        {school && <div className="schoolseat">{studentCount}/{school.seat_quota} {lc.schoolSeats}</div>}
+        <div className="admstu-top">
+          <input className="admstu-search" value={q} onChange={e => setQ(e.target.value)} placeholder={T("ค้นหานักเรียน...", "Search students...", "搜索学生...")} />
+          <button className="admstu-refresh" onClick={load}>↻</button>
+        </div>
+        {err && <div className="admstu-err">{err}</div>}
+        <div className="admstu-list">
+          {list.map(r => {
+            const li = levelInfo(r.exp || 0);
+            return (
+              <button key={r.member_id} className="admstu-row" onClick={() => setSel(r)}>
+                <div className="admstu-av sm">{(r.full_name || r.email || "?").trim().charAt(0).toUpperCase()}</div>
+                <div className="admstu-row-body">
+                  <div className="admstu-row-nm">{r.full_name || r.email || "—"} <span className="schoolrole-badge">{r.role === "teacher" ? lc.schoolMyRoleTeacher : lc.schoolMyRoleStudent}</span></div>
+                  <div className="admstu-row-meta">Lv {li.level} · {(r.exp || 0).toLocaleString()} EXP · {(r.streak || 0)}🔥{r.assigned_song_id ? " · " + (r.ack_at ? "✅" : "⏳") + " " + (tr(SONGS.find(s => s.id === r.assigned_song_id), lang) || r.assigned_song_id) : ""}</div>
+                  <div className="admstu-row-sub">{r.email}{r.last_active ? " · " + r.last_active : ""}</div>
+                </div>
+                <span className="admstu-row-go">›</span>
+              </button>
+            );
+          })}
+          {!list.length && <div className="admstu-empty">{lc.schoolNoRoster}</div>}
+        </div>
+      </>)}
+
+      {tab === "invite" && (<>
+        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>{lc.schoolCodeHint}</div>
+        {school && <div className="schoolcode">{school.join_code}</div>}
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button className="songbtn go" style={{ flex: 1 }} onClick={copyCode}>📋 {lc.schoolCodeCopy}</button>
+          <button className="songbtn ghost" style={{ flex: 1 }} disabled={busy} onClick={regenCode}>↻ {lc.schoolCodeRegen}</button>
+        </div>
+        <div className="admmg" style={{ marginTop: 16 }}>
+          <div className="admmg-h">✉️ {lc.schoolAddByEmail}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input className="aicreate-in" style={{ flex: 1 }} value={addEmail} onChange={e => { setAddEmail(e.target.value); setAddMsg(""); }} placeholder={lc.schoolAddByEmailPh} />
+            <select className="admmg-sel" style={{ maxWidth: 110 }} value={addRole} onChange={e => setAddRole(e.target.value)}>
+              <option value="student">{lc.schoolMyRoleStudent}</option>
+              <option value="teacher">{lc.schoolMyRoleTeacher}</option>
+            </select>
+          </div>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy || !addEmail.trim()} onClick={addByEmail}>➕ {lc.schoolAddBtn}</button>
+          {addMsg && <div style={{ textAlign: "center", color: "var(--accent)", fontSize: 13, marginTop: 6 }}>{addMsg}</div>}
+        </div>
+        <div className="admmg" style={{ marginTop: 16 }}>
+          <div className="admmg-h">🎯 {lc.cqTitle}</div>
+          {curQuest && curQuest.active ? (
+            <div className="cqstat" style={{ marginBottom: 8 }}>{curQuest.total_exp.toLocaleString()} / {curQuest.goal_exp.toLocaleString()} EXP {curQuest.complete ? "🎉" : ""}</div>
+          ) : (
+            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{T("ยังไม่มีภารกิจที่กำลังทำงาน", "No active quest right now", "目前没有进行中的任务")}</div>
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <input className="aicreate-in" style={{ flex: 1 }} type="number" min="1" value={questGoal} onChange={e => setQuestGoal(e.target.value)} placeholder="500" />
+            <button className="songbtn go" disabled={questBusy} onClick={startQuest}>{T("เริ่มภารกิจใหม่ (7 วัน)", "Start new (7d)", "开始新任务(7天)")}</button>
+          </div>
+          {questMsg && <div style={{ textAlign: "center", color: "var(--accent)", fontSize: 13, marginTop: 6 }}>{questMsg}</div>}
+        </div>
+      </>)}
+    </div>
+  );
+});
+
+/* ── Admin: Schools — staff-facing B2B provisioning (School Plan Pro). Tier ≥1
+   can view (same floor as AdminStudents), tier ≥3 can create/renew/adjust seats
+   (same floor as plan changes there). ── */
+function AdminSchools({ lang, viewerTier }) {
+  const tier = viewerTier || 0;
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPlan, setNewPlan] = useState("school_standard");
+  const [newSeats, setNewSeats] = useState(15);
+  const [newTeacherSeats, setNewTeacherSeats] = useState(3);
+  const [newDays, setNewDays] = useState(365);
+  const [msg, setMsg] = useState("");
+  const [sel, setSel] = useState(null);
+  const [seatEdit, setSeatEdit] = useState(0);
+  const [teacherSeatEdit, setTeacherSeatEdit] = useState(0);
+  const [renewPlan, setRenewPlan] = useState("school_standard");
+  const [renewDays, setRenewDays] = useState(365);
+  const [fulfillingReqId, setFulfillingReqId] = useState(null); // payment-request id the create-school form below is currently fulfilling, if any
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState("teacher");
+  const [addMsg, setAddMsg] = useState("");
+
+  const load = useCallback(() => {
+    setErr(""); setRows(null);
+    sb.rpc("admin_list_schools").then(({ data, error }) => {
+      if (error) { setErr(error.message || "error"); setRows([]); return; }
+      setRows((data || []).slice());
+    }, (e) => { setErr("" + (e && e.message || e)); setRows([]); });
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  // B2B payment requests (real School Plan Pro checkout) — pending/paid ones need a
+  // human look before the school actually gets provisioned, same as every other
+  // manual-review payment channel in this app.
+  const [payReqs, setPayReqs] = useState([]);
+  const loadPayReqs = useCallback(() => {
+    // only surface what still needs a human look — fulfilled/rejected requests stay in
+    // the table for audit history but drop out of this "needs attention" panel so it
+    // can't grow unbounded as the school gradually accumulates fulfilled contracts
+    sb.rpc("admin_list_school_payment_requests").then(({ data }) => setPayReqs((data || []).filter(r => r.status !== "rejected" && !r.fulfilled_at)), () => {});
+  }, []);
+  useEffect(() => { loadPayReqs(); }, [loadPayReqs]);
+  async function reviewPayReq(id, approve) {
+    setBusy(true);
+    const { error } = await sb.rpc("admin_review_school_payment", { p_id: id, p_approve: approve });
+    setBusy(false);
+    if (!error) loadPayReqs();
+  }
+  function prefillFromPayReq(r) {
+    setNewName(r.institution_name); setNewEmail(r.contact_email);
+    setNewPlan(r.tier); setNewSeats(r.seats); setNewDays(r.cycle === "year" ? 365 : 30);
+    setFulfillingReqId(r.id); setShowNew(true);
+  }
+  async function viewSlip(path) {
+    const { data } = await sb.storage.from("slips").createSignedUrl(path, 600);
+    if (data && data.signedUrl) window.open(data.signedUrl, "_blank", "noopener");
+  }
+
+  async function createSchool() {
+    if (!newName.trim() || !newEmail.trim()) return;
+    setBusy(true); setMsg("");
+    const { error } = await sb.rpc("admin_create_school", {
+      p_name: newName.trim(), p_owner_email: newEmail.trim(), p_plan: newPlan,
+      p_seat_quota: Number(newSeats) || 0, p_teacher_seat_quota: Number(newTeacherSeats) || 3, p_days: Number(newDays) || 365,
+    });
+    if (error) { setBusy(false); setMsg(error.message || "error"); return; }
+    // mark the originating payment request fulfilled so it can't be double-provisioned
+    // or silently forgotten — separate from admin_create_school's own success/failure,
+    // this best-effort call intentionally doesn't block the school from having been
+    // created even if it itself fails (e.g. transient network blip)
+    if (fulfillingReqId) { await sb.rpc("admin_mark_school_payment_fulfilled", { p_id: fulfillingReqId }); loadPayReqs(); }
+    setBusy(false);
+    setNewName(""); setNewEmail(""); setNewSeats(15); setShowNew(false); setFulfillingReqId(null); load();
+  }
+  function openSchool(s) {
+    setSel(s); setSeatEdit(s.seat_quota); setTeacherSeatEdit(s.teacher_seat_quota); setRenewPlan(s.plan); setRenewDays(365);
+    setAddEmail(""); setAddRole("teacher"); setAddMsg("");
+  }
+  async function saveSeats() {
+    if (!sel) return; setBusy(true);
+    const { error } = await sb.rpc("admin_set_school_seats", { p_school_id: sel.id, p_seat_quota: Number(seatEdit) || 0, p_teacher_seat_quota: Number(teacherSeatEdit) || 0 });
+    setBusy(false); if (!error) { setSel(null); load(); }
+  }
+  async function renew() {
+    if (!sel) return; setBusy(true);
+    const { error } = await sb.rpc("admin_renew_school", { p_school_id: sel.id, p_plan: renewPlan, p_days: Number(renewDays) || 365 });
+    setBusy(false); if (!error) { setSel(null); load(); }
+  }
+  // Recovery path for a "headless" school (every teacher left) — school_add_member_by_email
+  // requires the caller to already be a teacher there, which a headless school has none of.
+  async function addMemberAdmin() {
+    if (!sel || !addEmail.trim()) return;
+    setBusy(true); setAddMsg("");
+    const { error } = await sb.rpc("admin_add_school_member", { p_school_id: sel.id, p_email: addEmail.trim(), p_role: addRole });
+    setBusy(false);
+    if (error) { setAddMsg(error.message || "error"); return; }
+    setAddEmail(""); setAddMsg(T("เพิ่มแล้ว ✓", "Added ✓", "已添加 ✓")); load();
+  }
+
+  if (rows === null) return <div className="admstu"><div className="admstu-msg">⏳ {T("กำลังโหลด...", "Loading...", "正在加载...")}</div></div>;
+
+  if (sel) {
+    return (
+      <div className="admstu">
+        <button className="admstu-back" onClick={() => setSel(null)}>‹ {T("กลับ", "Back", "返回")}</button>
+        <div className="admstu-head">
+          <div className="admstu-av">🏫</div>
+          <div>
+            <div className="admstu-nm">{sel.name}</div>
+            <div className="admstu-em">{sel.owner_email}</div>
+            <div className="admstu-lv">{sel.plan.toUpperCase()} · {sel.student_count}/{sel.seat_quota} {T("นักเรียน", "students", "学生")} · {sel.teacher_count}/{sel.teacher_seat_quota} {T("ครู", "teachers", "教师")}</div>
+          </div>
+        </div>
+        {tier >= 3 && (<>
+          <div className="admmg">
+            <div className="admmg-h">🪑 {T("ปรับที่นั่ง", "Adjust seats", "调整席位")}</div>
+            <div className="admmg-row">
+              <input className="admmg-days" type="number" min="0" value={seatEdit} onChange={e => setSeatEdit(e.target.value)} />
+              <span className="admmg-d">{T("นักเรียน", "students", "学生")}</span>
+              <input className="admmg-days" type="number" min="0" value={teacherSeatEdit} onChange={e => setTeacherSeatEdit(e.target.value)} />
+              <span className="admmg-d">{T("ครู", "teachers", "教师")}</span>
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy} onClick={saveSeats}>💾 {T("บันทึก", "Save", "保存")}</button>
+          </div>
+          <div className="admmg">
+            <div className="admmg-h">🔄 {T("ต่ออายุ / เปลี่ยนแพลน", "Renew / change plan", "续费/更改套餐")}</div>
+            <div className="admmg-cur">{sel.plan_until ? T("ถึง", "Until", "至") + " " + String(sel.plan_until).slice(0, 10) : ""}</div>
+            <div className="admmg-row">
+              <select className="admmg-sel" value={renewPlan} onChange={e => setRenewPlan(e.target.value)}>
+                <option value="school_standard">Standard</option>
+                <option value="school_plus">Plus</option>
+              </select>
+              <input className="admmg-days" type="number" min="1" value={renewDays} onChange={e => setRenewDays(e.target.value)} />
+              <span className="admmg-d">{T("วัน", "days", "天")}</span>
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy} onClick={renew}>🔄 {T("ต่ออายุ", "Renew", "续费")}</button>
+          </div>
+          <div className="admmg">
+            <div className="admmg-h">🛟 {T("เพิ่มสมาชิก (กู้คืน)", "Add member (recovery)", "添加成员（恢复）")}</div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>{T("ใช้เมื่อโรงเรียนไม่มีครูเหลืออยู่เลย — ครูปกติเชิญกันเองได้ผ่านโค้ดเข้าร่วม ใช้ตรงนี้เฉพาะกรณีกู้คืนเท่านั้น", "For when a school has no active teacher left to invite anyone — normal invites go through the join code; use this only to recover", "仅用于该学校已无在职教师、无法自行邀请的恢复场景 — 正常邀请请使用加入码")}</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input className="aicreate-in" style={{ flex: 1 }} value={addEmail} onChange={e => { setAddEmail(e.target.value); setAddMsg(""); }} placeholder={T("อีเมล (ต้องเคยล็อกอินแล้ว)", "Email (must have signed in once)", "邮箱（须已登录过）")} />
+              <select className="admmg-sel" style={{ maxWidth: 110 }} value={addRole} onChange={e => setAddRole(e.target.value)}>
+                <option value="teacher">{T("ครู", "Teacher", "教师")}</option>
+                <option value="student">{T("นักเรียน", "Student", "学生")}</option>
+              </select>
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy || !addEmail.trim()} onClick={addMemberAdmin}>➕ {T("เพิ่ม", "Add", "添加")}</button>
+            {addMsg && <div style={{ textAlign: "center", color: "var(--accent)", fontSize: 13, marginTop: 6 }}>{addMsg}</div>}
+          </div>
+        </>)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="admstu">
+      {payReqs.length > 0 && (
+        <div className="admmg" style={{ borderColor: "#4caf5033" }}>
+          <div className="admmg-h" style={{ color: "#4caf50" }}>💰 {T("คำขอชำระเงิน B2B", "B2B payment requests", "B2B付款请求")} ({payReqs.length})</div>
+          {payReqs.map(r => (
+            <div key={r.id} style={{ background: "var(--card3)", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+              <div className="admstu-row-nm">{r.institution_name} <span className="adminpay-badge approved">{r.fulfilled_at ? T("จัดเตรียมแล้ว", "PROVISIONED", "已开通") : r.status.toUpperCase()}</span></div>
+              <div className="admstu-row-meta">{r.tier.replace("school_", "")} × {r.seats} {T("ที่นั่ง", "seats", "席位")} · {r.cycle === "year" ? T("รายปี", "yearly", "年付") : T("รายเดือน", "monthly", "月付")} · ฿{Number(r.amount).toLocaleString()} · {r.method}</div>
+              <div className="admstu-row-sub">{r.contact_email}</div>
+              {tier >= 3 && !r.fulfilled_at && (r.status === "pending" || r.status === "paid") && (
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  {r.slip_path && <button className="songbtn ghost" style={{ padding: "8px 12px" }} onClick={() => viewSlip(r.slip_path)}>📎 {T("ดูสลิป", "View slip", "查看凭证")}</button>}
+                  <button className="songbtn go" style={{ flex: 1, padding: 8 }} disabled={busy} onClick={() => { reviewPayReq(r.id, true); prefillFromPayReq(r); }}>✓ {T("อนุมัติ", "Approve", "批准")}</button>
+                  <button className="songbtn ghost" style={{ flex: 1, padding: 8 }} disabled={busy} onClick={() => reviewPayReq(r.id, false)}>✕ {T("ปฏิเสธ", "Reject", "拒绝")}</button>
+                </div>
+              )}
+              {tier >= 3 && !r.fulfilled_at && r.status === "approved" && (
+                <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+                  {r.slip_path && <button className="songbtn ghost" style={{ padding: "8px 12px" }} onClick={() => viewSlip(r.slip_path)}>📎 {T("ดูสลิป", "View slip", "查看凭证")}</button>}
+                  <span style={{ fontSize: 11, color: "#d97757" }}>⏳ {T("อนุมัติแล้ว รอสร้างโรงเรียน", "Approved — still needs the school created", "已批准——仍需创建学校")}</span>
+                  <button className="songbtn go" style={{ padding: "8px 12px" }} disabled={busy} onClick={() => prefillFromPayReq(r)}>🏫 {T("เติมฟอร์ม", "Prefill form", "填充表单")}</button>
+                </div>
+              )}
+            </div>
+          ))}
+          {tier >= 3 && <div style={{ fontSize: 11, color: "var(--muted)" }}>{T("กด อนุมัติ จะเติมฟอร์ม \"สร้างโรงเรียนใหม่\" ด้านล่างให้อัตโนมัติ — ต้องกด สร้าง อีกครั้งเพื่อเปิดใช้งานจริง", "Approve pre-fills the \"Create new school\" form below — you still need to hit Create to actually provision it.", "点击批准会自动填充下方\"创建新学校\"表单——仍需再点创建才会真正开通。")}</div>}
+        </div>
+      )}
+      <div className="admstu-top">
+        <div className="admstu-count">{rows.length} {T("โรงเรียน", "schools", "学校")}</div>
+        {tier >= 3 && <button className="admstu-refresh" onClick={() => setShowNew(v => !v)}>{showNew ? "✕" : "➕"}</button>}
+      </div>
+      {showNew && tier >= 3 && (
+        <div className="admmg">
+          <div className="admmg-h">🏫 {T("สร้างโรงเรียนใหม่", "Create new school", "创建新学校")}</div>
+          <input className="aicreate-in" style={{ marginBottom: 8 }} value={newName} onChange={e => setNewName(e.target.value)} placeholder={T("ชื่อสถาบัน", "Institution name", "机构名称")} />
+          <input className="aicreate-in" style={{ marginBottom: 8 }} value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder={T("อีเมลเจ้าของ/ครูใหญ่ (ต้องเคยล็อกอินแล้ว)", "Owner/head-teacher email (must have signed in once)", "负责人邮箱（须已登录过）")} />
+          <div className="admmg-row">
+            <select className="admmg-sel" value={newPlan} onChange={e => setNewPlan(e.target.value)}>
+              <option value="school_standard">Standard</option>
+              <option value="school_plus">Plus</option>
+            </select>
+            <input className="admmg-days" type="number" min="1" value={newSeats} onChange={e => setNewSeats(e.target.value)} />
+            <span className="admmg-d">{T("ที่นั่ง", "seats", "席位")}</span>
+          </div>
+          <div className="admmg-row">
+            <input className="admmg-days" type="number" min="1" value={newTeacherSeats} onChange={e => setNewTeacherSeats(e.target.value)} />
+            <span className="admmg-d">{T("ครู", "teachers", "教师")}</span>
+            <input className="admmg-days" type="number" min="1" value={newDays} onChange={e => setNewDays(e.target.value)} />
+            <span className="admmg-d">{T("วัน", "days", "天")}</span>
+          </div>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={busy || !newName.trim() || !newEmail.trim()} onClick={createSchool}>✓ {T("สร้าง", "Create", "创建")}</button>
+          {msg && <div style={{ textAlign: "center", color: "#e55", fontSize: 13, marginTop: 6 }}>{msg}</div>}
+        </div>
+      )}
+      {err && <div className="admstu-err">{err}</div>}
+      <div className="admstu-list">
+        {rows.map(s => (
+          <button key={s.id} className="admstu-row" onClick={() => openSchool(s)}>
+            <div className="admstu-av sm">🏫</div>
+            <div className="admstu-row-body">
+              <div className="admstu-row-nm">{s.name} <span className="adminpay-badge approved">{s.plan.replace("school_", "").toUpperCase()}</span></div>
+              <div className="admstu-row-meta">{s.student_count}/{s.seat_quota} {T("นักเรียน", "students", "学生")} · {s.teacher_count}/{s.teacher_seat_quota} {T("ครู", "teachers", "教师")}</div>
+              <div className="admstu-row-sub">{s.owner_email}{s.plan_until ? " · " + T("ถึง", "until", "至") + " " + String(s.plan_until).slice(0, 10) : ""}</div>
+            </div>
+            <span className="admstu-row-go">›</span>
+          </button>
+        ))}
+        {!rows.length && <div className="admstu-empty">{T("ยังไม่มีโรงเรียน", "No schools yet", "还没有学校")}</div>}
       </div>
     </div>
   );
@@ -7333,7 +8441,7 @@ function AdminPayments({ lang }) {
   async function saveCfg() {
     setCfgSaved(false);
     const value = { promptpay: cfg.promptpay.trim(), name: cfg.name.trim(), bank: cfg.bank.trim(), stripe: cfg.stripe, alipay_qr: cfg.alipay_qr.trim(), wechat_qr: cfg.wechat_qr.trim() };
-    const { error } = await sb.from("app_settings").upsert({ key: "payment", value, updated_at: new Date().toISOString() });
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "payment", p_value: value });
     if (!error) { setCfgSaved(true); setTimeout(() => setCfgSaved(false), 2500); }
   }
   async function openSel(p) {
@@ -7694,6 +8802,90 @@ function AdminBroadcast({ lang }) {
   );
 }
 
+/* ── Admin: seasonal/limited-time event — same app_settings + admin_set_app_setting
+   mechanism as AdminBroadcast above (key "event" instead of "broadcast"), applying
+   temporary EXP/coin multipliers instead of a popup message. See the activeEvent
+   poll + gainExp/earnCoins in PianoApp for how the client consumes this. ── */
+function AdminEvent({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [cur, setCur] = useState(undefined); // undefined = loading, null = none, object = current
+  const [nameTh, setNameTh] = useState("");
+  const [nameEn, setNameEn] = useState("");
+  const [nameZh, setNameZh] = useState("");
+  const [expMult, setExpMult] = useState(2);
+  const [coinMult, setCoinMult] = useState(2);
+  const [days, setDays] = useState(2);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const load = useCallback(() => {
+    sb.from("app_settings").select("value").eq("key", "event").maybeSingle()
+      .then(({ data }) => setCur((data && data.value) || null), () => setCur(null));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function start() {
+    if (!nameTh.trim() && !nameEn.trim()) return;
+    setBusy(true); setSaved(false);
+    const value = {
+      active: true,
+      name_th: nameTh.trim() || nameEn.trim(), name_en: nameEn.trim() || nameTh.trim(), name_zh: nameZh.trim() || nameEn.trim() || nameTh.trim(),
+      expMult: Number(expMult) || 1, coinMult: Number(coinMult) || 1,
+      ends_at: new Date(Date.now() + (Number(days) || 1) * 86400000).toISOString(),
+    };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "event", p_value: value });
+    setBusy(false);
+    if (!error) { setCur(value); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
+  }
+  async function stop() {
+    if (!cur) return;
+    setBusy(true);
+    const value = { ...cur, active: false };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "event", p_value: value });
+    setBusy(false);
+    if (!error) setCur(value);
+  }
+
+  if (cur === undefined) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
+  const isLive = cur && cur.active && (!cur.ends_at || new Date(cur.ends_at).getTime() > Date.now());
+  return (
+    <div className="admstu">
+      {isLive && (
+        <div className="admmg" style={{ marginBottom: 12 }}>
+          <div className="admmg-h">{T("กำลังจัดอีเว้นท์อยู่ตอนนี้", "Currently live", "当前正在进行")}</div>
+          <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>
+            {tr({ th: cur.name_th, en: cur.name_en, zh: cur.name_zh }, lang)} · {cur.expMult}× EXP · {cur.coinMult}× 🪙 · {T("จนถึง", "until", "至")} {new Date(cur.ends_at).toLocaleString()}
+          </div>
+          <button className="songbtn ghost" style={{ width: "100%", color: "#ff5252" }} disabled={busy} onClick={stop}>{T("จบอีเว้นท์นี้ตอนนี้", "End this event now", "立即结束此活动")}</button>
+        </div>
+      )}
+      <div className="admmg">
+        <div className="admmg-h">🎉 {T("เริ่มอีเว้นท์ใหม่", "Start a new event", "开始新活动")}</div>
+        <input className="admstu-search" value={nameTh} onChange={e => setNameTh(e.target.value)} placeholder={T("ชื่ออีเว้นท์ (ไทย) เช่น สงกรานต์ EXP คูณ 2", "Event name (Thai)", "活动名称（泰文）")} style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }} />
+        <input className="admstu-search" value={nameEn} onChange={e => setNameEn(e.target.value)} placeholder={T("ชื่ออีเว้นท์ (อังกฤษ)", "Event name (English)", "活动名称（英文）")} style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }} />
+        <input className="admstu-search" value={nameZh} onChange={e => setNameZh(e.target.value)} placeholder={T("ชื่ออีเว้นท์ (จีน) — ไม่บังคับ", "Event name (Chinese) — optional", "活动名称（中文）— 可选")} style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }} />
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <div style={{ flex: 1 }}>
+            <div className="admstu-row-sub" style={{ marginBottom: 4 }}>{T("ตัวคูณ EXP", "EXP multiplier", "EXP 倍数")}</div>
+            <input className="admstu-search" type="number" min="1" max="10" step="0.5" value={expMult} onChange={e => setExpMult(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="admstu-row-sub" style={{ marginBottom: 4 }}>{T("ตัวคูณเหรียญ", "Coin multiplier", "金币倍数")}</div>
+            <input className="admstu-search" type="number" min="1" max="10" step="0.5" value={coinMult} onChange={e => setCoinMult(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="admstu-row-sub" style={{ marginBottom: 4 }}>{T("จำนวนวัน", "Days", "天数")}</div>
+            <input className="admstu-search" type="number" min="1" max="30" value={days} onChange={e => setDays(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+          </div>
+        </div>
+        <button className="songbtn go" style={{ width: "100%" }} disabled={busy || (!nameTh.trim() && !nameEn.trim())} onClick={start}>
+          {busy ? "⏳" : "🎉"} {T("เริ่มเลย", "Start now", "立即开始")}
+        </button>
+        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10, whiteSpace: "normal" }}>✓ {T("เริ่มแล้ว — ผู้เรียนเห็นแบนเนอร์ทันที", "Started — the banner is now live for every learner", "已开始——横幅已对所有学员生效")}</div>}
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin chat (free-form AI + web search + image/link learning) ── */
 /* ── Admin: manage Music Games list (stored in app_settings key "music_games") ── */
 function AdminGames({ lang }) {
@@ -7758,7 +8950,7 @@ function AdminGames({ lang }) {
   }
 
   async function saveList(next: any[]) {
-    const { error } = await sb.from("app_settings").upsert({ key: "music_games", value: next, updated_at: new Date().toISOString() });
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "music_games", p_value: next });
     if (!error) { setGames(next); return true; }
     return false;
   }
@@ -8178,20 +9370,24 @@ function AdminPage({ lang, onExit, adminTier }) {
       <div className="admintabs">
         {tier >= 3 && <button className={`admintab${adminTab === "ai" ? " on" : ""}`} onClick={() => setAdminTab("ai")}>🤖 {lang === "th" ? "สอน AI" : lang === "zh" ? "训练 AI" : "Teach AI"}</button>}
         <button className={`admintab${adminTab === "students" ? " on" : ""}`} onClick={() => setAdminTab("students")}>👥 {lang === "th" ? "นักเรียน" : lang === "zh" ? "学生" : "Students"}</button>
+        <button className={`admintab${adminTab === "schools" ? " on" : ""}`} onClick={() => setAdminTab("schools")}>🏫 {lang === "th" ? "โรงเรียน" : lang === "zh" ? "学校" : "Schools"}</button>
         {tier >= 3 && <button className={`admintab${adminTab === "payments" ? " on" : ""}`} onClick={() => setAdminTab("payments")}>💳 {lang === "th" ? "ชำระเงิน" : lang === "zh" ? "付款" : "Payments"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "videos" ? " on" : ""}`} onClick={() => setAdminTab("videos")}>🎬 {lang === "th" ? "วิดีโอ" : lang === "zh" ? "视频" : "Videos"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "analytics" ? " on" : ""}`} onClick={() => setAdminTab("analytics")}>📊 {lang === "th" ? "สถิติ" : lang === "zh" ? "统计" : "Analytics"}</button>}
         {tier >= 2 && <button className={`admintab${adminTab === "autoteach" ? " on" : ""}`} onClick={() => setAdminTab("autoteach")}>⏱️ {lang === "th" ? "ตั้งเวลาสอน" : lang === "zh" ? "自动教学" : "Auto Teaching"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "broadcast" ? " on" : ""}`} onClick={() => setAdminTab("broadcast")}>📢 {lang === "th" ? "ประกาศ" : lang === "zh" ? "公告" : "Broadcast"}</button>}
+        {tier >= 3 && <button className={`admintab${adminTab === "event" ? " on" : ""}`} onClick={() => setAdminTab("event")}>🎉 {lang === "th" ? "อีเว้นท์" : lang === "zh" ? "活动" : "Event"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "games" ? " on" : ""}`} onClick={() => setAdminTab("games")}>🎮 {lang === "th" ? "เกม" : lang === "zh" ? "游戏" : "Games"}</button>}
       </div>
 
       {adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
+        : adminTab === "schools" ? <AdminSchools lang={lang} viewerTier={tier} />
         : adminTab === "payments" && tier >= 3 ? <AdminPayments lang={lang} />
         : adminTab === "videos" && tier >= 3 ? <AdminVideos lang={lang} />
         : adminTab === "analytics" && tier >= 3 ? <AdminAnalytics lang={lang} />
         : adminTab === "autoteach" && tier >= 2 ? <AdminAutoTeach lang={lang} />
         : adminTab === "broadcast" && tier >= 3 ? <AdminBroadcast lang={lang} />
+        : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "ai" && tier >= 3 ? (<>
 
@@ -8412,6 +9608,22 @@ export default function App() {
     else { setProfile(null); setProfileReady(false); }
   }, [session, loadProfile]);
 
+  // banned/plan/admin_tier are otherwise only re-checked once per session (on the
+  // initial loadProfile above) — a tab left open through a ban stays fully usable
+  // until the next reload, and there's no realtime subscription on `profiles`. This
+  // silently re-fetches (no setProfileReady(false), so no splash-screen flash) whenever
+  // the tab regains focus, closing most of that gap without needing a full realtime
+  // channel. Still not a substitute for server-side enforcement of `banned` on
+  // sensitive RPCs — a still-valid JWT used outside this SPA is unaffected either way.
+  useEffect(() => {
+    const uid = session && session.user && session.user.id;
+    if (!uid) return;
+    const recheck = () => { if (document.visibilityState === "visible") sb.from("profiles").select("*").eq("id", uid).maybeSingle().then(({ data }) => { if (data) setProfile(data); }); };
+    document.addEventListener("visibilitychange", recheck);
+    window.addEventListener("focus", recheck);
+    return () => { document.removeEventListener("visibilitychange", recheck); window.removeEventListener("focus", recheck); };
+  }, [session && session.user && session.user.id]);
+
   async function signOut() {
     try { await sb.auth.signOut(); } catch (e) {}
     setSession(null); setProfile(null);
@@ -8479,13 +9691,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [pianoOct, setPianoOct] = useState(4);   // base octave for the on-screen keyboard
   // coins · daily chest · mascot companion
   const [coins, setCoins] = useState(getCoins());
+  const [gems, setGems] = useState(0); // server-authoritative only — no localStorage, unlike coins
   const [chestAvail, setChestAvail] = useState(false);
   const [chestOpen, setChestOpen] = useState(false);
   const [chestOpening, setChestOpening] = useState(false);
   const [chestReward, setChestReward] = useState(null);
+  const [chestSpinDeg, setChestSpinDeg] = useState(0);
   const [mascotMood, setMascotMood] = useState("idle");
   const mascotT = useRef(null);
   const [shopOpen, setShopOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
   const [premium, setPremium] = useState(isPremium());
   const [plan, setPlan] = useState(getPlan());   // free | premium | family | max — switchable any time
   // keep the live plan/premium in sync with the authoritative server profile
@@ -8507,6 +9722,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [aiModalLoading, setAiModalLoading] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [checkout, setCheckout] = useState(null);   // {plan, amount} → PromptPay payment modal
+  const [schoolCheckout, setSchoolCheckout] = useState(null); // {tier} → School Plan Pro (B2B) checkout modal
+  const [schoolPayReturn, setSchoolPayReturn] = useState<null|"pending"|"paid"|"error">(null); // ?school_paid=1 return state
   const [billCycle, setBillCycle] = useState("month"); // pricing view: month | year
   const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
   const [stripeReturn, setStripeReturn] = useState<null|"pending"|"done">(null); // ?paid=1 return state
@@ -8550,6 +9767,28 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }, 4000);
     return () => clearTimeout(t);
   }, []);
+
+  // Detect School Plan Pro Stripe success redirect (?school_paid=1&req=&session_id=) —
+  // clear the URL params, then verify server-side with Stripe (no webhook dependency,
+  // unlike the consumer flow above — verify-school-payment re-checks the session
+  // directly using the secret key before ever marking the request "paid").
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("school_paid") == null) return;
+    const reqId = p.get("req"), sessionId = p.get("session_id");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("school_paid"); url.searchParams.delete("req"); url.searchParams.delete("session_id");
+    window.history.replaceState({}, "", url.pathname + (url.search || ""));
+    if (p.get("school_paid") !== "1" || !reqId || !sessionId) return;
+    setSchoolPayReturn("pending");
+    fetch(SUPABASE_URL + "/functions/v1/verify-school-payment", {
+      method: "POST", headers: { ...apiHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId: reqId, sessionId }),
+    }).then(r => r.json()).then(j => {
+      setSchoolPayReturn(j && j.status === "paid" ? "paid" : "error");
+      playUi(j && j.status === "paid" ? "levelup" : "click");
+    }).catch(() => setSchoolPayReturn("error"));
+  }, []);
   // load the shop's PromptPay config (for the checkout QR)
   useEffect(() => {
     if (!session) return;
@@ -8589,11 +9828,50 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (broadcast) markBroadcastSeen(broadcast.id);
     setBroadcast(null);
   }
+  // ── Seasonal / limited-time event: same app_settings + admin_set_app_setting
+  // mechanism as broadcast above (key "event" instead of "broadcast"), polled the
+  // same way. Applies EXP/coin multipliers while live (see gainExp/earnCoins). ──
+  const [activeEvent, setActiveEvent] = useState(null);
+  useEffect(() => {
+    if (!session) return;
+    let alive = true;
+    const check = () => {
+      sb.from("app_settings").select("value").eq("key", "event").maybeSingle()
+        .then(({ data }) => {
+          if (!alive) return;
+          const v = data && data.value;
+          setActiveEvent(v && v.active && (!v.ends_at || new Date(v.ends_at).getTime() > Date.now()) ? v : null);
+        }, () => {});
+    };
+    check();
+    const t = setInterval(check, 45000);
+    return () => { alive = false; clearInterval(t); };
+  }, [session]);
   const [upsell, setUpsell] = useState(null);   // {feat} when a gated action is blocked
   const [parentOpen, setParentOpen] = useState(false);
   const [examOpen, setExamOpen] = useState(false);
   const [examProgress, setExamProgress] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_exam") || "{}"); } catch (e) { return {}; } });
   const [homework, setHomework] = useState(readHomework());
+  // School Plan Pro: a real, DB-backed, cross-device assignment from a linked
+  // teacher — takes priority over the local AI-assigned homework below when present.
+  const [schoolHW, setSchoolHW] = useState(null);
+  useEffect(() => {
+    if (!(profile && profile.school_role === "student")) { setSchoolHW(null); return; }
+    sb.from("school_assignments").select("*").order("assigned_at", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => setSchoolHW(data || null));
+  }, [profile && profile.school_id, profile && profile.school_role]);
+  const [mySchoolName, setMySchoolName] = useState("");
+  useEffect(() => {
+    if (!(profile && profile.school_id)) { setMySchoolName(""); return; }
+    sb.from("schools").select("name").eq("id", profile.school_id).maybeSingle().then(({ data }) => setMySchoolName((data && data.name) || ""));
+  }, [profile && profile.school_id]);
+  function leaveSchool() {
+    if (!(profile && profile.school_id)) return;
+    if (!window.confirm(L[lang].schoolRemoveConfirm)) return;
+    sb.rpc("school_leave", { p_school_id: profile.school_id }).then(() => {
+      sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle().then(({ data }) => { if (data) setProfile(data); });
+    });
+  }
   const [welcomeOpen, setWelcomeOpen] = useState(() => { try { return !localStorage.getItem("tg_welcomed"); } catch (e) { return false; } });
   const [owned, setOwned] = useState(getOwned());
   const [skin, setSkin] = useState(getEquip("skin", "aqua"));
@@ -8711,6 +9989,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [page, setPage] = useState("pathway");  // home = pathway; sensei (chat) is secondary | pathway | profile | admin
   useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
 
+  // School Plan Pro: the teacher dashboard has no nav entry anywhere — it's reached
+  // only via a hidden link TIGA hands directly to onboarded teachers. The link is
+  // just a discoverability veil, not the real lock: every RPC/RLS check the dashboard
+  // makes still re-verifies real school_members membership server-side regardless of
+  // how this page was reached, so this client-side hash check is safe to keep simple.
+  useEffect(() => {
+    if (window.location.hash === "#teacher-portal" && profile && profile.school_role === "teacher") {
+      setPage("school");
+    }
+  }, [profile]);
+
   // ── Auto Teaching: while a Max-plan learner is on the Pathway (home) page, fire a short
   // real-time coaching card every N minutes (learner's own pick, else the admin's platform default). ──
   const autoTeachTipRef = useRef(null);
@@ -8822,6 +10111,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setCoins(merged);
     if (merged !== profile.coins && uid) sb.from("profiles").update({ coins: merged }).eq("id", uid).then(() => {}, () => {});
   }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // gems have no client write path at all (see supabase-gamification-gems-migration.sql)
+  // so this just mirrors whatever the server RPCs have already granted/spent
+  useEffect(() => { setGems((profile && profile.gems) || 0); }, [profile && profile.gems]);
 
   // Periodically snapshot the learner's progress to Supabase so a teacher/admin
   // can review each student's learning from the back office (also on app hide).
@@ -9054,8 +10346,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // opts.lesson=true also increments the lessons-completed counter.
   function gainExp(amount, opts = {}) {
     if (!amount || !uid) return;
+    if (activeEvent && activeEvent.expMult > 1) amount = Math.round(amount * activeEvent.expMult);
     mascot("happy", 1400);
     bumpWeekly("exp", amount);
+    sb.rpc("league_bump_exp", { p_week_key: weekKey(), p_amount: amount }).then(() => {}, () => {});
+    sb.rpc("school_quest_bump", { p_amount: amount }).then(() => {}, () => {}); // no-ops silently if not in a school / no active quest
     const beforeExp = expRef.current;
     const beforeLessons = lessonsRef.current;
 
@@ -9087,6 +10382,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       playUi("levelup"); mascot("celebrate", 3200);
       clearTimeout(lvUpTimer.current);
       lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
+    } else if (prestigeInfo(after).tier > prestigeInfo(beforeExp).tier) {
+      // past the level-10 cap: celebrate each new Legend Star the same way a
+      // level-up is celebrated, so the loyalest players still get feedback
+      leveled = true;
+      const pTier = prestigeInfo(after).tier;
+      setLevelUp({ level: 10, tier: LEVELS[LEVELS.length - 1], prestige: pTier });
+      playUi("levelup"); mascot("celebrate", 3200);
+      clearTimeout(lvUpTimer.current);
+      lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
+      earnCoins(150);
+      // gems are granted server-side (re-derived from real exp, idempotent) —
+      // this app.tsx client never decides or sends a gem amount itself
+      sb.rpc("grant_gems_for_prestige").then(({ data: r }) => {
+        if (r && r.granted > 0 && setProfile) setProfile(p => ({ ...(p || {}), gems: ((p && p.gems) || 0) + r.granted }));
+      }, () => {});
     }
     // achievement unlock (skip the toast if a level-up already shows this tick)
     if (!leveled) {
@@ -9279,7 +10589,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function critiqueRecording() {
     const clip = clipRef.current;
     if (!clip.length || recordingRef.current || loading) return;
-    if (!canUse("critique")) { setPricingOpen(true); return; }
+    if (!canUse("critique", premium)) { setPricingOpen(true); return; }
     if (!premium) bumpUsage("critique");
     stopClip();
     setPage("sensei");
@@ -11192,7 +12502,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
   }
   // coins + mascot + daily chest
-  function earnCoins(n) { const mult = isMaxPlan(plan) ? 2 : 1; const v = getCoins() + n * mult; setCoinsLS(v); setCoins(v); if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {}); }
+  function earnCoins(n) { const mult = (isMaxPlan(plan) ? 2 : 1) * (activeEvent && activeEvent.coinMult > 1 ? activeEvent.coinMult : 1); const v = getCoins() + n * mult; setCoinsLS(v); setCoins(v); if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {}); }
   function reviewTopic(t) {
     setActiveStageId(null); // free-text question, not a Pathway topic+key — no "change key" back button
     setPage("sensei");
@@ -11245,6 +12555,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setCheckout({ plan: planId, amount: yr ? yearPrice(planId) : (PLAN_PRICE[planId] || 0), disp, cur, cycle, days: yr ? 365 : 30 });
   }
   function activatePremium() { choosePlan("premium"); }
+  // gems -> coins conversion. The RPC itself already updates profiles.coins
+  // server-side (see supabase-gamification-gems-migration.sql) — this only
+  // mirrors that result into local state, it never writes coins again itself.
+  async function exchangeGems(n) {
+    const { data: r, error } = await sb.rpc("spend_gems_for_coins", { p_gems: n });
+    if (error || !r) { mascot("sad", 1200); return false; }
+    setProfile(p => ({ ...(p || {}), gems: Math.max(0, ((p && p.gems) || 0) - r.spent) }));
+    const v = getCoins() + r.coins; setCoinsLS(v); setCoins(v);
+    playUi("reward"); mascot("celebrate", 1600);
+    return true;
+  }
   function buyFreeze() {
     const cost = 120;
     if (getCoins() < cost) { mascot("sad", 1200); playMiss(); return; }
@@ -11255,8 +12576,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const w = readWeekly();
     w[type] = (w[type] || 0) + n;
     if (!Array.isArray(w.claimed)) w.claimed = [];
-    for (const ch of CHALLENGES) {
-      if ((w[ch.id] || 0) >= ch.goal && !w.claimed.includes(ch.id)) { w.claimed.push(ch.id); earnCoins(CHALLENGE_REWARD); playUi("reward"); }
+    for (const ch of activeChallenges()) {
+      if ((w[ch.type] || 0) >= ch.goal && !w.claimed.includes(ch.id)) { w.claimed.push(ch.id); earnCoins(CHALLENGE_REWARD); playUi("reward"); }
     }
     writeWeekly(w);
   }
@@ -11301,14 +12622,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function openChestNow() {
     if (chestOpening) return;
     getAC();
-    setChestOpen(true); setChestOpening(true); setChestReward(null);
+    // resolve the real reward FIRST — the wheel only ever plays back a result
+    // that's already locked in, it never decides the outcome itself
+    const r = claimChest();
+    setChestOpen(true); setChestOpening(true); setChestReward(r); setChestSpinDeg(0);
     playUi("reward");
+    setTimeout(() => setChestSpinDeg(chestSpinAngle(r.kind)), 30); // next tick so the CSS transition animates from 0°
     setTimeout(() => {
-      const r = claimChest();
       earnCoins(r.coins); gainExp(r.exp);
-      setChestReward(r); setChestAvail(false); setChestOpening(false);
+      setChestAvail(false); setChestOpening(false);
       playUi("levelup"); mascot("celebrate", 3200);
-    }, 850);
+    }, 2500);
   }
 
   function handleAIReply(text) {
@@ -11666,7 +12990,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               detectMatch={detectMatch} setDetectMatch={setDetectMatch} detectListening={detectListening} setDetectListening={setDetectListening}
               battlePickOpen={battlePickOpen} setBattlePickOpen={setBattlePickOpen} battleData={battleData} setBattleData={setBattleData}
               songPhase={songPhase} startSongPlay={startSongPlay}
-              mysteryChest={mysteryChest} setMysteryChest={setMysteryChest} luckyToast={luckyToast} />
+              mysteryChest={mysteryChest} setMysteryChest={setMysteryChest} luckyToast={luckyToast}
+              onSchoolJoined={() => {
+                sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
+                  .then(({ data }) => { if (data) setProfile(data); });
+              }} />
+      )}
+
+      {/* ─── PAGE: SCHOOL DASHBOARD (School Plan Pro, teacher-only, hidden entry) ─── */}
+      {page === "school" && profile && profile.school_id && profile.school_role === "teacher" && (
+        <SchoolDashboard lang={lang} profile={profile} onBack={() => setPage("pathway")} />
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
@@ -11702,16 +13035,34 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     ? <button className="dh-chest" onClick={openChestNow}>🎁<span>{lc.dhClaim}</span></button>
                     : <button className="dh-chest done" onClick={() => { setPage("studio"); setStudioView("menu"); }}>🎮<span>{lc.dhPlay}</span></button>}
                 </div>
-                {homework && homework.text && (
+                {(schoolHW || (homework && homework.text)) && (
                   <div className="hwbar">
-                    <span className="hwbar-ic">📝</span>
-                    <span className="hwbar-tx"><b>{lc.hwLabel}</b> {homework.text}</span>
-                    <button className="hwbar-done" onClick={() => { setHomeworkLS(null); setHomework(null); playUi("reward"); earnCoins(10); }} aria-label="done">✓</button>
+                    <span className="hwbar-ic">{schoolHW ? "🏫" : "📝"}</span>
+                    <span className="hwbar-tx"><b>{schoolHW ? lc.hwFromTeacher : lc.hwLabel}</b> {schoolHW
+                      ? (tr(SONGS.find(s => s.id === schoolHW.song_id), lang) || schoolHW.song_id) + (schoolHW.note ? " — " + schoolHW.note : "") + (schoolHW.ack_at ? " ✅" : "")
+                      : homework.text}</span>
+                    <button className="hwbar-done" aria-label="done" onClick={() => {
+                      if (schoolHW) {
+                        if (!schoolHW.ack_at) sb.rpc("school_ack_assignment", { p_assignment_id: schoolHW.id }).then(() => setSchoolHW(h => h ? { ...h, ack_at: new Date().toISOString() } : h));
+                      } else { setHomeworkLS(null); setHomework(null); }
+                      playUi("reward"); earnCoins(10);
+                    }}>✓</button>
                   </div>
                 )}
               </div>
             );
           })()}
+          {profile && profile.school_id && (
+            <div className="profsec" style={{ margin: "0 14px 10px" }}>
+              <div className="profsec-h">🏫 {lc.schoolMyCard}{mySchoolName ? " — " + mySchoolName : ""}</div>
+              <span className="schoolrole-badge">{profile.school_role === "teacher" ? lc.schoolMyRoleTeacher : lc.schoolMyRoleStudent}</span>
+              {profile.school_role === "student" && (
+                <button className="songbtn ghost" style={{ width: "100%", marginTop: 10 }} onClick={leaveSchool}>✕ {lc.schoolLeaveBtn}</button>
+              )}
+            </div>
+          )}
+          {profile && profile.school_id && <ClassQuestSection lang={lang} schoolId={profile.school_id} />}
+          {profile && profile.school_id && <SchoolLeaderboardSection lang={lang} schoolId={profile.school_id} />}
           {/* My Stats + Report Card live as sub-pages of Profile (moved out of the nav) */}
           <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
             onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } logUsage("nav", "profile-stats"); setPage("insights"); }}>
@@ -11749,8 +13100,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             </div>
             <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
           </button>
-          <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins}
-            onOpenShop={() => setShopOpen(true)} onOpenHelp={() => setHelpOpen(true)} />
+          <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins} gems={gems}
+            onOpenShop={() => setShopOpen(true)} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} />
         </div>
       )}
 
@@ -12396,12 +13747,57 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 const perPersonMxf = fmtPrice(cur, cur === "usd" ? Math.round(mxfFamilyUnit / 10 * 100) / 100 : Math.round(mxfFamilyUnit / 10));
                 const perPersonFam = fmtPrice(cur, cur === "usd" ? Math.round(planPriceByCur(cur,"family") / 3 * 100) / 100 : Math.round(planPriceByCur(cur,"family") / 3));
                 const freeLabel = cur === "usd" ? "US$0" : cur === "cny" ? "¥0" : "฿0";
+                const isB2B = billCycle === "b2b";
+                const b2bPriceBlk = (tier) => <span className="prtier-price">{fmtPrice(cur, b2bPriceByCur(cur, tier))}<small>/{lc.prMonth}/{lc.prSeat}</small></span>;
+                const b2bYearNote = (tier) => <div className="pr-yrsave">{lc.prB2bOrYearly.replace("{x}", fmtPrice(cur, b2bYearPriceByCur(cur, tier)) + "/" + lc.prYear + "/" + lc.prSeat)}</div>;
                 return (
                   <>
                     <div className="billtoggle">
-                      <button className={`billtog${!yr ? " on" : ""}`} onClick={() => setBillCycle("month")}>{lc.prBillMonth}</button>
-                      <button className={`billtog${yr ? " on" : ""}`} onClick={() => setBillCycle("year")}>{lc.prBillYear} <span className="billsave">-3%</span></button>
+                      <button className={`billtog${billCycle === "month" ? " on" : ""}`} onClick={() => setBillCycle("month")}>{lc.prBillMonth}</button>
+                      <button className={`billtog${billCycle === "year" ? " on" : ""}`} onClick={() => setBillCycle("year")}>{lc.prBillYear} <span className="billsave">-3%</span></button>
+                      <button className={`billtog billtog-b2b${isB2B ? " on" : ""}`} onClick={() => setBillCycle("b2b")}>{lc.prBillB2B}</button>
                     </div>
+
+                    {isB2B ? (<>
+                      <p className="pr-sub" style={{ margin: "-4px 0 14px" }}>{lc.prB2bSub}</p>
+
+                      {/* ── B2B PLUS (Max-equivalent) ── */}
+                      <div className="prtier max" style={{ position: "relative", marginTop: 6 }}>
+                        <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "#d97757", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
+                          ⚡ {lang === "th" ? "แนะนำ" : lang === "zh" ? "推荐" : "Recommended"}
+                        </div>
+                        <div className="prtier-top">
+                          <div>
+                            <span className="prtier-nm">👑 {lc.prB2bPlusNm}</span>
+                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{lc.prB2bPlusSub}</div>
+                          </div>
+                          {b2bPriceBlk("plus")}
+                        </div>
+                        {b2bYearNote("plus")}
+                        <ul className="prfeat"><li>{lc.prMax2}</li><li>{lc.prMax4}</li></ul>
+                        <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
+                        <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk4}</li></ul>
+                        <button className="songbtn go" onClick={() => { setPricingOpen(false); setSchoolCheckout({ tier: "plus" }); }}>{lc.prB2bCta}</button>
+                      </div>
+
+                      {/* ── B2B STANDARD (Premium-equivalent) ── */}
+                      <div className="prtier">
+                        <div className="prtier-top">
+                          <div>
+                            <span className="prtier-nm">⭐ {lc.prB2bStdNm}</span>
+                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{lc.prB2bStdSub}</div>
+                          </div>
+                          {b2bPriceBlk("standard")}
+                        </div>
+                        {b2bYearNote("standard")}
+                        <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li><li>{lc.prF4}</li></ul>
+                        <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
+                        <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk4}</li></ul>
+                        <button className="songbtn go" onClick={() => { setPricingOpen(false); setSchoolCheckout({ tier: "standard" }); }}>{lc.prB2bCta}</button>
+                      </div>
+
+                      <div className="pr-note">{lc.prB2bSeatNote}</div>
+                    </>) : (<>
 
                     {/* ── MAX FAMILY — ไฮไลต์สุด ── */}
                     <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`}
@@ -12484,11 +13880,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                       <ul className="prfeat"><li>{lc.prFree1}</li><li>{lc.prFree2}</li></ul>
                       {plan !== "free" && plan !== "trial" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
                     </div>
+                    </>)}
                   </>
                 );
               })()}
-              <div className="pr-note">{lc.prNote}</div>
-              <button className="pr-school" onClick={() => { setPricingOpen(false); reviewSchools(); }}>🏫 {lc.prSchool}</button>
+              {billCycle !== "b2b" && (<>
+                <div className="pr-note">{lc.prNote}</div>
+                <button className="pr-school" onClick={() => setBillCycle("b2b")}>🏫 {lc.prSchool}</button>
+              </>)}
             </div>
           </div>
         </div>
@@ -12496,6 +13895,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* CHECKOUT — Stripe / PromptPay / Alipay / WeChat */}
       {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} />}
+      {schoolCheckout && <SchoolCheckoutModal lang={lang} schoolCheckout={schoolCheckout} payCfg={payCfg} session={session} onClose={() => setSchoolCheckout(null)} />}
 
       {/* AI WEEKLY REPORT / AI PRACTICE PLAN MODAL (Max exclusive) */}
       {aiModalOpen && (
@@ -12775,6 +14175,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* COSMETICS SHOP */}
+      {friendsOpen && <FriendsModal lang={lang} onClose={() => setFriendsOpen(false)} />}
+
       {shopOpen && (
         <div className="setov" onClick={() => setShopOpen(false)}>
           <div className="setcard" onClick={e => e.stopPropagation()}>
@@ -12801,13 +14203,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* DAILY CHEST modal */}
+      {/* DAILY CHEST modal — the reward is already resolved before this shows
+          (see openChestNow); the wheel only plays back that real outcome */}
       {chestOpen && (
         <div className="chestov" onClick={() => { if (!chestOpening) setChestOpen(false); }}>
           <div className="chestcard" onClick={e => e.stopPropagation()}>
-            <div className={`chestbig${chestOpening ? " opening" : " open"}`}>🎁</div>
-            {chestReward ? (
+            {chestOpening ? (
               <>
+                <div className="chestwheel">
+                  <div className="chestwheel-ring" style={{ transform: `rotate(${chestSpinDeg}deg)` }}>
+                    {CHEST_WHEEL.map((k, i) => (
+                      <span key={i} className={`cw-seg cw-${k}`} style={{ transform: `rotate(${i * 45 + 22.5}deg) translateY(-52px) rotate(${-(i * 45 + 22.5)}deg)` }}>
+                        {k === "jackpot" ? "🎉" : k === "big" ? "✨" : "🪙"}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="chestwheel-ptr">▼</div>
+                  <div className="chestwheel-hub">🎁</div>
+                </div>
+                <div className="chesttitle">{lc.chestOpening}</div>
+              </>
+            ) : (
+              <>
+                <div className="chestbig open">🎁</div>
                 <div className={`chesttitle${chestReward.kind === "jackpot" ? " jackpot" : ""}`}>
                   {chestReward.kind === "jackpot" ? "🎉 JACKPOT! 🎉" : chestReward.kind === "big" ? "✨ " + lc.chestBig + " ✨" : lc.chestGot}
                 </div>
@@ -12818,8 +14236,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <div className="cheststreak">🔥 {lc.chestDay} {chestReward.streak}</div>
                 <button className="songbtn go" onClick={() => setChestOpen(false)}>{lc.chestClaim}</button>
               </>
-            ) : (
-              <div className="chesttitle">{lc.chestOpening}</div>
             )}
           </div>
         </div>
@@ -12835,6 +14251,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
+      {schoolPayReturn && (
+        <div className="exptoast" style={{ background: schoolPayReturn === "paid" ? "#4caf50" : schoolPayReturn === "error" ? "#e55" : "#d97757", top: 72 }}>
+          <span>{schoolPayReturn === "paid" ? "✅" : schoolPayReturn === "error" ? "⚠️" : "⏳"}</span>
+          <span>{schoolPayReturn === "paid"
+            ? (lang === "th" ? "รับชำระเงินแล้ว ทีมงานจะติดต่อกลับเพื่อเปิดใช้งาน" : lang === "zh" ? "已收到付款，团队将联系您开通" : "Payment received — our team will follow up to activate")
+            : schoolPayReturn === "error"
+            ? (lang === "th" ? "ยืนยันการชำระเงินไม่สำเร็จ ติดต่อทีมงานหากถูกตัดเงินแล้ว" : lang === "zh" ? "支付确认失败，如已扣款请联系我们" : "Couldn't confirm payment — contact us if you were charged")
+            : (lang === "th" ? "กำลังตรวจสอบการชำระเงิน..." : lang === "zh" ? "正在核实付款..." : "Verifying payment...")}</span>
+        </div>
+      )}
+
       {/* floating EXP reward toast */}
       {expToast && (
         <div className="exptoast" key={expToast.id}>
@@ -12843,17 +14270,41 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
+      {/* seasonal / limited-time event banner — see the activeEvent poll above */}
+      {activeEvent && (
+        <div className="eventbanner">
+          <span className="eventbanner-ic" aria-hidden="true">🎉</span>
+          <span className="eventbanner-tx">{tr({ th: activeEvent.name_th, en: activeEvent.name_en, zh: activeEvent.name_zh }, lang)}</span>
+          {(activeEvent.expMult > 1 || activeEvent.coinMult > 1) && (
+            <span className="eventbanner-mult">
+              {activeEvent.expMult > 1 ? `${activeEvent.expMult}× EXP` : ""}
+              {activeEvent.expMult > 1 && activeEvent.coinMult > 1 ? " · " : ""}
+              {activeEvent.coinMult > 1 ? `${activeEvent.coinMult}× 🪙` : ""}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* mascot companion — the CSS/animation for this (.mascot, mascotidle/
+          mascothop/mascotcheer keyframes) already existed from an earlier build;
+          mascotMood already tracks the right moments (EXP gain, purchases,
+          level-ups...) — it just never had a JSX element to actually show it */}
+      <div className={`mascot ${mascotMood}`} onClick={() => mascot("happy", 900)} role="button" tabIndex={-1} aria-hidden="true">
+        <span className="mascot-face">{MASCOT_FACE[mascotMood] || MASCOT_FACE.idle}</span>
+        {mascotMood === "celebrate" && <span className="mascot-spark">✨</span>}
+      </div>
+
       {/* level-up celebration overlay */}
       {levelUp && (
         <div className="lvup" onClick={() => { clearTimeout(lvUpTimer.current); setLevelUp(null); }}>
           <div className="lvup-rays" aria-hidden="true" />
           <div className="confetti" aria-hidden="true">{Array.from({ length: 24 }).map((_, i) => <i key={i} style={{ left: (i * 4.1) + "%", animationDelay: (i % 6 * 0.08) + "s", background: ["#d97757", "#ffd23f", "#6a9bcc", "#788c5d", "#ff5252"][i % 5] }} />)}</div>
-          <div className="lvup-burst" aria-hidden="true">{levelUp.tier.icon}</div>
-          <div className="lvup-title">{lc.levelUpWord}</div>
-          <div className="lvup-rank">{lc.profLevelWord} {levelUp.level} · {tr(levelUp.tier, lang)}</div>
+          <div className="lvup-burst" aria-hidden="true">{levelUp.prestige ? "⭐" : levelUp.tier.icon}</div>
+          <div className="lvup-title">{levelUp.prestige ? lc.prestigeUpWord : lc.levelUpWord}</div>
+          <div className="lvup-rank">{levelUp.prestige ? `${lc.prestigeWord} ${levelUp.prestige}` : `${lc.profLevelWord} ${levelUp.level} · ${tr(levelUp.tier, lang)}`}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: lc.levelUpWord, big: lc.profLevelWord + " " + levelUp.level, sub: tr(levelUp.tier, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
-            <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(`🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>
+            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: levelUp.prestige ? lc.prestigeUpWord : lc.levelUpWord, big: levelUp.prestige ? `⭐ ${levelUp.prestige}` : lc.profLevelWord + " " + levelUp.level, sub: levelUp.prestige ? lc.prestigeWord : tr(levelUp.tier, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
+            <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(levelUp.prestige ? `🎹 ${lc.prestigeUpWord} ${lc.prestigeWord} ${levelUp.prestige} — TiGA Piano AI tigaalpha.github.io` : `🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>
           </div>
         </div>
       )}
