@@ -5,6 +5,7 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { embed } from "../_shared/ai-provider.ts";
 import { chunkText } from "../_shared/text.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
+import { logSystemEvent } from "../_shared/monitor.ts";
 
 // Unbounded content meant unbounded chunkText() output and an unbounded
 // number of paid embed() calls fired in parallel from one request — a
@@ -16,8 +17,9 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     const userId = await requireStaff(admin, req);
     await enforceRateLimit(admin, userId, "knowledge-upload", { windowMinutes: 60, maxRequests: 20 });
 
@@ -54,7 +56,12 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ document }, 201);
   } catch (error) {
-    if (error instanceof RateLimitError) return jsonResponse({ error: error.message }, 429);
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    if (error instanceof RateLimitError) {
+      await logSystemEvent(admin, "knowledge-upload", "warning", error.message);
+      return jsonResponse({ error: error.message }, 429);
+    }
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await logSystemEvent(admin, "knowledge-upload", "error", message);
+    return jsonResponse({ error: message }, 500);
   }
 });

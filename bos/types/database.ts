@@ -30,7 +30,8 @@ export type NotificationType =
   | "customer_near_end_course"
   | "payment_reminder"
   | "ai_needs_review"
-  | "new_customer";
+  | "new_customer"
+  | "system_alert";
 
 export type KnowledgeSourceType =
   | "pricing"
@@ -59,6 +60,16 @@ export type TransactionType = "income" | "expense";
 export type SocialPlatform = "facebook" | "instagram" | "tiktok" | "youtube" | "line";
 
 export type SocialPostStatus = "queued" | "posting" | "success" | "failed";
+
+export type ApprovalType = "cancel_paid_lesson" | "ad_campaign_spend";
+
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+
+export type SystemEventSeverity = "info" | "warning" | "error";
+
+export type AdCampaignStatus = "draft" | "pending_approval" | "approved" | "rejected";
+
+export type LegalDocumentType = "enrollment_contract" | "parental_consent";
 
 export interface Database {
   public: {
@@ -429,6 +440,81 @@ export interface Database {
           platforms: string[];
         };
         Update: Partial<Database["public"]["Tables"]["social_posts"]["Row"]>;
+        Relationships: [];
+      };
+      approval_requests: {
+        Row: {
+          id: string;
+          type: ApprovalType;
+          payload: Record<string, unknown>;
+          reason: string | null;
+          status: ApprovalStatus;
+          requested_by: string;
+          resolved_by: string | null;
+          resolved_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["approval_requests"]["Row"]> & {
+          type: ApprovalType;
+          payload: Record<string, unknown>;
+        };
+        Update: Partial<Database["public"]["Tables"]["approval_requests"]["Row"]>;
+        Relationships: [];
+      };
+      system_events: {
+        Row: {
+          id: string;
+          source: string;
+          severity: SystemEventSeverity;
+          message: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["system_events"]["Row"]> & {
+          source: string;
+          severity: SystemEventSeverity;
+          message: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["system_events"]["Row"]>;
+        Relationships: [];
+      };
+      ad_campaigns: {
+        Row: {
+          id: string;
+          platform: string;
+          objective: string;
+          target_audience: string | null;
+          budget_suggestion: string | null;
+          ad_copy: string;
+          creative_brief: string | null;
+          status: AdCampaignStatus;
+          created_by: string | null;
+          approved_by: string | null;
+          approved_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ad_campaigns"]["Row"]> & {
+          platform: string;
+          objective: string;
+          ad_copy: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ad_campaigns"]["Row"]>;
+        Relationships: [];
+      };
+      legal_documents: {
+        Row: {
+          id: string;
+          type: LegalDocumentType;
+          customer_id: string | null;
+          content: string;
+          variables: Record<string, unknown>;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["legal_documents"]["Row"]> & {
+          type: LegalDocumentType;
+          content: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["legal_documents"]["Row"]>;
         Relationships: [];
       };
     };

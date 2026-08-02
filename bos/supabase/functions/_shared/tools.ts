@@ -2,6 +2,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { ToolDefinition, ToolCall } from "./ai-types.ts";
 import { embed } from "./ai-provider.ts";
 import * as calendar from "./calendar.ts";
+import { requestApproval } from "./approvals.ts";
 
 export const AI_TOOLS: ToolDefinition[] = [
   {
@@ -48,8 +49,13 @@ export const AI_TOOLS: ToolDefinition[] = [
   },
   {
     name: "cancel_lesson",
-    description: "Cancel an existing booking and remove its calendar event.",
-    parameters: { type: "object", properties: { bookingId: { type: "string" } }, required: ["bookingId"] },
+    description:
+      "Request cancellation of an existing paid lesson. This does NOT cancel immediately — it submits the request for staff approval and the booking stays active until a staff member approves it. Tell the customer their cancellation request has been sent for review.",
+    parameters: {
+      type: "object",
+      properties: { bookingId: { type: "string" }, reason: { type: "string", description: "Why the customer wants to cancel, if given." } },
+      required: ["bookingId"],
+    },
   },
   {
     name: "lookup_customer",
@@ -294,17 +300,22 @@ export async function executeTool(call: ToolCall, db: SupabaseClient, boundCusto
       const { data: booking, error } = await db.from("bookings").select("*").eq("id", args.bookingId).single();
       if (error || !booking) throw new Error("Booking not found");
       if (boundCustomerId && booking.customer_id !== boundCustomerId) throw new Error("Not authorized to modify this booking");
+      if (booking.status === "cancelled") throw new Error("This lesson is already cancelled");
 
-      // DB status flip first: if the later calendar delete fails, the
-      // booking is still correctly cancelled (bookable again in our own
-      // system) instead of the old order, where a calendar-delete failure
-      // after the DB update could leave a "confirmed" row that still
-      // blocks the slot even though the calendar event is gone.
-      const { data: updated, error: updateErr } = await db.from("bookings").update({ status: "cancelled" }).eq("id", args.bookingId).select("*").single();
-      if (updateErr) throw updateErr;
-
-      if (booking.google_event_id) await calendar.deleteEvent(booking.google_event_id);
-      return updated;
+      // Cancelling a paid lesson is exactly the kind of irreversible,
+      // money-adjacent action the Owner Prompt already says never to do
+      // without explicit confirmation — previously that was only a prompt
+      // instruction, not an enforced rule. The AI can no longer cancel a
+      // lesson directly; it files a request and a staff member must
+      // approve it (see the approvals edge function for the actual
+      // cancellation logic, which runs only on approval).
+      const { id: approvalId } = await requestApproval(
+        db,
+        "cancel_paid_lesson",
+        { bookingId: booking.id, title: booking.title, customerId: booking.customer_id, startTime: booking.start_time },
+        String(args.reason ?? "No reason given")
+      );
+      return { pendingApproval: true, approvalId, message: "Cancellation request submitted for staff review — the lesson stays booked until approved." };
     }
 
     case "lookup_customer": {

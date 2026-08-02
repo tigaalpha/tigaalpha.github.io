@@ -52,6 +52,12 @@ export function IntegrationsCard() {
   const [checking, setChecking] = useState(false);
   const [clientId, setClientId] = useState("");
   const [savingClientId, setSavingClientId] = useState(false);
+  const [ownerLineId, setOwnerLineId] = useState("");
+  const [savingOwnerLineId, setSavingOwnerLineId] = useState(false);
+  const [metaAppId, setMetaAppId] = useState("");
+  const [savingMetaAppId, setSavingMetaAppId] = useState(false);
+  const [connectingMeta, setConnectingMeta] = useState(false);
+  const [facebookAccount, setFacebookAccount] = useState<{ account_name: string } | null | undefined>(undefined);
   const [connecting, setConnecting] = useState(false);
   const [banner, setBanner] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -68,8 +74,17 @@ export function IntegrationsCard() {
   }
 
   useEffect(() => {
-    const repos = createRepositories(createClient());
+    const supabase = createClient();
+    const repos = createRepositories(supabase);
     repos.integrations.get("google_client_id").then((v) => setClientId(v ?? ""));
+    repos.integrations.get("owner_line_user_id").then((v) => setOwnerLineId(v ?? ""));
+    repos.integrations.get("meta_app_id").then((v) => setMetaAppId(v ?? ""));
+    supabase
+      .from("social_accounts")
+      .select("account_name")
+      .eq("platform", "facebook")
+      .maybeSingle()
+      .then(({ data }) => setFacebookAccount(data ?? null));
     refreshStatus();
 
     const params = new URLSearchParams(window.location.search);
@@ -79,9 +94,17 @@ export function IntegrationsCard() {
     } else if (googleCalendar === "error") {
       setBanner({ type: "error", text: `เชื่อมต่อไม่สำเร็จ: ${params.get("googleCalendarError") ?? "ไม่ทราบสาเหตุ"}` });
     }
-    if (googleCalendar) {
+    const meta = params.get("meta");
+    if (meta === "connected") {
+      setBanner({ type: "success", text: "เชื่อมต่อ Facebook Page สำเร็จแล้ว!" });
+    } else if (meta === "error") {
+      setBanner({ type: "error", text: `เชื่อมต่อ Facebook ไม่สำเร็จ: ${params.get("metaError") ?? "ไม่ทราบสาเหตุ"}` });
+    }
+    if (googleCalendar || meta) {
       params.delete("googleCalendar");
       params.delete("googleCalendarError");
+      params.delete("meta");
+      params.delete("metaError");
       const clean = window.location.pathname + (params.toString() ? `?${params}` : "");
       window.history.replaceState({}, "", clean);
     }
@@ -94,6 +117,34 @@ export function IntegrationsCard() {
     const repos = createRepositories(createClient());
     await repos.integrations.set("google_client_id", clientId.trim());
     setSavingClientId(false);
+  }
+
+  async function saveOwnerLineId() {
+    if (!ownerLineId.trim()) return;
+    setSavingOwnerLineId(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("owner_line_user_id", ownerLineId.trim());
+    setSavingOwnerLineId(false);
+  }
+
+  async function saveMetaAppId() {
+    if (!metaAppId.trim()) return;
+    setSavingMetaAppId(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("meta_app_id", metaAppId.trim());
+    setSavingMetaAppId(false);
+  }
+
+  async function connectMeta() {
+    setConnectingMeta(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.functions.invoke<{ url: string }>("meta-oauth-start");
+    setConnectingMeta(false);
+    if (error || !data) {
+      setBanner({ type: "error", text: "เริ่มเชื่อมต่อไม่สำเร็จ ลองบันทึก Meta App ID อีกครั้งก่อน" });
+      return;
+    }
+    window.location.href = data.url;
   }
 
   async function connectGoogle() {
@@ -179,6 +230,45 @@ export function IntegrationsCard() {
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">
           <div className="flex items-center justify-between">
+            <p className="font-medium text-secondary">Facebook Page (โพสต์อัตโนมัติ)</p>
+            {facebookAccount === undefined ? (
+              <Badge variant="outline">กำลังตรวจสอบ…</Badge>
+            ) : (
+              <Badge variant={facebookAccount ? "success" : "danger"}>{facebookAccount ? `เชื่อมต่อ: ${facebookAccount.account_name}` : "ยังไม่เชื่อมต่อ"}</Badge>
+            )}
+          </div>
+          <div className="space-y-1 pt-2 text-sm text-secondary/70">
+            <p>
+              1. เข้า{" "}
+              <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
+                Meta for Developers
+              </a>{" "}
+              → สร้างแอป (ประเภท Business) → คัดลอก <b>App ID</b> วางด้านล่าง
+            </p>
+            <p>
+              2. นำ <b>App Secret</b> ไปวางใน Supabase Dashboard → Edge Functions → Secrets เป็น{" "}
+              <code className="rounded bg-line/5 px-1">META_APP_SECRET</code>
+            </p>
+            <p>3. เพิ่ม Redirect URI นี้ใน Facebook Login → Valid OAuth Redirect URIs:</p>
+          </div>
+          <CopyField value={`${supabaseUrl}/functions/v1/meta-oauth-callback`} />
+          <div className="flex items-end gap-2 pt-2">
+            <Input placeholder="Meta App ID" value={metaAppId} onChange={(e) => setMetaAppId(e.target.value)} />
+            <Button variant="outline" onClick={() => void saveMetaAppId()} disabled={savingMetaAppId || !metaAppId.trim()}>
+              {savingMetaAppId ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+          <Button className="w-full" onClick={() => void connectMeta()} disabled={connectingMeta || !metaAppId.trim()}>
+            {connectingMeta ? "กำลังเชื่อมต่อ…" : "Connect Facebook Page"}
+          </Button>
+          <p className="pt-1 text-xs text-secondary/50">
+            รองรับเฉพาะ Facebook Page และ LINE OA (broadcast) สำหรับโพสต์อัตโนมัติแบบข้อความล้วน — Instagram/TikTok/YouTube
+            ต้องแนบรูปหรือวิดีโอเสมอ จึงยังต้องโพสต์ด้วยมือผ่านลิงก์โดยตรง
+          </p>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <div className="flex items-center justify-between">
             <p className="font-medium text-secondary">Gemini AI</p>
             <StatusBadge status={status?.gemini ?? null} />
           </div>
@@ -189,6 +279,20 @@ export function IntegrationsCard() {
               2. นำไปวางใน Supabase Dashboard → Edge Functions → Secrets เป็น{" "}
               <code className="rounded bg-line/5 px-1">GEMINI_API_KEY</code>
             </p>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <p className="font-medium text-secondary">แจ้งเตือนฉุกเฉินผ่าน LINE</p>
+          <p className="pt-1 text-sm text-secondary/70">
+            เมื่อระบบ AI พบข้อผิดพลาดผิดปกติ (เช่น Gemini quota เต็มต่อเนื่อง) จะส่งข้อความแจ้งเตือนมาที่ LINE นี้อัตโนมัติ — หา User ID
+            ได้จาก LINE Official Account Manager หรือให้ AI ตอบกลับ userId ในแชททดสอบ
+          </p>
+          <div className="flex items-end gap-2 pt-2">
+            <Input placeholder="LINE User ID เจ้าของร้าน" value={ownerLineId} onChange={(e) => setOwnerLineId(e.target.value)} />
+            <Button variant="outline" onClick={() => void saveOwnerLineId()} disabled={savingOwnerLineId || !ownerLineId.trim()}>
+              {savingOwnerLineId ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
           </div>
         </div>
       </CardContent>

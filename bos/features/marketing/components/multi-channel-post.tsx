@@ -24,6 +24,11 @@ const CHANNELS: Channel[] = [
   { id: "youtube", label: "YouTube", icon: Youtube, url: "https://studio.youtube.com" },
 ];
 
+// Only Facebook (Page feed post) and LINE (broadcast) support a real,
+// text-only auto-publish today — Instagram/TikTok/YouTube's APIs all
+// require an attached image/video, which this queue doesn't collect.
+const AUTO_PUBLISH_PLATFORMS: SocialPlatform[] = ["facebook", "line"];
+
 export function MultiChannelPost() {
   const [content, setContent] = useState("");
   const [selected, setSelected] = useState<SocialPlatform[]>([]);
@@ -31,6 +36,7 @@ export function MultiChannelPost() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadQueue();
@@ -117,6 +123,38 @@ export function MultiChannelPost() {
       setTimeout(() => setCopied(null), 2000);
     } catch {
       setActionError("คัดลอกไม่สำเร็จ — เบราว์เซอร์ไม่อนุญาตให้เข้าถึงคลิปบอร์ด");
+    }
+  }
+
+  async function publishNow(id: string) {
+    setPublishingId(id);
+    setActionError(null);
+    try {
+      const { createClient } = await import("@/services/supabase/client");
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/social-publish`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: id }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.post) {
+        setQueue((prev) => prev.map((p) => (p.id === id ? data.post : p)));
+        if (data.failed?.length > 0) setActionError(`โพสต์บางช่องทางไม่สำเร็จ: ${data.failed.join("; ")}`);
+      } else {
+        setActionError(data.error ?? "โพสต์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      }
+    } catch (error) {
+      console.error("Failed to publish post:", error);
+      setActionError("โพสต์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setPublishingId(null);
     }
   }
 
@@ -276,14 +314,29 @@ export function MultiChannelPost() {
                             </>
                           )}
                         </Button>
-                        {channel?.url && (
+                        {AUTO_PUBLISH_PLATFORMS.includes(platform) && !(item.external_ids as Record<string, string>)?.[platform] ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs"
+                            onClick={() => publishNow(item.id)}
+                            disabled={publishingId === item.id}
+                          >
+                            <Share2 className="h-3 w-3" />
+                            {publishingId === item.id ? "กำลังโพสต์…" : "โพสต์เลย"}
+                          </Button>
+                        ) : (item.external_ids as Record<string, string>)?.[platform] ? (
+                          <Badge variant="success" className="text-xs">
+                            โพสต์แล้ว
+                          </Badge>
+                        ) : channel?.url ? (
                           <a href={channel.url} target="_blank" rel="noopener noreferrer">
                             <Button size="sm" variant="ghost" className="text-xs">
                               <ExternalLink className="h-3 w-3" />
                               โพสต์
                             </Button>
                           </a>
-                        )}
+                        ) : null}
                       </div>
                     );
                   })}

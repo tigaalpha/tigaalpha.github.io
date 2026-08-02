@@ -20,6 +20,10 @@ import {
   Captions,
   Mic,
   Share2,
+  ShieldCheck,
+  Activity,
+  Megaphone,
+  Scale,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,8 +41,12 @@ const NAV_ITEMS = [
   { href: "/video-articles", label: "Video Articles", icon: Captions },
   { href: "/voice-over", label: "Voice Over Scripts", icon: Mic },
   { href: "/post", label: "Post ทุกช่องทาง", icon: Share2 },
+  { href: "/ads", label: "แคมเปญโฆษณา", icon: Megaphone },
+  { href: "/legal", label: "เอกสาร/สัญญา", icon: Scale },
   { href: "/accounting", label: "Accounting", icon: Wallet },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/approvals", label: "การอนุมัติ", icon: ShieldCheck },
+  { href: "/system-health", label: "System Health", icon: Activity },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;

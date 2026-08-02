@@ -6,6 +6,7 @@ import { generate, embed } from "../_shared/ai-provider.ts";
 import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
+import { logSystemEvent } from "../_shared/monitor.ts";
 
 const RETURN_SCRIPT_TOOL: ToolDefinition = {
   name: "return_video_script",
@@ -36,8 +37,9 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     const userId = await requireStaff(admin, req);
     await enforceRateLimit(admin, userId, "generate-video-script", { windowMinutes: 60, maxRequests: 10 });
 
@@ -92,7 +94,12 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ script }, 201);
   } catch (error) {
-    if (error instanceof RateLimitError) return jsonResponse({ error: error.message }, 429);
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    if (error instanceof RateLimitError) {
+      await logSystemEvent(admin, "generate-video-script", "warning", error.message);
+      return jsonResponse({ error: error.message }, 429);
+    }
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await logSystemEvent(admin, "generate-video-script", "error", message);
+    return jsonResponse({ error: message }, 500);
   }
 });

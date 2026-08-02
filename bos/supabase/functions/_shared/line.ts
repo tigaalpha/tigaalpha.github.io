@@ -39,3 +39,8 @@ export function reply(replyToken: string, text: string): Promise<void> {
 export function push(userId: string, text: string): Promise<void> {
   return call("/message/push", { to: userId, messages: [{ type: "text", text }] });
 }
+
+/** Sends a message to every follower of the LINE Official Account — the "post" for LINE in social-publish. */
+export function broadcast(text: string): Promise<void> {
+  return call("/message/broadcast", { messages: [{ type: "text", text }] });
+}
