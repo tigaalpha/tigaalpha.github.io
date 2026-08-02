@@ -1,3 +1,6 @@
 {
-  "version": "13.3.0"
+  "version": "13.3.0",
+  "apkReady": false,
+  "apkUrl": "https://tigaalpha.github.io/app/tiga-ai.apk",
+  "notes": "Flip apkReady to true once app/tiga-ai.apk exists (see MOBILE_BUILD.md) — that's what shows the in-app 'Get the full Android app' banner."
 }

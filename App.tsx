@@ -12510,6 +12510,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { localStorage.setItem("tg_install_banner_seen", "1"); } catch (e) {}
   }
   async function installFromBanner() { dismissInstallBanner(); await doInstall(); }
+  // Direct-download Android app (no Play Store listing for now — see version.json).
+  // Takes priority over the generic PWA install banner above: the real native app
+  // unlocks the AI Voice Tutor, which the PWA install can never do.
+  const [apkInfo, setApkInfo] = useState(null);
+  useEffect(() => {
+    if (isNative || !/Android/i.test(navigator.userAgent || "")) return;
+    fetch("./version.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => setApkInfo(j), () => {});
+  }, []);
+  const [apkBannerSeen, setApkBannerSeen] = useState(() => { try { return localStorage.getItem("tg_apk_banner_seen") === "1"; } catch (e) { return false; } });
+  const showApkBanner = !isNative && apkInfo && apkInfo.apkReady && !apkBannerSeen;
+  function dismissApkBanner() {
+    setApkBannerSeen(true);
+    try { localStorage.setItem("tg_apk_banner_seen", "1"); } catch (e) {}
+  }
   // Re-engagement push: toggle in Settings, plus a one-time prompt the first
   // time a real streak is actually at risk — the exact moment a reminder
   // would matter, tied to the same streakAtRisk() the in-app UI already uses.
@@ -14398,7 +14412,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
       )}
-      {showInstallBanner && (
+      {showApkBanner && (() => {
+        const APK_BANNER_COPY = {
+          th: { title: "โหลดแอพ Android ตัวเต็ม", sub: "รวมโหมดเสียง AI Voice Tutor — เว็บทำไม่ได้", btn: "ดาวน์โหลด" },
+          en: { title: "Get the full Android app", sub: "Includes the AI Voice Tutor — not available on the web", btn: "Download" },
+          zh: { title: "获取完整版 Android 应用", sub: "包含 AI 语音导师 — 网页版没有", btn: "下载" },
+        };
+        const c = APK_BANNER_COPY[lang] || APK_BANNER_COPY.en;
+        return (
+          <div className="installbanner">
+            <span className="installbanner-ic" aria-hidden="true">🎙️</span>
+            <div className="installbanner-tx">
+              <b>{c.title}</b>
+              <span>{c.sub}</span>
+            </div>
+            <a className="installbanner-go" href={apkInfo && apkInfo.apkUrl} onClick={dismissApkBanner}>{c.btn}</a>
+            <button className="installbanner-x" onClick={dismissApkBanner} aria-label="close">×</button>
+          </div>
+        );
+      })()}
+      {!showApkBanner && showInstallBanner && (
         <div className="installbanner">
           <span className="installbanner-ic" aria-hidden="true">📲</span>
           <div className="installbanner-tx">
@@ -14409,7 +14442,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <button className="installbanner-x" onClick={dismissInstallBanner} aria-label="close">×</button>
         </div>
       )}
-      {!showInstallBanner && showPushBanner && (
+      {!showApkBanner && !showInstallBanner && showPushBanner && (
         <div className="installbanner">
           <span className="installbanner-ic" aria-hidden="true">🔥</span>
           <div className="installbanner-tx">

@@ -7,6 +7,24 @@ that wrote this code (no Xcode/macOS for iOS; the Android SDK download host
 is blocked by that sandbox's network policy), so both need a real machine.
 Everything below is what's already done vs. what's left.
 
+## Current plan: no store accounts, no cost, yet
+
+Chosen for now, to avoid the $99/year Apple + $25 Google fees before there's
+revenue to justify them:
+
+- **Android**: a real native app (with the Voice Tutor), distributed as a
+  direct APK download from the website — no Google Play Console needed at
+  all for this, that fee is only for a Play Store *listing*. See
+  "Android — direct download" below.
+- **iOS**: the existing PWA (Safari → Share → *Add to Home Screen*) — this
+  already works today, nothing new to build. Apple doesn't allow a real
+  native app to be installed from a website without a paid Developer
+  account, full stop, so there's no equivalent free path to a native iOS
+  app. The trade-off: the Voice Tutor stays unavailable on iOS until that
+  changes (it needs native speech recognition, not something the PWA path
+  can provide). The full iOS build steps are still below, for whenever
+  that's worth $99/year.
+
 ## Already done
 
 - `capacitor.config.ts` — appId `com.tigaalpha.tigaai`, bundled `webDir`
@@ -35,7 +53,7 @@ Everything below is what's already done vs. what's left.
   account ($99/year) to run on a real device or publish.
 - Node.js (same version used to develop this app) and this repo cloned.
 
-## Android
+## Android — direct download (current plan, no Play Console account)
 
 ```sh
 npm install
@@ -44,13 +62,38 @@ npx cap sync android
 npx cap open android      # opens the android/ folder in Android Studio
 ```
 
-In Android Studio: let Gradle sync, connect a device or start an emulator,
-then Run. For a signed release build, use Android Studio's **Build > Generate
-Signed Bundle/APK** flow (you'll need to create a signing keystore — keep it
-somewhere safe, losing it means you can never update the app on Google Play
-again under the same listing).
+In Android Studio: **Build > Generate Signed Bundle / APK > APK** (not
+"Android App Bundle" — that format is for Play Store uploads only, a direct
+download needs a plain `.apk`). The first time, click "Create new..." to
+make a signing keystore — save that keystore file and its passwords
+somewhere safe outside this repo; the *same* keystore has to sign every
+future release of this app, on Android or Play Store, forever. Losing it
+means starting over as a brand-new app for anyone who already installed it.
 
-## iOS
+Then, to actually publish it:
+
+```sh
+mkdir -p app
+cp android/app/release/app-release.apk app/tiga-ai.apk   # path may vary slightly by Android Studio version
+```
+
+Edit `version.json`, set `"apkReady": true`, commit and push `app/tiga-ai.apk`
+and `version.json` together. The website will then show an in-app "Get the
+full Android app" banner (Android visitors only) linking straight to that
+file — Android lets users install it after a one-time "allow installs from
+this source" prompt, no Play Store involved.
+
+**Every future update needs this repeated** (rebuild, re-export the signed
+APK, overwrite `app/tiga-ai.apk`, push) *in addition to* `npm run release`
+— the OTA mechanism below updates the JS/UI inside an already-installed
+app, but the very first install always has to come from this APK file.
+
+If you outgrow direct distribution later, the *only* extra thing a real
+Play Store listing needs is a Google Play Console account ($25 one-time)
+and uploading a Bundle instead — nothing about the app itself needs to
+change.
+
+## iOS (later — needs a paid Apple Developer account)
 
 ```sh
 npm install
