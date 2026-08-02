@@ -26,6 +26,9 @@ on:
       - "public/**"
       - ".github/workflows/android-debug-build.yml"
 
+permissions:
+  contents: write   # needed to create/update the release the APK is attached to
+
 jobs:
   build:
     runs-on: ubuntu-latest
