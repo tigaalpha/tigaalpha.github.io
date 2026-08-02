@@ -1,9 +1,17 @@
 import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } from "react";
 import { createClient } from "@supabase/supabase-js";
 import qrcode from "qrcode-generator";
+import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
+import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
+import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
+import { initNativeUpdater } from "./native-updater";
+
+/* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
+   gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
+const isNative = Capacitor.isNativePlatform();
 
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
    No gateway, no fees: money goes directly to the configured PromptPay ID. ── */
@@ -986,6 +994,7 @@ function logUsage(kind, itemId) {
 }
 async function signInWith(provider) {
   try {
+    if (isNative) { await nativeSignInWith(sb, provider); return; } // opens the OS browser; session completes via the appUrlOpen listener
     await sb.auth.signInWithOAuth({
       provider,
       options: { redirectTo: window.location.origin + window.location.pathname },
@@ -1798,6 +1807,10 @@ function ttsSupported() {
 /* speech-to-text (Web Speech API) — powers the AI voice tutor */
 function getSR() {
   if (typeof window === "undefined") return null;
+  // native app (iOS/Android): browser SpeechRecognition doesn't reliably exist inside
+  // Capacitor's WebView — NativeSpeechRecognition wraps the OS's own recognizer instead,
+  // shaped so `new SR()` below works identically either way.
+  if (nativeSTTAvailable()) return NativeSpeechRecognition;
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 function sttSupported() { return !!getSR(); }
@@ -4220,6 +4233,11 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   }
 
   const cards = [
+    // AI Voice Tutor — mobile app only (native STT; no reliable Web Speech API
+    // inside a Capacitor WebView). Always shown with the MAX badge rather than
+    // hidden for non-Max users: tapping it while locked opens the upgrade
+    // prompt instead of the session (see onVoice's own gate where it's passed in).
+    ...(isNative ? [{ k: "voice", ic: "🎙️", c: "#d97757", t: lc.studioVoice, s: lc.studioVoiceSub, fn: onVoice, badge: "👑 MAX" }] : []),
     { k: "today",   ic: "📅", c: "#d97757", t: lc.navToday,        s: T("แผนซ้อมวันนี้ — สร้างใหม่ทุกวันจากความคืบหน้าจริง", "Today's plan — rebuilt daily from your real progress", "今日计划 — 每天根据真实进度生成"), fn: onToday },
     { k: "songs",   ic: "🎵", c: "#d97757", t: lc.studioPlayAlong, s: lc.studioPlayAlongSub, fn: onSongs },
     { k: "quick",   ic: "⚡", c: "#d97757", t: lc.quickTitle,       s: lc.quickSub,          fn: () => { playUi("click"); setQuickOpen(true); } },
@@ -9570,6 +9588,18 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [profileReady, setProfileReady] = useState(false);
+  // one-time "why we ask for mic/camera" disclosure, native app only — the OS's
+  // own permission dialog (with the Info.plist/AndroidManifest usage strings)
+  // still does the real asking; this just explains it first, shown once ever.
+  const [permPrimerOpen, setPermPrimerOpen] = useState(false);
+  useEffect(() => {
+    if (!isNative) return;
+    try { if (!localStorage.getItem("tg_permprimed")) setPermPrimerOpen(true); } catch (e) {}
+  }, []);
+  function dismissPermPrimer() {
+    setPermPrimerOpen(false);
+    try { localStorage.setItem("tg_permprimed", "1"); } catch (e) {}
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -9584,8 +9614,15 @@ export default function App() {
       _accessToken = (s && s.access_token) || null; // kept fresh across silent token refreshes too
       setAuthReady(true);
     });
-    return () => { mounted = false; if (sub && sub.subscription) sub.subscription.unsubscribe(); };
+    // completes signInWith()'s native OAuth flow when the OS hands the app back
+    // control via the custom URL scheme; no-op (returns a no-op cleanup) on web
+    const stopAuthRedirect = listenForNativeAuthRedirect(sb, (err) => {
+      if (err) alert("Sign-in error: " + (err.message || err));
+    });
+    return () => { mounted = false; if (sub && sub.subscription) sub.subscription.unsubscribe(); stopAuthRedirect(); };
   }, []);
+
+  useEffect(() => { initNativeUpdater(APP_VER); }, []); // no-op on web
 
   const loadProfile = useCallback((uid) => {
     setProfileReady(false);
@@ -11595,6 +11632,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     vmProcess(L[langRef.current].vmPlayedCue);            // implicit "I just played — what do you think?"
   }
   function openVoice() {
+    if (!isNative) return; // mobile-app-only feature, by design — never reachable on web
     setVmOpen(true);
     setVmErr(null);
     vmMsgsRef.current = []; setVmMsgs([]);
@@ -11675,6 +11713,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const vmCheckIdleRef = useRef(() => {});
   useEffect(() => { vmCheckIdleRef.current = vmCheckIdle; });
   function startVoiceSession() {
+    if (!isNative) return; // belt-and-suspenders: vmToggle()/vmOrbTap() can re-enter this once the modal is open
     if (!sttSupported()) { setVmErr(L[lang].vmNoSTT); vmSetState("error"); return; }
     getAC();
     vmActiveRef.current = true;
@@ -12869,6 +12908,25 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   return (
     <div className="tg" style={{ opacity: cssReady ? 1 : 0, transition: "opacity .15s" }}>
       <div className="scan" />
+
+      {permPrimerOpen && (() => {
+        const PERM_PRIMER_COPY = {
+          th: { title: "TiGA AI ขอสิทธิ์เข้าถึงบางอย่าง", body: "แอพจะขอใช้ไมโครโฟนสำหรับ AI Voice Tutor และฟังโน้ตที่คุณเล่น และขอใช้กล้องสำหรับ Hand-Posture Coach — ระบบปฏิบัติการจะถามอนุญาตแยกอีกครั้งตอนคุณเปิดใช้ฟีเจอร์นั้นจริง", btn: "เข้าใจแล้ว" },
+          en: { title: "TiGA AI needs a couple of permissions", body: "The app will ask for your microphone for the AI Voice Tutor and to hear the notes you play, and your camera for the Hand-Posture Coach — your OS will prompt you separately the moment you actually open one of those features.", btn: "Got it" },
+          zh: { title: "TiGA AI 需要一些权限", body: "应用会请求麦克风权限用于 AI 语音导师和听取你弹的音符，并请求摄像头权限用于手型指导 — 系统会在你实际打开该功能时另行询问。", btn: "知道了" },
+        };
+        const c = PERM_PRIMER_COPY[lang] || PERM_PRIMER_COPY.en;
+        return (
+          <div className="permprimer-overlay">
+            <div className="permprimer-card">
+              <div className="permprimer-ic">🎙️📷</div>
+              <div className="permprimer-title">{c.title}</div>
+              <div className="permprimer-body">{c.body}</div>
+              <button className="permprimer-btn" onClick={dismissPermPrimer}>{c.btn}</button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* HEADER — hidden on the video feed so it plays truly full-screen (a floating ☰ replaces it there) */}
       {page !== "videos" && <div className="hdr">
