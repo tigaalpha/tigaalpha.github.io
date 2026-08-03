@@ -9,7 +9,16 @@ import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent } from "../_shared/monitor.ts";
 
 // Mirrors features/content/topics.ts CORE_KEYWORDS — every article must include all of these.
-const CORE_KEYWORDS = ["เรียนเปียโน", "สอนเปียโน", "เรียนดนตรี", "สอนดนตรี", "คอร์สเรียนเปียโน", "คอร์สเรียนดนตรี"];
+const CORE_KEYWORDS = [
+  "สอนเปียโน",
+  "เรียนเปียโน",
+  "สอนดนตรี",
+  "เรียนดนตรี",
+  "คอร์สสอนเปียโน",
+  "คอร์สสอนดนตรี",
+  "ครูสอนเปียโนออนไลน์",
+  "ครูสอนดนตรีออนไลน์",
+];
 
 function missingCoreKeywords(title: string, content: string): string[] {
   const haystack = `${title}\n${content}`;
@@ -87,7 +96,8 @@ Deno.serve(async (req: Request) => {
     if (!topic || !targetKeyword) {
       return jsonResponse({ error: "topic and targetKeyword are required" }, 400);
     }
-    const lang = language === "en" ? "en" : "th";
+    const lang = language === "en" || language === "zh" ? language : "th";
+    const langLabel = lang === "en" ? "English" : lang === "zh" ? "Chinese (Simplified, Mandarin)" : "Thai";
 
     // Ground the article in real business facts — same RAG search the
     // customer-facing AI uses, so pricing/teachers/policies can't be invented.
@@ -105,7 +115,7 @@ Deno.serve(async (req: Request) => {
 
     const coreKeywordsList = CORE_KEYWORDS.map((k) => `"${k}"`).join(", ");
     const systemPrompt = `${PROMPTS.seo_writer}\n\n## Required core keywords\nEvery article must naturally include ALL of these core keywords at least once each, in addition to the target keyword: ${coreKeywordsList}. Weave them in naturally across headings/body — never as an unnatural stuffed list.\n\n## Business knowledge base (ground all facts in this — never invent)\n${knowledgeContext}`;
-    const userPrompt = `Write an SEO/AEO article.\nTopic: ${topic}\nTarget keyword: ${targetKeyword}\nLanguage: ${lang === "th" ? "Thai" : "English"}\nRequired core keywords (must all appear): ${coreKeywordsList}\n\nCall return_article with the complete result.`;
+    const userPrompt = `Write an SEO/AEO article.\nTopic: ${topic}\nTarget keyword: ${targetKeyword}\nLanguage: ${langLabel}\nRequired core keywords (must all appear, kept in Thai even if the article body is written in another language — these are the exact Thai search terms this business ranks for): ${coreKeywordsList}\n\nCall return_article with the complete result.`;
 
     let args = await generateArticle(systemPrompt, userPrompt);
     if (!args) {

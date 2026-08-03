@@ -17,7 +17,16 @@ export function pickRandomTopic(): string {
 }
 
 /** Core keywords every generated article must include — mirrored in supabase/functions/generate-article/index.ts. */
-export const CORE_KEYWORDS: string[] = ["เรียนเปียโน", "สอนเปียโน", "เรียนดนตรี", "สอนดนตรี", "คอร์สเรียนเปียโน", "คอร์สเรียนดนตรี"];
+export const CORE_KEYWORDS: string[] = [
+  "สอนเปียโน",
+  "เรียนเปียโน",
+  "สอนดนตรี",
+  "เรียนดนตรี",
+  "คอร์สสอนเปียโน",
+  "คอร์สสอนดนตรี",
+  "ครูสอนเปียโนออนไลน์",
+  "ครูสอนดนตรีออนไลน์",
+];
 
 export function getMissingCoreKeywords(text: string): string[] {
   return CORE_KEYWORDS.filter((k) => !text.includes(k));

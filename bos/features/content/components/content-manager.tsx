@@ -35,17 +35,21 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
+type ArticleLanguage = "th" | "en" | "zh";
+
 export function ContentManager({ articles, onChanged }: ContentManagerProps) {
   const [topic, setTopic] = useState("");
-  const [targetKeyword, setTargetKeyword] = useState("");
-  const [language, setLanguage] = useState<"th" | "en">("th");
+  const [language, setLanguage] = useState<ArticleLanguage>("th");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selected = articles.find((a) => a.id === selectedId) ?? null;
 
-  async function runGenerate(topicValue: string, keywordValue: string, languageValue: "th" | "en") {
+  // No manual keyword field — every article always embeds the full fixed
+  // CORE_KEYWORDS set (see topics.ts) regardless of topic or language; the
+  // topic itself doubles as the target keyword for the title/meta tags.
+  async function runGenerate(topicValue: string, languageValue: ArticleLanguage) {
     setGenerating(true);
     setError(null);
 
@@ -57,12 +61,11 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
         article: Tables<"articles">;
         missingCoreKeywords: string[];
       }>("generate-article", {
-        body: { topic: topicValue, targetKeyword: keywordValue, language: languageValue },
+        body: { topic: topicValue, targetKeyword: topicValue, language: languageValue },
       });
       if (fnError) throw fnError;
 
       setTopic("");
-      setTargetKeyword("");
       onChanged();
       if (data?.article) setSelectedId(data.article.id);
       if (data?.missingCoreKeywords?.length) {
@@ -77,14 +80,13 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
 
   function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
-    void runGenerate(topic, targetKeyword, language);
+    void runGenerate(topic, language);
   }
 
   function handleQuickContent(topicOverride?: string) {
     const picked = topicOverride ?? pickRandomTopic();
     setTopic(picked);
-    setTargetKeyword(picked);
-    void runGenerate(picked, picked, language);
+    void runGenerate(picked, language);
   }
 
   async function handleDelete(id: string) {
@@ -111,7 +113,10 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
       <Card>
         <CardHeader>
           <CardTitle>สร้างบทความใหม่</CardTitle>
-          <CardDescription>AI ค้นข้อมูลจริงจาก Knowledge Base มาเขียนบทความให้ ไม่แต่งราคาหรือข้อมูลเอง</CardDescription>
+          <CardDescription>
+            AI ค้นข้อมูลจริงจาก Knowledge Base มาเขียนบทความให้ ไม่แต่งราคาหรือข้อมูลเอง — ทุกบทความฝังคีย์เวิร์ดหลักไว้อัตโนมัติ
+            (สอนเปียโน, เรียนเปียโน, สอนดนตรี, เรียนดนตรี, คอร์สสอนเปียโน, คอร์สสอนดนตรี, ครูสอนเปียโนออนไลน์, ครูสอนดนตรีออนไลน์)
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleGenerate} className="grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -119,21 +124,16 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
               placeholder="หัวข้อบทความ เช่น สอนเปียโนเด็กเริ่มต้นที่ไหนดี"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              className="md:col-span-2"
-              required
-            />
-            <Input
-              placeholder="คีย์เวิร์ดหลัก เช่น เรียนเปียโนกรุงเทพ"
-              value={targetKeyword}
-              onChange={(e) => setTargetKeyword(e.target.value)}
+              className="md:col-span-3"
               required
             />
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value as "th" | "en")}
+              onChange={(e) => setLanguage(e.target.value as ArticleLanguage)}
               className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               <option value="th">ภาษาไทย</option>
+              <option value="zh">จีนกลาง (中文)</option>
               <option value="en">English</option>
             </select>
             {error ? <p className="text-xs text-danger md:col-span-4">{error}</p> : null}
