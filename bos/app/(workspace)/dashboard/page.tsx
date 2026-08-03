@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CalendarClock, MessagesSquare, Clock3, Users2, CalendarPlus, Hourglass, Wallet, Bot } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
@@ -8,6 +8,7 @@ import { StatCard } from "@/features/dashboard/components/stat-card";
 import { LessonListCard } from "@/features/dashboard/components/lesson-list-card";
 import { SalesFunnelCard } from "@/features/dashboard/components/sales-funnel-card";
 import { NotificationsCard } from "@/features/dashboard/components/notifications-card";
+import { BusinessSnapshotCard } from "@/features/dashboard/components/business-snapshot-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
 import type { SalesStatus, Tables } from "@/types/database";
@@ -23,12 +24,13 @@ interface DashboardData {
   remainingHours: number;
   revenue: number;
   aiResolutionRate: number;
+  businessSnapshot: Tables<"business_snapshot"> | null;
 }
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     const repos = createRepositories(createClient());
 
     Promise.all([
@@ -42,6 +44,7 @@ export default function DashboardPage() {
       repos.courses.sumRemainingHours(),
       repos.courses.totalRevenue(),
       repos.conversations.aiResolutionStats(),
+      repos.businessSnapshot.get(),
     ]).then(
       ([
         today,
@@ -54,6 +57,7 @@ export default function DashboardPage() {
         remainingHours,
         revenue,
         aiStats,
+        businessSnapshot,
       ]) => {
         setData({
           today,
@@ -66,10 +70,15 @@ export default function DashboardPage() {
           remainingHours,
           revenue,
           aiResolutionRate: aiStats.resolutionRate,
+          businessSnapshot,
         });
       }
     );
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   if (!data) {
     return (
@@ -88,7 +97,19 @@ export default function DashboardPage() {
     );
   }
 
-  const { today, tomorrow, funnel, notifications, conversations, nearRenewal, pendingBookings, remainingHours, revenue, aiResolutionRate } = data;
+  const {
+    today,
+    tomorrow,
+    funnel,
+    notifications,
+    conversations,
+    nearRenewal,
+    pendingBookings,
+    remainingHours,
+    revenue,
+    aiResolutionRate,
+    businessSnapshot,
+  } = data;
 
   return (
     <div className="space-y-6">
@@ -126,6 +147,8 @@ export default function DashboardPage() {
         <SalesFunnelCard counts={funnel} />
         <NotificationsCard notifications={notifications} />
       </div>
+
+      <BusinessSnapshotCard snapshot={businessSnapshot} onChanged={reload} />
     </div>
   );
 }

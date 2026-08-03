@@ -345,6 +345,24 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["transactions"]["Row"]>;
         Relationships: [];
       };
+      business_snapshot: {
+        Row: {
+          id: string;
+          active_students: number | null;
+          teaching_hours_per_week: number | null;
+          avg_monthly_hours: number | null;
+          sales_policy: string | null;
+          cac: number | null;
+          ltv_min: number | null;
+          ltv_max: number | null;
+          note: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["business_snapshot"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["business_snapshot"]["Row"]>;
+        Relationships: [];
+      };
       generated_images: {
         Row: {
           id: string;
