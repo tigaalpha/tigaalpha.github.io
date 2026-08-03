@@ -21,12 +21,12 @@ const CANVAS_WIDTH = 720;
 const CANVAS_HEIGHT = 1280;
 const FPS = 30;
 
-type VideoProvider = "veo" | "seedance-2" | "seedance-2-5";
+type VideoProvider = "veo" | "seedance-2" | "seedance-2-fast";
 
 const PROVIDERS: { id: VideoProvider; label: string; costLowPerSec: number; costHighPerSec: number }[] = [
   { id: "veo", label: "Veo 3 Fast (Google)", costLowPerSec: 0.1, costHighPerSec: 0.15 },
   { id: "seedance-2", label: "Seedance 2.0 (fal.ai)", costLowPerSec: 0.03, costHighPerSec: 0.05 },
-  { id: "seedance-2-5", label: "Seedance 2.5 (fal.ai)", costLowPerSec: 0.04, costHighPerSec: 0.07 },
+  { id: "seedance-2-fast", label: "Seedance 2.0 Fast (fal.ai, ถูกสุด)", costLowPerSec: 0.015, costHighPerSec: 0.03 },
 ];
 
 function imageDataUrl(row: Tables<"generated_images">): string {

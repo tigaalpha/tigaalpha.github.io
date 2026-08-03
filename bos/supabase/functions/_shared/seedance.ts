@@ -3,17 +3,17 @@ import type { SourceImage } from "./veo.ts";
 
 // fal.ai's queue API is the same shape across models — submit, poll a
 // status_url, then fetch the result from a response_url once COMPLETED.
-// Model slugs and request/response field names are best-effort here
-// (configurable via env vars) since fal.ai's catalog can change; this may
-// need a small correction once tested against a real FAL_API_KEY.
-export type SeedanceVariant = "seedance-2" | "seedance-2-5";
+// Model slugs confirmed against fal.ai's own docs/GitHub examples
+// (bytedance/seedance-2.0/*) — "Seedance 2.5" isn't a live fal.ai model
+// yet (only announced), so this offers the confirmed 2.0 standard/fast
+// tiers instead of a guessed, nonexistent slug.
+export type SeedanceVariant = "seedance-2" | "seedance-2-fast";
 
 const DURATIONS = [4, 8];
 
 function falModelId(variant: SeedanceVariant): string {
-  const envKey = variant === "seedance-2" ? "FAL_SEEDANCE_2_MODEL" : "FAL_SEEDANCE_2_5_MODEL";
-  const fallback =
-    variant === "seedance-2" ? "fal-ai/bytedance/seedance/v2/image-to-video" : "fal-ai/bytedance/seedance/v2.5/image-to-video";
+  const envKey = variant === "seedance-2" ? "FAL_SEEDANCE_2_MODEL" : "FAL_SEEDANCE_2_FAST_MODEL";
+  const fallback = variant === "seedance-2" ? "bytedance/seedance-2.0/image-to-video" : "bytedance/seedance-2.0/fast/image-to-video";
   return Deno.env.get(envKey) ?? fallback;
 }
 
@@ -33,8 +33,10 @@ export async function startSeedanceClip(
     body: JSON.stringify({
       image_url: `data:${image.mime_type};base64,${image.image_base64}`,
       prompt: image.prompt,
+      resolution: "720p",
       duration: String(durationSeconds),
       aspect_ratio: "9:16",
+      generate_audio: false,
     }),
   });
 

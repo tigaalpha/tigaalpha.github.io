@@ -4,7 +4,7 @@ import { startSeedanceClip, type SeedanceVariant } from "./seedance.ts";
 
 export type VideoProvider = "veo" | SeedanceVariant;
 
-export const VIDEO_PROVIDERS: VideoProvider[] = ["veo", "seedance-2", "seedance-2-5"];
+export const VIDEO_PROVIDERS: VideoProvider[] = ["veo", "seedance-2", "seedance-2-fast"];
 
 export function isVideoProvider(value: unknown): value is VideoProvider {
   return typeof value === "string" && (VIDEO_PROVIDERS as string[]).includes(value);

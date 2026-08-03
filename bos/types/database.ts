@@ -387,7 +387,7 @@ export interface Database {
           id: string;
           source_image_id: string | null;
           status: "processing" | "done" | "error";
-          provider: "veo" | "seedance-2" | "seedance-2-5";
+          provider: "veo" | "seedance-2" | "seedance-2-fast";
           operation_name: string | null;
           duration_seconds: number;
           mime_type: string | null;
