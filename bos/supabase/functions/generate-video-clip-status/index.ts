@@ -3,6 +3,7 @@ import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { checkSeedanceClip } from "../_shared/seedance.ts";
+import { logSystemEvent } from "../_shared/monitor.ts";
 
 // Google's long-running-operation response shape for video generation has
 // shifted across Veo API revisions, so this checks a couple of known
@@ -65,12 +66,15 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+  let clipIdForLogging: string | null = null;
+
   try {
-    const admin = createAdminClient();
     await requireStaff(admin, req);
 
     const { videoClipId } = await req.json();
     if (!videoClipId || typeof videoClipId !== "string") return jsonResponse({ error: "videoClipId is required" }, 400);
+    clipIdForLogging = videoClipId;
 
     const { data: clip, error: clipErr } = await admin.from("video_clips").select("*").eq("id", videoClipId).maybeSingle();
     if (clipErr) throw clipErr;
@@ -139,6 +143,8 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ videoClip: updated });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await logSystemEvent(admin, "generate-video-clip-status", "error", `clip=${clipIdForLogging ?? "?"} ${message}`);
+    return jsonResponse({ error: message }, 500);
   }
 });
