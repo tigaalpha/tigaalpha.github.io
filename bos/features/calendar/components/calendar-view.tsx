@@ -37,7 +37,7 @@ export function CalendarView({ events, externalEvents = [] }: { events: Calendar
   }
 
   return (
-    <div className="rounded-2xl border border-line/5 bg-card p-4 shadow-soft [--fc-border-color:rgba(18,18,18,0.06)] [--fc-today-bg-color:rgba(255,95,162,0.06)]">
+    <div className="rounded-2xl border border-line/5 bg-card p-4 shadow-soft [--fc-border-color:rgba(18,18,18,0.06)] [--fc-today-bg-color:rgba(255,95,162,0.06)] [&_.fc-event-title]:text-[11px] [&_.fc-event-time]:text-[11px] [&_.fc-daygrid-event]:font-normal">
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"
@@ -46,6 +46,7 @@ export function CalendarView({ events, externalEvents = [] }: { events: Calendar
         slotMinTime="08:00:00"
         slotMaxTime="21:00:00"
         nowIndicator
+        views={{ dayGridMonth: { displayEventTime: false } }}
         eventClick={handleEventClick}
         events={[
           ...events.map((event) => ({
