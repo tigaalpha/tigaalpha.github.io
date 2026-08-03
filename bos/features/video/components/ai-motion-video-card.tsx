@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, Download, Film } from "lucide-react";
+import { Sparkles, Download, Film, HardDrive, ExternalLink } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,18 @@ function playAndDraw(clip: Tables<"video_clips">, ctx: CanvasRenderingContext2D)
   });
 }
 
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1] ?? "");
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 /**
  * Real image-to-video generation (Veo) — the source image actually moves,
  * unlike VerticalVideoStudio's free slideshow which only crossfades stills.
@@ -114,7 +126,11 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
   const [batchClipIds, setBatchClipIds] = useState<string[] | null>(null);
   const [combining, setCombining] = useState(false);
   const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null);
+  const [combinedVideoBlob, setCombinedVideoBlob] = useState<Blob | null>(null);
   const [combineNote, setCombineNote] = useState<string | null>(null);
+  const [savingToDrive, setSavingToDrive] = useState(false);
+  const [driveViewUrl, setDriveViewUrl] = useState<string | null>(null);
+  const [driveError, setDriveError] = useState<string | null>(null);
   const inFlight = useRef<Set<string>>(new Set());
   const combinedForBatch = useRef<string | null>(null);
 
@@ -178,6 +194,9 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
     setCombining(true);
     setCombineNote(null);
     setCombinedVideoUrl(null);
+    setCombinedVideoBlob(null);
+    setDriveViewUrl(null);
+    setDriveError(null);
 
     try {
       const canvas = document.createElement("canvas");
@@ -205,6 +224,7 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
 
       const blob = new Blob(chunks, { type: "video/webm" });
       setCombinedVideoUrl(URL.createObjectURL(blob));
+      setCombinedVideoBlob(blob);
       if (successful.length < clips.length) {
         setCombineNote(`รวมสำเร็จ ${successful.length}/${clips.length} คลิป (บางคลิปสร้างไม่สำเร็จ จึงข้ามไป)`);
       }
@@ -219,7 +239,10 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
     setStarting(true);
     setError(null);
     setCombinedVideoUrl(null);
+    setCombinedVideoBlob(null);
     setCombineNote(null);
+    setDriveViewUrl(null);
+    setDriveError(null);
     combinedForBatch.current = null;
 
     try {
@@ -243,6 +266,26 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
       setError(await describeFunctionError(err));
     } finally {
       setStarting(false);
+    }
+  }
+
+  async function handleSaveCombinedToDrive() {
+    if (!combinedVideoBlob) return;
+    setSavingToDrive(true);
+    setDriveError(null);
+    try {
+      const videoBase64 = await blobToBase64(combinedVideoBlob);
+      const supabase = createClient();
+      const { data, error: fnError } = await supabase.functions.invoke<{ driveViewUrl: string }>("drive-upload-video", {
+        body: { videoBase64, mimeType: "video/webm" },
+      });
+      if (fnError) throw fnError;
+      if (!data) throw new Error("Empty response from drive-upload-video");
+      setDriveViewUrl(data.driveViewUrl);
+    } catch (err) {
+      setDriveError(await describeFunctionError(err));
+    } finally {
+      setSavingToDrive(false);
     }
   }
 
@@ -378,6 +421,20 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
                     ดาวน์โหลดวิดีโอรวม (.webm)
                   </Button>
                 </a>
+                {driveError ? <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{driveError}</p> : null}
+                {driveViewUrl ? (
+                  <a href={driveViewUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" className="w-full text-success">
+                      <ExternalLink className="h-4 w-4" />
+                      เปิดใน Google Drive
+                    </Button>
+                  </a>
+                ) : (
+                  <Button variant="outline" className="w-full" onClick={() => void handleSaveCombinedToDrive()} disabled={savingToDrive}>
+                    <HardDrive className="h-4 w-4" />
+                    {savingToDrive ? "กำลังบันทึกไปยัง Google Drive…" : "บันทึกไปยัง Google Drive"}
+                  </Button>
+                )}
               </div>
             ) : combineNote ? (
               <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{combineNote}</p>
