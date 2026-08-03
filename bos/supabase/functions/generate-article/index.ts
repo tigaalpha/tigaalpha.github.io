@@ -8,21 +8,35 @@ import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent } from "../_shared/monitor.ts";
 
-// Mirrors features/content/topics.ts CORE_KEYWORDS — every article must include all of these.
-const CORE_KEYWORDS = [
-  "สอนเปียโน",
-  "เรียนเปียโน",
-  "สอนดนตรี",
-  "เรียนดนตรี",
-  "คอร์สสอนเปียโน",
-  "คอร์สสอนดนตรี",
-  "ครูสอนเปียโนออนไลน์",
-  "ครูสอนดนตรีออนไลน์",
-];
+// Mirrors features/content/topics.ts CORE_KEYWORDS_BY_LANG — every article must include all of these,
+// translated per language (same meaning, same order across the three lists).
+const CORE_KEYWORDS_BY_LANG: Record<"th" | "en" | "zh", string[]> = {
+  th: [
+    "สอนเปียโน",
+    "เรียนเปียโน",
+    "สอนดนตรี",
+    "เรียนดนตรี",
+    "คอร์สสอนเปียโน",
+    "คอร์สสอนดนตรี",
+    "ครูสอนเปียโนออนไลน์",
+    "ครูสอนดนตรีออนไลน์",
+  ],
+  en: [
+    "piano teaching",
+    "learn piano",
+    "music teaching",
+    "learn music",
+    "piano course",
+    "music course",
+    "online piano teacher",
+    "online music teacher",
+  ],
+  zh: ["钢琴教学", "学钢琴", "音乐教学", "学音乐", "钢琴课程", "音乐课程", "在线钢琴老师", "在线音乐老师"],
+};
 
-function missingCoreKeywords(title: string, content: string): string[] {
+function missingCoreKeywords(title: string, content: string, lang: "th" | "en" | "zh"): string[] {
   const haystack = `${title}\n${content}`;
-  return CORE_KEYWORDS.filter((k) => !haystack.includes(k));
+  return CORE_KEYWORDS_BY_LANG[lang].filter((k) => !haystack.includes(k));
 }
 
 const RETURN_ARTICLE_TOOL: ToolDefinition = {
@@ -113,9 +127,10 @@ Deno.serve(async (req: Request) => {
       ? (matches as { content: string }[]).map((m, i) => `[${i + 1}] ${m.content}`).join("\n\n")
       : "No matching knowledge base entries found — write in general, honest terms and avoid specific claims (exact prices, teacher names) that aren't verifiable.";
 
-    const coreKeywordsList = CORE_KEYWORDS.map((k) => `"${k}"`).join(", ");
-    const systemPrompt = `${PROMPTS.seo_writer}\n\n## Required core keywords\nEvery article must naturally include ALL of these core keywords at least once each, in addition to the target keyword: ${coreKeywordsList}. Weave them in naturally across headings/body — never as an unnatural stuffed list.\n\n## Business knowledge base (ground all facts in this — never invent)\n${knowledgeContext}`;
-    const userPrompt = `Write an SEO/AEO article.\nTopic: ${topic}\nTarget keyword: ${targetKeyword}\nLanguage: ${langLabel}\nRequired core keywords (must all appear, kept in Thai even if the article body is written in another language — these are the exact Thai search terms this business ranks for): ${coreKeywordsList}\n\nCall return_article with the complete result.`;
+    const coreKeywords = CORE_KEYWORDS_BY_LANG[lang];
+    const coreKeywordsList = coreKeywords.map((k) => `"${k}"`).join(", ");
+    const systemPrompt = `${PROMPTS.seo_writer}\n\n## Required core keywords\nEvery article must naturally include ALL of these core keywords at least once each, in addition to the target keyword: ${coreKeywordsList}. These are already translated into ${langLabel} with the same meaning as the business's Thai search terms — use them exactly as given, do not translate them again or substitute synonyms. Weave them in naturally across headings/body — never as an unnatural stuffed list.\n\n## Business knowledge base (ground all facts in this — never invent)\n${knowledgeContext}`;
+    const userPrompt = `Write an SEO/AEO article.\nTopic: ${topic}\nTarget keyword: ${targetKeyword}\nLanguage: ${langLabel}\nRequired core keywords (must all appear exactly as written, already translated into ${langLabel}): ${coreKeywordsList}\n\nCall return_article with the complete result.`;
 
     let args = await generateArticle(systemPrompt, userPrompt);
     if (!args) {
@@ -124,13 +139,13 @@ Deno.serve(async (req: Request) => {
 
     // One retry if the model missed any required core keyword — cheap
     // insurance against an instruction the model just glossed over.
-    let missing = missingCoreKeywords(args.title, args.articleMarkdown);
+    let missing = missingCoreKeywords(args.title, args.articleMarkdown, lang);
     if (missing.length > 0) {
       const retryPrompt = `${userPrompt}\n\nYour previous draft was missing these required core keywords: ${missing.map((k) => `"${k}"`).join(", ")}. Rewrite the complete article so every required core keyword appears naturally, then call return_article again with the full corrected result.`;
       const retried = await generateArticle(systemPrompt, retryPrompt);
       if (retried) {
         args = retried;
-        missing = missingCoreKeywords(args.title, args.articleMarkdown);
+        missing = missingCoreKeywords(args.title, args.articleMarkdown, lang);
       }
     }
 

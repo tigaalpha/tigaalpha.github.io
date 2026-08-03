@@ -10,12 +10,17 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn, describeFunctionError } from "@/lib/utils";
-import { STANDING_TOPICS, pickRandomTopic, getMissingCoreKeywords } from "@/features/content/topics";
+import { STANDING_TOPICS, pickRandomTopic, getMissingCoreKeywords, CORE_KEYWORDS_BY_LANG } from "@/features/content/topics";
+import type { ArticleLanguage } from "@/features/content/topics";
 import type { ArticleStatus, Tables } from "@/types/database";
 
 interface ContentManagerProps {
   articles: Tables<"articles">[];
   onChanged: () => void;
+}
+
+function toArticleLanguage(lang: string): ArticleLanguage {
+  return lang === "en" || lang === "zh" ? lang : "th";
 }
 
 function CopyButton({ value }: { value: string }) {
@@ -34,8 +39,6 @@ function CopyButton({ value }: { value: string }) {
     </Button>
   );
 }
-
-type ArticleLanguage = "th" | "en" | "zh";
 
 export function ContentManager({ articles, onChanged }: ContentManagerProps) {
   const [topic, setTopic] = useState("");
@@ -115,7 +118,7 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
           <CardTitle>สร้างบทความใหม่</CardTitle>
           <CardDescription>
             AI ค้นข้อมูลจริงจาก Knowledge Base มาเขียนบทความให้ ไม่แต่งราคาหรือข้อมูลเอง — ทุกบทความฝังคีย์เวิร์ดหลักไว้อัตโนมัติ
-            (สอนเปียโน, เรียนเปียโน, สอนดนตรี, เรียนดนตรี, คอร์สสอนเปียโน, คอร์สสอนดนตรี, ครูสอนเปียโนออนไลน์, ครูสอนดนตรีออนไลน์)
+            แปลตามภาษาที่เลือกโดยความหมายเดิม ({CORE_KEYWORDS_BY_LANG[language].join(", ")})
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -197,7 +200,7 @@ export function ContentManager({ articles, onChanged }: ContentManagerProps) {
                           {article.status === "published" ? "เผยแพร่แล้ว" : "ฉบับร่าง"}
                         </Badge>
                         <span className="text-xs text-secondary/40">{article.target_keyword}</span>
-                        {getMissingCoreKeywords(`${article.title}\n${article.content}`).length > 0 ? (
+                        {getMissingCoreKeywords(`${article.title}\n${article.content}`, toArticleLanguage(article.language)).length > 0 ? (
                           <Badge variant="warning">ขาดคีย์เวิร์ด</Badge>
                         ) : null}
                       </div>
@@ -246,7 +249,7 @@ function ArticleEditor({
   const [dirty, setDirty] = useState(false);
 
   const fullMarkdown = `# ${title}\n\n${content}`;
-  const missingKeywords = getMissingCoreKeywords(`${title}\n${content}`);
+  const missingKeywords = getMissingCoreKeywords(`${title}\n${content}`, toArticleLanguage(article.language));
 
   function markDirty<T>(setter: (v: T) => void) {
     return (v: T) => {
