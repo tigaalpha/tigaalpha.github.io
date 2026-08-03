@@ -382,6 +382,25 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["generated_images"]["Row"]>;
         Relationships: [];
       };
+      video_clips: {
+        Row: {
+          id: string;
+          source_image_id: string | null;
+          status: "processing" | "done" | "error";
+          operation_name: string | null;
+          duration_seconds: number;
+          mime_type: string | null;
+          video_base64: string | null;
+          error_message: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["video_clips"]["Row"]> & {
+          duration_seconds: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["video_clips"]["Row"]>;
+        Relationships: [];
+      };
       video_scripts: {
         Row: {
           id: string;
