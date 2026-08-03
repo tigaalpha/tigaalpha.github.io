@@ -12,6 +12,24 @@ import type { GoogleCalendarConnectionSummary } from "@/services/repositories/go
 const RANGE_DAYS_BACK = 14;
 const RANGE_DAYS_FORWARD = 45;
 
+// Titles from teachers' personal Google Calendars lead with the lesson
+// number (e.g. "13แดง" = student "แดง", lesson 13) — color-code the first
+// and last lesson of a course the same yellow/green convention as the
+// internal Bookings calendar, instead of leaving every session the same
+// flat Google Calendar color.
+const FIRST_LESSON_COLOR = "#FFC107";
+const FINAL_LESSON_COLOR = "#00C853";
+const FINAL_LESSON_NUMBERS = new Set([10, 20, 40, 80]);
+
+function lessonNumberColor(title: string): string | null {
+  const match = title.trim().match(/^(\d+)/);
+  if (!match) return null;
+  const lessonNumber = Number(match[1]);
+  if (lessonNumber === 1) return FIRST_LESSON_COLOR;
+  if (FINAL_LESSON_NUMBERS.has(lessonNumber)) return FINAL_LESSON_COLOR;
+  return null;
+}
+
 interface GcalEventsResponse {
   connections: {
     connectionId: string;
@@ -56,7 +74,15 @@ export default function CalendarPage() {
     });
     if (!data) return;
     setExternalEvents(
-      data.connections.flatMap((conn) => conn.events.map((e) => ({ id: `${conn.connectionId}:${e.id}`, title: `${e.title} (${conn.label})`, start: e.start, end: e.end, color: e.color })))
+      data.connections.flatMap((conn) =>
+        conn.events.map((e) => ({
+          id: `${conn.connectionId}:${e.id}`,
+          title: `${e.title} (${conn.label})`,
+          start: e.start,
+          end: e.end,
+          color: lessonNumberColor(e.title) ?? e.color,
+        }))
+      )
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
