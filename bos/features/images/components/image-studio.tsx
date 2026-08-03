@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Image as ImageIcon, Sparkles, Trash2, Download } from "lucide-react";
+import { Image as ImageIcon, Sparkles, Trash2, Download, HardDrive, ExternalLink } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,13 +20,18 @@ function dataUrl(row: Tables<"generated_images">): string {
   return `data:${row.mime_type};base64,${row.image_base64}`;
 }
 
+const QUICK_PROMPT = "Cute Chinese girl or guy playing piano, cyberpunk style, neon lighting, vertical portrait";
+
 export function ImageStudio({ images, onChanged }: ImageStudioProps) {
   const [prompt, setPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [driveError, setDriveError] = useState<string | null>(null);
 
-  async function handleGenerate() {
-    if (!prompt.trim()) return;
+  async function handleGenerate(promptOverride?: string) {
+    const finalPrompt = (promptOverride ?? prompt).trim();
+    if (!finalPrompt) return;
     setGenerating(true);
     setError(null);
 
@@ -34,7 +39,7 @@ export function ImageStudio({ images, onChanged }: ImageStudioProps) {
       const supabase = createClient();
       const { data, error: fnError } = await supabase.functions.invoke<{ image: Tables<"generated_images"> }>(
         "generate-image",
-        { body: { prompt: prompt.trim() } }
+        { body: { prompt: finalPrompt } }
       );
       if (fnError) throw fnError;
       if (!data) throw new Error("Empty response from generate-image");
@@ -54,6 +59,24 @@ export function ImageStudio({ images, onChanged }: ImageStudioProps) {
     onChanged();
   }
 
+  async function handleSaveToDrive(id: string) {
+    setUploadingId(id);
+    setDriveError(null);
+    try {
+      const supabase = createClient();
+      const { data, error: fnError } = await supabase.functions.invoke<{ driveViewUrl: string }>("drive-upload-image", {
+        body: { imageId: id },
+      });
+      if (fnError) throw fnError;
+      if (!data) throw new Error("Empty response from drive-upload-image");
+      onChanged();
+    } catch (err) {
+      setDriveError(await describeFunctionError(err));
+    } finally {
+      setUploadingId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -68,6 +91,16 @@ export function ImageStudio({ images, onChanged }: ImageStudioProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-start gap-2"
+            onClick={() => void handleGenerate(QUICK_PROMPT)}
+            disabled={generating}
+          >
+            <Sparkles className="h-4 w-4 text-primary-accent" />
+            {generating ? "กำลังสร้างภาพ…" : "สร้างด่วน: เด็กเล่นเปียโนสไตล์ Cyberpunk"}
+          </Button>
           <Textarea
             placeholder="อธิบายภาพที่ต้องการ…"
             value={prompt}
@@ -86,6 +119,7 @@ export function ImageStudio({ images, onChanged }: ImageStudioProps) {
           <CardTitle>ภาพที่สร้างไว้ ({images.length})</CardTitle>
         </CardHeader>
         <CardContent>
+          {driveError ? <p className="mb-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{driveError}</p> : null}
           {images.length === 0 ? (
             <EmptyState icon={ImageIcon} title="ยังไม่มีภาพ" description="สร้างภาพแรกได้จากฟอร์มด้านบน" />
           ) : (
@@ -100,6 +134,24 @@ export function ImageStudio({ images, onChanged }: ImageStudioProps) {
                         <Download className="h-4 w-4" />
                       </Button>
                     </a>
+                    {img.drive_view_url ? (
+                      <a href={img.drive_view_url} target="_blank" rel="noopener noreferrer">
+                        <Button variant="ghost" size="icon" className="text-success hover:text-success" title="เปิดใน Google Drive">
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-white hover:text-white"
+                        title="บันทึกไปยัง Google Drive"
+                        onClick={() => void handleSaveToDrive(img.id)}
+                        disabled={uploadingId === img.id}
+                      >
+                        <HardDrive className={uploadingId === img.id ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="text-white hover:text-white" onClick={() => void handleDelete(img.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>

@@ -369,6 +369,8 @@ export interface Database {
           prompt: string;
           mime_type: string;
           image_base64: string;
+          drive_file_id: string | null;
+          drive_view_url: string | null;
           created_by: string | null;
           created_at: string;
         };

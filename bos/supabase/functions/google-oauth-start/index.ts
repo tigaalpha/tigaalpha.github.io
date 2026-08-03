@@ -3,7 +3,10 @@ import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 
-const SCOPE = "https://www.googleapis.com/auth/calendar";
+// drive.file: only touches files this app itself creates, never the user's
+// existing Drive content — enough to save generated images without asking
+// for broad Drive access.
+const SCOPE = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive.file";
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 Deno.serve(async (req: Request) => {

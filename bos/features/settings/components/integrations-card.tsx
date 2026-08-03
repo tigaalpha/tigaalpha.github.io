@@ -255,6 +255,10 @@ export function IntegrationsCard() {
             </p>
             <p>3. เพิ่ม Redirect URI นี้ใน Google Cloud Console → Authorized redirect URIs:</p>
           </div>
+          <p className="text-xs text-secondary/50">
+            การเชื่อมต่อนี้ตอนนี้ขอสิทธิ์ Google Drive (เฉพาะไฟล์ที่แอปสร้างเอง) เพิ่มด้วย สำหรับบันทึกภาพจาก Image Studio — ถ้าเคยเชื่อมต่อไว้ก่อนหน้านี้แล้ว
+            ต้องกด Connect ใหม่อีกครั้งเพื่อขอสิทธิ์ Drive เพิ่ม
+          </p>
           <CopyField value={googleRedirectUri} />
           <div className="flex items-end gap-2 pt-2">
             <Input placeholder="Google Client ID" value={clientId} onChange={(e) => setClientId(e.target.value)} />
