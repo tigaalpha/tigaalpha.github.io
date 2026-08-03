@@ -57,6 +57,8 @@ export function IntegrationsCard() {
   const [savingOwnerLineId, setSavingOwnerLineId] = useState(false);
   const [metaAppId, setMetaAppId] = useState("");
   const [savingMetaAppId, setSavingMetaAppId] = useState(false);
+  const [metaConfigId, setMetaConfigId] = useState("");
+  const [savingMetaConfigId, setSavingMetaConfigId] = useState(false);
   const [connectingMeta, setConnectingMeta] = useState(false);
   const [facebookAccount, setFacebookAccount] = useState<{ account_name: string } | null | undefined>(undefined);
   const [connecting, setConnecting] = useState(false);
@@ -88,6 +90,7 @@ export function IntegrationsCard() {
     repos.integrations.get("google_client_id").then((v) => setClientId(v ?? ""));
     repos.integrations.get("owner_line_user_id").then((v) => setOwnerLineId(v ?? ""));
     repos.integrations.get("meta_app_id").then((v) => setMetaAppId(v ?? ""));
+    repos.integrations.get("meta_login_config_id").then((v) => setMetaConfigId(v ?? ""));
     supabase
       .from("social_accounts")
       .select("account_name")
@@ -152,6 +155,14 @@ export function IntegrationsCard() {
     const repos = createRepositories(createClient());
     await repos.integrations.set("meta_app_id", metaAppId.trim());
     setSavingMetaAppId(false);
+  }
+
+  async function saveMetaConfigId() {
+    if (!metaConfigId.trim()) return;
+    setSavingMetaConfigId(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("meta_login_config_id", metaConfigId.trim());
+    setSavingMetaConfigId(false);
   }
 
   async function connectMeta() {
@@ -340,6 +351,21 @@ export function IntegrationsCard() {
             <Input placeholder="Meta App ID" value={metaAppId} onChange={(e) => setMetaAppId(e.target.value)} />
             <Button variant="outline" onClick={() => void saveMetaAppId()} disabled={savingMetaAppId || !metaAppId.trim()}>
               {savingMetaAppId ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+          <div className="space-y-1 pt-2 text-sm text-secondary/70">
+            <p>
+              4. สิทธิ์สำหรับ Page (pages_show_list, pages_manage_posts, pages_read_engagement) ต้องมาจากโปรดักต์{" "}
+              <b>&quot;Facebook Login for Business&quot;</b> เท่านั้น — ถ้าแอปมีแค่ &quot;Facebook Login&quot; ธรรมดา จะเจอ
+              Error &quot;Invalid Scopes&quot; ตอน Connect ให้เพิ่มโปรดักต์นี้ในแอป → เมนูซ้าย <b>Facebook Login for Business</b> →{" "}
+              <b>Configurations</b> → Create Configuration → เลือก Use Case &quot;Manage everything on your Page&quot; หรือติ๊กสิทธิ์ทั้ง 3
+              ตัวข้างต้นเอง → เลือก Page ที่จะเชื่อม → Create แล้วคัดลอก <b>Configuration ID</b> มาวางด้านล่างนี้
+            </p>
+          </div>
+          <div className="flex items-end gap-2">
+            <Input placeholder="Meta Login Configuration ID" value={metaConfigId} onChange={(e) => setMetaConfigId(e.target.value)} />
+            <Button variant="outline" onClick={() => void saveMetaConfigId()} disabled={savingMetaConfigId || !metaConfigId.trim()}>
+              {savingMetaConfigId ? "กำลังบันทึก…" : "บันทึก"}
             </Button>
           </div>
           <Button className="w-full" onClick={() => void connectMeta()} disabled={connectingMeta || !metaAppId.trim()}>

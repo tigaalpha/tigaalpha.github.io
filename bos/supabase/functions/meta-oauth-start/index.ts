@@ -6,6 +6,14 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 // Minimum scope to read the Page list and publish text posts to a Page feed.
 // Instagram publishing needs additional scopes + a media URL and isn't wired
 // up yet — see social-publish/index.ts.
+//
+// pages_show_list / pages_manage_posts / pages_read_engagement are only valid
+// scopes under the "Facebook Login for Business" product — plain "Facebook
+// Login" rejects them with "Invalid Scopes". Business Login doesn't take a
+// scope param at all; permissions come from a Configuration created in the
+// App Dashboard (Facebook Login for Business > Configurations), referenced
+// here by its Configuration ID. Fall back to the legacy scope param only if
+// no Configuration ID has been set, for apps still on plain Facebook Login.
 const SCOPE = "pages_show_list,pages_manage_posts,pages_read_engagement";
 const STATE_TTL_MS = 10 * 60 * 1000;
 
@@ -17,8 +25,12 @@ Deno.serve(async (req: Request) => {
     const admin = createAdminClient();
     const userId = await requireStaff(admin, req);
 
-    const { data: row } = await admin.from("integration_settings").select("value").eq("key", "meta_app_id").maybeSingle();
-    const appId = row?.value;
+    const { data: rows } = await admin
+      .from("integration_settings")
+      .select("key, value")
+      .in("key", ["meta_app_id", "meta_login_config_id"]);
+    const appId = rows?.find((r) => r.key === "meta_app_id")?.value;
+    const configId = rows?.find((r) => r.key === "meta_login_config_id")?.value;
     if (!appId) {
       return jsonResponse({ error: "Set the Meta App ID in Settings > Integrations first." }, 400);
     }
@@ -39,8 +51,12 @@ Deno.serve(async (req: Request) => {
     url.searchParams.set("client_id", appId);
     url.searchParams.set("redirect_uri", redirectUri);
     url.searchParams.set("response_type", "code");
-    url.searchParams.set("scope", SCOPE);
     url.searchParams.set("state", state);
+    if (configId) {
+      url.searchParams.set("config_id", configId);
+    } else {
+      url.searchParams.set("scope", SCOPE);
+    }
 
     return jsonResponse({ url: url.toString(), redirectUri });
   } catch (error) {
