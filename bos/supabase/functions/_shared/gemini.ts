@@ -208,10 +208,16 @@ interface GeneratedImage {
 }
 
 async function generateImage(prompt: string): Promise<GeneratedImage> {
+  // Every image here feeds vertical-video content (see Image Studio), so
+  // request a 9:16 portrait render directly instead of generating square
+  // and cropping afterward.
   const response = await fetchWithRetry(`${BASE_URL}/${imageModel()}:generateContent?key=${apiKey()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] }),
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { imageConfig: { aspectRatio: "9:16" } },
+    }),
   });
 
   if (!response.ok) {
