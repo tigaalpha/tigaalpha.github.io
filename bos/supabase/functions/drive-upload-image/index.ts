@@ -52,7 +52,10 @@ async function getOrCreateFolder(accessToken: string, admin: SupabaseClient): Pr
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ name: FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" }),
   });
-  if (!createRes.ok) throw new Error(`Failed to create Drive folder (${createRes.status})`);
+  if (!createRes.ok) {
+    const detail = await createRes.text();
+    throw new Error(`Failed to create Drive folder (${createRes.status}): ${detail.slice(0, 400)}`);
+  }
   const created = (await createRes.json()) as { id: string };
   await admin.from("integration_settings").upsert({ key: "google_drive_folder_id", value: created.id }, { onConflict: "key" });
   return created.id;
