@@ -91,10 +91,17 @@ export async function respond(
 
   const messages: ChatMessage[] = [
     { role: "system", content: systemParts.join("\n\n") },
-    ...(history ?? []).map((m: { sender: string; content: string }) => ({
-      role: (m.sender === "customer" ? "user" : "assistant") as ChatMessage["role"],
-      content: m.content,
-    })),
+    // A degenerate AI turn from before this safeguard existed (or one that
+    // slipped through) must not stay in the context fed back to the model —
+    // seeing its own prior "😊"-only turn is exactly what drags a fresh
+    // generation back into repeating it, on the retry as much as the
+    // original attempt (same messages array, same attractor).
+    ...(history ?? [])
+      .filter((m: { sender: string; content: string }) => m.sender !== "ai" || !isDegenerateReply(m.content))
+      .map((m: { sender: string; content: string }) => ({
+        role: (m.sender === "customer" ? "user" : "assistant") as ChatMessage["role"],
+        content: m.content,
+      })),
   ];
 
   let iterations = 0;
