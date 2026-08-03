@@ -32,14 +32,16 @@ export function AppShell({ userName, userEmail, children }: AppShellProps) {
       {mobileOpen ? (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-64 bg-card shadow-card">
-            <div className="flex items-center justify-between px-5 py-5">
+          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-card shadow-card">
+            <div className="flex shrink-0 items-center justify-between px-5 py-5">
               <span className="text-sm font-semibold text-secondary">Tiga AI BOS</span>
               <button onClick={() => setMobileOpen(false)} aria-label="Close menu">
                 <X className="h-5 w-5 text-secondary/60" />
               </button>
             </div>
-            <SidebarNav />
+            <div className="flex-1 overflow-y-auto">
+              <SidebarNav onNavigate={() => setMobileOpen(false)} />
+            </div>
           </aside>
         </div>
       ) : null}

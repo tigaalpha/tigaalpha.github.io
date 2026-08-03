@@ -16,6 +16,38 @@ interface GoogleEvent {
   summary?: string;
   start?: { dateTime?: string; date?: string };
   end?: { dateTime?: string; date?: string };
+  colorId?: string;
+}
+
+// Google Calendar's fixed event color palette (colorId -> hex) — same values
+// Google's own web/app UI uses, so events with a per-event color override
+// look identical to what the user sees in Google Calendar itself.
+const EVENT_COLORS: Record<string, string> = {
+  "1": "#7986cb",
+  "2": "#33b679",
+  "3": "#8e24aa",
+  "4": "#e67c73",
+  "5": "#f6bf26",
+  "6": "#f4511e",
+  "7": "#039be5",
+  "8": "#616161",
+  "9": "#3f51b5",
+  "10": "#0b8043",
+  "11": "#d50000",
+};
+
+async function getCalendarColor(accessToken: string, calendarId: string, fallback: string): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/users/me/calendarList/${encodeURIComponent(calendarId)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!response.ok) return fallback;
+    const data = (await response.json()) as { backgroundColor?: string };
+    return data.backgroundColor ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 async function getAccessToken(clientId: string, clientSecret: string, refreshToken: string): Promise<string> {
@@ -79,7 +111,10 @@ Deno.serve(async (req: Request) => {
       ((connections ?? []) as ConnectionRow[]).map(async (conn) => {
         try {
           const accessToken = await getAccessToken(clientId, clientSecret, conn.refresh_token);
-          const events = await listEvents(accessToken, conn.calendar_id, timeMin, timeMax);
+          const [events, calendarColor] = await Promise.all([
+            listEvents(accessToken, conn.calendar_id, timeMin, timeMax),
+            getCalendarColor(accessToken, conn.calendar_id, conn.color),
+          ]);
           return {
             connectionId: conn.id,
             label: conn.label,
@@ -89,6 +124,10 @@ Deno.serve(async (req: Request) => {
               title: e.summary ?? "(no title)",
               start: e.start?.dateTime ?? e.start?.date ?? "",
               end: e.end?.dateTime ?? e.end?.date ?? "",
+              // Per-event color override (set by the user in Google Calendar)
+              // falls back to that account's own calendar color, matching
+              // exactly what they see in the real Google Calendar UI.
+              color: (e.colorId && EVENT_COLORS[e.colorId]) || calendarColor,
             })),
             error: null as string | null,
           };

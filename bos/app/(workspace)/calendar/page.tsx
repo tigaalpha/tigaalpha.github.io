@@ -17,7 +17,7 @@ interface GcalEventsResponse {
     connectionId: string;
     label: string;
     color: string;
-    events: { id: string; title: string; start: string; end: string }[];
+    events: { id: string; title: string; start: string; end: string; color: string }[];
     error: string | null;
   }[];
 }
@@ -56,7 +56,7 @@ export default function CalendarPage() {
     });
     if (!data) return;
     setExternalEvents(
-      data.connections.flatMap((conn) => conn.events.map((e) => ({ id: `${conn.connectionId}:${e.id}`, title: `${e.title} (${conn.label})`, start: e.start, end: e.end, color: conn.color })))
+      data.connections.flatMap((conn) => conn.events.map((e) => ({ id: `${conn.connectionId}:${e.id}`, title: `${e.title} (${conn.label})`, start: e.start, end: e.end, color: e.color })))
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
