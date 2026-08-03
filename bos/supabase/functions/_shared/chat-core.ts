@@ -20,6 +20,16 @@ async function hashQuestion(text: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// Long conversations occasionally collapse into repeating just the emoji
+// sign-off from prior turns (e.g. "😊") instead of a real answer — a known
+// LLM degeneration pattern, not a knowledge-base gap. Detected by the
+// absence of any letter/digit in the reply.
+function isDegenerateReply(content: string): boolean {
+  return !/\p{L}|\p{N}/u.test(content.trim());
+}
+
+const DEGENERATE_FALLBACK = "ขอโทษค่ะ รบกวนพิมพ์คำถามอีกครั้งได้ไหมคะ อยากให้แน่ใจว่าตอบตรงกับที่คุณลูกค้าต้องการค่ะ";
+
 export async function respond(
   db: SupabaseClient,
   conversationId: string,
@@ -95,6 +105,16 @@ export async function respond(
     const result = await generate(messages, AI_TOOLS);
 
     if (result.finishReason !== "tool_calls" || !result.message.toolCalls?.length) {
+      if (isDegenerateReply(result.message.content)) {
+        // A stochastic degenerate reply usually doesn't repeat on a fresh
+        // sample from the same prompt, so retry once before falling back.
+        const retry = await generate(messages, AI_TOOLS);
+        result.message.content =
+          retry.finishReason !== "tool_calls" && !isDegenerateReply(retry.message.content)
+            ? retry.message.content
+            : DEGENERATE_FALLBACK;
+      }
+
       await db.from("messages").insert({ conversation_id: conversationId, sender: "ai", content: result.message.content });
 
       // Only cache plain knowledge-lookup answers — a reply that used tools
