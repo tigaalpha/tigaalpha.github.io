@@ -42,7 +42,12 @@ Deno.serve(async (req: Request) => {
       { onConflict: "key" }
     );
 
-    const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/gcal-connect-callback`;
+    // Reuses the same callback URL as the primary Google Calendar connection
+    // (google-oauth-callback) — Google requires every redirect_uri to be
+    // pre-registered in Cloud Console, and the state nonce alone is enough
+    // for that shared callback to tell the two flows apart, so no second
+    // registered URI is needed for this feature.
+    const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/google-oauth-callback`;
 
     const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     url.searchParams.set("client_id", clientId);
