@@ -51,7 +51,7 @@ const TOP_LEVEL_ITEMS: NavItem[] = [
 const NAV_GROUPS: NavGroup[] = [
   {
     id: "sales-crm",
-    label: "ลูกค้า & ยอดขาย",
+    label: "Sales & CRM",
     items: [
       { href: "/chat", label: "Inbox", icon: MessagesSquare },
       { href: "/students", label: "Students / CRM", icon: Users },
@@ -61,7 +61,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "content-marketing",
-    label: "คอนเทนต์ & การตลาด",
+    label: "Content & Marketing",
     items: [
       { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
       { href: "/content", label: "SEO/AEO Content", icon: FileText },
@@ -75,7 +75,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "finance-legal",
-    label: "การเงิน & กฎหมาย",
+    label: "Finance & Legal",
     items: [
       { href: "/accounting", label: "Accounting", icon: Wallet },
       { href: "/legal", label: "เอกสาร/สัญญา", icon: Scale },
@@ -84,7 +84,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "system",
-    label: "ระบบ",
+    label: "System",
     items: [
       { href: "/approvals", label: "การอนุมัติ", icon: ShieldCheck },
       { href: "/system-health", label: "System Health", icon: Activity },
