@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, Download } from "lucide-react";
+import { Sparkles, Download, Film } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,14 @@ interface AiMotionVideoCardProps {
   onChanged: () => void;
 }
 
+const MAX_IMAGES = 20;
+const POLL_INTERVAL_MS = 6000;
+const COST_LOW_PER_SEC = 0.1;
+const COST_HIGH_PER_SEC = 0.15;
+const CANVAS_WIDTH = 720;
+const CANVAS_HEIGHT = 1280;
+const FPS = 30;
+
 function imageDataUrl(row: Tables<"generated_images">): string {
   return `data:${row.mime_type};base64,${row.image_base64}`;
 }
@@ -23,19 +31,84 @@ function videoDataUrl(row: Tables<"video_clips">): string {
   return `data:${row.mime_type};base64,${row.video_base64}`;
 }
 
-const POLL_INTERVAL_MS = 6000;
+function estimateCost(imageCount: number): { low: string; high: string } {
+  return {
+    low: (imageCount * 4 * COST_LOW_PER_SEC).toFixed(2),
+    high: (imageCount * 8 * COST_HIGH_PER_SEC).toFixed(2),
+  };
+}
+
+function drawVideoCover(ctx: CanvasRenderingContext2D, video: HTMLVideoElement) {
+  const canvasRatio = CANVAS_WIDTH / CANVAS_HEIGHT;
+  const vw = video.videoWidth || CANVAS_WIDTH;
+  const vh = video.videoHeight || CANVAS_HEIGHT;
+  const videoRatio = vw / vh;
+  let sx = 0,
+    sy = 0,
+    sw = vw,
+    sh = vh;
+  if (videoRatio > canvasRatio) {
+    sw = vh * canvasRatio;
+    sx = (vw - sw) / 2;
+  } else {
+    sh = vw / canvasRatio;
+    sy = (vh - sh) / 2;
+  }
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+}
+
+function playAndDraw(clip: Tables<"video_clips">, ctx: CanvasRenderingContext2D): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.src = videoDataUrl(clip);
+    let raf = 0;
+
+    function draw() {
+      if (video.paused || video.ended) return;
+      drawVideoCover(ctx, video);
+      raf = requestAnimationFrame(draw);
+    }
+
+    video.onloadedmetadata = () => {
+      video
+        .play()
+        .then(() => {
+          raf = requestAnimationFrame(draw);
+        })
+        .catch(reject);
+    };
+    video.onended = () => {
+      cancelAnimationFrame(raf);
+      resolve();
+    };
+    video.onerror = () => {
+      cancelAnimationFrame(raf);
+      reject(new Error("เล่นคลิปวิดีโอไม่สำเร็จระหว่างรวมไฟล์"));
+    };
+  });
+}
 
 /**
  * Real image-to-video generation (Veo) — the source image actually moves,
  * unlike VerticalVideoStudio's free slideshow which only crossfades stills.
- * Generation is an async Google operation that can take minutes, so this
- * polls generate-video-clip-status until each processing clip resolves.
+ * Select up to 20 images; each becomes its own Veo generation (async, can
+ * take minutes), polled individually, then stitched client-side (canvas +
+ * MediaRecorder, no server-side encoding) into one continuous video once
+ * every clip in the batch has resolved.
  */
 export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVideoCardProps) {
-  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [batchClipIds, setBatchClipIds] = useState<string[] | null>(null);
+  const [combining, setCombining] = useState(false);
+  const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null);
+  const [combineNote, setCombineNote] = useState<string | null>(null);
   const inFlight = useRef<Set<string>>(new Set());
+  const combinedForBatch = useRef<string | null>(null);
 
   const processingIds = videoClips.filter((c) => c.status === "processing").map((c) => c.id);
   const processingKey = processingIds.join(",");
@@ -62,18 +135,101 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processingKey]);
 
-  async function handleGenerate() {
-    if (!selectedImageId) return;
+  // Once every clip in the active batch has resolved (done or error),
+  // stitch the successful ones together in selection order.
+  useEffect(() => {
+    if (!batchClipIds || batchClipIds.length === 0) return;
+    if (combinedForBatch.current === batchClipIds.join(",")) return;
+
+    const matched = batchClipIds.map((id) => videoClips.find((c) => c.id === id));
+    if (matched.some((c) => !c)) return; // wait for onChanged() to refetch the newly-created rows
+    if (matched.some((c) => c!.status === "processing")) return;
+
+    combinedForBatch.current = batchClipIds.join(",");
+    const clips = matched as Tables<"video_clips">[];
+    void combineClips(clips);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoClips, batchClipIds]);
+
+  function toggleImage(id: string) {
+    setConfirming(false);
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((i) => i !== id);
+      if (prev.length >= MAX_IMAGES) return prev;
+      return [...prev, id];
+    });
+  }
+
+  async function combineClips(clips: Tables<"video_clips">[]) {
+    const successful = clips.filter((c) => c.status === "done" && c.video_base64);
+    if (successful.length === 0) {
+      setCombineNote("สร้างวิดีโอไม่สำเร็จทั้งชุด — ลองใหม่อีกครั้ง");
+      return;
+    }
+
+    setCombining(true);
+    setCombineNote(null);
+    setCombinedVideoUrl(null);
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = CANVAS_WIDTH;
+      canvas.height = CANVAS_HEIGHT;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas 2D context not available");
+
+      const stream = canvas.captureStream(FPS);
+      const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" });
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      const stopped = new Promise<void>((resolve) => {
+        recorder.onstop = () => resolve();
+      });
+
+      recorder.start();
+      for (const clip of successful) {
+        await playAndDraw(clip, ctx);
+      }
+      recorder.stop();
+      await stopped;
+
+      const blob = new Blob(chunks, { type: "video/webm" });
+      setCombinedVideoUrl(URL.createObjectURL(blob));
+      if (successful.length < clips.length) {
+        setCombineNote(`รวมสำเร็จ ${successful.length}/${clips.length} คลิป (บางคลิปสร้างไม่สำเร็จ จึงข้ามไป)`);
+      }
+    } catch (err) {
+      setCombineNote(err instanceof Error ? err.message : "รวมวิดีโอไม่สำเร็จ");
+    } finally {
+      setCombining(false);
+    }
+  }
+
+  async function handleConfirmGenerate() {
     setStarting(true);
     setError(null);
+    setCombinedVideoUrl(null);
+    setCombineNote(null);
+    combinedForBatch.current = null;
+
     try {
       const supabase = createClient();
-      const { data, error: fnError } = await supabase.functions.invoke<{ videoClip: Tables<"video_clips"> }>(
-        "generate-video-clip-start",
-        { body: { imageId: selectedImageId } }
-      );
+      const { data, error: fnError } = await supabase.functions.invoke<{
+        videoClips: Tables<"video_clips">[];
+        requested: number;
+        started: number;
+      }>("generate-video-batch-start", { body: { imageIds: selectedIds } });
       if (fnError) throw fnError;
-      if (!data) throw new Error("Empty response from generate-video-clip-start");
+      if (!data) throw new Error("Empty response from generate-video-batch-start");
+
+      setBatchClipIds(data.videoClips.map((c) => c.id));
+      if (data.started < data.requested) {
+        setError(`เริ่มสร้างได้ ${data.started}/${data.requested} ภาพ (ติดขีดจำกัดจำนวนครั้งต่อชั่วโมง) — ที่เหลือลองใหม่ภายหลัง`);
+      }
+      setConfirming(false);
+      setSelectedIds([]);
       onChanged();
     } catch (err) {
       setError(await describeFunctionError(err));
@@ -92,6 +248,12 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
     );
   }
 
+  const cost = estimateCost(selectedIds.length);
+  const activeBatchClips = batchClipIds?.map((id) => videoClips.find((c) => c.id === id)).filter(Boolean) as
+    | Tables<"video_clips">[]
+    | undefined;
+  const batchInProgress = activeBatchClips?.some((c) => c.status === "processing") ?? false;
+
   return (
     <div className="space-y-6">
       <Card>
@@ -101,37 +263,101 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
             สร้างวิดีโอเคลื่อนไหวจริงด้วย AI (Veo)
           </CardTitle>
           <CardDescription>
-            เลือกภาพนิ่ง 1 ภาพ แล้วให้ AI สร้างวิดีโอที่ภาพนั้นเคลื่อนไหวจริง — ใช้เวลาประมวลผลประมาณ 1-3 นาที
-            ความยาวคลิปสุ่มระหว่าง 4-8 วินาที
+            เลือกภาพนิ่งได้ 1-{MAX_IMAGES} ภาพ (แตะเพื่อเลือก/ยกเลิก ตามลำดับ) — แต่ละภาพจะกลายเป็นคลิปเคลื่อนไหวจริง 4-8
+            วินาที (สุ่ม) แล้วต่อกันเป็นวิดีโอเดียวยาวต่อเนื่องอัตโนมัติ ใช้เวลาประมวลผลรวมประมาณ 1-3 นาทีต่อภาพ
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            {images.map((img) => (
-              <button
-                key={img.id}
-                type="button"
-                onClick={() => setSelectedImageId(img.id)}
-                className={cn(
-                  "relative overflow-hidden rounded-xl border-2 transition-colors",
-                  selectedImageId === img.id ? "border-primary-accent" : "border-transparent"
-                )}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageDataUrl(img)} alt={img.prompt} className="aspect-[9/16] w-full object-cover" />
-              </button>
-            ))}
+            {images.map((img) => {
+              const order = selectedIds.indexOf(img.id);
+              return (
+                <button
+                  key={img.id}
+                  type="button"
+                  onClick={() => toggleImage(img.id)}
+                  className={cn(
+                    "relative overflow-hidden rounded-xl border-2 transition-colors",
+                    order >= 0 ? "border-primary-accent" : "border-transparent"
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imageDataUrl(img)} alt={img.prompt} className="aspect-[9/16] w-full object-cover" />
+                  {order >= 0 ? (
+                    <span className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary-gradient text-xs font-bold text-white">
+                      {order + 1}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
+
           {error ? <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p> : null}
-          <Button onClick={() => void handleGenerate()} disabled={starting || !selectedImageId} className="w-full">
-            {starting ? "กำลังเริ่มสร้างวิดีโอ…" : "สร้างวิดีโอเคลื่อนไหว"}
-          </Button>
+
+          {confirming ? (
+            <div className="space-y-2 rounded-xl border border-primary-accent/30 bg-primary-accent/5 p-3 text-sm">
+              <p className="text-secondary">
+                จะสร้างวิดีโอเคลื่อนไหว <b>{selectedIds.length} ภาพ</b> — มีค่าใช้จ่ายจริงต่อภาพ ประมาณรวม{" "}
+                <b>
+                  ${cost.low}-${cost.high}
+                </b>{" "}
+                (ราคาโดยประมาณ ขึ้นกับความยาวคลิปที่สุ่มได้)
+              </p>
+              <div className="flex gap-2">
+                <Button onClick={() => void handleConfirmGenerate()} disabled={starting} className="flex-1">
+                  {starting ? "กำลังเริ่มสร้าง…" : "ยืนยัน สร้างเลย"}
+                </Button>
+                <Button variant="outline" onClick={() => setConfirming(false)} disabled={starting} className="flex-1">
+                  ยกเลิก
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button onClick={() => setConfirming(true)} disabled={selectedIds.length === 0} className="w-full">
+              สร้างวิดีโอเคลื่อนไหว ({selectedIds.length} ภาพ)
+            </Button>
+          )}
         </CardContent>
       </Card>
 
+      {batchClipIds ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Film className="h-4 w-4 text-primary-accent" />
+              วิดีโอรวม (ชุดล่าสุด)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {batchInProgress ? (
+              <p className="text-sm text-secondary/50">
+                กำลังสร้างคลิป… ({activeBatchClips?.filter((c) => c.status === "done").length ?? 0}/{batchClipIds.length}{" "}
+                เสร็จแล้ว) — พอครบทุกคลิปจะต่อกันเป็นวิดีโอเดียวให้อัตโนมัติ
+              </p>
+            ) : combining ? (
+              <p className="text-sm text-secondary/50">กำลังต่อคลิปเป็นวิดีโอเดียว…</p>
+            ) : combinedVideoUrl ? (
+              <div className="space-y-2">
+                <video src={combinedVideoUrl} controls className="mx-auto aspect-[9/16] w-full max-w-[240px] rounded-xl bg-black" />
+                {combineNote ? <p className="text-xs text-secondary/50">{combineNote}</p> : null}
+                <a href={combinedVideoUrl} download="tiga-motion-video.webm">
+                  <Button variant="outline" className="w-full">
+                    <Download className="h-4 w-4" />
+                    ดาวน์โหลดวิดีโอรวม (.webm)
+                  </Button>
+                </a>
+              </div>
+            ) : combineNote ? (
+              <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{combineNote}</p>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
-          <CardTitle>วิดีโอที่สร้างไว้ ({videoClips.length})</CardTitle>
+          <CardTitle>คลิปเดี่ยวที่สร้างไว้ ({videoClips.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {videoClips.length === 0 ? (

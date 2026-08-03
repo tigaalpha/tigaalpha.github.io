@@ -4,17 +4,18 @@ import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent } from "../_shared/monitor.ts";
+import { startVeoClip } from "../_shared/veo.ts";
 
 // Veo (image-to-video) turns one Image Studio still into a few seconds of
 // real motion — distinct from the free client-side slideshow, which only
 // crossfades stills and never actually animates anything. Generation is a
 // long-running Google operation (can take minutes), so this just kicks it
 // off; generate-video-clip-status polls it to completion.
-const DURATIONS = [4, 8];
-
-function videoModel(): string {
-  return Deno.env.get("AI_VIDEO_MODEL") ?? "veo-3.0-fast-generate-001";
-}
+//
+// Shared "generate-video-clip" rate-limit bucket with generate-video-batch-start
+// (a batch of N images makes N of these calls) — capped generously enough
+// for a full 20-image batch, not just single clips.
+const RATE_LIMIT = { windowMinutes: 60, maxRequests: 40 };
 
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
@@ -24,7 +25,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const userId = await requireStaff(admin, req);
-    await enforceRateLimit(admin, userId, "generate-video-clip", { windowMinutes: 60, maxRequests: 10 });
+    await enforceRateLimit(admin, userId, "generate-video-clip", RATE_LIMIT);
 
     const { imageId } = await req.json();
     if (!imageId || typeof imageId !== "string") return jsonResponse({ error: "imageId is required" }, 400);
@@ -40,45 +41,7 @@ Deno.serve(async (req: Request) => {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) return jsonResponse({ error: "GEMINI_API_KEY not configured" }, 400);
 
-    const durationSeconds = DURATIONS[Math.floor(Math.random() * DURATIONS.length)];
-
-    const startRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${videoModel()}:predictLongRunning?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          instances: [
-            {
-              prompt: image.prompt,
-              image: { bytesBase64Encoded: image.image_base64, mimeType: image.mime_type },
-            },
-          ],
-          parameters: { aspectRatio: "9:16", durationSeconds },
-        }),
-      }
-    );
-
-    if (!startRes.ok) {
-      const detail = await startRes.text();
-      throw new Error(`Veo request failed (${startRes.status}): ${detail.slice(0, 400)}`);
-    }
-
-    const operation = (await startRes.json()) as { name?: string };
-    if (!operation.name) throw new Error("Veo did not return an operation name");
-
-    const { data: row, error: insertErr } = await admin
-      .from("video_clips")
-      .insert({
-        source_image_id: image.id,
-        status: "processing",
-        operation_name: operation.name,
-        duration_seconds: durationSeconds,
-        created_by: userId,
-      })
-      .select("*")
-      .single();
-    if (insertErr) throw insertErr;
+    const row = await startVeoClip(admin, apiKey, userId, image);
 
     return jsonResponse({ videoClip: row }, 201);
   } catch (error) {
