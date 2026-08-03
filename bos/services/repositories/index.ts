@@ -18,6 +18,7 @@ import { VoiceoverScriptsRepository } from "./voiceover-scripts.repository";
 import { SystemEventsRepository } from "./system-events.repository";
 import { LegalDocumentsRepository } from "./legal-documents.repository";
 import { BusinessSnapshotRepository } from "./business-snapshot.repository";
+import { GoogleCalendarConnectionsRepository } from "./google-calendar-connections.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -44,6 +45,7 @@ export function createRepositories(db: SupabaseClient<Database>) {
     systemEvents: new SystemEventsRepository(db),
     legalDocuments: new LegalDocumentsRepository(db),
     businessSnapshot: new BusinessSnapshotRepository(db),
+    googleCalendarConnections: new GoogleCalendarConnectionsRepository(db),
   };
 }
 

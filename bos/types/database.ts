@@ -535,6 +535,24 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["legal_documents"]["Row"]>;
         Relationships: [];
       };
+      google_calendar_connections: {
+        Row: {
+          id: string;
+          label: string;
+          google_account_email: string | null;
+          calendar_id: string;
+          refresh_token: string;
+          color: string;
+          connected_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["google_calendar_connections"]["Row"]> & {
+          label: string;
+          refresh_token: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["google_calendar_connections"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, RefreshCw } from "lucide-react";
+import { Copy, Check, RefreshCw, Trash2 } from "lucide-react";
 import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
+import type { GoogleCalendarConnectionSummary } from "@/services/repositories/google-calendar-connections.repository";
 
 interface StatusCheck {
   connected: boolean;
@@ -60,6 +61,9 @@ export function IntegrationsCard() {
   const [facebookAccount, setFacebookAccount] = useState<{ account_name: string } | null | undefined>(undefined);
   const [connecting, setConnecting] = useState(false);
   const [banner, setBanner] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [gcalConnections, setGcalConnections] = useState<GoogleCalendarConnectionSummary[] | null>(null);
+  const [gcalLabel, setGcalLabel] = useState("");
+  const [connectingGcal, setConnectingGcal] = useState(false);
 
   const supabaseUrl = env.supabase.url();
   const lineWebhookUrl = `${supabaseUrl}/functions/v1/line-webhook`;
@@ -71,6 +75,11 @@ export function IntegrationsCard() {
     const { data } = await supabase.functions.invoke<StatusResponse>("integrations-status");
     if (data) setStatus(data);
     setChecking(false);
+  }
+
+  function reloadGcalConnections() {
+    const repos = createRepositories(createClient());
+    repos.googleCalendarConnections.list().then(setGcalConnections);
   }
 
   useEffect(() => {
@@ -86,6 +95,7 @@ export function IntegrationsCard() {
       .maybeSingle()
       .then(({ data }) => setFacebookAccount(data ?? null));
     refreshStatus();
+    reloadGcalConnections();
 
     const params = new URLSearchParams(window.location.search);
     const googleCalendar = params.get("googleCalendar");
@@ -100,11 +110,20 @@ export function IntegrationsCard() {
     } else if (meta === "error") {
       setBanner({ type: "error", text: `เชื่อมต่อ Facebook ไม่สำเร็จ: ${params.get("metaError") ?? "ไม่ทราบสาเหตุ"}` });
     }
-    if (googleCalendar || meta) {
+    const gcalConnect = params.get("gcalConnect");
+    if (gcalConnect === "connected") {
+      setBanner({ type: "success", text: "เชื่อมต่อบัญชี Google Calendar เพิ่มสำเร็จแล้ว!" });
+      reloadGcalConnections();
+    } else if (gcalConnect === "error") {
+      setBanner({ type: "error", text: `เชื่อมต่อไม่สำเร็จ: ${params.get("gcalConnectError") ?? "ไม่ทราบสาเหตุ"}` });
+    }
+    if (googleCalendar || meta || gcalConnect) {
       params.delete("googleCalendar");
       params.delete("googleCalendarError");
       params.delete("meta");
       params.delete("metaError");
+      params.delete("gcalConnect");
+      params.delete("gcalConnectError");
       const clean = window.location.pathname + (params.toString() ? `?${params}` : "");
       window.history.replaceState({}, "", clean);
     }
@@ -157,6 +176,26 @@ export function IntegrationsCard() {
       return;
     }
     window.location.href = data.url;
+  }
+
+  async function connectGcal() {
+    setConnectingGcal(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.functions.invoke<{ url: string }>("gcal-connect-start", {
+      body: { label: gcalLabel.trim() || undefined },
+    });
+    setConnectingGcal(false);
+    if (error || !data) {
+      setBanner({ type: "error", text: "เริ่มเชื่อมต่อไม่สำเร็จ — ตรวจสอบว่าตั้งค่า Google Client ID ไว้แล้วและยังไม่ครบ 3 บัญชี" });
+      return;
+    }
+    window.location.href = data.url;
+  }
+
+  async function removeGcalConnection(id: string) {
+    const repos = createRepositories(createClient());
+    await repos.googleCalendarConnections.remove(id);
+    reloadGcalConnections();
   }
 
   return (
@@ -226,6 +265,47 @@ export function IntegrationsCard() {
           <Button className="w-full" onClick={() => void connectGoogle()} disabled={connecting || !clientId.trim()}>
             {connecting ? "กำลังเชื่อมต่อ…" : "Connect Google Calendar"}
           </Button>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <div className="flex items-center justify-between">
+            <p className="font-medium text-secondary">ปฏิทินเพิ่มเติมสำหรับดูในหน้า Calendar (สูงสุด 3 บัญชี)</p>
+            <Badge variant="outline">{gcalConnections?.length ?? 0}/3</Badge>
+          </div>
+          <p className="text-xs text-secondary/50">
+            เชื่อมต่อบัญชี Gmail แยกกันได้สูงสุด 3 บัญชี เพื่อดูปฏิทินของแต่ละคนพร้อมกันในหน้า Calendar แล้วเลือกกรองทีหลังได้ —
+            เป็นการเชื่อมต่อแบบดูอย่างเดียว ไม่เกี่ยวกับการจองคาบเรียนอัตโนมัติด้านบน
+          </p>
+
+          {gcalConnections === null ? null : gcalConnections.length > 0 ? (
+            <ul className="space-y-1">
+              {gcalConnections.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-line/5 px-3 py-2 text-sm">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+                    <span className="truncate text-secondary">{c.label}</span>
+                    {c.google_account_email ? <span className="truncate text-xs text-secondary/50">({c.google_account_email})</span> : null}
+                  </span>
+                  <Button variant="ghost" size="icon" onClick={() => void removeGcalConnection(c.id)}>
+                    <Trash2 className="h-4 w-4 text-danger" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {(gcalConnections?.length ?? 0) < 3 ? (
+            <div className="flex items-end gap-2 pt-1">
+              <Input
+                placeholder="ชื่อที่ต้องการ เช่น ปฏิทินครู A (ไม่บังคับ)"
+                value={gcalLabel}
+                onChange={(e) => setGcalLabel(e.target.value)}
+              />
+              <Button variant="outline" onClick={() => void connectGcal()} disabled={connectingGcal || !clientId.trim()}>
+                {connectingGcal ? "กำลังเชื่อมต่อ…" : "เชื่อมต่อบัญชีเพิ่ม"}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">

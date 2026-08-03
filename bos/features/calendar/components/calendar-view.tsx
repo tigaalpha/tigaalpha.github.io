@@ -15,15 +15,24 @@ export interface CalendarBookingEvent {
   lessonType: "normal" | "final";
 }
 
+export interface ExternalCalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  color: string;
+}
+
 const LESSON_COLOR: Record<CalendarBookingEvent["lessonType"], string> = {
   normal: "#FFC107",
   final: "#00C853",
 };
 
-export function CalendarView({ events }: { events: CalendarBookingEvent[] }) {
+export function CalendarView({ events, externalEvents = [] }: { events: CalendarBookingEvent[]; externalEvents?: ExternalCalendarEvent[] }) {
   const router = useRouter();
 
   function handleEventClick(arg: EventClickArg) {
+    if (arg.event.extendedProps.external) return;
     router.push(`/booking?bookingId=${arg.event.id}`);
   }
 
@@ -38,15 +47,27 @@ export function CalendarView({ events }: { events: CalendarBookingEvent[] }) {
         slotMaxTime="21:00:00"
         nowIndicator
         eventClick={handleEventClick}
-        events={events.map((event) => ({
-          id: event.id,
-          title: event.title,
-          start: event.start,
-          end: event.end,
-          backgroundColor: LESSON_COLOR[event.lessonType],
-          borderColor: LESSON_COLOR[event.lessonType],
-          textColor: "#121212",
-        }))}
+        events={[
+          ...events.map((event) => ({
+            id: event.id,
+            title: event.title,
+            start: event.start,
+            end: event.end,
+            backgroundColor: LESSON_COLOR[event.lessonType],
+            borderColor: LESSON_COLOR[event.lessonType],
+            textColor: "#121212",
+          })),
+          ...externalEvents.map((event) => ({
+            id: event.id,
+            title: event.title,
+            start: event.start,
+            end: event.end,
+            backgroundColor: event.color,
+            borderColor: event.color,
+            textColor: "#ffffff",
+            extendedProps: { external: true },
+          })),
+        ]}
       />
     </div>
   );
