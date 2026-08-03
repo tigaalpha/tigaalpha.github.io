@@ -14,7 +14,7 @@ export type SalesStatus =
   | "renew_pending"
   | "renewed";
 
-export type CourseHours = 20 | 40 | 80;
+export type CourseHours = 10 | 20 | 40 | 80;
 
 export type LessonEventType = "normal" | "final";
 
