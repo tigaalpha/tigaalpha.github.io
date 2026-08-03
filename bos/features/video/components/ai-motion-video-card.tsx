@@ -21,12 +21,44 @@ const CANVAS_WIDTH = 720;
 const CANVAS_HEIGHT = 1280;
 const FPS = 30;
 
-type VideoProvider = "veo" | "seedance-2" | "seedance-2-fast";
+type VideoProvider = "veo" | "seedance-2" | "seedance-2-fast" | "luma-ray-2" | "runway-gen4-turbo";
 
-const PROVIDERS: { id: VideoProvider; label: string; costLowPerSec: number; costHighPerSec: number }[] = [
-  { id: "veo", label: "Veo 3 Fast (Google)", costLowPerSec: 0.1, costHighPerSec: 0.15 },
-  { id: "seedance-2", label: "Seedance 2.0 (fal.ai)", costLowPerSec: 0.03, costHighPerSec: 0.05 },
-  { id: "seedance-2-fast", label: "Seedance 2.0 Fast (fal.ai, ถูกสุด)", costLowPerSec: 0.015, costHighPerSec: 0.03 },
+interface ProviderInfo {
+  id: VideoProvider;
+  label: string;
+  costLowPerSec: number;
+  costHighPerSec: number;
+  durationLow: number;
+  durationHigh: number;
+}
+
+const PROVIDERS: ProviderInfo[] = [
+  { id: "veo", label: "Veo 3 Fast (Google)", costLowPerSec: 0.1, costHighPerSec: 0.15, durationLow: 4, durationHigh: 8 },
+  { id: "seedance-2", label: "Seedance 2.0 (fal.ai)", costLowPerSec: 0.03, costHighPerSec: 0.05, durationLow: 4, durationHigh: 8 },
+  {
+    id: "seedance-2-fast",
+    label: "Seedance 2.0 Fast (fal.ai, ถูกสุด)",
+    costLowPerSec: 0.015,
+    costHighPerSec: 0.03,
+    durationLow: 4,
+    durationHigh: 8,
+  },
+  {
+    id: "luma-ray-2",
+    label: "Luma Ray 2 (fal.ai)",
+    costLowPerSec: 0.35,
+    costHighPerSec: 0.45,
+    durationLow: 5,
+    durationHigh: 9,
+  },
+  {
+    id: "runway-gen4-turbo",
+    label: "Runway Gen-4 Turbo",
+    costLowPerSec: 0.05,
+    costHighPerSec: 0.08,
+    durationLow: 5,
+    durationHigh: 10,
+  },
 ];
 
 function imageDataUrl(row: Tables<"generated_images">): string {
@@ -40,8 +72,8 @@ function videoDataUrl(row: Tables<"video_clips">): string {
 function estimateCost(imageCount: number, provider: VideoProvider): { low: string; high: string } {
   const rates = PROVIDERS.find((p) => p.id === provider)!;
   return {
-    low: (imageCount * 4 * rates.costLowPerSec).toFixed(2),
-    high: (imageCount * 8 * rates.costHighPerSec).toFixed(2),
+    low: (imageCount * rates.durationLow * rates.costLowPerSec).toFixed(2),
+    high: (imageCount * rates.durationHigh * rates.costHighPerSec).toFixed(2),
   };
 }
 
@@ -300,6 +332,7 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
   }
 
   const cost = estimateCost(selectedIds.length, provider);
+  const providerInfo = PROVIDERS.find((p) => p.id === provider)!;
   const activeBatchClips = batchClipIds?.map((id) => videoClips.find((c) => c.id === id)).filter(Boolean) as
     | Tables<"video_clips">[]
     | undefined;
@@ -314,8 +347,9 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
             สร้างวิดีโอเคลื่อนไหวจริงด้วย AI
           </CardTitle>
           <CardDescription>
-            เลือกภาพนิ่งได้ 1-{MAX_IMAGES} ภาพ (แตะเพื่อเลือก/ยกเลิก ตามลำดับ) — แต่ละภาพจะกลายเป็นคลิปเคลื่อนไหวจริง 4-8
-            วินาที (สุ่ม) แล้วต่อกันเป็นวิดีโอเดียวยาวต่อเนื่องอัตโนมัติ ใช้เวลาประมวลผลรวมประมาณ 1-3 นาทีต่อภาพ
+            เลือกภาพนิ่งได้ 1-{MAX_IMAGES} ภาพ (แตะเพื่อเลือก/ยกเลิก ตามลำดับ) — แต่ละภาพจะกลายเป็นคลิปเคลื่อนไหวจริงความยาว
+            สุ่มระหว่าง {providerInfo.durationLow}-{providerInfo.durationHigh} วินาที (ตามที่โมเดลรองรับ) แล้วต่อกันเป็นวิดีโอเดียวยาวต่อเนื่องอัตโนมัติ
+            ใช้เวลาประมวลผลรวมประมาณ 1-3 นาทีต่อภาพ
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

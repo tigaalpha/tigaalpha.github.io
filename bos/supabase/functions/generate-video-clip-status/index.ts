@@ -2,7 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
-import { checkSeedanceClip } from "../_shared/seedance.ts";
+import { checkFalQueueClip } from "../_shared/fal-queue.ts";
+import { checkRunwayClip } from "../_shared/runway.ts";
 import { logSystemEvent } from "../_shared/monitor.ts";
 
 // Google's long-running-operation response shape for video generation has
@@ -92,19 +93,34 @@ Deno.serve(async (req: Request) => {
       const apiKey = Deno.env.get("GEMINI_API_KEY");
       if (!apiKey) return jsonResponse({ error: "GEMINI_API_KEY not configured" }, 400);
       result = await checkVeo(apiKey, clip.operation_name);
-    } else {
-      const apiKey = Deno.env.get("FAL_API_KEY");
+    } else if (clip.provider === "runway-gen4-turbo") {
+      const apiKey = Deno.env.get("RUNWAY_API_KEY");
       if (!apiKey) {
         return jsonResponse(
-          { error: "ยังไม่ได้ตั้งค่า FAL_API_KEY — ไปที่ Supabase Dashboard > Edge Functions > Secrets เพื่อเพิ่มก่อนใช้ Seedance" },
+          { error: "ยังไม่ได้ตั้งค่า RUNWAY_API_KEY — ไปที่ Supabase Dashboard > Edge Functions > Secrets เพื่อเพิ่มก่อนใช้ Runway" },
           400
         );
       }
-      const seedanceResult = await checkSeedanceClip(apiKey, clip.operation_name);
-      result = seedanceResult.done
-        ? "videoUrl" in seedanceResult
-          ? { done: true, videoUrl: seedanceResult.videoUrl }
-          : { done: true, error: seedanceResult.error }
+      const runwayResult = await checkRunwayClip(apiKey, clip.operation_name);
+      result = runwayResult.done
+        ? "videoUrl" in runwayResult
+          ? { done: true, videoUrl: runwayResult.videoUrl }
+          : { done: true, error: runwayResult.error }
+        : { done: false };
+    } else {
+      // seedance-2, seedance-2-fast, luma-ray-2 — all hosted on fal.ai
+      const apiKey = Deno.env.get("FAL_API_KEY");
+      if (!apiKey) {
+        return jsonResponse(
+          { error: "ยังไม่ได้ตั้งค่า FAL_API_KEY — ไปที่ Supabase Dashboard > Edge Functions > Secrets เพื่อเพิ่มก่อนใช้ Seedance/Luma" },
+          400
+        );
+      }
+      const falResult = await checkFalQueueClip(apiKey, clip.operation_name);
+      result = falResult.done
+        ? "videoUrl" in falResult
+          ? { done: true, videoUrl: falResult.videoUrl }
+          : { done: true, error: falResult.error }
         : { done: false };
     }
 
