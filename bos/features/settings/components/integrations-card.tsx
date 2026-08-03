@@ -59,6 +59,8 @@ export function IntegrationsCard() {
   const [savingMetaAppId, setSavingMetaAppId] = useState(false);
   const [metaConfigId, setMetaConfigId] = useState("");
   const [savingMetaConfigId, setSavingMetaConfigId] = useState(false);
+  const [metaTargetPageName, setMetaTargetPageName] = useState("");
+  const [savingMetaTargetPageName, setSavingMetaTargetPageName] = useState(false);
   const [connectingMeta, setConnectingMeta] = useState(false);
   const [facebookAccount, setFacebookAccount] = useState<{ account_name: string } | null | undefined>(undefined);
   const [connecting, setConnecting] = useState(false);
@@ -91,6 +93,7 @@ export function IntegrationsCard() {
     repos.integrations.get("owner_line_user_id").then((v) => setOwnerLineId(v ?? ""));
     repos.integrations.get("meta_app_id").then((v) => setMetaAppId(v ?? ""));
     repos.integrations.get("meta_login_config_id").then((v) => setMetaConfigId(v ?? ""));
+    repos.integrations.get("meta_target_page_name").then((v) => setMetaTargetPageName(v ?? ""));
     supabase
       .from("social_accounts")
       .select("account_name")
@@ -163,6 +166,14 @@ export function IntegrationsCard() {
     const repos = createRepositories(createClient());
     await repos.integrations.set("meta_login_config_id", metaConfigId.trim());
     setSavingMetaConfigId(false);
+  }
+
+  async function saveMetaTargetPageName() {
+    if (!metaTargetPageName.trim()) return;
+    setSavingMetaTargetPageName(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("meta_target_page_name", metaTargetPageName.trim());
+    setSavingMetaTargetPageName(false);
   }
 
   async function connectMeta() {
@@ -366,6 +377,20 @@ export function IntegrationsCard() {
             <Input placeholder="Meta Login Configuration ID" value={metaConfigId} onChange={(e) => setMetaConfigId(e.target.value)} />
             <Button variant="outline" onClick={() => void saveMetaConfigId()} disabled={savingMetaConfigId || !metaConfigId.trim()}>
               {savingMetaConfigId ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+          <p className="pt-2 text-xs text-secondary/50">
+            5. ถ้าบัญชี Facebook ที่ใช้ login เป็นแอดมินหลาย Page (เช่นมี Page อื่นปนอยู่) ใส่ชื่อ Page ที่ต้องการเชื่อมให้ตรงเป๊ะด้านล่างนี้ —
+            ไม่งั้นระบบจะเชื่อมกับ Page แรกที่ Facebook ส่งมาให้ ซึ่งอาจไม่ใช่อันที่ต้องการ
+          </p>
+          <div className="flex items-end gap-2">
+            <Input
+              placeholder="ชื่อ Facebook Page ที่ต้องการเชื่อม เช่น TIGA - สอนเปียโนออนไลน์"
+              value={metaTargetPageName}
+              onChange={(e) => setMetaTargetPageName(e.target.value)}
+            />
+            <Button variant="outline" onClick={() => void saveMetaTargetPageName()} disabled={savingMetaTargetPageName || !metaTargetPageName.trim()}>
+              {savingMetaTargetPageName ? "กำลังบันทึก…" : "บันทึก"}
             </Button>
           </div>
           <Button className="w-full" onClick={() => void connectMeta()} disabled={connectingMeta || !metaAppId.trim()}>

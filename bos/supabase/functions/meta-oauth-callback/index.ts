@@ -76,8 +76,36 @@ Deno.serve(async (req: Request) => {
   const pagesResponse = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/me/accounts?access_token=${userToken}`);
   if (!pagesResponse.ok) return redirectTo("error", `Failed to list Pages (${pagesResponse.status})`);
   const pagesData = (await pagesResponse.json()) as { data?: FacebookPage[] };
-  const page = pagesData.data?.[0];
-  if (!page) return redirectTo("error", "No Facebook Page found for this account — this app connects to a Page, not a personal profile.");
+  const pages = pagesData.data ?? [];
+  if (pages.length === 0) {
+    return redirectTo("error", "No Facebook Page found for this account — this app connects to a Page, not a personal profile.");
+  }
+
+  // Without a Business Portfolio, a Configuration can't restrict which Pages
+  // it's allowed to see — Facebook returns every Page the logging-in account
+  // administers. If the staff member manages more than one Page, blindly
+  // taking the first one risks connecting the wrong Page (e.g. a personal
+  // side project instead of the studio's Page). meta_target_page_name lets
+  // them pin the exact Page by name; falls back to the first result only
+  // when no preference has been set.
+  const { data: targetNameRow } = await admin
+    .from("integration_settings")
+    .select("value")
+    .eq("key", "meta_target_page_name")
+    .maybeSingle();
+  const targetName = targetNameRow?.value?.trim();
+
+  let page: FacebookPage;
+  if (targetName) {
+    const match = pages.find((p) => p.name.toLowerCase() === targetName.toLowerCase()) ?? pages.find((p) => p.name.toLowerCase().includes(targetName.toLowerCase()));
+    if (!match) {
+      const found = pages.map((p) => p.name).join(", ");
+      return redirectTo("error", `Page "${targetName}" not found among the Pages this login granted access to (${found}). Check the name in Settings matches exactly, or check which Page you approved during Facebook login.`);
+    }
+    page = match;
+  } else {
+    page = pages[0]!;
+  }
 
   // Page access tokens derived from a long-lived user token don't expire on
   // their own timeline the same way — no separate refresh flow needed for
