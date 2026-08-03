@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { checkSeedanceClip } from "../_shared/seedance.ts";
 
 // Google's long-running-operation response shape for video generation has
 // shifted across Veo API revisions, so this checks a couple of known
@@ -18,12 +19,35 @@ interface VeoOperation {
   };
 }
 
-function extractVideo(op: VeoOperation): { uri?: string; bytesBase64Encoded?: string } | null {
+function extractVeoVideo(op: VeoOperation): { uri?: string; bytesBase64Encoded?: string } | null {
   const fromSamples = op.response?.generateVideoResponse?.generatedSamples?.[0]?.video;
   if (fromSamples) return fromSamples;
   const fromLegacy = op.response?.generatedVideos?.[0]?.video;
   if (fromLegacy) return fromLegacy;
   return null;
+}
+
+type CheckResult = { done: false } | { done: true; error: string } | { done: true; videoUrl: string } | { done: true; videoBase64: string };
+
+async function checkVeo(apiKey: string, operationName: string): Promise<CheckResult> {
+  const opRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${apiKey}`);
+  if (!opRes.ok) {
+    const detail = await opRes.text();
+    throw new Error(`Failed to check Veo operation (${opRes.status}): ${detail.slice(0, 400)}`);
+  }
+  const operation = (await opRes.json()) as VeoOperation;
+
+  if (!operation.done) return { done: false };
+  if (operation.error) return { done: true, error: operation.error.message ?? "Veo generation failed" };
+
+  const video = extractVeoVideo(operation);
+  if (!video) return { done: true, error: "Veo finished but returned no video" };
+  if (video.bytesBase64Encoded) return { done: true, videoBase64: video.bytesBase64Encoded };
+  if (video.uri) {
+    const videoUrl = video.uri.includes("?") ? `${video.uri}&key=${apiKey}` : `${video.uri}?key=${apiKey}`;
+    return { done: true, videoUrl };
+  }
+  return { done: true, error: "Veo returned no downloadable video data" };
 }
 
 // btoa() on a huge binary string built via String.fromCharCode(...bytes) blows
@@ -55,25 +79,39 @@ Deno.serve(async (req: Request) => {
     if (clip.status !== "processing") {
       return jsonResponse({ videoClip: clip });
     }
-
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) return jsonResponse({ error: "GEMINI_API_KEY not configured" }, 400);
-
-    const opRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/${clip.operation_name}?key=${apiKey}`);
-    if (!opRes.ok) {
-      const detail = await opRes.text();
-      throw new Error(`Failed to check Veo operation (${opRes.status}): ${detail.slice(0, 400)}`);
+    if (!clip.operation_name) {
+      return jsonResponse({ error: "Video clip has no operation_name to check" }, 500);
     }
-    const operation = (await opRes.json()) as VeoOperation;
 
-    if (!operation.done) {
+    let result: CheckResult;
+    if (clip.provider === "veo") {
+      const apiKey = Deno.env.get("GEMINI_API_KEY");
+      if (!apiKey) return jsonResponse({ error: "GEMINI_API_KEY not configured" }, 400);
+      result = await checkVeo(apiKey, clip.operation_name);
+    } else {
+      const apiKey = Deno.env.get("FAL_API_KEY");
+      if (!apiKey) {
+        return jsonResponse(
+          { error: "ยังไม่ได้ตั้งค่า FAL_API_KEY — ไปที่ Supabase Dashboard > Edge Functions > Secrets เพื่อเพิ่มก่อนใช้ Seedance" },
+          400
+        );
+      }
+      const seedanceResult = await checkSeedanceClip(apiKey, clip.operation_name);
+      result = seedanceResult.done
+        ? "videoUrl" in seedanceResult
+          ? { done: true, videoUrl: seedanceResult.videoUrl }
+          : { done: true, error: seedanceResult.error }
+        : { done: false };
+    }
+
+    if (!result.done) {
       return jsonResponse({ videoClip: clip });
     }
 
-    if (operation.error) {
+    if ("error" in result) {
       const { data: updated, error: updateErr } = await admin
         .from("video_clips")
-        .update({ status: "error", error_message: operation.error.message ?? "Veo generation failed" })
+        .update({ status: "error", error_message: result.error })
         .eq("id", clip.id)
         .select("*")
         .single();
@@ -81,36 +119,14 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ videoClip: updated });
     }
 
-    const video = extractVideo(operation);
-    if (!video) {
-      const { data: updated, error: updateErr } = await admin
-        .from("video_clips")
-        .update({ status: "error", error_message: "Veo finished but returned no video" })
-        .eq("id", clip.id)
-        .select("*")
-        .single();
-      if (updateErr) throw updateErr;
-      return jsonResponse({ videoClip: updated });
-    }
-
-    let videoBase64 = video.bytesBase64Encoded ?? null;
-    if (!videoBase64 && video.uri) {
-      const downloadUrl = video.uri.includes("?") ? `${video.uri}&key=${apiKey}` : `${video.uri}?key=${apiKey}`;
-      const downloadRes = await fetch(downloadUrl);
+    let videoBase64: string;
+    if ("videoBase64" in result) {
+      videoBase64 = result.videoBase64;
+    } else {
+      const downloadRes = await fetch(result.videoUrl);
       if (!downloadRes.ok) throw new Error(`Failed to download video (${downloadRes.status})`);
       const bytes = new Uint8Array(await downloadRes.arrayBuffer());
       videoBase64 = bytesToBase64(bytes);
-    }
-
-    if (!videoBase64) {
-      const { data: updated, error: updateErr } = await admin
-        .from("video_clips")
-        .update({ status: "error", error_message: "Veo returned no downloadable video data" })
-        .eq("id", clip.id)
-        .select("*")
-        .single();
-      if (updateErr) throw updateErr;
-      return jsonResponse({ videoClip: updated });
     }
 
     const { data: updated, error: updateErr } = await admin

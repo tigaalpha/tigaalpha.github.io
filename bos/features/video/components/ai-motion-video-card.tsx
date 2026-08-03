@@ -17,11 +17,17 @@ interface AiMotionVideoCardProps {
 
 const MAX_IMAGES = 20;
 const POLL_INTERVAL_MS = 6000;
-const COST_LOW_PER_SEC = 0.1;
-const COST_HIGH_PER_SEC = 0.15;
 const CANVAS_WIDTH = 720;
 const CANVAS_HEIGHT = 1280;
 const FPS = 30;
+
+type VideoProvider = "veo" | "seedance-2" | "seedance-2-5";
+
+const PROVIDERS: { id: VideoProvider; label: string; costLowPerSec: number; costHighPerSec: number }[] = [
+  { id: "veo", label: "Veo 3 Fast (Google)", costLowPerSec: 0.1, costHighPerSec: 0.15 },
+  { id: "seedance-2", label: "Seedance 2.0 (fal.ai)", costLowPerSec: 0.03, costHighPerSec: 0.05 },
+  { id: "seedance-2-5", label: "Seedance 2.5 (fal.ai)", costLowPerSec: 0.04, costHighPerSec: 0.07 },
+];
 
 function imageDataUrl(row: Tables<"generated_images">): string {
   return `data:${row.mime_type};base64,${row.image_base64}`;
@@ -31,10 +37,11 @@ function videoDataUrl(row: Tables<"video_clips">): string {
   return `data:${row.mime_type};base64,${row.video_base64}`;
 }
 
-function estimateCost(imageCount: number): { low: string; high: string } {
+function estimateCost(imageCount: number, provider: VideoProvider): { low: string; high: string } {
+  const rates = PROVIDERS.find((p) => p.id === provider)!;
   return {
-    low: (imageCount * 4 * COST_LOW_PER_SEC).toFixed(2),
-    high: (imageCount * 8 * COST_HIGH_PER_SEC).toFixed(2),
+    low: (imageCount * 4 * rates.costLowPerSec).toFixed(2),
+    high: (imageCount * 8 * rates.costHighPerSec).toFixed(2),
   };
 }
 
@@ -100,6 +107,7 @@ function playAndDraw(clip: Tables<"video_clips">, ctx: CanvasRenderingContext2D)
  */
 export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVideoCardProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [provider, setProvider] = useState<VideoProvider>("veo");
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -220,7 +228,7 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
         videoClips: Tables<"video_clips">[];
         requested: number;
         started: number;
-      }>("generate-video-batch-start", { body: { imageIds: selectedIds } });
+      }>("generate-video-batch-start", { body: { imageIds: selectedIds, provider } });
       if (fnError) throw fnError;
       if (!data) throw new Error("Empty response from generate-video-batch-start");
 
@@ -248,7 +256,7 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
     );
   }
 
-  const cost = estimateCost(selectedIds.length);
+  const cost = estimateCost(selectedIds.length, provider);
   const activeBatchClips = batchClipIds?.map((id) => videoClips.find((c) => c.id === id)).filter(Boolean) as
     | Tables<"video_clips">[]
     | undefined;
@@ -260,7 +268,7 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary-accent" />
-            สร้างวิดีโอเคลื่อนไหวจริงด้วย AI (Veo)
+            สร้างวิดีโอเคลื่อนไหวจริงด้วย AI
           </CardTitle>
           <CardDescription>
             เลือกภาพนิ่งได้ 1-{MAX_IMAGES} ภาพ (แตะเพื่อเลือก/ยกเลิก ตามลำดับ) — แต่ละภาพจะกลายเป็นคลิปเคลื่อนไหวจริง 4-8
@@ -268,6 +276,29 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-secondary/50">โมเดล</p>
+            <div className="flex flex-wrap gap-2">
+              {PROVIDERS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setProvider(p.id);
+                    setConfirming(false);
+                  }}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    provider === p.id
+                      ? "border-transparent bg-primary-gradient text-white"
+                      : "border-line/10 text-secondary/70 hover:bg-line/5"
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
             {images.map((img) => {
               const order = selectedIds.indexOf(img.id);

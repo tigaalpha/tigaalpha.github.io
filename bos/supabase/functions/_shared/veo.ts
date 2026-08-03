@@ -44,6 +44,7 @@ export async function startVeoClip(admin: SupabaseClient, apiKey: string, userId
     .insert({
       source_image_id: image.id,
       status: "processing",
+      provider: "veo",
       operation_name: operation.name,
       duration_seconds: durationSeconds,
       created_by: userId,

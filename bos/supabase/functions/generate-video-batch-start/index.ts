@@ -4,12 +4,14 @@ import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent } from "../_shared/monitor.ts";
-import { startVeoClip, type SourceImage } from "../_shared/veo.ts";
+import { isVideoProvider, requireProviderApiKey, startClip } from "../_shared/video-providers.ts";
+import type { SourceImage } from "../_shared/veo.ts";
 
-// Kicks off one Veo generation per selected image, in the order given —
-// the frontend polls each resulting video_clips row individually, then
-// once all of them finish, stitches the clips into one long continuous
-// video client-side (no server-side video encoding involved).
+// Kicks off one generation (Veo or Seedance, whichever the caller picked)
+// per selected image, in the order given — the frontend polls each
+// resulting video_clips row individually, then once all of them finish,
+// stitches the clips into one long continuous video client-side (no
+// server-side video encoding involved).
 const MAX_IMAGES = 20;
 const RATE_LIMIT = { windowMinutes: 60, maxRequests: 40 };
 
@@ -22,16 +24,16 @@ Deno.serve(async (req: Request) => {
   try {
     const userId = await requireStaff(admin, req);
 
-    const { imageIds } = await req.json();
+    const { imageIds, provider = "veo" } = await req.json();
     if (!Array.isArray(imageIds) || imageIds.length === 0) {
       return jsonResponse({ error: "imageIds must be a non-empty array" }, 400);
     }
     if (imageIds.length > MAX_IMAGES) {
       return jsonResponse({ error: `Select at most ${MAX_IMAGES} images per batch` }, 400);
     }
+    if (!isVideoProvider(provider)) return jsonResponse({ error: "Invalid provider" }, 400);
 
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) return jsonResponse({ error: "GEMINI_API_KEY not configured" }, 400);
+    const apiKey = requireProviderApiKey(provider);
 
     const { data: images, error: imagesErr } = await admin
       .from("generated_images")
@@ -51,7 +53,7 @@ Deno.serve(async (req: Request) => {
         if (err instanceof RateLimitError) break;
         throw err;
       }
-      const row = await startVeoClip(admin, apiKey, userId, image);
+      const row = await startClip(admin, provider, apiKey, userId, image);
       videoClips.push(row);
     }
 
