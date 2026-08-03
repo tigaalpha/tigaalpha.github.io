@@ -21,6 +21,13 @@ export class TransactionsRepository {
     return data;
   }
 
+  /** Bulk insert for Excel/CSV imports — one round trip instead of one per row. */
+  async createMany(rows: Database["public"]["Tables"]["transactions"]["Insert"][]): Promise<Tables<"transactions">[]> {
+    const { data, error } = await this.db.from("transactions").insert(rows).select("*");
+    if (error) throw error;
+    return data ?? [];
+  }
+
   async update(id: string, patch: Partial<Tables<"transactions">>): Promise<Tables<"transactions">> {
     const { data, error } = await this.db.from("transactions").update(patch).eq("id", id).select("*").single();
     if (error) throw error;

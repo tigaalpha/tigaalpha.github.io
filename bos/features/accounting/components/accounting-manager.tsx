@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { startOfMonth, endOfMonth, format } from "date-fns";
-import { Wallet, TrendingUp, TrendingDown, Trash2, Download, Plus } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, Trash2, Download, Plus, FileSpreadsheet, Upload } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, PAYMENT_METHODS } from "@/features/accounting/categories";
+import { parseExcelTransactions, type ParseExcelResult } from "@/lib/parse-excel-transactions";
 import type { Tables, TransactionType } from "@/types/database";
 
 interface AccountingManagerProps {
@@ -33,6 +34,13 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]!);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [importPreview, setImportPreview] = useState<ParseExcelResult | null>(null);
+  const [importFileName, setImportFileName] = useState<string | null>(null);
+  const [parsingFile, setParsingFile] = useState(false);
+  const [importingRows, setImportingRows] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categoryOptions = type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
@@ -115,6 +123,49 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
     a.download = `transactions_${startDate}_to_${endDate}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleExcelFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportError(null);
+    setImportPreview(null);
+    setImportFileName(file.name);
+    setParsingFile(true);
+    try {
+      const result = await parseExcelTransactions(file);
+      setImportPreview(result);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "อ่านไฟล์ไม่สำเร็จ");
+    } finally {
+      setParsingFile(false);
+    }
+  }
+
+  async function handleConfirmImport() {
+    if (!importPreview || importPreview.rows.length === 0) return;
+    setImportingRows(true);
+    setImportError(null);
+    try {
+      const repos = createRepositories(createClient());
+      await repos.transactions.createMany(importPreview.rows);
+      setImportPreview(null);
+      setImportFileName(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      onChanged();
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "นำเข้าไม่สำเร็จ");
+    } finally {
+      setImportingRows(false);
+    }
+  }
+
+  function handleCancelImport() {
+    setImportPreview(null);
+    setImportFileName(null);
+    setImportError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   return (
@@ -210,6 +261,68 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
               {submitting ? "กำลังบันทึก…" : "บันทึกรายการ"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>นำเข้าจาก Excel</CardTitle>
+          <CardDescription>
+            อัปโหลดไฟล์ .xlsx ที่มีแถวหัวตาราง (แถวแรก) เป็น: วันที่, ประเภท (รายรับ/รายจ่าย), หมวดหมู่, จำนวนเงิน,
+            รายละเอียด (ไม่บังคับ), ช่องทางชำระ (ไม่บังคับ) — ข้อมูลจะถูกอ่านในเบราว์เซอร์ ไม่มีการอัปโหลดไฟล์ขึ้นเซิร์ฟเวอร์
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleExcelFileSelected}
+              className="block w-full text-sm text-secondary/70 file:mr-3 file:rounded-xl file:border-0 file:bg-line/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-secondary hover:file:bg-line/20"
+            />
+            {parsingFile ? <span className="whitespace-nowrap text-xs text-secondary/50">กำลังอ่านไฟล์…</span> : null}
+          </div>
+
+          {importError ? <p className="text-sm text-danger">{importError}</p> : null}
+
+          {importPreview ? (
+            <div className="space-y-3 rounded-xl border border-line/10 p-4">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="h-4 w-4 text-secondary/50" />
+                <p className="text-sm font-medium text-secondary">{importFileName}</p>
+              </div>
+              <p className="text-sm text-secondary/70">
+                พบ <span className="font-semibold text-success">{importPreview.rows.length}</span> รายการที่พร้อมนำเข้า
+                {importPreview.skipped.length > 0 ? (
+                  <>
+                    {" "}
+                    และ <span className="font-semibold text-danger">{importPreview.skipped.length}</span> แถวที่ข้าม
+                  </>
+                ) : null}
+              </p>
+
+              {importPreview.skipped.length > 0 ? (
+                <ul className="max-h-32 space-y-1 overflow-y-auto text-xs text-secondary/50">
+                  {importPreview.skipped.map((s, i) => (
+                    <li key={i}>
+                      แถวที่ {s.row}: {s.reason}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              <div className="flex gap-2">
+                <Button onClick={handleConfirmImport} disabled={importingRows || importPreview.rows.length === 0}>
+                  <Upload className="h-4 w-4" />
+                  {importingRows ? "กำลังนำเข้า…" : `ยืนยันนำเข้า ${importPreview.rows.length} รายการ`}
+                </Button>
+                <Button variant="outline" onClick={handleCancelImport} disabled={importingRows}>
+                  ยกเลิก
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
