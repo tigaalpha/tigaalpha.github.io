@@ -662,6 +662,24 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["agent_schedules"]["Row"]>;
         Relationships: [];
       };
+      social_trend_manual_items: {
+        Row: {
+          id: string;
+          platform: "tiktok" | "instagram" | "facebook" | "wechat" | "alipay" | "xiaohongshu";
+          rank: number;
+          topic: string;
+          detail: string | null;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["social_trend_manual_items"]["Row"]> & {
+          platform: "tiktok" | "instagram" | "facebook" | "wechat" | "alipay" | "xiaohongshu";
+          topic: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["social_trend_manual_items"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
