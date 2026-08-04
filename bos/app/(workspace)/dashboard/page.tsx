@@ -119,6 +119,8 @@ export default function DashboardPage() {
         <p className="text-sm text-secondary/50">Today&apos;s overview of your studio</p>
       </div>
 
+      <FinanceCharts />
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Today's Lessons" value={today.length} icon={CalendarClock} />
         <StatCard label="Pending Chats" value={conversations.length} icon={MessagesSquare} tone={conversations.length > 0 ? "danger" : "default"} />
@@ -148,8 +150,6 @@ export default function DashboardPage() {
         <SalesFunnelCard counts={funnel} />
         <NotificationsCard notifications={notifications} />
       </div>
-
-      <FinanceCharts />
 
       <BusinessSnapshotCard snapshot={businessSnapshot} onChanged={reload} />
     </div>
