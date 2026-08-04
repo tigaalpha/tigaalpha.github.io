@@ -21,7 +21,22 @@ interface StatusResponse {
   line: StatusCheck;
   googleCalendar: StatusCheck;
   gemini: StatusCheck;
+  claude: StatusCheck;
+  gpt: StatusCheck;
+  grok: StatusCheck;
+  deepseek: StatusCheck;
+  kimi: StatusCheck;
+  glm: StatusCheck;
 }
+
+const STRATEGY_PROVIDERS: { key: keyof StatusResponse; label: string; secretName: string; signupUrl: string }[] = [
+  { key: "claude", label: "Claude (Anthropic)", secretName: "ANTHROPIC_API_KEY", signupUrl: "https://console.anthropic.com/settings/keys" },
+  { key: "gpt", label: "GPT (OpenAI)", secretName: "OPENAI_API_KEY", signupUrl: "https://platform.openai.com/api-keys" },
+  { key: "grok", label: "Grok (xAI)", secretName: "XAI_API_KEY", signupUrl: "https://console.x.ai" },
+  { key: "deepseek", label: "DeepSeek", secretName: "DEEPSEEK_API_KEY", signupUrl: "https://platform.deepseek.com/api_keys" },
+  { key: "kimi", label: "Kimi (Moonshot AI)", secretName: "MOONSHOT_API_KEY", signupUrl: "https://platform.moonshot.ai/console/api-keys" },
+  { key: "glm", label: "GLM (Zhipu / Z.ai)", secretName: "ZHIPU_API_KEY", signupUrl: "https://open.bigmodel.cn/usercenter/apikeys" },
+];
 
 function StatusBadge({ status }: { status: StatusCheck | null }) {
   if (!status) return <Badge variant="outline">Checking…</Badge>;
@@ -494,6 +509,32 @@ export function IntegrationsCard() {
               2. นำไปวางใน Supabase Dashboard → Edge Functions → Secrets เป็น{" "}
               <code className="rounded bg-line/5 px-1">GEMINI_API_KEY</code>
             </p>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <p className="font-medium text-secondary">AI สำหรับห้องกลยุทธ์ (Strategy Room)</p>
+          <p className="text-xs text-secondary/50">
+            แต่ละตัวต้องขอ API key แยกจากเจ้าของแพลตฟอร์มเอง และมีค่าใช้จ่ายแยกกันตามการใช้งานจริง — ไปสร้าง key ตามลิงก์ แล้ววางใน
+            Supabase Dashboard → Edge Functions → Secrets ด้วยชื่อ secret ที่กำกับไว้ (ไม่ต้องกรอกในเว็บนี้ ไม่มีช่องให้กรอก)
+          </p>
+          <div className="space-y-2 pt-2">
+            {STRATEGY_PROVIDERS.map((provider) => (
+              <div key={provider.key} className="flex items-center justify-between gap-2 rounded-lg bg-line/5 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-secondary">
+                    <a href={provider.signupUrl} target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
+                      {provider.label}
+                    </a>
+                  </p>
+                  <p className="truncate text-xs text-secondary/40">
+                    Secret: <code className="rounded bg-line/5 px-1">{provider.secretName}</code>
+                    {status?.[provider.key] ? ` — ${status[provider.key].detail}` : ""}
+                  </p>
+                </div>
+                <StatusBadge status={status?.[provider.key] ?? null} />
+              </div>
+            ))}
           </div>
         </div>
 

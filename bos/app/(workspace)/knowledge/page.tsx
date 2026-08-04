@@ -4,20 +4,28 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { KnowledgeManager } from "@/features/knowledge/components/knowledge-manager";
+import { SalesStyleLearner } from "@/features/knowledge/components/sales-style-learner";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/types/database";
 
 export default function KnowledgePage() {
   const [documents, setDocuments] = useState<Tables<"knowledge_documents">[] | null>(null);
+  const [salesChatExamples, setSalesChatExamples] = useState<Tables<"sales_chat_examples">[] | null>(null);
 
   const reload = useCallback(() => {
     const repos = createRepositories(createClient());
     repos.knowledge.listDocuments().then(setDocuments);
   }, []);
 
+  const reloadSalesChatExamples = useCallback(() => {
+    const repos = createRepositories(createClient());
+    repos.salesChatExamples.list().then(setSalesChatExamples);
+  }, []);
+
   useEffect(() => {
     reload();
-  }, [reload]);
+    reloadSalesChatExamples();
+  }, [reload, reloadSalesChatExamples]);
 
   return (
     <div className="space-y-6">
@@ -26,6 +34,11 @@ export default function KnowledgePage() {
         <p className="text-sm text-secondary/50">The AI always searches this before answering a customer</p>
       </div>
       {documents ? <KnowledgeManager documents={documents} onChanged={reload} /> : <Skeleton className="h-64" />}
+      {salesChatExamples ? (
+        <SalesStyleLearner examples={salesChatExamples} onChanged={reloadSalesChatExamples} />
+      ) : (
+        <Skeleton className="h-64" />
+      )}
     </div>
   );
 }

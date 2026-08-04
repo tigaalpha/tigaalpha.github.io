@@ -9,6 +9,7 @@ import { LessonListCard } from "@/features/dashboard/components/lesson-list-card
 import { SalesFunnelCard } from "@/features/dashboard/components/sales-funnel-card";
 import { NotificationsCard } from "@/features/dashboard/components/notifications-card";
 import { BusinessSnapshotCard } from "@/features/dashboard/components/business-snapshot-card";
+import { FinanceCharts } from "@/features/dashboard/components/finance-charts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
 import type { SalesStatus, Tables } from "@/types/database";
@@ -147,6 +148,8 @@ export default function DashboardPage() {
         <SalesFunnelCard counts={funnel} />
         <NotificationsCard notifications={notifications} />
       </div>
+
+      <FinanceCharts />
 
       <BusinessSnapshotCard snapshot={businessSnapshot} onChanged={reload} />
     </div>

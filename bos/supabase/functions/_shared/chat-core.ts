@@ -89,6 +89,21 @@ export async function respond(
     systemParts.push(`Summary of earlier messages in this conversation (not repeated below):\n${conversation.summary}`);
   }
 
+  // The owner's own closing technique, distilled from their real chat
+  // history (see analyze-sales-style) -- applies to every sales
+  // conversation unconditionally, not just when RAG happens to surface a
+  // similar-looking example.
+  if (promptContext.includes("sales")) {
+    const { data: playbookRow } = await db
+      .from("integration_settings")
+      .select("value")
+      .eq("key", "learned_sales_playbook")
+      .maybeSingle();
+    if (playbookRow?.value) {
+      systemParts.push(`## Owner's proven sales playbook (learned from their own real closed-sale chats — follow this closely)\n${playbookRow.value}`);
+    }
+  }
+
   const messages: ChatMessage[] = [
     { role: "system", content: systemParts.join("\n\n") },
     // A degenerate AI turn from before this safeguard existed (or one that

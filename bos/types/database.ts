@@ -575,6 +575,48 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["google_calendar_connections"]["Row"]>;
         Relationships: [];
       };
+      strategy_sessions: {
+        Row: {
+          id: string;
+          title: string;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["strategy_sessions"]["Row"]> & { title: string };
+        Update: Partial<Database["public"]["Tables"]["strategy_sessions"]["Row"]>;
+        Relationships: [];
+      };
+      strategy_messages: {
+        Row: {
+          id: string;
+          session_id: string;
+          role: "user" | "ai";
+          model: string | null;
+          content: string;
+          pinned: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["strategy_messages"]["Row"]> & {
+          session_id: string;
+          role: "user" | "ai";
+          content: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["strategy_messages"]["Row"]>;
+        Relationships: [];
+      };
+      sales_chat_examples: {
+        Row: {
+          id: string;
+          extracted_turns: { speaker: "customer" | "owner"; text: string }[];
+          confirmed: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sales_chat_examples"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["sales_chat_examples"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

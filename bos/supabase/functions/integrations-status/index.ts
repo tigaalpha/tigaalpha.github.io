@@ -67,6 +67,42 @@ async function checkGemini(): Promise<CheckResult> {
   }
 }
 
+// Strategy Room providers -- all but Claude speak the same OpenAI-compatible
+// GET /models endpoint, which validates the key without spending any tokens.
+async function checkOpenAICompatibleModels(envKey: string, baseUrl: string): Promise<CheckResult> {
+  const key = Deno.env.get(envKey);
+  if (!key) return { connected: false, detail: `${envKey} is not set.` };
+
+  try {
+    const response = await fetch(`${baseUrl}/models`, { headers: { Authorization: `Bearer ${key}` } });
+    if (!response.ok) {
+      const body = await response.text();
+      return { connected: false, detail: `Rejected the API key (${response.status}): ${body.slice(0, 200)}` };
+    }
+    return { connected: true, detail: "API key is valid" };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : "Request failed." };
+  }
+}
+
+async function checkClaude(): Promise<CheckResult> {
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!key) return { connected: false, detail: "ANTHROPIC_API_KEY is not set." };
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/models", {
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      return { connected: false, detail: `Anthropic rejected the API key (${response.status}): ${body.slice(0, 200)}` };
+    }
+    return { connected: true, detail: "Claude API key is valid" };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : "Request to Anthropic failed." };
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -75,9 +111,19 @@ Deno.serve(async (req: Request) => {
     const admin = createAdminClient();
     await requireStaff(admin, req);
 
-    const [line, googleCalendar, gemini] = await Promise.all([checkLine(), checkGoogleCalendar(), checkGemini()]);
+    const [line, googleCalendar, gemini, claude, gpt, grok, deepseek, kimi, glm] = await Promise.all([
+      checkLine(),
+      checkGoogleCalendar(),
+      checkGemini(),
+      checkClaude(),
+      checkOpenAICompatibleModels("OPENAI_API_KEY", Deno.env.get("OPENAI_BASE_URL") ?? "https://api.openai.com/v1"),
+      checkOpenAICompatibleModels("XAI_API_KEY", Deno.env.get("XAI_BASE_URL") ?? "https://api.x.ai/v1"),
+      checkOpenAICompatibleModels("DEEPSEEK_API_KEY", Deno.env.get("DEEPSEEK_BASE_URL") ?? "https://api.deepseek.com/v1"),
+      checkOpenAICompatibleModels("MOONSHOT_API_KEY", Deno.env.get("MOONSHOT_BASE_URL") ?? "https://api.moonshot.ai/v1"),
+      checkOpenAICompatibleModels("ZHIPU_API_KEY", Deno.env.get("ZHIPU_BASE_URL") ?? "https://api.z.ai/api/paas/v4"),
+    ]);
 
-    return jsonResponse({ line, googleCalendar, gemini });
+    return jsonResponse({ line, googleCalendar, gemini, claude, gpt, grok, deepseek, kimi, glm });
   } catch (error) {
     return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }

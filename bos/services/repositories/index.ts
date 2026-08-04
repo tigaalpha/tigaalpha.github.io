@@ -20,6 +20,8 @@ import { LegalDocumentsRepository } from "./legal-documents.repository";
 import { BusinessSnapshotRepository } from "./business-snapshot.repository";
 import { GoogleCalendarConnectionsRepository } from "./google-calendar-connections.repository";
 import { VideoClipsRepository } from "./video-clips.repository";
+import { StrategyRepository } from "./strategy.repository";
+import { SalesChatExamplesRepository } from "./sales-chat-examples.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -48,6 +50,8 @@ export function createRepositories(db: SupabaseClient<Database>) {
     businessSnapshot: new BusinessSnapshotRepository(db),
     googleCalendarConnections: new GoogleCalendarConnectionsRepository(db),
     videoClips: new VideoClipsRepository(db),
+    strategy: new StrategyRepository(db),
+    salesChatExamples: new SalesChatExamplesRepository(db),
   };
 }
 

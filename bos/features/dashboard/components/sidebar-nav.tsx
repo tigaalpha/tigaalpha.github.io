@@ -25,6 +25,7 @@ import {
   Activity,
   Megaphone,
   Scale,
+  Brain,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -49,6 +50,11 @@ const TOP_LEVEL_ITEMS: NavItem[] = [
 ];
 
 const NAV_GROUPS: NavGroup[] = [
+  {
+    id: "strategy",
+    label: "กลยุทธ์",
+    items: [{ href: "/strategy", label: "AI Strategy Room", icon: Brain }],
+  },
   {
     id: "sales-crm",
     label: "Sales & CRM",

@@ -236,4 +236,36 @@ async function generateImage(prompt: string): Promise<GeneratedImage> {
   return { mimeType: imagePart.inlineData.mimeType, base64: imagePart.inlineData.data };
 }
 
+// Vision understanding (screenshot -> text) is Gemini-specific and not part
+// of the vendor-agnostic AIProvider interface (that's for the swappable
+// text-chat path only) -- callers that need this import it directly from
+// here, same as generateImage.
+async function understandImage(mimeType: string, base64: string, instructionPrompt: string): Promise<string> {
+  const response = await fetchWithRetry(`${BASE_URL}/${model()}:generateContent?key=${apiKey()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ inlineData: { mimeType, data: base64 } }, { text: instructionPrompt }],
+        },
+      ],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await friendlyErrorMessage(response, "การอ่านภาพ"));
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: GeminiPart[] } }>;
+  };
+  const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
+  if (!text) throw new Error("AI ไม่สามารถอ่านภาพนี้ได้ ลองใหม่อีกครั้ง");
+  return text;
+}
+
 export const geminiProvider: AIProvider = { generate, embed, generateImage };
+export { understandImage };
