@@ -198,8 +198,26 @@ function isoDateDaysAgo(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// A very common mistake is pasting the Search Console *web UI* URL (the
+// browser address bar while viewing the property) instead of the actual
+// property identifier the API expects -- e.g.
+// "https://search.google.com/search-console?resource_id=sc-domain%3Aexample.com"
+// instead of "sc-domain:example.com". Recover the real identifier from that
+// URL's resource_id param rather than failing on it.
+function normalizeSearchConsoleSiteUrl(raw: string): string {
+  try {
+    const url = new URL(raw);
+    const resourceId = url.searchParams.get("resource_id");
+    if (resourceId) return resourceId;
+  } catch {
+    // not a URL at all -- already a bare identifier like "sc-domain:example.com" or "https://example.com/"
+  }
+  return raw;
+}
+
 async function checkSearchConsole(siteUrl: string | null): Promise<SearchConsoleStatus> {
   if (!siteUrl) return { connected: false, detail: "ยังไม่ได้ตั้งค่า Search Console Site URL" };
+  siteUrl = normalizeSearchConsoleSiteUrl(siteUrl);
 
   try {
     const token = await getGoogleAccessToken();
