@@ -327,7 +327,10 @@ export function IntegrationsCard() {
           </div>
           {status?.googleCalendar ? <p className="text-xs text-secondary/50">{status.googleCalendar.detail}</p> : null}
           <div className="space-y-1 pt-2 text-sm text-secondary/70">
-            <p>1. เข้า Google Cloud Console → สร้าง OAuth Client (Web application) → คัดลอก <b>Client ID</b> วางด้านล่าง</p>
+            <p>
+              1. เข้า Google Cloud Console → เปิดใช้งาน &quot;Google Search Console API&quot; (ฟรี) → สร้าง OAuth Client (Web
+              application) → คัดลอก <b>Client ID</b> วางด้านล่าง
+            </p>
             <p>
               2. นำ <b>Client secret</b> ไปวางใน Supabase Dashboard → Edge Functions → Secrets เป็น{" "}
               <code className="rounded bg-line/5 px-1">GOOGLE_CLIENT_SECRET</code>
@@ -335,8 +338,8 @@ export function IntegrationsCard() {
             <p>3. เพิ่ม Redirect URI นี้ใน Google Cloud Console → Authorized redirect URIs:</p>
           </div>
           <p className="text-xs text-secondary/50">
-            การเชื่อมต่อนี้ตอนนี้ขอสิทธิ์ Google Drive (เฉพาะไฟล์ที่แอปสร้างเอง) เพิ่มด้วย สำหรับบันทึกภาพจาก Image Studio — ถ้าเคยเชื่อมต่อไว้ก่อนหน้านี้แล้ว
-            ต้องกด Connect ใหม่อีกครั้งเพื่อขอสิทธิ์ Drive เพิ่ม
+            การเชื่อมต่อนี้ตอนนี้ขอสิทธิ์ Google Drive (เฉพาะไฟล์ที่แอปสร้างเอง) สำหรับบันทึกภาพจาก Image Studio และสิทธิ์อ่าน Google Search
+            Console (สำหรับหน้า Marketing Channels) เพิ่มด้วย — ถ้าเคยเชื่อมต่อไว้ก่อนหน้านี้แล้ว ต้องกด Connect ใหม่อีกครั้งเพื่อขอสิทธิ์ที่เพิ่มมา
           </p>
           <CopyField value={googleRedirectUri} />
           <div className="flex items-end gap-2 pt-2">

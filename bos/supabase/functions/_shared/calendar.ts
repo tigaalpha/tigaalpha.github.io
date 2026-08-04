@@ -1,74 +1,19 @@
 // Google Calendar REST wrapper via plain fetch (no googleapis SDK — keeps
 // the Edge Function bundle small and Deno-native).
 
-import { createAdminClient } from "./supabase-admin.ts";
+import { getGoogleAccessToken } from "./google-auth.ts";
 
 const COLOR_ID: Record<"normal" | "final", string> = {
   normal: "5", // Banana (yellow)
   final: "10", // Basil (green)
 };
 
-let cachedToken: { value: string; expiresAt: number } | null = null;
-
-/**
- * Client ID and refresh token come from the integration_settings table when
- * the owner connected Google Calendar through Settings > Integrations (the
- * guided OAuth flow — see google-oauth-start/google-oauth-callback). Falls
- * back to GOOGLE_CLIENT_ID / GOOGLE_REFRESH_TOKEN Edge Function secrets for
- * anyone who set them up the old way (manually, before that UI existed).
- */
-async function getGoogleCredentials(): Promise<{ clientId: string; refreshToken: string }> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("integration_settings")
-    .select("key, value")
-    .in("key", ["google_client_id", "google_refresh_token"]);
-
-  const fromDb = Object.fromEntries((data ?? []).map((row: { key: string; value: string | null }) => [row.key, row.value]));
-
-  const clientId = fromDb.google_client_id || Deno.env.get("GOOGLE_CLIENT_ID");
-  const refreshToken = fromDb.google_refresh_token || Deno.env.get("GOOGLE_REFRESH_TOKEN");
-
-  if (!clientId || !refreshToken) {
-    throw new Error("Google Calendar is not connected yet — connect it from Settings > Integrations.");
-  }
-
-  return { clientId, refreshToken };
-}
-
-async function getAccessToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 30_000) {
-    return cachedToken.value;
-  }
-
-  const { clientId, refreshToken } = await getGoogleCredentials();
-
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: Deno.env.get("GOOGLE_CLIENT_SECRET")!,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Google OAuth token refresh failed (${response.status}): ${await response.text()}`);
-  }
-
-  const data = (await response.json()) as { access_token: string; expires_in: number };
-  cachedToken = { value: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
-  return cachedToken.value;
-}
-
 function calendarId(): string {
   return Deno.env.get("GOOGLE_CALENDAR_ID") ?? "primary";
 }
 
 async function calendarFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = await getAccessToken();
+  const token = await getGoogleAccessToken();
   return fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId())}${path}`, {
     ...init,
     headers: { ...init.headers, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Globe, Youtube, Facebook, Instagram, Music2, Twitter, RefreshCw, Pencil, ExternalLink, type LucideIcon } from "lucide-react";
+import { Globe, Youtube, Facebook, Instagram, Music2, Twitter, Search, RefreshCw, Pencil, ExternalLink, type LucideIcon } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -37,10 +37,27 @@ interface FacebookStatus {
   link?: string;
 }
 
+interface SearchConsoleKeyword {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+interface SearchConsoleStatus {
+  connected: boolean;
+  detail: string;
+  totalClicks?: number;
+  totalImpressions?: number;
+  topKeywords?: SearchConsoleKeyword[];
+}
+
 interface AutoStatusResponse {
   website: WebsiteStatus;
   youtube: YouTubeStatus;
   facebook: FacebookStatus;
+  searchConsole: SearchConsoleStatus;
 }
 
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
@@ -66,6 +83,8 @@ export function MarketingChannelsView() {
   const [savingWebsiteUrl, setSavingWebsiteUrl] = useState(false);
   const [youtubeHandle, setYoutubeHandle] = useState("");
   const [savingYoutubeHandle, setSavingYoutubeHandle] = useState(false);
+  const [gscSiteUrl, setGscSiteUrl] = useState("");
+  const [savingGscSiteUrl, setSavingGscSiteUrl] = useState(false);
 
   const [autoStatus, setAutoStatus] = useState<AutoStatusResponse | null>(null);
   const [checking, setChecking] = useState(false);
@@ -97,7 +116,12 @@ export function MarketingChannelsView() {
   useEffect(() => {
     const supabase = createClient();
     const repos = createRepositories(supabase);
-    repos.integrations.get("marketing_website_url").then((v) => setWebsiteUrl(v ?? ""));
+    repos.integrations.get("marketing_website_url").then((websiteValue) => {
+      setWebsiteUrl(websiteValue ?? "");
+      repos.integrations.get("google_search_console_site_url").then((gscValue) => {
+        setGscSiteUrl(gscValue ?? websiteValue ?? "");
+      });
+    });
     repos.integrations.get("youtube_channel_handle").then((v) => setYoutubeHandle(v ?? ""));
     supabase.auth.getUser().then(({ data }) => {
       userIdRef.current = data.user?.id ?? null;
@@ -122,6 +146,14 @@ export function MarketingChannelsView() {
     const repos = createRepositories(createClient());
     await repos.integrations.set("youtube_channel_handle", youtubeHandle.trim());
     setSavingYoutubeHandle(false);
+    void refreshAuto();
+  }
+
+  async function saveGscSiteUrl() {
+    setSavingGscSiteUrl(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("google_search_console_site_url", gscSiteUrl.trim());
+    setSavingGscSiteUrl(false);
     void refreshAuto();
   }
 
@@ -173,6 +205,19 @@ export function MarketingChannelsView() {
           <p className="text-xs text-secondary/40">
             ต้องตั้งค่า <code className="rounded bg-line/5 px-1">YOUTUBE_API_KEY</code> ใน Supabase Dashboard ก่อน — ดูวิธีที่หน้า Settings
           </p>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className="text-xs text-secondary/50">Search Console Site URL (ต้อง verify ไว้ใน Google Search Console แล้ว)</label>
+              <Input placeholder="https://tigaalpha.github.io/studio/" value={gscSiteUrl} onChange={(e) => setGscSiteUrl(e.target.value)} />
+            </div>
+            <Button variant="outline" onClick={() => void saveGscSiteUrl()} disabled={savingGscSiteUrl}>
+              {savingGscSiteUrl ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+          <p className="text-xs text-secondary/40">
+            ต้องกด &quot;Connect Google Calendar&quot; ใหม่อีกครั้งที่หน้า Settings เพื่อขอสิทธิ์ Search Console เพิ่ม (ถ้าเคยเชื่อมต่อไว้ก่อนหน้านี้แล้ว)
+            — ข้อมูล SEO อาจดีเลย์ 2-3 วันตามธรรมชาติของ Google Search Console ไม่ใช่ real-time เป๊ะเหมือนช่องทางอื่น
+          </p>
         </CardContent>
       </Card>
 
@@ -187,7 +232,7 @@ export function MarketingChannelsView() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="space-y-2 pt-6">
             <div className="flex items-center justify-between">
@@ -262,6 +307,40 @@ export function MarketingChannelsView() {
               </>
             ) : (
               <p className="text-xs text-secondary/50">{autoStatus?.facebook.detail ?? "กำลังตรวจสอบ…"}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="space-y-2 pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Search className="h-5 w-5 text-secondary/60" />
+                <p className="font-medium text-secondary">Google SEO</p>
+              </div>
+              <ChannelBadge connected={autoStatus?.searchConsole.connected ?? null} />
+            </div>
+            {autoStatus?.searchConsole.connected ? (
+              <>
+                <p className="text-2xl font-semibold text-secondary">{fmtNumber(autoStatus.searchConsole.totalClicks)}</p>
+                <p className="text-xs text-secondary/50">
+                  คลิกจาก Google Search (28 วัน) · {fmtNumber(autoStatus.searchConsole.totalImpressions)} การแสดงผล
+                </p>
+                {autoStatus.searchConsole.topKeywords && autoStatus.searchConsole.topKeywords.length > 0 ? (
+                  <ul className="space-y-1 pt-1">
+                    {autoStatus.searchConsole.topKeywords.slice(0, 5).map((k) => (
+                      <li key={k.query} className="flex items-center justify-between gap-2 text-xs text-secondary/70">
+                        <span className="truncate">{k.query}</span>
+                        <span className="shrink-0 text-secondary/40">อันดับ {k.position.toFixed(1)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-secondary/40">ยังไม่มี keyword ที่มีข้อมูลในช่วงนี้</p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-secondary/50">{autoStatus?.searchConsole.detail ?? "กำลังตรวจสอบ…"}</p>
             )}
           </CardContent>
         </Card>

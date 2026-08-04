@@ -5,8 +5,10 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 
 // drive.file: only touches files this app itself creates, never the user's
 // existing Drive content — enough to save generated images without asking
-// for broad Drive access.
-const SCOPE = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive.file";
+// for broad Drive access. webmasters.readonly: Search Console data for the
+// Marketing Channels SEO card — read-only, no posting/management access.
+const SCOPE =
+  "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/webmasters.readonly";
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 Deno.serve(async (req: Request) => {

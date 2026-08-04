@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { getGoogleAccessToken } from "../_shared/google-auth.ts";
 
 const GRAPH_VERSION = "v19.0";
 const FETCH_TIMEOUT_MS = 8000;
@@ -168,6 +169,86 @@ async function checkFacebook(admin: ReturnType<typeof createAdminClient>): Promi
   }
 }
 
+interface SearchConsoleKeyword {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+interface SearchConsoleStatus {
+  connected: boolean;
+  detail: string;
+  totalClicks?: number;
+  totalImpressions?: number;
+  topKeywords?: SearchConsoleKeyword[];
+}
+
+// Search Console data lags 2-3 days behind real-time by Google's own
+// design (crawl/indexing pipeline), so the window ends 3 days ago rather
+// than today -- querying up to "today" just returns thin/zero rows for the
+// most recent days instead of a real error, which would look broken.
+const SEARCH_CONSOLE_WINDOW_DAYS = 28;
+const SEARCH_CONSOLE_LAG_DAYS = 3;
+
+function isoDateDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function checkSearchConsole(siteUrl: string | null): Promise<SearchConsoleStatus> {
+  if (!siteUrl) return { connected: false, detail: "ยังไม่ได้ตั้งค่า Search Console Site URL" };
+
+  try {
+    const token = await getGoogleAccessToken();
+    const response = await fetchWithTimeout(
+      `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          startDate: isoDateDaysAgo(SEARCH_CONSOLE_WINDOW_DAYS),
+          endDate: isoDateDaysAgo(SEARCH_CONSOLE_LAG_DAYS),
+          dimensions: ["query"],
+          rowLimit: 10,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const body = await response.text();
+      return {
+        connected: false,
+        detail: `Search Console ปฏิเสธ (${response.status}): ${body.slice(0, 200)} — ตรวจสอบว่า Site URL ตรงกับ property ที่ verify ไว้ใน Search Console เป๊ะ`,
+      };
+    }
+
+    const data = (await response.json()) as {
+      rows?: Array<{ keys: string[]; clicks: number; impressions: number; ctr: number; position: number }>;
+    };
+    const rows = data.rows ?? [];
+    const topKeywords: SearchConsoleKeyword[] = rows.map((row) => ({
+      query: row.keys[0] ?? "",
+      clicks: row.clicks,
+      impressions: row.impressions,
+      ctr: row.ctr,
+      position: row.position,
+    }));
+
+    return {
+      connected: true,
+      detail: `เชื่อมต่อสำเร็จ (ข้อมูลอาจดีเลย์ ${SEARCH_CONSOLE_LAG_DAYS} วันตามธรรมชาติของ Google Search Console)`,
+      totalClicks: topKeywords.reduce((sum, k) => sum + k.clicks, 0),
+      totalImpressions: topKeywords.reduce((sum, k) => sum + k.impressions, 0),
+      topKeywords,
+    };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : "เชื่อมต่อ Search Console ไม่สำเร็จ" };
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -179,16 +260,17 @@ Deno.serve(async (req: Request) => {
     const { data: settingsRows } = await admin
       .from("integration_settings")
       .select("key, value")
-      .in("key", ["marketing_website_url", "youtube_channel_handle"]);
+      .in("key", ["marketing_website_url", "youtube_channel_handle", "google_search_console_site_url"]);
     const settings = Object.fromEntries((settingsRows ?? []).map((row: { key: string; value: string | null }) => [row.key, row.value]));
 
-    const [website, youtube, facebook] = await Promise.all([
+    const [website, youtube, facebook, searchConsole] = await Promise.all([
       checkWebsite(settings.marketing_website_url ?? null),
       checkYouTube(Deno.env.get("YOUTUBE_API_KEY"), settings.youtube_channel_handle ?? null),
       checkFacebook(admin),
+      checkSearchConsole(settings.google_search_console_site_url ?? null),
     ]);
 
-    return jsonResponse({ website, youtube, facebook });
+    return jsonResponse({ website, youtube, facebook, searchConsole });
   } catch (error) {
     return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
