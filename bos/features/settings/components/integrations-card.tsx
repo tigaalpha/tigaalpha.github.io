@@ -21,6 +21,7 @@ interface StatusResponse {
   line: StatusCheck;
   googleCalendar: StatusCheck;
   gemini: StatusCheck;
+  youtube: StatusCheck;
   claude: StatusCheck;
   gpt: StatusCheck;
   grok: StatusCheck;
@@ -509,6 +510,33 @@ export function IntegrationsCard() {
               2. นำไปวางใน Supabase Dashboard → Edge Functions → Secrets เป็น{" "}
               <code className="rounded bg-line/5 px-1">GEMINI_API_KEY</code>
             </p>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <div className="flex items-center justify-between">
+            <p className="font-medium text-secondary">YouTube Data API (สำหรับหน้า Marketing Channels)</p>
+            <StatusBadge status={status?.youtube ?? null} />
+          </div>
+          {status?.youtube ? <p className="text-xs text-secondary/50">{status.youtube.detail}</p> : null}
+          <div className="space-y-1 pt-2 text-sm text-secondary/70">
+            <p>
+              1. เข้า{" "}
+              <a
+                href="https://console.cloud.google.com/apis/library/youtube.googleapis.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-accent underline"
+              >
+                Google Cloud Console
+              </a>{" "}
+              → เปิดใช้งาน &quot;YouTube Data API v3&quot; → สร้าง API Key ฟรี (ไม่ต้องผูกบัตร)
+            </p>
+            <p>
+              2. นำไปวางใน Supabase Dashboard → Edge Functions → Secrets เป็น{" "}
+              <code className="rounded bg-line/5 px-1">YOUTUBE_API_KEY</code>
+            </p>
+            <p>3. ไปที่หน้า Marketing Channels แล้วกรอก handle หรือ Channel ID ของช่อง YouTube เพื่อดูสถิติแบบ real-time</p>
           </div>
         </div>
 

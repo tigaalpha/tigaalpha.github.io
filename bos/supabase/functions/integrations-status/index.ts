@@ -85,6 +85,25 @@ async function checkOpenAICompatibleModels(envKey: string, baseUrl: string): Pro
   }
 }
 
+// Marketing Channels page needs a real channel to check; this Settings
+// badge just needs to know the key itself works, so it hits the cheapest
+// endpoint that doesn't depend on any channel/handle being configured yet.
+async function checkYouTube(): Promise<CheckResult> {
+  const key = Deno.env.get("YOUTUBE_API_KEY");
+  if (!key) return { connected: false, detail: "YOUTUBE_API_KEY is not set." };
+
+  try {
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/i18nRegions?part=snippet&key=${key}`);
+    if (!response.ok) {
+      const body = await response.text();
+      return { connected: false, detail: `YouTube rejected the API key (${response.status}): ${body.slice(0, 200)}` };
+    }
+    return { connected: true, detail: "YouTube API key is valid" };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : "Request to YouTube failed." };
+  }
+}
+
 async function checkClaude(): Promise<CheckResult> {
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (!key) return { connected: false, detail: "ANTHROPIC_API_KEY is not set." };
@@ -111,10 +130,11 @@ Deno.serve(async (req: Request) => {
     const admin = createAdminClient();
     await requireStaff(admin, req);
 
-    const [line, googleCalendar, gemini, claude, gpt, grok, deepseek, kimi, glm] = await Promise.all([
+    const [line, googleCalendar, gemini, youtube, claude, gpt, grok, deepseek, kimi, glm] = await Promise.all([
       checkLine(),
       checkGoogleCalendar(),
       checkGemini(),
+      checkYouTube(),
       checkClaude(),
       checkOpenAICompatibleModels("OPENAI_API_KEY", Deno.env.get("OPENAI_BASE_URL") ?? "https://api.openai.com/v1"),
       checkOpenAICompatibleModels("XAI_API_KEY", Deno.env.get("XAI_BASE_URL") ?? "https://api.x.ai/v1"),
@@ -123,7 +143,7 @@ Deno.serve(async (req: Request) => {
       checkOpenAICompatibleModels("ZHIPU_API_KEY", Deno.env.get("ZHIPU_BASE_URL") ?? "https://api.z.ai/api/paas/v4"),
     ]);
 
-    return jsonResponse({ line, googleCalendar, gemini, claude, gpt, grok, deepseek, kimi, glm });
+    return jsonResponse({ line, googleCalendar, gemini, youtube, claude, gpt, grok, deepseek, kimi, glm });
   } catch (error) {
     return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }

@@ -22,6 +22,7 @@ import { GoogleCalendarConnectionsRepository } from "./google-calendar-connectio
 import { VideoClipsRepository } from "./video-clips.repository";
 import { StrategyRepository } from "./strategy.repository";
 import { SalesChatExamplesRepository } from "./sales-chat-examples.repository";
+import { MarketingChannelsRepository } from "./marketing-channels.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -52,6 +53,7 @@ export function createRepositories(db: SupabaseClient<Database>) {
     videoClips: new VideoClipsRepository(db),
     strategy: new StrategyRepository(db),
     salesChatExamples: new SalesChatExamplesRepository(db),
+    marketingChannels: new MarketingChannelsRepository(db),
   };
 }
 

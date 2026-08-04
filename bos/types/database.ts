@@ -617,6 +617,21 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["sales_chat_examples"]["Row"]>;
         Relationships: [];
       };
+      marketing_channel_manual_stats: {
+        Row: {
+          id: string;
+          channel: "tiktok" | "x" | "instagram";
+          followers: number;
+          note: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["marketing_channel_manual_stats"]["Row"]> & {
+          channel: "tiktok" | "x" | "instagram";
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_channel_manual_stats"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

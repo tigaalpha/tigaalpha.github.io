@@ -26,6 +26,7 @@ import {
   Megaphone,
   Scale,
   Brain,
+  Radar,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -52,7 +53,7 @@ const TOP_LEVEL_ITEMS: NavItem[] = [
 const NAV_GROUPS: NavGroup[] = [
   {
     id: "strategy",
-    label: "กลยุทธ์",
+    label: "Strategy",
     items: [{ href: "/strategy", label: "AI Strategy Room", icon: Brain }],
   },
   {
@@ -77,6 +78,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/voice-over", label: "Voice Over Scripts", icon: Mic },
       { href: "/post", label: "Post ทุกช่องทาง", icon: Share2 },
       { href: "/ads", label: "แคมเปญโฆษณา", icon: Megaphone },
+      { href: "/marketing-channels", label: "Marketing Channels", icon: Radar },
     ],
   },
   {
