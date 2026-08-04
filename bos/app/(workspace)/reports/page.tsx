@@ -23,7 +23,7 @@ export default function ReportsPage() {
     Promise.all([
       repos.sales.funnelCounts(),
       repos.bookings.countAll(),
-      repos.courses.totalRevenue(),
+      repos.transactions.totalIncome(),
       repos.bookings.countCompletedByTeacher(),
       repos.teachers.listActive(),
       repos.customers.countByLeadSource(),

@@ -15,6 +15,13 @@ export class TransactionsRepository {
     return data ?? [];
   }
 
+  /** All-time sum of income transactions, for the Revenue widgets on Dashboard/Reports. */
+  async totalIncome(): Promise<number> {
+    const { data, error } = await this.db.from("transactions").select("amount").eq("type", "income");
+    if (error) throw error;
+    return (data ?? []).reduce((sum, row) => sum + row.amount, 0);
+  }
+
   async create(row: Database["public"]["Tables"]["transactions"]["Insert"]): Promise<Tables<"transactions">> {
     const { data, error } = await this.db.from("transactions").insert(row).select("*").single();
     if (error) throw error;

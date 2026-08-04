@@ -23,8 +23,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import type { Tables } from "@/types/database";
 
-const MONTHS_BACK = 6;
-
 // Validated categorical order (dataviz skill, references/palette.md) — fixed
 // order, never cycled: slot 1 (blue) / slot 2 (orange) / slot 3 (aqua).
 // Revenue keeps slot 1 everywhere; Expense/Profit keep slots 2/3 everywhere
@@ -86,7 +84,7 @@ export function FinanceCharts() {
   useEffect(() => {
     const repos = createRepositories(createClient());
     const end = new Date();
-    const start = new Date(end.getFullYear(), end.getMonth() - (MONTHS_BACK - 1), 1);
+    const start = new Date(end.getFullYear(), 0, 1);
     repos.transactions.listBetween(start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)).then((transactions) => {
       setMonthly(aggregateByMonth(transactions, start, end));
     });
@@ -111,7 +109,7 @@ export function FinanceCharts() {
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle>รายได้ / ค่าใช้จ่าย / กำไร</CardTitle>
-          <CardDescription>ย้อนหลัง {MONTHS_BACK} เดือน จากรายการในหน้า Accounting</CardDescription>
+          <CardDescription>ตั้งแต่ต้นปีถึงปัจจุบัน จากรายการในหน้า Accounting</CardDescription>
         </div>
         <Button variant="ghost" size="sm" onClick={() => setShowTable((v) => !v)}>
           {showTable ? <BarChart3 className="h-4 w-4" /> : <Table2 className="h-4 w-4" />}
@@ -181,7 +179,7 @@ export function FinanceCharts() {
 
               <div>
                 <p className="mb-2 text-xs font-medium text-secondary/50">
-                  สัดส่วนรายได้ {MONTHS_BACK} เดือนล่าสุด — {formatBaht(totals.revenue)} = ค่าใช้จ่าย + กำไร
+                  สัดส่วนรายได้ตั้งแต่ต้นปี — {formatBaht(totals.revenue)} = ค่าใช้จ่าย + กำไร
                 </p>
                 <ResponsiveContainer width="100%" height={240}>
                   <PieChart>

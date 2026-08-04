@@ -43,7 +43,7 @@ export default function DashboardPage() {
       repos.courses.listNearingCompletion(1),
       repos.bookings.countPending(),
       repos.courses.sumRemainingHours(),
-      repos.courses.totalRevenue(),
+      repos.transactions.totalIncome(),
       repos.conversations.aiResolutionStats(),
       repos.businessSnapshot.get(),
     ]).then(

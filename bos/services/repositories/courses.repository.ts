@@ -61,10 +61,4 @@ export class CoursesRepository {
     return (data ?? []).reduce((sum, row) => sum + row.remaining_hour, 0);
   }
 
-  /** Sum of course prices, for the Revenue widget. Courses without a recorded price are excluded. */
-  async totalRevenue(): Promise<number> {
-    const { data, error } = await this.db.from("courses").select("price").not("price", "is", null);
-    if (error) throw error;
-    return (data ?? []).reduce((sum, row) => sum + (row.price ?? 0), 0);
-  }
 }

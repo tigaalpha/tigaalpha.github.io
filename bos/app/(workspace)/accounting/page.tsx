@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { startOfYear, endOfMonth, format } from "date-fns";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { AccountingManager } from "@/features/accounting/components/accounting-manager";
@@ -12,7 +12,7 @@ const DATE_FMT = "yyyy-MM-dd";
 
 export default function AccountingPage() {
   const now = new Date();
-  const [startDate, setStartDate] = useState(format(startOfMonth(now), DATE_FMT));
+  const [startDate, setStartDate] = useState(format(startOfYear(now), DATE_FMT));
   const [endDate, setEndDate] = useState(format(endOfMonth(now), DATE_FMT));
   const [transactions, setTransactions] = useState<Tables<"transactions">[] | null>(null);
 
