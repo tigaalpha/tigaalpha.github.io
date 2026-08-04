@@ -62,6 +62,8 @@ export function IntegrationsCard() {
   const [metaTargetPageName, setMetaTargetPageName] = useState("");
   const [savingMetaTargetPageName, setSavingMetaTargetPageName] = useState(false);
   const [connectingMeta, setConnectingMeta] = useState(false);
+  const [manualPageToken, setManualPageToken] = useState("");
+  const [connectingManualToken, setConnectingManualToken] = useState(false);
   const [facebookAccount, setFacebookAccount] = useState<{ account_name: string } | null | undefined>(undefined);
   const [connecting, setConnecting] = useState(false);
   const [banner, setBanner] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -186,6 +188,25 @@ export function IntegrationsCard() {
       return;
     }
     window.location.href = data.url;
+  }
+
+  async function connectMetaManual() {
+    if (!manualPageToken.trim()) return;
+    setConnectingManualToken(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.functions.invoke<{ connected: boolean; pageName: string } | { error: string }>(
+      "meta-manual-connect",
+      { body: { pageAccessToken: manualPageToken.trim() } }
+    );
+    setConnectingManualToken(false);
+    if (error || !data || "error" in data) {
+      const message = data && "error" in data ? data.error : "เชื่อมต่อไม่สำเร็จ ลองตรวจสอบ Token อีกครั้ง";
+      setBanner({ type: "error", text: `เชื่อมต่อ Facebook ไม่สำเร็จ: ${message}` });
+      return;
+    }
+    setManualPageToken("");
+    setFacebookAccount({ account_name: data.pageName });
+    setBanner({ type: "success", text: `เชื่อมต่อ Facebook Page สำเร็จแล้ว! (${data.pageName})` });
   }
 
   async function connectGoogle() {
@@ -400,6 +421,35 @@ export function IntegrationsCard() {
             รองรับเฉพาะ Facebook Page และ LINE OA (broadcast) สำหรับโพสต์อัตโนมัติแบบข้อความล้วน — Instagram/TikTok/YouTube
             ต้องแนบรูปหรือวิดีโอเสมอ จึงยังต้องโพสต์ด้วยมือผ่านลิงก์โดยตรง
           </p>
+
+          <div className="space-y-2 rounded-lg border border-line/10 bg-line/5 p-3 pt-3 mt-2">
+            <p className="text-xs font-medium text-secondary">
+              เชื่อมต่อด้วย Page Access Token โดยตรง (ทางเลือกสำรอง ถ้า Connect ปกติติด pages_manage_posts ไม่ขึ้นให้เลือก)
+            </p>
+            <p className="text-xs text-secondary/50">
+              ไปสร้าง Token ที่{" "}
+              <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
+                Graph API Explorer
+              </a>{" "}
+              (เลือกแอปนี้ → ติ๊กสิทธิ์ pages_show_list, pages_manage_posts, pages_read_engagement → Generate → ขยายอายุที่{" "}
+              <a href="https://developers.facebook.com/tools/debug/accesstoken/" target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
+                Access Token Debugger
+              </a>{" "}
+              → กลับมาเรียก <code className="rounded bg-line/5 px-1">me/accounts?fields=id,name,access_token</code> เอา access_token ของ
+              Page ที่ต้องการ) แล้ววางที่นี่ — Token จะถูกส่งตรงไปที่ระบบเราเท่านั้น ไม่ต้องส่งในแชท
+            </p>
+            <div className="flex items-end gap-2">
+              <Input
+                placeholder="Page Access Token"
+                type="password"
+                value={manualPageToken}
+                onChange={(e) => setManualPageToken(e.target.value)}
+              />
+              <Button variant="outline" onClick={() => void connectMetaManual()} disabled={connectingManualToken || !manualPageToken.trim()}>
+                {connectingManualToken ? "กำลังเชื่อมต่อ…" : "เชื่อมต่อด้วย Token"}
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">
