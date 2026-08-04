@@ -64,6 +64,7 @@ export function IntegrationsCard() {
   const [connectingMeta, setConnectingMeta] = useState(false);
   const [manualPageToken, setManualPageToken] = useState("");
   const [connectingManualToken, setConnectingManualToken] = useState(false);
+  const [manualTokenResult, setManualTokenResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [facebookAccount, setFacebookAccount] = useState<{ account_name: string } | null | undefined>(undefined);
   const [connecting, setConnecting] = useState(false);
   const [banner, setBanner] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -193,20 +194,39 @@ export function IntegrationsCard() {
   async function connectMetaManual() {
     if (!manualPageToken.trim()) return;
     setConnectingManualToken(true);
+    setManualTokenResult(null);
     const supabase = createClient();
-    const { data, error } = await supabase.functions.invoke<{ connected: boolean; pageName: string } | { error: string }>(
-      "meta-manual-connect",
-      { body: { pageAccessToken: manualPageToken.trim() } }
-    );
+    let data: { connected: boolean; pageName: string } | { error: string } | null = null;
+    let invokeError: unknown = null;
+    try {
+      const res = await supabase.functions.invoke<{ connected: boolean; pageName: string } | { error: string }>(
+        "meta-manual-connect",
+        { body: { pageAccessToken: manualPageToken.trim() } }
+      );
+      data = res.data;
+      invokeError = res.error;
+      // supabase-js throws away the response body on non-2xx by default —
+      // the actual { error: "..." } message we return lives on the raw
+      // Response the FunctionsHttpError wraps, not in `data`.
+      if (invokeError && typeof invokeError === "object" && "context" in invokeError) {
+        const context = (invokeError as { context?: Response }).context;
+        if (context) {
+          const body = await context.clone().json().catch(() => null);
+          if (body && typeof body === "object" && "error" in body) data = body as { error: string };
+        }
+      }
+    } catch (err) {
+      invokeError = err;
+    }
     setConnectingManualToken(false);
-    if (error || !data || "error" in data) {
-      const message = data && "error" in data ? data.error : "เชื่อมต่อไม่สำเร็จ ลองตรวจสอบ Token อีกครั้ง";
-      setBanner({ type: "error", text: `เชื่อมต่อ Facebook ไม่สำเร็จ: ${message}` });
+    if (invokeError || !data || "error" in data) {
+      const message = data && "error" in data ? data.error : "เชื่อมต่อไม่สำเร็จ ลองตรวจสอบ Token อีกครั้ง (ดูข้อความ error ด้านบนปุ่มนี้)";
+      setManualTokenResult({ type: "error", text: message });
       return;
     }
     setManualPageToken("");
     setFacebookAccount({ account_name: data.pageName });
-    setBanner({ type: "success", text: `เชื่อมต่อ Facebook Page สำเร็จแล้ว! (${data.pageName})` });
+    setManualTokenResult({ type: "success", text: `เชื่อมต่อสำเร็จแล้ว! (${data.pageName})` });
   }
 
   async function connectGoogle() {
@@ -449,6 +469,16 @@ export function IntegrationsCard() {
                 {connectingManualToken ? "กำลังเชื่อมต่อ…" : "เชื่อมต่อด้วย Token"}
               </Button>
             </div>
+            {manualTokenResult ? (
+              <p
+                className={cn(
+                  "rounded-lg px-3 py-2 text-xs",
+                  manualTokenResult.type === "success" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                )}
+              >
+                {manualTokenResult.text}
+              </p>
+            ) : null}
           </div>
         </div>
 
