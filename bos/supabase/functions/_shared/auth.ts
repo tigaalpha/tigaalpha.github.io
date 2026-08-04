@@ -19,3 +19,17 @@ export async function requireStaff(admin: SupabaseClient, req: Request): Promise
 
   return data.user.id;
 }
+
+/**
+ * Mirrors the DB's is_owner_or_admin() (see 0007_rls.sql) for the tools
+ * OWNER_TOOLS exposes to TIGA AI AGENT — those write through the
+ * service-role client, which bypasses RLS entirely, so a table gated to
+ * owner/admin at the RLS layer (transactions) needs this explicit
+ * application-level check or any staff member could write to it via chat.
+ */
+export async function requireOwnerOrAdmin(admin: SupabaseClient, userId: string): Promise<void> {
+  const { data: profile } = await admin.from("profiles").select("role").eq("id", userId).maybeSingle();
+  if (!profile || (profile.role !== "owner" && profile.role !== "admin")) {
+    throw new Error("คำสั่งนี้ต้องใช้สิทธิ์เจ้าของร้านหรือแอดมินเท่านั้น");
+  }
+}

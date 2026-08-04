@@ -19,10 +19,11 @@ Deno.serve(async (req: Request) => {
     const { conversationId, message, mode } = await req.json();
     if (!message) return jsonResponse({ error: "message is required" }, 400);
 
-    // "owner" mode is the Floating AI Assistant — the studio owner/staff
-    // commanding the AI directly (not a customer conversation), so it gets
-    // its own channel (never shows in the customer Inbox) and an
-    // owner-oriented system prompt instead of the sales/customer-service one.
+    // "owner" mode is TIGA AI AGENT — the studio owner/staff commanding the
+    // AI directly (not a customer conversation), so it gets its own channel
+    // (never shows in the customer Inbox), an owner-oriented system prompt
+    // instead of the sales/customer-service one, and owner-only tools
+    // (see OWNER_TOOLS in _shared/tools.ts).
     const isOwner = mode === "owner";
 
     let convId = conversationId;
@@ -37,7 +38,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const result = isOwner
-      ? await respond(admin, convId, message, ["owner", "sales", "booking", "knowledge"])
+      ? await respond(admin, convId, message, ["owner", "sales", "booking", "knowledge"], userId)
       : await respond(admin, convId, message);
     return jsonResponse({ conversationId: convId, ...result });
   } catch (error) {

@@ -632,6 +632,36 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["marketing_channel_manual_stats"]["Row"]>;
         Relationships: [];
       };
+      agent_schedules: {
+        Row: {
+          id: string;
+          label: string;
+          instruction: string;
+          recurrence_type: "once" | "daily" | "every_n_days" | "weekly" | "monthly";
+          interval_days: number | null;
+          day_of_week: number | null;
+          day_of_month: number | null;
+          time_of_day: string;
+          run_once_at: string | null;
+          active: boolean;
+          next_run_at: string;
+          last_run_at: string | null;
+          last_run_status: "success" | "error" | null;
+          last_run_result: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["agent_schedules"]["Row"]> & {
+          label: string;
+          instruction: string;
+          recurrence_type: "once" | "daily" | "every_n_days" | "weekly" | "monthly";
+          time_of_day: string;
+          next_run_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["agent_schedules"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

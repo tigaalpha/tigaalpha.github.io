@@ -28,6 +28,7 @@ interface StatusResponse {
   deepseek: StatusCheck;
   kimi: StatusCheck;
   glm: StatusCheck;
+  qwen: StatusCheck;
 }
 
 const STRATEGY_PROVIDERS: { key: keyof StatusResponse; label: string; secretName: string; signupUrl: string }[] = [
@@ -37,6 +38,21 @@ const STRATEGY_PROVIDERS: { key: keyof StatusResponse; label: string; secretName
   { key: "deepseek", label: "DeepSeek", secretName: "DEEPSEEK_API_KEY", signupUrl: "https://platform.deepseek.com/api_keys" },
   { key: "kimi", label: "Kimi (Moonshot AI)", secretName: "MOONSHOT_API_KEY", signupUrl: "https://platform.moonshot.ai/console/api-keys" },
   { key: "glm", label: "GLM (Zhipu / Z.ai)", secretName: "ZHIPU_API_KEY", signupUrl: "https://open.bigmodel.cn/usercenter/apikeys" },
+];
+
+// Mirrors CHAT_MODELS in supabase/functions/_shared/ai-provider.ts — Deno
+// can't read this frontend file, so the list is duplicated (same pattern as
+// STRATEGY_PROVIDERS above). This is the model TIGA AI AGENT (and the rest
+// of the assistant's chat/tool-calling — customer chat + content
+// generation) actually calls, not the Strategy Room's side-by-side compare.
+const CHAT_MODELS: { id: string; label: string; statusKey: keyof StatusResponse; secretName: string; signupUrl: string }[] = [
+  { id: "gemini", label: "Gemini 2.0 Flash", statusKey: "gemini", secretName: "GEMINI_API_KEY", signupUrl: "https://aistudio.google.com/apikey" },
+  { id: "claude", label: "Claude Sonnet 5", statusKey: "claude", secretName: "ANTHROPIC_API_KEY", signupUrl: "https://console.anthropic.com/settings/keys" },
+  { id: "gpt", label: "ChatGPT 5.1", statusKey: "gpt", secretName: "OPENAI_API_KEY", signupUrl: "https://platform.openai.com/api-keys" },
+  { id: "qwen", label: "Qwen3.5 Max", statusKey: "qwen", secretName: "DASHSCOPE_API_KEY", signupUrl: "https://bailian.console.alibabacloud.com/" },
+  { id: "kimi", label: "Kimi K2", statusKey: "kimi", secretName: "MOONSHOT_API_KEY", signupUrl: "https://platform.moonshot.ai/console/api-keys" },
+  { id: "glm", label: "GLM 5.2", statusKey: "glm", secretName: "ZHIPU_API_KEY", signupUrl: "https://open.bigmodel.cn/usercenter/apikeys" },
+  { id: "grok", label: "Grok (ฟรี)", statusKey: "grok", secretName: "XAI_API_KEY", signupUrl: "https://console.x.ai" },
 ];
 
 function StatusBadge({ status }: { status: StatusCheck | null }) {
@@ -87,6 +103,8 @@ export function IntegrationsCard() {
   const [gcalConnections, setGcalConnections] = useState<GoogleCalendarConnectionSummary[] | null>(null);
   const [gcalLabel, setGcalLabel] = useState("");
   const [connectingGcal, setConnectingGcal] = useState(false);
+  const [chatModel, setChatModel] = useState("gemini");
+  const [savingChatModel, setSavingChatModel] = useState(false);
 
   const supabaseUrl = env.supabase.url();
   const lineWebhookUrl = `${supabaseUrl}/functions/v1/line-webhook`;
@@ -113,6 +131,7 @@ export function IntegrationsCard() {
     repos.integrations.get("meta_app_id").then((v) => setMetaAppId(v ?? ""));
     repos.integrations.get("meta_login_config_id").then((v) => setMetaConfigId(v ?? ""));
     repos.integrations.get("meta_target_page_name").then((v) => setMetaTargetPageName(v ?? ""));
+    repos.integrations.get("ai_chat_model").then((v) => setChatModel(v ?? "gemini"));
     supabase
       .from("social_accounts")
       .select("account_name")
@@ -275,6 +294,14 @@ export function IntegrationsCard() {
     const repos = createRepositories(createClient());
     await repos.googleCalendarConnections.remove(id);
     reloadGcalConnections();
+  }
+
+  async function saveChatModel(value: string) {
+    setChatModel(value);
+    setSavingChatModel(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("ai_chat_model", value);
+    setSavingChatModel(false);
   }
 
   return (
@@ -540,6 +567,44 @@ export function IntegrationsCard() {
               <code className="rounded bg-line/5 px-1">YOUTUBE_API_KEY</code>
             </p>
             <p>3. ไปที่หน้า Marketing Channels แล้วกรอก handle หรือ Channel ID ของช่อง YouTube เพื่อดูสถิติแบบ real-time</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <p className="font-medium text-secondary">โมเดล AI ของ TIGA AI Agent</p>
+          <p className="text-xs text-secondary/50">
+            เลือกโมเดลที่ต้องการให้ TIGA AI Agent ใช้ (มีผลกับแชท TIGA AI Agent และแชทลูกค้าทาง LINE/เว็บ — ยังไม่ครอบคลุมเครื่องมือสร้าง
+            เนื้อหาแยก เช่น เขียนบทความ/สคริปต์วิดีโอ ซึ่งยังใช้ Gemini เหมือนเดิม) แต่ละโมเดลนอกจาก Gemini ต้องตั้งค่า API key เป็น
+            Supabase secret ตามชื่อที่กำกับไว้ก่อนถึงจะเลือกใช้งานได้จริง — ถ้ายังไม่ได้ตั้ง key ของโมเดลที่เลือก ระบบจะแจ้ง error ตอนใช้งานแชท
+          </p>
+          <select
+            value={chatModel}
+            onChange={(e) => void saveChatModel(e.target.value)}
+            disabled={savingChatModel}
+            className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            {CHAT_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label} {status?.[m.statusKey]?.connected ? "— เชื่อมต่อแล้ว" : m.id === "gemini" ? "" : "— ยังไม่เชื่อมต่อ"}
+              </option>
+            ))}
+          </select>
+          <div className="space-y-2 pt-2">
+            {CHAT_MODELS.filter((m) => m.id !== "gemini").map((m) => (
+              <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg bg-line/5 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-secondary">
+                    <a href={m.signupUrl} target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
+                      {m.label}
+                    </a>
+                  </p>
+                  <p className="truncate text-xs text-secondary/40">
+                    Secret: <code className="rounded bg-line/5 px-1">{m.secretName}</code>
+                  </p>
+                </div>
+                <StatusBadge status={status?.[m.statusKey] ?? null} />
+              </div>
+            ))}
           </div>
         </div>
 

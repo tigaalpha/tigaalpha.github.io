@@ -3,6 +3,22 @@ import type { ToolDefinition, ToolCall } from "./ai-types.ts";
 import { embed } from "./ai-provider.ts";
 import * as calendar from "./calendar.ts";
 import { requestApproval } from "./approvals.ts";
+import { requireOwnerOrAdmin } from "./auth.ts";
+import { chunkText } from "./text.ts";
+
+// Mirrors features/accounting/categories.ts (Deno can't read repo files at
+// runtime, same reason prompts.ts embeds its content instead of importing
+// the .md files) — keep these two lists in sync by hand if categories change.
+const INCOME_CATEGORIES = ["ค่าเรียนเปียโน/ดนตรี", "ขายคอร์สออนไลน์", "รายได้อื่นๆ"];
+const EXPENSE_CATEGORIES = [
+  "ค่าเช่าสถานที่", "เงินเดือนครู/พนักงาน", "ค่าน้ำค่าไฟ", "การตลาด/โฆษณา",
+  "อุปกรณ์/เครื่องดนตรี", "ค่าซอฟต์แวร์/สมาชิก", "ค่าใช้จ่ายอื่นๆ",
+];
+const PAYMENT_METHODS = ["เงินสด", "โอนเงิน", "บัตรเครดิต", "อื่นๆ"];
+const KNOWLEDGE_SOURCE_TYPES = [
+  "pricing", "promotion", "teachers", "policies", "faq", "school_info", "holiday", "internal_sop",
+  "sales_script", "objection_handling", "rule", "example",
+];
 
 export const AI_TOOLS: ToolDefinition[] = [
   {
@@ -120,6 +136,48 @@ export const AI_TOOLS: ToolDefinition[] = [
   },
 ];
 
+// Only ever offered to the model on the internal/owner channel (see
+// chat-core.ts respond() — gated on boundCustomerId === null) — a customer
+// on LINE/web must never see these regardless of what they type.
+export const OWNER_TOOLS: ToolDefinition[] = [
+  {
+    name: "record_transaction",
+    description:
+      "Record an income or expense in the studio's accounting ledger, exactly as the owner describes it. Owner/admin only.",
+    parameters: {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["income", "expense"] },
+        category: {
+          type: "string",
+          description: `For income use one of: ${INCOME_CATEGORIES.join(", ")}. For expense use one of: ${EXPENSE_CATEGORIES.join(", ")}. Pick the closest match — never invent a new category.`,
+          enum: [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES],
+        },
+        amount: { type: "number", description: "Positive amount in THB." },
+        description: { type: "string", description: "Short note on what this transaction was for." },
+        transactionDate: { type: "string", description: "ISO date (YYYY-MM-DD). Defaults to today if not given." },
+        paymentMethod: { type: "string", enum: PAYMENT_METHODS },
+      },
+      required: ["type", "category", "amount"],
+    },
+  },
+  {
+    name: "save_knowledge",
+    description:
+      "Add a new Knowledge Base document, or update an existing one (pass documentId to overwrite its content) — this is how to teach the AI Chatbot new facts, rules, pricing, or sales scripts.",
+    parameters: {
+      type: "object",
+      properties: {
+        documentId: { type: "string", description: "Set only when updating an existing document." },
+        title: { type: "string" },
+        sourceType: { type: "string", enum: KNOWLEDGE_SOURCE_TYPES },
+        content: { type: "string", description: "The full text to save — pricing, a rule, an FAQ answer, a sales script, etc." },
+      },
+      required: ["title", "sourceType", "content"],
+    },
+  },
+];
+
 // Postgres error code for a violated EXCLUDE/UNIQUE constraint (see
 // migration 0023_booking_race_conditions — the real, atomic double-booking
 // guard). The old app-level "SELECT for conflicts, then INSERT" pattern was
@@ -144,7 +202,12 @@ function isExclusionViolation(error: unknown): boolean {
  * model to call these tools against a completely different customer's
  * record (a prompt-injection-to-database-write path).
  */
-export async function executeTool(call: ToolCall, db: SupabaseClient, boundCustomerId: string | null = null): Promise<unknown> {
+export async function executeTool(
+  call: ToolCall,
+  db: SupabaseClient,
+  boundCustomerId: string | null = null,
+  callerId: string | null = null
+): Promise<unknown> {
   const args = call.arguments as Record<string, string | number | undefined>;
 
   switch (call.name) {
@@ -384,6 +447,71 @@ export async function executeTool(call: ToolCall, db: SupabaseClient, boundCusto
       await db.from("conversations").update({ needs_review: true }).eq("id", args.conversationId);
       await db.from("notifications").insert({ type: "ai_needs_review", title: "AI escalated a conversation", body: args.reason });
       return { ok: true };
+    }
+
+    case "record_transaction": {
+      if (!callerId) throw new Error("Not authorized: no caller identity for this action");
+      await requireOwnerOrAdmin(db, callerId);
+
+      const type = String(args.type);
+      if (type !== "income" && type !== "expense") throw new Error("type must be income or expense");
+      const amount = Number(args.amount);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("amount must be a positive number");
+
+      const { data, error } = await db
+        .from("transactions")
+        .insert({
+          type,
+          category: String(args.category ?? ""),
+          amount,
+          description: args.description ? String(args.description) : null,
+          transaction_date: args.transactionDate ? String(args.transactionDate) : new Date().toISOString().slice(0, 10),
+          payment_method: args.paymentMethod ? String(args.paymentMethod) : null,
+        })
+        .select("*")
+        .single();
+      if (error) throw error;
+      return { transaction: data };
+    }
+
+    case "save_knowledge": {
+      const title = String(args.title ?? "");
+      const sourceType = String(args.sourceType ?? "");
+      const content = String(args.content ?? "");
+      if (!title || !sourceType || !content) throw new Error("title, sourceType and content are required");
+
+      let documentId = args.documentId ? String(args.documentId) : null;
+      if (documentId) {
+        const { error: updateErr } = await db
+          .from("knowledge_documents")
+          .update({ title, source_type: sourceType, raw_text: content })
+          .eq("id", documentId);
+        if (updateErr) throw updateErr;
+        const { error: delErr } = await db.from("knowledge_chunks").delete().eq("document_id", documentId);
+        if (delErr) throw delErr;
+      } else {
+        const { data, error: insertErr } = await db
+          .from("knowledge_documents")
+          .insert({ title, source_type: sourceType, raw_text: content, created_by: callerId })
+          .select("id")
+          .single();
+        if (insertErr) throw insertErr;
+        documentId = data.id;
+      }
+
+      const chunks = chunkText(content);
+      const EMBED_BATCH_SIZE = 10;
+      const embeddings: number[][] = [];
+      for (let i = 0; i < chunks.length; i += EMBED_BATCH_SIZE) {
+        const batch = chunks.slice(i, i + EMBED_BATCH_SIZE);
+        embeddings.push(...(await Promise.all(batch.map((chunk) => embed(chunk)))));
+      }
+      const { error: chunkErr } = await db
+        .from("knowledge_chunks")
+        .insert(chunks.map((chunkContent, i) => ({ document_id: documentId, content: chunkContent, embedding: embeddings[i] })));
+      if (chunkErr) throw chunkErr;
+
+      return { ok: true, documentId };
     }
 
     default:

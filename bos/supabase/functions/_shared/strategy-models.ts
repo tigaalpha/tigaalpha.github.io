@@ -6,7 +6,7 @@
 // Supabase secrets rather than requiring a redeploy when a provider ships a
 // new model.
 
-import { generate } from "./ai-provider.ts";
+import { geminiProvider } from "./gemini.ts";
 import { callOpenAICompatible, type SimpleChatMessage } from "./openai-compatible.ts";
 import { callClaude } from "./claude.ts";
 
@@ -41,7 +41,11 @@ function requireKey(name: string): string {
 export async function callStrategyModel(modelId: StrategyModelId, messages: SimpleChatMessage[]): Promise<string> {
   switch (modelId) {
     case "gemini": {
-      const result = await generate(messages, undefined, 0.7, 2048);
+      // Pinned to the raw Gemini provider (not ai-provider.ts's swappable
+      // generate()) so the "Gemini" advisor in this side-by-side comparison
+      // always means Gemini, regardless of what TIGA AI AGENT's chat model
+      // is currently set to in Settings.
+      const result = await geminiProvider.generate(messages, undefined, 0.7, 2048);
       return result.message.content;
     }
     case "claude": {

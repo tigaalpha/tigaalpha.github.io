@@ -2,7 +2,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { generate } from "./ai-provider.ts";
 import type { ChatMessage } from "./ai-types.ts";
 import { buildSystemPrompt, type PromptName } from "./prompts.ts";
-import { AI_TOOLS, executeTool } from "./tools.ts";
+import { AI_TOOLS, OWNER_TOOLS, executeTool } from "./tools.ts";
 
 const MAX_TOOL_ITERATIONS = 4;
 const RECENT_MESSAGE_LIMIT = 12;
@@ -34,7 +34,8 @@ export async function respond(
   db: SupabaseClient,
   conversationId: string,
   customerMessage: string,
-  promptContext: PromptName[] = ["sales", "booking", "knowledge", "customer_service"]
+  promptContext: PromptName[] = ["sales", "booking", "knowledge", "customer_service"],
+  callerId: string | null = null
 ): Promise<RespondResult> {
   const { count: priorMessageCount } = await db
     .from("messages")
@@ -76,6 +77,11 @@ export async function respond(
   // would let a crafted message get the model to write to someone else's
   // record).
   const boundCustomerId: string | null = conversation?.channel === "internal" ? null : (conversation?.customer_id ?? null);
+
+  // OWNER_TOOLS (record_transaction, save_knowledge) are only ever offered
+  // on this same internal/owner signal — a customer on LINE/web must never
+  // see them, regardless of what they type.
+  const tools = boundCustomerId === null ? [...AI_TOOLS, ...OWNER_TOOLS] : AI_TOOLS;
 
   const { data: history } = await db
     .from("messages")
@@ -124,13 +130,13 @@ export async function respond(
 
   while (iterations < MAX_TOOL_ITERATIONS) {
     iterations += 1;
-    const result = await generate(messages, AI_TOOLS);
+    const result = await generate(messages, tools);
 
     if (result.finishReason !== "tool_calls" || !result.message.toolCalls?.length) {
       if (isDegenerateReply(result.message.content)) {
         // A stochastic degenerate reply usually doesn't repeat on a fresh
         // sample from the same prompt, so retry once before falling back.
-        const retry = await generate(messages, AI_TOOLS);
+        const retry = await generate(messages, tools);
         result.message.content =
           retry.finishReason !== "tool_calls" && !isDegenerateReply(retry.message.content)
             ? retry.message.content
@@ -160,7 +166,7 @@ export async function respond(
     messages.push(result.message);
 
     for (const call of result.message.toolCalls) {
-      const toolResult = await executeTool(call, db, boundCustomerId).catch((error: unknown) => ({
+      const toolResult = await executeTool(call, db, boundCustomerId, callerId).catch((error: unknown) => ({
         error: error instanceof Error ? error.message : String(error),
       }));
       messages.push({ role: "tool", toolCallId: call.id, content: JSON.stringify(toolResult) });

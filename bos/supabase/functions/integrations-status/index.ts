@@ -130,7 +130,7 @@ Deno.serve(async (req: Request) => {
     const admin = createAdminClient();
     await requireStaff(admin, req);
 
-    const [line, googleCalendar, gemini, youtube, claude, gpt, grok, deepseek, kimi, glm] = await Promise.all([
+    const [line, googleCalendar, gemini, youtube, claude, gpt, grok, deepseek, kimi, glm, qwen] = await Promise.all([
       checkLine(),
       checkGoogleCalendar(),
       checkGemini(),
@@ -141,9 +141,10 @@ Deno.serve(async (req: Request) => {
       checkOpenAICompatibleModels("DEEPSEEK_API_KEY", Deno.env.get("DEEPSEEK_BASE_URL") ?? "https://api.deepseek.com/v1"),
       checkOpenAICompatibleModels("MOONSHOT_API_KEY", Deno.env.get("MOONSHOT_BASE_URL") ?? "https://api.moonshot.ai/v1"),
       checkOpenAICompatibleModels("ZHIPU_API_KEY", Deno.env.get("ZHIPU_BASE_URL") ?? "https://api.z.ai/api/paas/v4"),
+      checkOpenAICompatibleModels("DASHSCOPE_API_KEY", Deno.env.get("DASHSCOPE_BASE_URL") ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
     ]);
 
-    return jsonResponse({ line, googleCalendar, gemini, youtube, claude, gpt, grok, deepseek, kimi, glm });
+    return jsonResponse({ line, googleCalendar, gemini, youtube, claude, gpt, grok, deepseek, kimi, glm, qwen });
   } catch (error) {
     return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }

@@ -27,6 +27,7 @@ import {
   Scale,
   Brain,
   Radar,
+  Bot,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -94,6 +95,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: "system",
     label: "System",
     items: [
+      { href: "/tiga-agent", label: "TIGA AI Agent", icon: Bot },
       { href: "/approvals", label: "การอนุมัติ", icon: ShieldCheck },
       { href: "/system-health", label: "System Health", icon: Activity },
       { href: "/settings", label: "Settings", icon: Settings },

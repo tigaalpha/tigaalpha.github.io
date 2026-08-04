@@ -19,12 +19,12 @@ interface AiChatResponse {
 }
 
 /**
- * Owner-facing AI assistant, mounted once in AppShell so it floats on every
- * workspace page. Talks to ai-chat with mode:"owner" — same tools as the
- * customer-facing AI (booking, CRM updates, sales pipeline, knowledge
- * search), just addressed as the studio owner giving direct commands rather
- * than a customer mid-conversation, and on its own conversation channel so
- * it never shows up in the customer Inbox.
+ * TIGA AI AGENT — owner-facing AI assistant, mounted once in AppShell so it
+ * floats on every workspace page. Talks to ai-chat with mode:"owner" — gets
+ * every customer-facing tool (booking, CRM updates, sales pipeline,
+ * knowledge search) plus owner-only tools (recording transactions, writing
+ * to the Knowledge Base) that are gated to this internal channel only, on
+ * its own conversation channel so it never shows up in the customer Inbox.
  */
 export function FloatingAssistant() {
   const [open, setOpen] = useState(false);
@@ -67,9 +67,9 @@ export function FloatingAssistant() {
           <div className="flex items-center justify-between border-b border-line/5 px-4 py-3">
             <span className="flex items-center gap-2 text-sm font-semibold text-secondary">
               <Sparkles className="h-4 w-4 text-primary-accent" />
-              AI ผู้ช่วยเจ้าของร้าน
+              TIGA AI AGENT
             </span>
-            <button onClick={() => setOpen(false)} aria-label="ปิด">
+            <button onClick={() => setOpen(false)} aria-label="ปิด TIGA AI Agent">
               <X className="h-4 w-4 text-secondary/60" />
             </button>
           </div>
@@ -118,7 +118,7 @@ export function FloatingAssistant() {
 
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="เปิด AI ผู้ช่วย"
+        aria-label="เปิด TIGA AI Agent"
         className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary-gradient text-white shadow-card transition-transform hover:scale-105"
       >
         {open ? <X className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
