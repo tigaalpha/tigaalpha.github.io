@@ -23,7 +23,7 @@ Deno.serve(async (req: Request) => {
     const userId = await requireStaff(admin, req);
     await enforceRateLimit(admin, userId, "knowledge-upload", { windowMinutes: 60, maxRequests: 20 });
 
-    const { title, sourceType, content } = await req.json();
+    const { title, sourceType, content, documentId } = await req.json();
     if (!title || !sourceType || !content) {
       return jsonResponse({ error: "title, sourceType and content are required" }, 400);
     }
@@ -31,12 +31,31 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: `content must be ${MAX_CONTENT_LENGTH} characters or fewer` }, 400);
     }
 
-    const { data: document, error: docErr } = await admin
-      .from("knowledge_documents")
-      .insert({ title, source_type: sourceType, raw_text: content, created_by: userId })
-      .select("*")
-      .single();
-    if (docErr) throw docErr;
+    let document: Record<string, unknown>;
+    if (documentId) {
+      // Editing: replace the stored text and every chunk derived from it —
+      // stale chunks embedded from the old text would otherwise keep
+      // surfacing in RAG search results next to the corrected ones.
+      const { data, error: docErr } = await admin
+        .from("knowledge_documents")
+        .update({ title, source_type: sourceType, raw_text: content })
+        .eq("id", documentId)
+        .select("*")
+        .single();
+      if (docErr) throw docErr;
+      document = data;
+
+      const { error: delErr } = await admin.from("knowledge_chunks").delete().eq("document_id", documentId);
+      if (delErr) throw delErr;
+    } else {
+      const { data, error: docErr } = await admin
+        .from("knowledge_documents")
+        .insert({ title, source_type: sourceType, raw_text: content, created_by: userId })
+        .select("*")
+        .single();
+      if (docErr) throw docErr;
+      document = data;
+    }
 
     const chunks = chunkText(content);
     // Even under MAX_CONTENT_LENGTH this can be ~250 chunks — firing all of

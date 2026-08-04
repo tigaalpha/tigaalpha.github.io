@@ -1,11 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { BookOpen, Trash2, Upload } from "lucide-react";
+import { BookOpen, Pencil, Trash2, Upload, X } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { extractFileText } from "@/lib/extract-file-text";
-import { describeFunctionError } from "@/lib/utils";
+import { cn, describeFunctionError } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -27,6 +27,7 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
   const [title, setTitle] = useState("");
   const [sourceType, setSourceType] = useState<KnowledgeSourceType>("faq");
   const [content, setContent] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,14 +60,17 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
     try {
       const supabase = createClient();
       // Chunking + embedding needs the Gemini key, which stays server-side —
-      // this invokes the Supabase Edge Function that holds it.
+      // this invokes the Supabase Edge Function that holds it. Editing
+      // re-chunks and re-embeds the whole document (same function, with
+      // documentId set) so RAG search never mixes stale and updated chunks.
       const { error: fnError } = await supabase.functions.invoke("knowledge-upload", {
-        body: { title, sourceType, content },
+        body: editingId ? { title, sourceType, content, documentId: editingId } : { title, sourceType, content },
       });
       if (fnError) throw fnError;
 
       setTitle("");
       setContent("");
+      setEditingId(null);
       onChanged();
     } catch (err) {
       setError(await describeFunctionError(err));
@@ -75,7 +79,24 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
     }
   }
 
+  function startEdit(doc: Tables<"knowledge_documents">) {
+    setEditingId(doc.id);
+    setTitle(doc.title);
+    setSourceType(doc.source_type);
+    setContent(doc.raw_text ?? "");
+    setError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setTitle("");
+    setSourceType("faq");
+    setContent("");
+    setError(null);
+  }
+
   async function handleDelete(id: string) {
+    if (editingId === id) cancelEdit();
     const repos = createRepositories(createClient());
     await repos.knowledge.deleteDocument(id);
     onChanged();
@@ -84,8 +105,13 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-1">
-        <CardHeader>
-          <CardTitle>Add Knowledge</CardTitle>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle>{editingId ? "แก้ไของค์ความรู้" : "Add Knowledge"}</CardTitle>
+          {editingId ? (
+            <Button type="button" variant="ghost" size="icon" onClick={cancelEdit}>
+              <X className="h-4 w-4" />
+            </Button>
+          ) : null}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -121,7 +147,7 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
             </Button>
             {error ? <p className="text-xs text-danger">{error}</p> : null}
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Saving…" : "Save to Knowledge Base"}
+              {submitting ? "กำลังบันทึก…" : editingId ? "บันทึกการแก้ไข" : "Save to Knowledge Base"}
             </Button>
           </form>
         </CardContent>
@@ -137,16 +163,27 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
           ) : (
             <ul className="space-y-2">
               {documents.map((doc) => (
-                <li key={doc.id} className="flex items-center justify-between gap-3 rounded-xl border border-line/5 px-4 py-3">
+                <li
+                  key={doc.id}
+                  className={cn(
+                    "flex items-center justify-between gap-3 rounded-xl border px-4 py-3",
+                    editingId === doc.id ? "border-primary/40 bg-primary/5" : "border-line/5"
+                  )}
+                >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-secondary">{doc.title}</p>
                     <Badge variant="outline" className="mt-1">
                       {doc.source_type.replace(/_/g, " ")}
                     </Badge>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id)}>
-                    <Trash2 className="h-4 w-4 text-danger" />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => startEdit(doc)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id)}>
+                      <Trash2 className="h-4 w-4 text-danger" />
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
