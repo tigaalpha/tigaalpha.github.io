@@ -25,6 +25,7 @@ import { SalesChatExamplesRepository } from "./sales-chat-examples.repository";
 import { MarketingChannelsRepository } from "./marketing-channels.repository";
 import { AgentSchedulesRepository } from "./agent-schedules.repository";
 import { SocialTrendsRepository } from "./social-trends.repository";
+import { CourseArticlesRepository } from "./course-articles.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -58,6 +59,7 @@ export function createRepositories(db: SupabaseClient<Database>) {
     marketingChannels: new MarketingChannelsRepository(db),
     agentSchedules: new AgentSchedulesRepository(db),
     socialTrends: new SocialTrendsRepository(db),
+    courseArticles: new CourseArticlesRepository(db),
   };
 }
 

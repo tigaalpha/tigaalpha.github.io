@@ -267,5 +267,50 @@ async function understandImage(mimeType: string, base64: string, instructionProm
   return text;
 }
 
+export interface WebResearchResult {
+  text: string;
+  sources: { title: string; url: string }[];
+}
+
+// Gemini's server-side Google Search grounding tool -- a different mechanism
+// from the app's own function-calling `tools` array in generate() above
+// (Gemini rejects a request that mixes google_search with function
+// declarations in the same call), so this is a separate request shape.
+// Gemini-specific and not part of the swappable AIProvider interface, same
+// reasoning as generateImage/understandImage -- only Gemini exposes this
+// particular grounding tool, and callers that need real external web
+// research (e.g. Online Course Writer) import it directly from here.
+async function researchWithSearch(query: string): Promise<WebResearchResult> {
+  const response = await fetchWithRetry(`${BASE_URL}/${model()}:generateContent?key=${apiKey()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: query }] }],
+      tools: [{ google_search: {} }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await friendlyErrorMessage(response, "การค้นหาข้อมูลจากเว็บ"));
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{
+      content?: { parts?: GeminiPart[] };
+      groundingMetadata?: { groundingChunks?: Array<{ web?: { uri?: string; title?: string } }> };
+    }>;
+  };
+
+  const candidate = data.candidates?.[0];
+  const text = (candidate?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
+  const sources = (candidate?.groundingMetadata?.groundingChunks ?? [])
+    .map((chunk) => ({ title: chunk.web?.title ?? chunk.web?.uri ?? "", url: chunk.web?.uri ?? "" }))
+    .filter((s) => s.url);
+
+  if (!text) throw new Error("ไม่สามารถค้นหาข้อมูลจากเว็บได้ในขณะนี้ ลองใหม่อีกครั้ง");
+  return { text, sources };
+}
+
 export const geminiProvider: AIProvider = { generate, embed, generateImage };
-export { understandImage };
+export { understandImage, researchWithSearch };

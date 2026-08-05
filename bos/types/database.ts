@@ -680,6 +680,30 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["social_trend_manual_items"]["Row"]>;
         Relationships: [];
       };
+      course_articles: {
+        Row: {
+          id: string;
+          module_title: string;
+          topic: string;
+          title: string;
+          summary: string | null;
+          content: string;
+          sources: { title: string; url: string }[];
+          language: string;
+          status: "draft" | "published";
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["course_articles"]["Row"]> & {
+          module_title: string;
+          topic: string;
+          title: string;
+          content: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["course_articles"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
