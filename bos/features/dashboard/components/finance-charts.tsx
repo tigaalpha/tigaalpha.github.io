@@ -97,13 +97,6 @@ export function FinanceCharts() {
     return { revenue, expense, profit: revenue - expense };
   }, [monthly]);
 
-  const pieData = totals
-    ? [
-        { name: "ค่าใช้จ่าย", value: Math.max(totals.expense, 0), color: palette.expense },
-        { name: "กำไร", value: Math.max(totals.profit, 0), color: palette.profit },
-      ]
-    : [];
-
   const expensePct = totals && totals.revenue > 0 ? (totals.expense / totals.revenue) * 100 : 0;
   const profitPct = totals && totals.revenue > 0 ? (totals.profit / totals.revenue) * 100 : 0;
   const percentPieData = totals
@@ -170,39 +163,20 @@ export function FinanceCharts() {
               </ResponsiveContainer>
             </div>
 
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-              <div>
-                <p className="mb-2 text-xs font-medium text-secondary/50">เทียบรายเดือน</p>
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} vertical={false} />
-                    <XAxis dataKey="monthLabel" stroke={palette.text} fontSize={12} tickLine={false} axisLine={{ stroke: palette.grid }} />
-                    <YAxis stroke={palette.text} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="revenue" name="รายได้" fill={palette.revenue} radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="expense" name="ค่าใช้จ่าย" fill={palette.expense} radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="profit" name="กำไร" fill={palette.profit} radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div>
-                <p className="mb-2 text-xs font-medium text-secondary/50">
-                  สัดส่วนรายได้ตั้งแต่ต้นปี — {formatBaht(totals.revenue)} = ค่าใช้จ่าย + กำไร
-                </p>
-                <ResponsiveContainer width="100%" height={240}>
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
-                      {pieData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => formatBaht(Number(value))} />
-                    <Legend wrapperStyle={{ fontSize: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+            <div>
+              <p className="mb-2 text-xs font-medium text-secondary/50">เทียบรายเดือน</p>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} vertical={false} />
+                  <XAxis dataKey="monthLabel" stroke={palette.text} fontSize={12} tickLine={false} axisLine={{ stroke: palette.grid }} />
+                  <YAxis stroke={palette.text} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="revenue" name="รายได้" fill={palette.revenue} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expense" name="ค่าใช้จ่าย" fill={palette.expense} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="profit" name="กำไร" fill={palette.profit} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         )}
