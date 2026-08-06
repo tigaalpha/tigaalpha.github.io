@@ -172,7 +172,13 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <SummaryCard label="รายได้" value={formatCurrency(summary.totalIncome)} icon={TrendingUp} tone="success" />
+        <SummaryCard
+          label="รายได้"
+          value={formatCurrency(summary.totalIncome)}
+          icon={TrendingUp}
+          tone="success"
+          href="/accounting/income"
+        />
         <SummaryCard
           label="รายจ่าย"
           value={formatCurrency(summary.totalExpense)}
@@ -439,7 +445,7 @@ function SummaryCard({
   if (href) {
     return (
       <Link href={href}>
-        <Card className="transition-colors hover:border-danger/30">{content}</Card>
+        <Card className={cn("transition-colors", tone === "success" ? "hover:border-success/30" : "hover:border-danger/30")}>{content}</Card>
       </Link>
     );
   }

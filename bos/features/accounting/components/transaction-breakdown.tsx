@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, ChevronUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, TrendingDown, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
-import type { Tables } from "@/types/database";
+import type { Tables, TransactionType } from "@/types/database";
 
 type Granularity = "month" | "quarter" | "half" | "year";
 
@@ -59,19 +59,33 @@ function periodLabel(key: string, granularity: Granularity): string {
   return `ปี ${new Date(Number(key), 0, 1).toLocaleDateString("th-TH", { year: "numeric" })}`;
 }
 
-interface ExpenseBreakdownProps {
+const TYPE_CONFIG: Record<
+  TransactionType,
+  { title: string; empty: string; icon: typeof TrendingUp; tone: "success" | "danger"; sign: string }
+> = {
+  income: { title: "รายได้ทั้งหมด", empty: "ยังไม่มีรายได้", icon: TrendingUp, tone: "success", sign: "+" },
+  expense: { title: "รายจ่ายทั้งหมด", empty: "ยังไม่มีรายจ่าย", icon: TrendingDown, tone: "danger", sign: "-" },
+};
+
+interface TransactionBreakdownProps {
   transactions: Tables<"transactions">[];
+  type: TransactionType;
 }
 
-export function ExpenseBreakdown({ transactions }: ExpenseBreakdownProps) {
+export function TransactionBreakdown({ transactions, type }: TransactionBreakdownProps) {
   const [granularity, setGranularity] = useState<Granularity>("month");
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
 
-  const expenses = useMemo(() => transactions.filter((t) => t.type === "expense"), [transactions]);
+  const config = TYPE_CONFIG[type];
+  const toneClass = config.tone === "success" ? "text-success" : "text-danger";
+  const toneBgClass = config.tone === "success" ? "bg-success/10 text-success" : "bg-danger/10 text-danger";
+  const badgeVariant = config.tone;
+
+  const filtered = useMemo(() => transactions.filter((t) => t.type === type), [transactions, type]);
 
   const periods = useMemo(() => {
     const map = new Map<string, Period>();
-    for (const t of expenses) {
+    for (const t of filtered) {
       const date = new Date(t.transaction_date);
       const { key, sortKey } = getPeriodKey(date, granularity);
       const existing = map.get(key);
@@ -88,9 +102,9 @@ export function ExpenseBreakdown({ transactions }: ExpenseBreakdownProps) {
         transactions: [...p.transactions].sort((a, b) => (a.transaction_date < b.transaction_date ? 1 : -1)),
       }))
       .sort((a, b) => b.sortKey - a.sortKey);
-  }, [expenses, granularity]);
+  }, [filtered, granularity]);
 
-  const grandTotal = useMemo(() => expenses.reduce((sum, t) => sum + t.amount, 0), [expenses]);
+  const grandTotal = useMemo(() => filtered.reduce((sum, t) => sum + t.amount, 0), [filtered]);
 
   function toggle(key: string) {
     setCollapsedKeys((prev) => {
@@ -111,9 +125,9 @@ export function ExpenseBreakdown({ transactions }: ExpenseBreakdownProps) {
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-danger" />
-              รายจ่ายทั้งหมด
+            <CardTitle className={cn("flex items-center gap-2")}>
+              <config.icon className={cn("h-4 w-4", toneClass)} />
+              {config.title}
             </CardTitle>
             <CardDescription>ย้อนหลังตั้งแต่รายการแรกจนถึงปัจจุบัน — รวม {formatCurrency(grandTotal)}</CardDescription>
           </div>
@@ -123,10 +137,7 @@ export function ExpenseBreakdown({ transactions }: ExpenseBreakdownProps) {
                 key={opt.value}
                 type="button"
                 onClick={() => setGranularity(opt.value)}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium",
-                  granularity === opt.value ? "bg-danger/10 text-danger" : "text-secondary/50"
-                )}
+                className={cn("px-3 py-1.5 text-xs font-medium", granularity === opt.value ? toneBgClass : "text-secondary/50")}
               >
                 {opt.label}
               </button>
@@ -136,7 +147,7 @@ export function ExpenseBreakdown({ transactions }: ExpenseBreakdownProps) {
       </Card>
 
       {periods.length === 0 ? (
-        <EmptyState icon={TrendingDown} title="ยังไม่มีรายจ่าย" description="ยังไม่มีรายการรายจ่ายบันทึกไว้" />
+        <EmptyState icon={config.icon} title={config.empty} description="ยังไม่มีรายการบันทึกไว้" />
       ) : (
         <div className="space-y-3">
           {periods.map((period) => {
@@ -149,7 +160,7 @@ export function ExpenseBreakdown({ transactions }: ExpenseBreakdownProps) {
                     <p className="text-xs text-secondary/50">{period.transactions.length} รายการ</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-base font-semibold text-danger">{formatCurrency(period.total)}</span>
+                    <span className={cn("text-base font-semibold", toneClass)}>{formatCurrency(period.total)}</span>
                     {isOpen ? <ChevronUp className="h-4 w-4 text-secondary/40" /> : <ChevronDown className="h-4 w-4 text-secondary/40" />}
                   </div>
                 </button>
@@ -160,7 +171,7 @@ export function ExpenseBreakdown({ transactions }: ExpenseBreakdownProps) {
                         <li key={t.id} className="flex flex-col gap-2 rounded-xl border border-line/5 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="danger">{t.category}</Badge>
+                              <Badge variant={badgeVariant}>{t.category}</Badge>
                               <span className="text-xs text-secondary/50">{t.transaction_date}</span>
                               {t.payment_method ? <span className="text-xs text-secondary/40">{t.payment_method}</span> : null}
                             </div>
@@ -168,7 +179,10 @@ export function ExpenseBreakdown({ transactions }: ExpenseBreakdownProps) {
                               <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-secondary/80">{t.description}</p>
                             ) : null}
                           </div>
-                          <span className="shrink-0 text-sm font-semibold text-danger sm:pl-3">-{formatCurrency(t.amount)}</span>
+                          <span className={cn("shrink-0 text-sm font-semibold sm:pl-3", toneClass)}>
+                            {config.sign}
+                            {formatCurrency(t.amount)}
+                          </span>
                         </li>
                       ))}
                     </ul>
