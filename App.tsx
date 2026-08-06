@@ -1,9 +1,17 @@
 import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } from "react";
 import { createClient } from "@supabase/supabase-js";
 import qrcode from "qrcode-generator";
+import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
+import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
+import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
+import { initNativeUpdater } from "./native-updater";
+
+/* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
+   gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
+const isNative = Capacitor.isNativePlatform();
 
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
    No gateway, no fees: money goes directly to the configured PromptPay ID. ── */
@@ -986,6 +994,7 @@ function logUsage(kind, itemId) {
 }
 async function signInWith(provider) {
   try {
+    if (isNative) { await nativeSignInWith(sb, provider); return; } // opens the OS browser; session completes via the appUrlOpen listener
     await sb.auth.signInWithOAuth({
       provider,
       options: { redirectTo: window.location.origin + window.location.pathname },
@@ -1798,6 +1807,10 @@ function ttsSupported() {
 /* speech-to-text (Web Speech API) — powers the AI voice tutor */
 function getSR() {
   if (typeof window === "undefined") return null;
+  // native app (iOS/Android): browser SpeechRecognition doesn't reliably exist inside
+  // Capacitor's WebView — NativeSpeechRecognition wraps the OS's own recognizer instead,
+  // shaped so `new SR()` below works identically either way.
+  if (nativeSTTAvailable()) return NativeSpeechRecognition;
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 function sttSupported() { return !!getSR(); }
@@ -3956,7 +3969,7 @@ const CHORD_MOODS = [
     desc: { th: "E–B–A–E · สนุกสนาน ตื่นเต้น", en: "E–B–A–E · Festive & exciting", zh: "E–B–A–E · 欢快刺激" } },
 ];
 
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onPlay = null, onParent = null,
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
   mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null }) {
@@ -4170,6 +4183,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
 
   async function composeGenerate() {
     if (!composeMood || !composeStyle || composeLoading) return;
+    if (onRequireLogin && onRequireLogin()) return;
     setComposeLoading(true); setComposeErr(false);
     try {
       const moods: Record<string,string> = { happy: "happy, bright, uplifting", sad: "melancholic, gentle, wistful", calm: "peaceful, serene, tranquil", energetic: "lively, energetic, playful" };
@@ -4220,6 +4234,11 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   }
 
   const cards = [
+    // AI Voice Tutor — mobile app only (native STT; no reliable Web Speech API
+    // inside a Capacitor WebView). Always shown with the MAX badge rather than
+    // hidden for non-Max users: tapping it while locked opens the upgrade
+    // prompt instead of the session (see onVoice's own gate where it's passed in).
+    ...(isNative ? [{ k: "voice", ic: "🎙️", c: "#d97757", t: lc.studioVoice, s: lc.studioVoiceSub, fn: onVoice, badge: "👑 MAX" }] : []),
     { k: "today",   ic: "📅", c: "#d97757", t: lc.navToday,        s: T("แผนซ้อมวันนี้ — สร้างใหม่ทุกวันจากความคืบหน้าจริง", "Today's plan — rebuilt daily from your real progress", "今日计划 — 每天根据真实进度生成"), fn: onToday },
     { k: "songs",   ic: "🎵", c: "#d97757", t: lc.studioPlayAlong, s: lc.studioPlayAlongSub, fn: onSongs },
     { k: "quick",   ic: "⚡", c: "#d97757", t: lc.quickTitle,       s: lc.quickSub,          fn: () => { playUi("click"); setQuickOpen(true); } },
@@ -5117,7 +5136,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
 
 /* ── Song picker page (falling-notes play-along) ── */
 const SONG_REQ = { 1: 1, 2: 2, 3: 4 };   // level required to unlock by difficulty
-const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, plan = "" }) {
+const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "" }) {
   const lc = L[lang];
   const [filter, setFilter] = useState(-1);   // -1 all · 0 favorites · 1/2/3 by difficulty
   const [favs, setFavs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_favs") || "[]"); } catch (e) { return []; } });
@@ -5148,6 +5167,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
 
   async function generateSong() {
     if (!genText.trim() || generating) return;
+    if (onRequireLogin && onRequireLogin()) return;
     if (!canUse("song", premium)) { setCreateOpen(false); if (onUpsell) onUpsell(); return; }
     setGenerating(true); setGenErr(false);
     try {
@@ -6912,7 +6932,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
   const livePhone = localContact ? localContact.phone : (profile && profile.phone);
   const liveIg = localContact ? localContact.instagram : (profile && profile.instagram);
   async function saveContact() {
-    if (!session || !session.user) return;
+    if (!session || !session.user) return; // guest — already-safe no-op, same as today
     setCSaving(true);
     const vals = { line_id: cLine.trim() || null, phone: cPhone.trim() || null, instagram: cIg.trim() || null };
     const { error } = await sb.from("profiles").update({ ...vals, updated_at: new Date().toISOString() }).eq("id", session.user.id);
@@ -9449,6 +9469,77 @@ function AdminPage({ lang, onExit, adminTier }) {
 }
 
 /* ════ MEMBERSHIP GATE (required login) ════ */
+/* ── Guest mode ──
+   No session = no locked door: land straight in the app with a synthetic
+   profile-shaped object standing in for a real Supabase row. Every existing
+   `profile.x` read, gainExp(), earnCoins() etc. work unchanged against it —
+   the one real difference is nothing here reaches Supabase until the guest
+   actually logs in, at which point mergeGuestProgressIntoProfile() folds it
+   into their new real row (see loadProfile's caller). Free for GUEST_TRIAL_MS
+   of cumulative use (persists across visits — refreshing buys no extra time),
+   tracked separately from any one page's `profile.exp` etc. so it survives
+   a guest bouncing between pages. */
+const GUEST_TRIAL_MS = 5 * 60 * 1000;
+const GUEST_PROFILE_KEY = "tg_guest_profile";
+const GUEST_MS_KEY = "tg_guest_ms";
+function freshGuestProfile() {
+  return {
+    id: "guest", full_name: "", email: "",
+    exp: 0, coins: 0, streak: 0, lessons_done: 0, gems: 0,
+    plan: "free", plan_until: null, onboarded: true,
+    admin_tier: 0, is_admin: false, banned: false,
+    progress: {}, created_at: new Date().toISOString(),
+  };
+}
+function loadGuestProfile() {
+  try {
+    const raw = localStorage.getItem(GUEST_PROFILE_KEY);
+    if (raw) return { ...freshGuestProfile(), ...JSON.parse(raw) };
+  } catch (e) {}
+  return freshGuestProfile();
+}
+function saveGuestProfile(p) {
+  try { localStorage.setItem(GUEST_PROFILE_KEY, JSON.stringify(p)); } catch (e) {}
+}
+function clearGuestProfile() {
+  try { localStorage.removeItem(GUEST_PROFILE_KEY); localStorage.removeItem(GUEST_MS_KEY); } catch (e) {}
+}
+function getGuestMs() {
+  try { return parseInt(localStorage.getItem(GUEST_MS_KEY) || "0", 10) || 0; } catch (e) { return 0; }
+}
+function addGuestMs(deltaMs) {
+  const next = getGuestMs() + Math.max(0, deltaMs);
+  try { localStorage.setItem(GUEST_MS_KEY, String(next)); } catch (e) {}
+  return next;
+}
+function guestHasProgress(p) {
+  return !!p && (p.exp > 0 || p.coins > 0 || p.lessons_done > 0 || p.streak > 0);
+}
+// Folds guest progress into a real profile row the moment one exists for this
+// uid — same "keep the better number" idea as the coins-merge-on-load effect
+// elsewhere in this file, just extended to every field a guest can earn.
+// Never destructive: every field is max(server, guest), never overwritten
+// downward, so a returning member who also poked around as a guest can only
+// gain, never lose, existing progress.
+async function mergeGuestProgressIntoProfile(uid, real) {
+  const guest = loadGuestProfile();
+  const merged = {
+    exp: Math.max(real.exp || 0, guest.exp || 0),
+    coins: Math.max(real.coins || 0, guest.coins || 0),
+    streak: Math.max(real.streak || 0, guest.streak || 0),
+    lessons_done: Math.max(real.lessons_done || 0, guest.lessons_done || 0),
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    const { data } = await sb.from("profiles").update(merged).eq("id", uid).select("*").maybeSingle();
+    clearGuestProfile();
+    return data || { ...real, ...merged };
+  } catch (e) {
+    // offline/error — leave tg_guest_profile in place, try again next loadProfile()
+    return real;
+  }
+}
+
 function Splash() {
   return (
     <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
@@ -9472,49 +9563,41 @@ function BannedScreen({ onSignOut }) {
   );
 }
 
-// Guest visitors get a real, playable keyboard right on the login screen —
-// no account needed to hear what the app sounds like. Nothing here is saved;
-// signing in is framed as "keep this progress" rather than a locked door.
-function LoginScreen() {
-  const [guestNote, setGuestNote] = useState(null);
-  const hintT = useRef(null);
-  const onGuestNote = (n) => {
-    setGuestNote(n);
-    clearTimeout(hintT.current);
-    hintT.current = setTimeout(() => setGuestNote(null), 1400);
+// The forced side of guest mode (the corner Login pill is the optional
+// side) — shown when the free trial runs out or a guest taps an AI-backed
+// feature that structurally cannot work without a real session. No dismiss
+// button by design (matches "ต้องล็อกอิน" — login is genuinely required to
+// continue past this point), but it always appears at a natural stopping
+// point (next navigation / on tap), never yanked up mid-exercise.
+function GuestGateScreen({ reason, onLogin }) {
+  const copy = {
+    time: {
+      icon: "⏳",
+      title: "หมดเวลาทดลองฟรีแล้ว · Free trial ended",
+      sub: "ล็อกอินด้วย Google เพื่อเล่นต่อ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nLog in with Google to keep playing — everything you did stays saved.",
+    },
+    ai: {
+      icon: "🤖",
+      title: "AI ครูสอนต้องล็อกอินก่อน · The AI teacher needs a login",
+      sub: "ฟีเจอร์นี้ต้องใช้บัญชีจริง ล็อกอินฟรีด้วย Google ได้เลย — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nThis feature needs a real account. Log in free with Google — everything you did stays saved.",
+    },
+    account: {
+      icon: "🔐",
+      title: "ฟีเจอร์นี้ต้องมีบัญชี · This needs a real account",
+      sub: "ล็อกอินฟรีด้วย Google เพื่อใช้งานส่วนนี้ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nLog in free with Google to use this — everything you did stays saved.",
+    },
   };
+  const c = copy[reason] || copy.time;
   return (
-    <div className="tg">
+    <div className="tg" style={{ position: "fixed", inset: 0, zIndex: 2000, alignItems: "center", justifyContent: "center" }}>
       <div className="scan" />
-      <div className="loginhero">
-        <div className="lbox flicker" style={{ width: 52, height: 52, fontSize: 17 }}>TG</div>
-        <div className="locktitle" style={{ marginTop: 12, color: "#d97757", textShadow: "0 0 10px #d9775766" }}>TIGA AI</div>
-        <div className="locksub" style={{ fontSize: 12, maxWidth: 300 }}>แอปเรียนเปียโนด้วย AI · ฟรีบนทุกอุปกรณ์<br />AI-powered piano learning · free on any device</div>
-      </div>
-      <div className="login-features">
-        {[
-          { ic: "🤖", t: "AI ครูสอนเปียโน", s: "AI Piano Teacher" },
-          { ic: "🎵", t: "เพลง 180+ บท", s: "180+ Songs" },
-          { ic: "🎯", t: "Quest รายวัน", s: "Daily Quests" },
-          { ic: "📊", t: "ติดตามความคืบหน้า", s: "Track Progress" },
-        ].map(f => (
-          <div key={f.ic} className="login-feat">
-            <span className="login-feat-ic">{f.ic}</span>
-            <span className="login-feat-t">{f.t}</span>
-            <span className="login-feat-s">{f.s}</span>
-          </div>
-        ))}
-      </div>
-      <div className="loginpiano">
-        <Piano small onNote={onGuestNote} />
-        <div className="loginpiano-hint">{guestNote ? `♪ ${guestNote}` : "ลองแตะคีย์ได้เลย ไม่ต้องสมัคร · tap a key, no sign-in needed"}</div>
-      </div>
-      <div className="memberwrap loginwrap">
-        <div className="locksub" style={{ marginBottom: 2 }}>อยากบันทึกความคืบหน้า และเรียนกับ AI ครูสอนเปียโน?<br />Want to save progress & learn with your AI teacher?</div>
-        <button className="oauthbtn google" onClick={() => signInWith("google")}>
+      <div className="banscreen">
+        <div style={{ fontSize: 52 }}>{c.icon}</div>
+        <div className="locktitle">{c.title}</div>
+        <div className="locksub">{c.sub}</div>
+        <button className="oauthbtn google" onClick={onLogin} style={{ marginTop: 8 }}>
           <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google
         </button>
-        <div className="memberfoot">◈ สมาชิก TiGA STUDIO ◈</div>
       </div>
     </div>
   );
@@ -9584,20 +9667,36 @@ export default function App() {
       _accessToken = (s && s.access_token) || null; // kept fresh across silent token refreshes too
       setAuthReady(true);
     });
-    return () => { mounted = false; if (sub && sub.subscription) sub.subscription.unsubscribe(); };
+    // completes signInWith()'s native OAuth flow when the OS hands the app back
+    // control via the custom URL scheme; no-op (returns a no-op cleanup) on web
+    const stopAuthRedirect = listenForNativeAuthRedirect(sb, (err) => {
+      if (err) alert("Sign-in error: " + (err.message || err));
+    });
+    return () => { mounted = false; if (sub && sub.subscription) sub.subscription.unsubscribe(); stopAuthRedirect(); };
   }, []);
+
+  useEffect(() => { initNativeUpdater(APP_VER); }, []); // no-op on web
 
   const loadProfile = useCallback((uid) => {
     setProfileReady(false);
-    sb.from("profiles").select("*").eq("id", uid).maybeSingle().then(({ data }) => {
-      setProfile(data || null);
+    sb.from("profiles").select("*").eq("id", uid).maybeSingle().then(async ({ data }) => {
+      let finalData = data;
+      // A guest who just logged in for the first time (or an existing member
+      // who tried the app as a guest before logging back in) — fold whatever
+      // they earned as a guest into the now-real row. Self-limiting: once
+      // merged, clearGuestProfile() empties tg_guest_profile, so this is a
+      // no-op on every subsequent loadProfile() call (focus re-checks, etc.)
+      if (data && guestHasProgress(loadGuestProfile())) {
+        finalData = await mergeGuestProgressIntoProfile(uid, data);
+      }
+      setProfile(finalData || null);
       setProfileReady(true);
       // Supabase is the authoritative subscription now — sync it to localStorage so
       // the freemium gates can't be unlocked by editing localStorage. Admins always
       // get full access; a paid plan counts only while plan_until is in the future.
       // (PianoApp reads this on mount and re-syncs from the profile prop.)
-      if (data) {
-        const active = effectivePlan(data);
+      if (finalData) {
+        const active = effectivePlan(finalData);
         try { setPlanLS(active); } catch (e) {}
       }
     });
@@ -9605,7 +9704,9 @@ export default function App() {
 
   useEffect(() => {
     if (session && session.user && session.user.id) loadProfile(session.user.id);
-    else { setProfile(null); setProfileReady(false); }
+    // no session (fresh visitor, or just signed out) = guest mode, not a locked
+    // door — same synthetic profile object PianoApp already knows how to read.
+    else { setProfile(loadGuestProfile()); setProfileReady(true); }
   }, [session, loadProfile]);
 
   // banned/plan/admin_tier are otherwise only re-checked once per session (on the
@@ -9630,7 +9731,6 @@ export default function App() {
   }
 
   if (!authReady) return <Splash />;
-  if (!session) return <LoginScreen />;
   if (!profileReady) return <Splash />;
   if (profile && profile.banned && !profile.is_admin) return <BannedScreen onSignOut={signOut} />;
   if (!profile || !profile.onboarded) {
@@ -9658,9 +9758,24 @@ function CountUp({ value, dur = 900, className }) {
 
 function PianoApp({ session, profile, setProfile, onSignOut }) {
   const cssReady = useInjectCSS();
+  const isGuest = !session; // no Supabase session at all — synthetic local profile, see loadGuestProfile()
+
+  // one-time "why we ask for mic/camera" disclosure, native app only — the OS's
+  // own permission dialog (with the Info.plist/AndroidManifest usage strings)
+  // still does the real asking; this just explains it first, shown once ever.
+  const [permPrimerOpen, setPermPrimerOpen] = useState(false);
+  useEffect(() => {
+    if (!isNative) return;
+    try { if (!localStorage.getItem("tg_permprimed")) setPermPrimerOpen(true); } catch (e) {}
+  }, []);
+  function dismissPermPrimer() {
+    setPermPrimerOpen(false);
+    try { localStorage.setItem("tg_permprimed", "1"); } catch (e) {}
+  }
 
   const [lang, setLang] = useState("en");   // English is the default language on entry
   const lc = L[lang];
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
 
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
@@ -9988,6 +10103,36 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // ── routing + secret admin unlock ──
   const [page, setPage] = useState("pathway");  // home = pathway; sensei (chat) is secondary | pathway | profile | admin
   useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
+
+  // null | "time" | "ai" — which GuestGateScreen (if any) currently covers the
+  // screen. Two distinct producers, one shared consumer (see render below).
+  const [guestGateReason, setGuestGateReason] = useState(null);
+  const [guestMsLeft, setGuestMsLeft] = useState(GUEST_TRIAL_MS); // soft, non-blocking countdown — see corner pill
+  // Returns true (and raises the gate) if this guest needs to log in before
+  // continuing — call at the top of anything that needs a real account, and
+  // bail out if it returns true. reason picks GuestGateScreen's copy:
+  // "ai" for AI-backed features, "account" for everything else account-bound.
+  function requireLogin(reason = "account") { if (isGuest) { setGuestGateReason(reason); return true; } return false; }
+  // Ticks tg_guest_ms forward by real elapsed time, mirroring syncProgress's own
+  // interval/visibility wiring (~10226 below) rather than inventing a new style.
+  useEffect(() => {
+    if (!isGuest) return;
+    let last = Date.now();
+    const flush = () => { const now = Date.now(); addGuestMs(now - last); last = now; setGuestMsLeft(Math.max(0, GUEST_TRIAL_MS - getGuestMs())); };
+    flush();
+    const iv = setInterval(flush, 10000);
+    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
+    const onPageHide = () => flush();
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onPageHide);
+    return () => { flush(); clearInterval(iv); document.removeEventListener("visibilitychange", onHide); window.removeEventListener("pagehide", onPageHide); };
+  }, [isGuest]);
+  // Only actually raise the gate on a fresh top-level navigation, never mid-exercise
+  // (exercises/overlays are their own state, layered on top of `page` — `page`
+  // itself only changes once the guest has returned to a list/menu).
+  useEffect(() => {
+    if (isGuest && getGuestMs() >= GUEST_TRIAL_MS) setGuestGateReason("time");
+  }, [isGuest, page]);
 
   // School Plan Pro: the teacher dashboard has no nav entry anywhere — it's reached
   // only via a hidden link TIGA hands directly to onboarded teachers. The link is
@@ -10345,12 +10490,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // award EXP for an action, persist to Supabase, and celebrate level-ups.
   // opts.lesson=true also increments the lessons-completed counter.
   function gainExp(amount, opts = {}) {
-    if (!amount || !uid) return;
+    // Guests (no real uid) still get the full local experience — optimistic
+    // update, toast, level-up, badges — just none of the server-side RPCs
+    // below, which are SECURITY DEFINER / auth.uid()-gated and structurally
+    // can't succeed without a real session regardless of what id is passed.
+    if (!amount || (!uid && !isGuest)) return;
     if (activeEvent && activeEvent.expMult > 1) amount = Math.round(amount * activeEvent.expMult);
     mascot("happy", 1400);
     bumpWeekly("exp", amount);
-    sb.rpc("league_bump_exp", { p_week_key: weekKey(), p_amount: amount }).then(() => {}, () => {});
-    sb.rpc("school_quest_bump", { p_amount: amount }).then(() => {}, () => {}); // no-ops silently if not in a school / no active quest
+    if (uid) {
+      sb.rpc("league_bump_exp", { p_week_key: weekKey(), p_amount: amount }).then(() => {}, () => {});
+      sb.rpc("school_quest_bump", { p_amount: amount }).then(() => {}, () => {}); // no-ops silently if not in a school / no active quest
+    }
     const beforeExp = expRef.current;
     const beforeLessons = lessonsRef.current;
 
@@ -10371,7 +10522,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     lessonsRef.current = newLessons;
     logExpGain(amount + bonus);   // daily EXP for the progress dashboard
 
-    if (setProfile) setProfile(p => ({ ...(p || {}), exp: after, lessons_done: newLessons, ...(questFields || {}) }));
+    if (setProfile) setProfile(p => {
+      const next = { ...(p || {}), exp: after, lessons_done: newLessons, ...(questFields || {}) };
+      if (isGuest) saveGuestProfile(next);
+      return next;
+    });
     showExpToast(amount + bonus);
 
     // level-up celebration
@@ -10393,10 +10548,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
       earnCoins(150);
       // gems are granted server-side (re-derived from real exp, idempotent) —
-      // this app.tsx client never decides or sends a gem amount itself
-      sb.rpc("grant_gems_for_prestige").then(({ data: r }) => {
-        if (r && r.granted > 0 && setProfile) setProfile(p => ({ ...(p || {}), gems: ((p && p.gems) || 0) + r.granted }));
-      }, () => {});
+      // this app.tsx client never decides or sends a gem amount itself. Guests
+      // structurally can't reach this (auth.uid()-gated RPC, no real session).
+      if (uid) {
+        sb.rpc("grant_gems_for_prestige").then(({ data: r }) => {
+          if (r && r.granted > 0 && setProfile) setProfile(p => ({ ...(p || {}), gems: ((p && p.gems) || 0) + r.granted }));
+        }, () => {});
+      }
     }
     // achievement unlock (skip the toast if a level-up already shows this tick)
     if (!leveled) {
@@ -10406,10 +10564,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       );
     }
 
-    // persist (fire-and-forget; UI already updated optimistically)
-    const upd = { exp: after, lessons_done: newLessons, updated_at: new Date().toISOString() };
-    if (questFields) Object.assign(upd, questFields);
-    sb.from("profiles").update(upd).eq("id", uid).then(() => {}, () => {});
+    // persist (fire-and-forget; UI already updated optimistically) — guests
+    // already persisted above, via saveGuestProfile() inside setProfile()
+    if (uid) {
+      const upd = { exp: after, lessons_done: newLessons, updated_at: new Date().toISOString() };
+      if (questFields) Object.assign(upd, questFields);
+      sb.from("profiles").update(upd).eq("id", uid).then(() => {}, () => {});
+    }
   }
 
   // daily streak + welcome-back bonus — runs once per calendar day on app open
@@ -10590,6 +10751,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const clip = clipRef.current;
     if (!clip.length || recordingRef.current || loading) return;
     if (!canUse("critique", premium)) { setPricingOpen(true); return; }
+    if (requireLogin("ai")) return; // don't burn the daily quota on a call that can't complete
     if (!premium) bumpUsage("critique");
     stopClip();
     setPage("sensei");
@@ -10747,7 +10909,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       : `The learner just practiced "${label}" on piano, completing all ${total} notes at ${accuracy}% accuracy (${miss} wrong notes along the way). As TiGA the piano teacher, give a short, warm word of praise and encouragement, then 1-2 tips to improve next. Be concise; no note names needed.`;
     topicHint.current = LESSON_MODE; // don't auto-play notes from the feedback text
     lessonKey.current = null;
-    callClaude(fb);
+    // this is a bonus AI flourish on top of an already-complete local drill, not a
+    // deliberate "ask AI" action — skip it quietly for guests rather than walling
+    // off practice itself, which should stay fully free during the trial
+    if (!isGuest) callClaude(fb);
   }
 
   // ════ PLAY-ALONG (falling-notes) controls ════
@@ -11260,6 +11425,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // Per-song mistake breakdown — separate from Auto Teaching, only ever shown on this
   // song-result screen. Fires once automatically when a song finishes.
   async function fetchSongAnalysis(result, label) {
+    if (isGuest) return; // silent bonus feature — same no-op-for-guests treatment as finishPractice's AI comment
     setSongAnalysisBusy(true);
     try {
       const missed = (result.missedNotes || []).slice(0, 30);
@@ -11281,6 +11447,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // D2: Style Transformer — regenerate current song in a different style
   async function styleTransform(style: string) {
     if (!songMeta || styleLoading) return;
+    if (requireLogin("ai")) return;
     setStyleLoading(true); setStylePickOpen(false);
     try {
       const styleDesc: Record<string, string> = {
@@ -11595,6 +11762,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     vmProcess(L[langRef.current].vmPlayedCue);            // implicit "I just played — what do you think?"
   }
   function openVoice() {
+    if (!isNative) return; // mobile-app-only feature, by design — never reachable on web
     setVmOpen(true);
     setVmErr(null);
     vmMsgsRef.current = []; setVmMsgs([]);
@@ -11675,6 +11843,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const vmCheckIdleRef = useRef(() => {});
   useEffect(() => { vmCheckIdleRef.current = vmCheckIdle; });
   function startVoiceSession() {
+    if (!isNative) return; // belt-and-suspenders: vmToggle()/vmOrbTap() can re-enter this once the modal is open
     if (!sttSupported()) { setVmErr(L[lang].vmNoSTT); vmSetState("error"); return; }
     getAC();
     vmActiveRef.current = true;
@@ -12471,15 +12640,31 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { localStorage.setItem("tg_install_banner_seen", "1"); } catch (e) {}
   }
   async function installFromBanner() { dismissInstallBanner(); await doInstall(); }
+  // Direct-download Android app (no Play Store listing for now — see version.json).
+  // Takes priority over the generic PWA install banner above: the real native app
+  // unlocks the AI Voice Tutor, which the PWA install can never do.
+  const [apkInfo, setApkInfo] = useState(null);
+  useEffect(() => {
+    if (isNative || !/Android/i.test(navigator.userAgent || "")) return;
+    fetch("./version.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => setApkInfo(j), () => {});
+  }, []);
+  const [apkBannerSeen, setApkBannerSeen] = useState(() => { try { return localStorage.getItem("tg_apk_banner_seen") === "1"; } catch (e) { return false; } });
+  const showApkBanner = !isNative && apkInfo && apkInfo.apkReady && !apkBannerSeen;
+  function dismissApkBanner() {
+    setApkBannerSeen(true);
+    try { localStorage.setItem("tg_apk_banner_seen", "1"); } catch (e) {}
+  }
   // Re-engagement push: toggle in Settings, plus a one-time prompt the first
   // time a real streak is actually at risk — the exact moment a reminder
   // would matter, tied to the same streakAtRisk() the in-app UI already uses.
   const [pushOn, setPushOn] = useState(() => typeof Notification !== "undefined" && Notification.permission === "granted");
   async function togglePush() {
+    if (requireLogin()) return;
     if (pushOn) { await unsubscribePush(); setPushOn(false); }
     else { const ok = await subscribePush(session.user.id); setPushOn(ok); }
   }
   function saveAutoTeachInterval(min) {
+    if (requireLogin()) return;
     setProfile(p => (p ? { ...p, auto_teach_interval_min: min } : p));
     sb.from("profiles").update({ auto_teach_interval_min: min }).eq("id", session.user.id).then(() => {}, () => {});
   }
@@ -12502,8 +12687,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
   }
   // coins + mascot + daily chest
-  function earnCoins(n) { const mult = (isMaxPlan(plan) ? 2 : 1) * (activeEvent && activeEvent.coinMult > 1 ? activeEvent.coinMult : 1); const v = getCoins() + n * mult; setCoinsLS(v); setCoins(v); if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {}); }
+  function earnCoins(n) {
+    const mult = (isMaxPlan(plan) ? 2 : 1) * (activeEvent && activeEvent.coinMult > 1 ? activeEvent.coinMult : 1);
+    const v = getCoins() + n * mult;
+    setCoinsLS(v); setCoins(v);
+    if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+    // guests have no uid to write to — mirror into the synthetic guest profile
+    // too (not just the separate tg_coins cache) so profile.coins stays
+    // accurate for reads elsewhere and the eventual login-time merge sees it.
+    else if (isGuest && setProfile) setProfile(p => { const next = { ...(p || {}), coins: v }; saveGuestProfile(next); return next; });
+  }
   function reviewTopic(t) {
+    if (requireLogin("ai")) return; // always a live-AI ask, no local fallback
     setActiveStageId(null); // free-text question, not a Pathway topic+key — no "change key" back button
     setPage("sensei");
     topicHint.current = null; lessonKey.current = null;
@@ -12548,6 +12743,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }
   // open the checkout modal — carries THB amount (for slip records) + display currency
   function startCheckout(planId, cycle = "month") {
+    if (requireLogin()) return; // buying a plan means tying it to a real account
     playUi("click"); setPricingOpen(false);
     const yr = cycle === "year";
     const cur = CURRENCY_BY_LANG[lang] || "thb";
@@ -12753,14 +12949,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setMsgs(prev => [...prev, { role: "user", text: t }]);
     playPianoNote("C5", 0.1);
     // tier 1: does this clearly match a prepared Pathway chapter/case study already in the app?
+    // — answered entirely locally, so guests get this tier free, same as any
+    // other pathway content. Only tier 2 (the live AI) needs a real login.
     const faq = matchFaqTopic(t, lang);
     if (faq) {
       topicHint.current = LESSON_MODE; // curated reading content — don't auto-detect notes from it
       setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
-    } else {
+      gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
+    } else if (!requireLogin("ai")) {
       callClaude(t); // tier 2: no prepared match — ask the live AI
+      gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
     }
-    gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
   }
 
   // ── learn a topic+key from the pathway menu: send to AI + go to sensei page ──
@@ -12843,8 +13042,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setMsgs(prev => [...prev, ...intro]);
     const dt = setTimeout(() => playSequence(demoParsed), 300);
     seqTimers.current.push(dt);
-    if (!local) callClaude(prompt); // tier 2: no prepared answer — ask the live AI
-    gainExp(EXP.lesson, { lesson: true, quest: true }); // reward practicing a pathway topic
+    // tier 1 (local theory engine) is free for guests same as any other pathway
+    // content; only tier 2 (the live AI) needs a real login — same split as send()
+    if (local) {
+      gainExp(EXP.lesson, { lesson: true, quest: true }); // reward practicing a pathway topic
+    } else if (!requireLogin("ai")) {
+      callClaude(prompt); // tier 2: no prepared answer — ask the live AI
+      gainExp(EXP.lesson, { lesson: true, quest: true });
+    }
   }
 
   // open a "benefits of music" knowledge chapter — show curated content in the chat
@@ -12870,6 +13075,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     <div className="tg" style={{ opacity: cssReady ? 1 : 0, transition: "opacity .15s" }}>
       <div className="scan" />
 
+      {guestGateReason && (
+        <GuestGateScreen reason={guestGateReason} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
+      )}
+
+      {permPrimerOpen && (() => {
+        const PERM_PRIMER_COPY = {
+          th: { title: "TiGA AI ขอสิทธิ์เข้าถึงบางอย่าง", body: "แอพจะขอใช้ไมโครโฟนสำหรับ AI Voice Tutor และฟังโน้ตที่คุณเล่น และขอใช้กล้องสำหรับ Hand-Posture Coach — ระบบปฏิบัติการจะถามอนุญาตแยกอีกครั้งตอนคุณเปิดใช้ฟีเจอร์นั้นจริง", btn: "เข้าใจแล้ว" },
+          en: { title: "TiGA AI needs a couple of permissions", body: "The app will ask for your microphone for the AI Voice Tutor and to hear the notes you play, and your camera for the Hand-Posture Coach — your OS will prompt you separately the moment you actually open one of those features.", btn: "Got it" },
+          zh: { title: "TiGA AI 需要一些权限", body: "应用会请求麦克风权限用于 AI 语音导师和听取你弹的音符，并请求摄像头权限用于手型指导 — 系统会在你实际打开该功能时另行询问。", btn: "知道了" },
+        };
+        const c = PERM_PRIMER_COPY[lang] || PERM_PRIMER_COPY.en;
+        return (
+          <div className="permprimer-overlay">
+            <div className="permprimer-card">
+              <div className="permprimer-ic">🎙️📷</div>
+              <div className="permprimer-title">{c.title}</div>
+              <div className="permprimer-body">{c.body}</div>
+              <button className="permprimer-btn" onClick={dismissPermPrimer}>{c.btn}</button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* HEADER — hidden on the video feed so it plays truly full-screen (a floating ☰ replaces it there) */}
       {page !== "videos" && <div className="hdr">
         <div className="logo">
@@ -12883,6 +13111,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
         <div className="hdr-r">
+          {isGuest && (
+            <button className="guestloginpill" onClick={() => { saveGuestProfile(profile); signInWith("google"); }} title="Login with Google">
+              <span className="oauthico">G</span> {T("ล็อกอิน", "Login", "登录")}
+              {guestMsLeft > 0 && guestMsLeft < GUEST_TRIAL_MS && (() => {
+                const totalSec = Math.ceil(guestMsLeft / 1000); // whole seconds left, rounded up so it never shows 0:00 while time remains
+                return <span className="guestloginpill-timer">{Math.floor(totalSec / 60)}:{String(totalSec % 60).padStart(2, "0")}</span>;
+              })()}
+            </button>
+          )}
           {premium && (() => { const b = planBadge(plan) || { t: "⭐ PRO", c: "" }; return <span className={`probadge ${b.c}`} title={PLAN_LABEL[plan] || "Premium"}>{b.t}</span>; })()}
           {chestAvail && <button className="chestbtn" onClick={openChestNow} title={lc.chestTitle} aria-label="Daily reward">🎁</button>}
           {metroOn && <button className="metropill" onClick={() => setMetroOn(false)} title="Metronome" aria-label="Metronome on">🥁 {metroBpm}</button>}
@@ -12970,8 +13207,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
       {page === "studio" && (
         studioView === "songs"
-          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
-          : <StudioPage lang={lang} plan={plan} freezeCount={readStreak().freezes || 0}
+          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
+          : <StudioPage lang={lang} plan={plan} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
               onSongs={() => setStudioView("songs")}
@@ -13911,6 +14148,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               {!aiModalText && !aiModalLoading && (
                 <button className="songbtn go" style={{ width: "100%", marginTop: 8 }}
                   onClick={async () => {
+                    if (requireLogin("ai")) return;
                     setAiModalLoading(true);
                     const log = readPracticeLog();
                     const mem = readMemory();
@@ -14340,7 +14578,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
       )}
-      {showInstallBanner && (
+      {showApkBanner && (() => {
+        const APK_BANNER_COPY = {
+          th: { title: "โหลดแอพ Android ตัวเต็ม", sub: "รวมโหมดเสียง AI Voice Tutor — เว็บทำไม่ได้", btn: "ดาวน์โหลด" },
+          en: { title: "Get the full Android app", sub: "Includes the AI Voice Tutor — not available on the web", btn: "Download" },
+          zh: { title: "获取完整版 Android 应用", sub: "包含 AI 语音导师 — 网页版没有", btn: "下载" },
+        };
+        const c = APK_BANNER_COPY[lang] || APK_BANNER_COPY.en;
+        return (
+          <div className="installbanner">
+            <span className="installbanner-ic" aria-hidden="true">🎙️</span>
+            <div className="installbanner-tx">
+              <b>{c.title}</b>
+              <span>{c.sub}</span>
+            </div>
+            <a className="installbanner-go" href={apkInfo && apkInfo.apkUrl} onClick={dismissApkBanner}>{c.btn}</a>
+            <button className="installbanner-x" onClick={dismissApkBanner} aria-label="close">×</button>
+          </div>
+        );
+      })()}
+      {!showApkBanner && showInstallBanner && (
         <div className="installbanner">
           <span className="installbanner-ic" aria-hidden="true">📲</span>
           <div className="installbanner-tx">
@@ -14351,7 +14608,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <button className="installbanner-x" onClick={dismissInstallBanner} aria-label="close">×</button>
         </div>
       )}
-      {!showInstallBanner && showPushBanner && (
+      {!showApkBanner && !showInstallBanner && showPushBanner && (
         <div className="installbanner">
           <span className="installbanner-ic" aria-hidden="true">🔥</span>
           <div className="installbanner-tx">

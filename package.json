@@ -6,15 +6,25 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && cp dist/index.template.html dist/index.html && cp dist/index.template.html index.html && cp public/manifest.webmanifest manifest.webmanifest && cp public/icon.svg icon.svg && cp public/sw.js sw.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "npm run build && node scripts/publish-update.mjs && npx cap sync"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/core": "^8.5.0",
+    "@capgo/capacitor-updater": "^8.51.3",
     "@supabase/supabase-js": "^2.108.2",
     "qrcode-generator": "^2.0.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^5.4.11",
     "vite-plugin-singlefile": "^2.3.3"
