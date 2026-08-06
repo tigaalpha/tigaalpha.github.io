@@ -157,14 +157,18 @@ export function ExpenseBreakdown({ transactions }: ExpenseBreakdownProps) {
                   <CardContent className="pt-0">
                     <ul className="space-y-2 border-t border-line/5 pt-3">
                       {period.transactions.map((t) => (
-                        <li key={t.id} className="flex items-center justify-between gap-3 rounded-xl border border-line/5 px-4 py-3">
-                          <div className="min-w-0">
-                            <Badge variant="danger">{t.category}</Badge>
-                            <p className="mt-1 truncate text-xs text-secondary/50">
-                              {t.transaction_date} {t.description ? `— ${t.description}` : ""} {t.payment_method ? `(${t.payment_method})` : ""}
-                            </p>
+                        <li key={t.id} className="flex flex-col gap-2 rounded-xl border border-line/5 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="danger">{t.category}</Badge>
+                              <span className="text-xs text-secondary/50">{t.transaction_date}</span>
+                              {t.payment_method ? <span className="text-xs text-secondary/40">{t.payment_method}</span> : null}
+                            </div>
+                            {t.description ? (
+                              <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-secondary/80">{t.description}</p>
+                            ) : null}
                           </div>
-                          <span className="shrink-0 text-sm font-semibold text-danger">-{formatCurrency(t.amount)}</span>
+                          <span className="shrink-0 text-sm font-semibold text-danger sm:pl-3">-{formatCurrency(t.amount)}</span>
                         </li>
                       ))}
                     </ul>
