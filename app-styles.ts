@@ -1296,6 +1296,10 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .permprimer-title{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px}
 .permprimer-body{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:18px}
 .permprimer-btn{width:100%;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;background:#d97757;color:#fff;border:none;border-radius:12px;padding:12px;cursor:pointer}
+
+.guestloginpill{display:flex;align-items:center;gap:4px;background: #d97757;color:var(--card2);border:none;border-radius:20px;padding:5px 11px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;cursor:pointer}
+.guestloginpill .oauthico{background:#fff;color:#4285F4;border-radius:50%;width:14px;height:14px;font-size:9px;display:inline-flex;align-items:center;justify-content:center;font-weight:800}
+.guestloginpill-timer{opacity:.75;font-weight:600;font-variant-numeric:tabular-nums}
 `;
 
 export function useInjectCSS() {
