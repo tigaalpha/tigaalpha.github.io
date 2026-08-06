@@ -207,15 +207,22 @@ interface GeneratedImage {
   base64: string;
 }
 
-async function generateImage(prompt: string): Promise<GeneratedImage> {
+async function generateImage(prompt: string, referenceImage?: { mimeType: string; base64: string }): Promise<GeneratedImage> {
   // Every image here feeds vertical-video content (see Image Studio), so
   // request a 9:16 portrait render directly instead of generating square
-  // and cropping afterward.
+  // and cropping afterward. When a reference image is given (e.g. a saved
+  // Knowledge Base reference photo), it's passed as an input part alongside
+  // the prompt -- gemini-2.5-flash-image supports this for subject-consistent
+  // generation (keep this face, put them in the described scene).
+  const parts: GeminiPart[] = referenceImage
+    ? [{ inlineData: { mimeType: referenceImage.mimeType, data: referenceImage.base64 } }, { text: prompt }]
+    : [{ text: prompt }];
+
   const response = await fetchWithRetry(`${BASE_URL}/${imageModel()}:generateContent?key=${apiKey()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: [{ role: "user", parts }],
       generationConfig: { imageConfig: { aspectRatio: "9:16" } },
     }),
   });

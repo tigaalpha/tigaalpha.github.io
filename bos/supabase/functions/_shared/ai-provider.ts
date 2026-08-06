@@ -124,6 +124,6 @@ export function embed(text: string): Promise<number[]> {
   return geminiProvider.embed(text);
 }
 
-export function generateImage(prompt: string): Promise<GeneratedImage> {
-  return geminiProvider.generateImage(prompt);
+export function generateImage(prompt: string, referenceImage?: { mimeType: string; base64: string }): Promise<GeneratedImage> {
+  return geminiProvider.generateImage(prompt, referenceImage);
 }

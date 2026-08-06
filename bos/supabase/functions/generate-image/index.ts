@@ -18,7 +18,7 @@ Deno.serve(async (req: Request) => {
     const userId = await requireStaff(admin, req);
     await enforceRateLimit(admin, userId, "generate-image", { windowMinutes: 60, maxRequests: 10 });
 
-    const { prompt } = await req.json();
+    const { prompt, referencePhotoId } = await req.json();
     if (!prompt || typeof prompt !== "string") {
       return jsonResponse({ error: "prompt is required" }, 400);
     }
@@ -26,7 +26,19 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: `prompt must be ${MAX_PROMPT_LENGTH} characters or fewer` }, 400);
     }
 
-    const image = await generateImage(prompt);
+    let referenceImage: { mimeType: string; base64: string } | undefined;
+    if (referencePhotoId && typeof referencePhotoId === "string") {
+      const { data: photo, error: photoErr } = await admin
+        .from("reference_photos")
+        .select("mime_type, image_base64")
+        .eq("id", referencePhotoId)
+        .maybeSingle();
+      if (photoErr) throw photoErr;
+      if (!photo) return jsonResponse({ error: "Reference photo not found" }, 404);
+      referenceImage = { mimeType: photo.mime_type, base64: photo.image_base64 };
+    }
+
+    const image = await generateImage(prompt, referenceImage);
 
     const { data: row, error } = await admin
       .from("generated_images")

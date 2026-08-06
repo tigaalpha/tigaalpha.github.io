@@ -704,6 +704,23 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["course_articles"]["Row"]>;
         Relationships: [];
       };
+      reference_photos: {
+        Row: {
+          id: string;
+          label: string;
+          mime_type: string;
+          image_base64: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["reference_photos"]["Row"]> & {
+          label: string;
+          mime_type: string;
+          image_base64: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["reference_photos"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

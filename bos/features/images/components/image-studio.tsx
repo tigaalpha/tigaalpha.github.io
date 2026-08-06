@@ -13,6 +13,7 @@ import type { Tables } from "@/types/database";
 
 interface ImageStudioProps {
   images: Tables<"generated_images">[];
+  referencePhotos: Tables<"reference_photos">[];
   onChanged: () => void;
 }
 
@@ -20,10 +21,15 @@ function dataUrl(row: Tables<"generated_images">): string {
   return `data:${row.mime_type};base64,${row.image_base64}`;
 }
 
+function referencePhotoDataUrl(row: Tables<"reference_photos">): string {
+  return `data:${row.mime_type};base64,${row.image_base64}`;
+}
+
 const QUICK_PROMPT = "Cute Chinese girl or guy playing piano, cyberpunk style, neon lighting, vertical portrait";
 
-export function ImageStudio({ images, onChanged }: ImageStudioProps) {
+export function ImageStudio({ images, referencePhotos, onChanged }: ImageStudioProps) {
   const [prompt, setPrompt] = useState("");
+  const [referencePhotoId, setReferencePhotoId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -39,7 +45,7 @@ export function ImageStudio({ images, onChanged }: ImageStudioProps) {
       const supabase = createClient();
       const { data, error: fnError } = await supabase.functions.invoke<{ image: Tables<"generated_images"> }>(
         "generate-image",
-        { body: { prompt: finalPrompt } }
+        { body: { prompt: finalPrompt, referencePhotoId } }
       );
       if (fnError) throw fnError;
       if (!data) throw new Error("Empty response from generate-image");
@@ -107,6 +113,40 @@ export function ImageStudio({ images, onChanged }: ImageStudioProps) {
             onChange={(e) => setPrompt(e.target.value)}
             className="min-h-24"
           />
+
+          {referencePhotos.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs text-secondary/50">
+                รูปภาพอ้างอิง (ไม่บังคับ) — เลือกเพื่อให้ AI สร้างภาพโดยใช้หน้าคนในรูปนี้ (จัดการรูปได้ที่หน้า Knowledge Base)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReferencePhotoId(null)}
+                  className={`rounded-xl border-2 px-3 py-1.5 text-xs ${
+                    referencePhotoId === null ? "border-primary-accent text-secondary" : "border-line/10 text-secondary/50"
+                  }`}
+                >
+                  ไม่ใช้รูปอ้างอิง
+                </button>
+                {referencePhotos.map((photo) => (
+                  <button
+                    key={photo.id}
+                    type="button"
+                    onClick={() => setReferencePhotoId(photo.id)}
+                    className={`flex items-center gap-2 rounded-xl border-2 py-1 pl-1 pr-3 text-xs ${
+                      referencePhotoId === photo.id ? "border-primary-accent text-secondary" : "border-line/10 text-secondary/50"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={referencePhotoDataUrl(photo)} alt={photo.label} className="h-6 w-6 rounded-full object-cover" />
+                    {photo.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {error ? <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p> : null}
           <Button onClick={() => void handleGenerate()} disabled={generating || !prompt.trim()}>
             {generating ? "กำลังสร้างภาพ…" : "สร้างภาพ"}

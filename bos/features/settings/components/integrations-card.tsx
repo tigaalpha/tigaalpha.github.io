@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, Check, RefreshCw, Trash2 } from "lucide-react";
 import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
+import { CHAT_MODELS } from "@/lib/chat-models";
 import type { GoogleCalendarConnectionSummary } from "@/services/repositories/google-calendar-connections.repository";
 
 interface StatusCheck {
@@ -38,21 +39,6 @@ const STRATEGY_PROVIDERS: { key: keyof StatusResponse; label: string; secretName
   { key: "deepseek", label: "DeepSeek", secretName: "DEEPSEEK_API_KEY", signupUrl: "https://platform.deepseek.com/api_keys" },
   { key: "kimi", label: "Kimi (Moonshot AI)", secretName: "MOONSHOT_API_KEY", signupUrl: "https://platform.moonshot.ai/console/api-keys" },
   { key: "glm", label: "GLM (Zhipu / Z.ai)", secretName: "ZHIPU_API_KEY", signupUrl: "https://open.bigmodel.cn/usercenter/apikeys" },
-];
-
-// Mirrors CHAT_MODELS in supabase/functions/_shared/ai-provider.ts — Deno
-// can't read this frontend file, so the list is duplicated (same pattern as
-// STRATEGY_PROVIDERS above). This is the model TIGA AI AGENT (and the rest
-// of the assistant's chat/tool-calling — customer chat + content
-// generation) actually calls, not the Strategy Room's side-by-side compare.
-const CHAT_MODELS: { id: string; label: string; statusKey: keyof StatusResponse; secretName: string; signupUrl: string }[] = [
-  { id: "gemini", label: "Gemini 2.0 Flash", statusKey: "gemini", secretName: "GEMINI_API_KEY", signupUrl: "https://aistudio.google.com/apikey" },
-  { id: "claude", label: "Claude Sonnet 5", statusKey: "claude", secretName: "ANTHROPIC_API_KEY", signupUrl: "https://console.anthropic.com/settings/keys" },
-  { id: "gpt", label: "ChatGPT 5.1", statusKey: "gpt", secretName: "OPENAI_API_KEY", signupUrl: "https://platform.openai.com/api-keys" },
-  { id: "qwen", label: "Qwen3.5 Max", statusKey: "qwen", secretName: "DASHSCOPE_API_KEY", signupUrl: "https://bailian.console.alibabacloud.com/" },
-  { id: "kimi", label: "Kimi K2", statusKey: "kimi", secretName: "MOONSHOT_API_KEY", signupUrl: "https://platform.moonshot.ai/console/api-keys" },
-  { id: "glm", label: "GLM 5.2", statusKey: "glm", secretName: "ZHIPU_API_KEY", signupUrl: "https://open.bigmodel.cn/usercenter/apikeys" },
-  { id: "grok", label: "Grok (ฟรี)", statusKey: "grok", secretName: "XAI_API_KEY", signupUrl: "https://console.x.ai" },
 ];
 
 function StatusBadge({ status }: { status: StatusCheck | null }) {

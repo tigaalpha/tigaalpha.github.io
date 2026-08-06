@@ -38,5 +38,5 @@ export interface GeneratedImage {
 export interface AIProvider {
   generate(messages: ChatMessage[], tools?: ToolDefinition[], temperature?: number, maxOutputTokens?: number): Promise<GenerateResult>;
   embed(text: string): Promise<number[]>;
-  generateImage(prompt: string): Promise<GeneratedImage>;
+  generateImage(prompt: string, referenceImage?: { mimeType: string; base64: string }): Promise<GeneratedImage>;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { GraduationCap, Copy, Check, Trash2, Sparkles, ExternalLink } from "lucide-react";
+import { GraduationCap, Copy, Check, Trash2, Sparkles, ExternalLink, Lightbulb } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,6 +15,12 @@ import type { Tables } from "@/types/database";
 interface CourseWriterManagerProps {
   courseArticles: Tables<"course_articles">[];
   onChanged: () => void;
+}
+
+interface TopicSuggestion {
+  moduleTitle: string;
+  topic: string;
+  whyItWorks: string;
 }
 
 function CopyButton({ value }: { value: string }) {
@@ -41,8 +47,31 @@ export function CourseWriterManager({ courseArticles, onChanged }: CourseWriterM
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<TopicSuggestion[] | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
 
   const selected = courseArticles.find((a) => a.id === selectedId) ?? null;
+
+  async function handleSuggestTopics() {
+    setSuggesting(true);
+    setSuggestError(null);
+    try {
+      const supabase = createClient();
+      const { data, error: fnError } = await supabase.functions.invoke<{ suggestions: TopicSuggestion[] }>("suggest-course-topics");
+      if (fnError) throw fnError;
+      setSuggestions(data?.suggestions ?? []);
+    } catch (err) {
+      setSuggestError(await describeFunctionError(err));
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  function useSuggestion(s: TopicSuggestion) {
+    setModuleTitle(s.moduleTitle);
+    setTopic(s.topic);
+  }
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
@@ -87,6 +116,39 @@ export function CourseWriterManager({ courseArticles, onChanged }: CourseWriterM
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4 text-primary-accent" />
+            แนะนำหัวข้อบทเรียน
+          </CardTitle>
+          <CardDescription>ให้ AI แนะนำหัวข้อที่น่าสนใจสำหรับ Gen Z และ Gen Alpha ทีละ 10 หัวข้อ กดใช้หัวข้อไหนก็ได้เพื่อเติมฟอร์มด้านล่างทันที</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button variant="outline" onClick={() => void handleSuggestTopics()} disabled={suggesting}>
+            <Sparkles className="h-4 w-4" />
+            {suggesting ? "กำลังคิดหัวข้อ…" : "แนะนำหัวข้อ 10 หัวข้อ"}
+          </Button>
+          {suggestError ? <p className="text-xs text-danger">{suggestError}</p> : null}
+          {suggestions && suggestions.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => useSuggestion(s)}
+                  className="rounded-xl border border-line/10 p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                >
+                  <p className="text-xs text-secondary/40">{s.moduleTitle}</p>
+                  <p className="text-sm font-medium text-secondary">{s.topic}</p>
+                  <p className="mt-1 text-xs text-secondary/50">{s.whyItWorks}</p>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>สร้างบทเรียนใหม่</CardTitle>

@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bot, Send, X, Sparkles } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
+import { createRepositories } from "@/services/repositories";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { cn, describeFunctionError } from "@/lib/utils";
+import { CHAT_MODELS, DEFAULT_CHAT_MODEL_ID } from "@/lib/chat-models";
 
 interface AssistantMessage {
   role: "user" | "ai";
@@ -32,7 +34,23 @@ export function FloatingAssistant() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chatModel, setChatModel] = useState(DEFAULT_CHAT_MODEL_ID);
+  const [savingModel, setSavingModel] = useState(false);
   const conversationIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const repos = createRepositories(createClient());
+    repos.integrations.get("ai_chat_model").then((v) => setChatModel(v ?? DEFAULT_CHAT_MODEL_ID));
+  }, [open]);
+
+  async function changeChatModel(value: string) {
+    setChatModel(value);
+    setSavingModel(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("ai_chat_model", value);
+    setSavingModel(false);
+  }
 
   async function send() {
     const text = draft.trim();
@@ -64,12 +82,26 @@ export function FloatingAssistant() {
     <>
       {open ? (
         <div className="fixed bottom-24 right-6 z-50 flex h-[32rem] w-96 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-line/10 bg-card shadow-card">
-          <div className="flex items-center justify-between border-b border-line/5 px-4 py-3">
-            <span className="flex items-center gap-2 text-sm font-semibold text-secondary">
+          <div className="flex items-center justify-between gap-2 border-b border-line/5 px-4 py-3">
+            <span className="flex shrink-0 items-center gap-2 text-sm font-semibold text-secondary">
               <Sparkles className="h-4 w-4 text-primary-accent" />
               TIGA AI AGENT
             </span>
-            <button onClick={() => setOpen(false)} aria-label="ปิด TIGA AI Agent">
+            <select
+              value={chatModel}
+              onChange={(e) => void changeChatModel(e.target.value)}
+              disabled={savingModel}
+              aria-label="เลือกโมเดล AI"
+              title="กำลังคุยกับโมเดล AI นี้อยู่ — เปลี่ยนได้ที่นี่"
+              className="min-w-0 flex-1 truncate rounded-lg border border-line/10 bg-line/5 px-2 py-1 text-xs text-secondary/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              {CHAT_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            <button onClick={() => setOpen(false)} aria-label="ปิด TIGA AI Agent" className="shrink-0">
               <X className="h-4 w-4 text-secondary/60" />
             </button>
           </div>

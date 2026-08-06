@@ -9,6 +9,7 @@ import type { Tables } from "@/types/database";
 
 export default function ImagesPage() {
   const [images, setImages] = useState<Tables<"generated_images">[] | null>(null);
+  const [referencePhotos, setReferencePhotos] = useState<Tables<"reference_photos">[] | null>(null);
 
   const reload = useCallback(() => {
     const repos = createRepositories(createClient());
@@ -17,6 +18,8 @@ export default function ImagesPage() {
 
   useEffect(() => {
     reload();
+    const repos = createRepositories(createClient());
+    repos.referencePhotos.list().then(setReferencePhotos);
   }, [reload]);
 
   return (
@@ -25,7 +28,11 @@ export default function ImagesPage() {
         <h1 className="text-2xl font-semibold text-secondary">Image Studio</h1>
         <p className="text-sm text-secondary/50">สร้างภาพนิ่งด้วย AI ไว้ใช้เป็นวัตถุดิบสำหรับวิดีโอแนวตั้ง</p>
       </div>
-      {images ? <ImageStudio images={images} onChanged={reload} /> : <Skeleton className="h-96" />}
+      {images && referencePhotos ? (
+        <ImageStudio images={images} referencePhotos={referencePhotos} onChanged={reload} />
+      ) : (
+        <Skeleton className="h-96" />
+      )}
     </div>
   );
 }
