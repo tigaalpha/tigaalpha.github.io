@@ -30,6 +30,7 @@ import {
   Bot,
   TrendingUp,
   GraduationCap,
+  Swords,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -84,6 +85,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/ads", label: "แคมเปญโฆษณา", icon: Megaphone },
       { href: "/marketing-channels", label: "Marketing Channels", icon: Radar },
       { href: "/social-trends", label: "Social Trends", icon: TrendingUp },
+      { href: "/competitors", label: "วิเคราะห์คู่แข่ง", icon: Swords },
     ],
   },
   {

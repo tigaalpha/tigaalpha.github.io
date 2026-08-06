@@ -721,6 +721,28 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["reference_photos"]["Row"]>;
         Relationships: [];
       };
+      competitor_analyses: {
+        Row: {
+          id: string;
+          summary: string;
+          competitors: {
+            name: string;
+            type: "direct" | "indirect";
+            category: string;
+            marketingChannels: string[];
+            notes: string;
+          }[];
+          strategies: { approach: "compete" | "avoid"; title: string; description: string }[];
+          sources: { title: string; url: string }[];
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["competitor_analyses"]["Row"]> & {
+          summary: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["competitor_analyses"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
