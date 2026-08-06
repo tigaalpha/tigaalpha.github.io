@@ -9573,7 +9573,7 @@ function GuestGateScreen({ reason, onLogin }) {
   const copy = {
     time: {
       icon: "⏳",
-      title: "หมดเวลาทดลองฟรีแล้ว · Free trial ended",
+      title: "กรุณาล็อกอินเพื่อเล่นฟรีต่อ 7 วัน",
       sub: "ล็อกอินด้วย Google เพื่อเล่นต่อ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nLog in with Google to keep playing — everything you did stays saved.",
     },
     ai: {
