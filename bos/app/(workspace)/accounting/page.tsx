@@ -34,7 +34,7 @@ export default function AccountingPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-secondary">Accounting</h1>
-        <p className="text-sm text-secondary/50">บันทึกรายรับ-รายจ่ายของธุรกิจ — เห็นได้เฉพาะเจ้าของ/แอดมิน</p>
+        <p className="text-sm text-secondary/50">บันทึกรายได้-รายจ่ายของธุรกิจ — เห็นได้เฉพาะเจ้าของ/แอดมิน</p>
       </div>
       {transactions ? (
         <AccountingManager

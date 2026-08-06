@@ -44,7 +44,8 @@ function detectType(raw: unknown): TransactionType | null {
   const value = normalizeHeader(raw);
   if (!value) return null;
   if (value.includes("expense") || value.includes("รายจ่าย") || value.includes("จ่าย")) return "expense";
-  if (value.includes("income") || value.includes("รายรับ") || value.includes("รับ")) return "income";
+  // Accepts both the current wording (รายได้) and the older one (รายรับ) so past exports still import cleanly.
+  if (value.includes("income") || value.includes("รายได้") || value.includes("รายรับ") || value.includes("รับ")) return "income";
   return null;
 }
 
@@ -113,7 +114,7 @@ export async function parseExcelTransactions(file: File): Promise<ParseExcelResu
 
     const type = columnIndex.type ? detectType(row.getCell(columnIndex.type).value) : null;
     if (!type) {
-      skipped.push({ row: rowNumber, reason: 'ระบุประเภทไม่ได้ (ต้องเป็น "รายรับ"/"income" หรือ "รายจ่าย"/"expense")' });
+      skipped.push({ row: rowNumber, reason: 'ระบุประเภทไม่ได้ (ต้องเป็น "รายได้"/"income" หรือ "รายจ่าย"/"expense")' });
       return;
     }
 

@@ -22,6 +22,13 @@ export class TransactionsRepository {
     return (data ?? []).reduce((sum, row) => sum + row.amount, 0);
   }
 
+  /** Every transaction ever recorded, for history views (e.g. the expense breakdown page) that aren't date-range limited. */
+  async listAll(): Promise<Tables<"transactions">[]> {
+    const { data, error } = await this.db.from("transactions").select("*").order("transaction_date", { ascending: false });
+    if (error) throw error;
+    return data ?? [];
+  }
+
   async create(row: Database["public"]["Tables"]["transactions"]["Insert"]): Promise<Tables<"transactions">> {
     const { data, error } = await this.db.from("transactions").insert(row).select("*").single();
     if (error) throw error;

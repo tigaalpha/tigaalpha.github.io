@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { Wallet, TrendingUp, TrendingDown, Trash2, Download, Plus, FileSpreadsheet, Upload } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
@@ -171,8 +172,14 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <SummaryCard label="รายรับ" value={formatCurrency(summary.totalIncome)} icon={TrendingUp} tone="success" />
-        <SummaryCard label="รายจ่าย" value={formatCurrency(summary.totalExpense)} icon={TrendingDown} tone="danger" />
+        <SummaryCard label="รายได้" value={formatCurrency(summary.totalIncome)} icon={TrendingUp} tone="success" />
+        <SummaryCard
+          label="รายจ่าย"
+          value={formatCurrency(summary.totalExpense)}
+          icon={TrendingDown}
+          tone="danger"
+          href="/accounting/expenses"
+        />
         <SummaryCard
           label="กำไรสุทธิ"
           value={formatCurrency(summary.netProfit)}
@@ -184,7 +191,7 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
       <Card>
         <CardHeader>
           <CardTitle>บันทึกรายการ</CardTitle>
-          <CardDescription>บันทึกรายรับ-รายจ่ายของธุรกิจ</CardDescription>
+          <CardDescription>บันทึกรายได้-รายจ่ายของธุรกิจ</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-6">
@@ -194,7 +201,7 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
                 onClick={() => handleTypeChange("income")}
                 className={cn("flex-1 px-3 py-2 text-sm font-medium", type === "income" ? "bg-success/10 text-success" : "text-secondary/50")}
               >
-                รายรับ
+                รายได้
               </button>
               <button
                 type="button"
@@ -268,7 +275,7 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
         <CardHeader>
           <CardTitle>นำเข้าจาก Excel</CardTitle>
           <CardDescription>
-            อัปโหลดไฟล์ .xlsx ที่มีแถวหัวตาราง (แถวแรก) เป็น: วันที่, ประเภท (รายรับ/รายจ่าย), หมวดหมู่, จำนวนเงิน,
+            อัปโหลดไฟล์ .xlsx ที่มีแถวหัวตาราง (แถวแรก) เป็น: วันที่, ประเภท (รายได้/รายจ่าย), หมวดหมู่, จำนวนเงิน,
             รายละเอียด (ไม่บังคับ), ช่องทางชำระ (ไม่บังคับ) — ข้อมูลจะถูกอ่านในเบราว์เซอร์ ไม่มีการอัปโหลดไฟล์ขึ้นเซิร์ฟเวอร์
           </CardDescription>
         </CardHeader>
@@ -355,7 +362,7 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
                   <li key={t.id} className="flex items-center justify-between gap-3 rounded-xl border border-line/5 px-4 py-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <Badge variant={t.type === "income" ? "success" : "danger"}>{t.type === "income" ? "รายรับ" : "รายจ่าย"}</Badge>
+                        <Badge variant={t.type === "income" ? "success" : "danger"}>{t.type === "income" ? "รายได้" : "รายจ่าย"}</Badge>
                         <span className="text-sm font-medium text-secondary">{t.category}</span>
                       </div>
                       <p className="mt-1 truncate text-xs text-secondary/50">
@@ -409,23 +416,33 @@ function SummaryCard({
   value,
   icon: Icon,
   tone,
+  href,
 }: {
   label: string;
   value: string;
   icon: React.ComponentType<{ className?: string }>;
   tone: "success" | "danger";
+  href?: string;
 }) {
-  return (
-    <Card>
-      <CardContent className="flex items-center justify-between p-5">
-        <div>
-          <p className="text-xs text-secondary/50">{label}</p>
-          <p className={cn("mt-1 text-xl font-semibold", tone === "success" ? "text-success" : "text-danger")}>{value}</p>
-        </div>
-        <div className={cn("rounded-full p-2.5", tone === "success" ? "bg-success/10" : "bg-danger/10")}>
-          <Icon className={cn("h-5 w-5", tone === "success" ? "text-success" : "text-danger")} />
-        </div>
-      </CardContent>
-    </Card>
+  const content = (
+    <CardContent className="flex items-center justify-between p-5">
+      <div>
+        <p className="text-xs text-secondary/50">{label}</p>
+        <p className={cn("mt-1 text-xl font-semibold", tone === "success" ? "text-success" : "text-danger")}>{value}</p>
+      </div>
+      <div className={cn("rounded-full p-2.5", tone === "success" ? "bg-success/10" : "bg-danger/10")}>
+        <Icon className={cn("h-5 w-5", tone === "success" ? "text-success" : "text-danger")} />
+      </div>
+    </CardContent>
   );
+
+  if (href) {
+    return (
+      <Link href={href}>
+        <Card className="transition-colors hover:border-danger/30">{content}</Card>
+      </Link>
+    );
+  }
+
+  return <Card>{content}</Card>;
 }
