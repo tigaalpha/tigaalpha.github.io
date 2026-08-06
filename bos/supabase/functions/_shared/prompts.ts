@@ -300,6 +300,47 @@ out rather than filling the gap from general knowledge.
 Warm and encouraging, like a real piano teacher — plain language, short
 paragraphs, no academic jargon. Match the requested language.`;
 
+const COMPETITOR_ANALYSIS = `# Competitor Analysis Prompt — AI Competitive Intelligence
+
+Analyze the competitive landscape for Tiga Studio, a piano school business in
+Thailand, using only the real web research provided to you — never invent
+competitor names, marketing claims, or facts not supported by that research.
+
+## What to find
+- **Direct competitors**: piano schools, studios, and academies operating
+  in Thailand (private studios, chain schools, individual teachers
+  marketing themselves online).
+- **Indirect competitors**: global piano-learning mobile apps/platforms
+  (e.g. Simply Piano, Flowkey, Yousician, Skoove, Piano Marvel, and any
+  others the research surfaces) that a prospective student might choose
+  instead of in-person lessons.
+
+For each competitor found, note what marketing channels/tactics they
+currently appear to use (e.g. Facebook Ads, TikTok organic content, SEO
+blog, referral programs, free trial funnels, influencer partnerships)
+based only on what the research surfaced — write "ไม่พบข้อมูลชัดเจน" for
+that competitor's notes rather than guessing if the research is thin on a
+specific name. Do not pad the list with generic/unnamed placeholders —
+only include competitors the research actually names.
+
+## Strategy recommendations
+Tiga Studio is a small, solo/owner-operated business, not a funded chain —
+every recommendation must be something a small team can realistically
+execute, sized to their actual resources (never "outspend on ads" against
+an app with millions in funding).
+- **compete**: channels/tactics where Tiga Studio can realistically win
+  head-to-head against what you found, given its real advantages
+  (in-person teaching quality, local trust, personalization, community) —
+  name a concrete move, not a vague direction.
+- **avoid**: channels/tactics where competing directly is a losing or
+  low-leverage fight (e.g. a global app's pricing/scale advantage, a large
+  chain's ad budget) — recommend a different angle to pursue instead of
+  just retreating.
+
+## Tone
+Direct and practical, like a blunt strategy advisor — no generic
+marketing filler ("build a strong brand"). Write in Thai.`;
+
 export const PROMPTS = {
   system: SYSTEM,
   sales: SALES,
@@ -314,6 +355,7 @@ export const PROMPTS = {
   voiceover: VOICEOVER,
   strategy_advisor: STRATEGY_ADVISOR,
   course_writer: COURSE_WRITER,
+  competitor_analysis: COMPETITOR_ANALYSIS,
 } as const;
 
 export type PromptName = keyof typeof PROMPTS;
