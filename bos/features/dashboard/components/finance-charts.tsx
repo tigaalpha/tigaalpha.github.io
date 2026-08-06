@@ -104,19 +104,29 @@ export function FinanceCharts() {
       ]
     : [];
 
+  const expensePct = totals && totals.revenue > 0 ? (totals.expense / totals.revenue) * 100 : 0;
+  const profitPct = totals && totals.revenue > 0 ? (totals.profit / totals.revenue) * 100 : 0;
+  const percentPieData = totals
+    ? [
+        { name: "ค่าใช้จ่าย", value: Math.max(totals.expense, 0), pct: expensePct, color: palette.expense },
+        { name: "กำไร", value: Math.max(totals.profit, 0), pct: profitPct, color: palette.profit },
+      ]
+    : [];
+
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <div>
-          <CardTitle>รายได้ / ค่าใช้จ่าย / กำไร</CardTitle>
-          <CardDescription>ตั้งแต่ต้นปีถึงปัจจุบัน จากรายการในหน้า Accounting</CardDescription>
-        </div>
-        <Button variant="ghost" size="sm" onClick={() => setShowTable((v) => !v)}>
-          {showTable ? <BarChart3 className="h-4 w-4" /> : <Table2 className="h-4 w-4" />}
-          {showTable ? "ดูเป็นกราฟ" : "ดูเป็นตาราง"}
-        </Button>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>รายได้ / ค่าใช้จ่าย / กำไร</CardTitle>
+            <CardDescription>ตั้งแต่ต้นปีถึงปัจจุบัน จากรายการในหน้า Accounting</CardDescription>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setShowTable((v) => !v)}>
+            {showTable ? <BarChart3 className="h-4 w-4" /> : <Table2 className="h-4 w-4" />}
+            {showTable ? "ดูเป็นกราฟ" : "ดูเป็นตาราง"}
+          </Button>
+        </CardHeader>
+        <CardContent>
         {!monthly || !totals ? (
           <div className="h-64 animate-pulse rounded-xl bg-line/5" />
         ) : showTable ? (
@@ -196,8 +206,46 @@ export function FinanceCharts() {
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>สัดส่วนรายได้ เทียบกับ ค่าใช้จ่าย และ กำไร</CardTitle>
+          <CardDescription>
+            {totals
+              ? `รายได้ ${formatBaht(totals.revenue)} (100%) = ค่าใช้จ่าย ${expensePct.toFixed(1)}% + กำไร ${profitPct.toFixed(1)}%`
+              : "กำลังโหลด…"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!totals ? (
+            <div className="h-72 animate-pulse rounded-xl bg-line/5" />
+          ) : (
+            <ResponsiveContainer width="100%" height={320}>
+              <PieChart>
+                <Pie
+                  data={percentPieData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={70}
+                  outerRadius={120}
+                  paddingAngle={2}
+                  label={({ name, percent }: { name?: string; percent?: number }) => `${name} ${((percent ?? 0) * 100).toFixed(1)}%`}
+                  labelLine
+                >
+                  {percentPieData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value, name, entry) => [`${formatBaht(Number(value))} (${(entry.payload as { pct: number }).pct.toFixed(1)}%)`, name]} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
