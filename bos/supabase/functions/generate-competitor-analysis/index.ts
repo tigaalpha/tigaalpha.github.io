@@ -108,11 +108,17 @@ List concrete named competitors found in both categories with specifics, not gen
       ],
       [RETURN_COMPETITOR_ANALYSIS_TOOL],
       0.5,
-      4096
+      8192
     );
 
     const call = result.message.toolCalls?.find((c) => c.name === "return_competitor_analysis");
     if (!call) {
+      await logSystemEvent(
+        admin,
+        "generate-competitor-analysis",
+        "warning",
+        `No tool call returned (finishReason: ${result.finishReason})`
+      );
       return jsonResponse({ error: "The AI didn't return a structured analysis — try again." }, 502);
     }
     const args = call.arguments as unknown as ReturnCompetitorAnalysisArgs;
