@@ -7,6 +7,7 @@ import { logSystemEvent } from "../_shared/monitor.ts";
 import { PROMPTS } from "../_shared/prompts.ts";
 import { STRATEGY_MODELS, availableStrategyModels, callStrategyModel, type StrategyModelId } from "../_shared/strategy-models.ts";
 import type { SimpleChatMessage } from "../_shared/openai-compatible.ts";
+import { getLatestCompetitorContext } from "../_shared/competitor-context.ts";
 
 interface StrategyMessageRow {
   role: "user" | "ai";
@@ -81,8 +82,11 @@ Deno.serve(async (req: Request) => {
       .insert({ session_id: currentSessionId, role: "user", model: null, content: prompt.trim() });
     if (insertUserError) throw insertUserError;
 
+    const competitorContext = await getLatestCompetitorContext(admin);
+    const systemContent = competitorContext ? `${PROMPTS.strategy_advisor}\n\n${competitorContext}` : PROMPTS.strategy_advisor;
+
     const conversation: SimpleChatMessage[] = [
-      { role: "system", content: PROMPTS.strategy_advisor },
+      { role: "system", content: systemContent },
       ...toConversation((historyRows ?? []) as StrategyMessageRow[]),
       { role: "user", content: prompt.trim() },
     ];

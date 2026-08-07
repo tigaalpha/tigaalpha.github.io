@@ -3,6 +3,7 @@ import { generate } from "./ai-provider.ts";
 import type { ChatMessage } from "./ai-types.ts";
 import { buildSystemPrompt, type PromptName } from "./prompts.ts";
 import { AI_TOOLS, OWNER_TOOLS, executeTool } from "./tools.ts";
+import { getLatestCompetitorContext } from "./competitor-context.ts";
 
 const MAX_TOOL_ITERATIONS = 4;
 const RECENT_MESSAGE_LIMIT = 12;
@@ -108,6 +109,15 @@ export async function respond(
     if (playbookRow?.value) {
       systemParts.push(`## Owner's proven sales playbook (learned from their own real closed-sale chats — follow this closely)\n${playbookRow.value}`);
     }
+  }
+
+  // Only the owner/staff Floating Assistant (internal channel) gets the
+  // competitor analysis context -- same boundCustomerId===null signal that
+  // gates OWNER_TOOLS -- customers on LINE/web must never see the studio's
+  // own competitive strategy data.
+  if (boundCustomerId === null) {
+    const competitorContext = await getLatestCompetitorContext(db);
+    if (competitorContext) systemParts.push(competitorContext);
   }
 
   const messages: ChatMessage[] = [
