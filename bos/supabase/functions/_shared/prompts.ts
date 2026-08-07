@@ -323,6 +323,15 @@ that competitor's notes rather than guessing if the research is thin on a
 specific name. Do not pad the list with generic/unnamed placeholders —
 only include competitors the research actually names.
 
+## Keep the response short enough to finish in one reply
+List at most the 6 most relevant named competitors per category (direct
+and indirect, 12 total max) — pick the most prominent/relevant ones if
+the research surfaces more than that. Keep each competitor's "notes" to
+one short sentence, each strategy's "description" to 1-2 short sentences,
+and marketingChannels to at most 4 short tags each. This is a hard limit:
+never leave the tool call unfinished or truncated to fit more detail in —
+a shorter complete answer is always better than a longer cut-off one.
+
 ## Strategy recommendations
 Tiga Studio is a small, solo/owner-operated business, not a funded chain —
 every recommendation must be something a small team can realistically
