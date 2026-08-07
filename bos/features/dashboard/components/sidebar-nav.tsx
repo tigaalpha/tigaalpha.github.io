@@ -58,7 +58,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     id: "strategy",
     label: "Strategy",
-    items: [{ href: "/strategy", label: "AI Strategy Room", icon: Brain }],
+    items: [
+      { href: "/strategy", label: "AI Strategy Room", icon: Brain },
+      { href: "/competitors", label: "วิเคราะห์คู่แข่ง", icon: Swords },
+    ],
   },
   {
     id: "sales-crm",
@@ -85,7 +88,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/ads", label: "แคมเปญโฆษณา", icon: Megaphone },
       { href: "/marketing-channels", label: "Marketing Channels", icon: Radar },
       { href: "/social-trends", label: "Social Trends", icon: TrendingUp },
-      { href: "/competitors", label: "วิเคราะห์คู่แข่ง", icon: Swords },
     ],
   },
   {
