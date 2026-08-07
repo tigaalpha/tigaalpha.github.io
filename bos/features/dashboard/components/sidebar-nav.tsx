@@ -35,11 +35,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@/types/database";
 
 interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** Hidden from anyone but owner/admin — mirrors is_owner_or_admin()-gated tables (transactions, integration_settings, business_snapshot, agent_schedules). RLS is still the real security boundary; this only keeps staff/teacher accounts from seeing pages they can't use. */
+  ownerOnly?: boolean;
 }
 
 interface NavGroup {
@@ -94,19 +97,19 @@ const NAV_GROUPS: NavGroup[] = [
     id: "finance-legal",
     label: "Finance & Legal",
     items: [
-      { href: "/accounting", label: "Accounting", icon: Wallet },
+      { href: "/accounting", label: "Accounting", icon: Wallet, ownerOnly: true },
       { href: "/legal", label: "เอกสาร/สัญญา", icon: Scale },
-      { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
     ],
   },
   {
     id: "system",
     label: "System",
     items: [
-      { href: "/tiga-agent", label: "TIGA AI Agent", icon: Bot },
+      { href: "/tiga-agent", label: "TIGA AI Agent", icon: Bot, ownerOnly: true },
       { href: "/approvals", label: "การอนุมัติ", icon: ShieldCheck },
       { href: "/system-health", label: "System Health", icon: Activity },
-      { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/settings", label: "Settings", icon: Settings, ownerOnly: true },
     ],
   },
 ];
@@ -132,11 +135,17 @@ function NavLink({ href, label, icon: Icon, active, onNavigate }: NavItem & { ac
 }
 
 interface SidebarNavProps {
+  role?: UserRole | null;
   onNavigate?: () => void;
 }
 
-export function SidebarNav({ onNavigate }: SidebarNavProps = {}) {
+export function SidebarNav({ role = null, onNavigate }: SidebarNavProps = {}) {
   const pathname = usePathname();
+  const canSeeOwnerOnly = role === "owner" || role === "admin";
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.ownerOnly || canSeeOwnerOnly),
+  })).filter((group) => group.items.length > 0);
   const [openGroups, setOpenGroups] = useState<Set<string>>(
     () => new Set(NAV_GROUPS.filter((g) => g.items.some((item) => isActive(pathname, item.href))).map((g) => g.id))
   );
@@ -157,7 +166,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps = {}) {
       ))}
 
       <div className="mt-2 flex flex-col gap-1">
-        {NAV_GROUPS.map((group) => {
+        {visibleGroups.map((group) => {
           const open = openGroups.has(group.id);
           return (
             <div key={group.id}>

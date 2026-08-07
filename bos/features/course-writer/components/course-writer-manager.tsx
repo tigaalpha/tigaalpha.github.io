@@ -68,7 +68,7 @@ export function CourseWriterManager({ courseArticles, onChanged }: CourseWriterM
     }
   }
 
-  function useSuggestion(s: TopicSuggestion) {
+  function applySuggestion(s: TopicSuggestion) {
     setModuleTitle(s.moduleTitle);
     setTopic(s.topic);
   }
@@ -136,7 +136,7 @@ export function CourseWriterManager({ courseArticles, onChanged }: CourseWriterM
                 <button
                   key={i}
                   type="button"
-                  onClick={() => useSuggestion(s)}
+                  onClick={() => applySuggestion(s)}
                   className="rounded-xl border border-line/10 p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                 >
                   <p className="text-xs text-secondary/40">{s.moduleTitle}</p>
