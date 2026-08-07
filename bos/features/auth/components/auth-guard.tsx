@@ -6,6 +6,7 @@ import { AppShell } from "@/features/dashboard/components/app-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BASE_PATH } from "@/lib/constants";
 import { isAuthRetryableFetchError, type User } from "@supabase/supabase-js";
+import type { UserRole } from "@/types/database";
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -22,6 +23,7 @@ function delay(ms: number) {
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null | "loading">("loading");
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,8 +64,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        const { data } = await supabase.from("profiles").select("full_name").eq("id", session.user.id).single();
-        if (!cancelled) setProfileName(data?.full_name ?? null);
+        const { data } = await supabase.from("profiles").select("full_name, role").eq("id", session.user.id).single();
+        if (!cancelled) {
+          setProfileName(data?.full_name ?? null);
+          setRole(data?.role ?? null);
+        }
       }
     }
 
@@ -102,7 +107,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppShell userName={profileName ?? user.email ?? "User"} userEmail={user.email ?? ""}>
+    <AppShell userName={profileName ?? user.email ?? "User"} userEmail={user.email ?? ""} role={role}>
       {children}
     </AppShell>
   );

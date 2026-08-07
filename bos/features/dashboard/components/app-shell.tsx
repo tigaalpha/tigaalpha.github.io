@@ -7,14 +7,16 @@ import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { FloatingAssistant } from "@/features/assistant/components/floating-assistant";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@/types/database";
 
 interface AppShellProps {
   userName: string;
   userEmail: string;
+  role: UserRole | null;
   children: React.ReactNode;
 }
 
-export function AppShell({ userName, userEmail, children }: AppShellProps) {
+export function AppShell({ userName, userEmail, role, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -25,7 +27,7 @@ export function AppShell({ userName, userEmail, children }: AppShellProps) {
           <span className="text-sm font-semibold text-secondary">Tiga AI BOS</span>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <SidebarNav />
+          <SidebarNav role={role} />
         </div>
       </aside>
 
@@ -40,7 +42,7 @@ export function AppShell({ userName, userEmail, children }: AppShellProps) {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <SidebarNav onNavigate={() => setMobileOpen(false)} />
+              <SidebarNav role={role} onNavigate={() => setMobileOpen(false)} />
             </div>
           </aside>
         </div>
