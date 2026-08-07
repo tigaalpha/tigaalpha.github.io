@@ -2369,7 +2369,7 @@ const L = {
     helpTitle: "วิธีใช้งาน", help1: "แตะ ☰ มุมซ้ายบน = เปิดเมนู ไปหน้าต่างๆ", help2: "แตะคีย์เปียโน = เล่นเสียงโน้ต", help3: "ปุ่มไมค์ 🎙️ = คุยกับครู AI สอนสด", help4: "ไปที่ 'ฝึกซ้อม' = เล่นเกมเก็บดาว", help5: "ปุ่ม 🔁 = ฟังครูเล่นซ้ำ", helpOk: "เข้าใจแล้ว!", signOut: "ออกจากระบบ",
     shopTitle: "ร้านค้า", shopSkins: "สกินคีย์", shopThemes: "ธีมพื้นหลัง", shopFrames: "กรอบรูปโปรไฟล์", shopEquip: "ใช้", shopEquipped: "กำลังใช้", shopNew: "ใหม่", shopRareC: "ทั่วไป", shopRareR: "หายาก", shopRareE: "พิเศษ", shopRareL: "ตำนาน",
     chestTitle: "ของขวัญรายวัน", chestOpening: "กำลังเปิด…", chestGot: "ได้รับรางวัล!", chestDay: "วันต่อเนื่อง", chestClaim: "รับเลย!", chestBig: "รางวัลใหญ่",
-    dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
+    dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recWeakSkill: "จุดอ่อนตอนนี้: {x}", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
     setAmbient: "ดนตรีบรรยากาศ", setInstall: "ติดตั้งเป็นแอป", setBpm: "จังหวะ (BPM)", setTap: "แตะตามจังหวะ", setLang: "ภาษา", setOn: "เปิด", setOff: "ปิด",
     installBannerTitle: "ติดตั้ง TiGA AI ไว้ที่หน้าจอโฮม", installBannerSub: "เปิดได้ไวขึ้น ไม่ต้องหา URL ทุกครั้ง",
@@ -2510,7 +2510,7 @@ const L = {
     helpTitle: "How to use", help1: "Tap ☰ top-left = open menu & pages", help2: "Tap the piano keys = play notes", help3: "Mic button 🎙️ = talk to your AI teacher", help4: "Go to 'Studio' = play games & earn stars", help5: "🔁 button = hear the teacher play again", helpOk: "Got it!", signOut: "Sign out",
     shopTitle: "Shop", shopSkins: "Key skins", shopThemes: "Themes", shopFrames: "Avatar frames", shopEquip: "Equip", shopEquipped: "Equipped", shopNew: "NEW", shopRareC: "Common", shopRareR: "Rare", shopRareE: "Epic", shopRareL: "Legendary",
     chestTitle: "Daily reward", chestOpening: "Opening…", chestGot: "You got!", chestDay: "day streak", chestClaim: "Claim!", chestBig: "BIG WIN",
-    dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
+    dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recWeakSkill: "Your weakest skill: {x}", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
     setAmbient: "Ambient music", setInstall: "Install app", setBpm: "Tempo (BPM)", setTap: "Tap tempo", setLang: "Language", setOn: "On", setOff: "Off",
     installBannerTitle: "Add TiGA AI to your home screen", installBannerSub: "Open it faster — no more hunting for the URL",
@@ -2651,7 +2651,7 @@ const L = {
     helpTitle: "使用方法", help1: "点左上角 ☰ = 打开菜单和页面", help2: "点钢琴键 = 弹出音符", help3: "麦克风 🎙️ = 和 AI 老师对话", help4: "进入'练习' = 玩游戏赚星星", help5: "🔁 按钮 = 再听一次老师弹", helpOk: "明白了！", signOut: "退出登录",
     shopTitle: "商店", shopSkins: "琴键皮肤", shopThemes: "主题", shopFrames: "头像框", shopEquip: "装备", shopEquipped: "已装备", shopNew: "新品", shopRareC: "普通", shopRareR: "稀有", shopRareE: "史诗", shopRareL: "传说",
     chestTitle: "每日奖励", chestOpening: "开启中…", chestGot: "获得奖励！", chestDay: "连续天数", chestClaim: "领取！", chestBig: "大奖",
-    dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
+    dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recWeakSkill: "当前弱项：{x}", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
     setAmbient: "环境音乐", setInstall: "安装应用", setBpm: "速度 (BPM)", setTap: "点击打拍", setLang: "语言", setOn: "开", setOff: "关",
     installBannerTitle: "把 TiGA AI 添加到主屏幕", installBannerSub: "打开更快 — 不用每次找网址",
@@ -3158,7 +3158,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
 const _v12wait = (ms) => new Promise(r => setTimeout(r, ms));
 const PC_SOLFA = { C: "do", D: "re", E: "mi", F: "fa", G: "sol", A: "la", B: "ti" };
 const PC_SOLFA_TH = { C: "โด", D: "เร", E: "มี", F: "ฟา", G: "ซอล", A: "ลา", B: "ที" };
-const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack }) {
+const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate }) {
   const T = {
     th: { title: "ซ้อมวันนี้", sub: "แผนซ้อมส่วนตัวของคุณ — สร้างใหม่ให้ทุกวันจากความคืบหน้าจริง ไล่ทำทีละข้อได้เลย", warm: "วอร์มอัพนิ้ว", hw: "การบ้านจากครู", review: "ทบทวนของเดิม", learn: "เรียนเรื่องใหม่", song: "เพลงปิดท้าย", start: "เริ่ม ▶", done: "เสร็จแล้ว ✓", hwBtn: "ทำแล้ว ✓", progress: "ความคืบหน้าวันนี้", allDone: "ครบทุกข้อแล้ว! สุดยอดไปเลยครับ 🎉", bonus: "รับโบนัสประจำวัน +40 EXP · +20 🪙", claimed: "รับโบนัสของวันนี้แล้ว ✓" },
     en: { title: "Practice Today", sub: "Your personal plan — rebuilt every day from your real progress. Just work down the list.", warm: "Finger warm-up", hw: "Teacher's homework", review: "Review", learn: "Something new", song: "Closing song", start: "Start ▶", done: "Done ✓", hwBtn: "Done ✓", progress: "Today's progress", allDone: "All done — amazing work! 🎉", bonus: "Claim daily bonus +40 EXP · +20 🪙", claimed: "Today's bonus claimed ✓" },
@@ -3184,8 +3184,11 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
     ? (KEYS_12.find(k => (keyMap[review.id] || []).includes(k.id.toLowerCase())) || KEYS_12[seed % KEYS_12.length])
     : null;
 
-  // new = the next Pathway stage not finished yet (chapters open as a read)
-  const nextStage = PATHWAY.find(s => !doneP.has(s.id)) || null;
+  // new = adaptive: a critically weak skill takes priority over the next Pathway
+  // stage as a soft nudge, never a hard block — "next_stage"/"warmup" fall back
+  // to the exact previous behavior (see nextRecommendedAction).
+  const nextAction = nextRecommendedAction();
+  const nextStage = nextAction.type === "next_stage" ? nextAction.stage : null;
   const nextKey = nextStage && !nextStage.content
     ? (KEYS_12.find(k => !(keyMap[nextStage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0])
     : null;
@@ -3200,7 +3203,11 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
     { id: "warm", icon: "🎹", tag: T.warm, label: tr(warm, lang), isDone: doneLog.some(e => e.k === "game" && e.id === warm.id), go: () => onSong(warm) },
     ...(hw ? [{ id: "hw", icon: "📘", tag: T.hw, label: hw.text, isDone: hwDoneToday(), hwStep: true }] : []),
     ...(review ? [{ id: "review", icon: "🔁", tag: T.review, label: tr(review.title, lang) + (reviewKey ? " · " + reviewKey.name : ""), isDone: doneLog.some(e => e.k === "lesson" && e.id.split("/")[0] === review.id), go: () => onLearn(review, reviewKey, review.types ? review.types[0] : null) }] : []),
-    ...(nextStage ? [{ id: "new", icon: "✨", tag: T.learn, label: tr(nextStage.title, lang) + (nextKey ? " · " + nextKey.name : ""), isDone: doneLog.some(e => (e.k === "lesson" || e.k === "read-chapter") && e.id.split("/")[0] === nextStage.id), go: () => nextStage.content ? onRead(nextStage) : onLearn(nextStage, nextKey, nextStage.types ? nextStage.types[0] : null) }] : []),
+    ...(nextAction.type === "remediate" ? [{
+      id: "new", icon: "🎯", tag: T.learn, label: tr(SKILL_LABELS[nextAction.skill], lang),
+      isDone: doneLog.some(e => skillsOfActivity(e).includes(nextAction.skill)),
+      go: () => onNavigate(nextAction.feature, nextAction.skill === "chord_knowledge" ? "chord" : undefined),
+    }] : nextStage ? [{ id: "new", icon: "✨", tag: T.learn, label: tr(nextStage.title, lang) + (nextKey ? " · " + nextKey.name : ""), isDone: doneLog.some(e => (e.k === "lesson" || e.k === "read-chapter") && e.id.split("/")[0] === nextStage.id), go: () => nextStage.content ? onRead(nextStage) : onLearn(nextStage, nextKey, nextStage.types ? nextStage.types[0] : null) }] : []),
     { id: "song", icon: "🚀", tag: T.song, label: tr(song, lang), isDone: doneLog.some(e => e.k === "game" && e.id === song.id), go: () => onSong(song) },
   ];
   const nDone = steps.filter(s => s.isDone).length;
@@ -3262,13 +3269,13 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
 const EG_ROUND = 8;
 const EG_INT_BASE = [2, 4, 5, 7, 12];
 const EG_INT_FULL = [2, 3, 4, 5, 7, 8, 9, 12];
-const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack }) {
+const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab }) {
   const T = {
     th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶" },
     en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶" },
     zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶" },
   }[lang];
-  const [tab, setTab] = useState("int");
+  const [tab, setTab] = useState(initialTab || "int");
   const [phase, setPhase] = useState("idle");   // idle | play | done
   const [idx, setIdx] = useState(0);
   const [score, setScore] = useState(0);
@@ -6233,6 +6240,11 @@ function curriculumContext(lang) {
       parts.push((lang === "th" ? "ขั้นปัจจุบัน: " : lang === "zh" ? "当前阶段: " : "Current stage: ") + tr(cur.title, lang) + (kd.length ? ` (${lang === "th" ? "คีย์ที่เรียนแล้ว" : lang === "zh" ? "已学调" : "keys learned"}: ${kd.join(", ")})` : ""));
     }
     if (nxt) parts.push((lang === "th" ? "ขั้นถัดไป: " : lang === "zh" ? "下一阶段: " : "Next stage: ") + tr(nxt.title, lang));
+    const action = nextRecommendedAction();
+    if (action.type === "remediate") {
+      parts.push((lang === "th" ? "จุดที่ควรเน้นตอนนี้: " : lang === "zh" ? "当前应重点加强: " : "Priority right now: ") + tr(SKILL_LABELS[action.skill], lang)
+        + (lang === "th" ? " (คะแนนยังอ่อน — แนะนำให้ฝึกจุดนี้ก่อนเรื่องใหม่ แต่ไม่บังคับ)" : lang === "zh" ? "（得分偏弱 — 建议先练这里，但不强制）" : " (a weak score — recommend practicing this before new content, but don't force it)"));
+    }
     const plan = readLessonPlan();
     if (plan && plan.text) parts.push((lang === "th" ? "แผนคาบนี้ที่คุณตั้งไว้: " : lang === "zh" ? "你为本课定的计划: " : "Your saved plan for this lesson: ") + plan.text);
     const guide = lang === "th"
@@ -6334,6 +6346,52 @@ const COACH_FEATURE_LABELS = {
 // both the AI prompt text (coachStatsToText below) and Daily Mentor's on-screen chart
 // render from, so what the learner reads and what the AI reasons over never disagree.
 // Reuses the exact aggregation InsightsPage already uses for "My Stats".
+// Learning Intelligence: per-skill scoring, derived entirely from tg_act_log
+// entries the app already writes (kind+id+ok+miss) — no new logging call sites
+// needed. Only skills with a real, persisted correctness signal are scored;
+// Technique/Dynamics/Improvisation have no such signal today (see App.tsx's
+// git history / project plan notes) and are deliberately absent from SKILLS
+// rather than faked from zero data.
+const SKILLS = ["note_accuracy", "sight_reading", "ear_training", "chord_knowledge"];
+const SKILL_LABELS = {
+  note_accuracy: { th: "ความแม่นยำโน้ต", en: "Note Accuracy", zh: "音符准确度" },
+  sight_reading: { th: "การอ่านโน้ต (Sight Reading)", en: "Sight Reading", zh: "视奏（Sight Reading）" },
+  ear_training: { th: "โสตประสาท (Ear Training)", en: "Ear Training", zh: "听力训练（Ear Training）" },
+  // framed honestly — this measures identifying a chord's quality by ear, not chord theory recall
+  chord_knowledge: { th: "การฟังแยกคอร์ด", en: "Chord Recognition (by ear)", zh: "和弦听辨" },
+};
+function skillsOfActivity(e) {
+  switch (e.k) {
+    case "drill": case "game": return ["note_accuracy"];
+    case "read": return ["sight_reading"];
+    // Ear Gym's "chord" tab is the only place chord *correctness* (not just
+    // viewing a lesson) is ever measured — it doubles as the sole Chord
+    // Knowledge signal, framed to the learner as "chord recognition by ear".
+    case "ear": return e.id === "chord" ? ["ear_training", "chord_knowledge"] : ["ear_training"];
+    default: return []; // "voice"/"lesson"/"read-chapter" carry no correctness signal
+  }
+}
+const SKILL_MIN_N = 8;            // fewer attempts than this -> null ("not enough data"), never a guessed number
+const SKILL_HALFLIFE_DAYS = 14;   // recent practice counts more; mirrors computeCoachStats' own 7-day/prev-7-day cadence
+function computeSkillScores() {
+  const log = readActLog(), now = Date.now();
+  const buckets = {};
+  for (const e of log) {
+    if (e.ok + e.miss < 1) continue;
+    const w = Math.pow(0.5, (now - e.t) / 86400000 / SKILL_HALFLIFE_DAYS);
+    for (const sk of skillsOfActivity(e)) {
+      const b = buckets[sk] || (buckets[sk] = { wOk: 0, wTot: 0, n: 0 });
+      b.wOk += e.ok * w; b.wTot += (e.ok + e.miss) * w; b.n += e.ok + e.miss;
+    }
+  }
+  return SKILLS.map(sk => {
+    const b = buckets[sk];
+    return { skill: sk, score: b && b.n >= SKILL_MIN_N ? Math.round(b.wOk / b.wTot * 100) : null, n: b ? b.n : 0 };
+  });
+}
+function weakestSkills(scores, n = 2) {
+  return scores.filter(s => s.score != null).sort((a, b) => a.score - b.score).slice(0, n);
+}
 function computeCoachStats(profile, lang) {
   const log = readActLog();
   const now = Date.now(), dayMs = 86400000;
@@ -6373,12 +6431,13 @@ function computeCoachStats(profile, lang) {
   return {
     level: info.level, streak: (profile && profile.streak) || 0, lessonsDone: (profile && profile.lessons_done) || 0,
     badgeCount: unlockedBadgeIds(profile).length, badgeTotal: BADGES.length, questOk: questToday(profile) >= QUEST_GOAL,
-    days7: days7.size, min7: Math.round(sec7 / 60), acc7, accPrev, weakest, daily,
+    days7: days7.size, min7: Math.round(sec7 / 60), acc7, accPrev, weakest, daily, skills: computeSkillScores(),
   };
 }
 function coachStatsToText(s) {
   const weakestTxt = s.weakest.length ? s.weakest.map(w => `${w.label} (${w.rate}% miss over ${w.n} tries)`).join("; ") : "none with enough attempts yet";
-  return `Level ${s.level}, ${s.streak}-day streak, ${s.lessonsDone} lessons completed, ${s.badgeCount}/${s.badgeTotal} badges earned, today's quest ${s.questOk ? "done" : "not done yet"}. Last 7 days: practiced ${s.days7}/7 days (${s.min7} min total), accuracy ${s.acc7 == null ? "no data" : s.acc7 + "%"}${s.accPrev != null ? ` (previous week was ${s.accPrev}%)` : ""}. Weakest topics by miss rate across all history: ${weakestTxt}.`;
+  const skillsTxt = s.skills.filter(sk => sk.score != null).map(sk => `${sk.skill}: ${sk.score}/100`).join(", ") || "not enough data yet for any skill";
+  return `Level ${s.level}, ${s.streak}-day streak, ${s.lessonsDone} lessons completed, ${s.badgeCount}/${s.badgeTotal} badges earned, today's quest ${s.questOk ? "done" : "not done yet"}. Last 7 days: practiced ${s.days7}/7 days (${s.min7} min total), accuracy ${s.acc7 == null ? "no data" : s.acc7 + "%"}${s.accPrev != null ? ` (previous week was ${s.accPrev}%)` : ""}. Weakest topics by miss rate across all history: ${weakestTxt}. Skill scores (0-100, higher is better): ${skillsTxt}.`;
 }
 // Shared core of the AI coaching analysis — used by both the Auto Teaching popup (timer-driven,
 // PianoApp) and the dedicated Coach nav page (on-demand, CoachPage). Module-level (not inside
@@ -6428,6 +6487,24 @@ async function generateCoachTip(lang, profile) {
   if (!COACH_FEATURE_LABELS[obj.feature]) obj.feature = "pathway"; // guard against a hallucinated key
   obj.steps = obj.steps.slice(0, 3); // enforce the "at most 3" cap even if the model overshoots
   return obj;
+}
+// Adaptive routing: a soft nudge toward fixing a critically weak skill instead
+// of always pushing new Pathway content — never a hard block, "something new"
+// stays one tap away regardless (see recommendNext/TodayPage call sites).
+// Note Accuracy has no single dedicated remediation destination (it's
+// practiced everywhere already), so it's surfaced via the skill callouts/AI
+// narrative but deliberately can't redirect navigation on its own.
+const CRITICAL_SKILL_SCORE = 55; // starting guess — tune once there's real usage data
+const SKILL_REMEDIATION = {
+  sight_reading: "reading_course", ear_training: "ear_training", chord_knowledge: "ear_training",
+};
+function nextRecommendedAction() {
+  const critical = computeSkillScores()
+    .filter(s => s.score != null && s.score < CRITICAL_SKILL_SCORE && SKILL_REMEDIATION[s.skill])
+    .sort((a, b) => a.score - b.score)[0];
+  if (critical) return { type: "remediate", skill: critical.skill, feature: SKILL_REMEDIATION[critical.skill], score: critical.score };
+  const stage = PATHWAY.find(s => !pathDoneSet().has(s.id));
+  return stage ? { type: "next_stage", stage } : { type: "warmup" };
 }
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
 function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
@@ -7012,6 +7089,21 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         </div>
       </div>
 
+      {/* Weakest-skill callout — free for everyone (incl. guests); the full per-skill
+          breakdown lives behind the Max gate on Daily Mentor (CoachPage). */}
+      {(() => {
+        const weak = weakestSkills(computeSkillScores(), 2);
+        if (!weak.length) return null;
+        return (
+          <div className="profsec">
+            <div className="profsec-h">🎯 {lang === "th" ? "จุดที่ควรฝึกเพิ่ม" : lang === "zh" ? "待加强项目" : "Where to focus next"}</div>
+            <div className="pd-tags">
+              {weak.map(w => <span key={w.skill} className="pd-tag focus">{tr(SKILL_LABELS[w.skill], lang)} · {w.score}</span>)}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* interactive progress dashboard — range selector + period comparison + charts + game stats */}
       <ProgressDashboard lang={lang} />
 
@@ -7327,6 +7419,38 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
             </div>
           );
         })()}
+
+        {/* Skill Score breakdown — this page is already Max/Max Family-only via the nav
+            lock, so no extra plan check is needed here. */}
+        {stats.skills.some(s => s.score != null) && (
+          <div style={{ marginBottom: 16 }}>
+            <div className="admstu-sec" style={{ marginBottom: 6 }}>🧭 {T("คะแนนทักษะ", "Skill Scores", "技能评分")}</div>
+            {stats.skills.map(s => (
+              <div key={s.skill} className="wkrow">
+                <div className="wkbody">
+                  <div className="wktop">
+                    <span>{tr(SKILL_LABELS[s.skill], lang)}</span>
+                    <b style={{ color: s.score == null ? "var(--muted)" : "#d97757" }}>
+                      {s.score == null ? T("ข้อมูลยังไม่พอ", "not enough data", "数据不足") : s.score + "/100"}
+                    </b>
+                  </div>
+                  <div className="wkbar"><div style={{ width: (s.score || 0) + "%", background: "#d97757" }} /></div>
+                </div>
+              </div>
+            ))}
+            {(() => {
+              const weakest = weakestSkills(stats.skills, 1)[0];
+              const feature = weakest && SKILL_REMEDIATION[weakest.skill];
+              if (!feature) return null;
+              return (
+                <button className="songbtn go" style={{ width: "100%", marginTop: 10 }}
+                  onClick={() => onNavigate(feature, weakest.skill === "chord_knowledge" ? "chord" : undefined)}>
+                  🎯 {T("ฝึกตอนนี้เลย", "Practice this now", "现在就练")}
+                </button>
+              );
+            })()}
+          </div>
+        )}
 
         {stats.weakest.length > 0 ? (
           <div style={{ marginBottom: 8 }}>
@@ -10076,6 +10200,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // ── studio sub-nav + sight-reading + hand coach ──
   const [studioView, setStudioView] = useState("menu");    // menu | songs
+  const [earGymInitialTab, setEarGymInitialTab] = useState("int"); // which Ear Gym tab to land on — set before navigating there for skill remediation
   const [sightOpen, setSightOpen] = useState(false);
   const [sightTarget, setSightTarget] = useState(null);
   const [sightClef, setSightClef] = useState("treble");      // treble | bass | both — which clef(s) to drill
@@ -11584,12 +11709,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function exitCamera() { setCamOpen(false); setCamCoach(null); }
   // Where the Coach page's "▶ Practice: …" button sends the learner — maps a fixed,
   // known-safe COACH_FEATURE_LABELS key to a real navigation action.
-  function handleCoachNavigate(key) {
+  function handleCoachNavigate(key, tab) {
     playUi("click"); haptic(6); stopPracticeListeners();
     if (key === "sight_reading") { setPage("studio"); setStudioView("menu"); openSight(); }
     else if (key === "hand_coach") { setPage("studio"); setStudioView("menu"); openCamera(); }
     else if (key === "play_along") { setPage("studio"); setStudioView("songs"); }
-    else if (key === "ear_training") { logUsage("nav", "studio-eargym"); setPage("eargym"); }
+    else if (key === "ear_training") { logUsage("nav", "studio-eargym"); setEarGymInitialTab(tab || "int"); setPage("eargym"); }
     else if (key === "reading_course") { logUsage("nav", "studio-reading"); setPage("reading"); }
     else { setPage("pathway"); }
   }
@@ -12713,13 +12838,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setMsgs(prev => [...prev, { role: "ai", text: lc.schoolInfo }]);
   }
   function recommendNext() {
-    const m = readMemory();
-    if (m.struggles && m.struggles.length) {
-      const t = m.struggles[0].label;
-      return { icon: "🎯", label: lc.recReview.replace("{x}", t), fn: () => reviewTopic(t) };
+    const action = nextRecommendedAction();
+    if (action.type === "remediate") {
+      return {
+        icon: "🎯", label: lc.recWeakSkill.replace("{x}", tr(SKILL_LABELS[action.skill], lang)),
+        fn: () => handleCoachNavigate(action.feature, action.skill === "chord_knowledge" ? "chord" : undefined),
+      };
     }
-    const cur = PATHWAY.find(s => !pathDoneSet().has(s.id));
-    if (cur) return { icon: "📘", label: lc.recNext + " " + tr(cur.title, lang), fn: () => { playUi("click"); setPage("pathway"); } };
+    if (action.type === "next_stage") {
+      return { icon: "📘", label: lc.recNext + " " + tr(action.stage.title, lang), fn: () => { playUi("click"); setPage("pathway"); } };
+    }
     return { icon: "🎮", label: lc.recWarm, fn: () => { playUi("click"); setPage("studio"); setStudioView("songs"); } };
   }
   function toggleExamTask(gid, i) {
@@ -13172,12 +13300,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
       {page === "today" && (
         <TodayPage lang={lang} exp={(profile && profile.exp) || 0} homework={homework}
-          onLearn={learnTopic} onRead={readChapter} onSong={chooseSong}
+          onLearn={learnTopic} onRead={readChapter} onSong={chooseSong} onNavigate={handleCoachNavigate}
           onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }}
           onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "eargym" && (
-        <EarGymPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
+        <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "reading" && (
         <ReadingPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
@@ -14659,7 +14787,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { setAutoTeachTip(null); setPage("coach"); }}>
                 {lang === "th" ? "ดูรายละเอียด" : lang === "zh" ? "查看详情" : "Details"}
               </button>
-              <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => setAutoTeachTip(null)}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
+              <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { setAutoTeachTip(null); handleCoachNavigate(autoTeachTip.feature); }}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
             </div>
           </div>
         </div>
