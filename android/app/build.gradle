@@ -16,7 +16,27 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        debug {
+            // Committed on purpose: this is a debug-only key (default Android
+            // debug alias/passwords, never accepted by Play Store), pinned so
+            // every CI run signs with the SAME key. Without this, Gradle's
+            // implicit default auto-generates a fresh random debug keystore
+            // per machine, and CI runners are ephemeral (a new one every run)
+            // -> every rebuilt APK had a different signature -> installing a
+            // newer debug build over an older one failed with a signature
+            // mismatch (Android/OEM installers surface this as a generic
+            // "App not installed").
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

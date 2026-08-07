@@ -65,5 +65,5 @@ jobs:
           gh release create android-debug-latest tiga-ai-debug.apk \
             --repo "${{ github.repository }}" \
             --title "TiGA AI — Android debug build (auto)" \
-            --notes "Automatically rebuilt from commit ${{ github.sha }} on every push. **Debug/unsigned build for testing only** — not the production release described in MOBILE_BUILD.md. Android will warn about an unknown source; that's expected for a debug build." \
+            --notes "Automatically rebuilt from commit ${{ github.sha }} on every push. **Debug build for testing only** — not the production release described in MOBILE_BUILD.md. Signed with a fixed shared debug key, so installing this over a previous debug build should update cleanly (no need to uninstall first). Android will still warn about an unknown source; that's expected for a debug build." \
             --prerelease

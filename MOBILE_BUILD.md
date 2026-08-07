@@ -25,6 +25,29 @@ revenue to justify them:
   can provide). The full iOS build steps are still below, for whenever
   that's worth $99/year.
 
+## Testing the Android app right now (debug build via CI)
+
+The production APK flow below (`app/tiga-ai.apk`) hasn't been built yet — it
+needs a real machine. Until then, `.github/workflows/android-debug-build.yml`
+rebuilds an unsigned-for-Play-but-still-signed debug APK on every push to
+the dev branch that touches app code, and publishes it to the same GitHub
+Release every time: **Releases → `android-debug-latest`** (always the
+newest build, prerelease-flagged). Download `tiga-ai-debug.apk` from there,
+allow "install from this source" when Android prompts, and install.
+
+That debug APK is signed with a fixed key committed at
+`android/app/debug.keystore` (default Android debug alias/passwords — not a
+secret, debug-signed builds are never accepted by the Play Store anyway).
+Pinning it was a deliberate fix: before it existed, Gradle auto-generated a
+*new random* debug key on every CI run (each run is a fresh machine), so
+every rebuilt APK had a different signature and installing a newer one over
+an older one failed with a plain "App not installed" — no useful error
+shown, just a silent signature mismatch. From this fix onward, newer debug
+builds should install cleanly right on top of older ones. The one exception:
+if a device already has a build installed from *before* this fix, that one
+install still needs an uninstall-then-reinstall once — every build after
+that stays consistent.
+
 ## Already done
 
 - `capacitor.config.ts` — appId `com.tigaalpha.tigaai`, bundled `webDir`
