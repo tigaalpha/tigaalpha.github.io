@@ -3,17 +3,25 @@ import { startVeoClip, type SourceImage } from "./veo.ts";
 import { startSeedanceClip, type SeedanceVariant } from "./seedance.ts";
 import { startLumaClip } from "./luma.ts";
 import { startRunwayClip } from "./runway.ts";
+import { startHailuoClip } from "./hailuo.ts";
 
-export type VideoProvider = "veo" | SeedanceVariant | "luma-ray-2" | "runway-gen4-turbo";
+export type VideoProvider = "veo" | SeedanceVariant | "luma-ray-2" | "runway-gen4-turbo" | "hailuo-2.3-fast";
 
-export const VIDEO_PROVIDERS: VideoProvider[] = ["veo", "seedance-2", "seedance-2-fast", "luma-ray-2", "runway-gen4-turbo"];
+export const VIDEO_PROVIDERS: VideoProvider[] = [
+  "veo",
+  "seedance-2",
+  "seedance-2-fast",
+  "luma-ray-2",
+  "runway-gen4-turbo",
+  "hailuo-2.3-fast",
+];
 
 export function isVideoProvider(value: unknown): value is VideoProvider {
   return typeof value === "string" && (VIDEO_PROVIDERS as string[]).includes(value);
 }
 
-// fal.ai hosts both Seedance and Luma, so both reuse FAL_API_KEY — only
-// Runway needs a separate key since it isn't on fal.ai.
+// fal.ai hosts Seedance, Luma, and Hailuo, so all three reuse FAL_API_KEY —
+// only Runway needs a separate key since it isn't on fal.ai.
 function providerKeyEnvVar(provider: VideoProvider): { envVar: string; missingMessage: string } {
   if (provider === "veo") return { envVar: "GEMINI_API_KEY", missingMessage: "GEMINI_API_KEY not configured" };
   if (provider === "runway-gen4-turbo") {
@@ -24,7 +32,7 @@ function providerKeyEnvVar(provider: VideoProvider): { envVar: string; missingMe
   }
   return {
     envVar: "FAL_API_KEY",
-    missingMessage: "ยังไม่ได้ตั้งค่า FAL_API_KEY — ไปที่ Supabase Dashboard > Edge Functions > Secrets เพื่อเพิ่มก่อนใช้ Seedance/Luma",
+    missingMessage: "ยังไม่ได้ตั้งค่า FAL_API_KEY — ไปที่ Supabase Dashboard > Edge Functions > Secrets เพื่อเพิ่มก่อนใช้ Seedance/Luma/Hailuo",
   };
 }
 
@@ -40,5 +48,6 @@ export async function startClip(admin: SupabaseClient, provider: VideoProvider, 
   if (provider === "veo") return startVeoClip(admin, apiKey, userId, image);
   if (provider === "luma-ray-2") return startLumaClip(admin, apiKey, userId, image);
   if (provider === "runway-gen4-turbo") return startRunwayClip(admin, apiKey, userId, image);
+  if (provider === "hailuo-2.3-fast") return startHailuoClip(admin, apiKey, userId, image);
   return startSeedanceClip(admin, apiKey, userId, image, provider);
 }

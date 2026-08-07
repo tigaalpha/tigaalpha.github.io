@@ -33,6 +33,7 @@ import {
   Swords,
   ChevronDown,
   HeartPulse,
+  Smartphone,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -84,6 +85,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
       { href: "/content", label: "SEO/AEO Content", icon: FileText },
       { href: "/course-writer", label: "Online Course Writer", icon: GraduationCap },
+      { href: "/app-ad-kit", label: "App Ad Kit", icon: Smartphone },
       { href: "/images", label: "Image Studio", icon: ImageIcon },
       { href: "/vertical-video", label: "Vertical Video", icon: Clapperboard },
       { href: "/video-articles", label: "Video Articles", icon: Captions },
