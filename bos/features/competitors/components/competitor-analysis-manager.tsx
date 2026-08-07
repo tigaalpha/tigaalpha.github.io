@@ -1,15 +1,49 @@
 "use client";
 
-import { useState } from "react";
-import { Swords, Sparkles, Trash2, ExternalLink, ShieldCheck, ShieldAlert, Radar } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+import { Swords, Sparkles, Trash2, ExternalLink, ShieldCheck, ShieldAlert, Radar, Globe } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StatCard } from "@/features/dashboard/components/stat-card";
 import { cn, describeFunctionError } from "@/lib/utils";
 import type { Tables } from "@/types/database";
+
+// Same categorical slot order as the dataviz skill / finance-charts.tsx:
+// slot 1 (blue) / slot 2 (orange) / slot 3 (aqua) — kept fixed so colors
+// don't shuffle between renders or chart types.
+const COLORS = {
+  light: { direct: "#2a78d6", indirect: "#eb6834", bar: "#2a78d6", grid: "rgb(28 22 14 / 0.08)", text: "rgb(28 22 14 / 0.5)" },
+  dark: { direct: "#3987e5", indirect: "#d95926", bar: "#3987e5", grid: "rgb(237 232 224 / 0.1)", text: "rgb(237 232 224 / 0.5)" },
+};
+
+function useIsDarkMode(): boolean {
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    setIsDark(root.classList.contains("dark"));
+    const observer = new MutationObserver(() => setIsDark(root.classList.contains("dark")));
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+  return isDark;
+}
 
 interface CompetitorAnalysisManagerProps {
   analyses: Tables<"competitor_analyses">[];
@@ -71,7 +105,7 @@ export function CompetitorAnalysisManager({ analyses, onChanged }: CompetitorAna
       </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
+        <Card className="order-2 lg:order-1 lg:col-span-1">
           <CardHeader>
             <CardTitle>ประวัติการวิเคราะห์ ({analyses.length})</CardTitle>
           </CardHeader>
@@ -109,7 +143,7 @@ export function CompetitorAnalysisManager({ analyses, onChanged }: CompetitorAna
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="order-1 lg:order-2 lg:col-span-2">
           {selected ? (
             <CompetitorAnalysisDetail analysis={selected} onDelete={() => handleDelete(selected.id)} />
           ) : (
@@ -124,10 +158,34 @@ export function CompetitorAnalysisManager({ analyses, onChanged }: CompetitorAna
 }
 
 function CompetitorAnalysisDetail({ analysis, onDelete }: { analysis: Tables<"competitor_analyses">; onDelete: () => void }) {
+  const isDark = useIsDarkMode();
+  const palette = isDark ? COLORS.dark : COLORS.light;
+
   const direct = analysis.competitors.filter((c) => c.type === "direct");
   const indirect = analysis.competitors.filter((c) => c.type === "indirect");
   const compete = analysis.strategies.filter((s) => s.approach === "compete");
   const avoid = analysis.strategies.filter((s) => s.approach === "avoid");
+
+  const landscapeData = useMemo(
+    () => [
+      { name: "คู่แข่งทางตรง", value: direct.length, color: palette.direct },
+      { name: "คู่แข่งทางอ้อม", value: indirect.length, color: palette.indirect },
+    ],
+    [direct.length, indirect.length, palette]
+  );
+
+  const channelData = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of analysis.competitors) {
+      for (const ch of c.marketingChannels) {
+        counts.set(ch, (counts.get(ch) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .map(([channel, count]) => ({ channel, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [analysis.competitors]);
 
   return (
     <>
@@ -144,9 +202,98 @@ function CompetitorAnalysisDetail({ analysis, onDelete }: { analysis: Tables<"co
       <CardContent className="space-y-6">
         <p className="rounded-xl bg-line/5 p-4 text-sm text-secondary">{analysis.summary}</p>
 
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard label="คู่แข่งทางตรง" value={direct.length} icon={Swords} tone="danger" />
+          <StatCard label="คู่แข่งทางอ้อม" value={indirect.length} icon={Globe} tone="warning" />
+          <StatCard label="ควรเอาชนะ" value={compete.length} icon={ShieldCheck} tone="success" />
+          <StatCard label="ควรหลบเลี่ยง" value={avoid.length} icon={ShieldAlert} tone="danger" />
+        </div>
+
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <CompetitorGroup title={`คู่แข่งทางตรง — โรงเรียนสอนเปียโนในไทย (${direct.length})`} competitors={direct} tone="danger" />
-          <CompetitorGroup title={`คู่แข่งทางอ้อม — แอปสอนเปียโนระดับโลก (${indirect.length})`} competitors={indirect} tone="warning" />
+          <div>
+            <p className="mb-2 text-xs font-medium text-secondary/50">สัดส่วนคู่แข่งทางตรง vs ทางอ้อม</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={landscapeData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={2}
+                  label={({ name, percent }: { name?: string; percent?: number }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                >
+                  {landscapeData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-medium text-secondary/50">ช่องทางการตลาดที่คู่แข่งใช้บ่อยที่สุด</p>
+            {channelData.length === 0 ? (
+              <div className="flex h-[220px] items-center justify-center text-xs text-secondary/40">ไม่พบข้อมูลช่องทาง</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={channelData} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={palette.grid} />
+                  <XAxis type="number" allowDecimals={false} stroke={palette.text} fontSize={12} tickLine={false} />
+                  <YAxis type="category" dataKey="channel" width={110} stroke={palette.text} fontSize={11} tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(value) => [`${value} เจ้า`, "ใช้ช่องทางนี้"]} />
+                  <Bar dataKey="count" name="จำนวนคู่แข่งที่ใช้" fill={palette.bar} radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-secondary/50">รายชื่อคู่แข่งทั้งหมด ({analysis.competitors.length})</p>
+          {analysis.competitors.length === 0 ? (
+            <p className="rounded-xl border border-line/5 px-3 py-3 text-xs text-secondary/40">ไม่พบข้อมูล</p>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-line/10">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="border-b border-line/10 bg-line/5 text-left text-xs text-secondary/50">
+                    <th className="px-3 py-2">ชื่อ</th>
+                    <th className="px-3 py-2">ประเภท</th>
+                    <th className="px-3 py-2">ช่องทางการตลาด</th>
+                    <th className="px-3 py-2">หมายเหตุ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analysis.competitors.map((c, i) => (
+                    <tr key={i} className="border-b border-line/5 align-top last:border-0">
+                      <td className="px-3 py-2">
+                        <p className="font-medium text-secondary">{c.name}</p>
+                        <p className="text-xs text-secondary/40">{c.category}</p>
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge variant={c.type === "direct" ? "danger" : "warning"}>
+                          {c.type === "direct" ? "ทางตรง" : "ทางอ้อม"}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          {c.marketingChannels.map((ch, j) => (
+                            <span key={j} className="rounded-full bg-line/10 px-2 py-0.5 text-[11px] text-secondary/60">
+                              {ch}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-secondary/60">{c.notes}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -155,9 +302,9 @@ function CompetitorAnalysisDetail({ analysis, onDelete }: { analysis: Tables<"co
         </div>
 
         {analysis.sources.length > 0 ? (
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-secondary/60">แหล่งอ้างอิงจากเว็บ ({analysis.sources.length})</p>
-            <ul className="space-y-1">
+          <details className="space-y-1.5">
+            <summary className="cursor-pointer text-xs font-medium text-secondary/60">แหล่งอ้างอิงจากเว็บ ({analysis.sources.length})</summary>
+            <ul className="mt-2 space-y-1">
               {analysis.sources.map((s, i) => (
                 <li key={i}>
                   <a
@@ -171,50 +318,10 @@ function CompetitorAnalysisDetail({ analysis, onDelete }: { analysis: Tables<"co
                 </li>
               ))}
             </ul>
-          </div>
+          </details>
         ) : null}
       </CardContent>
     </>
-  );
-}
-
-function CompetitorGroup({
-  title,
-  competitors,
-  tone,
-}: {
-  title: string;
-  competitors: Tables<"competitor_analyses">["competitors"];
-  tone: "danger" | "warning";
-}) {
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-medium text-secondary/60">{title}</p>
-      {competitors.length === 0 ? (
-        <p className="rounded-xl border border-line/5 px-3 py-3 text-xs text-secondary/40">ไม่พบข้อมูล</p>
-      ) : (
-        <ul className="space-y-2">
-          {competitors.map((c, i) => (
-            <li key={i} className="rounded-xl border border-line/5 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-secondary">{c.name}</p>
-                <Badge variant={tone === "danger" ? "danger" : "warning"}>{c.category}</Badge>
-              </div>
-              {c.marketingChannels.length > 0 ? (
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {c.marketingChannels.map((ch, j) => (
-                    <span key={j} className="rounded-full bg-line/10 px-2 py-0.5 text-[11px] text-secondary/60">
-                      {ch}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              <p className="mt-1.5 text-xs text-secondary/60">{c.notes}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
 
