@@ -6638,6 +6638,7 @@ function weekKey(d = new Date()) {
   const x = dayDate(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day);
   return x.getFullYear() + "-" + (x.getMonth() + 1) + "-" + x.getDate();
 }
+function monthKey(d = new Date()) { const x = dayDate(d); return x.getFullYear() + "-" + (x.getMonth() + 1); }
 function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
 /* This week's 3 active challenges — same result on every device for the same
    weekKey(), since it depends only on that string, never on local state. */
@@ -6698,6 +6699,25 @@ function syncProgress(uid) {
     const snap = buildProgressSnapshot();
     if (!snap) return;
     sb.from("profiles").update({ progress: snap, last_active: ymd(), updated_at: new Date().toISOString() }).eq("id", uid).then(() => {}, () => {});
+  } catch (e) {}
+}
+// At most once per calendar month per device: snapshots the learner's current
+// skill scores server-side (skill_monthly_snapshot table) so a real trend can
+// be shown later. Best-effort — if the RPC fails (network, or the migration
+// hasn't been applied yet), the local flag is left unset so it simply retries
+// on the next app open this month; there is no server-side scheduler to
+// re-trigger it otherwise (same constraint as every other "period" table in
+// this project).
+function maybeSnapshotSkills(uid) {
+  if (!uid) return;
+  try {
+    const mk = monthKey();
+    if (localStorage.getItem("tg_skill_snap_month") === mk) return;
+    const scores = computeSkillScores().filter(s => s.score != null);
+    if (!scores.length) { try { localStorage.setItem("tg_skill_snap_month", mk); } catch (e) {} return; }
+    Promise.all(scores.map(s => sb.rpc("upsert_skill_snapshot", { p_month_key: mk, p_skill: s.skill, p_score: s.score, p_n: s.n })))
+      .then(() => { try { localStorage.setItem("tg_skill_snap_month", mk); } catch (e) {} })
+      .catch(() => {});
   } catch (e) {}
 }
 
@@ -7422,6 +7442,27 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
   const accDelta = stats.acc7 != null && stats.accPrev != null ? stats.acc7 - stats.accPrev : null;
   const hasData = readActLog().length > 0;
 
+  // Monthly skill trend — best-effort: silently empty (not an error) if the
+  // RPC isn't deployed yet, or if there's under 2 months of history so far.
+  // There's no way to backfill history that predates this feature.
+  const [skillHistory, setSkillHistory] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    sb.rpc("get_my_skill_history", { p_limit: 6 }).then(
+      ({ data }) => { if (alive) setSkillHistory(Array.isArray(data) ? data : []); },
+      () => { if (alive) setSkillHistory([]); }
+    );
+    return () => { alive = false; };
+  }, []);
+  const trendBySkill = useMemo(() => {
+    const bySkill = {};
+    for (const row of skillHistory) (bySkill[row.skill] || (bySkill[row.skill] = [])).push(row);
+    return Object.values(bySkill)
+      .map(rows => rows.sort((a, b) => a.month_key < b.month_key ? -1 : 1))
+      .filter(rows => rows.length >= 2)
+      .map(rows => ({ skill: rows[0].skill, first: rows[0].score, latest: rows[rows.length - 1].score, months: rows.length }));
+  }, [skillHistory]);
+
   return (
     <div className="profscroll">
       <div className="profsec">
@@ -7513,6 +7554,29 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
                 </button>
               );
             })()}
+          </div>
+        )}
+
+        {/* Monthly trend — only renders once 2+ months of history exist; the
+            snapshot mechanism starts counting from zero the day it ships, so
+            this is expected to show nothing for a while on every account. */}
+        {trendBySkill.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div className="admstu-sec" style={{ marginBottom: 6 }}>📅 {T("แนวโน้มรายเดือน", "Monthly Trend", "月度趋势")}</div>
+            {trendBySkill.map(t => {
+              const delta = t.latest - t.first;
+              return (
+                <div key={t.skill} className="admstu-row-sub" style={{ display: "flex", justifyContent: "space-between", padding: "6px 0" }}>
+                  <span>{tr(SKILL_LABELS[t.skill], lang)}</span>
+                  <span>
+                    {t.first} → {t.latest}
+                    <b style={{ marginLeft: 6, color: delta > 0 ? "#d97757" : delta < 0 ? "#ff5252" : "var(--muted)" }}>
+                      {delta > 0 ? "▲" : delta < 0 ? "▼" : "–"}{Math.abs(delta)}
+                    </b>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -10453,7 +10517,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // can review each student's learning from the back office (also on app hide).
   useEffect(() => {
     if (!uid) return;
-    const t = setTimeout(() => syncProgress(uid), 4000);
+    const t = setTimeout(() => { syncProgress(uid); maybeSnapshotSkills(uid); }, 4000);
     const iv = setInterval(() => syncProgress(uid), 90000);
     const onHide = () => { if (document.visibilityState === "hidden") syncProgress(uid); };
     const onPageHide = () => syncProgress(uid);
