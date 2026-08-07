@@ -32,6 +32,7 @@ import {
   GraduationCap,
   Swords,
   ChevronDown,
+  HeartPulse,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -108,6 +109,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/tiga-agent", label: "TIGA AI Agent", icon: Bot, ownerOnly: true },
       { href: "/approvals", label: "การอนุมัติ", icon: ShieldCheck },
+      { href: "/data-health", label: "Data Health", icon: HeartPulse },
       { href: "/system-health", label: "System Health", icon: Activity },
       { href: "/settings", label: "Settings", icon: Settings, ownerOnly: true },
     ],

@@ -28,6 +28,8 @@ import { SocialTrendsRepository } from "./social-trends.repository";
 import { CourseArticlesRepository } from "./course-articles.repository";
 import { ReferencePhotosRepository } from "./reference-photos.repository";
 import { CompetitorAnalysesRepository } from "./competitor-analyses.repository";
+import { DataHealthRepository } from "./data-health.repository";
+import { SystemBackupsRepository } from "./system-backups.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -64,6 +66,8 @@ export function createRepositories(db: SupabaseClient<Database>) {
     courseArticles: new CourseArticlesRepository(db),
     referencePhotos: new ReferencePhotosRepository(db),
     competitorAnalyses: new CompetitorAnalysesRepository(db),
+    dataHealth: new DataHealthRepository(db),
+    systemBackups: new SystemBackupsRepository(db),
   };
 }
 
