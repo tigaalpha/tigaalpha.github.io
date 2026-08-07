@@ -5911,10 +5911,12 @@ function heatColor(l) { return HEAT_COLORS[l] || HEAT_COLORS[0]; }
 ════════════════════════════════════════════════════════════ */
 const ACT_LOG_KEY = "tg_act_log";
 function readActLog() { try { return JSON.parse(localStorage.getItem(ACT_LOG_KEY) || "[]") || []; } catch (e) { return []; } }
-function logActivity(kind, id, ok, miss, sec) {
+function logActivity(kind, id, ok, miss, sec, skill = null) {
   try {
     const a = readActLog();
-    a.push({ t: Date.now(), d: dayKey(), k: kind, id: String(id || ""), ok: Math.max(0, Math.round(ok || 0)), miss: Math.max(0, Math.round(miss || 0)), sec: Math.max(0, Math.round(sec || 0)) });
+    const entry = { t: Date.now(), d: dayKey(), k: kind, id: String(id || ""), ok: Math.max(0, Math.round(ok || 0)), miss: Math.max(0, Math.round(miss || 0)), sec: Math.max(0, Math.round(sec || 0)) };
+    if (skill) entry.skill = skill; // explicit skill tag — see skillsOfActivity(); older entries infer skill from kind/id instead
+    a.push(entry);
     localStorage.setItem(ACT_LOG_KEY, JSON.stringify(a.slice(-1500)));
   } catch (e) {}
 }
@@ -6346,21 +6348,28 @@ const COACH_FEATURE_LABELS = {
 // both the AI prompt text (coachStatsToText below) and Daily Mentor's on-screen chart
 // render from, so what the learner reads and what the AI reasons over never disagree.
 // Reuses the exact aggregation InsightsPage already uses for "My Stats".
-// Learning Intelligence: per-skill scoring, derived entirely from tg_act_log
-// entries the app already writes (kind+id+ok+miss) — no new logging call sites
-// needed. Only skills with a real, persisted correctness signal are scored;
-// Technique/Dynamics/Improvisation have no such signal today (see App.tsx's
-// git history / project plan notes) and are deliberately absent from SKILLS
-// rather than faked from zero data.
-const SKILLS = ["note_accuracy", "sight_reading", "ear_training", "chord_knowledge"];
+// Learning Intelligence: per-skill scoring, derived from tg_act_log entries.
+// Most skills are inferred from the existing kind+id (no new logging call
+// sites needed); Dynamics/Rhythm/Technique are captured via an explicit
+// `skill` tag on the entry (see logActivity's 6th param) at the few new call
+// sites that actually measure them. Improvisation still has no capture path
+// at all today and stays deliberately absent rather than faked.
+const SKILLS = ["note_accuracy", "sight_reading", "ear_training", "chord_knowledge", "dynamics", "rhythm", "technique"];
 const SKILL_LABELS = {
   note_accuracy: { th: "ความแม่นยำโน้ต", en: "Note Accuracy", zh: "音符准确度" },
   sight_reading: { th: "การอ่านโน้ต (Sight Reading)", en: "Sight Reading", zh: "视奏（Sight Reading）" },
   ear_training: { th: "โสตประสาท (Ear Training)", en: "Ear Training", zh: "听力训练（Ear Training）" },
   // framed honestly — this measures identifying a chord's quality by ear, not chord theory recall
   chord_knowledge: { th: "การฟังแยกคอร์ด", en: "Chord Recognition (by ear)", zh: "和弦听辨" },
+  // MIDI-only (mic input can't supply loudness — see scoreDynamics) — measures
+  // touch consistency, not any single "correct" volume
+  dynamics: { th: "การควบคุมน้ำหนักเสียง (Dynamics)", en: "Dynamics Control", zh: "力度控制（Dynamics）" },
+  rhythm: { th: "จังหวะ (Rhythm)", en: "Rhythm", zh: "节奏感（Rhythm）" },
+  // narrow proxy — hand curvature/shape while playing, not full technique
+  technique: { th: "ท่ามือ (Hand Shape)", en: "Hand Technique", zh: "手型（Technique）" },
 };
 function skillsOfActivity(e) {
+  if (e.skill) return [e.skill]; // explicit tag (Dynamics/Rhythm/Technique) — trust it over the kind/id guess below
   switch (e.k) {
     case "drill": case "game": return ["note_accuracy"];
     case "read": return ["sight_reading"];
@@ -6391,6 +6400,18 @@ function computeSkillScores() {
 }
 function weakestSkills(scores, n = 2) {
   return scores.filter(s => s.score != null).sort((a, b) => a.score - b.score).slice(0, n);
+}
+// Dynamics scoring (MIDI velocity only — mic input's autoGainControl flattens
+// loudness before it ever reaches the pitch detector, so there's nothing to
+// measure from a mic session). There's no single "correct" volume for a
+// piece, so this measures touch *consistency* — how close each note's
+// velocity stayed to the session's own average — not an absolute target.
+function scoreDynamics(vels) {
+  if (!vels || vels.length < 5) return null;
+  const mean = vels.reduce((s, v) => s + v, 0) / vels.length;
+  let ok = 0, miss = 0;
+  for (const v of vels) { if (Math.abs(v - mean) <= mean * 0.35) ok++; else miss++; }
+  return { ok, miss };
 }
 function computeCoachStats(profile, lang) {
   const log = readActLog();
@@ -6491,12 +6512,13 @@ async function generateCoachTip(lang, profile) {
 // Adaptive routing: a soft nudge toward fixing a critically weak skill instead
 // of always pushing new Pathway content — never a hard block, "something new"
 // stays one tap away regardless (see recommendNext/TodayPage call sites).
-// Note Accuracy has no single dedicated remediation destination (it's
-// practiced everywhere already), so it's surfaced via the skill callouts/AI
-// narrative but deliberately can't redirect navigation on its own.
+// Note Accuracy/Dynamics/Rhythm have no single dedicated remediation
+// destination (they're practiced everywhere already), so they're surfaced via
+// the skill callouts/AI narrative but deliberately can't redirect navigation.
 const CRITICAL_SKILL_SCORE = 55; // starting guess — tune once there's real usage data
 const SKILL_REMEDIATION = {
   sight_reading: "reading_course", ear_training: "ear_training", chord_knowledge: "ear_training",
+  technique: "hand_coach",
 };
 function nextRecommendedAction() {
   const critical = computeSkillScores()
@@ -10420,6 +10442,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const practiceIdxRef = useRef(0);
   const practiceHitsRef = useRef(0);
   const practiceMissRef = useRef(0);
+  const practiceVelsRef = useRef([]); // MIDI velocities of hit notes this drill — see scoreDynamics()
   const practiceLabelRef = useRef("");
   const practiceHandlerRef = useRef(() => {});
   const practiceHeardTimer = useRef(null);
@@ -10442,6 +10465,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const songMaxComboRef = useRef(0);
   const songHitsRef = useRef(0);
   const songMissRef = useRef(0);
+  const songTimingRef = useRef({ ok: 0, miss: 0 }); // Rhythm skill: perfect vs good hits, separate from note-pitch ok/miss
+  const songVelsRef = useRef([]); // MIDI velocities of hit notes — see scoreDynamics()
   const songLaneFlashRef = useRef({});
   const songStarsRef = useRef([]);     // parallax starfield, generated once per song
   const songRocketsRef = useRef([]);   // in-flight "rocket launch" anims (a hit → rocket climbs to the meteor)
@@ -10470,6 +10495,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const camRafRef = useRef(0);
   const camRunRef = useRef(false);
   const camMsgRef = useRef("");
+  const handRoundFramesRef = useRef({ good: 0, total: 0 }); // Technique skill: hand-shape frames this session — see exitCamera()
   // voice tutor runtime
   const vmActiveRef = useRef(false);
   const vmStateRef = useRef("idle");
@@ -10925,6 +10951,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
     if (correct) {
       practiceHitsRef.current += 1;
+      if (d.vel != null) practiceVelsRef.current.push(d.vel); // MIDI-only signal — see scoreDynamics()
       playPianoNote(targets[idx], 0.5);
       setPracticeHeard({ note: heardNote, ok: true });
       const next = idx + 1;
@@ -10963,6 +10990,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     practiceIdxRef.current = 0;
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
+    practiceVelsRef.current = [];
     practiceLabelRef.current = seq.label || "";
     practiceActiveRef.current = true;
     setPracticeTarget(notes);
@@ -10988,6 +11016,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     practiceIdxRef.current = 0;
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
+    practiceVelsRef.current = [];
     practiceActiveRef.current = true;
     setPracticeIdx(0);
     setPracticeMiss(0);
@@ -11023,6 +11052,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
     logPractice(accuracy);
     logActivity("drill", label || "drill", hits, miss, Math.max(20, total * 2));
+    const dyn = scoreDynamics(practiceVelsRef.current);
+    if (dyn) logActivity("drill", label || "drill", dyn.ok, dyn.miss, 0, "dynamics");
     recordMemory(practiceLabelRef.current, accuracy);
     earnCoins(5 + Math.round(accuracy / 20));
     gainExp(20 + Math.round(accuracy / 5), { quest: true }); // 20–40 EXP scaled by accuracy
@@ -11085,6 +11116,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     songLastTimeRef.current = data.lastT;
     songScoreRef.current = 0; songComboRef.current = 0; songMaxComboRef.current = 0;
     songHitsRef.current = 0; songMissRef.current = 0; songPerfectsRef.current = 0;
+    songTimingRef.current = { ok: 0, miss: 0 }; songVelsRef.current = [];
     songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
     songLaneFlashRef.current = {}; songCountdownRef.current = null; songFinishedRef.current = false;
     songRocketsRef.current = []; songBlastsRef.current = [];
@@ -11413,6 +11445,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const combo = songComboRef.current;
       if (combo > songMaxComboRef.current) songMaxComboRef.current = combo;
       if (perfect) songPerfectsRef.current++;
+      // Rhythm/Dynamics skill tracking — timing precision given the note was
+      // already right (kept separate from note-accuracy's own ok/miss so the
+      // same failure is never double-counted across two skills), and MIDI
+      // touch consistency when a velocity is available.
+      if (perfect) songTimingRef.current.ok++; else songTimingRef.current.miss++;
+      if (d.vel != null) songVelsRef.current.push(d.vel);
       // FEVER MODE — at a big combo the screen goes wild and score doubles
       if (!songFeverRef.current && combo >= 15) { songFeverRef.current = true; setSongFever(true); playUi("levelup"); triggerShake(); announce("🔥 FEVER!"); }
       const feverMult = songFeverRef.current ? 2 : 1;
@@ -11501,6 +11539,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     logGame({ song: tr(songMeta, lang), acc, score, stars });
     logActivity("game", (songMeta && songMeta.id) || "song", hits, Math.max(0, total - hits),
       songDataRef.current && songDataRef.current.dur ? songDataRef.current.dur / (songTempoRef.current || 1) + SONG_LEAD : 60);
+    const songId = (songMeta && songMeta.id) || "song";
+    if (songTimingRef.current.ok + songTimingRef.current.miss >= 3) {
+      logActivity("game", songId, songTimingRef.current.ok, songTimingRef.current.miss, 0, "rhythm");
+    }
+    const dyn = scoreDynamics(songVelsRef.current);
+    if (dyn) logActivity("game", songId, dyn.ok, dyn.miss, 0, "dynamics");
     const coinReward = 5 + stars * 10 + (allPerfect ? 20 : fullCombo ? 10 : 0);
     earnCoins(coinReward);
     bumpWeekly("games", 1); if (perfects) bumpWeekly("perfect", perfects);
@@ -11705,8 +11749,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   sightHandlerRef.current = sightInput;
 
   // ════ HAND-POSTURE COACH (camera) ════
-  function openCamera() { setCamOpen(true); }
-  function exitCamera() { setCamOpen(false); setCamCoach(null); }
+  function openCamera() { handRoundFramesRef.current = { good: 0, total: 0 }; setCamOpen(true); }
+  function exitCamera() {
+    setCamOpen(false); setCamCoach(null);
+    // Technique skill: normalize to a fixed 10-point contribution regardless of
+    // session length, so one long camera session can't dominate the
+    // recency-weighted skill score the way a raw frame count would.
+    const { good, total } = handRoundFramesRef.current;
+    if (total >= 30) {
+      const ok = Math.round((good / total) * 10);
+      logActivity("drill", "hand_coach", ok, 10 - ok, 0, "technique");
+    }
+  }
   // Where the Coach page's "▶ Practice: …" button sends the learner — maps a fixed,
   // known-safe COACH_FEATURE_LABELS key to a real navigation action.
   function handleCoachNavigate(key, tab) {
@@ -11787,6 +11841,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             const msg = !hands.length ? L[lang].camNoHands
               : (round / hands.length) >= 0.6 ? L[lang].camTipGood : L[lang].camTipFlat;
             if (msg !== camMsgRef.current) { camMsgRef.current = msg; setCamMsg(msg); }
+            // Technique skill: reuse this exact same 0.6 "good shape" threshold the
+            // live tip already uses, accumulated across the session instead of
+            // discarded every frame — see exitCamera().
+            if (hands.length) {
+              handRoundFramesRef.current.total++;
+              if (round / hands.length >= 0.6) handRoundFramesRef.current.good++;
+            }
           }
           camRafRef.current = requestAnimationFrame(loop);
         };
