@@ -2378,7 +2378,7 @@ const L = {
     upgrade: "อัปเกรด", prTitle: "เลือกแผนที่ใช่สำหรับคุณ", prSub: "ครู AI ส่วนตัว 24/7 · ถูกกว่าเรียนพิเศษ 20 เท่า · ยกเลิกได้ทุกเมื่อ", prMonth: "เดือน", prYear: "ปี", prSave3: "ประหยัด 3%", prBillMonth: "รายเดือน", prBillYear: "รายปี", prActive: "ใช้งานอยู่", prGet: "สมัครเลย",
     prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "♾️ ครู AI + สร้างเพลง + วิจารณ์การเล่น — ไม่จำกัดครั้ง ทุกวัน", prF3: "🧑‍🏫 Auto Teaching — ครู AI โผล่สอนขณะซ้อม Pathway แบบเรียลไทม์", prF4: "🎓 เตรียมสอบเกรด + 👨‍👩‍👧 แดชบอร์ดผู้ปกครองดูพัฒนาการลูก", prF5: "🔈 เสียงครูธรรมชาติคุณภาพสูง + ไม่มีโฆษณาตลอดการใช้",
     prFam1: "⭐ Premium ครบทุกฟีเจอร์ รวม Auto Teaching ไม่มีตัดออก", prFam2: "👨‍👩‍👧‍👦 3 โปรไฟล์ใช้ได้พร้อมกัน", prFree1: "🎹 เพลง 180+ ชิ้น · บทเรียน · เกมฝึกหู · Sight Reading · Hand Coach · Goal Planner — ฟรีทั้งหมด", prFree2: "🤖 ครู AI 5 ครั้ง/วัน · สร้างเพลง AI 2 ครั้ง/วัน · วิจารณ์การเล่น 3 ครั้ง/วัน",
-    prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "✓ ทุกอย่างใน Premium รวม Auto Teaching ครบ", prMax3: "🎙️ AI Voice Teacher — คุยด้วยเสียง ครู AI ตอบกลับสด 24/7", prMax4: "📊 Daily Mentor · รายงาน AI รายสัปดาห์ · แผนซ้อม 7 วันส่วนตัว", prMax5: "🪙 XP & เหรียญ ×2 ทุกวัน · 🛡️ Streak Freeze 4 ใบ/เดือน ฟรี ไม่ต้องซื้อ", prMax6: "👑 เพลง Exclusive: Für Elise · Moonlight · Clair de Lune + อีก 3 ชิ้น", prMxf1: "👑 Max ครบทุกฟีเจอร์ ไม่มีตัดออก — สำหรับทุกคนในครอบครัว", prMxf2: "สูงสุด 10 โปรไฟล์ · ใช้งานพร้อมกันได้ทุกคนในบ้าน", prMxf3: "📊 แดชบอร์ดครอบครัว + รายงาน AI แยกทุกโปรไฟล์", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
+    prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "✓ ทุกอย่างใน Premium รวม Auto Teaching ครบ", prMax3: "🎙️ AI Voice Teacher — คุยด้วยเสียง ครู AI ตอบกลับสด 24/7", prMax4: "📊 Daily Mentor · รายงาน AI รายสัปดาห์ · แผนซ้อม 7 วันส่วนตัว", prMax5: "🪙 XP & เหรียญ ×2 ทุกวัน · 🛡️ Streak Freeze 4 ใบ/เดือน ฟรี ไม่ต้องซื้อ", prMax6: "👑 เพลง Exclusive: Für Elise · Moonlight · Clair de Lune + อีก 3 ชิ้น", prMax7: "🎮 Music Games — เกมดนตรีสนุกๆ ช่วยให้เรียนรู้อย่างสนุกสนาน อัปเดตเกมใหม่ต่อเนื่อง", prMxf1: "👑 Max ครบทุกฟีเจอร์ ไม่มีตัดออก — สำหรับทุกคนในครอบครัว", prMxf2: "สูงสุด 10 โปรไฟล์ · ใช้งานพร้อมกันได้ทุกคนในบ้าน", prMxf3: "📊 แดชบอร์ดครอบครัว + รายงาน AI แยกทุกโปรไฟล์", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
     trialBanner: "🎁 ทดลองใช้ฟรี", trialDaysLeft: "วันที่เหลือ", trialUpgrade: "อัปเกรดแผน", trialExpired: "หมดเวลาทดลองใช้แล้ว — เลือกแผนเพื่อเรียนต่อ",
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
     prBillB2B: "🏫 สำหรับธุรกิจ (B2B)", prSeat: "ที่นั่ง", prB2bSub: "สำหรับสถาบัน/โรงเรียนสอนดนตรี · ราคาต่อที่นั่ง · ขั้นต่ำ 15 ที่นั่ง/สัญญา",
@@ -2519,7 +2519,7 @@ const L = {
     upgrade: "Upgrade", prTitle: "Choose Your Plan", prSub: "Personal AI teacher 24/7 · 20× cheaper than private lessons · cancel anytime", prMonth: "mo", prYear: "yr", prSave3: "Save 3%", prBillMonth: "Monthly", prBillYear: "Yearly", prActive: "Active", prGet: "Subscribe",
     prF1: "Unlimited AI song creation", prF2: "♾️ AI tutor + song creation + play critique — fully unlimited, every day", prF3: "🧑‍🏫 Auto Teaching — AI coach pops up while you practice Pathway, in real time", prF4: "🎓 Grade exam prep + 👨‍👩‍👧 parent dashboard with real-time progress", prF5: "🔈 Premium natural teacher voice + no ads ever",
     prFam1: "⭐ Full Premium — every feature including Auto Teaching, nothing removed", prFam2: "👨‍👩‍👧‍👦 3 profiles sharing simultaneously", prFree1: "🎹 180+ songs · lessons · ear training · sight reading · hand coach · goal planner — all free", prFree2: "🤖 AI tutor 5/day · AI song creator 2/day · AI play critique 3/day",
-    prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "✓ Everything in Premium — Auto Teaching + all Premium features, fully unlocked", prMax3: "🎙️ AI Voice Teacher — speak naturally, get live spoken responses 24/7", prMax4: "📊 Daily Mentor · AI Weekly Report · personalized 7-day practice plan", prMax5: "🪙 2× XP & coins every session · 🛡️ 4 free Streak Freezes per month", prMax6: "👑 Exclusive pieces: Für Elise · Moonlight Sonata · Clair de Lune + 3 more", prMxf1: "👑 Full Max — every feature, for every family member, nothing removed", prMxf2: "Up to 10 profiles — all family members active simultaneously", prMxf3: "📊 Family dashboard + individual AI reports per profile", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
+    prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "✓ Everything in Premium — Auto Teaching + all Premium features, fully unlocked", prMax3: "🎙️ AI Voice Teacher — speak naturally, get live spoken responses 24/7", prMax4: "📊 Daily Mentor · AI Weekly Report · personalized 7-day practice plan", prMax5: "🪙 2× XP & coins every session · 🛡️ 4 free Streak Freezes per month", prMax6: "👑 Exclusive pieces: Für Elise · Moonlight Sonata · Clair de Lune + 3 more", prMax7: "🎮 Music Games — fun games that make learning enjoyable, updated continuously", prMxf1: "👑 Full Max — every feature, for every family member, nothing removed", prMxf2: "Up to 10 profiles — all family members active simultaneously", prMxf3: "📊 Family dashboard + individual AI reports per profile", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
     trialBanner: "🎁 Free Trial", trialDaysLeft: "days left", trialUpgrade: "Upgrade now", trialExpired: "Your free trial has ended — choose a plan to continue",
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
     prBillB2B: "🏫 FOR BUSINESS (B2B)", prSeat: "seat", prB2bSub: "For music schools & studios · priced per seat · 15-seat minimum per contract",
@@ -2660,7 +2660,7 @@ const L = {
     upgrade: "升级", prTitle: "选择适合您的套餐", prSub: "24/7 专属AI老师 · 比私教便宜20倍 · 随时取消", prMonth: "月", prYear: "年", prSave3: "省3%", prBillMonth: "按月", prBillYear: "按年", prActive: "已开通", prGet: "立即订阅",
     prF1: "无限 AI 创作歌曲", prF2: "♾️ AI老师 + 作曲 + 演奏点评 — 完全无限制，每天随时用", prF3: "🧑‍🏫 Auto Teaching — 练习学习路径时，AI实时弹出针对性辅导", prF4: "🎓 考级备考模式 + 👨‍👩‍👧 家长仪表板，实时追踪孩子进度", prF5: "🔈 高品质自然老师语音 + 彻底无广告",
     prFam1: "⭐ Premium全部功能，含Auto Teaching，一个不少", prFam2: "👨‍👩‍👧‍👦 3个档案同时使用", prFree1: "🎹 180+首曲目 · 课程 · 听力训练 · 视奏 · 手型指导 · 目标规划 — 全部免费", prFree2: "🤖 AI老师5次/天 · AI作曲2次/天 · AI演奏点评3次/天",
-    prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "✓ 包含Premium全部功能，Auto Teaching完整版", prMax3: "🎙️ AI语音教师 — 开口说话，AI实时语音回应，24/7随时在线", prMax4: "📊 Daily Mentor · AI每周进度报告 · 个性化7日练习计划", prMax5: "🪙 经验值&金币×2 · 🛡️ 每月4张免费连击保护卡，无需购买", prMax6: "👑 独家曲目: 致爱丽丝 · 月光奏鸣曲 · 月光曲 + 另外3首", prMxf1: "👑 Max全部功能，一个不少 — 全家共享，人人享有", prMxf2: "最多10个档案 — 全家成员同时使用", prMxf3: "📊 家庭仪表盘 + 每个档案独立AI报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
+    prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "✓ 包含Premium全部功能，Auto Teaching完整版", prMax3: "🎙️ AI语音教师 — 开口说话，AI实时语音回应，24/7随时在线", prMax4: "📊 Daily Mentor · AI每周进度报告 · 个性化7日练习计划", prMax5: "🪙 经验值&金币×2 · 🛡️ 每月4张免费连击保护卡，无需购买", prMax6: "👑 独家曲目: 致爱丽丝 · 月光奏鸣曲 · 月光曲 + 另外3首", prMax7: "🎮 音乐游戏 — 寓教于乐的趣味游戏，持续更新", prMxf1: "👑 Max全部功能，一个不少 — 全家共享，人人享有", prMxf2: "最多10个档案 — 全家成员同时使用", prMxf3: "📊 家庭仪表盘 + 每个档案独立AI报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
     trialBanner: "🎁 免费试用", trialDaysLeft: "天剩余", trialUpgrade: "立即升级", trialExpired: "免费试用已结束 — 选择套餐以继续使用",
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
     prBillB2B: "🏫 企业版 (B2B)", prSeat: "席位", prB2bSub: "面向音乐学校/机构 · 按席位计价 · 每份合同最低15个席位",
@@ -13485,7 +13485,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
-          { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games" },
+          { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
           // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
           // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
         ].map(it => {
@@ -14011,7 +14011,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                           {b2bPriceBlk("plus")}
                         </div>
                         {b2bYearNote("plus")}
-                        <ul className="prfeat"><li>{lc.prMax2}</li><li>{lc.prMax4}</li></ul>
+                        <ul className="prfeat"><li>{lc.prMax2}</li><li>{lc.prMax4}</li><li>{lc.prMax7}</li></ul>
                         <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
                         <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk4}</li></ul>
                         <button className="songbtn go" onClick={() => { setPricingOpen(false); setSchoolCheckout({ tier: "plus" }); }}>{lc.prB2bCta}</button>
@@ -14059,6 +14059,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         <li>✓ {lc.prMxf1}</li>
                         <li>✓ {lc.prMxf2}</li>
                         <li>✓ {lc.prMxf3}</li>
+                        <li>✓ {lc.prMax7}</li>
                       </ul>
                       {plan === "maxfamily"
                         ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
@@ -14082,6 +14083,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         <li>{lc.prMax4}</li>
                         <li>{lc.prMax5}</li>
                         <li>{lc.prMax6}</li>
+                        <li>{lc.prMax7}</li>
                       </ul>
                       {buyBtn("max")}
                     </div>
