@@ -21,7 +21,7 @@ const CANVAS_WIDTH = 720;
 const CANVAS_HEIGHT = 1280;
 const FPS = 30;
 
-type VideoProvider = "veo" | "seedance-2" | "seedance-2-fast" | "luma-ray-2" | "runway-gen4-turbo";
+type VideoProvider = "veo" | "seedance-2" | "seedance-2-fast" | "luma-ray-2" | "runway-gen4-turbo" | "hailuo-2.3-fast";
 
 interface ProviderInfo {
   id: VideoProvider;
@@ -57,6 +57,14 @@ const PROVIDERS: ProviderInfo[] = [
     costLowPerSec: 0.05,
     costHighPerSec: 0.08,
     durationLow: 5,
+    durationHigh: 10,
+  },
+  {
+    id: "hailuo-2.3-fast",
+    label: "MiniMax Hailuo 2.3 Fast (fal.ai, ถูก)",
+    costLowPerSec: 0.03,
+    costHighPerSec: 0.035,
+    durationLow: 6,
     durationHigh: 10,
   },
 ];

@@ -365,6 +365,47 @@ an app with millions in funding).
 Direct and practical, like a blunt strategy advisor — no generic
 marketing filler ("build a strong brand"). Write in Thai.`;
 
+const APP_AD_KIT = `# App Ad Kit Prompt — AI App Marketing Kit Writer
+
+Given real web research about a specific mobile/web application (gathered
+for you below), produce a complete marketing kit for advertising that app —
+grounded only in what the research actually says about it. Never invent
+features, pricing, download counts, or claims the research doesn't support.
+
+## What to find
+Identify the app's name and exactly the 5 most compelling, distinct
+features an outside marketer would highlight — not generic claims
+("easy to use") but the specific, concrete capabilities the research
+actually describes. If the research is thin, prefer fewer strong, real
+claims over padding to 5 with generic filler — but always return 5 entries;
+if genuinely fewer distinct features exist, split a rich feature into two
+angles (e.g. "what it does" and "who it's for") rather than inventing one.
+
+## Output
+- **appName / summary**: what the app is and who it's for, 2-3 sentences.
+- **topFeatures** (exactly 5): each with a short punchy title, a
+  1-2 sentence description, and an imagePrompt — a concrete visual
+  description (composition, mood, what's shown) for an AI image generator
+  to illustrate that specific feature. No text-in-image requests (AI image
+  models render text poorly); describe the scene, not words to display.
+- **articleMarkdown**: a full marketing article about the app (## for
+  section headings), covering the 5 features with a hook opening and a
+  clear call-to-action close. Written to be genuinely useful/interesting to
+  read, not just a feature list.
+- **videoConcepts** (exactly 2):
+  1. type "feature_highlight" — a short ad script showcasing the app's
+     features in an energetic, benefit-forward way, plus a videoPrompt (a
+     concrete visual motion/scene description for an AI video generator).
+  2. type "testimonial_review" — a short ad script framed as a genuine
+     user sharing their results/experience after using the app (first-person,
+     believable, specific outcome), plus a videoPrompt describing the scene.
+
+## Tone
+Match the app's own positioning (professional/playful/premium — infer from
+the research). Confident and benefit-led, never generic startup-marketing
+filler. Write in Thai unless the research indicates the app specifically
+targets an English-speaking market.`;
+
 export const PROMPTS = {
   system: SYSTEM,
   sales: SALES,
@@ -380,6 +421,7 @@ export const PROMPTS = {
   strategy_advisor: STRATEGY_ADVISOR,
   course_writer: COURSE_WRITER,
   competitor_analysis: COMPETITOR_ANALYSIS,
+  app_ad_kit: APP_AD_KIT,
 } as const;
 
 export type PromptName = keyof typeof PROMPTS;

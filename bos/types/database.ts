@@ -761,6 +761,30 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["system_backups"]["Row"]>;
         Relationships: [];
       };
+      app_ad_kits: {
+        Row: {
+          id: string;
+          app_url: string;
+          app_name: string;
+          summary: string;
+          top_features: { title: string; description: string; imagePrompt: string }[];
+          article_markdown: string;
+          video_concepts: { type: "feature_highlight" | "testimonial_review"; script: string; videoPrompt: string }[];
+          image_ids: string[];
+          video_clip_ids: string[];
+          sources: { title: string; url: string }[];
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["app_ad_kits"]["Row"]> & {
+          app_url: string;
+          app_name: string;
+          summary: string;
+          article_markdown: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["app_ad_kits"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

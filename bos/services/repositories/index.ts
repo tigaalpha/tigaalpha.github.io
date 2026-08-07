@@ -30,6 +30,7 @@ import { ReferencePhotosRepository } from "./reference-photos.repository";
 import { CompetitorAnalysesRepository } from "./competitor-analyses.repository";
 import { DataHealthRepository } from "./data-health.repository";
 import { SystemBackupsRepository } from "./system-backups.repository";
+import { AppAdKitsRepository } from "./app-ad-kits.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -68,6 +69,7 @@ export function createRepositories(db: SupabaseClient<Database>) {
     competitorAnalyses: new CompetitorAnalysesRepository(db),
     dataHealth: new DataHealthRepository(db),
     systemBackups: new SystemBackupsRepository(db),
+    appAdKits: new AppAdKitsRepository(db),
   };
 }
 
