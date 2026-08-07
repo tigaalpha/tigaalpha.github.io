@@ -743,12 +743,41 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["competitor_analyses"]["Row"]>;
         Relationships: [];
       };
+      system_backups: {
+        Row: {
+          id: string;
+          taken_at: string;
+          tables: Record<string, unknown[]>;
+          row_counts: Record<string, number>;
+          verified: boolean;
+          verify_detail: string | null;
+          status: "success" | "error";
+          error_detail: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["system_backups"]["Row"]> & {
+          tables: Record<string, unknown[]>;
+          row_counts: Record<string, number>;
+        };
+        Update: Partial<Database["public"]["Tables"]["system_backups"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
       match_knowledge_chunks: {
         Args: { query_embedding: string; match_count: number; min_similarity: number };
         Returns: { id: string; document_id: string; content: string; similarity: number }[];
+      };
+      data_health_report: {
+        Args: Record<string, never>;
+        Returns: {
+          category: string;
+          severity: "critical" | "warning" | "info";
+          description: string;
+          entity_type: string;
+          entity_id: string | null;
+          suggested_fix: string;
+        }[];
       };
     };
     Enums: Record<string, never>;
