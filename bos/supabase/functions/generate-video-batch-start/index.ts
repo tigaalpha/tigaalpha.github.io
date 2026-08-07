@@ -3,7 +3,7 @@ import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
-import { logSystemEvent } from "../_shared/monitor.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 import { isVideoProvider, requireProviderApiKey, startClip } from "../_shared/video-providers.ts";
 import type { SourceImage } from "../_shared/veo.ts";
 
@@ -59,8 +59,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ videoClips, requested: orderedImages.length, started: videoClips.length });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    await logSystemEvent(admin, "generate-video-batch-start", "error", message);
-    return jsonResponse({ error: message }, 500);
+    return await handleUnexpectedError(admin, "generate-video-batch-start", error);
   }
 });

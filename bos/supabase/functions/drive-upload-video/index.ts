@@ -3,6 +3,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 
 // Saves a combined motion video (stitched client-side from Veo/Seedance
 // clips — see ai-motion-video-card.tsx) into a dedicated Drive folder,
@@ -75,14 +76,21 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     await requireStaff(admin, req);
 
     const { videoBase64, mimeType } = await req.json();
     if (!videoBase64 || typeof videoBase64 !== "string") return jsonResponse({ error: "videoBase64 is required" }, 400);
     if (videoBase64.length > MAX_VIDEO_BASE64_LENGTH) return jsonResponse({ error: "Video is too large to upload" }, 400);
-    const resolvedMimeType = typeof mimeType === "string" && mimeType ? mimeType : "video/webm";
+    // Spliced raw into the multipart body below as a MIME header value --
+    // restricted to a strict allow-list so a value containing CRLF can't
+    // inject an extra multipart part into the request sent to Google Drive.
+    if (mimeType !== undefined && (typeof mimeType !== "string" || !/^video\/(webm|mp4)$/.test(mimeType))) {
+      return jsonResponse({ error: 'mimeType must be "video/webm" or "video/mp4"' }, 400);
+    }
+    const resolvedMimeType = mimeType || "video/webm";
 
     const { data: tokenRow } = await admin.from("integration_settings").select("value").eq("key", "google_refresh_token").maybeSingle();
     const refreshToken = tokenRow?.value;
@@ -135,6 +143,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ driveFileId: uploaded.id, driveViewUrl });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "drive-upload-video", error);
   }
 });

@@ -7,7 +7,7 @@ import { researchWithSearch } from "../_shared/gemini.ts";
 import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
-import { logSystemEvent } from "../_shared/monitor.ts";
+import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 const RETURN_COMPETITOR_ANALYSIS_TOOL: ToolDefinition = {
   name: "return_competitor_analysis",
@@ -142,8 +142,6 @@ List concrete named competitors found in both categories with specifics, not gen
       await logSystemEvent(admin, "generate-competitor-analysis", "warning", error.message);
       return jsonResponse({ error: error.message }, 429);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    await logSystemEvent(admin, "generate-competitor-analysis", "error", message);
-    return jsonResponse({ error: message }, 500);
+    return await handleUnexpectedError(admin, "generate-competitor-analysis", error);
   }
 });

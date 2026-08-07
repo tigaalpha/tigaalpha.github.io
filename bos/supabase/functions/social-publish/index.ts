@@ -3,7 +3,7 @@ import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { broadcast } from "../_shared/line.ts";
-import { logSystemEvent } from "../_shared/monitor.ts";
+import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 const GRAPH_VERSION = "v19.0";
 
@@ -83,8 +83,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ post: updated, published: targetPlatforms.filter((p) => externalIds[p]), failed: errors });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    await logSystemEvent(admin, "social-publish", "error", message);
-    return jsonResponse({ error: message }, 500);
+    return await handleUnexpectedError(admin, "social-publish", error);
   }
 });

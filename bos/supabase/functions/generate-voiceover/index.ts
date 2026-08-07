@@ -6,7 +6,7 @@ import { generate, embed } from "../_shared/ai-provider.ts";
 import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
-import { logSystemEvent } from "../_shared/monitor.ts";
+import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 const RETURN_VOICEOVER_TOOL: ToolDefinition = {
   name: "return_voiceover",
@@ -85,8 +85,6 @@ Deno.serve(async (req: Request) => {
       await logSystemEvent(admin, "generate-voiceover", "warning", error.message);
       return jsonResponse({ error: error.message }, 429);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    await logSystemEvent(admin, "generate-voiceover", "error", message);
-    return jsonResponse({ error: message }, 500);
+    return await handleUnexpectedError(admin, "generate-voiceover", error);
   }
 });

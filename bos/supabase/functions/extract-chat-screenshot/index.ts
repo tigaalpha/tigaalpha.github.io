@@ -3,7 +3,7 @@ import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
-import { logSystemEvent } from "../_shared/monitor.ts";
+import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 import { understandImage } from "../_shared/gemini.ts";
 
 interface ExtractedTurn {
@@ -69,8 +69,6 @@ Deno.serve(async (req: Request) => {
       await logSystemEvent(admin, "extract-chat-screenshot", "warning", error.message);
       return jsonResponse({ error: error.message }, 429);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    await logSystemEvent(admin, "extract-chat-screenshot", "error", message);
-    return jsonResponse({ error: message }, 500);
+    return await handleUnexpectedError(admin, "extract-chat-screenshot", error);
   }
 });

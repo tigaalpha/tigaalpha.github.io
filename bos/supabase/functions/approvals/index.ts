@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
-import { requireStaff } from "../_shared/auth.ts";
+import { requireStaff, requireOwnerOrAdmin } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 import * as calendar from "../_shared/calendar.ts";
 
 interface CancelPaidLessonPayload {
@@ -48,8 +49,9 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     const userId = await requireStaff(admin, req);
 
     if (req.method === "GET") {
@@ -76,6 +78,11 @@ Deno.serve(async (req: Request) => {
       if (request.status !== "pending") return jsonResponse({ error: "This request has already been resolved" }, 409);
 
       if (action === "approve") {
+        // Approving executes real money-moving/irreversible actions
+        // (cancelling a paid lesson, approving ad spend) -- same privilege
+        // tier as record_transaction in _shared/tools.ts, so it needs the
+        // same owner/admin check, not just "any staff account."
+        await requireOwnerOrAdmin(admin, userId);
         await executeApproved(admin, request.type, request.payload);
       }
 
@@ -92,6 +99,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ error: "Method not allowed" }, 405);
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "approvals", error);
   }
 });

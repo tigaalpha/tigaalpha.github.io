@@ -3,7 +3,7 @@ import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { jsonResponse } from "../_shared/cors.ts";
 import { respond } from "../_shared/chat-core.ts";
 import { computeNextRun } from "../_shared/schedule.ts";
-import { logSystemEvent } from "../_shared/monitor.ts";
+import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 const RESULT_SNIPPET_LENGTH = 200;
 const CONVERSATION_SETTING_KEY = "agent_scheduled_runs_conversation_id";
@@ -94,8 +94,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ ran: ranCount, due: due.length });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    await logSystemEvent(admin, "agent-schedule-runner", "error", message);
-    return jsonResponse({ error: message }, 500);
+    return await handleUnexpectedError(admin, "agent-schedule-runner", error);
   }
 });

@@ -2,7 +2,9 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 import { getGoogleAccessToken } from "../_shared/google-auth.ts";
+import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
 const GRAPH_VERSION = "v19.0";
 const FETCH_TIMEOUT_MS = 8000;
@@ -271,9 +273,15 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
-    await requireStaff(admin, req);
+    const userId = await requireStaff(admin, req);
+    // Refreshing this dashboard calls the YouTube Data API, which has a
+    // fixed daily quota shared by the whole project -- a runaway polling
+    // loop (buggy tab, browser extension) could exhaust it for the rest of
+    // the day, so this is capped even though it's read-only and staff-only.
+    await enforceRateLimit(admin, userId, "marketing-channel-status", { windowMinutes: 5, maxRequests: 10 });
 
     const { data: settingsRows } = await admin
       .from("integration_settings")
@@ -290,6 +298,7 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ website, youtube, facebook, searchConsole });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    if (error instanceof RateLimitError) return jsonResponse({ error: error.message }, 429);
+    return await handleUnexpectedError(admin, "marketing-channel-status", error);
   }
 });
