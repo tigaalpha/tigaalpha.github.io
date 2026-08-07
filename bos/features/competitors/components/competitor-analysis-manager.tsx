@@ -203,10 +203,10 @@ function CompetitorAnalysisDetail({ analysis, onDelete }: { analysis: Tables<"co
         <p className="rounded-xl bg-line/5 p-4 text-sm text-secondary">{analysis.summary}</p>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="คู่แข่งทางตรง" value={direct.length} icon={Swords} tone="danger" />
-          <StatCard label="คู่แข่งทางอ้อม" value={indirect.length} icon={Globe} tone="warning" />
-          <StatCard label="ควรเอาชนะ" value={compete.length} icon={ShieldCheck} tone="success" />
-          <StatCard label="ควรหลบเลี่ยง" value={avoid.length} icon={ShieldAlert} tone="danger" />
+          <StatCard label="คู่แข่งทางตรง" value={direct.length} icon={Swords} tone="danger" href="/competitors/direct" />
+          <StatCard label="คู่แข่งทางอ้อม" value={indirect.length} icon={Globe} tone="warning" href="/competitors/indirect" />
+          <StatCard label="ควรเอาชนะ" value={compete.length} icon={ShieldCheck} tone="success" href="/competitors/compete" />
+          <StatCard label="ควรหลบเลี่ยง" value={avoid.length} icon={ShieldAlert} tone="danger" href="/competitors/avoid" />
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
