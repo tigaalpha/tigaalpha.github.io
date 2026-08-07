@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 
 // Minimum scope to read the Page list and publish text posts to a Page feed.
 // Instagram publishing needs additional scopes + a media URL and isn't wired
@@ -21,8 +22,9 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     const userId = await requireStaff(admin, req);
 
     const { data: rows } = await admin
@@ -60,6 +62,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ url: url.toString(), redirectUri });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "meta-oauth-start", error);
   }
 });

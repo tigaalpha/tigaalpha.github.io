@@ -14,7 +14,16 @@ export async function verifySignature(rawBody: string, signature: string | null)
   );
   const expectedBytes = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
   const expectedB64 = btoa(String.fromCharCode(...new Uint8Array(expectedBytes)));
-  return expectedB64 === signature;
+
+  // Constant-time comparison -- a naive === lets response-timing leak how
+  // many leading bytes matched, which over enough requests can help an
+  // attacker forge a valid signature.
+  if (expectedB64.length !== signature.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expectedB64.length; i++) {
+    diff |= expectedB64.charCodeAt(i) ^ signature.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 async function call(path: string, body: unknown): Promise<void> {

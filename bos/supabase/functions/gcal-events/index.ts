@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 
 interface ConnectionRow {
   id: string;
@@ -86,8 +87,9 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     await requireStaff(admin, req);
 
     const { connectionIds, timeMin, timeMax } = await req.json();
@@ -145,6 +147,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ connections: results });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "gcal-events", error);
   }
 });

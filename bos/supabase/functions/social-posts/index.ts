@@ -2,13 +2,15 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     const userId = await requireStaff(admin, req);
 
     if (req.method === "GET") {
@@ -26,8 +28,11 @@ Deno.serve(async (req: Request) => {
     if (req.method === "POST") {
       const { content, platforms } = await req.json();
 
-      if (!content || !platforms || platforms.length === 0) {
-        return jsonResponse({ error: "content and platforms are required" }, 400);
+      if (typeof content !== "string" || !content.trim() || !Array.isArray(platforms) || platforms.length === 0) {
+        return jsonResponse({ error: "content (non-empty string) and platforms (non-empty array) are required" }, 400);
+      }
+      if (!platforms.every((p) => typeof p === "string")) {
+        return jsonResponse({ error: "platforms must be an array of strings" }, 400);
       }
 
       const { data: post, error } = await admin
@@ -49,6 +54,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ error: "Method not allowed" }, 405);
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "social-posts", error);
   }
 });

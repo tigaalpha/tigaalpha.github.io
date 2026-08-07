@@ -7,7 +7,7 @@ import { researchWithSearch } from "../_shared/gemini.ts";
 import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
-import { logSystemEvent } from "../_shared/monitor.ts";
+import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 const RETURN_LESSON_ARTICLE_TOOL: ToolDefinition = {
   name: "return_lesson_article",
@@ -99,8 +99,6 @@ Deno.serve(async (req: Request) => {
       await logSystemEvent(admin, "generate-course-article", "warning", error.message);
       return jsonResponse({ error: error.message }, 429);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    await logSystemEvent(admin, "generate-course-article", "error", message);
-    return jsonResponse({ error: message }, 500);
+    return await handleUnexpectedError(admin, "generate-course-article", error);
   }
 });

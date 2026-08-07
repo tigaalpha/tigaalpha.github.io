@@ -3,6 +3,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 
 // Saves a generated image into a dedicated Drive folder using the same
 // Google account already connected for Calendar — that OAuth grant now also
@@ -72,8 +73,9 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     await requireStaff(admin, req);
 
     const { imageId } = await req.json();
@@ -143,6 +145,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ driveFileId: uploaded.id, driveViewUrl });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "drive-upload-image", error);
   }
 });

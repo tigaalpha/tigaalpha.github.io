@@ -2,6 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
+import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
 const FETCH_TIMEOUT_MS = 8000;
 const TOP_N = 10;
@@ -110,9 +112,13 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
-    await requireStaff(admin, req);
+    const userId = await requireStaff(admin, req);
+    // Shares the same YouTube Data API daily quota concern as
+    // marketing-channel-status -- see the comment there.
+    await enforceRateLimit(admin, userId, "social-trends-status", { windowMinutes: 5, maxRequests: 10 });
 
     const geo = Deno.env.get("SOCIAL_TRENDS_GEO") ?? "TH";
 
@@ -123,6 +129,7 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ google, youtube });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    if (error instanceof RateLimitError) return jsonResponse({ error: error.message }, 429);
+    return await handleUnexpectedError(admin, "social-trends-status", error);
   }
 });

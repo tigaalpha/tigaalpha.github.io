@@ -5,7 +5,7 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { generate, embed } from "../_shared/ai-provider.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
-import { logSystemEvent } from "../_shared/monitor.ts";
+import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 // AI drafts strategy/creative only — it never spends money or calls any ad
 // platform's API. The campaign stays status='draft' here; it only becomes
@@ -58,7 +58,12 @@ Deno.serve(async (req: Request) => {
     await enforceRateLimit(admin, userId, "generate-ad-campaign", { windowMinutes: 60, maxRequests: 10 });
 
     const { platform, objective, budgetHint } = await req.json();
-    if (!platform || !objective) return jsonResponse({ error: "platform and objective are required" }, 400);
+    if (typeof platform !== "string" || !platform.trim() || typeof objective !== "string" || !objective.trim()) {
+      return jsonResponse({ error: "platform and objective (non-empty strings) are required" }, 400);
+    }
+    if (budgetHint !== undefined && budgetHint !== null && typeof budgetHint !== "string") {
+      return jsonResponse({ error: "budgetHint must be a string if provided" }, 400);
+    }
 
     const embedding = await embed(`${platform} ${objective}`);
     const { data: matches } = await admin.rpc("match_knowledge_chunks", { query_embedding: embedding, match_count: 6, min_similarity: 0.5 });
@@ -105,8 +110,6 @@ Deno.serve(async (req: Request) => {
       await logSystemEvent(admin, "generate-ad-campaign", "warning", error.message);
       return jsonResponse({ error: error.message }, 429);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    await logSystemEvent(admin, "generate-ad-campaign", "error", message);
-    return jsonResponse({ error: message }, 500);
+    return await handleUnexpectedError(admin, "generate-ad-campaign", error);
   }
 });

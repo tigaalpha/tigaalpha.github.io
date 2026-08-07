@@ -5,7 +5,7 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { embed } from "../_shared/ai-provider.ts";
 import { chunkText } from "../_shared/text.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
-import { logSystemEvent } from "../_shared/monitor.ts";
+import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 // Unbounded content meant unbounded chunkText() output and an unbounded
 // number of paid embed() calls fired in parallel from one request — a
@@ -79,8 +79,6 @@ Deno.serve(async (req: Request) => {
       await logSystemEvent(admin, "knowledge-upload", "warning", error.message);
       return jsonResponse({ error: error.message }, 429);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    await logSystemEvent(admin, "knowledge-upload", "error", message);
-    return jsonResponse({ error: message }, 500);
+    return await handleUnexpectedError(admin, "knowledge-upload", error);
   }
 });

@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 import * as calendar from "../_shared/calendar.ts";
 
 // Postgres error code for a violated EXCLUDE/UNIQUE constraint — see
@@ -36,11 +37,31 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     await requireStaff(admin, req);
 
     const body = (await req.json()) as RequestBody;
+
+    const isId = (v: unknown): v is string => typeof v === "string" && v.length > 0;
+    const isDateString = (v: unknown): v is string => isId(v) && !Number.isNaN(new Date(v).getTime());
+
+    if (body.action === "create") {
+      if (!isId(body.customerId) || !isId(body.teacherId) || !isDateString(body.startTime) || !isDateString(body.endTime)) {
+        return jsonResponse({ error: "customerId, teacherId, startTime, and endTime are required" }, 400);
+      }
+    } else if (body.action === "reschedule") {
+      if (!isId(body.bookingId) || !isDateString(body.newStart) || !isDateString(body.newEnd)) {
+        return jsonResponse({ error: "bookingId, newStart, and newEnd are required" }, 400);
+      }
+    } else if (body.action === "cancel" || body.action === "complete") {
+      if (!isId(body.bookingId)) {
+        return jsonResponse({ error: "bookingId is required" }, 400);
+      }
+    } else {
+      return jsonResponse({ error: "Unknown action" }, 400);
+    }
 
     if (body.action === "create") {
       const { data: customer, error: custErr } = await admin.from("customers").select("*").eq("id", body.customerId).single();
@@ -178,6 +199,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ error: "Unknown action" }, 400);
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "bookings", error);
   }
 });

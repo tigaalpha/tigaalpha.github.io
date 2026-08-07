@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 import { listEventsBetween } from "../_shared/calendar.ts";
 
 interface CheckResult {
@@ -126,8 +127,9 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     await requireStaff(admin, req);
 
     const [line, googleCalendar, gemini, youtube, claude, gpt, grok, deepseek, kimi, glm, qwen] = await Promise.all([
@@ -146,6 +148,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ line, googleCalendar, gemini, youtube, claude, gpt, grok, deepseek, kimi, glm, qwen });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "integrations-status", error);
   }
 });

@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 
 // Fallback path for when the OAuth flow can't be completed (e.g. the
 // pages_manage_posts permission isn't selectable in a Login for Business
@@ -72,6 +73,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ connected: true, pageName: me.name });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "meta-manual-connect", error);
   }
 });

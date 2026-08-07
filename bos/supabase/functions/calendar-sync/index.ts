@@ -2,14 +2,16 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 import * as calendar from "../_shared/calendar.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     await requireStaff(admin, req);
 
     const { start, end } = await req.json().catch(() => ({}));
@@ -49,6 +51,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ checked: bookings?.length ?? 0, drifted: drifted.length });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "calendar-sync", error);
   }
 });

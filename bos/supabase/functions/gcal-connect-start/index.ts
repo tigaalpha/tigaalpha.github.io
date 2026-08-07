@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 
 // Read-only + email so the connected account can be identified in the UI —
 // this connection is for *viewing* a calendar on the Calendar page, never
@@ -15,8 +16,9 @@ Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const admin = createAdminClient();
+
   try {
-    const admin = createAdminClient();
     await requireStaff(admin, req);
 
     const { count, error: countErr } = await admin
@@ -60,6 +62,6 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ url: url.toString(), redirectUri });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return await handleUnexpectedError(admin, "gcal-connect-start", error);
   }
 });

@@ -4,7 +4,7 @@ import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { generate, embed } from "../_shared/ai-provider.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
-import { logSystemEvent } from "../_shared/monitor.ts";
+import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 // AI-drafted only — not a substitute for actual legal review. Every
 // document this produces is prefixed with a disclaimer, and the frontend
@@ -82,8 +82,6 @@ Deno.serve(async (req: Request) => {
       await logSystemEvent(admin, "generate-legal-document", "warning", error.message);
       return jsonResponse({ error: error.message }, 429);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    await logSystemEvent(admin, "generate-legal-document", "error", message);
-    return jsonResponse({ error: message }, 500);
+    return await handleUnexpectedError(admin, "generate-legal-document", error);
   }
 });
