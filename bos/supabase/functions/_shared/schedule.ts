@@ -30,7 +30,7 @@ export function computeNextRun(schedule: ScheduleRecurrence, from: Date): Date |
     return at > from ? at : null;
   }
 
-  const [hh, mm] = schedule.timeOfDay.split(":").map(Number);
+  const [hh, mm] = schedule.timeOfDay.split(":").map(Number) as [number, number];
 
   if (schedule.recurrenceType === "daily") {
     const candidate = atTime(from, hh, mm);
