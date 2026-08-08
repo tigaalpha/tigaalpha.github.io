@@ -634,6 +634,25 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["marketing_channel_manual_stats"]["Row"]>;
         Relationships: [];
       };
+      marketing_metric_snapshots: {
+        Row: {
+          id: string;
+          channel: "website" | "youtube" | "facebook" | "tiktok" | "instagram" | "x";
+          metric: "followers" | "likes" | "views" | "shares" | "comments" | "saves" | "reposts";
+          value: number;
+          source: "auto" | "manual";
+          captured_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["marketing_metric_snapshots"]["Row"]> & {
+          channel: "website" | "youtube" | "facebook" | "tiktok" | "instagram" | "x";
+          metric: "followers" | "likes" | "views" | "shares" | "comments" | "saves" | "reposts";
+          value: number;
+          source: "auto" | "manual";
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_metric_snapshots"]["Row"]>;
+        Relationships: [];
+      };
       agent_schedules: {
         Row: {
           id: string;
