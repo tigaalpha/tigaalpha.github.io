@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import type { VideoOrientation } from "./video-providers.ts";
 
 // Shared by generate-video-clip-start (one image) and
 // generate-video-batch-start (many images stitched into one long video
@@ -16,8 +17,15 @@ export interface SourceImage {
   image_base64: string;
 }
 
-export async function startVeoClip(admin: SupabaseClient, apiKey: string, userId: string, image: SourceImage) {
+export async function startVeoClip(
+  admin: SupabaseClient,
+  apiKey: string,
+  userId: string,
+  image: SourceImage,
+  orientation: VideoOrientation = "vertical"
+) {
   const durationSeconds = VEO_DURATIONS[Math.floor(Math.random() * VEO_DURATIONS.length)];
+  const aspectRatio = orientation === "horizontal" ? "16:9" : "9:16";
 
   const startRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${veoModel()}:predictLongRunning?key=${apiKey}`,
@@ -26,7 +34,7 @@ export async function startVeoClip(admin: SupabaseClient, apiKey: string, userId
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         instances: [{ prompt: image.prompt, image: { bytesBase64Encoded: image.image_base64, mimeType: image.mime_type } }],
-        parameters: { aspectRatio: "9:16", durationSeconds },
+        parameters: { aspectRatio, durationSeconds },
       }),
     }
   );

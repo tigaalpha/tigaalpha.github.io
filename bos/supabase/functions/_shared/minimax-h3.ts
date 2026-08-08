@@ -3,17 +3,20 @@ import type { SourceImage } from "./veo.ts";
 import type { VideoOrientation } from "./video-providers.ts";
 import { submitFalQueue } from "./fal-queue.ts";
 
-// Luma's Ray-2 image-to-video model is hosted on fal.ai (confirmed model
-// slug: fal-ai/luma-dream-machine/ray-2/image-to-video), so this reuses
-// the same FAL_API_KEY and queue mechanics as Seedance — no separate Luma
-// account needed.
-const DURATIONS = [5, 9];
+// MiniMax H3 (aka Hailuo 3.0) -- MiniMax's newest flagship model (launched
+// July 2026): native 2K + audio, up to 15s. This is the model the owner
+// asked for by its exact name ("MiniMax H3"). It's *not* the cheap option
+// (~$0.13/sec, pricier than Hailuo 2.3 Fast's ~$0.03/sec, though still far
+// cheaper than Luma Ray-2) -- kept as a separate provider alongside Hailuo
+// 2.3 Fast so cost vs. quality/2K/audio is the owner's choice per video,
+// not baked into one tradeoff.
+const DURATIONS = [6, 10];
 
 function falModelId(): string {
-  return Deno.env.get("FAL_LUMA_RAY2_MODEL") ?? "fal-ai/luma-dream-machine/ray-2/image-to-video";
+  return Deno.env.get("FAL_MINIMAX_H3_MODEL") ?? "minimax/h3/image-to-video";
 }
 
-export async function startLumaClip(
+export async function startMinimaxH3Clip(
   admin: SupabaseClient,
   falApiKey: string,
   userId: string,
@@ -36,7 +39,7 @@ export async function startLumaClip(
     .insert({
       source_image_id: image.id,
       status: "processing",
-      provider: "luma-ray-2",
+      provider: "minimax-h3",
       operation_name: operationName,
       duration_seconds: durationSeconds,
       created_by: userId,

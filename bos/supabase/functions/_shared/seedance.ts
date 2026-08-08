@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { SourceImage } from "./veo.ts";
+import type { VideoOrientation } from "./video-providers.ts";
 import { submitFalQueue } from "./fal-queue.ts";
 
 // Model slugs confirmed against fal.ai's own docs/GitHub examples
@@ -21,7 +22,8 @@ export async function startSeedanceClip(
   falApiKey: string,
   userId: string,
   image: SourceImage,
-  variant: SeedanceVariant
+  variant: SeedanceVariant,
+  orientation: VideoOrientation = "vertical"
 ) {
   const durationSeconds = DURATIONS[Math.floor(Math.random() * DURATIONS.length)];
   const modelId = falModelId(variant);
@@ -31,7 +33,7 @@ export async function startSeedanceClip(
     prompt: image.prompt,
     resolution: "720p",
     duration: String(durationSeconds),
-    aspect_ratio: "9:16",
+    aspect_ratio: orientation === "horizontal" ? "16:9" : "9:16",
     generate_audio: false,
   });
 

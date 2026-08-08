@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { SourceImage } from "./veo.ts";
+import type { VideoOrientation } from "./video-providers.ts";
 
 // Runway's own API (not on fal.ai) — confirmed against docs.dev.runwayml.com:
 // POST /v1/image_to_video to submit, GET /v1/tasks/{id} to poll. Requires
@@ -22,8 +23,16 @@ function runwayHeaders(apiKey: string): Record<string, string> {
   };
 }
 
-export async function startRunwayClip(admin: SupabaseClient, apiKey: string, userId: string, image: SourceImage) {
+export async function startRunwayClip(
+  admin: SupabaseClient,
+  apiKey: string,
+  userId: string,
+  image: SourceImage,
+  orientation: VideoOrientation = "vertical"
+) {
   const durationSeconds = DURATIONS[Math.floor(Math.random() * DURATIONS.length)];
+  // Runway takes exact pixel dimensions rather than a ratio string.
+  const ratio = orientation === "horizontal" ? "1280:720" : "720:1280";
 
   const submitRes = await fetch(`${BASE_URL}/image_to_video`, {
     method: "POST",
@@ -32,7 +41,7 @@ export async function startRunwayClip(admin: SupabaseClient, apiKey: string, use
       model: runwayModel(),
       promptImage: `data:${image.mime_type};base64,${image.image_base64}`,
       promptText: image.prompt,
-      ratio: "720:1280",
+      ratio,
       duration: durationSeconds,
     }),
   });
