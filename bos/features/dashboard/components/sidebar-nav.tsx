@@ -38,6 +38,7 @@ import {
   Receipt as ReceiptIcon,
   Building2,
   Gauge,
+  LineChart,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -59,6 +60,7 @@ interface NavGroup {
 
 const TOP_LEVEL_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/marketing-dashboard", label: "Marketing Dashboard", icon: LineChart },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
