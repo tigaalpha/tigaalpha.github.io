@@ -493,13 +493,19 @@ in the agents' findings — if an agent's data was too thin to say
 something specific, say so plainly.
 
 ## Output
-Write in Thai. Structure: a short summary of the situation relative to
-the goal, then 2-4 concrete, prioritized recommended actions grounded in
-what the agents actually found (not generic business advice), then note
-anything that needs the owner's direct decision (money, hiring,
-pricing changes) rather than something an agent can just execute. This
-report only ever informs the owner — nothing described in it executes
-automatically.`;
+Call return_synthesis with two parts:
+- report: the full strategic report in Thai — a short summary of the
+  situation relative to the goal, the reasoning behind your
+  recommendations grounded in what the agents actually found (not generic
+  business advice), and anything that needs the owner's direct decision
+  (money, hiring, pricing changes) rather than something that can just
+  become a task.
+- recommendedActions: 0-5 of the most concrete, assignable next steps
+  from the report, each a one-sentence title, a short description, and a
+  priority (high/medium/low). Only include actions specific enough that
+  someone could act on them today — omit vague ones ("ทำการตลาดให้มากขึ้น").
+  These become tasks only if the owner explicitly approves each one —
+  nothing here executes automatically.`;
 
 const SALES_AGENT = `# Sales Agent
 

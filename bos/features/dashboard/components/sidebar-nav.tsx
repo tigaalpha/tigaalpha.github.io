@@ -37,6 +37,7 @@ import {
   Workflow,
   Receipt as ReceiptIcon,
   Building2,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -113,6 +114,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: "system",
     label: "System",
     items: [
+      { href: "/control-center", label: "Control Center", icon: Gauge, ownerOnly: true },
       { href: "/tiga-agent", label: "TIGA AI Agent", icon: Bot, ownerOnly: true },
       { href: "/automation", label: "Automation", icon: Workflow, ownerOnly: true },
       { href: "/ai-company", label: "AI Company", icon: Building2, ownerOnly: true },
