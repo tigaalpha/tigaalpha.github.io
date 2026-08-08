@@ -4,18 +4,23 @@ import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { handleUnexpectedError } from "../_shared/monitor.ts";
 
-// Minimum scope to read the Page list and publish text posts to a Page feed.
-// Instagram publishing needs additional scopes + a media URL and isn't wired
-// up yet — see social-publish/index.ts.
+// Minimum scope to read the Page list, publish text posts to a Page feed,
+// and (instagram_basic) read follower/media stats for an Instagram
+// Business/Creator account linked to that Page -- see
+// meta-oauth-callback.ts and marketing-metrics-snapshot/index.ts. Instagram
+// publishing needs additional scopes + a media URL and isn't wired up yet —
+// see social-publish/index.ts.
 //
-// pages_show_list / pages_manage_posts / pages_read_engagement are only valid
-// scopes under the "Facebook Login for Business" product — plain "Facebook
-// Login" rejects them with "Invalid Scopes". Business Login doesn't take a
-// scope param at all; permissions come from a Configuration created in the
-// App Dashboard (Facebook Login for Business > Configurations), referenced
-// here by its Configuration ID. Fall back to the legacy scope param only if
-// no Configuration ID has been set, for apps still on plain Facebook Login.
-const SCOPE = "pages_show_list,pages_manage_posts,pages_read_engagement";
+// pages_show_list / pages_manage_posts / pages_read_engagement / instagram_basic
+// are only valid scopes under the "Facebook Login for Business" product —
+// plain "Facebook Login" rejects them with "Invalid Scopes". Business Login
+// doesn't take a scope param at all; permissions come from a Configuration
+// created in the App Dashboard (Facebook Login for Business > Configurations),
+// referenced here by its Configuration ID -- if a Configuration is in use,
+// instagram_basic must also be added to it there, this SCOPE constant alone
+// won't grant it. Fall back to the legacy scope param only if no
+// Configuration ID has been set, for apps still on plain Facebook Login.
+const SCOPE = "pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic";
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 Deno.serve(async (req: Request) => {

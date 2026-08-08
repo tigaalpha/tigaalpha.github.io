@@ -48,23 +48,26 @@ interface ChannelDef {
   channel: Channel;
   label: string;
   icon: LucideIcon;
-  metrics: Metric[];
-  auto: boolean;
+  autoMetrics: Metric[];
+  manualMetrics: Metric[];
 }
 
 // Matches the audited per-channel metric matrix -- blank/omitted metrics
-// don't apply to that platform rather than showing a fake zero. Auto
-// channels are populated by marketing-metrics-snapshot (hourly cron +
-// "sync now"); manual channels have no free API (TikTok needs business
-// API approval, Instagram needs Meta app review beyond what's connected,
-// X's read API is paid-tier-only) so the owner logs them by hand.
+// don't apply to that platform rather than showing a fake zero. autoMetrics
+// are populated by marketing-metrics-snapshot (hourly cron + "sync now");
+// manualMetrics have no free API access at that granularity (TikTok needs
+// business API approval, Instagram's saves/shares/views need
+// instagram_manage_insights -- a deeper permission than the instagram_basic
+// already requested, X's read API is paid-tier-only) so the owner logs
+// those by hand. Instagram is a hybrid: followers/likes/comments come free
+// from the same Facebook connection (instagram_basic), the rest doesn't.
 const CHANNELS: ChannelDef[] = [
-  { channel: "website", label: "เว็บไซต์", icon: Globe, metrics: ["views"], auto: true },
-  { channel: "youtube", label: "YouTube", icon: Youtube, metrics: ["followers", "views", "likes", "comments"], auto: true },
-  { channel: "facebook", label: "Facebook", icon: Facebook, metrics: ["followers", "likes", "comments", "shares"], auto: true },
-  { channel: "tiktok", label: "TikTok", icon: Music2, metrics: ["followers", "likes", "views", "shares", "comments", "saves"], auto: false },
-  { channel: "instagram", label: "Instagram", icon: Instagram, metrics: ["followers", "likes", "views", "shares", "comments", "saves"], auto: false },
-  { channel: "x", label: "X (Twitter)", icon: Twitter, metrics: ["followers", "likes", "views", "shares", "comments", "reposts"], auto: false },
+  { channel: "website", label: "เว็บไซต์", icon: Globe, autoMetrics: ["views"], manualMetrics: [] },
+  { channel: "youtube", label: "YouTube", icon: Youtube, autoMetrics: ["followers", "views", "likes", "comments"], manualMetrics: [] },
+  { channel: "facebook", label: "Facebook", icon: Facebook, autoMetrics: ["followers", "likes", "comments", "shares"], manualMetrics: [] },
+  { channel: "instagram", label: "Instagram", icon: Instagram, autoMetrics: ["followers", "likes", "comments"], manualMetrics: ["views", "shares", "saves"] },
+  { channel: "tiktok", label: "TikTok", icon: Music2, autoMetrics: [], manualMetrics: ["followers", "likes", "views", "shares", "comments", "saves"] },
+  { channel: "x", label: "X (Twitter)", icon: Twitter, autoMetrics: [], manualMetrics: ["followers", "likes", "views", "shares", "comments", "reposts"] },
 ];
 
 const CHART_COLORS: Record<Channel, string> = {
@@ -159,7 +162,7 @@ export function MarketingDashboardView() {
       const repos = createRepositories(supabase);
       const userId = userData.user?.id ?? null;
 
-      for (const metric of def.metrics) {
+      for (const metric of def.manualMetrics) {
         const raw = manualForm[`${def.channel}:${metric}`];
         if (!raw || raw.trim() === "") continue;
         const value = Number(raw);
@@ -172,7 +175,7 @@ export function MarketingDashboardView() {
 
       setManualForm((prev) => {
         const next = { ...prev };
-        for (const metric of def.metrics) delete next[`${def.channel}:${metric}`];
+        for (const metric of def.manualMetrics) delete next[`${def.channel}:${metric}`];
         return next;
       });
       loadSnapshots();
@@ -182,7 +185,7 @@ export function MarketingDashboardView() {
   }
 
   const chartData = useMemo(() => (snapshots ? buildFollowerChartData(snapshots) : []), [snapshots]);
-  const followerChannels = CHANNELS.filter((c) => c.metrics.includes("followers"));
+  const followerChannels = CHANNELS.filter((c) => c.autoMetrics.includes("followers") || c.manualMetrics.includes("followers"));
   const gridColor = isDark ? "rgb(237 232 224 / 0.1)" : "rgb(28 22 14 / 0.08)";
   const textColor = isDark ? "rgb(237 232 224 / 0.5)" : "rgb(28 22 14 / 0.5)";
 
@@ -214,7 +217,7 @@ export function MarketingDashboardView() {
         const daysOfHistory = earliest ? (Date.now() - new Date(earliest).getTime()) / (24 * 60 * 60 * 1000) : 0;
         return daysOfHistory < 1 ? (
           <p className="text-xs text-secondary/40">
-            ระบบเพิ่งเริ่มเก็บข้อมูลไม่นานนี้ — ตัวเลขจะยังเหมือนกันในทุกช่วงเวลาจนกว่าจะมีข้อมูลสะสมข้ามวัน (ระบบซิงค์ให้อัตโนมัติทุกชั่วโมง หรือกดกรอกยอดเองสำหรับ TikTok/Instagram/X)
+            ระบบเพิ่งเริ่มเก็บข้อมูลไม่นานนี้ — ตัวเลขจะยังเหมือนกันในทุกช่วงเวลาจนกว่าจะมีข้อมูลสะสมข้ามวัน (ระบบซิงค์ให้อัตโนมัติทุกชั่วโมง หรือกดกรอกยอดเองสำหรับช่องที่ยังไม่มี API)
           </p>
         ) : null;
       })()}
@@ -225,14 +228,14 @@ export function MarketingDashboardView() {
             <CardHeader className="flex-row items-center gap-2 space-y-0 pb-2">
               <def.icon className="h-4 w-4 text-primary-accent" />
               <CardTitle className="text-sm">{def.label}</CardTitle>
-              {!def.auto ? <span className="ml-auto text-[10px] text-secondary/40">กรอกเอง</span> : null}
+              {def.manualMetrics.length > 0 ? <span className="ml-auto text-[10px] text-secondary/40">{def.autoMetrics.length > 0 ? "บางส่วนกรอกเอง" : "กรอกเอง"}</span> : null}
             </CardHeader>
             <CardContent className="space-y-3">
               {snapshots === null ? (
                 <p className="text-xs text-secondary/40">กำลังโหลด…</p>
               ) : (
                 <div className="space-y-1.5">
-                  {def.metrics.map((metric) => {
+                  {[...def.autoMetrics, ...def.manualMetrics].map((metric) => {
                     const { current, delta } = summarize(snapshots, def.channel, metric);
                     return (
                       <div key={metric} className="flex items-center justify-between text-sm">
@@ -255,10 +258,10 @@ export function MarketingDashboardView() {
                 </div>
               )}
 
-              {!def.auto ? (
+              {def.manualMetrics.length > 0 ? (
                 <div className="space-y-2 border-t border-line/10 pt-3">
                   <div className="grid grid-cols-2 gap-1.5">
-                    {def.metrics.map((metric) => (
+                    {def.manualMetrics.map((metric) => (
                       <Input
                         key={metric}
                         type="number"
