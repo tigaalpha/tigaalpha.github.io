@@ -12,7 +12,7 @@
 import { geminiProvider } from "./gemini.ts";
 import type { AIProvider, ChatMessage, GeneratedImage, GenerateResult, ToolDefinition } from "./ai-types.ts";
 import { generateOpenAICompatible } from "./openai-compatible.ts";
-import { generateClaudeChat } from "./claude.ts";
+import { OPENROUTER_BASE_URL, requireOpenRouterKey } from "./openrouter.ts";
 import { createAdminClient } from "./supabase-admin.ts";
 
 export type { AIProvider, ChatMessage, ChatRole, GeneratedImage, GenerateResult, ToolCall, ToolDefinition } from "./ai-types.ts";
@@ -25,18 +25,30 @@ export interface ChatModelDef {
   envKey: string;
 }
 
-// Model name defaults are env-overridable (e.g. ANTHROPIC_CHAT_MODEL) since
-// providers rev their flagship model names often -- update the Supabase
-// secret rather than requiring a redeploy when a provider ships a new one.
+// Every model but Gemini is reached through OpenRouter now (one key, one
+// prepaid balance) -- see openrouter.ts for why.
 export const CHAT_MODELS: ChatModelDef[] = [
   { id: "gemini", label: "Gemini 2.0 Flash", envKey: "GEMINI_API_KEY" },
-  { id: "claude", label: "Claude Sonnet 5", envKey: "ANTHROPIC_API_KEY" },
-  { id: "gpt", label: "ChatGPT 5.1", envKey: "OPENAI_API_KEY" },
-  { id: "qwen", label: "Qwen3.5 Max", envKey: "DASHSCOPE_API_KEY" },
-  { id: "kimi", label: "Kimi K2", envKey: "MOONSHOT_API_KEY" },
-  { id: "glm", label: "GLM 5.2", envKey: "ZHIPU_API_KEY" },
-  { id: "grok", label: "Grok (ฟรี)", envKey: "XAI_API_KEY" },
+  { id: "claude", label: "Claude Sonnet 5", envKey: "OPENROUTER_API_KEY" },
+  { id: "gpt", label: "ChatGPT 5.1", envKey: "OPENROUTER_API_KEY" },
+  { id: "qwen", label: "Qwen3 Max", envKey: "OPENROUTER_API_KEY" },
+  { id: "kimi", label: "Kimi K2", envKey: "OPENROUTER_API_KEY" },
+  { id: "glm", label: "GLM 4.6", envKey: "OPENROUTER_API_KEY" },
+  { id: "grok", label: "Grok", envKey: "OPENROUTER_API_KEY" },
 ];
+
+// OpenRouter model slugs, one env var per model so the owner can repoint a
+// slug (e.g. when a provider ships a new flagship) via Supabase secrets
+// without a redeploy -- same escape hatch these vars already offered when
+// they held each vendor's native model name.
+const OPENROUTER_MODEL_SLUGS: Record<Exclude<ChatModelId, "gemini">, { envVar: string; slug: string }> = {
+  claude: { envVar: "ANTHROPIC_CHAT_MODEL", slug: "anthropic/claude-sonnet-5" },
+  gpt: { envVar: "OPENAI_CHAT_MODEL", slug: "openai/gpt-5.1" },
+  qwen: { envVar: "DASHSCOPE_CHAT_MODEL", slug: "qwen/qwen3-max" },
+  kimi: { envVar: "MOONSHOT_CHAT_MODEL", slug: "moonshotai/kimi-k2" },
+  glm: { envVar: "ZHIPU_CHAT_MODEL", slug: "z-ai/glm-4.6" },
+  grok: { envVar: "XAI_CHAT_MODEL", slug: "x-ai/grok-4" },
+};
 
 const CHAT_MODEL_SETTING_KEY = "ai_chat_model";
 const DEFAULT_CHAT_MODEL: ChatModelId = "gemini";
@@ -56,12 +68,6 @@ async function getActiveChatModel(): Promise<ChatModelId> {
   return value;
 }
 
-function requireKey(envKey: string): string {
-  const value = Deno.env.get(envKey);
-  if (!value) throw new Error(`${envKey} is not configured in Supabase secrets.`);
-  return value;
-}
-
 async function generateWithModel(
   modelId: ChatModelId,
   messages: ChatMessage[],
@@ -69,45 +75,12 @@ async function generateWithModel(
   temperature?: number,
   maxOutputTokens?: number
 ): Promise<GenerateResult> {
-  switch (modelId) {
-    case "gemini":
-      return geminiProvider.generate(messages, tools, temperature, maxOutputTokens);
-    case "claude": {
-      const apiKey = requireKey("ANTHROPIC_API_KEY");
-      const model = Deno.env.get("ANTHROPIC_CHAT_MODEL") ?? "claude-sonnet-5";
-      return generateClaudeChat(apiKey, model, messages, tools, maxOutputTokens, temperature);
-    }
-    case "gpt": {
-      const apiKey = requireKey("OPENAI_API_KEY");
-      const baseUrl = Deno.env.get("OPENAI_BASE_URL") ?? "https://api.openai.com/v1";
-      const model = Deno.env.get("OPENAI_CHAT_MODEL") ?? "gpt-5.1";
-      return generateOpenAICompatible({ baseUrl, apiKey, model }, messages, tools, maxOutputTokens, temperature);
-    }
-    case "qwen": {
-      const apiKey = requireKey("DASHSCOPE_API_KEY");
-      const baseUrl = Deno.env.get("DASHSCOPE_BASE_URL") ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
-      const model = Deno.env.get("DASHSCOPE_CHAT_MODEL") ?? "qwen3.5-max";
-      return generateOpenAICompatible({ baseUrl, apiKey, model }, messages, tools, maxOutputTokens, temperature);
-    }
-    case "kimi": {
-      const apiKey = requireKey("MOONSHOT_API_KEY");
-      const baseUrl = Deno.env.get("MOONSHOT_BASE_URL") ?? "https://api.moonshot.ai/v1";
-      const model = Deno.env.get("MOONSHOT_CHAT_MODEL") ?? "kimi-k2-0905-preview";
-      return generateOpenAICompatible({ baseUrl, apiKey, model }, messages, tools, maxOutputTokens, temperature);
-    }
-    case "glm": {
-      const apiKey = requireKey("ZHIPU_API_KEY");
-      const baseUrl = Deno.env.get("ZHIPU_BASE_URL") ?? "https://api.z.ai/api/paas/v4";
-      const model = Deno.env.get("ZHIPU_CHAT_MODEL") ?? "glm-5.2";
-      return generateOpenAICompatible({ baseUrl, apiKey, model }, messages, tools, maxOutputTokens, temperature);
-    }
-    case "grok": {
-      const apiKey = requireKey("XAI_API_KEY");
-      const baseUrl = Deno.env.get("XAI_BASE_URL") ?? "https://api.x.ai/v1";
-      const model = Deno.env.get("XAI_CHAT_MODEL") ?? "grok-4-fast-free";
-      return generateOpenAICompatible({ baseUrl, apiKey, model }, messages, tools, maxOutputTokens, temperature);
-    }
-  }
+  if (modelId === "gemini") return geminiProvider.generate(messages, tools, temperature, maxOutputTokens);
+
+  const apiKey = requireOpenRouterKey();
+  const { envVar, slug } = OPENROUTER_MODEL_SLUGS[modelId];
+  const model = Deno.env.get(envVar) ?? slug;
+  return generateOpenAICompatible({ baseUrl: OPENROUTER_BASE_URL, apiKey, model }, messages, tools, maxOutputTokens, temperature);
 }
 
 export async function generate(

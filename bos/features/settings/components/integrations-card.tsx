@@ -23,23 +23,8 @@ interface StatusResponse {
   googleCalendar: StatusCheck;
   gemini: StatusCheck;
   youtube: StatusCheck;
-  claude: StatusCheck;
-  gpt: StatusCheck;
-  grok: StatusCheck;
-  deepseek: StatusCheck;
-  kimi: StatusCheck;
-  glm: StatusCheck;
-  qwen: StatusCheck;
+  openrouter: StatusCheck;
 }
-
-const STRATEGY_PROVIDERS: { key: keyof StatusResponse; label: string; secretName: string; signupUrl: string }[] = [
-  { key: "claude", label: "Claude (Anthropic)", secretName: "ANTHROPIC_API_KEY", signupUrl: "https://console.anthropic.com/settings/keys" },
-  { key: "gpt", label: "GPT (OpenAI)", secretName: "OPENAI_API_KEY", signupUrl: "https://platform.openai.com/api-keys" },
-  { key: "grok", label: "Grok (xAI)", secretName: "XAI_API_KEY", signupUrl: "https://console.x.ai" },
-  { key: "deepseek", label: "DeepSeek", secretName: "DEEPSEEK_API_KEY", signupUrl: "https://platform.deepseek.com/api_keys" },
-  { key: "kimi", label: "Kimi (Moonshot AI)", secretName: "MOONSHOT_API_KEY", signupUrl: "https://platform.moonshot.ai/console/api-keys" },
-  { key: "glm", label: "GLM (Zhipu / Z.ai)", secretName: "ZHIPU_API_KEY", signupUrl: "https://open.bigmodel.cn/usercenter/apikeys" },
-];
 
 function StatusBadge({ status }: { status: StatusCheck | null }) {
   if (!status) return <Badge variant="outline">Checking…</Badge>;
@@ -531,6 +516,34 @@ export function IntegrationsCard() {
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">
           <div className="flex items-center justify-between">
+            <p className="font-medium text-secondary">OpenRouter (Claude, GPT, Grok, DeepSeek, Kimi, GLM, Qwen)</p>
+            <StatusBadge status={status?.openrouter ?? null} />
+          </div>
+          {status?.openrouter ? <p className="text-xs text-secondary/50">{status.openrouter.detail}</p> : null}
+          <p className="text-sm text-secondary/70">
+            โมเดล AI ทุกตัวนอกจาก Gemini (ทั้งของ TIGA AI Agent ด้านล่าง และห้องกลยุทธ์ Strategy Room) เชื่อมผ่าน{" "}
+            <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
+              OpenRouter
+            </a>{" "}
+            จุดเดียว — เติมเงิน (Credits) ที่ OpenRouter ที่เดียว ใช้ได้กับทุกโมเดลด้านล่าง ไม่ต้องสมัครและเติมเงินแยกทีละเจ้า
+          </p>
+          <div className="space-y-1 pt-2 text-sm text-secondary/70">
+            <p>
+              1. สมัคร{" "}
+              <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
+                openrouter.ai/keys
+              </a>{" "}
+              → สร้าง API key → เติมเงิน (Credits) ตามที่ต้องการใช้
+            </p>
+            <p>
+              2. นำ API key ไปวางใน Supabase Dashboard → Edge Functions → Secrets เป็น{" "}
+              <code className="rounded bg-line/5 px-1">OPENROUTER_API_KEY</code>
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <div className="flex items-center justify-between">
             <p className="font-medium text-secondary">YouTube Data API (สำหรับหน้า Marketing Channels)</p>
             <StatusBadge status={status?.youtube ?? null} />
           </div>
@@ -560,8 +573,8 @@ export function IntegrationsCard() {
           <p className="font-medium text-secondary">โมเดล AI ของ TIGA AI Agent</p>
           <p className="text-xs text-secondary/50">
             เลือกโมเดลที่ต้องการให้ TIGA AI Agent ใช้ (มีผลกับแชท TIGA AI Agent และแชทลูกค้าทาง LINE/เว็บ — ยังไม่ครอบคลุมเครื่องมือสร้าง
-            เนื้อหาแยก เช่น เขียนบทความ/สคริปต์วิดีโอ ซึ่งยังใช้ Gemini เหมือนเดิม) แต่ละโมเดลนอกจาก Gemini ต้องตั้งค่า API key เป็น
-            Supabase secret ตามชื่อที่กำกับไว้ก่อนถึงจะเลือกใช้งานได้จริง — ถ้ายังไม่ได้ตั้ง key ของโมเดลที่เลือก ระบบจะแจ้ง error ตอนใช้งานแชท
+            เนื้อหาแยก เช่น เขียนบทความ/สคริปต์วิดีโอ ซึ่งยังใช้ Gemini เหมือนเดิม) โมเดลนอกจาก Gemini ต้องเชื่อมต่อ OpenRouter ก่อน (ดูการ์ด
+            ด้านบน) ถึงจะเลือกใช้งานได้จริง — ถ้ายังไม่ได้ตั้ง OPENROUTER_API_KEY ระบบจะแจ้ง error ตอนใช้งานแชท
           </p>
           <select
             value={chatModel}
@@ -575,49 +588,14 @@ export function IntegrationsCard() {
               </option>
             ))}
           </select>
-          <div className="space-y-2 pt-2">
-            {CHAT_MODELS.filter((m) => m.id !== "gemini").map((m) => (
-              <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg bg-line/5 px-3 py-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm text-secondary">
-                    <a href={m.signupUrl} target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
-                      {m.label}
-                    </a>
-                  </p>
-                  <p className="truncate text-xs text-secondary/40">
-                    Secret: <code className="rounded bg-line/5 px-1">{m.secretName}</code>
-                  </p>
-                </div>
-                <StatusBadge status={status?.[m.statusKey] ?? null} />
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">
           <p className="font-medium text-secondary">AI สำหรับห้องกลยุทธ์ (Strategy Room)</p>
           <p className="text-xs text-secondary/50">
-            แต่ละตัวต้องขอ API key แยกจากเจ้าของแพลตฟอร์มเอง และมีค่าใช้จ่ายแยกกันตามการใช้งานจริง — ไปสร้าง key ตามลิงก์ แล้ววางใน
-            Supabase Dashboard → Edge Functions → Secrets ด้วยชื่อ secret ที่กำกับไว้ (ไม่ต้องกรอกในเว็บนี้ ไม่มีช่องให้กรอก)
+            Claude, GPT, Grok, DeepSeek, Kimi, GLM ในห้องกลยุทธ์ใช้การเชื่อมต่อ OpenRouter เดียวกับ TIGA AI Agent ด้านบน — เชื่อมครั้ง
+            เดียวใช้ได้ทุกตัว ไม่ต้องตั้งค่าเพิ่มที่นี่
           </p>
-          <div className="space-y-2 pt-2">
-            {STRATEGY_PROVIDERS.map((provider) => (
-              <div key={provider.key} className="flex items-center justify-between gap-2 rounded-lg bg-line/5 px-3 py-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm text-secondary">
-                    <a href={provider.signupUrl} target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
-                      {provider.label}
-                    </a>
-                  </p>
-                  <p className="truncate text-xs text-secondary/40">
-                    Secret: <code className="rounded bg-line/5 px-1">{provider.secretName}</code>
-                    {status?.[provider.key] ? ` — ${status[provider.key].detail}` : ""}
-                  </p>
-                </div>
-                <StatusBadge status={status?.[provider.key] ?? null} />
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">
