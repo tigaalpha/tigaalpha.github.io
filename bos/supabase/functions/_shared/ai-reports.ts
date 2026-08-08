@@ -52,7 +52,7 @@ export async function generateDailyBriefing(admin: SupabaseClient): Promise<{ id
     admin.from("transactions").select("type, amount").eq("transaction_date", yesterdayStart),
     admin.from("customers").select("id", { count: "exact", head: true }).gte("created_at", yesterday.toISOString()),
     admin.from("bookings").select("id", { count: "exact", head: true }).gte("start_time", `${todayStart}T00:00:00`).lt("start_time", `${todayStart}T23:59:59`).neq("status", "cancelled"),
-    admin.from("tasks").select("id", { count: "exact", head: true }).eq("status", "open").eq("priority", "high"),
+    admin.from("tasks").select("id", { count: "exact", head: true }).eq("status", "open").eq("priority", "high").lt("due_at", now.toISOString()),
     admin.from("automation_runs").select("id", { count: "exact", head: true }).eq("status", "failed").gte("started_at", yesterday.toISOString()),
   ]);
 

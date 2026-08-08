@@ -127,15 +127,26 @@ export function ApprovalsManager() {
                   <p className="mb-1 text-sm text-secondary">{describePayload(request)}</p>
                   {request.reason ? <p className="mb-3 text-xs text-secondary/60">เหตุผล: {request.reason}</p> : null}
                   {request.type === "ai_drafted_message" ? (
-                    <Textarea
-                      value={drafts[request.id] ?? ""}
-                      onChange={(e) => setDrafts((prev) => ({ ...prev, [request.id]: e.target.value }))}
-                      className="mb-3 min-h-24"
-                      placeholder="ข้อความที่ AI ร่างไว้ — แก้ไขได้ก่อนกดอนุมัติ"
-                    />
+                    <>
+                      <Textarea
+                        value={drafts[request.id] ?? ""}
+                        onChange={(e) => setDrafts((prev) => ({ ...prev, [request.id]: e.target.value }))}
+                        className="mb-2 min-h-24"
+                        placeholder="ข้อความที่ AI ร่างไว้ — แก้ไขได้ก่อนกดอนุมัติ"
+                      />
+                      {!(request.payload as Record<string, unknown>).hasLineConnection ? (
+                        <p className="mb-3 text-xs text-danger">
+                          ลูกค้าคนนี้ยังไม่เคยทักแชท LINE มา — ส่งข้อความนี้ให้ไม่ได้จนกว่าลูกค้าจะทักมาก่อน (กดอนุมัติจะไม่สำเร็จ)
+                        </p>
+                      ) : null}
+                    </>
                   ) : null}
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => resolve(request.id, "approve", request)} disabled={busyId === request.id}>
+                    <Button
+                      size="sm"
+                      onClick={() => resolve(request.id, "approve", request)}
+                      disabled={busyId === request.id || (request.type === "ai_drafted_message" && !(request.payload as Record<string, unknown>).hasLineConnection)}
+                    >
                       <Check className="h-3 w-3" />
                       อนุมัติ{request.type === "ai_drafted_message" ? "และส่ง" : ""}
                     </Button>
