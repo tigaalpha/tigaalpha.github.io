@@ -36,6 +36,7 @@ import { TasksRepository } from "./tasks.repository";
 import { ReceiptsRepository } from "./receipts.repository";
 import { TimelineRepository } from "./timeline.repository";
 import { AiReportsRepository } from "./ai-reports.repository";
+import { AgentWorkflowsRepository } from "./agent-workflows.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -80,6 +81,7 @@ export function createRepositories(db: SupabaseClient<Database>) {
     receipts: new ReceiptsRepository(db),
     timeline: new TimelineRepository(db),
     aiReports: new AiReportsRepository(db),
+    agentWorkflows: new AgentWorkflowsRepository(db),
   };
 }
 
