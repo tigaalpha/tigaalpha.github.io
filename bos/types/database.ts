@@ -119,6 +119,7 @@ export interface Database {
           lead_source: string | null;
           notes: string | null;
           last_contact_at: string | null;
+          lead_score: number;
           created_at: string;
           updated_at: string;
         };
@@ -178,6 +179,7 @@ export interface Database {
           to_status: SalesStatus;
           note: string | null;
           changed_by: string | null;
+          lost_reason: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["sales_status_history"]["Row"]> & {
