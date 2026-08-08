@@ -1,3 +1,5 @@
+import { computeLineSignature, constantTimeEqual } from "./line-signature.ts";
+
 const LINE_API_BASE = "https://api.line.me/v2/bot";
 
 export async function verifySignature(rawBody: string, signature: string | null): Promise<boolean> {
@@ -5,25 +7,8 @@ export async function verifySignature(rawBody: string, signature: string | null)
   const secret = Deno.env.get("LINE_CHANNEL_SECRET");
   if (!secret) return false;
 
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const expectedBytes = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-  const expectedB64 = btoa(String.fromCharCode(...new Uint8Array(expectedBytes)));
-
-  // Constant-time comparison -- a naive === lets response-timing leak how
-  // many leading bytes matched, which over enough requests can help an
-  // attacker forge a valid signature.
-  if (expectedB64.length !== signature.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expectedB64.length; i++) {
-    diff |= expectedB64.charCodeAt(i) ^ signature.charCodeAt(i);
-  }
-  return diff === 0;
+  const expected = await computeLineSignature(rawBody, secret);
+  return constantTimeEqual(expected, signature);
 }
 
 async function call(path: string, body: unknown): Promise<void> {
