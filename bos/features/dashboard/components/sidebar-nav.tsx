@@ -34,6 +34,7 @@ import {
   ChevronDown,
   HeartPulse,
   Smartphone,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -110,6 +111,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "System",
     items: [
       { href: "/tiga-agent", label: "TIGA AI Agent", icon: Bot, ownerOnly: true },
+      { href: "/automation", label: "Automation", icon: Workflow, ownerOnly: true },
       { href: "/approvals", label: "การอนุมัติ", icon: ShieldCheck },
       { href: "/data-health", label: "Data Health", icon: HeartPulse },
       { href: "/system-health", label: "System Health", icon: Activity },
