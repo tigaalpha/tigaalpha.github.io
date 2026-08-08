@@ -35,6 +35,39 @@ interface PlannedTask {
   question: string;
 }
 
+const MAX_RECOMMENDED_ACTIONS = 5;
+
+const RETURN_SYNTHESIS_TOOL: ToolDefinition = {
+  name: "return_synthesis",
+  description: "Return the strategic report and a short list of concrete, assignable recommended next actions.",
+  parameters: {
+    type: "object",
+    properties: {
+      report: { type: "string", description: "The full strategic report in Thai, synthesizing all agent findings." },
+      recommendedActions: {
+        type: "array",
+        description: "0-5 concrete, assignable next steps. Omit if nothing concrete to recommend.",
+        items: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+            priority: { type: "string", enum: ["high", "medium", "low"] },
+          },
+          required: ["title", "description", "priority"],
+        },
+      },
+    },
+    required: ["report"],
+  },
+};
+
+interface RecommendedAction {
+  title: string;
+  description: string;
+  priority: "high" | "medium" | "low";
+}
+
 async function logUsage(admin: SupabaseClient, usage: { promptTokens: number; completionTokens: number } | undefined, source: string): Promise<void> {
   if (!usage) return;
   await admin.rpc("log_ai_usage", { p_model: "unknown", p_prompt_tokens: usage.promptTokens, p_completion_tokens: usage.completionTokens, p_source: source });
@@ -117,15 +150,22 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
         { role: "system", content: PROMPTS.ceo_synthesis },
         { role: "user", content: JSON.stringify({ goal, agentFindings: successfulOutputs, failedAgentCount: tasks.length - successfulOutputs.length }) },
       ],
-      undefined,
+      [RETURN_SYNTHESIS_TOOL],
       0.5,
       1536
     );
     await logUsage(admin, synthesisResult.usage, "agent-orchestrator:ceo_synthesis");
 
+    // Fall back to raw prose if the model didn't use the tool call -- never
+    // fail a completed workflow over a formatting miss.
+    const synthesisCall = synthesisResult.message.toolCalls?.find((c) => c.name === "return_synthesis");
+    const synthesisArgs = synthesisCall?.arguments as { report?: string; recommendedActions?: RecommendedAction[] } | undefined;
+    const report = synthesisArgs?.report ?? synthesisResult.message.content;
+    const recommendedActions = (synthesisArgs?.recommendedActions ?? []).slice(0, MAX_RECOMMENDED_ACTIONS);
+
     await admin
       .from("agent_workflow_runs")
-      .update({ status: "completed", final_report: synthesisResult.message.content, completed_at: new Date().toISOString() })
+      .update({ status: "completed", final_report: report, recommended_actions: recommendedActions, completed_at: new Date().toISOString() })
       .eq("id", workflowId);
 
     await admin.from("notifications").insert({

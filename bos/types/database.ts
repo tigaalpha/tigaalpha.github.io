@@ -735,6 +735,7 @@ export interface Database {
           goal: string;
           status: "running" | "completed" | "failed";
           final_report: string | null;
+          recommended_actions: { title: string; description: string; priority: "high" | "medium" | "low" }[] | null;
           created_by: string | null;
           created_at: string;
           completed_at: string | null;

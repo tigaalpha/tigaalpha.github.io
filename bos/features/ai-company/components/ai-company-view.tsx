@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Sparkles, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Building2, Sparkles, Clock, CheckCircle2, XCircle, ListTodo } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Tables } from "@/types/database";
 import type { WorkflowWithTasks } from "@/services/repositories/agent-workflows.repository";
+
+const PRIORITY_LABELS: Record<string, string> = { high: "สำคัญมาก", medium: "สำคัญปานกลาง", low: "สำคัญน้อย" };
+const PRIORITY_VARIANT: Record<string, "danger" | "outline"> = { high: "danger", medium: "outline", low: "outline" };
 
 // Mirrors supabase/functions/_shared/agents.ts -- Deno can't read this
 // frontend file at runtime, same reason chat-models.ts duplicates
@@ -32,6 +35,8 @@ export function AiCompanyView() {
   const [error, setError] = useState<string | null>(null);
   const [current, setCurrent] = useState<WorkflowWithTasks | null>(null);
   const [history, setHistory] = useState<Tables<"agent_workflow_runs">[] | null>(null);
+  const [creatingTaskIndex, setCreatingTaskIndex] = useState<number | null>(null);
+  const [createdTaskIndices, setCreatedTaskIndices] = useState<Set<number>>(new Set());
 
   function loadHistory() {
     const repos = createRepositories(createClient());
@@ -55,6 +60,7 @@ export function AiCompanyView() {
       const repos = createRepositories(supabase);
       const result = await repos.agentWorkflows.getRun(data.workflowId);
       setCurrent(result);
+      setCreatedTaskIndices(new Set());
       loadHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง");
@@ -67,6 +73,30 @@ export function AiCompanyView() {
     const repos = createRepositories(createClient());
     const result = await repos.agentWorkflows.getRun(id);
     setCurrent(result);
+    setCreatedTaskIndices(new Set());
+  }
+
+  async function handleCreateTask(action: { title: string; description: string; priority: string }, index: number) {
+    if (!current) return;
+    setCreatingTaskIndex(index);
+    try {
+      const supabase = createClient();
+      const { data: userData } = await supabase.auth.getUser();
+      const repos = createRepositories(supabase);
+      await repos.tasks.create(
+        {
+          title: action.title,
+          description: `${action.description}\n\n(จาก CEO Agent เป้าหมาย: "${current.workflow.goal}")`,
+          priority: (action.priority === "high" || action.priority === "medium" || action.priority === "low" ? action.priority : "medium") as "high" | "medium" | "low",
+        },
+        userData.user?.id ?? null
+      );
+      setCreatedTaskIndices((prev) => new Set(prev).add(index));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "สร้างงานไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setCreatingTaskIndex(null);
+    }
   }
 
   return (
@@ -136,6 +166,40 @@ export function AiCompanyView() {
               )}
             </CardContent>
           </Card>
+
+          {current.workflow.recommended_actions && current.workflow.recommended_actions.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ListTodo className="h-4 w-4 text-primary-accent" />
+                  สิ่งที่แนะนำให้ทำต่อ
+                </CardTitle>
+                <CardDescription>กดสร้างงานเพื่อบันทึกเข้าไปในรายการงาน — จะไม่มีอะไรเกิดขึ้นจนกว่าคุณจะกด</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {current.workflow.recommended_actions.map((action, index) => (
+                  <div key={index} className="flex items-start justify-between gap-3 rounded-lg bg-line/5 p-3">
+                    <div className="min-w-0">
+                      <div className="mb-1 flex items-center gap-2">
+                        <p className="text-sm font-medium text-secondary">{action.title}</p>
+                        <Badge variant={PRIORITY_VARIANT[action.priority] ?? "outline"}>{PRIORITY_LABELS[action.priority] ?? action.priority}</Badge>
+                      </div>
+                      <p className="text-xs text-secondary/60">{action.description}</p>
+                    </div>
+                    {createdTaskIndices.has(index) ? (
+                      <span className="flex shrink-0 items-center gap-1 text-xs text-success">
+                        <CheckCircle2 className="h-4 w-4" /> สร้างงานแล้ว
+                      </span>
+                    ) : (
+                      <Button variant="outline" size="sm" className="shrink-0" disabled={creatingTaskIndex === index} onClick={() => void handleCreateTask(action, index)}>
+                        {creatingTaskIndex === index ? "กำลังสร้าง…" : "สร้างงาน"}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       ) : null}
 

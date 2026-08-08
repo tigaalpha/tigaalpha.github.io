@@ -20,6 +20,7 @@ const TRIGGER_LABELS: Record<string, string> = {
   course_expired: "คอร์สหมดชั่วโมง",
   customer_inactive: "ลูกค้าเงียบหายไปนาน",
   booking_starting_soon: "ใกล้ถึงเวลาเรียน",
+  revenue_drop: "รายได้ลดลงผิดปกติ",
 };
 
 const ACTION_LABELS: Record<string, string> = {

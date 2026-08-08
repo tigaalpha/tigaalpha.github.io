@@ -206,6 +206,47 @@ async function processBookingReminderRule(admin: SupabaseClient, rule: RuleRow):
   }
 }
 
+// Compares net revenue (income - expense) over the trailing 7 days
+// against the 7 days before that. entityId is today's date so this fires
+// at most once/day (there's no per-row entity for a company-wide KPI).
+async function processRevenueDropRule(admin: SupabaseClient, rule: RuleRow): Promise<void> {
+  const thresholdPercent = Number(rule.trigger_config.thresholdPercent ?? 20);
+  const cooldownHours = Number(rule.trigger_config.cooldownHours ?? 24);
+  const todayKey = new Date().toISOString().slice(0, 10);
+
+  if (await withinCooldown(admin, rule.id, todayKey, cooldownHours)) return;
+
+  const now = Date.now();
+  const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const fourteenDaysAgo = new Date(now - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const { data: transactions, error } = await admin.from("transactions").select("type, amount, transaction_date").gte("transaction_date", fourteenDaysAgo);
+  if (error) throw error;
+
+  let netRecentWeek = 0;
+  let netPriorWeek = 0;
+  for (const t of transactions ?? []) {
+    const signedAmount = t.type === "income" ? t.amount : -t.amount;
+    if (t.transaction_date >= sevenDaysAgo) {
+      netRecentWeek += signedAmount;
+    } else {
+      netPriorWeek += signedAmount;
+    }
+  }
+
+  if (netPriorWeek <= 0) return;
+  const dropPercent = ((netPriorWeek - netRecentWeek) / netPriorWeek) * 100;
+  if (dropPercent < thresholdPercent) return;
+  if (!evaluateConditions(rule.conditions, { dropPercent })) return;
+
+  await runActionsAndLog(admin, rule, null, {
+    entityType: "kpi",
+    entityId: todayKey,
+    customerId: null,
+    summary: `รายได้สุทธิ 7 วันล่าสุด ${netRecentWeek.toLocaleString("th-TH")} บาท ลดลง ${dropPercent.toFixed(0)}% จาก 7 วันก่อนหน้า (${netPriorWeek.toLocaleString("th-TH")} บาท)`,
+  });
+}
+
 Deno.serve(async (req: Request) => {
   const cronSecret = Deno.env.get("CRON_SECRET");
   if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
@@ -232,6 +273,9 @@ Deno.serve(async (req: Request) => {
     }
     for (const rule of enabledRules.filter((r) => r.trigger_type === "booking_starting_soon")) {
       await processBookingReminderRule(admin, rule);
+    }
+    for (const rule of enabledRules.filter((r) => r.trigger_type === "revenue_drop")) {
+      await processRevenueDropRule(admin, rule);
     }
 
     return jsonResponse({ eventsProcessed, activeRules: enabledRules.length });
