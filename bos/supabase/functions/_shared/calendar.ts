@@ -2,6 +2,7 @@
 // the Edge Function bundle small and Deno-native).
 
 import { getGoogleAccessToken } from "./google-auth.ts";
+import { computeAvailableSlots } from "./availability.ts";
 
 const COLOR_ID: Record<"normal" | "final", string> = {
   normal: "5", // Banana (yellow)
@@ -87,43 +88,12 @@ export async function listEventsBetween(timeMin: string, timeMax: string): Promi
   }));
 }
 
-/**
- * Pure slot-finding over an already-known list of busy ranges — decoupled
- * from Google Calendar so callers that have a better (teacher-scoped)
- * source of busy time, like our own `bookings` table, don't have to go
- * through the shared, teacher-agnostic Google Calendar event list.
- */
-export function computeAvailableSlots(
-  busy: { start: string; end: string }[],
-  timeMin: string,
-  timeMax: string,
-  durationMinutes: number
-): { start: string; end: string }[] {
-  const slots: { start: string; end: string }[] = [];
-  const durationMs = durationMinutes * 60 * 1000;
-
-  let cursor = new Date(timeMin).getTime();
-  const end = new Date(timeMax).getTime();
-
-  while (cursor + durationMs <= end) {
-    const slotStart = cursor;
-    const slotEnd = cursor + durationMs;
-
-    const overlaps = busy.some((event) => {
-      const eventStart = new Date(event.start).getTime();
-      const eventEnd = new Date(event.end).getTime();
-      return slotStart < eventEnd && slotEnd > eventStart;
-    });
-
-    if (!overlaps) {
-      slots.push({ start: new Date(slotStart).toISOString(), end: new Date(slotEnd).toISOString() });
-    }
-
-    cursor += durationMs;
-  }
-
-  return slots;
-}
+// Decoupled from Google Calendar so callers that have a better
+// (teacher-scoped) source of busy time, like our own `bookings` table,
+// don't have to go through the shared, teacher-agnostic Google Calendar
+// event list. Lives in its own file (see availability.ts) so it can be
+// unit-tested without pulling in this file's Deno-only fetch/env calls.
+export { computeAvailableSlots };
 
 /** Whole-calendar (not teacher-scoped) availability — kept for any caller that genuinely wants "is anything on the shared calendar at this time". */
 export async function findAvailableSlots(timeMin: string, timeMax: string, durationMinutes: number): Promise<{ start: string; end: string }[]> {
