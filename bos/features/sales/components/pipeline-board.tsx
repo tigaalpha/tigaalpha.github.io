@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { KanbanSquare } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { SalesStatus, Tables } from "@/types/database";
 
 const COLUMNS: { status: SalesStatus; label: string }[] = [
@@ -23,6 +24,7 @@ export function PipelineBoard({ customers }: { customers: Tables<"customers">[] 
   const byStatus = new Map<SalesStatus, Tables<"customers">[]>();
   for (const column of COLUMNS) byStatus.set(column.status, []);
   for (const customer of customers) byStatus.get(customer.sales_status)?.push(customer);
+  for (const list of byStatus.values()) list.sort((a, b) => b.lead_score - a.lead_score);
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
@@ -41,7 +43,17 @@ export function PipelineBoard({ customers }: { customers: Tables<"customers">[] 
                 items.map((customer) => (
                   <Link key={customer.id} href={`/students/detail?id=${customer.id}`}>
                     <Card className="p-3 transition-shadow hover:shadow-card">
-                      <p className="text-sm font-medium text-secondary">{customer.name}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-medium text-secondary">{customer.name}</p>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                            customer.lead_score >= 70 ? "bg-success/10 text-success" : customer.lead_score >= 40 ? "bg-warning/10 text-warning" : "bg-line/10 text-secondary/40"
+                          )}
+                        >
+                          {customer.lead_score}
+                        </span>
+                      </div>
                       <p className="mt-0.5 truncate text-xs text-secondary/50">{customer.learning_goal ?? customer.phone ?? "—"}</p>
                     </Card>
                   </Link>

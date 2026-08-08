@@ -170,6 +170,42 @@ async function processInactiveCustomerRule(admin: SupabaseClient, rule: RuleRow)
   }
 }
 
+// Reminds a customer a few hours before their lesson (distinct from the
+// existing "lessons today" daily digest, which is an internal owner-facing
+// summary, not a customer-facing heads-up). Cooldown-based dedup (same
+// mechanism as course_ending_soon/customer_inactive) is what keeps this
+// from re-firing every 5-minute tick for the same booking while it stays
+// inside the reminder window.
+async function processBookingReminderRule(admin: SupabaseClient, rule: RuleRow): Promise<void> {
+  const hoursBefore = Number(rule.trigger_config.hoursBefore ?? 3);
+  const cooldownHours = Number(rule.trigger_config.cooldownHours ?? 24);
+  const now = new Date();
+  const windowEnd = new Date(now.getTime() + hoursBefore * 60 * 60 * 1000);
+
+  const { data: bookings, error } = await admin
+    .from("bookings")
+    .select("id, title, start_time, customer_id, customers(name, line_user_id)")
+    .neq("status", "cancelled")
+    .gte("start_time", now.toISOString())
+    .lte("start_time", windowEnd.toISOString());
+  if (error) throw error;
+
+  for (const booking of bookings ?? []) {
+    if (await withinCooldown(admin, rule.id, booking.id, cooldownHours)) continue;
+    if (!evaluateConditions(rule.conditions, {})) continue;
+
+    const customerName = (booking as { customers?: { name?: string } | null }).customers?.name ?? "-";
+    const timeStr = new Date(booking.start_time).toLocaleString("th-TH", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
+
+    await runActionsAndLog(admin, rule, null, {
+      entityType: "booking",
+      entityId: booking.id,
+      customerId: booking.customer_id,
+      summary: `อีกไม่กี่ชั่วโมงถึงเวลาคาบเรียน "${booking.title}" ของ ${customerName} เวลา ${timeStr} — อย่าลืมมาเรียนนะครับ/คะ`,
+    });
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const cronSecret = Deno.env.get("CRON_SECRET");
   if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
@@ -193,6 +229,9 @@ Deno.serve(async (req: Request) => {
     }
     for (const rule of enabledRules.filter((r) => r.trigger_type === "customer_inactive")) {
       await processInactiveCustomerRule(admin, rule);
+    }
+    for (const rule of enabledRules.filter((r) => r.trigger_type === "booking_starting_soon")) {
+      await processBookingReminderRule(admin, rule);
     }
 
     return jsonResponse({ eventsProcessed, activeRules: enabledRules.length });

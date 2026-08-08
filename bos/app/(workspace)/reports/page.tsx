@@ -5,6 +5,7 @@ import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { ReportsView } from "@/features/reports/components/reports-view";
 import { AiBusinessReports } from "@/features/reports/components/ai-business-reports";
+import { LostReasonBreakdown } from "@/features/reports/components/lost-reason-breakdown";
 import { OwnerOnlyGuard } from "@/features/auth/components/owner-only-guard";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SalesStatus } from "@/types/database";
@@ -59,6 +60,7 @@ export default function ReportsPage() {
         ) : (
           <Skeleton className="h-64" />
         )}
+        <LostReasonBreakdown />
         <AiBusinessReports />
       </div>
     </OwnerOnlyGuard>

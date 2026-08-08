@@ -10,7 +10,7 @@ const PIPELINE_ORDER: SalesStatus[] = [
 export class SalesRepository {
   constructor(private readonly db: SupabaseClient<Database>) {}
 
-  async changeStatus(customerId: string, toStatus: SalesStatus, note?: string, changedBy?: string): Promise<void> {
+  async changeStatus(customerId: string, toStatus: SalesStatus, note?: string, changedBy?: string, lostReason?: string): Promise<void> {
     const { data: customer, error: fetchError } = await this.db
       .from("customers")
       .select("sales_status")
@@ -24,11 +24,22 @@ export class SalesRepository {
       to_status: toStatus,
       note: note ?? null,
       changed_by: changedBy ?? null,
+      lost_reason: toStatus === "lost" ? (lostReason ?? null) : null,
     });
     if (historyError) throw historyError;
 
     const { error: updateError } = await this.db.from("customers").update({ sales_status: toStatus }).eq("id", customerId);
     if (updateError) throw updateError;
+  }
+
+  async lostReasonCounts(): Promise<Record<string, number>> {
+    const { data, error } = await this.db.from("sales_status_history").select("lost_reason").eq("to_status", "lost").not("lost_reason", "is", null);
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) {
+      if (row.lost_reason) counts[row.lost_reason] = (counts[row.lost_reason] ?? 0) + 1;
+    }
+    return counts;
   }
 
   async history(customerId: string): Promise<Tables<"sales_status_history">[]> {

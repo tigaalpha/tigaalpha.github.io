@@ -7,6 +7,7 @@ import { createRepositories } from "@/services/repositories";
 import { StudentDetail } from "@/features/students/components/student-detail";
 import { CustomerTimeline } from "@/features/students/components/customer-timeline";
 import { StudentProgressAi } from "@/features/students/components/student-progress-ai";
+import { SalesStatusChanger } from "@/features/students/components/sales-status-changer";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserX } from "lucide-react";
@@ -23,6 +24,14 @@ function StudentDetailContent() {
   const id = searchParams.get("id");
   const [data, setData] = useState<DetailData | null | "not_found">(null);
 
+  async function fetchDetail(customerId: string): Promise<DetailData | "not_found"> {
+    const repos = createRepositories(createClient());
+    const customer = await repos.customers.findById(customerId);
+    if (!customer) return "not_found";
+    const [courses, history] = await Promise.all([repos.courses.listForCustomer(customerId), repos.sales.history(customerId)]);
+    return { customer, courses, history };
+  }
+
   useEffect(() => {
     if (!id) {
       setData("not_found");
@@ -34,22 +43,18 @@ function StudentDetailContent() {
     // land after B's and overwrite the screen with the wrong customer —
     // the same pattern message-thread.tsx already guards against.
     let cancelled = false;
-    const repos = createRepositories(createClient());
-    repos.customers.findById(id).then(async (customer) => {
-      if (cancelled) return;
-      if (!customer) {
-        setData("not_found");
-        return;
-      }
-      const [courses, history] = await Promise.all([repos.courses.listForCustomer(id), repos.sales.history(id)]);
-      if (cancelled) return;
-      setData({ customer, courses, history });
+    fetchDetail(id).then((result) => {
+      if (!cancelled) setData(result);
     });
 
     return () => {
       cancelled = true;
     };
   }, [id]);
+
+  function reload() {
+    if (id) fetchDetail(id).then(setData);
+  }
 
   if (data === null) return <Skeleton className="h-96" />;
   if (data === "not_found") return <EmptyState icon={UserX} title="Customer not found" />;
@@ -61,6 +66,7 @@ function StudentDetailContent() {
         <p className="text-sm text-secondary/50">Customer profile</p>
       </div>
       <StudentDetail customer={data.customer} courses={data.courses} history={data.history} />
+      <SalesStatusChanger customerId={data.customer.id} currentStatus={data.customer.sales_status} onChanged={reload} />
       <StudentProgressAi customerId={data.customer.id} />
       <CustomerTimeline customerId={data.customer.id} />
     </div>
