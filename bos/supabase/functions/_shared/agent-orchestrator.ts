@@ -5,6 +5,7 @@ import { AGENTS, isKnownAgentId } from "./agents.ts";
 import { runAgentTask } from "./agent-tasks.ts";
 import type { ToolDefinition } from "./ai-types.ts";
 import * as line from "./line.ts";
+import { logAiUsage } from "./usage-logging.ts";
 
 const MAX_TASKS = 4;
 
@@ -68,11 +69,6 @@ interface RecommendedAction {
   priority: "high" | "medium" | "low";
 }
 
-async function logUsage(admin: SupabaseClient, usage: { promptTokens: number; completionTokens: number } | undefined, source: string): Promise<void> {
-  if (!usage) return;
-  await admin.rpc("log_ai_usage", { p_model: "unknown", p_prompt_tokens: usage.promptTokens, p_completion_tokens: usage.completionTokens, p_source: source });
-}
-
 // The CEO Agent: goal -> plan (which specialists answer what) -> run them
 // in parallel against real CRM data -> synthesize one strategic report.
 // Nothing this produces executes automatically -- it's a report for the
@@ -93,7 +89,7 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
       0.4,
       1024
     );
-    await logUsage(admin, planResult.usage, "agent-orchestrator:ceo_planner");
+    await logAiUsage(admin, planResult.usage, "agent-orchestrator:ceo_planner");
 
     const call = planResult.message.toolCalls?.find((c) => c.name === "return_task_plan");
     const rawTasks = (call?.arguments as { tasks?: PlannedTask[] } | undefined)?.tasks ?? [];
@@ -111,7 +107,7 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
         const startedAt = new Date().toISOString();
         try {
           const result = await runAgentTask(admin, task.agentId, task.question);
-          await logUsage(admin, result.usage, `agent-orchestrator:${task.agentId}`);
+          await logAiUsage(admin, result.usage, `agent-orchestrator:${task.agentId}`);
           await admin.from("agent_task_runs").insert({
             workflow_run_id: workflowId,
             agent_id: task.agentId,
@@ -154,7 +150,7 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
       0.5,
       1536
     );
-    await logUsage(admin, synthesisResult.usage, "agent-orchestrator:ceo_synthesis");
+    await logAiUsage(admin, synthesisResult.usage, "agent-orchestrator:ceo_synthesis");
 
     // Fall back to raw prose if the model didn't use the tool call -- never
     // fail a completed workflow over a formatting miss.

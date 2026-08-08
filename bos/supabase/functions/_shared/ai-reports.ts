@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { generate } from "./ai-provider.ts";
-import type { GenerateResult } from "./ai-types.ts";
 import { PROMPTS } from "./prompts.ts";
 import { requestApproval } from "./approvals.ts";
+import { logAiUsage } from "./usage-logging.ts";
 
 // The one shared "AI does an analysis/drafting job" primitive for Level 3
 // (see the "AI Workforce" plan) -- every report_type here follows the same
@@ -11,16 +11,6 @@ import { requestApproval } from "./approvals.ts";
 // alongside a fixed prompt from prompts.ts, log token usage, store the
 // result in ai_reports. Adding a future report is a new case here + a new
 // prompt, not a new subsystem.
-
-async function logUsage(admin: SupabaseClient, result: GenerateResult, source: string): Promise<void> {
-  if (!result.usage) return;
-  await admin.rpc("log_ai_usage", {
-    p_model: "unknown", // the active chat model isn't threaded back from generate() today; good enough for aggregate cost tracking, not per-model breakdown yet
-    p_prompt_tokens: result.usage.promptTokens,
-    p_completion_tokens: result.usage.completionTokens,
-    p_source: source,
-  });
-}
 
 async function saveReport(
   admin: SupabaseClient,
@@ -78,7 +68,7 @@ export async function generateDailyBriefing(admin: SupabaseClient): Promise<{ id
     0.5,
     1024
   );
-  await logUsage(admin, result, "ai-briefing-runner:daily_briefing");
+  await logAiUsage(admin, result.usage, "ai-briefing-runner:daily_briefing");
 
   return saveReport(admin, {
     reportType: "daily_briefing",
@@ -133,7 +123,7 @@ export async function generateWeeklyBusinessReport(admin: SupabaseClient): Promi
     0.5,
     1536
   );
-  await logUsage(admin, result, "ai-briefing-runner:weekly_business_report");
+  await logAiUsage(admin, result.usage, "ai-briefing-runner:weekly_business_report");
 
   return saveReport(admin, {
     reportType: "weekly_business_report",
@@ -176,7 +166,7 @@ export async function generateStudentProgress(admin: SupabaseClient, customerId:
     0.6,
     1024
   );
-  await logUsage(admin, result, "generate-student-progress");
+  await logAiUsage(admin, result.usage, "generate-student-progress");
 
   return saveReport(admin, {
     reportType: "student_progress",
@@ -219,7 +209,7 @@ export async function draftSalesFollowup(admin: SupabaseClient, customerId: stri
     0.7,
     512
   );
-  await logUsage(admin, result, "automation-engine-runner:draft_followup_message");
+  await logAiUsage(admin, result.usage, "automation-engine-runner:draft_followup_message");
 
   const report = await saveReport(admin, {
     reportType: "sales_followup_draft",

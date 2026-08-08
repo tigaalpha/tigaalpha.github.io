@@ -8,6 +8,7 @@ import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
 
 const RETURN_LESSON_ARTICLE_TOOL: ToolDefinition = {
   name: "return_lesson_article",
@@ -69,6 +70,7 @@ Deno.serve(async (req: Request) => {
       0.7,
       4096
     );
+    await logAiUsage(admin, result.usage, "generate-course-article");
 
     const call = result.message.toolCalls?.find((c) => c.name === "return_lesson_article");
     if (!call) {

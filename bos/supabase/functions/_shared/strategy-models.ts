@@ -42,14 +42,19 @@ export function availableStrategyModels(): StrategyModelDef[] {
   return STRATEGY_MODELS.filter((m) => Boolean(Deno.env.get(m.envKey)));
 }
 
-export async function callStrategyModel(modelId: StrategyModelId, messages: SimpleChatMessage[]): Promise<string> {
+export interface StrategyModelResult {
+  content: string;
+  usage?: { promptTokens: number; completionTokens: number };
+}
+
+export async function callStrategyModel(modelId: StrategyModelId, messages: SimpleChatMessage[]): Promise<StrategyModelResult> {
   if (modelId === "gemini") {
     // Pinned to the raw Gemini provider (not ai-provider.ts's swappable
     // generate()) so the "Gemini" advisor in this side-by-side comparison
     // always means Gemini, regardless of what TIGA AI AGENT's chat model is
     // currently set to in Settings.
     const result = await geminiProvider.generate(messages, undefined, 0.7, 2048);
-    return result.message.content;
+    return { content: result.message.content, usage: result.usage };
   }
 
   const apiKey = requireOpenRouterKey();

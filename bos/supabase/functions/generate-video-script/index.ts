@@ -7,6 +7,7 @@ import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
 
 const RETURN_SCRIPT_TOOL: ToolDefinition = {
   name: "return_video_script",
@@ -72,6 +73,7 @@ Deno.serve(async (req: Request) => {
       0.8,
       2048
     );
+    await logAiUsage(admin, result.usage, "generate-video-script");
 
     const call = result.message.toolCalls?.find((c) => c.name === "return_video_script");
     const args = call ? (call.arguments as unknown as ReturnScriptArgs) : null;

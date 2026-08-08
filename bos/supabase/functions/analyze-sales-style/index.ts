@@ -5,6 +5,7 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { generate, embed } from "../_shared/ai-provider.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
 
 interface ChatTurn {
   speaker: "customer" | "owner";
@@ -50,6 +51,7 @@ Deno.serve(async (req: Request) => {
       0.4,
       2048
     );
+    await logAiUsage(admin, result.usage, "analyze-sales-style");
     const playbook = result.message.content;
     if (!playbook) {
       return jsonResponse({ error: "AI สรุปเพลย์บุ๊กไม่สำเร็จ ลองใหม่อีกครั้ง" }, 502);

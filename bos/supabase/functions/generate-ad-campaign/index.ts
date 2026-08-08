@@ -6,6 +6,7 @@ import { generate, embed } from "../_shared/ai-provider.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
 
 // AI drafts strategy/creative only — it never spends money or calls any ad
 // platform's API. The campaign stays status='draft' here; it only becomes
@@ -83,6 +84,7 @@ Deno.serve(async (req: Request) => {
       0.7,
       2048
     );
+    await logAiUsage(admin, result.usage, "generate-ad-campaign");
 
     const call = result.message.toolCalls?.find((c) => c.name === "return_campaign");
     const args = call ? (call.arguments as unknown as CampaignArgs) : null;
