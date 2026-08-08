@@ -4,6 +4,7 @@ import type { ChatMessage } from "./ai-types.ts";
 import { buildSystemPrompt, type PromptName } from "./prompts.ts";
 import { AI_TOOLS, OWNER_TOOLS, executeTool } from "./tools.ts";
 import { getLatestCompetitorContext } from "./competitor-context.ts";
+import { logAiUsage } from "./usage-logging.ts";
 
 const MAX_TOOL_ITERATIONS = 4;
 const RECENT_MESSAGE_LIMIT = 12;
@@ -141,12 +142,14 @@ export async function respond(
   while (iterations < MAX_TOOL_ITERATIONS) {
     iterations += 1;
     const result = await generate(messages, tools);
+    await logAiUsage(db, result.usage, "chat-core:respond");
 
     if (result.finishReason !== "tool_calls" || !result.message.toolCalls?.length) {
       if (isDegenerateReply(result.message.content)) {
         // A stochastic degenerate reply usually doesn't repeat on a fresh
         // sample from the same prompt, so retry once before falling back.
         const retry = await generate(messages, tools);
+        await logAiUsage(db, retry.usage, "chat-core:respond");
         result.message.content =
           retry.finishReason !== "tool_calls" && !isDegenerateReply(retry.message.content)
             ? retry.message.content
@@ -218,6 +221,7 @@ async function maybeSummarize(db: SupabaseClient, conversationId: string, existi
     },
     { role: "user", content: transcript },
   ]);
+  await logAiUsage(db, result.usage, "chat-core:summarize");
 
   await db.from("conversations").update({ summary: result.message.content }).eq("id", conversationId);
 }

@@ -4,6 +4,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { push } from "../_shared/line.ts";
 import { generate } from "../_shared/ai-provider.ts";
 import { buildSystemPrompt } from "../_shared/prompts.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
 
 const STALE_AFTER_MS = 48 * 60 * 60 * 1000; // 48h of silence counts as "abandoned"
 const MAX_PER_RUN = 20; // bound cost/blast-radius per cron tick
@@ -66,6 +67,7 @@ Deno.serve(async (req: Request) => {
     ].join("\n\n");
 
     const result = await generate([{ role: "user", content: followUpPrompt }], undefined, 0.7, 200);
+    await logAiUsage(admin, result.usage, "follow-up-conversations");
     const text = result.message.content.trim();
     if (!text) continue;
 

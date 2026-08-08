@@ -8,6 +8,7 @@ import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
 
 const RETURN_COMPETITOR_ANALYSIS_TOOL: ToolDefinition = {
   name: "return_competitor_analysis",
@@ -110,6 +111,7 @@ List concrete named competitors found in both categories with specifics, not gen
       0.5,
       8192
     );
+    await logAiUsage(admin, result.usage, "generate-competitor-analysis");
 
     const call = result.message.toolCalls?.find((c) => c.name === "return_competitor_analysis");
     if (!call) {

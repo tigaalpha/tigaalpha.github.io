@@ -5,6 +5,7 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { generate, embed } from "../_shared/ai-provider.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
 
 // AI-drafted only — not a substitute for actual legal review. Every
 // document this produces is prefixed with a disclaimer, and the frontend
@@ -60,6 +61,7 @@ Deno.serve(async (req: Request) => {
       0.4,
       3000
     );
+    await logAiUsage(admin, result.usage, "generate-legal-document");
 
     const content = DISCLAIMER + result.message.content.trim();
 

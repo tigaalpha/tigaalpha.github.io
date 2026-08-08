@@ -6,6 +6,7 @@ import { generate } from "../_shared/ai-provider.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
 
 const SUGGESTION_COUNT = 10;
 
@@ -83,6 +84,7 @@ Deno.serve(async (req: Request) => {
       0.9,
       2048
     );
+    await logAiUsage(admin, result.usage, "suggest-course-topics");
 
     const call = result.message.toolCalls?.find((c) => c.name === "return_topic_suggestions");
     if (!call) {

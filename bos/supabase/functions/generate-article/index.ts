@@ -7,6 +7,8 @@ import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 // Mirrors features/content/topics.ts CORE_KEYWORDS_BY_LANG — every article must include all of these,
 // translated per language (same meaning, same order across the three lists).
@@ -81,7 +83,7 @@ interface ReturnArticleArgs {
   internalLinkIdeas?: string[];
 }
 
-async function generateArticle(systemPrompt: string, userPrompt: string): Promise<ReturnArticleArgs | null> {
+async function generateArticle(admin: SupabaseClient, systemPrompt: string, userPrompt: string): Promise<ReturnArticleArgs | null> {
   const result = await generate(
     [
       { role: "system", content: systemPrompt },
@@ -91,6 +93,7 @@ async function generateArticle(systemPrompt: string, userPrompt: string): Promis
     0.7,
     4096
   );
+  await logAiUsage(admin, result.usage, "generate-article");
 
   const call = result.message.toolCalls?.find((c) => c.name === "return_article");
   return call ? (call.arguments as unknown as ReturnArticleArgs) : null;
@@ -132,7 +135,7 @@ Deno.serve(async (req: Request) => {
     const systemPrompt = `${PROMPTS.seo_writer}\n\n## Required core keywords\nEvery article must naturally include ALL of these core keywords at least once each, in addition to the target keyword: ${coreKeywordsList}. These are already translated into ${langLabel} with the same meaning as the business's Thai search terms — use them exactly as given, do not translate them again or substitute synonyms. Weave them in naturally across headings/body — never as an unnatural stuffed list.\n\n## Business knowledge base (ground all facts in this — never invent)\n${knowledgeContext}`;
     const userPrompt = `Write an SEO/AEO article.\nTopic: ${topic}\nTarget keyword: ${targetKeyword}\nLanguage: ${langLabel}\nRequired core keywords (must all appear exactly as written, already translated into ${langLabel}): ${coreKeywordsList}\n\nCall return_article with the complete result.`;
 
-    let args = await generateArticle(systemPrompt, userPrompt);
+    let args = await generateArticle(admin, systemPrompt, userPrompt);
     if (!args) {
       return jsonResponse({ error: "The AI didn't return a structured article — try again." }, 502);
     }
@@ -142,7 +145,7 @@ Deno.serve(async (req: Request) => {
     let missing = missingCoreKeywords(args.title, args.articleMarkdown, lang);
     if (missing.length > 0) {
       const retryPrompt = `${userPrompt}\n\nYour previous draft was missing these required core keywords: ${missing.map((k) => `"${k}"`).join(", ")}. Rewrite the complete article so every required core keyword appears naturally, then call return_article again with the full corrected result.`;
-      const retried = await generateArticle(systemPrompt, retryPrompt);
+      const retried = await generateArticle(admin, systemPrompt, retryPrompt);
       if (retried) {
         args = retried;
         missing = missingCoreKeywords(args.title, args.articleMarkdown, lang);

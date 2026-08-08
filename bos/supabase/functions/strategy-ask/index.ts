@@ -8,6 +8,7 @@ import { PROMPTS } from "../_shared/prompts.ts";
 import { STRATEGY_MODELS, availableStrategyModels, callStrategyModel, type StrategyModelId } from "../_shared/strategy-models.ts";
 import type { SimpleChatMessage } from "../_shared/openai-compatible.ts";
 import { getLatestCompetitorContext } from "../_shared/competitor-context.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
 
 interface StrategyMessageRow {
   role: "user" | "ai";
@@ -100,9 +101,10 @@ Deno.serve(async (req: Request) => {
       if (result.status === "fulfilled") {
         const { error: insertAiError } = await admin
           .from("strategy_messages")
-          .insert({ session_id: currentSessionId, role: "ai", model: modelId, content: result.value });
+          .insert({ session_id: currentSessionId, role: "ai", model: modelId, content: result.value.content });
         if (insertAiError) throw insertAiError;
-        responses.push({ model: modelId, content: result.value });
+        await logAiUsage(admin, result.value.usage, `strategy-ask:${modelId}`);
+        responses.push({ model: modelId, content: result.value.content });
       } else {
         const message = result.reason instanceof Error ? result.reason.message : "Unknown error";
         await logSystemEvent(admin, "strategy-ask", "warning", `${modelId}: ${message}`);

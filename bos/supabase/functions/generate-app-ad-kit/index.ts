@@ -8,6 +8,7 @@ import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { logAiUsage } from "../_shared/usage-logging.ts";
 
 const RETURN_APP_AD_KIT_TOOL: ToolDefinition = {
   name: "return_app_ad_kit",
@@ -109,6 +110,7 @@ Deno.serve(async (req: Request) => {
       0.7,
       8192
     );
+    await logAiUsage(admin, result.usage, "generate-app-ad-kit");
 
     const call = result.message.toolCalls?.find((c) => c.name === "return_app_ad_kit");
     if (!call) {

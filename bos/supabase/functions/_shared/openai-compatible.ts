@@ -17,9 +17,14 @@ export interface OpenAICompatibleConfig {
   model: string;
 }
 
+export interface SimpleCompletionResult {
+  content: string;
+  usage?: { promptTokens: number; completionTokens: number };
+}
+
 // Plain text completion, no tool calling — used by the Strategy Room, which
 // only needs a single free-text answer per advisor.
-export async function callOpenAICompatible(config: OpenAICompatibleConfig, messages: SimpleChatMessage[]): Promise<string> {
+export async function callOpenAICompatible(config: OpenAICompatibleConfig, messages: SimpleChatMessage[]): Promise<SimpleCompletionResult> {
   const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
@@ -41,10 +46,11 @@ export async function callOpenAICompatible(config: OpenAICompatibleConfig, messa
 
   const data = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error(`${config.baseUrl} returned no completion content`);
-  return content;
+  return { content, usage: data.usage ? { promptTokens: data.usage.prompt_tokens ?? 0, completionTokens: data.usage.completion_tokens ?? 0 } : undefined };
 }
 
 interface OpenAIToolCall {
