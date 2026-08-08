@@ -123,5 +123,32 @@ Deno.serve(async (req: Request) => {
     metadata: { pageId: page.id },
   });
 
+  // Best-effort: only works if instagram_basic was actually granted (either
+  // via the SCOPE constant in meta-oauth-start, or added to the Business
+  // Login Configuration in the Meta App Dashboard) and the Page has a
+  // Business/Creator Instagram account linked to it. Silently skipped
+  // otherwise -- Facebook connection still succeeds either way, this is
+  // additive, not required.
+  try {
+    const igResponse = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`);
+    if (igResponse.ok) {
+      const igData = (await igResponse.json()) as { instagram_business_account?: { id: string } };
+      const igUserId = igData.instagram_business_account?.id;
+      if (igUserId) {
+        await admin.from("social_accounts").delete().eq("user_id", userId).eq("platform", "instagram");
+        await admin.from("social_accounts").insert({
+          user_id: userId,
+          platform: "instagram",
+          account_name: page.name,
+          access_token: page.access_token,
+          metadata: { igUserId, pageId: page.id },
+        });
+      }
+    }
+  } catch {
+    // Instagram is a bonus on top of the Facebook connection -- never fail
+    // the whole callback over it.
+  }
+
   return redirectTo("connected");
 });

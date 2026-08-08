@@ -139,6 +139,40 @@ async function syncFacebook(admin: SupabaseAdmin): Promise<{ ok: boolean; detail
   return { ok: true, detail: "synced" };
 }
 
+async function syncInstagram(admin: SupabaseAdmin): Promise<{ ok: boolean; detail: string }> {
+  const { data: account } = await admin.from("social_accounts").select("access_token, metadata").eq("platform", "instagram").maybeSingle();
+  if (!account?.access_token) return { ok: false, detail: "Instagram not linked (needs instagram_basic permission + a Business/Creator account linked to the connected Facebook Page)" };
+
+  const igUserId = (account.metadata as Record<string, unknown> | null)?.igUserId as string | undefined;
+  if (!igUserId) return { ok: false, detail: "no Instagram user ID" };
+
+  const profileResponse = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VERSION}/${igUserId}?fields=followers_count&access_token=${encodeURIComponent(account.access_token)}`);
+  if (!profileResponse.ok) return { ok: false, detail: `profile fetch failed (${profileResponse.status})` };
+  const profileData = (await profileResponse.json()) as { followers_count?: number };
+  await insertSnapshot(admin, "instagram", "followers", profileData.followers_count ?? 0, "auto");
+
+  // like_count/comments_count on the media edge only needs instagram_basic
+  // (unlike saves/shares/reach, which need instagram_manage_insights -- not
+  // requested, so those stay manual-entry only, same bounded-recent-content
+  // proxy as YouTube/Facebook above.
+  const mediaResponse = await fetchWithTimeout(
+    `https://graph.facebook.com/${GRAPH_VERSION}/${igUserId}/media?fields=like_count,comments_count&limit=10&access_token=${encodeURIComponent(account.access_token)}`
+  );
+  if (mediaResponse.ok) {
+    const mediaData = (await mediaResponse.json()) as { data?: Array<{ like_count?: number; comments_count?: number }> };
+    let totalLikes = 0;
+    let totalComments = 0;
+    for (const media of mediaData.data ?? []) {
+      totalLikes += media.like_count ?? 0;
+      totalComments += media.comments_count ?? 0;
+    }
+    await insertSnapshot(admin, "instagram", "likes", totalLikes, "auto");
+    await insertSnapshot(admin, "instagram", "comments", totalComments, "auto");
+  }
+
+  return { ok: true, detail: "synced" };
+}
+
 function isoDateDaysAgo(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
@@ -193,10 +227,10 @@ Deno.serve(async (req: Request) => {
       await enforceRateLimit(admin, userId, "marketing-metrics-snapshot", { windowMinutes: 15, maxRequests: 5 });
     }
 
-    const results = await Promise.allSettled([syncYouTube(admin), syncFacebook(admin), syncSearchConsole(admin)]);
-    const [youtube, facebook, searchConsole] = results.map((r) => (r.status === "fulfilled" ? r.value : { ok: false, detail: r.status === "rejected" ? String(r.reason) : "unknown error" }));
+    const results = await Promise.allSettled([syncYouTube(admin), syncFacebook(admin), syncSearchConsole(admin), syncInstagram(admin)]);
+    const [youtube, facebook, searchConsole, instagram] = results.map((r) => (r.status === "fulfilled" ? r.value : { ok: false, detail: r.status === "rejected" ? String(r.reason) : "unknown error" }));
 
-    return jsonResponse({ youtube, facebook, searchConsole });
+    return jsonResponse({ youtube, facebook, searchConsole, instagram });
   } catch (error) {
     if (error instanceof RateLimitError) return jsonResponse({ error: error.message }, 429);
     return await handleUnexpectedError(admin, "marketing-metrics-snapshot", error);
