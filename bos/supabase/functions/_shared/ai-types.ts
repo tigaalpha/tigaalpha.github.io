@@ -27,6 +27,7 @@ export interface ToolDefinition {
 export interface GenerateResult {
   message: ChatMessage;
   finishReason: "stop" | "tool_calls" | "length" | "error";
+  usage?: { promptTokens: number; completionTokens: number };
 }
 
 export interface GeneratedImage {

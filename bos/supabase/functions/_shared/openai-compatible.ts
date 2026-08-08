@@ -114,6 +114,7 @@ export async function generateOpenAICompatible(
 
   const data = (await response.json()) as {
     choices?: Array<{ message?: { content?: string | null; tool_calls?: OpenAIToolCall[] }; finish_reason?: string }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
   const choice = data.choices?.[0];
   const message = choice?.message;
@@ -126,5 +127,6 @@ export async function generateOpenAICompatible(
   return {
     message: { role: "assistant", content: message?.content ?? "", toolCalls: toolCalls.length > 0 ? toolCalls : undefined },
     finishReason: toolCalls.length > 0 ? "tool_calls" : choice?.finish_reason === "length" ? "length" : "stop",
+    usage: data.usage ? { promptTokens: data.usage.prompt_tokens ?? 0, completionTokens: data.usage.completion_tokens ?? 0 } : undefined,
   };
 }

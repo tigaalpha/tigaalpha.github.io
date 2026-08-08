@@ -5,6 +5,7 @@ import { ShieldCheck, Check, X, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/input";
 import type { Tables } from "@/types/database";
 
 type ApprovalRequest = Tables<"approval_requests">;
@@ -12,6 +13,7 @@ type ApprovalRequest = Tables<"approval_requests">;
 const TYPE_LABEL: Record<string, string> = {
   cancel_paid_lesson: "ยกเลิกคาบเรียน",
   ad_campaign_spend: "อนุมัติแคมเปญโฆษณา",
+  ai_drafted_message: "AI ร่างข้อความ (รอตรวจก่อนส่ง)",
 };
 
 function describePayload(request: ApprovalRequest): string {
@@ -22,6 +24,9 @@ function describePayload(request: ApprovalRequest): string {
   if (request.type === "ad_campaign_spend") {
     return `แคมเปญ #${p.campaignId ?? "-"}`;
   }
+  if (request.type === "ai_drafted_message") {
+    return `ส่งถึง: ${p.customerName ?? "-"}`;
+  }
   return JSON.stringify(p);
 }
 
@@ -29,6 +34,7 @@ export function ApprovalsManager() {
   const [requests, setRequests] = useState<ApprovalRequest[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     void load();
@@ -52,22 +58,30 @@ export function ApprovalsManager() {
       });
       if (response.ok) {
         const data = await response.json();
-        setRequests(data.requests ?? []);
+        const loaded: ApprovalRequest[] = data.requests ?? [];
+        setRequests(loaded);
+        setDrafts(
+          Object.fromEntries(
+            loaded.filter((r) => r.type === "ai_drafted_message").map((r) => [r.id, String((r.payload as Record<string, unknown>).message ?? "")])
+          )
+        );
       }
     } catch (err) {
       console.error("Failed to load approvals:", err);
     }
   }
 
-  async function resolve(id: string, action: "approve" | "reject") {
+  async function resolve(id: string, action: "approve" | "reject", request?: ApprovalRequest) {
     setBusyId(id);
     setError(null);
     try {
       const token = await withAuth();
+      const editedPayload =
+        action === "approve" && request?.type === "ai_drafted_message" ? { message: drafts[id] ?? "" } : undefined;
       const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/approvals`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action }),
+        body: JSON.stringify({ id, action, editedPayload }),
       });
       if (response.ok) {
         setRequests((prev) => (prev ?? []).filter((r) => r.id !== id));
@@ -112,12 +126,20 @@ export function ApprovalsManager() {
                   </div>
                   <p className="mb-1 text-sm text-secondary">{describePayload(request)}</p>
                   {request.reason ? <p className="mb-3 text-xs text-secondary/60">เหตุผล: {request.reason}</p> : null}
+                  {request.type === "ai_drafted_message" ? (
+                    <Textarea
+                      value={drafts[request.id] ?? ""}
+                      onChange={(e) => setDrafts((prev) => ({ ...prev, [request.id]: e.target.value }))}
+                      className="mb-3 min-h-24"
+                      placeholder="ข้อความที่ AI ร่างไว้ — แก้ไขได้ก่อนกดอนุมัติ"
+                    />
+                  ) : null}
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => resolve(request.id, "approve")} disabled={busyId === request.id}>
+                    <Button size="sm" onClick={() => resolve(request.id, "approve", request)} disabled={busyId === request.id}>
                       <Check className="h-3 w-3" />
-                      อนุมัติ
+                      อนุมัติ{request.type === "ai_drafted_message" ? "และส่ง" : ""}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => resolve(request.id, "reject")} disabled={busyId === request.id}>
+                    <Button size="sm" variant="outline" onClick={() => resolve(request.id, "reject", request)} disabled={busyId === request.id}>
                       <X className="h-3 w-3" />
                       ปฏิเสธ
                     </Button>

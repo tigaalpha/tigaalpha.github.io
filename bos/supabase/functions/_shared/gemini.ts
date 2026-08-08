@@ -162,6 +162,7 @@ async function generate(
 
   const data = (await response.json()) as {
     candidates?: Array<{ content?: { parts?: GeminiPart[] }; finishReason?: string }>;
+    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
   };
 
   const candidate = data.candidates?.[0];
@@ -180,6 +181,9 @@ async function generate(
   return {
     message: { role: "assistant", content: text, toolCalls: toolCalls.length > 0 ? toolCalls : undefined },
     finishReason: toolCalls.length > 0 ? "tool_calls" : candidate?.finishReason === "MAX_TOKENS" ? "length" : "stop",
+    usage: data.usageMetadata
+      ? { promptTokens: data.usageMetadata.promptTokenCount ?? 0, completionTokens: data.usageMetadata.candidatesTokenCount ?? 0 }
+      : undefined,
   };
 }
 

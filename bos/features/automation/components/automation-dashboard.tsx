@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Workflow, CheckCircle2, XCircle, MinusCircle, ListTodo, Trash2, Play, Pause } from "lucide-react";
+import { Workflow, CheckCircle2, XCircle, MinusCircle, ListTodo, Trash2, Play, Pause, Sparkles } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -26,6 +26,7 @@ const ACTION_LABELS: Record<string, string> = {
   send_line_message: "ส่งข้อความ LINE",
   create_task: "สร้างงานติดตาม",
   change_sales_status: "เปลี่ยนสถานะการขาย",
+  draft_followup_message: "AI ร่างข้อความติดตาม (รออนุมัติ)",
 };
 
 function RunStatusBadge({ status }: { status: string }) {
@@ -39,6 +40,7 @@ export function AutomationDashboard() {
   const [runs, setRuns] = useState<Tables<"automation_runs">[] | null>(null);
   const [counts, setCounts] = useState<{ success: number; failed: number; skipped: number } | null>(null);
   const [tasks, setTasks] = useState<Tables<"tasks">[] | null>(null);
+  const [aiUsage, setAiUsage] = useState<{ calls: number; promptTokens: number; completionTokens: number } | null>(null);
 
   function reload() {
     const repos = createRepositories(createClient());
@@ -46,6 +48,7 @@ export function AutomationDashboard() {
     repos.automation.listRecentRuns().then(setRuns);
     repos.automation.runCounts().then(setCounts);
     repos.tasks.listOpen().then(setTasks);
+    repos.aiReports.usageLast7Days().then(setAiUsage);
   }
 
   useEffect(() => {
@@ -72,7 +75,7 @@ export function AutomationDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-3 pt-6">
             <CheckCircle2 className="h-8 w-8 text-success" />
@@ -97,6 +100,17 @@ export function AutomationDashboard() {
             <div>
               <p className="text-2xl font-semibold text-secondary">{tasks?.length ?? "—"}</p>
               <p className="text-xs text-secondary/50">งานที่ยังไม่เสร็จ</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-6">
+            <Sparkles className="h-8 w-8 text-primary-accent" />
+            <div>
+              <p className="text-2xl font-semibold text-secondary">{aiUsage?.calls ?? "—"}</p>
+              <p className="text-xs text-secondary/50">
+                AI เรียกใช้ (7 วันล่าสุด){aiUsage ? ` · ${(aiUsage.promptTokens + aiUsage.completionTokens).toLocaleString("th-TH")} tokens` : ""}
+              </p>
             </div>
           </CardContent>
         </Card>
