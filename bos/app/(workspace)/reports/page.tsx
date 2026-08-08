@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { ReportsView } from "@/features/reports/components/reports-view";
+import { OwnerOnlyGuard } from "@/features/auth/components/owner-only-guard";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SalesStatus } from "@/types/database";
 
@@ -38,24 +39,26 @@ export default function ReportsPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-secondary">Reports</h1>
-        <p className="text-sm text-secondary/50">Revenue, conversion, and renewal performance</p>
+    <OwnerOnlyGuard>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-secondary">Reports</h1>
+          <p className="text-sm text-secondary/50">Revenue, conversion, and renewal performance</p>
+        </div>
+        {data ? (
+          <ReportsView
+            funnel={data.funnel}
+            totalBookings={data.bookingCounts.total}
+            completedBookings={data.bookingCounts.completed}
+            cancelledBookings={data.bookingCounts.cancelled}
+            revenue={data.revenue}
+            teacherPerformance={data.teacherPerformance}
+            leadSources={data.leadSources}
+          />
+        ) : (
+          <Skeleton className="h-64" />
+        )}
       </div>
-      {data ? (
-        <ReportsView
-          funnel={data.funnel}
-          totalBookings={data.bookingCounts.total}
-          completedBookings={data.bookingCounts.completed}
-          cancelledBookings={data.bookingCounts.cancelled}
-          revenue={data.revenue}
-          teacherPerformance={data.teacherPerformance}
-          leadSources={data.leadSources}
-        />
-      ) : (
-        <Skeleton className="h-64" />
-      )}
-    </div>
+    </OwnerOnlyGuard>
   );
 }
