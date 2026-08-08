@@ -729,6 +729,36 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["tasks"]["Row"]>;
         Relationships: [];
       };
+      agent_workflow_runs: {
+        Row: {
+          id: string;
+          goal: string;
+          status: "running" | "completed" | "failed";
+          final_report: string | null;
+          created_by: string | null;
+          created_at: string;
+          completed_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["agent_workflow_runs"]["Row"]> & { goal: string };
+        Update: Partial<Database["public"]["Tables"]["agent_workflow_runs"]["Row"]>;
+        Relationships: [];
+      };
+      agent_task_runs: {
+        Row: {
+          id: string;
+          workflow_run_id: string;
+          agent_id: string;
+          question: string;
+          status: "success" | "failed";
+          output: string | null;
+          error: string | null;
+          started_at: string;
+          finished_at: string | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       ai_reports: {
         Row: {
           id: string;
