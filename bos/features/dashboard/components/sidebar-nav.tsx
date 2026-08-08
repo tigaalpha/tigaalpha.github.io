@@ -35,6 +35,7 @@ import {
   HeartPulse,
   Smartphone,
   Workflow,
+  Receipt as ReceiptIcon,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -102,6 +103,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Finance & Legal",
     items: [
       { href: "/accounting", label: "Accounting", icon: Wallet, ownerOnly: true },
+      { href: "/receipts", label: "ใบเสร็จ", icon: ReceiptIcon, ownerOnly: true },
       { href: "/legal", label: "เอกสาร/สัญญา", icon: Scale },
       { href: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
     ],
