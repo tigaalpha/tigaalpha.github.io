@@ -5,6 +5,7 @@ import { startOfYear, endOfMonth, format } from "date-fns";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { AccountingManager } from "@/features/accounting/components/accounting-manager";
+import { OwnerOnlyGuard } from "@/features/auth/components/owner-only-guard";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/types/database";
 
@@ -31,22 +32,24 @@ export default function AccountingPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-secondary">Accounting</h1>
-        <p className="text-sm text-secondary/50">บันทึกรายได้-รายจ่ายของธุรกิจ — เห็นได้เฉพาะเจ้าของ/แอดมิน</p>
+    <OwnerOnlyGuard>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-secondary">Accounting</h1>
+          <p className="text-sm text-secondary/50">บันทึกรายได้-รายจ่ายของธุรกิจ — เห็นได้เฉพาะเจ้าของ/แอดมิน</p>
+        </div>
+        {transactions ? (
+          <AccountingManager
+            transactions={transactions}
+            startDate={startDate}
+            endDate={endDate}
+            onRangeChange={handleRangeChange}
+            onChanged={() => reload(startDate, endDate)}
+          />
+        ) : (
+          <Skeleton className="h-96" />
+        )}
       </div>
-      {transactions ? (
-        <AccountingManager
-          transactions={transactions}
-          startDate={startDate}
-          endDate={endDate}
-          onRangeChange={handleRangeChange}
-          onChanged={() => reload(startDate, endDate)}
-        />
-      ) : (
-        <Skeleton className="h-96" />
-      )}
-    </div>
+    </OwnerOnlyGuard>
   );
 }

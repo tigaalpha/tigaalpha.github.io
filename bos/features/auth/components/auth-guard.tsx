@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BASE_PATH } from "@/lib/constants";
 import { isAuthRetryableFetchError, type User } from "@supabase/supabase-js";
 import type { UserRole } from "@/types/database";
+import { RoleProvider } from "@/features/auth/role-context";
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -107,8 +108,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppShell userName={profileName ?? user.email ?? "User"} userEmail={user.email ?? ""} role={role}>
-      {children}
-    </AppShell>
+    <RoleProvider value={role}>
+      <AppShell userName={profileName ?? user.email ?? "User"} userEmail={user.email ?? ""} role={role}>
+        {children}
+      </AppShell>
+    </RoleProvider>
   );
 }
