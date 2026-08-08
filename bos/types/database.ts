@@ -662,6 +662,71 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["agent_schedules"]["Row"]>;
         Relationships: [];
       };
+      automation_rules: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          trigger_type:
+            | "customer_created"
+            | "sales_status_changed"
+            | "booking_created"
+            | "booking_cancelled"
+            | "course_ending_soon"
+            | "course_expired"
+            | "customer_inactive";
+          trigger_config: Record<string, unknown>;
+          conditions: { field: string; operator: string; value: unknown }[];
+          actions: { type: string; config: Record<string, unknown> }[];
+          enabled: boolean;
+          is_template: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["automation_rules"]["Row"]> & {
+          name: string;
+          trigger_type: Database["public"]["Tables"]["automation_rules"]["Row"]["trigger_type"];
+        };
+        Update: Partial<Database["public"]["Tables"]["automation_rules"]["Row"]>;
+        Relationships: [];
+      };
+      automation_runs: {
+        Row: {
+          id: string;
+          rule_id: string;
+          event_id: string | null;
+          entity_type: string | null;
+          entity_id: string | null;
+          status: "success" | "failed" | "skipped";
+          actions_result: { type: string; ok: boolean; detail?: string }[];
+          error: string | null;
+          started_at: string;
+          finished_at: string | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      tasks: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          status: "open" | "done" | "cancelled";
+          priority: "low" | "medium" | "high";
+          due_at: string | null;
+          customer_id: string | null;
+          assigned_to: string | null;
+          created_by: string | null;
+          automation_rule_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["tasks"]["Row"]> & { title: string };
+        Update: Partial<Database["public"]["Tables"]["tasks"]["Row"]>;
+        Relationships: [];
+      };
       social_trend_manual_items: {
         Row: {
           id: string;
