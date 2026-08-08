@@ -69,6 +69,80 @@ export async function runMarketingAgentTask(admin: SupabaseClient, question: str
   });
 }
 
+const MARKETING_EXPENSE_CATEGORY = "การตลาด/โฆษณา";
+
+// Trend-based forecast, not a real cash-flow model: compares net cash flow
+// (income - expense) across two trailing 45-day windows to catch direction,
+// then projects the recent daily average forward. Good enough for "is this
+// heading up or down," not a substitute for real accounting forecasting.
+async function computeCashFlowForecast(admin: SupabaseClient): Promise<{
+  avgDailyNetLast45Days: number;
+  projectedNet30Days: number;
+  projectedNet60Days: number;
+  projectedNet90Days: number;
+  trend: "up" | "down" | "stable";
+}> {
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const fortyFiveDaysAgo = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
+  const { data } = await admin.from("transactions").select("type, amount, transaction_date").gte("transaction_date", ninetyDaysAgo.toISOString().slice(0, 10));
+
+  let netOlderHalf = 0;
+  let netRecentHalf = 0;
+  for (const t of data ?? []) {
+    const signedAmount = t.type === "income" ? t.amount : -t.amount;
+    if (t.transaction_date >= fortyFiveDaysAgo.toISOString().slice(0, 10)) {
+      netRecentHalf += signedAmount;
+    } else {
+      netOlderHalf += signedAmount;
+    }
+  }
+
+  const avgDailyNetLast45Days = netRecentHalf / 45;
+  const changeRatio = netOlderHalf !== 0 ? (netRecentHalf - netOlderHalf) / Math.abs(netOlderHalf) : 0;
+  const trend: "up" | "down" | "stable" = changeRatio > 0.1 ? "up" : changeRatio < -0.1 ? "down" : "stable";
+
+  return {
+    avgDailyNetLast45Days: Math.round(avgDailyNetLast45Days),
+    projectedNet30Days: Math.round(avgDailyNetLast45Days * 30),
+    projectedNet60Days: Math.round(avgDailyNetLast45Days * 60),
+    projectedNet90Days: Math.round(avgDailyNetLast45Days * 90),
+    trend,
+  };
+}
+
+// CAC over a trailing window: total marketing/ads expense divided by
+// distinct customers who reached "won" in that same window. Null (not 0)
+// when there's no won customer in the window, so the prompt doesn't treat
+// an undefined ratio as a real zero-cost acquisition.
+async function computeCAC(admin: SupabaseClient, days: number): Promise<number | null> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const [spendResult, wonResult] = await Promise.all([
+    admin.from("transactions").select("amount").eq("type", "expense").eq("category", MARKETING_EXPENSE_CATEGORY).gte("transaction_date", since.toISOString().slice(0, 10)),
+    admin.from("sales_status_history").select("customer_id").eq("to_status", "won").gte("created_at", since.toISOString()),
+  ]);
+
+  const totalSpend = (spendResult.data ?? []).reduce((sum, t) => sum + t.amount, 0);
+  const uniqueWonCustomers = new Set((wonResult.data ?? []).map((r) => r.customer_id)).size;
+
+  return uniqueWonCustomers > 0 ? Math.round(totalSpend / uniqueWonCustomers) : null;
+}
+
+// LTV proxy: average all-time income revenue per distinct paying customer.
+// Simple and defensible with the data actually available (no churn/retention
+// modeling) -- explicitly a proxy, not a modeled lifetime value.
+async function computeLTV(admin: SupabaseClient): Promise<number | null> {
+  const { data } = await admin.from("transactions").select("amount, customer_id").eq("type", "income").not("customer_id", "is", null);
+
+  const revenueByCustomer: Record<string, number> = {};
+  for (const t of data ?? []) {
+    if (!t.customer_id) continue;
+    revenueByCustomer[t.customer_id] = (revenueByCustomer[t.customer_id] ?? 0) + t.amount;
+  }
+
+  const values = Object.values(revenueByCustomer);
+  return values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
+}
+
 export async function runFinanceAgentTask(admin: SupabaseClient, question: string): Promise<AgentTaskResult> {
   const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const { data: transactions, error } = await admin.from("transactions").select("type, category, amount, transaction_date").gte("transaction_date", monthAgo);
@@ -88,6 +162,8 @@ export async function runFinanceAgentTask(admin: SupabaseClient, question: strin
     }
   }
 
+  const [cashFlowForecast, computedCAC90Days, computedLTV] = await Promise.all([computeCashFlowForecast(admin), computeCAC(admin, 90), computeLTV(admin)]);
+
   return runAgentPrompt("finance_agent", question, {
     periodDays: 30,
     totalRevenue,
@@ -95,6 +171,10 @@ export async function runFinanceAgentTask(admin: SupabaseClient, question: strin
     netProfit: totalRevenue - totalExpense,
     revenueByCategory,
     expenseByCategory,
+    cashFlowForecast,
+    computedCAC90Days,
+    computedLTV,
+    ltvToCacRatio: computedCAC90Days && computedLTV ? Number((computedLTV / computedCAC90Days).toFixed(1)) : null,
   });
 }
 
