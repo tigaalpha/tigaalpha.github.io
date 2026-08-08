@@ -447,18 +447,35 @@ export async function executeTool(
 
       const type = String(args.type);
       if (type !== "income" && type !== "expense") throw new Error("type must be income or expense");
+
+      // transactions.category is plain text (no DB constraint — the
+      // Accounting UI only ever sends values from its own <select>), so
+      // this is the only place a mismatched category from a model's
+      // hallucinated tool-call argument gets caught before it silently
+      // breaks the category breakdown on the Accounting page.
+      const validCategories = type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+      const category = String(args.category ?? "");
+      if (!validCategories.includes(category)) {
+        throw new Error(`category must be one of: ${validCategories.join(", ")}`);
+      }
+
       const amount = Number(args.amount);
       if (!Number.isFinite(amount) || amount <= 0) throw new Error("amount must be a positive number");
+
+      const paymentMethod = args.paymentMethod ? String(args.paymentMethod) : null;
+      if (paymentMethod && !PAYMENT_METHODS.includes(paymentMethod)) {
+        throw new Error(`paymentMethod must be one of: ${PAYMENT_METHODS.join(", ")}`);
+      }
 
       const { data, error } = await db
         .from("transactions")
         .insert({
           type,
-          category: String(args.category ?? ""),
+          category,
           amount,
           description: args.description ? String(args.description) : null,
           transaction_date: args.transactionDate ? String(args.transactionDate) : new Date().toISOString().slice(0, 10),
-          payment_method: args.paymentMethod ? String(args.paymentMethod) : null,
+          payment_method: paymentMethod,
         })
         .select("*")
         .single();
