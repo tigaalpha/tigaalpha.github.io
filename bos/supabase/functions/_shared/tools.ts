@@ -5,16 +5,8 @@ import * as calendar from "./calendar.ts";
 import { requestApproval } from "./approvals.ts";
 import { requireOwnerOrAdmin } from "./auth.ts";
 import { chunkText } from "./text.ts";
+import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, PAYMENT_METHODS } from "./categories.ts";
 
-// Mirrors features/accounting/categories.ts (Deno can't read repo files at
-// runtime, same reason prompts.ts embeds its content instead of importing
-// the .md files) — keep these two lists in sync by hand if categories change.
-const INCOME_CATEGORIES = ["ค่าเรียนเปียโน/ดนตรี", "ขายคอร์สออนไลน์", "รายได้อื่นๆ"];
-const EXPENSE_CATEGORIES = [
-  "ค่าเช่าสถานที่", "เงินเดือนครู/พนักงาน", "ค่าน้ำค่าไฟ", "การตลาด/โฆษณา",
-  "อุปกรณ์/เครื่องดนตรี", "ค่าซอฟต์แวร์/สมาชิก", "ค่าใช้จ่ายอื่นๆ",
-];
-const PAYMENT_METHODS = ["เงินสด", "โอนเงิน", "บัตรเครดิต", "อื่นๆ"];
 const KNOWLEDGE_SOURCE_TYPES = [
   "pricing", "promotion", "teachers", "policies", "faq", "school_info", "holiday", "internal_sop",
   "sales_script", "objection_handling", "rule", "example",
