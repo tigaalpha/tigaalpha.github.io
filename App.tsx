@@ -2414,6 +2414,8 @@ const L = {
     dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recWeakSkill: "จุดอ่อนตอนนี้: {x}", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
     setAmbient: "ดนตรีบรรยากาศ", setInstall: "ติดตั้งเป็นแอป", setBpm: "จังหวะ (BPM)", setTap: "แตะตามจังหวะ", setLang: "ภาษา", setOn: "เปิด", setOff: "ปิด",
+    tabHome: "หน้าแรก", tabLearn: "เรียนรู้", tabPractice: "ฝึกซ้อม", tabMe: "ฉัน",
+    setPracticeExp: "รูปแบบการฝึก", setPracticeAI: "AI Mentor", setPracticeAIDesc: "ให้ TIGA แนะนำและจัดการการฝึกให้", setPracticeManual: "เลือกเอง", setPracticeManualDesc: "ให้ฉันเลือกเพลงและแบบฝึกด้วยตัวเอง", setPracticeHint: "คุณสามารถเปลี่ยนโหมดนี้ได้ทุกเมื่อ", setAdvanced: "เพิ่มเติม",
     installBannerTitle: "ติดตั้ง TiGA AI ไว้ที่หน้าจอโฮม", installBannerSub: "เปิดได้ไวขึ้น ไม่ต้องหา URL ทุกครั้ง",
     setPush: "🔔 แจ้งเตือน",
     pushBannerTitle: "อย่าให้สตรีคหลุด!", pushBannerSub: "เปิดแจ้งเตือนไว้ เดี๋ยวเราจะเตือนถ้าลืมซ้อมวันนี้", pushBannerBtn: "เปิดแจ้งเตือน",
@@ -2555,6 +2557,8 @@ const L = {
     dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recWeakSkill: "Your weakest skill: {x}", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
     setAmbient: "Ambient music", setInstall: "Install app", setBpm: "Tempo (BPM)", setTap: "Tap tempo", setLang: "Language", setOn: "On", setOff: "Off",
+    tabHome: "Home", tabLearn: "Learn", tabPractice: "Practice", tabMe: "Me",
+    setPracticeExp: "Practice Experience", setPracticeAI: "AI Mentor", setPracticeAIDesc: "Let TIGA guide and manage your practice", setPracticeManual: "Choose myself", setPracticeManualDesc: "Let me pick my own songs and drills", setPracticeHint: "You can change this anytime", setAdvanced: "Advanced",
     installBannerTitle: "Add TiGA AI to your home screen", installBannerSub: "Open it faster — no more hunting for the URL",
     setPush: "🔔 Notifications",
     pushBannerTitle: "Don't lose your streak!", pushBannerSub: "Turn on notifications and we'll remind you if you forget to practice today", pushBannerBtn: "Enable notifications",
@@ -2696,6 +2700,8 @@ const L = {
     dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recWeakSkill: "当前弱项：{x}", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
     setAmbient: "环境音乐", setInstall: "安装应用", setBpm: "速度 (BPM)", setTap: "点击打拍", setLang: "语言", setOn: "开", setOff: "关",
+    tabHome: "首页", tabLearn: "学习", tabPractice: "练习", tabMe: "我",
+    setPracticeExp: "练习模式", setPracticeAI: "AI 导师", setPracticeAIDesc: "让 TIGA 为你安排和引导练习", setPracticeManual: "自己选择", setPracticeManualDesc: "自己选择歌曲和练习内容", setPracticeHint: "随时都可以更改此设置", setAdvanced: "更多",
     installBannerTitle: "把 TiGA AI 添加到主屏幕", installBannerSub: "打开更快 — 不用每次找网址",
     setPush: "🔔 通知",
     pushBannerTitle: "别让连续记录中断！", pushBannerSub: "打开通知，忘记练习时我们会提醒你", pushBannerBtn: "开启通知",
@@ -3200,6 +3206,107 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
 const _v12wait = (ms) => new Promise(r => setTimeout(r, ms));
 const PC_SOLFA = { C: "do", D: "re", E: "mi", F: "fa", G: "sol", A: "la", B: "ti" };
 const PC_SOLFA_TH = { C: "โด", D: "เร", E: "มี", F: "ฟา", G: "ซอล", A: "ลา", B: "ที" };
+/* ════════════════════════════════════════════════════════════
+   HOME — the new landing page (UX refactor). AI Mentor mode shows one
+   recommendation + one primary CTA (buildRecommendation, itself a thin
+   shape around nextRecommendedAction — same signal TodayPage/Sensei's
+   banner already use, not a second recommendation system). Manual mode
+   shows a compact "choose what to practice" picker instead, with the
+   same AI suggestion still visible above it (never a hard gate either
+   way — "something new"/"pick myself" is always one tap away).
+════════════════════════════════════════════════════════════ */
+const HomePage = memo(function HomePage({ lang, profile, practiceMode, rec, streak, onStartRecommendation, onStartSession, onOpenToday, onOpenSongs, onOpenSkills, onOpenGames, gamesLocked }) {
+  const T = {
+    th: {
+      morning: "อรุณสวัสดิ์", afternoon: "สวัสดีตอนบ่าย", evening: "สวัสดีตอนเย็น",
+      today: "ฝึกวันนี้", start: "เริ่มฝึก ▶", min: "นาที", streak: "วันต่อเนื่อง",
+      fullPlan: "ดูแผนซ้อมเต็มวันนี้ →", session: "เริ่ม AI Session วันนี้ (~10 นาที)",
+      pickTitle: "เลือกสิ่งที่คุณอยากฝึก", songs: "เพลง / เล่นตามเพลง", songsSub: "เลือกเพลงแล้วเล่นตามโน้ตที่ไหลลงมา",
+      skills: "ฝึกทักษะ", skillsSub: "ฝึกหู · อ่านโน้ต · ท่ามือ", games: "เกมดนตรี", gamesSub: "เกมสนุกๆ ช่วยฝึกไปในตัว",
+      aiTag: "🤖 TIGA แนะนำ",
+    },
+    en: {
+      morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening",
+      today: "Today's Practice", start: "Start ▶", min: "min", streak: "day streak",
+      fullPlan: "See today's full plan →", session: "Start today's AI session (~10 min)",
+      pickTitle: "Choose what you'd like to practice", songs: "Songs / Play Along", songsSub: "Pick a song and play along with falling notes",
+      skills: "Skills", skillsSub: "Ear training · Sight reading · Hand coach", games: "Music Games", gamesSub: "Fun games that build skill on the side",
+      aiTag: "🤖 TIGA suggests",
+    },
+    zh: {
+      morning: "早上好", afternoon: "下午好", evening: "晚上好",
+      today: "今日练习", start: "开始 ▶", min: "分钟", streak: "连续天数",
+      fullPlan: "查看今日完整计划 →", session: "开始今日 AI 训练 (~10 分钟)",
+      pickTitle: "选择你想练习的内容", songs: "歌曲 / 跟弹", songsSub: "选一首歌，跟着下落的音符弹奏",
+      skills: "技能练习", skillsSub: "听力训练 · 视奏 · 手型指导", games: "音乐游戏", gamesSub: "寓教于乐的小游戏",
+      aiTag: "🤖 TIGA 建议",
+    },
+  }[lang];
+  const hr = new Date().getHours();
+  const greet = hr < 12 ? T.morning : hr < 18 ? T.afternoon : T.evening;
+  const name = (profile && profile.full_name) || "";
+  const recIcon = rec.type === "remediate" ? "🎯" : rec.type === "next_stage" ? "📘" : "🎮";
+
+  return (
+    <div className="pathpage">
+      <div className="v12hero">
+        <div className="v12title">👋 {greet}{name ? ", " + name : ""}</div>
+        <div className="v12sub">{practiceMode === "manual" ? T.pickTitle : T.today}</div>
+      </div>
+
+      {practiceMode === "manual" ? (
+        <>
+          <div className="v12card" style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => onStartRecommendation(rec)}>
+            <span style={{ fontSize: 22 }}>{recIcon}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace" }}>{T.aiTag}</div>
+              <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 700 }}>{rec.reason}</div>
+            </div>
+            <span style={{ color: "#d97757", fontSize: 20 }}>→</span>
+          </div>
+          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }} onClick={onOpenSongs}>
+            <span className="tdico">🎵</span>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="tdlbl">{T.songs}</div><div className="tdtag">{T.songsSub}</div></div>
+            <span className="tdgo">→</span>
+          </button>
+          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }} onClick={onOpenSkills}>
+            <span className="tdico">🎧</span>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="tdlbl">{T.skills}</div><div className="tdtag">{T.skillsSub}</div></div>
+            <span className="tdgo">→</span>
+          </button>
+          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }} onClick={onOpenGames}>
+            <span className="tdico">🎮</span>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="tdlbl">{T.games}{gamesLocked && <span style={{ fontSize: 10, color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div><div className="tdtag">{T.gamesSub}</div></div>
+            <span className="tdgo">{gamesLocked ? "👑" : "→"}</span>
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="v12card" style={{ textAlign: "center", padding: "22px 16px" }}>
+            <div style={{ fontSize: 30 }}>{recIcon}</div>
+            <div style={{ fontSize: 15, color: "var(--text)", fontWeight: 700, margin: "10px 0 4px" }}>{rec.reason}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: 14 }}>{rec.duration} {T.min}</div>
+            <button className="tdgo" style={{ fontSize: 13, padding: "13px 30px" }} onClick={() => onStartRecommendation(rec)}>{T.start}</button>
+          </div>
+          {streak > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 14px 10px", fontSize: 13, color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace" }}>
+              🔥 {streak} {T.streak}
+            </div>
+          )}
+          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }} onClick={onStartSession}>
+            <span className="tdico">🤖</span>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="tdlbl">{T.session}</div></div>
+            <span className="tdgo">→</span>
+          </button>
+          <button onClick={onOpenToday} style={{ display: "block", margin: "4px 14px 0", background: "none", border: "none", color: "#d97757", fontSize: 13, fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, cursor: "pointer", padding: 0 }}>
+            {T.fullPlan}
+          </button>
+        </>
+      )}
+    </div>
+  );
+});
+
 const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate }) {
   const T = {
     th: { title: "ซ้อมวันนี้", sub: "แผนซ้อมส่วนตัวของคุณ — สร้างใหม่ให้ทุกวันจากความคืบหน้าจริง ไล่ทำทีละข้อได้เลย", warm: "วอร์มอัพนิ้ว", hw: "การบ้านจากครู", review: "ทบทวนของเดิม", learn: "เรียนเรื่องใหม่", song: "เพลงปิดท้าย", start: "เริ่ม ▶", done: "เสร็จแล้ว ✓", hwBtn: "ทำแล้ว ✓", progress: "ความคืบหน้าวันนี้", allDone: "ครบทุกข้อแล้ว! สุดยอดไปเลยครับ 🎉", bonus: "รับโบนัสประจำวัน +40 EXP · +20 🪙", claimed: "รับโบนัสของวันนี้แล้ว ✓" },
@@ -6570,6 +6677,52 @@ function nextRecommendedAction() {
   const stage = PATHWAY.find(s => !pathDoneSet().has(s.id));
   return stage ? { type: "next_stage", stage } : { type: "warmup" };
 }
+// RecommendationEngine — wraps nextRecommendedAction()'s decision into a richer,
+// UI-ready shape (target/feature/duration/reason/action) instead of duplicating its
+// signal computation. `difficulty` is deliberately left null: no real per-learner
+// difficulty-tier signal exists anywhere in this app (see UX audit), so it's left
+// honestly absent rather than a fabricated number.
+function buildRecommendation(lang) {
+  const action = nextRecommendedAction();
+  if (action.type === "remediate") {
+    const label = tr(SKILL_LABELS[action.skill], lang);
+    const reasonByLang = {
+      th: `${label} ยังอ่อนอยู่ (คะแนน ${action.score}/100) วันนี้ลองฝึกเพิ่มอีกนิด`,
+      en: `${label} could use some work (${action.score}/100) — a short session today will help`,
+      zh: `${label}还需要加强（${action.score}/100）— 今天练一小段会有帮助`,
+    };
+    return { type: "remediate", target: action.skill, feature: action.feature, skill: action.skill, duration: 5, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start" };
+  }
+  if (action.type === "next_stage") {
+    const title = tr(action.stage.title, lang);
+    const reasonByLang = {
+      th: `พร้อมสำหรับหัวข้อถัดไปแล้ว: ${title}`,
+      en: `You're ready for the next topic: ${title}`,
+      zh: `你已经准备好学习下一个主题：${title}`,
+    };
+    return { type: "next_stage", target: action.stage.id, feature: "pathway", duration: 8, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start", stage: action.stage };
+  }
+  const reasonByLang = {
+    th: "ยังไม่มีข้อมูลพอจะแนะนำเจาะจง — วอร์มอัพด้วยเกมสั้นๆ ก่อนได้เลย",
+    en: "Not enough data yet for a specific pick — a quick warm-up game is a good start",
+    zh: "数据还不够，先来一局简单的热身游戏吧",
+  };
+  return { type: "warmup", target: null, feature: "play_along", duration: 3, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start" };
+}
+// 4-tab top-level IA. Purely a *grouping* over the existing 14 page values — every
+// page keeps working exactly as before; this only decides which bottom-nav tab
+// highlights for a given page, and where a tab tap lands.
+const TAB_PAGES = {
+  home: ["home"],
+  learn: ["pathway", "videos"],
+  practice: ["studio", "today", "eargym", "reading", "sensei", "gamepage"],
+  me: ["profile", "coach", "insights", "report"],
+};
+function tabForPage(p) {
+  for (const tab in TAB_PAGES) if (TAB_PAGES[tab].includes(p)) return tab;
+  return null; // admin/school: intentionally hidden, no tab highlights
+}
+const TAB_DEFAULT_PAGE = { home: "home", learn: "pathway", practice: "studio", me: "profile" };
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
 function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
 // short header badge per tier
@@ -6875,6 +7028,12 @@ function getOwned() { try { return JSON.parse(localStorage.getItem("tg_owned") |
 function setOwnedLS(a) { try { localStorage.setItem("tg_owned", JSON.stringify(a)); } catch (e) {} }
 function getEquip(k, def) { try { return localStorage.getItem("tg_" + k) || def; } catch (e) { return def; } }
 function setEquipLS(k, v) { try { localStorage.setItem("tg_" + k, v); } catch (e) {} }
+// Practice Experience: "ai" (TIGA picks what's next, the default) vs "manual" (learner
+// browses freely). Client-only preference (no server round-trip needed — nothing here
+// depends on cross-device sync) using the same tg_-prefixed localStorage pattern as
+// every other cosmetic/behavior toggle in Settings.
+function getPracticeMode() { const v = getEquip("practice_mode", "ai"); return v === "manual" ? "manual" : "ai"; }
+function setPracticeMode(v) { setEquipLS("practice_mode", v === "manual" ? "manual" : "ai"); }
 
 /* ── Interactive progress dashboard: pick a time range, see activity / accuracy /
    EXP, each compared with the previous equal period. Reads the daily practice log. ── */
@@ -10329,6 +10488,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // ── studio sub-nav + sight-reading + hand coach ──
   const [studioView, setStudioView] = useState("menu");    // menu | songs
   const [earGymInitialTab, setEarGymInitialTab] = useState("int"); // which Ear Gym tab to land on — set before navigating there for skill remediation
+
+  // ── Practice Experience: AI Mentor (default) vs Manual — Settings §8 ──
+  const [practiceMode, setPracticeModeUI] = useState(() => getPracticeMode());
+  function applyPracticeMode(v) { setPracticeMode(v); setPracticeModeUI(v); }
+  const [setAdvancedOpen, setSetAdvancedOpen] = useState(false); // progressive disclosure for Metronome BPM/tap-tempo
+
+  // ── AI Practice Session (multi-step: warm-up -> weak-skill/next-topic -> song).
+  // null = no session running. Progression is explicit (Continue/Skip/End — see the
+  // session banner in render) rather than silently auto-advancing: none of the five
+  // practice features were built with a "just got interrupted, please resume" concept
+  // (see UX audit), and auto-firing chooseSong() from a timer rather than a real tap
+  // would also risk failing to unlock Web Audio on strict mobile browsers. Session
+  // *state* itself survives normal navigation (leaving and coming back to Home still
+  // shows "Continue" at the same step) — that is this feature's real pause/resume. ──
+  const [aiSession, setAiSession] = useState(null); // null | { steps:[{icon,label,go}], idx }
   const [sightOpen, setSightOpen] = useState(false);
   const [sightTarget, setSightTarget] = useState(null);
   const [sightClef, setSightClef] = useState("treble");      // treble | bass | both — which clef(s) to drill
@@ -10354,7 +10528,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [vmErr, setVmErr] = useState(null);
 
   // ── routing + secret admin unlock ──
-  const [page, setPage] = useState("pathway");  // home = pathway; sensei (chat) is secondary | pathway | profile | admin
+  // home = the new AI-Mentor/Manual landing page (UX refactor); "pathway" is now the
+  // LEARN tab's own default, not the app's landing page — see tabForPage/TAB_DEFAULT_PAGE.
+  const [page, setPage] = useState("home");
   useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
 
   // null | "time" | "ai" — which GuestGateScreen (if any) currently covers the
@@ -10398,7 +10574,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
   }, [profile]);
 
-  // ── Auto Teaching: while a Max-plan learner is on the Pathway (home) page, fire a short
+  // ── Auto Teaching: while a Max-plan learner is on the Home page, fire a short
   // real-time coaching card every N minutes (learner's own pick, else the admin's platform default). ──
   const autoTeachTipRef = useRef(null);
   useEffect(() => { autoTeachTipRef.current = autoTeachTip; }, [autoTeachTip]);
@@ -10410,7 +10586,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => { pageRef.current = page; }, [page]);
   useEffect(() => { songAutoLoopRef.current = songAutoLoop; }, [songAutoLoop]);
   async function fetchAutoTeachTip() {
-    if (pageRef.current !== "pathway") return; // only surface the card while actually on Pathway
+    if (pageRef.current !== "home") return; // only surface the card while actually on Home (was "pathway" before the UX refactor made Home the landing page)
     if (autoTeachTipRef.current || autoTeachBusyRef.current) return; // don't clobber an unread tip
     autoTeachBusyRef.current = true;
     try {
@@ -11878,6 +12054,46 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     else if (key === "reading_course") { logUsage("nav", "studio-reading"); setPage("reading"); }
     else { setPage("pathway"); }
   }
+  // AI Practice Session — a short, real (not fabricated) sequence built from the exact
+  // same signal as Home/Sensei's own recommendation (nextRecommendedAction), not a
+  // second decision system. Warm-up + closing song always bookend it; the middle step
+  // is the current critical-skill remediation if one exists, else the next Pathway
+  // topic, else omitted (so with no data yet it's still a valid 2-step session).
+  function buildAiSessionSteps() {
+    const nextAction = nextRecommendedAction();
+    const seed = daySeed();
+    const warm = MAJOR_SCALE_SONGS[seed % MAJOR_SCALE_SONGS.length];
+    const lvl = levelInfo((profile && profile.exp) || 0).level;
+    const pool = (lvl >= 10 ? ["furelise"] : lvl >= 5 ? ["birthday", "london", "saints"] : ["twinkle", "row"])
+      .map(id => SONGS.find(s => s.id === id)).filter(Boolean);
+    const closingSong = pool.length ? pool[seed % pool.length] : SONGS[0];
+    const steps = [{ icon: "🎹", label: tr(warm, lang), go: () => chooseSong(warm) }];
+    if (nextAction.type === "remediate") {
+      steps.push({ icon: "🎯", label: tr(SKILL_LABELS[nextAction.skill], lang), go: () => handleCoachNavigate(nextAction.feature, nextAction.skill === "chord_knowledge" ? "chord" : undefined) });
+    } else if (nextAction.type === "next_stage") {
+      steps.push({ icon: "📘", label: tr(nextAction.stage.title, lang), go: () => setPage("pathway") });
+    }
+    steps.push({ icon: "🚀", label: tr(closingSong, lang), go: () => chooseSong(closingSong) });
+    return steps;
+  }
+  function startAiSession() {
+    const steps = buildAiSessionSteps();
+    if (!steps.length) return;
+    playUi("click");
+    setAiSession({ steps, idx: 0 });
+    steps[0].go();
+  }
+  function continueAiSession() {
+    playUi("click");
+    setAiSession(prev => {
+      if (!prev) return null;
+      const next = prev.idx + 1;
+      if (next >= prev.steps.length) return null; // session complete
+      prev.steps[next].go();
+      return { ...prev, idx: next };
+    });
+  }
+  function endAiSession() { setAiSession(null); }
   // snapshot the camera and ask the AI teacher to critique hand posture/technique
   async function analyzeHands() {
     if (!premium) { setPricingOpen(true); return; }
@@ -13452,11 +13668,48 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         );
       })()}
 
+      {/* ─── AI SESSION BANNER — persists across navigation until the learner ends it
+           or finishes the last step; this (not mid-activity pausing) is this feature's
+           "pause/resume" per the UX audit's finding that no practice feature has a
+           real pause primitive to hook into. ─── */}
+      {aiSession && (() => {
+        const done = aiSession.idx >= aiSession.steps.length - 1;
+        const nxt = aiSession.steps[aiSession.idx + 1];
+        const stepTxt = lang === "th" ? `AI Session · ขั้นที่ ${aiSession.idx + 1}/${aiSession.steps.length}`
+          : lang === "zh" ? `AI 训练 · 第 ${aiSession.idx + 1}/${aiSession.steps.length} 步` : `AI Session · Step ${aiSession.idx + 1}/${aiSession.steps.length}`;
+        const nextTxt = nxt ? (lang === "th" ? `ต่อไป: ${nxt.icon} ${nxt.label}` : lang === "zh" ? `下一步：${nxt.icon} ${nxt.label}` : `Next: ${nxt.icon} ${nxt.label}`) : "";
+        return (
+          <div className="trial-banner">
+            <span className="trial-banner-txt">{stepTxt}{nxt ? " · " + nextTxt : ""}</span>
+            {!done && <button className="trial-banner-btn" onClick={continueAiSession}>{lang === "th" ? "ต่อไป →" : lang === "zh" ? "下一步 →" : "Next →"}</button>}
+            <button className="trial-banner-btn" onClick={endAiSession}>{lang === "th" ? "✕ จบ" : lang === "zh" ? "✕ 结束" : "✕ End"}</button>
+          </div>
+        );
+      })()}
+
       {/* ─── PAGE: ADMIN — reachable ONLY via the 5-tap logo + code, never a nav link ─── */}
       {page === "admin" && (
         adminUnlocked
           ? <AdminPage lang={lang} onExit={exitAdmin} adminTier={(profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0)} />
           : <LockScreen lang={lang} onUnlock={tryUnlock} />
+      )}
+
+      {/* ─── PAGE: HOME (new landing page — UX refactor) ─── */}
+      {page === "home" && (
+        <HomePage lang={lang} profile={profile} practiceMode={practiceMode} rec={buildRecommendation(lang)} streak={readStreak().count || 0}
+          onStartRecommendation={(r) => {
+            playUi("click");
+            if (r.type === "remediate") handleCoachNavigate(r.feature, r.skill === "chord_knowledge" ? "chord" : undefined);
+            else if (r.type === "next_stage") setPage("pathway");
+            else { setPage("studio"); setStudioView("songs"); }
+          }}
+          onStartSession={startAiSession}
+          onOpenToday={() => { playUi("click"); setPage("today"); }}
+          onOpenSongs={() => { playUi("click"); setPage("studio"); setStudioView("songs"); }}
+          onOpenSkills={() => { playUi("click"); setPage("studio"); setStudioView("menu"); }}
+          onOpenGames={() => { playUi("click"); (!isMaxPlan(plan) && !(profile && profile.is_admin)) ? setPricingOpen(true) : setPage("gamepage"); }}
+          gamesLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
+        />
       )}
 
       {/* ─── PAGE: PATHWAY ─── */}
@@ -13762,6 +14015,30 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </>
       )}
 
+      {/* ─── BOTTOM NAV (4-tab IA — UX refactor) — hidden on the immersive video
+           feed and the two intentionally-hidden admin/school routes, exactly like
+           the header's own hide list. Reuses .navbar/.navbtn, previously dead CSS
+           left over from an earlier nav design. A normal flex-column sibling here
+           (not fixed-position) — every full-screen practice overlay (.practiceov/
+           .songov, z-index 1100) already covers the full viewport while active, so
+           it's naturally hidden mid-activity with no extra state to manage. ─── */}
+      {page !== "videos" && page !== "admin" && page !== "school" && (
+        <div className="navbar">
+          {[
+            { tab: "home", ic: "🏠", t: lc.tabHome },
+            { tab: "learn", ic: "📖", t: lc.tabLearn },
+            { tab: "practice", ic: "🎹", t: lc.tabPractice },
+            { tab: "me", ic: levelInfo((profile && profile.exp) || 0).tier.icon, t: lc.tabMe },
+          ].map(it => (
+            <button key={it.tab} className={`navbtn${tabForPage(page) === it.tab ? " on" : ""}`} style={{ "--nav-c": "#d97757" }}
+              onClick={() => { playUi("click"); haptic(6); logUsage("nav", "tab-" + it.tab); stopPracticeListeners(); setPage(TAB_DEFAULT_PAGE[it.tab]); }}>
+              <span className="nicon">{it.ic}</span>
+              <span className="nlabel">{it.t}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}
       <nav className={`drawer${navOpen ? " open" : ""}`} aria-hidden={!navOpen}>
@@ -13773,6 +14050,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
         {[
+          { p: "home", ic: "🏠", c: "#d97757", t: lc.tabHome },
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
           { p: "sensei", ic: "◈", c: "#d97757", t: lc.navSensei },
           { p: "studio", sv: "songs", ic: "🎵", c: "#d97757", t: lc.studioPlayAlong },
@@ -14583,6 +14861,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className="cbtn" onClick={() => setSettingsOpen(false)}>{lc.close}</button>
             </div>
             <div className="setbody">
+              <div className="setrow col">
+                <label>🧭 {lc.setPracticeExp}</label>
+                <div className="setlangs">
+                  <button className={`setlangbtn${practiceMode === "ai" ? " on" : ""}`} onClick={() => applyPracticeMode("ai")}>🤖 {lc.setPracticeAI}</button>
+                  <button className={`setlangbtn${practiceMode === "manual" ? " on" : ""}`} onClick={() => applyPracticeMode("manual")}>🎯 {lc.setPracticeManual}</button>
+                </div>
+                <span className="setsub">{(practiceMode === "ai" ? lc.setPracticeAIDesc : lc.setPracticeManualDesc)} · {lc.setPracticeHint}</span>
+              </div>
+              <div className="setdiv" />
               <div className="setrow">
                 <label>{mode === "light" ? "☀️" : "🌙"} {lang === "th" ? "โหมดสี" : lang === "zh" ? "配色模式" : "Color mode"}</label>
                 <div className="setlangs" style={{ flex: "0 0 auto", width: "auto" }}>
@@ -14622,15 +14909,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   {metroOn ? lc.setOn : lc.setOff}
                 </button>
               </div>
-              <div className="setrow">
-                <label>{lc.setBpm}: <b>{metroBpm}</b></label>
-                <input type="range" min="40" max="208" value={metroBpm} onChange={e => setMetroBpm(+e.target.value)} />
-              </div>
-              <div className="setrow setbtns">
-                <button className="setbtn" onClick={() => setMetroBpm(b => Math.max(40, b - 5))}>−5</button>
-                <button className="setbtn wide" onClick={tapTempo}>{lc.setTap}</button>
-                <button className="setbtn" onClick={() => setMetroBpm(b => Math.min(208, b + 5))}>+5</button>
-              </div>
+              <button className="setbtn wide" style={{ width: "100%" }} onClick={() => setSetAdvancedOpen(o => !o)}>{setAdvancedOpen ? "▲" : "▼"} {lc.setAdvanced}</button>
+              {setAdvancedOpen && (<>
+                <div className="setrow">
+                  <label>{lc.setBpm}: <b>{metroBpm}</b></label>
+                  <input type="range" min="40" max="208" value={metroBpm} onChange={e => setMetroBpm(+e.target.value)} />
+                </div>
+                <div className="setrow setbtns">
+                  <button className="setbtn" onClick={() => setMetroBpm(b => Math.max(40, b - 5))}>−5</button>
+                  <button className="setbtn wide" onClick={tapTempo}>{lc.setTap}</button>
+                  <button className="setbtn" onClick={() => setMetroBpm(b => Math.min(208, b + 5))}>+5</button>
+                </div>
+              </>)}
               {pushSupported() && (
                 <div className="setrow">
                   <label>{lc.setPush}</label>
