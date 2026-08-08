@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import * as line from "./line.ts";
+import { draftSalesFollowup } from "./ai-reports.ts";
 
 // Fixed, safe action registry -- deliberately NOT a generic arbitrary-code
 // executor. Each action reuses an existing side-effect path where one
@@ -35,6 +36,8 @@ export async function executeAction(db: SupabaseClient, action: ActionSpec, ctx:
       return createTask(db, action, ctx);
     case "change_sales_status":
       return changeSalesStatus(db, action, ctx);
+    case "draft_followup_message":
+      return draftFollowupMessage(db, action, ctx);
     default:
       return { type: action.type, ok: false, detail: `Unknown action type: ${action.type}` };
   }
@@ -87,6 +90,21 @@ async function createTask(db: SupabaseClient, action: ActionSpec, ctx: ActionCon
   });
   if (error) return { type: action.type, ok: false, detail: error.message };
   return { type: action.type, ok: true };
+}
+
+// Never sends anything itself -- has the AI draft a personalized message
+// (_shared/ai-reports.ts:draftSalesFollowup) and files it as a pending
+// ai_drafted_message approval request instead, so a human reviews/edits
+// it before it ever reaches a customer (see approvals/index.ts).
+async function draftFollowupMessage(db: SupabaseClient, _action: ActionSpec, ctx: ActionContext): Promise<ActionResult> {
+  if (!ctx.customerId) return { type: "draft_followup_message", ok: false, detail: "No customer on this event" };
+
+  try {
+    await draftSalesFollowup(db, ctx.customerId);
+    return { type: "draft_followup_message", ok: true };
+  } catch (err) {
+    return { type: "draft_followup_message", ok: false, detail: err instanceof Error ? err.message : "Failed to draft follow-up message" };
+  }
 }
 
 async function changeSalesStatus(db: SupabaseClient, action: ActionSpec, ctx: ActionContext): Promise<ActionResult> {

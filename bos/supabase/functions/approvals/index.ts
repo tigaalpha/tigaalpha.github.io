@@ -4,6 +4,7 @@ import { requireStaff, requireOwnerOrAdmin } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { handleUnexpectedError } from "../_shared/monitor.ts";
 import * as calendar from "../_shared/calendar.ts";
+import * as line from "../_shared/line.ts";
 
 interface CancelPaidLessonPayload {
   bookingId: string;
@@ -14,6 +15,11 @@ interface CancelPaidLessonPayload {
 
 interface AdCampaignSpendPayload {
   campaignId: string;
+}
+
+interface AiDraftedMessagePayload {
+  customerId: string;
+  message: string;
 }
 
 /**
@@ -39,6 +45,17 @@ async function executeApproved(admin: ReturnType<typeof createAdminClient>, type
     const { campaignId } = payload as AdCampaignSpendPayload;
     const { error } = await admin.from("ad_campaigns").update({ status: "approved", approved_at: new Date().toISOString() }).eq("id", campaignId);
     if (error) throw error;
+    return;
+  }
+
+  if (type === "ai_drafted_message") {
+    const { customerId, message } = payload as AiDraftedMessagePayload;
+    const { data: customer, error } = await admin.from("customers").select("line_user_id").eq("id", customerId).maybeSingle();
+    if (error) throw error;
+    // LINE can only push to a user who has already added the OA as a
+    // friend — same constraint as automation-actions.ts's send_line_message.
+    if (!customer?.line_user_id) throw new Error("ลูกค้าคนนี้ยังไม่เคยทักแชท LINE มา — ส่งข้อความนี้ให้ไม่ได้");
+    await line.push(customer.line_user_id, message);
     return;
   }
 
@@ -68,7 +85,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (req.method === "POST") {
-      const { id, action } = (await req.json()) as { id: string; action: "approve" | "reject" };
+      const { id, action, editedPayload } = (await req.json()) as {
+        id: string;
+        action: "approve" | "reject";
+        editedPayload?: Record<string, unknown>;
+      };
       if (!id || (action !== "approve" && action !== "reject")) {
         return jsonResponse({ error: "id and action ('approve' | 'reject') are required" }, 400);
       }
@@ -79,11 +100,22 @@ Deno.serve(async (req: Request) => {
 
       if (action === "approve") {
         // Approving executes real money-moving/irreversible actions
-        // (cancelling a paid lesson, approving ad spend) -- same privilege
-        // tier as record_transaction in _shared/tools.ts, so it needs the
-        // same owner/admin check, not just "any staff account."
+        // (cancelling a paid lesson, approving ad spend, sending an
+        // AI-drafted message) -- same privilege tier as record_transaction
+        // in _shared/tools.ts, so it needs the same owner/admin check, not
+        // just "any staff account."
         await requireOwnerOrAdmin(admin, userId);
-        await executeApproved(admin, request.type, request.payload);
+
+        // Lets staff edit an AI-drafted message before it's sent (the
+        // "Edit Before Send" step in the Level 3 plan) instead of only
+        // being able to approve verbatim or reject outright.
+        let payload = request.payload;
+        if (editedPayload && request.type === "ai_drafted_message") {
+          payload = { ...request.payload, ...editedPayload };
+          await admin.from("approval_requests").update({ payload }).eq("id", id);
+        }
+
+        await executeApproved(admin, request.type, payload);
       }
 
       const { data: updated, error: updateErr } = await admin

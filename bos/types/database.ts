@@ -61,7 +61,7 @@ export type SocialPlatform = "facebook" | "instagram" | "tiktok" | "youtube" | "
 
 export type SocialPostStatus = "queued" | "posting" | "success" | "failed";
 
-export type ApprovalType = "cancel_paid_lesson" | "ad_campaign_spend";
+export type ApprovalType = "cancel_paid_lesson" | "ad_campaign_spend" | "ai_drafted_message";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -725,6 +725,35 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["tasks"]["Row"]> & { title: string };
         Update: Partial<Database["public"]["Tables"]["tasks"]["Row"]>;
+        Relationships: [];
+      };
+      ai_reports: {
+        Row: {
+          id: string;
+          report_type: "daily_briefing" | "weekly_business_report" | "student_progress" | "sales_followup_draft";
+          entity_type: string | null;
+          entity_id: string | null;
+          title: string;
+          content: string;
+          data: Record<string, unknown>;
+          model: string | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      ai_usage_log: {
+        Row: {
+          id: string;
+          model: string;
+          prompt_tokens: number;
+          completion_tokens: number;
+          source: string;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       receipts: {

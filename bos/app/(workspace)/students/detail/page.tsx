@@ -6,6 +6,7 @@ import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { StudentDetail } from "@/features/students/components/student-detail";
 import { CustomerTimeline } from "@/features/students/components/customer-timeline";
+import { StudentProgressAi } from "@/features/students/components/student-progress-ai";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserX } from "lucide-react";
@@ -60,6 +61,7 @@ function StudentDetailContent() {
         <p className="text-sm text-secondary/50">Customer profile</p>
       </div>
       <StudentDetail customer={data.customer} courses={data.courses} history={data.history} />
+      <StudentProgressAi customerId={data.customer.id} />
       <CustomerTimeline customerId={data.customer.id} />
     </div>
   );
