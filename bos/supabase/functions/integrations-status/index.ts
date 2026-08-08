@@ -4,6 +4,7 @@ import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { handleUnexpectedError } from "../_shared/monitor.ts";
 import { listEventsBetween } from "../_shared/calendar.ts";
+import { OPENROUTER_BASE_URL } from "../_shared/openrouter.ts";
 
 interface CheckResult {
   connected: boolean;
@@ -68,8 +69,10 @@ async function checkGemini(): Promise<CheckResult> {
   }
 }
 
-// Strategy Room providers -- all but Claude speak the same OpenAI-compatible
-// GET /models endpoint, which validates the key without spending any tokens.
+// Every non-Gemini chat model (TIGA AI AGENT + Strategy Room) shares one
+// OpenRouter connection, so one GET /models check (validates the key
+// without spending tokens) covers all of them -- no need to ping seven
+// separate vendor APIs.
 async function checkOpenAICompatibleModels(envKey: string, baseUrl: string): Promise<CheckResult> {
   const key = Deno.env.get(envKey);
   if (!key) return { connected: false, detail: `${envKey} is not set.` };
@@ -105,24 +108,6 @@ async function checkYouTube(): Promise<CheckResult> {
   }
 }
 
-async function checkClaude(): Promise<CheckResult> {
-  const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!key) return { connected: false, detail: "ANTHROPIC_API_KEY is not set." };
-
-  try {
-    const response = await fetch("https://api.anthropic.com/v1/models", {
-      headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      return { connected: false, detail: `Anthropic rejected the API key (${response.status}): ${body.slice(0, 200)}` };
-    }
-    return { connected: true, detail: "Claude API key is valid" };
-  } catch (error) {
-    return { connected: false, detail: error instanceof Error ? error.message : "Request to Anthropic failed." };
-  }
-}
-
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -132,21 +117,15 @@ Deno.serve(async (req: Request) => {
   try {
     await requireStaff(admin, req);
 
-    const [line, googleCalendar, gemini, youtube, claude, gpt, grok, deepseek, kimi, glm, qwen] = await Promise.all([
+    const [line, googleCalendar, gemini, youtube, openrouter] = await Promise.all([
       checkLine(),
       checkGoogleCalendar(),
       checkGemini(),
       checkYouTube(),
-      checkClaude(),
-      checkOpenAICompatibleModels("OPENAI_API_KEY", Deno.env.get("OPENAI_BASE_URL") ?? "https://api.openai.com/v1"),
-      checkOpenAICompatibleModels("XAI_API_KEY", Deno.env.get("XAI_BASE_URL") ?? "https://api.x.ai/v1"),
-      checkOpenAICompatibleModels("DEEPSEEK_API_KEY", Deno.env.get("DEEPSEEK_BASE_URL") ?? "https://api.deepseek.com/v1"),
-      checkOpenAICompatibleModels("MOONSHOT_API_KEY", Deno.env.get("MOONSHOT_BASE_URL") ?? "https://api.moonshot.ai/v1"),
-      checkOpenAICompatibleModels("ZHIPU_API_KEY", Deno.env.get("ZHIPU_BASE_URL") ?? "https://api.z.ai/api/paas/v4"),
-      checkOpenAICompatibleModels("DASHSCOPE_API_KEY", Deno.env.get("DASHSCOPE_BASE_URL") ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
+      checkOpenAICompatibleModels("OPENROUTER_API_KEY", OPENROUTER_BASE_URL),
     ]);
 
-    return jsonResponse({ line, googleCalendar, gemini, youtube, claude, gpt, grok, deepseek, kimi, glm, qwen });
+    return jsonResponse({ line, googleCalendar, gemini, youtube, openrouter });
   } catch (error) {
     return await handleUnexpectedError(admin, "integrations-status", error);
   }
