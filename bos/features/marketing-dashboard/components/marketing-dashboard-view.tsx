@@ -209,6 +209,15 @@ export function MarketingDashboardView() {
         </Button>
       </div>
       {syncError ? <p className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">{syncError}</p> : null}
+      {(() => {
+        const earliest = snapshots && snapshots.length > 0 ? snapshots[0]!.captured_at : null;
+        const daysOfHistory = earliest ? (Date.now() - new Date(earliest).getTime()) / (24 * 60 * 60 * 1000) : 0;
+        return daysOfHistory < 1 ? (
+          <p className="text-xs text-secondary/40">
+            ระบบเพิ่งเริ่มเก็บข้อมูลไม่นานนี้ — ตัวเลขจะยังเหมือนกันในทุกช่วงเวลาจนกว่าจะมีข้อมูลสะสมข้ามวัน (ระบบซิงค์ให้อัตโนมัติทุกชั่วโมง หรือกดกรอกยอดเองสำหรับ TikTok/Instagram/X)
+          </p>
+        ) : null;
+      })()}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {CHANNELS.map((def) => (
