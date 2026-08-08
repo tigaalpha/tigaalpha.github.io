@@ -33,6 +33,7 @@ import { SystemBackupsRepository } from "./system-backups.repository";
 import { AppAdKitsRepository } from "./app-ad-kits.repository";
 import { AutomationRepository } from "./automation.repository";
 import { TasksRepository } from "./tasks.repository";
+import { ReceiptsRepository } from "./receipts.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -74,6 +75,7 @@ export function createRepositories(db: SupabaseClient<Database>) {
     appAdKits: new AppAdKitsRepository(db),
     automation: new AutomationRepository(db),
     tasks: new TasksRepository(db),
+    receipts: new ReceiptsRepository(db),
   };
 }
 

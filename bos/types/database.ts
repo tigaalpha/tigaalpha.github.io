@@ -727,6 +727,25 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["tasks"]["Row"]>;
         Relationships: [];
       };
+      receipts: {
+        Row: {
+          id: string;
+          receipt_number: string;
+          transaction_id: string;
+          customer_id: string;
+          course_id: string | null;
+          amount: number;
+          issued_at: string;
+          drive_file_id: string | null;
+          drive_file_url: string | null;
+          sent_at: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       social_trend_manual_items: {
         Row: {
           id: string;
