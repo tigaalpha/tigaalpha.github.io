@@ -4,7 +4,7 @@ import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { handleUnexpectedError } from "../_shared/monitor.ts";
-import { isVideoProvider, requireProviderApiKey, startClip } from "../_shared/video-providers.ts";
+import { isVideoProvider, isVideoOrientation, requireProviderApiKey, startClip } from "../_shared/video-providers.ts";
 import type { SourceImage } from "../_shared/veo.ts";
 
 // Kicks off one generation (Veo or Seedance, whichever the caller picked)
@@ -24,7 +24,7 @@ Deno.serve(async (req: Request) => {
   try {
     const userId = await requireStaff(admin, req);
 
-    const { imageIds, provider = "veo" } = await req.json();
+    const { imageIds, provider = "veo", orientation = "vertical" } = await req.json();
     if (!Array.isArray(imageIds) || imageIds.length === 0) {
       return jsonResponse({ error: "imageIds must be a non-empty array" }, 400);
     }
@@ -32,6 +32,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: `Select at most ${MAX_IMAGES} images per batch` }, 400);
     }
     if (!isVideoProvider(provider)) return jsonResponse({ error: "Invalid provider" }, 400);
+    if (!isVideoOrientation(orientation)) return jsonResponse({ error: "Invalid orientation" }, 400);
 
     const apiKey = requireProviderApiKey(provider);
 
@@ -53,7 +54,7 @@ Deno.serve(async (req: Request) => {
         if (err instanceof RateLimitError) break;
         throw err;
       }
-      const row = await startClip(admin, provider, apiKey, userId, image);
+      const row = await startClip(admin, provider, apiKey, userId, image, orientation);
       videoClips.push(row);
     }
 

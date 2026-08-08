@@ -17,11 +17,22 @@ interface AiMotionVideoCardProps {
 
 const MAX_IMAGES = 20;
 const POLL_INTERVAL_MS = 6000;
-const CANVAS_WIDTH = 720;
-const CANVAS_HEIGHT = 1280;
 const FPS = 30;
 
-type VideoProvider = "veo" | "seedance-2" | "seedance-2-fast" | "luma-ray-2" | "runway-gen4-turbo" | "hailuo-2.3-fast";
+type VideoOrientation = "vertical" | "horizontal";
+
+function canvasSize(orientation: VideoOrientation): { width: number; height: number } {
+  return orientation === "horizontal" ? { width: 1280, height: 720 } : { width: 720, height: 1280 };
+}
+
+type VideoProvider =
+  | "veo"
+  | "seedance-2"
+  | "seedance-2-fast"
+  | "luma-ray-2"
+  | "runway-gen4-turbo"
+  | "hailuo-2.3-fast"
+  | "minimax-h3";
 
 interface ProviderInfo {
   id: VideoProvider;
@@ -67,6 +78,14 @@ const PROVIDERS: ProviderInfo[] = [
     durationLow: 6,
     durationHigh: 10,
   },
+  {
+    id: "minimax-h3",
+    label: "MiniMax H3 / Hailuo 3.0 (fal.ai, 2K + เสียง, รุ่นล่าสุด)",
+    costLowPerSec: 0.11,
+    costHighPerSec: 0.13,
+    durationLow: 6,
+    durationHigh: 10,
+  },
 ];
 
 function imageDataUrl(row: Tables<"generated_images">): string {
@@ -85,10 +104,10 @@ function estimateCost(imageCount: number, provider: VideoProvider): { low: strin
   };
 }
 
-function drawVideoCover(ctx: CanvasRenderingContext2D, video: HTMLVideoElement) {
-  const canvasRatio = CANVAS_WIDTH / CANVAS_HEIGHT;
-  const vw = video.videoWidth || CANVAS_WIDTH;
-  const vh = video.videoHeight || CANVAS_HEIGHT;
+function drawVideoCover(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, width: number, height: number) {
+  const canvasRatio = width / height;
+  const vw = video.videoWidth || width;
+  const vh = video.videoHeight || height;
   const videoRatio = vw / vh;
   let sx = 0,
     sy = 0,
@@ -101,10 +120,10 @@ function drawVideoCover(ctx: CanvasRenderingContext2D, video: HTMLVideoElement) 
     sh = vw / canvasRatio;
     sy = (vh - sh) / 2;
   }
-  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, width, height);
 }
 
-function playAndDraw(clip: Tables<"video_clips">, ctx: CanvasRenderingContext2D): Promise<void> {
+function playAndDraw(clip: Tables<"video_clips">, ctx: CanvasRenderingContext2D, width: number, height: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
     video.muted = true;
@@ -114,7 +133,7 @@ function playAndDraw(clip: Tables<"video_clips">, ctx: CanvasRenderingContext2D)
 
     function draw() {
       if (video.paused || video.ended) return;
-      drawVideoCover(ctx, video);
+      drawVideoCover(ctx, video, width, height);
       raf = requestAnimationFrame(draw);
     }
 
@@ -160,6 +179,7 @@ function blobToBase64(blob: Blob): Promise<string> {
 export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVideoCardProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [provider, setProvider] = useState<VideoProvider>("veo");
+  const [orientation, setOrientation] = useState<VideoOrientation>("vertical");
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -239,9 +259,10 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
     setDriveError(null);
 
     try {
+      const { width, height } = canvasSize(orientation);
       const canvas = document.createElement("canvas");
-      canvas.width = CANVAS_WIDTH;
-      canvas.height = CANVAS_HEIGHT;
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas 2D context not available");
 
@@ -257,7 +278,7 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
 
       recorder.start();
       for (const clip of successful) {
-        await playAndDraw(clip, ctx);
+        await playAndDraw(clip, ctx, width, height);
       }
       recorder.stop();
       await stopped;
@@ -291,7 +312,7 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
         videoClips: Tables<"video_clips">[];
         requested: number;
         started: number;
-      }>("generate-video-batch-start", { body: { imageIds: selectedIds, provider } });
+      }>("generate-video-batch-start", { body: { imageIds: selectedIds, provider, orientation } });
       if (fnError) throw fnError;
       if (!data) throw new Error("Empty response from generate-video-batch-start");
 
@@ -380,6 +401,32 @@ export function AiMotionVideoCard({ images, videoClips, onChanged }: AiMotionVid
                   )}
                 >
                   {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-secondary/50">
+              แนวภาพ {provider === "hailuo-2.3-fast" ? "(Hailuo 2.3 Fast ใช้แนวของภาพต้นฉบับเสมอ ไม่รองรับเลือกแนวแยก)" : ""}
+            </p>
+            <div className="flex gap-2">
+              {(["vertical", "horizontal"] as VideoOrientation[]).map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => {
+                    setOrientation(o);
+                    setConfirming(false);
+                  }}
+                  disabled={provider === "hailuo-2.3-fast"}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40",
+                    orientation === o
+                      ? "border-transparent bg-primary-gradient text-white"
+                      : "border-line/10 text-secondary/70 hover:bg-line/5"
+                  )}
+                >
+                  {o === "vertical" ? "แนวตั้ง 9:16" : "แนวนอน 16:9"}
                 </button>
               ))}
             </div>

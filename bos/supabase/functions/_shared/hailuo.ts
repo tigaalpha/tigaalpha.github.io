@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { SourceImage } from "./veo.ts";
+import type { VideoOrientation } from "./video-providers.ts";
 import { submitFalQueue } from "./fal-queue.ts";
 
 // MiniMax Hailuo 2.3 Fast (Standard) on fal.ai -- the cheapest Hailuo tier
@@ -13,7 +14,19 @@ function falModelId(): string {
   return Deno.env.get("FAL_HAILUO_MODEL") ?? "fal-ai/minimax/hailuo-2.3-fast/standard/image-to-video";
 }
 
-export async function startHailuoClip(admin: SupabaseClient, falApiKey: string, userId: string, image: SourceImage) {
+// _orientation is accepted (not used) only so this has the same call
+// signature as every other startXClip() for video-providers.ts's dispatch —
+// Hailuo 2.3's image-to-video endpoint has no explicit aspect-ratio input;
+// fal.ai's own docs confirm it's always "adaptive" (follows the source
+// image's own shape). Use MiniMax H3 instead if a chosen output orientation
+// matters more than cost for a given video.
+export async function startHailuoClip(
+  admin: SupabaseClient,
+  falApiKey: string,
+  userId: string,
+  image: SourceImage,
+  _orientation: VideoOrientation = "vertical"
+) {
   const durationSeconds = DURATIONS[Math.floor(Math.random() * DURATIONS.length)];
   const modelId = falModelId();
 
