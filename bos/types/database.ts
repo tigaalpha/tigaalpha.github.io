@@ -741,6 +741,7 @@ export interface Database {
           assigned_to: string | null;
           created_by: string | null;
           automation_rule_id: string | null;
+          source_workflow_run_id: string | null;
           created_at: string;
           updated_at: string;
         };

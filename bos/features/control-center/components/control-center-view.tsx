@@ -22,6 +22,7 @@ interface ControlCenterData {
   aiUsage: { source: string; totalTokens: number }[];
   pendingApprovals: number;
   agentPerformance: Record<string, { success: number; failed: number }>;
+  agentHealth: Record<string, { score: number; avgLatencyMs: number | null }>;
   riskFlags: { workflowId: string; goal: string; title: string; description: string }[];
 }
 
@@ -48,8 +49,9 @@ export function ControlCenterView() {
       repos.approvals.pendingCount(),
       repos.agentWorkflows.agentPerformanceCounts(30),
       repos.agentWorkflows.recentHighPriorityActions(5),
+      repos.agentWorkflows.agentHealthScores(30),
     ])
-      .then(([transactions, cashFlowForecast, funnelCounts, cac, ltv, aiUsage, pendingApprovals, agentPerformance, riskFlags]) => {
+      .then(([transactions, cashFlowForecast, funnelCounts, cac, ltv, aiUsage, pendingApprovals, agentPerformance, riskFlags, agentHealth]) => {
         const { revenue: revenue30d, profit: profit30d } = sumTransactions(transactions);
 
         setData({
@@ -65,6 +67,7 @@ export function ControlCenterView() {
           aiUsage,
           pendingApprovals,
           agentPerformance,
+          agentHealth,
           riskFlags,
         });
       })
@@ -110,14 +113,19 @@ export function ControlCenterView() {
               <EmptyState icon={Bot} title="ยังไม่มีการเรียกใช้ Agent" />
             ) : (
               <div className="space-y-2">
-                {Object.entries(data.agentPerformance).map(([agentId, counts]) => (
-                  <div key={agentId} className="flex items-center justify-between text-sm">
-                    <span className="text-secondary">{agentId}</span>
-                    <span className="text-secondary/50">
-                      สำเร็จ {counts.success} / ล้มเหลว {counts.failed}
-                    </span>
-                  </div>
-                ))}
+                {Object.entries(data.agentPerformance).map(([agentId, counts]) => {
+                  const health = data.agentHealth[agentId];
+                  return (
+                    <div key={agentId} className="flex items-center justify-between text-sm">
+                      <span className="text-secondary">{agentId}</span>
+                      <span className="text-secondary/50">
+                        สำเร็จ {counts.success} / ล้มเหลว {counts.failed}
+                        {health ? ` · สุขภาพ ${health.score}%` : ""}
+                        {health?.avgLatencyMs != null ? ` · เฉลี่ย ${(health.avgLatencyMs / 1000).toFixed(1)}s` : ""}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>

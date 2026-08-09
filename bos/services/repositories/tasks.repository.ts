@@ -7,6 +7,7 @@ interface TaskInput {
   priority?: "low" | "medium" | "high";
   dueAt?: string | null;
   customerId?: string | null;
+  sourceWorkflowRunId?: string | null;
 }
 
 export class TasksRepository {
@@ -27,6 +28,7 @@ export class TasksRepository {
         priority: input.priority ?? "medium",
         due_at: input.dueAt ?? null,
         customer_id: input.customerId ?? null,
+        source_workflow_run_id: input.sourceWorkflowRunId ?? null,
         created_by: createdBy,
       })
       .select("*")

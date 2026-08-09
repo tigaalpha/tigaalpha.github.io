@@ -40,6 +40,34 @@ export class AgentWorkflowsRepository {
     return counts;
   }
 
+  // successRate/avgLatencyMs computed straight from agent_task_runs, no
+  // invented weighting formula -- score is just round(successRate * 100).
+  async agentHealthScores(days = 30): Promise<Record<string, { score: number; avgLatencyMs: number | null }>> {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await this.db.from("agent_task_runs").select("agent_id, status, started_at, finished_at").gte("started_at", since);
+    if (error) throw error;
+
+    const buckets: Record<string, { success: number; total: number; latencySumMs: number; latencyCount: number }> = {};
+    for (const row of data ?? []) {
+      const bucket = (buckets[row.agent_id] ??= { success: 0, total: 0, latencySumMs: 0, latencyCount: 0 });
+      bucket.total += 1;
+      if (row.status === "success") bucket.success += 1;
+      if (row.finished_at) {
+        bucket.latencySumMs += new Date(row.finished_at).getTime() - new Date(row.started_at).getTime();
+        bucket.latencyCount += 1;
+      }
+    }
+
+    const scores: Record<string, { score: number; avgLatencyMs: number | null }> = {};
+    for (const [agentId, bucket] of Object.entries(buckets)) {
+      scores[agentId] = {
+        score: bucket.total > 0 ? Math.round((bucket.success / bucket.total) * 100) : 0,
+        avgLatencyMs: bucket.latencyCount > 0 ? Math.round(bucket.latencySumMs / bucket.latencyCount) : null,
+      };
+    }
+    return scores;
+  }
+
   // Flattens recommended_actions across the last few completed workflows,
   // keeping only priority: "high" -- the Control Center's "AI-flagged"
   // tile, grounded in what the CEO Agent actually said rather than a new

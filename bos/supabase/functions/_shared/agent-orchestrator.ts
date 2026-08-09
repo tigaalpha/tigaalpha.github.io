@@ -6,6 +6,7 @@ import { runAgentTask } from "./agent-tasks.ts";
 import type { ToolDefinition } from "./ai-types.ts";
 import * as line from "./line.ts";
 import { logAiUsage } from "./usage-logging.ts";
+import { fetchRecentMemory } from "./agent-memory.ts";
 
 const MAX_TASKS = 4;
 
@@ -80,10 +81,12 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
   const workflowId = workflow.id as string;
 
   try {
+    const recentMemory = await fetchRecentMemory(admin);
+
     const planResult = await generate(
       [
         { role: "system", content: PROMPTS.ceo_planner },
-        { role: "user", content: goal },
+        { role: "user", content: JSON.stringify({ goal, recentMemory }) },
       ],
       [RETURN_TASK_PLAN_TOOL],
       0.4,
@@ -144,7 +147,7 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
     const synthesisResult = await generate(
       [
         { role: "system", content: PROMPTS.ceo_synthesis },
-        { role: "user", content: JSON.stringify({ goal, agentFindings: successfulOutputs, failedAgentCount: tasks.length - successfulOutputs.length }) },
+        { role: "user", content: JSON.stringify({ goal, agentFindings: successfulOutputs, failedAgentCount: tasks.length - successfulOutputs.length, recentMemory }) },
       ],
       [RETURN_SYNTHESIS_TOOL],
       0.5,
