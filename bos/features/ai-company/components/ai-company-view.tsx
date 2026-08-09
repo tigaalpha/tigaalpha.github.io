@@ -88,6 +88,7 @@ export function AiCompanyView() {
           title: action.title,
           description: `${action.description}\n\n(จาก CEO Agent เป้าหมาย: "${current.workflow.goal}")`,
           priority: (action.priority === "high" || action.priority === "medium" || action.priority === "low" ? action.priority : "medium") as "high" | "medium" | "low",
+          sourceWorkflowRunId: current.workflow.id,
         },
         userData.user?.id ?? null
       );
