@@ -2414,7 +2414,7 @@ const L = {
     dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recWeakSkill: "จุดอ่อนตอนนี้: {x}", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
     setAmbient: "ดนตรีบรรยากาศ", setInstall: "ติดตั้งเป็นแอป", setBpm: "จังหวะ (BPM)", setTap: "แตะตามจังหวะ", setLang: "ภาษา", setOn: "เปิด", setOff: "ปิด",
-    tabHome: "หน้าแรก", tabLearn: "เรียนรู้", tabPractice: "ฝึกซ้อม", tabMe: "ฉัน",
+    tabHome: "หน้าแรก",
     setPracticeExp: "รูปแบบการฝึก", setPracticeAI: "AI Mentor", setPracticeAIDesc: "ให้ TIGA แนะนำและจัดการการฝึกให้", setPracticeManual: "เลือกเอง", setPracticeManualDesc: "ให้ฉันเลือกเพลงและแบบฝึกด้วยตัวเอง", setPracticeHint: "คุณสามารถเปลี่ยนโหมดนี้ได้ทุกเมื่อ", setAdvanced: "เพิ่มเติม",
     installBannerTitle: "ติดตั้ง TiGA AI ไว้ที่หน้าจอโฮม", installBannerSub: "เปิดได้ไวขึ้น ไม่ต้องหา URL ทุกครั้ง",
     setPush: "🔔 แจ้งเตือน",
@@ -2557,7 +2557,7 @@ const L = {
     dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recWeakSkill: "Your weakest skill: {x}", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
     setAmbient: "Ambient music", setInstall: "Install app", setBpm: "Tempo (BPM)", setTap: "Tap tempo", setLang: "Language", setOn: "On", setOff: "Off",
-    tabHome: "Home", tabLearn: "Learn", tabPractice: "Practice", tabMe: "Me",
+    tabHome: "Home",
     setPracticeExp: "Practice Experience", setPracticeAI: "AI Mentor", setPracticeAIDesc: "Let TIGA guide and manage your practice", setPracticeManual: "Choose myself", setPracticeManualDesc: "Let me pick my own songs and drills", setPracticeHint: "You can change this anytime", setAdvanced: "Advanced",
     installBannerTitle: "Add TiGA AI to your home screen", installBannerSub: "Open it faster — no more hunting for the URL",
     setPush: "🔔 Notifications",
@@ -2700,7 +2700,7 @@ const L = {
     dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recWeakSkill: "当前弱项：{x}", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
     setAmbient: "环境音乐", setInstall: "安装应用", setBpm: "速度 (BPM)", setTap: "点击打拍", setLang: "语言", setOn: "开", setOff: "关",
-    tabHome: "首页", tabLearn: "学习", tabPractice: "练习", tabMe: "我",
+    tabHome: "首页",
     setPracticeExp: "练习模式", setPracticeAI: "AI 导师", setPracticeAIDesc: "让 TIGA 为你安排和引导练习", setPracticeManual: "自己选择", setPracticeManualDesc: "自己选择歌曲和练习内容", setPracticeHint: "随时都可以更改此设置", setAdvanced: "更多",
     installBannerTitle: "把 TiGA AI 添加到主屏幕", installBannerSub: "打开更快 — 不用每次找网址",
     setPush: "🔔 通知",
@@ -6709,20 +6709,6 @@ function buildRecommendation(lang) {
   };
   return { type: "warmup", target: null, feature: "play_along", duration: 3, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start" };
 }
-// 4-tab top-level IA. Purely a *grouping* over the existing 14 page values — every
-// page keeps working exactly as before; this only decides which bottom-nav tab
-// highlights for a given page, and where a tab tap lands.
-const TAB_PAGES = {
-  home: ["home"],
-  learn: ["pathway", "videos"],
-  practice: ["studio", "today", "eargym", "reading", "sensei", "gamepage"],
-  me: ["profile", "coach", "insights", "report"],
-};
-function tabForPage(p) {
-  for (const tab in TAB_PAGES) if (TAB_PAGES[tab].includes(p)) return tab;
-  return null; // admin/school: intentionally hidden, no tab highlights
-}
-const TAB_DEFAULT_PAGE = { home: "home", learn: "pathway", practice: "studio", me: "profile" };
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
 function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
 // short header badge per tier
@@ -10528,8 +10514,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [vmErr, setVmErr] = useState(null);
 
   // ── routing + secret admin unlock ──
-  // home = the new AI-Mentor/Manual landing page (UX refactor); "pathway" is now the
-  // LEARN tab's own default, not the app's landing page — see tabForPage/TAB_DEFAULT_PAGE.
+  // home = the new AI-Mentor/Manual landing page (UX refactor); reached from the
+  // drawer's "Home" item or by default on load. Navigation stays drawer-only —
+  // a bottom tab bar was tried and removed after it read as more confusing, not less.
   const [page, setPage] = useState("home");
   useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
 
@@ -14013,30 +14000,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             </div>
           </div>
         </>
-      )}
-
-      {/* ─── BOTTOM NAV (4-tab IA — UX refactor) — hidden on the immersive video
-           feed and the two intentionally-hidden admin/school routes, exactly like
-           the header's own hide list. Reuses .navbar/.navbtn, previously dead CSS
-           left over from an earlier nav design. A normal flex-column sibling here
-           (not fixed-position) — every full-screen practice overlay (.practiceov/
-           .songov, z-index 1100) already covers the full viewport while active, so
-           it's naturally hidden mid-activity with no extra state to manage. ─── */}
-      {page !== "videos" && page !== "admin" && page !== "school" && (
-        <div className="navbar">
-          {[
-            { tab: "home", ic: "🏠", t: lc.tabHome },
-            { tab: "learn", ic: "📖", t: lc.tabLearn },
-            { tab: "practice", ic: "🎹", t: lc.tabPractice },
-            { tab: "me", ic: levelInfo((profile && profile.exp) || 0).tier.icon, t: lc.tabMe },
-          ].map(it => (
-            <button key={it.tab} className={`navbtn${tabForPage(page) === it.tab ? " on" : ""}`} style={{ "--nav-c": "#d97757" }}
-              onClick={() => { playUi("click"); haptic(6); logUsage("nav", "tab-" + it.tab); stopPracticeListeners(); setPage(TAB_DEFAULT_PAGE[it.tab]); }}>
-              <span className="nicon">{it.ic}</span>
-              <span className="nlabel">{it.t}</span>
-            </button>
-          ))}
-        </div>
       )}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
