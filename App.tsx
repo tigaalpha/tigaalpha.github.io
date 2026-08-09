@@ -2411,7 +2411,7 @@ const L = {
     helpTitle: "วิธีใช้งาน", help1: "แตะ ☰ มุมซ้ายบน = เปิดเมนู ไปหน้าต่างๆ", help2: "แตะคีย์เปียโน = เล่นเสียงโน้ต", help3: "ปุ่มไมค์ 🎙️ = คุยกับครู AI สอนสด", help4: "ไปที่ 'ฝึกซ้อม' = เล่นเกมเก็บดาว", help5: "ปุ่ม 🔁 = ฟังครูเล่นซ้ำ", helpOk: "เข้าใจแล้ว!", signOut: "ออกจากระบบ",
     shopTitle: "ร้านค้า", shopSkins: "สกินคีย์", shopThemes: "ธีมพื้นหลัง", shopFrames: "กรอบรูปโปรไฟล์", shopEquip: "ใช้", shopEquipped: "กำลังใช้", shopNew: "ใหม่", shopRareC: "ทั่วไป", shopRareR: "หายาก", shopRareE: "พิเศษ", shopRareL: "ตำนาน",
     chestTitle: "ของขวัญรายวัน", chestOpening: "กำลังเปิด…", chestGot: "ได้รับรางวัล!", chestDay: "วันต่อเนื่อง", chestClaim: "รับเลย!", chestBig: "รางวัลใหญ่",
-    dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recWeakSkill: "จุดอ่อนตอนนี้: {x}", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
+    dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recWeakSkill: "จุดอ่อนตอนนี้: {x}", recFundamentals: "เริ่มจากพื้นฐาน: {x}", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
     setAmbient: "ดนตรีบรรยากาศ", setInstall: "ติดตั้งเป็นแอป", setBpm: "จังหวะ (BPM)", setTap: "แตะตามจังหวะ", setLang: "ภาษา", setOn: "เปิด", setOff: "ปิด",
     setPracticeExp: "รูปแบบการฝึก", setPracticeAI: "AI Mentor", setPracticeAIDesc: "ให้ TIGA แนะนำและจัดการการฝึกให้", setPracticeManual: "เลือกเอง", setPracticeManualDesc: "ให้ฉันเลือกเพลงและแบบฝึกด้วยตัวเอง", setPracticeHint: "คุณสามารถเปลี่ยนโหมดนี้ได้ทุกเมื่อ", setAdvanced: "เพิ่มเติม",
@@ -2553,7 +2553,7 @@ const L = {
     helpTitle: "How to use", help1: "Tap ☰ top-left = open menu & pages", help2: "Tap the piano keys = play notes", help3: "Mic button 🎙️ = talk to your AI teacher", help4: "Go to 'Studio' = play games & earn stars", help5: "🔁 button = hear the teacher play again", helpOk: "Got it!", signOut: "Sign out",
     shopTitle: "Shop", shopSkins: "Key skins", shopThemes: "Themes", shopFrames: "Avatar frames", shopEquip: "Equip", shopEquipped: "Equipped", shopNew: "NEW", shopRareC: "Common", shopRareR: "Rare", shopRareE: "Epic", shopRareL: "Legendary",
     chestTitle: "Daily reward", chestOpening: "Opening…", chestGot: "You got!", chestDay: "day streak", chestClaim: "Claim!", chestBig: "BIG WIN",
-    dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recWeakSkill: "Your weakest skill: {x}", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
+    dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recWeakSkill: "Your weakest skill: {x}", recFundamentals: "Let's start with the basics: {x}", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
     setAmbient: "Ambient music", setInstall: "Install app", setBpm: "Tempo (BPM)", setTap: "Tap tempo", setLang: "Language", setOn: "On", setOff: "Off",
     setPracticeExp: "Practice Experience", setPracticeAI: "AI Mentor", setPracticeAIDesc: "Let TIGA guide and manage your practice", setPracticeManual: "Choose myself", setPracticeManualDesc: "Let me pick my own songs and drills", setPracticeHint: "You can change this anytime", setAdvanced: "Advanced",
@@ -2695,7 +2695,7 @@ const L = {
     helpTitle: "使用方法", help1: "点左上角 ☰ = 打开菜单和页面", help2: "点钢琴键 = 弹出音符", help3: "麦克风 🎙️ = 和 AI 老师对话", help4: "进入'练习' = 玩游戏赚星星", help5: "🔁 按钮 = 再听一次老师弹", helpOk: "明白了！", signOut: "退出登录",
     shopTitle: "商店", shopSkins: "琴键皮肤", shopThemes: "主题", shopFrames: "头像框", shopEquip: "装备", shopEquipped: "已装备", shopNew: "新品", shopRareC: "普通", shopRareR: "稀有", shopRareE: "史诗", shopRareL: "传说",
     chestTitle: "每日奖励", chestOpening: "开启中…", chestGot: "获得奖励！", chestDay: "连续天数", chestClaim: "领取！", chestBig: "大奖",
-    dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recWeakSkill: "当前弱项：{x}", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
+    dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recWeakSkill: "当前弱项：{x}", recFundamentals: "从基础开始：{x}", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
     setAmbient: "环境音乐", setInstall: "安装应用", setBpm: "速度 (BPM)", setTap: "点击打拍", setLang: "语言", setOn: "开", setOff: "关",
     setPracticeExp: "练习模式", setPracticeAI: "AI 导师", setPracticeAIDesc: "让 TIGA 为你安排和引导练习", setPracticeManual: "自己选择", setPracticeManualDesc: "自己选择歌曲和练习内容", setPracticeHint: "随时都可以更改此设置", setAdvanced: "更多",
@@ -3242,7 +3242,9 @@ const HomePage = memo(function HomePage({ lang, profile, practiceMode, rec, stre
   const hr = new Date().getHours();
   const greet = hr < 12 ? T.morning : hr < 18 ? T.afternoon : T.evening;
   const name = (profile && profile.full_name) || "";
-  const recIcon = rec.type === "remediate" ? "🎯" : rec.type === "next_stage" ? "📘" : "🎮";
+  const FUNDAMENTALS_ICONS = { hand_coach: "🖐️", play_along: "🎵", ear_training: "👂" };
+  const recIcon = rec.type === "fundamentals" ? (FUNDAMENTALS_ICONS[rec.feature] || "🖐️")
+    : rec.type === "remediate" ? "🎯" : rec.type === "next_stage" ? "📘" : "🎮";
 
   return (
     <div className="pathpage">
@@ -3349,7 +3351,14 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
     { id: "warm", icon: "🎹", tag: T.warm, label: tr(warm, lang), isDone: doneLog.some(e => e.k === "game" && e.id === warm.id), go: () => onSong(warm) },
     ...(hw ? [{ id: "hw", icon: "📘", tag: T.hw, label: hw.text, isDone: hwDoneToday(), hwStep: true }] : []),
     ...(review ? [{ id: "review", icon: "🔁", tag: T.review, label: tr(review.title, lang) + (reviewKey ? " · " + reviewKey.name : ""), isDone: doneLog.some(e => e.k === "lesson" && e.id.split("/")[0] === review.id), go: () => onLearn(review, reviewKey, review.types ? review.types[0] : null) }] : []),
-    ...(nextAction.type === "remediate" ? [{
+    ...(nextAction.type === "fundamentals" ? [{
+      id: "new", icon: nextAction.feature === "hand_coach" ? "🖐️" : nextAction.feature === "ear_training" ? "👂" : "🎵",
+      tag: T.learn,
+      label: (nextAction.feature === "hand_coach" ? L[lang].studioCamera : nextAction.feature === "ear_training" ? L[lang].navEar : L[lang].studioPlayAlong),
+      isDone: nextAction.feature === "hand_coach" ? doneLog.some(e => e.id === "hand_coach")
+        : nextAction.feature === "ear_training" ? doneLog.some(e => e.k === "ear") : doneLog.some(e => e.k === "game"),
+      go: () => onNavigate(nextAction.feature),
+    }] : nextAction.type === "remediate" ? [{
       id: "new", icon: "🎯", tag: T.learn, label: tr(SKILL_LABELS[nextAction.skill], lang),
       isDone: doneLog.some(e => skillsOfActivity(e).includes(nextAction.skill)),
       go: () => onNavigate(nextAction.feature, nextAction.skill === "chord_knowledge" ? "chord" : undefined),
@@ -6379,8 +6388,12 @@ function curriculumContext(lang) {
   try {
     const done = pathDoneSet();
     const keys = keyDoneMap();
-    const cur = PATHWAY.find(s => !done.has(s.id)) || null;
-    const nxt = cur ? PATHWAY[PATHWAY.indexOf(cur) + 1] : null;
+    // Skip the "advanced" group here too (extended/tension harmony, block/slash/pad-
+    // chord voicings) — matches nextRecommendedAction()'s own boundary, so the Voice
+    // Tutor's sense of "current/next stage" never drifts ahead of what AI Mentor
+    // itself would ever actively recommend.
+    const cur = PATHWAY.find(s => !done.has(s.id) && s.group !== "advanced") || null;
+    const nxt = cur ? PATHWAY.find((s, i) => i > PATHWAY.indexOf(cur) && s.group !== "advanced") : null;
     const parts = [];
     parts.push((lang === "th" ? "ผ่านแล้ว " : lang === "zh" ? "已完成 " : "Stages done: ") + done.size + "/" + PATHWAY.length);
     if (cur) {
@@ -6389,7 +6402,11 @@ function curriculumContext(lang) {
     }
     if (nxt) parts.push((lang === "th" ? "ขั้นถัดไป: " : lang === "zh" ? "下一阶段: " : "Next stage: ") + tr(nxt.title, lang));
     const action = nextRecommendedAction();
-    if (action.type === "remediate") {
+    if (action.type === "fundamentals") {
+      const fLabel = action.feature === "hand_coach" ? L[lang].studioCamera : action.feature === "ear_training" ? L[lang].navEar : L[lang].studioPlayAlong;
+      parts.push((lang === "th" ? "ผู้เรียนเพิ่งเริ่มต้น — ควรเน้น: " : lang === "zh" ? "学员刚起步 — 应重点: " : "Learner is brand new — priority: ") + fLabel
+        + (lang === "th" ? " (ยังไม่ควรสอนทฤษฎีเปียโนซับซ้อน เน้นพื้นฐานจับต้องได้ก่อน)" : lang === "zh" ? "（还不适合讲复杂乐理，先打好实际基础）" : " (hold off on complex theory — focus on hands-on fundamentals first)"));
+    } else if (action.type === "remediate") {
       parts.push((lang === "th" ? "จุดที่ควรเน้นตอนนี้: " : lang === "zh" ? "当前应重点加强: " : "Priority right now: ") + tr(SKILL_LABELS[action.skill], lang)
         + (lang === "th" ? " (คะแนนยังอ่อน — แนะนำให้ฝึกจุดนี้ก่อนเรื่องใหม่ แต่ไม่บังคับ)" : lang === "zh" ? "（得分偏弱 — 建议先练这里，但不强制）" : " (a weak score — recommend practicing this before new content, but don't force it)"));
     }
@@ -6616,11 +6633,14 @@ async function generateCoachTip(lang, profile) {
   const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "—";
   const profileTxt = coachStatsToText(computeCoachStats(profile, lang));
   const featureKeys = Object.keys(COACH_FEATURE_LABELS).join(", ");
-  // Short system = far fewer tokens → avoids Gemini rate-limit. All learner data goes in message.
+  // Short system = far fewer tokens → avoids Gemini rate-limit. All learner data goes in
+  // message. Persona/tone line added deliberately (researched): specialized in absolute
+  // beginners, praise-before-correction, always specific, never advanced theory — still
+  // one short paragraph, not a token-heavy prompt.
   const sysByLang = {
-    th: `คุณคือครูเปียโน TiGA ตอบเป็น JSON ดิบเท่านั้น ไม่มีข้อความอื่น: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
-    zh: `你是TiGA钢琴AI老师，只回原始JSON，无其他文字：{"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
-    en: `You are TiGA AI piano teacher. Reply ONLY with raw JSON, no other text: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
+    th: `คุณคือครูเปียโน TiGA ผู้เชี่ยวชาญสอนคนเริ่มต้นจากศูนย์โดยเฉพาะ ชมสิ่งที่ทำได้ดีก่อนเสมอแล้วค่อยแนะนำจุดที่ควรฝึกต่อ ให้กำลังใจมากกว่าตำหนิ ไม่แนะนำทฤษฎีขั้นสูง เจาะจงเสมอไม่พูดกว้างๆ ตอบเป็น JSON ดิบเท่านั้น ไม่มีข้อความอื่น: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
+    zh: `你是TiGA钢琴AI老师，专门教零基础初学者。总是先表扬做得好的地方，再给出下一步建议，鼓励多于批评，不要建议高阶乐理，反馈必须具体。只回原始JSON，无其他文字：{"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
+    en: `You are TiGA AI piano teacher, specialized in teaching absolute beginners from zero. Always acknowledge what's going well before suggesting what's next, encouraging not critical, never suggest advanced theory, always specific never generic. Reply ONLY with raw JSON, no other text: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
   };
   const msgByLang = {
     th: `ข้อมูลผู้เรียน: ${profileTxt}\nซ้อมล่าสุด: ${recentTxt}\nจุดอ่อน: ${struggleTxt}\nfeature ที่เลือกได้: ${featureKeys}\n\nวิเคราะห์แล้วตอบ JSON: weakness ไม่เกิน 12 คำ, steps สูงสุด 3 ข้อ (เจาะจงชื่อเพลง/หัวข้อ ไม่ใช่คำแนะนำทั่วไป), feature เลือกจากรายการเท่านั้น`,
@@ -6666,12 +6686,31 @@ const SKILL_REMEDIATION = {
   sight_reading: "reading_course", ear_training: "ear_training", chord_knowledge: "ear_training",
   technique: "hand_coach",
 };
+// Absolute-beginner fundamentals, in the order real beginner-piano method books use
+// (hand position -> hands-on rhythm/playing -> simple ear work -> only then theory) —
+// researched against Faber Piano Adventures' Primer sequence. PATHWAY itself has no
+// true from-zero content to offer here: its "skill" stages are music theory that
+// already assumes note-reading (stage 1 covers scale-formula theory and thumb-under
+// fingering), so a genuinely new learner is routed through features that already
+// exist elsewhere in the app instead, before ever reaching Pathway's theory stages.
+const FUNDAMENTALS_SAMPLE_N = 6; // below this many total practiced (not just chatted/read) attempts, treat as starting from zero
 function nextRecommendedAction() {
+  const log = readActLog();
+  const practicedN = log.filter(e => e.k === "drill" || e.k === "game" || e.k === "read" || e.k === "ear").length;
+  if (practicedN < FUNDAMENTALS_SAMPLE_N) {
+    if (!log.some(e => e.id === "hand_coach")) return { type: "fundamentals", feature: "hand_coach" };
+    if (!log.some(e => e.k === "game")) return { type: "fundamentals", feature: "play_along" };
+    if (!log.some(e => e.k === "ear")) return { type: "fundamentals", feature: "ear_training" };
+  }
   const critical = computeSkillScores()
     .filter(s => s.score != null && s.score < CRITICAL_SKILL_SCORE && SKILL_REMEDIATION[s.skill])
     .sort((a, b) => a.score - b.score)[0];
   if (critical) return { type: "remediate", skill: critical.skill, feature: SKILL_REMEDIATION[critical.skill], score: critical.score };
-  const stage = PATHWAY.find(s => !pathDoneSet().has(s.id));
+  // Never actively route into PATHWAY's "advanced" group (extended/tension harmony,
+  // block/slash/pad-chord voicings) — product decision to serve Super Basic/Basic/
+  // Intermediate only for now. Still fully reachable by anyone who browses Pathway
+  // themselves; just never pushed by the AI Mentor.
+  const stage = PATHWAY.find(s => !pathDoneSet().has(s.id) && s.group !== "advanced");
   return stage ? { type: "next_stage", stage } : { type: "warmup" };
 }
 // RecommendationEngine — wraps nextRecommendedAction()'s decision into a richer,
@@ -6681,12 +6720,37 @@ function nextRecommendedAction() {
 // honestly absent rather than a fabricated number.
 function buildRecommendation(lang) {
   const action = nextRecommendedAction();
+  if (action.type === "fundamentals") {
+    // Praise-first, specific framing (researched: beginner-teaching feedback works
+    // best at roughly a 5:1 encouragement-to-correction ratio, and specific beats
+    // generic) — each of these names the concrete first-ever reason to do it, not
+    // a vague "get started."
+    const copyByFeature = {
+      hand_coach: {
+        th: "เริ่มจากสิ่งสำคัญที่สุดก่อนเลย: ท่าวางมือบนเปียโนที่ถูกต้อง — วางรากฐานตรงนี้ตั้งแต่ต้นจะเล่นได้คล่องขึ้นเร็วกว่ามาก",
+        en: "Let's start with the single most important thing first: proper hand position at the piano — getting this right from day one pays off fast.",
+        zh: "先从最重要的一件事开始：正确的弹琴手型 — 一开始就打好这个基础，进步会快很多。",
+      },
+      play_along: {
+        th: "มาเล่นเพลงแรกกันเลย — จับคีย์จริง ฟังเสียงจริง นี่คือวิธีที่ดีที่สุดที่จะเริ่มคุ้นเคยกับเปียโน",
+        en: "Time to play your first song — real keys, real sound. This is the best way to start getting comfortable at the piano.",
+        zh: "来弹第一首歌吧 — 真实按键，真实声音，这是熟悉钢琴最好的方式。",
+      },
+      ear_training: {
+        th: "ลองฝึกฟังเสียงง่ายๆ สักหน่อย — หูที่ไวจะช่วยให้ทุกเรื่องต่อจากนี้ง่ายขึ้นมาก",
+        en: "A little ear training goes a long way — a trained ear makes everything else about playing easier.",
+        zh: "练一点听力吧 — 敏锐的耳朵会让接下来的学习轻松很多。",
+      },
+    };
+    const copy = copyByFeature[action.feature] || copyByFeature.hand_coach;
+    return { type: "fundamentals", target: action.feature, feature: action.feature, duration: 5, difficulty: null, reason: copy[lang] || copy.en, action: "start" };
+  }
   if (action.type === "remediate") {
     const label = tr(SKILL_LABELS[action.skill], lang);
     const reasonByLang = {
-      th: `${label} ยังอ่อนอยู่ (คะแนน ${action.score}/100) วันนี้ลองฝึกเพิ่มอีกนิด`,
-      en: `${label} could use some work (${action.score}/100) — a short session today will help`,
-      zh: `${label}还需要加强（${action.score}/100）— 今天练一小段会有帮助`,
+      th: `${label} กำลังไปได้ดี (${action.score}/100) — ฝึกเพิ่มอีกนิดวันนี้ จะเห็นความต่างชัดเลย`,
+      en: `${label} is coming along (${action.score}/100) — a bit more practice today and you'll feel the difference.`,
+      zh: `${label}正在进步中（${action.score}/100）— 今天再练一点，会明显感觉到不同。`,
     };
     return { type: "remediate", target: action.skill, feature: action.feature, skill: action.skill, duration: 5, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start" };
   }
@@ -12052,7 +12116,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       .map(id => SONGS.find(s => s.id === id)).filter(Boolean);
     const closingSong = pool.length ? pool[seed % pool.length] : SONGS[0];
     const steps = [{ icon: "🎹", label: tr(warm, lang), go: () => chooseSong(warm) }];
-    if (nextAction.type === "remediate") {
+    if (nextAction.type === "fundamentals") {
+      const FUNDAMENTALS_ICONS = { hand_coach: "🖐️", play_along: "🎵", ear_training: "👂" };
+      const FUNDAMENTALS_LABELS = { hand_coach: L[lang].studioCamera, play_along: L[lang].studioPlayAlong, ear_training: L[lang].navEar };
+      steps.push({ icon: FUNDAMENTALS_ICONS[nextAction.feature] || "🖐️", label: FUNDAMENTALS_LABELS[nextAction.feature] || "", go: () => handleCoachNavigate(nextAction.feature) });
+    } else if (nextAction.type === "remediate") {
       steps.push({ icon: "🎯", label: tr(SKILL_LABELS[nextAction.skill], lang), go: () => handleCoachNavigate(nextAction.feature, nextAction.skill === "chord_knowledge" ? "chord" : undefined) });
     } else if (nextAction.type === "next_stage") {
       steps.push({ icon: "📘", label: tr(nextAction.stage.title, lang), go: () => setPage("pathway") });
@@ -12078,6 +12146,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     });
   }
   function endAiSession() { setAiSession(null); }
+  // Shared by Home's primary CTA and the general "AI Mentor" nudge bar — one place
+  // that translates a buildRecommendation() result into an actual navigation, so the
+  // two surfaces can never drift into different behavior for the same recommendation.
+  function goToRecommendation(r) {
+    playUi("click");
+    if (r.type === "fundamentals") handleCoachNavigate(r.feature);
+    else if (r.type === "remediate") handleCoachNavigate(r.feature, r.skill === "chord_knowledge" ? "chord" : undefined);
+    else if (r.type === "next_stage") setPage("pathway");
+    else { setPage("studio"); setStudioView("songs"); }
+  }
   // snapshot the camera and ask the AI teacher to critique hand posture/technique
   async function analyzeHands() {
     if (!premium) { setPricingOpen(true); return; }
@@ -13206,6 +13284,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }
   function recommendNext() {
     const action = nextRecommendedAction();
+    if (action.type === "fundamentals") {
+      const FUNDAMENTALS_ICONS = { hand_coach: "🖐️", play_along: "🎵", ear_training: "👂" };
+      const FUNDAMENTALS_LABELS = { hand_coach: lc.studioCamera, play_along: lc.studioPlayAlong, ear_training: lc.navEar };
+      return {
+        icon: FUNDAMENTALS_ICONS[action.feature] || "🖐️",
+        label: lc.recFundamentals.replace("{x}", FUNDAMENTALS_LABELS[action.feature] || ""),
+        fn: () => handleCoachNavigate(action.feature),
+      };
+    }
     if (action.type === "remediate") {
       return {
         icon: "🎯", label: lc.recWeakSkill.replace("{x}", tr(SKILL_LABELS[action.skill], lang)),
@@ -13671,6 +13758,23 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         );
       })()}
 
+      {/* ─── AI MENTOR NUDGE — general "what to do next" bar, shown whenever no AI
+           Session is active. Addresses the specific pain point of finishing an
+           activity and not knowing where to go next: persists across every normal
+           page, naturally hidden mid-activity (full-screen overlays cover it, same
+           as the header). Skipped on Home and Sensei since both already show this
+           exact same recommendation as their own dedicated card/banner — showing
+           it a third time on the same screen would just be noise. ─── */}
+      {!aiSession && page !== "home" && page !== "sensei" && page !== "videos" && page !== "admin" && page !== "school" && (() => {
+        const rec = buildRecommendation(lang);
+        return (
+          <div className="trial-banner">
+            <span className="trial-banner-txt">🤖 {rec.reason}</span>
+            <button className="trial-banner-btn" onClick={() => goToRecommendation(rec)}>{lang === "th" ? "ไป →" : lang === "zh" ? "去 →" : "Go →"}</button>
+          </div>
+        );
+      })()}
+
       {/* ─── PAGE: ADMIN — reachable ONLY via the 5-tap logo + code, never a nav link ─── */}
       {page === "admin" && (
         adminUnlocked
@@ -13681,12 +13785,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: HOME (new landing page — UX refactor) ─── */}
       {page === "home" && (
         <HomePage lang={lang} profile={profile} practiceMode={practiceMode} rec={buildRecommendation(lang)} streak={readStreak().count || 0}
-          onStartRecommendation={(r) => {
-            playUi("click");
-            if (r.type === "remediate") handleCoachNavigate(r.feature, r.skill === "chord_knowledge" ? "chord" : undefined);
-            else if (r.type === "next_stage") setPage("pathway");
-            else { setPage("studio"); setStudioView("songs"); }
-          }}
+          onStartRecommendation={goToRecommendation}
           onStartSession={startAiSession}
           onOpenToday={() => { playUi("click"); setPage("today"); }}
           onOpenSongs={() => { playUi("click"); setPage("studio"); setStudioView("songs"); }}
@@ -14249,6 +14348,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   </ol>
                 </>) : null}
               </div>
+              {/* The persistent AI Mentor nudge bar can't reach here (this result screen
+                  sits inside a full-screen overlay) — this is exactly the "just finished,
+                  don't know what's next" moment, so surface it directly. Skipped mid AI
+                  Session: that already has its own fixed next step (see the top banner). */}
+              {!aiSession && (() => {
+                const rec = buildRecommendation(lang);
+                return (
+                  <button className="songbtn ghost" style={{ width: "100%", marginBottom: 6, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
+                    onClick={() => goToRecommendation(rec)}>
+                    <span>🤖</span><span style={{ flex: 1 }}>{rec.reason}</span><span>→</span>
+                  </button>
+                );
+              })()}
               <div className="songready-btns">
                 <button className="songbtn ghost" onClick={exitSong}>↩ {lc.songBackList}</button>
                 <button className="songbtn ghost" onClick={() => shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: "★".repeat(songResult.stars) + "☆".repeat(3 - songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] })}>📤 {lc.shareBtn}</button>
