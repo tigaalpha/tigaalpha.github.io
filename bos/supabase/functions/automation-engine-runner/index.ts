@@ -2,10 +2,18 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { jsonResponse } from "../_shared/cors.ts";
-import { handleUnexpectedError } from "../_shared/monitor.ts";
+import { handleUnexpectedError, logSystemEvent } from "../_shared/monitor.ts";
 import { evaluateConditions, type Condition } from "../_shared/automation-conditions.ts";
 import { executeAction, type ActionSpec, type ActionContext, type ActionResult } from "../_shared/automation-actions.ts";
 import { sumTransactions, computeCashFlowForecast } from "../_shared/business-metrics.ts";
+import * as line from "../_shared/line.ts";
+
+// Self-healing circuit breaker (Wave 4): a rule that fails this many
+// times in a row almost certainly has a broken config (expired LINE
+// token, bad action config) that a retry won't fix -- disabling it and
+// telling the owner is the honest response, not silently failing every
+// 5 minutes forever.
+const AUTO_DISABLE_THRESHOLD = 5;
 
 // Heartbeat (pg_cron, every 5 min — see 0054_automation_engine_cron_job.sql):
 // 1. drains automation_events (DB-trigger-enqueued: customer_created,
@@ -20,10 +28,12 @@ const EVENT_BATCH_LIMIT = 50;
 
 interface RuleRow {
   id: string;
+  name: string;
   trigger_type: string;
   trigger_config: Record<string, unknown>;
   conditions: Condition[];
   actions: ActionSpec[];
+  consecutive_failures: number;
 }
 
 interface EventRow {
@@ -46,6 +56,7 @@ async function runActionsAndLog(
     results.push(await executeAction(admin, action, ctxWithRule));
   }
   const status = results.length === 0 ? "skipped" : results.every((r) => r.ok) ? "success" : "failed";
+  const errorDetail = status === "failed" ? results.filter((r) => !r.ok).map((r) => r.detail).join("; ") : null;
   await admin.from("automation_runs").insert({
     rule_id: rule.id,
     event_id: eventId,
@@ -53,9 +64,44 @@ async function runActionsAndLog(
     entity_id: ctx.entityId,
     status,
     actions_result: results,
-    error: status === "failed" ? results.filter((r) => !r.ok).map((r) => r.detail).join("; ") : null,
+    error: errorDetail,
     finished_at: new Date().toISOString(),
   });
+
+  if (status === "failed") {
+    await logSystemEvent(admin, "automation-engine-runner", "warning", `กฎ "${rule.name}" ล้มเหลว: ${errorDetail}`);
+    await handleRuleFailure(admin, rule);
+  } else if (status === "success" && rule.consecutive_failures !== 0) {
+    rule.consecutive_failures = 0;
+    await admin.from("automation_rules").update({ consecutive_failures: 0 }).eq("id", rule.id);
+  }
+}
+
+// Mutates rule.consecutive_failures in-memory too, not just in the DB, so
+// several failures for the same rule within one 5-minute tick (e.g.
+// course_ending_soon firing for multiple courses) still count correctly
+// without an extra read per iteration.
+async function handleRuleFailure(admin: SupabaseClient, rule: RuleRow): Promise<void> {
+  rule.consecutive_failures += 1;
+
+  if (rule.consecutive_failures < AUTO_DISABLE_THRESHOLD) {
+    await admin.from("automation_rules").update({ consecutive_failures: rule.consecutive_failures }).eq("id", rule.id);
+    return;
+  }
+
+  await admin.from("automation_rules").update({ consecutive_failures: rule.consecutive_failures, enabled: false }).eq("id", rule.id);
+
+  const message = `กฎอัตโนมัติ "${rule.name}" ถูกปิดอัตโนมัติ เพราะล้มเหลวติดต่อกัน ${rule.consecutive_failures} ครั้ง — ไปที่หน้า Automation เพื่อตรวจสอบสาเหตุแล้วเปิดใหม่`;
+  await admin.from("notifications").insert({ type: "system_alert", title: "ปิดกฎอัตโนมัติอัตโนมัติ", body: message });
+
+  const { data: ownerLineIdRow } = await admin.from("integration_settings").select("value").eq("key", "owner_line_user_id").maybeSingle();
+  if (ownerLineIdRow?.value) {
+    try {
+      await line.push(ownerLineIdRow.value, message);
+    } catch {
+      // best-effort -- the in-app notification above is the source of truth
+    }
+  }
 }
 
 async function processEvents(admin: SupabaseClient, rules: RuleRow[]): Promise<number> {
@@ -316,7 +362,7 @@ Deno.serve(async (req: Request) => {
   try {
     const { data: rules, error: rulesErr } = await admin
       .from("automation_rules")
-      .select("id, trigger_type, trigger_config, conditions, actions")
+      .select("id, name, trigger_type, trigger_config, conditions, actions, consecutive_failures")
       .eq("enabled", true);
     if (rulesErr) throw rulesErr;
     const enabledRules = (rules ?? []) as RuleRow[];

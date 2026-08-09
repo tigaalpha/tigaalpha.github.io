@@ -16,10 +16,32 @@ export interface MemoryEntry {
   createdAt: string;
 }
 
+// Wave 4: which specialist agents have recently been unreliable, so the
+// planner/synthesis can disclose that uncertainty instead of treating
+// every agent's output as equally trustworthy. Deliberately just a
+// disclosed success rate, not a routing/weighting decision -- this app's
+// volume isn't enough to justify anything more precise than "this one
+// has been failing a lot lately."
+export interface AgentReliability {
+  agentId: string;
+  recentSuccessRate: number;
+}
+
+export interface RecentMemory {
+  recentRuns: MemoryEntry[];
+  agentReliability: AgentReliability[];
+}
+
 const RECENT_RUN_LIMIT = 3;
 const SUMMARY_EXCERPT_LENGTH = 200;
+const RELIABILITY_SAMPLE_LIMIT = 20;
 
-export async function fetchRecentMemory(admin: SupabaseClient): Promise<MemoryEntry[]> {
+export async function fetchRecentMemory(admin: SupabaseClient): Promise<RecentMemory> {
+  const [recentRuns, agentReliability] = await Promise.all([fetchRecentRuns(admin), fetchAgentReliability(admin)]);
+  return { recentRuns, agentReliability };
+}
+
+async function fetchRecentRuns(admin: SupabaseClient): Promise<MemoryEntry[]> {
   const { data: runs } = await admin
     .from("agent_workflow_runs")
     .select("id, goal, final_report, created_at")
@@ -42,4 +64,29 @@ export async function fetchRecentMemory(admin: SupabaseClient): Promise<MemoryEn
     actedOn: actedOnIds.has(run.id),
     createdAt: run.created_at,
   }));
+}
+
+// Same success/total math as agentHealthScores (services/repositories/
+// agent-workflows.repository.ts) -- inlined here rather than shared
+// since one is a frontend Supabase client and the other a Deno edge
+// function, matching this project's established dual-file pattern.
+async function fetchAgentReliability(admin: SupabaseClient): Promise<AgentReliability[]> {
+  const { data: rows } = await admin.from("agent_task_runs").select("agent_id, status").order("started_at", { ascending: false }).limit(RELIABILITY_SAMPLE_LIMIT * 10);
+  if (!rows || rows.length === 0) return [];
+
+  const buckets = new Map<string, { success: number; total: number }>();
+  for (const row of rows) {
+    const bucket = buckets.get(row.agent_id) ?? { success: 0, total: 0 };
+    if (bucket.total >= RELIABILITY_SAMPLE_LIMIT) continue;
+    bucket.total += 1;
+    if (row.status === "success") bucket.success += 1;
+    buckets.set(row.agent_id, bucket);
+  }
+
+  const reliability: AgentReliability[] = [];
+  for (const [agentId, bucket] of buckets) {
+    const rate = bucket.total > 0 ? bucket.success / bucket.total : 1;
+    if (rate < 1) reliability.push({ agentId, recentSuccessRate: Math.round(rate * 100) / 100 });
+  }
+  return reliability;
 }
