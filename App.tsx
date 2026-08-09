@@ -15204,14 +15204,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* mascot companion — the CSS/animation for this (.mascot, mascotidle/
-          mascothop/mascotcheer keyframes) already existed from an earlier build;
-          mascotMood already tracks the right moments (EXP gain, purchases,
-          level-ups...) — it just never had a JSX element to actually show it */}
-      <div className={`mascot ${mascotMood}`} onClick={() => mascot("happy", 900)} role="button" tabIndex={-1} aria-hidden="true">
-        <span className="mascot-face">{MASCOT_FACE[mascotMood] || MASCOT_FACE.idle}</span>
-        {mascotMood === "celebrate" && <span className="mascot-spark">✨</span>}
-      </div>
+      {/* Floating mascot companion widget removed per feedback (the floating
+          face read as visual clutter). mascotMood/mascot() are left in place
+          since they're harmless mood-tracking with no other UI depending on
+          rendering them here. */}
 
       {/* level-up celebration overlay */}
       {levelUp && (
