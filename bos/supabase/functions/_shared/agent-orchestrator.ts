@@ -86,7 +86,7 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
     const planResult = await generate(
       [
         { role: "system", content: PROMPTS.ceo_planner },
-        { role: "user", content: JSON.stringify({ goal, recentMemory }) },
+        { role: "user", content: JSON.stringify({ goal, recentRuns: recentMemory.recentRuns, agentReliability: recentMemory.agentReliability }) },
       ],
       [RETURN_TASK_PLAN_TOOL],
       0.4,
@@ -147,7 +147,16 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
     const synthesisResult = await generate(
       [
         { role: "system", content: PROMPTS.ceo_synthesis },
-        { role: "user", content: JSON.stringify({ goal, agentFindings: successfulOutputs, failedAgentCount: tasks.length - successfulOutputs.length, recentMemory }) },
+        {
+          role: "user",
+          content: JSON.stringify({
+            goal,
+            agentFindings: successfulOutputs,
+            failedAgentCount: tasks.length - successfulOutputs.length,
+            recentRuns: recentMemory.recentRuns,
+            agentReliability: recentMemory.agentReliability,
+          }),
+        },
       ],
       [RETURN_SYNTHESIS_TOOL],
       0.5,

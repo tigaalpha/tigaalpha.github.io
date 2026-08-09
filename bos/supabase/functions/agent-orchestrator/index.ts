@@ -12,13 +12,27 @@ import { runWorkflow } from "../_shared/agent-orchestrator.ts";
 // this is a strategic feature that spends real AI tokens on every click).
 const RATE_LIMIT = { windowMinutes: 60, maxRequests: 10 };
 
+// Wave 4: also runs weekly on its own via pg_cron (0067_wave4_ceo_loop_
+// self_healing.sql), same x-cron-secret header pattern as
+// marketing-metrics-snapshot -- no goal in the body then, so a fixed
+// default goal is used and the run is attributed to no user (createdBy
+// null, same as ai-briefing-runner's system-generated reports).
+const DEFAULT_CRON_GOAL = "ตรวจสอบภาพรวมธุรกิจประจำสัปดาห์: มีอะไรน่าเป็นห่วงหรือควรทำต่อบ้าง";
+
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
   const admin = createAdminClient();
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const isCron = Boolean(cronSecret) && req.headers.get("x-cron-secret") === cronSecret;
 
   try {
+    if (isCron) {
+      const workflowId = await runWorkflow(admin, DEFAULT_CRON_GOAL, null);
+      return jsonResponse({ workflowId }, 201);
+    }
+
     const userId = await requireStaff(admin, req);
     await requireOwnerOrAdmin(admin, userId);
     await enforceRateLimit(admin, userId, "agent-orchestrator", RATE_LIMIT);
