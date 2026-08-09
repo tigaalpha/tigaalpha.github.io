@@ -10538,7 +10538,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // ── Practice Experience: AI Mentor (default) vs Manual — Settings §8 ──
   const [practiceMode, setPracticeModeUI] = useState(() => getPracticeMode());
-  function applyPracticeMode(v) { setPracticeMode(v); setPracticeModeUI(v); }
+  function applyPracticeMode(v) { setPracticeMode(v); setPracticeModeUI(v); window.location.reload(); }
   const [setAdvancedOpen, setSetAdvancedOpen] = useState(false); // progressive disclosure for Metronome BPM/tap-tempo
 
   // ── AI Practice Session (multi-step: warm-up -> weak-skill/next-topic -> song).
@@ -13720,7 +13720,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               })()}
             </button>
           )}
-          {premium && (() => { const b = planBadge(plan) || { t: "⭐ PRO", c: "" }; return <span className={`probadge ${b.c}`} title={PLAN_LABEL[plan] || "Premium"}>{b.t}</span>; })()}
+          {premium && plan !== "trial" && (() => { const b = planBadge(plan) || { t: "⭐ PRO", c: "" }; return <span className={`probadge ${b.c}`} title={PLAN_LABEL[plan] || "Premium"}>{b.t}</span>; })()}
           {/* Daily-reward chest button removed from the header per feedback (decluttering) —
               still fully reachable from ProfilePage's own dailyhub chest button, same openChestNow(). */}
           {metroOn && <button className="metropill" onClick={() => setMetroOn(false)} title="Metronome" aria-label="Metronome on">🥁 {metroBpm}</button>}
