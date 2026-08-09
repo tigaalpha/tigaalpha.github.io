@@ -14014,11 +14014,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         {[
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
           { p: "sensei", ic: "◈", c: "#d97757", t: lc.navSensei },
+          { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
           { p: "studio", sv: "songs", ic: "🎵", c: "#d97757", t: lc.studioPlayAlong },
           { p: "studio", sv: "menu", ic: "▶", c: "#d97757", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
-          { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
           { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
           // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
           // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
