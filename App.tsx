@@ -13708,7 +13708,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <span /><span /><span />
           </button>
           <div className="lbox flicker" onClick={handleLogoTap}
-            style={{ cursor: "pointer" }} title="TIGA AI">TIGA AI</div>
+            style={{ cursor: "pointer" }} title="TIGA">TIGA</div>
         </div>
         <div className="hdr-r">
           {isGuest && (
@@ -13778,13 +13778,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       })()}
 
       {/* ─── AI MENTOR NUDGE — general "what to do next" bar, shown whenever no AI
-           Session is active, on every single page (a deliberate wayfinding bar the
-           learner can always find in the same spot) except videos/admin/school
-           (immersive full-screen feed / intentionally hidden routes). Naturally
-           hidden mid-activity since full-screen overlays cover it, same as the
-           header. Shown on Home/Sensei too even though both already surface the
-           same recommendation their own way, so the bar itself is never absent. ─── */}
-      {!aiSession && page !== "videos" && page !== "admin" && page !== "school" && (() => {
+           Session is active, on every page in AI Mentor mode (a deliberate wayfinding
+           bar the learner can always find in the same spot) except videos/admin/school
+           (immersive full-screen feed / intentionally hidden routes). Hidden entirely
+           in Advanced Mode — that mode is the learner's own free-navigation choice, so
+           the app shouldn't keep nudging them toward the AI's pick. Naturally hidden
+           mid-activity since full-screen overlays cover it, same as the header. Shown
+           on Home/Sensei too even though both already surface the same recommendation
+           their own way, so the bar itself is never absent in AI Mentor mode. ─── */}
+      {!aiSession && practiceMode !== "manual" && page !== "videos" && page !== "admin" && page !== "school" && (() => {
         const rec = buildRecommendation(lang);
         return (
           <div className="trial-banner">
