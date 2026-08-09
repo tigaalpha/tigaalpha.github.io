@@ -2,9 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { jsonResponse } from "../_shared/cors.ts";
-import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
 import { evaluateConditions, type Condition } from "../_shared/automation-conditions.ts";
 import { executeAction, type ActionSpec, type ActionContext, type ActionResult } from "../_shared/automation-actions.ts";
+import { sumTransactions } from "../_shared/business-metrics.ts";
 
 // Heartbeat (pg_cron, every 5 min — see 0054_automation_engine_cron_job.sql):
 // 1. drains automation_events (DB-trigger-enqueued: customer_created,
@@ -223,16 +224,10 @@ async function processRevenueDropRule(admin: SupabaseClient, rule: RuleRow): Pro
   const { data: transactions, error } = await admin.from("transactions").select("type, amount, transaction_date").gte("transaction_date", fourteenDaysAgo);
   if (error) throw error;
 
-  let netRecentWeek = 0;
-  let netPriorWeek = 0;
-  for (const t of transactions ?? []) {
-    const signedAmount = t.type === "income" ? t.amount : -t.amount;
-    if (t.transaction_date >= sevenDaysAgo) {
-      netRecentWeek += signedAmount;
-    } else {
-      netPriorWeek += signedAmount;
-    }
-  }
+  const recentRows = (transactions ?? []).filter((t) => t.transaction_date >= sevenDaysAgo);
+  const priorRows = (transactions ?? []).filter((t) => t.transaction_date < sevenDaysAgo);
+  const netRecentWeek = sumTransactions(recentRows).profit;
+  const netPriorWeek = sumTransactions(priorRows).profit;
 
   if (netPriorWeek <= 0) return;
   const dropPercent = ((netPriorWeek - netRecentWeek) / netPriorWeek) * 100;
@@ -254,6 +249,16 @@ Deno.serve(async (req: Request) => {
   }
 
   const admin = createAdminClient();
+
+  // Guards against the same automation_events row or the same rule's
+  // cooldown check being processed twice if this tick overlaps a still-
+  // running previous invocation (both are read-then-later-write, not
+  // atomic) -- one lock at the top covers every rule processor instead of
+  // adding per-processor locking. Never held past this request/response.
+  const { data: lockAcquired } = await admin.rpc("try_lock_automation_engine");
+  if (!lockAcquired) {
+    return jsonResponse({ skipped: true, reason: "a previous run is still in progress" });
+  }
 
   try {
     const { data: rules, error: rulesErr } = await admin
@@ -280,7 +285,8 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({ eventsProcessed, activeRules: enabledRules.length });
   } catch (error) {
-    await logSystemEvent(admin, "automation-engine-runner", "error", error instanceof Error ? error.message : "Unknown error");
     return await handleUnexpectedError(admin, "automation-engine-runner", error);
+  } finally {
+    await admin.rpc("unlock_automation_engine");
   }
 });

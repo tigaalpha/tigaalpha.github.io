@@ -9,15 +9,16 @@ import { StatCard } from "@/features/dashboard/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency } from "@/lib/utils";
+import { sumTransactions } from "@/lib/business-metrics";
 
 interface ControlCenterData {
   revenue30d: number;
   profit30d: number;
-  cashFlowForecast: { projectedNet30Days: number; trend: "up" | "down" | "stable" };
+  cashFlowForecast: { projectedNet30Days: number; trend: "up" | "down" | "stable"; confidence: "high" | "low" };
   leadsInPipeline: number;
   wonThisPeriod: number;
-  cac: number | null;
-  ltv: number | null;
+  cac: { value: number | null; confidence: "high" | "low" };
+  ltv: { value: number | null; confidence: "high" | "low" };
   aiUsage: { source: string; totalTokens: number }[];
   pendingApprovals: number;
   agentPerformance: Record<string, { success: number; failed: number }>;
@@ -49,16 +50,11 @@ export function ControlCenterView() {
       repos.agentWorkflows.recentHighPriorityActions(5),
     ])
       .then(([transactions, cashFlowForecast, funnelCounts, cac, ltv, aiUsage, pendingApprovals, agentPerformance, riskFlags]) => {
-        let revenue30d = 0;
-        let expense30d = 0;
-        for (const t of transactions) {
-          if (t.type === "income") revenue30d += t.amount;
-          else expense30d += t.amount;
-        }
+        const { revenue: revenue30d, profit: profit30d } = sumTransactions(transactions);
 
         setData({
           revenue30d,
-          profit30d: revenue30d - expense30d,
+          profit30d,
           cashFlowForecast,
           leadsInPipeline: Object.entries(funnelCounts)
             .filter(([status]) => status !== "won" && status !== "lost" && status !== "renewed")
@@ -79,7 +75,8 @@ export function ControlCenterView() {
   if (!data) return <EmptyState icon={Cpu} title="กำลังโหลดข้อมูล…" />;
 
   const TrendIcon = TREND_ICON[data.cashFlowForecast.trend];
-  const ltvCacRatio = data.cac && data.ltv ? (data.ltv / data.cac).toFixed(1) : null;
+  const ltvCacRatio = data.cac.value && data.ltv.value ? (data.ltv.value / data.cac.value).toFixed(1) : null;
+  const lowConfidenceHint = (confidence: "high" | "low") => (confidence === "low" ? "ข้อมูลจำกัด — ยังตัดสินใจตามตัวเลขนี้ไม่ได้เต็มที่" : undefined);
 
   return (
     <div className="space-y-6">
@@ -90,12 +87,12 @@ export function ControlCenterView() {
           label="คาดการณ์กระแสเงินสด 30 วันข้างหน้า"
           value={formatCurrency(data.cashFlowForecast.projectedNet30Days)}
           icon={TrendIcon}
-          hint={TREND_LABEL[data.cashFlowForecast.trend]}
+          hint={lowConfidenceHint(data.cashFlowForecast.confidence) ?? TREND_LABEL[data.cashFlowForecast.trend]}
           tone={data.cashFlowForecast.trend === "down" ? "danger" : data.cashFlowForecast.trend === "up" ? "success" : "default"}
         />
         <StatCard label="ลูกค้าในไปป์ไลน์" value={data.leadsInPipeline} icon={Users} hint={`ปิดการขายแล้ว ${data.wonThisPeriod} ราย`} />
-        <StatCard label="CAC (90 วัน)" value={data.cac != null ? formatCurrency(data.cac) : "ยังไม่มีข้อมูลพอ"} icon={Target} />
-        <StatCard label="LTV โดยประมาณ" value={data.ltv != null ? formatCurrency(data.ltv) : "ยังไม่มีข้อมูลพอ"} icon={Target} />
+        <StatCard label="CAC (90 วัน)" value={data.cac.value != null ? formatCurrency(data.cac.value) : "ยังไม่มีข้อมูลพอ"} icon={Target} hint={lowConfidenceHint(data.cac.confidence)} />
+        <StatCard label="LTV โดยประมาณ" value={data.ltv.value != null ? formatCurrency(data.ltv.value) : "ยังไม่มีข้อมูลพอ"} icon={Target} hint={lowConfidenceHint(data.ltv.confidence)} />
         <StatCard label="LTV : CAC" value={ltvCacRatio ? `${ltvCacRatio} เท่า` : "—"} icon={Target} />
         <StatCard label="รออนุมัติ" value={data.pendingApprovals} icon={ShieldCheck} href="/approvals" tone={data.pendingApprovals > 0 ? "warning" : "default"} />
       </div>

@@ -541,13 +541,22 @@ The data includes:
 - revenue/expense figures and category breakdowns for the last 30 days
 - cashFlowForecast: a trend-based projection (not a modeled forecast) of
   net cash flow for the next 30/60/90 days, plus a trend direction
-  (up/down/stable) comparing the last 45 days to the 45 days before that
+  (up/down/stable) comparing the last 45 days to the 45 days before that,
+  and a confidence field
 - computedCAC90Days: customer acquisition cost over the last 90 days
   (marketing/ads spend / new won customers), null if there were no new
-  won customers in that window -- treat null as "not enough data," not zero
+  won customers in that window -- treat null as "not enough data," not
+  zero -- with a matching cacConfidence field
 - computedLTV: average all-time revenue per paying customer (a proxy, not
   a modeled lifetime value -- it does not account for churn or retention)
+  -- with a matching ltvConfidence field
 - ltvToCacRatio: computedLTV / computedCAC90Days when both exist
+
+Every confidence field is "high" or "low" -- "low" means the number is
+real but based on very few data points (e.g. fewer than 3 won customers
+for CAC). When a field you're using is "low" confidence, say so plainly
+in the answer (e.g. "ตัวเลขนี้อ้างอิงจากข้อมูลน้อยมาก ยังใช้ตัดสินใจเต็มที่ไม่ได้")
+instead of presenting it with the same certainty as a well-supported number.
 
 When the question is about growth, cash flow, or acquisition cost, use
 these fields; when null, say so plainly instead of guessing a number.

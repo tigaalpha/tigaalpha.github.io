@@ -795,6 +795,15 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      line_webhook_events: {
+        Row: {
+          event_id: string;
+          received_at: string;
+        };
+        Insert: { event_id: string; received_at?: string };
+        Update: never;
+        Relationships: [];
+      };
       ai_usage_log: {
         Row: {
           id: string;

@@ -105,28 +105,42 @@ Deno.serve(async (req: Request) => {
         // in _shared/tools.ts, so it needs the same owner/admin check, not
         // just "any staff account."
         await requireOwnerOrAdmin(admin, userId);
-
-        // Lets staff edit an AI-drafted message before it's sent (the
-        // "Edit Before Send" step in the Level 3 plan) instead of only
-        // being able to approve verbatim or reject outright.
-        let payload = request.payload;
-        if (editedPayload && request.type === "ai_drafted_message") {
-          payload = { ...request.payload, ...editedPayload };
-          await admin.from("approval_requests").update({ payload }).eq("id", id);
-        }
-
-        await executeApproved(admin, request.type, payload);
       }
 
-      const { data: updated, error: updateErr } = await admin
-        .from("approval_requests")
-        .update({ status: action === "approve" ? "approved" : "rejected", resolved_by: userId, resolved_at: new Date().toISOString() })
-        .eq("id", id)
-        .select("*")
-        .single();
-      if (updateErr) throw updateErr;
+      // Lets staff edit an AI-drafted message before it's sent (the "Edit
+      // Before Send" step in the Level 3 plan) instead of only being able
+      // to approve verbatim or reject outright.
+      const payload = editedPayload && request.type === "ai_drafted_message" ? { ...request.payload, ...editedPayload } : request.payload;
 
-      return jsonResponse({ request: updated });
+      // Atomic claim: the earlier status read above is only a fast-path
+      // rejection for the common case -- this update's `eq("status",
+      // "pending")` is what actually prevents two near-simultaneous
+      // requests (double-click, client retry) from both passing the read
+      // and both executing. Only the request that flips the row wins.
+      const { data: claimed, error: claimErr } = await admin
+        .from("approval_requests")
+        .update({ status: action === "approve" ? "approved" : "rejected", payload, resolved_by: userId, resolved_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("status", "pending")
+        .select("*")
+        .maybeSingle();
+      if (claimErr) throw claimErr;
+      if (!claimed) return jsonResponse({ error: "This request has already been resolved" }, 409);
+
+      if (action === "approve") {
+        try {
+          await executeApproved(admin, claimed.type, claimed.payload);
+        } catch (execErr) {
+          // The claim already flipped status to "approved" -- if the actual
+          // action failed (LINE push down, booking already gone, etc.),
+          // revert to "pending" so it shows back up for a retry instead of
+          // silently sitting "approved" but never actually executed.
+          await admin.from("approval_requests").update({ status: "pending", resolved_by: null, resolved_at: null }).eq("id", id);
+          throw execErr;
+        }
+      }
+
+      return jsonResponse({ request: claimed });
     }
 
     return jsonResponse({ error: "Method not allowed" }, 405);

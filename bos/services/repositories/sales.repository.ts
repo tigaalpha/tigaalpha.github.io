@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, SalesStatus, Tables } from "@/types/database";
+import { countByStatus } from "@/lib/business-metrics";
 
 const PIPELINE_ORDER: SalesStatus[] = [
   "new_lead", "contacted", "qualified", "interested", "trial_booked",
@@ -56,11 +57,8 @@ export class SalesRepository {
     const { data, error } = await this.db.from("customers").select("sales_status");
     if (error) throw error;
 
-    const counts = Object.fromEntries(PIPELINE_ORDER.map((status) => [status, 0])) as Record<SalesStatus, number>;
-    for (const row of data ?? []) {
-      counts[row.sales_status] += 1;
-    }
-    return counts;
+    const zeroed = Object.fromEntries(PIPELINE_ORDER.map((status) => [status, 0])) as Record<SalesStatus, number>;
+    return { ...zeroed, ...countByStatus(data ?? []) } as Record<SalesStatus, number>;
   }
 }
 

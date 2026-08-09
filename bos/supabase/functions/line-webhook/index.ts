@@ -8,6 +8,21 @@ interface LineEvent {
   source: { userId?: string };
   message?: { type: string; text?: string };
   replyToken?: string;
+  webhookEventId?: string;
+}
+
+// LINE retries a webhook delivery on timeout/non-200, so the same event
+// can arrive twice. Insert-first dedup on LINE's own per-event id: if the
+// insert conflicts, this event was already handled -- skip it rather than
+// generating a second AI reply (and a second tool-call side effect, e.g.
+// a second booking, if the reply involved one). If an event genuinely has
+// no id (shouldn't happen per LINE's schema), process it anyway rather
+// than silently dropping a customer message.
+async function alreadyProcessed(admin: ReturnType<typeof createAdminClient>, webhookEventId: string | undefined): Promise<boolean> {
+  if (!webhookEventId) return false;
+  const { error } = await admin.from("line_webhook_events").insert({ event_id: webhookEventId });
+  // Postgres unique_violation
+  return error?.code === "23505";
 }
 
 async function processEvents(admin: ReturnType<typeof createAdminClient>, events: LineEvent[]): Promise<void> {
@@ -16,6 +31,7 @@ async function processEvents(admin: ReturnType<typeof createAdminClient>, events
       if (event.type !== "message" || event.message?.type !== "text" || !event.source.userId || !event.replyToken) {
         return;
       }
+      if (await alreadyProcessed(admin, event.webhookEventId)) return;
 
       const lineUserId = event.source.userId;
       const replyToken = event.replyToken;
