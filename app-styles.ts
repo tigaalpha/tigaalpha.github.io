@@ -74,7 +74,7 @@ html, body, #root{background:var(--bg)}
 .drawer-foot{margin-top:auto;border-top:1px solid var(--bd1);padding-top:10px}
 .draweritem.sub{font-size:14px;color:var(--muted);padding:11px 14px;margin-bottom:0}
 .draweritem.sub .drawericon{font-size:18px;color:var(--muted)}
-.lbox{width:auto;min-width:38px;height:38px;padding:0 10px;white-space:nowrap;border:1.5px solid #d97757;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:12px;color:#d97757;font-weight:900}
+.lbox{width:auto;min-width:38px;height:38px;padding:0 3px;white-space:nowrap;border:1.5px solid #d97757;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:12px;color:#d97757;font-weight:900}
 .lname{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:#d97757;text-shadow:0 0 8px #d97757;letter-spacing:2px}
 .lsub{font-size:8px;color:var(--muted);letter-spacing:3px;font-family:'Share Tech Mono',monospace}
 .hdr-r{display:flex;align-items:center;gap:8px}
