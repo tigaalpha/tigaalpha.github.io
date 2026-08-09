@@ -12157,6 +12157,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       // Go straight into the topic itself (same as tapping it on the Pathway page
       // or TodayPage's own "new" step) — landing on the Pathway list first and
       // making the learner find and tap it again was a confusing extra step.
+      // Also open the expanded chat modal directly: reading a lesson explanation
+      // is much more comfortable full-screen than the compact in-page chat strip,
+      // and this is specifically the AI Mentor's own "go" action, not a manual
+      // Pathway browse — the expand-arrow shouldn't be a second tap the learner
+      // has to know to look for.
       const stage = r.stage;
       if (stage.content) { readChapter(stage); }
       else {
@@ -12164,6 +12169,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         const key = KEYS_12.find(k => !(keyMap[stage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0];
         learnTopic(stage, key, stage.types ? stage.types[0] : null);
       }
+      setModal(true);
     }
     else { setPage("studio"); setStudioView("songs"); }
   }
