@@ -2411,7 +2411,7 @@ const L = {
     helpTitle: "วิธีใช้งาน", help1: "แตะ ☰ มุมซ้ายบน = เปิดเมนู ไปหน้าต่างๆ", help2: "แตะคีย์เปียโน = เล่นเสียงโน้ต", help3: "ปุ่มไมค์ 🎙️ = คุยกับครู AI สอนสด", help4: "ไปที่ 'ฝึกซ้อม' = เล่นเกมเก็บดาว", help5: "ปุ่ม 🔁 = ฟังครูเล่นซ้ำ", helpOk: "เข้าใจแล้ว!", signOut: "ออกจากระบบ",
     shopTitle: "ร้านค้า", shopSkins: "สกินคีย์", shopThemes: "ธีมพื้นหลัง", shopFrames: "กรอบรูปโปรไฟล์", shopEquip: "ใช้", shopEquipped: "กำลังใช้", shopNew: "ใหม่", shopRareC: "ทั่วไป", shopRareR: "หายาก", shopRareE: "พิเศษ", shopRareL: "ตำนาน",
     chestTitle: "ของขวัญรายวัน", chestOpening: "กำลังเปิด…", chestGot: "ได้รับรางวัล!", chestDay: "วันต่อเนื่อง", chestClaim: "รับเลย!", chestBig: "รางวัลใหญ่",
-    dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recWeakSkill: "จุดอ่อนตอนนี้: {x}", recFundamentals: "เริ่มจากพื้นฐาน: {x}", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
+    dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recNewSong: "เพลงใหม่:", recReplaySong: "ฝึกอีกครั้ง:", recWarm: "วอร์มอัพด้วยเกม", recWeakSkill: "จุดอ่อนตอนนี้: {x}", recFundamentals: "เริ่มจากพื้นฐาน: {x}", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
     setAmbient: "ดนตรีบรรยากาศ", setInstall: "ติดตั้งเป็นแอป", setBpm: "จังหวะ (BPM)", setTap: "แตะตามจังหวะ", setLang: "ภาษา", setOn: "เปิด", setOff: "ปิด",
     setPracticeExp: "รูปแบบการฝึก", setPracticeAI: "AI Mentor", setPracticeAIDesc: "ให้ TIGA แนะนำและจัดการการฝึกให้", setPracticeManual: "โหมดขั้นสูง", setPracticeManualDesc: "ให้ฉันเลือกเพลงและแบบฝึกด้วยตัวเอง", setPracticeHint: "คุณสามารถเปลี่ยนโหมดนี้ได้ทุกเมื่อ", setAdvanced: "เพิ่มเติม",
@@ -2553,7 +2553,7 @@ const L = {
     helpTitle: "How to use", help1: "Tap ☰ top-left = open menu & pages", help2: "Tap the piano keys = play notes", help3: "Mic button 🎙️ = talk to your AI teacher", help4: "Go to 'Studio' = play games & earn stars", help5: "🔁 button = hear the teacher play again", helpOk: "Got it!", signOut: "Sign out",
     shopTitle: "Shop", shopSkins: "Key skins", shopThemes: "Themes", shopFrames: "Avatar frames", shopEquip: "Equip", shopEquipped: "Equipped", shopNew: "NEW", shopRareC: "Common", shopRareR: "Rare", shopRareE: "Epic", shopRareL: "Legendary",
     chestTitle: "Daily reward", chestOpening: "Opening…", chestGot: "You got!", chestDay: "day streak", chestClaim: "Claim!", chestBig: "BIG WIN",
-    dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recWeakSkill: "Your weakest skill: {x}", recFundamentals: "Let's start with the basics: {x}", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
+    dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recNewSong: "New song:", recReplaySong: "Practice again:", recWarm: "Warm up with a game", recWeakSkill: "Your weakest skill: {x}", recFundamentals: "Let's start with the basics: {x}", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
     setAmbient: "Ambient music", setInstall: "Install app", setBpm: "Tempo (BPM)", setTap: "Tap tempo", setLang: "Language", setOn: "On", setOff: "Off",
     setPracticeExp: "Practice Experience", setPracticeAI: "AI Mentor", setPracticeAIDesc: "Let TIGA guide and manage your practice", setPracticeManual: "Advanced Mode", setPracticeManualDesc: "Let me pick my own songs and drills", setPracticeHint: "You can change this anytime", setAdvanced: "Advanced",
@@ -2695,7 +2695,7 @@ const L = {
     helpTitle: "使用方法", help1: "点左上角 ☰ = 打开菜单和页面", help2: "点钢琴键 = 弹出音符", help3: "麦克风 🎙️ = 和 AI 老师对话", help4: "进入'练习' = 玩游戏赚星星", help5: "🔁 按钮 = 再听一次老师弹", helpOk: "明白了！", signOut: "退出登录",
     shopTitle: "商店", shopSkins: "琴键皮肤", shopThemes: "主题", shopFrames: "头像框", shopEquip: "装备", shopEquipped: "已装备", shopNew: "新品", shopRareC: "普通", shopRareR: "稀有", shopRareE: "史诗", shopRareL: "传说",
     chestTitle: "每日奖励", chestOpening: "开启中…", chestGot: "获得奖励！", chestDay: "连续天数", chestClaim: "领取！", chestBig: "大奖",
-    dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recWeakSkill: "当前弱项：{x}", recFundamentals: "从基础开始：{x}", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
+    dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recNewSong: "新歌：", recReplaySong: "再练一次：", recWarm: "用游戏热身", recWeakSkill: "当前弱项：{x}", recFundamentals: "从基础开始：{x}", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
     setAmbient: "环境音乐", setInstall: "安装应用", setBpm: "速度 (BPM)", setTap: "点击打拍", setLang: "语言", setOn: "开", setOff: "关",
     setPracticeExp: "练习模式", setPracticeAI: "AI 导师", setPracticeAIDesc: "让 TIGA 为你安排和引导练习", setPracticeManual: "高级模式", setPracticeManualDesc: "自己选择歌曲和练习内容", setPracticeHint: "随时都可以更改此设置", setAdvanced: "更多",
@@ -3244,7 +3244,8 @@ const HomePage = memo(function HomePage({ lang, profile, practiceMode, rec, stre
   const name = (profile && profile.full_name) || "";
   const FUNDAMENTALS_ICONS = { hand_coach: "🖐️", play_along: "🎵", ear_training: "👂" };
   const recIcon = rec.type === "fundamentals" ? (FUNDAMENTALS_ICONS[rec.feature] || "🖐️")
-    : rec.type === "remediate" ? "🎯" : rec.type === "next_stage" ? "📘" : "🎮";
+    : rec.type === "remediate" ? "🎯" : rec.type === "next_stage" ? "📘"
+    : rec.type === "new_song" ? "🎵" : rec.type === "replay_song" ? "🔁" : "🎮";
 
   return (
     <div className="pathpage">
@@ -3362,6 +3363,10 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
       id: "new", icon: "🎯", tag: T.learn, label: tr(SKILL_LABELS[nextAction.skill], lang),
       isDone: doneLog.some(e => skillsOfActivity(e).includes(nextAction.skill)),
       go: () => onNavigate(nextAction.feature, nextAction.skill === "chord_knowledge" ? "chord" : undefined),
+    }] : (nextAction.type === "new_song" || nextAction.type === "replay_song") ? [{
+      id: "new", icon: "🎵", tag: T.learn, label: tr(nextAction.song, lang),
+      isDone: doneLog.some(e => e.k === "game" && e.id === nextAction.song.id),
+      go: () => onSong(nextAction.song),
     }] : nextStage ? [{ id: "new", icon: "✨", tag: T.learn, label: tr(nextStage.title, lang) + (nextKey ? " · " + nextKey.name : ""), isDone: doneLog.some(e => (e.k === "lesson" || e.k === "read-chapter") && e.id.split("/")[0] === nextStage.id), go: () => nextStage.content ? onRead(nextStage) : onLearn(nextStage, nextKey, nextStage.types ? nextStage.types[0] : null) }] : []),
     { id: "song", icon: "🚀", tag: T.song, label: tr(song, lang), isDone: doneLog.some(e => e.k === "game" && e.id === song.id), go: () => onSong(song) },
   ];
@@ -6409,6 +6414,8 @@ function curriculumContext(lang) {
     } else if (action.type === "remediate") {
       parts.push((lang === "th" ? "จุดที่ควรเน้นตอนนี้: " : lang === "zh" ? "当前应重点加强: " : "Priority right now: ") + tr(SKILL_LABELS[action.skill], lang)
         + (lang === "th" ? " (คะแนนยังอ่อน — แนะนำให้ฝึกจุดนี้ก่อนเรื่องใหม่ แต่ไม่บังคับ)" : lang === "zh" ? "（得分偏弱 — 建议先练这里，但不强制）" : " (a weak score — recommend practicing this before new content, but don't force it)"));
+    } else if (action.type === "new_song" || action.type === "replay_song") {
+      parts.push((lang === "th" ? "เรียนจบหลักสูตรพื้นฐานทั้งหมดแล้ว — ลองแนะนำเพลง: " : lang === "zh" ? "已学完所有基础课程 — 可以建议歌曲: " : "Finished the whole non-advanced curriculum — consider suggesting the song: ") + tr(action.song, lang));
     }
     const plan = readLessonPlan();
     if (plan && plan.text) parts.push((lang === "th" ? "แผนคาบนี้ที่คุณตั้งไว้: " : lang === "zh" ? "你为本课定的计划: " : "Your saved plan for this lesson: ") + plan.text);
@@ -6711,7 +6718,30 @@ function nextRecommendedAction() {
   // Intermediate only for now. Still fully reachable by anyone who browses Pathway
   // themselves; just never pushed by the AI Mentor.
   const stage = PATHWAY.find(s => !pathDoneSet().has(s.id) && s.group !== "advanced");
-  return stage ? { type: "next_stage", stage } : { type: "warmup" };
+  if (stage) return { type: "next_stage", stage };
+
+  // Finished every non-advanced Pathway stage with no critical weakness — the
+  // curriculum is "done," but the recommendation must never just shrug at this
+  // point (a returning learner with nothing suggested is exactly the moment
+  // retention dies). Keep cycling the song library instead: an unattempted
+  // song first (easiest-first), then a replay of whatever attempted song
+  // scored the fewest stars, before ever truly running out of ideas.
+  const eligibleSongs = SONGS.filter(s => !s.maxOnly && !s.custom && !s.drill && s.seq && s.seq.length >= 6)
+    .sort((a, b) => a.diff - b.diff);
+  const attempted = new Set(readGameLog().map(g => g.song));
+  const freshSong = eligibleSongs.find(s => !attempted.has(s.id));
+  if (freshSong) return { type: "new_song", song: freshSong };
+
+  const bestStarsBySong = {};
+  for (const g of readGameLog()) {
+    if (bestStarsBySong[g.song] == null || g.stars > bestStarsBySong[g.song]) bestStarsBySong[g.song] = g.stars;
+  }
+  const polishSong = eligibleSongs
+    .filter(s => (bestStarsBySong[s.id] || 0) < 3)
+    .sort((a, b) => (bestStarsBySong[a.id] || 0) - (bestStarsBySong[b.id] || 0))[0];
+  if (polishSong) return { type: "replay_song", song: polishSong, stars: bestStarsBySong[polishSong.id] || 0 };
+
+  return { type: "warmup" };
 }
 // RecommendationEngine — wraps nextRecommendedAction()'s decision into a richer,
 // UI-ready shape (target/feature/duration/reason/action) instead of duplicating its
@@ -6763,10 +6793,28 @@ function buildRecommendation(lang) {
     };
     return { type: "next_stage", target: action.stage.id, feature: "pathway", duration: 8, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start", stage: action.stage };
   }
+  if (action.type === "new_song") {
+    const title = tr(action.song, lang);
+    const reasonByLang = {
+      th: `มาลองเพลงใหม่กันไหม: "${title}" — ยังไม่เคยเล่นเพลงนี้ และเหมาะกับระดับตอนนี้พอดี`,
+      en: `Ready for a new song? "${title}" — you haven't tried this one yet, and it's a good fit for where you're at.`,
+      zh: `来试试新歌吧："${title}" — 你还没弹过这首，难度也刚好适合你现在的水平。`,
+    };
+    return { type: "new_song", target: action.song.id, feature: "play_along", duration: 4, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start", song: action.song };
+  }
+  if (action.type === "replay_song") {
+    const title = tr(action.song, lang);
+    const reasonByLang = {
+      th: `กลับไปฝึก "${title}" อีกรอบไหม — ครั้งก่อนได้ ${action.stars}/3 ดาว ลองทำให้ดีขึ้นอีกนิด`,
+      en: `Want another go at "${title}"? You scored ${action.stars}/3 stars last time — a bit more practice could get you to full marks.`,
+      zh: `再练一次"${title}"怎么样？上次拿到了${action.stars}/3颗星，再练练说不定能满分。`,
+    };
+    return { type: "replay_song", target: action.song.id, feature: "play_along", duration: 4, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start", song: action.song };
+  }
   const reasonByLang = {
-    th: "ยังไม่มีข้อมูลพอจะแนะนำเจาะจง — วอร์มอัพด้วยเกมสั้นๆ ก่อนได้เลย",
-    en: "Not enough data yet for a specific pick — a quick warm-up game is a good start",
-    zh: "数据还不够，先来一局简单的热身游戏吧",
+    th: "เยี่ยมมาก! ตอนนี้เรียนและฝึกจบทุกอย่างที่มีในระดับนี้แล้ว — มาวอร์มอัพเบาๆ กันต่อเพื่อรักษาฟอร์มไว้",
+    en: "Amazing — you've completed everything we've got at this level! Let's keep the streak going with a light warm-up.",
+    zh: "太棒了！这个级别的内容你都学完了 — 来轻松热身一下，保持状态吧。",
   };
   return { type: "warmup", target: null, feature: "play_along", duration: 3, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start" };
 }
@@ -12128,6 +12176,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       steps.push({ icon: "🎯", label: tr(SKILL_LABELS[nextAction.skill], lang), go: () => handleCoachNavigate(nextAction.feature, nextAction.skill === "chord_knowledge" ? "chord" : undefined) });
     } else if (nextAction.type === "next_stage") {
       steps.push({ icon: "📘", label: tr(nextAction.stage.title, lang), go: () => setPage("pathway") });
+    } else if (nextAction.type === "new_song" || nextAction.type === "replay_song") {
+      steps.push({ icon: nextAction.type === "replay_song" ? "🔁" : "🎵", label: tr(nextAction.song, lang), go: () => chooseSong(nextAction.song) });
     }
     steps.push({ icon: "🚀", label: tr(closingSong, lang), go: () => chooseSong(closingSong) });
     return steps;
@@ -12174,6 +12224,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         learnTopic(stage, key, stage.types ? stage.types[0] : null);
       }
       setModal(true);
+    }
+    else if (r.type === "new_song" || r.type === "replay_song") {
+      // Same "go straight into it" philosophy as next_stage — jump directly into
+      // the specific recommended song instead of dropping the learner on the
+      // ~180-song list to go find it themselves.
+      setPage("studio"); setStudioView("songs");
+      chooseSong(r.song);
     }
     else { setPage("studio"); setStudioView("songs"); }
   }
@@ -13322,6 +13379,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
     if (action.type === "next_stage") {
       return { icon: "📘", label: lc.recNext + " " + tr(action.stage.title, lang), fn: () => { playUi("click"); setPage("pathway"); } };
+    }
+    if (action.type === "new_song" || action.type === "replay_song") {
+      return {
+        icon: action.type === "replay_song" ? "🔁" : "🎵",
+        label: (action.type === "replay_song" ? lc.recReplaySong : lc.recNewSong) + " " + tr(action.song, lang),
+        fn: () => { playUi("click"); setPage("studio"); setStudioView("songs"); chooseSong(action.song); },
+      };
     }
     return { icon: "🎮", label: lc.recWarm, fn: () => { playUi("click"); setPage("studio"); setStudioView("songs"); } };
   }
