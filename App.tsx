@@ -14335,6 +14335,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <button className="cbtn" onClick={exitSong}>{lc.close}</button>
           </div>
 
+          {/* Same "what's next" nudge bar used everywhere else in the app, right below
+              the header — this overlay is full-screen so the app-wide one never reaches
+              it, and the result screen is exactly the "just finished, what now?" moment.
+              Skipped mid AI Session: that already has its own fixed next step. */}
+          {songPhase === "done" && songResult && !aiSession && (() => {
+            const rec = buildRecommendation(lang);
+            return (
+              <div className="trial-banner">
+                <span className="trial-banner-txt" style={{ fontSize: 15 }}>🤖 {rec.reason}</span>
+                <button className="trial-banner-btn" onClick={() => { exitSong(); goToRecommendation(rec); }}>{lang === "th" ? "ไป →" : lang === "zh" ? "去 →" : "Go →"}</button>
+              </div>
+            );
+          })()}
+
           {songPhase === "playing" && (
             <>
               <div className="songhud">
@@ -14433,19 +14447,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   </ol>
                 </>) : null}
               </div>
-              {/* The persistent AI Mentor nudge bar can't reach here (this result screen
-                  sits inside a full-screen overlay) — this is exactly the "just finished,
-                  don't know what's next" moment, so surface it directly. Skipped mid AI
-                  Session: that already has its own fixed next step (see the top banner). */}
-              {!aiSession && (() => {
-                const rec = buildRecommendation(lang);
-                return (
-                  <button className="songbtn ghost" style={{ width: "100%", marginBottom: 6, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
-                    onClick={() => goToRecommendation(rec)}>
-                    <span>🤖</span><span style={{ flex: 1 }}>{rec.reason}</span><span>→</span>
-                  </button>
-                );
-              })()}
               <div className="songready-btns">
                 <button className="songbtn ghost" onClick={exitSong}>↩ {lc.songBackList}</button>
                 <button className="songbtn ghost" onClick={() => shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: "★".repeat(songResult.stars) + "☆".repeat(3 - songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] })}>📤 {lc.shareBtn}</button>
