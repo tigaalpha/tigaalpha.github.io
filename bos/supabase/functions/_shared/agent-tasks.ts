@@ -2,6 +2,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { generate } from "./ai-provider.ts";
 import type { GenerateResult } from "./ai-types.ts";
 import { PROMPTS } from "./prompts.ts";
+import { sumTransactions, countByStatus, computeCAC, computeLTV, computeCashFlowForecast } from "./business-metrics.ts";
 
 // One task-runner per agent id in agents.ts, all the same shape: pull real
 // CRM data with plain queries (same style as ai-reports.ts), hand it to
@@ -34,8 +35,7 @@ export async function runSalesAgentTask(admin: SupabaseClient, question: string)
     admin.from("sales_status_history").select("lost_reason").eq("to_status", "lost").not("lost_reason", "is", null),
   ]);
 
-  const statusCounts: Record<string, number> = {};
-  for (const row of statusRows.data ?? []) statusCounts[row.sales_status] = (statusCounts[row.sales_status] ?? 0) + 1;
+  const statusCounts = countByStatus(statusRows.data ?? []);
 
   const scores = (scoreRows.data ?? []).map((r) => r.lead_score);
   const avgLeadScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
@@ -71,76 +71,43 @@ export async function runMarketingAgentTask(admin: SupabaseClient, question: str
 
 const MARKETING_EXPENSE_CATEGORY = "การตลาด/โฆษณา";
 
-// Trend-based forecast, not a real cash-flow model: compares net cash flow
-// (income - expense) across two trailing 45-day windows to catch direction,
-// then projects the recent daily average forward. Good enough for "is this
-// heading up or down," not a substitute for real accounting forecasting.
-async function computeCashFlowForecast(admin: SupabaseClient): Promise<{
-  avgDailyNetLast45Days: number;
-  projectedNet30Days: number;
-  projectedNet60Days: number;
-  projectedNet90Days: number;
-  trend: "up" | "down" | "stable";
-}> {
+async function fetchCashFlowForecast(admin: SupabaseClient) {
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
   const fortyFiveDaysAgo = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
   const { data } = await admin.from("transactions").select("type, amount, transaction_date").gte("transaction_date", ninetyDaysAgo.toISOString().slice(0, 10));
 
-  let netOlderHalf = 0;
-  let netRecentHalf = 0;
-  for (const t of data ?? []) {
-    const signedAmount = t.type === "income" ? t.amount : -t.amount;
-    if (t.transaction_date >= fortyFiveDaysAgo.toISOString().slice(0, 10)) {
-      netRecentHalf += signedAmount;
-    } else {
-      netOlderHalf += signedAmount;
-    }
-  }
+  const fortyFiveDaysAgoStr = fortyFiveDaysAgo.toISOString().slice(0, 10);
+  const recentRows = (data ?? []).filter((t) => t.transaction_date >= fortyFiveDaysAgoStr);
+  const olderRows = (data ?? []).filter((t) => t.transaction_date < fortyFiveDaysAgoStr);
 
-  const avgDailyNetLast45Days = netRecentHalf / 45;
-  const changeRatio = netOlderHalf !== 0 ? (netRecentHalf - netOlderHalf) / Math.abs(netOlderHalf) : 0;
-  const trend: "up" | "down" | "stable" = changeRatio > 0.1 ? "up" : changeRatio < -0.1 ? "down" : "stable";
-
+  const forecast = computeCashFlowForecast(recentRows, olderRows, 45);
   return {
-    avgDailyNetLast45Days: Math.round(avgDailyNetLast45Days),
-    projectedNet30Days: Math.round(avgDailyNetLast45Days * 30),
-    projectedNet60Days: Math.round(avgDailyNetLast45Days * 60),
-    projectedNet90Days: Math.round(avgDailyNetLast45Days * 90),
-    trend,
+    avgDailyNetLast45Days: forecast.avgDailyNet,
+    projectedNet30Days: forecast.avgDailyNet * 30,
+    projectedNet60Days: forecast.avgDailyNet * 60,
+    projectedNet90Days: forecast.avgDailyNet * 90,
+    trend: forecast.trend,
+    confidence: forecast.confidence,
   };
 }
 
 // CAC over a trailing window: total marketing/ads expense divided by
-// distinct customers who reached "won" in that same window. Null (not 0)
-// when there's no won customer in the window, so the prompt doesn't treat
-// an undefined ratio as a real zero-cost acquisition.
-async function computeCAC(admin: SupabaseClient, days: number): Promise<number | null> {
+// distinct customers who reached "won" in that same window.
+async function fetchCAC(admin: SupabaseClient, days: number) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   const [spendResult, wonResult] = await Promise.all([
     admin.from("transactions").select("amount").eq("type", "expense").eq("category", MARKETING_EXPENSE_CATEGORY).gte("transaction_date", since.toISOString().slice(0, 10)),
     admin.from("sales_status_history").select("customer_id").eq("to_status", "won").gte("created_at", since.toISOString()),
   ]);
-
-  const totalSpend = (spendResult.data ?? []).reduce((sum, t) => sum + t.amount, 0);
-  const uniqueWonCustomers = new Set((wonResult.data ?? []).map((r) => r.customer_id)).size;
-
-  return uniqueWonCustomers > 0 ? Math.round(totalSpend / uniqueWonCustomers) : null;
+  return computeCAC(spendResult.data ?? [], (wonResult.data ?? []).map((r) => r.customer_id));
 }
 
 // LTV proxy: average all-time income revenue per distinct paying customer.
 // Simple and defensible with the data actually available (no churn/retention
 // modeling) -- explicitly a proxy, not a modeled lifetime value.
-async function computeLTV(admin: SupabaseClient): Promise<number | null> {
+async function fetchLTV(admin: SupabaseClient) {
   const { data } = await admin.from("transactions").select("amount, customer_id").eq("type", "income").not("customer_id", "is", null);
-
-  const revenueByCustomer: Record<string, number> = {};
-  for (const t of data ?? []) {
-    if (!t.customer_id) continue;
-    revenueByCustomer[t.customer_id] = (revenueByCustomer[t.customer_id] ?? 0) + t.amount;
-  }
-
-  const values = Object.values(revenueByCustomer);
-  return values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
+  return computeLTV(data ?? []);
 }
 
 export async function runFinanceAgentTask(admin: SupabaseClient, question: string): Promise<AgentTaskResult> {
@@ -150,31 +117,27 @@ export async function runFinanceAgentTask(admin: SupabaseClient, question: strin
 
   const revenueByCategory: Record<string, number> = {};
   const expenseByCategory: Record<string, number> = {};
-  let totalRevenue = 0;
-  let totalExpense = 0;
   for (const t of transactions ?? []) {
-    if (t.type === "income") {
-      totalRevenue += t.amount;
-      revenueByCategory[t.category] = (revenueByCategory[t.category] ?? 0) + t.amount;
-    } else {
-      totalExpense += t.amount;
-      expenseByCategory[t.category] = (expenseByCategory[t.category] ?? 0) + t.amount;
-    }
+    if (t.type === "income") revenueByCategory[t.category] = (revenueByCategory[t.category] ?? 0) + t.amount;
+    else expenseByCategory[t.category] = (expenseByCategory[t.category] ?? 0) + t.amount;
   }
+  const { revenue: totalRevenue, expense: totalExpense, profit: netProfit } = sumTransactions(transactions ?? []);
 
-  const [cashFlowForecast, computedCAC90Days, computedLTV] = await Promise.all([computeCashFlowForecast(admin), computeCAC(admin, 90), computeLTV(admin)]);
+  const [cashFlowForecast, cac90Days, ltv] = await Promise.all([fetchCashFlowForecast(admin), fetchCAC(admin, 90), fetchLTV(admin)]);
 
   return runAgentPrompt("finance_agent", question, {
     periodDays: 30,
     totalRevenue,
     totalExpense,
-    netProfit: totalRevenue - totalExpense,
+    netProfit,
     revenueByCategory,
     expenseByCategory,
     cashFlowForecast,
-    computedCAC90Days,
-    computedLTV,
-    ltvToCacRatio: computedCAC90Days && computedLTV ? Number((computedLTV / computedCAC90Days).toFixed(1)) : null,
+    computedCAC90Days: cac90Days.value,
+    cacConfidence: cac90Days.confidence,
+    computedLTV: ltv.value,
+    ltvConfidence: ltv.confidence,
+    ltvToCacRatio: cac90Days.value && ltv.value ? Number((ltv.value / cac90Days.value).toFixed(1)) : null,
   });
 }
 

@@ -3,6 +3,7 @@ import { generate } from "./ai-provider.ts";
 import { PROMPTS } from "./prompts.ts";
 import { requestApproval } from "./approvals.ts";
 import { logAiUsage } from "./usage-logging.ts";
+import { sumTransactions, countByStatus } from "./business-metrics.ts";
 
 // The one shared "AI does an analysis/drafting job" primitive for Level 3
 // (see the "AI Workforce" plan) -- every report_type here follows the same
@@ -46,8 +47,7 @@ export async function generateDailyBriefing(admin: SupabaseClient): Promise<{ id
     admin.from("automation_runs").select("id", { count: "exact", head: true }).eq("status", "failed").gte("started_at", yesterday.toISOString()),
   ]);
 
-  const revenue = (transactions.data ?? []).filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
-  const expenses = (transactions.data ?? []).filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+  const { revenue, expense: expenses } = sumTransactions(transactions.data ?? []);
 
   const kpis = {
     date: todayStart,
@@ -87,22 +87,15 @@ export async function generateWeeklyBusinessReport(admin: SupabaseClient): Promi
     admin.from("courses").select("id, customer_id, remaining_hour").lte("remaining_hour", 2).gt("remaining_hour", 0),
   ]);
 
-  const statusCounts: Record<string, number> = {};
-  for (const row of salesStatus.data ?? []) statusCounts[row.sales_status] = (statusCounts[row.sales_status] ?? 0) + 1;
+  const statusCounts = countByStatus(salesStatus.data ?? []);
 
   const revenueByCategory: Record<string, number> = {};
   const expenseByCategory: Record<string, number> = {};
-  let weeklyRevenue = 0;
-  let weeklyExpense = 0;
   for (const t of transactions.data ?? []) {
-    if (t.type === "income") {
-      weeklyRevenue += t.amount;
-      revenueByCategory[t.category] = (revenueByCategory[t.category] ?? 0) + t.amount;
-    } else {
-      weeklyExpense += t.amount;
-      expenseByCategory[t.category] = (expenseByCategory[t.category] ?? 0) + t.amount;
-    }
+    if (t.type === "income") revenueByCategory[t.category] = (revenueByCategory[t.category] ?? 0) + t.amount;
+    else expenseByCategory[t.category] = (expenseByCategory[t.category] ?? 0) + t.amount;
   }
+  const { revenue: weeklyRevenue, expense: weeklyExpense } = sumTransactions(transactions.data ?? []);
 
   const kpis = {
     weekOf: weekAgo.toISOString().slice(0, 10),
