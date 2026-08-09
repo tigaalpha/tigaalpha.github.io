@@ -6060,6 +6060,27 @@ function logGame(g) {
     localStorage.setItem(GAME_LOG_KEY, JSON.stringify(log.slice(-80)));
   } catch (e) {}
 }
+// One-time repair: logGame() used to store the localized song TITLE in `song`
+// instead of its id, which silently broke every id-based lookup against this
+// log (Friends/Duels challenge scores, the "songs you've played" picker, and
+// the evergreen practice-recommendation engine all compare `g.song` to a real
+// SONGS id). Rewrites any already-stored title strings back to their real id
+// by matching against all three languages; runs once per browser, ever.
+function migrateGameLogSongIds() {
+  try {
+    if (localStorage.getItem("tg_gamelog_id_fix") === "1") return;
+    const log = readGameLog();
+    let changed = false;
+    for (const g of log) {
+      if (!g.song || SONGS.some(s => s.id === g.song)) continue;
+      const match = SONGS.find(s => s.th === g.song || s.en === g.song || s.zh === g.song);
+      if (match) { g.song = match.id; changed = true; }
+    }
+    if (changed) localStorage.setItem(GAME_LOG_KEY, JSON.stringify(log));
+    localStorage.setItem("tg_gamelog_id_fix", "1");
+  } catch (e) {}
+}
+migrateGameLogSongIds();
 const HEAT_COLORS = ["#231c17", "#5c3a24", "#a3602f", "#d97757"];
 function heatColor(l) { return HEAT_COLORS[l] || HEAT_COLORS[0]; }
 
@@ -6817,6 +6838,24 @@ function buildRecommendation(lang) {
     zh: "太棒了！这个级别的内容你都学完了 — 来轻松热身一下，保持状态吧。",
   };
   return { type: "warmup", target: null, feature: "play_along", duration: 3, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start" };
+}
+// Song-result-screen variant of buildRecommendation(): reacts to how the learner
+// JUST did on THIS song specifically, rather than only the global cycle. Under
+// 3 stars means they're not fluent on it yet, so say so and offer it again
+// immediately — don't wait for the library to cycle back around to it. 3
+// stars means they've got it, so defer to the normal engine (which now
+// correctly excludes this song from "unattempted" and moves on).
+function buildSongResultRecommendation(lang, songMeta, songResult) {
+  if (songMeta && songResult && songResult.stars < 3) {
+    const title = tr(songMeta, lang);
+    const reasonByLang = {
+      th: `เพลงนี้ยังไม่คล่องนัก (${songResult.stars}/3 ดาว) — ลองฝึก "${title}" อีกรอบก่อนไปต่อดีกว่า`,
+      en: `You're not quite fluent on this one yet (${songResult.stars}/3 stars) — give "${title}" another go before moving on.`,
+      zh: `这首还不太熟练（${songResult.stars}/3颗星）— 再练一次"${title}"，然后再继续吧。`,
+    };
+    return { type: "replay_song", target: songMeta.id, feature: "play_along", duration: 4, difficulty: null, reason: reasonByLang[lang] || reasonByLang.en, action: "start", song: songMeta };
+  }
+  return buildRecommendation(lang);
 }
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
 function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
@@ -11918,7 +11957,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
     logPractice(acc);
     recordMemory(tr(songMeta, lang), acc);
-    logGame({ song: tr(songMeta, lang), acc, score, stars });
+    logGame({ song: (songMeta && songMeta.id) || "song", acc, score, stars });
     logActivity("game", (songMeta && songMeta.id) || "song", hits, Math.max(0, total - hits),
       songDataRef.current && songDataRef.current.dur ? songDataRef.current.dur / (songTempoRef.current || 1) + SONG_LEAD : 60);
     const songId = (songMeta && songMeta.id) || "song";
@@ -14338,9 +14377,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           {/* Same "what's next" nudge bar used everywhere else in the app, right below
               the header — this overlay is full-screen so the app-wide one never reaches
               it, and the result screen is exactly the "just finished, what now?" moment.
+              Reacts to how this specific attempt went (see buildSongResultRecommendation):
+              under 3 stars offers this same song again since it's not fluent yet; 3
+              stars defers to the normal engine, which moves on to something new.
               Skipped mid AI Session: that already has its own fixed next step. */}
           {songPhase === "done" && songResult && !aiSession && (() => {
-            const rec = buildRecommendation(lang);
+            const rec = buildSongResultRecommendation(lang, songMeta, songResult);
             return (
               <div className="trial-banner">
                 <span className="trial-banner-txt" style={{ fontSize: 15 }}>🤖 {rec.reason}</span>
