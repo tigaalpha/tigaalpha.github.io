@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Wallet, TrendingUp, TrendingDown, Minus, Users, Target, ShieldCheck, Bot, AlertTriangle, Cpu } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, Minus, Users, Target, ShieldCheck, Bot, AlertTriangle, Cpu, GraduationCap } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { StatCard } from "@/features/dashboard/components/stat-card";
@@ -24,6 +24,7 @@ interface ControlCenterData {
   agentPerformance: Record<string, { success: number; failed: number }>;
   agentHealth: Record<string, { score: number; avgLatencyMs: number | null }>;
   riskFlags: { workflowId: string; goal: string; title: string; description: string }[];
+  renewalOpportunities: { courseId: string; customerId: string; customerName: string; remainingHour: number; totalHours: number }[];
 }
 
 const TREND_ICON = { up: TrendingUp, down: TrendingDown, stable: Minus } as const;
@@ -50,8 +51,9 @@ export function ControlCenterView() {
       repos.agentWorkflows.agentPerformanceCounts(30),
       repos.agentWorkflows.recentHighPriorityActions(5),
       repos.agentWorkflows.agentHealthScores(30),
+      repos.courses.renewalOpportunities(),
     ])
-      .then(([transactions, cashFlowForecast, funnelCounts, cac, ltv, aiUsage, pendingApprovals, agentPerformance, riskFlags, agentHealth]) => {
+      .then(([transactions, cashFlowForecast, funnelCounts, cac, ltv, aiUsage, pendingApprovals, agentPerformance, riskFlags, agentHealth, renewalOpportunities]) => {
         const { revenue: revenue30d, profit: profit30d } = sumTransactions(transactions);
 
         setData({
@@ -69,6 +71,7 @@ export function ControlCenterView() {
           agentPerformance,
           agentHealth,
           riskFlags,
+          renewalOpportunities,
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ"));
@@ -179,6 +182,36 @@ export function ControlCenterView() {
                   <p className="text-sm font-medium text-secondary">{flag.title}</p>
                   <p className="text-xs text-secondary/60">{flag.description}</p>
                 </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <GraduationCap className="h-4 w-4 text-primary-accent" />
+            โอกาสต่ออายุคอร์ส
+          </CardTitle>
+          <CardDescription>นักเรียนที่ชั่วโมงเรียนเหลือน้อย ยังไม่ได้ติดตาม และยังไม่ได้ปิดการขาย</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {data.renewalOpportunities.length === 0 ? (
+            <EmptyState icon={GraduationCap} title="ยังไม่มีโอกาสต่ออายุที่ต้องติดตาม" />
+          ) : (
+            <div className="space-y-2">
+              {data.renewalOpportunities.map((opp) => (
+                <Link
+                  key={opp.courseId}
+                  href={`/students/detail?id=${opp.customerId}`}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-line/5 px-3 py-2 hover:bg-line/10"
+                >
+                  <span className="text-sm text-secondary">{opp.customerName}</span>
+                  <span className="text-xs text-secondary/50">
+                    เหลือ {opp.remainingHour} / {opp.totalHours} ชม.
+                  </span>
+                </Link>
               ))}
             </div>
           )}

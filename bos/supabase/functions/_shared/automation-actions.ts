@@ -18,6 +18,7 @@ export interface ActionContext {
   entityId: string;
   customerId: string | null;
   summary: string;
+  ruleId?: string;
 }
 
 export interface ActionResult {
@@ -86,6 +87,7 @@ async function createTask(db: SupabaseClient, action: ActionSpec, ctx: ActionCon
     priority: ["low", "medium", "high"].includes(priority) ? priority : "medium",
     due_at: dueAt.toISOString(),
     customer_id: ctx.customerId,
+    automation_rule_id: ctx.ruleId ?? null,
     status: "open",
   });
   if (error) return { type: action.type, ok: false, detail: error.message };

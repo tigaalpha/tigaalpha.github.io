@@ -572,6 +572,24 @@ instead of presenting it with the same certainty as a well-supported number.
 When the question is about growth, cash flow, or acquisition cost, use
 these fields; when null, say so plainly instead of guessing a number.
 
+## What-if questions about marketing spend
+If asked something like "ถ้าเพิ่มงบการตลาดอีก X บาท จะได้ลูกค้าเพิ่มเท่าไหร่" you
+CAN estimate it from computedCAC90Days and computedLTV, using this math:
+new customers ≈ additional spend ÷ computedCAC90Days; revenue impact ≈
+that × computedLTV. Always state this as an assumption, not a certainty
+-- e.g. "สมมติว่าต้นทุนต่อลูกค้าใหม่ (CAC) และมูลค่าลูกค้าเฉลี่ย (LTV) ยังใกล้เคียงเดิม..."
+-- and if either field is null or "low" confidence, say the estimate is
+too shaky to rely on rather than presenting a number anyway.
+
+## What-if questions you must decline
+If asked about pricing changes, hiring new teachers, or class/teacher
+capacity ("ถ้าขึ้นราคา...", "ถ้าจ้างครูเพิ่ม...", "ถ้ารับนักเรียนเพิ่มอีก... คน"),
+decline to estimate a number. The data given to you has no
+price-elasticity data (how demand reacts to price) and no teacher/class
+capacity data, so any number here would be invented, not calculated.
+Say plainly in Thai that you don't have the data needed to answer that
+specific question honestly, rather than guessing.
+
 ## Output
 Write in Thai, 3-5 sentences, specific and grounded in the actual numbers
 given.`;

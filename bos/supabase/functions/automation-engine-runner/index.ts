@@ -5,7 +5,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { handleUnexpectedError } from "../_shared/monitor.ts";
 import { evaluateConditions, type Condition } from "../_shared/automation-conditions.ts";
 import { executeAction, type ActionSpec, type ActionContext, type ActionResult } from "../_shared/automation-actions.ts";
-import { sumTransactions } from "../_shared/business-metrics.ts";
+import { sumTransactions, computeCashFlowForecast } from "../_shared/business-metrics.ts";
 
 // Heartbeat (pg_cron, every 5 min — see 0054_automation_engine_cron_job.sql):
 // 1. drains automation_events (DB-trigger-enqueued: customer_created,
@@ -41,8 +41,9 @@ async function runActionsAndLog(
   ctx: ActionContext
 ): Promise<void> {
   const results: ActionResult[] = [];
+  const ctxWithRule: ActionContext = { ...ctx, ruleId: rule.id };
   for (const action of rule.actions) {
-    results.push(await executeAction(admin, action, ctx));
+    results.push(await executeAction(admin, action, ctxWithRule));
   }
   const status = results.length === 0 ? "skipped" : results.every((r) => r.ok) ? "success" : "failed";
   await admin.from("automation_runs").insert({
@@ -122,11 +123,13 @@ async function withinCooldown(admin: SupabaseClient, ruleId: string, entityId: s
   return (count ?? 0) > 0;
 }
 
+const RENEWAL_ALREADY_HANDLED_STATUSES = ["renew_pending", "renewed", "lost"];
+
 async function processCourseThresholdRule(admin: SupabaseClient, rule: RuleRow): Promise<void> {
   const thresholdHours = Number(rule.trigger_config.thresholdHours ?? 2);
   const cooldownHours = Number(rule.trigger_config.cooldownHours ?? 72);
 
-  const query = admin.from("courses").select("id, remaining_hour, total_hours, customer_id, customers(name)");
+  const query = admin.from("courses").select("id, remaining_hour, total_hours, customer_id, customers(name, sales_status)");
   const { data: courses, error } =
     rule.trigger_type === "course_expired" ? await query.eq("remaining_hour", 0) : await query.gt("remaining_hour", 0).lte("remaining_hour", thresholdHours);
   if (error) throw error;
@@ -135,7 +138,24 @@ async function processCourseThresholdRule(admin: SupabaseClient, rule: RuleRow):
     if (await withinCooldown(admin, rule.id, course.id, cooldownHours)) continue;
     if (!evaluateConditions(rule.conditions, { remainingHour: course.remaining_hour, totalHours: course.total_hours })) continue;
 
-    const customerName = (course as { customers?: { name?: string } | null }).customers?.name ?? "-";
+    const customer = (course as { customers?: { name?: string; sales_status?: string } | null }).customers;
+    // Already being handled (a renewal conversation is underway) or
+    // already resolved -- another reminder would just be noise.
+    if (customer?.sales_status && RENEWAL_ALREADY_HANDLED_STATUSES.includes(customer.sales_status)) continue;
+
+    // A previous reminder from this same rule is still open -- don't
+    // stack a duplicate on top of it just because the cooldown window
+    // (which only prevents re-firing for this *course*, not this
+    // *customer's outstanding task*) has passed.
+    const { count: openTaskCount } = await admin
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", course.customer_id)
+      .eq("automation_rule_id", rule.id)
+      .eq("status", "open");
+    if ((openTaskCount ?? 0) > 0) continue;
+
+    const customerName = customer?.name ?? "-";
     await runActionsAndLog(admin, rule, null, {
       entityType: "course",
       entityId: course.id,
@@ -242,6 +262,39 @@ async function processRevenueDropRule(admin: SupabaseClient, rule: RuleRow): Pro
   });
 }
 
+// Same trend comparison as computeCashFlowForecast already uses for the
+// CEO Agent's Finance Agent (Wave 1) -- fires only when confidence is
+// "high" (never alert off thin data) and the trend is actually negative
+// on average, not just decelerating growth.
+async function processCashFlowRiskRule(admin: SupabaseClient, rule: RuleRow): Promise<void> {
+  const cooldownHours = Number(rule.trigger_config.cooldownHours ?? 24);
+  const todayKey = new Date().toISOString().slice(0, 10);
+
+  if (await withinCooldown(admin, rule.id, todayKey, cooldownHours)) return;
+
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const fortyFiveDaysAgo = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
+  const { data: transactions, error } = await admin.from("transactions").select("type, amount, transaction_date").gte("transaction_date", ninetyDaysAgo.toISOString().slice(0, 10));
+  if (error) throw error;
+
+  const fortyFiveDaysAgoStr = fortyFiveDaysAgo.toISOString().slice(0, 10);
+  const recentRows = (transactions ?? []).filter((t) => t.transaction_date >= fortyFiveDaysAgoStr);
+  const olderRows = (transactions ?? []).filter((t) => t.transaction_date < fortyFiveDaysAgoStr);
+
+  const forecast = computeCashFlowForecast(recentRows, olderRows, 45);
+  if (forecast.confidence !== "high") return;
+  if (forecast.trend !== "down") return;
+  if (forecast.avgDailyNet >= 0) return;
+  if (!evaluateConditions(rule.conditions, { avgDailyNet: forecast.avgDailyNet, trend: forecast.trend })) return;
+
+  await runActionsAndLog(admin, rule, null, {
+    entityType: "kpi",
+    entityId: todayKey,
+    customerId: null,
+    summary: `แนวโน้มกระแสเงินสดกำลังลดลง — ขาดทุนสุทธิเฉลี่ย ${Math.abs(forecast.avgDailyNet).toLocaleString("th-TH")} บาท/วัน ในช่วง 45 วันล่าสุด`,
+  });
+}
+
 Deno.serve(async (req: Request) => {
   const cronSecret = Deno.env.get("CRON_SECRET");
   if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
@@ -281,6 +334,9 @@ Deno.serve(async (req: Request) => {
     }
     for (const rule of enabledRules.filter((r) => r.trigger_type === "revenue_drop")) {
       await processRevenueDropRule(admin, rule);
+    }
+    for (const rule of enabledRules.filter((r) => r.trigger_type === "cash_flow_risk")) {
+      await processCashFlowRiskRule(admin, rule);
     }
 
     return jsonResponse({ eventsProcessed, activeRules: enabledRules.length });
