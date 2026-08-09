@@ -695,12 +695,16 @@ export interface Database {
             | "booking_cancelled"
             | "course_ending_soon"
             | "course_expired"
-            | "customer_inactive";
+            | "customer_inactive"
+            | "booking_starting_soon"
+            | "revenue_drop"
+            | "cash_flow_risk";
           trigger_config: Record<string, unknown>;
           conditions: { field: string; operator: string; value: unknown }[];
           actions: { type: string; config: Record<string, unknown> }[];
           enabled: boolean;
           is_template: boolean;
+          consecutive_failures: number;
           created_by: string | null;
           created_at: string;
           updated_at: string;

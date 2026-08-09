@@ -24,6 +24,9 @@ const TRIGGER_LABELS: Record<string, string> = {
   cash_flow_risk: "ความเสี่ยงกระแสเงินสด",
 };
 
+// Must match AUTO_DISABLE_THRESHOLD in supabase/functions/automation-engine-runner/index.ts
+const AUTO_DISABLE_THRESHOLD = 5;
+
 const ACTION_LABELS: Record<string, string> = {
   notify_owner: "แจ้งเตือนเจ้าของ",
   send_line_message: "ส่งข้อความ LINE",
@@ -143,9 +146,16 @@ export function AutomationDashboard() {
                           </Badge>
                         ))}
                       </div>
+                      {rule.enabled && rule.consecutive_failures > 0 ? (
+                        <p className="mt-1.5 text-xs text-warning">
+                          ล้มเหลว {rule.consecutive_failures} ครั้งล่าสุด — จะปิดอัตโนมัติถ้าล้มเหลวครบ {AUTO_DISABLE_THRESHOLD} ครั้งติดต่อกัน
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
-                      <Badge variant={rule.enabled ? "success" : "outline"}>{rule.enabled ? "เปิดใช้งาน" : "ปิดอยู่"}</Badge>
+                      <Badge variant={rule.enabled ? "success" : rule.consecutive_failures >= AUTO_DISABLE_THRESHOLD ? "danger" : "outline"}>
+                        {rule.enabled ? "เปิดใช้งาน" : rule.consecutive_failures >= AUTO_DISABLE_THRESHOLD ? `ปิดอัตโนมัติ (ล้มเหลว ${rule.consecutive_failures} ครั้ง)` : "ปิดอยู่"}
+                      </Badge>
                       <Button variant="ghost" size="icon" onClick={() => void handleToggleRule(rule)}>
                         {rule.enabled ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                       </Button>

@@ -50,6 +50,12 @@ async function runActionsAndLog(
   eventId: string | null,
   ctx: ActionContext
 ): Promise<void> {
+  // Already auto-disabled earlier in this same tick (e.g. this rule just
+  // crossed the threshold on a previous entity in this loop) -- don't
+  // keep attempting its actions or re-sending the disable notification
+  // for every remaining entity.
+  if (rule.consecutive_failures >= AUTO_DISABLE_THRESHOLD) return;
+
   const results: ActionResult[] = [];
   const ctxWithRule: ActionContext = { ...ctx, ruleId: rule.id };
   for (const action of rule.actions) {
