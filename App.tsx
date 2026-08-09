@@ -12153,7 +12153,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     playUi("click");
     if (r.type === "fundamentals") handleCoachNavigate(r.feature);
     else if (r.type === "remediate") handleCoachNavigate(r.feature, r.skill === "chord_knowledge" ? "chord" : undefined);
-    else if (r.type === "next_stage") setPage("pathway");
+    else if (r.type === "next_stage") {
+      // Go straight into the topic itself (same as tapping it on the Pathway page
+      // or TodayPage's own "new" step) — landing on the Pathway list first and
+      // making the learner find and tap it again was a confusing extra step.
+      const stage = r.stage;
+      if (stage.content) { readChapter(stage); }
+      else {
+        const keyMap = keyDoneMap();
+        const key = KEYS_12.find(k => !(keyMap[stage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0];
+        learnTopic(stage, key, stage.types ? stage.types[0] : null);
+      }
+    }
     else { setPage("studio"); setStudioView("songs"); }
   }
   // snapshot the camera and ask the AI teacher to critique hand posture/technique
