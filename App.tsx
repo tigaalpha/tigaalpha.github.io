@@ -2414,7 +2414,7 @@ const L = {
     dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recWarm: "วอร์มอัพด้วยเกม", recWeakSkill: "จุดอ่อนตอนนี้: {x}", recFundamentals: "เริ่มจากพื้นฐาน: {x}", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
     setAmbient: "ดนตรีบรรยากาศ", setInstall: "ติดตั้งเป็นแอป", setBpm: "จังหวะ (BPM)", setTap: "แตะตามจังหวะ", setLang: "ภาษา", setOn: "เปิด", setOff: "ปิด",
-    setPracticeExp: "รูปแบบการฝึก", setPracticeAI: "AI Mentor", setPracticeAIDesc: "ให้ TIGA แนะนำและจัดการการฝึกให้", setPracticeManual: "เลือกเอง", setPracticeManualDesc: "ให้ฉันเลือกเพลงและแบบฝึกด้วยตัวเอง", setPracticeHint: "คุณสามารถเปลี่ยนโหมดนี้ได้ทุกเมื่อ", setAdvanced: "เพิ่มเติม",
+    setPracticeExp: "รูปแบบการฝึก", setPracticeAI: "AI Mentor", setPracticeAIDesc: "ให้ TIGA แนะนำและจัดการการฝึกให้", setPracticeManual: "โหมดขั้นสูง", setPracticeManualDesc: "ให้ฉันเลือกเพลงและแบบฝึกด้วยตัวเอง", setPracticeHint: "คุณสามารถเปลี่ยนโหมดนี้ได้ทุกเมื่อ", setAdvanced: "เพิ่มเติม",
     installBannerTitle: "ติดตั้ง TiGA AI ไว้ที่หน้าจอโฮม", installBannerSub: "เปิดได้ไวขึ้น ไม่ต้องหา URL ทุกครั้ง",
     setPush: "🔔 แจ้งเตือน",
     pushBannerTitle: "อย่าให้สตรีคหลุด!", pushBannerSub: "เปิดแจ้งเตือนไว้ เดี๋ยวเราจะเตือนถ้าลืมซ้อมวันนี้", pushBannerBtn: "เปิดแจ้งเตือน",
@@ -2556,7 +2556,7 @@ const L = {
     dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recWarm: "Warm up with a game", recWeakSkill: "Your weakest skill: {x}", recFundamentals: "Let's start with the basics: {x}", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
     setAmbient: "Ambient music", setInstall: "Install app", setBpm: "Tempo (BPM)", setTap: "Tap tempo", setLang: "Language", setOn: "On", setOff: "Off",
-    setPracticeExp: "Practice Experience", setPracticeAI: "AI Mentor", setPracticeAIDesc: "Let TIGA guide and manage your practice", setPracticeManual: "Choose myself", setPracticeManualDesc: "Let me pick my own songs and drills", setPracticeHint: "You can change this anytime", setAdvanced: "Advanced",
+    setPracticeExp: "Practice Experience", setPracticeAI: "AI Mentor", setPracticeAIDesc: "Let TIGA guide and manage your practice", setPracticeManual: "Advanced Mode", setPracticeManualDesc: "Let me pick my own songs and drills", setPracticeHint: "You can change this anytime", setAdvanced: "Advanced",
     installBannerTitle: "Add TiGA AI to your home screen", installBannerSub: "Open it faster — no more hunting for the URL",
     setPush: "🔔 Notifications",
     pushBannerTitle: "Don't lose your streak!", pushBannerSub: "Turn on notifications and we'll remind you if you forget to practice today", pushBannerBtn: "Enable notifications",
@@ -2698,7 +2698,7 @@ const L = {
     dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recWarm: "用游戏热身", recWeakSkill: "当前弱项：{x}", recFundamentals: "从基础开始：{x}", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
     setAmbient: "环境音乐", setInstall: "安装应用", setBpm: "速度 (BPM)", setTap: "点击打拍", setLang: "语言", setOn: "开", setOff: "关",
-    setPracticeExp: "练习模式", setPracticeAI: "AI 导师", setPracticeAIDesc: "让 TIGA 为你安排和引导练习", setPracticeManual: "自己选择", setPracticeManualDesc: "自己选择歌曲和练习内容", setPracticeHint: "随时都可以更改此设置", setAdvanced: "更多",
+    setPracticeExp: "练习模式", setPracticeAI: "AI 导师", setPracticeAIDesc: "让 TIGA 为你安排和引导练习", setPracticeManual: "高级模式", setPracticeManualDesc: "自己选择歌曲和练习内容", setPracticeHint: "随时都可以更改此设置", setAdvanced: "更多",
     installBannerTitle: "把 TiGA AI 添加到主屏幕", installBannerSub: "打开更快 — 不用每次找网址",
     setPush: "🔔 通知",
     pushBannerTitle: "别让连续记录中断！", pushBannerSub: "打开通知，忘记练习时我们会提醒你", pushBannerBtn: "开启通知",
@@ -10575,10 +10575,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [vmErr, setVmErr] = useState(null);
 
   // ── routing + secret admin unlock ──
-  // home = the new AI-Mentor/Manual landing page (UX refactor); reached from the
-  // drawer's "Home" item or by default on load. Navigation stays drawer-only —
-  // a bottom tab bar was tried and removed after it read as more confusing, not less.
-  const [page, setPage] = useState("home");
+  // home = the AI-Mentor/Manual landing page (UX refactor); reached from the
+  // drawer's "Home" item. Navigation stays drawer-only — a bottom tab bar was
+  // tried and removed after it read as more confusing, not less.
+  // Initial landing page depends on Practice Experience: AI Mentor opens on Home
+  // (the curated "what's next" screen); Advanced Mode opens straight on Pathway,
+  // so a learner who's chosen to browse freely isn't funneled through Home first.
+  // getPracticeMode() is a plain localStorage read (not a hook), safe to call here.
+  const [page, setPage] = useState(() => getPracticeMode() === "manual" ? "pathway" : "home");
   useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
 
   // null | "time" | "ai" — which GuestGateScreen (if any) currently covers the
@@ -13704,10 +13708,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <span /><span /><span />
           </button>
           <div className="lbox flicker" onClick={handleLogoTap}
-            style={{ cursor: "pointer" }} title="TG">TG</div>
-          <div>
-            <div className="lname">TIGA.AI</div>
-          </div>
+            style={{ cursor: "pointer" }} title="TIGA AI">TIGA AI</div>
         </div>
         <div className="hdr-r">
           {isGuest && (
@@ -13720,7 +13721,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             </button>
           )}
           {premium && (() => { const b = planBadge(plan) || { t: "⭐ PRO", c: "" }; return <span className={`probadge ${b.c}`} title={PLAN_LABEL[plan] || "Premium"}>{b.t}</span>; })()}
-          {chestAvail && <button className="chestbtn" onClick={openChestNow} title={lc.chestTitle} aria-label="Daily reward">🎁</button>}
+          {/* Daily-reward chest button removed from the header per feedback (decluttering) —
+              still fully reachable from ProfilePage's own dailyhub chest button, same openChestNow(). */}
           {metroOn && <button className="metropill" onClick={() => setMetroOn(false)} title="Metronome" aria-label="Metronome on">🥁 {metroBpm}</button>}
           <div className="flagwrap" onClick={e => e.stopPropagation()}>
             <button className="flagbtn" onClick={() => setFlagOpen(o => !o)}
