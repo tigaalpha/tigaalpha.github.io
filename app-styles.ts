@@ -63,7 +63,7 @@ html, body, #root{background:var(--bg)}
 .drawer{position:fixed;top:0;left:0;bottom:0;width:82%;max-width:300px;z-index:1460;background:var(--card);border-right:1px solid #d9775733;box-shadow:8px 0 44px -10px #000;transform:translateX(-105%);transition:transform .26s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px));overflow-y:auto}
 .drawer.open{transform:translateX(0)}
 .drawer-brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px;border-bottom:1px solid var(--bd1);margin-bottom:12px}
-.drawer-brand .lbox{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:11px;background: #d97757;color:#fff;font-family:'Orbitron',sans-serif;font-weight:900;font-size:15px}
+.drawer-brand .lbox{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:11px;border:1.5px solid #d97757;color:#d97757;font-family:'Orbitron',sans-serif;font-weight:900;font-size:15px}
 .draweritem{display:flex;align-items:center;gap:14px;width:100%;padding:14px;border:none;background:transparent;border-radius:14px;cursor:pointer;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;text-align:left;position:relative;margin-bottom:4px}
 .draweritem:active{transform:scale(.98)}
 .draweritem.on{background:var(--bd1)}
