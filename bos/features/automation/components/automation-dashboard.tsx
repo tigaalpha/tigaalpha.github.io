@@ -21,6 +21,7 @@ const TRIGGER_LABELS: Record<string, string> = {
   customer_inactive: "ลูกค้าเงียบหายไปนาน",
   booking_starting_soon: "ใกล้ถึงเวลาเรียน",
   revenue_drop: "รายได้ลดลงผิดปกติ",
+  cash_flow_risk: "ความเสี่ยงกระแสเงินสด",
 };
 
 const ACTION_LABELS: Record<string, string> = {
