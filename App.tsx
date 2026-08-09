@@ -13762,7 +13762,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         const nextTxt = nxt ? (lang === "th" ? `ต่อไป: ${nxt.icon} ${nxt.label}` : lang === "zh" ? `下一步：${nxt.icon} ${nxt.label}` : `Next: ${nxt.icon} ${nxt.label}`) : "";
         return (
           <div className="trial-banner">
-            <span className="trial-banner-txt">{stepTxt}{nxt ? " · " + nextTxt : ""}</span>
+            <span className="trial-banner-txt" style={{ fontSize: 15 }}>{stepTxt}{nxt ? " · " + nextTxt : ""}</span>
             {!done && <button className="trial-banner-btn" onClick={continueAiSession}>{lang === "th" ? "ต่อไป →" : lang === "zh" ? "下一步 →" : "Next →"}</button>}
             <button className="trial-banner-btn" onClick={endAiSession}>{lang === "th" ? "✕ จบ" : lang === "zh" ? "✕ 结束" : "✕ End"}</button>
           </div>
@@ -13770,17 +13770,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       })()}
 
       {/* ─── AI MENTOR NUDGE — general "what to do next" bar, shown whenever no AI
-           Session is active. Addresses the specific pain point of finishing an
-           activity and not knowing where to go next: persists across every normal
-           page, naturally hidden mid-activity (full-screen overlays cover it, same
-           as the header). Skipped on Home and Sensei since both already show this
-           exact same recommendation as their own dedicated card/banner — showing
-           it a third time on the same screen would just be noise. ─── */}
-      {!aiSession && page !== "home" && page !== "sensei" && page !== "videos" && page !== "admin" && page !== "school" && (() => {
+           Session is active, on every single page (a deliberate wayfinding bar the
+           learner can always find in the same spot) except videos/admin/school
+           (immersive full-screen feed / intentionally hidden routes). Naturally
+           hidden mid-activity since full-screen overlays cover it, same as the
+           header. Shown on Home/Sensei too even though both already surface the
+           same recommendation their own way, so the bar itself is never absent. ─── */}
+      {!aiSession && page !== "videos" && page !== "admin" && page !== "school" && (() => {
         const rec = buildRecommendation(lang);
         return (
           <div className="trial-banner">
-            <span className="trial-banner-txt">🤖 {rec.reason}</span>
+            <span className="trial-banner-txt" style={{ fontSize: 15 }}>🤖 {rec.reason}</span>
             <button className="trial-banner-btn" onClick={() => goToRecommendation(rec)}>{lang === "th" ? "ไป →" : lang === "zh" ? "去 →" : "Go →"}</button>
           </div>
         );
