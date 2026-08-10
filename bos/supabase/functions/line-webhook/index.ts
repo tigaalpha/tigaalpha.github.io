@@ -2,6 +2,9 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { verifySignature, reply } from "../_shared/line.ts";
 import { respond } from "../_shared/chat-core.ts";
+import { logSystemEvent } from "../_shared/monitor.ts";
+
+const FALLBACK_REPLY = "ขออภัยค่ะ ระบบขัดข้องชั่วคราว รบกวนลองทักใหม่อีกครั้งสักครู่นะคะ";
 
 interface LineEvent {
   type: string;
@@ -36,32 +39,49 @@ async function processEvents(admin: ReturnType<typeof createAdminClient>, events
       const lineUserId = event.source.userId;
       const replyToken = event.replyToken;
 
-      const { data: customer } = await admin.from("customers").select("id").eq("line_user_id", lineUserId).maybeSingle();
+      // Everything below can throw (a DB error, or respond() itself --
+      // Gemini quota/timeout, a tool call failure) and this whole function
+      // runs detached via EdgeRuntime.waitUntil after the webhook already
+      // returned 200 -- an uncaught throw here means the customer gets
+      // total silence forever (the event is already marked processed by
+      // alreadyProcessed() above, so even LINE's own retry can't help).
+      try {
+        const { data: customer } = await admin.from("customers").select("id").eq("line_user_id", lineUserId).maybeSingle();
 
-      let conversationId: string;
-      const { data: existing } = await admin
-        .from("conversations")
-        .select("id")
-        .eq("line_user_id", lineUserId)
-        .eq("channel", "line")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (existing) {
-        conversationId = existing.id;
-      } else {
-        const { data: created, error } = await admin
+        let conversationId: string;
+        const { data: existing } = await admin
           .from("conversations")
-          .insert({ channel: "line", line_user_id: lineUserId, customer_id: customer?.id ?? null })
           .select("id")
-          .single();
-        if (error) throw error;
-        conversationId = created.id;
-      }
+          .eq("line_user_id", lineUserId)
+          .eq("channel", "line")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      const { reply: text } = await respond(admin, conversationId, event.message?.text ?? "");
-      await reply(replyToken, text);
+        if (existing) {
+          conversationId = existing.id;
+        } else {
+          const { data: created, error } = await admin
+            .from("conversations")
+            .insert({ channel: "line", line_user_id: lineUserId, customer_id: customer?.id ?? null })
+            .select("id")
+            .single();
+          if (error) throw error;
+          conversationId = created.id;
+        }
+
+        const { reply: text } = await respond(admin, conversationId, event.message?.text ?? "");
+        await reply(replyToken, text);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await logSystemEvent(admin, "line-webhook", "error", `Failed to reply to LINE message: ${message}`);
+        try {
+          await reply(replyToken, FALLBACK_REPLY);
+        } catch {
+          // best-effort -- if even the fallback reply fails (LINE itself
+          // down), the system_events log above is the record.
+        }
+      }
     })
   );
 }

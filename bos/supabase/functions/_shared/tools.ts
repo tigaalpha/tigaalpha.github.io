@@ -224,6 +224,21 @@ function isExclusionViolation(error: unknown): boolean {
   return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === EXCLUSION_VIOLATION);
 }
 
+// Postgres error codes for the other common, real failure shapes a
+// booking insert/update can hit -- translated to a plain message instead
+// of the raw constraint text, which would otherwise reach the model's
+// next turn as the tool result (see chat-core.ts) and risk a confusing
+// or overly technical reply reaching a real customer.
+const FOREIGN_KEY_VIOLATION = "23503";
+const NOT_NULL_VIOLATION = "23502";
+
+function translateDbError(error: unknown): string {
+  const code = error && typeof error === "object" && "code" in error ? (error as { code?: string }).code : undefined;
+  if (code === FOREIGN_KEY_VIOLATION) return "ไม่พบครูหรือคอร์สที่ระบุ ตรวจสอบข้อมูลอีกครั้ง";
+  if (code === NOT_NULL_VIOLATION) return "ข้อมูลที่จำเป็นสำหรับการจองขาดหายไป";
+  return "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+}
+
 /**
  * `boundCustomerId` is the customer actually tied to the conversation this
  * tool call came from (resolved server-side in chat-core.ts from the
@@ -302,6 +317,11 @@ export async function executeTool(
         .maybeSingle();
       if (courseErr || !course) throw new Error("No active course with remaining hours");
 
+      const { data: teacher, error: teacherErr } = await db.from("teachers").select("id, active").eq("id", args.teacherId).maybeSingle();
+      if (teacherErr) throw teacherErr;
+      if (!teacher) throw new Error("ไม่พบครูที่ระบุ — ใช้ list_teachers เพื่อดูรายชื่อครูที่มีอยู่");
+      if (!teacher.active) throw new Error("ครูท่านนี้ไม่ได้อยู่ในสถานะทำงานอยู่ในขณะนี้ เลือกครูท่านอื่น");
+
       // Lesson number/title/color must reflect how many lessons are already
       // booked for this course, not course.current_hour — current_hour only
       // advances when a lesson is marked *completed* (apply_completed_booking
@@ -351,7 +371,7 @@ export async function executeTool(
           });
           throw new Error("Teacher already booked in this time range");
         }
-        throw bookingErr;
+        throw new Error(translateDbError(bookingErr));
       }
 
       const event = await calendar.createEvent({
@@ -384,7 +404,7 @@ export async function executeTool(
 
       if (updateErr) {
         if (isExclusionViolation(updateErr)) throw new Error("Teacher already booked in this time range");
-        throw updateErr;
+        throw new Error(translateDbError(updateErr));
       }
 
       if (updated.google_event_id) {
@@ -465,6 +485,23 @@ export async function executeTool(
       const { data: customer, error: fetchErr } = await db.from("customers").select("sales_status").eq("id", customerId).single();
       if (fetchErr) throw fetchErr;
 
+      // Atomic conditional update -- .eq("sales_status", ...) guards against
+      // a concurrent manual UI change landing between the read above and
+      // this write, which previously would've been silently overwritten
+      // with a stale from_status recorded in history. Update first, then
+      // only log history once the update genuinely matched a row, so a
+      // lost race never leaves a phantom history entry for a transition
+      // that never actually applied.
+      const { data: updated, error: updateErr } = await db
+        .from("customers")
+        .update({ sales_status: args.status })
+        .eq("id", customerId)
+        .eq("sales_status", customer.sales_status)
+        .select("id")
+        .maybeSingle();
+      if (updateErr) throw updateErr;
+      if (!updated) throw new Error("สถานะลูกค้าเพิ่งถูกเปลี่ยนโดยคนอื่นก่อนหน้านี้เสี้ยววินาที กรุณาลองใหม่อีกครั้ง");
+
       await db.from("sales_status_history").insert({
         customer_id: customerId,
         from_status: customer.sales_status,
@@ -472,8 +509,6 @@ export async function executeTool(
         note: args.note ?? null,
       });
 
-      const { error: updateErr } = await db.from("customers").update({ sales_status: args.status }).eq("id", customerId);
-      if (updateErr) throw updateErr;
       return { ok: true };
     }
 
