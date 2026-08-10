@@ -6,6 +6,7 @@ import { handleUnexpectedError, logSystemEvent } from "../_shared/monitor.ts";
 import { evaluateConditions, type Condition } from "../_shared/automation-conditions.ts";
 import { executeAction, type ActionSpec, type ActionContext, type ActionResult } from "../_shared/automation-actions.ts";
 import { sumTransactions, computeCashFlowForecast } from "../_shared/business-metrics.ts";
+import { draftRenewalMessage } from "../_shared/ai-reports.ts";
 import * as line from "../_shared/line.ts";
 
 // Self-healing circuit breaker (Wave 4): a rule that fails this many
@@ -206,6 +207,21 @@ async function processCourseThresholdRule(admin: SupabaseClient, rule: RuleRow):
       .eq("automation_rule_id", rule.id)
       .eq("status", "open");
     if ((openTaskCount ?? 0) > 0) continue;
+
+    // Renewal Assistant: draft a real, ready-to-send message so the owner
+    // doesn't have to write one from scratch. Deliberately not wired
+    // through the rule's configurable actions JSON (would mean a
+    // migration rewriting a live rule row the owner may have already
+    // customized) -- gated by the exact same guards above, so it fires
+    // at most once per course per cooldown window, same as the rule's
+    // other actions. Best-effort: a drafting failure (AI provider error)
+    // shouldn't block the rule's own create_task/notify_owner actions.
+    try {
+      await draftRenewalMessage(admin, course.customer_id, course.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await logSystemEvent(admin, "automation-engine-runner", "warning", `Renewal draft failed for course ${course.id}: ${message}`);
+    }
 
     const customerName = customer?.name ?? "-";
     await runActionsAndLog(admin, rule, null, {
