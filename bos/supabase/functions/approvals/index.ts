@@ -22,6 +22,11 @@ interface AiDraftedMessagePayload {
   message: string;
 }
 
+interface BulkSalesStatusChangePayload {
+  customerIds: string[];
+  toStatus: string;
+}
+
 /**
  * Runs the real, previously-deferred action for an approved request. Each
  * type here corresponds to something the AI (or a draft flow) queued
@@ -56,6 +61,28 @@ async function executeApproved(admin: ReturnType<typeof createAdminClient>, type
     // friend — same constraint as automation-actions.ts's send_line_message.
     if (!customer?.line_user_id) throw new Error("ลูกค้าคนนี้ยังไม่เคยทักแชท LINE มา — ส่งข้อความนี้ให้ไม่ได้");
     await line.push(customer.line_user_id, message);
+    return;
+  }
+
+  if (type === "bulk_sales_status_change") {
+    const { customerIds, toStatus } = payload as BulkSalesStatusChangePayload;
+    // Same fetch-current-status -> insert history -> update-customer
+    // sequence as SalesRepository.changeStatus(), once per customer — not
+    // a single multi-row UPDATE, which would lose each customer's own
+    // from_status and skip its history row entirely.
+    for (const customerId of customerIds) {
+      const { data: customer, error: fetchErr } = await admin.from("customers").select("sales_status").eq("id", customerId).maybeSingle();
+      if (fetchErr) throw fetchErr;
+      if (!customer) continue; // customer deleted since the request was filed -- skip, not fail the whole batch
+
+      const { error: historyErr } = await admin
+        .from("sales_status_history")
+        .insert({ customer_id: customerId, from_status: customer.sales_status, to_status: toStatus, note: "Bulk change via AI, approved by staff" });
+      if (historyErr) throw historyErr;
+
+      const { error: updateErr } = await admin.from("customers").update({ sales_status: toStatus }).eq("id", customerId);
+      if (updateErr) throw updateErr;
+    }
     return;
   }
 

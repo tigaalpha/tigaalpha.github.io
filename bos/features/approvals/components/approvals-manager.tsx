@@ -14,6 +14,7 @@ const TYPE_LABEL: Record<string, string> = {
   cancel_paid_lesson: "ยกเลิกคาบเรียน",
   ad_campaign_spend: "อนุมัติแคมเปญโฆษณา",
   ai_drafted_message: "AI ร่างข้อความ (รอตรวจก่อนส่ง)",
+  bulk_sales_status_change: "เปลี่ยนสถานะลูกค้าหลายคน",
 };
 
 function describePayload(request: ApprovalRequest): string {
@@ -26,6 +27,10 @@ function describePayload(request: ApprovalRequest): string {
   }
   if (request.type === "ai_drafted_message") {
     return `ส่งถึง: ${p.customerName ?? "-"}`;
+  }
+  if (request.type === "bulk_sales_status_change") {
+    const customerIds = Array.isArray(p.customerIds) ? p.customerIds : [];
+    return `${customerIds.length} คน → ${p.toStatus ?? "-"}`;
   }
   return JSON.stringify(p);
 }

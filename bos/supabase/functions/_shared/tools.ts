@@ -6,6 +6,19 @@ import { requestApproval } from "./approvals.ts";
 import { requireOwnerOrAdmin } from "./auth.ts";
 import { chunkText } from "./text.ts";
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, PAYMENT_METHODS } from "./categories.ts";
+import { sumTransactions } from "./business-metrics.ts";
+
+const SALES_STATUSES = [
+  "new_lead", "contacted", "qualified", "interested", "trial_booked", "trial_completed",
+  "negotiating", "waiting_decision", "won", "lost", "renew_pending", "renewed",
+];
+
+// Renewal-opportunity exclusion set, same as courses.repository.ts's
+// renewalOpportunities() and automation-engine-runner.ts's
+// processCourseThresholdRule -- kept as a local copy here rather than a
+// shared import since one is a frontend repository and the other an edge
+// function, matching this project's established dual-file precedent.
+const RENEWAL_ALREADY_HANDLED_STATUSES = ["renew_pending", "renewed", "lost"];
 
 const KNOWLEDGE_SOURCE_TYPES = [
   "pricing", "promotion", "teachers", "policies", "faq", "school_info", "holiday", "internal_sop",
@@ -166,6 +179,35 @@ export const OWNER_TOOLS: ToolDefinition[] = [
         content: { type: "string", description: "The full text to save — pricing, a rule, an FAQ answer, a sales script, etc." },
       },
       required: ["title", "sourceType", "content"],
+    },
+  },
+  {
+    name: "get_business_summary",
+    description: "Get a snapshot of the business for today, this week, or this month: revenue, profit, lessons taught, new leads, and deals won in that window.",
+    parameters: {
+      type: "object",
+      properties: { period: { type: "string", enum: ["today", "week", "month"], description: "today = calendar day so far, week = last 7 days, month = last 30 days." } },
+      required: ["period"],
+    },
+  },
+  {
+    name: "list_customers_needing_attention",
+    description:
+      "List the customers the owner should look at right now: courses with 3 or fewer remaining hours, leads gone quiet 7+ days, trial lessons today/tomorrow, and bookings still awaiting confirmation. Same list as the Dashboard's 'ต้องทำวันนี้' card.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "bulk_update_sales_status",
+    description:
+      "Request a sales-status change for several customers at once (e.g. mark a batch of stale leads as lost). This does NOT change anything immediately — it files a request for staff to review and approve, since a bulk change is harder to review after the fact than one customer at a time. Always tell the owner it's pending approval, not done.",
+    parameters: {
+      type: "object",
+      properties: {
+        customerIds: { type: "array", items: { type: "string" }, description: "Customer IDs to update (max 50 per request)." },
+        toStatus: { type: "string", enum: SALES_STATUSES },
+        note: { type: "string", description: "Why this bulk change is being requested." },
+      },
+      required: ["customerIds", "toStatus"],
     },
   },
 ];
@@ -521,6 +563,109 @@ export async function executeTool(
       if (chunkErr) throw chunkErr;
 
       return { ok: true, documentId };
+    }
+
+    case "get_business_summary": {
+      const period = String(args.period ?? "today");
+      const days = period === "today" ? 1 : period === "week" ? 7 : 30;
+      const start = new Date();
+      if (period === "today") start.setHours(0, 0, 0, 0);
+      else start.setTime(Date.now() - days * 24 * 60 * 60 * 1000);
+      const startISO = start.toISOString();
+      const startDateStr = startISO.slice(0, 10);
+
+      const [txResult, lessonsResult, leadsResult, wonResult] = await Promise.all([
+        db.from("transactions").select("type, amount").gte("transaction_date", startDateStr),
+        db.from("bookings").select("id", { count: "exact", head: true }).gte("start_time", startISO).neq("status", "cancelled"),
+        db.from("customers").select("id", { count: "exact", head: true }).gte("created_at", startISO),
+        db.from("sales_status_history").select("id", { count: "exact", head: true }).eq("to_status", "won").gte("created_at", startISO),
+      ]);
+      if (txResult.error) throw txResult.error;
+      if (lessonsResult.error) throw lessonsResult.error;
+      if (leadsResult.error) throw leadsResult.error;
+      if (wonResult.error) throw wonResult.error;
+
+      const { revenue, profit } = sumTransactions(txResult.data ?? []);
+      return {
+        period,
+        revenue,
+        profit,
+        lessonsCount: lessonsResult.count ?? 0,
+        newLeadsCount: leadsResult.count ?? 0,
+        wonCount: wonResult.count ?? 0,
+      };
+    }
+
+    case "list_customers_needing_attention": {
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      const dayAfterTomorrow = new Date(todayStart);
+      dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+      const inactiveCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const [coursesResult, customersResult, bookingsInRangeResult, pendingResult] = await Promise.all([
+        db.from("courses").select("id, remaining_hour, total_hours, customer_id, customers(name, sales_status)").gt("remaining_hour", 0).lte("remaining_hour", 3),
+        db.from("customers").select("id, name, last_contact_at, created_at, sales_status").not("sales_status", "in", "(won,lost)"),
+        db.from("bookings").select("id, title, start_time, customer_id").neq("status", "cancelled").gte("start_time", todayStart.toISOString()).lt("start_time", dayAfterTomorrow.toISOString()),
+        db.from("bookings").select("id, title, start_time").eq("status", "pending").order("start_time", { ascending: true }).limit(5),
+      ]);
+      if (coursesResult.error) throw coursesResult.error;
+      if (customersResult.error) throw customersResult.error;
+      if (bookingsInRangeResult.error) throw bookingsInRangeResult.error;
+      if (pendingResult.error) throw pendingResult.error;
+
+      const renewals = (coursesResult.data ?? [])
+        .filter((c) => {
+          const customer = (c as { customers?: { sales_status?: string } | null }).customers;
+          return !customer?.sales_status || !RENEWAL_ALREADY_HANDLED_STATUSES.includes(customer.sales_status);
+        })
+        .map((c) => ({
+          customerId: c.customer_id,
+          customerName: (c as { customers?: { name?: string } | null }).customers?.name ?? "-",
+          remainingHour: c.remaining_hour,
+          totalHours: c.total_hours,
+        }))
+        .sort((a, b) => a.remainingHour - b.remainingHour)
+        .slice(0, 5);
+
+      const inactiveLeads = (customersResult.data ?? [])
+        .map((c) => ({ id: c.id, name: c.name, lastActivityAt: c.last_contact_at ?? c.created_at }))
+        .filter((c) => c.lastActivityAt < inactiveCutoff)
+        .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? -1 : 1))
+        .slice(0, 5);
+
+      const trialCustomerIds = new Set((customersResult.data ?? []).filter((c) => c.sales_status === "trial_booked").map((c) => c.id));
+      const trials = (bookingsInRangeResult.data ?? [])
+        .filter((b) => trialCustomerIds.has(b.customer_id))
+        .map((b) => ({ bookingTitle: b.title, startTime: b.start_time, customerId: b.customer_id }))
+        .slice(0, 5);
+
+      const pendingBookings = (pendingResult.data ?? []).map((b) => ({ id: b.id, title: b.title, startTime: b.start_time }));
+
+      return { renewals, inactiveLeads, trials, pendingBookings };
+    }
+
+    case "bulk_update_sales_status": {
+      if (!callerId) throw new Error("Not authorized: no caller identity for this action");
+      await requireOwnerOrAdmin(db, callerId);
+
+      const rawIds = (call.arguments as Record<string, unknown>).customerIds;
+      const customerIds = Array.isArray(rawIds) ? rawIds.map(String) : [];
+      if (customerIds.length === 0) throw new Error("customerIds must be a non-empty array");
+      if (customerIds.length > 50) throw new Error("Bulk update is limited to 50 customers at a time — narrow the request");
+
+      const toStatus = String(args.toStatus ?? "");
+      if (!SALES_STATUSES.includes(toStatus)) throw new Error(`toStatus must be one of: ${SALES_STATUSES.join(", ")}`);
+
+      const note = args.note ? String(args.note) : "Bulk status change requested by owner via AI";
+      const { id: approvalId } = await requestApproval(db, "bulk_sales_status_change", { customerIds, toStatus }, note);
+      return {
+        pendingApproval: true,
+        approvalId,
+        count: customerIds.length,
+        message: `ส่งคำขอเปลี่ยนสถานะลูกค้า ${customerIds.length} คนเป็น "${toStatus}" ให้ตรวจสอบก่อนแล้ว — ยังไม่มีผลจนกว่าจะมีคนอนุมัติ`,
+      };
     }
 
     default:

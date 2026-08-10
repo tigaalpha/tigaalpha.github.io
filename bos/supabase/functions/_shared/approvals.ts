@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
-export type ApprovalType = "cancel_paid_lesson" | "ad_campaign_spend" | "ai_drafted_message";
+export type ApprovalType = "cancel_paid_lesson" | "ad_campaign_spend" | "ai_drafted_message" | "bulk_sales_status_change";
 
 /**
  * Creates a durable, staff-reviewed approval request instead of letting the
