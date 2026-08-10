@@ -20,6 +20,21 @@ interface AiChatResponse {
   needsReview: boolean;
 }
 
+interface QuickAction {
+  label: string;
+  text: string;
+  /** true = send immediately (an info query the AI can just answer); false = fill the input so she can add specifics (needs details a canned message can't supply). */
+  sendImmediately: boolean;
+}
+
+const QUICK_ACTIONS: QuickAction[] = [
+  { label: "สรุปวันนี้", text: "สรุปภาพรวมธุรกิจวันนี้ให้หน่อย", sendImmediately: true },
+  { label: "ใครใกล้หมดชั่วโมง", text: "ตอนนี้มีใครที่ชั่วโมงเรียนใกล้หมดบ้าง", sendImmediately: true },
+  { label: "Lead ที่ควรติดตาม", text: "มี lead คนไหนที่ควรติดตามตอนนี้บ้าง", sendImmediately: true },
+  { label: "บันทึกรายรับ", text: "บันทึกรายรับ: ", sendImmediately: false },
+  { label: "เพิ่มความรู้", text: "เพิ่มความรู้ใหม่: ", sendImmediately: false },
+];
+
 /**
  * TIGA AI AGENT — owner-facing AI assistant, mounted once in AppShell so it
  * floats on every workspace page. Talks to ai-chat with mode:"owner" — gets
@@ -37,12 +52,22 @@ export function FloatingAssistant() {
   const [chatModel, setChatModel] = useState(DEFAULT_CHAT_MODEL_ID);
   const [savingModel, setSavingModel] = useState(false);
   const conversationIdRef = useRef<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const repos = createRepositories(createClient());
     repos.integrations.get("ai_chat_model").then((v) => setChatModel(v ?? DEFAULT_CHAT_MODEL_ID));
   }, [open]);
+
+  function handleQuickAction(action: QuickAction) {
+    if (action.sendImmediately) {
+      void send(action.text);
+      return;
+    }
+    setDraft(action.text);
+    textareaRef.current?.focus();
+  }
 
   async function changeChatModel(value: string) {
     setChatModel(value);
@@ -52,8 +77,8 @@ export function FloatingAssistant() {
     setSavingModel(false);
   }
 
-  async function send() {
-    const text = draft.trim();
+  async function send(override?: string) {
+    const text = (override ?? draft).trim();
     if (!text || sending) return;
 
     setMessages((prev) => [...prev, { role: "user", content: text }]);
@@ -108,10 +133,23 @@ export function FloatingAssistant() {
 
           <div className="flex-1 space-y-2 overflow-y-auto p-3">
             {messages.length === 0 ? (
-              <p className="rounded-xl bg-line/5 p-3 text-xs text-secondary/60">
-                สั่งงานได้เลย เช่น &quot;เพิ่มลูกค้าใหม่ชื่อ...&quot;, &quot;จองคาบเรียนให้...&quot;,
-                &quot;เปลี่ยนสถานะการขายของ...&quot;, หรือถามข้อมูลในคลังความรู้
-              </p>
+              <div className="space-y-2">
+                <p className="rounded-xl bg-line/5 p-3 text-xs text-secondary/60">
+                  สั่งงานได้เลย เช่น &quot;เพิ่มลูกค้าใหม่ชื่อ...&quot;, &quot;จองคาบเรียนให้...&quot;,
+                  &quot;เปลี่ยนสถานะการขายของ...&quot;, หรือถามข้อมูลในคลังความรู้
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {QUICK_ACTIONS.map((action) => (
+                    <button
+                      key={action.label}
+                      onClick={() => handleQuickAction(action)}
+                      className="rounded-full border border-line/10 bg-line/5 px-3 py-1 text-xs text-secondary/70 hover:bg-line/10"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ) : null}
             {messages.map((m, i) => (
               <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
@@ -130,6 +168,7 @@ export function FloatingAssistant() {
 
           <div className="flex items-end gap-2 border-t border-line/5 p-3">
             <Textarea
+              ref={textareaRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="สั่งงาน AI…"

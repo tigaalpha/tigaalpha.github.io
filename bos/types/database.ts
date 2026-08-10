@@ -61,7 +61,7 @@ export type SocialPlatform = "facebook" | "instagram" | "tiktok" | "youtube" | "
 
 export type SocialPostStatus = "queued" | "posting" | "success" | "failed";
 
-export type ApprovalType = "cancel_paid_lesson" | "ad_campaign_spend" | "ai_drafted_message";
+export type ApprovalType = "cancel_paid_lesson" | "ad_campaign_spend" | "ai_drafted_message" | "bulk_sales_status_change";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
