@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { startOfMonth, endOfMonth, format } from "date-fns";
-import { Wallet, TrendingUp, TrendingDown, Trash2, Download, Plus, FileSpreadsheet, Upload } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, Trash2, Download, Plus, FileSpreadsheet, Upload, X } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -22,11 +22,13 @@ interface AccountingManagerProps {
   endDate: string;
   onRangeChange: (startDate: string, endDate: string) => void;
   onChanged: () => void;
+  initialCustomerId?: string;
+  initialCourseId?: string;
 }
 
 const DATE_FMT = "yyyy-MM-dd";
 
-export function AccountingManager({ transactions, startDate, endDate, onRangeChange, onChanged }: AccountingManagerProps) {
+export function AccountingManager({ transactions, startDate, endDate, onRangeChange, onChanged, initialCustomerId, initialCourseId }: AccountingManagerProps) {
   const [type, setType] = useState<TransactionType>("income");
   const [category, setCategory] = useState(INCOME_CATEGORIES[0]!);
   const [amount, setAmount] = useState("");
@@ -35,6 +37,55 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]!);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Optional customer/course link (e.g. a renewal payment) -- same
+  // debounced-search pattern as legal-document-manager.tsx's customer
+  // picker, the only precedent for this in the codebase.
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [customerResults, setCustomerResults] = useState<Tables<"customers">[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Tables<"customers"> | null>(null);
+  const [customerCourses, setCustomerCourses] = useState<Tables<"courses">[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+
+  useEffect(() => {
+    if (!initialCustomerId) return;
+    const repos = createRepositories(createClient());
+    repos.customers.findById(initialCustomerId).then((c) => {
+      if (c) setSelectedCustomer(c);
+    });
+  }, [initialCustomerId]);
+
+  useEffect(() => {
+    if (!customerQuery.trim()) {
+      setCustomerResults([]);
+      return;
+    }
+    const repos = createRepositories(createClient());
+    const timeout = setTimeout(() => {
+      repos.customers.search(customerQuery.trim(), 5).then(setCustomerResults);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [customerQuery]);
+
+  useEffect(() => {
+    if (!selectedCustomer) {
+      setCustomerCourses([]);
+      setSelectedCourseId("");
+      return;
+    }
+    const repos = createRepositories(createClient());
+    repos.courses.listForCustomer(selectedCustomer.id).then((courses) => {
+      setCustomerCourses(courses);
+      setSelectedCourseId((current) => (initialCourseId && courses.some((c) => c.id === initialCourseId) ? initialCourseId : current));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer]);
+
+  function clearCustomer() {
+    setSelectedCustomer(null);
+    setCustomerQuery("");
+    setCustomerResults([]);
+  }
 
   const [importPreview, setImportPreview] = useState<ParseExcelResult | null>(null);
   const [importFileName, setImportFileName] = useState<string | null>(null);
@@ -91,6 +142,8 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
         description: description || null,
         transaction_date: transactionDate,
         payment_method: paymentMethod,
+        customer_id: selectedCustomer?.id ?? null,
+        course_id: selectedCourseId || null,
       });
       setAmount("");
       setDescription("");
@@ -267,6 +320,61 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
               onChange={(e) => setDescription(e.target.value)}
               className="md:col-span-1"
             />
+
+            <div className="md:col-span-3">
+              <div className="relative">
+                <Input
+                  placeholder="ผูกกับลูกค้า / คอร์ส (ไม่บังคับ)"
+                  value={selectedCustomer ? selectedCustomer.name : customerQuery}
+                  onChange={(e) => {
+                    setSelectedCustomer(null);
+                    setCustomerQuery(e.target.value);
+                  }}
+                  disabled={Boolean(selectedCustomer)}
+                />
+                {customerResults.length > 0 && !selectedCustomer ? (
+                  <div className="absolute z-10 mt-1 w-full rounded-xl border border-line/10 bg-card shadow-card">
+                    {customerResults.map((c) => (
+                      <button
+                        type="button"
+                        key={c.id}
+                        className="block w-full px-3 py-2 text-left text-sm text-secondary hover:bg-line/5"
+                        onClick={() => {
+                          setSelectedCustomer(c);
+                          setCustomerResults([]);
+                        }}
+                      >
+                        {c.name} {c.phone ? `— ${c.phone}` : ""}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {selectedCustomer ? (
+                  <button
+                    type="button"
+                    onClick={clearCustomer}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-secondary/50 hover:text-danger"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            {selectedCustomer && customerCourses.length > 0 ? (
+              <select
+                value={selectedCourseId}
+                onChange={(e) => setSelectedCourseId(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40 md:col-span-3"
+              >
+                <option value="">ไม่ระบุคอร์ส</option>
+                {customerCourses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    คอร์ส {c.total_hours} ชม. (เหลือ {c.remaining_hour} ชม.)
+                  </option>
+                ))}
+              </select>
+            ) : null}
 
             {error ? <p className="text-xs text-danger md:col-span-6">{error}</p> : null}
             <Button type="submit" className="md:col-span-6" disabled={submitting}>

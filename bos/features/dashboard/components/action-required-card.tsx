@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { GraduationCap, UserX, Sparkles, CalendarPlus, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { GraduationCap, UserX, Sparkles, CalendarPlus, AlertTriangle, CheckCircle2, Wallet } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { RenewalOpportunity } from "@/services/repositories/courses.repository";
@@ -50,7 +50,18 @@ export function ActionRequiredCard({ renewals, inactiveLeads, trials, pendingBoo
                   ใกล้หมดชั่วโมง
                 </p>
                 {renewals.slice(0, 5).map((r) => (
-                  <Row key={r.courseId} href={`/students/detail?id=${r.customerId}`} primary={r.customerName} secondary={`เหลือ ${r.remainingHour} / ${r.totalHours} ชม.`} />
+                  <div key={r.courseId} className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Row href={`/students/detail?id=${r.customerId}`} primary={r.customerName} secondary={`เหลือ ${r.remainingHour} / ${r.totalHours} ชม.`} />
+                    </div>
+                    <Link
+                      href={`/accounting?customerId=${r.customerId}&courseId=${r.courseId}`}
+                      title="บันทึกรับเงิน"
+                      className="shrink-0 rounded-lg bg-line/5 p-2 text-secondary/50 hover:bg-line/10 hover:text-secondary"
+                    >
+                      <Wallet className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
                 ))}
               </div>
             ) : null}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { startOfYear, endOfMonth, format } from "date-fns";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
@@ -11,7 +12,11 @@ import type { Tables } from "@/types/database";
 
 const DATE_FMT = "yyyy-MM-dd";
 
-export default function AccountingPage() {
+function AccountingPageContent() {
+  const searchParams = useSearchParams();
+  const initialCustomerId = searchParams.get("customerId") ?? undefined;
+  const initialCourseId = searchParams.get("courseId") ?? undefined;
+
   const now = new Date();
   const [startDate, setStartDate] = useState(format(startOfYear(now), DATE_FMT));
   const [endDate, setEndDate] = useState(format(endOfMonth(now), DATE_FMT));
@@ -45,11 +50,21 @@ export default function AccountingPage() {
             endDate={endDate}
             onRangeChange={handleRangeChange}
             onChanged={() => reload(startDate, endDate)}
+            initialCustomerId={initialCustomerId}
+            initialCourseId={initialCourseId}
           />
         ) : (
           <Skeleton className="h-96" />
         )}
       </div>
     </OwnerOnlyGuard>
+  );
+}
+
+export default function AccountingPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-96" />}>
+      <AccountingPageContent />
+    </Suspense>
   );
 }
