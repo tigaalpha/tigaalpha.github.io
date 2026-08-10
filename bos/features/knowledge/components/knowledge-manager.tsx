@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpen, Pencil, Trash2, Upload, X } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { KnowledgeSourceType, Tables } from "@/types/database";
 
-const SOURCE_TYPES: KnowledgeSourceType[] = [
+export const SOURCE_TYPES: KnowledgeSourceType[] = [
   "pricing", "promotion", "teachers", "policies", "faq", "school_info", "holiday", "internal_sop",
   "sales_script", "objection_handling", "rule", "example",
 ];
@@ -21,9 +21,13 @@ const SOURCE_TYPES: KnowledgeSourceType[] = [
 interface KnowledgeManagerProps {
   documents: Tables<"knowledge_documents">[];
   onChanged: () => void;
+  // Set by the coverage checker when the owner clicks an empty category --
+  // jumps the add-document form there instead of making her hunt for it
+  // in the category <select>.
+  focusSourceType?: KnowledgeSourceType | null;
 }
 
-export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps) {
+export function KnowledgeManager({ documents, onChanged, focusSourceType }: KnowledgeManagerProps) {
   const [title, setTitle] = useState("");
   const [sourceType, setSourceType] = useState<KnowledgeSourceType>("faq");
   const [content, setContent] = useState("");
@@ -32,6 +36,13 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!focusSourceType) return;
+    setSourceType(focusSourceType);
+    formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focusSourceType]);
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -104,54 +115,56 @@ export function KnowledgeManager({ documents, onChanged }: KnowledgeManagerProps
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <Card className="lg:col-span-1">
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>{editingId ? "แก้ไของค์ความรู้" : "Add Knowledge"}</CardTitle>
-          {editingId ? (
-            <Button type="button" variant="ghost" size="icon" onClick={cancelEdit}>
-              <X className="h-4 w-4" />
-            </Button>
-          ) : null}
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            <select
-              value={sourceType}
-              onChange={(e) => setSourceType(e.target.value as KnowledgeSourceType)}
-              className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
-            >
-              {SOURCE_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type.replace(/_/g, " ")}
-                </option>
-              ))}
-            </select>
-            <Textarea
-              placeholder="Paste pricing, FAQ, policy text, a sales script, how to handle an objection, a rule, or an example conversation…"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="min-h-40"
-              required
-            />
-            <input ref={fileInputRef} type="file" accept=".txt,.pdf,.docx" className="hidden" onChange={handleFileSelected} />
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={extracting}
-            >
-              <Upload className="h-4 w-4" />
-              {extracting ? "กำลังอ่านไฟล์…" : "หรืออัปโหลดไฟล์ (.txt, .pdf, .docx)"}
-            </Button>
-            {error ? <p className="text-xs text-danger">{error}</p> : null}
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "กำลังบันทึก…" : editingId ? "บันทึกการแก้ไข" : "Save to Knowledge Base"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <div ref={formCardRef} className="lg:col-span-1">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle>{editingId ? "แก้ไของค์ความรู้" : "Add Knowledge"}</CardTitle>
+            {editingId ? (
+              <Button type="button" variant="ghost" size="icon" onClick={cancelEdit}>
+                <X className="h-4 w-4" />
+              </Button>
+            ) : null}
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <select
+                value={sourceType}
+                onChange={(e) => setSourceType(e.target.value as KnowledgeSourceType)}
+                className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                {SOURCE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+              <Textarea
+                placeholder="Paste pricing, FAQ, policy text, a sales script, how to handle an objection, a rule, or an example conversation…"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                className="min-h-40"
+                required
+              />
+              <input ref={fileInputRef} type="file" accept=".txt,.pdf,.docx" className="hidden" onChange={handleFileSelected} />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={extracting}
+              >
+                <Upload className="h-4 w-4" />
+                {extracting ? "กำลังอ่านไฟล์…" : "หรืออัปโหลดไฟล์ (.txt, .pdf, .docx)"}
+              </Button>
+              {error ? <p className="text-xs text-danger">{error}</p> : null}
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? "กำลังบันทึก…" : editingId ? "บันทึกการแก้ไข" : "Save to Knowledge Base"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card className="lg:col-span-2">
         <CardHeader>

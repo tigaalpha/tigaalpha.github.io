@@ -162,6 +162,8 @@ export const OWNER_TOOLS: ToolDefinition[] = [
         description: { type: "string", description: "Short note on what this transaction was for." },
         transactionDate: { type: "string", description: "ISO date (YYYY-MM-DD). Defaults to today if not given." },
         paymentMethod: { type: "string", enum: PAYMENT_METHODS },
+        customerId: { type: "string", description: "If this payment is from/for a specific customer, their id." },
+        courseId: { type: "string", description: "If this payment is for a specific course (e.g. a renewal), that course's id." },
       },
       required: ["type", "category", "amount"],
     },
@@ -553,6 +555,8 @@ export async function executeTool(
           description: args.description ? String(args.description) : null,
           transaction_date: args.transactionDate ? String(args.transactionDate) : new Date().toISOString().slice(0, 10),
           payment_method: paymentMethod,
+          customer_id: args.customerId ? String(args.customerId) : null,
+          course_id: args.courseId ? String(args.courseId) : null,
         })
         .select("*")
         .single();

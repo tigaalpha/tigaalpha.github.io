@@ -335,6 +335,7 @@ export interface Database {
           transaction_date: string;
           payment_method: string | null;
           customer_id: string | null;
+          course_id: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;

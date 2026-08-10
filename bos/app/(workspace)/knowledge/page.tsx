@@ -4,15 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { KnowledgeManager } from "@/features/knowledge/components/knowledge-manager";
+import { CoverageChecker } from "@/features/knowledge/components/coverage-checker";
 import { SalesStyleLearner } from "@/features/knowledge/components/sales-style-learner";
 import { ReferencePhotosManager } from "@/features/knowledge/components/reference-photos-manager";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Tables } from "@/types/database";
+import type { KnowledgeSourceType, Tables } from "@/types/database";
 
 export default function KnowledgePage() {
   const [documents, setDocuments] = useState<Tables<"knowledge_documents">[] | null>(null);
   const [salesChatExamples, setSalesChatExamples] = useState<Tables<"sales_chat_examples">[] | null>(null);
   const [referencePhotos, setReferencePhotos] = useState<Tables<"reference_photos">[] | null>(null);
+  const [focusSourceType, setFocusSourceType] = useState<KnowledgeSourceType | null>(null);
 
   const reload = useCallback(() => {
     const repos = createRepositories(createClient());
@@ -41,7 +43,12 @@ export default function KnowledgePage() {
         <h1 className="text-2xl font-semibold text-secondary">Knowledge Base</h1>
         <p className="text-sm text-secondary/50">The AI always searches this before answering a customer</p>
       </div>
-      {documents ? <KnowledgeManager documents={documents} onChanged={reload} /> : <Skeleton className="h-64" />}
+      {documents ? <CoverageChecker documents={documents} onSelectEmpty={setFocusSourceType} /> : null}
+      {documents ? (
+        <KnowledgeManager documents={documents} onChanged={reload} focusSourceType={focusSourceType} />
+      ) : (
+        <Skeleton className="h-64" />
+      )}
       {salesChatExamples ? (
         <SalesStyleLearner examples={salesChatExamples} onChanged={reloadSalesChatExamples} />
       ) : (
