@@ -4,6 +4,7 @@ import { PROMPTS } from "./prompts.ts";
 import { requestApproval } from "./approvals.ts";
 import { logAiUsage } from "./usage-logging.ts";
 import { sumTransactions, countByStatus } from "./business-metrics.ts";
+import { computeAvailableSlots } from "./availability.ts";
 
 // The one shared "AI does an analysis/drafting job" primitive for Level 3
 // (see the "AI Workforce" plan) -- every report_type here follows the same
@@ -218,6 +219,98 @@ export async function draftSalesFollowup(admin: SupabaseClient, customerId: stri
     "ai_drafted_message",
     { customerId, customerName: customer.name, message: result.message.content, hasLineConnection: Boolean(customer.line_user_id) },
     `ลูกค้าไม่มีความเคลื่อนไหว ${daysSinceContact} วัน — AI ร่างข้อความติดตามให้`
+  );
+
+  return { reportId: report.id, approvalId };
+}
+
+// Called by the automation engine's course_ending_soon/course_expired
+// processor (processCourseThresholdRule) -- same shape as
+// draftSalesFollowup, never sends anything itself. Offers real open
+// slots for the customer's usual teacher (same computeAvailableSlots
+// math check_calendar_availability's tool handler already uses over
+// bookings busy-time -- no Google Calendar call), never invented ones;
+// if none are found the prompt is told to write generically instead.
+export async function draftRenewalMessage(admin: SupabaseClient, customerId: string, courseId: string): Promise<{ reportId: string; approvalId: string }> {
+  const { data: customer, error: customerError } = await admin.from("customers").select("name, line_user_id").eq("id", customerId).single();
+  if (customerError || !customer) throw new Error("Customer not found");
+
+  const { data: course, error: courseError } = await admin.from("courses").select("remaining_hour, total_hours").eq("id", courseId).single();
+  if (courseError || !course) throw new Error("Course not found");
+
+  const { data: lastBooking } = await admin
+    .from("bookings")
+    .select("teacher_id")
+    .eq("customer_id", customerId)
+    .not("teacher_id", "is", null)
+    .order("start_time", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const teacherId = lastBooking?.teacher_id ?? null;
+  let openSlots: { start: string; end: string }[] = [];
+
+  if (teacherId) {
+    const timeMin = new Date();
+    const timeMax = new Date(timeMin.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const { data: busyBookings } = await admin
+      .from("bookings")
+      .select("start_time, end_time")
+      .eq("teacher_id", teacherId)
+      .neq("status", "cancelled")
+      .lt("start_time", timeMax.toISOString())
+      .gt("end_time", timeMin.toISOString());
+    const busy = (busyBookings ?? []).map((b: { start_time: string; end_time: string }) => ({ start: b.start_time, end: b.end_time }));
+
+    // computeAvailableSlots has no concept of a working day, so slice one
+    // day at a time over a fixed 10:00-19:00 Bangkok (UTC+7) window rather
+    // than handing it the whole week, which would surface 3am slots.
+    for (let day = 0; day < 7 && openSlots.length < 3; day++) {
+      const dayStart = new Date(timeMin.getTime() + day * 24 * 60 * 60 * 1000);
+      const y = dayStart.getUTCFullYear();
+      const m = dayStart.getUTCMonth();
+      const d = dayStart.getUTCDate();
+      const dayWindowStart = new Date(Date.UTC(y, m, d, 3, 0, 0)); // 10:00 Bangkok
+      const dayWindowEnd = new Date(Date.UTC(y, m, d, 12, 0, 0)); // 19:00 Bangkok
+      if (dayWindowEnd <= timeMin) continue;
+      const slots = computeAvailableSlots(busy, dayWindowStart.toISOString(), dayWindowEnd.toISOString(), 60).filter((slot) => new Date(slot.start).getTime() >= timeMin.getTime());
+      openSlots.push(...slots);
+    }
+    openSlots = openSlots.slice(0, 3);
+  }
+
+  const context = {
+    name: customer.name,
+    remainingHour: course.remaining_hour,
+    totalHours: course.total_hours,
+    openSlots,
+  };
+
+  const result = await generate(
+    [
+      { role: "system", content: PROMPTS.renewal_draft },
+      { role: "user", content: JSON.stringify(context) },
+    ],
+    undefined,
+    0.7,
+    512
+  );
+  await logAiUsage(admin, result.usage, "automation-engine-runner:renewal_draft");
+
+  const report = await saveReport(admin, {
+    reportType: "renewal_draft",
+    entityType: "customer",
+    entityId: customerId,
+    title: `ร่างข้อความชวนต่อคอร์ส: ${customer.name}`,
+    content: result.message.content,
+    data: context,
+  });
+
+  const { id: approvalId } = await requestApproval(
+    admin,
+    "ai_drafted_message",
+    { customerId, customerName: customer.name, message: result.message.content, hasLineConnection: Boolean(customer.line_user_id) },
+    `คอร์สเหลือ ${course.remaining_hour} ชั่วโมง — AI ร่างข้อความชวนต่อคอร์สให้`
   );
 
   return { reportId: report.id, approvalId };

@@ -6,6 +6,7 @@ import { createRepositories } from "@/services/repositories";
 import { TeachersManager } from "@/features/settings/components/teachers-manager";
 import { AuditLogCard } from "@/features/settings/components/audit-log-card";
 import { IntegrationsCard } from "@/features/settings/components/integrations-card";
+import { SafeModeCard } from "@/features/settings/components/safe-mode-card";
 import { OwnerOnlyGuard } from "@/features/auth/components/owner-only-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,6 +47,8 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
+
+        <SafeModeCard />
 
         <IntegrationsCard />
 
