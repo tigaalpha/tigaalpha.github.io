@@ -140,7 +140,14 @@ function isActive(pathname: string | null, href: string): boolean {
   return pathname === href || Boolean(pathname?.startsWith(`${href}/`));
 }
 
-function NavLink({ href, label, icon: Icon, active, onNavigate }: NavItem & { active: boolean; onNavigate?: () => void }) {
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  active,
+  onNavigate,
+  badgeCount,
+}: NavItem & { active: boolean; onNavigate?: () => void; badgeCount?: number }) {
   return (
     <Link
       href={href}
@@ -151,7 +158,12 @@ function NavLink({ href, label, icon: Icon, active, onNavigate }: NavItem & { ac
       )}
     >
       <Icon className="h-4 w-4" />
-      {label}
+      <span className="flex-1">{label}</span>
+      {badgeCount ? (
+        <span className={cn("rounded-full px-1.5 py-0.5 text-xs font-semibold", active ? "bg-white/20 text-white" : "bg-danger/10 text-danger")}>
+          {badgeCount > 9 ? "9+" : badgeCount}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -203,9 +215,15 @@ interface SidebarNavProps {
   role?: UserRole | null;
   onNavigate?: () => void;
   soloMode?: boolean;
+  /** Alert Center count (system errors + needs_review conversations + a "many near end of hours" flag) — badged onto the Notifications item. */
+  alertCount?: number;
 }
 
-export function SidebarNav({ role = null, onNavigate, soloMode = false }: SidebarNavProps = {}) {
+function badgeFor(item: NavItem, alertCount: number | undefined): number | undefined {
+  return item.href === "/notifications" ? alertCount : undefined;
+}
+
+export function SidebarNav({ role = null, onNavigate, soloMode = false, alertCount }: SidebarNavProps = {}) {
   const pathname = usePathname();
   const canSeeOwnerOnly = role === "owner" || role === "admin";
   const visibleGroups = NAV_GROUPS.map((group) => ({
@@ -240,7 +258,7 @@ export function SidebarNav({ role = null, onNavigate, soloMode = false }: Sideba
     return (
       <nav className="flex flex-col gap-1 p-3">
         {coreItems.map((item) => (
-          <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} onNavigate={onNavigate} />
+          <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} onNavigate={onNavigate} badgeCount={badgeFor(item, alertCount)} />
         ))}
 
         <div className="mt-2 flex flex-col gap-1">
@@ -255,7 +273,7 @@ export function SidebarNav({ role = null, onNavigate, soloMode = false }: Sideba
           {advancedOpen ? (
             <div className="flex flex-col gap-2 pl-1">
               {leftoverTopLevel.map((item) => (
-                <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} onNavigate={onNavigate} />
+                <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} onNavigate={onNavigate} badgeCount={badgeFor(item, alertCount)} />
               ))}
               {advancedGroups.map((group) => (
                 <GroupSection
@@ -278,7 +296,7 @@ export function SidebarNav({ role = null, onNavigate, soloMode = false }: Sideba
   return (
     <nav className="flex flex-col gap-1 p-3">
       {TOP_LEVEL_ITEMS.map((item) => (
-        <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} onNavigate={onNavigate} />
+        <NavLink key={item.href} {...item} active={isActive(pathname, item.href)} onNavigate={onNavigate} badgeCount={badgeFor(item, alertCount)} />
       ))}
 
       <div className="mt-2 flex flex-col gap-1">

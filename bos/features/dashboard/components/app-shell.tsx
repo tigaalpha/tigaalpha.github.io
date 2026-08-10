@@ -8,6 +8,8 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { FloatingAssistant } from "@/features/assistant/components/floating-assistant";
 import { cn } from "@/lib/utils";
 import { getStoredSoloMode, setStoredSoloMode } from "@/lib/solo-mode";
+import { createClient } from "@/services/supabase/client";
+import { createRepositories } from "@/services/repositories";
 import type { UserRole } from "@/types/database";
 
 interface AppShellProps {
@@ -16,6 +18,11 @@ interface AppShellProps {
   role: UserRole | null;
   children: React.ReactNode;
 }
+
+// "Many" customers near end of hours contributes a single alert item, not
+// a per-customer count -- matches how the spec phrases it as one alert
+// condition, alongside the individually-countable problems/needs_review.
+const MANY_NEAR_END_OF_HOURS_THRESHOLD = 5;
 
 function SoloModeToggle({ soloMode, onToggle }: { soloMode: boolean | null; onToggle: () => void }) {
   if (soloMode === null) {
@@ -36,9 +43,21 @@ function SoloModeToggle({ soloMode, onToggle }: { soloMode: boolean | null; onTo
 export function AppShell({ userName, userEmail, role, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [soloMode, setSoloMode] = useState<boolean | null>(null);
+  const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
     setSoloMode(getStoredSoloMode());
+  }, []);
+
+  useEffect(() => {
+    const repos = createRepositories(createClient());
+    Promise.all([repos.systemEvents.countRecent(24), repos.conversations.countNeedingReview(), repos.courses.renewalOpportunities(3)])
+      .then(([problemsCount, needsReviewCount, renewals]) => {
+        setAlertCount(problemsCount + needsReviewCount + (renewals.length >= MANY_NEAR_END_OF_HOURS_THRESHOLD ? 1 : 0));
+      })
+      .catch(() => {
+        // best-effort -- a failed alert-count fetch shouldn't block the rest of the app shell from rendering
+      });
   }, []);
 
   function toggleSoloMode() {
@@ -55,7 +74,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
           <span className="text-sm font-semibold text-secondary">Tiga AI BOS</span>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <SidebarNav role={role} soloMode={soloMode ?? false} />
+          <SidebarNav role={role} soloMode={soloMode ?? false} alertCount={alertCount} />
         </div>
       </aside>
 
@@ -70,7 +89,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <SidebarNav role={role} soloMode={soloMode ?? false} onNavigate={() => setMobileOpen(false)} />
+              <SidebarNav role={role} soloMode={soloMode ?? false} alertCount={alertCount} onNavigate={() => setMobileOpen(false)} />
             </div>
           </aside>
         </div>

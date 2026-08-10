@@ -35,6 +35,13 @@ export class ConversationsRepository {
     return data ?? [];
   }
 
+  /** Count-only variant of listNeedingReview(), for the Alert Center badge. */
+  async countNeedingReview(): Promise<number> {
+    const { count, error } = await this.db.from("conversations").select("id", { count: "exact", head: true }).eq("needs_review", true);
+    if (error) throw error;
+    return count ?? 0;
+  }
+
   /** Customer-facing Inbox list — excludes 'internal' (Floating AI Assistant) conversations. */
   async listRecent(limit = 30): Promise<Tables<"conversations">[]> {
     const { data, error } = await this.db

@@ -1,11 +1,27 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { jsonResponse } from "../_shared/cors.ts";
-import { push } from "../_shared/line.ts";
+import { push, checkConnection as checkLineConnection } from "../_shared/line.ts";
+import { checkConnection as checkCalendarConnection } from "../_shared/calendar.ts";
+import { logSystemEvent } from "../_shared/monitor.ts";
 
 const WINDOW_MINUTES = 15;
 const ERROR_THRESHOLD = 3; // errors within WINDOW_MINUTES that count as "something's wrong"
 const ALERT_COOLDOWN_MINUTES = 60; // don't re-alert every tick while the same spike is ongoing
+
+// LINE/Calendar disconnects checked every tick (15 min) but only logged
+// once per hour while the outage continues, same cooldown idea as the
+// error-spike alert below, so a sustained outage doesn't spam system_events.
+const CONNECTION_LOG_COOLDOWN_MINUTES = 60;
+
+async function checkAndLogConnection(admin: SupabaseClient, source: string, isConnected: boolean, message: string): Promise<void> {
+  if (isConnected) return;
+  const cooldownStart = new Date(Date.now() - CONNECTION_LOG_COOLDOWN_MINUTES * 60 * 1000).toISOString();
+  const { count } = await admin.from("system_events").select("id", { count: "exact", head: true }).eq("source", source).eq("severity", "error").gte("created_at", cooldownStart);
+  if ((count ?? 0) > 0) return;
+  await logSystemEvent(admin, source, "error", message);
+}
 
 /**
  * Called on a schedule by pg_cron + pg_net (see migration
@@ -20,6 +36,10 @@ Deno.serve(async (req: Request) => {
   if (!secretRow?.value || req.headers.get("x-cron-secret") !== secretRow.value) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
+
+  const [lineOk, calendarOk] = await Promise.all([checkLineConnection(), checkCalendarConnection()]);
+  await checkAndLogConnection(admin, "line", lineOk, "LINE Messaging API ไม่ตอบสนอง — ตรวจสอบ LINE_CHANNEL_ACCESS_TOKEN ในหน้า Settings");
+  await checkAndLogConnection(admin, "google-calendar", calendarOk, "Google Calendar API ไม่ตอบสนอง — อาจต้องเชื่อมต่อบัญชี Google ใหม่ในหน้า Settings");
 
   const windowStart = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString();
   const { count: errorCount, error: countErr } = await admin

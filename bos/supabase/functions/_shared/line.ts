@@ -38,3 +38,15 @@ export function push(userId: string, text: string): Promise<void> {
 export function broadcast(text: string): Promise<void> {
   return call("/message/broadcast", { messages: [{ type: "text", text }] });
 }
+
+/** Real connectivity check (used by system-health-check) -- true only on a 2xx from LINE's own bot-info endpoint, using the same token push/reply already rely on. Never throws. */
+export async function checkConnection(): Promise<boolean> {
+  try {
+    const response = await fetch(`${LINE_API_BASE}/info`, {
+      headers: { Authorization: `Bearer ${Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN")}` },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
