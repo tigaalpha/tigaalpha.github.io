@@ -10,8 +10,11 @@ import { SalesFunnelCard } from "@/features/dashboard/components/sales-funnel-ca
 import { NotificationsCard } from "@/features/dashboard/components/notifications-card";
 import { BusinessSnapshotCard } from "@/features/dashboard/components/business-snapshot-card";
 import { FinanceCharts } from "@/features/dashboard/components/finance-charts";
+import { ActionRequiredCard } from "@/features/dashboard/components/action-required-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
+import type { RenewalOpportunity } from "@/services/repositories/courses.repository";
+import type { InactiveLead } from "@/services/repositories/customers.repository";
 import type { SalesStatus, Tables } from "@/types/database";
 
 interface DashboardData {
@@ -26,6 +29,11 @@ interface DashboardData {
   revenue: number;
   aiResolutionRate: number;
   businessSnapshot: Tables<"business_snapshot"> | null;
+  actionRenewals: RenewalOpportunity[];
+  actionInactiveLeads: InactiveLead[];
+  actionTrials: { booking: Tables<"bookings">; customerId: string }[];
+  actionPendingBookings: Tables<"bookings">[];
+  actionProblems: Tables<"system_events">[];
 }
 
 export default function DashboardPage() {
@@ -46,6 +54,11 @@ export default function DashboardPage() {
       repos.transactions.totalIncome(),
       repos.conversations.aiResolutionStats(),
       repos.businessSnapshot.get(),
+      repos.courses.renewalOpportunities(3),
+      repos.customers.inactiveLeads(),
+      repos.bookings.listTrialsTodayAndTomorrow(),
+      repos.bookings.listPending(5),
+      repos.systemEvents.recentProblems(5),
     ]).then(
       ([
         today,
@@ -59,6 +72,11 @@ export default function DashboardPage() {
         revenue,
         aiStats,
         businessSnapshot,
+        actionRenewals,
+        actionInactiveLeads,
+        actionTrials,
+        actionPendingBookings,
+        actionProblems,
       ]) => {
         setData({
           today,
@@ -72,6 +90,11 @@ export default function DashboardPage() {
           revenue,
           aiResolutionRate: aiStats.resolutionRate,
           businessSnapshot,
+          actionRenewals,
+          actionInactiveLeads,
+          actionTrials,
+          actionPendingBookings,
+          actionProblems,
         });
       }
     );
@@ -110,6 +133,11 @@ export default function DashboardPage() {
     revenue,
     aiResolutionRate,
     businessSnapshot,
+    actionRenewals,
+    actionInactiveLeads,
+    actionTrials,
+    actionPendingBookings,
+    actionProblems,
   } = data;
 
   return (
@@ -118,6 +146,14 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-semibold text-secondary">Dashboard</h1>
         <p className="text-sm text-secondary/50">Today&apos;s overview of your studio</p>
       </div>
+
+      <ActionRequiredCard
+        renewals={actionRenewals}
+        inactiveLeads={actionInactiveLeads}
+        trials={actionTrials}
+        pendingBookings={actionPendingBookings}
+        problems={actionProblems}
+      />
 
       <FinanceCharts />
 

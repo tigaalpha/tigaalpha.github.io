@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, SalesStatus, Tables } from "@/types/database";
 
+export interface InactiveLead {
+  id: string;
+  name: string;
+  lastActivityAt: string;
+  salesStatus: SalesStatus;
+}
+
 export class CustomersRepository {
   constructor(private readonly db: SupabaseClient<Database>) {}
 
@@ -78,6 +85,27 @@ export class CustomersRepository {
   async updateLastContact(id: string): Promise<void> {
     const { error } = await this.db.from("customers").update({ last_contact_at: new Date().toISOString() }).eq("id", id);
     if (error) throw error;
+  }
+
+  // Same "gone quiet" condition as automation-engine-runner's
+  // processInactiveCustomerRule (sales_status not won/lost, last_contact_at
+  // falling back to created_at), as a read for the Dashboard -- a shorter
+  // default than that rule's 30-day threshold since this is a passive
+  // "you should glance at this" list for a human, not a trigger for an
+  // automated customer-facing message.
+  async inactiveLeads(days = 7): Promise<InactiveLead[]> {
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await this.db
+      .from("customers")
+      .select("id, name, last_contact_at, created_at, sales_status")
+      .not("sales_status", "in", "(won,lost)")
+      .limit(CustomersRepository.LIMIT_SAFETY_NET);
+    if (error) throw error;
+
+    return (data ?? [])
+      .map((c) => ({ id: c.id, name: c.name, lastActivityAt: c.last_contact_at ?? c.created_at, salesStatus: c.sales_status }))
+      .filter((c) => c.lastActivityAt < cutoff)
+      .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? -1 : 1));
   }
 
   /** Lead counts grouped by lead_source, for the Reports page. Unset sources are grouped as "Unknown". */
