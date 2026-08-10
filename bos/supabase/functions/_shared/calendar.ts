@@ -75,6 +75,17 @@ export async function deleteEvent(eventId: string): Promise<void> {
   }
 }
 
+/** Real connectivity check (used by system-health-check) -- a throwaway 1-minute-window call, true unless it throws. Never throws itself. */
+export async function checkConnection(): Promise<boolean> {
+  try {
+    const now = new Date();
+    await listEventsBetween(now.toISOString(), new Date(now.getTime() + 60_000).toISOString());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function listEventsBetween(timeMin: string, timeMax: string): Promise<CalendarEventSlot[]> {
   const params = new URLSearchParams({ timeMin, timeMax, singleEvents: "true", orderBy: "startTime" });
   const response = await calendarFetch(`/events?${params.toString()}`);
