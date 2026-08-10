@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, X, Zap, ZapOff } from "lucide-react";
 import { SidebarNav } from "./sidebar-nav";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { FloatingAssistant } from "@/features/assistant/components/floating-assistant";
 import { cn } from "@/lib/utils";
+import { getStoredSoloMode, setStoredSoloMode } from "@/lib/solo-mode";
 import type { UserRole } from "@/types/database";
 
 interface AppShellProps {
@@ -16,8 +17,35 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
+function SoloModeToggle({ soloMode, onToggle }: { soloMode: boolean | null; onToggle: () => void }) {
+  if (soloMode === null) {
+    return <div className="h-9 w-9" aria-hidden />;
+  }
+  return (
+    <button
+      onClick={onToggle}
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-secondary hover:bg-line/5"
+      aria-label={soloMode ? "สลับไปโหมดเต็ม" : "สลับไปโหมด Solo"}
+      title={soloMode ? "โหมด Solo — คลิกเพื่อดูเมนูทั้งหมด" : "คลิกเพื่อเข้าโหมด Solo (ย่อเมนูให้เหลือแต่ที่ใช้ทุกวัน)"}
+    >
+      {soloMode ? <Zap className="h-4 w-4" /> : <ZapOff className="h-4 w-4" />}
+    </button>
+  );
+}
+
 export function AppShell({ userName, userEmail, role, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [soloMode, setSoloMode] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setSoloMode(getStoredSoloMode());
+  }, []);
+
+  function toggleSoloMode() {
+    const next = !soloMode;
+    setStoredSoloMode(next);
+    setSoloMode(next);
+  }
 
   return (
     <div className="flex min-h-screen bg-page">
@@ -27,7 +55,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
           <span className="text-sm font-semibold text-secondary">Tiga AI BOS</span>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <SidebarNav role={role} />
+          <SidebarNav role={role} soloMode={soloMode ?? false} />
         </div>
       </aside>
 
@@ -42,7 +70,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <SidebarNav role={role} onNavigate={() => setMobileOpen(false)} />
+              <SidebarNav role={role} soloMode={soloMode ?? false} onNavigate={() => setMobileOpen(false)} />
             </div>
           </aside>
         </div>
@@ -59,6 +87,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
           </button>
           <div className="hidden md:block" />
           <div className="flex items-center gap-2">
+            <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
             <ThemeToggle />
             <UserMenu userName={userName} userEmail={userEmail} />
           </div>
