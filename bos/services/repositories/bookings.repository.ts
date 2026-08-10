@@ -49,6 +49,37 @@ export class BookingsRepository {
     return this.listBetween(start.toISOString(), end.toISOString());
   }
 
+  async listPending(limit = 10): Promise<Tables<"bookings">[]> {
+    const { data, error } = await this.db
+      .from("bookings")
+      .select("*")
+      .eq("status", "pending")
+      .order("start_time", { ascending: true })
+      .limit(limit);
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  // "Trial" has no marker on the booking row itself -- only sales_status on
+  // the customer -- so this fetches today+tomorrow's bookings first, then
+  // cross-references customers separately, matching the two-query-then-
+  // join-in-JS pattern courses.repository.ts's renewalOpportunities already uses.
+  async listTrialsTodayAndTomorrow(): Promise<{ booking: Tables<"bookings">; customerId: string }[]> {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 2);
+    const bookings = await this.listBetween(start.toISOString(), end.toISOString());
+    if (bookings.length === 0) return [];
+
+    const customerIds = [...new Set(bookings.map((b) => b.customer_id))];
+    const { data: customers, error } = await this.db.from("customers").select("id, sales_status").in("id", customerIds);
+    if (error) throw error;
+    const trialCustomerIds = new Set((customers ?? []).filter((c) => c.sales_status === "trial_booked").map((c) => c.id));
+
+    return bookings.filter((b) => trialCustomerIds.has(b.customer_id)).map((b) => ({ booking: b, customerId: b.customer_id }));
+  }
+
   async hasConflict(teacherId: string, startTime: string, endTime: string, excludeId?: string): Promise<boolean> {
     let query = this.db
       .from("bookings")
