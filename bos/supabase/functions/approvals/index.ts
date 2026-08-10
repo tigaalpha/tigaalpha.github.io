@@ -39,6 +39,24 @@ async function executeApproved(admin: ReturnType<typeof createAdminClient>, type
     if (error || !booking) throw new Error("Booking not found");
     if (booking.status === "cancelled") return; // already cancelled by another path — nothing to do
 
+    // A completed lesson already consumed one hour off its course
+    // (migration 0008's trigger, which only fires on transition TO
+    // completed — cancelling afterward never fires it again) -- give
+    // that hour back, or it's lost forever with no other code path to
+    // restore it. Scoped to just the hour numbers, not any sales_status/
+    // renew_pending flip the same completion may have triggered, since
+    // unwinding that has real ambiguity a plain hour restore doesn't.
+    if (booking.status === "completed" && booking.course_id) {
+      const { data: course } = await admin.from("courses").select("current_hour, remaining_hour, total_hours").eq("id", booking.course_id).maybeSingle();
+      if (course && course.current_hour > 0) {
+        const { error: restoreErr } = await admin
+          .from("courses")
+          .update({ current_hour: course.current_hour - 1, remaining_hour: Math.min(course.remaining_hour + 1, course.total_hours) })
+          .eq("id", booking.course_id);
+        if (restoreErr) throw restoreErr;
+      }
+    }
+
     const { error: updateErr } = await admin.from("bookings").update({ status: "cancelled" }).eq("id", bookingId);
     if (updateErr) throw updateErr;
 
