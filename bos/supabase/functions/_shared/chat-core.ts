@@ -2,7 +2,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { generate } from "./ai-provider.ts";
 import type { ChatMessage } from "./ai-types.ts";
 import { buildSystemPrompt, type PromptName } from "./prompts.ts";
-import { AI_TOOLS, OWNER_TOOLS, executeTool } from "./tools.ts";
+import { AI_TOOLS, OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts";
 import { getLatestCompetitorContext } from "./competitor-context.ts";
 import { logAiUsage } from "./usage-logging.ts";
 
@@ -123,13 +123,17 @@ export async function respond(
 
   const messages: ChatMessage[] = [
     { role: "system", content: systemParts.join("\n\n") },
-    // A degenerate AI turn from before this safeguard existed (or one that
-    // slipped through) must not stay in the context fed back to the model —
-    // seeing its own prior "😊"-only turn is exactly what drags a fresh
-    // generation back into repeating it, on the retry as much as the
-    // original attempt (same messages array, same attractor).
+    // A degenerate AI turn (or the DEGENERATE_FALLBACK apology saved in its
+    // place — flagged via metadata.fallback, since the fallback text itself
+    // has real letters and would otherwise pass the letterless check below)
+    // must not stay in the context fed back to the model — seeing its own
+    // prior "😊"-only turn, or its own prior "please retype" apology, is
+    // exactly what drags a fresh generation back into repeating the same
+    // failure, on the retry as much as the original attempt (same messages
+    // array, same attractor) — confirmed in production: both real LINE
+    // conversations this bot has ever had got stuck in exactly this loop.
     ...(history ?? [])
-      .filter((m: { sender: string; content: string }) => m.sender !== "ai" || !isDegenerateReply(m.content))
+      .filter((m: { sender: string; content: string; metadata?: { fallback?: boolean } | null }) => m.sender !== "ai" || (!isDegenerateReply(m.content) && !m.metadata?.fallback))
       .map((m: { sender: string; content: string }) => ({
         role: (m.sender === "customer" ? "user" : "assistant") as ChatMessage["role"],
         content: m.content,
@@ -145,18 +149,37 @@ export async function respond(
     await logAiUsage(db, result.usage, "chat-core:respond");
 
     if (result.finishReason !== "tool_calls" || !result.message.toolCalls?.length) {
+      let usedFallback = false;
       if (isDegenerateReply(result.message.content)) {
         // A stochastic degenerate reply usually doesn't repeat on a fresh
         // sample from the same prompt, so retry once before falling back.
         const retry = await generate(messages, tools);
         await logAiUsage(db, retry.usage, "chat-core:respond");
-        result.message.content =
-          retry.finishReason !== "tool_calls" && !isDegenerateReply(retry.message.content)
-            ? retry.message.content
-            : DEGENERATE_FALLBACK;
+        if (retry.finishReason !== "tool_calls" && !isDegenerateReply(retry.message.content)) {
+          result.message.content = retry.message.content;
+        } else {
+          result.message.content = DEGENERATE_FALLBACK;
+          usedFallback = true;
+        }
       }
 
-      await db.from("messages").insert({ conversation_id: conversationId, sender: "ai", content: result.message.content });
+      await db.from("messages").insert({
+        conversation_id: conversationId,
+        sender: "ai",
+        content: result.message.content,
+        ...(usedFallback ? { metadata: { fallback: true } } : {}),
+      });
+
+      // The bot just admitted it couldn't produce a real answer even after a
+      // retry -- tell the owner right away instead of leaving a customer
+      // stuck talking to a broken loop for days (confirmed in production:
+      // neither of the 2 real conversations this ever happened to were ever
+      // escalated before this fix). Same two writes flag_needs_review's own
+      // tool handler does (tools.ts).
+      if (usedFallback) {
+        await db.from("conversations").update({ needs_review: true }).eq("id", conversationId);
+        await db.from("notifications").insert({ type: "ai_needs_review", title: "AI escalated a conversation", body: "AI ตอบไม่ได้หลังจากลองใหม่แล้ว ต้องการให้เจ้าของช่วยตอบ" });
+      }
 
       // Only cache plain knowledge-lookup answers — a reply that used tools
       // (booking, CRM lookups) is specific to this customer and must not be
@@ -180,15 +203,22 @@ export async function respond(
 
     for (const call of result.message.toolCalls) {
       const toolResult = await executeTool(call, db, boundCustomerId, callerId).catch((error: unknown) => ({
-        error: error instanceof Error ? error.message : String(error),
+        // A raw Postgres error (has a .code) is translated to a plain Thai
+        // message before it ever reaches the model -- confirmed in
+        // production that the model will otherwise paraphrase a raw
+        // technical error straight to a real customer ("มีข้อผิดพลาดทาง
+        // เทคนิคเล็กน้อยในการบันทึกข้อมูลลูกค้าค่ะ"). An error already
+        // thrown deliberately elsewhere (new Error("ภาษาไทยที่ชัดเจน")) has
+        // no .code and passes through unchanged.
+        error: error && typeof error === "object" && "code" in error ? translateDbError(error) : error instanceof Error ? error.message : String(error),
       }));
       messages.push({ role: "tool", toolCallId: call.id, content: JSON.stringify(toolResult) });
     }
   }
 
   await db.from("conversations").update({ needs_review: true }).eq("id", conversationId);
-  const fallback = "Let me check with the team and get back to you shortly!";
-  await db.from("messages").insert({ conversation_id: conversationId, sender: "ai", content: fallback });
+  const fallback = "ขอโทษค่ะ ขอเวลาตรวจสอบข้อมูลเพิ่มเติมกับทางทีมงานก่อนนะคะ เดี๋ยวจะรีบติดต่อกลับค่ะ";
+  await db.from("messages").insert({ conversation_id: conversationId, sender: "ai", content: fallback, metadata: { fallback: true } });
   return { reply: fallback, needsReview: true };
 }
 

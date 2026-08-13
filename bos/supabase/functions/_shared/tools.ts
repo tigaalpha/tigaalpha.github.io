@@ -234,7 +234,7 @@ function isExclusionViolation(error: unknown): boolean {
 const FOREIGN_KEY_VIOLATION = "23503";
 const NOT_NULL_VIOLATION = "23502";
 
-function translateDbError(error: unknown): string {
+export function translateDbError(error: unknown): string {
   const code = error && typeof error === "object" && "code" in error ? (error as { code?: string }).code : undefined;
   if (code === FOREIGN_KEY_VIOLATION) return "ไม่พบครูหรือคอร์สที่ระบุ ตรวจสอบข้อมูลอีกครั้ง";
   if (code === NOT_NULL_VIOLATION) return "ข้อมูลที่จำเป็นสำหรับการจองขาดหายไป";
