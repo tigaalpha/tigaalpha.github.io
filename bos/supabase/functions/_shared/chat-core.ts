@@ -85,12 +85,16 @@ export async function respond(
   // see them, regardless of what they type.
   const tools = boundCustomerId === null ? [...AI_TOOLS, ...OWNER_TOOLS] : AI_TOOLS;
 
-  const { data: history } = await db
+  // Fetch the most recent RECENT_MESSAGE_LIMIT messages (descending so the
+  // limit keeps the newest ones -- including the customer message just
+  // inserted above), then restore chronological order for the model.
+  const { data: recentHistory } = await db
     .from("messages")
     .select("*")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(RECENT_MESSAGE_LIMIT);
+  const history = recentHistory ? [...recentHistory].reverse() : recentHistory;
 
   const systemParts = [buildSystemPrompt(promptContext)];
   if (conversation?.summary) {
