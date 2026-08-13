@@ -17,7 +17,7 @@ import { createAdminClient } from "./supabase-admin.ts";
 
 export type { AIProvider, ChatMessage, ChatRole, GeneratedImage, GenerateResult, ToolCall, ToolDefinition } from "./ai-types.ts";
 
-export type ChatModelId = "gemini" | "claude" | "gpt" | "qwen" | "kimi" | "glm" | "grok";
+export type ChatModelId = "gemini" | "claude" | "gpt" | "qwen" | "kimi" | "glm" | "grok" | "deepseek";
 
 export interface ChatModelDef {
   id: ChatModelId;
@@ -35,6 +35,7 @@ export const CHAT_MODELS: ChatModelDef[] = [
   { id: "kimi", label: "Kimi K2", envKey: "OPENROUTER_API_KEY" },
   { id: "glm", label: "GLM 4.6", envKey: "OPENROUTER_API_KEY" },
   { id: "grok", label: "Grok", envKey: "OPENROUTER_API_KEY" },
+  { id: "deepseek", label: "DeepSeek V4 Flash", envKey: "OPENROUTER_API_KEY" },
 ];
 
 // OpenRouter model slugs, one env var per model so the owner can repoint a
@@ -48,6 +49,7 @@ const OPENROUTER_MODEL_SLUGS: Record<Exclude<ChatModelId, "gemini">, { envVar: s
   kimi: { envVar: "MOONSHOT_CHAT_MODEL", slug: "moonshotai/kimi-k2" },
   glm: { envVar: "ZHIPU_CHAT_MODEL", slug: "z-ai/glm-4.6" },
   grok: { envVar: "XAI_CHAT_MODEL", slug: "x-ai/grok-4" },
+  deepseek: { envVar: "DEEPSEEK_CHAT_MODEL", slug: "deepseek/deepseek-v4-flash" },
 };
 
 const CHAT_MODEL_SETTING_KEY = "ai_chat_model";
