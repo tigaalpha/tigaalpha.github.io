@@ -41,6 +41,7 @@ import { GrowthMetricsRepository } from "./growth-metrics.repository";
 import { ApprovalsRepository } from "./approvals.repository";
 import { AiUsageRepository } from "./ai-usage.repository";
 import { MarketingMetricsRepository } from "./marketing-metrics.repository";
+import { AttendanceRepository } from "./attendance.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -73,6 +74,7 @@ export function createRepositories(db: SupabaseClient<Database>) {
     salesChatExamples: new SalesChatExamplesRepository(db),
     marketingChannels: new MarketingChannelsRepository(db),
     agentSchedules: new AgentSchedulesRepository(db),
+    attendance: new AttendanceRepository(db),
     socialTrends: new SocialTrendsRepository(db),
     courseArticles: new CourseArticlesRepository(db),
     referencePhotos: new ReferencePhotosRepository(db),
