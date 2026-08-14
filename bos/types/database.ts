@@ -198,6 +198,7 @@ export interface Database {
           summary: string | null;
           needs_review: boolean;
           last_followed_up_at: string | null;
+          follow_up_count: number;
           created_at: string;
           updated_at: string;
         };
