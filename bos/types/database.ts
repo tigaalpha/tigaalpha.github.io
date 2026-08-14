@@ -200,6 +200,7 @@ export interface Database {
           last_followed_up_at: string | null;
           follow_up_count: number;
           trial_offer_sent: boolean;
+          last_stage: string | null;
           created_at: string;
           updated_at: string;
         };

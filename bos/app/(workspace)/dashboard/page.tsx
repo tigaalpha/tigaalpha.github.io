@@ -7,6 +7,7 @@ import { createRepositories } from "@/services/repositories";
 import { StatCard } from "@/features/dashboard/components/stat-card";
 import { LessonListCard } from "@/features/dashboard/components/lesson-list-card";
 import { SalesFunnelCard } from "@/features/dashboard/components/sales-funnel-card";
+import { DropOffStageCard } from "@/features/dashboard/components/drop-off-stage-card";
 import { NotificationsCard } from "@/features/dashboard/components/notifications-card";
 import { BusinessSnapshotCard } from "@/features/dashboard/components/business-snapshot-card";
 import { FinanceCharts } from "@/features/dashboard/components/finance-charts";
@@ -21,6 +22,7 @@ interface DashboardData {
   today: Tables<"bookings">[];
   tomorrow: Tables<"bookings">[];
   funnel: Record<SalesStatus, number>;
+  dropOffStages: Record<string, number>;
   notifications: Tables<"notifications">[];
   conversations: Tables<"conversations">[];
   nearRenewal: Tables<"courses">[];
@@ -59,6 +61,7 @@ export default function DashboardPage() {
       repos.bookings.listTrialsTodayAndTomorrow(),
       repos.bookings.listPending(5),
       repos.systemEvents.recentProblems(5),
+      repos.conversations.dropOffStageCounts(),
     ]).then(
       ([
         today,
@@ -77,6 +80,7 @@ export default function DashboardPage() {
         actionTrials,
         actionPendingBookings,
         actionProblems,
+        dropOffStages,
       ]) => {
         setData({
           today,
@@ -95,6 +99,7 @@ export default function DashboardPage() {
           actionTrials,
           actionPendingBookings,
           actionProblems,
+          dropOffStages,
         });
       }
     );
@@ -138,6 +143,7 @@ export default function DashboardPage() {
     actionTrials,
     actionPendingBookings,
     actionProblems,
+    dropOffStages,
   } = data;
 
   return (
@@ -185,6 +191,10 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <SalesFunnelCard counts={funnel} />
         <NotificationsCard notifications={notifications} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <DropOffStageCard counts={dropOffStages} />
       </div>
 
       <BusinessSnapshotCard snapshot={businessSnapshot} onChanged={reload} />

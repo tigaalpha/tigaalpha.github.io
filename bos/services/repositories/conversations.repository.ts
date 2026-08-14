@@ -103,4 +103,23 @@ export class ConversationsRepository {
 
     return { total, resolvedByAi, needsReview, resolutionRate };
   }
+
+  /**
+   * "Where do customers drop off in the conversation" -- last_stage is
+   * tagged by chat-core.ts after every AI turn from cheap, real signals
+   * (no extra AI call): opening / handoff / fallback / tool_used / general.
+   * Counts every customer-facing conversation that's had at least one AI
+   * reply -- excludes the owner's own internal Floating Assistant chats.
+   */
+  async dropOffStageCounts(): Promise<Record<string, number>> {
+    const { data, error } = await this.db.from("conversations").select("last_stage").neq("channel", "internal").not("last_stage", "is", null);
+    if (error) throw error;
+
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) {
+      const stage = row.last_stage ?? "unknown";
+      counts[stage] = (counts[stage] ?? 0) + 1;
+    }
+    return counts;
+  }
 }
