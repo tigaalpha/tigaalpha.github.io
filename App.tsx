@@ -1340,7 +1340,7 @@ function autoCorrelate(buf, sampleRate) {
   // sound (room noise, speech, a cough) has no stable period and scores much lower.
   // This is what actually stops the detector from "hearing" a note in silence/noise —
   // the RMS gate above only checks loudness, not whether the sound is tonal at all.
-  if (c[0] <= 0 || maxval / c[0] < 0.85) return -1;
+  if (c[0] <= 0 || maxval / c[0] < 0.78) return -1; // loosened further so light/soft presses still clear this gate
   const x1 = c[T0 - 1] || 0, x2 = c[T0] || 0, x3 = c[T0 + 1] || 0;
   const a = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2;
   if (a) T0 = T0 - bb / (2 * a);
@@ -1367,7 +1367,7 @@ function hasFormantSpike(db, sampleRate, fftSize, f0) {
   const mags = []; for (let n = 1; n <= H; n++) mags.push(magAt(f0 * n));
   for (let i = 1; i < H - 1; i++) {
     const neighborAvg = (mags[i - 1] + mags[i + 1]) / 2;
-    if (mags[i] - neighborAvg > 14) return true; // one harmonic way louder than its neighbors predict
+    if (mags[i] - neighborAvg > 16) return true; // one harmonic way louder than its neighbors predict
   }
   return false;
 }
@@ -1538,13 +1538,15 @@ async function startMicListener(onDetect, onReady, onError, opts) {
           silence = 0;
           recent.push(f); if (recent.length > 4) recent.shift();
           // PITCH-STABILITY GATE: compare raw frequency (not just the quantized note
-          // name) within a tight 25-cent window. A struck piano string holds dead-steady
+          // name) within a 30-cent window. A struck piano string holds dead-steady
           // once it rings; a sung/hummed/spoken note wanders — even gentle vibrato is
           // 50+ cents — so anything that drifts resets the streak instead of accumulating.
-          if (last != null && Math.abs(1200 * Math.log2(f / last)) < 25) { stable++; } else { last = f; stable = 1; fired = false; }
-          // fire once per fresh, held-steady note (3 frames ≈ 140ms) — still fast enough
-          // for legato/fast playing, since a pitch change re-arms even without a gap
-          if (stable >= 3 && !fired) {
+          if (last != null && Math.abs(1200 * Math.log2(f / last)) < 30) { stable++; } else { last = f; stable = 1; fired = false; }
+          // fire once per fresh, held-steady note (2 frames ≈ 93ms — faster and more
+          // forgiving of a quieter/noisier signal than requiring a 3rd frame) — still
+          // fast enough for legato/fast playing, since a pitch change re-arms even
+          // without a gap
+          if (stable >= 2 && !fired) {
             const med = median(recent.slice(-3));
             const medNote = freqToNoteName(med) || note;
             analyser.getFloatFrequencyData(db);
@@ -1555,7 +1557,7 @@ async function startMicListener(onDetect, onReady, onError, opts) {
           }
         } else {
           if (silence < 10) silence++;
-          if (silence >= 2) { last = null; stable = 0; fired = false; recent.length = 0; } // brief gap re-arms repeats
+          if (silence >= 3) { last = null; stable = 0; fired = false; recent.length = 0; } // brief gap re-arms repeats
         }
         raf = requestAnimationFrame(tick);
       };
@@ -2971,14 +2973,17 @@ function Input({ val, onChange, onSend, loading, ph }) {
 
 
 /* ── Pathway Page ── */
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOpenStageId, userName = "" }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOpenStageId, initialSelectedType, userName = "" }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   // initialOpenStageId re-opens the topic the learner just came from (via the
   // Sensei page's "change key" back button) so its key picker is right there —
   // this only matters on first mount, same as any other useState initializer.
+  // initialSelectedType carries along the chord/interval type that was already
+  // chosen, so "change key" lands straight on STEP 2 (key picker) instead of
+  // making the learner re-pick the type in STEP 1.
   const [openStageId, setOpenStageId] = useState(initialOpenStageId || null);
-  const [selectedType, setSelectedType] = useState(null); // type obj from stage.types, or null
+  const [selectedType, setSelectedType] = useState(initialSelectedType || null); // type obj from stage.types, or null
   useEffect(() => {
     if (!initialOpenStageId) return;
     const el = document.getElementById("pcard-" + initialOpenStageId);
@@ -10445,6 +10450,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [practiceFingers, setPracticeFingers] = useState([]);
   const [practiceLabel, setPracticeLabel] = useState("");
   const [practiceIdx, setPracticeIdx] = useState(0);    // how many notes done = current pointer
+  const [practiceHitIdxs, setPracticeHitIdxs] = useState([]); // which target indices are hit — block-style chord/interval practice only (order-independent, so this can differ from practiceIdx's implied "first N")
   const [practiceMiss, setPracticeMiss] = useState(0);
   const [practiceHeard, setPracticeHeard] = useState(null); // {note, ok} last detected
   const [practiceSrc, setPracticeSrc] = useState(null);     // {type:"midi"|"mic"|"error"}
@@ -10544,6 +10550,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // removed after it read as more confusing, not less.
   const [page, setPage] = useState("pathway");
   useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
+  useEffect(() => { if (page !== "sensei") clearSeq(); }, [page]); // stop any Sensei demo audio the instant the learner navigates away
 
   // null | "time" | "ai" — which GuestGateScreen (if any) currently covers the
   // screen. Two distinct producers, one shared consumer (see render below).
@@ -10657,6 +10664,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setAdminUnlocked(false);
     setShowLock(false);
     setActiveStageId(null);
+    setActiveStageType(null);
     setPage("sensei");
   }
 
@@ -10670,6 +10678,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // "back" button can jump straight to that topic's key picker re-opened —
   // instead of the ☰ menu → Pathway → find-the-card-again round trip.
   const [activeStageId, setActiveStageId] = useState(null);
+  const [activeStageType, setActiveStageType] = useState(null); // chosen chord/interval type, if any — lets "Change Key" reopen straight at the key picker
 
   // ── gamification refs: mirror EXP/lessons so rapid awards never read stale state ──
   const uid = session && session.user && session.user.id;
@@ -10734,6 +10743,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const practiceModeRef = useRef("seq");
   const practiceAscRef = useRef([]);     // ascending-only notes (pre up+down expansion) — lets a hand switch mid-scale recompute correctly
   const practiceIdxRef = useRef(0);
+  const practiceHitSetRef = useRef(new Set()); // hit target indices — block-style chord/interval practice only
   const practiceHitsRef = useRef(0);
   const practiceMissRef = useRef(0);
   const practiceVelsRef = useRef([]); // MIDI velocities of hit notes this drill — see scoreDynamics()
@@ -11211,51 +11221,85 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   /* ── PRACTICE MODE ──
      Compare each note the learner plays (mic/MIDI/tap) against the target
-     sequence, advancing on a correct pitch class (Wait-Mode style). */
+     sequence. "Broken" (seq/scale, and chord/interval by default) advances
+     one note at a time in order (Wait-Mode style). "Block" (chord/interval
+     only, when chordStyle === "block") accepts the target's notes in ANY
+     order — matching how notes actually arrive when several keys are
+     struck together (MIDI/mic/tap each still report one pitch per event,
+     just not necessarily in the demo's stored order). */
+  function notePitchMatches(d, targetPC) {
+    if (d.freq == null) {
+      // MIDI, on-screen tap, or polyphonic-mic → digital/exact pitch class
+      return pcOf(d.note) === targetPC;
+    }
+    // microphone (monophonic) → tolerant, tuning-aware. Measure how many cents
+    // the played pitch is from the target note, re-centered by the piano's
+    // learned offset, so a slightly out-of-tune string still counts as correct.
+    const raw = centsFromPC(d.freq, targetPC);
+    const eff = raw - tuneOffsetRef.current;
+    const correct = Math.abs(eff) <= PITCH_TOL_CENTS;
+    if (correct) {
+      // learn this piano's tuning drift (smoothed EMA, clamped) so it gets
+      // more accurate the more the learner plays
+      let off = tuneOffsetRef.current * 0.7 + raw * 0.3;
+      off = Math.max(-TUNE_OFFSET_CAP, Math.min(TUNE_OFFSET_CAP, off));
+      tuneOffsetRef.current = off;
+      setPracticeTune(Math.round(off));
+    }
+    return correct;
+  }
   function handlePlayedNote(d) {
     if (!practiceActiveRef.current) return;
     // accept legacy string calls too, just in case
     if (typeof d === "string") d = { note: d, freq: null };
+    // Polyphonic mic detection can report several simultaneously-heard notes
+    // in one callback (d.notes) — feed each through the same matcher below.
+    if (d.notes && d.notes.length) { d.notes.forEach(n => handlePlayedNote({ note: n, freq: null, source: d.source })); return; }
+
     const targets = practiceTargetRef.current;
-    const idx = practiceIdxRef.current;
-    if (idx >= targets.length) return;
-    const targetPC = pcOf(targets[idx]);
     const heardNote = d.note;
+    const isBlock = practiceModeRef.current === "chord" && chordStyle === "block";
 
-    let correct;
-    if (d.freq == null) {
-      // MIDI or on-screen tap → digital/exact, match the pitch class strictly
-      correct = pcOf(heardNote) === targetPC;
-    } else {
-      // microphone → tolerant, tuning-aware. Measure how many cents the played
-      // pitch is from the target note, re-centered by the piano's learned offset,
-      // so a slightly out-of-tune string still counts as correct.
-      const raw = centsFromPC(d.freq, targetPC);
-      const eff = raw - tuneOffsetRef.current;
-      correct = Math.abs(eff) <= PITCH_TOL_CENTS;
-      if (correct) {
-        // learn this piano's tuning drift (smoothed EMA, clamped) so it gets
-        // more accurate the more the learner plays
-        let off = tuneOffsetRef.current * 0.7 + raw * 0.3;
-        off = Math.max(-TUNE_OFFSET_CAP, Math.min(TUNE_OFFSET_CAP, off));
-        tuneOffsetRef.current = off;
-        setPracticeTune(Math.round(off));
+    if (isBlock) {
+      const hit = practiceHitSetRef.current;
+      let matchedIdx = -1;
+      for (let i = 0; i < targets.length; i++) {
+        if (hit.has(i)) continue;
+        if (notePitchMatches(d, pcOf(targets[i]))) { matchedIdx = i; break; }
       }
-    }
-
-    if (correct) {
-      practiceHitsRef.current += 1;
-      if (d.vel != null) practiceVelsRef.current.push(d.vel); // MIDI-only signal — see scoreDynamics()
-      playPianoNote(targets[idx], 0.5);
-      setPracticeHeard({ note: heardNote, ok: true });
-      const next = idx + 1;
-      practiceIdxRef.current = next;
-      setPracticeIdx(next);
-      if (next >= targets.length) finishPractice();
+      if (matchedIdx >= 0) {
+        hit.add(matchedIdx);
+        practiceHitsRef.current += 1;
+        if (d.vel != null) practiceVelsRef.current.push(d.vel);
+        playPianoNote(targets[matchedIdx], 0.5);
+        setPracticeHeard({ note: heardNote, ok: true });
+        practiceIdxRef.current = hit.size; // reused purely as a "how many done" progress count
+        setPracticeIdx(hit.size);
+        setPracticeHitIdxs(Array.from(hit));
+        if (hit.size >= targets.length) finishPractice();
+      } else {
+        practiceMissRef.current += 1;
+        setPracticeMiss(practiceMissRef.current);
+        setPracticeHeard({ note: heardNote, ok: false });
+      }
     } else {
-      practiceMissRef.current += 1;
-      setPracticeMiss(practiceMissRef.current);
-      setPracticeHeard({ note: heardNote, ok: false });
+      const idx = practiceIdxRef.current;
+      if (idx >= targets.length) return;
+      const correct = notePitchMatches(d, pcOf(targets[idx]));
+      if (correct) {
+        practiceHitsRef.current += 1;
+        if (d.vel != null) practiceVelsRef.current.push(d.vel); // MIDI-only signal — see scoreDynamics()
+        playPianoNote(targets[idx], 0.5);
+        setPracticeHeard({ note: heardNote, ok: true });
+        const next = idx + 1;
+        practiceIdxRef.current = next;
+        setPracticeIdx(next);
+        if (next >= targets.length) finishPractice();
+      } else {
+        practiceMissRef.current += 1;
+        setPracticeMiss(practiceMissRef.current);
+        setPracticeHeard({ note: heardNote, ok: false });
+      }
     }
     clearTimeout(practiceHeardTimer.current);
     practiceHeardTimer.current = setTimeout(() => setPracticeHeard(null), 650);
@@ -11282,6 +11326,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     practiceKeyRef.current = seq.key || null;
     practiceModeRef.current = seq.mode || "seq";
     practiceIdxRef.current = 0;
+    practiceHitSetRef.current = new Set();
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practiceVelsRef.current = [];
@@ -11291,6 +11336,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPracticeFingers(fingers);
     setPracticeLabel(seq.label || "");
     setPracticeIdx(0);
+    setPracticeHitIdxs([]);
     setPracticeMiss(0);
     setPracticeHeard(null);
     setPracticeSrc(null);
@@ -11302,17 +11348,23 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const onDetect = (d) => practiceHandlerRef.current(d);
     const midiOk = await startMidiListener(onDetect, () => setPracticeSrc({ type: "midi" }));
     if (!midiOk) {
-      await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }));
+      // Block-style chord/interval practice needs the polyphonic mic path so
+      // several notes struck together on a real piano can each be heard —
+      // the default monophonic detector only ever names the loudest one.
+      const usePoly = (seq.mode || "seq") === "chord" && chordStyle === "block";
+      await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }), usePoly ? { poly: true } : undefined);
     }
   }
 
   function restartPractice() {
     practiceIdxRef.current = 0;
+    practiceHitSetRef.current = new Set();
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practiceVelsRef.current = [];
     practiceActiveRef.current = true;
     setPracticeIdx(0);
+    setPracticeHitIdxs([]);
     setPracticeMiss(0);
     setPracticeHeard(null);
   }
@@ -13213,6 +13265,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function reviewTopic(t) {
     if (requireLogin("ai")) return; // always a live-AI ask, no local fallback
     setActiveStageId(null); // free-text question, not a Pathway topic+key — no "change key" back button
+    setActiveStageType(null);
     setPage("sensei");
     topicHint.current = null; lessonKey.current = null;
     const q = lc.recAsk.replace("{x}", t);
@@ -13222,6 +13275,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }
   function reviewSchools() {
     setActiveStageId(null);
+    setActiveStageType(null);
     setPage("sensei");
     setMsgs(prev => [...prev, { role: "ai", text: lc.schoolInfo }]);
   }
@@ -13496,7 +13550,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // ── learn a topic+key from the pathway menu: send to AI + go to sensei page ──
   function learnTopic(stage, key, chordType = null) {
-    if (stage && stage.id) { markPathDone(stage.id); if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); }
+    if (stage && stage.id) { markPathDone(stage.id); if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); setActiveStageType(chordType); }
     const basePrompt = stage.learn[lang] || stage.learn.en;
     const keyId = key ? key.id : "C";
     const keyLabel = key ? key.name : "C";
@@ -13595,6 +13649,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     topicHint.current = LESSON_MODE;   // don't auto-detect/play notes from this text
     lessonKey.current = null;
     setActiveStageId(null); // reading chapters have no key picker — no "change key" back button
+    setActiveStageType(null);
     setPage("sensei");
     setMsgs(prev => [...prev,
       { role: "user", text: `📚 ${icon} ${title}` },
@@ -13698,7 +13753,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: HOME (new landing page — UX refactor) ─── */}
       {/* ─── PAGE: PATHWAY ─── */}
       {page === "pathway" && (
-        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} initialOpenStageId={activeStageId} userName={(profile && profile.full_name) || ""} />
+        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
       )}
 
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
@@ -13732,6 +13787,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           playUi("click");
           setInput((lang === "th" ? 'ช่วยสอนเพิ่มเติมจากวิดีโอบทเรียน "' : lang === "zh" ? '请给我详细讲讲视频课程 "' : 'Teach me more about the video lesson "') + t + '"');
           setActiveStageId(null);
+          setActiveStageType(null);
           setPage("sensei");
         }} />
       )}
@@ -14065,12 +14121,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>
 
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
-      {practiceOpen && (
+      {practiceOpen && (() => {
+        const isBlockMode = practiceModeRef.current === "chord" && chordStyle === "block";
+        const remainingIdxs = isBlockMode
+          ? practiceTarget.map((_, i) => i).filter(i => !practiceHitIdxs.includes(i))
+          : [];
+        const remainingNotes = isBlockMode ? remainingIdxs.map(i => practiceTarget[i]) : [];
+        const remainingFingerMap = isBlockMode
+          ? remainingIdxs.reduce((m, i) => { if (practiceFingers[i] != null) m[practiceTarget[i]] = practiceFingers[i]; return m; }, {})
+          : {};
+        return (
         <div className="practiceov">
           <div className="practicehdr">
             <div className="practicehtitle">
               {lc.practiceTitle}
               <small>{practiceLabel}</small>
+              {practiceModeRef.current === "chord" && (
+                <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 800, color: "#d97757", border: "1px solid #d9775766", borderRadius: 5, padding: "1px 6px", verticalAlign: "middle" }}>
+                  {chordStyle === "block" ? lc.chordBlock : lc.chordBroken}
+                </span>
+              )}
             </div>
             <button className="cbtn" onClick={exitPractice}>{lc.close}</button>
           </div>
@@ -14095,17 +14165,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               </button>
             </div>
 
-            <Piano
-              litNote={practiceTarget[practiceIdx] || null}
-              fingerMap={practiceTarget[practiceIdx] != null && practiceFingers[practiceIdx] != null
-                ? { [practiceTarget[practiceIdx]]: practiceFingers[practiceIdx] } : {}}
-              onNote={(n) => practiceHandlerRef.current({ note: n, freq: null })} />
+            {isBlockMode ? (
+              <Piano
+                litSet={remainingNotes}
+                fingerMap={remainingFingerMap}
+                onNote={(n) => practiceHandlerRef.current({ note: n, freq: null })} />
+            ) : (
+              <Piano
+                litNote={practiceTarget[practiceIdx] || null}
+                fingerMap={practiceTarget[practiceIdx] != null && practiceFingers[practiceIdx] != null
+                  ? { [practiceTarget[practiceIdx]]: practiceFingers[practiceIdx] } : {}}
+                onNote={(n) => practiceHandlerRef.current({ note: n, freq: null })} />
+            )}
 
             <div className="practicenow">
               <div className="practicenow-box">
                 <div className="practicenow-lbl">{lc.practicePlay}</div>
                 <div className="practicenow-note target">
-                  {practiceTarget[practiceIdx] ? pcOf(practiceTarget[practiceIdx]) : "✓"}
+                  {isBlockMode
+                    ? (remainingNotes.length ? remainingNotes.map(n => pcOf(n)).join(" · ") : "✓")
+                    : (practiceTarget[practiceIdx] ? pcOf(practiceTarget[practiceIdx]) : "✓")}
                 </div>
               </div>
               <div className="practicenow-box">
@@ -14118,7 +14197,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
             <div className="practicechips">
               {practiceTarget.map((n, i) => (
-                <span key={i} className={`pchip${i < practiceIdx ? " done" : i === practiceIdx ? " cur" : ""}`}>
+                <span key={i} className={`pchip${isBlockMode
+                  ? (practiceHitIdxs.includes(i) ? " done" : "")
+                  : (i < practiceIdx ? " done" : i === practiceIdx ? " cur" : "")}`}>
                   {pcOf(n)}
                 </span>
               ))}
@@ -14139,7 +14220,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
       {songOpen && songMeta && (
