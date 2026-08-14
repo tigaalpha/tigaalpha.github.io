@@ -93,16 +93,17 @@ html, body, #root{background:var(--bg)}
 /* piano */
 .pw{background:var(--card3);border-bottom:1px solid #d9775733;padding:10px 8px 4px;flex-shrink:0}
 .plbl{font-family:'Orbitron',sans-serif;font-size:8px;color:var(--muted);letter-spacing:3px;text-align:center;margin-bottom:7px}
-.kr{display:flex;justify-content:center;align-items:flex-start;gap:1px;overflow-x:auto;padding:0 4px 20px;scrollbar-width:none}
-.kr::-webkit-scrollbar{display:none}
-.pk{cursor:pointer;border-radius:0 0 4px 4px;transition:all .08s;flex-shrink:0;position:relative;user-select:none}
-.pk.w{background:#fff;border:1px solid #d4cfc5;z-index:1;box-shadow:0 4px 8px rgba(0,0,0,.5)}
-.pk.b{background:#060d1a;border:1px solid #001015;margin-left:-9px;margin-right:-9px;z-index:2;box-shadow:0 4px 12px rgba(0,0,0,.9)}
+.kr{display:flex;position:relative;width:100%;max-width:640px;margin:0 auto;gap:1px;padding:0 4px 20px}
+.pk{cursor:pointer;border-radius:0 0 4px 4px;transition:all .08s;position:relative;user-select:none}
+.pk.w{flex:1 1 0;min-width:0;height:78px;background:#fff;border:1px solid #d4cfc5;z-index:1;box-shadow:0 4px 8px rgba(0,0,0,.5)}
+.pk.b{position:absolute;top:0;height:48px;background:#060d1a;border:1px solid #001015;z-index:2;box-shadow:0 4px 12px rgba(0,0,0,.9)}
 .pk.w.lit{background:#d97757;box-shadow:0 0 16px #d97757,0 0 40px #d9775766}
 .pk.b.lit{background:#d97757;box-shadow:0 0 14px #d97757,0 0 30px #d9775766}
 .pk.w:active{transform:translateY(2px)}
 .pk.b:active{transform:translateY(1px)}
 .pk.flash{animation:keypop .32s ease-out}
+.kr-sm .pk.w{height:66px}
+.kr-sm .pk.b{height:42px}
 @keyframes keypop{0%{filter:brightness(1.9) saturate(1.3);box-shadow:0 0 18px 4px #d97757cc,0 0 36px 6px #d9775766}100%{filter:brightness(1)}}
 .kn{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);font-size:7px;color:var(--muted);font-family:'Share Tech Mono',monospace;pointer-events:none}
 /* finger number badge under keys */
@@ -1239,7 +1240,7 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
 }
-@media(max-width:480px){.lname{font-size:11px;letter-spacing:1px}.bbl{font-size:12px;padding:8px 11px}.pk.w{width:22px!important;height:66px!important}.pk.b{width:14px!important;height:42px!important;margin-left:-7px!important;margin-right:-7px!important}}
+@media(max-width:480px){.lname{font-size:11px;letter-spacing:1px}.bbl{font-size:12px;padding:8px 11px}}
 /* F5: Certificate banner */
 .cert-banner{display:flex;align-items:center;gap:14px;margin:14px 14px 0;padding:18px 16px;background:linear-gradient(135deg,rgba(217,119,87,.15),rgba(217,119,87,.05));border:2px solid rgba(217,119,87,.4);border-radius:16px;animation:fadein .4s}
 .cert-ic{font-size:36px;flex-shrink:0}

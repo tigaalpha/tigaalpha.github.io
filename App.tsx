@@ -1406,8 +1406,11 @@ function detectPolyNotes(mag, sampleRate, fftSize) {
     sal[m] = s; if (s > maxSal) maxSal = s;
   }
   if (maxSal <= 0) return [];
-  // keep notes that are a clear local peak AND a healthy fraction of the strongest
-  const REL = 0.3;                               // ≥30% of the loudest note's salience
+  // keep notes that are a clear local peak AND a healthy fraction of the strongest.
+  // A beginner rarely strikes every note of a chord at even loudness — the inner
+  // or top voice is often noticeably softer than the thumb/root — so this is kept
+  // fairly forgiving on purpose; the ghost filters below do the precision work.
+  const REL = 0.22;                              // ≥22% of the loudest note's salience
   const cands = [];
   for (let m = LO; m <= HI; m++) {
     const s = sal[m];
@@ -1417,14 +1420,18 @@ function detectPolyNotes(mag, sampleRate, fftSize) {
   }
   // semitone offsets at which one note's harmonics land on another (octave, +fifth, 2-oct, +3rd, ...)
   const GHOST = [12, 19, 24, 28, 31];
-  // (a) upper harmonic ghost: a higher candidate fully explained by a much louder lower note → drop it
-  let kept = cands.filter(c => !cands.some(o => o.m < c.m && o.s > c.s * 1.6 && GHOST.includes(c.m - o.m)));
+  // (a) upper harmonic ghost: a higher candidate fully explained by a much louder lower note → drop it.
+  //     But if its OWN fundamental bin is clearly present, it's a real (often octave-doubled) note
+  //     that just happens to sit on a ghost interval — keep it, mirroring the fundamental-strength
+  //     check filter (b) already uses below, instead of discarding it on salience alone.
+  let kept = cands.filter(c => !cands.some(o =>
+    o.m < c.m && o.s > c.s * 1.6 && GHOST.includes(c.m - o.m) && (fund[c.m] || 0) < 0.45 * (fund[o.m] || 0)));
   // (b) subharmonic ghost: a LOWER candidate whose own fundamental is barely there, sitting a
   //     harmonic interval below a real note (it's that note's even-harmonic echo) → drop it.
   //     A genuinely-played bass note keeps a strong fundamental, so it survives.
   kept = kept.filter(c => !kept.some(o => GHOST.includes(o.m - c.m) && (fund[c.m] || 0) < 0.4 * (fund[o.m] || 0)));
   kept.sort((a, b) => b.s - a.s);               // strongest first
-  return kept.slice(0, 4).sort((a, b) => a.m - b.m).map(c => midiToNoteName(c.m));
+  return kept.slice(0, 6).sort((a, b) => a.m - b.m).map(c => midiToNoteName(c.m)); // 6 = room for tension/added-note chords, not just triads
 }
 
 // median of a small array (smooths pitch jitter before we commit to a note)
@@ -1496,7 +1503,20 @@ async function startMicListener(onDetect, onReady, onError, opts) {
       const time = new Float32Array(analyser.fftSize);
       const db = new Float32Array(analyser.frequencyBinCount);
       const mag = new Float32Array(analyser.frequencyBinCount);
-      let floor = 0.004, armed = true, captureAt = 0, lastFire = 0;
+      const captureNotes = () => {
+        analyser.getFloatFrequencyData(db);      // dB → linear magnitude
+        for (let i = 0; i < db.length; i++) { const v = db[i]; mag[i] = v <= -160 ? 0 : Math.pow(10, v / 20); }
+        return detectPolyNotes(mag, ac.sampleRate, analyser.fftSize);
+      };
+      // A real chord strike is never perfectly simultaneous across fingers, and
+      // the first ~90ms is dominated by hammer/attack noise that muddies the
+      // harmonic read — so ONE instantaneous snapshot systematically misses
+      // staggered or quieter notes (usually the exact ones a beginner struggles
+      // with). Take two snapshots per strike instead and union whatever's newly
+      // seen; the caller (handlePlayedNote) already no-ops a repeat of a note
+      // it already matched, so re-seeing the same note across snapshots is safe.
+      const CAPTURE_OFFSETS = [95, 230];
+      let floor = 0.004, armed = true, captures = [], seenThisOnset = null, lastFire = 0;
       const tick = () => {
         const t = (typeof performance !== "undefined" && performance.now) ? performance.now() : 0;
         analyser.getFloatTimeDomainData(time);
@@ -1504,19 +1524,22 @@ async function startMicListener(onDetect, onReady, onError, opts) {
         rms = Math.sqrt(rms / time.length);
         floor = floor * 0.995 + rms * 0.005;     // slow EMA of the room/noise floor
         // a chord ATTACK = energy jumps well above the floor while we're armed
-        if (armed && captureAt === 0 && rms > Math.max(0.012, floor * 3) && (t - lastFire) > 220) {
-          captureAt = t + 85;                    // let the attack transient settle (~85ms)
+        if (armed && !captures.length && rms > Math.max(0.012, floor * 3) && (t - lastFire) > 220) {
+          captures = CAPTURE_OFFSETS.map(off => t + off);
+          seenThisOnset = new Set();
+          armed = false;                         // disarm right at the attack, not after the first capture
         }
-        if (captureAt && t >= captureAt) {
-          analyser.getFloatFrequencyData(db);    // dB → linear magnitude
-          for (let i = 0; i < db.length; i++) { const v = db[i]; mag[i] = v <= -160 ? 0 : Math.pow(10, v / 20); }
-          const notes = detectPolyNotes(mag, ac.sampleRate, analyser.fftSize);
-          captureAt = 0; armed = false; lastFire = t;
-          if (notes.length) onDetect(notes.length === 1
-            ? { note: notes[0], freq: null, source: "mic" }
-            : { note: notes[0], notes, freq: null, source: "mic", poly: true });
+        if (captures.length && t >= captures[0]) {
+          captures.shift();
+          const notes = captureNotes();
+          const fresh = notes.filter(n => !seenThisOnset.has(n));
+          fresh.forEach(n => seenThisOnset.add(n));
+          lastFire = t;
+          if (fresh.length) onDetect(fresh.length === 1
+            ? { note: fresh[0], freq: null, source: "mic" }
+            : { note: fresh[0], notes: fresh, freq: null, source: "mic", poly: true });
         }
-        if (!armed && rms < Math.max(0.008, floor * 1.6)) armed = true; // re-arm once it quiets
+        if (!armed && !captures.length && rms < Math.max(0.008, floor * 1.6)) armed = true; // re-arm once it quiets
         raf = requestAnimationFrame(tick);
       };
       if (onReady) onReady();
@@ -2745,8 +2768,6 @@ const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文" };
 
 /* ── Piano with finger numbers ── */
 const Piano = memo(function Piano({ litNote = null, litSet = null, fingerMap = {}, small = false, onNote = null, baseOct = 4 }) {
-  const wW = small ? 22 : 27, bW = small ? 14 : 17;
-  const wH = small ? 66 : 78, bH = small ? 42 : 48;
   const keys = baseOct === 4 ? KEYS : keysFor(baseOct);
   const [flash, setFlash] = useState(null);
   const flashT = useRef(null);
@@ -2754,24 +2775,32 @@ const Piano = memo(function Piano({ litNote = null, litSet = null, fingerMap = {
     haptic(); playPianoNote(n); if (onNote) onNote(n);
     setFlash(n); clearTimeout(flashT.current); flashT.current = setTimeout(() => setFlash(null), 320);
   };
+  // White keys flex to fill whatever width the container has (phone or tablet) —
+  // no fixed pixel width, so nothing ever overflows into a horizontal scroll.
+  // Black keys are positioned by percentage over the white-key row, the same
+  // technique GamePiano already uses for the Play-Along keyboard.
+  const whites = [], blacks = [];
+  let wi = -1;
+  for (const k of keys) { if (k.t === "w") { whites.push(k); wi++; } else blacks.push({ ...k, after: wi }); }
+  const NW = whites.length;
+  const bw = (100 / NW) * 0.62; // black key width, as a % of the row
+  const renderKey = (k) => {
+    const lit = litNote === k.n || (litSet != null && litSet.includes(k.n));
+    const finger = fingerMap[k.n];
+    return (
+      <div key={k.n}
+        className={`pk ${k.t}${lit ? " lit" : ""}${flash === k.n ? " flash" : ""}`}
+        style={k.t === "b" ? { left: (((k.after + 1) / NW) * 100 - bw / 2) + "%", width: bw + "%" } : undefined}
+        onClick={() => press(k.n)}>
+        {k.t === "w" && <span className="kn">{k.l}</span>}
+        {lit && finger != null && <span className="finger">{finger}</span>}
+      </div>
+    );
+  };
   return (
-    <div className="kr" style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: "1px", overflowX: "auto", padding: "0 4px 20px" }}>
-      {keys.map(k => {
-        const lit = litNote === k.n || (litSet != null && litSet.includes(k.n));
-        const finger = fingerMap[k.n];
-        const style = k.t === "w"
-          ? { width: wW, height: wH }
-          : { width: bW, height: bH, marginLeft: -(bW / 2), marginRight: -(bW / 2) };
-        return (
-          <div key={k.n}
-            className={`pk ${k.t}${lit ? " lit" : ""}${flash === k.n ? " flash" : ""}`}
-            style={style}
-            onClick={() => press(k.n)}>
-            {k.t === "w" && <span className="kn">{k.l}</span>}
-            {lit && finger != null && <span className="finger">{finger}</span>}
-          </div>
-        );
-      })}
+    <div className={`kr${small ? " kr-sm" : ""}`}>
+      {whites.map(renderKey)}
+      {blacks.map(renderKey)}
     </div>
   );
 });
@@ -11278,9 +11307,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         setPracticeHitIdxs(Array.from(hit));
         if (hit.size >= targets.length) finishPractice();
       } else {
-        practiceMissRef.current += 1;
-        setPracticeMiss(practiceMissRef.current);
-        setPracticeHeard({ note: heardNote, ok: false });
+        // A block chord keeps ringing after the first hit, and a learner who only
+        // got some notes often replays the WHOLE chord to catch the rest — either
+        // way the mic can re-report a note already matched. That's not a mistake,
+        // just an echo of a correct note, so it must never count against accuracy.
+        const isRepeat = targets.some((tn, i) => hit.has(i) && pcOf(tn) === pcOf(heardNote));
+        if (!isRepeat) {
+          practiceMissRef.current += 1;
+          setPracticeMiss(practiceMissRef.current);
+        }
+        setPracticeHeard({ note: heardNote, ok: isRepeat });
       }
     } else {
       const idx = practiceIdxRef.current;
