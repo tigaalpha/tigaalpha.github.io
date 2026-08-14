@@ -1070,6 +1070,10 @@ function audioBus() {
 }
 // piano-like timbre: fundamental + harmonics; higher partials decay faster
 const _PARTIALS = [[1, 1.0, 1.0], [2, 0.5, 0.72], [3, 0.26, 0.52], [4, 0.13, 0.4], [6, 0.07, 0.3]];
+// Every oscillator/gain pair playPianoNote has started that hasn't finished
+// ringing out yet — tracked so stopAllPianoNotes() can actually silence them
+// (self-pruned via each oscillator's own onended, so this never grows unbounded).
+let _activeNotes = [];
 function playPianoNote(note, dur = 0.7) {
   try {
     if (_sfxMuted) return;
@@ -1098,6 +1102,9 @@ function playPianoNote(note, dur = 0.7) {
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * dscale + 0.06);
       osc.connect(g); g.connect(lp);
       osc.start(t0); osc.stop(t0 + dur * dscale + 0.14);
+      const entry = { osc, g };
+      _activeNotes.push(entry);
+      osc.onended = () => { const i = _activeNotes.indexOf(entry); if (i >= 0) _activeNotes.splice(i, 1); };
     }
   } catch (e) {}
 }
@@ -1205,6 +1212,32 @@ function _accIsSuppressed(freq) {
   const now = Date.now();
   _accSuppress = _accSuppress.filter(s => s.until > now);
   return _accSuppress.some(s => freq >= s.lo && freq <= s.hi);
+}
+// Instantly silence every piano note currently ringing, instead of just waiting
+// out its own decay envelope. Each oscillator playPianoNote started is tracked
+// in _activeNotes specifically so this can cancel its own gain ramp and stop it
+// directly — cutting the shared bus instead (a single node every note passes
+// through) sounds like a fix but isn't one: each note's OWN gain envelope keeps
+// running upstream of the bus regardless, so it would simply resume audibly the
+// moment the bus was turned back up. Used right before a mic listener starts
+// (Practice Mode opening, a chord-style toggle's own preview, leaving the page)
+// so there's nothing left ringing for it to mishear as a real key press — and
+// since nothing is left ringing, any suppression entries still on the books are
+// now stale and would only risk blocking a genuine same-pitch replay, so
+// they're cleared here too.
+function stopAllPianoNotes() {
+  const ac = _busCtx || getAC();
+  const now = ac.currentTime;
+  for (const { osc, g } of _activeNotes) {
+    try {
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(g.gain.value, now);       // freeze at wherever its ramp currently is
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+      osc.stop(now + 0.04);
+    } catch (e) {}
+  }
+  _activeNotes = [];
+  _accSuppress = [];
 }
 
 // soft "got it, thinking…" earcon so the learner knows the AI heard them
@@ -11099,6 +11132,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setLitSet(null);
     setFingerMap({});
     setSeqPlaying(false);
+    stopAllPianoNotes(); // actually silence a still-ringing demo, not just reset its UI state
   }
 
   /* Play a sequence: ascending then descending, with finger numbers */
@@ -11352,7 +11386,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   async function startPractice() {
     const seq = lastSeq.current;
     if (!seq || !seq.notes || !seq.notes.length) return;
-    clearSeq(); // stop any still-ringing demo chord before the mic starts listening — belt-and-braces alongside the echo-suppression filter, so there's nothing left for it to mishear as the first "played" note
+    clearSeq(); // actually silence any still-ringing demo chord before the mic starts listening (clearSeq now really stops the audio, not just the UI state)
     // finger numbers for the currently selected hand (falls back to the played fingers)
     const pf = fingersForNotes(seq.key, seq.mode, seq.notes, hand);
     let notes = seq.notes.slice();
@@ -13001,6 +13035,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       for (const n of lit) playPianoNote(n, 1.2 / sp);
       await vmWait(1200 / sp);
       setVmLit([]);
+      stopAllPianoNotes(); // the chord-ear beta listens right after this — same self-echo risk Practice Mode had, same fix
     } else {
       for (const n of notes) {
         if (!vmActiveRef.current) { setVmLit([]); return; }
