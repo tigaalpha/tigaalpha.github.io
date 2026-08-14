@@ -199,6 +199,7 @@ export interface Database {
           needs_review: boolean;
           last_followed_up_at: string | null;
           follow_up_count: number;
+          trial_offer_sent: boolean;
           created_at: string;
           updated_at: string;
         };
