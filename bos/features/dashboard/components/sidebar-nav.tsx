@@ -39,6 +39,7 @@ import {
   Building2,
   Gauge,
   LineChart,
+  UserCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -86,6 +87,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Sales & CRM",
     items: [
       { href: "/chat", label: "Inbox", icon: MessagesSquare },
+      { href: "/attendance", label: "ยืนยันการมาเรียน", icon: UserCheck },
       { href: "/students", label: "Students / CRM", icon: Users },
       { href: "/sales", label: "Sales Pipeline", icon: KanbanSquare },
       { href: "/booking", label: "Bookings", icon: CalendarPlus },

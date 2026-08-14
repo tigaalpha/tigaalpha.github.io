@@ -687,6 +687,28 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["agent_schedules"]["Row"]>;
         Relationships: [];
       };
+      attendance_reminder_schedules: {
+        Row: {
+          id: string;
+          customer_id: string;
+          day_of_week: number;
+          time_of_day: string;
+          active: boolean;
+          next_occurrence_at: string;
+          last_reminded_occurrence: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["attendance_reminder_schedules"]["Row"]> & {
+          customer_id: string;
+          day_of_week: number;
+          time_of_day: string;
+          next_occurrence_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["attendance_reminder_schedules"]["Row"]>;
+        Relationships: [];
+      };
       automation_rules: {
         Row: {
           id: string;
