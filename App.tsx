@@ -1506,7 +1506,14 @@ async function startMicListener(onDetect, onReady, onError, opts) {
       const captureNotes = () => {
         analyser.getFloatFrequencyData(db);      // dB → linear magnitude
         for (let i = 0; i < db.length; i++) { const v = db[i]; mag[i] = v <= -160 ? 0 : Math.pow(10, v / 20); }
-        return detectPolyNotes(mag, ac.sampleRate, analyser.fftSize);
+        // Drop any note that's an echo of audio WE just played — the demo
+        // preview (which can still be ringing when Practice Mode opens) or the
+        // "correct!" confirmation chime, both routed through playPianoNote,
+        // which already blacklists its own frequency band via _accMarkSuppress.
+        // The monophonic listener already respects that blacklist; this path
+        // didn't, which is exactly how a chord could grade itself "correct"
+        // before the learner has touched a key.
+        return detectPolyNotes(mag, ac.sampleRate, analyser.fftSize).filter(n => !_accIsSuppressed(NF[n]));
       };
       // A real chord strike is never perfectly simultaneous across fingers, and
       // the first ~90ms is dominated by hammer/attack noise that muddies the
@@ -11345,6 +11352,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   async function startPractice() {
     const seq = lastSeq.current;
     if (!seq || !seq.notes || !seq.notes.length) return;
+    clearSeq(); // stop any still-ringing demo chord before the mic starts listening — belt-and-braces alongside the echo-suppression filter, so there's nothing left for it to mishear as the first "played" note
     // finger numbers for the currently selected hand (falls back to the played fingers)
     const pf = fingersForNotes(seq.key, seq.mode, seq.notes, hand);
     let notes = seq.notes.slice();
