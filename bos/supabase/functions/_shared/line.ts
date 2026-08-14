@@ -26,12 +26,28 @@ async function call(path: string, body: unknown): Promise<void> {
   }
 }
 
-export function reply(replyToken: string, text: string): Promise<void> {
-  return call("/message/reply", { replyToken, messages: [{ type: "text", text }] });
+// LINE quick replies: up to 13 tappable buttons attached to a text message,
+// each label capped at 20 characters by LINE's own API. Tapping one sends
+// its text back as an ordinary customer message -- no new message type or
+// webhook handling needed on our side.
+function buildQuickReply(labels?: string[]): { items: { type: "action"; action: { type: "message"; label: string; text: string } }[] } | undefined {
+  if (!labels || labels.length === 0) return undefined;
+  return {
+    items: labels.slice(0, 13).map((label) => ({
+      type: "action",
+      action: { type: "message", label: label.slice(0, 20), text: label },
+    })),
+  };
 }
 
-export function push(userId: string, text: string): Promise<void> {
-  return call("/message/push", { to: userId, messages: [{ type: "text", text }] });
+export function reply(replyToken: string, text: string, quickReplies?: string[]): Promise<void> {
+  const quickReply = buildQuickReply(quickReplies);
+  return call("/message/reply", { replyToken, messages: [{ type: "text", text, ...(quickReply ? { quickReply } : {}) }] });
+}
+
+export function push(userId: string, text: string, quickReplies?: string[]): Promise<void> {
+  const quickReply = buildQuickReply(quickReplies);
+  return call("/message/push", { to: userId, messages: [{ type: "text", text, ...(quickReply ? { quickReply } : {}) }] });
 }
 
 /** Sends a message to every follower of the LINE Official Account — the "post" for LINE in social-publish. */

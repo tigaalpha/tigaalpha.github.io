@@ -105,8 +105,8 @@ async function processEvents(admin: ReturnType<typeof createAdminClient>, events
           return;
         }
 
-        const { reply: text } = await respond(admin, conversationId, messageText);
-        await reply(replyToken, text);
+        const { reply: text, quickReplies } = await respond(admin, conversationId, messageText);
+        await reply(replyToken, text, quickReplies);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         await logSystemEvent(admin, "line-webhook", "error", `Failed to reply to LINE message: ${message}`);
