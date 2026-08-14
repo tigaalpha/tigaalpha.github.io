@@ -61,8 +61,12 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
     if (!conversationId || !draft.trim()) return;
     setSending(true);
     const supabase = createClient();
-    await supabase.from("messages").insert({ conversation_id: conversationId, sender: "owner", content: draft.trim() });
-    setDraft("");
+    // send-staff-reply both delivers to the customer (a real LINE push for
+    // LINE conversations -- inserting the row alone never reached them) and
+    // inserts the message row; the Realtime subscription above then picks
+    // up that insert and renders it here, same as any other new message.
+    const { error } = await supabase.functions.invoke("send-staff-reply", { body: { conversationId, content: draft.trim() } });
+    if (!error) setDraft("");
     setSending(false);
   }
 
