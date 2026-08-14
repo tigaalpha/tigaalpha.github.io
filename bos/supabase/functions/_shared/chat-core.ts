@@ -82,6 +82,7 @@ export async function respond(
         metadata: { cached: true },
       });
       await db.from("ai_response_cache").update({ hits: cached.hits + 1 }).eq("id", cached.id);
+      await db.from("conversations").update({ last_stage: "opening" }).eq("id", conversationId);
       return { reply: cached.reply, needsReview: false, quickReplies: isOpeningMessage ? OPENING_QUICK_REPLIES : undefined };
     }
   }
@@ -95,7 +96,7 @@ export async function respond(
   // to be escalated to herself.
   if (conversation?.channel !== "internal" && HANDOFF_TRIGGERS.some((phrase) => customerMessage.includes(phrase))) {
     await db.from("messages").insert({ conversation_id: conversationId, sender: "ai", content: HANDOFF_REPLY, metadata: { fallback: true } });
-    await db.from("conversations").update({ needs_review: true }).eq("id", conversationId);
+    await db.from("conversations").update({ needs_review: true, last_stage: "handoff" }).eq("id", conversationId);
     await db.from("notifications").insert({ type: "ai_needs_review", title: "ลูกค้าขอคุยกับเจ้าของร้าน", body: customerMessage.slice(0, 300) });
     const { data: ownerLineIdRow } = await db.from("integration_settings").select("value").eq("key", "owner_line_user_id").maybeSingle();
     if (ownerLineIdRow?.value) {
@@ -207,6 +208,11 @@ export async function respond(
         ...(usedFallback ? { metadata: { fallback: true } } : {}),
       });
 
+      // Cheap, real signal for "where did this conversation stall" -- no
+      // extra AI call, derived from what already happened this turn. Used
+      // by the Sales dashboard's drop-off breakdown (dropOffStageCounts).
+      const stage = usedFallback ? "fallback" : usedTools ? "tool_used" : isOpeningMessage ? "opening" : "general";
+
       // The bot just admitted it couldn't produce a real answer even after a
       // retry -- tell the owner right away instead of leaving a customer
       // stuck talking to a broken loop for days (confirmed in production:
@@ -214,8 +220,10 @@ export async function respond(
       // escalated before this fix). Same two writes flag_needs_review's own
       // tool handler does (tools.ts).
       if (usedFallback) {
-        await db.from("conversations").update({ needs_review: true }).eq("id", conversationId);
+        await db.from("conversations").update({ needs_review: true, last_stage: stage }).eq("id", conversationId);
         await db.from("notifications").insert({ type: "ai_needs_review", title: "AI escalated a conversation", body: "AI ตอบไม่ได้หลังจากลองใหม่แล้ว ต้องการให้เจ้าของช่วยตอบ" });
+      } else {
+        await db.from("conversations").update({ last_stage: stage }).eq("id", conversationId);
       }
 
       // Only cache plain knowledge-lookup answers — a reply that used tools
@@ -257,7 +265,7 @@ export async function respond(
     }
   }
 
-  await db.from("conversations").update({ needs_review: true }).eq("id", conversationId);
+  await db.from("conversations").update({ needs_review: true, last_stage: "fallback" }).eq("id", conversationId);
   const fallback = "ขอโทษค่ะ ขอเวลาตรวจสอบข้อมูลเพิ่มเติมกับทางทีมงานก่อนนะคะ เดี๋ยวจะรีบติดต่อกลับค่ะ";
   await db.from("messages").insert({ conversation_id: conversationId, sender: "ai", content: fallback, metadata: { fallback: true } });
   return { reply: fallback, needsReview: true };
