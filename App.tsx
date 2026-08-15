@@ -34,6 +34,7 @@ import {
   PC_SOLFA, PC_SOLFA_TH, EG_INT_BASE, EG_INT_FULL, RC_LEVELS, CHORD_MOODS,
   _PC, playBackingChord, songTonic, detectSongMatch,
 } from "./music-engine";
+import { loadHandLandmarker, HAND_BONES, handRoundness } from "./hand-pose";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -636,54 +637,6 @@ const SIGHT_ROUND = 10; // notes per sight-reading round
 // staff "step": bottom line = 0, each line-or-space = 1 up. Treble bottom line = E4,
 // bass bottom line = G2 — pick the base so each clef's lines land in the right place.
 
-/* ════════════════════════════════════════════════════════════
-   HAND-POSTURE COACH — lazy-load MediaPipe Tasks Vision (hand
-   landmarks) from CDN in the learner's browser, draw a live skeleton
-   and give simple posture feedback. Not key-detection — a mirror/coach.
-════════════════════════════════════════════════════════════ */
-const MP_VER = "0.10.14";
-let _handLm = null, _mpLoading = null;
-async function loadHandLandmarker() {
-  if (_handLm) return _handLm;
-  if (_mpLoading) return _mpLoading;
-  _mpLoading = (async () => {
-    const url = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
-    const vision = await import(/* @vite-ignore */ url);
-    const fileset = await vision.FilesetResolver.forVisionTasks(url + "/wasm");
-    _handLm = await vision.HandLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task" },
-      numHands: 2,
-      runningMode: "VIDEO",
-    });
-    return _handLm;
-  })();
-  return _mpLoading;
-}
-// bone connections for the 21-point MediaPipe hand
-const HAND_BONES = [
-  [0,1],[1,2],[2,3],[3,4],
-  [0,5],[5,6],[6,7],[7,8],
-  [5,9],[9,10],[10,11],[11,12],
-  [9,13],[13,14],[14,15],[15,16],
-  [13,17],[17,18],[18,19],[19,20],
-  [0,17],
-];
-const FINGER_TIPS = [8,12,16,20];   // index..pinky tips (skip thumb)
-const FINGER_PIPS = [6,10,14,18];   // matching pip joints
-// rough "are the fingers nicely curved" estimate from one hand's landmarks
-function handRoundness(lm) {
-  const wrist = lm[0];
-  const span = Math.hypot(lm[12].x - wrist.x, lm[12].y - wrist.y) || 1;
-  let curled = 0;
-  for (let i = 0; i < FINGER_TIPS.length; i++) {
-    const tip = lm[FINGER_TIPS[i]], pip = lm[FINGER_PIPS[i]];
-    const tipD = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
-    const pipD = Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
-    // curved finger → tip not much farther from the wrist than its pip joint
-    if (tipD < pipD + span * 0.18) curled++;
-  }
-  return curled / FINGER_TIPS.length; // 0 = flat, 1 = nicely curved
-}
 
 /* ── TTS ── */
 const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN" };
