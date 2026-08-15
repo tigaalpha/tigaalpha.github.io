@@ -21,7 +21,7 @@ import {
   getFingers, fingersForNotes, extractNotes, chordNotesOf, identifyChord, interpretPlayed,
   INTERVAL_FEEL, TRIAD_FEEL, SEVENTH_FEEL,
   normalizeSeq, noteKeyFrac, transposeNotes, semisFromC,
-  getAC, playPianoNote, stopAllPianoNotes, playUi, playClick, playMiss, playWhoosh, playBoom,
+  getAC, playPianoNote, stopAllPianoNotes, playUi, playClick, playMiss, playWhoosh, playBoom, haptic,
   playComboTone, startAmbient, stopAmbient, vmThinkCue, setSfxVol, setSfxMuted, getSfxVol, getSfxMuted,
   pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP, _practiceStop,
   startMidiListener, startMicListener, stopPracticeListeners, laneHue, roundRect, rhythmReport,
@@ -70,6 +70,7 @@ import { SenseiView } from "./SenseiView";
 import { VoiceTutorOverlay } from "./VoiceTutorOverlay";
 import { usePayment } from "./use-payment";
 import { useGamification } from "./use-gamification";
+import { useKeyboard } from "./use-keyboard";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -259,8 +260,6 @@ function buildAlternatingHistory(msgs, limit = 6) {
 }
 
 /* ── Audio ── */
-// light haptic tap feedback on supported devices
-function haptic(ms = 8) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
 // soft "miss" buzz for game feedback
 // Instantly silence every piano note currently ringing, instead of just waiting
 // out its own decay envelope. Each oscillator playPianoNote started is tracked
@@ -6694,17 +6693,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState(false);
-  const [litNote, setLitNote] = useState(null);
-  const [litSet, setLitSet] = useState(null);   // multiple simultaneously-lit keys, for block-chord demos
-  const [fingerMap, setFingerMap] = useState({});
-  const [fingerChart, setFingerChart] = useState(null); // {label, notes:[{note,finger}], mode} — persistent chart
-  // How chord demos are voiced: one note at a time (broken/arpeggiated) or all
-  // together (block). Toggling replays the current chord immediately in the
-  // new style — comparing both is the whole point (triad/7th/tension/slash/
-  // block/pad chord topics all go through the same "chord" demo mode).
-  const [chordStyle, setChordStyle] = useState("broken"); // "broken" | "block"
-  const [seqIsChord, setSeqIsChord] = useState(false);
-  const [hand, setHand] = useState("right");   // "right" | "left"
+  const { litNote, setLitNote, litSet, setLitSet, fingerMap, setFingerMap, fingerChart, setFingerChart, chordStyle, setChordStyle, seqIsChord, setSeqIsChord, hand, setHand, pianoOct, setPianoOct, recording, setRecording, hasClip, setHasClip, playingClip, setPlayingClip, hasSeq, setHasSeq, seqPlaying, setSeqPlaying, seqTimers, lastSeq, recordingRef, recStartRef, recEventsRef, clipRef, clipTimersRef, clearSeq, playSequence, togglePlayPause, toggleChordStyle, replayLast, handleMainKey, stopClip, toggleRecord, playClip } = useKeyboard();
   const [activeSpk, setActiveSpk] = useState(null);
   const [flagOpen, setFlagOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -6716,7 +6705,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [metroOn, setMetroOn] = useState(false);
   const [metroBpm, setMetroBpm] = useState(90);
   const [ambientOn, setAmbientOn] = useState(false);
-  const [pianoOct, setPianoOct] = useState(4);   // base octave for the on-screen keyboard
   // coins · daily chest · mascot companion
   const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
@@ -6846,14 +6834,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [theme, setTheme] = useState(getEquip("theme", "midnight"));
   const [frame, setFrame] = useState(getEquip("frame", "fr-none"));
   const [mode, setMode] = useState(getEquip("mode", "light"));   // "dark" | "light" — whole-app color scheme; light is the preset for first-time visitors, a saved preference always wins
-  const [recording, setRecording] = useState(false);
-  const [hasClip, setHasClip] = useState(false);
-  const [playingClip, setPlayingClip] = useState(false);
 
 
   // ── practice mode (listen to the learner play) ──
-  const [hasSeq, setHasSeq] = useState(false);          // is there a sequence to practice?
-  const [seqPlaying, setSeqPlaying] = useState(false);  // is the demo actively lighting up/sounding right now?
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceTarget, setPracticeTarget] = useState([]); // note names to play, in order
   const [practiceFingers, setPracticeFingers] = useState([]);
@@ -7075,8 +7058,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   const endRef = useRef(null);
   const mendRef = useRef(null);
-  const seqTimers = useRef([]);
-  const lastSeq = useRef(null);   // remembers last played sequence for the replay button
   const topicHint = useRef(null); // "scale" | "chord" — what the current lesson is about
   const lessonKey = useRef(null); // the key id picked in the lesson (e.g. "F", "Bb") — forces correct key
   // Which Pathway topic is currently being studied on the Sensei page, so a
@@ -7246,20 +7227,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => window.removeEventListener("click", close);
   }, [flagOpen]);
 
-  // recompute the fingering chart instantly when the hand is switched
-  useEffect(() => {
-    setFingerChart(prev => {
-      if (!prev) return prev;
-      let fingers = null;
-      if (prev.key) fingers = getFingers(prev.key, prev.mode, hand);
-      else if (prev.mode === "chord" || (prev.mode === "seq" && prev.notes.length === 3)) {
-        fingers = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
-      }
-      if (!fingers) return prev;
-      const pairs = prev.notes.map((p, i) => ({ note: p.note, finger: fingers[i] != null ? fingers[i] : null }));
-      return { ...prev, notes: pairs };
-    });
-  }, [hand]);
 
   // Practice Mode: recompute the on-key finger numbers when the hand is switched.
   // Recomputes from the ASCENDING-only notes (fingering data is keyed to that
@@ -7278,15 +7245,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // call setState after the component is gone (avoids leaks + React warnings)
   useEffect(() => {
     return () => {
-      seqTimers.current.forEach(t => clearTimeout(t));
-      seqTimers.current = [];
       if (tapTimer.current) clearTimeout(tapTimer.current);
       if (practiceHeardTimer.current) clearTimeout(practiceHeardTimer.current);
       cancelAnimationFrame(songRafRef.current);
       clearInterval(songHudTimerRef.current);
       songPreviewRef.current.forEach(id => clearTimeout(id));
       clearTimeout(sightFbTimer.current);
-      clipTimersRef.current.forEach(clearTimeout);
       stopPracticeListeners();
       if (vmRecRef.current) { try { vmRecRef.current.abort(); } catch (e) {} }
       stopCloudTTS(); stopSpeaking();
@@ -7301,152 +7265,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
 
 
-  function clearSeq() {
-    seqTimers.current.forEach(t => clearTimeout(t));
-    seqTimers.current = [];
-    setLitNote(null);
-    setLitSet(null);
-    setFingerMap({});
-    setSeqPlaying(false);
-    stopAllPianoNotes(); // actually silence a still-ringing demo, not just reset its UI state
-  }
 
-  /* Play a sequence: ascending then descending, with finger numbers */
-  function playSequence(parsed, styleOverride) {
-    clearSeq();
-    lastSeq.current = parsed;   // remember for replay
-    setHasSeq(true);            // enable the Practice button
-    setSeqPlaying(true);
-    const { notes, mode } = parsed;
-    setSeqIsChord(mode === "chord");
 
-    // recompute fingering for the currently selected hand
-    let fingers = parsed.fingers;
-    if (parsed.key) {
-      // key-based scale/chord: recompute exactly for that key + hand
-      fingers = getFingers(parsed.key, mode, hand);
-    } else if (!fingers) {
-      // no explicit fingers provided — fall back to a sensible default
-      if (mode === "chord" && notes.length === 3) fingers = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
-      else if (mode === "seq" && notes.length === 3) fingers = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
-    }
-    // else: use the explicit fingers passed in (e.g. transposed lesson demo)
 
-    // build a persistent fingering chart (ascending notes + finger numbers)
-    if (fingers) {
-      const pairs = notes.map((n, i) => ({ note: n, finger: fingers[i] != null ? fingers[i] : null }));
-      setFingerChart({ label: parsed.label, notes: pairs, mode, key: parsed.key || null });
-    } else {
-      setFingerChart(null);
-    }
-
-    // Chords can be voiced two ways: broken (one note at a time, like the
-    // scale/sequence path below) or block (every note struck together, so
-    // the full triad/7th/tension/slash/pad-chord shape is heard and seen at
-    // once). Triads, sevenths, tension, block/slash/pad-chord topics all
-    // share this same "chord" demo mode, so the toggle covers all of them.
-    if (mode === "chord" && (styleOverride || chordStyle) === "block") {
-      const dur = 2.6;
-      notes.forEach(n => playPianoNote(n, dur));
-      setLitSet(notes);
-      const fmap = {};
-      if (fingers) notes.forEach((n, i) => { if (fingers[i] != null) fmap[n] = fingers[i]; });
-      setFingerMap(fmap);
-      const tEnd = setTimeout(() => { setLitSet(null); setFingerMap({}); setSeqPlaying(false); }, dur * 1000 + 200);
-      seqTimers.current.push(tEnd);
-      return;
-    }
-
-    let order, fingerOrder;
-    if (mode === "chord") {
-      order = notes;
-      fingerOrder = fingers ? fingers.slice() : notes.map(() => null);
-    } else {
-      // scales/sequences: ascending then descending (skip duplicate top note)
-      const up = notes.slice();
-      const down = notes.slice(0, -1).reverse();
-      order = up.concat(down);
-      const fUp = fingers ? fingers.slice() : notes.map(() => null);
-      const fDown = fingers ? fingers.slice(0, -1).reverse() : notes.slice(0, -1).map(() => null);
-      fingerOrder = fUp.concat(fDown);
-    }
-
-    const interval = mode === "chord" ? 398 : 1094;  // 50% slower per request (was 199/547)
-    const dur = mode === "chord" ? 2.5 : 1.54;       // note length scaled to match
-
-    order.forEach((n, i) => {
-      const t = setTimeout(() => {
-        playPianoNote(n, dur);
-        setLitNote(n);
-        const fg = fingerOrder[i];
-        setFingerMap(fg != null ? { [n]: fg } : {});
-      }, i * interval);
-      seqTimers.current.push(t);
-    });
-    const tEnd = setTimeout(() => { setLitNote(null); setFingerMap({}); setSeqPlaying(false); }, order.length * interval + 400);
-    seqTimers.current.push(tEnd);
-  }
-  function togglePlayPause() {
-    playUi("click");
-    if (seqPlaying) clearSeq();       // stop right away — no need to wait it out
-    else if (lastSeq.current) playSequence(lastSeq.current); // "once more" = restart the same demo from the top
-  }
-  function toggleChordStyle() {
-    playUi("click");
-    const next = chordStyle === "block" ? "broken" : "block";
-    setChordStyle(next);
-    if (lastSeq.current && lastSeq.current.mode === "chord") playSequence(lastSeq.current, next);
-  }
-
-  // replay the last taught sequence (for the replay button on the piano)
-  function replayLast() {
-    if (lastSeq.current) playSequence(lastSeq.current);
-  }
-
-  // ── record & play back your own playing (on-screen keyboard) ──
-  const recordingRef = useRef(false);
-  const recStartRef = useRef(0);
-  const recEventsRef = useRef([]);
-  const clipRef = useRef([]);
-  const clipTimersRef = useRef([]);
-  const handleMainKey = useCallback((n) => {
-    if (recordingRef.current) recEventsRef.current.push({ note: n, t: Date.now() - recStartRef.current });
-  }, []);
-  function stopClip() {
-    clipTimersRef.current.forEach(clearTimeout);
-    clipTimersRef.current = [];
-    setPlayingClip(false);
-    setLitNote(null);
-  }
-  function toggleRecord() {
-    if (recordingRef.current) {
-      recordingRef.current = false;
-      setRecording(false);
-      clipRef.current = recEventsRef.current.slice();
-      setHasClip(clipRef.current.length > 0);
-    } else {
-      stopClip();
-      getAC();
-      recEventsRef.current = [];
-      recStartRef.current = Date.now();
-      recordingRef.current = true;
-      setRecording(true);
-      setHasClip(false);
-    }
-  }
-  function playClip() {
-    const clip = clipRef.current;
-    if (!clip.length || recordingRef.current) return;
-    stopClip();
-    getAC();
-    setPlayingClip(true);
-    clip.forEach(ev => {
-      const t = setTimeout(() => { playPianoNote(ev.note, 0.7); setLitNote(ev.note); }, ev.t);
-      clipTimersRef.current.push(t);
-    });
-    const endT = setTimeout(() => { setPlayingClip(false); setLitNote(null); }, clip[clip.length - 1].t + 800);
-    clipTimersRef.current.push(endT);
-  }
   // send the recorded performance to the AI teacher for a critique
   function critiqueRecording() {
     const clip = clipRef.current;
