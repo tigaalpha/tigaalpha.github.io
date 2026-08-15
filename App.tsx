@@ -11002,6 +11002,27 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPracticeHeard(null);
   }
 
+  // switch Block ⇄ Broken WHILE already inside a practice session (interval and
+  // every chord topic share the "chord" practice mode, so this covers both) —
+  // restarts the current attempt since block vs. broken grade completely
+  // differently (all-at-once vs. one-at-a-time), and re-acquires the mic listener
+  // because only block style needs the polyphonic path (several notes at once).
+  async function switchPracticeChordStyle() {
+    if (practiceModeRef.current !== "chord") return;
+    playUi("click");
+    const next = chordStyle === "block" ? "broken" : "block";
+    setChordStyle(next);
+    restartPractice();
+    stopPracticeListeners();
+    setPracticeSrc(null);
+    const onDetect = (d) => practiceHandlerRef.current(d);
+    const midiOk = await startMidiListener(onDetect, () => setPracticeSrc({ type: "midi" }));
+    if (!midiOk) {
+      const usePoly = next === "block";
+      await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }), usePoly ? { poly: true } : undefined);
+    }
+  }
+
   function exitPractice() {
     practiceActiveRef.current = false;
     stopPracticeListeners();
@@ -13770,14 +13791,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="practicehtitle">
               {lc.practiceTitle}
               <small>{practiceLabel}</small>
-              {practiceModeRef.current === "chord" && (
-                <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 800, color: "#d97757", border: "1px solid #d9775766", borderRadius: 5, padding: "1px 6px", verticalAlign: "middle" }}>
-                  {chordStyle === "block" ? lc.chordBlock : lc.chordBroken}
-                </span>
-              )}
             </div>
             <button className="cbtn" onClick={exitPractice}>{lc.close}</button>
           </div>
+          {practiceModeRef.current === "chord" && (
+            <div className="chordstylerow practicechordstyle">
+              <button className={`chordstylebtn${chordStyle === "broken" ? " on" : ""}`} onClick={() => chordStyle !== "broken" && switchPracticeChordStyle()}>{lc.chordBroken}</button>
+              <button className={`chordstylebtn${chordStyle === "block" ? " on" : ""}`} onClick={() => chordStyle !== "block" && switchPracticeChordStyle()}>{lc.chordBlock}</button>
+            </div>
+          )}
           <div className="practicebody">
             <div className={`practicesrc${practiceSrc && practiceSrc.type === "error" ? " err" : ""}`}>
               {!practiceSrc ? "…"
