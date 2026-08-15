@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } from "react";
-import { createClient } from "@supabase/supabase-js";
 import qrcode from "qrcode-generator";
 import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
@@ -8,6 +7,7 @@ import { CSS, useInjectCSS } from "./app-styles";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater } from "./native-updater";
+import { sb, SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-client";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -917,7 +917,6 @@ const LESSON_MODE = "__lesson__";
    in the frontend — and is required because the function has verify_jwt enabled. */
 const API_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co/functions/v1/piano-chat";
 const TTS_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co/functions/v1/piano-tts";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzYXFnYnJhY3hudWNkbXRtY3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTM1MzAsImV4cCI6MjA5NzM4OTUzMH0.vwhXn9usX4YRJdGEL8VU-E86mYfg6mZQbjkernMNXT4";
 // piano-chat/piano-tts require a genuine per-user session (not just the public
 // anon key) so they can't be called anonymously off the project's AI budget.
 // Kept up to date by the auth-state listener in App() — every fetch below reads
@@ -934,9 +933,6 @@ function apiHeaders() {
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
 const APP_VER = "13.3.0";
-/* ── Supabase client — Auth (Google/Facebook) + membership profiles ── */
-const SUPABASE_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co";
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const ALIPAY_QR = "./alipay.jpg";
 const WECHAT_QR = "./wechat.png";
 
