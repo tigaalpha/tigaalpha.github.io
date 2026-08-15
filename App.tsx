@@ -1444,11 +1444,24 @@ function detectPolyNotes(mag, sampleRate, fftSize) {
   // or top voice is often noticeably softer than the thumb/root — so this is kept
   // fairly forgiving on purpose; the ghost filters below do the precision work.
   const REL = 0.22;                              // ≥22% of the loudest note's salience
+  // Chord TONES are harmonically related by design (a fifth's own 2nd harmonic
+  // sits almost exactly where its root's 3rd harmonic lands, a third's 2nd
+  // harmonic near the root's 5th, etc.) — a semitone gap like that isn't one of
+  // the octave-ish GHOST intervals checked below, so on its own a genuinely
+  // played root note can make an UNPLAYED fifth/third look like it has real
+  // salience purely from borrowed harmonic energy, even though nothing is
+  // actually sounding at that note's own fundamental. Requiring a candidate's
+  // bare fundamental (fund[m], the h=1 term) to carry a real share of its total
+  // salience — not just its higher harmonics — rejects that phantom directly:
+  // a genuinely struck note always has a present fundamental, a borrowed-
+  // harmonic phantom almost never does.
+  const FUND_SHARE_MIN = 0.15;
   const cands = [];
   for (let m = LO; m <= HI; m++) {
     const s = sal[m];
     if (s < maxSal * REL) continue;
     if (s < (sal[m - 1] || 0) || s < (sal[m + 1] || 0)) continue; // must be a local max
+    if ((fund[m] || 0) < s * FUND_SHARE_MIN) continue;
     cands.push({ m, s });
   }
   // semitone offsets at which one note's harmonics land on another (octave, +fifth, 2-oct, +3rd, ...)
