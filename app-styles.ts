@@ -93,7 +93,7 @@ html, body, #root{background:var(--bg)}
 /* piano */
 .pw{background:var(--card3);border-bottom:1px solid #d9775733;padding:10px 8px 4px;flex-shrink:0}
 .plbl{font-family:'Orbitron',sans-serif;font-size:8px;color:var(--muted);letter-spacing:3px;text-align:center;margin-bottom:7px}
-.kr{display:flex;position:relative;width:100%;max-width:640px;margin:0 auto;gap:1px;padding:0 4px 20px}
+.kr{display:flex;position:relative;width:100%;max-width:1100px;margin:0 auto;gap:1px;padding:0 4px 20px}
 .pk{cursor:pointer;border-radius:0 0 4px 4px;transition:all .08s;position:relative;user-select:none}
 .pk.w{flex:1 1 0;min-width:0;height:78px;background:#fff;border:1px solid #d4cfc5;z-index:1;box-shadow:0 4px 8px rgba(0,0,0,.5)}
 .pk.b{position:absolute;top:0;height:48px;background:#060d1a;border:1px solid #001015;z-index:2;box-shadow:0 4px 12px rgba(0,0,0,.9)}
@@ -557,6 +557,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .practicehdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #d9775733;background:var(--card2);flex-shrink:0;position:relative;z-index:1}
 .practicehtitle{font-family:'Orbitron',sans-serif;font-size:12px;color:#d97757;letter-spacing:1.5px;display:flex;flex-direction:column;gap:3px}
 .practicehtitle small{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.5px;text-transform:none}
+.practicechordstyle{margin:10px 14px 0;flex-shrink:0}
 .practicebody{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:13px;position:relative;z-index:1}
 .practicesrc{text-align:center;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:.5px;padding:8px;border-radius:9px;background:rgba(217,119,87,.06);border:1px solid #d9775722;color:var(--text2)}
 .practicesrc.err{background:rgba(255,82,82,.08);border-color:#ff525233;color:#ff5252}
