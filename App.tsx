@@ -60,6 +60,8 @@ import { Splash, BannedScreen, GuestGateScreen, ProfileForm, CountUp } from "./a
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
+import { SightReadingOverlay } from "./SightReadingOverlay";
+import { CameraCoachOverlay } from "./CameraCoachOverlay";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -10650,89 +10652,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} />}
 
       {/* SIGHT-READING overlay */}
-      {sightOpen && (
-        <div className="practiceov sightov">
-          <div className="practicehdr">
-            <div className="practicehtitle">{lc.sightTitle}<small>{lc.sightSub}</small></div>
-            <button className="cbtn" onClick={exitSight}>{lc.close}</button>
-          </div>
-          <div className="practicebody">
-            {sightDone ? (
-              <div className="songresult">
-                <div className="songstars">{"★".repeat(sightDone.acc >= 90 ? 3 : sightDone.acc >= 70 ? 2 : sightDone.acc >= 40 ? 1 : 0)}{"☆".repeat(3 - (sightDone.acc >= 90 ? 3 : sightDone.acc >= 70 ? 2 : sightDone.acc >= 40 ? 1 : 0))}</div>
-                <div className="songresult-acc">{sightDone.acc}%</div>
-                <div className="songresult-grid">
-                  <div><span>{lc.sightScore}</span><b>{sightDone.correct}/{SIGHT_ROUND}</b></div>
-                  <div><span>EXP</span><b>+{sightDone.reward}</b></div>
-                </div>
-                <div className="songready-btns">
-                  <button className="songbtn ghost" onClick={exitSight}>↩ {lc.back}</button>
-                  <button className="songbtn go" onClick={openSight}>↻ {lc.sightAgain}</button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="songhud">
-                  <span>{lc.sightRoundLbl} <b>{Math.min(sightIdx + 1, SIGHT_ROUND)}/{SIGHT_ROUND}</b></span>
-                  <span>{lc.sightScore} <b>{sightScore}</b></span>
-                </div>
-                <div className="clefsel">
-                  {[["treble", lc.sightTreble, "𝄞"], ["bass", lc.sightBass, "𝄢"], ["both", lc.sightBoth, "𝄞𝄢"]].map(([m, label, gly]) => (
-                    <button key={m} className={`clefbtn${sightClef === m ? " on" : ""}`} onClick={() => pickSightClef(m)} aria-pressed={sightClef === m}>
-                      <span className="clefgly">{gly}</span>{label}
-                    </button>
-                  ))}
-                </div>
-                <div className={`staffwrap${sightFeedback ? (sightFeedback.ok ? " ok" : " bad") : ""}`}>
-                  <StaffSVG note={sightTarget} clef={sightNoteClef} />
-                </div>
-                <div className={`sighthint${sightHint ? " show" : ""}`}>
-                  {sightHint && sightTarget ? `${lc.sightAnswer}: ${pcOf(sightTarget)}` : lc.sightPrompt}
-                </div>
-                <Piano onNote={(n) => sightHandlerRef.current({ note: n, freq: null })} />
-                <div className="songsrcbar">
-                  {!sightSrc ? "…" : sightSrc.type === "midi" ? lc.practiceMidi : sightSrc.type === "mic" ? lc.practiceMic : lc.practiceMicErr}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} />}
 
       {/* HAND-POSTURE COACH overlay (camera) */}
-      {camOpen && (
-        <div className="songov camov">
-          <div className="songhdr">
-            <div className="songhtitle">✋ {lc.camTitle}</div>
-            <button className="cbtn" onClick={exitCamera}>{lc.close}</button>
-          </div>
-          <div className="camstage">
-            <video ref={camVideoRef} className="camvideo" playsInline muted />
-            <canvas ref={camCanvasRef} className="camcanvas" />
-            {camStatus === "loading" && <div className="camoverlay">{lc.camLoading}</div>}
-            {camStatus === "error" && (
-              <div className="camoverlay err">
-                <div>{lc.camError}</div>
-                <button className="songbtn go" style={{ marginTop: 14 }} onClick={retryCamera}>↻ {lc.camRetry}</button>
-              </div>
-            )}
-            {camStatus === "running" && camMsg && <div className="cammsg">{camMsg}</div>}
-            {camCoach && (
-              <div className="camcoach">
-                {camCoach.loading ? <div className="camcoach-load">🎓 {lc.camCoachLoad}</div>
-                  : <><div className="camcoach-hd">🎓 {lc.camCoachTitle}</div><div className="camcoach-tx">{camCoach.text}</div><button className="cbtn" onClick={() => setCamCoach(null)}>{lc.close}</button></>}
-              </div>
-            )}
-          </div>
-          <div className="camfoot">
-            <div className="songsrcbar">{lc.camNote}</div>
-            <div className="camfoot-btns">
-              <button className="songbtn go" onClick={analyzeHands} disabled={camStatus !== "running" || (camCoach && camCoach.loading)}>🎓 {lc.camCoachBtn}{!premium && " 🔒"}</button>
-              <button className="songbtn ghost" onClick={exitCamera}>✕ {lc.camStop}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {camOpen && <CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} />}
 
       {/* AI VOICE TUTOR overlay */}
       {vmOpen && (
