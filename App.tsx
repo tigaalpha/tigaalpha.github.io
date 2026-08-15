@@ -69,6 +69,7 @@ import { ProfileDashboardPanel } from "./ProfileDashboardPanel";
 import { SenseiView } from "./SenseiView";
 import { VoiceTutorOverlay } from "./VoiceTutorOverlay";
 import { usePayment } from "./use-payment";
+import { useGamification } from "./use-gamification";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -119,11 +120,11 @@ function vmDisplayText(reply) {
    coming back. Total EXP is stored on the Supabase profile (`exp` column);
    the level/rank is derived from it. A daily streak rewards returning often.
 ════════════════════════════════════════════════════════════ */
-const EXP = { lesson: 50, chapter: 25, ask: 10, daily: 15 };
+export const EXP = { lesson: 50, chapter: 25, ask: 10, daily: 15 };
 
 // Rank ladder — each tier needs `min` total EXP. Level number = index + 1.
 // Colors stay within the pink/magenta/wine family, deepening as the learner advances.
-const LEVELS = [
+export const LEVELS = [
   { min: 0,    icon: "🌱", c: "#d97757", th: "มือใหม่",      en: "Novice",      zh: "初学者" },
   { min: 120,  icon: "🎵", c: "#ffa8d2", th: "ผู้เริ่มต้น",   en: "Beginner",    zh: "入门" },
   { min: 300,  icon: "🎶", c: "#ff5fb1", th: "นักเรียน",     en: "Student",     zh: "学生" },
@@ -137,7 +138,7 @@ const LEVELS = [
 ];
 
 // Resolve total EXP -> { level, tier, progress to next, EXP still needed, ... }
-function levelInfo(exp) {
+export function levelInfo(exp) {
   const e = Math.max(0, exp || 0);
   let i = 0;
   for (let k = 0; k < LEVELS.length; k++) if (e >= LEVELS[k].min) i = k;
@@ -163,7 +164,7 @@ function levelInfo(exp) {
    smaller exp value (the anti-cheat trigger only blocks increases, not decreases;
    see supabase-security-hardening-migration.sql). */
 const PRESTIGE_STEP = 2000;
-function prestigeInfo(exp) {
+export function prestigeInfo(exp) {
   const e = Math.max(0, exp || 0);
   const cap = LEVELS[LEVELS.length - 1].min; // 5200 — top of the level ladder
   if (e < cap) return { tier: 0, into: 0, need: PRESTIGE_STEP };
@@ -176,12 +177,12 @@ const MASCOT_FACE = { idle: "🙂", happy: "😊", celebrate: "🤩", sad: "🥺
 
 
 /* Daily quest: complete this many learning activities in a day for a bonus. */
-const QUEST_GOAL = 3;
-const QUEST_BONUS = 40;
+export const QUEST_GOAL = 3;
+export const QUEST_BONUS = 40;
 
 /* Achievements — unlocked purely from existing stats (no extra storage).
    metric ∈ exp | lessons | streak | level. */
-const BADGES = [
+export const BADGES = [
   { id: "first", icon: "🎫", metric: "lessons", need: 1,    th: "ก้าวแรก",          en: "First Step",    zh: "第一步" },
   { id: "l10",   icon: "📚", metric: "lessons", need: 10,   th: "นักเรียนขยัน",      en: "Diligent",      zh: "勤奋学员" },
   { id: "l50",   icon: "🎓", metric: "lessons", need: 50,   th: "จอมวิริยะ",         en: "Devoted",       zh: "刻苦学员" },
@@ -201,7 +202,7 @@ function badgeMetric(p, metric) {
   if (metric === "level") return levelInfo(exp).level;
   return 0;
 }
-function unlockedBadgeIds(p) {
+export function unlockedBadgeIds(p) {
   return BADGES.filter(b => badgeMetric(p, b.metric) >= b.need).map(b => b.id);
 }
 /* how many quest activities counted today (0 if it's a new day) */
@@ -3176,7 +3177,7 @@ function logPractice(acc) {
   bumpStreak();   // a finished session counts toward the daily streak
 }
 // record EXP earned per day so the dashboard can chart growth over time
-function logExpGain(amount) {
+export function logExpGain(amount) {
   try {
     if (!amount) return;
     const log = readPracticeLog(), k = dayKey();
@@ -3382,11 +3383,11 @@ async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) 
 }
 
 /* ── coins (soft currency) + daily reward chest, all localStorage ── */
-function getCoins() { try { return +(localStorage.getItem("tg_coins") || 0); } catch (e) { return 0; } }
-function setCoinsLS(v) { try { localStorage.setItem("tg_coins", String(Math.max(0, Math.round(v)))); } catch (e) {} }
-function chestAvailable() { try { return localStorage.getItem("tg_chest_date") !== dayKey(); } catch (e) { return false; } }
+export function getCoins() { try { return +(localStorage.getItem("tg_coins") || 0); } catch (e) { return 0; } }
+export function setCoinsLS(v) { try { localStorage.setItem("tg_coins", String(Math.max(0, Math.round(v)))); } catch (e) {} }
+export function chestAvailable() { try { return localStorage.getItem("tg_chest_date") !== dayKey(); } catch (e) { return false; } }
 function chestStreak() { try { return +(localStorage.getItem("tg_chest_streak") || 0); } catch (e) { return 0; } }
-function claimChest() {
+export function claimChest() {
   let streak = 1;
   try {
     const last = localStorage.getItem("tg_chest_date");
@@ -3410,7 +3411,7 @@ function claimChest() {
    the wheel's 8 fixed wedges to land the pointer on, so the animation always
    agrees with the real payout (never "looks like jackpot, pays normal"). */
 const CHEST_WHEEL = ["normal", "normal", "big", "normal", "jackpot", "normal", "big", "normal"];
-function chestSpinAngle(kind) {
+export function chestSpinAngle(kind) {
   const idxs = CHEST_WHEEL.map((k, i) => k === kind ? i : -1).filter(i => i >= 0);
   const idx = idxs[Math.floor(Math.random() * idxs.length)];
   const center = idx * 45 + 22.5; // ° clockwise from the pointer at top (0°)
@@ -3431,7 +3432,7 @@ function bumpStreak() {  // call when the learner actually practices
   s.last = today; writeStreak(s); return s;
 }
 function streakAtRisk() { const s = readStreak(); return (s.count || 0) > 0 && s.last !== dayKey(); }
-function addFreeze(n) { const s = readStreak(); s.freezes = (s.freezes || 0) + n; writeStreak(s); return s; }
+export function addFreeze(n) { const s = readStreak(); s.freezes = (s.freezes || 0) + n; writeStreak(s); return s; }
 function grantMonthlyFreezes() {
   try {
     if (!isMaxPlan()) return;
@@ -3858,8 +3859,8 @@ const CHALLENGE_POOL = [
   { id: "perf_m",  type: "perfect", goal: 40,  icon: "🎯", th: "ทำ 40 Perfect",   en: "Hit 40 Perfects", zh: "打出 40 完美" },
   { id: "perf_l",  type: "perfect", goal: 80,  icon: "🏹", th: "ทำ 80 Perfect",   en: "Hit 80 Perfects", zh: "打出 80 完美" },
 ];
-const CHALLENGE_REWARD = 50;
-function weekKey(d = new Date()) {
+export const CHALLENGE_REWARD = 50;
+export function weekKey(d = new Date()) {
   const x = dayDate(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day);
   return x.getFullYear() + "-" + (x.getMonth() + 1) + "-" + x.getDate();
 }
@@ -3867,20 +3868,20 @@ function monthKey(d = new Date()) { const x = dayDate(d); return x.getFullYear()
 function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
 /* This week's 3 active challenges — same result on every device for the same
    weekKey(), since it depends only on that string, never on local state. */
-function activeChallenges(wk = weekKey()) {
+export function activeChallenges(wk = weekKey()) {
   const seed = hashStr(wk), n = CHALLENGE_POOL.length;
   const idxs = Array.from(new Set([seed % n, (seed * 7 + 3) % n, (seed * 13 + 11) % n]));
   for (let k = 17; idxs.length < 3; k++) { const c = (seed + k * 29) % n; if (!idxs.includes(c)) idxs.push(c); }
   return idxs.slice(0, 3).map(i => CHALLENGE_POOL[i]);
 }
-function readWeekly() {
+export function readWeekly() {
   try {
     const w = JSON.parse(localStorage.getItem("tg_weekly") || "{}");
     if (w && w.week === weekKey()) return w;
   } catch (e) {}
   return { week: weekKey(), games: 0, exp: 0, perfect: 0, claimed: [] };
 }
-function writeWeekly(w) { try { localStorage.setItem("tg_weekly", JSON.stringify(w)); } catch (e) {} }
+export function writeWeekly(w) { try { localStorage.setItem("tg_weekly", JSON.stringify(w)); } catch (e) {} }
 
 /* ── learning-pathway progress (journey map) ── */
 function pathDoneSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_path_done") || "[]")); } catch (e) { return new Set(); } }
@@ -6717,18 +6718,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [ambientOn, setAmbientOn] = useState(false);
   const [pianoOct, setPianoOct] = useState(4);   // base octave for the on-screen keyboard
   // coins · daily chest · mascot companion
-  const [coins, setCoins] = useState(getCoins());
-  const [gems, setGems] = useState(0); // server-authoritative only — no localStorage, unlike coins
-  const [chestAvail, setChestAvail] = useState(false);
-  const [chestOpen, setChestOpen] = useState(false);
-  const [chestOpening, setChestOpening] = useState(false);
-  const [chestReward, setChestReward] = useState(null);
-  const [chestSpinDeg, setChestSpinDeg] = useState(0);
-  const [mascotMood, setMascotMood] = useState("idle");
-  const mascotT = useRef(null);
+  const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
+  // useGamification() is called before usePayment() (mascot must exist in time
+  // to pass into usePayment's params) — so earnCoins/gainExp read plan via this
+  // ref, kept fresh here now that `plan` exists. See use-gamification.ts header.
+  useEffect(() => { planRef.current = plan; }, [plan]);
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     const handler = (e) => { if (e.data && e.data.type === "SW_RELOAD") window.location.reload(); };
@@ -6816,6 +6813,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const t = setInterval(check, 45000);
     return () => { alive = false; clearInterval(t); };
   }, [session]);
+  // mirrored into activeEventRef for the same reason as planRef above
+  useEffect(() => { activeEventRef.current = activeEvent; }, [activeEvent]);
   const [upsell, setUpsell] = useState(null);   // {feat} when a gated action is blocked
   const [parentOpen, setParentOpen] = useState(false);
   const [examOpen, setExamOpen] = useState(false);
@@ -6851,10 +6850,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [hasClip, setHasClip] = useState(false);
   const [playingClip, setPlayingClip] = useState(false);
 
-  // ── gamification: floating EXP toast + level-up celebration ──
-  const [expToast, setExpToast] = useState(null); // {amount, id} or null
-  const [levelUp, setLevelUp] = useState(null);   // {level, tier} or null
-  const [badgeUp, setBadgeUp] = useState(null);   // BADGES entry or null
 
   // ── practice mode (listen to the learner play) ──
   const [hasSeq, setHasSeq] = useState(false);          // is there a sequence to practice?
@@ -6896,10 +6891,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // C5: Family Battle — same device turn-based competition
   const [battleData, setBattleData] = useState<any>(null); // null | {song, scores:[{score,acc,stars},...], phase:'p1'|'p2'|'done'}
   const [battlePickOpen, setBattlePickOpen] = useState(false);
-  // Gamification: mystery chest + lucky bonus
-  const [mysteryChest, setMysteryChest] = useState<any>(null); // {xp, coins, label} | null
-  const [luckyToast, setLuckyToast] = useState<any>(null); // {xp, label} | null
-  const luckyToastTimer = useRef<any>(null);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
   const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
   const [songStaffNotes, setSongStaffNotes] = useState([]); // upcoming notes shown on the reading staff
@@ -7094,35 +7085,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [activeStageId, setActiveStageId] = useState(null);
   const [activeStageType, setActiveStageType] = useState(null); // chosen chord/interval type, if any — lets "Change Key" reopen straight at the key picker
 
-  // ── gamification refs: mirror EXP/lessons so rapid awards never read stale state ──
   const uid = session && session.user && session.user.id;
-  const expRef = useRef((profile && profile.exp) || 0);
-  const lessonsRef = useRef((profile && profile.lessons_done) || 0);
-  const streakRef = useRef((profile && profile.streak) || 0);
-  const questDateRef = useRef((profile && profile.quest_date) || null);
-  const questCountRef = useRef((profile && profile.quest_count) || 0);
-  const expToastTimer = useRef(null);
-  const lvUpTimer = useRef(null);
-  const badgeTimer = useRef(null);
-  useEffect(() => { expRef.current = (profile && profile.exp) || 0; }, [profile]);
-  useEffect(() => { lessonsRef.current = (profile && profile.lessons_done) || 0; }, [profile]);
-  useEffect(() => { streakRef.current = (profile && profile.streak) || 0; }, [profile]);
-  useEffect(() => {
-    questDateRef.current = (profile && profile.quest_date) || null;
-    questCountRef.current = (profile && profile.quest_count) || 0;
-  }, [profile]);
-  // sync coins from Supabase on login — take max so offline-earned coins are never lost
-  useEffect(() => {
-    if (!profile || profile.coins == null) return;
-    const local = getCoins();
-    const merged = Math.max(profile.coins, local);
-    if (merged !== local) setCoinsLS(merged);
-    setCoins(merged);
-    if (merged !== profile.coins && uid) sb.from("profiles").update({ coins: merged }).eq("id", uid).then(() => {}, () => {});
-  }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  // gems have no client write path at all (see supabase-gamification-gems-migration.sql)
-  // so this just mirrors whatever the server RPCs have already granted/spent
-  useEffect(() => { setGems((profile && profile.gems) || 0); }, [profile && profile.gems]);
 
   // Periodically snapshot the learner's progress to Supabase so a teacher/admin
   // can review each student's learning from the back office (also on app hide).
@@ -7137,17 +7100,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => { clearTimeout(t); clearInterval(iv); document.removeEventListener("visibilitychange", onHide); window.removeEventListener("pagehide", onPageHide); };
   }, [uid]);
 
-  // celebrate the first newly-unlocked achievement between two stat snapshots
-  function celebrateNewBadges(before, after) {
-    const had = unlockedBadgeIds(before);
-    const got = unlockedBadgeIds(after).find(id => !had.includes(id));
-    if (got) {
-      setBadgeUp(BADGES.find(b => b.id === got));
-      playUi("badge");
-      clearTimeout(badgeTimer.current);
-      badgeTimer.current = setTimeout(() => setBadgeUp(null), 3600);
-    }
-  }
 
   // ── practice-mode refs: progress lives in refs so the audio/MIDI callbacks
   // (created once when practice starts) never read stale React state ──
@@ -7329,9 +7281,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       seqTimers.current.forEach(t => clearTimeout(t));
       seqTimers.current = [];
       if (tapTimer.current) clearTimeout(tapTimer.current);
-      if (expToastTimer.current) clearTimeout(expToastTimer.current);
-      if (lvUpTimer.current) clearTimeout(lvUpTimer.current);
-      if (badgeTimer.current) clearTimeout(badgeTimer.current);
       if (practiceHeardTimer.current) clearTimeout(practiceHeardTimer.current);
       cancelAnimationFrame(songRafRef.current);
       clearInterval(songHudTimerRef.current);
@@ -7349,126 +7298,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     };
   }, []);
 
-  // show a floating "+N EXP" toast that auto-dismisses
-  function showExpToast(amount) {
-    setExpToast({ amount, id: Date.now() });
-    clearTimeout(expToastTimer.current);
-    expToastTimer.current = setTimeout(() => setExpToast(null), 2200);
-  }
 
-  // award EXP for an action, persist to Supabase, and celebrate level-ups.
-  // opts.lesson=true also increments the lessons-completed counter.
-  function gainExp(amount, opts = {}) {
-    // Guests (no real uid) still get the full local experience — optimistic
-    // update, toast, level-up, badges — just none of the server-side RPCs
-    // below, which are SECURITY DEFINER / auth.uid()-gated and structurally
-    // can't succeed without a real session regardless of what id is passed.
-    if (!amount || (!uid && !isGuest)) return;
-    if (activeEvent && activeEvent.expMult > 1) amount = Math.round(amount * activeEvent.expMult);
-    mascot("happy", 1400);
-    bumpWeekly("exp", amount);
-    if (uid) {
-      sb.rpc("league_bump_exp", { p_week_key: weekKey(), p_amount: amount }).then(() => {}, () => {});
-      sb.rpc("school_quest_bump", { p_amount: amount }).then(() => {}, () => {}); // no-ops silently if not in a school / no active quest
-    }
-    const beforeExp = expRef.current;
-    const beforeLessons = lessonsRef.current;
 
-    // daily-quest progress (counts learning activities; resets each calendar day)
-    let questFields = null, bonus = 0;
-    if (opts.quest) {
-      const today = ymd(new Date());
-      const cnt = (questDateRef.current === today ? questCountRef.current : 0) + 1;
-      questDateRef.current = today;
-      questCountRef.current = cnt;
-      questFields = { quest_date: today, quest_count: cnt };
-      if (cnt === QUEST_GOAL) bonus = QUEST_BONUS; // quest just completed → bonus
-    }
-
-    const after = beforeExp + amount + bonus;
-    const newLessons = beforeLessons + (opts.lesson ? 1 : 0);
-    expRef.current = after;
-    lessonsRef.current = newLessons;
-    logExpGain(amount + bonus);   // daily EXP for the progress dashboard
-
-    if (setProfile) setProfile(p => {
-      const next = { ...(p || {}), exp: after, lessons_done: newLessons, ...(questFields || {}) };
-      if (isGuest) saveGuestProfile(next);
-      return next;
-    });
-    showExpToast(amount + bonus);
-
-    // level-up celebration
-    let leveled = false;
-    if (levelInfo(after).level > levelInfo(beforeExp).level) {
-      leveled = true;
-      setLevelUp({ level: levelInfo(after).level, tier: levelInfo(after).tier });
-      playUi("levelup"); mascot("celebrate", 3200);
-      clearTimeout(lvUpTimer.current);
-      lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
-    } else if (prestigeInfo(after).tier > prestigeInfo(beforeExp).tier) {
-      // past the level-10 cap: celebrate each new Legend Star the same way a
-      // level-up is celebrated, so the loyalest players still get feedback
-      leveled = true;
-      const pTier = prestigeInfo(after).tier;
-      setLevelUp({ level: 10, tier: LEVELS[LEVELS.length - 1], prestige: pTier });
-      playUi("levelup"); mascot("celebrate", 3200);
-      clearTimeout(lvUpTimer.current);
-      lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
-      earnCoins(150);
-      // gems are granted server-side (re-derived from real exp, idempotent) —
-      // this app.tsx client never decides or sends a gem amount itself. Guests
-      // structurally can't reach this (auth.uid()-gated RPC, no real session).
-      if (uid) {
-        sb.rpc("grant_gems_for_prestige").then(({ data: r }) => {
-          if (r && r.granted > 0 && setProfile) setProfile(p => ({ ...(p || {}), gems: ((p && p.gems) || 0) + r.granted }));
-        }, () => {});
-      }
-    }
-    // achievement unlock (skip the toast if a level-up already shows this tick)
-    if (!leveled) {
-      celebrateNewBadges(
-        { exp: beforeExp, lessons_done: beforeLessons, streak: streakRef.current },
-        { exp: after, lessons_done: newLessons, streak: streakRef.current }
-      );
-    }
-
-    // persist (fire-and-forget; UI already updated optimistically) — guests
-    // already persisted above, via saveGuestProfile() inside setProfile()
-    if (uid) {
-      const upd = { exp: after, lessons_done: newLessons, updated_at: new Date().toISOString() };
-      if (questFields) Object.assign(upd, questFields);
-      sb.from("profiles").update(upd).eq("id", uid).then(() => {}, () => {});
-    }
-  }
-
-  // daily streak + welcome-back bonus — runs once per calendar day on app open
-  useEffect(() => {
-    if (!uid) return;
-    const today = ymd(new Date());
-    if (profile && profile.last_active === today) return; // already counted today
-    const beforeExp = expRef.current;
-    const beforeStreak = streakRef.current;
-    const yesterday = ymd(new Date(Date.now() - 86400000));
-    const newStreak = profile && profile.last_active === yesterday ? (beforeStreak || 0) + 1 : 1;
-    const after = beforeExp + EXP.daily;
-    expRef.current = after;
-    streakRef.current = newStreak;
-    if (setProfile) setProfile(p => ({ ...(p || {}), exp: after, streak: newStreak, last_active: today }));
-    sb.from("profiles")
-      .update({ exp: after, streak: newStreak, last_active: today, updated_at: new Date().toISOString() })
-      .eq("id", uid)
-      .then(() => {}, () => {});
-    const t = setTimeout(() => {
-      showExpToast(EXP.daily); // brief welcome-back reward
-      celebrateNewBadges(
-        { exp: beforeExp, lessons_done: lessonsRef.current, streak: beforeStreak },
-        { exp: after, lessons_done: lessonsRef.current, streak: newStreak }
-      );
-    }, 800);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   function clearSeq() {
     seqTimers.current.forEach(t => clearTimeout(t));
@@ -9725,17 +9556,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       if (bpm >= 40 && bpm <= 240) setMetroBpm(bpm);
     }
   }
-  // coins + mascot + daily chest
-  function earnCoins(n) {
-    const mult = (isMaxPlan(plan) ? 2 : 1) * (activeEvent && activeEvent.coinMult > 1 ? activeEvent.coinMult : 1);
-    const v = getCoins() + n * mult;
-    setCoinsLS(v); setCoins(v);
-    if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
-    // guests have no uid to write to — mirror into the synthetic guest profile
-    // too (not just the separate tg_coins cache) so profile.coins stays
-    // accurate for reads elsewhere and the eventual login-time merge sees it.
-    else if (isGuest && setProfile) setProfile(p => { const next = { ...(p || {}), coins: v }; saveGuestProfile(next); return next; });
-  }
   function reviewTopic(t) {
     if (requireLogin("ai")) return; // always a live-AI ask, no local fallback
     setActiveStageId(null); // free-text question, not a Pathway topic+key — no "change key" back button
@@ -9792,34 +9612,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       return all;
     });
   }
-  // gems -> coins conversion. The RPC itself already updates profiles.coins
-  // server-side (see supabase-gamification-gems-migration.sql) — this only
-  // mirrors that result into local state, it never writes coins again itself.
-  async function exchangeGems(n) {
-    const { data: r, error } = await sb.rpc("spend_gems_for_coins", { p_gems: n });
-    if (error || !r) { mascot("sad", 1200); return false; }
-    setProfile(p => ({ ...(p || {}), gems: Math.max(0, ((p && p.gems) || 0) - r.spent) }));
-    const v = getCoins() + r.coins; setCoinsLS(v); setCoins(v);
-    playUi("reward"); mascot("celebrate", 1600);
-    return true;
-  }
-  function buyFreeze() {
-    const cost = 120;
-    if (getCoins() < cost) { mascot("sad", 1200); playMiss(); return; }
-    const v = getCoins() - cost; setCoinsLS(v); setCoins(v); if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
-    addFreeze(1); playUi("reward"); mascot("celebrate", 1600);
-  }
-  function bumpWeekly(type, n = 1) {
-    const w = readWeekly();
-    w[type] = (w[type] || 0) + n;
-    if (!Array.isArray(w.claimed)) w.claimed = [];
-    for (const ch of activeChallenges()) {
-      if ((w[ch.type] || 0) >= ch.goal && !w.claimed.includes(ch.id)) { w.claimed.push(ch.id); earnCoins(CHALLENGE_REWARD); playUi("reward"); }
-    }
-    writeWeekly(w);
-  }
-  function mascot(mood, ms = 2200) { setMascotMood(mood); clearTimeout(mascotT.current); mascotT.current = setTimeout(() => setMascotMood("idle"), ms); }
-  useEffect(() => { setChestAvail(chestAvailable()); }, []);
   useEffect(() => {
     document.body.dataset.skin = skin; document.body.dataset.theme = theme; document.body.dataset.frame = frame;
     document.documentElement.dataset.theme = mode;
@@ -9855,21 +9647,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <span className="shopitem-tag">{eq ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost}</span>
       </button>
     );
-  }
-  function openChestNow() {
-    if (chestOpening) return;
-    getAC();
-    // resolve the real reward FIRST — the wheel only ever plays back a result
-    // that's already locked in, it never decides the outcome itself
-    const r = claimChest();
-    setChestOpen(true); setChestOpening(true); setChestReward(r); setChestSpinDeg(0);
-    playUi("reward");
-    setTimeout(() => setChestSpinDeg(chestSpinAngle(r.kind)), 30); // next tick so the CSS transition animates from 0°
-    setTimeout(() => {
-      earnCoins(r.coins); gainExp(r.exp);
-      setChestAvail(false); setChestOpening(false);
-      playUi("levelup"); mascot("celebrate", 3200);
-    }, 2500);
   }
 
   function handleAIReply(text) {
