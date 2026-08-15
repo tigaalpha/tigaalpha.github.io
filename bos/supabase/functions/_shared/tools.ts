@@ -7,6 +7,17 @@ import { requireOwnerOrAdmin } from "./auth.ts";
 import { chunkText } from "./text.ts";
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, PAYMENT_METHODS } from "./categories.ts";
 import { sumTransactions } from "./business-metrics.ts";
+import { createPayment, confirmPayment } from "./payments.ts";
+import { push as linePush } from "./line.ts";
+
+// ISO (UTC) → Bangkok local time for display in messages, e.g. "17:00".
+function formatLessonTime(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok", hour12: false }).format(new Date(iso));
+  } catch {
+    return iso.slice(11, 16);
+  }
+}
 
 const SALES_STATUSES = [
   "new_lead", "contacted", "qualified", "interested", "trial_booked", "trial_completed",
@@ -139,6 +150,35 @@ export const AI_TOOLS: ToolDefinition[] = [
       required: ["conversationId", "reason"],
     },
   },
+  {
+    name: "create_payment_link",
+    description:
+      "Issue a PromptPay payment: the customer pays directly into the studio's bank account (PromptPay number/QR, no gateway) and the owner confirms the transfer after it arrives. Use when the customer agrees to buy a course, renew, or pay a remaining amount. The result tells you the PromptPay number, amount, and reference code to give the customer.",
+    parameters: {
+      type: "object",
+      properties: {
+        customerId: { type: "string", description: "Customer id — only needed in owner mode; customer chats are bound to the caller automatically." },
+        amount: { type: "number", description: "Amount in THB — positive, at most 1,000,000." },
+        courseId: { type: "string", description: "Course this payment covers, when known." },
+        note: { type: "string", description: "Short note on what this payment is for (e.g. renewal, 40-hour package)." },
+      },
+      required: ["amount"],
+    },
+  },
+  {
+    name: "record_attendance_confirmation",
+    description:
+      "Record whether the student confirmed they will attend an upcoming lesson (the 24h-before LINE reminder asks this). status = confirmed or declined. Pass bookingId for a one-off lesson, or scheduleId for a weekly recurring slot. Call it the moment the customer answers — this updates the calendar and alerts the owner when they can't come.",
+    parameters: {
+      type: "object",
+      properties: {
+        bookingId: { type: "string", description: "The upcoming lesson's booking id." },
+        scheduleId: { type: "string", description: "The weekly recurring slot's schedule id." },
+        status: { type: "string", enum: ["confirmed", "declined"] },
+      },
+      required: ["status"],
+    },
+  },
 ];
 
 // Only ever offered to the model on the internal/owner channel (see
@@ -210,6 +250,19 @@ export const OWNER_TOOLS: ToolDefinition[] = [
         note: { type: "string", description: "Why this bulk change is being requested." },
       },
       required: ["customerIds", "toStatus"],
+    },
+  },
+  {
+    name: "mark_payment_paid",
+    description:
+      "Owner/admin only: confirm that a PromptPay transfer has actually arrived in the studio's bank for a pending payment (check your banking app first!). Records the income in Accounting, moves the customer to won/renewed, and thanks the customer on LINE.",
+    parameters: {
+      type: "object",
+      properties: {
+        paymentId: { type: "string", description: "The payment's id (from create_payment_link)." },
+        note: { type: "string", description: "Optional note for the accounting entry." },
+      },
+      required: ["paymentId"],
     },
   },
 ];
@@ -518,6 +571,96 @@ export async function executeTool(
       await db.from("conversations").update({ needs_review: true }).eq("id", args.conversationId);
       await db.from("notifications").insert({ type: "ai_needs_review", title: "AI escalated a conversation", body: args.reason });
       return { ok: true };
+    }
+
+    case "create_payment_link": {
+      const customerId = boundCustomerId ?? String(args.customerId ?? "");
+      if (!customerId) throw new Error("customerId is required");
+      const result = await createPayment(db, {
+        customerId,
+        amount: args.amount as number,
+        courseId: args.courseId ? String(args.courseId) : null,
+        note: args.note ? String(args.note) : null,
+      });
+      return result;
+    }
+
+    case "record_attendance_confirmation": {
+      const status = String(args.status ?? "");
+      if (status !== "confirmed" && status !== "declined") throw new Error("status must be confirmed or declined");
+      const bookingId = args.bookingId ? String(args.bookingId) : null;
+      const scheduleId = args.scheduleId ? String(args.scheduleId) : null;
+      if (!bookingId && !scheduleId) throw new Error("bookingId or scheduleId is required");
+
+      let lessonLabel = "";
+      let lessonTime = "";
+      let customerId: string | null = null;
+      let googleEventId: string | null = null;
+
+      if (bookingId) {
+        const { data: booking, error } = await db
+          .from("bookings")
+          .select("id, customer_id, title, start_time, google_event_id")
+          .eq("id", bookingId)
+          .maybeSingle();
+        if (error || !booking) throw new Error("ไม่พบการจองที่ระบุ");
+        if (boundCustomerId && booking.customer_id !== boundCustomerId) throw new Error("ไม่สามารถยืนยันการจองของคนอื่นได้");
+        customerId = booking.customer_id;
+        lessonLabel = booking.title;
+        lessonTime = formatLessonTime(booking.start_time);
+        googleEventId = booking.google_event_id;
+        const { error: upErr } = await db
+          .from("bookings")
+          .update({ attendance_status: status, attendance_confirmed_at: new Date().toISOString() })
+          .eq("id", booking.id);
+        if (upErr) throw upErr;
+      } else {
+        const { data: schedule, error } = await db
+          .from("attendance_reminder_schedules")
+          .select("id, customer_id, day_of_week, time_of_day")
+          .eq("id", scheduleId)
+          .maybeSingle();
+        if (error || !schedule) throw new Error("ไม่พบตารางเรียนที่ระบุ");
+        if (boundCustomerId && schedule.customer_id !== boundCustomerId) throw new Error("ไม่สามารถยืนยันการเรียนของคนอื่นได้");
+        customerId = schedule.customer_id;
+        lessonLabel = "คาบเรียนประจำ";
+        lessonTime = schedule.time_of_day.slice(0, 5);
+        const { error: upErr } = await db
+          .from("attendance_reminder_schedules")
+          .update({ attendance_status: status, attendance_confirmed_at: new Date().toISOString() })
+          .eq("id", schedule.id);
+        if (upErr) throw upErr;
+      }
+
+      // Mirror onto the Google Calendar event (best-effort — the calendar
+      // may be disconnected; the DB row is the source of truth).
+      if (googleEventId) {
+        calendar.updateAttendanceInCalendar(googleEventId, status).catch(() => {});
+      }
+
+      if (status === "declined" && customerId) {
+        await db.from("notifications").insert({
+          type: "attendance_declined",
+          title: "นักเรียนไม่มาเรียน",
+          body: `${lessonLabel} (${lessonTime}) — นักเรียนแจ้งว่าไม่สามารถมาเรียนได้`,
+          customer_id: customerId,
+        });
+        const { data: ownerRow } = await db.from("integration_settings").select("value").eq("key", "owner_line_user_id").maybeSingle();
+        if (ownerRow?.value) {
+          linePush(ownerRow.value, `⚠️ นักเรียนไม่มาเรียน: ${lessonLabel} (${lessonTime})`).catch(() => {});
+        }
+      }
+
+      return { ok: true, lessonLabel, lessonTime, status };
+    }
+
+    case "mark_payment_paid": {
+      if (!callerId) throw new Error("Not authorized: no caller identity for this action");
+      await requireOwnerOrAdmin(db, callerId);
+      const paymentId = String(args.paymentId ?? "");
+      if (!paymentId) throw new Error("paymentId is required");
+      const result = await confirmPayment(db, { paymentId, confirmedBy: callerId, note: args.note ? String(args.note) : null });
+      return { ok: true, payment: result.payment, transaction: result.transaction };
     }
 
     case "record_transaction": {

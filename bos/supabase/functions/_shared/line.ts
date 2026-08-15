@@ -50,6 +50,18 @@ export function push(userId: string, text: string, quickReplies?: string[]): Pro
   return call("/message/push", { to: userId, messages: [{ type: "text", text, ...(quickReply ? { quickReply } : {}) }] });
 }
 
+/**
+ * Pushes an image message (e.g. the PromptPay QR) plus an optional caption.
+ * LINE requires a publicly fetchable https URL — pass the Supabase Storage
+ * public URL from payments.qr_url; when no URL is available, fall back to a
+ * text-only push instead of failing.
+ */
+export function pushImage(userId: string, imageUrl: string, caption?: string): Promise<void> {
+  const messages: unknown[] = [{ type: "image", originalContentUrl: imageUrl, previewImageUrl: imageUrl }];
+  if (caption) messages.push({ type: "text", text: caption });
+  return call("/message/push", { to: userId, messages });
+}
+
 /** Sends a message to every follower of the LINE Official Account — the "post" for LINE in social-publish. */
 export function broadcast(text: string): Promise<void> {
   return call("/message/broadcast", { messages: [{ type: "text", text }] });

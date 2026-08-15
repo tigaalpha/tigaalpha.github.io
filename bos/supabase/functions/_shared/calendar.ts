@@ -75,6 +75,26 @@ export async function deleteEvent(eventId: string): Promise<void> {
   }
 }
 
+/**
+ * Mirrors an attendance confirmation (24h-before ask) onto the calendar
+ * event: appends a Thai status line to the description and recolors the
+ * event (green = confirmed, red = declined) so the owner sees at a glance
+ * who's confirmed. Callers must tolerate failure (calendar may be
+ * disconnected) — recording the confirmation in the DB is the source of
+ * truth either way.
+ */
+export async function updateAttendanceInCalendar(eventId: string, status: "confirmed" | "declined"): Promise<void> {
+  const current = await calendarFetch(`/events/${eventId}`);
+  if (!current.ok) throw new Error(`Get event failed (${current.status}): ${await current.text()}`);
+  const event = await current.json();
+  const mark = status === "confirmed" ? "✅ ยืนยันมาเรียน (24h)" : "❌ ไม่มาเรียน (24h)";
+  const description = event.description ? `${event.description}\n${mark}` : mark;
+  await calendarFetch(`/events/${eventId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ description, colorId: status === "confirmed" ? "10" : "4" }),
+  });
+}
+
 /** Real connectivity check (used by system-health-check) -- a throwaway 1-minute-window call, true unless it throws. Never throws itself. */
 export async function checkConnection(): Promise<boolean> {
   try {

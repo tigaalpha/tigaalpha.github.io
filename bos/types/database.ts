@@ -20,6 +20,8 @@ export type LessonEventType = "normal" | "final";
 
 export type BookingStatus = "pending" | "confirmed" | "rescheduled" | "cancelled" | "completed";
 
+export type AttendanceStatus = "unconfirmed" | "confirmed" | "declined";
+
 export type ConversationChannel = "line" | "web" | "phone" | "walk_in" | "internal";
 
 export type MessageSender = "customer" | "ai" | "owner";
@@ -31,7 +33,9 @@ export type NotificationType =
   | "payment_reminder"
   | "ai_needs_review"
   | "new_customer"
-  | "system_alert";
+  | "system_alert"
+  | "payment_received"
+  | "attendance_declined";
 
 export type KnowledgeSourceType =
   | "pricing"
@@ -159,6 +163,9 @@ export interface Database {
           status: BookingStatus;
           start_time: string;
           end_time: string;
+          attendance_status: AttendanceStatus;
+          attendance_confirmed_at: string | null;
+          attendance_reminded_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -696,6 +703,8 @@ export interface Database {
           active: boolean;
           next_occurrence_at: string;
           last_reminded_occurrence: string | null;
+          attendance_status: AttendanceStatus;
+          attendance_confirmed_at: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -988,6 +997,34 @@ export interface Database {
           article_markdown: string;
         };
         Update: Partial<Database["public"]["Tables"]["app_ad_kits"]["Row"]>;
+        Relationships: [];
+      };
+      payments: {
+        Row: {
+          id: string;
+          customer_id: string;
+          course_id: string | null;
+          amount: number;
+          promptpay_target: string;
+          promptpay_payload: string;
+          qr_base64: string | null;
+          qr_url: string | null;
+          reference_code: string;
+          note: string | null;
+          status: "pending" | "paid" | "cancelled";
+          confirmed_by: string | null;
+          paid_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["payments"]["Row"]> & {
+          customer_id: string;
+          amount: number;
+          promptpay_target: string;
+          promptpay_payload: string;
+          reference_code: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["payments"]["Row"]>;
         Relationships: [];
       };
     };

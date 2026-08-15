@@ -93,6 +93,46 @@ entirely in the browser (`pdfjs-dist` for PDF, `mammoth` for DOCX — see
 `lib/extract-file-text.ts`) before calling this endpoint with the extracted
 text, same as pasting it by hand.
 
+## `create-payment` (verify_jwt: true)
+
+Mint a PromptPay payment for a customer (staff-only; the AI's
+`create_payment_link` tool is the chat-side counterpart). Money goes
+straight to the studio's bank — nothing is charged here.
+
+```json
+// Request
+{ "customerId": "uuid", "amount": 27000, "courseId": "uuid (optional)", "note": "renewal (optional)" }
+
+// Response
+{
+  "paymentId": "uuid", "amount": 27000, "promptpayTarget": "0812345678",
+  "referenceCode": "PP...", "qrUrl": "https://.../payment-qrs/...png (nullable)",
+  "instructions": "ชำระผ่านพร้อมเพย์ ..."
+}
+```
+
+Requires the studio's PromptPay ID configured first: `integration_settings`
+key `payment_config` = `{ "promptpay_id": "0812345678", "name": "Tiga Studio", "bank": "...", "income_category": "ค่าเรียนเปียโน/ดนตรี" }`.
+The QR payload is EMVCo (same algorithm as the TiGA Piano consumer app) and
+is stored on the `payments` row (`qr_base64` for the web UI, `qr_url` when
+a public Storage upload succeeded).
+
+## `verify-payment` (verify_jwt: true, owner/admin)
+
+The human-in-the-loop gate that closes the sale: the owner confirms the
+PromptPay transfer actually arrived in their banking app. Records the
+income transaction in Accounting, moves the customer to `won`/`renewed` in
+the pipeline, and thanks them on LINE. Same logic as the AI's
+`mark_payment_paid` owner tool.
+
+```json
+// Request
+{ "paymentId": "uuid", "note": "optional accounting note" }
+
+// Response
+{ "payment": { "...", "status": "paid" }, "transaction": { "..." } }
+```
+
 ## `follow-up-conversations` (verify_jwt: false)
 
 "Recover abandoned conversations" (PRD, AI Sales Employee). Runs on a
@@ -113,6 +153,25 @@ Capped at 20 conversations per run.
 // Response
 { "checked": 3, "followedUp": 2 }
 ```
+
+## Attendance confirmation (24h) — tools + reminder
+
+The `attendance-reminder` cron (every 30 min) asks each student ~24h before
+their lesson whether they'll attend — for weekly recurring slots
+(`attendance_reminder_schedules`) and one-off bookings alike, with tappable
+LINE quick replies (`✅ มาเรียน` / `❌ มาไม่ได้`).
+
+The AI records the student's answer via the `record_attendance_confirmation`
+tool (it's told to call it the moment the student answers; chat-core injects
+an `[ATTENDANCE]` note whenever the customer has an upcoming unconfirmed
+lesson):
+
+- `bookings.attendance_status` / `attendance_reminder_schedules.attendance_status`
+  → `confirmed` or `declined`
+- the Google Calendar event is recolored (green = confirmed, red = declined)
+  with a Thai status line in its description
+- a `declined` answer raises an `attendance_declined` notification and
+  pushes the owner on LINE
 
 ## `generate-article` (verify_jwt: true)
 

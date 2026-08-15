@@ -12,6 +12,8 @@ const TONE: Record<NotificationType, "default" | "success" | "warning" | "danger
   ai_needs_review: "danger",
   new_customer: "success",
   system_alert: "danger",
+  payment_received: "success",
+  attendance_declined: "warning",
 };
 
 export function NotificationsCard({ notifications }: { notifications: Tables<"notifications">[] }) {

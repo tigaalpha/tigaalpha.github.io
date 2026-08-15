@@ -33,6 +33,14 @@ const OPENING_QUICK_REPLIES = ["เรียนที่สตูดิโอ", 
 // this is a more urgent signal than the generic degenerate-reply escalation
 // below.
 const HANDOFF_TRIGGERS = ["ขอคุยกับคน", "คุยกับคน", "เจ้าของร้าน", "คุยกับเจ้าหน้าที่", "ขอคุยกับเจ้าหน้าที่", "คุยกับพนักงาน", "ขอคุยกับพนักงาน", "ติดต่อเจ้าของ"];
+
+function formatBkkTime(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok", hour12: false }).format(new Date(iso));
+  } catch {
+    return iso.slice(11, 16);
+  }
+}
 const HANDOFF_REPLY = "ได้เลยค่ะ กำลังแจ้งเจ้าของร้านให้ติดต่อกลับนะคะ รอสักครู่นะคะ 😊";
 
 async function hashQuestion(text: string): Promise<string> {
@@ -147,6 +155,47 @@ export async function respond(
       .maybeSingle();
     if (playbookRow?.value) {
       systemParts.push(`## Owner's proven sales playbook (learned from their own real closed-sale chats — follow this closely)\n${playbookRow.value}`);
+    }
+  }
+
+  // Attendance confirmation (24h-before): when this customer has an upcoming
+  // lesson they haven't confirmed yet, tell the model so the moment the
+  // student answers ("มา"/"มาไม่ได้") it records it via
+  // record_attendance_confirmation — that updates the calendar and alerts
+  // the owner when they can't come.
+  if (boundCustomerId) {
+    const now = new Date().toISOString();
+    const horizon = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString();
+    const [bookingRes, scheduleRes] = await Promise.all([
+      db
+        .from("bookings")
+        .select("id, title, start_time")
+        .in("status", ["confirmed", "rescheduled"])
+        .eq("customer_id", boundCustomerId)
+        .eq("attendance_status", "unconfirmed")
+        .gte("start_time", now)
+        .lt("start_time", horizon)
+        .order("start_time", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      db
+        .from("attendance_reminder_schedules")
+        .select("id, day_of_week, time_of_day")
+        .eq("customer_id", boundCustomerId)
+        .eq("attendance_status", "unconfirmed")
+        .gte("next_occurrence_at", now)
+        .lt("next_occurrence_at", horizon)
+        .order("next_occurrence_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    const upcoming = (bookingRes || scheduleRes) as { id?: string } | null;
+    if (upcoming) {
+      const label = bookingRes ? `${bookingRes.title} (${formatBkkTime(bookingRes.start_time)})` : `คาบเรียนประจำ (${scheduleRes.time_of_day.slice(0, 5)})`;
+      systemParts.push(
+        `[ATTENDANCE — ${label}] ยังไม่ยืนยันการมาเรียน ถ้าลูกค้าบอกว่าจะมา หรือบอกว่ามาไม่ได้ ให้เรียก record_attendance_confirmation ทันที ` +
+          `(${bookingRes ? `bookingId: ${bookingRes.id}` : `scheduleId: ${scheduleRes.id}`}, status: confirmed หรือ declined)`
+      );
     }
   }
 
