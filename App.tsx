@@ -62,6 +62,9 @@ import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
 import { SightReadingOverlay } from "./SightReadingOverlay";
 import { CameraCoachOverlay } from "./CameraCoachOverlay";
+import { SkinThemeSettings } from "./SkinThemeSettings";
+import { SfxMetronomeSettings } from "./SfxMetronomeSettings";
+import { LanguageSettings } from "./LanguageSettings";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -10917,31 +10920,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className="cbtn" onClick={() => setSettingsOpen(false)}>{lc.close}</button>
             </div>
             <div className="setbody">
-              <div className="setrow">
-                <label>{mode === "light" ? "☀️" : "🌙"} {lang === "th" ? "โหมดสี" : lang === "zh" ? "配色模式" : "Color mode"}</label>
-                <div className="setlangs" style={{ flex: "0 0 auto", width: "auto" }}>
-                  <button className={`setlangbtn${mode === "dark" ? " on" : ""}`} onClick={() => { const m = "dark"; setMode(m); setEquipLS("mode", m); }}>🌙 {lang === "th" ? "มืด" : lang === "zh" ? "深色" : "Dark"}</button>
-                  <button className={`setlangbtn${mode === "light" ? " on" : ""}`} onClick={() => { const m = "light"; setMode(m); setEquipLS("mode", m); }}>☀️ {lang === "th" ? "สว่าง" : lang === "zh" ? "浅色" : "Light"}</button>
-                </div>
-              </div>
+              <SkinThemeSettings mode={mode} setMode={setMode} setEquipLS={setEquipLS} lang={lang} />
               <div className="setdiv" />
-              <div className="setrow">
-                <label>🔊 {lc.setVolume}</label>
-                <input type="range" min="0" max="100" value={Math.round(sfxVol * 100)}
-                  onChange={e => { const v = +e.target.value / 100; setSfxVol(v); setSfxVolState(v); }} />
-              </div>
-              <div className="setrow">
-                <label>{lc.setMute}</label>
-                <button className={`settoggle${sfxMuted ? " on" : ""}`} onClick={() => { const m = !sfxMuted; setSfxMuted(m); setSfxMutedState(m); }}>
-                  {sfxMuted ? lc.setOn : lc.setOff}
-                </button>
-              </div>
-              <div className="setrow">
-                <label>🎶 {lc.setAmbient}</label>
-                <button className={`settoggle${ambientOn ? " on" : ""}`} onClick={() => { getAC(); setAmbientOn(o => !o); }}>
-                  {ambientOn ? lc.setOn : lc.setOff}
-                </button>
-              </div>
+              <SfxMetronomeSettings lang={lang} sfxVol={sfxVol} setSfxVol={setSfxVol} setSfxVolState={setSfxVolState} sfxMuted={sfxMuted} setSfxMuted={setSfxMuted} setSfxMutedState={setSfxMutedState} ambientOn={ambientOn} setAmbientOn={setAmbientOn} getAC={getAC} metroOn={metroOn} setMetroOn={setMetroOn} setAdvancedOpen={setAdvancedOpen} setSetAdvancedOpen={setSetAdvancedOpen} metroBpm={metroBpm} setMetroBpm={setMetroBpm} tapTempo={tapTempo} pushOn={pushOn} togglePush={togglePush} />
               <div className="setrow">
                 <label>⭐ Premium</label>
                 <button className={`settoggle${premium ? " on" : ""}`} onClick={() => { const v = !premium; setPremiumLS(v); setPremium(v); const np = v ? (plan === "free" ? "premium" : plan) : "free"; setPlanLS(np); setPlan(np); }}>
@@ -10950,32 +10931,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               </div>
               <button className="setbtn wide" style={{ width: "100%" }} onClick={() => { setSettingsOpen(false); premium ? setParentOpen(true) : setPricingOpen(true); }}>👨‍👩‍👧 {lc.pdTitle}{!premium && " 🔒"}</button>
               <div className="setdiv" />
-              <div className="setrow">
-                <label>🥁 {lc.setMetro}</label>
-                <button className={`settoggle${metroOn ? " on" : ""}`} onClick={() => { getAC(); setMetroOn(o => !o); }}>
-                  {metroOn ? lc.setOn : lc.setOff}
-                </button>
-              </div>
-              <button className="setbtn wide" style={{ width: "100%" }} onClick={() => setSetAdvancedOpen(o => !o)}>{setAdvancedOpen ? "▲" : "▼"} {lc.setAdvanced}</button>
-              {setAdvancedOpen && (<>
-                <div className="setrow">
-                  <label>{lc.setBpm}: <b>{metroBpm}</b></label>
-                  <input type="range" min="40" max="208" value={metroBpm} onChange={e => setMetroBpm(+e.target.value)} />
-                </div>
-                <div className="setrow setbtns">
-                  <button className="setbtn" onClick={() => setMetroBpm(b => Math.max(40, b - 5))}>−5</button>
-                  <button className="setbtn wide" onClick={tapTempo}>{lc.setTap}</button>
-                  <button className="setbtn" onClick={() => setMetroBpm(b => Math.min(208, b + 5))}>+5</button>
-                </div>
-              </>)}
-              {pushSupported() && (
-                <div className="setrow">
-                  <label>{lc.setPush}</label>
-                  <button className={`settoggle${pushOn ? " on" : ""}`} onClick={togglePush}>
-                    {pushOn ? lc.setOn : lc.setOff}
-                  </button>
-                </div>
-              )}
               {premium && (
                 <div className="setrow col">
                   <label>🎯 Auto Teaching</label>
@@ -10993,14 +10948,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 </div>
               )}
               <div className="setdiv" />
-              <div className="setrow col">
-                <label>🌐 {lc.setLang}</label>
-                <div className="setlangs">
-                  {["th", "en", "zh"].map(lg => (
-                    <button key={lg} className={`setlangbtn${lang === lg ? " on" : ""}`} onClick={() => setLang(lg)}>{FLAGS[lg]} {FLAG_NAMES[lg]}</button>
-                  ))}
-                </div>
-              </div>
+              <LanguageSettings lang={lang} setLang={setLang} />
               {installEvt && (
                 <>
                   <div className="setdiv" />
