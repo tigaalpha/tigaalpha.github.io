@@ -8788,6 +8788,75 @@ function AdminAutoTeach({ lang }) {
   );
 }
 
+/* ── Admin: which LLM the STUDENT-FACING chat/tutor calls — reads/writes the
+   same app_settings "ai_model" key the piano-chat edge function checks on
+   every request for its {message,conversationHistory,system} path. Lets Tiga
+   flip to a cheaper model instantly (no redeploy) if usage spikes. Does NOT
+   touch the admin "Teach AI" tab, which always calls Anthropic directly since
+   it needs Anthropic-specific web-search/vision tools the edge function's
+   raw-passthrough path is built around. ── */
+const AI_MODEL_PRESETS = [
+  { id: "claude", provider: "anthropic", model: "claude-sonnet-4-6", label: "Claude Sonnet" },
+  { id: "gemini-lite", provider: "gemini", model: "gemini-2.5-flash-lite", label: "Gemini Flash-Lite" },
+  { id: "gemini-flash", provider: "gemini", model: "gemini-2.5-flash", label: "Gemini Flash" },
+];
+function AdminAIModel({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [cfg, setCfg] = useState(null); // null = loading, else {provider, model}
+  const [modelInput, setModelInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const load = useCallback(() => {
+    sb.from("app_settings").select("value").eq("key", "ai_model").maybeSingle()
+      .then(({ data }) => {
+        const v = (data && data.value && data.value.provider && data.value.model) ? data.value : AI_MODEL_PRESETS[0];
+        setCfg(v); setModelInput(v.model);
+      }, () => { setCfg(AI_MODEL_PRESETS[0]); setModelInput(AI_MODEL_PRESETS[0].model); });
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function save(provider, model) {
+    if (!model || !model.trim()) return;
+    setBusy(true); setSaved(false);
+    const value = { provider, model: model.trim() };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "ai_model", p_value: value });
+    setBusy(false);
+    if (!error) { setCfg(value); setModelInput(value.model); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); }
+    else alert(error.message || "error");
+  }
+
+  if (cfg === null) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
+  return (
+    <div className="admstu">
+      <div className="admmg">
+        <div className="admmg-h">🧠 {T("โมเดล AI สำหรับแชทผู้เรียน", "AI model for the student-facing chat", "学员聊天使用的 AI 模型")}</div>
+        <div className="admstu-row-sub" style={{ marginBottom: 10 }}>
+          {T('สลับได้ทันที ไม่ต้อง deploy ใหม่ — ใช้เมื่อผู้ใช้เยอะและต้องการลดต้นทุน AI ไม่กระทบแท็บ "สอน AI" (ใช้ Claude เสมอ เพราะต้องใช้ฟีเจอร์ค้นเน็ต/รูปภาพ)',
+            'Switches instantly, no redeploy — use this to cut AI cost when usage is high. Doesn’t affect the "Teach AI" tab (always Claude, since it needs web-search/vision).',
+            '立即切换，无需重新部署 — 用户量大时用来降低 AI 成本。不影响"训练 AI"标签页（始终使用 Claude，因为需要联网/图片功能）。')}
+        </div>
+        <div className="setlangs">
+          {AI_MODEL_PRESETS.map(p => (
+            <button key={p.id} className={`setlangbtn${cfg.provider === p.provider && cfg.model === p.model ? " on" : ""}`}
+              disabled={busy} onClick={() => save(p.provider, p.model)}>{p.label}</button>
+          ))}
+        </div>
+        <div className="admstu-row-sub" style={{ marginTop: 14, marginBottom: 6 }}>
+          {T("ชื่อโมเดลที่ใช้จริง (แก้ได้ถ้าต้องการระบุเวอร์ชันอื่น):", "Exact model ID in use (editable if you need a different version):", "实际使用的模型 ID（如需其他版本可编辑）：")}
+        </div>
+        <div className="admmg-row">
+          <input className="aicreate-in" value={modelInput} onChange={e => setModelInput(e.target.value)} placeholder="e.g. gemini-2.5-flash" />
+          <button className="songbtn go" disabled={busy || !modelInput.trim()} onClick={() => save(cfg.provider, modelInput)}>{T("บันทึก", "Save", "保存")}</button>
+        </div>
+        <div className="admstu-row-sub" style={{ marginTop: 10 }}>
+          {T("ผู้ให้บริการปัจจุบัน:", "Current provider:", "当前提供商：")} <b>{cfg.provider === "gemini" ? "Google Gemini" : "Anthropic"}</b>
+        </div>
+        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10 }}>✓ {T("บันทึกแล้ว — มีผลกับข้อความถัดไปทันที", "Saved — takes effect on the next message", "已保存 — 下一条消息即生效")}</div>}
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin: broadcast a popup announcement (text + optional image) to every learner's
    home page, on demand — a one-off push, not a recurring schedule like Auto Teaching. ── */
 function AdminBroadcast({ lang }) {
@@ -9433,6 +9502,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         {tier >= 3 && <button className={`admintab${adminTab === "broadcast" ? " on" : ""}`} onClick={() => setAdminTab("broadcast")}>📢 {lang === "th" ? "ประกาศ" : lang === "zh" ? "公告" : "Broadcast"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "event" ? " on" : ""}`} onClick={() => setAdminTab("event")}>🎉 {lang === "th" ? "อีเว้นท์" : lang === "zh" ? "活动" : "Event"}</button>}
         {tier >= 3 && <button className={`admintab${adminTab === "games" ? " on" : ""}`} onClick={() => setAdminTab("games")}>🎮 {lang === "th" ? "เกม" : lang === "zh" ? "游戏" : "Games"}</button>}
+        {tier >= 3 && <button className={`admintab${adminTab === "aimodel" ? " on" : ""}`} onClick={() => setAdminTab("aimodel")}>🧠 {lang === "th" ? "โมเดล AI" : lang === "zh" ? "AI 模型" : "AI Model"}</button>}
       </div>
 
       {adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
@@ -9444,6 +9514,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "broadcast" && tier >= 3 ? <AdminBroadcast lang={lang} />
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
+        : adminTab === "aimodel" && tier >= 3 ? <AdminAIModel lang={lang} />
         : adminTab === "ai" && tier >= 3 ? (<>
 
       <div className="mmsgs">
