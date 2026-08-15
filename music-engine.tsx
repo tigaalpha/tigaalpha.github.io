@@ -1283,6 +1283,9 @@ export function staffStep(note, clef = "treble") {
   return di - base;
 }
 
+// light haptic tap feedback on supported devices
+export function haptic(ms = 8) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+
 export const Piano = memo(function Piano({ litNote = null, litSet = null, fingerMap = {}, small = false, onNote = null, baseOct = 4 }) {
   const keys = baseOct === 4 ? KEYS : keysFor(baseOct);
   const [flash, setFlash] = useState(null);
