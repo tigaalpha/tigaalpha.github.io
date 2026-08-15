@@ -1439,6 +1439,39 @@ function detectPolyNotes(mag, sampleRate, fftSize) {
     sal[m] = s; if (s > maxSal) maxSal = s;
   }
   if (maxSal <= 0) return [];
+  // ── IS ANYTHING ACTUALLY BEING PLAYED? ──────────────────────────────
+  // Every other test here is RELATIVE ("keep notes within X% of the loudest"),
+  // which means that on pure room noise there is still always a "loudest", so a
+  // purely relative detector happily reports a handful of confident notes out of
+  // silence — measured at 6 phantom notes on 12/12 noise samples, ~95% of which
+  // contained one of a given chord's target pitch classes. That, not echo, is the
+  // main reason practice could credit notes nobody played.
+  // The fix is a test with an absolute meaning: a real struck note towers over its
+  // own PITCH NEIGHBOURHOOD, whereas noise energy is spread smoothly across
+  // neighbouring candidates with nothing standing out. Comparing each note to the
+  // average of its neighbours (rather than to a global average) is invariant to
+  // both mic gain and overall spectral tilt — important because phone AGC hugely
+  // amplifies low rumble (traffic/fans/handling), which is exactly what fools a
+  // global comparison into "hearing" bass notes.
+  const LC_R = 7, LC_GUARD = 1;                  // neighbourhood = ±7 semitones, ignoring immediate neighbours (own spectral leakage)
+  const LC_PRESENT = 3.0;                        // best contrast below this ⇒ nothing is being played at all
+  const LC_CAND = 1.3;                           // per-note floor; deliberately low so a quiet inner voice beside two loud ones survives
+  const localAvgSal = (m) => {
+    let sum = 0, n = 0;
+    for (let k = m - LC_R; k <= m + LC_R; k++) {
+      if (k < LO || k > HI || Math.abs(k - m) <= LC_GUARD) continue;
+      sum += sal[k]; n++;
+    }
+    return n ? sum / n : 0;
+  };
+  const contrast = {};
+  let bestContrast = 0;
+  for (let m = LO; m <= HI; m++) {
+    const la = localAvgSal(m);
+    contrast[m] = la > 0 ? sal[m] / la : 0;
+    if (contrast[m] > bestContrast) bestContrast = contrast[m];
+  }
+  if (bestContrast < LC_PRESENT) return [];      // silence/noise only — report nothing rather than inventing a chord
   // keep notes that are a clear local peak AND a healthy fraction of the strongest.
   // A beginner rarely strikes every note of a chord at even loudness — the inner
   // or top voice is often noticeably softer than the thumb/root — so this is kept
@@ -1462,6 +1495,7 @@ function detectPolyNotes(mag, sampleRate, fftSize) {
     if (s < maxSal * REL) continue;
     if (s < (sal[m - 1] || 0) || s < (sal[m + 1] || 0)) continue; // must be a local max
     if ((fund[m] || 0) < s * FUND_SHARE_MIN) continue;
+    if (contrast[m] < LC_CAND) continue;          // smeared/tilt energy, not a note of its own
     cands.push({ m, s });
   }
   // semitone offsets at which one note's harmonics land on another (octave, +fifth, 2-oct, +3rd, ...)
@@ -1569,28 +1603,43 @@ async function startMicListener(onDetect, onReady, onError, opts) {
       // seen; the caller (handlePlayedNote) already no-ops a repeat of a note
       // it already matched, so re-seeing the same note across snapshots is safe.
       const CAPTURE_OFFSETS = [95, 230];
-      let floor = 0.004, armed = true, captures = [], seenThisOnset = null, lastFire = 0;
+      // ONSET WINDOW: the analyser's time buffer is the full fftSize — 16384
+      // samples ≈ 370ms — so an RMS taken over all of it is far too smeared to
+      // show an attack at all: a struck note only nudges that average, which is
+      // why a "loud enough" test alone let steady room noise trip the detector.
+      // Measure the most recent ~46ms instead, where a real attack is a genuine
+      // step change, and require BOTH loudness over the room floor AND a sharp
+      // rise. Steady rumble (fans, traffic, handling) is loud but never jumps,
+      // so it stops triggering captures entirely — which matters because that's
+      // the only moment noise ever gets a chance to be read as notes.
+      const ONSET_WIN = 2048;
+      let floor = 0.004, armed = true, captures = [], seenThisOnset = null, lastFire = 0, prevRms = 0;
       const tick = () => {
         const t = (typeof performance !== "undefined" && performance.now) ? performance.now() : 0;
         analyser.getFloatTimeDomainData(time);
-        let rms = 0; for (let i = 0; i < time.length; i++) rms += time[i] * time[i];
-        rms = Math.sqrt(rms / time.length);
+        let rms = 0;
+        for (let i = time.length - ONSET_WIN; i < time.length; i++) rms += time[i] * time[i];
+        rms = Math.sqrt(rms / ONSET_WIN);
         floor = floor * 0.995 + rms * 0.005;     // slow EMA of the room/noise floor
-        // a chord ATTACK = energy jumps well above the floor while we're armed
-        if (armed && !captures.length && rms > Math.max(0.012, floor * 3) && (t - lastFire) > 220) {
+        // a chord ATTACK = a sharp RISE that also clears the room floor by a wide margin
+        if (armed && !captures.length && rms > Math.max(0.02, floor * 6) && rms > prevRms * 1.5 && (t - lastFire) > 220) {
           captures = CAPTURE_OFFSETS.map(off => t + off);
           seenThisOnset = new Set();
           armed = false;                         // disarm right at the attack, not after the first capture
         }
+        prevRms = rms;
         if (captures.length && t >= captures[0]) {
           captures.shift();
-          const notes = captureNotes();
-          const fresh = notes.filter(n => !seenThisOnset.has(n));
-          fresh.forEach(n => seenThisOnset.add(n));
-          lastFire = t;
-          if (fresh.length) onDetect(fresh.length === 1
-            ? { note: fresh[0], freq: null, source: "mic" }
-            : { note: fresh[0], notes: fresh, freq: null, source: "mic", poly: true });
+          captureNotes().forEach(n => seenThisOnset.add(n));
+          if (!captures.length) {                // last snapshot of this strike → report the whole chord at once
+            lastFire = t;
+            const all = Array.from(seenThisOnset);
+            seenThisOnset = null;
+            // Always report as a poly batch (even a single note) so the grader can
+            // tell "one lone note was heard" from "several notes struck together" —
+            // block-chord practice needs that distinction to reject stray blips.
+            if (all.length) onDetect({ note: all[0], notes: all, freq: null, source: "mic", poly: true });
+          }
         }
         if (!armed && !captures.length && rms < Math.max(0.008, floor * 1.6)) armed = true; // re-arm once it quiets
         raf = requestAnimationFrame(tick);
@@ -11335,9 +11384,38 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (!practiceActiveRef.current) return;
     // accept legacy string calls too, just in case
     if (typeof d === "string") d = { note: d, freq: null };
-    // Polyphonic mic detection can report several simultaneously-heard notes
-    // in one callback (d.notes) — feed each through the same matcher below.
-    if (d.notes && d.notes.length) { d.notes.forEach(n => handlePlayedNote({ note: n, freq: null, source: d.source })); return; }
+    // Polyphonic mic detection reports everything it heard in one strike as
+    // d.notes. In BLOCK practice that batch is the whole point: the learner is
+    // being asked to strike the chord's notes TOGETHER, so a genuine attempt
+    // always presents several of the target's notes in the same batch. Requiring
+    // at least two of them before crediting anything is both the pedagogically
+    // correct reading of "block" and the strongest possible guard against a lone
+    // stray detection silently advancing the drill — one spurious note can happen
+    // from a bump or a stray harmonic, but two specific chord tones arriving
+    // together essentially cannot.
+    if (d.notes && d.notes.length) {
+      const tg = practiceTargetRef.current;
+      const hitSet = practiceHitSetRef.current;
+      if (practiceModeRef.current === "chord" && chordStyle === "block") {
+        const remaining = tg.length - hitSet.size;
+        const matches = [];
+        for (let i = 0; i < tg.length; i++) {
+          if (hitSet.has(i)) continue;
+          if (d.notes.some(n => notePitchMatches({ note: n, freq: null }, pcOf(tg[i])))) matches.push(i);
+        }
+        // Only the final note(s) may be finished one at a time — otherwise a chord
+        // whose last note the mic keeps missing could never be completed at all.
+        const needed = Math.min(2, Math.max(1, remaining));
+        if (matches.length < needed) {
+          setPracticeHeard({ note: d.notes[0], ok: false });
+          clearTimeout(practiceHeardTimer.current);
+          practiceHeardTimer.current = setTimeout(() => setPracticeHeard(null), 650);
+          return;                                  // heard something, but not a real block strike of this chord
+        }
+      }
+      d.notes.forEach(n => handlePlayedNote({ note: n, freq: null, source: d.source }));
+      return;
+    }
 
     const targets = practiceTargetRef.current;
     const heardNote = d.note;
