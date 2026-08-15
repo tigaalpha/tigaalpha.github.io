@@ -44,6 +44,11 @@ import {
   tr, L, FLAGS, FLAG_NAMES, PATH_GROUPS, BENEFIT_CASES, STAGES_BY_GROUP,
   localPathwayLesson, matchFaqTopic, COACH_FEATURE_LABELS, EXAM_GRADES,
 } from "./i18n";
+import { Msg, Typing, Input } from "./chat-ui";
+import {
+  readMemory, recordMemory, touchSessionMemory, memoryContext,
+  readHomework, setHomeworkLS, homeworkContext,
+} from "./ai-chat-context";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -382,146 +387,8 @@ function songRecommendationHint(lang) {
   } catch (e) { return ""; }
 }
 
-/* ════════════════════════════════════════════════════════════
-   PLAY-ALONG DRILLS — generate playable falling-notes "songs" for
-   scales (every key · every minor type), chords (triads + 7ths) and
-   intervals (ขั้นคู่). Each returns a SONG-shaped meta the game runs.
-   All notes are kept inside C4–B5 so they line up on the game keyboard.
-════════════════════════════════════════════════════════════ */
-// 12 roots (circle-of-fifths-ish order), each as a pitch class + a friendly name.
-
-/* ════════════════════════════════════════════════════════════
-   SIGHT-READING — show a note on a treble staff, learner identifies
-   and plays it. (Flowkey / Musicca style.)
-════════════════════════════════════════════════════════════ */
-// Bass-clef pool: G2 (bottom line) up through middle C — the range a beginner reads in กุญแจฟา.
 const SIGHT_ROUND = 10; // notes per sight-reading round
-// staff "step": bottom line = 0, each line-or-space = 1 up. Treble bottom line = E4,
-// bass bottom line = G2 — pick the base so each clef's lines land in the right place.
 
-
-
-/* ── Language config ── */
-
-/* ── Styles ── */
-
-
-/* ── Piano with finger numbers ── */
-
-// Fluid, fully-responsive keyboard for the play-along game: white keys flex to
-// fill the whole width (small on phones, large on tablets/desktop), black keys
-// overlaid by percentage so it scales to any screen.
-// Pixel sizes for the realistic, slidable keyboard (scroll mode).
-
-/* Read-aloud in the chat is switched off while the Gemini TTS quota is sorted
-   out — the free tier runs out within a few taps, so the button mostly failed.
-   Flip this back to true to restore it; the button and everything behind it is
-   left intact and needs no other change. */
-const TTS_ENABLED = false;
-
-/* ── Speaker button (robust, with fallback message) ── */
-const SpeakBtn = memo(function SpeakBtn({ text, lang, id, activeId, setActiveId }) {
-  const lc = L[lang];
-  const supported = ttsSupported();
-  const isOn = activeId === id;
-
-  function toggle() {
-    if (isOn) {
-      stopSpeaking();
-      stopCloudTTS();
-      setActiveId(null);
-      return;
-    }
-    getAC(); // unlock audio inside the tap gesture (iOS Safari)
-    setActiveId(id);
-    // try the natural cloud voice first; fall back to the device voice on any error.
-    // No alert popups — a failure just quietly resets the button (the old "blocked
-    // in preview" alert was misleading on the live site and jarring).
-    speakCloud(
-      text, lang,
-      null,                                   // onStart
-      () => setActiveId(null),                // onDone
-      () => {                                 // onError → device-voice fallback (silent)
-        if (!supported) { setActiveId(null); return; }
-        const ok = speakRobust(text, lang, () => setActiveId(null), () => setActiveId(null));
-        if (!ok) setActiveId(null);
-      }
-    );
-  }
-
-  return (
-    <button className={`spkbtn${isOn ? " on" : ""}`} onClick={toggle}
-      title={supported ? lc.speak : lc.ttsNo} aria-label={supported ? lc.speak : lc.ttsNo}>
-      <span className="spkwave" aria-hidden="true">
-        <span /><span /><span /><span />
-      </span>
-      <span className="spktxt">{isOn ? lc.speaking : lc.speak}</span>
-    </button>
-  );
-});
-
-/* ── Message (memoized: only re-renders when its own props change) ── */
-const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay }) {
-  // parse notes only when the message text or language actually changes
-  const parsed = useMemo(
-    () => (m.role === "ai" && m.text ? extractNotes(m.text) : null),
-    [m.role, m.text]
-  );
-  const lc = L[lang];
-  return (
-    <div className={`msg ${m.role === "user" ? "u" : "a"}`}>
-      <div className="bbl">
-        {m.role === "ai" && <div className="atag">◈ TIGA.AI</div>}
-        {m.img && <img src={m.img} alt="" className="adminimg" />}
-        <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{m.text}</p>
-      </div>
-      {/* the row is skipped entirely when it would be empty, so turning TTS off
-          leaves no stray gap under messages that carry no notes */}
-      {m.role === "ai" && (TTS_ENABLED || parsed) && (
-        <div className="mact">
-          {TTS_ENABLED && (
-            <SpeakBtn text={m.text} lang={lang} id={idx}
-              activeId={activeSpk} setActiveId={setActiveSpk} />
-          )}
-          {parsed && (
-            <button className="playbtn" onClick={() => onPlay(parsed)}>
-              <span>▶</span><span>{lang === "th" ? "เล่นโน้ต" : lang === "zh" ? "演奏" : "PLAY"}</span>
-            </button>
-          )}
-          {parsed && <span className="nlbl">{parsed.label}</span>}
-        </div>
-      )}
-    </div>
-  );
-});
-
-const Typing = memo(function Typing() {
-  return (
-    <div className="msg a">
-      <div className="bbl">
-        <div className="atag">◈ TIGA.AI</div>
-        <div className="typing"><div className="tdd"/><div className="tdd"/><div className="tdd"/></div>
-      </div>
-    </div>
-  );
-});
-
-function Input({ val, onChange, onSend, loading, ph }) {
-  function onKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }
-  function onInput(e) {
-    e.target.style.height = "auto";
-    e.target.style.height = Math.min(e.target.scrollHeight, 110) + "px";
-    onChange(e.target.value);
-  }
-  return (
-    <div className="ir">
-      <textarea className="tin" value={val} placeholder={ph} aria-label={ph}
-        onChange={onInput} onKeyDown={onKey} rows={1} />
-      <button className="snd" disabled={loading || !val.trim()} onClick={onSend}
-        aria-label={ph}>➤</button>
-    </div>
-  );
-}
 
 
 /* ── Pathway Page ── */
@@ -3682,49 +3549,6 @@ function grantMonthlyFreezes() {
   } catch (e) {}
 }
 
-/* ── learner memory (cross-session) → personalized AI + adaptive path ── */
-function readMemory() { try { return JSON.parse(localStorage.getItem("tg_memory") || "null") || { struggles: [], mastered: [], recent: [] }; } catch (e) { return { struggles: [], mastered: [], recent: [] }; } }
-function writeMemory(m) { try { localStorage.setItem("tg_memory", JSON.stringify(m)); } catch (e) {} }
-function recordMemory(label, acc) {
-  if (!label) return;
-  const m = readMemory();
-  m.recent = [{ label, acc, t: dayKey() }, ...(m.recent || []).filter(r => r.label !== label)].slice(0, 12);
-  if (acc >= 90) {
-    if (!m.mastered.includes(label)) m.mastered = [label, ...m.mastered].slice(0, 12);
-    m.struggles = (m.struggles || []).filter(s => s.label !== label);
-  } else if (acc < 65) {
-    const prev = (m.struggles || []).find(s => s.label === label);
-    // keep a timestamp + count so the teacher can space-repeat reviews like a master
-    m.struggles = [{ label, acc, last: Date.now(), count: ((prev && prev.count) || 0) + 1 }, ...(m.struggles || []).filter(s => s.label !== label)].slice(0, 6);
-  }
-  writeMemory(m);
-}
-// stamp the end of a voice session so next time we know how long they were away
-function touchSessionMemory() { try { const m = readMemory(); m.lastSession = Date.now(); m.sessions = (m.sessions || 0) + 1; writeMemory(m); } catch (e) {} }
-function memoryContext(lang) {
-  const m = readMemory(), parts = [];
-  const now = Date.now();
-  const dAgo = (t) => t ? Math.max(0, Math.floor((now - t) / 86400000)) : null;
-  // SPACED REPETITION: struggles not revisited for 2+ days are due for a quick review
-  const due = (m.struggles || []).filter(s => s.last && (now - s.last) >= 2 * 86400000).slice(0, 3);
-  if (due.length) parts.push((lang === "th" ? "⏰ ครบกำหนดทบทวน (แทรกการทบทวนสั้น ๆ ให้เขาแบบเนียน ๆ): " : lang === "zh" ? "⏰ 到复习时间（自然地带入简短回顾）：" : "⏰ Due for spaced review (weave in a quick revisit): ") + due.map(s => `${s.label} (${dAgo(s.last)}d)`).join(", "));
-  if (m.struggles && m.struggles.length) parts.push((lang === "th" ? "เคยติด: " : lang === "zh" ? "曾困难: " : "Struggled with: ") + m.struggles.slice(0, 3).map(s => s.label).join(", "));
-  if (m.mastered && m.mastered.length) parts.push((lang === "th" ? "ทำได้ดีแล้ว: " : lang === "zh" ? "已掌握: " : "Mastered: ") + m.mastered.slice(0, 3).join(", "));
-  if (m.recent && m.recent.length) parts.push((lang === "th" ? "ฝึกล่าสุด: " : lang === "zh" ? "最近练习: " : "Recently practiced: ") + m.recent.slice(0, 2).map(r => r.label).join(", "));
-  const gap = dAgo(m.lastSession);
-  if (gap != null && gap >= 1) parts.push((lang === "th" ? "ห่างหายไป " + gap + " วัน (ทักทายอบอุ่นแบบคิดถึง)" : lang === "zh" ? "已隔 " + gap + " 天（温暖地问候，像想念他）" : "Returning after " + gap + " days (greet warmly like you missed them)"));
-  return parts.length ? ("\n\n[" + (lang === "th" ? "ความจำผู้เรียน (อ้างถึงเพื่อความต่อเนื่อง + ทบทวนตามจังหวะ)" : lang === "zh" ? "学员记忆（用于连贯与按时复习）" : "Learner memory (use for continuity + spaced review)") + ": " + parts.join(" · ") + "]") : "";
-}
-
-/* ── homework + lesson plan (assigned by the AI, tracked across sessions) ── */
-function readHomework() { try { return JSON.parse(localStorage.getItem("tg_homework") || "null"); } catch (e) { return null; } }
-function setHomeworkLS(h) { try { h ? localStorage.setItem("tg_homework", JSON.stringify(h)) : localStorage.removeItem("tg_homework"); } catch (e) {} }
-function homeworkContext(lang) {
-  const h = readHomework();
-  if (!h || !h.text) return "";
-  const lbl = lang === "th" ? "การบ้านที่คุณสั่งไว้คราวก่อน (ถามว่าเขาฝึกหรือยัง แล้วตรวจ/ให้ฟีดแบ็ก)" : lang === "zh" ? "你上次布置的作业（先问他练了没，然后检查/反馈）" : "Homework you assigned last time (ask if they did it, then check and give feedback)";
-  return "\n\n[" + lbl + ": " + h.text + "]";
-}
 // the teacher's own forward plan for the NEXT lesson — set via [plan: …], recalled every session
 function readLessonPlan() { try { return JSON.parse(localStorage.getItem("tg_lessonplan") || "null"); } catch (e) { return null; } }
 function setLessonPlanLS(p) { try { p ? localStorage.setItem("tg_lessonplan", JSON.stringify(p)) : localStorage.removeItem("tg_lessonplan"); } catch (e) {} }
