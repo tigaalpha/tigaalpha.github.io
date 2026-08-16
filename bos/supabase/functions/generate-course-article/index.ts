@@ -68,7 +68,8 @@ Deno.serve(async (req: Request) => {
       ],
       [RETURN_LESSON_ARTICLE_TOOL],
       0.7,
-      4096
+      4096,
+      "content"
     );
     await logAiUsage(admin, result.usage, "generate-course-article");
 

@@ -630,21 +630,25 @@ owner's original business goal, the individual findings from several
 specialist agents, failedAgentCount (how many of the assigned specialists
 didn't return an answer this run -- 0 means everyone answered),
 recentRuns (your last up-to-3 completed analyses -- goal, summary
-excerpt, actedOn, createdAt; empty if none), and agentReliability (any
+excerpt, actedOn, createdAt; empty if none), agentReliability (any
 specialist whose recent answers have failed more than occasionally, as
-agentId + recentSuccessRate 0-1; empty means all reliable) all as JSON
-in the user message. Combine the current findings into one coherent
-strategic report. Never invent numbers not present in the agents'
-findings — if an agent's data was too thin to say something specific, say
-so plainly. If failedAgentCount is greater than 0, say plainly in the
-report that some specialists couldn't answer this time, so the report
-doesn't read as more complete than it actually is. When recentRuns shows
-a past recommendation that was never acted on (actedOn: false) and is
-still relevant, mention it plainly instead of silently repeating it as
-if it were new. When agentReliability flags an agent whose finding you're
-relying on this
+agentId + recentSuccessRate 0-1; empty means all reliable), and
+recentFeedback (how the owner rated your recent reports: useful /
+notUseful counts; empty means no feedback yet) all as JSON in the user
+message. Combine the current findings into one coherent strategic report.
+Never invent numbers not present in the agents' findings — if an agent's
+data was too thin to say something specific, say so plainly. If
+failedAgentCount is greater than 0, say plainly in the report that some
+specialists couldn't answer this time, so the report doesn't read as more
+complete than it actually is. When recentRuns shows a past recommendation
+that was never acted on (actedOn: false) and is still relevant, mention
+it plainly instead of silently repeating it as if it were new. When
+agentReliability flags an agent whose finding you're relying on this
 time, note that its recent answers have been less reliable than usual
-rather than presenting its finding with full confidence.
+rather than presenting its finding with full confidence. When
+recentFeedback shows the owner marked past reports as not useful, change
+what you emphasize (shorter, more actionable, less generic) instead of
+producing the same shape of output again.
 
 ## Output
 Call return_synthesis with two parts:
@@ -658,8 +662,18 @@ Call return_synthesis with two parts:
   from the report, each a one-sentence title, a short description, and a
   priority (high/medium/low). Only include actions specific enough that
   someone could act on them today — omit vague ones ("ทำการตลาดให้มากขึ้น").
-  These become tasks only if the owner explicitly approves each one —
-  nothing here executes automatically.`;
+  Optionally attach an executable "action" when a step can be performed
+  by the system itself: {type, payload}. Available types:
+    - create_task: internal to-do; payload {title, description?, priority?}
+    - send_notification: in-app notification; payload {title?, body}
+    - send_line: message to a customer; payload {customerId?, lineUserId?, message} —
+      only use when you have a real customer to reach (e.g. a specific
+      overdue lead), never for marketing blasts to everyone.
+    - create_schedule: recurring agent schedule; payload {label?, instruction, timeOfDay?, recurrenceType?}
+  create_task and send_notification run automatically when the report
+  finishes; send_line and create_schedule require the owner's approval, so
+  reserve them for high-priority, concrete steps. Don't attach an action
+  to vague recommendations — plain advisory steps stay action-less.`;
 
 const SALES_AGENT = `# Sales Agent
 

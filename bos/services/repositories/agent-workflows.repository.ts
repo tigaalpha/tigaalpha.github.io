@@ -26,6 +26,17 @@ export class AgentWorkflowsRepository {
     return { workflow, tasks: tasks ?? [] };
   }
 
+  async listActions(workflowId: string): Promise<Tables<"agent_actions">[]> {
+    const { data, error } = await this.db.from("agent_actions").select("*").eq("workflow_run_id", workflowId).order("created_at", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async setFeedback(workflowId: string, feedback: "useful" | "not_useful"): Promise<void> {
+    const { error } = await this.db.from("agent_workflow_runs").update({ feedback }).eq("id", workflowId);
+    if (error) throw error;
+  }
+
   async agentPerformanceCounts(days = 30): Promise<Record<string, { success: number; failed: number }>> {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await this.db.from("agent_task_runs").select("agent_id, status").gte("started_at", since);

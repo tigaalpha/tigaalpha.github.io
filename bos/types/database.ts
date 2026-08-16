@@ -1,3 +1,17 @@
+// CEO Agent recommended action — same shape the agent-orchestrator writes
+// into agent_workflow_runs.recommended_actions. `action` is optional and
+// only present when the recommendation can be executed by the system;
+// advisory recommendations omit it.
+export interface AgentRecommendedAction {
+  title: string;
+  description: string;
+  priority: "high" | "medium" | "low";
+  action?: {
+    type: "create_task" | "send_notification" | "send_line" | "create_schedule";
+    payload: Record<string, unknown>;
+  };
+}
+
 export type UserRole = "owner" | "admin" | "teacher" | "staff";
 
 export type SalesStatus =
@@ -819,13 +833,50 @@ export interface Database {
           goal: string;
           status: "running" | "completed" | "failed";
           final_report: string | null;
-          recommended_actions: { title: string; description: string; priority: "high" | "medium" | "low" }[] | null;
+          recommended_actions: AgentRecommendedAction[] | null;
+          feedback: "useful" | "not_useful" | null;
           created_by: string | null;
           created_at: string;
           completed_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["agent_workflow_runs"]["Row"]> & { goal: string };
         Update: Partial<Database["public"]["Tables"]["agent_workflow_runs"]["Row"]>;
+        Relationships: [];
+      };
+      agent_actions: {
+        Row: {
+          id: string;
+          workflow_run_id: string;
+          title: string;
+          description: string;
+          priority: "low" | "medium" | "high";
+          action_type: "create_task" | "send_notification" | "send_line" | "create_schedule";
+          action_payload: Record<string, unknown>;
+          status: "pending_approval" | "approved" | "rejected" | "executed" | "auto_executed" | "failed";
+          result: string | null;
+          created_at: string;
+          executed_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["agent_actions"]["Row"]> & {
+          workflow_run_id: string;
+          title: string;
+          description: string;
+          action_type: "create_task" | "send_notification" | "send_line" | "create_schedule";
+          action_payload: Record<string, unknown>;
+        };
+        Update: Partial<Database["public"]["Tables"]["agent_actions"]["Row"]>;
+        Relationships: [];
+      };
+      agent_event_trigger_log: {
+        Row: {
+          id: string;
+          trigger_type: string;
+          detail: string | null;
+          workflow_run_id: string | null;
+          triggered_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["agent_event_trigger_log"]["Row"]> & { trigger_type: string };
+        Update: Partial<Database["public"]["Tables"]["agent_event_trigger_log"]["Row"]>;
         Relationships: [];
       };
       agent_task_runs: {

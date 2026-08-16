@@ -8,14 +8,21 @@
 // knowledge_chunks.embedding is a fixed-dimension pgvector column tied to
 // Gemini's embedding model, and image generation is a separate Gemini-only
 // capability (Image Studio), not part of what "chat model" means here.
+//
+// Cost tiers (see model-tiers.ts): generate() takes a `tier` argument so
+// high-volume customer chat can run on a cheap model while agent strategy
+// and content generation use their own configured models. Each tier falls
+// back to the legacy ai_chat_model master, then to Gemini.
 
 import { geminiProvider } from "./gemini.ts";
 import type { AIProvider, ChatMessage, GeneratedImage, GenerateResult, ToolDefinition } from "./ai-types.ts";
 import { generateOpenAICompatible } from "./openai-compatible.ts";
 import { OPENROUTER_BASE_URL, requireOpenRouterKey } from "./openrouter.ts";
 import { createAdminClient } from "./supabase-admin.ts";
+import { MASTER_MODEL_SETTING_KEY, MODEL_TIER_SETTING_KEYS, resolveTierModelId, type ModelTier } from "./model-tiers.ts";
 
 export type { AIProvider, ChatMessage, ChatRole, GeneratedImage, GenerateResult, ToolCall, ToolDefinition } from "./ai-types.ts";
+export type { ModelTier } from "./model-tiers.ts";
 
 export type ChatModelId = "gemini" | "claude" | "gpt" | "qwen" | "kimi" | "glm" | "grok" | "deepseek";
 
@@ -52,22 +59,55 @@ const OPENROUTER_MODEL_SLUGS: Record<Exclude<ChatModelId, "gemini">, { envVar: s
   deepseek: { envVar: "DEEPSEEK_CHAT_MODEL", slug: "deepseek/deepseek-v4-flash" },
 };
 
-const CHAT_MODEL_SETTING_KEY = "ai_chat_model";
 const DEFAULT_CHAT_MODEL: ChatModelId = "gemini";
 const MODEL_CACHE_TTL_MS = 60_000;
 
-let cachedModel: { value: ChatModelId; expiresAt: number } | null = null;
+interface ModelCacheEntry {
+  value: ChatModelId | null;
+  expiresAt: number;
+}
+
+let cachedMaster: ModelCacheEntry | null = null;
+const cachedTiers: Partial<Record<ModelTier, ModelCacheEntry>> = {};
+
+async function readModelSetting(key: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("integration_settings").select("value").eq("key", key).maybeSingle();
+  return typeof data?.value === "string" ? data.value : null;
+}
+
+function isValidModelId(raw: string | null | undefined): raw is ChatModelId {
+  return Boolean(raw && CHAT_MODELS.some((m) => m.id === raw));
+}
 
 async function getActiveChatModel(): Promise<ChatModelId> {
-  if (cachedModel && cachedModel.expiresAt > Date.now()) return cachedModel.value;
-
-  const admin = createAdminClient();
-  const { data } = await admin.from("integration_settings").select("value").eq("key", CHAT_MODEL_SETTING_KEY).maybeSingle();
-  const raw = data?.value as ChatModelId | undefined;
-  const value = raw && CHAT_MODELS.some((m) => m.id === raw) ? raw : DEFAULT_CHAT_MODEL;
-
-  cachedModel = { value, expiresAt: Date.now() + MODEL_CACHE_TTL_MS };
+  if (cachedMaster && cachedMaster.expiresAt > Date.now() && cachedMaster.value) return cachedMaster.value;
+  const raw = await readModelSetting(MASTER_MODEL_SETTING_KEY);
+  const value = isValidModelId(raw) ? raw : DEFAULT_CHAT_MODEL;
+  cachedMaster = { value, expiresAt: Date.now() + MODEL_CACHE_TTL_MS };
   return value;
+}
+
+// Per-tier model with a fallback chain: ai_model_<tier> -> ai_chat_model
+// (master) -> gemini. Results are cached 60s like the master lookup so a
+// busy chat doesn't hammer integration_settings on every message.
+async function getTierModel(tier: ModelTier): Promise<ChatModelId> {
+  const cached = cachedTiers[tier];
+  if (cached && cached.expiresAt > Date.now()) return cached.value as ChatModelId;
+  const [tierValue, masterValue] = await Promise.all([
+    readModelSetting(MODEL_TIER_SETTING_KEYS[tier]),
+    readModelSetting(MASTER_MODEL_SETTING_KEY),
+  ]);
+  const resolved = resolveTierModelId(tier, { tierValue, masterValue }, CHAT_MODELS.map((m) => m.id), DEFAULT_CHAT_MODEL);
+  cachedTiers[tier] = { value: resolved as ChatModelId, expiresAt: Date.now() + MODEL_CACHE_TTL_MS };
+  return resolved as ChatModelId;
+}
+
+// Human-readable model name recorded in ai_usage_log.model so the cost
+// dashboard can break spend down by actual model, not just "unknown".
+export function modelLabel(modelId: ChatModelId): string {
+  if (modelId === "gemini") return "gemini";
+  return OPENROUTER_MODEL_SLUGS[modelId].slug;
 }
 
 async function generateWithModel(
@@ -77,21 +117,29 @@ async function generateWithModel(
   temperature?: number,
   maxOutputTokens?: number
 ): Promise<GenerateResult> {
-  if (modelId === "gemini") return geminiProvider.generate(messages, tools, temperature, maxOutputTokens);
-
-  const apiKey = requireOpenRouterKey();
-  const { envVar, slug } = OPENROUTER_MODEL_SLUGS[modelId];
-  const model = Deno.env.get(envVar) ?? slug;
-  return generateOpenAICompatible({ baseUrl: OPENROUTER_BASE_URL, apiKey, model }, messages, tools, maxOutputTokens, temperature);
+  let result: GenerateResult;
+  if (modelId === "gemini") {
+    result = await geminiProvider.generate(messages, tools, temperature, maxOutputTokens);
+  } else {
+    const apiKey = requireOpenRouterKey();
+    const { envVar, slug } = OPENROUTER_MODEL_SLUGS[modelId];
+    const model = Deno.env.get(envVar) ?? slug;
+    result = await generateOpenAICompatible({ baseUrl: OPENROUTER_BASE_URL, apiKey, model }, messages, tools, maxOutputTokens, temperature);
+  }
+  // Stamp which model actually produced this result so every logAiUsage
+  // caller gets a real per-model cost line without changing their call.
+  if (result.usage) result.usage.model = modelLabel(modelId);
+  return result;
 }
 
 export async function generate(
   messages: ChatMessage[],
   tools?: ToolDefinition[],
   temperature?: number,
-  maxOutputTokens?: number
+  maxOutputTokens?: number,
+  tier: ModelTier = "chat"
 ): Promise<GenerateResult> {
-  const modelId = await getActiveChatModel();
+  const modelId = tier === "chat" ? await getActiveChatModel() : await getTierModel(tier);
   return generateWithModel(modelId, messages, tools, temperature, maxOutputTokens);
 }
 

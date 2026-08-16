@@ -332,3 +332,46 @@ no customer tools there until the visitor identifies themselves.
 | `web_chat_secret` | Shared secret for the public web-chat widget. |
 | `teacher_rates` table | `rate_per_hour` per teacher — feeds the payroll report. |
 | `drip_campaigns` table | Active campaigns with segment + template + interval. |
+
+## Agent autonomy + cost tiers (migration 0078)
+
+### `agent-action-execute` (verify_jwt: true, owner/admin)
+
+Approve or reject a pending CEO Agent action. Body: `{ actionId, decision: "approve" | "reject" }`.
+Approve executes the action (send LINE / create schedule); reject marks it rejected.
+Low-risk types (`create_task`, `send_notification`) never need this — they
+auto-execute when the workflow finishes and show as `auto_executed`.
+
+### `agent-event-triggers` (verify_jwt: false, cron-only)
+
+Hourly heartbeat (pg_cron) that watches for business events and fires a CEO
+Agent workflow when one happens (deduped to once per week per type):
+
+- `sales_drop` — won sales in the last 14 days down ≥30% vs the prior 14 days (baseline ≥2).
+- `no_new_won` — zero won customers in the last 7 days when the prior 14 had at least one.
+
+Skips firing when the daily AI budget is already exceeded.
+
+### Model cost tiers (integration_settings keys)
+
+| Key | Meaning |
+|---|---|
+| `ai_chat_model` | Master model — fallback for every tier. |
+| `ai_model_chat` | Customer chat (LINE/web/Messenger) — the highest-volume, cheapest work. |
+| `ai_model_agent` | TIGA AI Agent (CEO planner/synthesis + specialist tasks). |
+| `ai_model_content` | Content generators (articles, scripts, ads, voiceover, …). |
+| `ai_video_daily_limit` | Max AI video clips per day (0/empty = unlimited). Veo/Seedance are the most expensive calls in the app. |
+
+Every `generate()` result now stamps the real model (id or OpenRouter slug)
+into `ai_usage_log.model`, so the cost dashboard can break spend down per
+model instead of "unknown". Gemini system prompts are also cached
+(cachedContents, 1h TTL) so repeated prompts pay the cheaper cached-input
+rate.
+
+### Agent tables added
+
+- `agent_actions` — executable recommendations with status
+  (`pending_approval` → `executed`/`rejected`, or `auto_executed`/`failed`).
+- `agent_event_trigger_log` — dedupe log for event triggers.
+- `agent_workflow_runs.feedback` — owner 👍/👎 on a report, fed back into
+  the next synthesis.

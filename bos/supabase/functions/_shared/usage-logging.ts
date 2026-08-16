@@ -9,7 +9,10 @@ import type { GenerateResult } from "./ai-types.ts";
 export async function logAiUsage(admin: SupabaseClient, usage: GenerateResult["usage"], source: string): Promise<void> {
   if (!usage) return;
   await admin.rpc("log_ai_usage", {
-    p_model: "unknown", // the active chat model isn't threaded back from generate() today; good enough for aggregate cost tracking, not per-model breakdown yet
+    // ai-provider.ts stamps the real model id/slug onto every result's
+    // usage.model, so the cost dashboard can break spend down per model
+    // instead of lumping everything under "unknown".
+    p_model: usage.model ?? "unknown",
     p_prompt_tokens: usage.promptTokens,
     p_completion_tokens: usage.completionTokens,
     p_source: source,

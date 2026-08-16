@@ -82,7 +82,8 @@ Deno.serve(async (req: Request) => {
       ],
       [RETURN_TOPIC_SUGGESTIONS_TOOL],
       0.9,
-      2048
+      2048,
+      "content"
     );
     await logAiUsage(admin, result.usage, "suggest-course-topics");
 

@@ -23,7 +23,8 @@ async function runAgentPrompt(promptKey: keyof typeof PROMPTS, question: string,
     ],
     undefined,
     0.5,
-    768
+    768,
+    "agent"
   );
   return { output: result.message.content, usage: result.usage };
 }

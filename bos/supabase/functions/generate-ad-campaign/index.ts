@@ -82,7 +82,8 @@ Deno.serve(async (req: Request) => {
       ],
       [RETURN_CAMPAIGN_TOOL],
       0.7,
-      2048
+      2048,
+      "content"
     );
     await logAiUsage(admin, result.usage, "generate-ad-campaign");
 

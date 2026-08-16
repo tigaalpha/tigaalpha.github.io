@@ -5,6 +5,7 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { handleUnexpectedError } from "../_shared/monitor.ts";
 import { isVideoProvider, isVideoOrientation, requireProviderApiKey, startClip } from "../_shared/video-providers.ts";
+import { checkVideoDailyBudget } from "../_shared/video-budget.ts";
 import type { SourceImage } from "../_shared/veo.ts";
 
 // Kicks off one generation (Veo or Seedance, whichever the caller picked)
@@ -45,6 +46,10 @@ Deno.serve(async (req: Request) => {
     const byId = new Map((images ?? []).map((img) => [img.id, img as SourceImage]));
     const orderedImages = imageIds.map((id: string) => byId.get(id)).filter((img): img is SourceImage => Boolean(img));
     if (orderedImages.length === 0) return jsonResponse({ error: "No matching images found" }, 404);
+
+    // Daily video budget: a batch of N clips needs N remaining slots today.
+    const budget = await checkVideoDailyBudget(admin, orderedImages.length);
+    if (!budget.allowed) return jsonResponse({ error: budget.message }, 429);
 
     const videoClips = [];
     for (const image of orderedImages) {

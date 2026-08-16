@@ -31,6 +31,26 @@ function StatusBadge({ status }: { status: StatusCheck | null }) {
   return <Badge variant={status.connected ? "success" : "danger"}>{status.connected ? "Connected" : "Not connected"}</Badge>;
 }
 
+// Per-tier model picker: empty value = fall back to the master model
+// (ai_chat_model) set in the cost-control card below.
+function TierModelSelect({ value, disabled, onChange }: { value: string; disabled: boolean; onChange: (value: string) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
+    >
+      <option value="">ใช้ค่าเริ่มต้น (ตามโมเดลหลักด้านบน)</option>
+      {CHAT_MODELS.map((m) => (
+        <option key={m.id} value={m.id}>
+          {m.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function CopyField({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -76,6 +96,14 @@ export function IntegrationsCard() {
   const [connectingGcal, setConnectingGcal] = useState(false);
   const [chatModel, setChatModel] = useState("gemini");
   const [savingChatModel, setSavingChatModel] = useState(false);
+  const [tierChatModel, setTierChatModel] = useState("");
+  const [tierAgentModel, setTierAgentModel] = useState("");
+  const [tierContentModel, setTierContentModel] = useState("");
+  const [savingTierModel, setSavingTierModel] = useState(false);
+  const [aiBudget, setAiBudget] = useState("");
+  const [savingAiBudget, setSavingAiBudget] = useState(false);
+  const [videoLimit, setVideoLimit] = useState("");
+  const [savingVideoLimit, setSavingVideoLimit] = useState(false);
 
   const supabaseUrl = env.supabase.url();
   const lineWebhookUrl = `${supabaseUrl}/functions/v1/line-webhook`;
@@ -103,6 +131,11 @@ export function IntegrationsCard() {
     repos.integrations.get("meta_login_config_id").then((v) => setMetaConfigId(v ?? ""));
     repos.integrations.get("meta_target_page_name").then((v) => setMetaTargetPageName(v ?? ""));
     repos.integrations.get("ai_chat_model").then((v) => setChatModel(v ?? "gemini"));
+    repos.integrations.get("ai_model_chat").then((v) => setTierChatModel(v ?? ""));
+    repos.integrations.get("ai_model_agent").then((v) => setTierAgentModel(v ?? ""));
+    repos.integrations.get("ai_model_content").then((v) => setTierContentModel(v ?? ""));
+    repos.integrations.get("ai_budget_daily_tokens").then((v) => setAiBudget(v ?? ""));
+    repos.integrations.get("ai_video_daily_limit").then((v) => setVideoLimit(v ?? ""));
     supabase
       .from("social_accounts")
       .select("account_name")
@@ -273,6 +306,45 @@ export function IntegrationsCard() {
     const repos = createRepositories(createClient());
     await repos.integrations.set("ai_chat_model", value);
     setSavingChatModel(false);
+  }
+
+  async function saveTierModel(tierKey: "ai_model_chat" | "ai_model_agent" | "ai_model_content", value: string) {
+    setSavingTierModel(true);
+    const repos = createRepositories(createClient());
+    if (value) await repos.integrations.set(tierKey, value);
+    else await repos.integrations.remove(tierKey); // reset to "ใช้ค่าเริ่มต้น"
+    if (tierKey === "ai_model_chat") setTierChatModel(value);
+    else if (tierKey === "ai_model_agent") setTierAgentModel(value);
+    else setTierContentModel(value);
+    setSavingTierModel(false);
+  }
+
+  async function saveAiBudget() {
+    setSavingAiBudget(true);
+    const repos = createRepositories(createClient());
+    const value = aiBudget.trim();
+    if (value && (Number.isNaN(Number(value)) || Number(value) < 0)) {
+      setAiBudget("");
+      setSavingAiBudget(false);
+      return;
+    }
+    if (value) await repos.integrations.set("ai_budget_daily_tokens", value);
+    else await repos.integrations.remove("ai_budget_daily_tokens");
+    setSavingAiBudget(false);
+  }
+
+  async function saveVideoLimit() {
+    setSavingVideoLimit(true);
+    const repos = createRepositories(createClient());
+    const value = videoLimit.trim();
+    if (value && (Number.isNaN(Number(value)) || Number(value) < 0)) {
+      setVideoLimit("");
+      setSavingVideoLimit(false);
+      return;
+    }
+    if (value) await repos.integrations.set("ai_video_daily_limit", value);
+    else await repos.integrations.remove("ai_video_daily_limit");
+    setSavingVideoLimit(false);
   }
 
   return (
@@ -569,25 +641,79 @@ export function IntegrationsCard() {
           </div>
         </div>
 
-        <div className="space-y-2 rounded-xl border border-line/10 p-4">
-          <p className="font-medium text-secondary">โมเดล AI ของ TIGA AI Agent</p>
-          <p className="text-xs text-secondary/50">
-            เลือกโมเดลที่ต้องการให้ TIGA AI Agent ใช้ (มีผลกับแชท TIGA AI Agent และแชทลูกค้าทาง LINE/เว็บ — ยังไม่ครอบคลุมเครื่องมือสร้าง
-            เนื้อหาแยก เช่น เขียนบทความ/สคริปต์วิดีโอ ซึ่งยังใช้ Gemini เหมือนเดิม) โมเดลนอกจาก Gemini ต้องเชื่อมต่อ OpenRouter ก่อน (ดูการ์ด
-            ด้านบน) ถึงจะเลือกใช้งานได้จริง — ถ้ายังไม่ได้ตั้ง OPENROUTER_API_KEY ระบบจะแจ้ง error ตอนใช้งานแชท
-          </p>
-          <select
-            value={chatModel}
-            onChange={(e) => void saveChatModel(e.target.value)}
-            disabled={savingChatModel}
-            className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
-          >
-            {CHAT_MODELS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label} {status?.[m.statusKey]?.connected ? "— เชื่อมต่อแล้ว" : m.id === "gemini" ? "" : "— ยังไม่เชื่อมต่อ"}
-              </option>
-            ))}
-          </select>
+        <div className="space-y-3 rounded-xl border border-line/10 p-4">
+          <div>
+            <p className="font-medium text-secondary">โมเดล AI แยกตามงาน (ลดค่าใช้จ่าย)</p>
+            <p className="text-xs text-secondary/50">
+              งานถี่ (แชทลูกค้า) ใช้โมเดลถูก งานสำคัญ (Agent/คอนเทนต์) ใช้โมเดลแรง — แต่ละส่วนตั้งแยกกันได้ ถ้าไม่ตั้งจะใช้โมเดลหลักด้านล่าง
+              โมเดลนอกจาก Gemini ต้องเชื่อมต่อ OpenRouter ก่อน (ดูการ์ดด้านบน) ถึงจะใช้ได้จริง
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs text-secondary/50">โมเดลหลัก (ค่าเริ่มต้นทุกส่วน)</label>
+            <select
+              value={chatModel}
+              onChange={(e) => void saveChatModel(e.target.value)}
+              disabled={savingChatModel}
+              className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              {CHAT_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label} {status?.[m.statusKey]?.connected ? "— เชื่อมต่อแล้ว" : m.id === "gemini" ? "" : "— ยังไม่เชื่อมต่อ"}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs text-secondary/50">แชทลูกค้า (LINE/เว็บ/Messenger) — งานถี่ที่สุด ควรใช้โมเดลถูก</label>
+            <TierModelSelect value={tierChatModel} disabled={savingTierModel} onChange={(v) => void saveTierModel("ai_model_chat", v)} />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs text-secondary/50">TIGA AI Agent (CEO + Specialist)</label>
+            <TierModelSelect value={tierAgentModel} disabled={savingTierModel} onChange={(v) => void saveTierModel("ai_model_agent", v)} />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs text-secondary/50">สร้างคอนเทนต์ (บทความ/สคริปต์/โฆษณา/เสียง)</label>
+            <TierModelSelect value={tierContentModel} disabled={savingTierModel} onChange={(v) => void saveTierModel("ai_model_content", v)} />
+          </div>
+
+          <div className="flex items-end gap-2 border-t border-line/10 pt-3">
+            <div className="flex-1">
+              <label className="text-xs text-secondary/50">วงเงิน AI ต่อวัน (tokens, 0/ว่าง = ไม่จำกัด)</label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="เช่น 500000"
+                value={aiBudget}
+                onChange={(e) => setAiBudget(e.target.value)}
+              />
+            </div>
+            <Button variant="outline" onClick={() => void saveAiBudget()} disabled={savingAiBudget}>
+              {savingAiBudget ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+          <p className="text-xs text-secondary/40">เมื่อถึงวงเงิน AI จะหยุดตอบลูกค้าเองและแจ้งเตือนเจ้าของจนกว่าจะถึงวันถัดไป</p>
+
+          <div className="flex items-end gap-2 border-t border-line/10 pt-3">
+            <div className="flex-1">
+              <label className="text-xs text-secondary/50">วงเงินสร้างวิดีโอ AI ต่อวัน (คลิป, 0/ว่าง = ไม่จำกัด)</label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="เช่น 10"
+                value={videoLimit}
+                onChange={(e) => setVideoLimit(e.target.value)}
+              />
+            </div>
+            <Button variant="outline" onClick={() => void saveVideoLimit()} disabled={savingVideoLimit}>
+              {savingVideoLimit ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+          <p className="text-xs text-secondary/40">วิดีโอ AI (Veo/Seedance) แพงที่สุด — ตั้งวงเงินกันค่าใช้จ่ายเกิน</p>
         </div>
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">

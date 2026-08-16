@@ -8,6 +8,9 @@ import * as line from "./line.ts";
 import { logAiUsage } from "./usage-logging.ts";
 import { fetchRecentMemory } from "./agent-memory.ts";
 import { withRetry } from "./retry.ts";
+import { checkAiBudgetExceeded } from "./ai-budget.ts";
+import { registerWorkflowActions } from "./agent-actions-db.ts";
+import type { RecommendedAction } from "./agent-actions.ts";
 
 const MAX_TASKS = 4;
 
@@ -56,6 +59,22 @@ const RETURN_SYNTHESIS_TOOL: ToolDefinition = {
             title: { type: "string" },
             description: { type: "string" },
             priority: { type: "string", enum: ["high", "medium", "low"] },
+            action: {
+              type: "object",
+              description: "Optional. When this recommendation can be turned into a concrete action the system can perform, specify it here — otherwise omit.",
+              properties: {
+                type: {
+                  type: "string",
+                  enum: ["create_task", "send_notification", "send_line", "create_schedule"],
+                  description: "create_task: add an internal to-do; send_notification: show an in-app notification; send_line: send a LINE message to a customer (needs customerId or lineUserId in payload); create_schedule: create a recurring agent schedule (needs instruction).",
+                },
+                payload: {
+                  type: "object",
+                  description: "Action-specific data. create_task: {title, description?, priority?}; send_notification: {title?, body}; send_line: {customerId? or lineUserId, message}; create_schedule: {label?, instruction, timeOfDay?, recurrenceType?}.",
+                },
+              },
+              required: ["type", "payload"],
+            },
           },
           required: ["title", "description", "priority"],
         },
@@ -65,18 +84,38 @@ const RETURN_SYNTHESIS_TOOL: ToolDefinition = {
   },
 };
 
-interface RecommendedAction {
-  title: string;
-  description: string;
-  priority: "high" | "medium" | "low";
+// How the owner rated recent CEO reports — fed into the next synthesis so
+// the CEO Agent learns which kind of output is actually useful.
+async function fetchRecentFeedback(admin: SupabaseClient): Promise<{ useful: number; notUseful: number }> {
+  const { data } = await admin
+    .from("agent_workflow_runs")
+    .select("feedback")
+    .eq("status", "completed")
+    .not("feedback", "is", null)
+    .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+  let useful = 0;
+  let notUseful = 0;
+  for (const row of data ?? []) {
+    if (row.feedback === "useful") useful += 1;
+    else if (row.feedback === "not_useful") notUseful += 1;
+  }
+  return { useful, notUseful };
 }
 
 // The CEO Agent: goal -> plan (which specialists answer what) -> run them
 // in parallel against real CRM data -> synthesize one strategic report.
-// Nothing this produces executes automatically -- it's a report for the
-// owner to act on, same human-in-the-loop principle as every other
-// AI-drafted output in this app.
+// Nothing this produces executes automatically except the low-risk action
+// types the owner already opted into (create_task / send_notification);
+// everything customer- or money-facing lands in agent_actions as
+// pending_approval and waits for the owner's click -- same
+// human-in-the-loop principle as every other AI-drafted output in this app.
 export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy: string | null): Promise<string> {
+  // Cost guard: never spend tokens on an agent report when the daily AI
+  // budget is already spent -- fail fast with a readable reason.
+  if (await checkAiBudgetExceeded(admin)) {
+    throw new Error("AI ถึงวงเงินค่าใช้จ่ายของวันนี้แล้ว — CEO Agent ข้ามรอบนี้ รันใหม่ได้พรุ่งนี้หรือเพิ่ม ai_budget_daily_tokens");
+  }
+
   const { data: workflow, error: insertErr } = await admin.from("agent_workflow_runs").insert({ goal, status: "running", created_by: createdBy }).select("id").single();
   if (insertErr) throw insertErr;
   const workflowId = workflow.id as string;
@@ -91,7 +130,8 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
       ],
       [RETURN_TASK_PLAN_TOOL],
       0.4,
-      1024
+      1024,
+      "agent"
     );
     await logAiUsage(admin, planResult.usage, "agent-orchestrator:ceo_planner");
 
@@ -148,6 +188,8 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
       return workflowId;
     }
 
+    const recentFeedback = await fetchRecentFeedback(admin);
+
     const synthesisResult = await generate(
       [
         { role: "system", content: PROMPTS.ceo_synthesis },
@@ -159,12 +201,14 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
             failedAgentCount: tasks.length - successfulOutputs.length,
             recentRuns: recentMemory.recentRuns,
             agentReliability: recentMemory.agentReliability,
+            recentFeedback,
           }),
         },
       ],
       [RETURN_SYNTHESIS_TOOL],
       0.5,
-      1536
+      1536,
+      "agent"
     );
     await logAiUsage(admin, synthesisResult.usage, "agent-orchestrator:ceo_synthesis");
 
@@ -179,6 +223,12 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
       .from("agent_workflow_runs")
       .update({ status: "completed", final_report: report, recommended_actions: recommendedActions, completed_at: new Date().toISOString() })
       .eq("id", workflowId);
+
+    // Persist executable recommendations as agent_actions rows; the
+    // low-risk types run now, the rest wait for the owner's approval.
+    await registerWorkflowActions(admin, workflowId, recommendedActions).catch((err) => {
+      console.error("registerWorkflowActions failed", err);
+    });
 
     await admin.from("notifications").insert({
       type: "automation",

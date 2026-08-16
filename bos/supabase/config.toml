@@ -53,3 +53,9 @@ verify_jwt = false
 
 [functions.web-chat]
 verify_jwt = false
+
+[functions.agent-action-execute]
+verify_jwt = true
+
+[functions.agent-event-triggers]
+verify_jwt = false

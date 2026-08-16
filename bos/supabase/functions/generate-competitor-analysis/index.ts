@@ -109,7 +109,8 @@ List concrete named competitors found in both categories with specifics, not gen
       ],
       [RETURN_COMPETITOR_ANALYSIS_TOOL],
       0.5,
-      8192
+      8192,
+      "content"
     );
     await logAiUsage(admin, result.usage, "generate-competitor-analysis");
 

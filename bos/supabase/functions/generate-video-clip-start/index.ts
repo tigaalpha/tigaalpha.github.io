@@ -5,6 +5,7 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 import { isVideoProvider, isVideoOrientation, requireProviderApiKey, startClip } from "../_shared/video-providers.ts";
+import { checkVideoDailyBudget } from "../_shared/video-budget.ts";
 
 // Veo (Google) or Seedance (fal.ai) image-to-video — turns one Image Studio
 // still into a few seconds of real motion, distinct from the free
@@ -39,6 +40,9 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     if (imageErr) throw imageErr;
     if (!image) return jsonResponse({ error: "Image not found" }, 404);
+
+    const budget = await checkVideoDailyBudget(admin, 1);
+    if (!budget.allowed) return jsonResponse({ error: budget.message }, 429);
 
     const apiKey = requireProviderApiKey(provider);
     const row = await startClip(admin, provider, apiKey, userId, image, orientation);

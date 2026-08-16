@@ -94,7 +94,7 @@ Deno.serve(async (req: Request) => {
       conversation.summary ? `Conversation summary: ${conversation.summary}` : "No summary available — keep it general.",
     ].join("\n\n");
 
-    const result = await generate([{ role: "user", content: followUpPrompt }], undefined, 0.7, 200);
+    const result = await generate([{ role: "user", content: followUpPrompt }], undefined, 0.7, 200, "content");
     await logAiUsage(admin, result.usage, "follow-up-conversations");
     const text = result.message.content.trim();
     if (!text) continue;

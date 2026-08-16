@@ -71,7 +71,8 @@ Deno.serve(async (req: Request) => {
       ],
       [RETURN_SCRIPT_TOOL],
       0.8,
-      2048
+      2048,
+      "content"
     );
     await logAiUsage(admin, result.usage, "generate-video-script");
 

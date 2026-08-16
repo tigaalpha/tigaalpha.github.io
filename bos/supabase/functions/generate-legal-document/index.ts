@@ -59,7 +59,8 @@ Deno.serve(async (req: Request) => {
       ],
       undefined,
       0.4,
-      3000
+      3000,
+      "content"
     );
     await logAiUsage(admin, result.usage, "generate-legal-document");
 

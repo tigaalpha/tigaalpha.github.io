@@ -108,7 +108,8 @@ Deno.serve(async (req: Request) => {
       ],
       [RETURN_APP_AD_KIT_TOOL],
       0.7,
-      8192
+      8192,
+      "content"
     );
     await logAiUsage(admin, result.usage, "generate-app-ad-kit");
 

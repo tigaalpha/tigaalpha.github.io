@@ -49,7 +49,8 @@ Deno.serve(async (req: Request) => {
       ],
       undefined,
       0.4,
-      2048
+      2048,
+      "content"
     );
     await logAiUsage(admin, result.usage, "analyze-sales-style");
     const playbook = result.message.content;

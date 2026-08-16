@@ -91,7 +91,8 @@ async function generateArticle(admin: SupabaseClient, systemPrompt: string, user
     ],
     [RETURN_ARTICLE_TOOL],
     0.7,
-    4096
+    4096,
+    "content"
   );
   await logAiUsage(admin, result.usage, "generate-article");
 

@@ -78,6 +78,68 @@ function model(): string {
   return Deno.env.get("AI_MODEL") ?? "gemini-2.0-flash";
 }
 
+// ---- Context caching (cost optimization) -------------------------------
+// The system prompt (sales assistant rules, agent role prompts, etc.) is
+// re-sent on every generate() call — for a busy customer chat that is the
+// bulk of input tokens. Gemini's cachedContents lets us pay the much
+// cheaper cached-input rate for that repeated prefix. We only create a
+// cache after the SAME prompt has been seen twice (creating one for a
+// single-use prompt would cost more than it saves), key by a small hash
+// (not the full prompt), and fall back to the normal uncached path on any
+// cache error — caching must never break generation.
+const CACHE_TTL_SECONDS = 3600;
+const SYSTEM_CACHE_MAX_ENTRIES = 8;
+
+function promptHash(text: string): string {
+  let hash = 5381;
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) + hash + text.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(36);
+}
+
+interface SystemCacheEntry {
+  model: string;
+  name: string;
+  expiresAt: number;
+}
+
+const systemCache: Map<string, SystemCacheEntry> = new Map();
+const systemPromptSeen: Map<string, number> = new Map();
+
+async function ensureSystemCache(systemText: string): Promise<string | null> {
+  if (!systemText) return null;
+  const key = promptHash(systemText);
+  const currentModel = model();
+
+  const existing = systemCache.get(key);
+  if (existing && existing.model === currentModel && existing.expiresAt > Date.now()) return existing.name;
+
+  const seen = (systemPromptSeen.get(key) ?? 0) + 1;
+  systemPromptSeen.set(key, seen);
+  if (seen < 2) return null; // don't pay to cache a single-use prompt
+
+  try {
+    const response = await fetchWithRetry(`${BASE_URL}/cachedContents?key=${apiKey()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: `models/${currentModel}`,
+        systemInstruction: { parts: [{ text: systemText }] },
+        ttl: `${CACHE_TTL_SECONDS}s`,
+      }),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { name?: string };
+    if (!data.name) return null;
+    if (systemCache.size >= SYSTEM_CACHE_MAX_ENTRIES) systemCache.clear();
+    systemCache.set(key, { model: currentModel, name: data.name, expiresAt: Date.now() + CACHE_TTL_SECONDS * 1000 });
+    return data.name;
+  } catch {
+    return null; // cache is best-effort; never fail generation over it
+  }
+}
+
 function embeddingModel(): string {
   return Deno.env.get("AI_EMBEDDING_MODEL") ?? "gemini-embedding-001";
 }
@@ -134,8 +196,14 @@ async function generate(
     generationConfig: { temperature, maxOutputTokens },
   };
 
-  if (systemMessages.length > 0) {
-    body.systemInstruction = { parts: [{ text: systemMessages.join("\n\n---\n\n") }] };
+  // Use the cached copy of the system instruction when one exists (it's
+  // cheaper per input token); otherwise send it inline as usual.
+  const systemText = systemMessages.join("\n\n---\n\n");
+  const cacheName = await ensureSystemCache(systemText);
+  if (cacheName) {
+    body.cachedContent = cacheName;
+  } else if (systemMessages.length > 0) {
+    body.systemInstruction = { parts: [{ text: systemText }] };
   }
 
   if (tools && tools.length > 0) {
