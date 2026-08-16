@@ -195,6 +195,20 @@ export async function respond(
     }
   }
 
+  // Company policies — the owner's saved decisions (company_policies,
+  // managed in Knowledge > นโยบายบริษัท). Injected into every AI reply so
+  // the whole AI team follows them consistently.
+  const { data: policyRows } = await db
+    .from("company_policies")
+    .select("title, content")
+    .eq("active", true)
+    .order("created_at", { ascending: false })
+    .limit(8);
+  if (policyRows && policyRows.length > 0) {
+    const policyText = policyRows.map((p) => `${p.title}: ${p.content}`).join("\n");
+    systemParts.push(`## Company policies (follow these in every reply)\n${policyText}`);
+  }
+
   // Attendance confirmation (24h-before): when this customer has an upcoming
   // lesson they haven't confirmed yet, tell the model so the moment the
   // student answers ("มา"/"มาไม่ได้") it records it via

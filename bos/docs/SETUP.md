@@ -14,9 +14,9 @@
 | # | ขั้นตอน | ที่ไหน | ใช้เวลาประมาณ |
 |---|---|---|---|
 | A | เตรียมบัญชีภายนอก (Google/LINE/Meta/OpenRouter) | console ภายนอก | 30–60 นาที |
-| B | Deploy edge functions ทั้งหมด (~74 ตัว) | Supabase CLI | 10 นาที |
+| B | Deploy edge functions ทั้งหมด (~84 ตัว) | Supabase CLI | 10 นาที |
 | C | ตั้ง secrets | Supabase Dashboard / CLI | 10 นาที |
-| D | Apply migrations 79 ตัว (สร้างตาราง + cron) | Supabase SQL Editor / CLI | 5 นาที |
+| D | Apply migrations 81 ตัว (สร้างตาราง + cron) | Supabase SQL Editor / CLI | 5 นาที |
 | E | ตั้งค่าหลัง deploy (payment_config, profiles, งบ AI) | SQL Editor | 5 นาที |
 | F | เชื่อม Google Calendar | ในแอพ Settings → Integrations | 5 นาที |
 | G | วาง LINE webhook URL | LINE Developers Console | 5 นาที |
@@ -187,6 +187,28 @@ instagram, tiktok (ต้องแนบ media URL) — โพสต์เดี
    — หรือดูตัวอย่างได้ที่ `/studio/widget-demo.html`
 3. ลูกค้าที่คุยผ่าน widget จะเข้า Inbox เดียวกับ LINE (ช่อง `web`) — ไม่ต้องตั้งค่าอื่นเพิ่ม
 
+## H5. Customer Portal (LINE Mini App — ลูกค้าดูตาราง/ชำระเงินเอง)
+
+1. LINE Developers Console → OA ของคุณ → **LIFF** → Add → ตั้ง endpoint = URL หน้า `/portal`
+   (เช่น `https://tigaalpha.github.io/studio/portal` หรือ URL แอพของคุณ)
+2. ตั้งค่าในระบบ 2 ค่า (SQL หรือ Settings):
+   ```sql
+   insert into integration_settings (key, value) values ('liff_app_id', '<LIFF App ID>');   -- เช่น 1655809972-xxxx
+   insert into integration_settings (key, value) values ('liff_client_id', '<Channel ID>'); -- ใช้ตรวจ idToken
+   ```
+3. ลูกค้าที่เคยทัก LINE มาก่อน (มี `line_user_id` ใน customers) เข้า LIFF → กดเข้าสู่ระบบด้วย LINE
+   → เห็นตารางเรียน ใบแจ้งชำระ (QR PromptPay) ชั่วโมงเรียนคงเหลือ และประวัติการชำระ
+   — ลดภาระ AI ตอบคำถามซ้ำ (ตาราง/ยอดเงิน) ได้มาก
+
+## H6. AI โทรออก (Bland AI) + Owner Command Center ผ่าน LINE
+
+1. **โทรออกทวงเงิน/ติดตามลูกค้า** (ใช้เมื่อใบชำระค้างเกิน 7 วัน หรือกดเองที่หน้านักเรียน):
+   ตั้ง secret `BLAND_API_KEY` (+ ไม่บังคับ `BLAND_VOICE_ID`) — ฟังก์ชัน `voice-outbound`
+   เรียก API Bland แล้ว webhook ผลกลับเข้า `voice-agent-webhook` → บันทึก `voice_call_logs`
+2. **Owner Command Center**: เจ้าของส่งข้อความใน LINE เช่น `ยอดขายวันนี้`, `ใครค้างเงิน`, `ลูกค้าใหม่`,
+   `คาบเรียนวันนี้` (หรือขึ้นต้นด้วย `/`) → ระบบตอบตัวเลขธุรกิจจริงทันที (ไม่ผ่าน AI chat ปกติ)
+   — ต้องตั้ง `owner_line_user_id` ให้ตรงกับ userId ของคุณ (รูปแบบ U...)
+
 ---
 
 ## I. ตรวจ cron ทั้งหมดทำงานจริง
@@ -197,7 +219,7 @@ cron jobs ถูกสร้างตอน apply migrations (ขั้น D) �
 select jobname, schedule, active from cron.job order by jobname;
 ```
 
-ตาราง 24 งานที่ควรเห็น (ฟังก์ชันทั้งหมดนี้มีอยู่ใน `supabase/functions/` แล้ว):
+ตาราง 26 งานที่ควรเห็น (ฟังก์ชันทั้งหมดนี้มีอยู่ใน `supabase/functions/` แล้ว):
 
 | cron.jobname | ฟังก์ชันที่เรียก | ตารางเวลา (UTC) | ทำงานเมื่อไหร่ (ไทย) |
 |---|---|---|---|
@@ -226,6 +248,8 @@ select jobname, schedule, active from cron.job order by jobname;
 | content-calendar-weekly | content-calendar | จันทร์ 04:00 | จันทร์ 11:00 (วางแผนเนื้อหา) |
 | video-repurpose-weekly | video-repurpose | อาทิตย์ 04:00 | อาทิตย์ 11:00 (ตัดคลิปสั้น) |
 | reschedule-assistant-hourly | reschedule-assistant | ทุก 1 ชม. | ตลอดเวลา (เสนอเลื่อนคาบ) |
+| winback-daily | winback-runner | 03:00 | 10:00 (ร่างข้อเสนอไล่ตามลูกค้าที่หายไป) |
+| ai-eval-daily | ai-eval-runner | 02:00 | 09:00 (ประเมินคุณภาพคำตอบ AI) |
 
 **ตรวจว่า cron ทำงานจริง (ไม่ใช่แค่ถูกสร้าง):** เปิด Supabase Dashboard → Edge Functions → Logs
 กรองด้วยชื่อฟังก์ชัน (เช่น `system-health-check`) — ต้องเห็นการ invoke ทุก 15 นาที
@@ -257,3 +281,20 @@ npm run build        # แล้ว sync out/ → studio/ ที่ root (ขั
 
 > หมายเหตุ: โค้ด edge function ทั้งหมดอยู่ใน repo นี้แล้ว (`bos/supabase/functions/`) —
 > deploy จาก repo เสมอ อย่าแก้ฟังก์ชันที่ Dashboard เพราะจะไม่มี version control
+
+---
+
+## L. ฟีเจอร์ AI-first รอบล่าสุด (ใช้งานในแอพ)
+
+| ฟีเจอร์ | หน้า | ฟังก์ชัน | หมายเหตุ |
+|---|---|---|---|
+| Owner Command Center | LINE (เจ้าของ) | `_shared/owner-command.ts` + line-webhook | พิมพ์ `ยอดขายวันนี้` / `ใครค้างเงิน` / `ลูกค้าใหม่` / `คาบเรียนวันนี้` |
+| AI โทรออก | หน้านักเรียน + cron | `voice-outbound` | ต้องตั้ง `BLAND_API_KEY` |
+| Customer Portal | `/portal` (สาธารณะ) | `portal-config`, `portal-login`, `portal-me` | ต้องตั้ง `liff_app_id` + `liff_client_id` (ขั้น H5) |
+| ภาษีอัตโนมัติ | `/tax` | `tax-report` | VAT / หัก ณ ที่จ่าย / PND 3 + Export CSV |
+| Win-back ลูกค้า | `/winback` | `winback-runner` (cron), `winback-action` | AI ร่าง → อนุมัติ → ส่ง LINE + ใบชำระ |
+| คุณภาพ AI | `/ai-quality` | `ai-eval-runner` (cron) | LLM-as-judge คะแนน 1-5 รายวัน |
+| งานแสดง/กิจกรรม | `/events` | `event-notify` | ส่งคำเชิญ LINE ให้ผู้เข้าร่วม |
+| นโยบายบริษัท (ความจำองค์กร) | Knowledge → นโยบายบริษัท | chat-core inject | AI ทุกตัวปฏิบัติตาม |
+| Ad Spend + Attribution | `/ads` | repository (RLS) | บันทึกค่าโฆษณา เทียบยอดขาย |
+| Payroll ครบวงจร | `/reports` | `payroll-report` (แก้) | หัก ณ ที่จ่าย 3% + สลิป LINE ถึงครู |

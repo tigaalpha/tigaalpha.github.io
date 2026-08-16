@@ -26,11 +26,11 @@ Deno.serve(async (req: Request) => {
 
   const { data: rates, error: ratesErr } = await admin
     .from("teacher_rates")
-    .select("teacher_id, rate_per_hour, teachers(name)")
+    .select("teacher_id, rate_per_hour, teachers(name, line_user_id)")
     .eq("active", true);
   if (ratesErr) throw ratesErr;
 
-  const entries: { teacherId: string; teacherName: string; ratePerHour: number; minutes: number }[] = [];
+  const entries: { teacherId: string; teacherName: string; ratePerHour: number; minutes: number; lineUserId?: string | null }[] = [];
   for (const rate of rates ?? []) {
     const teacher = (rate as { teachers?: { name?: string } | null }).teachers;
     const { data: bookings, error: bErr } = await admin
@@ -45,22 +45,39 @@ Deno.serve(async (req: Request) => {
       const ms = new Date(b.end_time).getTime() - new Date(b.start_time).getTime();
       return sum + (Number.isFinite(ms) && ms > 0 ? ms / 60000 : 0);
     }, 0);
-    entries.push({ teacherId: rate.teacher_id, teacherName: teacher?.name ?? "ครู", ratePerHour: Number(rate.rate_per_hour), minutes });
+    entries.push({ teacherId: rate.teacher_id, teacherName: teacher?.name ?? "ครู", ratePerHour: Number(rate.rate_per_hour), minutes, lineUserId: teacher?.line_user_id ?? null });
   }
 
   const results = computePayroll(entries);
+  const WITHHOLDING_RATE = 0.03; // PND 3 — services paid to individuals
   const total = results.reduce((s, r) => s + r.amount, 0);
+  const totalWithholding = Math.round(total * WITHHOLDING_RATE * 100) / 100;
 
   const lines = [`💰 สรุปเงินเดือนครู ประจำเดือน ${monthLabel}`, ``];
   if (results.length === 0) {
-    lines.push("- ยังไม่ได้ตั้งอัตราค่าเรียนรายชั่วโมงใน teacher_rates");
+    lines.push("ยังไม่ได้ตั้งอัตราค่าเรียนรายชั่วโมงใน teacher_rates");
   } else {
     for (const r of results) {
-      lines.push(`- ${r.teacherName}: ${r.hours} ชม. × ${r.amount / r.hours > 0 ? `${Math.round((r.amount / r.hours) * 100) / 100} บาท/ชม.` : "-"} = ${r.amount.toLocaleString("th-TH")} บาท`);
+      const w = Math.round(r.amount * WITHHOLDING_RATE * 100) / 100;
+      lines.push(`${r.teacherName}: ${r.hours} ชม. = ${r.amount.toLocaleString("th-TH")} บาท (หัก ณ ที่จ่าย ${w.toLocaleString("th-TH")} บาท)`);
     }
-    lines.push(``, `รวมทั้งสิ้น: ${total.toLocaleString("th-TH")} บาท`);
+    lines.push(``, `รวมทั้งสิ้น: ${total.toLocaleString("th-TH")} บาท`, `หัก ณ ที่จ่ายรวม: ${totalWithholding.toLocaleString("th-TH")} บาท (นำส่งสรรพากร พร้อมแบบ PND 3)`);
   }
   const text = lines.join("\n");
+
+  // Per-teacher payslip on LINE — only teachers with a linked LINE id.
+  for (const entry of entries) {
+    if (!entry.lineUserId) continue;
+    const r = results.find((x) => x.teacherId === entry.teacherId);
+    if (!r || r.amount <= 0) continue;
+    const w = Math.round(r.amount * WITHHOLDING_RATE * 100) / 100;
+    const slip = [`สลิปเงินเดือน ${monthLabel}`, `ชั่วโมงสอน ${r.hours} ชม.`, `ค่าสอน ${r.amount.toLocaleString("th-TH")} บาท`, `หัก ณ ที่จ่าย 3% ${w.toLocaleString("th-TH")} บาท`, `รับจริง ${(r.amount - w).toLocaleString("th-TH")} บาท`].join("\n");
+    try {
+      await push(entry.lineUserId, slip);
+    } catch {
+      // teacher blocked OA — the owner summary above is the record
+    }
+  }
 
   const { data: ownerRow } = await admin.from("integration_settings").select("value").eq("key", "owner_line_user_id").maybeSingle();
   if (ownerRow?.value) {

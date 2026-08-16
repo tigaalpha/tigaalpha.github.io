@@ -43,6 +43,10 @@ import {
   UserCheck,
   Coins,
   Phone,
+  Landmark,
+  CalendarHeart,
+  Sparkles,
+  BadgeCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -132,6 +136,8 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/receipts", label: "ใบเสร็จ", icon: ReceiptIcon, ownerOnly: true },
       { href: "/payments", label: "การชำระเงิน", icon: HandCoins, ownerOnly: true },
       { href: "/voice", label: "AI Receptionist", icon: Phone, ownerOnly: true },
+      { href: "/tax", label: "ภาษีอัตโนมัติ", icon: Landmark, ownerOnly: true },
+      { href: "/events", label: "งานแสดง/กิจกรรม", icon: CalendarHeart, ownerOnly: true },
       { href: "/legal", label: "เอกสาร/สัญญา", icon: Scale },
       { href: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
     ],
@@ -143,6 +149,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/control-center", label: "Control Center", icon: Gauge, ownerOnly: true },
       { href: "/ai-cost", label: "ต้นทุน AI", icon: Coins, ownerOnly: true },
+      { href: "/ai-quality", label: "คุณภาพ AI", icon: BadgeCheck, ownerOnly: true },
+      { href: "/winback", label: "Win-back ลูกค้า", icon: Sparkles, ownerOnly: true },
       { href: "/approvals", label: "การอนุมัติ", icon: ShieldCheck },
       { href: "/data-health", label: "Data Health", icon: HeartPulse },
       { href: "/system-health", label: "System Health", icon: Activity },

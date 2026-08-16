@@ -29,6 +29,8 @@ const TONE: Record<NotificationType, "default" | "success" | "warning" | "danger
   ai_budget_exceeded: "danger",
   drip_sent: "default",
   voice_transcript: "default",
+  winback_draft: "warning",
+  event_notify: "default",
 };
 
 export function NotificationsCard({ notifications }: { notifications: Tables<"notifications">[] }) {

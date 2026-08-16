@@ -7,6 +7,7 @@ import { understandImage, transcribeAudio } from "../_shared/gemini.ts";
 import { SLIP_EXTRACT_PROMPT, parseSlipJson, matchSlipToPayment, type SlipExtraction } from "../_shared/slip.ts";
 import { confirmPaymentBySlip } from "../_shared/payments.ts";
 import { refreshLeadScore } from "../_shared/lead-score-db.ts";
+import { handleOwnerCommand } from "../_shared/owner-command.ts";
 
 const FALLBACK_REPLY = "ขออภัยค่ะ ระบบขัดข้องชั่วคราว รบกวนลองทักใหม่อีกครั้งสักครู่นะคะ";
 
@@ -194,6 +195,18 @@ async function processEvents(admin: ReturnType<typeof createAdminClient>, events
 
         const messageText = event.message?.text ?? "";
         const conversationId = await resolveConversation(admin, lineUserId);
+
+        // Owner Command Center (feature #10): the owner's own LINE messages
+        // that look like business commands ("ยอดขายวันนี้", "ใครค้างเงิน") get
+        // a direct plain-text answer instead of the chat loop.
+        const { data: ownerRow } = await admin.from("integration_settings").select("value").eq("key", "owner_line_user_id").maybeSingle();
+        if (ownerRow?.value && ownerRow.value === lineUserId) {
+          const commandReply = await handleOwnerCommand(admin, messageText);
+          if (commandReply) {
+            await reply(replyToken, commandReply);
+            return;
+          }
+        }
 
         if (safeMode) {
           // Keep the message in conversation history (same insert respond()

@@ -64,7 +64,9 @@ export type NotificationType =
   | "kb_auto_learned"
   | "ai_budget_exceeded"
   | "drip_sent"
-  | "voice_transcript";
+  | "voice_transcript"
+  | "winback_draft"
+  | "event_notify";
 
 export type KnowledgeSourceType =
   | "pricing"
@@ -90,7 +92,7 @@ export interface ArticleFaqItem {
 
 export type TransactionType = "income" | "expense";
 
-export type SocialPlatform = "facebook" | "instagram" | "tiktok" | "youtube" | "line";
+export type SocialPlatform = "facebook" | "instagram" | "tiktok" | "youtube" | "line" | "x" | "website";
 
 export type SocialPostStatus = "queued" | "posting" | "success" | "failed";
 
@@ -127,6 +129,7 @@ export interface Database {
           specialties: string[];
           color: string | null;
           active: boolean;
+          line_user_id: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["teachers"]["Row"]> & { name: string };
@@ -519,6 +522,9 @@ export interface Database {
           status: string | null;
           summary: string | null;
           transcript_url: string | null;
+          recording_url: string | null;
+          amount: number | null;
+          payment_id: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["voice_call_logs"]["Row"]>;
@@ -545,7 +551,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          platform: "facebook" | "instagram" | "tiktok" | "youtube" | "line";
+          platform: "facebook" | "instagram" | "tiktok" | "youtube" | "line" | "x";
           account_name: string;
           access_token: string;
           refresh_token: string | null;
@@ -556,7 +562,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["social_accounts"]["Row"]> & {
           user_id: string;
-          platform: "facebook" | "instagram" | "tiktok" | "youtube" | "line";
+          platform: "facebook" | "instagram" | "tiktok" | "youtube" | "line" | "x";
           account_name: string;
           access_token: string;
         };
@@ -1265,6 +1271,100 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["teacher_rates"]["Row"]> & { teacher_id: string; rate_per_hour: number };
         Update: Partial<Database["public"]["Tables"]["teacher_rates"]["Row"]>;
+        Relationships: [];
+      };
+      ad_spend_entries: {
+        Row: {
+          id: string;
+          platform: string;
+          amount: number;
+          spend_date: string;
+          campaign_name: string | null;
+          note: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ad_spend_entries"]["Row"]> & { platform: string; amount: number };
+        Update: Partial<Database["public"]["Tables"]["ad_spend_entries"]["Row"]>;
+        Relationships: [];
+      };
+      ai_evals: {
+        Row: {
+          id: string;
+          message_id: string | null;
+          conversation_id: string | null;
+          channel: string | null;
+          reply_text: string;
+          score: number;
+          reason: string | null;
+          model: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ai_evals"]["Row"]> & { reply_text: string; score: number };
+        Update: Partial<Database["public"]["Tables"]["ai_evals"]["Row"]>;
+        Relationships: [];
+      };
+      company_policies: {
+        Row: {
+          id: string;
+          title: string;
+          content: string;
+          tags: string[];
+          source_type: "manual" | "approval" | "kb";
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["company_policies"]["Row"]> & { title: string; content: string };
+        Update: Partial<Database["public"]["Tables"]["company_policies"]["Row"]>;
+        Relationships: [];
+      };
+      events: {
+        Row: {
+          id: string;
+          title: string;
+          event_type: "recital" | "exam" | "competition" | "workshop" | "other";
+          start_time: string;
+          end_time: string | null;
+          location: string | null;
+          description: string | null;
+          status: "draft" | "open" | "closed";
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["events"]["Row"]> & { title: string; start_time: string };
+        Update: Partial<Database["public"]["Tables"]["events"]["Row"]>;
+        Relationships: [];
+      };
+      event_participants: {
+        Row: {
+          id: string;
+          event_id: string;
+          customer_id: string;
+          piece: string | null;
+          status: "invited" | "confirmed" | "declined";
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["event_participants"]["Row"]> & { event_id: string; customer_id: string };
+        Update: Partial<Database["public"]["Tables"]["event_participants"]["Row"]>;
+        Relationships: [];
+      };
+      winback_campaigns: {
+        Row: {
+          id: string;
+          customer_id: string;
+          offer_text: string;
+          offer_amount: number | null;
+          status: "pending" | "approved" | "rejected" | "sent" | "converted" | "dismissed";
+          payment_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          sent_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["winback_campaigns"]["Row"]> & { customer_id: string; offer_text: string };
+        Update: Partial<Database["public"]["Tables"]["winback_campaigns"]["Row"]>;
         Relationships: [];
       };
       kb_learning_log: {

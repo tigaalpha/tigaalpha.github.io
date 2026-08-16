@@ -43,6 +43,8 @@ const ACTIVITY_STYLE: Record<NotificationType, { icon: LucideIcon; bg: string }>
   ai_budget_exceeded: { icon: AlertTriangle, bg: "bg-red-500/15 text-red-400" },
   drip_sent: { icon: Sparkles, bg: "bg-purple-500/15 text-purple-400" },
   voice_transcript: { icon: Bot, bg: "bg-blue-500/15 text-blue-400" },
+  winback_draft: { icon: Sparkles, bg: "bg-orange-500/15 text-orange-400" },
+  event_notify: { icon: CalendarClock, bg: "bg-purple-500/15 text-purple-400" },
 };
 
 function timeAgo(iso: string): string {

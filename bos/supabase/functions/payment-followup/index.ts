@@ -27,7 +27,7 @@ Deno.serve(async (req: Request) => {
     const now = Date.now();
     const { data: pending } = await admin
       .from("payments")
-      .select("id, amount, reference_code, remind_count, last_reminded_at, created_at, customers(line_user_id, name)")
+      .select("id, customer_id, amount, reference_code, remind_count, last_reminded_at, created_at, customers(line_user_id, name, phone)")
       .eq("status", "pending")
       .order("created_at", { ascending: true })
       .limit(50);
@@ -74,6 +74,33 @@ Deno.serve(async (req: Request) => {
           escalated += 1;
         } catch {
           // owner unreachable — the Payments page still surfaces it
+        }
+      }
+
+      // 7-day overdue + customer has a phone + Bland AI is configured:
+      // escalate with a real outbound voice call (feature #1). Guarded — if
+      // anything fails or the key is missing, the cron keeps running.
+      if (count + 1 >= STAGES.length && customer?.phone) {
+        try {
+          const apiKey = Deno.env.get("BLAND_API_KEY");
+          if (apiKey) {
+            await fetch("https://api.bland.ai/v1/calls", {
+              method: "POST",
+              headers: { Authorization: apiKey, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                phone_number: customer.phone,
+                task:
+                  `คุณกำลังโทรหา${customer?.name ?? "ลูกค้า"} ของโรงเรียนสอนเปียโน TIGA Studio พูดภาษาไทยสุภาพเหมือนพนักงานจริง ` +
+                  `แจ้งว่ามีใบแจ้งชำระ ${amount} บาท (อ้างอิง ${payment.reference_code}) ที่ยังไม่ได้รับเงิน ` +
+                  `สอบถามว่าสะดวกโอนเมื่อไหร่ ถ้าโอนแล้วขอบคุณและบอกว่าจะตรวจสลิปให้เร็วที่สุด พูดสั้นกระชับ ไม่กดดัน`,                
+                voice: Deno.env.get("BLAND_VOICE_ID") ?? "2djkd2hw5y6LrgK0cJmY",
+                webhook: "https://tzgktczefypwhhmyxlmj.supabase.co/functions/v1/voice-agent-webhook",
+                metadata: { customerId: payment.customer_id, purpose: "payment", paymentId: payment.id, direction: "outbound" },
+              }),
+            }).catch(() => {});
+          }
+        } catch {
+          // never let a voice call failure break the reminder cron
         }
       }
     }

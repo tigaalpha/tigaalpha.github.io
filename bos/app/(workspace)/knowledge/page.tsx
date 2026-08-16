@@ -8,6 +8,7 @@ import { CoverageChecker } from "@/features/knowledge/components/coverage-checke
 import { SalesStyleLearner } from "@/features/knowledge/components/sales-style-learner";
 import { ReferencePhotosManager } from "@/features/knowledge/components/reference-photos-manager";
 import { KbDraftsSection } from "@/features/knowledge/components/kb-drafts-section";
+import { PoliciesSection } from "@/features/knowledge/components/policies-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { KnowledgeSourceType, Tables } from "@/types/database";
 
@@ -44,6 +45,7 @@ export default function KnowledgePage() {
         <h1 className="text-2xl font-semibold text-secondary">Knowledge Base</h1>
         <p className="text-sm text-secondary/50">The AI always searches this before answering a customer</p>
       </div>
+      <PoliciesSection />
       <KbDraftsSection />
       {documents ? <CoverageChecker documents={documents} onSelectEmpty={setFocusSourceType} /> : null}
       {documents ? (
