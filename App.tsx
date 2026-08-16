@@ -3916,12 +3916,30 @@ function buildProgressSnapshot() {
     };
   } catch (e) { return null; }
 }
+// Dirty-check so the 90s interval (plus the tab-hide/pagehide triggers, all
+// funneled through this one function) only actually writes when the
+// learner's progress genuinely changed since the last successful sync -
+// found by the scale audit as the single biggest per-user write source in
+// the app (every logged-in tab, unconditionally, every 90s). Hash excludes
+// `updated` (always a fresh timestamp) so an unchanged session correctly
+// no-ops instead of comparing against itself and always "changing". Only
+// remembered as synced on a SUCCESSFUL write - a failed one leaves the hash
+// stale so the next tick naturally retries it, matching what unconditional
+// writes already did for failures (this only removes REDUNDANT successful
+// writes, not retry coverage).
+let _lastSyncedProgressHash = null;
 function syncProgress(uid) {
   if (!uid) return;
   try {
     const snap = buildProgressSnapshot();
     if (!snap) return;
-    sb.from("profiles").update({ progress: snap, last_active: ymd(), updated_at: new Date().toISOString() }).eq("id", uid).then(() => {}, () => {});
+    const { updated, ...rest } = snap;
+    const hash = JSON.stringify(rest);
+    if (hash === _lastSyncedProgressHash) return;
+    sb.from("profiles").update({ progress: snap, last_active: ymd(), updated_at: new Date().toISOString() }).eq("id", uid).then(
+      () => { _lastSyncedProgressHash = hash; },
+      () => {}
+    );
   } catch (e) {}
 }
 // At most once per calendar month per device: snapshots the learner's current
