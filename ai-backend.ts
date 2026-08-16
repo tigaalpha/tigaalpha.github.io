@@ -23,17 +23,24 @@ export function apiHeaders() {
 }
 
 /* ── shared LLM call plumbing ──
-   The 5 call sites (chat's callClaude, voice-tutor's vmFetchAI, play-along's
-   styleTransform/fetchSongAnalysis, camera-coach's analyzeHands) each used to
-   hand-roll their own fetch+response-handling against API_URL. Two shapes
-   cover all 5: streamChatCompletion (SSE, `data: {"content":"..."}` lines)
-   for the 3 that stream, fetchChatCompletion (plain JSON) for the 2 that
-   don't. Callers still build their own request body (the shape differs -
-   {message,conversationHistory,system} for 4 of them, a raw {model,
-   max_tokens,system,messages} Anthropic-style body with an image block for
-   analyzeHands) and still own their own response parsing (incremental UI
-   flush, sentence-boundary TTS segmentation, JSON-blob extraction, etc.) -
-   only the fetch/stream-read/error-shape boilerplate is shared. */
+   11 call sites across the app each used to hand-roll their own
+   fetch+response-handling against API_URL: the 4 hook-owned ones (chat's
+   callClaude, voice-tutor's vmFetchAI, play-along's styleTransform/
+   fetchSongAnalysis, camera-coach's analyzeHands) plus 6 still directly in
+   App.tsx (composeGenerate, SongListPage's generateSong, generateCoachTip's
+   attempt(), AdminPayments' aiRead slip-checker, AdminPage's own diagnostic
+   chat, the AI Weekly Report/Practice Plan generator). Two shapes cover all
+   11: streamChatCompletion (SSE, `data: {"content":"..."}` lines) for the
+   ones that stream, fetchChatCompletion (plain JSON, either a `{text}`
+   shape when the request set `stream:false` or Anthropic-native `{content:
+   [...]}` blocks otherwise) for the ones that don't. Callers still build
+   their own request body (the shape differs - {message,conversationHistory,
+   system} for most, a raw {model,max_tokens,system,messages} Anthropic-
+   style body with an image block for analyzeHands/aiRead, an optional
+   `tools` field for AdminPage's web-search chat) and still own their own
+   response parsing (incremental UI flush, sentence-boundary TTS
+   segmentation, JSON-blob extraction, etc.) - only the fetch/stream-read/
+   error-shape boilerplate is shared. */
 
 // POSTs `body` to the chat backend and streams the SSE response, calling
 // onStart() once the response is confirmed ok (before any bytes are read -
@@ -76,12 +83,17 @@ export async function streamChatCompletion(body, { onStart, onChunk, onRawChunk,
 }
 
 // POSTs `body` to the chat backend and awaits the full (non-streaming) JSON
-// response, returning the joined text of every `type: "text"` content
-// block. Throws on a non-ok response (checked after parsing, matching the
-// stricter of the two original call sites this replaces).
+// response. The backend replies with a plain `{text: "..."}` shape when the
+// request body sets `stream: false`, and the Anthropic-native
+// `{content: [{type:"text",...}]}` blocks shape otherwise - callers that
+// never send `stream: false` never see a `data.text` field, so checking it
+// first is a no-op for them (falls straight through to the blocks join,
+// unchanged). Throws on a non-ok response, preferring the backend's own
+// `error.message` when present (richer than a bare status for callers that
+// log it) and falling back to "HTTP <status>".
 export async function fetchChatCompletion(body) {
   const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify(body) });
   const data = await res.json();
-  if (!res.ok) throw new Error("HTTP " + res.status);
-  return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+  if (!res.ok) throw new Error(data?.error?.message || ("HTTP " + res.status));
+  return (typeof data.text === "string" ? data.text : "") || (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
 }
