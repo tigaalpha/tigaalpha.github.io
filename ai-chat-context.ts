@@ -1,3 +1,4 @@
+import { dayKey } from "./shared-infra";
 /* ── ai-chat-context.ts ──
    Cross-session learner memory (struggles/mastered/recent, spaced-review
    due dates) and assigned-homework tracking, folded into the AI chat's
