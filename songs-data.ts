@@ -1309,6 +1309,101 @@ export const SONGS = [
           ["G4",0.5],["A4",0.5],["G4",0.5],["E4",0.5],["G4",2],["E4",2],
           ["C5",0.5],["D5",0.5],["C5",0.5],["A4",0.5],["C5",1],["D5",1],["E5",1],["D5",1],
           ["C5",0.5],["A4",0.5],["G4",0.5],["E4",0.5],["G4",4]] },
+
+  // ── Jazz/Soul/Neo-soul (original style pieces — real standards in these
+  // genres are still under copyright, unlike the pre-1950 public-domain
+  // works making up the rest of this library, so these are newly composed
+  // here specifically for beginner-friendly one-hand melodic study, not
+  // arrangements of any existing recording or composition) ──
+
+  { id: "jazz_swing_walk", diff: 1, bpm: 112,
+    th: "แจ๊สสวิงวอล์ก", en: "Jazz Swing Walk", zh: "爵士摇摆步",
+    seq: [["C4",1],["E4",0.5],["G4",0.5],["E4",1],["C4",1],
+          ["D4",1],["F4",0.5],["A4",0.5],["F4",1],["D4",1],
+          ["E4",1],["G4",0.5],["C5",0.5],["G4",1],["E4",1],
+          ["F4",1],["G4",0.5],["E4",0.5],["C4",2]] },
+
+  { id: "jazz_blue_note", diff: 2, bpm: 96,
+    th: "บลูโน้ตสโตรล", en: "Blue Note Stroll", zh: "蓝调漫步",
+    seq: [["C4",0.5],["D#4",0.5],["E4",1],["G4",1],
+          ["F4",0.5],["D#4",0.5],["D4",1],["C4",1],
+          ["C4",0.5],["D#4",0.5],["E4",1],["G4",1],["A4",1],
+          ["G4",0.5],["F4",0.5],["D#4",0.5],["D4",0.5],["C4",2]] },
+
+  { id: "jazz_midnight", diff: 3, bpm: 84,
+    th: "แจ๊สยามเที่ยงคืน", en: "Midnight Jazz", zh: "午夜爵士",
+    seq: [["D4",1],["F4",0.5],["A4",0.5],["C5",1],["A4",1],
+          ["G4",0.5],["B4",0.5],["D5",1],["B4",1],["G4",1],
+          ["E4",0.5],["G4",0.5],["C5",1],["G4",0.5],["E4",0.5],["C4",2],
+          ["D4",0.5],["F4",0.5],["G4",1],["C4",2]] },
+
+  { id: "jazz_waltz_swing", diff: 2, bpm: 132,
+    th: "แจ๊สวอลทซ์", en: "Jazz Waltz", zh: "爵士华尔兹",
+    seq: [["C4",1],["E4",1],["G4",1],
+          ["A4",1],["G4",1],["E4",1],
+          ["F4",1],["A4",1],["C5",1],
+          ["G4",1],["F4",1],["E4",1],
+          ["D4",1],["F4",1],["A4",1],
+          ["G4",2],["E4",1],
+          ["C4",3]] },
+
+  { id: "soul_groove_vamp", diff: 1, bpm: 92,
+    th: "โซลกรูฟ", en: "Soul Groove", zh: "灵魂律动",
+    seq: [["C4",0.5],["E4",0.5],["G4",1],["E4",1],
+          ["F4",0.5],["A4",0.5],["C5",1],["A4",1],
+          ["C4",0.5],["E4",0.5],["G4",1],["E4",1],
+          ["G4",0.5],["F4",0.5],["E4",1],["C4",2]] },
+
+  { id: "soul_call_response", diff: 2, bpm: 88,
+    th: "ถาม-ตอบโซล", en: "Call and Response", zh: "呼应对唱",
+    seq: [["E4",1],["G4",1],["A4",1],["G4",1],
+          ["E4",1],["D4",1],["C4",2],
+          ["G4",1],["A4",1],["C5",1],["A4",1],
+          ["G4",1],["E4",1],["D4",2],
+          ["C4",1],["E4",1],["G4",1],["C5",2],["G4",3]] },
+
+  { id: "soul_motown_step", diff: 2, bpm: 104,
+    th: "โมทาวน์สเต็ป", en: "Motown Step", zh: "摩城律动",
+    seq: [["C4",0.5],["C4",0.5],["E4",1],["G4",0.5],["G4",0.5],["E4",1],
+          ["F4",0.5],["F4",0.5],["A4",1],["G4",0.5],["G4",0.5],["E4",1],
+          ["D4",0.5],["D4",0.5],["F4",1],["E4",0.5],["E4",0.5],["C4",1],
+          ["G4",1],["E4",1],["C4",2]] },
+
+  { id: "soul_sunday_feel", diff: 3, bpm: 76,
+    th: "อารมณ์วันอาทิตย์", en: "Sunday Feeling", zh: "周日心情",
+    seq: [["C4",1],["E4",1],["G4",1.5],["F4",0.5],
+          ["E4",1],["D4",1],["C4",2],
+          ["G4",1],["A#4",0.5],["A4",0.5],["G4",1],["E4",1],
+          ["F4",1],["E4",1],["D4",2],
+          ["C4",1.5],["E4",0.5],["G4",2],["C5",2]] },
+
+  { id: "neosoul_velvet", diff: 1, bpm: 78,
+    th: "เวลเวทโกลว์", en: "Velvet Glow", zh: "丝绒微光",
+    seq: [["A4",1.5],["C5",0.5],["B4",1],["G4",1],
+          ["A4",2],["E4",1],["G4",1],
+          ["A4",1.5],["C5",0.5],["D5",1],["C5",1],
+          ["B4",2],["A4",2]] },
+
+  { id: "neosoul_sway", diff: 2, bpm: 84,
+    th: "นีโอโซลสเวย์", en: "Neo-Soul Sway", zh: "新灵魂摇摆",
+    seq: [["G4",1],["A4",0.5],["B4",0.5],["D5",1],["B4",1],
+          ["A4",1],["G4",0.5],["E4",0.5],["G4",1],["D4",1],
+          ["G4",1],["A4",0.5],["B4",0.5],["D5",1],["C5",1],
+          ["B4",1],["G4",1],["E4",2]] },
+
+  { id: "neosoul_late_night", diff: 2, bpm: 70,
+    th: "ดึกคืนนี้", en: "Late Night", zh: "深夜时光",
+    seq: [["E4",1.5],["G4",0.5],["A4",1],["R",0.5],["G4",0.5],
+          ["E4",2],["D4",1],
+          ["C4",1.5],["E4",0.5],["G4",1],["R",0.5],["A4",0.5],
+          ["G4",2],["E4",2]] },
+
+  { id: "neosoul_dorian_dream", diff: 3, bpm: 88,
+    th: "ฝันดอเรียน", en: "Dorian Dream", zh: "多利安之梦",
+    seq: [["D4",1],["F4",0.5],["A4",0.5],["C5",1],["B4",1],
+          ["A4",0.5],["G4",0.5],["F4",1],["E4",1],["D4",2],
+          ["F4",1],["A4",0.5],["D5",0.5],["C5",1],["A4",1],
+          ["G4",0.5],["F4",0.5],["E4",1],["D4",1],["D4",2]] },
 ];
 
 export const SONG_GENRES: Record<string, string> = {
@@ -1329,20 +1424,33 @@ export const SONG_GENRES: Record<string, string> = {
   moon_high_cn:"cn", east_red_cn:"cn", butterfly_cn:"cn", red_bean_cn:"cn",
   soldier_cn:"cn", wild_goose_cn:"cn", kite_cn:"cn", lantern_fest_cn:"cn",
 
-  // 🌿 Folk — traditional folk, spirituals, patriotic, Celtic, Thai
-  oh_susanna:"folk", camptown:"folk", amazing_grace:"folk", greensleeves:"folk",
+  // 🌿 Folk — traditional folk, patriotic, Celtic, Thai (spirituals/hymns
+  // moved to 🙏 Gospel below, splitting what "folk" used to hold in two by
+  // actual musical tradition rather than lumping them together)
+  oh_susanna:"folk", camptown:"folk", greensleeves:"folk",
   scarborough:"folk", old_folks_home:"folk", my_bonnie:"folk", red_river:"folk",
-  he_whole_world:"folk", molly_malone:"folk", down_valley:"folk",
+  molly_malone:"folk", down_valley:"folk",
   auld_lang_syne:"folk", beautiful_dreamer:"folk", simple_gifts:"folk",
   battle_hymn:"folk", home_sweet_home:"folk", clementine:"folk",
-  danny_boy:"folk", shenandoah:"folk", swing_low:"folk", deep_river:"folk",
-  wayfaring_st:"folk", go_tell_mnt:"folk", marines_hymn:"folk",
+  danny_boy:"folk", shenandoah:"folk", marines_hymn:"folk",
   long_long_ago:"folk", old_kentucky:"folk", comin_thro:"folk", believe_me:"folk",
   charlie_is:"folk", minstrel_boy:"folk", loch_lomond:"folk", barbara_allen:"folk",
   drink_to_me:"folk", green_grow:"folk", home_road:"folk", turkey_straw:"folk",
   old_brass_wag:"folk", come_sing:"folk", carry_me_back:"folk", polly_wolly:"folk",
-  auld_robin:"folk", old_hundredth:"folk", she_coming:"folk", saints:"folk",
+  auld_robin:"folk", she_coming:"folk", saints:"folk",
   lao_duang_deuan:"folk", maew_miao:"folk",
+
+  // 🙏 Gospel — African-American spirituals & hymns (public domain, same
+  // as the rest of this library)
+  amazing_grace:"gospel", swing_low:"gospel", deep_river:"gospel",
+  wayfaring_st:"gospel", go_tell_mnt:"gospel", he_whole_world:"gospel",
+  old_hundredth:"gospel",
+
+  // 🎷🎤🌙 Jazz/Soul/Neo-soul — original style pieces (see the SONGS
+  // section above for why these are newly composed, not arrangements)
+  jazz_swing_walk:"jazz", jazz_blue_note:"jazz", jazz_midnight:"jazz", jazz_waltz_swing:"jazz",
+  soul_groove_vamp:"soul", soul_call_response:"soul", soul_motown_step:"soul", soul_sunday_feel:"soul",
+  neosoul_velvet:"neosoul", neosoul_sway:"neosoul", neosoul_late_night:"neosoul", neosoul_dorian_dream:"neosoul",
 
   // 🎹 Classical — Western art music
   scale:"classical", ode:"classical", furelise:"classical", minuet_g:"classical",
@@ -1384,4 +1492,5 @@ export const SONG_GENRES: Record<string, string> = {
 // else defaults to 4/4 rather than guessing at an unverified meter.
 export const SONG_TIMESIG: Record<string, string> = {
   minuet_g: "3/4", minuet_boc: "3/4", waltz_min: "3/4", blue_danube: "3/4",
+  jazz_waltz_swing: "3/4",
 };
