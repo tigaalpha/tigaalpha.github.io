@@ -370,8 +370,8 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     if (!greet && !vmInterruptRef.current) { // offline / stream failed → static fallback greeting
       const mem = readMemory();
       const topStruggle = mem.struggles && mem.struggles.length ? mem.struggles[0].label : null;
-      greet = (homework && homework.text) ? lc.vmGreetHw.replace("{x}", homework.text)
-        : topStruggle ? lc.vmGreetBack.replace("{x}", topStruggle)
+      greet = (homework && homework.text) ? L[lang].vmGreetHw.replace("{x}", homework.text)
+        : topStruggle ? L[lang].vmGreetBack.replace("{x}", topStruggle)
         : L[lang].vmGreeting;
       vmStopFiller();
       vmSetState("speaking");
@@ -773,7 +773,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     while ((segQ.length || pumping) && live()) await vmWait(70);
     if (vmTurnRef.current !== myTurn) return;   // a newer turn (barge-in) took over — abandon this one
     if (!vmActiveRef.current) return;
-    if (!vmInterruptRef.current && !reply.trim()) { reply = lc.err; await vmSpeakAndAct(reply); }
+    if (!vmInterruptRef.current && !reply.trim()) { reply = L[langRef.current].err; await vmSpeakAndAct(reply); }
     if (reply.trim() && !vmInterruptRef.current) {
       const display = vmDisplayText(reply);
       vmMsgsRef.current = [...vmMsgsRef.current, { role: "ai", text: display || reply }];
