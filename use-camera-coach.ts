@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { loadHandLandmarker, HAND_BONES, handRoundness } from "./hand-pose";
 import { L } from "./i18n";
-import { API_URL, apiHeaders } from "./ai-backend";
+import { fetchChatCompletion } from "./ai-backend";
 import { logActivity } from "./shared-infra";
 import { API_MODEL } from "./App";
 /* ── use-camera-coach.ts ──
@@ -80,10 +80,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen }) {
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
         { type: "text", text: lang === "th" ? "ดูมือผมแล้วแนะนำหน่อยครับ" : lang === "zh" ? "看看我的手，给点建议" : "Check my hands and give feedback." }
       ] }] };
-      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify(body) });
-      const data = await res.json();
-      if (!res.ok) throw new Error("http");
-      const reply = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+      const reply = (await fetchChatCompletion(body)).trim();
       setCamCoach({ text: reply || lc.err });
     } catch (e) { setCamCoach({ text: lc.camCoachErr }); }
   }
