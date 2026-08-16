@@ -524,3 +524,194 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
     </div>
   );
 }
+
+/* ── Currency purchases (coins/gems bought with real money) — connects the
+   existing gamification currency to the same PromptPay/Alipay/WeChat
+   slip-upload + admin-review pipeline CheckoutModal already uses, rather
+   than inventing a new payment mechanism. Deliberately QR/slip-only for
+   now, not Stripe: unlike the subscription and School Plan Pro flows
+   (whose stripe-checkout/school-stripe-checkout edge functions this repo
+   never had source for either, per those features' own commit history),
+   a currency-purchase Stripe path would mean writing an edge function
+   fully blind AND with no way to test it in this sandbox (no Stripe keys,
+   no deploy access) - too much risk for a payment-processing code path to
+   ship unverified. QR/slip is fully buildable and testable end-to-end
+   here; Stripe support is a clean, separately-scoped follow-up.
+
+   Prices are display-only, same principle as SchoolCheckoutModal's
+   client-side preview — the authoritative price for a given package
+   always comes from submit_currency_purchase() server-side (see the
+   accompanying migration's _currency_package_price()), so nothing typed
+   or tampered with in the browser can under-pay. Crediting itself only
+   ever happens via admin_review_currency_payment() doing an ADDITIVE
+   `coins = coins + amount` update after a human approves the slip — never
+   a client-writable absolute value, which is exactly the class of hole
+   the security-hardening migration's exp/coins clamp trigger exists to
+   catch if it were ever attempted directly. */
+export const COIN_PACKAGES = [
+  { coins: 500,  thb: 49 },
+  { coins: 1200, thb: 99,  bonus: true },
+  { coins: 3000, thb: 199, bonus: true },
+];
+export const GEM_PACKAGES = [
+  { gems: 50,  thb: 59 },
+  { gems: 120, thb: 129, bonus: true },
+  { gems: 300, thb: 299, bonus: true },
+];
+
+export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [currencyType, setCurrencyType] = useState<"coins"|"gems">("coins");
+  const [pkgIdx, setPkgIdx] = useState(0);
+  const [st, setSt] = useState("idle");   // idle · submitting · uploading · done · error
+  const [reqId, setReqId] = useState(null);
+  const [price, setPrice] = useState(null);       // THB, authoritative once set (from the RPC response)
+  const [chanKey, setChanKey] = useState("");      // "" | "promptpay" | "alipay" | "wechat" once chosen
+  const [zhTab, setZhTab] = useState<"alipay"|"wechat">("alipay");
+  const fileRef = useRef(null);
+  // ref-guards against a fast double-click firing chooseChannel/onFile twice before
+  // React re-renders with a disabled button — same reasoning as CheckoutModal's
+  // submittingRef / SchoolCheckoutModal's submitRef+uploadRef.
+  const submitRef = useRef(false);
+  const uploadRef = useRef(false);
+  const uid = session && session.user && session.user.id;
+
+  const packages = currencyType === "coins" ? COIN_PACKAGES : GEM_PACKAGES;
+  const pkg = packages[pkgIdx] || packages[0];
+
+  function switchType(t) {
+    if (t === currencyType) return;
+    setCurrencyType(t); setPkgIdx(0); setReqId(null); setPrice(null); setChanKey("");
+  }
+
+  const ppId = payCfg && payCfg.promptpay;
+  const aliQr = (payCfg && payCfg.alipay_qr) || ALIPAY_QR;
+  const wxQr = (payCfg && payCfg.wechat_qr) || WECHAT_QR;
+  const channels = [
+    ...(lang === "zh" ? [{ k: "alipay", ic: "🔵", label: "Alipay 支付宝" }] : []),
+    ...(lang === "zh" ? [{ k: "wechat", ic: "🟢", label: "WeChat 微信" }] : []),
+    ...(lang === "th" && ppId ? [{ k: "promptpay", ic: "🇹🇭", label: "PromptPay" }] : []),
+  ];
+  const qr = useMemo(() => (chanKey === "promptpay" && ppId && price) ? promptPayQR(ppId, price) : null, [chanKey, ppId, price]);
+
+  async function chooseChannel(k) {
+    if (!uid || st === "submitting" || submitRef.current) return;
+    submitRef.current = true;
+    setSt("submitting");
+    const amount = currencyType === "coins" ? pkg.coins : pkg.gems;
+    const { data, error } = await sb.rpc("submit_currency_purchase", { p_currency_type: currencyType, p_amount: amount, p_method: k });
+    submitRef.current = false;
+    if (error || !data) { setSt("error"); return; }
+    setReqId(data.id); setPrice(data.price); setChanKey(k); setSt("idle");
+    if (k === "alipay" || k === "wechat") setZhTab(k);
+  }
+
+  async function onFile(e) {
+    const f = e.target.files && e.target.files[0]; e.target.value = "";
+    if (!f || !uid || !reqId || uploadRef.current) return;
+    if (f.size > 6 * 1024 * 1024) { setSt("error"); return; }
+    uploadRef.current = true;
+    setSt("uploading");
+    try {
+      const ext = ((f.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
+      const path = `${uid}/coins-${Date.now()}.${ext}`;
+      const up = await sb.storage.from("slips").upload(path, f, { contentType: f.type, upsert: false });
+      if (up.error) throw up.error;
+      const { error } = await sb.rpc("attach_currency_purchase_slip", { p_id: reqId, p_slip_path: path });
+      if (error) throw error;
+      setSt("done"); playUi("levelup");
+    } catch (e) { setSt("error"); uploadRef.current = false; }
+  }
+
+  const cur = CURRENCY_BY_LANG[lang] || "thb";
+  const showQrPicker = channels.length > 0 && !chanKey;
+
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard pricing" onClick={e => e.stopPropagation()}>
+        <div className="sethdr"><span>🪙 {T("ซื้อเหรียญ/เพชร", "Buy Coins/Gems", "购买金币/宝石")}</span><button className="cbtn" onClick={onClose}>✕</button></div>
+        <div className="setbody">
+          {st === "done" ? (
+            <div className="payok">
+              <div style={{ fontSize: 46 }}>✅</div>
+              <div className="payok-h">{T("ได้รับสลิปแล้ว!", "Slip received!", "已收到凭证！")}</div>
+              <p className="pr-sub">{T("กำลังตรวจสอบการชำระเงิน — เหรียญ/เพชรจะเข้าบัญชีอัตโนมัติเมื่อตรวจผ่าน (ปกติไม่เกิน 24 ชม.)", "We're verifying your payment — your coins/gems land automatically once approved (usually within 24h).", "正在核对付款，通过后自动到账（通常24小时内）。")}</p>
+              <button className="songbtn go" style={{ width: "100%" }} onClick={onClose}>{T("เสร็จสิ้น", "Done", "完成")}</button>
+            </div>
+          ) : (
+            <>
+              {!chanKey && (
+                <>
+                  <div className="billtoggle" style={{ marginBottom: 14 }}>
+                    <button className={`billtog${currencyType === "coins" ? " on" : ""}`} onClick={() => switchType("coins")}>🪙 {T("เหรียญ", "Coins", "金币")}</button>
+                    <button className={`billtog${currencyType === "gems" ? " on" : ""}`} onClick={() => switchType("gems")}>💎 {T("เพชร", "Gems", "宝石")}</button>
+                  </div>
+                  <div className="genrefilters" style={{ marginBottom: 14 }}>
+                    {packages.map((p, i) => (
+                      <button key={i} className={"genrechip" + (pkgIdx === i ? " active" : "")} onClick={() => setPkgIdx(i)}>
+                        {currencyType === "coins" ? "🪙" : "💎"} {(currencyType === "coins" ? p.coins : p.gems).toLocaleString()}
+                        {p.bonus ? " ✨" : ""} · {fmtPrice(cur, p.thb)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="paysum">
+                    <span>{currencyType === "coins" ? "🪙" : "💎"} {(currencyType === "coins" ? pkg.coins : pkg.gems).toLocaleString()} {currencyType === "coins" ? T("เหรียญ", "Coins", "金币") : T("เพชร", "Gems", "宝石")}</span>
+                    <b className="prtier-price">{fmtPrice(cur, pkg.thb)}</b>
+                  </div>
+                </>
+              )}
+
+              {showQrPicker && (
+                <>
+                  {channels.map(c => (
+                    <button key={c.k} className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={st === "submitting"} onClick={() => chooseChannel(c.k)}>
+                      {st === "submitting" ? "⏳ " + T("กำลังเตรียม...", "Preparing...", "准备中...") : c.ic + " " + T("จ่ายผ่าน ", "Pay via ", "通过 ") + c.label}
+                    </button>
+                  ))}
+                  {st === "error" && <div className="aicreate-err">{T("ไม่สามารถสร้างคำขอได้ ลองใหม่อีกครั้ง", "Couldn't start the request — try again", "无法创建请求，请重试")}</div>}
+                </>
+              )}
+              {!channels.length && !chanKey && (
+                <div className="aicreate-err">{T("ยังไม่ได้ตั้งค่าช่องทางรับเงินสำหรับภาษานี้", "No payment channel configured for this language yet", "此语言尚未配置收款渠道")}</div>
+              )}
+
+              {chanKey === "promptpay" && (
+                <>
+                  {qr ? <img className="payqr" src={qr} alt="PromptPay QR" /> : <div className="aicreate-err">{T("สร้าง QR ไม่ได้", "Couldn't make QR", "无法生成二维码")}</div>}
+                  <div className="payinfo">
+                    <div>📱 PromptPay: <b>{ppId}</b></div>
+                    {payCfg && payCfg.name && <div>👤 {payCfg.name}</div>}
+                    {payCfg && payCfg.bank && <div>🏦 {payCfg.bank}</div>}
+                  </div>
+                  <p className="pr-sub">{T("สแกน QR ด้วยแอปธนาคาร โอนตามยอด แล้วอัปโหลดสลิปเพื่อยืนยัน", "Scan with your banking app, pay the exact amount, then upload the slip.", "用银行App扫码付款，然后上传凭证。")}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload slip", "上传凭证")}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+
+              {(chanKey === "alipay" || chanKey === "wechat") && (
+                <>
+                  <img className="payqr ext" src={zhTab === "wechat" ? wxQr : aliQr} alt={zhTab === "wechat" ? "WeChat Pay QR" : "Alipay QR"} style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />
+                  <p className="pr-sub" style={{ textAlign: "center" }}>
+                    {zhTab === "wechat"
+                      ? `打开微信 → 扫一扫 → 支付 ¥${(price || 0).toLocaleString()}`
+                      : `打开支付宝 → 扫一扫 → 支付 ¥${(price || 0).toLocaleString()}`}
+                  </p>
+                  <p className="pr-sub" style={{ textAlign: "center", marginTop: 0 }}>付款后上传截图以确认订单</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ 上传中..." : "📤 上传付款截图"}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">上传失败，请重试</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

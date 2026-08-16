@@ -15,6 +15,7 @@ import {
   yearPrice, planPriceByCur, yearPriceByCur, fmtPrice,
   b2bPriceByCur, b2bYearPriceByCur,
   effectivePlan, trialDaysLeft, planBadge, CheckoutModal, SchoolCheckoutModal,
+  BuyCurrencyModal, COIN_PACKAGES, GEM_PACKAGES,
 } from "./payment";
 import {
   NF, KEYS_12, CHROMA, LESSON_MODE,
@@ -4269,7 +4270,7 @@ const GameStats = memo(function GameStats({ lang }) {
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, coins, gems = 0 }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0 }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -4634,6 +4635,12 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             <button className="gemrow-x" disabled={gems < 5} onClick={() => onExchangeGems(5)}>{lc.gemExchange}</button>
           </div>
           <div className="leaguereset">{lc.gemHint}</div>
+        </div>
+      )}
+
+      {onBuyCurrency && (
+        <div className="profsec">
+          <button className="songbtn go" style={{ width: "100%" }} onClick={onBuyCurrency}>🪙💎 {lc.buyCurrencyBtn}</button>
         </div>
       )}
 
@@ -5549,15 +5556,23 @@ function AdminPayments({ lang }) {
     } catch (e) { setAiText(T("อ่านสลิปไม่สำเร็จ (ฟีเจอร์รูปภาพต้องรันนอก preview)", "Couldn't read slip (image AI needs to run outside preview)", "读取失败（图片AI需在预览外运行）")); }
     setAiBusy(false);
   }
+  function currencyLabel(p) {
+    const ic = p.currency_type === "gems" ? "💎" : "🪙";
+    const unit = p.currency_type === "gems" ? T("เพชร", "gems", "钻石") : T("เหรียญ", "coins", "金币");
+    return `${ic} ${(p.currency_amount || 0).toLocaleString()} ${unit}`;
+  }
   async function review(approve) {
     if (!sel) return; setBusy(true);
-    const { error } = await sb.rpc("admin_review_payment", { pid: sel.id, approve, days: sel.days || 30 });
+    const { error } = sel.kind === "currency"
+      ? await sb.rpc("admin_review_currency_payment", { p_id: sel.id, p_approve: approve })
+      : await sb.rpc("admin_review_payment", { pid: sel.id, approve, days: sel.days || 30 });
     setBusy(false);
     if (!error) { setSel(null); load(); }
   }
 
   if (sel) {
     const st = sel.status;
+    const isCurrency = sel.kind === "currency";
     return (
       <div className="adminpay">
         <button className="admstu-back" onClick={() => setSel(null)}>‹ {T("กลับ", "Back", "返回")}</button>
@@ -5566,7 +5581,7 @@ function AdminPayments({ lang }) {
           <div>
             <div className="admstu-nm">{sel.full_name || sel.email || "—"} <span className={`adminpay-badge ${st}`}>{st.toUpperCase()}</span></div>
             <div className="admstu-em">{sel.email}</div>
-            <div className="admstu-lv">{(PLAN_LABEL[sel.plan] || sel.plan)} · <b style={{ color: "#d97757" }}>฿{(sel.amount || 0).toLocaleString()}</b> · {(sel.created_at || "").slice(0, 16).replace("T", " ")}</div>
+            <div className="admstu-lv">{isCurrency ? currencyLabel(sel) : (PLAN_LABEL[sel.plan] || sel.plan)} · <b style={{ color: "#d97757" }}>฿{(sel.amount || 0).toLocaleString()}</b> · {(sel.created_at || "").slice(0, 16).replace("T", " ")}</div>
           </div>
         </div>
         {slipUrl ? <img className="payslip" src={slipUrl} alt="slip" /> : <div className="admstu-empty">{sel.slip_path ? T("กำลังโหลดสลิป…", "Loading slip…", "加载中…") : T("ไม่มีสลิป", "No slip", "无凭证")}</div>}
@@ -5576,7 +5591,9 @@ function AdminPayments({ lang }) {
         {aiText && <div className="aibox">{aiText}</div>}
         {st === "pending" ? (
           <div className="songready-btns" style={{ marginTop: 10 }}>
-            <button className="songbtn go" disabled={busy} onClick={() => review(true)}>✅ {T("อนุมัติ เปิดสิทธิ์ ", "Approve — ", "批准 — ")}{sel.days || 30} {T("วัน", "days", "天")}</button>
+            <button className="songbtn go" disabled={busy} onClick={() => review(true)}>
+              {isCurrency ? "✅ " + T("อนุมัติ เติม ", "Approve — credit ", "批准 — 到账 ") + currencyLabel(sel) : "✅ " + T("อนุมัติ เปิดสิทธิ์ ", "Approve — ", "批准 — ") + (sel.days || 30) + " " + T("วัน", "days", "天")}
+            </button>
             <button className="songbtn ghost" disabled={busy} onClick={() => review(false)}>✕ {T("ปฏิเสธ", "Reject", "拒绝")}</button>
           </div>
         ) : <div className="admstu-empty">{T("ตรวจแล้ว", "Already reviewed", "已处理")}: {st}</div>}
@@ -5618,7 +5635,7 @@ function AdminPayments({ lang }) {
               <div className="admstu-av sm">{(p.full_name || p.email || "?").trim().charAt(0).toUpperCase()}</div>
               <div className="admstu-row-body">
                 <div className="admstu-row-nm">{p.full_name || p.email || "—"} <span className={`adminpay-badge ${p.status}`}>{p.status}</span></div>
-                <div className="admstu-row-meta">{(PLAN_LABEL[p.plan] || p.plan)} · ฿{(p.amount || 0).toLocaleString()} · {(p.created_at || "").slice(0, 10)}</div>
+                <div className="admstu-row-meta">{p.kind === "currency" ? currencyLabel(p) : (PLAN_LABEL[p.plan] || p.plan)} · ฿{(p.amount || 0).toLocaleString()} · {(p.created_at || "").slice(0, 10)}</div>
               </div>
               <span className="admstu-row-go">›</span>
             </button>
@@ -6716,6 +6733,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [shopOpen, setShopOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
+  const [buyCurrencyOpen, setBuyCurrencyOpen] = useState(false);
+  function openBuyCurrency() { if (requireLogin()) return; setBuyCurrencyOpen(true); }
   // useGamification() is called before usePayment() (mascot must exist in time
   // to pass into usePayment's params) — so earnCoins/gainExp read plan via this
   // ref, kept fresh here now that `plan` exists. See use-gamification.ts header.
@@ -7568,7 +7587,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} />}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} />}
 
       {/* ─── PAGE: COACH (Max plan) ─── */}
       {page === "coach" && <CoachPage lang={lang} profile={profile} onNavigate={handleCoachNavigate} />}
@@ -7665,6 +7684,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* CHECKOUT — Stripe / PromptPay / Alipay / WeChat */}
       {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} playUi={playUi} />}
       {schoolCheckout && <SchoolCheckoutModal lang={lang} schoolCheckout={schoolCheckout} payCfg={payCfg} session={session} onClose={() => setSchoolCheckout(null)} playUi={playUi} />}
+      {buyCurrencyOpen && <BuyCurrencyModal lang={lang} payCfg={payCfg} session={session} onClose={() => setBuyCurrencyOpen(false)} playUi={playUi} />}
 
       {/* AI WEEKLY REPORT / AI PRACTICE PLAN MODAL (Max exclusive) */}
       {aiModalOpen && (
