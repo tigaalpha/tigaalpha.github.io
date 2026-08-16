@@ -5,7 +5,7 @@ import {
 import { tr, L, matchFaqTopic } from "./i18n";
 import { stopCloudTTS } from "./speech";
 import { memoryContext } from "./ai-chat-context";
-import { API_URL, apiHeaders } from "./ai-backend";
+import { streamChatCompletion } from "./ai-backend";
 import { EXP, buildAlternatingHistory } from "./App";
 /* ── use-chat.ts ──
    Owns the main AI-sensei chat panel: the message list + typed-input box
@@ -111,34 +111,14 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
     const history = buildHistory();
 
     try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: apiHeaders(),
-        body: JSON.stringify({ message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) }),
-      });
-
-      if (!res.ok || !res.body) {
-        let detail = "";
-        try { const j = await res.json(); detail = j?.error || ""; } catch (e) {}
-        throw new Error(detail || ("HTTP " + res.status));
-      }
-
-      // insert an empty AI bubble we will fill as tokens arrive
-      setMsgs(prev => [...prev, { role: "ai", text: "" }]);
-      setLoading(false); // hide the typing dots — text is now streaming in
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let acc = "";
-      let buffer = "";
-
       // throttle UI updates to ~16fps instead of re-rendering on every token
       let pendingFlush = null;
       let lastFlush = 0;
+      let latest = "";
       const flush = () => {
         pendingFlush = null;
         lastFlush = Date.now();
-        const text = acc;
+        const text = latest;
         setMsgs(prev => {
           const copy = prev.slice();
           for (let i = copy.length - 1; i >= 0; i--) {
@@ -154,23 +134,16 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
         pendingFlush = setTimeout(flush, wait);
       };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          const t = line.trim();
-          if (!t.startsWith("data:")) continue;
-          const payload = t.slice(5).trim();
-          if (!payload || payload === "[DONE]") continue;
-          let evt;
-          try { evt = JSON.parse(payload); } catch (e) { continue; }
-          if (evt.content) { acc += evt.content; scheduleFlush(); }
+      const acc = await streamChatCompletion(
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) },
+        {
+          // insert an empty AI bubble we will fill as tokens arrive
+          onStart: () => { setMsgs(prev => [...prev, { role: "ai", text: "" }]); setLoading(false); },
+          onChunk: (soFar) => { latest = soFar; scheduleFlush(); },
         }
-      }
+      );
       if (pendingFlush) clearTimeout(pendingFlush);
+      latest = acc;
       flush(); // final flush with the complete text
 
       if (acc.trim()) {

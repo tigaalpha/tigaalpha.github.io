@@ -9,7 +9,7 @@ import { tr } from "./i18n";
 import { SONGS } from "./songs-data";
 import { logActivity, recordNoteMisses } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
-import { API_URL, apiHeaders } from "./ai-backend";
+import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { logPractice, scoreDynamics, logGame } from "./App";
 /* ── use-play-along.ts ──
    Owns play-along: the falling-notes song-game itself (chooseSong through
@@ -689,9 +689,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         zh: `你是"TiGA老师"，学员刚弹完歌曲"${label}"，准确率 ${result.acc}%（弹对 ${result.hits}/${result.total} 个音）。弹错的音（按演奏顺序）：${missedTxt}\n\n分析弹错的位置/模式，并给出练习建议。只回JSON {"weakness":"...","steps":["...","..."]} — weakness 不超过15字，说明错误的位置/模式（若全对则给予表扬），steps 为2-4个简短练习步骤，每条不超过15字，用中文，JSON外不要任何文字`,
         en: `You are "Teacher TiGA". The learner just finished playing "${label}" at ${result.acc}% accuracy (${result.hits}/${result.total} notes hit). Notes they missed, in play order: ${missedTxt}.\n\nAnalyze where/what pattern they missed, then give a fix. Reply with JSON only: {"weakness":"...","steps":["...","..."]} — weakness under 15 words naming the spot/pattern they missed (or praise if nothing was missed), steps has 2-4 short fix-it practice steps, each under 15 words, in English. No text outside the JSON.`,
       };
-      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Analyze my run of this song.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en }) });
-      const data = await res.json();
-      const txt = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+      const txt = await fetchChatCompletion({ message: "Analyze my run of this song.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en });
       const m = txt.match(/\{[\s\S]*\}/);
       const obj = m ? JSON.parse(m[0]) : null;
       if (obj && obj.weakness && Array.isArray(obj.steps) && obj.steps.length) setSongAnalysis(obj);
@@ -713,16 +711,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       const seqStr = JSON.stringify((songMeta.seq || []).slice(0, 20));
       const prompt = `Rearrange the piano melody "${songName}" in a ${styleDesc[style] || style} style for a beginner falling-notes game. The original melody starts: ${seqStr}. Keep it recognizable but add ${style} character. 20-32 notes.`;
       const sys = "Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes: C4-B5 only; R=rest; beats: 0.5,1,1.5,2.";
-      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: prompt, conversationHistory: [], system: sys }) });
-      if (!res.ok || !res.body) throw new Error("http");
-      const reader = res.body.getReader(), dec = new TextDecoder();
-      let acc = "", buf = "";
-      while (true) {
-        const { done, value } = await reader.read(); if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split("\n"); buf = lines.pop() || "";
-        for (const line of lines) { const t = line.trim(); if (!t.startsWith("data:")) continue; const p = t.slice(5).trim(); if (!p || p === "[DONE]") continue; try { const e = JSON.parse(p); if (e.content) acc += e.content; } catch (_) {} }
-      }
+      const acc = await streamChatCompletion({ message: prompt, conversationHistory: [], system: sys });
       const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
       const obj = JSON.parse(jm[0]);
       const seq = normalizeSeq(obj.seq || []);

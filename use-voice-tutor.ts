@@ -11,7 +11,7 @@ import {
   stopCloudTTS, getVmVoiceKey, setTtsMood, speakCloud, fetchCloudClips, playCloudClips,
 } from "./speech";
 import { readMemory, touchSessionMemory, memoryContext, setHomeworkLS, homeworkContext } from "./ai-chat-context";
-import { API_URL, apiHeaders } from "./ai-backend";
+import { streamChatCompletion } from "./ai-backend";
 import { dayKey, logActivity } from "./shared-infra";
 import { SONGS } from "./songs-data";
 import { isNative, curriculumContext, songRecommendationHint, setLessonPlanLS, buildAlternatingHistory, levelInfo, vmDisplayText } from "./App";
@@ -617,7 +617,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
   // speaking almost immediately instead of waiting for the whole reply.
   async function vmFetchAI(message, history, onSentence) {
     const TERM = ".!?…\n。！？";
-    const body = JSON.stringify({ message, conversationHistory: history, system: L[langRef.current].vmSys + FINGERING_REF + vmStudentContext() + memoryContext(langRef.current) + homeworkContext(langRef.current) + curriculumContext(langRef.current) + songRecommendationHint(langRef.current) });
+    const body = { message, conversationHistory: history, system: L[langRef.current].vmSys + FINGERING_REF + vmStudentContext() + memoryContext(langRef.current) + homeworkContext(langRef.current) + curriculumContext(langRef.current) + songRecommendationHint(langRef.current) };
     let lastErr;
     // Try up to twice. On a weak signal a stall watchdog aborts a frozen stream;
     // if nothing was spoken yet we retry, and if a partial reply was already
@@ -626,8 +626,8 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
       const ctrl = new AbortController();
       let stallT = setTimeout(() => ctrl.abort(), 9000);
       const arm = () => { clearTimeout(stallT); stallT = setTimeout(() => ctrl.abort(), 9000); };
-      let acc = "", buf = "", spoken = 0, emittedAny = false;
-      const emit = (final) => {
+      let spoken = 0, emittedAny = false, lastAcc = "";
+      const emit = (acc, final) => {
         if (!onSentence) return;
         while (true) {
           const s = acc.slice(spoken);
@@ -646,31 +646,18 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
         if (final) { const tail = acc.slice(spoken); if (tail.trim()) { onSentence(tail); emittedAny = true; spoken = acc.length; } }
       };
       try {
-        const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body, signal: ctrl.signal });
-        if (!res.ok || !res.body) throw new Error("http " + res.status);
-        const reader = res.body.getReader(), dec = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          arm(); // reset the stall timer on every chunk
-          if (done) break;
-          buf += dec.decode(value, { stream: true });
-          const lines = buf.split("\n"); buf = lines.pop() || "";
-          for (const line of lines) {
-            const t = line.trim();
-            if (!t.startsWith("data:")) continue;
-            const p = t.slice(5).trim();
-            if (!p || p === "[DONE]") continue;
-            try { const e = JSON.parse(p); if (e.content) acc += e.content; } catch (_) {}
-          }
-          emit(false);
-        }
+        const acc = await streamChatCompletion(body, {
+          signal: ctrl.signal,
+          onRawChunk: arm, // reset the stall timer on every chunk
+          onChunk: (soFar) => { lastAcc = soFar; emit(soFar, false); },
+        });
         clearTimeout(stallT);
-        emit(true);
+        emit(acc, true);
         return acc;
       } catch (e) {
         clearTimeout(stallT);
         lastErr = e;
-        if (emittedAny) return acc;       // already spoke part of it → keep what we have
+        if (emittedAny) return lastAcc;   // already spoke part of it → keep what we have
         if (attempt === 1) throw e;       // second clean failure → give up
         await vmWait(500);                // nothing spoken yet → quick retry
       }
