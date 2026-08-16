@@ -74,6 +74,16 @@ const TOP_LEVEL_ITEMS: NavItem[] = [
 
 const NAV_GROUPS: NavGroup[] = [
   {
+    id: "ai-agent",
+    label: "AI AGENT",
+    maturity: "beta",
+    items: [
+      { href: "/tiga-agent", label: "TIGA AI Agent", icon: Bot, ownerOnly: true },
+      { href: "/automation", label: "Automation", icon: Workflow, ownerOnly: true },
+      { href: "/ai-company", label: "AI Company", icon: Building2, ownerOnly: true },
+    ],
+  },
+  {
     id: "strategy",
     label: "Strategy",
     maturity: "beta",
@@ -127,9 +137,6 @@ const NAV_GROUPS: NavGroup[] = [
     maturity: "beta",
     items: [
       { href: "/control-center", label: "Control Center", icon: Gauge, ownerOnly: true },
-      { href: "/tiga-agent", label: "TIGA AI Agent", icon: Bot, ownerOnly: true },
-      { href: "/automation", label: "Automation", icon: Workflow, ownerOnly: true },
-      { href: "/ai-company", label: "AI Company", icon: Building2, ownerOnly: true },
       { href: "/approvals", label: "การอนุมัติ", icon: ShieldCheck },
       { href: "/data-health", label: "Data Health", icon: HeartPulse },
       { href: "/system-health", label: "System Health", icon: Activity },
