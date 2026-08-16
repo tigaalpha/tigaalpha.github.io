@@ -51,9 +51,29 @@ export function apiHeaders() {
 // (vmFetchAI) reset their timer here rather than only on content chunks, to
 // exactly match the original per-hook implementation this replaces. Returns
 // the final accumulated text; throws on a non-ok/bodyless response.
-export async function streamChatCompletion(body, { onStart, onChunk, onRawChunk, signal } = {}) {
+//
+// Stall protection (stallMs, default 9s - the same value vmFetchAI already
+// used for its own hand-rolled watchdog): only kicks in when the caller
+// doesn't pass their own `signal` - vmFetchAI supplies one and is left
+// completely alone, unchanged from before this existed. Every OTHER caller
+// (found by the stability audit to have no timeout at all - a hung
+// connection left their loading state stuck true forever, buttons
+// permanently disabled) now gets one for free with zero changes at their
+// call site. Resets on every stream read, not just content-bearing ones -
+// a slow-but-actively-connected response is never killed, only a
+// genuinely stalled one.
+export async function streamChatCompletion(body, { onStart, onChunk, onRawChunk, signal, stallMs = 9000 } = {}) {
+  let ctrl = null, stallTimer = null;
+  if (!signal && stallMs) {
+    ctrl = new AbortController();
+    signal = ctrl.signal;
+    stallTimer = setTimeout(() => ctrl.abort(), stallMs);
+  }
+  const arm = () => { if (stallTimer) { clearTimeout(stallTimer); stallTimer = setTimeout(() => ctrl.abort(), stallMs); } };
+
   const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify(body), signal });
   if (!res.ok || !res.body) {
+    if (stallTimer) clearTimeout(stallTimer);
     let detail = "";
     try { const j = await res.json(); detail = j?.error || ""; } catch (e) {}
     throw new Error(detail || ("HTTP " + res.status));
@@ -64,6 +84,7 @@ export async function streamChatCompletion(body, { onStart, onChunk, onRawChunk,
   let acc = "", buffer = "";
   while (true) {
     const { done, value } = await reader.read();
+    arm();
     if (onRawChunk) onRawChunk();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
@@ -79,6 +100,7 @@ export async function streamChatCompletion(body, { onStart, onChunk, onRawChunk,
       if (evt.content) { acc += evt.content; if (onChunk) onChunk(acc); }
     }
   }
+  if (stallTimer) clearTimeout(stallTimer);
   return acc;
 }
 
@@ -91,8 +113,21 @@ export async function streamChatCompletion(body, { onStart, onChunk, onRawChunk,
 // unchanged). Throws on a non-ok response, preferring the backend's own
 // `error.message` when present (richer than a bare status for callers that
 // log it) and falling back to "HTTP <status>".
-export async function fetchChatCompletion(body) {
-  const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify(body) });
+//
+// Timeout protection (timeoutMs, default 25s - generous, since the whole
+// response has to finish generating server-side before any bytes come
+// back at all, unlike the streaming helper above): same opt-out-by-
+// supplying-your-own-signal rule as streamChatCompletion. No current
+// caller passes one, so every one of them gets this for free.
+export async function fetchChatCompletion(body, { signal, timeoutMs = 25000 } = {}) {
+  let ctrl = null, timer = null;
+  if (!signal && timeoutMs) {
+    ctrl = new AbortController();
+    signal = ctrl.signal;
+    timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  }
+  const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify(body), signal });
+  if (timer) clearTimeout(timer);
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error?.message || ("HTTP " + res.status));
   return (typeof data.text === "string" ? data.text : "") || (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
