@@ -5,8 +5,6 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -21,51 +19,23 @@ import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { Tables } from "@/types/database";
+import { aggregateByMonth, formatBaht, type MonthlyPoint } from "@/lib/finance";
 
-// Validated categorical order (dataviz skill, references/palette.md) — fixed
-// order, never cycled: slot 1 (blue) / slot 2 (orange) / slot 3 (aqua).
-// Revenue keeps slot 1 everywhere; Expense/Profit keep slots 2/3 everywhere
-// including the pie, so the same entity is always the same color.
-const COLORS = {
-  light: { revenue: "#2a78d6", expense: "#eb6834", profit: "#1baf7a", grid: "rgb(28 22 14 / 0.08)", text: "rgb(28 22 14 / 0.5)" },
-  dark: { revenue: "#3987e5", expense: "#d95926", profit: "#199e70", grid: "rgb(237 232 224 / 0.1)", text: "rgb(237 232 224 / 0.5)" },
+// Neon palette — revenue keeps purple, expense orange, profit green everywhere
+// (including the donut), so the same entity is always the same color.
+const PALETTE = {
+  revenue: "#8b5cf6",
+  expense: "#f97316",
+  profit: "#22c55e",
+  grid: "rgba(148, 163, 184, 0.08)",
+  text: "rgba(226, 232, 240, 0.4)",
 };
 
-function useIsDarkMode(): boolean {
-  const [isDark, setIsDark] = useState(false);
-  useEffect(() => {
-    const root = document.documentElement;
-    setIsDark(root.classList.contains("dark"));
-    const observer = new MutationObserver(() => setIsDark(root.classList.contains("dark")));
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-  return isDark;
-}
-
-interface MonthlyPoint {
-  monthKey: string;
-  monthLabel: string;
-  revenue: number;
-  expense: number;
-  profit: number;
-}
-
-function monthLabel(monthKey: string): string {
-  const [year, month] = monthKey.split("-").map(Number);
-  return new Date(year!, month! - 1, 1).toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
-}
-
-function formatBaht(value: number): string {
-  return `฿${value.toLocaleString("th-TH", { maximumFractionDigits: 0 })}`;
-}
-
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div className="rounded-xl border border-line/10 bg-card px-3 py-2 text-xs shadow-soft">
-      <p className="mb-1 font-medium text-secondary">{label}</p>
+    <div className="rounded-xl border border-white/10 bg-[#12141d] px-3 py-2 text-xs shadow-card">
+      <p className="mb-1 font-medium text-secondary/50">{label}</p>
       {payload.map((entry) => (
         <p key={entry.name} style={{ color: entry.color }}>
           {entry.name}: {formatBaht(entry.value)}
@@ -78,8 +48,6 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 export function FinanceCharts() {
   const [monthly, setMonthly] = useState<MonthlyPoint[] | null>(null);
   const [showTable, setShowTable] = useState(false);
-  const isDark = useIsDarkMode();
-  const palette = isDark ? COLORS.dark : COLORS.light;
 
   useEffect(() => {
     const repos = createRepositories(createClient());
@@ -99,10 +67,10 @@ export function FinanceCharts() {
 
   const expensePct = totals && totals.revenue > 0 ? (totals.expense / totals.revenue) * 100 : 0;
   const profitPct = totals && totals.revenue > 0 ? (totals.profit / totals.revenue) * 100 : 0;
-  const percentPieData = totals
+  const donutData = totals
     ? [
-        { name: "ค่าใช้จ่าย", value: Math.max(totals.expense, 0), pct: expensePct, color: palette.expense },
-        { name: "กำไร", value: Math.max(totals.profit, 0), pct: profitPct, color: palette.profit },
+        { name: "ค่าใช้จ่าย", value: Math.max(totals.expense, 0), pct: expensePct, color: PALETTE.expense },
+        { name: "กำไร", value: Math.max(totals.profit, 0), pct: profitPct, color: PALETTE.profit },
       ]
     : [];
 
@@ -120,72 +88,54 @@ export function FinanceCharts() {
           </Button>
         </CardHeader>
         <CardContent>
-        {!monthly || !totals ? (
-          <div className="h-64 animate-pulse rounded-xl bg-line/5" />
-        ) : showTable ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line/10 text-left text-secondary/50">
-                  <th className="py-2 pr-4">เดือน</th>
-                  <th className="py-2 pr-4">รายได้</th>
-                  <th className="py-2 pr-4">ค่าใช้จ่าย</th>
-                  <th className="py-2">กำไร</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthly.map((m) => (
-                  <tr key={m.monthKey} className="border-b border-line/5 text-secondary">
-                    <td className="py-2 pr-4">{m.monthLabel}</td>
-                    <td className="py-2 pr-4">{formatBaht(m.revenue)}</td>
-                    <td className="py-2 pr-4">{formatBaht(m.expense)}</td>
-                    <td className="py-2">{formatBaht(m.profit)}</td>
+          {!monthly || !totals ? (
+            <div className="h-64 animate-pulse rounded-xl bg-white/[0.03]" />
+          ) : showTable ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/5 text-left text-[11px] uppercase tracking-wider text-secondary/35">
+                    <th className="py-2 pr-4 font-medium">เดือน</th>
+                    <th className="py-2 pr-4 font-medium">รายได้</th>
+                    <th className="py-2 pr-4 font-medium">ค่าใช้จ่าย</th>
+                    <th className="py-2 font-medium">กำไร</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            <div>
-              <p className="mb-2 text-xs font-medium text-secondary/50">แนวโน้มรายเดือน</p>
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} vertical={false} />
-                  <XAxis dataKey="monthLabel" stroke={palette.text} fontSize={12} tickLine={false} axisLine={{ stroke: palette.grid }} />
-                  <YAxis stroke={palette.text} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Line type="monotone" dataKey="revenue" name="รายได้" stroke={palette.revenue} strokeWidth={2} dot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="expense" name="ค่าใช้จ่าย" stroke={palette.expense} strokeWidth={2} dot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="profit" name="กำไร" stroke={palette.profit} strokeWidth={2} dot={{ r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
+                </thead>
+                <tbody>
+                  {monthly.map((m) => (
+                    <tr key={m.monthKey} className="border-b border-white/5 text-secondary last:border-0">
+                      <td className="py-2 pr-4">{m.monthLabel}</td>
+                      <td className="py-2 pr-4">{formatBaht(m.revenue)}</td>
+                      <td className="py-2 pr-4">{formatBaht(m.expense)}</td>
+                      <td className="py-2">{formatBaht(m.profit)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-
+          ) : (
             <div>
-              <p className="mb-2 text-xs font-medium text-secondary/50">เทียบรายเดือน</p>
+              <p className="mb-2 text-xs font-medium text-secondary/45">เทียบรายเดือน</p>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} vertical={false} />
-                  <XAxis dataKey="monthLabel" stroke={palette.text} fontSize={12} tickLine={false} axisLine={{ stroke: palette.grid }} />
-                  <YAxis stroke={palette.text} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.grid} vertical={false} />
+                  <XAxis dataKey="monthLabel" stroke={PALETTE.text} fontSize={12} tickLine={false} axisLine={{ stroke: PALETTE.grid }} />
+                  <YAxis stroke={PALETTE.text} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}K`} />
+                  <Tooltip content={<ChartTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="revenue" name="รายได้" fill={palette.revenue} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expense" name="ค่าใช้จ่าย" fill={palette.expense} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="profit" name="กำไร" fill={palette.profit} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" name="รายได้" fill={PALETTE.revenue} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expense" name="ค่าใช้จ่าย" fill={PALETTE.expense} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="profit" name="กำไร" fill={PALETTE.profit} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
-        )}
+          )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>สัดส่วนรายได้ เทียบกับ ค่าใช้จ่าย และ กำไร</CardTitle>
+          <CardTitle>สัดส่วนรายได้</CardTitle>
           <CardDescription>
             {totals
               ? `รายได้ ${formatBaht(totals.revenue)} (100%) = ค่าใช้จ่าย ${expensePct.toFixed(1)}% + กำไร ${profitPct.toFixed(1)}%`
@@ -194,59 +144,43 @@ export function FinanceCharts() {
         </CardHeader>
         <CardContent>
           {!totals ? (
-            <div className="h-72 animate-pulse rounded-xl bg-line/5" />
+            <div className="h-72 animate-pulse rounded-xl bg-white/[0.03]" />
           ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <PieChart>
-                <Pie
-                  data={percentPieData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={70}
-                  outerRadius={120}
-                  paddingAngle={2}
-                  label={({ name, percent }: { name?: string; percent?: number }) => `${name} ${((percent ?? 0) * 100).toFixed(1)}%`}
-                  labelLine
-                >
-                  {percentPieData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value, name, entry) => [`${formatBaht(Number(value))} (${(entry.payload as { pct: number }).pct.toFixed(1)}%)`, name]} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-around">
+              <div className="relative h-56 w-56 shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={donutData} dataKey="value" nameKey="name" innerRadius={70} outerRadius={105} paddingAngle={3} strokeWidth={0}>
+                      {donutData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value, name, entry) => [`${formatBaht(Number(value))} (${(entry.payload as { pct: number }).pct.toFixed(1)}%)`, name]} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-xs text-secondary/40">Total</span>
+                  <span className="text-xl font-bold text-white">{formatBaht(totals.revenue)}</span>
+                  <span className="text-[10px] uppercase tracking-widest text-secondary/35">THB</span>
+                </div>
+              </div>
+              <ul className="w-full max-w-xs space-y-3">
+                {donutData.map((entry) => (
+                  <li key={entry.name} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="flex items-center gap-2 text-secondary/70">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                      {entry.name}
+                    </span>
+                    <span className="font-medium text-white">
+                      {entry.pct.toFixed(0)}% <span className="text-secondary/40">({formatBaht(entry.value)})</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </CardContent>
       </Card>
     </div>
   );
-}
-
-function aggregateByMonth(transactions: Tables<"transactions">[], start: Date, end: Date): MonthlyPoint[] {
-  const buckets = new Map<string, { revenue: number; expense: number }>();
-
-  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-  const last = new Date(end.getFullYear(), end.getMonth(), 1);
-  while (cursor <= last) {
-    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
-    buckets.set(key, { revenue: 0, expense: 0 });
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
-
-  for (const t of transactions) {
-    const key = t.transaction_date.slice(0, 7);
-    const bucket = buckets.get(key);
-    if (!bucket) continue;
-    if (t.type === "income") bucket.revenue += t.amount;
-    else bucket.expense += t.amount;
-  }
-
-  return Array.from(buckets.entries()).map(([monthKey, { revenue, expense }]) => ({
-    monthKey,
-    monthLabel: monthLabel(monthKey),
-    revenue,
-    expense,
-    profit: revenue - expense,
-  }));
 }

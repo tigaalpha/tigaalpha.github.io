@@ -62,6 +62,30 @@ export function pushImage(userId: string, imageUrl: string, caption?: string): P
   return call("/message/push", { to: userId, messages });
 }
 
+/**
+ * Downloads a LINE message's binary content (image/audio/video) by message
+ * id — used by line-webhook for transfer slips (#1) and voice notes (#14).
+ * Returns base64 + mimeType, or null when the download fails (e.g. content
+ * expired — LINE only keeps it for a limited time after send).
+ */
+export async function fetchContent(messageId: string): Promise<{ mimeType: string; base64: string } | null> {
+  try {
+    const response = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+      headers: { Authorization: `Bearer ${Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN")}` },
+    });
+    if (!response.ok) return null;
+    const buf = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < buf.length; i += CHUNK) {
+      binary += String.fromCharCode(...buf.subarray(i, i + CHUNK));
+    }
+    return { mimeType: response.headers.get("content-type") ?? "application/octet-stream", base64: btoa(binary) };
+  } catch {
+    return null;
+  }
+}
+
 /** Sends a message to every follower of the LINE Official Account — the "post" for LINE in social-publish. */
 export function broadcast(text: string): Promise<void> {
   return call("/message/broadcast", { messages: [{ type: "text", text }] });

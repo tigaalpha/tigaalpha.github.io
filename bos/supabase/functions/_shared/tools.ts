@@ -8,6 +8,7 @@ import { chunkText } from "./text.ts";
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, PAYMENT_METHODS } from "./categories.ts";
 import { sumTransactions } from "./business-metrics.ts";
 import { createPayment, confirmPayment } from "./payments.ts";
+import { createLessonSummary } from "./lesson-summary.ts";
 import { push as linePush } from "./line.ts";
 
 // ISO (UTC) → Bangkok local time for display in messages, e.g. "17:00".
@@ -153,7 +154,7 @@ export const AI_TOOLS: ToolDefinition[] = [
   {
     name: "create_payment_link",
     description:
-      "Issue a PromptPay payment: the customer pays directly into the studio's bank account (PromptPay number/QR, no gateway) and the owner confirms the transfer after it arrives. Use when the customer agrees to buy a course, renew, or pay a remaining amount. The result tells you the PromptPay number, amount, and reference code to give the customer.",
+      "Issue a bank-transfer payment: the customer transfers straight into the studio's bank account (the account details, amount, and reference code are in the result — relay them exactly) and the owner confirms the transfer after it arrives. Use when the customer agrees to buy a course, renew, or pay a remaining amount.",
     parameters: {
       type: "object",
       properties: {
@@ -255,7 +256,7 @@ export const OWNER_TOOLS: ToolDefinition[] = [
   {
     name: "mark_payment_paid",
     description:
-      "Owner/admin only: confirm that a PromptPay transfer has actually arrived in the studio's bank for a pending payment (check your banking app first!). Records the income in Accounting, moves the customer to won/renewed, and thanks the customer on LINE.",
+      "Owner/admin only: confirm that a bank transfer has actually arrived in the studio's account for a pending payment (check your banking app first!). Records the income in Accounting, moves the customer to won/renewed, and thanks the customer on LINE. Note: when a customer sends their transfer slip photo on LINE, the system auto-verifies it — this tool is for transfers the owner confirmed manually.",
     parameters: {
       type: "object",
       properties: {
@@ -263,6 +264,31 @@ export const OWNER_TOOLS: ToolDefinition[] = [
         note: { type: "string", description: "Optional note for the accounting entry." },
       },
       required: ["paymentId"],
+    },
+  },
+  {
+    name: "record_lesson_summary",
+    description:
+      "Owner/staff only: turn rough notes about a completed lesson into a clean, parent-friendly summary + homework, save it, and send it to the student's parent on LINE automatically. Use right after a lesson ends.",
+    parameters: {
+      type: "object",
+      properties: {
+        bookingId: { type: "string", description: "The completed lesson's booking id." },
+        notes: { type: "string", description: "Rough notes on what was practiced and how the student did (can be bullet points or a voice-note transcript)." },
+      },
+      required: ["bookingId", "notes"],
+    },
+  },
+  {
+    name: "create_referral_link",
+    description:
+      "Owner/staff only: generate a referral code for a satisfied customer so they can invite friends and earn a reward. Returns the code and a ready-to-share message. When a referred friend later pays, the system reminds the owner to grant the reward.",
+    parameters: {
+      type: "object",
+      properties: {
+        customerId: { type: "string", description: "The customer who will share the referral." },
+      },
+      required: ["customerId"],
     },
   },
 ];
@@ -661,6 +687,40 @@ export async function executeTool(
       if (!paymentId) throw new Error("paymentId is required");
       const result = await confirmPayment(db, { paymentId, confirmedBy: callerId, note: args.note ? String(args.note) : null });
       return { ok: true, payment: result.payment, transaction: result.transaction };
+    }
+
+    case "record_lesson_summary": {
+      if (!callerId) throw new Error("Not authorized: no caller identity for this action");
+      await requireOwnerOrAdmin(db, callerId);
+      const bookingId = String(args.bookingId ?? "");
+      const notes = String(args.notes ?? "");
+      if (!bookingId) throw new Error("bookingId is required");
+      const result = await createLessonSummary(db, { bookingId, rawNotes: notes, createdBy: callerId });
+      return { ok: true, lessonNoteId: result.id };
+    }
+
+    case "create_referral_link": {
+      if (!callerId) throw new Error("Not authorized: no caller identity for this action");
+      await requireOwnerOrAdmin(db, callerId);
+      const customerId = String(args.customerId ?? "");
+      if (!customerId) throw new Error("customerId is required");
+      const { data: customer, error: custErr } = await db.from("customers").select("id, name, referral_code").eq("id", customerId).maybeSingle();
+      if (custErr || !customer) throw new Error("ไม่พบลูกค้าที่ระบุ");
+      let code = customer.referral_code;
+      if (!code) {
+        code = "TIGA" + Date.now().toString(36).toUpperCase().slice(-6) + Math.random().toString(36).slice(2, 5).toUpperCase();
+        const { error: upErr } = await db.from("customers").update({ referral_code: code }).eq("id", customer.id);
+        if (upErr) throw upErr;
+        await db.from("referrals").insert({ referrer_customer_id: customer.id, referral_code: code });
+      }
+      await db.from("notifications").insert({
+        type: "referral_created",
+        title: "สร้างโค้ดรีเฟอรัลแล้ว",
+        body: `${customer.name} — โค้ด ${code}`,
+        customer_id: customer.id,
+      });
+      const shareMessage = `🎁 แนะนำเพื่อนมาเรียนที่ Tiga Studio รับส่วนลดพิเศษ! ใช้โค้ด ${code} ตอนสมัคร แล้วแจ้งให้ทีมงานทราบได้เลยค่ะ`;
+      return { referralCode: code, shareMessage };
     }
 
     case "record_transaction": {

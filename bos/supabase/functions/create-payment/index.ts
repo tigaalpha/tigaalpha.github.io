@@ -1,13 +1,13 @@
-// create-payment — mint a PromptPay payment for a customer (staff-triggered
+// create-payment — mint a bank-transfer payment for a customer (staff-triggered
 // counterpart of the AI's create_payment_link tool; both call the same
 // _shared/payments.ts createPayment so they can never drift).
 //
 //   Request:  { customerId, amount, courseId?, note? }
-//   Response: { paymentId, amount, promptpayTarget, referenceCode, qrUrl, instructions }
+//   Response: { paymentId, amount, accountNumber?, bank?, accountName?, referenceCode, qrUrl?, instructions }
 //
-// Money goes straight to the studio's bank (PromptPay) — nothing is charged
-// here; the owner confirms the transfer via verify-payment /
-// mark_payment_paid after checking their banking app.
+// Money goes straight to the studio's bank account (direct transfer) —
+// nothing is charged here; the owner confirms the transfer via
+// verify-payment / mark_payment_paid after checking their banking app.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";

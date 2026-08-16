@@ -95,9 +95,9 @@ text, same as pasting it by hand.
 
 ## `create-payment` (verify_jwt: true)
 
-Mint a PromptPay payment for a customer (staff-only; the AI's
+Mint a bank-transfer payment for a customer (staff-only; the AI's
 `create_payment_link` tool is the chat-side counterpart). Money goes
-straight to the studio's bank — nothing is charged here.
+straight to the studio's bank account — nothing is charged here.
 
 ```json
 // Request
@@ -105,22 +105,25 @@ straight to the studio's bank — nothing is charged here.
 
 // Response
 {
-  "paymentId": "uuid", "amount": 27000, "promptpayTarget": "0812345678",
-  "referenceCode": "PP...", "qrUrl": "https://.../payment-qrs/...png (nullable)",
-  "instructions": "ชำระผ่านพร้อมเพย์ ..."
+  "paymentId": "uuid", "amount": 27000,
+  "accountNumber": "3832557289", "bank": "SCB", "accountName": "นาย ณัฐพลญ์ พุทธโกษา",
+  "referenceCode": "PP...",
+  "qrUrl": "https://.../payment-qrs/...png (only when a PromptPay id is configured)",
+  "instructions": "โอนเข้าบัญชี SCB เลขที่ 3832557289 ..."
 }
 ```
 
-Requires the studio's PromptPay ID configured first: `integration_settings`
-key `payment_config` = `{ "promptpay_id": "0812345678", "name": "Tiga Studio", "bank": "...", "income_category": "ค่าเรียนเปียโน/ดนตรี" }`.
-The QR payload is EMVCo (same algorithm as the TiGA Piano consumer app) and
-is stored on the `payments` row (`qr_base64` for the web UI, `qr_url` when
-a public Storage upload succeeded).
+Requires the studio's account configured first: `integration_settings`
+key `payment_config` = `{ "account_number": "3832557289", "bank": "SCB", "name": "นาย ณัฐพลญ์ พุทธโกษา", "promptpay_id": "... (optional)", "income_category": "ค่าเรียนเปียโน/ดนตรี" }`.
+When a `promptpay_id` is present the response also includes an EMVCo QR
+(same algorithm as the TiGA Piano consumer app), stored on the `payments`
+row (`qr_base64` for the web UI, `qr_url` when a public Storage upload
+succeeded).
 
 ## `verify-payment` (verify_jwt: true, owner/admin)
 
 The human-in-the-loop gate that closes the sale: the owner confirms the
-PromptPay transfer actually arrived in their banking app. Records the
+bank transfer actually arrived in their banking app. Records the
 income transaction in Accounting, moves the customer to `won`/`renewed` in
 the pipeline, and thanks them on LINE. Same logic as the AI's
 `mark_payment_paid` owner tool.
@@ -272,3 +275,60 @@ Live-tests all three: LINE (`GET /v2/bot/info`), Google Calendar (lists a
 using whatever credentials are currently configured. A key-presence-only
 check for Gemini would report "connected" for an expired or wrong-project
 key, which is exactly the failure mode this must catch.
+
+## Automation Round 2 (migration 0077)
+
+New cron functions (all verify_jwt: false, guarded by `x-cron-secret`):
+
+| Function | Cron | What it automates |
+|---|---|---|
+| `trial-followup` | every 30 min | Post-trial: asks for feedback ~30min after a trial lesson, offers the real course ~24h later |
+| `automation-nudges` | hourly | Reactivates lapsed students (60d), offers renewal near course end (≤3h left), requests Google reviews (≥3 completed lessons), offers freed slots to the waitlist |
+| `drip-runner` | every 6h | Sends drip campaigns to customers in each campaign's segment on `interval_days` cadence |
+| `monthly-report` | 1st of month 08:00 | Pushes the previous month's P&L, lessons, new leads, won, pending invoices, top channels to the owner's LINE |
+| `payroll-report` | 1st of month 09:00 | Computes each teacher's pay from `teacher_rates` × completed lesson minutes, pushes a summary to the owner |
+
+New on-demand functions:
+
+## `lesson-summary` (verify_jwt: true)
+
+Turns rough teacher notes into a parent-friendly summary + homework, saves
+to `lesson_notes`, and pushes it to the student's parent on LINE.
+
+```json
+// Request
+{ "bookingId": "uuid", "notes": "เล่นคอร์ด C/G แล้วก็ฝึกเพลง Twinkle เริ่มคล่องแล้ว" }
+```
+
+## `messenger-webhook` (verify_jwt: false)
+
+Facebook Messenger channel — same AI core as LINE. GET = Meta's
+verification handshake (`MESSENGER_VERIFY_TOKEN`); POST = incoming messages
+(`MESSENGER_PAGE_ACCESS_TOKEN`). Customers are matched by `messenger_psid`.
+
+## `web-chat` (verify_jwt: false)
+
+Public web-widget chat endpoint. Protected by the `x-web-chat-secret` header
+(config in `integration_settings` key `web_chat_secret`, embedded in the
+widget script) instead of a JWT. Conversations are channel `web`; the AI has
+no customer tools there until the visitor identifies themselves.
+
+## line-webhook additions
+
+- **Image messages** are treated as transfer slips: Gemini vision extracts
+  the amount/reference, matches against the customer's pending payments
+  (exact reference, or unambiguous amount), and auto-confirms the payment
+  (`confirmPaymentBySlip`). Unmatched slips alert the owner
+  (`slip_unmatched`).
+- **Audio messages** are transcribed (Gemini) and fed into the normal chat
+  as text, so voice notes work like typed messages.
+
+## Automation settings (integration_settings keys)
+
+| Key | Meaning |
+|---|---|
+| `ai_budget_daily_tokens` | Daily AI token budget (0/empty = unlimited). When hit, the AI stops replying to customers and the owner is notified once. |
+| `google_review_url` | Link used by the review-request nudge. |
+| `web_chat_secret` | Shared secret for the public web-chat widget. |
+| `teacher_rates` table | `rate_per_hour` per teacher — feeds the payroll report. |
+| `drip_campaigns` table | Active campaigns with segment + template + interval. |

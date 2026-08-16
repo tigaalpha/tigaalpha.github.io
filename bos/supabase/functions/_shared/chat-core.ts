@@ -6,6 +6,8 @@ import { AI_TOOLS, OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts
 import { getLatestCompetitorContext } from "./competitor-context.ts";
 import { logAiUsage } from "./usage-logging.ts";
 import { push as linePush } from "./line.ts";
+import { checkAiBudgetExceeded, AI_BUDGET_REPLY } from "./ai-budget.ts";
+import { refreshLeadScore } from "./lead-score-db.ts";
 
 const MAX_TOOL_ITERATIONS = 4;
 const RECENT_MESSAGE_LIMIT = 12;
@@ -99,6 +101,36 @@ export async function respond(
 
   const { data: conversation } = await db.from("conversations").select("summary, customer_id, channel").eq("id", conversationId).single();
 
+  // Feature #7: every customer message nudges the lead score (recomputed
+  // from sales status + message recency + bookings + paid payments).
+  await refreshLeadScore(db, conversation?.customer_id ?? null);
+
+  // Feature #13: daily AI token budget guard — when the owner set
+  // ai_budget_daily_tokens and today's spend has hit it, stop generating
+  // and tell the owner once (the reply also nudges the customer to talk
+  // to a human).
+  if (conversation?.channel !== "internal") {
+    const budgetExceeded = await checkAiBudgetExceeded(db);
+    if (budgetExceeded) {
+      await db.from("messages").insert({ conversation_id: conversationId, sender: "ai", content: AI_BUDGET_REPLY, metadata: { fallback: true } });
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const { count: notifiedToday } = await db
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("type", "ai_budget_exceeded")
+        .gte("created_at", todayStart.toISOString());
+      if ((notifiedToday ?? 0) === 0) {
+        await db.from("notifications").insert({ type: "ai_budget_exceeded", title: "AI ถึงวงเงินวันนี้แล้ว", body: "ระบบหยุดตอบลูกค้าอัตโนมัติจนกว่าจะถึงวันพรุ่งนี้ หรือเพิ่มค่า ai_budget_daily_tokens ใน Settings" });
+        const { data: ownerRow } = await db.from("integration_settings").select("value").eq("key", "owner_line_user_id").maybeSingle();
+        if (ownerRow?.value) {
+          await linePush(ownerRow.value, "⚠️ ระบบ AI ถึงวงเงินค่าใช้จ่ายของวันนี้แล้ว — ลูกค้าจะได้รับข้อความแจ้งแทนการตอบอัตโนมัติ เพิ่มงบได้ที่ Settings → ai_budget_daily_tokens").catch(() => {});
+        }
+      }
+      return { reply: AI_BUDGET_REPLY, needsReview: true };
+    }
+  }
+
   // Never for the owner's own internal Floating Assistant -- "คุยกับคน" from
   // the owner herself means something else entirely, not a customer asking
   // to be escalated to herself.
@@ -122,10 +154,13 @@ export async function respond(
   // record).
   const boundCustomerId: string | null = conversation?.channel === "internal" ? null : (conversation?.customer_id ?? null);
 
-  // OWNER_TOOLS (record_transaction, save_knowledge) are only ever offered
-  // on this same internal/owner signal — a customer on LINE/web must never
-  // see them, regardless of what they type.
-  const tools = boundCustomerId === null ? [...AI_TOOLS, ...OWNER_TOOLS] : AI_TOOLS;
+  // OWNER_TOOLS (record_transaction, save_knowledge, mark_payment_paid,
+  // bulk_update_sales_status) are only ever offered on the internal/owner
+  // channel — a customer on LINE/web must never see them, regardless of
+  // what they type or whether a customer row is linked yet (an unlinked
+  // LINE/web user would otherwise get boundCustomerId=null and the old
+  // `boundCustomerId === null` gate would wrongly expose owner tools).
+  const tools = conversation?.channel === "internal" ? [...AI_TOOLS, ...OWNER_TOOLS] : AI_TOOLS;
 
   // Fetch the most recent RECENT_MESSAGE_LIMIT messages (descending so the
   // limit keeps the newest ones -- including the customer message just

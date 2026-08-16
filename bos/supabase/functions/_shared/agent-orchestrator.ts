@@ -7,6 +7,7 @@ import type { ToolDefinition } from "./ai-types.ts";
 import * as line from "./line.ts";
 import { logAiUsage } from "./usage-logging.ts";
 import { fetchRecentMemory } from "./agent-memory.ts";
+import { withRetry } from "./retry.ts";
 
 const MAX_TASKS = 4;
 
@@ -109,7 +110,10 @@ export async function runWorkflow(admin: SupabaseClient, goal: string, createdBy
       tasks.map(async (task) => {
         const startedAt = new Date().toISOString();
         try {
-          const result = await runAgentTask(admin, task.agentId, task.question);
+          // Feature #13: a transient failure (Gemini quota blip, network)
+          // shouldn't kill the whole workflow — retry once before recording
+          // the task as failed.
+          const result = await withRetry(() => runAgentTask(admin, task.agentId, task.question), { attempts: 2, baseDelayMs: 800 });
           await logAiUsage(admin, result.usage, `agent-orchestrator:${task.agentId}`);
           await admin.from("agent_task_runs").insert({
             workflow_run_id: workflowId,

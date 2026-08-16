@@ -1,11 +1,18 @@
-// Shared PromptPay payment logic — used by BOTH the create-payment /
+// Shared bank-transfer payment logic — used by BOTH the create-payment /
 // verify-payment edge functions (called from a future Payments page) and
 // the AI tools (create_payment_link / mark_payment_paid in tools.ts), so
 // the two entry points can never drift apart.
 //
+// Payment method: direct bank transfer (โอนตรงเข้าบัญชี) — the customer
+// transfers straight into the studio's account (bank + account number in
+// integration_settings key `payment_config`). When a PromptPay id is also
+// configured, a scanable QR is offered as an extra convenience — but the
+// account transfer is always the primary instruction.
+//
 // Money-adjacent rules live here once:
-//   * the studio's PromptPay target comes from integration_settings key
-//     `payment_config` ({ promptpay_id, name?, bank?, income_category? })
+//   * the studio's account comes from integration_settings key
+//     `payment_config` ({ account_number, bank?, name?, promptpay_id?,
+//     income_category? })
 //   * a payment can only be marked paid by an owner/admin (enforced by the
 //     callers via requireOwnerOrAdmin) — the AI itself can never do it
 //   * marking paid records the income transaction, moves the customer to
@@ -17,25 +24,34 @@ import { promptPayPayload, sanitizeAmount } from "./promptpay.ts";
 import { push as linePush } from "./line.ts";
 
 export interface PaymentConfig {
-  promptpay_id: string;
-  name?: string;
+  /** Studio bank account number — the primary transfer destination. */
+  account_number?: string;
+  /** e.g. "SCB" / "ธนาคารไทยพาณิชย์". */
   bank?: string;
+  /** Account holder name as shown on the statement. */
+  name?: string;
+  /** Optional PromptPay id (mobile or 13-digit) — enables the scanable QR as an extra. */
+  promptpay_id?: string;
   income_category?: string;
 }
 
 export async function getPaymentConfig(admin: SupabaseClient): Promise<PaymentConfig> {
   const { data } = await admin.from("integration_settings").select("value").eq("key", "payment_config").maybeSingle();
   const v = data?.value as PaymentConfig | null;
-  if (v && typeof v.promptpay_id === "string" && v.promptpay_id.trim().length > 0) {
-    return { promptpay_id: v.promptpay_id, name: v.name, bank: v.bank, income_category: v.income_category };
+  if (v) {
+    const accountNumber = typeof v.account_number === "string" ? v.account_number.trim() : "";
+    const promptpayId = typeof v.promptpay_id === "string" ? v.promptpay_id.trim() : "";
+    if (accountNumber.length > 0 || promptpayId.length > 0) {
+      return { account_number: accountNumber || undefined, bank: v.bank, name: v.name, promptpay_id: promptpayId || undefined, income_category: v.income_category };
+    }
   }
   throw new Error(
-    "ยังไม่ได้ตั้งค่าพร้อมเพย์ — เจ้าของร้านต้องกรอกเลขพร้อมเพย์ (เบอร์มือถือหรือเลขบัตรประชาชน 13 หลัก) ใน Settings → Payment Config ก่อน (key: payment_config)"
+    "ยังไม่ได้ตั้งค่าบัญชีรับเงิน — เจ้าของร้านต้องกรอกเลขบัญชีธนาคาร (key: payment_config ใน Settings → Payment Config) ก่อน"
   );
 }
 
 export function buildPromptPayQr(config: PaymentConfig, amount: number): { payload: string; qrBase64: string } {
-  const payload = promptPayPayload(config.promptpay_id, amount);
+  const payload = promptPayPayload(config.promptpay_id ?? "", amount);
   if (!payload) throw new Error("เลขพร้อมเพย์ไม่ถูกต้อง — กรุณาตรวจสอบค่า payment_config ใน Settings");
   const qr = qrcode(0, "M");
   qr.addData(payload);
@@ -78,7 +94,10 @@ export interface CreatePaymentInput {
 export interface CreatedPayment {
   paymentId: string;
   amount: number;
-  promptpayTarget: string;
+  accountNumber?: string;
+  bank?: string;
+  accountName?: string;
+  promptpayTarget?: string;
   referenceCode: string;
   qrUrl: string | null;
   instructions: string;
@@ -98,8 +117,23 @@ export async function createPayment(admin: SupabaseClient, input: CreatePaymentI
   }
 
   const config = await getPaymentConfig(admin);
-  const { payload, qrBase64 } = buildPromptPayQr(config, amount);
+
+  // QR is an optional extra when a PromptPay id is configured — the direct
+  // bank transfer below is always the primary instruction.
+  let payload: string | null = null;
+  let qrBase64: string | null = null;
+  if (config.promptpay_id) {
+    try {
+      const built = buildPromptPayQr(config, amount);
+      payload = built.payload;
+      qrBase64 = built.qrBase64;
+    } catch {
+      // PromptPay misconfigured — fall back to account transfer only
+    }
+  }
+
   const referenceCode = makeReferenceCode();
+  const target = config.account_number ? `${config.bank ?? ""} ${config.account_number}`.trim() : (config.promptpay_id ?? "");
 
   const { data: payment, error } = await admin
     .from("payments")
@@ -107,7 +141,7 @@ export async function createPayment(admin: SupabaseClient, input: CreatePaymentI
       customer_id: customer.id,
       course_id: input.courseId ?? null,
       amount,
-      promptpay_target: config.promptpay_id,
+      promptpay_target: target,
       promptpay_payload: payload,
       qr_base64: qrBase64,
       reference_code: referenceCode,
@@ -117,26 +151,40 @@ export async function createPayment(admin: SupabaseClient, input: CreatePaymentI
     .single();
   if (error) throw error;
 
-  const qrUrl = await uploadQrToStorage(admin, qrBase64, referenceCode);
-  if (qrUrl) await admin.from("payments").update({ qr_url: qrUrl }).eq("id", payment.id);
+  let qrUrl: string | null = null;
+  if (qrBase64) {
+    qrUrl = await uploadQrToStorage(admin, qrBase64, referenceCode);
+    if (qrUrl) await admin.from("payments").update({ qr_url: qrUrl }).eq("id", payment.id);
+  }
 
-  const displayTarget = config.promptpay_id;
+  // Primary instruction: transfer straight into the studio account.
+  const accountLine = config.account_number
+    ? `โอนเข้าบัญชี ${config.bank ?? ""} เลขที่ ${config.account_number}${config.name ? " ชื่อ " + config.name : ""}`
+    : `พร้อมเพย์ ${config.promptpay_id}`;
+  const qrLine = qrUrl ? ` หรือสแกน QR ที่ส่งให้` : "";
   return {
     paymentId: payment.id,
     amount,
-    promptpayTarget: displayTarget,
+    accountNumber: config.account_number,
+    bank: config.bank,
+    accountName: config.name,
+    promptpayTarget: config.promptpay_id,
     referenceCode,
     qrUrl,
     instructions:
-      `ชำระผ่านพร้อมเพย์ ${displayTarget} จำนวน ${amount.toLocaleString("th-TH")} บาท ` +
+      `${accountLine}${qrLine} จำนวน ${amount.toLocaleString("th-TH")} บาท ` +
       `(อ้างอิง ${referenceCode}) — โอนตรงเข้าบัญชีของสตูดิโอ ไม่มีค่าธรรมเนียม แล้วแจ้งให้ทราบ ทางเราจะยืนยันเมื่อได้รับเงิน`,
   };
 }
 
 export interface ConfirmPaymentInput {
   paymentId: string;
-  confirmedBy: string;
+  /** Staff id when confirmed by a human; null when auto-confirmed from a transfer slip. */
+  confirmedBy: string | null;
   note?: string | null;
+  /** True when the slip vision flow matched it (feature #1) — adjusts the notification wording. */
+  auto?: boolean;
+  slipImageUrl?: string | null;
 }
 
 export async function confirmPayment(admin: SupabaseClient, input: ConfirmPaymentInput): Promise<{ payment: unknown; transaction: unknown }> {
@@ -150,7 +198,13 @@ export async function confirmPayment(admin: SupabaseClient, input: ConfirmPaymen
   const now = new Date().toISOString();
   const { data: updated, error: updateErr } = await admin
     .from("payments")
-    .update({ status: "paid", paid_at: now, confirmed_by: input.confirmedBy })
+    .update({
+      status: "paid",
+      paid_at: now,
+      confirmed_by: input.confirmedBy,
+      slip_verified_at: input.auto ? now : null,
+      ...(input.slipImageUrl ? { slip_image_url: input.slipImageUrl } : {}),
+    })
     .eq("id", payment.id)
     .select("*")
     .single();
@@ -163,7 +217,7 @@ export async function confirmPayment(admin: SupabaseClient, input: ConfirmPaymen
       type: "income",
       category: config.income_category || "ค่าเรียนเปียโน/ดนตรี",
       amount,
-      description: input.note || `ชำระ PromptPay ${payment.reference_code}`,
+      description: input.note || (input.auto ? `ชำระเงิน ${payment.reference_code} (ยืนยันอัตโนมัติจากสลิป)` : `ชำระเงิน ${payment.reference_code}`),
       transaction_date: now.slice(0, 10),
       payment_method: "โอนเงิน",
       customer_id: payment.customer_id,
@@ -188,7 +242,7 @@ export async function confirmPayment(admin: SupabaseClient, input: ConfirmPaymen
         customer_id: customer.id,
         from_status: customer.sales_status,
         to_status: toStatus,
-        note: `ชำระเงินผ่าน PromptPay แล้ว (${payment.reference_code})`,
+        note: `ชำระเงินแล้ว (${payment.reference_code})`,
       });
     }
   }
@@ -203,10 +257,46 @@ export async function confirmPayment(admin: SupabaseClient, input: ConfirmPaymen
 
   await admin.from("notifications").insert({
     type: "payment_received",
-    title: "ได้รับชำระเงิน PromptPay",
-    body: `${customer?.name ?? "ลูกค้า"} ชำระ ${amount.toLocaleString("th-TH")} บาท (${payment.reference_code}) — บันทึกรายได้แล้ว`,
+    title: "ได้รับชำระเงิน",
+    body: `${customer?.name ?? "ลูกค้า"} ชำระ ${amount.toLocaleString("th-TH")} บาท (${payment.reference_code}) — ${input.auto ? "ยืนยันอัตโนมัติจากสลิป" : "บันทึกรายได้แล้ว"}`,
     customer_id: payment.customer_id,
   });
 
+  // Feature #11: when this customer arrived through a referral and just
+  // paid, remind the owner to grant the promised reward.
+  if (customer?.id) {
+    const { data: referral } = await admin
+      .from("referrals")
+      .select("id, referral_code, referrer_customer_id")
+      .eq("referred_customer_id", customer.id)
+      .eq("reward_granted", false)
+      .maybeSingle();
+    if (referral) {
+      await admin.from("referrals").update({ reward_granted: true }).eq("id", referral.id);
+      await admin.from("notifications").insert({
+        type: "referral_created",
+        title: "ลูกค้าจากรีเฟอรัลชำระเงินแล้ว",
+        body: `ลูกค้าที่ถูกแนะนำด้วยโค้ด ${referral.referral_code} จ่ายเงินแล้ว — อย่าลืมมอบส่วนลด/ของขวัญให้ผู้แนะนำ`,
+        customer_id: referral.referrer_customer_id,
+      });
+    }
+  }
+
   return { payment: updated, transaction };
+}
+
+/**
+ * Auto-confirm from a transfer slip (feature #1). The caller (line-webhook)
+ * has already matched the slip to this exact payment via matchSlipToPayment;
+ * this runs the same confirmPayment pipeline with a null "confirmed by" so
+ * the ledger shows it was system-verified, and refreshes the customer's
+ * lead score (a paid customer is the hottest kind).
+ */
+export async function confirmPaymentBySlip(admin: SupabaseClient, input: { paymentId: string; slipImageUrl?: string | null }): Promise<{ payment: unknown; transaction: unknown }> {
+  const result = await confirmPayment(admin, { paymentId: input.paymentId, confirmedBy: null, auto: true, slipImageUrl: input.slipImageUrl ?? null });
+  const { data: payment } = await admin.from("payments").select("customer_id").eq("id", input.paymentId).maybeSingle();
+  if (payment?.customer_id) {
+    await admin.rpc("recompute_lead_score", { p_customer: payment.customer_id }).catch(() => {});
+  }
+  return result;
 }

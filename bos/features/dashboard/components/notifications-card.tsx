@@ -14,6 +14,21 @@ const TONE: Record<NotificationType, "default" | "success" | "warning" | "danger
   system_alert: "danger",
   payment_received: "success",
   attendance_declined: "warning",
+  slip_matched: "success",
+  slip_unmatched: "warning",
+  post_trial: "default",
+  renewal_offer: "warning",
+  monthly_report: "default",
+  payroll_report: "default",
+  reactivation: "default",
+  review_request: "default",
+  referral_created: "success",
+  lesson_summary: "default",
+  waitlist_offer: "default",
+  kb_auto_learned: "default",
+  ai_budget_exceeded: "danger",
+  drip_sent: "default",
+  voice_transcript: "default",
 };
 
 export function NotificationsCard({ notifications }: { notifications: Tables<"notifications">[] }) {

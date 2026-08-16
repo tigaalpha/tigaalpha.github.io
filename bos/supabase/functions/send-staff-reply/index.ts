@@ -4,6 +4,7 @@ import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { handleUnexpectedError } from "../_shared/monitor.ts";
 import { push as linePush } from "../_shared/line.ts";
+import { learnFromStaffReply } from "../_shared/auto-kb.ts";
 
 /**
  * Delivers a staff-typed reply from the Inbox (features/chat/components/
@@ -45,6 +46,11 @@ Deno.serve(async (req: Request) => {
 
     // Staff just handled it directly -- no longer needs a review flag.
     await admin.from("conversations").update({ needs_review: false, updated_at: new Date().toISOString() }).eq("id", conversationId);
+
+    // Feature #12: when this was an escalated conversation (the AI couldn't
+    // answer), the staff answer becomes a new Knowledge Base entry so the
+    // AI handles the same question alone next time. Never blocks the reply.
+    await learnFromStaffReply(admin, conversationId, text).catch(() => {});
 
     return jsonResponse({ ok: true });
   } catch (error) {

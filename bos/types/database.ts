@@ -22,7 +22,7 @@ export type BookingStatus = "pending" | "confirmed" | "rescheduled" | "cancelled
 
 export type AttendanceStatus = "unconfirmed" | "confirmed" | "declined";
 
-export type ConversationChannel = "line" | "web" | "phone" | "walk_in" | "internal";
+export type ConversationChannel = "line" | "web" | "phone" | "walk_in" | "internal" | "messenger";
 
 export type MessageSender = "customer" | "ai" | "owner";
 
@@ -35,7 +35,22 @@ export type NotificationType =
   | "new_customer"
   | "system_alert"
   | "payment_received"
-  | "attendance_declined";
+  | "attendance_declined"
+  | "slip_matched"
+  | "slip_unmatched"
+  | "post_trial"
+  | "renewal_offer"
+  | "monthly_report"
+  | "payroll_report"
+  | "reactivation"
+  | "review_request"
+  | "referral_created"
+  | "lesson_summary"
+  | "waitlist_offer"
+  | "kb_auto_learned"
+  | "ai_budget_exceeded"
+  | "drip_sent"
+  | "voice_transcript";
 
 export type KnowledgeSourceType =
   | "pricing"
@@ -124,6 +139,11 @@ export interface Database {
           notes: string | null;
           last_contact_at: string | null;
           lead_score: number;
+          last_reactivation_at: string | null;
+          renewal_offer_sent_at: string | null;
+          review_asked_at: string | null;
+          referral_code: string | null;
+          messenger_psid: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -166,6 +186,10 @@ export interface Database {
           attendance_status: AttendanceStatus;
           attendance_confirmed_at: string | null;
           attendance_reminded_at: string | null;
+          is_trial: boolean;
+          post_trial_feedback_sent_at: string | null;
+          post_trial_offer_sent_at: string | null;
+          waitlist_offered_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -239,6 +263,7 @@ export interface Database {
           source_type: KnowledgeSourceType;
           file_path: string | null;
           raw_text: string | null;
+          auto_generated: boolean;
           created_by: string | null;
           created_at: string;
         };
@@ -1014,6 +1039,8 @@ export interface Database {
           status: "pending" | "paid" | "cancelled";
           confirmed_by: string | null;
           paid_at: string | null;
+          slip_image_url: string | null;
+          slip_verified_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1025,6 +1052,129 @@ export interface Database {
           reference_code: string;
         };
         Update: Partial<Database["public"]["Tables"]["payments"]["Row"]>;
+        Relationships: [];
+      };
+      transfer_slips: {
+        Row: {
+          id: string;
+          customer_id: string | null;
+          payment_id: string | null;
+          image_url: string | null;
+          extracted_amount: number | null;
+          extracted_reference: string | null;
+          extracted_date: string | null;
+          confidence: number | null;
+          match_status: "pending" | "matched" | "unmatched" | "not_a_slip";
+          raw_extraction: Record<string, unknown> | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["transfer_slips"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["transfer_slips"]["Row"]>;
+        Relationships: [];
+      };
+      lesson_notes: {
+        Row: {
+          id: string;
+          booking_id: string | null;
+          customer_id: string;
+          teacher_id: string | null;
+          summary: string;
+          homework: string | null;
+          raw_input: string | null;
+          created_by: string | null;
+          sent_to_customer: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["lesson_notes"]["Row"]> & { customer_id: string; summary: string };
+        Update: Partial<Database["public"]["Tables"]["lesson_notes"]["Row"]>;
+        Relationships: [];
+      };
+      waitlist: {
+        Row: {
+          id: string;
+          customer_id: string;
+          teacher_id: string | null;
+          preferred_day: number | null;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["waitlist"]["Row"]> & { customer_id: string };
+        Update: Partial<Database["public"]["Tables"]["waitlist"]["Row"]>;
+        Relationships: [];
+      };
+      reactivation_log: {
+        Row: {
+          id: string;
+          customer_id: string;
+          message: string | null;
+          sent_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["reactivation_log"]["Row"]> & { customer_id: string };
+        Update: Partial<Database["public"]["Tables"]["reactivation_log"]["Row"]>;
+        Relationships: [];
+      };
+      drip_campaigns: {
+        Row: {
+          id: string;
+          name: string;
+          segment: Record<string, unknown>;
+          message_template: string;
+          interval_days: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["drip_campaigns"]["Row"]> & { name: string; message_template: string };
+        Update: Partial<Database["public"]["Tables"]["drip_campaigns"]["Row"]>;
+        Relationships: [];
+      };
+      drip_sends: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          customer_id: string;
+          sent_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["drip_sends"]["Row"]> & { campaign_id: string; customer_id: string };
+        Update: Partial<Database["public"]["Tables"]["drip_sends"]["Row"]>;
+        Relationships: [];
+      };
+      referrals: {
+        Row: {
+          id: string;
+          referrer_customer_id: string;
+          referral_code: string;
+          referred_customer_id: string | null;
+          reward_granted: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["referrals"]["Row"]> & { referrer_customer_id: string; referral_code: string };
+        Update: Partial<Database["public"]["Tables"]["referrals"]["Row"]>;
+        Relationships: [];
+      };
+      teacher_rates: {
+        Row: {
+          teacher_id: string;
+          rate_per_hour: number;
+          active: boolean;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["teacher_rates"]["Row"]> & { teacher_id: string; rate_per_hour: number };
+        Update: Partial<Database["public"]["Tables"]["teacher_rates"]["Row"]>;
+        Relationships: [];
+      };
+      kb_learning_log: {
+        Row: {
+          id: string;
+          question_hash: string;
+          customer_id: string | null;
+          question: string;
+          answer: string;
+          document_id: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["kb_learning_log"]["Row"]> & { question_hash: string; question: string; answer: string };
+        Update: Partial<Database["public"]["Tables"]["kb_learning_log"]["Row"]>;
         Relationships: [];
       };
     };

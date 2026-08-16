@@ -278,6 +278,37 @@ async function understandImage(mimeType: string, base64: string, instructionProm
   return text;
 }
 
+// Audio understanding (LINE voice messages -> transcript, feature #14) is
+// Gemini-specific, same reasoning as understandImage/generateImage — it's not
+// part of the swappable text-chat AIProvider interface.
+async function transcribeAudio(mimeType: string, base64: string, languageHint = "th"): Promise<string> {
+  const response = await fetchWithRetry(`${BASE_URL}/${model()}:generateContent?key=${apiKey()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { inlineData: { mimeType, data: base64 } },
+            { text: `Transcribe the speech in this audio verbatim, in the original language (likely Thai). Output only the transcript text — no commentary, no timestamps, no quotes.` },
+          ],
+        },
+      ],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 1024, language: languageHint },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await friendlyErrorMessage(response, "การถอดเสียง"));
+  }
+
+  const data = (await response.json()) as { candidates?: Array<{ content?: { parts?: GeminiPart[] } }> };
+  const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
+  if (!text) throw new Error("ไม่สามารถถอดเสียงได้ ลองพิมพ์ข้อความแทน");
+  return text;
+}
+
 export interface WebResearchResult {
   text: string;
   sources: { title: string; url: string }[];
@@ -324,4 +355,4 @@ async function researchWithSearch(query: string): Promise<WebResearchResult> {
 }
 
 export const geminiProvider: AIProvider = { generate, embed, generateImage };
-export { understandImage, researchWithSearch };
+export { understandImage, researchWithSearch, transcribeAudio };
