@@ -204,6 +204,7 @@ export interface Database {
           post_trial_feedback_sent_at: string | null;
           post_trial_offer_sent_at: string | null;
           waitlist_offered_at: string | null;
+          reschedule_offered_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -232,6 +233,23 @@ export interface Database {
           to_status: SalesStatus;
         };
         Update: Partial<Database["public"]["Tables"]["sales_status_history"]["Row"]>;
+        Relationships: [];
+      };
+      content_calendar: {
+        Row: {
+          id: string;
+          kind: "article" | "short" | "social" | "ad";
+          title: string;
+          body: string | null;
+          platform: string | null;
+          planned_date: string | null;
+          status: "draft" | "approved" | "published" | "skipped";
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["content_calendar"]["Row"]> & {
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["content_calendar"]["Row"]>;
         Relationships: [];
       };
       conversations: {
@@ -268,6 +286,22 @@ export interface Database {
           content: string;
         };
         Update: Partial<Database["public"]["Tables"]["messages"]["Row"]>;
+        Relationships: [];
+      };
+      kb_drafts: {
+        Row: {
+          id: string;
+          question: string;
+          draft_answer: string;
+          source_conversation_id: string | null;
+          status: "pending" | "approved" | "rejected";
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["kb_drafts"]["Row"]> & {
+          question: string;
+          draft_answer: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["kb_drafts"]["Row"]>;
         Relationships: [];
       };
       knowledge_documents: {
@@ -475,6 +509,22 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["video_scripts"]["Row"]>;
         Relationships: [];
       };
+      voice_call_logs: {
+        Row: {
+          id: string;
+          call_id: string | null;
+          direction: string;
+          phone: string | null;
+          customer_id: string | null;
+          status: string | null;
+          summary: string | null;
+          transcript_url: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["voice_call_logs"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["voice_call_logs"]["Row"]>;
+        Relationships: [];
+      };
       voiceover_scripts: {
         Row: {
           id: string;
@@ -519,6 +569,7 @@ export interface Database {
           user_id: string;
           content: string;
           platforms: string[];
+          media_urls: string[];
           posted_at: string | null;
           status: "queued" | "posting" | "success" | "failed";
           error_message: string | null;
@@ -1092,6 +1143,8 @@ export interface Database {
           paid_at: string | null;
           slip_image_url: string | null;
           slip_verified_at: string | null;
+          last_reminded_at: string | null;
+          remind_count: number;
           created_at: string;
           updated_at: string;
         };

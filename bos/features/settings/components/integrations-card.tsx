@@ -104,6 +104,8 @@ export function IntegrationsCard() {
   const [savingAiBudget, setSavingAiBudget] = useState(false);
   const [videoLimit, setVideoLimit] = useState("");
   const [savingVideoLimit, setSavingVideoLimit] = useState(false);
+  const [webChatSecret, setWebChatSecret] = useState("");
+  const [savingWebChatSecret, setSavingWebChatSecret] = useState(false);
 
   const supabaseUrl = env.supabase.url();
   const lineWebhookUrl = `${supabaseUrl}/functions/v1/line-webhook`;
@@ -136,6 +138,7 @@ export function IntegrationsCard() {
     repos.integrations.get("ai_model_content").then((v) => setTierContentModel(v ?? ""));
     repos.integrations.get("ai_budget_daily_tokens").then((v) => setAiBudget(v ?? ""));
     repos.integrations.get("ai_video_daily_limit").then((v) => setVideoLimit(v ?? ""));
+    repos.integrations.get("web_chat_secret").then((v) => setWebChatSecret(v ?? ""));
     supabase
       .from("social_accounts")
       .select("account_name")
@@ -345,6 +348,17 @@ export function IntegrationsCard() {
     if (value) await repos.integrations.set("ai_video_daily_limit", value);
     else await repos.integrations.remove("ai_video_daily_limit");
     setSavingVideoLimit(false);
+  }
+
+  function regenerateWebChatSecret() {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let value = "";
+    for (let i = 0; i < 32; i++) value += chars[Math.floor(Math.random() * chars.length)];
+    setSavingWebChatSecret(true);
+    createRepositories(createClient())
+      .integrations.set("web_chat_secret", value)
+      .then(() => setWebChatSecret(value))
+      .finally(() => setSavingWebChatSecret(false));
   }
 
   return (
@@ -595,6 +609,42 @@ export function IntegrationsCard() {
             </p>
           </div>
           <CopyField value={`${supabaseUrl}/functions/v1/messenger-webhook`} />
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <div className="flex items-center justify-between">
+            <p className="font-medium text-secondary">เว็บแชท (Widget) — ฝังแชทบอทลงเว็บไซต์</p>
+            <Badge variant={webChatSecret ? "success" : "danger"}>{webChatSecret ? "พร้อมใช้" : "ยังไม่ตั้งค่า"}</Badge>
+          </div>
+          <p className="text-sm text-secondary/70">
+            เอาแชทบอท TIGA ไปวางบนเว็บไซต์/หน้าโฆษณาใดก็ได้ — ใส่โค้ด 1 ชิ้นด้านล่างลงในหน้าเว็บ แล้วคนที่เข้ามาจะคุยกับ AI
+            ได้ทันที (จองคอร์ส/ถามราคา/นัดทดลองเรียน) ข้อมูลลูกค้าเข้าหน้า Inbox ใน CRM เดียวกับ LINE
+          </p>
+          {webChatSecret ? (
+            <div className="space-y-1 pt-2 text-sm text-secondary/70">
+              <p className="text-xs text-secondary/50">วางโค้ดนี้ก่อน </p>
+              <CopyField value={`<div id="tiga-widget"></div>
+<script src="/studio/chat-widget.js"></script>
+<script>
+  window.TIGA_WIDGET_CONFIG = {
+    url: "${supabaseUrl}/functions/v1/web-chat",
+    secret: "${webChatSecret}",
+    title: "คุยกับ TIGA",
+    subtitle: "ตอบไว พร้อมช่วยเรื่องคอร์สเรียนเปียโน",
+  };
+</script>`} />
+            </div>
+          ) : null}
+          <div className="flex items-end gap-2 pt-2">
+            <Button variant="outline" onClick={regenerateWebChatSecret} disabled={savingWebChatSecret}>
+              <RefreshCw className={cn("h-4 w-4", savingWebChatSecret && "animate-spin")} />
+              {webChatSecret ? "สุ่ม Key ใหม่" : "สร้าง Key"}
+            </Button>
+            <p className="text-xs text-secondary/40">
+              Key นี้เป็นกุญแจฝังในหน้าเว็บ (ไม่ใช่ความลับสำคัญ) ใช้แค่กันไม่ให้คนอื่นยิง endpoint ฟรี — สุ่มใหม่ได้ทุกเมื่อ
+              แต่ต้องอัปเดตโค้ดฝังในเว็บด้วย
+            </p>
+          </div>
         </div>
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">

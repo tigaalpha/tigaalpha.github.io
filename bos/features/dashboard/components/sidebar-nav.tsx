@@ -42,6 +42,7 @@ import {
   LineChart,
   UserCheck,
   Coins,
+  Phone,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -130,6 +131,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/accounting", label: "Accounting", icon: Wallet, ownerOnly: true },
       { href: "/receipts", label: "ใบเสร็จ", icon: ReceiptIcon, ownerOnly: true },
       { href: "/payments", label: "การชำระเงิน", icon: HandCoins, ownerOnly: true },
+      { href: "/voice", label: "AI Receptionist", icon: Phone, ownerOnly: true },
       { href: "/legal", label: "เอกสาร/สัญญา", icon: Scale },
       { href: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
     ],

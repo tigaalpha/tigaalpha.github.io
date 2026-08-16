@@ -44,6 +44,7 @@ import { MarketingMetricsRepository } from "./marketing-metrics.repository";
 import { AttendanceRepository } from "./attendance.repository";
 import { PaymentsRepository } from "./payments.repository";
 import { TransferSlipsRepository } from "./transfer-slips.repository";
+import { AiOpsRepository } from "./ai-ops.repository";
 
 /**
  * Dependency-injection container: build once per request with the
@@ -96,6 +97,7 @@ export function createRepositories(db: SupabaseClient<Database>) {
     marketingMetrics: new MarketingMetricsRepository(db),
     payments: new PaymentsRepository(db),
     transferSlips: new TransferSlipsRepository(db),
+    aiOps: new AiOpsRepository(db),
   };
 }
 

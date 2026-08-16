@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { ContentManager } from "@/features/content/components/content-manager";
+import { ContentCalendarSection } from "@/features/content/components/content-calendar-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/types/database";
 
@@ -27,6 +28,7 @@ export default function ContentPage() {
           AI เขียนบทความให้ติด SEO และ AI Answer Engines โดยอิงข้อมูลจริงจาก Knowledge Base
         </p>
       </div>
+      <ContentCalendarSection />
       {articles ? <ContentManager articles={articles} onChanged={reload} /> : <Skeleton className="h-96" />}
     </div>
   );

@@ -7,12 +7,12 @@ import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 const GRAPH_VERSION = "v19.0";
 
-// Instagram/TikTok/YouTube all require an attached image/video via their
-// APIs — there is no plain-text post endpoint for any of them, and the
-// content queue here only ever collects text. Real auto-posting is only
-// possible for Facebook (Page feed post) and LINE (broadcast) today; the
-// others stay on the manual copy-link fallback already in the frontend.
-const SUPPORTED_PLATFORMS = new Set(["facebook", "line"]);
+// TikTok/YouTube require an attached video via their APIs, so they stay on
+// the manual copy-link fallback. Instagram works with an image through the
+// Graph API container flow (same Meta token as the Facebook Page) — enabled
+// when the post carries media_urls. Facebook (text feed) and LINE
+// (broadcast) auto-post as before.
+const SUPPORTED_PLATFORMS = new Set(["facebook", "line", "instagram"]);
 
 async function publishToFacebook(admin: ReturnType<typeof createAdminClient>, userId: string, content: string): Promise<string> {
   const { data: account } = await admin.from("social_accounts").select("*").eq("user_id", userId).eq("platform", "facebook").maybeSingle();
@@ -40,6 +40,44 @@ async function publishToLine(content: string): Promise<string> {
   return "broadcast";
 }
 
+// Instagram image post via the container API: upload media_urls[0] with the
+// caption, then publish the container. Uses the same Meta Page token as the
+// Facebook publish — the connected Instagram Business account must be linked
+// to that Page in Meta.
+async function publishToInstagram(admin: ReturnType<typeof createAdminClient>, userId: string, content: string, mediaUrls: string[]): Promise<string> {
+  const imageUrl = mediaUrls[0];
+  if (!imageUrl) throw new Error("โพสต์ Instagram ต้องมีรูป — เพิ่มรูปในโพสต์ก่อน");
+
+  const { data: account } = await admin.from("social_accounts").select("*").eq("user_id", userId).eq("platform", "facebook").maybeSingle();
+  if (!account) throw new Error("ยังไม่ได้เชื่อมต่อ Facebook Page — ไปที่ Settings > Integrations");
+  const token = account.access_token as string;
+  const pageId = (account.metadata as { pageId?: string })?.pageId;
+  if (!pageId) throw new Error("ไม่พบ Page ID ที่เชื่อมต่อไว้");
+
+  // Resolve the linked Instagram Business account id from the Page.
+  const pageRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${pageId}?fields=connected_instagram_account{id}&access_token=${token}`);
+  const pageData = (await pageRes.json()) as { connected_instagram_account?: { id?: string }; error?: { message?: string } };
+  const igId = pageData?.connected_instagram_account?.id;
+  if (!igId) throw new Error(`Instagram ยังไม่ได้เชื่อมกับ Page นี้ (${pageData?.error?.message ?? "ไม่พบ Instagram Business Account"})`);
+
+  const createRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${igId}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ image_url: imageUrl, caption: content, access_token: token }),
+  });
+  const createData = (await createRes.json()) as { id?: string; error?: { message?: string } };
+  if (!createData.id) throw new Error(`Instagram สร้าง media ไม่สำเร็จ: ${createData.error?.message ?? "unknown"}`);
+
+  const pubRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${igId}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ creation_id: createData.id, access_token: token }),
+  });
+  const pubData = (await pubRes.json()) as { id?: string; error?: { message?: string } };
+  if (!pubData.id) throw new Error(`Instagram publish ไม่สำเร็จ: ${pubData.error?.message ?? "unknown"}`);
+  return pubData.id;
+}
+
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -62,7 +100,13 @@ Deno.serve(async (req: Request) => {
 
     for (const platform of targetPlatforms) {
       try {
-        externalIds[platform] = platform === "facebook" ? await publishToFacebook(admin, userId, post.content) : await publishToLine(post.content);
+        const mediaUrls = Array.isArray(post.media_urls) ? post.media_urls : [];
+        externalIds[platform] =
+          platform === "facebook"
+            ? await publishToFacebook(admin, userId, post.content)
+            : platform === "instagram"
+              ? await publishToInstagram(admin, userId, post.content, mediaUrls)
+              : await publishToLine(post.content);
       } catch (err) {
         errors.push(`${platform}: ${err instanceof Error ? err.message : String(err)}`);
       }
