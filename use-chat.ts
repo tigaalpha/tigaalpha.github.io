@@ -67,6 +67,16 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
   const mendRef = useRef(null);
   const topicHint = useRef(null); // "scale" | "chord" — what the current lesson is about
   const lessonKey = useRef(null); // the key id picked in the lesson (e.g. "F", "Bb") — forces correct key
+  // true from callClaude()'s start until its stream fully resolves (success or
+  // error) — deliberately separate from `loading`, which flips false as soon as
+  // the empty AI bubble appears (see callClaude's onStart) so the typing-dots
+  // indicator can hand off to the live-filling bubble. Without this, a second
+  // callClaude() firing mid-stream (send() re-entered once `loading` is already
+  // false, or use-practice-mode.ts's auto-feedback call, which has no loading
+  // check at all) would race flush()'s "overwrite the last AI message" logic
+  // against the first call's still-arriving tokens, corrupting whichever bubble
+  // ends up last.
+  const streamingRef = useRef(false);
 
   function pushMessage(msg) { setMsgs(prev => [...prev, msg]); }
   function setLessonContext(hint, key = null) { topicHint.current = hint; lessonKey.current = key; }
@@ -107,6 +117,8 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
      Sends { message, conversationHistory, system }; reads SSE lines of
      `data: {"content":"..."}` produced by the function. */
   async function callClaude(userText) {
+    if (streamingRef.current) return; // a stream is already in flight — never let two calls interleave
+    streamingRef.current = true;
     setLoading(true);
     const history = buildHistory();
 
@@ -163,12 +175,14 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
       console.error("Chat error:", e);
       setMsgs(prev => [...prev, { role: "ai", text: lc.err }]);
       setLoading(false);
+    } finally {
+      streamingRef.current = false;
     }
   }
 
   function send() {
     const t = input.trim();
-    if (!t || loading) return;
+    if (!t || loading || streamingRef.current) return; // streamingRef stays true after `loading` already cleared (see callClaude) — block a second send for the whole in-flight window, not just its pre-first-token half
     // derive topic hint from what the user actually typed (scale vs chord)
     const lo = t.toLowerCase();
     if (/\bscale\b|สเกล|บันไดเสียง|音阶|音階/.test(lo)) topicHint.current = "scale";
