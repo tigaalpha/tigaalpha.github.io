@@ -1,0 +1,95 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createAdminClient } from "../_shared/supabase-admin.ts";
+import { jsonResponse } from "../_shared/cors.ts";
+import { checkCronSecret } from "../_shared/cron-auth.ts";
+import { logSystemEvent } from "../_shared/monitor.ts";
+
+// Feature #9 — content loop: the owner approves a content_calendar item in
+// the Content page, and this hourly cron turns approved items that are due
+// (planned_date <= today) into queued social_posts rows — the exact queue
+// the Post page publishes with one click. Closes "สร้าง → อนุมัติ → โพสต์"
+// without any manual copy-paste. An item is only queued once (guarded by
+// the social_posts.content_calendar_id link), and items without a body are
+// skipped (nothing to post).
+const KIND_PLATFORMS: Record<string, string[]> = {
+  article: ["website"],
+  short: ["tiktok", "instagram"],
+  social: ["facebook", "line", "instagram"],
+  ad: ["facebook"],
+};
+
+Deno.serve(async (req: Request) => {
+  const preflight = req.method === "OPTIONS" ? jsonResponse({}, 200) : null;
+  if (preflight) return preflight;
+
+  const admin = createAdminClient();
+  if (!(await checkCronSecret(admin, req))) return jsonResponse({ error: "Unauthorized" }, 401);
+
+  try {
+    // Approved items due today or earlier that aren't already published.
+    const { data: items, error } = await admin
+      .from("content_calendar")
+      .select("id, kind, title, body, platform, planned_date")
+      .eq("status", "approved")
+      .lte("planned_date", new Date().toISOString().slice(0, 10))
+      .order("planned_date", { ascending: true })
+      .limit(20);
+    if (error) throw error;
+
+    // Owner profile (the only staff account) owns the queued posts so the
+    // Post page lists them for one-click publishing.
+    const { data: ownerProfile } = await admin.from("profiles").select("id").eq("role", "owner").limit(1).maybeSingle();
+    const ownerId = ownerProfile?.id ?? null;
+
+    let queued = 0;
+    let skipped = 0;
+    for (const item of (items ?? []) as { id: string; kind: string; title: string; body?: string | null; platform?: string | null; planned_date?: string | null }[]) {
+      const body = item.body?.trim();
+      if (!body) {
+        skipped += 1;
+        continue;
+      }
+      // Explicit platform overrides the kind default when the planner set
+      // one (e.g. "facebook" on a social item).
+      const explicit = item.platform && item.platform !== "tbd" ? [item.platform] : null;
+      const platforms = explicit ?? KIND_PLATFORMS[item.kind] ?? ["line"];
+
+      const { data: existing } = await admin
+        .from("social_posts")
+        .select("id")
+        .eq("content_calendar_id", item.id)
+        .maybeSingle();
+      if (existing) continue; // already queued once — never double-queue
+
+      const { error: postErr } = await admin.from("social_posts").insert({
+        user_id: ownerId,
+        content: body.slice(0, 2000),
+        platforms,
+        status: "queued",
+        posted_at: null,
+        external_ids: {},
+        content_calendar_id: item.id,
+      });
+      if (postErr) {
+        await logSystemEvent(admin, "content-publish", "error", `queue ${item.id}: ${postErr.message}`);
+        continue;
+      }
+      await admin.from("content_calendar").update({ status: "published" }).eq("id", item.id);
+      queued += 1;
+    }
+
+    if (queued > 0) {
+      await logSystemEvent(admin, "content-publish", "info", `queued ${queued} posts`);
+      await admin.from("notifications").insert({
+        type: "content_ready",
+        title: `เนื้อหา ${queued} ชิ้นพร้อมโพสต์`,
+        body: "เนื้อหาที่อนุมัติแล้วถูกเตรียมเป็นคิวโพสต์แล้ว — ไปที่หน้า Post เพื่อเผยแพร่ทุกช่องทาง",
+      });
+    }
+    return jsonResponse({ scanned: (items ?? []).length, queued, skipped });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await logSystemEvent(admin, "content-publish", "error", message);
+    return jsonResponse({ error: message }, 500);
+  }
+});

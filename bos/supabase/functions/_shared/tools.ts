@@ -59,7 +59,7 @@ export const AI_TOOLS: ToolDefinition[] = [
   },
   {
     name: "book_lesson",
-    description: "Book a confirmed lesson for a customer with an active course, creating the calendar event.",
+    description: "Book a confirmed lesson for a customer, creating the calendar event. Works with an active course (numbered lesson) OR as a trial lesson when the customer has no course with remaining hours yet — both are valid bookings.",
     parameters: {
       type: "object",
       properties: {
@@ -396,7 +396,15 @@ export async function executeTool(
         .order("started_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (courseErr || !course) throw new Error("No active course with remaining hours");
+      if (courseErr) throw courseErr;
+
+      // Trial lesson: a customer without an active course (or one whose
+      // hours are all spent) can still get a trial slot booked — that's the
+      // single highest-conversion step in the funnel, and before this change
+      // the AI couldn't book it because book_lesson demanded an active
+      // course. Trial bookings carry is_trial=true and skip the course-hour
+      // accounting entirely (no lesson number, no remaining-hour decrement).
+      const isTrial = !course;
 
       const { data: teacher, error: teacherErr } = await db.from("teachers").select("id, active").eq("id", args.teacherId).maybeSingle();
       if (teacherErr) throw teacherErr;
@@ -408,17 +416,29 @@ export async function executeTool(
       // advances when a lesson is marked *completed* (apply_completed_booking
       // trigger), so booking lesson 2 before lesson 1 has happened would
       // otherwise read the same current_hour and mint a duplicate "1NAME"
-      // title/type for both.
-      const { count: bookedCount, error: countErr } = await db
-        .from("bookings")
-        .select("id", { count: "exact", head: true })
-        .eq("course_id", course.id)
-        .neq("status", "cancelled");
-      if (countErr) throw countErr;
+      // title/type for both. (Skipped entirely for trial bookings — no
+      // course, no lesson numbering.)
+      let bookedCount = 0;
+      if (!isTrial) {
+        const { count, error: countErr } = await db
+          .from("bookings")
+          .select("id", { count: "exact", head: true })
+          .eq("course_id", course.id)
+          .neq("status", "cancelled");
+        if (countErr) throw countErr;
+        bookedCount = count ?? 0;
+      }
 
-      const lessonNumber = (bookedCount ?? 0) + 1;
-      const lessonType = lessonNumber >= course.total_hours ? "final" : "normal";
-      const title = `${lessonNumber}${String(customer.name).trim().replace(/\s+/g, "").toUpperCase()}`;
+      let lessonNumber: number | null = null;
+      let lessonType: "normal" | "final" = "normal";
+      let title: string;
+      if (isTrial) {
+        title = `ทดลอง${String(customer.name).trim().replace(/\s+/g, "").toUpperCase()}`;
+      } else {
+        lessonNumber = bookedCount + 1;
+        lessonType = lessonNumber >= course.total_hours ? "final" : "normal";
+        title = `${lessonNumber}${String(customer.name).trim().replace(/\s+/g, "").toUpperCase()}`;
+      }
 
       // Insert before touching Google Calendar: the DB exclusion constraint
       // is the atomic conflict guard, so the booking must exist (or be
@@ -430,11 +450,12 @@ export async function executeTool(
         .from("bookings")
         .insert({
           customer_id: customerId,
-          course_id: course.id,
+          course_id: isTrial ? null : course.id,
           teacher_id: args.teacherId,
           google_event_id: null,
           title,
           lesson_type: lessonType,
+          is_trial: isTrial,
           status: "confirmed",
           start_time: args.startTime,
           end_time: args.endTime,
@@ -463,7 +484,17 @@ export async function executeTool(
       });
       const { data: withEvent } = await db.from("bookings").update({ google_event_id: event.id }).eq("id", booking.id).select("*").single();
 
-      return { booking: withEvent ?? booking, lessonNumber, lessonType };
+      // Feature #4 (auto-booking): whenever the AI books a lesson for a
+      // customer, the owner is told on LINE right away — bookings made by
+      // the bot are real commitments of the owner's time, so they should
+      // never happen silently.
+      const { data: ownerRow } = await db.from("integration_settings").select("value").eq("key", "owner_line_user_id").maybeSingle();
+      if (ownerRow?.value) {
+        const startLabel = new Intl.DateTimeFormat("th-TH", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok", hour12: false }).format(new Date(String(args.startTime)));
+        linePush(ownerRow.value, `🗓️ AI จองคาบใหม่: ${customer.name} (${isTrial ? "ทดลองเรียน" : `คาบ ${lessonNumber ?? "?"}`}) ${startLabel}`).catch(() => {});
+      }
+
+      return { booking: withEvent ?? booking, lessonNumber, lessonType, isTrial };
     }
 
     case "reschedule_lesson": {

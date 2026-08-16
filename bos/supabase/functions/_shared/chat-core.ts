@@ -62,6 +62,36 @@ function isDegenerateReply(content: string): boolean {
 
 const DEGENERATE_FALLBACK = "ขอโทษค่ะ รบกวนพิมพ์คำถามอีกครั้งได้ไหมคะ อยากให้แน่ใจว่าตอบตรงกับที่คุณลูกค้าต้องการค่ะ";
 
+// Banned-phrase filter (AI quality loop): the eval data showed the model
+// occasionally leaks internal error/technical detail to customers ("มี
+// ข้อผิดพลาดเล็กน้อยในการสร้างลิงก์ชำระเงิน") — which both reads as broken
+// and breaks the owner's "look like a human" rule. This is a hard filter
+// after generation: if the cleaned reply still mentions system errors,
+// retries, or technical internals, it is replaced with a natural handoff
+// and the conversation is escalated for review. Deliberately narrow — only
+// catches unambiguous technical-leak patterns, so normal words like
+// "error" in a music context (e.g. a student's practice app) are never
+// hit.
+const BANNED_REPLY_PATTERNS = [
+  /มีข้อผิดพลาด/,
+  /เกิดข้อผิดพลาด/,
+  /ระบบขัดข้อง/,
+  /ขัดข้องชั่วคราว/,
+  /technical error/i,
+  /internal error/i,
+  /server error/i,
+  /API (ไม่|ล้มเหลว|ผิดพลาด)/i,
+  /ลอง(ใหม่อีกครั้ง|อีกครั้ง) ?[.!]?$/m,
+  /รบกวนลอง/,
+  /รบกวนส่ง(ใหม่อีกครั้ง|อีกครั้ง)/,
+];
+
+const BANNED_REPLY_FALLBACK = "ขอโทษค่ะ ขอตรวจสอบกับทีมงานก่อนนะคะ เดี๋ยวจะรีบติดต่อกลับทันทีค่ะ 😊";
+
+function hasBannedPhrase(content: string): boolean {
+  return BANNED_REPLY_PATTERNS.some((re) => re.test(content));
+}
+
 export async function respond(
   db: SupabaseClient,
   conversationId: string,
@@ -86,16 +116,23 @@ export async function respond(
 
     if (cached && Date.now() - new Date(cached.created_at).getTime() < CACHE_TTL_MS) {
       const reply = cleanReplyText(cached.reply);
-      await db.from("messages").insert({ conversation_id: conversationId, sender: "customer", content: customerMessage });
-      await db.from("messages").insert({
-        conversation_id: conversationId,
-        sender: "ai",
-        content: reply,
-        metadata: { cached: true },
-      });
-      await db.from("ai_response_cache").update({ hits: cached.hits + 1 }).eq("id", cached.id);
-      await db.from("conversations").update({ last_stage: "opening" }).eq("id", conversationId);
-      return { reply, needsReview: false, quickReplies: isOpeningMessage ? OPENING_QUICK_REPLIES : undefined };
+      // Cached replies were written before the banned-phrase filter existed
+      // — a stale cache entry can still leak technical internals, so run the
+      // same filter here and treat a hit as a cache miss (regenerate fresh).
+      if (hasBannedPhrase(reply)) {
+        await db.from("ai_response_cache").delete().eq("id", cached.id);
+      } else {
+        await db.from("messages").insert({ conversation_id: conversationId, sender: "customer", content: customerMessage });
+        await db.from("messages").insert({
+          conversation_id: conversationId,
+          sender: "ai",
+          content: reply,
+          metadata: { cached: true },
+        });
+        await db.from("ai_response_cache").update({ hits: cached.hits + 1 }).eq("id", cached.id);
+        await db.from("conversations").update({ last_stage: "opening" }).eq("id", conversationId);
+        return { reply, needsReview: false, quickReplies: isOpeningMessage ? OPENING_QUICK_REPLIES : undefined };
+      }
     }
   }
 
@@ -305,6 +342,21 @@ export async function respond(
       // leaked into the reply before it is saved or sent to the customer
       // (prompts forbid them, but this guarantees it).
       result.message.content = cleanReplyText(result.message.content);
+
+      // Banned-phrase filter: if the cleaned reply still leaks technical
+      // error/retry internals, swap it for a natural handoff and flag the
+      // conversation for the owner — the customer gets a human-sounding
+      // reply, and the quality loop (ai-eval-runner) can learn from it.
+      if (hasBannedPhrase(result.message.content)) {
+        usedFallback = true;
+        result.message.content = BANNED_REPLY_FALLBACK;
+        await db.from("conversations").update({ needs_review: true, last_stage: "fallback" }).eq("id", conversationId);
+        await db.from("notifications").insert({
+          type: "ai_needs_review",
+          title: "AI ตอบผิดกฎ (leak ข้อมูลทางเทคนิค)",
+          body: "AI เกือบตอบลูกค้าเรื่องข้อผิดพลาดภายในระบบ ถูกสกัดไว้แล้ว — ตรวจบทสนทนานี้และตอบเอง",
+        });
+      }
 
       await db.from("messages").insert({
         conversation_id: conversationId,

@@ -580,6 +580,7 @@ export interface Database {
           status: "queued" | "posting" | "success" | "failed";
           error_message: string | null;
           external_ids: Record<string, unknown>;
+          content_calendar_id: string | null;
           created_at: string;
           updated_at: string;
         };

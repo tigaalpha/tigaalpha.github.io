@@ -288,7 +288,14 @@ npm run build        # แล้ว sync out/ → studio/ ที่ root (ขั
 
 | ฟีเจอร์ | หน้า | ฟังก์ชัน | หมายเหตุ |
 |---|---|---|---|
-| Owner Command Center | LINE (เจ้าของ) | `_shared/owner-command.ts` + line-webhook | พิมพ์ `ยอดขายวันนี้` / `ใครค้างเงิน` / `ลูกค้าใหม่` / `คาบเรียนวันนี้` |
+| Owner Command Center | LINE (เจ้าของ) | `_shared/owner-command.ts` + line-webhook | พิมพ์ `ยอดขายวันนี้` / `ใครค้างเงิน` / `ลูกค้าใหม่` / `คาบเรียนวันนี้/พรุ่งนี้` / `ออกใบแจ้ง [ชื่อ] [จำนวน]` / `ยืนยันเงิน [รหัส]` / `งานวันนี้` / `อนุมัติค้าง` / `คุณภาพ AI` / `ค่าใช้จ่ายเดือนนี้` |
+| Calendar auto-heal | cron-less (เรียกจากหน้า Calendar) | `calendar-sync` (แก้) | สร้าง Google Calendar event ให้ booking ที่ sync ค้างให้อัตโนมัติ แทนแจ้งเตือนอย่างเดียว |
+| AI งดตอบเรื่อง error | ทุกแชทลูกค้า | chat-core `BANNED_REPLY_PATTERNS` | สกัดข้อความที่ AI จะ leak ข้อมูลเทคนิค/error ให้ลูกค้า → ตอบแบบคน + แจ้ง owner |
+| eval → KB แก้เอง | `/ai-quality` + Knowledge → ฉบับร่าง | `ai-eval-runner` (แก้) | คำตอบคะแนน ≤2 → AI ร่างคำตอบใหม่เป็น kb_draft ให้ owner อนุมัติ |
+| AI จองคาบทดลอง | แชท AI | `tools.ts book_lesson` (แก้) | จองคาบทดลองได้โดยไม่ต้องมีคอร์ส + แจ้ง owner ทาง LINE ทุกครั้งที่ AI จอง |
+| อนุมัติผ่าน LINE | LINE (เจ้าของ) | `_shared/approvals.ts` (แก้) | ทุกครั้งที่ AI ขออนุมัติ (ยกเลิกคาบ/เปลี่ยนสถานะ/งบโฆษณา) แจ้ง owner ทาง LINE ทันที |
+| จัดหมวดเงินอัตโนมัติ | Accounting | `categorize-transactions` (cron 01:30 น.) | LLM จัดหมวดรายการที่ยังเป็น "อื่นๆ" ให้ตรงกับหมวดของหน้า Accounting |
+| ปิดลูปคอนเทนต์ | `/content` → `/post` | `content-publish` (cron รายชั่วโมง) | เนื้อหาที่อนุมัติแล้ว+ถึงวัน → ขึ้นคิวหน้า Post เผยแพร่ปุ่มเดียว |
 | AI โทรออก | หน้านักเรียน + cron | `voice-outbound` | ต้องตั้ง `BLAND_API_KEY` |
 | Customer Portal | `/portal` (สาธารณะ) | `portal-config`, `portal-login`, `portal-me` | ต้องตั้ง `liff_app_id` + `liff_client_id` (ขั้น H5) |
 | ภาษีอัตโนมัติ | `/tax` | `tax-report` | VAT / หัก ณ ที่จ่าย / PND 3 + Export CSV |
