@@ -7037,8 +7037,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const secs = ((clip[clip.length - 1].t) / 1000).toFixed(1);
     const noteList = clip.map(e => e.note).join(" ");
     const q = `${lc.recCritiqueUser}\n\n(${clip.length} ${lc.songNotes} · ${secs}s: ${noteList})`;
-    topicHint.current = LESSON_MODE; lessonKey.current = null;
-    setMsgs(prev => [...prev, { role: "user", text: q }]);
+    setLessonContext(LESSON_MODE);
+    pushMessage({ role: "user", text: q });
     playPianoNote("C5", 0.1);
     callClaude(q);
   }
@@ -7198,9 +7198,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setActiveStageId(null); // free-text question, not a Pathway topic+key — no "change key" back button
     setActiveStageType(null);
     setPage("sensei");
-    topicHint.current = null; lessonKey.current = null;
+    setLessonContext(null);
     const q = lc.recAsk.replace("{x}", t);
-    setMsgs(prev => [...prev, { role: "user", text: q }]);
+    pushMessage({ role: "user", text: q });
     playPianoNote("C5", 0.1);
     callClaude(q);
   }
@@ -7208,7 +7208,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setActiveStageId(null);
     setActiveStageType(null);
     setPage("sensei");
-    setMsgs(prev => [...prev, { role: "ai", text: lc.schoolInfo }]);
+    pushMessage({ role: "ai", text: lc.schoolInfo });
   }
   function recommendNext() {
     const action = nextRecommendedAction();
@@ -7318,8 +7318,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     } else if (demoFingers && hand === "left") {
       demoFingers = demoFingers.slice().reverse();   // triads/intervals mirror for the left hand
     }
-    topicHint.current = LESSON_MODE;
-    lessonKey.current = null;
+    setLessonContext(LESSON_MODE);
 
     const sTitle = tr(stage.title, lang);
     const typeName = chordType ? tr(chordType.label, lang) : null;
@@ -7364,7 +7363,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     // the app's own theory engine instead of asking the live AI every time
     const local = localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes, fullTitle, lang);
     if (local) intro.push({ role: "ai", text: local });
-    setMsgs(prev => [...prev, ...intro]);
+    intro.forEach(m => pushMessage(m));
     const dt = setTimeout(() => playSequence(demoParsed), 300);
     seqTimers.current.push(dt);
     // tier 1 (local theory engine) is free for guests same as any other pathway
@@ -7385,15 +7384,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const title = caseObj ? tr(caseObj.title, lang) : tr(stage.title, lang);
     const body = caseObj ? tr(caseObj.content, lang) : tr(stage.content, lang);
     const icon = caseObj ? (caseObj.icon || stage.icon) : stage.icon;
-    topicHint.current = LESSON_MODE;   // don't auto-detect/play notes from this text
-    lessonKey.current = null;
+    setLessonContext(LESSON_MODE);   // don't auto-detect/play notes from this text
     setActiveStageId(null); // reading chapters have no key picker — no "change key" back button
     setActiveStageType(null);
     setPage("sensei");
-    setMsgs(prev => [...prev,
-      { role: "user", text: `📚 ${icon} ${title}` },
-      { role: "ai", text: body },
-    ]);
+    pushMessage({ role: "user", text: `📚 ${icon} ${title}` });
+    pushMessage({ role: "ai", text: body });
     gainExp(EXP.chapter, { quest: true }); // reward reading a knowledge chapter
   }
 
