@@ -2727,6 +2727,10 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
               { code:"kids",      label:{ th:"👶 เด็ก",         en:"👶 Kids",      zh:"👶 儿歌" } },
               { code:"classical", label:{ th:"🎹 คลาสสิก",     en:"🎹 Classical", zh:"🎹 古典" } },
               { code:"folk",      label:{ th:"🌿 โฟล์ค",        en:"🌿 Folk",      zh:"🌿 民谣" } },
+              { code:"gospel",    label:{ th:"🙏 กอสเปล",       en:"🙏 Gospel",    zh:"🙏 福音" } },
+              { code:"jazz",      label:{ th:"🎷 แจ๊ส",         en:"🎷 Jazz",      zh:"🎷 爵士" } },
+              { code:"soul",      label:{ th:"🎤 โซล",          en:"🎤 Soul",      zh:"🎤 灵魂乐" } },
+              { code:"neosoul",   label:{ th:"🌙 นีโอโซล",      en:"🌙 Neo-Soul",  zh:"🌙 新灵魂乐" } },
               { code:"carol",     label:{ th:"🎄 คริสต์มาส",   en:"🎄 Carols",    zh:"🎄 圣诞" } },
               { code:"cn",        label:{ th:"🀄 จีน",          en:"🀄 Chinese",   zh:"🀄 中文" } },
             ] as const).map(g => (
