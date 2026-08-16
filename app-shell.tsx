@@ -1,12 +1,48 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Component } from "react";
 import { sb } from "./supabase-client";
 /* ── app-shell.tsx ──
    Small presentational components clustered around the App() root: the
    membership-gate screens (Splash/BannedScreen/GuestGateScreen/ProfileForm,
-   shown before PianoApp itself ever mounts) and CountUp, a tiny animated-
-   number helper reused by result screens. Extracted from App.tsx verbatim
-   as part of the App.tsx modularization — App() itself and PianoApp stay
-   in App.tsx, since they're the file's own root/entry point. ── */
+   shown before PianoApp itself ever mounts), ErrorBoundary (main.tsx's
+   crash safety net), and CountUp, a tiny animated-number helper reused by
+   result screens. Extracted from App.tsx verbatim as part of the App.tsx
+   modularization — App() itself and PianoApp stay in App.tsx, since
+   they're the file's own root/entry point. ── */
+
+/* ════ ERROR BOUNDARY (crash safety net) ════ */
+
+// Must be a class component - componentDidCatch/getDerivedStateFromError
+// have no hook equivalent, by design (a hook can't interrupt React's own
+// render phase the way a boundary does). Wraps <App/> in main.tsx so a
+// render-phase throw anywhere in the tree shows this recovery screen
+// instead of a fully blank one - confirmed by the stability audit that no
+// boundary existed anywhere before this, so any uncaught render bug
+// (including ones not yet found) white-screened the entire app with no
+// way back except a reload the user has to think to try themselves.
+// Deliberately app-wide rather than wrapped around individual overlays
+// (Voice Tutor/Camera Coach/chat) - this is the safety net every one of
+// those already sits inside; per-feature boundaries would only narrow the
+// blast radius of a future crash, not add any protection that's missing
+// today, so they're left as a possible follow-up rather than done here.
+export class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error, info) { console.error("Uncaught render error:", error, info); }
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
+        <div className="scan" />
+        <div className="banscreen">
+          <div style={{ fontSize: 52 }}>🎹</div>
+          <div className="locktitle">เกิดข้อผิดพลาด · Something went wrong</div>
+          <div className="locksub">ขออภัยในความไม่สะดวก กรุณาโหลดหน้าใหม่อีกครั้ง<br />Sorry about that — please reload the page to continue.</div>
+          <button className="lockbtn" onClick={() => window.location.reload()}>โหลดใหม่ · Reload</button>
+        </div>
+      </div>
+    );
+  }
+}
 
 /* ════ MEMBERSHIP GATE (required login) ════ */
 
