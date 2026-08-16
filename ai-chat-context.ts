@@ -10,10 +10,12 @@ import { dayKey } from "./shared-infra";
    context builders named in the modularization plan) stay in App.tsx for
    now — both call gamification functions (nextRecommendedAction,
    weakestSkills, computeSkillScores, SKILL_LABELS, pathDoneSet,
-   keyDoneMap) that haven't been extracted yet; moving them now would
-   create a circular import. Move them here once gamification has its own
-   module (Phase 3's use-gamification.ts unblocks this the same way
-   music-engine.tsx unblocked payment.tsx's playUi earlier in this plan). ── */
+   keyDoneMap) that are themselves still plain top-level App.tsx helpers,
+   not part of use-gamification.ts (that hook only owns the coins/exp/
+   streak/quest state, not this skill-tracking/recommendation layer).
+   Moving curriculumContext/songRecommendationHint now would still create
+   a circular import; they belong here once THAT layer gets its own
+   module, whenever that happens. ── */
 
 
 /* ── learner memory (cross-session) → personalized AI + adaptive path ── */
