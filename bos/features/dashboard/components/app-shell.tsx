@@ -69,7 +69,7 @@ function SoloModeToggle({ soloMode, onToggle }: { soloMode: boolean | null; onTo
   return (
     <button
       onClick={onToggle}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-secondary/60 hover:bg-white/5 hover:text-white"
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-white/60 hover:bg-white/5 hover:text-white"
       aria-label={soloMode ? "สลับไปโหมดเต็ม" : "สลับไปโหมด Solo"}
       title={soloMode ? "โหมด Solo — คลิกเพื่อดูเมนูทั้งหมด" : "คลิกเพื่อเข้าโหมด Solo (ย่อเมนูให้เหลือแต่ที่ใช้ทุกวัน)"}
     >
@@ -82,7 +82,7 @@ function BellLink({ alertCount }: { alertCount: number }) {
   return (
     <Link
       href="/notifications"
-      className="relative flex h-9 w-9 items-center justify-center rounded-lg text-secondary/60 transition-colors hover:bg-white/5 hover:text-white"
+      className="relative flex h-9 w-9 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/5 hover:text-white"
       aria-label="Notifications"
     >
       <Bell className="h-4 w-4" />
@@ -115,7 +115,7 @@ function MobileBottomNav({ alertCount, onMore }: { alertCount: number; onMore: (
             href={tab.href}
             className={cn(
               "relative flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium transition-colors",
-              active ? "text-purple-400" : "text-secondary/45 hover:text-secondary/80"
+              active ? "text-purple-400" : "text-white/45 hover:text-white/80"
             )}
           >
             <span className="relative">
@@ -132,7 +132,7 @@ function MobileBottomNav({ alertCount, onMore }: { alertCount: number; onMore: (
       })}
       <button
         onClick={onMore}
-        className="flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium text-secondary/45 transition-colors hover:text-secondary/80"
+        className="flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium text-white/45 transition-colors hover:text-white/80"
       >
         <MoreHorizontal className="h-5 w-5" />
         More
@@ -176,7 +176,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
           <BrandMark />
           <div>
             <p className="text-sm font-bold leading-tight tracking-wide text-white">TIGA AI</p>
-            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-secondary/35">BOS</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/35">BOS</p>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-2">
@@ -189,9 +189,9 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-white">{userName}</p>
-              <p className="text-[11px] text-secondary/40">{roleLabel}</p>
+              <p className="text-[11px] text-white/40">{roleLabel}</p>
             </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-secondary/25" />
+            <ChevronRight className="h-4 w-4 shrink-0 text-white/25" />
           </div>
         </div>
       </aside>
@@ -205,7 +205,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
                 <BrandMark size="sm" />
                 <span className="text-sm font-bold tracking-wide text-white">TIGA AI</span>
               </div>
-              <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="rounded-lg p-1.5 text-secondary/50 hover:bg-white/5">
+              <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="rounded-lg p-1.5 text-white/50 hover:bg-white/5">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -219,7 +219,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-white">{userName}</p>
-                  <p className="text-[11px] text-secondary/40">{roleLabel}</p>
+                  <p className="text-[11px] text-white/40">{roleLabel}</p>
                 </div>
               </div>
             </div>
@@ -235,7 +235,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
             >
-              <Menu className="h-5 w-5 text-secondary" />
+              <Menu className="h-5 w-5 text-white/70" />
             </button>
             <div className="flex items-center gap-2.5 md:hidden">
               <BrandMark size="sm" />

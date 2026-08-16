@@ -51,7 +51,7 @@ export function CommandSearch() {
 
   return (
     <div ref={boxRef} className="relative w-full max-w-sm">
-      <div className="flex items-center gap-2 rounded-full border border-white/5 bg-white/[0.04] px-3.5 py-2 transition-colors focus-within:border-purple-400/40 focus-within:bg-white/[0.06]">
+      <div className="flex items-center gap-2 rounded-full border border-line/10 bg-line/5 px-3.5 py-2 transition-colors focus-within:border-purple-400/40 focus-within:bg-line/10">
         <Search className="h-4 w-4 shrink-0 text-secondary/40" />
         <input
           ref={inputRef}
@@ -62,14 +62,14 @@ export function CommandSearch() {
           }}
           onFocus={() => setOpen(true)}
           placeholder="Search anything..."
-          className="w-full bg-transparent text-sm text-white placeholder:text-secondary/35 focus:outline-none"
+          className="w-full bg-transparent text-sm text-secondary placeholder:text-secondary/35 focus:outline-none"
         />
-        <kbd className="hidden shrink-0 rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-secondary/40 sm:block">
+        <kbd className="hidden shrink-0 rounded-md border border-line/15 bg-line/5 px-1.5 py-0.5 text-[10px] font-medium text-secondary/40 sm:block">
           ⌘K
         </kbd>
       </div>
       {open && query.trim() !== "" ? (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#12141d] shadow-card">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-line/10 bg-card shadow-card">
           {results.length === 0 ? (
             <p className="px-4 py-3 text-sm text-secondary/45">No matches</p>
           ) : (
@@ -82,7 +82,7 @@ export function CommandSearch() {
                   setOpen(false);
                   setQuery("");
                 }}
-                className="flex w-full items-center px-4 py-2.5 text-left text-sm text-secondary/80 transition-colors hover:bg-white/5 hover:text-white"
+                className="flex w-full items-center px-4 py-2.5 text-left text-sm text-secondary/80 transition-colors hover:bg-line/5 hover:text-secondary"
               >
                 {r.label}
               </button>
