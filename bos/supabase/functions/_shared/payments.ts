@@ -1,7 +1,8 @@
 // Shared bank-transfer payment logic — used by BOTH the create-payment /
-// verify-payment edge functions (called from a future Payments page) and
-// the AI tools (create_payment_link / mark_payment_paid in tools.ts), so
-// the two entry points can never drift apart.
+// verify-payment edge functions (called from the Payments page,
+// app/(workspace)/payments) and the AI tools (create_payment_link /
+// mark_payment_paid in tools.ts), so the two entry points can never drift
+// apart.
 //
 // Payment method: direct bank transfer (โอนตรงเข้าบัญชี) — the customer
 // transfers straight into the studio's account (bank + account number in
