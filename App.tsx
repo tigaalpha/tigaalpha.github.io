@@ -8,6 +8,7 @@ import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
+import { withAiCache } from "./ai-cache";
 import {
   isPremium, setPremiumLS, getPlan, setPlanLS, isMaxPlan,
   PLAN_PRICE, CURRENCY_BY_LANG, PLAN_LABEL,
@@ -1381,7 +1382,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
 
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null,
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
   mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null }) {
@@ -1596,6 +1597,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   async function composeGenerate() {
     if (!composeMood || !composeStyle || composeLoading) return;
     if (onRequireLogin && onRequireLogin()) return;
+    if (!canUse("compose", premium)) { setComposeOpen(false); if (onUpsell) onUpsell(); return; }
     setComposeLoading(true); setComposeErr(false);
     try {
       const moods: Record<string,string> = { happy: "happy, bright, uplifting", sad: "melancholic, gentle, wistful", calm: "peaceful, serene, tranquil", energetic: "lively, energetic, playful" };
@@ -1612,6 +1614,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       const name = String(obj.name || T("เพลงของฉัน", "My Melody", "我的旋律")).slice(0, 40);
       const bpm = Math.min(160, Math.max(60, Math.round(obj.bpm || 90)));
       const song = { id: "compose_" + Date.now(), diff: 1, bpm, custom: true, th: name, en: name, zh: name, seq };
+      if (!premium) bumpUsage("compose");
       setComposeOpen(false);
       setComposeMood(null); setComposeStyle(null); setComposeKey("C"); setComposePage(1);
       if (onPlay) onPlay(song);
@@ -3636,10 +3639,10 @@ async function generateCoachTip(lang, profile) {
   };
   const sys = sysByLang[lang] || sysByLang.en;
   const msg = msgByLang[lang] || msgByLang.en;
-  // One attempt: fetch + pull the JSON object out of the model's text. Wrapped so any
-  // failure (network, non-JSON reply, a stray markdown fence, extra prose around the
-  // object) degrades to null instead of throwing — generateCoachTip retries once below
-  // rather than letting a single flaky reply surface as a hard error.
+  // One attempt: fetch + pull the JSON substring out of the model's text. Wrapped so
+  // any failure (network, non-JSON reply, a stray markdown fence, extra prose around
+  // the object) degrades to null instead of throwing — the retry below tries once
+  // more rather than letting a single flaky reply surface as a hard error.
   async function attempt() {
     try {
       const txt = await fetchChatCompletion({ message: msg, conversationHistory: [], system: sys, stream: false });
@@ -3647,13 +3650,24 @@ async function generateCoachTip(lang, profile) {
       const fenced = txt.match(/```(?:json)?\s*([\s\S]*?)```/i);
       const body2 = fenced ? fenced[1] : txt;
       const m = body2.match(/\{[\s\S]*\}/);
-      return m ? JSON.parse(m[0]) : null;
+      return m ? m[0] : null;
     } catch (e) { return null; }
   }
-  const isValid = o => o && o.weakness && Array.isArray(o.steps) && o.steps.length;
-  let obj = await attempt();
-  if (!isValid(obj)) obj = await attempt(); // a single malformed/non-JSON reply shouldn't be a dead end
-  if (!isValid(obj)) return null;
+  const isValidTxt = t => { try { const o = JSON.parse(t); return !!(o && o.weakness && Array.isArray(o.steps) && o.steps.length); } catch (e) { return false; } };
+  // Cached for an hour, content-addressed on the exact prompt sent — if the learner
+  // does more practice in the meantime, profileTxt/recentTxt/struggleTxt (baked into
+  // msg) change, the hash changes, and this naturally misses instead of serving
+  // stale advice. Protects repeat opens of the Auto Teaching popup / CoachPage's
+  // on-demand button against re-paying for an unchanged tip. Never caches a failed
+  // pair of attempts (withAiCache only stores a truthy result), so a flaky reply
+  // still gets a fresh real retry on the next call rather than replaying null.
+  const jsonTxt = await withAiCache("coachTip", { msg, sys }, 60 * 60 * 1000, async () => {
+    let t = await attempt();
+    if (!isValidTxt(t)) t = await attempt(); // a single malformed/non-JSON reply shouldn't be a dead end
+    return isValidTxt(t) ? t : null;
+  });
+  if (!jsonTxt) return null;
+  const obj = JSON.parse(jsonTxt);
   if (!COACH_FEATURE_LABELS[obj.feature]) obj.feature = "pathway"; // guard against a hallucinated key
   obj.steps = obj.steps.slice(0, 3); // enforce the "at most 3" cap even if the model overshoots
   return obj;
@@ -3814,7 +3828,7 @@ function buildSongResultRecommendation(lang, songMeta, songResult) {
 }
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
 function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
-const FREE_LIMITS = { song: 2, critique: 3 };   // free actions per day
+const FREE_LIMITS = { song: 2, critique: 3, compose: 2 };   // free actions per day
 function usageToday(key) { try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === dayKey() ? (u[key] || 0) : 0; } catch (e) { return 0; } }
 function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
 // `premium` must be the caller's real, server-synced plan state — never isPremium(),
@@ -7500,7 +7514,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "studio" && (
         studioView === "songs"
           ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
-          : <StudioPage lang={lang} plan={plan} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")}
+          : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
               onSongs={() => setStudioView("songs")}
@@ -7670,7 +7684,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         ? `你是一位专业的AI钢琴老师。根据以下数据，为学生制定一份7天个性化练习计划（每天详细说明练习内容和大概时长）：${ctx} 请用中文撰写。`
                         : `You are an expert AI piano teacher. Create a personalized 7-day piano practice schedule (with daily details: activity, estimated time, why it suits this learner) based on: ${ctx}`);
                     try {
-                      const txt = await fetchChatCompletion({ message: prompt, conversationHistory: [], stream: false });
+                      // Cached 24h, content-addressed on the exact prompt (which already
+                      // embeds the day's streak/accuracy/struggles via ctx) — closing and
+                      // reopening this modal without any new practice in between reuses the
+                      // same report/plan instead of re-paying for an unchanged one; any real
+                      // change to the underlying stats changes the prompt text and naturally
+                      // busts the cache.
+                      const txt = await withAiCache("aiReport", { prompt }, 24 * 60 * 60 * 1000, () => fetchChatCompletion({ message: prompt, conversationHistory: [], stream: false }));
                       setAiModalText(txt || (lang === "th" ? "ไม่สามารถสร้างได้ในขณะนี้ กรุณาลองใหม่" : lang === "zh" ? "暂时无法生成，请重试" : "Could not generate. Please try again."));
                     } catch (_) {
                       setAiModalText(lang === "th" ? "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" : lang === "zh" ? "出错了，请重试" : "An error occurred. Please try again.");
