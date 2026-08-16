@@ -29,8 +29,6 @@ interface DashboardData {
   notifications: Tables<"notifications">[];
   conversations: Tables<"conversations">[];
   nearRenewal: Tables<"courses">[];
-  pendingBookings: number;
-  remainingHours: number;
   revenue: number;
   aiResolutionRate: number;
   businessSnapshot: Tables<"business_snapshot"> | null;
@@ -68,8 +66,6 @@ export default function DashboardPage() {
       repos.notifications.listUnread(8),
       repos.conversations.listNeedingReview(),
       repos.courses.listNearingCompletion(1),
-      repos.bookings.countPending(),
-      repos.courses.sumRemainingHours(),
       repos.transactions.totalIncome(),
       repos.conversations.aiResolutionStats(),
       repos.businessSnapshot.get(),
@@ -90,8 +86,6 @@ export default function DashboardPage() {
         notifications,
         conversations,
         nearRenewal,
-        pendingBookings,
-        remainingHours,
         revenue,
         aiStats,
         businessSnapshot,
@@ -112,8 +106,6 @@ export default function DashboardPage() {
           notifications,
           conversations,
           nearRenewal,
-          pendingBookings,
-          remainingHours,
           revenue,
           aiResolutionRate: aiStats.resolutionRate,
           businessSnapshot,
@@ -159,8 +151,6 @@ export default function DashboardPage() {
     notifications,
     conversations,
     nearRenewal,
-    pendingBookings,
-    remainingHours,
     revenue,
     aiResolutionRate,
     businessSnapshot,
