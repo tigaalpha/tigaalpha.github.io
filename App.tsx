@@ -75,6 +75,7 @@ import { usePracticeMode } from "./use-practice-mode";
 import { useSightReading } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
+import { useChat } from "./use-chat";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -248,7 +249,7 @@ function buildTextPrompt(system, history, userText) {
    - drops the welcome message (slice 1)
    - keeps only the last `limit` turns to keep prompts small & fast
    - collapses consecutive same-role turns and ensures it starts with "user"   */
-function buildAlternatingHistory(msgs, limit = 6) {
+export function buildAlternatingHistory(msgs, limit = 6) {
   const recent = msgs.slice(1).filter(m => typeof m.text === "string");
   const trimmed = limit ? recent.slice(-limit) : recent;
   const raw = trimmed.map(m => ({
@@ -6693,12 +6694,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
 
-  const [msgs, setMsgs] = useState([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [modal, setModal] = useState(false);
   const { litNote, setLitNote, litSet, setLitSet, fingerMap, setFingerMap, fingerChart, setFingerChart, chordStyle, setChordStyle, seqIsChord, setSeqIsChord, hand, setHand, pianoOct, setPianoOct, recording, setRecording, hasClip, setHasClip, playingClip, setPlayingClip, hasSeq, setHasSeq, seqPlaying, setSeqPlaying, seqTimers, lastSeq, recordingRef, recStartRef, recEventsRef, clipRef, clipTimersRef, clearSeq, playSequence, togglePlayPause, toggleChordStyle, replayLast, handleMainKey, stopClip, toggleRecord, playClip } = useKeyboard();
-  const [activeSpk, setActiveSpk] = useState(null);
   const [flagOpen, setFlagOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -6969,10 +6965,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
   }
 
-  const endRef = useRef(null);
-  const mendRef = useRef(null);
-  const topicHint = useRef(null); // "scale" | "chord" — what the current lesson is about
-  const lessonKey = useRef(null); // the key id picked in the lesson (e.g. "F", "Bb") — forces correct key
+  const { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, requireLogin });
   // Which Pathway topic is currently being studied on the Sensei page, so a
   // "back" button can jump straight to that topic's key picker re-opened —
   // instead of the ☰ menu → Pathway → find-the-card-again round trip.
@@ -7053,22 +7046,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const vmFillerLastRef = useRef(-1);           // never play the exact same "mm-hmm" clip twice in a row
   const [vmInput, setVmInput] = useState("");   // typed message (STT fallback / by choice)
 
-  useEffect(() => {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    stopCloudTTS();
-    setActiveSpk(null);
-    setMsgs([{ role: "ai", text: lc.welcome }]);
-    setInput("");
-  }, [lang]);
-
-  useEffect(() => {
-    // throttle scrolling to one rAF tick — avoids layout thrash while streaming
-    const id = requestAnimationFrame(() => {
-      endRef.current?.scrollIntoView({ behavior: "smooth" });
-      mendRef.current?.scrollIntoView({ behavior: "smooth" });
-    });
-    return () => cancelAnimationFrame(id);
-  }, [msgs, loading]);
 
   // close flag menu on outside click
   useEffect(() => {
@@ -8275,136 +8252,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     );
   }
 
-  function handleAIReply(text) {
-    // when a lesson is active we already played the correct demo explicitly —
-    // do NOT auto-play from the AI text (that mis-detected the topic before)
-    if (topicHint.current === LESSON_MODE) return;
-    const parsed = extractNotes(text, hand, topicHint.current, lessonKey.current);
-    if (parsed) {
-      const t = setTimeout(() => playSequence(parsed), 500);
-      seqTimers.current.push(t); // tracked so clearSeq()/unmount can cancel it
-    }
-  }
-
-  function buildHistory() {
-    return buildAlternatingHistory(msgs, 6);
-  }
-
-  /* Chat via the Supabase Edge Function proxy — streams the reply word-by-word.
-     Sends { message, conversationHistory, system }; reads SSE lines of
-     `data: {"content":"..."}` produced by the function. */
-  async function callClaude(userText) {
-    setLoading(true);
-    const history = buildHistory();
-
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: apiHeaders(),
-        body: JSON.stringify({ message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) }),
-      });
-
-      if (!res.ok || !res.body) {
-        let detail = "";
-        try { const j = await res.json(); detail = j?.error || ""; } catch (e) {}
-        throw new Error(detail || ("HTTP " + res.status));
-      }
-
-      // insert an empty AI bubble we will fill as tokens arrive
-      setMsgs(prev => [...prev, { role: "ai", text: "" }]);
-      setLoading(false); // hide the typing dots — text is now streaming in
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let acc = "";
-      let buffer = "";
-
-      // throttle UI updates to ~16fps instead of re-rendering on every token
-      let pendingFlush = null;
-      let lastFlush = 0;
-      const flush = () => {
-        pendingFlush = null;
-        lastFlush = Date.now();
-        const text = acc;
-        setMsgs(prev => {
-          const copy = prev.slice();
-          for (let i = copy.length - 1; i >= 0; i--) {
-            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text }; break; }
-          }
-          return copy;
-        });
-      };
-      const scheduleFlush = () => {
-        if (pendingFlush) return;
-        const since = Date.now() - lastFlush;
-        const wait = since >= 60 ? 0 : 60 - since;
-        pendingFlush = setTimeout(flush, wait);
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          const t = line.trim();
-          if (!t.startsWith("data:")) continue;
-          const payload = t.slice(5).trim();
-          if (!payload || payload === "[DONE]") continue;
-          let evt;
-          try { evt = JSON.parse(payload); } catch (e) { continue; }
-          if (evt.content) { acc += evt.content; scheduleFlush(); }
-        }
-      }
-      if (pendingFlush) clearTimeout(pendingFlush);
-      flush(); // final flush with the complete text
-
-      if (acc.trim()) {
-        handleAIReply(acc);
-      } else {
-        // nothing streamed back — surface a friendly error in the empty bubble
-        setMsgs(prev => {
-          const copy = prev.slice();
-          for (let i = copy.length - 1; i >= 0; i--) {
-            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text: lc.err }; break; }
-          }
-          return copy;
-        });
-      }
-      setLoading(false);
-    } catch (e) {
-      console.error("Chat error:", e);
-      setMsgs(prev => [...prev, { role: "ai", text: lc.err }]);
-      setLoading(false);
-    }
-  }
-
-  function send() {
-    const t = input.trim();
-    if (!t || loading) return;
-    // derive topic hint from what the user actually typed (scale vs chord)
-    const lo = t.toLowerCase();
-    if (/\bscale\b|สเกล|บันไดเสียง|音阶|音階/.test(lo)) topicHint.current = "scale";
-    else if (/\bchord\b|triad|คอร์ด|ไทรแอด|和弦/.test(lo)) topicHint.current = "chord";
-    else topicHint.current = null; // let the detector decide from the AI reply
-    lessonKey.current = null; // free-typed: don't force a lesson key, detect from text
-    setInput("");
-    setMsgs(prev => [...prev, { role: "user", text: t }]);
-    playPianoNote("C5", 0.1);
-    // tier 1: does this clearly match a prepared Pathway chapter/case study already in the app?
-    // — answered entirely locally, so guests get this tier free, same as any
-    // other pathway content. Only tier 2 (the live AI) needs a real login.
-    const faq = matchFaqTopic(t, lang);
-    if (faq) {
-      topicHint.current = LESSON_MODE; // curated reading content — don't auto-detect notes from it
-      setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
-      gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
-    } else if (!requireLogin("ai")) {
-      callClaude(t); // tier 2: no prepared match — ask the live AI
-      gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
-    }
-  }
 
   // ── learn a topic+key from the pathway menu: send to AI + go to sensei page ──
   function learnTopic(stage, key, chordType = null) {
