@@ -22,7 +22,7 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import qrcode from "npm:qrcode-generator@1.4.4";
 import { promptPayPayload, sanitizeAmount } from "./promptpay.ts";
-import { push as linePush } from "./line.ts";
+import { push as linePush, pushImage } from "./line.ts";
 
 export interface PaymentConfig {
   /** Studio bank account number — the primary transfer destination. */
@@ -90,6 +90,12 @@ export interface CreatePaymentInput {
   amount: number;
   courseId?: string | null;
   note?: string | null;
+  /** When true (staff-triggered path only), push the payment details — and
+   *  the PromptPay QR image when available — to the customer's LINE
+   *  automatically. The AI's create_payment_link tool never sets this:
+   *  that conversation is already on LINE, so the chat reply itself is the
+   *  notification and a second push would read as spam. */
+  notifyCustomer?: boolean;
 }
 
 export interface CreatedPayment {
@@ -102,13 +108,15 @@ export interface CreatedPayment {
   referenceCode: string;
   qrUrl: string | null;
   instructions: string;
+  /** True when the payment details were pushed to the customer's LINE. */
+  notified: boolean;
 }
 
 export async function createPayment(admin: SupabaseClient, input: CreatePaymentInput): Promise<CreatedPayment> {
   const amount = sanitizeAmount(input.amount);
   if (amount === null) throw new Error("จำนวนเงินไม่ถูกต้อง — ต้องเป็นตัวเลขที่มากกว่า 0 และไม่เกิน 1,000,000 บาท");
 
-  const { data: customer, error: custErr } = await admin.from("customers").select("id, name").eq("id", input.customerId).maybeSingle();
+  const { data: customer, error: custErr } = await admin.from("customers").select("id, name, line_user_id").eq("id", input.customerId).maybeSingle();
   if (custErr || !customer) throw new Error("ไม่พบลูกค้าที่ระบุ");
 
   if (input.courseId) {
@@ -163,6 +171,28 @@ export async function createPayment(admin: SupabaseClient, input: CreatePaymentI
     ? `โอนเข้าบัญชี ${config.bank ?? ""} เลขที่ ${config.account_number}${config.name ? " ชื่อ " + config.name : ""}`
     : `พร้อมเพย์ ${config.promptpay_id}`;
   const qrLine = qrUrl ? ` หรือสแกน QR ที่ส่งให้` : "";
+  const instructions =
+    `${accountLine}${qrLine} จำนวน ${amount.toLocaleString("th-TH")} บาท ` +
+    `(อ้างอิง ${referenceCode}) — โอนตรงเข้าบัญชีของสตูดิโอ ไม่มีค่าธรรมเนียม แล้วแจ้งให้ทราบ ทางเราจะยืนยันเมื่อได้รับเงิน`;
+
+  // Staff-triggered payments (notifyCustomer) push the details straight to
+  // the customer's LINE — QR image when one exists, text otherwise. The AI
+  // chat path never passes this flag (see CreatePaymentInput).
+  let notified = false;
+  if (input.notifyCustomer && customer.line_user_id) {
+    try {
+      if (qrUrl) {
+        await pushImage(customer.line_user_id, qrUrl, instructions);
+      } else {
+        await linePush(customer.line_user_id, instructions);
+      }
+      notified = true;
+    } catch {
+      // Customer blocked the OA / LINE not configured — the payment row
+      // still exists and the page's copy button covers manual forwarding.
+    }
+  }
+
   return {
     paymentId: payment.id,
     amount,
@@ -172,9 +202,8 @@ export async function createPayment(admin: SupabaseClient, input: CreatePaymentI
     promptpayTarget: config.promptpay_id,
     referenceCode,
     qrUrl,
-    instructions:
-      `${accountLine}${qrLine} จำนวน ${amount.toLocaleString("th-TH")} บาท ` +
-      `(อ้างอิง ${referenceCode}) — โอนตรงเข้าบัญชีของสตูดิโอ ไม่มีค่าธรรมเนียม แล้วแจ้งให้ทราบ ทางเราจะยืนยันเมื่อได้รับเงิน`,
+    instructions,
+    notified,
   };
 }
 

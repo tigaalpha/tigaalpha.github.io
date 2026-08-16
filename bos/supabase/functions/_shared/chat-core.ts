@@ -5,6 +5,7 @@ import { buildSystemPrompt, type PromptName } from "./prompts.ts";
 import { AI_TOOLS, OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts";
 import { getLatestCompetitorContext } from "./competitor-context.ts";
 import { logAiUsage } from "./usage-logging.ts";
+import { cleanReplyText } from "./text-clean.ts";
 import { push as linePush } from "./line.ts";
 import { checkAiBudgetExceeded, AI_BUDGET_REPLY } from "./ai-budget.ts";
 import { refreshLeadScore } from "./lead-score-db.ts";
@@ -84,16 +85,17 @@ export async function respond(
     const { data: cached } = await db.from("ai_response_cache").select("*").eq("question_hash", questionHash).maybeSingle();
 
     if (cached && Date.now() - new Date(cached.created_at).getTime() < CACHE_TTL_MS) {
+      const reply = cleanReplyText(cached.reply);
       await db.from("messages").insert({ conversation_id: conversationId, sender: "customer", content: customerMessage });
       await db.from("messages").insert({
         conversation_id: conversationId,
         sender: "ai",
-        content: cached.reply,
+        content: reply,
         metadata: { cached: true },
       });
       await db.from("ai_response_cache").update({ hits: cached.hits + 1 }).eq("id", cached.id);
       await db.from("conversations").update({ last_stage: "opening" }).eq("id", conversationId);
-      return { reply: cached.reply, needsReview: false, quickReplies: isOpeningMessage ? OPENING_QUICK_REPLIES : undefined };
+      return { reply, needsReview: false, quickReplies: isOpeningMessage ? OPENING_QUICK_REPLIES : undefined };
     }
   }
 
@@ -284,6 +286,11 @@ export async function respond(
           usedFallback = true;
         }
       }
+
+      // Safety net: strip any markdown / special characters the model
+      // leaked into the reply before it is saved or sent to the customer
+      // (prompts forbid them, but this guarantees it).
+      result.message.content = cleanReplyText(result.message.content);
 
       await db.from("messages").insert({
         conversation_id: conversationId,

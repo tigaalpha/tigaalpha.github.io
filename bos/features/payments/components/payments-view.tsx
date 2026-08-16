@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Landmark,
   Banknote,
+  Send,
 } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
@@ -57,6 +58,7 @@ interface CreatedPaymentResult {
   referenceCode: string;
   qrUrl: string | null;
   instructions: string;
+  notified: boolean;
 }
 
 export function PaymentsView() {
@@ -269,7 +271,14 @@ export function PaymentsView() {
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-secondary">สร้างใบแจ้งชำระแล้ว — อ้างอิง {created.referenceCode}</p>
+                  <p className="font-medium text-secondary">
+                    สร้างใบแจ้งชำระแล้ว — อ้างอิง {created.referenceCode}
+                    {created.notified ? (
+                      <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-success">
+                        <Send className="h-3.5 w-3.5" /> ส่ง LINE ให้ลูกค้าแล้ว
+                      </span>
+                    ) : null}
+                  </p>
                   <p className="mt-1 text-sm text-secondary/70">{created.instructions}</p>
                 </div>
               </div>

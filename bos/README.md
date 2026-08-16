@@ -76,6 +76,9 @@ Postgres RLS, not this guard.
 
 ## Getting started
 
+> **ฉบับเต็ม (deploy + secrets + การเชื่อมต่อ + ตรวจ cron + วัด AI response): ดู [`docs/SETUP.md`](docs/SETUP.md)**
+> — ขั้นตอนด้านล่างคือฉบับย่อเท่านั้น
+
 ### 1. Frontend
 
 ```bash

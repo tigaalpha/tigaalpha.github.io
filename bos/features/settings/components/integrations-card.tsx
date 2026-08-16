@@ -573,6 +573,32 @@ export function IntegrationsCard() {
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">
           <div className="flex items-center justify-between">
+            <p className="font-medium text-secondary">Messenger (Facebook Inbox) — แชทลูกค้าผ่าน Facebook</p>
+          </div>
+          <p className="text-sm text-secondary/70">
+            รับ/ตอบข้อความลูกค้าจาก Facebook Messenger ด้วย AI พนักงานคนเดียวกับ LINE — ต่อจาก Facebook Section
+            ด้านบน 3 ขั้นตอน:
+          </p>
+          <div className="space-y-1 pt-2 text-sm text-secondary/70">
+            <p>
+              1. ตั้ง Verify Token (ค่าอะไรก็ได้ เช่น{" "}
+              <code className="rounded bg-line/5 px-1">tiga-verify-1</code>) เป็น secret ใน Supabase Dashboard → Edge
+              Functions → Secrets ชื่อ <code className="rounded bg-line/5 px-1">MESSENGER_VERIFY_TOKEN</code>
+            </p>
+            <p>
+              2. Meta Developers → แอปนี้ → <b>Messenger</b> → <b>Webhooks</b> → Subscribe to this webhook URL — วาง
+              URL ด้านล่าง + Verify Token เดียวกับข้อ 1 → Verify &amp; Save
+            </p>
+            <p>
+              3. ในหน้า Messenger → Settings → <b>Page Access Token</b> → สร้าง Token ของ Page (สิทธิ์ pages_messaging) →
+              วางเป็น secret ชื่อ <code className="rounded bg-line/5 px-1">MESSENGER_PAGE_ACCESS_TOKEN</code>
+            </p>
+          </div>
+          <CopyField value={`${supabaseUrl}/functions/v1/messenger-webhook`} />
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <div className="flex items-center justify-between">
             <p className="font-medium text-secondary">Gemini AI</p>
             <StatusBadge status={status?.gemini ?? null} />
           </div>

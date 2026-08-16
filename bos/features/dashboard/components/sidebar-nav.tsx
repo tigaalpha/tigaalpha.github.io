@@ -41,6 +41,7 @@ import {
   Gauge,
   LineChart,
   UserCheck,
+  Coins,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -139,6 +140,7 @@ const NAV_GROUPS: NavGroup[] = [
     maturity: "beta",
     items: [
       { href: "/control-center", label: "Control Center", icon: Gauge, ownerOnly: true },
+      { href: "/ai-cost", label: "ต้นทุน AI", icon: Coins, ownerOnly: true },
       { href: "/approvals", label: "การอนุมัติ", icon: ShieldCheck },
       { href: "/data-health", label: "Data Health", icon: HeartPulse },
       { href: "/system-health", label: "System Health", icon: Activity },

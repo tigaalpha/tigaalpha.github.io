@@ -3,11 +3,16 @@
 // _shared/payments.ts createPayment so they can never drift).
 //
 //   Request:  { customerId, amount, courseId?, note? }
-//   Response: { paymentId, amount, accountNumber?, bank?, accountName?, referenceCode, qrUrl?, instructions }
+//   Response: { paymentId, amount, accountNumber?, bank?, accountName?, referenceCode, qrUrl?, instructions, notified }
 //
 // Money goes straight to the studio's bank account (direct transfer) —
 // nothing is charged here; the owner confirms the transfer via
 // verify-payment / mark_payment_paid after checking their banking app.
+//
+// Staff-triggered path: this pushes the payment details (and QR image when
+// available) to the customer's LINE automatically — the AI's
+// create_payment_link tool does NOT, since that conversation is already on
+// LINE. `notified` in the response tells the UI whether the push landed.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
@@ -32,7 +37,7 @@ Deno.serve(async (req: Request) => {
     if (!customerId) return jsonResponse({ error: "customerId is required" }, 400);
     if (body.amount === undefined || body.amount === null) return jsonResponse({ error: "amount is required" }, 400);
 
-    const result = await createPayment(admin, { customerId, amount: body.amount as number, courseId, note });
+    const result = await createPayment(admin, { customerId, amount: body.amount as number, courseId, note, notifyCustomer: true });
     return jsonResponse(result, 201);
   } catch (error) {
     const message = error instanceof Error ? error.message : "internal error";

@@ -8,6 +8,7 @@ import { StudentDetail } from "@/features/students/components/student-detail";
 import { CustomerTimeline } from "@/features/students/components/customer-timeline";
 import { StudentProgressAi } from "@/features/students/components/student-progress-ai";
 import { SalesStatusChanger } from "@/features/students/components/sales-status-changer";
+import { CreatePaymentCard } from "@/features/payments/components/create-payment-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserX } from "lucide-react";
@@ -66,6 +67,7 @@ function StudentDetailContent() {
         <p className="text-sm text-secondary/50">Customer profile</p>
       </div>
       <StudentDetail customer={data.customer} courses={data.courses} history={data.history} />
+      <CreatePaymentCard customer={data.customer} />
       <SalesStatusChanger customerId={data.customer.id} currentStatus={data.customer.sales_status} onChanged={reload} />
       <StudentProgressAi customerId={data.customer.id} />
       <CustomerTimeline customerId={data.customer.id} />
