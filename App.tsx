@@ -7,7 +7,7 @@ import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
-import { API_URL, TTS_URL, apiHeaders, setAccessToken } from "./ai-backend";
+import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import {
   isPremium, setPremiumLS, getPlan, setPlanLS, isMaxPlan,
   PLAN_PRICE, CURRENCY_BY_LANG, PLAN_LABEL,
@@ -1604,16 +1604,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       const styleDesc = styles[composeStyle] || "simple melody";
       const prompt = `Create a ${moodDesc} ${styleDesc} piano melody in ${composeKey} major, 24-32 notes, musical and satisfying for a beginner. The name should reflect the mood.`;
       const sys = "You turn a melody request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names C4-B5 only; \"R\"=rest; beats are 0.5,1,1.5,2. Keep it 24-32 notes, melodic and musical.";
-      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: prompt, conversationHistory: [], system: sys }) });
-      if (!res.ok || !res.body) throw new Error("http");
-      const reader = res.body.getReader(), dec = new TextDecoder();
-      let acc = "", buf = "";
-      while (true) {
-        const { done, value } = await reader.read(); if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split("\n"); buf = lines.pop() || "";
-        for (const line of lines) { const t = line.trim(); if (!t.startsWith("data:")) continue; const p = t.slice(5).trim(); if (!p || p === "[DONE]") continue; try { const e = JSON.parse(p); if (e.content) acc += e.content; } catch (_) {} }
-      }
+      const acc = await streamChatCompletion({ message: prompt, conversationHistory: [], system: sys });
       const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
       const obj = JSON.parse(jm[0]);
       const seq = normalizeSeq(obj.seq || []);
@@ -2584,16 +2575,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     setGenerating(true); setGenErr(false);
     try {
       const sys = "You turn a song request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON, no prose, no markdown: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names from C4 to B5 only; use \"R\" for a rest; beats are 0.5, 1, 1.5 or 2. Keep it 16-48 notes and recognizable.";
-      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: "Create this song: " + genText, conversationHistory: [], system: sys }) });
-      if (!res.ok || !res.body) throw new Error("http");
-      const reader = res.body.getReader(), dec = new TextDecoder();
-      let acc = "", buf = "";
-      while (true) {
-        const { done, value } = await reader.read(); if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split("\n"); buf = lines.pop() || "";
-        for (const line of lines) { const t = line.trim(); if (!t.startsWith("data:")) continue; const p = t.slice(5).trim(); if (!p || p === "[DONE]") continue; try { const e = JSON.parse(p); if (e.content) acc += e.content; } catch (_) {} }
-      }
+      const acc = await streamChatCompletion({ message: "Create this song: " + genText, conversationHistory: [], system: sys });
       const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
       const obj = JSON.parse(jm[0]);
       const seq = normalizeSeq(obj.seq || []);
@@ -3660,11 +3642,7 @@ async function generateCoachTip(lang, profile) {
   // rather than letting a single flaky reply surface as a hard error.
   async function attempt() {
     try {
-      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: msg, conversationHistory: [], system: sys, stream: false }) });
-      if (!res.ok) return null;
-      const data = await res.json();
-      const txt = (typeof data.text === "string" ? data.text : "")
-        || (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+      const txt = await fetchChatCompletion({ message: msg, conversationHistory: [], system: sys, stream: false });
       if (!txt) return null;
       const fenced = txt.match(/```(?:json)?\s*([\s\S]*?)```/i);
       const body2 = fenced ? fenced[1] : txt;
@@ -5526,9 +5504,7 @@ function AdminPayments({ lang }) {
       const media = blob.type || "image/jpeg";
       const sys = "You verify Thai bank-transfer / PromptPay slips. Read the slip image and return ONLY minified JSON: {\"amount\":number,\"date\":string,\"time\":string,\"sender\":string,\"recipient\":string,\"ref\":string,\"bank\":string}. Use null for any unreadable field.";
       const body = { model: API_MODEL, max_tokens: 600, system: sys, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: media, data: String(b64).split(",")[1] } }, { type: "text", text: "Extract the payment details from this slip. The expected amount is " + sel.amount + " THB." }] }] };
-      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify(body) });
-      const d = await res.json();
-      const txt = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+      const txt = await fetchChatCompletion(body);
       let parsed = null; try { const m = txt.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; } catch (e) {}
       if (parsed) parsed.match = Math.abs((parsed.amount || 0) - sel.amount) < 1;
       const store = parsed || { raw: txt.slice(0, 500) };
@@ -6456,14 +6432,7 @@ function AdminPage({ lang, onExit, adminTier }) {
       if (!needDirect && window.claude && typeof window.claude.complete === "function") {
         reply = await window.claude.complete(buildTextPrompt(lc.adminSys, hist, t));
       } else {
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: apiHeaders(),
-          body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error?.message || ("HTTP " + res.status));
-        reply = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+        reply = await fetchChatCompletion(body);
       }
 
       setMsgs(p => [...p, { role: "ai", text: (reply || "").trim() || lc.err }]);
@@ -7701,10 +7670,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         ? `你是一位专业的AI钢琴老师。根据以下数据，为学生制定一份7天个性化练习计划（每天详细说明练习内容和大概时长）：${ctx} 请用中文撰写。`
                         : `You are an expert AI piano teacher. Create a personalized 7-day piano practice schedule (with daily details: activity, estimated time, why it suits this learner) based on: ${ctx}`);
                     try {
-                      const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify({ message: prompt, conversationHistory: [], stream: false }) });
-                      if (!res.ok) throw new Error("http");
-                      const data = await res.json();
-                      const txt = (typeof data.text === "string" ? data.text : "") || (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+                      const txt = await fetchChatCompletion({ message: prompt, conversationHistory: [], stream: false });
                       setAiModalText(txt || (lang === "th" ? "ไม่สามารถสร้างได้ในขณะนี้ กรุณาลองใหม่" : lang === "zh" ? "暂时无法生成，请重试" : "Could not generate. Please try again."));
                     } catch (_) {
                       setAiModalText(lang === "th" ? "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" : lang === "zh" ? "出错了，请重试" : "An error occurred. Please try again.");
