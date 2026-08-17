@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+// The APK version always mirrors the web/OTA release version (package.json) —
+// versionName feeds the in-app "new APK available" prompt (App.tsx compares it
+// against version.json's apkVersion), and versionCode must strictly increase
+// for Play Store / over-the-top installs to accept an update.
+def appVersion = new groovy.json.JsonSlurper().parseText(file("../../package.json").text).version
+
 android {
     namespace = "com.tigaalpha.tigaai"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +13,8 @@ android {
         applicationId "com.tigaalpha.tigaai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersion.tokenize(".").with { (it[0] as int) * 10000 + (it[1] as int) * 100 + (it[2] as int) }
+        versionName appVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

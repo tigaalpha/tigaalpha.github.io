@@ -227,7 +227,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.0";
+const APP_VER = "13.7.1";
 
 async function signInWith(provider) {
   try {
@@ -7242,6 +7242,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (isNative || !(/Android/i.test(navigator.userAgent || "") || isIOSDevice)) return;
     fetch("./version.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => setApkInfo(j), () => {});
   }, []);
+  // Native Android: routine changes reach the app silently via OTA, so the APK is
+  // only rebuilt on rare native changes. When a newer APK is published, tell the
+  // user IN THE APP (one tap downloads + opens the installer) instead of making
+  // them hunt for it — version.json's apkVersion is the versionName of the latest
+  // android-debug-latest build; the installed app's versionName comes from
+  // @capacitor/app getInfo().
+  const [nativeApkVer, setNativeApkVer] = useState(null);
+  const [apkUpdateDismissed, setApkUpdateDismissed] = useState(() => { try { return localStorage.getItem("tg_apk_update_dismissed") || ""; } catch (e) { return ""; } });
+  useEffect(() => {
+    if (!isNative || Capacitor.getPlatform() !== "android") return;
+    fetch("./version.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => { if (j) setApkInfo(j); }, () => {});
+    import("@capacitor/app").then(({ App }) => { try { App.getInfo().then(i => setNativeApkVer(i.version || null)).catch(() => {}); } catch (e) {} }).catch(() => {});
+  }, []);
   // apkReady (production, signed) takes priority once it exists; betaApkReady
   // (today's CI debug build, hosted same-origin — see version.json) is the
   // fallback so there's always something real to hand out before the signed
@@ -7265,6 +7278,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [apkPillOpen, setApkPillOpen] = useState(false);
   const showApkPill = showInstallPromo;
   const [iosInstallOpen, setIosInstallOpen] = useState(false);
+  // one banner per published APK version; dismissed = stored so it never nags again
+  const nativeApkUpdate = isAndroidNative && apkInfo && apkInfo.apkVersion && nativeApkVer &&
+    apkInfo.apkVersion !== nativeApkVer && apkUpdateDismissed !== apkInfo.apkVersion;
+  function dismissNativeApkUpdate() {
+    const v = (apkInfo && apkInfo.apkVersion) || "";
+    setApkUpdateDismissed(v);
+    try { localStorage.setItem("tg_apk_update_dismissed", v); } catch (e) {}
+  }
+  function installNativeApkUpdate() {
+    dismissNativeApkUpdate();
+    playUi("click");
+    if (!apkDownloadUrl) return;
+    const open = () => { try { window.open(apkDownloadUrl, "_system"); } catch (e) {} };
+    import("@capacitor/browser").then(({ Browser }) => Browser.open({ url: apkDownloadUrl }).catch(open)).catch(open);
+  }
   // Re-engagement push: toggle in Settings, plus a one-time prompt the first
   // time a real streak is actually at risk — the exact moment a reminder
   // would matter, tied to the same streakAtRisk() the in-app UI already uses.
@@ -8327,6 +8355,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         );
       })()}
+      {nativeApkUpdate && (
+        <div className="installbanner" style={{ background: "linear-gradient(90deg,#d97757,#c25e3f)" }}>
+          <span className="installbanner-ic" aria-hidden="true">📲</span>
+          <div className="installbanner-tx">
+            <b>{lang === "th" ? "แอปเวอร์ชันใหม่พร้อมติดตั้ง" : lang === "zh" ? "新版本应用已就绪" : "New app version ready"}</b>
+            <span>{lang === "th" ? "แตะเพื่อดาวน์โหลดและติดตั้ง (อัปเดตนานๆ ครั้ง — ปกติแอพอัปเดตให้อัตโนมัติ)" : lang === "zh" ? "点击下载并安装（偶尔更新 — 日常更新会自动完成）" : "Tap to download & install (rare — routine updates are automatic)"}</span>
+          </div>
+          <button className="installbanner-go" onClick={installNativeApkUpdate}>{lang === "th" ? "ติดตั้งเลย" : lang === "zh" ? "立即安装" : "Update"}</button>
+          <button className="installbanner-x" onClick={dismissNativeApkUpdate} aria-label="close">×</button>
+        </div>
+      )}
       {!showApkBanner && showInstallBanner && (
         <div className="installbanner">
           <span className="installbanner-ic" aria-hidden="true">📲</span>
