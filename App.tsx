@@ -226,7 +226,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.5.0";
+const APP_VER = "13.6.0";
 
 async function signInWith(provider) {
   try {
@@ -7199,12 +7199,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { localStorage.setItem("tg_install_banner_seen", "1"); } catch (e) {}
   }
   async function installFromBanner() { dismissInstallBanner(); await doInstall(); }
-  // Direct-download Android app (no Play Store listing for now — see version.json).
-  // Takes priority over the generic PWA install banner above: the real native app
-  // unlocks the AI Voice Tutor, which the PWA install can never do.
+  // Direct-download Android app (no Play Store listing for now — see version.json)
+  // side by side with iOS's "Add to Home Screen" PWA install (Apple doesn't allow
+  // a real native app to be installed from a website without a paid Developer
+  // account — see MOBILE_BUILD.md — so this IS the equivalent iOS path, not a
+  // lesser stand-in for one).
+  const isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent || "") ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); // iPadOS reports as a Mac
+  const isIOSStandalone = window.navigator.standalone === true ||
+    (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches);
+  const isIOSSafari = isIOSDevice && /Safari/i.test(navigator.userAgent || "") &&
+    !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(navigator.userAgent || ""); // Add to Home Screen only works from actual Safari
   const [apkInfo, setApkInfo] = useState(null);
   useEffect(() => {
-    if (isNative || !/Android/i.test(navigator.userAgent || "")) return;
+    if (isNative || !(/Android/i.test(navigator.userAgent || "") || isIOSDevice)) return;
     fetch("./version.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => setApkInfo(j), () => {});
   }, []);
   // apkReady (production, signed) takes priority once it exists; betaApkReady
@@ -7214,8 +7222,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const apkAvailable = !!(apkInfo && (apkInfo.apkReady || apkInfo.betaApkReady));
   const apkIsBeta = !!(apkInfo && !apkInfo.apkReady && apkInfo.betaApkReady);
   const apkDownloadUrl = apkInfo && (apkInfo.apkReady ? apkInfo.apkUrl : apkInfo.betaApkUrl);
+  // Shown to Android visitors (real APK) and iOS visitors (Add to Home Screen is
+  // always "available" — no build required) — never to a visitor already running
+  // as an installed iOS PWA, who has nothing left to install.
+  const showInstallPromo = !isNative && !isIOSStandalone && (apkAvailable || isIOSDevice);
   const [apkBannerSeen, setApkBannerSeen] = useState(() => { try { return localStorage.getItem("tg_apk_banner_seen") === "1"; } catch (e) { return false; } });
-  const showApkBanner = !isNative && apkAvailable && !apkBannerSeen;
+  const showApkBanner = showInstallPromo && !apkBannerSeen;
   function dismissApkBanner() {
     setApkBannerSeen(true);
     try { localStorage.setItem("tg_apk_banner_seen", "1"); } catch (e) {}
@@ -7224,7 +7236,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // bottom-right is the mascot) so the install path stays reachable even after
   // the one-time banner above has been dismissed.
   const [apkPillOpen, setApkPillOpen] = useState(false);
-  const showApkPill = !isNative && apkAvailable;
+  const showApkPill = showInstallPromo;
+  const [iosInstallOpen, setIosInstallOpen] = useState(false);
   // Re-engagement push: toggle in Settings, plus a one-time prompt the first
   // time a real streak is actually at risk — the exact moment a reminder
   // would matter, tied to the same streakAtRisk() the in-app UI already uses.
@@ -8141,59 +8154,148 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
       {showApkBanner && (() => {
         const APK_BANNER_COPY = {
-          th: { title: "โหลดแอพ Android", sub: "รวมโหมดเสียง AI Voice Tutor — เว็บทำไม่ได้", btn: "ดาวน์โหลด", beta: " (เบต้า)" },
-          en: { title: "Get the Android app", sub: "Includes the AI Voice Tutor — not available on the web", btn: "Download", beta: " (Beta)" },
-          zh: { title: "获取 Android 应用", sub: "包含 AI 语音导师 — 网页版没有", btn: "下载", beta: "（测试版）" },
+          th: { title: "ติดตั้งแอพ TIGA.AI", sub: "ใช้งานง่ายขึ้น เต็มจอ แจ้งเตือนซ้อมได้", btn: "ดูวิธีติดตั้ง" },
+          en: { title: "Get the TIGA.AI app", sub: "Full-screen, faster, with practice reminders", btn: "See how" },
+          zh: { title: "获取 TIGA.AI 应用", sub: "全屏体验，更流畅，支持练习提醒", btn: "查看方法" },
         };
         const c = APK_BANNER_COPY[lang] || APK_BANNER_COPY.en;
         return (
           <div className="installbanner">
-            <span className="installbanner-ic" aria-hidden="true">🎙️</span>
+            <span className="installbanner-ic" aria-hidden="true">📲</span>
             <div className="installbanner-tx">
-              <b>{c.title}{apkIsBeta && c.beta}</b>
+              <b>{c.title}</b>
               <span>{c.sub}</span>
             </div>
-            <a className="installbanner-go" href={apkDownloadUrl} onClick={dismissApkBanner}>{c.btn}</a>
+            <button className="installbanner-go" onClick={() => { dismissApkBanner(); setApkPillOpen(true); }}>{c.btn}</button>
             <button className="installbanner-x" onClick={dismissApkBanner} aria-label="close">×</button>
           </div>
         );
       })()}
       {showApkPill && !apkPillOpen && (
-        <button className="apkpill" onClick={() => { playUi("click"); setApkPillOpen(true); }} aria-label="Get the Android app">
-          <span className="apkpill-ic">🎹</span>
+        <button className="apkpill" onClick={() => { playUi("click"); setApkPillOpen(true); }} aria-label="Get the app">
+          <span className="apkpill-ic">📲</span>
         </button>
       )}
       {showApkPill && apkPillOpen && (() => {
-        const APK_POPUP_COPY = {
+        const T2 = {
           th: {
-            title: "TIGA.AI สำหรับ Android", sub: apkIsBeta ? "รุ่นทดสอบ (เบต้า) — ติดตั้งได้เลย" : "ติดตั้งแอพเต็มรูปแบบ",
-            f1: "🎙️ AI Voice Tutor โหมดเสียง", f2: "🔔 แจ้งเตือนซ้อมประจำวัน", f3: "📴 เข้าถึงได้แม้ออฟไลน์บางส่วน",
-            btn: "ดาวน์โหลด APK", note: "แตะ \"อนุญาตติดตั้งจากแหล่งนี้\" เมื่อ Android ถาม",
+            title: "ติดตั้ง TIGA.AI บนมือถือ", sub: "เลือกแพลตฟอร์มของคุณ",
+            andT: "Android", andS: apkAvailable ? (apkIsBeta ? "รุ่นทดสอบ (เบต้า)" : "แอพเต็มรูปแบบ") : "เร็วๆ นี้",
+            andF1: "🎙️ AI Voice Tutor", andF2: "🔔 แจ้งเตือนซ้อม", andBtn: "ดาวน์โหลด APK", andNote: "แตะ \"อนุญาตติดตั้งจากแหล่งนี้\" เมื่อ Android ถาม",
+            iosT: "iPhone / iPad", iosS: "เพิ่มไปหน้าจอโฮมจาก Safari",
+            iosF1: "🏠 เปิดแบบเต็มจอ", iosF2: "🔔 แจ้งเตือนได้ (iOS 16.4+)", iosBtn: "ดูวิธีติดตั้ง →",
           },
           en: {
-            title: "TIGA.AI for Android", sub: apkIsBeta ? "Beta build — safe to install now" : "Get the full app",
-            f1: "🎙️ AI Voice Tutor", f2: "🔔 Daily practice reminders", f3: "📴 Partial offline access",
-            btn: "Download APK", note: "Tap \"allow install from this source\" when Android asks",
+            title: "Install TIGA.AI on your phone", sub: "Pick your platform",
+            andT: "Android", andS: apkAvailable ? (apkIsBeta ? "Beta build" : "Full app") : "Coming soon",
+            andF1: "🎙️ AI Voice Tutor", andF2: "🔔 Practice reminders", andBtn: "Download APK", andNote: "Tap \"allow install from this source\" when Android asks",
+            iosT: "iPhone / iPad", iosS: "Add to Home Screen from Safari",
+            iosF1: "🏠 Full-screen app", iosF2: "🔔 Notifications too (iOS 16.4+)", iosBtn: "See install steps →",
           },
           zh: {
-            title: "TIGA.AI Android 版", sub: apkIsBeta ? "测试版 — 现在可以安装" : "获取完整版应用",
-            f1: "🎙️ AI 语音导师", f2: "🔔 每日练习提醒", f3: "📴 部分离线可用",
-            btn: "下载 APK", note: "系统询问时点击\"允许安装未知来源应用\"",
+            title: "在手机上安装 TIGA.AI", sub: "选择你的平台",
+            andT: "Android", andS: apkAvailable ? (apkIsBeta ? "测试版" : "完整版应用") : "即将推出",
+            andF1: "🎙️ AI 语音导师", andF2: "🔔 练习提醒", andBtn: "下载 APK", andNote: "系统询问时点击\"允许安装未知来源应用\"",
+            iosT: "iPhone / iPad", iosS: "从 Safari 添加到主屏幕",
+            iosF1: "🏠 全屏应用体验", iosF2: "🔔 也支持通知（iOS 16.4+）", iosBtn: "查看安装步骤 →",
           },
         };
-        const c = APK_POPUP_COPY[lang] || APK_POPUP_COPY.en;
+        const c = T2[lang] || T2.en;
         return (
           <div className="apkpopov" onClick={() => setApkPillOpen(false)}>
-            <div className="apkpop" onClick={e => e.stopPropagation()}>
+            <div className="apkpop apkpop2" onClick={e => e.stopPropagation()}>
               <button className="apkpop-x" onClick={() => setApkPillOpen(false)} aria-label="close">×</button>
               <img className="apkpop-icon" src="./icon.svg" alt="" />
               <b className="apkpop-title">{c.title}</b>
               <span className="apkpop-sub">{c.sub}</span>
-              <div className="apkpop-feats">
-                <span>{c.f1}</span><span>{c.f2}</span><span>{c.f3}</span>
+              <div className="apkpop-plats">
+                <div className="apkpop-plat">
+                  <div className="apkpop-plat-ic">🤖</div>
+                  <b className="apkpop-plat-t">{c.andT}</b>
+                  <span className="apkpop-plat-s">{c.andS}</span>
+                  <div className="apkpop-feats">
+                    <span>{c.andF1}</span><span>{c.andF2}</span>
+                  </div>
+                  {apkAvailable ? (
+                    <a className="apkpop-go" href={apkDownloadUrl} onClick={() => { dismissApkBanner(); setApkPillOpen(false); }}>{c.andBtn}</a>
+                  ) : (
+                    <button className="apkpop-go" disabled>{c.andBtn}</button>
+                  )}
+                  {apkAvailable && <span className="apkpop-note">{c.andNote}</span>}
+                </div>
+                <div className="apkpop-plat">
+                  <div className="apkpop-plat-ic">🍎</div>
+                  <b className="apkpop-plat-t">{c.iosT}</b>
+                  <span className="apkpop-plat-s">{c.iosS}</span>
+                  <div className="apkpop-feats">
+                    <span>{c.iosF1}</span><span>{c.iosF2}</span>
+                  </div>
+                  <button className="apkpop-go" onClick={() => { setApkPillOpen(false); setIosInstallOpen(true); }}>{c.iosBtn}</button>
+                </div>
               </div>
-              <a className="apkpop-go" href={apkDownloadUrl} onClick={() => { dismissApkBanner(); setApkPillOpen(false); }}>{c.btn}</a>
-              <span className="apkpop-note">{c.note}</span>
+            </div>
+          </div>
+        );
+      })()}
+      {iosInstallOpen && (() => {
+        const T3 = {
+          th: {
+            title: "ติดตั้งบน iPhone / iPad", sub: "ใช้ Safari เท่านั้น — เบราว์เซอร์อื่นบน iOS ทำแบบนี้ไม่ได้",
+            warn: "ดูเหมือนหน้านี้ไม่ได้เปิดใน Safari — เปิดลิงก์นี้ใน Safari ก่อน แล้วทำตามขั้นตอนด้านล่าง",
+            s1t: "1. แตะปุ่มแชร์", s1b: "ไอคอนสี่เหลี่ยมมีลูกศรชี้ขึ้น อยู่แถบด้านล่าง (หรือด้านบนใน iPad)",
+            s2t: "2. เลื่อนหาแล้วแตะ \"เพิ่มไปที่หน้าจอโฮม\"", s2b: "Add to Home Screen",
+            s3t: "3. แตะ \"เพิ่ม\" มุมขวาบน", s3b: "เสร็จแล้ว! ไอคอน TIGA.AI จะอยู่บนหน้าจอโฮมของคุณ",
+            benefits: "หลังติดตั้งแล้วคุณจะได้:", b1: "🏠 เปิดแบบเต็มจอเหมือนแอพจริง ไม่มีแถบ URL", b2: "🔔 รับการแจ้งเตือนซ้อมได้ (iOS 16.4 ขึ้นไป)", b3: "📴 เข้าถึงได้แม้ออฟไลน์บางส่วน",
+            close: "ปิด",
+          },
+          en: {
+            title: "Install on iPhone / iPad", sub: "Safari only — other iOS browsers can't do this",
+            warn: "This page doesn't look like it's open in Safari — open this link in Safari first, then follow the steps below.",
+            s1t: "1. Tap the Share button", s1b: "The square with an arrow pointing up, in the bottom bar (top bar on iPad)",
+            s2t: "2. Scroll down and tap \"Add to Home Screen\"", s2b: "",
+            s3t: "3. Tap \"Add\" in the top-right corner", s3b: "Done! The TIGA.AI icon is now on your Home Screen.",
+            benefits: "Once installed you get:", b1: "🏠 Opens full-screen, like a real app — no URL bar", b2: "🔔 Practice reminder notifications (iOS 16.4+)", b3: "📴 Partial offline access",
+            close: "Close",
+          },
+          zh: {
+            title: "在 iPhone / iPad 上安装", sub: "仅限 Safari — iOS 上的其他浏览器无法这样做",
+            warn: "此页面似乎不是在 Safari 中打开的 — 请先在 Safari 中打开此链接，然后按照以下步骤操作。",
+            s1t: "1. 点击分享按钮", s1b: "带向上箭头的方框图标，位于底部工具栏（iPad 在顶部）",
+            s2t: "2. 向下滚动并点击\"添加到主屏幕\"", s2b: "",
+            s3t: "3. 点击右上角的\"添加\"", s3b: "完成！TIGA.AI 图标现在在你的主屏幕上了。",
+            benefits: "安装后你将获得：", b1: "🏠 全屏打开，就像真正的应用 — 没有网址栏", b2: "🔔 练习提醒通知（iOS 16.4+）", b3: "📴 部分离线可用",
+            close: "关闭",
+          },
+        };
+        const c = T3[lang] || T3.en;
+        return (
+          <div className="apkpopov" onClick={() => setIosInstallOpen(false)}>
+            <div className="iosinstall" onClick={e => e.stopPropagation()}>
+              <button className="apkpop-x" onClick={() => setIosInstallOpen(false)} aria-label="close">×</button>
+              <b className="apkpop-title">{c.title}</b>
+              <span className="apkpop-sub">{c.sub}</span>
+              {!isIOSSafari && <div className="iosinstall-warn">⚠️ {c.warn}</div>}
+              <div className="iosinstall-steps">
+                <div className="iosinstall-step">
+                  <span className="iosinstall-stepic">📤</span>
+                  <div><b>{c.s1t}</b><span>{c.s1b}</span></div>
+                </div>
+                <div className="iosinstall-step">
+                  <span className="iosinstall-stepic">➕</span>
+                  <div><b>{c.s2t}</b>{c.s2b && <span>{c.s2b}</span>}</div>
+                </div>
+                <div className="iosinstall-step">
+                  <span className="iosinstall-stepic">✅</span>
+                  <div><b>{c.s3t}</b><span>{c.s3b}</span></div>
+                </div>
+              </div>
+              <div className="iosinstall-benefits">
+                <b>{c.benefits}</b>
+                <span>{c.b1}</span>
+                <span>{c.b2}</span>
+                <span>{c.b3}</span>
+              </div>
+              <button className="permprimer-btn" onClick={() => setIosInstallOpen(false)}>{c.close}</button>
             </div>
           </div>
         );

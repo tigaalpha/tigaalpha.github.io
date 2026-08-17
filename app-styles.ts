@@ -555,6 +555,28 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .apkpop-feats span{font-size:12px;color:var(--text2)}
 .apkpop-go{display:block;width:100%;background:linear-gradient(135deg,#d97757,#c96444);color:#fff;border:none;border-radius:12px;padding:12px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;letter-spacing:.6px;cursor:pointer;box-shadow:0 6px 18px -6px #d97757aa}
 .apkpop-note{font-size:10.5px;color:var(--muted);margin-top:9px;line-height:1.3}
+.apkpop2{width:min(360px,calc(100vw - 24px))}
+.apkpop-plats{display:flex;gap:8px;width:100%;align-items:stretch}
+.apkpop-plat{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;background:var(--card2);border-radius:14px;padding:12px 8px}
+.apkpop-plat-ic{font-size:24px}
+.apkpop-plat-t{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
+.apkpop-plat-s{font-size:10px;color:#d97757;font-weight:700;margin-bottom:2px}
+.apkpop-plat .apkpop-feats{background:transparent;padding:0;margin-bottom:8px;gap:3px;align-items:center}
+.apkpop-plat .apkpop-feats span{font-size:10px;text-align:center}
+.apkpop-plat .apkpop-go{font-size:10.5px;padding:9px 6px}
+.apkpop-plat .apkpop-go:disabled{opacity:.5;cursor:default;box-shadow:none}
+.apkpop-plat .apkpop-note{font-size:9px;margin-top:6px}
+.iosinstall{position:relative;width:min(340px,calc(100vw - 24px));background:var(--card);border:1px solid var(--bd2);border-radius:20px;padding:22px 18px 18px;box-shadow:0 20px 50px -12px #000;text-align:center;animation:installin .3s ease-out}
+.iosinstall-warn{background:#f59e0b1f;border:1px solid #f59e0b55;color:#f59e0b;font-size:11.5px;line-height:1.4;padding:8px 10px;border-radius:10px;margin:12px 0 4px;text-align:left}
+.iosinstall-steps{display:flex;flex-direction:column;gap:12px;margin:16px 0;text-align:left}
+.iosinstall-step{display:flex;gap:10px;align-items:flex-start}
+.iosinstall-stepic{font-size:18px;flex-shrink:0;width:26px;text-align:center;line-height:1.3}
+.iosinstall-step>div{display:flex;flex-direction:column;gap:2px}
+.iosinstall-step b{font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:700;color:var(--text)}
+.iosinstall-step span{font-size:11.5px;color:var(--muted);line-height:1.35}
+.iosinstall-benefits{background:var(--card2);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px;margin-bottom:16px;text-align:left}
+.iosinstall-benefits b{font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:2px}
+.iosinstall-benefits span{font-size:11.5px;color:var(--text2)}
 @keyframes exppop{0%{opacity:0;transform:translateX(-50%) translateY(-14px) scale(.7)}14%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.06)}26%{transform:translateX(-50%) translateY(0) scale(1)}78%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.96)}}
 /* level-up overlay */
 .lvup{position:fixed;inset:0;z-index:1300;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,5,9,.82);backdrop-filter:blur(4px);animation:fadein .3s;pointer-events:none}
