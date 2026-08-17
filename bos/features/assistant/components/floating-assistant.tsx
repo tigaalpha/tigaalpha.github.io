@@ -187,10 +187,19 @@ export function FloatingAssistant() {
         </div>
       ) : null}
 
+      {/* On mobile the bottom nav bar (fixed bottom-0, md:hidden) would sit
+          under the FAB — lift it above the nav (bottom-[4.75rem]); desktop
+          has no bottom nav, so it stays at bottom-6. When the panel is open
+          on mobile, hide the FAB entirely (the panel has its own close ✕) so
+          it can't cover the chat input. */}
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="เปิด TIGA AI Agent"
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary-gradient text-white shadow-card transition-transform hover:scale-105"
+        className={cn(
+          "fixed right-6 z-50 h-14 w-14 items-center justify-center rounded-full bg-primary-gradient text-white shadow-card transition-transform hover:scale-105",
+          "bottom-[4.75rem] md:bottom-6",
+          open ? "hidden md:flex" : "flex"
+        )}
       >
         {open ? <X className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
       </button>
