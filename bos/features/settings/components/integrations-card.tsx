@@ -29,7 +29,8 @@ interface StatusResponse {
   email: StatusCheck;
 }
 
-function StatusBadge({ status }: { status: StatusCheck | null }) {
+function StatusBadge({ status, fetchFailed }: { status: StatusCheck | null; fetchFailed?: boolean }) {
+  if (fetchFailed) return <Badge variant="danger">ไม่สามารถตรวจสอบได้</Badge>;
   if (!status) return <Badge variant="outline">Checking…</Badge>;
   return <Badge variant={status.connected ? "success" : "danger"}>{status.connected ? "Connected" : "Not connected"}</Badge>;
 }
@@ -76,6 +77,7 @@ function CopyField({ value }: { value: string }) {
 
 export function IntegrationsCard() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [clientId, setClientId] = useState("");
   const [savingClientId, setSavingClientId] = useState(false);
@@ -131,8 +133,23 @@ export function IntegrationsCard() {
   async function refreshStatus() {
     setChecking(true);
     const supabase = createClient();
-    const { data } = await supabase.functions.invoke<StatusResponse>("integrations-status");
-    if (data) setStatus(data);
+    const { data, error } = await supabase.functions.invoke<StatusResponse>("integrations-status");
+    if (data) {
+      setStatus(data);
+      setStatusError(null);
+    } else {
+      // Never leave the UI stuck on "Checking…": surface the real failure.
+      // The most common cause is a 403 from the function's staff check —
+      // the logged-in account has no row in `profiles` yet (see SETUP.md,
+      // step E4), so every status call is rejected.
+      setStatus(null);
+      let message = "ไม่สามารถโหลดสถานะการเชื่อมต่อได้";
+      if (error && typeof error === "object") {
+        const ctx = (error as { context?: Response }).context;
+        if (ctx) message = `การเชื่อมต่อล้มเหลว (HTTP ${ctx.status}) — บัญชีนี้อาจยังไม่มีสิทธิ์ staff (สร้าง row ใน profiles ก่อน) หรือฟังก์ชันยังไม่ได้ deploy`;
+      }
+      setStatusError(message);
+    }
     setChecking(false);
   }
 
@@ -495,6 +512,19 @@ export function IntegrationsCard() {
             ตรวจสอบสถานะ
           </Button>
         </div>
+
+        {statusError ? (
+          <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">
+            ⚠️ {statusError}
+            <button
+              className="ml-2 underline underline-offset-2"
+              onClick={() => void refreshStatus()}
+              disabled={checking}
+            >
+              ลองใหม่
+            </button>
+          </p>
+        ) : null}
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">
           <div className="flex items-center justify-between">

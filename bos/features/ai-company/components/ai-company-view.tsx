@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import type { Tables } from "@/types/database";
 import type { WorkflowWithTasks } from "@/services/repositories/agent-workflows.repository";
 
@@ -70,6 +71,9 @@ export function AiCompanyView() {
   const [createdTaskIndices, setCreatedTaskIndices] = useState<Set<number>>(new Set());
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [autonomyLevel, setAutonomyLevel] = useState("conservative");
+  const [autonomySaving, setAutonomySaving] = useState(false);
+  const [autonomySaved, setAutonomySaved] = useState(false);
 
   function loadHistory() {
     const repos = createRepositories(createClient());
@@ -83,6 +87,13 @@ export function AiCompanyView() {
 
   useEffect(() => {
     loadHistory();
+    const repos = createRepositories(createClient());
+    repos.integrations
+      .get("agent_autonomy_level")
+      .then((v) => {
+        if (v === "conservative" || v === "balanced" || v === "high") setAutonomyLevel(v);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -158,6 +169,23 @@ export function AiCompanyView() {
     }
   }
 
+  async function handleAutonomySave(level: string) {
+    if (level === autonomyLevel && autonomySaved) return;
+    setAutonomySaving(true);
+    setAutonomySaved(false);
+    try {
+      const repos = createRepositories(createClient());
+      await repos.integrations.set("agent_autonomy_level", level);
+      setAutonomyLevel(level);
+      setAutonomySaved(true);
+      setTimeout(() => setAutonomySaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "บันทึกระดับ autonomy ไม่สำเร็จ");
+    } finally {
+      setAutonomySaving(false);
+    }
+  }
+
   async function handleFeedback(feedback: "useful" | "not_useful") {
     if (!current || feedbackSaving) return;
     setFeedbackSaving(true);
@@ -174,6 +202,51 @@ export function AiCompanyView() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary-accent" />
+            ระดับอิสระของทีม AI (Autonomy)
+          </CardTitle>
+          <CardDescription>
+            ระดับที่ AI ได้รับอนุญาตให้ลงมือทำเองก่อนรายงานคุณ — ทุกระดับยังมีเกราะป้องกันที่ปิดไม่ได้: วงเงินต่อวัน, เวลาทำการ 09:00-19:00, และ lead score
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {[
+              { value: "conservative", title: "อนุรักษ์นิยม", desc: "AI ทำได้แค่งานในระบบ (สร้างงาน/แจ้งเตือน) — ทุกอย่างที่แตะลูกค้า/เงินต้องอนุมัติ" },
+              { value: "balanced", title: "สมดุล", desc: "+ ส่งอีเมลลูกค้าที่มีอีเมล, อัปเดตโน้ตลูกค้า (วงเงิน 10/วัน)" },
+              { value: "high", title: "สูง", desc: "+ ส่ง LINE ถึง lead ร้อน (คะแนน ≥ 80) ในเวลาทำการ (วงเงิน 5/วัน) และเปลี่ยนสถานะขายตามกฎ" },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                disabled={autonomySaving}
+                onClick={() => void handleAutonomySave(opt.value)}
+                className={cn(
+                  "rounded-xl border p-3 text-left transition-colors",
+                  autonomyLevel === opt.value
+                    ? "border-primary/60 bg-primary/10"
+                    : "border-line/10 bg-line/5 hover:border-primary/30"
+                )}
+              >
+                <p className="text-sm font-medium text-secondary">{opt.title}</p>
+                <p className="mt-1 text-xs text-secondary/60">{opt.desc}</p>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-secondary/50">
+            {autonomySaving
+              ? "กำลังบันทึก…"
+              : autonomySaved
+                ? "✅ บันทึกแล้ว — การเปลี่ยนแปลงมีผลกับรอบวิเคราะห์ถัดไป"
+                : "ค่าเริ่มต้น: อนุรักษ์นิยม (ปลอดภัยที่สุด)"}
+            {" "}· สรุปงานประจำวันของ AI จะส่งให้คุณทาง LINE ทุกเช้า 07:30
+          </p>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
