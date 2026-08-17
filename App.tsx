@@ -7179,12 +7179,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (isNative || !/Android/i.test(navigator.userAgent || "")) return;
     fetch("./version.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => setApkInfo(j), () => {});
   }, []);
+  // apkReady (production, signed) takes priority once it exists; betaApkReady
+  // (today's CI debug build, hosted same-origin — see version.json) is the
+  // fallback so there's always something real to hand out before the signed
+  // release exists.
+  const apkAvailable = !!(apkInfo && (apkInfo.apkReady || apkInfo.betaApkReady));
+  const apkIsBeta = !!(apkInfo && !apkInfo.apkReady && apkInfo.betaApkReady);
+  const apkDownloadUrl = apkInfo && (apkInfo.apkReady ? apkInfo.apkUrl : apkInfo.betaApkUrl);
   const [apkBannerSeen, setApkBannerSeen] = useState(() => { try { return localStorage.getItem("tg_apk_banner_seen") === "1"; } catch (e) { return false; } });
-  const showApkBanner = !isNative && apkInfo && apkInfo.apkReady && !apkBannerSeen;
+  const showApkBanner = !isNative && apkAvailable && !apkBannerSeen;
   function dismissApkBanner() {
     setApkBannerSeen(true);
     try { localStorage.setItem("tg_apk_banner_seen", "1"); } catch (e) {}
   }
+  // Persistent corner entry point (bottom-left — top-left is the nav hamburger,
+  // bottom-right is the mascot) so the install path stays reachable even after
+  // the one-time banner above has been dismissed.
+  const [apkPillOpen, setApkPillOpen] = useState(false);
+  const showApkPill = !isNative && apkAvailable;
   // Re-engagement push: toggle in Settings, plus a one-time prompt the first
   // time a real streak is actually at risk — the exact moment a reminder
   // would matter, tied to the same streakAtRisk() the in-app UI already uses.
@@ -8079,20 +8091,60 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
       {showApkBanner && (() => {
         const APK_BANNER_COPY = {
-          th: { title: "โหลดแอพ Android ตัวเต็ม", sub: "รวมโหมดเสียง AI Voice Tutor — เว็บทำไม่ได้", btn: "ดาวน์โหลด" },
-          en: { title: "Get the full Android app", sub: "Includes the AI Voice Tutor — not available on the web", btn: "Download" },
-          zh: { title: "获取完整版 Android 应用", sub: "包含 AI 语音导师 — 网页版没有", btn: "下载" },
+          th: { title: "โหลดแอพ Android", sub: "รวมโหมดเสียง AI Voice Tutor — เว็บทำไม่ได้", btn: "ดาวน์โหลด", beta: " (เบต้า)" },
+          en: { title: "Get the Android app", sub: "Includes the AI Voice Tutor — not available on the web", btn: "Download", beta: " (Beta)" },
+          zh: { title: "获取 Android 应用", sub: "包含 AI 语音导师 — 网页版没有", btn: "下载", beta: "（测试版）" },
         };
         const c = APK_BANNER_COPY[lang] || APK_BANNER_COPY.en;
         return (
           <div className="installbanner">
             <span className="installbanner-ic" aria-hidden="true">🎙️</span>
             <div className="installbanner-tx">
-              <b>{c.title}</b>
+              <b>{c.title}{apkIsBeta && c.beta}</b>
               <span>{c.sub}</span>
             </div>
-            <a className="installbanner-go" href={apkInfo && apkInfo.apkUrl} onClick={dismissApkBanner}>{c.btn}</a>
+            <a className="installbanner-go" href={apkDownloadUrl} onClick={dismissApkBanner}>{c.btn}</a>
             <button className="installbanner-x" onClick={dismissApkBanner} aria-label="close">×</button>
+          </div>
+        );
+      })()}
+      {showApkPill && !apkPillOpen && (
+        <button className="apkpill" onClick={() => { playUi("click"); setApkPillOpen(true); }} aria-label="Get the Android app">
+          <span className="apkpill-ic">🎹</span>
+        </button>
+      )}
+      {showApkPill && apkPillOpen && (() => {
+        const APK_POPUP_COPY = {
+          th: {
+            title: "TIGA.AI สำหรับ Android", sub: apkIsBeta ? "รุ่นทดสอบ (เบต้า) — ติดตั้งได้เลย" : "ติดตั้งแอพเต็มรูปแบบ",
+            f1: "🎙️ AI Voice Tutor โหมดเสียง", f2: "🔔 แจ้งเตือนซ้อมประจำวัน", f3: "📴 เข้าถึงได้แม้ออฟไลน์บางส่วน",
+            btn: "ดาวน์โหลด APK", note: "แตะ \"อนุญาตติดตั้งจากแหล่งนี้\" เมื่อ Android ถาม",
+          },
+          en: {
+            title: "TIGA.AI for Android", sub: apkIsBeta ? "Beta build — safe to install now" : "Get the full app",
+            f1: "🎙️ AI Voice Tutor", f2: "🔔 Daily practice reminders", f3: "📴 Partial offline access",
+            btn: "Download APK", note: "Tap \"allow install from this source\" when Android asks",
+          },
+          zh: {
+            title: "TIGA.AI Android 版", sub: apkIsBeta ? "测试版 — 现在可以安装" : "获取完整版应用",
+            f1: "🎙️ AI 语音导师", f2: "🔔 每日练习提醒", f3: "📴 部分离线可用",
+            btn: "下载 APK", note: "系统询问时点击\"允许安装未知来源应用\"",
+          },
+        };
+        const c = APK_POPUP_COPY[lang] || APK_POPUP_COPY.en;
+        return (
+          <div className="apkpopov" onClick={() => setApkPillOpen(false)}>
+            <div className="apkpop" onClick={e => e.stopPropagation()}>
+              <button className="apkpop-x" onClick={() => setApkPillOpen(false)} aria-label="close">×</button>
+              <img className="apkpop-icon" src="./icon.svg" alt="" />
+              <b className="apkpop-title">{c.title}</b>
+              <span className="apkpop-sub">{c.sub}</span>
+              <div className="apkpop-feats">
+                <span>{c.f1}</span><span>{c.f2}</span><span>{c.f3}</span>
+              </div>
+              <a className="apkpop-go" href={apkDownloadUrl} onClick={() => { dismissApkBanner(); setApkPillOpen(false); }}>{c.btn}</a>
+              <span className="apkpop-note">{c.note}</span>
+            </div>
           </div>
         );
       })()}
