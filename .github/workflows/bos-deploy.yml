@@ -1,0 +1,78 @@
+name: BOS Supabase Deploy
+
+# ทำให้ทุก push ที่แตะ bos/supabase/** ไปที่ main:
+#   1) deploy edge functions ทั้งหมด (~95 ตัว, ข้าม _shared)
+#   2) ตั้ง secrets ของฟังก์ชันจาก GitHub secrets (เฉพาะ key ที่มีค่า)
+#   3) apply migrations ที่ยังไม่เคย run (supabase db push)
+# เจ้าของต้องเพิ่ม GitHub secrets ครั้งเดียว ตาม docs/DEPLOY_AUTOMATION.md —
+# หลังจากนั้นไม่ต้องทำอะไรด้วยมืออีกเลย
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bos/supabase/**"
+      - ".github/workflows/bos-deploy.yml"
+
+jobs:
+  deploy:
+    name: Deploy functions + migrations + secrets
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: tzgktczefypwhhmyxlmj
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        run: supabase link --project-ref "$PROJECT_REF" --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
+        working-directory: bos
+
+      - name: Deploy all edge functions
+        run: |
+          set -euo pipefail
+          for dir in supabase/functions/*/; do
+            name="$(basename "$dir")"
+            [ "$name" = "_shared" ] && continue
+            echo "Deploying $name ..."
+            supabase functions deploy "$name" --project-ref "$PROJECT_REF"
+          done
+        working-directory: bos
+
+      - name: Set function secrets (only keys provided in GitHub secrets)
+        run: |
+          set -euo pipefail
+          for key in GEMINI_API_KEY LINE_CHANNEL_SECRET LINE_CHANNEL_ACCESS_TOKEN \
+                     GOOGLE_CLIENT_SECRET CRON_SECRET RESEND_API_KEY \
+                     TIKTOK_CLIENT_SECRET X_API_SECRET; do
+            value="${!key:-}"
+            if [ -n "$value" ]; then
+              echo "Setting $key ..."
+              supabase secrets set "$key=$value" --project-ref "$PROJECT_REF"
+            else
+              echo "Skipping $key (not set in GitHub secrets)"
+            fi
+          done
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+
+      - name: Apply pending migrations
+        # ใช้ db push (run เฉพาะ migration ที่ยังไม่เคย run ตาม history ใน
+        # supabase_migrations.schema_migrations) — migration ใหม่ล่าสุดคือ
+        # 0083 (ช่องทาง TikTok/X/Email) 0084 (autonomy + digest cron)
+        # 0085 (auto-provision profiles)
+        run: |
+          set -euo pipefail
+          supabase db push --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
+        working-directory: bos
