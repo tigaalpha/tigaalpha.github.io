@@ -80,3 +80,6 @@ verify_jwt = true
 
 [functions.agent-action-digest]
 verify_jwt = false
+
+[functions.bootstrap-profile]
+verify_jwt = true

@@ -108,9 +108,12 @@ insert into integration_settings (key, value) values ('ai_budget_daily_tokens', 
 -- 3) LINE ID ของเจ้าของ (รับแจ้งเตือน เช่น ลูกค้าขอคุยกับคน / เกินงบ AI)
 insert into integration_settings (key, value) values ('owner_line_user_id', '<LINE userId ของเจ้าของ>');
 
--- 4) ให้สิทธิ์ตัวเองหลัง login Google ครั้งแรก (RLS บล็อกทุกอย่างก่อนมี row นี้)
+-- 4) ให้สิทธิ์ตัวเอง — **ไม่ต้องทำแล้ว**: migration 0085 + edge function
+--    bootstrap-profile สร้าง row ให้อัตโนมัติหลัง login ครั้งแรก (คนแรก = owner)
+--    ถ้าอยากยกระดับ/แก้ชื่อด้วยมือ ให้ใช้คำสั่งนี้แทน (หรือปล่อยทิ้งได้เลย)
 insert into profiles (id, full_name, role)
-select id, email, 'owner' from auth.users where email = 'you@example.com';
+select id, email, 'owner' from auth.users where email = 'you@example.com'
+on conflict (id) do nothing;
 
 -- 5) กุญแจสำหรับ web chat widget (ฝังในเว็บ — Settings → Integrations มีปุ่มสุ่ม/แสดงโค้ดฝัง)
 insert into integration_settings (key, value) values ('web_chat_secret', '<สุ่ม 32 ตัวอักษร>');

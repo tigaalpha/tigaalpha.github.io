@@ -65,7 +65,19 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        const { data } = await supabase.from("profiles").select("full_name, role").eq("id", session.user.id).single();
+        let { data } = await supabase.from("profiles").select("full_name, role").eq("id", session.user.id).single();
+
+        // No profile row = every RLS query silently returns empty and every
+        // staff edge function 403s (the "app shows all zeros / connections
+        // don't appear" symptom). Bootstrap it on the spot: the first-ever
+        // account becomes owner, later ones staff. If the function isn't
+        // deployed yet this stays graceful — the fallbacks below apply.
+        if (!data) {
+          await supabase.functions.invoke("bootstrap-profile");
+          const retry = await supabase.from("profiles").select("full_name, role").eq("id", session.user.id).single();
+          data = retry.data ?? null;
+        }
+
         if (!cancelled) {
           setProfileName(data?.full_name ?? null);
           setRole(data?.role ?? null);

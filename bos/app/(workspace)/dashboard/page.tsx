@@ -54,8 +54,10 @@ function weekRange(): { start: string; end: string } {
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
+    setLoadError(null);
     const repos = createRepositories(createClient());
     const { start, end } = weekRange();
 
@@ -119,6 +121,13 @@ export default function DashboardPage() {
           pendingPayments: pendingPayments.length,
           lessonsThisWeek: weekBookings.length,
         });
+      },
+      (err) => {
+        // Never show a silently-zero dashboard: surface the real failure
+        // (most commonly a 401/403 or missing table on this Supabase
+        // project) so the owner can act on it instead of assuming the
+        // school has no data.
+        setLoadError(err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ");
       }
     );
   }, []);
@@ -126,6 +135,20 @@ export default function DashboardPage() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+          ⚠️ โหลดข้อมูลแดชบอร์ดไม่สำเร็จ — {loadError}
+          <button className="ml-2 underline underline-offset-2" onClick={() => reload()}>
+            ลองใหม่
+          </button>
+        </div>
+        <Skeleton className="h-8 w-56 bg-white/5" />
+      </div>
+    );
+  }
 
   if (!data) {
     return (
