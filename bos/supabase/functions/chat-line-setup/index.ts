@@ -11,7 +11,7 @@ import { CHAT_FEATURE_KEYS, CHAT_FEATURE_LABELS, isFeatureEnabled } from "../_sh
 // line-webhook ซึ่งจะตอบกลับด้วยข้อมูลที่เกี่ยวข้อง (ดู webhook handler)
 // เรียกได้ทั้งจาก cron รายสัปดาห์ (x-cron-secret) และปุ่มใน Settings (JWT)
 const MENU_NAME = "Tiga Main";
-const RICH_MENU_IMAGE_URL = "https://tigaalpha.github.io/rich-menu.png";
+const RICH_MENU_IMAGE_URL = "https://tigaalpha.github.io/studio/rich-menu.png";
 const AREAS = [
   { x: 0, y: 0, width: 625, height: 843, data: "MENU_BOOK", label: "จองคอร์ส" },
   { x: 625, y: 0, width: 625, height: 843, data: "MENU_SCHEDULE", label: "ดูตาราง" },
@@ -55,16 +55,19 @@ Deno.serve(async (req: Request) => {
     const list = (await listRes.json()) as { richmenus?: { richMenuId: string; name: string }[] };
     for (const menu of list.richmenus ?? []) {
       if (menu.name !== MENU_NAME) continue;
-      await lineApi(`/richmenu/${menu.richMenuId}/default`, { method: "DELETE" }).catch(() => {});
-      await lineApi(`/richmenu/${menu.richMenuId}`, { method: "DELETE" }).catch(() => {});
+      const unset = await lineApi(`/richmenu/${menu.richMenuId}/default`, { method: "DELETE" });
+      const del = await lineApi(`/richmenu/${menu.richMenuId}`, { method: "DELETE" });
+      await logSystemEvent(admin, "chat-line-setup", "info", `cleanup old menu ${menu.richMenuId}: unset=${unset.status} delete=${del.status}`);
     }
 
-    // 2) สร้างเมนูใหม่
+    // 2) สร้างเมนูใหม่ — selected:true = ตั้งเป็น default ตั้งแต่ตอนสร้าง
+    //    (เส้นทางที่ LINE แนะนำ; การ POST /richmenu/{id}/default แยกทีหลัง
+    //    มักตอบ "Not found" หลังเพิ่งสร้าง+อัปโหลดรูป)
     const createRes = await lineApi("/richmenu", {
       method: "POST",
       body: JSON.stringify({
         size: { width: 2500, height: 843 },
-        selected: false,
+        selected: true,
         name: MENU_NAME,
         chatBarText: "เมนู",
         areas: AREAS.map((a) => ({
@@ -75,6 +78,7 @@ Deno.serve(async (req: Request) => {
     });
     if (!createRes.ok) throw new Error(`LINE richmenu create failed: ${await createRes.text()}`);
     const { richMenuId } = (await createRes.json()) as { richMenuId: string };
+    await logSystemEvent(admin, "chat-line-setup", "info", `created richmenu ${richMenuId} (selected:true)`);
 
     // 3) อัปโหลดรูปเมนู (PNG โฮสต์บน GitHub Pages — bos/public/rich-menu.png)
     const imgRes = await fetch(RICH_MENU_IMAGE_URL);
@@ -89,10 +93,24 @@ Deno.serve(async (req: Request) => {
       body: imgBytes,
     });
     if (!uploadRes.ok) throw new Error(`LINE richmenu upload failed: ${await uploadRes.text()}`);
+    await logSystemEvent(admin, "chat-line-setup", "info", `uploaded image to ${richMenuId}: ${uploadRes.status}`);
 
-    // 4) ตั้งเป็น default
-    const setRes = await lineApi(`/richmenu/${richMenuId}/default`, { method: "POST" });
-    if (!setRes.ok) throw new Error(`LINE richmenu set default failed: ${await setRes.text()}`);
+    // 4) ยืนยันว่าเป็น default แล้ว (สร้างด้วย selected:true — ถ้า LINE
+    //    ตอบ "Not found" ชั่วครู่หลัง upload ให้ลองใหม่ไม่กี่ครั้ง)
+    let isDefault = false;
+    for (let attempt = 1; attempt <= 5 && !isDefault; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const check = await lineApi(`/richmenu/${richMenuId}`, { method: "GET" });
+      if (check.ok) {
+        const body = (await check.json()) as { richMenuId?: string; selected?: boolean };
+        isDefault = body.richMenuId === richMenuId && body.selected === true;
+        if (!isDefault) {
+          const setRes = await lineApi(`/richmenu/${richMenuId}/default`, { method: "POST" });
+          isDefault = setRes.ok;
+        }
+      }
+    }
+    if (!isDefault) throw new Error("LINE richmenu could not be set as default");
 
     await logSystemEvent(admin, "chat-line-setup", "info", `Rich Menu "${MENU_NAME}" ตั้งเป็นค่าเริ่มต้นแล้ว (${richMenuId})`);
     return jsonResponse({ ok: true, richMenuId, areas: AREAS.map((a) => a.label) });
