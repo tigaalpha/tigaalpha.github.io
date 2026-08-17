@@ -536,6 +536,23 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .installbanner-tx span{font-size:11px;color:var(--muted);line-height:1.2}
 .installbanner-go{flex-shrink:0;background: #d97757;color:#fff;border:none;border-radius:11px;padding:9px 14px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;white-space:nowrap}
 .installbanner-x{flex-shrink:0;background:none;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:4px 2px}
+/* persistent bottom-left "get the app" pill — stays reachable after the
+   one-time banner above is dismissed. Bottom-right is the mascot, top-left
+   is the nav hamburger, so bottom-left is the open corner. */
+.apkpill{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:950;width:50px;height:50px;border-radius:50%;border:none;background:linear-gradient(135deg,#d97757,#a855f7);box-shadow:0 8px 24px -6px #d9775766,0 0 0 1px #ffffff22 inset;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:apkpillpop .4s cubic-bezier(.34,1.56,.64,1),apkpillpulse 2.8s ease-in-out 1s infinite;-webkit-tap-highlight-color:transparent}
+.apkpill-ic{font-size:22px;filter:drop-shadow(0 1px 2px #0006)}
+@keyframes apkpillpop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes apkpillpulse{0%,100%{box-shadow:0 8px 24px -6px #d9775766,0 0 0 1px #ffffff22 inset}50%{box-shadow:0 8px 28px -4px #d97757aa,0 0 0 1px #ffffff22 inset,0 0 0 7px #d9775722}}
+.apkpopov{position:fixed;inset:0;z-index:1300;background:rgba(9,4,8,.62);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:flex-start;padding:12px;padding-bottom:calc(72px + env(safe-area-inset-bottom,0px));animation:fadein .2s}
+.apkpop{position:relative;width:min(280px,calc(100vw - 24px));background:var(--card);border:1px solid #d9775755;border-radius:20px;padding:20px 18px 16px;box-shadow:0 20px 50px -12px #000,0 0 30px -10px #d9775755;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;animation:installin .3s ease-out}
+.apkpop-x{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:4px}
+.apkpop-icon{width:56px;height:56px;border-radius:16px;box-shadow:0 4px 14px -4px #000;margin-bottom:6px}
+.apkpop-title{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:800;color:var(--text)}
+.apkpop-sub{font-size:12px;color:#d97757;font-weight:700;margin-bottom:8px}
+.apkpop-feats{display:flex;flex-direction:column;gap:5px;align-items:flex-start;width:100%;margin-bottom:12px;padding:10px 12px;background:var(--card2);border-radius:12px}
+.apkpop-feats span{font-size:12px;color:var(--text2)}
+.apkpop-go{display:block;width:100%;background:linear-gradient(135deg,#d97757,#c96444);color:#fff;border:none;border-radius:12px;padding:12px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;letter-spacing:.6px;cursor:pointer;box-shadow:0 6px 18px -6px #d97757aa}
+.apkpop-note{font-size:10.5px;color:var(--muted);margin-top:9px;line-height:1.3}
 @keyframes exppop{0%{opacity:0;transform:translateX(-50%) translateY(-14px) scale(.7)}14%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.06)}26%{transform:translateX(-50%) translateY(0) scale(1)}78%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.96)}}
 /* level-up overlay */
 .lvup{position:fixed;inset:0;z-index:1300;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,5,9,.82);backdrop-filter:blur(4px);animation:fadein .3s;pointer-events:none}
