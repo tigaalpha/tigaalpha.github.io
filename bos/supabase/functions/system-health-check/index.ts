@@ -69,6 +69,16 @@ Deno.serve(async (req: Request) => {
     if ((okToday ?? 0) === 0) {
       await logSystemEvent(admin, "system-health-check", "info", `ระบบปกติ — LINE ${lineOk ? "เชื่อมต่อ" : "มีปัญหา"}, Google Calendar ${calendarOk ? "เชื่อมต่อ" : "มีปัญหา"}, errorCount ${errorCount ?? 0} ใน ${WINDOW_MINUTES} นาที`);
     }
+
+    // Auto-resolve stale alerts: when the system is healthy again, any
+    // system_alert notification raised in the last 24h is marked read so the
+    // Notifications page stops showing red "ระบบ AI มีข้อผิดพลาด" banners
+    // from incidents that already recovered (they used to pile up forever,
+    // making a healthy system look broken). The alert row stays in history
+    // for audit — only its read flag flips.
+    const alertSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    await admin.from("notifications").update({ read: true }).eq("type", "system_alert").eq("read", false).gte("created_at", alertSince);
+
     return jsonResponse({ errorCount: errorCount ?? 0, alerted: false });
   }
 
