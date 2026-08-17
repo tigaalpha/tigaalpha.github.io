@@ -2,7 +2,7 @@ import { memo, useMemo, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
-import { ttsSupported, stopSpeaking, stopCloudTTS, speakCloud, speakRobust } from "./speech";
+import { ttsSupported, stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative } from "./speech";
 
 /* ── chat-ui.tsx ──
    Chat UI atoms shared by every chat surface (Sensei page, expanded chat
@@ -13,15 +13,14 @@ import { ttsSupported, stopSpeaking, stopCloudTTS, speakCloud, speakRobust } fro
    modularization. ── */
 
 
-/* Read-aloud in the chat was switched off globally while the Gemini TTS quota
-   was sorted out — the free tier ran out within a few taps on the full web
-   audience, so the button mostly failed. Now scoped to the Android app only:
-   a much smaller audience than the web, on top of the IndexedDB clip cache
-   (speech.ts, ttsCacheGet/ttsCachePut) that already makes repeat listens free.
-   First-time listens still draw from the same shared quota, so watch it if
-   the Android install base grows; flip back to `false` (or gate further) if
-   it becomes a problem again. Set to `true` to restore it everywhere. */
-export const TTS_ENABLED = Capacitor.getPlatform() === "android";
+/* Read-aloud is on for every platform. Cloud TTS (Gemini) is the primary
+   voice; when its shared quota is out (free tier: ~10 req/min) or on a weak
+   signal, the fallback in speech.ts speaks with the device voice — on the
+   web that is speechSynthesis, and inside the Android app's WebView (where
+   speechSynthesis does not exist) it is the OS TTS engine via the Capacitor
+   plugin, so the button ALWAYS produces sound. The IndexedDB clip cache
+   (ttsCacheGet/ttsCachePut) keeps repeat listens free of the cloud quota. */
+export const TTS_ENABLED = true;
 
 /* ── Speaker button (robust, with fallback message) ── */
 export const SpeakBtn = memo(function SpeakBtn({ text, lang, id, activeId, setActiveId }) {
@@ -45,10 +44,8 @@ export const SpeakBtn = memo(function SpeakBtn({ text, lang, id, activeId, setAc
       text, lang,
       null,                                   // onStart
       () => setActiveId(null),                // onDone
-      () => {                                 // onError → device-voice fallback (silent)
-        if (!supported) { setActiveId(null); return; }
-        const ok = speakRobust(text, lang, () => setActiveId(null), () => setActiveId(null));
-        if (!ok) setActiveId(null);
+      () => {                                 // onError → device/native-voice fallback (never silent on a real device)
+        speakDeviceOrNative(text, lang, () => setActiveId(null), () => setActiveId(null)).catch(() => setActiveId(null));
       }
     );
   }

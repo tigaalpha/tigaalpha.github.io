@@ -7,7 +7,7 @@ import {
 } from "./music-engine";
 import { L } from "./i18n";
 import {
-  TTS_LOCALES, ttsSupported, getSR, sttSupported, speakRobust, stopSpeaking,
+  TTS_LOCALES, ttsSupported, getSR, sttSupported, speakDeviceOrNative, stopSpeaking,
   stopCloudTTS, getVmVoiceKey, setTtsMood, speakCloud, fetchCloudClips, playCloudClips,
 } from "./speech";
 import { readMemory, touchSessionMemory, memoryContext, setHomeworkLS, homeworkContext } from "./ai-chat-context";
@@ -884,13 +884,14 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
       // speech speed follows the speed control, but mapped gently so the voice
       // stays natural (2x demo → ~1.5x talking, never chipmunk-fast).
       const rateMul = 1 + ((vmSpeedRef.current || 1) - 1) * 0.5;
-      // device voice when: user picked Fast, OR cloud already failed this session
-      // (sticky fallback keeps speech smooth on a weak signal — no per-sentence retries).
-      if ((vmFastRef.current || vmCloudDeadRef.current) && ttsSupported()) { speakRobust(text, langRef.current, finish, finish, rateMul); return; }
+      // device/native voice when: user picked Fast, OR cloud already failed this
+      // session (sticky fallback keeps speech smooth on a weak signal — no
+      // per-sentence retries). Android WebView has no speechSynthesis, so this
+      // also falls back to the OS TTS engine — the teacher never goes silent.
+      if (vmFastRef.current || vmCloudDeadRef.current) { speakDeviceOrNative(text, langRef.current, finish, finish, rateMul); return; }
       speakCloud(text, langRef.current, null, finish, () => {
         vmCloudDeadRef.current = true; // first cloud failure → stay on the device voice from now on
-        if (!ttsSupported()) { finish(); return; }
-        speakRobust(text, langRef.current, finish, finish, rateMul);
+        speakDeviceOrNative(text, langRef.current, finish, finish, rateMul);
       }, rateMul);
     });
   }

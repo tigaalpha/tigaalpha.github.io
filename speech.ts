@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { TTS_URL, apiHeaders } from "./ai-backend";
 import { getAC } from "./music-engine";
@@ -174,9 +175,39 @@ export function speakRobust(text, lang, onDone, onBlocked, rateMul = 1) {
     return false;
   }
 }
+
+/* Device/native fallback for when cloud TTS fails or is off — used by the chat
+   SpeakBtn and the voice tutor. On the web: speechSynthesis. Inside the Android
+   app's WebView speechSynthesis does not exist at all, so use the OS TTS engine
+   via the Capacitor plugin instead — always works, no network, no Gemini quota.
+   Resolves with true if audio started; onDone fires when playback is done (or
+   immediately when there is nothing to say); onBlocked when no engine exists. */
+export async function speakDeviceOrNative(text, lang, onDone, onBlocked, rateMul = 1) {
+  if (ttsSupported()) {
+    try { const ok = speakRobust(text, lang, onDone, onBlocked, rateMul); if (ok) return true; } catch (e) {}
+    return false;
+  }
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { TextToSpeech } = await import("@capacitor-community/text-to-speech");
+      try { await TextToSpeech.stop(); } catch (e) {}
+      const clean = cleanForTTS(text);
+      if (!clean) { if (onDone) onDone(); return true; }
+      const langCode = TTS_LOCALES[lang] || "en-US";
+      const rate = Math.max(0.5, Math.min(2, (TTS_RATE[lang] || 0.95) * (rateMul || 1)));
+      await TextToSpeech.speak({ text: clean, lang: langCode, rate, pitch: 1.0, category: "ambient" });
+      if (onDone) onDone();
+      return true;
+    } catch (e) { if (onBlocked) onBlocked(); return false; }
+  }
+  if (onBlocked) onBlocked();
+  return false;
+}
 export function stopSpeaking() {
   stopResumeKeepAlive();
   try { window.speechSynthesis.cancel(); } catch (e) {}
+  // native app WebView has no speechSynthesis — stop the OS TTS engine too
+  try { if (Capacitor.isNativePlatform()) import("@capacitor-community/text-to-speech").then(m => m.TextToSpeech.stop()).catch(() => {}); } catch (e) {}
 }
 
 /* ── Cloud TTS (Gemini, natural male voice) via the piano-tts Edge Function ──
