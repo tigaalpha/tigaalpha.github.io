@@ -14,11 +14,11 @@ import { readMemory, touchSessionMemory, memoryContext, setHomeworkLS, homeworkC
 import { streamChatCompletion } from "./ai-backend";
 import { dayKey, logActivity } from "./shared-infra";
 import { SONGS } from "./songs-data";
-import { isNative, curriculumContext, songRecommendationHint, setLessonPlanLS, buildAlternatingHistory, levelInfo, vmDisplayText } from "./App";
+import { isAndroidNative, curriculumContext, songRecommendationHint, setLessonPlanLS, buildAlternatingHistory, levelInfo, vmDisplayText } from "./App";
 /* ── use-voice-tutor.ts ──
    Owns the AI Voice Tutor: the turn-based, hands-free voice lesson
-   (native-app-only - openVoice()/startVoiceSession() both gate on
-   isNative and return immediately on web). This is Phase 3's highest-
+   (Android-app-only - openVoice()/startVoiceSession() both gate on
+   isAndroidNative and return immediately on web or iOS). This is Phase 3's highest-
    risk, largest, and least verifiable step - the governing plan itself
    flags it as "confirmed structurally unreachable in any web/headless
    context": a clean build proves the rest of the app still works with
@@ -63,7 +63,7 @@ import { isNative, curriculumContext, songRecommendationHint, setLessonPlanLS, b
    the AI Mentor recommendation engine), so pulling the wrapper functions
    out without their shared infrastructure isn't possible - same
    convention as logGame/logPractice/scoreDynamics/API_MODEL/EXP.
-   isNative is also a new export in place (used 8x elsewhere in App.tsx,
+   isAndroidNative is also a new export in place (used elsewhere in App.tsx,
    e.g. StudioPage's own voice-card gating). buildAlternatingHistory is
    already exported (Phase 3.8) - a plain new import here, not a new
    export.
@@ -222,7 +222,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     vmProcess(L[langRef.current].vmPlayedCue);            // implicit "I just played — what do you think?"
   }
   function openVoice() {
-    if (!isNative) return; // mobile-app-only feature, by design — never reachable on web
+    if (!isAndroidNative) return; // Android-app-only feature, by design — never reachable on web or iOS
     setVmOpen(true);
     setVmErr(null);
     vmMsgsRef.current = []; setVmMsgs([]);
@@ -303,7 +303,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
   const vmCheckIdleRef = useRef(() => {});
   useEffect(() => { vmCheckIdleRef.current = vmCheckIdle; });
   function startVoiceSession() {
-    if (!isNative) return; // belt-and-suspenders: vmToggle()/vmOrbTap() can re-enter this once the modal is open
+    if (!isAndroidNative) return; // belt-and-suspenders: vmToggle()/vmOrbTap() can re-enter this once the modal is open
     if (!sttSupported()) { setVmErr(L[lang].vmNoSTT); vmSetState("error"); return; }
     getAC();
     vmActiveRef.current = true;

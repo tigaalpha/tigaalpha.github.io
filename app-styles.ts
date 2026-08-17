@@ -53,7 +53,7 @@ html, body, #root{background:var(--bg)}
 .tg :focus-visible{outline:2px solid #d97757;outline-offset:2px;border-radius:6px}
 .tg button:focus-visible,.tg textarea:focus-visible{outline:2px solid #d97757;outline-offset:2px}
 .scan{position:fixed;inset:0;pointer-events:none;z-index:9999}
-.hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--card);border-bottom:1px solid #d9775733;flex-shrink:0;position:relative;z-index:30}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));background:var(--card);border-bottom:1px solid #d9775733;flex-shrink:0;position:relative;z-index:30}
 .logo{display:flex;align-items:center;gap:10px}
 /* hamburger + side drawer nav (minimal modern) */
 .hamb{display:flex;flex-direction:column;justify-content:center;gap:4px;width:36px;height:36px;border:none;background:transparent;cursor:pointer;padding:7px;border-radius:10px;flex-shrink:0}
