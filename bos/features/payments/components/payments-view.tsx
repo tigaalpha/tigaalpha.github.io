@@ -30,6 +30,7 @@ import { cn, describeFunctionError, formatCurrency } from "@/lib/utils";
 import type { PaymentWithCustomer } from "@/services/repositories/payments.repository";
 import type { TransferSlipWithPayment } from "@/services/repositories/transfer-slips.repository";
 import type { Tables } from "@/types/database";
+import { SlipReviewDialog } from "./slip-review-dialog";
 
 type PaymentStatus = Tables<"payments">["status"];
 type SlipStatus = Tables<"transfer_slips">["match_status"];
@@ -67,6 +68,11 @@ export function PaymentsView() {
   const [slips, setSlips] = useState<TransferSlipWithPayment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // slip review dialog — owner clicks a slip / the attention card to eyeball
+  // the photo the customer sent and mark it checked.
+  const [reviewSlips, setReviewSlips] = useState<TransferSlipWithPayment[] | null>(null);
+  const [reviewIndex, setReviewIndex] = useState(0);
 
   // create-payment form
   const [query, setQuery] = useState("");
@@ -195,6 +201,29 @@ export function PaymentsView() {
     }
   }
 
+  async function handleVerifyFromSlip(paymentId: string): Promise<boolean> {
+    setError(null);
+    setNotice(null);
+    try {
+      const supabase = createClient();
+      const { error: fnError } = await supabase.functions.invoke("verify-payment", { body: { paymentId } });
+      if (fnError) {
+        setError(await describeFunctionError(fnError));
+        return false;
+      }
+      setNotice("ยืนยันการชำระเงินแล้ว — บันทึกรายได้ใน Accounting และแจ้งลูกค้าทาง LINE เรียบร้อย");
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ยืนยันการชำระเงินไม่สำเร็จ");
+      return false;
+    }
+  }
+
+  function openSlipReview(list: TransferSlipWithPayment[], index: number) {
+    setReviewSlips(list);
+    setReviewIndex(index);
+  }
+
   const pendingTotal = (pending ?? []).reduce((sum, p) => sum + Number(p.amount), 0);
   const now = new Date();
   const paidThisMonth = (history ?? [])
@@ -243,17 +272,28 @@ export function PaymentsView() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-6">
-            <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl", slipsAttention > 0 ? "bg-danger/10" : "bg-primary/10")}>
-              <FileWarning className={cn("h-5 w-5", slipsAttention > 0 ? "text-danger" : "text-primary-accent")} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs text-secondary/50">สลิปรอตรวจ / ไม่ตรง</p>
-              <p className="truncate text-lg font-semibold text-secondary">{loading ? "…" : slipsAttention + " ใบ"}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <button
+          type="button"
+          onClick={() => {
+            const attention = (slips ?? []).filter((s) => s.match_status === "pending" || s.match_status === "unmatched");
+            if (attention.length > 0) openSlipReview(attention, 0);
+          }}
+          disabled={loading || slipsAttention === 0}
+          className={cn("w-full text-left", slipsAttention > 0 ? "cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:translate-y-0" : "cursor-default opacity-90")}
+        >
+          <Card className="h-full">
+            <CardContent className="flex items-center gap-3 pt-6">
+              <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl", slipsAttention > 0 ? "bg-danger/10" : "bg-primary/10")}>
+                <FileWarning className={cn("h-5 w-5", slipsAttention > 0 ? "text-danger" : "text-primary-accent")} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-secondary/50">สลิปรอตรวจ / ไม่ตรง</p>
+                <p className="truncate text-lg font-semibold text-secondary">{loading ? "…" : slipsAttention + " ใบ"}</p>
+                {slipsAttention > 0 && !loading && <p className="text-xs text-primary-accent">กดเพื่อดูสลิปและตรวจ →</p>}
+              </div>
+            </CardContent>
+          </Card>
+        </button>
       </div>
 
       {/* create payment */}
@@ -484,20 +524,31 @@ export function PaymentsView() {
             <Skeleton className="h-24" />
           ) : slips && slips.length > 0 ? (
             slips.map((s) => (
-              <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line/10 p-4">
+              <div
+                key={s.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openSlipReview([s], 0)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openSlipReview([s], 0);
+                  }
+                }}
+                className="flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-xl border border-line/10 p-4 transition hover:border-primary/30 hover:bg-line/5"
+              >
                 <div className="flex min-w-0 items-center gap-3">
                   {s.image_url ? (
-                    <a href={s.image_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.image_url} alt="สลิป" className="h-14 w-14 rounded-lg border border-line/10 object-cover" />
-                    </a>
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={s.image_url} alt="สลิป" className="h-14 w-14 shrink-0 rounded-lg border border-line/10 object-cover" />
                   ) : (
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-line/10 text-secondary/40">
                       <Banknote className="h-5 w-5" />
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-secondary">
+                    <p className="text-sm font-semibold text-secondary">{s.customerName ?? "ลูกค้าไม่ทราบชื่อ"}</p>
+                    <p className="text-sm text-secondary/70">
                       {s.extracted_amount != null ? formatCurrency(Number(s.extracted_amount)) : "—"} บาท
                       {s.extracted_reference ? <span className="ml-2 text-secondary/50">อ้างอิง {s.extracted_reference}</span> : null}
                     </p>
@@ -506,10 +557,18 @@ export function PaymentsView() {
                       {s.paymentReference ? ` · ใบแจ้งชำระ ${s.paymentReference}` : " · ยังไม่ผูกใบแจ้งชำระ"}
                     </p>
                     {s.image_url ? (
-                      <a href={s.image_url} target="_blank" rel="noopener noreferrer" className="mt-0.5 flex items-center gap-1 text-xs text-primary-accent underline">
+                      <a
+                        href={s.image_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-0.5 flex items-center gap-1 text-xs text-primary-accent underline"
+                      >
                         เปิดสลิปเต็ม <ExternalLink className="h-3 w-3" />
                       </a>
-                    ) : null}
+                    ) : (
+                      <p className="mt-0.5 text-xs text-secondary/40">กดเพื่อตรวจ</p>
+                    )}
                   </div>
                 </div>
                 <Badge variant={SLIP_STATUS_UI[s.match_status].variant}>{SLIP_STATUS_UI[s.match_status].label}</Badge>
@@ -527,6 +586,16 @@ export function PaymentsView() {
           รีเฟรช
         </Button>
       </div>
+
+      {reviewSlips && (
+        <SlipReviewDialog
+          slips={reviewSlips}
+          initialIndex={reviewIndex}
+          onClose={() => setReviewSlips(null)}
+          onChanged={() => load().catch((e) => setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ"))}
+          onVerifyPayment={handleVerifyFromSlip}
+        />
+      )}
     </div>
   );
 }
