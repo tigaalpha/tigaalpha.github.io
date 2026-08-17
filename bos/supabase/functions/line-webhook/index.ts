@@ -111,6 +111,33 @@ async function resolveConversation(admin: ReturnType<typeof createAdminClient>, 
   return created.id;
 }
 
+// Keep the raw slip photo in Storage (public bucket, lazily created like
+// payment-qrs) so the owner can eyeball it on the Payments page — the
+// vision extraction below only stores text, which is not enough to check a
+// transfer by hand. Returns a public URL, or null when storage fails (the
+// extraction + owner notification still work either way).
+async function uploadSlipImage(admin: ReturnType<typeof createAdminClient>, content: { mimeType: string; base64: string }, customerId: string): Promise<string | null> {
+  try {
+    const url = Deno.env.get("SUPABASE_URL") ?? "";
+    if (!url) return null;
+    const ext = content.mimeType === "image/png" ? "png" : content.mimeType === "image/webp" ? "webp" : content.mimeType === "image/jpeg" ? "jpg" : "bin";
+    const bin = atob(content.base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    try {
+      await admin.storage.createBucket("slip-images", { public: true });
+    } catch {
+      // bucket already exists — fine
+    }
+    const path = `slips/${customerId}/${Date.now()}.${ext}`;
+    const { error } = await admin.storage.from("slip-images").upload(path, bytes, { contentType: content.mimeType, upsert: true });
+    if (error) return null;
+    return `${url}/storage/v1/object/public/slip-images/${path}`;
+  } catch {
+    return null;
+  }
+}
+
 // Feature #1: a customer sends a photo of their bank transfer slip -> read
 // it with vision -> match against their real pending payments -> auto-confirm
 // when the match is unambiguous; otherwise alert the owner to check.
@@ -127,6 +154,7 @@ async function handleSlipImage(admin: ReturnType<typeof createAdminClient>, line
     return;
   }
 
+  const imageUrl = await uploadSlipImage(admin, content, customer.id);
   const raw = await understandImage(content.mimeType, content.base64, SLIP_EXTRACT_PROMPT).catch(() => "");
   const extraction: SlipExtraction | null = parseSlipJson(raw);
 
@@ -134,10 +162,11 @@ async function handleSlipImage(admin: ReturnType<typeof createAdminClient>, line
   const match = extraction ? matchSlipToPayment(extraction, (pending ?? []).map((p) => ({ id: p.id, amount: Number(p.amount), reference_code: p.reference_code, status: p.status }))) : null;
 
   if (match) {
-    await confirmPaymentBySlip(admin, { paymentId: match.paymentId, slipImageUrl: null });
+    await confirmPaymentBySlip(admin, { paymentId: match.paymentId, slipImageUrl: imageUrl });
     await admin.from("transfer_slips").insert({
       customer_id: customer.id,
       payment_id: match.paymentId,
+      image_url: imageUrl,
       extracted_amount: extraction?.amount ?? null,
       extracted_reference: extraction?.reference ?? null,
       confidence: extraction?.confidence ?? null,
@@ -152,6 +181,7 @@ async function handleSlipImage(admin: ReturnType<typeof createAdminClient>, line
   const notSlip = extraction ? !extraction.isSlip : true;
   await admin.from("transfer_slips").insert({
     customer_id: customer.id,
+    image_url: imageUrl,
     extracted_amount: extraction?.amount ?? null,
     extracted_reference: extraction?.reference ?? null,
     confidence: extraction?.confidence ?? null,

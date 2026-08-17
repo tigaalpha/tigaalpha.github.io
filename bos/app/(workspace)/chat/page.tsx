@@ -10,6 +10,7 @@ import { AiOutbox } from "@/features/chat/components/ai-outbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { ConversationWithCustomer } from "@/services/repositories/conversations.repository";
 import type { Tables } from "@/types/database";
 
 type Tab = "all" | "unanswered" | "outbox";
@@ -22,14 +23,14 @@ export default function ChatPage() {
     }
     return "all";
   });
-  const [conversations, setConversations] = useState<Tables<"conversations">[] | null>(null);
+  const [conversations, setConversations] = useState<ConversationWithCustomer[] | null>(null);
   const [unanswered, setUnanswered] = useState<Tables<"conversations">[] | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
 
   const reload = useCallback(() => {
     const supabase = createClient();
     const repos = createRepositories(supabase);
-    repos.conversations.listRecent(50).then(setConversations);
+    repos.conversations.listAllWithCustomers().then(setConversations);
     repos.conversations.listNeedingReview().then((rows) => setUnanswered(rows.filter((c) => c.channel !== "internal")));
     supabase
       .from("ai_outbox")

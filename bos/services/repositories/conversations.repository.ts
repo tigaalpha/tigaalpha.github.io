@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, MessageSender, Tables } from "@/types/database";
 
+export interface ConversationWithCustomer extends Tables<"conversations"> {
+  /** Name of the customer this conversation belongs to (null when unbound). */
+  customerName: string | null;
+}
+
 export class ConversationsRepository {
   constructor(private readonly db: SupabaseClient<Database>) {}
 
@@ -52,6 +57,33 @@ export class ConversationsRepository {
       .limit(limit);
     if (error) throw error;
     return data ?? [];
+  }
+
+  /**
+   * Full Inbox history — every customer-facing conversation (no cap), newest
+   * first, with the customer name joined in. Powers the Inbox's customer +
+   * date-range filters so the owner can browse all past chats, not just the
+   * most recent page.
+   */
+  async listAllWithCustomers(): Promise<ConversationWithCustomer[]> {
+    const { data, error } = await this.db
+      .from("conversations")
+      .select("*")
+      .neq("channel", "internal")
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data ?? [];
+    if (rows.length === 0) return [];
+
+    const customerIds = Array.from(new Set(rows.map((c) => c.customer_id).filter((id): id is string => id !== null)));
+    const nameById = new Map<string, string>();
+    if (customerIds.length > 0) {
+      const { data: customers, error: custErr } = await this.db.from("customers").select("id, name").in("id", customerIds);
+      if (custErr) throw custErr;
+      for (const c of customers ?? []) nameById.set(c.id, c.name);
+    }
+
+    return rows.map((c) => ({ ...c, customerName: c.customer_id ? (nameById.get(c.customer_id) ?? null) : null }));
   }
 
   async setNeedsReview(id: string, needsReview: boolean): Promise<void> {
