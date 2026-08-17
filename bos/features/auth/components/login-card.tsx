@@ -40,7 +40,7 @@ export function LoginCard() {
     <Card className="w-full max-w-sm">
       <CardHeader className="items-center text-center">
         <div className="mb-2 h-12 w-12 rounded-2xl bg-primary-gradient" aria-hidden />
-        <CardTitle className="text-xl">Tiga AI BOS</CardTitle>
+        <CardTitle className="text-xl">Tiga Automation</CardTitle>
         <CardDescription>Sign in to manage your studio</CardDescription>
       </CardHeader>
       <CardContent>

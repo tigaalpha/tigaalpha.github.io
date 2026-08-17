@@ -13,6 +13,7 @@ import { runWorkflow } from "./agent-orchestrator.ts";
 import { checkAiBudgetExceeded } from "./ai-budget.ts";
 import { logSystemEvent } from "./monitor.ts";
 import { salesDropRatio, shouldTriggerSalesDrop, shouldTriggerNoNewWon } from "./agent-event-conditions.ts";
+import { isDormant, overdueStage, isStaleLead, isContentDrought } from "./agent-guardian-conditions.ts";
 
 const DEDUPE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // don't re-trigger same event within a week
 
@@ -68,6 +69,78 @@ export async function checkEventTriggers(admin: SupabaseClient): Promise<FiredTr
       triggerType: "no_new_won",
       goal: "ยังไม่มีลูกค้าใหม่ที่ปิดการขายได้เลยใน 7 วัน (ก่อนหน้านี้ 14 วันมียอดปิดอยู่) — วิเคราะห์ว่าวงจรการขายติดขัดตรงไหนและแนะนำการเร่งปิด",
       detail: `wonLast7=${wonLast7} wonPrior14=${wonPrior}`,
+    });
+  }
+
+  // ── Guardian Agents (งาน #2): เฝ้าธุรกิจแทนเจ้าของ ───────────────────────
+  // ลูกค้าเงียบ, ค้างชำระ (ขั้นบันได 3/7/14 วัน), lead ค้าง, content แล้ง
+
+  const dormantStart = new Date(now - 30 * dayMs).toISOString();
+  const { data: recentBookings } = await admin.from("bookings").select("customer_id").gte("start_time", dormantStart);
+  const activeCustomerIds = new Set((recentBookings ?? []).map((b) => b.customer_id as string));
+  const { data: wonCustomers } = await admin
+    .from("customers")
+    .select("id, name, last_contact_at")
+    .in("sales_status", ["won", "renewed"]);
+  const dormantCount = (wonCustomers ?? []).filter((c) => !activeCustomerIds.has(c.id)).length;
+  const firedDormant = await hasFiredRecently(admin, "customer_dormant");
+  if (!firedDormant && dormantCount >= 1) {
+    fired.push({
+      triggerType: "customer_dormant",
+      goal: `${dormantCount} ลูกค้าปัจจุบัน (won/renewed) ไม่มีคาบเรียนเลยเกิน 30 วัน — วิเคราะห์ว่าใครควรได้รับ win-back/touch base และเรียงลำดับตามมูลค่า`,
+      detail: `dormant=${dormantCount}`,
+    });
+  }
+
+  const overdue = (await admin.from("payments").select("id, created_at").eq("status", "pending")) ?? { data: [] };
+  let maxOverdueStage: 1 | 2 | 3 | null = null;
+  let overdueCount = 0;
+  for (const p of (overdue as { data: { id: string; created_at: string }[] }).data ?? []) {
+    const days = Math.floor((now - new Date(p.created_at).getTime()) / dayMs);
+    const stage = overdueStage(days);
+    if (stage !== null) {
+      overdueCount += 1;
+      if (maxOverdueStage === null || stage > maxOverdueStage) maxOverdueStage = stage;
+    }
+  }
+  const stageLabels: Record<number, string> = { 1: "เกิน 3 วัน", 2: "เกิน 7 วัน", 3: "เกิน 14 วัน (เร่งด่วน)" };
+  const firedOverdue = await hasFiredRecently(admin, "payment_overdue");
+  if (!firedOverdue && maxOverdueStage !== null) {
+    fired.push({
+      triggerType: "payment_overdue",
+      goal: `มี ${overdueCount} ใบแจ้งชำระค้าง (เก่าที่สุด ${stageLabels[maxOverdueStage]}) — เรียงลำดับการทวงตามขั้นบันได: นัดแรกแบบสุภาพ ครั้งถัดไปจริงจังขึ้น และแนะนำท่าทีที่เหมาะสมรายลูกค้า`,
+      detail: `overdue=${overdueCount} maxStage=${maxOverdueStage}`,
+    });
+  }
+
+  const staleStart = new Date(now - 7 * dayMs).toISOString();
+  const { data: staleLeads } = await admin
+    .from("customers")
+    .select("id, last_contact_at, created_at")
+    .in("sales_status", ["new_lead", "contacted", "qualified", "interested", "trial_booked", "trial_completed", "negotiating", "waiting_decision"]);
+  const staleCount = (staleLeads ?? []).filter((c) =>
+    isStaleLead(c.last_contact_at ? new Date(c.last_contact_at).getTime() : null, c.created_at ? new Date(c.created_at).getTime() : null, now)
+  ).length;
+  const firedStale = await hasFiredRecently(admin, "stale_lead");
+  if (!firedStale && staleCount >= 1) {
+    fired.push({
+      triggerType: "stale_lead",
+      goal: `${staleCount} lead ค้างไม่มีการติดต่อเกิน 7 วัน — เสนอข้อความติดตามที่เหมาะสมรายคน (อ้างอิงช่วงที่คุยค้างไว้) เพื่อไม่ให้หลุด pipeline`,
+      detail: `stale=${staleCount}`,
+    });
+  }
+
+  const { count: publishedLast7 } = await admin
+    .from("content_calendar")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "published")
+    .gte("created_at", new Date(now - 7 * dayMs).toISOString());
+  const firedDrought = await hasFiredRecently(admin, "content_drought");
+  if (!firedDrought && isContentDrought(publishedLast7 ?? 0)) {
+    fired.push({
+      triggerType: "content_drought",
+      goal: "ยังไม่มีคอนเทนต์ที่เผยแพร่เลยใน 7 วัน — วางแผนคอนเทนต์ 3-5 ชิ้นสำหรับสัปดาห์หน้า (โพสต์/วิดีโอ/บทความ) ตามสิ่งที่เคยได้ผล" ,
+      detail: `published7d=${publishedLast7 ?? 0}`,
     });
   }
 

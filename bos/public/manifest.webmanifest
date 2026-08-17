@@ -1,7 +1,7 @@
 {
-  "name": "Tiga AI Business Operating System",
-  "short_name": "Tiga AI BOS",
-  "description": "AI-first admin, booking, CRM, and sales platform for Tiga Studio",
+  "name": "Tiga Automation",
+  "short_name": "Tiga Automation",
+  "description": "Tiga Automation — AI-first admin, booking, CRM, and sales platform for Tiga Studio",
   "start_url": "/studio/dashboard/",
   "scope": "/studio/",
   "display": "standalone",

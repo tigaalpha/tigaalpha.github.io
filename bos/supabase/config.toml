@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.bootstrap-profile]
 verify_jwt = true
+
+[functions.month-close]
+verify_jwt = false

@@ -175,8 +175,8 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
         <div className="flex items-center gap-3 px-5 pb-4 pt-6">
           <BrandMark />
           <div>
-            <p className="text-sm font-bold leading-tight tracking-wide text-secondary dark:text-white">TIGA AI</p>
-            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-secondary/35 dark:text-white/35">BOS</p>
+            <p className="text-sm font-bold leading-tight tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-secondary/35 dark:text-white/35">AI OS</p>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-2">
@@ -203,7 +203,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
             <div className="flex shrink-0 items-center justify-between px-5 py-5">
               <div className="flex items-center gap-2.5">
                 <BrandMark size="sm" />
-                <span className="text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AI</span>
+                <span className="text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
               </div>
               <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="rounded-lg p-1.5 text-secondary/50 hover:bg-line/5 dark:text-white/50 dark:hover:bg-white/5">
                 <X className="h-5 w-5" />
@@ -239,7 +239,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
             </button>
             <div className="flex items-center gap-2.5 md:hidden">
               <BrandMark size="sm" />
-              <span className="text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AI</span>
+              <span className="text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
             </div>
           </div>
           <div className="hidden md:block" />
