@@ -16,6 +16,35 @@ self.addEventListener("activate", e => {
   );
 });
 
+// Re-engagement push (see shared-infra.ts subscribePush / the send-streak-reminders
+// Edge Function) arrives here as { title, body, url, tag } — without this handler
+// the push event fires but nothing is ever shown, silently.
+self.addEventListener("push", e => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (err) {}
+  const title = data.title || "TIGA.AI";
+  e.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || "",
+      tag: data.tag || "tiga-notify",
+      icon: "/icon.svg",
+      badge: "/icon.svg",
+      data: { url: data.url || "./" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "./";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+      for (const c of list) { if ("focus" in c) return c.focus(); }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
