@@ -22,7 +22,7 @@ export function StudentsProgressCard({ counts }: { counts: Record<SalesStatus, n
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Students Pipeline</CardTitle>
-        <Link href="/sales" className="text-xs font-medium text-purple-400 hover:text-purple-300">
+        <Link href="/sales" className="text-xs font-medium text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300">
           View all
         </Link>
       </CardHeader>
@@ -38,9 +38,9 @@ export function StudentsProgressCard({ counts }: { counts: Record<SalesStatus, n
                 <li key={stage.key}>
                   <div className="mb-1.5 flex items-center justify-between text-xs">
                     <span className="font-medium text-secondary/60">{stage.label}</span>
-                    <span className="font-semibold text-white">{value}</span>
+                    <span className="font-semibold text-secondary dark:text-white">{value}</span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-line/[0.06] dark:bg-white/[0.06]">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shadow-[0_0_8px_rgba(139,92,246,0.6)] transition-all duration-500"
                       style={{ width: `${pct}%` }}

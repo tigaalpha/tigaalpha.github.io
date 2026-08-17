@@ -27,14 +27,14 @@ const PALETTE = {
   revenue: "#8b5cf6",
   expense: "#f97316",
   profit: "#22c55e",
-  grid: "rgba(148, 163, 184, 0.08)",
-  text: "rgba(226, 232, 240, 0.4)",
+  grid: "rgba(100, 116, 139, 0.14)",
+  text: "rgba(100, 116, 139, 0.55)",
 };
 
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div className="rounded-xl border border-white/10 bg-[#12141d] px-3 py-2 text-xs shadow-card">
+    <div className="rounded-xl border border-line/10 bg-card px-3 py-2 text-xs shadow-card dark:border-white/10 dark:bg-[#12141d]">
       <p className="mb-1 font-medium text-secondary/50">{label}</p>
       {payload.map((entry) => (
         <p key={entry.name} style={{ color: entry.color }}>
@@ -89,12 +89,12 @@ export function FinanceCharts() {
         </CardHeader>
         <CardContent>
           {!monthly || !totals ? (
-            <div className="h-64 animate-pulse rounded-xl bg-white/[0.03]" />
+            <div className="h-64 animate-pulse rounded-xl bg-line/[0.03] dark:bg-white/[0.03]" />
           ) : showTable ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/5 text-left text-[11px] uppercase tracking-wider text-secondary/35">
+                  <tr className="border-b border-line/10 text-left text-[11px] uppercase tracking-wider text-secondary/35 dark:border-white/5">
                     <th className="py-2 pr-4 font-medium">เดือน</th>
                     <th className="py-2 pr-4 font-medium">รายได้</th>
                     <th className="py-2 pr-4 font-medium">ค่าใช้จ่าย</th>
@@ -103,7 +103,7 @@ export function FinanceCharts() {
                 </thead>
                 <tbody>
                   {monthly.map((m) => (
-                    <tr key={m.monthKey} className="border-b border-white/5 text-secondary last:border-0">
+                    <tr key={m.monthKey} className="border-b border-line/10 text-secondary last:border-0 dark:border-white/5">
                       <td className="py-2 pr-4">{m.monthLabel}</td>
                       <td className="py-2 pr-4">{formatBaht(m.revenue)}</td>
                       <td className="py-2 pr-4">{formatBaht(m.expense)}</td>
@@ -144,7 +144,7 @@ export function FinanceCharts() {
         </CardHeader>
         <CardContent>
           {!totals ? (
-            <div className="h-72 animate-pulse rounded-xl bg-white/[0.03]" />
+            <div className="h-72 animate-pulse rounded-xl bg-line/[0.03] dark:bg-white/[0.03]" />
           ) : (
             <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-around">
               <div className="relative h-56 w-56 shrink-0">
@@ -160,7 +160,7 @@ export function FinanceCharts() {
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-xs text-secondary/40">Total</span>
-                  <span className="text-xl font-bold text-white">{formatBaht(totals.revenue)}</span>
+                  <span className="text-xl font-bold text-secondary dark:text-white">{formatBaht(totals.revenue)}</span>
                   <span className="text-[10px] uppercase tracking-widest text-secondary/35">THB</span>
                 </div>
               </div>
@@ -171,7 +171,7 @@ export function FinanceCharts() {
                       <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
                       {entry.name}
                     </span>
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-secondary dark:text-white">
                       {entry.pct.toFixed(0)}% <span className="text-secondary/40">({formatBaht(entry.value)})</span>
                     </span>
                   </li>

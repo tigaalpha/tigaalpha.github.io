@@ -7,15 +7,15 @@ import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { aggregateByMonth, formatBaht, type MonthlyPoint } from "@/lib/finance";
 
-const GRID = "rgba(148, 163, 184, 0.08)";
-const TICK = "rgba(226, 232, 240, 0.4)";
+const GRID = "rgba(100, 116, 139, 0.14)";
+const TICK = "rgba(100, 116, 139, 0.55)";
 
 function RevenueTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div className="rounded-xl border border-white/10 bg-[#12141d] px-3 py-2 text-xs shadow-card">
+    <div className="rounded-xl border border-line/10 bg-card px-3 py-2 text-xs shadow-card dark:border-white/10 dark:bg-[#12141d]">
       <p className="mb-0.5 font-medium text-secondary/50">{label}</p>
-      <p className="font-semibold text-purple-300">{formatBaht(payload[0]?.value ?? 0)}</p>
+      <p className="font-semibold text-purple-600 dark:text-purple-300">{formatBaht(payload[0]?.value ?? 0)}</p>
     </div>
   );
 }
@@ -36,11 +36,11 @@ export function RevenueOverviewCard() {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Revenue Overview</CardTitle>
-        <span className="rounded-full border border-white/5 bg-white/[0.03] px-2.5 py-1 text-xs text-secondary/45">This Year</span>
+        <span className="rounded-full border border-line/10 bg-line/[0.03] px-2.5 py-1 text-xs text-secondary/45 dark:border-white/5 dark:bg-white/[0.03]">This Year</span>
       </CardHeader>
       <CardContent>
         {!monthly ? (
-          <div className="h-64 animate-pulse rounded-xl bg-white/[0.03]" />
+          <div className="h-64 animate-pulse rounded-xl bg-line/[0.03] dark:bg-white/[0.03]" />
         ) : (
           <ResponsiveContainer width="100%" height={260}>
             <AreaChart data={monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>

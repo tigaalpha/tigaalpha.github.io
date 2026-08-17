@@ -23,6 +23,11 @@ body {
 
 body {
   background-color: rgb(var(--page));
+  background-image:
+    radial-gradient(1000px 520px at 88% -12%, rgb(139 92 246 / 0.08), transparent 62%),
+    radial-gradient(820px 420px at -8% 8%, rgb(59 130 246 / 0.06), transparent 60%),
+    radial-gradient(700px 380px at 50% 110%, rgb(236 72 153 / 0.05), transparent 65%);
+  background-attachment: fixed;
   color: rgb(var(--foreground));
 }
 

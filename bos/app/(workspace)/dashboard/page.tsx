@@ -200,7 +200,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Good morning, Tiga! 👋</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-secondary dark:text-white">Good morning, Tiga! 👋</h1>
           <p className="mt-1 text-sm text-secondary/45">Here&apos;s what&apos;s happening with your school today.</p>
         </div>
         <CommandSearch />

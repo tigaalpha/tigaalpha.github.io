@@ -31,7 +31,7 @@ export function UserMenu({ userName, userEmail }: UserMenuProps) {
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-gradient text-xs font-semibold text-white">
           {userName.slice(0, 1).toUpperCase()}
         </div>
-        <span className="hidden text-sm font-medium text-white/80 sm:block">{userName}</span>
+        <span className="hidden text-sm font-medium text-secondary/80 sm:block dark:text-white/80">{userName}</span>
       </button>
 
       {open ? (

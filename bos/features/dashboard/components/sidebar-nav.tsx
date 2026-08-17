@@ -178,17 +178,17 @@ function NavLink({
       className={cn(
         "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
         active
-          ? "border border-blue-400/15 bg-gradient-to-r from-blue-500/15 via-indigo-500/10 to-purple-500/15 text-white shadow-[0_0_18px_-4px_rgba(99,102,241,0.45)]"
-          : "text-white/55 hover:bg-white/5 hover:text-white"
+          ? "border border-blue-400/15 bg-gradient-to-r from-blue-500/15 via-indigo-500/10 to-purple-500/15 text-secondary shadow-[0_0_18px_-4px_rgba(99,102,241,0.45)] dark:text-white"
+          : "text-secondary/55 hover:bg-line/5 hover:text-secondary dark:text-white/55 dark:hover:bg-white/5 dark:hover:text-white"
       )}
     >
-      <Icon className={cn("h-4 w-4 shrink-0", active ? "text-blue-300" : "text-white/40 group-hover:text-white/70")} />
+      <Icon className={cn("h-4 w-4 shrink-0", active ? "text-blue-600 dark:text-blue-300" : "text-secondary/40 group-hover:text-secondary/70 dark:text-white/40 dark:group-hover:text-white/70")} />
       <span className="flex-1 truncate">{label}</span>
       {badgeCount ? (
         <span
           className={cn(
             "rounded-full px-1.5 py-0.5 text-[11px] font-semibold",
-            active ? "bg-purple-500 text-white" : "bg-purple-500/15 text-purple-300"
+            active ? "bg-purple-500 text-white" : "bg-purple-500/15 text-purple-600 dark:text-purple-300"
           )}
         >
           {badgeCount > 9 ? "9+" : badgeCount}
@@ -218,7 +218,7 @@ function GroupSection({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-white/35 transition-colors hover:text-white/70"
+        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-secondary/35 transition-colors hover:text-secondary/70 dark:text-white/35 dark:hover:text-white/70"
       >
         <span className="flex items-center gap-1.5">
           {group.label}
@@ -295,7 +295,7 @@ export function SidebarNav({ role = null, onNavigate, soloMode = false, alertCou
           <button
             type="button"
             onClick={() => setAdvancedOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-white/35 hover:text-white/70"
+            className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-secondary/35 hover:text-secondary/70 dark:text-white/35 dark:hover:text-white/70"
           >
             Advanced
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", advancedOpen ? "rotate-180" : "")} />

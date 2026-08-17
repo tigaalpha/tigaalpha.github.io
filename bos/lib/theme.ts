@@ -17,7 +17,7 @@ export const THEME_INIT_SCRIPT = `
 (function() {
   try {
     var stored = localStorage.getItem("${THEME_STORAGE_KEY}");
-    var theme = stored === "light" || stored === "dark" ? stored : "dark";
+    var theme = stored === "light" || stored === "dark" ? stored : "light";
     if (theme === "dark") document.documentElement.classList.add("dark");
   } catch (e) {}
 })();

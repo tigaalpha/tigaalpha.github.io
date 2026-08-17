@@ -69,7 +69,7 @@ function SoloModeToggle({ soloMode, onToggle }: { soloMode: boolean | null; onTo
   return (
     <button
       onClick={onToggle}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-white/60 hover:bg-white/5 hover:text-white"
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-secondary/60 hover:bg-line/5 hover:text-secondary dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white"
       aria-label={soloMode ? "สลับไปโหมดเต็ม" : "สลับไปโหมด Solo"}
       title={soloMode ? "โหมด Solo — คลิกเพื่อดูเมนูทั้งหมด" : "คลิกเพื่อเข้าโหมด Solo (ย่อเมนูให้เหลือแต่ที่ใช้ทุกวัน)"}
     >
@@ -82,7 +82,7 @@ function BellLink({ alertCount }: { alertCount: number }) {
   return (
     <Link
       href="/notifications"
-      className="relative flex h-9 w-9 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+      className="relative flex h-9 w-9 items-center justify-center rounded-lg text-secondary/60 transition-colors hover:bg-line/5 hover:text-secondary dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white"
       aria-label="Notifications"
     >
       <Bell className="h-4 w-4" />
@@ -105,7 +105,7 @@ const MOBILE_TABS: { href: string; label: string; icon: LucideIcon; badge?: bool
 function MobileBottomNav({ alertCount, onMore }: { alertCount: number; onMore: () => void }) {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-white/5 bg-[#0d1017]/95 px-2 py-1.5 backdrop-blur md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-line/10 bg-white/95 px-2 py-1.5 backdrop-blur dark:border-white/5 dark:bg-[#0d1017]/95 md:hidden">
       {MOBILE_TABS.map((tab) => {
         const active = pathname === tab.href || pathname?.startsWith(`${tab.href}/`);
         const Icon = tab.icon;
@@ -115,7 +115,7 @@ function MobileBottomNav({ alertCount, onMore }: { alertCount: number; onMore: (
             href={tab.href}
             className={cn(
               "relative flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium transition-colors",
-              active ? "text-purple-400" : "text-white/45 hover:text-white/80"
+              active ? "text-purple-600 dark:text-purple-400" : "text-secondary/45 hover:text-secondary/80 dark:text-white/45 dark:hover:text-white/80"
             )}
           >
             <span className="relative">
@@ -132,7 +132,7 @@ function MobileBottomNav({ alertCount, onMore }: { alertCount: number; onMore: (
       })}
       <button
         onClick={onMore}
-        className="flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium text-white/45 transition-colors hover:text-white/80"
+        className="flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium text-secondary/45 transition-colors hover:text-secondary/80 dark:text-white/45 dark:hover:text-white/80"
       >
         <MoreHorizontal className="h-5 w-5" />
         More
@@ -171,27 +171,27 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
 
   return (
     <div className="flex min-h-screen bg-page">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-white/5 bg-[#0d1017] md:flex">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-line/10 bg-white md:flex dark:border-white/5 dark:bg-[#0d1017]">
         <div className="flex items-center gap-3 px-5 pb-4 pt-6">
           <BrandMark />
           <div>
-            <p className="text-sm font-bold leading-tight tracking-wide text-white">TIGA AI</p>
-            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/35">BOS</p>
+            <p className="text-sm font-bold leading-tight tracking-wide text-secondary dark:text-white">TIGA AI</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-secondary/35 dark:text-white/35">BOS</p>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-2">
           <SidebarNav role={role} soloMode={soloMode ?? false} alertCount={alertCount} />
         </div>
         <div className="p-3">
-          <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-line/10 bg-line/[0.03] p-3 dark:border-white/5 dark:bg-white/[0.03]">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-gradient text-xs font-bold text-white">
               {userName.slice(0, 1).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-white">{userName}</p>
-              <p className="text-[11px] text-white/40">{roleLabel}</p>
+              <p className="truncate text-sm font-semibold text-secondary dark:text-white">{userName}</p>
+              <p className="text-[11px] text-secondary/40 dark:text-white/40">{roleLabel}</p>
             </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-white/25" />
+            <ChevronRight className="h-4 w-4 shrink-0 text-secondary/25 dark:text-white/25" />
           </div>
         </div>
       </aside>
@@ -199,13 +199,13 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
       {mobileOpen ? (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-[#0d1017] shadow-card">
+          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-card dark:bg-[#0d1017]">
             <div className="flex shrink-0 items-center justify-between px-5 py-5">
               <div className="flex items-center gap-2.5">
                 <BrandMark size="sm" />
-                <span className="text-sm font-bold tracking-wide text-white">TIGA AI</span>
+                <span className="text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AI</span>
               </div>
-              <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="rounded-lg p-1.5 text-white/50 hover:bg-white/5">
+              <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="rounded-lg p-1.5 text-secondary/50 hover:bg-line/5 dark:text-white/50 dark:hover:bg-white/5">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -213,13 +213,13 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
               <SidebarNav role={role} soloMode={soloMode ?? false} alertCount={alertCount} onNavigate={() => setMobileOpen(false)} />
             </div>
             <div className="p-3">
-              <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3">
+              <div className="flex items-center gap-3 rounded-2xl border border-line/10 bg-line/[0.03] p-3 dark:border-white/5 dark:bg-white/[0.03]">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-gradient text-xs font-bold text-white">
                   {userName.slice(0, 1).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-white">{userName}</p>
-                  <p className="text-[11px] text-white/40">{roleLabel}</p>
+                  <p className="truncate text-sm font-semibold text-secondary dark:text-white">{userName}</p>
+                  <p className="text-[11px] text-secondary/40 dark:text-white/40">{roleLabel}</p>
                 </div>
               </div>
             </div>
@@ -228,18 +228,18 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-white/5 bg-[#0b0e14]/85 px-4 backdrop-blur md:px-6">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-line/10 bg-white/85 px-4 backdrop-blur md:px-6 dark:border-white/5 dark:bg-[#0b0e14]/85">
           <div className="flex items-center gap-3">
             <button
-              className={cn("rounded-lg p-2 hover:bg-white/5 md:hidden")}
+              className={cn("rounded-lg p-2 hover:bg-line/5 dark:hover:bg-white/5 md:hidden")}
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
             >
-              <Menu className="h-5 w-5 text-white/70" />
+              <Menu className="h-5 w-5 text-secondary/70 dark:text-white/70" />
             </button>
             <div className="flex items-center gap-2.5 md:hidden">
               <BrandMark size="sm" />
-              <span className="text-sm font-bold tracking-wide text-white">TIGA AI</span>
+              <span className="text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AI</span>
             </div>
           </div>
           <div className="hidden md:block" />

@@ -13,10 +13,10 @@ export interface LessonListItem {
 }
 
 const STATUS_PILL: Record<string, { label: string; cls: string }> = {
-  confirmed: { label: "Confirmed", cls: "bg-emerald-500/15 text-emerald-400" },
-  unconfirmed: { label: "Pending", cls: "bg-orange-500/15 text-orange-400" },
-  declined: { label: "Declined", cls: "bg-red-500/15 text-red-400" },
-  final: { label: "Final", cls: "bg-purple-500/15 text-purple-400" },
+  confirmed: { label: "Confirmed", cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+  unconfirmed: { label: "Pending", cls: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
+  declined: { label: "Declined", cls: "bg-red-500/15 text-red-600 dark:text-red-400" },
+  final: { label: "Final", cls: "bg-purple-500/15 text-purple-600 dark:text-purple-400" },
 };
 
 function timeLabel(iso: string): string {
@@ -28,7 +28,7 @@ export function LessonListCard({ title, lessons }: { title: string; lessons: Les
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>{title}</CardTitle>
-        <Link href="/calendar" className="text-xs font-medium text-purple-400 hover:text-purple-300">
+        <Link href="/calendar" className="text-xs font-medium text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300">
           View calendar
         </Link>
       </CardHeader>
@@ -39,7 +39,7 @@ export function LessonListCard({ title, lessons }: { title: string; lessons: Les
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/5 text-left text-[11px] uppercase tracking-wider text-secondary/35">
+                <tr className="border-b border-line/10 text-left text-[11px] uppercase tracking-wider text-secondary/35 dark:border-white/5">
                   <th className="py-2 pr-4 font-medium">Time</th>
                   <th className="py-2 pr-4 font-medium">Lesson</th>
                   <th className="py-2 pr-4 font-medium">Type</th>
@@ -54,8 +54,8 @@ export function LessonListCard({ title, lessons }: { title: string; lessons: Les
                       ? STATUS_PILL.final
                       : undefined;
                   return (
-                    <tr key={lesson.id} className="border-b border-white/5 transition-colors last:border-0 hover:bg-white/[0.02]">
-                      <td className="py-2.5 pr-4 font-medium text-white">{timeLabel(lesson.startTime)}</td>
+                    <tr key={lesson.id} className="border-b border-line/10 transition-colors last:border-0 hover:bg-line/[0.02] dark:border-white/5 dark:hover:bg-white/[0.02]">
+                      <td className="py-2.5 pr-4 font-medium text-secondary dark:text-white">{timeLabel(lesson.startTime)}</td>
                       <td className="py-2.5 pr-4 text-secondary/75">{lesson.title}</td>
                       <td className="py-2.5 pr-4 text-secondary/45">{lesson.lessonType === "final" ? "Final" : "Normal"}</td>
                       <td className="py-2.5">
