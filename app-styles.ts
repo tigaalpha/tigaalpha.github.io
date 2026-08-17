@@ -47,8 +47,27 @@ html[data-theme="dark"]{
 html, body, #root{background:var(--bg)}
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600&family=Share+Tech+Mono&display=swap');
-.tg{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text2);height:100vh;display:flex;flex-direction:column;overflow:hidden;position:relative}
+/* Mobile viewport height: 100vh is the LARGE viewport (behind the browser's
+   URL bar) on phones, so an app shell sized with it is taller than the visible
+   screen — the bottom bar gets pushed off / pages feel "too long". 100dvh is
+   the dynamic viewport height (shrinks/grows with the URL bar); the vh line
+   stays first as the fallback for browsers without dvh (all modern ones have
+   it: iOS 15.4+, Chrome 108+, Android WebView 108+). */
+.tg{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text2);height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .tg>*{position:relative;z-index:1}
+
+/* ── Mobile safe-area overrides (kept near the top of the file so the
+   viewport-height + notch/home-indicator handling lives in one place).
+   These are ADDITIVE declarations — none of the base rules below define
+   padding-top/padding-bottom for these selectors, so nothing is duplicated.
+   The .tg prefix raises specificity above the base rules defined later in
+   the file (which would otherwise win by source order); every overlay/dialog
+   below renders inside the .tg app root, so the prefix always matches. */
+.tg .practicehdr,.tg .songhdr{padding-top:calc(12px + env(safe-area-inset-top,0px))}
+.tg .modal-ov,.tg .setov{padding-top:calc(18px + env(safe-area-inset-top,0px));padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+.tg .chestov{padding-top:calc(20px + env(safe-area-inset-top,0px));padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+.tg .permprimer-overlay{padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.tg .modal-box,.tg .setcard{max-height:calc(100dvh - 40px)}
 /* keyboard-only focus ring (WCAG 2.4.7) — visible outline without affecting mouse users */
 .tg :focus-visible{outline:2px solid #d97757;outline-offset:2px;border-radius:6px}
 .tg button:focus-visible,.tg textarea:focus-visible{outline:2px solid #d97757;outline-offset:2px}
@@ -60,7 +79,7 @@ html, body, #root{background:var(--bg)}
 .hamb span{display:block;height:2.5px;width:100%;background:#d97757;border-radius:2px}
 .hamb:active{background:var(--bd1)}
 .drawer-scrim{position:fixed;inset:0;z-index:1450;background:rgba(4,4,12,.62);backdrop-filter:blur(3px);animation:fadein .2s}
-.drawer{position:fixed;top:0;left:0;bottom:0;width:82%;max-width:300px;z-index:1460;background:var(--card);border-right:1px solid #d9775733;box-shadow:8px 0 44px -10px #000;transform:translateX(-105%);transition:transform .26s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px));overflow-y:auto}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:82%;max-width:300px;z-index:1460;background:var(--card);border-right:1px solid #d9775733;box-shadow:8px 0 44px -10px #000;transform:translateX(-105%);transition:transform .26s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;padding:calc(18px + env(safe-area-inset-top,0px)) 14px calc(18px + env(safe-area-inset-bottom,0px));overflow-y:auto}
 .drawer.open{transform:translateX(0)}
 .drawer-brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px;border-bottom:1px solid var(--bd1);margin-bottom:12px}
 .drawer-brand .lbox{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:11px;border:1.5px solid #d97757;color:#d97757;font-family:'Orbitron',sans-serif;font-weight:900;font-size:15px}
@@ -208,7 +227,7 @@ html, body, #root{background:var(--bg)}
 .mmsgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:#d97757 var(--card3)}
 .mmsgs::-webkit-scrollbar{width:3px}
 .mmsgs::-webkit-scrollbar-thumb{background:#d97757;border-radius:2px}
-.miw{padding:10px 12px;background:var(--card3);border-top:1px solid #d9775733;flex-shrink:0}
+.miw{padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));background:var(--card3);border-top:1px solid #d9775733;flex-shrink:0}
 @keyframes pulse{0%,100%{box-shadow:0 0 10px #d97757,0 0 25px #d9775744}50%{box-shadow:0 0 20px #d97757,0 0 50px #d9775766}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-8px)}}
