@@ -165,7 +165,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
         setMsgs(prev => {
           const copy = prev.slice();
           for (let i = copy.length - 1; i >= 0; i--) {
-            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text: lc.err }; break; }
+            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text: lc.chatErr }; break; }
           }
           return copy;
         });
@@ -173,7 +173,8 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
       setLoading(false);
     } catch (e) {
       console.error("Chat error:", e);
-      setMsgs(prev => [...prev, { role: "ai", text: lc.err }]);
+      // never surface the raw provider error (401/429 JSON) — friendly copy only
+      setMsgs(prev => [...prev, { role: "ai", text: lc.chatErr }]);
       setLoading(false);
     } finally {
       streamingRef.current = false;

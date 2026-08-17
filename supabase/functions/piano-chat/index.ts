@@ -23,7 +23,9 @@
 //               switch below does NOT apply here, on purpose.
 //   Response (stream, default): text/event-stream-shaped body where each
 //             line is `data: {"content":"<token text>"}`, client also
-//             tolerates a trailing `data: [DONE]`.
+//             tolerates a trailing `data: [DONE]`. Provider failures are
+//             emitted as `data: {"error":"<message>"}` (NEVER as content) so
+//             the client can show a friendly localized message.
 //   Response (stream:false): `{ "text": "<full reply>" }`.
 //   Response (raw passthrough): Anthropic's own Messages API JSON, unchanged
 //             (client reads `data.content` blocks itself).
@@ -67,9 +69,23 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const DEFAULT_MODEL = { provider: "anthropic", model: "claude-sonnet-4-6" };
+const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"; // used when the active provider's key is missing
 const MAX_TOKENS = 1500;
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
+
+// A provider whose API key is not configured can never succeed — silently route
+// to the one that IS configured (Anthropic ↔ Gemini) instead of 401/403-ing the
+// learner's every message. Keeps the chat alive when the admin panel points at a
+// provider whose key is missing/expired, or when a key gets revoked mid-flight.
+function effective(choice: { provider: string; model: string }): { provider: string; model: string } {
+  if (choice.provider === "gemini" && !GEMINI_API_KEY && ANTHROPIC_API_KEY) return { provider: "anthropic", model: DEFAULT_MODEL.model };
+  if (choice.provider === "anthropic" && !ANTHROPIC_API_KEY && GEMINI_API_KEY) return { provider: "gemini", model: GEMINI_FALLBACK_MODEL };
+  return choice;
+}
+function effectiveDefault(): { provider: string; model: string } {
+  return effective(DEFAULT_MODEL);
+}
 
 // ── which provider/model the student-facing chat should use right now ──
 async function resolveActiveModel(authHeader: string | null): Promise<{ provider: string; model: string }> {
@@ -80,17 +96,23 @@ async function resolveActiveModel(authHeader: string | null): Promise<{ provider
         Authorization: authHeader || `Bearer ${SUPABASE_ANON_KEY}`,
       },
     });
-    if (!res.ok) return DEFAULT_MODEL;
+    if (!res.ok) return effectiveDefault();
     const rows = await res.json();
     const v = rows?.[0]?.value;
-    if (v && typeof v.provider === "string" && typeof v.model === "string") return v;
+    if (v && typeof v.provider === "string" && typeof v.model === "string") return effective(v);
   } catch (_e) { /* fall through to default */ }
-  return DEFAULT_MODEL;
+  return effectiveDefault();
 }
 
 // ── SSE helpers: both providers' raw streams get normalized to this ──
 function sseChunk(content: string): string {
   return `data: ${JSON.stringify({ content })}\n\n`;
+}
+// Typed error event: the client detects `{"error":...}` and surfaces a friendly
+// localized message — a raw provider 401/429 JSON blob must NEVER land in the
+// learner's chat bubble as text.
+function sseError(message: string): string {
+  return `data: ${JSON.stringify({ error: message })}\n\n`;
 }
 const SSE_DONE = "data: [DONE]\n\n";
 
@@ -245,7 +267,10 @@ Deno.serve(async (req: Request) => {
         try {
           for await (const piece of gen) controller.enqueue(enc.encode(sseChunk(piece)));
         } catch (e) {
-          controller.enqueue(enc.encode(sseChunk(`\n[error: ${(e as Error).message}]`)));
+          // Never stream raw provider errors into the chat — typed event instead
+          // (see sseError above). Log server-side for diagnosis.
+          console.error("[piano-chat] provider stream failed:", (e as Error).message);
+          controller.enqueue(enc.encode(sseError((e as Error).message)));
         } finally {
           controller.enqueue(enc.encode(SSE_DONE));
           controller.close();

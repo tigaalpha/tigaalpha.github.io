@@ -199,7 +199,8 @@ html, body, #root{background:var(--bg)}
    a near-black, which left the expanded chat dark while the app was in light mode. */
 .mov{display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;flex-direction:column}
 .mov.open{display:flex}
-.mhdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #d9775733;background:var(--card3);flex-shrink:0}
+.mhdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));border-bottom:1px solid #d9775733;background:var(--card3);flex-shrink:0}
+.mhdr-l{display:flex;align-items:center;gap:10px;min-width:0}
 .mlbl{font-family:'Orbitron',sans-serif;font-size:10px;color:#d97757;letter-spacing:1.5px;display:flex;align-items:center;gap:7px}
 .cbtn{background:none;border:1px solid #ff5252;border-radius:4px;padding:5px 14px;cursor:pointer;color:#ff5252;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;transition:all .2s}
 .cbtn:hover{background:rgba(255,82,82,.1);box-shadow:0 0 10px #ff5252}

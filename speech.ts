@@ -183,10 +183,9 @@ export function speakRobust(text, lang, onDone, onBlocked, rateMul = 1) {
    Resolves with true if audio started; onDone fires when playback is done (or
    immediately when there is nothing to say); onBlocked when no engine exists. */
 export async function speakDeviceOrNative(text, lang, onDone, onBlocked, rateMul = 1) {
-  if (ttsSupported()) {
-    try { const ok = speakRobust(text, lang, onDone, onBlocked, rateMul); if (ok) return true; } catch (e) {}
-    return false;
-  }
+  // Inside the Android app the OS TTS plugin is the reliable path — WebView
+  // speechSynthesis is missing on many devices and silently produces no audio on
+  // others. Try the plugin FIRST on native platforms, then speechSynthesis.
   if (Capacitor.isNativePlatform()) {
     try {
       const { TextToSpeech } = await import("@capacitor-community/text-to-speech");
@@ -198,7 +197,13 @@ export async function speakDeviceOrNative(text, lang, onDone, onBlocked, rateMul
       await TextToSpeech.speak({ text: clean, lang: langCode, rate, pitch: 1.0, category: "ambient" });
       if (onDone) onDone();
       return true;
-    } catch (e) { if (onBlocked) onBlocked(); return false; }
+    } catch (e) {
+      // plugin missing (old APK) or failed — fall through to speechSynthesis
+    }
+  }
+  if (ttsSupported()) {
+    try { const ok = speakRobust(text, lang, onDone, onBlocked, rateMul); if (ok) return true; } catch (e) {}
+    return false;
   }
   if (onBlocked) onBlocked();
   return false;

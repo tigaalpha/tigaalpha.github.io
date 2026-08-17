@@ -6921,6 +6921,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [page, setPage] = useState("pathway");
   useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
   useEffect(() => { if (page !== "sensei") clearSeq(); }, [page]); // stop any Sensei demo audio the instant the learner navigates away
+  // remember the most recent non-Sensei page so the Sensei chat's ← button can
+  // take the learner back where they came from (pathway lesson, studio, etc.)
+  const pageTrackRef = useRef("pathway");
+  useEffect(() => { if (page !== "sensei") pageTrackRef.current = page; }, [page]);
 
   // null | "time" | "ai" — which GuestGateScreen (if any) currently covers the
   // screen. Two distinct producers, one shared consumer (see render below).
@@ -7726,7 +7730,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "gamepage" && <GamesPage lang={lang} />}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
-      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} endRef={endRef} input={input} setInput={setInput} send={send} setModal={setModal} />}
+      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} endRef={endRef} input={input} setInput={setInput} send={send} setModal={setModal} />}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}
@@ -7776,7 +7780,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* MODAL (sensei expanded) */}
       <div className={`mov${modal ? " open" : ""}`}>
         <div className="mhdr">
-          <div className="mlbl"><div className="dot" />⤢ {lc.aiLabel}</div>
+          <div className="mhdr-l">
+            <button className="vmback" onClick={() => setModal(false)} aria-label={lc.back} title={lc.back}>←</button>
+            <div className="mlbl"><div className="dot" />⤢ {lc.aiLabel}</div>
+          </div>
           <button className="cbtn" onClick={() => setModal(false)}>{lc.close}</button>
         </div>
         <div className="mpw"><Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} small /></div>

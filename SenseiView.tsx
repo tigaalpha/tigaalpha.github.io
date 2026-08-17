@@ -11,15 +11,13 @@ import { Msg, Typing, Input } from "./chat-ui";
    this page==="sensei" block and stays in PianoApp. lc is derived from lang
    internally. recommendNext/toggleChordStyle are PianoApp closures (not
    top-level, not exported), so they're threaded as props. ── */
-export function SenseiView({ lang, activeStageId, setPage, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, endRef, input, setInput, send, setModal }) {
+export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, endRef, input, setInput, send, setModal }) {
   const lc = L[lang];
   return (
         <>
-          {activeStageId && (
-            <button className="senseiback" onClick={() => { playUi("click"); setPage("pathway"); }}>
-              <span>←</span> {lc.backChangeKey}
-            </button>
-          )}
+          <button className="senseiback" onClick={() => { playUi("click"); onBack(); }} aria-label={activeStageId ? lc.backChangeKey : lc.back}>
+            <span>←</span> {activeStageId ? lc.backChangeKey : lc.back}
+          </button>
           {(() => {
             const rec = recommendNext();
             return (

@@ -97,7 +97,17 @@ export async function streamChatCompletion(body, { onStart, onChunk, onRawChunk,
       if (!payload || payload === "[DONE]") continue;
       let evt;
       try { evt = JSON.parse(payload); } catch (e) { continue; }
-      if (evt.content) { acc += evt.content; if (onChunk) onChunk(acc); }
+      // Typed error event (new piano-chat contract): abort the stream and let the
+      // caller's catch show a friendly message. Also treats legacy `[error: ...]`
+      // content chunks the same way — a raw provider 401/429 blob must never
+      // reach a chat bubble as visible text.
+      if (evt.error) { throw new Error(typeof evt.error === "string" ? evt.error : "AI request failed"); }
+      if (evt.content) {
+        if (evt.content.startsWith("[error:") || evt.content.startsWith("\n[error:")) {
+          throw new Error(evt.content.replace(/^\n?\[error:\s*/, "").trim() || "AI request failed");
+        }
+        acc += evt.content; if (onChunk) onChunk(acc);
+      }
     }
   }
   if (stallTimer) clearTimeout(stallTimer);
