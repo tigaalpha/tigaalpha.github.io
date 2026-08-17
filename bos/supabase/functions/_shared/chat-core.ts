@@ -2,6 +2,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { generate } from "./ai-provider.ts";
 import type { ChatMessage } from "./ai-types.ts";
 import { buildSystemPrompt, type PromptName } from "./prompts.ts";
+import { detectLanguage, LANG_INSTRUCTION } from "./chat-features.ts";
 import { AI_TOOLS, OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts";
 import { getLatestCompetitorContext } from "./competitor-context.ts";
 import { logAiUsage } from "./usage-logging.ts";
@@ -229,6 +230,22 @@ export async function respond(
       .maybeSingle();
     if (playbookRow?.value) {
       systemParts.push(`## Owner's proven sales playbook (learned from their own real closed-sale chats — follow this closely)\n${playbookRow.value}`);
+    }
+  }
+
+  // งานแชท #10 — Multi-language: ลูกค้าพิมพ์อังกฤษ/จีน → ตอบเป็นภาษานั้น
+  // (เปิด/ปิดได้ผ่าน chat_feature_multilang ใน Settings)
+  {
+    const { data: langFlagRow } = await db
+      .from("integration_settings")
+      .select("value")
+      .eq("key", "chat_feature_multilang")
+      .maybeSingle();
+    if (langFlagRow?.value === "on") {
+      const lang = detectLanguage(customerMessage);
+      if (lang !== "th") {
+        systemParts.push(`## Language instruction\n${LANG_INSTRUCTION[lang]}`);
+      }
     }
   }
 

@@ -121,6 +121,53 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["profiles"]["Row"]>;
         Relationships: [];
       };
+      ai_outbox: {
+        Row: {
+          id: string;
+          feature: string;
+          status: "pending_review" | "approved" | "sent" | "rejected" | "failed";
+          mode: "suggest" | "auto";
+          channel: string;
+          customer_id: string | null;
+          recipient_line_user_id: string | null;
+          message: string;
+          message_type: "text" | "flex";
+          flex_payload: Record<string, unknown> | null;
+          reason: string | null;
+          reference_id: string | null;
+          rejected_note: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          sent_at: string | null;
+          error: string | null;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ai_outbox"]["Row"]> & {
+          feature: string;
+          message: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ai_outbox"]["Row"]>;
+        Relationships: [];
+      };
+      chat_feedback: {
+        Row: {
+          id: string;
+          feature: string;
+          customer_id: string | null;
+          original_message: string | null;
+          feedback_type: "rejected" | "edited" | "suggested";
+          note: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["chat_feedback"]["Row"]> & {
+          feature: string;
+          feedback_type: "rejected" | "edited" | "suggested";
+        };
+        Update: Partial<Database["public"]["Tables"]["chat_feedback"]["Row"]>;
+        Relationships: [];
+      };
       teachers: {
         Row: {
           id: string;
@@ -161,6 +208,7 @@ export interface Database {
           review_asked_at: string | null;
           referral_code: string | null;
           messenger_psid: string | null;
+          marketing_opt_out: boolean;
           created_at: string;
           updated_at: string;
         };

@@ -51,6 +51,15 @@ export function push(userId: string, text: string, quickReplies?: string[]): Pro
 }
 
 /**
+ * Pushes a Flex Message (bubble/container payload) — used by lesson
+ * reminders and other rich cards. The payload is built by the pure
+ * builders in chat-features.ts.
+ */
+export function pushFlex(userId: string, flexPayload: unknown, altText = "แจ้งเตือนจาก Tiga Studio"): Promise<void> {
+  return call("/message/push", { to: userId, messages: [{ type: "flex", altText, contents: flexPayload }] });
+}
+
+/**
  * Pushes an image message (e.g. the PromptPay QR) plus an optional caption.
  * LINE requires a publicly fetchable https URL — pass the Supabase Storage
  * public URL from payments.qr_url; when no URL is available, fall back to a

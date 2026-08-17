@@ -38,6 +38,7 @@ interface LineEvent {
   type: string;
   source: { userId?: string };
   message?: { type: string; text?: string; id?: string };
+  postback?: { data?: string };
   replyToken?: string;
   webhookEventId?: string;
 }
@@ -178,12 +179,102 @@ async function handleSlipImage(admin: ReturnType<typeof createAdminClient>, line
   await reply(replyToken, "ได้รับสลิปแล้วค่ะ กำลังตรวจสอบให้ รบกวนรอสักครู่ ถ้ายอดหรือข้อมูลไม่ตรง ทางเราจะติดต่อกลับนะคะ 🙏");
 }
 
+const WELCOME_REPLIES = ["จองคอร์ส", "ดูตาราง", "ราคา", "คุยกับคน"];
+const WELCOME_TEXT =
+  "สวัสดีค่ะ ยินดีต้อนรับสู่ Tiga Studio 🎹\n" +
+  "ทักมาถามอะไรก็ได้เลยนะคะ ไม่ว่าจะเรื่องคอร์สเรียน ราคา หรือตารางว่าง — AI ของเราพร้อมช่วยตอบทันที หรือกดเมนูด้านล่างก็ได้ค่ะ 😊";
+
+// Postback จาก Rich Menu: แปลงเป็นการ์ดข้อความแล้วส่งเข้า AI loop ปกติ
+// (ได้ tool ครบ — จองคอร์สได้จริง ฯลฯ) MENU_HUMAN ใช้ trigger handoff เดิม
+const POSTBACK_MESSAGES: Record<string, string> = {
+  MENU_BOOK: "อยากจองคอร์สเรียน",
+  MENU_SCHEDULE: "ช่วยดูตารางว่างให้หน่อย",
+  MENU_PRICE: "ราคาคอร์สเท่าไหร่บ้าง",
+  MENU_HUMAN: "คุยกับคน",
+};
+
+const OPT_OUT_PHRASES = ["เลิกแจ้ง", "เลิกติดต่อ", "unsubscribe", "stop", "เลิกส่ง"];
+const OPT_OUT_REPLY = "รับทราบค่ะ ไม่ส่งข้อความโปรโมชันเพิ่มแล้วนะคะ แต่ยังยินดีให้บริการตามปกติค่า 😊";
+
+async function handleFollow(admin: ReturnType<typeof createAdminClient>, event: LineEvent): Promise<void> {
+  const lineUserId = event.source?.userId;
+  const replyToken = event.replyToken;
+  if (!lineUserId || !replyToken) return;
+
+  const { data: flagRows } = await admin.from("integration_settings").select("key, value");
+  const flags = Object.fromEntries((flagRows ?? []).map((r) => [r.key, r.value])) as Record<string, string | undefined>;
+  if (flags["chat_feature_rich_menu"] !== "on") {
+    await reply(replyToken, WELCOME_TEXT, WELCOME_REPLIES).catch(() => {});
+    return;
+  }
+
+  // ลูกค้าอาจเคยขอเลิกแจ้งแล้วกลับมาแอดใหม่ — ยกเลิก opt-out ให้
+  await admin.from("customers").update({ marketing_opt_out: false }).eq("line_user_id", lineUserId).maybeSingle();
+  await reply(replyToken, WELCOME_TEXT, WELCOME_REPLIES).catch(() => {});
+  await logSystemEvent(admin, "line-webhook", "info", `follow: ${lineUserId} กลับมาแอด LINE ใหม่`);
+}
+
+async function handleUnfollow(admin: ReturnType<typeof createAdminClient>, event: LineEvent): Promise<void> {
+  const lineUserId = event.source?.userId;
+  if (!lineUserId) return;
+  await admin.from("customers").update({ marketing_opt_out: true }).eq("line_user_id", lineUserId).maybeSingle();
+  await logSystemEvent(admin, "line-webhook", "info", `unfollow: ${lineUserId} เลิกติดตาม (ตั้ง opt-out)`);
+}
+
+async function handlePostback(admin: ReturnType<typeof createAdminClient>, event: LineEvent): Promise<void> {
+  const lineUserId = event.source?.userId;
+  const replyToken = event.replyToken;
+  const data = event.postback?.data ?? "";
+  if (!lineUserId || !replyToken || !data.startsWith("MENU_")) return;
+
+  const syntheticMessage = POSTBACK_MESSAGES[data] ?? POSTBACK_MESSAGES.MENU_BOOK;
+  try {
+    const conversationId = await resolveConversation(admin, lineUserId);
+    await admin.from("messages").insert({ conversation_id: conversationId, sender: "customer", content: syntheticMessage, metadata: { postback: data } });
+    const { reply: text, quickReplies } = await respond(admin, conversationId, syntheticMessage);
+    await reply(replyToken, text, quickReplies);
+  } catch (err) {
+    await logSystemEvent(admin, "line-webhook", "error", `postback ${data} failed: ${err instanceof Error ? err.message : String(err)}`);
+    await reply(replyToken, FALLBACK_REPLY).catch(() => {});
+  }
+}
+
+async function notifyOwnerNewChat(admin: ReturnType<typeof createAdminClient>, customerName: string, messageText: string): Promise<void> {
+  await admin.from("notifications").insert({
+    type: "new_customer_chat",
+    title: `${customerName} ทักเข้ามา`, 
+    body: messageText.slice(0, 300),
+  });
+  const { data: ownerRow } = await admin.from("integration_settings").select("value").eq("key", "owner_line_user_id").maybeSingle();
+  if (ownerRow?.value) {
+    await push(ownerRow.value, `💬 ${customerName}: ${messageText.slice(0, 200)}`).catch(() => {});
+  }
+}
+
 async function processEvents(admin: ReturnType<typeof createAdminClient>, events: LineEvent[]): Promise<void> {
   const safeMode = await isSafeModeOn(admin);
+  const { data: flagRows } = await admin.from("integration_settings").select("key, value");
+  const flags = Object.fromEntries((flagRows ?? []).map((r) => [r.key, r.value])) as Record<string, string | undefined>;
 
   await Promise.all(
     events.map(async (event) => {
-      if (event.type !== "message" || !event.source.userId || !event.replyToken) return;
+      if (!event.source.userId) return;
+
+      // follow / unfollow / postback (rich menu) — ไม่ใช่ message event
+      if (event.type === "follow") {
+        await handleFollow(admin, event);
+        return;
+      }
+      if (event.type === "unfollow") {
+        await handleUnfollow(admin, event);
+        return;
+      }
+      if (event.type === "postback") {
+        await handlePostback(admin, event);
+        return;
+      }
+
+      if (event.type !== "message" || !event.replyToken) return;
       const messageType = event.message?.type;
       if (messageType !== "text" && messageType !== "image" && messageType !== "audio") return;
       if (await alreadyProcessed(admin, event.webhookEventId)) return;
@@ -227,6 +318,22 @@ async function processEvents(admin: ReturnType<typeof createAdminClient>, events
 
         const messageText = event.message?.text ?? "";
         const conversationId = await resolveConversation(admin, lineUserId);
+
+        // ลูกค้าขอเลิกแจ้ง → opt-out (broadcast/outbound จะข้ามคนนี้)
+        if (OPT_OUT_PHRASES.some((p) => messageText.trim().toLowerCase().includes(p.toLowerCase()))) {
+          await admin.from("customers").update({ marketing_opt_out: true }).eq("line_user_id", lineUserId);
+          await reply(replyToken, OPT_OUT_REPLY);
+          await logSystemEvent(admin, "line-webhook", "info", `opt-out: ${lineUserId}`);
+          return;
+        }
+
+        // แจ้งเจ้าของเมื่อลูกค้าใหม่ทักมาครั้งแรก (feature เปิด/ปิดได้)
+        if (flags["chat_feature_owner_notify"] === "on") {
+          const { count } = await admin.from("messages").select("id", { count: "exact", head: true }).eq("conversation_id", conversationId);
+          if ((count ?? 0) === 0) {
+            await notifyOwnerNewChat(admin, customer?.name ?? "ลูกค้าใหม่", messageText);
+          }
+        }
 
         // Owner Command Center (feature #10): the owner's own LINE messages
         // that look like business commands ("ยอดขายวันนี้", "ใครค้างเงิน") get

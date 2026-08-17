@@ -86,3 +86,24 @@ verify_jwt = true
 
 [functions.month-close]
 verify_jwt = false
+
+[functions.chat-outbound-nurture]
+verify_jwt = false
+
+[functions.chat-lesson-reminder]
+verify_jwt = false
+
+[functions.chat-broadcast]
+verify_jwt = true
+
+[functions.chat-review]
+verify_jwt = true
+
+[functions.chat-suggest-replies]
+verify_jwt = true
+
+[functions.chat-memory-sync]
+verify_jwt = false
+
+[functions.chat-line-setup]
+verify_jwt = false

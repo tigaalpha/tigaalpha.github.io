@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, PenLine, Check } from "lucide-react";
+import { Send, PenLine, Check, Sparkles, Loader2 } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MessagesSquare } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, describeFunctionError } from "@/lib/utils";
 import type { Tables } from "@/types/database";
 
 export function MessageThread({ conversationId }: { conversationId: string | null }) {
@@ -18,6 +18,8 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
   const [correctionDraft, setCorrectionDraft] = useState("");
   const [savingCorrection, setSavingCorrection] = useState(false);
   const [correctedIds, setCorrectedIds] = useState<Set<string>>(new Set());
+  const [suggestions, setSuggestions] = useState<string[] | null>(null);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -106,6 +108,26 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
     }
   }
 
+  async function loadSuggestions() {
+    if (!conversationId) return;
+    setLoadingSuggestions(true);
+    setSuggestions(null);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.functions.invoke("chat-suggest-replies", { body: { conversationId } });
+      if (error) throw error;
+      setSuggestions(data?.suggestions ?? []);
+    } catch (err) {
+      setSuggestions([]);
+      console.error("suggest-replies failed", await describeFunctionError(err));
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }
+
+  const lastMessage = messages[messages.length - 1];
+  const canSuggest = conversationId && lastMessage?.sender === "customer" && !loadingSuggestions;
+
   if (!conversationId) {
     return <EmptyState icon={MessagesSquare} title="Select a conversation" className="m-auto" />;
   }
@@ -164,7 +186,39 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
         ))}
         <div ref={bottomRef} />
       </div>
+
+      {(suggestions && suggestions.length > 0) || loadingSuggestions ? (
+        <div className="border-t border-line/5 p-3">
+          <p className="mb-2 flex items-center gap-1 text-xs text-secondary/50">
+            <Sparkles className="h-3 w-3 text-primary" /> คำตอบสำเร็จรูปจาก AI (กดเพื่อเติมในช่องพิมพ์)
+          </p>
+          {loadingSuggestions ? (
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {(suggestions ?? []).map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setDraft(s);
+                    setSuggestions(null);
+                  }}
+                  className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-left text-xs text-secondary transition-colors hover:bg-primary/10"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+
       <div className="flex items-end gap-2 border-t border-line/5 p-3">
+        {canSuggest ? (
+          <Button variant="outline" size="icon" title="AI ร่างคำตอบสำเร็จรูป 3 แบบ" onClick={() => void loadSuggestions()} disabled={loadingSuggestions}>
+            <Sparkles className="h-4 w-4" />
+          </Button>
+        ) : null}
         <Textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
