@@ -89,16 +89,26 @@ confirm a clean, zero-drift merge → push `main` → return to the dev branch.
 deploy process — those show up as pre-merge fast-forwards and are expected,
 not a conflict.
 
-**If you are a second agent (Codebuff or otherwise) working here
-concurrently with Claude Code:** use your own dev branch, don't push
-directly to a branch another agent is actively using, and don't merge to
-`main` while another agent's work is uncommitted elsewhere — check
-`git log --oneline -20` on `main` and `git branch -a` before starting, to
-see what's already in flight. There's no live channel between agent
-sessions (no shared chat, no lock file) — git history and this file are the
-coordination surface. If you finish work, leave `main` in a
-clean-build, zero-drift state so the next session (human or agent) starts
-from a known-good place.
+**Handoff between agents (e.g. Codebuff picking up when a Claude Code
+session runs out of usage) is sequential, not concurrent** — one agent
+stops, another continues the same work, normally on the *same* dev branch
+rather than starting a fresh one. There's no live channel between sessions
+(no shared chat, no lock file), so before continuing:
+- `git branch -a` and `git log --oneline -30` on the most recently active
+  non-`main` branch — that's almost certainly the one to keep working on.
+  Commit messages in this project describe intent, not just the diff, so
+  read a few back to understand what's actually in progress.
+- `git status` — check for uncommitted changes the previous session left
+  mid-task (see "Executing actions with care" conventions above: investigate
+  unfamiliar state before touching it, don't discard it).
+- Finish whatever was in flight before starting something new, using the
+  same commit → push → merge-to-`main` → build-verify → push pattern
+  described above.
+
+The only scenario needing a *separate* branch is genuinely simultaneous
+work by two agents at the same time — rare, but if it happens, don't push
+directly to a branch the other session is actively using, and don't merge
+to `main` while the other agent's work is uncommitted elsewhere.
 
 ## Testing
 
