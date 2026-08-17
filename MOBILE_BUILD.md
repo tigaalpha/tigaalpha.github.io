@@ -35,6 +35,18 @@ Release every time: **Releases → `android-debug-latest`** (always the
 newest build, prerelease-flagged). Download `tiga-ai-debug.apk` from there,
 allow "install from this source" when Android prompts, and install.
 
+Since v13.7.5 the app's in-app "new APK available" banner points straight
+at this Release's stable URL
+(`https://github.com/tigaalpha/tigaalpha.github.io/releases/download/android-debug-latest/tiga-ai-debug.apk`
+— see `version.json` `betaApkUrl`), so the one-time native update (e.g. a
+new Capacitor plugin like the OS TTS fallback) is a single in-app tap
+instead of hunting the Releases page. Routine web/content updates still
+arrive via OTA with no APK install at all. To rebuild the APK from the
+latest `main`, push `main` → `claude/upbeat-fermi-dey70w` (the branch
+`android-debug-build.yml` watches) — the `auto-update.yml` workflow does
+exactly this whenever a main push touches `android/**`, `ios/**` or
+`capacitor.config.ts`.
+
 That debug APK is signed with a fixed key committed at
 `android/app/debug.keystore` (default Android debug alias/passwords — not a
 secret, debug-signed builds are never accepted by the Play Store anyway).
