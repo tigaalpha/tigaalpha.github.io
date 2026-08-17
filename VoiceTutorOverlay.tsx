@@ -4,8 +4,8 @@ import { VM_VOICES } from "./speech";
 /* ── VoiceTutorOverlay ──
    The AI Voice Tutor full-screen overlay (vmOpen), extracted verbatim from
    PianoApp's inline JSX as part of Phase 2 componentization — no logic
-   changes. Native-app-only feature (isNative gate lives at the trigger
-   site in PianoApp, not here); structurally unreachable in any web/
+   changes. Android-app-only feature (isAndroidNative gate lives at the
+   trigger site in PianoApp, not here); structurally unreachable in any web/
    headless context per the modularization plan, so this extraction is
    build-verified and statically prop-audited but not driveable by a
    headless browser test — matches how the plan itself scoped this step.

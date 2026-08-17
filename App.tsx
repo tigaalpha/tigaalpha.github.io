@@ -83,6 +83,10 @@ import { useVoiceTutor } from "./use-voice-tutor";
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
 export const isNative = Capacitor.isNativePlatform();
+// Android-specific (not just "any native platform") — iOS has a scaffolded Capacitor
+// project (ios/App) but no shipped native build yet, so isNative is Android-only in
+// practice today; this stays correct if/when an iOS build ships too.
+export const isAndroidNative = isNative && Capacitor.getPlatform() === "android";
 
 /* ── Note frequencies ── */
 // Equal-temperament note frequencies, generated for a wide range (C2–C7) so the
@@ -1645,7 +1649,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     // inside a Capacitor WebView). Always shown with the MAX badge rather than
     // hidden for non-Max users: tapping it while locked opens the upgrade
     // prompt instead of the session (see onVoice's own gate where it's passed in).
-    ...(isNative ? [{ k: "voice", ic: "🎙️", c: "#d97757", t: lc.studioVoice, s: lc.studioVoiceSub, fn: onVoice, badge: "👑 MAX" }] : []),
+    ...(isAndroidNative ? [{ k: "voice", ic: "🎙️", c: "#d97757", t: lc.studioVoice, s: lc.studioVoiceSub, fn: onVoice, badge: "👑 MAX" }] : []),
     { k: "today",   ic: "📅", c: "#d97757", t: lc.navToday,        s: T("แผนซ้อมวันนี้ — สร้างใหม่ทุกวันจากความคืบหน้าจริง", "Today's plan — rebuilt daily from your real progress", "今日计划 — 每天根据真实进度生成"), fn: onToday },
     { k: "songs",   ic: "🎵", c: "#d97757", t: lc.studioPlayAlong, s: lc.studioPlayAlongSub, fn: onSongs },
     { k: "quick",   ic: "⚡", c: "#d97757", t: lc.quickTitle,       s: lc.quickSub,          fn: () => { playUi("click"); setQuickOpen(true); } },

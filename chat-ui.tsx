@@ -1,4 +1,5 @@
 import { memo, useMemo, useRef } from "react";
+import { Capacitor } from "@capacitor/core";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
 import { ttsSupported, stopSpeaking, stopCloudTTS, speakCloud, speakRobust } from "./speech";
@@ -12,11 +13,15 @@ import { ttsSupported, stopSpeaking, stopCloudTTS, speakCloud, speakRobust } fro
    modularization. ── */
 
 
-/* Read-aloud in the chat is switched off while the Gemini TTS quota is sorted
-   out — the free tier runs out within a few taps, so the button mostly failed.
-   Flip this back to true to restore it; the button and everything behind it is
-   left intact and needs no other change. */
-export const TTS_ENABLED = false;
+/* Read-aloud in the chat was switched off globally while the Gemini TTS quota
+   was sorted out — the free tier ran out within a few taps on the full web
+   audience, so the button mostly failed. Now scoped to the Android app only:
+   a much smaller audience than the web, on top of the IndexedDB clip cache
+   (speech.ts, ttsCacheGet/ttsCachePut) that already makes repeat listens free.
+   First-time listens still draw from the same shared quota, so watch it if
+   the Android install base grows; flip back to `false` (or gate further) if
+   it becomes a problem again. Set to `true` to restore it everywhere. */
+export const TTS_ENABLED = Capacitor.getPlatform() === "android";
 
 /* ── Speaker button (robust, with fallback message) ── */
 export const SpeakBtn = memo(function SpeakBtn({ text, lang, id, activeId, setActiveId }) {
