@@ -44,13 +44,16 @@ the glue layer (`PianoApp`) that wires these together, plus the page
 components that haven't been extracted yet. `pathway-data.ts`/
 `songs-data.ts`/`app-styles.ts` are pure data/CSS, split out earliest.
 `native-auth.ts`/`native-stt.ts`/`native-updater.ts` are Capacitor-only
-concerns. See git history on the dev branch below for the extraction order
-if you need the reasoning behind any particular split.
+concerns. If you need the reasoning behind any particular split, `git log
+--oneline --all | grep -i phase` finds the extraction commits — each one
+explains what moved and why.
 
 Backend: Supabase (Postgres + Auth + Storage + RLS), project id
 `gsaqgbracxnucdmtmcxz`. Schema/RPC changes live as `supabase-*.sql` files
-at the repo root — see "Database changes" below before touching any of
-these or writing a new one.
+at the repo root, one file per feature (e.g.
+`supabase-currency-purchase-migration.sql`) — write additive, re-runnable
+SQL (`if not exists`/`or replace`) matching the style of the existing files,
+and see "Hard rules" above before applying any of it.
 
 ## Hard rules
 
@@ -99,8 +102,9 @@ rather than starting a fresh one. There's no live channel between sessions
   Commit messages in this project describe intent, not just the diff, so
   read a few back to understand what's actually in progress.
 - `git status` — check for uncommitted changes the previous session left
-  mid-task (see "Executing actions with care" conventions above: investigate
-  unfamiliar state before touching it, don't discard it).
+  mid-task. Investigate unfamiliar state before touching it; don't discard
+  it (no `git checkout -- .`/`git reset --hard`/etc. without first
+  understanding what would be lost).
 - Finish whatever was in flight before starting something new, using the
   same commit → push → merge-to-`main` → build-verify → push pattern
   described above.
