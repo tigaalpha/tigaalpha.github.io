@@ -226,7 +226,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.6.0";
+const APP_VER = "13.6.1";
 
 async function signInWith(provider) {
   try {
