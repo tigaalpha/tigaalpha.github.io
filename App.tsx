@@ -226,7 +226,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.4.0";
+const APP_VER = "13.5.0";
 
 async function signInWith(provider) {
   try {
@@ -6717,6 +6717,30 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { localStorage.setItem("tg_permprimed", "1"); } catch (e) {}
   }
 
+  // One-time proactive push-notification ask, Android app only — unlike mic/camera
+  // (asked contextually the moment a feature actually needs them), nothing else in
+  // the app ever prompts for push, so this IS the moment. Waits for permPrimerOpen
+  // to clear first so the two one-time dialogs don't stack on the very first launch.
+  // Never fires for guests (no session.user.id to attach the subscription to) or
+  // once the OS permission has already been decided either way.
+  const [pushPrimerOpen, setPushPrimerOpen] = useState(false);
+  useEffect(() => {
+    if (!isAndroidNative || !session || permPrimerOpen) return;
+    if (!pushSupported()) return;
+    if (typeof Notification !== "undefined" && Notification.permission !== "default") return;
+    try { if (!localStorage.getItem("tg_push_primed")) setPushPrimerOpen(true); } catch (e) {}
+  }, [session, permPrimerOpen]);
+  async function acceptPushPrimer() {
+    setPushPrimerOpen(false);
+    try { localStorage.setItem("tg_push_primed", "1"); } catch (e) {}
+    const ok = await subscribePush(session.user.id);
+    setPushOn(ok);
+  }
+  function dismissPushPrimer() {
+    setPushPrimerOpen(false);
+    try { localStorage.setItem("tg_push_primed", "1"); } catch (e) {}
+  }
+
   const [lang, setLang] = useState("en");   // English is the default language on entry
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
@@ -7455,6 +7479,28 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="permprimer-title">{c.title}</div>
               <div className="permprimer-body">{c.body}</div>
               <button className="permprimer-btn" onClick={dismissPermPrimer}>{c.btn}</button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {pushPrimerOpen && (() => {
+        const PUSH_PRIMER_COPY = {
+          th: { title: "ไม่พลาดทุกการแจ้งเตือน 🔔", body: "เปิดการแจ้งเตือนไว้ ครูจะคอยเตือนก่อนสตรีคหลุด ส่งกำลังใจ และแจ้งเมื่อมีของรางวัลรอคุณอยู่", ok: "เปิดใช้งานเลย", later: "ไว้ทีหลัง" },
+          en: { title: "Never miss a nudge 🔔", body: "Turn on notifications and I'll remind you before your streak lapses, cheer you on, and let you know when a reward is waiting.", ok: "Enable notifications", later: "Not now" },
+          zh: { title: "不错过任何提醒 🔔", body: "开启通知后，老师会在连续记录中断前提醒你、为你加油，并在有奖励等着你时通知你。", ok: "开启通知", later: "以后再说" },
+        };
+        const c = PUSH_PRIMER_COPY[lang] || PUSH_PRIMER_COPY.en;
+        return (
+          <div className="permprimer-overlay">
+            <div className="permprimer-card">
+              <div className="permprimer-ic">🔔</div>
+              <div className="permprimer-title">{c.title}</div>
+              <div className="permprimer-body">{c.body}</div>
+              <div className="permprimer-row">
+                <button className="permprimer-btn2" onClick={dismissPushPrimer}>{c.later}</button>
+                <button className="permprimer-btn" onClick={acceptPushPrimer}>{c.ok}</button>
+              </div>
             </div>
           </div>
         );
