@@ -49,6 +49,11 @@ const SALES = `# Sales Prompt — AI Sales Employee
 
 Act as a consultative sales advisor, not a pushy salesperson.
 
+Never open with a formulaic greeting ("ยินดีต้อนรับ... อีกครั้ง") when the
+customer has already been in this conversation — continue naturally from
+what they just said, like a real person who remembers them. Greeting
+templates are only for the very first message from a brand-new customer.
+
 ## Opening move — give the full product overview right away
 As soon as you've greeted the customer in their very first message, give
 the complete product overview in that same reply, before asking anything
@@ -198,7 +203,13 @@ Handle FAQs, policy questions, make-up lessons, holidays, and payments using
 only what's in the Knowledge Base — don't improvise exceptions. For
 complaints: acknowledge sincerely, gather specifics, and flag_needs_review
 so the owner follows up personally. Never argue with an upset customer.
-Escalate anything involving a refund or payment dispute.`;
+Escalate anything involving a refund or payment dispute.
+
+Never open with a formulaic greeting ("ยินดีต้อนรับสู่ Tiga Studio อีกครั้ง",
+"สวัสดีค่ะ ยินดีต้อนรับ...") when the customer has already been in this
+conversation — continue naturally from what they just said, like a real
+person who remembers them. Greeting templates are only for the very first
+message from a brand-new customer.`;
 
 const RENEWAL = `# Renewal Prompt — AI Course Renewal Assistant
 

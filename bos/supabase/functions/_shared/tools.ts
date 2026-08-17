@@ -96,6 +96,27 @@ export const AI_TOOLS: ToolDefinition[] = [
     parameters: { type: "object", properties: { customerId: { type: "string" }, lineUserId: { type: "string" } } },
   },
   {
+    name: "create_customer",
+    description:
+      "Create a brand-new customer/lead record. Use when someone expresses interest in lessons (wants to book, buy a course, try a trial) but is not in the CRM yet — lookup_customer returns nothing, or this is clearly a first contact. Returns the new customer id, which you then pass to create_payment_link / book_lesson / update_customer_profile. Ask for at least a name (and phone if they'll share it) before calling.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Customer's name — required." },
+        phone: { type: "string", description: "Phone number, if shared." },
+        lineUserId: { type: "string", description: "LINE user id when known (LINE conversations are usually bound automatically)." },
+        leadSource: { type: "string", description: "How they found the school (e.g. Facebook, LINE, friend referral, walk-in)." },
+        learningGoal: { type: "string" },
+        age: { type: "number" },
+        budget: { type: "string" },
+        experienceLevel: { type: "string" },
+        preferredSchedule: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["name"],
+    },
+  },
+  {
     name: "list_teachers",
     description: "List active teachers with their id, name, and specialties — use this to resolve a teacher's name to their id before booking or saving a preferred teacher.",
     parameters: { type: "object", properties: {} },
@@ -545,6 +566,40 @@ export async function executeTool(
         String(args.reason ?? "No reason given")
       );
       return { pendingApproval: true, approvalId, message: "Cancellation request submitted for staff review — the lesson stays booked until approved." };
+    }
+
+    case "create_customer": {
+      const name = String(args.name ?? "").trim();
+      if (!name) throw new Error("name is required");
+      const lineUserId = args.lineUserId ? String(args.lineUserId) : null;
+
+      // If a customer with this LINE id already exists (e.g. auto-created
+      // by line-webhook at first contact), return it instead of duplicating.
+      if (lineUserId) {
+        const { data: existing } = await db.from("customers").select("id, name").eq("line_user_id", lineUserId).maybeSingle();
+        if (existing) return { customerId: existing.id, alreadyExisted: true };
+      }
+
+      const { data, error } = await db
+        .from("customers")
+        .insert({
+          name,
+          phone: args.phone ? String(args.phone) : null,
+          line_user_id: lineUserId,
+          lead_source: args.leadSource ? String(args.leadSource) : null,
+          learning_goal: args.learningGoal ? String(args.learningGoal) : null,
+          age: args.age ? Number(args.age) : null,
+          budget: args.budget ? String(args.budget) : null,
+          experience_level: args.experienceLevel ? String(args.experienceLevel) : null,
+          preferred_schedule: args.preferredSchedule ? String(args.preferredSchedule) : null,
+          notes: args.notes ? String(args.notes) : null,
+        })
+        .select("id, name, line_user_id")
+        .single();
+      if (error) throw new Error(translateDbError(error));
+
+      await db.from("sales_status_history").insert({ customer_id: data.id, to_status: "new_lead", note: "สร้างโดย AI จากแชท" });
+      return { customerId: data.id, name: data.name, created: true };
     }
 
     case "lookup_customer": {

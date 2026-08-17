@@ -326,7 +326,11 @@ export async function confirmPaymentBySlip(admin: SupabaseClient, input: { payme
   const result = await confirmPayment(admin, { paymentId: input.paymentId, confirmedBy: null, auto: true, slipImageUrl: input.slipImageUrl ?? null });
   const { data: payment } = await admin.from("payments").select("customer_id").eq("id", input.paymentId).maybeSingle();
   if (payment?.customer_id) {
-    await admin.rpc("recompute_lead_score", { p_customer: payment.customer_id }).catch(() => {});
+    try {
+      await admin.rpc("recompute_lead_score", { p_customer: payment.customer_id });
+    } catch {
+      // lead score is a soft signal — never let it fail the caller
+    }
   }
   return result;
 }

@@ -37,11 +37,11 @@ const OPENING_QUICK_REPLIES = ["เรียนที่สตูดิโอ", 
 // below.
 const HANDOFF_TRIGGERS = ["ขอคุยกับคน", "คุยกับคน", "เจ้าของร้าน", "คุยกับเจ้าหน้าที่", "ขอคุยกับเจ้าหน้าที่", "คุยกับพนักงาน", "ขอคุยกับพนักงาน", "ติดต่อเจ้าของ"];
 
-function formatBkkTime(iso: string): string {
+function formatBkkTime(iso: string | null | undefined): string {
   try {
-    return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok", hour12: false }).format(new Date(iso));
+    return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok", hour12: false }).format(new Date(iso ?? ""));
   } catch {
-    return iso.slice(11, 16);
+    return iso ? iso.slice(11, 16) : "";
   }
 }
 const HANDOFF_REPLY = "ได้เลยค่ะ กำลังแจ้งเจ้าของร้านให้ติดต่อกลับนะคะ รอสักครู่นะคะ 😊";
@@ -254,6 +254,11 @@ export async function respond(
   if (boundCustomerId) {
     const now = new Date().toISOString();
     const horizon = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString();
+    // NOTE: unwrap the {data, error} envelopes via .then(r => r.data) — the
+    // Postgrest builder resolves to an object, not the row; using the raw
+    // result here made `bookingRes` always-truthy and crashed with
+    // "Cannot read properties of undefined (reading 'slice')" the first
+    // time a bound customer hit this block.
     const [bookingRes, scheduleRes] = await Promise.all([
       db
         .from("bookings")
@@ -265,7 +270,8 @@ export async function respond(
         .lt("start_time", horizon)
         .order("start_time", { ascending: true })
         .limit(1)
-        .maybeSingle(),
+        .maybeSingle()
+        .then((r) => r.data),
       db
         .from("attendance_reminder_schedules")
         .select("id, day_of_week, time_of_day")
@@ -275,7 +281,8 @@ export async function respond(
         .lt("next_occurrence_at", horizon)
         .order("next_occurrence_at", { ascending: true })
         .limit(1)
-        .maybeSingle(),
+        .maybeSingle()
+        .then((r) => r.data),
     ]);
     const upcoming = (bookingRes || scheduleRes) as { id?: string } | null;
     if (upcoming) {
@@ -317,6 +324,12 @@ export async function respond(
 
   let iterations = 0;
   let usedTools = false;
+  // The conversation may start unbound (brand-new LINE/web visitor) and the
+  // AI can create the customer mid-turn via create_customer — after that the
+  // rest of the turn must run as that customer, and the conversation gets
+  // permanently linked so future turns are bound too (otherwise the next
+  // tool call would fail the same way the pre-fix money leak did).
+  let activeCustomerId = boundCustomerId;
 
   while (iterations < MAX_TOOL_ITERATIONS) {
     iterations += 1;
@@ -408,7 +421,7 @@ export async function respond(
     messages.push(result.message);
 
     for (const call of result.message.toolCalls) {
-      const toolResult = await executeTool(call, db, boundCustomerId, callerId).catch((error: unknown) => ({
+      const toolResult = await executeTool(call, db, activeCustomerId, callerId).catch((error: unknown) => ({
         // A raw Postgres error (has a .code) is translated to a plain Thai
         // message before it ever reaches the model -- confirmed in
         // production that the model will otherwise paraphrase a raw
@@ -419,6 +432,16 @@ export async function respond(
         error: error && typeof error === "object" && "code" in error ? translateDbError(error) : error instanceof Error ? error.message : String(error),
       }));
       messages.push({ role: "tool", toolCallId: call.id, content: JSON.stringify(toolResult) });
+
+      // Bind the conversation to a customer the AI just created, so the rest
+      // of this turn (and every future turn) runs as that customer — this is
+      // the fix for the production money leak where a new buyer's
+      // conversation stayed customer_id=null and every money tool failed.
+      if (call.name === "create_customer" && !activeCustomerId && toolResult && typeof toolResult === "object" && !("error" in toolResult) && "customerId" in toolResult) {
+        activeCustomerId = String(toolResult.customerId);
+        await db.from("conversations").update({ customer_id: activeCustomerId }).eq("id", conversationId);
+        await refreshLeadScore(db, activeCustomerId);
+      }
     }
   }
 

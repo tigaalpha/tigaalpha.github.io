@@ -3,6 +3,7 @@ import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { jsonResponse } from "../_shared/cors.ts";
 import { checkCronSecret } from "../_shared/cron-auth.ts";
 import { logSystemEvent } from "../_shared/monitor.ts";
+import { push } from "../_shared/line.ts";
 
 // Feature #9 — content loop: the owner approves a content_calendar item in
 // the Content page, and this hourly cron turns approved items that are due
@@ -85,6 +86,40 @@ Deno.serve(async (req: Request) => {
         title: `เนื้อหา ${queued} ชิ้นพร้อมโพสต์`,
         body: "เนื้อหาที่อนุมัติแล้วถูกเตรียมเป็นคิวโพสต์แล้ว — ไปที่หน้า Post เพื่อเผยแพร่ทุกช่องทาง",
       });
+    }
+
+    // Close the loop the other way too: content that is due but never got
+    // approved just sits as a draft forever (production data: 3 drafts,
+    // zero posts). Tell the owner on LINE once per day when something is
+    // overdue so they can approve it instead of it silently piling up.
+    const { data: overdue } = await admin
+      .from("content_calendar")
+      .select("id, title, planned_date")
+      .neq("status", "published")
+      .lte("planned_date", new Date().toISOString().slice(0, 10))
+      .limit(20);
+    if ((overdue ?? []).length > 0) {
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count: recent } = await admin
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("type", "content_needs_approval")
+        .gte("created_at", dayAgo);
+      if ((recent ?? 0) === 0) {
+        const titles = (overdue as { title: string; planned_date?: string | null }[])
+          .slice(0, 5)
+          .map((c) => `${c.planned_date ?? ""} ${c.title}`)
+          .join("\n");
+        await admin.from("notifications").insert({
+          type: "content_needs_approval",
+          title: `คอนเทนต์ ${(overdue ?? []).length} ชิ้นถึงวันแต่ยังไม่อนุมัติ`,
+          body: "ไปที่หน้า Content เพื่ออนุมัติ แล้วระบบจะขึ้นคิวโพสต์ให้อัตโนมัติ",
+        });
+        const { data: ownerRow } = await admin.from("integration_settings").select("value").eq("key", "owner_line_user_id").maybeSingle();
+        if (ownerRow?.value) {
+          await push(ownerRow.value, `📋 คอนเทนต์ ${(overdue ?? []).length} ชิ้นถึงวันแต่ยังไม่อนุมัติ:${titles ? "\n" + titles : ""} — ไปอนุมัติในหน้า Content ได้เลย`).catch(() => {});
+        }
+      }
     }
     return jsonResponse({ scanned: (items ?? []).length, queued, skipped });
   } catch (error) {

@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { jsonResponse } from "../_shared/cors.ts";
+import { checkCronSecret } from "../_shared/cron-auth.ts";
 import { push, checkConnection as checkLineConnection } from "../_shared/line.ts";
 import { checkConnection as checkCalendarConnection } from "../_shared/calendar.ts";
 import { logSystemEvent } from "../_shared/monitor.ts";
@@ -32,8 +33,12 @@ async function checkAndLogConnection(admin: SupabaseClient, source: string, isCo
 Deno.serve(async (req: Request) => {
   const admin = createAdminClient();
 
-  const { data: secretRow } = await admin.from("integration_settings").select("value").eq("key", "cron_secret").maybeSingle();
-  if (!secretRow?.value || req.headers.get("x-cron-secret") !== secretRow.value) {
+  // Cron-auth fix: every other cron validates the env CRON_SECRET first
+  // (see cron-auth.ts), but this function only accepted the DB-stored
+  // value — so once the env secret drifted from the DB value, every tick
+  // silently 401'd and the dashboard lost its health signal for weeks.
+  // Same env-first pattern as the rest of the system now.
+  if (!(await checkCronSecret(admin, req))) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
@@ -50,6 +55,20 @@ Deno.serve(async (req: Request) => {
   if (countErr) throw countErr;
 
   if ((errorCount ?? 0) < ERROR_THRESHOLD) {
+    // Liveness signal: log an "ok" once per day so the dashboard's system
+    // event feed proves this cron is actually running (it was silent for
+    // weeks while 401-ing).
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const { count: okToday } = await admin
+      .from("system_events")
+      .select("id", { count: "exact", head: true })
+      .eq("source", "system-health-check")
+      .eq("severity", "info")
+      .gte("created_at", dayStart.toISOString());
+    if ((okToday ?? 0) === 0) {
+      await logSystemEvent(admin, "system-health-check", "info", `ระบบปกติ — LINE ${lineOk ? "เชื่อมต่อ" : "มีปัญหา"}, Google Calendar ${calendarOk ? "เชื่อมต่อ" : "มีปัญหา"}, errorCount ${errorCount ?? 0} ใน ${WINDOW_MINUTES} นาที`);
+    }
     return jsonResponse({ errorCount: errorCount ?? 0, alerted: false });
   }
 

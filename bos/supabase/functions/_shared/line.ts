@@ -92,6 +92,27 @@ export function broadcast(text: string): Promise<void> {
 }
 
 /** Real connectivity check (used by system-health-check) -- true only on a 2xx from LINE's own bot-info endpoint, using the same token push/reply already rely on. Never throws. */
+/**
+ * Fetch a LINE user's display name (used to auto-create a customer record
+ * the first time a new person messages the OA — without this, brand-new
+ * buyers stay unbound and every money/booking tool fails for them).
+ * Returns null when the token is missing or the profile can't be fetched.
+ */
+export async function fetchProfile(userId: string): Promise<{ displayName: string } | null> {
+  const token = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
+  if (!token) return null;
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { displayName?: string };
+    return { displayName: data.displayName ?? "" };
+  } catch {
+    return null;
+  }
+}
+
 export async function checkConnection(): Promise<boolean> {
   try {
     const response = await fetch(`${LINE_API_BASE}/info`, {

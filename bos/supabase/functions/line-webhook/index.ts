@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
-import { verifySignature, reply, push, fetchContent } from "../_shared/line.ts";
+import { verifySignature, reply, push, fetchContent, fetchProfile } from "../_shared/line.ts";
 import { respond } from "../_shared/chat-core.ts";
 import { logSystemEvent } from "../_shared/monitor.ts";
 import { understandImage, transcribeAudio } from "../_shared/gemini.ts";
@@ -57,17 +57,49 @@ async function alreadyProcessed(admin: ReturnType<typeof createAdminClient>, web
 }
 
 async function resolveConversation(admin: ReturnType<typeof createAdminClient>, lineUserId: string): Promise<string> {
-  const { data: customer } = await admin.from("customers").select("id, name").eq("line_user_id", lineUserId).maybeSingle();
+  let { data: customer } = await admin.from("customers").select("id, name").eq("line_user_id", lineUserId).maybeSingle();
+
+  // Money-leak fix: a brand-new person messaging the OA must never stay
+  // unbound. Previously conversation.customer_id was left null and every
+  // tool that creates revenue (create_payment_link, book_lesson) failed for
+  // them — a real buyer transferred 27k+ THB with zero record in the CRM.
+  // Auto-create a lead on first contact so the conversation is always
+  // bound; the AI (or the owner) enriches name/phone afterwards.
+  if (!customer) {
+    const profile = await fetchProfile(lineUserId).catch(() => null);
+    const displayName = profile?.displayName?.trim() ?? "";
+    const { data: created, error: createErr } = await admin
+      .from("customers")
+      .insert({
+        name: displayName || "ลูกค้า LINE ใหม่",
+        line_user_id: lineUserId,
+        lead_source: "LINE",
+        notes: displayName ? undefined : "ยังไม่ได้ระบุชื่อ — ให้ AI ถามชื่อและอัปเดต profile",
+      })
+      .select("id, name")
+      .single();
+    if (!createErr) {
+      customer = created;
+      await admin.from("sales_status_history").insert({ customer_id: created.id, to_status: "new_lead", note: "สร้างอัตโนมัติจาก LINE" });
+    }
+  }
 
   const { data: existing } = await admin
     .from("conversations")
-    .select("id")
+    .select("id, customer_id")
     .eq("line_user_id", lineUserId)
     .eq("channel", "line")
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (existing) return existing.id;
+  if (existing) {
+    // Repair a conversation created before the auto-link fix (customer_id
+    // null) now that a matching customer record exists.
+    if (!existing.customer_id && customer) {
+      await admin.from("conversations").update({ customer_id: customer.id }).eq("id", existing.id);
+    }
+    return existing.id;
+  }
 
   const { data: created, error } = await admin
     .from("conversations")

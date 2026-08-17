@@ -15,6 +15,11 @@
  * The secret is a shared site-embed key (integration_settings `web_chat_secret`),
  * by design visible in the page — it only gates the widget endpoint from
  * being hammered by strangers. No external dependencies.
+ *
+ * A tiny lead form (name + phone, both optional but encouraged) shows the
+ * first time a visitor opens the chat. Whatever they type is sent with the
+ * first message, so the visitor becomes a real CRM lead instead of an
+ * anonymous conversation — the AI can then actually sell to them.
  */
 (function () {
   var CONFIG = window.TIGA_WIDGET_CONFIG || {};
@@ -29,6 +34,7 @@
   }
 
   var STORAGE_KEY = "tiga_widget_conv";
+  var LEAD_KEY = "tiga_widget_lead";
   var open = false;
   var messages = [];
 
@@ -43,6 +49,24 @@
   function saveConversationId(id) {
     try {
       localStorage.setItem(STORAGE_KEY, id);
+    } catch (e) {}
+  }
+
+  function getLead() {
+    try {
+      var raw = localStorage.getItem(LEAD_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || (!parsed.name && !parsed.phone)) return null;
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveLead(name, phone) {
+    try {
+      localStorage.setItem(LEAD_KEY, JSON.stringify({ name: name, phone: phone }));
     } catch (e) {}
   }
 
@@ -63,7 +87,11 @@
     ".tiga-msg.out{background:#06c755;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}" +
     ".tiga-input{display:flex;gap:8px;padding:10px;border-top:1px solid rgba(0,0,0,.06);background:#fff}" +
     ".tiga-input textarea{flex:1;resize:none;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:9px 11px;font-size:14px;outline:none;font-family:inherit}" +
-    ".tiga-input button{border:none;background:#06c755;color:#fff;border-radius:10px;padding:0 16px;font-size:14px;cursor:pointer;font-weight:600}";
+    ".tiga-input button{border:none;background:#06c755;color:#fff;border-radius:10px;padding:0 16px;font-size:14px;cursor:pointer;font-weight:600}" +
+    ".tiga-lead{background:#e8f6ee;padding:10px 12px;border-bottom:1px solid rgba(6,199,85,.25);display:flex;flex-direction:column;gap:6px}" +
+    ".tiga-lead input{border:1px solid rgba(0,0,0,.14);border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit}" +
+    ".tiga-lead button{border:none;background:#06c755;color:#fff;border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer;font-weight:600}" +
+    ".tiga-lead small{font-size:11px;color:#5b6b5f}";
   document.head.appendChild(style);
 
   var btn = document.createElement("button");
@@ -73,7 +101,10 @@
   btn.onclick = function () {
     open = !open;
     panel.classList.toggle("open", open);
-    if (open) input.focus();
+    if (open) {
+      if (getLead()) input.focus();
+      else leadName.focus();
+    }
   };
 
   var panel = document.createElement("div");
@@ -81,6 +112,40 @@
   var head = document.createElement("div");
   head.className = "tiga-head";
   head.innerHTML = "<b>" + escapeHtml(TITLE) + "</b><span>" + escapeHtml(SUBTITLE) + "</span>";
+
+  // Lead form: shown until the visitor submits it once (persisted), then
+  // never again on this browser. Submitting just saves — chatting stays open.
+  var leadBar = document.createElement("div");
+  leadBar.className = "tiga-lead";
+  var leadName = document.createElement("input");
+  leadName.placeholder = "ชื่อ (ไม่บังคับ)";
+  leadName.maxLength = 80;
+  var leadPhone = document.createElement("input");
+  leadPhone.placeholder = "เบอร์โทร (ไม่บังคับ)";
+  leadPhone.maxLength = 20;
+  var leadSubmit = document.createElement("button");
+  leadSubmit.textContent = "เริ่มคุย";
+  leadSubmit.onclick = function () {
+    saveLead(leadName.value.trim(), leadPhone.value.trim());
+    leadBar.remove();
+    input.focus();
+  };
+  leadName.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      leadSubmit.click();
+    }
+  });
+  leadPhone.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      leadSubmit.click();
+    }
+  });
+  leadBar.appendChild(leadName);
+  leadBar.appendChild(leadPhone);
+  leadBar.appendChild(leadSubmit);
+
   var msgs = document.createElement("div");
   msgs.className = "tiga-msgs";
   var inputRow = document.createElement("div");
@@ -100,6 +165,7 @@
   inputRow.appendChild(input);
   inputRow.appendChild(sendBtn);
   panel.appendChild(head);
+  if (!getLead()) panel.appendChild(leadBar);
   panel.appendChild(msgs);
   panel.appendChild(inputRow);
 
@@ -119,10 +185,14 @@
     var typing = addMsg("กำลังพิมพ์…", "in");
     sendBtn.disabled = true;
 
+    var body = { conversationId: conversationId(), message: text };
+    var lead = getLead();
+    if (lead) body.lead = lead;
+
     fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-web-chat-secret": SECRET },
-      body: JSON.stringify({ conversationId: conversationId(), message: text }),
+      body: JSON.stringify(body),
     })
       .then(function (res) {
         return res.json().then(function (data) {

@@ -17,6 +17,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { createPayment, confirmPayment } from "./payments.ts";
+import { recordRevenue } from "./revenue.ts";
 
 const HELP_TEXT = [
   "คำสั่งที่ใช้ได้ ตัวอย่าง:",
@@ -24,10 +25,13 @@ const HELP_TEXT = [
   "ใครค้างเงิน (รายการที่ยังไม่ได้ชำระ)",
   "ลูกค้าใหม่ (ที่เพิ่มวันนี้)",
   "คาบเรียนวันนี้ หรือ คาบเรียนพรุ่งนี้",
+  "ตารางเรียน (คาบทั้งหมดวันนี้รวมคาบประจำสัปดาห์)",
   "ออกใบแจ้ง [ชื่อลูกค้า] [จำนวน] เช่น ออกใบแจ้ง สมชาย 3000",
+  "บันทึกยอด [ชื่อลูกค้า] [จำนวน] [วันที่?] เช่น บันทึกยอด สมชาย 3000 2026-08-01 (สำหรับยอดเก่าที่จ่ายไปแล้ว)",
   "ยืนยันเงิน [รหัสอ้างอิง] เช่น ยืนยันเงิน PPABC123 (เช็คเงินเข้าธนาคารก่อนนะ)",
   "งานวันนี้ (รายการที่ต้องดูแล)",
   "อนุมัติค้าง (งานที่รออนุมัติ)",
+  "คอนเทนต์ค้าง (เนื้อหาถึงวันแต่ยังไม่อนุมัติ)",
   "คุณภาพ AI (คะแนนความดีของคำตอบ)",
   "ค่าใช้จ่ายเดือนนี้",
   "ถ้าอยากคุยกับระบบแบบทั่วไป พิมพ์คำถามได้เลย",
@@ -114,19 +118,88 @@ async function lessonsOn(admin: SupabaseClient, dayOffset: number): Promise<stri
   start.setDate(start.getDate() + dayOffset);
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
-  const { data } = await admin
-    .from("bookings")
-    .select("title, start_time, status, customers(name)")
-    .gte("start_time", start.toISOString())
-    .lt("start_time", end.toISOString())
-    .order("start_time", { ascending: true })
-    .limit(15);
-  if (!data || data.length === 0) return dayOffset === 0 ? "วันนี้ไม่มีคาบเรียน" : "พรุ่งนี้ไม่มีคาบเรียน";
-  const lines = [`${dayOffset === 0 ? "คาบเรียนวันนี้" : "คาบเรียนพรุ่งนี้"} ${data.length} คาบ:`];
-  for (const b of data as { title: string; start_time: string; status: string; customers?: { name?: string | null } | null }[]) {
+  const [bookingsRes, schedRes] = await Promise.all([
+    admin
+      .from("bookings")
+      .select("title, start_time, status, customers(name)")
+      .gte("start_time", start.toISOString())
+      .lt("start_time", end.toISOString())
+      .order("start_time", { ascending: true })
+      .limit(15),
+    // Real recurring lessons live in attendance_reminder_schedules (the
+    // weekly slots the owner set up); a day's answer must include them or
+    // the command under-reports the actual teaching day.
+    admin
+      .from("attendance_reminder_schedules")
+      .select("day_of_week, time_of_day, customers(name)")
+      .eq("active", true),
+  ]);
+
+  const lines: string[] = [];
+  const dayLabel = dayOffset === 0 ? "วันนี้" : "พรุ่งนี้";
+
+  const weekday = start.getDay(); // 0=Sun..6=Sat (matches day_of_week in the table)
+  const schedRows = ((schedRes.data ?? []) as { day_of_week: number; time_of_day: string; customers?: { name?: string | null } | null }[]).filter((s) => Number(s.day_of_week) === weekday);
+  for (const s of schedRows) {
+    lines.push(`${String(s.time_of_day).slice(0, 5)} ${s.customers?.name ?? "นักเรียน"} (คาบประจำสัปดาห์)`);
+  }
+  for (const b of (bookingsRes.data ?? []) as { title: string; start_time: string; status: string; customers?: { name?: string | null } | null }[]) {
     const time = new Date(b.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
     lines.push(`${time} ${b.customers?.name ?? b.title} (${b.status})`);
   }
+
+  if (lines.length === 0) return dayOffset === 0 ? "วันนี้ไม่มีคาบเรียน" : "พรุ่งนี้ไม่มีคาบเรียน";
+  return [`คาบ${dayLabel} ${lines.length} คาบ:`, ...lines].join("\n");
+}
+
+// ตารางเรียน — full recurring timetable for a given day (from the weekly
+// schedules only, no one-off bookings).
+async function scheduleLessons(admin: SupabaseClient, dayOffset: number): Promise<string> {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() + dayOffset);
+  const weekday = start.getDay();
+  const { data } = await admin
+    .from("attendance_reminder_schedules")
+    .select("day_of_week, time_of_day, customers(name)")
+    .eq("active", true)
+    .eq("day_of_week", weekday);
+  const rows = (data ?? []) as { day_of_week: number; time_of_day: string; customers?: { name?: string | null } | null }[];
+  if (rows.length === 0) return "วันนี้ไม่มีคาบประจำสัปดาห์";
+  const lines = [`ตารางเรียนวันนี้ ${rows.length} คาบ:`, ...rows.map((r) => `${String(r.time_of_day).slice(0, 5)} ${r.customers?.name ?? "นักเรียน"}`)];
+  return lines.join("\n");
+}
+
+// บันทึกยอด [ชื่อ] [จำนวน] [วันที่] — back-fill a sale that already happened:
+// paid payment + income transaction (and win the customer if they were still
+// a lead). The system's revenue then matches the bank reality instead of
+// only showing hand-typed manual income.
+async function recordRevenue(admin: SupabaseClient, name: string, amount: number, dateStr?: string): Promise<string> {
+  const { data: customers, error } = await admin.from("customers").select("id, name, line_user_id, sales_status").ilike("name", `%${name}%`).limit(5);
+  if (error) throw error;
+  if (!customers || customers.length === 0) return `ไม่พบลูกค้าชื่อ "${name}" — ตรวจชื่อ หรือพิมพ์ /help เพื่อดูคำสั่ง`;
+  if (customers.length > 1) return `พบลูกค้าหลายคนชื่อ "${name}" — พิมพ์ชื่อให้ละเอียดขึ้น`;
+
+  const customer = customers[0] as { id: string; name: string; line_user_id?: string | null; sales_status: string };
+  const result = await recordRevenue(admin, { customerId: customer.id, amount, date: dateStr, source: "LINE Command Center" });
+  return `บันทึกแล้ว: ${customer.name} ${fmtMoney(amount)} (${dateStr ?? "วันนี้"}) อ้างอิง ${result.reference} — ตัดเป็นรายได้และอัปเดต pipeline เรียบร้อย`;
+}
+
+// คอนเทนต์ค้าง — content that is due but never approved/published (the
+// "สร้างได้แต่ไม่เคยโพสต์" gap: drafts pile up and the loop never closes).
+async function contentQueue(admin: SupabaseClient): Promise<string> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await admin
+    .from("content_calendar")
+    .select("id, kind, title, planned_date, status")
+    .neq("status", "published")
+    .lte("planned_date", today)
+    .order("planned_date", { ascending: true })
+    .limit(15);
+  if (error) throw error;
+  const items = (data ?? []) as { kind: string; title: string; planned_date?: string | null; status: string }[];
+  if (items.length === 0) return "ไม่มีคอนเทนต์ค้าง — ทุกชิ้นถึงวันแล้วอนุมัติ/โพสต์ครบ";
+  const lines = [`คอนเทนต์ถึงวันแต่ยังไม่โพสต์ ${items.length} ชิ้น:`, ...items.map((c) => `${c.planned_date ?? ""} ${c.title} (${c.status})`)];
   return lines.join("\n");
 }
 
@@ -327,8 +400,10 @@ export async function handleOwnerCommand(admin: SupabaseClient, text: string): P
   if (/ลูกค้าใหม่|lead ใหม่|ลีด/.test(lower)) return newLeadsToday(admin);
   if (/คาบเรียนพรุ่งนี้|พรุ่งนี้/.test(lower)) return lessonsOn(admin, 1);
   if (/คาบเรียน|ตารางวันนี้|lesson/.test(lower)) return lessonsOn(admin, 0);
+  if (/ตารางเรียน|schedule/.test(lower)) return scheduleLessons(admin, 0);
   if (/งานวันนี้|ต้องทำ|สิ่งที่ต้อง/.test(lower)) return needingAttention(admin);
   if (/อนุมัติค้าง|รออนุมัติ/.test(lower)) return approvalsQueue(admin);
+  if (/คอนเทนต์ค้าง|คอนเทนต์.*อนุมัติ|content/.test(lower)) return contentQueue(admin);
   if (/คุณภาพ AI|คะแนน AI|ai quality/.test(lower)) return aiQuality(admin);
   if (/ค่าใช้จ่าย/.test(lower)) return expenseSummary(admin);
 
@@ -344,6 +419,18 @@ export async function handleOwnerCommand(admin: SupabaseClient, text: string): P
   // ยืนยันเงิน [reference]
   const confirmMatch = t.match(/ยืนยันเงิน\s+([A-Za-z0-9]+)/i);
   if (confirmMatch) return confirmInvoice(admin, confirmMatch[1].trim());
+
+  // บันทึกยอด [ชื่อ] [จำนวน] [วันที่?] — record a past sale that already
+  // happened (back-fill): creates a paid payment + income transaction so
+  // revenue that previously only existed in the owner's memory/bank app is
+  // finally visible to the system.
+  const recordMatch = t.match(/บันทึกยอด\s+(.+?)\s+([\d,]+)\s*(?:บาท)?\s*(\d{4}-\d{2}-\d{2})?\s*$/);
+  if (recordMatch) {
+    const name = recordMatch[1].trim();
+    const amount = Number(recordMatch[2].replace(/,/g, ""));
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 1000000) return "จำนวนเงินไม่ถูกต้อง (ต้องมากกว่า 0 และไม่เกิน 1,000,000 บาท)";
+    return recordRevenue(admin, name, amount, recordMatch[3] || undefined);
+  }
 
   if (startsWithSlash) return HELP_TEXT;
 
