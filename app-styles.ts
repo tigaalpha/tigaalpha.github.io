@@ -666,6 +666,9 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .songhtitle{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:9px}
 .songhtitle small{color:#d97757;font-size:12px;letter-spacing:1px}
 .vmhdrbtns{display:flex;align-items:center;gap:8px}
+.vmhdleft{display:flex;align-items:center;gap:10px;min-width:0}
+.vmback{background:none;border:1px solid var(--bd3);border-radius:6px;width:32px;height:32px;flex-shrink:0;cursor:pointer;color:var(--text);font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .2s;padding:0}
+.vmback:hover{background:var(--bd2);border-color:var(--accent);box-shadow:0 0 8px rgba(217,119,87,.25)}
 .songhud{display:flex;justify-content:space-around;gap:8px;padding:9px 14px;font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--text2);flex-shrink:0}
 .songhud b{font-family:'Orbitron',sans-serif;color:var(--text);font-size:15px}
 .songhud .hot b{color:#d97757;text-shadow:0 0 10px #ff5252}

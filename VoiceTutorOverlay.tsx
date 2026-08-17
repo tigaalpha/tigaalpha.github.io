@@ -11,12 +11,16 @@ import { VM_VOICES } from "./speech";
    headless browser test — matches how the plan itself scoped this step.
    lc is derived from lang internally, same convention as the other
    overlay components. ── */
-export function VoiceTutorOverlay({ lang, setLang, vmLangOpen, setVmLangOpen, exitVoice, vmState, vmErr, vmOrbTap, vmInstant, vmCaption, vmStaff, vmNotes, vmMsgs, vmEndRef, vmLit, vmOnNote, vmMenuOpen, setVmMenuOpen, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmFast, setVmFast, vmFastRef, vmCloudDeadRef, vmPoly, vmTogglePoly, vmInput, setVmInput, vmEarResetRef, vmActiveRef, vmProcess, vmToggle }) {
+export function VoiceTutorOverlay({ lang, setLang, vmLangOpen, setVmLangOpen, exitVoice, onBack, vmState, vmErr, vmOrbTap, vmInstant, vmCaption, vmStaff, vmNotes, vmMsgs, vmEndRef, vmLit, vmOnNote, vmMenuOpen, setVmMenuOpen, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmFast, setVmFast, vmFastRef, vmCloudDeadRef, vmPoly, vmTogglePoly, vmInput, setVmInput, vmEarResetRef, vmActiveRef, vmProcess, vmToggle }) {
   const lc = L[lang];
+  const backLbl = lang === "th" ? "กลับหน้า Studio" : lang === "zh" ? "返回工作室" : "Back to Studio";
   return (
         <div className="songov vmov">
           <div className="songhdr">
-            <div className="songhtitle">🎙️ {lc.vmTitle} <small style={{ color: "#d97757" }}>AI</small></div>
+            <div className="vmhdleft">
+              <button className="vmback" onClick={onBack} aria-label={backLbl} title={backLbl}>←</button>
+              <div className="songhtitle">🎙️ {lc.vmTitle} <small style={{ color: "#d97757" }}>AI</small></div>
+            </div>
             <div className="vmhdrbtns">
               <div className="flagwrap" onClick={e => e.stopPropagation()}>
                 <button className="flagbtn" onClick={() => setVmLangOpen(o => !o)}
