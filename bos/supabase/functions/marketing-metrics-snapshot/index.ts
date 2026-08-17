@@ -3,6 +3,7 @@ import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { handleUnexpectedError } from "../_shared/monitor.ts";
+import { checkCronSecret } from "../_shared/cron-auth.ts";
 import { getGoogleAccessToken } from "../_shared/google-auth.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
@@ -218,8 +219,7 @@ Deno.serve(async (req: Request) => {
   if (preflight) return preflight;
 
   const admin = createAdminClient();
-  const cronSecret = Deno.env.get("CRON_SECRET");
-  const isCron = Boolean(cronSecret) && req.headers.get("x-cron-secret") === cronSecret;
+  const isCron = await checkCronSecret(admin, req);
 
   try {
     if (!isCron) {

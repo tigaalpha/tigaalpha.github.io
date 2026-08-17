@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { handleUnexpectedError } from "../_shared/monitor.ts";
+import { checkCronSecret } from "../_shared/cron-auth.ts";
 import * as line from "../_shared/line.ts";
 
 // A weekly nudge, not another thing to remember -- TikTok/X have no free
@@ -13,11 +14,9 @@ import * as line from "../_shared/line.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
-  if (preflight) return preflight;
+  if (preflight) return preflight;  const admin = createAdminClient();
 
-  const admin = createAdminClient();
-  const cronSecret = Deno.env.get("CRON_SECRET");
-  if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
+  if (!(await checkCronSecret(admin, req))) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 

@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { jsonResponse } from "../_shared/cors.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { checkCronSecret } from "../_shared/cron-auth.ts";
 import { getGoogleAccessToken } from "../_shared/google-auth.ts";
 import { getOrCreateDriveFolder, uploadBytesToDrive, makeDriveFileReadable } from "../_shared/drive.ts";
 import * as line from "../_shared/line.ts";
@@ -60,12 +61,10 @@ td:last-child { text-align: right; }
 }
 
 Deno.serve(async (req: Request) => {
-  const cronSecret = Deno.env.get("CRON_SECRET");
-  if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
+  const admin = createAdminClient();
+  if (!(await checkCronSecret(admin, req))) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
-
-  const admin = createAdminClient();
 
   try {
     const { data: pending, error } = await admin

@@ -4,6 +4,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { respond } from "../_shared/chat-core.ts";
 import { computeNextRun } from "../_shared/schedule.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { checkCronSecret } from "../_shared/cron-auth.ts";
 
 const RESULT_SNIPPET_LENGTH = 200;
 const CONVERSATION_SETTING_KEY = "agent_scheduled_runs_conversation_id";
@@ -36,12 +37,10 @@ interface ScheduleRow {
 }
 
 Deno.serve(async (req: Request) => {
-  const cronSecret = Deno.env.get("CRON_SECRET");
-  if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
+  const admin = createAdminClient();
+  if (!(await checkCronSecret(admin, req))) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
-
-  const admin = createAdminClient();
 
   try {
     const { data: due, error } = await admin

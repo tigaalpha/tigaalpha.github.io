@@ -3,6 +3,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { jsonResponse } from "../_shared/cors.ts";
 import { handleUnexpectedError, logSystemEvent } from "../_shared/monitor.ts";
+import { checkCronSecret } from "../_shared/cron-auth.ts";
 import { evaluateConditions, type Condition } from "../_shared/automation-conditions.ts";
 import { executeAction, type ActionSpec, type ActionContext, type ActionResult } from "../_shared/automation-actions.ts";
 import { sumTransactions, computeCashFlowForecast } from "../_shared/business-metrics.ts";
@@ -364,12 +365,10 @@ async function processCashFlowRiskRule(admin: SupabaseClient, rule: RuleRow): Pr
 }
 
 Deno.serve(async (req: Request) => {
-  const cronSecret = Deno.env.get("CRON_SECRET");
-  if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
+  const admin = createAdminClient();
+  if (!(await checkCronSecret(admin, req))) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
-
-  const admin = createAdminClient();
 
   // Guards against the same automation_events row or the same rule's
   // cooldown check being processed twice if this tick overlaps a still-
