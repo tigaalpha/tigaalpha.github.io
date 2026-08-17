@@ -7,27 +7,38 @@ import { CapacitorUpdater } from "@capgo/capacitor-updater";
    website already uses, so a normal `git push` updates the website instantly
    AND makes a new bundle available here — the native apps pick it up the next
    time they're opened, with no new App Store/Play Store submission needed for
-   ordinary content/feature changes (only for native-code/permission changes). */
+   ordinary content/feature changes (only for native-code/permission changes).
+   Since v13.7.2 the check also re-runs every 20 minutes while the app stays
+   open, so a release published mid-session is picked up without a relaunch. */
 const UPDATE_MANIFEST_URL = "https://tigaalpha.github.io/updates/manifest.json";
+const RECHECK_MS = 20 * 60 * 1000; // 20 min — cheap HEAD-less GET against a no-store manifest
 
 export async function initNativeUpdater(currentVersion: string) {
   if (!Capacitor.isNativePlatform()) return;
 
+  // REQUIRED: tells the plugin this bundle booted successfully. Skipping this
+  // causes the plugin to assume the update failed and roll back automatically.
   try {
-    // REQUIRED: tells the plugin this bundle booted successfully. Skipping this
-    // causes the plugin to assume the update failed and roll back automatically.
     await CapacitorUpdater.notifyAppReady();
   } catch (e) {}
 
-  try {
-    const res = await fetch(UPDATE_MANIFEST_URL, { cache: "no-store" });
-    if (!res.ok) return;
-    const manifest = await res.json();
-    if (!manifest || !manifest.version || !manifest.url) return;
-    if (manifest.version === currentVersion) return;
-    const bundle = await CapacitorUpdater.download({ version: manifest.version, url: manifest.url });
-    await CapacitorUpdater.set(bundle); // reloads the app on the new bundle — nothing after this line runs
-  } catch (e) {
-    // offline / bad manifest / download failed — keep running the current bundle, try again next launch
-  }
+  // One check per tick; if an update is found, set() reloads the app on the new
+  // bundle and nothing after this line runs (the interval below is only armed
+  // when the check finds nothing to install).
+  const check = async () => {
+    try {
+      const res = await fetch(UPDATE_MANIFEST_URL, { cache: "no-store" });
+      if (!res.ok) return;
+      const manifest = await res.json();
+      if (!manifest || !manifest.version || !manifest.url) return;
+      if (manifest.version === currentVersion) return;
+      const bundle = await CapacitorUpdater.download({ version: manifest.version, url: manifest.url });
+      await CapacitorUpdater.set(bundle); // reloads the app on the new bundle — nothing after this line runs
+    } catch (e) {
+      // offline / bad manifest / download failed — keep running, try again next tick
+    }
+  };
+
+  await check();
+  setInterval(() => { check(); }, RECHECK_MS);
 }
