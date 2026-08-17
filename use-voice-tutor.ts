@@ -118,6 +118,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
   const vmLastDemoRef = useRef(null);           // last [play]/[chord] demo → instant "again" replay
   const vmStreakRef = useRef(0);                // consecutive correct notes this session → adaptive pacing
   const vmMissRef = useRef(0);                  // consecutive misses → ease off
+  const vmRecoveredRef = useRef(false);         // just broke a rough patch (misses → correct) — celebrate it like a human would
   const vmFillersRef = useRef([]);              // pre-decoded "mm-hmm / okay" active-listening clips (same warm voice)
   const vmFillerSrcRef = useRef(null);          // currently-playing filler (stopped the instant real speech starts)
   const vmCloudDeadRef = useRef(false);  // cloud TTS failed this session → stick to the local voice (smooth on weak signal)
@@ -186,7 +187,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
         setVmInstant({ ok, id: now });
         clearTimeout(vmInstantT.current);
         vmInstantT.current = setTimeout(() => setVmInstant(null), 650);
-        if (ok) { vmStreakRef.current++; vmMissRef.current = 0; vmTallyOkRef.current++; }
+        if (ok) { if (vmMissRef.current >= 2) vmRecoveredRef.current = true; vmStreakRef.current++; vmMissRef.current = 0; vmTallyOkRef.current++; }
         else { vmMissRef.current++; vmStreakRef.current = 0; vmTallyMissRef.current++; }
       }
       vmNotesRef.current = vmNotesRef.current.filter(x => now - x.t < 12000);
@@ -204,7 +205,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
       clearTimeout(vmInstantT.current);
       vmInstantT.current = setTimeout(() => setVmInstant(null), 650);
       // track a correct/missed streak so the teacher can adapt the pace
-      if (ok) { vmStreakRef.current++; vmMissRef.current = 0; vmTallyOkRef.current++; }
+      if (ok) { if (vmMissRef.current >= 2) vmRecoveredRef.current = true; vmStreakRef.current++; vmMissRef.current = 0; vmTallyOkRef.current++; }
       else { vmMissRef.current++; vmStreakRef.current = 0; vmTallyMissRef.current++; }
     }
     vmNotesRef.current = vmNotesRef.current.filter(x => now - x.t < 12000);
@@ -735,9 +736,14 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
       msg += `\n\n(Ear-training — I just played by ear (no keys shown): ${ear.label} [${ear.notes.map(pcOf).join(" ")}]. The learner's answer is above${notes.length ? " (played: " + notes.join(" ") + ")" : ""}. Say if they got it right, reveal what it was, and offer another with [ear: ${ear.kind}].)`;
     }
     // Adaptive pacing from this session's instant ✓/✗ streak.
-    // voice tone adapts to the moment: proud on a streak, gentle after misses
+    // voice tone adapts to the moment: proud on a streak, gentle after misses,
+    // and visibly delighted the moment a rough patch turns around — a human
+    // teacher lights up when the learner finally gets it, and that warmth IS
+    // part of the reward ("There you go! That's it!").
+    const vmRecovered = vmRecoveredRef.current; vmRecoveredRef.current = false;
     if (vmStreakRef.current >= 3) { setTtsMood("celebrate"); msg += `\n\n(Pacing: the learner just played ${vmStreakRef.current} correct in a row — sounding confident, consider leveling up or adding a small challenge.)`; }
     else if (vmMissRef.current >= 2) { setTtsMood("gentle"); msg += `\n\n(Pacing: the learner missed ${vmMissRef.current} in a row — slow down, make the step smaller, and be extra encouraging.)`; }
+    else if (vmRecovered) { setTtsMood("celebrate"); msg += `\n\n(Pacing: the learner just broke out of a rough patch with a correct note — celebrate this small win with real warmth and sincerity first, then keep the next step small and doable.)`; }
     else setTtsMood("warm");
     vmStreakRef.current = 0; vmMissRef.current = 0;
     // (the persistent ear keeps running underneath — gated by state, ready for voice barge-in)
@@ -829,6 +835,15 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     return segs;
   }
   const vmWait = (ms) => new Promise(r => setTimeout(r, ms));
+  // A real teacher breathes between sentences — a short beat after a plain line,
+  // a longer one after a question/exclamation so it lands before the next thought.
+  // Pauses shrink when the learner asks for a faster pace (never a wall of words).
+  function vmBreath(text) {
+    const ends = /[?!。！？]$/.test((text || "").trim());
+    const base = ends ? 520 : 240;
+    const sp = Math.max(0.75, Math.min(2, vmSpeedRef.current || 1));
+    return vmWait(base / sp);
+  }
   async function vmPlayDemo(mode, notes) {
     const sp = vmSpeedRef.current || 1;            // 1 / 1.25 / 1.5 / 1.75 / 2 — faster = shorter gaps
     vmLastDemoRef.current = { mode, notes: notes.slice() };  // remember for an instant "again"
@@ -884,7 +899,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     const segs = vmParseSegments(text);
     for (const s of segs) {
       if (!vmActiveRef.current) return;
-      if (s.type === "say") { if (s.text.trim()) await vmSpeakP(s.text); }
+      if (s.type === "say") { if (s.text.trim()) { await vmSpeakP(s.text); await vmBreath(s.text); } }
       else await vmActSeg(s);
     }
   }
@@ -905,11 +920,13 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
         await playCloudClips(clips, rateMul, () => !vmActiveRef.current);
         done = true; clearTimeout(guard);
         vmSpokeAtRef.current = Date.now(); // the echo freshness window starts when the audio ENDS
+        await vmBreath(s.text);            // …then a human beat before the next sentence
         return;
       }
       vmCloudDeadRef.current = true; // cloud failed → device voice from here on
     }
     await vmSpeakP(s.text); // device voice (has its own watchdog)
+    await vmBreath(s.text);
   }
   // show notes the learner should play: light the keys + remember them so we can
   // give instant local ✓/✗ as the learner plays (no AI round-trip needed).
