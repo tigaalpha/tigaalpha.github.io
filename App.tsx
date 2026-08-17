@@ -58,6 +58,7 @@ import {
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
   guestHasProgress, mergeGuestProgressIntoProfile,
 } from "./shared-infra";
+import { startCloudSync, stopCloudSync } from "./cloud-sync";
 import { Splash, BannedScreen, GuestGateScreen, ProfileForm, CountUp } from "./app-shell";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
@@ -6651,6 +6652,11 @@ export default function App() {
       }
       setProfile(finalData || null);
       setProfileReady(true);
+      // cloud-sync: two-way sync of the learner's localStorage learning state
+      // (pathway progress, SRS, memory, best scores, activity log...) so it
+      // survives device switches. Pull-merge happens inside, fire-and-forget;
+      // no-op until supabase-cloud-state-sync-migration.sql is applied.
+      startCloudSync(uid);
       // Supabase is the authoritative subscription now — sync it to localStorage so
       // the freemium gates can't be unlocked by editing localStorage. Admins always
       // get full access; a paid plan counts only while plan_until is in the future.
@@ -6666,7 +6672,7 @@ export default function App() {
     if (session && session.user && session.user.id) loadProfile(session.user.id);
     // no session (fresh visitor, or just signed out) = guest mode, not a locked
     // door — same synthetic profile object PianoApp already knows how to read.
-    else { setProfile(loadGuestProfile()); setProfileReady(true); }
+    else { stopCloudSync(); setProfile(loadGuestProfile()); setProfileReady(true); }
   }, [session, loadProfile]);
 
   // banned/plan/admin_tier are otherwise only re-checked once per session (on the
@@ -6686,6 +6692,7 @@ export default function App() {
   }, [session && session.user && session.user.id]);
 
   async function signOut() {
+    stopCloudSync(); // flush pending cloud-sync writes first, then stop watching
     try { await sb.auth.signOut(); } catch (e) {}
     setSession(null); setProfile(null);
   }
