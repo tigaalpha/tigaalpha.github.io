@@ -238,6 +238,8 @@ select jobname, schedule, active from cron.job order by jobname;
 | ai-daily-briefing | ai-briefing-runner | 00:00 | 07:00 |
 | ai-weekly-business-report | ai-briefing-runner | จันทร์ 01:00 | จันทร์ 08:00 |
 | marketing-manual-entry-reminder | marketing-manual-entry-reminder | จันทร์ 02:00 | จันทร์ 09:00 |
+| ops-auto-approve-daily | ops-auto-approve | 23:00 | 06:00 |
+| schedule-bookings-daily | schedule-bookings-sync | 17:30 | 00:30 |
 | ceo-agent-weekly-run | agent-orchestrator | จันทร์ 03:00 | จันทร์ 10:00 |
 | monthly-report | monthly-report | 1 ของเดือน 08:00 | 1 ของเดือน 15:00 |
 | payroll-report | payroll-report | 1 ของเดือน 09:00 | 1 ของเดือน 16:00 |
@@ -305,3 +307,11 @@ npm run build        # แล้ว sync out/ → studio/ ที่ root (ขั
 | นโยบายบริษัท (ความจำองค์กร) | Knowledge → นโยบายบริษัท | chat-core inject | AI ทุกตัวปฏิบัติตาม |
 | Ad Spend + Attribution | `/ads` | repository (RLS) | บันทึกค่าโฆษณา เทียบยอดขาย |
 | Payroll ครบวงจร | `/reports` | `payroll-report` (แก้) | หัก ณ ที่จ่าย 3% + สลิป LINE ถึงครู |
+| AI สร้างลูกค้าเอง + ผูก LINE/web | ทุกแชทลูกค้า | `create_customer` tool + line-webhook/web-chat (แก้) | ปิดรูเงินรั่ว: ลูกค้าใหม่ถูกสร้าง+ผูก conversation อัตโนมัติ |
+| Lead form ใน Web Widget | เว็บไซต์ (embed) | `public/chat-widget.js` (แก้) | ฟอร์มชื่อ/เบอร์ก่อนแชท → กลายเป็น lead ใน CRM |
+| บันทึกยอดขายเก่า | หน้า Payments + LINE | `record-revenue` + `บันทึกยอด [ชื่อ] [จำนวน] [วันที่]` | สร้างใบชำระจ่ายแล้ว + ตัดรายได้ + อัปเดต pipeline |
+| อนุมัติอัตโนมัติ (คอขวดคนเดียว) | cron 06:00 น. | `ops-auto-approve` (ใหม่) | KB draft จาก eval-loop + คอนเทนต์ใกล้ถึงวัน อนุมัติเอง + รายงาน LINE ทุกเช้า |
+| จัดการคิวจาก LINE | LINE (เจ้าของ) | `คิวค้าง` / `อนุมัติ KB 1` / `ปัด KB 1` / `อนุมัติคอนเทนต์ 1` / `ปัดคอนเทนต์ 1` | ดู/อนุมัติ/ปัดงานค้างโดยไม่ต้องเปิดแอพ |
+| ตารางเรียน → bookings | cron 00:30 น. | `schedule-bookings-sync` (ใหม่) | สร้าง bookings 14 วันข้างหน้าจากคาบประจำสัปดาห์ → ปฏิทิน/attendance/เงินเดือนเห็นภาระสอนจริง |
+| แยกยอดรวมเป็นรายลูกค้า | `/accounting/income` | `split-transaction` (ใหม่) | ปุ่ม "แยกยอด" บนรายได้ที่บันทึกเป็นก้อนหลายคน |
+| เรียนรู้จากคำปฏิเสธ | การอนุมัติ | `approvals` (แก้) | เมื่อเจ้าของปฏิเสธงาน AI → เก็บเป็นนโยบายบริษัทอัตโนมัติ |

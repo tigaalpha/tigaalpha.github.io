@@ -2,8 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff, requireOwnerOrAdmin } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
-import { embed } from "../_shared/ai-provider.ts";
-import { chunkText } from "../_shared/text.ts";
+import { approveKbDraft } from "../_shared/kb-drafts.ts";
 import { logSystemEvent } from "../_shared/monitor.ts";
 
 // Owner decides on a KB self-learning draft (kb-self-learn): approve →
@@ -34,22 +33,11 @@ Deno.serve(async (req: Request) => {
     }
 
     // Approve → insert document + embedded chunks (same as knowledge-upload).
-    const content = `${draft.question}\n\n${draft.draft_answer}`;
-    const { data: document, error: docErr } = await admin
-      .from("knowledge_documents")
-      .insert({ title: draft.question, source_type: "faq", raw_text: content, created_by: userId })
-      .select("id")
-      .single();
-    if (docErr) throw docErr;
-
-    for (const chunk of chunkText(content)) {
-      const [embedding] = await Promise.all([embed(chunk)]);
-      await admin.from("knowledge_chunks").insert({ document_id: document.id, content: chunk, embedding });
-    }
-
-    await admin.from("kb_drafts").update({ status: "approved" }).eq("id", draftId);
-    await logSystemEvent(admin, "kb-draft-action", "info", `approved draft ${draftId} → document ${document.id}`);
-    return jsonResponse({ ok: true, status: "approved", documentId: document.id });
+    // Shared pipeline (approveKbDraft) so the Knowledge page, LINE commands,
+    // and the auto-approve cron can never drift.
+    const { documentId } = await approveKbDraft(admin, draftId, userId);
+    await logSystemEvent(admin, "kb-draft-action", "info", `approved draft ${draftId} → document ${documentId}`);
+    return jsonResponse({ ok: true, status: "approved", documentId });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return jsonResponse({ error: message }, 400);

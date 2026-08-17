@@ -24,6 +24,11 @@ export async function recordRevenue(
     .insert({
       customer_id: customer.id,
       amount: args.amount,
+      // payments.promptpay_target/promptpay_payload are NOT NULL — for a
+      // back-filled paid sale there is no QR to generate, so store empty
+      // strings (the payment is already settled; nothing will be charged).
+      promptpay_target: "",
+      promptpay_payload: "",
       status: "paid",
       reference_code: reference,
       note: args.note ?? `บันทึกยอดขายเก่า (${args.source})`,

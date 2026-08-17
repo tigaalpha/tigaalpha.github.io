@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
 import { getPeriodKey, periodLabel, type Granularity } from "@/lib/period-grouping";
+import { SplitTransactionButton } from "@/features/accounting/components/split-transaction-button";
 import type { Tables, TransactionType } from "@/types/database";
 
 const GRANULARITY_OPTIONS: { value: Granularity; label: string }[] = [
@@ -36,9 +37,11 @@ const TYPE_CONFIG: Record<
 interface TransactionBreakdownProps {
   transactions: Tables<"transactions">[];
   type: TransactionType;
+  /** Called after a row is split so the parent can reload the list. */
+  onChanged?: () => void;
 }
 
-export function TransactionBreakdown({ transactions, type }: TransactionBreakdownProps) {
+export function TransactionBreakdown({ transactions, type, onChanged }: TransactionBreakdownProps) {
   const [granularity, setGranularity] = useState<Granularity>("month");
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
 
@@ -149,6 +152,9 @@ export function TransactionBreakdown({ transactions, type }: TransactionBreakdow
                             {config.sign}
                             {formatCurrency(t.amount)}
                           </span>
+                          {type === "income" && !t.customer_id ? (
+                            <SplitTransactionButton transaction={t} onDone={onChanged} />
+                          ) : null}
                         </li>
                       ))}
                     </ul>

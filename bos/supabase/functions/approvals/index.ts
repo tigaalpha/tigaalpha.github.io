@@ -183,6 +183,20 @@ Deno.serve(async (req: Request) => {
           await admin.from("approval_requests").update({ status: "pending", resolved_by: null, resolved_at: null }).eq("id", id);
           throw execErr;
         }
+      } else {
+        // Policy auto-learn: a rejection is the owner teaching the AI what
+        // NOT to do. Record it as a company policy so every future reply
+        // (chat-core injects company_policies into the system prompt) stops
+        // proposing the same thing. Best-effort — never fail the rejection.
+        try {
+          await admin.from("company_policies").insert({
+            title: `บทเรียนจากคำปฏิเสธ: ${claimed.type}`,
+            content: `เจ้าของปฏิเสธคำขอ AI แบบ ${claimed.type}${claimed.reason ? ` — AI ขอไว้ว่า "${String(claimed.reason).slice(0, 200)}"` : ""}. ครั้งหน้าอย่าเสนอ/ทำแบบนี้โดยไม่สอบถามเจ้าของก่อน`,
+            active: true,
+          });
+        } catch {
+          // policy write is best-effort
+        }
       }
 
       return jsonResponse({ request: claimed });

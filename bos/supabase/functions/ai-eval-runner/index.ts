@@ -42,7 +42,7 @@ const JUDGE_PROMPT = (reply: string) =>
     "3 = พอใช้ แต่ดูเป็นสูตรสำเร็จ หรือตอบไม่ตรงประเด็นเต็มที่",
     "2 = ไม่ดี: ใช้เครื่องหมายพิเศษ (**, ~~, !!, -, bullet), ตอบผิด/ไม่เกี่ยวข้อง, หรือทักทายซ้ำแบบสูตรสำเร็จ (เช่น 'ยินดีต้อนรับ... อีกครั้ง') โดยไม่ตอบคำถาม",
     "1 = แย่มาก: มีขีดฆ่าข้อความ ใช้สัญลักษณ์เยอะ หรือตอบไม่เกี่ยวกับคำถาม",
-    "ตอบเป็น JSON เท่านั้น: {\"score\": 1-5, \"reason\": \"คำอธิบายสั้นๆ ภาษาไทย 1 ประโยค\"}",
+    "ตอบเป็น JSON ล้วนเท่านั้น ห้ามมีข้อความอื่นนอก JSON ใช้ double quotes เท่านั้น (ห้าม single quotes): {\"score\": 1-5, \"reason\": \"คำอธิบายสั้นๆ ภาษาไทย 1 ประโยค\"}",
     "คำตอบที่จะตรวจ:",
     reply.slice(0, 800),
   ].join("\n");
@@ -117,7 +117,7 @@ Deno.serve(async (req: Request) => {
             if (question) {
               const corrected = await geminiProvider.generate([{ role: "user", content: CORRECTION_PROMPT(question, m.content, reason ?? "ตอบไม่ดี") }], undefined, 0.3, 500);
               await logAiUsage(admin, corrected.usage, "ai-eval-runner:correction");
-              const newAnswer = corrected.message.content.trim();
+              const newAnswer = (corrected.message.content ?? "").trim();
               if (newAnswer && !/^```/.test(newAnswer)) {
                 const { error: draftErr } = await admin.from("kb_drafts").insert({
                   question,

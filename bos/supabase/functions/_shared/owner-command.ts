@@ -18,6 +18,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { createPayment, confirmPayment } from "./payments.ts";
 import { recordRevenue } from "./revenue.ts";
+import { approveKbDraft } from "./kb-drafts.ts";
 
 const HELP_TEXT = [
   "คำสั่งที่ใช้ได้ ตัวอย่าง:",
@@ -201,6 +202,81 @@ async function contentQueue(admin: SupabaseClient): Promise<string> {
   if (items.length === 0) return "ไม่มีคอนเทนต์ค้าง — ทุกชิ้นถึงวันแล้วอนุมัติ/โพสต์ครบ";
   const lines = [`คอนเทนต์ถึงวันแต่ยังไม่โพสต์ ${items.length} ชิ้น:`, ...items.map((c) => `${c.planned_date ?? ""} ${c.title} (${c.status})`)];
   return lines.join("\n");
+}
+
+// ---- คิวค้าง: จัดการงานรออนุมัติจาก LINE ได้ทั้งหมด -----------------------
+// รายการ KB และคอนเทนต์เรียงลำดับเดียวกันเสมอ (order by created_at /
+// planned_date) เพื่อให้เลขใน "คิวค้าง" ตรงกับเลขที่ใช้ "อนุมัติ KB 1" ได้
+interface PendingKb { id: string; question: string }
+interface PendingContent { id: string; kind: string; title: string; planned_date?: string | null }
+
+async function listPendingKb(admin: SupabaseClient): Promise<PendingKb[]> {
+  const { data } = await admin.from("kb_drafts").select("id, question").eq("status", "pending").order("created_at", { ascending: true }).limit(10);
+  return (data ?? []) as PendingKb[];
+}
+
+async function listPendingContent(admin: SupabaseClient): Promise<PendingContent[]> {
+  const { data } = await admin
+    .from("content_calendar")
+    .select("id, kind, title, planned_date")
+    .eq("status", "draft")
+    .order("planned_date", { ascending: true })
+    .limit(10);
+  return (data ?? []) as PendingContent[];
+}
+
+async function pendingQueues(admin: SupabaseClient): Promise<string> {
+  const [kb, content] = await Promise.all([listPendingKb(admin), listPendingContent(admin)]);
+  const lines: string[] = ["คิวที่รอคุณ:"];
+  if (kb.length === 0) {
+    lines.push("KB: ไม่มีฉบับร่างค้าง");
+  } else {
+    lines.push(`KB (พิมพ์ "อนุมัติ KB 1" หรือ "ปัด KB 1"):`);
+    kb.forEach((d, i) => lines.push(`${i + 1}. ${d.question.slice(0, 80)}`));
+  }
+  if (content.length === 0) {
+    lines.push("คอนเทนต์: ไม่มีค้าง");
+  } else {
+    lines.push(`คอนเทนต์ (พิมพ์ "อนุมัติคอนเทนต์ 1" หรือ "ปัดคอนเทนต์ 1"):`);
+    content.forEach((c, i) => lines.push(`${i + 1}. [${c.kind}] ${c.title.slice(0, 70)} (${c.planned_date ?? "ไม่ระบุวัน"})`));
+  }
+  return lines.join("\n");
+}
+
+async function approveKbByIndex(admin: SupabaseClient, index: number): Promise<string> {
+  const rows = await listPendingKb(admin);
+  const target = rows[index - 1];
+  if (!target) return `ไม่พบรายการที่ ${index} — พิมพ์ "คิวค้าง" เพื่อดูเลขปัจจุบัน`;
+  try {
+    await approveKbDraft(admin, target.id);
+    return `อนุมัติ KB แล้ว: ${target.question.slice(0, 80)} — เข้าฐานความรู้ให้ AI ใช้ตอบได้แล้ว`;
+  } catch (e) {
+    return e instanceof Error ? e.message : "อนุมัติไม่สำเร็จ ลองใหม่" + " (ถ้ายังไม่หายตรวจหน้า Knowledge)";
+  }
+}
+
+async function rejectKbByIndex(admin: SupabaseClient, index: number): Promise<string> {
+  const rows = await listPendingKb(admin);
+  const target = rows[index - 1];
+  if (!target) return `ไม่พบรายการที่ ${index} — พิมพ์ "คิวค้าง" เพื่อดูเลขปัจจุบัน`;
+  await admin.from("kb_drafts").update({ status: "rejected" }).eq("id", target.id);
+  return `ปัด KB แล้ว: ${target.question.slice(0, 80)}`;
+}
+
+async function approveContentByIndex(admin: SupabaseClient, index: number): Promise<string> {
+  const rows = await listPendingContent(admin);
+  const target = rows[index - 1];
+  if (!target) return `ไม่พบรายการที่ ${index} — พิมพ์ "คิวค้าง" เพื่อดูเลขปัจจุบัน`;
+  await admin.from("content_calendar").update({ status: "approved" }).eq("id", target.id);
+  return `อนุมัติคอนเทนต์แล้ว: ${target.title.slice(0, 70)} — ถึงวันกำหนดจะขึ้นคิวโพสต์อัตโนมัติ`;
+}
+
+async function skipContentByIndex(admin: SupabaseClient, index: number): Promise<string> {
+  const rows = await listPendingContent(admin);
+  const target = rows[index - 1];
+  if (!target) return `ไม่พบรายการที่ ${index} — พิมพ์ "คิวค้าง" เพื่อดูเลขปัจจุบัน`;
+  await admin.from("content_calendar").update({ status: "skipped" }).eq("id", target.id);
+  return `ปัดคอนเทนต์แล้ว: ${target.title.slice(0, 70)}`;
 }
 
 // ออกใบแจ้ง [ชื่อลูกค้า] [จำนวน] — finds the customer by name fragment,
@@ -404,6 +480,7 @@ export async function handleOwnerCommand(admin: SupabaseClient, text: string): P
   if (/งานวันนี้|ต้องทำ|สิ่งที่ต้อง/.test(lower)) return needingAttention(admin);
   if (/อนุมัติค้าง|รออนุมัติ/.test(lower)) return approvalsQueue(admin);
   if (/คอนเทนต์ค้าง|คอนเทนต์.*อนุมัติ|content/.test(lower)) return contentQueue(admin);
+  if (/คิวค้าง|คิวงาน/.test(lower)) return pendingQueues(admin);
   if (/คุณภาพ AI|คะแนน AI|ai quality/.test(lower)) return aiQuality(admin);
   if (/ค่าใช้จ่าย/.test(lower)) return expenseSummary(admin);
 
@@ -431,6 +508,16 @@ export async function handleOwnerCommand(admin: SupabaseClient, text: string): P
     if (!Number.isFinite(amount) || amount <= 0 || amount > 1000000) return "จำนวนเงินไม่ถูกต้อง (ต้องมากกว่า 0 และไม่เกิน 1,000,000 บาท)";
     return recordRevenue(admin, name, amount, recordMatch[3] || undefined);
   }
+
+  // คิวค้าง / อนุมัติ KB [i] / ปัด KB [i] / อนุมัติคอนเทนต์ [i] / ปัดคอนเทนต์ [i]
+  const kbApprove = t.match(/อนุมัติ\s+KB\s+(\d+)/i);
+  if (kbApprove) return approveKbByIndex(admin, Number(kbApprove[1]));
+  const kbReject = t.match(/ปัด\s+KB\s+(\d+)/i);
+  if (kbReject) return rejectKbByIndex(admin, Number(kbReject[1]));
+  const contentApprove = t.match(/อนุมัติคอนเทนต์\s+(\d+)/i);
+  if (contentApprove) return approveContentByIndex(admin, Number(contentApprove[1]));
+  const contentSkip = t.match(/ปัดคอนเทนต์\s+(\d+)/i);
+  if (contentSkip) return skipContentByIndex(admin, Number(contentSkip[1]));
 
   if (startsWithSlash) return HELP_TEXT;
 

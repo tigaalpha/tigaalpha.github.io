@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { jsonResponse } from "../_shared/cors.ts";
+import { checkCronSecret } from "../_shared/cron-auth.ts";
 import { push } from "../_shared/line.ts";
 import { computeNextRun } from "../_shared/schedule.ts";
 
@@ -27,8 +28,9 @@ const CONFIRM_QUICK_REPLIES = ["✅ มาเรียน", "❌ มาไม่
 Deno.serve(async (req: Request) => {
   const admin = createAdminClient();
 
-  const { data: secretRow } = await admin.from("integration_settings").select("value").eq("key", "cron_secret").maybeSingle();
-  if (!secretRow?.value || req.headers.get("x-cron-secret") !== secretRow.value) {
+  // Accept env OR DB cron secret (see cron-auth.ts) — some crons bake the
+  // env value at creation, older ones read integration_settings live.
+  if (!(await checkCronSecret(admin, req))) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
@@ -48,6 +50,18 @@ Deno.serve(async (req: Request) => {
 
   for (const schedule of dueSoon ?? []) {
     if (schedule.last_reminded_occurrence === schedule.next_occurrence_at) continue; // already reminded for this exact occurrence
+
+    // Recurring occurrences materialized into bookings (schedule-bookings-
+    // sync) are reminded by the booking pass below — skip here so the
+    // customer never gets two "มาเรียนไหมคะ" messages for one lesson.
+    const occ = new Date(schedule.next_occurrence_at);
+    const { count: bookingCount } = await admin
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", schedule.customer_id)
+      .gte("start_time", new Date(occ.getTime() - 30 * 60 * 1000).toISOString())
+      .lte("start_time", new Date(occ.getTime() + 30 * 60 * 1000).toISOString());
+    if ((bookingCount ?? 0) > 0) continue; // the booking pass handles this one
 
     const { data: customer } = await admin.from("customers").select("id, name, line_user_id").eq("id", schedule.customer_id).maybeSingle();
     if (!customer?.line_user_id) continue; // no LINE connection to remind through
