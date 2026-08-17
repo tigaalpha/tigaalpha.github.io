@@ -4,11 +4,10 @@ import { VM_VOICES } from "./speech";
 /* ── VoiceTutorOverlay ──
    The AI Voice Tutor full-screen overlay (vmOpen), extracted verbatim from
    PianoApp's inline JSX as part of Phase 2 componentization — no logic
-   changes. Android-app-only feature (isAndroidNative gate lives at the
-   trigger site in PianoApp, not here); structurally unreachable in any web/
-   headless context per the modularization plan, so this extraction is
-   build-verified and statically prop-audited but not driveable by a
-   headless browser test — matches how the plan itself scoped this step.
+   changes. Available on the Android app and on web browsers with
+   SpeechRecognition (the old isAndroidNative-only gate was lifted); in a
+   headless context it can't be driven end-to-end (mic + real STT needed),
+   but the overlay itself is plain JSX verified by build + prop audit.
    lc is derived from lang internally, same convention as the other
    overlay components. ── */
 export function VoiceTutorOverlay({ lang, setLang, vmLangOpen, setVmLangOpen, exitVoice, onBack, vmState, vmErr, vmOrbTap, vmInstant, vmCaption, vmStaff, vmNotes, vmMsgs, vmEndRef, vmLit, vmOnNote, vmMenuOpen, setVmMenuOpen, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmFast, setVmFast, vmFastRef, vmCloudDeadRef, vmPoly, vmTogglePoly, vmInput, setVmInput, vmEarResetRef, vmActiveRef, vmProcess, vmToggle }) {

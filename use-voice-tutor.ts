@@ -14,19 +14,20 @@ import { readMemory, touchSessionMemory, memoryContext, setHomeworkLS, homeworkC
 import { streamChatCompletion } from "./ai-backend";
 import { dayKey, logActivity } from "./shared-infra";
 import { SONGS } from "./songs-data";
-import { isAndroidNative, curriculumContext, songRecommendationHint, setLessonPlanLS, buildAlternatingHistory, levelInfo, vmDisplayText } from "./App";
+import { curriculumContext, songRecommendationHint, setLessonPlanLS, buildAlternatingHistory, levelInfo, vmDisplayText } from "./App";
 /* ── use-voice-tutor.ts ──
-   Owns the AI Voice Tutor: the turn-based, hands-free voice lesson
-   (Android-app-only - openVoice()/startVoiceSession() both gate on
-   isAndroidNative and return immediately on web or iOS). This is Phase 3's highest-
-   risk, largest, and least verifiable step - the governing plan itself
-   flags it as "confirmed structurally unreachable in any web/headless
-   context": a clean build proves the rest of the app still works with
-   this hook in place, nothing about Voice Tutor's own behavior, which
-   needs a real Android device to exercise at all (mic permission, real
-   STT/TTS, Capacitor.isNativePlatform() actually true). Same treatment
-   already given to analyzeHands' AI path and the live MediaPipe loop in
-   use-camera-coach.ts (Phase 3.6), just for the entire hook this time.
+   Owns the AI Voice Tutor: the turn-based, hands-free voice lesson.
+   Originally Android-app-only (openVoice()/startVoiceSession() gated on
+   isAndroidNative) — that gate was lifted so the feature also works on web
+   browsers with SpeechRecognition support (Chrome/Edge/Safari), which is what
+   the owner asked to test in a real browser. This is the app's most
+   voice-heavy surface: a clean build proves the rest of the app still
+   works with this hook in place, but the live behavior needs a real
+   device/browser to exercise at all (mic permission, real STT/TTS) —
+   same treatment already given to analyzeHands' AI path and the live
+   MediaPipe loop in use-camera-coach.ts (Phase 3.6). On web it uses the
+   browser's SpeechRecognition (getSR) and cloud/device TTS; inside the
+   Android app it additionally gets native STT via native-stt.ts.
    VoiceTutorOverlay.tsx (Phase 2.9) is this hook's only external
    consumer; every prop it already receives keeps its exact original name.
 
@@ -63,8 +64,9 @@ import { isAndroidNative, curriculumContext, songRecommendationHint, setLessonPl
    the AI Mentor recommendation engine), so pulling the wrapper functions
    out without their shared infrastructure isn't possible - same
    convention as logGame/logPractice/scoreDynamics/API_MODEL/EXP.
-   isAndroidNative is also a new export in place (used elsewhere in App.tsx,
-   e.g. StudioPage's own voice-card gating). buildAlternatingHistory is
+   isAndroidNative stays an export in place (used elsewhere in App.tsx for
+   native-only concerns like the APK banner; StudioPage's voice card is no
+   longer gated on it). buildAlternatingHistory is
    already exported (Phase 3.8) - a plain new import here, not a new
    export.
 
@@ -223,7 +225,6 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     vmProcess(L[langRef.current].vmPlayedCue);            // implicit "I just played — what do you think?"
   }
   function openVoice() {
-    if (!isAndroidNative) return; // Android-app-only feature, by design — never reachable on web or iOS
     setVmOpen(true);
     setVmErr(null);
     vmMsgsRef.current = []; setVmMsgs([]);
@@ -304,7 +305,6 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
   const vmCheckIdleRef = useRef(() => {});
   useEffect(() => { vmCheckIdleRef.current = vmCheckIdle; });
   function startVoiceSession() {
-    if (!isAndroidNative) return; // belt-and-suspenders: vmToggle()/vmOrbTap() can re-enter this once the modal is open
     if (!sttSupported()) { setVmErr(L[lang].vmNoSTT); vmSetState("error"); return; }
     getAC();
     vmActiveRef.current = true;
