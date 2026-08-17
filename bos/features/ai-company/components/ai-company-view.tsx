@@ -30,6 +30,9 @@ const AGENT_LABELS: Record<string, string> = {
   sales: "Sales Agent",
   marketing: "Marketing Agent",
   finance: "Finance Agent",
+  content: "Content Agent",
+  ops: "Ops Agent",
+  research: "Research Agent",
   business_analyst: "Business Analyst Agent",
 };
 
@@ -38,6 +41,9 @@ const ACTION_TYPE_LABELS: Record<string, string> = {
   send_notification: "แจ้งเตือนในระบบ",
   send_line: "ส่งข้อความ LINE",
   create_schedule: "สร้างกำหนดการอัตโนมัติ",
+  draft_content: "ร่างคอนเทนต์เข้าปฏิทิน",
+  update_customer: "อัปเดตข้อมูลลูกค้า",
+  send_email: "ส่งอีเมล",
 };
 
 const ACTION_STATUS_LABELS: Record<string, string> = {
@@ -267,7 +273,8 @@ export function AiCompanyView() {
                   งานที่สั่งให้ระบบทำต่อ
                 </CardTitle>
                 <CardDescription>
-                  งานเสี่ยงต่ำ (สร้างงาน/แจ้งเตือน) รันอัตโนมัติทันที — งานที่แตะลูกค้าหรือระบบอัตโนมัติ (LINE/กำหนดการ) ต้องกดอนุมัติเอง
+                  งานเสี่ยงต่ำ (สร้างงาน/แจ้งเตือน/ร่างคอนเทนต์) รันอัตโนมัติทันที — งานที่แตะลูกค้า เงิน หรือระบบอัตโนมัติ
+                  (LINE/กำหนดการ/อีเมล/อัปเดตลูกค้า) ต้องกดอนุมัติเอง
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">

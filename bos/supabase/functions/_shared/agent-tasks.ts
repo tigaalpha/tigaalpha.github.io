@@ -142,6 +142,71 @@ export async function runFinanceAgentTask(admin: SupabaseClient, question: strin
   });
 }
 
+export async function runContentAgentTask(admin: SupabaseClient, question: string): Promise<AgentTaskResult> {
+  const [calendarRows, articlesRows, postRows] = await Promise.all([
+    admin.from("content_calendar").select("kind, status, platform"),
+    admin.from("articles").select("status"),
+    admin.from("social_posts").select("status"),
+  ]);
+
+  const calendarByStatus = countByStatus(calendarRows.data ?? []);
+  const calendarByKind: Record<string, number> = {};
+  const calendarByPlatform: Record<string, number> = {};
+  for (const row of calendarRows.data ?? []) {
+    const kind = row.kind ?? "unknown";
+    calendarByKind[kind] = (calendarByKind[kind] ?? 0) + 1;
+    if (row.platform) calendarByPlatform[row.platform] = (calendarByPlatform[row.platform] ?? 0) + 1;
+  }
+
+  return runAgentPrompt("content_agent", question, {
+    calendarByStatus,
+    calendarByKind,
+    calendarByPlatform,
+    articlesByStatus: countByStatus(articlesRows.data ?? []),
+    socialPostsByStatus: countByStatus(postRows.data ?? []),
+  });
+}
+
+export async function runOpsAgentTask(admin: SupabaseClient, question: string): Promise<AgentTaskResult> {
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const [automationRows, taskRows, notifRows] = await Promise.all([
+    admin.from("automation_runs").select("status").gte("started_at", weekAgo),
+    admin.from("agent_task_runs").select("status").gte("started_at", weekAgo),
+    admin.from("notifications").select("is_read").eq("is_read", false).limit(100),
+  ]);
+
+  return runAgentPrompt("ops_agent", question, {
+    automationRunCountsLast7Days: countByStatus(automationRows.data ?? []),
+    agentTaskCountsLast7Days: countByStatus(taskRows.data ?? []),
+    unreadNotifications: notifRows.data?.length ?? 0,
+  });
+}
+
+export async function runResearchAgentTask(admin: SupabaseClient, question: string): Promise<AgentTaskResult> {
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const [kbRows, policyRows, evalRows] = await Promise.all([
+    admin.from("knowledge_documents").select("source_type"),
+    admin.from("company_policies").select("active"),
+    admin.from("ai_evals").select("score").gte("created_at", weekAgo),
+  ]);
+
+  const kbBySourceType: Record<string, number> = {};
+  for (const row of kbRows.data ?? []) {
+    const type = row.source_type ?? "unknown";
+    kbBySourceType[type] = (kbBySourceType[type] ?? 0) + 1;
+  }
+  const activePolicies = (policyRows.data ?? []).filter((p) => p.active).length;
+  const evalScores = (evalRows.data ?? []).map((r) => Number(r.score)).filter((s) => Number.isFinite(s));
+  const avgEvalScore = evalScores.length > 0 ? Math.round(evalScores.reduce((a, b) => a + b, 0) / evalScores.length) : null;
+
+  return runAgentPrompt("research_agent", question, {
+    knowledgeDocsBySourceType: kbBySourceType,
+    activeCompanyPolicies: activePolicies,
+    aiEvalCountLast7Days: evalScores.length,
+    avgAiEvalScoreLast7Days: avgEvalScore,
+  });
+}
+
 export async function runBusinessAnalystAgentTask(admin: SupabaseClient, question: string): Promise<AgentTaskResult> {
   const [recentReports, runCounts] = await Promise.all([
     admin.from("ai_reports").select("report_type, title, created_at").order("created_at", { ascending: false }).limit(5),
@@ -165,6 +230,12 @@ export async function runAgentTask(admin: SupabaseClient, agentId: string, quest
       return runMarketingAgentTask(admin, question);
     case "finance":
       return runFinanceAgentTask(admin, question);
+    case "content":
+      return runContentAgentTask(admin, question);
+    case "ops":
+      return runOpsAgentTask(admin, question);
+    case "research":
+      return runResearchAgentTask(admin, question);
     case "business_analyst":
       return runBusinessAnalystAgentTask(admin, question);
     default:

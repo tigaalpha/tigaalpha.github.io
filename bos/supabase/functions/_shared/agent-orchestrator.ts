@@ -12,7 +12,7 @@ import { checkAiBudgetExceeded } from "./ai-budget.ts";
 import { registerWorkflowActions } from "./agent-actions-db.ts";
 import type { RecommendedAction } from "./agent-actions.ts";
 
-const MAX_TASKS = 4;
+const MAX_TASKS = 5;
 
 const RETURN_TASK_PLAN_TOOL: ToolDefinition = {
   name: "return_task_plan",

@@ -23,6 +23,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import qrcode from "npm:qrcode-generator@1.4.4";
 import { promptPayPayload, sanitizeAmount } from "./promptpay.ts";
 import { push as linePush, pushImage } from "./line.ts";
+import { sendEmail } from "./email.ts";
 
 export interface PaymentConfig {
   /** Studio bank account number — the primary transfer destination. */
@@ -116,7 +117,7 @@ export async function createPayment(admin: SupabaseClient, input: CreatePaymentI
   const amount = sanitizeAmount(input.amount);
   if (amount === null) throw new Error("จำนวนเงินไม่ถูกต้อง — ต้องเป็นตัวเลขที่มากกว่า 0 และไม่เกิน 1,000,000 บาท");
 
-  const { data: customer, error: custErr } = await admin.from("customers").select("id, name, line_user_id").eq("id", input.customerId).maybeSingle();
+  const { data: customer, error: custErr } = await admin.from("customers").select("id, name, line_user_id, email").eq("id", input.customerId).maybeSingle();
   if (custErr || !customer) throw new Error("ไม่พบลูกค้าที่ระบุ");
 
   if (input.courseId) {
@@ -193,6 +194,22 @@ export async function createPayment(admin: SupabaseClient, input: CreatePaymentI
     }
   }
 
+  // Optional extra: email the invoice when the customer has an address on
+  // file (Email channel — Resend). Best-effort: email is a convenience on
+  // top of LINE, never a reason to fail payment creation.
+  if (customer.email) {
+    try {
+      await sendEmail(admin, {
+        to: customer.email,
+        subject: `ใบแจ้งชำระ ${referenceCode} — Tiga Studio`,
+        text: instructions,
+        html: invoiceEmailHtml(customer.name ?? "", amount, referenceCode, config),
+      });
+    } catch {
+      // email delivery is optional — the payment row and LINE push stand on their own
+    }
+  }
+
   return {
     paymentId: payment.id,
     amount,
@@ -259,7 +276,7 @@ export async function confirmPayment(admin: SupabaseClient, input: ConfirmPaymen
   if (txErr) throw txErr;
 
   // 2. move the customer forward in the pipeline (only if still mid-funnel)
-  const { data: customer } = await admin.from("customers").select("id, name, sales_status, line_user_id").eq("id", payment.customer_id).maybeSingle();
+  const { data: customer } = await admin.from("customers").select("id, name, sales_status, line_user_id, email").eq("id", payment.customer_id).maybeSingle();
   if (customer && !["won", "lost", "renewed"].includes(customer.sales_status)) {
     const toStatus = customer.sales_status === "renew_pending" ? "renewed" : "won";
     const { error: statusErr } = await admin
@@ -283,6 +300,20 @@ export async function confirmPayment(admin: SupabaseClient, input: ConfirmPaymen
       customer.line_user_id,
       `✅ ได้รับการชำระเงินแล้ว ${amount.toLocaleString("th-TH")} บาท ขอบคุณมากค่ะ${customer.name ? " คุณ" + customer.name : ""} 🙏`
     ).catch(() => {});
+  }
+
+  // Optional extra: email the receipt (Email channel — Resend). Best-effort.
+  if (customer?.email) {
+    try {
+      await sendEmail(admin, {
+        to: customer.email,
+        subject: `ใบเสร็จรับเงิน ${payment.reference_code} — Tiga Studio`,
+        text: `ได้รับชำระเงิน ${amount.toLocaleString("th-TH")} บาท (อ้างอิง ${payment.reference_code}) แล้ว ขอบคุณมากค่ะ${customer.name ? " คุณ" + customer.name : ""}`,
+        html: receiptEmailHtml(customer.name ?? "", amount, payment.reference_code, config),
+      });
+    } catch {
+      // email delivery is optional — the confirmation already went out on LINE
+    }
   }
 
   await admin.from("notifications").insert({
@@ -333,4 +364,46 @@ export async function confirmPaymentBySlip(admin: SupabaseClient, input: { payme
     }
   }
   return result;
+}
+
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function accountText(config: PaymentConfig): string {
+  return config.account_number
+    ? `${config.bank ?? ""} ${config.account_number}${config.name ? " (" + config.name + ")" : ""}`
+    : config.promptpay_id ?? "";
+}
+
+// Simple invoice HTML for the email channel — plain table, no branding
+// assets, renders fine in every client.
+function invoiceEmailHtml(customerName: string, amount: number, referenceCode: string, config: PaymentConfig): string {
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#222">
+      <h2 style="margin:0 0 4px">Tiga Studio — ใบแจ้งชำระ</h2>
+      <p style="color:#666;margin:0 0 20px">Invoice ${esc(referenceCode)}</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <tr><td style="padding:6px 0;color:#666">ลูกค้า</td><td style="padding:6px 0;text-align:right">${esc(customerName)}</td></tr>
+        <tr><td style="padding:6px 0;color:#666">จำนวนเงิน</td><td style="padding:6px 0;text-align:right"><b>฿${amount.toLocaleString("th-TH")}</b></td></tr>
+        <tr><td style="padding:6px 0;color:#666">บัญชีรับเงิน</td><td style="padding:6px 0;text-align:right">${esc(accountText(config))}</td></tr>
+        <tr><td style="padding:6px 0;color:#666">อ้างอิง</td><td style="padding:6px 0;text-align:right">${esc(referenceCode)}</td></tr>
+      </table>
+      <p style="color:#666;font-size:13px;margin-top:20px">โอนตรงเข้าบัญชีของสตูดิโอ แล้วส่งสลิปมาในแชท LINE เพื่อยืนยัน — ทีมงานจะยืนยันทันทีที่ได้รับเงิน</p>
+    </div>`;
+}
+
+function receiptEmailHtml(customerName: string, amount: number, referenceCode: string, config: PaymentConfig): string {
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#222">
+      <h2 style="margin:0 0 4px">Tiga Studio — ใบเสร็จรับเงิน</h2>
+      <p style="color:#666;margin:0 0 20px">Receipt ${esc(referenceCode)}</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <tr><td style="padding:6px 0;color:#666">ลูกค้า</td><td style="padding:6px 0;text-align:right">${esc(customerName)}</td></tr>
+        <tr><td style="padding:6px 0;color:#666">ชำระแล้ว</td><td style="padding:6px 0;text-align:right"><b>฿${amount.toLocaleString("th-TH")}</b></td></tr>
+        <tr><td style="padding:6px 0;color:#666">เข้าบัญชี</td><td style="padding:6px 0;text-align:right">${esc(accountText(config))}</td></tr>
+        <tr><td style="padding:6px 0;color:#666">อ้างอิง</td><td style="padding:6px 0;text-align:right">${esc(referenceCode)}</td></tr>
+      </table>
+      <p style="color:#666;font-size:13px;margin-top:20px">ขอบคุณที่เรียนกับ Tiga Studio 🙏</p>
+    </div>`;
 }
