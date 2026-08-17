@@ -523,7 +523,7 @@ export const _PARTIALS = [[1, 1.0, 1.0], [2, 0.5, 0.72], [3, 0.26, 0.52], [4, 0.
 // ringing out yet — tracked so stopAllPianoNotes() can actually silence them
 // (self-pruned via each oscillator's own onended, so this never grows unbounded).
 export let _activeNotes = [];
-export function playPianoNote(note, dur = 0.7) {
+export function playPianoNote(note, dur = 0.7, velocity = 1) {
   try {
     if (_sfxMuted) return;
     const f = NF[note]; if (!f) return;
@@ -539,7 +539,7 @@ export function playPianoNote(note, dur = 0.7) {
     lp.type = "lowpass";
     lp.frequency.value = Math.min(9000, f * 6 + 1800);
     lp.connect(bus);
-    const peak = 0.33;
+    const peak = 0.33 * Math.max(0.001, Math.min(1, velocity));
     for (const [mul, amp, dscale] of _PARTIALS) {
       if (f * mul > 12000) continue;
       const osc = ac.createOscillator();
@@ -554,6 +554,66 @@ export function playPianoNote(note, dur = 0.7) {
       const entry = { osc, g };
       _activeNotes.push(entry);
       osc.onended = () => { const i = _activeNotes.indexOf(entry); if (i >= 0) _activeNotes.splice(i, 1); };
+    }
+  } catch (e) {}
+}
+// Press-and-hold pair for the on-screen keyboard: startPianoNote() begins the
+// tone with a gentle decay-while-held (real piano keys keep losing energy even
+// sustained, they just don't go silent) and does NOT schedule a stop —
+// releasePianoNote() ramps whichever gain the hold-decay has reached down to
+// silence over releaseTime. Kept separate from playPianoNote() (a fire-and-
+// forget one-shot used by demo playback, chime feedback, backing chords, etc.)
+// rather than folding hold-detection into it, since those callers don't have
+// a "release" moment to call back into.
+export function startPianoNote(note, velocity = 1) {
+  try {
+    if (_sfxMuted) return null;
+    const f = NF[note]; if (!f) return null;
+    // Hold duration isn't known yet, so suppress mic self-echo for a generous
+    // window; releasePianoNote() re-suppresses for the release tail below.
+    _accMarkSuppress(f, 50, Date.now() + 6000);
+    const { ac, bus } = audioBus();
+    const t0 = ac.currentTime;
+    const lp = ac.createBiquadFilter();
+    lp.type = "lowpass";
+    // brighter timbre at higher velocity — a harder hammer strike excites more
+    // high-frequency content on a real piano too
+    lp.frequency.value = Math.min(9000, f * 6 + 1800 + velocity * 900);
+    lp.connect(bus);
+    const peak = 0.33 * Math.max(0.15, Math.min(1, velocity));
+    const voices = [];
+    for (const [mul, amp, dscale] of _PARTIALS) {
+      if (f * mul > 12000) continue;
+      const osc = ac.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = f * mul;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(peak * amp, t0 + 0.006);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak * amp * 0.4), t0 + 2.2);
+      osc.connect(g); g.connect(lp);
+      osc.start(t0);
+      const entry = { osc, g };
+      _activeNotes.push(entry);
+      osc.onended = () => { const i = _activeNotes.indexOf(entry); if (i >= 0) _activeNotes.splice(i, 1); };
+      voices.push(entry);
+    }
+    return { note, voices };
+  } catch (e) { return null; }
+}
+export function releasePianoNote(handle, releaseTime = 0.22) {
+  if (!handle) return;
+  try {
+    const ac = _busCtx || getAC();
+    const t0 = ac.currentTime;
+    const f = NF[handle.note];
+    if (f) _accMarkSuppress(f, 50, Date.now() + releaseTime * 1000 + 200);
+    for (const { osc, g } of handle.voices) {
+      const cur = g.gain.value;
+      g.gain.cancelScheduledValues(t0);
+      g.gain.setValueAtTime(Math.max(cur, 0.0001), t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + releaseTime);
+      osc.stop(t0 + releaseTime + 0.05);
     }
   } catch (e) {}
 }
@@ -1286,14 +1346,100 @@ export function staffStep(note, clef = "treble") {
 // light haptic tap feedback on supported devices
 export function haptic(ms = 8) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
 
-export const Piano = memo(function Piano({ litNote = null, litSet = null, fingerMap = {}, small = false, onNote = null, baseOct = 4 }) {
-  const keys = baseOct === 4 ? KEYS : keysFor(baseOct);
+// Shared press/hold/release + multi-touch logic for Piano and GamePiano.
+// One pointer per finger is tracked independently (Map keyed by pointerId) so
+// chords (several fingers down at once) and glissando (one finger sliding
+// across keys) both work — a key sounds the instant it's touched, keeps
+// ringing while held, and releases into its natural decay when that specific
+// finger lifts, regardless of what any other active finger is doing.
+//
+// Deliberately NOT using setPointerCapture: capturing would keep every
+// subsequent event targeted at the key first touched, which is exactly wrong
+// for glissando (each key crossed while sliding is supposed to sound in
+// turn). Un-captured pointermove naturally fires on whichever key element is
+// currently under the finger, which is all the glissando transition below needs.
+//
+// onNote() — the scoring/matching callback several callers pass in (Sight-
+// Reading, the main free-play handler, Voice Tutor input, Song-Play input) —
+// fires only on the initial press of each finger, never on a glissando
+// transition: those callers expect one discrete "the learner played X" event
+// per deliberate press, and firing it for every key a slide sweeps through
+// would over-count practice credit / spam wrong-note matching in a scored
+// context. The slide still sounds and lights up normally either way.
+function usePianoKeys(onNote) {
+  const [held, setHeld] = useState(() => new Set());
   const [flash, setFlash] = useState(null);
   const flashT = useRef(null);
-  const press = (n) => {
-    haptic(); playPianoNote(n); if (onNote) onNote(n);
-    setFlash(n); clearTimeout(flashT.current); flashT.current = setTimeout(() => setFlash(null), 320);
+  const activeRef = useRef(new Map()); // pointerId -> { note, handle }
+
+  const velocityFromPointer = (e) => {
+    const p = typeof e.pressure === "number" ? e.pressure : 0.5;
+    // 0.5 is the spec-mandated sentinel for "device doesn't report real
+    // pressure" (true of nearly every phone touchscreen) — treat that as
+    // full velocity so ordinary taps sound exactly as loud as before this
+    // change, rather than quieter by default. Only a genuinely-varying
+    // reading (stylus, pressure-capable trackpad) drives real dynamics.
+    if (p === 0.5 || p === 0) return 1;
+    return Math.max(0.35, Math.min(1, p * 1.15));
   };
+  const flashNote = (n) => { setFlash(n); clearTimeout(flashT.current); flashT.current = setTimeout(() => setFlash(null), 320); };
+  const endNote = (pointerId) => {
+    const entry = activeRef.current.get(pointerId);
+    if (!entry) return;
+    activeRef.current.delete(pointerId);
+    releasePianoNote(entry.handle);
+    const stillHeld = Array.from(activeRef.current.values()).some(v => v.note === entry.note);
+    if (!stillHeld) setHeld(prev => (prev.has(entry.note) ? (() => { const n = new Set(prev); n.delete(entry.note); return n; })() : prev));
+  };
+  const onKeyPointerDown = (e, note) => {
+    e.preventDefault();
+    if (activeRef.current.has(e.pointerId)) return; // defensive, shouldn't happen
+    const handle = startPianoNote(note, velocityFromPointer(e));
+    activeRef.current.set(e.pointerId, { note, handle });
+    haptic();
+    if (onNote) onNote(note);
+    setHeld(prev => { const n = new Set(prev); n.add(note); return n; });
+    flashNote(note);
+  };
+  const onKeyPointerMove = (e, note) => {
+    const entry = activeRef.current.get(e.pointerId);
+    if (!entry || note === entry.note) return;
+    releasePianoNote(entry.handle);
+    const handle = startPianoNote(note, 1);
+    activeRef.current.set(e.pointerId, { note, handle });
+    haptic();
+    setHeld(prev => {
+      const n = new Set(prev);
+      const stillHeldOld = Array.from(activeRef.current.values()).some(v => v.note === entry.note && v !== entry);
+      if (!stillHeldOld) n.delete(entry.note);
+      n.add(note);
+      return n;
+    });
+    flashNote(note);
+  };
+  const onKeyPointerUp = (e) => endNote(e.pointerId);
+  // Global fallback: if a finger lifts (or the gesture is cancelled — an
+  // incoming call, an OS gesture) off the keyboard entirely, no per-key
+  // handler ever fires for it. Without this a slide-off would leave that
+  // voice ringing at its decay-while-held floor forever.
+  useEffect(() => {
+    const onUp = (e) => endNote(e.pointerId);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      for (const { handle } of activeRef.current.values()) releasePianoNote(handle);
+      activeRef.current.clear();
+    };
+  }, []);
+
+  return { held, flash, onKeyPointerDown, onKeyPointerMove, onKeyPointerUp };
+}
+
+export const Piano = memo(function Piano({ litNote = null, litSet = null, fingerMap = {}, small = false, onNote = null, baseOct = 4 }) {
+  const keys = baseOct === 4 ? KEYS : keysFor(baseOct);
+  const { held, flash, onKeyPointerDown, onKeyPointerMove, onKeyPointerUp } = usePianoKeys(onNote);
   // White keys flex to fill whatever width the container has (phone or tablet) —
   // no fixed pixel width, so nothing ever overflows into a horizontal scroll.
   // Black keys are positioned by percentage over the white-key row, the same
@@ -1308,9 +1454,11 @@ export const Piano = memo(function Piano({ litNote = null, litSet = null, finger
     const finger = fingerMap[k.n];
     return (
       <div key={k.n}
-        className={`pk ${k.t}${lit ? " lit" : ""}${flash === k.n ? " flash" : ""}`}
+        className={`pk ${k.t}${lit ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
         style={k.t === "b" ? { left: (((k.after + 1) / NW) * 100 - bw / 2) + "%", width: bw + "%" } : undefined}
-        onClick={() => press(k.n)}>
+        onPointerDown={(e) => onKeyPointerDown(e, k.n)}
+        onPointerMove={(e) => onKeyPointerMove(e, k.n)}
+        onPointerUp={onKeyPointerUp}>
         {k.t === "w" && <span className="kn">{k.l}</span>}
         {lit && finger != null && <span className="finger">{finger}</span>}
       </div>
@@ -1326,13 +1474,8 @@ export const Piano = memo(function Piano({ litNote = null, litSet = null, finger
 
 export const SP_WKW = 30, SP_GAP = 2, SP_BKW = 19; // white width, gap, black width
 export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null, onNote = null, baseOct = 4, octs = 2, scroll = false, fullWidth = false }) {
-  const [flash, setFlash] = useState(null);
-  const flashT = useRef(null);
+  const { held, flash, onKeyPointerDown, onKeyPointerMove, onKeyPointerUp } = usePianoKeys(onNote);
   const scrollerRef = useRef(null);
-  const press = (n) => {
-    haptic(); playPianoNote(n); if (onNote) onNote(n);
-    setFlash(n); clearTimeout(flashT.current); flashT.current = setTimeout(() => setFlash(null), 320);
-  };
   const isLit = (n) => (litSet && litSet.includes(n)) || litNote === n;
   // start the slidable keyboard centered on middle C (C4 = white index 14 of C2..B6)
   useEffect(() => {
@@ -1366,15 +1509,18 @@ export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null
       <div className="gpwrap gpscroll" ref={scrollerRef}>
         <div className="gprow gprow-fixed" style={{ width: rowW, maxWidth: "none", margin: 0 }}>
           {whites.map(k => (
-            <button key={k.n} className={`gpw${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}`}
-              style={{ flex: "none", width: SP_WKW }} onClick={() => press(k.n)} aria-label={k.n}>
+            <button key={k.n} className={`gpw${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
+              style={{ flex: "none", width: SP_WKW }}
+              onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
+              aria-label={k.n}>
               <span>{k.l === "C" ? k.n : k.l}</span>
             </button>
           ))}
           {blacks.map(k => (
-            <button key={k.n} className={`gpb${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}`}
+            <button key={k.n} className={`gpb${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
               style={{ left: (k.after + 1) * (SP_WKW + SP_GAP) - SP_BKW / 2 - 1, width: SP_BKW }}
-              onClick={() => press(k.n)} aria-label={k.n} />
+              onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
+              aria-label={k.n} />
           ))}
         </div>
       </div>
@@ -1391,14 +1537,17 @@ export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null
     <div className="gpwrap">
       <div className="gprow" style={fullWidth ? { maxWidth: "none", margin: 0, padding: 0, gap: 0 } : undefined}>
         {whites.map(k => (
-          <button key={k.n} className={`gpw${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}`} onClick={() => press(k.n)} aria-label={k.l}>
+          <button key={k.n} className={`gpw${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
+            onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
+            aria-label={k.l}>
             <span>{k.l}</span>
           </button>
         ))}
         {blacks.map(k => (
-          <button key={k.n} className={`gpb${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}`}
+          <button key={k.n} className={`gpb${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
             style={{ left: (((k.after + 1) / NW) * 100 - bw / 2) + "%", width: bw + "%" }}
-            onClick={() => press(k.n)} aria-label={k.l} />
+            onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
+            aria-label={k.l} />
         ))}
       </div>
     </div>

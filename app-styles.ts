@@ -102,6 +102,8 @@ html, body, #root{background:var(--bg)}
 .pk.w:active{transform:translateY(2px)}
 .pk.b:active{transform:translateY(1px)}
 .pk.flash{animation:keypop .32s ease-out}
+.pk.w.pressed{transform:translateY(2px);filter:brightness(.94)}
+.pk.b.pressed{transform:translateY(1px);filter:brightness(1.3)}
 .kr-sm .pk.w{height:66px}
 .kr-sm .pk.b{height:42px}
 @keyframes keypop{0%{filter:brightness(1.9) saturate(1.3);box-shadow:0 0 18px 4px #d97757cc,0 0 36px 6px #d9775766}100%{filter:brightness(1)}}
@@ -933,9 +935,11 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .gpw span{font-family:'Share Tech Mono',monospace;font-size:clamp(8px,1.7vw,14px);color:var(--muted);pointer-events:none}
 .gpw:active{transform:translateY(2px)}
 .gpw.lit{background:#d97757;box-shadow:0 0 16px #d97757,0 0 38px #d9775766}
+.gpw.pressed{transform:translateY(2px);filter:brightness(.94)}
 .gpb{position:absolute;top:0;height:62%;background:#1a1a1a;border:1px solid #111;border-radius:0 0 5px 5px;z-index:2;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.8);-webkit-tap-highlight-color:transparent}
 .gpb:active{transform:translateY(1px)}
 .gpb.lit{background:#d97757;box-shadow:0 0 14px #d97757}
+.gpb.pressed{transform:translateY(1px);filter:brightness(1.3)}
 .gpw.flash{animation:keypop .32s ease-out}
 .gpb.flash{animation:keypop .32s ease-out}
 /* realistic, slidable keyboard (voice mode): taller keys, swipe to reach octaves */
