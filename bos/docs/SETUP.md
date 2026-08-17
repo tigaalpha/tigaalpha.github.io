@@ -73,6 +73,9 @@ Supabase Dashboard → Edge Functions → Secrets (หรือ `supabase secret
 | `LINE_CHANNEL_ACCESS_TOKEN` | ✅ | LINE push ถึงลูกค้า/เจ้าของ |
 | `GOOGLE_CLIENT_SECRET` | ✅ | Google Calendar OAuth |
 | `META_APP_SECRET` | ตามการใช้งาน | Facebook Page connect |
+| `RESEND_API_KEY` | ตามการใช้งาน | Email (ใบแจ้งชำระ/ใบเสร็จ/จดหมายข่าว) — ดู H2b |
+| `TIKTOK_CLIENT_SECRET` | ตามการใช้งาน | TikTok Content Posting (Client Key ใส่ในแอพ Settings) — ดู H2 |
+| `X_API_SECRET` | ตามการใช้งาน | X Consumer Secret (API Key ใส่ในแอพ Settings) — ดู H2 |
 | `MESSENGER_VERIFY_TOKEN` | ตามการใช้งาน | Messenger webhook handshake |
 | `MESSENGER_PAGE_ACCESS_TOKEN` | ตามการใช้งาน | Messenger ตอบลูกค้า |
 | `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` | ตามการใช้งาน | TikTok Content Posting API (โพสต์อัตโนมัติ) |
@@ -152,15 +155,25 @@ insert into integration_settings (key, value) values ('voice_agent_secret', '<�
    - โหมด Sandbox: โพสต์ได้ 3 ครั้ง/วัน และบังคับส่วนตัว (SELF_ONLY) — ส่งแอปตรวจสอบถึงจะโพสต์สาธารณะ
    - โพสต์รูปใช้ Direct Post (photo mode), วิดีโอใช้ PULL_FROM_URL — media ต้องเป็น URL สาธารณะ (ที่เก็บใน Supabase Storage เป็น public อยู่แล้ว)
 
-**X (Twitter)**
+**X (Twitter)** — ตอนนี้มี `x-oauth-start` / `x-oauth-callback` ในโค้ดแล้ว (OAuth 1.0a แบบเต็ม)
 1. [developer.x.com](https://developer.x.com) → สร้างแอป → ตั้งสิทธิ์ **Read and Write** (+ Upload media)
 2. ตั้ง Callback URL = `{SUPABASE_URL}/functions/v1/x-oauth-callback`
-3. ตั้ง secrets `X_API_KEY` + `X_API_SECRET` (Consumer Key/Secret)
+3. ใส่ **API Key (Consumer Key)** ในแอพ Settings → Integrations → X (เก็บที่ `x_client_key`) และตั้ง secret `X_API_SECRET` (Consumer Secret)
 4. กด Connect X → อนุมัติในหน้าของ X (OAuth 1.0a — จำเป็นสำหรับอัปโหลดรูป/วิดีโอ)
-   - แผนฟรีโพสต์ได้ ~1,500 ครั้ง/เดือน; วิดีโอ >5MB ยังต้อง chunked upload (ยังไม่รองรับ — จะขึ้น error ชัดเจน)
+   - แผนฟรีโพสต์ได้ ~1,500 ครั้ง/เดือน; ไฟล์ >5MB ยังต้อง chunked upload (ยังไม่รองรับ — จะขึ้น error ชัดเจน)
 
-**ช่องทางทั้งหมดที่ publish ได้** (หน้า Marketing → คิวโพสต์): facebook, line, x, website (ข้อความล้วน) +
-instagram, tiktok (ต้องแนบ media URL) — โพสต์เดียวส่งได้พร้อมกันทุกช่องทาง
+**ช่องทางทั้งหมดที่ publish ได้** (หน้า Marketing → คิวโพสต์): facebook (ข้อความ), line (broadcast), x (ข้อความ/รูป/วิดีโอ ≤5MB),
+instagram (รูป ผ่าน Meta Page token), tiktok (รูป/วิดีโอ ผ่าน PULL_FROM_URL — media ต้องเป็น URL สาธารณะ เช่น Supabase Storage) —
+โพสต์เดียวส่งได้พร้อมกันทุกช่องทาง; youtube ยังต้องโพสต์ด้วยมือ (ลิงก์โดยตรงมีในคิว)
+
+## H2b. Email (ใบแจ้งชำระ / ใบเสร็จ / จดหมายข่าว) — ใช้ Resend
+
+1. สมัคร [resend.com](https://resend.com) (ฟรี 3,000 ฉบับ/เดือน) → สร้าง API Key
+2. ตั้ง secret `RESEND_API_KEY` (ขั้น C)
+3. (แนะนำ) ยืนยันโดเมนใน Resend แล้วใส่ที่อยู่ผู้ส่งในแอพ Settings → Integrations → **Email** (`email_from_address`) —
+   ไม่งั้นอีเมลจะส่งจาก `onboarding@resend.dev`
+4. ระบบส่งอัตโนมัติ: ใบแจ้งชำระเมื่อสร้าง payment, ใบเสร็จเมื่อยืนยันเงิน (ลูกค้าต้องมี `customers.email`) —
+   และส่งจดหมายข่าวได้จากหน้า Settings → Integrations → Email → **ส่งจดหมายข่าว** (ถึงลูกค้าทุกคนที่มีอีเมล)
 
 ---
 

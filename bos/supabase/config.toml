@@ -59,3 +59,21 @@ verify_jwt = true
 
 [functions.agent-event-triggers]
 verify_jwt = false
+
+[functions.tiktok-oauth-start]
+verify_jwt = true
+
+[functions.tiktok-oauth-callback]
+verify_jwt = false
+
+[functions.x-oauth-start]
+verify_jwt = true
+
+[functions.x-oauth-callback]
+verify_jwt = false
+
+[functions.email-send]
+verify_jwt = true
+
+[functions.email-campaign]
+verify_jwt = true

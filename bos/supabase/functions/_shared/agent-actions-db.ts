@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import * as line from "./line.ts";
 import { computeNextRun } from "./schedule.ts";
+import { sendEmail } from "./email.ts";
 import type { AgentActionType, RecommendedAction } from "./agent-actions.ts";
 import { classifyAgentAction } from "./agent-actions.ts";
 
@@ -64,6 +65,91 @@ export async function executeAgentAction(admin: SupabaseClient, type: AgentActio
       if (!lineUserId) return { ok: false, message: "ลูกค้านี้ยังไม่มี LINE User ID — ส่งไม่ได้ ต้องส่งเอง" };
       await line.push(lineUserId, message);
       return { ok: true, message: "ส่ง LINE แล้ว" };
+    }
+
+    case "draft_content": {
+      const title = str(payload, "title", "คอนเทนต์จาก CEO Agent");
+      const body = str(payload, "body", str(payload, "content", ""));
+      const platform = str(payload, "platform", "");
+      const kindRaw = str(payload, "kind", "article");
+      const kind = kindRaw === "short" || kindRaw === "social" || kindRaw === "ad" ? kindRaw : "article";
+      const plannedRaw = str(payload, "plannedDate");
+      const plannedDate = plannedRaw && /^\d{4}-\d{2}-\d{2}$/.test(plannedRaw) ? plannedRaw : null;
+      const { error } = await admin.from("content_calendar").insert({
+        kind,
+        title: title.slice(0, 200),
+        body: body || null,
+        platform: platform || null,
+        planned_date: plannedDate,
+        status: "draft",
+      });
+      if (error) return { ok: false, message: `ร่างคอนเทนต์ไม่สำเร็จ: ${error.message}` };
+      return { ok: true, message: `เพิ่มร่าง "${title.slice(0, 60)}" เข้าปฏิทินคอนเทนต์แล้ว (รออนุมัติ)` };
+    }
+
+    case "update_customer": {
+      const customerId = str(payload, "customerId");
+      if (!customerId) return { ok: false, message: "ไม่มี customerId — อัปเดตลูกค้าไม่ได้" };
+
+      const VALID_SALES_STATUSES = [
+        "new_lead", "contacted", "qualified", "interested", "trial_booked", "trial_completed",
+        "negotiating", "waiting_decision", "won", "lost", "renew_pending", "renewed",
+      ];
+      const patch: Record<string, unknown> = {};
+      const name = str(payload, "name");
+      if (name) patch.name = name;
+      const phone = str(payload, "phone");
+      if (phone) patch.phone = phone;
+      const email = str(payload, "email");
+      if (email) patch.email = email;
+      const notes = str(payload, "notes");
+      if (notes) patch.notes = notes;
+      const budget = str(payload, "budget");
+      if (budget) patch.budget = budget;
+      const learningGoal = str(payload, "learningGoal");
+      if (learningGoal) patch.learning_goal = learningGoal;
+      const experienceLevel = str(payload, "experienceLevel");
+      if (experienceLevel) patch.experience_level = experienceLevel;
+      const preferredSchedule = str(payload, "preferredSchedule");
+      if (preferredSchedule) patch.preferred_schedule = preferredSchedule;
+      const salesStatus = str(payload, "salesStatus");
+      if (salesStatus && VALID_SALES_STATUSES.includes(salesStatus)) patch.sales_status = salesStatus;
+
+      if (Object.keys(patch).length === 0) return { ok: false, message: "ไม่มีข้อมูลให้อัปเดตลูกค้า" };
+
+      const { data: existing } = await admin.from("customers").select("sales_status").eq("id", customerId).maybeSingle();
+      if (!existing) return { ok: false, message: "ไม่พบลูกค้าที่ระบุ" };
+
+      const { error } = await admin.from("customers").update(patch).eq("id", customerId);
+      if (error) return { ok: false, message: `อัปเดตลูกค้าไม่สำเร็จ: ${error.message}` };
+
+      if (patch.sales_status && patch.sales_status !== existing.sales_status) {
+        await admin
+          .from("sales_status_history")
+          .insert({
+            customer_id: customerId,
+            from_status: existing.sales_status,
+            to_status: patch.sales_status as string,
+            note: "CEO Agent (อนุมัติโดยเจ้าของ)",
+          })
+          .catch(() => {});
+      }
+      return { ok: true, message: "อัปเดตข้อมูลลูกค้าแล้ว" };
+    }
+
+    case "send_email": {
+      let to = str(payload, "email");
+      const customerId = str(payload, "customerId");
+      const subject = str(payload, "subject", "ข้อความจาก Tiga Studio");
+      const body = str(payload, "body", str(payload, "message", ""));
+      if (!body) return { ok: false, message: "ไม่มีเนื้อหาอีเมล" };
+      if (!to && customerId) {
+        const { data: customer } = await admin.from("customers").select("email").eq("id", customerId).maybeSingle();
+        to = customer?.email ?? "";
+      }
+      if (!to) return { ok: false, message: "ไม่มีอีเมลผู้รับ — ระบุ email หรือ customerId ที่มีอีเมล" };
+      const result = await sendEmail(admin, { to, subject, text: body });
+      return result;
     }
 
     case "create_schedule": {

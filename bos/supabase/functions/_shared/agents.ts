@@ -16,6 +16,9 @@ export const AGENTS: AgentDefinition[] = [
   { id: "sales", name: "Sales Agent", role: "วิเคราะห์ sales pipeline, lead score, conversion, lost reasons" },
   { id: "marketing", name: "Marketing Agent", role: "วิเคราะห์ช่องทางการตลาด, เทรนด์, และเนื้อหาที่มีอยู่" },
   { id: "finance", name: "Finance Agent", role: "วิเคราะห์รายรับ-รายจ่าย, cash flow, ต้นทุน" },
+  { id: "content", name: "Content Agent", role: "วิเคราะห์คอนเทนต์/ปฏิทินเนื้อหา, บทความ, สคริปต์ และผลงานที่ผลิตได้" },
+  { id: "ops", name: "Ops Agent", role: "วิเคราะห์สุขภาพระบบ: งานอัตโนมัติ, cron, แจ้งเตือน, ความผิดพลาด และงานค้าง" },
+  { id: "research", name: "Research Agent", role: "วิเคราะห์ความรู้ในระบบ (knowledge base), นโยบายบริษัท และข้อมูลคู่แข่ง" },
   { id: "business_analyst", name: "Business Analyst Agent", role: "หา pattern/anomaly ข้ามแผนก จากรายงานและ automation ที่ผ่านมา" },
 ];
 

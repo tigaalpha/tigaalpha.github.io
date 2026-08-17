@@ -5,7 +5,7 @@ import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, RefreshCw, Trash2 } from "lucide-react";
 import { env } from "@/lib/env";
@@ -24,6 +24,9 @@ interface StatusResponse {
   gemini: StatusCheck;
   youtube: StatusCheck;
   openrouter: StatusCheck;
+  tiktok: StatusCheck;
+  x: StatusCheck;
+  email: StatusCheck;
 }
 
 function StatusBadge({ status }: { status: StatusCheck | null }) {
@@ -106,6 +109,20 @@ export function IntegrationsCard() {
   const [savingVideoLimit, setSavingVideoLimit] = useState(false);
   const [webChatSecret, setWebChatSecret] = useState("");
   const [savingWebChatSecret, setSavingWebChatSecret] = useState(false);
+  const [tiktokClientKey, setTiktokClientKey] = useState("");
+  const [savingTiktokClientKey, setSavingTiktokClientKey] = useState(false);
+  const [connectingTiktok, setConnectingTiktok] = useState(false);
+  const [tiktokAccount, setTiktokAccount] = useState<{ account_name: string } | null | undefined>(undefined);
+  const [xClientKey, setXClientKey] = useState("");
+  const [savingXClientKey, setSavingXClientKey] = useState(false);
+  const [connectingX, setConnectingX] = useState(false);
+  const [xAccount, setXAccount] = useState<{ account_name: string } | null | undefined>(undefined);
+  const [emailFrom, setEmailFrom] = useState("");
+  const [savingEmailFrom, setSavingEmailFrom] = useState(false);
+  const [nlSubject, setNlSubject] = useState("");
+  const [nlBody, setNlBody] = useState("");
+  const [sendingNl, setSendingNl] = useState(false);
+  const [nlResult, setNlResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const supabaseUrl = env.supabase.url();
   const lineWebhookUrl = `${supabaseUrl}/functions/v1/line-webhook`;
@@ -124,6 +141,13 @@ export function IntegrationsCard() {
     repos.googleCalendarConnections.list().then(setGcalConnections);
   }
 
+  function loadSocialAccounts() {
+    const supabase = createClient();
+    supabase.from("social_accounts").select("account_name").eq("platform", "facebook").maybeSingle().then(({ data }) => setFacebookAccount(data ?? null));
+    supabase.from("social_accounts").select("account_name").eq("platform", "tiktok").maybeSingle().then(({ data }) => setTiktokAccount(data ?? null));
+    supabase.from("social_accounts").select("account_name").eq("platform", "x").maybeSingle().then(({ data }) => setXAccount(data ?? null));
+  }
+
   useEffect(() => {
     const supabase = createClient();
     const repos = createRepositories(supabase);
@@ -139,12 +163,10 @@ export function IntegrationsCard() {
     repos.integrations.get("ai_budget_daily_tokens").then((v) => setAiBudget(v ?? ""));
     repos.integrations.get("ai_video_daily_limit").then((v) => setVideoLimit(v ?? ""));
     repos.integrations.get("web_chat_secret").then((v) => setWebChatSecret(v ?? ""));
-    supabase
-      .from("social_accounts")
-      .select("account_name")
-      .eq("platform", "facebook")
-      .maybeSingle()
-      .then(({ data }) => setFacebookAccount(data ?? null));
+    repos.integrations.get("tiktok_client_key").then((v) => setTiktokClientKey(v ?? ""));
+    repos.integrations.get("x_client_key").then((v) => setXClientKey(v ?? ""));
+    repos.integrations.get("email_from_address").then((v) => setEmailFrom(v ?? ""));
+    loadSocialAccounts();
     refreshStatus();
     reloadGcalConnections();
 
@@ -168,13 +190,31 @@ export function IntegrationsCard() {
     } else if (gcalConnect === "error") {
       setBanner({ type: "error", text: `เชื่อมต่อไม่สำเร็จ: ${params.get("gcalConnectError") ?? "ไม่ทราบสาเหตุ"}` });
     }
-    if (googleCalendar || meta || gcalConnect) {
+    const tiktok = params.get("tiktok");
+    if (tiktok === "connected") {
+      setBanner({ type: "success", text: "เชื่อมต่อ TikTok สำเร็จแล้ว!" });
+      loadSocialAccounts();
+    } else if (tiktok === "error") {
+      setBanner({ type: "error", text: `เชื่อมต่อ TikTok ไม่สำเร็จ: ${params.get("tiktokError") ?? "ไม่ทราบสาเหตุ"}` });
+    }
+    const xParam = params.get("x");
+    if (xParam === "connected") {
+      setBanner({ type: "success", text: "เชื่อมต่อ X (Twitter) สำเร็จแล้ว!" });
+      loadSocialAccounts();
+    } else if (xParam === "error") {
+      setBanner({ type: "error", text: `เชื่อมต่อ X ไม่สำเร็จ: ${params.get("xError") ?? "ไม่ทราบสาเหตุ"}` });
+    }
+    if (googleCalendar || meta || gcalConnect || tiktok || xParam) {
       params.delete("googleCalendar");
       params.delete("googleCalendarError");
       params.delete("meta");
       params.delete("metaError");
       params.delete("gcalConnect");
       params.delete("gcalConnectError");
+      params.delete("tiktok");
+      params.delete("tiktokError");
+      params.delete("x");
+      params.delete("xError");
       const clean = window.location.pathname + (params.toString() ? `?${params}` : "");
       window.history.replaceState({}, "", clean);
     }
@@ -269,6 +309,76 @@ export function IntegrationsCard() {
     setManualPageToken("");
     setFacebookAccount({ account_name: data.pageName });
     setManualTokenResult({ type: "success", text: `เชื่อมต่อสำเร็จแล้ว! (${data.pageName})` });
+  }
+
+  async function saveTiktokClientKey() {
+    if (!tiktokClientKey.trim()) return;
+    setSavingTiktokClientKey(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("tiktok_client_key", tiktokClientKey.trim());
+    setSavingTiktokClientKey(false);
+  }
+
+  async function connectTiktok() {
+    setConnectingTiktok(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.functions.invoke<{ url: string }>("tiktok-oauth-start");
+    setConnectingTiktok(false);
+    if (error || !data) {
+      setBanner({ type: "error", text: "เริ่มเชื่อมต่อ TikTok ไม่สำเร็จ — ตรวจสอบ Client Key และ TIKTOK_CLIENT_SECRET" });
+      return;
+    }
+    window.location.href = data.url;
+  }
+
+  async function saveXClientKey() {
+    if (!xClientKey.trim()) return;
+    setSavingXClientKey(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("x_client_key", xClientKey.trim());
+    setSavingXClientKey(false);
+  }
+
+  async function connectX() {
+    setConnectingX(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.functions.invoke<{ url: string }>("x-oauth-start");
+    setConnectingX(false);
+    if (error || !data) {
+      setBanner({ type: "error", text: "เริ่มเชื่อมต่อ X ไม่สำเร็จ — ตรวจสอบ API Key และ X_API_SECRET" });
+      return;
+    }
+    window.location.href = data.url;
+  }
+
+  async function saveEmailFrom() {
+    if (!emailFrom.trim()) return;
+    setSavingEmailFrom(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("email_from_address", emailFrom.trim());
+    setSavingEmailFrom(false);
+    refreshStatus();
+  }
+
+  async function sendNewsletter() {
+    if (!nlSubject.trim() || !nlBody.trim()) return;
+    setSendingNl(true);
+    setNlResult(null);
+    const supabase = createClient();
+    const { data, error } = await supabase.functions.invoke<
+      { total: number; sent: number; failed: number; failures: { email: string; message: string }[] } | { error: string }
+    >("email-campaign", { body: { subject: nlSubject.trim(), body: nlBody.trim() } });
+    setSendingNl(false);
+    if (error || !data || "error" in data) {
+      setNlResult({ type: "error", text: data && "error" in data ? data.error : "ส่งจดหมายข่าวไม่สำเร็จ ลองใหม่อีกครั้ง" });
+      return;
+    }
+    setNlResult({
+      type: "success",
+      text: `ส่งแล้ว ${data.sent}/${data.total} ฉบับ${data.failed > 0 ? ` — ล้มเหลว ${data.failed} (${data.failures.map((f) => f.email).slice(0, 5).join(", ")})` : ""}`,
+    });
+    setNlSubject("");
+    setNlBody("");
   }
 
   async function connectGoogle() {
@@ -541,8 +651,8 @@ export function IntegrationsCard() {
             {connectingMeta ? "กำลังเชื่อมต่อ…" : "Connect Facebook Page"}
           </Button>
           <p className="pt-1 text-xs text-secondary/50">
-            รองรับเฉพาะ Facebook Page และ LINE OA (broadcast) สำหรับโพสต์อัตโนมัติแบบข้อความล้วน — Instagram/TikTok/YouTube
-            ต้องแนบรูปหรือวิดีโอเสมอ จึงยังต้องโพสต์ด้วยมือผ่านลิงก์โดยตรง
+            โพสต์อัตโนมัติ: Facebook (ข้อความ) · LINE (broadcast) · Instagram (รูป) · TikTok (รูป/วิดีโอ) · X (ข้อความ/รูป/วิดีโอ
+            ≤5MB) — YouTube ยังต้องโพสต์ด้วยมือผ่านลิงก์
           </p>
 
           <div className="space-y-2 rounded-lg border border-line/10 bg-line/5 p-3 pt-3 mt-2">
@@ -583,6 +693,90 @@ export function IntegrationsCard() {
               </p>
             ) : null}
           </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <div className="flex items-center justify-between">
+            <p className="font-medium text-secondary">TikTok (โพสต์รูป/วิดีโออัตโนมัติ)</p>
+            {tiktokAccount === undefined ? (
+              <Badge variant="outline">กำลังตรวจสอบ…</Badge>
+            ) : (
+              <Badge variant={tiktokAccount ? "success" : "danger"}>{tiktokAccount ? `เชื่อมต่อ: ${tiktokAccount.account_name}` : "ยังไม่เชื่อมต่อ"}</Badge>
+            )}
+          </div>
+          <p className="text-sm text-secondary/70">
+            โพสต์รูปและวิดีโอ (PULL_FROM_URL — media ต้องเป็น URL สาธารณะ เช่น Supabase Storage) ไปยัง TikTok ได้จากหน้าคิวโพสต์
+            โดยใช้ Content Posting API
+          </p>
+          <div className="space-y-1 pt-2 text-sm text-secondary/70">
+            <p>
+              1. เข้า{" "}
+              <a href="https://developers.tiktok.com" target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
+                developers.tiktok.com
+              </a>{" "}
+              → สร้างแอป (Business) → เปิดโปรดักต์ <b>Content Posting API</b> + <b>Login Kit</b> → คัดลอก <b>Client Key</b> วางด้านล่าง
+            </p>
+            <p>
+              2. นำ <b>Client Secret</b> ไปวางใน Supabase Dashboard → Edge Functions → Secrets เป็น{" "}
+              <code className="rounded bg-line/5 px-1">TIKTOK_CLIENT_SECRET</code>
+            </p>
+            <p>3. เพิ่ม Redirect URI นี้ใน TikTok App → Settings:</p>
+          </div>
+          <CopyField value={`${supabaseUrl}/functions/v1/tiktok-oauth-callback`} />
+          <div className="flex items-end gap-2 pt-2">
+            <Input placeholder="TikTok Client Key" value={tiktokClientKey} onChange={(e) => setTiktokClientKey(e.target.value)} />
+            <Button variant="outline" onClick={() => void saveTiktokClientKey()} disabled={savingTiktokClientKey || !tiktokClientKey.trim()}>
+              {savingTiktokClientKey ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+          <Button className="w-full" onClick={() => void connectTiktok()} disabled={connectingTiktok || !tiktokClientKey.trim()}>
+            {connectingTiktok ? "กำลังเชื่อมต่อ…" : "Connect TikTok"}
+          </Button>
+          <p className="pt-1 text-xs text-secondary/50">
+            โหมด Sandbox โพสต์ได้ 3 ครั้ง/วันและบังคับโพสต์ส่วนตัว (SELF_ONLY) — ตั้งค่า{" "}
+            <code className="rounded bg-line/5 px-1">tiktok_privacy_level</code> เป็น PUBLIC_TO_EVERYONE ใน integration_settings เมื่อแอปผ่านการตรวจสอบแล้ว
+          </p>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <div className="flex items-center justify-between">
+            <p className="font-medium text-secondary">X (Twitter) — โพสต์ข้อความ/รูปอัตโนมัติ</p>
+            {xAccount === undefined ? (
+              <Badge variant="outline">กำลังตรวจสอบ…</Badge>
+            ) : (
+              <Badge variant={xAccount ? "success" : "danger"}>{xAccount ? `เชื่อมต่อ: ${xAccount.account_name}` : "ยังไม่เชื่อมต่อ"}</Badge>
+            )}
+          </div>
+          <p className="text-sm text-secondary/70">
+            โพสต์ข้อความและรูป/วิดีโอ (≤5MB) ผ่าน OAuth 1.0a — ไฟล์ใหญ่กว่า 5MB ยังต้องโพสต์เอง (chunked upload ยังไม่รองรับ)
+          </p>
+          <div className="space-y-1 pt-2 text-sm text-secondary/70">
+            <p>
+              1. เข้า{" "}
+              <a href="https://developer.x.com" target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
+                developer.x.com
+              </a>{" "}
+              → สร้างแอป → ตั้งสิทธิ์ <b>Read and Write</b> (+ Upload media) → คัดลอก <b>API Key (Consumer Key)</b> วางด้านล่าง
+            </p>
+            <p>
+              2. นำ <b>API Secret (Consumer Secret)</b> ไปวางใน Supabase Dashboard → Edge Functions → Secrets เป็น{" "}
+              <code className="rounded bg-line/5 px-1">X_API_SECRET</code>
+            </p>
+            <p>3. ตั้ง Callback URL นี้ใน X App → User authentication settings:</p>
+          </div>
+          <CopyField value={`${supabaseUrl}/functions/v1/x-oauth-callback`} />
+          <div className="flex items-end gap-2 pt-2">
+            <Input placeholder="X API Key (Consumer Key)" value={xClientKey} onChange={(e) => setXClientKey(e.target.value)} />
+            <Button variant="outline" onClick={() => void saveXClientKey()} disabled={savingXClientKey || !xClientKey.trim()}>
+              {savingXClientKey ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+          <Button className="w-full" onClick={() => void connectX()} disabled={connectingX || !xClientKey.trim()}>
+            {connectingX ? "กำลังเชื่อมต่อ…" : "Connect X (Twitter)"}
+          </Button>
+          <p className="pt-1 text-xs text-secondary/50">
+            แผนฟรีโพสต์ได้ ~1,500 ครั้ง/เดือน — X ต้องใช้ OAuth 1.0a (ไม่ใช่ Bearer token) เพื่ออัปโหลดรูป/วิดีโอ
+          </p>
         </div>
 
         <div className="space-y-2 rounded-xl border border-line/10 p-4">
@@ -714,6 +908,58 @@ export function IntegrationsCard() {
               <code className="rounded bg-line/5 px-1">YOUTUBE_API_KEY</code>
             </p>
             <p>3. ไปที่หน้า Marketing Channels แล้วกรอก handle หรือ Channel ID ของช่อง YouTube เพื่อดูสถิติแบบ real-time</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-line/10 p-4">
+          <div className="flex items-center justify-between">
+            <p className="font-medium text-secondary">Email (ใบแจ้งชำระ / ใบเสร็จ / จดหมายข่าว)</p>
+            <StatusBadge status={status?.email ?? null} />
+          </div>
+          {status?.email ? <p className="text-xs text-secondary/50">{status.email.detail}</p> : null}
+          <div className="space-y-1 pt-2 text-sm text-secondary/70">
+            <p>
+              1. สมัคร{" "}
+              <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="text-primary-accent underline">
+                Resend
+              </a>{" "}
+              (ฟรี 3,000 ฉบับ/เดือน) → สร้าง API Key
+            </p>
+            <p>
+              2. นำไปวางใน Supabase Dashboard → Edge Functions → Secrets เป็น{" "}
+              <code className="rounded bg-line/5 px-1">RESEND_API_KEY</code>
+            </p>
+            <p>
+              3. (แนะนำ) ยืนยันโดเมนใน Resend แล้วใส่ที่อยู่ผู้ส่งด้านล่าง — ไม่งั้นอีเมลจะส่งจาก onboarding@resend.dev
+            </p>
+          </div>
+          <div className="flex items-end gap-2 pt-2">
+            <Input
+              placeholder="อีเมลผู้ส่ง เช่น Tiga Studio <hello@tigastudio.com>"
+              value={emailFrom}
+              onChange={(e) => setEmailFrom(e.target.value)}
+            />
+            <Button variant="outline" onClick={() => void saveEmailFrom()} disabled={savingEmailFrom || !emailFrom.trim()}>
+              {savingEmailFrom ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+          <div className="space-y-2 rounded-lg border border-line/10 bg-line/5 p-3">
+            <p className="text-xs font-medium text-secondary">ส่งจดหมายข่าวถึงลูกค้าทุกคนที่มีอีเมลในระบบ</p>
+            <Input placeholder="หัวข้ออีเมล" value={nlSubject} onChange={(e) => setNlSubject(e.target.value)} />
+            <Textarea placeholder="เนื้อหาจดหมายข่าว…" value={nlBody} onChange={(e) => setNlBody(e.target.value)} className="min-h-24" />
+            <Button className="w-full" onClick={() => void sendNewsletter()} disabled={sendingNl || !nlSubject.trim() || !nlBody.trim()}>
+              {sendingNl ? "กำลังส่ง…" : "ส่งจดหมายข่าว"}
+            </Button>
+            {nlResult ? (
+              <p
+                className={cn(
+                  "rounded-lg px-3 py-2 text-xs",
+                  nlResult.type === "success" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                )}
+              >
+                {nlResult.text}
+              </p>
+            ) : null}
           </div>
         </div>
 

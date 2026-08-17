@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Share2, Facebook, Instagram, MessageCircle, Music2, Clock, AlertTriangle, Youtube, Copy, Check, Trash2, ExternalLink } from "lucide-react";
+import { Share2, Facebook, Instagram, MessageCircle, Music2, Clock, AlertTriangle, Youtube, Twitter, Copy, Check, Trash2, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
@@ -21,13 +21,14 @@ const CHANNELS: Channel[] = [
   { id: "instagram", label: "Instagram", icon: Instagram, url: "https://instagram.com" },
   { id: "line", label: "LINE OA", icon: MessageCircle, url: "https://manager.line.biz" },
   { id: "tiktok", label: "TikTok", icon: Music2, url: "https://tiktok.com/creator" },
+  { id: "x", label: "X (Twitter)", icon: Twitter, url: "https://x.com" },
   { id: "youtube", label: "YouTube", icon: Youtube, url: "https://studio.youtube.com" },
 ];
 
-// Only Facebook (Page feed post) and LINE (broadcast) support a real,
-// text-only auto-publish today — Instagram/TikTok/YouTube's APIs all
-// require an attached image/video, which this queue doesn't collect.
-const AUTO_PUBLISH_PLATFORMS: SocialPlatform[] = ["facebook", "line"];
+// Auto-publish: Facebook (text feed), LINE (broadcast), TikTok (photo/video
+// via a public media URL) and X (text + media ≤5MB). Instagram needs an
+// image URL, YouTube still posts by hand via the direct link.
+const AUTO_PUBLISH_PLATFORMS: SocialPlatform[] = ["facebook", "line", "tiktok", "x", "instagram"];
 
 export function MultiChannelPost() {
   const [content, setContent] = useState("");
@@ -199,8 +200,8 @@ export function MultiChannelPost() {
         <CardContent className="flex items-start gap-3 pt-6 text-sm text-info">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
-            ระบบคิวโพสต์: เขียนคอนเทนต์ครั้งเดียว เลือกช่องทาง แล้วคิวไว้ ให้ดูความพร้อมและ copy เนื้อหา แล้วโพสต์ไปแต่ละ platform
-            ด้วยมือ (ลิงก์โดยตรงมีในคิวเพื่อให้ง่าย)
+            เขียนคอนเทนต์ครั้งเดียว เลือกช่องทาง แล้วคิวไว้ — Facebook/LINE/TikTok/X/Instagram (มี media URL) โพสต์อัตโนมัติได้เลย
+            ปุ่ม &quot;โพสต์เลย&quot; ในคิว ส่วน YouTube ยังต้องโพสต์ด้วยมือ (ลิงก์โดยตรงมีในคิวเพื่อให้ง่าย)
           </p>
         </CardContent>
       </Card>

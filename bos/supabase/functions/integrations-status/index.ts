@@ -108,6 +108,31 @@ async function checkYouTube(): Promise<CheckResult> {
   }
 }
 
+// TikTok / X are read from social_accounts rows (set by the OAuth flows) —
+// no live API ping here: their publish endpoints cost quota and the row
+// presence is the signal the Settings badge needs.
+async function checkSocialAccount(admin: ReturnType<typeof createAdminClient>, platform: "tiktok" | "x"): Promise<CheckResult> {
+  const label = platform === "tiktok" ? "TikTok" : "X (Twitter)";
+  try {
+    const { data } = await admin.from("social_accounts").select("account_name").eq("platform", platform).limit(1).maybeSingle();
+    if (data?.account_name) return { connected: true, detail: `เชื่อมต่อ: ${data.account_name}` };
+    return { connected: false, detail: `ยังไม่ได้เชื่อมต่อ ${label} — ไปที่ Settings > Integrations` };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : `Failed to read ${label} connection.` };
+  }
+}
+
+async function checkEmail(admin: ReturnType<typeof createAdminClient>): Promise<CheckResult> {
+  const key = Deno.env.get("RESEND_API_KEY");
+  if (!key) return { connected: false, detail: "RESEND_API_KEY is not set." };
+  const { data } = await admin.from("integration_settings").select("value").eq("key", "email_from_address").maybeSingle();
+  const from = data?.value as string | undefined;
+  return {
+    connected: true,
+    detail: from?.trim() ? `พร้อมส่งจาก ${from.trim()}` : "พร้อมส่ง (ยังใช้ onboarding@resend.dev — ตั้ง email_from_address เพื่อใช้โดเมนจริง)",
+  };
+}
+
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -117,15 +142,18 @@ Deno.serve(async (req: Request) => {
   try {
     await requireStaff(admin, req);
 
-    const [line, googleCalendar, gemini, youtube, openrouter] = await Promise.all([
+    const [line, googleCalendar, gemini, youtube, openrouter, tiktok, x, email] = await Promise.all([
       checkLine(),
       checkGoogleCalendar(),
       checkGemini(),
       checkYouTube(),
       checkOpenAICompatibleModels("OPENROUTER_API_KEY", OPENROUTER_BASE_URL),
+      checkSocialAccount(admin, "tiktok"),
+      checkSocialAccount(admin, "x"),
+      checkEmail(admin),
     ]);
 
-    return jsonResponse({ line, googleCalendar, gemini, youtube, openrouter });
+    return jsonResponse({ line, googleCalendar, gemini, youtube, openrouter, tiktok, x, email });
   } catch (error) {
     return await handleUnexpectedError(admin, "integrations-status", error);
   }
