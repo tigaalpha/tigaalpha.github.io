@@ -2391,6 +2391,21 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
       </button>
     </div>
   );
+  // Fallback player for YouTube playlist categories when the per-video feed
+  // can't be resolved (the youtube-playlist edge function is CORS-blocked on
+  // non-github.io origins — Android app, other hosts): embed the whole
+  // playlist directly via YouTube's videoseries player. A plain YouTube embed,
+  // no API call, no key, works from any origin.
+  if (s.playlistId) {
+    return (
+      <>
+        <iframe className="vidplayer"
+          src={`https://www.youtube-nocookie.com/embed/videoseries?list=${s.playlistId}&autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0`}
+          allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
+        {rail}
+      </>
+    );
+  }
   // YouTube's iframe embed is built for third-party sites — unlike Google Drive's
   // viewer (see the git history on this file for why that never worked in-page),
   // it plays fine cross-origin with no cookie dependency, so this is a real
@@ -2474,8 +2489,13 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
       if (cat.youtube_playlist_id) {
         try {
           const { data: pl, error } = await sb.functions.invoke("youtube-playlist", { body: { playlistId: cat.youtube_playlist_id } });
-          if (!error && pl && pl.items) out = pl.items.map(it => ({ key: cat.id + "-" + it.videoId, youtubeId: it.videoId, title: it.title }));
+          if (!error && pl && Array.isArray(pl.items) && pl.items.length) out = pl.items.map(it => ({ key: cat.id + "-" + it.videoId, youtubeId: it.videoId, title: it.title }));
         } catch (e) {}
+        // Edge-function fallback: if the per-video resolve failed (CORS-blocked
+        // on the Android app / non-github.io hosts, or not deployed), show the
+        // whole playlist in one slide via YouTube's videoseries embed instead of
+        // showing an empty feed — better a working playlist player than no videos.
+        if (!out.length) out = [{ key: cat.id, playlistId: cat.youtube_playlist_id, title: cat.title, desc: cat.description }];
       } else if (cat.drive_folder_id) {
         out = [{ key: cat.id, folderId: cat.drive_folder_id, title: cat.title, desc: cat.description }];
       } else if (cat.drive_file_id) {
