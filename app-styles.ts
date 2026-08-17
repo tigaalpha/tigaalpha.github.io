@@ -233,7 +233,7 @@ html, body, #root{background:var(--bg)}
 .navbtn:active{transform:scale(.95)}
 /* ── vertical video lessons feed (TikTok-style, one video per screen) ── */
 .vidwrap{flex:1;display:flex;flex-direction:column;min-height:0;background:#000}
-.vidcatbar{display:flex;gap:8px;padding:10px 14px 10px 62px;overflow-x:auto;scrollbar-width:none;background:#000;flex-shrink:0;-webkit-overflow-scrolling:touch}
+.vidcatbar{display:flex;gap:8px;padding:10px 14px;overflow-x:auto;scrollbar-width:none;background:#000;flex-shrink:0;-webkit-overflow-scrolling:touch}
 .vidcatbar::-webkit-scrollbar{display:none}
 .vidcat{flex:0 0 auto;padding:6px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.25);background:transparent;color:rgba(255,255,255,.7);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
 .vidcat.on{background:#fff;border-color:#fff;color:#000}
@@ -254,10 +254,10 @@ html, body, #root{background:var(--bg)}
 /* ── TikTok chrome: top fade, right action rail (like / ask / save), floating hearts ── */
 .vidtopfade{position:absolute;top:0;left:0;right:0;height:64px;background:linear-gradient(rgba(0,0,0,.42),transparent);pointer-events:none;z-index:3}
 /* the app header hides on the video feed — this translucent ☰ keeps navigation reachable */
-.vidfab{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:10px;z-index:60;width:42px;height:42px;border-radius:50%;background:rgba(18,8,14,.55);border:1px solid #ffffff2a;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(4px)}
+.vidfab{position:fixed;top:calc(64px + env(safe-area-inset-top,0px));left:10px;z-index:60;width:42px;height:42px;border-radius:50%;background:rgba(18,8,14,.55);border:1px solid #ffffff2a;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(4px)}
 .vidfab span{display:block;width:17px;height:2px;background:#fff;border-radius:2px}
 .vidfab:active{transform:scale(.92)}
-.vidrail{position:absolute;right:6px;bottom:92px;display:flex;flex-direction:column;align-items:center;gap:15px;z-index:8}
+.vidrail{position:absolute;right:8px;bottom:30%;display:flex;flex-direction:column;align-items:center;gap:15px;z-index:8}
 .vidact{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
 .vidact-ic{font-size:29px;filter:grayscale(1) brightness(1.9);text-shadow:0 1px 6px rgba(0,0,0,.55);transition:transform .12s;line-height:1}
 .vidact:active .vidact-ic{transform:scale(.85)}

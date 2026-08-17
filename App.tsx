@@ -2372,6 +2372,23 @@ function fmtLikes(n) {
 // local bookmark (🔖) state per video
 function readVidFav(id) { try { return !!JSON.parse(localStorage.getItem("tg_vidfavs") || "{}")[id]; } catch (e) { return false; } }
 function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("tg_vidfavs") || "{}"); if (v) m[id] = 1; else delete m[id]; localStorage.setItem("tg_vidfavs", JSON.stringify(m)); } catch (e) {} }
+// share a lesson video — native share sheet on mobile (Web Share API), else LINE + clipboard
+function shareVideo(s, lang) {
+  let url = null;
+  if (s.youtubeId) url = `https://www.youtube.com/watch?v=${s.youtubeId}`;
+  else if (s.playlistId) url = `https://www.youtube.com/playlist?list=${s.playlistId}`;
+  else if (s.folderId) url = `https://drive.google.com/embeddedfolderview?id=${s.folderId}#grid`;
+  else if (s.fileId) url = `https://drive.google.com/file/d/${s.fileId}/view`;
+  const tag = lang === "th" ? "เรียนเปียโนกับ TiGA Piano AI" : lang === "zh" ? "跟 TiGA Piano AI 学钢琴" : "Learn piano with TiGA Piano AI";
+  const text = `${s.title} — ${tag} tigaalpha.github.io`;
+  if (url && navigator.share) {
+    navigator.share({ title: s.title, text, url }).catch(() => {});
+  } else if (url) {
+    shareLine(text + " " + url);
+  } else {
+    shareLine(text);
+  }
+}
 function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [faved, setFaved] = useState(() => readVidFav(s.key));
@@ -2385,6 +2402,10 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
       <button className="vidact" onClick={(e) => { e.stopPropagation(); if (onAsk) onAsk(s.title); }}>
         <span className="vidact-ic">💬</span>
         <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
+      </button>
+      <button className="vidact" onClick={(e) => { e.stopPropagation(); shareVideo(s, lang); }}>
+        <span className="vidact-ic">📤</span>
+        <span className="vidact-n">{T("แชร์", "Share", "分享")}</span>
       </button>
       <button className={`vidact${faved ? " fav" : ""}`} onClick={(e) => { e.stopPropagation(); const v = !faved; setFaved(v); writeVidFav(s.key, v); }}>
         <span className="vidact-ic">🔖</span>
