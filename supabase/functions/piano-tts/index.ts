@@ -70,10 +70,13 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 // (Algieba/Schedar/Achird/Puck) come from. Language is auto-detected from
 // the text, so no langCode is required; we pass one as a hint when known.
 const GEMINI_TTS_MODEL = Deno.env.get("GEMINI_TTS_MODEL") ?? "gemini-2.5-flash-preview-tts";
-// ElevenLabs defaults — multilingual v2 covers all three app languages
-// (Thai/Chinese/English); the voice id is the admin-configured one, falling
-// back to a natural male voice (Adam) if the admin hasn't picked one.
-const ELEVEN_DEFAULT_MODEL = Deno.env.get("ELEVEN_TTS_MODEL") ?? "eleven_multilingual_v2";
+// ElevenLabs defaults — Eleven v3 is the only model in the family that
+// officially supports Thai (70+ languages incl. tha) and it costs the same as
+// multilingual v2 ($0.10/1K chars), so it's the default; multilingual v2 /
+// flash v2.5 are kept selectable in the admin panel but do NOT cover Thai.
+// The voice id is the admin-configured one, falling back to a natural male
+// voice (Adam) if the admin hasn't picked one.
+const ELEVEN_DEFAULT_MODEL = Deno.env.get("ELEVEN_TTS_MODEL") ?? "eleven_v3";
 const ELEVEN_DEFAULT_VOICE = Deno.env.get("ELEVEN_TTS_VOICE") ?? "pNInz6obpgDQGcFmaJgB";
 const MAX_RETRIES = 2;
 
