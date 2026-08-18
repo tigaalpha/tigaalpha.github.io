@@ -5,7 +5,7 @@ import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
-import { initNativeUpdater } from "./native-updater";
+import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { withAiCache } from "./ai-cache";
@@ -7226,7 +7226,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const showApkPill = showInstallPromo;
   const [iosInstallOpen, setIosInstallOpen] = useState(false);
   // one banner per published APK version; dismissed = stored so it never nags again
-  const nativeApkUpdate = isAndroidNative && apkInfo && apkInfo.apkVersion && nativeApkVer &&
+  // Play Store builds (VITE_OTA_ENABLED=false) never prompt for a sideloaded APK.
+  const nativeApkUpdate = OTA_ENABLED && isAndroidNative && apkInfo && apkInfo.apkVersion && nativeApkVer &&
     apkInfo.apkVersion !== nativeApkVer && apkUpdateDismissed !== apkInfo.apkVersion;
   function dismissNativeApkUpdate() {
     const v = (apkInfo && apkInfo.apkVersion) || "";

@@ -13,8 +13,15 @@ import { CapacitorUpdater } from "@capgo/capacitor-updater";
 const UPDATE_MANIFEST_URL = "https://tigaalpha.github.io/updates/manifest.json";
 const RECHECK_MS = 20 * 60 * 1000; // 20 min — cheap HEAD-less GET against a no-store manifest
 
+/* Self-update is disabled on Play Store / App Store builds: the store owns
+   updates there, and sideloading an OTA zip over a store-installed app breaks
+   Play's integrity/update guarantees. Build those with VITE_OTA_ENABLED=false
+   (see PLAY_STORE_GUIDE.md). The default — web + direct-APK builds — keeps
+   the self-update behavior below. */
+export const OTA_ENABLED = (import.meta.env.VITE_OTA_ENABLED as string | undefined) !== "false";
+
 export async function initNativeUpdater(currentVersion: string) {
-  if (!Capacitor.isNativePlatform()) return;
+  if (!OTA_ENABLED || !Capacitor.isNativePlatform()) return;
 
   // REQUIRED: tells the plugin this bundle booted successfully. Skipping this
   // causes the plugin to assume the update failed and roll back automatically.

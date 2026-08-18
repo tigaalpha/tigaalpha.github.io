@@ -1,5 +1,9 @@
 # Building the iOS and Android apps
 
+> **Ready for Google Play?** See **`PLAY_STORE_GUIDE.md`** (repo root) —
+> costs ($25 one-time), keystore setup, building the release AAB with OTA
+> disabled (`VITE_OTA_ENABLED=false`), and the Play Console checklist.
+
 The web app, iOS app, and Android app all run the exact same code (`App.tsx`
 etc.) — Capacitor just wraps the built web bundle (`dist/`) in a native
 shell. Neither native platform could be built or tested from the sandbox
