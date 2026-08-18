@@ -618,7 +618,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
   // speaking almost immediately instead of waiting for the whole reply.
   async function vmFetchAI(message, history, onSentence) {
     const TERM = ".!?…\n。！？";
-    const body = { message, conversationHistory: history, system: L[langRef.current].vmSys + FINGERING_REF + vmStudentContext() + memoryContext(langRef.current) + homeworkContext(langRef.current) + curriculumContext(langRef.current) + songRecommendationHint(langRef.current) };
+    const body = { message, conversationHistory: history, system: L[langRef.current].vmSys + FINGERING_REF + vmStudentContext() + memoryContext(langRef.current) + homeworkContext(langRef.current) + curriculumContext(langRef.current) + songRecommendationHint(langRef.current), feature: "voice" };
     let lastErr;
     // Try up to twice. On a weak signal a stall watchdog aborts a frozen stream;
     // if nothing was spoken yet we retry, and if a partial reply was already

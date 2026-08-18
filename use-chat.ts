@@ -147,7 +147,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
       };
 
       const acc = await streamChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) },
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang), feature: "chat" },
         {
           // insert an empty AI bubble we will fill as tokens arrive
           onStart: () => { setMsgs(prev => [...prev, { role: "ai", text: "" }]); setLoading(false); },

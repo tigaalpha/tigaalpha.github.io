@@ -399,6 +399,26 @@ html, body, #root{background:var(--bg)}
 .admintabs::-webkit-scrollbar{display:none}
 .admintab{flex:0 0 auto;padding:9px 12px;border-radius:10px;background:var(--card3);border:1px solid #ff525233;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
 .admintab.on{background: #ff5252;color:#fff;border-color:transparent}
+/* ── admin nav: single button → business-category dropdown ── */
+.adminnav{position:relative;padding:10px 14px 6px;flex-shrink:0;background:var(--bg)}
+.adminnav-btn{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;border-radius:12px;background:var(--card3);border:1px solid #ff525233;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
+.adminnav-btn:hover{border-color:#ff525266}
+.adminnav-btn:active{transform:scale(.99)}
+.adminnav-burger{font-size:15px;color:#ff5252}
+.adminnav-cur{flex:1;text-align:left;display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adminnav-caret{font-size:9px;color:#ff5252;font-family:'Share Tech Mono',monospace}
+.adminnav-scrim{position:fixed;inset:0;z-index:40;background:transparent}
+.adminnav-pop{position:absolute;left:14px;right:14px;top:calc(100% + 6px);z-index:50;background:var(--card);border:1px solid #ff525233;border-radius:14px;box-shadow:0 18px 44px -12px rgba(0,0,0,.35);padding:10px;max-height:72dvh;overflow-y:auto;animation:dropdown .18s ease-out}
+.adminnav-group{margin-bottom:10px}
+.adminnav-group:last-child{margin-bottom:2px}
+.adminnav-gh{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:800;letter-spacing:1.2px;color:#d97757;padding:4px 8px 6px;border-bottom:1px solid var(--bd2);margin-bottom:6px}
+.adminnav-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:6px}
+.adminnav-item{display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:10px;background:var(--card3);border:1px solid transparent;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:left;transition:all .15s}
+.adminnav-item:hover{border-color:#ff525255}
+.adminnav-item.on{background:rgba(255,82,82,.14);border-color:#ff525255;color:#d97757}
+.adminnav-ic{font-size:15px;flex-shrink:0}
+.adminnav-lb{flex:1}
+.adminnav-dot{width:6px;height:6px;border-radius:50%;background:#ff5252;box-shadow:0 0 8px #ff5252}
 .admstu{flex:1;min-height:0;overflow-y:auto;padding:10px 14px 28px}
 .admstu-msg,.admstu-empty{color:var(--muted);text-align:center;padding:24px 8px;font-size:14px}
 .admstu-err{color:#ff5252;background:rgba(255,82,82,.08);border:1px solid #ff525233;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12.5px}

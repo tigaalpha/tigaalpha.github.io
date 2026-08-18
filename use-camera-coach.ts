@@ -76,7 +76,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen }) {
         : lang === "zh"
         ? "你是专业钢琴老师。看学员弹琴的手型/坐姿照片，给出2-4条简短温暖的建议：手型、指法、手腕、坐姿。先表扬再指出可改进处。用中文回答，不要markdown"
         : "You are an expert piano teacher. Look at this photo of the learner's hands/posture at the piano and give 2-4 short, warm tips on hand shape, finger placement, wrist and posture. Praise first, then what to adjust. Reply in plain text, no markdown.";
-      const body = { model: API_MODEL, max_tokens: 500, system: sys, messages: [{ role: "user", content: [
+      const body = { model: API_MODEL, max_tokens: 500, system: sys, feature: "camera", messages: [{ role: "user", content: [
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
         { type: "text", text: lang === "th" ? "ดูมือผมแล้วแนะนำหน่อยครับ" : lang === "zh" ? "看看我的手，给点建议" : "Check my hands and give feedback." }
       ] }] };

@@ -12,15 +12,28 @@
 // from, not a blind swap.
 //
 // WIRE CONTRACT (confirmed from App.tsx):
-//   Request:  POST { message: string, conversationHistory: {role,content}[], system: string, stream?: boolean }
+//   Request:  POST { message: string, conversationHistory: {role,content}[], system: string, stream?: boolean, feature?: string }
 //             — the "simple" path, used by the student-facing tutor chat
-//               (send/callClaude and ~9 other call sites). THIS is the path
-//               that switches provider/model.
-//   Request:  POST { model, max_tokens, system, messages: {role,content}[], tools? }
-//             — the "raw passthrough" path, used ONLY by the admin "Teach AI"
-//               tab (sendAdmin), which needs Anthropic's web_search tool and
-//               vision (image) content blocks. Always Anthropic — the model
-//               switch below does NOT apply here, on purpose.
+//               (send/callClaude), the AI Voice Tutor, play-along style/analysis,
+//               AI reports/plans and ~9 other call sites. THIS is the path
+//               that switches provider/model per feature.
+//             — `feature` names WHICH product surface the call comes from
+//               ("chat" | "voice" | "song-style" | "song-analysis" | "compose" |
+//               "song-gen" | "coach-tip" | "weekly-report" | "practice-plan" |
+//               "camera" | "slip-check" | "admin-chat"). The admin "AI Models"
+//               panel stores one {provider, model} per feature under the
+//               app_settings "ai_models" key, so every feature can run on a
+//               different model independently. Missing feature → "chat".
+//   Request:  POST { model, max_tokens, system, messages: {role,content}[], tools?, feature? }
+//             — the "raw passthrough" path, used by the camera hand-posture
+//               coach (feature "camera"), the admin slip-reader ("slip-check")
+//               and the admin "Teach AI" tab ("admin-chat", which needs
+//               Anthropic's web_search tool + vision image blocks). The
+//               provider is resolved per-feature too: anthropic and gemini are
+//               both supported (vision); deepseek has no vision models, so a
+//               deepseek choice on one of these falls back to the default.
+//               admin-chat is locked to Anthropic because its web_search tool
+//               only exists there.
 //   Response (stream, default): text/event-stream-shaped body where each
 //             line is `data: {"content":"<token text>"}`, client also
 //             tolerates a trailing `data: [DONE]`. Provider failures are
@@ -28,34 +41,25 @@
 //             the client can show a friendly localized message.
 //   Response (stream:false): `{ "text": "<full reply>" }`.
 //   Response (raw passthrough): Anthropic's own Messages API JSON, unchanged
-//             (client reads `data.content` blocks itself).
+//             (client reads `data.content` blocks itself) — Gemini raw replies
+//             are normalized to that same `{content:[{type:"text",...}]}` shape.
 //
-// COST-CONTROL FEATURE (this file's reason for existing):
-//   The "simple" path now reads an admin-configurable app_settings row
-//   (key "ai_model", value {provider, model}) before calling any provider —
-//   written by the new AdminAIModel panel in App.tsx via the existing
-//   admin_set_app_setting RPC. No client change, no redeploy needed to
-//   switch models: flip it in /admin → AI Model, it applies to the very next
-//   message. Unset → defaults to Anthropic Claude Sonnet, i.e. today's
-//   behavior is preserved if the admin never touches the new setting.
+// PER-FEATURE MODEL SELECTION (this file's reason for existing):
+//   Reads an admin-configurable app_settings row (key "ai_models", value
+//   { "<feature>": {provider, model, ...} }) before calling any provider —
+//   written by the AdminAIModels panel in App.tsx via the existing
+//   admin_set_app_setting RPC. Resolution order for a request:
+//     ai_models[feature] → ai_models["default"] → legacy "ai_model" key →
+//     built-in default (Anthropic Claude Sonnet). No client change, no
+//   redeploy needed to switch models: flip it in /admin → AI Models, it
+//   applies to the very next request of that feature.
 //
 // ENV VARS THIS FUNCTION NEEDS (set via `supabase secrets set`):
-//   ANTHROPIC_API_KEY   — already required today, unchanged.
-//   GEMINI_API_KEY      — NEW. Only needed once you actually switch the
-//                         admin toggle to a Gemini option. Get one at
-//                         https://aistudio.google.com/apikey
+//   ANTHROPIC_API_KEY   — required for Anthropic (the default).
+//   GEMINI_API_KEY      — for Gemini options. https://aistudio.google.com/apikey
+//   DEEPSEEK_API_KEY    — for DeepSeek V4 options. https://platform.deepseek.com
 //   SUPABASE_URL / SUPABASE_ANON_KEY — auto-injected by the Supabase
 //                         runtime for every edge function, nothing to set.
-//
-// ⚠️ MODEL ID CAVEAT: the owner asked for a 3rd option they called
-// "Gemini 3.6 Flash" — I could not confirm that's a real, currently-shipping
-// Google model ID as of my knowledge cutoff (Google's naming has gone
-// 1.5 → 2.0 → 2.5, no ".6" minor version I'm aware of). Rather than guess
-// and silently ship a broken option, the admin panel's model field is a free
-// text override — verify the exact current model ID in Google AI Studio /
-// the Gemini API docs before relying on that 3rd preset, and adjust the
-// AI_MODEL_PRESETS list in App.tsx (or just type the right string into the
-// admin panel) if it's changed.
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -65,46 +69,70 @@ const CORS_HEADERS = {
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const DEFAULT_MODEL = { provider: "anthropic", model: "claude-sonnet-4-6" };
 const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"; // used when the active provider's key is missing
 const MAX_TOKENS = 1500;
+// DeepSeek V4 Pro is a reasoning model — its chain-of-thought consumes part of
+// the token budget, so give it more room than the 1500 used elsewhere or a long
+// answer can be cut off / come back empty.
+const DEEPSEEK_MAX_TOKENS = 4000;
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
 // A provider whose API key is not configured can never succeed — silently route
-// to the one that IS configured (Anthropic ↔ Gemini) instead of 401/403-ing the
-// learner's every message. Keeps the chat alive when the admin panel points at a
-// provider whose key is missing/expired, or when a key gets revoked mid-flight.
+// to one that IS configured (Anthropic ↔ Gemini ↔ DeepSeek) instead of
+// 401/403-ing the learner's every message. Keeps the chat alive when the admin
+// panel points at a provider whose key is missing/expired, or when a key gets
+// revoked mid-flight.
 function effective(choice: { provider: string; model: string }): { provider: string; model: string } {
-  if (choice.provider === "gemini" && !GEMINI_API_KEY && ANTHROPIC_API_KEY) return { provider: "anthropic", model: DEFAULT_MODEL.model };
-  if (choice.provider === "anthropic" && !ANTHROPIC_API_KEY && GEMINI_API_KEY) return { provider: "gemini", model: GEMINI_FALLBACK_MODEL };
+  const hasKey = (p: string) =>
+    p === "gemini" ? !!GEMINI_API_KEY : p === "deepseek" ? !!DEEPSEEK_API_KEY : !!ANTHROPIC_API_KEY;
+  if (!hasKey(choice.provider)) {
+    if (ANTHROPIC_API_KEY) return { provider: "anthropic", model: DEFAULT_MODEL.model };
+    if (GEMINI_API_KEY) return { provider: "gemini", model: GEMINI_FALLBACK_MODEL };
+    if (DEEPSEEK_API_KEY) return { provider: "deepseek", model: "deepseek-v4-flash" };
+  }
   return choice;
 }
 function effectiveDefault(): { provider: string; model: string } {
   return effective(DEFAULT_MODEL);
 }
 
-// ── which provider/model the student-facing chat should use right now ──
-async function resolveActiveModel(authHeader: string | null): Promise<{ provider: string; model: string }> {
+// ── which provider/model a given FEATURE should use right now ──
+// Resolution: ai_models[feature] → ai_models["default"] → legacy ai_model → built-in default.
+async function resolveActiveModel(authHeader: string | null, feature: string): Promise<{ provider: string; model: string }> {
+  const pick = (map: Record<string, any>, key: string) => {
+    const v = map && map[key];
+    if (v && typeof v.provider === "string" && typeof v.model === "string") return effective(v);
+    return null;
+  };
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/app_settings?key=eq.ai_model&select=value`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/app_settings?key=in.(ai_models,ai_model)&select=key,value`, {
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: authHeader || `Bearer ${SUPABASE_ANON_KEY}`,
       },
     });
-    if (!res.ok) return effectiveDefault();
-    const rows = await res.json();
-    const v = rows?.[0]?.value;
-    if (v && typeof v.provider === "string" && typeof v.model === "string") return effective(v);
+    if (res.ok) {
+      const rows = await res.json();
+      const models = (rows || []).find((r: any) => r?.key === "ai_models")?.value || null;
+      if (models) {
+        const f = pick(models, feature) || pick(models, "default");
+        if (f) return f;
+      }
+      const legacy = (rows || []).find((r: any) => r?.key === "ai_model")?.value;
+      const l = pick({ legacy }, "legacy");
+      if (l) return l;
+    }
   } catch (_e) { /* fall through to default */ }
   return effectiveDefault();
 }
 
-// ── SSE helpers: both providers' raw streams get normalized to this ──
+// ── SSE helpers: every provider's raw stream gets normalized to this ──
 function sseChunk(content: string): string {
   return `data: ${JSON.stringify({ content })}\n\n`;
 }
@@ -225,6 +253,75 @@ async function callGeminiOnce(model: string, system: string, contents: any[]): P
   return Array.isArray(parts) ? parts.map((p: any) => p.text || "").join("") : "";
 }
 
+// ── DeepSeek (OpenAI-compatible API, streaming) ──
+async function* streamDeepSeek(model: string, system: string, messages: ChatMsg[]): AsyncGenerator<string> {
+  const res = await fetch("https://api.deepseek.com/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: DEEPSEEK_MAX_TOKENS,
+      stream: true,
+      messages: [
+        ...(system ? [{ role: "system", content: system }] : []),
+        ...messages,
+      ],
+    }),
+  });
+  if (!res.ok || !res.body) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`DeepSeek ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() || "";
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t.startsWith("data:")) continue;
+      const payload = t.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      let evt: any;
+      try { evt = JSON.parse(payload); } catch { continue; }
+      // reasoning models emit thinking in delta.reasoning_content — only ever
+      // surface delta.content (the actual reply) to the learner.
+      const piece = evt?.choices?.[0]?.delta?.content;
+      if (typeof piece === "string" && piece) yield piece;
+    }
+  }
+}
+
+// ── DeepSeek (non-streaming) ──
+async function callDeepSeekOnce(model: string, system: string, messages: ChatMsg[]): Promise<string> {
+  const res = await fetch("https://api.deepseek.com/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: DEEPSEEK_MAX_TOKENS,
+      stream: false,
+      messages: [
+        ...(system ? [{ role: "system", content: system }] : []),
+        ...messages,
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error(`DeepSeek ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content || "";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
@@ -232,14 +329,13 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); } catch { return json({ error: "invalid JSON body" }, 400); }
 
   const authHeader = req.headers.get("authorization");
+  const feature = typeof body.feature === "string" && body.feature ? body.feature : "chat";
 
   try {
-    // ── admin "Teach AI" raw passthrough — always Anthropic, unaffected by the model switch ──
+    // ── raw passthrough (camera / slip-check / admin Teach AI) — provider
+    // resolved per feature; deepseek falls back (no vision); admin-chat stays Anthropic ──
     if (Array.isArray(body.messages)) {
-      const text = await callAnthropicOnce.__rawPassthrough
-        ? "" // unreachable — placeholder removed below
-        : "";
-      return await handleRawPassthrough(body);
+      return await handleRawPassthrough(body, authHeader, feature);
     }
 
     // ── simple student-facing path — provider/model comes from admin settings ──
@@ -248,17 +344,21 @@ Deno.serve(async (req: Request) => {
     const system: string = body.system ?? "";
     const wantStream = body.stream !== false;
 
-    const { provider, model } = await resolveActiveModel(authHeader);
+    const { provider, model } = await resolveActiveModel(authHeader, feature);
 
     if (!wantStream) {
       const text = provider === "gemini"
         ? await callGeminiOnce(model, system, toGeminiContents(conversationHistory, message))
+        : provider === "deepseek"
+        ? await callDeepSeekOnce(model, system, [...conversationHistory, { role: "user", content: message }])
         : await callAnthropicOnce(model, system, [...conversationHistory, { role: "user", content: message }]);
       return json({ text });
     }
 
     const gen = provider === "gemini"
       ? streamGemini(model, system, toGeminiContents(conversationHistory, message))
+      : provider === "deepseek"
+      ? streamDeepSeek(model, system, [...conversationHistory, { role: "user", content: message }])
       : streamAnthropic(model, system, [...conversationHistory, { role: "user", content: message }]);
 
     const stream = new ReadableStream({
@@ -285,21 +385,84 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-// admin "Teach AI" tab — raw Anthropic Messages API passthrough (tools/vision), unchanged behavior
-async function handleRawPassthrough(body: any): Promise<Response> {
+// ── raw passthrough: Anthropic-style body, per-feature provider ──
+//   "camera"/"slip-check" need vision → anthropic or gemini (deepseek has no
+//   vision, so a deepseek choice falls back to the default).
+//   "admin-chat" needs Anthropic's web_search tool → always Anthropic (model ID
+//   still switchable among Anthropic models via ai_models).
+// Replies are normalized to Anthropic's {content:[{type:"text",...}]} JSON
+// shape so the client's fetchChatCompletion parsing is unchanged.
+async function handleRawPassthrough(body: any, authHeader: string | null, feature: string): Promise<Response> {
+  if (feature === "admin-chat") {
+    const cfg = await resolveActiveModel(authHeader, "admin-chat");
+    const model = cfg.provider === "anthropic" ? cfg.model : DEFAULT_MODEL.model;
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model: body.model || model,
+        max_tokens: body.max_tokens || MAX_TOKENS,
+        system: body.system,
+        messages: body.messages,
+        ...(body.tools ? { tools: body.tools } : {}),
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return json(data, res.status);
+  }
+
+  // camera / slip-check — resolve the feature's model; deepseek has no vision,
+  // so a deepseek choice deterministically falls back to the Anthropic default
+  // (never routes a deepseek model id into the Anthropic API).
+  const cfg = await resolveActiveModel(authHeader, feature);
+  const { provider, model } = cfg.provider === "deepseek"
+    ? { provider: "anthropic", model: DEFAULT_MODEL.model }
+    : cfg;
+
+  if (provider === "gemini") {
+    try {
+      const text = await callGeminiRaw(model, body);
+      return json({ content: [{ type: "text", text }] });
+    } catch (e) {
+      return json({ error: (e as Error).message || "gemini raw failed" }, 502);
+    }
+  }
+
+  // anthropic (default) — exact same call as before
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
-      model: body.model || DEFAULT_MODEL.model,
+      model: body.model || model,
       max_tokens: body.max_tokens || MAX_TOKENS,
       system: body.system,
       messages: body.messages,
-      ...(body.tools ? { tools: body.tools } : {}),
     }),
   });
   const data = await res.json().catch(() => ({}));
   return json(data, res.status);
+}
+
+// Convert the Anthropic-style raw body (text + image content blocks) to a Gemini
+// generateContent request. Supports the base64 image blocks the camera coach and
+// the slip-reader send — that's what makes vision features switchable to Gemini.
+async function callGeminiRaw(model: string, body: any): Promise<string> {
+  const contents = (body.messages || []).map((m: any) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: (Array.isArray(m.content) ? m.content : [{ type: "text", text: m.content || "" }]).map((b: any) =>
+      b.type === "image"
+        ? { inline_data: { mime_type: b.source?.media_type || "image/jpeg", data: b.source?.data || "" } }
+        : { text: b.text || "" }
+    ),
+  }));
+  const g: any = { contents, generationConfig: { maxOutputTokens: body.max_tokens || MAX_TOKENS } };
+  if (body.system) g.systemInstruction = { parts: [{ text: body.system }] };
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${GEMINI_API_KEY}`;
+  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(g) });
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  const data = await res.json();
+  const parts = data?.candidates?.[0]?.content?.parts;
+  return Array.isArray(parts) ? parts.map((p: any) => p.text || "").join("") : "";
 }
 
 function json(data: unknown, status = 200): Response {

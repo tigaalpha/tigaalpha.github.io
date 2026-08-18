@@ -7,8 +7,10 @@
 // dashboard (no source in this repo) and pinned Access-Control-Allow-Origin
 // to https://tigaalpha.github.io — which silently killed speech on the
 // Android app (origin capacitor://localhost) and any non-github.io host.
-// The ONLY intended change here is CORS "*"; the request/response shape and
-// Gemini TTS call mirror what the old function did.
+// The ONLY intended change in the original rewrite was CORS "*"; the
+// request/response shape and Gemini TTS call mirrored what the old function
+// did. THIS version adds a second engine — ElevenLabs — selected per the
+// admin "AI Models" panel, alongside the original Gemini path.
 //
 // WIRE CONTRACT (confirmed from speech.ts):
 //   Request:  POST { text: string, lang: "th"|"en"|"zh", voice?: string }
@@ -17,16 +19,27 @@
 //               e.g. `อ่านด้วยน้ำเสียงครู...\n\n"สวัสดีครับ"`.
 //             — voice is a Gemini prebuilt voice name: warm→Algieba,
 //               deep→Schedar, friendly→Achird, bright→Puck (speech.ts
-//               VM_VOICES). Missing → "Algieba".
-//   Response: { "audio": "<base64 WAV PCM>" }  — client decodes with
-//             atob() → AudioContext.decodeAudioData (speech.ts
-//             b64ToArrayBuffer / ttsFetchBuffer).
+//               VM_VOICES). Missing → "Algieba". Ignored on the ElevenLabs
+//               path — that engine uses the voice id from admin config.
+//   Response: { "audio": "<base64 audio>", "fmt": "wav"|"mp3", "p": "gemini"|"elevenlabs" }
+//             — client decodes with atob() → AudioContext.decodeAudioData
+//               (speech.ts b64ToArrayBuffer / ttsFetchBuffer), which
+//               auto-detects both WAV and MP3 containers.
+//
+// ENGINE SELECTION:
+//   Reads the app_settings "ai_models" row, feature "voice-tts":
+//     { provider: "gemini",     model: "gemini-2.5-flash-preview-tts", voice: "Algieba" }
+//     { provider: "elevenlabs", model: "eleven_multilingual_v2",       voice: "<voice id>" }
+//   Written by the AdminAIModels panel via admin_set_app_setting. Unset →
+//   Gemini with the defaults below (today's behavior preserved).
 //
 // ENV VARS THIS FUNCTION NEEDS (set via `supabase secrets set`):
-//   GEMINI_API_KEY — required (AI Studio key; powers all TTS).
-//   No Supabase URL/anon needed: this function has no DB access.
+//   GEMINI_API_KEY      — required for the Gemini engine (AI Studio key).
+//   ELEVENLABS_API_KEY  — required for the ElevenLabs engine (elevenlabs.io).
+//   SUPABASE_URL / SUPABASE_ANON_KEY — auto-injected; used to read the
+//                         voice-tts engine config from app_settings.
 //
-// RATE LIMITS (why the 429 handling exists):
+// RATE LIMITS (Gemini — why the 429 handling exists):
 //   The Gemini TTS free tier allows only 10 requests/minute on the shared
 //   key — and the client already throttles to >=1.2s between its own chunks,
 //   so a few learners chatting at once (or a burst right after a deploy)
@@ -36,7 +49,7 @@
 //   ONCE when the wait is short (<=25s); a long quota wait fails fast — the
 //   client aborts at 30s and has its own retry/backoff, so sleeping here
 //   would only waste the function's execution budget. Empty-audio 200s are
-//   retryable up to MAX_RETRIES.
+//   retryable up to MAX_RETRIES. ElevenLabs errors pass through as-is.
 //
 // The function is deployed with --verify-jwt on: the client always sends a
 // real per-user session token (ai-backend.ts apiHeaders), so anonymous
@@ -49,10 +62,19 @@ const CORS_HEADERS = {
 };
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY") ?? "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
 // Gemini 2.5 Flash TTS — the model family the client's voice names
 // (Algieba/Schedar/Achird/Puck) come from. Language is auto-detected from
 // the text, so no langCode is required; we pass one as a hint when known.
-const TTS_MODEL = Deno.env.get("GEMINI_TTS_MODEL") ?? "gemini-2.5-flash-preview-tts";
+const GEMINI_TTS_MODEL = Deno.env.get("GEMINI_TTS_MODEL") ?? "gemini-2.5-flash-preview-tts";
+// ElevenLabs defaults — multilingual v2 covers all three app languages
+// (Thai/Chinese/English); the voice id is the admin-configured one, falling
+// back to a natural male voice (Adam) if the admin hasn't picked one.
+const ELEVEN_DEFAULT_MODEL = Deno.env.get("ELEVEN_TTS_MODEL") ?? "eleven_multilingual_v2";
+const ELEVEN_DEFAULT_VOICE = Deno.env.get("ELEVEN_TTS_VOICE") ?? "pNInz6obpgDQGcFmaJgB";
 const MAX_RETRIES = 2;
 
 // BCP-47 hint per client lang key (zh → Mandarin). Thai/English map 1:1.
@@ -63,6 +85,29 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
   });
+}
+
+// ── which TTS engine/voice is active (admin "AI Models" → voice-tts) ──
+async function resolveTtsConfig(authHeader: string | null): Promise<{ provider: string; model: string; voice: string }> {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/app_settings?key=eq.ai_models&select=value`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: authHeader || `Bearer ${SUPABASE_ANON_KEY}` } }
+    );
+    if (res.ok) {
+      const rows = await res.json();
+      const v = rows?.[0]?.value;
+      const tts = v && v["voice-tts"];
+      if (tts && typeof tts.provider === "string" && typeof tts.model === "string") {
+        return {
+          provider: tts.provider === "elevenlabs" ? "elevenlabs" : "gemini",
+          model: tts.model,
+          voice: typeof tts.voice === "string" && tts.voice ? tts.voice : "",
+        };
+      }
+    }
+  } catch (_e) { /* fall through to defaults */ }
+  return { provider: "gemini", model: GEMINI_TTS_MODEL, voice: "Algieba" };
 }
 
 // Pull a "retry in N.NNNs" suggestion out of Gemini's 429 body when present.
@@ -76,7 +121,7 @@ function retryAfterMs(errText: string): number {
 }
 
 // One Gemini generateContent call → base64 WAV audio (or throws).
-async function synthOnce(text: string, voice: string, lang: string): Promise<string> {
+async function synthOnce(text: string, voice: string, lang: string, model: string): Promise<string> {
   // Natural-language style direction + quoted content: exactly what the
   // client already sends (styleTTS). Gemini TTS reads the directive to shape
   // delivery and speaks only the quoted text.
@@ -90,7 +135,7 @@ async function synthOnce(text: string, voice: string, lang: string): Promise<str
   if (langCode) generationConfig.speechConfig.languageCode = langCode;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
@@ -148,7 +193,7 @@ function toWavBase64(pcmB64: string): string {
   return btoa(b64out);
 }
 
-async function synth(text: string, voice: string, lang: string): Promise<string> {
+async function synthGemini(text: string, voice: string, lang: string, model: string): Promise<{ audio: string; fmt: string }> {
   let lastErr: unknown = null;
   let retried429 = false;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -162,8 +207,8 @@ async function synth(text: string, voice: string, lang: string): Promise<string>
       await new Promise((r) => setTimeout(r, wait));
     }
     try {
-      const b64 = await synthOnce(text, voice, lang);
-      if (b64) return toWavBase64(b64); // PCM → WAV, the client's expected container
+      const b64 = await synthOnce(text, voice, lang, model);
+      if (b64) return { audio: toWavBase64(b64), fmt: "wav" }; // PCM → WAV, the client's expected container
       throw Object.assign(new Error("empty audio"), { status: 200 });
     } catch (e) {
       lastErr = e;
@@ -180,15 +225,50 @@ async function synth(text: string, voice: string, lang: string): Promise<string>
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
+// Strip the Gemini-style natural-language directive (speech.ts styleTTS sends
+// `<directive>\n\n"<content>"`) and keep only the quoted content — ElevenLabs
+// would otherwise READ the directive out loud. Falls back to the raw text.
+function stripTtsDirective(text: string): string {
+  const q = String(text || "").match(/"([\s\S]*)"/);
+  if (q && q[1] && q[1].trim()) return q[1].trim();
+  return String(text || "").trim();
+}
+
+// One ElevenLabs call → base64 MP3 audio (or throws). Voice id and model come
+// from the admin config; the response is binary MP3, which the client's
+// AudioContext.decodeAudioData handles natively.
+async function synthElevenLabs(text: string, model: string, voiceId: string): Promise<{ audio: string; fmt: string }> {
+  const v = voiceId || ELEVEN_DEFAULT_VOICE;
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(v)}`, {
+    method: "POST",
+    headers: {
+      "xi-api-key": ELEVENLABS_API_KEY,
+      "content-type": "application/json",
+      accept: "audio/mpeg",
+    },
+    body: JSON.stringify({
+      text: stripTtsDirective(text),
+      model_id: model || ELEVEN_DEFAULT_MODEL,
+      voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.35 },
+    }),
+  });
+  if (!res.ok) {
+    const errText = (await res.text()).slice(0, 600);
+    throw new Error(`ElevenLabs ${res.status}: ${errText}`);
+  }
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  let b64out = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) b64out += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  if (!b64out) throw new Error("ElevenLabs returned empty audio");
+  return { audio: btoa(b64out), fmt: "mp3" };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 200, headers: CORS_HEADERS });
   }
   if (req.method !== "POST") {
     return json({ error: "method not allowed" }, 405);
-  }
-  if (!GEMINI_API_KEY) {
-    return json({ error: "GEMINI_API_KEY not configured" }, 500);
   }
   let payload: any;
   try {
@@ -199,12 +279,23 @@ Deno.serve(async (req: Request) => {
   const text = typeof payload?.text === "string" ? payload.text.trim() : "";
   if (!text) return json({ error: "text required" }, 400);
   if (text.length > 4000) return json({ error: "text too long" }, 400);
-  const voice = typeof payload?.voice === "string" && payload.voice ? payload.voice : "Algieba";
   const lang = typeof payload?.lang === "string" ? payload.lang : "en";
 
+  const authHeader = req.headers.get("authorization");
+  const cfg = await resolveTtsConfig(authHeader);
+
   try {
-    const audio = await synth(text, voice, lang);
-    return json({ audio, v: "2.1" });
+    if (cfg.provider === "elevenlabs") {
+      if (!ELEVENLABS_API_KEY) return json({ error: "ELEVENLABS_API_KEY not configured" }, 500);
+      const { audio, fmt } = await synthElevenLabs(text, cfg.model, cfg.voice);
+      return json({ audio, fmt, p: "elevenlabs", v: "2.1" });
+    }
+    if (!GEMINI_API_KEY) {
+      return json({ error: "GEMINI_API_KEY not configured" }, 500);
+    }
+    const voice = typeof payload?.voice === "string" && payload.voice ? payload.voice : "Algieba";
+    const { audio, fmt } = await synthGemini(text, voice, lang, cfg.model || GEMINI_TTS_MODEL);
+    return json({ audio, fmt, p: "gemini", v: "2.1" });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return json({ error: msg }, 502);
