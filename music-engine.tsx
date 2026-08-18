@@ -1647,16 +1647,38 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
 });
 
 export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta }) {
+  // Track the real container size so the 150-unit-tall drawing is stretched to
+  // EXACTLY fill the element's box (width-wise) on any screen/orientation — the
+  // old fixed 520-wide viewBox letterboxed the staff (empty black on both
+  // sides) everywhere wider than ~350px. Height stays 101px via CSS, so note
+  // glyphs keep their exact size; only horizontal spread changes.
+  const wrapRef = useRef(null);
+  const [wbW, setWbW] = useState(520);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const sync = () => {
+      setWbW(Math.max(260, Math.round((el.clientWidth * 150) / Math.max(1, el.clientHeight))));
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const list = (notes || []).slice(0, 24);
   const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
   const beatsPerBar = parseInt(timeSig.split("/")[0], 10) || 4;
   const keyName = songMeta ? songTonic(songMeta) : "C";
-  const W = 520, H = 150, baseY = 95, half = 7;
-  const startX = 92, gap = Math.min(64, Math.max(16, (W - startX - 20) / Math.max(1, list.length)));
+  const W = wbW, H = 150, baseY = 95, half = 7;
+  const startX = 92;
+  // the per-note gap cap scales with the width so sparse windows still spread
+  // across the whole staff on wide screens (same visual density as the old
+  // 520-unit canvas) instead of clustering at the left edge
+  const gap = Math.min(64 * (W / 520), Math.max(16, (W - startX - 20) / Math.max(1, list.length)));
   const lineYs = [0, 2, 4, 6, 8].map(s => baseY - s * half);
   const COLOR = { past: "rgba(255,255,255,.32)", current: "#ffd166", future: "#d97757" };
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
+    <svg ref={wrapRef} viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
       <text x="8" y="20" fontSize="14" fill="rgba(255,255,255,.6)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>Key: {keyName}</text>
       {lineYs.map((ly, i) => <line key={i} x1="8" y1={ly} x2={W - 8} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.4" />)}
       <text x="8" y={baseY + 4} fontSize="53" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif" }}>&#119070;</text>
