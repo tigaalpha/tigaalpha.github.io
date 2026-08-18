@@ -451,6 +451,13 @@ html, body, #root{background:var(--bg)}
 .admmg-h{font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1px;color:#d97757;margin-bottom:6px}
 .admmg-cur{color:var(--muted);font-size:12.5px;margin-bottom:9px}
 .admmg-row{display:flex;align-items:center;gap:8px}
+.admsum{background:var(--card3);border:1px solid #d9775733;border-radius:13px;padding:11px 13px}
+.admsum-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #ffffff0d;font-size:12.5px}
+.admsum-row:last-of-type{border-bottom:none}
+.admsum-ic{width:22px;text-align:center;flex-shrink:0;font-size:15px}
+.admsum-name{flex:1;min-width:0;color:var(--text2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admsum-m{color:#d97757;font-weight:700;white-space:nowrap;font-size:12px}
+.admsum-def{flex-shrink:0;font-size:10px;opacity:.55;border:1px solid #ffffff22;border-radius:8px;padding:1px 6px}
 .admmg-sel{flex:1;background:var(--card3);border:1px solid var(--bd4);border-radius:9px;padding:9px 10px;color:var(--text2);font-size:14px}
 .admmg-days{width:64px;background:var(--card3);border:1px solid var(--bd4);border-radius:9px;padding:9px;color:var(--text2);font-size:14px;text-align:center}
 .admmg-d{color:var(--muted);font-size:13px}

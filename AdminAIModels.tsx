@@ -138,6 +138,37 @@ export function AdminAIModels({ lang }) {
 
   if (cfg === null) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
 
+  // At-a-glance table: every feature → the model actually in use right now
+  // (saved config, not the unsaved draft). Falls back to the default entry.
+  const renderSummary = () => (
+    <div className="admsum" style={{ margin: "0 2px 14px" }}>
+      <div className="admmg-h" style={{ margin: 0, paddingBottom: 8 }}>
+        📋 {T("สรุป — แต่ละฟีเจอร์ใช้โมเดลอะไรตอนนี้", "Summary — which model each feature uses right now", "总览 — 每个功能当前使用的模型")}
+      </div>
+      {AI_FEATURES.map(f => {
+        const eff = cfg[f.id] || cfg.default;
+        const inherited = !cfg[f.id];
+        return (
+          <div key={f.id} className="admsum-row">
+            <span className="admsum-ic">{f.icon}</span>
+            <span className="admsum-name">{nameOf(f, lang)}</span>
+            <span className="admsum-m">{entryLabel(eff)}</span>
+            {inherited && <span className="admsum-def">{T("ค่าเริ่มต้น", "default", "默认")}</span>}
+          </div>
+        );
+      })}
+      <div className="admstu-row-sub" style={{ marginTop: 10, whiteSpace: "normal", lineHeight: 1.7 }}>
+        🧭 {T("แต่ละตัวเลือกเหมาะกับอะไร:", "What each option is for:", "各选项用途：")}
+        <br />🟣 {T("DeepSeek (ตรง) — API ของ DeepSeek โดยตรง ถูก แต่มีค่า peak ช่วงกลางวัน", "DeepSeek (direct) — cheap direct API, but peak pricing during Thai daytime", "DeepSeek（直连）— 直连 API 价格低，但泰国白天有高峰价")}
+        <br />🌐 {T("OpenRouter — DeepSeek ผ่านตัวกลาง ราคาแบนถูกสุดตลอด 24 ชม.", "OpenRouter — DeepSeek via a router, flat & cheapest around the clock", "OpenRouter — 通过路由使用 DeepSeek，全天最便宜")}
+        <br />🔵 {T("Google Gemini — key ฟรี (จำกัด quota) เหมาะเป็นโมเดลสำรอง", "Google Gemini — free key (rate-limited), good as a backup", "Google Gemini — 免费密钥（有限额），适合做备用")}
+        <br />🟠 {T("Anthropic — คุณภาพสูงสุด ต้องตั้ง ANTHROPIC_API_KEY (ยังไม่ได้ตั้ง)", "Anthropic — highest quality, requires ANTHROPIC_API_KEY (not set yet)", "Anthropic — 质量最高，需要设置 ANTHROPIC_API_KEY（尚未设置）")}
+        <br />🎙️ {T("ElevenLabs — เสียงภาษาไทย (เฉพาะโหมดเสียง) ~$0.10 ต่อ 1,000 ตัวอักษร", "ElevenLabs — Thai voice (voice mode only) ~$0.10 per 1K chars", "ElevenLabs — 泰语语音（仅语音模式）约 $0.10/千字符")}
+        <br />👁️ {T("กล้อง/สลิป ต้องใช้โมเดลที่ดูรูปได้ (Claude/Gemini) — DeepSeek/OpenRouter ยังดูรูปไม่ได้", "Camera/slip-check need a vision model (Claude/Gemini) — DeepSeek/OpenRouter can't see images yet", "手型/凭证需要视觉模型（Claude/Gemini）— DeepSeek/OpenRouter 暂不支持图片")}
+      </div>
+    </div>
+  );
+
   const renderCard = (fid, f, isDefault) => {
     const d = drafts[fid] || cfg.default;
     const providers = isDefault ? ["anthropic", "gemini", "deepseek", "openrouter"] : f.prov;
@@ -202,6 +233,7 @@ export function AdminAIModels({ lang }) {
           "Switches instantly, no redeploy — every feature can run on a different model independently. Pick DeepSeek V4 Flash/Pro to cut cost, or Gemini/Claude for quality. Vision features (camera / slip-check) are limited to Claude/Gemini, and the Teach AI tab always uses Claude.",
           "立即切换，无需重新部署 — 每个功能可独立使用不同模型。选择 DeepSeek V4 Flash/Pro 降低成本，或用 Gemini/Claude 保证质量。需要图像的功能（手型/凭证）仅限 Claude/Gemini，训练 AI 始终使用 Claude。")}
       </div>
+      {renderSummary()}
       {renderCard("default", { icon: "⚙️", th: "", en: "", zh: "" }, true)}
       {AI_FEATURES.map(f => renderCard(f.id, f, false))}
     </div>
