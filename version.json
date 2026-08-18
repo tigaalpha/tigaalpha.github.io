@@ -1,10 +1,10 @@
 {
-  "version": "13.7.22",
+  "version": "13.7.23",
   "apkReady": false,
   "apkUrl": "https://tigaalpha.github.io/app/tiga-ai.apk",
   "betaApkReady": true,
   "betaApkUrl": "https://github.com/tigaalpha/tigaalpha.github.io/releases/download/android-debug-latest/tiga-ai-debug.apk",
   "betaApkBuiltFrom": "3467f053",
-  "notes": "betaApkUrl now points at the CI-published android-debug-latest GitHub Release (always the newest debug build, rebuilt on demand) instead of the once-committed app/tiga-ai-beta.apk \u2014 so the in-app 'update' button always gets the current APK. apkReady/apkUrl remains the future production-signed release (see MOBILE_BUILD.md) \u2014 flip apkReady once app/tiga-ai.apk exists. Debug and production builds use different signing keys, so a device that installs the beta build will need one uninstall+reinstall the day the signed production build replaces it \u2014 expected, not a bug.",
+  "notes": "betaApkUrl now points at the CI-published android-debug-latest GitHub Release (always the newest debug build, rebuilt on demand) instead of the once-committed app/tiga-ai-beta.apk — so the in-app 'update' button always gets the current APK. apkReady/apkUrl remains the future production-signed release (see MOBILE_BUILD.md) — flip apkReady once app/tiga-ai.apk exists. Debug and production builds use different signing keys, so a device that installs the beta build will need one uninstall+reinstall the day the signed production build replaces it — expected, not a bug.",
   "apkVersion": "13.7.5"
 }
