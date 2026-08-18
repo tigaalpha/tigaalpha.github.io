@@ -730,7 +730,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .songprog{height:5px;background:var(--card3);flex-shrink:0}
 .songprog>div{height:100%;background: #d97757;transition:width .15s}
 .songstaffwrap{flex-shrink:0;padding:4px 0;background:#000}
-.pastaff{width:100%;height:88px;display:block}
+.pastaff{width:100%;height:101px;display:block}
 .pastaff-cur{animation:pastaffpulse 1s ease-in-out infinite}
 @keyframes pastaffpulse{0%,100%{opacity:1}50%{opacity:.5}}
 .songstage{position:relative;flex:1;min-height:0;overflow:hidden}

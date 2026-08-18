@@ -1647,12 +1647,12 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
 });
 
 export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta }) {
-  const list = (notes || []).slice(0, 7);
+  const list = (notes || []).slice(0, 24);
   const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
   const beatsPerBar = parseInt(timeSig.split("/")[0], 10) || 4;
   const keyName = songMeta ? songTonic(songMeta) : "C";
   const W = 520, H = 150, baseY = 95, half = 7;
-  const startX = 92, gap = Math.min(64, (W - startX - 20) / Math.max(1, list.length));
+  const startX = 92, gap = Math.min(64, Math.max(16, (W - startX - 20) / Math.max(1, list.length)));
   const lineYs = [0, 2, 4, 6, 8].map(s => baseY - s * half);
   const COLOR = { past: "rgba(255,255,255,.32)", current: "#ffd166", future: "#d97757" };
   return (

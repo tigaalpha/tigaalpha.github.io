@@ -6,7 +6,7 @@ import {
   expandSong, normalizeSeq, noteKeyFrac, _PC, playBackingChord, songTonic,
 } from "./music-engine";
 import { tr } from "./i18n";
-import { SONGS } from "./songs-data";
+import { SONGS, SONG_TIMESIG } from "./songs-data";
 import { logActivity, recordNoteMisses } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
@@ -254,7 +254,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (curIdx === -1) curIdx = allNotes.length;
       setSongNextLit(curIdx < allNotes.length ? allNotes[curIdx].note : null);
       const winStart = Math.max(0, curIdx - 2);
-      const winEnd = Math.min(allNotes.length, curIdx + 5);
+      // sight-reading window: 2 already-played + the current + FOUR full bars
+      // ahead (16 quarter-notes in 4/4), so the learner can read ahead
+      const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
+      const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
+      const curBeat = curIdx < allNotes.length ? allNotes[curIdx].beat : (allNotes.length ? allNotes[allNotes.length - 1].beat : 0);
+      let winEnd = curIdx + 1;
+      while (winEnd < allNotes.length && winEnd - winStart < 24 && allNotes[winEnd].beat <= curBeat + beatsPerBar * 4) winEnd++;
       setSongStaffNotes(allNotes.slice(winStart, winEnd).map((n, i) => ({
         note: n.note, beat: n.beat,
         state: (winStart + i) < curIdx ? "past" : (winStart + i) === curIdx ? "current" : "future",
@@ -371,7 +377,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       const f = laneFrac[n.lane] || noteKeyFrac(n.note) || { cx: 0.5, w: 1 / 14 };
       const w = Math.max(10, f.w * W - 4), top = y - h, hue = laneHue(n.note);
       const mcx = f.cx * W;
-      const rr = Math.max(7, Math.min(w / 2 - 1, 18)); // meteor head radius
+      const rr = Math.max(7, Math.min(w / 2 - 1, 21)); // meteor head radius (+15% cap)
       const hy = y - rr;                               // head rides the leading (falling) edge
       const spin = tSec * 1.6 + n.t * 2.3;             // slow tumble, phase unique per note
       if (!n.missed) {
@@ -413,7 +419,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       }
       if (!n.missed) {
         ctx.fillStyle = "rgba(255,255,255,0.96)";
-        ctx.font = "bold 11px Rajdhani, sans-serif"; ctx.textAlign = "center";
+        ctx.font = "bold 13px Rajdhani, sans-serif"; ctx.textAlign = "center";
         ctx.fillText(pcOf(n.note), mcx, hy + 4);
       }
     }
