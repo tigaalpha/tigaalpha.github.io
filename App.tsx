@@ -1648,12 +1648,8 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
 
   const cards = [
     { k: "songs",   ic: "🎵", c: "#d97757", t: lc.studioPlayAlong, s: lc.studioPlayAlongSub, fn: onSongs },
-    // AI Voice Tutor — works on the Android app AND on web browsers with
-    // SpeechRecognition (Chrome/Edge/Safari); without STT it opens to a friendly
-    // error and the typed-input row still works. Always shown with the MAX badge
-    // rather than hidden for non-Max users: tapping it while locked opens the
-    // upgrade prompt instead of the session (see onVoice's own gate where it's passed in).
-    { k: "voice", ic: "🎙️", c: "#d97757", t: lc.studioVoice, s: lc.studioVoiceSub, fn: onVoice, badge: "👑 MAX" },
+    // AI Voice Tutor tile removed from the Studio grid (hidden on web, Android
+    // and iOS per owner request; the onVoice flow itself is untouched).
     { k: "sight",   ic: "📄", c: "#d97757", t: lc.studioSight,     s: lc.studioSightSub,     fn: onSight },
     { k: "reading", ic: "🎼", c: "#ff94e0", t: lc.navRead,         s: lc.studioReadSub,      fn: onReading },
     { k: "eargym",  ic: "👂", c: "#ff76d8", t: lc.navEar,          s: lc.studioEarSub,       fn: onEarGym },

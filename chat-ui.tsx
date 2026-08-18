@@ -20,7 +20,7 @@ import { ttsSupported, stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNati
    speechSynthesis does not exist) it is the OS TTS engine via the Capacitor
    plugin, so the button ALWAYS produces sound. The IndexedDB clip cache
    (ttsCacheGet/ttsCachePut) keeps repeat listens free of the cloud quota. */
-export const TTS_ENABLED = true;
+export const TTS_ENABLED = false;
 
 /* ── Speaker button (robust, with fallback message) ── */
 export const SpeakBtn = memo(function SpeakBtn({ text, lang, id, activeId, setActiveId }) {
