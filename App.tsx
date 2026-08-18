@@ -7083,6 +7083,57 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     else if (key === "reading_course") { logUsage("nav", "studio-reading"); setPage("reading"); }
     else { setPage("pathway"); }
   }
+  // Auto Teaching popup steps are free text from the AI ("practice Twinkle Twinkle",
+  // "learn the C Major scale"...). Resolve each one to REAL content so a tap lands
+  // the learner directly on the thing instead of dropping them on a menu to hunt for
+  // it: exact song title (any of the 3 languages) → open that song; pathway stage
+  // title/id → jump straight into that lesson or chapter; otherwise fall back to
+  // the feature page the tip was about (same route the "ลองเลย" button uses).
+  function resolveCoachStep(text, feature) {
+    const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9\u0e00-\u0e7f\u4e00-\u9fff]+/g, "");
+    // Titles often carry a parenthetical ("สองเสือ (Frère Jacques)") — match on
+    // the bare name too, so a step that names the song without the alias hits.
+    const variants = t => {
+      const full = norm(t);
+      const bare = norm(String(t || "").replace(/\([^)]*\)/g, " "));
+      return [full, bare].filter((v, i, a) => v.length >= 3 && a.indexOf(v) === i);
+    };
+    const q = norm(text);
+    if (q) {
+      for (const song of SONGS) {
+        for (const t of [song.th, song.en, song.zh]) {
+          for (const nt of variants(t)) {
+            if (q.includes(nt) || nt.includes(q)) return { type: "song", song };
+          }
+        }
+      }
+      for (const st of PATHWAY) {
+        for (const nt of variants(tr(st.title, lang))) {
+          if (q.includes(nt) || nt.includes(q)) return { type: "stage", stage: st };
+        }
+        const nid = norm(st.id);
+        if (nid.length >= 3 && q.includes(nid)) return { type: "stage", stage: st };
+      }
+    }
+    return { type: "feature", feature };
+  }
+  function goToCoachStep(text, feature) {
+    playUi("click"); haptic(6); stopPracticeListeners();
+    const r = resolveCoachStep(text, feature);
+    if (r.type === "song") {
+      setPage("studio"); setStudioView("songs");
+      chooseSong(r.song);
+    } else if (r.type === "stage") {
+      if (r.stage.content) { readChapter(r.stage); }
+      else {
+        const keyMap = keyDoneMap();
+        const key = KEYS_12.find(k => !(keyMap[r.stage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0];
+        learnTopic(r.stage, key, r.stage.types ? r.stage.types[0] : null);
+      }
+    } else {
+      handleCoachNavigate(r.feature);
+    }
+  }
   // Translates a buildRecommendation()/buildSongResultRecommendation() result into an
   // actual navigation — used by the Play-Along result screen's "what's next" nudge.
   function goToRecommendation(r) {
@@ -8371,7 +8422,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             </div>
             <div className="atpopup-weak">{autoTeachTip.weakness}</div>
             <ol className="atpopup-steps">
-              {autoTeachTip.steps.map((s, i) => <li key={i}>{s}</li>)}
+              {autoTeachTip.steps.map((s, i) => (
+                <li key={i}>
+                  <button type="button" className="atpopup-step"
+                    onClick={() => { setAutoTeachTip(null); goToCoachStep(s, autoTeachTip.feature); }}>
+                    <span className="atpopup-step-tx">{s}</span>
+                    <span className="atpopup-step-go">➜</span>
+                  </button>
+                </li>
+              ))}
             </ol>
             <div style={{ display: "flex", gap: 8 }}>
               <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { setAutoTeachTip(null); setPage("coach"); }}>

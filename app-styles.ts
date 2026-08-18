@@ -1108,8 +1108,11 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .atpopup-tt{flex:1;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:.4px;color:#d97757}
 .atpopup-x{background:none;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:2px 4px}
 .atpopup-weak{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px}
-.atpopup-steps{margin:0 0 14px;padding-left:20px;font-family:'Rajdhani',sans-serif;font-size:14px;line-height:1.6;color:var(--text2)}
-.atpopup-steps li{margin-bottom:4px}
+.atpopup-steps{margin:0 0 14px;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:'Rajdhani',sans-serif;font-size:14px;color:var(--text2)}
+.atpopup-steps li{margin:0}
+.atpopup-step{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;background:rgba(217,119,87,.07);border:1px solid var(--bd5);border-radius:11px;padding:9px 12px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:14px;line-height:1.45;cursor:pointer}
+.atpopup-step:active{background:rgba(217,119,87,.16)}
+.atpopup-step-go{color:#d97757;font-weight:900;font-size:15px;flex-shrink:0}
 .atpopup-ok{width:100%;background: #d97757;color:#fff;border:none;border-radius:12px;padding:11px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer}
 .camfoot-btns{display:flex;gap:8px;justify-content:center}
 .cammsg{position:absolute;left:0;right:0;bottom:14px;text-align:center;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:#fff;text-shadow:0 2px 10px #000;padding:0 16px}
