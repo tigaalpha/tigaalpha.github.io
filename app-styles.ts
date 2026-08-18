@@ -274,12 +274,12 @@ html, body, #root{background:var(--bg)}
 .vidopen-ic{font-size:64px}
 .vidopen-t{font-size:17px;font-weight:700;color:#fff;max-width:300px}
 .vidopen-h{font-size:13px;color:rgba(255,255,255,.55)}
-.vidmute{position:absolute;right:12px;top:14px;z-index:6;background:rgba(18,8,14,.55);border:1px solid #ffffff2a;border-radius:50%;width:42px;height:42px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.vidmute{position:absolute;right:12px;top:calc(14px + env(safe-area-inset-top,0px));z-index:6;background:rgba(18,8,14,.55);border:1px solid #ffffff2a;border-radius:50%;width:42px;height:42px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
 .vidpause{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:64px;color:#ffffffd6;pointer-events:none;text-shadow:0 2px 18px #000}
 .vidbar{position:absolute;left:0;right:0;bottom:env(safe-area-inset-bottom,0px);height:3px;background:var(--bd5);z-index:7}
 .vidbar span{display:block;height:100%;width:0;background: #d97757}
 /* ── TikTok chrome: top fade, right action rail (like / ask / save), floating hearts ── */
-.vidtopfade{position:absolute;top:0;left:0;right:0;height:64px;background:linear-gradient(rgba(0,0,0,.42),transparent);pointer-events:none;z-index:3}
+.vidtopfade{position:absolute;top:0;left:0;right:0;height:calc(64px + env(safe-area-inset-top,0px));background:linear-gradient(rgba(0,0,0,.42),transparent);pointer-events:none;z-index:3}
 /* the app header hides on the video feed — this translucent ☰ keeps navigation reachable */
 .vidfab{position:fixed;top:calc(64px + env(safe-area-inset-top,0px));left:10px;z-index:60;width:42px;height:42px;border-radius:50%;background:rgba(18,8,14,.55);border:1px solid #ffffff2a;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(4px)}
 .vidfab span{display:block;width:17px;height:2px;background:#fff;border-radius:2px}
@@ -576,7 +576,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .profsignout:hover{background:rgba(255,82,82,.16);box-shadow:0 0 14px -4px #ff5252}
 .profsignout:active{transform:scale(.98)}
 /* exp toast */
-.exptoast{position:fixed;top:64px;left:50%;z-index:1200;display:flex;align-items:center;gap:8px;background: #d97757;color:#04121a;font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;letter-spacing:1px;padding:9px 18px;border-radius:22px;box-shadow:0 8px 26px -6px #d97757,inset 0 0 0 1px var(--bd5);animation:exppop 2.2s ease-out forwards;pointer-events:none}
+.exptoast{position:fixed;top:calc(64px + env(safe-area-inset-top,0px));left:50%;z-index:1200;display:flex;align-items:center;gap:8px;background: #d97757;color:#04121a;font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;letter-spacing:1px;padding:9px 18px;border-radius:22px;box-shadow:0 8px 26px -6px #d97757,inset 0 0 0 1px var(--bd5);animation:exppop 2.2s ease-out forwards;pointer-events:none}
 /* one-time "add to home screen" banner, shown after the first real win */
 .installbanner{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:1300;display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid #d9775755;border-radius:16px;padding:11px 12px;box-shadow:0 10px 30px -8px #000,0 0 20px -8px #d9775766;animation:installin .3s ease-out}
 @keyframes installin{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -926,7 +926,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .wlc-tip b{font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:600;color:var(--text2)}
 .eventbanner{position:fixed;top:0;left:0;right:0;z-index:850;display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px;padding-top:calc(6px + env(safe-area-inset-top,0px));background:linear-gradient(90deg,#d97757,#a855f7);font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:#fff;text-align:center;flex-wrap:wrap;box-shadow:0 2px 10px -2px #000}
 .eventbanner-mult{font-family:'Orbitron',sans-serif;font-size:10px;background:rgba(255,255,255,.2);border-radius:10px;padding:2px 8px}
-.mascot{position:fixed;right:12px;bottom:84px;z-index:900;cursor:pointer;animation:mascotidle 2.6s ease-in-out infinite;will-change:transform}
+.mascot{position:fixed;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:900;cursor:pointer;animation:mascotidle 2.6s ease-in-out infinite;will-change:transform}
 .mascot-face{font-size:38px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))}
 .mascot.happy{animation:mascothop .5s ease-out}
 .mascot.celebrate{animation:mascotcheer .6s ease-out infinite}
