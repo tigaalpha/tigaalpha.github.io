@@ -67,7 +67,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Rebuild APK when native code changed
+        # Best-effort only: android-debug-build.yml now also triggers directly on
+        # main pushes, so the APK is rebuilt from main either way. This mirror
+        # push is just the old fallback — the dev branch may have diverged, in
+        # which case the push is rejected and that is fine (|| true).
         if: steps.native.outputs.changed == 'true'
-        run: git push origin main:claude/upbeat-fermi-dey70w
+        run: git push origin main:claude/upbeat-fermi-dey70w || true
         env:
           GH_TOKEN: ${{ github.token }}
