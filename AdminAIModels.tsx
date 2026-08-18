@@ -20,9 +20,13 @@ export const AI_PROVIDERS = {
     { id: "gemini-2.5-flash", label: "Gemini Flash" },
     { id: "gemini-2.5-flash-lite", label: "Gemini Flash-Lite" },
   ]},
-  deepseek: { icon: "🟣", label: "DeepSeek", models: [
+  deepseek: { icon: "🟣", label: "DeepSeek (ตรง)", models: [
     { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash" },
     { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro" },
+  ]},
+  openrouter: { icon: "🌐", label: "OpenRouter", models: [
+    { id: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash" },
+    { id: "deepseek/deepseek-v4-pro", label: "DeepSeek V4 Pro" },
   ]},
   elevenlabs: { icon: "🎙️", label: "ElevenLabs", models: [
     { id: "eleven_multilingual_v2", label: "Multilingual v2" },
@@ -31,19 +35,19 @@ export const AI_PROVIDERS = {
 };
 
 export const AI_FEATURES = [
-  { id: "chat", icon: "💬", th: "แชทครู AI (หน้าแรก)", en: "AI Chat (home)", zh: "AI 聊天（首页）", prov: ["anthropic", "gemini", "deepseek"] },
-  { id: "voice", icon: "🎙️", th: "เสียงครู AI — บทสนทนา", en: "Voice Tutor — conversation", zh: "语音老师 — 对话", prov: ["anthropic", "gemini", "deepseek"] },
+  { id: "chat", icon: "💬", th: "แชทครู AI (หน้าแรก)", en: "AI Chat (home)", zh: "AI 聊天（首页）", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
+  { id: "voice", icon: "🎙️", th: "เสียงครู AI — บทสนทนา", en: "Voice Tutor — conversation", zh: "语音老师 — 对话", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "voice-tts", icon: "🔊", th: "เสียงครู AI — สังเคราะห์เสียง", en: "Voice Tutor — speech engine", zh: "语音老师 — 语音引擎", prov: ["gemini", "elevenlabs"], tts: true,
     noteTh: "ใช้เฉพาะโหมดเสียง — ElevenLabs ต้องเติม Voice ID (ในหน้า ElevenLabs > Voices)",
     noteEn: "Voice mode only — for ElevenLabs, paste a Voice ID (ElevenLabs → Voices)",
     noteZh: "仅语音模式使用 — ElevenLabs 需填写 Voice ID（ElevenLabs → Voices）" },
-  { id: "song-style", icon: "🎨", th: "แปลงสไตล์เพลง", en: "Song style transform", zh: "歌曲风格转换", prov: ["anthropic", "gemini", "deepseek"] },
-  { id: "song-analysis", icon: "📊", th: "วิเคราะห์การเล่นเพลง", en: "Song run analysis", zh: "弹奏分析", prov: ["anthropic", "gemini", "deepseek"] },
-  { id: "compose", icon: "🎼", th: "แต่งทำนอง", en: "Melody composer", zh: "旋律创作", prov: ["anthropic", "gemini", "deepseek"] },
-  { id: "song-gen", icon: "✨", th: "สร้างเพลงจากข้อความ", en: "AI song generator", zh: "AI 生成歌曲", prov: ["anthropic", "gemini", "deepseek"] },
-  { id: "coach-tip", icon: "🎯", th: "คำแนะนำหน้า Coach", en: "Coach page tips", zh: "教练建议", prov: ["anthropic", "gemini", "deepseek"] },
-  { id: "weekly-report", icon: "📋", th: "รายงานพัฒนาการ AI", en: "AI weekly report", zh: "AI 周报", prov: ["anthropic", "gemini", "deepseek"] },
-  { id: "practice-plan", icon: "🗓️", th: "แผนซ้อมส่วนตัว AI", en: "AI practice plan", zh: "AI 练习计划", prov: ["anthropic", "gemini", "deepseek"] },
+  { id: "song-style", icon: "🎨", th: "แปลงสไตล์เพลง", en: "Song style transform", zh: "歌曲风格转换", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
+  { id: "song-analysis", icon: "📊", th: "วิเคราะห์การเล่นเพลง", en: "Song run analysis", zh: "弹奏分析", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
+  { id: "compose", icon: "🎼", th: "แต่งทำนอง", en: "Melody composer", zh: "旋律创作", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
+  { id: "song-gen", icon: "✨", th: "สร้างเพลงจากข้อความ", en: "AI song generator", zh: "AI 生成歌曲", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
+  { id: "coach-tip", icon: "🎯", th: "คำแนะนำหน้า Coach", en: "Coach page tips", zh: "教练建议", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
+  { id: "weekly-report", icon: "📋", th: "รายงานพัฒนาการ AI", en: "AI weekly report", zh: "AI 周报", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
+  { id: "practice-plan", icon: "🗓️", th: "แผนซ้อมส่วนตัว AI", en: "AI practice plan", zh: "AI 练习计划", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "camera", icon: "✋", th: "กล้องจับท่ามือ", en: "Hand-posture coach", zh: "手型教练", prov: ["anthropic", "gemini"],
     noteTh: "ต้องใช้โมเดลที่ดูรูปได้ (DeepSeek ยังไม่มีฟีเจอร์รูปภาพ)", noteEn: "Needs a vision model (DeepSeek has no image support yet)", noteZh: "需要视觉模型（DeepSeek 暂不支持图片）" },
   { id: "slip-check", icon: "🧾", th: "ตรวจสลิปโอนเงิน (แอดมิน)", en: "Slip verification (admin)", zh: "转账凭证核验（管理员）", prov: ["anthropic", "gemini"],
@@ -56,7 +60,7 @@ const DEFAULT_ENTRY = { provider: "anthropic", model: "claude-sonnet-4-6" };
 
 function nameOf(f, lang) { return f.th && f.en && f.zh ? (lang === "th" ? f.th : lang === "zh" ? f.zh : f.en) : f.en; }
 function providerLabel(p, lang) {
-  return p === "anthropic" ? "Anthropic" : p === "gemini" ? "Google Gemini" : p === "deepseek" ? "DeepSeek" : "ElevenLabs";
+  return p === "anthropic" ? "Anthropic" : p === "gemini" ? "Google Gemini" : p === "deepseek" ? "DeepSeek (ตรง)" : p === "openrouter" ? "OpenRouter" : "ElevenLabs";
 }
 
 /* ── Admin "AI Models" panel: shows which AI every feature uses and lets each
@@ -135,7 +139,7 @@ export function AdminAIModels({ lang }) {
 
   const renderCard = (fid, f, isDefault) => {
     const d = drafts[fid] || cfg.default;
-    const providers = isDefault ? ["anthropic", "gemini", "deepseek"] : f.prov;
+    const providers = isDefault ? ["anthropic", "gemini", "deepseek", "openrouter"] : f.prov;
     const provMeta = AI_PROVIDERS[d.provider] || AI_PROVIDERS.anthropic;
     const isCustom = !(provMeta.models || []).some(m => m.id === d.model);
     return (

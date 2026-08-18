@@ -57,7 +57,11 @@
 // ENV VARS THIS FUNCTION NEEDS (set via `supabase secrets set`):
 //   ANTHROPIC_API_KEY   — required for Anthropic (the default).
 //   GEMINI_API_KEY      — for Gemini options. https://aistudio.google.com/apikey
-//   DEEPSEEK_API_KEY    — for DeepSeek V4 options. https://platform.deepseek.com
+//   DEEPSEEK_API_KEY    — for DeepSeek V4 options (direct API). https://platform.deepseek.com
+//   OPENROUTER_API_KEY  — for DeepSeek V4 via OpenRouter (flat price, no peak
+//                         surcharge, often 2-6x cheaper than direct — the
+//                         admin "AI Models" panel can route any chat-type
+//                         feature to either). https://openrouter.ai/keys
 //   SUPABASE_URL / SUPABASE_ANON_KEY — auto-injected by the Supabase
 //                         runtime for every edge function, nothing to set.
 
@@ -70,6 +74,7 @@ const CORS_HEADERS = {
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY") ?? "";
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
@@ -90,11 +95,15 @@ type ChatMsg = { role: "user" | "assistant"; content: string };
 // revoked mid-flight.
 function effective(choice: { provider: string; model: string }): { provider: string; model: string } {
   const hasKey = (p: string) =>
-    p === "gemini" ? !!GEMINI_API_KEY : p === "deepseek" ? !!DEEPSEEK_API_KEY : !!ANTHROPIC_API_KEY;
+    p === "gemini" ? !!GEMINI_API_KEY
+    : p === "deepseek" ? !!DEEPSEEK_API_KEY
+    : p === "openrouter" ? !!OPENROUTER_API_KEY
+    : !!ANTHROPIC_API_KEY;
   if (!hasKey(choice.provider)) {
     if (ANTHROPIC_API_KEY) return { provider: "anthropic", model: DEFAULT_MODEL.model };
     if (GEMINI_API_KEY) return { provider: "gemini", model: GEMINI_FALLBACK_MODEL };
     if (DEEPSEEK_API_KEY) return { provider: "deepseek", model: "deepseek-v4-flash" };
+    if (OPENROUTER_API_KEY) return { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
   }
   return choice;
 }
@@ -322,6 +331,80 @@ async function callDeepSeekOnce(model: string, system: string, messages: ChatMsg
   return data?.choices?.[0]?.message?.content || "";
 }
 
+// ── OpenRouter (OpenAI-compatible API, streaming) — DeepSeek V4 via the
+// OpenRouter router. Same wire shape as DeepSeek direct; the model id is the
+// OpenRouter route id (e.g. "deepseek/deepseek-v4-flash"). Flat pricing — no
+// DeepSeek peak/off-peak split, and third-party fp8 routes make it 2-6x
+// cheaper than the direct API for the same model family. X-Title identifies
+// the app in the OpenRouter dashboard.
+async function* streamOpenRouter(model: string, system: string, messages: ChatMsg[]): AsyncGenerator<string> {
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "X-Title": "TIGA.AI",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: DEEPSEEK_MAX_TOKENS,
+      stream: true,
+      messages: [
+        ...(system ? [{ role: "system", content: system }] : []),
+        ...messages,
+      ],
+    }),
+  });
+  if (!res.ok || !res.body) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`OpenRouter ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() || "";
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t.startsWith("data:")) continue;
+      const payload = t.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      let evt: any;
+      try { evt = JSON.parse(payload); } catch { continue; }
+      const piece = evt?.choices?.[0]?.delta?.content;
+      if (typeof piece === "string" && piece) yield piece;
+    }
+  }
+}
+
+// ── OpenRouter (non-streaming, for stream:false) ──
+async function callOpenRouterOnce(model: string, system: string, messages: ChatMsg[]): Promise<string> {
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "X-Title": "TIGA.AI",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: DEEPSEEK_MAX_TOKENS,
+      stream: false,
+      messages: [
+        ...(system ? [{ role: "system", content: system }] : []),
+        ...messages,
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content || "";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
@@ -351,6 +434,8 @@ Deno.serve(async (req: Request) => {
         ? await callGeminiOnce(model, system, toGeminiContents(conversationHistory, message))
         : provider === "deepseek"
         ? await callDeepSeekOnce(model, system, [...conversationHistory, { role: "user", content: message }])
+        : provider === "openrouter"
+        ? await callOpenRouterOnce(model, system, [...conversationHistory, { role: "user", content: message }])
         : await callAnthropicOnce(model, system, [...conversationHistory, { role: "user", content: message }]);
       return json({ text });
     }
@@ -359,6 +444,8 @@ Deno.serve(async (req: Request) => {
       ? streamGemini(model, system, toGeminiContents(conversationHistory, message))
       : provider === "deepseek"
       ? streamDeepSeek(model, system, [...conversationHistory, { role: "user", content: message }])
+      : provider === "openrouter"
+      ? streamOpenRouter(model, system, [...conversationHistory, { role: "user", content: message }])
       : streamAnthropic(model, system, [...conversationHistory, { role: "user", content: message }]);
 
     const stream = new ReadableStream({
@@ -411,11 +498,12 @@ async function handleRawPassthrough(body: any, authHeader: string | null, featur
     return json(data, res.status);
   }
 
-  // camera / slip-check — resolve the feature's model; deepseek has no vision,
-  // so a deepseek choice deterministically falls back to the Anthropic default
-  // (never routes a deepseek model id into the Anthropic API).
+  // camera / slip-check — resolve the feature's model; deepseek/openrouter
+  // (the OpenRouter presets are DeepSeek V4 chat models) have no vision, so a
+  // choice there deterministically falls back to the Anthropic default (never
+  // routes a chat-model id into a vision call).
   const cfg = await resolveActiveModel(authHeader, feature);
-  const { provider, model } = cfg.provider === "deepseek"
+  const { provider, model } = cfg.provider === "deepseek" || cfg.provider === "openrouter"
     ? { provider: "anthropic", model: DEFAULT_MODEL.model }
     : cfg;
 
