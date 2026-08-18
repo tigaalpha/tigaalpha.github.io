@@ -227,6 +227,12 @@ async function synthGemini(text: string, voice: string, lang: string, model: str
 
 // Strip the Gemini-style natural-language directive (speech.ts styleTTS sends
 // `<directive>\n\n"<content>"`) and keep only the quoted content — ElevenLabs
+// A key that is present but invalid/expired answers 401/403 — fall back to the
+// Gemini engine rather than failing the voice tutor over a bad key.
+function isAuthError(msg: string): boolean {
+  return /(401|403|unauthorized|authentication|invalid api key|not authorized|permission denied|api key|credential)/i.test(msg);
+}
+
 // would otherwise READ the directive out loud. Falls back to the raw text.
 function stripTtsDirective(text: string): string {
   const q = String(text || "").match(/"([\s\S]*)"/);
@@ -287,8 +293,16 @@ Deno.serve(async (req: Request) => {
   try {
     if (cfg.provider === "elevenlabs") {
       if (!ELEVENLABS_API_KEY) return json({ error: "ELEVENLABS_API_KEY not configured" }, 500);
-      const { audio, fmt } = await synthElevenLabs(text, cfg.model, cfg.voice);
-      return json({ audio, fmt, p: "elevenlabs", v: "2.1" });
+      try {
+        const { audio, fmt } = await synthElevenLabs(text, cfg.model, cfg.voice);
+        return json({ audio, fmt, p: "elevenlabs", v: "2.1" });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        // Bad/expired key — fall through to Gemini TTS instead of failing the
+        // voice tutor. Anything else (quota, provider outage) propagates.
+        if (!isAuthError(msg) || !GEMINI_API_KEY) throw e;
+        console.error(`[piano-tts] ElevenLabs auth failed (${msg.slice(0, 140)}), falling back to Gemini TTS`);
+      }
     }
     if (!GEMINI_API_KEY) {
       return json({ error: "GEMINI_API_KEY not configured" }, 500);

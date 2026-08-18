@@ -88,17 +88,18 @@ const DEEPSEEK_MAX_TOKENS = 4000;
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
+const hasKey = (p: string) =>
+  p === "gemini" ? !!GEMINI_API_KEY
+  : p === "deepseek" ? !!DEEPSEEK_API_KEY
+  : p === "openrouter" ? !!OPENROUTER_API_KEY
+  : !!ANTHROPIC_API_KEY;
+
 // A provider whose API key is not configured can never succeed — silently route
-// to one that IS configured (Anthropic ↔ Gemini ↔ DeepSeek) instead of
-// 401/403-ing the learner's every message. Keeps the chat alive when the admin
-// panel points at a provider whose key is missing/expired, or when a key gets
-// revoked mid-flight.
+// to one that IS configured (Anthropic ↔ Gemini ↔ DeepSeek ↔ OpenRouter) instead
+// of 401/403-ing the learner's every message. Keeps the chat alive when the
+// admin panel points at a provider whose key is missing/expired, or when a key
+// gets revoked mid-flight.
 function effective(choice: { provider: string; model: string }): { provider: string; model: string } {
-  const hasKey = (p: string) =>
-    p === "gemini" ? !!GEMINI_API_KEY
-    : p === "deepseek" ? !!DEEPSEEK_API_KEY
-    : p === "openrouter" ? !!OPENROUTER_API_KEY
-    : !!ANTHROPIC_API_KEY;
   if (!hasKey(choice.provider)) {
     if (ANTHROPIC_API_KEY) return { provider: "anthropic", model: DEFAULT_MODEL.model };
     if (GEMINI_API_KEY) return { provider: "gemini", model: GEMINI_FALLBACK_MODEL };
@@ -106,6 +107,29 @@ function effective(choice: { provider: string; model: string }): { provider: str
     if (OPENROUTER_API_KEY) return { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
   }
   return choice;
+}
+
+// Built-in model id for a provider (used when falling back away from the admin's
+// chosen provider, where their custom model id may not exist).
+function defaultModelFor(p: string): string {
+  return p === "gemini" ? GEMINI_FALLBACK_MODEL
+    : p === "deepseek" ? "deepseek-v4-flash"
+    : p === "openrouter" ? "deepseek/deepseek-v4-flash"
+    : DEFAULT_MODEL.model;
+}
+
+// Providers that have a usable key, in the built-in preference order — this is
+// the auth-failure fallback chain (see isAuthError / withAuthFallback).
+function nextProvidersWithKey(exclude: string): string[] {
+  return ["anthropic", "gemini", "deepseek", "openrouter"].filter((p) => p !== exclude && hasKey(p));
+}
+
+// A key that is present but invalid/expired answers 401/403 — treat those as
+// "route to the next provider with a key" rather than failing the learner. Only
+// auth errors trigger this: quota (429) and provider outages (5xx) surface as-is
+// so the admin actually notices them.
+function isAuthError(msg: string): boolean {
+  return /(401|403|unauthorized|authentication|invalid api key|not authorized|permission denied|api key|credential)/i.test(msg);
 }
 function effectiveDefault(): { provider: string; model: string } {
   return effective(DEFAULT_MODEL);
@@ -405,6 +429,59 @@ async function callOpenRouterOnce(model: string, system: string, messages: ChatM
   return data?.choices?.[0]?.message?.content || "";
 }
 
+// ── auth-failure fallback (see isAuthError) ──
+function mkStream(p: string, m: string, system: string, full: ChatMsg[]): AsyncGenerator<string> {
+  return p === "gemini"
+    ? streamGemini(m, system, toGeminiContents(full.slice(0, -1), full[full.length - 1]?.content || ""))
+    : p === "deepseek" ? streamDeepSeek(m, system, full)
+    : p === "openrouter" ? streamOpenRouter(m, system, full)
+    : streamAnthropic(m, system, full);
+}
+
+// Streaming with auth fallback: a 401/403 on the FIRST token switches to the
+// next provider with a configured key; a mid-stream failure is never spliced
+// across providers (would corrupt the partial reply already sent).
+async function* withAuthFallback(entries: Array<{ provider: string; gen: AsyncGenerator<string> }>): AsyncGenerator<string> {
+  for (let i = 0; i < entries.length; i++) {
+    let yielded = false;
+    try {
+      for await (const piece of entries[i].gen) { yielded = true; yield piece; }
+      return;
+    } catch (e) {
+      if (yielded) throw e;
+      const msg = (e as Error)?.message || "";
+      if (isAuthError(msg) && i < entries.length - 1) {
+        console.error(`[piano-chat] ${entries[i].provider} auth failed (${msg.slice(0, 120)}), falling back to ${entries[i + 1].provider}`);
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
+// Non-streaming twin of withAuthFallback.
+async function callWithAuthFallback(provider: string, model: string, system: string, full: ChatMsg[]): Promise<string> {
+  const chain = [{ provider, model }, ...nextProvidersWithKey(provider).map((p) => ({ provider: p, model: defaultModelFor(p) }))];
+  for (let i = 0; i < chain.length; i++) {
+    const c = chain[i];
+    try {
+      return c.provider === "gemini"
+        ? await callGeminiOnce(c.model, system, toGeminiContents(full.slice(0, -1), full[full.length - 1]?.content || ""))
+        : c.provider === "deepseek" ? await callDeepSeekOnce(c.model, system, full)
+        : c.provider === "openrouter" ? await callOpenRouterOnce(c.model, system, full)
+        : await callAnthropicOnce(c.model, system, full);
+    } catch (e) {
+      const msg = (e as Error)?.message || "";
+      if (isAuthError(msg) && i < chain.length - 1) {
+        console.error(`[piano-chat] ${c.provider} auth failed (${msg.slice(0, 120)}), falling back to ${chain[i + 1].provider}`);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error("no provider available");
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
@@ -429,24 +506,19 @@ Deno.serve(async (req: Request) => {
 
     const { provider, model } = await resolveActiveModel(authHeader, feature);
 
+    // The full message list every provider call needs (Gemini gets its own
+    // {role,parts} shape via toGeminiContents).
+    const full = [...conversationHistory, { role: "user", content: message }];
+
     if (!wantStream) {
-      const text = provider === "gemini"
-        ? await callGeminiOnce(model, system, toGeminiContents(conversationHistory, message))
-        : provider === "deepseek"
-        ? await callDeepSeekOnce(model, system, [...conversationHistory, { role: "user", content: message }])
-        : provider === "openrouter"
-        ? await callOpenRouterOnce(model, system, [...conversationHistory, { role: "user", content: message }])
-        : await callAnthropicOnce(model, system, [...conversationHistory, { role: "user", content: message }]);
+      const text = await callWithAuthFallback(provider, model, system, full);
       return json({ text });
     }
 
-    const gen = provider === "gemini"
-      ? streamGemini(model, system, toGeminiContents(conversationHistory, message))
-      : provider === "deepseek"
-      ? streamDeepSeek(model, system, [...conversationHistory, { role: "user", content: message }])
-      : provider === "openrouter"
-      ? streamOpenRouter(model, system, [...conversationHistory, { role: "user", content: message }])
-      : streamAnthropic(model, system, [...conversationHistory, { role: "user", content: message }]);
+    // Chain: the admin's choice first, then every provider with a configured
+    // key — a 401/403 on the first token hops down the chain automatically.
+    const chain = [{ provider, model }, ...nextProvidersWithKey(provider).map((p) => ({ provider: p, model: defaultModelFor(p) }))];
+    const gen = withAuthFallback(chain.map((c) => ({ provider: c.provider, gen: mkStream(c.provider, c.model, system, full) })));
 
     const stream = new ReadableStream({
       async start(controller) {
