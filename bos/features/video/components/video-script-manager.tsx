@@ -68,6 +68,28 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
 
   const effectiveTopic = topic === "__custom__" ? customTopic : topic;
 
+  async function handleQuickContent() {
+    setGenerating(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      // Random topic from predefined list
+      const randomIdx = Math.floor(Math.random() * TOPICS.length);
+      const randomTopic = TOPICS[randomIdx]!.value;
+      const { data, error: fnError } = await supabase.functions.invoke<{ scripts: Array<Record<string, unknown>>; count: number }>(
+        "generate-video-script",
+        { body: { topic: randomTopic, language: "all" } }
+      );
+      if (fnError) throw fnError;
+      if (!data || data.count === 0) throw new Error("AI ไม่สามารถสร้างสคริปต์ได้ กรุณาลองใหม่");
+      onChanged();
+    } catch (err) {
+      setError(await describeFunctionError(err));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   async function handleGenerate() {
     if (!effectiveTopic.trim()) return;
     setGenerating(true);
@@ -75,7 +97,7 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
 
     try {
       const supabase = createClient();
-      const { data, error: fnError } = await supabase.functions.invoke<{ script: Tables<"video_scripts"> }>(
+      const { data, error: fnError } = await supabase.functions.invoke<{ script: Tables<"video_scripts">; scripts: Array<Record<string, unknown>> }>(
         "generate-video-script",
         { body: { topic: effectiveTopic.trim(), language } }
       );
@@ -102,13 +124,38 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary-accent" />
-            เขียนสคริปต์ TikTok 25 บรรทัด
-          </CardTitle>
-          <CardDescription>
-            เลือกหัวข้อ + เลือกภาษา กดปุ่มเดียวได้สคริปต์เลย — เขียนตามสไตล์ Insider Strategy Authority
-          </CardDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary-accent" />
+                เขียนสคริปต์ TikTok 25 บรรทัด
+              </CardTitle>
+              <CardDescription className="mt-1">
+                เลือกหัวข้อ + เลือกภาษา กดปุ่มเดียวได้สคริปต์เลย
+              </CardDescription>
+            </div>
+            <Button
+              onClick={() => void handleQuickContent()}
+              disabled={generating}
+              className="shrink-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600"
+            >
+              {generating ? (
+                <>
+                  <Sparkles className="h-4 w-4 animate-pulse" />
+                  กำลังสร้าง…
+                </>
+              ) : (
+                <>
+                  ⚡ Quick Content
+                </>
+              )}
+            </Button>
+          </div>
+          {generating && (
+            <p className="text-xs text-primary-accent animate-pulse">
+              ⚡ กำลังสร้างสคริปต์ 3 ภาษา (ไทย + English + 中文) พร้อมกัน…
+            </p>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Topic selector */}

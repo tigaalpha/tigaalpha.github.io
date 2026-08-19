@@ -46,7 +46,9 @@ Deno.serve(async (req: Request) => {
 
     const { topic, language } = await req.json();
     if (!topic) return jsonResponse({ error: "topic is required" }, 400);
-    const lang = language === "en" ? "en" : language === "zh" ? "zh" : "th";
+
+    // "all" = generate in all 3 languages at once
+    const langs: string[] = language === "all" ? ["th", "en", "zh"] : [language === "en" ? "en" : language === "zh" ? "zh" : "th"];
 
     // Ground the script in real business facts, same RAG search as the other writers.
     const embedding = await embed(topic);
@@ -62,41 +64,45 @@ Deno.serve(async (req: Request) => {
       : "No matching knowledge base entries found — write in general, honest terms and avoid specific claims (exact prices, teacher names) that aren't verifiable.";
 
     const systemPrompt = `${PROMPTS.video_script}\n\n## Business knowledge base (ground all facts in this — never invent)\n${knowledgeContext}`;
-    const langLabel = lang === "th" ? "Thai" : lang === "en" ? "English" : "Chinese (Mandarin)";
-    const userPrompt = `Write a vertical video script.\nTopic: ${topic}\nLanguage: ${langLabel}\n\nCall return_video_script with the complete result.`;
 
-    const result = await generate(
-      [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      [RETURN_SCRIPT_TOOL],
-      0.8,
-      2048,
-      "content"
-    );
-    await logAiUsage(admin, result.usage, "generate-video-script");
+    const scripts: Array<Record<string, unknown>> = [];
+    for (const lang of langs) {
+      const langLabel = lang === "th" ? "Thai" : lang === "en" ? "English" : "Chinese (Mandarin)";
+      const userPrompt = `Write a vertical video script.\nTopic: ${topic}\nLanguage: ${langLabel}\n\nCall return_video_script with the complete result.`;
 
-    const call = result.message.toolCalls?.find((c) => c.name === "return_video_script");
-    const args = call ? (call.arguments as unknown as ReturnScriptArgs) : null;
-    if (!args) return jsonResponse({ error: "The AI didn't return a structured script — try again." }, 502);
+      const result = await generate(
+        [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        [RETURN_SCRIPT_TOOL],
+        0.8,
+        2048,
+        "content"
+      );
+      await logAiUsage(admin, result.usage, "generate-video-script");
 
-    const { data: script, error: insertError } = await admin
-      .from("video_scripts")
-      .insert({
-        topic,
-        hook: args.hook,
-        script: args.script,
-        caption: args.caption,
-        hashtags: args.hashtags ?? [],
-        language: lang,
-        created_by: userId,
-      })
-      .select("*")
-      .single();
-    if (insertError) throw insertError;
+      const call = result.message.toolCalls?.find((c) => c.name === "return_video_script");
+      const args = call ? (call.arguments as unknown as ReturnScriptArgs) : null;
+      if (!args) continue; // skip failed language, don't abort the whole batch
 
-    return jsonResponse({ script }, 201);
+      const { data: script, error: insertError } = await admin
+        .from("video_scripts")
+        .insert({
+          topic,
+          hook: args.hook,
+          script: args.script,
+          caption: args.caption,
+          hashtags: args.hashtags ?? [],
+          language: lang,
+          created_by: userId,
+        })
+        .select("*")
+        .single();
+      if (!insertError && script) scripts.push(script);
+    }
+
+    return jsonResponse({ scripts, count: scripts.length }, 201);
   } catch (error) {
     if (error instanceof RateLimitError) {
       await logSystemEvent(admin, "generate-video-script", "warning", error.message);
