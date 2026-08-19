@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Zap,
   PenTool,
@@ -29,6 +29,7 @@ import {
   Flame,
   Send,
   Search,
+  Shuffle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,55 @@ interface SkillResult {
 }
 
 type TierId = "tier1" | "tier2" | "tier3" | "tier4" | "tier5";
+
+/* ── TIGA Quick Content Topics ── */
+
+const TIGA_TOPICS = [
+  // เรียน/สอนเปียโน
+  { topic: "ทำไมเด็กอายุ 4-6 ขวบควรเริ่มเรียนเปียโน ไม่ใช่แค่ดนตรี แต่คือการสร้างสมอง", category: "piano-learning", tool: "tiktok-script" },
+  { topic: "เปียโน vs กีตาร์: 乐器ไหน更适合เด็กไทยในยุค 2025 ทำไมเปียโนถึงชนะขาด", category: "piano-learning", tool: "hook-writer" },
+  { topic: "5 สัญญาณที่บอกว่าลูกคุณพร้อมเรียนเปียโนแล้ว (สัญญาณที่พ่อแม่มักมองข้าม)", category: "piano-learning", tool: "reels-script" },
+  { topic: "คอร์สเรียนเปียโน 40 ชั่วโมง เปลี่ยนเด็กไม่มั่นใจ เป็นเด็กกล้าแสดงออกได้อย่างไร", category: "piano-learning", tool: "carousel-writer" },
+  { topic: "Trial Lesson ฟรี vs คอร์สทดลอง: แบบไหนได้ผลจริงสำหรับโรงเรียนเปียโน", category: "piano-learning", tool: "caption-writer" },
+  
+  // นวัตกรรมการเรียนเปียโน
+  { topic: "AI ช่วยสอนเปียโนได้จริงไหม? เปรียบเทียบ วิธีเรียนแบบเดิม vs AI-Powered", category: "innovation", tool: "tiktok-script" },
+  { topic: "Piano Mindset: คอร์สวิดีโอออนไลน์ที่เปลี่ยนวิธีเรียนเปียโนของคนไทย", category: "innovation", tool: "hook-writer" },
+  { topic: "ทำไม Tiga Studio ใช้ AI Voice Tutor ช่วยสอนลูกค้าได้ตลอด 24 ชม.", category: "innovation", tool: "thread-writer" },
+  { topic: "0 to HERO: เรียนเปียโนจากศูนย์ถึงเล่นเพลงได้จริงใน 40 ชั่วโมง", category: "innovation", tool: "reels-script" },
+  
+  // การตลาดสำหรับโรงเรียนดนตรี
+  { topic: "Facebook Ads สำหรับโรงเรียนเปียโน: วิธีเพิ่ม TRIAL Sign-up 3 เท่า ด้วยงบ 500 บาท/วัน", category: "marketing", tool: "hook-writer" },
+  { topic: "Content Calendar สำหรับโรงเรียนเปียโน: 14 วัน โพสต์อะไรให้ได้ลูกค้า", category: "marketing", tool: "content-calendar" },
+  { topic: "Hashtag Strategy สำหรับ Piano Studio: ติด #อะไรถึงเจอพ่อแม่ที่กำลังหาโรงเรียนเปียโน", category: "marketing", tool: "hashtag-strategy" },
+  { topic: "วิธีใช้ TikTok โปรโมทโรงเรียนเปียโน: จาก 0 สู่ 10K Followers ใน 3 เดือน", category: "marketing", tool: "tiktok-script" },
+  { topic: "รีวิวจากลูกค้าจริง: เปลี่ยนเป็น Social Proof ยังไงให้.school-forge-close", category: "marketing", tool: "caption-writer" },
+  
+  // อุตสาหกรรมดนตรี
+  { topic: "อุตสาหกรรมดนตรีไทย 2025: ตัวเลขที่พ่อแม่ทุกคนควรรู้ก่อนส่งลูกเรียนเปียโน", category: "industry", tool: "linkedin-post" },
+  { topic: "Piano Industry in Southeast Asia: Why Thailand is becoming the hub of music education", category: "industry", tool: "thread-writer" },
+  { topic: "เปรียบเทียบค่าเรียนเปียโน: ไทย vs สิงคโปร์ vs ญี่ปุ่น ทำไมไทยคุ้มกว่า", category: "industry", tool: "carousel-writer" },
+  
+  // ดนตรีบำบัด
+  { topic: "ดนตรีบำบัดสำหรับเด็กออทิสติก: งานวิจัยล่าสุดที่พิสูจน์ว่าเปียโนช่วยได้", category: "therapy", tool: "reels-script" },
+  { topic: "Music Therapy ไม่ใช่แค่เล่นเปียโน: 5 ประโยชน์ที่พ่อแม่ไม่รู้", category: "therapy", tool: "hook-writer" },
+  { topic: "เปียโนบำบัดความเครียด: วิธีที่นักเรียนผู้ใหญ่ลด anxiety ได้จริงจากการเล่น 15 นาที/วัน", category: "therapy", tool: "caption-writer" },
+  
+  // เทคโนโลยีและ AI ในวงการดนตรี
+  { topic: "AI แต่งเพลง vs มนุษย์แต่งเพลง: ใครจะชนะในยุค 2025?", category: "tech-music", tool: "tiktok-script" },
+  { topic: "MIDI Controller + iPad = ห้องซ้อมส่วนตัว: เครื่องมือที่นักเรียนยุคใหม่ต้องมี", category: "tech-music", tool: "reels-script" },
+  { topic: "未来音乐教育: AI + VR จะเปลี่ยนวิธีเรียนเปียโนภายใน 5 ปี", category: "tech-music", tool: "thread-writer" },
+  { topic: "เทคโนโลยีvisão-en-ai ใน Tiga Studio: วิธีที่เราใช้ AI ช่วยวิเคราะห์การเล่นของนักเรียน", category: "tech-music", tool: "carousel-writer" },
+];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  "piano-learning": "🎹 เรียน/สอนเปียโน",
+  "innovation": "💡 นวัตกรรม",
+  "marketing": "📈 การตลาด",
+  "industry": "🏭 อุตสาหกรรมดนตรี",
+  "therapy": "🎵 ดนตรีบำบัด",
+  "tech-music": "🤖 เทคโนโลยี & AI",
+};
 
 /* ── Tool definitions organized by tier ── */
 
@@ -185,43 +235,134 @@ export function MarketingSkillTools() {
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<SkillResult | null>(null);
   const [history, setHistory] = useState<SkillResult[]>([]);
+  const [quickGenerating, setQuickGenerating] = useState(false);
+  const [quickResult, setQuickResult] = useState<SkillResult | null>(null);
+  const lastQuickCategory = useRef<string | null>(null);
 
   const currentTier = TIERS.find((t) => t.id === activeTier)!;
   const currentTool = currentTier.tools.find((t) => t.id === activeTool);
 
-  const generateContent = useCallback(async () => {
+  const generateContent = useCallback(async (toolType: string, topicText: string, lang: string, modelId: string) => {
+    const supabase = createClient();
+    const { data, error: fnError } = await supabase.functions.invoke<
+      { result: SkillResult; error?: string }
+    >("generate-marketing-skill", {
+      body: { toolType, topic: topicText, language: lang, model: modelId },
+    });
+
+    if (fnError) throw new Error(fnError.message || "Generation failed");
+    if (!data?.result) throw new Error(data?.error || "No result returned");
+    return data.result;
+  }, []);
+
+  const handleGenerate = useCallback(async () => {
     if (!activeTool || !topic.trim()) return;
     setGenerating(true);
     setResult(null);
-
     try {
-      const supabase = createClient();
-      const { data, error: fnError } = await supabase.functions.invoke<
-        { result: SkillResult; error?: string }
-      >("generate-marketing-skill", {
-        body: {
-          toolType: activeTool,
-          topic: topic.trim(),
-          language,
-          model,
-        },
-      });
-
-      if (fnError) throw new Error(fnError.message || "Generation failed");
-      if (!data?.result) throw new Error(data?.error || "No result returned");
-
-      setResult(data.result);
-      setHistory((prev) => [data.result, ...prev].slice(0, 20));
+      const res = await generateContent(activeTool, topic.trim(), language, model);
+      setResult(res);
+      setHistory((prev) => [res, ...prev].slice(0, 20));
     } catch (err) {
       console.error("Generation error:", err);
       setResult(null);
     } finally {
       setGenerating(false);
     }
-  }, [activeTool, topic, language, model]);
+  }, [activeTool, topic, language, model, generateContent]);
+
+  /* ── Quick Content: pick topic + tool + generate ── */
+  const handleQuickContent = useCallback(async () => {
+    setQuickGenerating(true);
+    setQuickResult(null);
+    try {
+      // Pick a random topic, avoid the same category twice in a row
+      let candidates = TIGA_TOPICS;
+      if (lastQuickCategory.current) {
+        const different = TIGA_TOPICS.filter((t) => t.category !== lastQuickCategory.current);
+        if (different.length > 0) candidates = different;
+      }
+      const pick = candidates[Math.floor(Math.random() * candidates.length)]!;
+      lastQuickCategory.current = pick.category;
+
+      const res = await generateContent(pick.tool, pick.topic, "th", "gemini");
+      setQuickResult(res);
+      setHistory((prev) => [res, ...prev].slice(0, 20));
+    } catch (err) {
+      console.error("Quick content error:", err);
+      setQuickResult(null);
+    } finally {
+      setQuickGenerating(false);
+    }
+  }, [generateContent]);
 
   return (
     <div className="space-y-4">
+      {/* ── Quick Content Banner ── */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-purple-500/5">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="h-5 w-5 text-primary" />
+                <span className="text-sm font-semibold text-secondary">⚡ Quick Content</span>
+              </div>
+              <p className="text-xs text-secondary/50">
+                กดทีเดียว AI เลือกหัวข้อ + skill ที่เหมาะสมกับ TIGA Studio ให้อัตโนมัติ
+              </p>
+            </div>
+            <Button
+              onClick={handleQuickContent}
+              disabled={quickGenerating}
+              size="lg"
+              className="shrink-0 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white shadow-lg"
+            >
+              {quickGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  กำลังสร้าง...
+                </>
+              ) : (
+                <>
+                  <Shuffle className="h-4 w-4 mr-2" />
+                  ⚡ Quick Content
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Quick Result */}
+          {quickResult && (
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/30">
+                  {quickResult.toolType}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {CATEGORY_LABELS[TIGA_TOPICS.find((t) => t.topic === quickResult.topic)?.category ?? ""] || "🎯 TIGA Content"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">{quickResult.language}</Badge>
+              </div>
+
+              <div className="rounded-xl bg-background/80 p-4 max-h-[50vh] overflow-y-auto border border-line/10">
+                <pre className="whitespace-pre-wrap text-sm text-secondary/80 font-sans leading-relaxed">
+                  {quickResult.content}
+                </pre>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex flex-wrap gap-1">
+                  {quickResult.tags.slice(0, 5).map((tag) => (
+                    <Badge key={tag} variant="outline" className="text-[10px]">#{tag}</Badge>
+                  ))}
+                </div>
+                <CopyButton value={quickResult.content} />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Tier Navigation */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
         {TIERS.map((tier) => (
@@ -328,7 +469,7 @@ export function MarketingSkillTools() {
 
               {/* Generate Button */}
               <Button
-                onClick={generateContent}
+                onClick={handleGenerate}
                 disabled={generating || !topic.trim()}
                 className="w-full"
               >
