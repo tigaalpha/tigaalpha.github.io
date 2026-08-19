@@ -348,6 +348,8 @@ export function MarketingChannelsView() {
 
       <SocialBladeSection />
 
+      <MetricsOverview />
+
       <div>
         <h2 className="text-lg font-semibold text-secondary">กรอกยอดเอง</h2>
         <p className="text-xs text-secondary/40">
@@ -393,13 +395,104 @@ export function MarketingChannelsView() {
   );
 }
 
-// ── Social Blade Configuration Section ────────────────────────────
+// ── Metrics Overview Section ─────────────────────────────────────
+
+const METRIC_LABELS: Record<string, string> = {
+  followers: "ผู้ติดตาม",
+  likes: "ไลก์",
+  views: "ยอดวิว",
+  comments: "คอมเมนต์",
+  shares: "แชร์",
+  engagement: "ปฏิสัมพันธ์",
+};
+
+const CHANNEL_ICONS: Record<string, LucideIcon> = {
+  youtube: Youtube,
+  facebook: Facebook,
+  instagram: Instagram,
+  tiktok: Music2,
+  x: Twitter,
+  website: Globe,
+};
+
+const CHANNEL_LABELS: Record<string, string> = {
+  youtube: "YouTube",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  x: "X (Twitter)",
+  website: "เว็บไซต์",
+};
+
+function MetricsOverview() {
+  const [metrics, setMetrics] = useState<Record<string, Record<string, { value: number; captured_at: string }>> | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.functions.invoke<{ latestMetrics: Record<string, Record<string, { value: number; captured_at: string }>> }>("marketing-metrics-snapshot", { body: {} });
+        if (data?.latestMetrics) setMetrics(data.latestMetrics);
+      } catch { /* silent */ }
+      setLoading(false);
+    }
+    void load();
+  }, []);
+
+  if (loading) return null;
+  if (!metrics || Object.keys(metrics).length === 0) return null;
+
+  const channels = Object.keys(metrics).filter((ch) => metrics[ch] && Object.keys(metrics[ch]).length > 0);
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-secondary">ข้อมูลล่าสุดจากทุกช่องทาง</h2>
+      <p className="text-xs text-secondary/40 mb-3">ยอดล่าสุดที่ดึงได้จากแต่ละช่องทาง (อัปเดตอัตโนมัติทุกชั่วโมง + เมื่อกด sync)</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {channels.map((ch) => {
+          const Icon = CHANNEL_ICONS[ch] ?? Globe;
+          const label = CHANNEL_LABELS[ch] ?? ch;
+          const stats: Record<string, { value: number; captured_at: string }> = metrics[ch] ?? {};
+          const metricKeys = Object.keys(stats);
+          const firstKey = metricKeys[0];
+          const firstMetric = firstKey ? stats[firstKey] : undefined;
+          const latestDate = firstMetric ? new Date(firstMetric.captured_at) : null;
+          return (
+            <Card key={ch}>
+              <CardContent className="space-y-2 pt-6">
+                <div className="flex items-center gap-2">
+                  <Icon className="h-5 w-5 text-secondary/60" />
+                  <p className="font-medium text-secondary">{label}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {metricKeys.map((m) => (
+                    <div key={m}>
+                      <p className="text-xs text-secondary/40">{METRIC_LABELS[m] ?? m}</p>
+                      <p className="text-lg font-semibold text-secondary">{fmtNumber(stats[m]?.value)}</p>
+                    </div>
+                  ))}
+                </div>
+                {latestDate ? (
+                  <p className="text-xs text-secondary/30">อัปเดต {latestDate.toLocaleDateString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+                ) : null}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Platform URL Configuration Section ────────────────────────────
 
 function SocialBladeSection() {
   const [ytUrl, setYtUrl] = useState("");
   const [ttUrl, setTtUrl] = useState("");
   const [igUrl, setIgUrl] = useState("");
   const [fbUrl, setFbUrl] = useState("");
+  const [xUrl, setXUrl] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
   const [scraping, setScraping] = useState(false);
   const [scrapeResult, setScrapeResult] = useState<string | null>(null);
@@ -411,11 +504,13 @@ function SocialBladeSection() {
       repos.integrations.get("social_blade_tiktok"),
       repos.integrations.get("social_blade_instagram"),
       repos.integrations.get("social_blade_facebook"),
-    ]).then(([yt, tt, ig, fb]) => {
+      repos.integrations.get("social_blade_x"),
+    ]).then(([yt, tt, ig, fb, x]) => {
       setYtUrl(yt ?? "");
       setTtUrl(tt ?? "");
       setIgUrl(ig ?? "");
       setFbUrl(fb ?? "");
+      setXUrl(x ?? "");
     });
   }, []);
 
@@ -457,6 +552,7 @@ function SocialBladeSection() {
     { key: "social_blade_tiktok", label: "TikTok", icon: Music2, value: ttUrl, set: setTtUrl, placeholder: "tiktok.com/@username" },
     { key: "social_blade_instagram", label: "Instagram", icon: Instagram, value: igUrl, set: setIgUrl, placeholder: "instagram.com/username" },
     { key: "social_blade_facebook", label: "Facebook", icon: Facebook, value: fbUrl, set: setFbUrl, placeholder: "facebook.com/pagename" },
+    { key: "social_blade_x", label: "X (Twitter)", icon: Twitter, value: xUrl, set: setXUrl, placeholder: "x.com/username" },
   ];
 
   return (

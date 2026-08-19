@@ -355,12 +355,35 @@ async function scrapeFacebookDirect(admin: SupabaseAdmin, url: string): Promise<
   }
 }
 
+// ── X/Twitter direct scrape ──
+async function scrapeXDirect(admin: SupabaseAdmin, url: string): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const resp = await fetchWithTimeoutLong(url, { headers: { "User-Agent": UA } });
+    if (!resp.ok) return { ok: false, detail: `HTTP ${resp.status}` };
+    const html = await resp.text();
+    const followers = extractNumber(html, [
+      /"followers_count"\s*:\s*(\d+)/,
+      /"Friends"\s*:\s*"([0-9,.]+)/,
+      /content="([\d,.]+)\s+Followers"/i,
+      /data-followerscount="(\d+)"/,
+    ]);
+    if (followers != null) {
+      await insertSnapshot(admin, "x", "followers", followers, "auto");
+      return { ok: true, detail: `X followers: ${followers.toLocaleString()}` };
+    }
+    return { ok: false, detail: "Could not extract follower count (X may require JavaScript)" };
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : "fetch failed" };
+  }
+}
+
 async function syncPlatformUrls(admin: SupabaseAdmin): Promise<Record<string, { ok: boolean; detail: string; url?: string }>> {
-  const [ytUrl, ttUrl, igUrl, fbUrl] = await Promise.all([
+  const [ytUrl, ttUrl, igUrl, fbUrl, xUrl] = await Promise.all([
     admin.from("integration_settings").select("value").eq("key", "social_blade_youtube").maybeSingle(),
     admin.from("integration_settings").select("value").eq("key", "social_blade_tiktok").maybeSingle(),
     admin.from("integration_settings").select("value").eq("key", "social_blade_instagram").maybeSingle(),
     admin.from("integration_settings").select("value").eq("key", "social_blade_facebook").maybeSingle(),
+    admin.from("integration_settings").select("value").eq("key", "social_blade_x").maybeSingle(),
   ]);
 
   const results: Record<string, { ok: boolean; detail: string; url?: string }> = {};
@@ -370,6 +393,7 @@ async function syncPlatformUrls(admin: SupabaseAdmin): Promise<Record<string, { 
     { channel: "tiktok", url: ttUrl.data?.value?.trim() || null, fn: (u) => scrapeTikTokDirect(admin, u) },
     { channel: "instagram", url: igUrl.data?.value?.trim() || null, fn: (u) => scrapeInstagramDirect(admin, u) },
     { channel: "facebook", url: fbUrl.data?.value?.trim() || null, fn: (u) => scrapeFacebookDirect(admin, u) },
+    { channel: "x", url: xUrl.data?.value?.trim() || null, fn: (u) => scrapeXDirect(admin, u) },
   ];
 
   for (const job of scrapers) {
@@ -437,7 +461,23 @@ Deno.serve(async (req: Request) => {
     // Platform URL scraping — runs alongside API-based syncs
     const platformUrls = await syncPlatformUrls(admin);
 
-    return jsonResponse({ youtube, facebook, searchConsole, instagram, platformUrls });
+    // Latest metrics snapshot from DB for the dashboard display
+    const { data: latestMetrics } = await admin
+      .from("marketing_metric_snapshots")
+      .select("channel, metric, value, captured_at")
+      .order("captured_at", { ascending: false })
+      .limit(50);
+
+    // Deduplicate: keep only the latest per channel+metric
+    const latestByChannel: Record<string, Record<string, { value: number; captured_at: string }>> = {};
+    for (const row of latestMetrics ?? []) {
+      if (!latestByChannel[row.channel]) latestByChannel[row.channel] = {};
+      if (!latestByChannel[row.channel][row.metric]) {
+        latestByChannel[row.channel][row.metric] = { value: row.value, captured_at: row.captured_at };
+      }
+    }
+
+    return jsonResponse({ youtube, facebook, searchConsole, instagram, platformUrls, latestMetrics: latestByChannel });
   } catch (error) {
     if (error instanceof RateLimitError) return jsonResponse({ error: error.message }, 429);
     return await handleUnexpectedError(admin, "marketing-metrics-snapshot", error);
