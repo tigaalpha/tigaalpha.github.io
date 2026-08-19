@@ -399,6 +399,7 @@ function SocialBladeSection() {
   const [ytUrl, setYtUrl] = useState("");
   const [ttUrl, setTtUrl] = useState("");
   const [igUrl, setIgUrl] = useState("");
+  const [fbUrl, setFbUrl] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
   const [scraping, setScraping] = useState(false);
   const [scrapeResult, setScrapeResult] = useState<string | null>(null);
@@ -409,10 +410,12 @@ function SocialBladeSection() {
       repos.integrations.get("social_blade_youtube"),
       repos.integrations.get("social_blade_tiktok"),
       repos.integrations.get("social_blade_instagram"),
-    ]).then(([yt, tt, ig]) => {
+      repos.integrations.get("social_blade_facebook"),
+    ]).then(([yt, tt, ig, fb]) => {
       setYtUrl(yt ?? "");
       setTtUrl(tt ?? "");
       setIgUrl(ig ?? "");
+      setFbUrl(fb ?? "");
     });
   }, []);
 
@@ -436,7 +439,11 @@ function SocialBladeSection() {
       }
       setScrapeResult(parts.join("\n"));
     } catch (err) {
-      setScrapeResult(`❌ ${err instanceof Error ? err.message : "ซิงค์ไม่สำเร็จ"}`);
+      const msg = err instanceof Error ? err.message : "ซิงค์ไม่สำเร็จ";
+      const hint = msg.includes("non-2xx") || msg.includes("Failed to fetch")
+        ? "\n\n💡 Edge Function ยังไม่ได้ deploy — ต้อง deploy social-blade-scraper ลง Supabase ก่อน"
+        : "";
+      setScrapeResult(`❌ ${msg}${hint}`);
     } finally {
       setScraping(false);
     }
@@ -446,6 +453,7 @@ function SocialBladeSection() {
     { key: "social_blade_youtube", label: "YouTube", icon: Youtube, value: ytUrl, set: setYtUrl, placeholder: "socialblade.com/youtube/user/USERNAME" },
     { key: "social_blade_tiktok", label: "TikTok", icon: Music2, value: ttUrl, set: setTtUrl, placeholder: "socialblade.com/tiktok/user/USERNAME" },
     { key: "social_blade_instagram", label: "Instagram", icon: Instagram, value: igUrl, set: setIgUrl, placeholder: "socialblade.com/instagram/user/USERNAME" },
+    { key: "social_blade_facebook", label: "Facebook", icon: Facebook, value: fbUrl, set: setFbUrl, placeholder: "socialblade.com/facebook/page/USERNAME" },
   ];
 
   return (

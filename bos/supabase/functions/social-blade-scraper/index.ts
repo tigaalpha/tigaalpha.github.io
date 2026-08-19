@@ -9,9 +9,10 @@ import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 // Scrapes Social Blade public profile pages for follower/subscriber counts.
 // No API key required — reads public HTML and extracts numbers via regex.
 // Profile URLs are stored in integration_settings:
-//   social_blade_youtube  → https://socialblade.com/youtube/user/USERNAME
-//   social_blade_tiktok   → https://socialblade.com/tiktok/user/USERNAME
+//   social_blade_youtube   → https://socialblade.com/youtube/user/USERNAME
+//   social_blade_tiktok    → https://socialblade.com/tiktok/user/USERNAME
 //   social_blade_instagram → https://socialblade.com/instagram/user/USERNAME
+//   social_blade_facebook  → https://socialblade.com/facebook/page/USERNAME
 // Runs hourly via cron (see migration) and on-demand from the dashboard.
 
 const FETCH_TIMEOUT_MS = 12_000;
@@ -218,6 +219,60 @@ async function scrapeInstagram(
   }
 }
 
+// ── Facebook ──────────────────────────────────────────────────
+// Social Blade Facebook page shows:
+//   Likes: "1,234,567"
+//   Talking About: "456"
+
+const FB_LIKES_PATTERNS = [
+  /Likes?\s*<\/span>\s*<span[^>]*>([0-9,.]+)/i,
+  /likes?\s*<\/(?:div|span|h\d)>\s*<(?:div|span)[^>]*>\s*([0-9,.]+)/i,
+  /facebook-stats.*?likes?.*?>([0-9,.]+)/is,
+  />([0-9,.]+)\s*<\/(?:span|div)>\s*<.*?(?:like|follow)/is,
+  /"fan_count"\s*:\s*(\d+)/i,
+  /"like_count"\s*:\s*(\d+)/i,
+];
+
+const FB_TALKING_PATTERNS = [
+  /(?:Talking\s*About|People\s*Talking)\s*<\/span>\s*<span[^>]*>([0-9,.]+)/i,
+  /(?:talking|people)\s*<\/(?:div|span|h\d)>\s*<(?:div|span)[^>]*>\s*([0-9,.]+)/i,
+  /"talking_about_count"\s*:\s*(\d+)/i,
+];
+
+async function scrapeFacebook(
+  admin: SupabaseAdmin,
+  profileUrl: string,
+): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const response = await fetchWithTimeout(profileUrl, {
+      headers: { "User-Agent": USER_AGENT },
+    });
+    if (!response.ok) return { ok: false, detail: `HTTP ${response.status}` };
+    const html = await response.text();
+
+    const likes = extractNumber(html, FB_LIKES_PATTERNS);
+    const talking = extractNumber(html, FB_TALKING_PATTERNS);
+
+    if (likes != null) {
+      await insertSnapshot(admin, "facebook", "followers", likes);
+    }
+    if (talking != null) {
+      await insertSnapshot(admin, "facebook", "engagement", talking);
+    }
+
+    if (likes == null && talking == null) {
+      return { ok: false, detail: "Could not extract stats from page" };
+    }
+
+    return {
+      ok: true,
+      detail: `likes=${likes ?? "n/a"}, talking about=${talking ?? "n/a"}`,
+    };
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : "fetch failed" };
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────
 
 async function getProfileUrl(
@@ -248,10 +303,11 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const [ytUrl, ttUrl, igUrl] = await Promise.all([
+    const [ytUrl, ttUrl, igUrl, fbUrl] = await Promise.all([
       getProfileUrl(admin, "social_blade_youtube"),
       getProfileUrl(admin, "social_blade_tiktok"),
       getProfileUrl(admin, "social_blade_instagram"),
+      getProfileUrl(admin, "social_blade_facebook"),
     ]);
 
     const results: Record<string, { ok: boolean; detail: string; url?: string }> = {};
@@ -275,6 +331,13 @@ Deno.serve(async (req: Request) => {
       results.instagram.url = igUrl;
     } else {
       results.instagram = { ok: false, detail: "Not configured (set social_blade_instagram in integration_settings)" };
+    }
+
+    if (fbUrl) {
+      results.facebook = await scrapeFacebook(admin, fbUrl);
+      results.facebook.url = fbUrl;
+    } else {
+      results.facebook = { ok: false, detail: "Not configured (set social_blade_facebook in integration_settings)" };
     }
 
     return jsonResponse(results);
