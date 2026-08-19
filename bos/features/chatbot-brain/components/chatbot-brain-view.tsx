@@ -139,6 +139,7 @@ function ChatArea() {
         body.imageUrl = selectedImage;
       }
 
+      body.mode = "owner";
       const { data, error: fnError } = await supabase.functions.invoke<AiChatResponse>("ai-chat", {
         body,
       });

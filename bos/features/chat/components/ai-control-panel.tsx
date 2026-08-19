@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn, describeFunctionError } from "@/lib/utils";
+import { BASE_PATH } from "@/lib/constants";
 import type { KnowledgeSourceType, Tables } from "@/types/database";
 
 /* ── Types ── */
@@ -198,7 +199,7 @@ function OwnerChatTab({ onReplied }: { onReplied?: () => void }) {
     try {
       const supabase = createClient();
       const { data, error: fnError } = await supabase.functions.invoke<AiChatResponse>("ai-chat", {
-        body: { conversationId: conversationIdRef.current, message: text },
+        body: { conversationId: conversationIdRef.current, message: text, mode: "owner" },
       });
       if (fnError) throw fnError;
       if (!data) throw new Error("Empty response from ai-chat");
@@ -572,23 +573,23 @@ function ControlTab() {
   }, []);
 
   const features = [
-    { icon: "💬", name: "รับแชท LINE / Web", desc: "AI ตอบลูกค้าอัตโนมัติ", link: "/chat" },
-    { icon: "📅", name: "จอง/เลื่อนคาบ", desc: "ลูกค้าจองผ่านแชทได้เลย", link: "/calendar" },
-    { icon: "💰", name: "ตรวจสอบสลิป", desc: "AI ตรวจสลิปและบันทึกรายได้", link: "/accounting" },
-    { icon: "🔄", name: "Automation Rules", desc: "กฎอัตโนมัติ เตือน/ต่ออายุ", link: "/automation" },
-    { icon: "📚", name: "Knowledge Base", desc: "องค์ความรู้ที่ AI ค้นหา", link: "/knowledge" },
-    { icon: "📊", name: "รายงานธุรกิจ", desc: "สรุปรายวัน/รายสัปดาห์", link: "/reports" },
-    { icon: "🎓", name: "Sales Style Learning", desc: "เรียนรู้สไตล์การขาย", link: "/knowledge" },
-    { icon: "🛡️", name: "Objection Handling", desc: "จัดการข้อโต้แย้งลูกค้า", link: "/knowledge" },
+    { icon: "💬", name: "รับแชท LINE / Web", desc: "AI ตอบลูกค้าอัตโนมัติ", link: `${BASE_PATH}/chat` },
+    { icon: "📅", name: "จอง/เลื่อนคาบ", desc: "ลูกค้าจองผ่านแชทได้เลย", link: `${BASE_PATH}/calendar` },
+    { icon: "💰", name: "ตรวจสอบสลิป", desc: "AI ตรวจสลิปและบันทึกรายได้", link: `${BASE_PATH}/accounting` },
+    { icon: "🔄", name: "Automation Rules", desc: "กฎอัตโนมัติ เตือน/ต่ออายุ", link: `${BASE_PATH}/automation` },
+    { icon: "📚", name: "Knowledge Base", desc: "องค์ความรู้ที่ AI ค้นหา", link: `${BASE_PATH}/knowledge` },
+    { icon: "📊", name: "รายงานธุรกิจ", desc: "สรุปรายวัน/รายสัปดาห์", link: `${BASE_PATH}/reports` },
+    { icon: "🎓", name: "Sales Style Learning", desc: "เรียนรู้สไตล์การขาย", link: `${BASE_PATH}/knowledge` },
+    { icon: "🛡️", name: "Objection Handling", desc: "จัดการข้อโต้แย้งลูกค้า", link: `${BASE_PATH}/knowledge` },
   ];
 
   return (
     <div className="space-y-4">
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2">
-        <StatBox icon="📚" label="องค์ความรู้" value={docCount} link="/knowledge" />
-        <StatBox icon="💬" label="ตัวอย่างขาย" value={exampleCount} link="/knowledge" />
-        <StatBox icon="📨" label="แชททั้งหมด" value={convoCount} link="/chat" />
+        <StatBox icon="📚" label="องค์ความรู้" value={docCount} link={`${BASE_PATH}/knowledge`} />
+        <StatBox icon="💬" label="ตัวอย่างขาย" value={exampleCount} link={`${BASE_PATH}/knowledge`} />
+        <StatBox icon="📨" label="แชททั้งหมด" value={convoCount} link={`${BASE_PATH}/chat`} />
       </div>
 
       {/* AI Features */}
@@ -618,12 +619,12 @@ function ControlTab() {
 
       {/* Quick links */}
       <div className="grid grid-cols-2 gap-2">
-        <a href="/automation">
+        <a href={`${BASE_PATH}/automation`}>
           <Button variant="outline" size="sm" className="w-full text-xs">
             <Zap className="mr-1 h-3 w-3" /> Automation
           </Button>
         </a>
-        <a href="/knowledge">
+        <a href={`${BASE_PATH}/knowledge`}>
           <Button variant="outline" size="sm" className="w-full text-xs">
             <BookOpen className="mr-1 h-3 w-3" /> Knowledge
           </Button>
