@@ -137,6 +137,30 @@ export class ConversationsRepository {
   }
 
   /**
+   * Owner's internal Floating Assistant conversations — the reverse of
+   * listRecent(). Powers the TIGA Agent conversation history section.
+   */
+  async listInternalConversations(limit = 50): Promise<Tables<"conversations">[]> {
+    const { data, error } = await this.db
+      .from("conversations")
+      .select("*")
+      .eq("channel", "internal")
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async countInternalConversations(): Promise<number> {
+    const { count, error } = await this.db
+      .from("conversations")
+      .select("id", { count: "exact", head: true })
+      .eq("channel", "internal");
+    if (error) throw error;
+    return count ?? 0;
+  }
+
+  /**
    * "Where do customers drop off in the conversation" -- last_stage is
    * tagged by chat-core.ts after every AI turn from cheap, real signals
    * (no extra AI call): opening / handoff / fallback / tool_used / general.

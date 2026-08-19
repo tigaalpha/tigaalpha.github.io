@@ -1,4 +1,5 @@
 import { ScheduleManager } from "@/features/tiga-agent/components/schedule-manager";
+import { ConversationHistory } from "@/features/tiga-agent/components/conversation-history";
 import { OwnerOnlyGuard } from "@/features/auth/components/owner-only-guard";
 
 export default function TigaAgentPage() {
@@ -7,9 +8,10 @@ export default function TigaAgentPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold text-secondary">TIGA AI Agent</h1>
-          <p className="text-sm text-secondary/50">ตั้งเวลาให้ TIGA AI Agent ทำงานอัตโนมัติตามคำสั่งที่กำหนดไว้</p>
+          <p className="text-sm text-secondary/50">ตั้งเวลาให้ TIGA AI Agent ทำงานอัตโนมัติตามคำสั่งที่กำหนดไว้ และดูประวัติแชททั้งหมด</p>
         </div>
         <ScheduleManager />
+        <ConversationHistory />
       </div>
     </OwnerOnlyGuard>
   );

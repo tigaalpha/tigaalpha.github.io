@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, X, Sparkles } from "lucide-react";
+import { Bot, Send, X, Sparkles, Loader2 } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,6 @@ interface AiChatResponse {
 interface QuickAction {
   label: string;
   text: string;
-  /** true = send immediately (an info query the AI can just answer); false = fill the input so she can add specifics (needs details a canned message can't supply). */
   sendImmediately: boolean;
 }
 
@@ -37,11 +36,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 /**
  * TIGA AI AGENT — owner-facing AI assistant, mounted once in AppShell so it
- * floats on every workspace page. Talks to ai-chat with mode:"owner" — gets
- * every customer-facing tool (booking, CRM updates, sales pipeline,
- * knowledge search) plus owner-only tools (recording transactions, writing
- * to the Knowledge Base) that are gated to this internal channel only, on
- * its own conversation channel so it never shows up in the customer Inbox.
+ * floats on every workspace page. Talks to ai-chat with mode:"owner".
  */
 export function FloatingAssistant() {
   const [open, setOpen] = useState(false);
@@ -51,13 +46,40 @@ export function FloatingAssistant() {
   const [error, setError] = useState<string | null>(null);
   const [chatModel, setChatModel] = useState(DEFAULT_CHAT_MODEL_ID);
   const [savingModel, setSavingModel] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const conversationIdRef = useRef<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Restore conversationId from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("tiga-fab-conversation-id");
+      if (saved) conversationIdRef.current = saved;
+    } catch {}
+  }, []);
+
+  // Load previous messages when opened
   useEffect(() => {
     if (!open) return;
     const repos = createRepositories(createClient());
     repos.integrations.get("ai_chat_model").then((v) => setChatModel(v ?? DEFAULT_CHAT_MODEL_ID));
+
+    if (conversationIdRef.current && messages.length === 0) {
+      setLoadingHistory(true);
+      repos.conversations
+        .listMessages(conversationIdRef.current, 50)
+        .then((dbMsgs) => {
+          if (dbMsgs.length > 0) {
+            setMessages(
+              dbMsgs.map((m) => ({
+                role: (m.sender === "customer" || m.sender === "owner") ? "user" as const : "ai" as const,
+                content: m.content,
+              }))
+            );
+          }
+        })
+        .finally(() => setLoadingHistory(false));
+    }
   }, [open]);
 
   function handleQuickAction(action: QuickAction) {
@@ -67,6 +89,12 @@ export function FloatingAssistant() {
     }
     setDraft(action.text);
     textareaRef.current?.focus();
+  }
+
+  function startNewConversation() {
+    setMessages([]);
+    conversationIdRef.current = null;
+    try { localStorage.removeItem("tiga-fab-conversation-id"); } catch {}
   }
 
   async function changeChatModel(value: string) {
@@ -95,6 +123,7 @@ export function FloatingAssistant() {
       if (!data) throw new Error("Empty response from ai-chat");
 
       conversationIdRef.current = data.conversationId;
+      try { localStorage.setItem("tiga-fab-conversation-id", data.conversationId); } catch {}
       setMessages((prev) => [...prev, { role: "ai", content: data.reply }]);
     } catch (err) {
       setError(await describeFunctionError(err));
@@ -126,13 +155,25 @@ export function FloatingAssistant() {
                 </option>
               ))}
             </select>
+            <button
+              onClick={startNewConversation}
+              aria-label="แชทใหม่"
+              className="shrink-0 rounded-lg bg-line/10 px-2 py-1 text-[10px] text-secondary/60 hover:bg-line/20 transition-colors"
+            >
+              ใหม่
+            </button>
             <button onClick={() => setOpen(false)} aria-label="ปิด TIGA AI Agent" className="shrink-0">
               <X className="h-4 w-4 text-secondary/60" />
             </button>
           </div>
 
           <div className="flex-1 space-y-2 overflow-y-auto p-3">
-            {messages.length === 0 ? (
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-primary-accent" />
+              </div>
+            ) : null}
+            {messages.length === 0 && !loadingHistory ? (
               <div className="space-y-2">
                 <p className="rounded-xl bg-line/5 p-3 text-xs text-secondary/60">
                   สั่งงานได้เลย เช่น &quot;เพิ่มลูกค้าใหม่ชื่อ...&quot;, &quot;จองคาบเรียนให้...&quot;,
@@ -181,17 +222,12 @@ export function FloatingAssistant() {
               }}
             />
             <Button size="icon" onClick={() => void send()} disabled={sending || !draft.trim()}>
-              <Send className="h-4 w-4" />
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
         </div>
       ) : null}
 
-      {/* On mobile the bottom nav bar (fixed bottom-0, md:hidden) would sit
-          under the FAB — lift it above the nav (bottom-[4.75rem]); desktop
-          has no bottom nav, so it stays at bottom-6. When the panel is open
-          on mobile, hide the FAB entirely (the panel has its own close ✕) so
-          it can't cover the chat input. */}
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="เปิด TIGA AI Agent"
