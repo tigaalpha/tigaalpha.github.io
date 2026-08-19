@@ -80,9 +80,10 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                     <button className={`songtempobtn${songAutoLoop ? " on" : ""}`} onClick={() => setSongAutoLoop(v => !v)}>
                       {songAutoLoop ? lc.songLoop : lc.songNoLoop}
                     </button>
-                    <button className={`songtempobtn${backingOn ? " on" : ""}`} onClick={() => setBackingOn(v => !v)} title={lang === "th" ? "เปิด/ปิดเสียงคอร์ดประกอบ" : lang === "zh" ? "开关和弦伴奏" : "Toggle backing chords"}>
+                    {/* HIDDEN (not deleted) per feature audit — backingOn state/loop logic untouched. */}
+                    {false && <button className={`songtempobtn${backingOn ? " on" : ""}`} onClick={() => setBackingOn(v => !v)} title={lang === "th" ? "เปิด/ปิดเสียงคอร์ดประกอบ" : lang === "zh" ? "开关和弦伴奏" : "Toggle backing chords"}>
                       🎸 {lang === "th" ? "คอร์ดประกอบ" : lang === "zh" ? "和弦伴奏" : "Backing"}
-                    </button>
+                    </button>}
                   </div>
                   <div className="songready-btns">
                     <button className="songbtn ghost" onClick={previewSong}>▶ {lc.songPreview}</button>
