@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
 
     const { topic, language } = await req.json();
     if (!topic) return jsonResponse({ error: "topic is required" }, 400);
-    const lang = language === "en" ? "en" : "th";
+    const lang = language === "en" ? "en" : language === "zh" ? "zh" : "th";
 
     // Ground the script in real business facts, same RAG search as the other writers.
     const embedding = await embed(topic);
@@ -62,7 +62,8 @@ Deno.serve(async (req: Request) => {
       : "No matching knowledge base entries found — write in general, honest terms and avoid specific claims (exact prices, teacher names) that aren't verifiable.";
 
     const systemPrompt = `${PROMPTS.video_script}\n\n## Business knowledge base (ground all facts in this — never invent)\n${knowledgeContext}`;
-    const userPrompt = `Write a vertical video script.\nTopic: ${topic}\nLanguage: ${lang === "th" ? "Thai" : "English"}\n\nCall return_video_script with the complete result.`;
+    const langLabel = lang === "th" ? "Thai" : lang === "en" ? "English" : "Chinese (Mandarin)";
+    const userPrompt = `Write a vertical video script.\nTopic: ${topic}\nLanguage: ${langLabel}\n\nCall return_video_script with the complete result.`;
 
     const result = await generate(
       [

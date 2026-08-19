@@ -10,12 +10,28 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { describeFunctionError } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { Tables } from "@/types/database";
 
 interface VideoScriptManagerProps {
   scripts: Tables<"video_scripts">[];
   onChanged: () => void;
 }
+
+const TOPICS = [
+  { value: "เปียโนดนตรี", label: "เปียโนดนตรี", labelEn: "Piano Music", labelZh: "钢琴音乐" },
+  { value: "นวัตกรรมการเรียนเปียโน", label: "นวัตกรรมการเรียนเปียโน", labelEn: "Piano Learning Innovation", labelZh: "钢琴学习创新" },
+  { value: "การประยุกต์ใช้เทคโนโลยีกับดนตรีและเปียโน", label: "การประยุกต์ใช้เทคโนโลยีกับดนตรีและเปียโน", labelEn: "Technology in Music & Piano", labelZh: "科技与音乐钢琴" },
+  { value: "ดนตรีบำบัด", label: "ดนตรีบำบัด", labelEn: "Music Therapy", labelZh: "音乐治疗" },
+  { value: "เทคโนโลยีปัญญาประดิษฐ์และการเรียนเปียโน", label: "เทคโนโลยีปัญญาประดิษฐ์และการเรียนเปียโน", labelEn: "AI & Piano Learning", labelZh: "人工智能与钢琴学习" },
+  { value: "การตลาดสำหรับศิลปินสายดนตรี", label: "การตลาดสำหรับศิลปินสายดนตรี", labelEn: "Music Artist Marketing", labelZh: "音乐艺术家营销" },
+];
+
+const LANGUAGES = [
+  { value: "th" as const, label: "ไทย", flag: "🇹🇭" },
+  { value: "en" as const, label: "English", flag: "🇬🇧" },
+  { value: "zh" as const, label: "中文", flag: "🇨🇳" },
+];
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -34,14 +50,26 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
+function LanguageBadge({ lang }: { lang: string }) {
+  const found = LANGUAGES.find((l) => l.value === lang);
+  return (
+    <Badge variant="outline" className="text-[10px]">
+      {found?.flag} {found?.label ?? lang}
+    </Badge>
+  );
+}
+
 export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerProps) {
   const [topic, setTopic] = useState("");
-  const [language, setLanguage] = useState<"th" | "en">("th");
+  const [customTopic, setCustomTopic] = useState("");
+  const [language, setLanguage] = useState<"th" | "en" | "zh">("th");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const effectiveTopic = topic === "__custom__" ? customTopic : topic;
+
   async function handleGenerate() {
-    if (!topic.trim()) return;
+    if (!effectiveTopic.trim()) return;
     setGenerating(true);
     setError(null);
 
@@ -49,12 +77,13 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
       const supabase = createClient();
       const { data, error: fnError } = await supabase.functions.invoke<{ script: Tables<"video_scripts"> }>(
         "generate-video-script",
-        { body: { topic: topic.trim(), language } }
+        { body: { topic: effectiveTopic.trim(), language } }
       );
       if (fnError) throw fnError;
       if (!data) throw new Error("Empty response from generate-video-script");
 
       setTopic("");
+      setCustomTopic("");
       onChanged();
     } catch (err) {
       setError(await describeFunctionError(err));
@@ -75,22 +104,80 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary-accent" />
-            เขียนสคริปต์วิดีโอแนวตั้ง
+            เขียนสคริปต์ TikTok 25 บรรทัด
           </CardTitle>
-          <CardDescription>ใส่หัวข้อ ระบบจะเขียน Hook + สคริปต์แบ่งฉาก + แคปชั่น + แฮชแท็ก ให้อัตโนมัติ</CardDescription>
+          <CardDescription>
+            เลือกหัวข้อ + เลือกภาษา กดปุ่มเดียวได้สคริปต์เลย — เขียนตามสไตล์ Insider Strategy Authority
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <Input placeholder="หัวข้อวิดีโอ เช่น 3 เทคนิคฝึกเปียโนให้ลูกไม่เบื่อ" value={topic} onChange={(e) => setTopic(e.target.value)} />
-          <div className="flex gap-2">
-            {(["th", "en"] as const).map((lang) => (
-              <Button key={lang} variant={language === lang ? "primary" : "outline"} size="sm" onClick={() => setLanguage(lang)}>
-                {lang === "th" ? "ไทย" : "English"}
-              </Button>
-            ))}
+        <CardContent className="space-y-4">
+          {/* Topic selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-secondary/60">เลือกหัวข้อ</label>
+            <select
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              <option value="">— เลือกหัวข้อ —</option>
+              {TOPICS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+              <option value="__custom__">พิมพ์หัวข้อเอง…</option>
+            </select>
           </div>
+
+          {/* Custom topic input */}
+          {topic === "__custom__" && (
+            <Input
+              placeholder="พิมพ์หัวข้อที่ต้องการ"
+              value={customTopic}
+              onChange={(e) => setCustomTopic(e.target.value)}
+            />
+          )}
+
+          {/* Language selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-secondary/60">เลือกภาษา</label>
+            <div className="flex gap-2">
+              {LANGUAGES.map((lang) => (
+                <Button
+                  key={lang.value}
+                  variant={language === lang.value ? "primary" : "outline"}
+                  size="sm"
+                  onClick={() => setLanguage(lang.value)}
+                  className={cn(
+                    "gap-1.5",
+                    language === lang.value && "ring-2 ring-primary/40"
+                  )}
+                >
+                  <span>{lang.flag}</span>
+                  {lang.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           {error ? <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p> : null}
-          <Button onClick={() => void handleGenerate()} disabled={generating || !topic.trim()}>
-            {generating ? "กำลังเขียนสคริปต์…" : "สร้างสคริปต์"}
+
+          <Button
+            onClick={() => void handleGenerate()}
+            disabled={generating || !effectiveTopic.trim()}
+            className="w-full"
+          >
+            {generating ? (
+              <>
+                <Sparkles className="h-4 w-4 animate-pulse" />
+                กำลังเขียนสคริปต์…
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                สร้างสคริปต์
+              </>
+            )}
           </Button>
         </CardContent>
       </Card>
@@ -99,7 +186,7 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
         {scripts.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
-              <EmptyState icon={Captions} title="ยังไม่มีสคริปต์" description="สร้างสคริปต์แรกได้จากฟอร์มด้านบน" />
+              <EmptyState icon={Captions} title="ยังไม่มีสคริปต์" description="เลือกหัวข้อและภาษากดสร้างสคริปต์แรกได้เลย" />
             </CardContent>
           </Card>
         ) : (
@@ -107,8 +194,11 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
             <Card key={s.id}>
               <CardHeader>
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-base">{s.topic}</CardTitle>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-base">{s.topic}</CardTitle>
+                      <LanguageBadge lang={s.language} />
+                    </div>
                     <p className="mt-1 text-sm font-medium text-primary-accent">{s.hook}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
