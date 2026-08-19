@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { describeFunctionError } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { CHAT_MODELS } from "@/lib/chat-models";
 import type { Tables } from "@/types/database";
 
 interface VideoScriptManagerProps {
@@ -65,6 +66,7 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
   const [language, setLanguage] = useState<"th" | "en" | "zh">("th");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState("gemini");
 
   const effectiveTopic = topic === "__custom__" ? customTopic : topic;
 
@@ -78,7 +80,7 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
       const randomTopic = TOPICS[randomIdx]!.value;
       const { data, error: fnError } = await supabase.functions.invoke<{ scripts: Array<Record<string, unknown>>; count: number }>(
         "generate-video-script",
-        { body: { topic: randomTopic, language: "all" } }
+        { body: { topic: randomTopic, language: "all", model: selectedModel } }
       );
       if (fnError) throw fnError;
       if (!data || data.count === 0) throw new Error("AI ไม่สามารถสร้างสคริปต์ได้ กรุณาลองใหม่");
@@ -99,7 +101,7 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
       const supabase = createClient();
       const { data, error: fnError } = await supabase.functions.invoke<{ script: Tables<"video_scripts">; scripts: Array<Record<string, unknown>> }>(
         "generate-video-script",
-        { body: { topic: effectiveTopic.trim(), language } }
+        { body: { topic: effectiveTopic.trim(), language, model: selectedModel } }
       );
       if (fnError) throw fnError;
       if (!data) throw new Error("Empty response from generate-video-script");
@@ -205,6 +207,22 @@ export function VideoScriptManager({ scripts, onChanged }: VideoScriptManagerPro
                 </Button>
               ))}
             </div>
+          </div>
+
+          {/* Model selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-secondary/60">Model AI</label>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="h-10 w-full rounded-xl border border-line/10 bg-card px-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              {CHAT_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           {error ? <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p> : null}

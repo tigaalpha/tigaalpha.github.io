@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
-import { generate, embed } from "../_shared/ai-provider.ts";
+import { generate, generateWithModel, embed } from "../_shared/ai-provider.ts";
 import { PROMPTS } from "../_shared/prompts.ts";
 import type { ToolDefinition } from "../_shared/ai-types.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
     const userId = await requireStaff(admin, req);
     await enforceRateLimit(admin, userId, "generate-video-script", { windowMinutes: 60, maxRequests: 10 });
 
-    const { topic, language } = await req.json();
+    const { topic, language, model } = await req.json();
     if (!topic) return jsonResponse({ error: "topic is required" }, 400);
 
     // "all" = generate in all 3 languages at once
@@ -70,16 +70,13 @@ Deno.serve(async (req: Request) => {
       const langLabel = lang === "th" ? "Thai" : lang === "en" ? "English" : "Chinese (Mandarin)";
       const userPrompt = `Write a vertical video script.\nTopic: ${topic}\nLanguage: ${langLabel}\n\nCall return_video_script with the complete result.`;
 
-      const result = await generate(
-        [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        [RETURN_SCRIPT_TOOL],
-        0.8,
-        2048,
-        "content"
-      );
+      const messages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userPrompt },
+      ];
+      const result = model
+        ? await generateWithModel(model, messages, [RETURN_SCRIPT_TOOL], 0.8, 2048)
+        : await generate(messages, [RETURN_SCRIPT_TOOL], 0.8, 2048, "content");
       await logAiUsage(admin, result.usage, "generate-video-script");
 
       const call = result.message.toolCalls?.find((c) => c.name === "return_video_script");

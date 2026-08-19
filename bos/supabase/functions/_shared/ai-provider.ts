@@ -110,7 +110,7 @@ export function modelLabel(modelId: ChatModelId): string {
   return OPENROUTER_MODEL_SLUGS[modelId].slug;
 }
 
-async function generateWithModel(
+export async function generateWithModel(
   modelId: ChatModelId,
   messages: ChatMessage[],
   tools?: ToolDefinition[],
