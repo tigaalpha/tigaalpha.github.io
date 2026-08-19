@@ -22,6 +22,12 @@ export default function StudentsPage() {
     reload();
   }, []);
 
+  async function handleDelete(id: string) {
+    const repos = createRepositories(createClient());
+    await repos.customers.delete(id);
+    reload();
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -44,7 +50,11 @@ export default function StudentsPage() {
           }}
         />
       ) : null}
-      {students ? <StudentsTable students={students} /> : <Skeleton className="h-64" />}
+      {students ? (
+        <StudentsTable students={students} onDelete={handleDelete} />
+      ) : (
+        <Skeleton className="h-64" />
+      )}
     </div>
   );
 }

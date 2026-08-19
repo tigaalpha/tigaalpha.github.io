@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Users } from "lucide-react";
+import { Trash2, Users } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { SalesStatus, Tables } from "@/types/database";
 
 const STATUS_TONE: Record<SalesStatus, "default" | "success" | "warning" | "danger"> = {
@@ -25,7 +27,13 @@ export interface StudentRow extends Tables<"customers"> {
   courseSummary?: string;
 }
 
-export function StudentsTable({ students }: { students: StudentRow[] }) {
+export function StudentsTable({
+  students,
+  onDelete,
+}: {
+  students: StudentRow[];
+  onDelete?: (id: string) => void;
+}) {
   if (students.length === 0) {
     return <EmptyState icon={Users} title="No students yet" description="New leads will appear here automatically." />;
   }
@@ -40,6 +48,7 @@ export function StudentsTable({ students }: { students: StudentRow[] }) {
             <th className="px-4 py-3 font-medium">Course</th>
             <th className="px-4 py-3 font-medium">Status</th>
             <th className="px-4 py-3 font-medium">Last Contact</th>
+            {onDelete ? <th className="px-4 py-3 font-medium"></th> : null}
           </tr>
         </thead>
         <tbody className="divide-y divide-black/5">
@@ -58,6 +67,26 @@ export function StudentsTable({ students }: { students: StudentRow[] }) {
               <td className="px-4 py-3 text-secondary/50">
                 {student.last_contact_at ? new Date(student.last_contact_at).toLocaleDateString() : "—"}
               </td>
+              {onDelete ? (
+                <td className="px-4 py-3 text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `ลบ "${student.name}" ออกจากระบบ?\n\nการกระทำนี้ไม่สามารถย้อนกลับได้`
+                        )
+                      ) {
+                        onDelete(student.id);
+                      }
+                    }}
+                    className="text-secondary/40 hover:text-danger"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
