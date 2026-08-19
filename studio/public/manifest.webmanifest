@@ -1,0 +1,14 @@
+{
+  "name": "Tiga Automation",
+  "short_name": "Tiga Automation",
+  "description": "Tiga Automation — AI-first admin, booking, CRM, and sales platform for Tiga Studio",
+  "start_url": "/studio/dashboard/",
+  "scope": "/studio/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FF5FA2",
+  "icons": [
+    { "src": "/studio/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/studio/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,109 @@
+# Supabase project config for Tiga AI BOS — used by the Supabase CLI to
+# deploy edge functions. Created for cloud deploys; verify_jwt values are
+# synced to the live project's settings (see management API before deploy).
+project_id = "tiga-ai-bos"
+
+[functions.ai-chat]
+verify_jwt = true
+
+[functions.line-webhook]
+verify_jwt = false
+
+[functions.attendance-reminder]
+verify_jwt = false
+
+[functions.create-payment]
+verify_jwt = true
+
+[functions.verify-payment]
+verify_jwt = true
+
+[functions.send-staff-reply]
+verify_jwt = true
+
+[functions.agent-orchestrator]
+verify_jwt = true
+
+[functions.follow-up-conversations]
+verify_jwt = false
+
+[functions.trial-offer-nudge]
+verify_jwt = false
+
+[functions.trial-followup]
+verify_jwt = false
+
+[functions.automation-nudges]
+verify_jwt = false
+
+[functions.drip-runner]
+verify_jwt = false
+
+[functions.monthly-report]
+verify_jwt = false
+
+[functions.payroll-report]
+verify_jwt = false
+
+[functions.lesson-summary]
+verify_jwt = true
+
+[functions.messenger-webhook]
+verify_jwt = false
+
+[functions.web-chat]
+verify_jwt = false
+
+[functions.agent-action-execute]
+verify_jwt = true
+
+[functions.agent-event-triggers]
+verify_jwt = false
+
+[functions.tiktok-oauth-start]
+verify_jwt = true
+
+[functions.tiktok-oauth-callback]
+verify_jwt = false
+
+[functions.x-oauth-start]
+verify_jwt = true
+
+[functions.x-oauth-callback]
+verify_jwt = false
+
+[functions.email-send]
+verify_jwt = true
+
+[functions.email-campaign]
+verify_jwt = true
+
+[functions.agent-action-digest]
+verify_jwt = false
+
+[functions.bootstrap-profile]
+verify_jwt = true
+
+[functions.month-close]
+verify_jwt = false
+
+[functions.chat-outbound-nurture]
+verify_jwt = false
+
+[functions.chat-lesson-reminder]
+verify_jwt = false
+
+[functions.chat-broadcast]
+verify_jwt = true
+
+[functions.chat-review]
+verify_jwt = true
+
+[functions.chat-suggest-replies]
+verify_jwt = true
+
+[functions.chat-memory-sync]
+verify_jwt = false
+
+[functions.chat-line-setup]
+verify_jwt = false

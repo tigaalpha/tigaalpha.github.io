@@ -1,0 +1,134 @@
+import { computeLineSignature, constantTimeEqual } from "./line-signature.ts";
+
+const LINE_API_BASE = "https://api.line.me/v2/bot";
+
+export async function verifySignature(rawBody: string, signature: string | null): Promise<boolean> {
+  if (!signature) return false;
+  const secret = Deno.env.get("LINE_CHANNEL_SECRET");
+  if (!secret) return false;
+
+  const expected = await computeLineSignature(rawBody, secret);
+  return constantTimeEqual(expected, signature);
+}
+
+async function call(path: string, body: unknown): Promise<void> {
+  const response = await fetch(`${LINE_API_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN")}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`LINE API ${path} failed (${response.status}): ${await response.text()}`);
+  }
+}
+
+// LINE quick replies: up to 13 tappable buttons attached to a text message,
+// each label capped at 20 characters by LINE's own API. Tapping one sends
+// its text back as an ordinary customer message -- no new message type or
+// webhook handling needed on our side.
+function buildQuickReply(labels?: string[]): { items: { type: "action"; action: { type: "message"; label: string; text: string } }[] } | undefined {
+  if (!labels || labels.length === 0) return undefined;
+  return {
+    items: labels.slice(0, 13).map((label) => ({
+      type: "action",
+      action: { type: "message", label: label.slice(0, 20), text: label },
+    })),
+  };
+}
+
+export function reply(replyToken: string, text: string, quickReplies?: string[]): Promise<void> {
+  const quickReply = buildQuickReply(quickReplies);
+  return call("/message/reply", { replyToken, messages: [{ type: "text", text, ...(quickReply ? { quickReply } : {}) }] });
+}
+
+export function push(userId: string, text: string, quickReplies?: string[]): Promise<void> {
+  const quickReply = buildQuickReply(quickReplies);
+  return call("/message/push", { to: userId, messages: [{ type: "text", text, ...(quickReply ? { quickReply } : {}) }] });
+}
+
+/**
+ * Pushes a Flex Message (bubble/container payload) — used by lesson
+ * reminders and other rich cards. The payload is built by the pure
+ * builders in chat-features.ts.
+ */
+export function pushFlex(userId: string, flexPayload: unknown, altText = "แจ้งเตือนจาก Tiga Studio"): Promise<void> {
+  return call("/message/push", { to: userId, messages: [{ type: "flex", altText, contents: flexPayload }] });
+}
+
+/**
+ * Pushes an image message (e.g. the PromptPay QR) plus an optional caption.
+ * LINE requires a publicly fetchable https URL — pass the Supabase Storage
+ * public URL from payments.qr_url; when no URL is available, fall back to a
+ * text-only push instead of failing.
+ */
+export function pushImage(userId: string, imageUrl: string, caption?: string): Promise<void> {
+  const messages: unknown[] = [{ type: "image", originalContentUrl: imageUrl, previewImageUrl: imageUrl }];
+  if (caption) messages.push({ type: "text", text: caption });
+  return call("/message/push", { to: userId, messages });
+}
+
+/**
+ * Downloads a LINE message's binary content (image/audio/video) by message
+ * id — used by line-webhook for transfer slips (#1) and voice notes (#14).
+ * Returns base64 + mimeType, or null when the download fails (e.g. content
+ * expired — LINE only keeps it for a limited time after send).
+ */
+export async function fetchContent(messageId: string): Promise<{ mimeType: string; base64: string } | null> {
+  try {
+    const response = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+      headers: { Authorization: `Bearer ${Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN")}` },
+    });
+    if (!response.ok) return null;
+    const buf = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < buf.length; i += CHUNK) {
+      binary += String.fromCharCode(...buf.subarray(i, i + CHUNK));
+    }
+    return { mimeType: response.headers.get("content-type") ?? "application/octet-stream", base64: btoa(binary) };
+  } catch {
+    return null;
+  }
+}
+
+/** Sends a message to every follower of the LINE Official Account — the "post" for LINE in social-publish. */
+export function broadcast(text: string): Promise<void> {
+  return call("/message/broadcast", { messages: [{ type: "text", text }] });
+}
+
+/** Real connectivity check (used by system-health-check) -- true only on a 2xx from LINE's own bot-info endpoint, using the same token push/reply already rely on. Never throws. */
+/**
+ * Fetch a LINE user's display name (used to auto-create a customer record
+ * the first time a new person messages the OA — without this, brand-new
+ * buyers stay unbound and every money/booking tool fails for them).
+ * Returns null when the token is missing or the profile can't be fetched.
+ */
+export async function fetchProfile(userId: string): Promise<{ displayName: string } | null> {
+  const token = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
+  if (!token) return null;
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { displayName?: string };
+    return { displayName: data.displayName ?? "" };
+  } catch {
+    return null;
+  }
+}
+
+export async function checkConnection(): Promise<boolean> {
+  try {
+    const response = await fetch(`${LINE_API_BASE}/info`, {
+      headers: { Authorization: `Bearer ${Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN")}` },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}

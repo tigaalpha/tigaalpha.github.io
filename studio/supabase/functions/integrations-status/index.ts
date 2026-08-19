@@ -1,0 +1,160 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createAdminClient } from "../_shared/supabase-admin.ts";
+import { requireStaff } from "../_shared/auth.ts";
+import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleUnexpectedError } from "../_shared/monitor.ts";
+import { listEventsBetween } from "../_shared/calendar.ts";
+import { OPENROUTER_BASE_URL } from "../_shared/openrouter.ts";
+
+interface CheckResult {
+  connected: boolean;
+  detail: string;
+}
+
+async function checkLine(): Promise<CheckResult> {
+  const token = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
+  if (!token) return { connected: false, detail: "LINE_CHANNEL_ACCESS_TOKEN is not set." };
+
+  try {
+    const response = await fetch("https://api.line.me/v2/bot/info", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return { connected: false, detail: `LINE rejected the access token (${response.status}).` };
+    const data = (await response.json()) as { displayName?: string };
+    return { connected: true, detail: data.displayName ? `Connected as "${data.displayName}"` : "Connected" };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : "Request to LINE failed." };
+  }
+}
+
+async function checkGoogleCalendar(): Promise<CheckResult> {
+  try {
+    const now = new Date();
+    const soon = new Date(now.getTime() + 60_000);
+    await listEventsBetween(now.toISOString(), soon.toISOString());
+    return { connected: true, detail: "Connected" };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : "Google Calendar check failed." };
+  }
+}
+
+// Actually calls Gemini (a real key-presence check would falsely report
+// "connected" for an expired/typo'd/wrong-project key — the exact failure
+// mode that made ai-chat/generate-article/knowledge-upload fail silently).
+async function checkGemini(): Promise<CheckResult> {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) return { connected: false, detail: "GEMINI_API_KEY is not set." };
+
+  const model = Deno.env.get("AI_EMBEDDING_MODEL") ?? "gemini-embedding-001";
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: `models/${model}`,
+          content: { parts: [{ text: "ping" }] },
+          outputDimensionality: 768,
+        }),
+      }
+    );
+    if (!response.ok) {
+      const body = await response.text();
+      return { connected: false, detail: `Gemini rejected the API key (${response.status}): ${body.slice(0, 200)}` };
+    }
+    return { connected: true, detail: "Gemini API key is valid" };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : "Request to Gemini failed." };
+  }
+}
+
+// Every non-Gemini chat model (TIGA AI AGENT + Strategy Room) shares one
+// OpenRouter connection, so one GET /models check (validates the key
+// without spending tokens) covers all of them -- no need to ping seven
+// separate vendor APIs.
+async function checkOpenAICompatibleModels(envKey: string, baseUrl: string): Promise<CheckResult> {
+  const key = Deno.env.get(envKey);
+  if (!key) return { connected: false, detail: `${envKey} is not set.` };
+
+  try {
+    const response = await fetch(`${baseUrl}/models`, { headers: { Authorization: `Bearer ${key}` } });
+    if (!response.ok) {
+      const body = await response.text();
+      return { connected: false, detail: `Rejected the API key (${response.status}): ${body.slice(0, 200)}` };
+    }
+    return { connected: true, detail: "API key is valid" };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : "Request failed." };
+  }
+}
+
+// Marketing Channels page needs a real channel to check; this Settings
+// badge just needs to know the key itself works, so it hits the cheapest
+// endpoint that doesn't depend on any channel/handle being configured yet.
+async function checkYouTube(): Promise<CheckResult> {
+  const key = Deno.env.get("YOUTUBE_API_KEY");
+  if (!key) return { connected: false, detail: "YOUTUBE_API_KEY is not set." };
+
+  try {
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/i18nRegions?part=snippet&key=${key}`);
+    if (!response.ok) {
+      const body = await response.text();
+      return { connected: false, detail: `YouTube rejected the API key (${response.status}): ${body.slice(0, 200)}` };
+    }
+    return { connected: true, detail: "YouTube API key is valid" };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : "Request to YouTube failed." };
+  }
+}
+
+// TikTok / X are read from social_accounts rows (set by the OAuth flows) —
+// no live API ping here: their publish endpoints cost quota and the row
+// presence is the signal the Settings badge needs.
+async function checkSocialAccount(admin: ReturnType<typeof createAdminClient>, platform: "tiktok" | "x"): Promise<CheckResult> {
+  const label = platform === "tiktok" ? "TikTok" : "X (Twitter)";
+  try {
+    const { data } = await admin.from("social_accounts").select("account_name").eq("platform", platform).limit(1).maybeSingle();
+    if (data?.account_name) return { connected: true, detail: `เชื่อมต่อ: ${data.account_name}` };
+    return { connected: false, detail: `ยังไม่ได้เชื่อมต่อ ${label} — ไปที่ Settings > Integrations` };
+  } catch (error) {
+    return { connected: false, detail: error instanceof Error ? error.message : `Failed to read ${label} connection.` };
+  }
+}
+
+async function checkEmail(admin: ReturnType<typeof createAdminClient>): Promise<CheckResult> {
+  const key = Deno.env.get("RESEND_API_KEY");
+  if (!key) return { connected: false, detail: "RESEND_API_KEY is not set." };
+  const { data } = await admin.from("integration_settings").select("value").eq("key", "email_from_address").maybeSingle();
+  const from = data?.value as string | undefined;
+  return {
+    connected: true,
+    detail: from?.trim() ? `พร้อมส่งจาก ${from.trim()}` : "พร้อมส่ง (ยังใช้ onboarding@resend.dev — ตั้ง email_from_address เพื่อใช้โดเมนจริง)",
+  };
+}
+
+Deno.serve(async (req: Request) => {
+  const preflight = handleOptions(req);
+  if (preflight) return preflight;
+
+  const admin = createAdminClient();
+
+  try {
+    await requireStaff(admin, req);
+
+    const [line, googleCalendar, gemini, youtube, openrouter, tiktok, x, email] = await Promise.all([
+      checkLine(),
+      checkGoogleCalendar(),
+      checkGemini(),
+      checkYouTube(),
+      checkOpenAICompatibleModels("OPENROUTER_API_KEY", OPENROUTER_BASE_URL),
+      checkSocialAccount(admin, "tiktok"),
+      checkSocialAccount(admin, "x"),
+      checkEmail(admin),
+    ]);
+
+    return jsonResponse({ line, googleCalendar, gemini, youtube, openrouter, tiktok, x, email });
+  } catch (error) {
+    return await handleUnexpectedError(admin, "integrations-status", error);
+  }
+});
