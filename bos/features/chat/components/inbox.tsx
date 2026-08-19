@@ -101,8 +101,8 @@ export function Inbox({ conversations }: { conversations: ConversationWithCustom
   }
 
   return (
-    <div className="grid h-[calc(100vh-8rem)] grid-cols-1 overflow-hidden rounded-2xl border border-line/5 bg-card shadow-soft md:grid-cols-[300px_1fr]">
-      <div className={cn("flex flex-col border-r border-line/5", mobileShowThread ? "hidden md:flex" : "flex")}>
+    <div className="flex h-[calc(100vh-8rem)] overflow-hidden rounded-2xl border border-line/5 bg-card shadow-soft">
+      <div className={cn("flex w-full flex-col border-r border-line/5 lg:w-[340px] shrink-0", mobileShowThread ? "hidden lg:flex" : "flex")}>
         <div className="space-y-2 border-b border-line/5 p-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary/40" />
@@ -197,7 +197,7 @@ export function Inbox({ conversations }: { conversations: ConversationWithCustom
           <ConversationList sections={sections} selectedId={selectedId} onSelect={handleSelect} />
         </div>
       </div>
-      <div className={cn(!mobileShowThread ? "hidden md:flex" : "flex", "flex-1 flex-col overflow-hidden")}>
+      <div className={cn("flex flex-1 flex-col overflow-hidden", !mobileShowThread ? "hidden lg:flex" : "flex")}>
         <MessageThread
           conversationId={selectedId}
           conversationName={selectedConversation?.customerName}

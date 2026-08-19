@@ -139,7 +139,7 @@ export function MessageThread({ conversationId, conversationName, conversationCh
       {/* Conversation header */}
       <div className="flex items-center gap-3 border-b border-line/5 px-4 py-3">
         {onBack ? (
-          <button onClick={onBack} className="rounded-lg p-1.5 text-secondary/60 hover:bg-line/10 hover:text-secondary md:hidden">
+          <button onClick={onBack} className="rounded-lg p-1.5 text-secondary/60 hover:bg-line/10 hover:text-secondary lg:hidden">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
           </button>
         ) : null}
