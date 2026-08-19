@@ -431,19 +431,22 @@ function SocialBladeSection() {
     setScrapeResult(null);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.functions.invoke("social-blade-scraper", { body: {} });
+      const { data, error } = await supabase.functions.invoke("marketing-metrics-snapshot", { body: {} });
       if (error) throw error;
-      const parts: string[] = [];
-      for (const [ch, res] of Object.entries(data as Record<string, { ok: boolean; detail: string }>)) {
-        parts.push(`${ch}: ${res.ok ? "✅ " + res.detail : "❌ " + res.detail}`);
+      // Show Social Blade results if present
+      const sb = (data as Record<string, unknown>).socialBlade as Record<string, { ok: boolean; detail: string }> | undefined;
+      if (sb) {
+        const parts: string[] = [];
+        for (const [ch, res] of Object.entries(sb)) {
+          parts.push(`${ch}: ${res.ok ? "✅ " + res.detail : "❌ " + res.detail}`);
+        }
+        setScrapeResult(parts.join("\n"));
+      } else {
+        setScrapeResult("✅ ซิงค์สำเร็จ (Social Blade results not in response)");
       }
-      setScrapeResult(parts.join("\n"));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "ซิงค์ไม่สำเร็จ";
-      const hint = msg.includes("non-2xx") || msg.includes("Failed to fetch")
-        ? "\n\n💡 Edge Function ยังไม่ได้ deploy — ต้อง deploy social-blade-scraper ลง Supabase ก่อน"
-        : "";
-      setScrapeResult(`❌ ${msg}${hint}`);
+      setScrapeResult(`❌ ${msg}`);
     } finally {
       setScraping(false);
     }

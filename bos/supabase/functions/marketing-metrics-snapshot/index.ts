@@ -15,6 +15,9 @@ import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 // threading a mode flag through the existing function for little benefit.
 // Runs hourly via cron (see migration 0062) and on-demand from the
 // dashboard's "sync now" button (staff, rate-limited).
+//
+// Also includes Social Blade scraping (no API key needed) as an additional
+// data source for follower counts from YouTube, TikTok, Instagram, Facebook.
 
 const GRAPH_VERSION = "v19.0";
 const FETCH_TIMEOUT_MS = 8000;
@@ -180,6 +183,119 @@ function isoDateDaysAgo(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const SB_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+const SB_TIMEOUT_MS = 12_000;
+
+async function fetchWithTimeoutLong(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SB_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function extractNumber(html: string, patterns: RegExp[]): number | null {
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) {
+      const cleaned = match[1].replace(/[,.\s]/g, "");
+      const num = Number(cleaned);
+      if (Number.isFinite(num) && num >= 0) return num;
+    }
+  }
+  return null;
+}
+
+// YouTube Social Blade patterns
+const YT_SUBSCRIBER_PATTERNS = [
+  /Subscribers\s*<\/span>\s*<span[^>]*>([0-9,.]+)/i,
+  /subscriber[s]?\s*<\/(?:div|span|h\d)>\s*<(?:div|span)[^>]*>\s*([0-9,.]+)/i,
+  /youtube-stats.*?subscribers?.*?>([0-9,.]+)/is,
+  />([0-9,.]+)\s*<\/(?:span|div)>\s*<.*?(?:sub|follow)/is,
+];
+
+// TikTok Social Blade patterns
+const TT_FOLLOWER_PATTERNS = [
+  /Followers?\s*<\/span>\s*<span[^>]*>([0-9,.]+)/i,
+  /followers?\s*<\/(?:div|span|h\d)>\s*<(?:div|span)[^>]*>\s*([0-9,.]+)/i,
+  /tiktok-stats.*?followers?.*?>([0-9,.]+)/is,
+  />([0-9,.]+)\s*<\/(?:span|div)>\s*<.*?(?:follow)/is,
+];
+
+// Instagram Social Blade patterns
+const IG_FOLLOWER_PATTERNS = [
+  /Followers?\s*<\/span>\s*<span[^>]*>([0-9,.]+)/i,
+  /followers?\s*<\/(?:div|span|h\d)>\s*<(?:div|span)[^>]*>\s*([0-9,.]+)/i,
+  /instagram-stats.*?followers?.*?>([0-9,.]+)/is,
+  />([0-9,.]+)\s*<\/(?:span|div)>\s*<.*?(?:follow)/is,
+];
+
+// Facebook Social Blade patterns
+const FB_LIKES_PATTERNS = [
+  /Likes?\s*<\/span>\s*<span[^>]*>([0-9,.]+)/i,
+  /likes?\s*<\/(?:div|span|h\d)>\s*<(?:div|span)[^>]*>\s*([0-9,.]+)/i,
+  /facebook-stats.*?likes?.*?>([0-9,.]+)/is,
+  />([0-9,.]+)\s*<\/(?:span|div)>\s*<.*?(?:like|follow)/is,
+  /"fan_count"\s*:\s*(\d+)/i,
+  /"like_count"\s*:\s*(\d+)/i,
+];
+
+async function scrapeSocialBlade(
+  admin: SupabaseAdmin,
+  channel: string,
+  profileUrl: string,
+  patterns: RegExp[],
+  metric: string,
+): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const response = await fetchWithTimeoutLong(profileUrl, {
+      headers: { "User-Agent": SB_USER_AGENT },
+    });
+    if (!response.ok) return { ok: false, detail: `HTTP ${response.status}` };
+    const html = await response.text();
+    const value = extractNumber(html, patterns);
+    if (value != null) {
+      await insertSnapshot(admin, channel, metric, value, "auto");
+      return { ok: true, detail: `${metric}=${value.toLocaleString()}` };
+    }
+    return { ok: false, detail: "Could not extract stats from page" };
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : "fetch failed" };
+  }
+}
+
+async function syncSocialBlade(admin: SupabaseAdmin): Promise<Record<string, { ok: boolean; detail: string; url?: string }>> {
+  const [ytUrl, ttUrl, igUrl, fbUrl] = await Promise.all([
+    admin.from("integration_settings").select("value").eq("key", "social_blade_youtube").maybeSingle(),
+    admin.from("integration_settings").select("value").eq("key", "social_blade_tiktok").maybeSingle(),
+    admin.from("integration_settings").select("value").eq("key", "social_blade_instagram").maybeSingle(),
+    admin.from("integration_settings").select("value").eq("key", "social_blade_facebook").maybeSingle(),
+  ]);
+
+  const results: Record<string, { ok: boolean; detail: string; url?: string }> = {};
+
+  const jobs: Array<{ channel: string; url: string | null; key: string; patterns: RegExp[]; metric: string }> = [
+    { channel: "youtube", url: ytUrl.data?.value?.trim() || null, key: "social_blade_youtube", patterns: YT_SUBSCRIBER_PATTERNS, metric: "followers" },
+    { channel: "tiktok", url: ttUrl.data?.value?.trim() || null, key: "social_blade_tiktok", patterns: TT_FOLLOWER_PATTERNS, metric: "followers" },
+    { channel: "instagram", url: igUrl.data?.value?.trim() || null, key: "social_blade_instagram", patterns: IG_FOLLOWER_PATTERNS, metric: "followers" },
+    { channel: "facebook", url: fbUrl.data?.value?.trim() || null, key: "social_blade_facebook", patterns: FB_LIKES_PATTERNS, metric: "followers" },
+  ];
+
+  for (const job of jobs) {
+    if (job.url) {
+      results[job.channel] = await scrapeSocialBlade(admin, job.channel, job.url, job.patterns, job.metric);
+      results[job.channel].url = job.url;
+    } else {
+      results[job.channel] = { ok: false, detail: `Not configured (set ${job.key} in integration_settings)` };
+    }
+  }
+
+  return results;
+}
+
 function normalizeSearchConsoleSiteUrl(raw: string): string {
   try {
     const url = new URL(raw);
@@ -230,7 +346,10 @@ Deno.serve(async (req: Request) => {
     const results = await Promise.allSettled([syncYouTube(admin), syncFacebook(admin), syncSearchConsole(admin), syncInstagram(admin)]);
     const [youtube, facebook, searchConsole, instagram] = results.map((r) => (r.status === "fulfilled" ? r.value : { ok: false, detail: r.status === "rejected" ? String(r.reason) : "unknown error" }));
 
-    return jsonResponse({ youtube, facebook, searchConsole, instagram });
+    // Social Blade scraping (no API key needed) — runs alongside API-based syncs
+    const socialBlade = await syncSocialBlade(admin);
+
+    return jsonResponse({ youtube, facebook, searchConsole, instagram, socialBlade });
   } catch (error) {
     if (error instanceof RateLimitError) return jsonResponse({ error: error.message }, 429);
     return await handleUnexpectedError(admin, "marketing-metrics-snapshot", error);
