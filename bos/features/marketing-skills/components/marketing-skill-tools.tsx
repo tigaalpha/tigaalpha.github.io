@@ -56,33 +56,64 @@ interface SkillResult {
 
 type TierId = "tier1" | "tier2" | "tier3" | "tier4" | "tier5";
 
-/* ── LocalStorage helpers ── */
+/* ── Supabase persistence helpers ── */
 
-const STORAGE_KEY = "tiga_marketing_content_v1";
-
-function loadSavedContent(): SkillResult[] {
+async function loadSavedContentFromDB(): Promise<SkillResult[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as SkillResult[];
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from("marketing_content" as any)
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error || !data) return [];
+    return (data as any[]).map((row: any) => ({
+      toolType: row.tool_type,
+      topic: row.topic,
+      language: row.language,
+      title: row.title,
+      content: row.content,
+      summary: row.summary,
+      tags: row.tags ?? [],
+      model: row.model,
+      createdAt: row.created_at,
+    }));
   } catch {
     return [];
   }
 }
 
-function saveContentToStorage(item: SkillResult): void {
+async function saveContentToDB(item: SkillResult): Promise<void> {
   try {
-    const existing = loadSavedContent();
-    const updated = [item, ...existing].slice(0, 200); // keep 200 items max
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch { /* ignore quota errors */ }
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await (supabase.from("marketing_content" as any) as any).insert({
+      user_id: user.id,
+      tool_type: item.toolType,
+      topic: item.topic,
+      language: item.language,
+      model: item.model,
+      title: item.title,
+      content: item.content,
+      summary: item.summary,
+      tags: item.tags,
+    });
+  } catch { /* ignore */ }
 }
 
-function removeContentFromStorage(createdAt: string): void {
+async function removeContentFromDB(createdAt: string): Promise<void> {
   try {
-    const existing = loadSavedContent();
-    const updated = existing.filter((c) => c.createdAt !== createdAt);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await (supabase.from("marketing_content" as any) as any)
+      .delete()
+      .eq("user_id", user.id)
+      .eq("created_at", createdAt);
   } catch { /* ignore */ }
 }
 
@@ -271,22 +302,24 @@ export function MarketingSkillTools() {
   const [savedContent, setSavedContent] = useState<SkillResult[]>([]);
   const [showSaved, setShowSaved] = useState(false);
 
-  // Load saved content on mount
+  // Load saved content from Supabase on mount
   useEffect(() => {
-    setSavedContent(loadSavedContent());
+    loadSavedContentFromDB().then(setSavedContent);
   }, []);
 
   const currentTier = TIERS.find((t) => t.id === activeTier)!;
   const currentTool = currentTier.tools.find((t) => t.id === activeTool);
 
-  const saveAndTrack = useCallback((item: SkillResult) => {
-    saveContentToStorage(item);
-    setSavedContent(loadSavedContent());
+  const saveAndTrack = useCallback(async (item: SkillResult) => {
+    await saveContentToDB(item);
+    const updated = await loadSavedContentFromDB();
+    setSavedContent(updated);
   }, []);
 
-  const deleteContent = useCallback((createdAt: string) => {
-    removeContentFromStorage(createdAt);
-    setSavedContent(loadSavedContent());
+  const deleteContent = useCallback(async (createdAt: string) => {
+    await removeContentFromDB(createdAt);
+    const updated = await loadSavedContentFromDB();
+    setSavedContent(updated);
   }, []);
 
   const generateContent = useCallback(async (toolType: string, topicText: string, lang: string, modelId: string) => {
@@ -487,7 +520,7 @@ export function MarketingSkillTools() {
                       {new Date(item.createdAt).toLocaleString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 shrink-0">
                     <CopyButton value={item.content} />
                     <Button
                       variant="ghost"
