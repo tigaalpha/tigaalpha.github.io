@@ -433,16 +433,16 @@ function SocialBladeSection() {
       const supabase = createClient();
       const { data, error } = await supabase.functions.invoke("marketing-metrics-snapshot", { body: {} });
       if (error) throw error;
-      // Show Social Blade results if present
-      const sb = (data as Record<string, unknown>).socialBlade as Record<string, { ok: boolean; detail: string }> | undefined;
-      if (sb) {
+      // Show platform URL scraping results
+      const pu = (data as Record<string, unknown>).platformUrls as Record<string, { ok: boolean; detail: string }> | undefined;
+      if (pu) {
         const parts: string[] = [];
-        for (const [ch, res] of Object.entries(sb)) {
+        for (const [ch, res] of Object.entries(pu)) {
           parts.push(`${ch}: ${res.ok ? "✅ " + res.detail : "❌ " + res.detail}`);
         }
         setScrapeResult(parts.join("\n"));
       } else {
-        setScrapeResult("✅ ซิงค์สำเร็จ (Social Blade results not in response)");
+        setScrapeResult("✅ ซิงค์สำเร็จ");
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "ซิงค์ไม่สำเร็จ";
@@ -453,18 +453,18 @@ function SocialBladeSection() {
   }
 
   const profiles = [
-    { key: "social_blade_youtube", label: "YouTube", icon: Youtube, value: ytUrl, set: setYtUrl, placeholder: "socialblade.com/youtube/user/USERNAME" },
-    { key: "social_blade_tiktok", label: "TikTok", icon: Music2, value: ttUrl, set: setTtUrl, placeholder: "socialblade.com/tiktok/user/USERNAME" },
-    { key: "social_blade_instagram", label: "Instagram", icon: Instagram, value: igUrl, set: setIgUrl, placeholder: "socialblade.com/instagram/user/USERNAME" },
-    { key: "social_blade_facebook", label: "Facebook", icon: Facebook, value: fbUrl, set: setFbUrl, placeholder: "socialblade.com/facebook/page/USERNAME" },
+    { key: "social_blade_youtube", label: "YouTube", icon: Youtube, value: ytUrl, set: setYtUrl, placeholder: "youtube.com/@username" },
+    { key: "social_blade_tiktok", label: "TikTok", icon: Music2, value: ttUrl, set: setTtUrl, placeholder: "tiktok.com/@username" },
+    { key: "social_blade_instagram", label: "Instagram", icon: Instagram, value: igUrl, set: setIgUrl, placeholder: "instagram.com/username" },
+    { key: "social_blade_facebook", label: "Facebook", icon: Facebook, value: fbUrl, set: setFbUrl, placeholder: "facebook.com/pagename" },
   ];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Social Blade (ดึงอัตโนมัติ ไม่ต้อง API key)</CardTitle>
+        <CardTitle className="text-sm">Social Media Profile URLs (ดึงอัตโนมัติ)</CardTitle>
         <CardDescription>
-          วาง URL หน้า Social Blade ของแต่ละช่องทาง ระบบจะดึง follower count ให้อัตโนมัติทุก 6 ชั่วโมง
+          วาง URL หน้าโปรไฟล์ของแต่ละช่องทาง ระบบจะดึง follower/like count ให้อัตโนมัติ
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

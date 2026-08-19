@@ -183,13 +183,12 @@ function isoDateDaysAgo(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-const SB_USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
-const SB_TIMEOUT_MS = 12_000;
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+const SB_FETCH_TIMEOUT_MS = 15_000;
 
 async function fetchWithTimeoutLong(url: string, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), SB_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), SB_FETCH_TIMEOUT_MS);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
@@ -209,65 +208,154 @@ function extractNumber(html: string, patterns: RegExp[]): number | null {
   return null;
 }
 
-// YouTube Social Blade patterns
-const YT_SUBSCRIBER_PATTERNS = [
-  /Subscribers\s*<\/span>\s*<span[^>]*>([0-9,.]+)/i,
-  /subscriber[s]?\s*<\/(?:div|span|h\d)>\s*<(?:div|span)[^>]*>\s*([0-9,.]+)/i,
-  /youtube-stats.*?subscribers?.*?>([0-9,.]+)/is,
-  />([0-9,.]+)\s*<\/(?:span|div)>\s*<.*?(?:sub|follow)/is,
-];
-
-// TikTok Social Blade patterns
-const TT_FOLLOWER_PATTERNS = [
-  /Followers?\s*<\/span>\s*<span[^>]*>([0-9,.]+)/i,
-  /followers?\s*<\/(?:div|span|h\d)>\s*<(?:div|span)[^>]*>\s*([0-9,.]+)/i,
-  /tiktok-stats.*?followers?.*?>([0-9,.]+)/is,
-  />([0-9,.]+)\s*<\/(?:span|div)>\s*<.*?(?:follow)/is,
-];
-
-// Instagram Social Blade patterns
-const IG_FOLLOWER_PATTERNS = [
-  /Followers?\s*<\/span>\s*<span[^>]*>([0-9,.]+)/i,
-  /followers?\s*<\/(?:div|span|h\d)>\s*<(?:div|span)[^>]*>\s*([0-9,.]+)/i,
-  /instagram-stats.*?followers?.*?>([0-9,.]+)/is,
-  />([0-9,.]+)\s*<\/(?:span|div)>\s*<.*?(?:follow)/is,
-];
-
-// Facebook Social Blade patterns
-const FB_LIKES_PATTERNS = [
-  /Likes?\s*<\/span>\s*<span[^>]*>([0-9,.]+)/i,
-  /likes?\s*<\/(?:div|span|h\d)>\s*<(?:div|span)[^>]*>\s*([0-9,.]+)/i,
-  /facebook-stats.*?likes?.*?>([0-9,.]+)/is,
-  />([0-9,.]+)\s*<\/(?:span|div)>\s*<.*?(?:like|follow)/is,
-  /"fan_count"\s*:\s*(\d+)/i,
-  /"like_count"\s*:\s*(\d+)/i,
-];
-
-async function scrapeSocialBlade(
-  admin: SupabaseAdmin,
-  channel: string,
-  profileUrl: string,
-  patterns: RegExp[],
-  metric: string,
-): Promise<{ ok: boolean; detail: string }> {
+function extractUsernameFromUrl(url: string, platform: string): string | null {
   try {
-    const response = await fetchWithTimeoutLong(profileUrl, {
-      headers: { "User-Agent": SB_USER_AGENT },
-    });
-    if (!response.ok) return { ok: false, detail: `HTTP ${response.status}` };
-    const html = await response.text();
-    const value = extractNumber(html, patterns);
-    if (value != null) {
-      await insertSnapshot(admin, channel, metric, value, "auto");
-      return { ok: true, detail: `${metric}=${value.toLocaleString()}` };
+    const u = new URL(url);
+    if (platform === "youtube") {
+      // https://www.youtube.com/@username or /user/username or /c/channelname
+      const pathMatch = u.pathname.match(/^\/@([^/]+)/) || u.pathname.match(/^\/user\/([^/]+)/) || u.pathname.match(/^\/c\/([^/]+)/);
+      return pathMatch?.[1] ?? null;
     }
-    return { ok: false, detail: "Could not extract stats from page" };
+    if (platform === "tiktok") {
+      // https://www.tiktok.com/@username
+      const pathMatch = u.pathname.match(/^\/(@[^/]+)/);
+      return pathMatch?.[1]?.replace(/^@/, "") ?? null;
+    }
+    if (platform === "instagram") {
+      // https://www.instagram.com/username/
+      const pathMatch = u.pathname.match(/^\/([a-zA-Z0-9._]+)\/?$/);
+      return pathMatch?.[1] ?? null;
+    }
+    if (platform === "facebook") {
+      // https://www.facebook.com/pagename or /pages/pagename/ID
+      const pathMatch = u.pathname.match(/^\/([a-zA-Z0-9.]+)\/?$/);
+      return pathMatch?.[1] ?? null;
+    }
+  } catch { /* not a URL */ }
+  return null;
+}
+
+// ── YouTube direct scrape (uses API if key available, falls back to HTML) ──
+async function scrapeYouTubeDirect(admin: SupabaseAdmin, url: string): Promise<{ ok: boolean; detail: string }> {
+  const username = extractUsernameFromUrl(url, "youtube");
+  const apiKey = Deno.env.get("YOUTUBE_API_KEY");
+  
+  if (apiKey && username) {
+    // Try API: resolve handle → channel ID → stats
+    try {
+      const handle = username.startsWith("@") ? username : `@${username}`;
+      const resolveResp = await fetchWithTimeoutLong(
+        `https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${encodeURIComponent(handle)}&key=${apiKey}`
+      );
+      if (resolveResp.ok) {
+        const resolveData = (await resolveResp.json()) as { items?: Array<{ id: string }> };
+        const channelId = resolveData.items?.[0]?.id;
+        if (channelId) {
+          const statsResp = await fetchWithTimeoutLong(
+            `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${apiKey}`
+          );
+          if (statsResp.ok) {
+            const statsData = (await statsResp.json()) as { items?: Array<{ statistics?: { subscriberCount?: string; viewCount?: string } }> };
+            const stats = statsData.items?.[0]?.statistics;
+            if (stats?.subscriberCount) {
+              await insertSnapshot(admin, "youtube", "followers", Number(stats.subscriberCount), "auto");
+              return { ok: true, detail: `YouTube subscribers: ${Number(stats.subscriberCount).toLocaleString()}` };
+            }
+          }
+        }
+      }
+    } catch { /* fall through to HTML */ }
+  }
+
+  // Fallback: try to extract from page HTML
+  try {
+    const resp = await fetchWithTimeoutLong(url, { headers: { "User-Agent": UA } });
+    if (!resp.ok) return { ok: false, detail: `HTTP ${resp.status}` };
+    const html = await resp.text();
+    const subs = extractNumber(html, [
+      /"subscriberCountText"\s*:\s*\{"simpleText"\s*:\s*"([0-9,.]+)/,
+      /"subscriberCount"\s*:\s*"([0-9,.]+)"/,
+      /subscriberCount.*?"text"\s*:\s*"([0-9,.]+)/,
+    ]);
+    if (subs != null) {
+      await insertSnapshot(admin, "youtube", "followers", subs, "auto");
+      return { ok: true, detail: `YouTube subscribers: ${subs.toLocaleString()}` };
+    }
+    return { ok: false, detail: "Could not extract subscriber count" };
   } catch (err) {
     return { ok: false, detail: err instanceof Error ? err.message : "fetch failed" };
   }
 }
 
-async function syncSocialBlade(admin: SupabaseAdmin): Promise<Record<string, { ok: boolean; detail: string; url?: string }>> {
+// ── TikTok direct scrape ──
+async function scrapeTikTokDirect(admin: SupabaseAdmin, url: string): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const resp = await fetchWithTimeoutLong(url, { headers: { "User-Agent": UA } });
+    if (!resp.ok) return { ok: false, detail: `HTTP ${resp.status}` };
+    const html = await resp.text();
+    // TikTok embeds data in SIGI_STATE or __UNIVERSAL_DATA_FOR_REHYDRATION__
+    const followers = extractNumber(html, [
+      /"followerCount"\s*:\s*(\d+)/,
+      /"fans"\s*:\s*(\d+)/,
+      /followers.*?(\d[\d,.]*)/i,
+      /"stats"\s*:\s*\{[^}]*"followerCount"\s*:\s*(\d+)/,
+    ]);
+    if (followers != null) {
+      await insertSnapshot(admin, "tiktok", "followers", followers, "auto");
+      return { ok: true, detail: `TikTok followers: ${followers.toLocaleString()}` };
+    }
+    return { ok: false, detail: "Could not extract follower count (TikTok may require JavaScript)" };
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : "fetch failed" };
+  }
+}
+
+// ── Instagram direct scrape ──
+async function scrapeInstagramDirect(admin: SupabaseAdmin, url: string): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const resp = await fetchWithTimeoutLong(url, { headers: { "User-Agent": UA } });
+    if (!resp.ok) return { ok: false, detail: `HTTP ${resp.status}` };
+    const html = await resp.text();
+    // Instagram includes follower count in meta tags and script data
+    const followers = extractNumber(html, [
+      /"edge_followed_by"\s*:\s*\{"count"\s*:\s*(\d+)/,
+      /"follower_count"\s*:\s*(\d+)/,
+      /content="([\d,.]+)\s+Followers"/i,
+      /"users"\s*:\s*(\d+)/,
+    ]);
+    if (followers != null) {
+      await insertSnapshot(admin, "instagram", "followers", followers, "auto");
+      return { ok: true, detail: `Instagram followers: ${followers.toLocaleString()}` };
+    }
+    return { ok: false, detail: "Could not extract follower count (Instagram may require login)" };
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : "fetch failed" };
+  }
+}
+
+// ── Facebook direct scrape ──
+async function scrapeFacebookDirect(admin: SupabaseAdmin, url: string): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const resp = await fetchWithTimeoutLong(url, { headers: { "User-Agent": UA } });
+    if (!resp.ok) return { ok: false, detail: `HTTP ${resp.status}` };
+    const html = await resp.text();
+    const likes = extractNumber(html, [
+      /"fan_count"\s*:\s*(\d+)/,
+      /"like_count"\s*:\s*(\d+)/,
+      /content="([\d,.]+)\s+people like this"/i,
+      /"followersCount"\s*:\s*(\d+)/,
+    ]);
+    if (likes != null) {
+      await insertSnapshot(admin, "facebook", "followers", likes, "auto");
+      return { ok: true, detail: `Facebook likes: ${likes.toLocaleString()}` };
+    }
+    return { ok: false, detail: "Could not extract like count" };
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : "fetch failed" };
+  }
+}
+
+async function syncPlatformUrls(admin: SupabaseAdmin): Promise<Record<string, { ok: boolean; detail: string; url?: string }>> {
   const [ytUrl, ttUrl, igUrl, fbUrl] = await Promise.all([
     admin.from("integration_settings").select("value").eq("key", "social_blade_youtube").maybeSingle(),
     admin.from("integration_settings").select("value").eq("key", "social_blade_tiktok").maybeSingle(),
@@ -277,19 +365,19 @@ async function syncSocialBlade(admin: SupabaseAdmin): Promise<Record<string, { o
 
   const results: Record<string, { ok: boolean; detail: string; url?: string }> = {};
 
-  const jobs: Array<{ channel: string; url: string | null; key: string; patterns: RegExp[]; metric: string }> = [
-    { channel: "youtube", url: ytUrl.data?.value?.trim() || null, key: "social_blade_youtube", patterns: YT_SUBSCRIBER_PATTERNS, metric: "followers" },
-    { channel: "tiktok", url: ttUrl.data?.value?.trim() || null, key: "social_blade_tiktok", patterns: TT_FOLLOWER_PATTERNS, metric: "followers" },
-    { channel: "instagram", url: igUrl.data?.value?.trim() || null, key: "social_blade_instagram", patterns: IG_FOLLOWER_PATTERNS, metric: "followers" },
-    { channel: "facebook", url: fbUrl.data?.value?.trim() || null, key: "social_blade_facebook", patterns: FB_LIKES_PATTERNS, metric: "followers" },
+  const scrapers: Array<{ channel: string; url: string | null; fn: (u: string) => Promise<{ ok: boolean; detail: string }> }> = [
+    { channel: "youtube", url: ytUrl.data?.value?.trim() || null, fn: (u) => scrapeYouTubeDirect(admin, u) },
+    { channel: "tiktok", url: ttUrl.data?.value?.trim() || null, fn: (u) => scrapeTikTokDirect(admin, u) },
+    { channel: "instagram", url: igUrl.data?.value?.trim() || null, fn: (u) => scrapeInstagramDirect(admin, u) },
+    { channel: "facebook", url: fbUrl.data?.value?.trim() || null, fn: (u) => scrapeFacebookDirect(admin, u) },
   ];
 
-  for (const job of jobs) {
+  for (const job of scrapers) {
     if (job.url) {
-      results[job.channel] = await scrapeSocialBlade(admin, job.channel, job.url, job.patterns, job.metric);
+      results[job.channel] = await job.fn(job.url);
       results[job.channel].url = job.url;
     } else {
-      results[job.channel] = { ok: false, detail: `Not configured (set ${job.key} in integration_settings)` };
+      results[job.channel] = { ok: false, detail: "Not configured — กรอก URL ช่องทางในหน้า Marketing Channels" };
     }
   }
 
@@ -346,10 +434,10 @@ Deno.serve(async (req: Request) => {
     const results = await Promise.allSettled([syncYouTube(admin), syncFacebook(admin), syncSearchConsole(admin), syncInstagram(admin)]);
     const [youtube, facebook, searchConsole, instagram] = results.map((r) => (r.status === "fulfilled" ? r.value : { ok: false, detail: r.status === "rejected" ? String(r.reason) : "unknown error" }));
 
-    // Social Blade scraping (no API key needed) — runs alongside API-based syncs
-    const socialBlade = await syncSocialBlade(admin);
+    // Platform URL scraping — runs alongside API-based syncs
+    const platformUrls = await syncPlatformUrls(admin);
 
-    return jsonResponse({ youtube, facebook, searchConsole, instagram, socialBlade });
+    return jsonResponse({ youtube, facebook, searchConsole, instagram, platformUrls });
   } catch (error) {
     if (error instanceof RateLimitError) return jsonResponse({ error: error.message }, 429);
     return await handleUnexpectedError(admin, "marketing-metrics-snapshot", error);
