@@ -845,7 +845,9 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     }
   }
   const best = earBest();
-  const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo], ["melody", "🎵", T.melody]];
+  // "melody" (Name That Tune) tab HIDDEN (not deleted) per feature audit — genQ("melody")
+  // and its scoring logic are untouched, just unreachable via the tab bar for now.
+  const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo]];
   return (
     <div className="pathpage">
       {onBack && (
@@ -1657,11 +1659,14 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     { k: "quick",   ic: "⚡", c: "#d97757", t: lc.quickTitle,       s: lc.quickSub,          fn: () => { playUi("click"); setQuickOpen(true); } },
     { k: "exam",    ic: "🎓", c: "#d97757", t: lc.studioExam,      s: lc.studioExamSub,      fn: onExam, badge: "PRO" },
     { k: "camera",  ic: "✋", c: "#d97757", t: lc.studioCamera,    s: lc.studioCameraSub,    fn: onCamera },
-    { k: "chordmood",ic:"🎭", c: "#d97757", t: lc.moodBoard,       s: lc.moodBoardSub,       fn: () => { playUi("click"); setMoodBoardOpen(true); } },
-    { k: "moodpick",ic: "🧭", c: "#d97757", t: lc.moodTitle,       s: T("เลือกเวลา+อารมณ์ → AI แนะนำกิจกรรม", "Pick time & mood → get the right activity", "按时间和心情推荐练习"), fn: () => { playUi("click"); setMoodTime(null); setMoodFeel(null); setMoodOpen(true); } },
+    // HIDDEN (not deleted) — overlaps with "moodpick" below; underlying modal/state untouched.
+    // { k: "chordmood",ic:"🎭", c: "#d97757", t: lc.moodBoard,       s: lc.moodBoardSub,       fn: () => { playUi("click"); setMoodBoardOpen(true); } },
+    // HIDDEN (not deleted) — overlaps with "chordmood" above; underlying modal/state untouched.
+    // { k: "moodpick",ic: "🧭", c: "#d97757", t: lc.moodTitle,       s: T("เลือกเวลา+อารมณ์ → AI แนะนำกิจกรรม", "Pick time & mood → get the right activity", "按时间和心情推荐练习"), fn: () => { playUi("click"); setMoodTime(null); setMoodFeel(null); setMoodOpen(true); } },
     { k: "goal",    ic: "🎯", c: "#d97757", t: lc.goalTitle,        s: goalData ? T(`เพลง: ${goalData.songName} — เหลือ ${goalDaysLeft} วัน`, `Goal: "${goalData.songName}" — ${goalDaysLeft} days left`, `目标："${goalData.songName}" — 剩${goalDaysLeft}天`) : lc.goalSub, fn: () => { playUi("click"); setGoalSongId(goalData ? goalData.songId : ""); setGoalDate(goalData ? goalData.date : ""); setGoalOpen(true); } },
     { k: "srs",     ic: "🧠", c: dueSRS.length ? "#e55" : "#d97757", t: lc.srsTitle, s: dueSRS.length ? `${dueSRS.length} ${lc.srsItems} — ${lc.srsDue}` : lc.srsNone, fn: () => { playUi("click"); setSrsOpen(true); } },
-    { k: "thai",    ic: "🇹🇭", c: "#d97757", t: lc.thaiTitle,       s: lc.thaiSub,             fn: () => { playUi("click"); setThaiOpen(true); } },
+    // HIDDEN (not deleted) — niche audience per feature audit; underlying modal/state untouched.
+    // { k: "thai",    ic: "🇹🇭", c: "#d97757", t: lc.thaiTitle,       s: lc.thaiSub,             fn: () => { playUi("click"); setThaiOpen(true); } },
     { k: "compose", ic: "🎼", c: "#d97757", t: lc.composeTitle,     s: lc.composeSub,           fn: () => { playUi("click"); setComposeMood(null); setComposeStyle(null); setComposeKey("C"); setComposePage(1); setComposeErr(false); setComposeOpen(true); } },
     { k: "event",   ic: "🎪", c: eventData && eventDaysLeft !== null && eventDaysLeft <= 7 ? "#e55" : "#d97757",
       t: lc.eventTitle,
@@ -1669,11 +1674,15 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           ? (eventDaysLeft !== null && eventDaysLeft <= 0 ? T("ผ่านมาแล้ว 🎉", "Event passed 🎉", "演出已结束 🎉") : `${eventData.name} — ${eventDaysLeft} ${lc.eventDays}`)
           : lc.eventSet,
       fn: () => { playUi("click"); setEvName(eventData ? eventData.name : ""); setEvDate(eventData ? eventData.date : ""); setEventOpen(true); } },
-    { k: "detect",  ic: "🔍", c: "#d97757", t: T("ทายเพลงจากการเล่น", "Song Detector", "猜歌"), s: T("เล่นโน้ตสักไม่กี่ตัว — AI ทายชื่อเพลง", "Play a few notes — AI names the song", "弹几个音符 — AI 猜出歌名"), fn: () => { playUi("click"); setDetectNotes([]); setDetectMatch(null); setDetectListening(false); setDetectOpen(true); } },
+    // HIDDEN (not deleted) — low usage per feature audit; underlying modal/state untouched.
+    // { k: "detect",  ic: "🔍", c: "#d97757", t: T("ทายเพลงจากการเล่น", "Song Detector", "猜歌"), s: T("เล่นโน้ตสักไม่กี่ตัว — AI ทายชื่อเพลง", "Play a few notes — AI names the song", "弹几个音符 — AI 猜出歌名"), fn: () => { playUi("click"); setDetectNotes([]); setDetectMatch(null); setDetectListening(false); setDetectOpen(true); } },
     { k: "battle",  ic: "⚔️", c: "#d97757", t: T("Family Battle 👨‍👩‍👧", "Family Battle", "家庭对战"), s: T("ผลัดกันเล่นเพลงเดียวกัน — ดูว่าใครชนะ!", "Take turns playing the same song — see who wins!", "轮流弹同一首歌 — 看谁赢!"), fn: () => { playUi("click"); setBattleData(null); setBattlePickOpen(true); } },
-    { k: "commute", ic: "🎧", c: "#d97757", t: lc.commuteTitle, s: lc.commuteSub, fn: () => { playUi("click"); stopSpeaking(); setCommuteIdx(null); setCommuteOpen(true); } },
+    // HIDDEN (not deleted) — low discoverability per feature audit; underlying modal/state untouched.
+    // { k: "commute", ic: "🎧", c: "#d97757", t: lc.commuteTitle, s: lc.commuteSub, fn: () => { playUi("click"); stopSpeaking(); setCommuteIdx(null); setCommuteOpen(true); } },
     { k: "parent",  ic: "👨‍👩‍👧", c: "#d97757", t: lc.pdTitle, s: T("ดูพัฒนาการและรายงานความก้าวหน้า", "Track your child's progress", "查看孩子进度报告"), fn: () => { playUi("click"); onParent ? onParent() : null; } },
-    { k: "kru",     ic: "📋", c: "#d97757", t: lc.kruTitle, s: lc.kruSub, fn: () => { playUi("click"); setKruMsg(""); setKruGenResult(""); setKruTab("class"); setKruOpen(true); } },
+    // HIDDEN (not deleted) — superseded by the fuller School Dashboard (School Plan Pro);
+    // underlying modal/state untouched in case a non-school-linked teacher still needs it.
+    // { k: "kru",     ic: "📋", c: "#d97757", t: lc.kruTitle, s: lc.kruSub, fn: () => { playUi("click"); setKruMsg(""); setKruGenResult(""); setKruTab("class"); setKruOpen(true); } },
   ];
 
   // Max-exclusive feature cards
@@ -2151,8 +2160,9 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="lvup-share" onClick={() => { setBattleData(null); setBattlePickOpen(true); }}>↻ {T("เล่นใหม่", "Play Again", "再玩")}</button>
-                <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }}
-                  onClick={() => { const s = battleData.scores; shareLine(T(`⚔️ Family Battle บน TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 ชนะ!" : s[1].acc > s[0].acc ? "P2 ชนะ!" : "เสมอ!"} tigaalpha.github.io`, `⚔️ Family Battle on TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 wins!" : s[1].acc > s[0].acc ? "P2 wins!" : "Draw!"} tigaalpha.github.io`, `⚔️ TiGA Piano AI家庭对战! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1胜!" : s[1].acc > s[0].acc ? "P2胜!" : "平局!"} tigaalpha.github.io`)); }}>🟢 LINE</button>
+                {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
+                {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }}
+                  onClick={() => { const s = battleData.scores; shareLine(T(`⚔️ Family Battle บน TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 ชนะ!" : s[1].acc > s[0].acc ? "P2 ชนะ!" : "เสมอ!"} tigaalpha.github.io`, `⚔️ Family Battle on TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 wins!" : s[1].acc > s[0].acc ? "P2 wins!" : "Draw!"} tigaalpha.github.io`, `⚔️ TiGA Piano AI家庭对战! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1胜!" : s[1].acc > s[0].acc ? "P2胜!" : "平局!"} tigaalpha.github.io`)); }}>🟢 LINE</button>}
                 <button className="lvup-share" onClick={() => { setBattleData(null); }}>✕</button>
               </div>
             </>
@@ -5778,7 +5788,7 @@ function AdminAnalytics({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [range, setRange] = useState("all"); // '7' | '30' | 'all'
   const [stats, setStats] = useState(null);
-  const NAV_LABELS = { pathway: "⬡ PATHWAY", sensei: "◈ TIGA AI", studio: "▶ STUDIO", videos: "🎬 " + T("วิดีโอสอน", "Video Lessons", "视频课程"), profile: "PROFILE", admin: "ADMIN" };
+  const NAV_LABELS = { pathway: "⬡ PATHWAY", sensei: "◈ TIGA CHAT", studio: "▶ STUDIO", videos: "🎬 " + T("วิดีโอสอน", "Video Lessons", "视频课程"), profile: "PROFILE", admin: "ADMIN" };
 
   const load = useCallback(() => {
     setStats(null);
@@ -7922,7 +7932,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 {mem.mastered && mem.mastered.length > 0 && <><div className="pd-sec">{lc.pdMastered}</div><div className="pd-tags">{mem.mastered.slice(0, 6).map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
                 <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                   <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => shareCard({ title: nm, big: (st.count || 0) + "🔥", sub: lc.profLevelWord + " " + li.level, lines: [`${sess} ${lc.pdSessions} · ${wkAcc}% ${lc.pdAcc}`] })}>📤 {lc.shareBtn}</button>
-                  <button className="songbtn ghost" style={{ flex: 1, borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${nm} ${lc.profLevelWord} ${li.level} · ${(st.count || 0)}🔥 streak — TiGA Piano AI tigaalpha.github.io`)}>🟢 LINE</button>
+                  {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
+                  {false && <button className="songbtn ghost" style={{ flex: 1, borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${nm} ${lc.profLevelWord} ${li.level} · ${(st.count || 0)}🔥 streak — TiGA Piano AI tigaalpha.github.io`)}>🟢 LINE</button>}
                 </div>
               </div>
             </div>
@@ -8169,7 +8180,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="lvup-rank">{levelUp.prestige ? `${lc.prestigeWord} ${levelUp.prestige}` : `${lc.profLevelWord} ${levelUp.level} · ${tr(levelUp.tier, lang)}`}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: levelUp.prestige ? lc.prestigeUpWord : lc.levelUpWord, big: levelUp.prestige ? `⭐ ${levelUp.prestige}` : lc.profLevelWord + " " + levelUp.level, sub: levelUp.prestige ? lc.prestigeWord : tr(levelUp.tier, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
-            <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(levelUp.prestige ? `🎹 ${lc.prestigeUpWord} ${lc.prestigeWord} ${levelUp.prestige} — TiGA Piano AI tigaalpha.github.io` : `🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>
+            {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
+            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(levelUp.prestige ? `🎹 ${lc.prestigeUpWord} ${lc.prestigeWord} ${levelUp.prestige} — TiGA Piano AI tigaalpha.github.io` : `🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>}
           </div>
         </div>
       )}
@@ -8182,7 +8194,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="lvup-rank">{tr(badgeUp, lang)}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareCard({ title: lc.badgeUnlocked, big: badgeUp.icon, sub: tr(badgeUp, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
-            <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareLine(`🎹 ${lc.badgeUnlocked} ${badgeUp.icon} "${tr(badgeUp, lang)}" — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>
+            {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
+            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareLine(`🎹 ${lc.badgeUnlocked} ${badgeUp.icon} "${tr(badgeUp, lang)}" — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>}
           </div>
         </div>
       )}
