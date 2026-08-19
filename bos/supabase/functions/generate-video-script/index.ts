@@ -34,6 +34,37 @@ interface ReturnScriptArgs {
   hashtags: string[];
 }
 
+/** Extract script args from either tool call or plain text fallback */
+function extractArgs(result: { message: { content?: string; toolCalls?: Array<{ name: string; arguments: unknown }> }; usage?: unknown }): ReturnScriptArgs | null {
+  // 1) Try tool call first
+  const call = result.message.toolCalls?.find((c) => c.name === "return_video_script");
+  if (call) {
+    const a = call.arguments as unknown as ReturnScriptArgs;
+    if (a?.hook && a?.script) return a;
+  }
+
+  // 2) Fallback: parse plain text — much more lenient threshold
+  const text = (result.message.content ?? "").trim();
+  if (text.length < 10) return null;
+
+  // Try to extract structured sections from the text
+  const lines = text.split("\n").filter((l: string) => l.trim());
+  const hook = lines[0]?.replace(/^\d+[\.\)]\s*/, "").trim() ?? text.slice(0, 100);
+
+  // Try to find hashtags in the text
+  const hashtagMatch = text.match(/#([\wก-๙]+)/g);
+  const hashtags = hashtagMatch
+    ? hashtagMatch.map((h: string) => h.replace("#", "")).slice(0, 8)
+    : ["เปียโน", "เรียนเปียโน", "TigaStudio"];
+
+  return {
+    hook,
+    script: text,
+    caption: text.slice(0, 200),
+    hashtags,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -74,26 +105,32 @@ Deno.serve(async (req: Request) => {
         { role: "system" as const, content: systemPrompt },
         { role: "user" as const, content: userPrompt },
       ];
-      const result = model
-        ? await generateWithModel(model, messages, [RETURN_SCRIPT_TOOL], 0.8, 2048)
-        : await generate(messages, [RETURN_SCRIPT_TOOL], 0.8, 2048, "content");
-      await logAiUsage(admin, result.usage, "generate-video-script");
 
-      const call = result.message.toolCalls?.find((c) => c.name === "return_video_script");
-      let args = call ? (call.arguments as unknown as ReturnScriptArgs) : null;
+      let args: ReturnScriptArgs | null = null;
 
-      // Fallback: if the AI returned plain text instead of a tool call, parse it
-      if (!args && result.message.content) {
-        const text = result.message.content.trim();
-        if (text.length > 50) {
-          args = {
-            hook: text.split("\n")[0] ?? text.slice(0, 100),
-            script: text,
-            caption: text.slice(0, 200),
-            hashtags: ["เปียโน", "เรียนเปียโน", "TigaStudio"],
-          };
+      // Try up to 2 times — Gemini sometimes returns empty on first try
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const result = model
+          ? await generateWithModel(model, messages, [RETURN_SCRIPT_TOOL], 0.8, 4096)
+          : await generate(messages, [RETURN_SCRIPT_TOOL], 0.8, 4096, "content");
+        await logAiUsage(admin, result.usage, "generate-video-script");
+
+        args = extractArgs(result);
+        if (args) break;
+
+        // Log the failure for debugging
+        await logSystemEvent(admin, "generate-video-script", "warning",
+          `Attempt ${attempt + 1}: No tool call or text. content="${(result.message.content ?? "").slice(0, 100)}" toolCalls=${JSON.stringify(result.message.toolCalls?.map(c => c.name) ?? [])} finishReason=${result.finishReason}`);
+
+        // If first attempt failed, try with a more explicit prompt
+        if (attempt === 0) {
+          messages.push(
+            { role: "assistant" as const, content: "" },
+            { role: "user" as const, content: "You MUST call the return_video_script tool now. Do NOT reply with plain text. Call the tool with hook, script, caption, and hashtags." }
+          );
         }
       }
+
       if (!args) continue;
 
       const { data: script, error: insertError } = await admin
