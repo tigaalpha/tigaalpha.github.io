@@ -74,6 +74,7 @@ export function AiCompanyView() {
   const [autonomyLevel, setAutonomyLevel] = useState("conservative");
   const [autonomySaving, setAutonomySaving] = useState(false);
   const [autonomySaved, setAutonomySaved] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Tables<"agent_task_runs"> | null>(null);
 
   function loadHistory() {
     const repos = createRepositories(createClient());
@@ -295,20 +296,27 @@ export function AiCompanyView() {
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {current.tasks.map((task) => (
-              <Card key={task.id}>
-                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">{AGENT_LABELS[task.agent_id] ?? task.agent_id}</CardTitle>
-                  <TaskStatusIcon status={task.status} />
-                </CardHeader>
-                <CardContent>
-                  <p className="mb-2 text-xs italic text-secondary/50">&quot;{task.question}&quot;</p>
-                  {task.status === "success" ? (
-                    <p className="whitespace-pre-wrap text-sm text-secondary/80">{task.output}</p>
-                  ) : (
-                    <p className="text-sm text-danger">{task.error}</p>
-                  )}
-                </CardContent>
-              </Card>
+              <button
+                key={task.id}
+                onClick={() => setSelectedTask(task)}
+                className="text-left"
+              >
+                <Card className="cursor-pointer transition-all hover:ring-2 hover:ring-primary/30 hover:shadow-md">
+                  <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm">{AGENT_LABELS[task.agent_id] ?? task.agent_id}</CardTitle>
+                    <TaskStatusIcon status={task.status} />
+                  </CardHeader>
+                  <CardContent>
+                    <p className="mb-2 text-xs italic text-secondary/50">&quot;{task.question}&quot;</p>
+                    {task.status === "success" ? (
+                      <p className="line-clamp-3 text-sm text-secondary/80">{task.output}</p>
+                    ) : (
+                      <p className="text-sm text-danger">{task.error}</p>
+                    )}
+                    <p className="mt-2 text-xs text-primary/60">กดเพื่อดูรายละเอียด →</p>
+                  </CardContent>
+                </Card>
+              </button>
             ))}
           </div>
 
@@ -420,6 +428,88 @@ export function AiCompanyView() {
               </CardContent>
             </Card>
           ) : null}
+        </div>
+      ) : null}
+
+      {selectedTask ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setSelectedTask(null)}>
+          <div
+            className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:rounded-2xl dark:bg-secondary"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line/20 bg-white px-4 py-3 dark:bg-secondary">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSelectedTask(null)} className="rounded-lg p-1 hover:bg-line/10">
+                  ← กลับ
+                </button>
+                <h3 className="text-sm font-semibold text-secondary">รายละเอียดงาน AI</h3>
+              </div>
+              <TaskStatusIcon status={selectedTask.status} />
+            </div>
+            <div className="space-y-4 p-4">
+              {/* Agent / Task Type */}
+              <div>
+                <p className="mb-1 text-xs font-medium text-secondary/40">ประเภทงาน (Agent)</p>
+                <Badge variant="outline" className="text-sm">
+                  {AGENT_LABELS[selectedTask.agent_id] ?? selectedTask.agent_id}
+                </Badge>
+              </div>
+
+              {/* Question / Prompt */}
+              <div>
+                <p className="mb-1 text-xs font-medium text-secondary/40">คำถามที่ส่งให้ AI ทำ</p>
+                <div className="rounded-lg bg-line/5 p-3">
+                  <p className="text-sm text-secondary">{selectedTask.question}</p>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <p className="mb-1 text-xs font-medium text-secondary/40">สถานะ</p>
+                <Badge variant={selectedTask.status === "success" ? "success" : "danger"}>
+                  {selectedTask.status === "success" ? "สำเร็จ" : "ล้มเหลว"}
+                </Badge>
+              </div>
+
+              {/* Full Output */}
+              <div>
+                <p className="mb-1 text-xs font-medium text-secondary/40">ผลลัพธ์จาก AI</p>
+                <div className="rounded-lg bg-line/5 p-3">
+                  {selectedTask.status === "success" ? (
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-secondary">{selectedTask.output}</p>
+                  ) : (
+                    <p className="text-sm text-danger">{selectedTask.error}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Timestamps */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="mb-1 text-xs font-medium text-secondary/40">เริ่มทำ</p>
+                  <p className="text-xs text-secondary/60">
+                    {selectedTask.started_at ? new Date(selectedTask.started_at).toLocaleString("th-TH") : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-medium text-secondary/40">เสร็จสิ้น</p>
+                  <p className="text-xs text-secondary/60">
+                    {selectedTask.finished_at ? new Date(selectedTask.finished_at).toLocaleString("th-TH") : "—"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Duration */}
+              {selectedTask.started_at && selectedTask.finished_at ? (
+                <div>
+                  <p className="mb-1 text-xs font-medium text-secondary/40">ใช้เวลา</p>
+                  <p className="text-xs text-secondary/60">
+                    {Math.round((new Date(selectedTask.finished_at).getTime() - new Date(selectedTask.started_at).getTime()) / 1000)} วินาที
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       ) : null}
 
