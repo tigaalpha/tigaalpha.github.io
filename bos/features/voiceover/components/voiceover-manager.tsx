@@ -14,6 +14,7 @@ import {
   User,
   Users,
   Download,
+  VolumeX,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,8 +81,56 @@ export function VoiceOverManager() {
   const [history, setHistory] = useState<VoiceOverItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
 
   const supabase = createClient();
+
+  // Preview samples per language
+  const PREVIEW_TEXT: Record<string, string> = {
+    th: "สวัสดีครับ ยินดีที่ได้รู้จัก",
+    en: "Hello, nice to meet you!",
+    zh: "你好，很高兴认识你！",
+    ja: "こんにちは、はじめまして",
+    ko: "안녕하세요, 반갑습니다",
+    hi: "नमस्ते, आपसे मिलकर खुशी हुई",
+    id: "Halo, senang berkenalan dengan Anda!",
+    ms: "Halo, senang berkenalan dengan anda!",
+    de: "Hallo, freut mich!",
+    fr: "Bonjour, enchanté !",
+    es: "¡Hola, mucho gusto!",
+    pt: "Olá, prazer em conhecê-lo!",
+    it: "Ciao, piacere di conoscerti!",
+    ru: "Здравствуйте, приятно познакомиться!",
+    ar: "مرحباً، سعيد بلقائك!",
+    tr: "Merhaba, tanıştığımıza memnun oldum!",
+    vi: "Xin chào, rất vui được gặp bạn!",
+    default: "Hello, nice to meet you!",
+  };
+
+  // Preview voice: play a short sample
+  const handlePreviewVoice = useCallback((voice: VoiceOption) => {
+    window.speechSynthesis?.cancel();
+    setPreviewingId(voice.id);
+
+    const langCode = voice.lang.split("-")[0] ?? "en";
+    const sampleText = PREVIEW_TEXT[langCode] ?? PREVIEW_TEXT.default;
+
+    const utterance = new SpeechSynthesisUtterance(sampleText);
+    utterance.lang = voice.lang;
+    utterance.rate = voice.rate;
+    utterance.pitch = voice.pitch;
+    utterance.volume = 1.0;
+
+    // Try to match actual browser voice
+    const browserVoices = window.speechSynthesis?.getVoices() ?? [];
+    const match = browserVoices.find((bv) => bv.voiceURI === voice.id || bv.name === voice.name);
+    if (match) utterance.voice = match;
+
+    utterance.onend = () => setPreviewingId(null);
+    utterance.onerror = () => setPreviewingId(null);
+
+    window.speechSynthesis?.speak(utterance);
+  }, []);
 
   // Load history from Supabase
   const loadHistory = useCallback(async () => {
@@ -309,20 +358,36 @@ export function VoiceOverManager() {
               {filteredVoices.map((voice) => (
                 <button
                   key={voice.id}
+                  type="button"
                   onClick={() => setSelectedVoiceId(voice.id)}
                   className={cn(
-                    "rounded-xl border p-2.5 text-left transition-all",
+                    "rounded-xl border p-2.5 text-left transition-all group relative",
                     selectedVoiceId === voice.id
                       ? "border-primary bg-primary/5 shadow-sm"
                       : "border-line/10 bg-background hover:border-primary/30"
                   )}
                 >
-                  <span className={cn(
-                    "text-[10px] font-bold px-1.5 py-0.5 rounded inline-block mb-0.5",
-                    voice.gender === "male" ? "bg-blue-500/10 text-blue-600" : "bg-pink-500/10 text-pink-600"
-                  )}>
-                    {voice.gender === "male" ? "♂ ชาย" : "♀ หญิง"}
-                  </span>
+                  <div className="flex items-start justify-between gap-1">
+                    <span className={cn(
+                      "text-[10px] font-bold px-1.5 py-0.5 rounded inline-block mb-0.5",
+                      voice.gender === "male" ? "bg-blue-500/10 text-blue-600" : "bg-pink-500/10 text-pink-600"
+                    )}>
+                      {voice.gender === "male" ? "♂ ชาย" : "♀ หญิง"}
+                    </span>
+                    {/* Preview button — click to hear a sample */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handlePreviewVoice(voice); }}
+                      className="shrink-0 rounded-full p-1 hover:bg-primary/10 transition-colors"
+                      title="ฟังเสียงตัวอย่าง"
+                    >
+                      {previewingId === voice.id ? (
+                        <VolumeX className="h-3 w-3 text-primary animate-pulse" />
+                      ) : (
+                        <Volume2 className="h-3 w-3 text-secondary/40 group-hover:text-primary" />
+                      )}
+                    </button>
+                  </div>
                   <p className="text-xs font-medium text-secondary truncate">{voice.name}</p>
                   <p className="text-[10px] text-secondary/40">{voice.lang}</p>
                 </button>
