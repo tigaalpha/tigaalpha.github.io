@@ -16,6 +16,7 @@ import {
   Loader2,
   Trash2,
   X,
+  Eye,
   Sparkles,
   TrendingUp,
   Zap,
@@ -349,6 +350,7 @@ function TrainTab() {
   const [ownerReply, setOwnerReply] = useState("");
   const [salesSubmitting, setSalesSubmitting] = useState(false);
   const [expandedSection, setExpandedSection] = useState<"add" | "sales" | "list">("add");
+  const [selectedDoc, setSelectedDoc] = useState<Tables<"knowledge_documents"> | null>(null);
 
   const reload = useCallback(() => {
     const repos = createRepositories(createClient());
@@ -528,21 +530,33 @@ function TrainTab() {
             </p>
           ) : (
             filteredDocs.map((doc) => (
-              <div key={doc.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-xs hover:bg-line/5 group">
+              <div key={doc.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-xs hover:bg-line/5 group cursor-pointer" onClick={() => setSelectedDoc(doc)}>
                 <div className="min-w-0 flex-1">
                   <span className="truncate text-secondary/70">{doc.title}</span>
                   <Badge variant="outline" className="ml-2 text-[10px]">
                     {SOURCE_LABELS[doc.source_type] || doc.source_type}
                   </Badge>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 shrink-0 text-secondary/20 opacity-0 group-hover:opacity-100 hover:text-danger transition-opacity"
-                  onClick={() => handleDeleteDoc(doc.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-secondary/20 opacity-0 group-hover:opacity-100 hover:text-primary transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); setSelectedDoc(doc); }}
+                    title="ดูรายละเอียด"
+                  >
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-secondary/20 opacity-0 group-hover:opacity-100 hover:text-danger transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteDoc(doc.id); }}
+                    title="ลบ"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             ))
           )}
@@ -552,6 +566,42 @@ function TrainTab() {
       {error && (
         <div className="flex items-center gap-2 rounded-xl bg-danger/10 px-3 py-2 text-xs text-danger">
           <span>⚠️</span> {error}
+        </div>
+      )}
+
+      {/* Document Detail Popup */}
+      {selectedDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedDoc(null)}>
+          <div className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-start justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{SOURCE_LABELS[selectedDoc.source_type]?.split(" ")[0] || "📄"}</span>
+                <h3 className="text-sm font-semibold text-secondary">{selectedDoc.title}</h3>
+              </div>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSelectedDoc(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              <Badge variant="outline" className="text-[10px]">
+                {SOURCE_LABELS[selectedDoc.source_type] || selectedDoc.source_type}
+              </Badge>
+              {selectedDoc.created_at && (
+                <Badge variant="outline" className="text-[10px] text-secondary/50">
+                  📅 {new Date(selectedDoc.created_at).toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" })}
+                </Badge>
+              )}
+            </div>
+            <div className="whitespace-pre-wrap rounded-xl bg-line/5 p-4 text-sm leading-relaxed text-secondary/80">
+              {selectedDoc.raw_text || selectedDoc.file_path || "(ไม่มีเนื้อหา)"}
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setSelectedDoc(null)}>ปิด</Button>
+              <Button size="sm" variant="ghost" className="text-danger hover:bg-danger/10" onClick={() => { handleDeleteDoc(selectedDoc.id); setSelectedDoc(null); }}>
+                <Trash2 className="mr-1 h-3 w-3" /> ลบ
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
