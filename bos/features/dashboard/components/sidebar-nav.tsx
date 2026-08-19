@@ -120,7 +120,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/app-ad-kit", label: "App Ad Kit", icon: Smartphone },
       { href: "/images", label: "Image Studio", icon: ImageIcon },
       { href: "/vertical-video", label: "Vertical Video", icon: Clapperboard },
-      { href: "/video-articles", label: "Video Articles", icon: Captions },
+      { href: "/video-articles", label: "Voice Over", icon: Mic },
       { href: "/voice-over", label: "Voice Over Scripts", icon: Mic },
       { href: "/post", label: "Post ทุกช่องทาง", icon: Share2 },
       { href: "/ads", label: "แคมเปญโฆษณา", icon: Megaphone },
