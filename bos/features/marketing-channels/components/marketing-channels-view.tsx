@@ -346,6 +346,8 @@ export function MarketingChannelsView() {
         </Card>
       </div>
 
+      <SocialBladeSection />
+
       <div>
         <h2 className="text-lg font-semibold text-secondary">กรอกยอดเอง</h2>
         <p className="text-xs text-secondary/40">
@@ -388,5 +390,104 @@ export function MarketingChannelsView() {
         })}
       </div>
     </div>
+  );
+}
+
+// ── Social Blade Configuration Section ────────────────────────────
+
+function SocialBladeSection() {
+  const [ytUrl, setYtUrl] = useState("");
+  const [ttUrl, setTtUrl] = useState("");
+  const [igUrl, setIgUrl] = useState("");
+  const [saving, setSaving] = useState<string | null>(null);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    const repos = createRepositories(createClient());
+    Promise.all([
+      repos.integrations.get("social_blade_youtube"),
+      repos.integrations.get("social_blade_tiktok"),
+      repos.integrations.get("social_blade_instagram"),
+    ]).then(([yt, tt, ig]) => {
+      setYtUrl(yt ?? "");
+      setTtUrl(tt ?? "");
+      setIgUrl(ig ?? "");
+    });
+  }, []);
+
+  async function saveUrl(key: string, value: string, label: string) {
+    setSaving(label);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set(key, value.trim());
+    setSaving(null);
+  }
+
+  async function handleScrapeNow() {
+    setScraping(true);
+    setScrapeResult(null);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.functions.invoke("social-blade-scraper", { body: {} });
+      if (error) throw error;
+      const parts: string[] = [];
+      for (const [ch, res] of Object.entries(data as Record<string, { ok: boolean; detail: string }>)) {
+        parts.push(`${ch}: ${res.ok ? "✅ " + res.detail : "❌ " + res.detail}`);
+      }
+      setScrapeResult(parts.join("\n"));
+    } catch (err) {
+      setScrapeResult(`❌ ${err instanceof Error ? err.message : "ซิงค์ไม่สำเร็จ"}`);
+    } finally {
+      setScraping(false);
+    }
+  }
+
+  const profiles = [
+    { key: "social_blade_youtube", label: "YouTube", icon: Youtube, value: ytUrl, set: setYtUrl, placeholder: "socialblade.com/youtube/user/USERNAME" },
+    { key: "social_blade_tiktok", label: "TikTok", icon: Music2, value: ttUrl, set: setTtUrl, placeholder: "socialblade.com/tiktok/user/USERNAME" },
+    { key: "social_blade_instagram", label: "Instagram", icon: Instagram, value: igUrl, set: setIgUrl, placeholder: "socialblade.com/instagram/user/USERNAME" },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Social Blade (ดึงอัตโนมัติ ไม่ต้อง API key)</CardTitle>
+        <CardDescription>
+          วาง URL หน้า Social Blade ของแต่ละช่องทาง ระบบจะดึง follower count ให้อัตโนมัติทุก 6 ชั่วโมง
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {profiles.map(({ key, label, icon: Icon, value, set, placeholder }) => (
+          <div key={key} className="flex items-end gap-2">
+            <Icon className="mb-2.5 h-4 w-4 shrink-0 text-secondary/50" />
+            <div className="flex-1">
+              <label className="text-xs text-secondary/50">{label}</label>
+              <Input
+                placeholder={placeholder}
+                value={value}
+                onChange={(e) => set(e.target.value)}
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => void saveUrl(key, value, label)}
+              disabled={saving === label}
+              className="shrink-0"
+            >
+              {saving === label ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+        ))}
+        <div className="flex items-center gap-2 pt-2">
+          <Button variant="outline" size="sm" onClick={() => void handleScrapeNow()} disabled={scraping}>
+            <RefreshCw className={cn("h-4 w-4", scraping && "animate-spin")} />
+            {scraping ? "กำลังดึงข้อมูล…" : "ดึงข้อมูลตอนนี้"}
+          </Button>
+        </div>
+        {scrapeResult ? (
+          <pre className="whitespace-pre-wrap rounded-lg bg-line/5 p-3 text-xs text-secondary/60">{scrapeResult}</pre>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
