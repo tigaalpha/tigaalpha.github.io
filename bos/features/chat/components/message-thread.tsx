@@ -10,7 +10,7 @@ import { MessagesSquare } from "lucide-react";
 import { cn, describeFunctionError } from "@/lib/utils";
 import type { Tables } from "@/types/database";
 
-export function MessageThread({ conversationId }: { conversationId: string | null }) {
+export function MessageThread({ conversationId, conversationName, conversationChannel, onBack }: { conversationId: string | null; conversationName?: string | null; conversationChannel?: string | null; onBack?: () => void }) {
   const [messages, setMessages] = useState<Tables<"messages">[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -129,11 +129,25 @@ export function MessageThread({ conversationId }: { conversationId: string | nul
   const canSuggest = conversationId && lastMessage?.sender === "customer" && !loadingSuggestions;
 
   if (!conversationId) {
-    return <EmptyState icon={MessagesSquare} title="Select a conversation" className="m-auto" />;
+    return <EmptyState icon={MessagesSquare} title="เลือกการสนทนา" description="คลิกการสนทนาทางด้านซ้ายเพื่อดูรายละเอียด" className="m-auto" />;
   }
+
+  const CHANNEL_LABELS: Record<string, string> = { line: "LINE", web: "เว็บ", messenger: "Messenger", internal: "ภายใน", phone: "โทรศัพท์", walk_in: "หน้าร้าน" };
 
   return (
     <div className="flex h-full flex-col">
+      {/* Conversation header */}
+      <div className="flex items-center gap-3 border-b border-line/5 px-4 py-3">
+        {onBack ? (
+          <button onClick={onBack} className="rounded-lg p-1.5 text-secondary/60 hover:bg-line/10 hover:text-secondary md:hidden">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+          </button>
+        ) : null}
+        <div className="flex-1">
+          <p className="text-sm font-medium text-secondary">{conversationName || "ลูกค้าไม่ทราบชื่อ"}</p>
+          <p className="text-xs text-secondary/50">{CHANNEL_LABELS[conversationChannel ?? ""] ?? conversationChannel ?? ""}</p>
+        </div>
+      </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.map((message) => (
           <div key={message.id} className={cn("flex flex-col", message.sender === "customer" ? "items-start" : "items-end")}>

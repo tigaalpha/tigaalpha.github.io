@@ -29,6 +29,7 @@ const BUCKETS: { label: string; maxDays: number }[] = [
 
 export function Inbox({ conversations }: { conversations: ConversationWithCustomer[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(conversations[0]?.id ?? null);
+  const [mobileShowThread, setMobileShowThread] = useState(false);
   const [query, setQuery] = useState("");
   const [channel, setChannel] = useState<string>("all");
   const [customerId, setCustomerId] = useState<string>("all");
@@ -88,9 +89,20 @@ export function Inbox({ conversations }: { conversations: ConversationWithCustom
 
   const hasFilters = query.trim() !== "" || channel !== "all" || customerId !== "all" || fromDate !== "" || toDate !== "";
 
+  const selectedConversation = conversations.find((c) => c.id === selectedId) ?? null;
+
+  function handleSelect(id: string) {
+    setSelectedId(id);
+    setMobileShowThread(true);
+  }
+
+  function handleBack() {
+    setMobileShowThread(false);
+  }
+
   return (
     <div className="grid h-[calc(100vh-8rem)] grid-cols-1 overflow-hidden rounded-2xl border border-line/5 bg-card shadow-soft md:grid-cols-[300px_1fr]">
-      <div className="flex flex-col border-r border-line/5">
+      <div className={cn("flex flex-col border-r border-line/5", mobileShowThread ? "hidden md:flex" : "flex")}>
         <div className="space-y-2 border-b border-line/5 p-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary/40" />
@@ -182,10 +194,17 @@ export function Inbox({ conversations }: { conversations: ConversationWithCustom
           </p>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <ConversationList sections={sections} selectedId={selectedId} onSelect={setSelectedId} />
+          <ConversationList sections={sections} selectedId={selectedId} onSelect={handleSelect} />
         </div>
       </div>
-      <MessageThread conversationId={selectedId} />
+      <div className={cn(!mobileShowThread ? "hidden md:flex" : "flex", "flex-1 flex-col overflow-hidden")}>
+        <MessageThread
+          conversationId={selectedId}
+          conversationName={selectedConversation?.customerName}
+          conversationChannel={selectedConversation?.channel}
+          onBack={handleBack}
+        />
+      </div>
     </div>
   );
 }
