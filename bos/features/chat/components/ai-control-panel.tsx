@@ -177,15 +177,16 @@ function OwnerChatTab({ onReplied }: { onReplied?: () => void }) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  // Welcome message on first render
+  // Always start a fresh owner-mode conversation
   useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([{
-        role: "ai",
-        content: "สวัสดีค่ะ! หนูเป็น TIGA AI Agent ของโรงเรียน เป็นพนักงาน AI ที่ดูแลลูกค้าผ่าน LINE และเว็บ-chat\n\n.owner คุยกับหนูได้เลยค่ะ จะถามเรื่องลูกค้า สถานะธุรกิจ หรือจะสั่งงานอะไรก็ได้ค่ะ 🎹",
-      }]);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Reset conversation so we always create a new "internal" channel
+    // conversation with mode: "owner" on each mount
+    conversationIdRef.current = null;
+    setMessages([{
+      role: "ai",
+      content: "สวัสดีค่ะ! หนูเป็น TIGA AI Agent ของโรงเรียน เป็นผู้ช่วย AI ธุรกิจของคุณ\n\nคุณสามารถ:\n• 📊 ถามเรื่องสถานะธุรกิจ ลูกค้า รายได้\n• 💬 คุยทดสอบกับลูกค้าในแชท\n• 📅 ดูตารางเรียน จองคาบ\n• 🎓 สอนหนูให้ตอบได้ดีขึ้น\n\nลองถามอะไรหนูสิคะ! 🎹",
+    }]);
+  }, []);
 
   async function send() {
     const text = draft.trim();
