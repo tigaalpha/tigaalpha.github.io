@@ -6,6 +6,7 @@ import { createRepositories } from "@/services/repositories";
 import { Inbox } from "@/features/chat/components/inbox";
 import { UnansweredQuestions } from "@/features/chat/components/unanswered-questions";
 import { AiTester } from "@/features/chat/components/ai-tester";
+import { AiControlPanel } from "@/features/chat/components/ai-control-panel";
 import { AiOutbox } from "@/features/chat/components/ai-outbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,9 @@ export default function ChatPage() {
 
   return (
     <div className="space-y-6">
+      {/* AI Command Center — top of page */}
+      <AiControlPanel onReplied={reload} />
+
       <div>
         <h1 className="text-2xl font-semibold text-secondary">Inbox</h1>
         <p className="text-sm text-secondary/50">AI-handled conversations across LINE and web chat</p>

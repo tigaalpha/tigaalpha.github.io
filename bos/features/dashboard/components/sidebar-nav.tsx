@@ -96,6 +96,7 @@ const NAV_GROUPS: NavGroup[] = [
     maturity: "beta",
     items: [
       { href: "/strategy", label: "AI Strategy Room", icon: Brain },
+      { href: "/chatbot-brain", label: "Chatbot Brain", icon: Bot },
       { href: "/competitors", label: "วิเคราะห์คู่แข่ง", icon: Swords },
     ],
   },
