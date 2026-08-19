@@ -80,8 +80,21 @@ Deno.serve(async (req: Request) => {
       await logAiUsage(admin, result.usage, "generate-video-script");
 
       const call = result.message.toolCalls?.find((c) => c.name === "return_video_script");
-      const args = call ? (call.arguments as unknown as ReturnScriptArgs) : null;
-      if (!args) continue; // skip failed language, don't abort the whole batch
+      let args = call ? (call.arguments as unknown as ReturnScriptArgs) : null;
+
+      // Fallback: if the AI returned plain text instead of a tool call, parse it
+      if (!args && result.message.content) {
+        const text = result.message.content.trim();
+        if (text.length > 50) {
+          args = {
+            hook: text.split("\n")[0] ?? text.slice(0, 100),
+            script: text,
+            caption: text.slice(0, 200),
+            hashtags: ["เปียโน", "เรียนเปียโน", "TigaStudio"],
+          };
+        }
+      }
+      if (!args) continue;
 
       const { data: script, error: insertError } = await admin
         .from("video_scripts")
@@ -99,6 +112,9 @@ Deno.serve(async (req: Request) => {
       if (!insertError && script) scripts.push(script);
     }
 
+    if (scripts.length === 0) {
+      return jsonResponse({ error: "AI did not return any scripts. Please try again." }, 502);
+    }
     return jsonResponse({ scripts, count: scripts.length }, 201);
   } catch (error) {
     if (error instanceof RateLimitError) {
