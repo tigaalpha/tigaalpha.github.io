@@ -41,6 +41,7 @@ export function ImageStudio({ images, referencePhotos, onChanged }: ImageStudioP
   // ── Article → Scenes state ──
   const [article, setArticle] = useState("");
   const [selectedModel, setSelectedModel] = useState("gemini");
+  const [sceneCount, setSceneCount] = useState(4);
   const [analyzing, setAnalyzing] = useState(false);
   const [sceneResults, setSceneResults] = useState<SceneResult[]>([]);
   const [sceneError, setSceneError] = useState<string | null>(null);
@@ -64,7 +65,7 @@ export function ImageStudio({ images, referencePhotos, onChanged }: ImageStudioP
       const supabase = createClient();
       const { data, error: fnError } = await supabase.functions.invoke<{ scenes: SceneResult[]; savedCount: number }>(
         "generate-article-images",
-        { body: { article: article.trim(), model: selectedModel } }
+        { body: { article: article.trim(), model: selectedModel, sceneCount } }
       );
       if (fnError) throw fnError;
       if (!data) throw new Error("Empty response");
@@ -76,7 +77,7 @@ export function ImageStudio({ images, referencePhotos, onChanged }: ImageStudioP
     } finally {
       setAnalyzing(false);
     }
-  }, [article, selectedModel, onChanged]);
+  }, [article, selectedModel, sceneCount, onChanged]);
 
   // ── Single image generation (original) ──
   async function handleGenerate(promptOverride?: string) {
@@ -143,7 +144,7 @@ export function ImageStudio({ images, referencePhotos, onChanged }: ImageStudioP
           </CardTitle>
           <CardDescription>
             วางบทความยาวๆ → AI วิเคราะห์และแบ่งเป็นฉาก → สร้างภาพแนวนอน (16:9) และแนวตั้ง (9:16) ทุกฉาก
-            เอาภาพไปทำวิดีโอต่อในหน้าอื่นได้เลย
+            สไตล์ Cyberpunk + Cyber Fantasy + Sci-Fi Concept Art
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -166,20 +167,43 @@ export function ImageStudio({ images, referencePhotos, onChanged }: ImageStudioP
             />
           </div>
 
-          {/* AI Model Selector */}
-          <div>
-            <label className="text-xs font-medium text-secondary/70 mb-1 block">AI Model สำหรับวิเคราะห์บทความ</label>
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full rounded-xl border border-line/20 bg-background px-3 py-2 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              {CHAT_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>{m.label}</option>
-              ))}
-            </select>
-            <p className="text-[10px] text-secondary/30 mt-1">การสร้างภาพใช้ Gemini AI (เป็น AI สร้างภาพที่ดีที่สุดตอนนี้)</p>
+          {/* Scene Count + AI Model Row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-secondary/70 mb-1 block">จำนวนฉาก</label>
+              <div className="flex gap-1.5">
+                {[2, 3, 4, 5, 6, 8, 10].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setSceneCount(n)}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all",
+                      sceneCount === n
+                        ? "bg-primary text-white"
+                        : "bg-line/10 text-secondary/60 hover:bg-line/20"
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-secondary/30 mt-1">×2 ภาพต่อฉาก = {sceneCount * 2} ภาพรวม</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-secondary/70 mb-1 block">AI Model วิเคราะห์</label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="w-full rounded-xl border border-line/20 bg-background px-3 py-2 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                {CHAT_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
+          <p className="text-[10px] text-secondary/30">🎨 สไตล์ภาพ: Cyberpunk + Cyber Fantasy + Sci-Fi Concept Art | สร้างภาพด้วย Gemini AI</p>
 
           {sceneError ? <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{sceneError}</p> : null}
 

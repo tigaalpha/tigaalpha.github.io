@@ -8,7 +8,7 @@ import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 import type { ChatModelId } from "../_shared/ai-provider.ts";
 
 const MAX_ARTICLE_LENGTH = 15000;
-const MAX_SCENES = 6;
+const MAX_SCENES = 10;
 
 interface SceneResult {
   sceneNumber: number;
@@ -29,7 +29,7 @@ Deno.serve(async (req: Request) => {
     const userId = await requireStaff(admin, req);
     await enforceRateLimit(admin, userId, "generate-article-images", { windowMinutes: 60, maxRequests: 5 });
 
-    const { article, model } = await req.json();
+    const { article, model, sceneCount } = await req.json();
     if (!article || typeof article !== "string") {
       return jsonResponse({ error: "article text is required" }, 400);
     }
@@ -38,16 +38,23 @@ Deno.serve(async (req: Request) => {
     }
 
     const modelId = (model as ChatModelId) || "gemini";
+    const numScenes = Math.min(Math.max(Number(sceneCount) || 4, 1), MAX_SCENES);
 
     // Step 1: Use AI to analyze the article and break it into scenes
-    const analysisPrompt = `You are a professional video storyboard artist. Analyze the following article and break it into ${MAX_SCENES} key visual scenes for video content.
+    const analysisPrompt = `You are a professional video storyboard artist and concept art director. Analyze the following article and break it into exactly ${numScenes} key visual scenes for video content.
+
+CRITICAL STYLE: Every image prompt MUST use this visual style blend:
+- Cyberpunk aesthetic (neon lights, holographic elements, dark atmospheric backgrounds)
+- Cyber Fantasy (futuristic magical elements, glowing energy, ethereal light)
+- Sci-Fi Concept Art (cinematic composition, detailed environment design, concept art quality)
+Mix these three styles seamlessly — neon-lit futuristic environments, holographic UI elements, glowing energy trails, dark moody atmospheres with vivid accent colors.
 
 For each scene, provide:
 1. A short title (in the same language as the article)
 2. A brief description of what the scene shows
-3. A detailed image generation prompt in English that describes the scene visually — include composition, lighting, mood, and style. Make it cinematic and suitable for both landscape (16:9) and portrait (9:16) formats.
+3. A detailed image generation prompt in English that describes the scene visually — include composition, lighting, mood, and the cyberpunk/cyber fantasy/sci-fi concept art style. Make it cinematic and suitable for both landscape (16:9) and portrait (9:16) formats.
 
-Return EXACTLY a JSON array with ${MAX_SCENES} objects, each with keys: "title", "description", "prompt". No markdown, no explanation — just the raw JSON array.
+Return EXACTLY a JSON array with exactly ${numScenes} objects, each with keys: "title", "description", "prompt". No markdown, no explanation — just the raw JSON array.
 
 Article:
 ${article.slice(0, 12000)}`;
@@ -68,6 +75,8 @@ ${article.slice(0, 12000)}`;
       if (!jsonMatch) throw new Error("No JSON array found");
       scenes = JSON.parse(jsonMatch[0]);
       if (!Array.isArray(scenes) || scenes.length === 0) throw new Error("Empty scenes array");
+      // Trim to requested count
+      scenes = scenes.slice(0, numScenes);
     } catch {
       return jsonResponse({ error: "AI could not parse article into scenes. Try a different article or shorter text." }, 422);
     }
@@ -76,7 +85,7 @@ ${article.slice(0, 12000)}`;
     const results: SceneResult[] = [];
     const savedImages: { prompt: string; mime_type: string; image_base64: string; created_by: string }[] = [];
 
-    for (let i = 0; i < Math.min(scenes.length, MAX_SCENES); i++) {
+    for (let i = 0; i < scenes.length; i++) {
       const scene = scenes[i];
       const sceneResult: SceneResult = {
         sceneNumber: i + 1,
