@@ -7,7 +7,7 @@ import { Piano, StaffSVG, pcOf } from "./music-engine";
    the other overlay components. SIGHT_ROUND is threaded as a prop rather
    than imported, since it's a module-top-level constant in App.tsx itself
    (importing it back would create a circular App.tsx <-> component import). ── */
-export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGHT_ROUND, sightScore, sightClef, pickSightClef, sightFeedback, sightTarget, sightHint, sightNoteClef, sightHandlerRef, sightSrc, openSight }) {
+export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGHT_ROUND, sightScore, sightClef, pickSightClef, sightFeedback, sightTarget, sightHint, sightNoteClef, sightHandlerRef, sightSrc, openSight, sightStreak = 0, sightPhrasePos = 0, sightPhraseLen = 3 }) {
   const lc = L[lang];
   return (
         <div className="practiceov sightov">
@@ -22,6 +22,7 @@ export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGH
                 <div className="songresult-acc">{sightDone.acc}%</div>
                 <div className="songresult-grid">
                   <div><span>{lc.sightScore}</span><b>{sightDone.correct}/{SIGHT_ROUND}</b></div>
+                  <div><span>{lc.sightBestStreak}</span><b>{sightDone.bestStreak || 0}</b></div>
                   <div><span>EXP</span><b>+{sightDone.reward}</b></div>
                 </div>
                 <div className="songready-btns">
@@ -33,7 +34,9 @@ export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGH
               <>
                 <div className="songhud">
                   <span>{lc.sightRoundLbl} <b>{Math.min(sightIdx + 1, SIGHT_ROUND)}/{SIGHT_ROUND}</b></span>
+                  <span className="sightphrase" title={lc.sightPhraseHint}>{"●".repeat(sightPhrasePos)}{"○".repeat(Math.max(0, sightPhraseLen - sightPhrasePos))}</span>
                   <span>{lc.sightScore} <b>{sightScore}</b></span>
+                  {sightStreak >= 2 && <span className="sightstreak">🔥 {sightStreak}</span>}
                 </div>
                 <div className="clefsel">
                   {[["treble", lc.sightTreble, "𝄞"], ["bass", lc.sightBass, "𝄢"], ["both", lc.sightBoth, "𝄞𝄢"]].map(([m, label, gly]) => (
@@ -42,7 +45,7 @@ export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGH
                     </button>
                   ))}
                 </div>
-                <div className={`staffwrap${sightFeedback ? (sightFeedback.ok ? " ok" : " bad") : ""}`}>
+                <div className={`staffwrap${sightFeedback ? (sightFeedback.ok ? " ok" + (sightFeedback.phraseClean ? " phraseclean" : "") : " bad") : ""}`}>
                   <StaffSVG note={sightTarget} clef={sightNoteClef} />
                 </div>
                 <div className={`sighthint${sightHint ? " show" : ""}`}>
