@@ -3,7 +3,7 @@ import {
   fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP,
   getAC, playPianoNote, playUi, stopPracticeListeners, startMidiListener, startMicListener,
 } from "./music-engine";
-import { logPractice, scoreDynamics } from "./App";
+import { logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY } from "./App";
 import { logActivity } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
@@ -97,6 +97,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceStreakRef = useRef(0);
   const practiceBestStreakRef = useRef(0);
   const practiceLabelRef = useRef("");
+  const practiceStageIdRef = useRef(null); // Pathway stage id this drill grades, if launched from learnTopic() — null for Studio/AI-custom drills
   const practiceHandlerRef = useRef(() => {});
   const practiceHeardTimer = useRef(null);
   const tuneOffsetRef = useRef(0); // learned piano tuning offset (cents), mic only
@@ -279,6 +280,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceStreakRef.current = 0;
     practiceBestStreakRef.current = 0;
     practiceLabelRef.current = seq.label || "";
+    practiceStageIdRef.current = seq.stageId || null;
     practiceActiveRef.current = true;
     setPracticeTarget(notes);
     setPracticeFingers(fingers);
@@ -392,7 +394,20 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       at: Date.now(),
     });
 
-    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, aiText: null, aiLoading: !isGuest });
+    // Pathway completion — requires actually passing THIS stage's own drill,
+    // not just having opened the lesson (see learnTopic()'s header comment).
+    // pathUnlocked only fires the first time a stage crosses the bar; playing
+    // it again afterward (e.g. chasing a better tier) updates the accuracy/
+    // tier silently without re-showing the unlock celebration.
+    let pathUnlocked = null;
+    if (practiceStageIdRef.current && accuracy >= PATH_PASS_ACCURACY) {
+      const wasAlreadyDone = pathDoneSet().has(practiceStageIdRef.current);
+      markPathDone(practiceStageIdRef.current);
+      markPathAccuracy(practiceStageIdRef.current, accuracy);
+      if (!wasAlreadyDone) pathUnlocked = { label, tier: pathTier(accuracy) };
+    }
+
+    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, aiText: null, aiLoading: !isGuest });
 
     // Bonus AI flourish on top of an already-complete local result — fetched
     // standalone (not through the shared chat thread/callClaude) so it can

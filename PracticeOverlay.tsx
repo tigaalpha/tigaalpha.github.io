@@ -31,8 +31,16 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
   const r = practiceResult;
   const dynPct = r.dyn ? Math.round(r.dyn.ok / (r.dyn.ok + r.dyn.miss) * 100) : null;
   const rhythmPct = r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null;
+  const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
   return (
     <div className="practicebody presultwrap">
+      {r.pathUnlocked && (
+        <div className="punlock">
+          <div className="punlock-ic">{tierIcon[r.pathUnlocked.tier] || "🏆"}</div>
+          <div className="punlock-tt">{lc.pathUnlockedTitle}</div>
+          <div className="punlock-sub">{r.pathUnlocked.label}</div>
+        </div>
+      )}
       <div className="presulthead">
         <div className="presulttitle">{lc.practiceResultTitle}</div>
         <div className="presultsub">{r.label}</div>

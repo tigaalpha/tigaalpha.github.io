@@ -320,6 +320,12 @@ html, body, #root{background:var(--bg)}
 .pgdesc{font-size:11px;color:var(--muted);font-family:'Rajdhani',sans-serif;margin-top:2px}
 .pgstep{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;flex-shrink:0}
 .pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+/* row-to-row trail inside a group — was previously only between the 4 group
+   islands (.ptrail below), leaving every individual stage disconnected */
+.pnode-connector{display:flex;align-items:center;justify-content:center;padding:2px 0;margin:-2px 0}
+.pnode-connector-line{width:100%;max-width:120px;height:3px;border-radius:2px;background:var(--bd4);opacity:.5}
+.pnode-connector-line.half{background:linear-gradient(90deg,var(--nc,#d97757),var(--bd4) 60%);opacity:.85}
+.pnode-connector-line.done{background:var(--nc,#d97757);opacity:.9;box-shadow:0 0 8px -2px var(--nc,#d97757)}
 /* ── v12 value pages (Today / Ear gym / Reading / Insights / Report) ── */
 .v12hero{text-align:center;padding:16px 12px 12px}
 .v12title{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--text);letter-spacing:1px}
@@ -347,7 +353,13 @@ html, body, #root{background:var(--bg)}
 .pcard{position:relative;display:flex;flex-direction:column;text-align:left;background:var(--card2);border:1px solid var(--bd1);border-top:2px solid var(--ac,#d97757);border-radius:13px;padding:13px;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s;overflow:hidden;font-family:'Rajdhani',sans-serif;color:var(--text2);min-height:152px;width:100%}
 .pcardglow{position:absolute;top:-30px;right:-30px;width:90px;height:90px;border-radius:50%;pointer-events:none}
 .pcard.done{border-color:#d9775755}
+.pcard.tier-bronze{border-color:#cd7f3277}
+.pcard.tier-silver{border-color:#c7d0daaa}
+.pcard.tier-gold{border-color:#ffd23faa;box-shadow:0 0 18px -8px #ffd23f99}
 .pcarddone{position:absolute;top:9px;right:9px;width:22px;height:22px;border-radius:50%;background:#d97757;color:var(--card2);font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px -2px #d97757;z-index:3}
+.pcard.tier-bronze .pcarddone{background:#cd7f32;box-shadow:0 0 12px -2px #cd7f32}
+.pcard.tier-silver .pcarddone{background:#a9b4c2;box-shadow:0 0 12px -2px #a9b4c2}
+.pcard.tier-gold .pcarddone{background:#ffd23f;box-shadow:0 0 12px -2px #ffd23f}
 .pcard.current{box-shadow:0 0 0 1px var(--ac,#d97757),0 0 22px -6px var(--ac,#d97757);animation:currentpulse 1.8s ease-in-out infinite}
 @keyframes currentpulse{0%,100%{box-shadow:0 0 0 1px var(--ac,#d97757),0 0 18px -8px var(--ac,#d97757)}50%{box-shadow:0 0 0 1px var(--ac,#d97757),0 0 26px -2px var(--ac,#d97757)}}
 .pcardhere{position:absolute;top:9px;right:9px;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:800;letter-spacing:.5px;color:var(--card2);background:var(--ac,#d97757);border-radius:6px;padding:3px 6px;z-index:3;animation:flamepulse 1s ease-in-out infinite alternate}
@@ -697,6 +709,13 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .presultai-h{font-family:'Share Tech Mono',monospace;font-size:10px;color:#d97757;letter-spacing:1px;margin-bottom:6px}
 .presultai-loading{color:var(--muted);animation:blink 1.2s infinite}
 .presultai-tx{font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap}
+/* Pathway-stage-unlock celebration — bigger/louder than the plain "new
+   personal best" line above, since crossing a whole stage is a bigger deal
+   than one drill's record. Reuses the level-up card's bounce entrance. */
+.punlock{display:flex;flex-direction:column;align-items:center;gap:2px;padding:16px 12px;margin-bottom:4px;border-radius:14px;background:linear-gradient(180deg,rgba(255,210,63,.16),rgba(217,119,87,.08));border:1px solid #ffd23f55;animation:lvbounce .5s cubic-bezier(.34,1.56,.64,1)}
+.punlock-ic{font-size:44px;line-height:1;filter:drop-shadow(0 0 14px #ffd23f88);animation:chestwiggle 1.4s ease-in-out infinite}
+.punlock-tt{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:#ffd23f;text-shadow:0 0 14px #ffd23f77;margin-top:4px}
+.punlock-sub{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text2)}
 .practicefoot button{flex:1;padding:12px;border-radius:11px;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1.5px;cursor:pointer;transition:all .2s;border:1px solid}
 .practicerestart{border-color:#d9775755!important;background:rgba(217,119,87,.08);color:#d97757}
 .practiceexit{border-color:#ff525255!important;background:rgba(255,82,82,.08);color:#d97757}
