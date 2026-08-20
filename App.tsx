@@ -81,6 +81,9 @@ import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
 import { useChat } from "./use-chat";
 import { useVoiceTutor } from "./use-voice-tutor";
+import { LeadLandingPage } from "./LeadLandingPage";
+import { PianoLevelQuiz } from "./PianoLevelQuiz";
+import { ReferralDashboard } from "./ReferralDashboard";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -6515,7 +6518,10 @@ function AdminPage({ lang, onExit, adminTier }) {
 
       <AdminNav lang={lang} tier={tier} adminTab={adminTab} setAdminTab={setAdminTab} />
 
-      {adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
+      {adminTab === "leadlanding" ? <LeadLandingPage lang={lang} />
+        : adminTab === "leadreferral" ? <ReferralDashboard lang={lang} />
+        : adminTab === "leadquiz" ? <PianoLevelQuiz lang={lang} />
+        : adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
         : adminTab === "schools" ? <AdminSchools lang={lang} viewerTier={tier} />
         : adminTab === "payments" && tier >= 3 ? <AdminPayments lang={lang} />
         : adminTab === "videos" && tier >= 3 ? <AdminVideos lang={lang} />

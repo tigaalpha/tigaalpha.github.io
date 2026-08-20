@@ -256,6 +256,11 @@ const ADMIN_NAV_GROUPS = [
     { id: "payments", icon: "💳", tier: 3, th: "ชำระเงิน", en: "Payments", zh: "付款" },
     { id: "analytics", icon: "📊", tier: 3, th: "สถิติ", en: "Analytics", zh: "统计" },
   ]},
+  { id: "leadsale", icon: "🎯", th: "Lead Sale", en: "Lead Sale", zh: "获客与销售", items: [
+    { id: "leadlanding", icon: "🌐", tier: 0, th: "Landing Page", en: "Landing Page", zh: "落地页" },
+    { id: "leadreferral", icon: "🎁", tier: 0, th: "แนะนำเพื่อน", en: "Referral", zh: "推荐奖励" },
+    { id: "leadquiz", icon: "🎵", tier: 0, th: "Quiz ระดับเปียโน", en: "Piano Level Quiz", zh: "钢琴等级测试" },
+  ]},
   { id: "engage", icon: "📣", th: "การตลาดและกิจกรรม", en: "Marketing & Events", zh: "营销与活动", items: [
     { id: "broadcast", icon: "📢", tier: 3, th: "ประกาศ", en: "Broadcast", zh: "公告" },
     { id: "event", icon: "🎉", tier: 3, th: "อีเว้นท์", en: "Event", zh: "活动" },
