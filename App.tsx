@@ -84,6 +84,7 @@ import { useVoiceTutor } from "./use-voice-tutor";
 import { LeadLandingPage } from "./LeadLandingPage";
 import { PianoLevelQuiz } from "./PianoLevelQuiz";
 import { ReferralDashboard } from "./ReferralDashboard";
+import { LeadSaleDashboard } from "./LeadSaleDashboard";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -6518,7 +6519,8 @@ function AdminPage({ lang, onExit, adminTier }) {
 
       <AdminNav lang={lang} tier={tier} adminTab={adminTab} setAdminTab={setAdminTab} />
 
-      {adminTab === "leadlanding" ? <LeadLandingPage lang={lang} />
+      {adminTab === "leadsale" ? <LeadSaleDashboard lang={lang} />
+        : adminTab === "leadlanding" ? <LeadLandingPage lang={lang} />
         : adminTab === "leadreferral" ? <ReferralDashboard lang={lang} />
         : adminTab === "leadquiz" ? <PianoLevelQuiz lang={lang} />
         : adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
