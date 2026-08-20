@@ -71,12 +71,12 @@ const TYPE_CONFIG: Record<
 };
 
 const AGENT_DEPARTMENTS = [
-  { key: "sales", label: "ฝ่ายขาย", icon: TrendingUp, color: "text-blue-400" },
-  { key: "marketing", label: "ฝ่ายการตลาด", icon: Megaphone, color: "text-pink-400" },
-  { key: "finance", label: "ฝ่ายการเงิน", icon: CreditCard, color: "text-emerald-400" },
-  { key: "ops", label: "ฝ่ายปฏิบัติการ", icon: CheckCircle2, color: "text-amber-400" },
-  { key: "content", label: "ฝ่ายเนื้อหา", icon: Sparkles, color: "text-purple-400" },
-  { key: "research", label: "ฝ่ายวิจัย", icon: Bell, color: "text-cyan-400" },
+  { key: "sales", label: "ฝ่ายขาย", icon: TrendingUp, color: "text-blue-400", href: "/lead-sale" },
+  { key: "marketing", label: "ฝ่ายการตลาด", icon: Megaphone, color: "text-pink-400", href: "/marketing-dashboard" },
+  { key: "finance", label: "ฝ่ายการเงิน", icon: CreditCard, color: "text-emerald-400", href: "/accounting" },
+  { key: "ops", label: "ฝ่ายปฏิบัติการ", icon: CheckCircle2, color: "text-amber-400", href: "/calendar" },
+  { key: "content", label: "ฝ่ายเนื้อหา", icon: Sparkles, color: "text-purple-400", href: "/content" },
+  { key: "research", label: "ฝ่ายวิจัย", icon: Bell, color: "text-cyan-400", href: "/strategy" },
 ];
 
 function timeAgo(dateStr: string): string {
@@ -266,16 +266,18 @@ export function AgentFAB() {
                   {AGENT_DEPARTMENTS.map((dept) => {
                     const DeptIcon = dept.icon;
                     return (
-                      <div
+                      <Link
                         key={dept.key}
-                        className="flex flex-col items-center gap-1 rounded-xl bg-line/5 p-2 text-center transition hover:bg-line/10"
+                        href={dept.href}
+                        onClick={() => setOpen(false)}
+                        className="flex flex-col items-center gap-1 rounded-xl bg-line/5 p-2 text-center transition hover:bg-line/10 hover:scale-105 active:scale-95"
                       >
                         <DeptIcon className={`h-4 w-4 ${dept.color}`} />
                         <span className="text-[10px] text-secondary/60">
                           {dept.label}
                         </span>
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>
