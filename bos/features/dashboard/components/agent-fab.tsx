@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
-  Bot,
+  Brain,
   X,
   Bell,
   GraduationCap,
@@ -183,7 +183,7 @@ export function AgentFAB() {
           <X className="h-6 w-6" />
         ) : (
           <div className="relative">
-            <Bot className="h-6 w-6" />
+            <Brain className="h-6 w-6" />
             {totalBadge > 0 && (
               <span className="absolute -right-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                 {totalBadge > 99 ? "99+" : totalBadge}
@@ -207,7 +207,7 @@ export function AgentFAB() {
             <div className="sticky top-0 z-10 border-b border-line/10 bg-card/95 backdrop-blur px-4 py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-primary" />
+                  <Brain className="h-5 w-5 text-primary" />
                   <h3 className="text-sm font-semibold text-secondary">
                     AI Agents
                   </h3>
@@ -404,7 +404,7 @@ export function AgentFAB() {
                 pendingApprovals === 0 &&
                 unreadChats === 0 && (
                   <div className="px-4 py-8 text-center">
-                    <Bot className="mx-auto mb-2 h-8 w-8 text-secondary/20" />
+                    <Brain className="mx-auto mb-2 h-8 w-8 text-secondary/20" />
                     <p className="text-xs text-secondary/40">
                       ไม่มีข้อความใหม่จาก AI Agents
                     </p>
