@@ -47,6 +47,12 @@ import {
   CalendarHeart,
   Sparkles,
   BadgeCheck,
+  Filter,
+  Globe,
+  Mail,
+  Gift,
+  Layout,
+  DollarSign,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -105,9 +111,12 @@ const NAV_GROUPS: NavGroup[] = [
     label: "🎯 Lead Sale",
     items: [
       { href: "/lead-sale", label: "แดชบอร์ด Lead", icon: TrendingUp },
+      { href: "/funnel", label: "Sales Funnel", icon: Filter },
       { href: "/lead-sale/private", label: "คอร์ส Private ตัวต่อตัว", icon: Users, ownerOnly: true },
       { href: "/lead-sale/video", label: "คอร์สวิดีโอ", icon: Clapperboard, ownerOnly: true },
       { href: "/lead-sale/tiga-ai", label: "TIGA AI (ฟรี)", icon: Smartphone },
+      { href: "/referral-tracking", label: "Referral Tracking", icon: Gift },
+      { href: "/lead-quiz", label: "Lead Quiz", icon: Target },
     ],
   },
   {
@@ -125,8 +134,12 @@ const NAV_GROUPS: NavGroup[] = [
     id: "content-marketing",
     label: "Content & Marketing",
     items: [
+      { href: "/marketing-roi", label: "Marketing ROI", icon: DollarSign, ownerOnly: true },
       { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
       { href: "/content", label: "SEO/AEO Content", icon: FileText },
+      { href: "/seo-publish", label: "SEO Publish Pipeline", icon: Globe },
+      { href: "/landing-pages", label: "Landing Pages", icon: Layout },
+      { href: "/drip-campaign", label: "Drip Campaign", icon: Mail },
       { href: "/course-writer", label: "Online Course Writer", icon: GraduationCap },
       { href: "/app-ad-kit", label: "App Ad Kit", icon: Smartphone },
       { href: "/images", label: "Image Studio", icon: ImageIcon },
