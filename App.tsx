@@ -3373,10 +3373,10 @@ function markBroadcastSeen(id) { try { localStorage.setItem(BROADCAST_SEEN_KEY, 
 // powers the small "recent tips" dashboard list. Not synced server-side.
 const AUTOTEACH_LOG_KEY = "tg_autoteach_log";
 function readAutoTeachLog() { try { return JSON.parse(localStorage.getItem(AUTOTEACH_LOG_KEY) || "[]") || []; } catch (e) { return []; } }
-function logAutoTeachTip(weakness, tip, feature) {
+function logAutoTeachTip(weakness, tip, feature, topic) {
   try {
     const log = readAutoTeachLog();
-    log.push({ t: Date.now(), d: dayKey(), weakness: String(weakness || ""), tip: String(tip || ""), feature: feature || "pathway" });
+    log.push({ t: Date.now(), d: dayKey(), weakness: String(weakness || ""), tip: String(tip || ""), feature: feature || "pathway", topic: topic || "" });
     localStorage.setItem(AUTOTEACH_LOG_KEY, JSON.stringify(log.slice(-50)));
   } catch (e) {}
 }
@@ -3769,7 +3769,11 @@ function coachStatsToText(s) {
 // either component) since it only needs `lang`/`profile` and the module-level helpers above.
 async function generateCoachTip(lang, profile) {
   const mem = readMemory();
-  const struggle = (mem.struggles || [])[0];
+  // Prefer a struggle that hasn't already been surfaced in the last few tips — repeating
+  // the identical weak spot every time it fires reads as nagging. Falls back to the top
+  // struggle anyway when it's genuinely the only one on record (still real, worth saying).
+  const recentTopics = new Set(readAutoTeachLog().slice(-5).map(t => t.topic).filter(Boolean));
+  const struggle = (mem.struggles || []).find(s => !recentTopics.has(s.label)) || (mem.struggles || [])[0];
   const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
   const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "—";
   const profileTxt = coachStatsToText(computeCoachStats(profile, lang));
@@ -3821,6 +3825,7 @@ async function generateCoachTip(lang, profile) {
   const obj = JSON.parse(jsonTxt);
   if (!COACH_FEATURE_LABELS[obj.feature]) obj.feature = "pathway"; // guard against a hallucinated key
   obj.steps = obj.steps.slice(0, 3); // enforce the "at most 3" cap even if the model overshoots
+  obj.topic = struggle ? struggle.label : null; // so the caller can log it and this fn can dodge repeats next time
   return obj;
 }
 // Adaptive routing: a soft nudge toward fixing a critically weak skill instead
@@ -4570,7 +4575,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
                 <div className="atdash-last-d">{new Date(last.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
               </div>
             ) : (
-              <div className="atdash-empty">{lang === "th" ? "ยังไม่มีคำแนะนำ — กลับไปหน้าเส้นทางการเรียนรู้เพื่อรับคำแนะนำแบบเรียลไทม์" : lang === "zh" ? "暂无建议——返回学习路径页面以获得实时指导" : "No tips yet — head to the Pathway page to get real-time coaching"}</div>
+              <div className="atdash-empty">{lang === "th" ? "ยังไม่มีคำแนะนำ — ไปฝึกที่หน้าไหนก็ได้ในแอป แล้วครู TiGA จะแนะนำแบบเรียลไทม์ให้เอง" : lang === "zh" ? "暂无建议——在应用里练习任意内容，TiGA老师会实时给你建议" : "No tips yet — practice anywhere in the app and Coach TiGA will chime in with real-time tips"}</div>
             )}
           </div>
         );
@@ -4803,8 +4808,9 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
 });
 
 /* ── Daily Mentor page: shows practice stats, 7-day activity chart, and weak spots. ── */
-const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
+const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const isMax = isMaxPlan(plan) || (profile && profile.is_admin);
   const stats = useMemo(() => computeCoachStats(profile, lang), [profile, lang]);
   const accDelta = stats.acc7 != null && stats.accPrev != null ? stats.acc7 - stats.accPrev : null;
   const hasData = readActLog().length > 0;
@@ -4973,6 +4979,11 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
                       <span style={{ fontWeight: 700, color: "#d97757" }}>
                         {T(`${mins} นาที/วัน`, `${mins} min/day`, `每天 ${mins} 分钟`)}
                       </span>
+                      {/* citation chip — grounds the suggestion in the exact tally it came from,
+                          instead of reading like an unexplained assertion */}
+                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 8, background: "var(--card3)", color: "var(--muted)", verticalAlign: "middle" }}>
+                        📊 {T(`จาก ${w.n} ครั้ง · พลาด ${w.rate}%`, `from ${w.n} tries · ${w.rate}% miss`, `来自${w.n}次 · 错误${w.rate}%`)}
+                      </span>
                     </div>
                   );
                 })}
@@ -4988,6 +4999,43 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
             {T("ยังไม่มีข้อมูลการซ้อม — เริ่มฝึกในสตูดิโอแล้วกลับมาดูข้อมูลที่นี่", "No practice data yet — start a session in Studio to see your stats here.", "暂无练习数据——先去练习，数据会自动显示在这里。")}
           </div>
         )}
+
+        {/* Free-tier teaser: everything above this line is real, free, deterministic
+            data (zero AI cost) — genuinely useful on its own, not a fake preview. Only
+            the two things that actually cost AI tokens (the written weekly report and
+            the personalized 7-day plan) are gated, and shown here as a blurred, honest
+            preview built from the learner's own real numbers rather than lorem text. */}
+        {!isMax && (() => {
+          const top = stats.weakest[0];
+          const teaserTxt = stats.acc7 != null && top
+            ? T(
+                `สัปดาห์นี้ซ้อมไป ${stats.days7}/7 วัน แม่นยำเฉลี่ย ${stats.acc7}% จุดที่ควรโฟกัสคือ ${top.label} — ครู TiGA เขียนแผนซ้อม 7 วันโดยเฉพาะให้คุณแล้ว พร้อมคำอธิบายละเอียดทีละขั้นตอนว่าทำไมถึงพลาดและควรแก้อย่างไร รวมถึงเพลงและแบบฝึกหัดที่เลือกมาเฉพาะสำหรับจุดอ่อนของคุณโดยตรง...`,
+                `This week you practiced ${stats.days7}/7 days at ${stats.acc7}% average accuracy. Your focus area is ${top.label} — Coach TiGA has already written a personalized 7-day plan explaining exactly why you're missing it and how to fix it, with songs and drills chosen specifically for your weak spot...`,
+                `本周练习了${stats.days7}/7天，平均准确率${stats.acc7}%。你的重点是${top.label}——TiGA老师已经为你写好7天专属计划，详细说明失误原因和改进方法，并挑选了针对你薄弱环节的曲目和练习...`
+              )
+            : T(
+                "ครู TiGA พร้อมเขียนรายงานความก้าวหน้ารายสัปดาห์และแผนซ้อม 7 วันที่ออกแบบเฉพาะคุณ ทันทีที่มีข้อมูลการซ้อมมากพอ...",
+                "Coach TiGA is ready to write your weekly progress report and a personalized 7-day plan as soon as there's enough practice data...",
+                "只要有足够的练习数据，TiGA老师就会为你撰写每周进度报告和专属7天计划..."
+              );
+          return (
+            <div style={{ marginTop: 18, padding: 14, background: "var(--card2)", borderRadius: 14, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 10 }}>
+                📋 {T("รายงาน AI รายสัปดาห์ + แผนซ้อม 7 วัน", "Your AI Weekly Report + 7-Day Plan", "AI周报告 + 7天计划")}
+              </div>
+              <div style={{ position: "relative" }}>
+                <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8, filter: "blur(3.5px)", userSelect: "none" }} aria-hidden="true">
+                  {teaserTxt}
+                </div>
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <button className="songbtn go" onClick={onUpsell}>
+                    🔓 {T("ปลดล็อกด้วย Max", "Unlock with Max", "升级Max解锁")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -5952,9 +6000,9 @@ function AdminAutoTeach({ lang }) {
       <div className="admmg">
         <div className="admmg-h">⏱️ {T("ความถี่ Auto Teaching (ค่าเริ่มต้นทั้งระบบ)", "Auto Teaching frequency (platform default)", "自动教学频率（系统默认）")}</div>
         <div className="admstu-row-sub" style={{ marginBottom: 10 }}>
-          {T("ทุกกี่นาทีจะมี pop up จากครู AI แนะนำจุดอ่อนระหว่างที่ผู้เรียน Max อยู่หน้าเส้นทางการเรียนรู้ ผู้เรียนสามารถตั้งค่าของตัวเองทับค่านี้ได้",
-            "How often the AI coach pops up with a real-time tip while a Max learner is on the Pathway (home) page. Learners can override this with their own pick.",
-            "Max 学员在学习路径页面时，AI 教练多久弹出一次实时建议。学员可以设置自己的偏好覆盖此默认值。")}
+          {T("ทุกกี่นาทีจะมี pop up จากครู AI แนะนำจุดอ่อน ระหว่างที่ผู้เรียน Max ใช้งานแอปอยู่ (ทุกหน้า ยกเว้นหน้าแอดมิน/โรงเรียน) ผู้เรียนสามารถตั้งค่าของตัวเองทับค่านี้ได้",
+            "How often the AI coach pops up with a real-time tip while a Max learner is anywhere in the app (every page except admin/school dashboards). Learners can override this with their own pick.",
+            "Max 学员在应用内任意页面时（管理员/学校后台除外），AI 教练多久弹出一次实时建议。学员可以设置自己的偏好覆盖此默认值。")}
         </div>
         <div className="setlangs">
           <button className={`setlangbtn${min === 0 ? " on" : ""}`} disabled={busy} onClick={() => save(0)}>{T("ปิด", "Off", "关闭")}</button>
@@ -5968,8 +6016,55 @@ function AdminAutoTeach({ lang }) {
   );
 }
 
-/* ── Admin: broadcast a popup announcement (text + optional image) to every learner's
-   home page, on demand — a one-off push, not a recurring schedule like Auto Teaching. ── */
+/* ── Admin: Weekly Report auto-push — a Monday pg_cron job (see the
+   weekly-report Edge Function) nudges every active Max learner that their
+   Daily Mentor report is ready, deep-linking straight into it. Off by
+   default (the function no-ops until this flips to true) so shipping the
+   cron schedule itself is inert until an admin deliberately turns it on. ── */
+function AdminWeeklyReport({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [enabled, setEnabled] = useState(null); // null = loading
+  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    sb.from("app_settings").select("value").eq("key", "weekly_report").maybeSingle()
+      .then(({ data }) => setEnabled(!!(data && data.value && data.value.enabled)), () => setEnabled(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  async function save(v) {
+    setBusy(true); setSaved(false);
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "weekly_report", p_value: { enabled: v } });
+    setBusy(false);
+    if (!error) { setEnabled(v); setSaved(true); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
+  }
+  if (enabled === null) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
+  return (
+    <div className="admstu">
+      <div className="admmg">
+        <div className="admmg-h">📊 {T("Push รายงานประจำสัปดาห์ (ทุกวันจันทร์)", "Weekly report push (every Monday)", "每周报告推送（每周一）")}</div>
+        <div className="admstu-row-sub" style={{ marginBottom: 10, whiteSpace: "normal" }}>
+          {T("ส่ง push แจ้งผู้เรียน Max ที่ยังใช้งานอยู่ทุกคนว่ารายงาน Daily Mentor ของสัปดาห์นี้พร้อมแล้ว แตะแล้วเข้าหน้ารายงานจริงทันที (ไม่ใช่ AI เขียนข้อความส่ง เป็นเทมเพลตพร้อมสตรีคจริงของแต่ละคน) ผู้เรียนที่ไม่ใช่ Max จะไม่ได้รับ",
+            "Pushes every active Max learner a reminder that this week's Daily Mentor report is ready, deep-linking straight into the real page (a template with each learner's real streak — not an AI-written message). Free/lapsed learners are never sent this.",
+            "向所有仍在有效期内的 Max 学员推送提醒，告知本周 Daily Mentor 报告已生成，点击直达真实报告页面（使用模板+每位学员的真实连续天数，非AI生成文字）。非Max学员不会收到。")}
+        </div>
+        <div className="setlangs">
+          <button className={`setlangbtn${enabled === false ? " on" : ""}`} disabled={busy} onClick={() => save(false)}>{T("ปิด", "Off", "关闭")}</button>
+          <button className={`setlangbtn${enabled === true ? " on" : ""}`} disabled={busy} onClick={() => save(true)}>{T("เปิด", "On", "开启")}</button>
+        </div>
+        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
+        {!enabled && (
+          <div className="admstu-row-sub" style={{ marginTop: 10, opacity: .75 }}>
+            {T("ปัจจุบันปิดอยู่ — ตารางส่งวันจันทร์ทำงานอยู่เบื้องหลังแล้วแต่ไม่ส่งอะไรจนกว่าจะเปิดสวิตช์นี้", "Currently off — the Monday schedule already runs in the background but sends nothing until this switch is on.", "目前已关闭——周一的定时任务已在后台运行，但在开启此开关前不会发送任何内容。")}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Admin: broadcast a popup announcement (text + optional image) to every learner,
+   wherever they are in the app, on demand — a one-off push, not a recurring schedule
+   like Auto Teaching. ── */
 function AdminBroadcast({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [cur, setCur] = useState(undefined); // undefined = loading, null = never sent one, object = current
@@ -6004,11 +6099,11 @@ function AdminBroadcast({ lang }) {
   return (
     <div className="admstu">
       <div className="admmg">
-        <div className="admmg-h">📢 {T("ส่งประกาศเด้งหน้าแรก", "Send a home-page popup", "发送首页弹窗公告")}</div>
+        <div className="admmg-h">📢 {T("ส่งประกาศเด้งป๊อปอัป", "Send a popup announcement", "发送弹窗公告")}</div>
         <div className="admstu-row-sub" style={{ marginBottom: 10, whiteSpace: "normal" }}>
-          {T("ข้อความนี้จะเด้งเป็น pop-up ที่หน้าเส้นทางการเรียนรู้ของผู้เรียนทุกคน (เห็นภายในไม่ถึงนาที)",
-            "This shows as a popup on every learner's Pathway (home) page — live within under a minute.",
-            "此消息将以弹窗形式出现在所有学员的学习路径（首页）——不到一分钟内生效。")}
+          {T("ข้อความนี้จะเด้งเป็น pop-up ให้ผู้เรียนทุกคนเห็น ไม่ว่าจะอยู่หน้าไหนของแอป (เห็นภายในไม่ถึงนาที)",
+            "This shows as a popup for every learner, wherever they are in the app — live within under a minute.",
+            "此消息将以弹窗形式出现在所有学员面前，无论他们在应用的哪个页面——不到一分钟内生效。")}
         </div>
         <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={3} className="admstu-search"
           placeholder={T("พิมพ์ข้อความประกาศ...", "Write the announcement...", "输入公告内容…")}
@@ -6609,6 +6704,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "analytics" && tier >= 3 ? <AdminAnalytics lang={lang} />
         : adminTab === "autoteach" && tier >= 2 ? <AdminAutoTeach lang={lang} />
         : adminTab === "broadcast" && tier >= 3 ? <AdminBroadcast lang={lang} />
+        : adminTab === "weeklyreport" && tier >= 3 ? <AdminWeeklyReport lang={lang} />
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
@@ -6858,10 +6954,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     navigator.serviceWorker.addEventListener("message", onMsg);
     return () => navigator.serviceWorker.removeEventListener("message", onMsg);
   }, []);
+  // Tapping a push notification while the app is already open just focuses the
+  // existing tab (sw.js can't navigate a client it doesn't own) — so the SW posts
+  // a NAVIGATE message into it instead of relying on the URL hash a fresh launch
+  // would read. Same channel as SW_RELOAD/SW_UPDATED above, different message type.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onNav = (e) => { if (e.data && e.data.type === "NAVIGATE" && e.data.page) setPage(e.data.page); };
+    navigator.serviceWorker.addEventListener("message", onNav);
+    return () => navigator.serviceWorker.removeEventListener("message", onNav);
+  }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
   const { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer });
 
-  // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer while on the Pathway page) ──
+  // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
   useEffect(() => {
     if (!session) return;
@@ -7012,8 +7118,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
   }, [profile]);
 
-  // ── Auto Teaching: while a Max-plan learner is on the Home page, fire a short
-  // real-time coaching card every N minutes (learner's own pick, else the admin's platform default). ──
+  // Weekly-report push deep link (cold launch only — the app wasn't already
+  // running, so there's no service-worker client to postMessage into; see the
+  // NAVIGATE listener below for the "already open" case).
+  useEffect(() => {
+    if (window.location.hash === "#daily-mentor") setPage("coach");
+  }, []);
+
+  // ── Auto Teaching: while a Max-plan learner is anywhere in the app (any page except
+  // the admin/teacher dashboards, where a beginner-coaching card makes no sense), fire a
+  // short real-time coaching card every N minutes (learner's own pick, else the admin's
+  // platform default). ──
   const autoTeachTipRef = useRef(null);
   useEffect(() => { autoTeachTipRef.current = autoTeachTip; }, [autoTeachTip]);
   // Read fresh inside the timer callback instead of gating the effect below on `page` —
@@ -7024,14 +7139,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => { pageRef.current = page; }, [page]);
   useEffect(() => { songAutoLoopRef.current = songAutoLoop; }, [songAutoLoop]);
   async function fetchAutoTeachTip() {
-    if (pageRef.current !== "pathway") return; // only surface the card while actually on Pathway
+    // App-wide now (was Pathway-only) — admin/school are role dashboards, not learner
+    // practice contexts, so a beginner-coaching card there would be talking about a
+    // profile that isn't the person looking at the screen.
+    if (pageRef.current === "admin" || pageRef.current === "school") return;
     if (autoTeachTipRef.current || autoTeachBusyRef.current) return; // don't clobber an unread tip
     autoTeachBusyRef.current = true;
     try {
       const obj = await generateCoachTip(lang, profile);
       if (obj) {
         setAutoTeachTip(obj);
-        logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature);
+        logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature, obj.topic);
       }
     } catch (e) { /* a missed real-time tip silently skips — not worth an error popup mid-practice */ }
     autoTeachBusyRef.current = false;
@@ -7821,8 +7939,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: PROFILE ─── */}
       {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} />}
 
-      {/* ─── PAGE: COACH (Max plan) ─── */}
-      {page === "coach" && <CoachPage lang={lang} profile={profile} onNavigate={handleCoachNavigate} />}
+      {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
+      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
       {page === "gamepage" && <GamesPage lang={lang} />}
@@ -7845,7 +7963,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         {[
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
           { p: "sensei", ic: "◈", c: "#d97757", t: lc.navSensei },
-          { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
+          // free preview inside; the Max-only AI report/plan is upsold there, not walled off at the nav
+          { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor" },
           { p: "studio", sv: "songs", ic: "🎵", c: "#d97757", t: lc.studioPlayAlong },
           { p: "studio", sv: "menu", ic: "▶", c: "#d97757", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
@@ -7983,6 +8102,28 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   <div style={{ fontSize: "13.5px", lineHeight: 1.75, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "pre-wrap", padding: "4px 0 8px" }}>
                     {aiModalText}
                   </div>
+                  {/* Citation chips — the paragraph above is AI-written, but grounded in
+                      these exact real numbers (the same ones baked into its prompt as
+                      `ctx`), so the claim isn't just taken on faith. */}
+                  {(() => {
+                    const cs = computeCoachStats(profile, lang);
+                    const top = cs.weakest[0];
+                    const bits = [
+                      `🔥 ${cs.streak}${lang === "th" ? " วันติด" : lang === "zh" ? "天连续" : "-day streak"}`,
+                      cs.acc7 != null ? `🎯 ${cs.acc7}%` : null,
+                      top ? `📊 ${top.label}` : null,
+                    ].filter(Boolean);
+                    return bits.length ? (
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, margin: "0 0 10px" }}>
+                        <span style={{ fontSize: 10, color: "var(--muted)" }}>
+                          {lang === "th" ? "อิงจากข้อมูลจริงของคุณ:" : lang === "zh" ? "基于你的真实数据：" : "Based on your real data:"}
+                        </span>
+                        {bits.map((b, i) => (
+                          <span key={i} style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "var(--card3)", color: "var(--text2)" }}>{b}</span>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                   <button className="songbtn" style={{ width: "100%", marginTop: 4 }}
                     onClick={() => { setAiModalText(""); setAiModalLoading(false); }}>
                     {lang === "th" ? "🔄 สร้างใหม่" : lang === "zh" ? "🔄 重新生成" : "🔄 Regenerate"}
@@ -8514,7 +8655,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* Auto Teaching — real-time coaching card (Max plan, fires on a timer while on the Pathway page) */}
-      {autoTeachTip && !(broadcast && page === "pathway") && (
+      {autoTeachTip && !broadcast && (
         <div className="atpopup" onClick={() => setAutoTeachTip(null)}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>
             <div className="atpopup-hd">

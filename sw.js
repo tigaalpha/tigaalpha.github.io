@@ -29,7 +29,7 @@ self.addEventListener("push", e => {
       tag: data.tag || "tiga-notify",
       icon: "/icon.svg",
       badge: "/icon.svg",
-      data: { url: data.url || "./" },
+      data: { url: data.url || "./", page: data.page || null },
     })
   );
 });
@@ -37,9 +37,16 @@ self.addEventListener("push", e => {
 self.addEventListener("notificationclick", e => {
   e.notification.close();
   const url = (e.notification.data && e.notification.data.url) || "./";
+  const page = (e.notification.data && e.notification.data.page) || null;
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
-      for (const c of list) { if ("focus" in c) return c.focus(); }
+      // An already-open tab can only be focused, not navigated, from here — so
+      // hand it a NAVIGATE message and let the app's own router act on it
+      // (see App.tsx's serviceWorker message listener). A fresh launch instead
+      // opens `url` directly, whose #hash the app reads once on boot.
+      for (const c of list) {
+        if ("focus" in c) { if (page) c.postMessage({ type: "NAVIGATE", page }); return c.focus(); }
+      }
       if (self.clients.openWindow) return self.clients.openWindow(url);
     })
   );
