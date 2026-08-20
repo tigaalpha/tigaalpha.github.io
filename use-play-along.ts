@@ -4,6 +4,7 @@ import {
   pcOf, stopPracticeListeners, startMidiListener, startMicListener, laneHue, roundRect,
   SONG_LEAD, SONG_HITWINDOW, SONG_PERFECT, SONG_DEBOUNCE_MS, SONG_ECHO_MS, SONG_MISSWINDOW,
   expandSong, normalizeSeq, noteKeyFrac, _PC, playBackingChord, songTonic,
+  songTechniqueProfile, estimateSongDifficulty,
 } from "./music-engine";
 import { tr } from "./i18n";
 import { SONGS, SONG_TIMESIG } from "./songs-data";
@@ -715,7 +716,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       };
       const songName = tr(songMeta, lang);
       const seqStr = JSON.stringify((songMeta.seq || []).slice(0, 20));
-      const prompt = `Rearrange the piano melody "${songName}" in a ${styleDesc[style] || style} style for a beginner falling-notes game. The original melody starts: ${seqStr}. Keep it recognizable but add ${style} character. 20-32 notes.`;
+      // Same weakness-targeting as Compose (App.tsx composeGenerate) — if this song's
+      // own post-play analysis flagged a weak spot, ask the rearrangement to work it in.
+      const weaknessNote = songAnalysis && songAnalysis.weakness
+        ? ` Also, gently work in a little extra practice for this weak spot from the last run without making it feel like a drill: ${songAnalysis.weakness}.`
+        : "";
+      const prompt = `Rearrange the piano melody "${songName}" in a ${styleDesc[style] || style} style for a beginner falling-notes game. The original melody starts: ${seqStr}. Keep it recognizable but add ${style} character. 20-32 notes.${weaknessNote}`;
       const sys = "Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes: C4-B5 only; R=rest; beats: 0.5,1,1.5,2.";
       const acc = await streamChatCompletion({ message: prompt, conversationHistory: [], system: sys, feature: "song-style" });
       const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
@@ -725,7 +731,11 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       const styleLabel = { jazz: "Jazz", pop: "Pop", classical: "Classical" }[style] || style;
       const name = `${songName} (${styleLabel})`;
       const bpm = Math.min(180, Math.max(60, Math.round(obj.bpm || (songMeta.bpm || 90))));
-      const newSong = { id: "style_" + Date.now(), diff: songMeta.diff || 2, bpm, custom: true, th: name, en: name, zh: name, seq };
+      // Re-scored from the actual rearranged notes, not inherited from the original —
+      // a jazz/syncopated rework can be genuinely harder than the source song even
+      // though the melody is "the same," so the old song's diff can't be trusted here.
+      const diff = estimateSongDifficulty(songTechniqueProfile({ seq }));
+      const newSong = { id: "style_" + Date.now(), diff, bpm, custom: true, th: name, en: name, zh: name, seq };
       songDataRef.current = expandSong(newSong);
       setSongResult(null); setSongAnalysis(null); setSongPhase("ready");
       setSongMeta(newSong);

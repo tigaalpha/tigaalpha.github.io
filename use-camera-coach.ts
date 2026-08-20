@@ -44,6 +44,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen }) {
   const camRunRef = useRef(false);
   const camMsgRef = useRef("");
   const handRoundFramesRef = useRef({ good: 0, total: 0 }); // Technique skill: hand-shape frames this session — see exitCamera()
+  const camLastRoundRef = useRef({ hands: 0, avgRoundness: null }); // latest live handRoundness() reading — fed to analyzeHands() so the AI critique is grounded in the same geometry the live tip already uses, not re-derived from the photo alone
 
   // ════ HAND-POSTURE COACH (camera) ════
   function openCamera() { handRoundFramesRef.current = { good: 0, total: 0 }; setCamOpen(true); }
@@ -72,13 +73,19 @@ export function useCameraCoach({ lang, premium, setPricingOpen }) {
       cv.getContext("2d").drawImage(v, 0, 0, cv.width, cv.height);
       const dataUrl = cv.toDataURL("image/jpeg", 0.7);
       const sys = lang === "th"
-        ? "คุณคือครูเปียโนผู้เชี่ยวชาญ ดูรูปมือ/ท่านั่งของผู้เรียนที่กำลังเล่นเปียโน แล้วให้คำแนะนำสั้นๆ อบอุ่น 2-4 ข้อ เรื่องท่ามือ การวางนิ้ว ข้อมือ ท่านั่ง ชมสิ่งที่ดีก่อนแล้วบอกจุดที่ควรปรับ ตอบเป็นภาษาไทย ห้ามใช้มาร์กดาวน์"
+        ? "คุณคือครูเปียโนผู้เชี่ยวชาญ ดูรูปมือ/ท่านั่งของผู้เรียนที่กำลังเล่นเปียโน แล้วให้คำแนะนำสั้นๆ อบอุ่น 2-4 ข้อ เรื่องท่ามือ การวางนิ้ว ข้อมือ ท่านั่ง ชมสิ่งที่ดีก่อนแล้วบอกจุดที่ควรปรับ นอกจากภาพแล้วคุณจะได้ตัวเลขความโค้งของนิ้วที่วัดจากกล้องแบบเรียลไทม์ด้วย ใช้ประกอบกับสิ่งที่เห็นในภาพ ตอบเป็นภาษาไทย ห้ามใช้มาร์กดาวน์"
         : lang === "zh"
-        ? "你是专业钢琴老师。看学员弹琴的手型/坐姿照片，给出2-4条简短温暖的建议：手型、指法、手腕、坐姿。先表扬再指出可改进处。用中文回答，不要markdown"
-        : "You are an expert piano teacher. Look at this photo of the learner's hands/posture at the piano and give 2-4 short, warm tips on hand shape, finger placement, wrist and posture. Praise first, then what to adjust. Reply in plain text, no markdown.";
+        ? "你是专业钢琴老师。看学员弹琴的手型/坐姿照片，给出2-4条简短温暖的建议：手型、指法、手腕、坐姿。先表扬再指出可改进处。除了照片，你还会收到摄像头实时测得的手指弯曲度数值，请结合两者判断。用中文回答，不要markdown"
+        : "You are an expert piano teacher. Look at this photo of the learner's hands/posture at the piano and give 2-4 short, warm tips on hand shape, finger placement, wrist and posture. Praise first, then what to adjust. Alongside the photo you'll also get a real-time finger-curl measurement from the camera — use it together with what you see in the image. Reply in plain text, no markdown.";
+      const { hands: handCount, avgRoundness } = camLastRoundRef.current;
+      const geomTxt = !handCount
+        ? (lang === "th" ? "ข้อมูลกล้องเรียลไทม์: ไม่พบมือในเฟรมล่าสุด" : lang === "zh" ? "实时摄像头数据：最近一帧未检测到手" : "Real-time camera data: no hand detected in the latest frame")
+        : (lang === "th" ? `ข้อมูลกล้องเรียลไทม์: พบ ${handCount} มือ, คะแนนความโค้งนิ้วเฉลี่ย ${avgRoundness.toFixed(2)}/1.00 (0=นิ้วเหยียดแบน, 1=โค้งดี)`
+          : lang === "zh" ? `实时摄像头数据：检测到${handCount}只手，平均手指弯曲度 ${avgRoundness.toFixed(2)}/1.00（0=手指伸直平放，1=弯曲良好）`
+          : `Real-time camera data: ${handCount} hand(s) detected, average finger-curl score ${avgRoundness.toFixed(2)}/1.00 (0 = fingers flat/straight, 1 = well-curved)`);
       const body = { model: API_MODEL, max_tokens: 500, system: sys, feature: "camera", messages: [{ role: "user", content: [
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
-        { type: "text", text: lang === "th" ? "ดูมือผมแล้วแนะนำหน่อยครับ" : lang === "zh" ? "看看我的手，给点建议" : "Check my hands and give feedback." }
+        { type: "text", text: geomTxt + "\n\n" + (lang === "th" ? "ดูมือผมแล้วแนะนำหน่อยครับ" : lang === "zh" ? "看看我的手，给点建议" : "Check my hands and give feedback.") }
       ] }] };
       const reply = (await fetchChatCompletion(body)).trim();
       setCamCoach({ text: reply || lc.err });
@@ -125,6 +132,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen }) {
             const msg = !hands.length ? L[lang].camNoHands
               : (round / hands.length) >= 0.6 ? L[lang].camTipGood : L[lang].camTipFlat;
             if (msg !== camMsgRef.current) { camMsgRef.current = msg; setCamMsg(msg); }
+            camLastRoundRef.current = { hands: hands.length, avgRoundness: hands.length ? round / hands.length : null };
             // Technique skill: reuse this exact same 0.6 "good shape" threshold the
             // live tip already uses, accumulated across the session instead of
             // discarded every frame — see exitCamera().
