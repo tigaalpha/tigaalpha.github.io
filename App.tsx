@@ -33,7 +33,7 @@ import {
   MAJOR_SCALE_SONGS, MINOR_SCALE_SONGS, TRIAD_SONGS, SEVENTH_SONGS, INTERVAL_SONGS,
   SIGHT_NOTES, SIGHT_NOTES_BASS,
   Piano, GamePiano, StaffSVG, StaffNotes, PlayAlongStaff,
-  PC_SOLFA, PC_SOLFA_TH, EG_INT_BASE, EG_INT_FULL, RC_LEVELS, CHORD_MOODS,
+  PC_SOLFA, PC_SOLFA_TH, EG_INT_BASE, EG_INT_FULL, EG_INT_MASTER, SEVENTH_TYPES, RC_LEVELS, CHORD_MOODS,
   _PC, playBackingChord, songTonic, detectSongMatch,
 } from "./music-engine";
 import { loadHandLandmarker, HAND_BONES, handRoundness } from "./hand-pose";
@@ -715,9 +715,12 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
 const EG_ROUND = 8;
 const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab }) {
   const T = {
-    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶" },
-    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶" },
-    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶" },
+    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶",
+        refSong: "คล้ายเพลง", cadence: "🎹 เล่นคอร์ดนำก่อน", cadenceOn: "เปิดคอร์ดนำอยู่ — ช่วยให้ได้ยินขั้นคู่ในบริบทของคีย์" },
+    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶",
+        refSong: "Sounds like", cadence: "🎹 Play cadence first", cadenceOn: "Cadence on — hear the interval in the context of a key" },
+    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶",
+        refSong: "像这首歌", cadence: "🎹 先弹和弦进行", cadenceOn: "已开启和弦进行 — 在调性语境中听音程" },
   }[lang];
   const [tab, setTab] = useState(initialTab || "int");
   const [phase, setPhase] = useState("idle");   // idle | play | done
@@ -727,9 +730,50 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   const [fb, setFb] = useState(null);            // { ok, answerLabel, pickedKey }
   const [taps, setTaps] = useState([]);
   const [result, setResult] = useState(null);
+  const [cadenceOn, setCadenceOn] = useState(false); // interval tab: play a I-IV-V-I cadence before the question, for tonal context
   const startTRef = useRef(0);
   const roundRef = useRef(0);
   const ROOTS = ["C4", "D4", "E4", "F4", "G4", "A4"];
+  // Standard, widely-taught interval↔reference-song associations — shown on a miss so a
+  // wrong answer becomes a memorable hook instead of just a red flash. Semitone-keyed.
+  const INTERVAL_REF_SONG = {
+    1: { th: "จอว์ส (Jaws)", en: "the Jaws theme", zh: "《大白鲨》主题曲" },
+    2: { th: "สุขสันต์วันเกิด", en: "Happy Birthday", zh: "生日快乐歌" },
+    3: { th: "Greensleeves", en: "Greensleeves", zh: "绿袖子" },
+    4: { th: "When the Saints", en: "When the Saints Go Marching In", zh: "当圣徒进行曲" },
+    5: { th: "เพลงแต่งงาน (Here Comes the Bride)", en: "Here Comes the Bride", zh: "婚礼进行曲" },
+    6: { th: "เดอะซิมป์สันส์", en: "The Simpsons theme", zh: "《辛普森一家》主题曲" },
+    7: { th: "ดาวน้อยกะพริบแสง", en: "Twinkle Twinkle Little Star", zh: "小星星" },
+    8: { th: "The Entertainer", en: "The Entertainer", zh: "《演艺人》" },
+    9: { th: "My Bonnie", en: "My Bonnie Lies Over the Ocean", zh: "My Bonnie" },
+    10: { th: "Star Trek", en: "the Star Trek theme", zh: "《星际迷航》主题曲" },
+    11: { th: "Take On Me (ท่อนฮุก)", en: "Take On Me's chorus leap", zh: "Take On Me（副歌）" },
+    12: { th: "Somewhere Over the Rainbow", en: "Somewhere Over the Rainbow", zh: "《彩虹之上》" },
+  };
+  const NOTE_LETTERS7 = ["C", "D", "E", "F", "G", "A", "B"];
+  // Biases toward stepwise motion (like a real melody) instead of picking every note fully
+  // independently at random, which tended to produce jumpy, non-musical echo sequences.
+  function genEchoPcs(len) {
+    const pcs = [NOTE_LETTERS7[Math.floor(Math.random() * 7)]];
+    for (let i = 1; i < len; i++) {
+      const prevIdx = NOTE_LETTERS7.indexOf(pcs[i - 1]);
+      if (Math.random() < 0.7) {
+        const step = [-2, -1, 1, 2][Math.floor(Math.random() * 4)];
+        pcs.push(NOTE_LETTERS7[Math.min(6, Math.max(0, prevIdx + step))]);
+      } else {
+        pcs.push(NOTE_LETTERS7[Math.floor(Math.random() * 7)]);
+      }
+    }
+    return pcs;
+  }
+  async function playCadence() {
+    const prog = [["C4", "E4", "G4"], ["F4", "A4", "C5"], ["G4", "B4", "D5"], ["C4", "E4", "G4"]];
+    for (const chord of prog) {
+      for (const n of chord) playPianoNote(n, 0.7);
+      await _v12wait(360);
+    }
+    await _v12wait(200);
+  }
 
   async function playCur(c) {
     const q = c || cur;
@@ -740,7 +784,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   function genQ(kind) {
     const root = ROOTS[Math.floor(Math.random() * ROOTS.length)];
     if (kind === "int") {
-      const pool = (earBest().int || 0) >= 7 ? EG_INT_FULL : EG_INT_BASE;
+      const pool = (earBest().int || 0) >= EG_ROUND ? EG_INT_MASTER : (earBest().int || 0) >= 7 ? EG_INT_FULL : EG_INT_BASE;
       const semi = pool[Math.floor(Math.random() * pool.length)];
       const opts = [...new Set([semi, ...[...pool].sort(() => Math.random() - 0.5)])].slice(0, 4).sort(() => Math.random() - 0.5);
       return {
@@ -749,10 +793,12 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       };
     }
     if (kind === "chord") {
-      const q = TRIAD_TYPES[Math.floor(Math.random() * TRIAD_TYPES.length)];
+      const pool = (earBest().chord || 0) >= EG_ROUND ? [...TRIAD_TYPES, ...SEVENTH_TYPES] : TRIAD_TYPES;
+      const q = pool[Math.floor(Math.random() * pool.length)];
+      const opts = [...new Set([q.key, ...pool.map(t => t.key).sort(() => Math.random() - 0.5)])].slice(0, 4).sort(() => Math.random() - 0.5);
       return {
         notes: _ascNotes(chordNotesOf(pcOf(root), q.key), 4), chord: true, answer: q.key,
-        options: TRIAD_TYPES.map(t => ({ key: t.key, label: t.lab[lang] || t.lab.en })),
+        options: opts.map(k => { const t = pool.find(x => x.key === k) || { lab: {} }; return { key: k, label: t.lab[lang] || t.lab.en }; }),
       };
     }
     if (kind === "melody") {
@@ -772,8 +818,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       };
     }
     const len = (earBest().echo || 0) >= 7 ? 4 : 3;
-    const pcs = [];
-    for (let i = 0; i < len; i++) pcs.push(["C", "D", "E", "F", "G", "A", "B"][Math.floor(Math.random() * 7)]);
+    const pcs = genEchoPcs(len);
     return { notes: pcs.map(p => p + "4"), chord: false, answer: pcs.join(" "), pcs };
   }
   async function playCurMelody(q) {
@@ -788,6 +833,8 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     setCur(q); setFb(null); setTaps([]);
     if (q.isMelody) {
       setTimeout(() => { if (roundRef.current === myRound) playCurMelody(q); }, 350);
+    } else if (kind === "int" && cadenceOn) {
+      setTimeout(async () => { if (roundRef.current === myRound) { await playCadence(); if (roundRef.current === myRound) playCur(q); } }, 350);
     } else {
       setTimeout(() => { if (roundRef.current === myRound) playCur(q); }, 350);
     }
@@ -831,10 +878,17 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     let ansLabel;
     if (cur.isMelody) {
       ansLabel = (cur.options.find((x: any) => x.key === cur.answer) || {}).label || cur.answer;
+    } else if (cur.chord) {
+      const t = [...TRIAD_TYPES, ...SEVENTH_TYPES].find(x => x.key === cur.answer);
+      ansLabel = (t || { lab: {} }).lab[lang];
     } else {
-      ansLabel = cur.chord
-        ? (TRIAD_TYPES.find(t => t.key === cur.answer) || { lab: {} }).lab[lang]
-        : (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+      ansLabel = (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+      // Miss on an interval question: name its standard reference song, so the wrong
+      // answer becomes a memorable hook instead of just a red flash and a label.
+      if (!okAns) {
+        const ref = INTERVAL_REF_SONG[Number(cur.answer)];
+        if (ref) ansLabel = `${ansLabel} (${T.refSong}: ${ref[lang] || ref.en})`;
+      }
     }
     answered(okAns, ansLabel || cur.answer, o.key);
   }
@@ -849,9 +903,10 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     }
   }
   const best = earBest();
-  // "melody" (Name That Tune) tab HIDDEN (not deleted) per feature audit — genQ("melody")
-  // and its scoring logic are untouched, just unreachable via the tab bar for now.
-  const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo]];
+  // "melody" (Name That Tune) tab restored per the fun/value audit — reference-melody
+  // association is real, widely-taught interval pedagogy (not just variety for its own
+  // sake), and it's the one tab already built on TIGA's own song library.
+  const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo], ["melody", "🎵", T.melody]];
   return (
     <div className="pathpage">
       {onBack && (
@@ -884,6 +939,12 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
             </div>
           )}
           <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startRound}>{result ? T.again : T.start}</button>
+          {tab === "int" && (
+            <button onClick={() => { playUi("click"); setCadenceOn(v => !v); }} title={cadenceOn ? T.cadenceOn : ""}
+              style={{ display: "block", margin: "12px auto 0", background: cadenceOn ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${cadenceOn ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: cadenceOn ? "#d97757" : "#a88b9b", padding: "6px 14px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+              {T.cadence}
+            </button>
+          )}
         </div>
       )}
       {phase === "play" && cur && (
