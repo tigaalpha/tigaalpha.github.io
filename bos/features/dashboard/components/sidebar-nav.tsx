@@ -59,6 +59,7 @@ import {
   Link2,
   ListChecks,
   Cpu,
+  GitBranch,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -103,13 +104,21 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: "ai-control",
+    label: "🤖 AI Control",
+    items: [
+      { href: "/ai-control-panel", label: "AI Control Panel", icon: Cpu },
+      { href: "/ai-task-router", label: "AI Task Router", icon: GitBranch },
+      { href: "/mimo-ai", label: "Mimo AI (OpenRouter)", icon: Bot, ownerOnly: true },
+    ],
+  },
+  {
     id: "strategy",
     label: "Strategy",
     maturity: "beta",
     items: [
       { href: "/strategy", label: "AI Strategy Room", icon: Brain },
       { href: "/strategy-actions", label: "Strategy Actions", icon: ListChecks },
-      { href: "/mimo-ai", label: "Mimo AI (OpenRouter)", icon: Cpu, ownerOnly: true },
       { href: "/chatbot-brain", label: "Chatbot Brain", icon: Bot },
       { href: "/competitors", label: "วิเคราะห์คู่แข่ง", icon: Swords },
     ],
