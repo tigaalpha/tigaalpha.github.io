@@ -47,6 +47,7 @@ export const AI_FEATURES = [
   { id: "compose", icon: "🎼", th: "แต่งทำนอง", en: "Melody composer", zh: "旋律创作", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "song-gen", icon: "✨", th: "สร้างเพลงจากข้อความ", en: "AI song generator", zh: "AI 生成歌曲", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "coach-tip", icon: "🎯", th: "คำแนะนำหน้า Coach", en: "Coach page tips", zh: "教练建议", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
+  { id: "practice-tip", icon: "🎯", th: "คำชมท้ายฝึกซ้อม", en: "Practice Mode result praise", zh: "练习结果点评", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "weekly-report", icon: "📋", th: "รายงานพัฒนาการ AI", en: "AI weekly report", zh: "AI 周报", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "practice-plan", icon: "🗓️", th: "แผนซ้อมส่วนตัว AI", en: "AI practice plan", zh: "AI 练习计划", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "camera", icon: "✋", th: "กล้องจับท่ามือ", en: "Hand-posture coach", zh: "手型教练", prov: ["anthropic", "gemini"],

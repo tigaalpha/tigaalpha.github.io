@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import {
-  fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP, LESSON_MODE,
+  fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP,
   getAC, playPianoNote, playUi, stopPracticeListeners, startMidiListener, startMicListener,
 } from "./music-engine";
 import { logPractice, scoreDynamics } from "./App";
 import { logActivity } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
+import { fetchChatCompletion } from "./ai-backend";
 /* ── use-practice-mode.ts ──
    Owns the "listen to the learner play and grade it against a target
    sequence" session: mic/MIDI/tap-driven note matching (broken = one note
@@ -28,20 +29,44 @@ import { recordMemory } from "./ai-chat-context";
    by use-play-along.ts, not yet extracted) and are self-contained (no
    dependencies beyond things already imported), so exporting them in place
    is the low-risk choice over relocating a shared helper for one caller.
+   scoreRhythm/readPracticeBests/writePracticeBest below have exactly one
+   caller (finishPractice, right here), so they stay local instead.
 
    Params are plain values/refs/functions already in PianoApp's scope by
-   this hook's call site (placed after topicHint/lessonKey are declared,
-   the latest of this hook's real dependencies) - no ref-sync trick needed
-   here, unlike use-gamification.ts's Flag #1: nothing this hook returns is
-   needed by an EARLIER hook's own call-time params, so there's no circular
-   ordering constraint, just an ordinary "call this after its dependencies
-   exist" placement. hand/chordStyle/setChordStyle/lastSeq/clearSeq come
-   from use-keyboard.ts; earnCoins/gainExp from use-gamification.ts;
-   setPage/setMsgs/topicHint/lessonKey/isGuest/callClaude/lang are still
-   plain PianoApp/chat closures (callClaude is a hoisted function
-   declaration, so its own textual position doesn't matter here — chat
-   itself becomes use-chat.ts in Phase 3.8). ── */
-export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, setPage, setMsgs, topicHint, lessonKey, isGuest, callClaude, lang }) {
+   this hook's call site - no ref-sync trick needed here, unlike
+   use-gamification.ts's Flag #1: nothing this hook returns is needed by an
+   EARLIER hook's own call-time params, so there's no circular ordering
+   constraint, just an ordinary "call this after its dependencies exist"
+   placement. hand/chordStyle/setChordStyle/lastSeq/clearSeq come from
+   use-keyboard.ts; earnCoins/gainExp from use-gamification.ts. The result
+   screen's AI flourish is fetched standalone (fetchChatCompletion directly,
+   not callClaude) so it renders inside PracticeOverlay's own result view
+   instead of forcing a page/chat navigation — this hook no longer touches
+   setPage/setMsgs/callClaude/topicHint/lessonKey at all. ── */
+
+// Self-relative timing consistency — same "how close to the AVERAGE, not to an
+// external target" approach as scoreDynamics (vels vs. their own mean), applied
+// to the gaps between correct hits. Practice Mode is self-paced/wait-mode by
+// design (see above) — there's no metronome target to grade against, so "good
+// rhythm" here means EVEN spacing, not matching a tempo.
+function scoreRhythm(times) {
+  if (!times || times.length < 6) return null;
+  const iois = [];
+  for (let i = 1; i < times.length; i++) iois.push(times[i] - times[i - 1]);
+  const mean = iois.reduce((s, v) => s + v, 0) / iois.length;
+  if (mean <= 0) return null;
+  let ok = 0, miss = 0;
+  for (const v of iois) { if (Math.abs(v - mean) <= mean * 0.35) ok++; else miss++; }
+  return { ok, miss };
+}
+// Per-drill personal best (keyed by label, +chord-style when relevant since
+// block vs. broken grade completely differently — see switchPracticeChordStyle).
+// Accuracy and streak track independently: a learner might set one record
+// without the other in the same run.
+function readPracticeBests() { try { return JSON.parse(localStorage.getItem("tg_practice_best") || "{}") || {}; } catch (e) { return {}; } }
+function writePracticeBest(key, rec) { try { const m = readPracticeBests(); m[key] = rec; localStorage.setItem("tg_practice_best", JSON.stringify(m)); } catch (e) {} }
+
+export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang }) {
   // ── practice mode (listen to the learner play) ──
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceTarget, setPracticeTarget] = useState([]); // note names to play, in order
@@ -53,6 +78,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const [practiceHeard, setPracticeHeard] = useState(null); // {note, ok} last detected
   const [practiceSrc, setPracticeSrc] = useState(null);     // {type:"midi"|"mic"|"error"}
   const [practiceTune, setPracticeTune] = useState(null);   // learned tuning offset (cents) to show
+  const [practiceStreak, setPracticeStreak] = useState(0);  // consecutive correct hits, resets on a real miss
+  const [practiceResult, setPracticeResult] = useState(null); // set on finish; PracticeOverlay shows the in-overlay result screen instead of the live drill while this is non-null
 
   // ── practice-mode refs: progress lives in refs so the audio/MIDI callbacks
   // (created once when practice starts) never read stale React state ──
@@ -66,6 +93,9 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceHitsRef = useRef(0);
   const practiceMissRef = useRef(0);
   const practiceVelsRef = useRef([]); // MIDI velocities of hit notes this drill — see scoreDynamics()
+  const practiceTimesRef = useRef([]); // Date.now() of each correct hit this drill — see scoreRhythm()
+  const practiceStreakRef = useRef(0);
+  const practiceBestStreakRef = useRef(0);
   const practiceLabelRef = useRef("");
   const practiceHandlerRef = useRef(() => {});
   const practiceHeardTimer = useRef(null);
@@ -165,6 +195,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         hit.add(matchedIdx);
         practiceHitsRef.current += 1;
         if (d.vel != null) practiceVelsRef.current.push(d.vel);
+        practiceTimesRef.current.push(Date.now());
+        practiceStreakRef.current += 1;
+        if (practiceStreakRef.current > practiceBestStreakRef.current) practiceBestStreakRef.current = practiceStreakRef.current;
+        setPracticeStreak(practiceStreakRef.current);
         playPianoNote(targets[matchedIdx], 0.5);
         setPracticeHeard({ note: heardNote, ok: true });
         practiceIdxRef.current = hit.size; // reused purely as a "how many done" progress count
@@ -175,11 +209,14 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         // A block chord keeps ringing after the first hit, and a learner who only
         // got some notes often replays the WHOLE chord to catch the rest — either
         // way the mic can re-report a note already matched. That's not a mistake,
-        // just an echo of a correct note, so it must never count against accuracy.
+        // just an echo of a correct note, so it must never count against accuracy
+        // (or the streak — resetting a combo on a harmless echo would be unfair).
         const isRepeat = targets.some((tn, i) => hit.has(i) && pcOf(tn) === pcOf(heardNote));
         if (!isRepeat) {
           practiceMissRef.current += 1;
           setPracticeMiss(practiceMissRef.current);
+          practiceStreakRef.current = 0;
+          setPracticeStreak(0);
         }
         setPracticeHeard({ note: heardNote, ok: isRepeat });
       }
@@ -190,6 +227,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       if (correct) {
         practiceHitsRef.current += 1;
         if (d.vel != null) practiceVelsRef.current.push(d.vel); // MIDI-only signal — see scoreDynamics()
+        practiceTimesRef.current.push(Date.now()); // any input source — see scoreRhythm()
+        practiceStreakRef.current += 1;
+        if (practiceStreakRef.current > practiceBestStreakRef.current) practiceBestStreakRef.current = practiceStreakRef.current;
+        setPracticeStreak(practiceStreakRef.current);
         playPianoNote(targets[idx], 0.5);
         setPracticeHeard({ note: heardNote, ok: true });
         const next = idx + 1;
@@ -199,6 +240,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       } else {
         practiceMissRef.current += 1;
         setPracticeMiss(practiceMissRef.current);
+        practiceStreakRef.current = 0;
+        setPracticeStreak(0);
         setPracticeHeard({ note: heardNote, ok: false });
       }
     }
@@ -232,6 +275,9 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practiceVelsRef.current = [];
+    practiceTimesRef.current = [];
+    practiceStreakRef.current = 0;
+    practiceBestStreakRef.current = 0;
     practiceLabelRef.current = seq.label || "";
     practiceActiveRef.current = true;
     setPracticeTarget(notes);
@@ -243,6 +289,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     setPracticeHeard(null);
     setPracticeSrc(null);
     setPracticeTune(null);
+    setPracticeStreak(0);
+    setPracticeResult(null);
     tuneOffsetRef.current = 0; // re-learn tuning for whatever piano is used now
     setPracticeOpen(true);
     getAC(); // unlock/resume audio inside the click gesture
@@ -264,11 +312,16 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practiceVelsRef.current = [];
+    practiceTimesRef.current = [];
+    practiceStreakRef.current = 0;
+    practiceBestStreakRef.current = 0;
     practiceActiveRef.current = true;
     setPracticeIdx(0);
     setPracticeHitIdxs([]);
     setPracticeMiss(0);
     setPracticeHeard(null);
+    setPracticeStreak(0);
+    setPracticeResult(null); // "Play Again" from the result screen returns to the live drill
   }
 
   // switch Block ⇄ Broken WHILE already inside a practice session (interval and
@@ -298,6 +351,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     clearTimeout(practiceHeardTimer.current);
     setPracticeOpen(false);
     setPracticeHeard(null);
+    setPracticeResult(null);
   }
 
   function finishPractice() {
@@ -306,38 +360,55 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const miss = practiceMissRef.current;
     const accuracy = hits + miss > 0 ? Math.round((hits / (hits + miss)) * 100) : 100;
     const label = practiceLabelRef.current;
+    const bestStreak = practiceBestStreakRef.current;
     practiceActiveRef.current = false;
     stopPracticeListeners();
     clearTimeout(practiceHeardTimer.current);
-    setPracticeOpen(false);
-
-    const summary = lang === "th"
-      ? `🎯 ฝึกเล่น "${label}" — เล่นครบ ${total} โน้ต ความแม่นยำ ${accuracy}% (พลาด ${miss} ครั้ง)`
-      : lang === "zh"
-      ? `🎯 练习"${label}" — 完成 ${total} 个音，准确率 ${accuracy}%（失误 ${miss} 次）`
-      : `🎯 Practiced "${label}" — ${total} notes, ${accuracy}% accuracy (${miss} misses)`;
-    setPage("sensei");
-    setMsgs(prev => [...prev, { role: "user", text: summary }]);
+    // Overlay stays open — the result now renders in-place (see practiceResult
+    // below) instead of exiting to a chat text summary the learner had to go
+    // find on a different page.
 
     logPractice(accuracy);
     logActivity("drill", label || "drill", hits, miss, Math.max(20, total * 2));
     const dyn = scoreDynamics(practiceVelsRef.current);
     if (dyn) logActivity("drill", label || "drill", dyn.ok, dyn.miss, 0, "dynamics");
-    recordMemory(practiceLabelRef.current, accuracy);
+    const rhythm = scoreRhythm(practiceTimesRef.current);
+    if (rhythm) logActivity("drill", label || "drill", rhythm.ok, rhythm.miss, 0, "rhythm");
+    recordMemory(label, accuracy);
     earnCoins(5 + Math.round(accuracy / 20));
     gainExp(20 + Math.round(accuracy / 5), { quest: true }); // 20–40 EXP scaled by accuracy
 
-    const fb = lang === "th"
-      ? `ผู้เรียนเพิ่งฝึกเล่น "${label}" บนเปียโน เล่นถูกครบ ${total} โน้ต ความแม่นยำ ${accuracy}% (เล่นผิดระหว่างทาง ${miss} ครั้ง) ในฐานะครูเปียโน TiGA ช่วยชมและให้กำลังใจสั้นๆ อบอุ่น แล้วแนะนำ 1-2 จุดที่ควรฝึกต่อให้ดีขึ้น ตอบกระชับเป็นภาษาไทย ไม่ต้องระบุชื่อโน้ต`
-      : lang === "zh"
-      ? `学员刚在钢琴上练习了"${label}"，完成全部 ${total} 个音，准确率 ${accuracy}%（中途失误 ${miss} 次）。作为 TiGA 钢琴老师，请简短温暖地表扬鼓励，并给出 1-2 个可继续提升的小建议。简洁中文回答，不要列音名`
-      : `The learner just practiced "${label}" on piano, completing all ${total} notes at ${accuracy}% accuracy (${miss} wrong notes along the way). As TiGA the piano teacher, give a short, warm word of praise and encouragement, then 1-2 tips to improve next. Be concise; no note names needed.`;
-    topicHint.current = LESSON_MODE; // don't auto-play notes from the feedback text
-    lessonKey.current = null;
-    // this is a bonus AI flourish on top of an already-complete local drill, not a
-    // deliberate "ask AI" action — skip it quietly for guests rather than walling
-    // off practice itself, which should stay fully free during the trial
-    if (!isGuest) callClaude(fb);
+    // Personal best, per drill (+chord-style when relevant — block vs. broken
+    // grade completely differently, see switchPracticeChordStyle). Accuracy and
+    // streak track independently since a run might set one record without the
+    // other.
+    const bestKey = practiceModeRef.current === "chord" ? `${label}|${chordStyle}` : label;
+    const bests = readPracticeBests();
+    const prevBest = bests[bestKey] || null;
+    const isNewBest = !prevBest || accuracy > prevBest.accuracy || bestStreak > prevBest.bestStreak;
+    writePracticeBest(bestKey, {
+      accuracy: Math.max(accuracy, prevBest ? prevBest.accuracy : 0),
+      bestStreak: Math.max(bestStreak, prevBest ? prevBest.bestStreak : 0),
+      at: Date.now(),
+    });
+
+    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, aiText: null, aiLoading: !isGuest });
+
+    // Bonus AI flourish on top of an already-complete local result — fetched
+    // standalone (not through the shared chat thread/callClaude) so it can
+    // render right inside the result screen instead of forcing a page/chat
+    // navigation. Skipped quietly for guests, same as before: practice itself
+    // stays fully free during the trial, this is just a nice-to-have on top.
+    if (!isGuest) {
+      const fb = lang === "th"
+        ? `ผู้เรียนเพิ่งฝึกเล่น "${label}" บนเปียโน เล่นถูกครบ ${total} โน้ต ความแม่นยำ ${accuracy}% (เล่นผิดระหว่างทาง ${miss} ครั้ง) คอมโบสูงสุด ${bestStreak} โน้ตติด ในฐานะครูเปียโน TiGA ช่วยชมและให้กำลังใจสั้นๆ อบอุ่น แล้วแนะนำ 1-2 จุดที่ควรฝึกต่อให้ดีขึ้น ตอบกระชับเป็นภาษาไทย ไม่ต้องระบุชื่อโน้ต`
+        : lang === "zh"
+        ? `学员刚在钢琴上练习了"${label}"，完成全部 ${total} 个音，准确率 ${accuracy}%（中途失误 ${miss} 次），最高连击 ${bestStreak} 个音。作为 TiGA 钢琴老师，请简短温暖地表扬鼓励，并给出 1-2 个可继续提升的小建议。简洁中文回答，不要列音名`
+        : `The learner just practiced "${label}" on piano, completing all ${total} notes at ${accuracy}% accuracy (${miss} wrong notes along the way), with a best combo of ${bestStreak} notes in a row. As TiGA the piano teacher, give a short, warm word of praise and encouragement, then 1-2 tips to improve next. Be concise; no note names needed.`;
+      fetchChatCompletion({ message: fb, conversationHistory: [], stream: false, feature: "practice-tip" })
+        .then(txt => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiText: txt || null, aiLoading: false } : prev)))
+        .catch(() => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiLoading: false } : prev)));
+    }
   }
-  return { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice };
+  return { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice };
 }
