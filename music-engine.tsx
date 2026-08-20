@@ -1230,6 +1230,19 @@ export function songTechniqueProfile(song) {
   const blackPct = Math.round(notes.filter(n => n.includes("#")).length / notes.length * 100);
   return { range, avgLeap, maxLeap, blackPct, noteCount: notes.length };
 }
+// Estimate a 1/2/3 diff tier for a song with no human-assigned difficulty (AI-generated
+// melodies) from its own songTechniqueProfile(). Thresholds are calibrated against the
+// 192-song curated library's own diff:1/2/3 interval statistics (median range 9/12/14
+// semitones, avgLeap 2.0/2.3/2.7, maxLeap 5/5/7) and deliberately biased toward the lower
+// edge of each tier, so an ambiguous AI-generated song is never rated easier than it plays.
+export function estimateSongDifficulty(profile) {
+  if (!profile) return 1;
+  const { range, avgLeap, maxLeap } = profile;
+  let diff = 1;
+  if (range >= 11 || avgLeap >= 2.3 || maxLeap >= 7) diff = 2;
+  if (range >= 14 || avgLeap >= 2.7 || maxLeap >= 10) diff = 3;
+  return diff;
+}
 
 export const DRILL_KEYS = [
   { pc: "C",  nm: "C"  }, { pc: "G",  nm: "G"  }, { pc: "D",  nm: "D"  },

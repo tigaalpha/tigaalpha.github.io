@@ -28,7 +28,7 @@ import {
   pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP, _practiceStop,
   startMidiListener, startMicListener, stopPracticeListeners, laneHue, roundRect, rhythmReport,
   SONG_LEAD, SONG_HITWINDOW, SONG_PERFECT, SONG_DEBOUNCE_MS, SONG_ECHO_MS, SONG_MISSWINDOW,
-  expandSong, songTechniqueProfile, _ascNotes,
+  expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes,
   MINOR_TYPES, TRIAD_TYPES, SEVENTH_TYPES, INTERVAL_DEFS,
   MAJOR_SCALE_SONGS, MINOR_SCALE_SONGS, TRIAD_SONGS, SEVENTH_SONGS, INTERVAL_SONGS,
   SIGHT_NOTES, SIGHT_NOTES_BASS,
@@ -1391,7 +1391,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
 
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null,
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, songAnalysis = null,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
   mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null }) {
@@ -1613,7 +1613,14 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       const styles: Record<string,string> = { simple: "stepwise simple melody", flowing: "smooth flowing melody with a mix of quarter and half notes", rhythmic: "rhythmic melody with clear strong beats" };
       const moodDesc = moods[composeMood] || "pleasant";
       const styleDesc = styles[composeStyle] || "simple melody";
-      const prompt = `Create a ${moodDesc} ${styleDesc} piano melody in ${composeKey} major, 24-32 notes, musical and satisfying for a beginner. The name should reflect the mood.`;
+      // Ties the generated melody back to a real, recent weakness instead of only the
+      // mood/style picker, when one is available — the post-song AI analysis already
+      // diagnoses this after every Play-Along run, it just used to be shown once and
+      // discarded.
+      const weaknessNote = songAnalysis && songAnalysis.weakness
+        ? ` Also, gently work in a little extra practice for this recent weak spot without making the melody feel like a drill: ${songAnalysis.weakness}.`
+        : "";
+      const prompt = `Create a ${moodDesc} ${styleDesc} piano melody in ${composeKey} major, 24-32 notes, musical and satisfying for a beginner. The name should reflect the mood.${weaknessNote}`;
       const sys = "You turn a melody request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names C4-B5 only; \"R\"=rest; beats are 0.5,1,1.5,2. Keep it 24-32 notes, melodic and musical.";
       const acc = await streamChatCompletion({ message: prompt, conversationHistory: [], system: sys, feature: "compose" });
       const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
@@ -1622,7 +1629,8 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       if (seq.length < 6 || !seq.some((x: any[]) => x[0] !== "R")) throw new Error("short");
       const name = String(obj.name || T("เพลงของฉัน", "My Melody", "我的旋律")).slice(0, 40);
       const bpm = Math.min(160, Math.max(60, Math.round(obj.bpm || 90)));
-      const song = { id: "compose_" + Date.now(), diff: 1, bpm, custom: true, th: name, en: name, zh: name, seq };
+      const diff = estimateSongDifficulty(songTechniqueProfile({ seq }));
+      const song = { id: "compose_" + Date.now(), diff, bpm, custom: true, th: name, en: name, zh: name, seq };
       if (!premium) bumpUsage("compose");
       setComposeOpen(false);
       setComposeMood(null); setComposeStyle(null); setComposeKey("C"); setComposePage(1);
@@ -2640,7 +2648,8 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
       if (seq.length < 6 || !seq.some(x => x[0] !== "R")) throw new Error("short");
       const name = String(obj.name || genText).slice(0, 40);
       const bpm = Math.min(180, Math.max(60, Math.round(obj.bpm || 100)));
-      const song = { id: "my_" + Date.now(), diff: 1, bpm, custom: true, th: name, en: name, zh: name, seq };
+      const diff = estimateSongDifficulty(songTechniqueProfile({ seq }));
+      const song = { id: "my_" + Date.now(), diff, bpm, custom: true, th: name, en: name, zh: name, seq };
       const saved = [song, ...mySongs].slice(0, 20);
       setMySongs(saved); try { localStorage.setItem("tg_mysongs", JSON.stringify(saved)); } catch (e) {}
       if (!premium) bumpUsage("song");
@@ -7690,7 +7699,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "studio" && (
         studioView === "songs"
           ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
-          : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")}
+          : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
               onSongs={() => setStudioView("songs")}
@@ -7840,18 +7849,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   onClick={async () => {
                     if (requireLogin("ai")) return;
                     setAiModalLoading(true);
-                    const log = readPracticeLog();
                     const mem = readMemory();
-                    const st = readStreak();
-                    let sessW = 0, accSumW = 0, accNW = 0;
-                    for (let i = 0; i < 7; i++) {
-                      const d = new Date(); d.setDate(d.getDate() - i);
-                      const e = log[dayKey(d)]; if (e) { sessW += e.n; accSumW += (e.accSum || 0); accNW += e.n; }
-                    }
-                    const wkAcc = accNW ? Math.round(accSumW / accNW) : null;
-                    const struggles = (mem.struggles || []).slice(0, 3).map((s) => s.label).join(", ");
                     const mastered = (mem.mastered || []).slice(0, 3).join(", ");
-                    const ctx = `Streak: ${st.count || 0} days. This week: ${sessW} sessions, accuracy ${wkAcc != null ? wkAcc + "%" : "no data"}. Weak spots: ${struggles || "none"}. Mastered: ${mastered || "none"}.`;
+                    // Grounds the report/plan in the same skill-score engine (Dynamics/Rhythm/
+                    // Technique) generateCoachTip() already uses for Auto Teaching — the paid
+                    // report used to run on a thinner, separate context (streak/week-accuracy/
+                    // top-3 struggles only) that never saw the scores shown on the Daily Mentor
+                    // page itself.
+                    const ctx = `${coachStatsToText(computeCoachStats(profile, lang))} Mastered: ${mastered || "none"}.`;
                     const prompt = aiModalType === "report"
                       ? (lang === "th"
                         ? `คุณเป็นครูสอนเปียโน AI ที่เป็นกันเอง เขียนรายงานพัฒนาการเปียโนรายสัปดาห์ที่อบอุ่นและให้กำลังใจ (ประมาณ 150-200 คำ) โดยอิงจากข้อมูลนี้: ${ctx} เขียนเป็นภาษาไทย`

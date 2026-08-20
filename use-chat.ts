@@ -4,9 +4,9 @@ import {
 } from "./music-engine";
 import { tr, L, matchFaqTopic } from "./i18n";
 import { stopCloudTTS } from "./speech";
-import { memoryContext } from "./ai-chat-context";
+import { memoryContext, homeworkContext } from "./ai-chat-context";
 import { streamChatCompletion } from "./ai-backend";
-import { EXP, buildAlternatingHistory } from "./App";
+import { EXP, buildAlternatingHistory, curriculumContext, songRecommendationHint } from "./App";
 /* ── use-chat.ts ──
    Owns the main AI-sensei chat panel: the message list + typed-input box
    + streaming Claude call (send/callClaude), the [play:]-tag reply
@@ -147,7 +147,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
       };
 
       const acc = await streamChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang), feature: "chat" },
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat" },
         {
           // insert an empty AI bubble we will fill as tokens arrive
           onStart: () => { setMsgs(prev => [...prev, { role: "ai", text: "" }]); setLoading(false); },
