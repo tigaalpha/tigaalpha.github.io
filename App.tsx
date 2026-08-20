@@ -386,6 +386,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
   }
   function pickType(t) { setSelectedType(t); }
   const pathDone = pathDoneSet();
+  const pathAcc = pathAccMap();   // { stageId: bestAccuracy } — bronze/silver/gold badge, layered on top of pathDone
   const keyDone = keyDoneMap();   // { stageId: ["c","g",...] } — keys already studied per topic
   const currentStage = PATHWAY.find(s => !pathDone.has(s.id));
   const currentId = currentStage ? currentStage.id : null;
@@ -394,6 +395,26 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
     setOpenStageId(null);
     setSelectedType(null);
     onLearn(stage, key, t);
+  }
+  const [certBusy, setCertBusy] = useState(false);
+  // Group-level certificate — the same renderCertificatePNG the Report page
+  // already offers, just surfaced right here as an in-context celebration the
+  // moment a group's last stage clears, instead of only reachable later on a
+  // separate page.
+  async function downloadGroupCert(g) {
+    if (certBusy) return;
+    setCertBusy(true); playUi("reward");
+    try {
+      const name = userName || (lang === "th" ? "นักเรียน TiGA" : lang === "zh" ? "TiGA 学员" : "TiGA Student");
+      const url = await renderCertificatePNG({
+        name,
+        course: g.icon + " " + g.label,
+        dateStr: new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "long", day: "numeric" }),
+        lang,
+      });
+      downloadDataURL(url, "tiga-certificate-" + g.id + ".png");
+    } catch (e) {}
+    setCertBusy(false);
   }
 
   return (
@@ -433,13 +454,18 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
                 // holds the open card, so its sub-topics sit attached to what was tapped
                 const rowEnd = si % 2 === 1 || si === stages.length - 1;
                 const panelHere = rowEnd && openIdx >= si - (si % 2) && openIdx <= si;
+                // Bronze/silver/gold from the best accuracy actually demonstrated on this
+                // stage's drill — isRead (knowledge chapters) have no drill to grade, so
+                // they stay a plain done checkmark, same as always.
+                const tier = !isRead && pathDone.has(st.id) ? pathTier(pathAcc[st.id]) : null;
+                const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
                 return (
                   <Fragment key={st.id}>
-                  <button id={"pcard-" + st.id} className={`pcard${isOpen ? " active" : ""}${pathDone.has(st.id) ? " done" : ""}${st.id === currentId ? " current" : ""}`}
+                  <button id={"pcard-" + st.id} className={`pcard${isOpen ? " active" : ""}${pathDone.has(st.id) ? " done" : ""}${tier ? " tier-" + tier : ""}${st.id === currentId ? " current" : ""}`}
                     style={{ "--ac": st.color }}
                     onClick={() => isRead ? (BENEFIT_CASES[st.id] ? openCard(st) : onRead(st)) : openCard(st)}>
                     <span className="pcardglow" />
-                    {pathDone.has(st.id) && <span className="pcarddone">✓</span>}
+                    {pathDone.has(st.id) && <span className="pcarddone">{tierIcon[tier] || "✓"}</span>}
                     {st.id === currentId && <span className="pcardhere">{lc.pathHere}</span>}
                     <span className="pcardlevel">{String(st.level).padStart(2, "0")}</span>
                     <span className="pcardicon" aria-hidden="true">{st.icon}</span>
@@ -553,11 +579,41 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
                 )}
               </div>
                   )}
+                  {/* row-to-row trail segment — was previously only between the 4 group
+                      islands, leaving every stage inside a group visually disconnected */}
+                  {rowEnd && si < stages.length - 1 && (() => {
+                    const rowStages = stages.slice(si - (si % 2), si + 1);
+                    const doneCount = rowStages.filter(s => pathDone.has(s.id)).length;
+                    const nextColor = stages[si + 1].color;
+                    return (
+                      <div className="pnode-connector" style={{ gridColumn: "1 / -1" }} aria-hidden="true">
+                        <span className={`pnode-connector-line${doneCount >= rowStages.length ? " done" : doneCount > 0 ? " half" : ""}`}
+                          style={{ "--nc": nextColor }} />
+                      </div>
+                    );
+                  })()}
                   </Fragment>
                 );
               })}
             </div>
           </section>
+
+          {/* Group-level certificate — same in-context celebration as the F5
+              full-course banner below, just fired at each of the 4 group
+              milestones instead of only once at the very end. */}
+          {stages.length > 0 && stages.every(s => pathDone.has(s.id)) && (
+            <div className="cert-banner">
+              <div className="cert-ic">{g.icon}</div>
+              <div className="cert-body">
+                <div className="cert-title">{lc.groupCertCompleted}</div>
+                <div className="cert-sub">{g.label}</div>
+              </div>
+              <button className="cert-dl-btn" disabled={certBusy} onClick={() => downloadGroupCert(g)}>
+                📜 {lc.certDownload}
+              </button>
+            </div>
+          )}
+
           {gi < groups.length - 1 && (
             <div className="ptrail" aria-hidden="true">
               <span className="ptrail-line" style={{ background: `linear-gradient(180deg, ${gc}, ${STAGES_BY_GROUP[groups[gi + 1].id][0].color})` }} />
@@ -4036,9 +4092,31 @@ export function readWeekly() {
 }
 export function writeWeekly(w) { try { localStorage.setItem("tg_weekly", JSON.stringify(w)); } catch (e) {} }
 
-/* ── learning-pathway progress (journey map) ── */
-function pathDoneSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_path_done") || "[]")); } catch (e) { return new Set(); } }
-function markPathDone(id) { try { const s = pathDoneSet(); s.add(id); localStorage.setItem("tg_path_done", JSON.stringify([...s])); } catch (e) {} }
+/* ── learning-pathway progress (journey map) ──
+   "Done" (this Set) is the source of truth for everything progression-related
+   — certificates, recommendNext, the "current stage" pointer — and stays a
+   plain boolean exactly as before. It's set from Practice Mode actually
+   passing a stage's own drill (see PATH_PASS_ACCURACY / markPathAccuracy
+   below), not from merely opening the lesson (learnTopic() used to call this
+   immediately, before any skill was ever demonstrated — the readChapter()
+   knowledge-only stages are the one legitimate exception: there's no skill
+   to demonstrate for those, reading IS the whole activity). ── */
+export function pathDoneSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_path_done") || "[]")); } catch (e) { return new Set(); } }
+export function markPathDone(id) { try { const s = pathDoneSet(); s.add(id); localStorage.setItem("tg_path_done", JSON.stringify([...s])); } catch (e) {} }
+// Minimum practice accuracy for a stage to count as done at all.
+export const PATH_PASS_ACCURACY = 50;
+// Per-stage BEST accuracy ever achieved on its practice drill — purely a
+// presentational layer (the bronze/silver/gold badge) on top of the plain
+// done flag above; never read by progression logic, so it can't regress
+// anything already working.
+export function pathAccMap() { try { return JSON.parse(localStorage.getItem("tg_path_acc") || "{}") || {}; } catch (e) { return {}; } }
+export function markPathAccuracy(id, accuracy) {
+  try {
+    const m = pathAccMap();
+    if (!(id in m) || accuracy > m[id]) { m[id] = accuracy; localStorage.setItem("tg_path_acc", JSON.stringify(m)); }
+  } catch (e) {}
+}
+export function pathTier(accuracy) { return accuracy == null ? null : accuracy >= 90 ? "gold" : accuracy >= 75 ? "silver" : accuracy >= PATH_PASS_ACCURACY ? "bronze" : null; }
 /* Per-key learning record: which keys of each topic (scale/interval/chord/…) the
    learner has studied, so the pathway can show what's already been covered. */
 function keyDoneMap() { try { return JSON.parse(localStorage.getItem("tg_key_done") || "{}") || {}; } catch (e) { return {}; } }
@@ -7640,7 +7718,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // ── learn a topic+key from the pathway menu: send to AI + go to sensei page ──
   function learnTopic(stage, key, chordType = null) {
-    if (stage && stage.id) { markPathDone(stage.id); if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); setActiveStageType(chordType); }
+    // NOTE: does NOT markPathDone here — opening/hearing the lesson isn't
+    // demonstrated skill. The stage is marked done (and given a bronze/
+    // silver/gold tier) from inside finishPractice() once the learner
+    // actually passes this stage's own practice drill — see demoParsed's
+    // stageId below, which use-practice-mode.ts reads back out of lastSeq.
+    if (stage && stage.id) { if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); setActiveStageType(chordType); }
     const basePrompt = stage.learn[lang] || stage.learn.en;
     const keyId = key ? key.id : "C";
     const keyLabel = key ? key.name : "C";
