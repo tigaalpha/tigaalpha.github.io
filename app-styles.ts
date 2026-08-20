@@ -1082,6 +1082,10 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .staffwrap{background:var(--card);border:1px solid var(--bd2);border-radius:16px;padding:14px 8px;margin:6px 0;transition:box-shadow .2s,border-color .2s}
 .staffwrap.ok{border-color:#d97757;box-shadow:0 0 24px -8px #d97757}
 .staffwrap.bad{border-color:#ff5252;box-shadow:0 0 24px -8px #ff5252}
+.staffwrap.phraseclean{border-color:#ffd23f;box-shadow:0 0 32px -6px #ffd23f}
+.sightphrase{letter-spacing:2px;font-size:14px;color:#d97757}
+.sightstreak{font-family:'Orbitron',sans-serif;color:#ffd23f;text-shadow:0 0 10px #ffd23f99;animation:sightstreakpop .3s ease}
+@keyframes sightstreakpop{0%{transform:scale(1.3)}100%{transform:scale(1)}}
 .staffsvg{display:block;max-height:175px}
 .clefsel{display:flex;gap:8px;justify-content:center;margin:8px 0 2px}
 .clefbtn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:11px;border:1px solid var(--bd2);background:rgba(255,255,255,.03);color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}

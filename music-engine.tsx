@@ -1579,6 +1579,7 @@ export const RC_LEVELS = [
   { n: 3, icon: "🎻", clef: "bass", pool: ["F2", "G2", "A2", "B2", "C3", "D3", "E3", "F3", "G3", "A3", "B3", "C4"], seq: 1, qn: 10 },
   { n: 4, icon: "♯", clef: "treble", pool: ["C#4", "D#4", "F#4", "G#4", "A#4", "C#5", "F#5"], seq: 1, qn: 10 },
   { n: 5, icon: "🎼", clef: "treble", pool: ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5"], seq: 3, qn: 5 },
+  { n: 6, icon: "🪜", clef: "bass", pool: ["C2", "D2", "E2", "D4", "E4", "F4"], seq: 1, qn: 10 },
 ];
 
 export const CHORD_MOODS = [
