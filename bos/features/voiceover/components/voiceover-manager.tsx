@@ -16,6 +16,7 @@ import {
   Download,
   VolumeX,
 } from "lucide-react";
+/* User, Users are used above for potential future use */
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,25 +36,17 @@ interface VoiceOption {
 }
 
 const FALLBACK_VOICES: VoiceOption[] = [
-  // Thai
+  // Thai (male only)
   { id: "th-male-1", name: "ชาย 1 (Somchai)", lang: "th-TH", gender: "male", rate: 0.9, pitch: 0.9 },
   { id: "th-male-2", name: "ชาย 2 (Somsak)", lang: "th-TH", gender: "male", rate: 1.0, pitch: 1.0 },
   { id: "th-male-3", name: "ชาย 3 (Nattawut)", lang: "th-TH", gender: "male", rate: 0.95, pitch: 0.85 },
-  { id: "th-female-1", name: "หญิง 1 (Somjai)", lang: "th-TH", gender: "female", rate: 0.9, pitch: 1.1 },
-  { id: "th-female-2", name: "หญิง 2 (Nari)", lang: "th-TH", gender: "female", rate: 1.0, pitch: 1.2 },
-  { id: "th-female-3", name: "หญิง 3 (Kanya)", lang: "th-TH", gender: "female", rate: 0.95, pitch: 1.05 },
-  // English
+  // English (male only)
   { id: "en-male-1", name: "Male 1 (David)", lang: "en-US", gender: "male", rate: 0.9, pitch: 0.85 },
   { id: "en-male-2", name: "Male 2 (Mark)", lang: "en-US", gender: "male", rate: 1.0, pitch: 0.9 },
   { id: "en-male-3", name: "Male 3 (Jason)", lang: "en-US", gender: "male", rate: 0.95, pitch: 0.88 },
-  { id: "en-female-1", name: "Female 1 (Jenny)", lang: "en-US", gender: "female", rate: 0.9, pitch: 1.1 },
-  { id: "en-female-2", name: "Female 2 (Aria)", lang: "en-US", gender: "female", rate: 1.0, pitch: 1.15 },
-  { id: "en-female-3", name: "Female 3 (Sonia)", lang: "en-US", gender: "female", rate: 0.95, pitch: 1.08 },
-  // Chinese
+  // Chinese (male only)
   { id: "zh-male-1", name: "男声 1 (Yunxi)", lang: "zh-CN", gender: "male", rate: 0.9, pitch: 0.9 },
   { id: "zh-male-2", name: "男声 2 (Yunjian)", lang: "zh-CN", gender: "male", rate: 1.0, pitch: 0.88 },
-  { id: "zh-female-1", name: "女声 1 (Xiaoxiao)", lang: "zh-CN", gender: "female", rate: 0.9, pitch: 1.1 },
-  { id: "zh-female-2", name: "女声 2 (Xiaoyi)", lang: "zh-CN", gender: "female", rate: 1.0, pitch: 1.15 },
 ];
 
 /* ── DB history type ── */
@@ -74,7 +67,7 @@ export function VoiceOverManager() {
   const [text, setText] = useState("");
   const [selectedVoiceId, setSelectedVoiceId] = useState("th-male-1");
   const [selectedModel, setSelectedModel] = useState("gemini");
-  const [filterGender, setFilterGender] = useState<"all" | "male" | "female">("all");
+  const [filterGender] = useState<"all" | "male" | "female">("male");
   const [filterLang, setFilterLang] = useState<string>("all");
   const [isPlaying, setIsPlaying] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -159,19 +152,19 @@ export function VoiceOverManager() {
     const result: VoiceOption[] = [];
     for (const v of voices) {
       const isMale = /male|david|mark|somsak|somchai|yunxi|yunjian|男性|nattawut/i.test(v.name);
+      if (!isMale) continue; // male voices only
+      const ALLOWED_PREFIXES = ["th", "en", "zh"];
+      if (!ALLOWED_PREFIXES.some((p) => v.lang.startsWith(p))) continue; // Thai/Eng/Chinese only
       result.push({
         id: v.voiceURI,
-        name: `${v.lang.startsWith("th") ? "🇹🇭" : v.lang.startsWith("zh") ? "🇨🇳" : v.lang.startsWith("en") ? "🇺🇸" : "🌐"} ${v.name}`,
+        name: `${v.lang.startsWith("th") ? "🇹🇭" : v.lang.startsWith("zh") ? "🇨🇳" : "🇺🇸"} ${v.name}`,
         lang: v.lang,
-        gender: isMale ? "male" : "female",
+        gender: "male",
         rate: 1.0,
-        pitch: isMale ? 0.9 : 1.1,
+        pitch: 0.9,
       });
     }
-    // Only show Thai, English, and Chinese voices
-    const ALLOWED_PREFIXES = ["th", "en", "zh"];
-    const filtered = result.filter((v) => ALLOWED_PREFIXES.some((p) => v.lang.startsWith(p)));
-    return filtered.length > 0 ? filtered : FALLBACK_VOICES;
+    return result.length > 0 ? result : FALLBACK_VOICES;
   }, []);
 
   const allVoices = getBrowserVoices();
@@ -180,7 +173,7 @@ export function VoiceOverManager() {
     if (filterLang !== "all" && !v.lang.startsWith(filterLang)) return false;
     return true;
   });
-  const availableLangs: string[] = [...new Set(allVoices.map((v) => v.lang.split("-")[0]).filter((x): x is string => Boolean(x)))];
+  const availableLangs = ["th", "en", "zh"];
 
   // Play with Web Speech API
   const handlePlay = useCallback((playText: string, voiceId?: string) => {
@@ -305,29 +298,6 @@ export function VoiceOverManager() {
           <div>
             <label className="text-xs font-medium text-secondary/70 mb-2 block">เลือกเสียง</label>
 
-            {/* Gender Filter */}
-            <div className="flex gap-2 mb-2">
-              {([
-                { id: "all", label: "ทั้งหมด", icon: Users },
-                { id: "male", label: "ชาย", icon: User },
-                { id: "female", label: "หญิง", icon: User },
-              ] as const).map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => setFilterGender(g.id)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-                    filterGender === g.id
-                      ? "bg-primary text-white"
-                      : "bg-line/10 text-secondary/60 hover:bg-line/20"
-                  )}
-                >
-                  <g.icon className="h-3 w-3" />
-                  {g.label}
-                </button>
-              ))}
-            </div>
-
             {/* Language Filter */}
             <div className="flex gap-1.5 mb-2 overflow-x-auto scrollbar-none">
               <button
@@ -351,7 +321,7 @@ export function VoiceOverManager() {
                       : "bg-line/10 text-secondary/50 hover:bg-line/20"
                   )}
                 >
-                  {langCode === "th" ? "🇹🇭 ไทย" : langCode === "en" ? "🇺🇸 English" : langCode === "zh" ? "🇨🇳 中文" : langCode}
+                  {langCode === "th" ? "🇹🇭 ภาษาไทย" : langCode === "en" ? "🇺🇸 English" : langCode === "zh" ? "🇨🇳 จีนกลาง" : langCode}
                 </button>
               ))}
             </div>
