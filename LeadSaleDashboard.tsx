@@ -5,7 +5,7 @@ import { sb } from "./supabase-client";
    Lead management dashboard organized by 3 product types:
    1. Private Live Course (1-on-1) — ฿27,000
    2. Video Course — ฿990 / ฿1,490
-   3. App Tiger AI — Free (currently)
+   3. TIGA AI — Free (currently)
 
    Shows lead counts, conversion rates, and quick actions per product type. */
 
@@ -65,8 +65,8 @@ const PRODUCTS: ProductType[] = [
   {
     id: "app",
     icon: "📱",
-    nameTh: "App Tiger AI",
-    nameEn: "App Tiger AI (Free)",
+    nameTh: "TIGA AI",
+    nameEn: "TIGA AI (Free)",
     nameZh: "Tiger AI 应用（免费）",
     price: "ฟรี",
     priceNote: "เปิดให้ใช้ฟรีในตอนนี้",

@@ -101,6 +101,16 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: "lead-sale",
+    label: "🎯 Lead Sale",
+    items: [
+      { href: "/lead-sale", label: "แดชบอร์ด Lead", icon: TrendingUp },
+      { href: "/lead-sale/private", label: "คอร์ส Private ตัวต่อตัว", icon: Users, ownerOnly: true },
+      { href: "/lead-sale/video", label: "คอร์สวิดีโอ", icon: Clapperboard, ownerOnly: true },
+      { href: "/lead-sale/tiga-ai", label: "TIGA AI (ฟรี)", icon: Smartphone },
+    ],
+  },
+  {
     id: "sales-crm",
     label: "Sales & CRM",
     items: [
