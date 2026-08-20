@@ -21,6 +21,7 @@ import { SidebarNav } from "./sidebar-nav";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
+import { FloatingAssistant } from "@/features/assistant/components/floating-assistant";
 import { cn } from "@/lib/utils";
 import { getStoredSoloMode, setStoredSoloMode } from "@/lib/solo-mode";
 import { createClient } from "@/services/supabase/client";
@@ -255,7 +256,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
 
       <MobileBottomNav alertCount={alertCount} onMore={() => setMobileOpen(true)} />
 
-
+      <FloatingAssistant />
     </div>
   );
 }
