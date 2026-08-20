@@ -4,7 +4,7 @@ import { L } from "./i18n";
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
    no logic changes. lc is derived from lang internally, same convention as
    the other overlay components. ── */
-export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef, camStatus, camMsg, camCoach, retryCamera, setCamCoach, analyzeHands, premium }) {
+export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef, camStatus, camMsg, camCoach, retryCamera, setCamCoach, analyzeHands, premium, camRecap = null, camSpeaking = false, closeCameraAfterRecap }) {
   const lc = L[lang];
   return (
         <div className="songov camov">
@@ -26,7 +26,17 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
             {camCoach && (
               <div className="camcoach">
                 {camCoach.loading ? <div className="camcoach-load">🎓 {lc.camCoachLoad}</div>
-                  : <><div className="camcoach-hd">🎓 {lc.camCoachTitle}</div><div className="camcoach-tx">{camCoach.text}</div><button className="cbtn" onClick={() => setCamCoach(null)}>{lc.close}</button></>}
+                  : <><div className="camcoach-hd">🎓 {lc.camCoachTitle}{camSpeaking && <span className="camspeaking"> 🔊</span>}</div><div className="camcoach-tx">{camCoach.text}</div><button className="cbtn" onClick={() => setCamCoach(null)}>{lc.close}</button></>}
+              </div>
+            )}
+            {camRecap && (
+              <div className="camcoach camrecap">
+                <div className="camcoach-hd">📋 {lc.camRecapTitle}</div>
+                <div className="camrecap-pct">{camRecap.pct}%</div>
+                <div className="camrecap-trend">
+                  {camRecap.trend === "up" ? lc.camRecapBetter : camRecap.trend === "first" ? lc.camRecapFirst : lc.camRecapSame}
+                </div>
+                <button className="cbtn" onClick={closeCameraAfterRecap}>{lc.camRecapClose}</button>
               </div>
             )}
           </div>

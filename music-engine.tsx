@@ -1572,6 +1572,7 @@ export const PC_SOLFA_TH = { C: "โด", D: "เร", E: "มี", F: "ฟา",
 
 export const EG_INT_BASE = [2, 4, 5, 7, 12];
 export const EG_INT_FULL = [2, 3, 4, 5, 7, 8, 9, 12];
+export const EG_INT_MASTER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 export const RC_LEVELS = [
   { n: 1, icon: "🌱", clef: "treble", pool: ["C4", "D4", "E4", "F4", "G4", "A4", "B4"], seq: 1, qn: 10 },

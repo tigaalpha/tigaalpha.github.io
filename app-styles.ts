@@ -1104,6 +1104,10 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .camcoach-load{font-family:'Rajdhani',sans-serif;font-size:14px;color:#d97757;text-align:center;animation:flamepulse .8s ease-in-out infinite alternate}
 .camcoach-hd{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:#d97757;margin-bottom:6px}
 .camcoach-tx{font-family:'Rajdhani',sans-serif;font-size:14px;line-height:1.5;color:var(--text);white-space:pre-wrap;margin-bottom:8px}
+.camspeaking{animation:flamepulse .6s ease-in-out infinite alternate}
+.camrecap{text-align:center}
+.camrecap-pct{font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;color:var(--text);margin:4px 0}
+.camrecap-trend{font-family:'Rajdhani',sans-serif;font-size:13px;color:#d97757;margin-bottom:10px}
 /* Auto Teaching real-time coaching card */
 .atpopup{position:fixed;inset:0;z-index:1300;display:flex;align-items:flex-end;justify-content:center;background:rgba(10,5,9,.72);backdrop-filter:blur(3px);animation:fadein .25s;padding:0 12px calc(14px + env(safe-area-inset-bottom,0px))}
 .atpopup-card{width:100%;max-width:420px;background:var(--card);border:1px solid #d9775755;border-radius:18px;padding:16px 17px;box-shadow:0 -10px 34px -10px #000,0 0 26px -10px #d9775766;animation:installin .28s ease-out}
