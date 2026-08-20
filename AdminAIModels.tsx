@@ -264,6 +264,7 @@ const ADMIN_NAV_GROUPS = [
   ]},
   { id: "engage", icon: "📣", th: "การตลาดและกิจกรรม", en: "Marketing & Events", zh: "营销与活动", items: [
     { id: "broadcast", icon: "📢", tier: 3, th: "ประกาศ", en: "Broadcast", zh: "公告" },
+    { id: "weeklyreport", icon: "📊", tier: 3, th: "รายงานรายสัปดาห์", en: "Weekly Report", zh: "周报告" },
     { id: "event", icon: "🎉", tier: 3, th: "อีเว้นท์", en: "Event", zh: "活动" },
     { id: "games", icon: "🎮", tier: 3, th: "เกม", en: "Games", zh: "游戏" },
   ]},
