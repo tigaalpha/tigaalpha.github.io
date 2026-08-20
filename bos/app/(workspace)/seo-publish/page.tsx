@@ -1,25 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  FileText,
-  Globe,
-  Eye,
-  Copy,
-  Check,
-  ExternalLink,
-  Search,
-  Clock,
-  Sparkles,
-  BarChart3,
-  Link2,
-  Tag,
+  Globe, Eye, Copy, Check, ExternalLink, Search, Clock, Sparkles,
+  BarChart3, Link2, Tag, RefreshCw, Plus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/services/supabase/client";
+import { createRepositories } from "@/services/repositories";
 
 interface PublishedArticle {
   id: string;
@@ -35,48 +26,6 @@ interface PublishedArticle {
   avgPosition: number;
   internalLinks: string[];
 }
-
-const SAMPLE_ARTICLES: PublishedArticle[] = [
-  {
-    id: "1",
-    title: "เรียนเปียโนกรุงเทพ — ที่ไหนดี 2025 พร้อมราคาเปรียบเทียบ",
-    slug: "learn-piano-bangkok-2025",
-    status: "indexed",
-    targetKeyword: "เรียนเปียโนกรุงเทพ",
-    publishedAt: "2025-07-15",
-    indexedAt: "2025-07-18",
-    views: 1240,
-    clicks: 89,
-    impressions: 3200,
-    avgPosition: 8.3,
-    internalLinks: ["/booking", "/lead-sale/private"],
-  },
-  {
-    id: "2",
-    title: "เรียนเปียโนเด็ก 6-12 ปี — ข้อดี วิธีเลือกโรงเรียน",
-    slug: "piano-lesson-kids-6-12",
-    status: "published",
-    targetKeyword: "เรียนเปียโนเด็ก",
-    publishedAt: "2025-07-20",
-    views: 456,
-    clicks: 32,
-    impressions: 1800,
-    avgPosition: 14.2,
-    internalLinks: ["/booking", "/students"],
-  },
-  {
-    id: "3",
-    title: "เปียโน vs กีตาร์ — เลือกอะไรดีสำหรับมือใหม่",
-    slug: "piano-vs-guitar-beginners",
-    status: "draft",
-    targetKeyword: "เล่นเปียโนหรือกีตาร์",
-    views: 0,
-    clicks: 0,
-    impressions: 0,
-    avgPosition: 0,
-    internalLinks: [],
-  },
-];
 
 const STATUS_MAP: Record<string, { label: string; variant: "outline" | "warning" | "success" | "info" }> = {
   draft: { label: "ร่าง", variant: "outline" },
@@ -162,36 +111,81 @@ function ArticleCard({ article }: { article: PublishedArticle }) {
 }
 
 export default function SEOPublishPage() {
-  const [sitemapXml, setSitemapXml] = useState(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://tigaalpha.github.io/studio/</loc><lastmod>2025-08-20</lastmod><priority>1.0</priority></url>
-  <url><loc>https://tigaalpha.github.io/studio/articles/learn-piano-bangkok-2025</loc><lastmod>2025-07-15</lastmod><priority>0.8</priority></url>
-  <url><loc>https://tigaalpha.github.io/studio/articles/piano-lesson-kids-6-12</loc><lastmod>2025-07-20</lastmod><priority>0.8</priority></url>
-</urlset>`);
+  const [articles, setArticles] = useState<PublishedArticle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sitemapXml, setSitemapXml] = useState("");
   const [copied, setCopied] = useState(false);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const repos = createRepositories(createClient());
+      const dbArticles = await repos.articles.list();
+      
+      const publishedArticles: PublishedArticle[] = dbArticles.map(article => ({
+        id: article.id,
+        title: article.title || "ไม่มีชื่อ",
+        slug: article.slug || article.id,
+        status: (article.status as "draft" | "review" | "published" | "indexed") || "draft",
+        targetKeyword: article.target_keyword || "",
+        publishedAt: article.published_at || undefined,
+        indexedAt: article.indexed_at || undefined,
+        views: article.views || 0,
+        clicks: article.clicks || 0,
+        impressions: article.impressions || 0,
+        avgPosition: article.avg_position || 0,
+        internalLinks: (article.internal_links as string[]) || [],
+      }));
+      
+      setArticles(publishedArticles);
+      
+      // Generate sitemap
+      const urls = publishedArticles
+        .filter(a => a.status === "published" || a.status === "indexed")
+        .map(a => `  <url><loc>https://tigaalpha.github.io/studio/articles/${a.slug}</loc><lastmod>${a.publishedAt || "2025-01-01"}</lastmod><priority>0.8</priority></url>`)
+        .join("\n");
+      
+      setSitemapXml(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://tigaalpha.github.io/studio/</loc><lastmod>${new Date().toISOString().split("T")[0]}</lastmod><priority>1.0</priority></url>
+${urls}
+</urlset>`);
+    } catch (err) {
+      console.error("Failed to load articles:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadData(); }, []);
+
+  const publishedCount = articles.filter(a => a.status === "published" || a.status === "indexed").length;
+  const draftCount = articles.filter(a => a.status === "draft").length;
+  const totalViews = articles.reduce((s, a) => s + a.views, 0);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-secondary">📝 SEO Publish Pipeline</h1>
-        <p className="text-sm text-secondary/50">เปลี่ยน Draft → Public Page ที่ Google Index ได้ พร้อม Sitemap อัตโนมัติ</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-secondary">📝 SEO Publish Pipeline</h1>
+          <p className="text-sm text-secondary/50">เปลี่ยน Draft → Public Page ที่ Google Index ได้ — ข้อมูลจริงจาก Supabase</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+          รีเฟรช
+        </Button>
       </div>
 
       {/* Pipeline Steps */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary-accent" />
-            Publishing Pipeline
-          </CardTitle>
+          <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary-accent" />Publishing Pipeline</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
             {["📝 เขียน SEO Content", "🔍 Keyword Check", "✅ Internal Links", "🌐 Publish HTML", "📡 Submit Sitemap", "📊 Track Ranking"].map((step, i) => (
               <div key={i} className="flex items-center gap-2 shrink-0">
-                <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-medium text-secondary">
-                  {step}
-                </div>
+                <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-medium text-secondary">{step}</div>
                 {i < 5 && <span className="text-secondary/20">→</span>}
               </div>
             ))}
@@ -199,23 +193,34 @@ export default function SEOPublishPage() {
         </CardContent>
       </Card>
 
+      {/* Summary */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Card><CardContent className="pt-4"><p className="text-xs text-secondary/50">บทความทั้งหมด</p><p className="text-2xl font-bold text-secondary">{articles.length}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-xs text-secondary/50">Published</p><p className="text-2xl font-bold text-emerald-600">{publishedCount}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-xs text-secondary/50">Draft</p><p className="text-2xl font-bold text-amber-600">{draftCount}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-xs text-secondary/50">Total Views</p><p className="text-2xl font-bold text-primary">{totalViews.toLocaleString()}</p></CardContent></Card>
+      </div>
+
       {/* Published Articles */}
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-secondary">บทความที่เผยแพร่แล้ว ({SAMPLE_ARTICLES.length})</h2>
-        <div className="space-y-3">
-          {SAMPLE_ARTICLES.map((article) => (
-            <ArticleCard key={article.id} article={article} />
-          ))}
-        </div>
+        <h2 className="mb-3 text-lg font-semibold text-secondary">บทความ ({articles.length})</h2>
+        {loading ? (
+          <div className="text-center py-8 text-secondary/50">กำลังโหลด...</div>
+        ) : articles.length === 0 ? (
+          <div className="text-center py-8 text-secondary/50">ยังไม่มีบทความ</div>
+        ) : (
+          <div className="space-y-3">
+            {articles.map((article) => (
+              <ArticleCard key={article.id} article={article} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Sitemap Generator */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5 text-primary-accent" />
-            Auto Sitemap Generator
-          </CardTitle>
+          <CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5 text-primary-accent" />Auto Sitemap Generator</CardTitle>
           <CardDescription>Sitemap.xml อัตโนมัติ — รวมทุกหน้าที่เผยแพร่แล้ว</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -229,36 +234,6 @@ export default function SEOPublishPage() {
               <ExternalLink className="h-3 w-3 mr-1" />
               Submit to Google Search Console
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* SEO Checklist */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Check className="h-5 w-5 text-emerald-500" />
-            SEO Checklist สำหรับทุกบทความ
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {[
-              "✅ Title tag < 60 ตัวอักษร",
-              "✅ Meta description 120-160 ตัวอักษร",
-              "✅ H1 มี target keyword",
-              "✅ Internal link ไปหน้า Booking",
-              "✅ Internal link ไปหน้า Course",
-              "✅ FAQ section 3-5 ข้อ",
-              "✅ Image alt text ทุกรูป",
-              "✅ Slug เป็นภาษาอังกฤษ",
-              "✅ ไม่ซ้ำกับบทความอื่น",
-              "✅ Entity (ชื่อธุรกิจ + ที่อยู่) ชัดเจน",
-            ].map((item, i) => (
-              <div key={i} className="rounded-lg bg-emerald-50/5 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-500/5 dark:text-emerald-400">
-                {item}
-              </div>
-            ))}
           </div>
         </CardContent>
       </Card>

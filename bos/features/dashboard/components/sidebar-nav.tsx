@@ -60,6 +60,7 @@ import {
   ListChecks,
   Cpu,
   GitBranch,
+  Rocket,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -160,11 +161,14 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/marketing-roi", label: "Marketing ROI", icon: DollarSign, ownerOnly: true },
       { href: "/weekly-report", label: "AI Weekly Report", icon: FileBarChart },
       { href: "/auto-schedule", label: "AI Auto-Schedule", icon: CalendarClock },
+      { href: "/auto-publish", label: "Auto-Publish Pipeline", icon: Rocket },
       { href: "/ab-test-ai", label: "A/B Test AI", icon: Target },
       { href: "/content-repurpose", label: "Content Repurpose", icon: Sparkles },
       { href: "/personalization-engine", label: "Personalization", icon: UserCheck },
       { href: "/competitive-intel", label: "Competitive Intel", icon: Radar },
       { href: "/internal-linking", label: "Internal Linking", icon: Link2 },
+      { href: "/conversion-tracking", label: "Conversion Tracking", icon: Target },
+      { href: "/performance-dashboard", label: "Performance Dashboard", icon: BarChart3 },
       { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
       { href: "/content", label: "SEO/AEO Content", icon: FileText },
       { href: "/seo-publish", label: "SEO Publish Pipeline", icon: Globe },
