@@ -27,6 +27,11 @@ export class KnowledgeRepository {
     return data ?? [];
   }
 
+  async updateDocument(id: string, updates: { title?: string; raw_text?: string; source_type?: KnowledgeSourceType }): Promise<void> {
+    const { error } = await this.db.from("knowledge_documents").update(updates).eq("id", id);
+    if (error) throw error;
+  }
+
   async deleteDocument(id: string): Promise<void> {
     const { error } = await this.db.from("knowledge_documents").delete().eq("id", id);
     if (error) throw error;

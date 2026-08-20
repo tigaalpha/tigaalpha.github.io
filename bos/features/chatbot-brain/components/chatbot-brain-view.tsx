@@ -512,6 +512,10 @@ function TrainingPanel() {
   const [salesSubmitting, setSalesSubmitting] = useState(false);
   const [activeSection, setActiveSection] = useState<"knowledge" | "sales">("knowledge");
   const [selectedDoc, setSelectedDoc] = useState<Tables<"knowledge_documents"> | null>(null);
+  const [editingDoc, setEditingDoc] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const reload = useCallback(() => {
     const repos = createRepositories(createClient());
@@ -575,6 +579,32 @@ function TrainingPanel() {
     const repos = createRepositories(createClient());
     await repos.knowledge.deleteDocument(id);
     reload();
+  }
+
+  function startEditDoc() {
+    if (!selectedDoc) return;
+    setEditTitle(selectedDoc.title || "");
+    setEditContent(selectedDoc.raw_text || "");
+    setEditingDoc(true);
+  }
+
+  async function saveEditDoc() {
+    if (!selectedDoc) return;
+    setSaving(true);
+    try {
+      const repos = createRepositories(createClient());
+      await repos.knowledge.updateDocument(selectedDoc.id, {
+        title: editTitle.trim() || selectedDoc.title,
+        raw_text: editContent,
+      });
+      setDocuments((prev) => prev.map((d) => d.id === selectedDoc.id ? { ...d, title: editTitle.trim() || d.title, raw_text: editContent } : d));
+      setSelectedDoc({ ...selectedDoc, title: editTitle.trim() || selectedDoc.title, raw_text: editContent });
+      setEditingDoc(false);
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
   }
 
   const filteredDocs = documents.filter((doc) =>
@@ -747,14 +777,23 @@ function TrainingPanel() {
 
       {/* Document Detail Popup */}
       {selectedDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedDoc(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setSelectedDoc(null); setEditingDoc(false); }}>
           <div className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-lg">{SOURCE_LABELS[selectedDoc.source_type]?.split(" ")[0] || "📄"}</span>
-                <h3 className="text-sm font-semibold text-secondary">{selectedDoc.title}</h3>
+                {editingDoc ? (
+                  <input
+                    className="flex-1 rounded-lg border border-line/20 bg-line/5 px-3 py-1.5 text-sm font-semibold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="ชื่อองค์ความรู้"
+                  />
+                ) : (
+                  <h3 className="text-sm font-semibold text-secondary">{selectedDoc.title}</h3>
+                )}
               </div>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSelectedDoc(null)}>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setSelectedDoc(null); setEditingDoc(false); }}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -767,15 +806,49 @@ function TrainingPanel() {
                   📅 {new Date(selectedDoc.created_at).toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" })}
                 </Badge>
               )}
+              {editingDoc && (
+                <Badge variant="outline" className="text-[10px] text-primary animate-pulse">
+                  ✏️ กำลังแก้ไข
+c
+                </Badge>
+              )}
             </div>
-            <div className="whitespace-pre-wrap rounded-xl bg-line/5 p-4 text-sm leading-relaxed text-secondary/80">
-              {selectedDoc.raw_text || selectedDoc.file_path || "(ไม่มีเนื้อหา)"}
-            </div>
-            <div className="mt-3 flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => setSelectedDoc(null)}>ปิด</Button>
-              <Button size="sm" variant="ghost" className="text-danger hover:bg-danger/10" onClick={() => { handleDeleteDoc(selectedDoc.id); setSelectedDoc(null); }}>
-                <Trash2 className="mr-1 h-3 w-3" /> ลบ
-              </Button>
+            {editingDoc ? (
+              <textarea
+                className="min-h-[200px] w-full rounded-xl border border-line/20 bg-line/5 p-4 text-sm leading-relaxed text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                placeholder="เนื้อหาองค์ความรู้..."
+              />
+            ) : (
+              <div className="whitespace-pre-wrap rounded-xl bg-line/5 p-4 text-sm leading-relaxed text-secondary/80">
+                {selectedDoc.raw_text || selectedDoc.file_path || "(ไม่มีเนื้อหา)"}
+              </div>
+            )}
+            <div className="mt-3 flex justify-between gap-2">
+              <div>
+                <Button size="sm" variant="ghost" className="text-danger hover:bg-danger/10" onClick={() => { handleDeleteDoc(selectedDoc.id); setSelectedDoc(null); setEditingDoc(false); }}>
+                  <Trash2 className="mr-1 h-3 w-3" /> ลบ
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                {editingDoc ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => setEditingDoc(false)}>ยกเลิก</Button>
+                    <Button size="sm" onClick={saveEditDoc} disabled={saving}>
+                      {saving ? "กำลังบันทึก..." : "💾 บันทึก"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => { setSelectedDoc(null); setEditingDoc(false); }}>ปิด</Button>
+                    <Button size="sm" onClick={startEditDoc}>
+                      ✏️ แก้ไข
+c
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
