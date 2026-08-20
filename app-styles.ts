@@ -673,8 +673,30 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .practicefill{height:100%;background: #d97757;box-shadow:0 0 10px -2px #d97757;transition:width .25s}
 .practicestats{display:flex;justify-content:space-around;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text2)}
 .practicestats b{font-family:'Orbitron',sans-serif;color:var(--text);font-size:15px}
+.practicecombo{font-size:14px}
 .practicetip{text-align:center;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.6}
 .practicefoot{display:flex;gap:10px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #d9775733;background:var(--card2);flex-shrink:0;position:relative;z-index:1}
+/* in-overlay Practice Mode result screen — same dark/Orbitron language as the
+   live drill above it, not the light profile-page card style */
+.presultwrap{align-items:stretch;text-align:center}
+.presulthead{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 4px;animation:pop .35s ease}
+.presulttitle{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;color:#d97757;text-shadow:0 0 18px #d9775777}
+.presultsub{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--muted)}
+.presultbest{margin-top:4px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:#ffd23f;text-shadow:0 0 12px #ffd23f99;animation:sightstreakpop .4s ease}
+.presultstats{display:flex;gap:12px;justify-content:center}
+.presultstat{flex:1;max-width:150px;background:var(--card2);border:1px solid var(--bd2);border-radius:12px;padding:12px 8px}
+.presultstat-v{font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:#d97757}
+.presultstat-l{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px}
+.presultstat-d{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text2);margin-top:4px}
+.presultbars{display:flex;flex-direction:column;gap:8px;text-align:left}
+.presultbar-row{display:flex;align-items:center;gap:8px}
+.presultbar-lbl{flex:0 0 auto;width:110px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text2)}
+.presultbar{flex:1;height:8px}
+.presultbar-pct{flex:0 0 auto;width:36px;text-align:right;font-family:'Orbitron',sans-serif;font-size:11px;color:var(--text)}
+.presultai{background:var(--card2);border:1px solid var(--bd2);border-radius:12px;padding:12px 14px;text-align:left}
+.presultai-h{font-family:'Share Tech Mono',monospace;font-size:10px;color:#d97757;letter-spacing:1px;margin-bottom:6px}
+.presultai-loading{color:var(--muted);animation:blink 1.2s infinite}
+.presultai-tx{font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap}
 .practicefoot button{flex:1;padding:12px;border-radius:11px;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1.5px;cursor:pointer;transition:all .2s;border:1px solid}
 .practicerestart{border-color:#d9775755!important;background:rgba(217,119,87,.08);color:#d97757}
 .practiceexit{border-color:#ff525255!important;background:rgba(255,82,82,.08);color:#d97757}
