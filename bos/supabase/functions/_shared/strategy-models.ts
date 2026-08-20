@@ -10,7 +10,7 @@ import { geminiProvider } from "./gemini.ts";
 import { callOpenAICompatible, type SimpleChatMessage } from "./openai-compatible.ts";
 import { OPENROUTER_BASE_URL, requireOpenRouterKey } from "./openrouter.ts";
 
-export type StrategyModelId = "gemini" | "claude" | "gpt" | "grok" | "deepseek" | "kimi" | "glm";
+export type StrategyModelId = "gemini" | "claude" | "gpt" | "grok" | "deepseek" | "kimi" | "glm" | "mimo";
 
 export interface StrategyModelDef {
   id: StrategyModelId;
@@ -26,6 +26,7 @@ export const STRATEGY_MODELS: StrategyModelDef[] = [
   { id: "deepseek", label: "DeepSeek", envKey: "OPENROUTER_API_KEY" },
   { id: "kimi", label: "Kimi (Moonshot AI)", envKey: "OPENROUTER_API_KEY" },
   { id: "glm", label: "GLM (Zhipu / Z.ai)", envKey: "OPENROUTER_API_KEY" },
+  { id: "mimo", label: "MiMo 7B RL (Xiaomi)", envKey: "OPENROUTER_API_KEY" },
 ];
 
 // One slug per model, all reached through the same OpenRouter connection.
@@ -36,6 +37,7 @@ const OPENROUTER_MODEL_SLUGS: Record<Exclude<StrategyModelId, "gemini">, { envVa
   deepseek: { envVar: "DEEPSEEK_STRATEGY_MODEL", slug: "deepseek/deepseek-chat" },
   kimi: { envVar: "MOONSHOT_STRATEGY_MODEL", slug: "moonshotai/kimi-k2" },
   glm: { envVar: "ZHIPU_STRATEGY_MODEL", slug: "z-ai/glm-4.6" },
+  mimo: { envVar: "MIMO_STRATEGY_MODEL", slug: "xiaomi/mimo-7b-rl" },
 };
 
 export function availableStrategyModels(): StrategyModelDef[] {

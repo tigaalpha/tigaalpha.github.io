@@ -138,46 +138,27 @@ export default function MimoAIPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5 text-primary-accent" />
-            Setup Guide — 3 ขั้นตอน
+            Setup — 1 ขั้นตอน (OpenRouter key มีอยู่แล้ว)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Step 1 */}
+          {/* OpenRouter Already Connected */}
+          <div className="rounded-xl border border-emerald-200/30 bg-emerald-50/5 p-4 space-y-2 dark:border-emerald-500/20 dark:bg-emerald-500/5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-500">✓</span>
+              <span className="text-sm font-medium text-secondary">OpenRouter API Key</span>
+              <Badge variant="success" className="text-[9px]">เชื่อมต่อแล้ว</Badge>
+            </div>
+            <p className="text-xs text-secondary/50 ml-8">ใช้ key เดิมที่มีอยู่ใน Supabase — ไม่ต้องสร้างใหม่</p>
+          </div>
+
+
+
+          {/* Select Model */}
           <div className="rounded-xl border border-line/10 p-4 space-y-2">
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">1</span>
-              <span className="text-sm font-medium text-secondary">สร้าง OpenRouter Account</span>
-              <Badge variant="outline" className="text-[9px]">ฟรี</Badge>
-            </div>
-            <p className="text-xs text-secondary/50 ml-8">ไปที่ openrouter.ai → สมัครบัญชี → ไปที่ API Keys → สร้าง key ใหม่</p>
-            <div className="flex items-center gap-2 ml-8">
-              <Button size="sm" variant="outline" asChild>
-                <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-3 w-3 mr-1" />เปิด OpenRouter
-                </a>
-              </Button>
-              <CopyButton value="https://openrouter.ai/keys" />
-            </div>
-          </div>
-
-          {/* Step 2 */}
-          <div className="rounded-xl border border-line/10 p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">2</span>
-              <span className="text-sm font-medium text-secondary">ใส่ API Key</span>
-            </div>
-            <div className="flex items-center gap-2 ml-8">
-              <Input type="password" placeholder="sk-or-v1-xxxxxxxxxxxx" value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="flex-1" />
-              <Button size="sm" onClick={() => setConfigured(true)} disabled={!apiKey.trim()}>บันทึก</Button>
-            </div>
-            <p className="text-xs text-secondary/40 ml-8">🔑 Key จะถูกเก็บใน Supabase (server-side) ไม่เปิดเผยใน frontend</p>
-          </div>
-
-          {/* Step 3 */}
-          <div className="rounded-xl border border-line/10 p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">3</span>
-              <span className="text-sm font-medium text-secondary">เลือก Model</span>
+              <span className="text-sm font-medium text-secondary">เลือก Model สำหรับ TIGA AI Agent</span>
             </div>
             <div className="grid grid-cols-1 gap-2 ml-8 md:grid-cols-3">
               {MODELS.map((model) => (
@@ -205,6 +186,7 @@ export default function MimoAIPage() {
                 </button>
               ))}
             </div>
+            <p className="text-xs text-secondary/40 ml-8">ไปที่ Settings → Integrations → เลือก "MiMo 7B RL (Xiaomi)" เป็นโมเดลหลัก</p>
           </div>
         </CardContent>
       </Card>
@@ -279,9 +261,9 @@ export default function MimoAIPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Key className="h-5 w-5 text-primary-accent" />
-            Configuration
+            Configuration (ในระบบแล้ว)
           </CardTitle>
-          <CardDescription>เพิ่มใน Supabase Edge Function environment variables</CardDescription>
+          <CardDescription>MiMo model ถูกเพิ่มเข้าระบบแล้ว — ใช้ผ่าน OpenRouter เดิม</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="rounded-xl bg-line/5 p-3">
