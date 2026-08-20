@@ -53,6 +53,12 @@ import {
   Gift,
   Layout,
   DollarSign,
+  CalendarClock,
+  PieChart,
+  FileBarChart,
+  Link2,
+  ListChecks,
+  Cpu,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -102,6 +108,8 @@ const NAV_GROUPS: NavGroup[] = [
     maturity: "beta",
     items: [
       { href: "/strategy", label: "AI Strategy Room", icon: Brain },
+      { href: "/strategy-actions", label: "Strategy Actions", icon: ListChecks },
+      { href: "/mimo-ai", label: "Mimo AI (OpenRouter)", icon: Cpu, ownerOnly: true },
       { href: "/chatbot-brain", label: "Chatbot Brain", icon: Bot },
       { href: "/competitors", label: "วิเคราะห์คู่แข่ง", icon: Swords },
     ],
@@ -112,6 +120,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/lead-sale", label: "แดชบอร์ด Lead", icon: TrendingUp },
       { href: "/funnel", label: "Sales Funnel", icon: Filter },
+      { href: "/revenue-attribution", label: "Revenue Attribution", icon: DollarSign, ownerOnly: true },
       { href: "/lead-sale/private", label: "คอร์ส Private ตัวต่อตัว", icon: Users, ownerOnly: true },
       { href: "/lead-sale/video", label: "คอร์สวิดีโอ", icon: Clapperboard, ownerOnly: true },
       { href: "/lead-sale/tiga-ai", label: "TIGA AI (ฟรี)", icon: Smartphone },
@@ -135,6 +144,9 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Content & Marketing",
     items: [
       { href: "/marketing-roi", label: "Marketing ROI", icon: DollarSign, ownerOnly: true },
+      { href: "/weekly-report", label: "AI Weekly Report", icon: FileBarChart },
+      { href: "/auto-schedule", label: "AI Auto-Schedule", icon: CalendarClock },
+      { href: "/internal-linking", label: "Internal Linking", icon: Link2 },
       { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
       { href: "/content", label: "SEO/AEO Content", icon: FileText },
       { href: "/seo-publish", label: "SEO Publish Pipeline", icon: Globe },
