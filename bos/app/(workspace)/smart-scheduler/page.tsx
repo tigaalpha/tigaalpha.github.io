@@ -60,7 +60,7 @@ export default function SmartSchedulerPage() {
       </div>
 
       {/* No-Show Risk */}
-      <Card><CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />No-Show Risk Prediction</CardTitle><CardDescription>AI ทำนายว่าใครจะไม่มา — พร้อม action แนะนำ</CardTitle></CardHeader>
+      <Card><CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />No-Show Risk Prediction</CardTitle><CardDescription>AI ทำนายว่าใครจะไม่มา — พร้อม action แนะนำ</CardDescription></CardHeader>
         <CardContent className="space-y-2">
           {NO_SHOW_RISKS.sort((a, b) => b.risk - a.risk).map((risk) => (
             <div key={risk.name} className={cn("rounded-xl border p-3", risk.risk >= 70 ? "border-red-200/30 bg-red-50/5" : risk.risk >= 50 ? "border-amber-200/30 bg-amber-50/5" : "border-line/10")}>
