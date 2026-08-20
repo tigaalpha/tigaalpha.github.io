@@ -931,14 +931,17 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
    NOTE-READING COURSE — a graded path to real notation literacy:
    treble → ledger lines → bass clef → accidentals → short sequences.
 ════════════════════════════════════════════════════════════ */
-const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
+const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySong }) {
   const T = {
-    th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน",
-        tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน" },
-    en: { title: "Note Reading", sub: "Real notation literacy, step by step — treble → ledger lines → bass clef → sharps → phrases", lvl: "Level", locked: "Earn ⭐⭐ on the previous level first", q: "Q", what: "Which note is this?", seqWhat: "Tap the note names in order", right: "Correct! 🎉", wrong: "Answer: ", done: "Level complete!", again: "Play again ▶", play: "Start ▶", back: "← Levels", score: "Score",
-        tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead" },
-    zh: { title: "识谱课", sub: "循序渐进学会读谱 — 高音谱号 → 加线 → 低音谱号 → 升号 → 短句", lvl: "关卡", locked: "先在上一关拿到 ⭐⭐", q: "第", what: "这是什么音？", seqWhat: "按顺序点击音名", right: "正确！🎉", wrong: "答案：", done: "本关完成！", again: "再来一次 ▶", play: "开始 ▶", back: "← 选关", score: "得分",
-        tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式" },
+    th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี → เส้นน้อยกุญแจฟา", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน",
+        tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน",
+        courseDone: "อ่านโน้ตเป็นแล้ว! ลองอ่านเพลงจริงดูสิ", readSong: "อ่านเพลงจริง" },
+    en: { title: "Note Reading", sub: "Real notation literacy, step by step — treble → ledger lines → bass clef → sharps → phrases → bass ledger lines", lvl: "Level", locked: "Earn ⭐⭐ on the previous level first", q: "Q", what: "Which note is this?", seqWhat: "Tap the note names in order", right: "Correct! 🎉", wrong: "Answer: ", done: "Level complete!", again: "Play again ▶", play: "Start ▶", back: "← Levels", score: "Score",
+        tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead",
+        courseDone: "You can read notation! Try reading a real song", readSong: "Read a real song" },
+    zh: { title: "识谱课", sub: "循序渐进学会读谱 — 高音谱号 → 加线 → 低音谱号 → 升号 → 短句 → 低音谱加线", lvl: "关卡", locked: "先在上一关拿到 ⭐⭐", q: "第", what: "这是什么音？", seqWhat: "按顺序点击音名", right: "正确！🎉", wrong: "答案：", done: "本关完成！", again: "再来一次 ▶", play: "开始 ▶", back: "← 选关", score: "得分",
+        tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式",
+        courseDone: "你已经会读谱了！试着读一首真正的曲子吧", readSong: "读一首真曲子" },
   }[lang];
   const [lvl, setLvl] = useState(null);
   const [idx, setIdx] = useState(0);
@@ -959,16 +962,19 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
   const fbRef = useRef(null); fbRef.current = fb;
   function micInput(d) {
     if (!curRef.current || fbRef.current || !lvl) return;
-    const pc = pcOf(d.note);
     playPianoNote(d.note, 0.3);
     setMicHeard(d.note);
+    // Played on a real piano/MIDI, so octave is real and testable — compare full note
+    // names here (not just letter/pitch-class), unlike the letter-only tap grid below.
+    // A wrong-octave answer used to score as correct, so staff *position* (the actual
+    // point of a grand-staff reading course) was never really being tested.
     if (lvl.seq === 1) {
-      answered(pc === curRef.current.answerPcs[0], lvl);
+      answered(d.note === curRef.current.notes[0], lvl);
     } else {
-      micTapsRef.current = [...micTapsRef.current, pc];
-      setTaps(micTapsRef.current);
-      if (micTapsRef.current.length >= curRef.current.answerPcs.length) {
-        answered(micTapsRef.current.join(" ") === curRef.current.answerPcs.join(" "), lvl);
+      micTapsRef.current = [...micTapsRef.current, d.note];
+      setTaps(micTapsRef.current.map(pcOf));
+      if (micTapsRef.current.length >= curRef.current.notes.length) {
+        answered(micTapsRef.current.join(" ") === curRef.current.notes.join(" "), lvl);
       }
     }
   }
@@ -1006,6 +1012,10 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
     playUi("click");
     runRef.current++;
     setLvl(L); setIdx(0); setScore(0); setResult(null);
+    // Once a level's been starred, a plain 4-option multiple-choice replay (25% guessable)
+    // undercuts the mastery feel — default replays to real piano/MIDI input instead, still
+    // toggleable back via the mode button if the learner genuinely wants to ease back in.
+    if ((stars[L.n] || 0) >= 1) setMicMode(true);
     startTRef.current = Date.now();
     nextQ(L);
   }
@@ -1099,6 +1109,14 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "18px", color: "var(--text)", fontWeight: 900, margin: "8px 0" }}>{result.score}/{result.qn}</div>
           <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "14px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
           <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={() => startLevel(lvl)}>{T.again}</button>
+          {/* Ties "learned to read notation" to "can read a real song" — the whole point of the course. */}
+          {onPlaySong && lvl.n === RC_LEVELS[RC_LEVELS.length - 1].n && result.stars >= 2 && (
+            <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid var(--bd2)" }}>
+              <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "8px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.courseDone}</div>
+              <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#d97757" }}
+                onClick={() => onPlaySong(SONGS.find(s => s.diff === 1 && !s.custom) || SONGS[0])}>🎵 {T.readSong}</button>
+            </div>
+          )}
         </div>
       ) : cur && (
         <div className="v12card" style={{ textAlign: "center" }}>
@@ -1118,7 +1136,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
                   <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>
                     {micSrc ? T.listenReady : T.listening}
                   </div>
-                  {lvl.seq > 1 && <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.join(" ")}</div>}
+                  {lvl.seq > 1 && <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>}
                   {micHeard && <div style={{ marginTop: "6px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
                 </>
               )}
@@ -1137,7 +1155,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
               )}
               {lvl.seq > 1 && (
                 <>
-                  <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.join(" ")}</div>
+                  <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
                     {["C", "D", "E", "F", "G", "A", "B"].map(p => (
                       <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapSeq(p)}>
@@ -7678,7 +7696,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "reading" && (
-        <ReadingPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
+        <ReadingPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }}
+          onPlaySong={(song) => { chooseSong(song); setPage("studio"); setStudioView("songs"); }} />
       )}
       {page === "insights" && (
         <InsightsPage lang={lang} profile={profile} onSong={chooseSong} onBack={() => setPage("profile")} />
