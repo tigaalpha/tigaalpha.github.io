@@ -72,7 +72,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
   return (
     <div className={`msg ${m.role === "user" ? "u" : "a"}`}>
       <div className="bbl">
-        {m.role === "ai" && <div className="atag">◈ TIGA.AI</div>}
+        {m.role === "ai" && <div className="atag">◈ TIGA CHAT</div>}
         {m.img && <img src={m.img} alt="" className="adminimg" />}
         <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{m.text}</p>
       </div>
@@ -100,7 +100,7 @@ export const Typing = memo(function Typing() {
   return (
     <div className="msg a">
       <div className="bbl">
-        <div className="atag">◈ TIGA.AI</div>
+        <div className="atag">◈ TIGA CHAT</div>
         <div className="typing"><div className="tdd"/><div className="tdd"/><div className="tdd"/></div>
       </div>
     </div>
