@@ -109,30 +109,6 @@ export function logActivity(kind, id, ok, miss, sec, skill = null) {
   } catch (e) {}
 }
 
-// B1: Spaced Repetition Review (SRS) — schedule topics at 1/3/7/14/30 day intervals
-export function recordSRS(topicId) {
-  try {
-    const data = JSON.parse(localStorage.getItem("tg_srs") || "{}");
-    const e = data[topicId] || { count: 0 };
-    e.count = (e.count || 0) + 1;
-    e.lastDone = Date.now();
-    const intervals = [1, 3, 7, 14, 30];
-    const days = intervals[Math.min(e.count - 1, intervals.length - 1)];
-    e.nextReview = Date.now() + days * 86400000;
-    data[topicId] = e;
-    localStorage.setItem("tg_srs", JSON.stringify(data));
-  } catch (_) {}
-}
-export function getDueSRS() {
-  try {
-    const data = JSON.parse(localStorage.getItem("tg_srs") || "{}");
-    const now = Date.now();
-    return Object.entries(data)
-      .filter(([, e]: [string, any]) => (e as any).nextReview && (e as any).nextReview <= now)
-      .map(([id, e]: [string, any]) => ({ id, ...(e as any) }));
-  } catch (_) { return []; }
-}
-
 // B2: Note Weakness — track which pitch classes are missed most across song plays
 export function recordNoteMisses(notes) {
   try {

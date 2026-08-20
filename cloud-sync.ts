@@ -35,7 +35,8 @@ import { sb } from "./supabase-client";
    max        scalar number              → Math.max
    lww        scalar                     → newer client_ts wins
    usage      {d: day, k: count}         → d last-write-wins, counters max
-   srs        {topic: {count,lastDone}}  → per-topic newer lastDone wins
+   pathacc    {stageId: {best,last,lastAt,interval,nextDue}} → per-stage: best
+              never regresses, scheduling fields take the newer attempt
    memory     {struggles[],mastered[],recent[],lastSession,sessions}
    practicelog {date: {n,accSum,exp}, _recent[]} → per-date max + _recent union-by-day
 */
@@ -59,7 +60,7 @@ const STRATEGY: Record<string, string> = {
   // {stage: [key ids]}
   tg_key_done: "objunion",
   // composite objects
-  tg_srs: "srs",                   // spaced-repetition schedule
+  tg_path_acc: "pathacc",          // per-stage best accuracy + SM-2-lite review schedule (unified SRS)
   tg_memory: "memory",             // learner memory (ai-chat-context)
   tg_practice_log: "practicelog",  // per-day practice stats
   // scalar last-write-wins
@@ -220,13 +221,25 @@ function mergeUsage(a: any, b: any): any {
   }
   return out;
 }
-function mergeSrs(a: any, b: any): any {
+// normalizes a per-stage record that might still be in the pre-unification
+// shape (a bare best-accuracy number) — same migration pathAccMap() does on
+// local reads, needed here too since a cloud row can predate that migration.
+function normPathAcc(v: any): any {
+  if (typeof v === "number") return { best: v, last: v, lastAt: 0, interval: 0, nextDue: 0 };
+  return v || { best: 0, last: 0, lastAt: 0, interval: 0, nextDue: 0 };
+}
+function mergePathAcc(a: any, b: any): any {
   const out: any = {};
-  for (const k of Object.keys(a || {})) out[k] = a[k];
+  for (const k of Object.keys(a || {})) out[k] = normPathAcc(a[k]);
   for (const k of Object.keys(b || {})) {
-    const av = out[k], bv = b[k];
-    if (!av) out[k] = bv;
-    else if ((bv && (bv.lastDone || 0)) > (av.lastDone || 0)) out[k] = bv;
+    const av = out[k], bv = normPathAcc(b[k]);
+    if (!av) { out[k] = bv; continue; }
+    // best (the tier badge) never regresses regardless of which side is
+    // newer; the review-scheduling fields take whichever attempt actually
+    // happened more recently, since that's the one that should drive when
+    // it's next due.
+    const newer = (bv.lastAt || 0) > (av.lastAt || 0) ? bv : av;
+    out[k] = { ...newer, best: Math.max(av.best || 0, bv.best || 0) };
   }
   return out;
 }
@@ -272,7 +285,7 @@ function mergeByMode(mode: string, local: any, cloud: any, localTs: number, clou
     case "objmax": return mergeObjMax(local, cloud);
     case "objmerge": return mergeObjMerge(local, cloud, localTs, cloudTs);
     case "usage": return mergeUsage(local, cloud);
-    case "srs": return mergeSrs(local, cloud);
+    case "pathacc": return mergePathAcc(local, cloud);
     case "memory": return mergeMemory(local, cloud);
     case "practicelog": return mergePracticeLog(local, cloud);
     case "max": return Math.max(num(local), num(cloud));
