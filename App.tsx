@@ -54,7 +54,7 @@ import {
 import {
   GUEST_TRIAL_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
   pushSupported, subscribePush, unsubscribePush, logUsage,
-  readActLog, logActivity, recordSRS, getDueSRS, recordNoteMisses, readPracticeLog,
+  readActLog, logActivity, recordNoteMisses, readPracticeLog,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
   guestHasProgress, mergeGuestProgressIntoProfile,
 } from "./shared-infra";
@@ -386,7 +386,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
   }
   function pickType(t) { setSelectedType(t); }
   const pathDone = pathDoneSet();
-  const pathAcc = pathAccMap();   // { stageId: bestAccuracy } — bronze/silver/gold badge, layered on top of pathDone
+  const pathAcc = pathAccMap();   // { stageId: {best,last,lastAt,interval,nextDue} } — .best drives the bronze/silver/gold badge, layered on top of pathDone
   const keyDone = keyDoneMap();   // { stageId: ["c","g",...] } — keys already studied per topic
   const currentStage = PATHWAY.find(s => !pathDone.has(s.id));
   const currentId = currentStage ? currentStage.id : null;
@@ -457,7 +457,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
                 // Bronze/silver/gold from the best accuracy actually demonstrated on this
                 // stage's drill — isRead (knowledge chapters) have no drill to grade, so
                 // they stay a plain done checkmark, same as always.
-                const tier = !isRead && pathDone.has(st.id) ? pathTier(pathAcc[st.id]) : null;
+                const tier = !isRead && pathDone.has(st.id) ? pathTier(pathAcc[st.id] && pathAcc[st.id].best) : null;
                 const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
                 return (
                   <Fragment key={st.id}>
@@ -649,7 +649,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
    practice?" decision that kills most practice habits.
 ════════════════════════════════════════════════════════════ */
 const _v12wait = (ms) => new Promise(r => setTimeout(r, ms));
-const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate }) {
+const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate, onReviewStage }) {
   const T = {
     th: { title: "ซ้อมวันนี้", sub: "แผนซ้อมส่วนตัวของคุณ — สร้างใหม่ให้ทุกวันจากความคืบหน้าจริง ไล่ทำทีละข้อได้เลย", warm: "วอร์มอัพนิ้ว", hw: "การบ้านจากครู", review: "ทบทวนของเดิม", learn: "เรียนเรื่องใหม่", song: "เพลงปิดท้าย", start: "เริ่ม ▶", done: "เสร็จแล้ว ✓", hwBtn: "ทำแล้ว ✓", progress: "ความคืบหน้าวันนี้", allDone: "ครบทุกข้อแล้ว! สุดยอดไปเลยครับ 🎉", bonus: "รับโบนัสประจำวัน +40 EXP · +20 🪙", claimed: "รับโบนัสของวันนี้แล้ว ✓" },
     en: { title: "Practice Today", sub: "Your personal plan — rebuilt every day from your real progress. Just work down the list.", warm: "Finger warm-up", hw: "Teacher's homework", review: "Review", learn: "Something new", song: "Closing song", start: "Start ▶", done: "Done ✓", hwBtn: "Done ✓", progress: "Today's progress", allDone: "All done — amazing work! 🎉", bonus: "Claim daily bonus +40 EXP · +20 🪙", claimed: "Today's bonus claimed ✓" },
@@ -665,15 +665,24 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   const warm = MAJOR_SCALE_SONGS[seed % MAJOR_SCALE_SONGS.length];
   const hw = homework && homework.text ? homework : null;
 
-  // review = the finished (non-chapter) topic you've gone longest without touching
+  // review = the top-priority due Pathway stage per the unified SM-2-lite
+  // schedule (getDueReviews — same signal StudioPage's SRS modal shows),
+  // falling back to the old "longest since last touched" pick only when
+  // NOTHING is actually due yet, so the daily plan still always suggests
+  // something. "Done today" now means a passing practice attempt actually
+  // happened today (pathAccMap's real lastAt), not just that the lesson was
+  // opened — matches how the stage itself gets marked done (see reviewStage).
+  const due = getDueReviews();
+  const dueStage = due.stages[0] || null;
   const lessonLast = {};
   for (const e of readActLog()) if (e.k === "lesson") { const sid = e.id.split("/")[0]; lessonLast[sid] = Math.max(lessonLast[sid] || 0, e.t); }
   const reviewables = PATHWAY.filter(s => !s.content && doneP.has(s.id))
     .sort((a, b) => (lessonLast[a.id] || 0) - (lessonLast[b.id] || 0));
-  const review = reviewables[0] || null;
+  const review = dueStage ? dueStage.stage : (reviewables[0] || null);
   const reviewKey = review
     ? (KEYS_12.find(k => (keyMap[review.id] || []).includes(k.id.toLowerCase())) || KEYS_12[seed % KEYS_12.length])
     : null;
+  const reviewDoneToday = review ? (() => { const rec = pathAccMap()[review.id]; return !!(rec && rec.lastAt && dayKey(new Date(rec.lastAt)) === dayKey()); })() : false;
 
   // new = adaptive: a critically weak skill takes priority over the next Pathway
   // stage as a soft nudge, never a hard block — "next_stage"/"warmup" fall back
@@ -693,7 +702,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   const steps = [
     { id: "warm", icon: "🎹", tag: T.warm, label: tr(warm, lang), isDone: doneLog.some(e => e.k === "game" && e.id === warm.id), go: () => onSong(warm) },
     ...(hw ? [{ id: "hw", icon: "📘", tag: T.hw, label: hw.text, isDone: hwDoneToday(), hwStep: true }] : []),
-    ...(review ? [{ id: "review", icon: "🔁", tag: T.review, label: tr(review.title, lang) + (reviewKey ? " · " + reviewKey.name : ""), isDone: doneLog.some(e => e.k === "lesson" && e.id.split("/")[0] === review.id), go: () => onLearn(review, reviewKey, review.types ? review.types[0] : null) }] : []),
+    ...(review ? [{ id: "review", icon: "🔁", tag: T.review, label: tr(review.title, lang) + (reviewKey ? " · " + reviewKey.name : ""), isDone: reviewDoneToday, go: () => onReviewStage(review, reviewKey) }] : []),
     ...(nextAction.type === "fundamentals" ? [{
       id: "new", icon: nextAction.feature === "hand_coach" ? "🖐️" : nextAction.feature === "ear_training" ? "👂" : "🎵",
       tag: T.learn,
@@ -1533,7 +1542,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, songAnalysis = null,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
-  mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null }) {
+  mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null, onReviewStage = null }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan);
@@ -1669,8 +1678,16 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     onSchoolJoined && onSchoolJoined(data);
   }
 
-  // B1: SRS — how many topics are due for review
-  const [dueSRS] = useState(() => getDueSRS());
+  // B1: SRS — what's due for review. Recomputed on every render instead of
+  // cached in a useState (the previous `const [dueSRS] = useState(() =>
+  // getDueSRS())` initialized once and then NEVER updated — no setter was
+  // even destructured — so the badge/modal kept showing whatever was true
+  // the moment Studio first mounted, stale for the rest of that mount).
+  // getDueReviews() is a cheap localStorage read, so recomputing it on every
+  // render (this component already re-renders often enough for state churn
+  // elsewhere) is simpler and more robust than reintroducing a cache that
+  // would need its own invalidation.
+  const dueReviews = getDueReviews();
   const [srsOpen, setSrsOpen] = useState(false);
 
   // A2: Goal Planner
@@ -1811,7 +1828,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     // HIDDEN (not deleted) — overlaps with "chordmood" above; underlying modal/state untouched.
     // { k: "moodpick",ic: "🧭", c: "#d97757", t: lc.moodTitle,       s: T("เลือกเวลา+อารมณ์ → AI แนะนำกิจกรรม", "Pick time & mood → get the right activity", "按时间和心情推荐练习"), fn: () => { playUi("click"); setMoodTime(null); setMoodFeel(null); setMoodOpen(true); } },
     { k: "goal",    ic: "🎯", c: "#d97757", t: lc.goalTitle,        s: goalData ? T(`เพลง: ${goalData.songName} — เหลือ ${goalDaysLeft} วัน`, `Goal: "${goalData.songName}" — ${goalDaysLeft} days left`, `目标："${goalData.songName}" — 剩${goalDaysLeft}天`) : lc.goalSub, fn: () => { playUi("click"); setGoalSongId(goalData ? goalData.songId : ""); setGoalDate(goalData ? goalData.date : ""); setGoalOpen(true); } },
-    { k: "srs",     ic: "🧠", c: dueSRS.length ? "#e55" : "#d97757", t: lc.srsTitle, s: dueSRS.length ? `${dueSRS.length} ${lc.srsItems} — ${lc.srsDue}` : lc.srsNone, fn: () => { playUi("click"); setSrsOpen(true); } },
+    { k: "srs",     ic: "🧠", c: dueReviews.total ? "#e55" : "#d97757", t: lc.srsTitle, s: dueReviews.total ? `${dueReviews.total} ${lc.srsItems} — ${lc.srsDue}` : lc.srsNone, fn: () => { playUi("click"); setSrsOpen(true); } },
     // HIDDEN (not deleted) — niche audience per feature audit; underlying modal/state untouched.
     // { k: "thai",    ic: "🇹🇭", c: "#d97757", t: lc.thaiTitle,       s: lc.thaiSub,             fn: () => { playUi("click"); setThaiOpen(true); } },
     { k: "compose", ic: "🎼", c: "#d97757", t: lc.composeTitle,     s: lc.composeSub,           fn: () => { playUi("click"); setComposeMood(null); setComposeStyle(null); setComposeKey("C"); setComposePage(1); setComposeErr(false); setComposeOpen(true); } },
@@ -2073,39 +2090,55 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
         </div>
       )}
 
-      {/* B1: SRS Review Modal */}
-      {srsOpen && (
+      {/* B1: SRS Review Modal — dueReviews unifies real Pathway-stage scheduling
+          (SM-2-lite, accuracy-aware) with tg_memory's song/sight-reading
+          struggles, instead of the old blind open-count list. Each stage row
+          shows a real strength meter (best accuracy) instead of a raw open
+          count, and "Review now" deep-links straight into a graded practice
+          session on that exact stage via reviewStage() — not a generic page. */}
+      {srsOpen && (() => {
+        const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
+        return (
         <div className="modal-ov" onClick={() => setSrsOpen(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div className="modal-hdr"><span>🧠 {lc.srsTitle}</span><button className="modal-x" onClick={() => setSrsOpen(false)}>✕</button></div>
-            {dueSRS.length === 0 ? (
+            {dueReviews.total === 0 ? (
               <p style={{ margin: "12px 0", fontSize: 14, color: "var(--muted)", textAlign: "center" }}>{lc.srsNone} ✅</p>
             ) : (
               <div>
                 <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--muted)" }}>{lc.srsSub}</p>
-                <div className="srs-list">
-                  {dueSRS.map((item: any) => {
-                    const [sid, kid] = item.id.split("/");
-                    const stage = (typeof PATHWAY !== "undefined" ? PATHWAY : []).find((s: any) => s.id === sid);
-                    const label = stage ? `${tr(stage.title, lang)} · ${kid?.toUpperCase() || ""}` : item.id;
-                    return (
+                {dueReviews.stages.length > 0 && (
+                  <div className="srs-list">
+                    {dueReviews.stages.map(item => (
                       <div key={item.id} className="srs-item">
-                        <span className="srs-ic">🔄</span>
-                        <span className="srs-label">{label}</span>
-                        <span className="srs-count">×{item.count}</span>
+                        <span className="srs-ic">{tierIcon[item.tier] || "🔄"}</span>
+                        <div className="srs-body">
+                          <span className="srs-label">{tr(item.stage.title, lang)}</span>
+                          <div className="wkbar"><div style={{ width: (item.best || 0) + "%" }} /></div>
+                        </div>
+                        <button className="srs-go" onClick={() => { setSrsOpen(false); onReviewStage && onReviewStage(item.stage); }}>{lc.srsReviewNow}</button>
                       </div>
-                    );
-                  })}
-                </div>
-                <button className="pricebtn active" style={{ width: "100%", marginTop: 14 }}
-                  onClick={() => { setSrsOpen(false); onToday && onToday(); }}>
-                  {T("ไปทบทวนเลย →", "Start Review →", "开始复习 →")}
-                </button>
+                    ))}
+                  </div>
+                )}
+                {dueReviews.practice.length > 0 && (
+                  <>
+                    <div className="admstu-sec" style={{ marginTop: dueReviews.stages.length ? 14 : 0, marginBottom: 6 }}>{lc.srsPracticeGroup}</div>
+                    <div className="pd-tags">{dueReviews.practice.map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div>
+                  </>
+                )}
+                {dueReviews.stages.length > 0 && (
+                  <button className="pricebtn active" style={{ width: "100%", marginTop: 14 }}
+                    onClick={() => { setSrsOpen(false); onReviewStage && onReviewStage(dueReviews.stages[0].stage); }}>
+                    {T("ไปทบทวนเลย →", "Start Review →", "开始复习 →")}
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* D3: AI Composition Starter Modal */}
       {composeOpen && (
@@ -4105,18 +4138,74 @@ export function pathDoneSet() { try { return new Set(JSON.parse(localStorage.get
 export function markPathDone(id) { try { const s = pathDoneSet(); s.add(id); localStorage.setItem("tg_path_done", JSON.stringify([...s])); } catch (e) {} }
 // Minimum practice accuracy for a stage to count as done at all.
 export const PATH_PASS_ACCURACY = 50;
-// Per-stage BEST accuracy ever achieved on its practice drill — purely a
-// presentational layer (the bronze/silver/gold badge) on top of the plain
-// done flag above; never read by progression logic, so it can't regress
-// anything already working.
-export function pathAccMap() { try { return JSON.parse(localStorage.getItem("tg_path_acc") || "{}") || {}; } catch (e) { return {}; } }
+// Per-stage practice record — the single unified signal behind the bronze/
+// silver/gold badge AND spaced-review scheduling. Used to live as two
+// separate, disconnected systems (this store just tracked a flat best-
+// accuracy number; a completely different shared-infra.ts store, tg_srs,
+// scheduled reviews blindly by open-count with zero accuracy input, and
+// fired the instant a lesson was opened — see recordSRS's removal from
+// learnTopic() in the same batch that added this). Now there's one record
+// per stage: { best, last, lastAt, interval, nextDue }.
+//   best    — highest accuracy ever achieved (drives the tier badge)
+//   last    — accuracy of the MOST RECENT attempt (drives the interval math)
+//   lastAt  — when that attempt happened
+//   interval/nextDue — real SM-2-lite spaced review: the interval grows
+//   faster the better the last attempt was, and resets short on a poor one,
+//   instead of the old blind [1,3,7,14,30]-by-open-count lookup.
+export function pathAccMap() {
+  try {
+    const raw = JSON.parse(localStorage.getItem("tg_path_acc") || "{}") || {};
+    let migrated = false;
+    const out = {};
+    for (const id in raw) {
+      const v = raw[id];
+      // Migrate the pre-SRS-unification shape (a bare number) in place, once,
+      // on read — every consumer below can then assume the object shape.
+      if (typeof v === "number") { out[id] = { best: v, last: v, lastAt: 0, interval: 0, nextDue: 0 }; migrated = true; }
+      else out[id] = v;
+    }
+    if (migrated) { try { localStorage.setItem("tg_path_acc", JSON.stringify(out)); } catch (e) {} }
+    return out;
+  } catch (e) { return {}; }
+}
 export function markPathAccuracy(id, accuracy) {
   try {
     const m = pathAccMap();
-    if (!(id in m) || accuracy > m[id]) { m[id] = accuracy; localStorage.setItem("tg_path_acc", JSON.stringify(m)); }
+    const prev = m[id] || null;
+    const best = Math.max(accuracy, prev ? prev.best : 0);
+    // SM-2-lite: how well THIS attempt went scales the next interval, rather
+    // than a fixed schedule indexed only by how many times it's been opened.
+    // A poor showing (below the pass bar) doesn't grow the interval at all —
+    // it resets to "see it again tomorrow," same as a failed SM-2 recall.
+    const factor = accuracy >= 90 ? 2.5 : accuracy >= 75 ? 2 : accuracy >= PATH_PASS_ACCURACY ? 1.3 : 0.5;
+    const interval = accuracy < PATH_PASS_ACCURACY ? 1 : Math.min(60, Math.max(1, Math.round(((prev && prev.interval) || 1) * factor)));
+    const now = Date.now();
+    m[id] = { best, last: accuracy, lastAt: now, interval, nextDue: now + interval * 86400000 };
+    localStorage.setItem("tg_path_acc", JSON.stringify(m));
   } catch (e) {}
 }
 export function pathTier(accuracy) { return accuracy == null ? null : accuracy >= 90 ? "gold" : accuracy >= 75 ? "silver" : accuracy >= PATH_PASS_ACCURACY ? "bronze" : null; }
+// Unified "what needs review" signal, merging the two real (accuracy-aware)
+// sources: Pathway stages due per the SM-2-lite schedule above, and songs/
+// sight-reading struggles tracked in tg_memory (ai-chat-context.ts's
+// existing "not touched in 2+ days" rule — already real, just never
+// surfaced outside the AI chat prompt before now). Different id schemes
+// (stable stage ids vs. free-text feature labels) are kept as two clearly-
+// labeled groups rather than forced into one homogeneous list — TodayPage's
+// own independent recency-only "what to review" pick is retired in favor
+// of this (see TodayPage's `review` derivation).
+export function getDueReviews() {
+  const now = Date.now();
+  const stages = Object.entries(pathAccMap())
+    .filter(([, e]) => e.nextDue && e.nextDue <= now)
+    .map(([id, e]) => { const stage = PATHWAY.find(s => s.id === id); return stage ? { id, stage, tier: pathTier(e.best), acc: e.last, best: e.best, nextDue: e.nextDue } : null; })
+    .filter(Boolean)
+    .sort((a, b) => a.nextDue - b.nextDue);
+  const practice = (readMemory().struggles || [])
+    .filter(s => s.last && (now - s.last) >= 2 * 86400000)
+    .map(s => ({ label: s.label, acc: s.acc, count: s.count, last: s.last }));
+  return { stages, practice, total: stages.length + practice.length };
+}
 /* Per-key learning record: which keys of each topic (scale/interval/chord/…) the
    learner has studied, so the pathway can show what's already been covered. */
 function keyDoneMap() { try { return JSON.parse(localStorage.getItem("tg_key_done") || "{}") || {}; } catch (e) { return {}; } }
@@ -7717,19 +7806,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
 
   // ── learn a topic+key from the pathway menu: send to AI + go to sensei page ──
-  function learnTopic(stage, key, chordType = null) {
-    // NOTE: does NOT markPathDone here — opening/hearing the lesson isn't
-    // demonstrated skill. The stage is marked done (and given a bronze/
-    // silver/gold tier) from inside finishPractice() once the learner
-    // actually passes this stage's own practice drill — see demoParsed's
-    // stageId below, which use-practice-mode.ts reads back out of lastSeq.
-    if (stage && stage.id) { if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); setActiveStageType(chordType); }
-    const basePrompt = stage.learn[lang] || stage.learn.en;
+  // Shared demo-sequence builder for a Pathway stage+key(+chord type) — the
+  // part of learnTopic() that has nothing to do with teaching/chat, factored
+  // out so reviewStage() (SRS deep-link, below) can reuse it to jump straight
+  // to a graded practice session without re-running any of the AI-teaching path.
+  function buildStageDemoSeq(stage, key, chordType) {
     const keyId = key ? key.id : "C";
     const keyLabel = key ? key.name : "C";
-    logActivity("lesson", stage.id + "/" + keyId.toLowerCase(), 0, 0, 180); // ~3 min of study per topic-in-key
-    recordSRS(stage.id + "/" + keyId.toLowerCase());
-
     // Use chord-type's demo notes if a type was selected, otherwise stage defaults
     const demoSrc = chordType || stage;
     const semis = semisFromC(keyId);
@@ -7752,20 +7835,58 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     } else if (demoFingers && hand === "left") {
       demoFingers = demoFingers.slice().reverse();   // triads/intervals mirror for the left hand
     }
-    setLessonContext(LESSON_MODE);
-
     const sTitle = tr(stage.title, lang);
     const typeName = chordType ? tr(chordType.label, lang) : null;
     const fullTitle = typeName ? `${typeName} ${sTitle}` : sTitle;
-
-    const demoParsed = {
+    return {
       notes: demoNotes,
       mode: stage.demoMode,
       fingers: demoFingers,
       label: `${fullTitle} · ${keyLabel}`,
       key: chartKey,
       stageId: stage.id,
+      keyId, keyLabel, fullTitle,
     };
+  }
+
+  // SRS review deep-link: skip the AI-teaching flow entirely and land directly
+  // in a graded Practice Mode session on this exact due stage — this is what
+  // getDueReviews()'s "Review now" actions and TodayPage's review step call,
+  // instead of the old behavior of routing to a generic page and losing which
+  // item was actually due. No markKeyDone/logActivity/gainExp here: those are
+  // "I taught/opened this" signals: this path never teaches, and the only
+  // signal that should fire is finishPractice()'s own (accuracy-gated) one.
+  function reviewStage(stage, key = null) {
+    if (!stage) return;
+    // No specific key requested (the due-review list only tracks per-STAGE
+    // scheduling, not per-key) — same "a studied key if there is one, else a
+    // deterministic pick" policy TodayPage's own recommender already uses.
+    if (!key) {
+      const studied = keyDoneMap()[stage.id] || [];
+      key = KEYS_12.find(k => studied.includes(k.id.toLowerCase())) || KEYS_12[daySeed() % KEYS_12.length];
+    }
+    const chordType = stage.types ? stage.types[0] : null;
+    const demoParsed = buildStageDemoSeq(stage, key, chordType);
+    setActiveStageId(stage.id);
+    setActiveStageType(chordType);
+    playSequence(demoParsed); // sets lastSeq.current — startPractice() reads it synchronously below
+    startPractice();
+  }
+
+  function learnTopic(stage, key, chordType = null) {
+    // NOTE: does NOT markPathDone here — opening/hearing the lesson isn't
+    // demonstrated skill. The stage is marked done (and given a bronze/
+    // silver/gold tier) from inside finishPractice() once the learner
+    // actually passes this stage's own practice drill — see demoParsed's
+    // stageId below, which use-practice-mode.ts reads back out of lastSeq.
+    if (stage && stage.id) { if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); setActiveStageType(chordType); }
+    const basePrompt = stage.learn[lang] || stage.learn.en;
+    const demoParsed = buildStageDemoSeq(stage, key, chordType);
+    const { keyId, keyLabel, fullTitle, notes: demoNotes } = demoParsed;
+    const sTitle = tr(stage.title, lang);
+    const typeName = chordType ? tr(chordType.label, lang) : null;
+    logActivity("lesson", stage.id + "/" + keyId.toLowerCase(), 0, 0, 180); // ~3 min of study per topic-in-key
+    setLessonContext(LESSON_MODE);
 
     // strict instruction scoped to the specific chord type (if any)
     let strict;
@@ -7951,6 +8072,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "today" && (
         <TodayPage lang={lang} exp={(profile && profile.exp) || 0} homework={homework}
           onLearn={learnTopic} onRead={readChapter} onSong={chooseSong} onNavigate={handleCoachNavigate}
+          onReviewStage={reviewStage}
           onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }}
           onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
@@ -7997,6 +8119,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               onEarGym={() => { playUi("click"); logUsage("nav", "studio-eargym"); setPage("eargym"); }}
               onReading={() => { playUi("click"); logUsage("nav", "studio-reading"); setPage("reading"); }}
               onToday={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }}
+              onReviewStage={(stage, key) => { playUi("click"); logUsage("nav", "studio-review"); reviewStage(stage, key); }}
               onAiReport={() => { logUsage("nav", "studio-ai-report"); setAiModalType("report"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}
               onAiPlan={() => { logUsage("nav", "studio-ai-plan"); setAiModalType("plan"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}
               onAnalytics={() => { logUsage("nav", "studio-analytics"); setPage("insights"); }}
