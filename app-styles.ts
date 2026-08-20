@@ -1429,6 +1429,11 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .srs-ic{font-size:16px}
 .srs-label{flex:1;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--text)}
 .srs-count{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--muted)}
+/* strength-meter presentation — real per-stage mastery % instead of a raw
+   ×N open count, and a direct deep-link into that exact stage's drill */
+.srs-body{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.srs-body .wkbar{width:100%}
+.srs-go{flex-shrink:0;font-family:'Share Tech Mono',monospace;font-size:10px;font-weight:700;color:#d97757;background:rgba(217,119,87,.12);border:1px solid #d9775755;border-radius:8px;padding:7px 11px;cursor:pointer;white-space:nowrap}
 /* A2: Goal Planner */
 .goal-song-name{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:#d97757;margin-bottom:4px}
 .goal-days-left{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--muted);margin-bottom:16px}
