@@ -168,7 +168,10 @@ export function VoiceOverManager() {
         pitch: isMale ? 0.9 : 1.1,
       });
     }
-    return result.length > 0 ? result : FALLBACK_VOICES;
+    // Only show Thai, English, and Chinese voices
+    const ALLOWED_PREFIXES = ["th", "en", "zh"];
+    const filtered = result.filter((v) => ALLOWED_PREFIXES.some((p) => v.lang.startsWith(p)));
+    return filtered.length > 0 ? filtered : FALLBACK_VOICES;
   }, []);
 
   const allVoices = getBrowserVoices();
