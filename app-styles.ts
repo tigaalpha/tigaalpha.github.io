@@ -205,6 +205,18 @@ html, body, #root{background:var(--bg)}
 .typing{display:flex;gap:5px;align-items:center;padding:10px 14px}
 .tdd{width:7px;height:7px;border-radius:50%;background:#d97757;animation:bounce 1.2s infinite}
 .tdd:nth-child(2){animation-delay:.2s}.tdd:nth-child(3){animation-delay:.4s}
+/* Knowledge Quest conversation starters — a compact, horizontally-scrolling
+   row of tappable case-study picks, sitting between the message list and the
+   input so it reads as "try one of these next" rather than a permanent
+   fixture. Re-themed with the same purple identity as Boss Challenge/pboss:
+   both are TIGA's "go deeper, optional" tracks, distinct from the orange
+   core-lesson flow. */
+.chatstarters{display:flex;gap:7px;align-items:center;overflow-x:auto;padding:8px 12px;background:var(--card3);border-top:1px solid #d9775722;scrollbar-width:none}
+.chatstarters::-webkit-scrollbar{display:none}
+.chatstarters-hint{font-family:'Share Tech Mono',monospace;font-size:9px;color:#a78bfa;letter-spacing:.5px;flex-shrink:0}
+.starterchip{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(167,139,250,.1);border:1px solid #a78bfa44;border-radius:20px;padding:6px 12px 6px 8px;cursor:pointer;max-width:220px}
+.starterchip-ic{font-size:14px;flex-shrink:0}
+.starterchip-tx{font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:600;color:#c4b5fd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iw{padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));background:var(--card3);border-top:1px solid #d9775733;flex-shrink:0}
 .ir{display:flex;gap:8px;align-items:flex-end}
 .tin{flex:1;background:var(--card3);border:1px solid #d9775733;border-radius:6px;padding:10px 14px;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:14px;resize:none;min-height:44px;max-height:110px;outline:none;transition:border-color .2s}
@@ -889,6 +901,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pd-tag{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;border-radius:8px;padding:4px 9px}
 .pd-tag.focus{color:#d97757;background:rgba(217,119,87,.12);border:1px solid #d9775733}
 .pd-tag.good{color:#d97757;background:rgba(217,119,87,.1);border:1px solid #d9775733}
+/* struggle tags doubling as "ask TIGA about this" buttons (SRS review modal,
+   Auto Teaching recap) — a plain element reset since .pd-tag also still
+   renders as an inert <span> elsewhere (mastered/recent tags) */
+button.pd-tag{cursor:pointer;font-family:inherit}
+button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .atdash-last{margin-top:10px;border:1px solid var(--bd1);border-radius:12px;padding:11px 12px;background:var(--card3)}
 .atdash-last-w{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:#d97757;margin-bottom:3px}
 .atdash-last-t{font-family:'Rajdhani',sans-serif;font-size:12.5px;color:var(--muted);line-height:1.5}

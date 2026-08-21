@@ -15,7 +15,7 @@ import { SONGS } from "./songs-data";
    component import. Likewise questToday/readStreak/streakAtRisk/
    QUEST_GOAL are top-level in App.tsx but not exported, so they're
    threaded as props too. ── */
-export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, setHelpOpen, setFriendsOpen, setBuyCurrencyOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage }) {
+export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, setHelpOpen, setFriendsOpen, setBuyCurrencyOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle }) {
   const lc = L[lang];
   return (
         <div className="profscroll">
@@ -115,7 +115,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
             <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
           </button>
           <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins} gems={gems}
-            onOpenShop={() => setShopOpen(true)} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onBuyCurrency={() => setBuyCurrencyOpen(true)} />
+            onOpenShop={() => setShopOpen(true)} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onBuyCurrency={() => setBuyCurrencyOpen(true)} onAskStruggle={onAskStruggle} />
         </div>
   );
 }

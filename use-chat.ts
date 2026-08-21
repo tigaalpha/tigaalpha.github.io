@@ -53,10 +53,25 @@ import { EXP, buildAlternatingHistory, curriculumContext, songRecommendationHint
    setMsgs/topicHint/lessonKey/callClaude/isGuest/lang - all unchanged),
    and after useKeyboard()/useGamification() (hand/playSequence/seqTimers/
    gainExp must already exist). ── */
+// Lightweight thread persistence — a convenience restore across refreshes,
+// not a full archive: capped short, and scoped to one language slot at a
+// time (switching languages still gets a fresh welcome, same as before this
+// existed; the old thread just waits under its own language's slot until
+// that language comes back around).
+const CHAT_HISTORY_KEY = "tg_chat_history";
+const CHAT_HISTORY_CAP = 24;
+function loadSavedChat(lang) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || "null");
+    if (raw && raw.lang === lang && Array.isArray(raw.msgs) && raw.msgs.length) return raw.msgs;
+  } catch (e) {}
+  return null;
+}
+
 export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireLogin }) {
   const lc = L[lang];
 
-  const [msgs, setMsgs] = useState([]);
+  const [msgs, setMsgs] = useState(() => loadSavedChat(lang) || [{ role: "ai", text: lc.welcome }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState(false);
@@ -81,13 +96,29 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
   function pushMessage(msg) { setMsgs(prev => [...prev, msg]); }
   function setLessonContext(hint, key = null) { topicHint.current = hint; lessonKey.current = key; }
 
+  // First mount already has the right thread (restored from storage, or a
+  // fresh welcome — see the useState initializer above); only a REAL
+  // language switch after that should wipe it back to that language's
+  // welcome message, so this guard skips exactly one run.
+  const isFirstMount = useRef(true);
   useEffect(() => {
+    if (isFirstMount.current) { isFirstMount.current = false; return; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     stopCloudTTS();
     setActiveSpk(null);
     setMsgs([{ role: "ai", text: lc.welcome }]);
     setInput("");
   }, [lang]);
+
+  // Persist the thread as it grows, so a refresh doesn't lose it — skipped
+  // while it's still just the bare welcome bubble, so a learner who never
+  // actually chats doesn't leave a stray localStorage entry behind.
+  useEffect(() => {
+    try {
+      if (msgs.length <= 1) { localStorage.removeItem(CHAT_HISTORY_KEY); return; }
+      localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify({ lang, msgs: msgs.slice(-CHAT_HISTORY_CAP) }));
+    } catch (e) {}
+  }, [msgs, lang]);
 
   useEffect(() => {
     // throttle scrolling to one rAF tick — avoids layout thrash while streaming
@@ -206,5 +237,27 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
       gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
     }
   }
-  return { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, callClaude, pushMessage, setLessonContext };
+
+  // Same two-tier pipeline as send(), for callers that already know exactly
+  // what to ask (the "Ask TIGA about this" buttons on struggle callouts
+  // elsewhere in the app) instead of routing through the typed input box.
+  function askDirect(text) {
+    const t = String(text || "").trim();
+    if (!t || loading || streamingRef.current) return;
+    topicHint.current = null;
+    lessonKey.current = null;
+    setInput("");
+    setMsgs(prev => [...prev, { role: "user", text: t }]);
+    playPianoNote("C5", 0.1);
+    const faq = matchFaqTopic(t, lang);
+    if (faq) {
+      topicHint.current = LESSON_MODE;
+      setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
+      gainExp(EXP.ask, { quest: true });
+    } else if (!requireLogin("ai")) {
+      callClaude(t);
+      gainExp(EXP.ask, { quest: true });
+    }
+  }
+  return { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, callClaude, pushMessage, setLessonContext };
 }

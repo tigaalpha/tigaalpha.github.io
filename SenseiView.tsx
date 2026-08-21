@@ -1,4 +1,4 @@
-import { L } from "./i18n";
+import { L, tr } from "./i18n";
 import { Piano, playUi } from "./music-engine";
 import { Msg, Typing, Input } from "./chat-ui";
 /* ── SenseiView ──
@@ -11,7 +11,7 @@ import { Msg, Typing, Input } from "./chat-ui";
    this page==="sensei" block and stays in PianoApp. lc is derived from lang
    internally. recommendNext/toggleChordStyle are PianoApp closures (not
    top-level, not exported), so they're threaded as props. ── */
-export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, endRef, input, setInput, send, setModal }) {
+export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, endRef, input, setInput, send, setModal, chatStarters, onStarterTap }) {
   const lc = L[lang];
   return (
         <>
@@ -125,6 +125,23 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
               {loading && <Typing />}
               <div ref={endRef} />
             </div>
+            {/* Knowledge Quest starters — 3 unread "why music matters" case
+                studies, re-rolled each time this page is entered (see
+                chatStarters in PianoApp). Surfaces the curated deep-dive
+                content early instead of leaving it undiscovered until the
+                pathway naturally reaches level 9+. Disappears once every
+                case in every domain has been read. */}
+            {chatStarters && chatStarters.length > 0 && (
+              <div className="chatstarters">
+                <span className="chatstarters-hint">💡 {lc.chatStartersHint}</span>
+                {chatStarters.map(s => (
+                  <button key={s.stage.id + "/" + s.c.id} className="starterchip" onClick={() => onStarterTap(s.stage, s.c)}>
+                    <span className="starterchip-ic">{s.c.icon || s.stage.icon}</span>
+                    <span className="starterchip-tx">{tr(s.c.title, lang)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="iw">
               <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} />
               <div className="hint">{lc.hint}</div>
