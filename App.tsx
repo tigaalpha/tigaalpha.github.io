@@ -59,7 +59,7 @@ import {
   guestHasProgress, mergeGuestProgressIntoProfile,
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync } from "./cloud-sync";
-import { Splash, BannedScreen, GuestGateScreen, ProfileForm, CountUp } from "./app-shell";
+import { Splash, BannedScreen, GuestGateScreen, ProfileForm, CountUp, LoginModal } from "./app-shell";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
@@ -7980,6 +7980,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
+  const [loginModalOpen, setLoginModalOpen] = useState(false); // optional-side login (corner pill) — GuestGateScreen is the forced-side equivalent, see app-shell.tsx
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
   const [buyCurrencyOpen, setBuyCurrencyOpen] = useState(false);
   function openBuyCurrency() { if (requireLogin()) return; setBuyCurrencyOpen(true); }
@@ -8965,7 +8966,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       <div className="scan" />
 
       {guestGateReason && (
-        <GuestGateScreen reason={guestGateReason} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
+        <GuestGateScreen reason={guestGateReason} profile={profile} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
       )}
 
       {permPrimerOpen && (() => {
@@ -9020,7 +9021,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         <div className="hdr-r">
           {isGuest && (
-            <button className="guestloginpill" onClick={() => { saveGuestProfile(profile); signInWith("google"); }} title="Login with Google">
+            <button className="guestloginpill" onClick={() => setLoginModalOpen(true)} title="Login or sign up">
               <span className="oauthico">G</span> {T("ล็อกอิน", "Login", "登录")}
               {guestMsLeft > 0 && guestMsLeft < GUEST_TRIAL_MS && (() => {
                 const totalSec = Math.ceil(guestMsLeft / 1000); // whole seconds left, rounded up so it never shows 0:00 while time remains
@@ -9514,6 +9515,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* COSMETICS SHOP */}
       {friendsOpen && <FriendsModal lang={lang} onClose={() => setFriendsOpen(false)} />}
+      {loginModalOpen && <LoginModal profile={profile} onGoogleLogin={() => { saveGuestProfile(profile); signInWith("google"); }} onClose={() => setLoginModalOpen(false)} />}
 
       {shopOpen && (
         <div className="setov" onClick={() => setShopOpen(false)}>
