@@ -4646,8 +4646,10 @@ export function getDueReviews() {
     .map(([id, e]) => { const stage = PATHWAY.find(s => s.id === id); return stage ? { id, stage, tier: pathTier(e.best), acc: e.last, best: e.best, nextDue: e.nextDue } : null; })
     .filter(Boolean)
     .sort((a, b) => a.nextDue - b.nextDue);
+  // Falls back to the old flat 2-day rule for struggle entries recorded
+  // before recordMemory()'s SM-2-lite interval existed (ai-chat-context.ts).
   const practice = (readMemory().struggles || [])
-    .filter(s => s.last && (now - s.last) >= 2 * 86400000)
+    .filter(s => s.last && (now - s.last) >= (s.interval || 2) * 86400000)
     .map(s => ({ label: s.label, acc: s.acc, count: s.count, last: s.last }));
   return { stages, practice, total: stages.length + practice.length };
 }

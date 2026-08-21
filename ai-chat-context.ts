@@ -25,13 +25,24 @@ export function recordMemory(label, acc) {
   if (!label) return;
   const m = readMemory();
   m.recent = [{ label, acc, t: dayKey() }, ...(m.recent || []).filter(r => r.label !== label)].slice(0, 12);
+  const prev = (m.struggles || []).find(s => s.label === label);
   if (acc >= 90) {
     if (!m.mastered.includes(label)) m.mastered = [label, ...m.mastered].slice(0, 12);
     m.struggles = (m.struggles || []).filter(s => s.label !== label);
   } else if (acc < 65) {
-    const prev = (m.struggles || []).find(s => s.label === label);
-    // keep a timestamp + count so the teacher can space-repeat reviews like a master
-    m.struggles = [{ label, acc, last: Date.now(), count: ((prev && prev.count) || 0) + 1 }, ...(m.struggles || []).filter(s => s.label !== label)].slice(0, 6);
+    // Still struggling — SM-2-lite, same shape as markPathAccuracy()'s Pathway
+    // scheduling: a poor showing resets the interval short ("see it again
+    // soon"), instead of the flat fixed "2 days" every struggle used to get
+    // regardless of how many times it had already come back due.
+    m.struggles = [{ label, acc, last: Date.now(), count: (prev ? prev.count : 0) + 1, interval: 1 }, ...(m.struggles || []).filter(s => s.label !== label)].slice(0, 6);
+  } else if (prev) {
+    // Improving (65-89%) on something already tracked as a struggle — grow
+    // the interval instead of leaving the entry stale at its old (worse)
+    // accuracy/timestamp forever. Still short of "mastered" so it stays on
+    // the list, just checked back on less urgently each time it improves.
+    const factor = acc >= 80 ? 2 : 1.4;
+    const interval = Math.min(14, Math.max(1, Math.round((prev.interval || 1) * factor)));
+    m.struggles = [{ label, acc, last: Date.now(), count: prev.count + 1, interval }, ...(m.struggles || []).filter(s => s.label !== label)].slice(0, 6);
   }
   writeMemory(m);
 }
@@ -41,8 +52,10 @@ export function memoryContext(lang) {
   const m = readMemory(), parts = [];
   const now = Date.now();
   const dAgo = (t) => t ? Math.max(0, Math.floor((now - t) / 86400000)) : null;
-  // SPACED REPETITION: struggles not revisited for 2+ days are due for a quick review
-  const due = (m.struggles || []).filter(s => s.last && (now - s.last) >= 2 * 86400000).slice(0, 3);
+  // SPACED REPETITION: due once each struggle's own SM-2-lite interval has
+  // passed (recordMemory above) — falls back to the old flat 2-day rule for
+  // entries recorded before this existed (no `interval` field yet).
+  const due = (m.struggles || []).filter(s => s.last && (now - s.last) >= (s.interval || 2) * 86400000).slice(0, 3);
   if (due.length) parts.push((lang === "th" ? "⏰ ครบกำหนดทบทวน (แทรกการทบทวนสั้น ๆ ให้เขาแบบเนียน ๆ): " : lang === "zh" ? "⏰ 到复习时间（自然地带入简短回顾）：" : "⏰ Due for spaced review (weave in a quick revisit): ") + due.map(s => `${s.label} (${dAgo(s.last)}d)`).join(", "));
   if (m.struggles && m.struggles.length) parts.push((lang === "th" ? "เคยติด: " : lang === "zh" ? "曾困难: " : "Struggled with: ") + m.struggles.slice(0, 3).map(s => s.label).join(", "));
   if (m.mastered && m.mastered.length) parts.push((lang === "th" ? "ทำได้ดีแล้ว: " : lang === "zh" ? "已掌握: " : "Mastered: ") + m.mastered.slice(0, 3).join(", "));
