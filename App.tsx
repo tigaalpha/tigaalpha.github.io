@@ -2134,12 +2134,17 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       const styles: Record<string,string> = { simple: "stepwise simple melody", flowing: "smooth flowing melody with a mix of quarter and half notes", rhythmic: "rhythmic melody with clear strong beats" };
       const moodDesc = moods[composeMood] || "pleasant";
       const styleDesc = styles[composeStyle] || "simple melody";
-      // Ties the generated melody back to a real, recent weakness instead of only the
-      // mood/style picker, when one is available — the post-song AI analysis already
-      // diagnoses this after every Play-Along run, it just used to be shown once and
-      // discarded.
-      const weaknessNote = songAnalysis && songAnalysis.weakness
-        ? ` Also, gently work in a little extra practice for this recent weak spot without making the melody feel like a drill: ${songAnalysis.weakness}.`
+      // Ties the generated melody back to a real weakness instead of only the
+      // mood/style picker, when one is available. Prefers songAnalysis — the
+      // freshest signal, diagnosed right after whatever they just played —
+      // but falls back to the app's unified SRS due-review queue (the same
+      // dueReviews used for the SRS card badge above, and by TIGA Chat's own
+      // memory context) so Compose isn't blind to a known weak spot just
+      // because they opened it without having just finished a song.
+      const dueStruggle = dueReviews.practice[0];
+      const weaknessLabel = (songAnalysis && songAnalysis.weakness) || (dueStruggle && dueStruggle.label);
+      const weaknessNote = weaknessLabel
+        ? ` Also, gently work in a little extra practice for this recent weak spot without making the melody feel like a drill: ${weaknessLabel}.`
         : "";
       const prompt = `Create a ${moodDesc} ${styleDesc} piano melody in ${composeKey} major, 24-32 notes, musical and satisfying for a beginner. The name should reflect the mood.${weaknessNote}`;
       const sys = "You turn a melody request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names C4-B5 only; \"R\"=rest; beats are 0.5,1,1.5,2. Keep it 24-32 notes, melodic and musical.";
