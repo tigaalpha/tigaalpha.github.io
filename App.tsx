@@ -8998,7 +8998,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         {[
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
-          { p: "challenging", ic: "🏆", c: "#a78bfa", t: lc.navChallenging },
           { p: "sensei", ic: "◈", c: "#d97757", t: lc.navSensei },
           // free preview inside; the Max-only AI report/plan is upsold there, not walled off at the nav
           { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor" },
@@ -9007,6 +9006,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
+          { p: "challenging", ic: "🏆", c: "#a78bfa", t: lc.navChallenging },
           // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
           // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
         ].map(it => {
