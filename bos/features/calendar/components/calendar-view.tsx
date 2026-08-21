@@ -31,7 +31,7 @@ const LESSON_COLOR: Record<CalendarBookingEvent["lessonType"], string> = {
 
 /**
  * Extract the student name from a booking title.
- * Titles like "13แดง" → "แดง", "Ethar" → "Ethar", "Miya" → "Miya"
+ * Titles like "13แดง" → "แดง", "11Eth" → "Ethar", "Miya" → "Miya"
  * Strips lesson numbers, digits, and Google Calendar label suffixes like "(GCal Tiga)".
  */
 function extractStudentName(title: string): string {
@@ -46,25 +46,50 @@ function extractStudentName(title: string): string {
 }
 
 /**
+ * Get the alphabetic-only prefix of a name for fuzzy matching.
+ * e.g. "ethar" → "ethar", "eth" → "eth", "calvin" → "calvin", "ca" → "ca"
+ */
+function getAlphaPrefix(name: string): string {
+  return name.replace(/[^a-zก-๙]/g, "");
+}
+
+/**
+ * Check if two event titles refer to the same student.
+ * Handles abbreviations like "11Eth" === "Ethar" and "34Ca" === "Calvin".
+ */
+function isSameStudent(titleA: string, titleB: string): boolean {
+  const a = extractStudentName(titleA);
+  const b = extractStudentName(titleB);
+  if (!a || !b) return false;
+  // Exact match
+  if (a === b) return true;
+  // One is prefix of the other (handles abbreviation: "eth" prefix of "ethar")
+  const aPrefix = getAlphaPrefix(a);
+  const bPrefix = getAlphaPrefix(b);
+  if (aPrefix.length >= 2 && bPrefix.length >= 2) {
+    if (aPrefix.startsWith(bPrefix) || bPrefix.startsWith(aPrefix)) return true;
+  }
+  return false;
+}
+
+/**
  * Deduplicate events: same student name on the same calendar date = keep only one.
  * Internal bookings (lessonType) take priority over external (Google Calendar) events.
- * If both have the same student on the same day, keep the internal one.
  */
 function deduplicateEvents(
   internalEvents: { id: string; title: string; start: string; end: string; bgColor: string; borderColor: string; textColor: string; extendedProps?: Record<string, unknown> }[],
   externalMapped: { id: string; title: string; start: string; end: string; bgColor: string; borderColor: string; textColor: string; extendedProps?: Record<string, unknown> }[],
 ) {
-  // Combine: internal first, then external
+  // Combine: internal first, then external (internal takes priority)
   const all = [...internalEvents, ...externalMapped];
-  const seen = new Map<string, boolean>(); // key = studentName:YYYY-MM-DD
+  const seen: { title: string; date: string }[] = [];
   const result: typeof all = [];
 
   for (const ev of all) {
     const dateStr = ev.start.slice(0, 10); // YYYY-MM-DD
-    const studentName = extractStudentName(ev.title);
-    const key = `${studentName}:${dateStr}`;
-    if (seen.has(key)) continue; // skip duplicate
-    seen.set(key, true);
+    const isDuplicate = seen.some((s) => s.date === dateStr && isSameStudent(s.title, ev.title));
+    if (isDuplicate) continue; // skip duplicate
+    seen.push({ title: ev.title, date: dateStr });
     result.push(ev);
   }
   return result;
