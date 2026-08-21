@@ -1176,6 +1176,17 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .clefbtn .clefgly{font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1}
 .clefbtn.on{color:#d97757;border-color:#d97757aa;background: rgba(217,119,87,.16);box-shadow:0 0 18px -8px #d97757}
 .clefbtn:active{transform:scale(.96)}
+.clefbest{font-family:'Share Tech Mono',monospace;font-size:10px;color:#ffd23f;margin-left:2px}
+/* Belt ranking — header badge always visible during play; the promotion
+   celebration reuses the existing gold .punlock treatment as-is (the belt's
+   own icon already carries its color, from white through black). */
+.sightbelt{display:flex;align-items:center;gap:5px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;color:var(--text2);background:var(--card3);border:1px solid var(--bd2);border-radius:20px;padding:5px 11px;flex-shrink:0}
+.sightbelt span{font-size:15px}
+.sightnewbest{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:#ffd23f;text-shadow:0 0 12px #ffd23f77}
+.beltprog{width:100%;padding:10px 14px;border-radius:12px;background:var(--card3);border:1px solid var(--bd2)}
+.beltprog-row{display:flex;justify-content:space-between;font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:700;color:var(--text2)}
+.beltprog-bar{margin-top:7px}
+.beltprog-count{margin-top:5px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);text-align:center}
 .sighthint{text-align:center;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:var(--text2);min-height:22px;margin:4px 0 8px}
 .sighthint.show{color:#d97757}
 /* camera coach */
