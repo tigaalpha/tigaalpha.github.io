@@ -327,18 +327,23 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     await acquireListener((seq.mode || "seq") === "chord" && (chordStyleOverride || chordStyle) === "block");
   }
 
-  // Resets a drill's progress and starts it over. Called from two different
-  // situations that leave the mic/MIDI listener in different states — the
-  // mid-drill "Restart" button (the listener is still live) and the result
-  // screen's "Play Again" (finishPractice() already stopped it) — so this
-  // always reacquires a fresh listener itself instead of assuming either.
-  // Previously it only reset state/refs: that made "Play Again" show a fresh,
-  // ready-looking drill whose listener was actually dead, so nothing played
-  // on the piano was ever heard again — read as the whole drill hanging on
-  // the second round. chordStyleOverride mirrors startPractice()'s — only
-  // switchPracticeChordStyle() passes one, to grade against the style it's
-  // switching TO before that state update lands.
-  async function restartPractice(chordStyleOverride) {
+  // Resets a drill's progress and starts it over — from either the mid-drill
+  // "Restart" button or the result screen's "Play Again". Deliberately does
+  // NOT touch the mic/MIDI listener. An earlier version of this fix made it
+  // reacquire one unconditionally (to fix "Play Again" leaving a dead
+  // listener — see finishPractice(), which used to stop it on every finish),
+  // and that DID work — verified by counting real acquisition attempts — but
+  // broke worse on real phones/tablets: repeatedly tearing down and rebuilding
+  // a getUserMedia() mic stream is itself exactly the kind of rapid
+  // stop/restart cycle iOS Safari (and some Android WebViews) can silently
+  // botch — the stream opens, the UI looks ready, but no audio actually comes
+  // through, for that round and every one after. The real fix is to never
+  // tear the listener down between rounds at all: finishPractice() no longer
+  // stops it (practiceActiveRef alone already makes it ignore anything heard
+  // on the result screen), so the SAME listener started once by
+  // startPractice()/replayDrill() just keeps running, correctly configured,
+  // for every subsequent round — nothing to reacquire, nothing to race.
+  function restartPractice() {
     practiceIdxRef.current = 0;
     practiceHitSetRef.current = new Set();
     practiceHitsRef.current = 0;
@@ -354,21 +359,23 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     setPracticeHeard(null);
     setPracticeStreak(0);
     setPracticeResult(null); // "Play Again" from the result screen returns to the live drill
-    getAC(); // this is a fresh click gesture too — same as startPractice()
-    await acquireListener(practiceModeRef.current === "chord" && (chordStyleOverride || chordStyle) === "block");
   }
 
   // switch Block ⇄ Broken WHILE already inside a practice session (interval and
   // every chord topic share the "chord" practice mode, so this covers both) —
   // restarts the current attempt since block vs. broken grade completely
-  // differently (all-at-once vs. one-at-a-time), and re-acquires the mic listener
-  // because only block style needs the polyphonic path (several notes at once).
+  // differently (all-at-once vs. one-at-a-time). Unlike a plain restart, this
+  // ONE case genuinely needs a fresh listener — block vs. broken need
+  // different mic modes (polyphonic vs. monophonic) — so it's the only
+  // caller that still tears down and reacquires.
   async function switchPracticeChordStyle() {
     if (practiceModeRef.current !== "chord") return;
     playUi("click");
     const next = chordStyle === "block" ? "broken" : "block";
     setChordStyle(next);
-    await restartPractice(next); // override — grades against `next`, not the not-yet-updated chordStyle state
+    restartPractice();
+    getAC();
+    await acquireListener(next === "block");
   }
 
   // Drill Deck — replay a past drill straight from its saved best-record,
@@ -407,12 +414,14 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     // Captured before markPathAccuracy() below reschedules it (which would
     // otherwise make it read as "not due" by the time this check ran).
     const wasDueStage = !!practiceStageIdRef.current && getDueReviews().stages.some(s => s.id === practiceStageIdRef.current);
-    practiceActiveRef.current = false;
-    stopPracticeListeners();
+    practiceActiveRef.current = false; // handlePlayedNote no-ops on anything heard while the result screen is up — that's all "stop listening" actually requires
     clearTimeout(practiceHeardTimer.current);
     // Overlay stays open — the result now renders in-place (see practiceResult
     // below) instead of exiting to a chat text summary the learner had to go
-    // find on a different page.
+    // find on a different page. The mic/MIDI listener is deliberately left
+    // running (NOT stopped here) — see restartPractice()'s header for why
+    // tearing it down between rounds, even to correctly reacquire it, is
+    // itself the source of a worse bug on real devices.
 
     logPractice(accuracy);
     logActivity("drill", label || "drill", hits, miss, Math.max(20, total * 2));
