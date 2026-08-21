@@ -28,13 +28,17 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
+  { label: "🎯 งานวันนี้", text: "แนะนำ 3 งานที่ควรทำวันนี้ เรียงตามคุณค่ามากไปหาน้อย ง่ายไปหายาก", sendImmediately: true },
   { label: "📊 สรุปวันนี้", text: "สรุปภาพรวมธุรกิจวันนี้ให้หน่อย", sendImmediately: true },
   { label: "👥 นักเรียนทั้งหมด", text: "ดูรายชื่อนักเรียนทั้งหมดหน่อย", sendImmediately: true },
   { label: "📅 คาบเรียนวันนี้", text: "ดูคาบเรียนวันนี้มีอะไรบ้าง", sendImmediately: true },
   { label: "💰 รายรับเดือนนี้", text: "ดูสรุปการเงินเดือนนี้หน่อย", sendImmediately: true },
-  { label: "📝 สร้าง Content", text: "วางแผนสร้าง content 3 ชิ้นสำหรับสัปดาห์นี้", sendImmediately: true },
+  { label: "📝 สร้าง Content", text: "สร้าง content ใหม่สัก 1 ชิ้น", sendImmediately: true },
   { label: "🧠 วางแผน", text: "วางแผนสร้างนักเรียนใหม่ + จองคาบ + สร้าง content", sendImmediately: true },
-  { label: " Lead ที่ควรติดตาม", text: "มี lead คนไหนที่ควรติดตามตอนนี้บ้าง", sendImmediately: true },
+  { label: "🎯 Lead ที่ควรติดตาม", text: "มี lead คนไหนที่ควรติดตามตอนนี้บ้าง", sendImmediately: true },
+  { label: "🎬 Video Package", text: "สร้าง Video Package ครบชุด: script + voice + images", sendImmediately: true },
+  { label: "🔄 Repurpose Content", text: "แปลง content นี้เป็นทุก platform", sendImmediately: false },
+  { label: "📈 Marketing Dashboard", text: "ดูสรุปการตลาดสัปดาห์นี้", sendImmediately: true },
   { label: "เพิ่มความรู้", text: "เพิ่มความรู้ใหม่: ", sendImmediately: false },
 ];
 
@@ -213,8 +217,8 @@ export function FloatingAssistant() {
             {messages.length === 0 && !loadingHistory ? (
               <div className="space-y-2">
                 <p className="rounded-xl bg-line/5 p-3 text-xs text-secondary/60">
-                  สั่งงานได้เลย เช่น &quot;เพิ่มลูกค้าใหม่ชื่อ...&quot;, &quot;จองคาบเรียนให้...&quot;,
-                  &quot;เปลี่ยนสถานะการขายของ...&quot;, หรือถามข้อมูลในคลังความรู้
+                  🎯 กด &quot;งานวันนี้&quot; เพื่อดู 3 งานสำคัญสุด หรือสั่งงานได้เลย เช่น &quot;สร้าง TikTok Script&quot;, &quot;สร้าง Video Package&quot;,
+                  &quot;วิเคราะห์เทรนด์&quot;, &quot;repurpose content&quot; หรือถามข้อมูลในคลังความรู้
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {QUICK_ACTIONS.map((action) => (

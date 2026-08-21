@@ -10,6 +10,7 @@ import { sumTransactions } from "./business-metrics.ts";
 import { createPayment, confirmPayment } from "./payments.ts";
 import { createLessonSummary } from "./lesson-summary.ts";
 import { push as linePush } from "./line.ts";
+import { executeMarketingTool } from "./marketing-tools.ts";
 
 // ISO (UTC) → Bangkok local time for display in messages, e.g. "17:00".
 function formatLessonTime(iso: string): string {
@@ -438,6 +439,89 @@ export const OWNER_TOOLS: ToolDefinition[] = [
     parameters: { type: "object", properties: {}, required: [] },
   },
 ];
+
+const MARKETING_SKILL_TOOLS: ToolDefinition[] = [
+  {
+    name: "use_marketing_skill",
+    description: "Use any of the 24 marketing skills (TikTok Script, Caption, Carousel, Hashtag, Cross-Platform, Content Calendar, DM Script, etc.). Call with the skill name and content topic.",
+    parameters: {
+      type: "object",
+      properties: {
+        skillName: { type: "string", description: "The skill to use, e.g. 'tiktok_script', 'caption_writer', 'hashtag_strategy', 'cross_platform', 'content_calendar', 'dm_script', 'carousel'" },
+        topic: { type: "string", description: "The content topic or brief" },
+        language: { type: "string", enum: ["th", "en", "zh"], description: "Language for the output" },
+        model: { type: "string", description: "AI model to use (optional)" },
+      },
+      required: ["skillName", "topic"],
+    },
+  },
+  {
+    name: "get_daily_priorities",
+    description: "Get the top 3 highest-value tasks to do today, ranked by business impact and difficulty. Returns prioritized list with reasons.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "get_content_performance",
+    description: "Check how past content is performing — which posts got the most engagement, saves, shares. Use to decide what to create next.",
+    parameters: {
+      type: "object",
+      properties: {
+        period: { type: "string", enum: ["week", "month", "quarter"], description: "Time period to analyze" },
+      },
+    },
+  },
+  {
+    name: "schedule_post",
+    description: "Schedule a content post for a specific date/time. Stores the post in Supabase for the Content Calendar.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        content: { type: "string" },
+        platform: { type: "string", enum: ["tiktok", "instagram", "facebook", "youtube", "line", "all"], description: "Platform to post on" },
+        scheduledDate: { type: "string", description: "ISO date string for when to post" },
+      },
+      required: ["title", "content", "platform", "scheduledDate"],
+    },
+  },
+  {
+    name: "get_trend_analysis",
+    description: "Analyze current trends in piano/music education market. Use this when the owner wants to know what's trending or what content to ride.",
+    parameters: { type: "object", properties: { topic: { type: "string", description: "Specific trend topic (optional)" } } },
+  },
+  {
+    name: "create_video_package",
+    description: "Create a complete video package: TikTok Script + Voice Over text + Scene descriptions for images. All-in-one content creation.",
+    parameters: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "The video topic" },
+        style: { type: "string", enum: ["educational", "entertaining", "inspiring", "urgent"], description: "Content style" },
+        languages: { type: "array", items: { type: "string" }, description: "Languages to create in, e.g. ['th', 'en', 'zh']" },
+      },
+      required: ["topic"],
+    },
+  },
+  {
+    name: "repurpose_content",
+    description: "Transform one piece of content into multiple platform formats: TikTok caption → Instagram carousel → Facebook post → LINE message.",
+    parameters: {
+      type: "object",
+      properties: {
+        originalContent: { type: "string", description: "The original content to repurpose" },
+        platforms: { type: "array", items: { type: "string" }, description: "Target platforms, e.g. ['tiktok', 'instagram', 'facebook', 'line']" },
+      },
+      required: ["originalContent"],
+    },
+  },
+  {
+    name: "get_marketing_dashboard",
+    description: "Get a marketing overview: content count, scheduled posts, recent performance, AI cost for marketing. Quick snapshot of marketing health.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+];
+
+export const ALL_OWNER_TOOLS: ToolDefinition[] = [...OWNER_TOOLS, ...MARKETING_SKILL_TOOLS];
 
 // Postgres error code for a violated EXCLUDE/UNIQUE constraint (see
 // migration 0023_booking_race_conditions — the real, atomic double-booking
@@ -1386,7 +1470,10 @@ export async function executeTool(
       return { approvals: approvals ?? [], count: (approvals ?? []).length };
     }
 
-    default:
+    default: {
+      const marketingResult = await executeMarketingTool(call.name, args as Record<string, unknown>, db);
+      if (marketingResult !== null) return marketingResult;
       throw new Error(`Unknown tool: ${call.name}`);
+    }
   }
 }
