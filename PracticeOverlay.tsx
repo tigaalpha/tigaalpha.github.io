@@ -48,6 +48,13 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
           <div className="punlock-sub">{r.bossDefeated.label}</div>
         </div>
       )}
+      {r.memoryStreak && r.memoryStreak.tierUp && (
+        <div className="punlock pmemory">
+          <div className="punlock-ic">{r.memoryStreak.tier ? r.memoryStreak.tier.icon : "🧠"}</div>
+          <div className="punlock-tt">{lc.memoryStreakTierUp}</div>
+          <div className="punlock-sub">{lc.memoryStreakLbl}: {r.memoryStreak.count}</div>
+        </div>
+      )}
       <div className="presulthead">
         <div className="presulttitle">{lc.practiceResultTitle}</div>
         <div className="presultsub">{r.label}</div>

@@ -3,7 +3,7 @@ import {
   fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP,
   getAC, playPianoNote, playUi, stopPracticeListeners, startMidiListener, startMicListener,
 } from "./music-engine";
-import { logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY } from "./App";
+import { logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
 import { logActivity } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
@@ -387,6 +387,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const accuracy = hits + miss > 0 ? Math.round((hits / (hits + miss)) * 100) : 100;
     const label = practiceLabelRef.current;
     const bestStreak = practiceBestStreakRef.current;
+    // Memory Streak — was this stage actually due for SRS review right now?
+    // Captured before markPathAccuracy() below reschedules it (which would
+    // otherwise make it read as "not due" by the time this check ran).
+    const wasDueStage = !!practiceStageIdRef.current && getDueReviews().stages.some(s => s.id === practiceStageIdRef.current);
     practiceActiveRef.current = false;
     stopPracticeListeners();
     clearTimeout(practiceHeardTimer.current);
@@ -415,7 +419,6 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const isNewBest = !prevBest || accuracy > prevBest.accuracy || bestStreak > prevBest.bestStreak;
     earnCoins(5 + Math.round(accuracy / 20) + (isNewBest ? 5 : 0));
     gainExp(20 + Math.round(accuracy / 5) + (isNewBest ? 10 : 0), { quest: true }); // 20–40 EXP scaled by accuracy, +10 on a genuine new best
-    playUi(isNewBest ? "levelup" : "reward");
     writePracticeBest(bestKey, {
       accuracy: Math.max(accuracy, prevBest ? prevBest.accuracy : 0),
       bestStreak: Math.max(bestStreak, prevBest ? prevBest.bestStreak : 0),
@@ -467,7 +470,27 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       }
     }
 
-    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, aiText: null, aiLoading: !isGuest });
+    // Memory Streak — credit for reviewing a stage that was actually due,
+    // pass or fail (see wasDueStage above): showing up for the review is the
+    // habit being rewarded, same "showing up counts" treatment as every
+    // other per-feature streak this pass added.
+    let memoryStreak = null;
+    if (wasDueStage) {
+      const r = bumpMemoryStreak();
+      if (r.bumped) {
+        earnCoins(5 + (r.tierUp ? 10 : 0));
+        gainExp(10 + (r.tierUp ? 25 : 0), { quest: true });
+        memoryStreak = r;
+      }
+    }
+
+    // One sound cue for the whole result, not one per celebration — several
+    // of the above can land on the same drill (a due review that also sets
+    // a new best, say), and firing playUi() once per event would layer them
+    // into a muddle instead of one clean cue. Loudest event wins.
+    playUi(bossDefeated || (memoryStreak && memoryStreak.tierUp) || pathUnlocked ? "levelup" : isNewBest || memoryStreak ? "reward" : "click");
+
+    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest });
 
     // Bonus AI flourish on top of an already-complete local result — fetched
     // standalone (not through the shared chat thread/callClaude) so it can
