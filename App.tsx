@@ -5516,6 +5516,42 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
           </div>
         </div>
 
+        {/* Challenging Mode suggestion — Daily Mentor is the app's "what should I
+            do next" surface, so it should be the one to point the learner at a
+            challenge the moment one's actually ready, same signal learnTopic()'s
+            own nudge uses (groupChallengeReady). Only shown when there's a real
+            certificate or Boss Challenge waiting — not a dead-end CTA for an
+            account that hasn't finished a section yet. */}
+        {(() => {
+          const groups = PATH_GROUPS[lang];
+          const pathDone = pathDoneSet();
+          const fullReady = pathDone.size >= PATHWAY.length;
+          const readyGroups = groups.filter(g => groupChallengeReady(g));
+          if (!fullReady && !readyGroups.length) return null;
+          const body = fullReady
+            ? T("คุณเรียนครบทุกหมวดแล้ว — ไปรับใบประกาศนียบัตรใหญ่ที่หน้าท้าทายได้เลย!",
+                "You've finished every section — claim your Grand Certificate on the Challenging page!",
+                "你已完成所有单元——前往闯关挑战页面领取总证书吧！")
+            : readyGroups.length === 1
+            ? T(`คุณเรียนครบหมวด ${readyGroups[0].label} แล้ว — ไปท้าบอสและรับใบประกาศนียบัตรที่หน้าท้าทายได้เลย!`,
+                `You've covered all of ${readyGroups[0].label} — go fight the Boss Challenge and claim your certificate on the Challenging page!`,
+                `你已学完「${readyGroups[0].label}」的全部内容——前往闯关挑战页面挑战首领并领取证书吧！`)
+            : T(`คุณเรียนครบ ${readyGroups.length} หมวดแล้ว — มีบอสและใบประกาศนียบัตรรอให้ไปพิสูจน์ฝีมือที่หน้าท้าทาย!`,
+                `You've covered ${readyGroups.length} sections — Boss Challenges and certificates are waiting to be claimed on the Challenging page!`,
+                `你已学完 ${readyGroups.length} 个单元——挑战首领和证书正在闯关挑战页面等你！`);
+          return (
+            <div style={{ marginBottom: 16, padding: 14, borderRadius: 14, border: "1px solid #a78bfa55", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
+              <div style={{ fontSize: 13, color: "#c4b5fd", fontWeight: 700, marginBottom: 6 }}>
+                🏆 {T("พร้อมทดสอบตัวเองหรือยัง?", "Ready to test yourself?", "准备好测试了吗？")}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.7, marginBottom: 10 }}>{body}</div>
+              <button className="songbtn go" style={{ width: "100%", background: "#8b5cf6" }} onClick={() => onNavigate("challenging")}>
+                ⚔️ {T("ไปหน้าท้าทาย", "Go to Challenging", "前往闯关挑战")}
+              </button>
+            </div>
+          );
+        })()}
+
         {stats.daily && stats.daily.some(d => d.practiced) && (() => {
           const maxMin = Math.max(1, ...stats.daily.map(d => d.min));
           const dayLabels = ["Su","Mo","Tu","We","Th","Fr","Sa"];
@@ -7998,6 +8034,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     else if (key === "play_along") { setPage("studio"); setStudioView("songs"); }
     else if (key === "ear_training") { logUsage("nav", "studio-eargym"); setEarGymInitialTab(tab || "int"); setPage("eargym"); }
     else if (key === "reading_course") { logUsage("nav", "studio-reading"); setPage("reading"); }
+    else if (key === "challenging") { logUsage("nav", "coach-challenging"); setPage("challenging"); }
     else { setPage("pathway"); }
   }
   // Auto Teaching popup steps are free text from the AI ("practice Twinkle Twinkle",
