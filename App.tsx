@@ -4241,6 +4241,51 @@ function coachStatsToText(s) {
   const skillsTxt = s.skills.filter(sk => sk.score != null).map(sk => `${sk.skill}: ${sk.score}/100`).join(", ") || "not enough data yet for any skill";
   return `Level ${s.level}, ${s.streak}-day streak, ${s.lessonsDone} lessons completed, ${s.badgeCount}/${s.badgeTotal} badges earned, today's quest ${s.questOk ? "done" : "not done yet"}. Last 7 days: practiced ${s.days7}/7 days (${s.min7} min total), accuracy ${s.acc7 == null ? "no data" : s.acc7 + "%"}${s.accPrev != null ? ` (previous week was ${s.accPrev}%)` : ""}. Weakest topics by miss rate across all history: ${weakestTxt}. Skill scores (0-100, higher is better): ${skillsTxt}.`;
 }
+// Weekly Report Card — a letter grade over the SAME rolling 7-day window
+// Daily Mentor's stats tiles already use (this page has never framed "the
+// week" as a Mon-Sun calendar week, so the grade doesn't invent one either).
+// Half consistency (days practiced), half accuracy — pure consistency when
+// there's no accuracy signal at all (some learners only read/listen, never
+// generating an ok/miss tally), rather than unfairly capping the grade at
+// 50 for having nothing to average in.
+function reportCardGrade(days7, acc7) {
+  const score = acc7 == null ? (days7 / 7) * 100 : (days7 / 7) * 50 + (acc7 / 100) * 50;
+  return score >= 90 ? "A+" : score >= 80 ? "A" : score >= 70 ? "B" : score >= 55 ? "C" : score >= 35 ? "D" : "F";
+}
+const REPORT_CARD_RANK = ["F", "D", "C", "B", "A", "A+"];
+const REPORT_CARD_REWARDS = { "A+": [60, 30], "A": [45, 22], "B": [30, 15], "C": [18, 8], "D": [10, 4], "F": [0, 0] };
+const REPORT_CARD_KEY = "tg_reportcards";
+function readReportCards() { try { return JSON.parse(localStorage.getItem(REPORT_CARD_KEY) || "[]"); } catch (e) { return []; } }
+function writeReportCards(a) { try { localStorage.setItem(REPORT_CARD_KEY, JSON.stringify(a.slice(-8))); } catch (e) {} }
+function bestReportCardGrade() {
+  const cards = readReportCards();
+  if (!cards.length) return null;
+  return cards.reduce((best, c) => REPORT_CARD_RANK.indexOf(c.grade) > REPORT_CARD_RANK.indexOf(best) ? c.grade : best, cards[0].grade);
+}
+// A new card can be claimed once 7 days have passed since the last one — a
+// rolling cooldown (not a calendar-week boundary), matching the page's own
+// rolling-7-day framing rather than introducing a second, different notion
+// of "the week" the rest of Daily Mentor doesn't use.
+function reportCardReadyToClaim() {
+  const cards = readReportCards();
+  return !cards.length || Date.now() - cards[cards.length - 1].t >= 7 * 86400000;
+}
+function daysUntilNextReportCard() {
+  const cards = readReportCards();
+  if (!cards.length) return 0;
+  return Math.max(0, Math.ceil((7 * 86400000 - (Date.now() - cards[cards.length - 1].t)) / 86400000));
+}
+// Returns { grade, isNewBest } — isNewBest is false for a first-ever F (a
+// bad first week isn't a "personal best" worth celebrating).
+function claimReportCard(days7, acc7) {
+  const prevBest = bestReportCardGrade();
+  const grade = reportCardGrade(days7, acc7);
+  const cards = readReportCards();
+  cards.push({ grade, days7, acc7, t: Date.now() });
+  writeReportCards(cards);
+  const isNewBest = prevBest == null ? grade !== "F" : REPORT_CARD_RANK.indexOf(grade) > REPORT_CARD_RANK.indexOf(prevBest);
+  return { grade, isNewBest };
+}
 // Shared core of the AI coaching analysis — used by both the Auto Teaching popup (timer-driven,
 // PianoApp) and the dedicated Coach nav page (on-demand, CoachPage). Module-level (not inside
 // either component) since it only needs `lang`/`profile` and the module-level helpers above.
@@ -5462,12 +5507,25 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
 });
 
 /* ── Daily Mentor page: shows practice stats, 7-day activity chart, and weak spots. ── */
-const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell }) {
+const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell, gainExp, earnCoins }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan) || (profile && profile.is_admin);
   const stats = useMemo(() => computeCoachStats(profile, lang), [profile, lang]);
   const accDelta = stats.acc7 != null && stats.accPrev != null ? stats.acc7 - stats.accPrev : null;
   const hasData = readActLog().length > 0;
+  const [, setRcTick] = useState(0); // bumped after claimReportCard() writes localStorage, since that write alone doesn't trigger a re-render
+  const rcGrade = reportCardGrade(stats.days7, stats.acc7);
+  const rcBest = bestReportCardGrade();
+  const rcReady = reportCardReadyToClaim();
+  function claimRc() {
+    if (!rcReady) return;
+    const { grade, isNewBest } = claimReportCard(stats.days7, stats.acc7);
+    const [xp, coins] = REPORT_CARD_REWARDS[grade];
+    playUi(isNewBest ? "levelup" : "reward");
+    if (xp && gainExp) gainExp(xp, { quest: true });
+    if (coins && earnCoins) earnCoins(coins);
+    setRcTick(t => t + 1);
+  }
 
   // Monthly skill trend — best-effort: silently empty (not an error) if the
   // RPC isn't deployed yet, or if there's under 2 months of history so far.
@@ -5498,6 +5556,38 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
           {T("สถิติการซ้อมและจุดที่ควรฝึกเพิ่ม อัปเดตอัตโนมัติหลังทุกเซสชัน",
             "Your practice stats and weak spots — updated automatically after every session.",
             "练习统计与待提升项目——每次练习后自动更新。")}
+        </div>
+
+        {/* Weekly Report Card — a letter grade over the same rolling 7-day
+            window the stats tiles below already use, claimable for real EXP/
+            coins on a 7-day cooldown. Daily Mentor previously had no reward
+            of its own tied to a "week" as a unit at all. */}
+        <div style={{ marginBottom: 16, padding: 16, borderRadius: 14, border: "1px solid #d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+          <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 10 }}>
+            📋 {T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单")}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 44, fontWeight: 900, color: "#d97757", lineHeight: 1 }}>{rcGrade}</div>
+            <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.7 }}>
+              <div>{T(`ซ้อม ${stats.days7}/7 วัน`, `${stats.days7}/7 days practiced`, `练习了 ${stats.days7}/7 天`)}</div>
+              <div>{stats.acc7 == null ? T("ยังไม่มีข้อมูลความแม่นยำ", "No accuracy data yet", "暂无准确率数据") : T(`แม่นยำ ${stats.acc7}%`, `${stats.acc7}% accuracy`, `准确率 ${stats.acc7}%`)}</div>
+              {rcBest && <div style={{ color: "#ffd23f", fontWeight: 700 }}>🏆 {T("สถิติดีที่สุด", "Personal best", "历史最佳")}: {rcBest}</div>}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {rcReady ? (
+              <button className="songbtn go" style={{ flex: 1 }} onClick={claimRc}>
+                🎁 {T(`รับการ์ด (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `Claim card (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `领取成绩单 (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`)}
+              </button>
+            ) : (
+              <div style={{ flex: 1, fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+                {T(`การ์ดถัดไปพร้อมใน ${daysUntilNextReportCard()} วัน`, `Next card ready in ${daysUntilNextReportCard()} day${daysUntilNextReportCard() === 1 ? "" : "s"}`, `${daysUntilNextReportCard()} 天后可领取下一张`)}
+              </div>
+            )}
+            <button className="songbtn ghost" onClick={() => shareCard({ title: T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单"), big: rcGrade, sub: `${stats.days7}/7 · ${stats.acc7 == null ? "—" : stats.acc7 + "%"}`, lines: ["TiGA Piano AI"] })}>
+              📤 {T("แชร์", "Share", "分享")}
+            </button>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
@@ -8780,7 +8870,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
-      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} />}
+      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
       {page === "gamepage" && <GamesPage lang={lang} />}
