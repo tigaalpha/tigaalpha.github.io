@@ -1085,17 +1085,47 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
    NOTE-READING COURSE — a graded path to real notation literacy:
    treble → ledger lines → bass clef → accidentals → short sequences.
 ════════════════════════════════════════════════════════════ */
+// Speed rank — finishLevel() already computed elapsed seconds for
+// logActivity's duration field and threw it away; this keeps it, persists a
+// per-level personal best, and grades pace on seconds-per-note (not raw
+// seconds) since level 5's 5 three-note sequences are genuinely more reading
+// work than another level's 10 single notes despite the smaller qn.
+const READ_SPEED_TIERS = [
+  { id: "diamond", icon: "💎", max: 1.0 },
+  { id: "gold",    icon: "🥇", max: 1.8 },
+  { id: "silver",  icon: "🥈", max: 3.0 },
+  { id: "bronze",  icon: "🥉", max: 5.0 },
+];
+function readSpeedRank(secs, notes) {
+  if (!secs || !notes) return null;
+  const perNote = secs / notes;
+  for (const t of READ_SPEED_TIERS) if (perNote <= t.max) return t;
+  return null;
+}
+function readBestTimeMap() { try { return JSON.parse(localStorage.getItem("tg_read_besttime") || "{}"); } catch (e) { return {}; } }
+// Returns true only on a genuine improvement (a real new record), not a tie.
+function markReadBestTime(levelN, secs) {
+  try {
+    const m = readBestTimeMap();
+    const prev = m[levelN];
+    if (prev == null || secs < prev) { m[levelN] = secs; localStorage.setItem("tg_read_besttime", JSON.stringify(m)); return true; }
+    return false;
+  } catch (e) { return false; }
+}
 const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySong }) {
   const T = {
     th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี → เส้นน้อยกุญแจฟา", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน",
         tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน",
-        courseDone: "อ่านโน้ตเป็นแล้ว! ลองอ่านเพลงจริงดูสิ", readSong: "อ่านเพลงจริง" },
+        courseDone: "อ่านโน้ตเป็นแล้ว! ลองอ่านเพลงจริงดูสิ", readSong: "อ่านเพลงจริง",
+        readNewBest: "สถิติใหม่!", readBestLbl: "สถิติเดิม" },
     en: { title: "Note Reading", sub: "Real notation literacy, step by step — treble → ledger lines → bass clef → sharps → phrases → bass ledger lines", lvl: "Level", locked: "Earn ⭐⭐ on the previous level first", q: "Q", what: "Which note is this?", seqWhat: "Tap the note names in order", right: "Correct! 🎉", wrong: "Answer: ", done: "Level complete!", again: "Play again ▶", play: "Start ▶", back: "← Levels", score: "Score",
         tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead",
-        courseDone: "You can read notation! Try reading a real song", readSong: "Read a real song" },
+        courseDone: "You can read notation! Try reading a real song", readSong: "Read a real song",
+        readNewBest: "New best!", readBestLbl: "Best" },
     zh: { title: "识谱课", sub: "循序渐进学会读谱 — 高音谱号 → 加线 → 低音谱号 → 升号 → 短句 → 低音谱加线", lvl: "关卡", locked: "先在上一关拿到 ⭐⭐", q: "第", what: "这是什么音？", seqWhat: "按顺序点击音名", right: "正确！🎉", wrong: "答案：", done: "本关完成！", again: "再来一次 ▶", play: "开始 ▶", back: "← 选关", score: "得分",
         tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式",
-        courseDone: "你已经会读谱了！试着读一首真正的曲子吧", readSong: "读一首真曲子" },
+        courseDone: "你已经会读谱了！试着读一首真正的曲子吧", readSong: "读一首真曲子",
+        readNewBest: "新纪录！", readBestLbl: "最佳" },
   }[lang];
   const [lvl, setLvl] = useState(null);
   const [idx, setIdx] = useState(0);
@@ -1182,7 +1212,21 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
     logActivity("read", "L" + L.n, finalScore, L.qn - finalScore, Math.max(30, secs));
     logPractice(acc);
     onReward(xp, stars * 5);
-    setResult({ score: finalScore, stars, xp, coins: stars * 5, qn: L.qn });
+    // Speed rank — only a genuinely cleared level (stars >= 1) sets a record;
+    // racing through a level you're failing shouldn't count as a "best."
+    const prevBest = readBestTimeMap()[L.n];
+    const isNewBestTime = stars >= 1 && markReadBestTime(L.n, secs);
+    const speedRank = stars >= 1 ? readSpeedRank(secs, L.qn * L.seq) : null;
+    // Smart song recommendation — used to always be the exact same first
+    // diff:1 song in the catalog, every single time; now actually reasons
+    // about which songs are easy (re-scored from real note data, not just
+    // trusting the static tag) and varies the pick.
+    let recommendedSong = null;
+    if (L.n === RC_LEVELS[RC_LEVELS.length - 1].n && stars >= 2) {
+      const easyPool = SONGS.filter(s => !s.custom && estimateSongDifficulty(songTechniqueProfile(s)) === 1);
+      recommendedSong = easyPool.length ? easyPool[Math.floor(Math.random() * easyPool.length)] : (SONGS.find(s => s.diff === 1 && !s.custom) || SONGS[0]);
+    }
+    setResult({ score: finalScore, stars, xp, coins: stars * 5, qn: L.qn, secs, prevBest, isNewBestTime, speedRank, recommendedSong });
     playUi(stars >= 2 ? "levelup" : "click");
   }
   function answered(ok, L) {
@@ -1225,21 +1269,29 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
           </button>
         )}
         <div className="v12hero"><div className="v12title">🎼 {T.title}</div><div className="v12sub">{T.sub}</div></div>
-        {RC_LEVELS.map(L => {
-          const open = unlocked(L.n);
-          const st = stars[L.n] || 0;
-          return (
-            <button key={L.n} className="tdstep" style={{ width: "100%", cursor: open ? "pointer" : "default", opacity: open ? 1 : 0.55, textAlign: "left" }}
-              onClick={() => open && startLevel(L)}>
-              <span className="tdico">{open ? L.icon : "🔒"}</span>
-              <div style={{ flex: 1 }}>
-                <div className="tdtag">{T.lvl} {L.n} · {L.clef === "bass" ? "𝄢" : "𝄞"}{L.seq > 1 ? " · x" + L.seq : ""}</div>
-                <div className="tdlbl">{open ? ("⭐".repeat(st) || "—") : T.locked}</div>
-              </div>
-              {open && <span className="tdgo">{T.play}</span>}
-            </button>
-          );
-        })}
+        {(() => {
+          const bestTimes = readBestTimeMap();
+          return RC_LEVELS.map(L => {
+            const open = unlocked(L.n);
+            const st = stars[L.n] || 0;
+            const bestSecs = bestTimes[L.n];
+            const rank = bestSecs != null ? readSpeedRank(bestSecs, L.qn * L.seq) : null;
+            return (
+              <button key={L.n} className="tdstep" style={{ width: "100%", cursor: open ? "pointer" : "default", opacity: open ? 1 : 0.55, textAlign: "left" }}
+                onClick={() => open && startLevel(L)}>
+                <span className="tdico">{open ? L.icon : "🔒"}</span>
+                <div style={{ flex: 1 }}>
+                  <div className="tdtag">{T.lvl} {L.n} · {L.clef === "bass" ? "𝄢" : "𝄞"}{L.seq > 1 ? " · x" + L.seq : ""}</div>
+                  <div className="tdlbl">
+                    {open ? ("⭐".repeat(st) || "—") : T.locked}
+                    {bestSecs != null && <span className="readbest">{rank ? rank.icon : "⏱"} {bestSecs}s</span>}
+                  </div>
+                </div>
+                {open && <span className="tdgo">{T.play}</span>}
+              </button>
+            );
+          });
+        })()}
       </div>
     );
   }
@@ -1261,14 +1313,21 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
         <div className="v12card" style={{ textAlign: "center", padding: "26px 14px" }}>
           <div style={{ fontSize: "28px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "18px", color: "var(--text)", fontWeight: 900, margin: "8px 0" }}>{result.score}/{result.qn}</div>
-          <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "14px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+          <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+          {result.stars >= 1 && (
+            <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "14px" }}>
+              ⏱ {result.secs}s{result.speedRank && <span style={{ marginLeft: 6 }}>{result.speedRank.icon} {result.speedRank.id}</span>}
+              {result.isNewBestTime ? <span style={{ color: "#d97757", fontWeight: 700, marginLeft: 6 }}>🏆 {T.readNewBest}</span>
+                : result.prevBest != null && <span style={{ marginLeft: 6 }}>({T.readBestLbl} {result.prevBest}s)</span>}
+            </div>
+          )}
           <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={() => startLevel(lvl)}>{T.again}</button>
           {/* Ties "learned to read notation" to "can read a real song" — the whole point of the course. */}
-          {onPlaySong && lvl.n === RC_LEVELS[RC_LEVELS.length - 1].n && result.stars >= 2 && (
+          {onPlaySong && result.recommendedSong && (
             <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid var(--bd2)" }}>
               <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "8px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.courseDone}</div>
               <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#d97757" }}
-                onClick={() => onPlaySong(SONGS.find(s => s.diff === 1 && !s.custom) || SONGS[0])}>🎵 {T.readSong}</button>
+                onClick={() => onPlaySong(result.recommendedSong)}>🎵 {T.readSong}</button>
             </div>
           )}
         </div>
