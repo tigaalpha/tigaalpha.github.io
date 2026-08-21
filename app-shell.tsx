@@ -1,5 +1,6 @@
 import { useState, useEffect, Component } from "react";
 import { sb } from "./supabase-client";
+import { saveGuestProfile } from "./shared-infra";
 /* ── app-shell.tsx ──
    Small presentational components clustered around the App() root: the
    membership-gate screens (Splash/BannedScreen/GuestGateScreen/ProfileForm,
@@ -69,28 +70,159 @@ export function BannedScreen({ onSignOut }) {
   );
 }
 
+// Maps a Supabase Auth error to a friendly bilingual message. Used both when
+// signUp/signInWithPassword/resetPasswordForEmail resolve with {error} (the
+// normal auth-level-failure shape) AND from a catch block (a genuine network
+// drop rejects instead of resolving) — GoTrue's client doesn't consistently
+// pick one or the other for a raw fetch failure, so both paths need the same
+// mapping or a plain "Failed to fetch" can leak straight to the screen.
+function friendlyAuthError(msg) {
+  const m = msg || "";
+  if (/already registered|already exists/i.test(m)) return "อีเมลนี้สมัครไว้แล้ว — ลองเข้าสู่ระบบแทน · This email is already registered — try logging in instead";
+  if (/invalid login credentials/i.test(m)) return "อีเมลหรือรหัสผ่านไม่ถูกต้อง · Incorrect email or password";
+  if (/fetch|network|internet|offline/i.test(m)) return "เชื่อมต่อไม่ได้ ลองอีกครั้ง · Couldn't connect — please try again";
+  return m || "เกิดข้อผิดพลาด ลองอีกครั้ง · Something went wrong — please try again";
+}
+
+// Google + email/password, side by side — a real account no longer requires
+// a Google account specifically, since a student who's a child may not have
+// one yet. Shared by GuestGateScreen (embedded inline, no dismiss) and
+// LoginModal below (the corner pill's dismissable version). Bilingual
+// Thai+English only, matching every other string on these screens — `lang`
+// is PianoApp-local state that doesn't exist yet this early (these screens
+// render before PianoApp ever mounts), so there's no language to switch on.
+function LoginOptions({ profile, onGoogleLogin }) {
+  const [showEmail, setShowEmail] = useState(false);
+  const [mode, setMode] = useState("signup"); // signup | login
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [msg, setMsg] = useState("");
+
+  async function submit() {
+    if (busy) return;
+    setErr(""); setMsg("");
+    if (!email.trim() || !password) { setErr("กรุณากรอกอีเมลและรหัสผ่าน · Please enter your email and password"); return; }
+    if (password.length < 6) { setErr("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร · Password must be at least 6 characters"); return; }
+    if (mode === "signup" && password !== confirm) { setErr("รหัสผ่านไม่ตรงกัน · Passwords don't match"); return; }
+    setBusy(true);
+    try {
+      // Same guest-progress-carries-over handoff the Google button already
+      // does — loadProfile() in App() merges it into the real row once this
+      // account's session lands, regardless of which method created it.
+      saveGuestProfile(profile);
+      const { data, error } = mode === "signup"
+        ? await sb.auth.signUp({ email: email.trim(), password })
+        : await sb.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) { setErr(friendlyAuthError(error.message)); return; }
+      // A fresh session (Google's OAuth redirect and this both end here)
+      // completes App()'s own sb.auth.onAuthStateChange listener, which is
+      // what actually carries the app forward — nothing more to do here. If
+      // the project requires email confirmation, signUp() instead returns a
+      // user with no session yet, so say so instead of looking like nothing
+      // happened.
+      if (mode === "signup" && data && data.user && !data.session) {
+        setMsg("สมัครสำเร็จ! ตรวจสอบอีเมลเพื่อยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ · Account created! Check your email to confirm it, then come back and log in.");
+      }
+    } catch (e) {
+      // A genuine network drop can reject instead of resolving with
+      // {error} — without this, that would skip setBusy(false) entirely
+      // and leave the form stuck showing "..." forever with no way to
+      // retry short of a reload.
+      setErr(friendlyAuthError(e && e.message));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function forgotPassword() {
+    if (!email.trim()) { setErr("กรอกอีเมลก่อนเพื่อรีเซ็ตรหัสผ่าน · Enter your email above first to reset your password"); return; }
+    setBusy(true); setErr(""); setMsg("");
+    try {
+      const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + window.location.pathname });
+      if (error) setErr(friendlyAuthError(error.message));
+      else setMsg("ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว ตรวจสอบกล่องจดหมาย · Reset link sent — check your inbox");
+    } catch (e) {
+      setErr(friendlyAuthError(e && e.message));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button className="oauthbtn google" onClick={onGoogleLogin}>
+        <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google · Continue with Google
+      </button>
+      {!showEmail ? (
+        <button className="memberlink" onClick={() => setShowEmail(true)}>หรือใช้อีเมล · or use email</button>
+      ) : (
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 2 }}>
+          <input className="memberinput" type="email" inputMode="email" autoComplete="email"
+            placeholder="อีเมล · Email" value={email} onChange={e => setEmail(e.target.value)} />
+          <input className="memberinput" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            placeholder="รหัสผ่าน · Password" value={password} onChange={e => setPassword(e.target.value)} />
+          {mode === "signup" && (
+            <input className="memberinput" type="password" autoComplete="new-password"
+              placeholder="ยืนยันรหัสผ่าน · Confirm password" value={confirm} onChange={e => setConfirm(e.target.value)} />
+          )}
+          {err && <div className="lockerr">{err}</div>}
+          {msg && <div className="locksub" style={{ color: "#4caf82" }}>{msg}</div>}
+          <button className="lockbtn" disabled={busy} onClick={submit} style={{ width: "100%" }}>
+            {busy ? "..." : mode === "signup" ? "สมัครสมาชิก ▶ Sign up" : "เข้าสู่ระบบ ▶ Log in"}
+          </button>
+          <button className="memberlink" onClick={() => { setMode(mode === "signup" ? "login" : "signup"); setErr(""); setMsg(""); }}>
+            {mode === "signup" ? "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ · Already have an account? Log in" : "ยังไม่มีบัญชี? สมัครสมาชิก · New here? Sign up"}
+          </button>
+          {mode === "login" && (
+            <button className="memberlink" onClick={forgotPassword}>ลืมรหัสผ่าน? · Forgot password?</button>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+// The corner Login pill's version — same LoginOptions, wrapped as a
+// dismissable modal since (unlike GuestGateScreen) this entry point is
+// always optional, never a forced stop.
+export function LoginModal({ profile, onGoogleLogin, onClose }) {
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard" style={{ maxWidth: 340 }} onClick={e => e.stopPropagation()}>
+        <div className="sethdr"><span>🔐 เข้าสู่ระบบ · Login</span><button className="cbtn" onClick={onClose}>ปิด · Close</button></div>
+        <div className="setbody" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "14px 6px" }}>
+          <LoginOptions profile={profile} onGoogleLogin={onGoogleLogin} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // The forced side of guest mode (the corner Login pill is the optional
 // side) — shown when the free trial runs out or a guest taps an AI-backed
 // feature that structurally cannot work without a real session. No dismiss
 // button by design (matches "ต้องล็อกอิน" — login is genuinely required to
 // continue past this point), but it always appears at a natural stopping
 // point (next navigation / on tap), never yanked up mid-exercise.
-export function GuestGateScreen({ reason, onLogin }) {
+export function GuestGateScreen({ reason, profile, onLogin }) {
   const copy = {
     time: {
       icon: "⏳",
       title: "กรุณาล็อกอินเพื่อเล่นฟรีต่อ 7 วัน",
-      sub: "ล็อกอินด้วย Google เพื่อเล่นต่อ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nLog in with Google to keep playing — everything you did stays saved.",
+      sub: "ล็อกอินหรือสมัครสมาชิกฟรีเพื่อเล่นต่อ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nLog in or sign up free to keep playing — everything you did stays saved.",
     },
     ai: {
       icon: "🤖",
       title: "AI ครูสอนต้องล็อกอินก่อน · The AI teacher needs a login",
-      sub: "ฟีเจอร์นี้ต้องใช้บัญชีจริง ล็อกอินฟรีด้วย Google ได้เลย — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nThis feature needs a real account. Log in free with Google — everything you did stays saved.",
+      sub: "ฟีเจอร์นี้ต้องใช้บัญชีจริง ล็อกอินหรือสมัครสมาชิกฟรีได้เลย — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nThis feature needs a real account. Log in or sign up free — everything you did stays saved.",
     },
     account: {
       icon: "🔐",
       title: "ฟีเจอร์นี้ต้องมีบัญชี · This needs a real account",
-      sub: "ล็อกอินฟรีด้วย Google เพื่อใช้งานส่วนนี้ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nLog in free with Google to use this — everything you did stays saved.",
+      sub: "ล็อกอินหรือสมัครสมาชิกฟรีเพื่อใช้งานส่วนนี้ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nLog in or sign up free to use this — everything you did stays saved.",
     },
   };
   const c = copy[reason] || copy.time;
@@ -101,9 +233,9 @@ export function GuestGateScreen({ reason, onLogin }) {
         <div style={{ fontSize: 52 }}>{c.icon}</div>
         <div className="locktitle">{c.title}</div>
         <div className="locksub">{c.sub}</div>
-        <button className="oauthbtn google" onClick={onLogin} style={{ marginTop: 8 }}>
-          <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%", maxWidth: 300, marginTop: 8 }}>
+          <LoginOptions profile={profile} onGoogleLogin={onLogin} />
+        </div>
       </div>
     </div>
   );
