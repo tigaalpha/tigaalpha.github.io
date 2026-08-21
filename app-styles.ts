@@ -735,6 +735,12 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .punlock.pboss{background:linear-gradient(180deg,rgba(167,139,250,.2),rgba(139,92,246,.08));border-color:#a78bfa66}
 .punlock.pboss .punlock-ic{filter:drop-shadow(0 0 14px #a78bfa99)}
 .punlock.pboss .punlock-tt{color:#c4b5fd;text-shadow:0 0 14px #a78bfa77}
+/* Memory Streak tier-up — same shape again, ocean blue so it reads as its
+   own distinct "you kept your review streak alive" moment, never confused
+   with a stage unlock (gold) or a boss clear (purple) */
+.punlock.pmemory{background:linear-gradient(180deg,rgba(0,212,255,.2),rgba(0,119,182,.08));border-color:#00d4ff66}
+.punlock.pmemory .punlock-ic{filter:drop-shadow(0 0 14px #00d4ff99)}
+.punlock.pmemory .punlock-tt{color:#7dd3ec;text-shadow:0 0 14px #00d4ff77}
 .practicefoot button{flex:1;padding:12px;border-radius:11px;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1.5px;cursor:pointer;transition:all .2s;border:1px solid}
 .practicerestart{border-color:#d9775755!important;background:rgba(217,119,87,.08);color:#d97757}
 .practiceexit{border-color:#ff525255!important;background:rgba(255,82,82,.08);color:#d97757}

@@ -2463,10 +2463,22 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           session on that exact stage via reviewStage() — not a generic page. */}
       {srsOpen && (() => {
         const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
+        const mStreak = memoryStreak();
+        const mTier = memoryStreakTier(mStreak.count || 0);
         return (
         <div className="modal-ov" onClick={() => setSrsOpen(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div className="modal-hdr"><span>🧠 {lc.srsTitle}</span><button className="modal-x" onClick={() => setSrsOpen(false)}>✕</button></div>
+            <div className="modal-hdr">
+              <span>
+                🧠 {lc.srsTitle}
+                {mStreak.count > 0 && (
+                  <span className="camstreak-badge" title={lc.memoryStreakLbl}>
+                    {mTier ? mTier.icon : "🔥"} {mStreak.count}
+                  </span>
+                )}
+              </span>
+              <button className="modal-x" onClick={() => setSrsOpen(false)}>✕</button>
+            </div>
             {dueReviews.total === 0 ? (
               <p style={{ margin: "12px 0", fontSize: 14, color: "var(--muted)", textAlign: "center" }}>{lc.srsNone} ✅</p>
             ) : (
@@ -4638,6 +4650,44 @@ export function getDueReviews() {
     .filter(s => s.last && (now - s.last) >= 2 * 86400000)
     .map(s => ({ label: s.label, acc: s.acc, count: s.count, last: s.last }));
   return { stages, practice, total: stages.length + practice.length };
+}
+// Memory Streak — a day-streak for keeping up with SRS review specifically
+// (getDueReviews()'s two signals above), separate from the app's main
+// streak the same way Camera Coach's Posture Streak is: showing up for
+// review is its own habit worth its own streak. No freeze mechanic, same
+// as every other per-feature streak this pass added. Bumped once per day
+// by either genuine review path — completing a due stage's practice drill
+// (finishPractice(), use-practice-mode.ts) or asking about a due struggle
+// (askAboutStruggle() below) — mirroring the main streak's own "credit for
+// a completed session, not for merely opening one" precedent (bumpStreak()
+// fires from logPractice(), never from a session's start).
+const MEMORY_STREAK_TIERS = [
+  { id: "start", icon: "🌱", need: 1 },
+  { id: "bronze", icon: "🥉", need: 3 },
+  { id: "silver", icon: "🥈", need: 7 },
+  { id: "gold", icon: "🥇", need: 14 },
+  { id: "diamond", icon: "💎", need: 30 },
+];
+export function memoryStreakTier(count) {
+  let t = null;
+  for (const tier of MEMORY_STREAK_TIERS) if (count >= tier.need) t = tier;
+  return t;
+}
+export function memoryStreak() { try { return JSON.parse(localStorage.getItem("tg_memory_streak") || "null") || { count: 0, last: "" }; } catch (e) { return { count: 0, last: "" }; } }
+// Returns { count, tier, tierUp, bumped } — bumped is false on a same-day
+// re-call; tierUp is true only on a genuine CLIMB (never a missed-day reset
+// that happens to land on a lower tier), exactly Posture Streak's contract.
+export function bumpMemoryStreak() {
+  const s = memoryStreak(), today = dayKey();
+  const prevTier = memoryStreakTier(s.count || 0);
+  if (s.last === today) return { count: s.count || 0, tier: prevTier, tierUp: false, bumped: false };
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  if (s.last === dayKey(y)) s.count = (s.count || 0) + 1;
+  else s.count = 1;
+  s.last = today;
+  try { localStorage.setItem("tg_memory_streak", JSON.stringify(s)); } catch (e) {}
+  const tier = memoryStreakTier(s.count);
+  return { count: s.count, tier, tierUp: !!tier && (!prevTier || tier.need > prevTier.need), bumped: true };
 }
 // Group Boss Challenge — a one-off capstone once every practiceable stage in a
 // group is individually done: all of that group's demos chained into one longer
@@ -8704,6 +8754,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // own UI first, then invoke this.
   function askAboutStruggle(item) {
     setPage("sensei");
+    // Memory Streak — asking about a tracked struggle is a genuine review of
+    // it, wherever the tap came from (the SRS modal, Profile's Auto Teaching
+    // recap, StudioPage's own tag list) — all read from the same
+    // readMemory().struggles signal getDueReviews() itself filters.
+    const { tierUp, bumped } = bumpMemoryStreak();
+    if (bumped) {
+      earnCoins(5 + (tierUp ? 10 : 0));
+      gainExp(10 + (tierUp ? 25 : 0), { quest: true });
+      playUi(tierUp ? "levelup" : "reward");
+    }
     const acc = item && item.acc != null ? item.acc : null;
     const q = lang === "th"
       ? `ช่วยแนะนำแนวทางฝึกเรื่อง "${item.label}" หน่อยครับ ฉันพลาดเรื่องนี้บ่อย${acc != null ? ` (แม่นยำล่าสุด ${acc}%)` : ""} ควรฝึกหรือทำความเข้าใจอะไรเพิ่มถึงจะดีขึ้น`
