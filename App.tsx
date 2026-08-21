@@ -76,7 +76,7 @@ import { usePayment } from "./use-payment";
 import { useGamification } from "./use-gamification";
 import { useKeyboard } from "./use-keyboard";
 import { usePracticeMode, readPracticeBests } from "./use-practice-mode";
-import { useSightReading } from "./use-sight-reading";
+import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
 import { useChat } from "./use-chat";
@@ -3656,11 +3656,57 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
   );
 });
 
+/* Non-Play-Along duel subjects. duels.song_id is a plain unconstrained `text`
+   column server-side (see supabase-gamification-social-migration.sql) — the
+   RPCs never interpret it, so a "activity:" prefix lets these ride the exact
+   same table/functions as song duels with zero backend changes. Only this
+   registry (client-side) and the duel-list renderer below know what the
+   prefix means. Each myBest() reads the SAME personal-best storage that
+   feature's own gamification page already shows the player, so a challenge
+   score is exactly as trustworthy as any other stat already in the app. */
+const ACTIVITY_DUELS = [
+  { key: "activity:eargym", icon: "🎧", higherIsBetter: true, unit: "",
+    label: { th: "บันไดโสตศาสตร์", en: "Ear Gym Ladder", zh: "耳朵健身梯" },
+    myBest: () => ladderBestScore() },
+  { key: "activity:sight:treble", icon: "🎼", higherIsBetter: true, unit: "",
+    label: { th: "อ่านโน้ตเร็ว 60วิ (บรรทัดสูง)", en: "Sight-Read Sprint (Treble)", zh: "视奏冲刺（高音谱）" },
+    myBest: () => sightBestMap("tg_sight_best_sprint")["treble"] || 0 },
+  { key: "activity:sight:bass", icon: "🎼", higherIsBetter: true, unit: "",
+    label: { th: "อ่านโน้ตเร็ว 60วิ (บรรทัดต่ำ)", en: "Sight-Read Sprint (Bass)", zh: "视奏冲刺（低音谱）" },
+    myBest: () => sightBestMap("tg_sight_best_sprint")["bass"] || 0 },
+  { key: "activity:noteread", icon: "🎯", higherIsBetter: false, unit: "s",
+    label: { th: "อ่านโน้ต ด่าน 1 (จับเวลา)", en: "Note Reading Lvl 1 (Time)", zh: "识谱 第1关（计时）" },
+    myBest: () => readBestTimeMap()[1] || 0 },
+];
+function duelSubjectLabel(songId, lang) {
+  const act = ACTIVITY_DUELS.find(a => a.key === songId);
+  if (act) return `${act.icon} ${act.label[lang]}`;
+  const song = SONGS.find(s => s.id === songId);
+  return song ? tr(song, lang) : songId;
+}
+function duelFmtScore(songId, score) {
+  if (score == null) return "—";
+  const act = ACTIVITY_DUELS.find(a => a.key === songId);
+  return act ? `${score}${act.unit}` : score;
+}
+// null = pending or a tie (no side to highlight); otherwise "me"/"opp" —
+// respects each activity's own higherIsBetter polarity (Note Reading's best
+// is elapsed seconds, so a LOWER number wins there, unlike every score-based
+// duel subject) instead of assuming "bigger number on screen = winner".
+function duelWinnerSide(d) {
+  if (d.my_score == null || d.opp_score == null || d.my_score === d.opp_score) return null;
+  const act = ACTIVITY_DUELS.find(a => a.key === d.song_id);
+  const higherWins = !act || act.higherIsBetter;
+  return (higherWins ? d.my_score > d.opp_score : d.my_score < d.opp_score) ? "me" : "opp";
+}
+
 /* Friends + async duels (also powers Family Battle, via the same duels table
    with mode:'family' — see supabase-gamification-social-migration.sql). A
-   duel's real result always comes from the player's own recorded game log
-   (readGameLog) — never a typed-in number — so a challenge score is exactly
-   as trustworthy as any other score already shown in this app's own stats. */
+   song duel's real result always comes from the player's own recorded game
+   log (readGameLog); an activity duel's from that activity's own personal-
+   best storage (ACTIVITY_DUELS above) — never a typed-in number — so a
+   challenge score is exactly as trustworthy as any other score already shown
+   in this app's own stats. */
 const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
   const lc = L[lang];
   const [tab, setTab] = useState("friends"); // friends | requests | duels
@@ -3695,15 +3741,23 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
     const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: song.id, p_score: best, p_mode: "duel" });
     if (error) setMsg(error.message || "error"); else { setMsg(lc.frChallengeSent); setChallengeFor(null); load(); }
   }
-  async function respondDuel(duel) {
-    const best = readGameLog().filter(g => g.song === duel.song_id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+  async function sendActivityChallenge(friend, act) {
+    const best = act.myBest();
     if (!best) { setMsg(lc.frNoScore); return; }
-    const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: best });
+    const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: act.key, p_score: Math.round(best), p_mode: "duel" });
+    if (error) setMsg(error.message || "error"); else { setMsg(lc.frChallengeSent); setChallengeFor(null); load(); }
+  }
+  async function respondDuel(duel) {
+    const act = ACTIVITY_DUELS.find(a => a.key === duel.song_id);
+    const best = act ? act.myBest() : readGameLog().filter(g => g.song === duel.song_id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+    if (!best) { setMsg(lc.frNoScore); return; }
+    const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: Math.round(best) });
     if (!error) { playUi("reward"); load(); }
   }
   const playedSongs = challengeFor
     ? Array.from(new Set(readGameLog().map(g => g.song))).map(id => SONGS.find(s => s.id === id)).filter(Boolean)
     : [];
+  const availableActivities = challengeFor ? ACTIVITY_DUELS.filter(a => a.myBest() > 0) : [];
 
   return (
     <div className="setov" onClick={onClose}>
@@ -3754,21 +3808,25 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
             </>
           ) : (
             <>
-              {(!duels || duels.length === 0) ? <div className="lbempty">{lc.frNoDuels}</div> : duels.map(d => (
-                <div key={d.id} className="frduel">
-                  <div className="frduel-top">
-                    <span>{d.mode === "family" ? "👨‍👩‍👧 " : "⚔️ "}{lc.frVs} {d.opp_name}</span>
-                    <span className={`frduel-status ${d.status}`}>{d.status === "done" ? lc.frDone : d.status === "expired" ? lc.frExpired : lc.frPending}</span>
+              {(!duels || duels.length === 0) ? <div className="lbempty">{lc.frNoDuels}</div> : duels.map(d => {
+                const win = duelWinnerSide(d);
+                return (
+                  <div key={d.id} className="frduel">
+                    <div className="frduel-top">
+                      <span>{d.mode === "family" ? "👨‍👩‍👧 " : "⚔️ "}{lc.frVs} {d.opp_name}</span>
+                      <span className={`frduel-status ${d.status}`}>{d.status === "done" ? lc.frDone : d.status === "expired" ? lc.frExpired : lc.frPending}</span>
+                    </div>
+                    <div className="frduel-subject">{duelSubjectLabel(d.song_id, lang)}</div>
+                    <div className="frduel-score">
+                      <span className={win === "me" ? "frduel-win" : ""}>{lc.frYou}: {duelFmtScore(d.song_id, d.my_score)}{win === "me" ? " 🏆" : ""}</span>
+                      <span className={win === "opp" ? "frduel-win" : ""}>{d.opp_name}: {duelFmtScore(d.song_id, d.opp_score)}{win === "opp" ? " 🏆" : ""}</span>
+                    </div>
+                    {d.status === "pending" && !d.i_am_a && (
+                      <button className="frrow-go" onClick={() => respondDuel(d)}>{lc.frRespond}</button>
+                    )}
                   </div>
-                  <div className="frduel-score">
-                    <span>{lc.frYou}: {d.my_score ?? "—"}</span>
-                    <span>{d.opp_name}: {d.opp_score ?? "—"}</span>
-                  </div>
-                  {d.status === "pending" && !d.i_am_a && (
-                    <button className="frrow-go" onClick={() => respondDuel(d)}>{lc.frRespond}</button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>
@@ -3778,6 +3836,19 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
             <div className="setcard" style={{ maxWidth: 320 }} onClick={e => e.stopPropagation()}>
               <div className="sethdr"><span>🎯 {challengeFor.name}</span><button className="cbtn" onClick={() => setChallengeFor(null)}>{lc.close}</button></div>
               <div className="setbody">
+                {availableActivities.length > 0 && (
+                  <>
+                    <div className="profsec-h" style={{ fontSize: "11px" }}>{lc.frSkillChallenge}</div>
+                    <div className="frsonglist" style={{ marginBottom: 14 }}>
+                      {availableActivities.map(a => (
+                        <button key={a.key} className="frsongpick" onClick={() => sendActivityChallenge(challengeFor, a)}>
+                          {a.icon} {a.label[lang]} <span className="frrow-sub" style={{ marginLeft: 6 }}>{duelFmtScore(a.key, a.myBest())}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="profsec-h" style={{ fontSize: "11px" }}>{lc.frSongChallenge}</div>
                 {playedSongs.length === 0 ? <div className="lbempty">{lc.frPlayFirst}</div> : (
                   <div className="frsonglist">
                     {playedSongs.map(s => <button key={s.id} className="frsongpick" onClick={() => sendChallenge(challengeFor, s)}>{tr(s, lang)}</button>)}

@@ -27,7 +27,7 @@ function addSightTotalRead(n) { try { localStorage.setItem("tg_sight_total", Str
 export function sightBeltFor(total) { let b = SIGHT_BELTS[0]; for (const belt of SIGHT_BELTS) if (total >= belt.need) b = belt; return b; }
 function sightNextBelt(total) { return SIGHT_BELTS.find(b => b.need > total) || null; }
 
-function sightBestMap(key) { try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) { return {}; } }
+export function sightBestMap(key) { try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) { return {}; } }
 // Returns true only on a genuine improvement (strictly greater than whatever
 // was stored before) — a tie doesn't count as "new best," it just leaves the
 // record untouched.
