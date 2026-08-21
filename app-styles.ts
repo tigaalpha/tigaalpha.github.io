@@ -1470,6 +1470,10 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .bossbanner .boss-fight-btn:hover{background:#7c3aed}
 .bossbanner.done{background:linear-gradient(135deg,rgba(167,139,250,.08),rgba(139,92,246,.03));border-color:#a78bfa33}
 .bossbanner.done .boss-fight-btn{background:transparent;color:#a78bfa;border:1.5px solid #a78bfa55}
+/* Challenging page — locked teaser row for a section not yet fully passed */
+.cert-banner.locked{background:var(--card2);border-color:var(--bd1);opacity:.6}
+.cert-banner.locked .cert-ic{filter:grayscale(1)}
+.cert-banner.locked .cert-sub{color:var(--muted)}
 /* Shared modal overlay + box (used by StudioPage quick/mood/event/chord modals) */
 .modal-ov{position:fixed;inset:0;z-index:1350;background:rgba(9,4,8,.78);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:18px;animation:fadein .2s}
 .modal-box{width:100%;max-width:380px;max-height:88vh;overflow-y:auto;background:var(--card3);border:1px solid #d9775726;border-radius:18px;box-shadow:0 24px 60px -20px #000;padding:18px}
