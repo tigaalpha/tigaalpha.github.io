@@ -4,12 +4,19 @@ import { L } from "./i18n";
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
    no logic changes. lc is derived from lang internally, same convention as
    the other overlay components. ── */
-export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef, camStatus, camMsg, camCoach, retryCamera, setCamCoach, analyzeHands, premium, camRecap = null, camSpeaking = false, closeCameraAfterRecap }) {
+export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef, camStatus, camMsg, camCoach, retryCamera, setCamCoach, analyzeHands, premium, camRecap = null, camSpeaking = false, camStreakInfo = null, closeCameraAfterRecap }) {
   const lc = L[lang];
   return (
         <div className="songov camov">
           <div className="songhdr">
-            <div className="songhtitle">✋ {lc.camTitle}</div>
+            <div className="songhtitle">
+              ✋ {lc.camTitle}
+              {camStreakInfo && camStreakInfo.count > 0 && (
+                <span className="camstreak-badge" title={lc.camStreakLbl}>
+                  {camStreakInfo.tier ? camStreakInfo.tier.icon : "🔥"} {camStreakInfo.count}
+                </span>
+              )}
+            </div>
             <button className="cbtn" onClick={exitCamera}>{lc.close}</button>
           </div>
           <div className="camstage">
@@ -34,8 +41,20 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
                 <div className="camcoach-hd">📋 {lc.camRecapTitle}</div>
                 <div className="camrecap-pct">{camRecap.pct}%</div>
                 <div className="camrecap-trend">
-                  {camRecap.trend === "up" ? lc.camRecapBetter : camRecap.trend === "first" ? lc.camRecapFirst : lc.camRecapSame}
+                  {camRecap.trend === "up" ? lc.camRecapBetter
+                    : camRecap.trend === "down" ? lc.camRecapWorse
+                    : camRecap.trend === "first" ? lc.camRecapFirst
+                    : lc.camRecapSame}
                 </div>
+                {camRecap.streak > 0 && (
+                  <div className={`camrecap-streak${camRecap.tierUp ? " tierup" : ""}`}>
+                    {camRecap.tier ? camRecap.tier.icon : "🔥"} {lc.camStreakLbl}: {camRecap.streak}
+                    {camRecap.tierUp && <span className="camrecap-tierup-tag">{lc.camStreakTierUp}</span>}
+                  </div>
+                )}
+                {(camRecap.xp || camRecap.coins) && (
+                  <div className="camrecap-reward">+{camRecap.xp} EXP{camRecap.coins > 0 && <> · +{camRecap.coins} 🪙</>}</div>
+                )}
                 <button className="cbtn" onClick={closeCameraAfterRecap}>{lc.camRecapClose}</button>
               </div>
             )}

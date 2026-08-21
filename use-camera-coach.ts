@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { loadHandLandmarker, HAND_BONES, handRoundness, wristDroop, thumbTucked } from "./hand-pose";
-import { getAC } from "./music-engine";
+import { getAC, playUi } from "./music-engine";
 import { L } from "./i18n";
 import { fetchChatCompletion } from "./ai-backend";
-import { logActivity } from "./shared-infra";
+import { logActivity, dayKey } from "./shared-infra";
 import { API_MODEL } from "./App";
 import { speakCloud, speakDeviceOrNative, stopSpeaking, stopCloudTTS } from "./speech";
 /* ── use-camera-coach.ts ──
@@ -46,7 +46,50 @@ const CAM_HISTORY_KEY = "tg_camhistory";
 function readCamHistory() { try { return JSON.parse(localStorage.getItem(CAM_HISTORY_KEY) || "[]"); } catch (e) { return []; } }
 function writeCamHistory(h) { try { localStorage.setItem(CAM_HISTORY_KEY, JSON.stringify(h.slice(-10))); } catch (e) {} }
 
-export function useCameraCoach({ lang, premium, setPricingOpen }) {
+// Posture Streak — a day-streak specific to camera-coach practice, separate
+// from the app's main daily streak: it's about showing up to work on hand
+// shape specifically, not overall app use. No freeze mechanic (unlike the
+// main streak) — every other per-feature best/streak added this pass
+// (belts, speed ranks, the ladder) is deliberately simpler than the
+// premium-currency-backed main streak too. Bumped once per calendar day on
+// any qualifying session (the same >=30-frame threshold exitCamera() already
+// gates the recap/skill-score on) — showing up counts, regardless of how
+// good that session's hand shape actually was.
+const POSTURE_STREAK_KEY = "tg_posture_streak";
+const POSTURE_STREAK_TIERS = [
+  { id: "start",   icon: "🌱", need: 1 },
+  { id: "bronze",  icon: "🥉", need: 3 },
+  { id: "silver",  icon: "🥈", need: 7 },
+  { id: "gold",    icon: "🥇", need: 14 },
+  { id: "diamond", icon: "💎", need: 30 },
+];
+function postureStreakTier(count) {
+  let t = null;
+  for (const tier of POSTURE_STREAK_TIERS) if (count >= tier.need) t = tier;
+  return t;
+}
+function postureStreak() { try { return JSON.parse(localStorage.getItem(POSTURE_STREAK_KEY) || "null") || { count: 0, last: "" }; } catch (e) { return { count: 0, last: "" }; } }
+// Returns { count, tier, tierUp, bumped } — bumped is false on a same-day
+// re-call (a 2nd+ session today), so exitCamera() can pay that session's
+// quality-based reward without re-paying the once-per-day streak bonus.
+// tierUp is true only on a genuine CLIMB (tier.need > prevTier.need) — a
+// missed-day gap resets the count and can drop to a lower tier, which must
+// never fire the "tier up!" celebration/bonus it would if this only checked
+// "the tier changed".
+function bumpPostureStreak() {
+  const s = postureStreak(), today = dayKey();
+  const prevTier = postureStreakTier(s.count || 0);
+  if (s.last === today) return { count: s.count || 0, tier: prevTier, tierUp: false, bumped: false };
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  if (s.last === dayKey(y)) s.count = (s.count || 0) + 1;
+  else s.count = 1;
+  s.last = today;
+  try { localStorage.setItem(POSTURE_STREAK_KEY, JSON.stringify(s)); } catch (e) {}
+  const tier = postureStreakTier(s.count);
+  return { count: s.count, tier, tierUp: !!tier && (!prevTier || tier.need > prevTier.need), bumped: true };
+}
+
+export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
   const lc = L[lang];
 
   const [camOpen, setCamOpen] = useState(false);
@@ -84,7 +127,24 @@ export function useCameraCoach({ lang, premium, setPricingOpen }) {
       const hist = readCamHistory();
       const prev = hist.length ? hist[hist.length - 1].pct : null;
       writeCamHistory([...hist, { pct, t: Date.now() }]);
-      setCamRecap({ pct, trend: prev == null ? "first" : pct > prev + 3 ? "up" : pct < prev - 3 ? "down" : "same" });
+      // A qualifying session used to pay zero EXP/coins, unlike every sibling
+      // feature — base reward scales with hand-shape quality; a genuine new
+      // day on the Posture Streak (see bumpPostureStreak above) pays a flat
+      // bonus on top, bigger again the moment it crosses into a new tier.
+      const { count: streak, tier, tierUp, bumped } = bumpPostureStreak();
+      // Base reward always pays (a 2nd session today still deserves credit for
+      // the quality of hand shape); the flat "showed up today" bonus and any
+      // tier-up bonus only pay on the day's FIRST qualifying session, so
+      // farming the streak bonus via repeated same-day sessions doesn't work.
+      let xp = 10 + Math.round(pct / 5), coins = pct >= 80 ? 8 : pct >= 60 ? 4 : pct >= 40 ? 2 : 0;
+      if (bumped) { xp += 15; coins += 5; }
+      // Every qualifying session earns something — there's no fail state here,
+      // just better/worse hand shape — so the sound is always positive:
+      // "reward" normally, escalating to "levelup" only on a genuine tier-up.
+      playUi(tierUp ? "levelup" : "reward");
+      if (tierUp) { xp += 30; coins += 15; }
+      if (onReward) onReward(xp, coins);
+      setCamRecap({ pct, trend: prev == null ? "first" : pct > prev + 3 ? "up" : pct < prev - 3 ? "down" : "same", streak, tier, tierUp, xp, coins });
       return; // recap card shown; closeCameraForReal() is what actually hides the overlay
     }
     setCamOpen(false);
@@ -212,5 +272,9 @@ export function useCameraCoach({ lang, premium, setPricingOpen }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camOpen, camTry]);
-  return { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera };
+  // Current (pre-session) streak, for a small "keep it alive" badge shown
+  // the moment the camera opens — camRecap.streak below is the POST-session
+  // number, shown separately once the session actually qualifies.
+  const camStreakInfo = (() => { const s = postureStreak(); return { count: s.count || 0, tier: postureStreakTier(s.count || 0) }; })();
+  return { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera };
 }
