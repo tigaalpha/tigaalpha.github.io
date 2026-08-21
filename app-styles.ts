@@ -348,6 +348,7 @@ html, body, #root{background:var(--bg)}
 .tdico{font-size:22px;flex-shrink:0}
 .tdtag{font-size:9.5px;color:var(--muted);font-family:'Share Tech Mono',monospace;letter-spacing:.6px}
 .tdlbl{font-size:14px;color:var(--text);font-family:'Rajdhani',sans-serif;font-weight:700;line-height:1.3}
+.readbest{margin-left:8px;font-size:11px;font-weight:600;color:var(--muted);font-family:'Share Tech Mono',monospace}
 .tdgo{flex-shrink:0;padding:9px 16px;border-radius:10px;border:1px solid #d9775766;background:rgba(217,119,87,.1);color:#d97757;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer}
 .tdgo.done{border-color:#d97757;color:#d97757;background:rgba(217,119,87,.08);cursor:default}
 .tdbar{height:10px;border-radius:6px;background:var(--card);overflow:hidden;border:1px solid var(--bd1)}
@@ -1469,6 +1470,10 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .bossbanner .boss-fight-btn:hover{background:#7c3aed}
 .bossbanner.done{background:linear-gradient(135deg,rgba(167,139,250,.08),rgba(139,92,246,.03));border-color:#a78bfa33}
 .bossbanner.done .boss-fight-btn{background:transparent;color:#a78bfa;border:1.5px solid #a78bfa55}
+/* Challenging page — locked teaser row for a section not yet fully passed */
+.cert-banner.locked{background:var(--card2);border-color:var(--bd1);opacity:.6}
+.cert-banner.locked .cert-ic{filter:grayscale(1)}
+.cert-banner.locked .cert-sub{color:var(--muted)}
 /* Shared modal overlay + box (used by StudioPage quick/mood/event/chord modals) */
 .modal-ov{position:fixed;inset:0;z-index:1350;background:rgba(9,4,8,.78);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:18px;animation:fadein .2s}
 .modal-box{width:100%;max-width:380px;max-height:88vh;overflow-y:auto;background:var(--card3);border:1px solid #d9775726;border-radius:18px;box-shadow:0 24px 60px -20px #000;padding:18px}
