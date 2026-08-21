@@ -1567,7 +1567,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
 
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, songAnalysis = null,
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, songAnalysis = null, onAskStruggle,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
   mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null, onReviewStage = null }) {
@@ -2152,7 +2152,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
                 {dueReviews.practice.length > 0 && (
                   <>
                     <div className="admstu-sec" style={{ marginTop: dueReviews.stages.length ? 14 : 0, marginBottom: 6 }}>{lc.srsPracticeGroup}</div>
-                    <div className="pd-tags">{dueReviews.practice.map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div>
+                    <div className="pd-tags">{dueReviews.practice.map((s, i) => <button key={i} className="pd-tag focus" onClick={() => { setSrsOpen(false); onAskStruggle(s); }}>💬 {s.label}</button>)}</div>
                   </>
                 )}
                 {dueReviews.stages.length > 0 && (
@@ -4245,6 +4245,21 @@ export function getDueReviews() {
 export const BOSS_PASS_ACCURACY = 70;
 export function bossDoneSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_boss_done") || "[]")); } catch (e) { return new Set(); } }
 export function markBossDone(groupId) { try { const s = bossDoneSet(); s.add(groupId); localStorage.setItem("tg_boss_done", JSON.stringify([...s])); } catch (e) {} }
+
+// Knowledge Quest — TIGA Chat's own collectible: the 7 "benefits of music"
+// pathway stages (group "benefits") each unlock a handful of curated deep-dive
+// case studies (BENEFIT_CASES), read one at a time inside the chat via
+// readChapter(). A domain badge unlocks only once every case in that domain
+// has actually been opened — tracked at case granularity (not just the
+// existing chapter-level pathDoneSet, which flips true after reading just
+// one case) so the collection can't be completed by accident.
+export function knowledgeDomains() { return PATHWAY.filter(s => s.group === "benefits" && BENEFIT_CASES[s.id]); }
+export function caseReadSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_case_read") || "[]")); } catch (e) { return new Set(); } }
+export function markCaseRead(stageId, caseId) { try { const s = caseReadSet(); s.add(stageId + "/" + caseId); localStorage.setItem("tg_case_read", JSON.stringify([...s])); } catch (e) {} }
+export function domainDoneIds() {
+  const read = caseReadSet();
+  return knowledgeDomains().filter(s => BENEFIT_CASES[s.id].every(c => read.has(s.id + "/" + c.id))).map(s => s.id);
+}
 /* Per-key learning record: which keys of each topic (scale/interval/chord/…) the
    learner has studied, so the pathway can show what's already been covered. */
 function keyDoneMap() { try { return JSON.parse(localStorage.getItem("tg_key_done") || "{}") || {}; } catch (e) { return {}; } }
@@ -4627,7 +4642,7 @@ const GameStats = memo(function GameStats({ lang }) {
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0 }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -4772,7 +4787,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           <div className="profsec">
             <div className="profsec-h">🎯 Auto Teaching</div>
             {struggles.length > 0 && (
-              <div className="pd-tags">{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div>
+              <div className="pd-tags">{struggles.map((s, i) => <button key={i} className="pd-tag focus" onClick={() => onAskStruggle(s)}>💬 {s.label}</button>)}</div>
             )}
             {last ? (
               <div className="atdash-last">
@@ -4920,6 +4935,37 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           })}
         </div>
       </div>
+
+      {/* Knowledge Quest — a separate collection track from the numeric-
+          threshold badges above: each domain unlocks only once every one of
+          its curated "why music matters" case studies has actually been read
+          via the chat (see readChapter's case-level tracking), not from any
+          background stat. */}
+      {(() => {
+        const domains = knowledgeDomains();
+        const domainDone = domainDoneIds();
+        return (
+          <div className="profsec">
+            <div className="profsec-h">
+              {lc.knowledgeQuestTitle}
+              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+                {domainDone.length}/{domains.length}
+              </span>
+            </div>
+            <div className="badgegrid">
+              {domains.map(d => {
+                const got = domainDone.includes(d.id);
+                return (
+                  <div key={d.id} className={`badge${got ? " got" : ""}`} title={tr(d.title, lang)}>
+                    <span className="badge-ic" aria-hidden="true">{got ? d.icon : "🔒"}</span>
+                    <span className="badge-nm">{tr(d.title, lang)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       <WeeklyLeagueSection lang={lang} />
 
@@ -7411,12 +7457,30 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
   }
 
-  const { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, requireLogin });
+  const { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, requireLogin });
   // Which Pathway topic is currently being studied on the Sensei page, so a
   // "back" button can jump straight to that topic's key picker re-opened —
   // instead of the ☰ menu → Pathway → find-the-card-again round trip.
   const [activeStageId, setActiveStageId] = useState(null);
   const [activeStageType, setActiveStageType] = useState(null); // chosen chord/interval type, if any — lets "Change Key" reopen straight at the key picker
+
+  // Knowledge Quest conversation starters — 3 unread case studies picked at
+  // random each time the chat page is (re)entered, so returning learners see
+  // a fresh invitation to explore instead of the same 3 forever. Recomputes
+  // only on page/lang change, not on every keystroke in the chat input.
+  const chatStarters = useMemo(() => {
+    const read = caseReadSet();
+    const pool = [];
+    for (const stage of knowledgeDomains()) {
+      for (const c of (BENEFIT_CASES[stage.id] || [])) {
+        if (!read.has(stage.id + "/" + c.id)) pool.push({ stage, c });
+      }
+    }
+    const picked = [];
+    while (picked.length < 3 && pool.length) picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    return picked;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, lang]);
 
   const uid = session && session.user && session.user.id;
 
@@ -8008,6 +8072,44 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     pushMessage({ role: "user", text: `📚 ${icon} ${title}` });
     pushMessage({ role: "ai", text: body });
     gainExp(EXP.chapter, { quest: true }); // reward reading a knowledge chapter
+
+    // Knowledge Quest — case-level read tracking for the 7 "benefits" domains.
+    // Only a caseObj drill-down counts (the top-level chapter tap just opens
+    // the card of cases, see PathwayPage's openCard), and only domains that
+    // actually have BENEFIT_CASES are trackable at all.
+    if (stage && stage.id && caseObj && caseObj.id && BENEFIT_CASES[stage.id]) {
+      const wasComplete = domainDoneIds().includes(stage.id);
+      markCaseRead(stage.id, caseObj.id);
+      if (!wasComplete && domainDoneIds().includes(stage.id)) {
+        earnCoins(20); gainExp(30, { quest: true });
+        const domainTitle = tr(stage.title, lang);
+        const celebration = lang === "th"
+          ? `🎖️ ปลดล็อกภารกิจความรู้!\n\n${stage.icon} คุณอ่านครบทุกเรื่องในหมวด "${domainTitle}" แล้ว — ปรบมือให้ตัวเองหน่อย! 👏\n\nไปดูเหรียญสะสมทั้งหมดได้ที่หน้าโปรไฟล์`
+          : lang === "zh"
+          ? `🎖️ 知识任务解锁！\n\n${stage.icon} 你已读完"${domainTitle}"分类下的全部案例——为自己鼓掌吧！👏\n\n前往个人主页查看你的完整收藏。`
+          : `🎖️ Knowledge Quest unlocked!\n\n${stage.icon} You've read every case study in "${domainTitle}" — nice work digging deep! 👏\n\nCheck your full collection on the Profile page.`;
+        pushMessage({ role: "ai", text: celebration });
+      }
+    }
+  }
+
+  // "Ask TIGA about this" — jumps straight into a live chat question about a
+  // specific struggle, from wherever that struggle is already surfaced (the
+  // SRS review modal, the Auto Teaching recap on Profile) instead of leaving
+  // the learner to retype it themselves.
+  // NOTE: only sets page + fires the chat question — it does not know about
+  // or close any modal a caller opened it from (StudioPage's SRS modal has
+  // its own local srsOpen state, out of reach from here); callers close their
+  // own UI first, then invoke this.
+  function askAboutStruggle(item) {
+    setPage("sensei");
+    const acc = item && item.acc != null ? item.acc : null;
+    const q = lang === "th"
+      ? `ช่วยแนะนำแนวทางฝึกเรื่อง "${item.label}" หน่อยครับ ฉันพลาดเรื่องนี้บ่อย${acc != null ? ` (แม่นยำล่าสุด ${acc}%)` : ""} ควรฝึกหรือทำความเข้าใจอะไรเพิ่มถึงจะดีขึ้น`
+      : lang === "zh"
+      ? `请给我一些关于"${item.label}"的练习建议。我经常在这里出错${acc != null ? `（最近准确率 ${acc}%）` : ""}，该怎么练习或理解才能进步？`
+      : `Can you help me with "${item.label}"? I keep struggling with it${acc != null ? ` (recent accuracy ${acc}%)` : ""}. What should I practice or understand better?`;
+    askDirect(q);
   }
 
   return (
@@ -8172,7 +8274,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "studio" && (
         studioView === "songs"
           ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
-          : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis}
+          : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis} onAskStruggle={askAboutStruggle}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
               onSongs={() => setStudioView("songs")}
@@ -8205,7 +8307,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} />}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
       {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} />}
@@ -8214,7 +8316,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "gamepage" && <GamesPage lang={lang} />}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
-      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} endRef={endRef} input={input} setInput={setInput} send={send} setModal={setModal} />}
+      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} endRef={endRef} input={input} setInput={setInput} send={send} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} />}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}
