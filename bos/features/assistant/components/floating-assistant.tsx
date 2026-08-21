@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Bot, Send, X, Sparkles, Loader2, ClipboardList } from "lucide-react";
 import { ExecutionPlan, parsePlanFromText, type PlanStep } from "./execution-plan";
+import { DailyPrioritiesCard } from "./daily-priorities-card";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Button } from "@/components/ui/button";
@@ -216,12 +217,14 @@ export function FloatingAssistant() {
             ) : null}
             {messages.length === 0 && !loadingHistory ? (
               <div className="space-y-2">
+                {/* Daily Priorities Card — auto-loaded from Supabase */}
+                <DailyPrioritiesCard onAction={(text) => void send(text)} />
                 <p className="rounded-xl bg-line/5 p-3 text-xs text-secondary/60">
-                  🎯 กด &quot;งานวันนี้&quot; เพื่อดู 3 งานสำคัญสุด หรือสั่งงานได้เลย เช่น &quot;สร้าง TikTok Script&quot;, &quot;สร้าง Video Package&quot;,
+                  หรือสั่งงานได้เลย เช่น &quot;สร้าง TikTok Script&quot;, &quot;สร้าง Video Package&quot;,
                   &quot;วิเคราะห์เทรนด์&quot;, &quot;repurpose content&quot; หรือถามข้อมูลในคลังความรู้
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {QUICK_ACTIONS.map((action) => (
+                  {QUICK_ACTIONS.filter((a) => !a.label.includes("งานวันนี้")).map((action) => (
                     <button
                       key={action.label}
                       onClick={() => handleQuickAction(action)}
