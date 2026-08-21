@@ -55,26 +55,44 @@ function getAlphaPrefix(name: string): string {
 
 /**
  * Check if two event titles refer to the same student.
- * Handles abbreviations like "11Eth" === "Ethar" and "34Ca" === "Calvin".
+ * Handles abbreviations like "11Eth" === "Ethar", "11Aic" === "Aider",
+ * "28Mi" === "Miya", "34Ca" === "Calvin".
+ * Strategy: exact → prefix → first-2-char match.
  */
 function isSameStudent(titleA: string, titleB: string): boolean {
   const a = extractStudentName(titleA);
   const b = extractStudentName(titleB);
   if (!a || !b) return false;
-  // Exact match
+  // 1. Exact match
   if (a === b) return true;
-  // One is prefix of the other (handles abbreviation: "eth" prefix of "ethar")
-  const aPrefix = getAlphaPrefix(a);
-  const bPrefix = getAlphaPrefix(b);
-  if (aPrefix.length >= 2 && bPrefix.length >= 2) {
-    if (aPrefix.startsWith(bPrefix) || bPrefix.startsWith(aPrefix)) return true;
+  // 2. One is prefix of the other (e.g. "eth" ⊂ "ethar")
+  if (a.length >= 2 && b.length >= 2) {
+    if (a.startsWith(b) || b.startsWith(a)) return true;
   }
+  // 3. First 2 characters match (handles loose abbreviations like "aic" ↔ "aider")
+  if (a.length >= 2 && b.length >= 2 && a[0] === b[0] && a[1] === b[1]) return true;
   return false;
+}
+
+/**
+ * Extract YYYY-MM-DD from an ISO date string, handling both UTC and local offsets.
+ */
+function toDateKey(iso: string): string {
+  // If it's just a date (YYYY-MM-DD), return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  // Parse the date — use the local calendar date, not UTC
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /**
  * Deduplicate events: same student name on the same calendar date = keep only one.
  * Internal bookings (lessonType) take priority over external (Google Calendar) events.
+ * Multiple internal events for the same student on the same day are also deduplicated
+ * (keep the earliest).
  */
 function deduplicateEvents(
   internalEvents: { id: string; title: string; start: string; end: string; bgColor: string; borderColor: string; textColor: string; extendedProps?: Record<string, unknown> }[],
@@ -82,14 +100,21 @@ function deduplicateEvents(
 ) {
   // Combine: internal first, then external (internal takes priority)
   const all = [...internalEvents, ...externalMapped];
-  const seen: { title: string; date: string }[] = [];
+  const seen: { key: string; date: string }[] = [];
   const result: typeof all = [];
 
   for (const ev of all) {
-    const dateStr = ev.start.slice(0, 10); // YYYY-MM-DD
-    const isDuplicate = seen.some((s) => s.date === dateStr && isSameStudent(s.title, ev.title));
+    const dateStr = toDateKey(ev.start);
+    const nameKey = getAlphaPrefix(extractStudentName(ev.title));
+    if (!nameKey) {
+      result.push(ev);
+      continue;
+    }
+    const isDuplicate = seen.some(
+      (s) => s.date === dateStr && isSameStudent(s.key, ev.title),
+    );
     if (isDuplicate) continue; // skip duplicate
-    seen.push({ title: ev.title, date: dateStr });
+    seen.push({ key: ev.title, date: dateStr });
     result.push(ev);
   }
   return result;
