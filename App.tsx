@@ -76,7 +76,7 @@ import { usePayment } from "./use-payment";
 import { useGamification } from "./use-gamification";
 import { useKeyboard } from "./use-keyboard";
 import { usePracticeMode, readPracticeBests } from "./use-practice-mode";
-import { useSightReading } from "./use-sight-reading";
+import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
 import { useChat } from "./use-chat";
@@ -232,7 +232,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.51";
+const APP_VER = "13.7.59";
 
 async function signInWith(provider) {
   try {
@@ -2134,12 +2134,17 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       const styles: Record<string,string> = { simple: "stepwise simple melody", flowing: "smooth flowing melody with a mix of quarter and half notes", rhythmic: "rhythmic melody with clear strong beats" };
       const moodDesc = moods[composeMood] || "pleasant";
       const styleDesc = styles[composeStyle] || "simple melody";
-      // Ties the generated melody back to a real, recent weakness instead of only the
-      // mood/style picker, when one is available — the post-song AI analysis already
-      // diagnoses this after every Play-Along run, it just used to be shown once and
-      // discarded.
-      const weaknessNote = songAnalysis && songAnalysis.weakness
-        ? ` Also, gently work in a little extra practice for this recent weak spot without making the melody feel like a drill: ${songAnalysis.weakness}.`
+      // Ties the generated melody back to a real weakness instead of only the
+      // mood/style picker, when one is available. Prefers songAnalysis — the
+      // freshest signal, diagnosed right after whatever they just played —
+      // but falls back to the app's unified SRS due-review queue (the same
+      // dueReviews used for the SRS card badge above, and by TIGA Chat's own
+      // memory context) so Compose isn't blind to a known weak spot just
+      // because they opened it without having just finished a song.
+      const dueStruggle = dueReviews.practice[0];
+      const weaknessLabel = (songAnalysis && songAnalysis.weakness) || (dueStruggle && dueStruggle.label);
+      const weaknessNote = weaknessLabel
+        ? ` Also, gently work in a little extra practice for this recent weak spot without making the melody feel like a drill: ${weaknessLabel}.`
         : "";
       const prompt = `Create a ${moodDesc} ${styleDesc} piano melody in ${composeKey} major, 24-32 notes, musical and satisfying for a beginner. The name should reflect the mood.${weaknessNote}`;
       const sys = "You turn a melody request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names C4-B5 only; \"R\"=rest; beats are 0.5,1,1.5,2. Keep it 24-32 notes, melodic and musical.";
@@ -3656,11 +3661,57 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
   );
 });
 
+/* Non-Play-Along duel subjects. duels.song_id is a plain unconstrained `text`
+   column server-side (see supabase-gamification-social-migration.sql) — the
+   RPCs never interpret it, so a "activity:" prefix lets these ride the exact
+   same table/functions as song duels with zero backend changes. Only this
+   registry (client-side) and the duel-list renderer below know what the
+   prefix means. Each myBest() reads the SAME personal-best storage that
+   feature's own gamification page already shows the player, so a challenge
+   score is exactly as trustworthy as any other stat already in the app. */
+const ACTIVITY_DUELS = [
+  { key: "activity:eargym", icon: "🎧", higherIsBetter: true, unit: "",
+    label: { th: "บันไดโสตศาสตร์", en: "Ear Gym Ladder", zh: "耳朵健身梯" },
+    myBest: () => ladderBestScore() },
+  { key: "activity:sight:treble", icon: "🎼", higherIsBetter: true, unit: "",
+    label: { th: "อ่านโน้ตเร็ว 60วิ (บรรทัดสูง)", en: "Sight-Read Sprint (Treble)", zh: "视奏冲刺（高音谱）" },
+    myBest: () => sightBestMap("tg_sight_best_sprint")["treble"] || 0 },
+  { key: "activity:sight:bass", icon: "🎼", higherIsBetter: true, unit: "",
+    label: { th: "อ่านโน้ตเร็ว 60วิ (บรรทัดต่ำ)", en: "Sight-Read Sprint (Bass)", zh: "视奏冲刺（低音谱）" },
+    myBest: () => sightBestMap("tg_sight_best_sprint")["bass"] || 0 },
+  { key: "activity:noteread", icon: "🎯", higherIsBetter: false, unit: "s",
+    label: { th: "อ่านโน้ต ด่าน 1 (จับเวลา)", en: "Note Reading Lvl 1 (Time)", zh: "识谱 第1关（计时）" },
+    myBest: () => readBestTimeMap()[1] || 0 },
+];
+function duelSubjectLabel(songId, lang) {
+  const act = ACTIVITY_DUELS.find(a => a.key === songId);
+  if (act) return `${act.icon} ${act.label[lang]}`;
+  const song = SONGS.find(s => s.id === songId);
+  return song ? tr(song, lang) : songId;
+}
+function duelFmtScore(songId, score) {
+  if (score == null) return "—";
+  const act = ACTIVITY_DUELS.find(a => a.key === songId);
+  return act ? `${score}${act.unit}` : score;
+}
+// null = pending or a tie (no side to highlight); otherwise "me"/"opp" —
+// respects each activity's own higherIsBetter polarity (Note Reading's best
+// is elapsed seconds, so a LOWER number wins there, unlike every score-based
+// duel subject) instead of assuming "bigger number on screen = winner".
+function duelWinnerSide(d) {
+  if (d.my_score == null || d.opp_score == null || d.my_score === d.opp_score) return null;
+  const act = ACTIVITY_DUELS.find(a => a.key === d.song_id);
+  const higherWins = !act || act.higherIsBetter;
+  return (higherWins ? d.my_score > d.opp_score : d.my_score < d.opp_score) ? "me" : "opp";
+}
+
 /* Friends + async duels (also powers Family Battle, via the same duels table
    with mode:'family' — see supabase-gamification-social-migration.sql). A
-   duel's real result always comes from the player's own recorded game log
-   (readGameLog) — never a typed-in number — so a challenge score is exactly
-   as trustworthy as any other score already shown in this app's own stats. */
+   song duel's real result always comes from the player's own recorded game
+   log (readGameLog); an activity duel's from that activity's own personal-
+   best storage (ACTIVITY_DUELS above) — never a typed-in number — so a
+   challenge score is exactly as trustworthy as any other score already shown
+   in this app's own stats. */
 const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
   const lc = L[lang];
   const [tab, setTab] = useState("friends"); // friends | requests | duels
@@ -3695,15 +3746,23 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
     const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: song.id, p_score: best, p_mode: "duel" });
     if (error) setMsg(error.message || "error"); else { setMsg(lc.frChallengeSent); setChallengeFor(null); load(); }
   }
-  async function respondDuel(duel) {
-    const best = readGameLog().filter(g => g.song === duel.song_id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+  async function sendActivityChallenge(friend, act) {
+    const best = act.myBest();
     if (!best) { setMsg(lc.frNoScore); return; }
-    const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: best });
+    const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: act.key, p_score: Math.round(best), p_mode: "duel" });
+    if (error) setMsg(error.message || "error"); else { setMsg(lc.frChallengeSent); setChallengeFor(null); load(); }
+  }
+  async function respondDuel(duel) {
+    const act = ACTIVITY_DUELS.find(a => a.key === duel.song_id);
+    const best = act ? act.myBest() : readGameLog().filter(g => g.song === duel.song_id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+    if (!best) { setMsg(lc.frNoScore); return; }
+    const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: Math.round(best) });
     if (!error) { playUi("reward"); load(); }
   }
   const playedSongs = challengeFor
     ? Array.from(new Set(readGameLog().map(g => g.song))).map(id => SONGS.find(s => s.id === id)).filter(Boolean)
     : [];
+  const availableActivities = challengeFor ? ACTIVITY_DUELS.filter(a => a.myBest() > 0) : [];
 
   return (
     <div className="setov" onClick={onClose}>
@@ -3754,21 +3813,25 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
             </>
           ) : (
             <>
-              {(!duels || duels.length === 0) ? <div className="lbempty">{lc.frNoDuels}</div> : duels.map(d => (
-                <div key={d.id} className="frduel">
-                  <div className="frduel-top">
-                    <span>{d.mode === "family" ? "👨‍👩‍👧 " : "⚔️ "}{lc.frVs} {d.opp_name}</span>
-                    <span className={`frduel-status ${d.status}`}>{d.status === "done" ? lc.frDone : d.status === "expired" ? lc.frExpired : lc.frPending}</span>
+              {(!duels || duels.length === 0) ? <div className="lbempty">{lc.frNoDuels}</div> : duels.map(d => {
+                const win = duelWinnerSide(d);
+                return (
+                  <div key={d.id} className="frduel">
+                    <div className="frduel-top">
+                      <span>{d.mode === "family" ? "👨‍👩‍👧 " : "⚔️ "}{lc.frVs} {d.opp_name}</span>
+                      <span className={`frduel-status ${d.status}`}>{d.status === "done" ? lc.frDone : d.status === "expired" ? lc.frExpired : lc.frPending}</span>
+                    </div>
+                    <div className="frduel-subject">{duelSubjectLabel(d.song_id, lang)}</div>
+                    <div className="frduel-score">
+                      <span className={win === "me" ? "frduel-win" : ""}>{lc.frYou}: {duelFmtScore(d.song_id, d.my_score)}{win === "me" ? " 🏆" : ""}</span>
+                      <span className={win === "opp" ? "frduel-win" : ""}>{d.opp_name}: {duelFmtScore(d.song_id, d.opp_score)}{win === "opp" ? " 🏆" : ""}</span>
+                    </div>
+                    {d.status === "pending" && !d.i_am_a && (
+                      <button className="frrow-go" onClick={() => respondDuel(d)}>{lc.frRespond}</button>
+                    )}
                   </div>
-                  <div className="frduel-score">
-                    <span>{lc.frYou}: {d.my_score ?? "—"}</span>
-                    <span>{d.opp_name}: {d.opp_score ?? "—"}</span>
-                  </div>
-                  {d.status === "pending" && !d.i_am_a && (
-                    <button className="frrow-go" onClick={() => respondDuel(d)}>{lc.frRespond}</button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>
@@ -3778,6 +3841,19 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
             <div className="setcard" style={{ maxWidth: 320 }} onClick={e => e.stopPropagation()}>
               <div className="sethdr"><span>🎯 {challengeFor.name}</span><button className="cbtn" onClick={() => setChallengeFor(null)}>{lc.close}</button></div>
               <div className="setbody">
+                {availableActivities.length > 0 && (
+                  <>
+                    <div className="profsec-h" style={{ fontSize: "11px" }}>{lc.frSkillChallenge}</div>
+                    <div className="frsonglist" style={{ marginBottom: 14 }}>
+                      {availableActivities.map(a => (
+                        <button key={a.key} className="frsongpick" onClick={() => sendActivityChallenge(challengeFor, a)}>
+                          {a.icon} {a.label[lang]} <span className="frrow-sub" style={{ marginLeft: 6 }}>{duelFmtScore(a.key, a.myBest())}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="profsec-h" style={{ fontSize: "11px" }}>{lc.frSongChallenge}</div>
                 {playedSongs.length === 0 ? <div className="lbempty">{lc.frPlayFirst}</div> : (
                   <div className="frsonglist">
                     {playedSongs.map(s => <button key={s.id} className="frsongpick" onClick={() => sendChallenge(challengeFor, s)}>{tr(s, lang)}</button>)}
@@ -4646,8 +4722,10 @@ export function getDueReviews() {
     .map(([id, e]) => { const stage = PATHWAY.find(s => s.id === id); return stage ? { id, stage, tier: pathTier(e.best), acc: e.last, best: e.best, nextDue: e.nextDue } : null; })
     .filter(Boolean)
     .sort((a, b) => a.nextDue - b.nextDue);
+  // Falls back to the old flat 2-day rule for struggle entries recorded
+  // before recordMemory()'s SM-2-lite interval existed (ai-chat-context.ts).
   const practice = (readMemory().struggles || [])
-    .filter(s => s.last && (now - s.last) >= 2 * 86400000)
+    .filter(s => s.last && (now - s.last) >= (s.interval || 2) * 86400000)
     .map(s => ({ label: s.label, acc: s.acc, count: s.count, last: s.last }));
   return { stages, practice, total: stages.length + practice.length };
 }
@@ -4960,6 +5038,71 @@ function setOwnedLS(a) { try { localStorage.setItem("tg_owned", JSON.stringify(a
 function getEquip(k, def) { try { return localStorage.getItem("tg_" + k) || def; } catch (e) { return def; } }
 function setEquipLS(k, v) { try { localStorage.setItem("tg_" + k, v); } catch (e) {} }
 
+/* ── Activity heatmap — a real day-grid (GitHub-contribution style), unlike
+   ProgressDashboard below (bucketed bar totals per period — can't show WHICH
+   specific days were active, confirmed genuinely absent from the app per the
+   Next-round roadmap plan). Reads the same per-day tg_practice log
+   ProgressDashboard already does; no new data collection. ── */
+const HEATMAP_WEEKS = 14; // ~3.5 months — a real pattern is visible, still fits a narrow mobile viewport without scrolling
+const HeatmapActivity = memo(function HeatmapActivity({ lang }) {
+  const lc = L[lang];
+  const [sel, setSel] = useState(null);
+  const plog = readPracticeLog();
+  // Recomputed on every render (cheap — 98 days) rather than memoized: a
+  // [lang]-only memo dep would show stale data whenever tg_practice changes
+  // without a language switch, e.g. right after finishing a practice session.
+  const today = new Date();
+  const totalDays = HEATMAP_WEEKS * 7;
+  const days = [];
+  for (let i = totalDays - 1; i >= 0; i--) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    const k = dayKey(d);
+    const e = plog[k] || {};
+    days.push({ date: d, key: k, n: e.n || 0, acc: e.n ? Math.round((e.accSum || 0) / e.n) : null });
+  }
+  // pad the front so day 0 lands in its correct Sun-Sat row — builds clean
+  // column-per-week stacks the same way GitHub's own grid does
+  const lead = days.length ? days[0].date.getDay() : 0;
+  const padded = Array.from({ length: lead }, () => null).concat(days);
+  const weeks = [];
+  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+  const maxN = Math.max(1, ...weeks.flat().filter(Boolean).map(d => d.n));
+  const level = (n) => n === 0 ? 0 : n / maxN <= 0.25 ? 1 : n / maxN <= 0.5 ? 2 : n / maxN <= 0.75 ? 3 : 4;
+  const dowLabels = lang === "th" ? ["", "จ", "", "พ", "", "ศ", ""] : lang === "zh" ? ["", "一", "", "三", "", "五", ""] : ["", "M", "", "W", "", "F", ""];
+  const fmtD = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  return (
+    <div className="profsec">
+      <div className="profsec-h">
+        {lc.activityHeatmapTitle}
+        {sel && (
+          <span className="dashtip" style={{ marginLeft: "auto" }}>
+            {fmtD(sel.date)} · {sel.n} {lc.dashSessions}{sel.acc != null ? ` · ${sel.acc}%` : ""}
+          </span>
+        )}
+      </div>
+      <div className="heatmap-wrap">
+        <div className="heatmap-dow">{dowLabels.map((l, i) => <span key={i}>{l}</span>)}</div>
+        <div className="heatmap-grid">
+          {weeks.map((week, wi) => (
+            <div key={wi} className="heatmap-col">
+              {week.map((d, di) => d ? (
+                <button key={di} className={`heatmap-cell lv${level(d.n)}`}
+                  onClick={() => setSel(sel && sel.key === d.key ? null : d)}
+                  aria-label={`${fmtD(d.date)}: ${d.n}`} />
+              ) : <span key={di} className="heatmap-cell empty" aria-hidden="true" />)}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="heatmap-legend">
+        <span>{lc.profLess}</span>
+        {[0, 1, 2, 3, 4].map(l => <span key={l} className={`heatmap-cell lv${l}`} />)}
+        <span>{lc.profMore}</span>
+      </div>
+    </div>
+  );
+});
+
 /* ── Interactive progress dashboard: pick a time range, see activity / accuracy /
    EXP, each compared with the previous equal period. Reads the daily practice log. ── */
 const DASH_RANGES = [{ d: 1, k: "r1" }, { d: 7, k: "r7" }, { d: 30, k: "r1m" }, { d: 90, k: "r3m" }, { d: 180, k: "r6m" }, { d: 365, k: "r1y" }];
@@ -5271,6 +5414,9 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           </div>
         );
       })()}
+
+      {/* activity heatmap — real day-grid, complements the dashboard's period totals below */}
+      <HeatmapActivity lang={lang} />
 
       {/* interactive progress dashboard — range selector + period comparison + charts + game stats */}
       <ProgressDashboard lang={lang} />
@@ -7008,6 +7154,25 @@ function AdminBroadcast({ lang }) {
   );
 }
 
+/* Optional per-event "spotlight" — points the blanket EXP/coin multiplier at ONE
+   specific feature instead of leaving every event feeling identical ("2x
+   everywhere" doesn't tell anyone what to actually go do). Stored as an extra
+   field on the same event JSON blob (app_settings key "event" is a schemaless
+   jsonb value — see admin_set_app_setting), so this needs zero backend change.
+   Each feature's real page title lives inside that page's own component-local
+   T object (not exported), so this keeps its own small label set rather than
+   reaching into 8 different files for strings. */
+const SPOTLIGHT_FEATURES = [
+  { key: "pathway", icon: "⬡", label: { th: "เส้นทางเรียนรู้", en: "Pathway", zh: "学习路径" } },
+  { key: "coach", icon: "🎯", label: { th: "Daily Mentor", en: "Daily Mentor", zh: "每日导师" } },
+  { key: "playalong", icon: "🎵", label: { th: "เล่นตามเพลง", en: "Play Along", zh: "跟弹" } },
+  { key: "eargym", icon: "🎧", label: { th: "ยิมหู", en: "Ear Gym", zh: "耳朵健身房" } },
+  { key: "reading", icon: "🎼", label: { th: "อ่านโน้ต", en: "Note Reading", zh: "识谱课" } },
+  { key: "sight", icon: "👁️", label: { th: "สายตาไว", en: "Sight-Reading", zh: "视奏" } },
+  { key: "camera", icon: "📷", label: { th: "โค้ชท่ามือ", en: "Camera Coach", zh: "手型教练" } },
+  { key: "challenging", icon: "🏆", label: { th: "ท้าทาย", en: "Challenging", zh: "挑战" } },
+];
+
 /* ── Admin: seasonal/limited-time event — same app_settings + admin_set_app_setting
    mechanism as AdminBroadcast above (key "event" instead of "broadcast"), applying
    temporary EXP/coin multipliers instead of a popup message. See the activeEvent
@@ -7021,6 +7186,7 @@ function AdminEvent({ lang }) {
   const [expMult, setExpMult] = useState(2);
   const [coinMult, setCoinMult] = useState(2);
   const [days, setDays] = useState(2);
+  const [spotlight, setSpotlight] = useState("");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const load = useCallback(() => {
@@ -7037,6 +7203,7 @@ function AdminEvent({ lang }) {
       name_th: nameTh.trim() || nameEn.trim(), name_en: nameEn.trim() || nameTh.trim(), name_zh: nameZh.trim() || nameEn.trim() || nameTh.trim(),
       expMult: Number(expMult) || 1, coinMult: Number(coinMult) || 1,
       ends_at: new Date(Date.now() + (Number(days) || 1) * 86400000).toISOString(),
+      spotlightFeature: spotlight || null,
     };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "event", p_value: value });
     setBusy(false);
@@ -7059,7 +7226,9 @@ function AdminEvent({ lang }) {
         <div className="admmg" style={{ marginBottom: 12 }}>
           <div className="admmg-h">{T("กำลังจัดอีเว้นท์อยู่ตอนนี้", "Currently live", "当前正在进行")}</div>
           <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>
-            {tr({ th: cur.name_th, en: cur.name_en, zh: cur.name_zh }, lang)} · {cur.expMult}× EXP · {cur.coinMult}× 🪙 · {T("จนถึง", "until", "至")} {new Date(cur.ends_at).toLocaleString()}
+            {tr({ th: cur.name_th, en: cur.name_en, zh: cur.name_zh }, lang)} · {cur.expMult}× EXP · {cur.coinMult}× 🪙
+            {cur.spotlightFeature ? ` · 🔦 ${SPOTLIGHT_FEATURES.find(f => f.key === cur.spotlightFeature)?.label.en || cur.spotlightFeature}` : ""}
+            {" "}· {T("จนถึง", "until", "至")} {new Date(cur.ends_at).toLocaleString()}
           </div>
           <button className="songbtn ghost" style={{ width: "100%", color: "#ff5252" }} disabled={busy} onClick={stop}>{T("จบอีเว้นท์นี้ตอนนี้", "End this event now", "立即结束此活动")}</button>
         </div>
@@ -7083,6 +7252,13 @@ function AdminEvent({ lang }) {
             <input className="admstu-search" type="number" min="1" max="30" value={days} onChange={e => setDays(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
           </div>
         </div>
+        <div className="admstu-row-sub" style={{ marginBottom: 4 }}>
+          {T("ฟีเจอร์เด่นประจำอีเว้นท์ (ไม่บังคับ) — แบนเนอร์จะชวนเล่นฟีเจอร์นี้", "Spotlight feature (optional) — the banner points learners at it", "活动焦点功能（可选）— 横幅会引导学员去玩")}
+        </div>
+        <select className="admstu-search" value={spotlight} onChange={e => setSpotlight(e.target.value)} style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }}>
+          <option value="">{T("— ไม่มี (คูณโบนัสทุกฟีเจอร์เท่ากัน) —", "— None (bonus applies evenly everywhere) —", "— 无（各功能奖励相同）—")}</option>
+          {SPOTLIGHT_FEATURES.map(f => <option key={f.key} value={f.key}>{f.icon} {f.label.en}</option>)}
+        </select>
         <button className="songbtn go" style={{ width: "100%" }} disabled={busy || (!nameTh.trim() && !nameEn.trim())} onClick={start}>
           {busy ? "⏳" : "🎉"} {T("เริ่มเลย", "Start now", "立即开始")}
         </button>
@@ -7875,6 +8051,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function dismissBroadcast() {
     if (broadcast) markBroadcastSeen(broadcast.id);
     setBroadcast(null);
+  }
+  // Jump straight to an event's spotlighted feature — each SPOTLIGHT_FEATURES
+  // key maps to whatever that feature's real navigation actually is (a plain
+  // page for most, a dedicated opener for the two that are modals over
+  // Studio rather than their own page).
+  function goToSpotlight(key) {
+    playUi("click"); setNavOpen(false);
+    if (key === "playalong") { setPage("studio"); setStudioView("songs"); }
+    else if (key === "sight") { setPage("studio"); setStudioView("menu"); openSight(); }
+    else if (key === "camera") { setPage("studio"); setStudioView("menu"); openCamera(); }
+    else setPage(key);
   }
   // ── Seasonal / limited-time event: same app_settings + admin_set_app_setting
   // mechanism as broadcast above (key "event" instead of "broadcast"), polled the
@@ -8998,7 +9185,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         {[
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
-          { p: "challenging", ic: "🏆", c: "#a78bfa", t: lc.navChallenging },
           { p: "sensei", ic: "◈", c: "#d97757", t: lc.navSensei },
           // free preview inside; the Max-only AI report/plan is upsold there, not walled off at the nav
           { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor" },
@@ -9007,6 +9193,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
+          { p: "challenging", ic: "🏆", c: "#a78bfa", t: lc.navChallenging },
           // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
           // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
         ].map(it => {
@@ -9422,19 +9609,27 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* seasonal / limited-time event banner — see the activeEvent poll above */}
-      {activeEvent && (
-        <div className="eventbanner">
-          <span className="eventbanner-ic" aria-hidden="true">🎉</span>
-          <span className="eventbanner-tx">{tr({ th: activeEvent.name_th, en: activeEvent.name_en, zh: activeEvent.name_zh }, lang)}</span>
-          {(activeEvent.expMult > 1 || activeEvent.coinMult > 1) && (
-            <span className="eventbanner-mult">
-              {activeEvent.expMult > 1 ? `${activeEvent.expMult}× EXP` : ""}
-              {activeEvent.expMult > 1 && activeEvent.coinMult > 1 ? " · " : ""}
-              {activeEvent.coinMult > 1 ? `${activeEvent.coinMult}× 🪙` : ""}
-            </span>
-          )}
-        </div>
-      )}
+      {activeEvent && (() => {
+        const spot = activeEvent.spotlightFeature && SPOTLIGHT_FEATURES.find(f => f.key === activeEvent.spotlightFeature);
+        return (
+          <div className="eventbanner">
+            <span className="eventbanner-ic" aria-hidden="true">🎉</span>
+            <span className="eventbanner-tx">{tr({ th: activeEvent.name_th, en: activeEvent.name_en, zh: activeEvent.name_zh }, lang)}</span>
+            {(activeEvent.expMult > 1 || activeEvent.coinMult > 1) && (
+              <span className="eventbanner-mult">
+                {activeEvent.expMult > 1 ? `${activeEvent.expMult}× EXP` : ""}
+                {activeEvent.expMult > 1 && activeEvent.coinMult > 1 ? " · " : ""}
+                {activeEvent.coinMult > 1 ? `${activeEvent.coinMult}× 🪙` : ""}
+              </span>
+            )}
+            {spot && (
+              <button className="eventbanner-spot" onClick={() => goToSpotlight(spot.key)}>
+                🔦 {spot.icon} {spot.label[lang]} {lc.eventSpotGo}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Floating mascot companion widget removed per feedback (the floating
           face read as visual clutter). mascotMood/mascot() are left in place

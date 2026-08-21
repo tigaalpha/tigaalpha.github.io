@@ -252,6 +252,23 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   }
   practiceHandlerRef.current = handlePlayedNote; // keep fresh closure for the listeners
 
+  // Shared by startPractice/restartPractice/switchPracticeChordStyle — always
+  // releases whatever listener is currently open (there may be none, or a
+  // live one left by a drill still in progress) and acquires a fresh one for
+  // the drill about to (re)start. Centralizing this means every entry point
+  // that starts a drill is guaranteed a live listener, instead of relying on
+  // each caller to remember to reacquire one itself — see restartPractice()'s
+  // header for the bug this fixes.
+  async function acquireListener(usePoly) {
+    stopPracticeListeners();
+    setPracticeSrc(null);
+    const onDetect = (d) => practiceHandlerRef.current(d);
+    const midiOk = await startMidiListener(onDetect, () => setPracticeSrc({ type: "midi" }));
+    if (!midiOk) {
+      await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }), usePoly ? { poly: true } : undefined);
+    }
+  }
+
   // chordStyleOverride: replayDrill() below needs to grade against the style
   // a saved drill actually was (block vs. broken), which setChordStyle()
   // alone can't guarantee in time — that's a state update, and this function
@@ -304,18 +321,28 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     tuneOffsetRef.current = 0; // re-learn tuning for whatever piano is used now
     setPracticeOpen(true);
     getAC(); // unlock/resume audio inside the click gesture
-    stopPracticeListeners(); // release any mic/MIDI another mode left open — never stack listeners
-    const onDetect = (d) => practiceHandlerRef.current(d);
-    const midiOk = await startMidiListener(onDetect, () => setPracticeSrc({ type: "midi" }));
-    if (!midiOk) {
-      // Block-style chord/interval practice needs the polyphonic mic path so
-      // several notes struck together on a real piano can each be heard —
-      // the default monophonic detector only ever names the loudest one.
-      const usePoly = (seq.mode || "seq") === "chord" && (chordStyleOverride || chordStyle) === "block";
-      await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }), usePoly ? { poly: true } : undefined);
-    }
+    // Block-style chord/interval practice needs the polyphonic mic path so
+    // several notes struck together on a real piano can each be heard — the
+    // default monophonic detector only ever names the loudest one.
+    await acquireListener((seq.mode || "seq") === "chord" && (chordStyleOverride || chordStyle) === "block");
   }
 
+  // Resets a drill's progress and starts it over — from either the mid-drill
+  // "Restart" button or the result screen's "Play Again". Deliberately does
+  // NOT touch the mic/MIDI listener. An earlier version of this fix made it
+  // reacquire one unconditionally (to fix "Play Again" leaving a dead
+  // listener — see finishPractice(), which used to stop it on every finish),
+  // and that DID work — verified by counting real acquisition attempts — but
+  // broke worse on real phones/tablets: repeatedly tearing down and rebuilding
+  // a getUserMedia() mic stream is itself exactly the kind of rapid
+  // stop/restart cycle iOS Safari (and some Android WebViews) can silently
+  // botch — the stream opens, the UI looks ready, but no audio actually comes
+  // through, for that round and every one after. The real fix is to never
+  // tear the listener down between rounds at all: finishPractice() no longer
+  // stops it (practiceActiveRef alone already makes it ignore anything heard
+  // on the result screen), so the SAME listener started once by
+  // startPractice()/replayDrill() just keeps running, correctly configured,
+  // for every subsequent round — nothing to reacquire, nothing to race.
   function restartPractice() {
     practiceIdxRef.current = 0;
     practiceHitSetRef.current = new Set();
@@ -337,22 +364,18 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   // switch Block ⇄ Broken WHILE already inside a practice session (interval and
   // every chord topic share the "chord" practice mode, so this covers both) —
   // restarts the current attempt since block vs. broken grade completely
-  // differently (all-at-once vs. one-at-a-time), and re-acquires the mic listener
-  // because only block style needs the polyphonic path (several notes at once).
+  // differently (all-at-once vs. one-at-a-time). Unlike a plain restart, this
+  // ONE case genuinely needs a fresh listener — block vs. broken need
+  // different mic modes (polyphonic vs. monophonic) — so it's the only
+  // caller that still tears down and reacquires.
   async function switchPracticeChordStyle() {
     if (practiceModeRef.current !== "chord") return;
     playUi("click");
     const next = chordStyle === "block" ? "broken" : "block";
     setChordStyle(next);
     restartPractice();
-    stopPracticeListeners();
-    setPracticeSrc(null);
-    const onDetect = (d) => practiceHandlerRef.current(d);
-    const midiOk = await startMidiListener(onDetect, () => setPracticeSrc({ type: "midi" }));
-    if (!midiOk) {
-      const usePoly = next === "block";
-      await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }), usePoly ? { poly: true } : undefined);
-    }
+    getAC();
+    await acquireListener(next === "block");
   }
 
   // Drill Deck — replay a past drill straight from its saved best-record,
@@ -391,12 +414,14 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     // Captured before markPathAccuracy() below reschedules it (which would
     // otherwise make it read as "not due" by the time this check ran).
     const wasDueStage = !!practiceStageIdRef.current && getDueReviews().stages.some(s => s.id === practiceStageIdRef.current);
-    practiceActiveRef.current = false;
-    stopPracticeListeners();
+    practiceActiveRef.current = false; // handlePlayedNote no-ops on anything heard while the result screen is up — that's all "stop listening" actually requires
     clearTimeout(practiceHeardTimer.current);
     // Overlay stays open — the result now renders in-place (see practiceResult
     // below) instead of exiting to a chat text summary the learner had to go
-    // find on a different page.
+    // find on a different page. The mic/MIDI listener is deliberately left
+    // running (NOT stopped here) — see restartPractice()'s header for why
+    // tearing it down between rounds, even to correctly reacquire it, is
+    // itself the source of a worse bug on real devices.
 
     logPractice(accuracy);
     logActivity("drill", label || "drill", hits, miss, Math.max(20, total * 2));
