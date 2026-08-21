@@ -103,9 +103,13 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
                 </svg>
               </button>
             </div>
-            <button className="practicebtn" disabled={!hasSeq} onClick={startPractice}
+            {/* "Now you try" — the demo and the graded run used to be two separate
+                taps a learner had to notice on their own; a short glow right as the
+                demo finishes playing (hasSeq true, seqPlaying just went false) makes
+                the bridge between them obvious instead of relying on discovery. */}
+            <button className={`practicebtn${hasSeq && !seqPlaying ? " ready" : ""}`} disabled={!hasSeq} onClick={startPractice}
               title={hasSeq ? lc.practiceBtn : lc.practiceNoSeq}>
-              {hasSeq ? lc.practiceBtn : lc.practiceNoSeq}
+              {hasSeq && !seqPlaying ? lc.practiceNudge : hasSeq ? lc.practiceBtn : lc.practiceNoSeq}
             </button>
           </div>
           <div className="cw">

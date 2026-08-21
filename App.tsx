@@ -360,7 +360,7 @@ const SIGHT_ROUND = 10; // notes per sight-reading round
 
 
 /* ── Pathway Page ── */
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOpenStageId, initialSelectedType, userName = "" }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, initialOpenStageId, initialSelectedType, userName = "" }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   // initialOpenStageId re-opens the topic the learner just came from (via the
@@ -388,6 +388,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
   const pathDone = pathDoneSet();
   const pathAcc = pathAccMap();   // { stageId: {best,last,lastAt,interval,nextDue} } — .best drives the bronze/silver/gold badge, layered on top of pathDone
   const keyDone = keyDoneMap();   // { stageId: ["c","g",...] } — keys already studied per topic
+  const bossDone = bossDoneSet(); // Set<groupId> — Group Boss Challenges already cleared, see startBossChallenge()
   const currentStage = PATHWAY.find(s => !pathDone.has(s.id));
   const currentId = currentStage ? currentStage.id : null;
   function chooseKey(stage, key) {
@@ -611,6 +612,30 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
               <button className="cert-dl-btn" disabled={certBusy} onClick={() => downloadGroupCert(g)}>
                 📜 {lc.certDownload}
               </button>
+              <button className="cert-share-btn" onClick={() => shareCard({ title: lc.groupCertCompleted, big: g.icon, sub: g.label, lines: ["TiGA Piano AI"] })}>
+                📤 {lc.shareBtn}
+              </button>
+            </div>
+          )}
+
+          {/* Group Boss Challenge — the cert above proves each stage was passed
+              on its own; the boss run concatenates every practice stage in the
+              group into one continuous sequence, testing whether the learner
+              can carry it all at once. Reuses .cert-banner's layout, re-themed
+              purple so it reads as a distinct, optional "final exam" rather
+              than another certificate. Hidden for groups made only of reading
+              stages (no notes to play), matching startBossChallenge's own
+              bossStages filter. */}
+          {stages.length > 0 && stages.every(s => pathDone.has(s.id)) && stages.some(s => !s.content) && (
+            <div className={`cert-banner bossbanner${bossDone.has(g.id) ? " done" : ""}`}>
+              <div className="cert-ic">{bossDone.has(g.id) ? "👑" : "⚔️"}</div>
+              <div className="cert-body">
+                <div className="cert-title">{bossDone.has(g.id) ? lc.bossDoneTitle : lc.bossReadyTitle}</div>
+                <div className="cert-sub">{g.label}</div>
+              </div>
+              <button className="cert-dl-btn boss-fight-btn" onClick={() => onBoss(g)}>
+                {bossDone.has(g.id) ? `↻ ${lc.bossRematch}` : `⚔️ ${lc.bossFight}`}
+              </button>
             </div>
           )}
 
@@ -634,6 +659,9 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
           </div>
           <button className="cert-dl-btn" onClick={() => downloadCertificate(lang, userName)}>
             📜 {lc.certDownload}
+          </button>
+          <button className="cert-share-btn" onClick={() => shareCard({ title: lc.certCompleted, big: "🏆", sub: lc.certTitle, lines: ["TiGA Piano AI"] })}>
+            📤 {lc.shareBtn}
           </button>
         </div>
       )}
@@ -4206,6 +4234,17 @@ export function getDueReviews() {
     .map(s => ({ label: s.label, acc: s.acc, count: s.count, last: s.last }));
   return { stages, practice, total: stages.length + practice.length };
 }
+// Group Boss Challenge — a one-off capstone once every practiceable stage in a
+// group is individually done: all of that group's demos chained into one longer
+// run, at a higher pass bar (BOSS_PASS_ACCURACY) than a normal stage. Deliberately
+// its own tiny Set, not folded into pathAccMap/pathDoneSet — a boss clear isn't
+// "this one stage got better," it's a separate combined-mastery badge, and
+// getDueReviews()'s PATHWAY.find(...) lookup would just silently ignore a boss
+// id anyway (it's never a real stage id), so keeping it fully separate is both
+// simpler and avoids relying on that as the actual isolation mechanism.
+export const BOSS_PASS_ACCURACY = 70;
+export function bossDoneSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_boss_done") || "[]")); } catch (e) { return new Set(); } }
+export function markBossDone(groupId) { try { const s = bossDoneSet(); s.add(groupId); localStorage.setItem("tg_boss_done", JSON.stringify([...s])); } catch (e) {} }
 /* Per-key learning record: which keys of each topic (scale/interval/chord/…) the
    learner has studied, so the pathway can show what's already been covered. */
 function keyDoneMap() { try { return JSON.parse(localStorage.getItem("tg_key_done") || "{}") || {}; } catch (e) { return {}; } }
@@ -7873,6 +7912,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     startPractice();
   }
 
+  // Group Boss Challenge — chains every practiceable (non-content) stage in a
+  // group into one combined Practice Mode run, graded at a higher bar than any
+  // single stage (BOSS_PASS_ACCURACY, see finishPractice's boss branch in
+  // use-practice-mode.ts). Fingering hints are dropped — mixing different
+  // techniques' fingerings across the combined run would be misleading — and
+  // the combined mode is always plain "seq" one-note-at-a-time matching,
+  // since block/scale-specific behavior doesn't generalize across mixed stage
+  // types. Always in C: the boss tests combined breadth, not one specific key.
+  function startBossChallenge(group) {
+    const bossStages = (STAGES_BY_GROUP[group.id] || []).filter(s => !s.content);
+    if (!bossStages.length) return;
+    let notes = [];
+    for (const st of bossStages) {
+      const chordType = st.types ? st.types[0] : null;
+      notes = notes.concat(buildStageDemoSeq(st, null, chordType).notes);
+    }
+    const demoParsed = { notes, mode: "seq", fingers: null, label: `⚔️ ${group.label}`, key: null, stageId: null, bossGroup: group.id };
+    setActiveStageId(null);
+    setActiveStageType(null);
+    playSequence(demoParsed);
+    startPractice();
+  }
+
   function learnTopic(stage, key, chordType = null) {
     // NOTE: does NOT markPathDone here — opening/hearing the lesson isn't
     // demonstrated skill. The stage is marked done (and given a bronze/
@@ -8065,7 +8127,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: HOME (new landing page — UX refactor) ─── */}
       {/* ─── PAGE: PATHWAY ─── */}
       {page === "pathway" && (
-        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
+        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge} initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
       )}
 
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
