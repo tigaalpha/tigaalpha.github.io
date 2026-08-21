@@ -1391,7 +1391,9 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .frduel-top{display:flex;justify-content:space-between;align-items:center;font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:700;color:var(--text2);margin-bottom:8px}
 .frduel-status{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:var(--card3);color:var(--muted)}
 .frduel-status.done{color:#d97757;background:rgba(217,119,87,.12)}
+.frduel-subject{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--muted);margin-bottom:6px}
 .frduel-score{display:flex;justify-content:space-between;font-family:'Orbitron',sans-serif;font-size:12px;color:var(--text);margin-bottom:8px}
+.frduel-score .frduel-win{color:#d97757;font-weight:700}
 .frsonglist{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto}
 .frsongpick{text-align:left;background:var(--card2);border:1px solid var(--bd2);border-radius:9px;padding:10px 12px;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
 .frsongpick:hover{border-color:#d97757}
