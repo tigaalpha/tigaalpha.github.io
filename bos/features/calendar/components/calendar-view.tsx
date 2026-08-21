@@ -90,33 +90,39 @@ function toDateKey(iso: string): string {
 
 /**
  * Deduplicate events: same student name on the same calendar date = keep only one.
- * Internal bookings (lessonType) take priority over external (Google Calendar) events.
- * Multiple internal events for the same student on the same day are also deduplicated
- * (keep the earliest).
+ * External (Google Calendar / blue) events take priority over internal bookings.
+ * Internal events that match an external event are hidden.
+ * Internal events with NO external match are shown in blue (not yellow).
  */
+const BLUE_COLOR = "#039be5";
+
 function deduplicateEvents(
   internalEvents: { id: string; title: string; start: string; end: string; bgColor: string; borderColor: string; textColor: string; extendedProps?: Record<string, unknown> }[],
   externalMapped: { id: string; title: string; start: string; end: string; bgColor: string; borderColor: string; textColor: string; extendedProps?: Record<string, unknown> }[],
 ) {
-  // Combine: internal first, then external (internal takes priority)
-  const all = [...internalEvents, ...externalMapped];
+  // 1. Process external events first (they take priority)
   const seen: { key: string; date: string }[] = [];
-  const result: typeof all = [];
+  const result: typeof externalMapped = [];
 
-  for (const ev of all) {
+  for (const ev of externalMapped) {
     const dateStr = toDateKey(ev.start);
-    const nameKey = getAlphaPrefix(extractStudentName(ev.title));
-    if (!nameKey) {
-      result.push(ev);
-      continue;
-    }
-    const isDuplicate = seen.some(
-      (s) => s.date === dateStr && isSameStudent(s.key, ev.title),
-    );
-    if (isDuplicate) continue; // skip duplicate
     seen.push({ key: ev.title, date: dateStr });
     result.push(ev);
   }
+
+  // 2. Add internal events only if they don't match any external event
+  //    Recolor them to blue so everything looks consistent
+  for (const ev of internalEvents) {
+    const dateStr = toDateKey(ev.start);
+    const isDuplicate = seen.some(
+      (s) => s.date === dateStr && isSameStudent(s.key, ev.title),
+    );
+    if (isDuplicate) continue; // skip — external already covers this
+    seen.push({ key: ev.title, date: dateStr });
+    // Recolor internal-only events to blue
+    result.push({ ...ev, bgColor: BLUE_COLOR, borderColor: BLUE_COLOR, textColor: "#ffffff" });
+  }
+
   return result;
 }
 
