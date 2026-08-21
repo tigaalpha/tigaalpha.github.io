@@ -232,7 +232,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.41";
+const APP_VER = "13.7.42";
 
 async function signInWith(provider) {
   try {
@@ -7336,7 +7336,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [earGymInitialTab, setEarGymInitialTab] = useState("int"); // which Ear Gym tab to land on — set before navigating there for skill remediation
 
   const [setAdvancedOpen, setSetAdvancedOpen] = useState(false); // progressive disclosure for Metronome BPM/tap-tempo
-  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp });
+  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightMode, sightSprintLeft, sightSprintSecs, sightBelts, sightBestStreakMap, sightBestSprintMap, sightTotalRead, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp });
   const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera } = useCameraCoach({ lang, premium, setPricingOpen });
 
 
@@ -8417,7 +8417,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} />}
 
       {/* SIGHT-READING overlay */}
-      {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} />}
+      {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
 
       {/* HAND-POSTURE COACH overlay (camera) */}
       {camOpen && <CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} closeCameraAfterRecap={closeCameraAfterRecap} />}
