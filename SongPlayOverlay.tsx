@@ -6,7 +6,7 @@ import { CountUp } from "./app-shell";
    (songOpen && songMeta), extracted verbatim from PianoApp's inline JSX as
    part of Phase 2 componentization — no logic changes. lc is derived from
    lang internally, same convention as the other overlay components. ── */
-export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation }) {
+export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos }) {
   const lc = L[lang];
   return (
         <div className="songov">
@@ -40,6 +40,7 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                 </span>
                 <span>{lc.practiceAcc} <b>{songHud.acc}%</b></span>
                 {songGhost && <span className={`ghoststat ${songGhost.diff >= 0 ? "ahead" : "behind"}`}>👻 {songGhost.diff >= 0 ? "▲" : "▼"}{Math.abs(songGhost.diff)}</span>}
+                {songSetlistPos && <span className="setlistpos">🎤 {songSetlistPos.idx + 1}/{songSetlistPos.total}</span>}
               </div>
               <div className="songprog"><div style={{ width: songHud.progress + "%" }} /></div>
               <div className="songstaffwrap"><PlayAlongStaff notes={songStaffNotes} songMeta={songMeta} /></div>
@@ -66,8 +67,19 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                   ))}
                 </div>
               ))}
+              {/* Between-run recap — auto-loop and Setlist mode both skip the full
+                  result screen and restart within ~2s, so without this the run's
+                  own outcome (score/stars/combo/EXP) went completely unseen. */}
+              {songLoopRecap && (
+                <div className="looprecap">
+                  <div className="looprecap-stars">{"★".repeat(songLoopRecap.stars)}{"☆".repeat(3 - songLoopRecap.stars)}</div>
+                  <div className="looprecap-row"><b>{songLoopRecap.acc}%</b> · 🔥{songLoopRecap.maxCombo} · +{songLoopRecap.exp} EXP</div>
+                  {songLoopRecap.nextSong && <div className="looprecap-next">{lc.songNextUp} {songLoopRecap.nextSong}</div>}
+                </div>
+              )}
               {songPhase === "ready" && (
                 <div className="songready">
+                  {songSetlistPos && <div className="setlistpos ready">🎤 {lc.setlistSong} {songSetlistPos.idx + 1}/{songSetlistPos.total}</div>}
                   <div className="songready-info">{tr(songMeta, lang)} · {songDataRef.current ? songDataRef.current.total : 0} {lc.songNotes} · {songMeta.bpm} BPM</div>
                   <div className="songtempo">
                     {[0.5, 0.75, 1, 1.25].map(tp => (
@@ -106,6 +118,20 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
 
           {songPhase === "done" && songResult && (
             <div className="songresult">
+              {/* Setlist finale — score/maxCombo below are already the whole
+                  concert's combined totals (never reset between songs, see
+                  startSongPlay's continueSetlist param), this just names what
+                  they are and lists each song's own stars. */}
+              {songResult.setlist && (
+                <div className="concertrecap">
+                  <div className="concertrecap-title">🎤 {lc.concertComplete}</div>
+                  <div className="concertrecap-songs">
+                    {songResult.setlist.map((s, i) => (
+                      <span key={i} className="concertrecap-song">{tr(s.song, lang)} {"★".repeat(s.stars)}{"☆".repeat(3 - s.stars)}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {songResult.allPerfect ? <div className="songfc ap">✦ {lc.songAllPerfect} ✦</div>
                 : songResult.fullCombo ? <div className="songfc">★ {lc.songFullCombo} ★</div> : null}
               {songResult.newBest && <div className="songnewbest">🏆 {lc.songNewBest}</div>}
