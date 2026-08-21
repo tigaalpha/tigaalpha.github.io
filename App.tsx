@@ -232,7 +232,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.44";
+const APP_VER = "13.7.45";
 
 async function signInWith(provider) {
   try {
@@ -905,6 +905,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   const ladderStreakRef = useRef(0);
   const ladderTimerRef = useRef(null);
   const ladderDeadlineRef = useRef(0);
+  const ladderOnRef = useRef(false); // read inside setTimeout/setInterval callbacks, which close over a stale `ladderOn` otherwise
   const startTRef = useRef(0);
   const roundRef = useRef(0);
   const ROOTS = ["C4", "D4", "E4", "F4", "G4", "A4"];
@@ -957,8 +958,14 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   }
   function genQ(kind) {
     const root = ROOTS[Math.floor(Math.random() * ROOTS.length)];
-    if (kind === "int") {
-      const pool = (earBest().int || 0) >= EG_ROUND ? EG_INT_MASTER : (earBest().int || 0) >= 7 ? EG_INT_FULL : EG_INT_BASE;
+    if (kind === "int" || kind === "cadence" || kind === "ladder") {
+      // "cadence" tracks its own best (a separate earLevelFor() bucket) since hearing an
+      // interval in tonal context is a genuinely different skill from hearing it bare;
+      // "ladder" ignores the persisted best entirely — its pool is keyed off the LIVE
+      // climb streak (ladderPool(), module scope) so difficulty escalates within a run.
+      const bestN = kind === "cadence" ? (earBest().cadence || 0) : (earBest().int || 0);
+      const pool = kind === "ladder" ? ladderPool(ladderStreakRef.current)
+        : bestN >= EG_ROUND ? EG_INT_MASTER : bestN >= 7 ? EG_INT_FULL : EG_INT_BASE;
       const semi = pool[Math.floor(Math.random() * pool.length)];
       const opts = [...new Set([semi, ...[...pool].sort(() => Math.random() - 0.5)])].slice(0, 4).sort(() => Math.random() - 0.5);
       return {
@@ -1005,18 +1012,55 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   function nextQ(kind, myRound) {
     const q = genQ(kind);
     setCur(q); setFb(null); setTaps([]);
+    micTapsRef.current = []; setMicHeard(null);
     if (q.isMelody) {
       setTimeout(() => { if (roundRef.current === myRound) playCurMelody(q); }, 350);
-    } else if (kind === "int" && cadenceOn) {
+    } else if (kind === "cadence") {
       setTimeout(async () => { if (roundRef.current === myRound) { await playCadence(); if (roundRef.current === myRound) playCur(q); } }, 350);
     } else {
       setTimeout(() => { if (roundRef.current === myRound) playCur(q); }, 350);
     }
   }
+  // Melody Echo by real piano/MIDI instead of the letter grid — same singleton
+  // listener + octave-agnostic comparison as tapEcho() below (this course is
+  // about pitch-class/contour recognition, not staff position, so unlike the
+  // Note Reading course's mic mode, only the letter name is compared here).
+  const curRef = useRef(null); curRef.current = cur;
+  const fbRef = useRef(null); fbRef.current = fb;
+  function echoMicInput(d) {
+    if (!curRef.current || fbRef.current || tab !== "echo" || !curRef.current.pcs) return;
+    playPianoNote(d.note, 0.3);
+    setMicHeard(d.note);
+    const pc = pcOf(d.note);
+    micTapsRef.current = [...micTapsRef.current, pc];
+    setTaps(micTapsRef.current);
+    if (micTapsRef.current.length >= curRef.current.pcs.length) {
+      const okAns = micTapsRef.current.join(" ") === curRef.current.pcs.join(" ");
+      answered(okAns, curRef.current.pcs.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" · "), null);
+    }
+  }
+  const micHandlerRef = useRef(() => {});
+  micHandlerRef.current = echoMicInput;
+  useEffect(() => {
+    if (!micMode || tab !== "echo" || phase !== "play") { stopPracticeListeners(); setMicSrc(null); return; }
+    getAC();
+    stopPracticeListeners(); // release any listener another mode left open — never stack
+    const onDetect = (d) => micHandlerRef.current(d);
+    (async () => {
+      const midiOk = await startMidiListener(onDetect, () => setMicSrc({ type: "midi" }));
+      if (!midiOk) await startMicListener(onDetect, () => setMicSrc({ type: "mic" }), () => setMicSrc({ type: "error" }));
+    })();
+    return () => stopPracticeListeners();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [micMode, tab, phase]);
+  useEffect(() => () => stopPracticeListeners(), []); // belt-and-braces: release on unmount
+  useEffect(() => () => clearInterval(ladderTimerRef.current), []); // stop the ladder's countdown if the learner navigates away mid-climb
+
   function startRound() {
     playUi("click");
     const myRound = ++roundRef.current;
     setScore(0); setIdx(0); setResult(null); setPhase("play");
+    micTapsRef.current = []; setMicHeard(null);
     startTRef.current = Date.now();
     nextQ(tab, myRound);
   }
@@ -1076,14 +1120,92 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       answered(okAns, cur.pcs.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" · "), null);
     }
   }
+
+  // ── Perfect Pitch Ladder — endless-climb arcade mode, mutually exclusive
+  // with the graded phase/result pair above (only one renders at a time).
+  // Reuses cur/fb/taps for "the current question" since the two modes never
+  // show at once; ladderOnRef mirrors ladderOn for the setTimeout/setInterval
+  // callbacks below, which would otherwise close over a stale value. ──
+  function armLadderTimer(streak) {
+    clearInterval(ladderTimerRef.current);
+    const dur = ladderTimeFor(streak);
+    ladderDeadlineRef.current = Date.now() + dur;
+    setLadderTimeLeft(dur);
+    ladderTimerRef.current = setInterval(() => {
+      const left = ladderDeadlineRef.current - Date.now();
+      if (left <= 0) {
+        clearInterval(ladderTimerRef.current);
+        setLadderTimeLeft(0);
+        if (ladderOnRef.current) ladderAnswered(false, null);
+      } else {
+        setLadderTimeLeft(left);
+      }
+    }, 100);
+  }
+  function ladderNextQ() {
+    const q = genQ("ladder");
+    setCur(q); setFb(null); setTaps([]);
+    armLadderTimer(ladderStreakRef.current);
+    setTimeout(() => { if (ladderOnRef.current) playCur(q); }, 350);
+  }
+  function startLadder() {
+    playUi("click");
+    ladderLivesRef.current = LADDER_LIVES_START; setLadderLives(LADDER_LIVES_START);
+    ladderStreakRef.current = 0; setLadderStreak(0);
+    setLadderResult(null);
+    ladderOnRef.current = true; setLadderOn(true);
+    ladderNextQ();
+  }
+  function ladderAnswered(ok, pickedKey) {
+    clearInterval(ladderTimerRef.current);
+    const ansLabel = (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+    setFb({ ok, answerLabel: ansLabel, pickedKey });
+    playUi(ok ? "click" : "wrong");
+    if (ok) {
+      const ns = ladderStreakRef.current + 1;
+      ladderStreakRef.current = ns; setLadderStreak(ns);
+      // a small life back every 10 rungs so a long climb isn't pure attrition
+      if (ns % 10 === 0 && ladderLivesRef.current < LADDER_LIVES_START) {
+        ladderLivesRef.current += 1; setLadderLives(ladderLivesRef.current);
+      }
+      setTimeout(() => { if (ladderOnRef.current) ladderNextQ(); }, 700);
+    } else {
+      const nl = ladderLivesRef.current - 1;
+      ladderLivesRef.current = nl; setLadderLives(nl);
+      if (nl <= 0) setTimeout(() => finishLadder(), 1200);
+      else setTimeout(() => { if (ladderOnRef.current) ladderNextQ(); }, 1200);
+    }
+  }
+  function handleLadderPick(o) {
+    if (!cur || fb || !ladderOn) return;
+    ladderAnswered(o.key === cur.answer, o.key);
+  }
+  // Also doubles as "quit" — leaving mid-climb still banks the streak you
+  // actually reached, same generous treatment every other mode in the app
+  // gives an interrupted session (nobody loses credit for a real streak).
+  function finishLadder() {
+    clearInterval(ladderTimerRef.current);
+    ladderOnRef.current = false; setLadderOn(false);
+    const streak = ladderStreakRef.current;
+    const isNewBest = markLadderBest(streak);
+    const xp = 10 + streak * 2, coins = Math.floor(streak / 2);
+    logActivity("ear", "ladder", streak, 0, Math.max(20, streak * 3));
+    logPractice(Math.min(100, streak * 5));
+    onReward(xp, coins);
+    setLadderResult({ streak, isNewBest, best: ladderBestScore(), xp, coins });
+    playUi(isNewBest ? "levelup" : "click");
+  }
+
   const best = earBest();
+  const level = earLevelFor(best);
   // "melody" (Name That Tune) tab restored per the fun/value audit — reference-melody
   // association is real, widely-taught interval pedagogy (not just variety for its own
   // sake), and it's the one tab already built on TIGA's own song library.
-  const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo], ["melody", "🎵", T.melody]];
+  const tabs = [["int", "📏", T.int], ["cadence", "🗝️", T.cadenceTab], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo], ["melody", "🎵", T.melody]];
+  const pickLabel = tab === "int" || tab === "cadence" ? T.pickInt : tab === "chord" ? T.pickChord : tab === "melody" ? T.pickMelody : T.pickEcho;
   return (
     <div className="pathpage">
-      {onBack && (
+      {onBack && !ladderOn && (
         <button onClick={() => { playUi("click"); onBack(); }}
           style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
           ← {L[lang].navStudio}
@@ -1092,71 +1214,146 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       <div className="v12hero">
         <div className="v12title">👂 {T.title}</div>
         <div className="v12sub">{T.sub}</div>
-      </div>
-      <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-        {tabs.map(([k, ic, lb]) => (
-          <button key={k} onClick={() => { if (phase === "play") return; playUi("click"); setTab(k); setPhase("idle"); setResult(null); }}
-            style={{ flex: 1, padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "13px",
-              border: tab === k ? "1px solid #d97757" : "1px solid var(--bd4)", color: tab === k ? "#d97757" : "var(--text2)",
-              background: tab === k ? "rgba(217,119,87,.1)" : "var(--card3)" }}>
-            {ic} {lb}<div style={{ fontSize: "9px", color: "var(--muted)", marginTop: "2px" }}>{T.best}: {best[k] || 0}/{EG_ROUND}</div>
-          </button>
-        ))}
-      </div>
-      {phase !== "play" && (
-        <div className="v12card" style={{ textAlign: "center", padding: "24px 14px" }}>
-          {result && (
-            <div style={{ marginBottom: "14px" }}>
-              <div style={{ fontSize: "26px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
-              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "17px", color: "var(--text)", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
-              <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
-            </div>
-          )}
-          <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startRound}>{result ? T.again : T.start}</button>
-          {tab === "int" && (
-            <button onClick={() => { playUi("click"); setCadenceOn(v => !v); }} title={cadenceOn ? T.cadenceOn : ""}
-              style={{ display: "block", margin: "12px auto 0", background: cadenceOn ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${cadenceOn ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: cadenceOn ? "#d97757" : "#a88b9b", padding: "6px 14px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
-              {T.cadence}
-            </button>
-          )}
+        <div style={{ display: "inline-block", marginTop: "8px", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", color: "#d97757", border: "1px solid #d9775744", borderRadius: "20px", padding: "4px 12px", background: "rgba(217,119,87,.06)" }}>
+          🎖️ {T.earLevel} {level.level} · {level.intoLevel}/{EAR_LEVEL_STEP}
         </div>
-      )}
-      {phase === "play" && cur && (
+      </div>
+
+      {(ladderOn || ladderResult) ? (
         <div className="v12card" style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
-            <span>{T.q} {idx + 1}/{EG_ROUND}</span><span>{T.score}: {score}</span>
-          </div>
-          <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
-          <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
-            {tab === "int" ? T.pickInt : tab === "chord" ? T.pickChord : tab === "melody" ? T.pickMelody : T.pickEcho}
-          </div>
-          {tab !== "echo" && cur.options && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
-              {cur.options.map(o => (
-                <button key={o.key} className={`egopt${fb && o.key === cur.answer ? " ok" : fb && fb.pickedKey === o.key && !fb.ok ? " bad" : ""}`} onClick={() => pickOption(o)}>{o.label}</button>
-              ))}
+          {ladderResult ? (
+            <div style={{ padding: "10px 4px" }}>
+              <div style={{ fontSize: "30px" }}>🪜</div>
+              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: "var(--text)", margin: "6px 0 2px" }}>{T.ladderGameOver}</div>
+              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "34px", fontWeight: 900, color: "#a78bfa", lineHeight: 1.1 }}>{ladderResult.streak}</div>
+              {ladderResult.isNewBest ? (
+                <div style={{ fontSize: "12px", color: "#ffd23f", fontWeight: 700, margin: "4px 0" }}>{T.ladderNewBest}</div>
+              ) : (
+                <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", margin: "4px 0" }}>{T.ladderBestLbl}: {ladderResult.best}</div>
+              )}
+              <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "16px" }}>+{ladderResult.xp} EXP · +{ladderResult.coins} 🪙</div>
+              <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#8b5cf6" }} onClick={startLadder}>{T.ladderAgain}</button>
+              <button onClick={() => { playUi("click"); setLadderResult(null); }} style={{ display: "block", margin: "12px auto 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "20px", color: "#a88b9b", padding: "6px 14px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                ← {T.title}
+              </button>
             </div>
-          )}
-          {tab === "echo" && (
+          ) : cur && (
             <>
-              <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>
-                {taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                <span style={{ fontSize: "15px", letterSpacing: "1px" }}>{"❤️".repeat(ladderLives)}{"🖤".repeat(Math.max(0, LADDER_LIVES_START - ladderLives))}</span>
+                <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "13px", fontWeight: 900, color: "#a78bfa" }}>🪜 {T.ladderStreakLbl} {ladderStreak}</span>
+                <button onClick={() => { playUi("click"); finishLadder(); }} aria-label="quit" title={T.title}
+                  style={{ background: "none", border: "1px solid var(--bd4)", borderRadius: "50%", width: "22px", height: "22px", color: "#a88b9b", fontSize: "12px", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
-                {["C", "D", "E", "F", "G", "A", "B"].map(p => (
-                  <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapEcho(p)}>
-                    <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
-                    <div style={{ fontSize: "9px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
-                  </button>
-                ))}
+              <div style={{ height: "5px", borderRadius: "3px", background: "var(--card3)", overflow: "hidden", marginBottom: "14px" }}>
+                <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, (ladderTimeLeft / ladderTimeFor(ladderStreak)) * 100))}%`, background: ladderTimeLeft < 1500 ? "#ff5252" : "#8b5cf6", transition: "width .1s linear" }} />
               </div>
-              {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid var(--bd4)", borderRadius: "7px", color: "#a88b9b", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>{T.clear}</button>}
+              <button onClick={() => playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #a78bfa55", background: "rgba(167,139,250,.08)", color: "#a78bfa", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
+              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>{T.pickInt}</div>
+              {cur.options && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+                  {cur.options.map(o => (
+                    <button key={o.key} className={`egopt${fb && o.key === cur.answer ? " ok" : fb && fb.pickedKey === o.key && !fb.ok ? " bad" : ""}`} onClick={() => handleLadderPick(o)}>{o.label}</button>
+                  ))}
+                </div>
+              )}
+              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#a78bfa" : "#ff5252") : "transparent" }}>
+                {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
+              </div>
             </>
           )}
-          <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#d97757" : "#ff5252") : "transparent" }}>
-            {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
-          </div>
         </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "12px", overflowX: "auto" }}>
+            {tabs.map(([k, ic, lb]) => (
+              <button key={k} onClick={() => { if (phase === "play") return; playUi("click"); setTab(k); setPhase("idle"); setResult(null); }}
+                style={{ flex: "1 0 auto", minWidth: "62px", padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "13px",
+                  border: tab === k ? "1px solid #d97757" : "1px solid var(--bd4)", color: tab === k ? "#d97757" : "var(--text2)",
+                  background: tab === k ? "rgba(217,119,87,.1)" : "var(--card3)" }}>
+                {ic} {lb}<div style={{ fontSize: "9px", color: "var(--muted)", marginTop: "2px" }}>{T.best}: {best[k] || 0}/{EG_ROUND}</div>
+              </button>
+            ))}
+          </div>
+          {phase !== "play" && (
+            <>
+              <div className="v12card" style={{ textAlign: "center", padding: "16px 14px", marginBottom: "12px", border: "1px solid #a78bfa55", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
+                <div style={{ fontSize: "22px" }}>🪜</div>
+                <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "13px", fontWeight: 900, color: "#c4b5fd", margin: "4px 0 2px" }}>{T.ladderTitle}</div>
+                <div style={{ fontSize: "10.5px", color: "var(--muted)", marginBottom: "10px" }}>{T.ladderSub}</div>
+                <div style={{ fontSize: "10px", color: "#a78bfa", fontFamily: "'Share Tech Mono',monospace", marginBottom: "10px" }}>{T.ladderBestLbl}: {ladderBestScore()}</div>
+                <button className="tdgo" style={{ fontSize: "12px", padding: "10px 22px", background: "#8b5cf6" }} onClick={startLadder}>{T.ladderStart}</button>
+              </div>
+              <div className="v12card" style={{ textAlign: "center", padding: "24px 14px" }}>
+                {result && (
+                  <div style={{ marginBottom: "14px" }}>
+                    <div style={{ fontSize: "26px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
+                    <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "17px", color: "var(--text)", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
+                    <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+                  </div>
+                )}
+                <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startRound}>{result ? T.again : T.start}</button>
+              </div>
+            </>
+          )}
+          {phase === "play" && cur && (
+            <div className="v12card" style={{ textAlign: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
+                <span>{T.q} {idx + 1}/{EG_ROUND}</span><span>{T.score}: {score}</span>
+                {tab === "echo" && (
+                  <button onClick={() => { playUi("click"); setMicMode(m => !m); }}
+                    style={{ background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "#d97757" : "#a88b9b", padding: "4px 10px", fontSize: "10px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                    {micMode ? T.tapMode : T.pianoMode}
+                  </button>
+                )}
+              </div>
+              <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
+              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
+                {pickLabel}
+              </div>
+              {tab !== "echo" && cur.options && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+                  {cur.options.map(o => (
+                    <button key={o.key} className={`egopt${fb && o.key === cur.answer ? " ok" : fb && fb.pickedKey === o.key && !fb.ok ? " bad" : ""}`} onClick={() => pickOption(o)}>{o.label}</button>
+                  ))}
+                </div>
+              )}
+              {tab === "echo" && micMode && (
+                <div style={{ padding: "18px 10px", borderRadius: "12px", border: `1px solid ${micSrc && micSrc.type === "error" ? "#ff5252" : "#d9775744"}`, background: "rgba(217,119,87,.06)" }}>
+                  {micSrc && micSrc.type === "error" ? (
+                    <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.listenErr}</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: "26px", marginBottom: "6px" }} className={micHeard ? "" : "flicker"}>{micSrc ? "🎹" : "🎤"}</div>
+                      <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{micSrc ? T.listenReady : T.listening}</div>
+                      <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}</div>
+                      {micHeard && <div style={{ marginTop: "6px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
+                    </>
+                  )}
+                </div>
+              )}
+              {tab === "echo" && !micMode && (
+                <>
+                  <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>
+                    {taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
+                    {["C", "D", "E", "F", "G", "A", "B"].map(p => (
+                      <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapEcho(p)}>
+                        <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
+                        <div style={{ fontSize: "9px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid var(--bd4)", borderRadius: "7px", color: "#a88b9b", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>{T.clear}</button>}
+                </>
+              )}
+              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#d97757" : "#ff5252") : "transparent" }}>
+                {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
