@@ -658,6 +658,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 @keyframes lvbounce{0%{opacity:0;transform:scale(.3)}100%{opacity:1;transform:scale(1)}}
 /* ── practice mode (listen + check) ── */
 .practicebtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:12px;border-radius:13px;border:1px solid #d9775766;background: rgba(217,119,87,.12);color:#d97757;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all .2s}
+.practicebtn.ready{animation:pulse 1.6s ease-in-out 3}
 .practicebtn:hover{border-color:#d97757;box-shadow:0 0 16px -4px #d97757;transform:translateY(-1px)}
 .practicebtn:active{transform:scale(.98)}
 .practicebtn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
@@ -716,6 +717,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .punlock-ic{font-size:44px;line-height:1;filter:drop-shadow(0 0 14px #ffd23f88);animation:chestwiggle 1.4s ease-in-out infinite}
 .punlock-tt{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:#ffd23f;text-shadow:0 0 14px #ffd23f77;margin-top:4px}
 .punlock-sub{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text2)}
+/* Boss Challenge clear — same shape as punlock, royal purple instead of gold so
+   a combined-group capstone reads as a distinct, bigger moment at a glance */
+.punlock.pboss{background:linear-gradient(180deg,rgba(167,139,250,.2),rgba(139,92,246,.08));border-color:#a78bfa66}
+.punlock.pboss .punlock-ic{filter:drop-shadow(0 0 14px #a78bfa99)}
+.punlock.pboss .punlock-tt{color:#c4b5fd;text-shadow:0 0 14px #a78bfa77}
 .practicefoot button{flex:1;padding:12px;border-radius:11px;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1.5px;cursor:pointer;transition:all .2s;border:1px solid}
 .practicerestart{border-color:#d9775755!important;background:rgba(217,119,87,.08);color:#d97757}
 .practiceexit{border-color:#ff525255!important;background:rgba(255,82,82,.08);color:#d97757}
@@ -1396,13 +1402,25 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 }
 @media(max-width:480px){.lname{font-size:11px;letter-spacing:1px}.bbl{font-size:12px;padding:8px 11px}}
 /* F5: Certificate banner */
-.cert-banner{display:flex;align-items:center;gap:14px;margin:14px 14px 0;padding:18px 16px;background:linear-gradient(135deg,rgba(217,119,87,.15),rgba(217,119,87,.05));border:2px solid rgba(217,119,87,.4);border-radius:16px;animation:fadein .4s}
+.cert-banner{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;margin:14px 14px 0;padding:18px 16px;background:linear-gradient(135deg,rgba(217,119,87,.15),rgba(217,119,87,.05));border:2px solid rgba(217,119,87,.4);border-radius:16px;animation:fadein .4s}
 .cert-ic{font-size:36px;flex-shrink:0}
-.cert-body{flex:1;min-width:0}
+.cert-body{flex:1;min-width:140px}
 .cert-title{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
 .cert-sub{font-size:11px;color:#d97757;margin-top:2px;font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:1px}
 .cert-dl-btn{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;background:#d97757;color:#fff;border:none;border-radius:10px;padding:9px 14px;cursor:pointer;flex-shrink:0;white-space:nowrap}
+.cert-share-btn{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;background:transparent;color:#d97757;border:1.5px solid #d9775766;border-radius:10px;padding:8px 13px;cursor:pointer;flex-shrink:0;white-space:nowrap}
 .cert-dl-btn:hover{background:#c86846}
+/* Group Boss Challenge banner — reuses .cert-banner's layout, re-themed purple
+   (same family as .punlock.pboss) so it reads as a distinct "final exam" call
+   to action rather than another certificate. .done dims it to a quiet trophy
+   case once the group's boss has already been cleared once. */
+.bossbanner{background:linear-gradient(135deg,rgba(167,139,250,.2),rgba(139,92,246,.06));border-color:#a78bfa66}
+.bossbanner .cert-ic{filter:drop-shadow(0 0 10px #a78bfa77)}
+.bossbanner .cert-sub{color:#c4b5fd}
+.bossbanner .boss-fight-btn{background:#8b5cf6}
+.bossbanner .boss-fight-btn:hover{background:#7c3aed}
+.bossbanner.done{background:linear-gradient(135deg,rgba(167,139,250,.08),rgba(139,92,246,.03));border-color:#a78bfa33}
+.bossbanner.done .boss-fight-btn{background:transparent;color:#a78bfa;border:1.5px solid #a78bfa55}
 /* Shared modal overlay + box (used by StudioPage quick/mood/event/chord modals) */
 .modal-ov{position:fixed;inset:0;z-index:1350;background:rgba(9,4,8,.78);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:18px;animation:fadein .2s}
 .modal-box{width:100%;max-width:380px;max-height:88vh;overflow-y:auto;background:var(--card3);border:1px solid #d9775726;border-radius:18px;box-shadow:0 24px 60px -20px #000;padding:18px}

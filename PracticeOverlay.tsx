@@ -41,6 +41,13 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
           <div className="punlock-sub">{r.pathUnlocked.label}</div>
         </div>
       )}
+      {r.bossDefeated && (
+        <div className="punlock pboss">
+          <div className="punlock-ic">👑</div>
+          <div className="punlock-tt">{lc.bossDefeatedTitle}</div>
+          <div className="punlock-sub">{r.bossDefeated.label}</div>
+        </div>
+      )}
       <div className="presulthead">
         <div className="presulttitle">{lc.practiceResultTitle}</div>
         <div className="presultsub">{r.label}</div>
