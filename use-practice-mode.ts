@@ -66,7 +66,7 @@ function scoreRhythm(times) {
 export function readPracticeBests() { try { return JSON.parse(localStorage.getItem("tg_practice_best") || "{}") || {}; } catch (e) { return {}; } }
 function writePracticeBest(key, rec) { try { const m = readPracticeBests(); m[key] = rec; localStorage.setItem("tg_practice_best", JSON.stringify(m)); } catch (e) {} }
 
-export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang }) {
+export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang, bumpWeekly }) {
   // ── practice mode (listen to the learner play) ──
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceTarget, setPracticeTarget] = useState([]); // note names to play, in order
@@ -419,6 +419,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const isNewBest = !prevBest || accuracy > prevBest.accuracy || bestStreak > prevBest.bestStreak;
     earnCoins(5 + Math.round(accuracy / 20) + (isNewBest ? 5 : 0));
     gainExp(20 + Math.round(accuracy / 5) + (isNewBest ? 10 : 0), { quest: true }); // 20–40 EXP scaled by accuracy, +10 on a genuine new best
+    // Weekly challenges — "games"/"perfect" used to only ever bump from Play
+    // Along's finishSong(), so Practice Mode could never complete 6 of the
+    // week's 9 rotating challenge types. hits = notes actually played correctly.
+    if (bumpWeekly) { bumpWeekly("games", 1); if (hits) bumpWeekly("perfect", hits); }
     writePracticeBest(bestKey, {
       accuracy: Math.max(accuracy, prevBest ? prevBest.accuracy : 0),
       bestStreak: Math.max(bestStreak, prevBest ? prevBest.bestStreak : 0),
