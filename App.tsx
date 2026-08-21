@@ -388,7 +388,6 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
   const pathDone = pathDoneSet();
   const pathAcc = pathAccMap();   // { stageId: {best,last,lastAt,interval,nextDue} } — .best drives the bronze/silver/gold badge, layered on top of pathDone
   const keyDone = keyDoneMap();   // { stageId: ["c","g",...] } — keys already studied per topic
-  const bossDone = bossDoneSet(); // Set<groupId> — Group Boss Challenges already cleared, see startBossChallenge()
   const currentStage = PATHWAY.find(s => !pathDone.has(s.id));
   const currentId = currentStage ? currentStage.id : null;
   function chooseKey(stage, key) {
@@ -397,27 +396,6 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
     setSelectedType(null);
     onLearn(stage, key, t);
   }
-  const [certBusy, setCertBusy] = useState(false);
-  // Group-level certificate — the same renderCertificatePNG the Report page
-  // already offers, just surfaced right here as an in-context celebration the
-  // moment a group's last stage clears, instead of only reachable later on a
-  // separate page.
-  async function downloadGroupCert(g) {
-    if (certBusy) return;
-    setCertBusy(true); playUi("reward");
-    try {
-      const name = userName || (lang === "th" ? "นักเรียน TiGA" : lang === "zh" ? "TiGA 学员" : "TiGA Student");
-      const url = await renderCertificatePNG({
-        name,
-        course: g.icon + " " + g.label,
-        dateStr: new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "long", day: "numeric" }),
-        lang,
-      });
-      downloadDataURL(url, "tiga-certificate-" + g.id + ".png");
-    } catch (e) {}
-    setCertBusy(false);
-  }
-
   return (
     <div className="pathpage">
       <div className="pathhero">
@@ -599,45 +577,11 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
             </div>
           </section>
 
-          {/* Group-level certificate — same in-context celebration as the F5
-              full-course banner below, just fired at each of the 4 group
-              milestones instead of only once at the very end. */}
-          {stages.length > 0 && stages.every(s => pathDone.has(s.id)) && (
-            <div className="cert-banner">
-              <div className="cert-ic">{g.icon}</div>
-              <div className="cert-body">
-                <div className="cert-title">{lc.groupCertCompleted}</div>
-                <div className="cert-sub">{g.label}</div>
-              </div>
-              <button className="cert-dl-btn" disabled={certBusy} onClick={() => downloadGroupCert(g)}>
-                📜 {lc.certDownload}
-              </button>
-              <button className="cert-share-btn" onClick={() => shareCard({ title: lc.groupCertCompleted, big: g.icon, sub: g.label, lines: ["TiGA Piano AI"] })}>
-                📤 {lc.shareBtn}
-              </button>
-            </div>
-          )}
-
-          {/* Group Boss Challenge — the cert above proves each stage was passed
-              on its own; the boss run concatenates every practice stage in the
-              group into one continuous sequence, testing whether the learner
-              can carry it all at once. Reuses .cert-banner's layout, re-themed
-              purple so it reads as a distinct, optional "final exam" rather
-              than another certificate. Hidden for groups made only of reading
-              stages (no notes to play), matching startBossChallenge's own
-              bossStages filter. */}
-          {stages.length > 0 && stages.every(s => pathDone.has(s.id)) && stages.some(s => !s.content) && (
-            <div className={`cert-banner bossbanner${bossDone.has(g.id) ? " done" : ""}`}>
-              <div className="cert-ic">{bossDone.has(g.id) ? "👑" : "⚔️"}</div>
-              <div className="cert-body">
-                <div className="cert-title">{bossDone.has(g.id) ? lc.bossDoneTitle : lc.bossReadyTitle}</div>
-                <div className="cert-sub">{g.label}</div>
-              </div>
-              <button className="cert-dl-btn boss-fight-btn" onClick={() => onBoss(g)}>
-                {bossDone.has(g.id) ? `↻ ${lc.bossRematch}` : `⚔️ ${lc.bossFight}`}
-              </button>
-            </div>
-          )}
+          {/* Group certificate + Boss Challenge both moved to the dedicated
+              Challenging page (nav) — this in-flow banner used to compete
+              with the pathway's own "what's next" scan for attention right
+              as a group finished; ChallengingPage now owns both, indexed by
+              group so nothing here needs to know their claim/fight state. */}
 
           {gi < groups.length - 1 && (
             <div className="ptrail" aria-hidden="true">
@@ -649,20 +593,115 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
         );
       })}
 
-      {/* F5: Certificate — shown when all pathway stages are done */}
-      {pathDone.size >= PATHWAY.length && (
+      {/* Full-course certificate also moved to the Challenging page. */}
+
+      <div className="pathfoot">{lc.pathFoot}</div>
+    </div>
+  );
+});
+
+/* ════════════════════════════════════════════════════════════
+   CHALLENGING — every certificate and Group Boss Challenge in one
+   dedicated arena. Used to live as in-flow banners on the Pathway page,
+   where they competed with the pathway's own "what's next" scan for
+   attention right as a group finished; now Pathway stays a clean map and
+   this page is the "go prove it" destination, reachable from the nav
+   drawer or deep-linked from learnTopic()'s Auto Teaching nudge (see
+   groupChallengeReady()). Locked rows stay visible instead of disappearing
+   so the page always reads as a real challenge list, even for a brand-new
+   learner who hasn't unlocked anything yet.
+════════════════════════════════════════════════════════════ */
+const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, earnCoins, userName = "", focusGroupId, onConsumeFocus }) {
+  const lc = L[lang];
+  const groups = PATH_GROUPS[lang];
+  const pathDone = pathDoneSet();
+  const bossDone = bossDoneSet();
+  const [certBusy, setCertBusy] = useState(false);
+  const fullReady = pathDone.size >= PATHWAY.length;
+  useEffect(() => {
+    if (!focusGroupId) return;
+    const el = document.getElementById("chal-" + focusGroupId);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (onConsumeFocus) onConsumeFocus(); // one-shot — a later plain drawer visit shouldn't re-scroll here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div className="pathpage">
+      <div className="pathhero">
+        <div className="pathhero-glow" />
+        <div className="pathbadge">◈ {lc.challengingTitle} ◈</div>
+        <div style={{ textAlign: "center", fontSize: "11px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", padding: "0 22px", lineHeight: 1.5 }}>{lc.challengingSub}</div>
+      </div>
+
+      {groups.map(g => {
+        const stages = STAGES_BY_GROUP[g.id] || [];
+        const hasBoss = stages.some(s => !s.content);
+        const doneCount = stages.filter(s => pathDone.has(s.id)).length;
+        const ready = stages.length > 0 && doneCount >= stages.length;
+        return (
+          <div id={"chal-" + g.id} key={g.id}>
+            {ready ? (
+              <>
+                <div className="cert-banner">
+                  <div className="cert-ic">{g.icon}</div>
+                  <div className="cert-body">
+                    <div className="cert-title">{lc.groupCertCompleted}</div>
+                    <div className="cert-sub">{g.label}</div>
+                  </div>
+                  <button className="cert-dl-btn" disabled={certBusy} onClick={() => downloadGroupCert(g, lang, userName, certBusy, setCertBusy, gainExp, earnCoins)}>
+                    📜 {lc.certDownload}
+                  </button>
+                  <button className="cert-share-btn" onClick={() => shareCard({ title: lc.groupCertCompleted, big: g.icon, sub: g.label, lines: ["TiGA Piano AI"] })}>
+                    📤 {lc.shareBtn}
+                  </button>
+                </div>
+                {hasBoss && (
+                  <div className={`cert-banner bossbanner${bossDone.has(g.id) ? " done" : ""}`}>
+                    <div className="cert-ic">{bossDone.has(g.id) ? "👑" : "⚔️"}</div>
+                    <div className="cert-body">
+                      <div className="cert-title">{bossDone.has(g.id) ? lc.bossDoneTitle : lc.bossReadyTitle}</div>
+                      <div className="cert-sub">{g.label}</div>
+                    </div>
+                    <button className="cert-dl-btn boss-fight-btn" onClick={() => onBoss(g)}>
+                      {bossDone.has(g.id) ? `↻ ${lc.bossRematch}` : `⚔️ ${lc.bossFight}`}
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="cert-banner locked">
+                <div className="cert-ic">🔒</div>
+                <div className="cert-body">
+                  <div className="cert-title">{g.label}</div>
+                  <div className="cert-sub">{lc.challengingLocked.replace("{n}", doneCount).replace("{t}", stages.length)}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {fullReady ? (
         <div className="cert-banner">
           <div className="cert-ic">🏆</div>
           <div className="cert-body">
             <div className="cert-title">{lc.certCompleted}</div>
             <div className="cert-sub">{lc.certTitle}</div>
           </div>
-          <button className="cert-dl-btn" onClick={() => downloadCertificate(lang, userName)}>
+          <button className="cert-dl-btn" onClick={() => downloadCertificate(lang, userName, gainExp, earnCoins)}>
             📜 {lc.certDownload}
           </button>
           <button className="cert-share-btn" onClick={() => shareCard({ title: lc.certCompleted, big: "🏆", sub: lc.certTitle, lines: ["TiGA Piano AI"] })}>
             📤 {lc.shareBtn}
           </button>
+        </div>
+      ) : (
+        <div className="cert-banner locked">
+          <div className="cert-ic">🔒</div>
+          <div className="cert-body">
+            <div className="cert-title">{lc.certTitle}</div>
+            <div className="cert-sub">{lc.challengingFullLocked}</div>
+          </div>
         </div>
       )}
 
@@ -806,14 +845,38 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
    melody echo). Practicable anywhere, even without a piano.
 ════════════════════════════════════════════════════════════ */
 const EG_ROUND = 8;
+// One combined "Ear Level" across all 5 tabs (int/chord/echo/melody/cadence)
+// instead of 5 separate, disconnected best-scores with no sense of overall
+// progress — a level up every EAR_LEVEL_STEP points of combined best-score.
+const EAR_LEVEL_STEP = 8;
+function earLevelFor(best) {
+  const total = (best.int || 0) + (best.chord || 0) + (best.echo || 0) + (best.melody || 0) + (best.cadence || 0);
+  return { level: Math.floor(total / EAR_LEVEL_STEP) + 1, total, intoLevel: total % EAR_LEVEL_STEP };
+}
+// Perfect Pitch Ladder — an endless-climb arcade mode layered on top of the
+// same interval-question engine (genQ("int"), just re-pooled off the live
+// streak instead of the persisted best): 3 lives, a shrinking per-question
+// timer, and the exact same 3-tier semitone pools (EG_INT_BASE/FULL/MASTER)
+// the graded "int" tab already uses for its own progression, just re-keyed
+// to the ladder's live streak so difficulty escalates within a single climb.
+const LADDER_LIVES_START = 3;
+const LADDER_TIME_START = 6000, LADDER_TIME_MIN = 2200, LADDER_TIME_STEP = 120;
+function ladderPool(streak) { return streak >= 12 ? EG_INT_MASTER : streak >= 6 ? EG_INT_FULL : EG_INT_BASE; }
+function ladderTimeFor(streak) { return Math.max(LADDER_TIME_MIN, LADDER_TIME_START - streak * LADDER_TIME_STEP); }
+function ladderBestScore() { try { return +(localStorage.getItem("tg_eargym_ladder") || 0); } catch (e) { return 0; } }
+// Returns true only on a genuine improvement (a real new record), not a tie.
+function markLadderBest(streak) { try { if (streak > ladderBestScore()) { localStorage.setItem("tg_eargym_ladder", String(streak)); return true; } return false; } catch (e) { return false; } }
 const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab }) {
   const T = {
-    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶",
-        refSong: "คล้ายเพลง", cadence: "🎹 เล่นคอร์ดนำก่อน", cadenceOn: "เปิดคอร์ดนำอยู่ — ช่วยให้ได้ยินขั้นคู่ในบริบทของคีย์" },
-    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶",
-        refSong: "Sounds like", cadence: "🎹 Play cadence first", cadenceOn: "Cadence on — hear the interval in the context of a key" },
-    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶",
-        refSong: "像这首歌", cadence: "🎹 先弹和弦进行", cadenceOn: "已开启和弦进行 — 在调性语境中听音程" },
+    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", cadenceTab: "คอร์ดนำ", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶",
+        refSong: "คล้ายเพลง", earLevel: "เลเวลหู", tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน",
+        ladderTitle: "บันไดเสียงสมบูรณ์แบบ", ladderSub: "ไต่บันได — พลาด 3 ครั้งจบเกม เวลาลดลงเรื่อยๆ", ladderStart: "เริ่มไต่บันได ▶", ladderStreakLbl: "ขั้นบันได", ladderBestLbl: "สถิติสูงสุด", ladderGameOver: "จบเกม!", ladderNewBest: "🏆 สถิติใหม่!", ladderAgain: "ไต่อีกครั้ง ▶" },
+    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", cadenceTab: "Cadence", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶",
+        refSong: "Sounds like", earLevel: "Ear Level", tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead",
+        ladderTitle: "Perfect Pitch Ladder", ladderSub: "Climb as high as you can — 3 lives, the clock keeps shrinking", ladderStart: "Start climbing ▶", ladderStreakLbl: "Rung", ladderBestLbl: "Best climb", ladderGameOver: "Game over!", ladderNewBest: "🏆 New record!", ladderAgain: "Climb again ▶" },
+    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", cadenceTab: "和弦引导", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶",
+        refSong: "像这首歌", earLevel: "听力等级", tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式",
+        ladderTitle: "完美音感阶梯", ladderSub: "尽力往上爬 — 3条命，时间越来越短", ladderStart: "开始攀爬 ▶", ladderStreakLbl: "阶数", ladderBestLbl: "最高纪录", ladderGameOver: "游戏结束！", ladderNewBest: "🏆 新纪录！", ladderAgain: "再次攀爬 ▶" },
   }[lang];
   const [tab, setTab] = useState(initialTab || "int");
   const [phase, setPhase] = useState("idle");   // idle | play | done
@@ -823,7 +886,25 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   const [fb, setFb] = useState(null);            // { ok, answerLabel, pickedKey }
   const [taps, setTaps] = useState([]);
   const [result, setResult] = useState(null);
-  const [cadenceOn, setCadenceOn] = useState(false); // interval tab: play a I-IV-V-I cadence before the question, for tonal context
+  // Melody Echo: answer by playing a real piano/MIDI keyboard instead of
+  // tapping the letter grid — same mic/MIDI singleton and toggle convention
+  // as the Note Reading course's own micMode.
+  const [micMode, setMicMode] = useState(false);
+  const [micSrc, setMicSrc] = useState(null);
+  const [micHeard, setMicHeard] = useState(null);
+  const micTapsRef = useRef([]);
+  // Perfect Pitch Ladder — a separate arcade mode layered on the same
+  // question engine; ladderOn/ladderResult are mutually exclusive with the
+  // normal phase/result pair (only one mode renders at a time).
+  const [ladderOn, setLadderOn] = useState(false);
+  const [ladderLives, setLadderLives] = useState(LADDER_LIVES_START);
+  const [ladderStreak, setLadderStreak] = useState(0);
+  const [ladderTimeLeft, setLadderTimeLeft] = useState(0);
+  const [ladderResult, setLadderResult] = useState(null);
+  const ladderLivesRef = useRef(LADDER_LIVES_START);
+  const ladderStreakRef = useRef(0);
+  const ladderTimerRef = useRef(null);
+  const ladderDeadlineRef = useRef(0);
   const startTRef = useRef(0);
   const roundRef = useRef(0);
   const ROOTS = ["C4", "D4", "E4", "F4", "G4", "A4"];
@@ -4327,6 +4408,18 @@ export function getDueReviews() {
 export const BOSS_PASS_ACCURACY = 70;
 export function bossDoneSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_boss_done") || "[]")); } catch (e) { return new Set(); } }
 export function markBossDone(groupId) { try { const s = bossDoneSet(); s.add(groupId); localStorage.setItem("tg_boss_done", JSON.stringify([...s])); } catch (e) {} }
+// True the moment a group's Challenging-Mode row (cert + boss) FIRST becomes
+// available — every stage in the group passed, and it's not a reading-only
+// group (mirrors ChallengingPage's own unlock condition exactly). Used by
+// learnTopic()'s Auto Teaching hook to nudge "you just covered everything
+// this group's Boss Challenge tests — go prove it" without duplicating the
+// unlock rule in two places.
+export function groupChallengeReady(group) {
+  const stages = STAGES_BY_GROUP[group.id] || [];
+  if (!stages.length) return false;
+  const done = pathDoneSet();
+  return stages.every(s => done.has(s.id)) && stages.some(s => !s.content);
+}
 
 // Knowledge Quest — TIGA Chat's own collectible: the 7 "benefits of music"
 // pathway stages (group "benefits") each unlock a handful of curated deep-dive
@@ -4485,8 +4578,37 @@ async function shareCard({ title, big, sub, lines = [] }) {
     }
   } catch (e) {}
 }
-function downloadCertificate(lang, name) {
+// Certificate/boss reward claims — Challenging Mode's cert-download and full-
+// course cert buttons used to only play a "reward" sound effect with zero
+// real EXP/coins behind it, unlike everything else in this gamification
+// pass. One Set (keyed "group:<id>" / "full") gates a one-time claim so
+// repeatedly re-downloading the same PNG can't be farmed for infinite EXP.
+export function certClaimedSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_cert_claimed") || "[]")); } catch (e) { return new Set(); } }
+export function markCertClaimed(id) { try { const s = certClaimedSet(); s.add(id); localStorage.setItem("tg_cert_claimed", JSON.stringify([...s])); } catch (e) {} }
+// Group-level certificate — the same renderCertificatePNG the Report page
+// already offers. Moved here (was a PathwayPage-local closure) so
+// ChallengingPage can call it too, now that the cert banner lives there
+// instead of inline in the Pathway flow.
+export async function downloadGroupCert(g, lang, userName, certBusy, setCertBusy, gainExp, earnCoins) {
+  if (certBusy) return;
+  setCertBusy(true); playUi("reward");
   try {
+    const name = userName || (lang === "th" ? "นักเรียน TiGA" : lang === "zh" ? "TiGA 学员" : "TiGA Student");
+    const url = await renderCertificatePNG({
+      name,
+      course: g.icon + " " + g.label,
+      dateStr: new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "long", day: "numeric" }),
+      lang,
+    });
+    downloadDataURL(url, "tiga-certificate-" + g.id + ".png");
+    const claimId = "group:" + g.id;
+    if (!certClaimedSet().has(claimId)) { markCertClaimed(claimId); gainExp(20, { quest: true }); earnCoins(10); }
+  } catch (e) {}
+  setCertBusy(false);
+}
+function downloadCertificate(lang, name, gainExp, earnCoins) {
+  try {
+    playUi("reward");
     const W = 1000, H = 700, c = document.createElement("canvas"); c.width = W; c.height = H;
     const x = c.getContext("2d");
     // Background
@@ -4537,6 +4659,7 @@ function downloadCertificate(lang, name) {
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tiga-certificate.png"; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 3000);
     }, "image/png");
+    if (!certClaimedSet().has("full")) { markCertClaimed("full"); if (gainExp) gainExp(40, { quest: true }); if (earnCoins) earnCoins(20); }
   } catch (e) {}
 }
 
@@ -7410,6 +7533,31 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // take the learner back where they came from (pathway lesson, studio, etc.)
   const pageTrackRef = useRef("pathway");
   useEffect(() => { if (page !== "sensei") pageTrackRef.current = page; }, [page]);
+  // Which group card the Challenging page should scroll to on arrival — set
+  // right before navigating there from the Auto Teaching nudge below, so the
+  // learner lands on the exact section they just studied instead of the top
+  // of a page listing all 4.
+  const [challengeFocusGroup, setChallengeFocusGroup] = useState(null);
+  // Auto Teaching → Challenging Mode nudge: a dismissible banner offering a
+  // one-tap jump to test what was just taught, the moment learnTopic() shows
+  // that everything else in this stage's group is already done too (see
+  // maybeNudgeChallenge below / groupChallengeReady in App.tsx module scope).
+  // { groupId, icon, label, kind: "boss" | "full" } | null
+  const [challengeNudge, setChallengeNudge] = useState(null);
+  const challengeNudgeTimer = useRef(null);
+  function maybeNudgeChallenge(stage) {
+    if (!stage || !stage.group) return;
+    const group = (PATH_GROUPS[lang] || []).find(g => g.id === stage.group);
+    if (!group) return;
+    clearTimeout(challengeNudgeTimer.current);
+    if (groupChallengeReady(group)) {
+      setChallengeNudge({ groupId: group.id, icon: group.icon, label: group.label, kind: "boss" });
+      challengeNudgeTimer.current = setTimeout(() => setChallengeNudge(null), 14000);
+    } else if (pathDoneSet().size >= PATHWAY.length && !certClaimedSet().has("full")) {
+      setChallengeNudge({ groupId: null, icon: "🏆", label: "", kind: "full" });
+      challengeNudgeTimer.current = setTimeout(() => setChallengeNudge(null), 14000);
+    }
+  }
 
   // null | "time" | "ai" — which GuestGateScreen (if any) currently covers the
   // screen. Two distinct producers, one shared consumer (see render below).
@@ -8137,6 +8285,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       callClaude(prompt); // tier 2: no prepared answer — ask the live AI
       gainExp(EXP.lesson, { lesson: true, quest: true });
     }
+    maybeNudgeChallenge(stage); // Auto Teaching → "test yourself in Challenging Mode" nudge, see definition above
   }
 
   // open a "benefits of music" knowledge chapter — show curated content in the chat
@@ -8314,6 +8463,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge} initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
       )}
 
+      {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}
+      {page === "challenging" && (
+        <ChallengingPage lang={lang} onBoss={startBossChallenge} gainExp={gainExp} earnCoins={earnCoins} userName={(profile && profile.full_name) || ""} focusGroupId={challengeFocusGroup} onConsumeFocus={() => setChallengeFocusGroup(null)} />
+      )}
+
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
       {page === "today" && (
         <TodayPage lang={lang} exp={(profile && profile.exp) || 0} homework={homework}
@@ -8414,6 +8568,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         {[
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
+          { p: "challenging", ic: "🏆", c: "#a78bfa", t: lc.navChallenging },
           { p: "sensei", ic: "◈", c: "#d97757", t: lc.navSensei },
           // free preview inside; the Max-only AI report/plan is upsold there, not walled off at the nav
           { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor" },
@@ -9083,6 +9238,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
           <button className="installbanner-go" onClick={enablePushFromBanner}>{lc.pushBannerBtn}</button>
           <button className="installbanner-x" onClick={dismissPushBanner} aria-label="close">×</button>
+        </div>
+      )}
+
+      {/* Auto Teaching → Challenging Mode nudge — see maybeNudgeChallenge() */}
+      {challengeNudge && (
+        <div className="installbanner" style={{ background: "linear-gradient(90deg,#8b5cf6,#a78bfa)" }}>
+          <span className="installbanner-ic" aria-hidden="true">{challengeNudge.icon}</span>
+          <div className="installbanner-tx">
+            <b>{lc.challengeNudgeTitle}</b>
+            <span>{challengeNudge.kind === "full" ? lc.challengeNudgeFull : lc.challengeNudgeBoss.replace("{g}", challengeNudge.label)}</span>
+          </div>
+          <button className="installbanner-go" style={{ background: "#fff", color: "#7c3aed" }} onClick={() => { playUi("click"); clearTimeout(challengeNudgeTimer.current); setChallengeFocusGroup(challengeNudge.groupId); setPage("challenging"); setChallengeNudge(null); }}>{lc.challengeNudgeBtn}</button>
+          <button className="installbanner-x" onClick={() => { clearTimeout(challengeNudgeTimer.current); setChallengeNudge(null); }} aria-label="close">×</button>
         </div>
       )}
 
