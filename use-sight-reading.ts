@@ -78,7 +78,7 @@ const SIGHT_SPRINT_SECS = 60;
 const SIGHT_PHRASE_LEN = 3;
 const SIGHT_NOTE_TIMEOUT_MS = 8000;
 
-export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp }) {
+export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly }) {
   const [sightOpen, setSightOpen] = useState(false);
   const [sightTarget, setSightTarget] = useState(null);
   const [sightClef, setSightClef] = useState("treble");      // treble | bass | both — which clef(s) to drill
@@ -265,6 +265,10 @@ export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp }) {
     earnCoins(5 + Math.round(acc / 20));
     gainExp(reward, { quest: true });
     if (beltUp) { earnCoins(15 + SIGHT_BELTS.findIndex(b => b.id === beltUp.id) * 5); gainExp(40, { quest: true }); }
+    // Weekly challenges — "games"/"perfect" used to only ever bump from Play
+    // Along's finishSong(), so Sight-Reading could never complete 6 of the
+    // week's 9 rotating challenge types. correct = notes actually read right.
+    if (bumpWeekly) { bumpWeekly("games", 1); if (correct) bumpWeekly("perfect", correct); }
   }
   function exitSight() {
     sightActiveRef.current = false;

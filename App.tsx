@@ -75,7 +75,7 @@ import { VoiceTutorOverlay } from "./VoiceTutorOverlay";
 import { usePayment } from "./use-payment";
 import { useGamification } from "./use-gamification";
 import { useKeyboard } from "./use-keyboard";
-import { usePracticeMode } from "./use-practice-mode";
+import { usePracticeMode, readPracticeBests } from "./use-practice-mode";
 import { useSightReading } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
@@ -232,7 +232,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.46";
+const APP_VER = "13.7.51";
 
 async function signInWith(provider) {
   try {
@@ -1072,7 +1072,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     setEarBest(tab, finalScore);
     logActivity("ear", tab, finalScore, EG_ROUND - finalScore, Math.max(30, secs));
     logPractice(acc);
-    onReward(xp, stars * 5);
+    onReward(xp, stars * 5, finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
     setResult({ score: finalScore, stars, xp, coins: stars * 5 });
     setPhase("done");
     playUi(stars >= 2 ? "levelup" : "click");
@@ -1191,7 +1191,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     const xp = 10 + streak * 2, coins = Math.floor(streak / 2);
     logActivity("ear", "ladder", streak, 0, Math.max(20, streak * 3));
     logPractice(Math.min(100, streak * 5));
-    onReward(xp, coins);
+    onReward(xp, coins, streak); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
     setLadderResult({ streak, isNewBest, best: ladderBestScore(), xp, coins });
     playUi(isNewBest ? "levelup" : "click");
   }
@@ -1489,7 +1489,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
     setReadCourseStars(L.n, stars);
     logActivity("read", "L" + L.n, finalScore, L.qn - finalScore, Math.max(30, secs));
     logPractice(acc);
-    onReward(xp, stars * 5);
+    onReward(xp, stars * 5, finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
     // Speed rank — only a genuinely cleared level (stars >= 1) sets a record;
     // racing through a level you're failing shouldn't count as a "best."
     const prevBest = readBestTimeMap()[L.n];
@@ -2463,10 +2463,22 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           session on that exact stage via reviewStage() — not a generic page. */}
       {srsOpen && (() => {
         const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
+        const mStreak = memoryStreak();
+        const mTier = memoryStreakTier(mStreak.count || 0);
         return (
         <div className="modal-ov" onClick={() => setSrsOpen(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div className="modal-hdr"><span>🧠 {lc.srsTitle}</span><button className="modal-x" onClick={() => setSrsOpen(false)}>✕</button></div>
+            <div className="modal-hdr">
+              <span>
+                🧠 {lc.srsTitle}
+                {mStreak.count > 0 && (
+                  <span className="camstreak-badge" title={lc.memoryStreakLbl}>
+                    {mTier ? mTier.icon : "🔥"} {mStreak.count}
+                  </span>
+                )}
+              </span>
+              <button className="modal-x" onClick={() => setSrsOpen(false)}>✕</button>
+            </div>
             {dueReviews.total === 0 ? (
               <p style={{ margin: "12px 0", fontSize: 14, color: "var(--muted)", textAlign: "center" }}>{lc.srsNone} ✅</p>
             ) : (
@@ -4241,6 +4253,51 @@ function coachStatsToText(s) {
   const skillsTxt = s.skills.filter(sk => sk.score != null).map(sk => `${sk.skill}: ${sk.score}/100`).join(", ") || "not enough data yet for any skill";
   return `Level ${s.level}, ${s.streak}-day streak, ${s.lessonsDone} lessons completed, ${s.badgeCount}/${s.badgeTotal} badges earned, today's quest ${s.questOk ? "done" : "not done yet"}. Last 7 days: practiced ${s.days7}/7 days (${s.min7} min total), accuracy ${s.acc7 == null ? "no data" : s.acc7 + "%"}${s.accPrev != null ? ` (previous week was ${s.accPrev}%)` : ""}. Weakest topics by miss rate across all history: ${weakestTxt}. Skill scores (0-100, higher is better): ${skillsTxt}.`;
 }
+// Weekly Report Card — a letter grade over the SAME rolling 7-day window
+// Daily Mentor's stats tiles already use (this page has never framed "the
+// week" as a Mon-Sun calendar week, so the grade doesn't invent one either).
+// Half consistency (days practiced), half accuracy — pure consistency when
+// there's no accuracy signal at all (some learners only read/listen, never
+// generating an ok/miss tally), rather than unfairly capping the grade at
+// 50 for having nothing to average in.
+function reportCardGrade(days7, acc7) {
+  const score = acc7 == null ? (days7 / 7) * 100 : (days7 / 7) * 50 + (acc7 / 100) * 50;
+  return score >= 90 ? "A+" : score >= 80 ? "A" : score >= 70 ? "B" : score >= 55 ? "C" : score >= 35 ? "D" : "F";
+}
+const REPORT_CARD_RANK = ["F", "D", "C", "B", "A", "A+"];
+const REPORT_CARD_REWARDS = { "A+": [60, 30], "A": [45, 22], "B": [30, 15], "C": [18, 8], "D": [10, 4], "F": [0, 0] };
+const REPORT_CARD_KEY = "tg_reportcards";
+function readReportCards() { try { return JSON.parse(localStorage.getItem(REPORT_CARD_KEY) || "[]"); } catch (e) { return []; } }
+function writeReportCards(a) { try { localStorage.setItem(REPORT_CARD_KEY, JSON.stringify(a.slice(-8))); } catch (e) {} }
+function bestReportCardGrade() {
+  const cards = readReportCards();
+  if (!cards.length) return null;
+  return cards.reduce((best, c) => REPORT_CARD_RANK.indexOf(c.grade) > REPORT_CARD_RANK.indexOf(best) ? c.grade : best, cards[0].grade);
+}
+// A new card can be claimed once 7 days have passed since the last one — a
+// rolling cooldown (not a calendar-week boundary), matching the page's own
+// rolling-7-day framing rather than introducing a second, different notion
+// of "the week" the rest of Daily Mentor doesn't use.
+function reportCardReadyToClaim() {
+  const cards = readReportCards();
+  return !cards.length || Date.now() - cards[cards.length - 1].t >= 7 * 86400000;
+}
+function daysUntilNextReportCard() {
+  const cards = readReportCards();
+  if (!cards.length) return 0;
+  return Math.max(0, Math.ceil((7 * 86400000 - (Date.now() - cards[cards.length - 1].t)) / 86400000));
+}
+// Returns { grade, isNewBest } — isNewBest is false for a first-ever F (a
+// bad first week isn't a "personal best" worth celebrating).
+function claimReportCard(days7, acc7) {
+  const prevBest = bestReportCardGrade();
+  const grade = reportCardGrade(days7, acc7);
+  const cards = readReportCards();
+  cards.push({ grade, days7, acc7, t: Date.now() });
+  writeReportCards(cards);
+  const isNewBest = prevBest == null ? grade !== "F" : REPORT_CARD_RANK.indexOf(grade) > REPORT_CARD_RANK.indexOf(prevBest);
+  return { grade, isNewBest };
+}
 // Shared core of the AI coaching analysis — used by both the Auto Teaching popup (timer-driven,
 // PianoApp) and the dedicated Coach nav page (on-demand, CoachPage). Module-level (not inside
 // either component) since it only needs `lang`/`profile` and the module-level helpers above.
@@ -4593,6 +4650,44 @@ export function getDueReviews() {
     .filter(s => s.last && (now - s.last) >= 2 * 86400000)
     .map(s => ({ label: s.label, acc: s.acc, count: s.count, last: s.last }));
   return { stages, practice, total: stages.length + practice.length };
+}
+// Memory Streak — a day-streak for keeping up with SRS review specifically
+// (getDueReviews()'s two signals above), separate from the app's main
+// streak the same way Camera Coach's Posture Streak is: showing up for
+// review is its own habit worth its own streak. No freeze mechanic, same
+// as every other per-feature streak this pass added. Bumped once per day
+// by either genuine review path — completing a due stage's practice drill
+// (finishPractice(), use-practice-mode.ts) or asking about a due struggle
+// (askAboutStruggle() below) — mirroring the main streak's own "credit for
+// a completed session, not for merely opening one" precedent (bumpStreak()
+// fires from logPractice(), never from a session's start).
+const MEMORY_STREAK_TIERS = [
+  { id: "start", icon: "🌱", need: 1 },
+  { id: "bronze", icon: "🥉", need: 3 },
+  { id: "silver", icon: "🥈", need: 7 },
+  { id: "gold", icon: "🥇", need: 14 },
+  { id: "diamond", icon: "💎", need: 30 },
+];
+export function memoryStreakTier(count) {
+  let t = null;
+  for (const tier of MEMORY_STREAK_TIERS) if (count >= tier.need) t = tier;
+  return t;
+}
+export function memoryStreak() { try { return JSON.parse(localStorage.getItem("tg_memory_streak") || "null") || { count: 0, last: "" }; } catch (e) { return { count: 0, last: "" }; } }
+// Returns { count, tier, tierUp, bumped } — bumped is false on a same-day
+// re-call; tierUp is true only on a genuine CLIMB (never a missed-day reset
+// that happens to land on a lower tier), exactly Posture Streak's contract.
+export function bumpMemoryStreak() {
+  const s = memoryStreak(), today = dayKey();
+  const prevTier = memoryStreakTier(s.count || 0);
+  if (s.last === today) return { count: s.count || 0, tier: prevTier, tierUp: false, bumped: false };
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  if (s.last === dayKey(y)) s.count = (s.count || 0) + 1;
+  else s.count = 1;
+  s.last = today;
+  try { localStorage.setItem("tg_memory_streak", JSON.stringify(s)); } catch (e) {}
+  const tier = memoryStreakTier(s.count);
+  return { count: s.count, tier, tierUp: !!tier && (!prevTier || tier.need > prevTier.need), bumped: true };
 }
 // Group Boss Challenge — a one-off capstone once every practiceable stage in a
 // group is individually done: all of that group's demos chained into one longer
@@ -5044,7 +5139,7 @@ const GameStats = memo(function GameStats({ lang }) {
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -5369,6 +5464,52 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         );
       })()}
 
+      {/* Drill Deck — every drill the learner has practiced becomes a
+          collectible "card": tier icon by best accuracy (reusing pathTier's
+          bronze/silver/gold thresholds — the same bar the Pathway stages
+          themselves are graded against), best streak, and a one-tap replay
+          straight back into that exact drill. tg_practice_best used to be
+          write-only — a real per-drill record existed in localStorage the
+          whole time with no UI anywhere that ever surfaced it. */}
+      {(() => {
+        const bests = readPracticeBests();
+        const deck = Object.entries(bests)
+          .map(([key, d]) => ({ key, ...d }))
+          .filter(d => d.notes && d.notes.length)
+          .sort((a, b) => (b.at || 0) - (a.at || 0));
+        if (!deck.length) return null;
+        const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
+        return (
+          <div className="profsec">
+            <div className="profsec-h">
+              {lc.drillDeckTitle}
+              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+                {deck.length}
+              </span>
+            </div>
+            {deck.map(d => {
+              const tier = pathTier(d.accuracy);
+              return (
+                <div key={d.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 4px" }}>
+                  <span style={{ fontSize: 20, flexShrink: 0, width: 24, textAlign: "center" }} aria-hidden="true">{tier ? tierIcon[tier] : "🎹"}</span>
+                  <div className="wkbody">
+                    <div className="wktop">
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.label}{d.chordStyle && ` · ${d.chordStyle}`}</span>
+                      <b style={{ color: "#d97757", flexShrink: 0, marginLeft: 6, whiteSpace: "nowrap" }}>{d.accuracy}% · 🔥{d.bestStreak}</b>
+                    </div>
+                    <div className="wkbar"><div style={{ width: d.accuracy + "%", background: "#d97757" }} /></div>
+                  </div>
+                  <button onClick={() => onReplayDrill && onReplayDrill(d)}
+                    style={{ flexShrink: 0, background: "rgba(217,119,87,.12)", border: "1px solid #d9775755", borderRadius: 8, color: "#d97757", padding: "7px 11px", fontSize: 13, cursor: "pointer" }}>
+                    ▶
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       <WeeklyLeagueSection lang={lang} />
 
       <LeaderboardSection lang={lang} />
@@ -5462,12 +5603,25 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
 });
 
 /* ── Daily Mentor page: shows practice stats, 7-day activity chart, and weak spots. ── */
-const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell }) {
+const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell, gainExp, earnCoins }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan) || (profile && profile.is_admin);
   const stats = useMemo(() => computeCoachStats(profile, lang), [profile, lang]);
   const accDelta = stats.acc7 != null && stats.accPrev != null ? stats.acc7 - stats.accPrev : null;
   const hasData = readActLog().length > 0;
+  const [, setRcTick] = useState(0); // bumped after claimReportCard() writes localStorage, since that write alone doesn't trigger a re-render
+  const rcGrade = reportCardGrade(stats.days7, stats.acc7);
+  const rcBest = bestReportCardGrade();
+  const rcReady = reportCardReadyToClaim();
+  function claimRc() {
+    if (!rcReady) return;
+    const { grade, isNewBest } = claimReportCard(stats.days7, stats.acc7);
+    const [xp, coins] = REPORT_CARD_REWARDS[grade];
+    playUi(isNewBest ? "levelup" : "reward");
+    if (xp && gainExp) gainExp(xp, { quest: true });
+    if (coins && earnCoins) earnCoins(coins);
+    setRcTick(t => t + 1);
+  }
 
   // Monthly skill trend — best-effort: silently empty (not an error) if the
   // RPC isn't deployed yet, or if there's under 2 months of history so far.
@@ -5498,6 +5652,38 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
           {T("สถิติการซ้อมและจุดที่ควรฝึกเพิ่ม อัปเดตอัตโนมัติหลังทุกเซสชัน",
             "Your practice stats and weak spots — updated automatically after every session.",
             "练习统计与待提升项目——每次练习后自动更新。")}
+        </div>
+
+        {/* Weekly Report Card — a letter grade over the same rolling 7-day
+            window the stats tiles below already use, claimable for real EXP/
+            coins on a 7-day cooldown. Daily Mentor previously had no reward
+            of its own tied to a "week" as a unit at all. */}
+        <div style={{ marginBottom: 16, padding: 16, borderRadius: 14, border: "1px solid #d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+          <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 10 }}>
+            📋 {T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单")}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 44, fontWeight: 900, color: "#d97757", lineHeight: 1 }}>{rcGrade}</div>
+            <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.7 }}>
+              <div>{T(`ซ้อม ${stats.days7}/7 วัน`, `${stats.days7}/7 days practiced`, `练习了 ${stats.days7}/7 天`)}</div>
+              <div>{stats.acc7 == null ? T("ยังไม่มีข้อมูลความแม่นยำ", "No accuracy data yet", "暂无准确率数据") : T(`แม่นยำ ${stats.acc7}%`, `${stats.acc7}% accuracy`, `准确率 ${stats.acc7}%`)}</div>
+              {rcBest && <div style={{ color: "#ffd23f", fontWeight: 700 }}>🏆 {T("สถิติดีที่สุด", "Personal best", "历史最佳")}: {rcBest}</div>}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {rcReady ? (
+              <button className="songbtn go" style={{ flex: 1 }} onClick={claimRc}>
+                🎁 {T(`รับการ์ด (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `Claim card (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `领取成绩单 (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`)}
+              </button>
+            ) : (
+              <div style={{ flex: 1, fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+                {T(`การ์ดถัดไปพร้อมใน ${daysUntilNextReportCard()} วัน`, `Next card ready in ${daysUntilNextReportCard()} day${daysUntilNextReportCard() === 1 ? "" : "s"}`, `${daysUntilNextReportCard()} 天后可领取下一张`)}
+              </div>
+            )}
+            <button className="songbtn ghost" onClick={() => shareCard({ title: T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单"), big: rcGrade, sub: `${stats.days7}/7 · ${stats.acc7 == null ? "—" : stats.acc7 + "%"}`, lines: ["TiGA Piano AI"] })}>
+              📤 {T("แชร์", "Share", "分享")}
+            </button>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
@@ -7751,8 +7937,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [earGymInitialTab, setEarGymInitialTab] = useState("int"); // which Ear Gym tab to land on — set before navigating there for skill remediation
 
   const [setAdvancedOpen, setSetAdvancedOpen] = useState(false); // progressive disclosure for Metronome BPM/tap-tempo
-  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightMode, sightSprintLeft, sightSprintSecs, sightBelts, sightBestStreakMap, sightBestSprintMap, sightTotalRead, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp });
-  const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera } = useCameraCoach({ lang, premium, setPricingOpen });
+  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightMode, sightSprintLeft, sightSprintSecs, sightBelts, sightBestStreakMap, sightBestSprintMap, sightTotalRead, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly });
+  const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera } = useCameraCoach({ lang, premium, setPricingOpen, onReward: (xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); } });
 
 
   // ── routing + secret admin unlock ──
@@ -7961,7 +8147,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [uid]);
 
 
-  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang });
+  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang, bumpWeekly });
 
 
   const { vmOpen, setVmOpen, vmState, vmCaption, setVmCaption, vmMsgs, setVmMsgs, vmNotes, setVmNotes, vmErr, setVmErr, vmActiveRef, vmStateRef, vmRecRef, vmMsgsRef, vmNotesRef, vmFrozenRef, vmPlayReactT, vmSilenceT, vmRestartT, vmWatchdogT, vmListenSeqRef, vmEndRef, vmLastActivityRef, vmIdleNudgedRef, vmIdleTimerRef, vmSelfSpeakingRef, vmEarResetRef, vmEarFlushRef, vmDeafCountRef, vmTallyOkRef, vmTallyMissRef, vmFast, setVmFast, vmFastRef, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmPoly, setVmPoly, vmPolyRef, vmLangOpen, setVmLangOpen, vmMenuOpen, setVmMenuOpen, langRef, vmLastDemoRef, vmStreakRef, vmMissRef, vmFillersRef, vmFillerSrcRef, vmCloudDeadRef, vmLit, setVmLit, vmLitT, vmStaff, setVmStaff, vmInstant, setVmInstant, vmInstantT, vmExpectRef, vmSeqRef, vmEarRef, vmInterruptRef, vmTurnRef, vmSpokenRef, vmSpokeAtRef, vmSessionStartRef, vmActStartRef, vmFillerLastRef, vmInput, setVmInput, openVoice, exitVoice, vmOrbTap, vmOnNote, vmTogglePoly, vmProcess, vmToggle } = useVoiceTutor({ lang, session, profile, homework, setHomework, setPage, setStudioView, setMetroOn, setMetroBpm, metroTimingReport, openCamera, chooseSong, startPractice, lastSeq });
@@ -8568,6 +8754,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // own UI first, then invoke this.
   function askAboutStruggle(item) {
     setPage("sensei");
+    // Memory Streak — asking about a tracked struggle is a genuine review of
+    // it, wherever the tap came from (the SRS modal, Profile's Auto Teaching
+    // recap, StudioPage's own tag list) — all read from the same
+    // readMemory().struggles signal getDueReviews() itself filters.
+    const { tierUp, bumped } = bumpMemoryStreak();
+    if (bumped) {
+      earnCoins(5 + (tierUp ? 10 : 0));
+      gainExp(10 + (tierUp ? 25 : 0), { quest: true });
+      playUi(tierUp ? "levelup" : "reward");
+    }
     const acc = item && item.acc != null ? item.acc : null;
     const q = lang === "th"
       ? `ช่วยแนะนำแนวทางฝึกเรื่อง "${item.label}" หน่อยครับ ฉันพลาดเรื่องนี้บ่อย${acc != null ? ` (แม่นยำล่าสุด ${acc}%)` : ""} ควรฝึกหรือทำความเข้าใจอะไรเพิ่มถึงจะดีขึ้น`
@@ -8711,10 +8907,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "eargym" && (
-        <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
+        <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c, perfect) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); if (perfect) bumpWeekly("perfect", perfect); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "reading" && (
-        <ReadingPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }}
+        <ReadingPage lang={lang} onReward={(xp, c, perfect) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); if (perfect) bumpWeekly("perfect", perfect); }} onBack={() => { setPage("studio"); setStudioView("menu"); }}
           onPlaySong={(song) => { chooseSong(song); setPage("studio"); setStudioView("songs"); }} />
       )}
       {page === "insights" && (
@@ -8777,10 +8973,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} />}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
-      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} />}
+      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
       {page === "gamepage" && <GamesPage lang={lang} />}
@@ -8868,7 +9064,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
 
       {/* HAND-POSTURE COACH overlay (camera) */}
-      {camOpen && <CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} closeCameraAfterRecap={closeCameraAfterRecap} />}
+      {camOpen && <CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} camStreakInfo={camStreakInfo} closeCameraAfterRecap={closeCameraAfterRecap} />}
 
       {/* AI VOICE TUTOR overlay */}
       {vmOpen && <VoiceTutorOverlay lang={lang} setLang={setLang} vmLangOpen={vmLangOpen} setVmLangOpen={setVmLangOpen} exitVoice={exitVoice} onBack={() => { exitVoice(); setPage("studio"); }} vmState={vmState} vmErr={vmErr} vmOrbTap={vmOrbTap} vmInstant={vmInstant} vmCaption={vmCaption} vmStaff={vmStaff} vmNotes={vmNotes} vmMsgs={vmMsgs} vmEndRef={vmEndRef} vmLit={vmLit} vmOnNote={vmOnNote} vmMenuOpen={vmMenuOpen} setVmMenuOpen={setVmMenuOpen} vmSpeed={vmSpeed} setVmSpeed={setVmSpeed} vmSpeedRef={vmSpeedRef} vmVoice={vmVoice} setVmVoice={setVmVoice} vmFast={vmFast} setVmFast={setVmFast} vmFastRef={vmFastRef} vmCloudDeadRef={vmCloudDeadRef} vmPoly={vmPoly} vmTogglePoly={vmTogglePoly} vmInput={vmInput} setVmInput={setVmInput} vmEarResetRef={vmEarResetRef} vmActiveRef={vmActiveRef} vmProcess={vmProcess} vmToggle={vmToggle} />}

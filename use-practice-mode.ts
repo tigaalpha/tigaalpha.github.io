@@ -3,7 +3,7 @@ import {
   fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP,
   getAC, playPianoNote, playUi, stopPracticeListeners, startMidiListener, startMicListener,
 } from "./music-engine";
-import { logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY } from "./App";
+import { logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
 import { logActivity } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
@@ -63,10 +63,10 @@ function scoreRhythm(times) {
 // block vs. broken grade completely differently — see switchPracticeChordStyle).
 // Accuracy and streak track independently: a learner might set one record
 // without the other in the same run.
-function readPracticeBests() { try { return JSON.parse(localStorage.getItem("tg_practice_best") || "{}") || {}; } catch (e) { return {}; } }
+export function readPracticeBests() { try { return JSON.parse(localStorage.getItem("tg_practice_best") || "{}") || {}; } catch (e) { return {}; } }
 function writePracticeBest(key, rec) { try { const m = readPracticeBests(); m[key] = rec; localStorage.setItem("tg_practice_best", JSON.stringify(m)); } catch (e) {} }
 
-export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang }) {
+export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang, bumpWeekly }) {
   // ── practice mode (listen to the learner play) ──
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceTarget, setPracticeTarget] = useState([]); // note names to play, in order
@@ -252,7 +252,13 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   }
   practiceHandlerRef.current = handlePlayedNote; // keep fresh closure for the listeners
 
-  async function startPractice() {
+  // chordStyleOverride: replayDrill() below needs to grade against the style
+  // a saved drill actually was (block vs. broken), which setChordStyle()
+  // alone can't guarantee in time — that's a state update, and this function
+  // would otherwise read the OLD chordStyle from its own closure before the
+  // update lands. Every other caller omits it and gets today's normal
+  // behavior (read the current chordStyle state).
+  async function startPractice(chordStyleOverride) {
     const seq = lastSeq.current;
     if (!seq || !seq.notes || !seq.notes.length) return;
     clearSeq(); // actually silence any still-ringing demo chord before the mic starts listening (clearSeq now really stops the audio, not just the UI state)
@@ -305,7 +311,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       // Block-style chord/interval practice needs the polyphonic mic path so
       // several notes struck together on a real piano can each be heard —
       // the default monophonic detector only ever names the loudest one.
-      const usePoly = (seq.mode || "seq") === "chord" && chordStyle === "block";
+      const usePoly = (seq.mode || "seq") === "chord" && (chordStyleOverride || chordStyle) === "block";
       await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }), usePoly ? { poly: true } : undefined);
     }
   }
@@ -349,6 +355,22 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     }
   }
 
+  // Drill Deck — replay a past drill straight from its saved best-record,
+  // bypassing playSequence()/lastSeq's usual "demo just played on the piano"
+  // path entirely. use-voice-tutor.ts's own voice-launched practice flow
+  // already sets lastSeq.current directly the same way (see its header), so
+  // this is a proven pattern, not a new one. If this drill graded a Pathway
+  // stage or Boss Challenge originally, replaying it still can (chasing a
+  // better tier/clearing a boss later), since stageId/bossGroup ride along
+  // with the rest of the saved record — same as any fresh attempt.
+  function replayDrill(entry) {
+    if (!entry || !entry.notes || !entry.notes.length) return;
+    const style = entry.mode === "chord" && entry.chordStyle ? entry.chordStyle : chordStyle;
+    if (style !== chordStyle) setChordStyle(style); // keep the persistent toggle in sync for next render; startPractice(style) below doesn't wait on it
+    lastSeq.current = { notes: entry.notes, mode: entry.mode, key: entry.key, label: entry.label, stageId: entry.stageId, bossGroup: entry.bossGroup, fingers: null };
+    startPractice(style);
+  }
+
   function exitPractice() {
     practiceActiveRef.current = false;
     stopPracticeListeners();
@@ -365,6 +387,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const accuracy = hits + miss > 0 ? Math.round((hits / (hits + miss)) * 100) : 100;
     const label = practiceLabelRef.current;
     const bestStreak = practiceBestStreakRef.current;
+    // Memory Streak — was this stage actually due for SRS review right now?
+    // Captured before markPathAccuracy() below reschedules it (which would
+    // otherwise make it read as "not due" by the time this check ran).
+    const wasDueStage = !!practiceStageIdRef.current && getDueReviews().stages.some(s => s.id === practiceStageIdRef.current);
     practiceActiveRef.current = false;
     stopPracticeListeners();
     clearTimeout(practiceHeardTimer.current);
@@ -379,21 +405,43 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const rhythm = scoreRhythm(practiceTimesRef.current);
     if (rhythm) logActivity("drill", label || "drill", rhythm.ok, rhythm.miss, 0, "rhythm");
     recordMemory(label, accuracy);
-    earnCoins(5 + Math.round(accuracy / 20));
-    gainExp(20 + Math.round(accuracy / 5), { quest: true }); // 20–40 EXP scaled by accuracy
 
     // Personal best, per drill (+chord-style when relevant — block vs. broken
     // grade completely differently, see switchPracticeChordStyle). Accuracy and
     // streak track independently since a run might set one record without the
-    // other.
+    // other. Computed BEFORE granting the reward below, so a genuine new best
+    // can pay a small bonus on top — every other feature's per-drill best this
+    // gamification pass added (belts, speed ranks, the ladder, Posture Streak)
+    // rewards genuine improvement specifically; Practice Mode never did.
     const bestKey = practiceModeRef.current === "chord" ? `${label}|${chordStyle}` : label;
     const bests = readPracticeBests();
     const prevBest = bests[bestKey] || null;
     const isNewBest = !prevBest || accuracy > prevBest.accuracy || bestStreak > prevBest.bestStreak;
+    earnCoins(5 + Math.round(accuracy / 20) + (isNewBest ? 5 : 0));
+    gainExp(20 + Math.round(accuracy / 5) + (isNewBest ? 10 : 0), { quest: true }); // 20–40 EXP scaled by accuracy, +10 on a genuine new best
+    // Weekly challenges — "games"/"perfect" used to only ever bump from Play
+    // Along's finishSong(), so Practice Mode could never complete 6 of the
+    // week's 9 rotating challenge types. hits = notes actually played correctly.
+    if (bumpWeekly) { bumpWeekly("games", 1); if (hits) bumpWeekly("perfect", hits); }
     writePracticeBest(bestKey, {
       accuracy: Math.max(accuracy, prevBest ? prevBest.accuracy : 0),
       bestStreak: Math.max(bestStreak, prevBest ? prevBest.bestStreak : 0),
       at: Date.now(),
+      // Drill Deck — replay data, always refreshed to the drill just played
+      // regardless of whether accuracy/streak improved (unlike the two
+      // fields above, this isn't a "max", just "what this drill currently
+      // is"). practiceAscRef, not practiceTargetRef: the ASCENDING-only
+      // notes, before startPractice()'s own up+down scale expansion —
+      // replayDrill() below feeds this back into startPractice() the same
+      // way a fresh lastSeq from playSequence() would, so it must match
+      // that pre-expansion shape or a scale would double-expand.
+      notes: practiceAscRef.current.slice(),
+      mode: practiceModeRef.current,
+      key: practiceKeyRef.current,
+      label,
+      stageId: practiceStageIdRef.current,
+      bossGroup: practiceBossGroupRef.current,
+      chordStyle: practiceModeRef.current === "chord" ? chordStyle : null,
     });
 
     // Pathway completion — requires actually passing THIS stage's own drill,
@@ -426,7 +474,27 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       }
     }
 
-    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, aiText: null, aiLoading: !isGuest });
+    // Memory Streak — credit for reviewing a stage that was actually due,
+    // pass or fail (see wasDueStage above): showing up for the review is the
+    // habit being rewarded, same "showing up counts" treatment as every
+    // other per-feature streak this pass added.
+    let memoryStreak = null;
+    if (wasDueStage) {
+      const r = bumpMemoryStreak();
+      if (r.bumped) {
+        earnCoins(5 + (r.tierUp ? 10 : 0));
+        gainExp(10 + (r.tierUp ? 25 : 0), { quest: true });
+        memoryStreak = r;
+      }
+    }
+
+    // One sound cue for the whole result, not one per celebration — several
+    // of the above can land on the same drill (a due review that also sets
+    // a new best, say), and firing playUi() once per event would layer them
+    // into a muddle instead of one clean cue. Loudest event wins.
+    playUi(bossDefeated || (memoryStreak && memoryStreak.tierUp) || pathUnlocked ? "levelup" : isNewBest || memoryStreak ? "reward" : "click");
+
+    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest });
 
     // Bonus AI flourish on top of an already-complete local result — fetched
     // standalone (not through the shared chat thread/callClaude) so it can
@@ -444,5 +512,5 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         .catch(() => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiLoading: false } : prev)));
     }
   }
-  return { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice };
+  return { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill };
 }
