@@ -9,9 +9,9 @@ import {
 import { tr } from "./i18n";
 import { SONGS, SONG_TIMESIG } from "./songs-data";
 import { logActivity, recordNoteMisses } from "./shared-infra";
-import { recordMemory } from "./ai-chat-context";
+import { recordMemory, readMemory } from "./ai-chat-context";
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
-import { logPractice, scoreDynamics, logGame } from "./App";
+import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 /* ── use-play-along.ts ──
    Owns play-along: the falling-notes song-game itself (chooseSong through
    finishSong, the rAF game loop, mic/MIDI input grading), plus everything
@@ -55,7 +55,7 @@ import { logPractice, scoreDynamics, logGame } from "./App";
    evergreen recommendation engine, ProfilePage's game-stats bars all read
    them directly) - same convention as API_MODEL/logPractice/
    scoreDynamics. ── */
-export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer }) {
+export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell }) {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const raw = p.get("challenge");
@@ -114,6 +114,16 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songSamplesRef = useRef([]);
   const songGhostDataRef = useRef(null);
   const [songBonus, setSongBonus] = useState(null);   // surprise reward popup {id, text}
+  const [songLoopRecap, setSongLoopRecap] = useState(null); // brief run-summary toast shown between auto-loop restarts, since the full result screen is skipped there — {acc,score,maxCombo,stars,exp}
+  // Setlist / Concert mode — chain N songs into one continuous run. The queue
+  // itself lives in a ref (read every frame's worth of bookkeeping in
+  // finishSong, no need to trigger a re-render just to advance it);
+  // songSetlistPos is the one piece the UI actually needs reactively, for a
+  // small "Song 2/4" badge during play.
+  const songSetlistRef = useRef(null);
+  const songSetlistIdxRef = useRef(0);
+  const songSetlistLogRef = useRef([]);
+  const [songSetlistPos, setSongSetlistPos] = useState(null);
   const songBonusT = useRef(null);
   const [songFever, setSongFever] = useState(false);
   const songFeverRef = useRef(false);
@@ -174,6 +184,18 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongOpen(true);
     getAC(); // unlock audio within the tap gesture
   }
+  // Setlist / Concert mode — queue up 2-5 songs and land on the first one's
+  // normal "ready" screen (the learner still taps Start themselves, same as
+  // any other song); finishSong() takes over chaining into the rest once
+  // playing actually begins.
+  function startSetlist(songs) {
+    if (!songs || songs.length < 2) return;
+    songSetlistRef.current = songs;
+    songSetlistIdxRef.current = 0;
+    songSetlistLogRef.current = [];
+    setSongSetlistPos({ idx: 0, total: songs.length });
+    chooseSong(songs[0]);
+  }
   function previewSong() {
     const data = songDataRef.current;
     if (!data) return;
@@ -187,7 +209,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   }
   const songKey = () => "tg_best_" + (songMeta ? (songMeta.id || songMeta.en || tr(songMeta, "en") || "x") : "x");
   function loadBest() { try { return +(localStorage.getItem(songKey()) || 0); } catch (e) { return 0; } }
-  async function startSongPlay() {
+  // continueSetlist=true skips the score/combo/max-combo reset — called by
+  // finishSong() when chaining into the next song of a concert, so a combo
+  // built across the boundary survives instead of snapping back to 0.
+  async function startSongPlay(continueSetlist = false) {
     const data = songDataRef.current;
     if (!data) return;
     setSongBest(loadBest());
@@ -200,7 +225,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     songLanesRef.current = data.lanes;
     songTotalRef.current = data.total;
     songLastTimeRef.current = data.lastT;
-    songScoreRef.current = 0; songComboRef.current = 0; songMaxComboRef.current = 0;
+    if (!continueSetlist) { songScoreRef.current = 0; songComboRef.current = 0; songMaxComboRef.current = 0; }
     songHitsRef.current = 0; songMissRef.current = 0; songPerfectsRef.current = 0;
     songTimingRef.current = { ok: 0, miss: 0 }; songVelsRef.current = [];
     songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
@@ -209,7 +234,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (!songStarsRef.current.length) songStarsRef.current = Array.from({ length: 50 }, () => ({ fx: Math.random(), fy: Math.random(), r: 0.4 + Math.random() * 1.3, tw: Math.random() * Math.PI * 2 }));
     songDebounceRef.current = {}; songEchoRef.current = {};
     songTempoRef.current = songTempo || 1;
-    setSongHud({ score: 0, combo: 0, acc: 100, progress: 0 });
+    setSongHud({ score: continueSetlist ? songScoreRef.current : 0, combo: continueSetlist ? songComboRef.current : 0, acc: 100, progress: 0 });
     setSongResult(null);
     setSongAnalysis(null);
     setSongCountdown(null);
@@ -498,6 +523,46 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         ctx.fillRect(cx, hitY - 42, cw, 50);
       }
     }
+    // Ghost-race trail — the ▲/▼ HUD number (songGhost) only ever tells you the
+    // gap right now; this draws the whole race as it develops, both curves
+    // plotted across a thin strip along the very top of the canvas so you can
+    // actually watch yourself pull ahead or fall behind over the run instead
+    // of just reading one number. Drawn last (on top of the meteors) so a
+    // falling note passing behind it never hides it.
+    const ghostData = songGhostDataRef.current;
+    if (ghostData && ghostData.length > 1) {
+      const dur = Math.max(1, songLastTimeRef.current);
+      const maxS = Math.max(ghostData[ghostData.length - 1].s, songScoreRef.current, 100);
+      const stripY = 5, stripH = 16;
+      const xOf = (t) => Math.min(W, Math.max(0, (t / dur) * W));
+      const yOf = (s) => stripY + stripH - Math.min(stripH, (s / maxS) * stripH);
+      ctx.save();
+      ctx.lineJoin = "round"; ctx.lineCap = "round";
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = "#c4b5fd"; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let i = 0; i < ghostData.length; i++) {
+        const p = ghostData[i]; if (p.t > songTime + 0.5) break;
+        const x = xOf(p.t), y = yOf(p.s);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      let ghostScoreNow = 0;
+      for (let i = 0; i < ghostData.length; i++) { if (ghostData[i].t <= songTime) ghostScoreNow = ghostData[i].s; else break; }
+      const samples = songSamplesRef.current;
+      if (samples.length > 1) {
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = songScoreRef.current >= ghostScoreNow ? "#4ade80" : "#ff5252";
+        ctx.lineWidth = 2.2;
+        ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 4;
+        ctx.beginPath();
+        for (let i = 0; i < samples.length; i++) {
+          const p = samples[i]; const x = xOf(p.t), y = yOf(p.s);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     if (songTime < SONG_LEAD) {
       const c = Math.ceil(SONG_LEAD - songTime);
       if (c !== songCountdownRef.current) { songCountdownRef.current = c; setSongCountdown(c); }
@@ -543,19 +608,32 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       // touch consistency when a velocity is available.
       if (perfect) songTimingRef.current.ok++; else songTimingRef.current.miss++;
       if (d.vel != null) songVelsRef.current.push(d.vel);
-      // FEVER MODE — at a big combo the screen goes wild and score doubles
+      // FEVER MODE — at a big combo the screen goes wild and score doubles.
+      // A sustained fever gets one further escalation moment at combo 60 (past
+      // where the old comboWord/score-mult tiers used to flatline) — a second
+      // "the game still notices you" beat without also inflating the numeric
+      // multiplier, which stays a clean, easy-to-read flat 2x.
       if (!songFeverRef.current && combo >= 15) { songFeverRef.current = true; setSongFever(true); playUi("levelup"); triggerShake(); announce("🔥 FEVER!"); }
+      else if (songFeverRef.current && combo === 60) { triggerShake(); spawnBurst("combo"); spawnBurst("combo"); playUi("levelup"); announce("🔥🔥 MEGA FEVER!"); }
       const feverMult = songFeverRef.current ? 2 : 1;
-      const gained = Math.round((perfect ? 150 : 100) * (1 + Math.min(combo, 10) * 0.1) * feverMult);
+      // Score multiplier — used to hard-cap at 2x forever past combo 10
+      // (Math.min(combo,10)). Keeps that same fast 1x→2x ramp over the first
+      // 10 notes (unchanged early-game feel), then keeps growing slowly all
+      // the way to 300 instead of flatlining, so a long run/Setlist chain
+      // keeps paying off instead of going numb.
+      const comboMult = combo <= 10 ? 1 + combo * 0.1 : 2 + Math.min(combo - 10, 290) * 0.01;
+      const gained = Math.round((perfect ? 150 : 100) * comboMult * feverMult);
       songScoreRef.current += gained;
       pushPop("+" + gained, perfect);     // flying score number
       playComboTone(combo);               // rising musical ladder
       if (perfect) spawnBurst("perfect");
       // combo-tier shout-outs
       if (combo % 10 === 0) { triggerShake(); spawnBurst("combo"); announce(comboWord(combo)); }
-      // milestone bonus XP at 25/50/100 combo
-      if (combo === 25 || combo === 50 || combo === 100) {
-        const bonusXp = combo === 100 ? 200 : combo === 50 ? 100 : 50;
+      // milestone bonus XP — 25/50/100 as before, then every 50 combo beyond
+      // that (150, 200, 250...) instead of stopping dead at 100, ramping up to
+      // a 500 EXP cap so a marathon run always has a next target ahead.
+      if (combo === 25 || combo === 50 || (combo >= 100 && combo % 50 === 0)) {
+        const bonusXp = combo <= 100 ? (combo === 25 ? 50 : combo === 50 ? 100 : 200) : Math.round(Math.min(500, 200 + (combo - 100) * 1.5));
         gainExp(bonusXp, {});
         spawnBurst("combo"); spawnBurst("combo"); spawnBurst("combo");
         setSongBonus({ id: Date.now(), text: `🎯 x${combo} +${bonusXp} EXP!` });
@@ -580,7 +658,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (lane >= 0) songLaneFlashRef.current[lane] = { ok: false, until: now + 150 };
     }
   }
-  function comboWord(c) { return c >= 50 ? "UNSTOPPABLE!" : c >= 40 ? "INCREDIBLE!" : c >= 30 ? "AMAZING!" : c >= 20 ? "GREAT!" : "NICE!"; }
+  // Used to hard-cap at "UNSTOPPABLE!" forever past combo 50 — the shout-out
+  // stopped growing long before a skilled player's combo actually did.
+  function comboWord(c) {
+    return c >= 300 ? "GODLIKE!" : c >= 200 ? "LEGENDARY!" : c >= 150 ? "PHENOMENAL!" : c >= 100 ? "UNREAL!"
+      : c >= 50 ? "UNSTOPPABLE!" : c >= 40 ? "INCREDIBLE!" : c >= 30 ? "AMAZING!" : c >= 20 ? "GREAT!" : "NICE!";
+  }
   function announce(text) {
     setSongAnnounce({ id: Date.now(), text });
     clearTimeout(songAnnounceT.current);
@@ -645,7 +728,17 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongStaffNotes([]);
     const missedNotes = songNotesRef.current.filter(n => n.missed).map(n => n.note);
     if (missedNotes.length) recordNoteMisses(missedNotes);
-    setSongResult({ acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes });
+    // Setlist mode: this song's own log entry, always recorded even though the
+    // combined concert score (songScoreRef.current, not reset between songs —
+    // see startSongPlay's continueSetlist param) is what actually gets shown.
+    if (songSetlistRef.current) songSetlistLogRef.current.push({ song: songMeta, acc, stars });
+    const setlistDone = songSetlistRef.current && songSetlistIdxRef.current >= songSetlistRef.current.length - 1;
+    setSongResult({
+      acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes,
+      // only present once every song in a setlist has finished — the concert's
+      // combined numbers, for a dedicated recap treatment on the result screen
+      setlist: setlistDone ? songSetlistLogRef.current.slice() : null,
+    });
     gainExp(reward, { quest: true });
     // Gamification: variable reward — mystery chest (20% chance on acc >= 70%)
     if (acc >= 70 && Math.random() < 0.20) {
@@ -675,11 +768,30 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     });
     // D1: stop backing chords when song finishes
     clearTimeout(backingTimerRef.current); backingTimerRef.current = null;
-    // auto-loop: if enabled, restart after a brief pause instead of showing result screen
-    if (songAutoLoopRef.current) {
+    if (songSetlistRef.current && !setlistDone) {
+      // Setlist mode: chain straight into the next song instead of ending.
+      // Score/combo are refs and deliberately NOT reset here (see
+      // startSongPlay's continueSetlist param) — a concert-length combo only
+      // means something if surviving the boundary between songs actually
+      // matters, same reasoning as a real medley.
+      songSetlistIdxRef.current++;
+      const nextSong = songSetlistRef.current[songSetlistIdxRef.current];
+      setSongSetlistPos({ idx: songSetlistIdxRef.current, total: songSetlistRef.current.length });
+      songDataRef.current = expandSong(nextSong);
+      setSongMeta(nextSong);
+      setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward, nextSong: tr(nextSong, lang) });
       clearTimeout(songLoopRetryT.current);
-      songLoopRetryT.current = setTimeout(() => { startSongPlay(); }, 1800);
+      songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); startSongPlay(true); }, 1800);
+    } else if (songAutoLoopRef.current) {
+      // auto-loop: if enabled, restart after a brief pause instead of showing result
+      // screen — songResult above is fully populated either way, but the result
+      // screen itself never mounts here, so without this the run's own outcome
+      // (score, stars, combo, EXP) went completely unseen between restarts.
+      setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward });
+      clearTimeout(songLoopRetryT.current);
+      songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); startSongPlay(); }, 1800);
     } else {
+      if (setlistDone) { songSetlistRef.current = null; setSongSetlistPos(null); }
       setSongPhase("done");
     }
   }
@@ -707,6 +819,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   async function styleTransform(style: string) {
     if (!songMeta || styleLoading) return;
     if (requireLogin("ai")) return;
+    // Same daily cap as its sibling AI-song generators (Compose, the plain
+    // song generator) — this calls the same real, real-money AI backend and
+    // had no limit at all before, unlike either of them.
+    if (!canUse("styleTransform", premium)) { setStylePickOpen(false); onUpsell && onUpsell(); return; }
     setStyleLoading(true); setStylePickOpen(false);
     try {
       const styleDesc: Record<string, string> = {
@@ -716,10 +832,16 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       };
       const songName = tr(songMeta, lang);
       const seqStr = JSON.stringify((songMeta.seq || []).slice(0, 20));
-      // Same weakness-targeting as Compose (App.tsx composeGenerate) — if this song's
-      // own post-play analysis flagged a weak spot, ask the rearrangement to work it in.
+      // Same weakness-targeting as Compose (App.tsx composeGenerate) — prefer this
+      // song's own post-play analysis when it exists (most specific to what just
+      // happened), but fall back to the app-wide struggle signal (tg_memory, shared
+      // with the SRS review modal/Auto Teaching) so a first-ever play of this song —
+      // which has no analysis yet — still gets a targeted remix instead of a blind one.
+      const memStruggle = (readMemory().struggles || [])[0];
       const weaknessNote = songAnalysis && songAnalysis.weakness
         ? ` Also, gently work in a little extra practice for this weak spot from the last run without making it feel like a drill: ${songAnalysis.weakness}.`
+        : memStruggle
+        ? ` Also, gently work in a little extra practice for this weak spot the learner has struggled with recently, without making it feel like a drill: ${memStruggle.label}.`
         : "";
       const prompt = `Rearrange the piano melody "${songName}" in a ${styleDesc[style] || style} style for a beginner falling-notes game. The original melody starts: ${seqStr}. Keep it recognizable but add ${style} character. 20-32 notes.${weaknessNote}`;
       const sys = "Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes: C4-B5 only; R=rest; beats: 0.5,1,1.5,2.";
@@ -736,6 +858,17 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       // though the melody is "the same," so the old song's diff can't be trusted here.
       const diff = estimateSongDifficulty(songTechniqueProfile({ seq }));
       const newSong = { id: "style_" + Date.now(), diff, bpm, custom: true, th: name, en: name, zh: name, seq };
+      // Persist like every other AI-generated song (App.tsx's generateSong) — a remix
+      // used to vanish the moment you left the play screen, unlike anything else the
+      // AI ever makes for you. Read-modify-write raw storage (not React state: this
+      // hook has no live mySongs of its own, and SongListPage re-reads storage fresh
+      // on its next mount anyway, same convention as every other tg_* store this app
+      // uses).
+      try {
+        const existing = JSON.parse(localStorage.getItem("tg_mysongs") || "[]");
+        localStorage.setItem("tg_mysongs", JSON.stringify([newSong, ...existing].slice(0, 20)));
+      } catch (e) {}
+      if (!premium) bumpUsage("styleTransform");
       songDataRef.current = expandSong(newSong);
       setSongResult(null); setSongAnalysis(null); setSongPhase("ready");
       setSongMeta(newSong);
@@ -752,5 +885,5 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   songLoopRef.current = songLoop;
   songInputRef.current = handleSongInput;
   songFinishRef.current = finishSong;
-  return { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform };
+  return { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform };
 }

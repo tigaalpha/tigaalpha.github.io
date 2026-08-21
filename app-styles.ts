@@ -820,6 +820,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .ghoststat{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700}
 .ghoststat.ahead{color:#d97757}
 .ghoststat.behind{color:#ff5252}
+/* Setlist / Concert mode — purple identity, same family as Boss Challenge and
+   the Knowledge Quest starters: TiGA's "optional, go-further" mode color. */
+.setlistpos{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#c4b5fd}
+.setlistpos.ready{font-size:13px;background:rgba(167,139,250,.14);border:1px solid #a78bfa44;border-radius:20px;padding:5px 14px;margin-bottom:8px}
 @keyframes popcount{from{transform:scale(1.6);opacity:0}30%{opacity:1}to{transform:scale(1);opacity:.9}}
 /* page transitions */
 .pw,.pathpage,.profpage{animation:pagein .28s ease-out}
@@ -939,6 +943,12 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .chestwheel-ptr{position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:20px;color:#ffd23f;filter:drop-shadow(0 0 6px #ffd23f);z-index:2}
 .chestwheel-hub{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:var(--card);border:2px solid #d97757;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 14px -2px #000;z-index:1}
 .songbonus{position:absolute;left:0;right:0;top:28%;text-align:center;font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:#d97757;text-shadow:0 0 18px #d97757;pointer-events:none;animation:judgepop .9s ease-out forwards;z-index:6}
+/* Between-run recap toast (auto-loop / setlist chaining) — sits centered over
+   the paused canvas for the ~1.8s gap before the next song starts. */
+.looprecap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(5,4,20,.72);z-index:7;animation:fadein .25s}
+.looprecap-stars{font-size:30px;color:#d97757;letter-spacing:4px;text-shadow:0 0 18px #d9775766}
+.looprecap-row{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:#fff}
+.looprecap-next{font-family:'Share Tech Mono',monospace;font-size:12px;color:#c4b5fd;margin-top:4px}
 /* fever mode + flying score popups + combo shouts (dopamine) */
 .feverbg{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.5;background:linear-gradient(125deg,#ff5252,#ffd23f,#d97757,#6a9bcc,#788c5d,#ff5252);background-size:400% 400%;animation:feverflow 2.2s linear infinite;mix-blend-mode:screen}
 @keyframes feverflow{0%{background-position:0% 50%}100%{background-position:400% 50%}}
@@ -1097,6 +1107,9 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .songfilters::-webkit-scrollbar{display:none}
 .songfilter{flex:0 0 auto;padding:7px 14px;border-radius:20px;border:1px solid var(--bd2);background:var(--card);color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 .songfilter.on{background: #d97757;color:var(--card2);border-color:transparent}
+.setlistbtn{display:flex;flex-direction:column;align-items:center;gap:2px;width:calc(100% - 28px);margin:0 14px 10px;padding:10px;border-radius:14px;border:1.5px solid #a78bfa55;background:linear-gradient(135deg,rgba(167,139,250,.16),rgba(139,92,246,.05));cursor:pointer}
+.setlistbtn-tt{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:#c4b5fd}
+.setlistbtn-sub{font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--muted)}
 .genrefilters{display:flex;gap:6px;overflow-x:auto;padding:0 14px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .genrefilters::-webkit-scrollbar{display:none}
 .genrechip{flex:0 0 auto;padding:5px 13px;border-radius:18px;border:1.5px solid var(--bd2);background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
@@ -1129,6 +1142,13 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .songsrcbar{text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);padding:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom,0px));flex-shrink:0}
 .songresult{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;padding:24px;text-align:center}
 .songstars{font-size:46px;color:#d97757;letter-spacing:6px;text-shadow:0 0 24px #d9775766;animation:popcount .6s ease-out}
+/* Setlist finale banner — score/max-combo shown lower on this same result
+   screen are already the whole concert's totals; this just names them and
+   lists each song's own stars. */
+.concertrecap{width:100%;padding:14px;border-radius:16px;background:linear-gradient(135deg,rgba(167,139,250,.18),rgba(139,92,246,.06));border:1.5px solid #a78bfa55}
+.concertrecap-title{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:#c4b5fd;text-shadow:0 0 14px #a78bfa66}
+.concertrecap-songs{display:flex;flex-direction:column;gap:5px;margin-top:9px;font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--text2)}
+.concertrecap-song{display:flex;justify-content:space-between;gap:10px}
 .songresult-acc{font-family:'Orbitron',sans-serif;font-size:40px;font-weight:900;color:var(--text)}
 .songresult-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;width:100%;max-width:300px}
 .songresult-grid>div{background:var(--card);border:1px solid var(--bd1);border-radius:12px;padding:11px}

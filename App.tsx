@@ -2805,7 +2805,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
 
 /* ── Song picker page (falling-notes play-along) ── */
 const SONG_REQ = { 1: 1, 2: 2, 3: 4 };   // level required to unlock by difficulty
-const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "" }) {
+const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "", onStartSetlist }) {
   const lc = L[lang];
   const [filter, setFilter] = useState(-1);   // -1 all · 0 favorites · 1/2/3 by difficulty
   const [favs, setFavs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_favs") || "[]"); } catch (e) { return []; } });
@@ -2900,6 +2900,23 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "classical") === genreFilter);
   list.sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
 
+  // Setlist / Concert mode — 3 random UNLOCKED songs from whatever's currently
+  // visible (respects the star/genre/favorites filters already applied, same
+  // spirit as "surprise me from what I'm looking at" rather than a whole new
+  // multi-select picker screen).
+  function startSetlistFromList() {
+    const pool = list.filter(s => {
+      const req = SONG_REQ[s.diff] || 1;
+      const locked = !s.custom && level < req;
+      const maxLocked = !s.custom && s.maxOnly && !isMaxPlan(plan);
+      return !locked && !maxLocked;
+    });
+    if (pool.length < 2 || !onStartSetlist) return;
+    const copy = pool.slice(), picked = [];
+    while (picked.length < Math.min(3, copy.length)) picked.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
+    onStartSetlist(picked);
+  }
+
   const Card = (s, pfx = "") => {
     const hue = laneHue((s.seq.find(x => x[0] !== "R") || ["C4"])[0]);
     const isFav = favs.includes(s.id);
@@ -2985,6 +3002,12 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           <div className="songfilters">
             {filters.map(f => <button key={f.k} className={`songfilter${filter === f.k ? " on" : ""}`} onClick={() => setFilter(f.k)}>{f.label}</button>)}
           </div>
+          {list.length >= 2 && (
+            <button className="setlistbtn" onClick={() => { haptic(); startSetlistFromList(); }}>
+              <span className="setlistbtn-tt">{lc.setlistBtn}</span>
+              <span className="setlistbtn-sub">{lc.setlistSub}</span>
+            </button>
+          )}
           <div className="genrefilters">
             {([
               { code:"all",       label:{ th:"🎵 ทั้งหมด",     en:"🎵 All",       zh:"🎵 全部" } },
@@ -4101,14 +4124,14 @@ function buildSongResultRecommendation(lang, songMeta, songResult) {
 }
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
 function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
-const FREE_LIMITS = { song: 2, critique: 3, compose: 2 };   // free actions per day
+export const FREE_LIMITS = { song: 2, critique: 3, compose: 2, styleTransform: 2 };   // free actions per day
 function usageToday(key) { try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === dayKey() ? (u[key] || 0) : 0; } catch (e) { return 0; } }
-function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
+export function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
 // `premium` must be the caller's real, server-synced plan state — never isPremium(),
 // which reads raw localStorage. localStorage.setItem("tg_premium","1") is a one-line
 // browser-console edit that would otherwise remove these daily caps on two endpoints
 // that call a real, real-money AI backend (generateSong/critiqueRecording → piano-chat).
-function canUse(key, premium) { return premium || usageToday(key) < (FREE_LIMITS[key] || 0); }
+export function canUse(key, premium) { return premium || usageToday(key) < (FREE_LIMITS[key] || 0); }
 
 
 
@@ -7217,7 +7240,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => navigator.serviceWorker.removeEventListener("message", onNav);
   }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
-  const { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer });
+  const { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songSetlistPos, startSetlist } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
 
   // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
@@ -8273,7 +8296,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
       {page === "studio" && (
         studioView === "songs"
-          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
+          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => setStudioView("menu")} onStartSetlist={startSetlist} />
           : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis} onAskStruggle={askAboutStruggle}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
@@ -8391,7 +8414,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} />}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
-      {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} />}
+      {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} />}
 
       {/* SIGHT-READING overlay */}
       {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} />}
