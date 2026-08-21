@@ -1014,6 +1014,8 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .wlc-tip b{font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:600;color:var(--text2)}
 .eventbanner{position:fixed;top:0;left:0;right:0;z-index:850;display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px;padding-top:calc(6px + env(safe-area-inset-top,0px));background:linear-gradient(90deg,#d97757,#a855f7);font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:#fff;text-align:center;flex-wrap:wrap;box-shadow:0 2px 10px -2px #000}
 .eventbanner-mult{font-family:'Orbitron',sans-serif;font-size:10px;background:rgba(255,255,255,.2);border-radius:10px;padding:2px 8px}
+.eventbanner-spot{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:#fff;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.4);border-radius:10px;padding:2px 10px;cursor:pointer}
+.eventbanner-spot:hover{background:rgba(0,0,0,.3)}
 .mascot{position:fixed;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:900;cursor:pointer;animation:mascotidle 2.6s ease-in-out infinite;will-change:transform}
 .mascot-face{font-size:38px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))}
 .mascot.happy{animation:mascothop .5s ease-out}

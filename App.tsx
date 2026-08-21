@@ -7149,6 +7149,25 @@ function AdminBroadcast({ lang }) {
   );
 }
 
+/* Optional per-event "spotlight" — points the blanket EXP/coin multiplier at ONE
+   specific feature instead of leaving every event feeling identical ("2x
+   everywhere" doesn't tell anyone what to actually go do). Stored as an extra
+   field on the same event JSON blob (app_settings key "event" is a schemaless
+   jsonb value — see admin_set_app_setting), so this needs zero backend change.
+   Each feature's real page title lives inside that page's own component-local
+   T object (not exported), so this keeps its own small label set rather than
+   reaching into 8 different files for strings. */
+const SPOTLIGHT_FEATURES = [
+  { key: "pathway", icon: "⬡", label: { th: "เส้นทางเรียนรู้", en: "Pathway", zh: "学习路径" } },
+  { key: "coach", icon: "🎯", label: { th: "Daily Mentor", en: "Daily Mentor", zh: "每日导师" } },
+  { key: "playalong", icon: "🎵", label: { th: "เล่นตามเพลง", en: "Play Along", zh: "跟弹" } },
+  { key: "eargym", icon: "🎧", label: { th: "ยิมหู", en: "Ear Gym", zh: "耳朵健身房" } },
+  { key: "reading", icon: "🎼", label: { th: "อ่านโน้ต", en: "Note Reading", zh: "识谱课" } },
+  { key: "sight", icon: "👁️", label: { th: "สายตาไว", en: "Sight-Reading", zh: "视奏" } },
+  { key: "camera", icon: "📷", label: { th: "โค้ชท่ามือ", en: "Camera Coach", zh: "手型教练" } },
+  { key: "challenging", icon: "🏆", label: { th: "ท้าทาย", en: "Challenging", zh: "挑战" } },
+];
+
 /* ── Admin: seasonal/limited-time event — same app_settings + admin_set_app_setting
    mechanism as AdminBroadcast above (key "event" instead of "broadcast"), applying
    temporary EXP/coin multipliers instead of a popup message. See the activeEvent
@@ -7162,6 +7181,7 @@ function AdminEvent({ lang }) {
   const [expMult, setExpMult] = useState(2);
   const [coinMult, setCoinMult] = useState(2);
   const [days, setDays] = useState(2);
+  const [spotlight, setSpotlight] = useState("");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const load = useCallback(() => {
@@ -7178,6 +7198,7 @@ function AdminEvent({ lang }) {
       name_th: nameTh.trim() || nameEn.trim(), name_en: nameEn.trim() || nameTh.trim(), name_zh: nameZh.trim() || nameEn.trim() || nameTh.trim(),
       expMult: Number(expMult) || 1, coinMult: Number(coinMult) || 1,
       ends_at: new Date(Date.now() + (Number(days) || 1) * 86400000).toISOString(),
+      spotlightFeature: spotlight || null,
     };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "event", p_value: value });
     setBusy(false);
@@ -7200,7 +7221,9 @@ function AdminEvent({ lang }) {
         <div className="admmg" style={{ marginBottom: 12 }}>
           <div className="admmg-h">{T("กำลังจัดอีเว้นท์อยู่ตอนนี้", "Currently live", "当前正在进行")}</div>
           <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>
-            {tr({ th: cur.name_th, en: cur.name_en, zh: cur.name_zh }, lang)} · {cur.expMult}× EXP · {cur.coinMult}× 🪙 · {T("จนถึง", "until", "至")} {new Date(cur.ends_at).toLocaleString()}
+            {tr({ th: cur.name_th, en: cur.name_en, zh: cur.name_zh }, lang)} · {cur.expMult}× EXP · {cur.coinMult}× 🪙
+            {cur.spotlightFeature ? ` · 🔦 ${SPOTLIGHT_FEATURES.find(f => f.key === cur.spotlightFeature)?.label.en || cur.spotlightFeature}` : ""}
+            {" "}· {T("จนถึง", "until", "至")} {new Date(cur.ends_at).toLocaleString()}
           </div>
           <button className="songbtn ghost" style={{ width: "100%", color: "#ff5252" }} disabled={busy} onClick={stop}>{T("จบอีเว้นท์นี้ตอนนี้", "End this event now", "立即结束此活动")}</button>
         </div>
@@ -7224,6 +7247,13 @@ function AdminEvent({ lang }) {
             <input className="admstu-search" type="number" min="1" max="30" value={days} onChange={e => setDays(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
           </div>
         </div>
+        <div className="admstu-row-sub" style={{ marginBottom: 4 }}>
+          {T("ฟีเจอร์เด่นประจำอีเว้นท์ (ไม่บังคับ) — แบนเนอร์จะชวนเล่นฟีเจอร์นี้", "Spotlight feature (optional) — the banner points learners at it", "活动焦点功能（可选）— 横幅会引导学员去玩")}
+        </div>
+        <select className="admstu-search" value={spotlight} onChange={e => setSpotlight(e.target.value)} style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }}>
+          <option value="">{T("— ไม่มี (คูณโบนัสทุกฟีเจอร์เท่ากัน) —", "— None (bonus applies evenly everywhere) —", "— 无（各功能奖励相同）—")}</option>
+          {SPOTLIGHT_FEATURES.map(f => <option key={f.key} value={f.key}>{f.icon} {f.label.en}</option>)}
+        </select>
         <button className="songbtn go" style={{ width: "100%" }} disabled={busy || (!nameTh.trim() && !nameEn.trim())} onClick={start}>
           {busy ? "⏳" : "🎉"} {T("เริ่มเลย", "Start now", "立即开始")}
         </button>
@@ -8016,6 +8046,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function dismissBroadcast() {
     if (broadcast) markBroadcastSeen(broadcast.id);
     setBroadcast(null);
+  }
+  // Jump straight to an event's spotlighted feature — each SPOTLIGHT_FEATURES
+  // key maps to whatever that feature's real navigation actually is (a plain
+  // page for most, a dedicated opener for the two that are modals over
+  // Studio rather than their own page).
+  function goToSpotlight(key) {
+    playUi("click"); setNavOpen(false);
+    if (key === "playalong") { setPage("studio"); setStudioView("songs"); }
+    else if (key === "sight") { setPage("studio"); setStudioView("menu"); openSight(); }
+    else if (key === "camera") { setPage("studio"); setStudioView("menu"); openCamera(); }
+    else setPage(key);
   }
   // ── Seasonal / limited-time event: same app_settings + admin_set_app_setting
   // mechanism as broadcast above (key "event" instead of "broadcast"), polled the
@@ -9563,19 +9604,27 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* seasonal / limited-time event banner — see the activeEvent poll above */}
-      {activeEvent && (
-        <div className="eventbanner">
-          <span className="eventbanner-ic" aria-hidden="true">🎉</span>
-          <span className="eventbanner-tx">{tr({ th: activeEvent.name_th, en: activeEvent.name_en, zh: activeEvent.name_zh }, lang)}</span>
-          {(activeEvent.expMult > 1 || activeEvent.coinMult > 1) && (
-            <span className="eventbanner-mult">
-              {activeEvent.expMult > 1 ? `${activeEvent.expMult}× EXP` : ""}
-              {activeEvent.expMult > 1 && activeEvent.coinMult > 1 ? " · " : ""}
-              {activeEvent.coinMult > 1 ? `${activeEvent.coinMult}× 🪙` : ""}
-            </span>
-          )}
-        </div>
-      )}
+      {activeEvent && (() => {
+        const spot = activeEvent.spotlightFeature && SPOTLIGHT_FEATURES.find(f => f.key === activeEvent.spotlightFeature);
+        return (
+          <div className="eventbanner">
+            <span className="eventbanner-ic" aria-hidden="true">🎉</span>
+            <span className="eventbanner-tx">{tr({ th: activeEvent.name_th, en: activeEvent.name_en, zh: activeEvent.name_zh }, lang)}</span>
+            {(activeEvent.expMult > 1 || activeEvent.coinMult > 1) && (
+              <span className="eventbanner-mult">
+                {activeEvent.expMult > 1 ? `${activeEvent.expMult}× EXP` : ""}
+                {activeEvent.expMult > 1 && activeEvent.coinMult > 1 ? " · " : ""}
+                {activeEvent.coinMult > 1 ? `${activeEvent.coinMult}× 🪙` : ""}
+              </span>
+            )}
+            {spot && (
+              <button className="eventbanner-spot" onClick={() => goToSpotlight(spot.key)}>
+                🔦 {spot.icon} {spot.label[lang]} {lc.eventSpotGo}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Floating mascot companion widget removed per feedback (the floating
           face read as visual clutter). mascotMood/mascot() are left in place
