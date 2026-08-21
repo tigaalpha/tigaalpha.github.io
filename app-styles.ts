@@ -1441,6 +1441,23 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .dashbar{flex:1;min-width:0;height:100%;display:flex;align-items:flex-end;background:none;border:none;padding:0;cursor:pointer}
 .dashbar>span{display:block;width:100%;min-height:2px;border-radius:3px 3px 0 0;background: #d97757;transition:height .25s}
 .dashbar.sel>span,.dashbar:active>span{background: #d97757;box-shadow:0 0 10px -2px #d97757}
+/* Activity heatmap — a real day-grid (GitHub-contribution style), unlike
+   ProgressDashboard above it (bucketed bar totals per period, can't show
+   which specific days were active) */
+.heatmap-wrap{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px}
+.heatmap-dow{display:flex;flex-direction:column;gap:3px;flex-shrink:0;padding-top:1px}
+.heatmap-dow span{height:11px;line-height:11px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)}
+.heatmap-grid{display:flex;gap:3px}
+.heatmap-col{display:flex;flex-direction:column;gap:3px}
+.heatmap-cell{width:11px;height:11px;border-radius:3px;border:none;padding:0;cursor:pointer;background:var(--card3)}
+.heatmap-cell.empty{visibility:hidden;cursor:default}
+.heatmap-cell.lv0{background:var(--card3)}
+.heatmap-cell.lv1{background:#d9775733}
+.heatmap-cell.lv2{background:#d9775766}
+.heatmap-cell.lv3{background:#d97757a8}
+.heatmap-cell.lv4{background:#d97757;box-shadow:0 0 6px -1px #d97757}
+.heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted)}
+.heatmap-legend .heatmap-cell{cursor:default}
 .dashline{width:100%;height:46px;display:block}
 .dashcards.three{grid-template-columns:repeat(3,1fr)}
 .dashdetail{background:var(--card2);border:1px solid #d9775733;border-radius:12px;padding:11px 13px;margin-bottom:11px}

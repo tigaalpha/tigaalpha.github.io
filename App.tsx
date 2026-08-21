@@ -4962,6 +4962,71 @@ function setOwnedLS(a) { try { localStorage.setItem("tg_owned", JSON.stringify(a
 function getEquip(k, def) { try { return localStorage.getItem("tg_" + k) || def; } catch (e) { return def; } }
 function setEquipLS(k, v) { try { localStorage.setItem("tg_" + k, v); } catch (e) {} }
 
+/* ── Activity heatmap — a real day-grid (GitHub-contribution style), unlike
+   ProgressDashboard below (bucketed bar totals per period — can't show WHICH
+   specific days were active, confirmed genuinely absent from the app per the
+   Next-round roadmap plan). Reads the same per-day tg_practice log
+   ProgressDashboard already does; no new data collection. ── */
+const HEATMAP_WEEKS = 14; // ~3.5 months — a real pattern is visible, still fits a narrow mobile viewport without scrolling
+const HeatmapActivity = memo(function HeatmapActivity({ lang }) {
+  const lc = L[lang];
+  const [sel, setSel] = useState(null);
+  const plog = readPracticeLog();
+  // Recomputed on every render (cheap — 98 days) rather than memoized: a
+  // [lang]-only memo dep would show stale data whenever tg_practice changes
+  // without a language switch, e.g. right after finishing a practice session.
+  const today = new Date();
+  const totalDays = HEATMAP_WEEKS * 7;
+  const days = [];
+  for (let i = totalDays - 1; i >= 0; i--) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    const k = dayKey(d);
+    const e = plog[k] || {};
+    days.push({ date: d, key: k, n: e.n || 0, acc: e.n ? Math.round((e.accSum || 0) / e.n) : null });
+  }
+  // pad the front so day 0 lands in its correct Sun-Sat row — builds clean
+  // column-per-week stacks the same way GitHub's own grid does
+  const lead = days.length ? days[0].date.getDay() : 0;
+  const padded = Array.from({ length: lead }, () => null).concat(days);
+  const weeks = [];
+  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+  const maxN = Math.max(1, ...weeks.flat().filter(Boolean).map(d => d.n));
+  const level = (n) => n === 0 ? 0 : n / maxN <= 0.25 ? 1 : n / maxN <= 0.5 ? 2 : n / maxN <= 0.75 ? 3 : 4;
+  const dowLabels = lang === "th" ? ["", "จ", "", "พ", "", "ศ", ""] : lang === "zh" ? ["", "一", "", "三", "", "五", ""] : ["", "M", "", "W", "", "F", ""];
+  const fmtD = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  return (
+    <div className="profsec">
+      <div className="profsec-h">
+        {lc.activityHeatmapTitle}
+        {sel && (
+          <span className="dashtip" style={{ marginLeft: "auto" }}>
+            {fmtD(sel.date)} · {sel.n} {lc.dashSessions}{sel.acc != null ? ` · ${sel.acc}%` : ""}
+          </span>
+        )}
+      </div>
+      <div className="heatmap-wrap">
+        <div className="heatmap-dow">{dowLabels.map((l, i) => <span key={i}>{l}</span>)}</div>
+        <div className="heatmap-grid">
+          {weeks.map((week, wi) => (
+            <div key={wi} className="heatmap-col">
+              {week.map((d, di) => d ? (
+                <button key={di} className={`heatmap-cell lv${level(d.n)}`}
+                  onClick={() => setSel(sel && sel.key === d.key ? null : d)}
+                  aria-label={`${fmtD(d.date)}: ${d.n}`} />
+              ) : <span key={di} className="heatmap-cell empty" aria-hidden="true" />)}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="heatmap-legend">
+        <span>{lc.profLess}</span>
+        {[0, 1, 2, 3, 4].map(l => <span key={l} className={`heatmap-cell lv${l}`} />)}
+        <span>{lc.profMore}</span>
+      </div>
+    </div>
+  );
+});
+
 /* ── Interactive progress dashboard: pick a time range, see activity / accuracy /
    EXP, each compared with the previous equal period. Reads the daily practice log. ── */
 const DASH_RANGES = [{ d: 1, k: "r1" }, { d: 7, k: "r7" }, { d: 30, k: "r1m" }, { d: 90, k: "r3m" }, { d: 180, k: "r6m" }, { d: 365, k: "r1y" }];
@@ -5273,6 +5338,9 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           </div>
         );
       })()}
+
+      {/* activity heatmap — real day-grid, complements the dashboard's period totals below */}
+      <HeatmapActivity lang={lang} />
 
       {/* interactive progress dashboard — range selector + period comparison + charts + game stats */}
       <ProgressDashboard lang={lang} />
