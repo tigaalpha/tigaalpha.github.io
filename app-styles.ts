@@ -1094,7 +1094,8 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 /* responsive game keyboard — fills full width on any device */
 .gpwrap{flex-shrink:0;background:var(--card3);border-top:1px solid #d9775722;padding:4px 0 calc(4px + env(safe-area-inset-bottom,0px))}
 .gprow{position:relative;display:flex;gap:2px;width:100%;max-width:1200px;margin:0 auto;padding:0 4px;height:clamp(54px,11vh,140px)}
-.gpw{flex:1;min-width:0;height:100%;background: #ffffff;border:1px solid #d4cfc5;border-top:none;border-radius:0 0 6px 6px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;cursor:pointer;box-shadow:0 3px 5px rgba(0,0,0,.4);transition:filter .08s,transform .05s;-webkit-tap-highlight-color:transparent}
+.gpw{position:relative;flex:1;min-width:0;height:100%;background: #ffffff;border:1px solid #d4cfc5;border-top:none;border-radius:0 0 6px 6px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;cursor:pointer;box-shadow:0 3px 5px rgba(0,0,0,.4);transition:filter .08s,transform .05s;-webkit-tap-highlight-color:transparent}
+.gpfinger{position:absolute;top:3px;left:50%;transform:translateX(-50%);width:15px;height:15px;border-radius:50%;background:#ff5252;color:#fff;font-size:9px;font-weight:700;font-family:'Orbitron',sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px #ff525299;z-index:6;pointer-events:none}
 .gpw span{font-family:'Share Tech Mono',monospace;font-size:clamp(8px,1.7vw,14px);color:var(--muted);pointer-events:none}
 .gpw:active{transform:translateY(2px)}
 .gpw.lit{background:#d97757;box-shadow:0 0 16px #d97757,0 0 38px #d9775766}

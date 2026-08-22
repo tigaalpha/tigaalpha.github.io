@@ -8020,7 +8020,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => navigator.serviceWorker.removeEventListener("message", onNav);
   }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
-  const { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songSetlistPos, startSetlist } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
+  const { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songHandMode, pickHandMode, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songSetlistPos, startSetlist } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
 
   // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
@@ -8565,6 +8565,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches);
   const isIOSSafari = isIOSDevice && /Safari/i.test(navigator.userAgent || "") &&
     !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(navigator.userAgent || ""); // Add to Home Screen only works from actual Safari
+  const isIOSChrome = isIOSDevice && /CriOS/i.test(navigator.userAgent || ""); // Chrome on iOS is just a WebKit skin — Apple never grants it Safari's own home-screen-install entitlement, so it always needs its own "switch to Safari" instructions rather than the generic non-Safari warning
   const [apkInfo, setApkInfo] = useState(null);
   useEffect(() => {
     if (isNative || !(/Android/i.test(navigator.userAgent || "") || isIOSDevice)) return;
@@ -9251,7 +9252,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} />}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
-      {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} />}
+      {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songHandMode={songHandMode} pickHandMode={pickHandMode} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} />}
 
       {/* SIGHT-READING overlay */}
       {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
@@ -9684,7 +9685,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{tr(challengeData.song, lang)}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button className="lvup-share" style={{ background: "var(--accent)", color: "#fff" }}
-              onClick={(e) => { e.stopPropagation(); setChallengeData(null); setSongMeta(challengeData.song); songDataRef.current = expandSong(challengeData.song); setSongPhase("ready"); setSongResult(null); setSongOpen(true); }}>
+              onClick={(e) => { e.stopPropagation(); setChallengeData(null); setSongMeta(challengeData.song); songDataRef.current = expandSong(challengeData.song, { hand: songHandMode }); setSongPhase("ready"); setSongResult(null); setSongOpen(true); }}>
               🎹 {lang === "th" ? "รับคำท้า!" : lang === "zh" ? "接受挑战!" : "Accept!"}
             </button>
             <button className="lvup-share" onClick={(e) => { e.stopPropagation(); setChallengeData(null); }}>✕</button>
@@ -9781,6 +9782,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           th: {
             title: "ติดตั้งบน iPhone / iPad", sub: "ใช้ Safari เท่านั้น — เบราว์เซอร์อื่นบน iOS ทำแบบนี้ไม่ได้",
             warn: "ดูเหมือนหน้านี้ไม่ได้เปิดใน Safari — เปิดลิงก์นี้ใน Safari ก่อน แล้วทำตามขั้นตอนด้านล่าง",
+            warnChrome: "คุณกำลังใช้ Chrome อยู่ — บน iPhone/iPad มีแค่ Safari เท่านั้นที่ติดตั้งไอคอนแอปแบบเต็มจอได้ (เป็นข้อจำกัดจาก Apple ไม่ใช่จาก Chrome) แตะ ⋯ เพิ่มเติม ที่ด้านล่างจอ แล้วเลือก \"เปิดใน Safari\" จากนั้นทำตามขั้นตอนด้านล่างนี้",
             s1t: "1. แตะปุ่มแชร์", s1b: "ไอคอนสี่เหลี่ยมมีลูกศรชี้ขึ้น อยู่แถบด้านล่าง (หรือด้านบนใน iPad)",
             s2t: "2. เลื่อนหาแล้วแตะ \"เพิ่มไปที่หน้าจอโฮม\"", s2b: "Add to Home Screen",
             s3t: "3. แตะ \"เพิ่ม\" มุมขวาบน", s3b: "เสร็จแล้ว! ไอคอน TIGA.AI จะอยู่บนหน้าจอโฮมของคุณ",
@@ -9790,6 +9792,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           en: {
             title: "Install on iPhone / iPad", sub: "Safari only — other iOS browsers can't do this",
             warn: "This page doesn't look like it's open in Safari — open this link in Safari first, then follow the steps below.",
+            warnChrome: "You're in Chrome — on iPhone/iPad, only Safari can add a real full-screen app icon (that's an Apple rule, not a Chrome limitation). Tap ⋯ More at the bottom of the screen, choose \"Open in Safari,\" then follow the steps below.",
             s1t: "1. Tap the Share button", s1b: "The square with an arrow pointing up, in the bottom bar (top bar on iPad)",
             s2t: "2. Scroll down and tap \"Add to Home Screen\"", s2b: "",
             s3t: "3. Tap \"Add\" in the top-right corner", s3b: "Done! The TIGA.AI icon is now on your Home Screen.",
@@ -9799,6 +9802,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           zh: {
             title: "在 iPhone / iPad 上安装", sub: "仅限 Safari — iOS 上的其他浏览器无法这样做",
             warn: "此页面似乎不是在 Safari 中打开的 — 请先在 Safari 中打开此链接，然后按照以下步骤操作。",
+            warnChrome: "你正在使用 Chrome — 在 iPhone/iPad 上，只有 Safari 才能把应用图标完整安装到主屏幕（这是苹果的限制，与 Chrome 无关）。点击屏幕底部的 ⋯ 更多，选择「在 Safari 中打开」，然后按照以下步骤操作。",
             s1t: "1. 点击分享按钮", s1b: "带向上箭头的方框图标，位于底部工具栏（iPad 在顶部）",
             s2t: "2. 向下滚动并点击\"添加到主屏幕\"", s2b: "",
             s3t: "3. 点击右上角的\"添加\"", s3b: "完成！TIGA.AI 图标现在在你的主屏幕上了。",
@@ -9813,7 +9817,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className="apkpop-x" onClick={() => setIosInstallOpen(false)} aria-label="close">×</button>
               <b className="apkpop-title">{c.title}</b>
               <span className="apkpop-sub">{c.sub}</span>
-              {!isIOSSafari && <div className="iosinstall-warn">⚠️ {c.warn}</div>}
+              {isIOSChrome ? <div className="iosinstall-warn">⚠️ {c.warnChrome}</div>
+                : !isIOSSafari && <div className="iosinstall-warn">⚠️ {c.warn}</div>}
               <div className="iosinstall-steps">
                 <div className="iosinstall-step">
                   <span className="iosinstall-stepic">📤</span>

@@ -6,7 +6,7 @@ import { CountUp } from "./app-shell";
    (songOpen && songMeta), extracted verbatim from PianoApp's inline JSX as
    part of Phase 2 componentization — no logic changes. lc is derived from
    lang internally, same convention as the other overlay components. ── */
-export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos }) {
+export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songNextLit2, songFingerMap, songHandMode, pickHandMode, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos }) {
   const lc = L[lang];
   return (
         <div className="songov">
@@ -97,6 +97,14 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                       🎸 {lang === "th" ? "คอร์ดประกอบ" : lang === "zh" ? "和弦伴奏" : "Backing"}
                     </button>}
                   </div>
+                  {/* Hand mode: Right/Left play the same melody (re-fingered for
+                      that hand); Both adds a generated left-hand accompaniment
+                      as real, separately-scored gameplay. */}
+                  <div className="songtempo" style={{ marginTop: 6 }}>
+                    <button className={`songtempobtn${songHandMode === "right" ? " on" : ""}`} onClick={() => pickHandMode("right")}>{lc.rightHand}</button>
+                    <button className={`songtempobtn${songHandMode === "left" ? " on" : ""}`} onClick={() => pickHandMode("left")}>{lc.leftHand}</button>
+                    <button className={`songtempobtn${songHandMode === "both" ? " on" : ""}`} onClick={() => pickHandMode("both")}>{lc.songHandBoth}</button>
+                  </div>
                   <div className="songready-btns">
                     <button className="songbtn ghost" onClick={previewSong}>▶ {lc.songPreview}</button>
                     <button className="songbtn go" onClick={startSongPlay}>▶ {lc.songStart}</button>
@@ -109,7 +117,9 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
 
           {songPhase === "playing" && (
             <>
-              <GamePiano fullWidth litNote={songNextLit} onNote={(n) => songInputRef.current({ note: n, freq: null, source: "tap" })} />
+              <GamePiano fullWidth litSet={[songNextLit, songNextLit2].filter(Boolean)} fingerMap={songFingerMap}
+                baseOct={songHandMode === "both" ? 3 : 4} octs={songHandMode === "both" ? 3 : 2}
+                onNote={(n) => songInputRef.current({ note: n, freq: null, source: "tap" })} />
               <div className="songsrcbar">
                 {!songSrc ? "…" : songSrc.type === "midi" ? lc.practiceMidi : songSrc.type === "mic" ? lc.practiceMic : lc.practiceMicErr}
               </div>

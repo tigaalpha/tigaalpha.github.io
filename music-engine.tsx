@@ -1195,17 +1195,135 @@ export const SONG_DEBOUNCE_MS = 130; // min gap between same-pitch hits — stop
 export const SONG_ECHO_MS = 350;     // after a tap, ignore the mic hearing that same note (the app's own sound)
 export const SONG_MISSWINDOW = 0.5;
 
+// Heuristic melody fingering — NOT a lookup against verified pedagogy (unlike
+// fingersForNotes/FINGERINGS_RH/LH just above, which only cover named
+// scales/chords and return null for a real song's melody). Walks the
+// interval between each pair of consecutive notes and moves one finger in
+// that direction (RH: pitch up = higher finger, toward the pinky; LH
+// mirrored, since its thumb sits on the high side); when a run would need a
+// 6th finger, it re-anchors on the edge finger that leaves room to keep
+// going, standing in for a real thumb-under/finger-crossing position shift.
+// Always returns a valid 1-5 finger per note; it won't always match exactly
+// how a teacher would finger the same passage.
+export function heuristicFingers(notes, hand = "right") {
+  const midis = (notes || []).map(noteToMidi);
+  if (!midis.length) return [];
+  const dir0 = midis.length > 1 ? Math.sign((hand === "left" ? -1 : 1) * (midis[1] - midis[0])) : 0;
+  const fingers = [dir0 > 0 ? 1 : dir0 < 0 ? 5 : 3];
+  for (let i = 1; i < midis.length; i++) {
+    const semis = midis[i] - midis[i - 1];
+    const dir = (hand === "left" ? -1 : 1) * semis;
+    let f = fingers[i - 1] + Math.round(dir * 7 / 12); // semitones -> ~diatonic finger-steps
+    if (f < 1) f = dir < 0 ? 5 : 1;
+    else if (f > 5) f = dir > 0 ? 1 : 5;
+    fingers.push(f);
+  }
+  return fingers;
+}
+
+// Diatonic triad qualities by scale degree (I..vii), major and natural minor.
+const _DEG_QUALITY_MAJ = ["major", "minor", "minor", "major", "major", "minor", "dim"];
+const _DEG_QUALITY_MIN = ["minor", "dim", "major", "minor", "minor", "major", "major"];
+// Detect a song's key for accompaniment purposes: root = songTonic()'s pitch
+// class (its last note — true for the overwhelming majority of these
+// tunes), major/minor decided by which scale the melody's own notes fit better.
+export function detectSongKey(song) {
+  const notes = (song.seq || []).filter(([n]) => n !== "R").map(([n]) => n);
+  const root = pcIdx(songTonic(song));
+  if (root < 0 || !notes.length) return { root: 0, minor: false };
+  const majSet = new Set(SCALE_DEF.major.map(s => (root + s) % 12));
+  const minSet = new Set(SCALE_DEF["natural minor"].map(s => (root + s) % 12));
+  let majHits = 0, minHits = 0;
+  for (const n of notes) { const p = pcIdx(pcOf(n)); if (majSet.has(p)) majHits++; if (minSet.has(p)) minHits++; }
+  return { root, minor: minHits > majHits };
+}
+// Generate a simple left-hand accompaniment for a song that has no authored
+// second part of its own (songs-data.ts is a single melody line — see the
+// header comment below). This is a harmonization HEURISTIC, not real chord
+// inference: per bar, it scores each of the 7 diatonic triads in the song's
+// detected key by how much of that bar's melody (weighted by note length)
+// falls on one of the triad's own tones, favors staying on the previous
+// bar's chord (harmonic inertia) and landing on I/V for the final bar
+// (cadence), then renders the winner as a classic beginner "oom-pah" bass:
+// root on beat 1, 5th at the bar's midpoint — one octave (3) below the
+// melody's own C4 floor. Returns [{note, beat, dur}, ...] in beat-space,
+// matching the units expandSong() already uses for the melody itself.
+export function generateAccompaniment(song) {
+  const timeSig = SONG_TIMESIG[song.id] || "4/4";
+  const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
+  const key = detectSongKey(song);
+  const scaleSteps = key.minor ? SCALE_DEF["natural minor"] : SCALE_DEF.major;
+  const qualities = key.minor ? _DEG_QUALITY_MIN : _DEG_QUALITY_MAJ;
+  const degreeRoots = scaleSteps.map(s => (key.root + s) % 12);
+
+  let beat = 0;
+  const melNotes = [];
+  for (const [note, dur] of song.seq) {
+    if (note !== "R") melNotes.push({ pc: pcIdx(pcOf(note)), beat, dur });
+    beat += dur;
+  }
+  const totalBeats = beat;
+  if (!melNotes.length || totalBeats < 1) return [];
+
+  const events = [];
+  let prevDeg = 0;
+  for (let barStart = 0; barStart < totalBeats; barStart += beatsPerBar) {
+    const barLen = Math.min(beatsPerBar, totalBeats - barStart);
+    if (barLen < 0.5) break; // trailing sliver — not worth a chord of its own
+    const weight = new Array(12).fill(0);
+    for (const n of melNotes) if (n.beat >= barStart && n.beat < barStart + beatsPerBar) weight[n.pc] += n.dur;
+    let bestScore = -1, bestDeg = prevDeg;
+    for (let deg = 0; deg < 7; deg++) {
+      const triad = CHORD_DEF[qualities[deg]].map(s => (degreeRoots[deg] + s) % 12);
+      let score = triad.reduce((s, pc) => s + weight[pc], 0);
+      if (deg === prevDeg) score += 0.35; // harmonic inertia
+      if (barStart + beatsPerBar >= totalBeats && (deg === 0 || deg === 4)) score += 0.5; // cadence
+      if (score > bestScore) { bestScore = score; bestDeg = deg; }
+    }
+    prevDeg = bestDeg;
+    const rootPc = CHROMA[degreeRoots[bestDeg]], fifthPc = CHROMA[(degreeRoots[bestDeg] + 7) % 12];
+    events.push({ note: rootPc + "3", beat: barStart, dur: Math.min(2, barLen) });
+    if (barLen >= 3 && barStart + barLen / 2 < totalBeats) {
+      events.push({ note: fifthPc + "3", beat: barStart + barLen / 2, dur: barLen / 2 });
+    }
+  }
+  return events;
+}
+
 // Song library. seq = [noteName | "R", durationInBeats]. All notes live in the
 // C4..B5 range the on-screen keyboard + synth cover. Public-domain melodies only.
 // Expand a song into timed note objects + the set of lanes (distinct pitches).
-export function expandSong(song) {
+// opts.hand: "right" (default) plays the melody as-is; "left" plays the SAME
+// melody notes re-fingered for the left hand (same convention as Practice
+// Mode/Sensei's existing hand toggle — switching hands re-fingers, it doesn't
+// transpose); "both" adds a generated left-hand accompaniment voice
+// (generateAccompaniment) as real, separately-scored gameplay alongside the
+// right-hand melody.
+export function expandSong(song, opts) {
+  opts = opts || {};
+  const handMode = opts.hand === "left" ? "left" : opts.hand === "both" ? "both" : "right";
   const spb = 60 / song.bpm; // seconds per beat
   let beat = 0;
   const notes = [];
   for (const [note, dur] of song.seq) {
-    if (note !== "R") notes.push({ note, t: beat * spb, beat, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0 });
+    if (note !== "R") notes.push({ note, t: beat * spb, beat, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: handMode === "left" ? "left" : "right" });
     beat += dur;
   }
+  if (handMode === "both") {
+    for (const e of generateAccompaniment(song)) {
+      notes.push({ note: e.note, t: e.beat * spb, beat: e.beat, durSec: Math.max(0.18, e.dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: "left" });
+    }
+    notes.sort((a, b) => a.t - b.t);
+  }
+  // Finger numbers, computed independently per hand-voice in its own
+  // chronological order — a right-hand melody and a left-hand accompaniment
+  // are two independent hands, each with their own finger progression.
+  const rightNotes = notes.filter(n => n.hand === "right");
+  const leftNotes = notes.filter(n => n.hand === "left");
+  const rf = heuristicFingers(rightNotes.map(n => n.note), "right");
+  const lf = heuristicFingers(leftNotes.map(n => n.note), "left");
+  rightNotes.forEach((n, i) => { n.finger = rf[i]; });
+  leftNotes.forEach((n, i) => { n.finger = lf[i]; });
   const lanes = Array.from(new Set(notes.map(n => n.note))).sort((a, b) => noteToMidi(a) - noteToMidi(b));
   for (const n of notes) n.lane = lanes.indexOf(n.note);
   const lastT = notes.reduce((m, n) => Math.max(m, n.t), 0);
@@ -1486,7 +1604,7 @@ export const Piano = memo(function Piano({ litNote = null, litSet = null, finger
 });
 
 export const SP_WKW = 30, SP_GAP = 2, SP_BKW = 19; // white width, gap, black width
-export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null, onNote = null, baseOct = 4, octs = 2, scroll = false, fullWidth = false }) {
+export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null, fingerMap = null, onNote = null, baseOct = 4, octs = 2, scroll = false, fullWidth = false }) {
   const { held, flash, onKeyPointerDown, onKeyPointerMove, onKeyPointerUp } = usePianoKeys(onNote);
   const scrollerRef = useRef(null);
   const isLit = (n) => (litSet && litSet.includes(n)) || litNote === n;
@@ -1527,13 +1645,16 @@ export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null
               onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
               aria-label={k.n}>
               <span>{k.l === "C" ? k.n : k.l}</span>
+              {isLit(k.n) && fingerMap && fingerMap[k.n] != null && <span className="gpfinger">{fingerMap[k.n]}</span>}
             </button>
           ))}
           {blacks.map(k => (
             <button key={k.n} className={`gpb${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
               style={{ left: (k.after + 1) * (SP_WKW + SP_GAP) - SP_BKW / 2 - 1, width: SP_BKW }}
               onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
-              aria-label={k.n} />
+              aria-label={k.n}>
+              {isLit(k.n) && fingerMap && fingerMap[k.n] != null && <span className="gpfinger">{fingerMap[k.n]}</span>}
+            </button>
           ))}
         </div>
       </div>
@@ -1554,13 +1675,16 @@ export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null
             onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
             aria-label={k.l}>
             <span>{k.l}</span>
+            {isLit(k.n) && fingerMap && fingerMap[k.n] != null && <span className="gpfinger">{fingerMap[k.n]}</span>}
           </button>
         ))}
         {blacks.map(k => (
           <button key={k.n} className={`gpb${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
             style={{ left: (((k.after + 1) / NW) * 100 - bw / 2) + "%", width: bw + "%" }}
             onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
-            aria-label={k.l} />
+            aria-label={k.l}>
+            {isLit(k.n) && fingerMap && fingerMap[k.n] != null && <span className="gpfinger">{fingerMap[k.n]}</span>}
+          </button>
         ))}
       </div>
     </div>
