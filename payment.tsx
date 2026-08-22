@@ -86,20 +86,23 @@ export function b2bYearPriceByCur(cur: string, tier: string): number {
   return cur === "usd" ? Math.ceil(n) - 0.01 : Math.ceil(n / 10) * 10;
 }
 export const YEAR_PLANS = ["premium", "max", "maxfamily"];   // tiers that offer a yearly option
+// Trial length: 90 days for the first 100 signups ever (profiles.founding_member,
+// set once at signup by the handle_new_user() trigger — see
+// supabase-founding-member-trial-migration.sql), 7 days for everyone else.
+export function trialLenDays(p) { return p && p.founding_member ? 90 : 7; }
 // the live, authoritative plan for a profile row (admins = full; paid only while not expired)
 export function effectivePlan(p) {
   if (!p) return "free";
   if (p.is_admin) return "maxfamily";
   if (p.plan && p.plan !== "free" && p.plan_until && new Date(p.plan_until).getTime() > Date.now()) return p.plan;
-  // 7-day free trial: new accounts get premium-tier access for their first 7 days
-  if (p.created_at && (Date.now() - new Date(p.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000) return "trial";
+  if (p.created_at && (Date.now() - new Date(p.created_at).getTime()) < trialLenDays(p) * 24 * 60 * 60 * 1000) return "trial";
   return "free";
 }
-// returns days remaining in trial (1–7), or -1 if not in trial / trial has expired
+// returns days remaining in trial (1–trialLenDays), or -1 if not in trial / trial has expired
 export function trialDaysLeft(p) {
   if (!p || !p.created_at) return -1;
   const elapsed = Date.now() - new Date(p.created_at).getTime();
-  const left = 7 - elapsed / (24 * 60 * 60 * 1000);
+  const left = trialLenDays(p) - elapsed / (24 * 60 * 60 * 1000);
   return left > 0 ? Math.ceil(left) : -1;
 }
 
