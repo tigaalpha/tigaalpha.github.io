@@ -241,6 +241,56 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
   );
 }
 
+// One-time language choice, shown right after ProfileForm (or immediately
+// for a guest, who skips ProfileForm entirely) and before PianoApp ever
+// mounts — gated on profile.lang being unset. Persists to profiles.lang for
+// a real account (follows the learner to any device) or into the guest's
+// own already-persisted local profile object otherwise, so PianoApp's own
+// `lang` state can simply initialize from profile.lang and never needs to
+// ask again. Each option is self-labeled in its own script, so — unlike
+// every other string on these pre-login screens — this one genuinely has no
+// language to translate itself into yet.
+const LANG_CHOICES = [
+  { code: "th", flag: "🇹🇭", label: "ไทย" },
+  { code: "en", flag: "🇬🇧", label: "English" },
+  { code: "zh", flag: "🇨🇳", label: "中文" },
+];
+export function LangPickerScreen({ session, profile, setProfile }) {
+  const [saving, setSaving] = useState(null); // which code is currently being saved
+  async function pick(code) {
+    if (saving) return;
+    setSaving(code);
+    const next = { ...profile, lang: code };
+    if (session && session.user && session.user.id) {
+      const { error } = await sb.from("profiles").update({ lang: code }).eq("id", session.user.id);
+      if (error) { setSaving(null); return; } // stay on the picker — better than silently losing the choice
+    } else {
+      saveGuestProfile(next);
+    }
+    setProfile(next);
+  }
+  return (
+    <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
+      <div className="scan" />
+      <div className="memberwrap">
+        <div className="lockicon" style={{ fontSize: 36 }}>🌐</div>
+        <div className="locktitle">เลือกภาษา · Choose your language · 选择语言</div>
+        <div className="locksub">
+          จะใช้ภาษานี้ทุกครั้งที่เข้ามา เปลี่ยนได้ทีหลังในตั้งค่า<br />
+          This will be used every time you come back — change it later in Settings anytime.
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 300, marginTop: 6 }}>
+          {LANG_CHOICES.map(o => (
+            <button key={o.code} className="lockbtn" disabled={!!saving} style={{ width: "100%" }} onClick={() => pick(o.code)}>
+              {saving === o.code ? "..." : `${o.flag}  ${o.label}`}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProfileForm({ session, onSaved, onSignOut }) {
   const meta = (session && session.user && session.user.user_metadata) || {};
   const userEmail = (session && session.user && session.user.email) || meta.email || "";

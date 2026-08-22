@@ -59,7 +59,7 @@ import {
   guestHasProgress, mergeGuestProgressIntoProfile,
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync } from "./cloud-sync";
-import { Splash, BannedScreen, GuestGateScreen, ProfileForm, CountUp, LoginModal } from "./app-shell";
+import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal } from "./app-shell";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
@@ -7937,6 +7937,13 @@ export default function App() {
   if (!profile || !profile.onboarded) {
     return <ProfileForm session={session} onSignOut={signOut} onSaved={() => loadProfile(session.user.id)} />;
   }
+  // First-ever visit (real account or guest, profile.lang is only ever unset
+  // once) — ask which language to use from here on, before PianoApp exists
+  // to default to English. Guarantees PianoApp's own `lang` state can always
+  // read a real, already-chosen value straight off profile.lang.
+  if (!profile.lang) {
+    return <LangPickerScreen session={session} profile={profile} setProfile={setProfile} />;
+  }
   return <PianoApp session={session} profile={profile} setProfile={setProfile} onSignOut={signOut} />;
 }
 
@@ -7982,7 +7989,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { localStorage.setItem("tg_push_primed", "1"); } catch (e) {}
   }
 
-  const [lang, setLang] = useState("en");   // English is the default language on entry
+  // App()'s own LangPickerScreen gate guarantees profile.lang is always
+  // already set by the time PianoApp exists at all (first-ever visit picks
+  // it, before PianoApp ever mounts) — so this reads a real per-user choice,
+  // not a guessed default. setLang persists any LATER change (the ☰ flag
+  // switcher) the same way: profiles.lang for a real account, the guest's
+  // own already-persisted local profile object otherwise.
+  const [lang, setLangState] = useState(profile.lang || "en");
+  function setLang(lg) {
+    setLangState(lg);
+    if (session && session.user && session.user.id) {
+      sb.from("profiles").update({ lang: lg }).eq("id", session.user.id).then(() => {}, () => {});
+    } else {
+      saveGuestProfile({ ...profile, lang: lg });
+    }
+    setProfile(p => ({ ...p, lang: lg }));
+  }
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
 
