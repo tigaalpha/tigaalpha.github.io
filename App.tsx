@@ -8514,12 +8514,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const id = setInterval(tick, 60000 / metroBpm);
     return () => clearInterval(id);
   }, [metroOn, metroBpm]);
-  // auto-enable metronome when entering Play Along, disable when exiting
+  // auto-enable metronome when entering Play Along, sync BPM with song, disable when exiting
   const prevSongOpenRef = useRef(false);
+  const prevSongMetaRef = useRef(null);
   useEffect(() => {
-    if (songOpen && !prevSongOpenRef.current) { prevSongOpenRef.current = true; setMetroOn(true); }
-    if (!songOpen && prevSongOpenRef.current) { prevSongOpenRef.current = false; setMetroOn(false); }
-  }, [songOpen]);
+    if (songOpen && !prevSongOpenRef.current) {
+      prevSongOpenRef.current = true;
+      setMetroOn(true);
+      if (songMeta && songMeta.bpm) setMetroBpm(songMeta.bpm);
+    }
+    // sync BPM when song changes during play (setlist/retry)
+    if (songOpen && songMeta && songMeta !== prevSongMetaRef.current) {
+      prevSongMetaRef.current = songMeta;
+      if (songMeta.bpm) setMetroBpm(songMeta.bpm);
+    }
+    if (!songOpen && prevSongOpenRef.current) {
+      prevSongOpenRef.current = false;
+      prevSongMetaRef.current = null;
+      setMetroOn(false);
+    }
+  }, [songOpen, songMeta]);
   // grade the learner's note onsets against the actual metronome clicks (ms-precise)
   function metroTimingReport(noteTimes) {
     const beats = metroBeatTimesRef.current;
