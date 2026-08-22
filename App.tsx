@@ -9218,7 +9218,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           );
         })}
         <div className="drawer-foot">
-          <button className="draweritem sub" onClick={() => { playUi("click"); getAC(); setMetroOn(o => !o); }} style={metroOn ? { color: "#4ade80" } : undefined}><span className="drawericon">🥁</span><span className="drawerlabel">{metroOn ? (lang === "th" ? "Metronome: เปิด" : lang === "zh" ? "节拍器: 开" : "Metronome: ON") : (lang === "th" ? "Metronome: ปิด" : lang === "zh" ? "节拍器: 关" : "Metronome: OFF")}</span></button>
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon">✦</span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setSettingsOpen(true); }}><span className="drawericon">⚙️</span><span className="drawerlabel">{lc.setTitle}</span></button>
           {onSignOut && <button className="draweritem sub" onClick={() => { playUi("click"); onSignOut(); }}><span className="drawericon">⏻</span><span className="drawerlabel">{lc.signOut}</span></button>}
