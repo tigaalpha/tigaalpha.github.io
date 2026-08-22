@@ -262,7 +262,15 @@ export function getFingers(key, mode, hand) {
 export function fingersForNotes(key, mode, notes, hand) {
   let f = null;
   if (key) f = getFingers(key, mode, hand);
-  else if (mode === "chord" || (mode === "seq" && notes.length === 3)) f = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
+  // The 1-3-5/5-3-1 fallback is shaped for a 3-note ROOT-POSITION TRIAD only —
+  // applying it to any "chord" regardless of note count silently truncated a
+  // 4-note seventh chord to 3 fingers (the 4th note got no finger at all),
+  // since a "chord" with a caller-supplied 4-entry `fingers` array (see
+  // buildStageDemoSeq's own demoFingers) never reached this fallback: the
+  // caller only falls back to fingersForNotes()'s result when it's non-null,
+  // so a plausible-looking-but-wrong 3-note answer here masked the correct
+  // one instead of yielding to it.
+  else if ((mode === "chord" || mode === "seq") && notes.length === 3) f = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
   return f ? notes.map((n, i) => (f[i] != null ? f[i] : null)) : null;
 }
 

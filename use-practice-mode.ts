@@ -88,6 +88,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceKeyRef = useRef(null);   // scale/chord key so practice can recompute fingering per hand
   const practiceModeRef = useRef("seq");
   const practiceAscRef = useRef([]);     // ascending-only notes (pre up+down expansion) — lets a hand switch mid-scale recompute correctly
+  const practiceBaseFingersRef = useRef([]); // this drill's fingers as originally resolved (startPractice's own fallback chain), RIGHT-hand-canonical — lets a mid-drill hand switch remirror a chord/interval that has no scale-style per-key data to relookup (e.g. a 4+-note seventh chord), instead of leaving the previous hand's numbers on screen
   const practiceIdxRef = useRef(0);
   const practiceHitSetRef = useRef(new Set()); // hit target indices — block-style chord/interval practice only
   const practiceHitsRef = useRef(0);
@@ -112,6 +113,12 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     let pf = fingersForNotes(practiceKeyRef.current, practiceModeRef.current, ascNotes, hand);
     if (pf && practiceModeRef.current === "scale" && practiceTargetRef.current.length > ascNotes.length) {
       pf = pf.concat(pf.slice(0, -1).reverse());
+    }
+    if (!pf && practiceBaseFingersRef.current.length) {
+      // No verified per-key/scale/3-note-triad data for this hand — mirror the
+      // canonical right-hand fingers instead (same "reverse for left" rule
+      // buildStageDemoSeq already uses when a lesson first opens).
+      pf = hand === "left" ? practiceBaseFingersRef.current.slice().reverse() : practiceBaseFingersRef.current.slice();
     }
     if (pf) setPracticeFingers(pf);
   }, [hand, practiceOpen]);
@@ -283,6 +290,11 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const pf = fingersForNotes(seq.key, seq.mode, seq.notes, hand);
     let notes = seq.notes.slice();
     let fingers = pf || (seq.fingers ? seq.fingers.slice() : []);
+    // Right-hand-canonical copy for a later mid-drill hand switch to remirror
+    // (see practiceBaseFingersRef) — demoFingers/seq.fingers already mirror
+    // for whichever hand was active when the lesson was opened, so undo that
+    // once here rather than assuming "right" was the original.
+    practiceBaseFingersRef.current = fingers.length ? (hand === "left" ? fingers.slice().reverse() : fingers.slice()) : [];
     practiceAscRef.current = notes;
     // a full scale is drilled ascending THEN descending — same as the audio demo
     // and the app's own fingering rule ("descending = the same fingers in
