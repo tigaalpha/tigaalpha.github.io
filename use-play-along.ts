@@ -3,7 +3,7 @@ import {
   getAC, playPianoNote, playMiss, playUi, playWhoosh, playBoom, playComboTone,
   pcOf, stopPracticeListeners, startMidiListener, startMicListener, laneHue, roundRect,
   SONG_LEAD, SONG_HITWINDOW, SONG_PERFECT, SONG_DEBOUNCE_MS, SONG_ECHO_MS, SONG_MISSWINDOW,
-  expandSong, normalizeSeq, noteKeyFrac, _PC, playBackingChord, songTonic, noteTypeName,
+  expandSong, normalizeSeq, noteKeyFrac, _PC, playBackingChord, songTonic,
   songTechniqueProfile, estimateSongDifficulty,
 } from "./music-engine";
 import { tr } from "./i18n";
@@ -447,13 +447,6 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         ctx.fillStyle = "rgba(255,255,255,0.96)";
         ctx.font = "bold 13px Rajdhani, sans-serif"; ctx.textAlign = "center";
         ctx.fillText(pcOf(n.note), mcx, hy + 4);
-        // note type indicator (whole/half/quarter/eighth/16th/32nd)
-        if (n.durBeats != null) {
-          const ntLabel = noteTypeName(n.durBeats);
-          ctx.fillStyle = "rgba(255,210,63,0.8)";
-          ctx.font = "bold 9px Rajdhani, sans-serif";
-          ctx.fillText(ntLabel, mcx, hy + 14);
-        }
       }
     }
     // ── rockets: a hit launches one from the hit-line, climbing to blow the meteor up ──
