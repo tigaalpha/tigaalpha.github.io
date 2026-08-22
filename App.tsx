@@ -28,7 +28,7 @@ import {
   pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP, _practiceStop,
   startMidiListener, startMicListener, stopPracticeListeners, laneHue, roundRect, rhythmReport,
   SONG_LEAD, SONG_HITWINDOW, SONG_PERFECT, SONG_DEBOUNCE_MS, SONG_ECHO_MS, SONG_MISSWINDOW,
-  expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes,
+  expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes, noteTypeName,
   MINOR_TYPES, TRIAD_TYPES, SEVENTH_TYPES, INTERVAL_DEFS,
   MAJOR_SCALE_SONGS, MINOR_SCALE_SONGS, TRIAD_SONGS, SEVENTH_SONGS, INTERVAL_SONGS,
   SIGHT_NOTES, SIGHT_NOTES_BASS,
@@ -9218,6 +9218,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           );
         })}
         <div className="drawer-foot">
+          <button className="draweritem sub" onClick={() => { playUi("click"); getAC(); setMetroOn(o => !o); }} style={metroOn ? { color: "#4ade80" } : undefined}><span className="drawericon">🥁</span><span className="drawerlabel">{metroOn ? (lang === "th" ? "Metronome: เปิด" : lang === "zh" ? "节拍器: 开" : "Metronome: ON") : (lang === "th" ? "Metronome: ปิด" : lang === "zh" ? "节拍器: 关" : "Metronome: OFF")}</span></button>
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon">✦</span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setSettingsOpen(true); }}><span className="drawericon">⚙️</span><span className="drawerlabel">{lc.setTitle}</span></button>
           {onSignOut && <button className="draweritem sub" onClick={() => { playUi("click"); onSignOut(); }}><span className="drawericon">⏻</span><span className="drawerlabel">{lc.signOut}</span></button>}

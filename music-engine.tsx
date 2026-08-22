@@ -1197,13 +1197,22 @@ export const SONG_MISSWINDOW = 0.5;
 
 // Song library. seq = [noteName | "R", durationInBeats]. All notes live in the
 // C4..B5 range the on-screen keyboard + synth cover. Public-domain melodies only.
+// Get note type name from beat duration
+export function noteTypeName(durBeats) {
+  if (durBeats >= 4) return "w";     /* whole note (semibreve) */
+  if (durBeats >= 2) return "h";     /* half note (minim) */
+  if (durBeats >= 1) return "q";     /* quarter note (crotchet) */
+  if (durBeats >= 0.5) return "e";   /* eighth note (quaver) */
+  if (durBeats >= 0.25) return "s";  /* 16th note (semiquaver) */
+  return "x";                         /* 32nd note (demisemiquaver) */
+}
 // Expand a song into timed note objects + the set of lanes (distinct pitches).
 export function expandSong(song) {
   const spb = 60 / song.bpm; // seconds per beat
   let beat = 0;
   const notes = [];
   for (const [note, dur] of song.seq) {
-    if (note !== "R") notes.push({ note, t: beat * spb, beat, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0 });
+    if (note !== "R") notes.push({ note, t: beat * spb, beat, durBeats: dur, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0 });
     beat += dur;
   }
   const lanes = Array.from(new Set(notes.map(n => n.note))).sort((a, b) => noteToMidi(a) - noteToMidi(b));
