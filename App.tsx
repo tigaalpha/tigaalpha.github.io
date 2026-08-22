@@ -8514,6 +8514,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const id = setInterval(tick, 60000 / metroBpm);
     return () => clearInterval(id);
   }, [metroOn, metroBpm]);
+  // auto-enable metronome when entering Play Along, disable when exiting
+  const prevSongOpenRef = useRef(false);
+  useEffect(() => {
+    if (songOpen && !prevSongOpenRef.current) { prevSongOpenRef.current = true; setMetroOn(true); }
+    if (!songOpen && prevSongOpenRef.current) { prevSongOpenRef.current = false; setMetroOn(false); }
+  }, [songOpen]);
   // grade the learner's note onsets against the actual metronome clicks (ms-precise)
   function metroTimingReport(noteTimes) {
     const beats = metroBeatTimesRef.current;
