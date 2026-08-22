@@ -2943,6 +2943,19 @@ function fmtLikes(n) {
 // local bookmark (🔖) state per video
 function readVidFav(id) { try { return !!JSON.parse(localStorage.getItem("tg_vidfavs") || "{}")[id]; } catch (e) { return false; } }
 function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("tg_vidfavs") || "{}"); if (v) m[id] = 1; else delete m[id]; localStorage.setItem("tg_vidfavs", JSON.stringify(m)); } catch (e) {} }
+// Subtitle language for the video player — cycles Off -> Thai -> English ->
+// Chinese -> Off via the CC rail button. There's no subtitle text of our own
+// authored per video (these are YouTube embeds, admin-uploaded), so this asks
+// YOUTUBE's OWN caption system for the chosen language via its documented
+// cc_load_policy/cc_lang_pref embed params — real captions today for any
+// video that has at least one caption track (creator-uploaded or YouTube's
+// own auto-generated one), since YouTube auto-translates an existing track
+// into whichever language is requested. Sticky across videos/sessions, same
+// convention as this app's other sticky per-feature preferences.
+const VIDSUB_CYCLE = [null, "th", "en", "zh"];
+const VIDSUB_CC_CODE = { th: "th", en: "en", zh: "zh-Hans" };
+function readVidSubLang() { try { return localStorage.getItem("tg_vidsub_lang") || null; } catch (e) { return null; } }
+function writeVidSubLang(v) { try { if (v) localStorage.setItem("tg_vidsub_lang", v); else localStorage.removeItem("tg_vidsub_lang"); } catch (e) {} }
 // share a lesson video — native share sheet on mobile (Web Share API), else LINE + clipboard
 function shareVideo(s, lang) {
   let url = null;
@@ -2963,7 +2976,19 @@ function shareVideo(s, lang) {
 function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [faved, setFaved] = useState(() => readVidFav(s.key));
+  const [subLang, setSubLang] = useState(() => readVidSubLang());
   if (!active) return <div className="vidplaceholder">🎬</div>;
+  function cycleSubLang(e) {
+    e.stopPropagation();
+    const next = VIDSUB_CYCLE[(VIDSUB_CYCLE.indexOf(subLang) + 1) % VIDSUB_CYCLE.length];
+    setSubLang(next);
+    writeVidSubLang(next);
+    playUi("click"); haptic(6);
+  }
+  // Forces YouTube's own caption system on in the chosen language when a
+  // subtitle language is picked; omitted entirely (today's exact behavior)
+  // when off.
+  const ccParam = subLang ? `&cc_load_policy=1&cc_lang_pref=${VIDSUB_CC_CODE[subLang]}&hl=${VIDSUB_CC_CODE[subLang]}` : "";
   const rail = (
     <div className="vidrail" onClick={e => e.stopPropagation()}>
       <button className={`vidact${likedByMe ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); if (onToggleLike) onToggleLike(); }}>
@@ -2973,6 +2998,10 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
       <button className="vidact" onClick={(e) => { e.stopPropagation(); if (onAsk) onAsk(s.title); }}>
         <span className="vidact-ic">💬</span>
         <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
+      </button>
+      <button className={`vidact${subLang ? " on" : ""}`} onClick={cycleSubLang} title={T("คำบรรยาย — แตะเพื่อเปลี่ยนภาษา", "Subtitles — tap to change language", "字幕 — 点击切换语言")}>
+        <span className="vidact-ic" style={{ fontWeight: 900, fontSize: 15, letterSpacing: -0.5 }}>CC</span>
+        <span className="vidact-n">{subLang ? subLang.toUpperCase() : T("ปิด", "Off", "关")}</span>
       </button>
       <button className="vidact" onClick={(e) => { e.stopPropagation(); shareVideo(s, lang); }}>
         <span className="vidact-ic">📤</span>
@@ -2993,7 +3022,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     return (
       <>
         <iframe className="vidplayer"
-          src={`https://www.youtube-nocookie.com/embed/videoseries?list=${s.playlistId}&autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0`}
+          src={`https://www.youtube-nocookie.com/embed/videoseries?list=${s.playlistId}&autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0${ccParam}`}
           allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
         {rail}
       </>
@@ -3007,7 +3036,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     return (
       <>
         <iframe className="vidplayer"
-          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3`}
+          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3${ccParam}`}
           allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
         {rail}
       </>
