@@ -235,6 +235,26 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
         <div className="locksub">{c.sub}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%", maxWidth: 300, marginTop: 8 }}>
           <LoginOptions profile={profile} onGoogleLogin={onLogin} />
+          <div style={{ marginTop: 12, textAlign: "center" }}>
+            <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 10 }}>หรือสมัครสมาชิกฟรีด้านล่าง · Or sign up free below</div>
+            <button
+              onClick={onLogin}
+              style={{
+                width: "100%", padding: "14px 24px", borderRadius: 14,
+                border: "2px solid #d97757",
+                background: "linear-gradient(135deg, #d97757, #c25e3f)",
+                color: "#fff", fontSize: 17, fontWeight: 700,
+                cursor: "pointer", letterSpacing: 0.3,
+                boxShadow: "0 4px 16px rgba(217,119,87,0.35)",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              🎹 สมัครสมาชิกฟรี · Sign up free
+            </button>
+            <div style={{ fontSize: 11, opacity: 0.5, marginTop: 8, lineHeight: 1.5 }}>
+              ไม่ต้องบัตรเครดิต · สมัครง่ายใน 10 วินาที<br />No credit card · Sign up in 10 seconds
+            </div>
+          </div>
         </div>
       </div>
     </div>
