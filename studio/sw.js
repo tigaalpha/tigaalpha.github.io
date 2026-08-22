@@ -1,42 +1,82 @@
-// Minimal network-first service worker — enough for "Add to Home Screen"
-// installability plus a usable offline fallback for pages already visited.
-// Registered scoped to /studio/, so it never touches the unrelated site at
-// the repo root.
-const CACHE_NAME = "tiga-bos-shell-v1";
+const CACHE = "tiga-v6";
+const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
-self.addEventListener("install", (event) => {
-  const scope = self.registration.scope;
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll([scope, `${scope}login/`]))
-      .catch(() => {})
-  );
-  self.skipWaiting();
+self.addEventListener("install", e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+self.addEventListener("activate", e => {
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: "window" }).then(clients => {
+        clients.forEach(c => c.postMessage({ type: "SW_UPDATED" }));
+      }))
   );
-  self.clients.claim();
 });
 
-self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+// Re-engagement push (see shared-infra.ts subscribePush / the send-streak-reminders
+// Edge Function) arrives here as { title, body, url, tag } — without this handler
+// the push event fires but nothing is ever shown, silently.
+self.addEventListener("push", e => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (err) {}
+  const title = data.title || "TIGA.AI";
+  e.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || "",
+      tag: data.tag || "tiga-notify",
+      icon: "/icon.svg",
+      badge: "/icon.svg",
+      data: { url: data.url || "./", page: data.page || null },
+    })
+  );
+});
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const copy = response.clone();
-        caches
-          .open(CACHE_NAME)
-          .then((cache) => cache.put(event.request, copy))
-          .catch(() => {});
-        return response;
-      })
-      .catch(() => caches.match(event.request))
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "./";
+  const page = (e.notification.data && e.notification.data.page) || null;
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+      // An already-open tab can only be focused, not navigated, from here — so
+      // hand it a NAVIGATE message and let the app's own router act on it
+      // (see App.tsx's serviceWorker message listener). A fresh launch instead
+      // opens `url` directly, whose #hash the app reads once on boot.
+      for (const c of list) {
+        if ("focus" in c) { if (page) c.postMessage({ type: "NAVIGATE", page }); return c.focus(); }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});
+
+self.addEventListener("fetch", e => {
+  if (e.request.method !== "GET") return;
+  const url = new URL(e.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Network-first for HTML (always get the freshest app code)
+  const isHtml = url.pathname === "/" || url.pathname.endsWith(".html");
+  if (isHtml) {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Cache-first for other static assets (icons, manifests)
+  e.respondWith(
+    caches.match(e.request).then(cached => {
+      const net = fetch(e.request).then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+        return res;
+      }).catch(() => null);
+      return cached || net;
+    })
   );
 });

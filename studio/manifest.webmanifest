@@ -1,14 +1,16 @@
 {
-  "name": "Tiga Automation",
-  "short_name": "Tiga Automation",
-  "description": "Tiga Automation — AI-first admin, booking, CRM, and sales platform for Tiga Studio",
-  "start_url": "/studio/dashboard/",
-  "scope": "/studio/",
+  "name": "TiGA AI",
+  "short_name": "TiGA Piano",
+  "description": "AI-powered piano teacher: interactive keyboard, scales, chords, games and a learning pathway.",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
-  "background_color": "#FFFFFF",
-  "theme_color": "#FF5FA2",
+  "orientation": "portrait",
+  "background_color": "#faf9f5",
+  "theme_color": "#faf9f5",
+  "categories": ["education", "music"],
+  "lang": "en",
   "icons": [
-    { "src": "/studio/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/studio/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
 }
