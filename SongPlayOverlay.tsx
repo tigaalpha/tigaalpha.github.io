@@ -15,7 +15,7 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
               {tr(songMeta, lang)}<small>{"★".repeat(songMeta.diff)}</small>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button onClick={() => { if (getAC) getAC(); setMetroOn && setMetroOn(o => !o); }} style={{ background: metroOn ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.1)', border: metroOn ? '1px solid rgba(74,222,128,0.4)' : '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '4px 10px', color: metroOn ? '#4ade80' : 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} aria-label="Toggle metronome">
+              <button onClick={() => { if (getAC) getAC(); setMetroOn && setMetroOn(o => !o); }} style={{ background: metroOn ? '#166534' : '#374151', border: metroOn ? '2px solid #22c55e' : '2px solid #6b7280', borderRadius: 8, padding: '5px 12px', color: metroOn ? '#bbf7d0' : '#d1d5db', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, boxShadow: metroOn ? '0 0 8px rgba(34,197,94,0.4)' : 'none' }} aria-label="Toggle metronome">
                 🥁 {metroOn ? (lang === 'th' ? 'ON' : lang === 'zh' ? '开' : 'ON') : (lang === 'th' ? 'OFF' : lang === 'zh' ? '关' : 'OFF')}
               </button>
               <button className="cbtn" onClick={exitSong}>{lc.close}</button>
