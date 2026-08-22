@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, Zap, CheckCircle2, Clock, DollarSign, Loader2, AlertTriangle, Users, Calendar, FileText } from "lucide-react";
+import { TrendingUp, Zap, CheckCircle2, Clock, DollarSign, Loader2, Users, Calendar, FileText } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -43,276 +43,249 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   "ยาก": "text-red-400 bg-red-500/10",
 };
 
+/** Safe query helper — returns data or empty array, never throws */
+async function safeQuery(
+  db: ReturnType<typeof createClient>,
+  table: string,
+  select = "*",
+  filters?: { col: string; op: string; val: unknown }[],
+  opts?: { limit?: number; order?: { col: string; ascending?: boolean } }
+): Promise<Record<string, unknown>[]> {
+  try {
+    let q = db.from(table).select(select);
+    if (filters) {
+      for (const f of filters) {
+        if (f.op === "eq") q = q.eq(f.col, f.val as string);
+        else if (f.op === "gt") q = q.gt(f.col, f.val as string);
+        else if (f.op === "gte") q = q.gte(f.col, f.val as string);
+        else if (f.op === "lte") q = q.lte(f.col, f.val as string);
+        else if (f.op === "in") q = q.in(f.col, f.val as string[]);
+        else if (f.op === "is" && f.val === null) q = q.is(f.col, null);
+      }
+    }
+    if (opts?.order) q = q.order(opts.order.col, { ascending: opts.order.ascending ?? false });
+    if (opts?.limit) q = q.limit(opts.limit);
+    const { data, error } = await q;
+    if (error) return [];
+    return (data as Record<string, unknown>[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function getTodayRange() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return {
+    start: `${yyyy}-${mm}-${dd}T00:00:00`,
+    end: `${yyyy}-${mm}-${dd}T23:59:59`,
+  };
+}
+
+function daysSince(dateStr: string): number {
+  return (Date.now() - new Date(dateStr).getTime()) / 86400000;
+}
+
+const FALLBACK_PRIORITIES: Priority[] = [
+  {
+    rank: 1,
+    task: "สร้าง content ใหม่ 1 ชิ้นสำหรับสัปดาห์นี้",
+    category: "marketing",
+    impact: "กลาง",
+    difficulty: "ง่าย",
+    reason: "content สม่ำเสมอ = lead สม่ำเสมอ",
+    actionText: "สร้าง Content ใหม่",
+    icon: "✍️",
+  },
+  {
+    rank: 2,
+    task: "ตรวจสอบ lead ที่ยังไม่ติดต่อกลับ",
+    category: "sales",
+    impact: "สูง",
+    difficulty: "กลาง",
+    reason: "lead ที่เงียบไปมีโอกาสสูงที่จะหายไป",
+    actionText: "ดู Sales Pipeline",
+    icon: "💰",
+  },
+  {
+    rank: 3,
+    task: "ดูสรุปการเงินเดือนนี้",
+    category: "finance",
+    impact: "กลาง",
+    difficulty: "ง่าย",
+    reason: "รู้ตัวเลข = ตัดสินใจได้ดีกว่า",
+    actionText: "ดูการเงินเดือนนี้",
+    icon: "📊",
+  },
+];
+
 export function DailyPrioritiesCard({ onAction }: DailyPrioritiesCardProps) {
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState<string>("");
+  const [summary, setSummary] = useState("");
 
   useEffect(() => {
     let cancelled = false;
+    const timer = setTimeout(() => { if (!cancelled) setLoading(false); }, 3000);
+
     async function fetchPriorities() {
-      try {
-        const db = createClient();
-        const today = new Date().toISOString().slice(0, 10);
-        const todayStart = today + "T00:00:00";
-        const todayEnd = today + "T23:59:59";
-        const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+      const db = createClient();
+      const today = getTodayRange();
 
-        // Fetch ALL relevant data in parallel
-        const [
-          approvalsRes,
-          leadsRes,
-          lessonsRes,
-          contentRes,
-          studentsRes,
-          revenueRes,
-          bookingsRes,
-          messagesRes,
-        ] = await Promise.all([
-          // Pending approvals
-          db.from("approvals").select("id, action_type, action_payload").eq("status", "pending").limit(20),
-          // Active leads in pipeline
-          db.from("sales_pipeline").select("id, customer_name, status, updated_at, value")
-            .in("status", ["new_lead", "contacted", "interested", "trial_booked", "negotiation"])
-            .order("updated_at", { ascending: false }).limit(20),
-          // Today's lessons
-          db.from("bookings").select("id, start_time, status")
-            .gte("start_time", todayStart).lte("start_time", todayEnd) as any,
-          // Unposted content
-          db.from("content_history").select("id, title, platform, created_at")
-            .is("scheduled_date", null).order("created_at", { ascending: false }).limit(10),
-          // Total students
-          db.from("students").select("id, name, hours_remaining").limit(100),
-          // Revenue this month
-          db.from("payments").select("id, amount")
-            .limit(50) as any,
-          // Upcoming bookings this week
-          db.from("bookings").select("id, start_time, status")
-            .gte("start_time", todayStart).lte("start_time", new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) + "T23:59:59") as any,
-          // Unread messages
-          db.from("conversations").select("id, last_message, last_message_at, unread_count")
-            .gt("unread_count", 0).limit(20),
-        ]);
+      // Fire all queries independently — each one fails silently
+      const [approvals, leads, bookings, students, payments, content, messages] = await Promise.all([
+        safeQuery(db, "approvals", "id, action_type", [{ col: "status", op: "eq", val: "pending" }], { limit: 20 }),
+        safeQuery(db, "sales_pipeline", "id, customer_name, status, updated_at", [{ col: "status", op: "in", val: ["new_lead", "contacted", "interested", "trial_booked", "negotiation"] }], { limit: 20, order: { col: "updated_at", ascending: false } }),
+        safeQuery(db, "bookings", "id, start_time, status", [{ col: "start_time", op: "gte", val: today.start }, { col: "start_time", op: "lte", val: today.end }], { limit: 20 }),
+        safeQuery(db, "students", "id, name, hours_remaining", undefined, { limit: 100 }),
+        safeQuery(db, "payments", "id, amount", undefined, { limit: 50 }),
+        safeQuery(db, "content_history", "id, title, platform", [{ col: "scheduled_date", op: "is", val: null }], { limit: 10, order: { col: "created_at", ascending: false } }),
+        safeQuery(db, "conversations", "id, unread_count", [{ col: "unread_count", op: "gt", val: 0 }], { limit: 20 }),
+      ]);
 
-        if (cancelled) return;
+      if (cancelled) return;
+      clearTimeout(timer);
 
-        const pendingCount = (approvalsRes.data ?? []).length;
-        const leadCount = (leadsRes.data ?? []).length;
-        const lessonCount = (lessonsRes.data ?? []).length;
-        const contentCount = (contentRes.data ?? []).length;
-        const studentCount = (studentsRes.data ?? []).length;
-        const weekBookingsCount = (bookingsRes.data ?? []).length;
-        const unreadMsgCount = (messagesRes.data ?? []).length;          const totalRevenue = (revenueRes.data ?? []).reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+      // Compute stats
+      const pendingCount = approvals.length;
+      const leadCount = leads.length;
+      const lessonCount = bookings.length;
+      const studentCount = students.length;
+      const contentCount = content.length;
+      const unreadMsgCount = messages.length;
 
-        // Students with low hours
-        const lowHoursStudents = (studentsRes.data ?? [])
-          .filter((s: Record<string, unknown>) => Number(s.hours_remaining) <= 3 && Number(s.hours_remaining) > 0)
-          .map((s: Record<string, string>) => s.name);
+      const lowHoursStudents = students
+        .filter((s) => {
+          const h = Number(s.hours_remaining ?? 0);
+          return h > 0 && h <= 3;
+        })
+        .map((s) => String(s.name ?? ""));
 
-        // Leads that went cold (not updated in 3+ days)
-        const coldLeads = (leadsRes.data ?? []).filter((l: Record<string, unknown>) => {
-          if (!l.updated_at) return false;
-          const daysSince = (Date.now() - new Date(l.updated_at as string).getTime()) / 86400000;
-          return daysSince >= 3;
+      const coldLeads = leads.filter((l) => {
+        if (!l.updated_at) return false;
+        return daysSince(l.updated_at as string) >= 3;
+      });
+
+      // Summary line
+      const parts: string[] = [];
+      if (lessonCount > 0) parts.push(`${lessonCount} คาบวันนี้`);
+      if (leadCount > 0) parts.push(`${leadCount} lead`);
+      if (pendingCount > 0) parts.push(`${pendingCount} รออนุมัติ`);
+      if (unreadMsgCount > 0) parts.push(`${unreadMsgCount} ข้อความ`);
+      if (lowHoursStudents.length > 0) parts.push(`${lowHoursStudents.length} คนใกล้หมดชั่วโมง`);
+      setSummary(parts.join(" · ") || "ข้อมูลปกติ ไม่มีอะไรเร่งด่วน");
+
+      // Build priority list — sorted by BUSINESS VALUE (high → low, easy → hard)
+      const result: Priority[] = [];
+
+      // 1. LEADS — highest value
+      if (leadCount > 0) {
+        const coldCount = coldLeads.length;
+        const names = leads.slice(0, 3).map((l) => String(l.customer_name ?? "")).join(", ");
+        result.push({
+          rank: 1,
+          task: coldCount > 0
+            ? `ติดตาม lead ${coldCount} คนที่เงียบไป 3+ วัน: ${names}${leadCount > 3 ? "..." : ""}`
+            : `ติดตาม lead ${leadCount} คน: ${names}${leadCount > 3 ? "..." : ""}`,
+          category: "sales",
+          impact: "สูงมาก",
+          difficulty: "กลาง",
+          reason: coldCount > 0 ? "lead ที่เงียบไปยิ่งนานยิ่งเสีย" : "lead ที่ยังไม่ปิด — ยิ่งติดตามเร็วยิ่งดี",
+          actionText: "ดู Sales Pipeline ทั้งหมด",
+          icon: "💰",
         });
-
-        // Summary line
-        const parts: string[] = [];
-        if (lessonCount > 0) parts.push(`${lessonCount} คาบวันนี้`);
-        if (leadCount > 0) parts.push(`${leadCount} lead`);
-        if (pendingCount > 0) parts.push(`${pendingCount} รออนุมัติ`);
-        if (unreadMsgCount > 0) parts.push(`${unreadMsgCount} ข้อความ`);
-        if (lowHoursStudents.length > 0) parts.push(`${lowHoursStudents.length} คนใกล้หมดชั่วโมง`);
-        setSummary(parts.join(" · ") || "ข้อมูลปกติ ไม่มีอะไรเร่งด่วน");
-
-        // Build priority list — sorted by BUSINESS VALUE (high → low, easy → hard)
-        const result: Priority[] = [];
-
-        // 1. LEADS — highest value (direct revenue)
-        if (leadCount > 0) {
-          const coldCount = coldLeads.length;
-          const names = (leadsRes.data ?? [])
-            .slice(0, 3)
-            .map((l: Record<string, string>) => l.customer_name)
-            .join(", ");
-          result.push({
-            rank: result.length + 1,
-            task: coldCount > 0
-              ? `ติดตาม lead ${coldCount} คนที่เงียบไป 3+ วัน: ${names}${leadCount > 3 ? "..." : ""}`
-              : `ติดตาม lead ${leadCount} คน: ${names}${leadCount > 3 ? "..." : ""}`,
-            category: "sales",
-            impact: "สูงมาก",
-            difficulty: "กลาง",
-            reason: coldCount > 0
-              ? "lead ที่เงียบไปยิ่งนานยิ่งเสีย — ยิ่งติดตามเร็วยิ่งมีโอกาส converting สูง"
-              : "lead ที่ยังไม่ปิด — ยิ่งติดตามเร็วยิ่งดี",
-            actionText: "ดู Sales Pipeline ทั้งหมด",
-            icon: "💰",
-          });
-        }
-
-        // 2. STUDENTS NEARLY OUT OF HOURS — retention risk
-        if (lowHoursStudents.length > 0) {
-          result.push({
-            rank: result.length + 1,
-            task: `ต่ออายุนักเรียน ${lowHoursStudents.length} คน: ${lowHoursStudents.slice(0, 3).join(", ")}${lowHoursStudents.length > 3 ? "..." : ""}`,
-            category: "student",
-            impact: "สูงมาก",
-            difficulty: "ง่าย",
-            reason: "นักเรียนใกล้หมดชั่วโมง — ถ้าไม่ต่ออายุจะเสียลูกค้า",
-            actionText: "ดูนักเรียนทั้งหมด",
-            icon: "👥",
-          });
-        }
-
-        // 3. PENDING APPROVALS — quick win
-        if (pendingCount > 0) {
-          const types = (approvalsRes.data ?? [])
-            .slice(0, 3)
-            .map((a: Record<string, string>) => a.action_type || "action")
-            .join(", ");
-          result.push({
-            rank: result.length + 1,
-            task: `อนุมัติ ${pendingCount} รายการ (${types})`,
-            category: "operational",
-            impact: "สูง",
-            difficulty: "ง่าย",
-            reason: "งานค้างที่รอการตัดสินใจ — ทำเสร็จใน 1 นาที แต่ค้างมาหลายวัน",
-            actionText: "ดูรายการรออนุมัติ",
-            icon: "✅",
-          });
-        }
-
-        // 4. UNREAD MESSAGES — response speed matters
-        if (unreadMsgCount > 0) {
-          result.push({
-            rank: result.length + 1,
-            task: `ตอบข้อความ ${unreadMsgCount} รายการที่ยังไม่อ่าน`,
-            category: "operational",
-            impact: "สูง",
-            difficulty: "ง่าย",
-            reason: "ลูกค้ารอคำตอบ — ยิ่งเร็วยิ่งประทับใจ",
-            actionText: "ดูข้อความทั้งหมด",
-            icon: "💬",
-          });
-        }
-
-        // 5. TODAY'S LESSONS — check attendance
-        if (lessonCount > 0) {
-
-          result.push({
-            rank: result.length + 1,
-            task: `วันนี้มี ${lessonCount} คาบเรียน`,
-            category: "calendar",
-            impact: "กลาง",
-            difficulty: "ง่าย",
-            reason: "ยืนยันการมาเรียนหลังสอนเสร็จทุกคาบ",
-            actionText: "ดูคาบเรียนวันนี้",
-            icon: "📅",
-          });
-        }
-
-        // 6. UNSCHEDULED CONTENT — marketing opportunity
-        if (contentCount > 0) {
-          const titles = (contentRes.data ?? [])
-            .slice(0, 3)
-            .map((c: Record<string, string>) => c.title || c.platform)
-            .filter(Boolean)
-            .join(", ");
-          result.push({
-            rank: result.length + 1,
-            task: `วางแผนโพสต์ content ${contentCount} ชิ้น (${titles}${contentCount > 3 ? "..." : ""})`,
-            category: "marketing",
-            impact: "กลาง",
-            difficulty: "ง่าย",
-            reason: "content ที่สร้างแล้วยังไม่ได้โพสต์ — เสียโอกาส",
-            actionText: "สร้าง Content Calendar",
-            icon: "📝",
-          });
-        }
-
-        // 7. REVENUE CHECK — always valuable
-        if (totalRevenue === 0 && lessonCount > 0) {
-          result.push({
-            rank: result.length + 1,
-            task: "บันทึกรายรับวันนี้ — ยังไม่มีการบันทึกในระบบ",
-            category: "finance",
-            impact: "สูง",
-            difficulty: "ง่าย",
-            reason: "มีคาบเรียนแต่ไม่มีรายรับบันทึก — ต้องตรวจสอบ",
-            actionText: "บันทึกรายรับ",
-            icon: "💰",
-          });
-        }
-
-        // Fill up to 3 if needed
-        if (result.length < 3) {
-          result.push({
-            rank: result.length + 1,
-            task: "สร้าง content ใหม่ 1 ชิ้นสำหรับสัปดาห์นี้",
-            category: "marketing",
-            impact: "กลาง",
-            difficulty: "ง่าย",
-            reason: "content สม่ำเสมอ = lead สม่ำเสมอ",
-            actionText: "สร้าง Content ใหม่",
-            icon: "✍️",
-          });
-        }
-
-        if (result.length < 3) {
-          result.push({
-            rank: result.length + 1,
-            task: "วางแผนสร้าง content สำหรับ 7 วันข้างหน้า",
-            category: "content",
-            impact: "กลาง",
-            difficulty: "กลาง",
-            reason: "มีแผน = ไม่ต้องนึกทุกวัน = สม่ำเสมอ",
-            actionText: "วางแผน Content สัปดาห์นี้",
-            icon: "📋",
-          });
-        }
-
-        setPriorities(result.slice(0, 3));
-      } catch {
-        // Silent fail — show fallback priorities
-        setPriorities([
-          {
-            rank: 1,
-            task: "สร้าง content ใหม่ 1 ชิ้นสำหรับสัปดาห์นี้",
-            category: "marketing",
-            impact: "กลาง",
-            difficulty: "ง่าย",
-            reason: "content สม่ำเสมอ = lead สม่ำเสมอ",
-            actionText: "สร้าง Content ใหม่",
-            icon: "✍️",
-          },
-          {
-            rank: 2,
-            task: "ตรวจสอบ lead ที่ยังไม่ติดต่อกลับ",
-            category: "sales",
-            impact: "สูง",
-            difficulty: "กลาง",
-            reason: "lead ที่เงียบไปมีโอกาสสูงที่จะหายไป",
-            actionText: "ดู Sales Pipeline",
-            icon: "💰",
-          },
-          {
-            rank: 3,
-            task: "ดูสรุปการเงินเดือนนี้",
-            category: "finance",
-            impact: "กลาง",
-            difficulty: "ง่าย",
-            reason: "รู้ตัวเลข = ตัดสินใจได้ดีกว่า",
-            actionText: "ดูการเงินเดือนนี้",
-            icon: "📊",
-          },
-        ]);
       }
+
+      // 2. STUDENTS NEARLY OUT OF HOURS
+      if (lowHoursStudents.length > 0) {
+        result.push({
+          rank: result.length + 1,
+          task: `ต่ออายุนักเรียน ${lowHoursStudents.length} คน: ${lowHoursStudents.slice(0, 3).join(", ")}${lowHoursStudents.length > 3 ? "..." : ""}`,
+          category: "student",
+          impact: "สูงมาก",
+          difficulty: "ง่าย",
+          reason: "นักเรียนใกล้หมดชั่วโมง — ถ้าไม่ต่ออายุจะเสียลูกค้า",
+          actionText: "ดูนักเรียนทั้งหมด",
+          icon: "👥",
+        });
+      }
+
+      // 3. PENDING APPROVALS
+      if (pendingCount > 0) {
+        result.push({
+          rank: result.length + 1,
+          task: `อนุมัติ ${pendingCount} รายการที่รออนุมัติ`,
+          category: "operational",
+          impact: "สูง",
+          difficulty: "ง่าย",
+          reason: "งานค้างที่รอการตัดสินใจ — ทำเสร็จใน 1 นาที",
+          actionText: "ดูรายการรออนุมัติ",
+          icon: "✅",
+        });
+      }
+
+      // 4. UNREAD MESSAGES
+      if (unreadMsgCount > 0) {
+        result.push({
+          rank: result.length + 1,
+          task: `ตอบข้อความ ${unreadMsgCount} รายการที่ยังไม่อ่าน`,
+          category: "operational",
+          impact: "สูง",
+          difficulty: "ง่าย",
+          reason: "ลูกค้ารอคำตอบ — ยิ่งเร็วยิ่งประทับใจ",
+          actionText: "ดูข้อความทั้งหมด",
+          icon: "💬",
+        });
+      }
+
+      // 5. TODAY'S LESSONS
+      if (lessonCount > 0) {
+        result.push({
+          rank: result.length + 1,
+          task: `วันนี้มี ${lessonCount} คาบเรียน`,
+          category: "calendar",
+          impact: "กลาง",
+          difficulty: "ง่าย",
+          reason: "ยืนยันการมาเรียนหลังสอนเสร็จทุกคาบ",
+          actionText: "ดูคาบเรียนวันนี้",
+          icon: "📅",
+        });
+      }
+
+      // 6. UNSCHEDULED CONTENT
+      if (contentCount > 0) {
+        result.push({
+          rank: result.length + 1,
+          task: `วางแผนโพสต์ content ${contentCount} ชิ้น`,
+          category: "marketing",
+          impact: "กลาง",
+          difficulty: "ง่าย",
+          reason: "content ที่สร้างแล้วยังไม่ได้โพสต์ — เสียโอกาส",
+          actionText: "สร้าง Content Calendar",
+          icon: "📝",
+        });
+      }
+
+      // Fill up to 3 if needed
+      while (result.length < 3) {
+        const idx = result.length;
+        if (idx === 0) {
+          result.push({ rank: 1, task: "สร้าง content ใหม่ 1 ชิ้นสำหรับสัปดาห์นี้", category: "marketing", impact: "กลาง", difficulty: "ง่าย", reason: "content สม่ำเสมอ = lead สม่ำเสมอ", actionText: "สร้าง Content ใหม่", icon: "✍️" });
+        } else if (idx === 1) {
+          result.push({ rank: 2, task: "ตรวจสอบ lead ที่ยังไม่ติดต่อกลับ", category: "sales", impact: "สูง", difficulty: "กลาง", reason: "lead ที่เงียบไปมีโอกาสสูงที่จะหายไป", actionText: "ดู Sales Pipeline", icon: "💰" });
+        } else {
+          result.push({ rank: 3, task: "ดูสรุปการเงินเดือนนี้", category: "finance", impact: "กลาง", difficulty: "ง่าย", reason: "รู้ตัวเลข = ตัดสินใจได้ดีกว่า", actionText: "ดูการเงินเดือนนี้", icon: "📊" });
+        }
+      }
+
+      setPriorities(result.slice(0, 3));
       setLoading(false);
     }
 
     fetchPriorities();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
   if (loading) {
@@ -320,13 +293,14 @@ export function DailyPrioritiesCard({ onAction }: DailyPrioritiesCardProps) {
       <div className="rounded-xl border border-line/10 bg-line/5 p-3">
         <div className="flex items-center gap-2 text-xs text-secondary/60">
           <Loader2 className="h-3 w-3 animate-spin" />
-          <span>กำลังวิเคราะห์ข้อมูลทั้งระบบ...</span>
+          <span>กำลังวิเคราะห์ข้อมูล...</span>
         </div>
       </div>
     );
   }
 
-  if (priorities.length === 0) return null;
+  // ALWAYS show the card — use fallback if needed
+  const items = priorities.length > 0 ? priorities : FALLBACK_PRIORITIES;
 
   return (
     <div className="overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-line/5">
@@ -347,7 +321,7 @@ export function DailyPrioritiesCard({ onAction }: DailyPrioritiesCardProps) {
 
       {/* Priority Items */}
       <div className="divide-y divide-line/5">
-        {priorities.map((p) => {
+        {items.map((p) => {
           const PIcon = CATEGORY_ICONS[p.category] || Zap;
           return (
             <button
