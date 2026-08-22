@@ -1904,7 +1904,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
 
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, songAnalysis = null, onAskStruggle,
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, onChallenging = null, songAnalysis = null, onAskStruggle,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
   mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null, onReviewStage = null }) {
@@ -2217,6 +2217,8 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     // HIDDEN (not deleted) — superseded by the fuller School Dashboard (School Plan Pro);
     // underlying modal/state untouched in case a non-school-linked teacher still needs it.
     // { k: "kru",     ic: "📋", c: "#d97757", t: lc.kruTitle, s: lc.kruSub, fn: () => { playUi("click"); setKruMsg(""); setKruGenResult(""); setKruTab("class"); setKruOpen(true); } },
+    // Moved here from the nav drawer per request — same page (setPage("challenging")), just reached from Studio's card grid now instead of the drawer.
+    { k: "challenging", ic: "🏆", c: "#a78bfa", t: lc.challengingTitle, s: T("ปลดล็อกใบประกาศนียบัตรและเควสบอสทั้งหมด", "Unlock every certificate and boss quest", "解锁所有证书和首领任务"), fn: () => { playUi("click"); onChallenging ? onChallenging() : null; } },
   ];
 
   // Max-exclusive feature cards
@@ -9144,6 +9146,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               onUpsell={() => setPricingOpen(true)}
               onPlay={(s) => { logUsage("nav", "studio-quick"); chooseSong(s); }}
               onParent={() => { playUi("click"); premium ? setParentOpen(true) : setPricingOpen(true); }}
+              onChallenging={() => { logUsage("nav", "studio-challenging"); setPage("challenging"); }}
               detectOpen={detectOpen} setDetectOpen={setDetectOpen} detectNotes={detectNotes} setDetectNotes={setDetectNotes}
               detectMatch={detectMatch} setDetectMatch={setDetectMatch} detectListening={detectListening} setDetectListening={setDetectListening}
               battlePickOpen={battlePickOpen} setBattlePickOpen={setBattlePickOpen} battleData={battleData} setBattleData={setBattleData}
@@ -9194,7 +9197,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
-          { p: "challenging", ic: "🏆", c: "#a78bfa", t: lc.navChallenging },
+          // Challenging moved into the Studio card grid (right after Parent
+          // Report, before the MAX Exclusive Features section) per request —
+          // no longer a separate drawer entry, same page either way.
           // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
           // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
         ].map(it => {
