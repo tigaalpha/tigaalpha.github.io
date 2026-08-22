@@ -109,7 +109,7 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
                 the bridge between them obvious instead of relying on discovery. */}
             <button className={`practicebtn${hasSeq && !seqPlaying ? " ready" : ""}`} disabled={!hasSeq} onClick={startPractice}
               title={hasSeq ? lc.practiceBtn : lc.practiceNoSeq}>
-              {hasSeq && !seqPlaying ? lc.practiceNudge : hasSeq ? lc.practiceBtn : lc.practiceNoSeq}
+              {hasSeq ? lc.practiceBtn : lc.practiceNoSeq}
             </button>
           </div>
           <div className="cw">
