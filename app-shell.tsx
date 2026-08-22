@@ -157,7 +157,7 @@ function LoginOptions({ profile, onGoogleLogin }) {
         <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google · Continue with Google
       </button>
       {!showEmail ? (
-        <button className="memberlink" onClick={() => setShowEmail(true)}>หรือใช้อีเมล · or use email</button>
+        <button className="memberlink" onClick={() => setShowEmail(true)}>เข้าสู่ระบบด้วย ID ที่มีอยู่แล้ว · Log in with existing account</button>
       ) : (
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 2 }}>
           <input className="memberinput" type="email" inputMode="email" autoComplete="email"
