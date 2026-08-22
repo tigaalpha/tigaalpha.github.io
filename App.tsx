@@ -4809,6 +4809,25 @@ export function domainDoneIds() {
 }
 /* Per-key learning record: which keys of each topic (scale/interval/chord/…) the
    learner has studied, so the pathway can show what's already been covered. */
+// A coaching tip's free text often names a specific key ("practice the C
+// Major scale") — match it against KEYS_12 so a tap on that step opens THAT
+// key, instead of silently substituting whichever key the learner's own
+// progress happens to have queued up next (which could be any of the 12).
+// Longest id first (mirrors extractNotes()'s KNOWN-table scan) so "F#"/"Db"
+// aren't shadowed by a bare "F" match; the bare-letter check is case-
+// sensitive so it doesn't false-positive on the English word "a"/"A" inside
+// an otherwise unrelated sentence.
+function findKeyMentionInText(text) {
+  const t = String(text || "");
+  if (!t) return null;
+  const bySpecificity = KEYS_12.slice().sort((a, b) => b.id.length - a.id.length);
+  for (const k of bySpecificity) {
+    const idEsc = k.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const idRx = new RegExp("(?<![A-Za-z])" + idEsc + "(?![A-Za-z])");
+    if (idRx.test(t) || (k.th && t.includes(k.th)) || (k.zh && k.zh !== k.id && t.includes(k.zh))) return k;
+  }
+  return null;
+}
 function keyDoneMap() { try { return JSON.parse(localStorage.getItem("tg_key_done") || "{}") || {}; } catch (e) { return {}; } }
 function markKeyDone(stageId, keyId) {
   try {
@@ -8437,12 +8456,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           }
         }
       }
+      const mentionedKey = findKeyMentionInText(text);
       for (const st of PATHWAY) {
         for (const nt of variants(tr(st.title, lang))) {
-          if (q.includes(nt) || nt.includes(q)) return { type: "stage", stage: st };
+          if (q.includes(nt) || nt.includes(q)) return { type: "stage", stage: st, key: mentionedKey };
         }
         const nid = norm(st.id);
-        if (nid.length >= 3 && q.includes(nid)) return { type: "stage", stage: st };
+        if (nid.length >= 3 && q.includes(nid)) return { type: "stage", stage: st, key: mentionedKey };
       }
     }
     return { type: "feature", feature };
@@ -8456,8 +8476,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     } else if (r.type === "stage") {
       if (r.stage.content) { readChapter(r.stage); }
       else {
+        // Honor a specific key named in the tip's own text first — falling
+        // straight to "whichever key isn't done yet" ignored what the tip
+        // actually said (a tip about the C major scale could open any other
+        // key, whichever the learner's progress happened to have queued up
+        // next), which read as the recommendation being simply wrong.
         const keyMap = keyDoneMap();
-        const key = KEYS_12.find(k => !(keyMap[r.stage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0];
+        const key = r.key || KEYS_12.find(k => !(keyMap[r.stage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0];
         learnTopic(r.stage, key, r.stage.types ? r.stage.types[0] : null);
       }
     } else {
