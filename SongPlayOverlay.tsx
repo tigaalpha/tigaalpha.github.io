@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { L, tr } from "./i18n";
 import { PlayAlongStaff, GamePiano } from "./music-engine";
 import { CountUp } from "./app-shell";
@@ -8,6 +9,17 @@ import { CountUp } from "./app-shell";
    lang internally, same convention as the other overlay components. ── */
 export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand, setSongPhase }) {
   const lc = L[lang];
+  // Landscape orientation prompt for Play Along — detect portrait on mobile
+  const [orientSkipped, setOrientSkipped] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(() => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(orientation: portrait)").matches && window.innerHeight > window.innerWidth);
+  useEffect(() => {
+    if (orientSkipped) return;
+    const mq = window.matchMedia("(orientation: portrait)");
+    const handler = (e) => setIsPortrait(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [orientSkipped]);
+  const showOrientPrompt = isPortrait && !orientSkipped && songPhase === "playing" && typeof window !== "undefined" && window.innerWidth < 600;
   return (
         <div className="songov">
           <div className="songhdr">
@@ -217,6 +229,26 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Landscape orientation prompt — shown on mobile portrait during Play Along */}
+          {showOrientPrompt && (
+            <div className="orientation-prompt">
+              <div className="op-icon">📱↻</div>
+              <div className="op-title">
+                {lang === "th" ? "หมุนหน้าจอแนวนอน" : lang === "zh" ? "请旋转到横屏" : "Rotate to Landscape"}
+              </div>
+              <div className="op-sub">
+                {lang === "th"
+                  ? "หมุนมือถือเป็นแนวนอนเพื่อให้เปียโนกว้างขึ้น เล่นง่ายขึ้น โน้ตมองเห็นชัดเจน"
+                  : lang === "zh"
+                  ? "旋转手机为横屏，钢琴更宽，更容易弹奏，音符更清晰"
+                  : "Rotate your phone sideways for a wider piano, easier playing, and clearer notes"}
+              </div>
+              <button className="op-skip" onClick={() => setOrientSkipped(true)}>
+                {lang === "th" ? "ข้าม ใช้แนวตั้ง" : lang === "zh" ? "跳过，使用竖屏" : "Skip, use portrait"}
+              </button>
             </div>
           )}
         </div>

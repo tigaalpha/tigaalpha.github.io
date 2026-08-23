@@ -1745,14 +1745,9 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, cl
       {list.map((n, i) => {
         const step = staffStep(n.note, staffClef);
         const y = baseY - step * half;
-        // Use noteKeyFrac for x-position so staff notes align with
-        // the piano keys and falling game notes.
-        const staffBaseOct = hand === "left" ? 2 : 4;
-        const staffNW = hand === "both" ? 28 : 14;
-        const kf = noteKeyFrac(n.note, staffBaseOct, staffNW);
-        const x = kf
-          ? startX + kf.cx * (W - startX - 20)
-          : startX + (n.beat - firstBeat) * beatGap;
+        // x-position by BEAT (time) — standard music notation.
+        // Notes placed at their beat position, not by pitch.
+        const x = startX + (n.beat - firstBeat) * beatGap;
         const ledgers = [];
         for (let s = -2; s >= step; s -= 2) ledgers.push(baseY - s * half);
         for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);

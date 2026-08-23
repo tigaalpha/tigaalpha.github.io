@@ -799,6 +799,24 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pastaff{width:100%;height:101px;display:block}
 .pastaff-cur{animation:pastaffpulse 1s ease-in-out infinite}
 @keyframes pastaffpulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* Landscape rotation prompt — shown on mobile portrait during Play Along */
+.orientation-prompt{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#fff;font-family:'Orbitron',sans-serif;text-align:center;padding:24px;animation:fadein .3s}
+.orientation-prompt .op-icon{font-size:56px;animation:rotate-hint 2s ease-in-out infinite}
+.orientation-prompt .op-title{font-size:18px;font-weight:700;color:#d97757}
+.orientation-prompt .op-sub{font-size:13px;color:rgba(255,255,255,.7);font-family:'Rajdhani',sans-serif;max-width:280px;line-height:1.5}
+.orientation-prompt .op-skip{margin-top:8px;padding:8px 20px;border:1px solid rgba(255,255,255,.3);border-radius:8px;background:transparent;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:'Rajdhani',sans-serif}
+.orientation-prompt .op-skip:hover{color:#fff;border-color:rgba(255,255,255,.6)}
+@keyframes rotate-hint{0%,100%{transform:rotate(0deg)}25%{transform:rotate(90deg)}50%{transform:rotate(90deg)}75%{transform:rotate(0deg)}}
+/* Landscape layout adjustments for Play Along — hide prompt, optimize space */
+@media (orientation:landscape) and (max-height:500px){
+  .songov .songhdr{padding:4px 12px}
+  .songov .songhtitle{font-size:12px}
+  .songov .songstaffwrap{padding:0}
+  .songov .pastaff{height:64px}
+  .songov .songhud{padding:4px 10px;font-size:11px}
+  .songov .songhud b{font-size:13px}
+  .songov .songprog{height:3px}
+}
 .songstage{position:relative;flex:1;min-height:0;overflow:hidden}
 .songcanvas{width:100%;height:100%;display:block}
 .songcount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:90px;font-weight:900;color:#fff;text-shadow:0 0 40px #d97757;animation:popcount .9s ease-out;pointer-events:none}
