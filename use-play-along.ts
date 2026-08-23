@@ -99,7 +99,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const [battlePickOpen, setBattlePickOpen] = useState(false);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
   const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
-  const [songStaffNotes, setSongStaffNotes] = useState([]); // upcoming notes shown on the reading staff
+  // The reading staff's current window: {list, startBeat, spanBeats}. The
+  // beat bounds travel with the notes because the staff positions everything
+  // by real beat, so it needs to know the window it's drawing, not just what
+  // happens to be in it.
+  const EMPTY_STAFF_WIN = { list: [], startBeat: 0, spanBeats: 20 };
+  const [songStaffNotes, setSongStaffNotes] = useState(EMPTY_STAFF_WIN);
   const [songBest, setSongBest] = useState(0);
   const [songBursts, setSongBursts] = useState([]);   // particle bursts
   const [songShake, setSongShake] = useState(false);  // screen shake on milestones
@@ -287,11 +292,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       });
       // guide: light the next-due note on the in-game piano — both hands' next
       // note when two are simultaneously in play — and feed a sliding window
-      // of the PRIMARY voice (right hand, or left hand in left-only mode)
       // to the reading staff so the learner can see where they are, not just
-      // what's next. PlayAlongStaff only ever draws one treble-clef line, so
-      // a generated accompaniment voice never goes on it — the falling-meteor
-      // lanes are its only visual feedback, same as the melody's own.
+      // what's next. In two-hand mode BOTH voices go to the staff, which
+      // draws them as a real grand staff (melody in treble, accompaniment in
+      // bass) rather than the single treble line it used to be limited to.
       const allNotes = songNotesRef.current;
       const nextByHand = {};
       for (const n of allNotes) {
@@ -308,22 +312,32 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (primaryNext) fm[primaryNext.note] = primaryNext.finger;
       if (secondaryNext) fm[secondaryNext.note] = secondaryNext.finger;
       setSongFingerMap(fm);
-      const primaryHand = allNotes.some(n => n.hand !== "left") ? "right" : "left";
-      const staffNotes = allNotes.filter(n => (n.hand === "left") === (primaryHand === "left"));
-      let curIdx = staffNotes.findIndex(n => !n.hit && !n.missed);
-      if (curIdx === -1) curIdx = staffNotes.length;
-      const winStart = Math.max(0, curIdx - 2);
-      // sight-reading window: 2 already-played + the current + FOUR full bars
-      // ahead (16 quarter-notes in 4/4), so the learner can read ahead
+      // Sight-reading window, measured in BEATS rather than in note count:
+      // one bar already played + four bars ahead. A fixed beat span is what
+      // lets the staff space notes by their real rhythmic position (and keeps
+      // both staves of a grand staff aligned on the beat) instead of spacing
+      // them evenly by array index, which made every rhythm look identical.
       const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
       const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
-      const curBeat = curIdx < staffNotes.length ? staffNotes[curIdx].beat : (staffNotes.length ? staffNotes[staffNotes.length - 1].beat : 0);
-      let winEnd = curIdx + 1;
-      while (winEnd < staffNotes.length && winEnd - winStart < 24 && staffNotes[winEnd].beat <= curBeat + beatsPerBar * 4) winEnd++;
-      setSongStaffNotes(staffNotes.slice(winStart, winEnd).map((n, i) => ({
-        note: n.note, beat: n.beat,
-        state: (winStart + i) < curIdx ? "past" : (winStart + i) === curIdx ? "current" : "future",
-      })));
+      const spanBeats = beatsPerBar * 5;
+      // "where we are" = the earliest still-unplayed note of the leading
+      // voice, so the window follows the melody rather than the accompaniment.
+      const melody = allNotes.filter(n => n.hand !== "left");
+      const lead = (melody.length ? melody : allNotes);
+      const curNote = lead.find(n => !n.hit && !n.missed);
+      const curBeat = curNote ? curNote.beat : (lead.length ? lead[lead.length - 1].beat : 0);
+      const winStartBeat = Math.max(0, curBeat - beatsPerBar);
+      const winEndBeat = winStartBeat + spanBeats;
+      setSongStaffNotes({
+        startBeat: winStartBeat,
+        spanBeats,
+        list: allNotes
+          .filter(n => n.beat >= winStartBeat - 0.001 && n.beat <= winEndBeat + 0.001)
+          .map(n => ({
+            note: n.note, beat: n.beat, dur: n.durBeats, hand: n.hand,
+            state: (n.hit || n.missed) ? "past" : (curNote && n === curNote) ? "current" : "future",
+          })),
+      });
       // ghost race vs your best run
       const st = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
       songSamplesRef.current.push({ t: +st.toFixed(2), s: songScoreRef.current });
@@ -346,7 +360,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongResult(null);
     setSongCountdown(null);
     setSongNextLit(null);
-    setSongStaffNotes([]);
+    setSongStaffNotes(EMPTY_STAFF_WIN);
     setSongJudge(null);
     setSongBursts([]); setSongShake(false); setSongGo(false); setSongGhost(null); setSongBonus(null);
     songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
@@ -777,7 +791,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     bumpWeekly("games", 1); if (perfects) bumpWeekly("perfect", perfects);
     setSongCountdown(null);
     setSongNextLit(null);
-    setSongStaffNotes([]);
+    setSongStaffNotes(EMPTY_STAFF_WIN);
     const missedNotes = songNotesRef.current.filter(n => n.missed).map(n => n.note);
     if (missedNotes.length) recordNoteMisses(missedNotes);
     // Setlist mode: this song's own log entry, always recorded even though the

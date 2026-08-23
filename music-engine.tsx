@@ -1314,12 +1314,12 @@ export function expandSong(song, opts) {
   let beat = 0;
   const notes = [];
   for (const [note, dur] of song.seq) {
-    if (note !== "R") notes.push({ note, t: beat * spb, beat, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: handMode === "left" ? "left" : "right" });
+    if (note !== "R") notes.push({ note, t: beat * spb, beat, durBeats: dur, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: handMode === "left" ? "left" : "right" });
     beat += dur;
   }
   if (handMode === "both") {
     for (const e of generateAccompaniment(song)) {
-      notes.push({ note: e.note, t: e.beat * spb, beat: e.beat, durSec: Math.max(0.18, e.dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: "left" });
+      notes.push({ note: e.note, t: e.beat * spb, beat: e.beat, durBeats: e.dur, durSec: Math.max(0.18, e.dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: "left" });
     }
     notes.sort((a, b) => a.t - b.t);
   }
@@ -1474,12 +1474,107 @@ export const SIGHT_NOTES_BASS = ["F2","G2","A2","B2","C3","D3","E3","F3","G3","A
 
 export const _LETTER_IDX = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
 
+// Staff position of a LETTER+octave (not a pitch) — a staff line means a
+// letter, which is why C♯ and C sit on the identical line and are told apart
+// by the accidental printed in front of them, never by height. step 0 = the
+// bottom line of the staff (E4 treble, G2 bass).
+export function staffStepFor(letter, oct, clef = "treble") {
+  const li = _LETTER_IDX[letter];
+  if (li == null) return 0;
+  const base = clef === "bass" ? (2 * 7 + 4) : (4 * 7 + 2); // G2 (bass) | E4 (treble)
+  return oct * 7 + li - base;
+}
 export function staffStep(note, clef = "treble") {
   const m = note.match(/^([A-G])#?(\d)$/);
   if (!m) return 0;
-  const di = parseInt(m[2], 10) * 7 + _LETTER_IDX[m[1]];
-  const base = clef === "bass" ? (2 * 7 + 4) : (4 * 7 + 2); // G2 (bass) | E4 (treble)
-  return di - base;
+  return staffStepFor(m[1], parseInt(m[2], 10), clef);
+}
+
+/* ── Key signatures & note spelling ──
+   Everything below exists so the play-along staff can be read as real
+   notation rather than as dots at approximately-right heights: a signature
+   the notes are actually spelled against, and accidentals printed only
+   where the signature doesn't already account for them. ── */
+// Accidentals in a key's signature: + = that many sharps, − = that many
+// flats, keyed by tonic pitch class (CHROMA order). Straight off the circle
+// of fifths; the enharmonic choice at the far side is the conventional one
+// (D♭ major over C♯ major, etc.).
+export const KEYSIG_MAJOR = { 0: 0, 7: 1, 2: 2, 9: 3, 4: 4, 11: 5, 6: 6, 1: -5, 8: -4, 3: -3, 10: -2, 5: -1 };
+export const KEYSIG_MINOR = { 9: 0, 4: 1, 11: 2, 6: 3, 1: 4, 8: 5, 3: 6, 2: -1, 7: -2, 0: -3, 5: -4, 10: -5 };
+// The fixed order signature accidentals are written in, and where each sits
+// on a TREBLE staff. A bass staff writes the identical shape two steps
+// lower, which is exactly how the two clefs relate (see staffStepFor).
+export const SIG_SHARP_ORDER = ["F", "C", "G", "D", "A", "E", "B"];
+export const SIG_FLAT_ORDER = ["B", "E", "A", "D", "G", "C", "F"];
+export const SIG_SHARP_STEPS = { F: 8, C: 5, G: 9, D: 6, A: 3, E: 7, B: 4 };
+export const SIG_FLAT_STEPS = { B: 4, E: 7, A: 3, D: 6, G: 2, C: 5, F: 1 };
+export const KEY_NAME_MAJOR = { 0: "C", 7: "G", 2: "D", 9: "A", 4: "E", 11: "B", 6: "F♯", 1: "D♭", 8: "A♭", 3: "E♭", 10: "B♭", 5: "F" };
+export const KEY_NAME_MINOR = { 9: "Am", 4: "Em", 11: "Bm", 6: "F♯m", 1: "C♯m", 8: "G♯m", 3: "E♭m", 2: "Dm", 7: "Gm", 0: "Cm", 5: "Fm", 10: "B♭m" };
+// A song's signature, derived from the same detectSongKey() the left-hand
+// accompaniment is harmonized against — so what's printed and what's played
+// can never disagree about the key.
+export function keySignatureOf(song) {
+  const k = detectSongKey(song);
+  const sig = (k.minor ? KEYSIG_MINOR : KEYSIG_MAJOR)[k.root];
+  const name = (k.minor ? KEY_NAME_MINOR : KEY_NAME_MAJOR)[k.root] || CHROMA[k.root] || "C";
+  return { sig: sig == null ? 0 : sig, name, root: k.root, minor: k.minor };
+}
+// The staff steps a signature's accidentals occupy, in writing order.
+export function keySignatureMarks(sig, clef = "treble") {
+  const shift = clef === "bass" ? -2 : 0;
+  const n = Math.abs(sig);
+  const order = sig >= 0 ? SIG_SHARP_ORDER : SIG_FLAT_ORDER;
+  const steps = sig >= 0 ? SIG_SHARP_STEPS : SIG_FLAT_STEPS;
+  return order.slice(0, n).map(L => ({ letter: L, step: steps[L] + shift, glyph: sig >= 0 ? "♯" : "♭" }));
+}
+const _SPELL_ORDER = ["C", "D", "E", "F", "G", "A", "B"];
+// Spell a note the way this key signature would actually write it, and say
+// whether an accidental has to be printed in front of it.
+//
+// songs-data.ts names every black key as a sharp, but a flat key genuinely
+// spells them as flats — F♯ inside E♭ major is really G♭, a different LINE of
+// the staff, not just a different name. And a note the signature already
+// alters needs no accidental of its own, which is the entire point of having
+// a signature; printing one on every black key (or none at all, as before)
+// are both simply wrong notation.
+export function spellNoteInKey(note, sig) {
+  const m = String(note == null ? "" : note).match(/^([A-G])(#?)(\d)$/);
+  if (!m) return null;
+  const sharped = m[2] === "#";
+  let letter = m[1], oct = parseInt(m[3], 10), acc = null; // acc: "#" | "b" | "n" | null
+  const sharpLetters = SIG_SHARP_ORDER.slice(0, Math.max(0, sig));
+  const flatLetters = SIG_FLAT_ORDER.slice(0, Math.max(0, -sig));
+  if (sharped) {
+    if (sig < 0) {
+      const i = _SPELL_ORDER.indexOf(letter);
+      letter = _SPELL_ORDER[(i + 1) % 7];        // C♯→D♭, A♯→B♭ … the letter above
+      if (letter === "C") oct += 1;              // B♯ can't arise from our data, but stay honest
+      acc = flatLetters.includes(letter) ? null : "b";
+    } else {
+      acc = sharpLetters.includes(letter) ? null : "#";
+    }
+  } else if (sharpLetters.includes(letter) || flatLetters.includes(letter)) {
+    acc = "n";                                   // signature alters this letter — cancel it explicitly
+  }
+  return { letter, oct, acc };
+}
+// Beats → the note value that actually means that many beats. Falls to the
+// nearest SHORTER value when a duration isn't exactly notatable, so the
+// drawing can never claim a longer note than was really played.
+export const NOTE_VALUES = [
+  { beats: 4,    head: "open",   stem: false, flags: 0, dots: 0 },
+  { beats: 3,    head: "open",   stem: true,  flags: 0, dots: 1 },
+  { beats: 2,    head: "open",   stem: true,  flags: 0, dots: 0 },
+  { beats: 1.5,  head: "closed", stem: true,  flags: 0, dots: 1 },
+  { beats: 1,    head: "closed", stem: true,  flags: 0, dots: 0 },
+  { beats: 0.75, head: "closed", stem: true,  flags: 1, dots: 1 },
+  { beats: 0.5,  head: "closed", stem: true,  flags: 1, dots: 0 },
+  { beats: 0.25, head: "closed", stem: true,  flags: 2, dots: 0 },
+];
+export function noteValueOf(beats) {
+  const b = +beats || 1;
+  for (const v of NOTE_VALUES) if (b >= v.beats - 0.001) return v;
+  return NOTE_VALUES[NOTE_VALUES.length - 1];
 }
 
 // light haptic tap feedback on supported devices
@@ -1793,68 +1888,172 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
   );
 });
 
-export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta }) {
-  // Track the real container size so the 150-unit-tall drawing is stretched to
-  // EXACTLY fill the element's box (width-wise) on any screen/orientation — the
-  // old fixed 520-wide viewBox letterboxed the staff (empty black on both
-  // sides) everywhere wider than ~350px. Height stays 101px via CSS, so note
-  // glyphs keep their exact size; only horizontal spread changes.
+/* ── PlayAlongStaff ──
+   Real notation for the play-along reading strip: a proper clef per hand
+   (grand staff when both hands play), the song's actual key signature,
+   accidentals only where the signature doesn't already account for them,
+   and note heads/stems/flags/dots that mean the duration they're drawn for.
+   Horizontal position comes from a note's BEAT, not its index in the array,
+   so a half note visibly occupies twice the space of a quarter and — the
+   reason it matters most — the two staves of a grand staff line up
+   vertically on the beat, which index-based spacing can never do. ── */
+export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 0, spanBeats = 20, songMeta, handMode = "right" }) {
+  // Track the real container size so the drawing is stretched to EXACTLY fill
+  // the element's box (width-wise) on any screen/orientation — a fixed-width
+  // viewBox letterboxes the staff (empty black on both sides) on anything
+  // wider than ~350px. Height is fixed via CSS, so glyphs keep their size and
+  // only the horizontal spread changes.
+  const grand = handMode === "both";
+  const H = grand ? 200 : 150;
+  const half = grand ? 6 : 7;                      // half a staff space = one step
   const wrapRef = useRef(null);
   const [wbW, setWbW] = useState(520);
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const sync = () => {
-      setWbW(Math.max(260, Math.round((el.clientWidth * 150) / Math.max(1, el.clientHeight))));
+      setWbW(Math.max(260, Math.round((el.clientWidth * H) / Math.max(1, el.clientHeight))));
     };
     sync();
     const ro = new ResizeObserver(sync);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
-  const list = (notes || []).slice(0, 24);
+  }, [H]);
+
+  const list = (notes || []).filter(Boolean).slice(0, 64);
   const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
-  const beatsPerBar = parseInt(timeSig.split("/")[0], 10) || 4;
-  const keyName = songMeta ? songTonic(songMeta) : "C";
-  const W = wbW, H = 150, baseY = 95, half = 7;
-  const startX = 92;
-  // the per-note gap cap scales with the width so sparse windows still spread
-  // across the whole staff on wide screens (same visual density as the old
-  // 520-unit canvas) instead of clustering at the left edge
-  const gap = Math.min(64 * (W / 520), Math.max(16, (W - startX - 20) / Math.max(1, list.length)));
-  const lineYs = [0, 2, 4, 6, 8].map(s => baseY - s * half);
+  const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
+  const { sig, name: keyName } = songMeta ? keySignatureOf(songMeta) : { sig: 0, name: "C" };
+  const sigMarksTreble = keySignatureMarks(sig, "treble");
+  const sigMarksBass = keySignatureMarks(sig, "bass");
+
+  // Single-staff clef follows the music's own range, exactly as a real score
+  // would: the left-hand mode plays the SAME C4–B5 melody, which genuinely
+  // belongs in treble clef — forcing it into bass would bury every note under
+  // ledger lines for no musical reason. A genuinely low part gets bass.
+  const songMidis = ((songMeta && songMeta.seq) || []).filter(([n]) => n !== "R").map(([n]) => noteToMidi(n)).filter(m => m > 0);
+  const avgMidi = songMidis.length ? songMidis.reduce((a, b) => a + b, 0) / songMidis.length : 67;
+  const soloClef = avgMidi < 60 ? "bass" : "treble";   // 60 = middle C
+
+  const W = wbW;
+  // left-hand furniture: clef, then the key signature, then the time signature
+  const sigW = Math.abs(sig) * 9;
+  const sigX0 = 52;
+  const timeX = sigX0 + sigW + (sigW ? 14 : 6);
+  const startX = timeX + 26;
+  const pxPerBeat = (W - startX - 20) / Math.max(1, spanBeats);
+  const xOf = (beat) => startX + (beat - startBeat) * pxPerBeat;
+
+  const topBase = grand ? 30 + 8 * half : 95;                 // bottom line of the upper staff
+  const bassBase = grand ? topBase + 8 * half + 8 * half : null; // one full staff-height gap below it
   const COLOR = { past: "rgba(255,255,255,.32)", current: "#ffd166", future: "#d97757" };
+  const LINE = "rgba(255,255,255,.45)";
+  const linesOf = (base) => [0, 2, 4, 6, 8].map(s => base - s * half);
+
+  // ── one staff's furniture: 5 lines, clef, key signature, time signature ──
+  function staffFurniture(base, clef, marks, tag) {
+    const ly = linesOf(base);
+    const fs = 3.6 * half;
+    return (
+      <g key={tag}>
+        {ly.map((y, i) => <line key={i} x1="8" y1={y} x2={W - 8} y2={y} stroke={LINE} strokeWidth="1.4" />)}
+        {clef === "bass"
+          ? <text x="10" y={base - 4 * half + half * 0.6} fontSize={7.6 * half} fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119074;</text>
+          : <text x="8" y={base + half * 0.6} fontSize={7.6 * half} fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119070;</text>}
+        {marks.map((m, i) => (
+          <text key={i} x={sigX0 + i * 9} y={base - m.step * half + half * 0.75}
+            fontSize={4.2 * half} textAnchor="middle" fill="rgba(255,255,255,.85)"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{m.glyph}</text>
+        ))}
+        <text x={timeX} y={base - 6 * half + fs * 0.36} fontSize={fs} textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{String(timeSig).split("/")[0]}</text>
+        <text x={timeX} y={base - 2 * half + fs * 0.36} fontSize={fs} textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{String(timeSig).split("/")[1]}</text>
+      </g>
+    );
+  }
+
+  // ── one note, fully notated ──
+  function renderNote(n, i, base, clef) {
+    const sp = spellNoteInKey(n.note, sig);
+    if (!sp) return null;
+    const step = staffStepFor(sp.letter, sp.oct, clef);
+    const x = xOf(n.beat), y = base - step * half;
+    const val = noteValueOf(n.dur != null ? n.dur : 1);
+    const isCurrent = n.state === "current";
+    const color = COLOR[n.state] || COLOR.future;
+    const rx = half * 0.95, ry = half * 0.8;
+    // ledger lines, one per line-position the note reaches past the staff
+    const ledgers = [];
+    for (let s = -2; s >= step; s -= 2) ledgers.push(base - s * half);
+    for (let s = 10; s <= step; s += 2) ledgers.push(base - s * half);
+    // stems: up from the right of the head below the middle line, down from
+    // the left on or above it — the standard rule.
+    const up = step < 4;
+    const stemX = up ? x + rx - 0.7 : x - rx + 0.7;
+    const stemEnd = up ? y - half * 6.2 : y + half * 6.2;
+    // an augmentation dot sits in the space beside the head, never on a line
+    const dotY = step % 2 === 0 ? y - half : y;
+    return (
+      <g key={clef + "-" + i}>
+        {isCurrent && <>
+          <rect className="pastaff-cur" x={x - half * 2.1} y={base - 8 * half - 6} width={half * 4.2} height={8 * half + 12} rx="8" fill="#ffd16633" />
+          <path d={`M${x - 7},${base + half * 2.6} L${x + 7},${base + half * 2.6} L${x},${base + half * 1.1} Z`} fill="#ffd166" />
+        </>}
+        {ledgers.map((ly2, k) => <line key={k} x1={x - rx - 4} y1={ly2} x2={x + rx + 4} y2={ly2} stroke={n.state === "past" ? "rgba(255,255,255,.25)" : LINE} strokeWidth="1.4" />)}
+        {sp.acc && (
+          <text x={x - rx - 5} y={y + half * 0.62} fontSize={3.6 * half} textAnchor="end" fill={color}
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{sp.acc === "#" ? "♯" : sp.acc === "b" ? "♭" : "♮"}</text>
+        )}
+        {val.stem && <line x1={stemX} y1={y} x2={stemX} y2={stemEnd} stroke={color} strokeWidth="1.6" />}
+        {Array.from({ length: val.flags }).map((_, f) => (
+          <path key={f}
+            d={`M${stemX},${stemEnd + (up ? f * half * 1.5 : -f * half * 1.5)} q${half * 1.6},${up ? half * 1.1 : -half * 1.1} ${half * 1.1},${up ? half * 3 : -half * 3}`}
+            fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+        ))}
+        <ellipse cx={x} cy={y} rx={isCurrent ? rx * 1.12 : rx} ry={isCurrent ? ry * 1.12 : ry}
+          fill={val.head === "open" ? "none" : color} stroke={val.head === "open" ? color : "none"} strokeWidth="2"
+          transform={`rotate(-18 ${x} ${y})`} />
+        {val.dots > 0 && <circle cx={x + rx + 4} cy={dotY} r={half * 0.28} fill={color} />}
+      </g>
+    );
+  }
+  // bar lines land on real measure boundaries, spanning both staves on a
+  // grand staff exactly as piano notation does
+  const barBeats = [];
+  const firstBar = Math.ceil(startBeat / beatsPerBar) * beatsPerBar;
+  for (let b = firstBar; b <= startBeat + spanBeats; b += beatsPerBar) if (b > startBeat + 0.01) barBeats.push(b);
+  const barTop = topBase - 8 * half;
+  const barBottom = grand ? bassBase : topBase;
+
+  const trebleNotes = grand ? list.filter(n => n.hand !== "left") : list;
+  const bassNotes = grand ? list.filter(n => n.hand === "left") : [];
+
   return (
     <svg ref={wrapRef} viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
-      <text x="8" y="20" fontSize="14" fill="rgba(255,255,255,.6)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>Key: {keyName}</text>
-      {lineYs.map((ly, i) => <line key={i} x1="8" y1={ly} x2={W - 8} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.4" />)}
-      <text x="8" y={baseY + 4} fontSize="53" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif" }}>&#119070;</text>
-      <text x="64" y={lineYs[3] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[0]}</text>
-      <text x="64" y={lineYs[1] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[1]}</text>
-      {list.map((n, i) => {
-        const step = staffStep(n.note, "treble");
-        const y = baseY - step * half, x = startX + i * gap;
-        const ledgers = [];
-        for (let s = -2; s >= step; s -= 2) ledgers.push(baseY - s * half);
-        for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);
-        const isCurrent = n.state === "current";
-        const color = COLOR[n.state] || COLOR.future;
-        // a bar line goes just before this note if it starts a new measure
-        const prevMeasure = i > 0 ? Math.floor(list[i - 1].beat / beatsPerBar) : null;
-        const measure = Math.floor(n.beat / beatsPerBar);
-        const showBar = prevMeasure != null && measure !== prevMeasure;
-        return (
-          <g key={i}>
-            {showBar && <line x1={x - gap / 2} y1={lineYs[0]} x2={x - gap / 2} y2={lineYs[4]} stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />}
-            {isCurrent && <>
-              <rect className="pastaff-cur" x={x - 15} y={lineYs[4] - 6} width="30" height={lineYs[0] - lineYs[4] + 12} rx="8" fill="#ffd16633" />
-              <path d={`M${x - 8},${H - 10} L${x + 8},${H - 10} L${x},${H - 22} Z`} fill="#ffd166" />
-            </>}
-            {ledgers.map((ly, k) => <line key={k} x1={x - 12} y1={ly} x2={x + 12} y2={ly} stroke={n.state === "past" ? "rgba(255,255,255,.25)" : "rgba(255,255,255,.45)"} strokeWidth="1.4" />)}
-            <ellipse cx={x} cy={y} rx={isCurrent ? 9 : 7.5} ry={isCurrent ? 6.5 : 5.5} fill={color} transform={`rotate(-18 ${x} ${y})`} />
-          </g>
-        );
-      })}
+      {/* Which hand this staff is for. Worth stating outright in the one-hand
+          modes: the left-hand mode plays the identical C4–B5 melody, which
+          genuinely belongs in treble clef, so without a label a correct
+          treble staff can read as "it forgot I picked the left hand". */}
+      <text x="8" y="14" fontSize="12" fill="rgba(255,255,255,.6)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>
+        Key: {keyName}{handMode === "left" ? " · L.H." : handMode === "right" ? " · R.H." : ""}
+      </text>
+      {grand && <>
+        <text x={W - 10} y={topBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>R.H.</text>
+        <text x={W - 10} y={bassBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>L.H.</text>
+      </>}
+      {staffFurniture(topBase, grand ? "treble" : soloClef, grand ? sigMarksTreble : (soloClef === "bass" ? sigMarksBass : sigMarksTreble), "top")}
+      {grand && staffFurniture(bassBase, "bass", sigMarksBass, "bottom")}
+      {/* grand-staff brace + the vertical rule joining the two staves */}
+      {grand && <>
+        <path d={`M6,${barTop} q-5,${(barBottom - barTop) / 4} 0,${(barBottom - barTop) / 2} q5,${(barBottom - barTop) / 4} 0,${(barBottom - barTop) / 2}`}
+          fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="2" />
+        <line x1="8" y1={barTop} x2="8" y2={barBottom} stroke={LINE} strokeWidth="1.6" />
+      </>}
+      {barBeats.map((b, i) => (
+        <line key={"bar" + i} x1={xOf(b) - pxPerBeat * 0.35} y1={barTop} x2={xOf(b) - pxPerBeat * 0.35} y2={barBottom}
+          stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />
+      ))}
+      {trebleNotes.map((n, i) => renderNote(n, i, topBase, grand ? "treble" : soloClef))}
+      {grand && bassNotes.map((n, i) => renderNote(n, i, bassBase, "bass"))}
     </svg>
   );
 });
