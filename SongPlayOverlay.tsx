@@ -48,7 +48,7 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                 {songSetlistPos && <span className="setlistpos">🎤 {songSetlistPos.idx + 1}/{songSetlistPos.total}</span>}
               </div>
               <div className="songprog"><div style={{ width: songHud.progress + "%" }} /></div>
-              <div className="songstaffwrap"><PlayAlongStaff notes={songStaffNotes} songMeta={songMeta} /></div>
+              <div className="songstaffwrap"><PlayAlongStaff notes={songStaffNotes} songMeta={songMeta} clef={playAlongHand === "left" ? "bass" : "treble"} /></div>
             </>
           )}
 

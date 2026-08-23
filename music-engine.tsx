@@ -1696,12 +1696,13 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
   );
 });
 
-export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta }) {
+export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, clef }) {
   // Track the real container size so the 150-unit-tall drawing is stretched to
   // EXACTLY fill the element's box (width-wise) on any screen/orientation — the
   // old fixed 520-wide viewBox letterboxed the staff (empty black on both
   // sides) everywhere wider than ~350px. Height stays 101px via CSS, so note
   // glyphs keep their exact size; only horizontal spread changes.
+  const staffClef = clef || "treble";
   const wrapRef = useRef(null);
   const [wbW, setWbW] = useState(520);
   useEffect(() => {
@@ -1731,11 +1732,11 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta }) 
     <svg ref={wrapRef} viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
       <text x="8" y="20" fontSize="14" fill="rgba(255,255,255,.6)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>Key: {keyName}</text>
       {lineYs.map((ly, i) => <line key={i} x1="8" y1={ly} x2={W - 8} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.4" />)}
-      <text x="8" y={baseY + 4} fontSize="53" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif" }}>&#119070;</text>
+      <text x="8" y={baseY + 4} fontSize="53" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif" }}>{staffClef === "bass" ? "\u{1D122}" : "\u{1D11E}"}</text>
       <text x="64" y={lineYs[3] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[0]}</text>
       <text x="64" y={lineYs[1] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[1]}</text>
       {list.map((n, i) => {
-        const step = staffStep(n.note, "treble");
+        const step = staffStep(n.note, staffClef);
         const y = baseY - step * half, x = startX + i * gap;
         const ledgers = [];
         for (let s = -2; s >= step; s -= 2) ledgers.push(baseY - s * half);
