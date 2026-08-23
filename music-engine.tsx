@@ -1256,7 +1256,7 @@ export function detectSongKey(song) {
 // root on beat 1, 5th at the bar's midpoint — one octave (3) below the
 // melody's own C4 floor. Returns [{note, beat, dur}, ...] in beat-space,
 // matching the units expandSong() already uses for the melody itself.
-export function generateAccompaniment(song) {
+export function generateAccompaniment(song, pickup = 0) {
   const timeSig = SONG_TIMESIG[song.id] || "4/4";
   const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
   const key = detectSongKey(song);
@@ -1275,25 +1275,35 @@ export function generateAccompaniment(song) {
 
   const events = [];
   let prevDeg = 0;
-  for (let barStart = 0; barStart < totalBeats; barStart += beatsPerBar) {
-    const barLen = Math.min(beatsPerBar, totalBeats - barStart);
-    if (barLen < 0.5) break; // trailing sliver — not worth a chord of its own
+  // Bars are walked from the pickup onward so the accompaniment's own bars
+  // line up with the ones the staff actually draws — an accompaniment on a
+  // different bar grid than the melody it accompanies is simply wrong.
+  const barStarts = [];
+  if (pickup > 0) barStarts.push({ at: 0, len: pickup });
+  for (let b = pickup; b < totalBeats - 1e-6; b += beatsPerBar) barStarts.push({ at: b, len: Math.min(beatsPerBar, totalBeats - b) });
+  for (const { at: barStart, len: barLen } of barStarts) {
+    if (barLen < 0.5) continue; // trailing sliver — not worth a chord of its own
     const weight = new Array(12).fill(0);
-    for (const n of melNotes) if (n.beat >= barStart && n.beat < barStart + beatsPerBar) weight[n.pc] += n.dur;
+    for (const n of melNotes) if (n.beat >= barStart - 1e-9 && n.beat < barStart + barLen - 1e-9) weight[n.pc] += n.dur;
     let bestScore = -1, bestDeg = prevDeg;
     for (let deg = 0; deg < 7; deg++) {
       const triad = CHORD_DEF[qualities[deg]].map(s => (degreeRoots[deg] + s) % 12);
       let score = triad.reduce((s, pc) => s + weight[pc], 0);
       if (deg === prevDeg) score += 0.35; // harmonic inertia
-      if (barStart + beatsPerBar >= totalBeats && (deg === 0 || deg === 4)) score += 0.5; // cadence
+      if (barStart + barLen >= totalBeats - 1e-9 && (deg === 0 || deg === 4)) score += 0.5; // cadence
       if (score > bestScore) { bestScore = score; bestDeg = deg; }
     }
     prevDeg = bestDeg;
     const rootPc = CHROMA[degreeRoots[bestDeg]], fifthPc = CHROMA[(degreeRoots[bestDeg] + 7) % 12];
-    events.push({ note: rootPc + "3", beat: barStart, dur: Math.min(2, barLen) });
-    if (barLen >= 3 && barStart + barLen / 2 < totalBeats) {
-      events.push({ note: fifthPc + "3", beat: barStart + barLen / 2, dur: barLen / 2 });
-    }
+    // Split the bar exactly in half — root then fifth. The old version gave
+    // the root a flat 2 beats and started the fifth at the bar's midpoint,
+    // which in any meter that isn't 4/4 made the two OVERLAP and the bar add
+    // up to more than a bar (3/4: a 2-beat root under a fifth starting at
+    // 1.5, totalling 3.5 beats in a 3-beat bar).
+    const halfBar = +(barLen / 2).toFixed(6);
+    if (halfBar < 0.24) { events.push({ note: rootPc + "3", beat: barStart, dur: barLen }); continue; }
+    events.push({ note: rootPc + "3", beat: barStart, dur: halfBar });
+    events.push({ note: fifthPc + "3", beat: +(barStart + halfBar).toFixed(6), dur: +(barLen - halfBar).toFixed(6) });
   }
   return events;
 }
@@ -1317,8 +1327,11 @@ export function expandSong(song, opts) {
     if (note !== "R") notes.push({ note, t: beat * spb, beat, durBeats: dur, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: handMode === "left" ? "left" : "right" });
     beat += dur;
   }
+  const timeSig = SONG_TIMESIG[song.id] || "4/4";
+  const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
+  const pickup = pickupBeatsOf(song.seq, beatsPerBar);
   if (handMode === "both") {
-    for (const e of generateAccompaniment(song)) {
+    for (const e of generateAccompaniment(song, pickup)) {
       notes.push({ note: e.note, t: e.beat * spb, beat: e.beat, durBeats: e.dur, durSec: Math.max(0.18, e.dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: "left" });
     }
     notes.sort((a, b) => a.t - b.t);
@@ -1335,7 +1348,20 @@ export function expandSong(song, opts) {
   const lanes = Array.from(new Set(notes.map(n => n.note))).sort((a, b) => noteToMidi(a) - noteToMidi(b));
   for (const n of notes) n.lane = lanes.indexOf(n.note);
   const lastT = notes.reduce((m, n) => Math.max(m, n.t), 0);
-  return { notes, lanes, total: notes.length, dur: beat * spb, lastT };
+  // Engrave both voices once, here, where the notes are — the reading staff
+  // then just draws the window it needs instead of re-deriving bar/tie/rest
+  // structure on every HUD tick. srcIdx points back into `notes`, so a
+  // glyph can always find out whether its note has been hit or missed.
+  const idxOf = new Map(notes.map((n, i) => [n, i]));
+  const engrave = (voice) => buildNotation(
+    voice.map(n => ({ note: n.note, beat: n.beat, durBeats: n.durBeats })), beatsPerBar, pickup
+  ).map(g => ({ ...g, srcIdx: g.srcIdx == null ? null : idxOf.get(voice[g.srcIdx]) }));
+  const notation = {
+    beatsPerBar, pickup, timeSig,
+    right: engrave(rightNotes),
+    left: handMode === "both" ? engrave(leftNotes) : (handMode === "left" ? engrave(leftNotes) : []),
+  };
+  return { notes, lanes, total: notes.length, dur: beat * spb, lastT, notation };
 }
 // Objective technique descriptors derived straight from a song's own note
 // sequence — no new authoring/tagging needed. songs-data.ts has no hand or
@@ -1558,23 +1584,114 @@ export function spellNoteInKey(note, sig) {
   }
   return { letter, oct, acc };
 }
-// Beats → the note value that actually means that many beats. Falls to the
-// nearest SHORTER value when a duration isn't exactly notatable, so the
-// drawing can never claim a longer note than was really played.
+/* ── Note values & engraving ──
+   The full set a beginner score uses, longest first, measured in beats where
+   a quarter note = 1: ตัวกลม whole · ตัวขาว half · ตัวดำ quarter · เขบ็ต
+   1/2/3 ชั้น eighth/16th/32nd, each with its dotted form (a dot adds half
+   the note's own value again). ── */
 export const NOTE_VALUES = [
-  { beats: 4,    head: "open",   stem: false, flags: 0, dots: 0 },
-  { beats: 3,    head: "open",   stem: true,  flags: 0, dots: 1 },
-  { beats: 2,    head: "open",   stem: true,  flags: 0, dots: 0 },
-  { beats: 1.5,  head: "closed", stem: true,  flags: 0, dots: 1 },
-  { beats: 1,    head: "closed", stem: true,  flags: 0, dots: 0 },
-  { beats: 0.75, head: "closed", stem: true,  flags: 1, dots: 1 },
-  { beats: 0.5,  head: "closed", stem: true,  flags: 1, dots: 0 },
-  { beats: 0.25, head: "closed", stem: true,  flags: 2, dots: 0 },
+  { beats: 4,     head: "open",   stem: false, flags: 0, dots: 0, name: "whole" },
+  { beats: 3,     head: "open",   stem: true,  flags: 0, dots: 1, name: "dotted half" },
+  { beats: 2,     head: "open",   stem: true,  flags: 0, dots: 0, name: "half" },
+  { beats: 1.5,   head: "closed", stem: true,  flags: 0, dots: 1, name: "dotted quarter" },
+  { beats: 1,     head: "closed", stem: true,  flags: 0, dots: 0, name: "quarter" },
+  { beats: 0.75,  head: "closed", stem: true,  flags: 1, dots: 1, name: "dotted eighth" },
+  { beats: 0.5,   head: "closed", stem: true,  flags: 1, dots: 0, name: "eighth" },
+  { beats: 0.375, head: "closed", stem: true,  flags: 2, dots: 1, name: "dotted 16th" },
+  { beats: 0.25,  head: "closed", stem: true,  flags: 2, dots: 0, name: "16th" },
+  { beats: 0.125, head: "closed", stem: true,  flags: 3, dots: 0, name: "32nd" },
 ];
 export function noteValueOf(beats) {
   const b = +beats || 1;
   for (const v of NOTE_VALUES) if (b >= v.beats - 0.001) return v;
   return NOTE_VALUES[NOTE_VALUES.length - 1];
+}
+// Break a duration into real note values, longest first. Anything that isn't
+// a single value becomes several TIED values, which is how notation writes a
+// duration with no glyph of its own — the pieces always sum to exactly the
+// duration asked for, never more and never less.
+export function decomposeDur(beats) {
+  const out = [];
+  let left = +(+beats).toFixed(6);
+  let guard = 0;
+  while (left > 0.0625 && guard++ < 24) {
+    const v = NOTE_VALUES.find(x => x.beats <= left + 1e-6);
+    if (!v) break;
+    out.push(v);
+    left = +(left - v.beats).toFixed(6);
+  }
+  return out.length ? out : [NOTE_VALUES[NOTE_VALUES.length - 1]];
+}
+// How many beats of PICKUP (anacrusis) a song starts with — an incomplete
+// first measure, borrowed from the last one.
+//
+// These melodies were authored as playable note streams, not as engraved
+// scores, so about half of them don't divide into whole bars from beat 0.
+// Where they don't, the leftover is a pickup — but only if aligning that way
+// actually agrees with the music: the alignment chosen is whichever one has
+// FEWER notes crossing a bar line, since a bar line falling mid-note is the
+// signature of a wrongly-placed bar line.
+export function pickupBeatsOf(seq, beatsPerBar) {
+  const durs = (seq || []).map(([, d]) => +d || 0);
+  const total = durs.reduce((a, b) => a + b, 0);
+  const leftover = +(total % beatsPerBar).toFixed(6);
+  if (!leftover) return 0;
+  const crossings = (offset) => {
+    let beat = 0, n = 0;
+    for (const d of durs) {
+      const a = beat - offset, b = beat + d - offset - 1e-9;
+      if (a >= -1e-9 && Math.floor(a / beatsPerBar + 1e-9) !== Math.floor(b / beatsPerBar)) n++;
+      beat += d;
+    }
+    return n;
+  };
+  return crossings(leftover) <= crossings(0) ? leftover : 0;
+}
+// Engrave one voice: turn {note, beat, durBeats} events into the glyphs a
+// score would actually print. Three things happen here that raw durations
+// can't express on their own, and all three are why a bar used to add up to
+// the wrong amount:
+//   • a note running past a bar line is SPLIT at the line into tied pieces
+//     (notation never lets a note head cross a bar line),
+//   • every gap becomes a REST, decomposed the same way,
+//   • the final bar is padded with rests,
+// so every bar sums to exactly one bar's worth of time, by construction.
+export function buildNotation(events, beatsPerBar, pickup = 0) {
+  const glyphs = [];
+  // where the bar containing `beat` ends
+  const barEndAfter = (beat) => (beat < pickup - 1e-9)
+    ? pickup
+    : pickup + (Math.floor((beat - pickup) / beatsPerBar + 1e-9) + 1) * beatsPerBar;
+  const emit = (kind, note, srcIdx, startBeat, dur) => {
+    const pieces = [];
+    let b = +startBeat.toFixed(6), left = +(+dur).toFixed(6);
+    let guard = 0;
+    while (left > 0.0625 && guard++ < 64) {
+      const chunk = Math.min(left, +(barEndAfter(b) - b).toFixed(6));
+      if (chunk <= 0) break;
+      for (const v of decomposeDur(chunk)) { pieces.push({ beat: b, value: v }); b = +(b + v.beats).toFixed(6); }
+      left = +(left - chunk).toFixed(6);
+    }
+    pieces.forEach((p, i) => glyphs.push({
+      kind, note, srcIdx, beat: p.beat, dur: p.value.beats, value: p.value,
+      // a tie binds the pieces of one held note; a rest is never tied
+      tieFrom: kind === "note" && i > 0,
+      tieTo: kind === "note" && i < pieces.length - 1,
+    }));
+  };
+  let cursor = 0;
+  (events || []).forEach((n, i) => {
+    const beat = +(+n.beat).toFixed(6);
+    if (beat > cursor + 1e-6) emit("rest", null, null, cursor, +(beat - cursor).toFixed(6));
+    emit("note", n.note, i, beat, +n.durBeats || 1);
+    cursor = Math.max(cursor, +(beat + (+n.durBeats || 1)).toFixed(6));
+  });
+  // complete the last bar, so no bar is ever left short
+  if (cursor > 0) {
+    const end = barEndAfter(cursor - 1e-6);
+    if (end > cursor + 1e-6) emit("rest", null, null, cursor, +(end - cursor).toFixed(6));
+  }
+  return glyphs;
 }
 
 // light haptic tap feedback on supported devices
@@ -1971,48 +2088,110 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
     );
   }
 
-  // ── one note, fully notated ──
-  function renderNote(n, i, base, clef) {
-    const sp = spellNoteInKey(n.note, sig);
+  // ── a rest, drawn as paths so it never depends on a font having the
+  //    Musical Symbols block. Positions are the standard ones: the whole rest
+  //    hangs UNDER the 4th line, the half rest sits ON the middle line, and
+  //    the flagged rests centre on the middle line with one blob per flag
+  //    (เขบ็ต 1/2/3 ชั้น). ──
+  function renderRest(g, i, base, clef) {
+    const x = xOf(g.beat), color = COLOR[g.state] || COLOR.future;
+    const mid = base - 4 * half, line4 = base - 6 * half;
+    const w = half * 1.45, t = half * 0.62;
+    const val = g.value;
+    const key = clef + "-r" + i;
+    if (val.flags === 0 && val.head === "open" && !val.stem) {           // whole
+      return <g key={key}><rect x={x - w / 2} y={line4} width={w} height={t} fill={color} />
+        {val.dots > 0 && <circle cx={x + w / 2 + half * 0.6} cy={line4 - half * 0.5} r={half * 0.28} fill={color} />}</g>;
+    }
+    if (val.head === "open") {                                           // half (and dotted half)
+      return <g key={key}><rect x={x - w / 2} y={mid - t} width={w} height={t} fill={color} />
+        {val.dots > 0 && <circle cx={x + w / 2 + half * 0.6} cy={mid - half * 1.5} r={half * 0.28} fill={color} />}</g>;
+    }
+    if (val.flags === 0) {                                               // quarter — the zigzag
+      return (
+        <g key={key}>
+          <path d={`M${x - half * 0.55},${mid - half * 2.6} L${x + half * 0.6},${mid - half * 1.1} L${x - half * 0.5},${mid + half * 0.4} L${x + half * 0.68},${mid + half * 1.9}`}
+            fill="none" stroke={color} strokeWidth={half * 0.42} strokeLinejoin="miter" strokeLinecap="butt" />
+          <path d={`M${x + half * 0.68},${mid + half * 1.9} q${-half * 1.5},${-half * 0.55} ${-half * 0.95},${half * 1.15}`}
+            fill="none" stroke={color} strokeWidth={half * 0.3} strokeLinecap="round" />
+          {val.dots > 0 && <circle cx={x + half * 1.15} cy={mid - half} r={half * 0.28} fill={color} />}
+        </g>
+      );
+    }
+    // eighth / 16th / 32nd — a slanted stem carrying one blob per flag
+    const top = mid - half * (0.6 + val.flags * 0.95), bottom = mid + half * 1.8;
+    return (
+      <g key={key}>
+        <line x1={x + half * 0.5} y1={top} x2={x - half * 0.42} y2={bottom} stroke={color} strokeWidth={half * 0.28} strokeLinecap="round" />
+        {Array.from({ length: val.flags }).map((_, f) => {
+          const cy = top + f * half * 0.95 + half * 0.2;
+          const cx = x + half * 0.5 - (cy - top) * 0.27;
+          return <g key={f}>
+            <circle cx={cx - half * 0.42} cy={cy} r={half * 0.36} fill={color} />
+            <path d={`M${cx - half * 0.42},${cy - half * 0.3} q${half * 0.7},${-half * 0.35} ${half * 0.5},${half * 0.15}`} fill="none" stroke={color} strokeWidth={half * 0.22} />
+          </g>;
+        })}
+        {val.dots > 0 && <circle cx={x + half * 1.1} cy={mid - half} r={half * 0.28} fill={color} />}
+      </g>
+    );
+  }
+
+  // ── one glyph, fully notated ──
+  function renderGlyph(g, i, base, clef, next) {
+    if (g.kind === "rest") return renderRest(g, i, base, clef);
+    const sp = spellNoteInKey(g.note, sig);
     if (!sp) return null;
     const step = staffStepFor(sp.letter, sp.oct, clef);
-    const x = xOf(n.beat), y = base - step * half;
-    const val = noteValueOf(n.dur != null ? n.dur : 1);
-    const isCurrent = n.state === "current";
-    const color = COLOR[n.state] || COLOR.future;
+    const x = xOf(g.beat), y = base - step * half;
+    const val = g.value || noteValueOf(g.dur);
+    const isCurrent = g.state === "current";
+    const color = COLOR[g.state] || COLOR.future;
     const rx = half * 0.95, ry = half * 0.8;
     // ledger lines, one per line-position the note reaches past the staff
     const ledgers = [];
     for (let s = -2; s >= step; s -= 2) ledgers.push(base - s * half);
     for (let s = 10; s <= step; s += 2) ledgers.push(base - s * half);
     // stems: up from the right of the head below the middle line, down from
-    // the left on or above it — the standard rule.
+    // the left on or above it — the standard rule. Extra flags need a longer
+    // stem to hang from.
     const up = step < 4;
+    const stemLen = half * (6.2 + Math.max(0, val.flags - 1) * 1.1);
     const stemX = up ? x + rx - 0.7 : x - rx + 0.7;
-    const stemEnd = up ? y - half * 6.2 : y + half * 6.2;
-    // an augmentation dot sits in the space beside the head, never on a line
+    const stemEnd = up ? y - stemLen : y + stemLen;
+    // an augmentation dot sits in a space beside the head, never on a line
     const dotY = step % 2 === 0 ? y - half : y;
+    // a tie binds this head to the next piece of the same held note; it
+    // curves away from the stem, as ties always do
+    let tie = null;
+    if (g.tieTo && next) {
+      const nx = xOf(next.beat), d = up ? 1 : -1;
+      tie = <path d={`M${x + rx * 0.6},${y + d * ry * 1.5} Q${(x + nx) / 2},${y + d * ry * 3.6} ${nx - rx * 0.6},${y + d * ry * 1.5}`}
+        fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />;
+    }
     return (
       <g key={clef + "-" + i}>
         {isCurrent && <>
           <rect className="pastaff-cur" x={x - half * 2.1} y={base - 8 * half - 6} width={half * 4.2} height={8 * half + 12} rx="8" fill="#ffd16633" />
           <path d={`M${x - 7},${base + half * 2.6} L${x + 7},${base + half * 2.6} L${x},${base + half * 1.1} Z`} fill="#ffd166" />
         </>}
-        {ledgers.map((ly2, k) => <line key={k} x1={x - rx - 4} y1={ly2} x2={x + rx + 4} y2={ly2} stroke={n.state === "past" ? "rgba(255,255,255,.25)" : LINE} strokeWidth="1.4" />)}
-        {sp.acc && (
+        {ledgers.map((ly2, k) => <line key={k} x1={x - rx - 4} y1={ly2} x2={x + rx + 4} y2={ly2} stroke={g.state === "past" ? "rgba(255,255,255,.25)" : LINE} strokeWidth="1.4" />)}
+        {/* an accidental is never repeated on the tail of a tie — the first
+            head of the tied group already carries it */}
+        {sp.acc && !g.tieFrom && (
           <text x={x - rx - 5} y={y + half * 0.62} fontSize={3.6 * half} textAnchor="end" fill={color}
             style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{sp.acc === "#" ? "♯" : sp.acc === "b" ? "♭" : "♮"}</text>
         )}
         {val.stem && <line x1={stemX} y1={y} x2={stemX} y2={stemEnd} stroke={color} strokeWidth="1.6" />}
         {Array.from({ length: val.flags }).map((_, f) => (
           <path key={f}
-            d={`M${stemX},${stemEnd + (up ? f * half * 1.5 : -f * half * 1.5)} q${half * 1.6},${up ? half * 1.1 : -half * 1.1} ${half * 1.1},${up ? half * 3 : -half * 3}`}
+            d={`M${stemX},${stemEnd + (up ? f * half * 1.1 : -f * half * 1.1)} q${half * 1.6},${up ? half * 1.1 : -half * 1.1} ${half * 1.1},${up ? half * 3 : -half * 3}`}
             fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
         ))}
         <ellipse cx={x} cy={y} rx={isCurrent ? rx * 1.12 : rx} ry={isCurrent ? ry * 1.12 : ry}
           fill={val.head === "open" ? "none" : color} stroke={val.head === "open" ? color : "none"} strokeWidth="2"
           transform={`rotate(-18 ${x} ${y})`} />
         {val.dots > 0 && <circle cx={x + rx + 4} cy={dotY} r={half * 0.28} fill={color} />}
+        {tie}
       </g>
     );
   }
@@ -2052,8 +2231,8 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
         <line key={"bar" + i} x1={xOf(b) - pxPerBeat * 0.35} y1={barTop} x2={xOf(b) - pxPerBeat * 0.35} y2={barBottom}
           stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />
       ))}
-      {trebleNotes.map((n, i) => renderNote(n, i, topBase, grand ? "treble" : soloClef))}
-      {grand && bassNotes.map((n, i) => renderNote(n, i, bassBase, "bass"))}
+      {trebleNotes.map((n, i) => renderGlyph(n, i, topBase, grand ? "treble" : soloClef, trebleNotes[i + 1]))}
+      {grand && bassNotes.map((n, i) => renderGlyph(n, i, bassBase, "bass", bassNotes[i + 1]))}
     </svg>
   );
 });

@@ -328,16 +328,26 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       const curBeat = curNote ? curNote.beat : (lead.length ? lead[lead.length - 1].beat : 0);
       const winStartBeat = Math.max(0, curBeat - beatsPerBar);
       const winEndBeat = winStartBeat + spanBeats;
-      setSongStaffNotes({
-        startBeat: winStartBeat,
-        spanBeats,
-        list: allNotes
-          .filter(n => n.beat >= winStartBeat - 0.001 && n.beat <= winEndBeat + 0.001)
-          .map(n => ({
-            note: n.note, beat: n.beat, dur: n.durBeats, hand: n.hand,
-            state: (n.hit || n.missed) ? "past" : (curNote && n === curNote) ? "current" : "future",
-          })),
-      });
+      // The staff draws ENGRAVED glyphs (bar-split, tied, rests filled in —
+      // see buildNotation), not the raw played notes: a note held across a
+      // bar line is two tied heads on the page but one note in the game, and
+      // a bar's worth of silence is a rest glyph with no note behind it at
+      // all. srcIdx is what links a drawn head back to the note being graded.
+      const notation = (songDataRef.current && songDataRef.current.notation) || null;
+      const stateOf = (g, voice) => {
+        if (g.kind === "rest" || g.srcIdx == null) return "future";
+        const src = voice[g.srcIdx];
+        if (!src) return "future";
+        if (src.hit || src.missed) return "past";
+        return src === curNote ? "current" : "future";
+      };
+      const inWin = g => g.beat >= winStartBeat - 0.001 && g.beat <= winEndBeat + 0.001;
+      const staffList = [];
+      if (notation) {
+        for (const g of notation.right) if (inWin(g)) staffList.push({ ...g, hand: "right", state: stateOf(g, allNotes) });
+        for (const g of notation.left) if (inWin(g)) staffList.push({ ...g, hand: "left", state: stateOf(g, allNotes) });
+      }
+      setSongStaffNotes({ startBeat: winStartBeat, spanBeats, list: staffList });
       // ghost race vs your best run
       const st = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
       songSamplesRef.current.push({ t: +st.toFixed(2), s: songScoreRef.current });
