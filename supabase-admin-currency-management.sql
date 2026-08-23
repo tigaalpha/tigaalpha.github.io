@@ -33,7 +33,7 @@ end; $$;
 --    Uses absolute SET (not additive) since this is admin override, not a purchase.
 --    Requires admin_tier >= 3 (Top Tier only).
 create or replace function public.admin_adjust_currency(
-  p_target uuid,
+  target uuid,
   p_coins int default null,
   p_gems int default null,
   p_exp int default null
@@ -44,13 +44,13 @@ begin
   select admin_tier into v_tier from profiles where id = auth.uid();
   if coalesce(v_tier, 0) < 3 then raise exception 'insufficient admin tier — Top Tier required'; end if;
 
-  if p_target is null then raise exception 'target user required'; end if;
+  if target is null then raise exception 'target user required'; end if;
 
   update profiles set
     coins = coalesce(p_coins, coins),
     gems  = coalesce(p_gems, gems),
     exp   = coalesce(p_exp, exp)
-  where id = p_target;
+  where id = target;
 
   if not found then raise exception 'target user not found'; end if;
 end; $$;

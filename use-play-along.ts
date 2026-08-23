@@ -380,7 +380,17 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     ctx.fillStyle = earthGrad; ctx.fillRect(0, hitY - 30, W, 38);
     // Each lane's x-position is the actual key it maps to, so a falling note lands
     // directly above the piano key (and the lit key) the learner must press.
-    const laneFrac = lanes.map(ln => noteKeyFrac(ln) || { cx: 0.5, w: 1 / 14 });
+    let laneFrac = lanes.map(ln => noteKeyFrac(ln) || { cx: 0.5, w: 1 / 14 });
+    // When multiple lanes collapse to the same cx (bass-clef notes below C4 all
+    // clamp to 0), redistribute them evenly across the width so each pitch gets
+    // its own visible column.
+    {
+      const cxSet = new Set(laneFrac.map(f => f.cx));
+      if (cxSet.size < lanes.length) {
+        const nL = lanes.length;
+        laneFrac = lanes.map((_, i) => ({ cx: (i + 0.5) / nL, w: 1 / nL }));
+      }
+    }
     for (let i = 0; i < nLane; i++) {
       const f = laneFrac[i], hue = laneHue(lanes[i]);
       const cw = f.w * W, cx = f.cx * W - cw / 2;
