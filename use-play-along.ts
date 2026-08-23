@@ -392,6 +392,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const now = performance.now();
     const tSec = now / 1000;
     const fever = songFeverRef.current;
+    // Rotating the phone leaves the play area wide but SHORT, so meteors that
+    // look well-spaced in portrait end up stacked on top of each other with
+    // barely any gap between them. Halve them in landscape — same lane
+    // positions, just smaller heads, so consecutive notes read as separate.
+    const landscape = W > H;
+    const noteScale = landscape ? 0.5 : 1;
     // deep-space nebula backdrop — pre-rendered offscreen once per size, drawn each frame
     let neb = songNebulaRef.current;
     if (!neb || neb.w !== W || neb.h !== H) {
@@ -460,7 +466,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       const f = laneFrac[n.lane] || noteKeyFrac(n.note) || { cx: 0.5, w: 1 / 14 };
       const w = Math.max(10, f.w * W - 4), top = y - h, hue = laneHue(n.note);
       const mcx = f.cx * W;
-      const rr = Math.max(7, Math.min(w / 2 - 1, 21)); // meteor head radius (+15% cap)
+      const rr = Math.max(7 * noteScale, Math.min(w / 2 - 1, 21) * noteScale); // meteor head radius (+15% cap), halved in landscape
       const hy = y - rr;                               // head rides the leading (falling) edge
       const spin = tSec * 1.6 + n.t * 2.3;             // slow tumble, phase unique per note
       if (!n.missed) {
@@ -501,9 +507,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         ctx.beginPath(); ctx.ellipse(cxk, cyk, crr, crr * 0.75, a, 0, Math.PI * 2); ctx.fill();
       }
       if (!n.missed) {
+        // the note letter shrinks with the head, or it would overflow a
+        // half-size meteor in landscape
+        const fs = Math.max(8, Math.round(13 * noteScale));
         ctx.fillStyle = "rgba(255,255,255,0.96)";
-        ctx.font = "bold 13px Rajdhani, sans-serif"; ctx.textAlign = "center";
-        ctx.fillText(pcOf(n.note), mcx, hy + 4);
+        ctx.font = `bold ${fs}px Rajdhani, sans-serif`; ctx.textAlign = "center";
+        ctx.fillText(pcOf(n.note), mcx, hy + fs * 0.32);
       }
     }
     // ── rockets: a hit launches one from the hit-line, climbing to blow the meteor up ──
