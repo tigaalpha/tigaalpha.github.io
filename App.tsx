@@ -6103,7 +6103,10 @@ function AdminStudents({ lang, viewerTier }) {
   const [mgDays, setMgDays] = useState(30);
   const [mgBusy, setMgBusy] = useState(false);
   const [appointTier, setAppointTier] = useState(0);
-  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); setAppointTier(r.admin_tier || 0); };
+  const [editCoins, setEditCoins] = useState(0);
+  const [editGems, setEditGems] = useState(0);
+  const [editExp, setEditExp] = useState(0);
+  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); setAppointTier(r.admin_tier || 0); setEditCoins(r.coins || 0); setEditGems(r.gems || 0); setEditExp(r.exp || 0); };
   async function applyPlan() {
     if (!sel) return; setMgBusy(true);
     const { error } = await sb.rpc("admin_set_plan", { target: sel.id, new_plan: mgPlan, days: Number(mgDays) || 30 });
@@ -6123,6 +6126,18 @@ function AdminStudents({ lang, viewerTier }) {
     if (!sel) return; setMgBusy(true);
     const { error } = await sb.rpc("admin_appoint", { target: sel.id, new_tier: appointTier });
     setMgBusy(false); if (!error) { setSel(null); load(); } else { alert(error.message || "error"); }
+  }
+  async function saveCurrency() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_adjust_currency", {
+      target: sel.id,
+      p_coins: Number(editCoins) || 0,
+      p_gems: Number(editGems) || 0,
+      p_exp: Number(editExp) || 0
+    });
+    setMgBusy(false);
+    if (!error) { playUi("levelup"); setSel({...sel, coins: Number(editCoins)||0, gems: Number(editGems)||0, exp: Number(editExp)||0}); }
+    else { alert(error.message || "error"); }
   }
   // admin_list_students_v2 — bounded (server-side LIMIT) and server-side searched,
   // replacing the old admin_list_students() (unbounded, no search, client-side
@@ -6208,6 +6223,33 @@ function AdminStudents({ lang, viewerTier }) {
               </select>
             </div>
             <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={mgBusy} onClick={doAppoint}>👑 {T("บันทึกระดับแอดมิน", "Save admin tier", "保存管理员等级")}</button>
+          </div>
+        )}
+        {/* 💰 Currency & Level Management — Top Tier only */}
+        {tier >= 3 && (
+          <div className="admmg">
+            <div className="admmg-h">💰 {T("จัดการเหรียญ/เพชร/คะแนน", "Manage Coins/Gems/EXP", "管理代币/宝石/经验")}</div>
+            <div className="admmg-cur" style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
+              {T("แก้ไขค่าได้อิสระ — กดบันทึกเพื่อบันทึก", "Edit values freely — tap Save to apply", "可自由修改数值 — 点击保存应用")}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <div>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>🪙 {T("เหรียญ (Coins)", "Coins", "代币")}</label>
+                <input type="number" className="admmg-days" style={{ width: "100%" }} value={editCoins} onChange={e => setEditCoins(Number(e.target.value) || 0)} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>💎 {T("เพชร (Gems)", "Gems", "宝石")}</label>
+                <input type="number" className="admmg-days" style={{ width: "100%" }} value={editGems} onChange={e => setEditGems(Number(e.target.value) || 0)} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: 11, opacity: 0.6 }}>⭐ {T("คะแนน (EXP)", "EXP Points", "经验值")}</label>
+              <input type="number" className="admmg-days" style={{ width: "100%" }} value={editExp} onChange={e => setEditExp(Number(e.target.value) || 0)} />
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 8 }}>
+              {T("ระดับ", "Level", "等级")} {levelInfo(editExp).level} · {levelInfo(editExp).tier?.icon || "🎵"} {levelInfo(editExp).tier ? (lang === "th" ? levelInfo(editExp).tier.name_th : lang === "zh" ? levelInfo(editExp).tier.name_zh : levelInfo(editExp).tier.name_en) : ""}
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 4 }} disabled={mgBusy} onClick={saveCurrency}>💾 {T("บันทึกค่า", "Save currency", "保存数值")}</button>
           </div>
         )}
         <div className="pd-stats">
