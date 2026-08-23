@@ -1722,10 +1722,13 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, cl
   const keyName = songMeta ? songTonic(songMeta) : "C";
   const W = wbW, H = 150, baseY = 95, half = 7;
   const startX = 92;
-  // the per-note gap cap scales with the width so sparse windows still spread
-  // across the whole staff on wide screens (same visual density as the old
-  // 520-unit canvas) instead of clustering at the left edge
-  const gap = Math.min(64 * (W / 520), Math.max(16, (W - startX - 20) / Math.max(1, list.length)));
+  // Beat-based spacing: align staff note x-positions with falling-note timing
+  // so the two visualisations stay synchronised across screen sizes.
+  const firstBeat = list.length > 0 ? list[0].beat : 0;
+  const lastBeat = list.length > 0 ? list[list.length - 1].beat : 1;
+  const totalBeats = Math.max(0.5, lastBeat - firstBeat);
+  const beatGap = (W - startX - 20) / totalBeats;
+  const gap = beatGap; // used only for bar-line positioning
   const lineYs = [0, 2, 4, 6, 8].map(s => baseY - s * half);
   const COLOR = { past: "rgba(255,255,255,.32)", current: "#ffd166", future: "#d97757" };
   return (
@@ -1737,7 +1740,7 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, cl
       <text x="64" y={lineYs[1] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[1]}</text>
       {list.map((n, i) => {
         const step = staffStep(n.note, staffClef);
-        const y = baseY - step * half, x = startX + i * gap;
+        const y = baseY - step * half, x = startX + (n.beat - firstBeat) * beatGap;
         const ledgers = [];
         for (let s = -2; s >= step; s -= 2) ledgers.push(baseY - s * half);
         for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);
@@ -1749,7 +1752,7 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, cl
         const showBar = prevMeasure != null && measure !== prevMeasure;
         return (
           <g key={i}>
-            {showBar && <line x1={x - gap / 2} y1={lineYs[0]} x2={x - gap / 2} y2={lineYs[4]} stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />}
+            {showBar && <line x1={x - beatGap * 0.3} y1={lineYs[0]} x2={x - beatGap * 0.3} y2={lineYs[4]} stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />}
             {isCurrent && <>
               <rect className="pastaff-cur" x={x - 15} y={lineYs[4] - 6} width="30" height={lineYs[0] - lineYs[4] + 12} rx="8" fill="#ffd16633" />
               <path d={`M${x - 8},${H - 10} L${x + 8},${H - 10} L${x},${H - 22} Z`} fill="#ffd166" />
