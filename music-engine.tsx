@@ -39,13 +39,15 @@ export function keysFor(baseOct = 4, octs = 2) {
 }
 
 export const _WHITE_ORD = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
-export function noteKeyFrac(note) {
+export function noteKeyFrac(note, baseOct = 4, nwOverride) {
   const m = String(note || "").match(/^([A-G])(#?)(\d)$/);
   if (!m) return null;
-  const NW = 14;
-  let base = (parseInt(m[3], 10) - 4) * 7 + _WHITE_ORD[m[1]]; // white index from C4
+  // nwOverride: total white keys in visible piano range.
+  // Single-hand = 14 (2 octaves), both-hand = 28 (4 octaves).
+  const NW = nwOverride || 14;
+  let base = (parseInt(m[3], 10) - baseOct) * 7 + _WHITE_ORD[m[1]];
   if (base < 0) base = 0; else if (base > NW - 1) base = NW - 1;
-  if (m[2] === "#") return { cx: (base + 1) / NW, w: (1 / NW) * 0.62 }; // black sits on the gap
+  if (m[2] === "#") return { cx: (base + 1) / NW, w: (1 / NW) * 0.62 };
   return { cx: (base + 0.5) / NW, w: 1 / NW };
 }
 
@@ -1696,7 +1698,7 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
   );
 });
 
-export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, clef, numLanes }) {
+export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, clef, numLanes, hand }) {
   // Track the real container size so the 150-unit-tall drawing is stretched to
   // EXACTLY fill the element's box (width-wise) on any screen/orientation — the
   // old fixed 520-wide viewBox letterboxed the staff (empty black on both
@@ -1743,8 +1745,13 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, cl
       {list.map((n, i) => {
         const step = staffStep(n.note, staffClef);
         const y = baseY - step * half;
-        const x = useLanePos && n.lane != null
-          ? startX + ((n.lane + 0.5) / numLanes) * (W - startX - 20)
+        // Use noteKeyFrac for x-position so staff notes align with
+        // the piano keys and falling game notes.
+        const staffBaseOct = hand === "left" ? 2 : 4;
+        const staffNW = hand === "both" ? 28 : 14;
+        const kf = noteKeyFrac(n.note, staffBaseOct, staffNW);
+        const x = kf
+          ? startX + kf.cx * (W - startX - 20)
           : startX + (n.beat - firstBeat) * beatGap;
         const ledgers = [];
         for (let s = -2; s >= step; s -= 2) ledgers.push(baseY - s * half);

@@ -48,7 +48,7 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                 {songSetlistPos && <span className="setlistpos">🎤 {songSetlistPos.idx + 1}/{songSetlistPos.total}</span>}
               </div>
               <div className="songprog"><div style={{ width: songHud.progress + "%" }} /></div>
-              <div className="songstaffwrap"><PlayAlongStaff notes={songStaffNotes} songMeta={songMeta} clef={playAlongHand === "left" ? "bass" : "treble"} numLanes={songDataRef.current ? songDataRef.current.lanes.length : 0} /></div>
+              <div className="songstaffwrap"><PlayAlongStaff notes={songStaffNotes} songMeta={songMeta} clef={playAlongHand === "left" ? "bass" : "treble"} numLanes={songDataRef.current ? songDataRef.current.lanes.length : 0} hand={playAlongHand} /></div>
             </>
           )}
 
@@ -131,7 +131,7 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
 
           {songPhase === "playing" && (
             <>
-              <GamePiano fullWidth litNote={songNextLit} onNote={(n) => songInputRef.current({ note: n, freq: null, source: "tap" })} />
+              <GamePiano fullWidth litNote={songNextLit} baseOct={playAlongHand === "left" ? 2 : 4} octs={playAlongHand === "both" ? 4 : 2} onNote={(n) => songInputRef.current({ note: n, freq: null, source: "tap" })} />
               <div className="songsrcbar">
                 {!songSrc ? "…" : songSrc.type === "midi" ? lc.practiceMidi : songSrc.type === "mic" ? lc.practiceMic : lc.practiceMicErr}
               </div>

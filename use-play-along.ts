@@ -134,6 +134,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const [songCountdown, setSongCountdown] = useState(null);
   // Hand mode for Play Along: "right" (melody), "left" (bass), "both" (melody+bass)
   const [playAlongHand, setPlayAlongHand] = useState("right");
+  const playAlongHandRef = useRef(playAlongHand);
+  useEffect(() => { playAlongHandRef.current = playAlongHand; }, [playAlongHand]);
   const [songAutoLoop, setSongAutoLoop] = useState(false);
   const songAutoLoopRef = useRef(false);
   const songLoopRetryT = useRef(null);
@@ -380,17 +382,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     ctx.fillStyle = earthGrad; ctx.fillRect(0, hitY - 30, W, 38);
     // Each lane's x-position is the actual key it maps to, so a falling note lands
     // directly above the piano key (and the lit key) the learner must press.
-    let laneFrac = lanes.map(ln => noteKeyFrac(ln) || { cx: 0.5, w: 1 / 14 });
-    // When multiple lanes collapse to the same cx (bass-clef notes below C4 all
-    // clamp to 0), redistribute them evenly across the width so each pitch gets
-    // its own visible column.
-    {
-      const cxSet = new Set(laneFrac.map(f => f.cx));
-      if (cxSet.size < lanes.length) {
-        const nL = lanes.length;
-        laneFrac = lanes.map((_, i) => ({ cx: (i + 0.5) / nL, w: 1 / nL }));
-      }
-    }
+    // Map each lane to its real piano key position using noteKeyFrac.
+    // The GamePiano component adjusts its octave range (baseOct) to match
+    // the hand mode, so noteKeyFrac positions always align with visible keys.
+    const hand = playAlongHandRef.current;
+    const handBaseOct = hand === "left" ? 2 : 4;
+    const handNW = hand === "both" ? 28 : 14;
+    const laneFrac = lanes.map(ln => noteKeyFrac(ln, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 });
     for (let i = 0; i < nLane; i++) {
       const f = laneFrac[i], hue = laneHue(lanes[i]);
       const cw = f.w * W, cx = f.cx * W - cw / 2;
@@ -412,7 +410,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (yFrac < -0.05 || yFrac > 1.4) continue;
       const y = yFrac * hitY;
       const h = Math.max(14, n.durSec * pxPerSec);
-      const f = laneFrac[n.lane] || noteKeyFrac(n.note) || { cx: 0.5, w: 1 / 14 };
+      const f = laneFrac[n.lane] || noteKeyFrac(n.note, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 };
       const w = Math.max(10, f.w * W - 4), top = y - h, hue = laneHue(n.note);
       const mcx = f.cx * W;
       const rr = Math.max(7, Math.min(w / 2 - 1, 21)); // meteor head radius (+15% cap)
