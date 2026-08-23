@@ -1696,7 +1696,7 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
   );
 });
 
-export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, clef }) {
+export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, clef, numLanes }) {
   // Track the real container size so the 150-unit-tall drawing is stretched to
   // EXACTLY fill the element's box (width-wise) on any screen/orientation — the
   // old fixed 520-wide viewBox letterboxed the staff (empty black on both
@@ -1722,8 +1722,10 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, cl
   const keyName = songMeta ? songTonic(songMeta) : "C";
   const W = wbW, H = 150, baseY = 95, half = 7;
   const startX = 92;
-  // Beat-based spacing: align staff note x-positions with falling-note timing
-  // so the two visualisations stay synchronised across screen sizes.
+  // Position notes: if numLanes is provided (bass/multi-lane mode), use
+  // lane-based x-positions so staff notes align with falling game notes.
+  // Otherwise fall back to beat-based time spacing for treble single-hand.
+  const useLanePos = numLanes && numLanes > 1;
   const firstBeat = list.length > 0 ? list[0].beat : 0;
   const lastBeat = list.length > 0 ? list[list.length - 1].beat : 1;
   const totalBeats = Math.max(0.5, lastBeat - firstBeat);
@@ -1740,7 +1742,10 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, cl
       <text x="64" y={lineYs[1] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[1]}</text>
       {list.map((n, i) => {
         const step = staffStep(n.note, staffClef);
-        const y = baseY - step * half, x = startX + (n.beat - firstBeat) * beatGap;
+        const y = baseY - step * half;
+        const x = useLanePos && n.lane != null
+          ? startX + ((n.lane + 0.5) / numLanes) * (W - startX - 20)
+          : startX + (n.beat - firstBeat) * beatGap;
         const ledgers = [];
         for (let s = -2; s >= step; s -= 2) ledgers.push(baseY - s * half);
         for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);

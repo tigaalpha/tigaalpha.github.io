@@ -290,7 +290,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       let winEnd = curIdx + 1;
       while (winEnd < allNotes.length && winEnd - winStart < 24 && allNotes[winEnd].beat <= curBeat + beatsPerBar * 4) winEnd++;
       setSongStaffNotes(allNotes.slice(winStart, winEnd).map((n, i) => ({
-        note: n.note, beat: n.beat,
+        note: n.note, beat: n.beat, lane: n.lane,
         state: (winStart + i) < curIdx ? "past" : (winStart + i) === curIdx ? "current" : "future",
       })));
       // ghost race vs your best run
