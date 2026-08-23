@@ -1699,11 +1699,10 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
 });
 
 export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, clef, numLanes, hand }) {
-  // Track the real container size so the 150-unit-tall drawing is stretched to
-  // EXACTLY fill the element's box (width-wise) on any screen/orientation — the
-  // old fixed 520-wide viewBox letterboxed the staff (empty black on both
-  // sides) everywhere wider than ~350px. Height stays 101px via CSS, so note
-  // glyphs keep their exact size; only horizontal spread changes.
+  // Piano-roll style staff: notes positioned by PITCH on x-axis (matching
+  // falling game notes and piano keys below) and by pitch-height on y-axis
+  // (standard staff notation). This ensures visual alignment between the
+  // staff, falling notes, and GamePiano across all hand modes.
   const staffClef = clef || "treble";
   const wrapRef = useRef(null);
   const [wbW, setWbW] = useState(520);
@@ -1719,53 +1718,43 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta, cl
     return () => ro.disconnect();
   }, []);
   const list = (notes || []).slice(0, 24);
-  const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
-  const beatsPerBar = parseInt(timeSig.split("/")[0], 10) || 4;
   const keyName = songMeta ? songTonic(songMeta) : "C";
   const W = wbW, H = 150, baseY = 95, half = 7;
-  const startX = 92;
-  // Position notes: if numLanes is provided (bass/multi-lane mode), use
-  // lane-based x-positions so staff notes align with falling game notes.
-  // Otherwise fall back to beat-based time spacing for treble single-hand.
-  const useLanePos = numLanes && numLanes > 1;
-  const firstBeat = list.length > 0 ? list[0].beat : 0;
-  const lastBeat = list.length > 0 ? list[list.length - 1].beat : 1;
-  const totalBeats = Math.max(0.5, lastBeat - firstBeat);
-  const beatGap = (W - startX - 20) / totalBeats;
-  const gap = beatGap; // used only for bar-line positioning
+  const leftPad = 56;
+  const rightPad = 16;
+  const staffW = W - leftPad - rightPad;
+  // Pitch-based x-positioning: use noteKeyFrac with same params as GamePiano
+  // so notes align with falling game notes and piano keys.
+  const staffBaseOct = hand === "left" ? 2 : 4;
+  const staffNW = hand === "both" ? 28 : 14;
   const lineYs = [0, 2, 4, 6, 8].map(s => baseY - s * half);
   const COLOR = { past: "rgba(255,255,255,.32)", current: "#ffd166", future: "#d97757" };
   return (
     <svg ref={wrapRef} viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
-      <text x="8" y="20" fontSize="14" fill="rgba(255,255,255,.6)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>Key: {keyName}</text>
-      {lineYs.map((ly, i) => <line key={i} x1="8" y1={ly} x2={W - 8} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.4" />)}
-      <text x="8" y={baseY + 4} fontSize="53" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif" }}>{staffClef === "bass" ? "\u{1D122}" : "\u{1D11E}"}</text>
-      <text x="64" y={lineYs[3] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[0]}</text>
-      <text x="64" y={lineYs[1] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[1]}</text>
+      <text x="4" y="20" fontSize="12" fill="rgba(255,255,255,.5)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>{keyName}</text>
+      {lineYs.map((ly, i) => <line key={i} x1={leftPad - 4} y1={ly} x2={W - rightPad} y2={ly} stroke="rgba(255,255,255,.4)" strokeWidth="1.2" />)}
+      <text x="4" y={baseY + 4} fontSize="42" fill="rgba(255,255,255,.8)" style={{ fontFamily: "Georgia, serif" }}>{staffClef === "bass" ? "\u{1D122}" : "\u{1D11E}"}</text>
       {list.map((n, i) => {
         const step = staffStep(n.note, staffClef);
         const y = baseY - step * half;
-        // x-position by BEAT (time) — standard music notation.
-        // Notes placed at their beat position, not by pitch.
-        const x = startX + (n.beat - firstBeat) * beatGap;
+        // x-position by PITCH using noteKeyFrac — same coordinate system as
+        // falling game notes and GamePiano, so they align vertically.
+        const kf = noteKeyFrac(n.note, staffBaseOct, staffNW);
+        if (!kf) return null;
+        const x = leftPad + kf.cx * staffW;
         const ledgers = [];
         for (let s = -2; s >= step; s -= 2) ledgers.push(baseY - s * half);
         for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);
         const isCurrent = n.state === "current";
         const color = COLOR[n.state] || COLOR.future;
-        // a bar line goes just before this note if it starts a new measure
-        const prevMeasure = i > 0 ? Math.floor(list[i - 1].beat / beatsPerBar) : null;
-        const measure = Math.floor(n.beat / beatsPerBar);
-        const showBar = prevMeasure != null && measure !== prevMeasure;
         return (
           <g key={i}>
-            {showBar && <line x1={x - beatGap * 0.3} y1={lineYs[0]} x2={x - beatGap * 0.3} y2={lineYs[4]} stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />}
             {isCurrent && <>
-              <rect className="pastaff-cur" x={x - 15} y={lineYs[4] - 6} width="30" height={lineYs[0] - lineYs[4] + 12} rx="8" fill="#ffd16633" />
-              <path d={`M${x - 8},${H - 10} L${x + 8},${H - 10} L${x},${H - 22} Z`} fill="#ffd166" />
+              <rect className="pastaff-cur" x={x - 14} y={lineYs[4] - 6} width="28" height={lineYs[0] - lineYs[4] + 12} rx="7" fill="#ffd16633" />
+              <path d={`M${x - 6},${H - 8} L${x + 6},${H - 8} L${x},${H - 18} Z`} fill="#ffd166" />
             </>}
-            {ledgers.map((ly, k) => <line key={k} x1={x - 12} y1={ly} x2={x + 12} y2={ly} stroke={n.state === "past" ? "rgba(255,255,255,.25)" : "rgba(255,255,255,.45)"} strokeWidth="1.4" />)}
-            <ellipse cx={x} cy={y} rx={isCurrent ? 9 : 7.5} ry={isCurrent ? 6.5 : 5.5} fill={color} transform={`rotate(-18 ${x} ${y})`} />
+            {ledgers.map((ly, k) => <line key={k} x1={x - 11} y1={ly} x2={x + 11} y2={ly} stroke={n.state === "past" ? "rgba(255,255,255,.25)" : "rgba(255,255,255,.4)"} strokeWidth="1.2" />)}
+            <ellipse cx={x} cy={y} rx={isCurrent ? 8 : 6.5} ry={isCurrent ? 6 : 5} fill={color} transform={`rotate(-18 ${x} ${y})`} />
           </g>
         );
       })}
