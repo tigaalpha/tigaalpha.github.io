@@ -6,7 +6,7 @@ import { CountUp } from "./app-shell";
    (songOpen && songMeta), extracted verbatim from PianoApp's inline JSX as
    part of Phase 2 componentization — no logic changes. lc is derived from
    lang internally, same convention as the other overlay components. ── */
-export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand }) {
+export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand, setSongPhase }) {
   const lc = L[lang];
   return (
         <div className="songov">
@@ -182,7 +182,7 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                 <button className="songbtn ghost" onClick={exitSong}>↩ {lc.songBackList}</button>
                 <button className="songbtn ghost" onClick={() => shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: "★".repeat(songResult.stars) + "☆".repeat(3 - songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] })}>📤 {lc.shareBtn}</button>
                 <button className="songbtn ghost" style={{ borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${tr(songMeta, lang)} — ${"★".repeat(songResult.stars)} ${songResult.acc}% 🎵 TiGA Piano AI tigaalpha.github.io`)}>🟢 LINE</button>
-                <button className="songbtn go" onClick={startSongPlay}>↻ {lc.songRetry}</button>
+                <button className="songbtn go" onClick={() => setSongPhase("ready")}>↻ {lc.songRetry}</button>
               </div>
               {/* C1: Friend Challenge — share a challenge link */}
               <button className="songbtn ghost" style={{ width: "100%", marginTop: 6, fontSize: 12 }}
