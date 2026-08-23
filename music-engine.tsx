@@ -1206,15 +1206,41 @@ export function noteTypeName(durBeats) {
   if (durBeats >= 0.25) return "s";  /* 16th note (semiquaver) */
   return "x";                         /* 32nd note (demisemiquaver) */
 }
+// Generate a simple bass-line (left-hand accompaniment) from a melody song.
+// Alternates root/5th for musical variety, pitched in octaves 2-3.
+export function generateBassLine(song) {
+  const melodyNotes = (song.seq || []).filter(([n]) => n !== "R");
+  if (!melodyNotes.length) return [];
+  const rootPC = pcOf(melodyNotes[0][0]);
+  const rootIdx = CHROMA.indexOf(rootPC);
+  if (rootIdx < 0) return [];
+  const fifthPC = CHROMA[(rootIdx + 7) % 12];
+  const pat = [rootPC + "2", fifthPC + "2", rootPC + "3", fifthPC + "2"];
+  const bassSeq = []; let pi = 0;
+  for (const [n, d] of song.seq) {
+    if (n !== "R") { bassSeq.push([pat[pi % pat.length], d]); pi++; }
+    else bassSeq.push(["R", d]);
+  }
+  return bassSeq;
+}
 // Expand a song into timed note objects + the set of lanes (distinct pitches).
-export function expandSong(song) {
+// hand: "right" (default, melody only), "left" (bass only), "both" (melody + bass).
+export function expandSong(song, hand) {
   const spb = 60 / song.bpm; // seconds per beat
   let beat = 0;
-  const notes = [];
+  const melodyNotes = [];
   for (const [note, dur] of song.seq) {
-    if (note !== "R") notes.push({ note, t: beat * spb, beat, durBeats: dur, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0 });
+    if (note !== "R") melodyNotes.push({ note, t: beat * spb, beat, durBeats: dur, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0 });
     beat += dur;
   }
+  const bassSeq = generateBassLine(song);
+  const bassNotes = [];
+  let bassBeat = 0;
+  for (const [note, dur] of bassSeq) {
+    if (note !== "R") bassNotes.push({ note, t: bassBeat * spb, beat: bassBeat, durBeats: dur, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0 });
+    bassBeat += dur;
+  }
+  const notes = hand === "left" ? bassNotes : hand === "both" ? [...melodyNotes, ...bassNotes] : [...melodyNotes];
   const lanes = Array.from(new Set(notes.map(n => n.note))).sort((a, b) => noteToMidi(a) - noteToMidi(b));
   for (const n of notes) n.lane = lanes.indexOf(n.note);
   const lastT = notes.reduce((m, n) => Math.max(m, n.t), 0);

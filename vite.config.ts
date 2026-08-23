@@ -11,6 +11,7 @@ export default defineConfig({
     outDir: "dist",
     rollupOptions: {
       input: resolve(__dirname, "index.template.html"),
+      external: ["@capacitor-community/text-to-speech"],
     },
   },
 });
