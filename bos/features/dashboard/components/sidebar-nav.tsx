@@ -61,6 +61,7 @@ import {
   Cpu,
   GitBranch,
   Rocket,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
