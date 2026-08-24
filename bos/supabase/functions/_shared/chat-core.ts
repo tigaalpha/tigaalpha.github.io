@@ -3,7 +3,7 @@ import { generate } from "./ai-provider.ts";
 import type { ChatMessage } from "./ai-types.ts";
 import { buildSystemPrompt, type PromptName } from "./prompts.ts";
 import { detectLanguage, LANG_INSTRUCTION } from "./chat-features.ts";
-import { AI_TOOLS, OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts";
+import { AI_TOOLS, OWNER_TOOLS, ALL_OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts";
 import { getLatestCompetitorContext } from "./competitor-context.ts";
 import { logAiUsage } from "./usage-logging.ts";
 import { cleanReplyText } from "./text-clean.ts";
@@ -200,7 +200,7 @@ export async function respond(
   // what they type or whether a customer row is linked yet (an unlinked
   // LINE/web user would otherwise get boundCustomerId=null and the old
   // `boundCustomerId === null` gate would wrongly expose owner tools).
-  const tools = conversation?.channel === "internal" ? [...AI_TOOLS, ...OWNER_TOOLS] : AI_TOOLS;
+  const tools = conversation?.channel === "internal" ? [...AI_TOOLS, ...ALL_OWNER_TOOLS] : AI_TOOLS;
 
   // Fetch the most recent RECENT_MESSAGE_LIMIT messages (descending so the
   // limit keeps the newest ones -- including the customer message just

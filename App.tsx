@@ -28,7 +28,7 @@ import {
   pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP, _practiceStop,
   startMidiListener, startMicListener, stopPracticeListeners, laneHue, roundRect, rhythmReport,
   SONG_LEAD, SONG_HITWINDOW, SONG_PERFECT, SONG_DEBOUNCE_MS, SONG_ECHO_MS, SONG_MISSWINDOW,
-  expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes,
+  expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes, noteTypeName,
   MINOR_TYPES, TRIAD_TYPES, SEVENTH_TYPES, INTERVAL_DEFS,
   MAJOR_SCALE_SONGS, MINOR_SCALE_SONGS, TRIAD_SONGS, SEVENTH_SONGS, INTERVAL_SONGS,
   SIGHT_NOTES, SIGHT_NOTES_BASS,
@@ -232,7 +232,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.38";
+const APP_VER = "13.7.90";
 
 async function signInWith(provider) {
   try {
@@ -6140,6 +6140,24 @@ function LockScreen({ lang, onUnlock }) {
 /* ── Share gate: free users share FB + TikTok to keep playing past the free limit ── */
 
 /* ── Admin: all students' progress (reads every profile via admin RLS) ── */
+// A controlled <input type="number"> whose state is a NUMBER has a subtle
+// trap: React only writes the DOM back when the typed string and the state
+// value differ LOOSELY, and "010000" == 10000 is true — so typing into a field
+// that currently reads "0" leaves a stray leading zero on screen ("010000")
+// even though the stored value is a perfectly clean 10000. Normalising the raw
+// string here, and writing it back to the input, keeps what's displayed and
+// what's stored identical. Also clamps negatives away: none of these fields
+// (coins, gems, EXP) has any meaning below zero.
+function numFieldProps(val, set) {
+  return {
+    value: val,
+    onChange: (e) => {
+      const raw = String(e.target.value).replace(/^0+(?=\d)/, "");
+      if (raw !== e.target.value) e.target.value = raw;   // keep the DOM in step with the state
+      set(Math.max(0, Number(raw) || 0));
+    },
+  };
+}
 function AdminStudents({ lang, viewerTier }) {
   const tier = viewerTier || 0;
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
@@ -6151,7 +6169,10 @@ function AdminStudents({ lang, viewerTier }) {
   const [mgDays, setMgDays] = useState(30);
   const [mgBusy, setMgBusy] = useState(false);
   const [appointTier, setAppointTier] = useState(0);
-  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); setAppointTier(r.admin_tier || 0); };
+  const [editCoins, setEditCoins] = useState(0);
+  const [editGems, setEditGems] = useState(0);
+  const [editExp, setEditExp] = useState(0);
+  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); setAppointTier(r.admin_tier || 0); setEditCoins(r.coins || 0); setEditGems(r.gems || 0); setEditExp(r.exp || 0); };
   async function applyPlan() {
     if (!sel) return; setMgBusy(true);
     const { error } = await sb.rpc("admin_set_plan", { target: sel.id, new_plan: mgPlan, days: Number(mgDays) || 30 });
@@ -6171,6 +6192,18 @@ function AdminStudents({ lang, viewerTier }) {
     if (!sel) return; setMgBusy(true);
     const { error } = await sb.rpc("admin_appoint", { target: sel.id, new_tier: appointTier });
     setMgBusy(false); if (!error) { setSel(null); load(); } else { alert(error.message || "error"); }
+  }
+  async function saveCurrency() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_adjust_currency", {
+      target: sel.id,
+      p_coins: Number(editCoins) || 0,
+      p_gems: Number(editGems) || 0,
+      p_exp: Number(editExp) || 0
+    });
+    setMgBusy(false);
+    if (!error) { playUi("levelup"); setSel({...sel, coins: Number(editCoins)||0, gems: Number(editGems)||0, exp: Number(editExp)||0}); }
+    else { alert(error.message || "error"); }
   }
   // admin_list_students_v2 — bounded (server-side LIMIT) and server-side searched,
   // replacing the old admin_list_students() (unbounded, no search, client-side
@@ -6256,6 +6289,33 @@ function AdminStudents({ lang, viewerTier }) {
               </select>
             </div>
             <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={mgBusy} onClick={doAppoint}>👑 {T("บันทึกระดับแอดมิน", "Save admin tier", "保存管理员等级")}</button>
+          </div>
+        )}
+        {/* 💰 Currency & Level Management — Top Tier only */}
+        {tier >= 3 && (
+          <div className="admmg">
+            <div className="admmg-h">💰 {T("จัดการเหรียญ/เพชร/คะแนน", "Manage Coins/Gems/EXP", "管理代币/宝石/经验")}</div>
+            <div className="admmg-cur" style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
+              {T("แก้ไขค่าได้อิสระ — กดบันทึกเพื่อบันทึก", "Edit values freely — tap Save to apply", "可自由修改数值 — 点击保存应用")}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <div>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>🪙 {T("เหรียญ (Coins)", "Coins", "代币")}</label>
+                <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editCoins, setEditCoins)} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>💎 {T("เพชร (Gems)", "Gems", "宝石")}</label>
+                <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editGems, setEditGems)} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: 11, opacity: 0.6 }}>⭐ {T("คะแนน (EXP)", "EXP Points", "经验值")}</label>
+              <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editExp, setEditExp)} />
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 8 }}>
+              {T("ระดับ", "Level", "等级")} {levelInfo(editExp).level} · {levelInfo(editExp).tier?.icon || "🎵"} {levelInfo(editExp).tier ? (lang === "th" ? levelInfo(editExp).tier.name_th : lang === "zh" ? levelInfo(editExp).tier.name_zh : levelInfo(editExp).tier.name_en) : ""}
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 4 }} disabled={mgBusy} onClick={saveCurrency}>💾 {T("บันทึกค่า", "Save currency", "保存数值")}</button>
           </div>
         )}
         <div className="pd-stats">
@@ -8090,7 +8150,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => navigator.serviceWorker.removeEventListener("message", onNav);
   }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
-  const { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songHandMode, pickHandMode, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songSetlistPos, startSetlist } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
+  const { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songSetlistPos, startSetlist, playAlongHand, changePlayAlongHand } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
 
   // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
@@ -8590,6 +8650,30 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const id = setInterval(tick, 60000 / metroBpm);
     return () => clearInterval(id);
   }, [metroOn, metroBpm]);
+  // auto-enable metronome when entering Play Along, sync BPM with song + tempo, disable when exiting
+  const prevSongOpenRef = useRef(false);
+  const prevSongMetaRef = useRef(null);
+  useEffect(() => {
+    if (songOpen && !prevSongOpenRef.current) {
+      prevSongOpenRef.current = true;
+      setMetroOn(true);
+      if (songMeta && songMeta.bpm) setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    }
+    // sync BPM when song changes during play (setlist/retry)
+    if (songOpen && songMeta && songMeta !== prevSongMetaRef.current) {
+      prevSongMetaRef.current = songMeta;
+      if (songMeta.bpm) setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    }
+    // sync BPM when tempo multiplier changes (0.5x, 0.75x, 1x, 1.25x)
+    if (songOpen && songMeta && songMeta.bpm) {
+      setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    }
+    if (!songOpen && prevSongOpenRef.current) {
+      prevSongOpenRef.current = false;
+      prevSongMetaRef.current = null;
+      setMetroOn(false);
+    }
+  }, [songOpen, songMeta, songTempo]);
   // grade the learner's note onsets against the actual metronome clicks (ms-precise)
   function metroTimingReport(noteTimes) {
     const beats = metroBeatTimesRef.current;
@@ -9328,7 +9412,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} />}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
-      {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songHandMode={songHandMode} pickHandMode={pickHandMode} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} />}
+      {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} />}
 
       {/* SIGHT-READING overlay */}
       {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}

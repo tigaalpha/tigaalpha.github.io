@@ -157,7 +157,7 @@ function LoginOptions({ profile, onGoogleLogin }) {
         <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google · Continue with Google
       </button>
       {!showEmail ? (
-        <button className="memberlink" onClick={() => setShowEmail(true)}>หรือใช้อีเมล · or use email</button>
+        <button className="memberlink" onClick={() => setShowEmail(true)}>เข้าสู่ระบบด้วย ID ที่มีอยู่แล้ว · Log in with existing account</button>
       ) : (
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 2 }}>
           <input className="memberinput" type="email" inputMode="email" autoComplete="email"
@@ -208,6 +208,68 @@ export function LoginModal({ profile, onGoogleLogin, onClose }) {
 // continue past this point), but it always appears at a natural stopping
 // point (next navigation / on tap), never yanked up mid-exercise.
 export function GuestGateScreen({ reason, profile, onLogin }) {
+  const [showSignup, setShowSignup] = useState(false);
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupLine, setSignupLine] = useState("");
+  const [signupIg, setSignupIg] = useState("");
+  const [signupFb, setSignupFb] = useState("");
+  const [signupTiktok, setSignupTiktok] = useState("");
+  const [signupYoutube, setSignupYoutube] = useState("");
+  const [signupBusy, setSignupBusy] = useState(false);
+  const [signupErr, setSignupErr] = useState("");
+  const [signupDone, setSignupDone] = useState(false);
+
+  async function handleSignupSubmit() {
+    if (signupBusy) return;
+    setSignupErr("");
+    if (!signupName.trim()) { setSignupErr("กรุณากรอกชื่อ · Please enter your name"); return; }
+    if (!signupPassword || signupPassword.length < 6) { setSignupErr("รหัสผ่านต้องมีอย่างน้อย 6 ตัว · Password must be at least 6 characters"); return; }
+    setSignupBusy(true);
+    try {
+      saveGuestProfile(profile);
+      if (signupEmail.trim()) {
+        const { data, error } = await sb.auth.signUp({
+          email: signupEmail.trim(),
+          password: signupPassword,
+        });
+        if (error) { setSignupErr(friendlyAuthError(error.message)); setSignupBusy(false); return; }
+        if (data && data.user) {
+          await sb.from("profiles").upsert({
+            id: data.user.id,
+            full_name: signupName.trim(),
+            email: signupEmail.trim(),
+            line_id: signupLine.trim() || null,
+            instagram: signupIg.trim() || null,
+            facebook: signupFb.trim() || null,
+            tiktok: signupTiktok.trim() || null,
+            youtube: signupYoutube.trim() || null,
+            onboarded: true,
+            updated_at: new Date().toISOString(),
+          }).eq("id", data.user.id);
+        }
+      }
+      const extraProfile = {
+        full_name: signupName.trim(),
+        line_id: signupLine.trim() || null,
+        instagram: signupIg.trim() || null,
+        facebook: signupFb.trim() || null,
+        tiktok: signupTiktok.trim() || null,
+        youtube: signupYoutube.trim() || null,
+      };
+      localStorage.setItem("tiga_signup_extra", JSON.stringify(extraProfile));
+      setSignupDone(true);
+      if (!signupEmail.trim()) {
+        setTimeout(() => onLogin(), 1500);
+      }
+    } catch (e) {
+      setSignupErr(e && e.message || "เกิดข้อผิดพลาด · Something went wrong");
+    } finally {
+      setSignupBusy(false);
+    }
+  }
+
   const copy = {
     time: {
       icon: "⏳",
@@ -226,6 +288,154 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
     },
   };
   const c = copy[reason] || copy.time;
+
+  if (showSignup) {
+    const inputStyle: React.CSSProperties = {
+      width: "100%", padding: "12px 14px", borderRadius: 12,
+      border: "1.5px solid rgba(255,255,255,0.15)",
+      background: "rgba(255,255,255,0.08)",
+      color: "#fff", fontSize: 15, outline: "none",
+      boxSizing: "border-box",
+    };
+    const labelStyle: React.CSSProperties = {
+      fontSize: 12, fontWeight: 600, opacity: 0.7, marginBottom: 4, display: "block",
+      color: "rgba(255,255,255,0.8)",
+    };
+
+    return (
+      <div className="tg" style={{ position: "fixed", inset: 0, zIndex: 2000, alignItems: "center", justifyContent: "center" }}>
+        <div className="scan" />
+        <div style={{
+          width: "100%", maxWidth: 380, maxHeight: "90vh", overflowY: "auto",
+          background: "linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%)",
+          borderRadius: 24, padding: "32px 24px",
+          border: "1px solid rgba(255,255,255,0.1)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+          display: "flex", flexDirection: "column", gap: 0,
+        }}>
+          <button
+            onClick={() => { setShowSignup(false); setSignupErr(""); setSignupDone(false); }}
+            style={{
+              alignSelf: "flex-start", background: "none", border: "none",
+              color: "rgba(255,255,255,0.6)", fontSize: 22, cursor: "pointer",
+              padding: "0 0 8px 0", marginBottom: 4,
+            }}
+          >← กลับ</button>
+
+          {signupDone ? (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 12 }}>
+                สมัครสำเร็จ! 🎹
+              </div>
+              <div style={{ fontSize: 14, opacity: 0.7, lineHeight: 1.6 }}>
+                {signupEmail.trim()
+                  ? "ตรวจสอบอีเมลเพื่อยืนยันบัญชี\nCheck your email to confirm"
+                  : "กำลังเข้าสู่ระบบด้วย Google..."}
+              </div>
+              {signupEmail.trim() && (
+                <button
+                  onClick={() => { setShowSignup(false); onLogin(); }}
+                  style={{
+                    marginTop: 20, padding: "12px 32px", borderRadius: 12,
+                    border: "none", background: "linear-gradient(135deg, #d97757, #c25e3f)",
+                    color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
+                  }}
+                >เข้าสู่ระบบ · Log in</button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div style={{ textAlign: "center", marginBottom: 24 }}>
+                <div style={{ fontSize: 40, marginBottom: 8 }}>🎹</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 6 }}>
+                  สมัครสมาชิกฟรี
+                </div>
+                <div style={{ fontSize: 13, opacity: 0.5 }}>
+                  สมัครง่ายใน 10 วินาที · Free signup in 10 seconds
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <label style={labelStyle}>👤 ชื่อ-นามสกุล · Name *</label>
+                  <input style={inputStyle} type="text" placeholder="ชื่อของคุณ · Your name" value={signupName} onChange={e => setSignupName(e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>📧 อีเมล · Email <span style={{ opacity: 0.4 }}>(ไม่บังคับ · optional)</span></label>
+                  <input style={inputStyle} type="email" inputMode="email" autoComplete="email" placeholder="your@email.com" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>🔒 รหัสผ่าน · Password *</label>
+                  <input style={inputStyle} type="password" autoComplete="new-password" placeholder="อย่างน้อย 6 ตัวอักษร · At least 6 characters" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>💬 LINE ID <span style={{ opacity: 0.4 }}>(ไม่บังคับ · optional)</span></label>
+                  <input style={inputStyle} type="text" placeholder="@yourlineid" value={signupLine} onChange={e => setSignupLine(e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>🌐 Social Network <span style={{ opacity: 0.4 }}>(ไม่บังคับ · optional)</span></label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input style={{ ...inputStyle, flex: 1 }} type="text" placeholder="📱 Facebook" value={signupFb} onChange={e => setSignupFb(e.target.value)} />
+                      <input style={{ ...inputStyle, flex: 1 }} type="text" placeholder="📸 Instagram" value={signupIg} onChange={e => setSignupIg(e.target.value)} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input style={{ ...inputStyle, flex: 1 }} type="text" placeholder="🎵 TikTok" value={signupTiktok} onChange={e => setSignupTiktok(e.target.value)} />
+                      <input style={{ ...inputStyle, flex: 1 }} type="text" placeholder="▶️ YouTube" value={signupYoutube} onChange={e => setSignupYoutube(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+
+                {signupErr && (
+                  <div style={{
+                    padding: "10px 14px", borderRadius: 10,
+                    background: "rgba(255,82,82,0.15)", border: "1px solid rgba(255,82,82,0.3)",
+                    color: "#ff8a80", fontSize: 13, lineHeight: 1.4,
+                  }}>{signupErr}</div>
+                )}
+
+                <button
+                  onClick={handleSignupSubmit}
+                  disabled={signupBusy}
+                  style={{
+                    width: "100%", padding: "14px 24px", borderRadius: 14,
+                    border: "none",
+                    background: signupBusy ? "rgba(217,119,87,0.5)" : "linear-gradient(135deg, #d97757, #c25e3f)",
+                    color: "#fff", fontSize: 16, fontWeight: 700,
+                    cursor: signupBusy ? "default" : "pointer",
+                    boxShadow: signupBusy ? "none" : "0 4px 16px rgba(217,119,87,0.35)",
+                    letterSpacing: 0.3, marginTop: 4,
+                  }}
+                >
+                  {signupBusy ? "..." : "🎹 สมัครสมาชิก · Sign up"}
+                </button>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+                  <span style={{ fontSize: 12, opacity: 0.4 }}>หรือ · or</span>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+                </div>
+
+                <button
+                  className="oauthbtn google"
+                  onClick={() => { saveGuestProfile(profile); onLogin(); }}
+                  style={{ width: "100%" }}
+                >
+                  <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google
+                </button>
+
+                <div style={{ fontSize: 11, opacity: 0.35, textAlign: "center", lineHeight: 1.5, marginTop: 4 }}>
+                  ไม่ต้องบัตรเครดิต · No credit card required
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="tg" style={{ position: "fixed", inset: 0, zIndex: 2000, alignItems: "center", justifyContent: "center" }}>
       <div className="scan" />
@@ -235,6 +445,26 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
         <div className="locksub">{c.sub}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%", maxWidth: 300, marginTop: 8 }}>
           <LoginOptions profile={profile} onGoogleLogin={onLogin} />
+          <div style={{ marginTop: 12, textAlign: "center" }}>
+            <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 10 }}>หรือสมัครสมาชิกฟรีด้านล่าง · Or sign up free below</div>
+            <button
+              onClick={() => setShowSignup(true)}
+              style={{
+                width: "100%", padding: "12px 22px", borderRadius: 13,
+                border: "2px solid #d97757",
+                background: "linear-gradient(135deg, #d97757, #c25e3f)",
+                color: "#fff", fontSize: 15, fontWeight: 700,
+                cursor: "pointer", letterSpacing: 0.3,
+                boxShadow: "0 4px 16px rgba(217,119,87,0.35)",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              🎹 สมัครสมาชิกฟรี · Sign up free
+            </button>
+            <div style={{ fontSize: 11, opacity: 0.5, marginTop: 8, lineHeight: 1.5 }}>
+              ไม่ต้องบัตรเครดิต · สมัครง่ายใน 10 วินาที<br />No credit card · Sign up in 10 seconds
+            </div>
+          </div>
         </div>
       </div>
     </div>

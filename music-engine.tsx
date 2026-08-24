@@ -39,13 +39,15 @@ export function keysFor(baseOct = 4, octs = 2) {
 }
 
 export const _WHITE_ORD = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
-export function noteKeyFrac(note) {
+export function noteKeyFrac(note, baseOct = 4, nwOverride) {
   const m = String(note || "").match(/^([A-G])(#?)(\d)$/);
   if (!m) return null;
-  const NW = 14;
-  let base = (parseInt(m[3], 10) - 4) * 7 + _WHITE_ORD[m[1]]; // white index from C4
+  // nwOverride: total white keys in visible piano range.
+  // Single-hand = 14 (2 octaves), both-hand = 28 (4 octaves).
+  const NW = nwOverride || 14;
+  let base = (parseInt(m[3], 10) - baseOct) * 7 + _WHITE_ORD[m[1]];
   if (base < 0) base = 0; else if (base > NW - 1) base = NW - 1;
-  if (m[2] === "#") return { cx: (base + 1) / NW, w: (1 / NW) * 0.62 }; // black sits on the gap
+  if (m[2] === "#") return { cx: (base + 1) / NW, w: (1 / NW) * 0.62 };
   return { cx: (base + 0.5) / NW, w: 1 / NW };
 }
 
@@ -1310,35 +1312,69 @@ export function generateAccompaniment(song, pickup = 0) {
 
 // Song library. seq = [noteName | "R", durationInBeats]. All notes live in the
 // C4..B5 range the on-screen keyboard + synth cover. Public-domain melodies only.
-// Expand a song into timed note objects + the set of lanes (distinct pitches).
-// opts.hand: "right" (default) plays the melody as-is; "left" plays the SAME
-// melody notes re-fingered for the left hand (same convention as Practice
-// Mode/Sensei's existing hand toggle — switching hands re-fingers, it doesn't
-// transpose); "both" adds a generated left-hand accompaniment voice
-// (generateAccompaniment) as real, separately-scored gameplay alongside the
-// right-hand melody.
-export function expandSong(song, opts) {
-  opts = opts || {};
-  const handMode = opts.hand === "left" ? "left" : opts.hand === "both" ? "both" : "right";
-  const spb = 60 / song.bpm; // seconds per beat
-  let beat = 0;
-  const notes = [];
-  for (const [note, dur] of song.seq) {
-    if (note !== "R") notes.push({ note, t: beat * spb, beat, durBeats: dur, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: handMode === "left" ? "left" : "right" });
-    beat += dur;
+// Get note type name from beat duration
+export function noteTypeName(durBeats) {
+  if (durBeats >= 4) return "w";     /* whole note (semibreve) */
+  if (durBeats >= 2) return "h";     /* half note (minim) */
+  if (durBeats >= 1) return "q";     /* quarter note (crotchet) */
+  if (durBeats >= 0.5) return "e";   /* eighth note (quaver) */
+  if (durBeats >= 0.25) return "s";  /* 16th note (semiquaver) */
+  return "x";                         /* 32nd note (demisemiquaver) */
+}
+// Generate a simple bass-line (left-hand accompaniment) from a melody song.
+// Alternates root/5th for musical variety, pitched in octaves 2-3.
+export function generateBassLine(song) {
+  const melodyNotes = (song.seq || []).filter(([n]) => n !== "R");
+  if (!melodyNotes.length) return [];
+  const rootPC = pcOf(melodyNotes[0][0]);
+  const rootIdx = CHROMA.indexOf(rootPC);
+  if (rootIdx < 0) return [];
+  const fifthPC = CHROMA[(rootIdx + 7) % 12];
+  const pat = [rootPC + "2", fifthPC + "2", rootPC + "3", fifthPC + "2"];
+  const bassSeq = []; let pi = 0;
+  for (const [n, d] of song.seq) {
+    if (n !== "R") { bassSeq.push([pat[pi % pat.length], d]); pi++; }
+    else bassSeq.push(["R", d]);
   }
+  return bassSeq;
+}
+// Expand a song into timed note objects + the set of lanes (distinct pitches).
+//
+// hand: "right" (default) = the melody, i.e. the right-hand part. "left" = the
+// LEFT-HAND part on its own, not the melody moved to the other hand — that's
+// what "practise hands separately" means, and it's the half a learner
+// actually can't already read. "both" = the two parts together.
+//
+// Accepts either expandSong(song, "left") or expandSong(song, {hand:"left"}).
+export function expandSong(song, opts) {
+  const handArg = typeof opts === "string" ? opts : (opts && opts.hand) || "right";
+  const handMode = handArg === "left" ? "left" : handArg === "both" ? "both" : "right";
+  const spb = 60 / song.bpm; // seconds per beat
   const timeSig = SONG_TIMESIG[song.id] || "4/4";
   const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
   const pickup = pickupBeatsOf(song.seq, beatsPerBar);
-  if (handMode === "both") {
-    for (const e of generateAccompaniment(song, pickup)) {
-      notes.push({ note: e.note, t: e.beat * spb, beat: e.beat, durBeats: e.dur, durSec: Math.max(0.18, e.dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: "left" });
-    }
-    notes.sort((a, b) => a.t - b.t);
+  let beat = 0;
+  const melodyNotes = [];
+  for (const [note, dur] of song.seq) {
+    if (note !== "R") melodyNotes.push({ note, t: beat * spb, beat, durBeats: dur, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: "right" });
+    beat += dur;
   }
+  // The left-hand part comes from generateAccompaniment(), which picks a real
+  // chord per BAR by scoring the seven diatonic triads against that bar's own
+  // melody (see there). The older generateBassLine() — still exported, nothing
+  // else calls it — put one bass note under every single melody note at the
+  // melody's own rhythm and never changed chord for the whole song, so an
+  // eighth-note run got an eighth-note bass and the harmony never moved.
+  const bassNotes = generateAccompaniment(song, pickup).map(e => ({
+    note: e.note, t: e.beat * spb, beat: e.beat, durBeats: e.dur,
+    durSec: Math.max(0.18, e.dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: "left",
+  }));
+  const notes = handMode === "left" ? bassNotes
+    : handMode === "both" ? [...melodyNotes, ...bassNotes].sort((a, b) => a.t - b.t)
+    : [...melodyNotes];
   // Finger numbers, computed independently per hand-voice in its own
-  // chronological order — a right-hand melody and a left-hand accompaniment
-  // are two independent hands, each with their own finger progression.
+  // chronological order — the two parts are two independent hands, each with
+  // their own finger progression.
   const rightNotes = notes.filter(n => n.hand === "right");
   const leftNotes = notes.filter(n => n.hand === "left");
   const rf = heuristicFingers(rightNotes.map(n => n.note), "right");
@@ -1359,9 +1395,9 @@ export function expandSong(song, opts) {
   const notation = {
     beatsPerBar, pickup, timeSig,
     right: engrave(rightNotes),
-    left: handMode === "both" ? engrave(leftNotes) : (handMode === "left" ? engrave(leftNotes) : []),
+    left: engrave(leftNotes),
   };
-  return { notes, lanes, total: notes.length, dur: beat * spb, lastT, notation };
+  return { notes, lanes, total: notes.length, dur: beat * spb, lastT, notation, hand: handMode };
 }
 // Objective technique descriptors derived straight from a song's own note
 // sequence — no new authoring/tagging needed. songs-data.ts has no hand or
@@ -2048,9 +2084,12 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
   // would: the left-hand mode plays the SAME C4–B5 melody, which genuinely
   // belongs in treble clef — forcing it into bass would bury every note under
   // ledger lines for no musical reason. A genuinely low part gets bass.
-  const songMidis = ((songMeta && songMeta.seq) || []).filter(([n]) => n !== "R").map(([n]) => noteToMidi(n)).filter(m => m > 0);
-  const avgMidi = songMidis.length ? songMidis.reduce((a, b) => a + b, 0) / songMidis.length : 67;
-  const soloClef = avgMidi < 60 ? "bass" : "treble";   // 60 = middle C
+  // The left-hand part really is a bass part now, so left-hand mode gets a
+  // bass clef outright. For the melody, the clef still follows its own range
+  // (a genuinely low melody would get bass too).
+  const drawnMidis = list.map(g => noteToMidi(g.note || "")).filter(m => m > 0);
+  const avgMidi = drawnMidis.length ? drawnMidis.reduce((a, b) => a + b, 0) / drawnMidis.length : 67;
+  const soloClef = handMode === "left" ? "bass" : (avgMidi < 60 ? "bass" : "treble"); // 60 = middle C
 
   const W = wbW;
   // left-hand furniture: clef, then the key signature, then the time signature
@@ -2208,10 +2247,8 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
 
   return (
     <svg ref={wrapRef} viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
-      {/* Which hand this staff is for. Worth stating outright in the one-hand
-          modes: the left-hand mode plays the identical C4–B5 melody, which
-          genuinely belongs in treble clef, so without a label a correct
-          treble staff can read as "it forgot I picked the left hand". */}
+      {/* Which hand this staff is for — stated outright in the one-hand modes
+          so there's never any doubt which part is on the page. */}
       <text x="8" y="14" fontSize="12" fill="rgba(255,255,255,.6)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>
         Key: {keyName}{handMode === "left" ? " · L.H." : handMode === "right" ? " · R.H." : ""}
       </text>

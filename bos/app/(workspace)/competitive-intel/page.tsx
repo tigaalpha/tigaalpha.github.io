@@ -78,7 +78,7 @@ export default function CompetitiveIntelPage() {
         </CardContent></Card>
 
       {/* Alerts */}
-      <Card><CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Intel Alerts</CardTitle><CardDescription>AI ตรวจจับการเปลี่ยนแปลงของคู่แข่ง</CardTitle></CardHeader>
+      <Card><CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Intel Alerts</CardTitle><CardDescription>AI ตรวจจับการเปลี่ยนแปลงของคู่แข่ง</CardDescription></CardHeader>
         <CardContent className="space-y-2">
           {ALERTS.map((alert, i) => {
             const typeCfg = TYPE_MAP[alert.type] ?? TYPE_MAP.content;

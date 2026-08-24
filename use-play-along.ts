@@ -137,6 +137,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songAnnounceT = useRef(null);
   const [songSrc, setSongSrc] = useState(null);            // {type:"midi"|"mic"|"error"}
   const [songCountdown, setSongCountdown] = useState(null);
+  // Hand mode for Play Along: "right" (melody), "left" (bass), "both" (melody+bass)
+  const [playAlongHand, setPlayAlongHand] = useState("right");
+  const playAlongHandRef = useRef(playAlongHand);
+  useEffect(() => { playAlongHandRef.current = playAlongHand; }, [playAlongHand]);
   const [songAutoLoop, setSongAutoLoop] = useState(false);
   const songAutoLoopRef = useRef(false);
   const songLoopRetryT = useRef(null);
@@ -144,7 +148,6 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   // re-fingered for the left hand) | "both" (adds a generated left-hand
   // accompaniment voice as real, separately-scored gameplay). Sticky across
   // song choices, same convention as songTempo.
-  const [songHandMode, setSongHandMode] = useState("right");
   const [songFingerMap, setSongFingerMap] = useState({});   // {noteName: finger} for whichever key(s) are currently lit
   const [songNextLit2, setSongNextLit2] = useState(null);   // second hand's next-due note — only set when both hands are simultaneously active
 
@@ -186,7 +189,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   }
   function chooseSong(meta) {
     clearSongPreview();
-    songDataRef.current = expandSong(meta, { hand: songHandMode });
+    songDataRef.current = expandSong(meta, playAlongHand);
     setSongMeta(meta);
     setSongResult(null);
     setSongAnalysis(null);
@@ -195,13 +198,6 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongCountdown(null);
     setSongOpen(true);
     getAC(); // unlock audio within the tap gesture
-  }
-  // Hand-mode picker (ready screen) — re-expands the already-chosen song so a
-  // switch to/from "both" regenerates or drops the accompaniment voice and
-  // its fingering immediately, without needing to re-pick the song.
-  function pickHandMode(mode) {
-    setSongHandMode(mode);
-    if (songMeta) songDataRef.current = expandSong(songMeta, { hand: mode });
   }
   // Setlist / Concert mode — queue up 2-5 songs and land on the first one's
   // normal "ready" screen (the learner still taps Start themselves, same as
@@ -441,7 +437,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     ctx.fillStyle = earthGrad; ctx.fillRect(0, hitY - 30, W, 38);
     // Each lane's x-position is the actual key it maps to, so a falling note lands
     // directly above the piano key (and the lit key) the learner must press.
-    const laneFrac = lanes.map(ln => noteKeyFrac(ln) || { cx: 0.5, w: 1 / 14 });
+    // Map each lane to its real piano key position using noteKeyFrac.
+    // The GamePiano component adjusts its octave range (baseOct) to match
+    // the hand mode, so noteKeyFrac positions always align with visible keys.
+    const hand = playAlongHandRef.current;
+    const handBaseOct = hand === "left" ? 2 : 4;
+    const handNW = hand === "both" ? 28 : 14;
+    const laneFrac = lanes.map(ln => noteKeyFrac(ln, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 });
     for (let i = 0; i < nLane; i++) {
       const f = laneFrac[i], hue = laneHue(lanes[i]);
       const cw = f.w * W, cx = f.cx * W - cw / 2;
@@ -463,7 +465,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (yFrac < -0.05 || yFrac > 1.4) continue;
       const y = yFrac * hitY;
       const h = Math.max(14, n.durSec * pxPerSec);
-      const f = laneFrac[n.lane] || noteKeyFrac(n.note) || { cx: 0.5, w: 1 / 14 };
+      const f = laneFrac[n.lane] || noteKeyFrac(n.note, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 };
       const w = Math.max(10, f.w * W - 4), top = y - h, hue = laneHue(n.note);
       const mcx = f.cx * W;
       const rr = Math.max(7 * noteScale, Math.min(w / 2 - 1, 21) * noteScale); // meteor head radius (+15% cap), halved in landscape
@@ -862,7 +864,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       songSetlistIdxRef.current++;
       const nextSong = songSetlistRef.current[songSetlistIdxRef.current];
       setSongSetlistPos({ idx: songSetlistIdxRef.current, total: songSetlistRef.current.length });
-      songDataRef.current = expandSong(nextSong, { hand: songHandMode });
+      songDataRef.current = expandSong(nextSong, playAlongHandRef.current);
       setSongMeta(nextSong);
       setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward, nextSong: tr(nextSong, lang) });
       clearTimeout(songLoopRetryT.current);
@@ -954,7 +956,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         localStorage.setItem("tg_mysongs", JSON.stringify([newSong, ...existing].slice(0, 20)));
       } catch (e) {}
       if (!premium) bumpUsage("styleTransform");
-      songDataRef.current = expandSong(newSong, { hand: songHandMode });
+      songDataRef.current = expandSong(newSong, playAlongHandRef.current);
       setSongResult(null); setSongAnalysis(null); setSongPhase("ready");
       setSongMeta(newSong);
     } catch (e) { /* silent fail — user stays on result screen */ }
@@ -970,5 +972,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   songLoopRef.current = songLoop;
   songInputRef.current = handleSongInput;
   songFinishRef.current = finishSong;
-  return { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songHandMode, pickHandMode, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform };
+  // ════ HAND MODE (right/left/both) ════
+  function changePlayAlongHand(h) {
+    if (h === playAlongHand) return;
+    setPlayAlongHand(h);
+    if (songMeta && songPhase === "ready") {
+      songDataRef.current = expandSong(songMeta, h);
+    }
+  }
+  return { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand };
 }
