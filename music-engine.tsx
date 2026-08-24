@@ -1234,18 +1234,48 @@ export function heuristicFingers(notes, hand = "right") {
 // Diatonic triad qualities by scale degree (I..vii), major and natural minor.
 const _DEG_QUALITY_MAJ = ["major", "minor", "minor", "major", "major", "minor", "dim"];
 const _DEG_QUALITY_MIN = ["minor", "dim", "major", "minor", "minor", "major", "major"];
-// Detect a song's key for accompaniment purposes: root = songTonic()'s pitch
-// class (its last note — true for the overwhelming majority of these
-// tunes), major/minor decided by which scale the melody's own notes fit better.
+// Detect a song's key by fitting the melody against all 24 keys, weighting
+// each pitch class by how LONG it sounds rather than how often it appears.
+//
+// The previous version simply took the last note as the tonic. That reads
+// well for tunes that end where they started, but these arrangements often
+// don't: Jingle Bells here ends on G while using only white keys, so it was
+// labelled G major — a key whose signature demands F♯ — against a melody
+// that plays F♮ throughout. A wrong key is not a cosmetic problem: it prints
+// the wrong key signature and then an accidental on every note that
+// disagrees with it. Ending on the tonic is still a real cue, so it stays,
+// as a bonus rather than as the whole answer.
 export function detectSongKey(song) {
-  const notes = (song.seq || []).filter(([n]) => n !== "R").map(([n]) => n);
-  const root = pcIdx(songTonic(song));
-  if (root < 0 || !notes.length) return { root: 0, minor: false };
-  const majSet = new Set(SCALE_DEF.major.map(s => (root + s) % 12));
-  const minSet = new Set(SCALE_DEF["natural minor"].map(s => (root + s) % 12));
-  let majHits = 0, minHits = 0;
-  for (const n of notes) { const p = pcIdx(pcOf(n)); if (majSet.has(p)) majHits++; if (minSet.has(p)) minHits++; }
-  return { root, minor: minHits > majHits };
+  const seq = (song.seq || []).filter(([n]) => n !== "R");
+  if (!seq.length) return { root: 0, minor: false };
+  const w = new Array(12).fill(0);
+  for (const [n, d] of seq) { const p = pcIdx(pcOf(n)); if (p >= 0) w[p] += (+d || 1); }
+  const total = w.reduce((a, b) => a + b, 0) || 1;
+  const lastPc = pcIdx(pcOf(seq[seq.length - 1][0]));
+  const firstPc = pcIdx(pcOf(seq[0][0]));
+  let best = null;
+  for (let root = 0; root < 12; root++) {
+    for (const minor of [false, true]) {
+      const steps = minor ? SCALE_DEF["natural minor"] : SCALE_DEF.major;
+      let inKey = steps.reduce((sum, x) => sum + w[(root + x) % 12], 0);
+      // a raised 7th is ordinary in a minor key (harmonic minor), not an error
+      if (minor) inKey += w[(root + 11) % 12];
+      // A note the key can't contain is the strongest evidence AGAINST that
+      // key, so it counts against the score harder than an in-key note counts
+      // for it. Without this the "ends on the tonic" bonus can carry a key
+      // the melody plainly contradicts — a white-key tune ending on G was
+      // being called G major even though it plays F♮ throughout.
+      const out = (total - inKey) / total;
+      let score = inKey / total - 1.6 * out;
+      score += 0.30 * (w[root] / total);                       // tonic weight
+      score += 0.12 * (w[(root + 7) % 12] / total);            // dominant weight
+      score += 0.10 * (w[(root + (minor ? 3 : 4)) % 12] / total); // the third decides major vs minor
+      if (lastPc === root) score += 0.22;                      // ending on the tonic
+      if (firstPc === root) score += 0.06;
+      if (!best || score > best.score) best = { score, root, minor };
+    }
+  }
+  return { root: best.root, minor: best.minor };
 }
 // Generate a simple left-hand accompaniment for a song that has no authored
 // second part of its own (songs-data.ts is a single melody line — see the

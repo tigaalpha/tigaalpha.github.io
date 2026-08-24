@@ -1490,7 +1490,19 @@ export const SONG_GENRES: Record<string, string> = {
 // meter is true by the form itself (minuets and waltzes are triple meter by
 // definition, as is "The Blue Danube" specifically) are marked — everything
 // else defaults to 4/4 rather than guessing at an unverified meter.
+// Time signature per song. Anything not listed is engraved as 4/4.
+//
+// Every entry below is a tune whose real metre is known AND whose arrangement
+// here agrees with it — each one was checked by re-barring the actual note
+// durations and confirming that the metre does not push MORE notes across bar
+// lines than 4/4 does. Tunes that are genuinely in triple time but whose
+// simplified arrangement here was written with duple-time rhythms are
+// deliberately left at 4/4 (Amazing Grace, Schubert's Ständchen, My Bonnie):
+// declaring 3/4 over duple rhythms would only add ties, not accuracy. Fixing
+// those properly means rewriting their note durations, not relabelling them.
 export const SONG_TIMESIG: Record<string, string> = {
   minuet_g: "3/4", minuet_boc: "3/4", waltz_min: "3/4", blue_danube: "3/4",
   jazz_waltz_swing: "3/4",
+  birthday: "3/4", silent_night: "3/4", scarborough: "3/4", o_xmas_tree: "3/4",
+  "gymnopedié": "3/4", down_valley: "3/4", sleeping_b: "3/4",
 };
