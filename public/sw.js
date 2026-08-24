@@ -1,4 +1,4 @@
-const CACHE = "tiga-v5";
+const CACHE = "tiga-v8";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {

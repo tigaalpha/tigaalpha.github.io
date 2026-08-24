@@ -9,9 +9,9 @@ import {
 import { tr } from "./i18n";
 import { SONGS, SONG_TIMESIG } from "./songs-data";
 import { logActivity, recordNoteMisses } from "./shared-infra";
-import { recordMemory } from "./ai-chat-context";
+import { recordMemory, readMemory } from "./ai-chat-context";
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
-import { logPractice, scoreDynamics, logGame } from "./App";
+import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 /* ── use-play-along.ts ──
    Owns play-along: the falling-notes song-game itself (chooseSong through
    finishSong, the rAF game loop, mic/MIDI input grading), plus everything
@@ -55,7 +55,7 @@ import { logPractice, scoreDynamics, logGame } from "./App";
    evergreen recommendation engine, ProfilePage's game-stats bars all read
    them directly) - same convention as API_MODEL/logPractice/
    scoreDynamics. ── */
-export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer }) {
+export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell }) {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const raw = p.get("challenge");
@@ -99,7 +99,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const [battlePickOpen, setBattlePickOpen] = useState(false);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
   const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
-  const [songStaffNotes, setSongStaffNotes] = useState([]); // upcoming notes shown on the reading staff
+  // The reading staff's current window: {list, startBeat, spanBeats}. The
+  // beat bounds travel with the notes because the staff positions everything
+  // by real beat, so it needs to know the window it's drawing, not just what
+  // happens to be in it.
+  const EMPTY_STAFF_WIN = { list: [], startBeat: 0, spanBeats: 20 };
+  const [songStaffNotes, setSongStaffNotes] = useState(EMPTY_STAFF_WIN);
   const [songBest, setSongBest] = useState(0);
   const [songBursts, setSongBursts] = useState([]);   // particle bursts
   const [songShake, setSongShake] = useState(false);  // screen shake on milestones
@@ -114,6 +119,16 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songSamplesRef = useRef([]);
   const songGhostDataRef = useRef(null);
   const [songBonus, setSongBonus] = useState(null);   // surprise reward popup {id, text}
+  const [songLoopRecap, setSongLoopRecap] = useState(null); // brief run-summary toast shown between auto-loop restarts, since the full result screen is skipped there — {acc,score,maxCombo,stars,exp}
+  // Setlist / Concert mode — chain N songs into one continuous run. The queue
+  // itself lives in a ref (read every frame's worth of bookkeeping in
+  // finishSong, no need to trigger a re-render just to advance it);
+  // songSetlistPos is the one piece the UI actually needs reactively, for a
+  // small "Song 2/4" badge during play.
+  const songSetlistRef = useRef(null);
+  const songSetlistIdxRef = useRef(0);
+  const songSetlistLogRef = useRef([]);
+  const [songSetlistPos, setSongSetlistPos] = useState(null);
   const songBonusT = useRef(null);
   const [songFever, setSongFever] = useState(false);
   const songFeverRef = useRef(false);
@@ -122,9 +137,19 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songAnnounceT = useRef(null);
   const [songSrc, setSongSrc] = useState(null);            // {type:"midi"|"mic"|"error"}
   const [songCountdown, setSongCountdown] = useState(null);
+  // Hand mode for Play Along: "right" (melody), "left" (bass), "both" (melody+bass)
+  const [playAlongHand, setPlayAlongHand] = useState("right");
+  const playAlongHandRef = useRef(playAlongHand);
+  useEffect(() => { playAlongHandRef.current = playAlongHand; }, [playAlongHand]);
   const [songAutoLoop, setSongAutoLoop] = useState(false);
   const songAutoLoopRef = useRef(false);
   const songLoopRetryT = useRef(null);
+  // Hand-mode: "right" (default, unchanged behavior) | "left" (same melody,
+  // re-fingered for the left hand) | "both" (adds a generated left-hand
+  // accompaniment voice as real, separately-scored gameplay). Sticky across
+  // song choices, same convention as songTempo.
+  const [songFingerMap, setSongFingerMap] = useState({});   // {noteName: finger} for whichever key(s) are currently lit
+  const [songNextLit2, setSongNextLit2] = useState(null);   // second hand's next-due note — only set when both hands are simultaneously active
 
   // play-along runtime refs (driven by rAF; kept off React state for 60fps)
   const songCanvasRef = useRef(null);
@@ -164,7 +189,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   }
   function chooseSong(meta) {
     clearSongPreview();
-    songDataRef.current = expandSong(meta);
+    songDataRef.current = expandSong(meta, playAlongHand);
     setSongMeta(meta);
     setSongResult(null);
     setSongAnalysis(null);
@@ -173,6 +198,18 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongCountdown(null);
     setSongOpen(true);
     getAC(); // unlock audio within the tap gesture
+  }
+  // Setlist / Concert mode — queue up 2-5 songs and land on the first one's
+  // normal "ready" screen (the learner still taps Start themselves, same as
+  // any other song); finishSong() takes over chaining into the rest once
+  // playing actually begins.
+  function startSetlist(songs) {
+    if (!songs || songs.length < 2) return;
+    songSetlistRef.current = songs;
+    songSetlistIdxRef.current = 0;
+    songSetlistLogRef.current = [];
+    setSongSetlistPos({ idx: 0, total: songs.length });
+    chooseSong(songs[0]);
   }
   function previewSong() {
     const data = songDataRef.current;
@@ -187,7 +224,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   }
   const songKey = () => "tg_best_" + (songMeta ? (songMeta.id || songMeta.en || tr(songMeta, "en") || "x") : "x");
   function loadBest() { try { return +(localStorage.getItem(songKey()) || 0); } catch (e) { return 0; } }
-  async function startSongPlay() {
+  // continueSetlist=true skips the score/combo/max-combo reset — called by
+  // finishSong() when chaining into the next song of a concert, so a combo
+  // built across the boundary survives instead of snapping back to 0.
+  async function startSongPlay(continueSetlist = false) {
     const data = songDataRef.current;
     if (!data) return;
     setSongBest(loadBest());
@@ -200,7 +240,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     songLanesRef.current = data.lanes;
     songTotalRef.current = data.total;
     songLastTimeRef.current = data.lastT;
-    songScoreRef.current = 0; songComboRef.current = 0; songMaxComboRef.current = 0;
+    if (!continueSetlist) { songScoreRef.current = 0; songComboRef.current = 0; songMaxComboRef.current = 0; }
     songHitsRef.current = 0; songMissRef.current = 0; songPerfectsRef.current = 0;
     songTimingRef.current = { ok: 0, miss: 0 }; songVelsRef.current = [];
     songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
@@ -209,7 +249,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (!songStarsRef.current.length) songStarsRef.current = Array.from({ length: 50 }, () => ({ fx: Math.random(), fy: Math.random(), r: 0.4 + Math.random() * 1.3, tw: Math.random() * Math.PI * 2 }));
     songDebounceRef.current = {}; songEchoRef.current = {};
     songTempoRef.current = songTempo || 1;
-    setSongHud({ score: 0, combo: 0, acc: 100, progress: 0 });
+    setSongHud({ score: continueSetlist ? songScoreRef.current : 0, combo: continueSetlist ? songComboRef.current : 0, acc: 100, progress: 0 });
     setSongResult(null);
     setSongAnalysis(null);
     setSongCountdown(null);
@@ -246,26 +286,78 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         acc: done > 0 ? Math.round(songHitsRef.current / done * 100) : 100,
         progress: Math.round(done / total * 100),
       });
-      // guide: light the next upcoming note on the in-game piano, and feed a
-      // sliding window (a couple already-played + the current + a few ahead)
+      // guide: light the next-due note on the in-game piano — both hands' next
+      // note when two are simultaneously in play — and feed a sliding window
       // to the reading staff so the learner can see where they are, not just
-      // what's next — sight-reading while playing, not just a note preview.
+      // what's next. In two-hand mode BOTH voices go to the staff, which
+      // draws them as a real grand staff (melody in treble, accompaniment in
+      // bass) rather than the single treble line it used to be limited to.
       const allNotes = songNotesRef.current;
-      let curIdx = allNotes.findIndex(n => !n.hit && !n.missed);
-      if (curIdx === -1) curIdx = allNotes.length;
-      setSongNextLit(curIdx < allNotes.length ? allNotes[curIdx].note : null);
-      const winStart = Math.max(0, curIdx - 2);
-      // sight-reading window: 2 already-played + the current + FOUR full bars
-      // ahead (16 quarter-notes in 4/4), so the learner can read ahead
+      const nextByHand = {};
+      for (const n of allNotes) {
+        if (n.hit || n.missed) continue;
+        const h = n.hand === "left" ? "left" : "right";
+        if (!nextByHand[h]) nextByHand[h] = n;
+        if (nextByHand.right && nextByHand.left) break;
+      }
+      const primaryNext = nextByHand.right || nextByHand.left || null;
+      const secondaryNext = (nextByHand.right && nextByHand.left) ? nextByHand.left : null;
+      setSongNextLit(primaryNext ? primaryNext.note : null);
+      setSongNextLit2(secondaryNext ? secondaryNext.note : null);
+      const fm = {};
+      if (primaryNext) fm[primaryNext.note] = primaryNext.finger;
+      if (secondaryNext) fm[secondaryNext.note] = secondaryNext.finger;
+      setSongFingerMap(fm);
+      // Sight-reading window, measured in BEATS rather than in note count:
+      // one bar already played + four bars ahead. A fixed beat span is what
+      // lets the staff space notes by their real rhythmic position (and keeps
+      // both staves of a grand staff aligned on the beat) instead of spacing
+      // them evenly by array index, which made every rhythm look identical.
       const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
       const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
-      const curBeat = curIdx < allNotes.length ? allNotes[curIdx].beat : (allNotes.length ? allNotes[allNotes.length - 1].beat : 0);
-      let winEnd = curIdx + 1;
-      while (winEnd < allNotes.length && winEnd - winStart < 24 && allNotes[winEnd].beat <= curBeat + beatsPerBar * 4) winEnd++;
-      setSongStaffNotes(allNotes.slice(winStart, winEnd).map((n, i) => ({
-        note: n.note, beat: n.beat,
-        state: (winStart + i) < curIdx ? "past" : (winStart + i) === curIdx ? "current" : "future",
-      })));
+      const spanBeats = beatsPerBar * 5;
+      // "Where we are" is read off the SAME CLOCK the falling notes are drawn
+      // from, not off which notes happen to have been played yet. A meteor is
+      // at the hit line when songTime === note.t + SONG_LEAD, so the moment
+      // currently being played is (songTime - SONG_LEAD) — convert that to
+      // beats and the staff and the falling notes are showing the identical
+      // instant of the music by construction.
+      //
+      // Driving it from hit/missed state instead (as before) meant the staff
+      // ran ahead whenever the learner played early and lagged whenever they
+      // stopped playing, so the notation and the meteors disagreed about
+      // where in the bar the song was.
+      const spb = 60 / ((songMeta && songMeta.bpm) || 90);
+      const nowSec = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current - SONG_LEAD;
+      const nowBeat = Math.max(0, nowSec / spb);
+      const winStartBeat = Math.max(0, nowBeat - beatsPerBar);
+      const winEndBeat = winStartBeat + spanBeats;
+      // the note being played right now = the one whose span contains the
+      // clock, else the next one due
+      const melody = allNotes.filter(n => n.hand !== "left");
+      const lead = (melody.length ? melody : allNotes);
+      const curNote = lead.find(n => nowBeat >= n.beat - 0.001 && nowBeat < n.beat + (n.durBeats || 1) - 0.001)
+        || lead.find(n => n.beat >= nowBeat - 0.001) || null;
+      // The staff draws ENGRAVED glyphs (bar-split, tied, rests filled in —
+      // see buildNotation), not the raw played notes: a note held across a
+      // bar line is two tied heads on the page but one note in the game, and
+      // a bar's worth of silence is a rest glyph with no note behind it at
+      // all. srcIdx is what links a drawn head back to the note being graded.
+      const notation = (songDataRef.current && songDataRef.current.notation) || null;
+      const stateOf = (g, voice) => {
+        if (g.kind === "rest" || g.srcIdx == null) return "future";
+        const src = voice[g.srcIdx];
+        if (!src) return "future";
+        if (src.hit || src.missed) return "past";
+        return src === curNote ? "current" : "future";
+      };
+      const inWin = g => g.beat >= winStartBeat - 0.001 && g.beat <= winEndBeat + 0.001;
+      const staffList = [];
+      if (notation) {
+        for (const g of notation.right) if (inWin(g)) staffList.push({ ...g, hand: "right", state: stateOf(g, allNotes) });
+        for (const g of notation.left) if (inWin(g)) staffList.push({ ...g, hand: "left", state: stateOf(g, allNotes) });
+      }
+      setSongStaffNotes({ startBeat: winStartBeat, spanBeats, list: staffList });
       // ghost race vs your best run
       const st = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
       songSamplesRef.current.push({ t: +st.toFixed(2), s: songScoreRef.current });
@@ -288,7 +380,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongResult(null);
     setSongCountdown(null);
     setSongNextLit(null);
-    setSongStaffNotes([]);
+    setSongStaffNotes(EMPTY_STAFF_WIN);
     setSongJudge(null);
     setSongBursts([]); setSongShake(false); setSongGo(false); setSongGhost(null); setSongBonus(null);
     songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
@@ -310,6 +402,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const now = performance.now();
     const tSec = now / 1000;
     const fever = songFeverRef.current;
+    // Rotating the phone leaves the play area wide but SHORT, so meteors that
+    // look well-spaced in portrait end up stacked on top of each other with
+    // barely any gap between them. Halve them in landscape — same lane
+    // positions, just smaller heads, so consecutive notes read as separate.
+    const landscape = W > H;
+    const noteScale = landscape ? 0.5 : 1;
     // deep-space nebula backdrop — pre-rendered offscreen once per size, drawn each frame
     let neb = songNebulaRef.current;
     if (!neb || neb.w !== W || neb.h !== H) {
@@ -353,7 +451,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     ctx.fillStyle = earthGrad; ctx.fillRect(0, hitY - 30, W, 38);
     // Each lane's x-position is the actual key it maps to, so a falling note lands
     // directly above the piano key (and the lit key) the learner must press.
-    const laneFrac = lanes.map(ln => noteKeyFrac(ln) || { cx: 0.5, w: 1 / 14 });
+    // Map each lane to its real piano key position using noteKeyFrac.
+    // The GamePiano component adjusts its octave range (baseOct) to match
+    // the hand mode, so noteKeyFrac positions always align with visible keys.
+    const hand = playAlongHandRef.current;
+    const handBaseOct = hand === "left" ? 2 : 4;
+    const handNW = hand === "both" ? 28 : 14;
+    const laneFrac = lanes.map(ln => noteKeyFrac(ln, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 });
     for (let i = 0; i < nLane; i++) {
       const f = laneFrac[i], hue = laneHue(lanes[i]);
       const cw = f.w * W, cx = f.cx * W - cw / 2;
@@ -375,10 +479,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (yFrac < -0.05 || yFrac > 1.4) continue;
       const y = yFrac * hitY;
       const h = Math.max(14, n.durSec * pxPerSec);
-      const f = laneFrac[n.lane] || noteKeyFrac(n.note) || { cx: 0.5, w: 1 / 14 };
+      const f = laneFrac[n.lane] || noteKeyFrac(n.note, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 };
       const w = Math.max(10, f.w * W - 4), top = y - h, hue = laneHue(n.note);
       const mcx = f.cx * W;
-      const rr = Math.max(7, Math.min(w / 2 - 1, 21)); // meteor head radius (+15% cap)
+      const rr = Math.max(7 * noteScale, Math.min(w / 2 - 1, 21) * noteScale); // meteor head radius (+15% cap), halved in landscape
       const hy = y - rr;                               // head rides the leading (falling) edge
       const spin = tSec * 1.6 + n.t * 2.3;             // slow tumble, phase unique per note
       if (!n.missed) {
@@ -419,9 +523,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         ctx.beginPath(); ctx.ellipse(cxk, cyk, crr, crr * 0.75, a, 0, Math.PI * 2); ctx.fill();
       }
       if (!n.missed) {
+        // the note letter shrinks with the head, or it would overflow a
+        // half-size meteor in landscape
+        const fs = Math.max(8, Math.round(13 * noteScale));
         ctx.fillStyle = "rgba(255,255,255,0.96)";
-        ctx.font = "bold 13px Rajdhani, sans-serif"; ctx.textAlign = "center";
-        ctx.fillText(pcOf(n.note), mcx, hy + 4);
+        ctx.font = `bold ${fs}px Rajdhani, sans-serif`; ctx.textAlign = "center";
+        ctx.fillText(pcOf(n.note), mcx, hy + fs * 0.32);
       }
     }
     // ── rockets: a hit launches one from the hit-line, climbing to blow the meteor up ──
@@ -498,6 +605,46 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         ctx.fillRect(cx, hitY - 42, cw, 50);
       }
     }
+    // Ghost-race trail — the ▲/▼ HUD number (songGhost) only ever tells you the
+    // gap right now; this draws the whole race as it develops, both curves
+    // plotted across a thin strip along the very top of the canvas so you can
+    // actually watch yourself pull ahead or fall behind over the run instead
+    // of just reading one number. Drawn last (on top of the meteors) so a
+    // falling note passing behind it never hides it.
+    const ghostData = songGhostDataRef.current;
+    if (ghostData && ghostData.length > 1) {
+      const dur = Math.max(1, songLastTimeRef.current);
+      const maxS = Math.max(ghostData[ghostData.length - 1].s, songScoreRef.current, 100);
+      const stripY = 5, stripH = 16;
+      const xOf = (t) => Math.min(W, Math.max(0, (t / dur) * W));
+      const yOf = (s) => stripY + stripH - Math.min(stripH, (s / maxS) * stripH);
+      ctx.save();
+      ctx.lineJoin = "round"; ctx.lineCap = "round";
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = "#c4b5fd"; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let i = 0; i < ghostData.length; i++) {
+        const p = ghostData[i]; if (p.t > songTime + 0.5) break;
+        const x = xOf(p.t), y = yOf(p.s);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      let ghostScoreNow = 0;
+      for (let i = 0; i < ghostData.length; i++) { if (ghostData[i].t <= songTime) ghostScoreNow = ghostData[i].s; else break; }
+      const samples = songSamplesRef.current;
+      if (samples.length > 1) {
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = songScoreRef.current >= ghostScoreNow ? "#4ade80" : "#ff5252";
+        ctx.lineWidth = 2.2;
+        ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 4;
+        ctx.beginPath();
+        for (let i = 0; i < samples.length; i++) {
+          const p = samples[i]; const x = xOf(p.t), y = yOf(p.s);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     if (songTime < SONG_LEAD) {
       const c = Math.ceil(SONG_LEAD - songTime);
       if (c !== songCountdownRef.current) { songCountdownRef.current = c; setSongCountdown(c); }
@@ -512,19 +659,38 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const inPC = pcOf(d.note);
     const tnow = performance.now();
     const src = d.source;
+    // Echo/debounce guards key off the EXACT note (pitch + octave), not just
+    // pitch class — a real physical press always lands on one exact key, and
+    // this matters once a two-hand song can have the melody and the
+    // accompaniment sharing a pitch class in different octaves close
+    // together in time (e.g. a right-hand C5 and a left-hand C3 root in the
+    // same beat): keying by pitch class alone would let the second genuine
+    // press wrongly suppress the first as if it were an echo/repeat of it.
+    //
     // Echo guard: when you TAP, the app plays that note and the mic hears it ~100ms
     // later — ignore a mic onset of the same pitch right after a tap so one tap can't
     // become 2–3 hits. (Pure real-piano play never sets this, so repeats stay fine.)
-    if (src === "mic" && tnow - (songEchoRef.current[inPC] || 0) < SONG_ECHO_MS) return;
+    if (src === "mic" && tnow - (songEchoRef.current[d.note] || 0) < SONG_ECHO_MS) return;
     // Debounce: one press = one note (a sustained key can re-fire the same pitch).
-    if (tnow - (songDebounceRef.current[inPC] || 0) < SONG_DEBOUNCE_MS) return;
-    songDebounceRef.current[inPC] = tnow;
-    if (src === "tap") songEchoRef.current[inPC] = tnow; // this tap's sound will echo into the mic
+    if (tnow - (songDebounceRef.current[d.note] || 0) < SONG_DEBOUNCE_MS) return;
+    songDebounceRef.current[d.note] = tnow;
+    if (src === "tap") songEchoRef.current[d.note] = tnow; // this tap's sound will echo into the mic
+    // Prefer an exact note (pitch + octave) match first — same two-hand reason
+    // as above — and fall back to the original pitch-class-only search
+    // (deliberately lenient: playing the right note an octave off still
+    // counts) only when no exact candidate is in the hit window.
     let best = null, bestd = 1e9;
     for (const n of songNotesRef.current) {
-      if (n.hit || n.missed || pcOf(n.note) !== inPC) continue;
+      if (n.hit || n.missed || n.note !== d.note) continue;
       const dt = Math.abs(songTime - (n.t + SONG_LEAD));
       if (dt < bestd) { bestd = dt; best = n; }
+    }
+    if (!best) {
+      for (const n of songNotesRef.current) {
+        if (n.hit || n.missed || pcOf(n.note) !== inPC) continue;
+        const dt = Math.abs(songTime - (n.t + SONG_LEAD));
+        if (dt < bestd) { bestd = dt; best = n; }
+      }
     }
     const now = performance.now();
     if (best && bestd <= SONG_HITWINDOW) {
@@ -543,19 +709,32 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       // touch consistency when a velocity is available.
       if (perfect) songTimingRef.current.ok++; else songTimingRef.current.miss++;
       if (d.vel != null) songVelsRef.current.push(d.vel);
-      // FEVER MODE — at a big combo the screen goes wild and score doubles
+      // FEVER MODE — at a big combo the screen goes wild and score doubles.
+      // A sustained fever gets one further escalation moment at combo 60 (past
+      // where the old comboWord/score-mult tiers used to flatline) — a second
+      // "the game still notices you" beat without also inflating the numeric
+      // multiplier, which stays a clean, easy-to-read flat 2x.
       if (!songFeverRef.current && combo >= 15) { songFeverRef.current = true; setSongFever(true); playUi("levelup"); triggerShake(); announce("🔥 FEVER!"); }
+      else if (songFeverRef.current && combo === 60) { triggerShake(); spawnBurst("combo"); spawnBurst("combo"); playUi("levelup"); announce("🔥🔥 MEGA FEVER!"); }
       const feverMult = songFeverRef.current ? 2 : 1;
-      const gained = Math.round((perfect ? 150 : 100) * (1 + Math.min(combo, 10) * 0.1) * feverMult);
+      // Score multiplier — used to hard-cap at 2x forever past combo 10
+      // (Math.min(combo,10)). Keeps that same fast 1x→2x ramp over the first
+      // 10 notes (unchanged early-game feel), then keeps growing slowly all
+      // the way to 300 instead of flatlining, so a long run/Setlist chain
+      // keeps paying off instead of going numb.
+      const comboMult = combo <= 10 ? 1 + combo * 0.1 : 2 + Math.min(combo - 10, 290) * 0.01;
+      const gained = Math.round((perfect ? 150 : 100) * comboMult * feverMult);
       songScoreRef.current += gained;
       pushPop("+" + gained, perfect);     // flying score number
       playComboTone(combo);               // rising musical ladder
       if (perfect) spawnBurst("perfect");
       // combo-tier shout-outs
       if (combo % 10 === 0) { triggerShake(); spawnBurst("combo"); announce(comboWord(combo)); }
-      // milestone bonus XP at 25/50/100 combo
-      if (combo === 25 || combo === 50 || combo === 100) {
-        const bonusXp = combo === 100 ? 200 : combo === 50 ? 100 : 50;
+      // milestone bonus XP — 25/50/100 as before, then every 50 combo beyond
+      // that (150, 200, 250...) instead of stopping dead at 100, ramping up to
+      // a 500 EXP cap so a marathon run always has a next target ahead.
+      if (combo === 25 || combo === 50 || (combo >= 100 && combo % 50 === 0)) {
+        const bonusXp = combo <= 100 ? (combo === 25 ? 50 : combo === 50 ? 100 : 200) : Math.round(Math.min(500, 200 + (combo - 100) * 1.5));
         gainExp(bonusXp, {});
         spawnBurst("combo"); spawnBurst("combo"); spawnBurst("combo");
         setSongBonus({ id: Date.now(), text: `🎯 x${combo} +${bonusXp} EXP!` });
@@ -580,7 +759,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (lane >= 0) songLaneFlashRef.current[lane] = { ok: false, until: now + 150 };
     }
   }
-  function comboWord(c) { return c >= 50 ? "UNSTOPPABLE!" : c >= 40 ? "INCREDIBLE!" : c >= 30 ? "AMAZING!" : c >= 20 ? "GREAT!" : "NICE!"; }
+  // Used to hard-cap at "UNSTOPPABLE!" forever past combo 50 — the shout-out
+  // stopped growing long before a skilled player's combo actually did.
+  function comboWord(c) {
+    return c >= 300 ? "GODLIKE!" : c >= 200 ? "LEGENDARY!" : c >= 150 ? "PHENOMENAL!" : c >= 100 ? "UNREAL!"
+      : c >= 50 ? "UNSTOPPABLE!" : c >= 40 ? "INCREDIBLE!" : c >= 30 ? "AMAZING!" : c >= 20 ? "GREAT!" : "NICE!";
+  }
   function announce(text) {
     setSongAnnounce({ id: Date.now(), text });
     clearTimeout(songAnnounceT.current);
@@ -642,10 +826,20 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     bumpWeekly("games", 1); if (perfects) bumpWeekly("perfect", perfects);
     setSongCountdown(null);
     setSongNextLit(null);
-    setSongStaffNotes([]);
+    setSongStaffNotes(EMPTY_STAFF_WIN);
     const missedNotes = songNotesRef.current.filter(n => n.missed).map(n => n.note);
     if (missedNotes.length) recordNoteMisses(missedNotes);
-    setSongResult({ acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes });
+    // Setlist mode: this song's own log entry, always recorded even though the
+    // combined concert score (songScoreRef.current, not reset between songs —
+    // see startSongPlay's continueSetlist param) is what actually gets shown.
+    if (songSetlistRef.current) songSetlistLogRef.current.push({ song: songMeta, acc, stars });
+    const setlistDone = songSetlistRef.current && songSetlistIdxRef.current >= songSetlistRef.current.length - 1;
+    setSongResult({
+      acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes,
+      // only present once every song in a setlist has finished — the concert's
+      // combined numbers, for a dedicated recap treatment on the result screen
+      setlist: setlistDone ? songSetlistLogRef.current.slice() : null,
+    });
     gainExp(reward, { quest: true });
     // Gamification: variable reward — mystery chest (20% chance on acc >= 70%)
     if (acc >= 70 && Math.random() < 0.20) {
@@ -675,11 +869,30 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     });
     // D1: stop backing chords when song finishes
     clearTimeout(backingTimerRef.current); backingTimerRef.current = null;
-    // auto-loop: if enabled, restart after a brief pause instead of showing result screen
-    if (songAutoLoopRef.current) {
+    if (songSetlistRef.current && !setlistDone) {
+      // Setlist mode: chain straight into the next song instead of ending.
+      // Score/combo are refs and deliberately NOT reset here (see
+      // startSongPlay's continueSetlist param) — a concert-length combo only
+      // means something if surviving the boundary between songs actually
+      // matters, same reasoning as a real medley.
+      songSetlistIdxRef.current++;
+      const nextSong = songSetlistRef.current[songSetlistIdxRef.current];
+      setSongSetlistPos({ idx: songSetlistIdxRef.current, total: songSetlistRef.current.length });
+      songDataRef.current = expandSong(nextSong, playAlongHandRef.current);
+      setSongMeta(nextSong);
+      setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward, nextSong: tr(nextSong, lang) });
       clearTimeout(songLoopRetryT.current);
-      songLoopRetryT.current = setTimeout(() => { startSongPlay(); }, 1800);
+      songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); startSongPlay(true); }, 1800);
+    } else if (songAutoLoopRef.current) {
+      // auto-loop: if enabled, restart after a brief pause instead of showing result
+      // screen — songResult above is fully populated either way, but the result
+      // screen itself never mounts here, so without this the run's own outcome
+      // (score, stars, combo, EXP) went completely unseen between restarts.
+      setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward });
+      clearTimeout(songLoopRetryT.current);
+      songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); startSongPlay(); }, 1800);
     } else {
+      if (setlistDone) { songSetlistRef.current = null; setSongSetlistPos(null); }
       setSongPhase("done");
     }
   }
@@ -707,6 +920,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   async function styleTransform(style: string) {
     if (!songMeta || styleLoading) return;
     if (requireLogin("ai")) return;
+    // Same daily cap as its sibling AI-song generators (Compose, the plain
+    // song generator) — this calls the same real, real-money AI backend and
+    // had no limit at all before, unlike either of them.
+    if (!canUse("styleTransform", premium)) { setStylePickOpen(false); onUpsell && onUpsell(); return; }
     setStyleLoading(true); setStylePickOpen(false);
     try {
       const styleDesc: Record<string, string> = {
@@ -716,10 +933,16 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       };
       const songName = tr(songMeta, lang);
       const seqStr = JSON.stringify((songMeta.seq || []).slice(0, 20));
-      // Same weakness-targeting as Compose (App.tsx composeGenerate) — if this song's
-      // own post-play analysis flagged a weak spot, ask the rearrangement to work it in.
+      // Same weakness-targeting as Compose (App.tsx composeGenerate) — prefer this
+      // song's own post-play analysis when it exists (most specific to what just
+      // happened), but fall back to the app-wide struggle signal (tg_memory, shared
+      // with the SRS review modal/Auto Teaching) so a first-ever play of this song —
+      // which has no analysis yet — still gets a targeted remix instead of a blind one.
+      const memStruggle = (readMemory().struggles || [])[0];
       const weaknessNote = songAnalysis && songAnalysis.weakness
         ? ` Also, gently work in a little extra practice for this weak spot from the last run without making it feel like a drill: ${songAnalysis.weakness}.`
+        : memStruggle
+        ? ` Also, gently work in a little extra practice for this weak spot the learner has struggled with recently, without making it feel like a drill: ${memStruggle.label}.`
         : "";
       const prompt = `Rearrange the piano melody "${songName}" in a ${styleDesc[style] || style} style for a beginner falling-notes game. The original melody starts: ${seqStr}. Keep it recognizable but add ${style} character. 20-32 notes.${weaknessNote}`;
       const sys = "Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes: C4-B5 only; R=rest; beats: 0.5,1,1.5,2.";
@@ -736,7 +959,18 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       // though the melody is "the same," so the old song's diff can't be trusted here.
       const diff = estimateSongDifficulty(songTechniqueProfile({ seq }));
       const newSong = { id: "style_" + Date.now(), diff, bpm, custom: true, th: name, en: name, zh: name, seq };
-      songDataRef.current = expandSong(newSong);
+      // Persist like every other AI-generated song (App.tsx's generateSong) — a remix
+      // used to vanish the moment you left the play screen, unlike anything else the
+      // AI ever makes for you. Read-modify-write raw storage (not React state: this
+      // hook has no live mySongs of its own, and SongListPage re-reads storage fresh
+      // on its next mount anyway, same convention as every other tg_* store this app
+      // uses).
+      try {
+        const existing = JSON.parse(localStorage.getItem("tg_mysongs") || "[]");
+        localStorage.setItem("tg_mysongs", JSON.stringify([newSong, ...existing].slice(0, 20)));
+      } catch (e) {}
+      if (!premium) bumpUsage("styleTransform");
+      songDataRef.current = expandSong(newSong, playAlongHandRef.current);
       setSongResult(null); setSongAnalysis(null); setSongPhase("ready");
       setSongMeta(newSong);
     } catch (e) { /* silent fail — user stays on result screen */ }
@@ -752,5 +986,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   songLoopRef.current = songLoop;
   songInputRef.current = handleSongInput;
   songFinishRef.current = finishSong;
-  return { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform };
+  // ════ HAND MODE (right/left/both) ════
+  function changePlayAlongHand(h) {
+    if (h === playAlongHand) return;
+    setPlayAlongHand(h);
+    if (songMeta && songPhase === "ready") {
+      songDataRef.current = expandSong(songMeta, h);
+    }
+  }
+  return { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand };
 }

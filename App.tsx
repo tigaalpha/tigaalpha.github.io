@@ -28,7 +28,7 @@ import {
   pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP, _practiceStop,
   startMidiListener, startMicListener, stopPracticeListeners, laneHue, roundRect, rhythmReport,
   SONG_LEAD, SONG_HITWINDOW, SONG_PERFECT, SONG_DEBOUNCE_MS, SONG_ECHO_MS, SONG_MISSWINDOW,
-  expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes,
+  expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes, noteTypeName,
   MINOR_TYPES, TRIAD_TYPES, SEVENTH_TYPES, INTERVAL_DEFS,
   MAJOR_SCALE_SONGS, MINOR_SCALE_SONGS, TRIAD_SONGS, SEVENTH_SONGS, INTERVAL_SONGS,
   SIGHT_NOTES, SIGHT_NOTES_BASS,
@@ -59,7 +59,7 @@ import {
   guestHasProgress, mergeGuestProgressIntoProfile,
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync } from "./cloud-sync";
-import { Splash, BannedScreen, GuestGateScreen, ProfileForm, CountUp } from "./app-shell";
+import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal } from "./app-shell";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
@@ -75,8 +75,8 @@ import { VoiceTutorOverlay } from "./VoiceTutorOverlay";
 import { usePayment } from "./use-payment";
 import { useGamification } from "./use-gamification";
 import { useKeyboard } from "./use-keyboard";
-import { usePracticeMode } from "./use-practice-mode";
-import { useSightReading } from "./use-sight-reading";
+import { usePracticeMode, readPracticeBests } from "./use-practice-mode";
+import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
 import { useChat } from "./use-chat";
@@ -232,7 +232,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.38";
+const APP_VER = "13.7.93";
 
 async function signInWith(provider) {
   try {
@@ -360,7 +360,7 @@ const SIGHT_ROUND = 10; // notes per sight-reading round
 
 
 /* ── Pathway Page ── */
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOpenStageId, initialSelectedType, userName = "" }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, initialOpenStageId, initialSelectedType, userName = "" }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   // initialOpenStageId re-opens the topic the learner just came from (via the
@@ -396,27 +396,6 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
     setSelectedType(null);
     onLearn(stage, key, t);
   }
-  const [certBusy, setCertBusy] = useState(false);
-  // Group-level certificate — the same renderCertificatePNG the Report page
-  // already offers, just surfaced right here as an in-context celebration the
-  // moment a group's last stage clears, instead of only reachable later on a
-  // separate page.
-  async function downloadGroupCert(g) {
-    if (certBusy) return;
-    setCertBusy(true); playUi("reward");
-    try {
-      const name = userName || (lang === "th" ? "นักเรียน TiGA" : lang === "zh" ? "TiGA 学员" : "TiGA Student");
-      const url = await renderCertificatePNG({
-        name,
-        course: g.icon + " " + g.label,
-        dateStr: new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "long", day: "numeric" }),
-        lang,
-      });
-      downloadDataURL(url, "tiga-certificate-" + g.id + ".png");
-    } catch (e) {}
-    setCertBusy(false);
-  }
-
   return (
     <div className="pathpage">
       <div className="pathhero">
@@ -598,21 +577,11 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
             </div>
           </section>
 
-          {/* Group-level certificate — same in-context celebration as the F5
-              full-course banner below, just fired at each of the 4 group
-              milestones instead of only once at the very end. */}
-          {stages.length > 0 && stages.every(s => pathDone.has(s.id)) && (
-            <div className="cert-banner">
-              <div className="cert-ic">{g.icon}</div>
-              <div className="cert-body">
-                <div className="cert-title">{lc.groupCertCompleted}</div>
-                <div className="cert-sub">{g.label}</div>
-              </div>
-              <button className="cert-dl-btn" disabled={certBusy} onClick={() => downloadGroupCert(g)}>
-                📜 {lc.certDownload}
-              </button>
-            </div>
-          )}
+          {/* Group certificate + Boss Challenge both moved to the dedicated
+              Challenging page (nav) — this in-flow banner used to compete
+              with the pathway's own "what's next" scan for attention right
+              as a group finished; ChallengingPage now owns both, indexed by
+              group so nothing here needs to know their claim/fight state. */}
 
           {gi < groups.length - 1 && (
             <div className="ptrail" aria-hidden="true">
@@ -624,17 +593,115 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
         );
       })}
 
-      {/* F5: Certificate — shown when all pathway stages are done */}
-      {pathDone.size >= PATHWAY.length && (
+      {/* Full-course certificate also moved to the Challenging page. */}
+
+      <div className="pathfoot">{lc.pathFoot}</div>
+    </div>
+  );
+});
+
+/* ════════════════════════════════════════════════════════════
+   CHALLENGING — every certificate and Group Boss Challenge in one
+   dedicated arena. Used to live as in-flow banners on the Pathway page,
+   where they competed with the pathway's own "what's next" scan for
+   attention right as a group finished; now Pathway stays a clean map and
+   this page is the "go prove it" destination, reachable from the nav
+   drawer or deep-linked from learnTopic()'s Auto Teaching nudge (see
+   groupChallengeReady()). Locked rows stay visible instead of disappearing
+   so the page always reads as a real challenge list, even for a brand-new
+   learner who hasn't unlocked anything yet.
+════════════════════════════════════════════════════════════ */
+const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, earnCoins, userName = "", focusGroupId, onConsumeFocus }) {
+  const lc = L[lang];
+  const groups = PATH_GROUPS[lang];
+  const pathDone = pathDoneSet();
+  const bossDone = bossDoneSet();
+  const [certBusy, setCertBusy] = useState(false);
+  const fullReady = pathDone.size >= PATHWAY.length;
+  useEffect(() => {
+    if (!focusGroupId) return;
+    const el = document.getElementById("chal-" + focusGroupId);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (onConsumeFocus) onConsumeFocus(); // one-shot — a later plain drawer visit shouldn't re-scroll here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div className="pathpage">
+      <div className="pathhero">
+        <div className="pathhero-glow" />
+        <div className="pathbadge">◈ {lc.challengingTitle} ◈</div>
+        <div style={{ textAlign: "center", fontSize: "11px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", padding: "0 22px", lineHeight: 1.5 }}>{lc.challengingSub}</div>
+      </div>
+
+      {groups.map(g => {
+        const stages = STAGES_BY_GROUP[g.id] || [];
+        const hasBoss = stages.some(s => !s.content);
+        const doneCount = stages.filter(s => pathDone.has(s.id)).length;
+        const ready = stages.length > 0 && doneCount >= stages.length;
+        return (
+          <div id={"chal-" + g.id} key={g.id}>
+            {ready ? (
+              <>
+                <div className="cert-banner">
+                  <div className="cert-ic">{g.icon}</div>
+                  <div className="cert-body">
+                    <div className="cert-title">{lc.groupCertCompleted}</div>
+                    <div className="cert-sub">{g.label}</div>
+                  </div>
+                  <button className="cert-dl-btn" disabled={certBusy} onClick={() => downloadGroupCert(g, lang, userName, certBusy, setCertBusy, gainExp, earnCoins)}>
+                    📜 {lc.certDownload}
+                  </button>
+                  <button className="cert-share-btn" onClick={() => shareCard({ title: lc.groupCertCompleted, big: g.icon, sub: g.label, lines: ["TiGA Piano AI"] })}>
+                    📤 {lc.shareBtn}
+                  </button>
+                </div>
+                {hasBoss && (
+                  <div className={`cert-banner bossbanner${bossDone.has(g.id) ? " done" : ""}`}>
+                    <div className="cert-ic">{bossDone.has(g.id) ? "👑" : "⚔️"}</div>
+                    <div className="cert-body">
+                      <div className="cert-title">{bossDone.has(g.id) ? lc.bossDoneTitle : lc.bossReadyTitle}</div>
+                      <div className="cert-sub">{g.label}</div>
+                    </div>
+                    <button className="cert-dl-btn boss-fight-btn" onClick={() => onBoss(g)}>
+                      {bossDone.has(g.id) ? `↻ ${lc.bossRematch}` : `⚔️ ${lc.bossFight}`}
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="cert-banner locked">
+                <div className="cert-ic">🔒</div>
+                <div className="cert-body">
+                  <div className="cert-title">{g.label}</div>
+                  <div className="cert-sub">{lc.challengingLocked.replace("{n}", doneCount).replace("{t}", stages.length)}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {fullReady ? (
         <div className="cert-banner">
           <div className="cert-ic">🏆</div>
           <div className="cert-body">
             <div className="cert-title">{lc.certCompleted}</div>
             <div className="cert-sub">{lc.certTitle}</div>
           </div>
-          <button className="cert-dl-btn" onClick={() => downloadCertificate(lang, userName)}>
+          <button className="cert-dl-btn" onClick={() => downloadCertificate(lang, userName, gainExp, earnCoins)}>
             📜 {lc.certDownload}
           </button>
+          <button className="cert-share-btn" onClick={() => shareCard({ title: lc.certCompleted, big: "🏆", sub: lc.certTitle, lines: ["TiGA Piano AI"] })}>
+            📤 {lc.shareBtn}
+          </button>
+        </div>
+      ) : (
+        <div className="cert-banner locked">
+          <div className="cert-ic">🔒</div>
+          <div className="cert-body">
+            <div className="cert-title">{lc.certTitle}</div>
+            <div className="cert-sub">{lc.challengingFullLocked}</div>
+          </div>
         </div>
       )}
 
@@ -778,14 +845,38 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
    melody echo). Practicable anywhere, even without a piano.
 ════════════════════════════════════════════════════════════ */
 const EG_ROUND = 8;
+// One combined "Ear Level" across all 5 tabs (int/chord/echo/melody/cadence)
+// instead of 5 separate, disconnected best-scores with no sense of overall
+// progress — a level up every EAR_LEVEL_STEP points of combined best-score.
+const EAR_LEVEL_STEP = 8;
+function earLevelFor(best) {
+  const total = (best.int || 0) + (best.chord || 0) + (best.echo || 0) + (best.melody || 0) + (best.cadence || 0);
+  return { level: Math.floor(total / EAR_LEVEL_STEP) + 1, total, intoLevel: total % EAR_LEVEL_STEP };
+}
+// Perfect Pitch Ladder — an endless-climb arcade mode layered on top of the
+// same interval-question engine (genQ("int"), just re-pooled off the live
+// streak instead of the persisted best): 3 lives, a shrinking per-question
+// timer, and the exact same 3-tier semitone pools (EG_INT_BASE/FULL/MASTER)
+// the graded "int" tab already uses for its own progression, just re-keyed
+// to the ladder's live streak so difficulty escalates within a single climb.
+const LADDER_LIVES_START = 3;
+const LADDER_TIME_START = 6000, LADDER_TIME_MIN = 2200, LADDER_TIME_STEP = 120;
+function ladderPool(streak) { return streak >= 12 ? EG_INT_MASTER : streak >= 6 ? EG_INT_FULL : EG_INT_BASE; }
+function ladderTimeFor(streak) { return Math.max(LADDER_TIME_MIN, LADDER_TIME_START - streak * LADDER_TIME_STEP); }
+function ladderBestScore() { try { return +(localStorage.getItem("tg_eargym_ladder") || 0); } catch (e) { return 0; } }
+// Returns true only on a genuine improvement (a real new record), not a tie.
+function markLadderBest(streak) { try { if (streak > ladderBestScore()) { localStorage.setItem("tg_eargym_ladder", String(streak)); return true; } return false; } catch (e) { return false; } }
 const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab }) {
   const T = {
-    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶",
-        refSong: "คล้ายเพลง", cadence: "🎹 เล่นคอร์ดนำก่อน", cadenceOn: "เปิดคอร์ดนำอยู่ — ช่วยให้ได้ยินขั้นคู่ในบริบทของคีย์" },
-    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶",
-        refSong: "Sounds like", cadence: "🎹 Play cadence first", cadenceOn: "Cadence on — hear the interval in the context of a key" },
-    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶",
-        refSong: "像这首歌", cadence: "🎹 先弹和弦进行", cadenceOn: "已开启和弦进行 — 在调性语境中听音程" },
+    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", cadenceTab: "คอร์ดนำ", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶",
+        refSong: "คล้ายเพลง", earLevel: "เลเวลหู", tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน",
+        ladderTitle: "บันไดเสียงสมบูรณ์แบบ", ladderSub: "ไต่บันได — พลาด 3 ครั้งจบเกม เวลาลดลงเรื่อยๆ", ladderStart: "เริ่มไต่บันได ▶", ladderStreakLbl: "ขั้นบันได", ladderBestLbl: "สถิติสูงสุด", ladderGameOver: "จบเกม!", ladderNewBest: "🏆 สถิติใหม่!", ladderAgain: "ไต่อีกครั้ง ▶" },
+    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", cadenceTab: "Cadence", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶",
+        refSong: "Sounds like", earLevel: "Ear Level", tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead",
+        ladderTitle: "Perfect Pitch Ladder", ladderSub: "Climb as high as you can — 3 lives, the clock keeps shrinking", ladderStart: "Start climbing ▶", ladderStreakLbl: "Rung", ladderBestLbl: "Best climb", ladderGameOver: "Game over!", ladderNewBest: "🏆 New record!", ladderAgain: "Climb again ▶" },
+    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", cadenceTab: "和弦引导", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶",
+        refSong: "像这首歌", earLevel: "听力等级", tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式",
+        ladderTitle: "完美音感阶梯", ladderSub: "尽力往上爬 — 3条命，时间越来越短", ladderStart: "开始攀爬 ▶", ladderStreakLbl: "阶数", ladderBestLbl: "最高纪录", ladderGameOver: "游戏结束！", ladderNewBest: "🏆 新纪录！", ladderAgain: "再次攀爬 ▶" },
   }[lang];
   const [tab, setTab] = useState(initialTab || "int");
   const [phase, setPhase] = useState("idle");   // idle | play | done
@@ -795,7 +886,26 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   const [fb, setFb] = useState(null);            // { ok, answerLabel, pickedKey }
   const [taps, setTaps] = useState([]);
   const [result, setResult] = useState(null);
-  const [cadenceOn, setCadenceOn] = useState(false); // interval tab: play a I-IV-V-I cadence before the question, for tonal context
+  // Melody Echo: answer by playing a real piano/MIDI keyboard instead of
+  // tapping the letter grid — same mic/MIDI singleton and toggle convention
+  // as the Note Reading course's own micMode.
+  const [micMode, setMicMode] = useState(false);
+  const [micSrc, setMicSrc] = useState(null);
+  const [micHeard, setMicHeard] = useState(null);
+  const micTapsRef = useRef([]);
+  // Perfect Pitch Ladder — a separate arcade mode layered on the same
+  // question engine; ladderOn/ladderResult are mutually exclusive with the
+  // normal phase/result pair (only one mode renders at a time).
+  const [ladderOn, setLadderOn] = useState(false);
+  const [ladderLives, setLadderLives] = useState(LADDER_LIVES_START);
+  const [ladderStreak, setLadderStreak] = useState(0);
+  const [ladderTimeLeft, setLadderTimeLeft] = useState(0);
+  const [ladderResult, setLadderResult] = useState(null);
+  const ladderLivesRef = useRef(LADDER_LIVES_START);
+  const ladderStreakRef = useRef(0);
+  const ladderTimerRef = useRef(null);
+  const ladderDeadlineRef = useRef(0);
+  const ladderOnRef = useRef(false); // read inside setTimeout/setInterval callbacks, which close over a stale `ladderOn` otherwise
   const startTRef = useRef(0);
   const roundRef = useRef(0);
   const ROOTS = ["C4", "D4", "E4", "F4", "G4", "A4"];
@@ -848,8 +958,14 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   }
   function genQ(kind) {
     const root = ROOTS[Math.floor(Math.random() * ROOTS.length)];
-    if (kind === "int") {
-      const pool = (earBest().int || 0) >= EG_ROUND ? EG_INT_MASTER : (earBest().int || 0) >= 7 ? EG_INT_FULL : EG_INT_BASE;
+    if (kind === "int" || kind === "cadence" || kind === "ladder") {
+      // "cadence" tracks its own best (a separate earLevelFor() bucket) since hearing an
+      // interval in tonal context is a genuinely different skill from hearing it bare;
+      // "ladder" ignores the persisted best entirely — its pool is keyed off the LIVE
+      // climb streak (ladderPool(), module scope) so difficulty escalates within a run.
+      const bestN = kind === "cadence" ? (earBest().cadence || 0) : (earBest().int || 0);
+      const pool = kind === "ladder" ? ladderPool(ladderStreakRef.current)
+        : bestN >= EG_ROUND ? EG_INT_MASTER : bestN >= 7 ? EG_INT_FULL : EG_INT_BASE;
       const semi = pool[Math.floor(Math.random() * pool.length)];
       const opts = [...new Set([semi, ...[...pool].sort(() => Math.random() - 0.5)])].slice(0, 4).sort(() => Math.random() - 0.5);
       return {
@@ -896,18 +1012,55 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   function nextQ(kind, myRound) {
     const q = genQ(kind);
     setCur(q); setFb(null); setTaps([]);
+    micTapsRef.current = []; setMicHeard(null);
     if (q.isMelody) {
       setTimeout(() => { if (roundRef.current === myRound) playCurMelody(q); }, 350);
-    } else if (kind === "int" && cadenceOn) {
+    } else if (kind === "cadence") {
       setTimeout(async () => { if (roundRef.current === myRound) { await playCadence(); if (roundRef.current === myRound) playCur(q); } }, 350);
     } else {
       setTimeout(() => { if (roundRef.current === myRound) playCur(q); }, 350);
     }
   }
+  // Melody Echo by real piano/MIDI instead of the letter grid — same singleton
+  // listener + octave-agnostic comparison as tapEcho() below (this course is
+  // about pitch-class/contour recognition, not staff position, so unlike the
+  // Note Reading course's mic mode, only the letter name is compared here).
+  const curRef = useRef(null); curRef.current = cur;
+  const fbRef = useRef(null); fbRef.current = fb;
+  function echoMicInput(d) {
+    if (!curRef.current || fbRef.current || tab !== "echo" || !curRef.current.pcs) return;
+    playPianoNote(d.note, 0.3);
+    setMicHeard(d.note);
+    const pc = pcOf(d.note);
+    micTapsRef.current = [...micTapsRef.current, pc];
+    setTaps(micTapsRef.current);
+    if (micTapsRef.current.length >= curRef.current.pcs.length) {
+      const okAns = micTapsRef.current.join(" ") === curRef.current.pcs.join(" ");
+      answered(okAns, curRef.current.pcs.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" · "), null);
+    }
+  }
+  const micHandlerRef = useRef(() => {});
+  micHandlerRef.current = echoMicInput;
+  useEffect(() => {
+    if (!micMode || tab !== "echo" || phase !== "play") { stopPracticeListeners(); setMicSrc(null); return; }
+    getAC();
+    stopPracticeListeners(); // release any listener another mode left open — never stack
+    const onDetect = (d) => micHandlerRef.current(d);
+    (async () => {
+      const midiOk = await startMidiListener(onDetect, () => setMicSrc({ type: "midi" }));
+      if (!midiOk) await startMicListener(onDetect, () => setMicSrc({ type: "mic" }), () => setMicSrc({ type: "error" }));
+    })();
+    return () => stopPracticeListeners();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [micMode, tab, phase]);
+  useEffect(() => () => stopPracticeListeners(), []); // belt-and-braces: release on unmount
+  useEffect(() => () => clearInterval(ladderTimerRef.current), []); // stop the ladder's countdown if the learner navigates away mid-climb
+
   function startRound() {
     playUi("click");
     const myRound = ++roundRef.current;
     setScore(0); setIdx(0); setResult(null); setPhase("play");
+    micTapsRef.current = []; setMicHeard(null);
     startTRef.current = Date.now();
     nextQ(tab, myRound);
   }
@@ -919,7 +1072,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     setEarBest(tab, finalScore);
     logActivity("ear", tab, finalScore, EG_ROUND - finalScore, Math.max(30, secs));
     logPractice(acc);
-    onReward(xp, stars * 5);
+    onReward(xp, stars * 5, finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
     setResult({ score: finalScore, stars, xp, coins: stars * 5 });
     setPhase("done");
     playUi(stars >= 2 ? "levelup" : "click");
@@ -967,14 +1120,92 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       answered(okAns, cur.pcs.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" · "), null);
     }
   }
+
+  // ── Perfect Pitch Ladder — endless-climb arcade mode, mutually exclusive
+  // with the graded phase/result pair above (only one renders at a time).
+  // Reuses cur/fb/taps for "the current question" since the two modes never
+  // show at once; ladderOnRef mirrors ladderOn for the setTimeout/setInterval
+  // callbacks below, which would otherwise close over a stale value. ──
+  function armLadderTimer(streak) {
+    clearInterval(ladderTimerRef.current);
+    const dur = ladderTimeFor(streak);
+    ladderDeadlineRef.current = Date.now() + dur;
+    setLadderTimeLeft(dur);
+    ladderTimerRef.current = setInterval(() => {
+      const left = ladderDeadlineRef.current - Date.now();
+      if (left <= 0) {
+        clearInterval(ladderTimerRef.current);
+        setLadderTimeLeft(0);
+        if (ladderOnRef.current) ladderAnswered(false, null);
+      } else {
+        setLadderTimeLeft(left);
+      }
+    }, 100);
+  }
+  function ladderNextQ() {
+    const q = genQ("ladder");
+    setCur(q); setFb(null); setTaps([]);
+    armLadderTimer(ladderStreakRef.current);
+    setTimeout(() => { if (ladderOnRef.current) playCur(q); }, 350);
+  }
+  function startLadder() {
+    playUi("click");
+    ladderLivesRef.current = LADDER_LIVES_START; setLadderLives(LADDER_LIVES_START);
+    ladderStreakRef.current = 0; setLadderStreak(0);
+    setLadderResult(null);
+    ladderOnRef.current = true; setLadderOn(true);
+    ladderNextQ();
+  }
+  function ladderAnswered(ok, pickedKey) {
+    clearInterval(ladderTimerRef.current);
+    const ansLabel = (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+    setFb({ ok, answerLabel: ansLabel, pickedKey });
+    playUi(ok ? "click" : "wrong");
+    if (ok) {
+      const ns = ladderStreakRef.current + 1;
+      ladderStreakRef.current = ns; setLadderStreak(ns);
+      // a small life back every 10 rungs so a long climb isn't pure attrition
+      if (ns % 10 === 0 && ladderLivesRef.current < LADDER_LIVES_START) {
+        ladderLivesRef.current += 1; setLadderLives(ladderLivesRef.current);
+      }
+      setTimeout(() => { if (ladderOnRef.current) ladderNextQ(); }, 700);
+    } else {
+      const nl = ladderLivesRef.current - 1;
+      ladderLivesRef.current = nl; setLadderLives(nl);
+      if (nl <= 0) setTimeout(() => finishLadder(), 1200);
+      else setTimeout(() => { if (ladderOnRef.current) ladderNextQ(); }, 1200);
+    }
+  }
+  function handleLadderPick(o) {
+    if (!cur || fb || !ladderOn) return;
+    ladderAnswered(o.key === cur.answer, o.key);
+  }
+  // Also doubles as "quit" — leaving mid-climb still banks the streak you
+  // actually reached, same generous treatment every other mode in the app
+  // gives an interrupted session (nobody loses credit for a real streak).
+  function finishLadder() {
+    clearInterval(ladderTimerRef.current);
+    ladderOnRef.current = false; setLadderOn(false);
+    const streak = ladderStreakRef.current;
+    const isNewBest = markLadderBest(streak);
+    const xp = 10 + streak * 2, coins = Math.floor(streak / 2);
+    logActivity("ear", "ladder", streak, 0, Math.max(20, streak * 3));
+    logPractice(Math.min(100, streak * 5));
+    onReward(xp, coins, streak); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
+    setLadderResult({ streak, isNewBest, best: ladderBestScore(), xp, coins });
+    playUi(isNewBest ? "levelup" : "click");
+  }
+
   const best = earBest();
+  const level = earLevelFor(best);
   // "melody" (Name That Tune) tab restored per the fun/value audit — reference-melody
   // association is real, widely-taught interval pedagogy (not just variety for its own
   // sake), and it's the one tab already built on TIGA's own song library.
-  const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo], ["melody", "🎵", T.melody]];
+  const tabs = [["int", "📏", T.int], ["cadence", "🗝️", T.cadenceTab], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo], ["melody", "🎵", T.melody]];
+  const pickLabel = tab === "int" || tab === "cadence" ? T.pickInt : tab === "chord" ? T.pickChord : tab === "melody" ? T.pickMelody : T.pickEcho;
   return (
     <div className="pathpage">
-      {onBack && (
+      {onBack && !ladderOn && (
         <button onClick={() => { playUi("click"); onBack(); }}
           style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
           ← {L[lang].navStudio}
@@ -983,71 +1214,146 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       <div className="v12hero">
         <div className="v12title">👂 {T.title}</div>
         <div className="v12sub">{T.sub}</div>
-      </div>
-      <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-        {tabs.map(([k, ic, lb]) => (
-          <button key={k} onClick={() => { if (phase === "play") return; playUi("click"); setTab(k); setPhase("idle"); setResult(null); }}
-            style={{ flex: 1, padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "13px",
-              border: tab === k ? "1px solid #d97757" : "1px solid var(--bd4)", color: tab === k ? "#d97757" : "var(--text2)",
-              background: tab === k ? "rgba(217,119,87,.1)" : "var(--card3)" }}>
-            {ic} {lb}<div style={{ fontSize: "9px", color: "var(--muted)", marginTop: "2px" }}>{T.best}: {best[k] || 0}/{EG_ROUND}</div>
-          </button>
-        ))}
-      </div>
-      {phase !== "play" && (
-        <div className="v12card" style={{ textAlign: "center", padding: "24px 14px" }}>
-          {result && (
-            <div style={{ marginBottom: "14px" }}>
-              <div style={{ fontSize: "26px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
-              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "17px", color: "var(--text)", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
-              <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
-            </div>
-          )}
-          <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startRound}>{result ? T.again : T.start}</button>
-          {tab === "int" && (
-            <button onClick={() => { playUi("click"); setCadenceOn(v => !v); }} title={cadenceOn ? T.cadenceOn : ""}
-              style={{ display: "block", margin: "12px auto 0", background: cadenceOn ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${cadenceOn ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: cadenceOn ? "#d97757" : "#a88b9b", padding: "6px 14px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
-              {T.cadence}
-            </button>
-          )}
+        <div style={{ display: "inline-block", marginTop: "8px", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", color: "#d97757", border: "1px solid #d9775744", borderRadius: "20px", padding: "4px 12px", background: "rgba(217,119,87,.06)" }}>
+          🎖️ {T.earLevel} {level.level} · {level.intoLevel}/{EAR_LEVEL_STEP}
         </div>
-      )}
-      {phase === "play" && cur && (
+      </div>
+
+      {(ladderOn || ladderResult) ? (
         <div className="v12card" style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
-            <span>{T.q} {idx + 1}/{EG_ROUND}</span><span>{T.score}: {score}</span>
-          </div>
-          <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
-          <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
-            {tab === "int" ? T.pickInt : tab === "chord" ? T.pickChord : tab === "melody" ? T.pickMelody : T.pickEcho}
-          </div>
-          {tab !== "echo" && cur.options && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
-              {cur.options.map(o => (
-                <button key={o.key} className={`egopt${fb && o.key === cur.answer ? " ok" : fb && fb.pickedKey === o.key && !fb.ok ? " bad" : ""}`} onClick={() => pickOption(o)}>{o.label}</button>
-              ))}
+          {ladderResult ? (
+            <div style={{ padding: "10px 4px" }}>
+              <div style={{ fontSize: "30px" }}>🪜</div>
+              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: "var(--text)", margin: "6px 0 2px" }}>{T.ladderGameOver}</div>
+              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "34px", fontWeight: 900, color: "#a78bfa", lineHeight: 1.1 }}>{ladderResult.streak}</div>
+              {ladderResult.isNewBest ? (
+                <div style={{ fontSize: "12px", color: "#ffd23f", fontWeight: 700, margin: "4px 0" }}>{T.ladderNewBest}</div>
+              ) : (
+                <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", margin: "4px 0" }}>{T.ladderBestLbl}: {ladderResult.best}</div>
+              )}
+              <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "16px" }}>+{ladderResult.xp} EXP · +{ladderResult.coins} 🪙</div>
+              <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#8b5cf6" }} onClick={startLadder}>{T.ladderAgain}</button>
+              <button onClick={() => { playUi("click"); setLadderResult(null); }} style={{ display: "block", margin: "12px auto 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "20px", color: "#a88b9b", padding: "6px 14px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                ← {T.title}
+              </button>
             </div>
-          )}
-          {tab === "echo" && (
+          ) : cur && (
             <>
-              <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>
-                {taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                <span style={{ fontSize: "15px", letterSpacing: "1px" }}>{"❤️".repeat(ladderLives)}{"🖤".repeat(Math.max(0, LADDER_LIVES_START - ladderLives))}</span>
+                <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "13px", fontWeight: 900, color: "#a78bfa" }}>🪜 {T.ladderStreakLbl} {ladderStreak}</span>
+                <button onClick={() => { playUi("click"); finishLadder(); }} aria-label="quit" title={T.title}
+                  style={{ background: "none", border: "1px solid var(--bd4)", borderRadius: "50%", width: "22px", height: "22px", color: "#a88b9b", fontSize: "12px", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
-                {["C", "D", "E", "F", "G", "A", "B"].map(p => (
-                  <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapEcho(p)}>
-                    <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
-                    <div style={{ fontSize: "9px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
-                  </button>
-                ))}
+              <div style={{ height: "5px", borderRadius: "3px", background: "var(--card3)", overflow: "hidden", marginBottom: "14px" }}>
+                <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, (ladderTimeLeft / ladderTimeFor(ladderStreak)) * 100))}%`, background: ladderTimeLeft < 1500 ? "#ff5252" : "#8b5cf6", transition: "width .1s linear" }} />
               </div>
-              {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid var(--bd4)", borderRadius: "7px", color: "#a88b9b", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>{T.clear}</button>}
+              <button onClick={() => playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #a78bfa55", background: "rgba(167,139,250,.08)", color: "#a78bfa", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
+              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>{T.pickInt}</div>
+              {cur.options && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+                  {cur.options.map(o => (
+                    <button key={o.key} className={`egopt${fb && o.key === cur.answer ? " ok" : fb && fb.pickedKey === o.key && !fb.ok ? " bad" : ""}`} onClick={() => handleLadderPick(o)}>{o.label}</button>
+                  ))}
+                </div>
+              )}
+              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#a78bfa" : "#ff5252") : "transparent" }}>
+                {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
+              </div>
             </>
           )}
-          <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#d97757" : "#ff5252") : "transparent" }}>
-            {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
-          </div>
         </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "12px", overflowX: "auto" }}>
+            {tabs.map(([k, ic, lb]) => (
+              <button key={k} onClick={() => { if (phase === "play") return; playUi("click"); setTab(k); setPhase("idle"); setResult(null); }}
+                style={{ flex: "1 0 auto", minWidth: "62px", padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "13px",
+                  border: tab === k ? "1px solid #d97757" : "1px solid var(--bd4)", color: tab === k ? "#d97757" : "var(--text2)",
+                  background: tab === k ? "rgba(217,119,87,.1)" : "var(--card3)" }}>
+                {ic} {lb}<div style={{ fontSize: "9px", color: "var(--muted)", marginTop: "2px" }}>{T.best}: {best[k] || 0}/{EG_ROUND}</div>
+              </button>
+            ))}
+          </div>
+          {phase !== "play" && (
+            <>
+              <div className="v12card" style={{ textAlign: "center", padding: "16px 14px", marginBottom: "12px", border: "1px solid #a78bfa55", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
+                <div style={{ fontSize: "22px" }}>🪜</div>
+                <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "13px", fontWeight: 900, color: "#c4b5fd", margin: "4px 0 2px" }}>{T.ladderTitle}</div>
+                <div style={{ fontSize: "10.5px", color: "var(--muted)", marginBottom: "10px" }}>{T.ladderSub}</div>
+                <div style={{ fontSize: "10px", color: "#a78bfa", fontFamily: "'Share Tech Mono',monospace", marginBottom: "10px" }}>{T.ladderBestLbl}: {ladderBestScore()}</div>
+                <button className="tdgo" style={{ fontSize: "12px", padding: "10px 22px", background: "#8b5cf6" }} onClick={startLadder}>{T.ladderStart}</button>
+              </div>
+              <div className="v12card" style={{ textAlign: "center", padding: "24px 14px" }}>
+                {result && (
+                  <div style={{ marginBottom: "14px" }}>
+                    <div style={{ fontSize: "26px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
+                    <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "17px", color: "var(--text)", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
+                    <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+                  </div>
+                )}
+                <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startRound}>{result ? T.again : T.start}</button>
+              </div>
+            </>
+          )}
+          {phase === "play" && cur && (
+            <div className="v12card" style={{ textAlign: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
+                <span>{T.q} {idx + 1}/{EG_ROUND}</span><span>{T.score}: {score}</span>
+                {tab === "echo" && (
+                  <button onClick={() => { playUi("click"); setMicMode(m => !m); }}
+                    style={{ background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "#d97757" : "#a88b9b", padding: "4px 10px", fontSize: "10px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                    {micMode ? T.tapMode : T.pianoMode}
+                  </button>
+                )}
+              </div>
+              <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
+              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
+                {pickLabel}
+              </div>
+              {tab !== "echo" && cur.options && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+                  {cur.options.map(o => (
+                    <button key={o.key} className={`egopt${fb && o.key === cur.answer ? " ok" : fb && fb.pickedKey === o.key && !fb.ok ? " bad" : ""}`} onClick={() => pickOption(o)}>{o.label}</button>
+                  ))}
+                </div>
+              )}
+              {tab === "echo" && micMode && (
+                <div style={{ padding: "18px 10px", borderRadius: "12px", border: `1px solid ${micSrc && micSrc.type === "error" ? "#ff5252" : "#d9775744"}`, background: "rgba(217,119,87,.06)" }}>
+                  {micSrc && micSrc.type === "error" ? (
+                    <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.listenErr}</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: "26px", marginBottom: "6px" }} className={micHeard ? "" : "flicker"}>{micSrc ? "🎹" : "🎤"}</div>
+                      <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{micSrc ? T.listenReady : T.listening}</div>
+                      <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}</div>
+                      {micHeard && <div style={{ marginTop: "6px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
+                    </>
+                  )}
+                </div>
+              )}
+              {tab === "echo" && !micMode && (
+                <>
+                  <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>
+                    {taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
+                    {["C", "D", "E", "F", "G", "A", "B"].map(p => (
+                      <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapEcho(p)}>
+                        <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
+                        <div style={{ fontSize: "9px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid var(--bd4)", borderRadius: "7px", color: "#a88b9b", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>{T.clear}</button>}
+                </>
+              )}
+              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#d97757" : "#ff5252") : "transparent" }}>
+                {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -1057,17 +1363,47 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
    NOTE-READING COURSE — a graded path to real notation literacy:
    treble → ledger lines → bass clef → accidentals → short sequences.
 ════════════════════════════════════════════════════════════ */
+// Speed rank — finishLevel() already computed elapsed seconds for
+// logActivity's duration field and threw it away; this keeps it, persists a
+// per-level personal best, and grades pace on seconds-per-note (not raw
+// seconds) since level 5's 5 three-note sequences are genuinely more reading
+// work than another level's 10 single notes despite the smaller qn.
+const READ_SPEED_TIERS = [
+  { id: "diamond", icon: "💎", max: 1.0 },
+  { id: "gold",    icon: "🥇", max: 1.8 },
+  { id: "silver",  icon: "🥈", max: 3.0 },
+  { id: "bronze",  icon: "🥉", max: 5.0 },
+];
+function readSpeedRank(secs, notes) {
+  if (!secs || !notes) return null;
+  const perNote = secs / notes;
+  for (const t of READ_SPEED_TIERS) if (perNote <= t.max) return t;
+  return null;
+}
+function readBestTimeMap() { try { return JSON.parse(localStorage.getItem("tg_read_besttime") || "{}"); } catch (e) { return {}; } }
+// Returns true only on a genuine improvement (a real new record), not a tie.
+function markReadBestTime(levelN, secs) {
+  try {
+    const m = readBestTimeMap();
+    const prev = m[levelN];
+    if (prev == null || secs < prev) { m[levelN] = secs; localStorage.setItem("tg_read_besttime", JSON.stringify(m)); return true; }
+    return false;
+  } catch (e) { return false; }
+}
 const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySong }) {
   const T = {
     th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี → เส้นน้อยกุญแจฟา", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน",
         tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน",
-        courseDone: "อ่านโน้ตเป็นแล้ว! ลองอ่านเพลงจริงดูสิ", readSong: "อ่านเพลงจริง" },
+        courseDone: "อ่านโน้ตเป็นแล้ว! ลองอ่านเพลงจริงดูสิ", readSong: "อ่านเพลงจริง",
+        readNewBest: "สถิติใหม่!", readBestLbl: "สถิติเดิม" },
     en: { title: "Note Reading", sub: "Real notation literacy, step by step — treble → ledger lines → bass clef → sharps → phrases → bass ledger lines", lvl: "Level", locked: "Earn ⭐⭐ on the previous level first", q: "Q", what: "Which note is this?", seqWhat: "Tap the note names in order", right: "Correct! 🎉", wrong: "Answer: ", done: "Level complete!", again: "Play again ▶", play: "Start ▶", back: "← Levels", score: "Score",
         tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead",
-        courseDone: "You can read notation! Try reading a real song", readSong: "Read a real song" },
+        courseDone: "You can read notation! Try reading a real song", readSong: "Read a real song",
+        readNewBest: "New best!", readBestLbl: "Best" },
     zh: { title: "识谱课", sub: "循序渐进学会读谱 — 高音谱号 → 加线 → 低音谱号 → 升号 → 短句 → 低音谱加线", lvl: "关卡", locked: "先在上一关拿到 ⭐⭐", q: "第", what: "这是什么音？", seqWhat: "按顺序点击音名", right: "正确！🎉", wrong: "答案：", done: "本关完成！", again: "再来一次 ▶", play: "开始 ▶", back: "← 选关", score: "得分",
         tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式",
-        courseDone: "你已经会读谱了！试着读一首真正的曲子吧", readSong: "读一首真曲子" },
+        courseDone: "你已经会读谱了！试着读一首真正的曲子吧", readSong: "读一首真曲子",
+        readNewBest: "新纪录！", readBestLbl: "最佳" },
   }[lang];
   const [lvl, setLvl] = useState(null);
   const [idx, setIdx] = useState(0);
@@ -1153,8 +1489,22 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
     setReadCourseStars(L.n, stars);
     logActivity("read", "L" + L.n, finalScore, L.qn - finalScore, Math.max(30, secs));
     logPractice(acc);
-    onReward(xp, stars * 5);
-    setResult({ score: finalScore, stars, xp, coins: stars * 5, qn: L.qn });
+    onReward(xp, stars * 5, finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
+    // Speed rank — only a genuinely cleared level (stars >= 1) sets a record;
+    // racing through a level you're failing shouldn't count as a "best."
+    const prevBest = readBestTimeMap()[L.n];
+    const isNewBestTime = stars >= 1 && markReadBestTime(L.n, secs);
+    const speedRank = stars >= 1 ? readSpeedRank(secs, L.qn * L.seq) : null;
+    // Smart song recommendation — used to always be the exact same first
+    // diff:1 song in the catalog, every single time; now actually reasons
+    // about which songs are easy (re-scored from real note data, not just
+    // trusting the static tag) and varies the pick.
+    let recommendedSong = null;
+    if (L.n === RC_LEVELS[RC_LEVELS.length - 1].n && stars >= 2) {
+      const easyPool = SONGS.filter(s => !s.custom && estimateSongDifficulty(songTechniqueProfile(s)) === 1);
+      recommendedSong = easyPool.length ? easyPool[Math.floor(Math.random() * easyPool.length)] : (SONGS.find(s => s.diff === 1 && !s.custom) || SONGS[0]);
+    }
+    setResult({ score: finalScore, stars, xp, coins: stars * 5, qn: L.qn, secs, prevBest, isNewBestTime, speedRank, recommendedSong });
     playUi(stars >= 2 ? "levelup" : "click");
   }
   function answered(ok, L) {
@@ -1197,21 +1547,29 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
           </button>
         )}
         <div className="v12hero"><div className="v12title">🎼 {T.title}</div><div className="v12sub">{T.sub}</div></div>
-        {RC_LEVELS.map(L => {
-          const open = unlocked(L.n);
-          const st = stars[L.n] || 0;
-          return (
-            <button key={L.n} className="tdstep" style={{ width: "100%", cursor: open ? "pointer" : "default", opacity: open ? 1 : 0.55, textAlign: "left" }}
-              onClick={() => open && startLevel(L)}>
-              <span className="tdico">{open ? L.icon : "🔒"}</span>
-              <div style={{ flex: 1 }}>
-                <div className="tdtag">{T.lvl} {L.n} · {L.clef === "bass" ? "𝄢" : "𝄞"}{L.seq > 1 ? " · x" + L.seq : ""}</div>
-                <div className="tdlbl">{open ? ("⭐".repeat(st) || "—") : T.locked}</div>
-              </div>
-              {open && <span className="tdgo">{T.play}</span>}
-            </button>
-          );
-        })}
+        {(() => {
+          const bestTimes = readBestTimeMap();
+          return RC_LEVELS.map(L => {
+            const open = unlocked(L.n);
+            const st = stars[L.n] || 0;
+            const bestSecs = bestTimes[L.n];
+            const rank = bestSecs != null ? readSpeedRank(bestSecs, L.qn * L.seq) : null;
+            return (
+              <button key={L.n} className="tdstep" style={{ width: "100%", cursor: open ? "pointer" : "default", opacity: open ? 1 : 0.55, textAlign: "left" }}
+                onClick={() => open && startLevel(L)}>
+                <span className="tdico">{open ? L.icon : "🔒"}</span>
+                <div style={{ flex: 1 }}>
+                  <div className="tdtag">{T.lvl} {L.n} · {L.clef === "bass" ? "𝄢" : "𝄞"}{L.seq > 1 ? " · x" + L.seq : ""}</div>
+                  <div className="tdlbl">
+                    {open ? ("⭐".repeat(st) || "—") : T.locked}
+                    {bestSecs != null && <span className="readbest">{rank ? rank.icon : "⏱"} {bestSecs}s</span>}
+                  </div>
+                </div>
+                {open && <span className="tdgo">{T.play}</span>}
+              </button>
+            );
+          });
+        })()}
       </div>
     );
   }
@@ -1233,14 +1591,21 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
         <div className="v12card" style={{ textAlign: "center", padding: "26px 14px" }}>
           <div style={{ fontSize: "28px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "18px", color: "var(--text)", fontWeight: 900, margin: "8px 0" }}>{result.score}/{result.qn}</div>
-          <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "14px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+          <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+          {result.stars >= 1 && (
+            <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "14px" }}>
+              ⏱ {result.secs}s{result.speedRank && <span style={{ marginLeft: 6 }}>{result.speedRank.icon} {result.speedRank.id}</span>}
+              {result.isNewBestTime ? <span style={{ color: "#d97757", fontWeight: 700, marginLeft: 6 }}>🏆 {T.readNewBest}</span>
+                : result.prevBest != null && <span style={{ marginLeft: 6 }}>({T.readBestLbl} {result.prevBest}s)</span>}
+            </div>
+          )}
           <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={() => startLevel(lvl)}>{T.again}</button>
           {/* Ties "learned to read notation" to "can read a real song" — the whole point of the course. */}
-          {onPlaySong && lvl.n === RC_LEVELS[RC_LEVELS.length - 1].n && result.stars >= 2 && (
+          {onPlaySong && result.recommendedSong && (
             <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid var(--bd2)" }}>
               <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "8px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.courseDone}</div>
               <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#d97757" }}
-                onClick={() => onPlaySong(SONGS.find(s => s.diff === 1 && !s.custom) || SONGS[0])}>🎵 {T.readSong}</button>
+                onClick={() => onPlaySong(result.recommendedSong)}>🎵 {T.readSong}</button>
             </div>
           )}
         </div>
@@ -1539,7 +1904,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
 
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, songAnalysis = null,
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, onChallenging = null, songAnalysis = null, onAskStruggle,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
   mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null, onReviewStage = null }) {
@@ -1769,12 +2134,17 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       const styles: Record<string,string> = { simple: "stepwise simple melody", flowing: "smooth flowing melody with a mix of quarter and half notes", rhythmic: "rhythmic melody with clear strong beats" };
       const moodDesc = moods[composeMood] || "pleasant";
       const styleDesc = styles[composeStyle] || "simple melody";
-      // Ties the generated melody back to a real, recent weakness instead of only the
-      // mood/style picker, when one is available — the post-song AI analysis already
-      // diagnoses this after every Play-Along run, it just used to be shown once and
-      // discarded.
-      const weaknessNote = songAnalysis && songAnalysis.weakness
-        ? ` Also, gently work in a little extra practice for this recent weak spot without making the melody feel like a drill: ${songAnalysis.weakness}.`
+      // Ties the generated melody back to a real weakness instead of only the
+      // mood/style picker, when one is available. Prefers songAnalysis — the
+      // freshest signal, diagnosed right after whatever they just played —
+      // but falls back to the app's unified SRS due-review queue (the same
+      // dueReviews used for the SRS card badge above, and by TIGA Chat's own
+      // memory context) so Compose isn't blind to a known weak spot just
+      // because they opened it without having just finished a song.
+      const dueStruggle = dueReviews.practice[0];
+      const weaknessLabel = (songAnalysis && songAnalysis.weakness) || (dueStruggle && dueStruggle.label);
+      const weaknessNote = weaknessLabel
+        ? ` Also, gently work in a little extra practice for this recent weak spot without making the melody feel like a drill: ${weaknessLabel}.`
         : "";
       const prompt = `Create a ${moodDesc} ${styleDesc} piano melody in ${composeKey} major, 24-32 notes, musical and satisfying for a beginner. The name should reflect the mood.${weaknessNote}`;
       const sys = "You turn a melody request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names C4-B5 only; \"R\"=rest; beats are 0.5,1,1.5,2. Keep it 24-32 notes, melodic and musical.";
@@ -1847,6 +2217,8 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     // HIDDEN (not deleted) — superseded by the fuller School Dashboard (School Plan Pro);
     // underlying modal/state untouched in case a non-school-linked teacher still needs it.
     // { k: "kru",     ic: "📋", c: "#d97757", t: lc.kruTitle, s: lc.kruSub, fn: () => { playUi("click"); setKruMsg(""); setKruGenResult(""); setKruTab("class"); setKruOpen(true); } },
+    // Moved here from the nav drawer per request — same page (setPage("challenging")), just reached from Studio's card grid now instead of the drawer.
+    { k: "challenging", ic: "🏆", c: "#a78bfa", t: lc.challengingTitle, s: T("ปลดล็อกใบประกาศนียบัตรและเควสบอสทั้งหมด", "Unlock every certificate and boss quest", "解锁所有证书和首领任务"), fn: () => { playUi("click"); onChallenging ? onChallenging() : null; } },
   ];
 
   // Max-exclusive feature cards
@@ -2098,10 +2470,22 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           session on that exact stage via reviewStage() — not a generic page. */}
       {srsOpen && (() => {
         const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
+        const mStreak = memoryStreak();
+        const mTier = memoryStreakTier(mStreak.count || 0);
         return (
         <div className="modal-ov" onClick={() => setSrsOpen(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div className="modal-hdr"><span>🧠 {lc.srsTitle}</span><button className="modal-x" onClick={() => setSrsOpen(false)}>✕</button></div>
+            <div className="modal-hdr">
+              <span>
+                🧠 {lc.srsTitle}
+                {mStreak.count > 0 && (
+                  <span className="camstreak-badge" title={lc.memoryStreakLbl}>
+                    {mTier ? mTier.icon : "🔥"} {mStreak.count}
+                  </span>
+                )}
+              </span>
+              <button className="modal-x" onClick={() => setSrsOpen(false)}>✕</button>
+            </div>
             {dueReviews.total === 0 ? (
               <p style={{ margin: "12px 0", fontSize: 14, color: "var(--muted)", textAlign: "center" }}>{lc.srsNone} ✅</p>
             ) : (
@@ -2124,7 +2508,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
                 {dueReviews.practice.length > 0 && (
                   <>
                     <div className="admstu-sec" style={{ marginTop: dueReviews.stages.length ? 14 : 0, marginBottom: 6 }}>{lc.srsPracticeGroup}</div>
-                    <div className="pd-tags">{dueReviews.practice.map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div>
+                    <div className="pd-tags">{dueReviews.practice.map((s, i) => <button key={i} className="pd-tag focus" onClick={() => { setSrsOpen(false); onAskStruggle(s); }}>💬 {s.label}</button>)}</div>
                   </>
                 )}
                 {dueReviews.stages.length > 0 && (
@@ -2559,6 +2943,19 @@ function fmtLikes(n) {
 // local bookmark (🔖) state per video
 function readVidFav(id) { try { return !!JSON.parse(localStorage.getItem("tg_vidfavs") || "{}")[id]; } catch (e) { return false; } }
 function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("tg_vidfavs") || "{}"); if (v) m[id] = 1; else delete m[id]; localStorage.setItem("tg_vidfavs", JSON.stringify(m)); } catch (e) {} }
+// Subtitle language for the video player — cycles Off -> Thai -> English ->
+// Chinese -> Off via the CC rail button. There's no subtitle text of our own
+// authored per video (these are YouTube embeds, admin-uploaded), so this asks
+// YOUTUBE's OWN caption system for the chosen language via its documented
+// cc_load_policy/cc_lang_pref embed params — real captions today for any
+// video that has at least one caption track (creator-uploaded or YouTube's
+// own auto-generated one), since YouTube auto-translates an existing track
+// into whichever language is requested. Sticky across videos/sessions, same
+// convention as this app's other sticky per-feature preferences.
+const VIDSUB_CYCLE = [null, "th", "en", "zh"];
+const VIDSUB_CC_CODE = { th: "th", en: "en", zh: "zh-Hans" };
+function readVidSubLang() { try { return localStorage.getItem("tg_vidsub_lang") || null; } catch (e) { return null; } }
+function writeVidSubLang(v) { try { if (v) localStorage.setItem("tg_vidsub_lang", v); else localStorage.removeItem("tg_vidsub_lang"); } catch (e) {} }
 // share a lesson video — native share sheet on mobile (Web Share API), else LINE + clipboard
 function shareVideo(s, lang) {
   let url = null;
@@ -2579,7 +2976,19 @@ function shareVideo(s, lang) {
 function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [faved, setFaved] = useState(() => readVidFav(s.key));
+  const [subLang, setSubLang] = useState(() => readVidSubLang());
   if (!active) return <div className="vidplaceholder">🎬</div>;
+  function cycleSubLang(e) {
+    e.stopPropagation();
+    const next = VIDSUB_CYCLE[(VIDSUB_CYCLE.indexOf(subLang) + 1) % VIDSUB_CYCLE.length];
+    setSubLang(next);
+    writeVidSubLang(next);
+    playUi("click"); haptic(6);
+  }
+  // Forces YouTube's own caption system on in the chosen language when a
+  // subtitle language is picked; omitted entirely (today's exact behavior)
+  // when off.
+  const ccParam = subLang ? `&cc_load_policy=1&cc_lang_pref=${VIDSUB_CC_CODE[subLang]}&hl=${VIDSUB_CC_CODE[subLang]}` : "";
   const rail = (
     <div className="vidrail" onClick={e => e.stopPropagation()}>
       <button className={`vidact${likedByMe ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); if (onToggleLike) onToggleLike(); }}>
@@ -2589,6 +2998,10 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
       <button className="vidact" onClick={(e) => { e.stopPropagation(); if (onAsk) onAsk(s.title); }}>
         <span className="vidact-ic">💬</span>
         <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
+      </button>
+      <button className={`vidact${subLang ? " on" : ""}`} onClick={cycleSubLang} title={T("คำบรรยาย — แตะเพื่อเปลี่ยนภาษา", "Subtitles — tap to change language", "字幕 — 点击切换语言")}>
+        <span className="vidact-ic" style={{ fontWeight: 900, fontSize: 15, letterSpacing: -0.5 }}>CC</span>
+        <span className="vidact-n">{subLang ? subLang.toUpperCase() : T("ปิด", "Off", "关")}</span>
       </button>
       <button className="vidact" onClick={(e) => { e.stopPropagation(); shareVideo(s, lang); }}>
         <span className="vidact-ic">📤</span>
@@ -2609,7 +3022,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     return (
       <>
         <iframe className="vidplayer"
-          src={`https://www.youtube-nocookie.com/embed/videoseries?list=${s.playlistId}&autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0`}
+          src={`https://www.youtube-nocookie.com/embed/videoseries?list=${s.playlistId}&autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0${ccParam}`}
           allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
         {rail}
       </>
@@ -2623,7 +3036,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     return (
       <>
         <iframe className="vidplayer"
-          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3`}
+          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3${ccParam}`}
           allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
         {rail}
       </>
@@ -2777,7 +3190,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
 
 /* ── Song picker page (falling-notes play-along) ── */
 const SONG_REQ = { 1: 1, 2: 2, 3: 4 };   // level required to unlock by difficulty
-const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "" }) {
+const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "", onStartSetlist }) {
   const lc = L[lang];
   const [filter, setFilter] = useState(-1);   // -1 all · 0 favorites · 1/2/3 by difficulty
   const [favs, setFavs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_favs") || "[]"); } catch (e) { return []; } });
@@ -2872,6 +3285,23 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "classical") === genreFilter);
   list.sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
 
+  // Setlist / Concert mode — 3 random UNLOCKED songs from whatever's currently
+  // visible (respects the star/genre/favorites filters already applied, same
+  // spirit as "surprise me from what I'm looking at" rather than a whole new
+  // multi-select picker screen).
+  function startSetlistFromList() {
+    const pool = list.filter(s => {
+      const req = SONG_REQ[s.diff] || 1;
+      const locked = !s.custom && level < req;
+      const maxLocked = !s.custom && s.maxOnly && !isMaxPlan(plan);
+      return !locked && !maxLocked;
+    });
+    if (pool.length < 2 || !onStartSetlist) return;
+    const copy = pool.slice(), picked = [];
+    while (picked.length < Math.min(3, copy.length)) picked.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
+    onStartSetlist(picked);
+  }
+
   const Card = (s, pfx = "") => {
     const hue = laneHue((s.seq.find(x => x[0] !== "R") || ["C4"])[0]);
     const isFav = favs.includes(s.id);
@@ -2957,6 +3387,12 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           <div className="songfilters">
             {filters.map(f => <button key={f.k} className={`songfilter${filter === f.k ? " on" : ""}`} onClick={() => setFilter(f.k)}>{f.label}</button>)}
           </div>
+          {list.length >= 2 && (
+            <button className="setlistbtn" onClick={() => { haptic(); startSetlistFromList(); }}>
+              <span className="setlistbtn-tt">{lc.setlistBtn}</span>
+              <span className="setlistbtn-sub">{lc.setlistSub}</span>
+            </button>
+          )}
           <div className="genrefilters">
             {([
               { code:"all",       label:{ th:"🎵 ทั้งหมด",     en:"🎵 All",       zh:"🎵 全部" } },
@@ -3256,11 +3692,57 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
   );
 });
 
+/* Non-Play-Along duel subjects. duels.song_id is a plain unconstrained `text`
+   column server-side (see supabase-gamification-social-migration.sql) — the
+   RPCs never interpret it, so a "activity:" prefix lets these ride the exact
+   same table/functions as song duels with zero backend changes. Only this
+   registry (client-side) and the duel-list renderer below know what the
+   prefix means. Each myBest() reads the SAME personal-best storage that
+   feature's own gamification page already shows the player, so a challenge
+   score is exactly as trustworthy as any other stat already in the app. */
+const ACTIVITY_DUELS = [
+  { key: "activity:eargym", icon: "🎧", higherIsBetter: true, unit: "",
+    label: { th: "บันไดโสตศาสตร์", en: "Ear Gym Ladder", zh: "耳朵健身梯" },
+    myBest: () => ladderBestScore() },
+  { key: "activity:sight:treble", icon: "🎼", higherIsBetter: true, unit: "",
+    label: { th: "อ่านโน้ตเร็ว 60วิ (บรรทัดสูง)", en: "Sight-Read Sprint (Treble)", zh: "视奏冲刺（高音谱）" },
+    myBest: () => sightBestMap("tg_sight_best_sprint")["treble"] || 0 },
+  { key: "activity:sight:bass", icon: "🎼", higherIsBetter: true, unit: "",
+    label: { th: "อ่านโน้ตเร็ว 60วิ (บรรทัดต่ำ)", en: "Sight-Read Sprint (Bass)", zh: "视奏冲刺（低音谱）" },
+    myBest: () => sightBestMap("tg_sight_best_sprint")["bass"] || 0 },
+  { key: "activity:noteread", icon: "🎯", higherIsBetter: false, unit: "s",
+    label: { th: "อ่านโน้ต ด่าน 1 (จับเวลา)", en: "Note Reading Lvl 1 (Time)", zh: "识谱 第1关（计时）" },
+    myBest: () => readBestTimeMap()[1] || 0 },
+];
+function duelSubjectLabel(songId, lang) {
+  const act = ACTIVITY_DUELS.find(a => a.key === songId);
+  if (act) return `${act.icon} ${act.label[lang]}`;
+  const song = SONGS.find(s => s.id === songId);
+  return song ? tr(song, lang) : songId;
+}
+function duelFmtScore(songId, score) {
+  if (score == null) return "—";
+  const act = ACTIVITY_DUELS.find(a => a.key === songId);
+  return act ? `${score}${act.unit}` : score;
+}
+// null = pending or a tie (no side to highlight); otherwise "me"/"opp" —
+// respects each activity's own higherIsBetter polarity (Note Reading's best
+// is elapsed seconds, so a LOWER number wins there, unlike every score-based
+// duel subject) instead of assuming "bigger number on screen = winner".
+function duelWinnerSide(d) {
+  if (d.my_score == null || d.opp_score == null || d.my_score === d.opp_score) return null;
+  const act = ACTIVITY_DUELS.find(a => a.key === d.song_id);
+  const higherWins = !act || act.higherIsBetter;
+  return (higherWins ? d.my_score > d.opp_score : d.my_score < d.opp_score) ? "me" : "opp";
+}
+
 /* Friends + async duels (also powers Family Battle, via the same duels table
    with mode:'family' — see supabase-gamification-social-migration.sql). A
-   duel's real result always comes from the player's own recorded game log
-   (readGameLog) — never a typed-in number — so a challenge score is exactly
-   as trustworthy as any other score already shown in this app's own stats. */
+   song duel's real result always comes from the player's own recorded game
+   log (readGameLog); an activity duel's from that activity's own personal-
+   best storage (ACTIVITY_DUELS above) — never a typed-in number — so a
+   challenge score is exactly as trustworthy as any other score already shown
+   in this app's own stats. */
 const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
   const lc = L[lang];
   const [tab, setTab] = useState("friends"); // friends | requests | duels
@@ -3295,15 +3777,23 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
     const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: song.id, p_score: best, p_mode: "duel" });
     if (error) setMsg(error.message || "error"); else { setMsg(lc.frChallengeSent); setChallengeFor(null); load(); }
   }
-  async function respondDuel(duel) {
-    const best = readGameLog().filter(g => g.song === duel.song_id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+  async function sendActivityChallenge(friend, act) {
+    const best = act.myBest();
     if (!best) { setMsg(lc.frNoScore); return; }
-    const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: best });
+    const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: act.key, p_score: Math.round(best), p_mode: "duel" });
+    if (error) setMsg(error.message || "error"); else { setMsg(lc.frChallengeSent); setChallengeFor(null); load(); }
+  }
+  async function respondDuel(duel) {
+    const act = ACTIVITY_DUELS.find(a => a.key === duel.song_id);
+    const best = act ? act.myBest() : readGameLog().filter(g => g.song === duel.song_id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+    if (!best) { setMsg(lc.frNoScore); return; }
+    const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: Math.round(best) });
     if (!error) { playUi("reward"); load(); }
   }
   const playedSongs = challengeFor
     ? Array.from(new Set(readGameLog().map(g => g.song))).map(id => SONGS.find(s => s.id === id)).filter(Boolean)
     : [];
+  const availableActivities = challengeFor ? ACTIVITY_DUELS.filter(a => a.myBest() > 0) : [];
 
   return (
     <div className="setov" onClick={onClose}>
@@ -3354,21 +3844,25 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
             </>
           ) : (
             <>
-              {(!duels || duels.length === 0) ? <div className="lbempty">{lc.frNoDuels}</div> : duels.map(d => (
-                <div key={d.id} className="frduel">
-                  <div className="frduel-top">
-                    <span>{d.mode === "family" ? "👨‍👩‍👧 " : "⚔️ "}{lc.frVs} {d.opp_name}</span>
-                    <span className={`frduel-status ${d.status}`}>{d.status === "done" ? lc.frDone : d.status === "expired" ? lc.frExpired : lc.frPending}</span>
+              {(!duels || duels.length === 0) ? <div className="lbempty">{lc.frNoDuels}</div> : duels.map(d => {
+                const win = duelWinnerSide(d);
+                return (
+                  <div key={d.id} className="frduel">
+                    <div className="frduel-top">
+                      <span>{d.mode === "family" ? "👨‍👩‍👧 " : "⚔️ "}{lc.frVs} {d.opp_name}</span>
+                      <span className={`frduel-status ${d.status}`}>{d.status === "done" ? lc.frDone : d.status === "expired" ? lc.frExpired : lc.frPending}</span>
+                    </div>
+                    <div className="frduel-subject">{duelSubjectLabel(d.song_id, lang)}</div>
+                    <div className="frduel-score">
+                      <span className={win === "me" ? "frduel-win" : ""}>{lc.frYou}: {duelFmtScore(d.song_id, d.my_score)}{win === "me" ? " 🏆" : ""}</span>
+                      <span className={win === "opp" ? "frduel-win" : ""}>{d.opp_name}: {duelFmtScore(d.song_id, d.opp_score)}{win === "opp" ? " 🏆" : ""}</span>
+                    </div>
+                    {d.status === "pending" && !d.i_am_a && (
+                      <button className="frrow-go" onClick={() => respondDuel(d)}>{lc.frRespond}</button>
+                    )}
                   </div>
-                  <div className="frduel-score">
-                    <span>{lc.frYou}: {d.my_score ?? "—"}</span>
-                    <span>{d.opp_name}: {d.opp_score ?? "—"}</span>
-                  </div>
-                  {d.status === "pending" && !d.i_am_a && (
-                    <button className="frrow-go" onClick={() => respondDuel(d)}>{lc.frRespond}</button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>
@@ -3378,6 +3872,19 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
             <div className="setcard" style={{ maxWidth: 320 }} onClick={e => e.stopPropagation()}>
               <div className="sethdr"><span>🎯 {challengeFor.name}</span><button className="cbtn" onClick={() => setChallengeFor(null)}>{lc.close}</button></div>
               <div className="setbody">
+                {availableActivities.length > 0 && (
+                  <>
+                    <div className="profsec-h" style={{ fontSize: "11px" }}>{lc.frSkillChallenge}</div>
+                    <div className="frsonglist" style={{ marginBottom: 14 }}>
+                      {availableActivities.map(a => (
+                        <button key={a.key} className="frsongpick" onClick={() => sendActivityChallenge(challengeFor, a)}>
+                          {a.icon} {a.label[lang]} <span className="frrow-sub" style={{ marginLeft: 6 }}>{duelFmtScore(a.key, a.myBest())}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="profsec-h" style={{ fontSize: "11px" }}>{lc.frSongChallenge}</div>
                 {playedSongs.length === 0 ? <div className="lbempty">{lc.frPlayFirst}</div> : (
                   <div className="frsonglist">
                     {playedSongs.map(s => <button key={s.id} className="frsongpick" onClick={() => sendChallenge(challengeFor, s)}>{tr(s, lang)}</button>)}
@@ -3853,6 +4360,51 @@ function coachStatsToText(s) {
   const skillsTxt = s.skills.filter(sk => sk.score != null).map(sk => `${sk.skill}: ${sk.score}/100`).join(", ") || "not enough data yet for any skill";
   return `Level ${s.level}, ${s.streak}-day streak, ${s.lessonsDone} lessons completed, ${s.badgeCount}/${s.badgeTotal} badges earned, today's quest ${s.questOk ? "done" : "not done yet"}. Last 7 days: practiced ${s.days7}/7 days (${s.min7} min total), accuracy ${s.acc7 == null ? "no data" : s.acc7 + "%"}${s.accPrev != null ? ` (previous week was ${s.accPrev}%)` : ""}. Weakest topics by miss rate across all history: ${weakestTxt}. Skill scores (0-100, higher is better): ${skillsTxt}.`;
 }
+// Weekly Report Card — a letter grade over the SAME rolling 7-day window
+// Daily Mentor's stats tiles already use (this page has never framed "the
+// week" as a Mon-Sun calendar week, so the grade doesn't invent one either).
+// Half consistency (days practiced), half accuracy — pure consistency when
+// there's no accuracy signal at all (some learners only read/listen, never
+// generating an ok/miss tally), rather than unfairly capping the grade at
+// 50 for having nothing to average in.
+function reportCardGrade(days7, acc7) {
+  const score = acc7 == null ? (days7 / 7) * 100 : (days7 / 7) * 50 + (acc7 / 100) * 50;
+  return score >= 90 ? "A+" : score >= 80 ? "A" : score >= 70 ? "B" : score >= 55 ? "C" : score >= 35 ? "D" : "F";
+}
+const REPORT_CARD_RANK = ["F", "D", "C", "B", "A", "A+"];
+const REPORT_CARD_REWARDS = { "A+": [60, 30], "A": [45, 22], "B": [30, 15], "C": [18, 8], "D": [10, 4], "F": [0, 0] };
+const REPORT_CARD_KEY = "tg_reportcards";
+function readReportCards() { try { return JSON.parse(localStorage.getItem(REPORT_CARD_KEY) || "[]"); } catch (e) { return []; } }
+function writeReportCards(a) { try { localStorage.setItem(REPORT_CARD_KEY, JSON.stringify(a.slice(-8))); } catch (e) {} }
+function bestReportCardGrade() {
+  const cards = readReportCards();
+  if (!cards.length) return null;
+  return cards.reduce((best, c) => REPORT_CARD_RANK.indexOf(c.grade) > REPORT_CARD_RANK.indexOf(best) ? c.grade : best, cards[0].grade);
+}
+// A new card can be claimed once 7 days have passed since the last one — a
+// rolling cooldown (not a calendar-week boundary), matching the page's own
+// rolling-7-day framing rather than introducing a second, different notion
+// of "the week" the rest of Daily Mentor doesn't use.
+function reportCardReadyToClaim() {
+  const cards = readReportCards();
+  return !cards.length || Date.now() - cards[cards.length - 1].t >= 7 * 86400000;
+}
+function daysUntilNextReportCard() {
+  const cards = readReportCards();
+  if (!cards.length) return 0;
+  return Math.max(0, Math.ceil((7 * 86400000 - (Date.now() - cards[cards.length - 1].t)) / 86400000));
+}
+// Returns { grade, isNewBest } — isNewBest is false for a first-ever F (a
+// bad first week isn't a "personal best" worth celebrating).
+function claimReportCard(days7, acc7) {
+  const prevBest = bestReportCardGrade();
+  const grade = reportCardGrade(days7, acc7);
+  const cards = readReportCards();
+  cards.push({ grade, days7, acc7, t: Date.now() });
+  writeReportCards(cards);
+  const isNewBest = prevBest == null ? grade !== "F" : REPORT_CARD_RANK.indexOf(grade) > REPORT_CARD_RANK.indexOf(prevBest);
+  return { grade, isNewBest };
+}
 // Shared core of the AI coaching analysis — used by both the Auto Teaching popup (timer-driven,
 // PianoApp) and the dedicated Coach nav page (on-demand, CoachPage). Module-level (not inside
 // either component) since it only needs `lang`/`profile` and the module-level helpers above.
@@ -4073,14 +4625,14 @@ function buildSongResultRecommendation(lang, songMeta, songResult) {
 }
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
 function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
-const FREE_LIMITS = { song: 2, critique: 3, compose: 2 };   // free actions per day
+export const FREE_LIMITS = { song: 2, critique: 3, compose: 2, styleTransform: 2 };   // free actions per day
 function usageToday(key) { try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === dayKey() ? (u[key] || 0) : 0; } catch (e) { return 0; } }
-function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
+export function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
 // `premium` must be the caller's real, server-synced plan state — never isPremium(),
 // which reads raw localStorage. localStorage.setItem("tg_premium","1") is a one-line
 // browser-console edit that would otherwise remove these daily caps on two endpoints
 // that call a real, real-money AI backend (generateSong/critiqueRecording → piano-chat).
-function canUse(key, premium) { return premium || usageToday(key) < (FREE_LIMITS[key] || 0); }
+export function canUse(key, premium) { return premium || usageToday(key) < (FREE_LIMITS[key] || 0); }
 
 
 
@@ -4201,13 +4753,110 @@ export function getDueReviews() {
     .map(([id, e]) => { const stage = PATHWAY.find(s => s.id === id); return stage ? { id, stage, tier: pathTier(e.best), acc: e.last, best: e.best, nextDue: e.nextDue } : null; })
     .filter(Boolean)
     .sort((a, b) => a.nextDue - b.nextDue);
+  // Falls back to the old flat 2-day rule for struggle entries recorded
+  // before recordMemory()'s SM-2-lite interval existed (ai-chat-context.ts).
   const practice = (readMemory().struggles || [])
-    .filter(s => s.last && (now - s.last) >= 2 * 86400000)
+    .filter(s => s.last && (now - s.last) >= (s.interval || 2) * 86400000)
     .map(s => ({ label: s.label, acc: s.acc, count: s.count, last: s.last }));
   return { stages, practice, total: stages.length + practice.length };
 }
+// Memory Streak — a day-streak for keeping up with SRS review specifically
+// (getDueReviews()'s two signals above), separate from the app's main
+// streak the same way Camera Coach's Posture Streak is: showing up for
+// review is its own habit worth its own streak. No freeze mechanic, same
+// as every other per-feature streak this pass added. Bumped once per day
+// by either genuine review path — completing a due stage's practice drill
+// (finishPractice(), use-practice-mode.ts) or asking about a due struggle
+// (askAboutStruggle() below) — mirroring the main streak's own "credit for
+// a completed session, not for merely opening one" precedent (bumpStreak()
+// fires from logPractice(), never from a session's start).
+const MEMORY_STREAK_TIERS = [
+  { id: "start", icon: "🌱", need: 1 },
+  { id: "bronze", icon: "🥉", need: 3 },
+  { id: "silver", icon: "🥈", need: 7 },
+  { id: "gold", icon: "🥇", need: 14 },
+  { id: "diamond", icon: "💎", need: 30 },
+];
+export function memoryStreakTier(count) {
+  let t = null;
+  for (const tier of MEMORY_STREAK_TIERS) if (count >= tier.need) t = tier;
+  return t;
+}
+export function memoryStreak() { try { return JSON.parse(localStorage.getItem("tg_memory_streak") || "null") || { count: 0, last: "" }; } catch (e) { return { count: 0, last: "" }; } }
+// Returns { count, tier, tierUp, bumped } — bumped is false on a same-day
+// re-call; tierUp is true only on a genuine CLIMB (never a missed-day reset
+// that happens to land on a lower tier), exactly Posture Streak's contract.
+export function bumpMemoryStreak() {
+  const s = memoryStreak(), today = dayKey();
+  const prevTier = memoryStreakTier(s.count || 0);
+  if (s.last === today) return { count: s.count || 0, tier: prevTier, tierUp: false, bumped: false };
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  if (s.last === dayKey(y)) s.count = (s.count || 0) + 1;
+  else s.count = 1;
+  s.last = today;
+  try { localStorage.setItem("tg_memory_streak", JSON.stringify(s)); } catch (e) {}
+  const tier = memoryStreakTier(s.count);
+  return { count: s.count, tier, tierUp: !!tier && (!prevTier || tier.need > prevTier.need), bumped: true };
+}
+// Group Boss Challenge — a one-off capstone once every practiceable stage in a
+// group is individually done: all of that group's demos chained into one longer
+// run, at a higher pass bar (BOSS_PASS_ACCURACY) than a normal stage. Deliberately
+// its own tiny Set, not folded into pathAccMap/pathDoneSet — a boss clear isn't
+// "this one stage got better," it's a separate combined-mastery badge, and
+// getDueReviews()'s PATHWAY.find(...) lookup would just silently ignore a boss
+// id anyway (it's never a real stage id), so keeping it fully separate is both
+// simpler and avoids relying on that as the actual isolation mechanism.
+export const BOSS_PASS_ACCURACY = 70;
+export function bossDoneSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_boss_done") || "[]")); } catch (e) { return new Set(); } }
+export function markBossDone(groupId) { try { const s = bossDoneSet(); s.add(groupId); localStorage.setItem("tg_boss_done", JSON.stringify([...s])); } catch (e) {} }
+// True the moment a group's Challenging-Mode row (cert + boss) FIRST becomes
+// available — every stage in the group passed, and it's not a reading-only
+// group (mirrors ChallengingPage's own unlock condition exactly). Used by
+// learnTopic()'s Auto Teaching hook to nudge "you just covered everything
+// this group's Boss Challenge tests — go prove it" without duplicating the
+// unlock rule in two places.
+export function groupChallengeReady(group) {
+  const stages = STAGES_BY_GROUP[group.id] || [];
+  if (!stages.length) return false;
+  const done = pathDoneSet();
+  return stages.every(s => done.has(s.id)) && stages.some(s => !s.content);
+}
+
+// Knowledge Quest — TIGA Chat's own collectible: the 7 "benefits of music"
+// pathway stages (group "benefits") each unlock a handful of curated deep-dive
+// case studies (BENEFIT_CASES), read one at a time inside the chat via
+// readChapter(). A domain badge unlocks only once every case in that domain
+// has actually been opened — tracked at case granularity (not just the
+// existing chapter-level pathDoneSet, which flips true after reading just
+// one case) so the collection can't be completed by accident.
+export function knowledgeDomains() { return PATHWAY.filter(s => s.group === "benefits" && BENEFIT_CASES[s.id]); }
+export function caseReadSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_case_read") || "[]")); } catch (e) { return new Set(); } }
+export function markCaseRead(stageId, caseId) { try { const s = caseReadSet(); s.add(stageId + "/" + caseId); localStorage.setItem("tg_case_read", JSON.stringify([...s])); } catch (e) {} }
+export function domainDoneIds() {
+  const read = caseReadSet();
+  return knowledgeDomains().filter(s => BENEFIT_CASES[s.id].every(c => read.has(s.id + "/" + c.id))).map(s => s.id);
+}
 /* Per-key learning record: which keys of each topic (scale/interval/chord/…) the
    learner has studied, so the pathway can show what's already been covered. */
+// A coaching tip's free text often names a specific key ("practice the C
+// Major scale") — match it against KEYS_12 so a tap on that step opens THAT
+// key, instead of silently substituting whichever key the learner's own
+// progress happens to have queued up next (which could be any of the 12).
+// Longest id first (mirrors extractNotes()'s KNOWN-table scan) so "F#"/"Db"
+// aren't shadowed by a bare "F" match; the bare-letter check is case-
+// sensitive so it doesn't false-positive on the English word "a"/"A" inside
+// an otherwise unrelated sentence.
+function findKeyMentionInText(text) {
+  const t = String(text || "");
+  if (!t) return null;
+  const bySpecificity = KEYS_12.slice().sort((a, b) => b.id.length - a.id.length);
+  for (const k of bySpecificity) {
+    const idEsc = k.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const idRx = new RegExp("(?<![A-Za-z])" + idEsc + "(?![A-Za-z])");
+    if (idRx.test(t) || (k.th && t.includes(k.th)) || (k.zh && k.zh !== k.id && t.includes(k.zh))) return k;
+  }
+  return null;
+}
 function keyDoneMap() { try { return JSON.parse(localStorage.getItem("tg_key_done") || "{}") || {}; } catch (e) { return {}; } }
 function markKeyDone(stageId, keyId) {
   try {
@@ -4349,8 +4998,37 @@ async function shareCard({ title, big, sub, lines = [] }) {
     }
   } catch (e) {}
 }
-function downloadCertificate(lang, name) {
+// Certificate/boss reward claims — Challenging Mode's cert-download and full-
+// course cert buttons used to only play a "reward" sound effect with zero
+// real EXP/coins behind it, unlike everything else in this gamification
+// pass. One Set (keyed "group:<id>" / "full") gates a one-time claim so
+// repeatedly re-downloading the same PNG can't be farmed for infinite EXP.
+export function certClaimedSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_cert_claimed") || "[]")); } catch (e) { return new Set(); } }
+export function markCertClaimed(id) { try { const s = certClaimedSet(); s.add(id); localStorage.setItem("tg_cert_claimed", JSON.stringify([...s])); } catch (e) {} }
+// Group-level certificate — the same renderCertificatePNG the Report page
+// already offers. Moved here (was a PathwayPage-local closure) so
+// ChallengingPage can call it too, now that the cert banner lives there
+// instead of inline in the Pathway flow.
+export async function downloadGroupCert(g, lang, userName, certBusy, setCertBusy, gainExp, earnCoins) {
+  if (certBusy) return;
+  setCertBusy(true); playUi("reward");
   try {
+    const name = userName || (lang === "th" ? "นักเรียน TiGA" : lang === "zh" ? "TiGA 学员" : "TiGA Student");
+    const url = await renderCertificatePNG({
+      name,
+      course: g.icon + " " + g.label,
+      dateStr: new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "long", day: "numeric" }),
+      lang,
+    });
+    downloadDataURL(url, "tiga-certificate-" + g.id + ".png");
+    const claimId = "group:" + g.id;
+    if (!certClaimedSet().has(claimId)) { markCertClaimed(claimId); gainExp(20, { quest: true }); earnCoins(10); }
+  } catch (e) {}
+  setCertBusy(false);
+}
+function downloadCertificate(lang, name, gainExp, earnCoins) {
+  try {
+    playUi("reward");
     const W = 1000, H = 700, c = document.createElement("canvas"); c.width = W; c.height = H;
     const x = c.getContext("2d");
     // Background
@@ -4401,6 +5079,7 @@ function downloadCertificate(lang, name) {
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tiga-certificate.png"; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 3000);
     }, "image/png");
+    if (!certClaimedSet().has("full")) { markCertClaimed("full"); if (gainExp) gainExp(40, { quest: true }); if (earnCoins) earnCoins(20); }
   } catch (e) {}
 }
 
@@ -4408,6 +5087,71 @@ function getOwned() { try { return JSON.parse(localStorage.getItem("tg_owned") |
 function setOwnedLS(a) { try { localStorage.setItem("tg_owned", JSON.stringify(a)); } catch (e) {} }
 function getEquip(k, def) { try { return localStorage.getItem("tg_" + k) || def; } catch (e) { return def; } }
 function setEquipLS(k, v) { try { localStorage.setItem("tg_" + k, v); } catch (e) {} }
+
+/* ── Activity heatmap — a real day-grid (GitHub-contribution style), unlike
+   ProgressDashboard below (bucketed bar totals per period — can't show WHICH
+   specific days were active, confirmed genuinely absent from the app per the
+   Next-round roadmap plan). Reads the same per-day tg_practice log
+   ProgressDashboard already does; no new data collection. ── */
+const HEATMAP_WEEKS = 14; // ~3.5 months — a real pattern is visible, still fits a narrow mobile viewport without scrolling
+const HeatmapActivity = memo(function HeatmapActivity({ lang }) {
+  const lc = L[lang];
+  const [sel, setSel] = useState(null);
+  const plog = readPracticeLog();
+  // Recomputed on every render (cheap — 98 days) rather than memoized: a
+  // [lang]-only memo dep would show stale data whenever tg_practice changes
+  // without a language switch, e.g. right after finishing a practice session.
+  const today = new Date();
+  const totalDays = HEATMAP_WEEKS * 7;
+  const days = [];
+  for (let i = totalDays - 1; i >= 0; i--) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    const k = dayKey(d);
+    const e = plog[k] || {};
+    days.push({ date: d, key: k, n: e.n || 0, acc: e.n ? Math.round((e.accSum || 0) / e.n) : null });
+  }
+  // pad the front so day 0 lands in its correct Sun-Sat row — builds clean
+  // column-per-week stacks the same way GitHub's own grid does
+  const lead = days.length ? days[0].date.getDay() : 0;
+  const padded = Array.from({ length: lead }, () => null).concat(days);
+  const weeks = [];
+  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+  const maxN = Math.max(1, ...weeks.flat().filter(Boolean).map(d => d.n));
+  const level = (n) => n === 0 ? 0 : n / maxN <= 0.25 ? 1 : n / maxN <= 0.5 ? 2 : n / maxN <= 0.75 ? 3 : 4;
+  const dowLabels = lang === "th" ? ["", "จ", "", "พ", "", "ศ", ""] : lang === "zh" ? ["", "一", "", "三", "", "五", ""] : ["", "M", "", "W", "", "F", ""];
+  const fmtD = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  return (
+    <div className="profsec">
+      <div className="profsec-h">
+        {lc.activityHeatmapTitle}
+        {sel && (
+          <span className="dashtip" style={{ marginLeft: "auto" }}>
+            {fmtD(sel.date)} · {sel.n} {lc.dashSessions}{sel.acc != null ? ` · ${sel.acc}%` : ""}
+          </span>
+        )}
+      </div>
+      <div className="heatmap-wrap">
+        <div className="heatmap-dow">{dowLabels.map((l, i) => <span key={i}>{l}</span>)}</div>
+        <div className="heatmap-grid">
+          {weeks.map((week, wi) => (
+            <div key={wi} className="heatmap-col">
+              {week.map((d, di) => d ? (
+                <button key={di} className={`heatmap-cell lv${level(d.n)}`}
+                  onClick={() => setSel(sel && sel.key === d.key ? null : d)}
+                  aria-label={`${fmtD(d.date)}: ${d.n}`} />
+              ) : <span key={di} className="heatmap-cell empty" aria-hidden="true" />)}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="heatmap-legend">
+        <span>{lc.profLess}</span>
+        {[0, 1, 2, 3, 4].map(l => <span key={l} className={`heatmap-cell lv${l}`} />)}
+        <span>{lc.profMore}</span>
+      </div>
+    </div>
+  );
+});
 
 /* ── Interactive progress dashboard: pick a time range, see activity / accuracy /
    EXP, each compared with the previous equal period. Reads the daily practice log. ── */
@@ -4588,7 +5332,7 @@ const GameStats = memo(function GameStats({ lang }) {
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0 }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -4721,6 +5465,9 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         );
       })()}
 
+      {/* activity heatmap — real day-grid, complements the dashboard's period totals below */}
+      <HeatmapActivity lang={lang} />
+
       {/* interactive progress dashboard — range selector + period comparison + charts + game stats */}
       <ProgressDashboard lang={lang} />
 
@@ -4733,7 +5480,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           <div className="profsec">
             <div className="profsec-h">🎯 Auto Teaching</div>
             {struggles.length > 0 && (
-              <div className="pd-tags">{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div>
+              <div className="pd-tags">{struggles.map((s, i) => <button key={i} className="pd-tag focus" onClick={() => onAskStruggle(s)}>💬 {s.label}</button>)}</div>
             )}
             {last ? (
               <div className="atdash-last">
@@ -4882,6 +5629,83 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         </div>
       </div>
 
+      {/* Knowledge Quest — a separate collection track from the numeric-
+          threshold badges above: each domain unlocks only once every one of
+          its curated "why music matters" case studies has actually been read
+          via the chat (see readChapter's case-level tracking), not from any
+          background stat. */}
+      {(() => {
+        const domains = knowledgeDomains();
+        const domainDone = domainDoneIds();
+        return (
+          <div className="profsec">
+            <div className="profsec-h">
+              {lc.knowledgeQuestTitle}
+              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+                {domainDone.length}/{domains.length}
+              </span>
+            </div>
+            <div className="badgegrid">
+              {domains.map(d => {
+                const got = domainDone.includes(d.id);
+                return (
+                  <div key={d.id} className={`badge${got ? " got" : ""}`} title={tr(d.title, lang)}>
+                    <span className="badge-ic" aria-hidden="true">{got ? d.icon : "🔒"}</span>
+                    <span className="badge-nm">{tr(d.title, lang)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Drill Deck — every drill the learner has practiced becomes a
+          collectible "card": tier icon by best accuracy (reusing pathTier's
+          bronze/silver/gold thresholds — the same bar the Pathway stages
+          themselves are graded against), best streak, and a one-tap replay
+          straight back into that exact drill. tg_practice_best used to be
+          write-only — a real per-drill record existed in localStorage the
+          whole time with no UI anywhere that ever surfaced it. */}
+      {(() => {
+        const bests = readPracticeBests();
+        const deck = Object.entries(bests)
+          .map(([key, d]) => ({ key, ...d }))
+          .filter(d => d.notes && d.notes.length)
+          .sort((a, b) => (b.at || 0) - (a.at || 0));
+        if (!deck.length) return null;
+        const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
+        return (
+          <div className="profsec">
+            <div className="profsec-h">
+              {lc.drillDeckTitle}
+              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+                {deck.length}
+              </span>
+            </div>
+            {deck.map(d => {
+              const tier = pathTier(d.accuracy);
+              return (
+                <div key={d.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 4px" }}>
+                  <span style={{ fontSize: 20, flexShrink: 0, width: 24, textAlign: "center" }} aria-hidden="true">{tier ? tierIcon[tier] : "🎹"}</span>
+                  <div className="wkbody">
+                    <div className="wktop">
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.label}{d.chordStyle && ` · ${d.chordStyle}`}</span>
+                      <b style={{ color: "#d97757", flexShrink: 0, marginLeft: 6, whiteSpace: "nowrap" }}>{d.accuracy}% · 🔥{d.bestStreak}</b>
+                    </div>
+                    <div className="wkbar"><div style={{ width: d.accuracy + "%", background: "#d97757" }} /></div>
+                  </div>
+                  <button onClick={() => onReplayDrill && onReplayDrill(d)}
+                    style={{ flexShrink: 0, background: "rgba(217,119,87,.12)", border: "1px solid #d9775755", borderRadius: 8, color: "#d97757", padding: "7px 11px", fontSize: 13, cursor: "pointer" }}>
+                    ▶
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       <WeeklyLeagueSection lang={lang} />
 
       <LeaderboardSection lang={lang} />
@@ -4975,12 +5799,25 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
 });
 
 /* ── Daily Mentor page: shows practice stats, 7-day activity chart, and weak spots. ── */
-const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell }) {
+const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell, gainExp, earnCoins }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan) || (profile && profile.is_admin);
   const stats = useMemo(() => computeCoachStats(profile, lang), [profile, lang]);
   const accDelta = stats.acc7 != null && stats.accPrev != null ? stats.acc7 - stats.accPrev : null;
   const hasData = readActLog().length > 0;
+  const [, setRcTick] = useState(0); // bumped after claimReportCard() writes localStorage, since that write alone doesn't trigger a re-render
+  const rcGrade = reportCardGrade(stats.days7, stats.acc7);
+  const rcBest = bestReportCardGrade();
+  const rcReady = reportCardReadyToClaim();
+  function claimRc() {
+    if (!rcReady) return;
+    const { grade, isNewBest } = claimReportCard(stats.days7, stats.acc7);
+    const [xp, coins] = REPORT_CARD_REWARDS[grade];
+    playUi(isNewBest ? "levelup" : "reward");
+    if (xp && gainExp) gainExp(xp, { quest: true });
+    if (coins && earnCoins) earnCoins(coins);
+    setRcTick(t => t + 1);
+  }
 
   // Monthly skill trend — best-effort: silently empty (not an error) if the
   // RPC isn't deployed yet, or if there's under 2 months of history so far.
@@ -5013,6 +5850,38 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
             "练习统计与待提升项目——每次练习后自动更新。")}
         </div>
 
+        {/* Weekly Report Card — a letter grade over the same rolling 7-day
+            window the stats tiles below already use, claimable for real EXP/
+            coins on a 7-day cooldown. Daily Mentor previously had no reward
+            of its own tied to a "week" as a unit at all. */}
+        <div style={{ marginBottom: 16, padding: 16, borderRadius: 14, border: "1px solid #d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+          <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 10 }}>
+            📋 {T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单")}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 44, fontWeight: 900, color: "#d97757", lineHeight: 1 }}>{rcGrade}</div>
+            <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.7 }}>
+              <div>{T(`ซ้อม ${stats.days7}/7 วัน`, `${stats.days7}/7 days practiced`, `练习了 ${stats.days7}/7 天`)}</div>
+              <div>{stats.acc7 == null ? T("ยังไม่มีข้อมูลความแม่นยำ", "No accuracy data yet", "暂无准确率数据") : T(`แม่นยำ ${stats.acc7}%`, `${stats.acc7}% accuracy`, `准确率 ${stats.acc7}%`)}</div>
+              {rcBest && <div style={{ color: "#ffd23f", fontWeight: 700 }}>🏆 {T("สถิติดีที่สุด", "Personal best", "历史最佳")}: {rcBest}</div>}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {rcReady ? (
+              <button className="songbtn go" style={{ flex: 1 }} onClick={claimRc}>
+                🎁 {T(`รับการ์ด (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `Claim card (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `领取成绩单 (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`)}
+              </button>
+            ) : (
+              <div style={{ flex: 1, fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+                {T(`การ์ดถัดไปพร้อมใน ${daysUntilNextReportCard()} วัน`, `Next card ready in ${daysUntilNextReportCard()} day${daysUntilNextReportCard() === 1 ? "" : "s"}`, `${daysUntilNextReportCard()} 天后可领取下一张`)}
+              </div>
+            )}
+            <button className="songbtn ghost" onClick={() => shareCard({ title: T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单"), big: rcGrade, sub: `${stats.days7}/7 · ${stats.acc7 == null ? "—" : stats.acc7 + "%"}`, lines: ["TiGA Piano AI"] })}>
+              📤 {T("แชร์", "Share", "分享")}
+            </button>
+          </div>
+        </div>
+
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           <div className="instile" style={{ minWidth: 0 }}><b>{stats.level}</b><span>{T("เลเวล", "Level", "等级")}</span></div>
           <div className="instile" style={{ minWidth: 0 }}><b>{stats.streak}🔥</b><span>{T("สตรีค", "Streak", "连续")}</span></div>
@@ -5028,6 +5897,42 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
             <span>{T("แม่นยำ 7 วัน", "7-day accuracy", "7天准确率")}</span>
           </div>
         </div>
+
+        {/* Challenging Mode suggestion — Daily Mentor is the app's "what should I
+            do next" surface, so it should be the one to point the learner at a
+            challenge the moment one's actually ready, same signal learnTopic()'s
+            own nudge uses (groupChallengeReady). Only shown when there's a real
+            certificate or Boss Challenge waiting — not a dead-end CTA for an
+            account that hasn't finished a section yet. */}
+        {(() => {
+          const groups = PATH_GROUPS[lang];
+          const pathDone = pathDoneSet();
+          const fullReady = pathDone.size >= PATHWAY.length;
+          const readyGroups = groups.filter(g => groupChallengeReady(g));
+          if (!fullReady && !readyGroups.length) return null;
+          const body = fullReady
+            ? T("คุณเรียนครบทุกหมวดแล้ว — ไปรับใบประกาศนียบัตรใหญ่ที่หน้าท้าทายได้เลย!",
+                "You've finished every section — claim your Grand Certificate on the Challenging page!",
+                "你已完成所有单元——前往闯关挑战页面领取总证书吧！")
+            : readyGroups.length === 1
+            ? T(`คุณเรียนครบหมวด ${readyGroups[0].label} แล้ว — ไปท้าบอสและรับใบประกาศนียบัตรที่หน้าท้าทายได้เลย!`,
+                `You've covered all of ${readyGroups[0].label} — go fight the Boss Challenge and claim your certificate on the Challenging page!`,
+                `你已学完「${readyGroups[0].label}」的全部内容——前往闯关挑战页面挑战首领并领取证书吧！`)
+            : T(`คุณเรียนครบ ${readyGroups.length} หมวดแล้ว — มีบอสและใบประกาศนียบัตรรอให้ไปพิสูจน์ฝีมือที่หน้าท้าทาย!`,
+                `You've covered ${readyGroups.length} sections — Boss Challenges and certificates are waiting to be claimed on the Challenging page!`,
+                `你已学完 ${readyGroups.length} 个单元——挑战首领和证书正在闯关挑战页面等你！`);
+          return (
+            <div style={{ marginBottom: 16, padding: 14, borderRadius: 14, border: "1px solid #a78bfa55", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
+              <div style={{ fontSize: 13, color: "#c4b5fd", fontWeight: 700, marginBottom: 6 }}>
+                🏆 {T("พร้อมทดสอบตัวเองหรือยัง?", "Ready to test yourself?", "准备好测试了吗？")}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.7, marginBottom: 10 }}>{body}</div>
+              <button className="songbtn go" style={{ width: "100%", background: "#8b5cf6" }} onClick={() => onNavigate("challenging")}>
+                ⚔️ {T("ไปหน้าท้าทาย", "Go to Challenging", "前往闯关挑战")}
+              </button>
+            </div>
+          );
+        })()}
 
         {stats.daily && stats.daily.some(d => d.practiced) && (() => {
           const maxMin = Math.max(1, ...stats.daily.map(d => d.min));
@@ -5235,6 +6140,24 @@ function LockScreen({ lang, onUnlock }) {
 /* ── Share gate: free users share FB + TikTok to keep playing past the free limit ── */
 
 /* ── Admin: all students' progress (reads every profile via admin RLS) ── */
+// A controlled <input type="number"> whose state is a NUMBER has a subtle
+// trap: React only writes the DOM back when the typed string and the state
+// value differ LOOSELY, and "010000" == 10000 is true — so typing into a field
+// that currently reads "0" leaves a stray leading zero on screen ("010000")
+// even though the stored value is a perfectly clean 10000. Normalising the raw
+// string here, and writing it back to the input, keeps what's displayed and
+// what's stored identical. Also clamps negatives away: none of these fields
+// (coins, gems, EXP) has any meaning below zero.
+function numFieldProps(val, set) {
+  return {
+    value: val,
+    onChange: (e) => {
+      const raw = String(e.target.value).replace(/^0+(?=\d)/, "");
+      if (raw !== e.target.value) e.target.value = raw;   // keep the DOM in step with the state
+      set(Math.max(0, Number(raw) || 0));
+    },
+  };
+}
 function AdminStudents({ lang, viewerTier }) {
   const tier = viewerTier || 0;
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
@@ -5246,7 +6169,10 @@ function AdminStudents({ lang, viewerTier }) {
   const [mgDays, setMgDays] = useState(30);
   const [mgBusy, setMgBusy] = useState(false);
   const [appointTier, setAppointTier] = useState(0);
-  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); setAppointTier(r.admin_tier || 0); };
+  const [editCoins, setEditCoins] = useState(0);
+  const [editGems, setEditGems] = useState(0);
+  const [editExp, setEditExp] = useState(0);
+  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); setAppointTier(r.admin_tier || 0); setEditCoins(r.coins || 0); setEditGems(r.gems || 0); setEditExp(r.exp || 0); };
   async function applyPlan() {
     if (!sel) return; setMgBusy(true);
     const { error } = await sb.rpc("admin_set_plan", { target: sel.id, new_plan: mgPlan, days: Number(mgDays) || 30 });
@@ -5266,6 +6192,18 @@ function AdminStudents({ lang, viewerTier }) {
     if (!sel) return; setMgBusy(true);
     const { error } = await sb.rpc("admin_appoint", { target: sel.id, new_tier: appointTier });
     setMgBusy(false); if (!error) { setSel(null); load(); } else { alert(error.message || "error"); }
+  }
+  async function saveCurrency() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_adjust_currency", {
+      target: sel.id,
+      p_coins: Number(editCoins) || 0,
+      p_gems: Number(editGems) || 0,
+      p_exp: Number(editExp) || 0
+    });
+    setMgBusy(false);
+    if (!error) { playUi("levelup"); setSel({...sel, coins: Number(editCoins)||0, gems: Number(editGems)||0, exp: Number(editExp)||0}); }
+    else { alert(error.message || "error"); }
   }
   // admin_list_students_v2 — bounded (server-side LIMIT) and server-side searched,
   // replacing the old admin_list_students() (unbounded, no search, client-side
@@ -5351,6 +6289,33 @@ function AdminStudents({ lang, viewerTier }) {
               </select>
             </div>
             <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={mgBusy} onClick={doAppoint}>👑 {T("บันทึกระดับแอดมิน", "Save admin tier", "保存管理员等级")}</button>
+          </div>
+        )}
+        {/* 💰 Currency & Level Management — Top Tier only */}
+        {tier >= 3 && (
+          <div className="admmg">
+            <div className="admmg-h">💰 {T("จัดการเหรียญ/เพชร/คะแนน", "Manage Coins/Gems/EXP", "管理代币/宝石/经验")}</div>
+            <div className="admmg-cur" style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
+              {T("แก้ไขค่าได้อิสระ — กดบันทึกเพื่อบันทึก", "Edit values freely — tap Save to apply", "可自由修改数值 — 点击保存应用")}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <div>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>🪙 {T("เหรียญ (Coins)", "Coins", "代币")}</label>
+                <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editCoins, setEditCoins)} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>💎 {T("เพชร (Gems)", "Gems", "宝石")}</label>
+                <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editGems, setEditGems)} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: 11, opacity: 0.6 }}>⭐ {T("คะแนน (EXP)", "EXP Points", "经验值")}</label>
+              <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editExp, setEditExp)} />
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 8 }}>
+              {T("ระดับ", "Level", "等级")} {levelInfo(editExp).level} · {levelInfo(editExp).tier?.icon || "🎵"} {levelInfo(editExp).tier ? (lang === "th" ? levelInfo(editExp).tier.name_th : lang === "zh" ? levelInfo(editExp).tier.name_zh : levelInfo(editExp).tier.name_en) : ""}
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 4 }} disabled={mgBusy} onClick={saveCurrency}>💾 {T("บันทึกค่า", "Save currency", "保存数值")}</button>
           </div>
         )}
         <div className="pd-stats">
@@ -6299,6 +7264,25 @@ function AdminBroadcast({ lang }) {
   );
 }
 
+/* Optional per-event "spotlight" — points the blanket EXP/coin multiplier at ONE
+   specific feature instead of leaving every event feeling identical ("2x
+   everywhere" doesn't tell anyone what to actually go do). Stored as an extra
+   field on the same event JSON blob (app_settings key "event" is a schemaless
+   jsonb value — see admin_set_app_setting), so this needs zero backend change.
+   Each feature's real page title lives inside that page's own component-local
+   T object (not exported), so this keeps its own small label set rather than
+   reaching into 8 different files for strings. */
+const SPOTLIGHT_FEATURES = [
+  { key: "pathway", icon: "⬡", label: { th: "เส้นทางเรียนรู้", en: "Pathway", zh: "学习路径" } },
+  { key: "coach", icon: "🎯", label: { th: "Daily Mentor", en: "Daily Mentor", zh: "每日导师" } },
+  { key: "playalong", icon: "🎵", label: { th: "เล่นตามเพลง", en: "Play Along", zh: "跟弹" } },
+  { key: "eargym", icon: "🎧", label: { th: "ยิมหู", en: "Ear Gym", zh: "耳朵健身房" } },
+  { key: "reading", icon: "🎼", label: { th: "อ่านโน้ต", en: "Note Reading", zh: "识谱课" } },
+  { key: "sight", icon: "👁️", label: { th: "สายตาไว", en: "Sight-Reading", zh: "视奏" } },
+  { key: "camera", icon: "📷", label: { th: "โค้ชท่ามือ", en: "Camera Coach", zh: "手型教练" } },
+  { key: "challenging", icon: "🏆", label: { th: "ท้าทาย", en: "Challenging", zh: "挑战" } },
+];
+
 /* ── Admin: seasonal/limited-time event — same app_settings + admin_set_app_setting
    mechanism as AdminBroadcast above (key "event" instead of "broadcast"), applying
    temporary EXP/coin multipliers instead of a popup message. See the activeEvent
@@ -6312,6 +7296,7 @@ function AdminEvent({ lang }) {
   const [expMult, setExpMult] = useState(2);
   const [coinMult, setCoinMult] = useState(2);
   const [days, setDays] = useState(2);
+  const [spotlight, setSpotlight] = useState("");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const load = useCallback(() => {
@@ -6328,6 +7313,7 @@ function AdminEvent({ lang }) {
       name_th: nameTh.trim() || nameEn.trim(), name_en: nameEn.trim() || nameTh.trim(), name_zh: nameZh.trim() || nameEn.trim() || nameTh.trim(),
       expMult: Number(expMult) || 1, coinMult: Number(coinMult) || 1,
       ends_at: new Date(Date.now() + (Number(days) || 1) * 86400000).toISOString(),
+      spotlightFeature: spotlight || null,
     };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "event", p_value: value });
     setBusy(false);
@@ -6350,7 +7336,9 @@ function AdminEvent({ lang }) {
         <div className="admmg" style={{ marginBottom: 12 }}>
           <div className="admmg-h">{T("กำลังจัดอีเว้นท์อยู่ตอนนี้", "Currently live", "当前正在进行")}</div>
           <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>
-            {tr({ th: cur.name_th, en: cur.name_en, zh: cur.name_zh }, lang)} · {cur.expMult}× EXP · {cur.coinMult}× 🪙 · {T("จนถึง", "until", "至")} {new Date(cur.ends_at).toLocaleString()}
+            {tr({ th: cur.name_th, en: cur.name_en, zh: cur.name_zh }, lang)} · {cur.expMult}× EXP · {cur.coinMult}× 🪙
+            {cur.spotlightFeature ? ` · 🔦 ${SPOTLIGHT_FEATURES.find(f => f.key === cur.spotlightFeature)?.label.en || cur.spotlightFeature}` : ""}
+            {" "}· {T("จนถึง", "until", "至")} {new Date(cur.ends_at).toLocaleString()}
           </div>
           <button className="songbtn ghost" style={{ width: "100%", color: "#ff5252" }} disabled={busy} onClick={stop}>{T("จบอีเว้นท์นี้ตอนนี้", "End this event now", "立即结束此活动")}</button>
         </div>
@@ -6374,6 +7362,13 @@ function AdminEvent({ lang }) {
             <input className="admstu-search" type="number" min="1" max="30" value={days} onChange={e => setDays(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
           </div>
         </div>
+        <div className="admstu-row-sub" style={{ marginBottom: 4 }}>
+          {T("ฟีเจอร์เด่นประจำอีเว้นท์ (ไม่บังคับ) — แบนเนอร์จะชวนเล่นฟีเจอร์นี้", "Spotlight feature (optional) — the banner points learners at it", "活动焦点功能（可选）— 横幅会引导学员去玩")}
+        </div>
+        <select className="admstu-search" value={spotlight} onChange={e => setSpotlight(e.target.value)} style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }}>
+          <option value="">{T("— ไม่มี (คูณโบนัสทุกฟีเจอร์เท่ากัน) —", "— None (bonus applies evenly everywhere) —", "— 无（各功能奖励相同）—")}</option>
+          {SPOTLIGHT_FEATURES.map(f => <option key={f.key} value={f.key}>{f.icon} {f.label.en}</option>)}
+        </select>
         <button className="songbtn go" style={{ width: "100%" }} disabled={busy || (!nameTh.trim() && !nameEn.trim())} onClick={start}>
           {busy ? "⏳" : "🎉"} {T("เริ่มเลย", "Start now", "立即开始")}
         </button>
@@ -7031,6 +8026,13 @@ export default function App() {
   if (!profile || !profile.onboarded) {
     return <ProfileForm session={session} onSignOut={signOut} onSaved={() => loadProfile(session.user.id)} />;
   }
+  // First-ever visit (real account or guest, profile.lang is only ever unset
+  // once) — ask which language to use from here on, before PianoApp exists
+  // to default to English. Guarantees PianoApp's own `lang` state can always
+  // read a real, already-chosen value straight off profile.lang.
+  if (!profile.lang) {
+    return <LangPickerScreen session={session} profile={profile} setProfile={setProfile} />;
+  }
   return <PianoApp session={session} profile={profile} setProfile={setProfile} onSignOut={signOut} />;
 }
 
@@ -7076,7 +8078,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { localStorage.setItem("tg_push_primed", "1"); } catch (e) {}
   }
 
-  const [lang, setLang] = useState("en");   // English is the default language on entry
+  // App()'s own LangPickerScreen gate guarantees profile.lang is always
+  // already set by the time PianoApp exists at all (first-ever visit picks
+  // it, before PianoApp ever mounts) — so this reads a real per-user choice,
+  // not a guessed default. setLang persists any LATER change (the ☰ flag
+  // switcher) the same way: profiles.lang for a real account, the guest's
+  // own already-persisted local profile object otherwise.
+  const [lang, setLangState] = useState(profile.lang || "en");
+  function setLang(lg) {
+    setLangState(lg);
+    if (session && session.user && session.user.id) {
+      sb.from("profiles").update({ lang: lg }).eq("id", session.user.id).then(() => {}, () => {});
+    } else {
+      saveGuestProfile({ ...profile, lang: lg });
+    }
+    setProfile(p => ({ ...p, lang: lg }));
+  }
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
 
@@ -7095,6 +8112,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
+  const [loginModalOpen, setLoginModalOpen] = useState(false); // optional-side login (corner pill) — GuestGateScreen is the forced-side equivalent, see app-shell.tsx
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
   const [buyCurrencyOpen, setBuyCurrencyOpen] = useState(false);
   function openBuyCurrency() { if (requireLogin()) return; setBuyCurrencyOpen(true); }
@@ -7132,7 +8150,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => navigator.serviceWorker.removeEventListener("message", onNav);
   }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
-  const { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer });
+  const { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songSetlistPos, startSetlist, playAlongHand, changePlayAlongHand } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
 
   // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
@@ -7166,6 +8184,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function dismissBroadcast() {
     if (broadcast) markBroadcastSeen(broadcast.id);
     setBroadcast(null);
+  }
+  // Jump straight to an event's spotlighted feature — each SPOTLIGHT_FEATURES
+  // key maps to whatever that feature's real navigation actually is (a plain
+  // page for most, a dedicated opener for the two that are modals over
+  // Studio rather than their own page).
+  function goToSpotlight(key) {
+    playUi("click"); setNavOpen(false);
+    if (key === "playalong") { setPage("studio"); setStudioView("songs"); }
+    else if (key === "sight") { setPage("studio"); setStudioView("menu"); openSight(); }
+    else if (key === "camera") { setPage("studio"); setStudioView("menu"); openCamera(); }
+    else setPage(key);
   }
   // ── Seasonal / limited-time event: same app_settings + admin_set_app_setting
   // mechanism as broadcast above (key "event" instead of "broadcast"), polled the
@@ -7228,8 +8257,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [earGymInitialTab, setEarGymInitialTab] = useState("int"); // which Ear Gym tab to land on — set before navigating there for skill remediation
 
   const [setAdvancedOpen, setSetAdvancedOpen] = useState(false); // progressive disclosure for Metronome BPM/tap-tempo
-  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp });
-  const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera } = useCameraCoach({ lang, premium, setPricingOpen });
+  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightMode, sightSprintLeft, sightSprintSecs, sightBelts, sightBestStreakMap, sightBestSprintMap, sightTotalRead, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly });
+  const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera } = useCameraCoach({ lang, premium, setPricingOpen, onReward: (xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); } });
 
 
   // ── routing + secret admin unlock ──
@@ -7243,6 +8272,31 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // take the learner back where they came from (pathway lesson, studio, etc.)
   const pageTrackRef = useRef("pathway");
   useEffect(() => { if (page !== "sensei") pageTrackRef.current = page; }, [page]);
+  // Which group card the Challenging page should scroll to on arrival — set
+  // right before navigating there from the Auto Teaching nudge below, so the
+  // learner lands on the exact section they just studied instead of the top
+  // of a page listing all 4.
+  const [challengeFocusGroup, setChallengeFocusGroup] = useState(null);
+  // Auto Teaching → Challenging Mode nudge: a dismissible banner offering a
+  // one-tap jump to test what was just taught, the moment learnTopic() shows
+  // that everything else in this stage's group is already done too (see
+  // maybeNudgeChallenge below / groupChallengeReady in App.tsx module scope).
+  // { groupId, icon, label, kind: "boss" | "full" } | null
+  const [challengeNudge, setChallengeNudge] = useState(null);
+  const challengeNudgeTimer = useRef(null);
+  function maybeNudgeChallenge(stage) {
+    if (!stage || !stage.group) return;
+    const group = (PATH_GROUPS[lang] || []).find(g => g.id === stage.group);
+    if (!group) return;
+    clearTimeout(challengeNudgeTimer.current);
+    if (groupChallengeReady(group)) {
+      setChallengeNudge({ groupId: group.id, icon: group.icon, label: group.label, kind: "boss" });
+      challengeNudgeTimer.current = setTimeout(() => setChallengeNudge(null), 14000);
+    } else if (pathDoneSet().size >= PATHWAY.length && !certClaimedSet().has("full")) {
+      setChallengeNudge({ groupId: null, icon: "🏆", label: "", kind: "full" });
+      challengeNudgeTimer.current = setTimeout(() => setChallengeNudge(null), 14000);
+    }
+  }
 
   // null | "time" | "ai" — which GuestGateScreen (if any) currently covers the
   // screen. Two distinct producers, one shared consumer (see render below).
@@ -7372,12 +8426,30 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
   }
 
-  const { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, requireLogin });
+  const { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, requireLogin });
   // Which Pathway topic is currently being studied on the Sensei page, so a
   // "back" button can jump straight to that topic's key picker re-opened —
   // instead of the ☰ menu → Pathway → find-the-card-again round trip.
   const [activeStageId, setActiveStageId] = useState(null);
   const [activeStageType, setActiveStageType] = useState(null); // chosen chord/interval type, if any — lets "Change Key" reopen straight at the key picker
+
+  // Knowledge Quest conversation starters — 3 unread case studies picked at
+  // random each time the chat page is (re)entered, so returning learners see
+  // a fresh invitation to explore instead of the same 3 forever. Recomputes
+  // only on page/lang change, not on every keystroke in the chat input.
+  const chatStarters = useMemo(() => {
+    const read = caseReadSet();
+    const pool = [];
+    for (const stage of knowledgeDomains()) {
+      for (const c of (BENEFIT_CASES[stage.id] || [])) {
+        if (!read.has(stage.id + "/" + c.id)) pool.push({ stage, c });
+      }
+    }
+    const picked = [];
+    while (picked.length < 3 && pool.length) picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    return picked;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, lang]);
 
   const uid = session && session.user && session.user.id;
 
@@ -7395,7 +8467,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [uid]);
 
 
-  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang });
+  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang, bumpWeekly });
 
 
   const { vmOpen, setVmOpen, vmState, vmCaption, setVmCaption, vmMsgs, setVmMsgs, vmNotes, setVmNotes, vmErr, setVmErr, vmActiveRef, vmStateRef, vmRecRef, vmMsgsRef, vmNotesRef, vmFrozenRef, vmPlayReactT, vmSilenceT, vmRestartT, vmWatchdogT, vmListenSeqRef, vmEndRef, vmLastActivityRef, vmIdleNudgedRef, vmIdleTimerRef, vmSelfSpeakingRef, vmEarResetRef, vmEarFlushRef, vmDeafCountRef, vmTallyOkRef, vmTallyMissRef, vmFast, setVmFast, vmFastRef, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmPoly, setVmPoly, vmPolyRef, vmLangOpen, setVmLangOpen, vmMenuOpen, setVmMenuOpen, langRef, vmLastDemoRef, vmStreakRef, vmMissRef, vmFillersRef, vmFillerSrcRef, vmCloudDeadRef, vmLit, setVmLit, vmLitT, vmStaff, setVmStaff, vmInstant, setVmInstant, vmInstantT, vmExpectRef, vmSeqRef, vmEarRef, vmInterruptRef, vmTurnRef, vmSpokenRef, vmSpokeAtRef, vmSessionStartRef, vmActStartRef, vmFillerLastRef, vmInput, setVmInput, openVoice, exitVoice, vmOrbTap, vmOnNote, vmTogglePoly, vmProcess, vmToggle } = useVoiceTutor({ lang, session, profile, homework, setHomework, setPage, setStudioView, setMetroOn, setMetroBpm, metroTimingReport, openCamera, chooseSong, startPractice, lastSeq });
@@ -7468,6 +8540,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     else if (key === "play_along") { setPage("studio"); setStudioView("songs"); }
     else if (key === "ear_training") { logUsage("nav", "studio-eargym"); setEarGymInitialTab(tab || "int"); setPage("eargym"); }
     else if (key === "reading_course") { logUsage("nav", "studio-reading"); setPage("reading"); }
+    else if (key === "challenging") { logUsage("nav", "coach-challenging"); setPage("challenging"); }
     else { setPage("pathway"); }
   }
   // Auto Teaching popup steps are free text from the AI ("practice Twinkle Twinkle",
@@ -7494,12 +8567,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           }
         }
       }
+      const mentionedKey = findKeyMentionInText(text);
       for (const st of PATHWAY) {
         for (const nt of variants(tr(st.title, lang))) {
-          if (q.includes(nt) || nt.includes(q)) return { type: "stage", stage: st };
+          if (q.includes(nt) || nt.includes(q)) return { type: "stage", stage: st, key: mentionedKey };
         }
         const nid = norm(st.id);
-        if (nid.length >= 3 && q.includes(nid)) return { type: "stage", stage: st };
+        if (nid.length >= 3 && q.includes(nid)) return { type: "stage", stage: st, key: mentionedKey };
       }
     }
     return { type: "feature", feature };
@@ -7513,8 +8587,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     } else if (r.type === "stage") {
       if (r.stage.content) { readChapter(r.stage); }
       else {
+        // Honor a specific key named in the tip's own text first — falling
+        // straight to "whichever key isn't done yet" ignored what the tip
+        // actually said (a tip about the C major scale could open any other
+        // key, whichever the learner's progress happened to have queued up
+        // next), which read as the recommendation being simply wrong.
         const keyMap = keyDoneMap();
-        const key = KEYS_12.find(k => !(keyMap[r.stage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0];
+        const key = r.key || KEYS_12.find(k => !(keyMap[r.stage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0];
         learnTopic(r.stage, key, r.stage.types ? r.stage.types[0] : null);
       }
     } else {
@@ -7571,6 +8650,30 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const id = setInterval(tick, 60000 / metroBpm);
     return () => clearInterval(id);
   }, [metroOn, metroBpm]);
+  // auto-enable metronome when entering Play Along, sync BPM with song + tempo, disable when exiting
+  const prevSongOpenRef = useRef(false);
+  const prevSongMetaRef = useRef(null);
+  useEffect(() => {
+    if (songOpen && !prevSongOpenRef.current) {
+      prevSongOpenRef.current = true;
+      setMetroOn(true);
+      if (songMeta && songMeta.bpm) setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    }
+    // sync BPM when song changes during play (setlist/retry)
+    if (songOpen && songMeta && songMeta !== prevSongMetaRef.current) {
+      prevSongMetaRef.current = songMeta;
+      if (songMeta.bpm) setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    }
+    // sync BPM when tempo multiplier changes (0.5x, 0.75x, 1x, 1.25x)
+    if (songOpen && songMeta && songMeta.bpm) {
+      setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    }
+    if (!songOpen && prevSongOpenRef.current) {
+      prevSongOpenRef.current = false;
+      prevSongMetaRef.current = null;
+      setMetroOn(false);
+    }
+  }, [songOpen, songMeta, songTempo]);
   // grade the learner's note onsets against the actual metronome clicks (ms-precise)
   function metroTimingReport(noteTimes) {
     const beats = metroBeatTimesRef.current;
@@ -7622,6 +8725,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches);
   const isIOSSafari = isIOSDevice && /Safari/i.test(navigator.userAgent || "") &&
     !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(navigator.userAgent || ""); // Add to Home Screen only works from actual Safari
+  const isIOSChrome = isIOSDevice && /CriOS/i.test(navigator.userAgent || ""); // Chrome on iOS is just a WebKit skin — Apple never grants it Safari's own home-screen-install entitlement, so it always needs its own "switch to Safari" instructions rather than the generic non-Safari warning
   const [apkInfo, setApkInfo] = useState(null);
   useEffect(() => {
     if (isNative || !(/Android/i.test(navigator.userAgent || "") || isIOSDevice)) return;
@@ -7873,6 +8977,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     startPractice();
   }
 
+  // Group Boss Challenge — chains every practiceable (non-content) stage in a
+  // group into one combined Practice Mode run, graded at a higher bar than any
+  // single stage (BOSS_PASS_ACCURACY, see finishPractice's boss branch in
+  // use-practice-mode.ts). Fingering hints are dropped — mixing different
+  // techniques' fingerings across the combined run would be misleading — and
+  // the combined mode is always plain "seq" one-note-at-a-time matching,
+  // since block/scale-specific behavior doesn't generalize across mixed stage
+  // types. Always in C: the boss tests combined breadth, not one specific key.
+  function startBossChallenge(group) {
+    const bossStages = (STAGES_BY_GROUP[group.id] || []).filter(s => !s.content);
+    if (!bossStages.length) return;
+    let notes = [];
+    for (const st of bossStages) {
+      const chordType = st.types ? st.types[0] : null;
+      notes = notes.concat(buildStageDemoSeq(st, null, chordType).notes);
+    }
+    const demoParsed = { notes, mode: "seq", fingers: null, label: `⚔️ ${group.label}`, key: null, stageId: null, bossGroup: group.id };
+    setActiveStageId(null);
+    setActiveStageType(null);
+    playSequence(demoParsed);
+    startPractice();
+  }
+
   function learnTopic(stage, key, chordType = null) {
     // NOTE: does NOT markPathDone here — opening/hearing the lesson isn't
     // demonstrated skill. The stage is marked done (and given a bronze/
@@ -7929,6 +9056,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       callClaude(prompt); // tier 2: no prepared answer — ask the live AI
       gainExp(EXP.lesson, { lesson: true, quest: true });
     }
+    maybeNudgeChallenge(stage); // Auto Teaching → "test yourself in Challenging Mode" nudge, see definition above
   }
 
   // open a "benefits of music" knowledge chapter — show curated content in the chat
@@ -7946,6 +9074,54 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     pushMessage({ role: "user", text: `📚 ${icon} ${title}` });
     pushMessage({ role: "ai", text: body });
     gainExp(EXP.chapter, { quest: true }); // reward reading a knowledge chapter
+
+    // Knowledge Quest — case-level read tracking for the 7 "benefits" domains.
+    // Only a caseObj drill-down counts (the top-level chapter tap just opens
+    // the card of cases, see PathwayPage's openCard), and only domains that
+    // actually have BENEFIT_CASES are trackable at all.
+    if (stage && stage.id && caseObj && caseObj.id && BENEFIT_CASES[stage.id]) {
+      const wasComplete = domainDoneIds().includes(stage.id);
+      markCaseRead(stage.id, caseObj.id);
+      if (!wasComplete && domainDoneIds().includes(stage.id)) {
+        earnCoins(20); gainExp(30, { quest: true });
+        const domainTitle = tr(stage.title, lang);
+        const celebration = lang === "th"
+          ? `🎖️ ปลดล็อกภารกิจความรู้!\n\n${stage.icon} คุณอ่านครบทุกเรื่องในหมวด "${domainTitle}" แล้ว — ปรบมือให้ตัวเองหน่อย! 👏\n\nไปดูเหรียญสะสมทั้งหมดได้ที่หน้าโปรไฟล์`
+          : lang === "zh"
+          ? `🎖️ 知识任务解锁！\n\n${stage.icon} 你已读完"${domainTitle}"分类下的全部案例——为自己鼓掌吧！👏\n\n前往个人主页查看你的完整收藏。`
+          : `🎖️ Knowledge Quest unlocked!\n\n${stage.icon} You've read every case study in "${domainTitle}" — nice work digging deep! 👏\n\nCheck your full collection on the Profile page.`;
+        pushMessage({ role: "ai", text: celebration });
+      }
+    }
+  }
+
+  // "Ask TIGA about this" — jumps straight into a live chat question about a
+  // specific struggle, from wherever that struggle is already surfaced (the
+  // SRS review modal, the Auto Teaching recap on Profile) instead of leaving
+  // the learner to retype it themselves.
+  // NOTE: only sets page + fires the chat question — it does not know about
+  // or close any modal a caller opened it from (StudioPage's SRS modal has
+  // its own local srsOpen state, out of reach from here); callers close their
+  // own UI first, then invoke this.
+  function askAboutStruggle(item) {
+    setPage("sensei");
+    // Memory Streak — asking about a tracked struggle is a genuine review of
+    // it, wherever the tap came from (the SRS modal, Profile's Auto Teaching
+    // recap, StudioPage's own tag list) — all read from the same
+    // readMemory().struggles signal getDueReviews() itself filters.
+    const { tierUp, bumped } = bumpMemoryStreak();
+    if (bumped) {
+      earnCoins(5 + (tierUp ? 10 : 0));
+      gainExp(10 + (tierUp ? 25 : 0), { quest: true });
+      playUi(tierUp ? "levelup" : "reward");
+    }
+    const acc = item && item.acc != null ? item.acc : null;
+    const q = lang === "th"
+      ? `ช่วยแนะนำแนวทางฝึกเรื่อง "${item.label}" หน่อยครับ ฉันพลาดเรื่องนี้บ่อย${acc != null ? ` (แม่นยำล่าสุด ${acc}%)` : ""} ควรฝึกหรือทำความเข้าใจอะไรเพิ่มถึงจะดีขึ้น`
+      : lang === "zh"
+      ? `请给我一些关于"${item.label}"的练习建议。我经常在这里出错${acc != null ? `（最近准确率 ${acc}%）` : ""}，该怎么练习或理解才能进步？`
+      : `Can you help me with "${item.label}"? I keep struggling with it${acc != null ? ` (recent accuracy ${acc}%)` : ""}. What should I practice or understand better?`;
+    askDirect(q);
   }
 
   return (
@@ -7953,7 +9129,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       <div className="scan" />
 
       {guestGateReason && (
-        <GuestGateScreen reason={guestGateReason} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
+        <GuestGateScreen reason={guestGateReason} profile={profile} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
       )}
 
       {permPrimerOpen && (() => {
@@ -8008,7 +9184,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         <div className="hdr-r">
           {isGuest && (
-            <button className="guestloginpill" onClick={() => { saveGuestProfile(profile); signInWith("google"); }} title="Login with Google">
+            <button className="guestloginpill" onClick={() => setLoginModalOpen(true)} title="Login or sign up">
               <span className="oauthico">G</span> {T("ล็อกอิน", "Login", "登录")}
               {guestMsLeft > 0 && guestMsLeft < GUEST_TRIAL_MS && (() => {
                 const totalSec = Math.ceil(guestMsLeft / 1000); // whole seconds left, rounded up so it never shows 0:00 while time remains
@@ -8065,7 +9241,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: HOME (new landing page — UX refactor) ─── */}
       {/* ─── PAGE: PATHWAY ─── */}
       {page === "pathway" && (
-        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
+        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge} initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
+      )}
+
+      {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}
+      {page === "challenging" && (
+        <ChallengingPage lang={lang} onBoss={startBossChallenge} gainExp={gainExp} earnCoins={earnCoins} userName={(profile && profile.full_name) || ""} focusGroupId={challengeFocusGroup} onConsumeFocus={() => setChallengeFocusGroup(null)} />
       )}
 
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
@@ -8077,10 +9258,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "eargym" && (
-        <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
+        <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c, perfect) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); if (perfect) bumpWeekly("perfect", perfect); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "reading" && (
-        <ReadingPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }}
+        <ReadingPage lang={lang} onReward={(xp, c, perfect) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); if (perfect) bumpWeekly("perfect", perfect); }} onBack={() => { setPage("studio"); setStudioView("menu"); }}
           onPlaySong={(song) => { chooseSong(song); setPage("studio"); setStudioView("songs"); }} />
       )}
       {page === "insights" && (
@@ -8109,8 +9290,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
       {page === "studio" && (
         studioView === "songs"
-          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
-          : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis}
+          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => setStudioView("menu")} onStartSetlist={startSetlist} />
+          : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis} onAskStruggle={askAboutStruggle}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
               onSongs={() => setStudioView("songs")}
@@ -8126,6 +9307,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               onUpsell={() => setPricingOpen(true)}
               onPlay={(s) => { logUsage("nav", "studio-quick"); chooseSong(s); }}
               onParent={() => { playUi("click"); premium ? setParentOpen(true) : setPricingOpen(true); }}
+              onChallenging={() => { logUsage("nav", "studio-challenging"); setPage("challenging"); }}
               detectOpen={detectOpen} setDetectOpen={setDetectOpen} detectNotes={detectNotes} setDetectNotes={setDetectNotes}
               detectMatch={detectMatch} setDetectMatch={setDetectMatch} detectListening={detectListening} setDetectListening={setDetectListening}
               battlePickOpen={battlePickOpen} setBattlePickOpen={setBattlePickOpen} battleData={battleData} setBattleData={setBattleData}
@@ -8143,16 +9325,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} />}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
-      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} />}
+      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
       {page === "gamepage" && <GamesPage lang={lang} />}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
-      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} endRef={endRef} input={input} setInput={setInput} send={send} setModal={setModal} />}
+      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} endRef={endRef} input={input} setInput={setInput} send={send} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} />}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}
@@ -8176,6 +9358,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
           { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
+          // Challenging moved into the Studio card grid (right after Parent
+          // Report, before the MAX Exclusive Features section) per request —
+          // no longer a separate drawer entry, same page either way.
           // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
           // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
         ].map(it => {
@@ -8227,13 +9412,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} />}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
-      {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} />}
+      {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} />}
 
       {/* SIGHT-READING overlay */}
-      {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} />}
+      {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
 
       {/* HAND-POSTURE COACH overlay (camera) */}
-      {camOpen && <CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} closeCameraAfterRecap={closeCameraAfterRecap} />}
+      {camOpen && <CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} camStreakInfo={camStreakInfo} closeCameraAfterRecap={closeCameraAfterRecap} />}
 
       {/* AI VOICE TUTOR overlay */}
       {vmOpen && <VoiceTutorOverlay lang={lang} setLang={setLang} vmLangOpen={vmLangOpen} setVmLangOpen={setVmLangOpen} exitVoice={exitVoice} onBack={() => { exitVoice(); setPage("studio"); }} vmState={vmState} vmErr={vmErr} vmOrbTap={vmOrbTap} vmInstant={vmInstant} vmCaption={vmCaption} vmStaff={vmStaff} vmNotes={vmNotes} vmMsgs={vmMsgs} vmEndRef={vmEndRef} vmLit={vmLit} vmOnNote={vmOnNote} vmMenuOpen={vmMenuOpen} setVmMenuOpen={setVmMenuOpen} vmSpeed={vmSpeed} setVmSpeed={setVmSpeed} vmSpeedRef={vmSpeedRef} vmVoice={vmVoice} setVmVoice={setVmVoice} vmFast={vmFast} setVmFast={setVmFast} vmFastRef={vmFastRef} vmCloudDeadRef={vmCloudDeadRef} vmPoly={vmPoly} vmTogglePoly={vmTogglePoly} vmInput={vmInput} setVmInput={setVmInput} vmEarResetRef={vmEarResetRef} vmActiveRef={vmActiveRef} vmProcess={vmProcess} vmToggle={vmToggle} />}
@@ -8496,6 +9681,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* COSMETICS SHOP */}
       {friendsOpen && <FriendsModal lang={lang} onClose={() => setFriendsOpen(false)} />}
+      {loginModalOpen && <LoginModal profile={profile} onGoogleLogin={() => { saveGuestProfile(profile); signInWith("google"); }} onClose={() => setLoginModalOpen(false)} />}
 
       {shopOpen && (
         <div className="setov" onClick={() => setShopOpen(false)}>
@@ -8591,19 +9777,27 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* seasonal / limited-time event banner — see the activeEvent poll above */}
-      {activeEvent && (
-        <div className="eventbanner">
-          <span className="eventbanner-ic" aria-hidden="true">🎉</span>
-          <span className="eventbanner-tx">{tr({ th: activeEvent.name_th, en: activeEvent.name_en, zh: activeEvent.name_zh }, lang)}</span>
-          {(activeEvent.expMult > 1 || activeEvent.coinMult > 1) && (
-            <span className="eventbanner-mult">
-              {activeEvent.expMult > 1 ? `${activeEvent.expMult}× EXP` : ""}
-              {activeEvent.expMult > 1 && activeEvent.coinMult > 1 ? " · " : ""}
-              {activeEvent.coinMult > 1 ? `${activeEvent.coinMult}× 🪙` : ""}
-            </span>
-          )}
-        </div>
-      )}
+      {activeEvent && (() => {
+        const spot = activeEvent.spotlightFeature && SPOTLIGHT_FEATURES.find(f => f.key === activeEvent.spotlightFeature);
+        return (
+          <div className="eventbanner">
+            <span className="eventbanner-ic" aria-hidden="true">🎉</span>
+            <span className="eventbanner-tx">{tr({ th: activeEvent.name_th, en: activeEvent.name_en, zh: activeEvent.name_zh }, lang)}</span>
+            {(activeEvent.expMult > 1 || activeEvent.coinMult > 1) && (
+              <span className="eventbanner-mult">
+                {activeEvent.expMult > 1 ? `${activeEvent.expMult}× EXP` : ""}
+                {activeEvent.expMult > 1 && activeEvent.coinMult > 1 ? " · " : ""}
+                {activeEvent.coinMult > 1 ? `${activeEvent.coinMult}× 🪙` : ""}
+              </span>
+            )}
+            {spot && (
+              <button className="eventbanner-spot" onClick={() => goToSpotlight(spot.key)}>
+                🔦 {spot.icon} {spot.label[lang]} {lc.eventSpotGo}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Floating mascot companion widget removed per feedback (the floating
           face read as visual clutter). mascotMood/mascot() are left in place
@@ -8651,7 +9845,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{tr(challengeData.song, lang)}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button className="lvup-share" style={{ background: "var(--accent)", color: "#fff" }}
-              onClick={(e) => { e.stopPropagation(); setChallengeData(null); setSongMeta(challengeData.song); songDataRef.current = expandSong(challengeData.song); setSongPhase("ready"); setSongResult(null); setSongOpen(true); }}>
+              onClick={(e) => { e.stopPropagation(); setChallengeData(null); setSongMeta(challengeData.song); songDataRef.current = expandSong(challengeData.song, { hand: songHandMode }); setSongPhase("ready"); setSongResult(null); setSongOpen(true); }}>
               🎹 {lang === "th" ? "รับคำท้า!" : lang === "zh" ? "接受挑战!" : "Accept!"}
             </button>
             <button className="lvup-share" onClick={(e) => { e.stopPropagation(); setChallengeData(null); }}>✕</button>
@@ -8748,6 +9942,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           th: {
             title: "ติดตั้งบน iPhone / iPad", sub: "ใช้ Safari เท่านั้น — เบราว์เซอร์อื่นบน iOS ทำแบบนี้ไม่ได้",
             warn: "ดูเหมือนหน้านี้ไม่ได้เปิดใน Safari — เปิดลิงก์นี้ใน Safari ก่อน แล้วทำตามขั้นตอนด้านล่าง",
+            warnChrome: "คุณกำลังใช้ Chrome อยู่ — บน iPhone/iPad มีแค่ Safari เท่านั้นที่ติดตั้งไอคอนแอปแบบเต็มจอได้ (เป็นข้อจำกัดจาก Apple ไม่ใช่จาก Chrome) แตะ ⋯ เพิ่มเติม ที่ด้านล่างจอ แล้วเลือก \"เปิดใน Safari\" จากนั้นทำตามขั้นตอนด้านล่างนี้",
             s1t: "1. แตะปุ่มแชร์", s1b: "ไอคอนสี่เหลี่ยมมีลูกศรชี้ขึ้น อยู่แถบด้านล่าง (หรือด้านบนใน iPad)",
             s2t: "2. เลื่อนหาแล้วแตะ \"เพิ่มไปที่หน้าจอโฮม\"", s2b: "Add to Home Screen",
             s3t: "3. แตะ \"เพิ่ม\" มุมขวาบน", s3b: "เสร็จแล้ว! ไอคอน TIGA.AI จะอยู่บนหน้าจอโฮมของคุณ",
@@ -8757,6 +9952,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           en: {
             title: "Install on iPhone / iPad", sub: "Safari only — other iOS browsers can't do this",
             warn: "This page doesn't look like it's open in Safari — open this link in Safari first, then follow the steps below.",
+            warnChrome: "You're in Chrome — on iPhone/iPad, only Safari can add a real full-screen app icon (that's an Apple rule, not a Chrome limitation). Tap ⋯ More at the bottom of the screen, choose \"Open in Safari,\" then follow the steps below.",
             s1t: "1. Tap the Share button", s1b: "The square with an arrow pointing up, in the bottom bar (top bar on iPad)",
             s2t: "2. Scroll down and tap \"Add to Home Screen\"", s2b: "",
             s3t: "3. Tap \"Add\" in the top-right corner", s3b: "Done! The TIGA.AI icon is now on your Home Screen.",
@@ -8766,6 +9962,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           zh: {
             title: "在 iPhone / iPad 上安装", sub: "仅限 Safari — iOS 上的其他浏览器无法这样做",
             warn: "此页面似乎不是在 Safari 中打开的 — 请先在 Safari 中打开此链接，然后按照以下步骤操作。",
+            warnChrome: "你正在使用 Chrome — 在 iPhone/iPad 上，只有 Safari 才能把应用图标完整安装到主屏幕（这是苹果的限制，与 Chrome 无关）。点击屏幕底部的 ⋯ 更多，选择「在 Safari 中打开」，然后按照以下步骤操作。",
             s1t: "1. 点击分享按钮", s1b: "带向上箭头的方框图标，位于底部工具栏（iPad 在顶部）",
             s2t: "2. 向下滚动并点击\"添加到主屏幕\"", s2b: "",
             s3t: "3. 点击右上角的\"添加\"", s3b: "完成！TIGA.AI 图标现在在你的主屏幕上了。",
@@ -8780,7 +9977,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className="apkpop-x" onClick={() => setIosInstallOpen(false)} aria-label="close">×</button>
               <b className="apkpop-title">{c.title}</b>
               <span className="apkpop-sub">{c.sub}</span>
-              {!isIOSSafari && <div className="iosinstall-warn">⚠️ {c.warn}</div>}
+              {isIOSChrome ? <div className="iosinstall-warn">⚠️ {c.warnChrome}</div>
+                : !isIOSSafari && <div className="iosinstall-warn">⚠️ {c.warn}</div>}
               <div className="iosinstall-steps">
                 <div className="iosinstall-step">
                   <span className="iosinstall-stepic">📤</span>
@@ -8837,6 +10035,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
           <button className="installbanner-go" onClick={enablePushFromBanner}>{lc.pushBannerBtn}</button>
           <button className="installbanner-x" onClick={dismissPushBanner} aria-label="close">×</button>
+        </div>
+      )}
+
+      {/* Auto Teaching → Challenging Mode nudge — see maybeNudgeChallenge() */}
+      {challengeNudge && (
+        <div className="installbanner" style={{ background: "linear-gradient(90deg,#8b5cf6,#a78bfa)" }}>
+          <span className="installbanner-ic" aria-hidden="true">{challengeNudge.icon}</span>
+          <div className="installbanner-tx">
+            <b>{lc.challengeNudgeTitle}</b>
+            <span>{challengeNudge.kind === "full" ? lc.challengeNudgeFull : lc.challengeNudgeBoss.replace("{g}", challengeNudge.label)}</span>
+          </div>
+          <button className="installbanner-go" style={{ background: "#fff", color: "#7c3aed" }} onClick={() => { playUi("click"); clearTimeout(challengeNudgeTimer.current); setChallengeFocusGroup(challengeNudge.groupId); setPage("challenging"); setChallengeNudge(null); }}>{lc.challengeNudgeBtn}</button>
+          <button className="installbanner-x" onClick={() => { clearTimeout(challengeNudgeTimer.current); setChallengeNudge(null); }} aria-label="close">×</button>
         </div>
       )}
 

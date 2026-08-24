@@ -3,7 +3,7 @@ import {
   fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP,
   getAC, playPianoNote, playUi, stopPracticeListeners, startMidiListener, startMicListener,
 } from "./music-engine";
-import { logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY } from "./App";
+import { logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
 import { logActivity } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
@@ -63,10 +63,10 @@ function scoreRhythm(times) {
 // block vs. broken grade completely differently — see switchPracticeChordStyle).
 // Accuracy and streak track independently: a learner might set one record
 // without the other in the same run.
-function readPracticeBests() { try { return JSON.parse(localStorage.getItem("tg_practice_best") || "{}") || {}; } catch (e) { return {}; } }
+export function readPracticeBests() { try { return JSON.parse(localStorage.getItem("tg_practice_best") || "{}") || {}; } catch (e) { return {}; } }
 function writePracticeBest(key, rec) { try { const m = readPracticeBests(); m[key] = rec; localStorage.setItem("tg_practice_best", JSON.stringify(m)); } catch (e) {} }
 
-export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang }) {
+export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang, bumpWeekly }) {
   // ── practice mode (listen to the learner play) ──
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceTarget, setPracticeTarget] = useState([]); // note names to play, in order
@@ -88,6 +88,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceKeyRef = useRef(null);   // scale/chord key so practice can recompute fingering per hand
   const practiceModeRef = useRef("seq");
   const practiceAscRef = useRef([]);     // ascending-only notes (pre up+down expansion) — lets a hand switch mid-scale recompute correctly
+  const practiceBaseFingersRef = useRef([]); // this drill's fingers as originally resolved (startPractice's own fallback chain), RIGHT-hand-canonical — lets a mid-drill hand switch remirror a chord/interval that has no scale-style per-key data to relookup (e.g. a 4+-note seventh chord), instead of leaving the previous hand's numbers on screen
   const practiceIdxRef = useRef(0);
   const practiceHitSetRef = useRef(new Set()); // hit target indices — block-style chord/interval practice only
   const practiceHitsRef = useRef(0);
@@ -98,6 +99,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceBestStreakRef = useRef(0);
   const practiceLabelRef = useRef("");
   const practiceStageIdRef = useRef(null); // Pathway stage id this drill grades, if launched from learnTopic() — null for Studio/AI-custom drills
+  const practiceBossGroupRef = useRef(null); // Pathway group id, if this is a Group Boss Challenge run — see startBossChallenge()
   const practiceHandlerRef = useRef(() => {});
   const practiceHeardTimer = useRef(null);
   const tuneOffsetRef = useRef(0); // learned piano tuning offset (cents), mic only
@@ -111,6 +113,12 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     let pf = fingersForNotes(practiceKeyRef.current, practiceModeRef.current, ascNotes, hand);
     if (pf && practiceModeRef.current === "scale" && practiceTargetRef.current.length > ascNotes.length) {
       pf = pf.concat(pf.slice(0, -1).reverse());
+    }
+    if (!pf && practiceBaseFingersRef.current.length) {
+      // No verified per-key/scale/3-note-triad data for this hand — mirror the
+      // canonical right-hand fingers instead (same "reverse for left" rule
+      // buildStageDemoSeq already uses when a lesson first opens).
+      pf = hand === "left" ? practiceBaseFingersRef.current.slice().reverse() : practiceBaseFingersRef.current.slice();
     }
     if (pf) setPracticeFingers(pf);
   }, [hand, practiceOpen]);
@@ -251,7 +259,30 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   }
   practiceHandlerRef.current = handlePlayedNote; // keep fresh closure for the listeners
 
-  async function startPractice() {
+  // Shared by startPractice/restartPractice/switchPracticeChordStyle — always
+  // releases whatever listener is currently open (there may be none, or a
+  // live one left by a drill still in progress) and acquires a fresh one for
+  // the drill about to (re)start. Centralizing this means every entry point
+  // that starts a drill is guaranteed a live listener, instead of relying on
+  // each caller to remember to reacquire one itself — see restartPractice()'s
+  // header for the bug this fixes.
+  async function acquireListener(usePoly) {
+    stopPracticeListeners();
+    setPracticeSrc(null);
+    const onDetect = (d) => practiceHandlerRef.current(d);
+    const midiOk = await startMidiListener(onDetect, () => setPracticeSrc({ type: "midi" }));
+    if (!midiOk) {
+      await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }), usePoly ? { poly: true } : undefined);
+    }
+  }
+
+  // chordStyleOverride: replayDrill() below needs to grade against the style
+  // a saved drill actually was (block vs. broken), which setChordStyle()
+  // alone can't guarantee in time — that's a state update, and this function
+  // would otherwise read the OLD chordStyle from its own closure before the
+  // update lands. Every other caller omits it and gets today's normal
+  // behavior (read the current chordStyle state).
+  async function startPractice(chordStyleOverride) {
     const seq = lastSeq.current;
     if (!seq || !seq.notes || !seq.notes.length) return;
     clearSeq(); // actually silence any still-ringing demo chord before the mic starts listening (clearSeq now really stops the audio, not just the UI state)
@@ -259,6 +290,11 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const pf = fingersForNotes(seq.key, seq.mode, seq.notes, hand);
     let notes = seq.notes.slice();
     let fingers = pf || (seq.fingers ? seq.fingers.slice() : []);
+    // Right-hand-canonical copy for a later mid-drill hand switch to remirror
+    // (see practiceBaseFingersRef) — demoFingers/seq.fingers already mirror
+    // for whichever hand was active when the lesson was opened, so undo that
+    // once here rather than assuming "right" was the original.
+    practiceBaseFingersRef.current = fingers.length ? (hand === "left" ? fingers.slice().reverse() : fingers.slice()) : [];
     practiceAscRef.current = notes;
     // a full scale is drilled ascending THEN descending — same as the audio demo
     // and the app's own fingering rule ("descending = the same fingers in
@@ -281,6 +317,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceBestStreakRef.current = 0;
     practiceLabelRef.current = seq.label || "";
     practiceStageIdRef.current = seq.stageId || null;
+    practiceBossGroupRef.current = seq.bossGroup || null;
     practiceActiveRef.current = true;
     setPracticeTarget(notes);
     setPracticeFingers(fingers);
@@ -296,18 +333,28 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     tuneOffsetRef.current = 0; // re-learn tuning for whatever piano is used now
     setPracticeOpen(true);
     getAC(); // unlock/resume audio inside the click gesture
-    stopPracticeListeners(); // release any mic/MIDI another mode left open — never stack listeners
-    const onDetect = (d) => practiceHandlerRef.current(d);
-    const midiOk = await startMidiListener(onDetect, () => setPracticeSrc({ type: "midi" }));
-    if (!midiOk) {
-      // Block-style chord/interval practice needs the polyphonic mic path so
-      // several notes struck together on a real piano can each be heard —
-      // the default monophonic detector only ever names the loudest one.
-      const usePoly = (seq.mode || "seq") === "chord" && chordStyle === "block";
-      await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }), usePoly ? { poly: true } : undefined);
-    }
+    // Block-style chord/interval practice needs the polyphonic mic path so
+    // several notes struck together on a real piano can each be heard — the
+    // default monophonic detector only ever names the loudest one.
+    await acquireListener((seq.mode || "seq") === "chord" && (chordStyleOverride || chordStyle) === "block");
   }
 
+  // Resets a drill's progress and starts it over — from either the mid-drill
+  // "Restart" button or the result screen's "Play Again". Deliberately does
+  // NOT touch the mic/MIDI listener. An earlier version of this fix made it
+  // reacquire one unconditionally (to fix "Play Again" leaving a dead
+  // listener — see finishPractice(), which used to stop it on every finish),
+  // and that DID work — verified by counting real acquisition attempts — but
+  // broke worse on real phones/tablets: repeatedly tearing down and rebuilding
+  // a getUserMedia() mic stream is itself exactly the kind of rapid
+  // stop/restart cycle iOS Safari (and some Android WebViews) can silently
+  // botch — the stream opens, the UI looks ready, but no audio actually comes
+  // through, for that round and every one after. The real fix is to never
+  // tear the listener down between rounds at all: finishPractice() no longer
+  // stops it (practiceActiveRef alone already makes it ignore anything heard
+  // on the result screen), so the SAME listener started once by
+  // startPractice()/replayDrill() just keeps running, correctly configured,
+  // for every subsequent round — nothing to reacquire, nothing to race.
   function restartPractice() {
     practiceIdxRef.current = 0;
     practiceHitSetRef.current = new Set();
@@ -329,22 +376,34 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   // switch Block ⇄ Broken WHILE already inside a practice session (interval and
   // every chord topic share the "chord" practice mode, so this covers both) —
   // restarts the current attempt since block vs. broken grade completely
-  // differently (all-at-once vs. one-at-a-time), and re-acquires the mic listener
-  // because only block style needs the polyphonic path (several notes at once).
+  // differently (all-at-once vs. one-at-a-time). Unlike a plain restart, this
+  // ONE case genuinely needs a fresh listener — block vs. broken need
+  // different mic modes (polyphonic vs. monophonic) — so it's the only
+  // caller that still tears down and reacquires.
   async function switchPracticeChordStyle() {
     if (practiceModeRef.current !== "chord") return;
     playUi("click");
     const next = chordStyle === "block" ? "broken" : "block";
     setChordStyle(next);
     restartPractice();
-    stopPracticeListeners();
-    setPracticeSrc(null);
-    const onDetect = (d) => practiceHandlerRef.current(d);
-    const midiOk = await startMidiListener(onDetect, () => setPracticeSrc({ type: "midi" }));
-    if (!midiOk) {
-      const usePoly = next === "block";
-      await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }), usePoly ? { poly: true } : undefined);
-    }
+    getAC();
+    await acquireListener(next === "block");
+  }
+
+  // Drill Deck — replay a past drill straight from its saved best-record,
+  // bypassing playSequence()/lastSeq's usual "demo just played on the piano"
+  // path entirely. use-voice-tutor.ts's own voice-launched practice flow
+  // already sets lastSeq.current directly the same way (see its header), so
+  // this is a proven pattern, not a new one. If this drill graded a Pathway
+  // stage or Boss Challenge originally, replaying it still can (chasing a
+  // better tier/clearing a boss later), since stageId/bossGroup ride along
+  // with the rest of the saved record — same as any fresh attempt.
+  function replayDrill(entry) {
+    if (!entry || !entry.notes || !entry.notes.length) return;
+    const style = entry.mode === "chord" && entry.chordStyle ? entry.chordStyle : chordStyle;
+    if (style !== chordStyle) setChordStyle(style); // keep the persistent toggle in sync for next render; startPractice(style) below doesn't wait on it
+    lastSeq.current = { notes: entry.notes, mode: entry.mode, key: entry.key, label: entry.label, stageId: entry.stageId, bossGroup: entry.bossGroup, fingers: null };
+    startPractice(style);
   }
 
   function exitPractice() {
@@ -363,12 +422,18 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const accuracy = hits + miss > 0 ? Math.round((hits / (hits + miss)) * 100) : 100;
     const label = practiceLabelRef.current;
     const bestStreak = practiceBestStreakRef.current;
-    practiceActiveRef.current = false;
-    stopPracticeListeners();
+    // Memory Streak — was this stage actually due for SRS review right now?
+    // Captured before markPathAccuracy() below reschedules it (which would
+    // otherwise make it read as "not due" by the time this check ran).
+    const wasDueStage = !!practiceStageIdRef.current && getDueReviews().stages.some(s => s.id === practiceStageIdRef.current);
+    practiceActiveRef.current = false; // handlePlayedNote no-ops on anything heard while the result screen is up — that's all "stop listening" actually requires
     clearTimeout(practiceHeardTimer.current);
     // Overlay stays open — the result now renders in-place (see practiceResult
     // below) instead of exiting to a chat text summary the learner had to go
-    // find on a different page.
+    // find on a different page. The mic/MIDI listener is deliberately left
+    // running (NOT stopped here) — see restartPractice()'s header for why
+    // tearing it down between rounds, even to correctly reacquire it, is
+    // itself the source of a worse bug on real devices.
 
     logPractice(accuracy);
     logActivity("drill", label || "drill", hits, miss, Math.max(20, total * 2));
@@ -377,21 +442,43 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const rhythm = scoreRhythm(practiceTimesRef.current);
     if (rhythm) logActivity("drill", label || "drill", rhythm.ok, rhythm.miss, 0, "rhythm");
     recordMemory(label, accuracy);
-    earnCoins(5 + Math.round(accuracy / 20));
-    gainExp(20 + Math.round(accuracy / 5), { quest: true }); // 20–40 EXP scaled by accuracy
 
     // Personal best, per drill (+chord-style when relevant — block vs. broken
     // grade completely differently, see switchPracticeChordStyle). Accuracy and
     // streak track independently since a run might set one record without the
-    // other.
+    // other. Computed BEFORE granting the reward below, so a genuine new best
+    // can pay a small bonus on top — every other feature's per-drill best this
+    // gamification pass added (belts, speed ranks, the ladder, Posture Streak)
+    // rewards genuine improvement specifically; Practice Mode never did.
     const bestKey = practiceModeRef.current === "chord" ? `${label}|${chordStyle}` : label;
     const bests = readPracticeBests();
     const prevBest = bests[bestKey] || null;
     const isNewBest = !prevBest || accuracy > prevBest.accuracy || bestStreak > prevBest.bestStreak;
+    earnCoins(5 + Math.round(accuracy / 20) + (isNewBest ? 5 : 0));
+    gainExp(20 + Math.round(accuracy / 5) + (isNewBest ? 10 : 0), { quest: true }); // 20–40 EXP scaled by accuracy, +10 on a genuine new best
+    // Weekly challenges — "games"/"perfect" used to only ever bump from Play
+    // Along's finishSong(), so Practice Mode could never complete 6 of the
+    // week's 9 rotating challenge types. hits = notes actually played correctly.
+    if (bumpWeekly) { bumpWeekly("games", 1); if (hits) bumpWeekly("perfect", hits); }
     writePracticeBest(bestKey, {
       accuracy: Math.max(accuracy, prevBest ? prevBest.accuracy : 0),
       bestStreak: Math.max(bestStreak, prevBest ? prevBest.bestStreak : 0),
       at: Date.now(),
+      // Drill Deck — replay data, always refreshed to the drill just played
+      // regardless of whether accuracy/streak improved (unlike the two
+      // fields above, this isn't a "max", just "what this drill currently
+      // is"). practiceAscRef, not practiceTargetRef: the ASCENDING-only
+      // notes, before startPractice()'s own up+down scale expansion —
+      // replayDrill() below feeds this back into startPractice() the same
+      // way a fresh lastSeq from playSequence() would, so it must match
+      // that pre-expansion shape or a scale would double-expand.
+      notes: practiceAscRef.current.slice(),
+      mode: practiceModeRef.current,
+      key: practiceKeyRef.current,
+      label,
+      stageId: practiceStageIdRef.current,
+      bossGroup: practiceBossGroupRef.current,
+      chordStyle: practiceModeRef.current === "chord" ? chordStyle : null,
     });
 
     // Pathway completion — requires actually passing THIS stage's own drill,
@@ -407,7 +494,44 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       if (!wasAlreadyDone) pathUnlocked = { label, tier: pathTier(accuracy) };
     }
 
-    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, aiText: null, aiLoading: !isGuest });
+    // Group Boss Challenge — a combined run across a whole group's stages, so
+    // it's graded on its own (higher) bar rather than folding into any single
+    // stage's tier/SRS schedule. First-time clears get a bonus on top of the
+    // normal accuracy-scaled reward, same "capstone feels bigger" reasoning as
+    // the milestone bonuses elsewhere in the reward economy.
+    let bossDefeated = null;
+    if (practiceBossGroupRef.current && accuracy >= BOSS_PASS_ACCURACY) {
+      const groupId = practiceBossGroupRef.current;
+      const wasAlreadyDone = bossDoneSet().has(groupId);
+      markBossDone(groupId);
+      if (!wasAlreadyDone) {
+        bossDefeated = { groupId, label };
+        earnCoins(50);
+        gainExp(75, { quest: true });
+      }
+    }
+
+    // Memory Streak — credit for reviewing a stage that was actually due,
+    // pass or fail (see wasDueStage above): showing up for the review is the
+    // habit being rewarded, same "showing up counts" treatment as every
+    // other per-feature streak this pass added.
+    let memoryStreak = null;
+    if (wasDueStage) {
+      const r = bumpMemoryStreak();
+      if (r.bumped) {
+        earnCoins(5 + (r.tierUp ? 10 : 0));
+        gainExp(10 + (r.tierUp ? 25 : 0), { quest: true });
+        memoryStreak = r;
+      }
+    }
+
+    // One sound cue for the whole result, not one per celebration — several
+    // of the above can land on the same drill (a due review that also sets
+    // a new best, say), and firing playUi() once per event would layer them
+    // into a muddle instead of one clean cue. Loudest event wins.
+    playUi(bossDefeated || (memoryStreak && memoryStreak.tierUp) || pathUnlocked ? "levelup" : isNewBest || memoryStreak ? "reward" : "click");
+
+    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest });
 
     // Bonus AI flourish on top of an already-complete local result — fetched
     // standalone (not through the shared chat thread/callClaude) so it can
@@ -425,5 +549,5 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         .catch(() => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiLoading: false } : prev)));
     }
   }
-  return { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice };
+  return { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill };
 }

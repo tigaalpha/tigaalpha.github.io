@@ -5,9 +5,14 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "export",
   trailingSlash: true,
-  basePath: BASE_PATH,
-  typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  // Only apply basePath in production (GitHub Pages) — dev server needs root /
+  basePath: process.env.NODE_ENV === "production" ? BASE_PATH : undefined,
   images: {
     unoptimized: true,
   },

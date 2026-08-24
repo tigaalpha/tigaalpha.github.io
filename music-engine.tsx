@@ -39,13 +39,15 @@ export function keysFor(baseOct = 4, octs = 2) {
 }
 
 export const _WHITE_ORD = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
-export function noteKeyFrac(note) {
+export function noteKeyFrac(note, baseOct = 4, nwOverride) {
   const m = String(note || "").match(/^([A-G])(#?)(\d)$/);
   if (!m) return null;
-  const NW = 14;
-  let base = (parseInt(m[3], 10) - 4) * 7 + _WHITE_ORD[m[1]]; // white index from C4
+  // nwOverride: total white keys in visible piano range.
+  // Single-hand = 14 (2 octaves), both-hand = 28 (4 octaves).
+  const NW = nwOverride || 14;
+  let base = (parseInt(m[3], 10) - baseOct) * 7 + _WHITE_ORD[m[1]];
   if (base < 0) base = 0; else if (base > NW - 1) base = NW - 1;
-  if (m[2] === "#") return { cx: (base + 1) / NW, w: (1 / NW) * 0.62 }; // black sits on the gap
+  if (m[2] === "#") return { cx: (base + 1) / NW, w: (1 / NW) * 0.62 };
   return { cx: (base + 0.5) / NW, w: 1 / NW };
 }
 
@@ -262,7 +264,15 @@ export function getFingers(key, mode, hand) {
 export function fingersForNotes(key, mode, notes, hand) {
   let f = null;
   if (key) f = getFingers(key, mode, hand);
-  else if (mode === "chord" || (mode === "seq" && notes.length === 3)) f = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
+  // The 1-3-5/5-3-1 fallback is shaped for a 3-note ROOT-POSITION TRIAD only —
+  // applying it to any "chord" regardless of note count silently truncated a
+  // 4-note seventh chord to 3 fingers (the 4th note got no finger at all),
+  // since a "chord" with a caller-supplied 4-entry `fingers` array (see
+  // buildStageDemoSeq's own demoFingers) never reached this fallback: the
+  // caller only falls back to fingersForNotes()'s result when it's non-null,
+  // so a plausible-looking-but-wrong 3-note answer here masked the correct
+  // one instead of yielding to it.
+  else if ((mode === "chord" || mode === "seq") && notes.length === 3) f = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
   return f ? notes.map((n, i) => (f[i] != null ? f[i] : null)) : null;
 }
 
@@ -1195,21 +1205,229 @@ export const SONG_DEBOUNCE_MS = 130; // min gap between same-pitch hits — stop
 export const SONG_ECHO_MS = 350;     // after a tap, ignore the mic hearing that same note (the app's own sound)
 export const SONG_MISSWINDOW = 0.5;
 
-// Song library. seq = [noteName | "R", durationInBeats]. All notes live in the
-// C4..B5 range the on-screen keyboard + synth cover. Public-domain melodies only.
-// Expand a song into timed note objects + the set of lanes (distinct pitches).
-export function expandSong(song) {
-  const spb = 60 / song.bpm; // seconds per beat
+// Heuristic melody fingering — NOT a lookup against verified pedagogy (unlike
+// fingersForNotes/FINGERINGS_RH/LH just above, which only cover named
+// scales/chords and return null for a real song's melody). Walks the
+// interval between each pair of consecutive notes and moves one finger in
+// that direction (RH: pitch up = higher finger, toward the pinky; LH
+// mirrored, since its thumb sits on the high side); when a run would need a
+// 6th finger, it re-anchors on the edge finger that leaves room to keep
+// going, standing in for a real thumb-under/finger-crossing position shift.
+// Always returns a valid 1-5 finger per note; it won't always match exactly
+// how a teacher would finger the same passage.
+export function heuristicFingers(notes, hand = "right") {
+  const midis = (notes || []).map(noteToMidi);
+  if (!midis.length) return [];
+  const dir0 = midis.length > 1 ? Math.sign((hand === "left" ? -1 : 1) * (midis[1] - midis[0])) : 0;
+  const fingers = [dir0 > 0 ? 1 : dir0 < 0 ? 5 : 3];
+  for (let i = 1; i < midis.length; i++) {
+    const semis = midis[i] - midis[i - 1];
+    const dir = (hand === "left" ? -1 : 1) * semis;
+    let f = fingers[i - 1] + Math.round(dir * 7 / 12); // semitones -> ~diatonic finger-steps
+    if (f < 1) f = dir < 0 ? 5 : 1;
+    else if (f > 5) f = dir > 0 ? 1 : 5;
+    fingers.push(f);
+  }
+  return fingers;
+}
+
+// Diatonic triad qualities by scale degree (I..vii), major and natural minor.
+const _DEG_QUALITY_MAJ = ["major", "minor", "minor", "major", "major", "minor", "dim"];
+const _DEG_QUALITY_MIN = ["minor", "dim", "major", "minor", "minor", "major", "major"];
+// Detect a song's key by fitting the melody against all 24 keys, weighting
+// each pitch class by how LONG it sounds rather than how often it appears.
+//
+// The previous version simply took the last note as the tonic. That reads
+// well for tunes that end where they started, but these arrangements often
+// don't: Jingle Bells here ends on G while using only white keys, so it was
+// labelled G major — a key whose signature demands F♯ — against a melody
+// that plays F♮ throughout. A wrong key is not a cosmetic problem: it prints
+// the wrong key signature and then an accidental on every note that
+// disagrees with it. Ending on the tonic is still a real cue, so it stays,
+// as a bonus rather than as the whole answer.
+export function detectSongKey(song) {
+  const seq = (song.seq || []).filter(([n]) => n !== "R");
+  if (!seq.length) return { root: 0, minor: false };
+  const w = new Array(12).fill(0);
+  for (const [n, d] of seq) { const p = pcIdx(pcOf(n)); if (p >= 0) w[p] += (+d || 1); }
+  const total = w.reduce((a, b) => a + b, 0) || 1;
+  const lastPc = pcIdx(pcOf(seq[seq.length - 1][0]));
+  const firstPc = pcIdx(pcOf(seq[0][0]));
+  let best = null;
+  for (let root = 0; root < 12; root++) {
+    for (const minor of [false, true]) {
+      const steps = minor ? SCALE_DEF["natural minor"] : SCALE_DEF.major;
+      let inKey = steps.reduce((sum, x) => sum + w[(root + x) % 12], 0);
+      // a raised 7th is ordinary in a minor key (harmonic minor), not an error
+      if (minor) inKey += w[(root + 11) % 12];
+      // A note the key can't contain is the strongest evidence AGAINST that
+      // key, so it counts against the score harder than an in-key note counts
+      // for it. Without this the "ends on the tonic" bonus can carry a key
+      // the melody plainly contradicts — a white-key tune ending on G was
+      // being called G major even though it plays F♮ throughout.
+      const out = (total - inKey) / total;
+      let score = inKey / total - 1.6 * out;
+      score += 0.30 * (w[root] / total);                       // tonic weight
+      score += 0.12 * (w[(root + 7) % 12] / total);            // dominant weight
+      score += 0.10 * (w[(root + (minor ? 3 : 4)) % 12] / total); // the third decides major vs minor
+      if (lastPc === root) score += 0.22;                      // ending on the tonic
+      if (firstPc === root) score += 0.06;
+      if (!best || score > best.score) best = { score, root, minor };
+    }
+  }
+  return { root: best.root, minor: best.minor };
+}
+// Generate a simple left-hand accompaniment for a song that has no authored
+// second part of its own (songs-data.ts is a single melody line — see the
+// header comment below). This is a harmonization HEURISTIC, not real chord
+// inference: per bar, it scores each of the 7 diatonic triads in the song's
+// detected key by how much of that bar's melody (weighted by note length)
+// falls on one of the triad's own tones, favors staying on the previous
+// bar's chord (harmonic inertia) and landing on I/V for the final bar
+// (cadence), then renders the winner as a classic beginner "oom-pah" bass:
+// root on beat 1, 5th at the bar's midpoint — one octave (3) below the
+// melody's own C4 floor. Returns [{note, beat, dur}, ...] in beat-space,
+// matching the units expandSong() already uses for the melody itself.
+export function generateAccompaniment(song, pickup = 0) {
+  const timeSig = SONG_TIMESIG[song.id] || "4/4";
+  const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
+  const key = detectSongKey(song);
+  const scaleSteps = key.minor ? SCALE_DEF["natural minor"] : SCALE_DEF.major;
+  const qualities = key.minor ? _DEG_QUALITY_MIN : _DEG_QUALITY_MAJ;
+  const degreeRoots = scaleSteps.map(s => (key.root + s) % 12);
+
   let beat = 0;
-  const notes = [];
+  const melNotes = [];
   for (const [note, dur] of song.seq) {
-    if (note !== "R") notes.push({ note, t: beat * spb, beat, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0 });
+    if (note !== "R") melNotes.push({ pc: pcIdx(pcOf(note)), beat, dur });
     beat += dur;
   }
+  const totalBeats = beat;
+  if (!melNotes.length || totalBeats < 1) return [];
+
+  const events = [];
+  let prevDeg = 0;
+  // Bars are walked from the pickup onward so the accompaniment's own bars
+  // line up with the ones the staff actually draws — an accompaniment on a
+  // different bar grid than the melody it accompanies is simply wrong.
+  const barStarts = [];
+  if (pickup > 0) barStarts.push({ at: 0, len: pickup });
+  for (let b = pickup; b < totalBeats - 1e-6; b += beatsPerBar) barStarts.push({ at: b, len: Math.min(beatsPerBar, totalBeats - b) });
+  for (const { at: barStart, len: barLen } of barStarts) {
+    if (barLen < 0.5) continue; // trailing sliver — not worth a chord of its own
+    const weight = new Array(12).fill(0);
+    for (const n of melNotes) if (n.beat >= barStart - 1e-9 && n.beat < barStart + barLen - 1e-9) weight[n.pc] += n.dur;
+    let bestScore = -1, bestDeg = prevDeg;
+    for (let deg = 0; deg < 7; deg++) {
+      const triad = CHORD_DEF[qualities[deg]].map(s => (degreeRoots[deg] + s) % 12);
+      let score = triad.reduce((s, pc) => s + weight[pc], 0);
+      if (deg === prevDeg) score += 0.35; // harmonic inertia
+      if (barStart + barLen >= totalBeats - 1e-9 && (deg === 0 || deg === 4)) score += 0.5; // cadence
+      if (score > bestScore) { bestScore = score; bestDeg = deg; }
+    }
+    prevDeg = bestDeg;
+    const rootPc = CHROMA[degreeRoots[bestDeg]], fifthPc = CHROMA[(degreeRoots[bestDeg] + 7) % 12];
+    // Split the bar exactly in half — root then fifth. The old version gave
+    // the root a flat 2 beats and started the fifth at the bar's midpoint,
+    // which in any meter that isn't 4/4 made the two OVERLAP and the bar add
+    // up to more than a bar (3/4: a 2-beat root under a fifth starting at
+    // 1.5, totalling 3.5 beats in a 3-beat bar).
+    const halfBar = +(barLen / 2).toFixed(6);
+    if (halfBar < 0.24) { events.push({ note: rootPc + "3", beat: barStart, dur: barLen }); continue; }
+    events.push({ note: rootPc + "3", beat: barStart, dur: halfBar });
+    events.push({ note: fifthPc + "3", beat: +(barStart + halfBar).toFixed(6), dur: +(barLen - halfBar).toFixed(6) });
+  }
+  return events;
+}
+
+// Song library. seq = [noteName | "R", durationInBeats]. All notes live in the
+// C4..B5 range the on-screen keyboard + synth cover. Public-domain melodies only.
+// Get note type name from beat duration
+export function noteTypeName(durBeats) {
+  if (durBeats >= 4) return "w";     /* whole note (semibreve) */
+  if (durBeats >= 2) return "h";     /* half note (minim) */
+  if (durBeats >= 1) return "q";     /* quarter note (crotchet) */
+  if (durBeats >= 0.5) return "e";   /* eighth note (quaver) */
+  if (durBeats >= 0.25) return "s";  /* 16th note (semiquaver) */
+  return "x";                         /* 32nd note (demisemiquaver) */
+}
+// Generate a simple bass-line (left-hand accompaniment) from a melody song.
+// Alternates root/5th for musical variety, pitched in octaves 2-3.
+export function generateBassLine(song) {
+  const melodyNotes = (song.seq || []).filter(([n]) => n !== "R");
+  if (!melodyNotes.length) return [];
+  const rootPC = pcOf(melodyNotes[0][0]);
+  const rootIdx = CHROMA.indexOf(rootPC);
+  if (rootIdx < 0) return [];
+  const fifthPC = CHROMA[(rootIdx + 7) % 12];
+  const pat = [rootPC + "2", fifthPC + "2", rootPC + "3", fifthPC + "2"];
+  const bassSeq = []; let pi = 0;
+  for (const [n, d] of song.seq) {
+    if (n !== "R") { bassSeq.push([pat[pi % pat.length], d]); pi++; }
+    else bassSeq.push(["R", d]);
+  }
+  return bassSeq;
+}
+// Expand a song into timed note objects + the set of lanes (distinct pitches).
+//
+// hand: "right" (default) = the melody, i.e. the right-hand part. "left" = the
+// LEFT-HAND part on its own, not the melody moved to the other hand — that's
+// what "practise hands separately" means, and it's the half a learner
+// actually can't already read. "both" = the two parts together.
+//
+// Accepts either expandSong(song, "left") or expandSong(song, {hand:"left"}).
+export function expandSong(song, opts) {
+  const handArg = typeof opts === "string" ? opts : (opts && opts.hand) || "right";
+  const handMode = handArg === "left" ? "left" : handArg === "both" ? "both" : "right";
+  const spb = 60 / song.bpm; // seconds per beat
+  const timeSig = SONG_TIMESIG[song.id] || "4/4";
+  const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
+  const pickup = pickupBeatsOf(song.seq, beatsPerBar);
+  let beat = 0;
+  const melodyNotes = [];
+  for (const [note, dur] of song.seq) {
+    if (note !== "R") melodyNotes.push({ note, t: beat * spb, beat, durBeats: dur, durSec: Math.max(0.18, dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: "right" });
+    beat += dur;
+  }
+  // The left-hand part comes from generateAccompaniment(), which picks a real
+  // chord per BAR by scoring the seven diatonic triads against that bar's own
+  // melody (see there). The older generateBassLine() — still exported, nothing
+  // else calls it — put one bass note under every single melody note at the
+  // melody's own rhythm and never changed chord for the whole song, so an
+  // eighth-note run got an eighth-note bass and the harmony never moved.
+  const bassNotes = generateAccompaniment(song, pickup).map(e => ({
+    note: e.note, t: e.beat * spb, beat: e.beat, durBeats: e.dur,
+    durSec: Math.max(0.18, e.dur * spb * 0.92), hit: false, missed: false, lane: 0, hand: "left",
+  }));
+  const notes = handMode === "left" ? bassNotes
+    : handMode === "both" ? [...melodyNotes, ...bassNotes].sort((a, b) => a.t - b.t)
+    : [...melodyNotes];
+  // Finger numbers, computed independently per hand-voice in its own
+  // chronological order — the two parts are two independent hands, each with
+  // their own finger progression.
+  const rightNotes = notes.filter(n => n.hand === "right");
+  const leftNotes = notes.filter(n => n.hand === "left");
+  const rf = heuristicFingers(rightNotes.map(n => n.note), "right");
+  const lf = heuristicFingers(leftNotes.map(n => n.note), "left");
+  rightNotes.forEach((n, i) => { n.finger = rf[i]; });
+  leftNotes.forEach((n, i) => { n.finger = lf[i]; });
   const lanes = Array.from(new Set(notes.map(n => n.note))).sort((a, b) => noteToMidi(a) - noteToMidi(b));
   for (const n of notes) n.lane = lanes.indexOf(n.note);
   const lastT = notes.reduce((m, n) => Math.max(m, n.t), 0);
-  return { notes, lanes, total: notes.length, dur: beat * spb, lastT };
+  // Engrave both voices once, here, where the notes are — the reading staff
+  // then just draws the window it needs instead of re-deriving bar/tie/rest
+  // structure on every HUD tick. srcIdx points back into `notes`, so a
+  // glyph can always find out whether its note has been hit or missed.
+  const idxOf = new Map(notes.map((n, i) => [n, i]));
+  const engrave = (voice) => buildNotation(
+    voice.map(n => ({ note: n.note, beat: n.beat, durBeats: n.durBeats })), beatsPerBar, pickup
+  ).map(g => ({ ...g, srcIdx: g.srcIdx == null ? null : idxOf.get(voice[g.srcIdx]) }));
+  const notation = {
+    beatsPerBar, pickup, timeSig,
+    right: engrave(rightNotes),
+    left: engrave(leftNotes),
+  };
+  return { notes, lanes, total: notes.length, dur: beat * spb, lastT, notation, hand: handMode };
 }
 // Objective technique descriptors derived straight from a song's own note
 // sequence — no new authoring/tagging needed. songs-data.ts has no hand or
@@ -1348,12 +1566,370 @@ export const SIGHT_NOTES_BASS = ["F2","G2","A2","B2","C3","D3","E3","F3","G3","A
 
 export const _LETTER_IDX = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
 
+// Staff position of a LETTER+octave (not a pitch) — a staff line means a
+// letter, which is why C♯ and C sit on the identical line and are told apart
+// by the accidental printed in front of them, never by height. step 0 = the
+// bottom line of the staff (E4 treble, G2 bass).
+export function staffStepFor(letter, oct, clef = "treble") {
+  const li = _LETTER_IDX[letter];
+  if (li == null) return 0;
+  const base = clef === "bass" ? (2 * 7 + 4) : (4 * 7 + 2); // G2 (bass) | E4 (treble)
+  return oct * 7 + li - base;
+}
 export function staffStep(note, clef = "treble") {
   const m = note.match(/^([A-G])#?(\d)$/);
   if (!m) return 0;
-  const di = parseInt(m[2], 10) * 7 + _LETTER_IDX[m[1]];
-  const base = clef === "bass" ? (2 * 7 + 4) : (4 * 7 + 2); // G2 (bass) | E4 (treble)
-  return di - base;
+  return staffStepFor(m[1], parseInt(m[2], 10), clef);
+}
+
+/* ── Key signatures & note spelling ──
+   Everything below exists so the play-along staff can be read as real
+   notation rather than as dots at approximately-right heights: a signature
+   the notes are actually spelled against, and accidentals printed only
+   where the signature doesn't already account for them. ── */
+// Accidentals in a key's signature: + = that many sharps, − = that many
+// flats, keyed by tonic pitch class (CHROMA order). Straight off the circle
+// of fifths; the enharmonic choice at the far side is the conventional one
+// (D♭ major over C♯ major, etc.).
+export const KEYSIG_MAJOR = { 0: 0, 7: 1, 2: 2, 9: 3, 4: 4, 11: 5, 6: 6, 1: -5, 8: -4, 3: -3, 10: -2, 5: -1 };
+export const KEYSIG_MINOR = { 9: 0, 4: 1, 11: 2, 6: 3, 1: 4, 8: 5, 3: 6, 2: -1, 7: -2, 0: -3, 5: -4, 10: -5 };
+// The fixed order signature accidentals are written in, and where each sits
+// on a TREBLE staff. A bass staff writes the identical shape two steps
+// lower, which is exactly how the two clefs relate (see staffStepFor).
+export const SIG_SHARP_ORDER = ["F", "C", "G", "D", "A", "E", "B"];
+export const SIG_FLAT_ORDER = ["B", "E", "A", "D", "G", "C", "F"];
+export const SIG_SHARP_STEPS = { F: 8, C: 5, G: 9, D: 6, A: 3, E: 7, B: 4 };
+export const SIG_FLAT_STEPS = { B: 4, E: 7, A: 3, D: 6, G: 2, C: 5, F: 1 };
+export const KEY_NAME_MAJOR = { 0: "C", 7: "G", 2: "D", 9: "A", 4: "E", 11: "B", 6: "F♯", 1: "D♭", 8: "A♭", 3: "E♭", 10: "B♭", 5: "F" };
+export const KEY_NAME_MINOR = { 9: "Am", 4: "Em", 11: "Bm", 6: "F♯m", 1: "C♯m", 8: "G♯m", 3: "E♭m", 2: "Dm", 7: "Gm", 0: "Cm", 5: "Fm", 10: "B♭m" };
+// A song's signature, derived from the same detectSongKey() the left-hand
+// accompaniment is harmonized against — so what's printed and what's played
+// can never disagree about the key.
+export function keySignatureOf(song) {
+  const k = detectSongKey(song);
+  const sig = (k.minor ? KEYSIG_MINOR : KEYSIG_MAJOR)[k.root];
+  const name = (k.minor ? KEY_NAME_MINOR : KEY_NAME_MAJOR)[k.root] || CHROMA[k.root] || "C";
+  return { sig: sig == null ? 0 : sig, name, root: k.root, minor: k.minor };
+}
+// The staff steps a signature's accidentals occupy, in writing order.
+export function keySignatureMarks(sig, clef = "treble") {
+  const shift = clef === "bass" ? -2 : 0;
+  const n = Math.abs(sig);
+  const order = sig >= 0 ? SIG_SHARP_ORDER : SIG_FLAT_ORDER;
+  const steps = sig >= 0 ? SIG_SHARP_STEPS : SIG_FLAT_STEPS;
+  return order.slice(0, n).map(L => ({ letter: L, step: steps[L] + shift, glyph: sig >= 0 ? "♯" : "♭" }));
+}
+const _SPELL_ORDER = ["C", "D", "E", "F", "G", "A", "B"];
+// Spell a note the way this key signature would actually write it, and say
+// whether an accidental has to be printed in front of it.
+//
+// songs-data.ts names every black key as a sharp, but a flat key genuinely
+// spells them as flats — F♯ inside E♭ major is really G♭, a different LINE of
+// the staff, not just a different name. And a note the signature already
+// alters needs no accidental of its own, which is the entire point of having
+// a signature; printing one on every black key (or none at all, as before)
+// are both simply wrong notation.
+export function spellNoteInKey(note, sig) {
+  const m = String(note == null ? "" : note).match(/^([A-G])(#?)(\d)$/);
+  if (!m) return null;
+  const sharped = m[2] === "#";
+  let letter = m[1], oct = parseInt(m[3], 10), acc = null; // acc: "#" | "b" | "n" | null
+  const sharpLetters = SIG_SHARP_ORDER.slice(0, Math.max(0, sig));
+  const flatLetters = SIG_FLAT_ORDER.slice(0, Math.max(0, -sig));
+  if (sharped) {
+    if (sig < 0) {
+      const i = _SPELL_ORDER.indexOf(letter);
+      letter = _SPELL_ORDER[(i + 1) % 7];        // C♯→D♭, A♯→B♭ … the letter above
+      if (letter === "C") oct += 1;              // B♯ can't arise from our data, but stay honest
+      acc = flatLetters.includes(letter) ? null : "b";
+    } else {
+      acc = sharpLetters.includes(letter) ? null : "#";
+    }
+  } else if (sharpLetters.includes(letter) || flatLetters.includes(letter)) {
+    acc = "n";                                   // signature alters this letter — cancel it explicitly
+  }
+  return { letter, oct, acc };
+}
+/* ── Note values & engraving ──
+   The full set a beginner score uses, longest first, measured in beats where
+   a quarter note = 1: ตัวกลม whole · ตัวขาว half · ตัวดำ quarter · เขบ็ต
+   1/2/3 ชั้น eighth/16th/32nd, each with its dotted form (a dot adds half
+   the note's own value again). ── */
+export const NOTE_VALUES = [
+  { beats: 4,     head: "open",   stem: false, flags: 0, dots: 0, name: "whole" },
+  { beats: 3,     head: "open",   stem: true,  flags: 0, dots: 1, name: "dotted half" },
+  { beats: 2,     head: "open",   stem: true,  flags: 0, dots: 0, name: "half" },
+  { beats: 1.5,   head: "closed", stem: true,  flags: 0, dots: 1, name: "dotted quarter" },
+  { beats: 1,     head: "closed", stem: true,  flags: 0, dots: 0, name: "quarter" },
+  { beats: 0.75,  head: "closed", stem: true,  flags: 1, dots: 1, name: "dotted eighth" },
+  { beats: 0.5,   head: "closed", stem: true,  flags: 1, dots: 0, name: "eighth" },
+  { beats: 0.375, head: "closed", stem: true,  flags: 2, dots: 1, name: "dotted 16th" },
+  { beats: 0.25,  head: "closed", stem: true,  flags: 2, dots: 0, name: "16th" },
+  { beats: 0.125, head: "closed", stem: true,  flags: 3, dots: 0, name: "32nd" },
+];
+export function noteValueOf(beats) {
+  const b = +beats || 1;
+  for (const v of NOTE_VALUES) if (b >= v.beats - 0.001) return v;
+  return NOTE_VALUES[NOTE_VALUES.length - 1];
+}
+// Break a duration into real note values, longest first. Anything that isn't
+// a single value becomes several TIED values, which is how notation writes a
+// duration with no glyph of its own — the pieces always sum to exactly the
+// duration asked for, never more and never less.
+export function decomposeDur(beats) {
+  const out = [];
+  let left = +(+beats).toFixed(6);
+  let guard = 0;
+  while (left > 0.0625 && guard++ < 24) {
+    const v = NOTE_VALUES.find(x => x.beats <= left + 1e-6);
+    if (!v) break;
+    out.push(v);
+    left = +(left - v.beats).toFixed(6);
+  }
+  return out.length ? out : [NOTE_VALUES[NOTE_VALUES.length - 1]];
+}
+// How many beats of PICKUP (anacrusis) a song starts with — an incomplete
+// first measure, borrowed from the last one.
+//
+// These melodies were authored as playable note streams, not as engraved
+// scores, so about half of them don't divide into whole bars from beat 0.
+// Where they don't, the leftover is a pickup — but only if aligning that way
+// actually agrees with the music: the alignment chosen is whichever one has
+// FEWER notes crossing a bar line, since a bar line falling mid-note is the
+// signature of a wrongly-placed bar line.
+export function pickupBeatsOf(seq, beatsPerBar) {
+  const durs = (seq || []).map(([, d]) => +d || 0);
+  const total = durs.reduce((a, b) => a + b, 0);
+  const leftover = +(total % beatsPerBar).toFixed(6);
+  if (!leftover) return 0;
+  const crossings = (offset) => {
+    let beat = 0, n = 0;
+    for (const d of durs) {
+      const a = beat - offset, b = beat + d - offset - 1e-9;
+      if (a >= -1e-9 && Math.floor(a / beatsPerBar + 1e-9) !== Math.floor(b / beatsPerBar)) n++;
+      beat += d;
+    }
+    return n;
+  };
+  return crossings(leftover) <= crossings(0) ? leftover : 0;
+}
+// Engrave one voice: turn {note, beat, durBeats} events into the glyphs a
+// score would actually print. Three things happen here that raw durations
+// can't express on their own, and all three are why a bar used to add up to
+// the wrong amount:
+//   • a note running past a bar line is SPLIT at the line into tied pieces
+//     (notation never lets a note head cross a bar line),
+//   • every gap becomes a REST, decomposed the same way,
+//   • the final bar is padded with rests,
+// so every bar sums to exactly one bar's worth of time, by construction.
+export function buildNotation(events, beatsPerBar, pickup = 0) {
+  const glyphs = [];
+  // where the bar containing `beat` ends
+  const barEndAfter = (beat) => (beat < pickup - 1e-9)
+    ? pickup
+    : pickup + (Math.floor((beat - pickup) / beatsPerBar + 1e-9) + 1) * beatsPerBar;
+  const emit = (kind, note, srcIdx, startBeat, dur) => {
+    const pieces = [];
+    let b = +startBeat.toFixed(6), left = +(+dur).toFixed(6);
+    let guard = 0;
+    while (left > 0.0625 && guard++ < 64) {
+      const chunk = Math.min(left, +(barEndAfter(b) - b).toFixed(6));
+      if (chunk <= 0) break;
+      for (const v of decomposeDur(chunk)) { pieces.push({ beat: b, value: v }); b = +(b + v.beats).toFixed(6); }
+      left = +(left - chunk).toFixed(6);
+    }
+    pieces.forEach((p, i) => glyphs.push({
+      kind, note, srcIdx, beat: p.beat, dur: p.value.beats, value: p.value,
+      // a tie binds the pieces of one held note; a rest is never tied
+      tieFrom: kind === "note" && i > 0,
+      tieTo: kind === "note" && i < pieces.length - 1,
+    }));
+  };
+  let cursor = 0;
+  (events || []).forEach((n, i) => {
+    const beat = +(+n.beat).toFixed(6);
+    if (beat > cursor + 1e-6) emit("rest", null, null, cursor, +(beat - cursor).toFixed(6));
+    emit("note", n.note, i, beat, +n.durBeats || 1);
+    cursor = Math.max(cursor, +(beat + (+n.durBeats || 1)).toFixed(6));
+  });
+  // complete the last bar, so no bar is ever left short
+  if (cursor > 0) {
+    const end = barEndAfter(cursor - 1e-6);
+    if (end > cursor + 1e-6) emit("rest", null, null, cursor, +(end - cursor).toFixed(6));
+  }
+  return glyphs;
+}
+
+/* ── beamRuns ──
+   Which flagged notes beam together, and which stand alone with a flag. This
+   is the musical half of beaming — kept out of the drawing component so every
+   song in the library can be audited against it (see the beaming audit).
+
+   Standard engraving practice, applied here:
+     • the beam unit is the metre's beat — a quarter in every x/4 metre, a
+       dotted quarter in a compound metre (6/8, 9/8, 12/8);
+     • a beam never crosses a bar line, never spans a rest, and never bridges
+       a gap in time;
+     • in 4/4 a clean run of eighths filling half a bar is beamed as one group
+       of four, the way published piano music sets it — but never across the
+       middle of the bar, which would bury beat 3;
+     • a single flagged note alone in its beam unit keeps its flag.
+
+   `glyphs` are buildNotation() output, in beat order, for ONE voice. Returns
+   arrays of indices into that list, each of length >= 2. ── */
+export function beamFlagsOf(g) { return (g.value || noteValueOf(g.dur)).flags; }
+export function beamRuns(glyphs, opts) {
+  const o = opts || {};
+  const beatsPerBar = o.beatsPerBar || 4;
+  const sigDenom = o.sigDenom || 4;
+  const pickup = o.pickup || 0;
+  const skip = o.skip || (() => false);
+  const beamUnit = (sigDenom === 8 && beatsPerBar % 3 === 0) ? 1.5 : 1;
+  // A pickup measure is the TAIL of a notional full bar, so its beat grid is
+  // counted BACK from the bar line rather than forward from zero — that is
+  // what puts a 3.5-beat pickup's eighths on the beats a full bar gives them.
+  const barKeyOf = (beat) => beat < pickup - 1e-9 ? "p" : String(Math.floor((beat - pickup) / beatsPerBar + 1e-9));
+  const barBeatOf = (beat) => {
+    if (beat < pickup - 1e-9) return beatsPerBar - (pickup - beat);
+    const rel = beat - pickup;
+    return rel - Math.floor(rel / beatsPerBar + 1e-9) * beatsPerBar;
+  };
+  const unitKeyOf = (beat) => barKeyOf(beat) + ":" + Math.floor(barBeatOf(beat) / beamUnit + 1e-9);
+
+  // 1. maximal runs of flagged notes sharing a beam unit and touching in time
+  const runs = [];
+  let cur = [];
+  const close = () => { if (cur.length > 1) runs.push(cur); cur = []; };
+  for (let i = 0; i < (glyphs || []).length; i++) {
+    const g = glyphs[i];
+    if (g.kind === "rest" || beamFlagsOf(g) < 1 || skip(g)) { close(); continue; }
+    if (cur.length) {
+      const prev = glyphs[cur[cur.length - 1]];
+      const touching = Math.abs(g.beat - (prev.beat + prev.dur)) < 1e-6;
+      if (!touching || unitKeyOf(g.beat) !== unitKeyOf(prev.beat)) close();
+    }
+    cur.push(i);
+  }
+  close();
+
+  // 2. in 4/4, two adjacent all-eighth beats inside the same half-bar are
+  //    beamed as one group of four
+  if (beatsPerBar === 4 && sigDenom === 4) {
+    for (let r = 0; r < runs.length - 1; r++) {
+      const a = runs[r], b = runs[r + 1];
+      if (a.length + b.length !== 4) continue;
+      const aFirst = glyphs[a[0]], aLast = glyphs[a[a.length - 1]], bFirst = glyphs[b[0]];
+      const allEighths = a.concat(b).every(i => Math.abs(glyphs[i].dur - 0.5) < 1e-6);
+      const touching = Math.abs(bFirst.beat - (aLast.beat + aLast.dur)) < 1e-6;
+      const start = barBeatOf(aFirst.beat);
+      const onHalfBar = Math.abs(start) < 1e-6 || Math.abs(start - 2) < 1e-6;
+      if (allEighths && touching && onHalfBar && barKeyOf(aFirst.beat) === barKeyOf(bFirst.beat)) {
+        runs.splice(r, 2, a.concat(b));
+        r--;
+      }
+    }
+  }
+  return runs;
+}
+
+/* ── beamLayout ──
+   Turns beam groups into drawing instructions. Split out of the staff
+   component for the same reason beamRuns is: the geometry is the half a
+   reader actually SEES, so it has to be checkable without a browser.
+
+   Per group: one stem direction for all of it, chosen by the note furthest
+   from the middle line (the average breaks a tie between two equally far on
+   opposite sides); one beam through the ideal stem ends, its slant capped so
+   it never reads as a ramp, then pushed outward until no stem in the group
+   falls under the minimum length; and extra beams for 16ths and shorter,
+   stacked toward the heads, drawn only across the span two neighbours share
+   and otherwise cut down to a hook.
+
+   Coordinates come in as plain arrays indexed like the glyph list. Returns
+   `info` (glyph index -> the stem override that glyph must draw with) and
+   `bars` (the beam parallelograms, in drawing order). ── */
+export function beamLayout(runs, geom) {
+  const { steps, xs, flags, base, half } = geom;
+  const states = geom.states || [];
+  // The band the beam has to stay inside. A group spanning a wide interval —
+  // the arpeggio figures in Bach's Prelude in C are the real case — pushes its
+  // beam a long way from the staff, and without this it lands off the top of
+  // the drawing and is simply clipped away.
+  const bandTop = geom.bandTop == null ? -Infinity : geom.bandTop;
+  const bandBottom = geom.bandBottom == null ? Infinity : geom.bandBottom;
+  const info = new Map(), bars = [];
+  const thick = half * 0.95, gap = half * 1.55, rx = half * 0.95;
+
+  // Place one group's beam for a given stem direction, and report how far it
+  // still escapes the band afterwards, so the caller can compare directions.
+  function place(run, up) {
+    const dir = up ? -1 : 1;
+    const st = run.map(i => steps[i]);
+    const ys = st.map(v => base - v * half);
+    const sxs = run.map(i => (up ? xs[i] + rx - 0.7 : xs[i] - rx + 0.7));
+    const maxFlags = Math.max.apply(null, run.map(i => flags[i]));
+    // a beam through the ideal stem ends, its slant capped, then pushed out
+    // until no stem in the group falls under the minimum length
+    const ideal = half * 6.2, minLen = half * 3.4, floor = half * 2.2;
+    const span = sxs[sxs.length - 1] - sxs[0];
+    let y1 = ys[0] + dir * ideal, y2 = ys[ys.length - 1] + dir * ideal;
+    const maxSlant = Math.min(half * 3.5, Math.abs(span) * 0.28);
+    if (Math.abs(y2 - y1) > maxSlant) y2 = y1 + Math.sign(y2 - y1) * maxSlant;
+    const yAt = (x) => (Math.abs(span) < 1e-6 ? y1 : y1 + (y2 - y1) * ((x - sxs[0]) / span));
+    const clearOf = (k) => (yAt(sxs[k]) - ys[k]) * dir - (maxFlags - 1) * gap;
+    let push = 0;
+    for (let k = 0; k < run.length; k++) if (clearOf(k) < minLen) push = Math.max(push, minLen - clearOf(k));
+    y1 += dir * push; y2 += dir * push;
+    // …then pull it back inside the band if it escaped, but never far enough
+    // to let the tightest stem in the group collapse onto its note head
+    const outBy = up ? bandTop - Math.min(y1, y2) : Math.max(y1, y2) - bandBottom;
+    if (outBy > 0) {
+      let room = Infinity;
+      for (let k = 0; k < run.length; k++) room = Math.min(room, clearOf(k) - floor);
+      const move = Math.min(outBy, Math.max(0, room));
+      y1 -= dir * move; y2 -= dir * move;
+    }
+    const escaped = Math.max(0, up ? bandTop - Math.min(y1, y2) : Math.max(y1, y2) - bandBottom);
+    return { up, dir, ys, sxs, maxFlags, yAt, escaped };
+  }
+
+  for (const run of (runs || [])) {
+    const st = run.map(i => steps[i]);
+    // the note furthest from the middle line (step 4) sets the direction
+    let far = -1, farStep = 4;
+    for (const v of st) { const d = Math.abs(v - 4); if (d > far) { far = d; farStep = v; } }
+    const split = st.some(v => Math.abs(v - 4) === far && (v < 4) !== (farStep < 4));
+    const avg = st.reduce((x, y) => x + y, 0) / st.length;
+    const natural = (far <= 0 || split) ? avg <= 4 : farStep < 4;
+    let P = place(run, natural);
+    // only overrule the standard direction when it genuinely does not fit and
+    // the other one does better
+    if (P.escaped > 0) { const alt = place(run, !natural); if (alt.escaped < P.escaped) P = alt; }
+    const { up, dir, ys, sxs, maxFlags, yAt } = P;
+    run.forEach((gi, k) => info.set(gi, { up, beamY: yAt(sxs[k]) }));
+
+    for (let L = 1; L <= maxFlags; L++) {
+      const off = -dir * (L - 1) * gap;   // extra beams stack toward the heads
+      // a segment per adjacent pair, so each can carry the colour of the note
+      // it leaves; they are collinear, so it still reads as one beam
+      for (let k = 0; k < run.length - 1; k++) {
+        if (flags[run[k]] < L || flags[run[k + 1]] < L) continue;
+        const xa = sxs[k] - (k === 0 ? 0.8 : 0), xb = sxs[k + 1] + (k === run.length - 2 ? 0.8 : 0);
+        bars.push({ x1: xa, x2: xb, y1: yAt(xa) + off, y2: yAt(xb) + off, dir, t: thick, level: L, state: states[run[k]] });
+      }
+      if (L === 1) continue;
+      // an extra beam with no neighbour to join becomes a hook, pointing back
+      // into the group (forward only when it is the group's first note)
+      for (let k = 0; k < run.length; k++) {
+        if (flags[run[k]] < L) continue;
+        if ((k > 0 && flags[run[k - 1]] >= L) || (k < run.length - 1 && flags[run[k + 1]] >= L)) continue;
+        const w = half * 1.9, back = k > 0 ? -1 : 1;
+        const xa = Math.min(sxs[k], sxs[k] + back * w), xb = Math.max(sxs[k], sxs[k] + back * w);
+        bars.push({ x1: xa, x2: xb, y1: yAt(xa) + off, y2: yAt(xb) + off, dir, t: thick, level: L, hook: true, state: states[run[k]] });
+      }
+    }
+  }
+  return { info, bars };
 }
 
 // light haptic tap feedback on supported devices
@@ -1486,7 +2062,7 @@ export const Piano = memo(function Piano({ litNote = null, litSet = null, finger
 });
 
 export const SP_WKW = 30, SP_GAP = 2, SP_BKW = 19; // white width, gap, black width
-export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null, onNote = null, baseOct = 4, octs = 2, scroll = false, fullWidth = false }) {
+export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null, fingerMap = null, onNote = null, baseOct = 4, octs = 2, scroll = false, fullWidth = false }) {
   const { held, flash, onKeyPointerDown, onKeyPointerMove, onKeyPointerUp } = usePianoKeys(onNote);
   const scrollerRef = useRef(null);
   const isLit = (n) => (litSet && litSet.includes(n)) || litNote === n;
@@ -1527,13 +2103,16 @@ export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null
               onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
               aria-label={k.n}>
               <span>{k.l === "C" ? k.n : k.l}</span>
+              {isLit(k.n) && fingerMap && fingerMap[k.n] != null && <span className="gpfinger">{fingerMap[k.n]}</span>}
             </button>
           ))}
           {blacks.map(k => (
             <button key={k.n} className={`gpb${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
               style={{ left: (k.after + 1) * (SP_WKW + SP_GAP) - SP_BKW / 2 - 1, width: SP_BKW }}
               onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
-              aria-label={k.n} />
+              aria-label={k.n}>
+              {isLit(k.n) && fingerMap && fingerMap[k.n] != null && <span className="gpfinger">{fingerMap[k.n]}</span>}
+            </button>
           ))}
         </div>
       </div>
@@ -1554,13 +2133,16 @@ export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null
             onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
             aria-label={k.l}>
             <span>{k.l}</span>
+            {isLit(k.n) && fingerMap && fingerMap[k.n] != null && <span className="gpfinger">{fingerMap[k.n]}</span>}
           </button>
         ))}
         {blacks.map(k => (
           <button key={k.n} className={`gpb${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
             style={{ left: (((k.after + 1) / NW) * 100 - bw / 2) + "%", width: bw + "%" }}
             onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
-            aria-label={k.l} />
+            aria-label={k.l}>
+            {isLit(k.n) && fingerMap && fingerMap[k.n] != null && <span className="gpfinger">{fingerMap[k.n]}</span>}
+          </button>
         ))}
       </div>
     </div>
@@ -1661,68 +2243,315 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
   );
 });
 
-export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, songMeta }) {
-  // Track the real container size so the 150-unit-tall drawing is stretched to
-  // EXACTLY fill the element's box (width-wise) on any screen/orientation — the
-  // old fixed 520-wide viewBox letterboxed the staff (empty black on both
-  // sides) everywhere wider than ~350px. Height stays 101px via CSS, so note
-  // glyphs keep their exact size; only horizontal spread changes.
+/* ── PlayAlongStaff ──
+   Real notation for the play-along reading strip: a proper clef per hand
+   (grand staff when both hands play), the song's actual key signature,
+   accidentals only where the signature doesn't already account for them,
+   and note heads/stems/flags/dots that mean the duration they're drawn for.
+   Horizontal position comes from a note's BEAT, not its index in the array,
+   so a half note visibly occupies twice the space of a quarter and — the
+   reason it matters most — the two staves of a grand staff line up
+   vertically on the beat, which index-based spacing can never do. ── */
+export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 0, spanBeats = 20, songMeta, handMode = "right" }) {
+  // Track the real container size so the drawing is stretched to EXACTLY fill
+  // the element's box (width-wise) on any screen/orientation — a fixed-width
+  // viewBox letterboxes the staff (empty black on both sides) on anything
+  // wider than ~350px. Height is fixed via CSS, so glyphs keep their size and
+  // only the horizontal spread changes.
+  const grand = handMode === "both";
+  const H = grand ? 200 : 150;
+  const half = grand ? 6 : 7;                      // half a staff space = one step
   const wrapRef = useRef(null);
   const [wbW, setWbW] = useState(520);
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const sync = () => {
-      setWbW(Math.max(260, Math.round((el.clientWidth * 150) / Math.max(1, el.clientHeight))));
+      setWbW(Math.max(260, Math.round((el.clientWidth * H) / Math.max(1, el.clientHeight))));
     };
     sync();
     const ro = new ResizeObserver(sync);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
-  const list = (notes || []).slice(0, 24);
+  }, [H]);
+
+  const list = (notes || []).filter(Boolean).slice(0, 64);
   const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
-  const beatsPerBar = parseInt(timeSig.split("/")[0], 10) || 4;
-  const keyName = songMeta ? songTonic(songMeta) : "C";
-  const W = wbW, H = 150, baseY = 95, half = 7;
-  const startX = 92;
-  // the per-note gap cap scales with the width so sparse windows still spread
-  // across the whole staff on wide screens (same visual density as the old
-  // 520-unit canvas) instead of clustering at the left edge
-  const gap = Math.min(64 * (W / 520), Math.max(16, (W - startX - 20) / Math.max(1, list.length)));
-  const lineYs = [0, 2, 4, 6, 8].map(s => baseY - s * half);
+  const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
+  const sigDenom = parseInt(String(timeSig).split("/")[1], 10) || 4;
+  // The song's own pickup (anacrusis), recomputed from the same sequence and
+  // by the same function expandSong() engraved the glyphs against, so the bar
+  // grid drawn here is the one the glyphs were split on. 98 of the 348 songs
+  // carry a pickup; without this the bar lines — and every beam group, which
+  // must never cross one — would sit a beat or three out on all of them.
+  const pickup = useMemo(() => pickupBeatsOf((songMeta && songMeta.seq) || [], beatsPerBar), [songMeta, beatsPerBar]);
+  const { sig, name: keyName } = songMeta ? keySignatureOf(songMeta) : { sig: 0, name: "C" };
+  const sigMarksTreble = keySignatureMarks(sig, "treble");
+  const sigMarksBass = keySignatureMarks(sig, "bass");
+
+  // Single-staff clef follows the music's own range, exactly as a real score
+  // would: the left-hand mode plays the SAME C4–B5 melody, which genuinely
+  // belongs in treble clef — forcing it into bass would bury every note under
+  // ledger lines for no musical reason. A genuinely low part gets bass.
+  // The left-hand part really is a bass part now, so left-hand mode gets a
+  // bass clef outright. For the melody, the clef still follows its own range
+  // (a genuinely low melody would get bass too).
+  const drawnMidis = list.map(g => noteToMidi(g.note || "")).filter(m => m > 0);
+  const avgMidi = drawnMidis.length ? drawnMidis.reduce((a, b) => a + b, 0) / drawnMidis.length : 67;
+  const soloClef = handMode === "left" ? "bass" : (avgMidi < 60 ? "bass" : "treble"); // 60 = middle C
+
+  const W = wbW;
+  // left-hand furniture: clef, then the key signature, then the time signature
+  const sigW = Math.abs(sig) * 9;
+  const sigX0 = 52;
+  const timeX = sigX0 + sigW + (sigW ? 14 : 6);
+  const startX = timeX + 26;
+  const pxPerBeat = (W - startX - 20) / Math.max(1, spanBeats);
+  const xOf = (beat) => startX + (beat - startBeat) * pxPerBeat;
+
+  const topBase = grand ? 30 + 8 * half : 95;                 // bottom line of the upper staff
+  const bassBase = grand ? topBase + 8 * half + 8 * half : null; // one full staff-height gap below it
   const COLOR = { past: "rgba(255,255,255,.32)", current: "#ffd166", future: "#d97757" };
+  const LINE = "rgba(255,255,255,.45)";
+  const linesOf = (base) => [0, 2, 4, 6, 8].map(s => base - s * half);
+
+  // ── one staff's furniture: 5 lines, clef, key signature, time signature ──
+  function staffFurniture(base, clef, marks, tag) {
+    const ly = linesOf(base);
+    const fs = 3.6 * half;
+    return (
+      <g key={tag}>
+        {ly.map((y, i) => <line key={i} x1="8" y1={y} x2={W - 8} y2={y} stroke={LINE} strokeWidth="1.4" />)}
+        {clef === "bass"
+          ? <text x="10" y={base - 4 * half + half * 0.6} fontSize={7.6 * half} fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119074;</text>
+          : <text x="8" y={base + half * 0.6} fontSize={7.6 * half} fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>&#119070;</text>}
+        {marks.map((m, i) => (
+          <text key={i} x={sigX0 + i * 9} y={base - m.step * half + half * 0.75}
+            fontSize={4.2 * half} textAnchor="middle" fill="rgba(255,255,255,.85)"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{m.glyph}</text>
+        ))}
+        <text x={timeX} y={base - 6 * half + fs * 0.36} fontSize={fs} textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{String(timeSig).split("/")[0]}</text>
+        <text x={timeX} y={base - 2 * half + fs * 0.36} fontSize={fs} textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{String(timeSig).split("/")[1]}</text>
+      </g>
+    );
+  }
+
+  // ── a rest, drawn as paths so it never depends on a font having the
+  //    Musical Symbols block. Positions are the standard ones: the whole rest
+  //    hangs UNDER the 4th line, the half rest sits ON the middle line, and
+  //    the flagged rests centre on the middle line with one blob per flag
+  //    (เขบ็ต 1/2/3 ชั้น). ──
+  function renderRest(g, i, base, clef) {
+    const x = xOf(g.beat), color = COLOR[g.state] || COLOR.future;
+    const mid = base - 4 * half, line4 = base - 6 * half;
+    const w = half * 1.45, t = half * 0.62;
+    const val = g.value;
+    const key = clef + "-r" + i;
+    if (val.flags === 0 && val.head === "open" && !val.stem) {           // whole
+      return <g key={key}><rect x={x - w / 2} y={line4} width={w} height={t} fill={color} />
+        {val.dots > 0 && <circle cx={x + w / 2 + half * 0.6} cy={line4 - half * 0.5} r={half * 0.28} fill={color} />}</g>;
+    }
+    if (val.head === "open") {                                           // half (and dotted half)
+      return <g key={key}><rect x={x - w / 2} y={mid - t} width={w} height={t} fill={color} />
+        {val.dots > 0 && <circle cx={x + w / 2 + half * 0.6} cy={mid - half * 1.5} r={half * 0.28} fill={color} />}</g>;
+    }
+    if (val.flags === 0) {                                               // quarter — the zigzag
+      return (
+        <g key={key}>
+          <path d={`M${x - half * 0.55},${mid - half * 2.6} L${x + half * 0.6},${mid - half * 1.1} L${x - half * 0.5},${mid + half * 0.4} L${x + half * 0.68},${mid + half * 1.9}`}
+            fill="none" stroke={color} strokeWidth={half * 0.42} strokeLinejoin="miter" strokeLinecap="butt" />
+          <path d={`M${x + half * 0.68},${mid + half * 1.9} q${-half * 1.5},${-half * 0.55} ${-half * 0.95},${half * 1.15}`}
+            fill="none" stroke={color} strokeWidth={half * 0.3} strokeLinecap="round" />
+          {val.dots > 0 && <circle cx={x + half * 1.15} cy={mid - half} r={half * 0.28} fill={color} />}
+        </g>
+      );
+    }
+    // eighth / 16th / 32nd — a slanted stem carrying one blob per flag
+    const top = mid - half * (0.6 + val.flags * 0.95), bottom = mid + half * 1.8;
+    return (
+      <g key={key}>
+        <line x1={x + half * 0.5} y1={top} x2={x - half * 0.42} y2={bottom} stroke={color} strokeWidth={half * 0.28} strokeLinecap="round" />
+        {Array.from({ length: val.flags }).map((_, f) => {
+          const cy = top + f * half * 0.95 + half * 0.2;
+          const cx = x + half * 0.5 - (cy - top) * 0.27;
+          return <g key={f}>
+            <circle cx={cx - half * 0.42} cy={cy} r={half * 0.36} fill={color} />
+            <path d={`M${cx - half * 0.42},${cy - half * 0.3} q${half * 0.7},${-half * 0.35} ${half * 0.5},${half * 0.15}`} fill="none" stroke={color} strokeWidth={half * 0.22} />
+          </g>;
+        })}
+        {val.dots > 0 && <circle cx={x + half * 1.1} cy={mid - half} r={half * 0.28} fill={color} />}
+      </g>
+    );
+  }
+
+  // Where a note glyph sits on this staff, spelled for the key — the one
+  // place both the glyph renderer and the beam layout ask.
+  function stepOf(g, clef) {
+    if (!g || g.kind === "rest" || !g.note) return null;
+    const sp = spellNoteInKey(g.note, sig);
+    if (!sp) return null;
+    return staffStepFor(sp.letter, sp.oct, clef);
+  }
+
+  /* ── beaming ──
+     Engraved music never leaves a run of short notes flapping with one flag
+     each: notes shorter than a quarter are joined by a beam when they share
+     a beat, and that beam is what makes the pulse readable at a glance. A
+     lone flag is only ever correct for a note standing by itself inside its
+     own beam unit. The rules applied here are the standard ones:
+       • the beam unit is the metre's beat — a quarter in every x/4 metre,
+         a dotted quarter in a compound metre (6/8, 9/8, 12/8);
+       • a beam never crosses a bar line, never spans a rest, and never
+         bridges a gap in time;
+       • in 4/4 a clean run of eighths filling half a bar is beamed as one
+         group of four, the way published piano music sets it — but never
+         across the middle of the bar, which would bury beat 3;
+       • the whole group shares ONE stem direction, chosen by the note
+         furthest from the middle line (the average breaks a tie);
+       • 16ths and 32nds get their extra beams only across the span they
+         share with a neighbour of the same value; with no such neighbour
+         the extra beam becomes a short hook pointing back into the group,
+         which is how a dotted-eighth/16th pair is set. ── */
+  // Returns the per-glyph stem overrides (direction + where the stem stops)
+  // and the beam segments to draw for one staff's worth of glyphs.
+  function layoutBeams(glyphs, clef, base) {
+    if (!glyphs || !glyphs.length) return { info: new Map(), bars: [] };
+
+    // 1+2. which notes beam together — the musical half of the job, kept out
+    //      of the component so it can be audited against every song
+    const runs = beamRuns(glyphs, { beatsPerBar, sigDenom, pickup, skip: g => stepOf(g, clef) == null });
+
+    // 3. geometry — also its own pure function, so the drawing can be audited.
+    //    The band keeps a wide group's beam on the page: below the "Key:"
+    //    caption, and on a grand staff inside its own half, never running
+    //    down into the other hand's staff.
+    const isBass = grand && base === bassBase;
+    return beamLayout(runs, {
+      steps: glyphs.map(g => stepOf(g, clef)),
+      xs: glyphs.map(g => xOf(g.beat)),
+      flags: glyphs.map(g => (g.kind === "rest" ? 0 : beamFlagsOf(g))),
+      states: glyphs.map(g => g.state),
+      base, half,
+      bandTop: isBass ? topBase + 10 : 20,
+      bandBottom: grand && !isBass ? bassBase - 8 * half - 8 : H - 6,
+    });
+  }
+
+  // a beam segment: a parallelogram whose OUTER edge is the stem end, its
+  // thickness falling inward toward the note heads
+  const renderBeam = (b, k) => (
+    <path key={k} d={`M${b.x1},${b.y1} L${b.x2},${b.y2} L${b.x2},${b.y2 - b.dir * b.t} L${b.x1},${b.y1 - b.dir * b.t} Z`}
+      fill={COLOR[b.state] || COLOR.future} />
+  );
+
+  // ── one glyph, fully notated ──
+  function renderGlyph(g, i, base, clef, next, beam) {
+    if (g.kind === "rest") return renderRest(g, i, base, clef);
+    const sp = spellNoteInKey(g.note, sig);
+    if (!sp) return null;
+    const step = staffStepFor(sp.letter, sp.oct, clef);
+    const x = xOf(g.beat), y = base - step * half;
+    const val = g.value || noteValueOf(g.dur);
+    const isCurrent = g.state === "current";
+    const color = COLOR[g.state] || COLOR.future;
+    const rx = half * 0.95, ry = half * 0.8;
+    // ledger lines, one per line-position the note reaches past the staff
+    const ledgers = [];
+    for (let s = -2; s >= step; s -= 2) ledgers.push(base - s * half);
+    for (let s = 10; s <= step; s += 2) ledgers.push(base - s * half);
+    // stems: up from the right of the head below the middle line, down from
+    // the left on or above it — the standard rule. Extra flags need a longer
+    // stem to hang from.
+    // A beamed note takes its direction and its stem end from the GROUP —
+    // one shared direction and one shared beam is the whole point of beaming.
+    const up = beam ? beam.up : step < 4;
+    const stemLen = half * (6.2 + Math.max(0, val.flags - 1) * 1.1);
+    const stemX = up ? x + rx - 0.7 : x - rx + 0.7;
+    const stemEnd = beam ? beam.beamY : (up ? y - stemLen : y + stemLen);
+    // an augmentation dot sits in a space beside the head, never on a line
+    const dotY = step % 2 === 0 ? y - half : y;
+    // a tie binds this head to the next piece of the same held note; it
+    // curves away from the stem, as ties always do
+    let tie = null;
+    if (g.tieTo && next) {
+      const nx = xOf(next.beat), d = up ? 1 : -1;
+      tie = <path d={`M${x + rx * 0.6},${y + d * ry * 1.5} Q${(x + nx) / 2},${y + d * ry * 3.6} ${nx - rx * 0.6},${y + d * ry * 1.5}`}
+        fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />;
+    }
+    return (
+      <g key={clef + "-" + i}>
+        {isCurrent && <>
+          <rect className="pastaff-cur" x={x - half * 2.1} y={base - 8 * half - 6} width={half * 4.2} height={8 * half + 12} rx="8" fill="#ffd16633" />
+          <path d={`M${x - 7},${base + half * 2.6} L${x + 7},${base + half * 2.6} L${x},${base + half * 1.1} Z`} fill="#ffd166" />
+        </>}
+        {ledgers.map((ly2, k) => <line key={k} x1={x - rx - 4} y1={ly2} x2={x + rx + 4} y2={ly2} stroke={g.state === "past" ? "rgba(255,255,255,.25)" : LINE} strokeWidth="1.4" />)}
+        {/* an accidental is never repeated on the tail of a tie — the first
+            head of the tied group already carries it */}
+        {sp.acc && !g.tieFrom && (
+          <text x={x - rx - 5} y={y + half * 0.62} fontSize={3.6 * half} textAnchor="end" fill={color}
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{sp.acc === "#" ? "♯" : sp.acc === "b" ? "♭" : "♮"}</text>
+        )}
+        {val.stem && <line x1={stemX} y1={y} x2={stemX} y2={stemEnd} stroke={color} strokeWidth="1.6" />}
+        {/* a flag is drawn only on a note that is NOT beamed — a beamed
+            note's tail is the beam, and drawing both is the classic error */}
+        {!beam && Array.from({ length: val.flags }).map((_, f) => (
+          <path key={f}
+            d={`M${stemX},${stemEnd + (up ? f * half * 1.1 : -f * half * 1.1)} q${half * 1.6},${up ? half * 1.1 : -half * 1.1} ${half * 1.1},${up ? half * 3 : -half * 3}`}
+            fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+        ))}
+        <ellipse cx={x} cy={y} rx={isCurrent ? rx * 1.12 : rx} ry={isCurrent ? ry * 1.12 : ry}
+          fill={val.head === "open" ? "none" : color} stroke={val.head === "open" ? color : "none"} strokeWidth="2"
+          transform={`rotate(-18 ${x} ${y})`} />
+        {val.dots > 0 && <circle cx={x + rx + 4} cy={dotY} r={half * 0.28} fill={color} />}
+        {tie}
+      </g>
+    );
+  }
+  // bar lines land on real measure boundaries, spanning both staves on a
+  // grand staff exactly as piano notation does
+  const barBeats = [];
+  // Bars run from the END of the pickup measure onward — an anacrusis is a
+  // short first bar, so its bar line falls at `pickup`, not at beat 4.
+  if (pickup > 1e-9 && pickup > startBeat + 0.01 && pickup <= startBeat + spanBeats) barBeats.push(pickup);
+  const firstBar = pickup + Math.max(0, Math.ceil((startBeat - pickup) / beatsPerBar)) * beatsPerBar;
+  for (let b = firstBar; b <= startBeat + spanBeats; b += beatsPerBar) if (b > startBeat + 0.01 && b > pickup + 1e-9) barBeats.push(b);
+  const barTop = topBase - 8 * half;
+  const barBottom = grand ? bassBase : topBase;
+
+  const trebleNotes = grand ? list.filter(n => n.hand !== "left") : list;
+  const bassNotes = grand ? list.filter(n => n.hand === "left") : [];
+  // Each staff is one voice, so each beams independently — a beam never
+  // joins the right hand to the left.
+  const trebleBeams = layoutBeams(trebleNotes, grand ? "treble" : soloClef, topBase);
+  const bassBeams = grand ? layoutBeams(bassNotes, "bass", bassBase) : { info: new Map(), bars: [] };
+
   return (
     <svg ref={wrapRef} viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
-      <text x="8" y="20" fontSize="14" fill="rgba(255,255,255,.6)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>Key: {keyName}</text>
-      {lineYs.map((ly, i) => <line key={i} x1="8" y1={ly} x2={W - 8} y2={ly} stroke="rgba(255,255,255,.45)" strokeWidth="1.4" />)}
-      <text x="8" y={baseY + 4} fontSize="53" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif" }}>&#119070;</text>
-      <text x="64" y={lineYs[3] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[0]}</text>
-      <text x="64" y={lineYs[1] + 12} fontSize="24" textAnchor="middle" fill="rgba(255,255,255,.85)" style={{ fontFamily: "Georgia, serif", fontWeight: 700 }}>{timeSig.split("/")[1]}</text>
-      {list.map((n, i) => {
-        const step = staffStep(n.note, "treble");
-        const y = baseY - step * half, x = startX + i * gap;
-        const ledgers = [];
-        for (let s = -2; s >= step; s -= 2) ledgers.push(baseY - s * half);
-        for (let s = 10; s <= step; s += 2) ledgers.push(baseY - s * half);
-        const isCurrent = n.state === "current";
-        const color = COLOR[n.state] || COLOR.future;
-        // a bar line goes just before this note if it starts a new measure
-        const prevMeasure = i > 0 ? Math.floor(list[i - 1].beat / beatsPerBar) : null;
-        const measure = Math.floor(n.beat / beatsPerBar);
-        const showBar = prevMeasure != null && measure !== prevMeasure;
-        return (
-          <g key={i}>
-            {showBar && <line x1={x - gap / 2} y1={lineYs[0]} x2={x - gap / 2} y2={lineYs[4]} stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />}
-            {isCurrent && <>
-              <rect className="pastaff-cur" x={x - 15} y={lineYs[4] - 6} width="30" height={lineYs[0] - lineYs[4] + 12} rx="8" fill="#ffd16633" />
-              <path d={`M${x - 8},${H - 10} L${x + 8},${H - 10} L${x},${H - 22} Z`} fill="#ffd166" />
-            </>}
-            {ledgers.map((ly, k) => <line key={k} x1={x - 12} y1={ly} x2={x + 12} y2={ly} stroke={n.state === "past" ? "rgba(255,255,255,.25)" : "rgba(255,255,255,.45)"} strokeWidth="1.4" />)}
-            <ellipse cx={x} cy={y} rx={isCurrent ? 9 : 7.5} ry={isCurrent ? 6.5 : 5.5} fill={color} transform={`rotate(-18 ${x} ${y})`} />
-          </g>
-        );
-      })}
+      {/* Which hand this staff is for — stated outright in the one-hand modes
+          so there's never any doubt which part is on the page. */}
+      <text x="8" y="14" fontSize="12" fill="rgba(255,255,255,.6)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>
+        Key: {keyName}{handMode === "left" ? " · L.H." : handMode === "right" ? " · R.H." : ""}
+      </text>
+      {grand && <>
+        <text x={W - 10} y={topBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>R.H.</text>
+        <text x={W - 10} y={bassBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>L.H.</text>
+      </>}
+      {staffFurniture(topBase, grand ? "treble" : soloClef, grand ? sigMarksTreble : (soloClef === "bass" ? sigMarksBass : sigMarksTreble), "top")}
+      {grand && staffFurniture(bassBase, "bass", sigMarksBass, "bottom")}
+      {/* grand-staff brace + the vertical rule joining the two staves */}
+      {grand && <>
+        <path d={`M6,${barTop} q-5,${(barBottom - barTop) / 4} 0,${(barBottom - barTop) / 2} q5,${(barBottom - barTop) / 4} 0,${(barBottom - barTop) / 2}`}
+          fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="2" />
+        <line x1="8" y1={barTop} x2="8" y2={barBottom} stroke={LINE} strokeWidth="1.6" />
+      </>}
+      {barBeats.map((b, i) => (
+        <line key={"bar" + i} x1={xOf(b) - pxPerBeat * 0.35} y1={barTop} x2={xOf(b) - pxPerBeat * 0.35} y2={barBottom}
+          stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />
+      ))}
+      {trebleBeams.bars.map((b, i) => renderBeam(b, "tb" + i))}
+      {grand && bassBeams.bars.map((b, i) => renderBeam(b, "bb" + i))}
+      {trebleNotes.map((n, i) => renderGlyph(n, i, topBase, grand ? "treble" : soloClef, trebleNotes[i + 1], trebleBeams.info.get(i)))}
+      {grand && bassNotes.map((n, i) => renderGlyph(n, i, bassBase, "bass", bassNotes[i + 1], bassBeams.info.get(i)))}
     </svg>
   );
 });

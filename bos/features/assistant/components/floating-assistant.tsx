@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Bot, Send, X, Sparkles, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Bot, Send, X, Sparkles, Loader2, ClipboardList } from "lucide-react";
+import { ExecutionPlan, parsePlanFromText, type PlanStep } from "./execution-plan";
+import { DailyPrioritiesCard } from "./daily-priorities-card";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Button } from "@/components/ui/button";
@@ -27,10 +29,17 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: "สรุปวันนี้", text: "สรุปภาพรวมธุรกิจวันนี้ให้หน่อย", sendImmediately: true },
-  { label: "ใครใกล้หมดชั่วโมง", text: "ตอนนี้มีใครที่ชั่วโมงเรียนใกล้หมดบ้าง", sendImmediately: true },
-  { label: "Lead ที่ควรติดตาม", text: "มี lead คนไหนที่ควรติดตามตอนนี้บ้าง", sendImmediately: true },
-  { label: "บันทึกรายรับ", text: "บันทึกรายรับ: ", sendImmediately: false },
+  { label: "🎯 งานวันนี้", text: "แนะนำ 3 งานที่ควรทำวันนี้ เรียงตามคุณค่ามากไปหาน้อย ง่ายไปหายาก", sendImmediately: true },
+  { label: "📊 สรุปวันนี้", text: "สรุปภาพรวมธุรกิจวันนี้ให้หน่อย", sendImmediately: true },
+  { label: "👥 นักเรียนทั้งหมด", text: "ดูรายชื่อนักเรียนทั้งหมดหน่อย", sendImmediately: true },
+  { label: "📅 คาบเรียนวันนี้", text: "ดูคาบเรียนวันนี้มีอะไรบ้าง", sendImmediately: true },
+  { label: "💰 รายรับเดือนนี้", text: "ดูสรุปการเงินเดือนนี้หน่อย", sendImmediately: true },
+  { label: "📝 สร้าง Content", text: "สร้าง content ใหม่สัก 1 ชิ้น", sendImmediately: true },
+  { label: "🧠 วางแผน", text: "วางแผนสร้างนักเรียนใหม่ + จองคาบ + สร้าง content", sendImmediately: true },
+  { label: "🎯 Lead ที่ควรติดตาม", text: "มี lead คนไหนที่ควรติดตามตอนนี้บ้าง", sendImmediately: true },
+  { label: "🎬 Video Package", text: "สร้าง Video Package ครบชุด: script + voice + images", sendImmediately: true },
+  { label: "🔄 Repurpose Content", text: "แปลง content นี้เป็นทุก platform", sendImmediately: false },
+  { label: "📈 Marketing Dashboard", text: "ดูสรุปการตลาดสัปดาห์นี้", sendImmediately: true },
   { label: "เพิ่มความรู้", text: "เพิ่มความรู้ใหม่: ", sendImmediately: false },
 ];
 
@@ -49,6 +58,12 @@ export function FloatingAssistant() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const conversationIdRef = useRef<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Plan mode state
+  const [currentPlan, setCurrentPlan] = useState<PlanStep[] | null>(null);
+  const [executingPlan, setExecutingPlan] = useState(false);
+  const [currentPlanStep, setCurrentPlanStep] = useState<number | undefined>(undefined);
+  const [showPlanHint, setShowPlanHint] = useState(false);
 
   // Restore conversationId from localStorage on mount
   useEffect(() => {
@@ -94,7 +109,24 @@ export function FloatingAssistant() {
   function startNewConversation() {
     setMessages([]);
     conversationIdRef.current = null;
+    setCurrentPlan(null);
+    setExecutingPlan(false);
+    setCurrentPlanStep(undefined);
     try { localStorage.removeItem("tiga-fab-conversation-id"); } catch {}
+  }
+
+  function handleApprovePlan() {
+    if (!currentPlan) return;
+    setExecutingPlan(true);
+    setShowPlanHint(false);
+    // Execute plan by sending approval message
+    void send("ทำเลย อนุมัติแผนทั้งหมด");
+  }
+
+  function handleRejectPlan() {
+    setCurrentPlan(null);
+    setShowPlanHint(false);
+    setMessages((prev) => [...prev, { role: "user", content: "ยกเลิกแผน" }, { role: "ai", content: "ยกเลิกแผนแล้วครับ 🔄 พิมพ์คำสั่งใหม่ได้เลย" }]);
   }
 
   async function changeChatModel(value: string) {
@@ -105,7 +137,7 @@ export function FloatingAssistant() {
     setSavingModel(false);
   }
 
-  async function send(override?: string) {
+  const send = useCallback(async (override?: string) => {
     const text = (override ?? draft).trim();
     if (!text || sending) return;
 
@@ -124,13 +156,23 @@ export function FloatingAssistant() {
 
       conversationIdRef.current = data.conversationId;
       try { localStorage.setItem("tiga-fab-conversation-id", data.conversationId); } catch {}
-      setMessages((prev) => [...prev, { role: "ai", content: data.reply }]);
+
+      // Check if the reply contains a plan
+      const planSteps = parsePlanFromText(data.reply);
+      if (planSteps && planSteps.length > 0) {
+        setCurrentPlan(planSteps);
+        setShowPlanHint(true);
+        // Show the reply text but also the plan card
+        setMessages((prev) => [...prev, { role: "ai", content: data.reply }]);
+      } else {
+        setMessages((prev) => [...prev, { role: "ai", content: data.reply }]);
+      }
     } catch (err) {
       setError(await describeFunctionError(err));
     } finally {
       setSending(false);
     }
-  }
+  }, [draft, sending]);
 
   return (
     <>
@@ -175,12 +217,14 @@ export function FloatingAssistant() {
             ) : null}
             {messages.length === 0 && !loadingHistory ? (
               <div className="space-y-2">
+                {/* Daily Priorities Card — auto-loaded from Supabase */}
+                <DailyPrioritiesCard onAction={(text) => void send(text)} />
                 <p className="rounded-xl bg-line/5 p-3 text-xs text-secondary/60">
-                  สั่งงานได้เลย เช่น &quot;เพิ่มลูกค้าใหม่ชื่อ...&quot;, &quot;จองคาบเรียนให้...&quot;,
-                  &quot;เปลี่ยนสถานะการขายของ...&quot;, หรือถามข้อมูลในคลังความรู้
+                  หรือสั่งงานได้เลย เช่น &quot;สร้าง TikTok Script&quot;, &quot;สร้าง Video Package&quot;,
+                  &quot;วิเคราะห์เทรนด์&quot;, &quot;repurpose content&quot; หรือถามข้อมูลในคลังความรู้
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {QUICK_ACTIONS.map((action) => (
+                  {QUICK_ACTIONS.filter((a) => !a.label.includes("งานวันนี้")).map((action) => (
                     <button
                       key={action.label}
                       onClick={() => handleQuickAction(action)}
@@ -204,6 +248,24 @@ export function FloatingAssistant() {
                 </div>
               </div>
             ))}
+            {/* Execution Plan Card */}
+            {currentPlan && showPlanHint && !executingPlan && (
+              <ExecutionPlan
+                steps={currentPlan}
+                onApprove={handleApprovePlan}
+                onReject={handleRejectPlan}
+                executing={false}
+              />
+            )}
+            {currentPlan && executingPlan && (
+              <ExecutionPlan
+                steps={currentPlan}
+                onApprove={() => {}}
+                onReject={() => {}}
+                executing={true}
+                currentStep={currentPlanStep}
+              />
+            )}
             {error ? <p className="rounded-xl bg-danger/10 px-3 py-2 text-xs text-danger">{error}</p> : null}
           </div>
 

@@ -205,6 +205,18 @@ html, body, #root{background:var(--bg)}
 .typing{display:flex;gap:5px;align-items:center;padding:10px 14px}
 .tdd{width:7px;height:7px;border-radius:50%;background:#d97757;animation:bounce 1.2s infinite}
 .tdd:nth-child(2){animation-delay:.2s}.tdd:nth-child(3){animation-delay:.4s}
+/* Knowledge Quest conversation starters — a compact, horizontally-scrolling
+   row of tappable case-study picks, sitting between the message list and the
+   input so it reads as "try one of these next" rather than a permanent
+   fixture. Re-themed with the same purple identity as Boss Challenge/pboss:
+   both are TIGA's "go deeper, optional" tracks, distinct from the orange
+   core-lesson flow. */
+.chatstarters{display:flex;gap:7px;align-items:center;overflow-x:auto;padding:8px 12px;background:var(--card3);border-top:1px solid #d9775722;scrollbar-width:none}
+.chatstarters::-webkit-scrollbar{display:none}
+.chatstarters-hint{font-family:'Share Tech Mono',monospace;font-size:9px;color:#a78bfa;letter-spacing:.5px;flex-shrink:0}
+.starterchip{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(167,139,250,.1);border:1px solid #a78bfa44;border-radius:20px;padding:6px 12px 6px 8px;cursor:pointer;max-width:220px}
+.starterchip-ic{font-size:14px;flex-shrink:0}
+.starterchip-tx{font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:600;color:#c4b5fd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iw{padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));background:var(--card3);border-top:1px solid #d9775733;flex-shrink:0}
 .ir{display:flex;gap:8px;align-items:flex-end}
 .tin{flex:1;background:var(--card3);border:1px solid #d9775733;border-radius:6px;padding:10px 14px;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:14px;resize:none;min-height:44px;max-height:110px;outline:none;transition:border-color .2s}
@@ -336,6 +348,7 @@ html, body, #root{background:var(--bg)}
 .tdico{font-size:22px;flex-shrink:0}
 .tdtag{font-size:9.5px;color:var(--muted);font-family:'Share Tech Mono',monospace;letter-spacing:.6px}
 .tdlbl{font-size:14px;color:var(--text);font-family:'Rajdhani',sans-serif;font-weight:700;line-height:1.3}
+.readbest{margin-left:8px;font-size:11px;font-weight:600;color:var(--muted);font-family:'Share Tech Mono',monospace}
 .tdgo{flex-shrink:0;padding:9px 16px;border-radius:10px;border:1px solid #d9775766;background:rgba(217,119,87,.1);color:#d97757;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer}
 .tdgo.done{border-color:#d97757;color:#d97757;background:rgba(217,119,87,.08);cursor:default}
 .tdbar{height:10px;border-radius:6px;background:var(--card);overflow:hidden;border:1px solid var(--bd1)}
@@ -658,6 +671,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 @keyframes lvbounce{0%{opacity:0;transform:scale(.3)}100%{opacity:1;transform:scale(1)}}
 /* ── practice mode (listen + check) ── */
 .practicebtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:12px;border-radius:13px;border:1px solid #d9775766;background: rgba(217,119,87,.12);color:#d97757;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all .2s}
+.practicebtn.ready{animation:pulse 1.6s ease-in-out 3}
 .practicebtn:hover{border-color:#d97757;box-shadow:0 0 16px -4px #d97757;transform:translateY(-1px)}
 .practicebtn:active{transform:scale(.98)}
 .practicebtn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
@@ -716,6 +730,17 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .punlock-ic{font-size:44px;line-height:1;filter:drop-shadow(0 0 14px #ffd23f88);animation:chestwiggle 1.4s ease-in-out infinite}
 .punlock-tt{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:#ffd23f;text-shadow:0 0 14px #ffd23f77;margin-top:4px}
 .punlock-sub{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text2)}
+/* Boss Challenge clear — same shape as punlock, royal purple instead of gold so
+   a combined-group capstone reads as a distinct, bigger moment at a glance */
+.punlock.pboss{background:linear-gradient(180deg,rgba(167,139,250,.2),rgba(139,92,246,.08));border-color:#a78bfa66}
+.punlock.pboss .punlock-ic{filter:drop-shadow(0 0 14px #a78bfa99)}
+.punlock.pboss .punlock-tt{color:#c4b5fd;text-shadow:0 0 14px #a78bfa77}
+/* Memory Streak tier-up — same shape again, ocean blue so it reads as its
+   own distinct "you kept your review streak alive" moment, never confused
+   with a stage unlock (gold) or a boss clear (purple) */
+.punlock.pmemory{background:linear-gradient(180deg,rgba(0,212,255,.2),rgba(0,119,182,.08));border-color:#00d4ff66}
+.punlock.pmemory .punlock-ic{filter:drop-shadow(0 0 14px #00d4ff99)}
+.punlock.pmemory .punlock-tt{color:#7dd3ec;text-shadow:0 0 14px #00d4ff77}
 .practicefoot button{flex:1;padding:12px;border-radius:11px;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1.5px;cursor:pointer;transition:all .2s;border:1px solid}
 .practicerestart{border-color:#d9775755!important;background:rgba(217,119,87,.08);color:#d97757}
 .practiceexit{border-color:#ff525255!important;background:rgba(255,82,82,.08);color:#d97757}
@@ -772,8 +797,29 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .songprog>div{height:100%;background: #d97757;transition:width .15s}
 .songstaffwrap{flex-shrink:0;padding:4px 0;background:#000}
 .pastaff{width:100%;height:101px;display:block}
+/* two-hand mode draws a real grand staff (treble + bass), so the strip needs
+   room for both — .songstage is flex:1 and gives the height back automatically */
+.songstaffwrap.grand .pastaff{height:150px}
 .pastaff-cur{animation:pastaffpulse 1s ease-in-out infinite}
 @keyframes pastaffpulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* Landscape rotation prompt — shown on mobile portrait during Play Along */
+.orientation-prompt{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#fff;font-family:'Orbitron',sans-serif;text-align:center;padding:24px;animation:fadein .3s}
+.orientation-prompt .op-icon{font-size:56px;animation:rotate-hint 2s ease-in-out infinite}
+.orientation-prompt .op-title{font-size:18px;font-weight:700;color:#d97757}
+.orientation-prompt .op-sub{font-size:13px;color:rgba(255,255,255,.7);font-family:'Rajdhani',sans-serif;max-width:280px;line-height:1.5}
+.orientation-prompt .op-skip{margin-top:8px;padding:8px 20px;border:1px solid rgba(255,255,255,.3);border-radius:8px;background:transparent;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:'Rajdhani',sans-serif}
+.orientation-prompt .op-skip:hover{color:#fff;border-color:rgba(255,255,255,.6)}
+@keyframes rotate-hint{0%,100%{transform:rotate(0deg)}25%{transform:rotate(90deg)}50%{transform:rotate(90deg)}75%{transform:rotate(0deg)}}
+/* Landscape layout adjustments for Play Along — hide prompt, optimize space */
+@media (orientation:landscape) and (max-height:500px){
+  .songov .songhdr{padding:4px 12px}
+  .songov .songhtitle{font-size:12px}
+  .songov .songstaffwrap{padding:0}
+  .songov .pastaff{height:64px}
+  .songov .songhud{padding:4px 10px;font-size:11px}
+  .songov .songhud b{font-size:13px}
+  .songov .songprog{height:3px}
+}
 .songstage{position:relative;flex:1;min-height:0;overflow:hidden}
 .songcanvas{width:100%;height:100%;display:block}
 .songcount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:90px;font-weight:900;color:#fff;text-shadow:0 0 40px #d97757;animation:popcount .9s ease-out;pointer-events:none}
@@ -802,6 +848,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .ghoststat{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700}
 .ghoststat.ahead{color:#d97757}
 .ghoststat.behind{color:#ff5252}
+/* Setlist / Concert mode — purple identity, same family as Boss Challenge and
+   the Knowledge Quest starters: TiGA's "optional, go-further" mode color. */
+.setlistpos{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#c4b5fd}
+.setlistpos.ready{font-size:13px;background:rgba(167,139,250,.14);border:1px solid #a78bfa44;border-radius:20px;padding:5px 14px;margin-bottom:8px}
 @keyframes popcount{from{transform:scale(1.6);opacity:0}30%{opacity:1}to{transform:scale(1);opacity:.9}}
 /* page transitions */
 .pw,.pathpage,.profpage{animation:pagein .28s ease-out}
@@ -883,6 +933,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pd-tag{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;border-radius:8px;padding:4px 9px}
 .pd-tag.focus{color:#d97757;background:rgba(217,119,87,.12);border:1px solid #d9775733}
 .pd-tag.good{color:#d97757;background:rgba(217,119,87,.1);border:1px solid #d9775733}
+/* struggle tags doubling as "ask TIGA about this" buttons (SRS review modal,
+   Auto Teaching recap) — a plain element reset since .pd-tag also still
+   renders as an inert <span> elsewhere (mastered/recent tags) */
+button.pd-tag{cursor:pointer;font-family:inherit}
+button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .atdash-last{margin-top:10px;border:1px solid var(--bd1);border-radius:12px;padding:11px 12px;background:var(--card3)}
 .atdash-last-w{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:#d97757;margin-bottom:3px}
 .atdash-last-t{font-family:'Rajdhani',sans-serif;font-size:12.5px;color:var(--muted);line-height:1.5}
@@ -916,6 +971,12 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .chestwheel-ptr{position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:20px;color:#ffd23f;filter:drop-shadow(0 0 6px #ffd23f);z-index:2}
 .chestwheel-hub{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:var(--card);border:2px solid #d97757;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 14px -2px #000;z-index:1}
 .songbonus{position:absolute;left:0;right:0;top:28%;text-align:center;font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:#d97757;text-shadow:0 0 18px #d97757;pointer-events:none;animation:judgepop .9s ease-out forwards;z-index:6}
+/* Between-run recap toast (auto-loop / setlist chaining) — sits centered over
+   the paused canvas for the ~1.8s gap before the next song starts. */
+.looprecap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(5,4,20,.72);z-index:7;animation:fadein .25s}
+.looprecap-stars{font-size:30px;color:#d97757;letter-spacing:4px;text-shadow:0 0 18px #d9775766}
+.looprecap-row{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:#fff}
+.looprecap-next{font-family:'Share Tech Mono',monospace;font-size:12px;color:#c4b5fd;margin-top:4px}
 /* fever mode + flying score popups + combo shouts (dopamine) */
 .feverbg{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.5;background:linear-gradient(125deg,#ff5252,#ffd23f,#d97757,#6a9bcc,#788c5d,#ff5252);background-size:400% 400%;animation:feverflow 2.2s linear infinite;mix-blend-mode:screen}
 @keyframes feverflow{0%{background-position:0% 50%}100%{background-position:400% 50%}}
@@ -974,6 +1035,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .wlc-tip b{font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:600;color:var(--text2)}
 .eventbanner{position:fixed;top:0;left:0;right:0;z-index:850;display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px;padding-top:calc(6px + env(safe-area-inset-top,0px));background:linear-gradient(90deg,#d97757,#a855f7);font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:#fff;text-align:center;flex-wrap:wrap;box-shadow:0 2px 10px -2px #000}
 .eventbanner-mult{font-family:'Orbitron',sans-serif;font-size:10px;background:rgba(255,255,255,.2);border-radius:10px;padding:2px 8px}
+.eventbanner-spot{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:#fff;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.4);border-radius:10px;padding:2px 10px;cursor:pointer}
+.eventbanner-spot:hover{background:rgba(0,0,0,.3)}
 .mascot{position:fixed;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:900;cursor:pointer;animation:mascotidle 2.6s ease-in-out infinite;will-change:transform}
 .mascot-face{font-size:38px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))}
 .mascot.happy{animation:mascothop .5s ease-out}
@@ -1052,7 +1115,8 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 /* responsive game keyboard — fills full width on any device */
 .gpwrap{flex-shrink:0;background:var(--card3);border-top:1px solid #d9775722;padding:4px 0 calc(4px + env(safe-area-inset-bottom,0px))}
 .gprow{position:relative;display:flex;gap:2px;width:100%;max-width:1200px;margin:0 auto;padding:0 4px;height:clamp(54px,11vh,140px)}
-.gpw{flex:1;min-width:0;height:100%;background: #ffffff;border:1px solid #d4cfc5;border-top:none;border-radius:0 0 6px 6px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;cursor:pointer;box-shadow:0 3px 5px rgba(0,0,0,.4);transition:filter .08s,transform .05s;-webkit-tap-highlight-color:transparent}
+.gpw{position:relative;flex:1;min-width:0;height:100%;background: #ffffff;border:1px solid #d4cfc5;border-top:none;border-radius:0 0 6px 6px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;cursor:pointer;box-shadow:0 3px 5px rgba(0,0,0,.4);transition:filter .08s,transform .05s;-webkit-tap-highlight-color:transparent}
+.gpfinger{position:absolute;top:3px;left:50%;transform:translateX(-50%);width:15px;height:15px;border-radius:50%;background:#ff5252;color:#fff;font-size:9px;font-weight:700;font-family:'Orbitron',sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px #ff525299;z-index:6;pointer-events:none}
 .gpw span{font-family:'Share Tech Mono',monospace;font-size:clamp(8px,1.7vw,14px);color:var(--muted);pointer-events:none}
 .gpw:active{transform:translateY(2px)}
 .gpw.lit{background:#d97757;box-shadow:0 0 16px #d97757,0 0 38px #d9775766}
@@ -1074,6 +1138,9 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .songfilters::-webkit-scrollbar{display:none}
 .songfilter{flex:0 0 auto;padding:7px 14px;border-radius:20px;border:1px solid var(--bd2);background:var(--card);color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 .songfilter.on{background: #d97757;color:var(--card2);border-color:transparent}
+.setlistbtn{display:flex;flex-direction:column;align-items:center;gap:2px;width:calc(100% - 28px);margin:0 14px 10px;padding:10px;border-radius:14px;border:1.5px solid #a78bfa55;background:linear-gradient(135deg,rgba(167,139,250,.16),rgba(139,92,246,.05));cursor:pointer}
+.setlistbtn-tt{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:#c4b5fd}
+.setlistbtn-sub{font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--muted)}
 .genrefilters{display:flex;gap:6px;overflow-x:auto;padding:0 14px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .genrefilters::-webkit-scrollbar{display:none}
 .genrechip{flex:0 0 auto;padding:5px 13px;border-radius:18px;border:1.5px solid var(--bd2);background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
@@ -1106,6 +1173,13 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .songsrcbar{text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);padding:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom,0px));flex-shrink:0}
 .songresult{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;padding:24px;text-align:center}
 .songstars{font-size:46px;color:#d97757;letter-spacing:6px;text-shadow:0 0 24px #d9775766;animation:popcount .6s ease-out}
+/* Setlist finale banner — score/max-combo shown lower on this same result
+   screen are already the whole concert's totals; this just names them and
+   lists each song's own stars. */
+.concertrecap{width:100%;padding:14px;border-radius:16px;background:linear-gradient(135deg,rgba(167,139,250,.18),rgba(139,92,246,.06));border:1.5px solid #a78bfa55}
+.concertrecap-title{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:#c4b5fd;text-shadow:0 0 14px #a78bfa66}
+.concertrecap-songs{display:flex;flex-direction:column;gap:5px;margin-top:9px;font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--text2)}
+.concertrecap-song{display:flex;justify-content:space-between;gap:10px}
 .songresult-acc{font-family:'Orbitron',sans-serif;font-size:40px;font-weight:900;color:var(--text)}
 .songresult-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;width:100%;max-width:300px}
 .songresult-grid>div{background:var(--card);border:1px solid var(--bd1);border-radius:12px;padding:11px}
@@ -1133,6 +1207,17 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .clefbtn .clefgly{font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1}
 .clefbtn.on{color:#d97757;border-color:#d97757aa;background: rgba(217,119,87,.16);box-shadow:0 0 18px -8px #d97757}
 .clefbtn:active{transform:scale(.96)}
+.clefbest{font-family:'Share Tech Mono',monospace;font-size:10px;color:#ffd23f;margin-left:2px}
+/* Belt ranking — header badge always visible during play; the promotion
+   celebration reuses the existing gold .punlock treatment as-is (the belt's
+   own icon already carries its color, from white through black). */
+.sightbelt{display:flex;align-items:center;gap:5px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;color:var(--text2);background:var(--card3);border:1px solid var(--bd2);border-radius:20px;padding:5px 11px;flex-shrink:0}
+.sightbelt span{font-size:15px}
+.sightnewbest{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:#ffd23f;text-shadow:0 0 12px #ffd23f77}
+.beltprog{width:100%;padding:10px 14px;border-radius:12px;background:var(--card3);border:1px solid var(--bd2)}
+.beltprog-row{display:flex;justify-content:space-between;font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:700;color:var(--text2)}
+.beltprog-bar{margin-top:7px}
+.beltprog-count{margin-top:5px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);text-align:center}
 .sighthint{text-align:center;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:var(--text2);min-height:22px;margin:4px 0 8px}
 .sighthint.show{color:#d97757}
 /* camera coach */
@@ -1149,6 +1234,11 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .camrecap{text-align:center}
 .camrecap-pct{font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;color:var(--text);margin:4px 0}
 .camrecap-trend{font-family:'Rajdhani',sans-serif;font-size:13px;color:#d97757;margin-bottom:10px}
+.camstreak-badge{display:inline-flex;align-items:center;gap:3px;margin-left:8px;font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;color:#ffd23f;background:rgba(255,210,63,.12);border:1px solid rgba(255,210,63,.4);border-radius:20px;padding:2px 9px}
+.camrecap-streak{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:#ffd23f;margin-bottom:6px}
+.camrecap-streak.tierup{animation:flamepulse .7s ease-in-out infinite alternate}
+.camrecap-tierup-tag{display:inline-block;margin-left:6px;font-size:10px;font-weight:900;color:#d97757}
+.camrecap-reward{font-family:'Share Tech Mono',monospace;font-size:12px;color:#d97757;margin-bottom:10px}
 /* Auto Teaching real-time coaching card */
 .atpopup{position:fixed;inset:0;z-index:1300;display:flex;align-items:flex-end;justify-content:center;background:rgba(10,5,9,.72);backdrop-filter:blur(3px);animation:fadein .25s;padding:0 12px calc(14px + env(safe-area-inset-bottom,0px))}
 .atpopup-card{width:100%;max-width:420px;background:var(--card);border:1px solid #d9775755;border-radius:18px;padding:16px 17px;box-shadow:0 -10px 34px -10px #000,0 0 26px -10px #d9775766;animation:installin .28s ease-out}
@@ -1325,7 +1415,9 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .frduel-top{display:flex;justify-content:space-between;align-items:center;font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:700;color:var(--text2);margin-bottom:8px}
 .frduel-status{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:var(--card3);color:var(--muted)}
 .frduel-status.done{color:#d97757;background:rgba(217,119,87,.12)}
+.frduel-subject{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--muted);margin-bottom:6px}
 .frduel-score{display:flex;justify-content:space-between;font-family:'Orbitron',sans-serif;font-size:12px;color:var(--text);margin-bottom:8px}
+.frduel-score .frduel-win{color:#d97757;font-weight:700}
 .frsonglist{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto}
 .frsongpick{text-align:left;background:var(--card2);border:1px solid var(--bd2);border-radius:9px;padding:10px 12px;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
 .frsongpick:hover{border-color:#d97757}
@@ -1375,6 +1467,23 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .dashbar{flex:1;min-width:0;height:100%;display:flex;align-items:flex-end;background:none;border:none;padding:0;cursor:pointer}
 .dashbar>span{display:block;width:100%;min-height:2px;border-radius:3px 3px 0 0;background: #d97757;transition:height .25s}
 .dashbar.sel>span,.dashbar:active>span{background: #d97757;box-shadow:0 0 10px -2px #d97757}
+/* Activity heatmap — a real day-grid (GitHub-contribution style), unlike
+   ProgressDashboard above it (bucketed bar totals per period, can't show
+   which specific days were active) */
+.heatmap-wrap{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px}
+.heatmap-dow{display:flex;flex-direction:column;gap:3px;flex-shrink:0;padding-top:1px}
+.heatmap-dow span{height:11px;line-height:11px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)}
+.heatmap-grid{display:flex;gap:3px}
+.heatmap-col{display:flex;flex-direction:column;gap:3px}
+.heatmap-cell{width:11px;height:11px;border-radius:3px;border:none;padding:0;cursor:pointer;background:var(--card3)}
+.heatmap-cell.empty{visibility:hidden;cursor:default}
+.heatmap-cell.lv0{background:var(--card3)}
+.heatmap-cell.lv1{background:#d9775733}
+.heatmap-cell.lv2{background:#d9775766}
+.heatmap-cell.lv3{background:#d97757a8}
+.heatmap-cell.lv4{background:#d97757;box-shadow:0 0 6px -1px #d97757}
+.heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted)}
+.heatmap-legend .heatmap-cell{cursor:default}
 .dashline{width:100%;height:46px;display:block}
 .dashcards.three{grid-template-columns:repeat(3,1fr)}
 .dashdetail{background:var(--card2);border:1px solid #d9775733;border-radius:12px;padding:11px 13px;margin-bottom:11px}
@@ -1396,13 +1505,29 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 }
 @media(max-width:480px){.lname{font-size:11px;letter-spacing:1px}.bbl{font-size:12px;padding:8px 11px}}
 /* F5: Certificate banner */
-.cert-banner{display:flex;align-items:center;gap:14px;margin:14px 14px 0;padding:18px 16px;background:linear-gradient(135deg,rgba(217,119,87,.15),rgba(217,119,87,.05));border:2px solid rgba(217,119,87,.4);border-radius:16px;animation:fadein .4s}
+.cert-banner{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;margin:14px 14px 0;padding:18px 16px;background:linear-gradient(135deg,rgba(217,119,87,.15),rgba(217,119,87,.05));border:2px solid rgba(217,119,87,.4);border-radius:16px;animation:fadein .4s}
 .cert-ic{font-size:36px;flex-shrink:0}
-.cert-body{flex:1;min-width:0}
+.cert-body{flex:1;min-width:140px}
 .cert-title{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
 .cert-sub{font-size:11px;color:#d97757;margin-top:2px;font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:1px}
 .cert-dl-btn{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;background:#d97757;color:#fff;border:none;border-radius:10px;padding:9px 14px;cursor:pointer;flex-shrink:0;white-space:nowrap}
+.cert-share-btn{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;background:transparent;color:#d97757;border:1.5px solid #d9775766;border-radius:10px;padding:8px 13px;cursor:pointer;flex-shrink:0;white-space:nowrap}
 .cert-dl-btn:hover{background:#c86846}
+/* Group Boss Challenge banner — reuses .cert-banner's layout, re-themed purple
+   (same family as .punlock.pboss) so it reads as a distinct "final exam" call
+   to action rather than another certificate. .done dims it to a quiet trophy
+   case once the group's boss has already been cleared once. */
+.bossbanner{background:linear-gradient(135deg,rgba(167,139,250,.2),rgba(139,92,246,.06));border-color:#a78bfa66}
+.bossbanner .cert-ic{filter:drop-shadow(0 0 10px #a78bfa77)}
+.bossbanner .cert-sub{color:#c4b5fd}
+.bossbanner .boss-fight-btn{background:#8b5cf6}
+.bossbanner .boss-fight-btn:hover{background:#7c3aed}
+.bossbanner.done{background:linear-gradient(135deg,rgba(167,139,250,.08),rgba(139,92,246,.03));border-color:#a78bfa33}
+.bossbanner.done .boss-fight-btn{background:transparent;color:#a78bfa;border:1.5px solid #a78bfa55}
+/* Challenging page — locked teaser row for a section not yet fully passed */
+.cert-banner.locked{background:var(--card2);border-color:var(--bd1);opacity:.6}
+.cert-banner.locked .cert-ic{filter:grayscale(1)}
+.cert-banner.locked .cert-sub{color:var(--muted)}
 /* Shared modal overlay + box (used by StudioPage quick/mood/event/chord modals) */
 .modal-ov{position:fixed;inset:0;z-index:1350;background:rgba(9,4,8,.78);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:18px;animation:fadein .2s}
 .modal-box{width:100%;max-width:380px;max-height:88vh;overflow-y:auto;background:var(--card3);border:1px solid #d9775726;border-radius:18px;box-shadow:0 24px 60px -20px #000;padding:18px}
