@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TIIGACODE — Multi-Model Chat</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">TIIGACODE</div>
+      <select id="modelSelect" class="model-select"></select>
+      <button id="clearBtn" class="ghost-btn" title="เคลียร์การสนทนา">ล้างแชท</button>
+    </header>
+
+    <main id="messages" class="messages"></main>
+
+    <div id="errorBanner" class="error-banner" hidden></div>
+
+    <footer class="composer">
+      <textarea id="input" placeholder="พิมพ์ข้อความ… (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)" rows="1"></textarea>
+      <button id="sendBtn" class="send-btn">ส่ง</button>
+    </footer>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
