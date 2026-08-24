@@ -29,7 +29,7 @@ const SCORE_COLOR = (score: number) => score >= 80 ? "text-emerald-600" : score 
 const SCORE_BG = (score: number) => score >= 80 ? "bg-emerald-500" : score >= 60 ? "bg-amber-500" : "bg-red-500";
 const SCORE_VARIANT = (score: number): "success" | "warning" | "danger" => score >= 80 ? "success" : score >= 60 ? "warning" : "danger";
 
-function calculateLeadScore(lead: any): LeadScore {
+function calculateLeadScore(lead: Record<string, unknown>): LeadScore {
   const now = new Date();
   const createdAt = new Date(lead.created_at);
   const lastContact = lead.last_contact_at ? new Date(lead.last_contact_at) : createdAt;

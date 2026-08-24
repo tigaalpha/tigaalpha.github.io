@@ -136,7 +136,7 @@ export default function LeadQuizPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-secondary">🎵 Lead Magnet: Piano Level Quiz</h1>
-          <p className="text-sm text-secondary/50">"ทดสอบระดับเปียโนของคุณ" — Quiz ที่ capture Lead เข้า CRM อัตโนมัติ</p>
+          <p className="text-sm text-secondary/50">&quot;ทดสอบระดับเปียโนของคุณ&quot; — Quiz ที่ capture Lead เข้า CRM อัตโนมัติ</p>
         </div>
         <Button variant="outline" size="sm" onClick={loadQuizData} disabled={loading}>
           <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />รีเฟรช

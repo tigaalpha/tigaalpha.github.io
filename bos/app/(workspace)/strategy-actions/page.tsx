@@ -47,14 +47,14 @@ const ACTIONS: StrategyAction[] = [
   { id: "10", source: "Strategy Room — Revenue", action: "สร้าง Upsell Path: Video → Private", description: "หลังเรียน video course จบ → 提案 Private course", priority: "low", category: "Sales", deadline: "เดือนหน้า", status: "todo", expectedImpact: "+฿27,000/student", assignee: "AI Sales" },
 ];
 
-const PRIORITY_MAP: Record<string, { label: string; variant: "danger" | "warning" | "info" | "outline" }> = {
+const PRIORITY_MAP: Record<string, { label: string; variant: "danger" | "warning" | "default" | "outline" }> = {
   critical: { label: "🔴 Critical", variant: "danger" },
   high: { label: "🟠 High", variant: "warning" },
-  medium: { label: "🟡 Medium", variant: "info" },
+  medium: { label: "🟡 Medium", variant: "default" },
   low: { label: "🟢 Low", variant: "outline" },
 };
 
-const STATUS_MAP: Record<string, { label: string; icon: typeof Circle; color: string }> = {
+const STATUS_MAP: Record<string, { label: string; icon: React.ComponentType<{className?: string}>; color: string }> = {
   todo: { label: "To Do", icon: Circle, color: "text-secondary/40" },
   in_progress: { label: "In Progress", icon: Clock, color: "text-amber-500" },
   done: { label: "Done", icon: CheckCircle2, color: "text-emerald-500" },
@@ -130,7 +130,7 @@ export default function StrategyActionsPage() {
       {/* Filter */}
       <div className="flex gap-2">
         {["all", "todo", "in_progress", "done"].map((f) => (
-          <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)}>
+          <Button key={f} variant={filter === f ? "primary" : "outline"} size="sm" onClick={() => setFilter(f)}>
             {f === "all" ? "ทั้งหมด" : f === "todo" ? "To Do" : f === "in_progress" ? "In Progress" : "Done"}
           </Button>
         ))}
@@ -147,13 +147,13 @@ export default function StrategyActionsPage() {
               <CardContent className="space-y-3 pt-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-3">
-                    <StatusIcon className={cn("h-5 w-5 shrink-0 mt-0.5", st.color)} />
+                    <StatusIcon className={cn("h-5 w-5 shrink-0 mt-0.5", st!.color)} />
                     <div>
                       <p className="text-sm font-medium text-secondary">{action.action}</p>
                       <p className="text-xs text-secondary/40 mt-1">{action.description}</p>
                     </div>
                   </div>
-                  <Badge variant={pri.variant} className="text-[9px] shrink-0">{pri.label}</Badge>
+                  <Badge variant={pri?.variant ?? "default"} className="text-[9px] shrink-0">{pri?.label}</Badge>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 ml-8">
                   <Badge variant="outline" className="text-[9px]">{action.category}</Badge>
