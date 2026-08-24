@@ -1760,6 +1760,178 @@ export function buildNotation(events, beatsPerBar, pickup = 0) {
   return glyphs;
 }
 
+/* ── beamRuns ──
+   Which flagged notes beam together, and which stand alone with a flag. This
+   is the musical half of beaming — kept out of the drawing component so every
+   song in the library can be audited against it (see the beaming audit).
+
+   Standard engraving practice, applied here:
+     • the beam unit is the metre's beat — a quarter in every x/4 metre, a
+       dotted quarter in a compound metre (6/8, 9/8, 12/8);
+     • a beam never crosses a bar line, never spans a rest, and never bridges
+       a gap in time;
+     • in 4/4 a clean run of eighths filling half a bar is beamed as one group
+       of four, the way published piano music sets it — but never across the
+       middle of the bar, which would bury beat 3;
+     • a single flagged note alone in its beam unit keeps its flag.
+
+   `glyphs` are buildNotation() output, in beat order, for ONE voice. Returns
+   arrays of indices into that list, each of length >= 2. ── */
+export function beamFlagsOf(g) { return (g.value || noteValueOf(g.dur)).flags; }
+export function beamRuns(glyphs, opts) {
+  const o = opts || {};
+  const beatsPerBar = o.beatsPerBar || 4;
+  const sigDenom = o.sigDenom || 4;
+  const pickup = o.pickup || 0;
+  const skip = o.skip || (() => false);
+  const beamUnit = (sigDenom === 8 && beatsPerBar % 3 === 0) ? 1.5 : 1;
+  // A pickup measure is the TAIL of a notional full bar, so its beat grid is
+  // counted BACK from the bar line rather than forward from zero — that is
+  // what puts a 3.5-beat pickup's eighths on the beats a full bar gives them.
+  const barKeyOf = (beat) => beat < pickup - 1e-9 ? "p" : String(Math.floor((beat - pickup) / beatsPerBar + 1e-9));
+  const barBeatOf = (beat) => {
+    if (beat < pickup - 1e-9) return beatsPerBar - (pickup - beat);
+    const rel = beat - pickup;
+    return rel - Math.floor(rel / beatsPerBar + 1e-9) * beatsPerBar;
+  };
+  const unitKeyOf = (beat) => barKeyOf(beat) + ":" + Math.floor(barBeatOf(beat) / beamUnit + 1e-9);
+
+  // 1. maximal runs of flagged notes sharing a beam unit and touching in time
+  const runs = [];
+  let cur = [];
+  const close = () => { if (cur.length > 1) runs.push(cur); cur = []; };
+  for (let i = 0; i < (glyphs || []).length; i++) {
+    const g = glyphs[i];
+    if (g.kind === "rest" || beamFlagsOf(g) < 1 || skip(g)) { close(); continue; }
+    if (cur.length) {
+      const prev = glyphs[cur[cur.length - 1]];
+      const touching = Math.abs(g.beat - (prev.beat + prev.dur)) < 1e-6;
+      if (!touching || unitKeyOf(g.beat) !== unitKeyOf(prev.beat)) close();
+    }
+    cur.push(i);
+  }
+  close();
+
+  // 2. in 4/4, two adjacent all-eighth beats inside the same half-bar are
+  //    beamed as one group of four
+  if (beatsPerBar === 4 && sigDenom === 4) {
+    for (let r = 0; r < runs.length - 1; r++) {
+      const a = runs[r], b = runs[r + 1];
+      if (a.length + b.length !== 4) continue;
+      const aFirst = glyphs[a[0]], aLast = glyphs[a[a.length - 1]], bFirst = glyphs[b[0]];
+      const allEighths = a.concat(b).every(i => Math.abs(glyphs[i].dur - 0.5) < 1e-6);
+      const touching = Math.abs(bFirst.beat - (aLast.beat + aLast.dur)) < 1e-6;
+      const start = barBeatOf(aFirst.beat);
+      const onHalfBar = Math.abs(start) < 1e-6 || Math.abs(start - 2) < 1e-6;
+      if (allEighths && touching && onHalfBar && barKeyOf(aFirst.beat) === barKeyOf(bFirst.beat)) {
+        runs.splice(r, 2, a.concat(b));
+        r--;
+      }
+    }
+  }
+  return runs;
+}
+
+/* ── beamLayout ──
+   Turns beam groups into drawing instructions. Split out of the staff
+   component for the same reason beamRuns is: the geometry is the half a
+   reader actually SEES, so it has to be checkable without a browser.
+
+   Per group: one stem direction for all of it, chosen by the note furthest
+   from the middle line (the average breaks a tie between two equally far on
+   opposite sides); one beam through the ideal stem ends, its slant capped so
+   it never reads as a ramp, then pushed outward until no stem in the group
+   falls under the minimum length; and extra beams for 16ths and shorter,
+   stacked toward the heads, drawn only across the span two neighbours share
+   and otherwise cut down to a hook.
+
+   Coordinates come in as plain arrays indexed like the glyph list. Returns
+   `info` (glyph index -> the stem override that glyph must draw with) and
+   `bars` (the beam parallelograms, in drawing order). ── */
+export function beamLayout(runs, geom) {
+  const { steps, xs, flags, base, half } = geom;
+  const states = geom.states || [];
+  // The band the beam has to stay inside. A group spanning a wide interval —
+  // the arpeggio figures in Bach's Prelude in C are the real case — pushes its
+  // beam a long way from the staff, and without this it lands off the top of
+  // the drawing and is simply clipped away.
+  const bandTop = geom.bandTop == null ? -Infinity : geom.bandTop;
+  const bandBottom = geom.bandBottom == null ? Infinity : geom.bandBottom;
+  const info = new Map(), bars = [];
+  const thick = half * 0.95, gap = half * 1.55, rx = half * 0.95;
+
+  // Place one group's beam for a given stem direction, and report how far it
+  // still escapes the band afterwards, so the caller can compare directions.
+  function place(run, up) {
+    const dir = up ? -1 : 1;
+    const st = run.map(i => steps[i]);
+    const ys = st.map(v => base - v * half);
+    const sxs = run.map(i => (up ? xs[i] + rx - 0.7 : xs[i] - rx + 0.7));
+    const maxFlags = Math.max.apply(null, run.map(i => flags[i]));
+    // a beam through the ideal stem ends, its slant capped, then pushed out
+    // until no stem in the group falls under the minimum length
+    const ideal = half * 6.2, minLen = half * 3.4, floor = half * 2.2;
+    const span = sxs[sxs.length - 1] - sxs[0];
+    let y1 = ys[0] + dir * ideal, y2 = ys[ys.length - 1] + dir * ideal;
+    const maxSlant = Math.min(half * 3.5, Math.abs(span) * 0.28);
+    if (Math.abs(y2 - y1) > maxSlant) y2 = y1 + Math.sign(y2 - y1) * maxSlant;
+    const yAt = (x) => (Math.abs(span) < 1e-6 ? y1 : y1 + (y2 - y1) * ((x - sxs[0]) / span));
+    const clearOf = (k) => (yAt(sxs[k]) - ys[k]) * dir - (maxFlags - 1) * gap;
+    let push = 0;
+    for (let k = 0; k < run.length; k++) if (clearOf(k) < minLen) push = Math.max(push, minLen - clearOf(k));
+    y1 += dir * push; y2 += dir * push;
+    // …then pull it back inside the band if it escaped, but never far enough
+    // to let the tightest stem in the group collapse onto its note head
+    const outBy = up ? bandTop - Math.min(y1, y2) : Math.max(y1, y2) - bandBottom;
+    if (outBy > 0) {
+      let room = Infinity;
+      for (let k = 0; k < run.length; k++) room = Math.min(room, clearOf(k) - floor);
+      const move = Math.min(outBy, Math.max(0, room));
+      y1 -= dir * move; y2 -= dir * move;
+    }
+    const escaped = Math.max(0, up ? bandTop - Math.min(y1, y2) : Math.max(y1, y2) - bandBottom);
+    return { up, dir, ys, sxs, maxFlags, yAt, escaped };
+  }
+
+  for (const run of (runs || [])) {
+    const st = run.map(i => steps[i]);
+    // the note furthest from the middle line (step 4) sets the direction
+    let far = -1, farStep = 4;
+    for (const v of st) { const d = Math.abs(v - 4); if (d > far) { far = d; farStep = v; } }
+    const split = st.some(v => Math.abs(v - 4) === far && (v < 4) !== (farStep < 4));
+    const avg = st.reduce((x, y) => x + y, 0) / st.length;
+    const natural = (far <= 0 || split) ? avg <= 4 : farStep < 4;
+    let P = place(run, natural);
+    // only overrule the standard direction when it genuinely does not fit and
+    // the other one does better
+    if (P.escaped > 0) { const alt = place(run, !natural); if (alt.escaped < P.escaped) P = alt; }
+    const { up, dir, ys, sxs, maxFlags, yAt } = P;
+    run.forEach((gi, k) => info.set(gi, { up, beamY: yAt(sxs[k]) }));
+
+    for (let L = 1; L <= maxFlags; L++) {
+      const off = -dir * (L - 1) * gap;   // extra beams stack toward the heads
+      // a segment per adjacent pair, so each can carry the colour of the note
+      // it leaves; they are collinear, so it still reads as one beam
+      for (let k = 0; k < run.length - 1; k++) {
+        if (flags[run[k]] < L || flags[run[k + 1]] < L) continue;
+        const xa = sxs[k] - (k === 0 ? 0.8 : 0), xb = sxs[k + 1] + (k === run.length - 2 ? 0.8 : 0);
+        bars.push({ x1: xa, x2: xb, y1: yAt(xa) + off, y2: yAt(xb) + off, dir, t: thick, level: L, state: states[run[k]] });
+      }
+      if (L === 1) continue;
+      // an extra beam with no neighbour to join becomes a hook, pointing back
+      // into the group (forward only when it is the group's first note)
+      for (let k = 0; k < run.length; k++) {
+        if (flags[run[k]] < L) continue;
+        if ((k > 0 && flags[run[k - 1]] >= L) || (k < run.length - 1 && flags[run[k + 1]] >= L)) continue;
+        const w = half * 1.9, back = k > 0 ? -1 : 1;
+        const xa = Math.min(sxs[k], sxs[k] + back * w), xb = Math.max(sxs[k], sxs[k] + back * w);
+        bars.push({ x1: xa, x2: xb, y1: yAt(xa) + off, y2: yAt(xb) + off, dir, t: thick, level: L, hook: true, state: states[run[k]] });
+      }
+    }
+  }
+  return { info, bars };
+}
+
 // light haptic tap feedback on supported devices
 export function haptic(ms = 8) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
 
@@ -2106,6 +2278,13 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
   const list = (notes || []).filter(Boolean).slice(0, 64);
   const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
   const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
+  const sigDenom = parseInt(String(timeSig).split("/")[1], 10) || 4;
+  // The song's own pickup (anacrusis), recomputed from the same sequence and
+  // by the same function expandSong() engraved the glyphs against, so the bar
+  // grid drawn here is the one the glyphs were split on. 98 of the 348 songs
+  // carry a pickup; without this the bar lines — and every beam group, which
+  // must never cross one — would sit a beat or three out on all of them.
+  const pickup = useMemo(() => pickupBeatsOf((songMeta && songMeta.seq) || [], beatsPerBar), [songMeta, beatsPerBar]);
   const { sig, name: keyName } = songMeta ? keySignatureOf(songMeta) : { sig: 0, name: "C" };
   const sigMarksTreble = keySignatureMarks(sig, "treble");
   const sigMarksBass = keySignatureMarks(sig, "bass");
@@ -2205,8 +2384,68 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
     );
   }
 
+  // Where a note glyph sits on this staff, spelled for the key — the one
+  // place both the glyph renderer and the beam layout ask.
+  function stepOf(g, clef) {
+    if (!g || g.kind === "rest" || !g.note) return null;
+    const sp = spellNoteInKey(g.note, sig);
+    if (!sp) return null;
+    return staffStepFor(sp.letter, sp.oct, clef);
+  }
+
+  /* ── beaming ──
+     Engraved music never leaves a run of short notes flapping with one flag
+     each: notes shorter than a quarter are joined by a beam when they share
+     a beat, and that beam is what makes the pulse readable at a glance. A
+     lone flag is only ever correct for a note standing by itself inside its
+     own beam unit. The rules applied here are the standard ones:
+       • the beam unit is the metre's beat — a quarter in every x/4 metre,
+         a dotted quarter in a compound metre (6/8, 9/8, 12/8);
+       • a beam never crosses a bar line, never spans a rest, and never
+         bridges a gap in time;
+       • in 4/4 a clean run of eighths filling half a bar is beamed as one
+         group of four, the way published piano music sets it — but never
+         across the middle of the bar, which would bury beat 3;
+       • the whole group shares ONE stem direction, chosen by the note
+         furthest from the middle line (the average breaks a tie);
+       • 16ths and 32nds get their extra beams only across the span they
+         share with a neighbour of the same value; with no such neighbour
+         the extra beam becomes a short hook pointing back into the group,
+         which is how a dotted-eighth/16th pair is set. ── */
+  // Returns the per-glyph stem overrides (direction + where the stem stops)
+  // and the beam segments to draw for one staff's worth of glyphs.
+  function layoutBeams(glyphs, clef, base) {
+    if (!glyphs || !glyphs.length) return { info: new Map(), bars: [] };
+
+    // 1+2. which notes beam together — the musical half of the job, kept out
+    //      of the component so it can be audited against every song
+    const runs = beamRuns(glyphs, { beatsPerBar, sigDenom, pickup, skip: g => stepOf(g, clef) == null });
+
+    // 3. geometry — also its own pure function, so the drawing can be audited.
+    //    The band keeps a wide group's beam on the page: below the "Key:"
+    //    caption, and on a grand staff inside its own half, never running
+    //    down into the other hand's staff.
+    const isBass = grand && base === bassBase;
+    return beamLayout(runs, {
+      steps: glyphs.map(g => stepOf(g, clef)),
+      xs: glyphs.map(g => xOf(g.beat)),
+      flags: glyphs.map(g => (g.kind === "rest" ? 0 : beamFlagsOf(g))),
+      states: glyphs.map(g => g.state),
+      base, half,
+      bandTop: isBass ? topBase + 10 : 20,
+      bandBottom: grand && !isBass ? bassBase - 8 * half - 8 : H - 6,
+    });
+  }
+
+  // a beam segment: a parallelogram whose OUTER edge is the stem end, its
+  // thickness falling inward toward the note heads
+  const renderBeam = (b, k) => (
+    <path key={k} d={`M${b.x1},${b.y1} L${b.x2},${b.y2} L${b.x2},${b.y2 - b.dir * b.t} L${b.x1},${b.y1 - b.dir * b.t} Z`}
+      fill={COLOR[b.state] || COLOR.future} />
+  );
+
   // ── one glyph, fully notated ──
-  function renderGlyph(g, i, base, clef, next) {
+  function renderGlyph(g, i, base, clef, next, beam) {
     if (g.kind === "rest") return renderRest(g, i, base, clef);
     const sp = spellNoteInKey(g.note, sig);
     if (!sp) return null;
@@ -2223,10 +2462,12 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
     // stems: up from the right of the head below the middle line, down from
     // the left on or above it — the standard rule. Extra flags need a longer
     // stem to hang from.
-    const up = step < 4;
+    // A beamed note takes its direction and its stem end from the GROUP —
+    // one shared direction and one shared beam is the whole point of beaming.
+    const up = beam ? beam.up : step < 4;
     const stemLen = half * (6.2 + Math.max(0, val.flags - 1) * 1.1);
     const stemX = up ? x + rx - 0.7 : x - rx + 0.7;
-    const stemEnd = up ? y - stemLen : y + stemLen;
+    const stemEnd = beam ? beam.beamY : (up ? y - stemLen : y + stemLen);
     // an augmentation dot sits in a space beside the head, never on a line
     const dotY = step % 2 === 0 ? y - half : y;
     // a tie binds this head to the next piece of the same held note; it
@@ -2251,7 +2492,9 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
             style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{sp.acc === "#" ? "♯" : sp.acc === "b" ? "♭" : "♮"}</text>
         )}
         {val.stem && <line x1={stemX} y1={y} x2={stemX} y2={stemEnd} stroke={color} strokeWidth="1.6" />}
-        {Array.from({ length: val.flags }).map((_, f) => (
+        {/* a flag is drawn only on a note that is NOT beamed — a beamed
+            note's tail is the beam, and drawing both is the classic error */}
+        {!beam && Array.from({ length: val.flags }).map((_, f) => (
           <path key={f}
             d={`M${stemX},${stemEnd + (up ? f * half * 1.1 : -f * half * 1.1)} q${half * 1.6},${up ? half * 1.1 : -half * 1.1} ${half * 1.1},${up ? half * 3 : -half * 3}`}
             fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
@@ -2267,13 +2510,20 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
   // bar lines land on real measure boundaries, spanning both staves on a
   // grand staff exactly as piano notation does
   const barBeats = [];
-  const firstBar = Math.ceil(startBeat / beatsPerBar) * beatsPerBar;
-  for (let b = firstBar; b <= startBeat + spanBeats; b += beatsPerBar) if (b > startBeat + 0.01) barBeats.push(b);
+  // Bars run from the END of the pickup measure onward — an anacrusis is a
+  // short first bar, so its bar line falls at `pickup`, not at beat 4.
+  if (pickup > 1e-9 && pickup > startBeat + 0.01 && pickup <= startBeat + spanBeats) barBeats.push(pickup);
+  const firstBar = pickup + Math.max(0, Math.ceil((startBeat - pickup) / beatsPerBar)) * beatsPerBar;
+  for (let b = firstBar; b <= startBeat + spanBeats; b += beatsPerBar) if (b > startBeat + 0.01 && b > pickup + 1e-9) barBeats.push(b);
   const barTop = topBase - 8 * half;
   const barBottom = grand ? bassBase : topBase;
 
   const trebleNotes = grand ? list.filter(n => n.hand !== "left") : list;
   const bassNotes = grand ? list.filter(n => n.hand === "left") : [];
+  // Each staff is one voice, so each beams independently — a beam never
+  // joins the right hand to the left.
+  const trebleBeams = layoutBeams(trebleNotes, grand ? "treble" : soloClef, topBase);
+  const bassBeams = grand ? layoutBeams(bassNotes, "bass", bassBase) : { info: new Map(), bars: [] };
 
   return (
     <svg ref={wrapRef} viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
@@ -2298,8 +2548,10 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
         <line key={"bar" + i} x1={xOf(b) - pxPerBeat * 0.35} y1={barTop} x2={xOf(b) - pxPerBeat * 0.35} y2={barBottom}
           stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />
       ))}
-      {trebleNotes.map((n, i) => renderGlyph(n, i, topBase, grand ? "treble" : soloClef, trebleNotes[i + 1]))}
-      {grand && bassNotes.map((n, i) => renderGlyph(n, i, bassBase, "bass", bassNotes[i + 1]))}
+      {trebleBeams.bars.map((b, i) => renderBeam(b, "tb" + i))}
+      {grand && bassBeams.bars.map((b, i) => renderBeam(b, "bb" + i))}
+      {trebleNotes.map((n, i) => renderGlyph(n, i, topBase, grand ? "treble" : soloClef, trebleNotes[i + 1], trebleBeams.info.get(i)))}
+      {grand && bassNotes.map((n, i) => renderGlyph(n, i, bassBase, "bass", bassNotes[i + 1], bassBeams.info.get(i)))}
     </svg>
   );
 });

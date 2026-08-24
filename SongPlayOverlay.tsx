@@ -10,7 +10,22 @@ import { CountUp } from "./app-shell";
 export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songNextLit2, songFingerMap, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand, setSongPhase }) {
   const lc = L[lang];
   // Landscape orientation prompt for Play Along — detect portrait on mobile
-  const [orientSkipped, setOrientSkipped] = useState(false);
+  // The rotate hint is a one-time lesson, not a recurring nag: once it has
+  // been seen it never appears again on this device, however many songs are
+  // played afterwards. It taught what it needed to teach.
+  const ORIENT_SEEN_KEY = "tg_orient_hint_seen";
+  const [orientSkipped, setOrientSkipped] = useState(() => {
+    try { return localStorage.getItem(ORIENT_SEEN_KEY) === "1"; } catch (e) { return false; }
+  });
+  function dismissOrientHint() {
+    setOrientSkipped(true);
+    try { localStorage.setItem(ORIENT_SEEN_KEY, "1"); } catch (e) {}
+  }
+  // seeing it at all counts as having been taught — mark it the moment it shows
+  useEffect(() => {
+    if (orientSkipped || songPhase !== "playing") return;
+    try { localStorage.setItem(ORIENT_SEEN_KEY, "1"); } catch (e) {}
+  }, [orientSkipped, songPhase]);
   const [isPortrait, setIsPortrait] = useState(() => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(orientation: portrait)").matches && window.innerHeight > window.innerWidth);
   useEffect(() => {
     if (orientSkipped) return;
@@ -252,7 +267,7 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                   ? "旋转手机为横屏，钢琴更宽，更容易弹奏，音符更清晰"
                   : "Rotate your phone sideways for a wider piano, easier playing, and clearer notes"}
               </div>
-              <button className="op-skip" onClick={() => setOrientSkipped(true)}>
+              <button className="op-skip" onClick={dismissOrientHint}>
                 {lang === "th" ? "ข้าม ใช้แนวตั้ง" : lang === "zh" ? "跳过，使用竖屏" : "Skip, use portrait"}
               </button>
             </div>

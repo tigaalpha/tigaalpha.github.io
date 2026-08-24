@@ -316,14 +316,28 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
       const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
       const spanBeats = beatsPerBar * 5;
-      // "where we are" = the earliest still-unplayed note of the leading
-      // voice, so the window follows the melody rather than the accompaniment.
+      // "Where we are" is read off the SAME CLOCK the falling notes are drawn
+      // from, not off which notes happen to have been played yet. A meteor is
+      // at the hit line when songTime === note.t + SONG_LEAD, so the moment
+      // currently being played is (songTime - SONG_LEAD) — convert that to
+      // beats and the staff and the falling notes are showing the identical
+      // instant of the music by construction.
+      //
+      // Driving it from hit/missed state instead (as before) meant the staff
+      // ran ahead whenever the learner played early and lagged whenever they
+      // stopped playing, so the notation and the meteors disagreed about
+      // where in the bar the song was.
+      const spb = 60 / ((songMeta && songMeta.bpm) || 90);
+      const nowSec = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current - SONG_LEAD;
+      const nowBeat = Math.max(0, nowSec / spb);
+      const winStartBeat = Math.max(0, nowBeat - beatsPerBar);
+      const winEndBeat = winStartBeat + spanBeats;
+      // the note being played right now = the one whose span contains the
+      // clock, else the next one due
       const melody = allNotes.filter(n => n.hand !== "left");
       const lead = (melody.length ? melody : allNotes);
-      const curNote = lead.find(n => !n.hit && !n.missed);
-      const curBeat = curNote ? curNote.beat : (lead.length ? lead[lead.length - 1].beat : 0);
-      const winStartBeat = Math.max(0, curBeat - beatsPerBar);
-      const winEndBeat = winStartBeat + spanBeats;
+      const curNote = lead.find(n => nowBeat >= n.beat - 0.001 && nowBeat < n.beat + (n.durBeats || 1) - 0.001)
+        || lead.find(n => n.beat >= nowBeat - 0.001) || null;
       // The staff draws ENGRAVED glyphs (bar-split, tied, rests filled in —
       // see buildNotation), not the raw played notes: a note held across a
       // bar line is two tied heads on the page but one note in the game, and

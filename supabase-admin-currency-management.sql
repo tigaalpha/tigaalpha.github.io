@@ -3,7 +3,15 @@
 --
 -- Run in Supabase SQL Editor (project gsaqgbracxnucdmtmcxz) AFTER human review.
 
--- 1. Update admin_list_students_v2 to also return coins & gems
+-- 1. Update admin_list_students_v2 to also return coins & gems.
+--    The DROP is required, not optional: this adds two OUT columns, and
+--    Postgres refuses "create or replace" when a function's return type
+--    changes ("cannot change return type of existing function"). Without it
+--    this whole migration aborts on its first statement — which is exactly
+--    why the admin console shipped with a Save button whose RPC did not
+--    exist, and why saving raised "Could not find the function
+--    public.admin_adjust_currency(...) in the schema cache".
+drop function if exists public.admin_list_students_v2(text, int, int);
 create or replace function public.admin_list_students_v2(p_search text default null, p_limit int default 200, p_offset int default 0)
 returns table(
   id uuid, full_name text, email text, admin_tier smallint, banned boolean,
@@ -45,6 +53,10 @@ begin
   if coalesce(v_tier, 0) < 3 then raise exception 'insufficient admin tier — Top Tier required'; end if;
 
   if target is null then raise exception 'target user required'; end if;
+  -- none of these has any meaning below zero; reject rather than store junk
+  if p_coins is not null and p_coins < 0 then raise exception 'coins cannot be negative'; end if;
+  if p_gems  is not null and p_gems  < 0 then raise exception 'gems cannot be negative'; end if;
+  if p_exp   is not null and p_exp   < 0 then raise exception 'exp cannot be negative'; end if;
 
   update profiles set
     coins = coalesce(p_coins, coins),
@@ -54,3 +66,7 @@ begin
 
   if not found then raise exception 'target user not found'; end if;
 end; $$;
+
+-- Applied to production (project gsaqgbracxnucdmtmcxz) as migration
+-- `admin_currency_management`, after a BEGIN/ROLLBACK dry run confirmed both
+-- functions are created with the exact argument names the client sends.
