@@ -24,7 +24,7 @@ import { MASTER_MODEL_SETTING_KEY, MODEL_TIER_SETTING_KEYS, resolveTierModelId, 
 export type { AIProvider, ChatMessage, ChatRole, GeneratedImage, GenerateResult, ToolCall, ToolDefinition } from "./ai-types.ts";
 export type { ModelTier } from "./model-tiers.ts";
 
-export type ChatModelId = "gemini" | "claude" | "gpt" | "qwen" | "kimi" | "glm" | "glm52" | "grok" | "deepseek" | "mimo";
+export type ChatModelId = "gemini" | "claude" | "gpt" | "qwen" | "kimi" | "glm" | "glm52" | "grok" | "deepseek" | "deepseek-v3-free" | "mimo";
 
 export interface ChatModelDef {
   id: ChatModelId;
@@ -44,6 +44,7 @@ export const CHAT_MODELS: ChatModelDef[] = [
   { id: "glm52", label: "GLM 5.2", envKey: "OPENROUTER_API_KEY" },
   { id: "grok", label: "Grok", envKey: "OPENROUTER_API_KEY" },
   { id: "deepseek", label: "DeepSeek V4 Flash", envKey: "OPENROUTER_API_KEY" },
+  { id: "deepseek-v3-free", label: "DeepSeek V3 Free (128K)", envKey: "OPENROUTER_API_KEY" },
   { id: "mimo", label: "MiMo 7B RL (Xiaomi)", envKey: "OPENROUTER_API_KEY" },
 ];
 
@@ -60,6 +61,7 @@ const OPENROUTER_MODEL_SLUGS: Record<Exclude<ChatModelId, "gemini">, { envVar: s
   glm52: { envVar: "ZHIPU_CHAT_MODEL_52", slug: "z-ai/glm-5.2" },
   grok: { envVar: "XAI_CHAT_MODEL", slug: "x-ai/grok-4" },
   deepseek: { envVar: "DEEPSEEK_CHAT_MODEL", slug: "deepseek/deepseek-v4-flash" },
+  "deepseek-v3-free": { envVar: "DEEPSEEK_V3_FREE_MODEL", slug: "deepseek/deepseek-chat-v3-0324:free" },
   mimo: { envVar: "MIMO_CHAT_MODEL", slug: "xiaomi/mimo-7b-rl" },
 };
 
