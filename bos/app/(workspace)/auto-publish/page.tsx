@@ -47,13 +47,14 @@ export default function AutoPublishPage() {
         .order("scheduled_at", { ascending: false })
         .limit(20);
       
-      const postsData: ScheduledPost[] = (socialPosts ?? []).map(post => ({
-        id: post.id,
-        title: (post.title as string) || (post.content as string || "").slice(0, 50) || "Untitled",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const postsData: ScheduledPost[] = ((socialPosts ?? []) as any[]).map((post: any) => ({
+        id: String(post.id || ""),
+        title: String(post.title || post.content || "").slice(0, 50) || "Untitled",
         platforms: (post.platforms as string[]) || [],
-        scheduledAt: post.scheduled_at || new Date().toISOString(),
+        scheduledAt: String(post.scheduled_at || new Date().toISOString()),
         status: (post.status as "draft" | "scheduled" | "publishing" | "published" | "failed") || "draft",
-        content: (post.content as string) || "",
+        content: String(post.content || ""),
       }));
       
       setPosts(postsData);
@@ -123,6 +124,8 @@ export default function AutoPublishPage() {
           ) : (
             scheduledPosts.map(post => {
               const st = STATUS_MAP[post.status] ?? STATUS_MAP.draft;
+              const stLabel = st?.label ?? "Draft";
+              const stVariant = st?.variant ?? "outline";
               return (
                 <div key={post.id} className="flex items-center gap-3 rounded-xl border border-line/10 p-3">
                   <div className="flex-1 min-w-0">
@@ -134,7 +137,7 @@ export default function AutoPublishPage() {
                       <Badge key={p} variant="outline" className="text-[9px]">{PLATFORM_ICONS[p] || "📊"} {p}</Badge>
                     ))}
                   </div>
-                  <Badge variant={st.variant} className="text-[9px]">{st.label}</Badge>
+                  <Badge variant={stVariant} className="text-[9px]">{stLabel}</Badge>
                 </div>
               );
             })

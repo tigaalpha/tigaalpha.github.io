@@ -186,7 +186,7 @@ export default function MimoAIPage() {
                 </button>
               ))}
             </div>
-            <p className="text-xs text-secondary/40 ml-8">ไปที่ Settings → Integrations → เลือก "MiMo 7B RL (Xiaomi)" เป็นโมเดลหลัก</p>
+            <p className="text-xs text-secondary/40 ml-8">ไปที่ Settings → Integrations → เลือก &quot;MiMo 7B RL (Xiaomi)&quot; เป็นโมเดลหลัก</p>
           </div>
         </CardContent>
       </Card>

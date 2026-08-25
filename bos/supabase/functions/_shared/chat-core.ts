@@ -62,6 +62,10 @@ function isDegenerateReply(content: string): boolean {
 }
 
 const DEGENERATE_FALLBACK = "ขอโทษค่ะ รบกวนพิมพ์คำถามอีกครั้งได้ไหมคะ อยากให้แน่ใจว่าตอบตรงกับที่คุณลูกค้าต้องการค่ะ";
+const DEGENERATE_FALLBACK_OWNER = "ขอโทษค่ะ รบกวนพิมพ์คำถามอีกครั้งได้ไหมคะ อยากให้แน่ใจว่าตอบตรงกับสิ่งที่ต้องการค่ะ";
+function degenerateFallback(isOwnerMode: boolean): string {
+  return isOwnerMode ? DEGENERATE_FALLBACK_OWNER : DEGENERATE_FALLBACK;
+}
 
 // Banned-phrase filter (AI quality loop): the eval data showed the model
 // occasionally leaks internal error/technical detail to customers ("มี
@@ -88,6 +92,10 @@ const BANNED_REPLY_PATTERNS = [
 ];
 
 const BANNED_REPLY_FALLBACK = "ขอโทษค่ะ ขอตรวจสอบกับทีมงานก่อนนะคะ เดี๋ยวจะรีบติดต่อกลับทันทีค่ะ 😊";
+const BANNED_REPLY_FALLBACK_OWNER = "ระบบมีปัญหาชั่วคราวค่ะ ขอตรวจสอบแล้วตอบกลับใหม่นะคะ";
+function bannedReplyFallback(isOwnerMode: boolean): string {
+  return isOwnerMode ? BANNED_REPLY_FALLBACK_OWNER : BANNED_REPLY_FALLBACK;
+}
 
 function hasBannedPhrase(content: string): boolean {
   return BANNED_REPLY_PATTERNS.some((re) => re.test(content));
@@ -100,6 +108,7 @@ export async function respond(
   promptContext: PromptName[] = ["sales", "booking", "knowledge", "customer_service"],
   callerId: string | null = null
 ): Promise<RespondResult> {
+  const isOwnerMode = promptContext.includes("owner");
   const { count: priorMessageCount } = await db
     .from("messages")
     .select("id", { count: "exact", head: true })
@@ -111,7 +120,11 @@ export async function respond(
   // shouldn't cost a fresh Gemini call. Only applies to the first message —
   // once there's conversation history, a reply is context-dependent and
   // must not be reused verbatim for someone else's conversation.
-  if (isOpeningMessage) {
+  // NEVER for owner mode: the cache holds customer-facing sales replies —
+  // replaying one to the owner (or caching an owner's business answer for a
+  // customer later) is exactly the "AI ตอบมั่ว" failure. Owner questions are
+  // answered fresh with tools every time.
+  if (isOpeningMessage && !isOwnerMode) {
     const questionHash = await hashQuestion(customerMessage);
     const { data: cached } = await db.from("ai_response_cache").select("*").eq("question_hash", questionHash).maybeSingle();
 
@@ -363,7 +376,7 @@ export async function respond(
         if (retry.finishReason !== "tool_calls" && !isDegenerateReply(retry.message.content)) {
           result.message.content = retry.message.content;
         } else {
-          result.message.content = DEGENERATE_FALLBACK;
+          result.message.content = degenerateFallback(isOwnerMode);
           usedFallback = true;
         }
       }
@@ -379,7 +392,7 @@ export async function respond(
       // reply, and the quality loop (ai-eval-runner) can learn from it.
       if (hasBannedPhrase(result.message.content)) {
         usedFallback = true;
-        result.message.content = BANNED_REPLY_FALLBACK;
+        result.message.content = bannedReplyFallback(isOwnerMode);
         await db.from("conversations").update({ needs_review: true, last_stage: "fallback" }).eq("id", conversationId);
         await db.from("notifications").insert({
           type: "ai_needs_review",
@@ -415,8 +428,9 @@ export async function respond(
 
       // Only cache plain knowledge-lookup answers — a reply that used tools
       // (booking, CRM lookups) is specific to this customer and must not be
-      // replayed to someone else.
-      if (isOpeningMessage && !usedTools) {
+      // replayed to someone else. Owner-mode answers are never cached (see
+      // the cache-read gate above for why).
+      if (isOpeningMessage && !usedTools && !isOwnerMode) {
         const questionHash = await hashQuestion(customerMessage);
         await db.from("ai_response_cache").upsert(
           { question_hash: questionHash, question_text: customerMessage, reply: result.message.content, hits: 1, created_at: new Date().toISOString() },
@@ -463,7 +477,9 @@ export async function respond(
   }
 
   await db.from("conversations").update({ needs_review: true, last_stage: "fallback" }).eq("id", conversationId);
-  const fallback = "ขอโทษค่ะ ขอเวลาตรวจสอบข้อมูลเพิ่มเติมกับทางทีมงานก่อนนะคะ เดี๋ยวจะรีบติดต่อกลับค่ะ";
+  const fallback = isOwnerMode
+    ? "ขอโทษค่ะ ขอเวลาตรวจสอบข้อมูลก่อนนะคะ แล้วจะตอบกลับใหม่ทันทีค่ะ"
+    : "ขอโทษค่ะ ขอเวลาตรวจสอบข้อมูลเพิ่มเติมกับทางทีมงานก่อนนะคะ เดี๋ยวจะรีบติดต่อกลับค่ะ";
   await db.from("messages").insert({ conversation_id: conversationId, sender: "ai", content: fallback, metadata: { fallback: true } });
   return { reply: fallback, needsReview: true };
 }

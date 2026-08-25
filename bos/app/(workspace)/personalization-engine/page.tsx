@@ -177,7 +177,7 @@ export default function PersonalizationEnginePage() {
                   </div>
                   <div className="rounded-lg bg-white/5 p-3 mt-2">
                     <p className="text-xs text-secondary/60 mb-1">ข้อความแนะนำ:</p>
-                    <p className="text-sm text-secondary">"{profile.recommendedMessage}"</p>
+                    <p className="text-sm text-secondary">&quot;{profile.recommendedMessage}&quot;</p>
                   </div>
                   <div className="flex gap-2 mt-3">
                     <Button size="sm" variant="outline">

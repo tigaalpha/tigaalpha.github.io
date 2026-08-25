@@ -242,7 +242,7 @@ export default function AITaskRouterPage() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-secondary">Routing Rules ทั้งหมด ({ROUTING_RULES.length} หมวด)</h2>
         {ROUTING_RULES.map((rule) => {
-          const complexity = COMPLEXITY_MAP[rule.complexity];
+          const complexity = COMPLEXITY_MAP[rule.complexity] ?? { label: rule.complexity, variant: "default" as const };
           const isExpanded = expandedCategory === rule.category;
           const Icon = rule.icon;
           return (

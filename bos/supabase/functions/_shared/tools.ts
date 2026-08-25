@@ -1105,11 +1105,22 @@ export async function executeTool(
     case "get_business_summary": {
       const period = String(args.period ?? "today");
       const days = period === "today" ? 1 : period === "week" ? 7 : 30;
-      const start = new Date();
-      if (period === "today") start.setHours(0, 0, 0, 0);
-      else start.setTime(Date.now() - days * 24 * 60 * 60 * 1000);
-      const startISO = start.toISOString();
-      const startDateStr = startISO.slice(0, 10);
+      let startISO: string;
+      let startDateStr: string;
+      if (period === "today") {
+        // Bangkok day boundary (UTC+7, no DST) — using server-local midnight
+        // made "วันนี้" wrong by 7 hours: between 00:00-06:59 Thai time the
+        // summary silently included yesterday's bookings/transactions.
+        const nowShifted = new Date(Date.now() + 7 * 60 * 60 * 1000);
+        startDateStr = nowShifted.toISOString().slice(0, 10);
+        const bkkMidnightShifted = new Date(nowShifted);
+        bkkMidnightShifted.setUTCHours(0, 0, 0, 0);
+        startISO = new Date(bkkMidnightShifted.getTime() - 7 * 60 * 60 * 1000).toISOString();
+      } else {
+        const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        startISO = start.toISOString();
+        startDateStr = startISO.slice(0, 10);
+      }
 
       const [txResult, lessonsResult, leadsResult, wonResult] = await Promise.all([
         db.from("transactions").select("type, amount").gte("transaction_date", startDateStr),

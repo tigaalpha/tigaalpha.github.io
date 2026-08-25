@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
+import { CHAT_MODELS, DEFAULT_CHAT_MODEL_ID, chatModelLabel } from "@/lib/chat-models";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -76,12 +77,27 @@ const TRAIN_TYPES: KnowledgeSourceType[] = [
    ══════════════════════════════════════════════════════════════ */
 export function AiControlPanel({ onReplied }: { onReplied?: () => void }) {
   const [tab, setTab] = useState<PanelTab>("chat");
+  const [chatModel, setChatModel] = useState(DEFAULT_CHAT_MODEL_ID);
+  const [savingModel, setSavingModel] = useState(false);
+
+  useEffect(() => {
+    const repos = createRepositories(createClient());
+    repos.integrations.get("ai_chat_model").then((v) => setChatModel(v ?? DEFAULT_CHAT_MODEL_ID));
+  }, []);
+
+  async function changeChatModel(value: string) {
+    setChatModel(value);
+    setSavingModel(true);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set("ai_chat_model", value);
+    setSavingModel(false);
+  }
 
   return (
     <Card className="overflow-hidden border-primary/10 shadow-sm">
       {/* ── Header ── */}
       <CardHeader className="border-b border-line/5 bg-gradient-to-r from-primary/5 via-primary-accent/5 to-primary/5 pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-primary-gradient text-white shadow-lg shadow-primary/20">
               <Bot className="h-5 w-5" />
@@ -99,6 +115,26 @@ export function AiControlPanel({ onReplied }: { onReplied?: () => void }) {
                 พูดคุย ฝึก และควบคุม Chatbot ของคุณโดยตรง
               </CardDescription>
             </div>
+          </div>
+
+          {/* ── Model switcher (มุมขวา) — บอกว่ากำลังคุยกับ model ไหน + เปลี่ยนได้ทันที ── */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary-accent" />
+            <select
+              value={chatModel}
+              onChange={(e) => void changeChatModel(e.target.value)}
+              disabled={savingModel}
+              aria-label="เลือกโมเดล AI"
+              title="กำลังคุยกับโมเดล AI นี้อยู่ — เปลี่ยนได้ทันที"
+              className="max-w-[150px] truncate rounded-lg border border-line/10 bg-line/5 px-2 py-1.5 text-xs font-medium text-secondary/80 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              {CHAT_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            {savingModel ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary/50" /> : null}
           </div>
         </div>
 
@@ -126,7 +162,7 @@ export function AiControlPanel({ onReplied }: { onReplied?: () => void }) {
       </CardHeader>
 
       <CardContent className="p-4">
-        {tab === "chat" && <OwnerChatTab onReplied={onReplied} />}
+        {tab === "chat" && <OwnerChatTab onReplied={onReplied} modelLabel={chatModelLabel(chatModel)} />}
         {tab === "train" && <TrainTab />}
         {tab === "control" && <ControlTab />}
       </CardContent>
@@ -165,7 +201,7 @@ function TabButton({
 /* ══════════════════════════════════════════════════════════════
    TAB 1: OWNER CHAT — Direct line to the AI
    ══════════════════════════════════════════════════════════════ */
-function OwnerChatTab({ onReplied }: { onReplied?: () => void }) {
+function OwnerChatTab({ onReplied, modelLabel }: { onReplied?: () => void; modelLabel: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -271,7 +307,7 @@ function OwnerChatTab({ onReplied }: { onReplied?: () => void }) {
               >
                 {m.role === "ai" && (
                   <span className="mb-1 flex items-center gap-1 text-[10px] font-medium text-primary/60">
-                    <Bot className="h-3 w-3" /> TIGA AI
+                    <Bot className="h-3 w-3" /> TIGA AI · {modelLabel}
                   </span>
                 )}
                 <span className="whitespace-pre-wrap">{m.content}</span>
@@ -282,7 +318,7 @@ function OwnerChatTab({ onReplied }: { onReplied?: () => void }) {
             <div className="flex justify-start">
               <div className="rounded-2xl bg-card px-3 py-2 text-sm shadow-soft">
                 <span className="mb-1 flex items-center gap-1 text-[10px] font-medium text-primary/60">
-                  <Bot className="h-3 w-3" /> TIGA AI
+                  <Bot className="h-3 w-3" /> TIGA AI · {modelLabel}
                 </span>
                 <div className="flex items-center gap-1">
                   <Loader2 className="h-4 w-4 animate-spin text-primary/40" />

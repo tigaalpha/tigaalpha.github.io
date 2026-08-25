@@ -28,10 +28,10 @@ interface PublishedArticle {
 }
 
 const STATUS_MAP: Record<string, { label: string; variant: "outline" | "warning" | "success" | "info" }> = {
-  draft: { label: "ร่าง", variant: "outline" },
-  review: { label: "รอตรวจ", variant: "warning" },
-  published: { label: "เผยแพร่แล้ว", variant: "info" },
-  indexed: { label: "Google Index แล้ว", variant: "success" },
+  draft: { label: "ร่าง", variant: "outline" as const },
+  review: { label: "รอตรวจ", variant: "warning" as const },
+  published: { label: "เผยแพร่แล้ว", variant: "default" as const },
+  indexed: { label: "Google Index แล้ว", variant: "success" as const },
 };
 
 function CopyButton({ value }: { value: string }) {
@@ -44,7 +44,7 @@ function CopyButton({ value }: { value: string }) {
 }
 
 function ArticleCard({ article }: { article: PublishedArticle }) {
-  const st = STATUS_MAP[article.status] ?? STATUS_MAP.draft;
+  const st = STATUS_MAP[article.status!] ?? STATUS_MAP.draft;
   const ctr = article.impressions > 0 ? ((article.clicks / article.impressions) * 100).toFixed(1) : "0";
   const publicUrl = `https://tigaalpha.github.io/studio/articles/${article.slug}`;
   const sitemapEntry = `<url><loc>${publicUrl}</loc><lastmod>${article.publishedAt ?? "2025-01-01"}</lastmod></url>`;
@@ -85,11 +85,11 @@ function ArticleCard({ article }: { article: PublishedArticle }) {
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" asChild>
-            <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+          <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+            <Button size="sm" variant="outline">
               <ExternalLink className="h-3 w-3 mr-1" />ดูหน้าเว็บ
-            </a>
-          </Button>
+            </Button>
+          </a>
           <CopyButton value={publicUrl} />
           <CopyButton value={sitemapEntry} />
           <CopyButton value={`<a href="${publicUrl}">${article.title}</a>`} />
@@ -128,13 +128,13 @@ export default function SEOPublishPage() {
         slug: article.slug || article.id,
         status: (article.status as "draft" | "review" | "published" | "indexed") || "draft",
         targetKeyword: article.target_keyword || "",
-        publishedAt: article.published_at || undefined,
-        indexedAt: article.indexed_at || undefined,
-        views: article.views || 0,
-        clicks: article.clicks || 0,
-        impressions: article.impressions || 0,
-        avgPosition: article.avg_position || 0,
-        internalLinks: (article.internal_links as string[]) || [],
+        publishedAt: (article as Record<string, unknown>).published_at as string || undefined,
+        indexedAt: (article as Record<string, unknown>).indexed_at as string || undefined,
+        views: ((article as Record<string, unknown>).views as number) || 0,
+        clicks: ((article as Record<string, unknown>).clicks as number) || 0,
+        impressions: ((article as Record<string, unknown>).impressions as number) || 0,
+        avgPosition: ((article as Record<string, unknown>).avg_position as number) || 0,
+        internalLinks: ((article as Record<string, unknown>).internal_links as string[]) || [],
       }));
       
       setArticles(publishedArticles);

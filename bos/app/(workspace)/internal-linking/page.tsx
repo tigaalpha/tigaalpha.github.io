@@ -156,7 +156,7 @@ export default function InternalLinkingPage() {
                           <span className="text-xs font-medium text-primary">{link.target}</span>
                           <Badge variant="outline" className="text-[9px]">Score: {link.score}</Badge>
                         </div>
-                        <p className="text-[10px] text-secondary/40 mt-1">Anchor: "{link.anchor}" · {link.reason}</p>
+                        <p className="text-[10px] text-secondary/40 mt-1">Anchor: &quot;{link.anchor}&quot; · {link.reason}</p>
                       </div>
                       <Button size="sm" variant="ghost"><Check className="h-3 w-3" /></Button>
                     </div>

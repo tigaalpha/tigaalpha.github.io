@@ -52,7 +52,7 @@ export default function LandingPagesPage() {
       const repos = createRepositories(createClient());
       const articles = await repos.articles.list();
       
-      const landingPages: LandingPageData[] = articles.map((a: any, i: number) => ({
+      const landingPages: LandingPageData[] = articles.map((a: Record<string, unknown>, i: number) => ({
         id: a.id || String(i),
         title: a.title || `Landing Page ${i + 1}`,
         slug: a.slug || `/page/${i}`,

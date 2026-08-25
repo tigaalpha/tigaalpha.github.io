@@ -54,18 +54,21 @@ export default function ContentRepurposePage() {
           type: "article",
           description: (a.content as string || "").slice(0, 100) || "บทความ SEO",
         })),
-        ...videoScripts.slice(0, 3).map(v => ({
-          id: v.id,
-          title: v.title || "ไม่มีชื่อ",
+        ...videoScripts.slice(0, 3).map((v: Record<string, unknown>) => ({
+          id: String(v.id || ""),
+          title: String(v.topic || v.hook || "ไม่มีชื่อ"),
           type: "video",
-          description: (v.script as string || "").slice(0, 100) || "วิดีโอสคริปต์",
+          description: String(v.script || "").slice(0, 100) || "วิดีโอสคริปต์",
         })),
       ];
       
       setSources(sourcesList);
       if (sourcesList.length > 0) {
-        setSelectedSource(sourcesList[0].id);
-        setOutputs(generateRepurposedContent(sourcesList[0].title, sourcesList[0].description));
+        const first = sourcesList[0];
+        if (first) {
+          setSelectedSource(first.id);
+          setOutputs(generateRepurposedContent(first.title, first.description));
+        }
       }
     } catch (err) {
       console.error("Failed to load content:", err);
