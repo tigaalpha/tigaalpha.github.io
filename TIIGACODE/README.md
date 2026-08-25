@@ -10,16 +10,36 @@ TIIGACODE คือ coding agent ที่ทำงานในเทอร์�
 dependency ร่วมกัน ไม่กระทบ build/deploy ของแอปหลักแต่อย่างใด (เหมือน `studio/`/`bos/`
 ที่เป็นโปรเจกต์อิสระในตัวเองอยู่แล้ว)
 
-รองรับโมเดลต่อไปนี้ (ตั้งค่าไว้ให้เป็นค่าเริ่มต้น แก้ไข/เพิ่มเองได้ทั้งหมด):
+รองรับโมเดลต่อไปนี้ (ตั้งค่าไว้ให้เป็นค่าเริ่มต้น แก้ไข/เพิ่มเองได้ทั้งหมด) — **ต่อได้ 2 ทาง**
+ต่อตรงกับผู้ให้บริการแต่ละเจ้า (ต้องมีคีย์แยกทีละเจ้า) หรือผ่าน **OpenRouter** (คีย์เดียวคุยได้
+กับทุกเจ้า — ดูหัวข้อถัดไป):
 
-| โมเดล | ผู้ให้บริการ | provider kind |
+| โมเดล | ต่อตรง (ต้องมีคีย์ของเจ้านั้น) | ผ่าน OpenRouter (คีย์เดียว) |
 |---|---|---|
-| Claude Sonnet 5 / Opus 5 | Anthropic | `anthropic` |
-| ChatGPT (GPT-5) | OpenAI | `openai-compatible` |
-| GLM-5.2 / GLM-5.3 | Zhipu AI (open.bigmodel.cn) | `openai-compatible` |
-| Qwen3.8-Max / Qwen 3.7 | Alibaba Cloud (DashScope compatible-mode) | `openai-compatible` |
-| Kimi K3 | Moonshot AI | `openai-compatible` |
-| MiMo 2.5 | Xiaomi (ต้องระบุ endpoint เอง) | `openai-compatible` |
+| Claude Sonnet 5 / Opus 5 | `claude` / `claude-opus` (Anthropic) | `or-claude` |
+| ChatGPT | `chatgpt` (OpenAI) | `or-gpt` (GPT-5.1) |
+| GLM | `glm-5.2` / `glm-5.3` (Zhipu) | `or-glm` (5.1) / `or-glm52` (5.2) |
+| Qwen | `qwen-3.8-max` / `qwen-3.7` (Alibaba) | `or-qwen` (Qwen3-Max) |
+| Kimi | `kimi-k3` (Moonshot) | `or-kimi` (Kimi K2) |
+| MiMo (Xiaomi) | `mimo-2.5` (ต้องหา endpoint เอง) | `or-mimo` (MiMo 7B RL) |
+
+### แนะนำ: ต่อผ่าน OpenRouter ทางเดียวพอ
+
+[OpenRouter](https://openrouter.ai) เป็น gateway ที่พร็อกซีไปหลายผู้ให้บริการผ่าน endpoint
+เดียวแบบ OpenAI-compatible — สมัครคีย์ทีเดียว เติมเงินครั้งเดียว ใช้ได้ทั้ง Claude, GPT, Qwen,
+Kimi, GLM และ MiMo โดยไม่ต้องไปสมัครแยกทีละเจ้า (ประหยัดเวลากว่าต่อตรงมาก โดยเฉพาะ MiMo ที่
+Xiaomi เองไม่มี public API ให้ต่อตรงอยู่แล้ว) นี่คือแพทเทิร์นเดียวกับที่ repo นี้ใช้งานจริงอยู่แล้ว
+ใน `bos/` (ดู `bos/supabase/functions/_shared/openrouter.ts` และ `bos/lib/chat-models.ts`) —
+เอา slug โมเดลจริงที่ bos/ ใช้งานอยู่มาตั้งเป็นค่าเริ่มต้นให้ตรงนี้เลย
+
+สมัครคีย์ที่ [openrouter.ai/keys](https://openrouter.ai/keys) แล้วใส่ใน `.env`:
+```
+OPENROUTER_API_KEY=sk-or-...
+```
+จากนั้นเลือกโมเดล `or-claude`, `or-gpt`, `or-qwen`, `or-kimi`, `or-glm`, `or-glm52`, หรือ
+`or-mimo` ได้เลย — **หมายเหตุ: repo นี้ไม่มีคีย์ OpenRouter จริงเก็บไว้ที่ไหนเลย** (คีย์ที่ `bos/`
+ใช้งานจริงถูกเก็บเป็น Supabase Edge Function secret แยกต่างหาก ไม่อยู่ในไฟล์ใน repo และ
+TIIGACODE ไม่ได้ไปดึงมาใช้ ต้องสมัครคีย์ของตัวเองต่างหาก)
 
 ## ทำไม config พวกนี้ถึงเป็น "ค่าเริ่มต้นที่ต้องตรวจสอบเอง"
 
