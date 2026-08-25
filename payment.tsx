@@ -675,10 +675,16 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
   const ppId = payCfg && payCfg.promptpay;
   const aliQr = (payCfg && payCfg.alipay_qr) || ALIPAY_QR;
   const wxQr = (payCfg && payCfg.wechat_qr) || WECHAT_QR;
+  const acct = (payCfg && payCfg.bank_account && String(payCfg.bank_account).trim()) || "";
+  const swift = (payCfg && payCfg.bank_swift && String(payCfg.bank_swift).trim()) || "";
+  // Same rails as the plan checkout. These were Thai/Chinese only, so the coin
+  // and gem shop told English customers "no payment channel configured for this
+  // language" — i.e. they could not spend money here at all.
   const channels = [
     ...(lang === "zh" ? [{ k: "alipay", ic: "🔵", label: "Alipay 支付宝" }] : []),
     ...(lang === "zh" ? [{ k: "wechat", ic: "🟢", label: "WeChat 微信" }] : []),
-    ...(lang === "th" && ppId ? [{ k: "promptpay", ic: "🇹🇭", label: "PromptPay" }] : []),
+    ...((lang === "th" || lang === "en") && ppId ? [{ k: "promptpay", ic: "🇹🇭", label: "PromptPay" }] : []),
+    ...((lang === "th" || lang === "en") && acct ? [{ k: "banktransfer", ic: "🏦", label: T("โอนเข้าบัญชี", "Bank transfer", "银行转账") }] : []),
   ];
   const qr = useMemo(() => (chanKey === "promptpay" && ppId && price) ? promptPayQR(ppId, price) : null, [chanKey, ppId, price]);
 
@@ -761,6 +767,27 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
               )}
               {!channels.length && !chanKey && (
                 <div className="aicreate-err">{T("ยังไม่ได้ตั้งค่าช่องทางรับเงินสำหรับภาษานี้", "No payment channel configured for this language yet", "此语言尚未配置收款渠道")}</div>
+              )}
+
+              {chanKey === "banktransfer" && (
+                <>
+                  <div className="payinfo">
+                    {payCfg && payCfg.bank && <div>🏦 {T("ธนาคาร", "Bank", "银行")}: <b>{payCfg.bank}</b></div>}
+                    {payCfg && payCfg.name && <div>👤 {T("ชื่อบัญชี", "Account name", "账户名")}: <b>{payCfg.name}</b></div>}
+                    <div>#️⃣ {T("เลขที่บัญชี", "Account number", "账号")}: <b>{acct}</b></div>
+                    {swift && <div>🌐 SWIFT / BIC: <b>{swift}</b></div>}
+                    {price ? <div>💰 {T("ยอดที่ต้องโอน", "Amount to transfer", "转账金额")}: <b>{fmtPrice("thb", price)}</b></div> : null}
+                  </div>
+                  <p className="pr-sub">{T(
+                    "โอนตามยอดด้านบนเข้าบัญชีนี้ แล้วอัปโหลดสลิปเพื่อยืนยัน",
+                    "Transfer the amount above to this account, then upload your transfer receipt to confirm.",
+                    "请按上述金额转账至该账户，然后上传转账凭证。")}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload receipt", "上传凭证")}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
               )}
 
               {chanKey === "promptpay" && (
