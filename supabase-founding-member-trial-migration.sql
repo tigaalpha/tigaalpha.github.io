@@ -1,6 +1,10 @@
 -- Founding-member trial: the first 100 signups (by created_at, all-time —
 -- including whoever has already signed up before this migration runs) get a
--- 90-day free trial instead of the standard 7 days. Run in Supabase SQL
+-- longer free trial than the standard 7 days. This migration only records WHO
+-- is a founding member; HOW LONG their trial runs is TRIAL_DAYS_FOUNDING in
+-- payment.tsx, measured from profiles.created_at on every read. That length
+-- started at 90 days and is 30 days now — a trial is uncapped Premium, so
+-- every trial day is real AI cost. Run in Supabase SQL
 -- Editor (project gsaqgbracxnucdmtmcxz) AFTER human review. Safe to re-run:
 -- the column add is if-not-exists, the trigger replace is idempotent, and
 -- the backfill UPDATE only ever (re-)marks the true first 100 by created_at
@@ -24,10 +28,11 @@ alter table public.profiles add column if not exists founding_member boolean not
 
 -- Backfill: whoever's ALREADY among the first 100 by signup order becomes a
 -- founding member retroactively — including anyone whose original 7-day
--- trial has already lapsed, which extends (not restarts) their trial up to
--- 90 days from their real original created_at. This is the intended
--- behavior for "the first 100 users get 3 months", not a bug: a promo like
--- this is meant to reward the earliest signups, lapsed trial or not.
+-- trial has already lapsed, which extends (not restarts) their trial to the
+-- full founding length from their real original created_at. This is the
+-- intended behavior for a first-100 promo, not a bug: it is meant to reward
+-- the earliest signups, lapsed trial or not. It cuts both ways — shortening
+-- TRIAL_DAYS_FOUNDING shortens their trial retroactively too.
 update public.profiles set founding_member = true
 where id in (select id from public.profiles order by created_at asc limit 100);
 
