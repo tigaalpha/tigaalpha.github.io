@@ -77,6 +77,11 @@ export function getPlan() { try { return localStorage.getItem("tg_plan") || (isP
 export function setPlanLS(p) { try { localStorage.setItem("tg_plan", p); localStorage.setItem("tg_premium", p === "free" ? "0" : "1"); } catch (e) {} }
 // Voice Mode (AI voice teacher) is a Max / Max Family exclusive.
 export function isMaxPlan(p) { const v = p || getPlan(); return v === "max" || v === "maxfamily"; }
+/* The published price list. These three tables are duplicated in the
+   supabase/functions/stripe-checkout edge function, which is what actually
+   charges the card — CHANGE BOTH TOGETHER. A sale is refused outright if they
+   disagree (see `expect` in openStripe below), so a one-sided edit shows up as
+   a failed checkout rather than as a customer billed the wrong amount. */
 export const PLAN_PRICE     = { premium: 1490,  family: 2900,  max: 3999,   maxfamily: 9999  }; // THB
 export const PLAN_PRICE_USD = { premium: 44.99, family: 89.99, max: 119.99, maxfamily: 149.99 }; // USD
 export const PLAN_PRICE_CNY = { premium: 328,   family: 648,   max: 888,    maxfamily: 1088  }; // CNY
@@ -205,7 +210,12 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
       const res = await fetch(SUPABASE_URL + "/functions/v1/stripe-checkout", {
         method: "POST",
         headers: { ...apiHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: checkout.plan, cycle: checkout.cycle || "month", cur }),
+        // `expect` is the price on the card the buyer just clicked. The server
+        // still computes the real amount itself and never trusts this number —
+        // it only compares, and refuses the sale if the two disagree. That is
+        // what stops the app and the checkout function drifting apart into
+        // charging a price nobody was ever shown.
+        body: JSON.stringify({ plan: checkout.plan, cycle: checkout.cycle || "month", cur, expect: dispAmt }),
       });
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error || "no url");
