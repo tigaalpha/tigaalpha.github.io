@@ -31,8 +31,6 @@ $$;
 
 -- ── 3a. users overview: who was active, how long, when last ─────────────────
 -- display name: real users → profile full_name/email; sim users → bot name.
-'t reference later columns, so wrap the function: the simple
--- version above is superseded by this one immediately after creation.)
 create or replace function public.admin_activity_users(p_since timestamptz default null)
 returns table (
   user_id uuid,
@@ -205,13 +203,21 @@ language sql immutable set search_path = public as $$
   ])[1 + (('x' || substr(p_id::text, 1, 8))::bit(32)::bigint % 30)];
 $$;
 
--- Config lives in app_settings (key 'sim_bots'): {enabled, bots, intensity}
+-- Config lives in app_settings (key 'sim_bots'):
+-- {enabled, bots, intensity, max_real_users, override_auto_off}
 -- intensity = events per bot per tick (1..5). Phase-out = lower bots/enabled.
-create or replace function public.admin_sim_config(p_enabled boolean default null, p_bots int default null, p_intensity int default null)
+-- max_real_users = auto-shutdown threshold (default 50): sim_tick disables
+-- itself once this many distinct REAL users have been seen in the last 30d.
+-- override_auto_off = owner's explicit choice to KEEP RUNNING past the
+-- threshold (change of mind) — sim_tick honours this and stays on.
+create or replace function public.admin_sim_config(p_enabled boolean default null, p_bots int default null, p_intensity int default null, p_max_real_users int default null, p_override_auto_off boolean default null)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
   v_cur jsonb;
+  v_real int;
+  v_max int;
+  v_override boolean;
 begin
   if not public.is_top_admin() then
     raise exception 'top admin only';
@@ -219,19 +225,29 @@ begin
 
   select value into v_cur from public.app_settings where key = 'sim_bots';
   if v_cur is null then
-    v_cur := jsonb_build_object('enabled', false, 'bots', 0, 'intensity', 2);
+    v_cur := jsonb_build_object('enabled', false, 'bots', 0, 'intensity', 2, 'max_real_users', 50, 'override_auto_off', false);
   end if;
 
-  if p_enabled is not null or p_bots is not null or p_intensity is not null then
+  if p_enabled is not null or p_bots is not null or p_intensity is not null or p_max_real_users is not null or p_override_auto_off is not null then
     v_cur := jsonb_build_object(
       'enabled', coalesce(p_enabled, (v_cur->>'enabled')::boolean),
       'bots', greatest(0, least(50, coalesce(p_bots, (v_cur->>'bots')::int))),
-      'intensity', greatest(1, least(5, coalesce(p_intensity, (v_cur->>'intensity')::int))));
+      'intensity', greatest(1, least(5, coalesce(p_intensity, (v_cur->>'intensity')::int))),
+      'max_real_users', greatest(1, coalesce(p_max_real_users, (v_cur->>'max_real_users')::int, 50)),
+      'override_auto_off', coalesce(p_override_auto_off, (v_cur->>'override_auto_off')::boolean, false));
     insert into public.app_settings (key, value) values ('sim_bots', v_cur)
     on conflict (key) do update set value = excluded.value, updated_at = now();
   end if;
 
-  return v_cur;
+  v_max := coalesce((v_cur->>'max_real_users')::int, 50);
+  v_override := coalesce((v_cur->>'override_auto_off')::boolean, false);
+  v_real := public.sim_real_user_count();
+  -- report live status so the dashboard can show why bots are (or aren't) running
+  return jsonb_set(jsonb_set(
+    v_cur,
+    '{real_users}', to_jsonb(v_real)),
+    '{auto_disabled}',
+    to_jsonb(v_real >= v_max and not v_override));
 end;
 $$;
 
@@ -259,6 +275,20 @@ begin
 
   select value into v_cfg from public.app_settings where key = 'sim_bots';
   if v_cfg is null or not coalesce((v_cfg->>'enabled')::boolean, false) then
+    return 0;
+  end if;
+
+  -- AUTO-SHUTDOWN: once the real audience has arrived (>= max_real_users
+  -- distinct real users in the last 30 days), retire the bots — UNLESS the
+  -- owner explicitly chose to keep them running (override_auto_off = true,
+  -- settable from the admin dashboard at any time).
+  if public.sim_real_user_count() >= coalesce((v_cfg->>'max_real_users')::int, 50)
+     and not coalesce((v_cfg->>'override_auto_off')::boolean, false) then
+    if coalesce((v_cfg->>'enabled')::boolean, false) then
+      update public.app_settings
+        set value = jsonb_set(value, '{enabled}', 'false'::jsonb)
+        where key = 'sim_bots';
+    end if;
     return 0;
   end if;
 
@@ -303,5 +333,45 @@ begin
     where key = 'sim_bots';
 
   return v_created;
+end;
+$$;
+
+-- ── 5. AUTO-SHUTDOWN: stop bots once the real audience has arrived ─────────
+-- The launch plan: run bots only while the app feels empty, then retire them.
+-- sim_tick refuses to generate (and flips enabled=false) once the number of
+-- DISTINCT REAL (non-simulated) users seen in the last 30 days reaches 50.
+-- The threshold lives in the sim_bots config as 'max_real_users' so the owner
+-- can change it from the dashboard without another migration.
+create or replace function public.sim_real_user_count()
+returns int
+language sql stable security definer set search_path = public as $$
+  select count(distinct user_id)::int
+  from public.usage_events
+  where not simulated
+    and created_at >= now() - interval '30 days';
+$$;
+
+create or replace function public.sim_purge(p_older_than_days int default null)
+returns int
+language plpgsql security definer set search_path = public as $$
+declare
+  v_deleted int := 0;
+begin
+  if not public.is_top_admin() then
+    raise exception 'top admin only';
+  end if;
+
+  -- p_older_than_days null → delete ALL simulated rows; otherwise only rows
+  -- older than that many days (lets the owner fade old bot data out while
+  -- keeping recent history readable).
+  with del as (
+    delete from public.usage_events
+    where simulated
+      and (p_older_than_days is null or created_at < now() - make_interval(days => p_older_than_days))
+    returning 1
+  )
+  select count(*) into v_deleted from del;
+
+  return v_deleted;
 end;
 $$;

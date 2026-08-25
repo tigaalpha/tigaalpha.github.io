@@ -214,6 +214,8 @@ export function AdminSimBots({ lang }) {
   const [cfg, setCfg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [purgeMsg, setPurgeMsg] = useState(null);
+  const [confirmPurge, setConfirmPurge] = useState(false);
 
   const load = useCallback(() => {
     sb.rpc("admin_sim_config").then(({ data }) => setCfg(data || {}), () => setCfg({}));
@@ -237,9 +239,29 @@ export function AdminSimBots({ lang }) {
     await save({ p_enabled: next >= 1 ? true : false, p_bots: next });
   }
 
+  // wipe ALL simulated rows from the database — real data is never touched.
+  async function purgeAll() {
+    if (!confirmPurge) { setConfirmPurge(true); setTimeout(() => setConfirmPurge(false), 4000); return; }
+    setBusy(true);
+    const { data } = await sb.rpc("sim_purge", { p_older_than_days: null });
+    setPurgeMsg(data != null ? `${T("ลบแล้ว", "Deleted", "已删除")} ${data} ${T("แถวข้อมูลจำลอง", "simulated rows", "行模拟数据")}` : T("ลบไม่สำเร็จ", "Delete failed", "删除失败"));
+    setBusy(false);
+    setConfirmPurge(false);
+    setTimeout(() => setPurgeMsg(null), 4000);
+  }
+
   if (cfg === null) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
 
   const enabled = !!cfg.enabled;
+  const realUsers = Number(cfg.real_users) || 0;
+  const maxReal = Number(cfg.max_real_users) || 50;
+  const overrideOn = !!cfg.override_auto_off;
+  const autoOff = !!cfg.auto_disabled;
+
+  // keep bots running past the auto-shutdown threshold (owner change of mind)
+  async function setOverride(on) {
+    await save({ p_override_auto_off: on });
+  }
 
   return (
     <div className="adminpay">
@@ -249,6 +271,28 @@ export function AdminSimBots({ lang }) {
           {T("สร้างกิจกรรมจำลองให้แดชบอร์ดกิจกรรมมีข้อมูลตั้งแต่วันเปิดตัว — แสดงเฉพาะในหน้าแอดมินเท่านั้น ผู้เรียนตัวจริงไม่เห็นทุกจุด ปิดทีละนิดได้ด้วยปุ่ม \"ลดทีละส่วน\"",
             "Generates simulated activity so the Activity dashboard has data from day one. Visible ONLY inside the admin console — real learners never see it anywhere. Phase out gradually with \"Reduce\".",
             "为活动仪表板生成模拟数据，仅管理员可见，学员不会看到。可逐步减少。")}
+        </div>
+
+        {/* launch status: real users vs auto-shutdown threshold */}
+        <div style={{ background: autoOff ? "rgba(46,158,91,.12)" : "var(--tg-card, #f6f6f8)", borderRadius: 12, padding: "10px 12px", margin: "10px 0", fontSize: 12 }}>
+          👥 {T("ผู้ใช้จริง 30 วันล่าสุด", "Real users (last 30d)", "真实用户（近30天）")}: <b>{realUsers}</b> / {maxReal}
+          {autoOff
+            ? <div style={{ color: "#2e9e5b", marginTop: 4, fontWeight: 600 }}>🎉 {T("มีผู้ใช้จริงครบตามเป้า — บอทปิดตัวเองอัตโนมัติแล้ว", "Real-user goal reached — bots have auto-shut down", "真实用户已达目标——机器人已自动关闭")}</div>
+            : <div style={{ opacity: 0.65, marginTop: 4 }}>{T("บอทจะปิดตัวเองอัตโนมัติเมื่อผู้ใช้จริงครบ", "Bots auto-shut down once real users reach", "真实用户达到后将自动关闭机器人")} {maxReal} {T("คน", null, null)}</div>}
+          {overrideOn && (
+            <div style={{ color: "#b8860b", marginTop: 6, fontWeight: 600 }}>
+              ⚡ {T("โหมดเปิดต่อ: บอทจะไม่ปิดอัตโนมัติแม้ผู้ใช้จริงเกินเป้า — คุณเลือกเอง", "Override ON: bots keep running past the threshold — your explicit choice", "覆盖模式：机器人不会自动关闭")}
+            </div>
+          )}
+          {(autoOff || overrideOn) && (
+            <button className={`billtog${overrideOn ? " on" : ""}`} disabled={busy}
+              onClick={() => setOverride(!overrideOn)}
+              style={{ marginTop: 8 }}>
+              {overrideOn
+                ? `🔒 ${T("กลับไปใช้ปิดอัตโนมัติ", "Back to auto-shutdown", "恢复自动关闭")}`
+                : `⚡ ${T("เปลี่ยนใจ — เปิดบอทต่อ (ไม่ปิดอัตโนมัติ)", "Change my mind — keep bots running", "改变主意——继续运行机器人")}`}
+            </button>
+          )}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px 0" }}>
@@ -285,6 +329,11 @@ export function AdminSimBots({ lang }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
           <button className="billtog" disabled={busy} onClick={() => save({})}>🔄 {T("สร้างกิจกรรมตอนนี้", "Generate now", "立即生成")}</button>
           <button className="billtog" disabled={busy || !(cfg.bots > 0)} onClick={phaseOut}>📉 {T("ลดทีละส่วน (ปิดค่อยๆ)", "Phase out (-20%)", "逐步减少")}</button>
+          <button className="billtog" disabled={busy} onClick={purgeAll}
+            style={confirmPurge ? { color: "#c0392b", borderColor: "#c0392b" } : undefined}>
+            {confirmPurge ? `⚠️ ${T("กดอีกครั้งเพื่อยืนยันลบ", "Tap again to confirm", "再次点击确认删除")}` : `🗑️ ${T("ลบข้อมูลบอททั้งหมด", "Delete all bot data", "删除所有机器人数据")}`}
+          </button>
+          {purgeMsg && <span style={{ fontSize: 11, color: "#2e9e5b", alignSelf: "center" }}>✓ {purgeMsg}</span>}
         </div>
 
         <div className="admstu-row-sub" style={{ marginTop: 10, fontSize: 11, opacity: 0.55 }}>
