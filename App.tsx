@@ -85,6 +85,7 @@ import { LeadLandingPage } from "./LeadLandingPage";
 import { PianoLevelQuiz } from "./PianoLevelQuiz";
 import { ReferralDashboard } from "./ReferralDashboard";
 import { LeadSaleDashboard } from "./LeadSaleDashboard";
+import { AdminActivity, AdminSimBots } from "./AdminActivityDashboard";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -7877,6 +7878,8 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
+        : adminTab === "activity" && tier >= 3 ? <AdminActivity lang={lang} />
+        : adminTab === "simbots" && tier >= 3 ? <AdminSimBots lang={lang} />
         : adminTab === "ai" && tier >= 3 ? (<>
 
       <div className="mmsgs">
@@ -8273,7 +8276,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // drawer. Navigation stays drawer-only — a bottom tab bar was tried and
   // removed after it read as more confusing, not less.
   const [page, setPage] = useState("pathway");
-  useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
+  // usage analytics: log each page WITH dwell time — recorded on exit (page
+  // change) and flushed on tab-hide so mobile backgrounding still counts.
+  const prevPageRef = useRef(null);
+  const pageEnterAtRef = useRef(Date.now());
+  useEffect(() => {
+    const now = Date.now();
+    if (prevPageRef.current != null) logUsage("page", prevPageRef.current, now - pageEnterAtRef.current);
+    prevPageRef.current = page;
+    pageEnterAtRef.current = now;
+  }, [page]);
+  useEffect(() => {
+    const flushDwell = () => {
+      if (prevPageRef.current != null && document.visibilityState === "hidden") {
+        logUsage("page", prevPageRef.current, Date.now() - pageEnterAtRef.current);
+        prevPageRef.current = null; // don't double-count on return
+      }
+    };
+    document.addEventListener("visibilitychange", flushDwell);
+    return () => document.removeEventListener("visibilitychange", flushDwell);
+  }, []);
   useEffect(() => { if (page !== "sensei") clearSeq(); }, [page]); // stop any Sensei demo audio the instant the learner navigates away
   // remember the most recent non-Sensei page so the Sensei chat's ← button can
   // take the learner back where they came from (pathway lesson, studio, etc.)

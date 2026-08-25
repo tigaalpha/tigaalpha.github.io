@@ -78,11 +78,13 @@ export async function unsubscribePush() {
 // the admin can see what's actually used. Never awaited, never blocks the UI,
 // and any failure (offline, RLS, whatever) is silently swallowed — a missed
 // analytics row is never worth degrading the learner's experience.
-export function logUsage(kind, itemId) {
+export function logUsage(kind, itemId, durationMs = null) {
   sb.auth.getSession().then(({ data }) => {
     const uid = data && data.session && data.session.user && data.session.user.id;
     if (!uid || !itemId) return;
-    sb.from("usage_events").insert({ user_id: uid, kind, item_id: String(itemId) }).then(() => {}, () => {});
+    const row = { user_id: uid, kind, item_id: String(itemId) };
+    if (durationMs != null) row.duration_ms = Math.max(0, Math.round(durationMs)); // page dwell time (admin analytics)
+    sb.from("usage_events").insert(row).then(() => {}, () => {});
   }, () => {});
 }
 

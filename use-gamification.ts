@@ -7,7 +7,7 @@ import {
 import { isMaxPlan, getPlan } from "./payment";
 import { getAC, playUi, playMiss } from "./music-engine";
 import { sb } from "./supabase-client";
-import { ymd, saveGuestProfile } from "./shared-infra";
+import { ymd, saveGuestProfile, logUsage } from "./shared-infra";
 /* ── use-gamification.ts ──
    Owns PianoApp's core progression loop: coins, gems, the daily chest,
    the mascot companion, EXP/level-up/prestige/badge celebrations, weekly
@@ -160,6 +160,7 @@ export function useGamification({ session, profile, setProfile }) {
     expRef.current = after;
     lessonsRef.current = newLessons;
     logExpGain(amount + bonus);   // daily EXP for the progress dashboard
+    logUsage("score", (opts.reason || "exp") + ":" + (amount + bonus)); // admin analytics: score flow
 
     if (setProfile) setProfile(p => {
       const next = { ...(p || {}), exp: after, lessons_done: newLessons, ...(questFields || {}) };
@@ -245,6 +246,7 @@ export function useGamification({ session, profile, setProfile }) {
     const mult = (isMaxPlan(planRef.current) ? 2 : 1) * (activeEventRef.current && activeEventRef.current.coinMult > 1 ? activeEventRef.current.coinMult : 1);
     const v = getCoins() + n * mult;
     setCoinsLS(v); setCoins(v);
+    if (n > 0) logUsage("score", "coins:+" + (n * mult)); // admin analytics
     if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
     // guests have no uid to write to — mirror into the synthetic guest profile
     // too (not just the separate tg_coins cache) so profile.coins stays
