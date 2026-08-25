@@ -39,8 +39,35 @@ export function promptPayQR(target, amount) {
   } catch (e) { return null; }
 }
 
-export const ALIPAY_QR = "./alipay.jpg";
-export const WECHAT_QR = "./wechat.png";
+/* The Alipay / WeChat QR images the owner uploaded. These paths are relative
+   to the page, and the files live in payqr/ — pointing them at the site root
+   (which is where they used to point) makes every Chinese customer's checkout
+   show a broken image instead of a QR to scan, which is exactly as bad as
+   having no Chinese payment method at all. Keep in step with the real files. */
+export const ALIPAY_QR = "./payqr/alipay.jpg";
+export const WECHAT_QR = "./payqr/wechat.png";
+
+/* A payment QR that says so when it fails to load. A QR is the whole payment
+   method here — if the file 404s the customer sees a broken-image icon, has no
+   idea anything is wrong, and simply cannot pay. This turns a silent failure
+   into a visible one, for the buyer AND for whoever is watching the launch. */
+export function PayQrImg({ src, alt, lang }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setBroken(false); }, [src]);
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  if (broken) {
+    return (
+      <div className="aicreate-err" style={{ textAlign: "center", lineHeight: 1.6 }}>
+        {T("โหลด QR ไม่สำเร็จ — ทักแอดมินเพื่อรับ QR โดยตรงได้เลย",
+           "This QR failed to load — please contact us and we'll send it to you directly.",
+           "二维码加载失败，请联系我们，我们会直接发给您。")}
+        <div style={{ opacity: .6, fontSize: 11, marginTop: 4, wordBreak: "break-all" }}>{src}</div>
+      </div>
+    );
+  }
+  return <img className="payqr ext" src={src} alt={alt} onError={() => setBroken(true)}
+    style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />;
+}
 
 /* ── premium / freemium + daily free-tier usage limits ── */
 export function isPremium() { try { return localStorage.getItem("tg_premium") === "1"; } catch (e) { return false; } }
@@ -149,12 +176,21 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
   const wxQr   = (cfg && cfg.wechat_qr) || WECHAT_QR;
   const stripeOn = !!(cfg && cfg.stripe);
 
-  // payment channels available for this language
-  const channels = [
-    ...(lang === "zh" ? [{ k: "ali", ic: "🔵", label: "Alipay 支付宝", method: "alipay" }] : []),
-    ...(lang === "zh" ? [{ k: "wx",  ic: "🟢", label: "WeChat 微信",   method: "wechat"  }] : []),
-    ...(lang === "th" && ppId  ? [{ k: "pp",  ic: "🇹🇭", label: "PromptPay",    method: "promptpay" }] : []),
+  const acct = (cfg && cfg.bank_account && String(cfg.bank_account).trim()) || "";
+  const swift = (cfg && cfg.bank_swift && String(cfg.bank_swift).trim()) || "";
+
+  /* Ways to pay that land straight in the owner's own account — no gateway
+     between the buyer and the money. PromptPay is Thailand's instant rail, and
+     the plain bank transfer is what everyone else uses (a Thai buyer reading
+     the app in English can still use PromptPay, and an overseas buyer wires to
+     the account/SWIFT). Both were previously Thai-only, which left the English
+     edition with a card as its ONLY option. The Chinese pair are rendered by
+     their own tabbed block further down. */
+  const transferChans = [
+    ...(ppId ? [{ k: "pp", ic: "🇹🇭", label: "PromptPay", method: "promptpay" }] : []),
+    ...(acct ? [{ k: "bank", ic: "🏦", label: T("โอนเข้าบัญชี", "Bank transfer", "银行转账"), method: "banktransfer" }] : []),
   ];
+  const channels = (lang === "th" || lang === "en") ? transferChans : [];
   const [chanKey, setChanKey] = useState("");
   const selChan = channels.find(c => c.k === chanKey) || channels[0] || null;
 
@@ -218,6 +254,9 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
   const showStripeBtn = lang === "th" || lang === "en";
   const hasQrChannel = channels.length > 0;
   const nothingConfigured = !showStripeBtn && !hasQrChannel && lang !== "zh";
+  // Stripe is the ONLY rail in English until a transfer account is filled in, so
+  // say so where the owner will actually see it rather than leaving a silent gap.
+  const transferMissing = lang === "en" && !hasQrChannel;
 
   return (
     <div className="setov" onClick={onClose}>
@@ -250,7 +289,11 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
                       <span className="paychan-ic">🟢</span> WeChat 微信
                     </button>
                   </div>
-                  <img className="payqr ext" src={zhTab === "wx" ? WECHAT_QR : ALIPAY_QR} alt={zhTab === "wx" ? "WeChat Pay QR" : "Alipay QR"} style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />
+                  {/* aliQr/wxQr — the ADMIN-CONFIGURED image, falling back to the
+                      bundled one. This used to render the bundled constants
+                      directly, so replacing a QR from the admin panel changed
+                      nothing on the page it was supposed to change. */}
+                  <PayQrImg src={zhTab === "wx" ? wxQr : aliQr} alt={zhTab === "wx" ? "WeChat Pay QR" : "Alipay QR"} lang={lang} />
                   <p className="pr-sub" style={{ textAlign: "center" }}>
                     {zhTab === "wx"
                       ? `打开微信 → 扫一扫 → 支付 ¥${cnySt.toLocaleString()}`
@@ -276,7 +319,42 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
                 </>
               )}
 
-              {/* ── Thai: PromptPay ── */}
+              {/* ── pick a transfer rail, when more than one is set up ── */}
+              {channels.length > 1 && (
+                <div className="paychans">
+                  {channels.map(c => (
+                    <button key={c.k} className={`paychanbtn${selChan && selChan.k === c.k ? " on" : ""}`}
+                      onClick={() => { playUi("click"); setChanKey(c.k); }}>
+                      <span className="paychan-ic">{c.ic}</span> {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* ── direct bank transfer — the owner's own account, any country ── */}
+              {selChan && selChan.k === "bank" && (
+                <>
+                  <div className="payinfo">
+                    {cfg && cfg.bank && <div>🏦 {T("ธนาคาร", "Bank", "银行")}: <b>{cfg.bank}</b></div>}
+                    {cfg && cfg.name && <div>👤 {T("ชื่อบัญชี", "Account name", "账户名")}: <b>{cfg.name}</b></div>}
+                    <div>#️⃣ {T("เลขที่บัญชี", "Account number", "账号")}: <b>{acct}</b></div>
+                    {swift && <div>🌐 SWIFT / BIC: <b>{swift}</b></div>}
+                    <div>💰 {T("ยอดที่ต้องโอน", "Amount to transfer", "转账金额")}: <b>{fmtPrice(cur, dispAmt)}</b>
+                      {cur !== "thb" && <> · {T("หรือ", "or", "或")} <b>{fmtPrice("thb", amountThb)}</b></>}</div>
+                  </div>
+                  <p className="pr-sub">{T(
+                    "โอนตามยอดด้านบนเข้าบัญชีนี้ แล้วอัปโหลดสลิปเพื่อยืนยัน",
+                    "Transfer the amount above to this account, then upload your transfer receipt to confirm.",
+                    "请按上述金额转账至该账户，然后上传转账凭证。")}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload receipt", "上传凭证")}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+
+              {/* ── PromptPay ── */}
               {selChan && selChan.k === "pp" && (
                 <>
                   {qr ? <img className="payqr" src={qr} alt="PromptPay QR" /> : <div className="aicreate-err">{T("สร้าง QR ไม่ได้", "Couldn't make QR", "无法生成二维码")}</div>}
@@ -305,6 +383,13 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
                     {savingCfg ? "⏳ " + T("กำลังบันทึก…", "Saving…", "保存中…") : "💾 " + T("บันทึก", "Save", "保存")}
                   </button>
                 </div>
+              )}
+
+              {transferMissing && isAdmin && (
+                <div className="aiNotice">⚙️ {T(
+                  "ยังไม่ได้ตั้งค่าเลขบัญชีสำหรับโอนตรง — เพิ่มได้ที่ แอดมิน › ตั้งค่าช่องทางรับเงิน",
+                  "No transfer account configured yet — add one in Admin › Payment channel settings and buyers get a direct-transfer option beside the card.",
+                  "尚未配置转账账户 — 请在管理员 › 收款渠道设置中添加。")}</div>
               )}
 
               {nothingConfigured && !isAdmin && (
@@ -506,7 +591,7 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
 
               {(activeChan === "alipay" || activeChan === "wechat") && (
                 <>
-                  <img className="payqr ext" src={activeChan === "wechat" ? wxQr : aliQr} alt={activeChan === "wechat" ? "WeChat Pay QR" : "Alipay QR"} style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />
+                  <PayQrImg src={activeChan === "wechat" ? wxQr : aliQr} alt={activeChan === "wechat" ? "WeChat Pay QR" : "Alipay QR"} lang={lang} />
                   <p className="pr-sub" style={{ textAlign: "center" }}>
                     {activeChan === "wechat"
                       ? `打开微信 → 扫一扫 → 支付 ¥${amount.toLocaleString()}`
@@ -697,7 +782,7 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
 
               {(chanKey === "alipay" || chanKey === "wechat") && (
                 <>
-                  <img className="payqr ext" src={zhTab === "wechat" ? wxQr : aliQr} alt={zhTab === "wechat" ? "WeChat Pay QR" : "Alipay QR"} style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />
+                  <PayQrImg src={zhTab === "wechat" ? wxQr : aliQr} alt={zhTab === "wechat" ? "WeChat Pay QR" : "Alipay QR"} lang={lang} />
                   <p className="pr-sub" style={{ textAlign: "center" }}>
                     {zhTab === "wechat"
                       ? `打开微信 → 扫一扫 → 支付 ¥${(price || 0).toLocaleString()}`

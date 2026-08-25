@@ -253,22 +253,24 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
             </div>
           )}
 
-          {/* Landscape orientation prompt — shown on mobile portrait during Play Along */}
+          {/* A one-time tip, not an instruction: both orientations work fully —
+              landscape just gives a wider keyboard — so it says so plainly and
+              never appears again once it has been read. */}
           {showOrientPrompt && (
             <div className="orientation-prompt">
               <div className="op-icon">📱↻</div>
               <div className="op-title">
-                {lang === "th" ? "หมุนหน้าจอแนวนอน" : lang === "zh" ? "请旋转到横屏" : "Rotate to Landscape"}
+                {lang === "th" ? "เล่นได้ทั้งแนวตั้งและแนวนอน" : lang === "zh" ? "竖屏、横屏都能弹" : "Play in portrait or landscape"}
               </div>
               <div className="op-sub">
                 {lang === "th"
-                  ? "หมุนมือถือเป็นแนวนอนเพื่อให้เปียโนกว้างขึ้น เล่นง่ายขึ้น โน้ตมองเห็นชัดเจน"
+                  ? "ถนัดแบบไหนใช้แบบนั้นได้เลย ทำได้ทั้งคู่ — ถ้าหมุนเป็นแนวนอน เปียโนจะกว้างขึ้นและโน้ตชัดขึ้น (บอกครั้งเดียว ไม่กวนอีก)"
                   : lang === "zh"
-                  ? "旋转手机为横屏，钢琴更宽，更容易弹奏，音符更清晰"
-                  : "Rotate your phone sideways for a wider piano, easier playing, and clearer notes"}
+                  ? "两种都可以，看你习惯 — 横屏时钢琴更宽、音符更清晰。（只提示这一次）"
+                  : "Whichever you prefer — both work fully. Turning sideways just gives you a wider piano and clearer notes. (Shown once only.)"}
               </div>
               <button className="op-skip" onClick={dismissOrientHint}>
-                {lang === "th" ? "ข้าม ใช้แนวตั้ง" : lang === "zh" ? "跳过，使用竖屏" : "Skip, use portrait"}
+                {lang === "th" ? "รับทราบ เริ่มเล่นเลย" : lang === "zh" ? "知道了，开始弹" : "Got it — let's play"}
               </button>
             </div>
           )}

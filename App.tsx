@@ -6824,7 +6824,7 @@ function AdminPayments({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [rows, setRows] = useState(null);
   const [sel, setSel] = useState(null);
-  const [cfg, setCfg] = useState({ promptpay: "", name: "", bank: "", stripe: false, alipay_qr: "", wechat_qr: "" });
+  const [cfg, setCfg] = useState({ promptpay: "", name: "", bank: "", stripe: false, alipay_qr: "", wechat_qr: "", bank_account: "", bank_swift: "" });
   const [cfgSaved, setCfgSaved] = useState(false);
   const [slipUrl, setSlipUrl] = useState(null);
   const [aiBusy, setAiBusy] = useState(false);
@@ -6841,13 +6841,13 @@ function AdminPayments({ lang }) {
       .then(({ data }) => {
         if (data && data.value) {
           const v = data.value;
-          setCfg({ promptpay: v.promptpay || "", name: v.name || "", bank: v.bank || "", stripe: !!v.stripe, alipay_qr: v.alipay_qr || "", wechat_qr: v.wechat_qr || "" });
+          setCfg({ promptpay: v.promptpay || "", name: v.name || "", bank: v.bank || "", stripe: !!v.stripe, alipay_qr: v.alipay_qr || "", wechat_qr: v.wechat_qr || "", bank_account: v.bank_account || "", bank_swift: v.bank_swift || "" });
         }
       });
   }, [load]);
   async function saveCfg() {
     setCfgSaved(false);
-    const value = { promptpay: cfg.promptpay.trim(), name: cfg.name.trim(), bank: cfg.bank.trim(), stripe: cfg.stripe, alipay_qr: cfg.alipay_qr.trim(), wechat_qr: cfg.wechat_qr.trim() };
+    const value = { promptpay: cfg.promptpay.trim(), name: cfg.name.trim(), bank: cfg.bank.trim(), stripe: cfg.stripe, alipay_qr: cfg.alipay_qr.trim(), wechat_qr: cfg.wechat_qr.trim(), bank_account: cfg.bank_account.trim(), bank_swift: cfg.bank_swift.trim() };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "payment", p_value: value });
     if (!error) { setCfgSaved(true); setTimeout(() => setCfgSaved(false), 2500); }
   }
@@ -6938,6 +6938,13 @@ function AdminPayments({ lang }) {
         <input value={cfg.promptpay} onChange={e => setCfg({ ...cfg, promptpay: e.target.value })} placeholder={T("เบอร์ PromptPay หรือเลขผู้เสียภาษี", "PromptPay number or tax ID", "PromptPay 号码或税号")} inputMode="numeric" />
         <input value={cfg.name} onChange={e => setCfg({ ...cfg, name: e.target.value })} placeholder={T("ชื่อบัญชี / ชื่อร้าน", "Account / shop name", "账户/店名")} />
         <input value={cfg.bank} onChange={e => setCfg({ ...cfg, bank: e.target.value })} placeholder={T("ธนาคาร (ไม่บังคับ)", "Bank (optional)", "银行（可选）")} />
+
+        {/* Filling the account number in is what turns on the direct-transfer
+            option in the English checkout — without it a card is the only way
+            an overseas buyer can pay. */}
+        <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, marginTop: 12, marginBottom: 2 }}>🏦 {T("โอนเข้าบัญชีโดยตรง (ไทย + อังกฤษ)", "Direct bank transfer (Thai + English)", "银行直接转账（泰文+英文）")}</div>
+        <input value={cfg.bank_account} onChange={e => setCfg({ ...cfg, bank_account: e.target.value })} placeholder={T("เลขที่บัญชีธนาคาร", "Bank account number", "银行账号")} inputMode="numeric" />
+        <input value={cfg.bank_swift} onChange={e => setCfg({ ...cfg, bank_swift: e.target.value })} placeholder={T("SWIFT / BIC (สำหรับโอนจากต่างประเทศ)", "SWIFT / BIC (for overseas transfers)", "SWIFT / BIC（境外汇款用）")} />
 
         <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, marginTop: 12, marginBottom: 2 }}>💳 Stripe (ไทย + อังกฤษ)</div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
