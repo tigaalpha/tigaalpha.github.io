@@ -68,31 +68,36 @@ export function AdminActivity({ lang }) {
   const [detail, setDetail] = useState(null);
   const [showSim, setShowSim] = useState(true);
 
-  const since = range === "all" ? null : new Date(Date.now() - Number(range) * 86400000).toISOString();
+  // compute the ISO cutoff INSIDE each callback — computing it during render made
+  // `since` a new string every render (Date.now() advances), giving `load` a new
+  // identity every render, re-running the effect in an infinite spinner/data loop
+  // (the "flickering screen" bug).
+  const sinceFor = (r) => (r === "all" ? null : new Date(Date.now() - Number(r) * 86400000).toISOString());
 
   const load = useCallback(() => {
+    const since = sinceFor(range);
     setOverview(null); setUsers(null); setDetail(null);
     sb.rpc("admin_activity_overview", { p_since: since, p_include_sim: showSim })
       .then(({ data }) => setOverview(data || {}), () => setOverview({}));
     sb.rpc("admin_activity_users", { p_since: since })
       .then(({ data }) => setUsers(data || []), () => setUsers([]));
-  }, [since, showSim]);
+  }, [range, showSim]);
 
   useEffect(() => { load(); }, [load]);
 
   // refresh the feed every 30s while the tab is open
   useEffect(() => {
     const iv = setInterval(() => {
-      sb.rpc("admin_activity_overview", { p_since: since, p_include_sim: showSim })
+      sb.rpc("admin_activity_overview", { p_since: sinceFor(range), p_include_sim: showSim })
         .then(({ data }) => setOverview(data || {}), () => {});
     }, 30000);
     return () => clearInterval(iv);
-  }, [since, showSim]);
+  }, [range, showSim]);
 
   const openUser = (u) => {
     setSel(u);
     setDetail(null);
-    sb.rpc("admin_activity_user_detail", { p_user: u.user_id, p_since })
+    sb.rpc("admin_activity_user_detail", { p_user: u.user_id, p_since: sinceFor(range) })
       .then(({ data }) => setDetail(data || {}), () => setDetail({}));
   };
 
