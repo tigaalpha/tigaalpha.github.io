@@ -74,7 +74,7 @@ export function AdminActivity({ lang }) {
     setOverview(null); setUsers(null); setDetail(null);
     sb.rpc("admin_activity_overview", { p_since: since, p_include_sim: showSim })
       .then(({ data }) => setOverview(data || {}), () => setOverview({}));
-    sb.rpc("admin_activity_users", { p_since })
+    sb.rpc("admin_activity_users", { p_since: since })
       .then(({ data }) => setUsers(data || []), () => setUsers([]));
   }, [since, showSim]);
 
