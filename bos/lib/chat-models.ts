@@ -30,7 +30,7 @@ export const CHAT_MODELS: ChatModelOption[] = [
   { id: "glm52", label: "GLM 5.2", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
   { id: "grok", label: "Grok", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
   { id: "deepseek", label: "DeepSeek V4 Flash", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
-  { id: "deepseek-v3-free", label: "DeepSeek V3 Free (128K)", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
+  { id: "deepseek-v3-free", label: "DeepSeek V3 (128K)", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
   { id: "mimo", label: "MiMo 7B RL (Xiaomi)", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
 ];
 

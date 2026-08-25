@@ -22,6 +22,25 @@ export interface SimpleCompletionResult {
   usage?: { promptTokens: number; completionTokens: number };
 }
 
+// Thrown when the provider says the requested model slug doesn't exist / is
+// no longer served (OpenRouter 404 "This model is unavailable..."). Surfaced
+// to the caller as-is so the user gets an actionable hint (switch models)
+// instead of the generic system-error message.
+export class ModelUnavailableError extends Error {
+  constructor(model: string) {
+    super(`โมเดล AI "${model}" ไม่พร้อมใช้งานบนผู้ให้บริการแล้ว — กรุณาเปลี่ยนโมเดลที่มุมขวาบนแล้วลองใหม่อีกครั้ง`);
+    this.name = "ModelUnavailableError";
+  }
+}
+
+function throwProviderHttpError(config: OpenAICompatibleConfig, status: number, body: string): never {
+  const lower = body.toLowerCase();
+  if (status === 404 && (lower.includes("unavailable") || lower.includes("no endpoints") || lower.includes("not a valid model") || lower.includes("model_not_found"))) {
+    throw new ModelUnavailableError(config.model);
+  }
+  throw new Error(`${config.baseUrl} returned ${status}: ${body.slice(0, 300)}`);
+}
+
 // Plain text completion, no tool calling — used by the Strategy Room, which
 // only needs a single free-text answer per advisor.
 export async function callOpenAICompatible(config: OpenAICompatibleConfig, messages: SimpleChatMessage[]): Promise<SimpleCompletionResult> {
@@ -41,7 +60,7 @@ export async function callOpenAICompatible(config: OpenAICompatibleConfig, messa
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`${config.baseUrl} returned ${response.status}: ${body.slice(0, 300)}`);
+    throwProviderHttpError(config, response.status, body);
   }
 
   const data = (await response.json()) as {
@@ -115,7 +134,7 @@ export async function generateOpenAICompatible(
 
   if (!response.ok) {
     const bodyText = await response.text();
-    throw new Error(`${config.baseUrl} returned ${response.status}: ${bodyText.slice(0, 300)}`);
+    throwProviderHttpError(config, response.status, bodyText);
   }
 
   const data = (await response.json()) as {

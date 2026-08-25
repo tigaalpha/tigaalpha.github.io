@@ -227,8 +227,8 @@ function OwnerChatTab({ onReplied, modelLabel }: { onReplied?: () => void; model
     }]);
   }, []);
 
-  async function send() {
-    const text = draft.trim();
+  async function send(overrideText?: string) {
+    const text = (overrideText ?? draft).trim();
     if (!text || sending) return;
 
     setMessages((prev) => [...prev, { role: "owner", content: text }]);
@@ -280,7 +280,7 @@ function OwnerChatTab({ onReplied, modelLabel }: { onReplied?: () => void; model
             {QUICK_ACTIONS.map((a) => (
               <button
                 key={a.text}
-                onClick={() => { setDraft(a.text); setTimeout(() => inputRef.current?.focus(), 50); }}
+                onClick={() => { void send(a.text); }}
                 className="flex items-start gap-2 rounded-xl border border-line/5 bg-line/[0.02] px-3 py-2 text-left transition-all hover:border-primary/20 hover:bg-primary/5"
               >
                 <span className="mt-0.5 text-sm">{a.icon}</span>

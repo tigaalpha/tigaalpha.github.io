@@ -4,6 +4,7 @@ import { requireStaff } from "../_shared/auth.ts";
 import { respond } from "../_shared/chat-core.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
+import { ModelUnavailableError } from "../_shared/openai-compatible.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 Deno.serve(async (req: Request) => {
@@ -45,6 +46,10 @@ Deno.serve(async (req: Request) => {
     if (error instanceof RateLimitError) {
       await logSystemEvent(admin, "ai-chat", "warning", error.message);
       return jsonResponse({ error: error.message }, 429);
+    }
+    if (error instanceof ModelUnavailableError) {
+      await logSystemEvent(admin, "ai-chat", "warning", error.message);
+      return jsonResponse({ error: error.message }, 502);
     }
     return await handleUnexpectedError(admin, "ai-chat", error);
   }
