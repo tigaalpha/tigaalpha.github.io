@@ -76,18 +76,23 @@ export function AdminActivity({ lang }) {
 
   const load = useCallback(() => {
     const since = sinceFor(range);
-    setOverview(null); setUsers(null); setDetail(null);
+    // NOTE: deliberately do NOT reset overview/users/detail to null here.
+    // Nulling them shows the ⏳ spinner on every refetch — if anything ever
+    // re-triggers `load` in a tight cycle that IS the flicker. Keeping the
+    // previous data visible while refreshing can only ever look calm.
     sb.rpc("admin_activity_overview", { p_since: since, p_include_sim: showSim })
-      .then(({ data }) => setOverview(data || {}), () => setOverview({}));
+      .then(({ data }) => setOverview(data || {}), () => setOverview((o) => o || {}));
     sb.rpc("admin_activity_users", { p_since: since })
-      .then(({ data }) => setUsers(data || []), () => setUsers([]));
+      .then(({ data }) => setUsers(data || []), () => setUsers((u) => u || []));
   }, [range, showSim]);
 
   useEffect(() => { load(); }, [load]);
 
-  // refresh the feed every 30s while the tab is open
+  // refresh the feed every 30s while the tab is open (overview only, silently —
+  // never touches users/detail and never clears anything to a spinner)
   useEffect(() => {
     const iv = setInterval(() => {
+      if (document.visibilityState === "hidden") return; // don't churn while backgrounded
       sb.rpc("admin_activity_overview", { p_since: sinceFor(range), p_include_sim: showSim })
         .then(({ data }) => setOverview(data || {}), () => {});
     }, 30000);

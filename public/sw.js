@@ -1,4 +1,8 @@
-const CACHE = "tiga-v8";
+// v9: force-refresh clients still holding the pre-fix bundle from the
+// User Activity flicker bug (see commit history) — a new cache name makes the
+// browser reinstall this SW exactly once, which posts SW_UPDATED and the app
+// auto-reloads onto the fixed build.
+const CACHE = "tiga-v9";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
