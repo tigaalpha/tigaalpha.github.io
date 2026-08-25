@@ -62,7 +62,18 @@ function isDegenerateReply(content: string): boolean {
 }
 
 const DEGENERATE_FALLBACK = "ขอโทษค่ะ รบกวนพิมพ์คำถามอีกครั้งได้ไหมคะ อยากให้แน่ใจว่าตอบตรงกับที่คุณลูกค้าต้องการค่ะ";
-const DEGENERATE_FALLBACK_OWNER = "ขอโทษค่ะ รบกวนพิมพ์คำถามอีกครั้งได้ไหมคะ อยากให้แน่ใจว่าตอบตรงกับสิ่งที่ต้องการค่ะ";
+// Owner-facing: "พิมพ์ใหม่ดิ๊" alone just loops her frustration — tell her the
+// two actions that actually break the failure (switch model / rephrase),
+// since an empty-model reply is usually model-specific, not question-specific.
+const DEGENERATE_FALLBACK_OWNER = "หนูยังสร้างคำตอบไม่สำเร็จค่ะ ลองเปลี่ยนโมเดล AI ที่มุมขวาบนแล้วถามใหม่อีกครั้งนะคะ";
+// Appended as an extra user turn when a generation comes back empty/letterless.
+// Retrying the identical prompt sampled the same degeneration again in
+// production — a corrective instruction changes the sampling context, which
+// is what actually breaks the loop (same principle as the fallback-filter
+// on history below: don't re-feed the failure back to the model)."
+const DEGENERATE_RETRY_NUDGE =
+  "ตอบใหม่ด้วยข้อความจริงที่สมบูรณ์ ห้ามตอบว่าง ห้ามตอบเป็นอีโมจิหรือสัญลักษณ์ล้วน " +
+  "ถ้าคำตอบต้องใช้ตัวเลขหรือข้อมูลระบบ ให้เรียก tool ที่เกี่ยวข้องก่อนแล้วสรุปจากผลลัพธ์ที่ได้";
 function degenerateFallback(isOwnerMode: boolean): string {
   return isOwnerMode ? DEGENERATE_FALLBACK_OWNER : DEGENERATE_FALLBACK;
 }
@@ -369,13 +380,25 @@ export async function respond(
     if (result.finishReason !== "tool_calls" || !result.message.toolCalls?.length) {
       let usedFallback = false;
       if (isDegenerateReply(result.message.content)) {
-        // A stochastic degenerate reply usually doesn't repeat on a fresh
-        // sample from the same prompt, so retry once before falling back.
-        const retry = await generate(messages, tools);
-        await logAiUsage(db, retry.usage, "chat-core:respond");
-        if (retry.finishReason !== "tool_calls" && !isDegenerateReply(retry.message.content)) {
-          result.message.content = retry.message.content;
-        } else {
+        // A degenerate reply (empty / emoji-only) usually doesn't survive a
+        // retry that changes the sampling context: retry up to twice, each
+        // time with a corrective user turn appended, before giving up and
+        // falling back. The old single same-prompt retry still hit the same
+        // attractor whenever the model was stuck (owner saw the "พิมพ์คำถาม
+        // อีกครั้ง" apology repeatedly).
+        let recovered = false;
+        for (let attempt = 0; attempt < 2 && !recovered; attempt += 1) {
+          const retry = await generate(
+            attempt === 0 ? messages : [...messages, { role: "user" as const, content: DEGENERATE_RETRY_NUDGE }],
+            tools
+          );
+          await logAiUsage(db, retry.usage, "chat-core:respond:degenerate-retry");
+          if (retry.finishReason !== "tool_calls" && !isDegenerateReply(retry.message.content)) {
+            result.message.content = retry.message.content;
+            recovered = true;
+          }
+        }
+        if (!recovered) {
           result.message.content = degenerateFallback(isOwnerMode);
           usedFallback = true;
         }

@@ -97,8 +97,10 @@ export function AiControlPanel({ onReplied }: { onReplied?: () => void }) {
     <Card className="overflow-hidden border-primary/10 shadow-sm">
       {/* ── Header ── */}
       <CardHeader className="border-b border-line/5 bg-gradient-to-r from-primary/5 via-primary-accent/5 to-primary/5 pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
+        {/* flex-wrap: on narrow phones the model switcher drops to its own
+            row instead of overflowing past the card edge (ตกขอบ) */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-primary-gradient text-white shadow-lg shadow-primary/20">
               <Bot className="h-5 w-5" />
               <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-green-500" />
@@ -111,14 +113,14 @@ export function AiControlPanel({ onReplied }: { onReplied?: () => void }) {
                   Online
                 </Badge>
               </CardTitle>
-              <CardDescription className="text-xs">
+              <CardDescription className="truncate text-xs">
                 พูดคุย ฝึก และควบคุม Chatbot ของคุณโดยตรง
               </CardDescription>
             </div>
           </div>
 
           {/* ── Model switcher (มุมขวา) — บอกว่ากำลังคุยกับ model ไหน + เปลี่ยนได้ทันที ── */}
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary-accent" />
             <select
               value={chatModel}
@@ -126,7 +128,7 @@ export function AiControlPanel({ onReplied }: { onReplied?: () => void }) {
               disabled={savingModel}
               aria-label="เลือกโมเดล AI"
               title="กำลังคุยกับโมเดล AI นี้อยู่ — เปลี่ยนได้ทันที"
-              className="max-w-[150px] truncate rounded-lg border border-line/10 bg-line/5 px-2 py-1.5 text-xs font-medium text-secondary/80 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="max-w-[118px] truncate rounded-lg border border-line/10 bg-line/5 px-2 py-1.5 text-xs font-medium text-secondary/80 focus:outline-none focus:ring-2 focus:ring-primary/40 sm:max-w-[150px]"
             >
               {CHAT_MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
