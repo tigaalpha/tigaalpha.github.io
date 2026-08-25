@@ -8437,10 +8437,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
   }
 
-  // secret code — change this to your own
-  const ADMIN_CODE = "tiga2026";
+  // secret codes — change these to your own
+  // Top-tier admins (tier 3, i.e. the owner) enter with their own PIN;
+  // lower admin tiers (1–2) keep the staff code.
+  const ADMIN_CODE = "tiga2026";      // staff (admin tier 1–2)
+  const TOP_ADMIN_CODE = "666666";    // owner only (admin tier 3)
   function tryUnlock(code) {
-    if (code === ADMIN_CODE) {
+    const myTier = (profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0);
+    if (code === (myTier >= 3 ? TOP_ADMIN_CODE : ADMIN_CODE)) {
       setAdminUnlocked(true);
       setShowLock(false);
       return true;
