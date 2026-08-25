@@ -203,11 +203,57 @@ function TabButton({
 /* ══════════════════════════════════════════════════════════════
    TAB 1: OWNER CHAT — Direct line to the AI
    ══════════════════════════════════════════════════════════════ */
+
+/* Quick actions: the 6 most-used commands, auto re-ranked from real usage.
+   Every owner message ≤60 chars is counted (quick-action taps and typed
+   commands alike); usage lives in integration_settings as a JSON map so no
+   schema change is needed. Defaults fill any slots the owner hasn't used. */
+const QUICK_ACTION_USAGE_KEY = "owner_quick_action_usage";
+const QUICK_ACTION_MAX_TEXT = 60;
+
+interface QuickAction {
+  icon: string;
+  text: string;
+  desc: string;
+}
+type QuickActionUsage = Record<string, { count: number; lastUsed: number }>;
+
+const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
+  { icon: "📊", text: "สรุปสถานะธุรกิจวันนี้", desc: "ลูกค้า คาบเรียน รายได้" },
+  { icon: "💬", text: "ลูกค้าคนไหนรอตอบ?", desc: "แชทที่ needs_review" },
+  { icon: "📅", text: "คาบเรียนพรุ่งนี้มีอะไรบ้าง?", desc: "ตารางเรียน" },
+  { icon: "💰", text: "ลูกค้าค้างชำระใครบ้าง?", desc: "ตรวจสอบยอดค้าง" },
+  { icon: "🔄", text: "ทดสอบ: ถ้าลูกค้าถามราคา จะตอบว่า?", desc: "ลองตอบเป็นลูกค้า" },
+  { icon: "🎓", text: "สอน: ต่อจากนี้ให้ตอบว่า...", desc: "สอนคำตอบใหม่" },
+];
+
+function rankQuickActions(usage: QuickActionUsage): QuickAction[] {
+  const byText = new Map<string, QuickAction & { count: number; lastUsed: number }>();
+  for (const a of DEFAULT_QUICK_ACTIONS) {
+    byText.set(a.text, { ...a, count: usage[a.text]?.count ?? 0, lastUsed: usage[a.text]?.lastUsed ?? 0 });
+  }
+  for (const [text, u] of Object.entries(usage)) {
+    if (!byText.has(text)) {
+      byText.set(text, {
+        icon: "💬",
+        text: text.length > 42 ? `${text.slice(0, 42)}…` : text,
+        desc: "ใช้บ่อยของคุณ",
+        count: u.count,
+        lastUsed: u.lastUsed,
+      });
+    }
+  }
+  return [...byText.values()]
+    .sort((a, b) => b.count - a.count || b.lastUsed - a.lastUsed)
+    .slice(0, 6);
+}
+
 function OwnerChatTab({ onReplied, modelLabel }: { onReplied?: () => void; modelLabel: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
   const conversationIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -226,6 +272,39 @@ function OwnerChatTab({ onReplied, modelLabel }: { onReplied?: () => void; model
       content: "สวัสดีค่ะ! หนูเป็น TIGA AI Agent ของโรงเรียน เป็นผู้ช่วย AI ธุรกิจของคุณ\n\nคุณสามารถ:\n• 📊 ถามเรื่องสถานะธุรกิจ ลูกค้า รายได้\n• 💬 คุยทดสอบกับลูกค้าในแชท\n• 📅 ดูตารางเรียน จองคาบ\n• 🎓 สอนหนูให้ตอบได้ดีขึ้น\n\nลองถามอะไรหนูสิคะ! 🎹",
     }]);
   }, []);
+
+  // Load the owner's real usage so the quick-action grid starts ranked
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const db = createRepositories(createClient());
+        const raw = await db.integrations.get(QUICK_ACTION_USAGE_KEY);
+        if (cancelled || !raw) return;
+        setQuickActions(rankQuickActions(JSON.parse(raw) as QuickActionUsage));
+      } catch {
+        // defaults are fine when usage can't be loaded
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Count a sent command toward quick-action ranking (best-effort)
+  async function recordQuickActionUsage(text: string) {
+    if (text.length > QUICK_ACTION_MAX_TEXT) return;
+    try {
+      const db = createRepositories(createClient());
+      const raw = await db.integrations.get(QUICK_ACTION_USAGE_KEY);
+      const usage: QuickActionUsage = raw ? (JSON.parse(raw) as QuickActionUsage) : {};
+      usage[text] = { count: (usage[text]?.count ?? 0) + 1, lastUsed: Date.now() };
+      await db.integrations.set(QUICK_ACTION_USAGE_KEY, JSON.stringify(usage));
+      setQuickActions(rankQuickActions(usage));
+    } catch {
+      // ranking is best-effort — never block the chat itself
+    }
+  }
 
   async function send(overrideText?: string) {
     const text = (overrideText ?? draft).trim();
@@ -247,6 +326,7 @@ function OwnerChatTab({ onReplied, modelLabel }: { onReplied?: () => void; model
       conversationIdRef.current = data.conversationId;
       setMessages((prev) => [...prev, { role: "ai", content: data.reply }]);
       onReplied?.();
+      void recordQuickActionUsage(text);
     } catch (err) {
       setError(await describeFunctionError(err));
     } finally {
@@ -269,20 +349,20 @@ function OwnerChatTab({ onReplied, modelLabel }: { onReplied?: () => void; model
     { icon: "🔄", text: "ทดสอบ: ถ้าลูกค้าถามราคา จะตอบว่า?", desc: "ลองตอบเป็นลูกค้า" },
     { icon: "🎓", text: "สอน: ต่อจากนี้ให้ตอบว่า...", desc: "สอนคำตอบใหม่" },
   ];
-
   return (
     <div className="space-y-3">
-      {/* Quick actions */}
+      {/* Quick actions — top 6 by real usage, auto re-ranked */}
       {messages.length <= 1 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-secondary/60">⚡ สั่งงานด่วน</p>
+          <p className="text-xs font-medium text-secondary/60">⚡ สั่งงานด่วน <span className="text-secondary/40">(เรียงตามที่ใช้บ่อย อัตโนมัติ)</span></p>
           <div className="grid grid-cols-2 gap-1.5">
-            {QUICK_ACTIONS.map((a) => (
+            {quickActions.map((a, i) => (
               <button
                 key={a.text}
                 onClick={() => { void send(a.text); }}
-                className="flex items-start gap-2 rounded-xl border border-line/5 bg-line/[0.02] px-3 py-2 text-left transition-all hover:border-primary/20 hover:bg-primary/5"
+                className="relative flex items-start gap-2 rounded-xl border border-line/5 bg-line/[0.02] px-3 py-2 text-left transition-all hover:border-primary/20 hover:bg-primary/5"
               >
+                <span className="absolute right-1.5 top-1 text-[9px] font-semibold text-secondary/30">{i + 1}</span>
                 <span className="mt-0.5 text-sm">{a.icon}</span>
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-secondary/80 truncate">{a.text}</p>
