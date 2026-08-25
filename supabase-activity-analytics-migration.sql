@@ -29,6 +29,19 @@ language sql stable security definer set search_path = public as $$
     false);
 $$;
 
+-- Stable display names for simulated users, derived from the uuid so every
+-- query agrees on the name without a roster table.
+create or replace function public.sim_bot_name(p_id uuid)
+returns text
+language sql immutable set search_path = public as $$
+  select (array[
+    'Ploy', 'Mick', 'Fah', 'Bee', 'Ton', 'Nok', 'Aom', 'Guy', 'Yui', 'Peak',
+    'Mai', 'Oat', 'Pang', 'Tle', 'Ice', 'Bell', 'Note', 'Jeen', 'Kwan', 'Dew',
+    'Art', 'Petch', 'Mint', 'Boom', 'Champ', 'Earn', 'Palm', 'View', 'God', 'Jane'
+  ])[1 + (('x' || substr(p_id::text, 1, 8))::bit(32)::bigint % 30)];
+$$;
+
+
 -- ── 3a. users overview: who was active, how long, when last ─────────────────
 -- display name: real users → profile full_name/email; sim users → bot name.
 create or replace function public.admin_activity_users(p_since timestamptz default null)
@@ -191,17 +204,7 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- ── 4. demo-bot generator (ADMIN DASHBOARD ONLY — never shown to learners) ──
--- Stable display names for simulated users, derived from the uuid so every
--- query agrees on the name without a roster table.
-create or replace function public.sim_bot_name(p_id uuid)
-returns text
-language sql immutable set search_path = public as $$
-  select (array[
-    'Ploy', 'Mick', 'Fah', 'Bee', 'Ton', 'Nok', 'Aom', 'Guy', 'Yui', 'Peak',
-    'Mai', 'Oat', 'Pang', 'Tle', 'Ice', 'Bell', 'Note', 'Jeen', 'Kwan', 'Dew',
-    'Art', 'Petch', 'Mint', 'Boom', 'Champ', 'Earn', 'Palm', 'View', 'God', 'Jane'
-  ])[1 + (('x' || substr(p_id::text, 1, 8))::bit(32)::bigint % 30)];
-$$;
+
 
 -- Config lives in app_settings (key 'sim_bots'):
 -- {enabled, bots, intensity, max_real_users, override_auto_off}
