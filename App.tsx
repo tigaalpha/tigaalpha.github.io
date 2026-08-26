@@ -5834,7 +5834,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
 });
 
 /* ── Daily Mentor page: shows practice stats, 7-day activity chart, and weak spots. ── */
-const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell, gainExp, earnCoins }) {
+const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell, gainExp, earnCoins, onOpenAiReport }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan) || (profile && profile.is_admin);
   const stats = useMemo(() => computeCoachStats(profile, lang), [profile, lang]);
@@ -6108,6 +6108,33 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
             </button>
           </div>
         </div>
+
+        {/* Max plan: the real thing the teaser below advertises. The AI report/plan
+            modal already existed (Studio menu + Profile), but Daily Mentor - the page
+            whose whole identity is "your AI mentor" - never offered it to the paying
+            users it was sold to (prMax4 in i18n). On-demand generate keeps cost at
+            zero until the learner actually wants it; generation itself lives in
+            PianoApp's aiModal so both surfaces share one cache + one code path. */}
+        {isMax && (
+          <div style={{ marginBottom: 16, padding: 16, borderRadius: 14, border: "1px solid #d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+            <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 4 }}>
+              📋 {T("รายงาน AI รายสัปดาห์ + แผนซ้อม 7 วัน", "Your AI Weekly Report + 7-Day Plan", "AI周报告 + 7天计划")}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.6, marginBottom: 10 }}>
+              {T("ครู TiGA เขียนจากสถิติจริงของคุณด้านบน - กดปุ่มเพื่อสร้างได้ทุกเมื่อ เมื่อสถิติเปลี่ยนจะได้เนื้อหาใหม่",
+                "Coach TiGA writes these from your real stats above - tap to generate anytime; changed stats produce a fresh report.",
+                "TiGA老师根据上方的真实数据撰写——随时可生成，数据变化后即得新内容。")}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="songbtn go" style={{ flex: 1 }} onClick={() => onOpenAiReport && onOpenAiReport("report")}>
+                📋 {T("รายงานรายสัปดาห์", "Weekly Report", "每周报告")}
+              </button>
+              <button className="songbtn go" style={{ flex: 1, background: "#8b5cf6" }} onClick={() => onOpenAiReport && onOpenAiReport("plan")}>
+                🗓️ {T("แผนซ้อม 7 วัน", "7-Day Plan", "7天计划")}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Free-tier teaser: everything above this line is real, free, deterministic
             data (zero AI cost) — genuinely useful on its own, not a fake preview. Only
@@ -9399,7 +9426,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
-      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} />}
+      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
       {page === "gamepage" && <GamesPage lang={lang} />}
