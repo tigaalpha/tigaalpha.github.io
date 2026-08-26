@@ -7588,7 +7588,8 @@ function AdminGames({ lang }) {
   }
 
   return (
-    <div style={{ padding: "0 4px 24px" }}>
+    <div className="admstu">
+      <div style={{ padding: "0 4px 24px" }}>
       {/* Header + Add button */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div>
@@ -7706,6 +7707,7 @@ function AdminGames({ lang }) {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -7721,7 +7723,7 @@ const GamesPage = memo(function GamesPage({ lang }) {
   }, []);
 
   return (
-    <div className="profilewrap">
+    <div className="profpage">
       <div className="profhdr">
         <div className="profavwrap">
           <div style={{ fontSize: 36 }}>🎮</div>
