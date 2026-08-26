@@ -5751,7 +5751,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           const lvNum = i + 1;
           const state = lvNum === info.level ? "cur" : lv.min <= exp ? "done" : "locked";
           const range = i + 1 < ALL_LEVELS.length
-            ? `${lv.min.toLocaleString()} – ${(LEVELS[i + 1].min - 1).toLocaleString()} EXP`
+            ? `${lv.min.toLocaleString()} – ${(ALL_LEVELS[i + 1].min - 1).toLocaleString()} EXP`
             : `${lv.min.toLocaleString()}+ EXP`;
           return (
             <div key={i} className={`rankrow ${state}`} style={{ "--lv-c": lv.c }}>
