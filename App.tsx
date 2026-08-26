@@ -3633,8 +3633,16 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
     let alive = true;
     (async () => {
       try {
-        const { data, error } = await sb.rpc("get_leaderboard", { limit_n: 20 });
-        if (error) throw error;
+        // v2 = real players + transparently-flagged demo bots (is_bot). Falls
+        // back to the original RPC if the v2 migration hasn't been applied yet.
+        let data = null;
+        const v2 = await sb.rpc("get_leaderboard_v2", { p_limit: 20 });
+        if (!v2.error) data = v2.data;
+        else {
+          const legacy = await sb.rpc("get_leaderboard", { limit_n: 20 });
+          if (legacy.error) throw legacy.error;
+          data = legacy.data;
+        }
         if (!alive) return;
         setRows(data || []);
         const me = (data || []).find(r => r.is_me);
@@ -3664,8 +3672,8 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
                     <div key={pos} className={`lbpod p${pos}${r.is_me ? " me" : ""}`}>
                       <div className="lbpod-medal">{medals[pos]}</div>
                       <div className="lbpod-ava">{(r.name || "?").trim().slice(0, 1).toUpperCase()}</div>
-                      <div className="lbpod-nm">{r.name}</div>
-                      <div className="lbpod-exp">{r.exp.toLocaleString()}</div>
+                      <div className="lbpod-nm">{r.name}{r.is_bot ? " \U0001f916" : ""}</div>
+                      <div className="lbpod-exp">{(r.exp || 0).toLocaleString()}</div>
                     </div>
                   );
                 })}
@@ -3683,11 +3691,14 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
               {rows.filter(r => r.rank > 3).map((r, i) => (
                 <div key={i} className={`lbrow${r.is_me ? " me" : ""}`} style={{ animationDelay: (i * 35) + "ms" }}>
                   <span className="lbrank">{r.rank}</span>
-                  <span className="lbname">{r.name}{r.is_me ? ` · ${lc.lbYouTag}` : ""}</span>
-                  <span className="lbexp">{r.exp.toLocaleString()} <small>EXP</small></span>
+                  <span className="lbname">{r.name}{r.is_bot ? " \U0001f916" : ""}{r.is_me ? ` · ${lc.lbYouTag}` : ""}</span>
+                  <span className="lbexp">{(r.exp || 0).toLocaleString()} <small>EXP</small></span>
                 </div>
               ))}
             </div>
+            {rows.some(r => r.is_bot) && (
+              <div className="leaguereset">🤖 {lang === "th" ? "บอทฝึกหัด — คู่แข่งตัวอย่างสำหรับฝึกซ้อม" : lang === "zh" ? "练习机器人 — 新手练手对手" : "Practice bots — friendly rivals to train against"}</div>
+            )}
           </>}
     </div>
   );

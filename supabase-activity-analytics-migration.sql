@@ -37,8 +37,10 @@ language sql immutable set search_path = public as $$
   select (array[
     'Ploy', 'Mick', 'Fah', 'Bee', 'Ton', 'Nok', 'Aom', 'Guy', 'Yui', 'Peak',
     'Mai', 'Oat', 'Pang', 'Tle', 'Ice', 'Bell', 'Note', 'Jeen', 'Kwan', 'Dew',
-    'Art', 'Petch', 'Mint', 'Boom', 'Champ', 'Earn', 'Palm', 'View', 'God', 'Jane'
-  ])[1 + (('x' || substr(p_id::text, 1, 8))::bit(32)::bigint % 30)];
+    'Art', 'Petch', 'Mint', 'Boom', 'Champ', 'Earn', 'Palm', 'View', 'God', 'Jane',
+    'Preaw', 'Best', 'Golf', 'First', 'Mild', 'Nam', 'Ohm', 'Pun', 'Run', 'Sun',
+    'Tara', 'Um', 'Win', 'Ying', 'Zen', 'Boss', 'Cake', 'Donut', 'Fai', 'Gift'
+  ])[1 + (('x' || substr(p_id::text, 1, 8))::bit(32)::bigint % 50)];
 $$;
 
 
