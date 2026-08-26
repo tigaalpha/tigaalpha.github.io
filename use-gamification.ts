@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import {
-  LEVELS, EXP, BADGES, levelInfo, prestigeInfo, unlockedBadgeIds, QUEST_GOAL, QUEST_BONUS,
+  LEVELS, ALL_LEVELS, EXP, BADGES, levelInfo, prestigeInfo, unlockedBadgeIds, QUEST_GOAL, QUEST_BONUS,
   weekKey, activeChallenges, readWeekly, writeWeekly, CHALLENGE_REWARD,
   getCoins, setCoinsLS, chestAvailable, claimChest, chestSpinAngle, addFreeze, logExpGain,
 } from "./App";
@@ -178,11 +178,11 @@ export function useGamification({ session, profile, setProfile }) {
       clearTimeout(lvUpTimer.current);
       lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
     } else if (prestigeInfo(after).tier > prestigeInfo(beforeExp).tier) {
-      // past the level-10 cap: celebrate each new Legend Star the same way a
-      // level-up is celebrated, so the loyalest players still get feedback
+      // past the level-99 cap (Legend X): celebrate each new Legend Star the
+      // same way a level-up is celebrated, so the loyalest players still get feedback
       leveled = true;
       const pTier = prestigeInfo(after).tier;
-      setLevelUp({ level: 10, tier: LEVELS[LEVELS.length - 1], prestige: pTier });
+      setLevelUp({ level: 99, tier: ALL_LEVELS[ALL_LEVELS.length - 1], prestige: pTier });
       playUi("levelup"); mascot("celebrate", 3200);
       clearTimeout(lvUpTimer.current);
       lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);

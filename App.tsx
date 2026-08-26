@@ -157,13 +157,36 @@ export const LEVELS = [
   { min: 5200, icon: "🏆", c: "#ff76d8", th: "ตำนาน",        en: "Legend",      zh: "传奇" },
 ];
 
+/* 99-level ladder — the 10 named tiers above stay as the rank NAMES; the full
+   ladder cycles them with roman-numeral cycles (Novice II … Legend X), so the
+   journey continues far past the original 10-level cap. Levels 1-10 keep the
+   EXACT thresholds the app has always had (no retroactive re-rank for existing
+   players); 11+ continue on a gently accelerating curve. Level 99 = Legend X,
+   the true end of the road — prestige stars only start past THAT point now. */
+const ROMAN = ["", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+export const ALL_LEVELS = (() => {
+  const arr = LEVELS.map(l => ({ ...l }));
+  let min = LEVELS[LEVELS.length - 1].min; // 5200
+  for (let n = 11; n <= 99; n++) {
+    min += 500 + 30 * (n - 11);
+    const cyc = Math.floor((n - 1) / 10) + 1; // 2..10
+    // last cycle has only 9 rungs (91-99) for 10 tiers — skip one middle tier
+    // (Pianist X) so the ladder still ENDS on Legend X at level 99
+    const baseIdx = cyc === 10 ? ((n - 91) < 5 ? (n - 91) : (n - 91) + 1) : (n - 1) % 10;
+    const base = LEVELS[baseIdx];
+    const suf = " " + ROMAN[cyc - 1];
+    arr.push({ min, icon: base.icon, c: base.c, th: base.th + suf, en: base.en + suf, zh: base.zh + suf });
+  }
+  return arr;
+})();
+
 // Resolve total EXP -> { level, tier, progress to next, EXP still needed, ... }
 export function levelInfo(exp) {
   const e = Math.max(0, exp || 0);
   let i = 0;
-  for (let k = 0; k < LEVELS.length; k++) if (e >= LEVELS[k].min) i = k;
-  const tier = LEVELS[i];
-  const next = LEVELS[i + 1] || null;
+  for (let k = 0; k < ALL_LEVELS.length; k++) if (e >= ALL_LEVELS[k].min) i = k;
+  const tier = ALL_LEVELS[i];
+  const next = ALL_LEVELS[i + 1] || null;
   const span = next ? next.min - tier.min : 1;
   return {
     level: i + 1,
@@ -186,7 +209,7 @@ export function levelInfo(exp) {
 const PRESTIGE_STEP = 2000;
 export function prestigeInfo(exp) {
   const e = Math.max(0, exp || 0);
-  const cap = LEVELS[LEVELS.length - 1].min; // 5200 — top of the level ladder
+  const cap = ALL_LEVELS[ALL_LEVELS.length - 1].min; // top of the 99-level ladder (Legend X)
   if (e < cap) return { tier: 0, into: 0, need: PRESTIGE_STEP };
   const past = e - cap;
   return { tier: Math.floor(past / PRESTIGE_STEP), into: past % PRESTIGE_STEP, need: PRESTIGE_STEP - (past % PRESTIGE_STEP) };
@@ -5724,10 +5747,10 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
 
       <div className="profsec">
         <div className="profsec-h">{lc.profRanks}</div>
-        {LEVELS.map((lv, i) => {
+        {ALL_LEVELS.map((lv, i) => {
           const lvNum = i + 1;
           const state = lvNum === info.level ? "cur" : lv.min <= exp ? "done" : "locked";
-          const range = i + 1 < LEVELS.length
+          const range = i + 1 < ALL_LEVELS.length
             ? `${lv.min.toLocaleString()} – ${(LEVELS[i + 1].min - 1).toLocaleString()} EXP`
             : `${lv.min.toLocaleString()}+ EXP`;
           return (
@@ -5862,38 +5885,33 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
             "练习统计与待提升项目——每次练习后自动更新。")}
         </div>
 
-        {/* Weekly Report Card — a letter grade over the same rolling 7-day
-            window the stats tiles below already use, claimable for real EXP/
-            coins on a 7-day cooldown. Daily Mentor previously had no reward
-            of its own tied to a "week" as a unit at all. */}
-        <div style={{ marginBottom: 16, padding: 16, borderRadius: 14, border: "1px solid #d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
-          <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 10 }}>
-            📋 {T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单")}
+        {stats.weakest.length > 0 && (
+        <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--card2)", borderRadius: 12, borderLeft: "3px solid #d97757" }}>
+          <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>
+            💡 {T("คำแนะนำ", "Recommendation", "建议")}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
-            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 44, fontWeight: 900, color: "#d97757", lineHeight: 1 }}>{rcGrade}</div>
-            <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.7 }}>
-              <div>{T(`ซ้อม ${stats.days7}/7 วัน`, `${stats.days7}/7 days practiced`, `练习了 ${stats.days7}/7 天`)}</div>
-              <div>{stats.acc7 == null ? T("ยังไม่มีข้อมูลความแม่นยำ", "No accuracy data yet", "暂无准确率数据") : T(`แม่นยำ ${stats.acc7}%`, `${stats.acc7}% accuracy`, `准确率 ${stats.acc7}%`)}</div>
-              {rcBest && <div style={{ color: "#ffd23f", fontWeight: 700 }}>🏆 {T("สถิติดีที่สุด", "Personal best", "历史最佳")}: {rcBest}</div>}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {rcReady ? (
-              <button className="songbtn go" style={{ flex: 1 }} onClick={claimRc}>
-                🎁 {T(`รับการ์ด (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `Claim card (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `领取成绩单 (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`)}
-              </button>
-            ) : (
-              <div style={{ flex: 1, fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-                {T(`การ์ดถัดไปพร้อมใน ${daysUntilNextReportCard()} วัน`, `Next card ready in ${daysUntilNextReportCard()} day${daysUntilNextReportCard() === 1 ? "" : "s"}`, `${daysUntilNextReportCard()} 天后可领取下一张`)}
-              </div>
-            )}
-            <button className="songbtn ghost" onClick={() => shareCard({ title: T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单"), big: rcGrade, sub: `${stats.days7}/7 · ${stats.acc7 == null ? "—" : stats.acc7 + "%"}`, lines: ["TiGA Piano AI"] })}>
-              📤 {T("แชร์", "Share", "分享")}
-            </button>
+          <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8 }}>
+            {stats.weakest.slice(0, 3).map((w, wi) => {
+              const mins = w.rate > 50 ? 15 : w.rate > 20 ? 10 : 5;
+              const intensity = w.rate > 50 ? T("พลาดบ่อยมาก — ซ้อมเพิ่ม", "miss rate high — practice", "错误率高，练习") : w.rate > 20 ? T("พลาดปานกลาง — ซ้อมเพิ่ม", "moderate misses — practice", "中等错误率，练习") : T("พลาดเล็กน้อย — ทบทวน", "few misses — review", "少量失误，复习");
+              return (
+                <div key={wi} style={{ padding: "4px 0", borderBottom: wi < Math.min(2, stats.weakest.length - 1) ? "1px solid var(--border)" : "none" }}>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>• {w.label}</span>
+                  {" — "}<span style={{ color: "var(--muted)" }}>{intensity}</span>{" "}
+                  <span style={{ fontWeight: 700, color: "#d97757" }}>
+                    {T(`${mins} นาที/วัน`, `${mins} min/day`, `每天 ${mins} 分钟`)}
+                  </span>
+                  {/* citation chip — grounds the suggestion in the exact tally it came from,
+                      instead of reading like an unexplained assertion */}
+                  <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 8, background: "var(--card3)", color: "var(--muted)", verticalAlign: "middle" }}>
+                    📊 {T(`จาก ${w.n} ครั้ง · พลาด ${w.rate}%`, `from ${w.n} tries · ${w.rate}% miss`, `来自${w.n}次 · 错误${w.rate}%`)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
-
+        )}
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           <div className="instile" style={{ minWidth: 0 }}><b>{stats.level}</b><span>{T("เลเวล", "Level", "等级")}</span></div>
           <div className="instile" style={{ minWidth: 0 }}><b>{stats.streak}🔥</b><span>{T("สตรีค", "Streak", "连续")}</span></div>
@@ -6048,31 +6066,6 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
                 </div>
               </div>
             ))}
-            <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--card2)", borderRadius: 12, borderLeft: "3px solid #d97757" }}>
-              <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>
-                💡 {T("คำแนะนำ", "Recommendation", "建议")}
-              </div>
-              <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8 }}>
-                {stats.weakest.slice(0, 3).map((w, wi) => {
-                  const mins = w.rate > 50 ? 15 : w.rate > 20 ? 10 : 5;
-                  const intensity = w.rate > 50 ? T("พลาดบ่อยมาก — ซ้อมเพิ่ม", "miss rate high — practice", "错误率高，练习") : w.rate > 20 ? T("พลาดปานกลาง — ซ้อมเพิ่ม", "moderate misses — practice", "中等错误率，练习") : T("พลาดเล็กน้อย — ทบทวน", "few misses — review", "少量失误，复习");
-                  return (
-                    <div key={wi} style={{ padding: "4px 0", borderBottom: wi < Math.min(2, stats.weakest.length - 1) ? "1px solid var(--border)" : "none" }}>
-                      <span style={{ fontWeight: 600, color: "var(--text)" }}>• {w.label}</span>
-                      {" — "}<span style={{ color: "var(--muted)" }}>{intensity}</span>{" "}
-                      <span style={{ fontWeight: 700, color: "#d97757" }}>
-                        {T(`${mins} นาที/วัน`, `${mins} min/day`, `每天 ${mins} 分钟`)}
-                      </span>
-                      {/* citation chip — grounds the suggestion in the exact tally it came from,
-                          instead of reading like an unexplained assertion */}
-                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 8, background: "var(--card3)", color: "var(--muted)", verticalAlign: "middle" }}>
-                        📊 {T(`จาก ${w.n} ครั้ง · พลาด ${w.rate}%`, `from ${w.n} tries · ${w.rate}% miss`, `来自${w.n}次 · 错误${w.rate}%`)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         ) : hasData ? (
           <div style={{ padding: "14px", background: "var(--card2)", borderRadius: 12, textAlign: "center", color: "var(--text2)", fontSize: 13 }}>
@@ -6083,6 +6076,38 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
             {T("ยังไม่มีข้อมูลการซ้อม — เริ่มฝึกในสตูดิโอแล้วกลับมาดูข้อมูลที่นี่", "No practice data yet — start a session in Studio to see your stats here.", "暂无练习数据——先去练习，数据会自动显示在这里。")}
           </div>
         )}
+
+        {/* Weekly Report Card — a letter grade over the same rolling 7-day
+            window the stats tiles below already use, claimable for real EXP/
+            coins on a 7-day cooldown. Daily Mentor previously had no reward
+            of its own tied to a "week" as a unit at all. */}
+        <div style={{ marginBottom: 16, padding: 16, borderRadius: 14, border: "1px solid #d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+          <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 10 }}>
+            📋 {T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单")}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 44, fontWeight: 900, color: "#d97757", lineHeight: 1 }}>{rcGrade}</div>
+            <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.7 }}>
+              <div>{T(`ซ้อม ${stats.days7}/7 วัน`, `${stats.days7}/7 days practiced`, `练习了 ${stats.days7}/7 天`)}</div>
+              <div>{stats.acc7 == null ? T("ยังไม่มีข้อมูลความแม่นยำ", "No accuracy data yet", "暂无准确率数据") : T(`แม่นยำ ${stats.acc7}%`, `${stats.acc7}% accuracy`, `准确率 ${stats.acc7}%`)}</div>
+              {rcBest && <div style={{ color: "#ffd23f", fontWeight: 700 }}>🏆 {T("สถิติดีที่สุด", "Personal best", "历史最佳")}: {rcBest}</div>}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {rcReady ? (
+              <button className="songbtn go" style={{ flex: 1 }} onClick={claimRc}>
+                🎁 {T(`รับการ์ด (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `Claim card (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `领取成绩单 (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`)}
+              </button>
+            ) : (
+              <div style={{ flex: 1, fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+                {T(`การ์ดถัดไปพร้อมใน ${daysUntilNextReportCard()} วัน`, `Next card ready in ${daysUntilNextReportCard()} day${daysUntilNextReportCard() === 1 ? "" : "s"}`, `${daysUntilNextReportCard()} 天后可领取下一张`)}
+              </div>
+            )}
+            <button className="songbtn ghost" onClick={() => shareCard({ title: T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单"), big: rcGrade, sub: `${stats.days7}/7 · ${stats.acc7 == null ? "—" : stats.acc7 + "%"}`, lines: ["TiGA Piano AI"] })}>
+              📤 {T("แชร์", "Share", "分享")}
+            </button>
+          </div>
+        </div>
 
         {/* Free-tier teaser: everything above this line is real, free, deterministic
             data (zero AI cost) — genuinely useful on its own, not a fake preview. Only
@@ -9396,7 +9421,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
           { p: "sensei", ic: "◈", c: "#d97757", t: lc.navSensei },
           // free preview inside; the Max-only AI report/plan is upsold there, not walled off at the nav
-          { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor" },
+          { p: "coach", ic: "🎯", c: "#d97757", t: "AI Daily Mentor" },
           { p: "studio", sv: "songs", ic: "🎵", c: "#d97757", t: lc.studioPlayAlong },
           { p: "studio", sv: "menu", ic: "▶", c: "#d97757", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
