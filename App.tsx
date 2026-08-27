@@ -5618,7 +5618,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
               <div key={slot.kind} className="char-slot">
                 <span className="char-slot-ic">{slot.label}</span>
                 <span className="char-slot-nm">{equipped ? tr(equipped, lang) : "—"}</span>
-                <span className="char-slot-rare">{equipped ? RARITY_LABEL[equipped.rarity] : ""}</span>
+                <span className="char-slot-rare">{equipped ? (equipped.rarity === "common" ? (lang === "th" ? "ทั่วไป" : lang === "zh" ? "普通" : "Common") : equipped.rarity === "rare" ? (lang === "th" ? "หายาก" : lang === "zh" ? "稀有" : "Rare") : equipped.rarity === "epic" ? (lang === "th" ? "พิเศษ" : lang === "zh" ? "史诗" : "Epic") : (lang === "th" ? "ตำนาน" : lang === "zh" ? "传说" : "Legendary")) : ""}</span>
               </div>
             );
           })}
