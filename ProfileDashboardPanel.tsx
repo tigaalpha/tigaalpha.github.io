@@ -77,43 +77,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
           )}
           {profile && profile.school_id && <ClassQuestSection lang={lang} schoolId={profile.school_id} />}
           {profile && profile.school_id && <SchoolLeaderboardSection lang={lang} schoolId={profile.school_id} />}
-          {/* My Stats + Report Card live as sub-pages of Profile (moved out of the nav) */}
-          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
-            onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } logUsage("nav", "profile-stats"); setPage("insights"); }}>
-            <span className="tdico">📊</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="tdlbl">{lc.navStats}{!isMaxPlan(plan) && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
-              <div className="tdtag">{lang === "th" ? "กราฟการซ้อม · จุดที่ควรเก็บ · ช่วงเวลาที่ซ้อมบ่อย" : lang === "zh" ? "练习图表 · 待加强 · 常练时间" : "Practice charts · weak spots · best hours"}</div>
-            </div>
-            <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
-          </button>
-          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
-            onClick={() => { playUi("click"); logUsage("nav", "profile-report"); setPage("report"); }}>
-            <span className="tdico">🏅</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="tdlbl">{lc.navReport}</div>
-              <div className="tdtag">{lang === "th" ? "สรุปรายสัปดาห์ · คำติชมครู · ใบประกาศนียบัตร" : lang === "zh" ? "每周总结 · 老师评语 · 证书" : "Weekly summary · teacher comment · certificates"}</div>
-            </div>
-            <span className="tdgo">→</span>
-          </button>
-          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
-            onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } setAiModalType("report"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}>
-            <span className="tdico">📋</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="tdlbl">{lang === "th" ? "รายงานพัฒนาการ AI" : lang === "zh" ? "AI 进度报告" : "AI Weekly Report"}{!isMaxPlan(plan) && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
-              <div className="tdtag">{lang === "th" ? "รายงานพัฒนาการรายสัปดาห์ที่ AI สร้างเป็นการส่วนตัว" : lang === "zh" ? "AI 个性化生成的每周进度总结" : "AI-generated personal weekly progress report"}</div>
-            </div>
-            <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
-          </button>
-          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
-            onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } setAiModalType("plan"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}>
-            <span className="tdico">🗓️</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="tdlbl">{lang === "th" ? "แผนซ้อมส่วนตัว AI" : lang === "zh" ? "AI 练习计划" : "AI Practice Plan"}{!isMaxPlan(plan) && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
-              <div className="tdtag">{lang === "th" ? "แผนซ้อม 7 วัน AI วิเคราะห์จุดอ่อนส่วนตัว" : lang === "zh" ? "AI 根据弱点生成的7天个性化练习计划" : "Personalized 7-day AI plan based on your weak spots"}</div>
-            </div>
-            <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
-          </button>
+
           <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins} gems={gems}
             onOpenShop={() => setShopOpen(true)} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onBuyCurrency={() => setBuyCurrencyOpen(true)} onAskStruggle={onAskStruggle} onReplayDrill={onReplayDrill} />
         </div>

@@ -1928,7 +1928,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
 
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, onChallenging = null, songAnalysis = null, onAskStruggle,
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, onChallenging = null, songAnalysis = null, onAskStruggle, onReport = null,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
   mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null, onReviewStage = null }) {
@@ -2915,6 +2915,49 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           </div>
         </div>
       )}
+
+      {/* ── Stats / Report / AI shortcuts (moved from Profile page) ── */}
+      <div style={{ padding: "0 14px", marginTop: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#999", marginBottom: 8, letterSpacing: 0.5 }}>
+          {T("📊 รายงานและแผนฝึกซ้อม", "📊 Reports & Plans", "📊 报告与练习计划")}
+        </div>
+        <button className="tdstep" style={{ width: "100%", margin: "0 0 10px", cursor: "pointer", textAlign: "left" }}
+          onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAnalytics(); }}>
+          <span className="tdico">📊</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tdlbl">{lc.navStats}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdtag">{lang === "th" ? "กราฟการซ้อม · จุดที่ควรเก็บ · ช่วงเวลาที่ซ้อมบ่อย" : lang === "zh" ? "练习图表 · 待加强 · 常练时间" : "Practice charts · weak spots · best hours"}</div>
+          </div>
+          <span className="tdgo">{isMax ? "→" : "👑"}</span>
+        </button>
+        <button className="tdstep" style={{ width: "100%", margin: "0 0 10px", cursor: "pointer", textAlign: "left" }}
+          onClick={() => { playUi("click"); onReport(); }}>
+          <span className="tdico">🏅</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tdlbl">{lc.navReport}</div>
+            <div className="tdtag">{lang === "th" ? "สรุปรายสัปดาห์ · คำติชมครู · ใบประกาศนียบัตร" : lang === "zh" ? "每周总结 · 老师评语 · 证书" : "Weekly summary · teacher comment · certificates"}</div>
+          </div>
+          <span className="tdgo">→</span>
+        </button>
+        <button className="tdstep" style={{ width: "100%", margin: "0 0 10px", cursor: "pointer", textAlign: "left" }}
+          onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAiReport(); }}>
+          <span className="tdico">📋</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tdlbl">{lang === "th" ? "รายงานพัฒนาการ AI" : lang === "zh" ? "AI 进度报告" : "AI Weekly Report"}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdtag">{lang === "th" ? "รายงานพัฒนาการรายสัปดาห์ที่ AI สร้างเป็นการส่วนตัว" : lang === "zh" ? "AI 个性化生成的每周进度总结" : "AI-generated personal weekly progress report"}</div>
+          </div>
+          <span className="tdgo">{isMax ? "→" : "👑"}</span>
+        </button>
+        <button className="tdstep" style={{ width: "100%", margin: "0 0 10px", cursor: "pointer", textAlign: "left" }}
+          onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAiPlan(); }}>
+          <span className="tdico">🗓️</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tdlbl">{lang === "th" ? "แผนซ้อมส่วนตัว AI" : lang === "zh" ? "AI 练习计划" : "AI Practice Plan"}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdtag">{lang === "th" ? "แผนซ้อม 7 วัน AI วิเคราะห์จุดอ่อนส่วนตัว" : lang === "zh" ? "AI 根据弱点生成的7天个性化练习计划" : "Personalized 7-day AI plan based on your weak spots"}</div>
+          </div>
+          <span className="tdgo">{isMax ? "→" : "👑"}</span>
+        </button>
+      </div>
     </div>
   );
 });
@@ -9402,6 +9445,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               onPlay={(s) => { logUsage("nav", "studio-quick"); chooseSong(s); }}
               onParent={() => { playUi("click"); premium ? setParentOpen(true) : setPricingOpen(true); }}
               onChallenging={() => { logUsage("nav", "studio-challenging"); setPage("challenging"); }}
+              onReport={() => { logUsage("nav", "studio-report"); setPage("report"); }}
               detectOpen={detectOpen} setDetectOpen={setDetectOpen} detectNotes={detectNotes} setDetectNotes={setDetectNotes}
               detectMatch={detectMatch} setDetectMatch={setDetectMatch} detectListening={detectListening} setDetectListening={setDetectListening}
               battlePickOpen={battlePickOpen} setBattlePickOpen={setBattlePickOpen} battleData={battleData} setBattleData={setBattleData}
