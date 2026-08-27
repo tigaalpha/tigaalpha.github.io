@@ -863,6 +863,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .probadge.max{background: #d97757;color:#fff}
 .probadge.maxfam{background: #d97757;color:#fff}
 .probadge.trial{background:transparent;color:#d97757;border:1.5px solid #d97757}
+.shopbtn{display:flex;align-items:center;gap:4px;background:none;border:1.5px solid #d9775755;border-radius:20px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;color:#d97757;transition:all .2s;white-space:nowrap}
+.shopbtn:hover{border-color:#d97757;background:rgba(217,119,87,.1);box-shadow:0 0 10px rgba(217,119,87,.2)}
+.shopbtn-ic{font-size:14px}
+.shopbtn-coins{font-family:"Orbitron",sans-serif;font-size:10px;letter-spacing:.3px}
 .trial-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 16px;background:#d97757;color:#fff}
 .trial-banner-txt{font-size:13px;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:.3px}
 .trial-banner-btn{flex-shrink:0;background:rgba(255,255,255,.22);border:1.5px solid rgba(255,255,255,.5);color:#fff;border-radius:8px;padding:5px 13px;font-size:12px;font-weight:800;font-family:'Orbitron',sans-serif;cursor:pointer;white-space:nowrap}

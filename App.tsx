@@ -5042,6 +5042,28 @@ const SHOP_FRAMES = [
   { id: "fr-gold",    icon: "🥇", cost: 500, rarity: "epic",      th: "ทอง",       en: "Gold",     zh: "黄金", sw: ["#ffd23f", "#c9960a"], isNew: true },
   { id: "fr-diamond", icon: "💎", cost: 900, rarity: "legendary", th: "เพชร",      en: "Diamond",  zh: "钻石", sw: ["#8ad4ff", "#a855f7"], isNew: true },
 ];
+const SHOP_KEYBOARDS = [
+  { id: "kb-classic",  icon: "🎹", cost: 0,   rarity: "common",    th: "คลาสสิก",   en: "Classic",    zh: "经典", sw: ["#f5f0e8", "#d4cfc4"], isNew: false },
+  { id: "kb-neon",     icon: "💚", cost: 160, rarity: "rare",      th: "นีออน",     en: "Neon Glow",  zh: "霓虹", sw: ["#06ffa5", "#00d488"], isNew: true },
+  { id: "kb-rose",     icon: "💗", cost: 180, rarity: "rare",      th: "กุหลาบ",    en: "Rose Gold",  zh: "玫瑰金", sw: ["#ff76d8", "#b76e79"], isNew: true },
+  { id: "kb-midnight", icon: "🌙", cost: 220, rarity: "rare",      th: "เที่ยงคืน",  en: "Midnight",   zh: "午夜", sw: ["#1a1a2e", "#16213e"], isNew: true },
+  { id: "kb-ice",      icon: "❄️", cost: 280, rarity: "epic",      th: "น้ำแข็ง",   en: "Frozen",     zh: "冰霜", sw: ["#d0f4ff", "#0891b2"], isNew: true },
+  { id: "kb-fire",     icon: "🔥", cost: 320, rarity: "epic",      th: "เพลิง",     en: "Inferno",    zh: "烈焰", sw: ["#ff6b35", "#6b0f16"], isNew: true },
+  { id: "kb-galaxy",   icon: "🪐", cost: 400, rarity: "epic",      th: "กาแล็กซี่", en: "Galaxy",     zh: "银河", sw: ["#c084fc", "#4c1d95"], isNew: true },
+  { id: "kb-gold",     icon: "💛", cost: 550, rarity: "legendary", th: "ทองคำ",     en: "Royal Gold", zh: "皇家金", sw: ["#ffd23f", "#9a7400"], isNew: true },
+  { id: "kb-rainbow",  icon: "🌈", cost: 750, rarity: "legendary", th: "สายรุ้ง",   en: "Prismatic",  zh: "棱镜", sw: ["#ff5252", "#a855f7", "#00d4ff"], isNew: true },
+];
+const SHOP_STICKERS = [
+  { id: "st-star",     icon: "⭐", cost: 50,  rarity: "common",    th: "ดาว",       en: "Star",       zh: "星星", sw: ["#ffd23f", "#f59e0b"], isNew: false },
+  { id: "st-heart",    icon: "❤️", cost: 60,  rarity: "common",    th: "หัวใจ",     en: "Heart",      zh: "爱心", sw: ["#ff4d6d", "#c9184a"], isNew: false },
+  { id: "st-music",    icon: "🎵", cost: 80,  rarity: "common",    th: "โน้ตเพลง",  en: "Music Note", zh: "音符", sw: ["#7209b7", "#560bad"], isNew: true },
+  { id: "st-flame",    icon: "🔥", cost: 120, rarity: "rare",      th: "เปลวไฟ",   en: "Flame",      zh: "火焰", sw: ["#ff6b35", "#d00000"], isNew: true },
+  { id: "st-crown",    icon: "👑", cost: 200, rarity: "rare",      th: "มงกุฎ",     en: "Crown",      zh: "皇冠", sw: ["#ffd23f", "#b8860b"], isNew: true },
+  { id: "st-diamond",  icon: "💎", cost: 300, rarity: "epic",      th: "เพชร",      en: "Diamond",    zh: "钻石", sw: ["#8ad4ff", "#a855f7"], isNew: true },
+  { id: "st-rocket",   icon: "🚀", cost: 350, rarity: "epic",      th: "จรวด",      en: "Rocket",     zh: "火箭", sw: ["#ff6b35", "#1d3557"], isNew: true },
+  { id: "st-trophy",   icon: "🏆", cost: 500, rarity: "legendary", th: "ถ้วยรางวัล", en: "Trophy",     zh: "奖杯", sw: ["#ffd23f", "#cd7f32"], isNew: true },
+  { id: "st-magic",    icon: "✨", cost: 600, rarity: "legendary", th: "เวทมนตร์",  en: "Magic",      zh: "魔法", sw: ["#c084fc", "#ff6b6b", "#ffd23f"], isNew: true },
+];
 // F2: LINE achievement share — opens LINE app on mobile, fallback clipboard on desktop
 function shareLine(text: string) {
   const url = "https://line.me/R/share?text=" + encodeURIComponent(text);
@@ -8361,6 +8383,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [skin, setSkin] = useState(getEquip("skin", "aqua"));
   const [theme, setTheme] = useState(getEquip("theme", "midnight"));
   const [frame, setFrame] = useState(getEquip("frame", "fr-none"));
+  const [keyboard, setKeyboard] = useState(getEquip("keyboard", "kb-classic"));
+  const [sticker, setSticker] = useState(getEquip("sticker", "st-star"));
   const [mode, setMode] = useState(getEquip("mode", "light"));   // "dark" | "light" — whole-app color scheme; light is the preset for first-time visitors, a saved preference always wins
 
 
@@ -9014,7 +9038,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const tc = document.querySelector('meta[name="theme-color"]');
     if (tc) tc.setAttribute("content", mode === "dark" ? "#0d0d0c" : "#faf9f5");
   }, [skin, theme, frame, mode]);
-  const EQUIP_SETTERS = { skin: setSkin, theme: setTheme, frame: setFrame };
+  const EQUIP_SETTERS = { skin: setSkin, theme: setTheme, frame: setFrame, keyboard: setKeyboard, sticker: setSticker };
   function buyOrEquip(kind, item) {
     const setEquip = EQUIP_SETTERS[kind];
     if (owned.includes(item.id)) {
@@ -9330,6 +9354,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             </button>
           )}
           {premium && plan !== "trial" && (() => { const b = planBadge(plan) || { t: "⭐ PRO", c: "" }; return <span className={`probadge ${b.c}`} title={PLAN_LABEL[plan] || "Premium"}>{b.t}</span>; })()}
+          {!isGuest && <button className="shopbtn" onClick={() => setShopOpen(true)} title={lc.shopTitle} aria-label="Shop"><span className="shopbtn-ic">🛍️</span><span className="shopbtn-coins">🪙 {coins}</span></button>}
           {/* Daily-reward chest button removed from the header per feedback (decluttering) —
               still fully reachable from ProfilePage's own dailyhub chest button, same openChestNow(). */}
           {metroOn && <button className="metropill" onClick={() => setMetroOn(false)} title="Metronome" aria-label="Metronome on">🥁 {metroBpm}</button>}
@@ -9841,6 +9866,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="shopsec">🖼️ {lc.shopFrames}</div>
               <div className="shopgrid">
                 {SHOP_FRAMES.map(it => renderShopItem("frame", it, frame))}
+              </div>
+              <div className="shopsec">🎹 {lc.shopKeyboards}</div>
+              <div className="shopgrid">
+                {SHOP_KEYBOARDS.map(it => renderShopItem("keyboard", it, keyboard))}
+              </div>
+              <div className="shopsec">🏷️ {lc.shopStickers}</div>
+              <div className="shopgrid">
+                {SHOP_STICKERS.map(it => renderShopItem("sticker", it, sticker))}
               </div>
             </div>
           </div>
