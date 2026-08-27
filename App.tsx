@@ -8101,13 +8101,6 @@ export default function App() {
   if (!profile || !profile.onboarded) {
     return <ProfileForm session={session} onSignOut={signOut} onSaved={() => loadProfile(session.user.id)} />;
   }
-  // First-ever visit (real account or guest, profile.lang is only ever unset
-  // once) — ask which language to use from here on, before PianoApp exists
-  // to default to English. Guarantees PianoApp's own `lang` state can always
-  // read a real, already-chosen value straight off profile.lang.
-  if (!profile.lang) {
-    return <LangPickerScreen session={session} profile={profile} setProfile={setProfile} />;
-  }
   return <PianoApp session={session} profile={profile} setProfile={setProfile} onSignOut={signOut} />;
 }
 
@@ -8159,7 +8152,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // not a guessed default. setLang persists any LATER change (the ☰ flag
   // switcher) the same way: profiles.lang for a real account, the guest's
   // own already-persisted local profile object otherwise.
-  const [lang, setLangState] = useState(profile.lang || "en");
+    const [lang, setLangState] = useState(profile.lang || "en");
+  // First-time language picker: show as overlay popup only when profile.lang
+  // was never set (null). Once picked, never shown again (persisted to DB).
+  const [langPickerOpen, setLangPickerOpen] = useState(!profile.lang);
   function setLang(lg) {
     setLangState(lg);
     if (session && session.user && session.user.id) {
@@ -10165,6 +10161,32 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             )}
             <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{broadcast.message}</div>
             <button className="atpopup-ok" onClick={dismissBroadcast}>{lang === "th" ? "รับทราบ" : lang === "zh" ? "知道了" : "Got it"}</button>
+          </div>
+        </div>
+      )}
+
+      {/* One-time language picker popup — shown as overlay on first visit when profile.lang is null */}
+      {langPickerOpen && (
+        <div className="apkpopov" style={{ zIndex: 9999 }}>
+          <div className="apkpop apkpop2" onClick={e => e.stopPropagation()} style={{ maxWidth: 340 }}>
+            <img className="apkpop-icon" src="./icon.svg" alt="" />
+            <b className="apkpop-title" style={{ fontSize: 18 }}>{lang === "th" ? "เลือกภาษา" : lang === "zh" ? "选择语言" : "Choose your language"}</b>
+            <span className="apkpop-sub" style={{ marginBottom: 14, display: "block" }}>{lang === "th" ? "จะใช้ภาษานี้ทุกครั้งที่เข้ามา เปลี่ยนได้ทีหลังในตั้งค่า" : lang === "zh" ? "将使用此语言，可在设置中更改" : "This will be used every time you come back — change later in Settings"}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
+              {[{ code: "th", flag: "🇹🇭", label: "ไทย" }, { code: "en", flag: "🇬🇧", label: "English" }, { code: "zh", flag: "🇨🇳", label: "中文" }].map(o => (
+                <button key={o.code} className="lockbtn" style={{ width: "100%" }} onClick={() => {
+                  setLang(o.code);
+                  setLangPickerOpen(false);
+                  const next = { ...profile, lang: o.code };
+                  if (session && session.user && session.user.id) {
+                    sb.from("profiles").update({ lang: o.code }).eq("id", session.user.id).then(() => {}, () => {});
+                  } else {
+                    saveGuestProfile(next);
+                  }
+                  setProfile(next);
+                }}>{o.flag}  {o.label}</button>
+              ))}
+            </div>
           </div>
         </div>
       )}
