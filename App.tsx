@@ -5064,6 +5064,50 @@ const SHOP_STICKERS = [
   { id: "st-trophy",   icon: "🏆", cost: 500, rarity: "legendary", th: "ถ้วยรางวัล", en: "Trophy",     zh: "奖杯", sw: ["#ffd23f", "#cd7f32"], isNew: true },
   { id: "st-magic",    icon: "✨", cost: 600, rarity: "legendary", th: "เวทมนตร์",  en: "Magic",      zh: "魔法", sw: ["#c084fc", "#ff6b6b", "#ffd23f"], isNew: true },
 ];
+const SHOP_HATS = [
+  { id: "hat-straw",    icon: "👒", cost: 0,   rarity: "common",    th: "หมวกฟาง",   en: "Straw Hat",   zh: "草帽", sw: ["#f5e6c8", "#d4a574"] },
+  { id: "hat-beret",    icon: "🎨", cost: 100, rarity: "common",    th: "เบเร่ต์",   en: "Beret",       zh: "贝雷帽", sw: ["#e74c3c", "#c0392b"], isNew: true },
+  { id: "hat-headphone",icon: "🎧", cost: 150, rarity: "rare",      th: "หูฟัง",     en: "Headphones",  zh: "耳机", sw: ["#2c3e50", "#34495e"], isNew: true },
+  { id: "hat-crown",    icon: "👑", cost: 250, rarity: "rare",      th: "มงกุฎ",     en: "Crown",       zh: "皇冠", sw: ["#ffd23f", "#b8860b"], isNew: true },
+  { id: "hat-wizard",   icon: "🧙", cost: 350, rarity: "epic",      th: "หมวกพ่อมด", en: "Wizard Hat",  zh: "巫师帽", sw: ["#4c1d95", "#7c3aed"], isNew: true },
+  { id: "hat-halo",     icon: "😇", cost: 400, rarity: "epic",      th: "มงกุฎสวรรค์", en: "Halo",     zh: "光环", sw: ["#ffd23f", "#fff3cd"], isNew: true },
+  { id: "hat-devil",    icon: "😈", cost: 500, rarity: "epic",      th: "เขาปีศาจ",  en: "Devil Horns", zh: "恶魔角", sw: ["#e74c3c", "#2c3e50"], isNew: true },
+  { id: "hat-helmet",   icon: "⛑️", cost: 600, rarity: "legendary", th: "หมวกนิรภัย", en: "Knight Helm", zh: "骑士头盔", sw: ["#95a5a6", "#7f8c8d"], isNew: true },
+  { id: "hat-star",     icon: "🌟", cost: 800, rarity: "legendary", th: "มงกุฎดาว",  en: "Star Crown",  zh: "星冠", sw: ["#ffd23f", "#ff6b6b", "#a855f7"], isNew: true },
+];
+const SHOP_OUTFITS = [
+  { id: "out-tshirt",  icon: "👕", cost: 0,   rarity: "common",    th: "เสื้อยืด",  en: "T-Shirt",     zh: "T恤", sw: ["#ecf0f1", "#bdc3c7"] },
+  { id: "out-hoodie",  icon: "🧥", cost: 120, rarity: "common",    th: "ฮู้ดดี้",   en: "Hoodie",      zh: "卫衣", sw: ["#3498db", "#2980b9"], isNew: true },
+  { id: "out-jacket",  icon: "🧥", cost: 180, rarity: "rare",      th: "แจ็คเก็ต",  en: "Leather Jacket", zh: "皮夹克", sw: ["#2c3e50", "#1a252f"], isNew: true },
+  { id: "out-dress",   icon: "👗", cost: 200, rarity: "rare",      th: "ชุดเดรส",   en: "Dress",       zh: "连衣裙", sw: ["#e91e63", "#c2185b"], isNew: true },
+  { id: "out-kimono",  icon: "👘", cost: 300, rarity: "epic",      th: "กิโมโน",    en: "Kimono",      zh: "和服", sw: ["#e74c3c", "#f39c12"], isNew: true },
+  { id: "out-armor",   icon: "🛡️", cost: 400, rarity: "epic",      th: "ชุดเกราะ",  en: "Armor",       zh: "盔甲", sw: ["#95a5a6", "#2c3e50"], isNew: true },
+  { id: "out-tuxedo",  icon: "🤵", cost: 500, rarity: "epic",      th: "ทักซิโด้",   en: "Tuxedo",      zh: "燕尾服", sw: ["#2c3e50", "#ecf0f1"], isNew: true },
+  { id: "out-royal",   icon: "👘", cost: 700, rarity: "legendary", th: "ชุดราชวงศ์", en: "Royal Robe",  zh: "皇家长袍", sw: ["#9b59b6", "#ffd23f"], isNew: true },
+  { id: "out-celestial", icon: "✨", cost: 900, rarity: "legendary", th: "ชุดสวรรค์", en: "Celestial",  zh: "天界装", sw: ["#3498db", "#a855f7", "#ffd23f"], isNew: true },
+];
+const SHOP_WEAPONS = [
+  { id: "wpn-stick",   icon: "🪄", cost: 0,   rarity: "common",    th: "ไม้กายสิทธิ์", en: "Magic Wand", zh: "魔杖", sw: ["#8B4513", "#D2691E"] },
+  { id: "wpn-sword",   icon: "⚔️", cost: 150, rarity: "common",    th: "ดาบ",       en: "Sword",      zh: "剑", sw: ["#95a5a6", "#7f8c8d"], isNew: true },
+  { id: "wpn-axe",     icon: "🪓", cost: 180, rarity: "rare",      th: "ขวาน",      en: "Axe",        zh: "斧头", sw: ["#8B4513", "#95a5a6"], isNew: true },
+  { id: "wpn-bow",     icon: "🏹", cost: 220, rarity: "rare",      th: "ธนู",       en: "Bow",        zh: "弓箭", sw: ["#8B4513", "#e74c3c"], isNew: true },
+  { id: "wpn-staff",   icon: "🔮", cost: 350, rarity: "epic",      th: "คทา",       en: "Staff",      zh: "法杖", sw: ["#9b59b6", "#3498db"], isNew: true },
+  { id: "wpn-hammer",  icon: "🔨", cost: 400, rarity: "epic",      th: "ค้อน",      en: "Hammer",     zh: "锤子", sw: ["#95a5a6", "#e74c3c"], isNew: true },
+  { id: "wpn-blade",   icon: "🗡️", cost: 600, rarity: "legendary", th: "ดาบวิเศษ",  en: "Blade",      zh: "神剑", sw: ["#3498db", "#ecf0f1"], isNew: true },
+  { id: "wpn-scythe",  icon: "⚔️", cost: 750, rarity: "legendary", th: "เคียว",     en: "Scythe",     zh: "镰刀", sw: ["#2c3e50", "#e74c3c"], isNew: true },
+  { id: "wpn-celestial", icon: "🌟", cost: 950, rarity: "legendary", th: "อาวุธสวรรค์", en: "Celestial Weapon", zh: "天界武器", sw: ["#ffd23f", "#a855f7", "#3498db"], isNew: true },
+];
+const SHOP_ACCESSORIES = [
+  { id: "acc-shield",   icon: "🛡️", cost: 0,   rarity: "common",    th: "โล่",       en: "Shield",     zh: "盾牌", sw: ["#3498db", "#2c3e50"] },
+  { id: "acc-glasses",  icon: "👓", cost: 80,  rarity: "common",    th: "แว่นตา",    en: "Glasses",    zh: "眼镜", sw: ["#2c3e50", "#34495e"], isNew: true },
+  { id: "acc-wings",    icon: "🪽", cost: 200, rarity: "rare",      th: "ปีก",       en: "Wings",      zh: "翅膀", sw: ["#ecf0f1", "#3498db"], isNew: true },
+  { id: "acc-amulet",   icon: "📿", cost: 250, rarity: "rare",      th: "จี้",        en: "Amulet",     zh: "护身符", sw: ["#ffd23f", "#e74c3c"], isNew: true },
+  { id: "acc-pet",      icon: "🐱", cost: 350, rarity: "epic",      th: "สัตว์เลี้ยง", en: "Pet Cat",   zh: "猫咪伙伴", sw: ["#ff6b35", "#ffd23f"], isNew: true },
+  { id: "acc-petdog",   icon: "🐶", cost: 350, rarity: "epic",      th: "สุนัข",     en: "Pet Dog",    zh: "狗狗伙伴", sw: ["#8B4513", "#ffd23f"], isNew: true },
+  { id: "acc-cape",     icon: "🧣", cost: 450, rarity: "epic",      th: "ผ้าคลุม",    en: "Cape",       zh: "披风", sw: ["#e74c3c", "#2c3e50"], isNew: true },
+  { id: "acc-phoenix",  icon: "🦅", cost: 700, rarity: "legendary", th: "ฟีนิกซ์",    en: "Phoenix",    zh: "凤凰", sw: ["#e74c3c", "#ffd23f"], isNew: true },
+  { id: "acc-dragon",   icon: "🐉", cost: 900, rarity: "legendary", th: "มังกร",     en: "Dragon",     zh: "神龙", sw: ["#27ae60", "#e74c3c"], isNew: true },
+];
 // F2: LINE achievement share — opens LINE app on mobile, fallback clipboard on desktop
 function shareLine(text: string) {
   const url = "https://line.me/R/share?text=" + encodeURIComponent(text);
@@ -5432,7 +5476,7 @@ const GameStats = memo(function GameStats({ lang }) {
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charGender = "boy", setCharGender, charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -5532,6 +5576,57 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             <div className="expfill" style={{ width: `${Math.round(info.progress * 100)}%` }} />
           </div>
           <div className="expnext">{toNext}</div>
+        </div>
+      </div>
+
+      {/* ── Character / Avatar Dress-up Section ── */}
+      <div className="charcard">
+        <div className="charcard-hdr">
+          <span>🎭 {lang === "th" ? "ตัวละครของฉัน" : lang === "zh" ? "我的角色" : "My Character"}</span>
+          <div className="char-gender-toggle">
+            <button className={`char-gender-btn${charGender === "boy" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("boy")}>👦 {lang === "th" ? "ชาย" : lang === "zh" ? "男" : "Boy"}</button>
+            <button className={`char-gender-btn${charGender === "girl" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("girl")}>👧 {lang === "th" ? "หญิง" : lang === "zh" ? "女" : "Girl"}</button>
+            <button className={`char-gender-btn${charGender === "cute" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("cute")}>🦊 {lang === "th" ? "น่ารัก" : lang === "zh" ? "可爱" : "Cute"}</button>
+          </div>
+        </div>
+        <div className="char-sprite">
+          <div className="char-layer char-hat">
+            {(() => { const h = SHOP_HATS.find(x => x.id === charHat); return h ? <span title={tr(h, lang)}>{h.icon}</span> : null; })()}
+          </div>
+          <div className="char-layer char-head">
+            {charGender === "girl" ? "👧" : charGender === "cute" ? "🦊" : "👦"}
+          </div>
+          <div className="char-layer char-body">
+            {(() => { const o = SHOP_OUTFITS.find(x => x.id === charOutfit); return o ? <span title={tr(o, lang)}>{o.icon}</span> : null; })()}
+          </div>
+          <div className="char-layer char-weapon">
+            {(() => { const w = SHOP_WEAPONS.find(x => x.id === charWeapon); return w ? <span title={tr(w, lang)}>{w.icon}</span> : null; })()}
+          </div>
+          <div className="char-layer char-accessory">
+            {(() => { const a = SHOP_ACCESSORIES.find(x => x.id === charAccessory); return a ? <span title={tr(a, lang)}>{a.icon}</span> : null; })()}
+          </div>
+        </div>
+        <div className="char-slots">
+          {[
+            { label: "👒", val: charHat, items: SHOP_HATS, kind: "charHat" },
+            { label: "👘", val: charOutfit, items: SHOP_OUTFITS, kind: "charOutfit" },
+            { label: "⚔️", val: charWeapon, items: SHOP_WEAPONS, kind: "charWeapon" },
+            { label: "🛡️", val: charAccessory, items: SHOP_ACCESSORIES, kind: "charAccessory" },
+          ].map(slot => {
+            const equipped = slot.items.find(x => x.id === slot.val);
+            return (
+              <div key={slot.kind} className="char-slot">
+                <span className="char-slot-ic">{slot.label}</span>
+                <span className="char-slot-nm">{equipped ? tr(equipped, lang) : "—"}</span>
+                <span className="char-slot-rare">{equipped ? RARITY_LABEL[equipped.rarity] : ""}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ textAlign: "center", marginTop: 8 }}>
+          <button className="songbtn ghost" style={{ fontSize: 12, padding: "6px 16px" }} onClick={() => {/* shop already accessible from header */}}>
+            🛍️ {lang === "th" ? "ซื้อไอเทมในร้านค้า" : lang === "zh" ? "在商店购买装备" : "Buy items in Shop"}
+          </button>
         </div>
       </div>
 
@@ -8385,6 +8480,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [frame, setFrame] = useState(getEquip("frame", "fr-none"));
   const [keyboard, setKeyboard] = useState(getEquip("keyboard", "kb-classic"));
   const [sticker, setSticker] = useState(getEquip("sticker", "st-star"));
+  const [charGender, setCharGender] = useState(getEquip("charGender", "boy"));
+  const [charHat, setCharHat] = useState(getEquip("charHat", "hat-straw"));
+  const [charOutfit, setCharOutfit] = useState(getEquip("charOutfit", "out-tshirt"));
+  const [charWeapon, setCharWeapon] = useState(getEquip("charWeapon", "wpn-stick"));
+  const [charAccessory, setCharAccessory] = useState(getEquip("charAccessory", "acc-shield"));
   const [mode, setMode] = useState(getEquip("mode", "light"));   // "dark" | "light" — whole-app color scheme; light is the preset for first-time visitors, a saved preference always wins
 
 
@@ -9038,7 +9138,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const tc = document.querySelector('meta[name="theme-color"]');
     if (tc) tc.setAttribute("content", mode === "dark" ? "#0d0d0c" : "#faf9f5");
   }, [skin, theme, frame, mode]);
-  const EQUIP_SETTERS = { skin: setSkin, theme: setTheme, frame: setFrame, keyboard: setKeyboard, sticker: setSticker };
+  const EQUIP_SETTERS = { skin: setSkin, theme: setTheme, frame: setFrame, keyboard: setKeyboard, sticker: setSticker, charHat: setCharHat, charOutfit: setCharOutfit, charWeapon: setCharWeapon, charAccessory: setCharAccessory };
   function buyOrEquip(kind, item) {
     const setEquip = EQUIP_SETTERS[kind];
     if (owned.includes(item.id)) {
@@ -9488,7 +9588,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill} />}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+              charGender={charGender} setCharGender={setCharGender} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
       {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
@@ -9874,6 +9975,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="shopsec">🏷️ {lc.shopStickers}</div>
               <div className="shopgrid">
                 {SHOP_STICKERS.map(it => renderShopItem("sticker", it, sticker))}
+              </div>
+              <div className="shopsec">👒 {lc.shopHats}</div>
+              <div className="shopgrid">
+                {SHOP_HATS.map(it => renderShopItem("charHat", it, charHat))}
+              </div>
+              <div className="shopsec">👘 {lc.shopOutfits}</div>
+              <div className="shopgrid">
+                {SHOP_OUTFITS.map(it => renderShopItem("charOutfit", it, charOutfit))}
+              </div>
+              <div className="shopsec">⚔️ {lc.shopWeapons}</div>
+              <div className="shopgrid">
+                {SHOP_WEAPONS.map(it => renderShopItem("charWeapon", it, charWeapon))}
+              </div>
+              <div className="shopsec">🛡️ {lc.shopAccessories}</div>
+              <div className="shopgrid">
+                {SHOP_ACCESSORIES.map(it => renderShopItem("charAccessory", it, charAccessory))}
               </div>
             </div>
           </div>

@@ -867,6 +867,24 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .shopbtn:hover{border-color:#d97757;background:rgba(217,119,87,.1);box-shadow:0 0 10px rgba(217,119,87,.2)}
 .shopbtn-ic{font-size:14px}
 .shopbtn-coins{font-family:"Orbitron",sans-serif;font-size:10px;letter-spacing:.3px}
+.charcard{background:var(--card);border:1.5px solid #d9775733;border-radius:14px;margin:12px 14px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.charcard-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#d97757}
+.char-gender-toggle{display:flex;gap:4px}
+.char-gender-btn{background:none;border:1.5px solid #d9775733;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#888;transition:all .2s;font-family:'Rajdhani',sans-serif}
+.char-gender-btn.on{background:#d97757;color:#fff;border-color:#d97757}
+.char-gender-btn:hover{border-color:#d97757}
+.char-sprite{display:flex;flex-direction:column;align-items:center;gap:2px;padding:16px 0 8px;position:relative;min-height:120px}
+.char-layer{font-size:36px;line-height:1;position:relative;z-index:1}
+.char-hat{font-size:28px;margin-bottom:-6px;z-index:3}
+.char-head{font-size:48px;z-index:2}
+.char-body{font-size:32px;margin-top:-4px;z-index:1}
+.char-weapon{position:absolute;right:20%;top:35%;font-size:24px;z-index:0;opacity:.85}
+.char-accessory{position:absolute;left:20%;top:35%;font-size:24px;z-index:0;opacity:.85}
+.char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.char-slot{display:flex;align-items:center;gap:6px;background:var(--card2,#f8f6f2);border-radius:8px;padding:6px 10px;font-size:12px}
+.char-slot-ic{font-size:18px}
+.char-slot-nm{font-weight:700;color:#333;flex:1}
+.char-slot-rare{font-size:9px;font-weight:700;color:#d97757;text-transform:uppercase;letter-spacing:.3px;font-family:'Orbitron',sans-serif}
 .trial-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 16px;background:#d97757;color:#fff}
 .trial-banner-txt{font-size:13px;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:.3px}
 .trial-banner-btn{flex-shrink:0;background:rgba(255,255,255,.22);border:1.5px solid rgba(255,255,255,.5);color:#fff;border-radius:8px;padding:5px 13px;font-size:12px;font-weight:800;font-family:'Orbitron',sans-serif;cursor:pointer;white-space:nowrap}
