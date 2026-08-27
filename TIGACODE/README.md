@@ -1,8 +1,8 @@
-# TIIGACODE
+# TIGACODE
 
-TIIGACODE คือ coding agent ที่ทำงานในเทอร์มินัล ในแนวทางเดียวกับ Claude Code แต่ออกแบบให้
+TIGACODE คือ coding agent ที่ทำงานในเทอร์มินัล ในแนวทางเดียวกับ Claude Code แต่ออกแบบให้
 **สลับ/เชื่อมต่อ AI model ได้หลายเจ้า** ผ่าน API ของแต่ละเจ้าเอง ไม่ผูกกับผู้ให้บริการรายเดียว
-มีสองส่วน: **CLI** (`bin/tiigacode.js` — ใช้ตัวนี้เพื่อ agent ที่แก้โค้ด/รันคำสั่งได้จริง)
+มีสองส่วน: **CLI** (`bin/tigacode.js` — ใช้ตัวนี้เพื่อ agent ที่แก้โค้ด/รันคำสั่งได้จริง)
 กับ **เว็บแชท** (`web/` — ใช้ตัวนี้เพื่อคุยผ่านเบราว์เซอร์ เลือกโมเดลจาก dropdown ดูรายละเอียด
 ที่ `web/README.md`) ทั้งสองใช้ core engine เดียวกัน (`src/`)
 
@@ -39,7 +39,7 @@ OPENROUTER_API_KEY=sk-or-...
 จากนั้นเลือกโมเดล `or-claude`, `or-gpt`, `or-qwen`, `or-kimi`, `or-glm`, `or-glm52`, หรือ
 `or-mimo` ได้เลย — **หมายเหตุ: repo นี้ไม่มีคีย์ OpenRouter จริงเก็บไว้ที่ไหนเลย** (คีย์ที่ `bos/`
 ใช้งานจริงถูกเก็บเป็น Supabase Edge Function secret แยกต่างหาก ไม่อยู่ในไฟล์ใน repo และ
-TIIGACODE ไม่ได้ไปดึงมาใช้ ต้องสมัครคีย์ของตัวเองต่างหาก)
+TIGACODE ไม่ได้ไปดึงมาใช้ ต้องสมัครคีย์ของตัวเองต่างหาก)
 
 ## ทำไม config พวกนี้ถึงเป็น "ค่าเริ่มต้นที่ต้องตรวจสอบเอง"
 
@@ -60,30 +60,30 @@ open-weight model ให้ไป self-host) — ถ้าจะใช้ ต้
 (ใช้ Node built-in ทั้งหมด: `fetch`, `readline`, `fs`, `child_process`)
 
 ```bash
-cd TIIGACODE
+cd TIGACODE
 cp .env.example .env
 # แก้ .env ใส่ API key เฉพาะผู้ให้บริการที่จะใช้จริง (ใส่แค่ตัวที่จะใช้ก็พอ)
 
-node bin/tiigacode.js
+node bin/tigacode.js
 ```
 
 หรือติดตั้งเป็นคำสั่ง global ในเครื่อง:
 
 ```bash
-cd TIIGACODE
+cd TIGACODE
 npm link
-tiigacode
+tigacode
 ```
 
 ## การใช้งาน
 
 ```bash
-tiigacode                        # เปิดโหมดสนทนาต่อเนื่อง (REPL)
-tiigacode --model glm-5.2        # เริ่มด้วยโมเดลที่ระบุ
-tiigacode -p "สรุปไฟล์นี้ให้หน่อย"   # ยิงคำถามครั้งเดียวแล้วจบ (non-interactive)
-tiigacode models                 # แสดงรายชื่อโมเดลที่ตั้งค่าไว้
-tiigacode config set OPENAI_API_KEY sk-xxxx   # บันทึกคีย์ไว้ที่ ~/.tiigacode/config.json
-tiigacode --help                 # แสดงวิธีใช้ทั้งหมด
+tigacode                        # เปิดโหมดสนทนาต่อเนื่อง (REPL)
+tigacode --model glm-5.2        # เริ่มด้วยโมเดลที่ระบุ
+tigacode -p "สรุปไฟล์นี้ให้หน่อย"   # ยิงคำถามครั้งเดียวแล้วจบ (non-interactive)
+tigacode models                 # แสดงรายชื่อโมเดลที่ตั้งค่าไว้
+tigacode config set OPENAI_API_KEY sk-xxxx   # บันทึกคีย์ไว้ที่ ~/.tigacode/config.json
+tigacode --help                 # แสดงวิธีใช้ทั้งหมด
 ```
 
 ภายในโหมด REPL:
@@ -106,7 +106,7 @@ Agent เรียกใช้เครื่องมือเหล่าน�
 
 ## เพิ่ม/แก้โมเดล
 
-สร้างไฟล์ `~/.tiigacode/models.json` (ไม่ต้องใส่ทุก field ใส่แค่ส่วนที่จะ override) เช่น
+สร้างไฟล์ `~/.tigacode/models.json` (ไม่ต้องใส่ทุก field ใส่แค่ส่วนที่จะ override) เช่น
 
 ```json
 {
@@ -124,12 +124,12 @@ Messages API (`"kind": "anthropic"`)
 ## โครงสร้างโฟลเดอร์
 
 ```
-TIIGACODE/
-├── bin/tiigacode.js             entry point ของคำสั่ง CLI
+TIGACODE/
+├── bin/tigacode.js             entry point ของคำสั่ง CLI
 ├── src/
 │   ├── cli.js                   parse argument / คำสั่งย่อย (models, config, --help)
 │   ├── repl.js                  โหมดสนทนาต่อเนื่อง
-│   ├── config.js                โหลด API key จาก .env / ~/.tiigacode/config.json / env จริง
+│   ├── config.js                โหลด API key จาก .env / ~/.tigacode/config.json / env จริง
 │   ├── models.js                registry ของโมเดล+provider ที่ตั้งค่าไว้
 │   ├── defaultModels.json       ค่าเริ่มต้นของ models.js (แก้ได้อิสระ ไม่ต้องแตะโค้ด)
 │   ├── providers/

@@ -1,7 +1,7 @@
 import { readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
-const IGNORE_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.tiigacode']);
+const IGNORE_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.tigacode']);
 const HARD_CAP = 20_000;
 
 function walk(dir, root, out) {

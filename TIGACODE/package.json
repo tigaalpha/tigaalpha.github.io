@@ -1,0 +1,16 @@
+{
+  "name": "tigacode",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TIGACODE — terminal coding agent in the spirit of Claude Code, but able to plug in multiple AI model providers (Anthropic Claude, OpenAI ChatGPT, Zhipu GLM, Alibaba Qwen, Moonshot Kimi, Xiaomi MiMo, or any OpenAI-compatible endpoint).",
+  "bin": {
+    "tigacode": "./bin/tigacode.js"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "scripts": {
+    "start": "node bin/tigacode.js"
+  }
+}

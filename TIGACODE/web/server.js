@@ -83,5 +83,5 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`TIIGACODE web กำลังทำงานที่ http://localhost:${PORT}`);
+  console.log(`TIGACODE web กำลังทำงานที่ http://localhost:${PORT}`);
 });

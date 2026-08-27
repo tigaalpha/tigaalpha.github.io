@@ -12,7 +12,7 @@ function loadUserRegistry() {
   try {
     return JSON.parse(readFileSync(path, 'utf8'));
   } catch (err) {
-    console.error(`[tiigacode] คำเตือน: อ่าน ${path} ไม่ได้ (${err.message}) — ใช้ค่า default แทน`);
+    console.error(`[tigacode] คำเตือน: อ่าน ${path} ไม่ได้ (${err.message}) — ใช้ค่า default แทน`);
     return null;
   }
 }
@@ -33,7 +33,7 @@ function mergeRegistry(base, override) {
 }
 
 // รวมค่าเริ่มต้นใน defaultModels.json เข้ากับ override ของผู้ใช้ที่
-// ~/.tiigacode/models.json (ถ้ามี) — override เฉพาะ field/id ที่ระบุ ที่เหลือใช้ default
+// ~/.tigacode/models.json (ถ้ามี) — override เฉพาะ field/id ที่ระบุ ที่เหลือใช้ default
 export function loadRegistry() {
   return mergeRegistry(defaultRegistry, loadUserRegistry());
 }
@@ -49,7 +49,7 @@ export function getDefaultModelId(registry = loadRegistry()) {
 export function resolveModel(idOrModelString, registry = loadRegistry()) {
   const entry = registry.models.find((m) => m.id === idOrModelString);
   if (!entry) {
-    throw new Error(`ไม่รู้จักโมเดล "${idOrModelString}" — พิมพ์ "tiigacode models" เพื่อดูรายการที่ตั้งค่าไว้`);
+    throw new Error(`ไม่รู้จักโมเดล "${idOrModelString}" — พิมพ์ "tigacode models" เพื่อดูรายการที่ตั้งค่าไว้`);
   }
   const providerConfig = registry.providers[entry.provider];
   if (!providerConfig) {

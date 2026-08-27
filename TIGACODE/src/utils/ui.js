@@ -13,7 +13,7 @@ export const colors = {
 
 export function banner() {
   return [
-    `${colors.cyan(colors.bold('TIIGACODE'))}${colors.dim('  — multi-model coding agent')}`,
+    `${colors.cyan(colors.bold('TIGACODE'))}${colors.dim('  — multi-model coding agent')}`,
     colors.dim('พิมพ์ /help เพื่อดูคำสั่ง, /exit เพื่อออก'),
   ].join('\n');
 }

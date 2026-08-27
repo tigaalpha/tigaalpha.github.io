@@ -13,7 +13,7 @@ export function createProvider(providerConfig) {
   if (!apiKey) {
     throw new Error(
       `ยังไม่ได้ตั้งค่า API key: ${providerConfig.apiKeyEnv}\n` +
-        `ตั้งค่าได้โดยใส่ในไฟล์ TIIGACODE/.env หรือรัน "tiigacode config set ${providerConfig.apiKeyEnv} <ค่า>"`
+        `ตั้งค่าได้โดยใส่ในไฟล์ TIGACODE/.env หรือรัน "tigacode config set ${providerConfig.apiKeyEnv} <ค่า>"`
     );
   }
 

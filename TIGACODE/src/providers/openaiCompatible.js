@@ -3,7 +3,7 @@
 export class OpenAICompatibleProvider {
   constructor({ baseUrl, apiKey, extraHeaders = {} }) {
     if (!baseUrl) {
-      throw new Error('ต้องระบุ baseUrl สำหรับ provider นี้ (ดู TIIGACODE/README.md หัวข้อ "เพิ่ม/แก้โมเดล")');
+      throw new Error('ต้องระบุ baseUrl สำหรับ provider นี้ (ดู TIGACODE/README.md หัวข้อ "เพิ่ม/แก้โมเดล")');
     }
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this.apiKey = apiKey;

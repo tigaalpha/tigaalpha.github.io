@@ -7,7 +7,7 @@ import { loadDotEnv } from './utils/dotenv.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const PROJECT_ROOT = join(__dirname, '..');
-export const CONFIG_DIR = join(homedir(), '.tiigacode');
+export const CONFIG_DIR = join(homedir(), '.tigacode');
 const GLOBAL_CONFIG_PATH = join(CONFIG_DIR, 'config.json');
 
 function loadGlobalConfig() {
@@ -32,7 +32,7 @@ export function getGlobalConfigPath() {
   return GLOBAL_CONFIG_PATH;
 }
 
-// ลำดับความสำคัญ (น้อย -> มาก): TIIGACODE/.env  <  ~/.tiigacode/config.json  <  process.env
+// ลำดับความสำคัญ (น้อย -> มาก): TIGACODE/.env  <  ~/.tigacode/config.json  <  process.env
 export function loadEnv() {
   const dotEnv = loadDotEnv(join(PROJECT_ROOT, '.env'));
   const globalConfig = loadGlobalConfig();

@@ -7,18 +7,18 @@ import { buildSystemPrompt } from './agent/systemPrompt.js';
 import { getGlobalConfigPath, ensureConfigDir, saveGlobalConfig } from './config.js';
 import { colors } from './utils/ui.js';
 
-const USAGE = `TIIGACODE — multi-model coding agent
+const USAGE = `TIGACODE — multi-model coding agent
 
 การใช้งาน:
-  tiigacode                        เปิดโหมดสนทนาต่อเนื่อง (REPL)
-  tiigacode --model <id>           เริ่มด้วยโมเดลที่ระบุ
-  tiigacode -p "<คำถาม>"            ยิงคำถามครั้งเดียวแล้วจบ (non-interactive)
-  tiigacode models                 แสดงรายชื่อโมเดลที่ตั้งค่าไว้
-  tiigacode config path            แสดงตำแหน่งไฟล์ config
-  tiigacode config set <KEY> <val> บันทึกค่า (เช่น API key) ไว้ที่ config global
+  tigacode                        เปิดโหมดสนทนาต่อเนื่อง (REPL)
+  tigacode --model <id>           เริ่มด้วยโมเดลที่ระบุ
+  tigacode -p "<คำถาม>"            ยิงคำถามครั้งเดียวแล้วจบ (non-interactive)
+  tigacode models                 แสดงรายชื่อโมเดลที่ตั้งค่าไว้
+  tigacode config path            แสดงตำแหน่งไฟล์ config
+  tigacode config set <KEY> <val> บันทึกค่า (เช่น API key) ไว้ที่ config global
 
 ตัวเลือก:
-  -m, --model <id>      เลือกโมเดล (ดูรายชื่อด้วย "tiigacode models")
+  -m, --model <id>      เลือกโมเดล (ดูรายชื่อด้วย "tigacode models")
   -p, --print <text>    โหมดยิงครั้งเดียว ไม่เปิด REPL
   --auto-approve        ข้ามการถามยืนยันก่อนรัน write_file/edit_file/run_bash (เสี่ยงเอง)
   -h, --help            แสดงข้อความนี้`;
@@ -91,7 +91,7 @@ function handleConfigCommand(args) {
     const [key, ...valueParts] = args.slice(1);
     const value = valueParts.join(' ');
     if (!key || !value) {
-      console.log('ใช้แบบ: tiigacode config set <KEY> <value>   เช่น tiigacode config set ANTHROPIC_API_KEY sk-ant-xxxx');
+      console.log('ใช้แบบ: tigacode config set <KEY> <value>   เช่น tigacode config set ANTHROPIC_API_KEY sk-ant-xxxx');
       return;
     }
     const path = getGlobalConfigPath();
@@ -102,5 +102,5 @@ function handleConfigCommand(args) {
     console.log(colors.green(`บันทึก ${key} ไว้ที่ ${path} แล้ว`));
     return;
   }
-  console.log('คำสั่งที่ใช้ได้: tiigacode config path | tiigacode config set <KEY> <value>');
+  console.log('คำสั่งที่ใช้ได้: tigacode config path | tigacode config set <KEY> <value>');
 }
