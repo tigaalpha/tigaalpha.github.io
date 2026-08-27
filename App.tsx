@@ -5624,7 +5624,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           })}
         </div>
         <div style={{ textAlign: "center", marginTop: 8 }}>
-          <button className="songbtn ghost" style={{ fontSize: 12, padding: "6px 16px" }} onClick={() => {/* shop already accessible from header */}}>
+          <button className="songbtn ghost" style={{ fontSize: 12, padding: "6px 16px" }} onClick={() => onOpenShop && onOpenShop()}>
             🛍️ {lang === "th" ? "ซื้อไอเทมในร้านค้า" : lang === "zh" ? "在商店购买装备" : "Buy items in Shop"}
           </button>
         </div>
@@ -8342,6 +8342,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // coins · daily chest · mascot companion
   const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
+  const [shopTab, setShopTab] = useState("all");
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false); // optional-side login (corner pill) — GuestGateScreen is the forced-side equivalent, see app-shell.tsx
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
@@ -9947,55 +9948,63 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {friendsOpen && <FriendsModal lang={lang} onClose={() => setFriendsOpen(false)} />}
       {loginModalOpen && <LoginModal profile={profile} onGoogleLogin={() => { saveGuestProfile(profile); signInWith("google"); }} onClose={() => setLoginModalOpen(false)} />}
 
-      {shopOpen && (
-        <div className="setov" onClick={() => setShopOpen(false)}>
-          <div className="setcard" onClick={e => e.stopPropagation()}>
-            <div className="sethdr">
-              <span>🛍️ {lc.shopTitle}</span>
-              <span className="coinpill" style={{ marginLeft: "auto", marginRight: 10 }}>🪙 {coins}</span>
-              <button className="cbtn" onClick={() => setShopOpen(false)}>{lc.close}</button>
-            </div>
-            <div className="setbody">
-              <div className="shopsec">🎹 {lc.shopSkins}</div>
-              <div className="shopgrid">
-                {SHOP_SKINS.map(it => renderShopItem("skin", it, skin))}
+      {shopOpen && (() => {
+        const ALL_CATS = [
+          { key: "all",         icon: "📦", label: lang === "th" ? "ทั้งหมด" : lang === "zh" ? "全部" : "All" },
+          { key: "skin",        icon: "🎹", label: lc.shopSkins },
+          { key: "theme",       icon: "🎨", label: lc.shopThemes },
+          { key: "frame",       icon: "🖼️", label: lc.shopFrames },
+          { key: "keyboard",    icon: "⌨️", label: lc.shopKeyboards },
+          { key: "sticker",     icon: "🏷️", label: lc.shopStickers },
+          { key: "charHat",     icon: "👒", label: lc.shopHats },
+          { key: "charOutfit",  icon: "👘", label: lc.shopOutfits },
+          { key: "charWeapon",  icon: "⚔️", label: lc.shopWeapons },
+          { key: "charAccessory", icon: "🛡️", label: lc.shopAccessories },
+        ];
+        const CAT_ITEMS = {
+          skin: SHOP_SKINS, theme: SHOP_THEMES, frame: SHOP_FRAMES,
+          keyboard: SHOP_KEYBOARDS, sticker: SHOP_STICKERS,
+          charHat: SHOP_HATS, charOutfit: SHOP_OUTFITS,
+          charWeapon: SHOP_WEAPONS, charAccessory: SHOP_ACCESSORIES,
+        };
+        const CAT_EQUIPPED = {
+          skin, theme, frame, keyboard, sticker,
+          charHat, charOutfit, charWeapon, charAccessory,
+        };
+        const filtered = shopTab === "all"
+          ? Object.entries(CAT_ITEMS).flatMap(([kind, items]) => items.map(it => ({ ...it, _kind: kind })))
+          : (CAT_ITEMS[shopTab] || []).map(it => ({ ...it, _kind: shopTab }));
+        const ownedCount = filtered.filter(it => owned.includes(it.id)).length;
+        return (
+          <div className="setov" onClick={() => setShopOpen(false)}>
+            <div className="setcard shop-full" onClick={e => e.stopPropagation()}>
+              <div className="sethdr">
+                <span>🛍️ {lc.shopTitle}</span>
+                <span className="coinpill" style={{ marginLeft: "auto", marginRight: 10 }}>🪙 {coins}</span>
+                <button className="cbtn" onClick={() => setShopOpen(false)}>{lc.close}</button>
               </div>
-              <div className="shopsec">🎨 {lc.shopThemes}</div>
-              <div className="shopgrid">
-                {SHOP_THEMES.map(it => renderShopItem("theme", it, theme))}
+              <div className="shop-tabs">
+                {ALL_CATS.map(c => (
+                  <button key={c.key} className={`shop-tab${shopTab === c.key ? " on" : ""}`}
+                    onClick={() => setShopTab(c.key)}>
+                    <span className="shop-tab-ic">{c.icon}</span>
+                    <span className="shop-tab-lbl">{c.label}</span>
+                  </button>
+                ))}
               </div>
-              <div className="shopsec">🖼️ {lc.shopFrames}</div>
-              <div className="shopgrid">
-                {SHOP_FRAMES.map(it => renderShopItem("frame", it, frame))}
-              </div>
-              <div className="shopsec">🎹 {lc.shopKeyboards}</div>
-              <div className="shopgrid">
-                {SHOP_KEYBOARDS.map(it => renderShopItem("keyboard", it, keyboard))}
-              </div>
-              <div className="shopsec">🏷️ {lc.shopStickers}</div>
-              <div className="shopgrid">
-                {SHOP_STICKERS.map(it => renderShopItem("sticker", it, sticker))}
-              </div>
-              <div className="shopsec">👒 {lc.shopHats}</div>
-              <div className="shopgrid">
-                {SHOP_HATS.map(it => renderShopItem("charHat", it, charHat))}
-              </div>
-              <div className="shopsec">👘 {lc.shopOutfits}</div>
-              <div className="shopgrid">
-                {SHOP_OUTFITS.map(it => renderShopItem("charOutfit", it, charOutfit))}
-              </div>
-              <div className="shopsec">⚔️ {lc.shopWeapons}</div>
-              <div className="shopgrid">
-                {SHOP_WEAPONS.map(it => renderShopItem("charWeapon", it, charWeapon))}
-              </div>
-              <div className="shopsec">🛡️ {lc.shopAccessories}</div>
-              <div className="shopgrid">
-                {SHOP_ACCESSORIES.map(it => renderShopItem("charAccessory", it, charAccessory))}
+              <div className="setbody shop-body">
+                <div className="shop-summary">
+                  <span>{lang === "th" ? "มีทั้งหมด" : lang === "zh" ? "共" : "Total"}: {filtered.length} {lang === "th" ? "ชิ้น" : lang === "zh" ? "件" : "items"}</span>
+                  <span>{lang === "th" ? "เป็นเจ้าของ" : lang === "zh" ? "已拥有" : "Owned"}: {ownedCount}</span>
+                </div>
+                <div className="shopgrid shop-grid-full">
+                  {filtered.map(it => renderShopItem(it._kind, it, CAT_EQUIPPED[it._kind]))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* DAILY CHEST modal — the reward is already resolved before this shows
           (see openChestNow); the wheel only plays back that real outcome */}

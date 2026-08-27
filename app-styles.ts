@@ -1090,6 +1090,17 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .shopitem-rare{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.5px;color:var(--muted);text-transform:uppercase}
 .shopitem-tag{font-family:'Share Tech Mono',monospace;font-size:10px;color:#d97757}
 .shopitem.equipped .shopitem-tag{color:#d97757}
+.shop-full{max-height:90vh!important;max-width:420px!important;display:flex;flex-direction:column}
+.shop-tabs{display:flex;gap:4px;padding:8px 12px;overflow-x:auto;flex-shrink:0;border-bottom:1px solid #eee;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.shop-tabs::-webkit-scrollbar{display:none}
+.shop-tab{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:1.5px solid transparent;border-radius:10px;padding:6px 10px;cursor:pointer;transition:all .2s;min-width:52px;flex-shrink:0}
+.shop-tab.on{background:#d9775715;border-color:#d97757;color:#d97757}
+.shop-tab:hover{background:rgba(217,119,87,.08)}
+.shop-tab-ic{font-size:18px}
+.shop-tab-lbl{font-size:9px;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:.3px;white-space:nowrap}
+.shop-body{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.shop-summary{display:flex;justify-content:space-between;padding:6px 14px;font-size:11px;color:#999;font-family:'Rajdhani',sans-serif;font-weight:700}
+.shop-grid-full{padding:0 10px 16px}
 body[data-skin="sunset"] .pk.w.lit{background:linear-gradient(180deg,#ff9e00,#ff5d3a 40%,#fff);box-shadow:0 0 16px #ff7a3d,0 0 40px #ff7a3d66}
 body[data-skin="sunset"] .pk.b.lit{background:linear-gradient(180deg,#ff9e00,#a83200);box-shadow:0 0 14px #ff7a3d}
 body[data-skin="neon"] .pk.w.lit{background:linear-gradient(180deg,#06ffa5,#00d488 40%,#fff);box-shadow:0 0 16px #06ffa5,0 0 40px #06ffa566}
