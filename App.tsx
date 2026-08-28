@@ -5709,7 +5709,100 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+/* ── ChestIcon ──
+   A treasure chest at UI scale: banded lid, hasp and lock plate, drawn in
+   currentColor so it takes whatever colour the control it sits in is using.
+   None of the box-shaped emoji read as a chest at 16px — a package looks like
+   a package and a toolbox looks like a toolbox — so this one is drawn. */
+function ChestIcon({ size = 16, className = "" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width={size} height={size} fill="none"
+      stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3.2 10.4a8.8 5.4 0 0 1 17.6 0" />
+      <path d="M3.2 10.4h17.6v8.1a1.6 1.6 0 0 1-1.6 1.6H4.8a1.6 1.6 0 0 1-1.6-1.6Z" />
+      <path d="M3.2 13.4h17.6" />
+      <path d="M10.3 10.4h3.4v5.1h-3.4z" />
+      <path d="M12 12.3v1.3" />
+    </svg>
+  );
+}
+
+/* ── StoragePage ──
+   The shop shows what is for sale; this shows what is yours. Same catalogue,
+   inverted: every category lists only what has been bought or granted, says
+   which piece is currently on the character, and equips straight from the
+   shelf — so a loadout can be changed without wading back through nine hundred
+   coins' worth of things you do not own. Categories you have nothing in are
+   still listed, with the count, because an empty shelf is information too. */
+const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, equipped, charModel, onEquip, onBack, onOpenShop }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const lc = L[lang];
+  const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL };
+  const RARITY_RANK = { common: 0, rare: 1, epic: 2, legendary: 3 };
+  /* Free starter gear is equipped from the first launch but was never bought,
+     so it is not in `owned` — and a storage page that omits the visor actually
+     on your character is lying about what you have. Anything free, anything
+     bought, and anything currently worn all count as yours. */
+  const groups = cats.map(c => {
+    const worn = (it) => (c.key === "charModel" ? charModel === it.model : equipped[c.key] === it.id);
+    const items = (c.items || []).filter(it => owned.includes(it.id) || it.cost === 0 || worn(it));
+    items.sort((a, b) => (RARITY_RANK[b.rarity] || 0) - (RARITY_RANK[a.rarity] || 0) || (b.cost || 0) - (a.cost || 0));
+    return { ...c, items, total: (c.items || []).length };
+  });
+  const held = groups.reduce((n, g) => n + g.items.length, 0);
+  const total = groups.reduce((n, g) => n + g.total, 0);
+  const worth = groups.reduce((n, g) => n + g.items.reduce((m, it) => m + (it.cost || 0), 0), 0);
+  const best = groups.flatMap(g => g.items).reduce((m, it) => (RARITY_RANK[it.rarity] > RARITY_RANK[m] ? it.rarity : m), "common");
+
+  return (
+    <div className="stgpage">
+      <div className="stghdr">
+        <button className="stgback" onClick={onBack} aria-label={lc.back}>←</button>
+        <span className="stgttl"><ChestIcon size={19} /> {T("คลังไอเทมของฉัน", "Item Storage", "我的道具仓库")}</span>
+        <span className="coinpill">🪙 {coins.toLocaleString()}</span>
+      </div>
+      <div className="stgstats">
+        <div className="stgstat"><b>{held}</b><span>{T("ไอเทมที่มี", "items held", "已拥有")}</span></div>
+        <div className="stgstat"><b>{Math.round((held / Math.max(1, total)) * 100)}%</b><span>{T("สะสมครบ", "collected", "收集度")}</span></div>
+        <div className="stgstat"><b>{worth.toLocaleString()}</b><span>{T("มูลค่ารวม 🪙", "total value 🪙", "总价值 🪙")}</span></div>
+        <div className={`stgstat rar-${best}`}><b>{RARITY_LABEL[best]}</b><span>{T("ระดับสูงสุด", "best rarity", "最高稀有度")}</span></div>
+      </div>
+      {groups.map(g => (
+        <div key={g.key} className="stgsec">
+          <div className="stgsec-h">
+            <span className="stgsec-ic">{g.icon}</span>
+            <span className="stgsec-t">{g.label}</span>
+            <span className="stgsec-n">{g.items.length}/{g.total}</span>
+          </div>
+          {g.items.length === 0 ? (
+            <button className="stgempty" onClick={onOpenShop}>
+              {T("ยังไม่มีไอเทมในหมวดนี้ · แตะเพื่อไปที่ร้านค้า", "Nothing here yet · tap to open the shop", "这里还没有道具 · 点击前往商店")}
+            </button>
+          ) : (
+            <div className="stggrid">
+              {g.items.map(it => {
+                const on = g.key === "charModel" ? charModel === it.model : equipped[g.key] === it.id;
+                return (
+                  <button key={it.id} className={`stgitem ${it.rarity}${on ? " on" : ""}`} onClick={() => onEquip(g.key, it)}>
+                    {it.model
+                      ? <span className="stgitem-head"><CyberAvatar model={it.model} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
+                      : <span className="stgitem-ic">{it.icon}</span>}
+                    <span className="stgitem-nm">{tr(it, lang)}</span>
+                    <span className="stgitem-r">{RARITY_LABEL[it.rarity]}</span>
+                    {on && <span className="stgitem-on">✓ {lc.shopEquipped}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
+      <button className="stgshop" onClick={onOpenShop}>🛍️ {T("ไปที่ร้านค้า", "Open the shop", "前往商店")}</button>
+    </div>
+  );
+});
+
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -5825,7 +5918,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         <div className="char-slots">
           {[
             { label: "🥽", val: charHat, items: SHOP_HATS, kind: "charHat" },
-            { label: "🤖", val: charOutfit, items: SHOP_OUTFITS, kind: "charOutfit" },
+            { label: "🦿", val: charOutfit, items: SHOP_OUTFITS, kind: "charOutfit" },
             { label: "🦾", val: charWeapon, items: SHOP_WEAPONS, kind: "charWeapon" },
             { label: "🔋", val: charAccessory, items: SHOP_ACCESSORIES, kind: "charAccessory" },
           ].map(slot => {
@@ -5839,9 +5932,12 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             );
           })}
         </div>
-        <div style={{ textAlign: "center", marginTop: 8 }}>
-          <button className="songbtn ghost" style={{ fontSize: 12, padding: "6px 16px" }} onClick={() => onOpenShop && onOpenShop()}>
+        <div className="char-actions">
+          <button className="songbtn ghost" onClick={() => onOpenShop && onOpenShop()}>
             🛍️ {lang === "th" ? "ซื้อไอเทมในร้านค้า" : lang === "zh" ? "在商店购买装备" : "Buy items in Shop"}
+          </button>
+          <button className="songbtn ghost stgbtn" onClick={() => onOpenStorage && onOpenStorage()}>
+            <ChestIcon size={15} /> {lang === "th" ? "คลังไอเทม" : lang === "zh" ? "道具仓库" : "Item Storage"}
           </button>
         </div>
       </div>
@@ -9864,7 +9960,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
@@ -9872,6 +9968,25 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
       {page === "gamepage" && <GamesPage lang={lang} />}
+      {page === "storage" && (
+        <StoragePage lang={lang} coins={coins} owned={owned} charModel={charModel}
+          cats={[
+            { key: "charModel",     icon: "🤖", label: lang === "th" ? "สกินหุ่นยนต์" : lang === "zh" ? "机器人皮肤" : "Robot skins", items: SHOP_MODELS },
+            { key: "charWeapon",    icon: "🦾", label: lc.shopWeapons,      items: SHOP_WEAPONS },
+            { key: "charHat",       icon: "🥽", label: lc.shopHats,         items: SHOP_HATS },
+            { key: "charOutfit",    icon: "🦿", label: lc.shopOutfits,      items: SHOP_OUTFITS },
+            { key: "charAccessory", icon: "🔋", label: lc.shopAccessories,  items: SHOP_ACCESSORIES },
+            { key: "skin",          icon: "🎹", label: lc.shopSkins,        items: SHOP_SKINS },
+            { key: "theme",         icon: "🎨", label: lc.shopThemes,       items: SHOP_THEMES },
+            { key: "frame",         icon: "🖼️", label: lc.shopFrames,       items: SHOP_FRAMES },
+            { key: "keyboard",      icon: "⌨️", label: lc.shopKeyboards,    items: SHOP_KEYBOARDS },
+            { key: "sticker",       icon: "🏷️", label: lc.shopStickers,     items: SHOP_STICKERS },
+          ]}
+          equipped={{ skin, theme, frame, keyboard, sticker, charHat, charOutfit, charWeapon, charAccessory }}
+          onEquip={(kind, it) => buyOrEquip(kind, it)}
+          onBack={() => { setPage("profile"); playUi("click"); }}
+          onOpenShop={() => { setShopOpen(true); playUi("click"); }} />
+      )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
       {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} endRef={endRef} input={input} setInput={setInput} send={send} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} />}
@@ -10236,7 +10351,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { key: "charModel",     icon: "🤖", label: lang === "th" ? "สกินหุ่นยนต์" : lang === "zh" ? "机器人皮肤" : "Robot skins" },
           { key: "charWeapon",    icon: "🦾", label: lc.shopWeapons },
           { key: "charHat",       icon: "🥽", label: lc.shopHats },
-          { key: "charOutfit",    icon: "🤖", label: lc.shopOutfits },
+          { key: "charOutfit",    icon: "🦿", label: lc.shopOutfits },
           { key: "charAccessory", icon: "🔋", label: lc.shopAccessories },
           { key: "skin",          icon: "🎹", label: lc.shopSkins },
           { key: "theme",         icon: "🎨", label: lc.shopThemes },

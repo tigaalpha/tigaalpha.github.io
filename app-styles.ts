@@ -871,6 +871,46 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .shopbtn-coins{font-family:"Orbitron",sans-serif;font-size:10px;letter-spacing:.3px}
 .charcard{background:#ffffff;border:1.5px solid #00f0ff44;border-radius:14px;margin:12px 14px;padding:16px;box-shadow:0 0 12px rgba(0,240,255,.12),0 2px 8px rgba(0,0,0,.06)}
 .charcard-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#1a1a2e}
+/* the two ways out of the character card, side by side */
+.char-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}
+.char-actions .songbtn{font-size:11.5px;padding:8px 6px;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.stgbtn svg{flex-shrink:0}
+/* ── Item Storage ──
+   Its own page, not a modal: this is where a collection is looked over, and a
+   collection deserves room. Same grid language as the shop so the two read as
+   two views of one catalogue — but here everything on screen is already yours,
+   and tapping puts it on the character. */
+.stgpage{max-width:560px;margin:0 auto;padding:10px 12px 90px}
+.stghdr{display:flex;align-items:center;gap:9px;padding:6px 2px 12px;position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--bd1)}
+.stgback{width:32px;height:32px;flex-shrink:0;border-radius:9px;border:1px solid var(--bd1);background:var(--card2);color:var(--text);font-size:16px;cursor:pointer}
+.stgback:hover{border-color:#d97757}
+.stgttl{display:inline-flex;align-items:center;gap:6px;margin-right:auto;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#d97757}
+.stgstats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0 4px}
+.stgstat{display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px;border-radius:11px;background:var(--card2);border:1px solid var(--bd1)}
+.stgstat b{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--text);line-height:1.1}
+.stgstat span{font-size:8.5px;color:var(--muted);text-align:center;line-height:1.15}
+.stgstat.rar-rare b{color:#3aa8ff}.stgstat.rar-epic b{color:#aa00ff}.stgstat.rar-legendary b{color:#ffb300}
+.stgsec{margin-top:16px}
+.stgsec-h{display:flex;align-items:center;gap:7px;padding-bottom:7px}
+.stgsec-ic{font-size:15px}
+.stgsec-t{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--text);margin-right:auto}
+.stgsec-n{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.stgempty{display:block;width:100%;padding:14px 10px;border-radius:12px;border:1px dashed var(--bd1);background:none;color:var(--muted);font-size:11px;cursor:pointer}
+.stgempty:hover{border-color:#d97757;color:#d97757}
+.stggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.stgitem{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:11px 5px 9px;border-radius:12px;border:1px solid var(--bd1);background:var(--card2);cursor:pointer;transition:border-color .18s,transform .18s,box-shadow .18s}
+.stgitem:hover{transform:translateY(-1px);border-color:#d97757}
+.stgitem.on{border-color:#00c2d6;box-shadow:0 0 0 1px #00c2d64d,0 4px 14px -8px #00c2d6}
+.stgitem-ic{font-size:30px;line-height:1}
+.stgitem-head{display:block;width:100%;aspect-ratio:1/1.05}
+.stgitem-head svg{display:block;width:100%;height:100%}
+.stgitem-nm{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:var(--text);text-align:center;line-height:1.15}
+.stgitem-r{font-size:8px;font-weight:700;letter-spacing:.4px;color:var(--muted);text-transform:uppercase}
+.stgitem.rare .stgitem-r{color:#3aa8ff}.stgitem.epic .stgitem-r{color:#aa00ff}.stgitem.legendary .stgitem-r{color:#ffb300}
+.stgitem-on{position:absolute;top:4px;right:5px;padding:1px 5px;border-radius:20px;background:#00c2d6;color:#04121b;font-size:7.5px;font-weight:700;white-space:nowrap}
+.stgshop{display:block;width:100%;margin-top:22px;padding:12px;border-radius:12px;border:1px solid var(--bd1);background:var(--card2);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+.stgshop:hover{border-color:#d97757;color:#d97757}
+@media (max-width:380px){.stggrid{grid-template-columns:repeat(2,1fr)}.stgstats{grid-template-columns:repeat(2,1fr)}}
 /* ── the one-time chassis choice ── */
 .mdlpick-ov{align-items:center;justify-content:center}
 .mdlpick{max-width:430px!important;width:calc(100% - 24px);max-height:92vh!important;display:flex;flex-direction:column;overflow:hidden}
