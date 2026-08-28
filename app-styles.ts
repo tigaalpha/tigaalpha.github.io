@@ -1221,13 +1221,24 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .shopitem-tag{font-family:'Share Tech Mono',monospace;font-size:10px;color:#d97757}
 .shopitem.equipped .shopitem-tag{color:#d97757}
 .shop-full{max-height:90vh!important;max-width:420px!important;display:flex;flex-direction:column}
-.shop-tabs{display:flex;gap:4px;padding:8px 12px;overflow-x:auto;flex-shrink:0;border-bottom:1px solid #00f0ff22;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:linear-gradient(180deg,#0a001500,#0a001533)}
+/* wraps rather than scrolls: a category nobody can see is a category nobody buys from */
+.shop-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:8px 10px;flex-shrink:0;border-bottom:1px solid #00f0ff22;background:linear-gradient(180deg,#0a001500,#0a001533)}
 .shop-tabs::-webkit-scrollbar{display:none}
-.shop-tab{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:1.5px solid transparent;border-radius:10px;padding:6px 10px;cursor:pointer;transition:all .2s;min-width:52px;flex-shrink:0;color:#8888aa}
+.shop-tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;background:#ffffff08;border:1.5px solid transparent;border-radius:10px;padding:6px 3px;cursor:pointer;transition:all .2s;min-width:0;color:#8888aa}
 .shop-tab.on{background:linear-gradient(135deg,#00f0ff15,#aa00ff15);border-color:#00f0ff;color:#00f0ff;box-shadow:0 0 8px rgba(0,240,255,.2)}
 .shop-tab:hover{background:rgba(0,240,255,.08);border-color:#00f0ff44}
 .shop-tab-ic{font-size:18px}
-.shop-tab-lbl{font-size:9px;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:.3px;white-space:nowrap}
+.shop-tab-lbl{font-size:9px;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:.2px;line-height:1.1;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* how many items are in there — the weapon rack being the biggest is worth seeing */
+.shop-tab-n{position:absolute;top:2px;right:3px;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:700;color:#ffffff59}
+.shop-tab.on .shop-tab-n{color:#00f0ff}
+/* the everything view: a switch in the corner, not a category */
+.shop-hdr{gap:7px}
+.shop-hdr-t{margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shop-allbtn{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;padding:4px 9px;border-radius:20px;border:1px solid #ffffff2e;background:#ffffff0d;color:#9fb1cc;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s}
+.shop-allbtn:hover{border-color:#00f0ff88;color:#dff6ff}
+.shop-allbtn.on{background:linear-gradient(135deg,#00f0ff22,#aa00ff22);border-color:#00f0ff;color:#00f0ff;box-shadow:0 0 8px rgba(0,240,255,.25)}
+@media (max-width:380px){.shop-allbtn-l{display:none}}
 .shop-body{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
 .shop-summary{display:flex;justify-content:space-between;font-size:11px;color:#8888aa;padding:4px 0 8px;border-bottom:1px solid #00f0ff15;margin-bottom:10px}
 .shop-grid-full{padding:0 10px 16px}
