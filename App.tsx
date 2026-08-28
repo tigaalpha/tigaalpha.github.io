@@ -5589,30 +5589,72 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             <button className={`char-gender-btn${charGender === "cute" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("cute")}>{charGender === "cute" ? "🦊" : "👤"} {lang === "th" ? "น่ารัก" : lang === "zh" ? "可爱" : "Cute"}</button>
           </div>
         </div>
-        <div className="char-3d-scene">
-          <div className="char-3d-stage">
-            <div className="char-3d-platform" />
-            <div className="char-3d-spotlight" />
-            <div className="char-3d-body" style={{ transform: `rotateY(${charGender === "girl" ? "-8deg" : charGender === "cute" ? "5deg" : "0deg"})` }}>
-              <div className="char-3d-item char-3d-hat">
-                {(() => { const h = SHOP_HATS.find(x => x.id === charHat); return h ? <span className="char-3d-emoji" title={tr(h, lang)}>{h.icon}</span> : null; })()}
+        {/* ── holo-chamber character viewport ──
+            The stage is its own dark 3D scene sunk into the light card, the way a
+            game's character screen embeds a rendered viewport in its UI: a
+            perspective floor grid running to a lit horizon, volumetric beams,
+            drifting motes, counter-rotating holo rings, a mirrored floor
+            reflection, and a scanline sweep. Every layer sits at its own
+            translateZ inside one preserve-3d scene, so the whole figure parallaxes
+            as a solid object instead of reading as stacked flat stickers.
+
+            Colour is not decorative: the aura, rings and rim light all take the
+            palette of whatever is EQUIPPED (each shop item carries its own `sw`
+            swatch), and the intensity follows the best rarity worn — so gearing up
+            visibly changes the lighting of the whole chamber. */}
+        {(() => {
+          const RARITY_RANK = { common: 0, rare: 1, epic: 2, legendary: 3 };
+          const hat = SHOP_HATS.find(x => x.id === charHat);
+          const out = SHOP_OUTFITS.find(x => x.id === charOutfit);
+          const wpn = SHOP_WEAPONS.find(x => x.id === charWeapon);
+          const acc = SHOP_ACCESSORIES.find(x => x.id === charAccessory);
+          const worn = [hat, out, wpn, acc].filter(Boolean);
+          const best = worn.reduce((m, it) => (RARITY_RANK[it.rarity] > RARITY_RANK[m] ? it.rarity : m), "common");
+          // the chamber's two key lights, picked from the gear actually worn
+          const sw = worn.flatMap(it => it.sw || []).filter(Boolean);
+          const keyA = sw[0] || "#00f0ff";
+          const keyB = sw.find(c => c !== keyA) || "#aa00ff";
+          const rimOf = (it) => (it && it.sw && it.sw[1]) || (it && it.sw && it.sw[0]) || keyA;
+          // Plain single-codepoint faces. The old boy face was the ZWJ sequence
+          // "person + microphone", whose mic half rendered as its own dark glyph
+          // block behind the head on Android — a grey box no other style had.
+          const face = charGender === "girl" ? "👩" : charGender === "cute" ? "🦊" : "🧑";
+          const power = worn.reduce((n, it) => n + (RARITY_RANK[it.rarity] + 1) * 120, 0);
+          const yaw = charGender === "girl" ? -7 : charGender === "cute" ? 6 : 0;
+          const figure = (
+            <>
+              {hat && <span className="cs-layer cs-hat" style={{ "--rim": rimOf(hat) }}>{hat.icon}</span>}
+              <span className="cs-layer cs-head" style={{ "--rim": keyA }}>{face}</span>
+              {out && <span className="cs-layer cs-torso" style={{ "--rim": rimOf(out) }}>{out.icon}</span>}
+              {wpn && <span className="cs-layer cs-wpn" style={{ "--rim": rimOf(wpn) }}>{wpn.icon}</span>}
+              {acc && <span className="cs-layer cs-acc" style={{ "--rim": rimOf(acc) }}>{acc.icon}</span>}
+            </>
+          );
+          return (
+            <div className={`charstage rar-${best}`} style={{ "--keyA": keyA, "--keyB": keyB }}>
+              <div className="cs-sky" />
+              <div className="cs-grid" />
+              <div className="cs-horizon" />
+              <div className="cs-motes">{Array.from({ length: 14 }).map((_, i) => <i key={i} style={{ "--i": i }} />)}</div>
+              <div className="cs-scene">
+                <div className="cs-rings"><i className="cs-ring cs-ring1" /><i className="cs-ring cs-ring2" /><i className="cs-ring cs-ring3" /></div>
+                <div className="cs-podium"><i className="cs-podium-top" /><i className="cs-podium-glow" /></div>
+                <div className="cs-figure" style={{ transform: `translateX(-50%) rotateY(${yaw}deg)` }}>
+                  <div className="cs-aura" />
+                  {figure}
+                </div>
+                <div className="cs-reflect" aria-hidden="true" style={{ transform: `translateX(-50%) scaleY(-1) rotateY(${yaw}deg)` }}>{figure}</div>
               </div>
-              <div className="char-3d-item char-3d-head">
-                {charGender === "girl" ? "👩‍🦰" : charGender === "cute" ? "🦊" : "🧑‍🎤"}
+              <div className="cs-scan" />
+              <div className="cs-vignette" />
+              <div className="cs-hud">
+                <span className="cs-hud-tag">{best.toUpperCase()}</span>
+                <span className="cs-hud-pwr">PWR {power.toLocaleString()}</span>
               </div>
-              <div className="char-3d-item char-3d-torso">
-                {(() => { const o = SHOP_OUTFITS.find(x => x.id === charOutfit); return o ? <span className="char-3d-emoji" title={tr(o, lang)}>{o.icon}</span> : null; })()}
-              </div>
-              <div className="char-3d-item char-3d-weapon-r">
-                {(() => { const w = SHOP_WEAPONS.find(x => x.id === charWeapon); return w ? <span className="char-3d-emoji" title={tr(w, lang)}>{w.icon}</span> : null; })()}
-              </div>
-              <div className="char-3d-item char-3d-acc-l">
-                {(() => { const a = SHOP_ACCESSORIES.find(x => x.id === charAccessory); return a ? <span className="char-3d-emoji" title={tr(a, lang)}>{a.icon}</span> : null; })()}
-              </div>
+              <i className="cs-bracket tl" /><i className="cs-bracket tr" /><i className="cs-bracket bl" /><i className="cs-bracket br" />
             </div>
-            <div className="char-3d-shadow" />
-          </div>
-        </div>
+          );
+        })()}
         <div className="char-slots">
           {[
             { label: "👒", val: charHat, items: SHOP_HATS, kind: "charHat" },

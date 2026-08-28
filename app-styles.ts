@@ -876,19 +876,96 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .char-layer{font-size:36px;line-height:1;position:relative;z-index:1}
 
 /* ── 3D AAA Character Scene ── */
-.char-3d-scene{perspective:600px;perspective-origin:50% 40%;padding:8px 0;overflow:visible}
-.char-3d-stage{position:relative;width:180px;height:200px;margin:0 auto;transform-style:preserve-3d;transform:rotateX(8deg)}
-.char-3d-platform{position:absolute;bottom:8px;left:50%;transform:translateX(-50%) rotateX(70deg);width:140px;height:60px;background:radial-gradient(ellipse at center,rgba(0,240,255,.18) 0%,rgba(170,0,255,.08) 50%,transparent 72%);border-radius:50%;filter:blur(2px)}
-.char-3d-spotlight{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:100px;height:200px;background:radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.12) 0%,transparent 60%);pointer-events:none}
-.char-3d-body{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;transform-style:preserve-3d;transition:transform .4s ease}
-.char-3d-item{transform-style:preserve-3d;transition:transform .3s ease,filter .3s ease}
-.char-3d-emoji{display:block;text-shadow:0 2px 8px rgba(0,0,0,.25),0 4px 16px rgba(0,0,0,.15);filter:drop-shadow(0 3px 6px rgba(0,0,0,.2))}
-.char-3d-head{font-size:64px;z-index:5;transform:translateZ(12px);margin-bottom:-8px}
-.char-3d-hat{font-size:34px;z-index:10;transform:translateZ(22px) translateY(-4px);margin-bottom:-12px}
-.char-3d-torso{font-size:40px;z-index:3;transform:translateZ(6px);margin-top:-4px}
-.char-3d-weapon-r{position:absolute;right:-28px;top:32%;font-size:30px;z-index:2;transform:translateZ(16px) rotate(-15deg);opacity:.92}
-.char-3d-acc-l{position:absolute;left:-28px;top:32%;font-size:30px;z-index:2;transform:translateZ(16px) rotate(15deg);opacity:.92}
-.char-3d-shadow{position:absolute;bottom:0;left:50%;transform:translateX(-50%) rotateX(70deg);width:100px;height:24px;background:radial-gradient(ellipse at center,rgba(0,0,0,.22) 0%,transparent 70%);border-radius:50%;filter:blur(4px)}
+.charstage{--floor:112px;position:relative;height:262px;margin:2px 0 10px;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse 120% 80% at 50% 108%,#141033 0%,#0a0618 55%,#050310 100%);border:1px solid #ffffff14;box-shadow:inset 0 0 40px #000a,0 6px 22px -10px var(--keyA),0 0 0 1px var(--keyA)33;isolation:isolate}
+/* deep sky + the two key lights bleeding in from the top corners */
+/* Two key lights washing in from the top corners. These used to be separate
+   rotated-and-blurred divs with mix-blend-mode; inside the stage's own
+   stacking context Chromium composited each one as a hard-edged rectangle
+   sitting over the character. Painting them straight into the sky is the same
+   light with nothing left to composite wrongly. */
+.cs-sky{position:absolute;inset:0;background:radial-gradient(ellipse 62% 74% at 14% -6%,color-mix(in srgb,var(--keyA) 34%,transparent) 0%,transparent 62%),radial-gradient(ellipse 62% 74% at 88% -4%,color-mix(in srgb,var(--keyB) 30%,transparent) 0%,transparent 62%),radial-gradient(ellipse 90% 40% at 50% 118%,color-mix(in srgb,var(--keyA) 16%,transparent) 0%,transparent 70%)}
+/* perspective floor: a flat grid laid down with rotateX, fading into the horizon */
+.cs-grid{position:absolute;left:-60%;right:-60%;top:calc(100% - var(--floor) - 22px);height:150px;transform:perspective(150px) rotateX(64deg);transform-origin:50% 0%;background-image:linear-gradient(color-mix(in srgb,var(--keyA) 48%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--keyA) 36%,transparent) 1px,transparent 1px);background-size:26px 22px;opacity:.5;-webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 34%,#000 100%);mask-image:linear-gradient(to bottom,transparent 0%,#000 34%,#000 100%);animation:csGrid 5.5s linear infinite}
+@keyframes csGrid{to{background-position:0 22px,0 0}}
+.cs-horizon{position:absolute;left:0;right:0;bottom:calc(var(--floor) + 20px);height:2px;background:linear-gradient(90deg,transparent,var(--keyA),#fff,var(--keyB),transparent);opacity:.85;filter:blur(.6px);box-shadow:0 0 22px 5px color-mix(in srgb,var(--keyA) 45%,transparent)}
+/* drifting motes — each one seeded off its index so they never march in step */
+.cs-motes{position:absolute;inset:0;pointer-events:none}
+.cs-motes i{position:absolute;bottom:-8px;left:calc(6% + var(--i) * 6.6%);width:3px;height:3px;border-radius:50%;background:var(--keyA);box-shadow:0 0 7px 2px color-mix(in srgb,var(--keyA) 70%,transparent);opacity:0;animation:csMote calc(7s + var(--i) * 0.55s) linear infinite;animation-delay:calc(var(--i) * -0.9s)}
+.cs-motes i:nth-child(even){background:var(--keyB);box-shadow:0 0 7px 2px color-mix(in srgb,var(--keyB) 70%,transparent);width:2px;height:2px}
+@keyframes csMote{0%{transform:translateY(0) translateX(0);opacity:0}12%{opacity:.85}100%{transform:translateY(-232px) translateX(14px);opacity:0}}
+/* the 3D scene proper — every layer parallaxes inside ONE preserve-3d space */
+.cs-scene{position:absolute;inset:0;perspective:620px;perspective-origin:50% 42%;transform-style:preserve-3d}
+/* counter-rotating holo rings around the figure */
+.cs-rings{position:absolute;left:50%;bottom:calc(var(--floor) - 46px);width:172px;height:172px;transform:translateX(-50%);transform-style:preserve-3d;pointer-events:none}
+.cs-ring{position:absolute;inset:0;border-radius:50%;border:1.5px solid transparent;background:conic-gradient(from 0deg,transparent 0deg,var(--keyA) 40deg,transparent 110deg,transparent 250deg,var(--keyB) 300deg,transparent 350deg) border-box;-webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:.75}
+.cs-ring1{transform:rotateX(74deg);animation:csSpin 9s linear infinite}
+.cs-ring2{inset:22px;transform:rotateX(74deg);animation:csSpin 6.5s linear infinite reverse;opacity:.5}
+.cs-ring3{inset:-14px;transform:rotateX(80deg);animation:csSpin 14s linear infinite;opacity:.35}
+@keyframes csSpin{to{transform:rotateX(74deg) rotate(360deg)}}
+/* lit podium the figure stands on */
+.cs-podium{position:absolute;left:50%;bottom:calc(var(--floor) - 48px);width:132px;height:132px;transform:translateX(-50%) rotateX(76deg);transform-style:preserve-3d;pointer-events:none}
+.cs-podium-top{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--keyA) 30%,transparent) 0%,color-mix(in srgb,var(--keyB) 14%,transparent) 46%,transparent 70%);border:1.5px solid color-mix(in srgb,var(--keyA) 55%,transparent);box-shadow:0 0 26px 6px color-mix(in srgb,var(--keyA) 28%,transparent),inset 0 0 22px color-mix(in srgb,var(--keyB) 22%,transparent)}
+.cs-podium-glow{position:absolute;inset:26px;border-radius:50%;border:1px solid color-mix(in srgb,var(--keyB) 45%,transparent);animation:csPulse 3.2s ease-in-out infinite}
+@keyframes csPulse{0%,100%{opacity:.35;transform:scale(.94)}50%{opacity:.85;transform:scale(1.04)}}
+/* The figure. Every part is placed at an explicit y inside a fixed-size box
+   rather than stacked with flex margins — emoji have wildly different intrinsic
+   line boxes, so margin-stacking them collides the head into the torso at some
+   font sizes and gaps at others. Fixed slots make the silhouette stable
+   whatever is equipped. */
+/* Deliberately NOT preserve-3d. Each layer below carries a drop-shadow filter,
+   and a filtered element that also has a translateZ inside a preserve-3d parent
+   gets rasterised by Chromium as an opaque LAYER BOX — which painted a hard-edged
+   panel across the chamber behind the character. Depth here comes from scale,
+   stacking order and shadow weight instead; the real 3D is left to the podium and
+   rings, which carry no filters and so composite cleanly. */
+.cs-figure,.cs-reflect{position:absolute;left:50%;bottom:var(--floor);width:140px;height:118px;transition:transform .45s cubic-bezier(.34,1.56,.64,1);will-change:transform}
+.cs-figure{animation:csFloat 4.2s ease-in-out infinite}
+@keyframes csFloat{0%,100%{translate:0 0}50%{translate:0 -7px}}
+.cs-aura{position:absolute;left:-8px;right:-8px;top:2px;height:116px;border-radius:50%;z-index:1;background:radial-gradient(circle,color-mix(in srgb,var(--keyA) 46%,transparent) 0%,color-mix(in srgb,var(--keyB) 22%,transparent) 42%,transparent 72%);filter:blur(11px);animation:csPulse 3.6s ease-in-out infinite}
+/* each equipped layer gets rim light in ITS OWN colour, plus real depth offset */
+/* Rim light WITHOUT a filter. A drop-shadow() on a layer holding a colour-emoji
+   made Chromium rasterise that layer's whole box as an opaque grey panel across
+   the chamber — verified by toggling the filter off and watching the panel go.
+   A radial gradient behind the glyph gives the same neon bloom, costs less, and
+   composites correctly everywhere. */
+.cs-layer{position:absolute;left:50%;display:block;line-height:1;text-align:center;transition:transform .35s ease;text-shadow:0 6px 10px rgba(0,0,0,.6)}
+.cs-layer::before{content:"";position:absolute;left:50%;top:50%;width:165%;height:165%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,var(--rim) 0%,transparent 62%);opacity:.4;z-index:-1;pointer-events:none}
+.cs-hat{top:0;font-size:41px;transform:translateX(-50%);z-index:7}
+.cs-head{top:24px;font-size:72px;transform:translateX(-50%);z-index:6}
+/* The outfit sits ON the body, not under it. The person emoji already draws its
+   own torso and shirt, so hanging a second garment below it read as two bodies
+   floating apart — the outfit now overlaps that torso (and stacks above it) so it
+   reads as the character WEARING the item. */
+.cs-torso{top:76px;font-size:55px;transform:translateX(-50%);z-index:8}
+.cs-wpn{left:auto;right:0;top:52px;font-size:37px;transform:rotate(-18deg);z-index:9}
+.cs-acc{left:0;top:52px;font-size:37px;transform:rotate(16deg);z-index:9}
+/* Mirrored copy on the floor. transform-origin is the point that matters: the
+   default centre origin flips the copy back UP over the figure, which reads as a
+   glitch rather than a reflection. Pinning the origin to its own bottom edge
+   mirrors it downward from the feet, where a floor reflection belongs. */
+.cs-reflect{transform-origin:50% 100%;opacity:.16;filter:blur(2.5px) saturate(.5);pointer-events:none;-webkit-mask-image:linear-gradient(to top,transparent 4%,#000 62%);mask-image:linear-gradient(to top,transparent 4%,#000 62%)}
+.cs-reflect .cs-layer{filter:none}
+/* sweep + vignette + corner brackets: the HUD frame around the viewport */
+.cs-scan{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,transparent 0%,color-mix(in srgb,var(--keyA) 13%,transparent) 49%,transparent 53%);animation:csScan 4.5s linear infinite}
+@keyframes csScan{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
+.cs-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 80% 70% at 50% 46%,transparent 46%,rgba(0,0,0,.55) 100%)}
+.cs-hud{position:absolute;left:26px;right:26px;bottom:9px;display:flex;justify-content:space-between;align-items:center;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:.12em;pointer-events:none}
+.cs-hud-tag{color:var(--keyA);text-shadow:0 0 8px var(--keyA)}
+.cs-hud-pwr{color:#fff9;text-shadow:0 0 6px var(--keyB)}
+.cs-bracket{position:absolute;width:15px;height:15px;pointer-events:none;opacity:.72}
+.cs-bracket.tl{top:7px;left:7px;border-top:1.5px solid var(--keyA);border-left:1.5px solid var(--keyA)}
+.cs-bracket.tr{top:7px;right:7px;border-top:1.5px solid var(--keyB);border-right:1.5px solid var(--keyB)}
+.cs-bracket.bl{bottom:7px;left:7px;border-bottom:1.5px solid var(--keyB);border-left:1.5px solid var(--keyB)}
+.cs-bracket.br{bottom:7px;right:7px;border-bottom:1.5px solid var(--keyA);border-right:1.5px solid var(--keyA)}
+/* rarity raises the whole chamber's energy, it doesn't just recolour a chip */
+.charstage.rar-rare{box-shadow:inset 0 0 40px #000a,0 6px 26px -10px var(--keyA),0 0 0 1px var(--keyA)55}
+.charstage.rar-epic .cs-aura{filter:blur(14px);animation-duration:2.6s}
+.charstage.rar-epic{box-shadow:inset 0 0 44px #000b,0 8px 30px -10px var(--keyB),0 0 0 1.5px var(--keyB)77}
+.charstage.rar-legendary .cs-aura{filter:blur(17px);animation-duration:2s}
+.charstage.rar-legendary .cs-ring1,.charstage.rar-legendary .cs-ring2{opacity:1}
+.charstage.rar-legendary{box-shadow:inset 0 0 48px #000c,0 10px 36px -8px #ffd23f,0 0 0 1.5px #ffd23faa}
+@media (prefers-reduced-motion:reduce){.cs-grid,.cs-beam,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan{animation:none}}
+@media (max-width:380px){.charstage{height:238px;--floor:100px}.cs-head{font-size:60px}.cs-hat{font-size:32px}.cs-torso{font-size:40px}.cs-wpn,.cs-acc{font-size:29px}}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}
 .char-slot-ic{font-size:18px}
