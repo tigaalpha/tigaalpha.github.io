@@ -871,15 +871,6 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .shopbtn-coins{font-family:"Orbitron",sans-serif;font-size:10px;letter-spacing:.3px}
 .charcard{background:#ffffff;border:1.5px solid #00f0ff44;border-radius:14px;margin:12px 14px;padding:16px;box-shadow:0 0 12px rgba(0,240,255,.12),0 2px 8px rgba(0,0,0,.06)}
 .charcard-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#1a1a2e}
-/* ── chassis lock ──
-   Locked models stay visible and stay legible: the point is to see what you did
-   not pick and know exactly what it costs to change your mind. Dimming plus a
-   padlock says unavailable without hiding the thing being sold. */
-.char-model.locked{opacity:.45;filter:saturate(.55)}
-.char-model.locked:hover{opacity:.72;border-color:#ffd23f88;transform:none}
-.char-model-lock{position:absolute;top:3px;right:4px;font-size:9px;line-height:1;text-shadow:0 1px 3px #000}
-.char-corepill{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:#8b93a8;background:#8b93a814;border:1px solid #8b93a833}
-.char-corepill.has{color:#ffd23f;background:#ffd23f18;border-color:#ffd23f66;box-shadow:0 0 10px -3px #ffd23f}
 /* ── the one-time chassis choice ── */
 .mdlpick-ov{align-items:center;justify-content:center}
 .mdlpick{max-width:430px!important;width:calc(100% - 24px);max-height:92vh!important;display:flex;flex-direction:column;overflow:hidden}
@@ -898,25 +889,14 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .mdlpick-foot{padding:11px 14px 14px;border-top:1px solid #00f0ff26;flex-shrink:0}
 .mdlpick-go{width:100%;padding:12px 10px;border:none;border-radius:12px;background:linear-gradient(135deg,#00f0ff,#aa00ff);color:#04121b;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:.3px;cursor:pointer;box-shadow:0 6px 20px -8px #00f0ff}
 .mdlpick-go:hover{filter:brightness(1.08)}
-/* ── spend-a-core / locked prompts ── */
-.mdlask{max-width:340px!important;width:calc(100% - 40px);padding:20px 18px;text-align:center}
-.mdlask-ic{font-size:34px;line-height:1}
-.mdlask-ttl{margin-top:8px;font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:#00f0ff}
-.mdlask-head{width:96px;height:96px;margin:10px auto 2px;border-radius:12px;background:radial-gradient(ellipse 120% 90% at 50% 110%,#141033,#050310);border:1px solid #ffffff14;overflow:hidden}
-.mdlask-head svg{display:block;width:100%;height:100%}
-.mdlask-txt{margin-top:9px;font-size:12px;line-height:1.55;color:#c3d2e6}
-.mdlask-price{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;padding:8px 10px;border-radius:10px;background:#ffd23f14;border:1px solid #ffd23f4d;font-size:12px;font-weight:700;color:#ffe598}
-.mdlask-price b{margin-left:auto;font-family:'Orbitron',sans-serif;font-size:12px;color:#ffd23f}
-.mdlask-row{display:flex;gap:8px;margin-top:15px}
-.mdlask-no,.mdlask-yes{flex:1;padding:10px 8px;border-radius:10px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
-.mdlask-no{background:none;border:1.5px solid #ffffff2e;color:#9fb1cc}
-.mdlask-no:hover{border-color:#ffffff5c;color:#dbe7ff}
-.mdlask-yes{border:none;background:linear-gradient(135deg,#ffd23f,#ff8a3f);color:#2a1600;box-shadow:0 5px 16px -7px #ffd23f}
-.mdlask-yes:hover{filter:brightness(1.07)}
-/* a consumable is stocked, so it shows how many you hold and never says Equip */
-.shopitem-have{position:absolute;top:5px;left:6px;padding:1px 6px;border-radius:20px;background:#ffd23f;color:#2a1600;font-family:'Orbitron',sans-serif;font-size:8.5px;font-weight:700}
+/* which chassis is running, stated on the character card */
+.char-modelpill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:20px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:#00d3e6;background:#00f0ff14;border:1px solid #00f0ff44}
+.char-modelpill b{font-family:'Orbitron',sans-serif;font-size:8.5px;color:#7f93b5}
+/* a chassis in the shop sells itself with the head it actually is */
+.mdlitem-head{display:block;width:100%;aspect-ratio:1/1.05;margin-bottom:2px}
+.mdlitem-head svg{display:block;width:100%;height:100%}
+.shopitem.mdlitem{padding:8px 5px 10px}
 .shopitem-desc{font-size:9px;line-height:1.25;color:#9fb1cc;text-align:center;padding:0 4px}
-.shopitem.consumable{border-color:#ffd23f7a;box-shadow:0 0 14px -6px #ffd23f}
 @media (max-width:380px){.mdlpick-stage{height:214px}.mdlpick-stage svg{height:204px}.mdlpick-grid{gap:3px}}
 /* model bay: five chips, each showing the head it actually selects */
 .char-models{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:8px 0 2px}
