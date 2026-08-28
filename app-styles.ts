@@ -873,13 +873,22 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .char-gender-btn{background:none;border:1.5px solid #ddd;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#666;transition:all .2s;font-family:'Rajdhani',sans-serif}
 .char-gender-btn.on{background:linear-gradient(135deg,#00f0ff,#aa00ff);color:#fff;border-color:#00f0ff;box-shadow:0 0 8px rgba(0,240,255,.3)}
 .char-gender-btn:hover{border-color:#00ccdd;box-shadow:0 0 4px rgba(0,240,255,.2)}
-.char-sprite{display:flex;flex-direction:column;align-items:center;gap:2px;padding:16px 0 8px;position:relative;min-height:120px;border-radius:12px}
 .char-layer{font-size:36px;line-height:1;position:relative;z-index:1}
-.char-hat{font-size:28px;margin-bottom:-6px;z-index:3;filter:drop-shadow(0 0 5px rgba(170,0,255,.4))}
-.char-head{font-size:48px;z-index:2;filter:drop-shadow(0 0 8px rgba(0,240,255,.3))}
-.char-body{font-size:32px;margin-top:-4px;z-index:1}
-.char-weapon{position:absolute;right:20%;top:35%;font-size:24px;z-index:0;opacity:.85;filter:drop-shadow(0 0 6px rgba(0,240,255,.5))}
-.char-accessory{position:absolute;left:20%;top:35%;font-size:24px;z-index:0;opacity:.85;filter:drop-shadow(0 0 6px rgba(255,0,68,.5))}
+
+/* ── 3D AAA Character Scene ── */
+.char-3d-scene{perspective:600px;perspective-origin:50% 40%;padding:8px 0;overflow:visible}
+.char-3d-stage{position:relative;width:180px;height:200px;margin:0 auto;transform-style:preserve-3d;transform:rotateX(8deg)}
+.char-3d-platform{position:absolute;bottom:8px;left:50%;transform:translateX(-50%) rotateX(70deg);width:140px;height:60px;background:radial-gradient(ellipse at center,rgba(0,240,255,.18) 0%,rgba(170,0,255,.08) 50%,transparent 72%);border-radius:50%;filter:blur(2px)}
+.char-3d-spotlight{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:100px;height:200px;background:radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.12) 0%,transparent 60%);pointer-events:none}
+.char-3d-body{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;transform-style:preserve-3d;transition:transform .4s ease}
+.char-3d-item{transform-style:preserve-3d;transition:transform .3s ease,filter .3s ease}
+.char-3d-emoji{display:block;text-shadow:0 2px 8px rgba(0,0,0,.25),0 4px 16px rgba(0,0,0,.15);filter:drop-shadow(0 3px 6px rgba(0,0,0,.2))}
+.char-3d-head{font-size:64px;z-index:5;transform:translateZ(12px);margin-bottom:-8px}
+.char-3d-hat{font-size:34px;z-index:10;transform:translateZ(22px) translateY(-4px);margin-bottom:-12px}
+.char-3d-torso{font-size:40px;z-index:3;transform:translateZ(6px);margin-top:-4px}
+.char-3d-weapon-r{position:absolute;right:-28px;top:32%;font-size:30px;z-index:2;transform:translateZ(16px) rotate(-15deg);opacity:.92}
+.char-3d-acc-l{position:absolute;left:-28px;top:32%;font-size:30px;z-index:2;transform:translateZ(16px) rotate(15deg);opacity:.92}
+.char-3d-shadow{position:absolute;bottom:0;left:50%;transform:translateX(-50%) rotateX(70deg);width:100px;height:24px;background:radial-gradient(ellipse at center,rgba(0,0,0,.22) 0%,transparent 70%);border-radius:50%;filter:blur(4px)}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}
 .char-slot-ic{font-size:18px}

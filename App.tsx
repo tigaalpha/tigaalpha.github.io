@@ -5589,21 +5589,28 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             <button className={`char-gender-btn${charGender === "cute" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("cute")}>{charGender === "cute" ? "🦊" : "👤"} {lang === "th" ? "น่ารัก" : lang === "zh" ? "可爱" : "Cute"}</button>
           </div>
         </div>
-        <div className="char-sprite">
-          <div className="char-layer char-hat">
-            {(() => { const h = SHOP_HATS.find(x => x.id === charHat); return h ? <span title={tr(h, lang)}>{h.icon}</span> : null; })()}
-          </div>
-          <div className="char-layer char-head">
-            {charGender === "girl" ? "👩‍🦰" : charGender === "cute" ? "🦊" : "🧑‍🎤"}
-          </div>
-          <div className="char-layer char-body">
-            {(() => { const o = SHOP_OUTFITS.find(x => x.id === charOutfit); return o ? <span title={tr(o, lang)}>{o.icon}</span> : null; })()}
-          </div>
-          <div className="char-layer char-weapon">
-            {(() => { const w = SHOP_WEAPONS.find(x => x.id === charWeapon); return w ? <span title={tr(w, lang)}>{w.icon}</span> : null; })()}
-          </div>
-          <div className="char-layer char-accessory">
-            {(() => { const a = SHOP_ACCESSORIES.find(x => x.id === charAccessory); return a ? <span title={tr(a, lang)}>{a.icon}</span> : null; })()}
+        <div className="char-3d-scene">
+          <div className="char-3d-stage">
+            <div className="char-3d-platform" />
+            <div className="char-3d-spotlight" />
+            <div className="char-3d-body" style={{ transform: `rotateY(${charGender === "girl" ? "-8deg" : charGender === "cute" ? "5deg" : "0deg"})` }}>
+              <div className="char-3d-item char-3d-hat">
+                {(() => { const h = SHOP_HATS.find(x => x.id === charHat); return h ? <span className="char-3d-emoji" title={tr(h, lang)}>{h.icon}</span> : null; })()}
+              </div>
+              <div className="char-3d-item char-3d-head">
+                {charGender === "girl" ? "👩‍🦰" : charGender === "cute" ? "🦊" : "🧑‍🎤"}
+              </div>
+              <div className="char-3d-item char-3d-torso">
+                {(() => { const o = SHOP_OUTFITS.find(x => x.id === charOutfit); return o ? <span className="char-3d-emoji" title={tr(o, lang)}>{o.icon}</span> : null; })()}
+              </div>
+              <div className="char-3d-item char-3d-weapon-r">
+                {(() => { const w = SHOP_WEAPONS.find(x => x.id === charWeapon); return w ? <span className="char-3d-emoji" title={tr(w, lang)}>{w.icon}</span> : null; })()}
+              </div>
+              <div className="char-3d-item char-3d-acc-l">
+                {(() => { const a = SHOP_ACCESSORIES.find(x => x.id === charAccessory); return a ? <span className="char-3d-emoji" title={tr(a, lang)}>{a.icon}</span> : null; })()}
+              </div>
+            </div>
+            <div className="char-3d-shadow" />
           </div>
         </div>
         <div className="char-slots">
