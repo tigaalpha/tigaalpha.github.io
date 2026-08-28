@@ -876,7 +876,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .char-layer{font-size:36px;line-height:1;position:relative;z-index:1}
 
 /* ── 3D AAA Character Scene ── */
-.charstage{--floor:112px;position:relative;height:262px;margin:2px 0 10px;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse 120% 80% at 50% 108%,#141033 0%,#0a0618 55%,#050310 100%);border:1px solid #ffffff14;box-shadow:inset 0 0 40px #000a,0 6px 22px -10px var(--keyA),0 0 0 1px var(--keyA)33;isolation:isolate}
+.charstage{--floor:44px;position:relative;height:296px;margin:2px 0 10px;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse 120% 80% at 50% 108%,#141033 0%,#0a0618 55%,#050310 100%);border:1px solid #ffffff14;box-shadow:inset 0 0 40px #000a,0 6px 22px -10px var(--keyA),0 0 0 1px var(--keyA)33;isolation:isolate}
 /* deep sky + the two key lights bleeding in from the top corners */
 /* Two key lights washing in from the top corners. These used to be separate
    rotated-and-blurred divs with mix-blend-mode; inside the stage's own
@@ -896,14 +896,14 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 /* the 3D scene proper — every layer parallaxes inside ONE preserve-3d space */
 .cs-scene{position:absolute;inset:0;perspective:620px;perspective-origin:50% 42%;transform-style:preserve-3d}
 /* counter-rotating holo rings around the figure */
-.cs-rings{position:absolute;left:50%;bottom:calc(var(--floor) - 46px);width:172px;height:172px;transform:translateX(-50%);transform-style:preserve-3d;pointer-events:none}
+.cs-rings{position:absolute;left:50%;bottom:calc(var(--floor) - 28px);width:172px;height:172px;transform:translateX(-50%);transform-style:preserve-3d;pointer-events:none}
 .cs-ring{position:absolute;inset:0;border-radius:50%;border:1.5px solid transparent;background:conic-gradient(from 0deg,transparent 0deg,var(--keyA) 40deg,transparent 110deg,transparent 250deg,var(--keyB) 300deg,transparent 350deg) border-box;-webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:.75}
 .cs-ring1{transform:rotateX(74deg);animation:csSpin 9s linear infinite}
 .cs-ring2{inset:22px;transform:rotateX(74deg);animation:csSpin 6.5s linear infinite reverse;opacity:.5}
 .cs-ring3{inset:-14px;transform:rotateX(80deg);animation:csSpin 14s linear infinite;opacity:.35}
 @keyframes csSpin{to{transform:rotateX(74deg) rotate(360deg)}}
 /* lit podium the figure stands on */
-.cs-podium{position:absolute;left:50%;bottom:calc(var(--floor) - 48px);width:132px;height:132px;transform:translateX(-50%) rotateX(76deg);transform-style:preserve-3d;pointer-events:none}
+.cs-podium{position:absolute;left:50%;bottom:calc(var(--floor) - 30px);width:132px;height:132px;transform:translateX(-50%) rotateX(76deg);transform-style:preserve-3d;pointer-events:none}
 .cs-podium-top{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--keyA) 30%,transparent) 0%,color-mix(in srgb,var(--keyB) 14%,transparent) 46%,transparent 70%);border:1.5px solid color-mix(in srgb,var(--keyA) 55%,transparent);box-shadow:0 0 26px 6px color-mix(in srgb,var(--keyA) 28%,transparent),inset 0 0 22px color-mix(in srgb,var(--keyB) 22%,transparent)}
 .cs-podium-glow{position:absolute;inset:26px;border-radius:50%;border:1px solid color-mix(in srgb,var(--keyB) 45%,transparent);animation:csPulse 3.2s ease-in-out infinite}
 @keyframes csPulse{0%,100%{opacity:.35;transform:scale(.94)}50%{opacity:.85;transform:scale(1.04)}}
@@ -918,10 +918,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    panel across the chamber behind the character. Depth here comes from scale,
    stacking order and shadow weight instead; the real 3D is left to the podium and
    rings, which carry no filters and so composite cleanly. */
-.cs-figure,.cs-reflect{position:absolute;left:50%;bottom:var(--floor);width:140px;height:118px;transition:transform .45s cubic-bezier(.34,1.56,.64,1);will-change:transform}
+.cs-figure,.cs-reflect{position:absolute;left:50%;bottom:var(--floor);width:152px;height:196px;transition:transform .45s cubic-bezier(.34,1.56,.64,1);will-change:transform}
 .cs-figure{animation:csFloat 4.2s ease-in-out infinite}
 @keyframes csFloat{0%,100%{translate:0 0}50%{translate:0 -7px}}
-.cs-aura{position:absolute;left:-8px;right:-8px;top:2px;height:116px;border-radius:50%;z-index:1;background:radial-gradient(circle,color-mix(in srgb,var(--keyA) 46%,transparent) 0%,color-mix(in srgb,var(--keyB) 22%,transparent) 42%,transparent 72%);filter:blur(11px);animation:csPulse 3.6s ease-in-out infinite}
+.cs-aura{position:absolute;left:-10px;right:-10px;top:6px;height:150px;border-radius:50%;z-index:1;background:radial-gradient(circle,color-mix(in srgb,var(--keyA) 46%,transparent) 0%,color-mix(in srgb,var(--keyB) 22%,transparent) 42%,transparent 72%);filter:blur(11px);animation:csPulse 3.6s ease-in-out infinite}
 /* each equipped layer gets rim light in ITS OWN colour, plus real depth offset */
 /* Rim light WITHOUT a filter. A drop-shadow() on a layer holding a colour-emoji
    made Chromium rasterise that layer's whole box as an opaque grey panel across
@@ -930,15 +930,21 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    composites correctly everywhere. */
 .cs-layer{position:absolute;left:50%;display:block;line-height:1;text-align:center;transition:transform .35s ease;text-shadow:0 6px 10px rgba(0,0,0,.6)}
 .cs-layer::before{content:"";position:absolute;left:50%;top:50%;width:165%;height:165%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,var(--rim) 0%,transparent 62%);opacity:.4;z-index:-1;pointer-events:none}
-.cs-hat{top:0;font-size:41px;transform:translateX(-50%);z-index:7}
-.cs-head{top:24px;font-size:72px;transform:translateX(-50%);z-index:6}
+/* the drawn avatar fills the figure box; equipped emoji ride on top of it */
+.cs-av{position:absolute;inset:0;display:block;z-index:5}
+.cs-av svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 10px 14px rgba(0,0,0,.6))}
+.ca-visor{animation:caVisor 3.4s ease-in-out infinite}
+@keyframes caVisor{0%,100%{opacity:.86}50%{opacity:1}}
+.ca-optic{animation:caVisor 2.2s ease-in-out infinite}
+.ca-core{transform-origin:60px 100px;animation:caCore 2.8s ease-in-out infinite}
+@keyframes caCore{0%,100%{opacity:.8;transform:scale(.94) rotate(0deg)}50%{opacity:1;transform:scale(1.06) rotate(180deg)}}
+.cs-hat{top:-4px;font-size:34px;transform:translateX(-50%);z-index:7}
 /* The outfit sits ON the body, not under it. The person emoji already draws its
    own torso and shirt, so hanging a second garment below it read as two bodies
    floating apart — the outfit now overlaps that torso (and stacks above it) so it
    reads as the character WEARING the item. */
-.cs-torso{top:76px;font-size:55px;transform:translateX(-50%);z-index:8}
-.cs-wpn{left:auto;right:0;top:52px;font-size:37px;transform:rotate(-18deg);z-index:9}
-.cs-acc{left:0;top:52px;font-size:37px;transform:rotate(16deg);z-index:9}
+.cs-wpn{left:auto;right:-10px;top:78px;font-size:34px;transform:rotate(-18deg);z-index:9}
+.cs-acc{left:-10px;top:78px;font-size:34px;transform:rotate(16deg);z-index:9}
 /* Mirrored copy on the floor. transform-origin is the point that matters: the
    default centre origin flips the copy back UP over the figure, which reads as a
    glitch rather than a reflection. Pinning the origin to its own bottom edge
@@ -964,8 +970,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .charstage.rar-legendary .cs-aura{filter:blur(17px);animation-duration:2s}
 .charstage.rar-legendary .cs-ring1,.charstage.rar-legendary .cs-ring2{opacity:1}
 .charstage.rar-legendary{box-shadow:inset 0 0 48px #000c,0 10px 36px -8px #ffd23f,0 0 0 1.5px #ffd23faa}
-@media (prefers-reduced-motion:reduce){.cs-grid,.cs-beam,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan{animation:none}}
-@media (max-width:380px){.charstage{height:238px;--floor:100px}.cs-head{font-size:60px}.cs-hat{font-size:32px}.cs-torso{font-size:40px}.cs-wpn,.cs-acc{font-size:29px}}
+@media (prefers-reduced-motion:reduce){.ca-visor,.ca-optic,.ca-core,.cs-grid,.cs-beam,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan{animation:none}}
+@media (max-width:380px){.charstage{height:272px;--floor:40px}.cs-head{font-size:60px}.cs-hat{font-size:32px}.cs-torso{font-size:40px}.cs-wpn,.cs-acc{font-size:29px}}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}
 .char-slot-ic{font-size:18px}

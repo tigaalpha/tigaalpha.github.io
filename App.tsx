@@ -3,6 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
+import { CyberAvatar } from "./cyber-avatar";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -5615,17 +5616,17 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           const keyA = sw[0] || "#00f0ff";
           const keyB = sw.find(c => c !== keyA) || "#aa00ff";
           const rimOf = (it) => (it && it.sw && it.sw[1]) || (it && it.sw && it.sw[0]) || keyA;
-          // Plain single-codepoint faces. The old boy face was the ZWJ sequence
-          // "person + microphone", whose mic half rendered as its own dark glyph
-          // block behind the head on Android — a grey box no other style had.
-          const face = charGender === "girl" ? "👩" : charGender === "cute" ? "🦊" : "🧑";
+          // The OUTFIT re-plates the armour rather than being pasted on as a
+          // garment sprite — which is what used to make the shirt read as a
+          // second body floating in front of the first.
+          const armorA = (out && out.sw && out.sw[0]) || "#161d2c";
+          const armorB = (out && out.sw && out.sw[1]) || "#3d5878";
           const power = worn.reduce((n, it) => n + (RARITY_RANK[it.rarity] + 1) * 120, 0);
           const yaw = charGender === "girl" ? -7 : charGender === "cute" ? 6 : 0;
           const figure = (
             <>
+              <span className="cs-av"><CyberAvatar variant={charGender} armorA={armorA} armorB={armorB} glow={keyA} accent={keyB} /></span>
               {hat && <span className="cs-layer cs-hat" style={{ "--rim": rimOf(hat) }}>{hat.icon}</span>}
-              <span className="cs-layer cs-head" style={{ "--rim": keyA }}>{face}</span>
-              {out && <span className="cs-layer cs-torso" style={{ "--rim": rimOf(out) }}>{out.icon}</span>}
               {wpn && <span className="cs-layer cs-wpn" style={{ "--rim": rimOf(wpn) }}>{wpn.icon}</span>}
               {acc && <span className="cs-layer cs-acc" style={{ "--rim": rimOf(acc) }}>{acc.icon}</span>}
             </>
