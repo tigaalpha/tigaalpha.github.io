@@ -867,13 +867,13 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .shopbtn:hover{border-color:#d97757;background:rgba(217,119,87,.1);box-shadow:0 0 10px rgba(217,119,87,.2)}
 .shopbtn-ic{font-size:14px}
 .shopbtn-coins{font-family:"Orbitron",sans-serif;font-size:10px;letter-spacing:.3px}
-.charcard{background:linear-gradient(135deg,#0a0015 0%,#1a0033 40%,#0d001a 100%);border:1.5px solid #00f0ff44;border-radius:14px;margin:12px 14px;padding:16px;box-shadow:0 0 20px rgba(0,240,255,.15),0 0 40px rgba(170,0,255,.08)}
-.charcard-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#00f0ff;text-shadow:0 0 8px rgba(0,240,255,.5)}
+.charcard{background:#ffffff;border:1.5px solid #00f0ff44;border-radius:14px;margin:12px 14px;padding:16px;box-shadow:0 0 12px rgba(0,240,255,.12),0 2px 8px rgba(0,0,0,.06)}
+.charcard-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#1a1a2e}
 .char-gender-toggle{display:flex;gap:4px}
-.char-gender-btn{background:none;border:1.5px solid #00f0ff33;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#8888aa;transition:all .2s;font-family:'Rajdhani',sans-serif}
-.char-gender-btn.on{background:linear-gradient(135deg,#00f0ff,#aa00ff);color:#fff;border-color:#00f0ff;box-shadow:0 0 10px rgba(0,240,255,.4)}
-.char-gender-btn:hover{border-color:#00f0ff;box-shadow:0 0 6px rgba(0,240,255,.3)}
-.char-sprite{display:flex;flex-direction:column;align-items:center;gap:2px;padding:20px 0 12px;position:relative;min-height:130px;background:radial-gradient(circle at center,rgba(0,240,255,.08) 0%,transparent 70%);border-radius:12px}
+.char-gender-btn{background:none;border:1.5px solid #ddd;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#666;transition:all .2s;font-family:'Rajdhani',sans-serif}
+.char-gender-btn.on{background:linear-gradient(135deg,#00f0ff,#aa00ff);color:#fff;border-color:#00f0ff;box-shadow:0 0 8px rgba(0,240,255,.3)}
+.char-gender-btn:hover{border-color:#00ccdd;box-shadow:0 0 4px rgba(0,240,255,.2)}
+.char-sprite{display:flex;flex-direction:column;align-items:center;gap:2px;padding:16px 0 8px;position:relative;min-height:120px;border-radius:12px}
 .char-layer{font-size:36px;line-height:1;position:relative;z-index:1}
 .char-hat{font-size:28px;margin-bottom:-6px;z-index:3;filter:drop-shadow(0 0 5px rgba(170,0,255,.4))}
 .char-head{font-size:48px;z-index:2;filter:drop-shadow(0 0 8px rgba(0,240,255,.3))}
@@ -881,10 +881,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .char-weapon{position:absolute;right:20%;top:35%;font-size:24px;z-index:0;opacity:.85;filter:drop-shadow(0 0 6px rgba(0,240,255,.5))}
 .char-accessory{position:absolute;left:20%;top:35%;font-size:24px;z-index:0;opacity:.85;filter:drop-shadow(0 0 6px rgba(255,0,68,.5))}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
-.char-slot{display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#0d001a,#1a0033);border:1px solid #00f0ff22;border-radius:8px;padding:6px 10px;font-size:12px}
+.char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}
 .char-slot-ic{font-size:18px}
-.char-slot-nm{font-weight:700;color:#e0e0ff;flex:1}
-.char-slot-rare{font-size:9px;font-weight:700;color:#00f0ff;text-transform:uppercase;letter-spacing:.3px;font-family:'Orbitron',sans-serif;text-shadow:0 0 4px rgba(0,240,255,.5)}
+.char-slot-nm{font-weight:700;color:#333;flex:1}
+.char-slot-rare{font-size:9px;font-weight:700;color:#00ccdd;text-transform:uppercase;letter-spacing:.3px;font-family:'Orbitron',sans-serif}
 .trial-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 16px;background:#d97757;color:#fff}
 .trial-banner-txt{font-size:13px;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:.3px}
 .trial-banner-btn{flex-shrink:0;background:rgba(255,255,255,.22);border:1.5px solid rgba(255,255,255,.5);color:#fff;border-radius:8px;padding:5px 13px;font-size:12px;font-weight:800;font-family:'Orbitron',sans-serif;cursor:pointer;white-space:nowrap}
