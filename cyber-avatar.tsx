@@ -64,20 +64,40 @@ import { useId } from "react";
    picked. Order runs heavy → light so the row reads as a spectrum. */
 export const CHAR_MODELS = [
   { id: "vanguard", code: "V-01",  th: "แวนการ์ด", en: "VANGUARD", zh: "先锋",
-    cls: { th: "โครงกระดูกรบ",   en: "Combat endoskeleton", zh: "战斗骨架" } },
+    cls: { th: "โครงกระดูกรบ",     en: "Combat endoskeleton", zh: "战斗骨架" } },
   { id: "sentinel", code: "S-02",  th: "เซนทิเนล", en: "SENTINEL", zh: "哨兵",
-    cls: { th: "หน่วยจู่โจมหนัก", en: "Heavy assault unit",  zh: "重装突击" } },
-  { id: "specter",  code: "SP-03", th: "สเปกเตอร์", en: "SPECTER",  zh: "幻影",
-    cls: { th: "แอนดรอยด์แฝงตัว", en: "Infiltration android", zh: "潜行仿生人" } },
-  { id: "nova",     code: "N-04",  th: "โนวา",      en: "NOVA",     zh: "新星",
-    cls: { th: "โครงขาวสนับสนุน", en: "Support chassis",     zh: "支援机体" } },
-  { id: "phantom",  code: "PH-05", th: "แฟนธ่อม",   en: "PHANTOM",  zh: "液金",
-    cls: { th: "โลหะเหลวเปลี่ยนรูป", en: "Mimetic polyalloy", zh: "液态合金" } },
+    cls: { th: "หน่วยจู่โจมหนัก",   en: "Heavy assault unit",  zh: "重装突击" } },
+  { id: "reaper",   code: "R-03",  th: "รีปเปอร์", en: "REAPER",   zh: "死神",
+    cls: { th: "เครื่องจักรสงคราม", en: "War machine",         zh: "战争机器" } },
+  { id: "ronin",    code: "RN-04", th: "โรนิน",    en: "RONIN",    zh: "浪人",
+    cls: { th: "ซามูไรไซเบอร์",     en: "Cyber samurai",       zh: "赛博武士" } },
+  { id: "phantom",  code: "PH-05", th: "แฟนธ่อม",  en: "PHANTOM",  zh: "液金",
+    cls: { th: "โลหะเหลวเปลี่ยนรูป", en: "Mimetic polyalloy",  zh: "液态合金" } },
+  { id: "specter",  code: "SP-06", th: "สเปกเตอร์", en: "SPECTER", zh: "幻影",
+    cls: { th: "แอนดรอยด์แฝงตัว",   en: "Infiltration android", zh: "潜行仿生人" } },
+  { id: "aurora",   code: "AU-07", th: "ออโรร่า",   en: "AURORA",  zh: "极光",
+    cls: { th: "แอนดรอยด์ไอดอล",    en: "Idol android",        zh: "偶像仿生人" } },
+  { id: "nova",     code: "N-08",  th: "โนวา",      en: "NOVA",    zh: "新星",
+    cls: { th: "หุ่นผู้ช่วยตัวจิ๋ว",  en: "Little helper unit",  zh: "迷你助手" } },
+  { id: "pixel",    code: "PX-09", th: "พิกเซล",    en: "PIXEL",   zh: "像素",
+    cls: { th: "หุ่นหน้าจอจิ๋ว",     en: "Screen-face buddy",   zh: "屏幕脸小伙伴" } },
+  { id: "mochi",    code: "MO-10", th: "โมจิ",      en: "MOCHI",   zh: "麻糬",
+    cls: { th: "หุ่นนุ่มนิ่มสุดน่ารัก", en: "Squishy pocket bot", zh: "软萌口袋机器人" } },
 ];
+
 
 /* The picker used to be a boy/girl/cute switch, so saved choices are carried
    across to the model that actually looks like what they had rather than
    silently resetting anyone to the default. */
+/* How each model is proportioned. Exported because the stage has to hang
+   equipped gear on the right body — a chibi's head is nearly twice the size and
+   its hands sit higher, so headgear and held items cannot use one fixed offset. */
+export const MODEL_RIG = {
+  vanguard: { hs: 1.15 }, sentinel: { hs: 1.15 }, reaper: { hs: 1.15 }, ronin: { hs: 1.15 },
+  phantom: { hs: 1.15 }, specter: { hs: 1.15 }, aurora: { hs: 1.15 },
+  nova: { hs: 2.05, chibi: true }, pixel: { hs: 2.0, chibi: true }, mochi: { hs: 1.95, chibi: true },
+};
+
 const LEGACY = { boy: "vanguard", girl: "specter", cute: "nova" };
 export function normalizeModel(v) {
   if (LEGACY[v]) return LEGACY[v];
@@ -85,20 +105,31 @@ export function normalizeModel(v) {
 }
 
 /* ── RobotGlyph ──
-   A humanoid android bust at UI scale, for places the full model is too much
-   detail to survive: head, jaw taper, optic band, temple LED, neck and
-   shoulders. Monoline and painted in currentColor, so it inherits whatever
-   colour the row it sits in is already using and holds up in both themes. */
+   A combat android's head at UI scale: a chamfered helm narrowing to a jaw, one
+   lit visor slot with a pair of optics behind it, a crest antenna and two side
+   ports. Monoline in currentColor, so it takes the colour of the row it sits in
+   and holds up in both themes. At 21px it has to read as a robot in one glance,
+   which is why it is a helm with a visor and not a portrait with a face. */
 export function RobotGlyph({ size = 22, className = "" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" width={size} height={size} fill="none"
       stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 2.6c4.1 0 6.3 2.5 6.3 6.1 0 2.4-.7 4.3-2 5.6-1.2 1.2-2.6 1.9-4.3 1.9s-3.1-.7-4.3-1.9c-1.3-1.3-2-3.2-2-5.6 0-3.6 2.2-6.1 6.3-6.1Z" />
-      <path d="M8.9 9.6h2M13.1 9.6h2" />
-      <path d="M10.3 13.1h3.4" />
-      <circle cx="7.2" cy="6.9" r=".95" />
-      <path d="M9.8 16.1v1.9M14.2 16.1v1.9" />
-      <path d="M3.9 21.6c1.1-2.3 4.1-3.6 8.1-3.6s7 1.3 8.1 3.6" />
+      {/* crest antenna */}
+      <path d="M12 1.3v2.4" />
+      <circle cx="12" cy="1.1" r=".95" fill="currentColor" stroke="none" />
+      {/* helm: chamfered at the crown, drawn in to a jaw */}
+      <path d="M9.2 3.7h5.6l3 2.9v5.2l-2.4 3.1h-6.8l-2.4-3.1V6.6Z" />
+      {/* side ports */}
+      <path d="M6.4 8.4H4.3M17.6 8.4h2.1" />
+      {/* visor slot with two optics burning behind it */}
+      <path d="M8.7 7.7h6.6v2.6H8.7Z" />
+      <circle cx="10.4" cy="9" r=".85" fill="currentColor" stroke="none" />
+      <circle cx="13.6" cy="9" r=".85" fill="currentColor" stroke="none" />
+      {/* jaw vent */}
+      <path d="M10 12.7h4" />
+      {/* neck struts and shoulder line, so it reads as a unit and not a mask */}
+      <path d="M10.2 15.1v2.1M13.8 15.1v2.1" />
+      <path d="M4.6 22.3c1.2-2.2 3.9-3.4 7.4-3.4s6.2 1.2 7.4 3.4" />
     </svg>
   );
 }
@@ -283,10 +314,10 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
         <circle cx="68" cy="44" r="2.2" fill="#ff2d46" className="ca-optic" />
       </>,
       neck: <>
-        <path d="M52 70 L52 86 M60 72 L60 88 M68 70 L68 86" stroke={`url(#${id}-chrome)`} strokeWidth="3.4" strokeLinecap="round" />
-        <path d="M52 70 L52 86 M60 72 L60 88 M68 70 L68 86" stroke="#e6eeff" strokeWidth=".7" strokeLinecap="round" opacity=".55" />
-        <circle cx="52" cy="78" r="2" fill="#8fa6c8" /><circle cx="68" cy="78" r="2" fill="#8fa6c8" />
-        <circle cx="60" cy="82" r="2.3" fill="#ff2d46" opacity=".85" className="ca-optic" />
+        <path d="M52 70 L52 90 M60 72 L60 92 M68 70 L68 90" stroke={`url(#${id}-chrome)`} strokeWidth="3.4" strokeLinecap="round" />
+        <path d="M52 70 L52 90 M60 72 L60 92 M68 70 L68 90" stroke="#e6eeff" strokeWidth=".7" strokeLinecap="round" opacity=".55" />
+        <circle cx="52" cy="80" r="2" fill="#8fa6c8" /><circle cx="68" cy="80" r="2" fill="#8fa6c8" />
+        <circle cx="60" cy="85" r="2.3" fill="#ff2d46" opacity=".85" className="ca-optic" />
       </>,
     },
 
@@ -346,7 +377,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
     /* ── SPECTER · CyberLife android, skin active ── */
     specter: {
       skull: "M60 8 C72 8 80 17 81 30 C82 42 78 52 72 60 C68 66 64 70 60 70 C56 70 52 66 48 60 C42 52 38 42 39 30 C40 17 48 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e",
+      fill: "skin", line: "#c8ab9e", neckFill: "skin",
       side: SIDE_ORGANIC,
       sideArt: <>
         {/* the hair mass and one long strand, seen from the side */}
@@ -494,9 +525,276 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
       </>,
       neck: null,
     },
+
+    /* ── REAPER · war machine ── */
+    reaper: {
+      skull: "M60 2 L76 6 L86 18 L84 33 L79 46 L70 62 L60 73 L50 62 L41 46 L36 33 L34 18 L44 6 Z",
+      fill: "plate", line: "#7a89a8", hv: "13 -3 94 84",
+      prof: { brow: 24, nose: 36, lip: 54, chin: 70 },
+      shellArt: <>
+        {/* horns swept back off the temples — the whole silhouette of the thing */}
+        <path d="M42 15 L16 1 L23 21 L40 28 Z" fill={`url(#${id}-trim)`} stroke="#ff2d46" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M78 15 L104 1 L97 21 L80 28 Z" fill={`url(#${id}-trim)`} stroke="#ff2d46" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M60 3 L60 24" stroke="#ff2d46" strokeWidth="1.1" opacity=".55" />
+      </>,
+      art: <>
+        {face(60, <>
+          <path d="M37 27 L83 27 L78 45 L42 45 Z" fill="#05070c" />
+          <ellipse cx="60" cy="36" rx="14" ry="7" fill={`url(#${id}-red)`} className="ca-optic" />
+          <ellipse cx="60" cy="36" rx="4.6" ry="3.1" fill="#fff1f2" opacity=".95" />
+          <path d="M39 29.5 L81 29.5" stroke="#ff4d5e" strokeWidth=".9" opacity=".7" />
+        </>, "opt")}
+        {face(60, <>
+          <path d="M44 49 L76 49 L71 67 L49 67 Z" fill="#0a0d14" />
+          <path d="M46 53 L74 53 M47 57.5 L73 57.5 M48.5 62 L71.5 62" stroke="#ff2d46" strokeWidth="1.1" opacity=".5" />
+        </>, "jaw")}
+        {face(40, <circle cx="40" cy="34" r="2.1" fill="#ff2d46" className="ca-optic" />, "r1")}
+        {face(80, <circle cx="80" cy="34" r="2.1" fill="#ff2d46" className="ca-optic" />, "r2")}
+      </>,
+      side: SIDE_HELM,
+      sideArt: <>
+        <path d="M56 14 L28 2 L34 22 L54 28 Z" fill={`url(#${id}-trim)`} stroke="#ff2d46" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M66 28 L84 30 L82 42 L67 42 Z" fill="#05070c" />
+        <ellipse cx="77" cy="35.5" rx="6" ry="5" fill={`url(#${id}-red)`} className="ca-optic" />
+        <ellipse cx="76" cy="34" rx="2" ry="1.8" fill="#fff1f2" opacity=".9" />
+        <path d="M60 48 L78 50 L74 64 L60 64 Z" fill="#0a0d14" />
+        <path d="M62 53 L76 54 M63 58 L75 59" stroke="#ff2d46" strokeWidth="1" opacity=".5" />
+        <path d="M42 24 Q39 42 45 58" fill="none" stroke="#7a89a8" strokeWidth=".9" opacity=".5" />
+      </>,
+      rear: <>
+        <path d="M42 14 Q60 8 78 14 L76 52 Q60 60 44 52 Z" fill={`url(#${id}-plate)`} stroke="#5d6a86" strokeWidth=".8" strokeLinejoin="round" />
+        {/* exhaust stacks */}
+        <path d="M46 10 L52 10 L52 30 L46 30 Z M68 10 L74 10 L74 30 L68 30 Z" fill="#0a0d14" stroke="#7a89a8" strokeWidth=".7" />
+        <circle cx="49" cy="12" r="2.2" fill="#ff2d46" className="ca-optic" />
+        <circle cx="71" cy="12" r="2.2" fill="#ff2d46" className="ca-optic" />
+        <path d="M46 38 L74 38 M46 46 L74 46" stroke="#05070c" strokeWidth="1.4" opacity=".6" />
+      </>,
+      neck: null,
+    },
+
+    /* ── RONIN · cyber samurai ── */
+    ronin: {
+      skull: "M60 8 C76 8 85 18 85 32 C85 43 81 53 74 62 Q60 73 46 62 C39 53 35 43 35 32 C35 18 44 8 60 8 Z",
+      fill: "lacquer", line: "#d98a8a", body: "lacquer", bodyLine: "#c07070", hv: "21 -5 78 84",
+      prof: { brow: 26, nose: 37, lip: 55, chin: 70 },
+      shellArt: <>
+        {/* kabuto brim, and the maedate crest standing off the forehead */}
+        <path d="M24 32 Q60 10 96 32 L93 41 Q60 21 27 41 Z" fill={`url(#${id}-lacquer)`} stroke="#e8a5a5" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M45 17 Q60 -3 75 17 Q60 5 45 17 Z" fill="#ffd23f" stroke="#8a6a00" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M60 6 L60 16" stroke="#ffd23f" strokeWidth="1.4" />
+      </>,
+      art: <>
+        {face(48, <>
+          <path d="M39 32 L57 29 L56 39 L40 40 Z" fill="#05070c" />
+          <path d="M41 33.6 L55.4 31.2 L54.6 37.4 L41.8 38.2 Z" fill="#ff3b4d" className="ca-optic" />
+        </>, "e1")}
+        {face(72, <>
+          <path d="M81 32 L63 29 L64 39 L80 40 Z" fill="#05070c" />
+          <path d="M79 33.6 L64.6 31.2 L65.4 37.4 L78.2 38.2 Z" fill="#ff3b4d" className="ca-optic" />
+        </>, "e2")}
+        {/* menpo: the war mask over the lower face, with its fanged grille */}
+        {face(60, <>
+          <path d="M41 45 Q60 41 79 45 L74 66 Q60 75 46 66 Z" fill="#1d060b" stroke="#c0392b" strokeWidth=".9" strokeLinejoin="round" />
+          <path d="M45 51 Q60 48 75 51" fill="none" stroke="#e8a5a5" strokeWidth=".8" opacity=".7" />
+          {[48, 53, 58, 63, 68].map((x, i) => (
+            <path key={i} d={`M${x} 55 L${x + 3.4} 55 L${x + 1.7} 63 Z`} fill="#e8e2d2" stroke="#8a6a00" strokeWidth=".25" />
+          ))}
+          <path d="M46 66 Q60 72 74 66" fill="none" stroke="#c0392b" strokeWidth="1.2" />
+        </>, "mask")}
+        {face(37, <path d="M35 40 L42 44 L41 54 L34 47 Z" fill={`url(#${id}-lacquer)`} stroke="#e8a5a5" strokeWidth=".6" />, "c1")}
+        {face(83, <path d="M85 40 L78 44 L79 54 L86 47 Z" fill={`url(#${id}-lacquer)`} stroke="#e8a5a5" strokeWidth=".6" />, "c2")}
+      </>,
+      side: SIDE_ORGANIC,
+      sideArt: <>
+        <path d="M34 34 Q58 12 88 30 L86 39 Q58 23 36 43 Z" fill={`url(#${id}-lacquer)`} stroke="#e8a5a5" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M56 18 Q66 0 78 16 Q66 8 56 18 Z" fill="#ffd23f" stroke="#8a6a00" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M67 32 L81 30 L80 39 L68 40 Z" fill="#05070c" />
+        <path d="M69 33.6 L79.4 32 L78.6 37.6 L69.8 38.4 Z" fill="#ff3b4d" className="ca-optic" />
+        <path d="M58 45 Q72 42 82 47 L78 64 Q66 71 58 66 Z" fill="#1d060b" stroke="#c0392b" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M63 55 L66 55 L64.5 62 Z M70 55.5 L73 55.5 L71.5 62.5 Z" fill="#e8e2d2" />
+        <path d="M40 44 Q42 58 50 66" fill="none" stroke="#c07070" strokeWidth=".8" opacity=".55" />
+      </>,
+      rear: <>
+        <path d="M40 16 Q60 8 80 16 Q84 42 78 62 Q60 72 42 62 Q36 42 40 16 Z" fill={`url(#${id}-lacquer)`} stroke="#c07070" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M60 12 L60 66" stroke="#e8a5a5" strokeWidth="1" opacity=".5" />
+        <path d="M44 28 Q60 22 76 28 M44 44 Q60 38 76 44" fill="none" stroke="#c0392b" strokeWidth=".9" opacity=".6" />
+        {/* the knot of the mask's cord */}
+        <path d="M52 50 L68 50 L64 62 L56 62 Z" fill="#c0392b" opacity=".8" />
+      </>,
+      neck: null,
+    },
+
+    /* ── AURORA · idol android ── */
+    aurora: {
+      skull: "M60 8 C73 8 81 18 82 31 C83 43 78 53 72 61 C68 67 64 71 60 71 C56 71 52 67 48 61 C42 53 37 43 38 31 C39 18 47 8 60 8 Z",
+      fill: "aurora", line: "#efe6ff", body: "aurora", bodyLine: "#d9cdf5", hv: "23 0 74 78",
+      prof: { brow: 27, nose: 39, lip: 57, chin: 69 },
+      shellArt: <>
+        {/* light-fibre hair, and a tiara fin that reads at any size */}
+        <path d="M60 4 C77 4 86 15 85 30 C79 20 71 17 60 17 C49 17 40 20 35 30 C34 15 43 4 60 4 Z" fill={`url(#${id}-aurora)`} stroke={glow} strokeWidth=".9" strokeLinejoin="round" opacity=".97" />
+        <path d="M36 28 Q26 50 30 74 Q32 88 26 100 L36 100 Q44 82 42 62 Q41 44 45 32 Z" fill={`url(#${id}-aurora)`} stroke={glow} strokeWidth=".7" strokeLinejoin="round" opacity=".9" />
+        <path d="M84 28 Q94 50 90 74 Q88 88 94 100 L84 100 Q76 82 78 62 Q79 44 75 32 Z" fill={`url(#${id}-aurora)`} stroke={glow} strokeWidth=".7" strokeLinejoin="round" opacity=".9" />
+        <path d="M48 12 L54 4 L60 11 L66 4 L72 12 Q60 7 48 12 Z" fill="#ffffff" stroke={accent} strokeWidth=".7" strokeLinejoin="round" />
+      </>,
+      art: <>
+        {face(60, <path d="M56 20 L60 14 L64 20 L60 24 Z" fill={accent} className="ca-optic" />, "gem")}
+        {face(49, <path d="M42 29 Q49 25.6 56 28" fill="none" stroke="#b6a6d8" strokeWidth="1.4" strokeLinecap="round" opacity=".8" />, "b1")}
+        {face(71, <path d="M64 28 Q71 25.6 78 29" fill="none" stroke="#b6a6d8" strokeWidth="1.4" strokeLinecap="round" opacity=".8" />, "b2")}
+        {face(49, <g className="ca-eye">
+          <path d="M40 37 Q49 30 58 37 Q49 44 40 37 Z" fill="#fbf8ff" />
+          <circle cx="49" cy="37" r="5.4" fill={`url(#${id}-bigiris)`} />
+          <circle cx="49" cy="37" r="2.1" fill="#0a0f22" />
+          <circle cx="51" cy="34.8" r="1.7" fill="#fff" />
+          <circle cx="46.6" cy="39" r=".9" fill="#fff" opacity=".8" />
+        </g>, "e1")}
+        {face(71, <g className="ca-eye">
+          <path d="M62 37 Q71 30 80 37 Q71 44 62 37 Z" fill="#fbf8ff" />
+          <circle cx="71" cy="37" r="5.4" fill={`url(#${id}-bigiris)`} />
+          <circle cx="71" cy="37" r="2.1" fill="#0a0f22" />
+          <circle cx="73" cy="34.8" r="1.7" fill="#fff" />
+          <circle cx="68.6" cy="39" r=".9" fill="#fff" opacity=".8" />
+        </g>, "e2")}
+        {face(60, <path d="M60 40 L60 48 M57.4 49.4 Q60 51 62.6 49.4" fill="none" stroke="#9c8cc0" strokeWidth=".9" strokeLinecap="round" opacity=".8" />, "n")}
+        {face(60, <path d="M54 56 Q57 53.6 60 55 Q63 53.6 66 56 Q63 60 60 60 Q57 60 54 56 Z" fill="#e39ab4" opacity=".7" />, "m")}
+        {face(42, <ellipse cx="42" cy="48" rx="5" ry="2.8" fill="#ffb3cd" opacity=".45" />, "bl1")}
+        {face(78, <ellipse cx="78" cy="48" rx="5" ry="2.8" fill="#ffb3cd" opacity=".45" />, "bl2")}
+        {face(39, ledRing(39, 30), "led")}
+      </>,
+      side: SIDE_ORGANIC,
+      sideArt: <>
+        <path d="M60 4 C77 4 86 16 85 29 C81 19 71 16 60 17 C48 18 40 23 37 33 C35 17 44 4 60 4 Z" fill={`url(#${id}-aurora)`} stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M36 30 Q28 52 31 76 Q32 90 26 102 L38 102 Q46 84 44 62 Q43 44 46 34 Z" fill={`url(#${id}-aurora)`} stroke={glow} strokeWidth=".7" strokeLinejoin="round" opacity=".95" />
+        <g className="ca-eye">
+          <path d="M69 37 Q75 32 81 37 Q75 42 69 37 Z" fill="#fbf8ff" />
+          <circle cx="75.6" cy="37" r="3.2" fill={`url(#${id}-bigiris)`} />
+          <circle cx="75.6" cy="37" r="1.3" fill="#0a0f22" />
+          <circle cx="76.8" cy="35.6" r="1" fill="#fff" />
+        </g>
+        <path d="M74 51.5 Q78 50.4 80.5 52" fill="none" stroke="#e39ab4" strokeWidth="1.6" strokeLinecap="round" opacity=".75" />
+        <ellipse cx="66" cy="47" rx="4" ry="2.4" fill="#ffb3cd" opacity=".4" />
+        {sideEar(`url(#${id}-aurora)`, "#cbb8f0")}
+        {ledRing(45, 27)}
+      </>,
+      rear: <>
+        <path d="M37 14 Q60 4 83 14 Q89 42 85 72 Q81 90 77 102 L43 102 Q39 90 35 72 Q31 42 37 14 Z" fill={`url(#${id}-aurora)`} stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M52 20 Q60 46 56 100 M68 20 Q60 46 64 100" fill="none" stroke="#b7a7dc" strokeWidth=".8" opacity=".6" />
+        <path d="M48 12 L54 4 L60 11 L66 4 L72 12 Q60 7 48 12 Z" fill="#ffffff" stroke={accent} strokeWidth=".7" strokeLinejoin="round" />
+      </>,
+      neck: null,
+    },
+
+    /* ── PIXEL · screen-face buddy ── */
+    pixel: {
+      skull: "M60 5 C82 5 91 16 91 34 C91 55 82 68 60 68 C38 68 29 55 29 34 C29 16 38 5 60 5 Z",
+      fill: "white", line: "#cfe4ff", hv: "20 -15 80 88",
+      prof: { brow: 26, nose: 38, lip: 54, chin: 66 },
+      shellArt: <>
+        <path d="M60 5 L60 -6" stroke={glow} strokeWidth="2.4" strokeLinecap="round" />
+        <circle cx="60" cy="-9" r="4.4" fill={glow} className="ca-optic" />
+        <path d="M29 34 Q60 28 91 34" fill="none" stroke={glow} strokeWidth=".9" opacity=".4" />
+      </>,
+      art: <>
+        {face(60, <>
+          <rect x="35" y="20" width="50" height="36" rx="10" fill="#0a1020" stroke={glow} strokeWidth="1.2" />
+          <rect x="37" y="22" width="46" height="32" rx="8" fill="none" stroke="#1d3358" strokeWidth=".8" />
+          <g className="ca-eye">
+            <rect x="45" y="29" width="8" height="11" rx="2.6" fill={glow} />
+            <rect x="67" y="29" width="8" height="11" rx="2.6" fill={glow} />
+            <rect x="46.6" y="30.6" width="2.6" height="3.4" rx="1" fill="#fff" opacity=".9" />
+            <rect x="68.6" y="30.6" width="2.6" height="3.4" rx="1" fill="#fff" opacity=".9" />
+          </g>
+          <path d="M50 45 Q60 52 70 45" fill="none" stroke={glow} strokeWidth="2.4" strokeLinecap="round" />
+        </>, "screen")}
+        {face(33, <rect x="28" y="45" width="10" height="6" rx="3" fill="#ff8fb0" opacity=".85" />, "bl1")}
+        {face(87, <rect x="82" y="45" width="10" height="6" rx="3" fill="#ff8fb0" opacity=".85" />, "bl2")}
+        {face(30, <rect x="24" y="28" width="7" height="14" rx="3.5" fill="#dce8f7" stroke={glow} strokeWidth=".8" />, "ear1")}
+        {face(90, <rect x="89" y="28" width="7" height="14" rx="3.5" fill="#dce8f7" stroke={glow} strokeWidth=".8" />, "ear2")}
+      </>,
+      side: "M60 6 C80 6 88 17 88 34 C88 42 88 47 86 52 L84 58 C80 65 70 70 60 70 C42 70 32 56 32 36 C32 18 42 6 60 6 Z",
+      sideArt: <>
+        <path d="M60 6 L60 -6" stroke={glow} strokeWidth="2.4" strokeLinecap="round" />
+        <circle cx="60" cy="-9" r="4.4" fill={glow} className="ca-optic" />
+        <path d="M62 20 L84 22 L82 54 L62 56 Z" fill="#0a1020" stroke={glow} strokeWidth="1.1" strokeLinejoin="round" />
+        <rect x="70" y="30" width="7.5" height="11" rx="2.6" fill={glow} className="ca-eye" />
+        <path d="M68 46 Q75 51 80 46" fill="none" stroke={glow} strokeWidth="2" strokeLinecap="round" />
+        <rect x="30" y="30" width="8" height="15" rx="4" fill="#dce8f7" stroke={glow} strokeWidth=".8" />
+        <rect x="54" y="45" width="9" height="6" rx="3" fill="#ff8fb0" opacity=".8" />
+      </>,
+      rear: <>
+        <path d="M34 14 Q60 6 86 14 Q90 42 84 60 Q60 70 36 60 Q30 42 34 14 Z" fill={`url(#${id}-white)`} stroke={glow} strokeWidth=".9" strokeLinejoin="round" />
+        <circle cx="60" cy="36" r="9" fill="#dce8f7" stroke={glow} strokeWidth="1" />
+        <circle cx="60" cy="36" r="3.4" fill={glow} className="ca-optic" />
+        <path d="M42 20 L78 20 M42 54 L78 54" stroke={glow} strokeWidth=".9" opacity=".5" />
+        <rect x="24" y="28" width="7" height="14" rx="3.5" fill="#dce8f7" stroke={glow} strokeWidth=".8" />
+        <rect x="89" y="28" width="7" height="14" rx="3.5" fill="#dce8f7" stroke={glow} strokeWidth=".8" />
+      </>,
+      neck: null,
+    },
+
+    /* ── MOCHI · squishy pocket bot ── */
+    mochi: {
+      skull: "M60 5 C85 5 93 22 93 41 C93 60 80 71 60 71 C40 71 27 60 27 41 C27 22 35 5 60 5 Z",
+      fill: "mochi", line: "#ffd7e3", body: "mochi", bodyLine: "#f6b8cd", hv: "20 -7 80 84",
+      prof: { brow: 28, nose: 41, lip: 56, chin: 68 },
+      shellArt: <>
+        <ellipse cx="30" cy="36" rx="6.5" ry="9" fill={`url(#${id}-mochi)`} stroke="#f6b8cd" strokeWidth=".9" />
+        <ellipse cx="90" cy="36" rx="6.5" ry="9" fill={`url(#${id}-mochi)`} stroke="#f6b8cd" strokeWidth=".9" />
+        <path d="M53 6 Q60 -4 67 6 Q60 1 53 6 Z" fill="#ff8fb0" stroke="#e06d92" strokeWidth=".7" strokeLinejoin="round" />
+      </>,
+      art: <>
+        {face(60, <path d="M60 13 C63 8 69 10 69 15 C69 19 63 22 60 25 C57 22 51 19 51 15 C51 10 57 8 60 13 Z" fill="#ff7aa5" stroke="#e06d92" strokeWidth=".6" className="ca-optic" />, "heart")}
+        {face(47, <g className="ca-eye">
+          <ellipse cx="47" cy="42" rx="9.5" ry="11" fill="#20182a" />
+          <ellipse cx="47" cy="42" rx="8" ry="9.4" fill={`url(#${id}-bigiris)`} />
+          <circle cx="50" cy="38" r="3.4" fill="#fff" />
+          <circle cx="44" cy="46" r="1.8" fill="#fff" opacity=".9" />
+          <circle cx="49.4" cy="46.6" r="1.1" fill="#fff" opacity=".7" />
+        </g>, "e1")}
+        {face(73, <g className="ca-eye">
+          <ellipse cx="73" cy="42" rx="9.5" ry="11" fill="#20182a" />
+          <ellipse cx="73" cy="42" rx="8" ry="9.4" fill={`url(#${id}-bigiris)`} />
+          <circle cx="76" cy="38" r="3.4" fill="#fff" />
+          <circle cx="70" cy="46" r="1.8" fill="#fff" opacity=".9" />
+          <circle cx="75.4" cy="46.6" r="1.1" fill="#fff" opacity=".7" />
+        </g>, "e2")}
+        {face(34, <ellipse cx="34" cy="52" rx="6.5" ry="4.4" fill="#ff9ec0" opacity=".85" />, "bl1")}
+        {face(86, <ellipse cx="86" cy="52" rx="6.5" ry="4.4" fill="#ff9ec0" opacity=".85" />, "bl2")}
+        {face(60, <path d="M55 58 Q60 63 65 58" fill="none" stroke="#c76b8c" strokeWidth="2.2" strokeLinecap="round" />, "m")}
+      </>,
+      side: "M60 5 C84 5 92 22 92 41 C92 55 84 66 72 70 Q60 73 50 69 C36 63 28 52 28 40 C28 21 38 5 60 5 Z",
+      sideArt: <>
+        <ellipse cx="46" cy="36" rx="8" ry="10" fill={`url(#${id}-mochi)`} stroke="#f6b8cd" strokeWidth=".9" />
+        <path d="M53 6 Q60 -4 67 6 Q60 1 53 6 Z" fill="#ff8fb0" stroke="#e06d92" strokeWidth=".7" strokeLinejoin="round" />
+        <g className="ca-eye">
+          <ellipse cx="76" cy="42" rx="8" ry="10.4" fill="#20182a" />
+          <ellipse cx="76" cy="42" rx="6.6" ry="8.8" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78.4" cy="38.4" r="3" fill="#fff" />
+          <circle cx="73.6" cy="46" r="1.5" fill="#fff" opacity=".85" />
+        </g>
+        <ellipse cx="62" cy="53" rx="6" ry="4" fill="#ff9ec0" opacity=".8" />
+        <path d="M76 58 Q81 62 84 57" fill="none" stroke="#c76b8c" strokeWidth="2" strokeLinecap="round" />
+      </>,
+      rear: <>
+        <path d="M30 16 Q60 4 90 16 Q95 44 88 62 Q60 74 32 62 Q25 44 30 16 Z" fill={`url(#${id}-mochi)`} stroke="#f6b8cd" strokeWidth=".9" strokeLinejoin="round" />
+        <ellipse cx="30" cy="36" rx="6.5" ry="9" fill={`url(#${id}-mochi)`} stroke="#f6b8cd" strokeWidth=".9" />
+        <ellipse cx="90" cy="36" rx="6.5" ry="9" fill={`url(#${id}-mochi)`} stroke="#f6b8cd" strokeWidth=".9" />
+        <path d="M53 6 Q60 -4 67 6 Q60 1 53 6 Z" fill="#ff8fb0" stroke="#e06d92" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M48 30 Q60 24 72 30 M46 46 Q60 40 74 46" fill="none" stroke="#e8a8c0" strokeWidth="1" opacity=".7" />
+        <circle cx="60" cy="38" r="4" fill="#ff9ec0" opacity=".7" />
+      </>,
+      neck: null,
+    },
   }[v];
 
+  const rig = MODEL_RIG[v] || MODEL_RIG.vanguard;
+  const hs = rig.hs;                          // head size against the body
+  const chibi = !!rig.chibi;
   const shellFill = `url(#${id}-${HEAD.fill})`;
+  // the chassis takes the model's own material; the outfit's swatch re-plates the trim
+  const bodyKey = HEAD.body || (HEAD.fill === "skin" ? "plate" : HEAD.fill);
+  const bPlate = `url(#${id}-${bodyKey})`;
+  const bTrim = `url(#${id}-trim)`;
+  const bLine = HEAD.bodyLine || HEAD.line;
   /* ── the profile ──
      A parametric squash alone cannot turn a head: past about 45° there is
      nothing left of the face and the silhouette reads as a blank egg. So each
@@ -518,11 +816,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
     </g>
   );
 
-  // torso is far shallower than it is wide, so it narrows hard at profile
-  const kt = Math.sqrt(c * c + 0.58 * 0.58 * s * s);
-
   return (
-    <svg className={`ca ca-${v}`} viewBox={headOnly ? "31 1 58 74" : "0 0 120 152"} width="100%" height="100%" aria-hidden="true">
+    <svg className={`ca ca-${v}`} viewBox={headOnly ? (HEAD.hv || "31 1 58 74") : "-20 -16 160 416"} width="100%" height="100%" aria-hidden="true">
       <defs>
         {/* Polished, worn chrome. A hard specular band with dark falloff either
             side is what separates chrome from flat grey — the T-800's finish is
@@ -557,6 +852,33 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
           <stop offset="55%" stopColor="#3aa8dd" />
           <stop offset="100%" stopColor="#12405e" />
         </radialGradient>
+        {/* lacquer: the black-and-crimson of a samurai's armour */}
+        <linearGradient id={`${id}-lacquer`} x1="0.2" y1="0" x2="0.8" y2="1">
+          <stop offset="0%" stopColor="#8c2b34" />
+          <stop offset="30%" stopColor="#4a1119" />
+          <stop offset="70%" stopColor="#22070c" />
+          <stop offset="100%" stopColor="#0c0306" />
+        </linearGradient>
+        {/* soft-serve: the whole point of MOCHI is that it is not metal */}
+        <linearGradient id={`${id}-mochi`} x1="0.3" y1="0" x2="0.7" y2="1">
+          <stop offset="0%" stopColor="#fffaf6" />
+          <stop offset="42%" stopColor="#ffe6ee" />
+          <stop offset="78%" stopColor="#ffc9dd" />
+          <stop offset="100%" stopColor="#e59ab8" />
+        </linearGradient>
+        <linearGradient id={`${id}-aurora`} x1="0.1" y1="0" x2="0.9" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="30%" stopColor="#e4e8ff" />
+          <stop offset="58%" stopColor="#d6f5ee" />
+          <stop offset="82%" stopColor="#cbb8f0" />
+          <stop offset="100%" stopColor="#8b7bbf" />
+        </linearGradient>
+        <radialGradient id={`${id}-bigiris`}>
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="26%" stopColor="#8fe6ff" />
+          <stop offset="62%" stopColor="#2f8ede" />
+          <stop offset="100%" stopColor="#102a58" />
+        </radialGradient>
         <linearGradient id={`${id}-plate`} x1="0.15" y1="0" x2="0.85" y2="1">
           <stop offset="0%" stopColor="#8b9ec2" />
           <stop offset="26%" stopColor="#4a5a78" />
@@ -582,61 +904,177 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
           <stop offset="40%" stopColor={glow} />
           <stop offset="100%" stopColor={accent} stopOpacity=".85" />
         </linearGradient>
-        <linearGradient id={`${id}-fade`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#fff" stopOpacity="1" />
-          <stop offset="70%" stopColor="#fff" stopOpacity="1" />
-          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-        </linearGradient>
-        <mask id={`${id}-mask`}><rect x="0" y="0" width="120" height="152" fill={`url(#${id}-fade)`} /></mask>
       </defs>
 
-      <g mask={headOnly ? undefined : `url(#${id}-mask)`}>
-        {/* ── torso ── */}
-        {!headOnly && (
-          <g>
-            <g transform={`translate(60 0) scale(${kt.toFixed(3)} 1) translate(-60 0)`}>
-              <path d="M60 76 L86 86 L92 108 L84 140 L36 140 L28 108 L34 86 Z"
-                fill={`url(#${id}-${term || morph ? "chrome" : bare ? "white" : "plate"})`} stroke={term || morph ? "#cfdcf4" : bare ? "#dbe6f7" : "#8fa3c8"} strokeWidth="1.1" strokeLinejoin="round" />
-              {/* front detailing — gone once the back is toward us */}
-              <g opacity={front}>
-                <path d="M60 78 L60 134" stroke={term ? "#cfdcf4" : glow} strokeWidth=".9" opacity=".5" />
-                <path d="M40 96 L52 100 M80 96 L68 100" stroke={term ? "#cfdcf4" : glow} strokeWidth=".9" opacity=".45" />
-                <path d="M40 122 L80 122 L78 134 L42 134 Z" fill={`url(#${id}-trim)`} stroke={glow} strokeWidth=".9" opacity=".95" />
-                <g className="ca-core">
-                  <circle cx="60" cy="106" r="11" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.2" opacity=".85" />
-                  <path d="M60 97 L69 106 L60 115 L51 106 Z" fill={term ? `url(#${id}-red)` : `url(#${id}-visor)`} />
-                  <circle cx="60" cy="106" r="4" fill="#fff" opacity=".92" />
-                </g>
+      <g>
+        {/* ── body ──
+            The same three-view treatment as the head, for the same reason: a
+            front-facing torso squashed sideways reads as a plank, so the figure
+            carries a drawn side view that takes over as it turns. Arms hang in
+            the silhouette rather than orbiting as separate parts, which is what
+            keeps the shoulders attached at every angle. */}
+        {!headOnly && chibi && <>
+          {/* ── chibi build ──
+              Two and a bit heads tall, all curves, stubby mitts and little
+              boots. The cute models are not the tall chassis with a friendlier
+              face painted on: making them cute meant changing the skeleton,
+              because proportion reads first and it reads before any detailing
+              does. The chassis stays the model's own material so a pink bot
+              does not end up with gunmetal hands; the worn outfit shows through
+              in the collar, belt and cuffs instead. */}
+          {ws > 0.02 && (
+            <g opacity={ws.toFixed(3)} transform={`translate(${(cxs - 60).toFixed(2)} 0)${dir < 0 ? " translate(120 0) scale(-1 1)" : ""}`}>
+              <g opacity=".62">
+                <rect x="38" y="152" width="21" height="60" rx="10.5" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
+                <circle cx="48.5" cy="220" r="11.5" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
+                <rect x="40" y="286" width="22" height="70" rx="11" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
+                <ellipse cx="56" cy="374" rx="22" ry="17" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
               </g>
-              {/* spine and dorsal vents — what you see from behind */}
-              <g opacity={rear}>
-                <path d="M60 80 L60 138" stroke="#05070c" strokeWidth="2.2" opacity=".7" />
-                <path d="M48 92 L72 92 M46 104 L74 104 M46 116 L74 116" stroke="#05070c" strokeWidth="1.4" opacity=".55" />
-                <path d="M50 86 L70 86 L72 100 L48 100 Z" fill={`url(#${id}-trim)`} stroke={glow} strokeWidth=".8" opacity=".9" />
-                <circle cx="60" cy="93" r="2.6" fill={glow} className="ca-optic" />
+              <path d="M60 116 C82 116 93 140 93 180 L91 246 C89 276 78 292 60 292 C42 292 32 276 30 246 L28 180 C28 140 38 116 60 116 Z"
+                fill={bPlate} stroke={bLine} strokeWidth="1.3" strokeLinejoin="round" />
+              <rect x="44" y="152" width="22" height="62" rx="11" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
+              <circle cx="55" cy="222" r="12" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
+              <rect x="47" y="286" width="24" height="72" rx="12" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
+              <ellipse cx="66" cy="374" rx="24" ry="18" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
+              <path d="M40 130 Q60 122 82 132" fill="none" stroke={bTrim} strokeWidth="5" strokeLinecap="round" />
+              <g opacity={profArt.toFixed(3)}>
+                <ellipse cx="74" cy="206" rx="14" ry="26" fill="#ffffff" opacity=".22" />
+                <circle cx="82" cy="198" r="5" fill="none" stroke={glow} strokeWidth="1.2" opacity=".8" />
+                <circle cx="82" cy="198" r="2" fill={glow} className="ca-optic" />
               </g>
             </g>
-            {/* shoulder pads ride on the shoulder line, so they swing round it */}
-            {place(-74, 26, (
-              <g>
-                <path d="M34 84 L18 94 L16 112 L30 108 Z" fill={`url(#${id}-trim)`} stroke={glow} strokeWidth="1.2" strokeLinejoin="round" />
-                <circle cx="24" cy="102" r="2.6" fill={term ? "#ff2d46" : glow} className="ca-optic" />
+          )}
+          {(front > 0.01 || rear > 0.01) && (
+            <g opacity={Math.max(front, rear).toFixed(3)}>
+              {/* stubby arms with mitten hands */}
+              <rect x="0" y="152" width="22" height="62" rx="11" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
+              <rect x="98" y="152" width="22" height="62" rx="11" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
+              <circle cx="11" cy="222" r="12.5" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
+              <circle cx="109" cy="222" r="12.5" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
+              <path d="M0 206 h22 M98 206 h22" stroke={bTrim} strokeWidth="5" strokeLinecap="round" />
+              {/* barrel body */}
+              <path d="M60 116 C88 116 101 140 101 180 L99 246 C97 276 82 292 60 292 C38 292 23 276 21 246 L19 180 C19 140 32 116 60 116 Z"
+                fill={bPlate} stroke={bLine} strokeWidth="1.4" strokeLinejoin="round" />
+              {/* little boots */}
+              <rect x="33" y="286" width="24" height="72" rx="12" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
+              <rect x="63" y="286" width="24" height="72" rx="12" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
+              <ellipse cx="42" cy="374" rx="21" ry="18" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
+              <ellipse cx="78" cy="374" rx="21" ry="18" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
+              <path d="M33 350 h24 M63 350 h24" stroke={bTrim} strokeWidth="5" strokeLinecap="round" />
+              {/* collar: where the worn outfit shows on a chibi */}
+              <path d="M38 130 Q60 121 82 130" fill="none" stroke={bTrim} strokeWidth="6" strokeLinecap="round" />
+              <g opacity={front.toFixed(3)}>
+                <ellipse cx="60" cy="206" rx="31" ry="36" fill="#ffffff" opacity=".26" />
+                <ellipse cx="60" cy="206" rx="31" ry="36" fill="none" stroke={glow} strokeWidth="1" opacity=".7" />
+                <g className="ca-core">
+                  <circle cx="60" cy="206" r="14" fill="none" stroke={glow} strokeWidth="1.4" opacity=".9" />
+                  <path d="M60 194 L72 206 L60 218 L48 206 Z" fill={`url(#${id}-visor)`} />
+                  <circle cx="60" cy="206" r="5" fill="#fff" opacity=".95" />
+                </g>
+                <path d="M34 262 Q60 276 86 262" fill="none" stroke={bTrim} strokeWidth="6" strokeLinecap="round" />
+                <ellipse cx="42" cy="370" rx="10" ry="5" fill="#ffffff" opacity=".3" />
+                <ellipse cx="78" cy="370" rx="10" ry="5" fill="#ffffff" opacity=".3" />
               </g>
-            ), "sp1", 34)}
-            {place(74, 94, (
-              <g>
-                <path d="M86 84 L102 94 L104 112 L90 108 Z" fill={`url(#${id}-trim)`} stroke={glow} strokeWidth="1.2" strokeLinejoin="round" />
-                <circle cx="96" cy="102" r="2.6" fill={accent} className="ca-optic" />
+              <g opacity={rear.toFixed(3)}>
+                <path d="M60 128 L60 282" stroke="#00000044" strokeWidth="2.4" />
+                <rect x="42" y="158" width="36" height="46" rx="9" fill={bTrim} stroke={glow} strokeWidth="1.1" opacity=".92" />
+                <path d="M48 169 L72 169 M48 180 L72 180 M48 191 L72 191" stroke="#00000044" strokeWidth="1.6" />
+                <circle cx="60" cy="232" r="6" fill="none" stroke={glow} strokeWidth="1.2" opacity=".7" />
+                <circle cx="60" cy="232" r="2.4" fill={glow} className="ca-optic" />
+                <path d="M34 262 Q60 274 86 262" fill="none" stroke={bTrim} strokeWidth="6" strokeLinecap="round" />
               </g>
-            ), "sp2", 34)}
-          </g>
-        )}
+            </g>
+          )}
+        </>}
+        {!headOnly && !chibi && <>
+          {ws > 0.02 && (
+            <g opacity={ws.toFixed(3)} transform={`translate(${(cxs - 60).toFixed(2)} 0)${dir < 0 ? " translate(120 0) scale(-1 1)" : ""}`}>
+              {/* the arm on the far side of the body, behind everything */}
+              <path d="M50 104 L64 107 L60 176 L46 173 Z M47 174 L60 177 L58 234 L48 232 Z M47 232 L58 235 L58 252 Q52 258 47 250 Z"
+                fill={bPlate} stroke={bLine} strokeWidth=".9" strokeLinejoin="round" opacity=".6" />
+              {/* back leg */}
+              <path d="M43 240 L64 240 L62 304 L45 304 Z M46 302 L62 302 L60 368 L48 368 Z M44 362 L60 362 L74 379 L74 391 L41 391 L41 376 Z"
+                fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" opacity=".72" />
+              {/* torso, seen edge-on: chest forward, shoulder blade back */}
+              <path d="M60 82 C70 82 78 90 81 100 L85 124 L83 154 L77 192 L43 192 L39 154 L39 124 L43 100 C46 90 52 82 60 82 Z"
+                fill={bPlate} stroke={bLine} strokeWidth="1.1" strokeLinejoin="round" />
+              <path d="M43 188 L79 188 L83 218 L77 246 L45 246 L39 218 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              {/* front leg, toe pointing the way the model faces */}
+              <path d="M47 240 L70 240 L68 304 L50 304 Z M51 302 L67 302 L65 368 L53 368 Z M49 362 L66 362 L81 379 L81 391 L47 391 L47 376 Z"
+                fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              <ellipse cx="59" cy="303" rx="8" ry="5.5" fill={bTrim} stroke={glow} strokeWidth=".8" />
+              {/* the near arm, in front of the chest */}
+              <path d="M52 102 L68 106 L64 176 L50 173 Z M51 174 L64 178 L62 234 L52 232 Z M51 232 L62 235 L62 252 Q56 258 51 250 Z"
+                fill={bTrim} stroke={bLine} strokeWidth=".9" strokeLinejoin="round" />
+              <g opacity={profArt.toFixed(3)}>
+                <path d="M52 94 L36 103 L36 128 L52 120 Z" fill={bTrim} stroke={glow} strokeWidth="1.1" strokeLinejoin="round" />
+                <path d="M42 112 L46 112 M44 130 Q60 138 78 132 M46 156 Q60 162 76 156" stroke={glow} strokeWidth=".9" opacity=".5" fill="none" />
+                <circle cx="80" cy="128" r="4.6" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.1" opacity=".8" />
+                <circle cx="80" cy="128" r="1.8" fill={term ? "#ff2d46" : glow} className="ca-optic" />
+              </g>
+            </g>
+          )}
+          {(front > 0.01 || rear > 0.01) && (
+            <g opacity={Math.max(front, rear).toFixed(3)}>
+              {/* arms, drawn first so the torso plate overlaps their tops */}
+              <path d="M23 106 L39 110 L35 176 L16 172 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              <path d="M97 106 L81 110 L85 176 L104 172 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              <path d="M17 174 L35 178 L33 234 L19 232 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              <path d="M103 174 L85 178 L87 234 L101 232 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              <path d="M18 232 L33 235 L33 252 Q25 259 18 250 Z" fill={bTrim} stroke={bLine} strokeWidth=".9" strokeLinejoin="round" />
+              <path d="M102 232 L87 235 L87 252 Q95 259 102 250 Z" fill={bTrim} stroke={bLine} strokeWidth=".9" strokeLinejoin="round" />
+              {/* shoulder pads */}
+              <path d="M36 92 L8 102 L6 129 L34 120 Z" fill={bTrim} stroke={glow} strokeWidth="1.2" strokeLinejoin="round" />
+              <path d="M84 92 L112 102 L114 129 L86 120 Z" fill={bTrim} stroke={glow} strokeWidth="1.2" strokeLinejoin="round" />
+              <circle cx="16" cy="114" r="2.6" fill={term ? "#ff2d46" : glow} className="ca-optic" />
+              <circle cx="104" cy="114" r="2.6" fill={accent} className="ca-optic" />
+              {/* torso */}
+              <path d="M60 82 C73 82 85 89 95 99 L103 124 L99 156 L88 192 L32 192 L21 156 L17 124 L25 99 C35 89 47 82 60 82 Z"
+                fill={bPlate} stroke={bLine} strokeWidth="1.2" strokeLinejoin="round" />
+              {/* pelvis */}
+              <path d="M32 188 L88 188 L93 218 L86 246 L34 246 L27 218 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              {/* thighs, shins, knee actuators, feet */}
+              <path d="M35 242 L57 242 L55 304 L37 304 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              <path d="M63 242 L85 242 L83 304 L65 304 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              <path d="M38 300 L54 300 L52 368 L40 368 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              <path d="M66 300 L82 300 L80 368 L68 368 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              <ellipse cx="46" cy="302" rx="9.5" ry="5.5" fill={bTrim} stroke={glow} strokeWidth=".9" />
+              <ellipse cx="74" cy="302" rx="9.5" ry="5.5" fill={bTrim} stroke={glow} strokeWidth=".9" />
+              <path d="M36 362 L54 362 L59 380 L59 391 L30 391 L30 377 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              <path d="M66 362 L84 362 L90 377 L90 391 L61 391 L61 380 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              {/* chest plating and the power core — gone once the back is toward us */}
+              <g opacity={front.toFixed(3)}>
+                <path d="M60 84 L60 190" stroke={term ? "#cfdcf4" : glow} strokeWidth=".9" opacity=".45" />
+                <path d="M34 106 L50 112 M86 106 L70 112" stroke={term ? "#cfdcf4" : glow} strokeWidth="1" opacity=".45" />
+                <path d="M34 166 L86 166 L83 188 L37 188 Z" fill={bTrim} stroke={glow} strokeWidth=".9" opacity=".9" />
+                <path d="M40 174 L80 174 M42 181 L78 181" stroke={glow} strokeWidth=".7" opacity=".45" />
+                <g className="ca-core">
+                  <circle cx="60" cy="130" r="13" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.3" opacity=".85" />
+                  <path d="M60 119 L71 130 L60 141 L49 130 Z" fill={term ? `url(#${id}-red)` : `url(#${id}-visor)`} />
+                  <circle cx="60" cy="130" r="4.6" fill="#fff" opacity=".92" />
+                </g>
+                <path d="M42 250 L54 250 M66 250 L78 250" stroke={glow} strokeWidth="1" opacity=".5" />
+                <path d="M36 372 L54 372 M66 372 L84 372" stroke={glow} strokeWidth=".9" opacity=".45" />
+              </g>
+              {/* spine, dorsal vents and heels — what you see from behind */}
+              <g opacity={rear.toFixed(3)}>
+                <path d="M60 86 L60 190" stroke="#05070c" strokeWidth="2.4" opacity=".7" />
+                <path d="M40 108 L80 108 M36 128 L84 128 M38 150 L82 150" stroke="#05070c" strokeWidth="1.5" opacity=".5" />
+                <path d="M46 92 L74 92 L78 116 L42 116 Z" fill={bTrim} stroke={glow} strokeWidth=".9" opacity=".9" />
+                <circle cx="60" cy="104" r="3.2" fill={glow} className="ca-optic" />
+                <path d="M42 262 Q46 290 44 302 M78 262 Q74 290 76 302" fill="none" stroke="#05070c" strokeWidth="1.4" opacity=".45" />
+                <path d="M30 384 L59 384 M61 384 L90 384" stroke="#05070c" strokeWidth="1.6" opacity=".5" />
+              </g>
+            </g>
+          )}
+        </>}
 
+        <g transform={headOnly ? undefined : `translate(60 -12) scale(${hs}) translate(-60 -3)`}>
         {/* ── neck ── */}
         {HEAD.neck || (
-          <g transform={`translate(60 0) scale(${(0.72 + 0.28 * kt).toFixed(3)} 1) translate(-60 0)`}>
-            <path d="M52 62 L68 62 L70 80 L50 80 Z" fill={`url(#${id}-${bare || helm ? "white" : morph ? "chrome" : "skin"})`} stroke="#7f8fac" strokeWidth=".7" />
-            <path d="M49 78 L71 78" stroke={glow} strokeWidth="1.3" opacity=".7" />
+          <g transform={`translate(60 0) scale(${(0.72 + 0.28 * Math.abs(c)).toFixed(3)} 1) translate(-60 0)`}>
+            <path d="M52 62 L68 62 L71 90 L49 90 Z" fill={`url(#${id}-${HEAD.neckFill || bodyKey})`} stroke="#7f8fac" strokeWidth=".7" />
+            <path d="M48 84 L72 84" stroke={glow} strokeWidth="1.3" opacity=".7" />
           </g>
         )}
 
@@ -655,6 +1093,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
           <path d={HEAD.skull} fill="none" stroke="#fff" strokeWidth="1.2" opacity={HEAD.fill === "chrome" ? ".6" : ".32"} strokeDasharray="28 88" />
         </g>, "shell")}
         {front > 0.01 && <g opacity={front.toFixed(3)}>{HEAD.art}</g>}
+        </g>
       </g>
     </svg>
   );
