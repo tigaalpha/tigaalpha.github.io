@@ -21,42 +21,94 @@
 
 export function CyberAvatar({ variant = "boy", armorA = "#1a2233", armorB = "#38506e", glow = "#00f0ff", accent = "#aa00ff" }) {
   const id = "ca-" + variant;
+  /* An ANDROID FACE, not a helmet with a letterbox slit. The first pass drew a
+     blank plate with a light-bar across it, which reads as a machine rather than
+     as somebody — so this has the structure a face actually has: a brow ridge, a
+     nose bridge, cheek planes catching the key light, a tapered jaw to a chin,
+     and two real eyes with an iris and a catchlight. The seams that make it
+     obviously synthetic (the jaw split, the cheek vents, the vocaliser grille,
+     the ear units) are laid OVER that human structure rather than replacing it,
+     which is what makes it read as humanoid instead of as a mask. */
+  const eye = (cx, cy, rx, ry) => (
+    <g className="ca-eye">
+      <ellipse cx={cx} cy={cy} rx={rx + 1.4} ry={ry + 1.2} fill={`url(#${id}-bloom)`} />
+      <path d={`M${cx - rx} ${cy} Q${cx} ${cy - ry * 1.5} ${cx + rx} ${cy} Q${cx} ${cy + ry * 1.15} ${cx - rx} ${cy} Z`} fill={`url(#${id}-visor)`} />
+      <circle cx={cx} cy={cy} r={ry * 0.62} fill="#eafcff" opacity=".95" />
+      <circle cx={cx + rx * 0.22} cy={cy - ry * 0.28} r={ry * 0.24} fill="#fff" />
+    </g>
+  );
+  // the parts every build shares: brow, nose, mouth grille, chin seam
+  const faceCore = (chin) => (
+    <>
+      <path d="M40 30 Q60 26 80 30" fill="none" stroke="#9fb2d6" strokeWidth="1.5" strokeLinecap="round" opacity=".9" />
+      <path d="M60 34 L60 46 M56.5 47.5 Q60 49.5 63.5 47.5" fill="none" stroke="#8fa3c8" strokeWidth="1.1" strokeLinecap="round" opacity=".8" />
+      {/* A curved vocaliser rather than a straight dark bar — a rectangle across
+          the lower face reads as a gag, a curve reads as a mouth. */}
+      <g className="ca-mouth">
+        <path d={`M52 ${chin - 12} Q60 ${chin - 7.5} 68 ${chin - 12}`} fill="none" stroke={glow} strokeWidth="1.9" strokeLinecap="round" />
+        <path d={`M54.5 ${chin - 9.6} Q60 ${chin - 6.4} 65.5 ${chin - 9.6}`} fill="none" stroke={glow} strokeWidth="1" strokeLinecap="round" opacity=".55" />
+        <circle cx="50" cy={chin - 12.5} r="1.1" fill={glow} opacity=".8" />
+        <circle cx="70" cy={chin - 12.5} r="1.1" fill={glow} opacity=".8" />
+      </g>
+      <path d={`M60 ${chin - 5} L60 ${chin - 1}`} stroke="#7d90b4" strokeWidth=".9" opacity=".7" />
+    </>
+  );
+  // ear / audio units, the give-away that this is built rather than born
+  const ears = (y) => (
+    <>
+      <path d={`M32 ${y} L26 ${y + 2} L26 ${y + 13} L32 ${y + 15} Z`} fill={`url(#${id}-trim)`} stroke={glow} strokeWidth="1" strokeLinejoin="round" />
+      <path d={`M88 ${y} L94 ${y + 2} L94 ${y + 13} L88 ${y + 15} Z`} fill={`url(#${id}-trim)`} stroke={glow} strokeWidth="1" strokeLinejoin="round" />
+      <circle cx="29" cy={y + 7.5} r="1.8" fill={glow} className="ca-optic" />
+      <circle cx="91" cy={y + 7.5} r="1.8" fill={accent} className="ca-optic" />
+    </>
+  );
+
   const HEAD = {
-    // angular, heavy jaw, single wide visor
+    // VANGUARD — squarer skull, heavy jaw, swept crown plate
     boy: {
-      helm: "M60 4 L86 16 L90 38 L82 56 L60 64 L38 56 L30 38 L34 16 Z",
-      visor: "M39 28 L81 28 L77 42 L43 42 Z",
-      crest: "M56 2 L64 2 L62 14 L58 14 Z",
+      helm: "M60 5 C74 5 84 14 85 29 C86 40 84 49 79 57 C74 65 66 70 60 70 C54 70 46 65 41 57 C36 49 34 40 35 29 C36 14 46 5 60 5 Z",
       extras: <>
-        <path d="M32 42 L38 44 L38 52 L34 50 Z" fill={`url(#${id}-plate)`} stroke={armorB} strokeWidth=".7" />
-        <path d="M88 42 L82 44 L82 52 L86 50 Z" fill={`url(#${id}-plate)`} stroke={armorB} strokeWidth=".7" />
+        {/* crown / hair plate, swept back */}
+        <path d="M60 4 C75 4 85 13 86 27 C80 20 71 17 60 17 C49 17 40 20 34 27 C35 13 45 4 60 4 Z" fill={`url(#${id}-hair)`} stroke={glow} strokeWidth="1" strokeLinejoin="round" />
+        {/* cheek planes */}
+        <path d="M38 38 L46 44 L43 55 L37 47 Z" fill="#39465f" stroke="#8ea2c6" strokeWidth=".7" opacity=".85" />
+        <path d="M82 38 L74 44 L77 55 L83 47 Z" fill="#39465f" stroke="#8ea2c6" strokeWidth=".7" opacity=".85" />
+        {ears(36)}
+        {eye(49, 37, 7.5, 4.4)}
+        {eye(71, 37, 7.5, 4.4)}
+        {faceCore(70)}
       </>,
     },
-    // slim helm, split visor, side fins, trailing light-cable
+    // SPECTER — narrower skull, long swept side plates, softer eyes
     girl: {
-      helm: "M60 5 L82 17 L86 38 L78 57 L60 64 L42 57 L34 38 L38 17 Z",
-      visor: "M42 29 L58 29 L56 41 L45 41 Z M62 29 L78 29 L75 41 L64 41 Z",
-      crest: "M57 3 L63 3 L61 12 L59 12 Z",
+      helm: "M60 6 C72 6 81 15 82 29 C83 41 80 50 75 58 C71 65 65 70 60 70 C55 70 49 65 45 58 C40 50 37 41 38 29 C39 15 48 6 60 6 Z",
       extras: <>
-        <path d="M34 34 L26 30 L25 44 L33 46 Z" fill={`url(#${id}-plate)`} stroke={glow} strokeWidth=".8" opacity=".9" />
-        <path d="M86 34 L94 30 L95 44 L87 46 Z" fill={`url(#${id}-plate)`} stroke={glow} strokeWidth=".8" opacity=".9" />
-        {/* light-cable falling past the shoulder */}
-        <path d="M80 52 Q94 74 88 104 Q86 116 92 124" fill="none" stroke={glow} strokeWidth="2.4" strokeLinecap="round" opacity=".75" />
-        <path d="M80 52 Q94 74 88 104 Q86 116 92 124" fill="none" stroke="#fff" strokeWidth=".8" strokeLinecap="round" opacity=".5" />
+        <path d="M60 4 C74 4 83 14 84 28 C79 21 70 18 60 18 C50 18 41 21 36 28 C37 14 46 4 60 4 Z" fill={`url(#${id}-hair)`} stroke={glow} strokeWidth="1" strokeLinejoin="round" />
+        {/* long swept side plates, read as hair */}
+        <path d="M38 24 Q28 40 30 66 Q31 78 26 88 L34 88 Q40 74 39 58 Q38 40 43 30 Z" fill={`url(#${id}-hair)`} stroke={glow} strokeWidth=".9" strokeLinejoin="round" opacity=".95" />
+        <path d="M82 24 Q92 40 90 66 Q89 78 94 88 L86 88 Q80 74 81 58 Q82 40 77 30 Z" fill={`url(#${id}-hair)`} stroke={glow} strokeWidth=".9" strokeLinejoin="round" opacity=".95" />
+        <path d="M41 39 L48 45 L45 55 L40 47 Z" fill="#39465f" stroke="#8ea2c6" strokeWidth=".7" opacity=".85" />
+        <path d="M79 39 L72 45 L75 55 L80 47 Z" fill="#39465f" stroke="#8ea2c6" strokeWidth=".7" opacity=".85" />
+        {eye(50, 38, 7.8, 5) }
+        {eye(70, 38, 7.8, 5) }
+        {faceCore(70)}
       </>,
     },
-    // rounded helm, fox ears, twin optic dots
+    // KIT — rounder skull, oversized optics, fox ears kept from the old build
     cute: {
-      helm: "M60 10 Q84 10 86 34 Q88 56 60 64 Q32 56 34 34 Q36 10 60 10 Z",
-      visor: "M42 30 Q60 24 78 30 Q79 43 60 47 Q41 43 42 30 Z",
-      crest: "",
+      helm: "M60 10 C76 10 86 21 86 35 C86 50 78 62 68 67 C64 69 56 69 52 67 C42 62 34 50 34 35 C34 21 44 10 60 10 Z",
       extras: <>
-        <path d="M38 16 L30 0 L48 8 Z" fill={`url(#${id}-plate)`} stroke={accent} strokeWidth="1" strokeLinejoin="round" />
-        <path d="M82 16 L90 0 L72 8 Z" fill={`url(#${id}-plate)`} stroke={accent} strokeWidth="1" strokeLinejoin="round" />
-        <path d="M38 15 L34 5 L45 9 Z" fill={accent} opacity=".55" />
-        <path d="M82 15 L86 5 L75 9 Z" fill={accent} opacity=".55" />
-        <circle cx="51" cy="35" r="3.4" fill={glow} className="ca-optic" />
-        <circle cx="69" cy="35" r="3.4" fill={glow} className="ca-optic" />
+        <path d="M40 18 L30 2 L50 11 Z" fill={`url(#${id}-trim)`} stroke={accent} strokeWidth="1.1" strokeLinejoin="round" />
+        <path d="M80 18 L90 2 L70 11 Z" fill={`url(#${id}-trim)`} stroke={accent} strokeWidth="1.1" strokeLinejoin="round" />
+        <path d="M40 17 L35 7 L47 12 Z" fill={accent} opacity=".6" />
+        <path d="M80 17 L85 7 L73 12 Z" fill={accent} opacity=".6" />
+        <path d="M60 12 C74 12 84 21 85 32 C79 25 71 22 60 22 C49 22 41 25 35 32 C36 21 46 12 60 12 Z" fill={`url(#${id}-hair)`} stroke={glow} strokeWidth=".9" strokeLinejoin="round" />
+        {ears(38)}
+        {eye(49, 40, 9, 6.4)}
+        {eye(71, 40, 9, 6.4)}
+        {faceCore(69)}
+        {/* blush vents */}
+        <path d="M39 52 L44 52 M76 52 L81 52" stroke={accent} strokeWidth="1.6" strokeLinecap="round" opacity=".75" />
       </>,
     },
   }[variant] || {};
@@ -77,6 +129,21 @@ export function CyberAvatar({ variant = "boy", armorA = "#1a2233", armorB = "#38
           <stop offset="26%" stopColor="#4a5a78" />
           <stop offset="62%" stopColor="#232d42" />
           <stop offset="100%" stopColor="#0d1220" />
+        </linearGradient>
+        {/* The face gets its own, brighter ramp. Sharing the body's plating left
+            the sculpting — brow, cheek planes, jaw — sitting in shadow, so all the
+            structure that makes it read as a face was invisible at this size. */}
+        <linearGradient id={`${id}-face`} x1="0.3" y1="0" x2="0.7" y2="1">
+          <stop offset="0%" stopColor="#c3d2ec" />
+          <stop offset="30%" stopColor="#8496b8" />
+          <stop offset="68%" stopColor="#4c5c7c" />
+          <stop offset="100%" stopColor="#28344c" />
+        </linearGradient>
+        {/* hair / crown plating: dark enough to read as hair, light enough to see */}
+        <linearGradient id={`${id}-hair`} x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0%" stopColor="#4a5372" />
+          <stop offset="55%" stopColor="#2b3149" />
+          <stop offset="100%" stopColor="#161a2a" />
         </linearGradient>
         <linearGradient id={`${id}-trim`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={armorB} />
@@ -134,18 +201,10 @@ export function CyberAvatar({ variant = "boy", armorA = "#1a2233", armorB = "#38
         <path d="M49 72 L71 72" stroke={glow} strokeWidth="1.4" opacity=".8" />
 
         {/* ── head ── */}
-        {HEAD.crest ? <path d={HEAD.crest} fill={glow} opacity=".9" /> : null}
-        <path d={HEAD.helm} fill={`url(#${id}-plate)`} stroke="#9fb2d6" strokeWidth="1.1" strokeLinejoin="round" />
+        <path d={HEAD.helm} fill={`url(#${id}-face)`} stroke="#b8c8e8" strokeWidth="1.1" strokeLinejoin="round" />
         <path d={HEAD.helm} fill="none" stroke={`url(#${id}-rim)`} strokeWidth="1.6" strokeLinejoin="round" />
         {HEAD.extras}
-        {HEAD.visor ? <>
-          {/* bloom sits BEHIND the visor as a plain radial — a blur filter here is
-              what made the whole layer rasterise opaque in the emoji version */}
-          <ellipse cx="60" cy="35" rx="34" ry="16" fill={`url(#${id}-bloom)`} className="ca-visor" />
-          <path d={HEAD.visor} fill={`url(#${id}-visor)`} className="ca-visor" />
-          <path d={HEAD.visor} fill="none" stroke="#fff" strokeWidth=".6" opacity=".7" />
-        </> : null}
-        {/* helmet highlight — one specular sweep is what stops flat vector reading as flat */}
+        {/* one specular sweep across the skull — what stops flat vector reading as flat */}
         <path d={HEAD.helm} fill="none" stroke="#fff" strokeWidth="1.1" opacity=".5" strokeDasharray="30 86" />
       </g>
     </svg>
