@@ -5014,99 +5014,99 @@ function maybeSnapshotSkills(uid) {
 
 /* ── cosmetics shop: key-skins + background themes (bought with coins) ── */
 const SHOP_SKINS = [
-  { id: "aqua",   icon: "🩵", cost: 0,   rarity: "common",    th: "อความารีน", en: "Aqua",   zh: "水蓝", sw: ["#8ad4ff", "#0e7ab0"] },
-  { id: "sunset", icon: "🧡", cost: 120, rarity: "common",    th: "ตะวันตกดิน", en: "Sunset", zh: "日落", sw: ["#ff9e00", "#ff5d3a"] },
-  { id: "neon",   icon: "💚", cost: 180, rarity: "rare",      th: "นีออน",      en: "Neon",   zh: "霓虹", sw: ["#06ffa5", "#00d488"] },
-  { id: "candy",  icon: "💗", cost: 180, rarity: "rare",      th: "แคนดี้",     en: "Candy",  zh: "糖果", sw: ["#ff76d8", "#cc1b7a"] },
-  { id: "ocean",  icon: "🌊", cost: 200, rarity: "rare",      th: "มหาสมุทร",   en: "Ocean",  zh: "海洋", sw: ["#00d4ff", "#0077b6"], isNew: true },
-  { id: "ice",    icon: "❄️", cost: 200, rarity: "rare",      th: "น้ำแข็ง",    en: "Ice",    zh: "冰霜", sw: ["#d0f4ff", "#0891b2"], isNew: true },
-  { id: "gold",   icon: "💛", cost: 320, rarity: "epic",      th: "ทองคำ",      en: "Gold",   zh: "黄金", sw: ["#ffd23f", "#9a7400"] },
-  { id: "fire",   icon: "🔥", cost: 260, rarity: "epic",      th: "เพลิง",      en: "Fire",   zh: "烈焰", sw: ["#ff6b35", "#6b0f16"], isNew: true },
-  { id: "galaxy", icon: "🪐", cost: 300, rarity: "epic",      th: "กาแล็กซี่",  en: "Galaxy", zh: "银河", sw: ["#c084fc", "#4c1d95"], isNew: true },
-  { id: "prism",  icon: "🌈", cost: 550, rarity: "legendary", th: "ปริซึม",     en: "Prism",  zh: "棱镜", sw: ["#ff5252", "#a855f7", "#00d4ff"], isNew: true },
+  { id: "aqua",   icon: "🩵", cost: 0,   rarity: "common",    th: "นีออน基础", en: "Neon Base",   zh: "霓虹基础", sw: ["#00f0ff", "#004d66"] },
+  { id: "sunset", icon: "🧡", cost: 120, rarity: "common",    th: "เมทริกซ์ส้ม", en: "Matrix Orange", zh: "矩阵橙", sw: ["#ff6600", "#993300"] },
+  { id: "neon",   icon: "💚", cost: 180, rarity: "rare",      th: "ไซเบอร์เขียว", en: "Cyber Green", zh: "赛博绿", sw: ["#00ff88", "#006633"] },
+  { id: "candy",  icon: "💗", cost: 180, rarity: "rare",      th: "ฮอโลแกรมชมพู", en: "Holo Pink", zh: "全息粉", sw: ["#ff00aa", "#660044"] },
+  { id: "ocean",  icon: "🌊", cost: 200, rarity: "rare",      th: "ดีพไซเบอร์", en: "Deep Cyber", zh: "深空蓝", sw: ["#00ccff", "#003366"], isNew: true },
+  { id: "ice",    icon: "❄️", cost: 200, rarity: "rare",      th: "ไкрโฟสต์", en: "Cryofrost", zh: "冰晶", sw: ["#aaeeff", "#0066aa"], isNew: true },
+  { id: "gold",   icon: "💛", cost: 320, rarity: "epic",      th: "ไชนิ่งโกลด์", en: "Shining Gold", zh: "闪耀金", sw: ["#ffd23f", "#665500"] },
+  { id: "fire",   icon: "🔥", cost: 260, rarity: "epic",      th: "นีออนเพลิง", en: "Neon Blaze", zh: "霓虹烈焰", sw: ["#ff3300", "#330000"], isNew: true },
+  { id: "galaxy", icon: "🪐", cost: 300, rarity: "epic",      th: "ดิจิทัลกาแล็กซี่", en: "Digital Galaxy", zh: "数字银河", sw: ["#cc66ff", "#220055"], isNew: true },
+  { id: "prism",  icon: "🌈", cost: 550, rarity: "legendary", th: "ปริซึมโซล", en: "Soul Prism", zh: "灵魂棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
 ];
 const SHOP_THEMES = [
-  { id: "midnight",  icon: "🌌", cost: 0,   rarity: "common",    th: "เที่ยงคืน", en: "Midnight",  zh: "午夜", sw: ["#150c12", "#0a0608"] },
-  { id: "aurora",    icon: "🌠", cost: 150, rarity: "rare",      th: "ออโรร่า",   en: "Aurora",    zh: "极光", sw: ["#0b2a3a", "#0a1326"] },
-  { id: "ember",     icon: "🔥", cost: 150, rarity: "rare",      th: "ถ่านไฟ",    en: "Ember",     zh: "余烬", sw: ["#2a1012", "#180b10"] },
-  { id: "forest",    icon: "🌲", cost: 150, rarity: "rare",      th: "ป่าไม้",    en: "Forest",    zh: "森林", sw: ["#0c2a1c", "#0a1a16"] },
-  { id: "sakura",    icon: "🌸", cost: 200, rarity: "epic",      th: "ซากุระ",    en: "Sakura",    zh: "樱花", sw: ["#3a1a2e", "#220f1c"], isNew: true },
-  { id: "deepsea",   icon: "🐋", cost: 240, rarity: "epic",      th: "ใต้สมุทร",  en: "Deep Sea",  zh: "深海", sw: ["#052030", "#031824"], isNew: true },
-  { id: "volcano",   icon: "🌋", cost: 260, rarity: "epic",      th: "ภูเขาไฟ",   en: "Volcano",   zh: "火山", sw: ["#3a1005", "#220a08"], isNew: true },
-  { id: "starlight", icon: "✨", cost: 450, rarity: "legendary", th: "แสงดาว",    en: "Starlight", zh: "星光", sw: ["#1a0a3a", "#12082a"], isNew: true },
+  { id: "midnight",  icon: "🌌", cost: 0,   rarity: "common",    th: "ไนท์ซิตี้", en: "Night City",  zh: "夜之城", sw: ["#0a0015", "#050008"] },
+  { id: "aurora",    icon: "🌠", cost: 150, rarity: "rare",      th: "ออโรร่าดิจิทัล", en: "Digital Aurora", zh: "数字极光", sw: ["#001a2a", "#000a15"] },
+  { id: "ember",     icon: "🔥", cost: 150, rarity: "rare",      th: "ไซเบอร์เอ็มเบอร์", en: "Cyber Ember", zh: "赛博余烬", sw: ["#1a0505", "#0d0303"] },
+  { id: "forest",    icon: "🌲", cost: 150, rarity: "rare",      th: "ป่าดิจิทัล", en: "Digital Forest", zh: "数字森林", sw: ["#001a0d", "#000d08"] },
+  { id: "sakura",    icon: "🌸", cost: 200, rarity: "epic",      th: "ไซเบอร์ซากุระ", en: "Cyber Sakura", zh: "赛博樱花", sw: ["#1a0015", "#0d000a"], isNew: true },
+  { id: "deepsea",   icon: "🐋", cost: 240, rarity: "epic",      th: "โพลาร์ดิป", en: "Polar Deep", zh: "极地深海", sw: ["#000d1a", "#00060d"], isNew: true },
+  { id: "volcano",   icon: "🌋", cost: 260, rarity: "epic",      th: "มา.kind lava", en: "Magma Core", zh: "岩浆核心", sw: ["#1a0500", "#0d0300"], isNew: true },
+  { id: "starlight", icon: "✨", cost: 450, rarity: "legendary", th: "สตาร์ไลท์ไซเบอร์", en: "Cyber Starlight", zh: "赛博星光", sw: ["#0d001a", "#08000d"], isNew: true },
 ];
 const SHOP_FRAMES = [
-  { id: "fr-none",    icon: "⭕", cost: 0,   rarity: "common",    th: "ไม่มีกรอบ", en: "No Frame", zh: "无边框", sw: ["#b0aea5", "#b0aea5"] },
-  { id: "fr-bronze",  icon: "🥉", cost: 100, rarity: "common",    th: "บรอนซ์",    en: "Bronze",   zh: "青铜", sw: ["#cd7f32", "#8a531f"], isNew: true },
-  { id: "fr-silver",  icon: "🥈", cost: 280, rarity: "rare",      th: "เงิน",      en: "Silver",   zh: "白银", sw: ["#d7d7de", "#9a9aa5"], isNew: true },
-  { id: "fr-gold",    icon: "🥇", cost: 500, rarity: "epic",      th: "ทอง",       en: "Gold",     zh: "黄金", sw: ["#ffd23f", "#c9960a"], isNew: true },
-  { id: "fr-diamond", icon: "💎", cost: 900, rarity: "legendary", th: "เพชร",      en: "Diamond",  zh: "钻石", sw: ["#8ad4ff", "#a855f7"], isNew: true },
+  { id: "fr-none",    icon: "⭕", cost: 0,   rarity: "common",    th: "ไม่มีกรอบ", en: "No Frame", zh: "无边框", sw: ["#666680", "#666680"] },
+  { id: "fr-bronze",  icon: "🥉", cost: 100, rarity: "common",    th: "คอปเปอร์ไซเบอร์", en: "Cyber Copper", zh: "赛博铜", sw: ["#cd7f32", "#4d2f10"], isNew: true },
+  { id: "fr-silver",  icon: "🥈", cost: 280, rarity: "rare",      th: "โครเมียม", en: "Chromium", zh: "铬合金", sw: ["#c0c0d0", "#50505a"], isNew: true },
+  { id: "fr-gold",    icon: "🥇", cost: 500, rarity: "epic",      th: "ไนออนโกลด์", en: "Neon Gold", zh: "霓虹金", sw: ["#ffd23f", "#665500"], isNew: true },
+  { id: "fr-diamond", icon: "💎", cost: 900, rarity: "legendary", th: "ฮอลโลแกรม", en: "Hologram", zh: "全息框", sw: ["#00f0ff", "#aa00ff"], isNew: true },
 ];
 const SHOP_KEYBOARDS = [
-  { id: "kb-classic",  icon: "🎹", cost: 0,   rarity: "common",    th: "คลาสสิก",   en: "Classic",    zh: "经典", sw: ["#f5f0e8", "#d4cfc4"], isNew: false },
-  { id: "kb-neon",     icon: "💚", cost: 160, rarity: "rare",      th: "นีออน",     en: "Neon Glow",  zh: "霓虹", sw: ["#06ffa5", "#00d488"], isNew: true },
-  { id: "kb-rose",     icon: "💗", cost: 180, rarity: "rare",      th: "กุหลาบ",    en: "Rose Gold",  zh: "玫瑰金", sw: ["#ff76d8", "#b76e79"], isNew: true },
-  { id: "kb-midnight", icon: "🌙", cost: 220, rarity: "rare",      th: "เที่ยงคืน",  en: "Midnight",   zh: "午夜", sw: ["#1a1a2e", "#16213e"], isNew: true },
-  { id: "kb-ice",      icon: "❄️", cost: 280, rarity: "epic",      th: "น้ำแข็ง",   en: "Frozen",     zh: "冰霜", sw: ["#d0f4ff", "#0891b2"], isNew: true },
-  { id: "kb-fire",     icon: "🔥", cost: 320, rarity: "epic",      th: "เพลิง",     en: "Inferno",    zh: "烈焰", sw: ["#ff6b35", "#6b0f16"], isNew: true },
-  { id: "kb-galaxy",   icon: "🪐", cost: 400, rarity: "epic",      th: "กาแล็กซี่", en: "Galaxy",     zh: "银河", sw: ["#c084fc", "#4c1d95"], isNew: true },
-  { id: "kb-gold",     icon: "💛", cost: 550, rarity: "legendary", th: "ทองคำ",     en: "Royal Gold", zh: "皇家金", sw: ["#ffd23f", "#9a7400"], isNew: true },
-  { id: "kb-rainbow",  icon: "🌈", cost: 750, rarity: "legendary", th: "สายรุ้ง",   en: "Prismatic",  zh: "棱镜", sw: ["#ff5252", "#a855f7", "#00d4ff"], isNew: true },
+  { id: "kb-classic",  icon: "🎹", cost: 0,   rarity: "common",    th: "คลาสสิกไซเบอร์", en: "Cyber Classic", zh: "赛博经典", sw: ["#1a1a2e", "#0d0d15"], isNew: false },
+  { id: "kb-neon",     icon: "💚", cost: 160, rarity: "rare",      th: "นีออนกรีน", en: "Neon Green",  zh: "霓虹绿", sw: ["#00ff66", "#003315"], isNew: true },
+  { id: "kb-rose",     icon: "💗", cost: 180, rarity: "rare",      th: "ฮอโลชมพู", en: "Holo Pink",  zh: "全息粉", sw: ["#ff00aa", "#440033"], isNew: true },
+  { id: "kb-midnight", icon: "🌙", cost: 220, rarity: "rare",      th: "ดิจิทัลไนท์", en: "Digital Night",   zh: "数字之夜", sw: ["#0a0020", "#050010"], isNew: true },
+  { id: "kb-ice",      icon: "❄️", cost: 280, rarity: "epic",      th: "ไซเบอร์คริสตัล", en: "Cyber Crystal", zh: "赛博水晶", sw: ["#aaeeff", "#003355"], isNew: true },
+  { id: "kb-fire",     icon: "🔥", cost: 320, rarity: "epic",      th: "นีออนเฟรม", en: "Neon Frame",    zh: "霓虹框架", sw: ["#ff3300", "#330000"], isNew: true },
+  { id: "kb-galaxy",   icon: "🪐", cost: 400, rarity: "epic",      th: "ไซเบอร์กาแล็กซี่", en: "Cyber Galaxy", zh: "赛博银河", sw: ["#cc66ff", "#220055"], isNew: true },
+  { id: "kb-gold",     icon: "💛", cost: 550, rarity: "legendary", th: "ไชนิ่งไซเบอร์", en: "Shining Cyber", zh: "闪耀赛博", sw: ["#ffd23f", "#665500"], isNew: true },
+  { id: "kb-rainbow",  icon: "🌈", cost: 750, rarity: "legendary", th: "ปริซึมโซล", en: "Soul Prism",  zh: "灵魂棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
 ];
 const SHOP_STICKERS = [
-  { id: "st-star",     icon: "⭐", cost: 50,  rarity: "common",    th: "ดาว",       en: "Star",       zh: "星星", sw: ["#ffd23f", "#f59e0b"], isNew: false },
-  { id: "st-heart",    icon: "❤️", cost: 60,  rarity: "common",    th: "หัวใจ",     en: "Heart",      zh: "爱心", sw: ["#ff4d6d", "#c9184a"], isNew: false },
-  { id: "st-music",    icon: "🎵", cost: 80,  rarity: "common",    th: "โน้ตเพลง",  en: "Music Note", zh: "音符", sw: ["#7209b7", "#560bad"], isNew: true },
-  { id: "st-flame",    icon: "🔥", cost: 120, rarity: "rare",      th: "เปลวไฟ",   en: "Flame",      zh: "火焰", sw: ["#ff6b35", "#d00000"], isNew: true },
-  { id: "st-crown",    icon: "👑", cost: 200, rarity: "rare",      th: "มงกุฎ",     en: "Crown",      zh: "皇冠", sw: ["#ffd23f", "#b8860b"], isNew: true },
-  { id: "st-diamond",  icon: "💎", cost: 300, rarity: "epic",      th: "เพชร",      en: "Diamond",    zh: "钻石", sw: ["#8ad4ff", "#a855f7"], isNew: true },
-  { id: "st-rocket",   icon: "🚀", cost: 350, rarity: "epic",      th: "จรวด",      en: "Rocket",     zh: "火箭", sw: ["#ff6b35", "#1d3557"], isNew: true },
-  { id: "st-trophy",   icon: "🏆", cost: 500, rarity: "legendary", th: "ถ้วยรางวัล", en: "Trophy",     zh: "奖杯", sw: ["#ffd23f", "#cd7f32"], isNew: true },
-  { id: "st-magic",    icon: "✨", cost: 600, rarity: "legendary", th: "เวทมนตร์",  en: "Magic",      zh: "魔法", sw: ["#c084fc", "#ff6b6b", "#ffd23f"], isNew: true },
+  { id: "st-star",     icon: "⭐", cost: 50,  rarity: "common",    th: "ชิปดา타", en: "Data Chip",       zh: "数据芯片", sw: ["#00f0ff", "#006688"], isNew: false },
+  { id: "st-heart",    icon: "❤️", cost: 60,  rarity: "common",    th: "หัวใจไซเบอร์", en: "Cyber Heart",      zh: "赛博之心", sw: ["#ff0044", "#660018"], isNew: false },
+  { id: "st-music",    icon: "🎵", cost: 80,  rarity: "common",    th: "เสียงดิจิทัล", en: "Digital Sound", zh: "数字音符", sw: ["#aa00ff", "#4400aa"], isNew: true },
+  { id: "st-flame",    icon: "🔥", cost: 120, rarity: "rare",      th: "นีออนเฟลม", en: "Neon Flame",      zh: "霓虹之火", sw: ["#ff3300", "#aa0000"], isNew: true },
+  { id: "st-crown",    icon: "👑", cost: 200, rarity: "rare",      th: "มงกุฎไซเบอร์", en: "Cyber Crown",      zh: "赛博皇冠", sw: ["#ffd23f", "#664400"], isNew: true },
+  { id: "st-diamond",  icon: "💎", cost: 300, rarity: "epic",      th: "คริสตัลไซเบอร์", en: "Cyber Crystal",    zh: "赛博水晶", sw: ["#00f0ff", "#aa00ff"], isNew: true },
+  { id: "st-rocket",   icon: "🚀", cost: 350, rarity: "epic",      th: "จรวดดิจิทัล", en: "Digital Rocket",     zh: "数字火箭", sw: ["#ff3300", "#001133"], isNew: true },
+  { id: "st-trophy",   icon: "🏆", cost: 500, rarity: "legendary", th: "ถ้วยโซลไซเบอร์", en: "Cyber Soul Trophy", zh: "赛博灵魂杯", sw: ["#ffd23f", "#cd7f32"], isNew: true },
+  { id: "st-magic",    icon: "✨", cost: 600, rarity: "legendary", th: "ไซเบอร์โซล", en: "Cyber Soul",      zh: "赛博灵魂", sw: ["#cc66ff", "#ff0044", "#ffd23f"], isNew: true },
 ];
 const SHOP_HATS = [
-  { id: "hat-straw",    icon: "👒", cost: 0,   rarity: "common",    th: "หมวกฟาง",   en: "Straw Hat",   zh: "草帽", sw: ["#f5e6c8", "#d4a574"] },
-  { id: "hat-beret",    icon: "🎨", cost: 100, rarity: "common",    th: "เบเร่ต์",   en: "Beret",       zh: "贝雷帽", sw: ["#e74c3c", "#c0392b"], isNew: true },
-  { id: "hat-headphone",icon: "🎧", cost: 150, rarity: "rare",      th: "หูฟัง",     en: "Headphones",  zh: "耳机", sw: ["#2c3e50", "#34495e"], isNew: true },
-  { id: "hat-crown",    icon: "👑", cost: 250, rarity: "rare",      th: "มงกุฎ",     en: "Crown",       zh: "皇冠", sw: ["#ffd23f", "#b8860b"], isNew: true },
-  { id: "hat-wizard",   icon: "🧙", cost: 350, rarity: "epic",      th: "หมวกพ่อมด", en: "Wizard Hat",  zh: "巫师帽", sw: ["#4c1d95", "#7c3aed"], isNew: true },
-  { id: "hat-halo",     icon: "😇", cost: 400, rarity: "epic",      th: "มงกุฎสวรรค์", en: "Halo",     zh: "光环", sw: ["#ffd23f", "#fff3cd"], isNew: true },
-  { id: "hat-devil",    icon: "😈", cost: 500, rarity: "epic",      th: "เขาปีศาจ",  en: "Devil Horns", zh: "恶魔角", sw: ["#e74c3c", "#2c3e50"], isNew: true },
-  { id: "hat-helmet",   icon: "⛑️", cost: 600, rarity: "legendary", th: "หมวกนิรภัย", en: "Knight Helm", zh: "骑士头盔", sw: ["#95a5a6", "#7f8c8d"], isNew: true },
-  { id: "hat-star",     icon: "🌟", cost: 800, rarity: "legendary", th: "มงกุฎดาว",  en: "Star Crown",  zh: "星冠", sw: ["#ffd23f", "#ff6b6b", "#a855f7"], isNew: true },
+  { id: "hat-straw",    icon: "👒", cost: 0,   rarity: "common",    th: "หมวกดิจิทัล", en: "Digital Visor",   zh: "数字面罩", sw: ["#1a1a2e", "#00f0ff"] },
+  { id: "hat-beret",    icon: "🎨", cost: 100, rarity: "common",    th: "เบเร่ต์ไซเบอร์", en: "Cyber Beret",       zh: "赛博贝雷帽", sw: ["#ff0044", "#660018"], isNew: true },
+  { id: "hat-headphone",icon: "🎧", cost: 150, rarity: "rare",      th: "หูฟังนีออน", en: "Neon Headphones",  zh: "霓虹耳机", sw: ["#00f0ff", "#003344"], isNew: true },
+  { id: "hat-crown",    icon: "👑", cost: 250, rarity: "rare",      th: "มงกุฎฮาโลแกรม", en: "Holo Crown",       zh: "全息皇冠", sw: ["#ffd23f", "#00f0ff"], isNew: true },
+  { id: "hat-wizard",   icon: "🧙", cost: 350, rarity: "epic",      th: "หมวกพ่อมดไซเบอร์", en: "Cyber Wizard",  zh: "赛博巫师帽", sw: ["#6600cc", "#aa00ff"], isNew: true },
+  { id: "hat-halo",     icon: "😇", cost: 400, rarity: "epic",      th: "ฮาโลนีออน", en: "Neon Halo",     zh: "霓虹光环", sw: ["#ffd23f", "#ff00aa"], isNew: true },
+  { id: "hat-devil",    icon: "😈", cost: 500, rarity: "epic",      th: "เขาปีศาจไซเบอร์", en: "Cyber Devil Horns", zh: "赛博恶魔角", sw: ["#ff0044", "#0a0015"], isNew: true },
+  { id: "hat-helmet",   icon: "⛑️", cost: 600, rarity: "legendary", th: "เกราะหัวไซเบอร์", en: "Cyber Helm", zh: "赛博头盔", sw: ["#c0c0d0", "#00f0ff"], isNew: true },
+  { id: "hat-star",     icon: "🌟", cost: 800, rarity: "legendary", th: "มงกุฎโซลไซเบอร์", en: "Cyber Soul Crown",  zh: "赛博灵魂冠", sw: ["#ffd23f", "#ff0044", "#aa00ff"], isNew: true },
 ];
 const SHOP_OUTFITS = [
-  { id: "out-tshirt",  icon: "👕", cost: 0,   rarity: "common",    th: "เสื้อยืด",  en: "T-Shirt",     zh: "T恤", sw: ["#ecf0f1", "#bdc3c7"] },
-  { id: "out-hoodie",  icon: "🧥", cost: 120, rarity: "common",    th: "ฮู้ดดี้",   en: "Hoodie",      zh: "卫衣", sw: ["#3498db", "#2980b9"], isNew: true },
-  { id: "out-jacket",  icon: "🧥", cost: 180, rarity: "rare",      th: "แจ็คเก็ต",  en: "Leather Jacket", zh: "皮夹克", sw: ["#2c3e50", "#1a252f"], isNew: true },
-  { id: "out-dress",   icon: "👗", cost: 200, rarity: "rare",      th: "ชุดเดรส",   en: "Dress",       zh: "连衣裙", sw: ["#e91e63", "#c2185b"], isNew: true },
-  { id: "out-kimono",  icon: "👘", cost: 300, rarity: "epic",      th: "กิโมโน",    en: "Kimono",      zh: "和服", sw: ["#e74c3c", "#f39c12"], isNew: true },
-  { id: "out-armor",   icon: "🛡️", cost: 400, rarity: "epic",      th: "ชุดเกราะ",  en: "Armor",       zh: "盔甲", sw: ["#95a5a6", "#2c3e50"], isNew: true },
-  { id: "out-tuxedo",  icon: "🤵", cost: 500, rarity: "epic",      th: "ทักซิโด้",   en: "Tuxedo",      zh: "燕尾服", sw: ["#2c3e50", "#ecf0f1"], isNew: true },
-  { id: "out-royal",   icon: "👘", cost: 700, rarity: "legendary", th: "ชุดราชวงศ์", en: "Royal Robe",  zh: "皇家长袍", sw: ["#9b59b6", "#ffd23f"], isNew: true },
-  { id: "out-celestial", icon: "✨", cost: 900, rarity: "legendary", th: "ชุดสวรรค์", en: "Celestial",  zh: "天界装", sw: ["#3498db", "#a855f7", "#ffd23f"], isNew: true },
+  { id: "out-tshirt",  icon: "👕", cost: 0,   rarity: "common",    th: "ชุดดิจิทัล", en: "Digital Suit",     zh: "数字套装", sw: ["#1a1a2e", "#0d0d15"] },
+  { id: "out-hoodie",  icon: "🧥", cost: 120, rarity: "common",    th: "ฮู้ดไซเบอร์", en: "Cyber Hoodie",      zh: "赛博卫衣", sw: ["#003366", "#001133"], isNew: true },
+  { id: "out-jacket",  icon: "🧥", cost: 180, rarity: "rare",      th: "เสื้อหนังนีออน", en: "Neon Leather", zh: "霓虹皮衣", sw: ["#0a0015", "#00f0ff"], isNew: true },
+  { id: "out-dress",   icon: "👗", cost: 200, rarity: "rare",      th: "ชุดฮอโลแกรม", en: "Holo Dress",       zh: "全息裙装", sw: ["#ff00aa", "#660044"], isNew: true },
+  { id: "out-kimono",  icon: "👘", cost: 300, rarity: "epic",      th: "กิโมโนไซเบอร์", en: "Cyber Kimono",      zh: "赛博和服", sw: ["#ff3300", "#ffd23f"], isNew: true },
+  { id: "out-armor",   icon: "🛡️", cost: 400, rarity: "epic",      th: "เกราะนีออน", en: "Neon Armor",       zh: "霓虹盔甲", sw: ["#00f0ff", "#0a0015"], isNew: true },
+  { id: "out-tuxedo",  icon: "🤵", cost: 500, rarity: "epic",      th: "ทักซิโด้ดิจิทัล", en: "Digital Tux", zh: "数字礼服", sw: ["#0a0015", "#c0c0d0"], isNew: true },
+  { id: "out-royal",   icon: "👘", cost: 700, rarity: "legendary", th: "ชุดจักรพรรดิ์", en: "Imperial Robe",  zh: "帝王长袍", sw: ["#aa00ff", "#ffd23f"], isNew: true },
+  { id: "out-celestial", icon: "✨", cost: 900, rarity: "legendary", th: "ชุดเทพไซเบอร์", en: "Cyber Celestial",  zh: "赛博天界装", sw: ["#00f0ff", "#aa00ff", "#ffd23f"], isNew: true },
 ];
 const SHOP_WEAPONS = [
-  { id: "wpn-stick",   icon: "🪄", cost: 0,   rarity: "common",    th: "ไม้กายสิทธิ์", en: "Magic Wand", zh: "魔杖", sw: ["#8B4513", "#D2691E"] },
-  { id: "wpn-sword",   icon: "⚔️", cost: 150, rarity: "common",    th: "ดาบ",       en: "Sword",      zh: "剑", sw: ["#95a5a6", "#7f8c8d"], isNew: true },
-  { id: "wpn-axe",     icon: "🪓", cost: 180, rarity: "rare",      th: "ขวาน",      en: "Axe",        zh: "斧头", sw: ["#8B4513", "#95a5a6"], isNew: true },
-  { id: "wpn-bow",     icon: "🏹", cost: 220, rarity: "rare",      th: "ธนู",       en: "Bow",        zh: "弓箭", sw: ["#8B4513", "#e74c3c"], isNew: true },
-  { id: "wpn-staff",   icon: "🔮", cost: 350, rarity: "epic",      th: "คทา",       en: "Staff",      zh: "法杖", sw: ["#9b59b6", "#3498db"], isNew: true },
-  { id: "wpn-hammer",  icon: "🔨", cost: 400, rarity: "epic",      th: "ค้อน",      en: "Hammer",     zh: "锤子", sw: ["#95a5a6", "#e74c3c"], isNew: true },
-  { id: "wpn-blade",   icon: "🗡️", cost: 600, rarity: "legendary", th: "ดาบวิเศษ",  en: "Blade",      zh: "神剑", sw: ["#3498db", "#ecf0f1"], isNew: true },
-  { id: "wpn-scythe",  icon: "⚔️", cost: 750, rarity: "legendary", th: "เคียว",     en: "Scythe",     zh: "镰刀", sw: ["#2c3e50", "#e74c3c"], isNew: true },
-  { id: "wpn-celestial", icon: "🌟", cost: 950, rarity: "legendary", th: "อาวุธสวรรค์", en: "Celestial Weapon", zh: "天界武器", sw: ["#ffd23f", "#a855f7", "#3498db"], isNew: true },
+  { id: "wpn-stick",   icon: "🪄", cost: 0,   rarity: "common",    th: "คทาดิจิทัล", en: "Digital Wand", zh: "数字魔杖", sw: ["#0a0015", "#00f0ff"] },
+  { id: "wpn-sword",   icon: "⚔️", cost: 150, rarity: "common",    th: "ดาบไซเบอร์", en: "Cyber Blade",      zh: "赛博刀", sw: ["#c0c0d0", "#00f0ff"], isNew: true },
+  { id: "wpn-axe",     icon: "🪓", cost: 180, rarity: "rare",      th: "ขวานนีออน", en: "Neon Axe",        zh: "霓虹斧", sw: ["#ff3300", "#00f0ff"], isNew: true },
+  { id: "wpn-bow",     icon: "🏹", cost: 220, rarity: "rare",      th: "ธนูโซล", en: "Soul Bow",        zh: "灵魂弓", sw: ["#aa00ff", "#ff0044"], isNew: true },
+  { id: "wpn-staff",   icon: "🔮", cost: 350, rarity: "epic",      th: "คทาฮาโลแกรม", en: "Holo Staff",      zh: "全息法杖", sw: ["#aa00ff", "#00f0ff"], isNew: true },
+  { id: "wpn-hammer",  icon: "🔨", cost: 400, rarity: "epic",      th: "ค้อนไซเบอร์", en: "Cyber Hammer",     zh: "赛博之锤", sw: ["#c0c0d0", "#ff3300"], isNew: true },
+  { id: "wpn-blade",   icon: "🗡️", cost: 600, rarity: "legendary", th: "ดาบปล่อยพลัง", en: "Plasma Sword", zh: "等离子剑", sw: ["#00f0ff", "#ffffff"], isNew: true },
+  { id: "wpn-scythe",  icon: "⚔️", cost: 750, rarity: "legendary", th: "เคียวไซเบอร์", en: "Cyber Scythe",     zh: "赛博镰刀", sw: ["#0a0015", "#ff0044"], isNew: true },
+  { id: "wpn-celestial", icon: "🌟", cost: 950, rarity: "legendary", th: "อาวุธจักรวาล", en: "Cosmic Weapon", zh: "宇宙武器", sw: ["#ffd23f", "#aa00ff", "#00f0ff"], isNew: true },
 ];
 const SHOP_ACCESSORIES = [
-  { id: "acc-shield",   icon: "🛡️", cost: 0,   rarity: "common",    th: "โล่",       en: "Shield",     zh: "盾牌", sw: ["#3498db", "#2c3e50"] },
-  { id: "acc-glasses",  icon: "👓", cost: 80,  rarity: "common",    th: "แว่นตา",    en: "Glasses",    zh: "眼镜", sw: ["#2c3e50", "#34495e"], isNew: true },
-  { id: "acc-wings",    icon: "🪽", cost: 200, rarity: "rare",      th: "ปีก",       en: "Wings",      zh: "翅膀", sw: ["#ecf0f1", "#3498db"], isNew: true },
-  { id: "acc-amulet",   icon: "📿", cost: 250, rarity: "rare",      th: "จี้",        en: "Amulet",     zh: "护身符", sw: ["#ffd23f", "#e74c3c"], isNew: true },
-  { id: "acc-pet",      icon: "🐱", cost: 350, rarity: "epic",      th: "สัตว์เลี้ยง", en: "Pet Cat",   zh: "猫咪伙伴", sw: ["#ff6b35", "#ffd23f"], isNew: true },
-  { id: "acc-petdog",   icon: "🐶", cost: 350, rarity: "epic",      th: "สุนัข",     en: "Pet Dog",    zh: "狗狗伙伴", sw: ["#8B4513", "#ffd23f"], isNew: true },
-  { id: "acc-cape",     icon: "🧣", cost: 450, rarity: "epic",      th: "ผ้าคลุม",    en: "Cape",       zh: "披风", sw: ["#e74c3c", "#2c3e50"], isNew: true },
-  { id: "acc-phoenix",  icon: "🦅", cost: 700, rarity: "legendary", th: "ฟีนิกซ์",    en: "Phoenix",    zh: "凤凰", sw: ["#e74c3c", "#ffd23f"], isNew: true },
-  { id: "acc-dragon",   icon: "🐉", cost: 900, rarity: "legendary", th: "มังกร",     en: "Dragon",     zh: "神龙", sw: ["#27ae60", "#e74c3c"], isNew: true },
+  { id: "acc-shield",   icon: "🛡️", cost: 0,   rarity: "common",    th: "โล่ดิจิทัล", en: "Digital Shield",     zh: "数字盾牌", sw: ["#00f0ff", "#0a0015"] },
+  { id: "acc-glasses",  icon: "👓", cost: 80,  rarity: "common",    th: "แว่นนีออน", en: "Neon Glasses",    zh: "霓虹眼镜", sw: ["#00f0ff", "#ff00aa"], isNew: true },
+  { id: "acc-wings",    icon: "🪽", cost: 200, rarity: "rare",      th: "ปีกฮอโลแกรม", en: "Holo Wings",      zh: "全息翅膀", sw: ["#ffffff", "#00f0ff"], isNew: true },
+  { id: "acc-amulet",   icon: "📿", cost: 250, rarity: "rare",      th: "จี้ไซเบอร์", en: "Cyber Amulet",     zh: "赛博护符", sw: ["#ffd23f", "#ff0044"], isNew: true },
+  { id: "acc-pet",      icon: "🐱", cost: 350, rarity: "epic",      th: "โดรนไซเบอร์", en: "Cyber Drone",   zh: "赛博无人机", sw: ["#ff3300", "#ffd23f"], isNew: true },
+  { id: "acc-petdog",   icon: "🐶", cost: 350, rarity: "epic",      th: "ไซเบอร์วูล์ฟ", en: "Cyber Wolf",    zh: "赛博狼", sw: ["#6600cc", "#ffd23f"], isNew: true },
+  { id: "acc-cape",     icon: "🧣", cost: 450, rarity: "epic",      th: "ผ้าคลุมนีออน", en: "Neon Cape",       zh: "霓虹披风", sw: ["#ff0044", "#0a0015"], isNew: true },
+  { id: "acc-phoenix",  icon: "🦅", cost: 700, rarity: "legendary", th: "ฟีนิกซ์ไซเบอร์", en: "Cyber Phoenix",    zh: "赛博凤凰", sw: ["#ff3300", "#ffd23f"], isNew: true },
+  { id: "acc-dragon",   icon: "🐉", cost: 900, rarity: "legendary", th: "มังกรไซเบอร์", en: "Cyber Dragon",     zh: "赛博神龙", sw: ["#00f0ff", "#ff0044"], isNew: true },
 ];
 // F2: LINE achievement share — opens LINE app on mobile, fallback clipboard on desktop
 function shareLine(text: string) {
@@ -5584,9 +5584,9 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         <div className="charcard-hdr">
           <span>🎭 {lang === "th" ? "ตัวละครของฉัน" : lang === "zh" ? "我的角色" : "My Character"}</span>
           <div className="char-gender-toggle">
-            <button className={`char-gender-btn${charGender === "boy" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("boy")}>👦 {lang === "th" ? "ชาย" : lang === "zh" ? "男" : "Boy"}</button>
-            <button className={`char-gender-btn${charGender === "girl" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("girl")}>👧 {lang === "th" ? "หญิง" : lang === "zh" ? "女" : "Girl"}</button>
-            <button className={`char-gender-btn${charGender === "cute" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("cute")}>🦊 {lang === "th" ? "น่ารัก" : lang === "zh" ? "可爱" : "Cute"}</button>
+            <button className={`char-gender-btn${charGender === "boy" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("boy")}>{charGender === "boy" ? "🧑‍🎤" : "👤"} {lang === "th" ? "ชาย" : lang === "zh" ? "男" : "Boy"}</button>
+            <button className={`char-gender-btn${charGender === "girl" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("girl")}>{charGender === "girl" ? "👩‍🦰" : "👤"} {lang === "th" ? "หญิง" : lang === "zh" ? "女" : "Girl"}</button>
+            <button className={`char-gender-btn${charGender === "cute" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("cute")}>{charGender === "cute" ? "🦊" : "👤"} {lang === "th" ? "น่ารัก" : lang === "zh" ? "可爱" : "Cute"}</button>
           </div>
         </div>
         <div className="char-sprite">
@@ -5594,7 +5594,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             {(() => { const h = SHOP_HATS.find(x => x.id === charHat); return h ? <span title={tr(h, lang)}>{h.icon}</span> : null; })()}
           </div>
           <div className="char-layer char-head">
-            {charGender === "girl" ? "👧" : charGender === "cute" ? "🦊" : "👦"}
+            {charGender === "girl" ? "👩‍🦰" : charGender === "cute" ? "🦊" : "🧑‍🎤"}
           </div>
           <div className="char-layer char-body">
             {(() => { const o = SHOP_OUTFITS.find(x => x.id === charOutfit); return o ? <span title={tr(o, lang)}>{o.icon}</span> : null; })()}
