@@ -885,7 +885,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .char-layer{font-size:36px;line-height:1;position:relative;z-index:1}
 
 /* ── 3D AAA Character Scene ── */
-.charstage{--floor:52px;position:relative;height:300px;margin:2px 0 10px;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse 120% 80% at 50% 108%,#141033 0%,#0a0618 55%,#050310 100%);border:1px solid #ffffff14;box-shadow:inset 0 0 40px #000a,0 6px 22px -10px var(--keyA),0 0 0 1px var(--keyA)33;isolation:isolate}
+.charstage{--floor:26px;position:relative;height:372px;margin:2px 0 10px;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse 120% 80% at 50% 108%,#141033 0%,#0a0618 55%,#050310 100%);border:1px solid #ffffff14;box-shadow:inset 0 0 40px #000a,0 6px 22px -10px var(--keyA),0 0 0 1px var(--keyA)33;isolation:isolate}
 /* deep sky + the two key lights bleeding in from the top corners */
 /* Two key lights washing in from the top corners. These used to be separate
    rotated-and-blurred divs with mix-blend-mode; inside the stage's own
@@ -927,11 +927,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    panel across the chamber behind the character. Depth here comes from scale,
    stacking order and shadow weight instead; the real 3D is left to the podium and
    rings, which carry no filters and so composite cleanly. */
-.cs-figure,.cs-reflect{position:absolute;left:50%;bottom:var(--floor);width:152px;height:196px}
+.cs-figure,.cs-reflect{position:absolute;left:50%;bottom:var(--floor);width:127px;height:330px}
 .cs-figure{transform:translateX(-50%)}
 .cs-figure{animation:csFloat 4.2s ease-in-out infinite}
 @keyframes csFloat{0%,100%{translate:0 0}50%{translate:0 -7px}}
-.cs-aura{position:absolute;left:-10px;right:-10px;top:6px;height:150px;border-radius:50%;z-index:1;background:radial-gradient(circle,color-mix(in srgb,var(--keyA) 46%,transparent) 0%,color-mix(in srgb,var(--keyB) 22%,transparent) 42%,transparent 72%);filter:blur(11px);animation:csPulse 3.6s ease-in-out infinite}
+.cs-aura{position:absolute;left:-16px;right:-16px;top:10px;height:318px;border-radius:50%;z-index:1;background:radial-gradient(circle,color-mix(in srgb,var(--keyA) 46%,transparent) 0%,color-mix(in srgb,var(--keyB) 22%,transparent) 42%,transparent 72%);filter:blur(11px);animation:csPulse 3.6s ease-in-out infinite}
 /* each equipped layer gets rim light in ITS OWN colour, plus real depth offset */
 /* Rim light WITHOUT a filter. A drop-shadow() on a layer holding a colour-emoji
    made Chromium rasterise that layer's whole box as an opaque grey panel across
@@ -963,12 +963,12 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 @keyframes caMorph{0%,100%{opacity:.85;transform:translateX(0)}50%{opacity:.3;transform:translateX(1.5px)}}
 .ca-core{transform-origin:60px 100px;animation:caCore 2.8s ease-in-out infinite}
 @keyframes caCore{0%,100%{opacity:.8;transform:scale(.94) rotate(0deg)}50%{opacity:1;transform:scale(1.06) rotate(180deg)}}
-.cs-hat{top:-4px;font-size:34px;transform:translateX(-50%);z-index:7;transform-origin:50% 90%}
+.cs-hat{top:-11px;font-size:29px;transform:translateX(-50%);z-index:7;transform-origin:50% 92%}
 /* The outfit sits ON the body, not under it. The person emoji already draws its
    own torso and shirt, so hanging a second garment below it read as two bodies
    floating apart — the outfit now overlaps that torso (and stacks above it) so it
    reads as the character WEARING the item. */
-.cs-wpn,.cs-acc{top:78px;font-size:34px;z-index:9}
+.cs-wpn,.cs-acc{font-size:30px;z-index:9}
 /* Mirrored copy on the floor. transform-origin is the point that matters: the
    default centre origin flips the copy back UP over the figure, which reads as a
    glitch rather than a reflection. Pinning the origin to its own bottom edge
@@ -1011,7 +1011,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .charstage.rar-legendary .cs-ring1,.charstage.rar-legendary .cs-ring2{opacity:1}
 .charstage.rar-legendary{box-shadow:inset 0 0 48px #000c,0 10px 36px -8px #ffd23f,0 0 0 1.5px #ffd23faa}
 @media (prefers-reduced-motion:reduce){.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.ca-led,.ca-led circle,.ca-morph,.cs-grid,.cs-beam,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan,.cs-turn-hint{animation:none}}
-@media (max-width:380px){.charstage{height:278px;--floor:48px}.cs-hat{font-size:32px}.cs-wpn,.cs-acc{font-size:29px}.char-models{gap:3px}.char-model-nm{font-size:8px}}
+@media (max-width:380px){.charstage{height:344px;--floor:22px}.cs-figure,.cs-reflect{width:114px;height:296px}.cs-aura{height:286px}.cs-hat{font-size:26px;top:-10px}.cs-wpn,.cs-acc{font-size:27px}.char-models{gap:3px}.char-model-nm{font-size:8px}}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}
 .char-slot-ic{font-size:18px}

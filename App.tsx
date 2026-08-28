@@ -3,7 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
-import { CyberAvatar, CHAR_MODELS, RobotGlyph, normalizeModel, wrapYaw } from "./cyber-avatar";
+import { CyberAvatar, CHAR_MODELS, MODEL_RIG, RobotGlyph, normalizeModel, wrapYaw } from "./cyber-avatar";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -5613,12 +5613,16 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
      instead of staying pinned to the viewport. */
   const R = Math.PI / 180;
   const orbit = (th, r) => { const a = (th + yaw) * R; return { dx: Math.sin(a) * r, z: Math.cos(a) }; };
-  const wp = orbit(70, 44), ap = orbit(-70, 44);
+  // a chibi is wider at the hands and its head is nearly twice the size, so
+  // headgear and held gear have to be placed against the build, not one offset
+  const rig = MODEL_RIG[model] || MODEL_RIG.vanguard;
+  const wp = orbit(74, rig.chibi ? 50 : 54), ap = orbit(-74, rig.chibi ? 50 : 54);
   const sYaw = Math.sin(yaw * R), cYaw = Math.cos(yaw * R);
   const headK = Math.max(0.36, Math.abs(cYaw));
   const gearStyle = (it, p, rot) => ({
     "--rim": rimOf(it),
-    transform: `translateX(calc(-50% + ${p.dx.toFixed(1)}px)) rotate(${rot}deg) scale(${(0.78 + 0.22 * Math.abs(p.z)).toFixed(3)})`,
+    top: rig.chibi ? "55%" : "59%",
+    transform: `translateX(calc(-50% + ${p.dx.toFixed(1)}px)) translateY(-50%) rotate(${rot}deg) scale(${(0.78 + 0.22 * Math.abs(p.z)).toFixed(3)})`,
     zIndex: p.z > 0 ? 9 : 2,
     opacity: (0.5 + 0.5 * Math.max(0, p.z)).toFixed(2),
   });
@@ -5626,7 +5630,7 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
   const figure = (
     <>
       <span className="cs-av"><CyberAvatar model={model} yaw={yaw} armorA={armorA} armorB={armorB} glow={keyA} accent={keyB} /></span>
-      {hat && <span className="cs-layer cs-hat" style={{ "--rim": rimOf(hat), transform: `translateX(calc(-50% + ${(5.6 * sYaw).toFixed(1)}px)) scaleX(${headK.toFixed(3)})` }}>{hat.icon}</span>}
+      {hat && <span className="cs-layer cs-hat" style={{ "--rim": rimOf(hat), transform: `translateX(calc(-50% + ${(3.4 * sYaw).toFixed(1)}px)) scaleX(${headK.toFixed(3)}) scale(${(rig.hs / 1.15).toFixed(3)})` }}>{hat.icon}</span>}
       {wpn && <span className="cs-layer cs-wpn" style={gearStyle(wpn, wp, -18)}>{wpn.icon}</span>}
       {acc && <span className="cs-layer cs-acc" style={gearStyle(acc, ap, 16)}>{acc.icon}</span>}
     </>
