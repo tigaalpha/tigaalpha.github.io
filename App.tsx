@@ -5126,6 +5126,18 @@ const SHOP_WEAPONS = [
   { id: "wpn-speaker", icon: "🔊", cost: 440, rarity: "epic",      th: "ปืนคลื่นเสียง", en: "Sonic Emitter",    zh: "声波发射器", sw: ["#00f0ff", "#0a1628"], isNew: true },
   { id: "wpn-arm",     icon: "🦾", cost: 640, rarity: "epic",      th: "แขนกลเสริมพลัง", en: "Power Arm",       zh: "动力机械臂", sw: ["#c0c0d0", "#ff6a00"], isNew: true },
   { id: "wpn-plasma",  icon: "⚡", cost: 900, rarity: "legendary", th: "ตัวปล่อยพลาสมา", en: "Plasma Coil",     zh: "等离子线圈", sw: ["#00f0ff", "#ffffff", "#aa00ff"], isNew: true },
+  /* ── energy weapons ── the space-opera end of the rack: directed light,
+     thrown charges, and a projected barrier. Kept squarely in sci-fi rather
+     than reality — the blaster fires light, the charges are EMP and pulse
+     rather than fragmentation, and the barrier is defensive. ── */
+  { id: "wpn-laser",   icon: "✴️", cost: 200, rarity: "rare",      th: "ลำแสงเลเซอร์", en: "Laser Beam",       zh: "激光束", sw: ["#ff3366", "#ffffff"], isNew: true },
+  { id: "wpn-blaster", icon: "🔫", cost: 280, rarity: "rare",      th: "ปืนเลเซอร์", en: "Laser Blaster",     zh: "激光枪", sw: ["#00f0ff", "#0a1a2e"], isNew: true },
+  { id: "wpn-barrier", icon: "🔵", cost: 340, rarity: "epic",      th: "บาเรียสนามพลัง", en: "Force Barrier",  zh: "力场屏障", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "wpn-charge",  icon: "🧨", cost: 380, rarity: "epic",      th: "ระเบิดพัลส์", en: "Pulse Charge",     zh: "脉冲炸药", sw: ["#ff9a3c", "#5c1400"], isNew: true },
+  { id: "wpn-emp",     icon: "💣", cost: 460, rarity: "epic",      th: "ระเบิดคลื่นแม่เหล็ก", en: "EMP Grenade", zh: "电磁脉冲弹", sw: ["#8fa6c8", "#0d1520"], isNew: true },
+  { id: "wpn-boomer",  icon: "🪃", cost: 520, rarity: "epic",      th: "ใบมีดบูมเมอแรง", en: "Boomerang Blade", zh: "回旋刀刃", sw: ["#ffd23f", "#3a2a00"], isNew: true },
+  { id: "wpn-ion",     icon: "❇️", cost: 700, rarity: "legendary", th: "ปืนใหญ่ไอออน", en: "Ion Cannon",      zh: "离子炮", sw: ["#7fe8ff", "#12405e"], isNew: true },
+  { id: "wpn-nova",    icon: "🎆", cost: 1000, rarity: "legendary", th: "โนวาเบิร์สต์", en: "Nova Burst",     zh: "新星爆发", sw: ["#ffd23f", "#ff0044", "#aa00ff"], isNew: true },
 ];
 const SHOP_ACCESSORIES = [
   { id: "acc-shield",   icon: "🛡️", cost: 0,   rarity: "common",    th: "โล่สนามพลัง", en: "Deflector Shield", zh: "偏导护盾", sw: ["#00f0ff", "#0a1a2e"] },
