@@ -936,6 +936,9 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .ca-visor{animation:caVisor 3.4s ease-in-out infinite}
 @keyframes caVisor{0%,100%{opacity:.86}50%{opacity:1}}
 .ca-optic{animation:caVisor 2.2s ease-in-out infinite}
+.ca-eye{animation:caBlink 6.5s ease-in-out infinite;transform-origin:center;transform-box:fill-box}
+@keyframes caBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.12)}}
+.ca-mouth{animation:caVisor 2.8s ease-in-out infinite}
 .ca-core{transform-origin:60px 100px;animation:caCore 2.8s ease-in-out infinite}
 @keyframes caCore{0%,100%{opacity:.8;transform:scale(.94) rotate(0deg)}50%{opacity:1;transform:scale(1.06) rotate(180deg)}}
 .cs-hat{top:-4px;font-size:34px;transform:translateX(-50%);z-index:7}
@@ -970,7 +973,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .charstage.rar-legendary .cs-aura{filter:blur(17px);animation-duration:2s}
 .charstage.rar-legendary .cs-ring1,.charstage.rar-legendary .cs-ring2{opacity:1}
 .charstage.rar-legendary{box-shadow:inset 0 0 48px #000c,0 10px 36px -8px #ffd23f,0 0 0 1.5px #ffd23faa}
-@media (prefers-reduced-motion:reduce){.ca-visor,.ca-optic,.ca-core,.cs-grid,.cs-beam,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan{animation:none}}
+@media (prefers-reduced-motion:reduce){.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.cs-grid,.cs-beam,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan{animation:none}}
 @media (max-width:380px){.charstage{height:272px;--floor:40px}.cs-head{font-size:60px}.cs-hat{font-size:32px}.cs-torso{font-size:40px}.cs-wpn,.cs-acc{font-size:29px}}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}

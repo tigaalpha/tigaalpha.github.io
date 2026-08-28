@@ -5075,6 +5075,16 @@ const SHOP_HATS = [
   { id: "hat-devil",    icon: "😈", cost: 500, rarity: "epic",      th: "เขาปีศาจไซเบอร์", en: "Cyber Devil Horns", zh: "赛博恶魔角", sw: ["#ff0044", "#0a0015"], isNew: true },
   { id: "hat-helmet",   icon: "⛑️", cost: 600, rarity: "legendary", th: "เกราะหัวไซเบอร์", en: "Cyber Helm", zh: "赛博头盔", sw: ["#c0c0d0", "#00f0ff"], isNew: true },
   { id: "hat-star",     icon: "🌟", cost: 800, rarity: "legendary", th: "มงกุฎโซลไซเบอร์", en: "Cyber Soul Crown",  zh: "赛博灵魂冠", sw: ["#ffd23f", "#ff0044", "#aa00ff"], isNew: true },
+  /* ── android head modules ── gear that belongs on a machine rather than on a
+     person: sensors, antennae and processing units, so the shop stocks things
+     the character can plausibly be wearing now that it is a robot. ── */
+  { id: "hat-antenna",  icon: "📡", cost: 120, rarity: "common",    th: "เสาอากาศรับสัญญาณ", en: "Signal Antenna",   zh: "信号天线", sw: ["#7f8fa8", "#00f0ff"], isNew: true },
+  { id: "hat-bolt",     icon: "🔩", cost: 140, rarity: "common",    th: "หมุดยึดไทเทเนียม", en: "Titanium Rivets",  zh: "钛合金铆钉", sw: ["#b8c2d4", "#4a5a78"], isNew: true },
+  { id: "hat-scope",    icon: "🔭", cost: 260, rarity: "rare",      th: "กล้องเล็งเป้า", en: "Targeting Scope",  zh: "瞄准镜", sw: ["#00f0ff", "#0a1628"], isNew: true },
+  { id: "hat-beacon",   icon: "💡", cost: 300, rarity: "rare",      th: "ไฟนำทางฉุกเฉิน", en: "Beacon Node",      zh: "信标灯", sw: ["#ffd23f", "#ff6a00"], isNew: true },
+  { id: "hat-satellite",icon: "🛰️", cost: 460, rarity: "epic",      th: "โมดูลดาวเทียม", en: "Satellite Uplink", zh: "卫星模块", sw: ["#00f0ff", "#2a3f6a"], isNew: true },
+  { id: "hat-reactor",  icon: "⚛️", cost: 560, rarity: "epic",      th: "แกนปฏิกรณ์สมอง", en: "Neural Reactor",  zh: "神经反应堆", sw: ["#00ffa8", "#00f0ff"], isNew: true },
+  { id: "hat-quantum",  icon: "🌐", cost: 880, rarity: "legendary", th: "คอร์ควอนตัม", en: "Quantum Core",     zh: "量子核心", sw: ["#aa00ff", "#00f0ff", "#ffd23f"], isNew: true },
 ];
 const SHOP_OUTFITS = [
   { id: "out-tshirt",  icon: "👕", cost: 0,   rarity: "common",    th: "ชุดดิจิทัล", en: "Digital Suit",     zh: "数字套装", sw: ["#1a1a2e", "#0d0d15"] },
@@ -5086,6 +5096,15 @@ const SHOP_OUTFITS = [
   { id: "out-tuxedo",  icon: "🤵", cost: 500, rarity: "epic",      th: "ทักซิโด้ดิจิทัล", en: "Digital Tux", zh: "数字礼服", sw: ["#0a0015", "#c0c0d0"], isNew: true },
   { id: "out-royal",   icon: "👘", cost: 700, rarity: "legendary", th: "ชุดจักรพรรดิ์", en: "Imperial Robe",  zh: "帝王长袍", sw: ["#aa00ff", "#ffd23f"], isNew: true },
   { id: "out-celestial", icon: "✨", cost: 900, rarity: "legendary", th: "ชุดเทพไซเบอร์", en: "Cyber Celestial",  zh: "赛博天界装", sw: ["#00f0ff", "#aa00ff", "#ffd23f"], isNew: true },
+  /* ── chassis plating ── these are the items that visibly re-plate the avatar,
+     so their swatches are picked to look good ON the armour, not just in the
+     shop list: a light accent first, a deep base second. ── */
+  { id: "out-alloy",   icon: "⚙️", cost: 130, rarity: "common",    th: "โครงโลหะผสม", en: "Alloy Frame",      zh: "合金框架", sw: ["#9aa8c0", "#333e56"], isNew: true },
+  { id: "out-carbon",  icon: "🔲", cost: 210, rarity: "rare",      th: "เกราะคาร์บอนไฟเบอร์", en: "Carbon Weave", zh: "碳纤维装甲", sw: ["#5c6478", "#14161f"], isNew: true },
+  { id: "out-cryo",    icon: "🧊", cost: 280, rarity: "rare",      th: "เกราะไครโอ", en: "Cryo Plating",     zh: "低温装甲", sw: ["#7fe8ff", "#0d3a5c"], isNew: true },
+  { id: "out-magma",   icon: "🌋", cost: 420, rarity: "epic",      th: "เกราะแมกม่า", en: "Magma Chassis",    zh: "熔岩机身", sw: ["#ff7a1a", "#5c1400"], isNew: true },
+  { id: "out-prism",   icon: "💠", cost: 520, rarity: "epic",      th: "เกราะปริซึม", en: "Prism Chassis",    zh: "棱镜机身", sw: ["#66f0ff", "#2b1a6a"], isNew: true },
+  { id: "out-titan",   icon: "🦾", cost: 820, rarity: "legendary", th: "โครงไทตันเมค", en: "Titan Mech Frame", zh: "泰坦机甲", sw: ["#ffd23f", "#3a2a00"], isNew: true },
 ];
 const SHOP_WEAPONS = [
   { id: "wpn-stick",   icon: "🪄", cost: 0,   rarity: "common",    th: "คทาดิจิทัล", en: "Digital Wand", zh: "数字魔杖", sw: ["#0a0015", "#00f0ff"] },
@@ -5097,6 +5116,16 @@ const SHOP_WEAPONS = [
   { id: "wpn-blade",   icon: "🗡️", cost: 600, rarity: "legendary", th: "ดาบปล่อยพลัง", en: "Plasma Sword", zh: "等离子剑", sw: ["#00f0ff", "#ffffff"], isNew: true },
   { id: "wpn-scythe",  icon: "⚔️", cost: 750, rarity: "legendary", th: "เคียวไซเบอร์", en: "Cyber Scythe",     zh: "赛博镰刀", sw: ["#0a0015", "#ff0044"], isNew: true },
   { id: "wpn-celestial", icon: "🌟", cost: 950, rarity: "legendary", th: "อาวุธจักรวาล", en: "Cosmic Weapon", zh: "宇宙武器", sw: ["#ffd23f", "#aa00ff", "#00f0ff"], isNew: true },
+  /* ── arm modules ── engineering and sound gear rather than firearms: this is a
+     children's piano app, and a robot arm that plays music is a better fit for
+     it than a gun anyway. ── */
+  { id: "wpn-wrench",  icon: "🔧", cost: 110, rarity: "common",    th: "ประแจเซอร์โว", en: "Servo Wrench",     zh: "伺服扳手", sw: ["#b8c2d4", "#00f0ff"], isNew: true },
+  { id: "wpn-driver",  icon: "🪛", cost: 140, rarity: "common",    th: "ไขควงแรงบิด", en: "Torque Driver",    zh: "扭矩螺丝刀", sw: ["#ffd23f", "#4a5a78"], isNew: true },
+  { id: "wpn-magnet",  icon: "🧲", cost: 240, rarity: "rare",      th: "กรงเล็บแม่เหล็ก", en: "Magnet Claw",      zh: "磁力爪", sw: ["#ff0044", "#00f0ff"], isNew: true },
+  { id: "wpn-keytar",  icon: "🎹", cost: 320, rarity: "rare",      th: "แขนคีย์ทาร์", en: "Keytar Arm",       zh: "键盘臂", sw: ["#ffffff", "#aa00ff"], isNew: true },
+  { id: "wpn-speaker", icon: "🔊", cost: 440, rarity: "epic",      th: "ปืนคลื่นเสียง", en: "Sonic Emitter",    zh: "声波发射器", sw: ["#00f0ff", "#0a1628"], isNew: true },
+  { id: "wpn-arm",     icon: "🦾", cost: 640, rarity: "epic",      th: "แขนกลเสริมพลัง", en: "Power Arm",       zh: "动力机械臂", sw: ["#c0c0d0", "#ff6a00"], isNew: true },
+  { id: "wpn-plasma",  icon: "⚡", cost: 900, rarity: "legendary", th: "ตัวปล่อยพลาสมา", en: "Plasma Coil",     zh: "等离子线圈", sw: ["#00f0ff", "#ffffff", "#aa00ff"], isNew: true },
 ];
 const SHOP_ACCESSORIES = [
   { id: "acc-shield",   icon: "🛡️", cost: 0,   rarity: "common",    th: "โล่ดิจิทัล", en: "Digital Shield",     zh: "数字盾牌", sw: ["#00f0ff", "#0a0015"] },
@@ -5108,6 +5137,15 @@ const SHOP_ACCESSORIES = [
   { id: "acc-cape",     icon: "🧣", cost: 450, rarity: "epic",      th: "ผ้าคลุมนีออน", en: "Neon Cape",       zh: "霓虹披风", sw: ["#ff0044", "#0a0015"], isNew: true },
   { id: "acc-phoenix",  icon: "🦅", cost: 700, rarity: "legendary", th: "ฟีนิกซ์ไซเบอร์", en: "Cyber Phoenix",    zh: "赛博凤凰", sw: ["#ff3300", "#ffd23f"], isNew: true },
   { id: "acc-dragon",   icon: "🐉", cost: 900, rarity: "legendary", th: "มังกรไซเบอร์", en: "Cyber Dragon",     zh: "赛博神龙", sw: ["#00f0ff", "#ff0044"], isNew: true },
+  /* ── auxiliary modules ── the bolt-on systems a robot carries: power, storage,
+     cooling, sensors. ── */
+  { id: "acc-battery",  icon: "🔋", cost: 90,  rarity: "common",    th: "เซลล์พลังงานสำรอง", en: "Power Cell",     zh: "备用电池", sw: ["#00ffa8", "#0a3a24"], isNew: true },
+  { id: "acc-chip",     icon: "💾", cost: 160, rarity: "common",    th: "คอร์หน่วยความจำ", en: "Memory Core",     zh: "记忆核心", sw: ["#7f8fa8", "#00f0ff"], isNew: true },
+  { id: "acc-gyro",     icon: "⚙️", cost: 230, rarity: "rare",      th: "ไจโรรักษาสมดุล", en: "Stabiliser Gyro",  zh: "陀螺稳定器", sw: ["#b8c2d4", "#ffd23f"], isNew: true },
+  { id: "acc-coolant",  icon: "❄️", cost: 290, rarity: "rare",      th: "ระบบระบายความร้อน", en: "Coolant Vents", zh: "冷却系统", sw: ["#7fe8ff", "#0d3a5c"], isNew: true },
+  { id: "acc-thruster", icon: "🚀", cost: 480, rarity: "epic",      th: "เครื่องยนต์ขับดัน", en: "Thruster Pack",  zh: "推进背包", sw: ["#ff6a00", "#ffd23f"], isNew: true },
+  { id: "acc-drone",    icon: "🛸", cost: 600, rarity: "epic",      th: "โดรนคู่หู", en: "Companion Drone",  zh: "伴飞无人机", sw: ["#aa00ff", "#00f0ff"], isNew: true },
+  { id: "acc-halo",     icon: "💫", cost: 950, rarity: "legendary", th: "วงแหวนพลังงาน", en: "Energy Halo",     zh: "能量光环", sw: ["#ffd23f", "#00f0ff", "#ff00aa"], isNew: true },
 ];
 // F2: LINE achievement share — opens LINE app on mobile, fallback clipboard on desktop
 function shareLine(text: string) {
