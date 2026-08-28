@@ -3,7 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
-import { CyberAvatar } from "./cyber-avatar";
+import { CyberAvatar, CHAR_MODELS, RobotGlyph, normalizeModel, wrapYaw } from "./cyber-avatar";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -146,7 +146,7 @@ export const EXP = { lesson: 50, chapter: 25, ask: 10, daily: 15 };
 // Rank ladder — each tier needs `min` total EXP. Level number = index + 1.
 // Colors stay within the pink/magenta/wine family, deepening as the learner advances.
 export const LEVELS = [
-  { min: 0,    icon: "🌱", c: "#d97757", th: "มือใหม่",      en: "Novice",      zh: "初学者" },
+  { min: 0,    icon: "🎧", c: "#d97757", th: "มือใหม่",      en: "Novice",      zh: "初学者" },
   { min: 120,  icon: "🎵", c: "#ffa8d2", th: "ผู้เริ่มต้น",   en: "Beginner",    zh: "入门" },
   { min: 300,  icon: "🎶", c: "#ff5fb1", th: "นักเรียน",     en: "Student",     zh: "学生" },
   { min: 560,  icon: "🎹", c: "#d97757", th: "นักฝึก",       en: "Apprentice",  zh: "学徒" },
@@ -5527,7 +5527,154 @@ const GameStats = memo(function GameStats({ lang }) {
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charGender = "boy", setCharGender, charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+/* ── CharacterStage ──
+   The holo-chamber the character is displayed in, and a real turntable: the
+   model can be spun a full 360° by dragging it, by the two nudge buttons, or by
+   leaving the idle spin running, so every side of a build can actually be
+   looked at.
+
+   It is its own component for one specific reason: the spin drives `yaw` at
+   animation rate, and yaw is a real prop of the drawn SVG rather than a CSS
+   transform, so every frame is a React render. Keeping that render inside this
+   subtree means the rest of the (very large) profile page is not re-rendered
+   sixty times a second while the model turns.
+
+   The stage is a dark 3D scene sunk into the light card, the way a game's
+   character screen embeds a rendered viewport in its UI: a perspective floor
+   grid running to a lit horizon, drifting motes, counter-rotating holo rings, a
+   mirrored floor reflection and a scanline sweep.
+
+   Colour is not decorative: the aura, rings and rim light all take the palette
+   of whatever is EQUIPPED (each shop item carries its own `sw` swatch), and the
+   intensity follows the best rarity worn — so gearing up visibly changes the
+   lighting of the whole chamber. */
+const CS_RARITY = { common: 0, rare: 1, epic: 2, legendary: 3 };
+const CharacterStage = memo(function CharacterStage({ lang, model, charHat, charOutfit, charWeapon, charAccessory }) {
+  const [yaw, setYaw] = useState(-16);
+  const [spin, setSpin] = useState(() => {
+    try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return true; }
+  });
+  const [touched, setTouched] = useState(false);
+  const dragRef = useRef(null);
+
+  /* idle turntable. Capped near 30fps on purpose — the figure is drawn twice
+     (itself and its floor reflection) and this runs on phones. */
+  useEffect(() => {
+    if (!spin) return;
+    let raf = 0, last = 0;
+    const tick = (t) => {
+      raf = requestAnimationFrame(tick);
+      if (!last) { last = t; return; }
+      const dt = t - last;
+      if (dt < 32) return;
+      last = t;
+      setYaw(y => wrapYaw(y + (dt / 1000) * 26));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [spin]);
+
+  const grab = (e) => {
+    dragRef.current = { x: e.clientX, y0: yaw };
+    setSpin(false); setTouched(true);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+  };
+  const drag = (e) => {
+    const d = dragRef.current;
+    if (!d) return;
+    setYaw(wrapYaw(d.y0 + (e.clientX - d.x) * 0.85));
+  };
+  const drop = (e) => {
+    dragRef.current = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {}
+  };
+  const nudge = (d) => { setSpin(false); setTouched(true); setYaw(y => wrapYaw(y + d)); };
+
+  const hat = SHOP_HATS.find(x => x.id === charHat);
+  const out = SHOP_OUTFITS.find(x => x.id === charOutfit);
+  const wpn = SHOP_WEAPONS.find(x => x.id === charWeapon);
+  const acc = SHOP_ACCESSORIES.find(x => x.id === charAccessory);
+  const worn = [hat, out, wpn, acc].filter(Boolean);
+  const best = worn.reduce((m, it) => (CS_RARITY[it.rarity] > CS_RARITY[m] ? it.rarity : m), "common");
+  // the chamber's two key lights, picked from the gear actually worn
+  const sw = worn.flatMap(it => it.sw || []).filter(Boolean);
+  const keyA = sw[0] || "#00f0ff";
+  const keyB = sw.find(c => c !== keyA) || "#aa00ff";
+  const rimOf = (it) => (it && it.sw && it.sw[1]) || (it && it.sw && it.sw[0]) || keyA;
+  // The OUTFIT re-plates the armour rather than being pasted on as a garment
+  // sprite — which is what used to make the shirt read as a second body
+  // floating in front of the first.
+  const armorA = (out && out.sw && out.sw[0]) || "#161d2c";
+  const armorB = (out && out.sw && out.sw[1]) || "#3d5878";
+  const power = worn.reduce((n, it) => n + (CS_RARITY[it.rarity] + 1) * 120, 0);
+
+  /* Equipped items orbit the figure on the same axis the model turns on, so a
+     weapon held at the character's side really does travel round behind it
+     instead of staying pinned to the viewport. */
+  const R = Math.PI / 180;
+  const orbit = (th, r) => { const a = (th + yaw) * R; return { dx: Math.sin(a) * r, z: Math.cos(a) }; };
+  const wp = orbit(70, 44), ap = orbit(-70, 44);
+  const sYaw = Math.sin(yaw * R), cYaw = Math.cos(yaw * R);
+  const headK = Math.max(0.36, Math.abs(cYaw));
+  const gearStyle = (it, p, rot) => ({
+    "--rim": rimOf(it),
+    transform: `translateX(calc(-50% + ${p.dx.toFixed(1)}px)) rotate(${rot}deg) scale(${(0.78 + 0.22 * Math.abs(p.z)).toFixed(3)})`,
+    zIndex: p.z > 0 ? 9 : 2,
+    opacity: (0.5 + 0.5 * Math.max(0, p.z)).toFixed(2),
+  });
+
+  const figure = (
+    <>
+      <span className="cs-av"><CyberAvatar model={model} yaw={yaw} armorA={armorA} armorB={armorB} glow={keyA} accent={keyB} /></span>
+      {hat && <span className="cs-layer cs-hat" style={{ "--rim": rimOf(hat), transform: `translateX(calc(-50% + ${(5.6 * sYaw).toFixed(1)}px)) scaleX(${headK.toFixed(3)})` }}>{hat.icon}</span>}
+      {wpn && <span className="cs-layer cs-wpn" style={gearStyle(wpn, wp, -18)}>{wpn.icon}</span>}
+      {acc && <span className="cs-layer cs-acc" style={gearStyle(acc, ap, 16)}>{acc.icon}</span>}
+    </>
+  );
+
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+
+  return (
+    <div className={`charstage rar-${best}`} style={{ "--keyA": keyA, "--keyB": keyB }}>
+      <div className="cs-sky" />
+      <div className="cs-grid" />
+      <div className="cs-horizon" />
+      <div className="cs-motes">{Array.from({ length: 14 }).map((_, i) => <i key={i} style={{ "--i": i }} />)}</div>
+      <div className="cs-scene">
+        <div className="cs-rings"><i className="cs-ring cs-ring1" /><i className="cs-ring cs-ring2" /><i className="cs-ring cs-ring3" /></div>
+        <div className="cs-podium"><i className="cs-podium-top" /><i className="cs-podium-glow" /></div>
+        <div className="cs-figure">
+          <div className="cs-aura" />
+          {figure}
+        </div>
+        <div className="cs-reflect" aria-hidden="true">{figure}</div>
+      </div>
+      <div className="cs-scan" />
+      <div className="cs-vignette" />
+      {/* the whole viewport is the drag handle. touch-action lets a vertical
+          swipe still scroll the page while a horizontal one turns the model. */}
+      <div className="cs-drag" onPointerDown={grab} onPointerMove={drag} onPointerUp={drop} onPointerCancel={drop}
+        role="slider" aria-label={T("หมุนโมเดล", "Rotate model", "旋转模型")} aria-valuenow={Math.round(wrapYaw(yaw))} aria-valuemin={-180} aria-valuemax={180}
+        onKeyDown={(e) => { if (e.key === "ArrowLeft") nudge(-15); else if (e.key === "ArrowRight") nudge(15); }} tabIndex={0} />
+      <div className="cs-hud">
+        <span className="cs-hud-tag">{best.toUpperCase()}</span>
+        <span className="cs-hud-pwr">PWR {power.toLocaleString()}</span>
+      </div>
+      <div className="cs-turn">
+        <button type="button" className="cs-turn-b" onClick={() => nudge(-45)} aria-label={T("หมุนซ้าย", "Turn left", "向左转")}>◀</button>
+        <button type="button" className={`cs-turn-b wide${spin ? " on" : ""}`} onClick={() => { setSpin(!spin); setTouched(true); }}>
+          <span className="cs-turn-ic">{spin ? "⏸" : "⟳"}</span> 360°
+        </button>
+        <button type="button" className="cs-turn-b" onClick={() => nudge(45)} aria-label={T("หมุนขวา", "Turn right", "向右转")}>▶</button>
+        <span className="cs-turn-deg">{(Math.round(wrapYaw(yaw)) + 360) % 360}°</span>
+      </div>
+      {!touched && <div className="cs-turn-hint">{T("ลากเพื่อหมุนดูรอบตัว 360°", "Drag to spin 360°", "拖动可 360° 旋转")}</div>}
+      <i className="cs-bracket tl" /><i className="cs-bracket tr" /><i className="cs-bracket bl" /><i className="cs-bracket br" />
+    </div>
+  );
+});
+
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", setCharModel, charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -5634,78 +5781,26 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       <div className="charcard">
         <div className="charcard-hdr">
           <span>🎭 {lang === "th" ? "ตัวละครของฉัน" : lang === "zh" ? "我的角色" : "My Character"}</span>
-          <div className="char-gender-toggle">
-            <button className={`char-gender-btn${charGender === "boy" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("boy")}>{charGender === "boy" ? "🧑‍🎤" : "👤"} {lang === "th" ? "ชาย" : lang === "zh" ? "男" : "Boy"}</button>
-            <button className={`char-gender-btn${charGender === "girl" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("girl")}>{charGender === "girl" ? "👩‍🦰" : "👤"} {lang === "th" ? "หญิง" : lang === "zh" ? "女" : "Girl"}</button>
-            <button className={`char-gender-btn${charGender === "cute" ? " on" : ""}`} onClick={() => setCharGender && setCharGender("cute")}>{charGender === "cute" ? "🦊" : "👤"} {lang === "th" ? "น่ารัก" : lang === "zh" ? "可爱" : "Cute"}</button>
-          </div>
         </div>
-        {/* ── holo-chamber character viewport ──
-            The stage is its own dark 3D scene sunk into the light card, the way a
-            game's character screen embeds a rendered viewport in its UI: a
-            perspective floor grid running to a lit horizon, volumetric beams,
-            drifting motes, counter-rotating holo rings, a mirrored floor
-            reflection, and a scanline sweep. Every layer sits at its own
-            translateZ inside one preserve-3d scene, so the whole figure parallaxes
-            as a solid object instead of reading as stacked flat stickers.
-
-            Colour is not decorative: the aura, rings and rim light all take the
-            palette of whatever is EQUIPPED (each shop item carries its own `sw`
-            swatch), and the intensity follows the best rarity worn — so gearing up
-            visibly changes the lighting of the whole chamber. */}
-        {(() => {
-          const RARITY_RANK = { common: 0, rare: 1, epic: 2, legendary: 3 };
-          const hat = SHOP_HATS.find(x => x.id === charHat);
-          const out = SHOP_OUTFITS.find(x => x.id === charOutfit);
-          const wpn = SHOP_WEAPONS.find(x => x.id === charWeapon);
-          const acc = SHOP_ACCESSORIES.find(x => x.id === charAccessory);
-          const worn = [hat, out, wpn, acc].filter(Boolean);
-          const best = worn.reduce((m, it) => (RARITY_RANK[it.rarity] > RARITY_RANK[m] ? it.rarity : m), "common");
-          // the chamber's two key lights, picked from the gear actually worn
-          const sw = worn.flatMap(it => it.sw || []).filter(Boolean);
-          const keyA = sw[0] || "#00f0ff";
-          const keyB = sw.find(c => c !== keyA) || "#aa00ff";
-          const rimOf = (it) => (it && it.sw && it.sw[1]) || (it && it.sw && it.sw[0]) || keyA;
-          // The OUTFIT re-plates the armour rather than being pasted on as a
-          // garment sprite — which is what used to make the shirt read as a
-          // second body floating in front of the first.
-          const armorA = (out && out.sw && out.sw[0]) || "#161d2c";
-          const armorB = (out && out.sw && out.sw[1]) || "#3d5878";
-          const power = worn.reduce((n, it) => n + (RARITY_RANK[it.rarity] + 1) * 120, 0);
-          const yaw = charGender === "girl" ? -7 : charGender === "cute" ? 6 : 0;
-          const figure = (
-            <>
-              <span className="cs-av"><CyberAvatar variant={charGender} armorA={armorA} armorB={armorB} glow={keyA} accent={keyB} /></span>
-              {hat && <span className="cs-layer cs-hat" style={{ "--rim": rimOf(hat) }}>{hat.icon}</span>}
-              {wpn && <span className="cs-layer cs-wpn" style={{ "--rim": rimOf(wpn) }}>{wpn.icon}</span>}
-              {acc && <span className="cs-layer cs-acc" style={{ "--rim": rimOf(acc) }}>{acc.icon}</span>}
-            </>
-          );
-          return (
-            <div className={`charstage rar-${best}`} style={{ "--keyA": keyA, "--keyB": keyB }}>
-              <div className="cs-sky" />
-              <div className="cs-grid" />
-              <div className="cs-horizon" />
-              <div className="cs-motes">{Array.from({ length: 14 }).map((_, i) => <i key={i} style={{ "--i": i }} />)}</div>
-              <div className="cs-scene">
-                <div className="cs-rings"><i className="cs-ring cs-ring1" /><i className="cs-ring cs-ring2" /><i className="cs-ring cs-ring3" /></div>
-                <div className="cs-podium"><i className="cs-podium-top" /><i className="cs-podium-glow" /></div>
-                <div className="cs-figure" style={{ transform: `translateX(-50%) rotateY(${yaw}deg)` }}>
-                  <div className="cs-aura" />
-                  {figure}
-                </div>
-                <div className="cs-reflect" aria-hidden="true" style={{ transform: `translateX(-50%) scaleY(-1) rotateY(${yaw}deg)` }}>{figure}</div>
-              </div>
-              <div className="cs-scan" />
-              <div className="cs-vignette" />
-              <div className="cs-hud">
-                <span className="cs-hud-tag">{best.toUpperCase()}</span>
-                <span className="cs-hud-pwr">PWR {power.toLocaleString()}</span>
-              </div>
-              <i className="cs-bracket tl" /><i className="cs-bracket tr" /><i className="cs-bracket bl" /><i className="cs-bracket br" />
-            </div>
-          );
-        })()}
+        {/* ── model bay ──
+            Five base chassis, picked by their own silhouette rather than by a
+            label: each chip renders the actual head it selects, so choosing is
+            done by looking. There is no gender axis — these are models, and
+            everything else (plating, optics, gear) customises on top of
+            whichever one is running. */}
+        <div className="char-models" role="radiogroup" aria-label={lang === "th" ? "เลือกรุ่นหุ่นยนต์" : lang === "zh" ? "选择机型" : "Choose model"}>
+          {CHAR_MODELS.map(m => (
+            <button key={m.id} type="button" role="radio" aria-checked={charModel === m.id}
+              className={`char-model${charModel === m.id ? " on" : ""}`}
+              title={`${m.code} · ${tr(m.cls, lang)}`}
+              onClick={() => setCharModel && setCharModel(m.id)}>
+              <span className="char-model-thumb"><CyberAvatar model={m.id} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
+              <span className="char-model-code">{m.code}</span>
+              <span className="char-model-nm">{tr(m, lang)}</span>
+            </button>
+          ))}
+        </div>
+        <CharacterStage lang={lang} model={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} />
         <div className="char-slots">
           {[
             { label: "🥽", val: charHat, items: SHOP_HATS, kind: "charHat" },
@@ -8581,7 +8676,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [frame, setFrame] = useState(getEquip("frame", "fr-none"));
   const [keyboard, setKeyboard] = useState(getEquip("keyboard", "kb-classic"));
   const [sticker, setSticker] = useState(getEquip("sticker", "st-star"));
-  const [charGender, setCharGender] = useState(getEquip("charGender", "boy"));
+  /* The character used to be picked from a boy/girl/cute switch; it is now one
+     of five robot models, so an old saved choice is migrated to the model that
+     looks like what that person already had. It also now actually persists —
+     the old switch was read from storage at boot but never written back. */
+  const [charModel, setCharModelState] = useState(() => normalizeModel(getEquip("charModel", getEquip("charGender", "vanguard"))));
+  const setCharModel = useCallback((v) => { const n = normalizeModel(v); setCharModelState(n); setEquipLS("charModel", n); }, []);
   const [charHat, setCharHat] = useState(getEquip("charHat", "hat-straw"));
   const [charOutfit, setCharOutfit] = useState(getEquip("charOutfit", "out-tshirt"));
   const [charWeapon, setCharWeapon] = useState(getEquip("charWeapon", "wpn-stick"));
@@ -9687,7 +9787,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: PROFILE ─── */}
       {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
-              charGender={charGender} setCharGender={setCharGender} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
+              charModel={charModel} setCharModel={setCharModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
       {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
@@ -9718,7 +9818,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "studio", sv: "songs", ic: "🎵", c: "#d97757", t: lc.studioPlayAlong },
           { p: "studio", sv: "menu", ic: "▶", c: "#d97757", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
-          { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
+          // the profile row is where your character lives, so it wears a
+          // humanoid android rather than the rank emoji it used to borrow
+          { p: "profile", ic: <RobotGlyph size={21} />, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
           // Challenging moved into the Studio card grid (right after Parent
           // Report, before the MAX Exclusive Features section) per request —

@@ -88,6 +88,8 @@ html, body, #root{background:var(--bg)}
 .draweritem.on{background:var(--bd1)}
 .draweritem.on .drawerlabel{color:#d97757}
 .drawericon{font-size:22px;width:28px;text-align:center;color:var(--nav-c,#d97757);flex-shrink:0}
+/* drawn glyphs (the android on the profile row) centre in the same 28px slot */
+.drawericon svg{display:inline-block;vertical-align:-4px}
 .drawerlabel{flex:1}
 .drawerdot{width:8px;height:8px;border-radius:50%;background:var(--nav-c,#d97757);box-shadow:0 0 10px var(--nav-c,#d97757)}
 .drawer-foot{margin-top:auto;border-top:1px solid var(--bd1);padding-top:10px}
@@ -869,14 +871,21 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .shopbtn-coins{font-family:"Orbitron",sans-serif;font-size:10px;letter-spacing:.3px}
 .charcard{background:#ffffff;border:1.5px solid #00f0ff44;border-radius:14px;margin:12px 14px;padding:16px;box-shadow:0 0 12px rgba(0,240,255,.12),0 2px 8px rgba(0,0,0,.06)}
 .charcard-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#1a1a2e}
-.char-gender-toggle{display:flex;gap:4px}
-.char-gender-btn{background:none;border:1.5px solid #ddd;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#666;transition:all .2s;font-family:'Rajdhani',sans-serif}
-.char-gender-btn.on{background:linear-gradient(135deg,#00f0ff,#aa00ff);color:#fff;border-color:#00f0ff;box-shadow:0 0 8px rgba(0,240,255,.3)}
-.char-gender-btn:hover{border-color:#00ccdd;box-shadow:0 0 4px rgba(0,240,255,.2)}
+/* model bay: five chips, each showing the head it actually selects */
+.char-models{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:8px 0 2px}
+.char-model{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px 4px;background:linear-gradient(170deg,#101728,#070b14);border:1.5px solid #ffffff1f;border-radius:10px;cursor:pointer;transition:border-color .18s,box-shadow .18s,transform .18s;font-family:'Rajdhani',sans-serif;overflow:hidden}
+.char-model:hover{border-color:#00ccddaa;transform:translateY(-1px)}
+.char-model.on{border-color:#00f0ff;box-shadow:0 0 0 1px #00f0ff55,0 4px 14px -6px #00f0ff,inset 0 0 18px #00f0ff22}
+.char-model-thumb{display:block;width:100%;aspect-ratio:1/1.12;pointer-events:none}
+.char-model-thumb svg{display:block;width:100%;height:100%}
+.char-model-code{font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;color:#6d86ad}
+.char-model.on .char-model-code{color:#00f0ff}
+.char-model-nm{font-size:9px;font-weight:700;line-height:1.05;color:#9fb1cc;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.char-model.on .char-model-nm{color:#eaf4ff}
 .char-layer{font-size:36px;line-height:1;position:relative;z-index:1}
 
 /* ── 3D AAA Character Scene ── */
-.charstage{--floor:44px;position:relative;height:296px;margin:2px 0 10px;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse 120% 80% at 50% 108%,#141033 0%,#0a0618 55%,#050310 100%);border:1px solid #ffffff14;box-shadow:inset 0 0 40px #000a,0 6px 22px -10px var(--keyA),0 0 0 1px var(--keyA)33;isolation:isolate}
+.charstage{--floor:52px;position:relative;height:300px;margin:2px 0 10px;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse 120% 80% at 50% 108%,#141033 0%,#0a0618 55%,#050310 100%);border:1px solid #ffffff14;box-shadow:inset 0 0 40px #000a,0 6px 22px -10px var(--keyA),0 0 0 1px var(--keyA)33;isolation:isolate}
 /* deep sky + the two key lights bleeding in from the top corners */
 /* Two key lights washing in from the top corners. These used to be separate
    rotated-and-blurred divs with mix-blend-mode; inside the stage's own
@@ -918,7 +927,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    panel across the chamber behind the character. Depth here comes from scale,
    stacking order and shadow weight instead; the real 3D is left to the podium and
    rings, which carry no filters and so composite cleanly. */
-.cs-figure,.cs-reflect{position:absolute;left:50%;bottom:var(--floor);width:152px;height:196px;transition:transform .45s cubic-bezier(.34,1.56,.64,1);will-change:transform}
+.cs-figure,.cs-reflect{position:absolute;left:50%;bottom:var(--floor);width:152px;height:196px}
+.cs-figure{transform:translateX(-50%)}
 .cs-figure{animation:csFloat 4.2s ease-in-out infinite}
 @keyframes csFloat{0%,100%{translate:0 0}50%{translate:0 -7px}}
 .cs-aura{position:absolute;left:-10px;right:-10px;top:6px;height:150px;border-radius:50%;z-index:1;background:radial-gradient(circle,color-mix(in srgb,var(--keyA) 46%,transparent) 0%,color-mix(in srgb,var(--keyB) 22%,transparent) 42%,transparent 72%);filter:blur(11px);animation:csPulse 3.6s ease-in-out infinite}
@@ -928,7 +938,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    the chamber — verified by toggling the filter off and watching the panel go.
    A radial gradient behind the glyph gives the same neon bloom, costs less, and
    composites correctly everywhere. */
-.cs-layer{position:absolute;left:50%;display:block;line-height:1;text-align:center;transition:transform .35s ease;text-shadow:0 6px 10px rgba(0,0,0,.6)}
+.cs-layer{position:absolute;left:50%;display:block;line-height:1;text-align:center;text-shadow:0 6px 10px rgba(0,0,0,.6)}
 .cs-layer::before{content:"";position:absolute;left:50%;top:50%;width:165%;height:165%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,var(--rim) 0%,transparent 62%);opacity:.4;z-index:-1;pointer-events:none}
 /* the drawn avatar fills the figure box; equipped emoji ride on top of it */
 .cs-av{position:absolute;inset:0;display:block;z-index:5}
@@ -948,28 +958,46 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 /* the endoskeleton's optics burn steadily rather than pulsing like a UI light */
 .ca-boy .ca-optic{animation:caEmber 3.6s ease-in-out infinite}
 @keyframes caEmber{0%,100%{opacity:.88}50%{opacity:1}}
+/* PHANTOM's fissure: the alloy keeps closing itself */
+.ca-morph{animation:caMorph 4.4s ease-in-out infinite}
+@keyframes caMorph{0%,100%{opacity:.85;transform:translateX(0)}50%{opacity:.3;transform:translateX(1.5px)}}
 .ca-core{transform-origin:60px 100px;animation:caCore 2.8s ease-in-out infinite}
 @keyframes caCore{0%,100%{opacity:.8;transform:scale(.94) rotate(0deg)}50%{opacity:1;transform:scale(1.06) rotate(180deg)}}
-.cs-hat{top:-4px;font-size:34px;transform:translateX(-50%);z-index:7}
+.cs-hat{top:-4px;font-size:34px;transform:translateX(-50%);z-index:7;transform-origin:50% 90%}
 /* The outfit sits ON the body, not under it. The person emoji already draws its
    own torso and shirt, so hanging a second garment below it read as two bodies
    floating apart — the outfit now overlaps that torso (and stacks above it) so it
    reads as the character WEARING the item. */
-.cs-wpn{left:auto;right:-10px;top:78px;font-size:34px;transform:rotate(-18deg);z-index:9}
-.cs-acc{left:-10px;top:78px;font-size:34px;transform:rotate(16deg);z-index:9}
+.cs-wpn,.cs-acc{top:78px;font-size:34px;z-index:9}
 /* Mirrored copy on the floor. transform-origin is the point that matters: the
    default centre origin flips the copy back UP over the figure, which reads as a
    glitch rather than a reflection. Pinning the origin to its own bottom edge
    mirrors it downward from the feet, where a floor reflection belongs. */
-.cs-reflect{transform-origin:50% 100%;opacity:.16;filter:blur(2.5px) saturate(.5);pointer-events:none;-webkit-mask-image:linear-gradient(to top,transparent 4%,#000 62%);mask-image:linear-gradient(to top,transparent 4%,#000 62%)}
+.cs-reflect{transform:translateX(-50%) scaleY(-1);transform-origin:50% 100%;opacity:.16;filter:blur(2.5px) saturate(.5);pointer-events:none;-webkit-mask-image:linear-gradient(to top,transparent 4%,#000 62%);mask-image:linear-gradient(to top,transparent 4%,#000 62%)}
 .cs-reflect .cs-layer{filter:none}
 /* sweep + vignette + corner brackets: the HUD frame around the viewport */
 .cs-scan{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,transparent 0%,color-mix(in srgb,var(--keyA) 13%,transparent) 49%,transparent 53%);animation:csScan 4.5s linear infinite}
 @keyframes csScan{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
 .cs-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 80% 70% at 50% 46%,transparent 46%,rgba(0,0,0,.55) 100%)}
-.cs-hud{position:absolute;left:26px;right:26px;bottom:9px;display:flex;justify-content:space-between;align-items:center;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:.12em;pointer-events:none}
+.cs-hud{position:absolute;left:26px;right:26px;top:10px;display:flex;justify-content:space-between;align-items:center;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:.12em;pointer-events:none}
 .cs-hud-tag{color:var(--keyA);text-shadow:0 0 8px var(--keyA)}
 .cs-hud-pwr{color:#fff9;text-shadow:0 0 6px var(--keyB)}
+/* ── turntable ──
+   The whole viewport is the drag handle, so the model is turned by grabbing it
+   rather than by hunting for a control. touch-action:pan-y is what keeps a
+   vertical swipe scrolling the page while a horizontal one spins the figure. */
+.cs-drag{position:absolute;inset:0;z-index:8;touch-action:pan-y;cursor:grab;background:transparent;outline:none}
+.cs-drag:active{cursor:grabbing}
+.cs-drag:focus-visible{box-shadow:inset 0 0 0 2px var(--keyA)}
+.cs-turn{position:absolute;left:50%;bottom:7px;z-index:9;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:3px 5px;border-radius:999px;background:rgba(6,9,18,.72);border:1px solid #ffffff1f;backdrop-filter:blur(3px)}
+.cs-turn-b{display:inline-flex;align-items:center;gap:3px;min-width:24px;height:20px;justify-content:center;padding:0 6px;border:1px solid #ffffff24;border-radius:999px;background:#0d1425;color:#a9bdd8;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:color .16s,border-color .16s,background .16s}
+.cs-turn-b:hover{color:#fff;border-color:var(--keyA)}
+.cs-turn-b.wide{padding:0 8px}
+.cs-turn-b.on{color:#04121b;background:var(--keyA);border-color:var(--keyA);box-shadow:0 0 10px -2px var(--keyA)}
+.cs-turn-ic{font-size:10px;line-height:1}
+.cs-turn-deg{min-width:30px;text-align:right;padding-right:3px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:#ffffff8c;font-variant-numeric:tabular-nums}
+.cs-turn-hint{position:absolute;left:50%;bottom:33px;z-index:9;transform:translateX(-50%);padding:3px 9px;border-radius:999px;background:rgba(6,9,18,.7);border:1px solid color-mix(in srgb,var(--keyA) 40%,transparent);color:#dbeaff;font-size:9.5px;font-weight:700;white-space:nowrap;pointer-events:none;animation:csHint 2.6s ease-in-out infinite}
+@keyframes csHint{0%,100%{opacity:.55}50%{opacity:1}}
 .cs-bracket{position:absolute;width:15px;height:15px;pointer-events:none;opacity:.72}
 .cs-bracket.tl{top:7px;left:7px;border-top:1.5px solid var(--keyA);border-left:1.5px solid var(--keyA)}
 .cs-bracket.tr{top:7px;right:7px;border-top:1.5px solid var(--keyB);border-right:1.5px solid var(--keyB)}
@@ -982,8 +1010,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .charstage.rar-legendary .cs-aura{filter:blur(17px);animation-duration:2s}
 .charstage.rar-legendary .cs-ring1,.charstage.rar-legendary .cs-ring2{opacity:1}
 .charstage.rar-legendary{box-shadow:inset 0 0 48px #000c,0 10px 36px -8px #ffd23f,0 0 0 1.5px #ffd23faa}
-@media (prefers-reduced-motion:reduce){.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.ca-led,.ca-led circle,.cs-grid,.cs-beam,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan{animation:none}}
-@media (max-width:380px){.charstage{height:272px;--floor:40px}.cs-head{font-size:60px}.cs-hat{font-size:32px}.cs-torso{font-size:40px}.cs-wpn,.cs-acc{font-size:29px}}
+@media (prefers-reduced-motion:reduce){.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.ca-led,.ca-led circle,.ca-morph,.cs-grid,.cs-beam,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan,.cs-turn-hint{animation:none}}
+@media (max-width:380px){.charstage{height:278px;--floor:48px}.cs-hat{font-size:32px}.cs-wpn,.cs-acc{font-size:29px}.char-models{gap:3px}.char-model-nm{font-size:8px}}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}
 .char-slot-ic{font-size:18px}
