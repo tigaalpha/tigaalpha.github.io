@@ -5139,6 +5139,18 @@ const SHOP_WEAPONS = [
   { id: "wpn-ion",     icon: "❇️", cost: 700, rarity: "legendary", th: "ปืนใหญ่ไอออน", en: "Ion Cannon",      zh: "离子炮", sw: ["#7fe8ff", "#12405e"], isNew: true },
   { id: "wpn-nova",    icon: "🎆", cost: 1000, rarity: "legendary", th: "โนวาเบิร์สต์", en: "Nova Burst",     zh: "新星爆发", sw: ["#ffd23f", "#ff0044", "#aa00ff"], isNew: true },
 ];
+/* ── consumables ──
+   Not worn and not owned-once: bought, stocked, and spent. The Reassignment
+   Core is the only one so far and it is priced to be a real decision — five
+   times the most expensive weapon on the rack — because the chassis it rewrites
+   is otherwise a permanent choice. */
+const SHOP_CORES = [
+  { id: "core-swap", icon: "🧬", cost: 5000, rarity: "legendary", consumable: true,
+    th: "คอร์เปลี่ยนโครงร่าง", en: "Reassignment Core", zh: "机体重构核心",
+    desc: { th: "ใช้เปลี่ยนรุ่นหุ่นได้ 1 ครั้ง", en: "Rewrites your chassis once", zh: "可重构机型一次" },
+    sw: ["#ffd23f", "#ff0044"] },
+];
+
 const SHOP_ACCESSORIES = [
   { id: "acc-shield",   icon: "🛡️", cost: 0,   rarity: "common",    th: "โล่สนามพลัง", en: "Deflector Shield", zh: "偏导护盾", sw: ["#00f0ff", "#0a1a2e"] },
   { id: "acc-glasses",  icon: "👁️", cost: 80,  rarity: "common",    th: "ตาเซนเซอร์", en: "Sensor Eye",       zh: "传感之眼", sw: ["#00f0ff", "#ff00aa"] },
@@ -5678,7 +5690,7 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", setCharModel, charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", setCharModel, modelLocked = false, modelCores = 0, charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -5785,6 +5797,12 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       <div className="charcard">
         <div className="charcard-hdr">
           <span>🎭 {lang === "th" ? "ตัวละครของฉัน" : lang === "zh" ? "我的角色" : "My Character"}</span>
+          {modelLocked && (
+            <span className={`char-corepill${modelCores > 0 ? " has" : ""}`}
+              title={lang === "th" ? "คอร์เปลี่ยนโครงร่างที่มีอยู่" : lang === "zh" ? "持有的重构核心" : "Reassignment Cores held"}>
+              🧬 {modelCores}
+            </span>
+          )}
         </div>
         {/* ── model bay ──
             Five base chassis, picked by their own silhouette rather than by a
@@ -5793,16 +5811,23 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             everything else (plating, optics, gear) customises on top of
             whichever one is running. */}
         <div className="char-models" role="radiogroup" aria-label={lang === "th" ? "เลือกรุ่นหุ่นยนต์" : lang === "zh" ? "选择机型" : "Choose model"}>
-          {CHAR_MODELS.map(m => (
-            <button key={m.id} type="button" role="radio" aria-checked={charModel === m.id}
-              className={`char-model${charModel === m.id ? " on" : ""}`}
-              title={`${m.code} · ${tr(m.cls, lang)}`}
-              onClick={() => setCharModel && setCharModel(m.id)}>
-              <span className="char-model-thumb"><CyberAvatar model={m.id} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
-              <span className="char-model-code">{m.code}</span>
-              <span className="char-model-nm">{tr(m, lang)}</span>
-            </button>
-          ))}
+          {CHAR_MODELS.map(m => {
+            const on = charModel === m.id;
+            const locked = modelLocked && !on;
+            return (
+              <button key={m.id} type="button" role="radio" aria-checked={on}
+                className={`char-model${on ? " on" : ""}${locked ? " locked" : ""}`}
+                title={locked
+                  ? `${m.code} · ${tr(m.cls, lang)} — ${lang === "th" ? "ต้องใช้คอร์เปลี่ยนโครงร่าง" : lang === "zh" ? "需要机体重构核心" : "needs a Reassignment Core"}`
+                  : `${m.code} · ${tr(m.cls, lang)}`}
+                onClick={() => setCharModel && setCharModel(m.id)}>
+                <span className="char-model-thumb"><CyberAvatar model={m.id} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
+                <span className="char-model-code">{m.code}</span>
+                <span className="char-model-nm">{tr(m, lang)}</span>
+                {locked && <span className="char-model-lock" aria-hidden="true">🔒</span>}
+              </button>
+            );
+          })}
         </div>
         <CharacterStage lang={lang} model={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} />
         <div className="char-slots">
@@ -8685,7 +8710,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      looks like what that person already had. It also now actually persists —
      the old switch was read from storage at boot but never written back. */
   const [charModel, setCharModelState] = useState(() => normalizeModel(getEquip("charModel", getEquip("charGender", "vanguard"))));
-  const setCharModel = useCallback((v) => { const n = normalizeModel(v); setCharModelState(n); setEquipLS("charModel", n); }, []);
+  /* The chassis is a commitment, not a costume. It is chosen once, on the first
+     visit to the profile, and after that it is locked — the only way to run a
+     different model is to buy a Reassignment Core in the shop and spend it,
+     which is deliberately the most expensive thing sold. That is what makes the
+     choice mean something and what makes the gear bought for a build matter. */
+  const [modelChosen, setModelChosen] = useState(() => { try { return localStorage.getItem("tg_charModelSet") === "1"; } catch (e) { return true; } });
+  const [modelCores, setModelCores] = useState(() => { const n = parseInt(getEquip("modelCores", "0"), 10); return Number.isFinite(n) && n > 0 ? n : 0; });
+  const [modelPickOpen, setModelPickOpen] = useState(false);
+  const [modelPickSel, setModelPickSel] = useState(null);
+  const [modelSwapAsk, setModelSwapAsk] = useState(null);   // model id waiting on a core
+  const [modelNeedCore, setModelNeedCore] = useState(false);
   const [charHat, setCharHat] = useState(getEquip("charHat", "hat-straw"));
   const [charOutfit, setCharOutfit] = useState(getEquip("charOutfit", "out-tshirt"));
   const [charWeapon, setCharWeapon] = useState(getEquip("charWeapon", "wpn-stick"));
@@ -9343,8 +9378,46 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const tc = document.querySelector('meta[name="theme-color"]');
     if (tc) tc.setAttribute("content", mode === "dark" ? "#0d0d0c" : "#faf9f5");
   }, [skin, theme, frame, mode]);
+  // ── chassis selection ──
+  function commitModel(id) {
+    const n = normalizeModel(id);
+    setCharModelState(n); setEquipLS("charModel", n);
+    setModelChosen(true); try { localStorage.setItem("tg_charModelSet", "1"); } catch (e) {}
+    setModelPickOpen(false); setModelPickSel(null);
+    playUi("reward"); mascot("celebrate", 1800);
+  }
+  // every later change has to go through a core
+  function requestModel(id) {
+    const n = normalizeModel(id);
+    if (n === charModel) return;
+    if (!modelChosen) { commitModel(n); return; }
+    if (modelCores > 0) { setModelSwapAsk(n); playUi("click"); return; }
+    setModelNeedCore(true); playUi("click");
+  }
+  function spendCoreOnModel() {
+    const n = modelSwapAsk;
+    if (!n || modelCores < 1) { setModelSwapAsk(null); return; }
+    const left = modelCores - 1;
+    setModelCores(left); setEquipLS("modelCores", String(left));
+    setCharModelState(n); setEquipLS("charModel", n);
+    setModelSwapAsk(null);
+    playUi("reward"); mascot("celebrate", 2000);
+  }
+  // the one-time choice is asked for the moment the profile is first opened
+  useEffect(() => { if (page === "profile" && !modelChosen) { setModelPickSel(charModel); setModelPickOpen(true); } }, [page, modelChosen, charModel]);
+
   const EQUIP_SETTERS = { skin: setSkin, theme: setTheme, frame: setFrame, keyboard: setKeyboard, sticker: setSticker, charHat: setCharHat, charOutfit: setCharOutfit, charWeapon: setCharWeapon, charAccessory: setCharAccessory };
   function buyOrEquip(kind, item) {
+    // a consumable is stocked, not worn: buying adds one to the count and the
+    // shop keeps selling it, unlike everything else which is owned exactly once
+    if (item.consumable) {
+      if (coins < item.cost) { mascot("sad", 1400); return; }
+      const v = getCoins() - item.cost; setCoinsLS(v); setCoins(v);
+      if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+      const n = modelCores + 1; setModelCores(n); setEquipLS("modelCores", String(n));
+      playUi("reward"); mascot("celebrate", 2200);
+      return;
+    }
     const setEquip = EQUIP_SETTERS[kind];
     if (owned.includes(item.id)) {
       setEquip(item.id); setEquipLS(kind, item.id);
@@ -9360,6 +9433,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL };
   function renderShopItem(kind, it, equippedId) {
     const own = owned.includes(it.id), eq = equippedId === it.id;
+    if (it.consumable) {
+      return (
+        <button key={it.id} className={`shopitem ${it.rarity} consumable`} onClick={() => buyOrEquip(kind, it)}>
+          {modelCores > 0 && <span className="shopitem-have">×{modelCores}</span>}
+          <span className="shopitem-icon-lg">{it.icon}</span>
+          <span className="shopitem-nm">{tr(it, lang)}</span>
+          <span className="shopitem-desc">{tr(it.desc, lang)}</span>
+          <span className="shopitem-tag">🪙 {it.cost.toLocaleString()}</span>
+        </button>
+      );
+    }
     return (
       <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}`} onClick={() => buyOrEquip(kind, it)}>
         {it.isNew && !own && <span className="shopitem-new">{lc.shopNew}</span>}
@@ -9791,7 +9875,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: PROFILE ─── */}
       {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
-              charModel={charModel} setCharModel={setCharModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
+              charModel={charModel} setCharModel={requestModel} modelLocked={modelChosen} modelCores={modelCores} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
       {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
@@ -10163,6 +10247,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { key: "charHat",       icon: "🥽", label: lc.shopHats },
           { key: "charOutfit",    icon: "🤖", label: lc.shopOutfits },
           { key: "charAccessory", icon: "🔋", label: lc.shopAccessories },
+          { key: "core",          icon: "🧬", label: lang === "th" ? "คอร์" : lang === "zh" ? "核心" : "Cores" },
           { key: "skin",          icon: "🎹", label: lc.shopSkins },
           { key: "theme",         icon: "🎨", label: lc.shopThemes },
           { key: "frame",         icon: "🖼️", label: lc.shopFrames },
@@ -10174,7 +10259,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           skin: SHOP_SKINS, theme: SHOP_THEMES, frame: SHOP_FRAMES,
           keyboard: SHOP_KEYBOARDS, sticker: SHOP_STICKERS,
           charHat: SHOP_HATS, charOutfit: SHOP_OUTFITS,
-          charWeapon: SHOP_WEAPONS, charAccessory: SHOP_ACCESSORIES,
+          charWeapon: SHOP_WEAPONS, charAccessory: SHOP_ACCESSORIES, core: SHOP_CORES,
         };
         const CAT_EQUIPPED = {
           skin, theme, frame, keyboard, sticker,
@@ -10183,7 +10268,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         const filtered = shopTab === "all"
           ? Object.entries(CAT_ITEMS).flatMap(([kind, items]) => items.map(it => ({ ...it, _kind: kind })))
           : (CAT_ITEMS[shopTab] || []).map(it => ({ ...it, _kind: shopTab }));
-        const ownedCount = filtered.filter(it => owned.includes(it.id)).length;
+        // a consumable is never in `owned` — it is stocked, so it counts as held
+        // when there is at least one on the shelf
+        const ownedCount = filtered.filter(it => it.consumable ? modelCores > 0 : owned.includes(it.id)).length;
         return (
           <div className="setov" onClick={() => setShopOpen(false)}>
             <div className="setcard shop-full" onClick={e => e.stopPropagation()}>
@@ -10214,6 +10301,104 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <div className="shopgrid shop-grid-full">
                   {filtered.map(it => renderShopItem(it._kind, it, CAT_EQUIPPED[it._kind]))}
                 </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── CHASSIS SELECTION ──
+          Asked once, the first time the profile is opened, and deliberately not
+          dismissible: this is the one decision in the app that cannot be undone
+          for free, so it is made deliberately rather than stumbled into. Every
+          option is shown as the head it actually selects, with its class, and
+          the consequence is stated on the button before it is pressed. */}
+      {modelPickOpen && (() => {
+        const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const sel = modelPickSel || charModel;
+        const selM = CHAR_MODELS.find(m => m.id === sel) || CHAR_MODELS[0];
+        return (
+          <div className="setov mdlpick-ov">
+            <div className="setcard mdlpick" onClick={e => e.stopPropagation()}>
+              <div className="mdlpick-hdr">
+                <div className="mdlpick-ttl">{T("เลือกโครงร่างของคุณ", "Choose your chassis", "选择你的机体")}</div>
+                <div className="mdlpick-sub">{T("เลือกได้ครั้งเดียว — หลังจากนี้เปลี่ยนได้เฉพาะเมื่อใช้คอร์เปลี่ยนโครงร่างจากร้านค้า",
+                                                 "You choose once. After this, changing chassis takes a Reassignment Core from the shop.",
+                                                 "只能选择一次。之后更换机体需要商店里的重构核心。")}</div>
+              </div>
+              <div className="mdlpick-body">
+                <div className="mdlpick-stage">
+                  <CyberAvatar model={sel} yaw={-18} glow="#00f0ff" accent="#aa00ff" armorA="#161d2c" armorB="#3d5878" />
+                </div>
+                <div className="mdlpick-info">
+                  <span className="mdlpick-code">{selM.code}</span>
+                  <span className="mdlpick-name">{tr(selM, lang)}</span>
+                  <span className="mdlpick-cls">{tr(selM.cls, lang)}</span>
+                </div>
+                <div className="mdlpick-grid">
+                  {CHAR_MODELS.map(m => (
+                    <button key={m.id} type="button" className={`char-model${sel === m.id ? " on" : ""}`}
+                      title={`${m.code} · ${tr(m.cls, lang)}`} onClick={() => { setModelPickSel(m.id); playUi("click"); }}>
+                      <span className="char-model-thumb"><CyberAvatar model={m.id} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
+                      <span className="char-model-nm">{tr(m, lang)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="mdlpick-foot">
+                <button className="mdlpick-go" onClick={() => commitModel(sel)}>
+                  {T(`ยืนยัน ${tr(selM, lang)} — เลือกแล้วเปลี่ยนไม่ได้`, `Lock in ${selM.en} — this is permanent`, `确认 ${tr(selM, lang)} — 不可更改`)}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* spending a core: the one way out of the lock */}
+      {modelSwapAsk && (() => {
+        const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const m = CHAR_MODELS.find(x => x.id === modelSwapAsk) || CHAR_MODELS[0];
+        return (
+          <div className="setov" onClick={() => setModelSwapAsk(null)}>
+            <div className="setcard mdlask" onClick={e => e.stopPropagation()}>
+              <div className="mdlask-ic">🧬</div>
+              <div className="mdlask-ttl">{T("ใช้คอร์เปลี่ยนโครงร่าง?", "Spend a Reassignment Core?", "使用机体重构核心？")}</div>
+              <div className="mdlask-head"><CyberAvatar model={m.id} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></div>
+              <div className="mdlask-txt">
+                {T(`เปลี่ยนเป็น ${tr(m, lang)} · คุณมีคอร์ ${modelCores} ชิ้น จะเหลือ ${modelCores - 1}`,
+                   `Rewrite your chassis to ${m.en}. You hold ${modelCores}; you will have ${modelCores - 1} left.`,
+                   `重构为 ${tr(m, lang)}。你持有 ${modelCores} 个，使用后剩余 ${modelCores - 1} 个。`)}
+              </div>
+              <div className="mdlask-row">
+                <button className="mdlask-no" onClick={() => setModelSwapAsk(null)}>{T("ยกเลิก", "Cancel", "取消")}</button>
+                <button className="mdlask-yes" onClick={spendCoreOnModel}>{T("ใช้คอร์", "Use core", "使用核心")}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* no core in stock: say what it costs and open the shelf it is on */}
+      {modelNeedCore && (() => {
+        const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const core = SHOP_CORES[0];
+        return (
+          <div className="setov" onClick={() => setModelNeedCore(false)}>
+            <div className="setcard mdlask" onClick={e => e.stopPropagation()}>
+              <div className="mdlask-ic">🔒</div>
+              <div className="mdlask-ttl">{T("โครงร่างถูกล็อกไว้", "Your chassis is locked", "机体已锁定")}</div>
+              <div className="mdlask-txt">
+                {T(`รุ่นหุ่นเลือกได้ครั้งเดียว จะเปลี่ยนต้องใช้ ${tr(core, lang)} ราคา ${core.cost.toLocaleString()} 🪙 มีขายในร้านค้าหมวดคอร์`,
+                   `The chassis is chosen once. Changing it takes a ${core.en} — ${core.cost.toLocaleString()} 🪙, on the Cores shelf in the shop.`,
+                   `机体只能选择一次。更换需要${tr(core, lang)}，${core.cost.toLocaleString()} 🪙，在商店的核心分类中出售。`)}
+              </div>
+              <div className="mdlask-price"><span>{core.icon}</span>{tr(core, lang)}<b>🪙 {core.cost.toLocaleString()}</b></div>
+              <div className="mdlask-row">
+                <button className="mdlask-no" onClick={() => setModelNeedCore(false)}>{T("ปิด", "Close", "关闭")}</button>
+                <button className="mdlask-yes" onClick={() => { setModelNeedCore(false); setShopTab("core"); setShopOpen(true); playUi("click"); }}>
+                  {T("ไปที่ร้านค้า", "Go to shop", "前往商店")}
+                </button>
               </div>
             </div>
           </div>
