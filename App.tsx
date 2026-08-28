@@ -9159,10 +9159,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return (
       <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}`} onClick={() => buyOrEquip(kind, it)}>
         {it.isNew && !own && <span className="shopitem-new">{lc.shopNew}</span>}
-        <span className="shopitem-swwrap">
-          <span className="shopitem-sw" style={{ background: `linear-gradient(135deg,${it.sw.join(",")})` }} />
-          <span className="shopitem-ic">{it.icon}</span>
-        </span>
+        <span className="shopitem-icon-lg">{it.icon}</span>
         <span className="shopitem-nm">{tr(it, lang)}</span>
         <span className="shopitem-rare">{RARITY_LABEL[it.rarity]}</span>
         <span className="shopitem-tag">{eq ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost}</span>

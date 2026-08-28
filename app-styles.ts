@@ -1083,9 +1083,7 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .shopitem.legendary{border-color:#ffd23f;box-shadow:0 0 14px -3px #ffd23faa,0 0 20px -6px #aa00ff}
 .shopitem.legendary.equipped{border-color:#ffd23f;box-shadow:0 0 0 1px #ffd23f,0 0 16px -3px #ffd23f,0 0 24px -6px #aa00ff}
 .shopitem-new{position:absolute;top:-6px;right:-6px;background:linear-gradient(135deg,#00f0ff,#aa00ff);color:#fff;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:800;letter-spacing:.5px;padding:2px 6px;border-radius:8px;box-shadow:0 2px 6px -2px #d97757;z-index:1}
-.shopitem-swwrap{position:relative;width:36px;height:36px;flex-shrink:0}
-.shopitem-sw{display:block;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--bd4)}
-.shopitem-ic{position:absolute;bottom:-3px;right:-3px;font-size:14px;line-height:1;background:var(--card);border-radius:50%;padding:1px}
+.shopitem-icon-lg{font-size:40px;line-height:1;filter:drop-shadow(0 0 6px rgba(0,240,255,.3));margin-bottom:4px}
 .shopitem-nm{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;color:#d0d0ff}
 .shopitem-rare{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.5px;color:var(--muted);text-transform:uppercase}
 .shopitem-tag{font-family:'Share Tech Mono',monospace;font-size:10px;color:#d97757}
