@@ -10152,18 +10152,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {loginModalOpen && <LoginModal profile={profile} onGoogleLogin={() => { saveGuestProfile(profile); signInWith("google"); }} onClose={() => setLoginModalOpen(false)} />}
 
       {shopOpen && (() => {
+        /* Categories, gear first. The weapon rack is the biggest and newest part
+           of the shop and it used to sit ninth in a strip that scrolled
+           sideways, so on a phone nobody ever reached it. The strip wraps now
+           instead of scrolling, so every category is on screen at once, and
+           "everything at once" is no longer one of them — it moved to its own
+           control in the top right, where a view switch belongs. */
         const ALL_CATS = [
-          { key: "all",         icon: "📦", label: lang === "th" ? "ทั้งหมด" : lang === "zh" ? "全部" : "All" },
-          { key: "skin",        icon: "🎹", label: lc.shopSkins },
-          { key: "theme",       icon: "🎨", label: lc.shopThemes },
-          { key: "frame",       icon: "🖼️", label: lc.shopFrames },
-          { key: "keyboard",    icon: "⌨️", label: lc.shopKeyboards },
-          { key: "sticker",     icon: "🏷️", label: lc.shopStickers },
-          { key: "charHat",     icon: "🥽", label: lc.shopHats },
-          { key: "charOutfit",  icon: "🤖", label: lc.shopOutfits },
-          { key: "charWeapon",  icon: "🦾", label: lc.shopWeapons },
+          { key: "charWeapon",    icon: "🦾", label: lc.shopWeapons },
+          { key: "charHat",       icon: "🥽", label: lc.shopHats },
+          { key: "charOutfit",    icon: "🤖", label: lc.shopOutfits },
           { key: "charAccessory", icon: "🔋", label: lc.shopAccessories },
+          { key: "skin",          icon: "🎹", label: lc.shopSkins },
+          { key: "theme",         icon: "🎨", label: lc.shopThemes },
+          { key: "frame",         icon: "🖼️", label: lc.shopFrames },
+          { key: "keyboard",      icon: "⌨️", label: lc.shopKeyboards },
+          { key: "sticker",       icon: "🏷️", label: lc.shopStickers },
         ];
+        const allLabel = lang === "th" ? "ทั้งหมด" : lang === "zh" ? "全部" : "All";
         const CAT_ITEMS = {
           skin: SHOP_SKINS, theme: SHOP_THEMES, frame: SHOP_FRAMES,
           keyboard: SHOP_KEYBOARDS, sticker: SHOP_STICKERS,
@@ -10181,17 +10187,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         return (
           <div className="setov" onClick={() => setShopOpen(false)}>
             <div className="setcard shop-full" onClick={e => e.stopPropagation()}>
-              <div className="sethdr">
-                <span>🛍️ {lc.shopTitle}</span>
-                <span className="coinpill" style={{ marginLeft: "auto", marginRight: 10 }}>🪙 {coins}</span>
+              <div className="sethdr shop-hdr">
+                <span className="shop-hdr-t">🛍️ {lc.shopTitle}</span>
+                <span className="coinpill">🪙 {coins}</span>
+                <button className={`shop-allbtn${shopTab === "all" ? " on" : ""}`} aria-pressed={shopTab === "all"}
+                  title={allLabel} onClick={() => setShopTab(shopTab === "all" ? ALL_CATS[0].key : "all")}>
+                  <span aria-hidden="true">📦</span><span className="shop-allbtn-l">{allLabel}</span>
+                </button>
                 <button className="cbtn" onClick={() => setShopOpen(false)}>{lc.close}</button>
               </div>
               <div className="shop-tabs">
                 {ALL_CATS.map(c => (
                   <button key={c.key} className={`shop-tab${shopTab === c.key ? " on" : ""}`}
-                    onClick={() => setShopTab(c.key)}>
+                    title={`${c.label} · ${(CAT_ITEMS[c.key] || []).length}`} onClick={() => setShopTab(c.key)}>
                     <span className="shop-tab-ic">{c.icon}</span>
                     <span className="shop-tab-lbl">{c.label}</span>
+                    <span className="shop-tab-n">{(CAT_ITEMS[c.key] || []).length}</span>
                   </button>
                 ))}
               </div>
