@@ -455,7 +455,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── SENTINEL · heavy assault helm ── */
     sentinel: {
       skull: "M60 4 C75 4 85 14 85 29 C85 39 83 46 80 52 L74 66 Q60 74 46 66 L40 52 C37 46 35 39 35 29 C35 14 45 4 60 4 Z",
-      fill: "plate", line: "#9fb6de",
+      fill: "plate", line: "#9fb6de", body: "graphite", bodyLine: "#7c8794",
       side: SIDE_HELM,
       sideArt: <>
         <path d="M60 3 L66 8 L64 30 L59 32 L57 10 Z" fill={`url(#${id}-trim)`} stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
@@ -508,7 +508,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── SPECTER · CyberLife android, skin active ── */
     specter: {
       skull: "M60 8 C72 8 80 17 81 30 C82 42 78 52 72 60 C68 66 64 70 60 70 C56 70 52 66 48 60 C42 52 38 42 39 30 C40 17 48 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      fill: "skin", line: "#c8ab9e", body: "carbon", bodyLine: "#59636f", neckFill: "skin",
       side: SIDE_ORGANIC,
       sideArt: <>
         {/* the hair mass and one long strand, seen from the side */}
@@ -553,7 +553,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── NOVA · android with its skin panels deactivated ── */
     nova: {
       skull: "M60 10 C76 10 86 21 86 36 C86 51 78 63 68 68 C64 70 56 70 52 68 C42 63 34 51 34 36 C34 21 44 10 60 10 Z",
-      fill: "white", line: "#dbe6f7",
+      fill: "white", line: "#dbe6f7", body: "mint", bodyLine: "#5f9c88",
       side: SIDE_ORGANIC,
       sideArt: <>
         <path d="M50 15 Q62 10 74 15 L72 21 Q61 17 51 21 Z" fill="#dce8f7" stroke={glow} strokeWidth=".8" opacity=".95" />
@@ -599,7 +599,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── PHANTOM · mimetic polyalloy ── */
     phantom: {
       skull: "M60 6 C74 6 83 16 83 30 C83 44 76 58 68 66 Q60 72 52 66 C44 58 37 44 37 30 C37 16 46 6 60 6 Z",
-      fill: "chrome", line: "#f0f6ff",
+      fill: "chrome", line: "#f0f6ff", body: "pearl", bodyLine: "#93a4bd",
       side: SIDE_ORGANIC,
       sideArt: <>
         <path d="M44 12 Q60 6 78 14" fill="none" stroke="#fff" strokeWidth="1.2" opacity=".34" />
@@ -660,7 +660,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── REAPER · war machine ── */
     reaper: {
       skull: "M60 2 L76 6 L86 18 L84 33 L79 46 L70 62 L60 73 L50 62 L41 46 L36 33 L34 18 L44 6 Z",
-      fill: "plate", line: "#7a89a8", hv: "13 -3 94 84",
+      fill: "plate", line: "#7a89a8", body: "obsidian", bodyLine: "#6d6580", hv: "13 -3 94 84",
       prof: { brow: 24, nose: 36, lip: 54, chin: 70 },
       shellArt: <>
         {/* horns swept back off the temples — the whole silhouette of the thing */}
@@ -817,7 +817,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── PIXEL · screen-face buddy ── */
     pixel: {
       skull: "M60 5 C82 5 91 16 91 34 C91 55 82 68 60 68 C38 68 29 55 29 34 C29 16 38 5 60 5 Z",
-      fill: "white", line: "#cfe4ff", hv: "20 -15 80 88",
+      fill: "white", line: "#cfe4ff", body: "sky", bodyLine: "#6b93bb", hv: "20 -15 80 88",
       prof: { brow: 26, nose: 38, lip: 54, chin: 66 },
       shellArt: <>
         <path d="M60 5 L60 -6" stroke={glow} strokeWidth="2.4" strokeLinecap="round" />
@@ -922,7 +922,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        one thing that gives it away sitting on the temple. */
     scout: {
       skull: "M60 8 C72 8 80 17 81 30 C82 42 78 52 72 60 C68 66 64 70 60 70 C56 70 52 66 48 60 C42 52 38 42 39 30 C40 17 48 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      fill: "skin", line: "#c8ab9e", body: "ivory", bodyLine: "#98a2b3", neckFill: "skin",
       prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
       shellArt: <>
         <path d="M60 5 C75 5 84 15 84 30 C80 22 74 19 66 18 C56 17 46 20 39 27 C37 15 45 5 60 5 Z" fill={`url(#${id}-hairB)`} stroke="#2a1a10" strokeWidth=".7" strokeLinejoin="round" />
@@ -975,7 +975,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        repaired with whatever parts were to hand. Close-cropped, deep skin. */
     meridian: {
       skull: "M60 8 C73 8 81 18 82 31 C83 43 78 53 72 61 C68 67 64 71 60 71 C56 71 52 67 48 61 C42 53 37 43 38 31 C39 18 47 8 60 8 Z",
-      fill: "skin2", line: "#8a5f42", neckFill: "skin2",
+      fill: "skin2", line: "#8a5f42", body: "slateb", bodyLine: "#6c82a0", neckFill: "skin2",
       prof: { brow: 27, nose: 39, lip: 57, chin: 69 },
       shellArt: <>
         <path d="M60 5 C76 5 85 16 84 30 C79 23 71 20 60 20 C49 20 41 23 36 30 C35 16 44 5 60 5 Z" fill="#2a1d15" stroke="#1a1109" strokeWidth=".7" strokeLinejoin="round" opacity=".95" />
@@ -1027,7 +1027,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        is nothing on it to catch: a bare scalp with its seam showing. */
     atlas: {
       skull: "M60 7 C75 7 84 18 85 32 C86 45 81 55 74 63 C69 69 65 72 60 72 C55 72 51 69 46 63 C39 55 34 45 35 32 C36 18 45 7 60 7 Z",
-      fill: "skin3", line: "#7a4a30", neckFill: "skin3",
+      fill: "skin3", line: "#7a4a30", body: "bronze", bodyLine: "#9c6c36", neckFill: "skin3",
       prof: { brow: 26, nose: 39, lip: 57, chin: 71 },
       shellArt: <>
         <path d="M42 22 Q60 12 78 22" fill="none" stroke="#4a2b1c" strokeWidth="1.2" opacity=".55" />
@@ -1079,7 +1079,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        blonde hair, an open face, and the LED left deliberately visible. */
     halcyon: {
       skull: "M60 8 C72 8 80 17 81 30 C82 42 78 52 72 60 C68 66 64 70 60 70 C56 70 52 66 48 60 C42 52 38 42 39 30 C40 17 48 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      fill: "skin", line: "#c8ab9e", body: "plum", bodyLine: "#8d63a8", neckFill: "skin",
       prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
       shellArt: <>
         <path d="M60 4 C76 4 85 15 84 30 C79 21 71 18 60 18 C49 18 41 21 36 30 C35 15 44 4 60 4 Z" fill={`url(#${id}-hair2)`} stroke="#9c7530" strokeWidth=".7" strokeLinejoin="round" />
@@ -1133,7 +1133,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        ring on the temple that means it is not one. */
     keeper: {
       skull: "M60 8 C71 8 79 17 80 30 C81 42 77 52 71 60 C67 66 64 70 60 70 C56 70 53 66 49 60 C43 52 39 42 40 30 C41 17 49 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      fill: "skin", line: "#c8ab9e", body: "sage", bodyLine: "#6d8471", neckFill: "skin",
       prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
       shellArt: <>
         <path d="M60 4 C76 4 84 15 83 30 C79 22 70 18 60 18 C50 18 41 22 37 30 C36 15 44 4 60 4 Z" fill={`url(#${id}-hair)`} stroke="#1f2436" strokeWidth=".7" strokeLinejoin="round" />
@@ -1238,7 +1238,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        which is the whole effect. */
     talon: {
       skull: "M44 12 L76 12 C79 12 80 14 80 17 L80 62 C80 66 78 68 74 68 L46 68 C42 68 40 66 40 62 L40 17 C40 14 41 12 44 12 Z",
-      fill: "plate", line: "#9fb0cc", hv: "30 -2 60 78",
+      fill: "plate", line: "#9fb0cc", body: "steelblu", bodyLine: "#5285b0", hv: "30 -2 60 78",
       prof: { brow: 20, nose: 34, lip: 52, chin: 66 },
       shellArt: <>
         <path d="M48 12 L48 5 M60 12 L60 3 M72 12 L72 5" stroke="#7f8ea8" strokeWidth="2.2" strokeLinecap="round" />
@@ -1324,7 +1324,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        panel on it opens onto a tool nobody expected it to have. */
     pip: {
       skull: "M60 8 C80 8 90 24 90 44 L90 62 C90 68 86 70 78 70 L42 70 C34 70 30 68 30 62 L30 44 C30 24 40 8 60 8 Z",
-      fill: "white", line: "#c8d8ec", hv: "24 1 72 76",
+      fill: "white", line: "#c8d8ec", body: "cream", bodyLine: "#b2966a", hv: "24 1 72 76",
       prof: { brow: 26, nose: 38, lip: 54, chin: 66 },
       shellArt: <>
         <path d="M60 8 C80 8 90 24 90 44 L82 44 C82 28 74 18 60 18 C46 18 38 28 38 44 L30 44 C30 24 40 8 60 8 Z" fill="#dfe9f7" stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
@@ -1668,6 +1668,90 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           <stop offset="16%" stopColor="#00060f" stopOpacity=".22" />
           <stop offset="40%" stopColor="#00060f" stopOpacity=".05" />
           <stop offset="100%" stopColor="#00060f" stopOpacity="0" />
+        </linearGradient>
+        {/* ── chassis materials ──
+            Twenty skins that all shared one body gradient meant seven androids
+            reading as the same robot in different wigs. Every model now owns a
+            material, so the chassis carries as much of its identity as the
+            head does. Same four-stop structure as -plate: lit edge, body,
+            turn, core shadow. */}
+        <linearGradient id={`${id}-graphite`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#a8b2bf" />
+          <stop offset="26%" stopColor="#5d6875" />
+          <stop offset="62%" stopColor="#2f3742" />
+          <stop offset="100%" stopColor="#14181f" />
+        </linearGradient>
+        <linearGradient id={`${id}-obsidian`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#7d7590" />
+          <stop offset="26%" stopColor="#443c56" />
+          <stop offset="62%" stopColor="#241f33" />
+          <stop offset="100%" stopColor="#0d0a16" />
+        </linearGradient>
+        <linearGradient id={`${id}-pearl`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="26%" stopColor="#dfe7f5" />
+          <stop offset="62%" stopColor="#a9b8d0" />
+          <stop offset="100%" stopColor="#6b7a93" />
+        </linearGradient>
+        <linearGradient id={`${id}-steelblu`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#93b6d8" />
+          <stop offset="26%" stopColor="#4c7ba8" />
+          <stop offset="62%" stopColor="#24486e" />
+          <stop offset="100%" stopColor="#0e2138" />
+        </linearGradient>
+        <linearGradient id={`${id}-cream`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#fff6e6" />
+          <stop offset="26%" stopColor="#f0dcbd" />
+          <stop offset="62%" stopColor="#cbb08a" />
+          <stop offset="100%" stopColor="#93785a" />
+        </linearGradient>
+        <linearGradient id={`${id}-carbon`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#6c7683" />
+          <stop offset="26%" stopColor="#3a424e" />
+          <stop offset="62%" stopColor="#1d2129" />
+          <stop offset="100%" stopColor="#0a0d12" />
+        </linearGradient>
+        <linearGradient id={`${id}-ivory`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="26%" stopColor="#f0f2f6" />
+          <stop offset="62%" stopColor="#ccd2dd" />
+          <stop offset="100%" stopColor="#8e97a6" />
+        </linearGradient>
+        <linearGradient id={`${id}-slateb`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#b9c8dd" />
+          <stop offset="26%" stopColor="#7089a8" />
+          <stop offset="62%" stopColor="#3c5170" />
+          <stop offset="100%" stopColor="#17253a" />
+        </linearGradient>
+        <linearGradient id={`${id}-bronze`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#e2b47a" />
+          <stop offset="26%" stopColor="#a8763c" />
+          <stop offset="62%" stopColor="#6b4520" />
+          <stop offset="100%" stopColor="#33200e" />
+        </linearGradient>
+        <linearGradient id={`${id}-sage`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#dfe8dd" />
+          <stop offset="26%" stopColor="#a9bda6" />
+          <stop offset="62%" stopColor="#6e8570" />
+          <stop offset="100%" stopColor="#3a4b3d" />
+        </linearGradient>
+        <linearGradient id={`${id}-plum`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#c9a6e0" />
+          <stop offset="26%" stopColor="#8a5ba8" />
+          <stop offset="62%" stopColor="#4e2c68" />
+          <stop offset="100%" stopColor="#22102f" />
+        </linearGradient>
+        <linearGradient id={`${id}-mint`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#e8fbf4" />
+          <stop offset="26%" stopColor="#b9e6d6" />
+          <stop offset="62%" stopColor="#82bfab" />
+          <stop offset="100%" stopColor="#4a7b6b" />
+        </linearGradient>
+        <linearGradient id={`${id}-sky`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#e9f4ff" />
+          <stop offset="26%" stopColor="#bcd9f2" />
+          <stop offset="62%" stopColor="#83aacd" />
+          <stop offset="100%" stopColor="#4a6a8c" />
         </linearGradient>
         <linearGradient id={`${id}-plate`} x1="0.15" y1="0" x2="0.85" y2="1">
           <stop offset="0%" stopColor="#8b9ec2" />
