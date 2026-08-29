@@ -911,24 +911,41 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .stgshop{display:block;width:100%;margin-top:22px;padding:12px;border-radius:12px;border:1px solid var(--bd1);background:var(--card2);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 .stgshop:hover{border-color:#d97757;color:#d97757}
 @media (max-width:380px){.stggrid{grid-template-columns:repeat(2,1fr)}.stgstats{grid-template-columns:repeat(2,1fr)}}
-/* ── the one-time chassis choice ── */
+/* ── the one-time chassis choice ──
+   Light, like the shop it shares a catalogue with: a black grid of cards inside
+   a warm off-white app reads as a different product, and the drawn heads have
+   plenty of contrast of their own without a dark ground to sit on. */
 .mdlpick-ov{align-items:center;justify-content:center}
-.mdlpick{max-width:430px!important;width:calc(100% - 24px);max-height:92vh!important;display:flex;flex-direction:column;overflow:hidden}
-.mdlpick-hdr{padding:14px 16px 10px;border-bottom:1px solid #00f0ff26;flex-shrink:0}
-.mdlpick-ttl{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;color:#00f0ff;text-shadow:0 0 8px rgba(0,240,255,.35)}
-.mdlpick-sub{margin-top:5px;font-size:11.5px;line-height:1.45;color:#9fb1cc}
+.mdlpick{max-width:430px!important;width:calc(100% - 24px);max-height:92vh!important;display:flex;flex-direction:column;overflow:hidden;background:var(--card)!important;border-color:var(--bd1)!important;box-shadow:0 24px 60px -20px rgba(20,30,60,.45)!important}
+.mdlpick-hdr{padding:14px 16px 10px;border-bottom:1px solid var(--bd1);flex-shrink:0}
+.mdlpick-ttl{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;color:#d97757}
+.mdlpick-sub{margin-top:5px;font-size:11.5px;line-height:1.45;color:var(--muted)}
 .mdlpick-body{flex:1;overflow-y:auto;padding:12px 14px}
-.mdlpick-stage{height:250px;border-radius:14px;background:radial-gradient(ellipse 120% 80% at 50% 108%,#141033 0%,#0a0618 55%,#050310 100%);border:1px solid #ffffff14;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.mdlpick-stage svg{display:block;height:238px;width:auto}
+.mdlpick-stage{height:250px;border-radius:14px;background:linear-gradient(178deg,#ffffff 0%,#f6f8fc 52%,#e9edf4 100%);border:1px solid var(--bd1);display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:inset 0 -24px 30px -26px rgba(20,30,60,.18)}
+.mdlpick-stage svg{display:block;height:238px;width:auto;filter:drop-shadow(0 8px 10px rgba(20,30,60,.22))}
 .mdlpick-info{display:flex;align-items:baseline;gap:8px;padding:9px 2px 11px;flex-wrap:wrap}
-.mdlpick-code{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:#00f0ff}
-.mdlpick-name{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:#eaf4ff}
-.mdlpick-cls{font-size:11px;color:#9fb1cc}
+.mdlpick-code{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:#d97757}
+.mdlpick-name{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:var(--text)}
+.mdlpick-cls{font-size:11px;color:var(--muted)}
 .mdlpick-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
 .mdlpick-grid .char-model-nm{font-size:8.5px}
-.mdlpick-foot{padding:11px 14px 14px;border-top:1px solid #00f0ff26;flex-shrink:0}
-.mdlpick-go{width:100%;padding:12px 10px;border:none;border-radius:12px;background:linear-gradient(135deg,#00f0ff,#aa00ff);color:#04121b;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:.3px;cursor:pointer;box-shadow:0 6px 20px -8px #00f0ff}
-.mdlpick-go:hover{filter:brightness(1.08)}
+.mdlpick-foot{padding:11px 14px 14px;border-top:1px solid var(--bd1);flex-shrink:0}
+.mdlpick-go{width:100%;padding:12px 10px;border:none;border-radius:12px;background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:.3px;cursor:pointer;box-shadow:0 6px 20px -8px #d97757}
+.mdlpick-go:hover{filter:brightness(1.06)}
+/* the tiles: light cards, same language as the shop shelf */
+.mdlpick .char-model{background:var(--card2);border-color:var(--bd1)}
+.mdlpick .char-model:hover{border-color:#d9775788}
+.mdlpick .char-model.on{border-color:#d97757;box-shadow:0 0 0 1px #d9775755,0 4px 14px -6px #d97757;background:linear-gradient(170deg,#d9775714,var(--card2))}
+.mdlpick .char-model-code{color:#a8a49a}
+.mdlpick .char-model.on .char-model-code{color:#d97757}
+.mdlpick .char-model-nm{color:var(--muted)}
+.mdlpick .char-model.on .char-model-nm{color:var(--text)}
+/* the spend/locked prompts inherit the same daylight */
+.mdlask{max-width:340px!important;width:calc(100% - 40px);padding:20px 18px;text-align:center;background:var(--card)!important;border-color:var(--bd1)!important}
+.mdlask-ttl{color:#d97757}
+.mdlask-txt{color:var(--text)}
+.mdlask-head{background:linear-gradient(178deg,#fff,#eef1f7);border-color:var(--bd1)}
+.mdlask-no{border-color:var(--bd1);color:var(--muted)}
 /* which chassis is running, stated on the character card */
 .char-modelpill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:20px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:#00d3e6;background:#00f0ff14;border:1px solid #00f0ff44}
 .char-modelpill b{font-family:'Orbitron',sans-serif;font-size:8.5px;color:#7f93b5}
