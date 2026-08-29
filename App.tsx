@@ -5027,6 +5027,10 @@ const SHOP_SKINS = [
   { id: "fire",   icon: "🔥", art: "key-fire", cost: 260, rarity: "epic",      th: "นีออนเพลิง", en: "Neon Blaze", zh: "霓虹烈焰", sw: ["#ff3300", "#330000"], isNew: true },
   { id: "galaxy", icon: "🪐", art: "key-galaxy", cost: 300, rarity: "epic",      th: "ดิจิทัลกาแล็กซี่", en: "Digital Galaxy", zh: "数字银河", sw: ["#cc66ff", "#220055"], isNew: true },
   { id: "prism",  icon: "🌈", art: "key-prism", cost: 550, rarity: "legendary", th: "ปริซึมโซล", en: "Soul Prism", zh: "灵魂棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
+  { id: "jade",   icon: "💚", art: "key-jade", cost: 220, rarity: "rare",      th: "หยกไซเบอร์", en: "Cyber Jade",  zh: "赛博玉", sw: ["#3ddc84", "#0d3a24"], isNew: true },
+  { id: "magma",  icon: "🌋", art: "key-magma", cost: 280, rarity: "epic",      th: "แมกม่าเรืองแสง", en: "Glowing Magma", zh: "熔岩辉光", sw: ["#ff5a1a", "#3a0d00"], isNew: true },
+  { id: "keysakura", icon: "🌸", art: "key-sakura", cost: 300, rarity: "epic",      th: "ซากุระนีออน", en: "Neon Sakura",  zh: "霓虹樱花", sw: ["#ff8fc0", "#5c1236"], isNew: true },
+  { id: "void",   icon: "🕳️", art: "key-void", cost: 600, rarity: "legendary", th: "วอยด์อีเวนต์", en: "Void Horizon", zh: "虚空视界", sw: ["#a86bff", "#0a0616"], isNew: true },
 ];
 const SHOP_THEMES = [
   { id: "midnight",  icon: "🌌", art: "thm-midnight", cost: 0,   rarity: "common",    th: "ไนท์ซิตี้", en: "Night City",  zh: "夜之城", sw: ["#5b7fd4", "#0a0f22"] },
@@ -5037,6 +5041,10 @@ const SHOP_THEMES = [
   { id: "deepsea",   icon: "🐋", art: "thm-deepsea", cost: 240, rarity: "epic",      th: "โพลาร์ดิป", en: "Polar Deep", zh: "极地深海", sw: ["#3fb6e0", "#01121f"], isNew: true },
   { id: "volcano",   icon: "🌋", art: "thm-volcano", cost: 260, rarity: "epic",      th: "แกนแมกม่า", en: "Magma Core", zh: "岩浆核心", sw: ["#ff5a1a", "#1c0603"], isNew: true },
   { id: "starlight", icon: "✨", art: "thm-starlight", cost: 450, rarity: "legendary", th: "สตาร์ไลท์ไซเบอร์", en: "Cyber Starlight", zh: "赛博星光", sw: ["#c79cff", "#0d0620"], isNew: true },
+  { id: "neongrid", icon: "🛣️", art: "thm-neon", cost: 180, rarity: "rare",      th: "กริดนีออน", en: "Neon Grid",    zh: "霓虹网格", sw: ["#ff2d9b", "#0d0320"], isNew: true },
+  { id: "arcade", icon: "👾", art: "thm-arcade", cost: 220, rarity: "epic",      th: "อาร์เคดเรโทร", en: "Retro Arcade", zh: "复古街机", sw: ["#4de1ff", "#0a0a1e"], isNew: true },
+  { id: "zen",    icon: "🪷", art: "thm-zen", cost: 240, rarity: "epic",      th: "สวนเซน", en: "Zen Garden",         zh: "禅意庭园", sw: ["#e0c48a", "#14100a"], isNew: true },
+  { id: "nebula", icon: "🌫️", art: "thm-nebula", cost: 480, rarity: "legendary", th: "เนบิวลาลึก", en: "Deep Nebula", zh: "深空星云", sw: ["#a86bff", "#080418"], isNew: true },
 ];
 const SHOP_FRAMES = [
   { id: "fr-none",    icon: "⭕", art: "frm-fr-none", cost: 0,   rarity: "common",    th: "ไม่มีกรอบ", en: "No Frame", zh: "无边框", sw: ["#666680", "#666680"] },
@@ -5044,6 +5052,11 @@ const SHOP_FRAMES = [
   { id: "fr-silver",  icon: "🥈", art: "frm-fr-silver", cost: 280, rarity: "rare",      th: "โครเมียม", en: "Chromium", zh: "铬合金", sw: ["#c0c0d0", "#50505a"], isNew: true },
   { id: "fr-gold",    icon: "🥇", art: "frm-fr-gold", cost: 500, rarity: "epic",      th: "ไนออนโกลด์", en: "Neon Gold", zh: "霓虹金", sw: ["#ffd23f", "#665500"], isNew: true },
   { id: "fr-diamond", icon: "💎", art: "frm-fr-diamond", cost: 900, rarity: "legendary", th: "ฮอลโลแกรม", en: "Hologram", zh: "全息框", sw: ["#00f0ff", "#aa00ff"], isNew: true },
+  { id: "fr-neon",    icon: "💠", art: "frm-fr-neon", cost: 180, rarity: "rare",      th: "นีออนเอดจ์", en: "Neon Edge",   zh: "霓虹边框", sw: ["#00f0ff", "#0a1a2e"], isNew: true },
+  { id: "fr-circuit", icon: "🔌", art: "frm-fr-circuit", cost: 340, rarity: "rare",      th: "แผงวงจร", en: "Circuit Board",  zh: "电路板", sw: ["#3ddc84", "#0d2a1c"], isNew: true },
+  { id: "fr-laurel",  icon: "🌿", art: "frm-fr-laurel", cost: 620, rarity: "epic",      th: "พวงหรีดทอง", en: "Golden Laurel", zh: "黄金桂冠", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "fr-mecha",   icon: "🦾", art: "frm-fr-mecha", cost: 760, rarity: "epic",      th: "โครงเมค", en: "Mecha Rig",        zh: "机甲框架", sw: ["#b8c2d4", "#232d42"], isNew: true },
+  { id: "fr-prism",   icon: "🌈", art: "frm-fr-prism", cost: 1200, rarity: "legendary", th: "ปริซึมสเปกตรัม", en: "Spectrum Prism", zh: "光谱棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
 ];
 const SHOP_KEYBOARDS = [
   { id: "kb-classic",  icon: "🎹", art: "kbd-kb-classic", cost: 0,   rarity: "common",    th: "คลาสสิกไซเบอร์", en: "Cyber Classic", zh: "赛博经典", sw: ["#1a1a2e", "#0d0d15"], isNew: false },
@@ -5055,6 +5068,10 @@ const SHOP_KEYBOARDS = [
   { id: "kb-galaxy",   icon: "🪐", art: "kbd-kb-galaxy", cost: 400, rarity: "epic",      th: "ไซเบอร์กาแล็กซี่", en: "Cyber Galaxy", zh: "赛博银河", sw: ["#cc66ff", "#220055"], isNew: true },
   { id: "kb-gold",     icon: "💛", art: "kbd-kb-gold", cost: 550, rarity: "legendary", th: "ไชนิ่งไซเบอร์", en: "Shining Cyber", zh: "闪耀赛博", sw: ["#ffd23f", "#665500"], isNew: true },
   { id: "kb-rainbow",  icon: "🌈", art: "kbd-kb-rainbow", cost: 750, rarity: "legendary", th: "ปริซึมโซล", en: "Soul Prism",  zh: "灵魂棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
+  { id: "kb-jade",   icon: "💚", art: "kbd-kb-jade", cost: 200, rarity: "rare",      th: "หยกไซเบอร์", en: "Cyber Jade",  zh: "赛博玉", sw: ["#3ddc84", "#0d3a24"], isNew: true },
+  { id: "kb-sunset", icon: "🌇", art: "kbd-kb-sunset", cost: 240, rarity: "rare",      th: "ซันเซ็ตไดรฟ์", en: "Sunset Drive", zh: "落日驰骋", sw: ["#ff7a3c", "#3a1400"], isNew: true },
+  { id: "kb-carbon", icon: "🔲", art: "kbd-kb-carbon", cost: 300, rarity: "epic",      th: "คาร์บอนไฟเบอร์", en: "Carbon Fibre", zh: "碳纤维", sw: ["#8a94a8", "#14161f"], isNew: true },
+  { id: "kb-aurora", icon: "🌠", art: "kbd-kb-aurora", cost: 460, rarity: "epic",      th: "ออโรร่า", en: "Aurora",            zh: "极光", sw: ["#43e8b0", "#03202f"], isNew: true },
 ];
 const SHOP_STICKERS = [
   { id: "st-star",     icon: "⭐", art: "stk-st-star", cost: 50,  rarity: "common",    th: "ชิปข้อมูล", en: "Data Chip",       zh: "数据芯片", sw: ["#00f0ff", "#006688"], isNew: false },
@@ -5066,6 +5083,11 @@ const SHOP_STICKERS = [
   { id: "st-rocket",   icon: "🚀", art: "stk-st-rocket", cost: 350, rarity: "epic",      th: "จรวดดิจิทัล", en: "Digital Rocket",     zh: "数字火箭", sw: ["#ff3300", "#001133"], isNew: true },
   { id: "st-trophy",   icon: "🏆", art: "stk-st-trophy", cost: 500, rarity: "legendary", th: "ถ้วยโซลไซเบอร์", en: "Cyber Soul Trophy", zh: "赛博灵魂杯", sw: ["#ffd23f", "#cd7f32"], isNew: true },
   { id: "st-magic",    icon: "✨", art: "stk-st-magic", cost: 600, rarity: "legendary", th: "ไซเบอร์โซล", en: "Cyber Soul",      zh: "赛博灵魂", sw: ["#cc66ff", "#ff0044", "#ffd23f"], isNew: true },
+  { id: "st-note8",  icon: "🎶", art: "stk-st-note8", cost: 90,  rarity: "common",    th: "โน้ตเขบ็ต", en: "Beamed Notes", zh: "八分音符", sw: ["#4dc3ff", "#0d2a44"], isNew: true },
+  { id: "st-metro",  icon: "⏱️", art: "stk-st-metro", cost: 140, rarity: "rare",      th: "เมโทรนอม", en: "Metronome",     zh: "节拍器", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "st-bolt",   icon: "⚡", art: "stk-st-bolt", cost: 180, rarity: "rare",      th: "สายฟ้าโอเวอร์ไดรฟ์", en: "Overdrive Bolt", zh: "超载闪电", sw: ["#ffe14d", "#4a3200"], isNew: true },
+  { id: "st-paw",    icon: "🐾", art: "stk-st-paw", cost: 240, rarity: "epic",      th: "อุ้งเท้าคู่หู", en: "Buddy Paw",    zh: "伙伴爪印", sw: ["#ff8fc0", "#5c1236"], isNew: true },
+  { id: "st-medal",  icon: "🎖️", art: "stk-st-medal", cost: 420, rarity: "legendary", th: "เหรียญเกียรติยศ", en: "Honour Medal", zh: "荣誉勋章", sw: ["#ffd23f", "#b04a2a"], isNew: true },
 ];
 const SHOP_HATS = [
   { id: "hat-straw",    icon: "🥽", cost: 0,   art: "visor", rarity: "common",    th: "บังตาออปติก", en: "Optic Visor",      zh: "光学护目镜", sw: ["#8fa6c8", "#00f0ff"] },
@@ -5075,8 +5097,8 @@ const SHOP_HATS = [
   { id: "hat-wizard",   icon: "🧠", cost: 350, art: "brain", rarity: "epic",      th: "โมดูลสมองกล", en: "Cortex Module",    zh: "皮层模块", sw: ["#c78ff5", "#3b0a66"] },
   { id: "hat-halo",     icon: "🔆", cost: 400, art: "halo", rarity: "epic",      th: "วงแสงโฟตอน", en: "Photon Halo",      zh: "光子光环", sw: ["#ffd23f", "#ff00aa"] },
   { id: "hat-devil",    icon: "🎯", cost: 500, art: "crest", rarity: "epic",      th: "ระบบล็อกเป้าหมาย", en: "Targeting Crest", zh: "瞄准冠", sw: ["#ff5566", "#3a000c"] },
-  { id: "hat-helmet",   icon: "⛑️", cost: 600, art: "helm", rarity: "legendary", th: "หมวกเกราะเสริมแรง", en: "Reinforced Helm", zh: "强化头盔", sw: ["#c0c0d0", "#00f0ff"] },
-  { id: "hat-star",     icon: "🌟", cost: 800, art: "crown", rarity: "legendary", th: "มงกุฎสุริยะ", en: "Solar Crown",      zh: "太阳冠", sw: ["#ffd23f", "#ff0044", "#aa00ff"] },
+  { id: "hat-helmet",   icon: "⛑️", cost: 600, art: "aegis", rarity: "legendary", th: "หมวกเกราะเสริมแรง", en: "Reinforced Helm", zh: "强化头盔", sw: ["#c0c0d0", "#00f0ff"] },
+  { id: "hat-star",     icon: "🌟", cost: 800, art: "diadem", rarity: "legendary", th: "มงกุฎสุริยะ", en: "Solar Crown",      zh: "太阳冠", sw: ["#ffd23f", "#ff0044", "#aa00ff"] },
   /* ── android head modules ── gear that belongs on a machine rather than on a
      person: sensors, antennae and processing units, so the shop stocks things
      the character can plausibly be wearing now that it is a robot. ── */
@@ -5087,6 +5109,11 @@ const SHOP_HATS = [
   { id: "hat-satellite",icon: "🛰️", cost: 460, art: "satellite", rarity: "epic",      th: "โมดูลดาวเทียม", en: "Satellite Uplink", zh: "卫星模块", sw: ["#00f0ff", "#2a3f6a"], isNew: true },
   { id: "hat-reactor",  icon: "⚛️", cost: 560, art: "atom", rarity: "epic",      th: "แกนปฏิกรณ์สมอง", en: "Neural Reactor",  zh: "神经反应堆", sw: ["#00ffa8", "#00f0ff"], isNew: true },
   { id: "hat-quantum",  icon: "🌐", cost: 880, art: "orb", rarity: "legendary", th: "คอร์ควอนตัม", en: "Quantum Core",     zh: "量子核心", sw: ["#aa00ff", "#00f0ff", "#ffd23f"], isNew: true },
+  /* ── stage headwear ── */
+  { id: "hat-maestro", icon: "🎩", art: "sigil", cost: 210, rarity: "rare",      th: "หมวกวาทยกร", en: "Maestro Cap",     zh: "指挥官帽", sw: ["#1c2233", "#ffd23f"], isNew: true },
+  { id: "hat-mask",    icon: "🎭", art: "mask", cost: 380, rarity: "epic",      th: "หน้ากากโอเปร่า", en: "Opera Mask",    zh: "歌剧面具", sw: ["#e9edf6", "#aa00ff"], isNew: true },
+  { id: "hat-wreath",  icon: "🌿", art: "wreath", cost: 620, rarity: "legendary", th: "พวงหรีดผู้ชนะ", en: "Victor Wreath", zh: "胜利桂冠", sw: ["#ffd23f", "#3ddc84"], isNew: true },
+  { id: "hat-holo",    icon: "🔮", art: "holo", cost: 740, rarity: "legendary", th: "ตัวฉายโฮโลแกรม", en: "Holo Projector", zh: "全息投影器", sw: ["#7fe8ff", "#12405e"], isNew: true },
 ];
 const SHOP_OUTFITS = [
   { id: "out-tshirt",  icon: "🤖", cost: 0,   art: "out-tshirt", rarity: "common",    th: "โครงมาตรฐาน", en: "Standard Chassis", zh: "标准机身", sw: ["#8b9ec2", "#1a2233"] },
@@ -5112,10 +5139,10 @@ const SHOP_WEAPONS = [
   { id: "wpn-stick",   icon: "🔦", cost: 0,   art: "torch", rarity: "common",    th: "ตัวฉายลำแสง", en: "Beam Projector",   zh: "光束投射器", sw: ["#00f0ff", "#0a1a2e"] },
   { id: "wpn-sword",   icon: "⚔️", cost: 150, art: "sword", rarity: "common",    th: "ใบมีดโมโน", en: "Mono Blade",         zh: "单分子刀", sw: ["#c0c0d0", "#00f0ff"] },
   { id: "wpn-axe",     icon: "🪚", cost: 180, art: "cutter", rarity: "rare",      th: "เครื่องตัดพลาสมา", en: "Plasma Cutter", zh: "等离子切割器", sw: ["#ff6a1a", "#00f0ff"] },
-  { id: "wpn-bow",     icon: "💥", cost: 220, art: "driver", rarity: "rare",      th: "ตัวขับแรงกระแทก", en: "Impact Driver", zh: "冲击驱动器", sw: ["#c78ff5", "#ff0044"] },
+  { id: "wpn-bow",     icon: "💥", cost: 220, art: "piston", rarity: "rare",      th: "ตัวขับแรงกระแทก", en: "Impact Driver", zh: "冲击驱动器", sw: ["#c78ff5", "#ff0044"] },
   { id: "wpn-staff",   icon: "🌀", cost: 350, art: "coil", rarity: "epic",      th: "ขดลวดวอร์เท็กซ์", en: "Vortex Coil",   zh: "涡流线圈", sw: ["#aa00ff", "#00f0ff"] },
   { id: "wpn-hammer",  icon: "🔨", cost: 400, art: "hammer", rarity: "epic",      th: "ค้อนเซอร์โว", en: "Servo Hammer",     zh: "伺服锤", sw: ["#c0c0d0", "#ff3300"] },
-  { id: "wpn-blade",   icon: "🗡️", cost: 600, art: "sword", rarity: "legendary", th: "ดาบพลาสมา", en: "Plasma Sword",      zh: "等离子剑", sw: ["#00f0ff", "#ffffff"] },
+  { id: "wpn-blade",   icon: "🗡️", cost: 600, art: "greatsword", rarity: "legendary", th: "ดาบพลาสมา", en: "Plasma Sword",      zh: "等离子剑", sw: ["#00f0ff", "#ffffff"] },
   { id: "wpn-scythe",  icon: "🛠️", cost: 750, art: "multitool", rarity: "legendary", th: "ชุดเครื่องมือรบ", en: "Multi-Tool Rig", zh: "多功能工具组", sw: ["#b8c2d4", "#ff0044"] },
   { id: "wpn-celestial", icon: "☄️", cost: 950, art: "lance", rarity: "legendary", th: "หอกดาวหาง", en: "Comet Lance",     zh: "彗星长枪", sw: ["#ffd23f", "#aa00ff", "#00f0ff"] },
   /* ── arm modules ── engineering and sound gear rather than firearms: this is a
@@ -5127,7 +5154,7 @@ const SHOP_WEAPONS = [
   { id: "wpn-keytar",  icon: "🎹", cost: 320, art: "keytar", rarity: "rare",      th: "แขนคีย์ทาร์", en: "Keytar Arm",       zh: "键盘臂", sw: ["#ffffff", "#aa00ff"], isNew: true },
   { id: "wpn-speaker", icon: "🔊", cost: 440, art: "speaker", rarity: "epic",      th: "ปืนคลื่นเสียง", en: "Sonic Emitter",    zh: "声波发射器", sw: ["#00f0ff", "#0a1628"], isNew: true },
   { id: "wpn-arm",     icon: "🦾", cost: 640, art: "arm", rarity: "epic",      th: "แขนกลเสริมพลัง", en: "Power Arm",       zh: "动力机械臂", sw: ["#c0c0d0", "#ff6a00"], isNew: true },
-  { id: "wpn-plasma",  icon: "⚡", cost: 900, art: "coil", rarity: "legendary", th: "ตัวปล่อยพลาสมา", en: "Plasma Coil",     zh: "等离子线圈", sw: ["#00f0ff", "#ffffff", "#aa00ff"], isNew: true },
+  { id: "wpn-plasma",  icon: "⚡", cost: 900, art: "reactor", rarity: "legendary", th: "ตัวปล่อยพลาสมา", en: "Plasma Coil",     zh: "等离子线圈", sw: ["#00f0ff", "#ffffff", "#aa00ff"], isNew: true },
   /* ── energy weapons ── the space-opera end of the rack: directed light,
      thrown charges, and a projected barrier. Kept squarely in sci-fi rather
      than reality — the blaster fires light, the charges are EMP and pulse
@@ -5138,8 +5165,14 @@ const SHOP_WEAPONS = [
   { id: "wpn-charge",  icon: "🧨", cost: 380, art: "charge", rarity: "epic",      th: "ระเบิดพัลส์", en: "Pulse Charge",     zh: "脉冲炸药", sw: ["#ff9a3c", "#5c1400"], isNew: true },
   { id: "wpn-emp",     icon: "💣", cost: 460, art: "grenade", rarity: "epic",      th: "ระเบิดคลื่นแม่เหล็ก", en: "EMP Grenade", zh: "电磁脉冲弹", sw: ["#8fa6c8", "#0d1520"], isNew: true },
   { id: "wpn-boomer",  icon: "🪃", cost: 520, art: "boomerang", rarity: "epic",      th: "ใบมีดบูมเมอแรง", en: "Boomerang Blade", zh: "回旋刀刃", sw: ["#ffd23f", "#3a2a00"], isNew: true },
-  { id: "wpn-ion",     icon: "❇️", cost: 700, art: "blaster", rarity: "legendary", th: "ปืนใหญ่ไอออน", en: "Ion Cannon",      zh: "离子炮", sw: ["#7fe8ff", "#12405e"], isNew: true },
+  { id: "wpn-ion",     icon: "❇️", cost: 700, art: "railgun", rarity: "legendary", th: "ปืนใหญ่ไอออน", en: "Ion Cannon",      zh: "离子炮", sw: ["#7fe8ff", "#12405e"], isNew: true },
   { id: "wpn-nova",    icon: "🎆", cost: 1000, art: "burst", rarity: "legendary", th: "โนวาเบิร์สต์", en: "Nova Burst",     zh: "新星爆发", sw: ["#ffd23f", "#ff0044", "#aa00ff"], isNew: true },
+  /* ── the music bench ── a piano app's rack should hold the tools a musician
+     owns, not only ordnance. These four are the ones a robot can pick up. ── */
+  { id: "wpn-fork",    icon: "🎼", art: "fork", cost: 170, rarity: "rare",      th: "ส้อมเสียงเรโซแนนซ์", en: "Resonance Fork", zh: "共鸣音叉", sw: ["#7fe8ff", "#0d3a5c"], isNew: true },
+  { id: "wpn-metro",   icon: "⏱️", art: "pendulum", cost: 260, rarity: "rare",      th: "ลูกตุ้มจังหวะ", en: "Tempo Pendulum",  zh: "节拍摆锤", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "wpn-baton",   icon: "🪄", art: "baton", cost: 480, rarity: "epic",      th: "ไม้บาตองวาทยกร", en: "Maestro Baton",  zh: "指挥棒", sw: ["#ffffff", "#c78ff5"], isNew: true },
+  { id: "wpn-disc",    icon: "💿", art: "disc", cost: 820, rarity: "legendary", th: "จานเสียงสังหาร", en: "Vinyl Cutter",     zh: "唱片飞盘", sw: ["#c0c0d0", "#1a1a2e"], isNew: true },
 ];
 /* ── robot skins ──
    The chassis itself is stock now. The first one is free — chosen once, on the
@@ -5212,6 +5245,11 @@ const SHOP_ACCESSORIES = [
   { id: "acc-thruster", icon: "🚀", cost: 480, art: "thruster", rarity: "epic",      th: "เครื่องยนต์ขับดัน", en: "Thruster Pack",  zh: "推进背包", sw: ["#ff6a00", "#ffd23f"], isNew: true },
   { id: "acc-drone",    icon: "🛸", cost: 600, art: "drone", rarity: "epic",      th: "โดรนคู่หู", en: "Companion Drone",  zh: "伴飞无人机", sw: ["#aa00ff", "#00f0ff"], isNew: true },
   { id: "acc-halo",     icon: "💫", cost: 950, art: "halo", rarity: "legendary", th: "วงแหวนพลังงาน", en: "Energy Halo",     zh: "能量光环", sw: ["#ffd23f", "#00f0ff", "#ff00aa"], isNew: true },
+  /* ── stage rig ── */
+  { id: "acc-fork",    icon: "🎵", art: "fork", cost: 190, rarity: "rare",      th: "ส้อมเสียงจูนอัตโนมัติ", en: "Auto-Tune Fork", zh: "自动调音叉", sw: ["#3ddc84", "#0d3a24"], isNew: true },
+  { id: "acc-metro",   icon: "🕰️", art: "pendulum", cost: 270, rarity: "rare",      th: "โมดูลจับจังหวะ", en: "Tempo Module",  zh: "节拍模块", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "acc-holo",    icon: "📽️", art: "holo", cost: 540, rarity: "epic",      th: "เวทีโฮโลแกรม", en: "Holo Stage",       zh: "全息舞台", sw: ["#aa00ff", "#00f0ff"], isNew: true },
+  { id: "acc-wreath",  icon: "🏵️", art: "wreath", cost: 880, rarity: "legendary", th: "พวงหรีดแชมป์เปียน", en: "Champion Laurel", zh: "冠军桂冠", sw: ["#ffd23f", "#ff9a3c"], isNew: true },
 ];
 // F2: LINE achievement share — opens LINE app on mobile, fallback clipboard on desktop
 function shareLine(text: string) {
