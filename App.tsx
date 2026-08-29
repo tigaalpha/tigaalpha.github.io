@@ -5,6 +5,8 @@ import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
 import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw } from "./cyber-avatar";
 import { ItemArt } from "./item-art";
+import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
+import { SkillTrack, PvpPage, trainFromExp, readSkillSp, skillRank } from "./pvp-arena";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -3781,6 +3783,9 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
    feature's own gamification page already shows the player, so a challenge
    score is exactly as trustworthy as any other stat already in the app. */
 const ACTIVITY_DUELS = [
+  { key: "arena", icon: "⚔", higherIsBetter: true, unit: "",
+    label: { th: "สนามประลอง PvP", en: "PvP Arena", zh: "PvP 竞技场" },
+    myBest: () => { try { return Number(localStorage.getItem("tg_arena_best") || 0); } catch (e) { return 0; } } },
   { key: "activity:eargym", icon: "🎧", higherIsBetter: true, unit: "",
     label: { th: "บันไดโสตศาสตร์", en: "Ear Gym Ladder", zh: "耳朵健身梯" },
     myBest: () => ladderBestScore() },
@@ -5016,55 +5021,77 @@ function maybeSnapshotSkills(uid) {
 
 /* ── cosmetics shop: key-skins + background themes (bought with coins) ── */
 const SHOP_SKINS = [
-  { id: "aqua",   icon: "🩵", cost: 0,   rarity: "common",    th: "นีออน基础", en: "Neon Base",   zh: "霓虹基础", sw: ["#00f0ff", "#004d66"] },
-  { id: "sunset", icon: "🧡", cost: 120, rarity: "common",    th: "เมทริกซ์ส้ม", en: "Matrix Orange", zh: "矩阵橙", sw: ["#ff6600", "#993300"] },
-  { id: "neon",   icon: "💚", cost: 180, rarity: "rare",      th: "ไซเบอร์เขียว", en: "Cyber Green", zh: "赛博绿", sw: ["#00ff88", "#006633"] },
-  { id: "candy",  icon: "💗", cost: 180, rarity: "rare",      th: "ฮอโลแกรมชมพู", en: "Holo Pink", zh: "全息粉", sw: ["#ff00aa", "#660044"] },
-  { id: "ocean",  icon: "🌊", cost: 200, rarity: "rare",      th: "ดีพไซเบอร์", en: "Deep Cyber", zh: "深空蓝", sw: ["#00ccff", "#003366"], isNew: true },
-  { id: "ice",    icon: "❄️", cost: 200, rarity: "rare",      th: "ไкрโฟสต์", en: "Cryofrost", zh: "冰晶", sw: ["#aaeeff", "#0066aa"], isNew: true },
-  { id: "gold",   icon: "💛", cost: 320, rarity: "epic",      th: "ไชนิ่งโกลด์", en: "Shining Gold", zh: "闪耀金", sw: ["#ffd23f", "#665500"] },
-  { id: "fire",   icon: "🔥", cost: 260, rarity: "epic",      th: "นีออนเพลิง", en: "Neon Blaze", zh: "霓虹烈焰", sw: ["#ff3300", "#330000"], isNew: true },
-  { id: "galaxy", icon: "🪐", cost: 300, rarity: "epic",      th: "ดิจิทัลกาแล็กซี่", en: "Digital Galaxy", zh: "数字银河", sw: ["#cc66ff", "#220055"], isNew: true },
-  { id: "prism",  icon: "🌈", cost: 550, rarity: "legendary", th: "ปริซึมโซล", en: "Soul Prism", zh: "灵魂棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
+  { id: "aqua",   icon: "🩵", art: "key-aqua", cost: 0,   rarity: "common",    th: "นีออนพื้นฐาน", en: "Neon Base",   zh: "霓虹基础", sw: ["#00f0ff", "#004d66"] },
+  { id: "sunset", icon: "🧡", art: "key-sunset", cost: 120, rarity: "common",    th: "เมทริกซ์ส้ม", en: "Matrix Orange", zh: "矩阵橙", sw: ["#ff6600", "#993300"] },
+  { id: "neon",   icon: "💚", art: "key-neon", cost: 180, rarity: "rare",      th: "ไซเบอร์เขียว", en: "Cyber Green", zh: "赛博绿", sw: ["#00ff88", "#006633"] },
+  { id: "candy",  icon: "💗", art: "key-candy", cost: 180, rarity: "rare",      th: "ฮอโลแกรมชมพู", en: "Holo Pink", zh: "全息粉", sw: ["#ff00aa", "#660044"] },
+  { id: "ocean",  icon: "🌊", art: "key-ocean", cost: 200, rarity: "rare",      th: "ดีพไซเบอร์", en: "Deep Cyber", zh: "深空蓝", sw: ["#00ccff", "#003366"], isNew: true },
+  { id: "ice",    icon: "❄️", art: "key-ice", cost: 200, rarity: "rare",      th: "ไครโอฟรอสต์", en: "Cryofrost", zh: "冰晶", sw: ["#aaeeff", "#0066aa"], isNew: true },
+  { id: "gold",   icon: "💛", art: "key-gold", cost: 320, rarity: "epic",      th: "ไชนิ่งโกลด์", en: "Shining Gold", zh: "闪耀金", sw: ["#ffd23f", "#665500"] },
+  { id: "fire",   icon: "🔥", art: "key-fire", cost: 260, rarity: "epic",      th: "นีออนเพลิง", en: "Neon Blaze", zh: "霓虹烈焰", sw: ["#ff3300", "#330000"], isNew: true },
+  { id: "galaxy", icon: "🪐", art: "key-galaxy", cost: 300, rarity: "epic",      th: "ดิจิทัลกาแล็กซี่", en: "Digital Galaxy", zh: "数字银河", sw: ["#cc66ff", "#220055"], isNew: true },
+  { id: "prism",  icon: "🌈", art: "key-prism", cost: 550, rarity: "legendary", th: "ปริซึมโซล", en: "Soul Prism", zh: "灵魂棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
+  { id: "jade",   icon: "💚", art: "key-jade", cost: 220, rarity: "rare",      th: "หยกไซเบอร์", en: "Cyber Jade",  zh: "赛博玉", sw: ["#3ddc84", "#0d3a24"], isNew: true },
+  { id: "magma",  icon: "🌋", art: "key-magma", cost: 280, rarity: "epic",      th: "แมกม่าเรืองแสง", en: "Glowing Magma", zh: "熔岩辉光", sw: ["#ff5a1a", "#3a0d00"], isNew: true },
+  { id: "keysakura", icon: "🌸", art: "key-sakura", cost: 300, rarity: "epic",      th: "ซากุระนีออน", en: "Neon Sakura",  zh: "霓虹樱花", sw: ["#ff8fc0", "#5c1236"], isNew: true },
+  { id: "void",   icon: "🕳️", art: "key-void", cost: 600, rarity: "legendary", th: "วอยด์อีเวนต์", en: "Void Horizon", zh: "虚空视界", sw: ["#a86bff", "#0a0616"], isNew: true },
 ];
 const SHOP_THEMES = [
-  { id: "midnight",  icon: "🌌", cost: 0,   rarity: "common",    th: "ไนท์ซิตี้", en: "Night City",  zh: "夜之城", sw: ["#0a0015", "#050008"] },
-  { id: "aurora",    icon: "🌠", cost: 150, rarity: "rare",      th: "ออโรร่าดิจิทัล", en: "Digital Aurora", zh: "数字极光", sw: ["#001a2a", "#000a15"] },
-  { id: "ember",     icon: "🔥", cost: 150, rarity: "rare",      th: "ไซเบอร์เอ็มเบอร์", en: "Cyber Ember", zh: "赛博余烬", sw: ["#1a0505", "#0d0303"] },
-  { id: "forest",    icon: "🌲", cost: 150, rarity: "rare",      th: "ป่าดิจิทัล", en: "Digital Forest", zh: "数字森林", sw: ["#001a0d", "#000d08"] },
-  { id: "sakura",    icon: "🌸", cost: 200, rarity: "epic",      th: "ไซเบอร์ซากุระ", en: "Cyber Sakura", zh: "赛博樱花", sw: ["#1a0015", "#0d000a"], isNew: true },
-  { id: "deepsea",   icon: "🐋", cost: 240, rarity: "epic",      th: "โพลาร์ดิป", en: "Polar Deep", zh: "极地深海", sw: ["#000d1a", "#00060d"], isNew: true },
-  { id: "volcano",   icon: "🌋", cost: 260, rarity: "epic",      th: "มา.kind lava", en: "Magma Core", zh: "岩浆核心", sw: ["#1a0500", "#0d0300"], isNew: true },
-  { id: "starlight", icon: "✨", cost: 450, rarity: "legendary", th: "สตาร์ไลท์ไซเบอร์", en: "Cyber Starlight", zh: "赛博星光", sw: ["#0d001a", "#08000d"], isNew: true },
+  { id: "midnight",  icon: "🌌", art: "thm-midnight", cost: 0,   rarity: "common",    th: "ไนท์ซิตี้", en: "Night City",  zh: "夜之城", sw: ["#5b7fd4", "#0a0f22"] },
+  { id: "aurora",    icon: "🌠", art: "thm-aurora", cost: 150, rarity: "rare",      th: "ออโรร่าดิจิทัล", en: "Digital Aurora", zh: "数字极光", sw: ["#43e8b0", "#03202f"] },
+  { id: "ember",     icon: "🔥", art: "thm-ember", cost: 150, rarity: "rare",      th: "ไซเบอร์เอ็มเบอร์", en: "Cyber Ember", zh: "赛博余烬", sw: ["#ff7a3c", "#1a0705"] },
+  { id: "forest",    icon: "🌲", art: "thm-forest", cost: 150, rarity: "rare",      th: "ป่าดิจิทัล", en: "Digital Forest", zh: "数字森林", sw: ["#4fbf7a", "#04160e"] },
+  { id: "sakura",    icon: "🌸", art: "thm-sakura", cost: 200, rarity: "epic",      th: "ไซเบอร์ซากุระ", en: "Cyber Sakura", zh: "赛博樱花", sw: ["#ff8fc0", "#1d0716"], isNew: true },
+  { id: "deepsea",   icon: "🐋", art: "thm-deepsea", cost: 240, rarity: "epic",      th: "โพลาร์ดิป", en: "Polar Deep", zh: "极地深海", sw: ["#3fb6e0", "#01121f"], isNew: true },
+  { id: "volcano",   icon: "🌋", art: "thm-volcano", cost: 260, rarity: "epic",      th: "แกนแมกม่า", en: "Magma Core", zh: "岩浆核心", sw: ["#ff5a1a", "#1c0603"], isNew: true },
+  { id: "starlight", icon: "✨", art: "thm-starlight", cost: 450, rarity: "legendary", th: "สตาร์ไลท์ไซเบอร์", en: "Cyber Starlight", zh: "赛博星光", sw: ["#c79cff", "#0d0620"], isNew: true },
+  { id: "neongrid", icon: "🛣️", art: "thm-neon", cost: 180, rarity: "rare",      th: "กริดนีออน", en: "Neon Grid",    zh: "霓虹网格", sw: ["#ff2d9b", "#0d0320"], isNew: true },
+  { id: "arcade", icon: "👾", art: "thm-arcade", cost: 220, rarity: "epic",      th: "อาร์เคดเรโทร", en: "Retro Arcade", zh: "复古街机", sw: ["#4de1ff", "#0a0a1e"], isNew: true },
+  { id: "zen",    icon: "🪷", art: "thm-zen", cost: 240, rarity: "epic",      th: "สวนเซน", en: "Zen Garden",         zh: "禅意庭园", sw: ["#e0c48a", "#14100a"], isNew: true },
+  { id: "nebula", icon: "🌫️", art: "thm-nebula", cost: 480, rarity: "legendary", th: "เนบิวลาลึก", en: "Deep Nebula", zh: "深空星云", sw: ["#a86bff", "#080418"], isNew: true },
 ];
 const SHOP_FRAMES = [
-  { id: "fr-none",    icon: "⭕", cost: 0,   rarity: "common",    th: "ไม่มีกรอบ", en: "No Frame", zh: "无边框", sw: ["#666680", "#666680"] },
-  { id: "fr-bronze",  icon: "🥉", cost: 100, rarity: "common",    th: "คอปเปอร์ไซเบอร์", en: "Cyber Copper", zh: "赛博铜", sw: ["#cd7f32", "#4d2f10"], isNew: true },
-  { id: "fr-silver",  icon: "🥈", cost: 280, rarity: "rare",      th: "โครเมียม", en: "Chromium", zh: "铬合金", sw: ["#c0c0d0", "#50505a"], isNew: true },
-  { id: "fr-gold",    icon: "🥇", cost: 500, rarity: "epic",      th: "ไนออนโกลด์", en: "Neon Gold", zh: "霓虹金", sw: ["#ffd23f", "#665500"], isNew: true },
-  { id: "fr-diamond", icon: "💎", cost: 900, rarity: "legendary", th: "ฮอลโลแกรม", en: "Hologram", zh: "全息框", sw: ["#00f0ff", "#aa00ff"], isNew: true },
+  { id: "fr-none",    icon: "⭕", art: "frm-fr-none", cost: 0,   rarity: "common",    th: "ไม่มีกรอบ", en: "No Frame", zh: "无边框", sw: ["#666680", "#666680"] },
+  { id: "fr-bronze",  icon: "🥉", art: "frm-fr-bronze", cost: 100, rarity: "common",    th: "คอปเปอร์ไซเบอร์", en: "Cyber Copper", zh: "赛博铜", sw: ["#cd7f32", "#4d2f10"], isNew: true },
+  { id: "fr-silver",  icon: "🥈", art: "frm-fr-silver", cost: 280, rarity: "rare",      th: "โครเมียม", en: "Chromium", zh: "铬合金", sw: ["#c0c0d0", "#50505a"], isNew: true },
+  { id: "fr-gold",    icon: "🥇", art: "frm-fr-gold", cost: 500, rarity: "epic",      th: "ไนออนโกลด์", en: "Neon Gold", zh: "霓虹金", sw: ["#ffd23f", "#665500"], isNew: true },
+  { id: "fr-diamond", icon: "💎", art: "frm-fr-diamond", cost: 900, rarity: "legendary", th: "ฮอลโลแกรม", en: "Hologram", zh: "全息框", sw: ["#00f0ff", "#aa00ff"], isNew: true },
+  { id: "fr-neon",    icon: "💠", art: "frm-fr-neon", cost: 180, rarity: "rare",      th: "นีออนเอดจ์", en: "Neon Edge",   zh: "霓虹边框", sw: ["#00f0ff", "#0a1a2e"], isNew: true },
+  { id: "fr-circuit", icon: "🔌", art: "frm-fr-circuit", cost: 340, rarity: "rare",      th: "แผงวงจร", en: "Circuit Board",  zh: "电路板", sw: ["#3ddc84", "#0d2a1c"], isNew: true },
+  { id: "fr-laurel",  icon: "🌿", art: "frm-fr-laurel", cost: 620, rarity: "epic",      th: "พวงหรีดทอง", en: "Golden Laurel", zh: "黄金桂冠", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "fr-mecha",   icon: "🦾", art: "frm-fr-mecha", cost: 760, rarity: "epic",      th: "โครงเมค", en: "Mecha Rig",        zh: "机甲框架", sw: ["#b8c2d4", "#232d42"], isNew: true },
+  { id: "fr-prism",   icon: "🌈", art: "frm-fr-prism", cost: 1200, rarity: "legendary", th: "ปริซึมสเปกตรัม", en: "Spectrum Prism", zh: "光谱棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
 ];
 const SHOP_KEYBOARDS = [
-  { id: "kb-classic",  icon: "🎹", cost: 0,   rarity: "common",    th: "คลาสสิกไซเบอร์", en: "Cyber Classic", zh: "赛博经典", sw: ["#1a1a2e", "#0d0d15"], isNew: false },
-  { id: "kb-neon",     icon: "💚", cost: 160, rarity: "rare",      th: "นีออนกรีน", en: "Neon Green",  zh: "霓虹绿", sw: ["#00ff66", "#003315"], isNew: true },
-  { id: "kb-rose",     icon: "💗", cost: 180, rarity: "rare",      th: "ฮอโลชมพู", en: "Holo Pink",  zh: "全息粉", sw: ["#ff00aa", "#440033"], isNew: true },
-  { id: "kb-midnight", icon: "🌙", cost: 220, rarity: "rare",      th: "ดิจิทัลไนท์", en: "Digital Night",   zh: "数字之夜", sw: ["#0a0020", "#050010"], isNew: true },
-  { id: "kb-ice",      icon: "❄️", cost: 280, rarity: "epic",      th: "ไซเบอร์คริสตัล", en: "Cyber Crystal", zh: "赛博水晶", sw: ["#aaeeff", "#003355"], isNew: true },
-  { id: "kb-fire",     icon: "🔥", cost: 320, rarity: "epic",      th: "นีออนเฟรม", en: "Neon Frame",    zh: "霓虹框架", sw: ["#ff3300", "#330000"], isNew: true },
-  { id: "kb-galaxy",   icon: "🪐", cost: 400, rarity: "epic",      th: "ไซเบอร์กาแล็กซี่", en: "Cyber Galaxy", zh: "赛博银河", sw: ["#cc66ff", "#220055"], isNew: true },
-  { id: "kb-gold",     icon: "💛", cost: 550, rarity: "legendary", th: "ไชนิ่งไซเบอร์", en: "Shining Cyber", zh: "闪耀赛博", sw: ["#ffd23f", "#665500"], isNew: true },
-  { id: "kb-rainbow",  icon: "🌈", cost: 750, rarity: "legendary", th: "ปริซึมโซล", en: "Soul Prism",  zh: "灵魂棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
+  { id: "kb-classic",  icon: "🎹", art: "kbd-kb-classic", cost: 0,   rarity: "common",    th: "คลาสสิกไซเบอร์", en: "Cyber Classic", zh: "赛博经典", sw: ["#1a1a2e", "#0d0d15"], isNew: false },
+  { id: "kb-neon",     icon: "💚", art: "kbd-kb-neon", cost: 160, rarity: "rare",      th: "นีออนกรีน", en: "Neon Green",  zh: "霓虹绿", sw: ["#00ff66", "#003315"], isNew: true },
+  { id: "kb-rose",     icon: "💗", art: "kbd-kb-rose", cost: 180, rarity: "rare",      th: "ฮอโลชมพู", en: "Holo Pink",  zh: "全息粉", sw: ["#ff00aa", "#440033"], isNew: true },
+  { id: "kb-midnight", icon: "🌙", art: "kbd-kb-midnight", cost: 220, rarity: "rare",      th: "ดิจิทัลไนท์", en: "Digital Night",   zh: "数字之夜", sw: ["#0a0020", "#050010"], isNew: true },
+  { id: "kb-ice",      icon: "❄️", art: "kbd-kb-ice", cost: 280, rarity: "epic",      th: "ไซเบอร์คริสตัล", en: "Cyber Crystal", zh: "赛博水晶", sw: ["#aaeeff", "#003355"], isNew: true },
+  { id: "kb-fire",     icon: "🔥", art: "kbd-kb-fire", cost: 320, rarity: "epic",      th: "นีออนเฟรม", en: "Neon Frame",    zh: "霓虹框架", sw: ["#ff3300", "#330000"], isNew: true },
+  { id: "kb-galaxy",   icon: "🪐", art: "kbd-kb-galaxy", cost: 400, rarity: "epic",      th: "ไซเบอร์กาแล็กซี่", en: "Cyber Galaxy", zh: "赛博银河", sw: ["#cc66ff", "#220055"], isNew: true },
+  { id: "kb-gold",     icon: "💛", art: "kbd-kb-gold", cost: 550, rarity: "legendary", th: "ไชนิ่งไซเบอร์", en: "Shining Cyber", zh: "闪耀赛博", sw: ["#ffd23f", "#665500"], isNew: true },
+  { id: "kb-rainbow",  icon: "🌈", art: "kbd-kb-rainbow", cost: 750, rarity: "legendary", th: "ปริซึมโซล", en: "Soul Prism",  zh: "灵魂棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
+  { id: "kb-jade",   icon: "💚", art: "kbd-kb-jade", cost: 200, rarity: "rare",      th: "หยกไซเบอร์", en: "Cyber Jade",  zh: "赛博玉", sw: ["#3ddc84", "#0d3a24"], isNew: true },
+  { id: "kb-sunset", icon: "🌇", art: "kbd-kb-sunset", cost: 240, rarity: "rare",      th: "ซันเซ็ตไดรฟ์", en: "Sunset Drive", zh: "落日驰骋", sw: ["#ff7a3c", "#3a1400"], isNew: true },
+  { id: "kb-carbon", icon: "🔲", art: "kbd-kb-carbon", cost: 300, rarity: "epic",      th: "คาร์บอนไฟเบอร์", en: "Carbon Fibre", zh: "碳纤维", sw: ["#8a94a8", "#14161f"], isNew: true },
+  { id: "kb-aurora", icon: "🌠", art: "kbd-kb-aurora", cost: 460, rarity: "epic",      th: "ออโรร่า", en: "Aurora",            zh: "极光", sw: ["#43e8b0", "#03202f"], isNew: true },
 ];
 const SHOP_STICKERS = [
-  { id: "st-star",     icon: "⭐", cost: 50,  rarity: "common",    th: "ชิปดา타", en: "Data Chip",       zh: "数据芯片", sw: ["#00f0ff", "#006688"], isNew: false },
-  { id: "st-heart",    icon: "❤️", cost: 60,  rarity: "common",    th: "หัวใจไซเบอร์", en: "Cyber Heart",      zh: "赛博之心", sw: ["#ff0044", "#660018"], isNew: false },
-  { id: "st-music",    icon: "🎵", cost: 80,  rarity: "common",    th: "เสียงดิจิทัล", en: "Digital Sound", zh: "数字音符", sw: ["#aa00ff", "#4400aa"], isNew: true },
-  { id: "st-flame",    icon: "🔥", cost: 120, rarity: "rare",      th: "นีออนเฟลม", en: "Neon Flame",      zh: "霓虹之火", sw: ["#ff3300", "#aa0000"], isNew: true },
-  { id: "st-crown",    icon: "👑", cost: 200, rarity: "rare",      th: "มงกุฎไซเบอร์", en: "Cyber Crown",      zh: "赛博皇冠", sw: ["#ffd23f", "#664400"], isNew: true },
-  { id: "st-diamond",  icon: "💎", cost: 300, rarity: "epic",      th: "คริสตัลไซเบอร์", en: "Cyber Crystal",    zh: "赛博水晶", sw: ["#00f0ff", "#aa00ff"], isNew: true },
-  { id: "st-rocket",   icon: "🚀", cost: 350, rarity: "epic",      th: "จรวดดิจิทัล", en: "Digital Rocket",     zh: "数字火箭", sw: ["#ff3300", "#001133"], isNew: true },
-  { id: "st-trophy",   icon: "🏆", cost: 500, rarity: "legendary", th: "ถ้วยโซลไซเบอร์", en: "Cyber Soul Trophy", zh: "赛博灵魂杯", sw: ["#ffd23f", "#cd7f32"], isNew: true },
-  { id: "st-magic",    icon: "✨", cost: 600, rarity: "legendary", th: "ไซเบอร์โซล", en: "Cyber Soul",      zh: "赛博灵魂", sw: ["#cc66ff", "#ff0044", "#ffd23f"], isNew: true },
+  { id: "st-star",     icon: "⭐", art: "stk-st-star", cost: 50,  rarity: "common",    th: "ชิปข้อมูล", en: "Data Chip",       zh: "数据芯片", sw: ["#00f0ff", "#006688"], isNew: false },
+  { id: "st-heart",    icon: "❤️", art: "stk-st-heart", cost: 60,  rarity: "common",    th: "หัวใจไซเบอร์", en: "Cyber Heart",      zh: "赛博之心", sw: ["#ff0044", "#660018"], isNew: false },
+  { id: "st-music",    icon: "🎵", art: "stk-st-music", cost: 80,  rarity: "common",    th: "เสียงดิจิทัล", en: "Digital Sound", zh: "数字音符", sw: ["#aa00ff", "#4400aa"], isNew: true },
+  { id: "st-flame",    icon: "🔥", art: "stk-st-flame", cost: 120, rarity: "rare",      th: "นีออนเฟลม", en: "Neon Flame",      zh: "霓虹之火", sw: ["#ff3300", "#aa0000"], isNew: true },
+  { id: "st-crown",    icon: "👑", art: "stk-st-crown", cost: 200, rarity: "rare",      th: "มงกุฎไซเบอร์", en: "Cyber Crown",      zh: "赛博皇冠", sw: ["#ffd23f", "#664400"], isNew: true },
+  { id: "st-diamond",  icon: "💎", art: "stk-st-diamond", cost: 300, rarity: "epic",      th: "คริสตัลไซเบอร์", en: "Cyber Crystal",    zh: "赛博水晶", sw: ["#00f0ff", "#aa00ff"], isNew: true },
+  { id: "st-rocket",   icon: "🚀", art: "stk-st-rocket", cost: 350, rarity: "epic",      th: "จรวดดิจิทัล", en: "Digital Rocket",     zh: "数字火箭", sw: ["#ff3300", "#001133"], isNew: true },
+  { id: "st-trophy",   icon: "🏆", art: "stk-st-trophy", cost: 500, rarity: "legendary", th: "ถ้วยโซลไซเบอร์", en: "Cyber Soul Trophy", zh: "赛博灵魂杯", sw: ["#ffd23f", "#cd7f32"], isNew: true },
+  { id: "st-magic",    icon: "✨", art: "stk-st-magic", cost: 600, rarity: "legendary", th: "ไซเบอร์โซล", en: "Cyber Soul",      zh: "赛博灵魂", sw: ["#cc66ff", "#ff0044", "#ffd23f"], isNew: true },
+  { id: "st-note8",  icon: "🎶", art: "stk-st-note8", cost: 90,  rarity: "common",    th: "โน้ตเขบ็ต", en: "Beamed Notes", zh: "八分音符", sw: ["#4dc3ff", "#0d2a44"], isNew: true },
+  { id: "st-metro",  icon: "⏱️", art: "stk-st-metro", cost: 140, rarity: "rare",      th: "เมโทรนอม", en: "Metronome",     zh: "节拍器", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "st-bolt",   icon: "⚡", art: "stk-st-bolt", cost: 180, rarity: "rare",      th: "สายฟ้าโอเวอร์ไดรฟ์", en: "Overdrive Bolt", zh: "超载闪电", sw: ["#ffe14d", "#4a3200"], isNew: true },
+  { id: "st-paw",    icon: "🐾", art: "stk-st-paw", cost: 240, rarity: "epic",      th: "อุ้งเท้าคู่หู", en: "Buddy Paw",    zh: "伙伴爪印", sw: ["#ff8fc0", "#5c1236"], isNew: true },
+  { id: "st-medal",  icon: "🎖️", art: "stk-st-medal", cost: 420, rarity: "legendary", th: "เหรียญเกียรติยศ", en: "Honour Medal", zh: "荣誉勋章", sw: ["#ffd23f", "#b04a2a"], isNew: true },
 ];
 const SHOP_HATS = [
   { id: "hat-straw",    icon: "🥽", cost: 0,   art: "visor", rarity: "common",    th: "บังตาออปติก", en: "Optic Visor",      zh: "光学护目镜", sw: ["#8fa6c8", "#00f0ff"] },
@@ -5074,8 +5101,8 @@ const SHOP_HATS = [
   { id: "hat-wizard",   icon: "🧠", cost: 350, art: "brain", rarity: "epic",      th: "โมดูลสมองกล", en: "Cortex Module",    zh: "皮层模块", sw: ["#c78ff5", "#3b0a66"] },
   { id: "hat-halo",     icon: "🔆", cost: 400, art: "halo", rarity: "epic",      th: "วงแสงโฟตอน", en: "Photon Halo",      zh: "光子光环", sw: ["#ffd23f", "#ff00aa"] },
   { id: "hat-devil",    icon: "🎯", cost: 500, art: "crest", rarity: "epic",      th: "ระบบล็อกเป้าหมาย", en: "Targeting Crest", zh: "瞄准冠", sw: ["#ff5566", "#3a000c"] },
-  { id: "hat-helmet",   icon: "⛑️", cost: 600, art: "helm", rarity: "legendary", th: "หมวกเกราะเสริมแรง", en: "Reinforced Helm", zh: "强化头盔", sw: ["#c0c0d0", "#00f0ff"] },
-  { id: "hat-star",     icon: "🌟", cost: 800, art: "crown", rarity: "legendary", th: "มงกุฎสุริยะ", en: "Solar Crown",      zh: "太阳冠", sw: ["#ffd23f", "#ff0044", "#aa00ff"] },
+  { id: "hat-helmet",   icon: "⛑️", cost: 600, art: "aegis", rarity: "legendary", th: "หมวกเกราะเสริมแรง", en: "Reinforced Helm", zh: "强化头盔", sw: ["#c0c0d0", "#00f0ff"] },
+  { id: "hat-star",     icon: "🌟", cost: 800, art: "diadem", rarity: "legendary", th: "มงกุฎสุริยะ", en: "Solar Crown",      zh: "太阳冠", sw: ["#ffd23f", "#ff0044", "#aa00ff"] },
   /* ── android head modules ── gear that belongs on a machine rather than on a
      person: sensors, antennae and processing units, so the shop stocks things
      the character can plausibly be wearing now that it is a robot. ── */
@@ -5086,6 +5113,11 @@ const SHOP_HATS = [
   { id: "hat-satellite",icon: "🛰️", cost: 460, art: "satellite", rarity: "epic",      th: "โมดูลดาวเทียม", en: "Satellite Uplink", zh: "卫星模块", sw: ["#00f0ff", "#2a3f6a"], isNew: true },
   { id: "hat-reactor",  icon: "⚛️", cost: 560, art: "atom", rarity: "epic",      th: "แกนปฏิกรณ์สมอง", en: "Neural Reactor",  zh: "神经反应堆", sw: ["#00ffa8", "#00f0ff"], isNew: true },
   { id: "hat-quantum",  icon: "🌐", cost: 880, art: "orb", rarity: "legendary", th: "คอร์ควอนตัม", en: "Quantum Core",     zh: "量子核心", sw: ["#aa00ff", "#00f0ff", "#ffd23f"], isNew: true },
+  /* ── stage headwear ── */
+  { id: "hat-maestro", icon: "🎩", art: "sigil", cost: 210, rarity: "rare",      th: "หมวกวาทยกร", en: "Maestro Cap",     zh: "指挥官帽", sw: ["#1c2233", "#ffd23f"], isNew: true },
+  { id: "hat-mask",    icon: "🎭", art: "mask", cost: 380, rarity: "epic",      th: "หน้ากากโอเปร่า", en: "Opera Mask",    zh: "歌剧面具", sw: ["#e9edf6", "#aa00ff"], isNew: true },
+  { id: "hat-wreath",  icon: "🌿", art: "wreath", cost: 620, rarity: "legendary", th: "พวงหรีดผู้ชนะ", en: "Victor Wreath", zh: "胜利桂冠", sw: ["#ffd23f", "#3ddc84"], isNew: true },
+  { id: "hat-holo",    icon: "🔮", art: "holo", cost: 740, rarity: "legendary", th: "ตัวฉายโฮโลแกรม", en: "Holo Projector", zh: "全息投影器", sw: ["#7fe8ff", "#12405e"], isNew: true },
 ];
 const SHOP_OUTFITS = [
   { id: "out-tshirt",  icon: "🤖", cost: 0,   art: "out-tshirt", rarity: "common",    th: "โครงมาตรฐาน", en: "Standard Chassis", zh: "标准机身", sw: ["#8b9ec2", "#1a2233"] },
@@ -5111,10 +5143,10 @@ const SHOP_WEAPONS = [
   { id: "wpn-stick",   icon: "🔦", cost: 0,   art: "torch", rarity: "common",    th: "ตัวฉายลำแสง", en: "Beam Projector",   zh: "光束投射器", sw: ["#00f0ff", "#0a1a2e"] },
   { id: "wpn-sword",   icon: "⚔️", cost: 150, art: "sword", rarity: "common",    th: "ใบมีดโมโน", en: "Mono Blade",         zh: "单分子刀", sw: ["#c0c0d0", "#00f0ff"] },
   { id: "wpn-axe",     icon: "🪚", cost: 180, art: "cutter", rarity: "rare",      th: "เครื่องตัดพลาสมา", en: "Plasma Cutter", zh: "等离子切割器", sw: ["#ff6a1a", "#00f0ff"] },
-  { id: "wpn-bow",     icon: "💥", cost: 220, art: "driver", rarity: "rare",      th: "ตัวขับแรงกระแทก", en: "Impact Driver", zh: "冲击驱动器", sw: ["#c78ff5", "#ff0044"] },
+  { id: "wpn-bow",     icon: "💥", cost: 220, art: "piston", rarity: "rare",      th: "ตัวขับแรงกระแทก", en: "Impact Driver", zh: "冲击驱动器", sw: ["#c78ff5", "#ff0044"] },
   { id: "wpn-staff",   icon: "🌀", cost: 350, art: "coil", rarity: "epic",      th: "ขดลวดวอร์เท็กซ์", en: "Vortex Coil",   zh: "涡流线圈", sw: ["#aa00ff", "#00f0ff"] },
   { id: "wpn-hammer",  icon: "🔨", cost: 400, art: "hammer", rarity: "epic",      th: "ค้อนเซอร์โว", en: "Servo Hammer",     zh: "伺服锤", sw: ["#c0c0d0", "#ff3300"] },
-  { id: "wpn-blade",   icon: "🗡️", cost: 600, art: "sword", rarity: "legendary", th: "ดาบพลาสมา", en: "Plasma Sword",      zh: "等离子剑", sw: ["#00f0ff", "#ffffff"] },
+  { id: "wpn-blade",   icon: "🗡️", cost: 600, art: "greatsword", rarity: "legendary", th: "ดาบพลาสมา", en: "Plasma Sword",      zh: "等离子剑", sw: ["#00f0ff", "#ffffff"] },
   { id: "wpn-scythe",  icon: "🛠️", cost: 750, art: "multitool", rarity: "legendary", th: "ชุดเครื่องมือรบ", en: "Multi-Tool Rig", zh: "多功能工具组", sw: ["#b8c2d4", "#ff0044"] },
   { id: "wpn-celestial", icon: "☄️", cost: 950, art: "lance", rarity: "legendary", th: "หอกดาวหาง", en: "Comet Lance",     zh: "彗星长枪", sw: ["#ffd23f", "#aa00ff", "#00f0ff"] },
   /* ── arm modules ── engineering and sound gear rather than firearms: this is a
@@ -5126,7 +5158,7 @@ const SHOP_WEAPONS = [
   { id: "wpn-keytar",  icon: "🎹", cost: 320, art: "keytar", rarity: "rare",      th: "แขนคีย์ทาร์", en: "Keytar Arm",       zh: "键盘臂", sw: ["#ffffff", "#aa00ff"], isNew: true },
   { id: "wpn-speaker", icon: "🔊", cost: 440, art: "speaker", rarity: "epic",      th: "ปืนคลื่นเสียง", en: "Sonic Emitter",    zh: "声波发射器", sw: ["#00f0ff", "#0a1628"], isNew: true },
   { id: "wpn-arm",     icon: "🦾", cost: 640, art: "arm", rarity: "epic",      th: "แขนกลเสริมพลัง", en: "Power Arm",       zh: "动力机械臂", sw: ["#c0c0d0", "#ff6a00"], isNew: true },
-  { id: "wpn-plasma",  icon: "⚡", cost: 900, art: "coil", rarity: "legendary", th: "ตัวปล่อยพลาสมา", en: "Plasma Coil",     zh: "等离子线圈", sw: ["#00f0ff", "#ffffff", "#aa00ff"], isNew: true },
+  { id: "wpn-plasma",  icon: "⚡", cost: 900, art: "reactor", rarity: "legendary", th: "ตัวปล่อยพลาสมา", en: "Plasma Coil",     zh: "等离子线圈", sw: ["#00f0ff", "#ffffff", "#aa00ff"], isNew: true },
   /* ── energy weapons ── the space-opera end of the rack: directed light,
      thrown charges, and a projected barrier. Kept squarely in sci-fi rather
      than reality — the blaster fires light, the charges are EMP and pulse
@@ -5137,8 +5169,14 @@ const SHOP_WEAPONS = [
   { id: "wpn-charge",  icon: "🧨", cost: 380, art: "charge", rarity: "epic",      th: "ระเบิดพัลส์", en: "Pulse Charge",     zh: "脉冲炸药", sw: ["#ff9a3c", "#5c1400"], isNew: true },
   { id: "wpn-emp",     icon: "💣", cost: 460, art: "grenade", rarity: "epic",      th: "ระเบิดคลื่นแม่เหล็ก", en: "EMP Grenade", zh: "电磁脉冲弹", sw: ["#8fa6c8", "#0d1520"], isNew: true },
   { id: "wpn-boomer",  icon: "🪃", cost: 520, art: "boomerang", rarity: "epic",      th: "ใบมีดบูมเมอแรง", en: "Boomerang Blade", zh: "回旋刀刃", sw: ["#ffd23f", "#3a2a00"], isNew: true },
-  { id: "wpn-ion",     icon: "❇️", cost: 700, art: "blaster", rarity: "legendary", th: "ปืนใหญ่ไอออน", en: "Ion Cannon",      zh: "离子炮", sw: ["#7fe8ff", "#12405e"], isNew: true },
+  { id: "wpn-ion",     icon: "❇️", cost: 700, art: "railgun", rarity: "legendary", th: "ปืนใหญ่ไอออน", en: "Ion Cannon",      zh: "离子炮", sw: ["#7fe8ff", "#12405e"], isNew: true },
   { id: "wpn-nova",    icon: "🎆", cost: 1000, art: "burst", rarity: "legendary", th: "โนวาเบิร์สต์", en: "Nova Burst",     zh: "新星爆发", sw: ["#ffd23f", "#ff0044", "#aa00ff"], isNew: true },
+  /* ── the music bench ── a piano app's rack should hold the tools a musician
+     owns, not only ordnance. These four are the ones a robot can pick up. ── */
+  { id: "wpn-fork",    icon: "🎼", art: "fork", cost: 170, rarity: "rare",      th: "ส้อมเสียงเรโซแนนซ์", en: "Resonance Fork", zh: "共鸣音叉", sw: ["#7fe8ff", "#0d3a5c"], isNew: true },
+  { id: "wpn-metro",   icon: "⏱️", art: "pendulum", cost: 260, rarity: "rare",      th: "ลูกตุ้มจังหวะ", en: "Tempo Pendulum",  zh: "节拍摆锤", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "wpn-baton",   icon: "🪄", art: "baton", cost: 480, rarity: "epic",      th: "ไม้บาตองวาทยกร", en: "Maestro Baton",  zh: "指挥棒", sw: ["#ffffff", "#c78ff5"], isNew: true },
+  { id: "wpn-disc",    icon: "💿", art: "disc", cost: 820, rarity: "legendary", th: "จานเสียงสังหาร", en: "Vinyl Cutter",     zh: "唱片飞盘", sw: ["#c0c0d0", "#1a1a2e"], isNew: true },
 ];
 /* ── robot skins ──
    The chassis itself is stock now. The first one is free — chosen once, on the
@@ -5211,6 +5249,11 @@ const SHOP_ACCESSORIES = [
   { id: "acc-thruster", icon: "🚀", cost: 480, art: "thruster", rarity: "epic",      th: "เครื่องยนต์ขับดัน", en: "Thruster Pack",  zh: "推进背包", sw: ["#ff6a00", "#ffd23f"], isNew: true },
   { id: "acc-drone",    icon: "🛸", cost: 600, art: "drone", rarity: "epic",      th: "โดรนคู่หู", en: "Companion Drone",  zh: "伴飞无人机", sw: ["#aa00ff", "#00f0ff"], isNew: true },
   { id: "acc-halo",     icon: "💫", cost: 950, art: "halo", rarity: "legendary", th: "วงแหวนพลังงาน", en: "Energy Halo",     zh: "能量光环", sw: ["#ffd23f", "#00f0ff", "#ff00aa"], isNew: true },
+  /* ── stage rig ── */
+  { id: "acc-fork",    icon: "🎵", art: "fork", cost: 190, rarity: "rare",      th: "ส้อมเสียงจูนอัตโนมัติ", en: "Auto-Tune Fork", zh: "自动调音叉", sw: ["#3ddc84", "#0d3a24"], isNew: true },
+  { id: "acc-metro",   icon: "🕰️", art: "pendulum", cost: 270, rarity: "rare",      th: "โมดูลจับจังหวะ", en: "Tempo Module",  zh: "节拍模块", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "acc-holo",    icon: "📽️", art: "holo", cost: 540, rarity: "epic",      th: "เวทีโฮโลแกรม", en: "Holo Stage",       zh: "全息舞台", sw: ["#aa00ff", "#00f0ff"], isNew: true },
+  { id: "acc-wreath",  icon: "🏵️", art: "wreath", cost: 880, rarity: "legendary", th: "พวงหรีดแชมป์เปียน", en: "Champion Laurel", zh: "冠军桂冠", sw: ["#ffd23f", "#ff9a3c"], isNew: true },
 ];
 // F2: LINE achievement share — opens LINE app on mobile, fallback clipboard on desktop
 function shareLine(text: string) {
@@ -5766,6 +5809,118 @@ const StatBars = memo(function StatBars({ lang, stats, compact = false, max = 24
   );
 });
 
+/* ── ModelDetailModal ──
+   A chassis costs twenty to thirty thousand coins. Buying one off a thumbnail
+   in a grid — one tap, no confirmation — was both a way to lose a fortune by
+   accident and a terrible way to sell: nothing on that card showed what the
+   thing looked like from any angle but the front, or what it would actually do
+   in a fight.
+
+   So the card opens this instead. The model turns a full 360° on its own stage,
+   the stat bars sit under it with the two things it is best at and the two it
+   is worst at named outright, and its three skills are listed with what each
+   one does. Buying happens here, behind a button that says the price. ── */
+const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, running, coins, onBuy, onClose }) {
+  const [yaw, setYaw] = useState(-24);
+  const [spin, setSpin] = useState(() => {
+    try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return true; }
+  });
+  const dragRef = useRef(null);
+  useEffect(() => {
+    if (!spin) return;
+    let raf = 0, last = 0;
+    const tick = (t) => {
+      raf = requestAnimationFrame(tick);
+      if (!last) { last = t; return; }
+      const dt = t - last;
+      if (dt < 32) return;
+      last = t;
+      setYaw(y => wrapYaw(y + (dt / 1000) * 26));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [spin]);
+  if (!item) return null;
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const lc = L[lang];
+  const model = item.model;
+  const st = MODEL_COMBAT[model] || MODEL_COMBAT.vanguard;
+  const cl = classOf(model);
+  const skills = skillsOf(model);
+  const m = CHAR_MODELS.find(x => x.id === model) || CHAR_MODELS[0];
+  // strongest two and weakest two, named — the buyer asked what it is good at
+  const ranked = STAT_KEYS.map(k => ({ ...k, v: st[k.k] })).sort((a, b) => b.v - a.v);
+  const strong = ranked.slice(0, 2), weak = ranked.slice(-2).reverse();
+  const afford = coins >= item.cost;
+
+  const grab = (e) => { dragRef.current = { x: e.clientX, y0: yaw }; setSpin(false); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {} };
+  const drag = (e) => { const d = dragRef.current; if (d) setYaw(wrapYaw(d.y0 + (e.clientX - d.x) * 0.85)); };
+  const drop = (e) => { dragRef.current = null; try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {} };
+
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard mdv" onClick={e => e.stopPropagation()}>
+        <div className="mdv-hdr">
+          <button className="stgback" onClick={onClose} aria-label={lc.back}>←</button>
+          <span className="mdv-ttl"><b>{item.code || m.code}</b>{tr(m, lang)}</span>
+          <span className="mdv-cls" style={{ "--cc": cl.c }}>
+            <span className="mdv-cls-ic"><ItemArt art={cl.art} sw={[cl.c, "#22283a"]} /></span>{tr(cl, lang)}
+          </span>
+        </div>
+        <div className="mdv-body">
+          <div className="mdv-stage">
+            <CyberAvatar model={model} yaw={yaw} glow="#00b8d4" accent="#7c4dff" armorA="#1b2436" armorB="#41608a" />
+            <div className="mdv-drag" onPointerDown={grab} onPointerMove={drag} onPointerUp={drop} onPointerCancel={drop}
+              role="slider" aria-label={T("หมุนโมเดล", "Rotate model", "旋转模型")} aria-valuenow={Math.round(wrapYaw(yaw))} aria-valuemin={-180} aria-valuemax={180} tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "ArrowLeft") { setSpin(false); setYaw(y => wrapYaw(y - 15)); } else if (e.key === "ArrowRight") { setSpin(false); setYaw(y => wrapYaw(y + 15)); } }} />
+            <div className="cs-turn mdv-turn">
+              <button type="button" className="cs-turn-b" onClick={() => { setSpin(false); setYaw(y => wrapYaw(y - 45)); }} aria-label={T("หมุนซ้าย", "Turn left", "向左转")}>◀</button>
+              <button type="button" className={`cs-turn-b wide${spin ? " on" : ""}`} onClick={() => setSpin(!spin)}><span className="cs-turn-ic">{spin ? "⏸" : "⟳"}</span> 360°</button>
+              <button type="button" className="cs-turn-b" onClick={() => { setSpin(false); setYaw(y => wrapYaw(y + 45)); }} aria-label={T("หมุนขวา", "Turn right", "向右转")}>▶</button>
+              <span className="cs-turn-deg">{(Math.round(wrapYaw(yaw)) + 360) % 360}°</span>
+            </div>
+          </div>
+          <div className="mdv-sub">{tr(m.cls, lang)}</div>
+
+          <div className="mdv-sec">
+            <div className="mdv-sec-h"><span>{T("ค่าพลัง", "Combat stats", "战斗数值")}</span><b>{COMBAT_TOTAL}</b></div>
+            <StatBars lang={lang} stats={st} max={18} />
+            <div className="mdv-pros">
+              {strong.map(k => <span key={k.k} className="mdv-pro">▲ {tr(k, lang)}</span>)}
+              {weak.map(k => <span key={k.k} className="mdv-con">▼ {tr(k, lang)}</span>)}
+            </div>
+            <div className="mdv-fair">{T(`ทุกรุ่นแต้มรวมเท่ากัน ${COMBAT_TOTAL} — ไม่มีรุ่นไหนแรงกว่า มีแต่ถนัดต่างกัน`,
+              `Every chassis totals ${COMBAT_TOTAL}. None is stronger — they are good at different things.`,
+              `每台机体总分均为 ${COMBAT_TOTAL}，没有更强的，只有擅长不同。`)}</div>
+          </div>
+
+          <div className="mdv-sec">
+            <div className="mdv-sec-h"><span>{T("ทักษะประจำสาย", "Class skills", "职业技能")}</span></div>
+            {skills.map((sk, i) => (
+              <div key={i} className={`mdv-skill t-${sk.tier}`}>
+                <span className="mdv-skill-ic"><ItemArt art={sk.art} sw={[cl.c, "#1c2233"]} /></span>
+                <span className="mdv-skill-b">
+                  <span className="mdv-skill-n">{tr(sk.n, lang)}<i>{tr(TIER_LABEL[sk.tier], lang)}</i></span>
+                  <span className="mdv-skill-d">{tr(sk.d, lang)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mdv-foot">
+          {running
+            ? <button className="mdv-buy on" disabled>✓ {lc.shopEquipped}</button>
+            : owned
+              ? <button className="mdv-buy" onClick={() => onBuy(item)}>{lc.shopEquip}</button>
+              : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onBuy(item)}>
+                  {afford ? T("ซื้อ", "Buy", "购买") : T("เหรียญไม่พอ", "Not enough coins", "金币不足")} · 🪙 {item.cost.toLocaleString()}
+                </button>}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 /* ── ChestIcon ──
    A treasure chest at UI scale: banded lid, hasp and lock plate, drawn in
    currentColor so it takes whatever colour the control it sits in is using.
@@ -5783,6 +5938,35 @@ function ChestIcon({ size = 16, className = "" }) {
     </svg>
   );
 }
+
+/* ── PvpArenaMount ──
+   The arena is a pure component; this is the thin shell that gives it the
+   social data. Friends and open duels come from the SAME RPCs the Friends
+   modal already uses, and a challenge posts through the same duel_challenge —
+   so an arena duel is stored, listed and resolved exactly like a song duel,
+   with no backend change at all. `song_id` is unconstrained text server-side,
+   which is what makes "arena" a legal subject. */
+const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi }) {
+  const [friends, setFriends] = useState(null);
+  const [duels, setDuels] = useState(null);
+  const load = useCallback(() => {
+    sb.rpc("friend_list").then(({ data, error }) => setFriends(error ? [] : ((data && data.friends) || [])));
+    sb.rpc("duel_list").then(({ data, error }) => setDuels(error ? [] : (data || [])));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  return (
+    <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi}
+      friends={friends} duels={duels}
+      onChallenge={async (friend, score) => {
+        const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: "arena", p_score: Math.round(score), p_mode: "duel" });
+        if (!error) { playUi("reward"); load(); }
+      }}
+      onRespondDuel={async (duel, score) => {
+        const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: Math.round(score) });
+        if (!error) { playUi("reward"); load(); }
+      }} />
+  );
+});
 
 /* ── StoragePage ──
    The shop shows what is for sale; this shows what is yours. Same catalogue,
@@ -5861,7 +6045,7 @@ const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, e
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -5962,6 +6146,14 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           </div>
           <div className="expnext">{toNext}</div>
         </div>
+
+        {/* ── skill track ──
+            Account EXP is what the PLAYER has learned; this is what the CHASSIS
+            has. It belongs to the class rather than the model, so switching
+            between two Strikers keeps the rank and switching class starts a
+            fresh one. The arena is the door directly under it because the bar
+            and the fight are the same loop. */}
+        <SkillTrack lang={lang} charModel={charModel} onOpenPvp={onOpenPvp} />
       </div>
 
       {/* ── Character / Avatar Dress-up Section ── */}
@@ -5990,14 +6182,28 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
               </div>
               <StatBars lang={lang} stats={st} />
               <div className="battlecard-sp">
-                <b>{lang === "th" ? "ท่าไม้ตาย" : lang === "zh" ? "绝技" : "Special"}</b>
-                <span>{tr(st.sp, lang)}</span>
+                <b>{lang === "th" ? "สายอาชีพ" : lang === "zh" ? "职业" : "Class"}</b>
+                <span className="mdv-cls" style={{ "--cc": classOf(charModel).c }}>
+                  <span className="mdv-cls-ic"><ItemArt art={classOf(charModel).art} sw={[classOf(charModel).c, "#22283a"]} /></span>
+                  {tr(classOf(charModel), lang)}
+                </span>
               </div>
-              <div className="battlecard-soon">
-                {lang === "th" ? "โหมดประลอง PvP กำลังจะมา — ตอบคำถามดนตรีแข่งกัน แล้วหุ่นสู้กันตามผล"
-                  : lang === "zh" ? "PvP 对战模式即将推出 — 比拼音乐问答，机体依结果开战"
-                  : "PvP duels are coming — answer music questions against another player, and your chassis fight it out"}
+              <div className="battlecard-skills">
+                {skillsOf(normalizeModel(charModel)).map((sk, i) => (
+                  <div key={i} className={`mdv-skill t-${sk.tier}`}>
+                    <span className="mdv-skill-ic"><ItemArt art={sk.art} sw={[classOf(charModel).c, "#1c2233"]} /></span>
+                    <span className="mdv-skill-b">
+                      <span className="mdv-skill-n">{tr(sk.n, lang)}<i>{tr(TIER_LABEL[sk.tier], lang)}</i></span>
+                      <span className="mdv-skill-d">{tr(sk.d, lang)}</span>
+                    </span>
+                  </div>
+                ))}
               </div>
+              <button className="battlecard-soon as-btn" onClick={() => onOpenPvp && onOpenPvp()}>
+                {lang === "th" ? "⚔ เข้าสนามประลอง PvP — ตอบคำถามดนตรีแข่งกัน แล้วหุ่นสู้กันตามผล"
+                  : lang === "zh" ? "⚔ 进入 PvP 竞技场 — 比拼音乐问答，机体依结果开战"
+                  : "⚔ Enter the PvP Arena — answer music questions against an opponent, and your chassis fight it out"}
+              </button>
             </div>
           );
         })()}
@@ -8893,6 +9099,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      you run the model you own, and you change it by buying another. */
   const [modelChosen, setModelChosen] = useState(() => { try { return localStorage.getItem("tg_charModelSet") === "1"; } catch (e) { return true; } });
   const [modelPickOpen, setModelPickOpen] = useState(false);
+  const [modelDetail, setModelDetail] = useState(null);   // the shop chassis being inspected
   const [modelPickSel, setModelPickSel] = useState(null);
   const [charHat, setCharHat] = useState(getEquip("charHat", "hat-straw"));
   const [charOutfit, setCharOutfit] = useState(getEquip("charOutfit", "out-tshirt"));
@@ -9610,10 +9817,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (it.model) {
       const running = charModel === it.model;
       return (
-        <button key={it.id} className={`shopitem ${it.rarity} mdlitem${running ? " equipped" : ""}`} onClick={() => buyOrEquip(kind, it)}>
+        <button key={it.id} className={`shopitem ${it.rarity} mdlitem${running ? " equipped" : ""}`} onClick={() => { setModelDetail(it.id); playUi("click"); }}>
           <span className="mdlitem-head"><CyberAvatar model={it.model} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
           <span className="shopitem-nm">{tr(it, lang)}</span>
           <span className="shopitem-desc">{tr(it.desc, lang)}</span>
+          <span className="shopitem-cls" style={{ "--cc": classOf(it.model).c }}>{tr(classOf(it.model), lang)}</span>
           <StatBars lang={lang} stats={MODEL_COMBAT[it.model]} compact />
           <span className="shopitem-sp">{tr((MODEL_COMBAT[it.model] || {}).sp, lang)}</span>
           <span className="shopitem-tag">{running ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost.toLocaleString()}</span>
@@ -10052,7 +10260,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
@@ -10078,6 +10286,30 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           onEquip={(kind, it) => buyOrEquip(kind, it)}
           onBack={() => { setPage("profile"); playUi("click"); }}
           onOpenShop={() => { setShopOpen(true); playUi("click"); }} />
+      )}
+
+      {/* ─── PAGE: PVP ARENA ───
+          The friends list and the duel list are loaded here rather than inside
+          the arena so the page never owns a network call of its own: it is
+          handed data and two callbacks, exactly like every other page. */}
+      {page === "pvp" && (
+        <PvpArenaMount lang={lang} charModel={charModel}
+          gear={[SHOP_WEAPONS.find(x => x.id === charWeapon), SHOP_OUTFITS.find(x => x.id === charOutfit),
+                 SHOP_HATS.find(x => x.id === charHat), SHOP_ACCESSORIES.find(x => x.id === charAccessory)]}
+          onBack={() => { setPage("profile"); playUi("click"); }}
+          playUi={playUi}
+          onReward={(xp, c, res) => {
+            // noSkill: the arena already paid SP for this fight itself
+            if (xp) gainExp(xp, { quest: true, noSkill: true });
+            if (c) earnCoins(c);
+            bumpWeekly("games", 1);
+            if (res && res.win) bumpWeekly("perfect", 1);
+            // the arena's personal best is what a challenge is measured against
+            try {
+              const b = Number(localStorage.getItem("tg_arena_best") || 0);
+              if (res && res.score > b) localStorage.setItem("tg_arena_best", String(res.score));
+            } catch (e) {}
+          }} />
       )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
@@ -10504,6 +10736,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         );
       })()}
 
+      {modelDetail && (() => {
+        const it = SHOP_MODELS.find(x => x.id === modelDetail);
+        if (!it) return null;
+        return <ModelDetailModal lang={lang} item={it} owned={owned.includes(it.id)} running={charModel === it.model}
+          coins={coins} onClose={() => setModelDetail(null)}
+          onBuy={(m) => { buyOrEquip("charModel", m); setModelDetail(null); }} />;
+      })()}
+
       {/* ── CHASSIS SELECTION ──
           Asked once, the first time the profile is opened, and deliberately not
           dismissible: this is the one decision in the app that cannot be undone
@@ -10538,7 +10778,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     <div className="mdlpick-stats">
                       <StatBars lang={lang} stats={st} />
                       <div className="mdlpick-sp">
-                        <b>{T("ท่าไม้ตาย", "Special", "绝技")}</b><span>{tr(st.sp, lang)}</span>
+                        <b>{T("สายอาชีพ", "Class", "职业")}</b>
+                        <span className="mdv-cls" style={{ "--cc": classOf(sel).c }}>
+                          <span className="mdv-cls-ic"><ItemArt art={classOf(sel).art} sw={[classOf(sel).c, "#22283a"]} /></span>
+                          {tr(classOf(sel), lang)}
+                        </span>
+                        <span className="mdlpick-spn">{tr(st.sp, lang)}</span>
                       </div>
                       <div className="mdlpick-fair">{T(`ทุกรุ่นมีแต้มรวมเท่ากัน ${COMBAT_TOTAL} — ต่างกันที่รูปแบบ`,
                         `Every chassis totals the same ${COMBAT_TOTAL}. What changes is the shape.`,

@@ -58,6 +58,7 @@
    both and stay red — a T-800 with cyan eyes is not a T-800. ── */
 
 import { useId } from "react";
+import { classOf, classKeyOf } from "./model-skills";
 
 /* The five base chassis. No gender axis — these are models, the way a car or a
    rifle is a model, and further customisation rides on top of whichever is
@@ -178,7 +179,34 @@ export function combatOf(model, gear = []) {
    Degrees are signed as the viewer sees them, and `lean` tips the torso and
    head together about the hips so the whole upper body commits to the move
    instead of the arms waving on a static mannequin. */
-export const POSES = {
+export /* ── class kit ──
+   Twenty chassis that all wear the same armour end up looking like one robot in
+   twenty hats. Every model belongs to a duel class (see model-skills.ts), and
+   the class is what it wears on its shoulders: a crest with its own silhouette
+   and its own hue, plus the shoulder lights and the ring around the power core.
+   It costs three paths and it is the difference between "which grey one is
+   that" and reading a striker across the room. Drawn for the LEFT shoulder and
+   mirrored for the right, so one path serves both. */
+const CLASS_KIT = {
+  // swept blade growing out of the crown, tapering to a point
+  striker:   { sh: "M30 91 C22 88 15 90 10 97 L0 72 C10 76 22 82 30 91 Z" },
+  // a second heavy lame hung under the first
+  bulwark:   { sh: "M2 141 C11 146 22 145 30 137 L33 146 C24 154 12 155 1 149 Z" },
+  // low-profile vane hugging the dome
+  ghost:     { sh: "M35 99 C25 102 15 110 9 121 L5 116 C12 104 23 96 34 94 Z" },
+  // tapered sensor mast with a lit tip
+  tactician: { sh: "M19 101 L9 101 L11.5 79 C11.5 75 17 75 17 79 Z", tip: [14.2, 75] },
+  // bolted tool block
+  engineer:  { sh: "M5 108 L24 101 L27 112 L8 119 Z" },
+  // resonator bar across the crown
+  herald:    { sh: "M5 99 C13 90 26 88 36 94 L34 101 C26 96 15 97 8 105 Z" },
+  // twin tuning prongs on a base block
+  virtuoso:  { sh: "M10 102 L26 102 L25 91 L11 91 Z M13.6 92 L16.6 92 L15.6 71 L14.2 71 Z M19.4 92 L22.4 92 L22.4 74 L20.8 74 Z", tip: [14.9, 71] },
+};
+const hx6 = h => { const t = h.replace("#", ""); return [0, 2, 4].map(i => parseInt(t.slice(i, i + 2), 16)); };
+const mixc = (a, b, t) => "#" + hx6(a).map((v, i) => Math.round(v + (hx6(b)[i] - v) * t).toString(16).padStart(2, "0")).join("");
+
+const POSES = {
   /* Positive swings a limb FORWARD and INWARD, on both sides — the right side
      applies the negative so one number means one thing however it is mirrored.
      The angles are small on purpose: a hand hangs 132 units below its shoulder,
@@ -427,7 +455,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── SENTINEL · heavy assault helm ── */
     sentinel: {
       skull: "M60 4 C75 4 85 14 85 29 C85 39 83 46 80 52 L74 66 Q60 74 46 66 L40 52 C37 46 35 39 35 29 C35 14 45 4 60 4 Z",
-      fill: "plate", line: "#9fb6de",
+      fill: "plate", line: "#9fb6de", body: "graphite", bodyLine: "#7c8794",
       side: SIDE_HELM,
       sideArt: <>
         <path d="M60 3 L66 8 L64 30 L59 32 L57 10 Z" fill={`url(#${id}-trim)`} stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
@@ -480,7 +508,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── SPECTER · CyberLife android, skin active ── */
     specter: {
       skull: "M60 8 C72 8 80 17 81 30 C82 42 78 52 72 60 C68 66 64 70 60 70 C56 70 52 66 48 60 C42 52 38 42 39 30 C40 17 48 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      fill: "skin", line: "#c8ab9e", body: "carbon", bodyLine: "#59636f", neckFill: "skin",
       side: SIDE_ORGANIC,
       sideArt: <>
         {/* the hair mass and one long strand, seen from the side */}
@@ -525,7 +553,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── NOVA · android with its skin panels deactivated ── */
     nova: {
       skull: "M60 10 C76 10 86 21 86 36 C86 51 78 63 68 68 C64 70 56 70 52 68 C42 63 34 51 34 36 C34 21 44 10 60 10 Z",
-      fill: "white", line: "#dbe6f7",
+      fill: "white", line: "#dbe6f7", body: "mint", bodyLine: "#4b8571",
       side: SIDE_ORGANIC,
       sideArt: <>
         <path d="M50 15 Q62 10 74 15 L72 21 Q61 17 51 21 Z" fill="#dce8f7" stroke={glow} strokeWidth=".8" opacity=".95" />
@@ -571,7 +599,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── PHANTOM · mimetic polyalloy ── */
     phantom: {
       skull: "M60 6 C74 6 83 16 83 30 C83 44 76 58 68 66 Q60 72 52 66 C44 58 37 44 37 30 C37 16 46 6 60 6 Z",
-      fill: "chrome", line: "#f0f6ff",
+      fill: "chrome", line: "#f0f6ff", body: "pearl", bodyLine: "#7c8da8",
       side: SIDE_ORGANIC,
       sideArt: <>
         <path d="M44 12 Q60 6 78 14" fill="none" stroke="#fff" strokeWidth="1.2" opacity=".34" />
@@ -632,7 +660,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── REAPER · war machine ── */
     reaper: {
       skull: "M60 2 L76 6 L86 18 L84 33 L79 46 L70 62 L60 73 L50 62 L41 46 L36 33 L34 18 L44 6 Z",
-      fill: "plate", line: "#7a89a8", hv: "13 -3 94 84",
+      fill: "plate", line: "#7a89a8", body: "obsidian", bodyLine: "#6d6580", hv: "13 -3 94 84",
       prof: { brow: 24, nose: 36, lip: 54, chin: 70 },
       shellArt: <>
         {/* horns swept back off the temples — the whole silhouette of the thing */}
@@ -730,7 +758,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── AURORA · idol android ── */
     aurora: {
       skull: "M60 8 C73 8 81 18 82 31 C83 43 78 53 72 61 C68 67 64 71 60 71 C56 71 52 67 48 61 C42 53 37 43 38 31 C39 18 47 8 60 8 Z",
-      fill: "aurora", line: "#efe6ff", body: "aurora", bodyLine: "#d9cdf5", hv: "23 0 74 78",
+      fill: "aurora", line: "#efe6ff", body: "aurora", bodyLine: "#a293c4", hv: "23 0 74 78",
       prof: { brow: 27, nose: 39, lip: 57, chin: 69 },
       shellArt: <>
         {/* light-fibre hair, and a tiara fin that reads at any size */}
@@ -789,7 +817,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── PIXEL · screen-face buddy ── */
     pixel: {
       skull: "M60 5 C82 5 91 16 91 34 C91 55 82 68 60 68 C38 68 29 55 29 34 C29 16 38 5 60 5 Z",
-      fill: "white", line: "#cfe4ff", hv: "20 -15 80 88",
+      fill: "white", line: "#cfe4ff", body: "sky", bodyLine: "#5a80a6", hv: "20 -15 80 88",
       prof: { brow: 26, nose: 38, lip: 54, chin: 66 },
       shellArt: <>
         <path d="M60 5 L60 -6" stroke={glow} strokeWidth="2.4" strokeLinecap="round" />
@@ -837,7 +865,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── MOCHI · squishy pocket bot ── */
     mochi: {
       skull: "M60 5 C85 5 93 22 93 41 C93 60 80 71 60 71 C40 71 27 60 27 41 C27 22 35 5 60 5 Z",
-      fill: "mochi", line: "#ffd7e3", body: "mochi", bodyLine: "#f6b8cd", hv: "20 -7 80 84",
+      fill: "mochi", line: "#ffd7e3", body: "mochi", bodyLine: "#dd91ac", hv: "20 -7 80 84",
       prof: { brow: 28, nose: 41, lip: 56, chin: 68 },
       shellArt: <>
         <ellipse cx="30" cy="36" rx="6.5" ry="9" fill={`url(#${id}-mochi)`} stroke="#f6b8cd" strokeWidth=".9" />
@@ -894,7 +922,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        one thing that gives it away sitting on the temple. */
     scout: {
       skull: "M60 8 C72 8 80 17 81 30 C82 42 78 52 72 60 C68 66 64 70 60 70 C56 70 52 66 48 60 C42 52 38 42 39 30 C40 17 48 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      fill: "skin", line: "#c8ab9e", body: "ivory", bodyLine: "#7d879a", neckFill: "skin",
       prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
       shellArt: <>
         <path d="M60 5 C75 5 84 15 84 30 C80 22 74 19 66 18 C56 17 46 20 39 27 C37 15 45 5 60 5 Z" fill={`url(#${id}-hairB)`} stroke="#2a1a10" strokeWidth=".7" strokeLinejoin="round" />
@@ -947,7 +975,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        repaired with whatever parts were to hand. Close-cropped, deep skin. */
     meridian: {
       skull: "M60 8 C73 8 81 18 82 31 C83 43 78 53 72 61 C68 67 64 71 60 71 C56 71 52 67 48 61 C42 53 37 43 38 31 C39 18 47 8 60 8 Z",
-      fill: "skin2", line: "#8a5f42", neckFill: "skin2",
+      fill: "skin2", line: "#8a5f42", body: "slateb", bodyLine: "#6c82a0", neckFill: "skin2",
       prof: { brow: 27, nose: 39, lip: 57, chin: 69 },
       shellArt: <>
         <path d="M60 5 C76 5 85 16 84 30 C79 23 71 20 60 20 C49 20 41 23 36 30 C35 16 44 5 60 5 Z" fill="#2a1d15" stroke="#1a1109" strokeWidth=".7" strokeLinejoin="round" opacity=".95" />
@@ -999,7 +1027,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        is nothing on it to catch: a bare scalp with its seam showing. */
     atlas: {
       skull: "M60 7 C75 7 84 18 85 32 C86 45 81 55 74 63 C69 69 65 72 60 72 C55 72 51 69 46 63 C39 55 34 45 35 32 C36 18 45 7 60 7 Z",
-      fill: "skin3", line: "#7a4a30", neckFill: "skin3",
+      fill: "skin3", line: "#7a4a30", body: "bronze", bodyLine: "#9c6c36", neckFill: "skin3",
       prof: { brow: 26, nose: 39, lip: 57, chin: 71 },
       shellArt: <>
         <path d="M42 22 Q60 12 78 22" fill="none" stroke="#4a2b1c" strokeWidth="1.2" opacity=".55" />
@@ -1051,7 +1079,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        blonde hair, an open face, and the LED left deliberately visible. */
     halcyon: {
       skull: "M60 8 C72 8 80 17 81 30 C82 42 78 52 72 60 C68 66 64 70 60 70 C56 70 52 66 48 60 C42 52 38 42 39 30 C40 17 48 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      fill: "skin", line: "#c8ab9e", body: "plum", bodyLine: "#8d63a8", neckFill: "skin",
       prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
       shellArt: <>
         <path d="M60 4 C76 4 85 15 84 30 C79 21 71 18 60 18 C49 18 41 21 36 30 C35 15 44 4 60 4 Z" fill={`url(#${id}-hair2)`} stroke="#9c7530" strokeWidth=".7" strokeLinejoin="round" />
@@ -1105,7 +1133,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        ring on the temple that means it is not one. */
     keeper: {
       skull: "M60 8 C71 8 79 17 80 30 C81 42 77 52 71 60 C67 66 64 70 60 70 C56 70 53 66 49 60 C43 52 39 42 40 30 C41 17 49 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      fill: "skin", line: "#c8ab9e", body: "sage", bodyLine: "#5b7260", neckFill: "skin",
       prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
       shellArt: <>
         <path d="M60 4 C76 4 84 15 83 30 C79 22 70 18 60 18 C50 18 41 22 37 30 C36 15 44 4 60 4 Z" fill={`url(#${id}-hair)`} stroke="#1f2436" strokeWidth=".7" strokeLinejoin="round" />
@@ -1210,7 +1238,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        which is the whole effect. */
     talon: {
       skull: "M44 12 L76 12 C79 12 80 14 80 17 L80 62 C80 66 78 68 74 68 L46 68 C42 68 40 66 40 62 L40 17 C40 14 41 12 44 12 Z",
-      fill: "plate", line: "#9fb0cc", hv: "30 -2 60 78",
+      fill: "plate", line: "#9fb0cc", body: "steelblu", bodyLine: "#5285b0", hv: "30 -2 60 78",
       prof: { brow: 20, nose: 34, lip: 52, chin: 66 },
       shellArt: <>
         <path d="M48 12 L48 5 M60 12 L60 3 M72 12 L72 5" stroke="#7f8ea8" strokeWidth="2.2" strokeLinecap="round" />
@@ -1296,7 +1324,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        panel on it opens onto a tool nobody expected it to have. */
     pip: {
       skull: "M60 8 C80 8 90 24 90 44 L90 62 C90 68 86 70 78 70 L42 70 C34 70 30 68 30 62 L30 44 C30 24 40 8 60 8 Z",
-      fill: "white", line: "#c8d8ec", hv: "24 1 72 76",
+      fill: "white", line: "#c8d8ec", body: "cream", bodyLine: "#9b7f52", hv: "24 1 72 76",
       prof: { brow: 26, nose: 38, lip: 54, chin: 66 },
       shellArt: <>
         <path d="M60 8 C80 8 90 24 90 44 L82 44 C82 28 74 18 60 18 C46 18 38 28 38 44 L30 44 C30 24 40 8 60 8 Z" fill="#dfe9f7" stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
@@ -1344,7 +1372,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        it is listening. */
     pebble: {
       skull: "M60 12 C82 12 92 28 92 48 C92 62 80 70 60 70 C40 70 28 62 28 48 C28 28 38 12 60 12 Z",
-      fill: "white", line: "#d0e0f2", hv: "22 0 76 76",
+      fill: "white", line: "#d0e0f2", bodyLine: "#8fa4bd", hv: "22 0 76 76",
       prof: { brow: 28, nose: 42, lip: 56, chin: 66 },
       shellArt: <>
         <path d="M60 12 C82 12 92 28 92 48 L84 48 C84 32 74 22 60 22 C46 22 36 32 36 48 L28 48 C28 28 38 12 60 12 Z" fill="#e9f1fb" stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
@@ -1398,6 +1426,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   const posed = pose !== "idle";
   const rot = (d, cx, cy) => `rotate(${d.toFixed(2)} ${cx} ${cy})`;
   const rig = MODEL_RIG[v] || MODEL_RIG.vanguard;
+  const CC = classOf(v).c;                    // the duel class this chassis fights as
+  const KIT = CLASS_KIT[classKeyOf(v)] || CLASS_KIT.striker;
   const hs = rig.hs;                          // head size against the body
   const chibi = !!rig.chibi;
   const shellFill = `url(#${id}-${HEAD.fill})`;
@@ -1428,6 +1458,12 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   );
   // the dark that gathers where two parts meet
   const joint = (cx, cy, r) => <ellipse cx={cx} cy={cy} rx={r} ry={r * .78} fill={`url(#${id}-ao)`} />;
+  /* The shadow the part in front drops onto the one behind it. It is painted
+     as a re-fill of the RECEIVING path, not as a free-floating ellipse: a
+     shadow that can wander off its own surface onto the background is worse
+     than no shadow at all, and in bounding-box space one gradient serves every
+     plate whatever its shape. */
+  const castOn = (d, op = 1) => <path d={d} fill={`url(#${id}-cast)`} opacity={op} />;
 
   /* ── the profile ──
      A parametric squash alone cannot turn a head: past about 45° there is
@@ -1443,9 +1479,13 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   const profArt = ws * (1 - front * 0.85) * clamp((c + 0.3) / 0.35, 0, 1);
   const profile = ws > 0.02 && (
     <g opacity={ws.toFixed(3)} transform={`translate(${(cxs - 60).toFixed(2)} 0)${dir < 0 ? " translate(120 0) scale(-1 1)" : ""}`}>
-      <path d={HEAD.side} fill={shellFill} stroke={HEAD.line} strokeWidth="1" strokeLinejoin="round" />
+      <path d={HEAD.side} fill={shellFill} stroke="none" />
+      <path d={HEAD.side} fill={`url(#${id}-occ)`} opacity=".46" />
+      <path d={HEAD.side} fill={`url(#${id}-sheen)`} opacity={HEAD.fill === "chrome" ? ".95" : ".68"} />
+      <path d={HEAD.side} fill={`url(#${id}-bnc)`} />
+      <path d={HEAD.side} fill="none" stroke={`url(#${id}-graze)`} strokeWidth="1.7" strokeLinejoin="round" opacity=".45" />
+      <path d={HEAD.side} fill="none" stroke={HEAD.line} strokeWidth="1" strokeLinejoin="round" />
       <path d={HEAD.side} fill="none" stroke={`url(#${id}-rim)`} strokeWidth="1.4" strokeLinejoin="round" />
-      <path d={HEAD.side} fill="none" stroke="#fff" strokeWidth="1.1" opacity={HEAD.fill === "chrome" ? ".55" : ".3"} strokeDasharray="26 84" />
       <g opacity={profArt.toFixed(3)}>{HEAD.sideArt}</g>
     </g>
   );
@@ -1589,17 +1629,138 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".62" />
           <stop offset="22%" stopColor="#ffffff" stopOpacity=".2" />
           <stop offset="52%" stopColor="#ffffff" stopOpacity="0" />
+          {/* the figure stands on a white studio floor, so the far edge of every
+              plate picks the room back up — without it the occlusion pass runs
+              a plate to near-black and the silhouette dies into its own shadow */}
+          <stop offset="84%" stopColor="#e8f1ff" stopOpacity="0" />
+          <stop offset="100%" stopColor="#e8f1ff" stopOpacity=".34" />
         </linearGradient>
         <linearGradient id={`${id}-graze`} x1="1" y1="1" x2="0.2" y2="0">
           <stop offset="0%" stopColor="#dbeaff" stopOpacity=".85" />
           <stop offset="34%" stopColor="#dbeaff" stopOpacity=".12" />
           <stop offset="100%" stopColor="#dbeaff" stopOpacity="0" />
         </linearGradient>
+        {/* the patch of floor the figure is standing on. Without it a full-body
+            render floats on the card, which is the single loudest tell that a
+            game character is a sticker rather than a model. */}
+        <radialGradient id={`${id}-gnd`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stopColor="#0b1526" stopOpacity=".34" />
+          <stop offset="42%" stopColor="#0b1526" stopOpacity=".2" />
+          <stop offset="100%" stopColor="#0b1526" stopOpacity="0" />
+        </radialGradient>
         {/* the shadow a body casts into its own joints */}
         <radialGradient id={`${id}-ao`} cx="0.5" cy="0.5" r="0.5">
           <stop offset="55%" stopColor="#000814" stopOpacity=".45" />
           <stop offset="100%" stopColor="#000814" stopOpacity="0" />
         </radialGradient>
+        {/* A skull is one big curved surface, so it wants a placed highlight
+            rather than the plate rig's straight sweep. Both of these are in
+            bounding-box space, which means any skull shape — tall visor, round
+            chibi dome, long android jaw — gets a sheen sized to itself with no
+            per-model tuning, and the dashed stroke this replaces (which landed
+            wherever a path happened to start) is gone. */}
+        <radialGradient id={`${id}-sheen`} cx="0.32" cy="0.19" r="0.52">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".5" />
+          <stop offset="46%" stopColor="#ffffff" stopOpacity=".13" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={`${id}-bnc`} cx="0.76" cy="0.85" r="0.44">
+          <stop offset="0%" stopColor="#cfe2ff" stopOpacity=".28" />
+          <stop offset="100%" stopColor="#cfe2ff" stopOpacity="0" />
+        </radialGradient>
+        {/* the shadow a part in front drops on the part behind it — chin on
+            chest, chest on pauldron, pelvis on thigh. Flat vector figures read
+            as decals precisely because these are missing. */}
+        <linearGradient id={`${id}-cast`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#00060f" stopOpacity=".55" />
+          <stop offset="16%" stopColor="#00060f" stopOpacity=".22" />
+          <stop offset="40%" stopColor="#00060f" stopOpacity=".05" />
+          <stop offset="100%" stopColor="#00060f" stopOpacity="0" />
+        </linearGradient>
+        {/* ── chassis materials ──
+            Twenty skins that all shared one body gradient meant seven androids
+            reading as the same robot in different wigs. Every model now owns a
+            material, so the chassis carries as much of its identity as the
+            head does. Same four-stop structure as -plate: lit edge, body,
+            turn, core shadow. */}
+        <linearGradient id={`${id}-graphite`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#a8b2bf" />
+          <stop offset="26%" stopColor="#5d6875" />
+          <stop offset="62%" stopColor="#2f3742" />
+          <stop offset="100%" stopColor="#14181f" />
+        </linearGradient>
+        <linearGradient id={`${id}-obsidian`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#7d7590" />
+          <stop offset="26%" stopColor="#443c56" />
+          <stop offset="62%" stopColor="#241f33" />
+          <stop offset="100%" stopColor="#0d0a16" />
+        </linearGradient>
+        <linearGradient id={`${id}-pearl`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="26%" stopColor="#dfe7f5" />
+          <stop offset="62%" stopColor="#a9b8d0" />
+          <stop offset="100%" stopColor="#6b7a93" />
+        </linearGradient>
+        <linearGradient id={`${id}-steelblu`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#93b6d8" />
+          <stop offset="26%" stopColor="#4c7ba8" />
+          <stop offset="62%" stopColor="#24486e" />
+          <stop offset="100%" stopColor="#0e2138" />
+        </linearGradient>
+        <linearGradient id={`${id}-cream`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#fff6e6" />
+          <stop offset="26%" stopColor="#f0dcbd" />
+          <stop offset="62%" stopColor="#cbb08a" />
+          <stop offset="100%" stopColor="#93785a" />
+        </linearGradient>
+        <linearGradient id={`${id}-carbon`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#6c7683" />
+          <stop offset="26%" stopColor="#3a424e" />
+          <stop offset="62%" stopColor="#1d2129" />
+          <stop offset="100%" stopColor="#0a0d12" />
+        </linearGradient>
+        <linearGradient id={`${id}-ivory`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="26%" stopColor="#f0f2f6" />
+          <stop offset="62%" stopColor="#ccd2dd" />
+          <stop offset="100%" stopColor="#8e97a6" />
+        </linearGradient>
+        <linearGradient id={`${id}-slateb`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#b9c8dd" />
+          <stop offset="26%" stopColor="#7089a8" />
+          <stop offset="62%" stopColor="#3c5170" />
+          <stop offset="100%" stopColor="#17253a" />
+        </linearGradient>
+        <linearGradient id={`${id}-bronze`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#e2b47a" />
+          <stop offset="26%" stopColor="#a8763c" />
+          <stop offset="62%" stopColor="#6b4520" />
+          <stop offset="100%" stopColor="#33200e" />
+        </linearGradient>
+        <linearGradient id={`${id}-sage`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#dfe8dd" />
+          <stop offset="26%" stopColor="#a9bda6" />
+          <stop offset="62%" stopColor="#6e8570" />
+          <stop offset="100%" stopColor="#3a4b3d" />
+        </linearGradient>
+        <linearGradient id={`${id}-plum`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#c9a6e0" />
+          <stop offset="26%" stopColor="#8a5ba8" />
+          <stop offset="62%" stopColor="#4e2c68" />
+          <stop offset="100%" stopColor="#22102f" />
+        </linearGradient>
+        <linearGradient id={`${id}-mint`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#e8fbf4" />
+          <stop offset="26%" stopColor="#b9e6d6" />
+          <stop offset="62%" stopColor="#82bfab" />
+          <stop offset="100%" stopColor="#4a7b6b" />
+        </linearGradient>
+        <linearGradient id={`${id}-sky`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#e9f4ff" />
+          <stop offset="26%" stopColor="#bcd9f2" />
+          <stop offset="62%" stopColor="#83aacd" />
+          <stop offset="100%" stopColor="#4a6a8c" />
+        </linearGradient>
         <linearGradient id={`${id}-plate`} x1="0.15" y1="0" x2="0.85" y2="1">
           <stop offset="0%" stopColor="#8b9ec2" />
           <stop offset="26%" stopColor="#4a5a78" />
@@ -1610,6 +1771,11 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           <stop offset="0%" stopColor="#4a5372" />
           <stop offset="55%" stopColor="#2b3149" />
           <stop offset="100%" stopColor="#161a2a" />
+        </linearGradient>
+        <linearGradient id={`${id}-cls`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor={mixc(CC, "#ffffff", .5)} />
+          <stop offset="52%" stopColor={CC} />
+          <stop offset="100%" stopColor={mixc(CC, "#000814", .55)} />
         </linearGradient>
         <linearGradient id={`${id}-trim`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={armorB} />
@@ -1628,6 +1794,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       </defs>
 
       <g>
+        {!headOnly && <ellipse cx="60" cy="396" rx={chibi ? 46 : 42} ry="8.5" fill={`url(#${id}-gnd)`} />}
         {/* ── body ──
             The same three-view treatment as the head, for the same reason: a
             front-facing torso squashed sideways reads as a plank, so the figure
@@ -1668,41 +1835,53 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           {(front > 0.01 || rear > 0.01) && (
             <g opacity={Math.max(front, rear).toFixed(3)} transform={`translate(0 ${PZ.lift})`}>
               {/* stubby arms, elbow-less, with mitten hands */}
-              <g transform={rot(PZ.armL * .8, 26, 156)}>
-                {plate("M22 152 C10 155 3 176 4 200 C5 216 12 224 21 222 C28 220 30 200 29 180 C28 166 26 156 22 152 Z")}
-                {plate("M13 216 C5 216 0 224 0 233 C0 243 7 250 15 250 C24 250 29 242 29 232 C29 222 22 216 13 216 Z")}
+              <g transform={rot(PZ.armL * .8, 22, 154)}>
+                {plate("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z")}
+                {plate("M9 214 C1 214 -4 222 -4 231 C-4 241 3 248 11 248 C20 248 25 240 25 230 C25 220 18 214 9 214 Z")}
+                {castOn("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z", .55)}
               </g>
-              <g transform={rot(-PZ.armR * .8, 94, 156)}>
-                {plate("M98 152 C110 155 117 176 116 200 C115 216 108 224 99 222 C92 220 90 200 91 180 C92 166 94 156 98 152 Z")}
-                {plate("M107 216 C115 216 120 224 120 233 C120 243 113 250 105 250 C96 250 91 242 91 232 C91 222 98 216 107 216 Z")}
+              <g transform={rot(-PZ.armR * .8, 98, 154)}>
+                {plate("M102 150 C114 154 121 174 120 198 C119 214 112 222 103 220 C96 218 94 198 95 178 C96 164 98 154 102 150 Z")}
+                {plate("M111 214 C119 214 124 222 124 231 C124 241 117 248 109 248 C100 248 95 240 95 230 C95 220 102 214 111 214 Z")}
+                {castOn("M102 150 C114 154 121 174 120 198 C119 214 112 222 103 220 C96 218 94 198 95 178 C96 164 98 154 102 150 Z", .55)}
               </g>
               <g transform={rot(PZ.lean, 60, 280)}>
               {/* barrel body */}
               {plate("M60 116 C89 116 103 141 103 182 L101 246 C99 278 82 294 60 294 C38 294 21 278 19 246 L17 182 C17 141 31 116 60 116 Z", { lw: 1.4 })}
+              {/* a chibi head is nearly half the figure, so the shadow it drops
+                  is the single biggest depth cue on the whole build */}
+              {castOn("M60 116 C89 116 103 141 103 182 L101 246 C99 278 82 294 60 294 C38 294 21 278 19 246 L17 182 C17 141 31 116 60 116 Z", .95)}
               </g>
               {/* little boots, each on its own hip */}
               <g transform={rot(PZ.legL * .7, 45, 290)}>
-                {plate("M34 288 C29 294 28 334 30 354 C31 366 55 367 57 355 C60 336 59 294 55 288 Z")}
-                {plate("M42 372 C28 372 19 379 19 385 C19 391 29 394 43 394 C57 394 66 391 66 385 C66 379 56 372 42 372 Z")}
+                {plate("M34 288 C29 294 28 336 30 358 C31 372 55 373 57 360 C60 338 59 294 55 288 Z")}
+                {castOn("M34 288 C29 294 28 336 30 358 C31 372 55 373 57 360 C60 338 59 294 55 288 Z", .55)}
+                {plate("M42 368 C28 368 19 377 19 384 C19 391 29 394 43 394 C57 394 66 391 66 384 C66 377 56 368 42 368 Z")}
               </g>
               <g transform={rot(-PZ.legR * .7, 75, 290)}>
-                {plate("M65 288 C61 294 60 334 63 354 C64 366 88 367 90 355 C92 336 91 294 86 288 Z")}
-                {plate("M78 372 C64 372 55 379 55 385 C55 391 64 394 78 394 C92 394 101 391 101 385 C101 379 92 372 78 372 Z")}
+                {plate("M65 288 C61 294 60 336 63 358 C64 372 88 373 90 360 C92 338 91 294 86 288 Z")}
+                {castOn("M65 288 C61 294 60 336 63 358 C64 372 88 373 90 360 C92 338 91 294 86 288 Z", .55)}
+                {plate("M78 368 C64 368 55 377 55 384 C55 391 64 394 78 394 C92 394 101 391 101 384 C101 377 92 368 78 368 Z")}
               </g>
               <g transform={rot(PZ.lean, 60, 280)}>
               <path d="M18 206 h13 M89 206 h13" stroke={bTrim} strokeWidth="5.5" strokeLinecap="round" />
               <path d="M34 348 h23 M65 348 h23" stroke={bTrim} strokeWidth="5.5" strokeLinecap="round" />
               {/* collar: where the worn outfit shows on a chibi */}
-              <path d="M37 130 Q60 120 83 130" fill="none" stroke={bTrim} strokeWidth="6.5" strokeLinecap="round" />
-              {joint(60, 126, 26)}
+              <path d="M37 132 Q60 122 83 132" fill="none" stroke={bTrim} strokeWidth="5" strokeLinecap="round" opacity=".85" />
               <g opacity={front.toFixed(3)}>
-                <ellipse cx="60" cy="208" rx="33" ry="38" fill="#ffffff" opacity=".3" />
+                <ellipse cx="60" cy="208" rx="33" ry="38" fill="#ffffff" opacity=".14" />
                 <ellipse cx="60" cy="208" rx="33" ry="38" fill={`url(#${id}-spec)`} />
                 <ellipse cx="60" cy="208" rx="33" ry="38" fill="none" stroke={glow} strokeWidth="1.1" opacity=".8" />
+                {/* a chibi has no shoulder to hang a crest on, so the class rides
+                    on its chest instead */}
+                {plate("M60 140 L71 149 L60 165 L49 149 Z", { fill: `url(#${id}-cls)`, line: mixc(CC, "#000814", .5), lw: 1 })}
+                <ellipse cx="60" cy="208" rx="38" ry="43" fill="none" stroke={CC} strokeWidth="1.4" opacity=".6" />
                 <g className="ca-core">
                   <circle cx="60" cy="208" r="15" fill="none" stroke={glow} strokeWidth="1.5" opacity=".95" />
+                  <circle cx="60" cy="208" r="11.5" fill={glow} opacity=".14" />
                   <path d="M60 195 L73 208 L60 221 L47 208 Z" fill={`url(#${id}-visor)`} />
                   <circle cx="60" cy="208" r="5.4" fill="#fff" opacity=".95" />
+                  <circle cx="56.8" cy="204.4" r="2.1" fill="#fff" opacity=".8" />
                 </g>
                 {groove("M34 264 Q60 276 86 264", 1.4, .4)}
                 <ellipse cx="42" cy="379" rx="11" ry="5" fill="#ffffff" opacity=".35" />
@@ -1769,60 +1948,124 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                   bicep, elbow, forearm and hand travel together */}
               <g transform={rot(PZ.armL, 24, 108)}>
                 {plate("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z")}
+                {/* the pauldron sits over this bicep, so the bicep wears its shadow */}
+                {castOn("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z", .85)}
                 {joint(19, 158, 13)}
                 {plate("M10 160 L30 163 L28 218 L14 216 Z")}
-                {plate("M13 216 L28 219 L28 241 C23 250 15 249 12 240 Z", { fill: bTrim })}
+                {castOn("M10 160 L30 163 L28 218 L14 216 Z", .45)}
+                {groove("M13 176 L27 178 M13 192 L27 194", .9, .3)}
+                {plate("M11 214 L30 217 L29 227 L11 224 Z", { fill: bTrim })}
+                {plate("M12 226 L29 229 L29 242 C24 251 15 250 12 241 Z")}
+                {groove("M15 233 L27 235 M15 238 L26 240", .9, .45)}
               </g>
               <g transform={rot(-PZ.armR, 96, 108)}>
                 {plate("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z")}
+                {castOn("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", .85)}
                 {joint(101, 158, 13)}
                 {plate("M110 160 L90 163 L92 218 L106 216 Z")}
-                {plate("M107 216 L92 219 L92 241 C97 250 105 249 108 240 Z", { fill: bTrim })}
+                {castOn("M110 160 L90 163 L92 218 L106 216 Z", .45)}
+                {groove("M107 176 L93 178 M107 192 L93 194", .9, .3)}
+                {plate("M109 214 L90 217 L91 227 L109 224 Z", { fill: bTrim })}
+                {plate("M108 226 L91 229 L91 242 C96 251 105 250 108 241 Z")}
+                {groove("M105 233 L93 235 M105 238 L94 240", .9, .45)}
               </g>
               {/* pauldrons ride the shoulder line, so they take the same lean */}
               <g transform={rot(PZ.lean, 60, 200)}>
-              {plate("M36 90 C21 90 9 99 4 113 L2 133 L31 124 Z", { fill: bTrim, line: glow, lw: 1.2 })}
-              {plate("M84 90 C99 90 111 99 116 113 L118 133 L89 124 Z", { fill: bTrim, line: glow, lw: 1.2 })}
-              <circle cx="13" cy="117" r="2.8" fill={term ? "#ff2d46" : glow} className="ca-optic" />
-              <circle cx="107" cy="117" r="2.8" fill={accent} className="ca-optic" />
+              {/* spaulders: a domed cap that wraps the shoulder ball, with a trim
+                  lame under its lip. The flat outward crescent this replaces read
+                  as a paper wing pinned on beside the arm rather than armour
+                  sitting over it. */}
+              {plate("M38 90 C24 87 12 94 6 106 C2 115 1 126 3 135 C11 139 21 138 28 132 C32 125 35 114 38 103 Z", { lw: 1.2 })}
+              {plate("M4 133 C12 138 22 137 29 130 L31 139 C23 147 12 148 3 143 Z", { fill: bTrim, line: glow, lw: 1 })}
+              {groove("M11 101 C19 95 29 93 36 96", 1.2, .5)}
+              {plate("M82 90 C96 87 108 94 114 106 C118 115 119 126 117 135 C109 139 99 138 92 132 C88 125 85 114 82 103 Z", { lw: 1.2 })}
+              {plate("M116 133 C108 138 98 137 91 130 L89 139 C97 147 108 148 117 143 Z", { fill: bTrim, line: glow, lw: 1 })}
+              {groove("M109 101 C101 95 91 93 84 96", 1.2, .5)}
+              {/* rim rivets: the cheapest detail that tells a plate from a blob */}
+              <g opacity=".45" fill="#0a1220">
+                <circle cx="8.5" cy="112" r="1.25" /><circle cx="6.5" cy="125" r="1.25" /><circle cx="17" cy="100" r="1.25" />
+                <circle cx="111.5" cy="112" r="1.25" /><circle cx="113.5" cy="125" r="1.25" /><circle cx="103" cy="100" r="1.25" />
+              </g>
+              {(() => {
+                const crest = (
+                  <>
+                    {plate(KIT.sh, { fill: `url(#${id}-cls)`, line: mixc(CC, "#000814", .5), lw: 1 })}
+                    {KIT.tip && <circle cx={KIT.tip[0]} cy={KIT.tip[1]} r="2.4" fill={mixc(CC, "#ffffff", .55)} className="ca-optic" />}
+                  </>
+                );
+                return <>{crest}<g transform="translate(120 0) scale(-1 1)">{crest}</g></>;
+              })()}
+              <circle cx="14" cy="118" r="2.9" fill={CC} className="ca-optic" />
+              <circle cx="106" cy="118" r="2.9" fill={CC} className="ca-optic" />
               {/* chest shell, then the pectoral plates that sit on it */}
               {plate("M60 84 C73 84 84 91 92 101 L98 126 L95 155 L60 163 L25 155 L22 126 L28 101 C36 91 47 84 60 84 Z", { lw: 1.3 })}
               {plate("M56 96 C45 96 35 104 31 117 L33 142 C42 151 50 154 56 155 Z")}
               {plate("M64 96 C75 96 85 104 89 117 L87 142 C78 151 70 154 64 155 Z")}
+              {/* collar ring — without it the neck just rests on the chest */}
+              {plate("M44 86 C44 79 76 79 76 86 C76 95 69 100 60 100 C51 100 44 95 44 86 Z", { fill: bTrim, line: glow, lw: 1 })}
+              {/* the chin's shadow, landing on the chest shell that catches it —
+                  the contact that sells the head as sitting ON the body */}
+              {castOn("M60 84 C73 84 84 91 92 101 L98 126 L95 155 L60 163 L25 155 L22 126 L28 101 C36 91 47 84 60 84 Z", .8)}
               {/* abdominal bands */}
-              {plate("M28 157 L92 157 L89 172 L31 172 Z", { fill: bTrim })}
-              {plate("M31 174 L89 174 L86 189 L34 189 Z", { fill: bTrim })}
+              {plate("M27 156 C42 162 78 162 93 156 L90 171 C76 176 44 176 30 171 Z", { fill: bTrim })}
+              {plate("M30 173 C43 178 77 178 90 173 L87 188 C75 192 45 192 33 188 Z", { fill: bTrim })}
               </g>
               {/* pelvis and hip plates — planted, so the lean reads as a lean */}
               {plate("M32 187 L88 187 L92 217 L86 248 L34 248 L28 217 Z", { lw: 1.1 })}
-              {plate("M31 196 L49 196 L47 231 L34 227 Z", { fill: bTrim })}
-              {plate("M89 196 L71 196 L73 231 L86 227 Z", { fill: bTrim })}
+              {plate("M31 195 C38 193 45 194 49 197 L47 231 C41 231 36 229 34 226 Z", { fill: bTrim })}
+              {plate("M89 195 C82 193 75 194 71 197 L73 231 C79 231 84 229 86 226 Z", { fill: bTrim })}
+              {castOn("M32 187 L88 187 L92 217 L86 248 L34 248 L28 217 Z", .7)}
               {/* each leg swings from its own hip */}
               <g transform={rot(PZ.legL, 46, 238)}>
                 {plate("M34 240 L58 240 L56 302 L37 302 Z")}
+                {castOn("M34 240 L58 240 L56 302 L37 302 Z", .9)}
+                {groove("M39 258 L54 258 M39 274 L54 274", .9, .3)}
                 {joint(46, 303, 14)}
                 {plate("M37 298 C41 294 51 294 55 298 C57 306 57 312 55 316 C51 320 41 320 37 316 C35 312 35 306 37 298 Z", { fill: bTrim, line: glow, lw: .9 })}
-                {plate("M38 314 L55 314 L53 364 L40 364 Z")}
+                {groove("M39 301 C43 298 49 298 53 301", .9, .5)}
+                <circle cx="46" cy="308" r="1.9" fill="#0a1220" opacity=".38" />
+                {plate("M36 314 L57 314 L55 366 L38 366 Z")}
+                {groove("M40 330 L53 330 M40 346 L53 346", .9, .3)}
                 {plate("M36 360 L55 360 L60 379 L60 392 L29 392 L29 377 Z", { fill: bTrim })}
+                {plate("M29 384 L60 384 L60 392 L29 392 Z")}
+                {groove("M31 370 L57 370", 1.1, .4)}
               </g>
               <g transform={rot(-PZ.legR, 74, 238)}>
                 {plate("M62 240 L86 240 L83 302 L64 302 Z")}
+                {castOn("M62 240 L86 240 L83 302 L64 302 Z", .9)}
+                {groove("M66 258 L81 258 M66 274 L81 274", .9, .3)}
                 {joint(74, 303, 14)}
                 {plate("M65 298 C69 294 79 294 83 298 C85 306 85 312 83 316 C79 320 69 320 65 316 C63 312 63 306 65 298 Z", { fill: bTrim, line: glow, lw: .9 })}
-                {plate("M65 314 L82 314 L80 364 L67 364 Z")}
+                {groove("M67 301 C71 298 77 298 81 301", .9, .5)}
+                <circle cx="74" cy="308" r="1.9" fill="#0a1220" opacity=".38" />
+                {plate("M63 314 L84 314 L82 366 L65 366 Z")}
+                {groove("M67 330 L80 330 M67 346 L80 346", .9, .3)}
                 {plate("M84 360 L65 360 L60 379 L60 392 L91 392 L91 377 Z", { fill: bTrim })}
+                {plate("M60 384 L91 384 L91 392 L60 392 Z")}
+                {groove("M63 370 L89 370", 1.1, .4)}
               </g>
               <g transform={rot(PZ.lean, 60, 200)}>
               {/* chest plating and the power core — gone once the back is toward us */}
               <g opacity={front.toFixed(3)}>
                 {groove("M60 88 L60 160", 1.2, .5)}
                 {groove("M36 110 L53 118 M84 110 L67 118", 1, .45)}
+                {groove("M38 100 L50 98 M38 105 L50 103 M38 110 L50 108", .9, .4)}
+                {groove("M82 100 L70 98 M82 105 L70 103 M82 110 L70 108", .9, .4)}
                 {groove("M29 164 L91 164 M32 181 L88 181", 1.1, .45)}
                 <g className="ca-core">
+                  <circle cx="60" cy="131" r="18" fill="none" stroke={CC} strokeWidth="1.6" opacity=".7" />
+                  {/* bezel notches at the cardinals — a machined mount rather than
+                      a ring drawn round a shape */}
+                  <g stroke={CC} strokeWidth="2.2" strokeLinecap="round" opacity=".75">
+                    <path d="M60 110 L60 115.5" /><path d="M60 146.5 L60 152" />
+                    <path d="M39 131 L44.5 131" /><path d="M75.5 131 L81 131" />
+                  </g>
                   <circle cx="60" cy="131" r="14.5" fill="#00060f" opacity=".55" />
                   <circle cx="60" cy="131" r="13" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.4" opacity=".9" />
+                  <circle cx="60" cy="131" r="10" fill={term ? "#ff2d46" : glow} opacity=".16" />
                   <path d="M60 119 L72 131 L60 143 L48 131 Z" fill={term ? `url(#${id}-red)` : `url(#${id}-visor)`} />
                   <circle cx="60" cy="131" r="4.8" fill="#fff" opacity=".95" />
+                  <circle cx="57.2" cy="127.6" r="1.9" fill="#fff" opacity=".8" />
                 </g>
                 {groove("M40 254 L54 254 M66 254 L80 254", 1, .45)}
                 {groove("M34 372 L54 372 M66 372 L86 372", 1, .4)}
@@ -1843,26 +2086,36 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
 
         <g transform={headOnly ? undefined : `translate(0 ${PZ.lift}) ${rot(PZ.lean, 60, chibi ? 280 : 200)} translate(60 -12) scale(${hs}) translate(-60 -3) ${rot(PZ.head, 60, 88)}`}>
         {/* ── neck ── */}
-        {HEAD.neck || (
+        {HEAD.neck || (chibi ? null : (
           <g transform={`translate(60 0) scale(${(0.72 + 0.28 * Math.abs(c)).toFixed(3)} 1) translate(-60 0)`}>
             <path d="M52 62 L68 62 L71 90 L49 90 Z" fill={`url(#${id}-${HEAD.neckFill || bodyKey})`} stroke="#7f8fac" strokeWidth=".7" />
             <path d="M48 84 L72 84" stroke={glow} strokeWidth="1.3" opacity=".7" />
           </g>
-        )}
+        ))}
 
         {/* ── head ── */}
         {profile}
         {rear > 0.01 && shell(<g opacity={rear.toFixed(3)}>
-          <path d={HEAD.skull} fill={shellFill} stroke={HEAD.line} strokeWidth="1" strokeLinejoin="round" />
+          <path d={HEAD.skull} fill={shellFill} stroke="none" />
+          <path d={HEAD.skull} fill={`url(#${id}-occ)`} opacity=".5" />
+          <path d={HEAD.skull} fill={`url(#${id}-sheen)`} opacity={HEAD.fill === "chrome" ? ".95" : ".62"} />
+          <path d={HEAD.skull} fill={`url(#${id}-bnc)`} />
+          <path d={HEAD.skull} fill="none" stroke={`url(#${id}-graze)`} strokeWidth="1.8" strokeLinejoin="round" opacity=".5" />
+          <path d={HEAD.skull} fill="none" stroke={HEAD.line} strokeWidth="1" strokeLinejoin="round" />
           <path d={HEAD.skull} fill="none" stroke={`url(#${id}-rim)`} strokeWidth="1.5" strokeLinejoin="round" />
           {HEAD.rear}
         </g>, "rear")}
         {front > 0.01 && shell(<g opacity={front.toFixed(3)}>
-          <path d={HEAD.skull} fill={shellFill} stroke={HEAD.line} strokeWidth="1" strokeLinejoin="round" />
+          {/* the head runs the same five passes as every armour plate — it was
+              the one part of the figure still painted as a flat silhouette */}
+          <path d={HEAD.skull} fill={shellFill} stroke="none" />
+          <path d={HEAD.skull} fill={`url(#${id}-occ)`} opacity=".46" />
+          <path d={HEAD.skull} fill={`url(#${id}-sheen)`} opacity={HEAD.fill === "chrome" ? ".95" : ".66"} />
+          <path d={HEAD.skull} fill={`url(#${id}-bnc)`} />
+          <path d={HEAD.skull} fill="none" stroke={`url(#${id}-graze)`} strokeWidth="1.8" strokeLinejoin="round" opacity=".5" />
+          <path d={HEAD.skull} fill="none" stroke={HEAD.line} strokeWidth="1" strokeLinejoin="round" />
           <path d={HEAD.skull} fill="none" stroke={`url(#${id}-rim)`} strokeWidth="1.5" strokeLinejoin="round" />
           {HEAD.shellArt}
-          {/* one specular sweep — what stops flat vector reading as flat */}
-          <path d={HEAD.skull} fill="none" stroke="#fff" strokeWidth="1.2" opacity={HEAD.fill === "chrome" ? ".6" : ".32"} strokeDasharray="28 88" />
         </g>, "shell")}
         {front > 0.01 && <g opacity={front.toFixed(3)}>{HEAD.art}</g>}
         </g>

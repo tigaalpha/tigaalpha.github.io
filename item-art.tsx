@@ -94,6 +94,87 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
     "out-titan": <>{P("M14 16 H50 V26 H14 Z", GC, { line: lite(C, .3), lw: 1 })}{P("M18 30 H46 V40 H18 Z", GB, { line: edgeB, lw: 1 })}{lit(32, 48, 4)}</>,
   };
 
+
+  /* ── motif tables ──
+     Five whole shop categories — key skins, themes, avatar frames, keyboards,
+     stickers — were still shipping raw emoji while everything else was drawn.
+     Forty-one items in somebody else's art style, sitting next to gear lit by
+     our own rig. They work like the outfits do: one archetype draws the object,
+     and the item hands it a motif so no two read the same. */
+  const KEY_MOTIF = {
+    "key-jade":   <g><path d="M32 2 L41 11 L32 21 L23 11 Z" fill={lite(C, .4)} stroke="#fff" strokeWidth=".9" /><path d="M23 11 H41" stroke="#fff" strokeWidth=".8" opacity=".7" /></g>,
+    "key-magma":  <g><path d="M22 20 C25 12 29 16 32 8 C35 16 39 12 42 20 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" />{[26, 32, 38].map(x => <circle key={x} cx={x} cy="5" r="1.4" fill={lite(C, .6)} />)}</g>,
+    "key-void":   <g><circle cx="32" cy="11" r="8" fill="#080a12" stroke={lite(C, .5)} strokeWidth="1.6" /><ellipse cx="32" cy="11" rx="13" ry="4" fill="none" stroke={lite(C, .35)} strokeWidth="1.2" opacity=".8" /></g>,
+    "key-sakura": <g>{[0, 72, 144, 216, 288].map(a => <ellipse key={a} cx="32" cy="6" rx="2.6" ry="4.6" fill={lite(C, .45)} stroke="#fff" strokeWidth=".6" transform={`rotate(${a} 32 11)`} />)}<circle cx="32" cy="11" r="2" fill="#fff" opacity=".9" /></g>,
+    "key-aqua":   <path d="M22 12 C25 7 29 15 32 11 C35 7 39 15 42 11" fill="none" stroke={lite(C, .4)} strokeWidth="2.6" strokeLinecap="round" />,
+    "key-sunset": <g>{lit(32, 11, 4)}{[0, 45, 90, 135].map(a => <path key={a} d="M32 1 V5 M32 17 V21" transform={`rotate(${a} 32 11)`} stroke={lite(C, .5)} strokeWidth="1.8" strokeLinecap="round" />)}</g>,
+    "key-neon":   <path d="M35 2 L25 13 L31 13 L28 21 L39 9 L33 9 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" />,
+    "key-candy":  <path d="M32 20 C21 12 22 3 27 3 C30 3 32 6 32 7 C32 6 34 3 37 3 C42 3 43 12 32 20 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" />,
+    "key-ocean":  <path d="M32 2 C38 9 41 13 41 16 C41 20 37 23 32 23 C27 23 23 20 23 16 C23 13 26 9 32 2 Z" fill={lite(C, .4)} stroke="#fff" strokeWidth=".8" />,
+    "key-ice":    <g stroke={lite(C, .55)} strokeWidth="2.1" strokeLinecap="round"><path d="M32 2 V20 M24 6 L40 16 M40 6 L24 16" /></g>,
+    "key-gold":   <path d="M22 19 L24 4 L28 11 L32 2 L36 11 L40 4 L42 19 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" />,
+    "key-fire":   <path d="M32 1 C36 8 41 10 41 15 C41 20 37 23 32 23 C27 23 23 20 23 15 C23 11 27 10 28 6 C30 10 32 9 32 1 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" />,
+    "key-galaxy": <g>{E(32, 11, 7, 7, GC, { lw: .8, line: "#fff" })}<ellipse cx="32" cy="11" rx="13" ry="4" fill="none" stroke={lite(C, .5)} strokeWidth="1.8" transform="rotate(-18 32 11)" /></g>,
+    "key-prism":  <g><path d="M32 2 L44 20 H20 Z" fill={lite(C, .3)} stroke="#fff" strokeWidth=".9" />{[0, 1, 2].map(i => <path key={i} d={`M32 8 L${38 + i * 3} 20`} stroke={["#ff4d6a", "#ffd23f", "#4de1ff"][i]} strokeWidth="1.6" strokeLinecap="round" />)}</g>,
+  };
+  const THEME_MOTIF = {
+    "thm-neon":     <g>{[0, 1, 2, 3, 4].map(i => <path key={i} d={`M6 ${46 - i * 8} H58`} stroke={lite(C, .45)} strokeWidth={1.6 - i * .2} opacity={.9 - i * .15} />)}{[0, 1, 2, 3, 4, 5].map(i => <path key={"v" + i} d={`M32 30 L${-14 + i * 22} 54`} stroke={lite(C, .4)} strokeWidth="1.2" opacity=".7" />)}<circle cx="32" cy="24" r="8" fill={GLOW} /></g>,
+    "thm-arcade":   <g>{[[14, 20], [26, 20], [38, 20], [50, 20], [20, 30], [32, 30], [44, 30]].map(([x, y], i) => <rect key={i} x={x} y={y} width="7" height="6" rx="1.4" fill={lite(C, .45)} opacity=".9" />)}<rect x="24" y="44" width="16" height="5" rx="2" fill={lite(A, .5)} /><rect x="30" y="38" width="4" height="5" fill={lite(C, .55)} /></g>,
+    "thm-zen":      <g><circle cx="44" cy="20" r="7" fill="none" stroke={lite(C, .5)} strokeWidth="2" />{[0, 1, 2, 3].map(i => <path key={i} d={`M8 ${34 + i * 5} C20 ${30 + i * 5} 44 ${38 + i * 5} 58 ${33 + i * 5}`} fill="none" stroke={lite(A, .35)} strokeWidth="1.3" opacity=".7" />)}{[[18, 42, 5], [27, 45, 3.4]].map(([x, y, r], i) => <ellipse key={i} cx={x} cy={y} rx={r} ry={r * .7} fill={dim(A, .5)} />)}</g>,
+    "thm-nebula":   <g>{[[24, 26, 13], [42, 34, 10]].map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} fill={GLOW} opacity=".85" />)}{[[12, 18], [30, 14], [48, 20], [20, 40], [50, 44], [36, 46]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i % 2 ? 1 : 1.7} fill="#fff" opacity=".8" />)}</g>,
+    "thm-midnight":  <g><circle cx="46" cy="21" r="6" fill={lite(A, .6)} opacity=".9" /><path d="M6 44 L14 34 L20 40 L28 28 L36 38 L44 31 L52 40 L58 36 V54 H6 Z" fill={dim(A, .72)} />{[[13, 40], [27, 36], [41, 39], [50, 43]].map(([x, y], i) => <rect key={i} x={x} y={y} width="2" height="2" fill={lite(C, .5)} />)}</g>,
+    "thm-aurora":    <g>{[0, 1, 2].map(i => <path key={i} d={`M4 ${26 + i * 5} C18 ${16 + i * 5} 30 ${34 + i * 5} 44 ${22 + i * 5} C52 ${16 + i * 5} 56 ${20 + i * 5} 60 ${18 + i * 5}`} fill="none" stroke={[lite(C, .35), lite("#7fffd4", .2), lite("#aa88ff", .25)][i]} strokeWidth="4.5" strokeLinecap="round" opacity=".75" />)}<path d="M6 46 H58 V54 H6 Z" fill={dim(A, .7)} /></g>,
+    "thm-ember":     <g><path d="M6 42 L18 32 L30 40 L42 30 L58 42 V54 H6 Z" fill={dim(A, .78)} />{[[16, 30], [26, 22], [36, 27], [46, 19], [22, 16]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={2.4 - i * .25} fill={lite(C, .4)} opacity=".9" />)}</g>,
+    "thm-forest":    <g>{[[16, 46, 11], [32, 48, 14], [47, 45, 10]].map(([x, y, h], i) => <path key={i} d={`M${x} ${y - h * 2.1} L${x + h * .8} ${y - h} L${x + h * .45} ${y - h} L${x + h} ${y} H${x - h} L${x - h * .45} ${y - h} L${x - h * .8} ${y - h} Z`} fill={dim(C, .3 + i * .12)} />)}<path d="M6 46 H58 V54 H6 Z" fill={dim(A, .74)} /></g>,
+    "thm-sakura":    <g><path d="M4 16 C16 22 24 20 34 28 C42 34 50 34 60 30" fill="none" stroke={dim(A, .6)} strokeWidth="2.4" strokeLinecap="round" />{[[14, 20], [28, 25], [42, 33], [22, 40], [48, 22], [36, 45]].map(([x, y], i) => <g key={i}>{[0, 72, 144, 216, 288].map(a => <ellipse key={a} cx={x} cy={y - 3} rx="1.7" ry="3" fill={lite(C, .45)} transform={`rotate(${a} ${x} ${y})`} opacity=".92" />)}</g>)}</g>,
+    "thm-deepsea":   <g><path d="M12 34 C18 26 34 24 44 30 C50 34 52 38 50 40 C44 44 24 44 16 40 Z" fill={dim(C, .18)} /><path d="M50 32 L58 26 L57 38 Z" fill={dim(C, .18)} /><circle cx="20" cy="31" r="1.5" fill="#fff" />{[[16, 18], [24, 14], [34, 19], [44, 15]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={2 - i * .2} fill="none" stroke={lite(C, .5)} strokeWidth="1" opacity=".8" />)}</g>,
+    "thm-volcano":   <g><path d="M6 54 L26 24 L32 30 L38 24 L58 54 Z" fill={dim(A, .68)} /><path d="M26 27 C28 33 30 30 32 34 C34 30 36 33 38 27 L44 42 H20 Z" fill={lite(C, .3)} />{[[30, 18], [37, 14], [24, 13]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={2.2 - i * .3} fill={lite(C, .5)} opacity=".9" />)}</g>,
+    "thm-starlight": <g>{[[12, 18], [22, 30], [34, 16], [46, 26], [52, 40], [18, 44], [40, 44], [28, 40], [56, 16]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 1.8 : 1} fill="#fff" opacity={i % 3 === 0 ? .95 : .6} />)}<path d="M14 40 L34 22" stroke={lite(C, .5)} strokeWidth="1.6" strokeLinecap="round" /><path d="M34 22 L38 18" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" /></g>,
+  };
+  const FRAME_MOTIF = {
+    "frm-fr-neon":    <g>{[[10, 10, 54, 10], [10, 54, 54, 54], [10, 10, 10, 54], [54, 10, 54, 54]].map(([a, b, c2, d], i) => <path key={i} d={`M${a} ${b} L${c2} ${d}`} stroke={lite(C, .5)} strokeWidth="2.4" strokeLinecap="round" opacity=".9" />)}{lit(32, 8, 2.6)}</g>,
+    "frm-fr-circuit": <g>{[[10, 22], [10, 42], [54, 22], [54, 42]].map(([x, y], i) => <g key={i}><path d={`M${x} ${y} H${x < 32 ? x + 5 : x - 5}`} stroke={lite(C, .5)} strokeWidth="1.6" /><circle cx={x < 32 ? x + 6 : x - 6} cy={y} r="1.8" fill={lite(C, .55)} /></g>)}{[[22, 10], [42, 10], [22, 54], [42, 54]].map(([x, y], i) => <rect key={"r" + i} x={x - 3} y={y - 2} width="6" height="4" rx="1" fill={lite(A, .5)} />)}</g>,
+    "frm-fr-laurel":  <g>{[-1, 1].map(sd => <g key={sd}>{[0, 1, 2, 3].map(i => { const x = 32 + sd * (10 + i * 5), y = 56 - i * 4; return <ellipse key={i} cx={x} cy={y} rx="4.6" ry="2.3" fill={lite(C, .35)} stroke={edge} strokeWidth=".6" transform={`rotate(${sd * (26 - i * 10)} ${x} ${y})`} />; })}</g>)}<path d="M26 9 L32 3 L38 9 Z" fill={GC} stroke={edge} strokeWidth=".9" /></g>,
+    "frm-fr-prism":   <g>{[[32, 6], [6, 32], [58, 32], [32, 58]].map(([x, y], i) => <path key={i} d={`M${x} ${y - 5} L${x + 4.5} ${y} L${x} ${y + 5} L${x - 4.5} ${y} Z`} fill={["#ff4d6a", "#ffd23f", "#4de1ff", "#a86bff"][i]} stroke="#fff" strokeWidth=".8" opacity=".92" />)}</g>,
+    "frm-fr-mecha":   <g>{[[9, 9], [55, 9], [9, 55], [55, 55]].map(([x, y], i) => <path key={i} d={`M${x - 4} ${y} L${x} ${y - 4} L${x + 4} ${y} L${x} ${y + 4} Z`} fill={GC} stroke={edge} strokeWidth=".9" />)}{seam("M32 7 V13 M32 51 V57 M7 32 H13 M51 32 H57")}{lit(32, 32, 0)}</g>,
+    "frm-fr-none":    <g />,
+    "frm-fr-bronze":  <g>{[[13, 13], [51, 13], [13, 51], [51, 51]].map(([x, y], i) => <g key={i}><circle cx={x} cy={y} r="3.4" fill={GC} stroke={edge} strokeWidth="1" /><circle cx={x - .8} cy={y - .8} r="1.1" fill="#fff" opacity=".7" /></g>)}</g>,
+    "frm-fr-silver":  <g>{[[8, 32, 56, 32], [32, 8, 32, 56]].map(([a, b, c2, d], i) => <path key={i} d={`M${a} ${b} L${c2} ${d}`} stroke={lite(A, .55)} strokeWidth="1.4" opacity=".5" />)}{[[10, 10, 54, 10], [10, 54, 54, 54]].map(([a, b, c2, d], i) => <path key={i} d={`M${a} ${b} L${c2} ${d}`} stroke={lite(A, .7)} strokeWidth="2" opacity=".8" />)}</g>,
+    "frm-fr-gold":    <g><path d="M25 8 L32 2 L39 8 Z" fill={GC} stroke={edge} strokeWidth="1" />{[-1, 1].map(s => <g key={s}>{[0, 1, 2].map(i => <ellipse key={i} cx={32 + s * (9 + i * 6)} cy={57 - i * 1.5} rx="4.4" ry="2.2" fill={lite(C, .3)} stroke={edge} strokeWidth=".7" transform={`rotate(${s * (18 + i * 8)} ${32 + s * (9 + i * 6)} ${57 - i * 1.5})`} />)}</g>)}</g>,
+    "frm-fr-diamond": <g>{[[12, 12], [52, 12], [12, 52], [52, 52]].map(([x, y], i) => <path key={i} d={`M${x} ${y - 6} L${x + 5} ${y} L${x} ${y + 6} L${x - 5} ${y} Z`} fill={lite(C, .5)} stroke="#fff" strokeWidth=".9" opacity=".92" />)}{lit(32, 8, 3)}</g>,
+  };
+  const KBD_MOTIF = {
+    "kbd-kb-jade":    <g>{beamLine("M9 23 H55", 2.2)}<path d="M32 6 L40 14 L32 22 L24 14 Z" fill={lite(C, .4)} stroke="#fff" strokeWidth=".8" /></g>,
+    "kbd-kb-sunset":  <g>{beamLine("M9 23 H55", 2.4)}<path d="M18 19 A14 14 0 0 1 46 19 Z" fill={lite(C, .4)} />{[12, 32, 52].map(x => <path key={x} d={`M${x} 19 H${x + 6}`} stroke={lite(C, .5)} strokeWidth="1.4" />)}</g>,
+    "kbd-kb-carbon":  <g>{seam("M10 23 H54")}{Array.from({ length: 4 }).map((_, r) => Array.from({ length: 6 }).map((_, c) => <rect key={`${r}${c}`} x={10 + c * 8 + (r % 2 ? 4 : 0)} y={7 + r * 4} width="6" height="3" rx=".8" fill="none" stroke={lite(A, .3)} strokeWidth=".8" />))}</g>,
+    "kbd-kb-aurora":  <g>{beamLine("M9 23 H55", 2.2)}{[0, 1, 2].map(i => <path key={i} d={`M8 ${12 + i * 3} C20 ${6 + i * 3} 34 ${18 + i * 3} 56 ${9 + i * 3}`} fill="none" stroke={[lite(C, .35), "#7fffd4", "#a86bff"][i]} strokeWidth="2.6" strokeLinecap="round" opacity=".7" />)}</g>,
+    "kbd-kb-classic":  <g>{seam("M10 24 H54")}</g>,
+    "kbd-kb-neon":     <g>{beamLine("M9 23 H55", 2.2)}</g>,
+    "kbd-kb-rose":     <g>{beamLine("M9 23 H55", 2.2)}<path d="M32 17 C27 13 28 9 30.5 9 C31.6 9 32 10 32 10.6 C32 10 32.4 9 33.5 9 C36 9 37 13 32 17 Z" fill={lite(C, .45)} /></g>,
+    "kbd-kb-midnight": <g>{beamLine("M9 23 H55", 1.6)}<circle cx="50" cy="14" r="5" fill={lite(A, .55)} /><circle cx="47.5" cy="12.5" r="4.2" fill={GB} /></g>,
+    "kbd-kb-ice":      <g>{beamLine("M9 23 H55", 2.2)}{[16, 32, 48].map(x => <g key={x} stroke={lite(C, .55)} strokeWidth="1.5" strokeLinecap="round"><path d={`M${x} 9 V17 M${x - 3.6} 11 L${x + 3.6} 15 M${x + 3.6} 11 L${x - 3.6} 15`} /></g>)}</g>,
+    "kbd-kb-fire":     <g>{beamLine("M9 23 H55", 2.6)}{[20, 32, 44].map((x, i) => <path key={x} d={`M${x} 6 C${x + 3} 11 ${x + 5} 12 ${x + 5} 15 C${x + 5} 18 ${x + 2.6} 19 ${x} 19 C${x - 2.6} 19 ${x - 5} 18 ${x - 5} 15 C${x - 5} 12 ${x - 3} 11 ${x} 6 Z`} fill={lite(C, .3 + i * .06)} opacity=".9" />)}</g>,
+    "kbd-kb-galaxy":   <g>{beamLine("M9 23 H55", 2.2)}{E(32, 13, 6, 6, GC, { lw: .8, line: "#fff" })}<ellipse cx="32" cy="13" rx="12" ry="3.6" fill="none" stroke={lite(C, .5)} strokeWidth="1.6" transform="rotate(-16 32 13)" />{[[12, 9], [52, 17], [46, 8]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.1" fill="#fff" opacity=".8" />)}</g>,
+    "kbd-kb-gold":     <g>{beamLine("M9 23 H55", 2.8)}<path d="M22 18 L24 6 L28 12 L32 4 L36 12 L40 6 L42 18 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" /></g>,
+    "kbd-kb-rainbow":  <g>{["#ff2d55", "#ff9a3c", "#ffd23f", "#3ddc84", "#4dc3ff", "#a86bff"].map((c, i) => <path key={i} d={`M${8 + i * 8} 23 H${16 + i * 8}`} stroke={c} strokeWidth="3.2" strokeLinecap="round" />)}{[16, 32, 48].map((x, i) => <path key={x} d={`M${x} 8 L${x + 2} 13 L${x + 7} 14 L${x + 2} 16 L${x} 21 L${x - 2} 16 L${x - 7} 14 L${x - 2} 13 Z`} fill="#fff" opacity=".85" />)}</g>,
+  };
+  const STK_MOTIF = {
+    "stk-st-note8":    <g><path d="M26 44 A5 4 0 1 0 36 44 V19 C42 21 46 24 46 30 C50 26 48 19 36 14 V44" fill="none" stroke={lite(C, .55)} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" /><ellipse cx="31" cy="44" rx="5" ry="4" fill={lite(C, .5)} stroke="#fff" strokeWidth="1" transform="rotate(-16 31 44)" /></g>,
+    "stk-st-metro":    <g><path d="M22 46 L32 16 L42 46 Z" fill={lite(A, .5)} stroke="#fff" strokeWidth="1.1" /><path d="M32 20 L41 32" stroke={lite(C, .6)} strokeWidth="2.2" strokeLinecap="round" /><rect x="28" y="30" width="8" height="5" rx="1.2" fill={lite(C, .5)} stroke="#fff" strokeWidth=".7" /></g>,
+    "stk-st-medal":    <g><path d="M24 14 L30 30 H34 L40 14" stroke={lite(C, .5)} strokeWidth="4" fill="none" strokeLinecap="round" />{E(32, 39, 11, 11, GC, { line: "#fff", lw: 1.2 })}<path d="M32 32 L34 37 L39 37.6 L35.3 41 L36.4 46 L32 43.4 L27.6 46 L28.7 41 L25 37.6 L30 37 Z" fill="#fff" opacity=".9" /></g>,
+    "stk-st-bolt":     <path d="M37 12 L21 36 H30 L26 52 L44 27 H34 Z" fill={lite(C, .5)} stroke="#fff" strokeWidth="1.2" strokeLinejoin="round" />,
+    "stk-st-paw":      <g>{[[23, 26, 4], [31, 22, 4.4], [39, 24, 4], [45, 31, 3.6]].map(([x, y, r], i) => <ellipse key={i} cx={x} cy={y} rx={r} ry={r * 1.2} fill={lite(C, .5)} stroke="#fff" strokeWidth=".8" />)}<path d="M32 33 C40 33 45 38 45 42 C45 47 39 49 32 49 C25 49 19 47 19 42 C19 38 24 33 32 33 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth="1" /></g>,
+    "stk-st-star":    <g><path d="M32 18 L36 28 L47 29 L38.5 36 L41 47 L32 41 L23 47 L25.5 36 L17 29 L28 28 Z" fill={lite(C, .5)} stroke="#fff" strokeWidth="1.1" />{lit(32, 32, 2.6)}</g>,
+    "stk-st-heart":   <path d="M32 46 C15 34 17 21 24.5 21 C28 21 31 24.5 32 26.5 C33 24.5 36 21 39.5 21 C47 21 49 34 32 46 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth="1.2" />,
+    "stk-st-music":   <g><path d="M28 42 A5 4 0 1 0 38 42 V20 L46 17 V24" fill="none" stroke={lite(C, .55)} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /><ellipse cx="33" cy="42" rx="5" ry="4" fill={lite(C, .5)} stroke="#fff" strokeWidth="1" transform="rotate(-16 33 42)" /></g>,
+    "stk-st-flame":   <path d="M32 14 C38 24 45 27 45 35 C45 42 39 47 32 47 C25 47 19 42 19 35 C19 29 25 27 27 20 C30 27 32 26 32 14 Z" fill={lite(C, .42)} stroke="#fff" strokeWidth="1.1" />,
+    "stk-st-crown":   <g><path d="M18 44 L21 20 L27 30 L32 16 L37 30 L43 20 L46 44 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth="1.1" />{[24, 32, 40].map(x => <circle key={x} cx={x} cy="38" r="2" fill="#fff" opacity=".85" />)}</g>,
+    "stk-st-diamond": <g><path d="M32 15 L46 29 L32 49 L18 29 Z" fill={lite(C, .4)} stroke="#fff" strokeWidth="1.2" /><path d="M18 29 H46 M32 15 L25 29 L32 49 M32 15 L39 29 L32 49" stroke="#fff" strokeWidth=".9" opacity=".75" fill="none" /></g>,
+    "stk-st-rocket":  <g><path d="M32 13 C38 20 40 28 40 36 H24 C24 28 26 20 32 13 Z" fill={lite(A, .55)} stroke="#fff" strokeWidth="1.1" /><path d="M24 30 L17 42 L24 39 Z M40 30 L47 42 L40 39 Z" fill={lite(C, .4)} stroke="#fff" strokeWidth=".9" /><circle cx="32" cy="24" r="3.4" fill={GB} stroke="#fff" strokeWidth=".9" /><path d="M27 38 C29 44 31 47 32 50 C33 47 35 44 37 38 Z" fill={lite(C, .5)} /></g>,
+    "stk-st-trophy":  <g><path d="M23 15 H41 V26 C41 33 37 37 32 37 C27 37 23 33 23 26 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth="1.1" /><path d="M23 18 H17 V23 C17 27 20 29 23 29 M41 18 H47 V23 C47 27 44 29 41 29" fill="none" stroke={lite(C, .5)} strokeWidth="2.2" /><path d="M29 37 H35 V44 H29 Z M23 44 H41 V49 H23 Z" fill={lite(A, .35)} stroke="#fff" strokeWidth=".9" /></g>,
+    "stk-st-magic":   <g>{[[32, 30, 14], [20, 21, 6], [45, 41, 7]].map(([x, y, r], i) => <path key={i} d={`M${x} ${y - r} L${x + r * .28} ${y - r * .28} L${x + r} ${y} L${x + r * .28} ${y + r * .28} L${x} ${y + r} L${x - r * .28} ${y + r * .28} L${x - r} ${y} L${x - r * .28} ${y - r * .28} Z`} fill={i ? lite(C, .55) : "#fff"} opacity={i ? .85 : .95} />)}</g>,
+  };
+
   const SHAPES = {
     /* ── weapons ── */
     sword: () => <>
@@ -543,9 +624,177 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
       {seam("M22 27 H42 M22 34 H38")}
       {lit(32, 38, 3.4)}
     </>,
+
+    /* ── top-tier variants ──
+       Seven items were sharing an archetype with a cheaper sibling, so a 600-coin
+       legendary was a recoloured 150-coin common. A player has to be able to see
+       what the money bought. */
+    greatsword: () => <>
+      {P("M32 2 L40 12 L38 44 L32 50 L26 44 L24 12 Z", GA, { lw: 1.6 })}
+      {beamLine("M32 6 V46", 2.2)}
+      {P("M14 44 H50 L46 51 H18 Z", GB, { line: edgeB })}
+      {P("M28 51 H36 V60 H28 Z", GB, { line: edgeB })}
+      {[20, 44].map(x => <g key={x}>{lit(x, 47.5, 2.4)}</g>)}
+      {seam("M32 14 V42")}
+    </>,
+    piston: () => <>
+      {R(6, 24, 20, 16, 4, GB, { line: edgeB })}
+      {R(24, 27, 14, 10, 2, GA)}
+      {P("M38 22 L54 22 L58 32 L54 42 L38 42 Z", GA, { lw: 1.5 })}
+      {beamLine("M40 32 H58", 2.6)}
+      {seam("M11 29 H21 M11 35 H21")}
+      {lit(16, 32, 3)}
+    </>,
+    reactor: () => <>
+      {E(32, 32, 22, 22, GB, { line: edgeB, lw: 1.4 })}
+      {[0, 60, 120].map(a => <ellipse key={a} cx="32" cy="32" rx="21" ry="8" fill="none" stroke={lite(C, .45)} strokeWidth="2.2" opacity=".85" transform={`rotate(${a} 32 32)`} />)}
+      {E(32, 32, 10, 10, GA, { lw: 1.2 })}
+      {lit(32, 32, 5)}
+      {[[32, 8], [11, 44], [53, 44]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3" fill={lite(C, .5)} stroke="#fff" strokeWidth=".8" />)}
+    </>,
+    railgun: () => <>
+      {P("M4 26 H40 L46 22 H58 L58 42 H46 L40 38 H4 Z", GA, { lw: 1.5 })}
+      {[0, 1, 2].map(i => <g key={i}>{R(12 + i * 10, 18, 6, 28, 2, GB, { line: edgeB, lw: 1 })}</g>)}
+      {beamLine("M44 32 H62", 3.2)}
+      {P("M8 40 L20 40 L16 54 L6 54 Z", GB, { line: edgeB })}
+      {lit(50, 32, 3.4)}
+    </>,
+    aegis: () => <>
+      {P("M32 4 C46 4 54 14 54 26 C54 36 48 44 42 48 L22 48 C16 44 10 36 10 26 C10 14 18 4 32 4 Z", GA, { lw: 1.6 })}
+      {P("M14 26 H50 V34 C50 38 44 41 32 41 C20 41 14 38 14 34 Z", "#0a1220", { spec: .5, occ: .35, line: lite(C, .4), lw: 1.2 })}
+      {beamLine("M18 30 H46", 2)}
+      {P("M26 4 L32 -2 L38 4 L35 12 H29 Z", GC, { line: lite(C, .3) })}
+      {seam("M32 8 V22 M20 48 H44")}
+      {[18, 46].map(x => <circle key={x} cx={x} cy="20" r="2.4" fill={lite(C, .5)} />)}
+    </>,
+    diadem: () => <>
+      {P("M10 46 L14 16 L22 28 L32 8 L42 28 L50 16 L54 46 Z", GA, { lw: 1.6 })}
+      {P("M10 46 H54 V54 H10 Z", GB, { line: edgeB })}
+      {[16, 32, 48].map((x, i) => <g key={x}>{lit(x, i === 1 ? 12 : 20, i === 1 ? 4.2 : 3)}</g>)}
+      {[[22, 40], [32, 40], [42, 40]].map(([x, y], i) => <path key={i} d={`M${x} ${y - 5} L${x + 4} ${y} L${x} ${y + 5} L${x - 4} ${y} Z`} fill={lite(C, .5)} stroke="#fff" strokeWidth=".7" />)}
+    </>,
+    sigil: () => <>
+      {P("M32 4 L52 14 V32 C52 44 43 54 32 60 C21 54 12 44 12 32 V14 Z", GA, { lw: 1.5 })}
+      {P("M32 14 L44 20 V32 C44 39 39 45 32 49 C25 45 20 39 20 32 V20 Z", GB, { line: edgeB, lw: 1.1 })}
+      {[0, 1, 2].map(i => <path key={i} d={`M24 ${26 + i * 7} H40`} stroke={lite(C, .5)} strokeWidth="2" strokeLinecap="round" opacity={.9 - i * .2} />)}
+      {lit(32, 10, 3)}
+    </>,
+
+    /* ── the music bench ──
+       A piano app's gear rack ought to contain the tools a musician actually
+       owns. These are the ones a robot can hold: a fork it strikes for pitch, a
+       pendulum it sets for tempo, a baton it conducts with, a disc it throws. */
+    fork: () => <>
+      {P("M24 10 L24 30 C24 38 28 40 32 40 C36 40 40 38 40 30 L40 10 L34 10 L34 30 C34 33 33 34 32 34 C31 34 30 33 30 30 L30 10 Z", GA)}
+      {P("M28 40 H36 V56 A4 4 0 0 1 28 56 Z", GB, { line: edgeB })}
+      {beamLine("M18 16 C14 20 14 26 18 30", 1.8)}
+      {beamLine("M46 16 C50 20 50 26 46 30", 1.8)}
+      {lit(32, 46, 3)}
+    </>,
+    pendulum: () => <>
+      {P("M20 56 L32 6 L44 56 Z", GA)}
+      {P("M24 50 H40 V56 H24 Z", GB, { line: edgeB, lw: 1 })}
+      {seam("M32 12 V48")}
+      {P("M27 26 L37 26 L37 33 L27 33 Z", GC, { line: lite(C, .3), lw: 1 })}
+      <path d="M32 10 L44 22" stroke={lite(A, .45)} strokeWidth="1.4" opacity=".7" />
+      {lit(32, 48, 2.6)}
+    </>,
+    baton: () => <>
+      {P("M14 50 C12 46 14 42 18 42 L44 12 L50 18 L22 46 C22 50 18 53 14 50 Z", GA)}
+      {P("M42 10 L52 20 C55 17 55 12 52 9 C49 6 45 7 42 10 Z", GC, { line: lite(C, .3) })}
+      {beamLine("M48 6 L58 2", 1.6)}
+      {lit(17, 47, 3)}
+    </>,
+    disc: () => <>
+      {E(32, 32, 25, 25, GB, { line: edgeB, lw: 1.3 })}
+      {[21, 17, 13].map(r => <circle key={r} cx="32" cy="32" r={r} fill="none" stroke={lite(A, .3)} strokeWidth=".9" opacity=".55" />)}
+      {E(32, 32, 9, 9, GA, { lw: 1 })}
+      <circle cx="32" cy="32" r="2.4" fill={dim(B, .6)} />
+      <path d="M14 22 A22 22 0 0 1 40 10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" opacity=".3" />
+      {lit(32, 32, 2.2)}
+    </>,
+    mask: () => <>
+      {P("M8 20 C8 12 20 8 32 8 C44 8 56 12 56 20 C56 36 46 52 32 56 C18 52 8 36 8 20 Z", GA)}
+      {P("M14 22 C18 18 24 18 27 22 C24 28 18 28 14 22 Z", "#0a0f1c", { spec: .4, occ: .3, line: lite(C, .35) })}
+      {P("M37 22 C40 18 46 18 50 22 C46 28 40 28 37 22 Z", "#0a0f1c", { spec: .4, occ: .3, line: lite(C, .35) })}
+      {seam("M32 30 V40 M24 46 C28 49 36 49 40 46")}
+      {lit(20, 22, 2.2)}{lit(44, 22, 2.2)}
+    </>,
+    wreath: () => <>
+      {[-1, 1].map(sd => (
+        <g key={sd}>
+          <path d={`M32 56 C${32 + sd * 22} 50 ${32 + sd * 26} 26 ${32 + sd * 12} 8`} fill="none" stroke={dim(A, .25)} strokeWidth="2.6" strokeLinecap="round" />
+          {[0, 1, 2, 3, 4].map(i => {
+            const t = i / 4, x = 32 + sd * (22 * (1 - t) * 1.1 + 4), y = 52 - i * 10;
+            return <ellipse key={i} cx={x} cy={y} rx="6.2" ry="3.1" fill={GC} stroke={lite(C, .35)} strokeWidth=".8" transform={`rotate(${sd * (32 - i * 10)} ${x} ${y})`} />;
+          })}
+        </g>
+      ))}
+      {lit(32, 12, 3.4)}
+    </>,
+    holo: () => <>
+      {P("M18 52 H46 L50 58 H14 Z", GB, { line: edgeB })}
+      {E(32, 48, 12, 3.4, GA, { lw: 1 })}
+      <path d="M20 46 L32 8 L44 46 Z" fill={GLOW} opacity=".9" />
+      {[0, 1, 2].map(i => <ellipse key={i} cx="32" cy={22 + i * 9} rx={6 + i * 4.6} ry={1.9 + i * .5} fill="none" stroke={lite(C, .5)} strokeWidth="1.5" opacity={.9 - i * .18} />)}
+      {lit(32, 12, 3.2)}
+    </>,
+
+    /* ── the five categories that used to be emoji ── */
+    // a key skin is the colour a keybed wears, so it is sold as keys
+    keycap: (motif) => <>
+      {[6, 23, 40].map(x => <g key={x}>{R(x, 20, 17, 36, 2.5, "#f4f7fc", { line: edge, lw: 1.1, spec: .55 })}</g>)}
+      {[6, 23, 40].map(x => <g key={"f" + x}>{P(`M${x} 44 H${x + 17} V53.5 A2.5 2.5 0 0 1 ${x + 14.5} 56 H${x + 2.5} A2.5 2.5 0 0 1 ${x} 53.5 Z`, GA, { lw: 1.1 })}</g>)}
+      {[17.5, 34.5].map(x => <g key={"s" + x}>{R(x, 20, 12, 22, 2, GB, { line: edgeB, lw: 1 })}</g>)}
+      {seam("M23 20 V44 M40 20 V44")}
+      {motif}
+    </>,
+    // a theme is a place, so it is sold as a window on to that place
+    scene: (motif) => <>
+      <clipPath id={`${uid}-sc`}><rect x="7" y="11" width="50" height="42" rx="6" /></clipPath>
+      {R(6, 10, 52, 44, 7, GB, { line: edgeB, lw: 1.5 })}
+      <g clipPath={`url(#${uid}-sc)`}>
+        <rect x="6" y="10" width="52" height="44" fill={`url(#${uid}-sky)`} />
+        {motif}
+      </g>
+      <rect x="6.7" y="10.7" width="50.6" height="42.6" rx="6.4" fill="none" stroke={lite(A, .45)} strokeWidth="1.4" opacity=".7" />
+      <path d="M12 14 H24" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" opacity=".35" />
+    </>,
+    // an avatar frame only means anything round a face, so it gets one
+    frame: (motif) => <>
+      {R(7, 7, 50, 50, 9, GA, { lw: 1.5 })}
+      {R(14, 14, 36, 36, 6, dim(B, .35), { spec: .3, occ: .55, line: edgeB, lw: 1.1 })}
+      <g opacity=".8">
+        <circle cx="32" cy="27" r="7.2" fill={lite(A, .55)} />
+        <path d="M20 47 C21.5 38 26 34.5 32 34.5 C38 34.5 42.5 38 44 47 Z" fill={lite(A, .38)} />
+      </g>
+      {motif}
+    </>,
+    // a keyboard skin is a keybed with its light bar lit
+    keybed: (motif) => <>
+      {R(4, 18, 56, 30, 4, GA, { lw: 1.4 })}
+      {Array.from({ length: 7 }).map((_, i) => <g key={i}>{R(7.5 + i * 7, 27, 6, 18, 1.2, "#f2f6fc", { line: edge, lw: .7, spec: .5 })}</g>)}
+      {[0, 1, 3, 4, 5].map(i => <g key={"b" + i}>{R(11 + i * 7, 27, 4, 11, .8, GB, { line: edgeB, lw: .6 })}</g>)}
+      {motif}
+    </>,
+    // a sticker is a die-cut vinyl disc, white border and all
+    badge: (motif) => <>
+      {E(32, 32, 25, 25, "#ffffff", { spec: .3, occ: .25, line: "#dfe5ef", lw: 1 })}
+      {E(32, 32, 21, 21, GA, { lw: 1.2 })}
+      {E(32, 32, 21, 21, "none", { line: lite(A, .55), lw: 1.4, lineOp: .55 })}
+      {motif}
+    </>,
   };
 
-  const draw = art && art.startsWith("out-") ? () => SHAPES.plate(PATTERNS[art] || PATTERNS["out-tshirt"]) : SHAPES[art];
+  const byPrefix = [
+    ["out-", () => SHAPES.plate(PATTERNS[art] || PATTERNS["out-tshirt"])],
+    ["key-", () => SHAPES.keycap(KEY_MOTIF[art])],
+    ["thm-", () => SHAPES.scene(THEME_MOTIF[art])],
+    ["frm-", () => SHAPES.frame(FRAME_MOTIF[art])],
+    ["kbd-", () => SHAPES.keybed(KBD_MOTIF[art])],
+    ["stk-", () => SHAPES.badge(STK_MOTIF[art])],
+  ].find(([pre]) => art && art.startsWith(pre));
+  const draw = byPrefix ? byPrefix[1] : SHAPES[art];
   return (
     <svg className={`ia ${className}`} viewBox="0 0 64 64" width={size || "100%"} height={size || "100%"} aria-hidden="true" overflow="visible">
       <defs>
@@ -564,6 +813,11 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
           <stop offset="0%" stopColor={lite(C, .7)} />
           <stop offset="45%" stopColor={C} />
           <stop offset="100%" stopColor={dim(C, .35)} />
+        </linearGradient>
+        <linearGradient id={`${uid}-sky`} x1="0" y1="0" x2="0.15" y2="1">
+          <stop offset="0%" stopColor={dim(B, .1)} />
+          <stop offset="55%" stopColor={mix(B, C, .28)} />
+          <stop offset="100%" stopColor={dim(B, .45)} />
         </linearGradient>
         <radialGradient id={`${uid}-glow`}>
           <stop offset="0%" stopColor={lite(C, .5)} stopOpacity=".85" />
