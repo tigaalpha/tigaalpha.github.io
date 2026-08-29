@@ -5,6 +5,7 @@ import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
 import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw } from "./cyber-avatar";
 import { ItemArt } from "./item-art";
+import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -5766,6 +5767,118 @@ const StatBars = memo(function StatBars({ lang, stats, compact = false, max = 24
   );
 });
 
+/* ── ModelDetailModal ──
+   A chassis costs twenty to thirty thousand coins. Buying one off a thumbnail
+   in a grid — one tap, no confirmation — was both a way to lose a fortune by
+   accident and a terrible way to sell: nothing on that card showed what the
+   thing looked like from any angle but the front, or what it would actually do
+   in a fight.
+
+   So the card opens this instead. The model turns a full 360° on its own stage,
+   the stat bars sit under it with the two things it is best at and the two it
+   is worst at named outright, and its three skills are listed with what each
+   one does. Buying happens here, behind a button that says the price. ── */
+const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, running, coins, onBuy, onClose }) {
+  const [yaw, setYaw] = useState(-24);
+  const [spin, setSpin] = useState(() => {
+    try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return true; }
+  });
+  const dragRef = useRef(null);
+  useEffect(() => {
+    if (!spin) return;
+    let raf = 0, last = 0;
+    const tick = (t) => {
+      raf = requestAnimationFrame(tick);
+      if (!last) { last = t; return; }
+      const dt = t - last;
+      if (dt < 32) return;
+      last = t;
+      setYaw(y => wrapYaw(y + (dt / 1000) * 26));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [spin]);
+  if (!item) return null;
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const lc = L[lang];
+  const model = item.model;
+  const st = MODEL_COMBAT[model] || MODEL_COMBAT.vanguard;
+  const cl = classOf(model);
+  const skills = skillsOf(model);
+  const m = CHAR_MODELS.find(x => x.id === model) || CHAR_MODELS[0];
+  // strongest two and weakest two, named — the buyer asked what it is good at
+  const ranked = STAT_KEYS.map(k => ({ ...k, v: st[k.k] })).sort((a, b) => b.v - a.v);
+  const strong = ranked.slice(0, 2), weak = ranked.slice(-2).reverse();
+  const afford = coins >= item.cost;
+
+  const grab = (e) => { dragRef.current = { x: e.clientX, y0: yaw }; setSpin(false); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {} };
+  const drag = (e) => { const d = dragRef.current; if (d) setYaw(wrapYaw(d.y0 + (e.clientX - d.x) * 0.85)); };
+  const drop = (e) => { dragRef.current = null; try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {} };
+
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard mdv" onClick={e => e.stopPropagation()}>
+        <div className="mdv-hdr">
+          <button className="stgback" onClick={onClose} aria-label={lc.back}>←</button>
+          <span className="mdv-ttl"><b>{item.code || m.code}</b>{tr(m, lang)}</span>
+          <span className="mdv-cls" style={{ "--cc": cl.c }}>
+            <span className="mdv-cls-ic"><ItemArt art={cl.art} sw={[cl.c, "#22283a"]} /></span>{tr(cl, lang)}
+          </span>
+        </div>
+        <div className="mdv-body">
+          <div className="mdv-stage">
+            <CyberAvatar model={model} yaw={yaw} glow="#00b8d4" accent="#7c4dff" armorA="#1b2436" armorB="#41608a" />
+            <div className="mdv-drag" onPointerDown={grab} onPointerMove={drag} onPointerUp={drop} onPointerCancel={drop}
+              role="slider" aria-label={T("หมุนโมเดล", "Rotate model", "旋转模型")} aria-valuenow={Math.round(wrapYaw(yaw))} aria-valuemin={-180} aria-valuemax={180} tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "ArrowLeft") { setSpin(false); setYaw(y => wrapYaw(y - 15)); } else if (e.key === "ArrowRight") { setSpin(false); setYaw(y => wrapYaw(y + 15)); } }} />
+            <div className="cs-turn mdv-turn">
+              <button type="button" className="cs-turn-b" onClick={() => { setSpin(false); setYaw(y => wrapYaw(y - 45)); }} aria-label={T("หมุนซ้าย", "Turn left", "向左转")}>◀</button>
+              <button type="button" className={`cs-turn-b wide${spin ? " on" : ""}`} onClick={() => setSpin(!spin)}><span className="cs-turn-ic">{spin ? "⏸" : "⟳"}</span> 360°</button>
+              <button type="button" className="cs-turn-b" onClick={() => { setSpin(false); setYaw(y => wrapYaw(y + 45)); }} aria-label={T("หมุนขวา", "Turn right", "向右转")}>▶</button>
+              <span className="cs-turn-deg">{(Math.round(wrapYaw(yaw)) + 360) % 360}°</span>
+            </div>
+          </div>
+          <div className="mdv-sub">{tr(m.cls, lang)}</div>
+
+          <div className="mdv-sec">
+            <div className="mdv-sec-h"><span>{T("ค่าพลัง", "Combat stats", "战斗数值")}</span><b>{COMBAT_TOTAL}</b></div>
+            <StatBars lang={lang} stats={st} max={18} />
+            <div className="mdv-pros">
+              {strong.map(k => <span key={k.k} className="mdv-pro">▲ {tr(k, lang)}</span>)}
+              {weak.map(k => <span key={k.k} className="mdv-con">▼ {tr(k, lang)}</span>)}
+            </div>
+            <div className="mdv-fair">{T(`ทุกรุ่นแต้มรวมเท่ากัน ${COMBAT_TOTAL} — ไม่มีรุ่นไหนแรงกว่า มีแต่ถนัดต่างกัน`,
+              `Every chassis totals ${COMBAT_TOTAL}. None is stronger — they are good at different things.`,
+              `每台机体总分均为 ${COMBAT_TOTAL}，没有更强的，只有擅长不同。`)}</div>
+          </div>
+
+          <div className="mdv-sec">
+            <div className="mdv-sec-h"><span>{T("ทักษะประจำสาย", "Class skills", "职业技能")}</span></div>
+            {skills.map((sk, i) => (
+              <div key={i} className={`mdv-skill t-${sk.tier}`}>
+                <span className="mdv-skill-ic"><ItemArt art={sk.art} sw={[cl.c, "#1c2233"]} /></span>
+                <span className="mdv-skill-b">
+                  <span className="mdv-skill-n">{tr(sk.n, lang)}<i>{tr(TIER_LABEL[sk.tier], lang)}</i></span>
+                  <span className="mdv-skill-d">{tr(sk.d, lang)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mdv-foot">
+          {running
+            ? <button className="mdv-buy on" disabled>✓ {lc.shopEquipped}</button>
+            : owned
+              ? <button className="mdv-buy" onClick={() => onBuy(item)}>{lc.shopEquip}</button>
+              : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onBuy(item)}>
+                  {afford ? T("ซื้อ", "Buy", "购买") : T("เหรียญไม่พอ", "Not enough coins", "金币不足")} · 🪙 {item.cost.toLocaleString()}
+                </button>}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 /* ── ChestIcon ──
    A treasure chest at UI scale: banded lid, hasp and lock plate, drawn in
    currentColor so it takes whatever colour the control it sits in is using.
@@ -5990,8 +6103,22 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
               </div>
               <StatBars lang={lang} stats={st} />
               <div className="battlecard-sp">
-                <b>{lang === "th" ? "ท่าไม้ตาย" : lang === "zh" ? "绝技" : "Special"}</b>
-                <span>{tr(st.sp, lang)}</span>
+                <b>{lang === "th" ? "สายอาชีพ" : lang === "zh" ? "职业" : "Class"}</b>
+                <span className="mdv-cls" style={{ "--cc": classOf(charModel).c }}>
+                  <span className="mdv-cls-ic"><ItemArt art={classOf(charModel).art} sw={[classOf(charModel).c, "#22283a"]} /></span>
+                  {tr(classOf(charModel), lang)}
+                </span>
+              </div>
+              <div className="battlecard-skills">
+                {skillsOf(normalizeModel(charModel)).map((sk, i) => (
+                  <div key={i} className={`mdv-skill t-${sk.tier}`}>
+                    <span className="mdv-skill-ic"><ItemArt art={sk.art} sw={[classOf(charModel).c, "#1c2233"]} /></span>
+                    <span className="mdv-skill-b">
+                      <span className="mdv-skill-n">{tr(sk.n, lang)}<i>{tr(TIER_LABEL[sk.tier], lang)}</i></span>
+                      <span className="mdv-skill-d">{tr(sk.d, lang)}</span>
+                    </span>
+                  </div>
+                ))}
               </div>
               <div className="battlecard-soon">
                 {lang === "th" ? "โหมดประลอง PvP กำลังจะมา — ตอบคำถามดนตรีแข่งกัน แล้วหุ่นสู้กันตามผล"
@@ -8893,6 +9020,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      you run the model you own, and you change it by buying another. */
   const [modelChosen, setModelChosen] = useState(() => { try { return localStorage.getItem("tg_charModelSet") === "1"; } catch (e) { return true; } });
   const [modelPickOpen, setModelPickOpen] = useState(false);
+  const [modelDetail, setModelDetail] = useState(null);   // the shop chassis being inspected
   const [modelPickSel, setModelPickSel] = useState(null);
   const [charHat, setCharHat] = useState(getEquip("charHat", "hat-straw"));
   const [charOutfit, setCharOutfit] = useState(getEquip("charOutfit", "out-tshirt"));
@@ -9610,10 +9738,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (it.model) {
       const running = charModel === it.model;
       return (
-        <button key={it.id} className={`shopitem ${it.rarity} mdlitem${running ? " equipped" : ""}`} onClick={() => buyOrEquip(kind, it)}>
+        <button key={it.id} className={`shopitem ${it.rarity} mdlitem${running ? " equipped" : ""}`} onClick={() => { setModelDetail(it.id); playUi("click"); }}>
           <span className="mdlitem-head"><CyberAvatar model={it.model} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
           <span className="shopitem-nm">{tr(it, lang)}</span>
           <span className="shopitem-desc">{tr(it.desc, lang)}</span>
+          <span className="shopitem-cls" style={{ "--cc": classOf(it.model).c }}>{tr(classOf(it.model), lang)}</span>
           <StatBars lang={lang} stats={MODEL_COMBAT[it.model]} compact />
           <span className="shopitem-sp">{tr((MODEL_COMBAT[it.model] || {}).sp, lang)}</span>
           <span className="shopitem-tag">{running ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost.toLocaleString()}</span>
@@ -10504,6 +10633,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         );
       })()}
 
+      {modelDetail && (() => {
+        const it = SHOP_MODELS.find(x => x.id === modelDetail);
+        if (!it) return null;
+        return <ModelDetailModal lang={lang} item={it} owned={owned.includes(it.id)} running={charModel === it.model}
+          coins={coins} onClose={() => setModelDetail(null)}
+          onBuy={(m) => { buyOrEquip("charModel", m); setModelDetail(null); }} />;
+      })()}
+
       {/* ── CHASSIS SELECTION ──
           Asked once, the first time the profile is opened, and deliberately not
           dismissible: this is the one decision in the app that cannot be undone
@@ -10538,7 +10675,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     <div className="mdlpick-stats">
                       <StatBars lang={lang} stats={st} />
                       <div className="mdlpick-sp">
-                        <b>{T("ท่าไม้ตาย", "Special", "绝技")}</b><span>{tr(st.sp, lang)}</span>
+                        <b>{T("สายอาชีพ", "Class", "职业")}</b>
+                        <span className="mdv-cls" style={{ "--cc": classOf(sel).c }}>
+                          <span className="mdv-cls-ic"><ItemArt art={classOf(sel).art} sw={[classOf(sel).c, "#22283a"]} /></span>
+                          {tr(classOf(sel), lang)}
+                        </span>
+                        <span className="mdlpick-spn">{tr(st.sp, lang)}</span>
                       </div>
                       <div className="mdlpick-fair">{T(`ทุกรุ่นมีแต้มรวมเท่ากัน ${COMBAT_TOTAL} — ต่างกันที่รูปแบบ`,
                         `Every chassis totals the same ${COMBAT_TOTAL}. What changes is the shape.`,

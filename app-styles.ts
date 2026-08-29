@@ -911,6 +911,50 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .stgshop{display:block;width:100%;margin-top:22px;padding:12px;border-radius:12px;border:1px solid var(--bd1);background:var(--card2);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 .stgshop:hover{border-color:#d97757;color:#d97757}
 @media (max-width:380px){.stggrid{grid-template-columns:repeat(2,1fr)}.stgstats{grid-template-columns:repeat(2,1fr)}}
+/* ── chassis detail ──
+   The product page for a thirty-thousand-coin purchase: it turns, it says what
+   it is good at and what it is not, it lists what its skills actually do, and
+   only then does it offer to take the money. */
+.mdv{max-width:440px!important;width:calc(100% - 22px);max-height:93vh!important;display:flex;flex-direction:column;overflow:hidden;background:var(--card)!important;border-color:var(--bd1)!important;box-shadow:0 24px 60px -20px rgba(20,30,60,.45)!important}
+.mdv-hdr{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--bd1);flex-shrink:0}
+.mdv-ttl{display:flex;align-items:baseline;gap:7px;margin-right:auto;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:var(--text)}
+.mdv-ttl b{font-family:'Orbitron',sans-serif;font-size:9.5px;font-weight:700;color:#d97757}
+.mdv-cls{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 4px;border-radius:20px;background:color-mix(in srgb,var(--cc) 12%,transparent);border:1px solid color-mix(in srgb,var(--cc) 42%,transparent);color:var(--cc);font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;white-space:nowrap}
+.mdv-cls-ic{display:block;width:16px;height:16px;flex:none}
+.mdv-cls-ic svg{display:block;width:100%;height:100%}
+.mdv-body{flex:1;overflow-y:auto;padding:12px 14px 4px}
+.mdv-stage{position:relative;height:clamp(290px,46vh,372px);border-radius:14px;background:linear-gradient(178deg,#ffffff 0%,#f6f8fc 52%,#e9edf4 100%);border:1px solid var(--bd1);display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:inset 0 -26px 32px -28px rgba(20,30,60,.2)}
+.mdv-stage>svg{display:block;height:calc(100% - 14px);width:auto;filter:drop-shadow(0 10px 12px rgba(20,30,60,.24))}
+.mdv-drag{position:absolute;inset:0;z-index:2;touch-action:pan-y;cursor:grab;outline:none}
+.mdv-drag:active{cursor:grabbing}
+.mdv-turn{z-index:3}
+.mdv-sub{margin:9px 2px 2px;font-size:12px;color:var(--muted)}
+.mdv-sec{margin-top:14px;padding-top:12px;border-top:1px solid var(--bd1)}
+.mdv-sec-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:700;color:var(--text)}
+.mdv-sec-h b{font-family:'Orbitron',sans-serif;font-size:12px;color:#d97757}
+.mdv-pros{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.mdv-pro,.mdv-con{padding:2.5px 9px;border-radius:20px;font-family:'Rajdhani',sans-serif;font-size:10.5px;font-weight:700}
+.mdv-pro{background:#1f9d6b18;border:1px solid #1f9d6b55;color:#17805a}
+.mdv-con{background:#d0554518;border:1px solid #d0554555;color:#b4452f}
+.mdv-fair{margin-top:8px;font-size:9.5px;line-height:1.45;color:var(--muted)}
+.mdv-skill{display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-top:1px dashed var(--bd1)}
+.mdv-skill:first-of-type{border-top:none}
+.mdv-skill-ic{display:block;width:32px;height:32px;flex:none;margin-top:1px}
+.mdv-skill-ic svg{display:block;width:100%;height:100%}
+.mdv-skill-b{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mdv-skill-n{font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mdv-skill-n i{font-style:normal;padding:1px 6px;border-radius:20px;font-size:8.5px;letter-spacing:.4px;background:#14141310;color:var(--muted)}
+.mdv-skill.t-active .mdv-skill-n i{background:#3d86c61f;color:#2b6ca8}
+.mdv-skill.t-ultimate .mdv-skill-n i{background:#d9775722;color:#c0603f}
+.mdv-skill-d{font-size:11px;line-height:1.45;color:var(--muted)}
+.mdv-foot{padding:10px 14px 13px;border-top:1px solid var(--bd1);flex-shrink:0}
+.mdv-buy{width:100%;padding:13px 10px;border:none;border-radius:12px;background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:.3px;cursor:pointer;box-shadow:0 6px 20px -8px #d97757}
+.mdv-buy:hover{filter:brightness(1.06)}
+.mdv-buy.poor{background:var(--card2);color:var(--muted);border:1px solid var(--bd1);box-shadow:none;cursor:not-allowed}
+.mdv-buy.on{background:#00a6bd1a;color:#00879b;border:1px solid #00a6bd66;box-shadow:none;cursor:default}
+.battlecard-skills{margin-top:9px;padding-top:4px;border-top:1px solid var(--bd1)}
+.mdlpick-spn{font-size:11px;color:var(--muted)}
+.shopitem-cls{font-family:'Rajdhani',sans-serif;font-size:8.5px;font-weight:700;letter-spacing:.3px;padding:1px 7px;border-radius:20px;background:color-mix(in srgb,var(--cc) 14%,transparent);border:1px solid color-mix(in srgb,var(--cc) 40%,transparent);color:var(--cc)}
 /* ── combat profile ──
    Four bars, semantic colours, tabular figures. The bars are a comparison tool
    before they are decoration: on the shop shelf they run compact and unlabelled
@@ -977,7 +1021,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 /* a chassis in the shop sells itself with the head it actually is */
 .mdlitem-head{display:block;width:100%;aspect-ratio:1/1.05;margin-bottom:2px}
 .mdlitem-head svg{display:block;width:100%;height:100%}
-.shopitem.mdlitem{padding:8px 5px 10px}
+.shopitem.mdlitem{padding:8px 5px 10px;display:grid;grid-template-rows:auto 17px 26px 18px auto 25px 16px;align-content:start;justify-items:center;gap:4px}
+.shopitem.mdlitem>*{align-self:center;max-width:100%}
+.mdlitem .shopitem-nm{line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mdlitem .shopitem-desc,.mdlitem .shopitem-sp{overflow:hidden}
 .shopitem-desc{font-size:9px;line-height:1.25;color:#9fb1cc;text-align:center;padding:0 4px}
 @media (max-width:380px){.mdlpick-stage{height:214px}.mdlpick-stage svg{height:204px}.mdlpick-grid{gap:3px}}
 /* model bay: five chips, each showing the head it actually selects */
