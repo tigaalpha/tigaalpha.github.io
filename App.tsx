@@ -3703,6 +3703,12 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
     let alive = true;
     (async () => {
       try {
+        /* The per-row bot marker used to be appended here as "\U0001f916".
+           That is not a JavaScript escape — \U is unrecognised, so it renders
+           as the literal text "U0001f916" after every bot's name, which is
+           what players actually saw on the board. The name now stands alone;
+           the disclosure that some rivals are practice bots lives in the
+           footnote under the list, where one real 🤖 says it once. */
         // v2 = real players + transparently-flagged demo bots (is_bot). Falls
         // back to the original RPC if the v2 migration hasn't been applied yet.
         let data = null;
@@ -3742,7 +3748,7 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
                     <div key={pos} className={`lbpod p${pos}${r.is_me ? " me" : ""}`}>
                       <div className="lbpod-medal">{medals[pos]}</div>
                       <div className="lbpod-ava">{(r.name || "?").trim().slice(0, 1).toUpperCase()}</div>
-                      <div className="lbpod-nm">{r.name}{r.is_bot ? " \U0001f916" : ""}</div>
+                      <div className="lbpod-nm">{r.name}</div>
                       <div className="lbpod-exp">{(r.exp || 0).toLocaleString()}</div>
                     </div>
                   );
@@ -3761,7 +3767,7 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
               {rows.filter(r => r.rank > 3).map((r, i) => (
                 <div key={i} className={`lbrow${r.is_me ? " me" : ""}`} style={{ animationDelay: (i * 35) + "ms" }}>
                   <span className="lbrank">{r.rank}</span>
-                  <span className="lbname">{r.name}{r.is_bot ? " \U0001f916" : ""}{r.is_me ? ` · ${lc.lbYouTag}` : ""}</span>
+                  <span className="lbname">{r.name}{r.is_me ? ` · ${lc.lbYouTag}` : ""}</span>
                   <span className="lbexp">{(r.exp || 0).toLocaleString()} <small>EXP</small></span>
                 </div>
               ))}
