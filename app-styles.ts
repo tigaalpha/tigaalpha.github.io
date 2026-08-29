@@ -911,6 +911,31 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .stgshop{display:block;width:100%;margin-top:22px;padding:12px;border-radius:12px;border:1px solid var(--bd1);background:var(--card2);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 .stgshop:hover{border-color:#d97757;color:#d97757}
 @media (max-width:380px){.stggrid{grid-template-columns:repeat(2,1fr)}.stgstats{grid-template-columns:repeat(2,1fr)}}
+/* ── combat profile ──
+   Four bars, semantic colours, tabular figures. The bars are a comparison tool
+   before they are decoration: on the shop shelf they run compact and unlabelled
+   so twenty chassis can be read down a column at a glance. */
+.statbars{display:flex;flex-direction:column;gap:4px;width:100%}
+.statrow{display:flex;align-items:center;gap:7px}
+.statlbl{flex:none;width:56px;font-family:'Rajdhani',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.4px;color:var(--muted)}
+.stattrack{flex:1;height:7px;border-radius:20px;background:#14141310;overflow:hidden}
+.stattrack i{display:block;height:100%;border-radius:20px;transition:width .3s ease}
+.statval{flex:none;width:18px;text-align:right;font-family:'Orbitron',sans-serif;font-size:9.5px;color:var(--text);font-variant-numeric:tabular-nums}
+.statbars.compact{gap:2.5px;margin:3px 0 1px}
+.statbars.compact .stattrack{height:4px}
+.battlecard{margin-top:10px;padding:11px 12px 10px;border-radius:12px;background:var(--card2);border:1px solid var(--bd1)}
+.battlecard-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;color:var(--text)}
+.battlecard-t{font-family:'Orbitron',sans-serif;font-size:13px;color:#d97757}
+.battlecard-sp{display:flex;align-items:center;gap:7px;margin-top:9px;padding-top:8px;border-top:1px solid var(--bd1);font-size:11px;color:var(--text)}
+.battlecard-sp b{font-family:'Rajdhani',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.4px;color:var(--muted)}
+.battlecard-soon{margin-top:7px;font-size:10px;line-height:1.45;color:var(--muted)}
+.mdlpick-stats{margin-top:4px;padding:10px 2px 0;border-top:1px solid var(--bd1)}
+.mdlpick-sp{display:flex;gap:7px;align-items:center;margin-top:9px;font-size:11px;color:var(--text)}
+.mdlpick-sp b{font-family:'Rajdhani',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.4px;color:var(--muted)}
+.mdlpick-fair{margin-top:6px;font-size:9.5px;line-height:1.4;color:var(--muted)}
+.shopitem-sp{font-family:'Rajdhani',sans-serif;font-size:9px;font-weight:700;color:#8a86e0;text-align:center;line-height:1.2}
+.shop-full .shopitem-sp{color:#7b6fd0}
+.shop-full .stattrack{background:#14141312}
 /* ── the one-time chassis choice ──
    Light, like the shop it shares a catalogue with: a black grid of cards inside
    a warm off-white app reads as a different product, and the drawn heads have
