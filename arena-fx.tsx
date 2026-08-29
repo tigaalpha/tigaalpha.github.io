@@ -1,0 +1,377 @@
+/* ── arena-fx.tsx ──
+   Sound and picture for the PvP arena, and nowhere else in the app.
+
+   AUDIO is generated, not loaded. A battle loop as an mp3 would be a megabyte
+   of payload on a PWA that already inlines its whole bundle, and it would be
+   somebody else's music. This is six instruments — kick, snare, hat, bass,
+   arp, pad — scheduled by a look-ahead clock over a four-bar minor loop, and
+   it costs nothing to ship. It rides the app's existing audio bus, so the
+   sound toggle the player already has silences it too, and it steps up a gear
+   when either fighter drops under a third of their health.
+
+   PICTURE is a canvas over the stage: bolts that travel between the two
+   robots, impact sparks with real velocity and drag, shockwave rings, a
+   perspective floor grid, and a screen flash. The robots themselves stay on
+   the existing avatar rig — that rig is a genuine yaw-parametric projection
+   (the head and body are re-projected at every angle, not sprite-swapped), so
+   during a strike the attacker really does turn as it lunges. Rebuilding
+   twenty chassis as polygon meshes would have thrown away the five-pass
+   shading that makes them look like machined metal, and looked worse.
+
+   Everything here checks prefers-reduced-motion and degrades to a static
+   scene rather than switching itself off. ── */
+
+import { useRef, useEffect, useCallback } from "react";
+import { audioBus, getSfxMuted } from "./music-engine";
+
+const mf = (m) => 440 * Math.pow(2, (m - 69) / 12);
+const reduced = () => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } };
+
+/* ══════════════════════ audio ══════════════════════ */
+
+let _noiseBuf = null;
+function noise(ac) {
+  if (_noiseBuf && _noiseBuf.sampleRate === ac.sampleRate) return _noiseBuf;
+  const n = Math.floor(ac.sampleRate * 1.2);
+  const b = ac.createBuffer(1, n, ac.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  _noiseBuf = b;
+  return b;
+}
+
+/* One bar of sixteenths. The second row of each pattern is the "pushed" mix
+   that comes in when somebody is nearly down — same groove, more of it. */
+const P = {
+  kick:  [[0, 6, 8, 14], [0, 3, 6, 8, 11, 14]],
+  snare: [[4, 12], [4, 12, 15]],
+  hat:   [[0, 2, 4, 6, 8, 10, 12, 14], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]],
+  bass:  [[0, 3, 6, 8, 11, 14], [0, 2, 3, 6, 8, 10, 11, 14]],
+  arp:   [[0, 2, 4, 6, 8, 10, 12, 14], [0, 2, 4, 6, 8, 10, 12, 14]],
+};
+// Dm – Bb – F – C: the four chords every action score is built out of, because
+// they climb without ever resolving, which is exactly what a fight wants
+const CHORDS = [
+  { bass: 38, arp: [62, 65, 69, 74] },
+  { bass: 34, arp: [58, 62, 65, 70] },
+  { bass: 41, arp: [65, 69, 72, 77] },
+  { bass: 36, arp: [60, 64, 67, 72] },
+];
+
+export function createArenaAudio() {
+  let timer = null, step = 0, nextTime = 0, bpm = 150, gear = 0, live = false;
+  let master = null, ac = null;
+  const SPB = () => 60 / bpm / 4;               // seconds per sixteenth
+
+  function ensure() {
+    const { ac: a, bus } = audioBus();
+    ac = a;
+    if (!master || master.context !== ac) {
+      master = ac.createGain();
+      master.gain.value = 0.0001;
+      master.connect(bus);
+    }
+    return ac;
+  }
+
+  const env = (g, t, peak, atk, dec) => {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + atk);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + atk + dec);
+  };
+
+  function kick(t) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(42, t + 0.11);
+    env(g, t, 0.5, 0.004, 0.16);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.22);
+  }
+  function snare(t) {
+    const s = ac.createBufferSource(); s.buffer = noise(ac);
+    const hp = ac.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1400;
+    const g = ac.createGain(); env(g, t, 0.22, 0.003, 0.12);
+    s.connect(hp); hp.connect(g); g.connect(master); s.start(t); s.stop(t + 0.2);
+    const o = ac.createOscillator(), g2 = ac.createGain();
+    o.type = "triangle"; o.frequency.setValueAtTime(190, t);
+    env(g2, t, 0.14, 0.003, 0.07);
+    o.connect(g2); g2.connect(master); o.start(t); o.stop(t + 0.12);
+  }
+  function hat(t, open) {
+    const s = ac.createBufferSource(); s.buffer = noise(ac);
+    const hp = ac.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7200;
+    const g = ac.createGain(); env(g, t, 0.07, 0.002, open ? 0.1 : 0.03);
+    s.connect(hp); hp.connect(g); g.connect(master); s.start(t); s.stop(t + 0.16);
+  }
+  function bass(t, midi) {
+    const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+    o.type = "sawtooth"; o.frequency.value = mf(midi);
+    lp.type = "lowpass"; lp.frequency.setValueAtTime(900, t);
+    lp.frequency.exponentialRampToValueAtTime(240, t + 0.18);
+    env(g, t, 0.3, 0.006, 0.16);
+    o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t + 0.26);
+  }
+  function pluck(t, midi) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = "triangle"; o.frequency.value = mf(midi);
+    env(g, t, 0.11, 0.004, 0.11);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.18);
+  }
+  function pad(t, midi, dur) {
+    for (const d of [-5, 5]) {
+      const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+      o.type = "sawtooth"; o.frequency.value = mf(midi); o.detune.value = d;
+      lp.type = "lowpass"; lp.frequency.value = 1500;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.035, t + dur * 0.35);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.1);
+    }
+  }
+
+  function schedule() {
+    if (!live) return;
+    const horizon = ac.currentTime + 0.14;
+    while (nextTime < horizon) {
+      const s = step % 16, bar = Math.floor(step / 16) % 4, ch = CHORDS[bar];
+      if (P.kick[gear].includes(s)) kick(nextTime);
+      if (P.snare[gear].includes(s)) snare(nextTime);
+      if (P.hat[gear].includes(s)) hat(nextTime, s % 8 === 6);
+      if (P.bass[gear].includes(s)) bass(nextTime, s === 11 ? ch.bass + 12 : s === 6 || s === 14 ? ch.bass + 7 : ch.bass);
+      if (P.arp[gear].includes(s)) pluck(nextTime, ch.arp[(s / 2) % ch.arp.length]);
+      if (s === 0) pad(nextTime, ch.arp[0] - 12, SPB() * 16);
+      nextTime += SPB();
+      step++;
+    }
+    timer = setTimeout(schedule, 25);
+  }
+
+  return {
+    start() {
+      if (live) return;
+      try {
+        ensure();
+        if (getSfxMuted()) return;
+        live = true; step = 0; gear = 0; bpm = 150;
+        nextTime = ac.currentTime + 0.08;
+        master.gain.cancelScheduledValues(ac.currentTime);
+        master.gain.setValueAtTime(0.0001, ac.currentTime);
+        master.gain.exponentialRampToValueAtTime(0.6, ac.currentTime + 1.2);
+        schedule();
+      } catch (e) { live = false; }
+    },
+    /** 0 = normal, 1 = someone is nearly down and the mix leans in */
+    setGear(g) {
+      const n = g ? 1 : 0;
+      if (n === gear) return;
+      gear = n; bpm = n ? 164 : 150;
+    },
+    stop() {
+      live = false;
+      if (timer) { clearTimeout(timer); timer = null; }
+      try {
+        if (master && ac) {
+          master.gain.cancelScheduledValues(ac.currentTime);
+          master.gain.setValueAtTime(master.gain.value, ac.currentTime);
+          master.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.5);
+        }
+      } catch (e) {}
+    },
+    /** One-shots. They go to the bus directly so they cut through the loop. */
+    sfx(kind) {
+      try {
+        if (getSfxMuted()) return;
+        const { ac: a, bus } = audioBus(), t = a.currentTime;
+        const tone = (type, f0, f1, peak, dur, dest) => {
+          const o = a.createOscillator(), g = a.createGain();
+          o.type = type; o.frequency.setValueAtTime(f0, t);
+          if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(peak, t + 0.006);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+          o.connect(g); g.connect(dest || bus); o.start(t); o.stop(t + dur + 0.05);
+        };
+        const hiss = (hz, peak, dur, type = "highpass") => {
+          const s = a.createBufferSource(); s.buffer = noise(a);
+          const f = a.createBiquadFilter(); f.type = type; f.frequency.value = hz;
+          const g = a.createGain();
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(peak, t + 0.005);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+          s.connect(f); f.connect(g); g.connect(bus); s.start(t); s.stop(t + dur + 0.05);
+        };
+        if (kind === "hit")       { hiss(900, 0.3, 0.16, "bandpass"); tone("sine", 180, 55, 0.34, 0.18); }
+        else if (kind === "crit") { hiss(2200, 0.3, 0.26, "bandpass"); tone("square", 900, 180, 0.2, 0.3); tone("sine", 150, 45, 0.4, 0.34); }
+        else if (kind === "block"){ tone("square", 1500, 900, 0.16, 0.14); hiss(3000, 0.16, 0.1, "bandpass"); }
+        else if (kind === "miss") { hiss(1600, 0.14, 0.2, "bandpass"); }
+        else if (kind === "heal") { [0, .07, .14].forEach((d, i) => setTimeout(() => tone("sine", mf(72 + i * 4), mf(72 + i * 4), 0.18, 0.3), d * 1000)); }
+        else if (kind === "ult")  {
+          const o = a.createOscillator(), g = a.createGain();
+          o.type = "sawtooth"; o.frequency.setValueAtTime(90, t);
+          o.frequency.exponentialRampToValueAtTime(1600, t + 0.55);
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.22, t + 0.5);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.62);
+          o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.7);
+          setTimeout(() => { hiss(400, 0.45, 0.6, "lowpass"); tone("sine", 120, 35, 0.5, 0.7); }, 540);
+        }
+        else if (kind === "charge") { tone("triangle", mf(76), mf(88), 0.16, 0.3); }
+        else if (kind === "win")  { [69, 73, 76, 81].forEach((m, i) => setTimeout(() => { tone("triangle", mf(m), mf(m), 0.2, 0.42); tone("sine", mf(m - 12), mf(m - 12), 0.12, 0.5); }, i * 110)); }
+        else if (kind === "lose") { [69, 66, 62, 57].forEach((m, i) => setTimeout(() => tone("triangle", mf(m), mf(m), 0.17, 0.4), i * 150)); }
+        else if (kind === "bell") { tone("sine", mf(84), mf(84), 0.14, 0.5); }
+      } catch (e) {}
+    },
+  };
+}
+
+/* ══════════════════════ picture ══════════════════════ */
+
+/** Imperative canvas over the arena. Held by ref so a hit can fire an effect
+    without a React render — sixty frames of state updates would be sixty
+    reconciles of two full avatar SVGs. */
+export function useArenaFx() {
+  const canvasRef = useRef(null);
+  const stateRef = useRef(null);
+
+  useEffect(() => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const soft = reduced();
+    const S = {
+      parts: [], beams: [], rings: [], flash: null, t: 0, raf: 0, w: 0, h: 0, dpr: 1, motes: [],
+    };
+    stateRef.current = S;
+    const ctx = cv.getContext("2d");
+
+    const fit = () => {
+      const r = cv.getBoundingClientRect();
+      S.dpr = Math.min(2, window.devicePixelRatio || 1);
+      S.w = Math.max(1, r.width); S.h = Math.max(1, r.height);
+      cv.width = Math.round(S.w * S.dpr); cv.height = Math.round(S.h * S.dpr);
+      ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+      // ambient dust, so the arena has air in it even between hits
+      S.motes = Array.from({ length: soft ? 0 : 22 }, () => ({
+        x: Math.random() * S.w, y: Math.random() * S.h,
+        r: 0.6 + Math.random() * 1.5, vy: -(4 + Math.random() * 12), a: 0.1 + Math.random() * 0.25,
+      }));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(cv);
+
+    let last = performance.now();
+    const frame = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      S.t += dt;
+      ctx.clearRect(0, 0, S.w, S.h);
+
+      // ── floor: a perspective grid receding to a horizon behind the fighters
+      const hz = S.h * 0.52;
+      ctx.save();
+      // a pool of light under each fighter, so they stand in the arena rather
+      // than float over a wallpaper
+      for (const fx of [0.24, 0.76]) {
+        const g0 = ctx.createRadialGradient(S.w * fx, S.h * 0.9, 2, S.w * fx, S.h * 0.9, S.w * 0.2);
+        g0.addColorStop(0, "rgba(255,255,255,.55)"); g0.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g0; ctx.fillRect(0, hz, S.w, S.h - hz);
+      }
+      ctx.strokeStyle = "rgba(76,108,168,.24)"; ctx.lineWidth = 1;
+      for (let i = 1; i <= 7; i++) {
+        const p = i / 7, y = hz + (S.h - hz) * p * p;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(S.w, y); ctx.stroke();
+      }
+      for (let i = -6; i <= 6; i++) {
+        const x = S.w / 2 + i * (S.w / 9);
+        ctx.beginPath(); ctx.moveTo(S.w / 2 + i * 8, hz); ctx.lineTo(x, S.h); ctx.stroke();
+      }
+      ctx.restore();
+
+      for (const m of S.motes) {
+        m.y += m.vy * dt; if (m.y < 0) { m.y = S.h; m.x = Math.random() * S.w; }
+        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fillStyle = `rgba(140,190,255,${m.a})`; ctx.fill();
+      }
+
+      // ── bolts in flight
+      for (let i = S.beams.length - 1; i >= 0; i--) {
+        const b = S.beams[i]; b.p += dt / b.dur;
+        if (b.p >= 1) { S.beams.splice(i, 1); continue; }
+        const x = b.x0 + (b.x1 - b.x0) * b.p, y = b.y0 + (b.y1 - b.y0) * b.p;
+        const tail = 46 * (b.x1 > b.x0 ? -1 : 1);
+        const g = ctx.createLinearGradient(x + tail, y, x, y);
+        g.addColorStop(0, b.c + "00"); g.addColorStop(1, b.c + "ff");
+        ctx.strokeStyle = g; ctx.lineWidth = b.w; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(x + tail, y); ctx.lineTo(x, y); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, b.w * 0.9, 0, 7); ctx.fillStyle = "#fff"; ctx.fill();
+      }
+
+      // ── shockwave rings
+      for (let i = S.rings.length - 1; i >= 0; i--) {
+        const r = S.rings[i]; r.p += dt / r.dur;
+        if (r.p >= 1) { S.rings.splice(i, 1); continue; }
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * r.p, 0, 7);
+        ctx.strokeStyle = r.c; ctx.globalAlpha = (1 - r.p) * 0.8;
+        ctx.lineWidth = 3 * (1 - r.p) + 0.6; ctx.stroke(); ctx.globalAlpha = 1;
+      }
+
+      // ── sparks: real velocity, gravity and drag, so they arc instead of fan
+      for (let i = S.parts.length - 1; i >= 0; i--) {
+        const p = S.parts[i];
+        p.life -= dt;
+        if (p.life <= 0) { S.parts.splice(i, 1); continue; }
+        p.vy += 620 * dt; p.vx *= 0.985; p.vy *= 0.985;
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        const a = Math.max(0, p.life / p.max);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 0.012, p.y - p.vy * 0.012);
+        ctx.strokeStyle = p.c; ctx.globalAlpha = a; ctx.lineWidth = p.r; ctx.lineCap = "round";
+        ctx.stroke(); ctx.globalAlpha = 1;
+      }
+
+      if (S.flash) {
+        S.flash.p += dt / S.flash.dur;
+        if (S.flash.p >= 1) S.flash = null;
+        else { ctx.fillStyle = S.flash.c; ctx.globalAlpha = (1 - S.flash.p) * S.flash.a; ctx.fillRect(0, 0, S.w, S.h); ctx.globalAlpha = 1; }
+      }
+      S.raf = requestAnimationFrame(frame);
+    };
+    S.raf = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(S.raf); ro.disconnect(); stateRef.current = null; };
+  }, []);
+
+  const at = (side) => {
+    const S = stateRef.current;
+    if (!S) return { x: 0, y: 0 };
+    return { x: side === "me" ? S.w * 0.24 : S.w * 0.76, y: S.h * 0.55 };
+  };
+
+  const burst = useCallback((side, power = 1, colour = "#ffd23f") => {
+    const S = stateRef.current; if (!S) return;
+    const { x, y } = at(side);
+    S.rings.push({ x, y, r0: 6, r1: 40 + 44 * power, dur: 0.42, c: colour });
+    if (reduced()) return;
+    const n = Math.min(38, Math.round(16 + 16 * power));
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 90 + Math.random() * 320 * power;
+      S.parts.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60,
+        r: 1 + Math.random() * 2, life: 0.35 + Math.random() * 0.5, max: 0.85,
+        c: Math.random() < 0.35 ? "#ffffff" : colour,
+      });
+    }
+  }, []);
+
+  const beam = useCallback((from, colour = "#7fe8ff", w = 5) => {
+    const S = stateRef.current; if (!S) return;
+    const a = at(from), b = at(from === "me" ? "op" : "me");
+    S.beams.push({ x0: a.x, y0: a.y - 10, x1: b.x, y1: b.y - 10, p: 0, dur: 0.22, c: colour, w });
+  }, []);
+
+  const flash = useCallback((colour = "#ffffff", a = 0.5, dur = 0.3) => {
+    const S = stateRef.current; if (!S) return;
+    S.flash = { c: colour, a, p: 0, dur };
+  }, []);
+
+  return { canvasRef, burst, beam, flash };
+}

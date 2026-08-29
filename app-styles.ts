@@ -987,25 +987,39 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpfriend-nm{flex:1;min-width:0;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pvpfriend-go{font-family:'Share Tech Mono',monospace;font-size:10px;color:#d97757;flex:none}
 
-.pvparena{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:6px;max-width:520px;margin:10px auto 0;padding:0 13px}
-.pvpside{position:relative;display:flex;flex-direction:column;gap:4px}
-.pvphp{height:9px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);overflow:hidden}
-.pvphp i{display:block;height:100%;background:linear-gradient(90deg,#3ddc84,#2fa87a);transition:width .35s}
-.pvphp.op i{background:linear-gradient(90deg,#ff7a3c,#e0563f)}
-.pvphp-n{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
-.pvpbot{height:186px;border-radius:13px;background:linear-gradient(178deg,#fff,#eef1f7);border:1px solid var(--bd1);display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
-.pvpbot svg{display:block;height:180px;width:auto}
-.pvpbot.flip{transform:scaleX(-1)}
-.pvpvs{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:var(--muted);padding-bottom:78px}
-.pvpflash{position:absolute;left:50%;top:38%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:16px;font-weight:800;pointer-events:none;animation:pvpfl .9s ease-out forwards;white-space:nowrap;text-shadow:0 2px 6px rgba(255,255,255,.9)}
+.pvpstage{position:relative;max-width:520px;margin:10px auto 0;height:270px;border-radius:16px;overflow:hidden;border:1px solid var(--bd1);background:radial-gradient(120% 80% at 50% 8%,#f7fafe 0%,#e8edf6 46%,#d5deec 100%)}
+.pvpstage.sh1{animation:pvpsh1 .32s ease-out}
+.pvpstage.sh2{animation:pvpsh2 .38s ease-out}
+.pvpstage.sh3{animation:pvpsh3 .5s ease-out}
+@keyframes pvpsh1{0%,100%{transform:translate(0,0)}25%{transform:translate(-3px,2px)}60%{transform:translate(2px,-1px)}}
+@keyframes pvpsh2{0%,100%{transform:translate(0,0)}20%{transform:translate(-7px,4px)}45%{transform:translate(6px,-3px)}75%{transform:translate(-3px,1px)}}
+@keyframes pvpsh3{0%,100%{transform:translate(0,0)}12%{transform:translate(-12px,7px)}32%{transform:translate(11px,-6px)}55%{transform:translate(-8px,4px)}80%{transform:translate(5px,-2px)}}
+.pvpfx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.pvphps{position:absolute;left:0;right:0;top:0;z-index:4;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;padding:9px 11px;background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(255,255,255,0))}
+.pvphpcol{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pvphp{height:9px;border-radius:20px;background:#0b152618;border:1px solid var(--bd1);overflow:hidden}
+.pvphp i{display:block;height:100%;background:linear-gradient(90deg,#3ddc84,#2fa87a);transition:width .35s cubic-bezier(.4,0,.2,1)}
+.pvphp.op i{background:linear-gradient(90deg,#e0563f,#ff7a3c)}
+.pvphp-n{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:#40506a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pvphp-n.op{text-align:right}
+.pvpvs{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;color:#8899b0;padding-top:1px}
+/* the fighters stand ON the floor grid, so they are anchored to its baseline */
+.pvpfighter{position:absolute;bottom:6px;width:44%;height:200px;z-index:3;display:flex;align-items:flex-end;justify-content:center;transition:transform .22s cubic-bezier(.34,1.4,.5,1)}
+.pvpfighter svg{display:block;height:198px;width:auto;filter:drop-shadow(0 12px 10px rgba(20,30,60,.28))}
+.pvpfighter.me{left:6%}
+.pvpfighter.op{right:6%}
+.pvpfighter.me.lunge{transform:translateX(38%) scale(1.06)}
+.pvpfighter.op.lunge{transform:translateX(-38%) scale(1.06)}
+.pvpfighter.me.knock{transform:translateX(-9%) rotate(-4deg)}
+.pvpfighter.op.knock{transform:translateX(9%) rotate(4deg)}
+.pvpflash{position:absolute;left:50%;top:14%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:17px;font-weight:800;pointer-events:none;animation:pvpfl .9s ease-out forwards;white-space:nowrap;text-shadow:0 2px 8px rgba(255,255,255,.95),0 0 2px #fff;z-index:5}
 .pvpflash.dmg{color:#e0563f}
 .pvpflash.heal{color:#2fa87a}
 .pvpflash.crit{color:#d97757}
-.pvpflash.block,.pvpflash.miss{color:#3d86c6;font-size:12px}
+.pvpflash.block,.pvpflash.miss{color:#2b6ca8;font-size:12px}
 .pvpflash.buff{color:#7b3fd0;font-size:11px}
-@keyframes pvpfl{0%{opacity:0;transform:translate(-50%,10px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px)}}
-.pvpnames{display:flex;justify-content:space-between;gap:10px;max-width:520px;margin:5px auto 0;padding:0 15px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:var(--muted)}
-.pvpnames span:last-child{text-align:right}
+@keyframes pvpfl{0%{opacity:0;transform:translate(-50%,10px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-30px)}}
+@media (prefers-reduced-motion:reduce){.pvpstage.sh1,.pvpstage.sh2,.pvpstage.sh3{animation:none}.pvpfighter{transition:none}.pvpfighter.me.lunge,.pvpfighter.op.lunge,.pvpfighter.me.knock,.pvpfighter.op.knock{transform:none}}
 .pvpuntimed{max-width:520px;margin:12px auto 0;padding:0 15px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.3px;color:var(--muted)}
 .pvpq{max-width:520px;margin:8px auto 0;padding:0 15px;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;line-height:1.4;color:var(--text);text-align:center;text-wrap:balance}
 .pvpopts{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:520px;margin:12px auto 0;padding:0 13px}
@@ -1035,7 +1049,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpbig{width:100%;margin-top:11px;padding:13px 10px;border:none;border-radius:13px;background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer}
 .pvpres-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
 .pvpghost{padding:12px 8px;border-radius:12px;border:1px solid var(--bd1);background:var(--card);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
-@media (max-width:360px){.pvpbot{height:150px}.pvpbot svg{height:144px}.pvpq{font-size:14px}}
+@media (max-width:360px){.pvpstage{height:232px}.pvpfighter{height:168px}.pvpfighter svg{height:166px}.pvpq{font-size:14px}}
 .battlecard-soon.as-btn{display:block;width:100%;text-align:left;cursor:pointer;border:1px solid color-mix(in srgb,#d97757 34%,transparent);background:#d9775712;color:#b4522f;border-radius:11px;padding:9px 11px;font-family:inherit;line-height:1.45}
 .battlecard-soon.as-btn:hover{background:#d9775720}
 .mdv{max-width:440px!important;width:calc(100% - 22px);max-height:93vh!important;display:flex;flex-direction:column;overflow:hidden;background:var(--card)!important;border-color:var(--bd1)!important;box-shadow:0 24px 60px -20px rgba(20,30,60,.45)!important}
