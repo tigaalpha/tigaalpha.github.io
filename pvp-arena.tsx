@@ -339,6 +339,52 @@ export const SkillTrack = memo(function SkillTrack({ lang, charModel, onOpenPvp 
 
 /* ══════════════════════ the arena ══════════════════════ */
 
+/* ══════════════════════ attack moves ══════════════════════
+
+   A duel where every hit is the same punch stops being a fight after two
+   rounds. Seven moves, each with its own stance, its own effect and its own
+   sound, and each fired FROM the right part of the body — a hand blaster
+   leaves the hand, an optic beam leaves the head, a cannon leaves the weapon.
+   Which one a chassis reaches for is decided by its class, so a Striker
+   really does close the distance and a Herald really does stand off and
+   shoot: the class you bought is visible in how the robot fights, not only
+   in a stat bar. */
+export const MOVES = {
+  punch:   { pose: "attack", part: "body",   fx: "melee",   sfx: "hit",   lunge: 1,
+             th: "หมัดตรง",        en: "Strike",        zh: "直击" },
+  kick:    { pose: "kick",   part: "foot",   fx: "melee",   sfx: "kick",  lunge: 1,
+             th: "เตะสูง",         en: "High Kick",     zh: "高踢" },
+  blaster: { pose: "shoot",  part: "hand",   fx: "bolt",    sfx: "shot",  lunge: 0,
+             th: "ยิงจากมือ",      en: "Hand Blaster",  zh: "手炮" },
+  laser:   { pose: "shoot",  part: "hand",   fx: "laser",   sfx: "laser", lunge: 0,
+             th: "เลเซอร์จากมือ",  en: "Palm Laser",    zh: "掌心激光" },
+  optic:   { pose: "beam",   part: "head",   fx: "laser",   sfx: "laser", lunge: 0,
+             th: "เลเซอร์จากหัว",  en: "Optic Beam",    zh: "眼部光束" },
+  cannon:  { pose: "shoot",  part: "weapon", fx: "laser",   sfx: "laser", lunge: 0,
+             th: "ปืนใหญ่จากอาวุธ", en: "Weapon Cannon", zh: "武器炮击" },
+  grenade: { pose: "throw",  part: "hand",   fx: "grenade", sfx: "lob",   lunge: 0,
+             th: "ขว้างระเบิด",    en: "Grenade",       zh: "投掷炸弹" },
+};
+// what each class reaches for; repeats are weights, not typos
+const CLASS_MOVES = {
+  striker:   ["punch", "punch", "kick", "kick", "blaster"],
+  bulwark:   ["punch", "punch", "punch", "kick", "cannon"],
+  ghost:     ["kick", "kick", "blaster", "laser", "punch"],
+  tactician: ["blaster", "optic", "grenade", "blaster", "kick"],
+  engineer:  ["grenade", "grenade", "blaster", "cannon", "punch"],
+  herald:    ["optic", "optic", "laser", "blaster", "cannon"],
+  virtuoso:  ["laser", "optic", "laser", "kick", "blaster"],
+};
+// the one a class pulls out for its ultimate — the loudest thing it owns
+const ULT_MOVE = {
+  striker: "kick", bulwark: "punch", ghost: "laser", tactician: "grenade",
+  engineer: "grenade", herald: "optic", virtuoso: "laser",
+};
+const pickMove = (clsKey) => {
+  const l = CLASS_MOVES[clsKey] || CLASS_MOVES.striker;
+  return l[Math.floor(Math.random() * l.length)];
+};
+
 const BOT_TIERS = [
   { key: "rookie",  acc: .45, dmgK: .85, th: "มือใหม่",  en: "Rookie",  zh: "新手",   coins: 40,  xp: 12, sp: 24 },
   { key: "veteran", acc: .62, dmgK: 1,   th: "มือเก๋า",  en: "Veteran", zh: "老手",   coins: 90,  xp: 25, sp: 48 },
@@ -552,6 +598,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   const A = useRef(fighterFrom(me, gear, myRank)).current;
   const B = useRef(fighterFrom(oppModel, [], 5)).current;
+  // the equipped weapon's own colour is what comes out of the barrel, so the
+  // rack is visible in the fight rather than only on the character card
+  const wpn = (gear || []).find(g => g && g.id && String(g.id).startsWith("wpn-"));
+  const myBolt = (wpn && wpn.sw && wpn.sw[0]) || "#7fe8ff";
 
   const [myHp, setMyHp] = useState(A.maxHp);
   const [opHp, setOpHp] = useState(B.maxHp);
@@ -575,6 +625,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   // who is mid-swing, and how hard the camera is being knocked about
   const [lunge, setLunge] = useState(null);
   const [shake, setShake] = useState(0);
+  const [move, setMove] = useState(null);      // { side, key } while a move plays
 
   const startedRef = useRef(Date.now());
   const doneRef = useRef(false);
@@ -593,17 +644,44 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     audioRef.current.setGear(myHp / A.maxHp < 0.34 || opHp / B.maxHp < 0.34);
   }, [myHp, opHp, A.maxHp, B.maxHp]);
 
-  /* One camera knock, one lunge, one sound — every strike in the duel goes
-     through here so a crit and an ultimate cannot drift out of sync. */
-  const strike = useCallback((side, kind, colour) => {
+  /* One place where a whole attack happens: the stance, the effect, the sound,
+     the camera and the recoil. A crit and an ultimate cannot drift out of sync
+     with each other because they are the same call with a bigger number. */
+  const strike = useCallback((side, kind, colour, moveKey) => {
     const foe = side === "me" ? "op" : "me";
-    setLunge(side);
-    setShake(kind === "ult" ? 3 : kind === "crit" ? 2 : 1);
-    G.beam(side, colour, kind === "ult" ? 9 : kind === "crit" ? 7 : 5);
-    audioRef.current.sfx(kind === "ult" ? "ult" : kind === "crit" ? "crit" : "hit");
-    setTimeout(() => G.burst(foe, kind === "ult" ? 2.2 : kind === "crit" ? 1.6 : 1, colour), 200);
-    if (kind === "ult") G.flash("#ffffff", .55, .34);
-    setTimeout(() => { setLunge(null); setShake(0); }, 520);
+    const mv = MOVES[moveKey] || MOVES.punch;
+    const big = kind === "ult", crit = kind === "crit";
+    const power = big ? 2.2 : crit ? 1.5 : 1;
+    setMove({ side, key: moveKey });
+    if (mv.lunge) setLunge(side);
+    setShake(big ? 3 : crit ? 2 : 1);
+    const a = audioRef.current;
+
+    if (mv.fx === "bolt") {
+      G.bolt(side, colour, crit ? 7 : 5, mv.part);
+      a.sfx("shot");
+      setTimeout(() => { G.burst(foe, power, colour); a.sfx("hit"); }, 190);
+    } else if (mv.fx === "laser") {
+      G.laser(side, colour, big ? 7 : crit ? 5 : 4, mv.part);
+      a.sfx("laser");
+      setTimeout(() => G.burst(foe, power * 1.1, colour), 130);
+      if (big) setTimeout(() => { G.boom(foe, 1.5, colour); a.sfx("boom"); }, 260);
+    } else if (mv.fx === "grenade") {
+      a.sfx("lob");
+      G.lob(side, colour, () => {
+        G.boom(foe, big ? 2.4 : 1.5, "#ff9a3c");
+        G.flash("#fff4d0", big ? .6 : .34, .32);
+        a.sfx("boom");
+        setShake(big ? 3 : 2);
+        setTimeout(() => setShake(0), 480);
+      });
+    } else {                                    // melee: contact, then the hit
+      a.sfx(mv.sfx === "kick" ? "kick" : crit ? "crit" : "hit");
+      setTimeout(() => G.burst(foe, power, colour, mv.part === "foot" ? "foot" : "body"), 160);
+      if (big) setTimeout(() => { G.boom(foe, 2, colour); a.sfx("boom"); }, 240);
+    }
+    if (big && mv.fx !== "grenade") G.flash("#ffffff", .55, .34);
+    setTimeout(() => { setLunge(null); setShake(0); setMove(null); }, mv.fx === "grenade" ? 900 : 560);
   }, [G]);
 
   const say = (side, text, kind) => { setFlash({ side, text, kind }); setTimeout(() => setFlash(null), 900); };
@@ -660,8 +738,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       oHp = Math.max(0, opHp - dmg);
       sc = score + 100 + nCombo * 20;
       if (fx.passive === "repair") mHp = Math.min(A.maxHp, mHp + 3);
-      setMyPose("attack"); setOpPose("hit");
-      strike("me", nb.crit === 0 && buffs.crit > 0 ? "crit" : "hit", "#7fe8ff");
+      const mvKey = pickMove(myCls);
+      setMyPose(MOVES[mvKey].pose); setOpPose("hit");
+      strike("me", nb.crit === 0 && buffs.crit > 0 ? "crit" : "hit", myBolt, mvKey);
       say("op", (followed ? "×2  " : "") + "-" + dmg, "dmg");
       setGauge(g => Math.min(100, g + A.charge * (fx.passive === "resonate" ? 1.3 : 1)));
       if (playUi) playUi("click");
@@ -687,8 +766,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           let inc = B.dmg * tier.dmgK * (fx.passive === "tough" ? 0.75 : 1);
           inc = Math.round(inc);
           mHp = Math.max(0, myHp - inc);
-          setOpPose("attack"); setMyPose("hit");
-          strike("op", "hit", "#ff7a3c");
+          const omv = pickMove(oppCls);
+          setOpPose(MOVES[omv].pose); setMyPose("hit");
+          strike("op", "hit", "#ff7a3c", omv);
           say("me", "-" + inc, "dmg");
         }
       } else {
@@ -735,8 +815,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     setUltUsed(true); setGauge(0);
     const k = fx.ult;
     const bigHit = (d) => {
-      setOpHp(h => Math.max(0, h - d)); setMyPose("attack"); setOpPose("hit");
-      strike("me", "ult", "#ffd23f"); say("op", "-" + d, "dmg");
+      const mvKey = ULT_MOVE[myCls] || "punch";
+      setOpHp(h => Math.max(0, h - d)); setMyPose(MOVES[mvKey].pose); setOpPose("hit");
+      strike("me", "ult", "#ffd23f", mvKey); say("op", "-" + d, "dmg");
     };
     if (k === "triple") bigHit(Math.round(A.dmg * 0.4 * 3));
     else if (k === "crescendo") bigHit(Math.round(B.maxHp * 0.2));

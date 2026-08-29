@@ -994,8 +994,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 @keyframes pvpsh1{0%,100%{transform:translate(0,0)}25%{transform:translate(-3px,2px)}60%{transform:translate(2px,-1px)}}
 @keyframes pvpsh2{0%,100%{transform:translate(0,0)}20%{transform:translate(-7px,4px)}45%{transform:translate(6px,-3px)}75%{transform:translate(-3px,1px)}}
 @keyframes pvpsh3{0%,100%{transform:translate(0,0)}12%{transform:translate(-12px,7px)}32%{transform:translate(11px,-6px)}55%{transform:translate(-8px,4px)}80%{transform:translate(5px,-2px)}}
-.pvpfx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
-.pvphps{position:absolute;left:0;right:0;top:0;z-index:4;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;padding:9px 11px;background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(255,255,255,0))}
+/* over the fighters, not behind them: a bolt leaving a hand starts ON the
+   robot, and a canvas underneath means the first third of every shot is
+   hidden by the machine that fired it */
+.pvpfx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4}
+.pvphps{position:absolute;left:0;right:0;top:0;z-index:6;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;padding:9px 11px;background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(255,255,255,0))}
 .pvphpcol{display:flex;flex-direction:column;gap:3px;min-width:0}
 .pvphp{height:9px;border-radius:20px;background:#0b152618;border:1px solid var(--bd1);overflow:hidden}
 .pvphp i{display:block;height:100%;background:linear-gradient(90deg,#3ddc84,#2fa87a);transition:width .35s cubic-bezier(.4,0,.2,1)}
@@ -1012,7 +1015,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpfighter.op.lunge{transform:translateX(-38%) scale(1.06)}
 .pvpfighter.me.knock{transform:translateX(-9%) rotate(-4deg)}
 .pvpfighter.op.knock{transform:translateX(9%) rotate(4deg)}
-.pvpflash{position:absolute;left:50%;top:14%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:17px;font-weight:800;pointer-events:none;animation:pvpfl .9s ease-out forwards;white-space:nowrap;text-shadow:0 2px 8px rgba(255,255,255,.95),0 0 2px #fff;z-index:5}
+.pvpflash{position:absolute;left:50%;top:14%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:17px;font-weight:800;pointer-events:none;animation:pvpfl .9s ease-out forwards;white-space:nowrap;text-shadow:0 2px 8px rgba(255,255,255,.95),0 0 2px #fff;z-index:7}
 .pvpflash.dmg{color:#e0563f}
 .pvpflash.heal{color:#2fa87a}
 .pvpflash.crit{color:#d97757}

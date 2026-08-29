@@ -217,6 +217,16 @@ const POSES = {
   attack: { lean: -10, armL: 34,  armR: -12, legL: -8,  legR: -3, head: -6, lift: -3 },
   hit:    { lean: 11,  armL: -13, armR: -15, legL: 4,   legR: -8, head: 10, lift: 3 },
   win:    { lean: -5,  armL: 26,  armR: 22,  legL: -4,  legR: -4, head: -13, lift: -9 },
+  /* ── fighting stances ──
+     A NEGATIVE angle throws the limb toward the opponent, because the rig
+     rotates about the joint and the hand hangs below it. These stop where they
+     do because the frame stops there: at -34 the fist is already at x≈90 on a
+     body whose centre is 60, and the leg at -30 puts the boot at x≈118 against
+     a 140 edge. Anything further and the limb leaves the picture. */
+  shoot:  { lean: -5,  armL: -34, armR: 10,  legL: -4,  legR: -2, head: -3, lift: 0 },
+  kick:   { lean: 12,  armL: -16, armR: -20, legL: -30, legR: 5,  head: -5, lift: -5 },
+  throw:  { lean: -9,  armL: 30,  armR: -8,  legL: -6,  legR: -2, head: -5, lift: -3 },
+  beam:   { lean: -3,  armL: -28, armR: -26, legL: -3,  legR: -3, head: 3,  lift: 0 },
   down:   { lean: 16,  armL: -12, armR: -14, legL: -10, legR: 6,  head: 20, lift: 10 },
 };
 
@@ -1491,7 +1501,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   );
 
   return (
-    <svg className={`ca ca-${v}`} viewBox={headOnly ? (HEAD.hv || "31 1 58 74") : "-20 -16 160 416"} width="100%" height="100%" aria-hidden="true">
+    <svg className={`ca ca-${v} ca-pose-${pose}`} viewBox={headOnly ? (HEAD.hv || "31 1 58 74") : "-20 -16 160 416"} width="100%" height="100%" aria-hidden="true">
       <defs>
         {/* Polished, worn chrome. A hard specular band with dark falloff either
             side is what separates chrome from flat grey — the T-800's finish is
