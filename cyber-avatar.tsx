@@ -1878,8 +1878,10 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 <ellipse cx="60" cy="208" rx="38" ry="43" fill="none" stroke={CC} strokeWidth="1.4" opacity=".6" />
                 <g className="ca-core">
                   <circle cx="60" cy="208" r="15" fill="none" stroke={glow} strokeWidth="1.5" opacity=".95" />
+                  <circle cx="60" cy="208" r="11.5" fill={glow} opacity=".14" />
                   <path d="M60 195 L73 208 L60 221 L47 208 Z" fill={`url(#${id}-visor)`} />
                   <circle cx="60" cy="208" r="5.4" fill="#fff" opacity=".95" />
+                  <circle cx="56.8" cy="204.4" r="2.1" fill="#fff" opacity=".8" />
                 </g>
                 {groove("M34 264 Q60 276 86 264", 1.4, .4)}
                 <ellipse cx="42" cy="379" rx="11" ry="5" fill="#ffffff" opacity=".35" />
@@ -2020,6 +2022,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {groove("M39 258 L54 258 M39 274 L54 274", .9, .3)}
                 {joint(46, 303, 14)}
                 {plate("M37 298 C41 294 51 294 55 298 C57 306 57 312 55 316 C51 320 41 320 37 316 C35 312 35 306 37 298 Z", { fill: bTrim, line: glow, lw: .9 })}
+                {groove("M39 301 C43 298 49 298 53 301", .9, .5)}
+                <circle cx="46" cy="308" r="1.9" fill="#0a1220" opacity=".38" />
                 {plate("M36 314 L57 314 L55 366 L38 366 Z")}
                 {groove("M40 330 L53 330 M40 346 L53 346", .9, .3)}
                 {plate("M36 360 L55 360 L60 379 L60 392 L29 392 L29 377 Z", { fill: bTrim })}
@@ -2032,6 +2036,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {groove("M66 258 L81 258 M66 274 L81 274", .9, .3)}
                 {joint(74, 303, 14)}
                 {plate("M65 298 C69 294 79 294 83 298 C85 306 85 312 83 316 C79 320 69 320 65 316 C63 312 63 306 65 298 Z", { fill: bTrim, line: glow, lw: .9 })}
+                {groove("M67 301 C71 298 77 298 81 301", .9, .5)}
+                <circle cx="74" cy="308" r="1.9" fill="#0a1220" opacity=".38" />
                 {plate("M63 314 L84 314 L82 366 L65 366 Z")}
                 {groove("M67 330 L80 330 M67 346 L80 346", .9, .3)}
                 {plate("M84 360 L65 360 L60 379 L60 392 L91 392 L91 377 Z", { fill: bTrim })}
@@ -2043,13 +2049,23 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               <g opacity={front.toFixed(3)}>
                 {groove("M60 88 L60 160", 1.2, .5)}
                 {groove("M36 110 L53 118 M84 110 L67 118", 1, .45)}
+                {groove("M38 100 L50 98 M38 105 L50 103 M38 110 L50 108", .9, .4)}
+                {groove("M82 100 L70 98 M82 105 L70 103 M82 110 L70 108", .9, .4)}
                 {groove("M29 164 L91 164 M32 181 L88 181", 1.1, .45)}
                 <g className="ca-core">
                   <circle cx="60" cy="131" r="18" fill="none" stroke={CC} strokeWidth="1.6" opacity=".7" />
+                  {/* bezel notches at the cardinals — a machined mount rather than
+                      a ring drawn round a shape */}
+                  <g stroke={CC} strokeWidth="2.2" strokeLinecap="round" opacity=".75">
+                    <path d="M60 110 L60 115.5" /><path d="M60 146.5 L60 152" />
+                    <path d="M39 131 L44.5 131" /><path d="M75.5 131 L81 131" />
+                  </g>
                   <circle cx="60" cy="131" r="14.5" fill="#00060f" opacity=".55" />
                   <circle cx="60" cy="131" r="13" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.4" opacity=".9" />
+                  <circle cx="60" cy="131" r="10" fill={term ? "#ff2d46" : glow} opacity=".16" />
                   <path d="M60 119 L72 131 L60 143 L48 131 Z" fill={term ? `url(#${id}-red)` : `url(#${id}-visor)`} />
                   <circle cx="60" cy="131" r="4.8" fill="#fff" opacity=".95" />
+                  <circle cx="57.2" cy="127.6" r="1.9" fill="#fff" opacity=".8" />
                 </g>
                 {groove("M40 254 L54 254 M66 254 L80 254", 1, .45)}
                 {groove("M34 372 L54 372 M66 372 L86 372", 1, .4)}
