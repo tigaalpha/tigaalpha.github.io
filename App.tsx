@@ -5234,6 +5234,78 @@ const SHOP_MODELS = [
     desc: { th: "หุ่นนุ่มนิ่มสุดน่ารัก", en: "Squishy pocket bot", zh: "软萌口袋机器人" }, sw: ["#ffc9dd", "#ff7aa5"] },
 ];
 
+/* ── the gem tier ──
+   Fifty items that cannot be bought with coins at all. Gems come only from
+   Prestige tier-ups, so this is an endgame rack rather than a second currency
+   to grind: a full mythic loadout is worth +40 combat on top of a chassis's
+   own 40, which is the largest jump anything in the shop offers and the only
+   one you cannot reach by playing more. Priced 4-25 gems, climbing with how
+   much of that jump each piece carries.
+
+   `gem` is the price and `cost` stays 0 — every existing cost check therefore
+   treats these as free and the gem path guards them instead, so nothing that
+   already reads `cost` had to learn about a second currency. ── */
+const GEM_WEAPONS = [
+  { id: "wpn-gwp-0", icon: "💎", art: "pw-0", gem: 4, cost: 0, rarity: "mythic", th: "ดาบสุริยะ", en: "Solar Edge", zh: "太阳之刃", sw: ["#7fe8ff", "#0d2a44"], isNew: true },
+  { id: "wpn-gwp-1", icon: "💎", art: "pw-1", gem: 5, cost: 0, rarity: "mythic", th: "หอกดาวตก", en: "Meteor Lance", zh: "流星长枪", sw: ["#ffd23f", "#4a3200"], isNew: true },
+  { id: "wpn-gwp-2", icon: "💎", art: "pw-2", gem: 6, cost: 0, rarity: "mythic", th: "ปืนใหญ่ควาซาร์", en: "Quasar Cannon", zh: "类星体炮", sw: ["#ff5a6e", "#3a0a14"], isNew: true },
+  { id: "wpn-gwp-3", icon: "💎", art: "pw-3", gem: 8, cost: 0, rarity: "mythic", th: "คทาเสียงสวรรค์", en: "Celestial Rod", zh: "天籁法杖", sw: ["#a86bff", "#1e0d3a"], isNew: true },
+  { id: "wpn-gwp-4", icon: "💎", art: "pw-4", gem: 9, cost: 0, rarity: "mythic", th: "ใบมีดสุญญากาศ", en: "Void Blade", zh: "虚空之刃", sw: ["#3ddc84", "#0a3320"], isNew: true },
+  { id: "wpn-gwp-5", icon: "💎", art: "pw-5", gem: 11, cost: 0, rarity: "mythic", th: "ค้อนพัลซาร์", en: "Pulsar Hammer", zh: "脉冲星锤", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
+  { id: "wpn-gwp-6", icon: "💎", art: "pw-6", gem: 13, cost: 0, rarity: "mythic", th: "เลเซอร์ปฐมกาล", en: "Genesis Laser", zh: "创世激光", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "wpn-gwp-7", icon: "💎", art: "pw-7", gem: 16, cost: 0, rarity: "mythic", th: "ธนูโฟตอน", en: "Photon Bow", zh: "光子弓", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "wpn-gwp-8", icon: "💎", art: "pw-8", gem: 20, cost: 0, rarity: "mythic", th: "ตรีศูลพลาสมา", en: "Plasma Trident", zh: "等离子三叉戟", sw: ["#e9edf6", "#2a3346"], isNew: true },
+  { id: "wpn-gwp-9", icon: "💎", art: "pw-9", gem: 25, cost: 0, rarity: "mythic", th: "แส้สายฟ้า", en: "Lightning Whip", zh: "闪电鞭", sw: ["#ffe14d", "#3a2c00"], isNew: true },
+];
+const GEM_PLATING = [
+  { id: "out-gpl-0", icon: "💎", art: "pp-0", gem: 4, cost: 0, rarity: "mythic", th: "เกราะสุริยะ", en: "Solar Aegis", zh: "太阳神盾", sw: ["#7fe8ff", "#0d2a44"], isNew: true },
+  { id: "out-gpl-1", icon: "💎", art: "pp-1", gem: 5, cost: 0, rarity: "mythic", th: "เกราะดาวตก", en: "Meteor Carapace", zh: "流星甲壳", sw: ["#ffd23f", "#4a3200"], isNew: true },
+  { id: "out-gpl-2", icon: "💎", art: "pp-2", gem: 6, cost: 0, rarity: "mythic", th: "เกราะควาซาร์", en: "Quasar Shell", zh: "类星体外壳", sw: ["#ff5a6e", "#3a0a14"], isNew: true },
+  { id: "out-gpl-3", icon: "💎", art: "pp-3", gem: 8, cost: 0, rarity: "mythic", th: "เกราะสวรรค์", en: "Celestial Mail", zh: "天界锁甲", sw: ["#a86bff", "#1e0d3a"], isNew: true },
+  { id: "out-gpl-4", icon: "💎", art: "pp-4", gem: 9, cost: 0, rarity: "mythic", th: "เกราะสุญญากาศ", en: "Void Carapace", zh: "虚空甲壳", sw: ["#3ddc84", "#0a3320"], isNew: true },
+  { id: "out-gpl-5", icon: "💎", art: "pp-5", gem: 11, cost: 0, rarity: "mythic", th: "เกราะพัลซาร์", en: "Pulsar Aegis", zh: "脉冲星盾", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
+  { id: "out-gpl-6", icon: "💎", art: "pp-6", gem: 13, cost: 0, rarity: "mythic", th: "เกราะปฐมกาล", en: "Genesis Shell", zh: "创世外壳", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "out-gpl-7", icon: "💎", art: "pp-7", gem: 16, cost: 0, rarity: "mythic", th: "เกราะโฟตอน", en: "Photon Mail", zh: "光子锁甲", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "out-gpl-8", icon: "💎", art: "pp-8", gem: 20, cost: 0, rarity: "mythic", th: "เกราะพลาสมา", en: "Plasma Aegis", zh: "等离子盾", sw: ["#e9edf6", "#2a3346"], isNew: true },
+  { id: "out-gpl-9", icon: "💎", art: "pp-9", gem: 25, cost: 0, rarity: "mythic", th: "เกราะสายฟ้า", en: "Storm Carapace", zh: "风暴甲壳", sw: ["#ffe14d", "#3a2c00"], isNew: true },
+];
+const GEM_MODULES = [
+  { id: "hat-gmd-0", icon: "💎", art: "pm-0", gem: 4, cost: 0, rarity: "mythic", th: "มงกุฎสุริยะ", en: "Solar Diadem", zh: "太阳冠冕", sw: ["#7fe8ff", "#0d2a44"], isNew: true },
+  { id: "hat-gmd-1", icon: "💎", art: "pm-1", gem: 5, cost: 0, rarity: "mythic", th: "มงกุฎดาวตก", en: "Meteor Circlet", zh: "流星头环", sw: ["#ffd23f", "#4a3200"], isNew: true },
+  { id: "hat-gmd-2", icon: "💎", art: "pm-2", gem: 6, cost: 0, rarity: "mythic", th: "มงกุฎควาซาร์", en: "Quasar Crown", zh: "类星体皇冠", sw: ["#ff5a6e", "#3a0a14"], isNew: true },
+  { id: "hat-gmd-3", icon: "💎", art: "pm-3", gem: 8, cost: 0, rarity: "mythic", th: "มงกุฎสวรรค์", en: "Celestial Halo", zh: "天界光环", sw: ["#a86bff", "#1e0d3a"], isNew: true },
+  { id: "hat-gmd-4", icon: "💎", art: "pm-4", gem: 9, cost: 0, rarity: "mythic", th: "มงกุฎสุญญากาศ", en: "Void Diadem", zh: "虚空冠冕", sw: ["#3ddc84", "#0a3320"], isNew: true },
+  { id: "hat-gmd-5", icon: "💎", art: "pm-5", gem: 11, cost: 0, rarity: "mythic", th: "มงกุฎพัลซาร์", en: "Pulsar Circlet", zh: "脉冲星头环", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
+  { id: "hat-gmd-6", icon: "💎", art: "pm-6", gem: 13, cost: 0, rarity: "mythic", th: "มงกุฎปฐมกาล", en: "Genesis Crown", zh: "创世皇冠", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "hat-gmd-7", icon: "💎", art: "pm-7", gem: 16, cost: 0, rarity: "mythic", th: "มงกุฎโฟตอน", en: "Photon Halo", zh: "光子光环", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "hat-gmd-8", icon: "💎", art: "pm-8", gem: 20, cost: 0, rarity: "mythic", th: "มงกุฎพลาสมา", en: "Plasma Crown", zh: "等离子皇冠", sw: ["#e9edf6", "#2a3346"], isNew: true },
+  { id: "hat-gmd-9", icon: "💎", art: "pm-9", gem: 25, cost: 0, rarity: "mythic", th: "มงกุฎสายฟ้า", en: "Storm Diadem", zh: "风暴冠冕", sw: ["#ffe14d", "#3a2c00"], isNew: true },
+];
+const GEM_CORES = [
+  { id: "acc-gco-0", icon: "💎", art: "pc-0", gem: 4, cost: 0, rarity: "mythic", th: "แกนสุริยะ", en: "Solar Core", zh: "太阳核心", sw: ["#7fe8ff", "#0d2a44"], isNew: true },
+  { id: "acc-gco-1", icon: "💎", art: "pc-1", gem: 5, cost: 0, rarity: "mythic", th: "แกนดาวตก", en: "Meteor Core", zh: "流星核心", sw: ["#ffd23f", "#4a3200"], isNew: true },
+  { id: "acc-gco-2", icon: "💎", art: "pc-2", gem: 6, cost: 0, rarity: "mythic", th: "แกนควาซาร์", en: "Quasar Core", zh: "类星体核心", sw: ["#ff5a6e", "#3a0a14"], isNew: true },
+  { id: "acc-gco-3", icon: "💎", art: "pc-3", gem: 8, cost: 0, rarity: "mythic", th: "แกนสวรรค์", en: "Celestial Core", zh: "天界核心", sw: ["#a86bff", "#1e0d3a"], isNew: true },
+  { id: "acc-gco-4", icon: "💎", art: "pc-4", gem: 9, cost: 0, rarity: "mythic", th: "แกนสุญญากาศ", en: "Void Core", zh: "虚空核心", sw: ["#3ddc84", "#0a3320"], isNew: true },
+  { id: "acc-gco-5", icon: "💎", art: "pc-5", gem: 11, cost: 0, rarity: "mythic", th: "แกนพัลซาร์", en: "Pulsar Core", zh: "脉冲星核心", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
+  { id: "acc-gco-6", icon: "💎", art: "pc-6", gem: 13, cost: 0, rarity: "mythic", th: "แกนปฐมกาล", en: "Genesis Core", zh: "创世核心", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "acc-gco-7", icon: "💎", art: "pc-7", gem: 16, cost: 0, rarity: "mythic", th: "แกนโฟตอน", en: "Photon Core", zh: "光子核心", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "acc-gco-8", icon: "💎", art: "pc-8", gem: 20, cost: 0, rarity: "mythic", th: "แกนพลาสมา", en: "Plasma Core", zh: "等离子核心", sw: ["#e9edf6", "#2a3346"], isNew: true },
+  { id: "acc-gco-9", icon: "💎", art: "pc-9", gem: 25, cost: 0, rarity: "mythic", th: "แกนสายฟ้า", en: "Storm Core", zh: "风暴核心", sw: ["#ffe14d", "#3a2c00"], isNew: true },
+];
+const GEM_RELICS = [
+  { id: "sticker-grl-0", icon: "💎", art: "pr-0", gem: 4, cost: 0, rarity: "mythic", th: "เรลิกสุริยะ", en: "Solar Relic", zh: "太阳遗物", sw: ["#7fe8ff", "#0d2a44"], isNew: true },
+  { id: "sticker-grl-1", icon: "💎", art: "pr-1", gem: 5, cost: 0, rarity: "mythic", th: "เรลิกดาวตก", en: "Meteor Relic", zh: "流星遗物", sw: ["#ffd23f", "#4a3200"], isNew: true },
+  { id: "sticker-grl-2", icon: "💎", art: "pr-2", gem: 6, cost: 0, rarity: "mythic", th: "เรลิกควาซาร์", en: "Quasar Relic", zh: "类星体遗物", sw: ["#ff5a6e", "#3a0a14"], isNew: true },
+  { id: "sticker-grl-3", icon: "💎", art: "pr-3", gem: 8, cost: 0, rarity: "mythic", th: "เรลิกสวรรค์", en: "Celestial Relic", zh: "天界遗物", sw: ["#a86bff", "#1e0d3a"], isNew: true },
+  { id: "sticker-grl-4", icon: "💎", art: "pr-4", gem: 9, cost: 0, rarity: "mythic", th: "เรลิกสุญญากาศ", en: "Void Relic", zh: "虚空遗物", sw: ["#3ddc84", "#0a3320"], isNew: true },
+  { id: "sticker-grl-5", icon: "💎", art: "pr-5", gem: 11, cost: 0, rarity: "mythic", th: "เรลิกพัลซาร์", en: "Pulsar Relic", zh: "脉冲星遗物", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
+  { id: "sticker-grl-6", icon: "💎", art: "pr-6", gem: 13, cost: 0, rarity: "mythic", th: "เรลิกปฐมกาล", en: "Genesis Relic", zh: "创世遗物", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "sticker-grl-7", icon: "💎", art: "pr-7", gem: 16, cost: 0, rarity: "mythic", th: "เรลิกโฟตอน", en: "Photon Relic", zh: "光子遗物", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "sticker-grl-8", icon: "💎", art: "pr-8", gem: 20, cost: 0, rarity: "mythic", th: "เรลิกพลาสมา", en: "Plasma Relic", zh: "等离子遗物", sw: ["#e9edf6", "#2a3346"], isNew: true },
+  { id: "sticker-grl-9", icon: "💎", art: "pr-9", gem: 25, cost: 0, rarity: "mythic", th: "เรลิกสายฟ้า", en: "Storm Relic", zh: "风暴遗物", sw: ["#ffe14d", "#3a2c00"], isNew: true },
+];
+
 const MODEL_ITEM = Object.fromEntries(SHOP_MODELS.map(m => [m.model, m.id]));
 
 const SHOP_ACCESSORIES = [
@@ -5261,6 +5333,16 @@ const SHOP_ACCESSORIES = [
   { id: "acc-holo",    icon: "📽️", art: "holo", cost: 540, rarity: "epic",      th: "เวทีโฮโลแกรม", en: "Holo Stage",       zh: "全息舞台", sw: ["#aa00ff", "#00f0ff"], isNew: true },
   { id: "acc-wreath",  icon: "🏵️", art: "wreath", cost: 880, rarity: "legendary", th: "พวงหรีดแชมป์เปียน", en: "Champion Laurel", zh: "冠军桂冠", sw: ["#ffd23f", "#ff9a3c"], isNew: true },
 ];
+
+/* Gem gear sells in its own tabs but is worn from the same four slots, so
+   every lookup of an EQUIPPED id has to see both racks. The shop tabs keep
+   using the coin lists; only the "what am I wearing" path uses these. */
+const ALL_WEAPONS = [...SHOP_WEAPONS, ...GEM_WEAPONS];
+const ALL_OUTFITS = [...SHOP_OUTFITS, ...GEM_PLATING];
+const ALL_HATS = [...SHOP_HATS, ...GEM_MODULES];
+const ALL_ACCESSORIES = [...SHOP_ACCESSORIES, ...GEM_CORES];
+const ALL_STICKERS = [...SHOP_STICKERS, ...GEM_RELICS];
+
 // F2: LINE achievement share — opens LINE app on mobile, fallback clipboard on desktop
 function shareLine(text: string) {
   const url = "https://line.me/R/share?text=" + encodeURIComponent(text);
@@ -5692,10 +5774,10 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
   };
   const nudge = (d) => { setSpin(false); setTouched(true); setYaw(y => wrapYaw(y + d)); };
 
-  const hat = SHOP_HATS.find(x => x.id === charHat);
-  const out = SHOP_OUTFITS.find(x => x.id === charOutfit);
-  const wpn = SHOP_WEAPONS.find(x => x.id === charWeapon);
-  const acc = SHOP_ACCESSORIES.find(x => x.id === charAccessory);
+  const hat = ALL_HATS.find(x => x.id === charHat);
+  const out = ALL_OUTFITS.find(x => x.id === charOutfit);
+  const wpn = ALL_WEAPONS.find(x => x.id === charWeapon);
+  const acc = ALL_ACCESSORIES.find(x => x.id === charAccessory);
   const worn = [hat, out, wpn, acc].filter(Boolean);
   const best = worn.reduce((m, it) => (CS_RARITY[it.rarity] > CS_RARITY[m] ? it.rarity : m), "common");
   // the chamber's two key lights, picked from the gear actually worn
@@ -5984,7 +6066,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
 const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, equipped, charModel, onEquip, onBack, onOpenShop }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const lc = L[lang];
-  const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL };
+  const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL, mythic: lang === "th" ? "มหาเทพ" : lang === "zh" ? "神话" : "Mythic" };
   const RARITY_RANK = { common: 0, rare: 1, epic: 2, legendary: 3 };
   /* Free starter gear is equipped from the first launch but was never bought,
      so it is not in `owned` — and a storage page that omits the visor actually
@@ -6177,8 +6259,8 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             mode is not shipped yet; the numbers are, because they are what turn
             the weapon rack from decoration into a build. */}
         {(() => {
-          const gear = [SHOP_WEAPONS.find(x => x.id === charWeapon), SHOP_OUTFITS.find(x => x.id === charOutfit),
-                        SHOP_HATS.find(x => x.id === charHat), SHOP_ACCESSORIES.find(x => x.id === charAccessory)];
+          const gear = [ALL_WEAPONS.find(x => x.id === charWeapon), ALL_OUTFITS.find(x => x.id === charOutfit),
+                        ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory)];
           const st = combatOf(charModel, gear);
           return (
             <div className="battlecard">
@@ -9811,13 +9893,40 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       playUi("click"); haptic(6);
       return;
     }
+    if (item.gem) { buyWithGems(kind, item); return; }
     if (coins < item.cost) { mascot("sad", 1200); return; }
     const v = getCoins() - item.cost; setCoinsLS(v); setCoins(v); if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
     const no = [...owned, item.id]; setOwned(no); setOwnedLS(no);
     setEquip(item.id); setEquipLS(kind, item.id);
     playUi("reward"); mascot("celebrate", 1800);
   }
-  const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL };
+
+  /* Gems have no client write path — a database trigger rejects any direct
+     write to profiles.gems, deliberately, so that the rarer currency cannot be
+     forged the way coins can. The only server-side spend that exists is the
+     fixed-rate gems→coins conversion, so a gem purchase runs THROUGH it: spend
+     N gems (the server debits them and credits N×25 coins), then immediately
+     debit exactly those N×25 coins for the item. Net effect is −N gems and no
+     coin change, the gem balance stays server-authoritative, and this needed
+     no new RPC and no schema migration.
+
+     The coin credit lands first, so the balance can never go negative. If the
+     app dies between the two halves the player keeps the coins and not the
+     item — recoverable, and never a loss. */
+  async function buyWithGems(kind, item) {
+    if (!session) { requireLogin(); return; }
+    if (gems < item.gem) { mascot("sad", 1400); return; }
+    const ok = await exchangeGems(item.gem);
+    if (!ok) return;
+    const v = Math.max(0, getCoins() - item.gem * 25);
+    setCoinsLS(v); setCoins(v);
+    if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+    const no = [...owned, item.id]; setOwned(no); setOwnedLS(no);
+    const setEquip = EQUIP_SETTERS[kind];
+    if (setEquip) { setEquip(item.id); setEquipLS(kind, item.id); }
+    playUi("reward"); mascot("celebrate", 2400);
+  }
+  const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL, mythic: lang === "th" ? "มหาเทพ" : lang === "zh" ? "神话" : "Mythic" };
   function renderShopItem(kind, it, equippedId) {
     const own = owned.includes(it.id), eq = equippedId === it.id;
     if (it.model) {
@@ -9842,7 +9951,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           : <span className="shopitem-icon-lg">{it.icon}</span>}
         <span className="shopitem-nm">{tr(it, lang)}</span>
         <span className="shopitem-rare">{RARITY_LABEL[it.rarity]}</span>
-        <span className="shopitem-tag">{eq ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost}</span>
+        <span className={`shopitem-tag${it.gem ? " gem" : ""}`}>{eq ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : it.gem ? "💎 " + it.gem : "🪙 " + it.cost}</span>
       </button>
     );
   }
@@ -10300,8 +10409,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           handed data and two callbacks, exactly like every other page. */}
       {page === "pvp" && (
         <PvpArenaMount lang={lang} charModel={charModel}
-          gear={[SHOP_WEAPONS.find(x => x.id === charWeapon), SHOP_OUTFITS.find(x => x.id === charOutfit),
-                 SHOP_HATS.find(x => x.id === charHat), SHOP_ACCESSORIES.find(x => x.id === charAccessory)]}
+          gear={[ALL_WEAPONS.find(x => x.id === charWeapon), ALL_OUTFITS.find(x => x.id === charOutfit),
+                 ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory)]}
           onBack={() => { setPage("profile"); playUi("click"); }}
           playUi={playUi}
           onReward={(xp, c, res) => {
@@ -10677,6 +10786,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
            instead of scrolling, so every category is on screen at once, and
            "everything at once" is no longer one of them — it moved to its own
            control in the top right, where a view switch belongs. */
+        const T2 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
         const ALL_CATS = [
           { key: "charModel",     icon: "🤖", label: lang === "th" ? "สกินหุ่นยนต์" : lang === "zh" ? "机器人皮肤" : "Robot skins" },
           { key: "charWeapon",    icon: "🦾", label: lc.shopWeapons },
@@ -10688,6 +10798,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { key: "frame",         icon: "🖼️", label: lc.shopFrames },
           { key: "keyboard",      icon: "⌨️", label: lc.shopKeyboards },
           { key: "sticker",       icon: "🏷️", label: lc.shopStickers },
+          /* the gem rack, kept in its own tabs rather than mixed into the coin
+             shelves: nothing here can be bought with coins at all, and burying
+             a 25-gem item between two 200-coin ones would only confuse both */
+          { key: "gemWeapon",     icon: "💎", label: T2("อาวุธไพรม์", "Prime Weapons", "至尊武器"), gem: true },
+          { key: "gemOutfit",     icon: "💎", label: T2("เกราะไพรม์", "Prime Plating", "至尊装甲"), gem: true },
+          { key: "gemHat",        icon: "💎", label: T2("โมดูลไพรม์", "Prime Modules", "至尊模块"), gem: true },
+          { key: "gemAccessory",  icon: "💎", label: T2("แกนไพรม์", "Prime Cores", "至尊核心"), gem: true },
+          { key: "gemSticker",    icon: "💎", label: T2("เรลิก", "Relics", "遗物"), gem: true },
         ];
         const allLabel = lang === "th" ? "ทั้งหมด" : lang === "zh" ? "全部" : "All";
         const CAT_ITEMS = {
@@ -10695,10 +10813,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           keyboard: SHOP_KEYBOARDS, sticker: SHOP_STICKERS,
           charHat: SHOP_HATS, charOutfit: SHOP_OUTFITS,
           charWeapon: SHOP_WEAPONS, charAccessory: SHOP_ACCESSORIES, charModel: SHOP_MODELS,
+          gemWeapon: GEM_WEAPONS, gemOutfit: GEM_PLATING, gemHat: GEM_MODULES,
+          gemAccessory: GEM_CORES, gemSticker: GEM_RELICS,
+        };
+        // a gem tab is a shop CATEGORY, but the thing it sells is worn from an
+        // existing slot — this is the only place the two names differ
+        const CAT_SLOT = {
+          gemWeapon: "charWeapon", gemOutfit: "charOutfit", gemHat: "charHat",
+          gemAccessory: "charAccessory", gemSticker: "sticker",
         };
         const CAT_EQUIPPED = {
           skin, theme, frame, keyboard, sticker,
           charHat, charOutfit, charWeapon, charAccessory,
+          gemWeapon: charWeapon, gemOutfit: charOutfit, gemHat: charHat,
+          gemAccessory: charAccessory, gemSticker: sticker,
         };
         const filtered = shopTab === "all"
           ? Object.entries(CAT_ITEMS).flatMap(([kind, items]) => items.map(it => ({ ...it, _kind: kind })))
@@ -10712,6 +10840,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="sethdr shop-hdr">
                 <span className="shop-hdr-t">🛍️ {lc.shopTitle}</span>
                 <span className="coinpill">🪙 {coins}</span>
+                <span className="coinpill gempill">💎 {gems}</span>
                 <button className={`shop-allbtn${shopTab === "all" ? " on" : ""}`} aria-pressed={shopTab === "all"}
                   title={allLabel} onClick={() => setShopTab(shopTab === "all" ? ALL_CATS[0].key : "all")}>
                   <span aria-hidden="true">📦</span><span className="shop-allbtn-l">{allLabel}</span>
@@ -10720,7 +10849,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               </div>
               <div className="shop-tabs">
                 {ALL_CATS.map(c => (
-                  <button key={c.key} className={`shop-tab${shopTab === c.key ? " on" : ""}`}
+                  <button key={c.key} className={`shop-tab${shopTab === c.key ? " on" : ""}${c.gem ? " gem" : ""}`}
                     title={`${c.label} · ${(CAT_ITEMS[c.key] || []).length}`} onClick={() => setShopTab(c.key)}>
                     <span className="shop-tab-ic">{c.icon}</span>
                     <span className="shop-tab-lbl">{c.label}</span>
@@ -10734,7 +10863,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   <span>{lang === "th" ? "เป็นเจ้าของ" : lang === "zh" ? "已拥有" : "Owned"}: {ownedCount}</span>
                 </div>
                 <div className="shopgrid shop-grid-full">
-                  {filtered.map(it => renderShopItem(it._kind, it, CAT_EQUIPPED[it._kind]))}
+                  {filtered.map(it => renderShopItem(CAT_SLOT[it._kind] || it._kind, it, CAT_EQUIPPED[it._kind]))}
                 </div>
               </div>
             </div>
