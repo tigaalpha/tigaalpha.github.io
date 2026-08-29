@@ -248,6 +248,9 @@ export function useArenaFx() {
     const soft = reduced();
     const S = {
       parts: [], beams: [], rings: [], lasers: [], lobs: [], balls: [], smoke: [], flares: [],
+      // where the two fighters actually are, as fractions of the stage width —
+      // once they can walk, a bolt fired from a fixed 24% leaves from thin air
+      pos: { me: 0.24, op: 0.76 }, air: { me: 0, op: 0 },
       flash: null, t: 0, raf: 0, w: 0, h: 0, dpr: 1, motes: [],
     };
     stateRef.current = S;
@@ -435,9 +438,14 @@ export function useArenaFx() {
     const S = stateRef.current;
     if (!S) return { x: 0, y: 0 };
     const lead = part === "weapon" ? 0.05 : part === "hand" ? 0.03 : 0;
-    const f = side === "me" ? 0.24 + lead : 0.76 - lead;
-    return { x: S.w * f, y: S.h * (AT_Y[part] || 0.52) };
+    const f = (S.pos[side] || 0.5) + (side === "me" ? lead : -lead);
+    return { x: S.w * f, y: S.h * (AT_Y[part] || 0.52) - (S.air[side] || 0) * S.h * 0.16 };
   };
+  /** Tell the canvas where the fighters are standing and how high they are. */
+  const setPos = useCallback((mePos, opPos, meAir, opAir) => {
+    const S = stateRef.current; if (!S) return;
+    S.pos.me = mePos; S.pos.op = opPos; S.air.me = meAir || 0; S.air.op = opAir || 0;
+  }, []);
 
   const burst = useCallback((side, power = 1, colour = "#ffd23f", part = "body") => {
     const S = stateRef.current; if (!S) return;
@@ -524,5 +532,5 @@ export function useArenaFx() {
     S.flash = { c: colour, a, p: 0, dur };
   }, []);
 
-  return { canvasRef, burst, bolt, laser, muzzle, boom, lob, flash, beam: bolt };
+  return { canvasRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, beam: bolt };
 }

@@ -597,9 +597,23 @@ export const PvpPage = memo(function PvpPage({
    side a free heavy hit. The music knowledge still decides duels, it just
    stops standing between the player and the game. */
 const WAVES = [40000, 30000, 26000, 22000];   // action time before each break
-const ATK_CD = 400;                            // ms between your own strikes
 const GUARD_MS = 900, GUARD_CD = 2400;
 const BOT_GAP = { rookie: 1700, veteran: 1250, ace: 950 };
+
+/* ── the moveset ──
+   Once the robots can walk, the buttons have to mean different things or the
+   stick is decoration. A punch hits hardest and only lands in close; the
+   blaster reaches but hits softest; the rocket reaches and hurts, and makes
+   you wait for it. Jumping lifts you over anything on the ground, which is
+   the only answer to a bot that is faster than you. */
+const ACT = {
+  punch:  { cd: 400,  dmg: 1.55, range: 0.27, move: "punch",   sfx: "hit" },
+  fire:   { cd: 330,  dmg: 0.72, range: 9,    move: "blaster", sfx: "shot" },
+  rocket: { cd: 3400, dmg: 3.2,  range: 9,    move: "grenade", sfx: "lob" },
+};
+const JUMP_MS = 760, JUMP_CD = 1150;
+const WALK = 0.42;                             // stage-widths per second
+const X_MIN = 0.08, X_MAX = 0.92, GAP_MIN = 0.16;
 
 // two full-body SVGs re-rendering on every HP tick would be the whole frame
 // budget; they only actually change when a pose or an angle does
@@ -650,11 +664,24 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [graceLeft, setGraceLeft] = useState(fx.passive === "grace" ? 1 : 0);
   const [lunge, setLunge] = useState(null);
   const [shake, setShake] = useState(0);
+  // ── where everyone is standing, and who is off the ground ──
+  const [myX, setMyX] = useState(0.24);
+  const [opX, setOpX] = useState(0.76);
+  const [myAir, setMyAir] = useState(0);
+  const [opAir, setOpAir] = useState(0);
+  const [land, setLand] = useState(() => {
+    try { return window.innerWidth > window.innerHeight * 1.25; } catch (e) { return false; }
+  });
+  const [cool, setCool] = useState({ punch: 0, fire: 0, rocket: 0, jump: 0, guard: 0 });
 
   const startedRef = useRef(Date.now());
   const doneRef = useRef(false);
   const hpRef = useRef({ me: MY_MAX, op: OP_MAX });
-  const cdRef = useRef(0), guardUntil = useRef(0), guardCd = useRef(0);
+  const guardUntil = useRef(0), guardCd = useRef(0);
+  const cdRef = useRef({ punch: 0, fire: 0, rocket: 0, jump: 0 });
+  const posRef = useRef({ me: 0.24, op: 0.76 });
+  const airRef = useRef({ me: 0, op: 0 });     // 0..1, height off the floor
+  const dirRef = useRef(0);                     // -1 back, 0 still, +1 forward
   const comboRef = useRef(0), scoreRef = useRef(0), buffRef = useRef(buffs), graceRef = useRef(graceLeft);
   // the result screen is written from a timeout, which reads whatever render
   // it was created in — counters it reports have to live in refs or the last
@@ -665,6 +692,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   useEffect(() => () => { timers.current.forEach(clearTimeout); timers.current = []; }, []);
   useEffect(() => { buffRef.current = buffs; }, [buffs]);
   useEffect(() => { graceRef.current = graceLeft; }, [graceLeft]);
+
+  // the arena is the one screen in the app worth turning the phone for
+  useEffect(() => {
+    const on = () => { try { setLand(window.innerWidth > window.innerHeight * 1.25); } catch (e) {} };
+    window.addEventListener("resize", on);
+    window.addEventListener("orientationchange", on);
+    return () => { window.removeEventListener("resize", on); window.removeEventListener("orientationchange", on); };
+  }, []);
 
   const G = useArenaFx();
   const audioRef = useRef(null);
@@ -744,6 +779,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     const nb = { ...buffRef.current };
     const now = Date.now();
     if (now < guardUntil.current) { audioRef.current.sfx("block"); G.burst("me", .8, "#5ce1ff"); say("me", T("กัน!", "GUARD", "格挡"), "block"); return; }
+    if (airRef.current.me > 0) { audioRef.current.sfx("miss"); say("me", T("หลบ!", "AIRBORNE", "腾空"), "block"); return; }
     if (graceRef.current > 0) { graceRef.current = 0; setGraceLeft(0); audioRef.current.sfx("block"); say("me", T("ยกโทษให้", "FREE MISS", "免罚"), "block"); return; }
     if (nb.fortress > 0 || nb.block > 0 || nb.phase > 0 || (fx.passive === "evade" && Math.random() < 0.2)) {
       if (nb.block > 0) { nb.block = 0; buffRef.current = nb; setBuffs(nb); }
@@ -763,27 +799,48 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (mHp <= 0) later(finish, 420);
   }
 
-  /* ── your strike ── */
-  function tap() {
+  /* ── your attacks ── one path, three buttons, three shapes of risk ── */
+  function attack(act) {
     if (phase !== "action" || doneRef.current) return;
+    const A2 = ACT[act]; if (!A2) return;
     const now = Date.now();
-    if (now < cdRef.current || now < guardUntil.current) return;
-    cdRef.current = now + ATK_CD;
+    if (now < cdRef.current[act] || now < guardUntil.current) return;
+    cdRef.current[act] = now + A2.cd;
+    setCool(c => ({ ...c, [act]: now + A2.cd }));
+    // a punch thrown from across the arena is a whiff, not a hit
+    if (Math.abs(posRef.current.me - posRef.current.op) > A2.range) {
+      audioRef.current.sfx("miss");
+      setMyPose(MOVES[A2.move].pose);
+      say("me", T("ไกลไป", "TOO FAR", "太远了"), "miss");
+      later(() => setMyPose("ready"), 380);
+      return;
+    }
     const nb = { ...buffRef.current };
     comboRef.current += 1; setCombo(comboRef.current);
     setBestCombo(b => Math.max(b, comboRef.current));
     const comboK = Math.min(2.2, 1 + comboRef.current * (fx.passive === "streak" ? 0.08 : 0.04));
-    let dmg = A.dmg * TAP_DMG * comboK * (fx.passive === "power" ? 1.25 : 1);
-    let kind = "hit";
+    let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1);
+    let kind = act === "rocket" ? "ult" : "hit";
     if (nb.crit > 0) { dmg *= 2.2; nb.crit = 0; kind = "crit"; buffRef.current = nb; setBuffs(nb); }
     if (nb.anthem > 0) { dmg *= 1.4; nb.anthem -= 1; buffRef.current = nb; setBuffs(nb); }
     if (overdrive) dmg *= 1.6;
-    if (Math.random() < A.follow) { dmg *= 1.5; kind = kind === "hit" ? "crit" : kind; }
+    if (Math.random() < A.follow) { dmg *= 1.5; if (kind === "hit") kind = "crit"; }
     if (fx.passive === "repair") {
       const h = Math.min(MY_MAX, hpRef.current.me + 2); hpRef.current.me = h; setMyHp(h);
     }
     setGauge(g => Math.min(100, g + (A.charge * (fx.passive === "resonate" ? 1.3 : 1)) / 4));
-    hitOp(dmg, kind);
+    hitOp(dmg, kind, A2.move);
+  }
+
+  function jump() {
+    if (phase !== "action" || doneRef.current) return;
+    const now = Date.now();
+    if (now < cdRef.current.jump) return;
+    cdRef.current.jump = now + JUMP_CD;
+    setCool(c => ({ ...c, jump: now + JUMP_CD }));
+    airRef.current.me = 1;
+    audioRef.current.sfx("charge");
+    later(() => { airRef.current.me = 0; setMyAir(0); }, JUMP_MS);
   }
 
   function guard() {
@@ -796,6 +853,34 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     G.burst("me", .6, "#5ce1ff");
     later(() => setGuarding(false), GUARD_MS);
   }
+
+  /* ── footwork ──
+     One 60ms tick moves you, moves the bot, and eases both jumps. The bot
+     closes when it wants to be in punching range and backs off when it has
+     just thrown something, which is what stops the two of them standing
+     nose to nose for the whole fight. */
+  useEffect(() => {
+    if (phase !== "action" || doneRef.current) return;
+    const id = setInterval(() => {
+      if (doneRef.current) return;
+      const dt = 0.06;
+      const P = posRef.current;
+      if (dirRef.current) P.me = Math.min(X_MAX, Math.max(X_MIN, P.me + dirRef.current * WALK * dt));
+      // the bot drifts toward its preferred range
+      const want = Math.random() < 0.5 ? 0.24 : 0.42;
+      const gap = P.op - P.me;
+      P.op += (gap > want ? -1 : gap < want - 0.06 ? 1 : 0) * WALK * 0.62 * dt;
+      P.op = Math.min(X_MAX, Math.max(X_MIN, P.op));
+      if (P.op - P.me < GAP_MIN) P.op = Math.min(X_MAX, P.me + GAP_MIN);
+      setMyX(P.me); setOpX(P.op);
+      // a jump is a half sine, so it leaves and lands instead of teleporting
+      const now = Date.now();
+      const h = airRef.current.me ? Math.sin(Math.PI * Math.min(1, (JUMP_MS - Math.max(0, cdRef.current.jump - JUMP_CD + JUMP_MS - now)) / JUMP_MS)) : 0;
+      setMyAir(airRef.current.me ? Math.max(0.05, h) : 0);
+      G.setPos(P.me, P.op, airRef.current.me ? Math.max(0.05, h) : 0, 0);
+    }, 60);
+    return () => clearInterval(id);
+  }, [phase, G]);
 
   /* ── the wave clock, and the bot that fights through it ── */
   useEffect(() => {
@@ -923,7 +1008,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const waveTotal = WAVES[Math.min(wave - 1, WAVES.length - 1)];
 
   return (
-    <div className="pvppage fight">
+    <div className={`pvppage fight${land ? " land" : ""}`}>
       <div className="pvphdr">
         <button className="stgback" onClick={onBack} aria-label="back">←</button>
         <span className="pvphdr-t">{T("ยก", "Wave", "波次")} {Math.min(wave, WAVES.length)}/{WAVES.length}</span>
@@ -943,12 +1028,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             <div className="pvphp-n op">{Math.max(0, Math.round(opHp))} · {oppKind === "player" ? oppName : tr3(CHAR_MODELS.find(m => m.id === oppModel) || {}, lang)}</div>
           </div>
         </div>
-        <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}>
+        <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}
+          style={{ left: `calc(${(myX * 100).toFixed(1)}% - 22%)`, bottom: `${6 + myAir * 62}px` }}>
           <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
             glow="#00b8d4" accent="#7c4dff" armorA="#1b2436" armorB="#41608a" />
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
         </div>
-        <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}`}>
+        <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}`}
+          style={{ left: `calc(${(opX * 100).toFixed(1)}% - 22%)`, right: "auto", bottom: `${6 + opAir * 62}px` }}>
           <Bot model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose}
             glow="#ff7a3c" accent="#ff4d6a" armorA="#2b1a1a" armorB="#8a4a3a" />
           {flash && flash.side === "op" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
@@ -961,13 +1048,37 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         <>
           <div className="pvpwave"><i style={{ width: `${Math.max(0, (left / waveTotal) * 100)}%` }} /></div>
           <div className="pvpwave-l">{T("คำถามจะมาใน", "Question in", "问题将在")} {Math.ceil(left / 1000)}s</div>
-          <div className="pvpctrl">
-            <button className="pvpatk" onPointerDown={tap} aria-label={T("โจมตี", "Attack", "攻击")}>
-              <b>{T("โจมตี", "ATTACK", "攻击")}</b><i>{T("แตะรัว ๆ", "tap fast", "快速点击")}</i>
-            </button>
-            <button className={`pvpgrd${guarding ? " on" : ""}`} onPointerDown={guard} aria-label={T("ป้องกัน", "Guard", "防御")}>
-              <b>{T("การ์ด", "GUARD", "防御")}</b><i>{T("กันหมัดถัดไป", "block a hit", "格挡一击")}</i>
-            </button>
+          {/* ── the pad ──
+              Left thumb walks, right thumb fights. In landscape these two
+              clusters float over the arena at the bottom corners, which is
+              where the thumbs already are when a phone is held sideways; in
+              portrait the same buttons stack under the stage. One control set,
+              two layouts — two movesets would have been two games. */}
+          <div className="pvppad">
+            <div className="pvppad-l">
+              <button className="pvpdir" aria-label={T("ถอย", "Back", "后退")}
+                onPointerDown={() => { dirRef.current = -1; }} onPointerUp={() => { dirRef.current = 0; }}
+                onPointerLeave={() => { dirRef.current = 0; }} onPointerCancel={() => { dirRef.current = 0; }}>◀</button>
+              <button className={`pvpdir grd${guarding ? " on" : ""}`} aria-label={T("การ์ด", "Guard", "防御")}
+                onPointerDown={guard}>🛡</button>
+              <button className="pvpdir" aria-label={T("เดินหน้า", "Forward", "前进")}
+                onPointerDown={() => { dirRef.current = 1; }} onPointerUp={() => { dirRef.current = 0; }}
+                onPointerLeave={() => { dirRef.current = 0; }} onPointerCancel={() => { dirRef.current = 0; }}>▶</button>
+            </div>
+            <div className="pvppad-r">
+              <button className="pvpact fire" aria-label={T("ยิง", "Fire", "射击")} onPointerDown={() => attack("fire")}>
+                <b>🔫</b><i>{T("ยิง", "FIRE", "射击")}</i>
+              </button>
+              <button className="pvpact jump" aria-label={T("กระโดด", "Jump", "跳跃")} onPointerDown={jump}>
+                <b>⤴</b><i>{T("กระโดด", "JUMP", "跳跃")}</i>
+              </button>
+              <button className="pvpact punch" aria-label={T("ต่อย", "Punch", "拳击")} onPointerDown={() => attack("punch")}>
+                <b>👊</b><i>{T("ต่อย", "PUNCH", "拳击")}</i>
+              </button>
+              <button className="pvpact rocket" aria-label={T("จรวด", "Rocket", "火箭")} onPointerDown={() => attack("rocket")}>
+                <b>🚀</b><i>{T("จรวด", "ROCKET", "火箭")}</i>
+              </button>
+            </div>
           </div>
         </>
       )}
