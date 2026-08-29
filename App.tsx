@@ -7,7 +7,7 @@ import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotG
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 import { SkillTrack, PvpPage, trainFromExp, readSkillSp, skillRank } from "./pvp-arena";
-import { PetDock, PetPage } from "./pet-lab";
+import { PetPod, PetPage } from "./pet-lab";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -6212,6 +6212,12 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
     <div className="profpage" style={{ "--lv-c": color }}>
       <div className="profhero">
         <div className="profhero-glow" />
+        {/* ── pet pod ──
+            Sits beside the avatar rather than in a row of its own: the pet
+            belongs with the character, not with the progress bars, and this is
+            the corner the eye already lands on. It is absolutely positioned so
+            it never pushes the avatar off centre. */}
+        <PetPod lang={lang} onOpen={onOpenPet} />
         <div className="profava-wrap">
           <div className="profava-ring" />
           <div className="profava-frame" />
@@ -6243,13 +6249,6 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             fresh one. The arena is the door directly under it because the bar
             and the fight are the same loop. */}
         <SkillTrack lang={lang} charModel={charModel} onOpenPvp={onOpenPvp} />
-
-        {/* ── pet dock ──
-            Directly under the arena door, because that is where the pet
-            eventually goes. A live portrait rather than a button: whether it
-            needs feeding is the only thing that would ever make somebody open
-            the page, so the card says it on the profile itself. */}
-        <PetDock lang={lang} onOpen={onOpenPet} />
       </div>
 
       {/* ── Character / Avatar Dress-up Section ── */}
@@ -10479,9 +10478,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           // humanoid android rather than the rank emoji it used to borrow
           { p: "profile", ic: <RobotGlyph size={21} />, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
-          // the pet lab sits with the profile group: it is character upkeep,
-          // not a lesson, and it feeds the arena rather than the pathway
-          { p: "pet", ic: "🐾", c: "#3ddc84", t: lang === "th" ? "สัตว์เลี้ยงไซบอร์ก" : lang === "zh" ? "赛博宠物" : "Cyber Pet" },
+          // no pet entry here on purpose — the pet lab is reached from the pod
+          // beside the avatar on the profile, where the character lives
           // Challenging moved into the Studio card grid (right after Parent
           // Report, before the MAX Exclusive Features section) per request —
           // no longer a separate drawer entry, same page either way.

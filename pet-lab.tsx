@@ -109,7 +109,7 @@ export const foodById = (id) => PET_FOODS.find(f => f.id === id);
 export const PET_BONUS = {
   dmg:   { k: "dmg",   v: 0.10, th: "ดาเมจ +10%", en: "+10% damage", zh: "伤害 +10%" },
   guard: { k: "guard", v: 0.12, th: "รับดาเมจ -12%", en: "-12% damage taken", zh: "受伤 -12%" },
-  heal:  { k: "heal",  v: 0.08, th: "ฟื้นเลือดต้นยกทุกยก", en: "Heal at the start of each wave", zh: "每波开始回血" },
+  heal:  { k: "heal",  v: 0.04, th: "ฟื้นเลือดต้นยกทุกยก", en: "Heal at the start of each wave", zh: "每波开始回血" },
   sp:    { k: "sp",    v: 0.15, th: "เกจสกิลเต็มเร็ว +15%", en: "+15% skill gauge", zh: "技能槽 +15%" },
 };
 
@@ -165,7 +165,9 @@ export const petLevel = (bond) => {
   const at = (n) => 26 * (n - 1) * (n - 1);
   return { lv, into: bond - at(lv), need: at(lv + 1) - at(lv), pct: (bond - at(lv)) / (at(lv + 1) - at(lv)) };
 };
-export const petStage = (bond) => (petLevel(bond).lv >= 9 ? 3 : petLevel(bond).lv >= 4 ? 2 : 1);
+/* The three named stages are just milestones on the same continuous curve —
+   the body changes every level, this is only what to call it. */
+export const petStage = (bond) => (petLevel(bond).lv >= 9 ? 3 : petLevel(bond).lv >= 5 ? 2 : 1);
 export const petHappy = (p) => Math.round(((p.hunger + p.clean + p.coat + p.mood) / 4));
 
 /* ══════════════════════ the creature ══════════════════════ */
@@ -192,6 +194,48 @@ const LAY = {
   ],
 };
 
+/* ── growing up ──
+   The three layouts above are keyframes, not steps. A pet at level 7 is drawn
+   between the second and third of them, so the body changes a little at EVERY
+   level rather than jumping three times in a creature's whole life. On top of
+   that continuous change, one visible part is bolted on per level — that is
+   what makes a level-up something you can see rather than a number going up. */
+export const PET_ARTLV = 12;                 // the level the body finishes growing at
+const lerp = (a, b, t) => a + (b - a) * t;
+const hx = (c) => { const h = String(c).replace("#", ""); const n = parseInt(h.length === 3 ? h.split("").map(x => x + x).join("") : h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+/** Blend two hex colours. A grown pet runs hotter in its own element. */
+const mixc = (a, b, t) => { const x = hx(a), y = hx(b); return "#" + [0, 1, 2].map(i => Math.round(lerp(x[i], y[i], t)).toString(16).padStart(2, "0")).join(""); };
+/** Read the three keyframes at a growth position 0..1. */
+const mix3 = (k, g) => {
+  const t = g <= .5 ? g * 2 : (g - .5) * 2;
+  const lo = g <= .5 ? k[0] : k[1], hi = g <= .5 ? k[1] : k[2];
+  const out = {};
+  for (const n of Object.keys(lo)) out[n] = lerp(lo[n], hi[n], t);
+  return out;
+};
+/** One new part per level. Index is the level it appears at. */
+export const GROW = [
+  null, null, "core", "studs", "plate", "bracers", "crest", "anklets", "vents", "wings", "pauldrons", "tailglow", "aura",
+];
+export const GROW_TEXT = {
+  core:      { th: "แกนพลังติดไฟ", en: "Power core lights up", zh: "核心点亮" },
+  studs:     { th: "หมุดไหล่", en: "Shoulder studs", zh: "肩钉" },
+  plate:     { th: "เกราะอก", en: "Chest plate", zh: "胸甲" },
+  bracers:   { th: "ปลอกแขน", en: "Bracers", zh: "护腕" },
+  crest:     { th: "หงอนบนหัว", en: "Head crest", zh: "头冠" },
+  anklets:   { th: "ห่วงข้อเท้า", en: "Ankle rings", zh: "踝环" },
+  vents:     { th: "ช่องระบายหลัง", en: "Back vents", zh: "背部散热口" },
+  wings:     { th: "ปีก", en: "Wings", zh: "翅膀" },
+  pauldrons: { th: "เกราะไหล่", en: "Pauldrons", zh: "肩铠" },
+  tailglow:  { th: "หางเรืองแสง", en: "Glowing tail", zh: "尾巴发光" },
+  aura:      { th: "วงออร่า", en: "Aura ring", zh: "光环" },
+};
+/** What the next level adds, for the bond card to promise. */
+export const nextGrowth = (lv) => {
+  for (let n = Math.max(2, lv + 1); n < GROW.length; n++) if (GROW[n]) return { lv: n, key: GROW[n], ...GROW_TEXT[GROW[n]] };
+  return null;
+};
+
 /* Two path helpers do nearly all the geometry — an ellipse and a rounded box.
    Everything (torso, limbs, plates, hatches) is one of those two, which is
    what keeps twelve creatures from drifting into twelve different styles. */
@@ -211,20 +255,34 @@ const HEADS = {
   boxy:  (x, y, r) => rr(x, y, r * 2, r * 1.94, r * .34),
 };
 
-/** One creature, built from its parts and its stage.
+/** One creature, built from its parts and how grown-up it is.
     Draw order is back-to-front: tail, back limbs, wings, torso, front limbs,
     neck, head, ears, face. Everything shares one light rig so a pet standing
-    next to a chassis in the arena looks like it came out of the same shop. */
-export const PetArt = memo(function PetArt({ species, stage = 1, mood = 80, size, className = "" }) {
+    next to a chassis in the arena looks like it came out of the same shop.
+
+    `level` drives everything. The body is interpolated between the three
+    keyframe layouts, so it changes a little every level, and `GROW` bolts on
+    one new part per level so there is always something new to look at. */
+export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, size, className = "" }) {
   const sp = petById(species);
-  const st = Math.max(1, Math.min(3, Math.round(stage) || 1));
-  const uid = "pt" + sp.id + st;
+  // `stage` is still accepted so older call sites keep working
+  const lv = Math.max(1, Math.round(level || (stage ? [1, 5, 10][Math.min(2, stage - 1)] : 1)));
+  const g = Math.min(1, (lv - 1) / (PET_ARTLV - 1));
+  const uid = "pt" + sp.id + Math.min(lv, PET_ARTLV);
+  const has = (n) => lv >= n;
   const A = sp.sw[0], B = sp.sw[1];
   const T = PET_TYPES[sp.type] || PET_TYPES.steel;
   const sad = mood < 35;
-  const L = (LAY[sp.build] || LAY.biped)[st - 1];
+  const L = mix3(LAY[sp.build] || LAY.biped, g);
   const cx = 60, hy = L.hy, hr = L.hr, by = L.by, bw = L.bw, bh = L.bh;
   const bTop = by - bh / 2, bBot = by + bh / 2;
+  /* On top of the layout change, the whole creature scales up from the ground,
+     so a grown pet plainly fills more of its frame than a hatchling. */
+  const SC = 0.9 + g * 0.24;
+  /* and it warms toward its own element, with a rim light that only really
+     shows up once it is most of the way grown */
+  const A2 = mixc(A, T.c, g * 0.34);
+  const rim = 0.1 + g * 0.5;
 
   const F = `url(#${uid}-body)`;
   const D = `url(#${uid}-limb)`;
@@ -235,6 +293,7 @@ export const PetArt = memo(function PetArt({ species, stage = 1, mood = 80, size
       <path d={d} fill={f} />
       <path d={d} fill={`url(#${uid}-occ)`} opacity={o.occ == null ? 1 : o.occ} />
       <path d={d} fill={`url(#${uid}-spec)`} opacity={o.spec == null ? 1 : o.spec} />
+      <path d={d} fill={`url(#${uid}-rim)`} />
       <path d={d} fill="none" stroke={B} strokeWidth={o.lw || 1.7} strokeLinejoin="round" opacity={o.lineOp == null ? .9 : o.lineOp} />
     </g>
   );
@@ -362,16 +421,21 @@ export const PetArt = memo(function PetArt({ species, stage = 1, mood = 80, size
   const coreY = sp.build === "quad" ? by - bh * .1 : by - bh * .06;
 
   return (
-    <svg className={`pa pa-${sp.build} ${className}`} viewBox="0 -14 120 150" width={size || "100%"} height={size || "100%"} aria-hidden="true">
+    <svg className={`pa pa-${sp.build} ${className}`} viewBox="-12 -18 144 156" width={size || "100%"} height={size || "100%"} aria-hidden="true">
       <defs>
         <linearGradient id={`${uid}-body`} x1="0.18" y1="0" x2="0.8" y2="1">
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".9" />
           <stop offset="24%" stopColor={A} />
+          <stop offset="66%" stopColor={A2} />
           <stop offset="100%" stopColor={B} />
         </linearGradient>
         <linearGradient id={`${uid}-limb`} x1="0.2" y1="0" x2="0.8" y2="1">
-          <stop offset="0%" stopColor={A} />
+          <stop offset="0%" stopColor={A2} />
           <stop offset="100%" stopColor={B} />
+        </linearGradient>
+        <linearGradient id={`${uid}-rim`} x1="0" y1="1" x2="0.4" y2="0">
+          <stop offset="0%" stopColor={T.c} stopOpacity={rim} />
+          <stop offset="52%" stopColor={T.c} stopOpacity="0" />
         </linearGradient>
         <radialGradient id={`${uid}-iris`}>
           <stop offset="0%" stopColor="#ffffff" />
@@ -397,33 +461,78 @@ export const PetArt = memo(function PetArt({ species, stage = 1, mood = 80, size
 
       <ellipse cx={cx} cy={GROUND + 1} rx={bw * .78} ry="5.4" fill="#0b1526" opacity={sp.build === "float" ? .12 : .18} />
 
+      {/* L12 — an aura ring on the floor, the last thing it earns */}
+      {has(12) && <>
+        <ellipse cx={cx} cy={GROUND - 2} rx={bw * .95} ry="9" fill="none" stroke={T.c} strokeWidth="2" opacity=".45" />
+        <ellipse cx={cx} cy={GROUND - 2} rx={bw * .7} ry="6.4" fill="none" stroke="#fff" strokeWidth="1" opacity=".3" />
+      </>}
+
+      <g transform={"translate(60 " + GROUND + ") scale(" + SC.toFixed(3) + ") translate(-60 -" + GROUND + ")"}>
       <g className={sad ? "pa-sag" : "pa-bob"}>
         {TAILS[sp.tail]}
+        {/* L11 — the tail lights up */}
+        {has(11) && <circle cx={tx + 16} cy={ty - 4} r={7} fill={`url(#${uid}-glow)`} opacity=".85" />}
         {limbs.back}
-        {/* stage three grows something on its back */}
-        {st >= 3 && [-1, 1].map(k => (
-          <path key={k} d={`M${cx + k * bw * .32} ${bTop + 4} C${cx + k * (bw * .96)} ${bTop - 26} ${cx + k * (bw * 1.24)} ${bTop - 2} ${cx + k * bw * .56} ${bTop + 20} Z`}
+        {/* L8 — vents down the back, seen just past the shoulder line */}
+        {has(8) && [-1, 1].map(k => (
+          <g key={k}>
+            <path d={rr(cx + k * bw * .5, bTop + bh * .34, 8, bh * .62, 3)} fill={B} opacity=".85" />
+            {[0, 1, 2].map(j => (
+              <rect key={j} x={cx + k * bw * .5 - 3} y={bTop + 5 + j * (bh * .2)} width="6" height="3.4" rx="1.6" fill={T.c} opacity=".92" />
+            ))}
+          </g>))}
+        {/* L9 — wings, and L10 grows them */}
+        {has(9) && [-1, 1].map(k => (
+          <path key={k} d={`M${cx + k * bw * .32} ${bTop + 4} C${cx + k * bw * (has(10) ? 1.1 : .9)} ${bTop - (has(10) ? 32 : 24)} ${cx + k * bw * (has(10) ? 1.42 : 1.18)} ${bTop - 2} ${cx + k * bw * .56} ${bTop + 20} Z`}
             fill={T.c} opacity=".82" stroke={B} strokeWidth="1.3" strokeLinejoin="round" />))}
         {P(torso, F)}
-        {/* chest hatch + core: dark at stage one, lit from stage two on */}
+        {/* the chest hatch is there from the start; what changes is what is in it */}
         {P(rr(cx, coreY, bw * .5, bh * .46, 4), D, { spec: .5, occ: .7, lw: 1.2, lineOp: .5 })}
         {seam(`M${cx - bw * .2} ${coreY - bh * .16} h${bw * .4}`, .4)}
-        {st >= 2 && <circle cx={cx} cy={coreY} r={bw * .26} fill={`url(#${uid}-glow)`} />}
-        <circle cx={cx} cy={coreY} r={Math.max(3, bw * .11)} fill={st >= 2 ? T.c : B} stroke={B} strokeWidth="1.2" opacity={st >= 2 ? 1 : .7} />
-        {/* stage three armours the shoulders */}
-        {st >= 3 && sp.build !== "quad" && [-1, 1].map(k => P(
-          `M${cx + k * bw * .16} ${bTop - 1} C${cx + k * bw * .58} ${bTop - 5} ${cx + k * bw * .7} ${bTop + 4} ${cx + k * bw * .62} ${bTop + 11} L${cx + k * bw * .2} ${bTop + 8} Z`, F, { spec: .8, lw: 1.4 }))}
+        {/* L4 — a proper chest plate over the hatch */}
+        {has(4) && P(`M${cx - bw * .36} ${coreY - bh * .3} H${cx + bw * .36} L${cx + bw * .28} ${coreY + bh * .16} L${cx} ${coreY + bh * .34} L${cx - bw * .28} ${coreY + bh * .16} Z`,
+          F, { spec: .9, occ: .45, lw: 1.5 })}
+        {/* L2 — the core lights */}
+        {has(2) && <circle cx={cx} cy={coreY} r={bw * (has(4) ? .3 : .26)} fill={`url(#${uid}-glow)`} />}
+        <circle cx={cx} cy={coreY} r={Math.max(3, bw * .11)} fill={has(2) ? T.c : B} stroke={B} strokeWidth="1.2" opacity={has(2) ? 1 : .7} />
+        {/* L3 — shoulder studs; L10 — full pauldrons over them */}
+        {has(3) && [-1, 1].map(k => (
+          <path key={k} d={`M${cx + k * bw * .3} ${bTop + 2} L${cx + k * bw * .62} ${bTop - 8} L${cx + k * bw * .58} ${bTop + 6} Z`}
+            fill={A2} stroke={B} strokeWidth="1.3" strokeLinejoin="round" />))}
+        {has(10) && sp.build !== "quad" && [-1, 1].map(k => P(
+          `M${cx + k * bw * .16} ${bTop - 2} C${cx + k * bw * .62} ${bTop - 7} ${cx + k * bw * .76} ${bTop + 4} ${cx + k * bw * .66} ${bTop + 13} L${cx + k * bw * .2} ${bTop + 9} Z`, F, { spec: .85, lw: 1.4 }))}
         {limbs.front}
-        {/* neck ring — the join that says built, not grown */}
+        {/* L5 — bracers on the forelimbs */}
+        {has(5) && [-1, 1].map(k => {
+          const bxc = cx + k * (sp.build === "quad" ? bw * .2 : bw * .5 + 2);
+          const byc = sp.build === "quad" ? GROUND - 21 : bTop + bh * .34 + L.arm * .6;
+          return (
+            <g key={k}>
+              <path d={rr(bxc, byc, 15, 9, 3)} fill={A2} stroke={B} strokeWidth="1.3" />
+              <path d={rr(bxc, byc, 11, 2.6, 1.3)} fill={T.c} opacity=".95" />
+            </g>);
+        })}
+        {/* L7 — ankle rings */}
+        {has(7) && (sp.build === "float"
+          ? <ellipse cx={cx} cy={bBot + 13} rx={bw * .44} ry="4" fill="none" stroke={T.c} strokeWidth="2.4" opacity=".8" />
+          : [-1, 1].map(k => (
+            <g key={k}>
+              <path d={rr(cx + k * bw * (sp.build === "quad" ? .21 : .26), GROUND - 12, 15, 6.4, 2.6)} fill={A2} stroke={B} strokeWidth="1.2" />
+              <path d={rr(cx + k * bw * (sp.build === "quad" ? .21 : .26), GROUND - 12, 11, 2, 1)} fill={T.c} />
+            </g>)))}
         {sp.build !== "float" && P(rr(cx, bTop - 3, bw * .4, 7, 3), D, { spec: .6, lw: 1.3 })}
         {EARS[sp.ear]}
         {P((HEADS[sp.head] || HEADS.round)(cx, hy, hr), F)}
-        {/* cheek vents + a crown seam */}
         {[0, 1, 2].map(j => seam(`M${cx + hr * .62} ${hy + hr * .42 + j * 4} h${hr * .3}`, .4))}
         {seam(`M${cx - hr * .34} ${hy - hr * .96} C${cx - hr * .5} ${hy - hr * .5} ${cx - hr * .5} ${hy - hr * .2} ${cx - hr * .42} ${hy + hr * .1}`, .32)}
+        {/* L6 — a crest between the ears */}
+        {has(6) && [-1, 0, 1].map(k => (
+          <path key={k} d={`M${cx + k * hr * .34 - hr * .13} ${hy - hr * .84} L${cx + k * hr * .34} ${hy - hr * (k === 0 ? 1.62 : 1.32)} L${cx + k * hr * .34 + hr * .13} ${hy - hr * .84} Z`}
+            fill={T.c} stroke={B} strokeWidth="1.2" strokeLinejoin="round" />))}
         {EYES[sp.eye]}
         {!sad && <path d={`M${cx - hr * .22} ${hy + hr * .62} C${cx - hr * .06} ${hy + hr * .82} ${cx + hr * .06} ${hy + hr * .82} ${cx + hr * .22} ${hy + hr * .62}`} fill="none" stroke={B} strokeWidth="1.9" strokeLinecap="round" opacity=".62" />}
         {sad && <path d={`M${cx - hr * .22} ${hy + hr * .8} C${cx - hr * .06} ${hy + hr * .6} ${cx + hr * .06} ${hy + hr * .6} ${cx + hr * .22} ${hy + hr * .8}`} fill="none" stroke={B} strokeWidth="1.9" strokeLinecap="round" opacity=".62" />}
+      </g>
       </g>
     </svg>
   );
@@ -464,11 +573,16 @@ export function petBonusOf() {
 /* Every care action raises one stat. Bond is paid on the ACTUAL rise, not on
    the tap — feeding a full pet is worth nothing — which is what stops the
    whole thing from being a button you mash a hundred times on day one. */
+/* Every care action costs coins, and coins only come from practising. That is
+   the point of the whole mode: the pet is a reason to go and learn something,
+   not a free toy. A full round of care runs 60 coins against a 25-coin daily
+   payout, so it stays a net sink — you have to keep earning to keep it well.
+   Feeding is not priced here because the food itself was already paid for. */
 const CARE = {
-  feed:  { stat: "hunger", rise: 34, ic: "🍖", c: "#ff9a4c" },
-  bath:  { stat: "clean",  rise: 42, ic: "🫧", c: "#5ce1ff" },
-  brush: { stat: "coat",   rise: 40, ic: "🪮", c: "#c7a6ff" },
-  play:  { stat: "mood",   rise: 38, ic: "🎾", c: "#3ddc84" },
+  feed:  { stat: "hunger", rise: 34, ic: "🍖", c: "#ff9a4c", cost: 0 },
+  bath:  { stat: "clean",  rise: 42, ic: "🫧", c: "#5ce1ff", cost: 20 },
+  brush: { stat: "coat",   rise: 40, ic: "🪮", c: "#c7a6ff", cost: 15 },
+  play:  { stat: "mood",   rise: 38, ic: "🎾", c: "#3ddc84", cost: 25 },
 };
 const CARE_TEXT = {
   feed:  { th: "ให้อาหาร", en: "Feed", zh: "喂食" },
@@ -501,9 +615,11 @@ function useCareFx() {
   return { fx, pop };
 }
 
-/** The pet dock on the profile page — a live portrait, not a button. It shows
-    the animal, what it needs, and what it is currently worth in a fight. */
-export const PetDock = memo(function PetDock({ lang, onOpen }) {
+/** The pet on the profile page — a small pod beside the avatar rather than a
+    row of its own. It sits where the eye already is (the character block) and
+    carries only what would make somebody tap it: the animal, its level, and a
+    dot when something needs doing. Everything else lives on the page. */
+export const PetPod = memo(function PetPod({ lang, onOpen }) {
   const [pet, setPet] = useState(() => readPet());
   useEffect(() => {
     const sync = () => setPet(readPet());
@@ -516,52 +632,26 @@ export const PetDock = memo(function PetDock({ lang, onOpen }) {
 
   if (!pet) {
     return (
-      <button className="petdock empty" onClick={onOpen}>
-        <span className="pd-egg">🥚</span>
-        <span className="pd-b">
-          <b>{T("ห้องเลี้ยงสัตว์ไซบอร์ก", "Cyber Pet Lab", "赛博宠物室")}</b>
-          <i>{T("ฟักตัวแรกของคุณ — เลี้ยงให้โต แล้วพามันไปช่วยหุ่นยนต์สู้",
-                "Hatch your first one — raise it, then bring it to fight beside your chassis",
-                "孵化第一只 — 养大后带它与机体并肩作战")}</i>
-        </span>
-        <span className="pd-go">→</span>
+      <button className="petpod empty" onClick={onOpen} title={T("ห้องเลี้ยงสัตว์ไซบอร์ก", "Cyber Pet Lab", "赛博宠物室")}>
+        <span className="pp-art egg">🥚</span>
+        <b>{T("ฟักสัตว์เลี้ยง", "Hatch a pet", "孵化宠物")}</b>
       </button>
     );
   }
 
   const sp = petById(pet.species);
-  const stage = petStage(pet.bond);
-  const happy = petHappy(pet);
-  const lv = petLevel(pet.bond);
-  const need = ["hunger", "clean", "coat", "mood"].filter(k => pet[k] < 45);
-  const messy = (pet.mess || []).length;
-  const T2 = PET_TYPES[sp.type];
-
+  const need = (pet.mess || []).length > 0 || ["hunger", "clean", "coat", "mood"].some(k => pet[k] < 45);
   return (
-    <button className={`petdock${happy < 50 ? " low" : ""}`} onClick={onOpen} style={{ "--pc": sp.sw[0], "--tc": T2.c }}>
-      <span className="pd-art"><PetArt species={sp.id} stage={stage} mood={pet.mood} /></span>
-      <span className="pd-b">
-        <b>{pet.name || tr3(sp, lang)} <i className="pd-lv">Lv.{lv.lv}</i></b>
-        <span className="pd-pips">
-          {["hunger", "clean", "coat", "mood"].map(k => (
-            <span key={k} className="pd-pip"><i style={{ width: `${Math.round(pet[k])}%`, background: k === "hunger" ? "#ff9a4c" : k === "clean" ? "#5ce1ff" : k === "coat" ? "#c7a6ff" : "#3ddc84" }} /></span>
-          ))}
-        </span>
-        <i className="pd-say">
-          {messy ? T(`มีของต้องเก็บ ${messy} กอง`, `${messy} mess to clean up`, `有 ${messy} 处要打扫`)
-            : need.length ? T(`ต้องการ: ${need.map(k => STAT_TEXT[k].th).join(" · ")}`,
-                              `Needs: ${need.map(k => STAT_TEXT[k].en).join(" · ")}`,
-                              `需要：${need.map(k => STAT_TEXT[k].zh).join(" · ")}`)
-              : T(`สบายดี · ${tr3(PET_BONUS[sp.bonus], lang)} ในสนามประลอง`,
-                  `Doing well · ${tr3(PET_BONUS[sp.bonus], lang)} in the arena`,
-                  `状态良好 · 竞技场${tr3(PET_BONUS[sp.bonus], lang)}`)}
-        </i>
-      </span>
-      <span className="pd-go">→</span>
+    <button className={`petpod${need ? " need" : ""}`} onClick={onOpen}
+      style={{ "--pc": sp.sw[0], "--tc": (PET_TYPES[sp.type] || PET_TYPES.steel).c }}
+      title={T("ห้องเลี้ยงสัตว์ไซบอร์ก", "Cyber Pet Lab", "赛博宠物室")}>
+      <span className="pp-art"><PetArt species={sp.id} level={petLevel(pet.bond).lv} mood={pet.mood} /></span>
+      <b>{pet.name || tr3(sp, lang)}</b>
+      <i>Lv.{petLevel(pet.bond).lv}</i>
+      {need && <em aria-label={T("ต้องการการดูแล", "Needs care", "需要照顾")} />}
     </button>
   );
 });
-
 /** The full care screen: hatch, then look after the thing forever. */
 export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onReward, onBack, playUi = () => {} }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -625,6 +715,16 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
       say(T("ตอนนี้ยังไม่ต้องการเลย", "It does not need that right now", "现在还不需要"));
       playUi("click"); return;
     }
+    /* charged only after the action is known to do something, so a wasted tap
+       never costs anything */
+    if (C.cost > 0) {
+      if (coins < C.cost || (onSpend && onSpend(C.cost) === false)) {
+        say(T("เหรียญไม่พอ — ไปฝึกซ้อมเก็บเหรียญก่อน",
+              "Not enough coins — go and practise to earn some",
+              "金币不足 —— 先去练琴赚金币"));
+        playUi("wrong"); return;
+      }
+    }
     let v = { ...pet, seen: Date.now(), [C.stat]: next };
     /* playing burns a little energy, and a good meal is a little messy —
        every action having a cost is what keeps the loop from being a
@@ -647,7 +747,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
         say(T("มันเติบโตขึ้นอีกขั้น!", "It grew into its next form!", "它进化到下一形态了！"));
       }
     }
-  }, [pet, bag, save, stash, say, pop, playUi, payDaily, lang]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pet, bag, coins, onSpend, save, stash, say, pop, playUi, payDaily, lang]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Picking up one mess. Cleaning is a tap on the thing itself, not a
       button — it is the one chore that should feel like a chore. */
@@ -689,7 +789,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
             return (
               <button key={sp.id} className={`pet-card${pick === sp.id ? " on" : ""}`} style={{ "--pc": sp.sw[0], "--tc": ty.c }}
                 onClick={() => { setPick(sp.id); playUi("click"); }}>
-                <span className="pc-art"><PetArt species={sp.id} stage={1} /></span>
+                <span className="pc-art"><PetArt species={sp.id} level={1} /></span>
                 <b>{tr3(sp, lang)}</b>
                 <i className="pc-type">{tr3(ty, lang)}</i>
                 <i className="pc-code">{sp.code}</i>
@@ -700,7 +800,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
         {sel && (
           <div className="pet-confirm">
             <div className="pcf-row">
-              <span className="pcf-art"><PetArt species={sel.id} stage={1} /></span>
+              <span className="pcf-art"><PetArt species={sel.id} level={1} /></span>
               <div className="pcf-b">
                 <b>{tr3(sel, lang)}</b>
                 <p>{lang === "th" ? sel.dth : lang === "zh" ? sel.dzh : sel.den}</p>
@@ -753,8 +853,11 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
       {/* ── the room ── the pet, its mess, and whatever just happened to it ── */}
       <div className="pet-room">
         <div className="pr-floor" />
-        <div className={`pr-pet${happy < 40 ? " sad" : ""}`} onClick={() => { care("play"); }}>
-          <PetArt species={sp.id} stage={stage} mood={pet.mood} />
+        {/* a tap on the creature is free affection — a stroke, a heart, no
+            stat and no coins. Playing is the priced button below; an accidental
+            tap in here must never cost anybody 25 coins. */}
+        <div className={`pr-pet${happy < 40 ? " sad" : ""}`} onClick={() => { pop("💛", 3); playUi("click"); }}>
+          <PetArt species={sp.id} level={lv.lv} mood={pet.mood} />
         </div>
         {mess.map(m => (
           <button key={m.id} className="pr-mess" style={{ left: `${m.x}%`, top: `${m.y}%` }}
@@ -770,10 +873,14 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
       <div className="pet-bond">
         <div className="pb-row"><b>{T("ความผูกพัน", "Bond", "羁绊")} · Lv.{lv.lv}</b><span>{lv.into} / {lv.need}</span></div>
         <div className="pb-bar"><i style={{ width: `${Math.round(lv.pct * 100)}%` }} /></div>
+        {/* the next level is a thing you can picture, not a number */}
         <div className="pb-sub">
-          {stage < 3
-            ? T(`เลเวล ${stage === 1 ? 4 : 9} จะเปลี่ยนร่าง`, `Changes form at level ${stage === 1 ? 4 : 9}`, `等级 ${stage === 1 ? 4 : 9} 时进化`)
-            : T("ร่างสุดท้ายแล้ว", "Final form", "最终形态")}
+          {(() => {
+            const nx = nextGrowth(lv.lv);
+            return nx
+              ? T(`Lv.${nx.lv} → ${nx.th}`, `Lv.${nx.lv} → ${nx.en}`, `Lv.${nx.lv} → ${nx.zh}`)
+              : T("โตเต็มที่แล้ว — ร่างสมบูรณ์", "Fully grown — final form", "已完全长大 —— 最终形态");
+          })()}
         </div>
       </div>
 
@@ -793,12 +900,21 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
 
       {/* ── actions ── */}
       <div className="pet-acts">
-        {["feed", "bath", "brush", "play"].map(k => (
-          <button key={k} className="pet-act" style={{ "--ac": CARE[k].c }} onClick={() => care(k)}>
-            <span>{CARE[k].ic}</span><b>{tr3(CARE_TEXT[k], lang)}</b>
-          </button>
-        ))}
+        {["feed", "bath", "brush", "play"].map(k => {
+          const cost = CARE[k].cost;
+          return (
+            <button key={k} className={`pet-act${cost > 0 && coins < cost ? " poor" : ""}`} style={{ "--ac": CARE[k].c }} onClick={() => care(k)}>
+              <span>{CARE[k].ic}</span><b>{tr3(CARE_TEXT[k], lang)}</b>
+              <u>{cost > 0 ? `🪙 ${cost}` : T("ใช้อาหาร", "uses food", "消耗食物")}</u>
+            </button>
+          );
+        })}
       </div>
+      <p className="pet-why">
+        {T("ทุกอย่างในห้องนี้ใช้เหรียญ — เหรียญได้มาจากการฝึกซ้อมและเรียนในแอปเท่านั้น",
+           "Everything in here costs coins, and coins only come from practising and learning in the app.",
+           "这里的一切都要花金币，而金币只能靠在应用里练习和学习赚取。")}
+      </p>
 
       {/* ── the pantry ── */}
       {tray && (

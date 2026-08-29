@@ -956,7 +956,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .skt-pvp-go{font-size:17px;flex:none;opacity:.9}
 
 /* ── PvP arena ── */
-.pvppage{min-height:100dvh;background:var(--bg);padding-bottom:26px}
+.pvppage{flex:1;min-height:0;overflow-y:auto;background:var(--bg);padding-bottom:26px;scrollbar-width:thin;scrollbar-color:#d97757 var(--card3)}
 .pvphdr{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:9px;padding:11px 13px;background:var(--card);border-bottom:1px solid var(--bd1)}
 .pvphdr-t{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text);margin-right:auto}
 .pvpscore{font-family:'Share Tech Mono',monospace;font-size:14px;color:#d97757}
@@ -2187,22 +2187,24 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 @keyframes pasag{0%,100%{transform:translateY(1px) scale(1.006,.99)}50%{transform:translateY(2.5px) scale(1.012,.982)}}
 @media (prefers-reduced-motion:reduce){.pa-bob,.pa-sag,.pr-fx,.pvppet{animation:none}}
 
-.petdock{display:flex;align-items:center;gap:11px;width:100%;max-width:520px;margin:9px auto 0;padding:9px 12px 9px 8px;border:1px solid var(--bd4);border-radius:14px;background:var(--card);color:var(--text);text-align:left;cursor:pointer}
-.petdock:hover{border-color:var(--bd5)}
-.petdock:active{transform:scale(.985)}
-.petdock.low{border-color:#d9775766;background:color-mix(in srgb,#d97757 7%,var(--card))}
-.petdock .pd-art{width:52px;height:56px;flex:none;filter:drop-shadow(0 4px 10px color-mix(in srgb,var(--pc,#8ab) 40%,transparent))}
-.petdock .pd-egg{width:52px;flex:none;font-size:30px;text-align:center}
-.pd-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
-.pd-b>b{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px}
-.pd-lv{font-family:'Share Tech Mono',monospace;font-size:10px;font-style:normal;font-weight:700;padding:1px 7px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);color:var(--text2)}
-.pd-b>i,.pd-say{font-size:11px;font-style:normal;color:var(--muted);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.pd-pips{display:flex;gap:3px}
-.pd-pip{flex:1;height:4px;border-radius:4px;background:var(--card3);overflow:hidden}
-.pd-pip i{display:block;height:100%;border-radius:4px}
-.pd-go{flex:none;font-size:16px;color:var(--muted)}
+/* the pod beside the avatar — absolutely placed so the avatar stays centred */
+.petpod{position:absolute;top:24px;right:10px;z-index:2;width:82px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 4px 6px;border:1px solid var(--bd4);border-radius:16px;background:var(--card);color:var(--text);cursor:pointer;box-shadow:0 8px 20px -16px rgba(20,30,60,.8)}
+.petpod:hover{border-color:var(--bd5)}
+.petpod:active{transform:scale(.96)}
+.petpod .pp-art{width:52px;height:56px;filter:drop-shadow(0 4px 9px color-mix(in srgb,var(--pc,#8ab) 45%,transparent))}
+.petpod .pp-art.egg{display:flex;align-items:center;justify-content:center;font-size:30px;filter:none}
+.petpod b{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;line-height:1.15;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.petpod i{font-family:'Share Tech Mono',monospace;font-style:normal;font-size:9px;color:var(--muted)}
+.petpod.empty b{font-size:9.5px;white-space:normal;color:var(--muted)}
+/* one dot, because "something needs doing" is all this corner has room to say */
+.petpod em{position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:#d97757;border:2px solid var(--card);animation:pppulse 1.6s ease-in-out infinite}
+@keyframes pppulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.22);opacity:.75}}
+@media (prefers-reduced-motion:reduce){.petpod em{animation:none}}
+@media (max-width:340px){.petpod{width:70px;top:20px;right:6px}.petpod .pp-art{width:44px;height:48px}}
 
-.petpage{min-height:100dvh;background:var(--bg);color:var(--text);padding:0 0 90px}
+/* .tg is a clipped flex column, so a page has to own its own scroll — a
+   min-height page just overflows the clip with nowhere to go */
+.petpage{flex:1;min-height:0;overflow-y:auto;background:var(--bg);color:var(--text);padding:0 0 90px;scrollbar-width:thin;scrollbar-color:#d97757 var(--card3)}
 .petpage>*{max-width:560px;margin-left:auto;margin-right:auto}
 .pet-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;max-width:none !important;padding:11px 13px;background:var(--card);border-bottom:1px solid var(--bd1)}
 .pet-top>b{flex:1;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;text-align:center}
@@ -2270,6 +2272,9 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .pet-act:active{transform:scale(.96)}
 .pet-act span{font-size:20px;line-height:1}
 .pet-act b{font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700}
+.pet-act u{font-family:'Share Tech Mono',monospace;font-size:9px;text-decoration:none;color:var(--muted)}
+.pet-act.poor{opacity:.42}
+.pet-why{margin:0 13px 12px;font-size:10.5px;line-height:1.5;color:var(--muted);text-align:center}
 
 .pet-tray,.pet-shop{margin:0 13px 11px;padding:11px;border:1px solid var(--bd4);border-radius:15px;background:var(--card)}
 .pt-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}

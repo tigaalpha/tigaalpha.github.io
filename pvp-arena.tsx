@@ -25,7 +25,7 @@ import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt } from "./item-art";
-import { petBonusOf, petById, petStage, readPet, PetArt } from "./pet-lab";
+import { petBonusOf, petById, petLevel, readPet, PetArt } from "./pet-lab";
 import { createArenaAudio, useArenaFx } from "./arena-fx";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
@@ -592,12 +592,24 @@ export const PvpPage = memo(function PvpPage({
    The question used to gate every single action: nothing happened until you
    answered, which made a duel feel like a worksheet with robots drawn on it.
    It is the other way round now. You FIGHT — tap to strike, hold to guard, in
-   real time, for most of a minute — and the quiz arrives as an interruption
-   when the wave ends, at the point where you are already invested in the
-   round. Answering right buys an overdrive; answering wrong hands the other
-   side a free heavy hit. The music knowledge still decides duels, it just
-   stops standing between the player and the game. */
-const WAVES = [40000, 30000, 26000, 22000];   // action time before each break
+   real time — and a question arrives every fifteen seconds as an interruption,
+   at a point where you are already invested in the round. Answering right buys
+   an overdrive; answering wrong takes a flat 30% off your bar. The music
+   knowledge still decides duels, it just stops standing between the player and
+   the game. */
+/* A music question every fifteen seconds, all the way through the fight. The
+   arena is a music game before it is a brawler: fifteen seconds of action, one
+   question, repeat. Eight of those is about two minutes, which is roughly what
+   a round used to take — the difference is that it now asks eight times rather
+   than four. The question itself stays untimed; the fifteen seconds is the gap
+   between questions, not a shot clock on your thinking. */
+const ASK_EVERY = 15000;
+const ASK_ROUNDS = 8;
+const WAVES = Array.from({ length: ASK_ROUNDS }, () => ASK_EVERY);
+/* A wrong answer is not a dodgeable attack — it is a punishment for the
+   answer, so it lands for a flat 30% of your pool through guard, evasion and
+   everything else. Three mistakes is most of a health bar. */
+const WRONG_PUNISH = 0.30;
 const GUARD_MS = 900, GUARD_CD = 2400;
 const BOT_GAP = { rookie: 1700, veteran: 1250, ace: 950 };
 
@@ -948,11 +960,33 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       [0, 260, 520].forEach((d, i) => later(() => hitOp(A.dmg * 9, i === 2 ? "ult" : "crit"), d));
       later(() => { setOverdrive(false); setBanner(null); nextWave(); }, 1500);
     } else {
-      setBanner(T("พลาด!", "MISSED!", "失误!"));
+      setBanner(T("ตอบผิด! โดนสวนหนัก", "WRONG! CRUSHING BLOW", "答错! 遭到重击"));
       audioRef.current.sfx("miss");
-      later(() => hitMe(B.dmg * tier.dmgK * 9), 350);
-      later(() => { setBanner(null); nextWave(); }, 1500);
+      later(() => punish(), 320);
+      later(() => { setBanner(null); nextWave(); }, 2100);
     }
+  }
+
+  /** The price of a wrong answer. Deliberately NOT routed through hitMe: guard,
+      evasion, the free-miss grace and every buff are bypassed, because none of
+      them has anything to do with knowing the note. Flat 30% of the pool. */
+  function punish() {
+    if (doneRef.current) return;
+    const d = Math.max(1, Math.round(MY_MAX * WRONG_PUNISH));
+    const mHp = Math.max(0, hpRef.current.me - d);
+    hpRef.current.me = mHp; setMyHp(mHp);
+    comboRef.current = 0; setCombo(0);
+    /* the opponent's biggest move, staged so it reads as an execution rather
+       than another chip hit */
+    const mv = ULT_MOVE[oppCls] || "cannon";
+    setOpPose(MOVES[mv].pose); setMyPose("hit");
+    setLunge("op"); setShake(3);
+    strike("op", "ult", "#ff2d55", mv);
+    later(() => { G.boom("me", 3, "#ff2d55"); G.flash("#ff2d55", .7, .5); audioRef.current.sfx("boom"); setShake(3); }, 260);
+    later(() => { G.boom("me", 2.2, "#ffd23f"); audioRef.current.sfx("boom"); }, 520);
+    later(() => { setLunge(null); setShake(0); }, 900);
+    say("me", "-" + Math.round(WRONG_PUNISH * 100) + "%", "dmg");
+    if (mHp <= 0) later(finish, 760);
   }
 
   function nextWave() {
@@ -1054,7 +1088,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               looking after it */}
           {PET && petPic && (
             <span className="pvppet" title={petById(petPic.species).en}>
-              <PetArt species={petPic.species} stage={petStage(petPic.bond)} mood={petPic.mood} />
+              <PetArt species={petPic.species} level={petLevel(petPic.bond).lv} mood={petPic.mood} />
             </span>
           )}
         </div>
