@@ -1039,6 +1039,33 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpopt:active{transform:scale(.97)}
 .pvpopt.culled{opacity:.25;text-decoration:line-through}
 .pvpopt.right{border-color:#2fa87a;background:#2fa87a1a;color:#17805a}
+/* ── the action phase ── */
+.pvpwave{max-width:520px;margin:12px auto 0;height:7px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);overflow:hidden}
+.pvpwave i{display:block;height:100%;background:linear-gradient(90deg,#ffd23f,#d97757);transition:width .1s linear}
+.pvpwave-l{max-width:520px;margin:4px auto 0;text-align:center;font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--muted)}
+.pvpctrl{display:grid;grid-template-columns:1.7fr 1fr;gap:9px;max-width:520px;margin:11px auto 0;padding:0 13px}
+.pvpatk,.pvpgrd{display:flex;flex-direction:column;align-items:center;gap:1px;padding:16px 8px;border:none;border-radius:15px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.pvpatk{background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;box-shadow:0 8px 22px -12px #d97757}
+.pvpatk:active{transform:scale(.96);filter:brightness(1.1)}
+.pvpgrd{background:var(--card);border:1px solid #3d86c655;color:#2b6ca8}
+.pvpgrd:active{transform:scale(.96)}
+.pvpgrd.on{background:#3d86c61f;border-color:#3d86c6;box-shadow:0 0 0 2px #3d86c644}
+.pvpatk b,.pvpgrd b{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;letter-spacing:.6px}
+.pvpatk i,.pvpgrd i{font-style:normal;font-size:9.5px;opacity:.85}
+/* the fighter braces while guarding */
+.pvpfighter.guard{filter:drop-shadow(0 0 10px #5ce1ff)}
+/* combo counter: it pops on every increment because the key changes */
+.pvpcombo{position:absolute;left:50%;top:32%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;animation:pvpcb .32s cubic-bezier(.34,1.6,.5,1)}
+.pvpcombo b{font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:#d97757;text-shadow:0 2px 10px rgba(255,255,255,.95),0 0 3px #fff;line-height:1}
+.pvpcombo i{font-family:'Orbitron',sans-serif;font-style:normal;font-size:9px;letter-spacing:2px;color:#b4522f;text-shadow:0 1px 5px rgba(255,255,255,.9)}
+@keyframes pvpcb{0%{transform:translateX(-50%) scale(1.7);opacity:.4}100%{transform:translateX(-50%) scale(1);opacity:1}}
+.pvpbanner{position:absolute;left:0;right:0;top:44%;z-index:6;text-align:center;font-family:'Orbitron',sans-serif;font-size:20px;font-weight:800;color:#d97757;text-shadow:0 2px 12px rgba(255,255,255,.98),0 0 4px #fff;pointer-events:none;animation:pvpbn .45s cubic-bezier(.34,1.5,.5,1)}
+@keyframes pvpbn{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}
+/* overdrive lights the whole arena */
+.pvpstage.od{box-shadow:inset 0 0 0 2px #ffd23f,0 0 24px -6px #ffd23f}
+.pvpstage.od::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(120% 90% at 50% 50%,rgba(255,210,63,0) 40%,rgba(255,210,63,.28) 100%);animation:pvpod .5s ease-in-out infinite alternate}
+@keyframes pvpod{from{opacity:.5}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.pvpcombo,.pvpbanner{animation:none}.pvpstage.od::after{animation:none}}
 .pvpskills{max-width:520px;margin:14px auto 0;padding:0 13px}
 .pvpgauge{height:7px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);overflow:hidden}
 .pvpgauge i{display:block;height:100%;transition:width .3s}

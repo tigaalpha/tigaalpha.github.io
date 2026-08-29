@@ -587,7 +587,24 @@ export const PvpPage = memo(function PvpPage({
   );
 });
 
-/* The fight itself. One question at a time, a clock, and two health bars. */
+/* ── the fight ──
+   The question used to gate every single action: nothing happened until you
+   answered, which made a duel feel like a worksheet with robots drawn on it.
+   It is the other way round now. You FIGHT — tap to strike, hold to guard, in
+   real time, for most of a minute — and the quiz arrives as an interruption
+   when the wave ends, at the point where you are already invested in the
+   round. Answering right buys an overdrive; answering wrong hands the other
+   side a free heavy hit. The music knowledge still decides duels, it just
+   stops standing between the player and the game. */
+const WAVES = [40000, 30000, 26000, 22000];   // action time before each break
+const ATK_CD = 400;                            // ms between your own strikes
+const GUARD_MS = 900, GUARD_CD = 2400;
+const BOT_GAP = { rookie: 1700, veteran: 1250, ace: 950 };
+
+// two full-body SVGs re-rendering on every HP tick would be the whole frame
+// budget; they only actually change when a pose or an angle does
+const Bot = memo(CyberAvatar);
+
 const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppKind, oppName, onDone, onBack, playUi }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const myCls = classKeyOf(me);
@@ -598,15 +615,22 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   const A = useRef(fighterFrom(me, gear, myRank)).current;
   const B = useRef(fighterFrom(oppModel, [], 5)).current;
-  // the equipped weapon's own colour is what comes out of the barrel, so the
-  // rack is visible in the fight rather than only on the character card
   const wpn = (gear || []).find(g => g && g.id && String(g.id).startsWith("wpn-"));
   const myBolt = (wpn && wpn.sw && wpn.sw[0]) || "#7fe8ff";
+  /* A real-time exchange needs pools sized to a whole fight, not to ten hits.
+     Four waves is roughly two minutes of action: the bot lands ~94 hits in
+     that time and the player gets ~160 taps in, so the pools and the two
+     damage numbers below are set so that a fight that goes the distance ends
+     near the last wave rather than in the first twenty seconds. */
+  const MY_MAX = A.maxHp * 12, OP_MAX = B.maxHp * 12;
+  const TAP_DMG = 0.55, BOT_DMG = 0.95;
 
-  const [myHp, setMyHp] = useState(A.maxHp);
-  const [opHp, setOpHp] = useState(B.maxHp);
-  const [round, setRound] = useState(1);
-  const [q, setQ] = useState(() => makeQuestion(lang));
+  const [phase, setPhase] = useState("action");   // action | quiz | done
+  const [wave, setWave] = useState(1);
+  const [left, setLeft] = useState(WAVES[0]);
+  const [myHp, setMyHp] = useState(MY_MAX);
+  const [opHp, setOpHp] = useState(OP_MAX);
+  const [q, setQ] = useState(null);
   const [culled, setCulled] = useState([]);
   const [gauge, setGauge] = useState(0);
   const [ultUsed, setUltUsed] = useState(false);
@@ -617,217 +641,276 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [score, setScore] = useState(0);
   const [myPose, setMyPose] = useState("ready");
   const [opPose, setOpPose] = useState("ready");
-  const [flash, setFlash] = useState(null);         // {side, text, kind}
+  const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
+  const [banner, setBanner] = useState(null);
+  const [guarding, setGuarding] = useState(false);
+  const [overdrive, setOverdrive] = useState(false);
   const [buffs, setBuffs] = useState({ crit: 0, anthem: 0, block: 0, fortress: 0, phase: 0, foresee: 0, sustain: 0 });
-  // the tactician's free mistake, spent once per duel
   const [graceLeft, setGraceLeft] = useState(fx.passive === "grace" ? 1 : 0);
-  // who is mid-swing, and how hard the camera is being knocked about
   const [lunge, setLunge] = useState(null);
   const [shake, setShake] = useState(0);
-  const [move, setMove] = useState(null);      // { side, key } while a move plays
 
   const startedRef = useRef(Date.now());
   const doneRef = useRef(false);
+  const hpRef = useRef({ me: MY_MAX, op: OP_MAX });
+  const cdRef = useRef(0), guardUntil = useRef(0), guardCd = useRef(0);
+  const comboRef = useRef(0), scoreRef = useRef(0), buffRef = useRef(buffs), graceRef = useRef(graceLeft);
+  // the result screen is written from a timeout, which reads whatever render
+  // it was created in — counters it reports have to live in refs or the last
+  // answer of a fight never makes it on to the scoreboard
+  const askedRef = useRef(0), correctRef = useRef(0);
+  const timers = useRef([]);
+  const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.current.push(t); return t; };
+  useEffect(() => () => { timers.current.forEach(clearTimeout); timers.current = []; }, []);
+  useEffect(() => { buffRef.current = buffs; }, [buffs]);
+  useEffect(() => { graceRef.current = graceLeft; }, [graceLeft]);
+
   const G = useArenaFx();
   const audioRef = useRef(null);
   if (!audioRef.current) audioRef.current = createArenaAudio();
-
-  // the loop belongs to the fight, so it starts and stops with it — leaving a
-  // battle theme running under the result screen would be worse than silence
+  useEffect(() => { const a = audioRef.current; a.start(); return () => a.stop(); }, []);
   useEffect(() => {
-    const a = audioRef.current;
-    a.start();
-    return () => a.stop();
-  }, []);
-  useEffect(() => {
-    audioRef.current.setGear(myHp / A.maxHp < 0.34 || opHp / B.maxHp < 0.34);
-  }, [myHp, opHp, A.maxHp, B.maxHp]);
+    audioRef.current.setGear(myHp / MY_MAX < 0.34 || opHp / OP_MAX < 0.34);
+  }, [myHp, opHp, MY_MAX, OP_MAX]);
 
-  /* One place where a whole attack happens: the stance, the effect, the sound,
-     the camera and the recoil. A crit and an ultimate cannot drift out of sync
-     with each other because they are the same call with a bigger number. */
+  const say = (side, text, kind) => { setFlash({ side, text, kind }); later(() => setFlash(null), 900); };
+
   const strike = useCallback((side, kind, colour, moveKey) => {
     const foe = side === "me" ? "op" : "me";
     const mv = MOVES[moveKey] || MOVES.punch;
     const big = kind === "ult", crit = kind === "crit";
     const power = big ? 2.2 : crit ? 1.5 : 1;
-    setMove({ side, key: moveKey });
     if (mv.lunge) setLunge(side);
     setShake(big ? 3 : crit ? 2 : 1);
     const a = audioRef.current;
-
     if (mv.fx === "bolt") {
-      G.bolt(side, colour, crit ? 7 : 5, mv.part);
-      a.sfx("shot");
-      setTimeout(() => { G.burst(foe, power, colour); a.sfx("hit"); }, 190);
+      G.bolt(side, colour, crit ? 7 : 5, mv.part); a.sfx("shot");
+      later(() => { G.burst(foe, power, colour); a.sfx("hit"); }, 190);
     } else if (mv.fx === "laser") {
-      G.laser(side, colour, big ? 7 : crit ? 5 : 4, mv.part);
-      a.sfx("laser");
-      setTimeout(() => G.burst(foe, power * 1.1, colour), 130);
-      if (big) setTimeout(() => { G.boom(foe, 1.5, colour); a.sfx("boom"); }, 260);
+      G.laser(side, colour, big ? 7 : crit ? 5 : 4, mv.part); a.sfx("laser");
+      later(() => G.burst(foe, power * 1.1, colour), 130);
+      if (big) later(() => { G.boom(foe, 1.5, colour); a.sfx("boom"); }, 260);
     } else if (mv.fx === "grenade") {
       a.sfx("lob");
       G.lob(side, colour, () => {
-        G.boom(foe, big ? 2.4 : 1.5, "#ff9a3c");
-        G.flash("#fff4d0", big ? .6 : .34, .32);
-        a.sfx("boom");
-        setShake(big ? 3 : 2);
-        setTimeout(() => setShake(0), 480);
+        G.boom(foe, big ? 2.4 : 1.5, "#ff9a3c"); G.flash("#fff4d0", big ? .6 : .34, .32);
+        a.sfx("boom"); setShake(big ? 3 : 2); later(() => setShake(0), 480);
       });
-    } else {                                    // melee: contact, then the hit
+    } else {
       a.sfx(mv.sfx === "kick" ? "kick" : crit ? "crit" : "hit");
-      setTimeout(() => G.burst(foe, power, colour, mv.part === "foot" ? "foot" : "body"), 160);
-      if (big) setTimeout(() => { G.boom(foe, 2, colour); a.sfx("boom"); }, 240);
+      later(() => G.burst(foe, power, colour, mv.part === "foot" ? "foot" : "body"), 160);
+      if (big) later(() => { G.boom(foe, 2, colour); a.sfx("boom"); }, 240);
     }
     if (big && mv.fx !== "grenade") G.flash("#ffffff", .55, .34);
-    setTimeout(() => { setLunge(null); setShake(0); setMove(null); }, mv.fx === "grenade" ? 900 : 560);
+    later(() => { setLunge(null); setShake(0); }, mv.fx === "grenade" ? 900 : 520);
   }, [G]);
 
-  const say = (side, text, kind) => { setFlash({ side, text, kind }); setTimeout(() => setFlash(null), 900); };
-
-  const nextRound = useCallback((mHp, oHp, r) => {
-    if (mHp <= 0 || oHp <= 0 || r > ROUNDS) return;
-    setQ(makeQuestion(lang));
-    setCulled([]); setLocked(false);
-    setMyPose("ready"); setOpPose("ready");
-  }, [lang]);
-
-  function endFight(mHp, oHp, sc, cor, ask, bc) {
+  function finish() {
     if (doneRef.current) return;
     doneRef.current = true;
-    // compare fractions, not raw HP: a 134-HP bulwark ending on 40 is in worse
-    // shape than a 106-HP striker ending on 38, and raw numbers say otherwise
-    const win = oHp <= 0 || (mHp > 0 && (mHp / A.maxHp) >= (oHp / B.maxHp));
+    const mHp = hpRef.current.me, oHp = hpRef.current.op;
+    const win = oHp <= 0 || (mHp > 0 && (mHp / MY_MAX) >= (oHp / OP_MAX));
+    setPhase("done");
     setMyPose(win ? "win" : "down"); setOpPose(win ? "down" : "win");
-    audioRef.current.stop();
-    audioRef.current.sfx(win ? "win" : "lose");
+    audioRef.current.stop(); audioRef.current.sfx(win ? "win" : "lose");
     G.flash(win ? "#ffd23f" : "#0b1526", .4, .6);
     G.burst(win ? "op" : "me", 2, win ? "#ffd23f" : "#8899aa");
-    // surviving is worth something: with no clock there is no speed bonus, so
-    // the score has to reward the half of the fight that is not answering
-    const final = sc + Math.max(0, Math.round(mHp)) * 3 + (win ? 400 : 0);
-    setTimeout(() => onDone({
-      win, score: final, correct: cor, asked: ask, bestCombo: bc, myHp: mHp, opHp: oHp, tier,
-      seconds: Math.round((Date.now() - startedRef.current) / 1000),
+    const final = scoreRef.current + Math.max(0, Math.round(mHp)) + (win ? 400 : 0);
+    later(() => onDone({
+      win, score: final, correct: correctRef.current, asked: askedRef.current,
+      bestCombo: Math.max(bestCombo, comboRef.current),
+      myHp: mHp, opHp: oHp, tier, seconds: Math.round((Date.now() - startedRef.current) / 1000),
     }), 950);
+  }
+
+  /** Damage the opponent. One path for taps, skills and the overdrive combo. */
+  function hitOp(dmg, kind, moveKey) {
+    if (doneRef.current) return;
+    const d = Math.max(1, Math.round(dmg));
+    const oHp = Math.max(0, hpRef.current.op - d);
+    hpRef.current.op = oHp; setOpHp(oHp);
+    const mv = moveKey || pickMove(myCls);
+    setMyPose(MOVES[mv].pose); setOpPose("hit");
+    strike("me", kind, myBolt, mv);
+    say("op", "-" + d, kind === "crit" ? "crit" : "dmg");
+    scoreRef.current += 10 + comboRef.current * 2; setScore(scoreRef.current);
+    if (oHp <= 0) later(finish, 420);
+  }
+
+  /** Damage the player, after every guard, block and dodge has had a say. */
+  function hitMe(dmg, moveKey) {
+    if (doneRef.current) return;
+    const nb = { ...buffRef.current };
+    const now = Date.now();
+    if (now < guardUntil.current) { audioRef.current.sfx("block"); G.burst("me", .8, "#5ce1ff"); say("me", T("กัน!", "GUARD", "格挡"), "block"); return; }
+    if (graceRef.current > 0) { graceRef.current = 0; setGraceLeft(0); audioRef.current.sfx("block"); say("me", T("ยกโทษให้", "FREE MISS", "免罚"), "block"); return; }
+    if (nb.fortress > 0 || nb.block > 0 || nb.phase > 0 || (fx.passive === "evade" && Math.random() < 0.2)) {
+      if (nb.block > 0) { nb.block = 0; buffRef.current = nb; setBuffs(nb); }
+      audioRef.current.sfx("block"); G.burst("me", .7, "#5ce1ff");
+      say("me", T("กันได้!", "BLOCKED", "格挡"), "block"); return;
+    }
+    const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1)));
+    const mHp = Math.max(0, hpRef.current.me - d);
+    hpRef.current.me = mHp; setMyHp(mHp);
+    // halved, not reset: with the bot landing every ~1.2s a full reset means
+    // the combo never gets past three and the mechanic may as well not exist
+    comboRef.current = Math.floor(comboRef.current / 2); setCombo(comboRef.current);
+    const mv = moveKey || pickMove(oppCls);
+    setOpPose(MOVES[mv].pose); setMyPose("hit");
+    strike("op", "hit", "#ff7a3c", mv);
+    say("me", "-" + d, "dmg");
+    if (mHp <= 0) later(finish, 420);
+  }
+
+  /* ── your strike ── */
+  function tap() {
+    if (phase !== "action" || doneRef.current) return;
+    const now = Date.now();
+    if (now < cdRef.current || now < guardUntil.current) return;
+    cdRef.current = now + ATK_CD;
+    const nb = { ...buffRef.current };
+    comboRef.current += 1; setCombo(comboRef.current);
+    setBestCombo(b => Math.max(b, comboRef.current));
+    const comboK = Math.min(2.2, 1 + comboRef.current * (fx.passive === "streak" ? 0.08 : 0.04));
+    let dmg = A.dmg * TAP_DMG * comboK * (fx.passive === "power" ? 1.25 : 1);
+    let kind = "hit";
+    if (nb.crit > 0) { dmg *= 2.2; nb.crit = 0; kind = "crit"; buffRef.current = nb; setBuffs(nb); }
+    if (nb.anthem > 0) { dmg *= 1.4; nb.anthem -= 1; buffRef.current = nb; setBuffs(nb); }
+    if (overdrive) dmg *= 1.6;
+    if (Math.random() < A.follow) { dmg *= 1.5; kind = kind === "hit" ? "crit" : kind; }
+    if (fx.passive === "repair") {
+      const h = Math.min(MY_MAX, hpRef.current.me + 2); hpRef.current.me = h; setMyHp(h);
+    }
+    setGauge(g => Math.min(100, g + (A.charge * (fx.passive === "resonate" ? 1.3 : 1)) / 4));
+    hitOp(dmg, kind);
+  }
+
+  function guard() {
+    if (phase !== "action" || doneRef.current) return;
+    const now = Date.now();
+    if (now < guardCd.current) return;
+    guardUntil.current = now + GUARD_MS; guardCd.current = now + GUARD_CD;
+    setGuarding(true);
+    audioRef.current.sfx("charge");
+    G.burst("me", .6, "#5ce1ff");
+    later(() => setGuarding(false), GUARD_MS);
+  }
+
+  /* ── the wave clock, and the bot that fights through it ── */
+  useEffect(() => {
+    if (phase !== "action" || doneRef.current) return;
+    const total = WAVES[Math.min(wave - 1, WAVES.length - 1)];
+    const t0 = Date.now();
+    const id = setInterval(() => {
+      if (doneRef.current) return;
+      const el = Date.now() - t0;
+      setLeft(Math.max(0, total - el));
+      if (el >= total) { clearInterval(id); toQuiz(); }
+    }, 100);
+    return () => clearInterval(id);
+  }, [phase, wave]);
+
+  useEffect(() => {
+    if (phase !== "action" || doneRef.current) return;
+    const gap = Math.round((BOT_GAP[tier.key] || 1250) * Math.max(0.6, 1 - (wave - 1) * 0.08));
+    let alive = true, t = null;
+    const step = () => {
+      if (!alive || doneRef.current) return;
+      hitMe(B.dmg * tier.dmgK * BOT_DMG);
+      t = setTimeout(step, gap + Math.random() * 260 - 130);
+    };
+    t = setTimeout(step, gap);
+    return () => { alive = false; if (t) clearTimeout(t); };
+  }, [phase, wave, tier]);
+
+  /* ── the knowledge break ── */
+  function toQuiz() {
+    if (doneRef.current) return;
+    setPhase("quiz");
+    setQ(makeQuestion(lang)); setCulled([]); setLocked(false);
+    setMyPose("ready"); setOpPose("ready");
+    audioRef.current.sfx("bell");
+    G.flash("#ffffff", .32, .3);
+    setBanner(T("⚡ ช่วงคำถาม", "⚡ KNOWLEDGE BREAK", "⚡ 知识时刻"));
+    later(() => setBanner(null), 1500);
   }
 
   function answer(choice) {
     if (locked || doneRef.current) return;
     setLocked(true);
-    const right = buffs.foresee > 0 ? true : choice === q.ans;
-    const nAsked = asked + 1;
-    setAsked(nAsked);
-
-    let mHp = myHp, oHp = opHp, nCombo = combo, sc = score, nCor = correct;
-    const nb = { ...buffs };
-    if (nb.foresee > 0) nb.foresee = 0;
-
+    const right = buffRef.current.foresee > 0 ? true : choice === q.ans;
+    if (buffRef.current.foresee > 0) { const nb = { ...buffRef.current, foresee: 0 }; buffRef.current = nb; setBuffs(nb); }
+    askedRef.current += 1; setAsked(askedRef.current);
     if (right) {
-      nCor = correct + 1; setCorrect(nCor);
-      nCombo = combo + 1;
-      const comboK = 1 + nCombo * (fx.passive === "streak" ? 0.12 : 0.06);
-      let dmg = A.dmg * comboK * (fx.passive === "power" ? 1.25 : 1);
-      if (nb.crit > 0) { dmg *= 2.2; nb.crit = 0; say("op", "CRIT!", "crit"); }
-      if (nb.anthem > 0) { dmg *= 1.4; nb.anthem -= 1; }
-      dmg = Math.round(dmg);
-      // SPEED buys a second swing rather than seconds on a clock
-      const followed = Math.random() < A.follow;
-      if (followed) dmg += Math.round(dmg * 0.5);
-      oHp = Math.max(0, opHp - dmg);
-      sc = score + 100 + nCombo * 20;
-      if (fx.passive === "repair") mHp = Math.min(A.maxHp, mHp + 3);
-      const mvKey = pickMove(myCls);
-      setMyPose(MOVES[mvKey].pose); setOpPose("hit");
-      strike("me", nb.crit === 0 && buffs.crit > 0 ? "crit" : "hit", myBolt, mvKey);
-      say("op", (followed ? "×2  " : "") + "-" + dmg, "dmg");
-      setGauge(g => Math.min(100, g + A.charge * (fx.passive === "resonate" ? 1.3 : 1)));
-      if (playUi) playUi("click");
+      correctRef.current += 1; setCorrect(correctRef.current);
+      scoreRef.current += 250; setScore(scoreRef.current);
+      setBanner(T("OVERDRIVE!", "OVERDRIVE!", "超载!"));
+      setOverdrive(true);
+      audioRef.current.sfx("ult");
+      G.flash(clsInfo.c, .45, .4);
+      // three staged hits, so a right answer is the loudest thing in the round
+      [0, 260, 520].forEach((d, i) => later(() => hitOp(A.dmg * 9, i === 2 ? "ult" : "crit"), d));
+      later(() => { setOverdrive(false); setBanner(null); nextWave(); }, 1500);
     } else {
-      if (nb.sustain > 0) { nb.sustain = 0; say("me", T("คอมโบไม่ขาด", "COMBO HELD", "连击保持"), "buff"); }
-      else nCombo = 0;
-      // the bot only lands a hit when IT would have answered correctly too
-      const botHits = Math.random() < tier.acc;
-      if (botHits) {
-        if (graceLeft > 0) {
-          setGraceLeft(0);
-          audioRef.current.sfx("block");
-          say("me", T("ยกโทษให้", "FREE MISS", "免罚"), "block");
-          setMyPose("ready");
-        } else if (nb.fortress > 0 || nb.block > 0 || nb.phase > 0 ||
-            (fx.passive === "evade" && Math.random() < 0.2)) {
-          if (nb.block > 0) nb.block = 0;
-          audioRef.current.sfx("block");
-          G.burst("me", .7, "#5ce1ff");
-          say("me", T("กันได้!", "BLOCKED", "格挡"), "block");
-          setMyPose("ready");
-        } else {
-          let inc = B.dmg * tier.dmgK * (fx.passive === "tough" ? 0.75 : 1);
-          inc = Math.round(inc);
-          mHp = Math.max(0, myHp - inc);
-          const omv = pickMove(oppCls);
-          setOpPose(MOVES[omv].pose); setMyPose("hit");
-          strike("op", "hit", "#ff7a3c", omv);
-          say("me", "-" + inc, "dmg");
-        }
-      } else {
-        audioRef.current.sfx("miss");
-        say("op", T("พลาด", "MISS", "未命中"), "miss");
-      }
+      setBanner(T("พลาด!", "MISSED!", "失误!"));
+      audioRef.current.sfx("miss");
+      later(() => hitMe(B.dmg * tier.dmgK * 9), 350);
+      later(() => { setBanner(null); nextWave(); }, 1500);
     }
-    if (nb.fortress > 0) nb.fortress -= 1;
-    if (nb.phase > 0) nb.phase -= 1;
-    setBuffs(nb);
-    setCombo(nCombo);
-    const nBest = Math.max(bestCombo, nCombo); setBestCombo(nBest);
-    setScore(sc); setMyHp(mHp); setOpHp(oHp);
-
-    const nextR = round + 1;
-    setTimeout(() => {
-      if (mHp <= 0 || oHp <= 0 || nextR > ROUNDS) { endFight(mHp, oHp, sc, nCor, nAsked, nBest); return; }
-      setRound(nextR);
-      nextRound(mHp, oHp, nextR);
-    }, 780);
   }
 
+  function nextWave() {
+    if (doneRef.current) return;
+    if (hpRef.current.me <= 0 || hpRef.current.op <= 0) { finish(); return; }
+    if (wave >= WAVES.length) { finish(); return; }
+    setWave(w => w + 1);
+    setLeft(WAVES[Math.min(wave, WAVES.length - 1)]);
+    setLocked(false); setPhase("action");
+  }
+
+  /* ── skills ── */
   function useActive() {
-    if (gauge < 100 || locked) return;
+    if (gauge < 100 || myRank < SKILL_UNLOCK.active || doneRef.current) return;
     setGauge(0);
-    const k = fx.active;
-    if (k === "crit") { setBuffs(b => ({ ...b, crit: 1 })); say("me", tr3(FX_TEXT.crit, lang), "buff"); }
-    else if (k === "block") { setBuffs(b => ({ ...b, block: 1 })); say("me", tr3(FX_TEXT.block, lang), "buff"); }
+    const k = fx.active, nb = { ...buffRef.current };
+    if (k === "crit") { nb.crit = 1; say("me", tr3(FX_TEXT.crit, lang), "buff"); }
+    else if (k === "block") { nb.block = 1; say("me", tr3(FX_TEXT.block, lang), "buff"); }
     else if (k === "cull") {
-      const wrong = q.opts.filter(o => o !== q.ans);
-      setCulled(shuffle(wrong).slice(0, 2));
+      if (q) setCulled(shuffle(q.opts.filter(o => o !== q.ans)).slice(0, 2));
       say("me", tr3(FX_TEXT.cull, lang), "buff");
     }
-    else if (k === "reroll") { setQ(makeQuestion(lang)); setCulled([]); say("me", tr3(FX_TEXT.reroll, lang), "buff"); }
-    else if (k === "patch") { setMyHp(h => Math.min(A.maxHp, h + 22)); audioRef.current.sfx("heal"); G.burst("me", .9, "#3ddc84"); say("me", "+22", "heal"); }
-    else if (k === "anthem") { setBuffs(b => ({ ...b, anthem: 3 })); say("me", tr3(FX_TEXT.anthem, lang), "buff"); }
-    else if (k === "sustain") { setBuffs(b => ({ ...b, sustain: 1 })); say("me", tr3(FX_TEXT.sustain, lang), "buff"); }
+    else if (k === "reroll") { if (q) { setQ(makeQuestion(lang)); setCulled([]); } say("me", tr3(FX_TEXT.reroll, lang), "buff"); }
+    else if (k === "patch") {
+      const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * 0.14));
+      hpRef.current.me = h; setMyHp(h);
+      audioRef.current.sfx("heal"); G.burst("me", .9, "#3ddc84"); say("me", "+" + Math.round(MY_MAX * .14), "heal");
+    }
+    else if (k === "anthem") { nb.anthem = 3; say("me", tr3(FX_TEXT.anthem, lang), "buff"); }
+    else if (k === "sustain") { nb.sustain = 1; say("me", tr3(FX_TEXT.sustain, lang), "buff"); }
+    buffRef.current = nb; setBuffs(nb);
     if (k !== "patch") audioRef.current.sfx("charge");
     if (playUi) playUi("click");
   }
 
   function useUlt() {
-    if (ultUsed || gauge < 100 || locked || myRank < SKILL_UNLOCK.ultimate) return;
+    if (ultUsed || gauge < 100 || myRank < SKILL_UNLOCK.ultimate || doneRef.current) return;
     setUltUsed(true); setGauge(0);
-    const k = fx.ult;
-    const bigHit = (d) => {
-      const mvKey = ULT_MOVE[myCls] || "punch";
-      setOpHp(h => Math.max(0, h - d)); setMyPose(MOVES[mvKey].pose); setOpPose("hit");
-      strike("me", "ult", "#ffd23f", mvKey); say("op", "-" + d, "dmg");
-    };
-    if (k === "triple") bigHit(Math.round(A.dmg * 0.4 * 3));
-    else if (k === "crescendo") bigHit(Math.round(B.maxHp * 0.2));
-    else if (k === "finale") bigHit(Math.round(A.dmg * (1 + combo * 0.5)));
+    const k = fx.ult, nb = { ...buffRef.current };
+    const mvKey = ULT_MOVE[myCls] || "punch";
+    if (k === "triple") [0, 220, 440].forEach(d => later(() => hitOp(A.dmg * 7, "ult", mvKey), d));
+    else if (k === "crescendo") hitOp(OP_MAX * 0.16, "ult", mvKey);
+    else if (k === "finale") hitOp(A.dmg * (8 + comboRef.current), "ult", mvKey);
     else {
       audioRef.current.sfx("ult"); G.flash(clsInfo.c, .4, .4); G.burst("me", 1.6, clsInfo.c);
-      if (k === "fortress") { setBuffs(b => ({ ...b, fortress: 3 })); say("me", tr3(FX_TEXT.fortress, lang), "buff"); }
-      else if (k === "phase") { setBuffs(b => ({ ...b, phase: 2 })); say("me", tr3(FX_TEXT.phase, lang), "buff"); }
-      else if (k === "foresee") { setBuffs(b => ({ ...b, foresee: 1 })); say("me", tr3(FX_TEXT.foresee, lang), "buff"); }
-      else if (k === "overhaul") { setMyHp(h => Math.min(A.maxHp, h + 45)); say("me", "+45", "heal"); }
+      if (k === "fortress") { nb.fortress = 3; say("me", tr3(FX_TEXT.fortress, lang), "buff"); }
+      else if (k === "phase") { nb.phase = 2; say("me", tr3(FX_TEXT.phase, lang), "buff"); }
+      else if (k === "foresee") { nb.foresee = 1; say("me", tr3(FX_TEXT.foresee, lang), "buff"); }
+      else if (k === "overhaul") {
+        const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * 0.3));
+        hpRef.current.me = h; setMyHp(h); say("me", "+" + Math.round(MY_MAX * .3), "heal");
+      }
+      buffRef.current = nb; setBuffs(nb);
     }
     if (playUi) playUi("reward");
   }
@@ -835,62 +918,72 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const mySk = skillsOf(me);
   const activeSk = mySk.find(s => s.tier === "active");
   const ultSk = mySk.find(s => s.tier === "ultimate");
-  const canActive = gauge >= 100 && myRank >= SKILL_UNLOCK.active && !locked;
-  const canUlt = gauge >= 100 && myRank >= SKILL_UNLOCK.ultimate && !ultUsed && !locked;
+  const canActive = gauge >= 100 && myRank >= SKILL_UNLOCK.active && !doneRef.current;
+  const canUlt = gauge >= 100 && myRank >= SKILL_UNLOCK.ultimate && !ultUsed && !doneRef.current;
+  const waveTotal = WAVES[Math.min(wave - 1, WAVES.length - 1)];
 
   return (
     <div className="pvppage fight">
       <div className="pvphdr">
         <button className="stgback" onClick={onBack} aria-label="back">←</button>
-        <span className="pvphdr-t">{T("ยก", "Round", "回合")} {Math.min(round, ROUNDS)}/{ROUNDS}</span>
+        <span className="pvphdr-t">{T("ยก", "Wave", "波次")} {Math.min(wave, WAVES.length)}/{WAVES.length}</span>
         <span className="pvpscore">{score.toLocaleString()}</span>
       </div>
 
-      {/* ── the stage ──
-          One box holding both fighters, the canvas that draws between them,
-          and the bars. The avatars turn as they lunge: yaw is pushed toward
-          the opponent on a strike and pulled back on a recoil, which the
-          projection re-renders properly rather than skewing a sprite. The angles
-          stop at 42 degrees on purpose: past about 45 the drawn side view takes
-          over from the front one and the face stops reading, which is right on
-          a turntable and wrong for a fighter facing its opponent. */}
-      <div className={`pvpstage${shake ? " sh" + shake : ""}`}>
+      <div className={`pvpstage${shake ? " sh" + shake : ""}${overdrive ? " od" : ""}`}>
         <canvas ref={G.canvasRef} className="pvpfx" />
         <div className="pvphps">
           <div className="pvphpcol">
-            <div className="pvphp"><i style={{ width: `${Math.max(0, (myHp / A.maxHp) * 100)}%` }} /></div>
+            <div className="pvphp"><i style={{ width: `${Math.max(0, (myHp / MY_MAX) * 100)}%` }} /></div>
             <div className="pvphp-n">{tr3(CHAR_MODELS.find(m => m.id === me) || {}, lang)} · {Math.max(0, Math.round(myHp))}</div>
           </div>
           <div className="pvpvs">VS</div>
           <div className="pvphpcol">
-            <div className="pvphp op"><i style={{ width: `${Math.max(0, (opHp / B.maxHp) * 100)}%` }} /></div>
+            <div className="pvphp op"><i style={{ width: `${Math.max(0, (opHp / OP_MAX) * 100)}%` }} /></div>
             <div className="pvphp-n op">{Math.max(0, Math.round(opHp))} · {oppKind === "player" ? oppName : tr3(CHAR_MODELS.find(m => m.id === oppModel) || {}, lang)}</div>
           </div>
         </div>
-        <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}`}>
-          <CyberAvatar model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
+        <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}>
+          <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
             glow="#00b8d4" accent="#7c4dff" armorA="#1b2436" armorB="#41608a" />
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
         </div>
         <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}`}>
-          {/* NEGATIVE yaw, not a CSS mirror. Flipping the rendered SVG turns the
-              robot round but leaves the key light coming from the wrong side and
-              reverses every asymmetric detail on it; re-projecting at -34° turns
-              the model itself and keeps the lighting where it belongs. */}
-          <CyberAvatar model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose}
+          <Bot model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose}
             glow="#ff7a3c" accent="#ff4d6a" armorA="#2b1a1a" armorB="#8a4a3a" />
           {flash && flash.side === "op" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
         </div>
+        {combo > 2 && <div className="pvpcombo" key={combo}><b>{combo}</b><i>{T("คอมโบ", "COMBO", "连击")}</i></div>}
+        {banner && <div className="pvpbanner">{banner}</div>}
       </div>
 
-      <div className="pvpuntimed">{T("ไม่จับเวลา — คิดได้เต็มที่", "No time limit — take as long as you like", "不计时 — 慢慢想")}</div>
-      <div className="pvpq">{q.q}</div>
-      <div className="pvpopts">
-        {q.opts.map(o => (
-          <button key={o} className={`pvpopt${culled.includes(o) ? " culled" : ""}${locked && o === q.ans ? " right" : ""}`}
-            disabled={locked || culled.includes(o)} onClick={() => answer(o)}>{o}</button>
-        ))}
-      </div>
+      {phase === "action" && (
+        <>
+          <div className="pvpwave"><i style={{ width: `${Math.max(0, (left / waveTotal) * 100)}%` }} /></div>
+          <div className="pvpwave-l">{T("คำถามจะมาใน", "Question in", "问题将在")} {Math.ceil(left / 1000)}s</div>
+          <div className="pvpctrl">
+            <button className="pvpatk" onPointerDown={tap} aria-label={T("โจมตี", "Attack", "攻击")}>
+              <b>{T("โจมตี", "ATTACK", "攻击")}</b><i>{T("แตะรัว ๆ", "tap fast", "快速点击")}</i>
+            </button>
+            <button className={`pvpgrd${guarding ? " on" : ""}`} onPointerDown={guard} aria-label={T("ป้องกัน", "Guard", "防御")}>
+              <b>{T("การ์ด", "GUARD", "防御")}</b><i>{T("กันหมัดถัดไป", "block a hit", "格挡一击")}</i>
+            </button>
+          </div>
+        </>
+      )}
+
+      {phase === "quiz" && q && (
+        <>
+          <div className="pvpuntimed">{T("ตอบถูก = โอเวอร์ไดรฟ์ · ไม่จับเวลา", "Answer right for OVERDRIVE · no time limit", "答对触发超载 · 不计时")}</div>
+          <div className="pvpq">{q.q}</div>
+          <div className="pvpopts">
+            {q.opts.map(o => (
+              <button key={o} className={`pvpopt${culled.includes(o) ? " culled" : ""}${locked && o === q.ans ? " right" : ""}`}
+                disabled={locked || culled.includes(o)} onClick={() => answer(o)}>{o}</button>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="pvpskills">
         <div className="pvpgauge"><i style={{ width: `${gauge}%`, background: clsInfo.c }} /></div>
