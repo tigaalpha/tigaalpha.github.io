@@ -94,6 +94,65 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
     "out-titan": <>{P("M14 16 H50 V26 H14 Z", GC, { line: lite(C, .3), lw: 1 })}{P("M18 30 H46 V40 H18 Z", GB, { line: edgeB, lw: 1 })}{lit(32, 48, 4)}</>,
   };
 
+
+  /* ── motif tables ──
+     Five whole shop categories — key skins, themes, avatar frames, keyboards,
+     stickers — were still shipping raw emoji while everything else was drawn.
+     Forty-one items in somebody else's art style, sitting next to gear lit by
+     our own rig. They work like the outfits do: one archetype draws the object,
+     and the item hands it a motif so no two read the same. */
+  const KEY_MOTIF = {
+    "key-aqua":   <path d="M22 12 C25 7 29 15 32 11 C35 7 39 15 42 11" fill="none" stroke={lite(C, .4)} strokeWidth="2.6" strokeLinecap="round" />,
+    "key-sunset": <g>{lit(32, 11, 4)}{[0, 45, 90, 135].map(a => <path key={a} d="M32 1 V5 M32 17 V21" transform={`rotate(${a} 32 11)`} stroke={lite(C, .5)} strokeWidth="1.8" strokeLinecap="round" />)}</g>,
+    "key-neon":   <path d="M35 2 L25 13 L31 13 L28 21 L39 9 L33 9 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" />,
+    "key-candy":  <path d="M32 20 C21 12 22 3 27 3 C30 3 32 6 32 7 C32 6 34 3 37 3 C42 3 43 12 32 20 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" />,
+    "key-ocean":  <path d="M32 2 C38 9 41 13 41 16 C41 20 37 23 32 23 C27 23 23 20 23 16 C23 13 26 9 32 2 Z" fill={lite(C, .4)} stroke="#fff" strokeWidth=".8" />,
+    "key-ice":    <g stroke={lite(C, .55)} strokeWidth="2.1" strokeLinecap="round"><path d="M32 2 V20 M24 6 L40 16 M40 6 L24 16" /></g>,
+    "key-gold":   <path d="M22 19 L24 4 L28 11 L32 2 L36 11 L40 4 L42 19 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" />,
+    "key-fire":   <path d="M32 1 C36 8 41 10 41 15 C41 20 37 23 32 23 C27 23 23 20 23 15 C23 11 27 10 28 6 C30 10 32 9 32 1 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" />,
+    "key-galaxy": <g>{E(32, 11, 7, 7, GC, { lw: .8, line: "#fff" })}<ellipse cx="32" cy="11" rx="13" ry="4" fill="none" stroke={lite(C, .5)} strokeWidth="1.8" transform="rotate(-18 32 11)" /></g>,
+    "key-prism":  <g><path d="M32 2 L44 20 H20 Z" fill={lite(C, .3)} stroke="#fff" strokeWidth=".9" />{[0, 1, 2].map(i => <path key={i} d={`M32 8 L${38 + i * 3} 20`} stroke={["#ff4d6a", "#ffd23f", "#4de1ff"][i]} strokeWidth="1.6" strokeLinecap="round" />)}</g>,
+  };
+  const THEME_MOTIF = {
+    "thm-midnight":  <g><circle cx="46" cy="21" r="6" fill={lite(A, .6)} opacity=".9" /><path d="M6 44 L14 34 L20 40 L28 28 L36 38 L44 31 L52 40 L58 36 V54 H6 Z" fill={dim(A, .72)} />{[[13, 40], [27, 36], [41, 39], [50, 43]].map(([x, y], i) => <rect key={i} x={x} y={y} width="2" height="2" fill={lite(C, .5)} />)}</g>,
+    "thm-aurora":    <g>{[0, 1, 2].map(i => <path key={i} d={`M4 ${26 + i * 5} C18 ${16 + i * 5} 30 ${34 + i * 5} 44 ${22 + i * 5} C52 ${16 + i * 5} 56 ${20 + i * 5} 60 ${18 + i * 5}`} fill="none" stroke={[lite(C, .35), lite("#7fffd4", .2), lite("#aa88ff", .25)][i]} strokeWidth="4.5" strokeLinecap="round" opacity=".75" />)}<path d="M6 46 H58 V54 H6 Z" fill={dim(A, .7)} /></g>,
+    "thm-ember":     <g><path d="M6 42 L18 32 L30 40 L42 30 L58 42 V54 H6 Z" fill={dim(A, .78)} />{[[16, 30], [26, 22], [36, 27], [46, 19], [22, 16]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={2.4 - i * .25} fill={lite(C, .4)} opacity=".9" />)}</g>,
+    "thm-forest":    <g>{[[16, 46, 11], [32, 48, 14], [47, 45, 10]].map(([x, y, h], i) => <path key={i} d={`M${x} ${y - h * 2.1} L${x + h * .8} ${y - h} L${x + h * .45} ${y - h} L${x + h} ${y} H${x - h} L${x - h * .45} ${y - h} L${x - h * .8} ${y - h} Z`} fill={dim(C, .3 + i * .12)} />)}<path d="M6 46 H58 V54 H6 Z" fill={dim(A, .74)} /></g>,
+    "thm-sakura":    <g><path d="M4 16 C16 22 24 20 34 28 C42 34 50 34 60 30" fill="none" stroke={dim(A, .6)} strokeWidth="2.4" strokeLinecap="round" />{[[14, 20], [28, 25], [42, 33], [22, 40], [48, 22], [36, 45]].map(([x, y], i) => <g key={i}>{[0, 72, 144, 216, 288].map(a => <ellipse key={a} cx={x} cy={y - 3} rx="1.7" ry="3" fill={lite(C, .45)} transform={`rotate(${a} ${x} ${y})`} opacity=".92" />)}</g>)}</g>,
+    "thm-deepsea":   <g><path d="M12 34 C18 26 34 24 44 30 C50 34 52 38 50 40 C44 44 24 44 16 40 Z" fill={dim(C, .18)} /><path d="M50 32 L58 26 L57 38 Z" fill={dim(C, .18)} /><circle cx="20" cy="31" r="1.5" fill="#fff" />{[[16, 18], [24, 14], [34, 19], [44, 15]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={2 - i * .2} fill="none" stroke={lite(C, .5)} strokeWidth="1" opacity=".8" />)}</g>,
+    "thm-volcano":   <g><path d="M6 54 L26 24 L32 30 L38 24 L58 54 Z" fill={dim(A, .68)} /><path d="M26 27 C28 33 30 30 32 34 C34 30 36 33 38 27 L44 42 H20 Z" fill={lite(C, .3)} />{[[30, 18], [37, 14], [24, 13]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={2.2 - i * .3} fill={lite(C, .5)} opacity=".9" />)}</g>,
+    "thm-starlight": <g>{[[12, 18], [22, 30], [34, 16], [46, 26], [52, 40], [18, 44], [40, 44], [28, 40], [56, 16]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 1.8 : 1} fill="#fff" opacity={i % 3 === 0 ? .95 : .6} />)}<path d="M14 40 L34 22" stroke={lite(C, .5)} strokeWidth="1.6" strokeLinecap="round" /><path d="M34 22 L38 18" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" /></g>,
+  };
+  const FRAME_MOTIF = {
+    "frm-fr-none":    <g />,
+    "frm-fr-bronze":  <g>{[[13, 13], [51, 13], [13, 51], [51, 51]].map(([x, y], i) => <g key={i}><circle cx={x} cy={y} r="3.4" fill={GC} stroke={edge} strokeWidth="1" /><circle cx={x - .8} cy={y - .8} r="1.1" fill="#fff" opacity=".7" /></g>)}</g>,
+    "frm-fr-silver":  <g>{[[8, 32, 56, 32], [32, 8, 32, 56]].map(([a, b, c2, d], i) => <path key={i} d={`M${a} ${b} L${c2} ${d}`} stroke={lite(A, .55)} strokeWidth="1.4" opacity=".5" />)}{[[10, 10, 54, 10], [10, 54, 54, 54]].map(([a, b, c2, d], i) => <path key={i} d={`M${a} ${b} L${c2} ${d}`} stroke={lite(A, .7)} strokeWidth="2" opacity=".8" />)}</g>,
+    "frm-fr-gold":    <g><path d="M25 8 L32 2 L39 8 Z" fill={GC} stroke={edge} strokeWidth="1" />{[-1, 1].map(s => <g key={s}>{[0, 1, 2].map(i => <ellipse key={i} cx={32 + s * (9 + i * 6)} cy={57 - i * 1.5} rx="4.4" ry="2.2" fill={lite(C, .3)} stroke={edge} strokeWidth=".7" transform={`rotate(${s * (18 + i * 8)} ${32 + s * (9 + i * 6)} ${57 - i * 1.5})`} />)}</g>)}</g>,
+    "frm-fr-diamond": <g>{[[12, 12], [52, 12], [12, 52], [52, 52]].map(([x, y], i) => <path key={i} d={`M${x} ${y - 6} L${x + 5} ${y} L${x} ${y + 6} L${x - 5} ${y} Z`} fill={lite(C, .5)} stroke="#fff" strokeWidth=".9" opacity=".92" />)}{lit(32, 8, 3)}</g>,
+  };
+  const KBD_MOTIF = {
+    "kbd-kb-classic":  <g>{seam("M10 24 H54")}</g>,
+    "kbd-kb-neon":     <g>{beamLine("M9 23 H55", 2.2)}</g>,
+    "kbd-kb-rose":     <g>{beamLine("M9 23 H55", 2.2)}<path d="M32 17 C27 13 28 9 30.5 9 C31.6 9 32 10 32 10.6 C32 10 32.4 9 33.5 9 C36 9 37 13 32 17 Z" fill={lite(C, .45)} /></g>,
+    "kbd-kb-midnight": <g>{beamLine("M9 23 H55", 1.6)}<circle cx="50" cy="14" r="5" fill={lite(A, .55)} /><circle cx="47.5" cy="12.5" r="4.2" fill={GB} /></g>,
+    "kbd-kb-ice":      <g>{beamLine("M9 23 H55", 2.2)}{[16, 32, 48].map(x => <g key={x} stroke={lite(C, .55)} strokeWidth="1.5" strokeLinecap="round"><path d={`M${x} 9 V17 M${x - 3.6} 11 L${x + 3.6} 15 M${x + 3.6} 11 L${x - 3.6} 15`} /></g>)}</g>,
+    "kbd-kb-fire":     <g>{beamLine("M9 23 H55", 2.6)}{[20, 32, 44].map((x, i) => <path key={x} d={`M${x} 6 C${x + 3} 11 ${x + 5} 12 ${x + 5} 15 C${x + 5} 18 ${x + 2.6} 19 ${x} 19 C${x - 2.6} 19 ${x - 5} 18 ${x - 5} 15 C${x - 5} 12 ${x - 3} 11 ${x} 6 Z`} fill={lite(C, .3 + i * .06)} opacity=".9" />)}</g>,
+    "kbd-kb-galaxy":   <g>{beamLine("M9 23 H55", 2.2)}{E(32, 13, 6, 6, GC, { lw: .8, line: "#fff" })}<ellipse cx="32" cy="13" rx="12" ry="3.6" fill="none" stroke={lite(C, .5)} strokeWidth="1.6" transform="rotate(-16 32 13)" />{[[12, 9], [52, 17], [46, 8]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.1" fill="#fff" opacity=".8" />)}</g>,
+    "kbd-kb-gold":     <g>{beamLine("M9 23 H55", 2.8)}<path d="M22 18 L24 6 L28 12 L32 4 L36 12 L40 6 L42 18 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth=".8" /></g>,
+    "kbd-kb-rainbow":  <g>{["#ff2d55", "#ff9a3c", "#ffd23f", "#3ddc84", "#4dc3ff", "#a86bff"].map((c, i) => <path key={i} d={`M${8 + i * 8} 23 H${16 + i * 8}`} stroke={c} strokeWidth="3.2" strokeLinecap="round" />)}{[16, 32, 48].map((x, i) => <path key={x} d={`M${x} 8 L${x + 2} 13 L${x + 7} 14 L${x + 2} 16 L${x} 21 L${x - 2} 16 L${x - 7} 14 L${x - 2} 13 Z`} fill="#fff" opacity=".85" />)}</g>,
+  };
+  const STK_MOTIF = {
+    "stk-st-star":    <g><path d="M32 18 L36 28 L47 29 L38.5 36 L41 47 L32 41 L23 47 L25.5 36 L17 29 L28 28 Z" fill={lite(C, .5)} stroke="#fff" strokeWidth="1.1" />{lit(32, 32, 2.6)}</g>,
+    "stk-st-heart":   <path d="M32 46 C15 34 17 21 24.5 21 C28 21 31 24.5 32 26.5 C33 24.5 36 21 39.5 21 C47 21 49 34 32 46 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth="1.2" />,
+    "stk-st-music":   <g><path d="M28 42 A5 4 0 1 0 38 42 V20 L46 17 V24" fill="none" stroke={lite(C, .55)} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /><ellipse cx="33" cy="42" rx="5" ry="4" fill={lite(C, .5)} stroke="#fff" strokeWidth="1" transform="rotate(-16 33 42)" /></g>,
+    "stk-st-flame":   <path d="M32 14 C38 24 45 27 45 35 C45 42 39 47 32 47 C25 47 19 42 19 35 C19 29 25 27 27 20 C30 27 32 26 32 14 Z" fill={lite(C, .42)} stroke="#fff" strokeWidth="1.1" />,
+    "stk-st-crown":   <g><path d="M18 44 L21 20 L27 30 L32 16 L37 30 L43 20 L46 44 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth="1.1" />{[24, 32, 40].map(x => <circle key={x} cx={x} cy="38" r="2" fill="#fff" opacity=".85" />)}</g>,
+    "stk-st-diamond": <g><path d="M32 15 L46 29 L32 49 L18 29 Z" fill={lite(C, .4)} stroke="#fff" strokeWidth="1.2" /><path d="M18 29 H46 M32 15 L25 29 L32 49 M32 15 L39 29 L32 49" stroke="#fff" strokeWidth=".9" opacity=".75" fill="none" /></g>,
+    "stk-st-rocket":  <g><path d="M32 13 C38 20 40 28 40 36 H24 C24 28 26 20 32 13 Z" fill={lite(A, .55)} stroke="#fff" strokeWidth="1.1" /><path d="M24 30 L17 42 L24 39 Z M40 30 L47 42 L40 39 Z" fill={lite(C, .4)} stroke="#fff" strokeWidth=".9" /><circle cx="32" cy="24" r="3.4" fill={GB} stroke="#fff" strokeWidth=".9" /><path d="M27 38 C29 44 31 47 32 50 C33 47 35 44 37 38 Z" fill={lite(C, .5)} /></g>,
+    "stk-st-trophy":  <g><path d="M23 15 H41 V26 C41 33 37 37 32 37 C27 37 23 33 23 26 Z" fill={lite(C, .45)} stroke="#fff" strokeWidth="1.1" /><path d="M23 18 H17 V23 C17 27 20 29 23 29 M41 18 H47 V23 C47 27 44 29 41 29" fill="none" stroke={lite(C, .5)} strokeWidth="2.2" /><path d="M29 37 H35 V44 H29 Z M23 44 H41 V49 H23 Z" fill={lite(A, .35)} stroke="#fff" strokeWidth=".9" /></g>,
+    "stk-st-magic":   <g>{[[32, 30, 14], [20, 21, 6], [45, 41, 7]].map(([x, y, r], i) => <path key={i} d={`M${x} ${y - r} L${x + r * .28} ${y - r * .28} L${x + r} ${y} L${x + r * .28} ${y + r * .28} L${x} ${y + r} L${x - r * .28} ${y + r * .28} L${x - r} ${y} L${x - r * .28} ${y - r * .28} Z`} fill={i ? lite(C, .55) : "#fff"} opacity={i ? .85 : .95} />)}</g>,
+  };
+
   const SHAPES = {
     /* ── weapons ── */
     sword: () => <>
@@ -543,9 +602,62 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
       {seam("M22 27 H42 M22 34 H38")}
       {lit(32, 38, 3.4)}
     </>,
+
+    /* ── the five categories that used to be emoji ── */
+    // a key skin is the colour a keybed wears, so it is sold as keys
+    keycap: (motif) => <>
+      {[6, 23, 40].map(x => <g key={x}>{R(x, 20, 17, 36, 2.5, "#f4f7fc", { line: edge, lw: 1.1, spec: .55 })}</g>)}
+      {[6, 23, 40].map(x => <g key={"f" + x}>{P(`M${x} 44 H${x + 17} V53.5 A2.5 2.5 0 0 1 ${x + 14.5} 56 H${x + 2.5} A2.5 2.5 0 0 1 ${x} 53.5 Z`, GA, { lw: 1.1 })}</g>)}
+      {[17.5, 34.5].map(x => <g key={"s" + x}>{R(x, 20, 12, 22, 2, GB, { line: edgeB, lw: 1 })}</g>)}
+      {seam("M23 20 V44 M40 20 V44")}
+      {motif}
+    </>,
+    // a theme is a place, so it is sold as a window on to that place
+    scene: (motif) => <>
+      <clipPath id={`${uid}-sc`}><rect x="7" y="11" width="50" height="42" rx="6" /></clipPath>
+      {R(6, 10, 52, 44, 7, GB, { line: edgeB, lw: 1.5 })}
+      <g clipPath={`url(#${uid}-sc)`}>
+        <rect x="6" y="10" width="52" height="44" fill={`url(#${uid}-sky)`} />
+        {motif}
+      </g>
+      <rect x="6.7" y="10.7" width="50.6" height="42.6" rx="6.4" fill="none" stroke={lite(A, .45)} strokeWidth="1.4" opacity=".7" />
+      <path d="M12 14 H24" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" opacity=".35" />
+    </>,
+    // an avatar frame only means anything round a face, so it gets one
+    frame: (motif) => <>
+      {R(7, 7, 50, 50, 9, GA, { lw: 1.5 })}
+      {R(14, 14, 36, 36, 6, dim(B, .35), { spec: .3, occ: .55, line: edgeB, lw: 1.1 })}
+      <g opacity=".8">
+        <circle cx="32" cy="27" r="7.2" fill={lite(A, .55)} />
+        <path d="M20 47 C21.5 38 26 34.5 32 34.5 C38 34.5 42.5 38 44 47 Z" fill={lite(A, .38)} />
+      </g>
+      {motif}
+    </>,
+    // a keyboard skin is a keybed with its light bar lit
+    keybed: (motif) => <>
+      {R(4, 18, 56, 30, 4, GA, { lw: 1.4 })}
+      {Array.from({ length: 7 }).map((_, i) => <g key={i}>{R(7.5 + i * 7, 27, 6, 18, 1.2, "#f2f6fc", { line: edge, lw: .7, spec: .5 })}</g>)}
+      {[0, 1, 3, 4, 5].map(i => <g key={"b" + i}>{R(11 + i * 7, 27, 4, 11, .8, GB, { line: edgeB, lw: .6 })}</g>)}
+      {motif}
+    </>,
+    // a sticker is a die-cut vinyl disc, white border and all
+    badge: (motif) => <>
+      {E(32, 32, 25, 25, "#ffffff", { spec: .3, occ: .25, line: "#dfe5ef", lw: 1 })}
+      {E(32, 32, 21, 21, GA, { lw: 1.2 })}
+      {E(32, 32, 21, 21, "none", { line: lite(A, .55), lw: 1.4, lineOp: .55 })}
+      {motif}
+    </>,
   };
 
-  const draw = art && art.startsWith("out-") ? () => SHAPES.plate(PATTERNS[art] || PATTERNS["out-tshirt"]) : SHAPES[art];
+  const byPrefix = [
+    ["out-", () => SHAPES.plate(PATTERNS[art] || PATTERNS["out-tshirt"])],
+    ["key-", () => SHAPES.keycap(KEY_MOTIF[art])],
+    ["thm-", () => SHAPES.scene(THEME_MOTIF[art])],
+    ["frm-", () => SHAPES.frame(FRAME_MOTIF[art])],
+    ["kbd-", () => SHAPES.keybed(KBD_MOTIF[art])],
+    ["stk-", () => SHAPES.badge(STK_MOTIF[art])],
+  ].find(([pre]) => art && art.startsWith(pre));
+  const draw = byPrefix ? byPrefix[1] : SHAPES[art];
   return (
     <svg className={`ia ${className}`} viewBox="0 0 64 64" width={size || "100%"} height={size || "100%"} aria-hidden="true" overflow="visible">
       <defs>
@@ -564,6 +676,11 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
           <stop offset="0%" stopColor={lite(C, .7)} />
           <stop offset="45%" stopColor={C} />
           <stop offset="100%" stopColor={dim(C, .35)} />
+        </linearGradient>
+        <linearGradient id={`${uid}-sky`} x1="0" y1="0" x2="0.15" y2="1">
+          <stop offset="0%" stopColor={dim(B, .1)} />
+          <stop offset="55%" stopColor={mix(B, C, .28)} />
+          <stop offset="100%" stopColor={dim(B, .45)} />
         </linearGradient>
         <radialGradient id={`${uid}-glow`}>
           <stop offset="0%" stopColor={lite(C, .5)} stopOpacity=".85" />
