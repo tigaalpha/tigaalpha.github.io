@@ -216,6 +216,14 @@ export function createArenaAudio() {
           o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.7);
           setTimeout(() => { hiss(400, 0.45, 0.6, "lowpass"); tone("sine", 120, 35, 0.5, 0.7); }, 540);
         }
+        else if (kind === "shot")   { tone("square", 1500, 320, 0.18, 0.14); hiss(2600, 0.12, 0.09, "bandpass"); }
+        else if (kind === "laser")  { tone("sawtooth", 760, 700, 0.13, 0.42); tone("square", 1560, 1400, 0.07, 0.4); hiss(3200, 0.09, 0.4, "bandpass"); }
+        else if (kind === "kick")   { tone("sine", 220, 48, 0.42, 0.24); hiss(600, 0.28, 0.14, "bandpass"); }
+        else if (kind === "lob")    { tone("sine", 300, 900, 0.08, 0.4); }
+        else if (kind === "boom")   {
+          hiss(240, 0.6, 0.85, "lowpass"); tone("sine", 160, 28, 0.55, 0.8);
+          setTimeout(() => hiss(700, 0.2, 0.7, "bandpass"), 90);
+        }
         else if (kind === "charge") { tone("triangle", mf(76), mf(88), 0.16, 0.3); }
         else if (kind === "win")  { [69, 73, 76, 81].forEach((m, i) => setTimeout(() => { tone("triangle", mf(m), mf(m), 0.2, 0.42); tone("sine", mf(m - 12), mf(m - 12), 0.12, 0.5); }, i * 110)); }
         else if (kind === "lose") { [69, 66, 62, 57].forEach((m, i) => setTimeout(() => tone("triangle", mf(m), mf(m), 0.17, 0.4), i * 150)); }
@@ -239,7 +247,8 @@ export function useArenaFx() {
     if (!cv) return;
     const soft = reduced();
     const S = {
-      parts: [], beams: [], rings: [], flash: null, t: 0, raf: 0, w: 0, h: 0, dpr: 1, motes: [],
+      parts: [], beams: [], rings: [], lasers: [], lobs: [], balls: [], smoke: [], flares: [],
+      flash: null, t: 0, raf: 0, w: 0, h: 0, dpr: 1, motes: [],
     };
     stateRef.current = S;
     const ctx = cv.getContext("2d");
@@ -297,12 +306,90 @@ export function useArenaFx() {
         const b = S.beams[i]; b.p += dt / b.dur;
         if (b.p >= 1) { S.beams.splice(i, 1); continue; }
         const x = b.x0 + (b.x1 - b.x0) * b.p, y = b.y0 + (b.y1 - b.y0) * b.p;
-        const tail = 46 * (b.x1 > b.x0 ? -1 : 1);
+        const tail = 62 * (b.x1 > b.x0 ? -1 : 1);
+        // a soft halo under the streak, or the round vanishes against a pale floor
+        const halo = ctx.createRadialGradient(x, y, 1, x, y, b.w * 4);
+        halo.addColorStop(0, b.c + "cc"); halo.addColorStop(1, b.c + "00");
+        ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x, y, b.w * 4, 0, 7); ctx.fill();
         const g = ctx.createLinearGradient(x + tail, y, x, y);
         g.addColorStop(0, b.c + "00"); g.addColorStop(1, b.c + "ff");
-        ctx.strokeStyle = g; ctx.lineWidth = b.w; ctx.lineCap = "round";
+        ctx.strokeStyle = g; ctx.lineWidth = b.w * 1.7; ctx.lineCap = "round";
         ctx.beginPath(); ctx.moveTo(x + tail, y); ctx.lineTo(x, y); ctx.stroke();
-        ctx.beginPath(); ctx.arc(x, y, b.w * 0.9, 0, 7); ctx.fillStyle = "#fff"; ctx.fill();
+        ctx.strokeStyle = "#ffffffdd"; ctx.lineWidth = b.w * 0.6;
+        ctx.beginPath(); ctx.moveTo(x + tail * 0.55, y); ctx.lineTo(x, y); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, b.w * 1.15, 0, 7); ctx.fillStyle = "#fff"; ctx.fill();
+      }
+
+      // ── sustained beams: a laser is a held line with a bloom, not a bolt
+      for (let i = S.lasers.length - 1; i >= 0; i--) {
+        const l = S.lasers[i]; l.p += dt / l.dur;
+        if (l.p >= 1) { S.lasers.splice(i, 1); continue; }
+        const k = l.p < .15 ? l.p / .15 : l.p > .7 ? (1 - l.p) / .3 : 1;   // strike, hold, cut
+        ctx.save(); ctx.lineCap = "round";
+        ctx.globalAlpha = 0.22 * k; ctx.strokeStyle = l.c; ctx.lineWidth = l.w * 4.5;
+        ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
+        ctx.globalAlpha = 0.65 * k; ctx.lineWidth = l.w * 1.9;
+        ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
+        ctx.globalAlpha = k; ctx.strokeStyle = "#fff"; ctx.lineWidth = l.w * 0.7;
+        ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
+        ctx.globalAlpha = 1; ctx.restore();
+      }
+
+      // ── lobbed shells: a real parabola, so a grenade arcs instead of sliding
+      for (let i = S.lobs.length - 1; i >= 0; i--) {
+        const b = S.lobs[i]; b.p += dt / b.dur;
+        if (b.p >= 1) { S.lobs.splice(i, 1); b.onLand && b.onLand(); continue; }
+        const x = b.x0 + (b.x1 - b.x0) * b.p;
+        const y = b.y0 + (b.y1 - b.y0) * b.p - b.arc * 4 * b.p * (1 - b.p);
+        ctx.beginPath(); ctx.arc(x, y, 6, 0, 7);
+        const g = ctx.createRadialGradient(x - 2, y - 2, 1, x, y, 8);
+        g.addColorStop(0, "#fff"); g.addColorStop(1, b.c);
+        ctx.fillStyle = g; ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, 10 + Math.sin(S.t * 40) * 2, 0, 7);
+        ctx.strokeStyle = b.c; ctx.globalAlpha = .5; ctx.lineWidth = 1.4; ctx.stroke(); ctx.globalAlpha = 1;
+      }
+
+      // ── fireballs: white core, hot shell, cooling edge, all expanding
+      for (let i = S.balls.length - 1; i >= 0; i--) {
+        const f = S.balls[i]; f.p += dt / f.dur;
+        if (f.p >= 1) { S.balls.splice(i, 1); continue; }
+        // the secondary blooms start on a NEGATIVE p so they bloom late; until
+        // they reach zero there is nothing to draw, and sqrt of a negative
+        // number is a NaN radius that throws out of createRadialGradient
+        if (f.p <= 0) continue;
+        const r = f.r * (0.25 + 0.75 * Math.sqrt(f.p)), a = Math.pow(1 - f.p, 1.6);
+        const g = ctx.createRadialGradient(f.x, f.y, r * 0.05, f.x, f.y, r);
+        g.addColorStop(0, `rgba(255,255,255,${a})`);
+        g.addColorStop(0.32, `rgba(255,214,90,${a * 0.95})`);
+        g.addColorStop(0.62, `rgba(255,118,40,${a * 0.7})`);
+        g.addColorStop(1, "rgba(190,60,20,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, 7); ctx.fill();
+      }
+
+      // ── the flare: spikes of light, which is what a camera does when
+      //    something very bright goes off in front of it
+      for (let i = S.flares.length - 1; i >= 0; i--) {
+        const f = S.flares[i]; f.p += dt / f.dur;
+        if (f.p >= 1) { S.flares.splice(i, 1); continue; }
+        const al = Math.pow(1 - f.p, 2), r = f.r * (0.5 + f.p);
+        ctx.save(); ctx.globalAlpha = al * 0.8; ctx.lineCap = "round";
+        for (const [dx, dy, k] of [[1, 0, 1], [0, 1, 0.45], [0.7, 0.7, 0.3], [0.7, -0.7, 0.3]]) {
+          const g = ctx.createLinearGradient(f.x - dx * r * k, f.y - dy * r * k, f.x + dx * r * k, f.y + dy * r * k);
+          g.addColorStop(0, f.c + "00"); g.addColorStop(0.5, "#ffffff"); g.addColorStop(1, f.c + "00");
+          ctx.strokeStyle = g; ctx.lineWidth = 3 + 5 * al;
+          ctx.beginPath(); ctx.moveTo(f.x - dx * r * k, f.y - dy * r * k); ctx.lineTo(f.x + dx * r * k, f.y + dy * r * k); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // ── smoke, which is what makes an explosion read as big
+      for (let i = S.smoke.length - 1; i >= 0; i--) {
+        const m = S.smoke[i]; m.p += dt / m.dur;
+        if (m.p >= 1) { S.smoke.splice(i, 1); continue; }
+        m.x += m.vx * dt; m.y += m.vy * dt; m.vy += 26 * dt; m.vx *= 0.99;
+        const r = m.r * (0.5 + m.p * 1.5), a = (1 - m.p) * 0.3;
+        ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, 7);
+        ctx.fillStyle = `rgba(120,124,138,${a})`; ctx.fill();
       }
 
       // ── shockwave rings
@@ -340,15 +427,21 @@ export function useArenaFx() {
     return () => { cancelAnimationFrame(S.raf); ro.disconnect(); stateRef.current = null; };
   }, []);
 
-  const at = (side) => {
+  /* Where a shot comes out of, and where it lands. A hand, a head and a weapon
+     sit at different heights on the same body, and a bolt that leaves all three
+     from the same pixel is what makes an attack look like a placeholder. */
+  const AT_Y = { hand: 0.58, head: 0.34, weapon: 0.55, body: 0.52, foot: 0.78 };
+  const at = (side, part = "body") => {
     const S = stateRef.current;
     if (!S) return { x: 0, y: 0 };
-    return { x: side === "me" ? S.w * 0.24 : S.w * 0.76, y: S.h * 0.55 };
+    const lead = part === "weapon" ? 0.05 : part === "hand" ? 0.03 : 0;
+    const f = side === "me" ? 0.24 + lead : 0.76 - lead;
+    return { x: S.w * f, y: S.h * (AT_Y[part] || 0.52) };
   };
 
-  const burst = useCallback((side, power = 1, colour = "#ffd23f") => {
+  const burst = useCallback((side, power = 1, colour = "#ffd23f", part = "body") => {
     const S = stateRef.current; if (!S) return;
-    const { x, y } = at(side);
+    const { x, y } = at(side, part);
     S.rings.push({ x, y, r0: 6, r1: 40 + 44 * power, dur: 0.42, c: colour });
     if (reduced()) return;
     const n = Math.min(38, Math.round(16 + 16 * power));
@@ -362,10 +455,68 @@ export function useArenaFx() {
     }
   }, []);
 
-  const beam = useCallback((from, colour = "#7fe8ff", w = 5) => {
+  /** A travelling bolt — a blaster round. */
+  const bolt = useCallback((from, colour = "#7fe8ff", w = 5, part = "hand") => {
     const S = stateRef.current; if (!S) return;
-    const a = at(from), b = at(from === "me" ? "op" : "me");
-    S.beams.push({ x0: a.x, y0: a.y - 10, x1: b.x, y1: b.y - 10, p: 0, dur: 0.22, c: colour, w });
+    const a = at(from, part), b = at(from === "me" ? "op" : "me", "body");
+    S.beams.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.28, c: colour, w });
+    muzzle(from, part, colour);
+  }, []);
+
+  /** A held beam that connects instantly — a laser, from wherever it is fired. */
+  const laser = useCallback((from, colour = "#ff4d6a", w = 4, part = "hand") => {
+    const S = stateRef.current; if (!S) return;
+    const a = at(from, part), b = at(from === "me" ? "op" : "me", "body");
+    S.lasers.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.42, c: colour, w });
+    muzzle(from, part, colour);
+  }, []);
+
+  /** The flash at the barrel. Small, but it is what places the shot on a hand
+      or a head rather than in mid-air. */
+  const muzzle = useCallback((from, part = "hand", colour = "#7fe8ff") => {
+    const S = stateRef.current; if (!S) return;
+    const { x, y } = at(from, part);
+    S.rings.push({ x, y, r0: 2, r1: 20, dur: 0.2, c: colour });
+    if (reduced()) return;
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.random() - 0.5) * 1.1 + (from === "me" ? 0 : Math.PI), sp = 120 + Math.random() * 220;
+      S.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30, r: 1 + Math.random() * 1.6,
+        life: 0.16 + Math.random() * 0.14, max: 0.3, c: "#ffffff" });
+    }
+  }, []);
+
+  /** The big one: white core, fireball, three rings at three speeds, debris and
+      smoke. Every layer is what a real blast has and a single ring does not. */
+  const boom = useCallback((side, power = 1.4, colour = "#ff9a3c", part = "body") => {
+    const S = stateRef.current; if (!S) return;
+    const { x, y } = at(side, part);
+    S.balls.push({ x, y, r: 26 * power, p: 0, dur: 0.22 });     // the hard core, gone first
+    S.balls.push({ x, y, r: 62 * power, p: 0, dur: 0.5 });
+    S.flares.push({ x, y, r: 150 * power, p: 0, dur: 0.34, c: colour });
+    S.balls.push({ x: x - 22 * power, y: y + 14, r: 38 * power, p: -0.18, dur: 0.62 });
+    S.balls.push({ x: x + 26 * power, y: y - 16, r: 34 * power, p: -0.3, dur: 0.66 });
+    [[0.34, 78], [0.5, 128], [0.72, 190]].forEach(([d, r]) =>
+      S.rings.push({ x, y, r0: 8, r1: r * power, dur: d, c: colour }));
+    if (reduced()) return;
+    for (let i = 0; i < 64; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 140 + Math.random() * 620 * power;
+      S.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 130,
+        r: 1 + Math.random() * 2.6, life: 0.45 + Math.random() * 0.7, max: 1.15,
+        c: [colour, "#ffffff", "#ffd23f"][Math.floor(Math.random() * 3)] });
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * Math.PI * 2;
+      S.smoke.push({ x: x + Math.cos(a) * 14, y: y + Math.sin(a) * 10,
+        vx: Math.cos(a) * (26 + Math.random() * 50), vy: -(26 + Math.random() * 46),
+        r: 14 + Math.random() * 20, p: 0, dur: 0.9 + Math.random() * 0.7 });
+    }
+  }, []);
+
+  /** A shell that arcs over and detonates where it lands. */
+  const lob = useCallback((from, colour = "#ff9a3c", onLand) => {
+    const S = stateRef.current; if (!S) return;
+    const a = at(from, "hand"), b = at(from === "me" ? "op" : "me", "body");
+    S.lobs.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.46, arc: S.h * 0.42, c: colour, onLand });
   }, []);
 
   const flash = useCallback((colour = "#ffffff", a = 0.5, dur = 0.3) => {
@@ -373,5 +524,5 @@ export function useArenaFx() {
     S.flash = { c: colour, a, p: 0, dur };
   }, []);
 
-  return { canvasRef, burst, beam, flash };
+  return { canvasRef, burst, bolt, laser, muzzle, boom, lob, flash, beam: bolt };
 }
