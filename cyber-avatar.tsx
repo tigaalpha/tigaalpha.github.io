@@ -553,7 +553,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── NOVA · android with its skin panels deactivated ── */
     nova: {
       skull: "M60 10 C76 10 86 21 86 36 C86 51 78 63 68 68 C64 70 56 70 52 68 C42 63 34 51 34 36 C34 21 44 10 60 10 Z",
-      fill: "white", line: "#dbe6f7", body: "mint", bodyLine: "#5f9c88",
+      fill: "white", line: "#dbe6f7", body: "mint", bodyLine: "#4b8571",
       side: SIDE_ORGANIC,
       sideArt: <>
         <path d="M50 15 Q62 10 74 15 L72 21 Q61 17 51 21 Z" fill="#dce8f7" stroke={glow} strokeWidth=".8" opacity=".95" />
@@ -599,7 +599,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── PHANTOM · mimetic polyalloy ── */
     phantom: {
       skull: "M60 6 C74 6 83 16 83 30 C83 44 76 58 68 66 Q60 72 52 66 C44 58 37 44 37 30 C37 16 46 6 60 6 Z",
-      fill: "chrome", line: "#f0f6ff", body: "pearl", bodyLine: "#93a4bd",
+      fill: "chrome", line: "#f0f6ff", body: "pearl", bodyLine: "#7c8da8",
       side: SIDE_ORGANIC,
       sideArt: <>
         <path d="M44 12 Q60 6 78 14" fill="none" stroke="#fff" strokeWidth="1.2" opacity=".34" />
@@ -758,7 +758,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── AURORA · idol android ── */
     aurora: {
       skull: "M60 8 C73 8 81 18 82 31 C83 43 78 53 72 61 C68 67 64 71 60 71 C56 71 52 67 48 61 C42 53 37 43 38 31 C39 18 47 8 60 8 Z",
-      fill: "aurora", line: "#efe6ff", body: "aurora", bodyLine: "#d9cdf5", hv: "23 0 74 78",
+      fill: "aurora", line: "#efe6ff", body: "aurora", bodyLine: "#a293c4", hv: "23 0 74 78",
       prof: { brow: 27, nose: 39, lip: 57, chin: 69 },
       shellArt: <>
         {/* light-fibre hair, and a tiara fin that reads at any size */}
@@ -817,7 +817,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── PIXEL · screen-face buddy ── */
     pixel: {
       skull: "M60 5 C82 5 91 16 91 34 C91 55 82 68 60 68 C38 68 29 55 29 34 C29 16 38 5 60 5 Z",
-      fill: "white", line: "#cfe4ff", body: "sky", bodyLine: "#6b93bb", hv: "20 -15 80 88",
+      fill: "white", line: "#cfe4ff", body: "sky", bodyLine: "#5a80a6", hv: "20 -15 80 88",
       prof: { brow: 26, nose: 38, lip: 54, chin: 66 },
       shellArt: <>
         <path d="M60 5 L60 -6" stroke={glow} strokeWidth="2.4" strokeLinecap="round" />
@@ -865,7 +865,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     /* ── MOCHI · squishy pocket bot ── */
     mochi: {
       skull: "M60 5 C85 5 93 22 93 41 C93 60 80 71 60 71 C40 71 27 60 27 41 C27 22 35 5 60 5 Z",
-      fill: "mochi", line: "#ffd7e3", body: "mochi", bodyLine: "#f6b8cd", hv: "20 -7 80 84",
+      fill: "mochi", line: "#ffd7e3", body: "mochi", bodyLine: "#dd91ac", hv: "20 -7 80 84",
       prof: { brow: 28, nose: 41, lip: 56, chin: 68 },
       shellArt: <>
         <ellipse cx="30" cy="36" rx="6.5" ry="9" fill={`url(#${id}-mochi)`} stroke="#f6b8cd" strokeWidth=".9" />
@@ -922,7 +922,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        one thing that gives it away sitting on the temple. */
     scout: {
       skull: "M60 8 C72 8 80 17 81 30 C82 42 78 52 72 60 C68 66 64 70 60 70 C56 70 52 66 48 60 C42 52 38 42 39 30 C40 17 48 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e", body: "ivory", bodyLine: "#98a2b3", neckFill: "skin",
+      fill: "skin", line: "#c8ab9e", body: "ivory", bodyLine: "#7d879a", neckFill: "skin",
       prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
       shellArt: <>
         <path d="M60 5 C75 5 84 15 84 30 C80 22 74 19 66 18 C56 17 46 20 39 27 C37 15 45 5 60 5 Z" fill={`url(#${id}-hairB)`} stroke="#2a1a10" strokeWidth=".7" strokeLinejoin="round" />
@@ -1133,7 +1133,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        ring on the temple that means it is not one. */
     keeper: {
       skull: "M60 8 C71 8 79 17 80 30 C81 42 77 52 71 60 C67 66 64 70 60 70 C56 70 53 66 49 60 C43 52 39 42 40 30 C41 17 49 8 60 8 Z",
-      fill: "skin", line: "#c8ab9e", body: "sage", bodyLine: "#6d8471", neckFill: "skin",
+      fill: "skin", line: "#c8ab9e", body: "sage", bodyLine: "#5b7260", neckFill: "skin",
       prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
       shellArt: <>
         <path d="M60 4 C76 4 84 15 83 30 C79 22 70 18 60 18 C50 18 41 22 37 30 C36 15 44 4 60 4 Z" fill={`url(#${id}-hair)`} stroke="#1f2436" strokeWidth=".7" strokeLinejoin="round" />
@@ -1324,7 +1324,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        panel on it opens onto a tool nobody expected it to have. */
     pip: {
       skull: "M60 8 C80 8 90 24 90 44 L90 62 C90 68 86 70 78 70 L42 70 C34 70 30 68 30 62 L30 44 C30 24 40 8 60 8 Z",
-      fill: "white", line: "#c8d8ec", body: "cream", bodyLine: "#b2966a", hv: "24 1 72 76",
+      fill: "white", line: "#c8d8ec", body: "cream", bodyLine: "#9b7f52", hv: "24 1 72 76",
       prof: { brow: 26, nose: 38, lip: 54, chin: 66 },
       shellArt: <>
         <path d="M60 8 C80 8 90 24 90 44 L82 44 C82 28 74 18 60 18 C46 18 38 28 38 44 L30 44 C30 24 40 8 60 8 Z" fill="#dfe9f7" stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
@@ -1372,7 +1372,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
        it is listening. */
     pebble: {
       skull: "M60 12 C82 12 92 28 92 48 C92 62 80 70 60 70 C40 70 28 62 28 48 C28 28 38 12 60 12 Z",
-      fill: "white", line: "#d0e0f2", hv: "22 0 76 76",
+      fill: "white", line: "#d0e0f2", bodyLine: "#8fa4bd", hv: "22 0 76 76",
       prof: { brow: 28, nose: 42, lip: 56, chin: 66 },
       shellArt: <>
         <path d="M60 12 C82 12 92 28 92 48 L84 48 C84 32 74 22 60 22 C46 22 36 32 36 48 L28 48 C28 28 38 12 60 12 Z" fill="#e9f1fb" stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
@@ -1640,6 +1640,14 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           <stop offset="34%" stopColor="#dbeaff" stopOpacity=".12" />
           <stop offset="100%" stopColor="#dbeaff" stopOpacity="0" />
         </linearGradient>
+        {/* the patch of floor the figure is standing on. Without it a full-body
+            render floats on the card, which is the single loudest tell that a
+            game character is a sticker rather than a model. */}
+        <radialGradient id={`${id}-gnd`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stopColor="#0b1526" stopOpacity=".34" />
+          <stop offset="42%" stopColor="#0b1526" stopOpacity=".2" />
+          <stop offset="100%" stopColor="#0b1526" stopOpacity="0" />
+        </radialGradient>
         {/* the shadow a body casts into its own joints */}
         <radialGradient id={`${id}-ao`} cx="0.5" cy="0.5" r="0.5">
           <stop offset="55%" stopColor="#000814" stopOpacity=".45" />
@@ -1786,6 +1794,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       </defs>
 
       <g>
+        {!headOnly && <ellipse cx="60" cy="396" rx={chibi ? 46 : 42} ry="8.5" fill={`url(#${id}-gnd)`} />}
         {/* ── body ──
             The same three-view treatment as the head, for the same reason: a
             front-facing torso squashed sideways reads as a plank, so the figure
@@ -1942,6 +1951,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {joint(19, 158, 13)}
                 {plate("M10 160 L30 163 L28 218 L14 216 Z")}
                 {castOn("M10 160 L30 163 L28 218 L14 216 Z", .45)}
+                {groove("M13 176 L27 178 M13 192 L27 194", .9, .3)}
                 {plate("M11 214 L30 217 L29 227 L11 224 Z", { fill: bTrim })}
                 {plate("M12 226 L29 229 L29 242 C24 251 15 250 12 241 Z")}
                 {groove("M15 233 L27 235 M15 238 L26 240", .9, .45)}
@@ -1952,6 +1962,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {joint(101, 158, 13)}
                 {plate("M110 160 L90 163 L92 218 L106 216 Z")}
                 {castOn("M110 160 L90 163 L92 218 L106 216 Z", .45)}
+                {groove("M107 176 L93 178 M107 192 L93 194", .9, .3)}
                 {plate("M109 214 L90 217 L91 227 L109 224 Z", { fill: bTrim })}
                 {plate("M108 226 L91 229 L91 242 C96 251 105 250 108 241 Z")}
                 {groove("M105 233 L93 235 M105 238 L94 240", .9, .45)}
@@ -1968,6 +1979,11 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               {plate("M82 90 C96 87 108 94 114 106 C118 115 119 126 117 135 C109 139 99 138 92 132 C88 125 85 114 82 103 Z", { lw: 1.2 })}
               {plate("M116 133 C108 138 98 137 91 130 L89 139 C97 147 108 148 117 143 Z", { fill: bTrim, line: glow, lw: 1 })}
               {groove("M109 101 C101 95 91 93 84 96", 1.2, .5)}
+              {/* rim rivets: the cheapest detail that tells a plate from a blob */}
+              <g opacity=".45" fill="#0a1220">
+                <circle cx="8.5" cy="112" r="1.25" /><circle cx="6.5" cy="125" r="1.25" /><circle cx="17" cy="100" r="1.25" />
+                <circle cx="111.5" cy="112" r="1.25" /><circle cx="113.5" cy="125" r="1.25" /><circle cx="103" cy="100" r="1.25" />
+              </g>
               {(() => {
                 const crest = (
                   <>
@@ -2001,9 +2017,11 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               <g transform={rot(PZ.legL, 46, 238)}>
                 {plate("M34 240 L58 240 L56 302 L37 302 Z")}
                 {castOn("M34 240 L58 240 L56 302 L37 302 Z", .9)}
+                {groove("M39 258 L54 258 M39 274 L54 274", .9, .3)}
                 {joint(46, 303, 14)}
                 {plate("M37 298 C41 294 51 294 55 298 C57 306 57 312 55 316 C51 320 41 320 37 316 C35 312 35 306 37 298 Z", { fill: bTrim, line: glow, lw: .9 })}
                 {plate("M36 314 L57 314 L55 366 L38 366 Z")}
+                {groove("M40 330 L53 330 M40 346 L53 346", .9, .3)}
                 {plate("M36 360 L55 360 L60 379 L60 392 L29 392 L29 377 Z", { fill: bTrim })}
                 {plate("M29 384 L60 384 L60 392 L29 392 Z")}
                 {groove("M31 370 L57 370", 1.1, .4)}
@@ -2011,9 +2029,11 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               <g transform={rot(-PZ.legR, 74, 238)}>
                 {plate("M62 240 L86 240 L83 302 L64 302 Z")}
                 {castOn("M62 240 L86 240 L83 302 L64 302 Z", .9)}
+                {groove("M66 258 L81 258 M66 274 L81 274", .9, .3)}
                 {joint(74, 303, 14)}
                 {plate("M65 298 C69 294 79 294 83 298 C85 306 85 312 83 316 C79 320 69 320 65 316 C63 312 63 306 65 298 Z", { fill: bTrim, line: glow, lw: .9 })}
                 {plate("M63 314 L84 314 L82 366 L65 366 Z")}
+                {groove("M67 330 L80 330 M67 346 L80 346", .9, .3)}
                 {plate("M84 360 L65 360 L60 379 L60 392 L91 392 L91 377 Z", { fill: bTrim })}
                 {plate("M60 384 L91 384 L91 392 L60 392 Z")}
                 {groove("M63 370 L89 370", 1.1, .4)}
