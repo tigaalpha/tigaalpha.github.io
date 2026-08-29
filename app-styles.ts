@@ -1031,8 +1031,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 @keyframes caMorph{0%,100%{opacity:.85;transform:translateX(0)}50%{opacity:.3;transform:translateX(1.5px)}}
 .ca-core{transform-origin:60px 131px;animation:caCore 2.8s ease-in-out infinite}
 @keyframes caCore{0%,100%{opacity:.8;transform:scale(.94) rotate(0deg)}50%{opacity:1;transform:scale(1.06) rotate(180deg)}}
-.cs-hat{top:-11px;font-size:29px;transform:translateX(-50%);z-index:7;transform-origin:50% 92%}
-.cs-wpn,.cs-acc{font-size:30px;z-index:9}
+/* equipped gear is drawn art now, so it is sized in px rather than by font */
+.cs-layer svg{display:block;width:100%;height:100%;filter:drop-shadow(0 3px 5px rgba(20,30,60,.3))}
+.cs-hat{top:-13px;width:38px;height:38px;transform:translateX(-50%);z-index:7;transform-origin:50% 92%}
+.cs-wpn,.cs-acc{width:38px;height:38px;z-index:9}
 /* Mirrored copy on the floor. transform-origin is the point that matters: the
    default centre origin flips the copy back UP over the figure, which reads as a
    glitch rather than a reflection. Pinning the origin to its own bottom edge
@@ -1075,7 +1077,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .charstage.rar-legendary .cs-ring1,.charstage.rar-legendary .cs-ring2{opacity:.85}
 .charstage.rar-legendary{box-shadow:inset 0 -34px 44px -34px rgba(20,30,60,.2),inset 0 1px 0 #fff,0 12px 34px -14px #ffb300,0 0 0 1.5px #ffb30099}
 @media (prefers-reduced-motion:reduce){.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.ca-led,.ca-led circle,.ca-morph,.cs-grid,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan,.cs-turn-hint{animation:none}}
-@media (max-width:380px){.charstage{height:344px;--floor:22px}.cs-figure,.cs-reflect{width:114px;height:296px}.cs-aura{height:286px}.cs-cast{width:104px}.cs-hat{font-size:26px;top:-10px}.cs-wpn,.cs-acc{font-size:27px}.char-models{gap:3px}.char-model-nm{font-size:8px}}
+@media (max-width:380px){.charstage{height:344px;--floor:22px}.cs-figure,.cs-reflect{width:114px;height:296px}.cs-aura{height:286px}.cs-cast{width:104px}.cs-hat{width:34px;height:34px;top:-11px}.cs-wpn,.cs-acc{width:34px;height:34px}.char-models{gap:3px}.char-model-nm{font-size:8px}}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}
 .char-slot-ic{font-size:18px}
@@ -1279,6 +1281,47 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .shopitem.legendary{border-color:#ffd23f;box-shadow:0 0 14px -3px #ffd23faa,0 0 20px -6px #aa00ff}
 .shopitem.legendary.equipped{border-color:#ffd23f;box-shadow:0 0 0 1px #ffd23f,0 0 16px -3px #ffd23f,0 0 24px -6px #aa00ff}
 .shopitem-new{position:absolute;top:-6px;right:-6px;background:linear-gradient(135deg,#00f0ff,#aa00ff);color:#fff;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:800;letter-spacing:.5px;padding:2px 6px;border-radius:8px;box-shadow:0 2px 6px -2px #d97757;z-index:1}
+/* a drawn item gets a square of its own rather than a text line box */
+.shopitem-art{display:block;width:100%;max-width:56px;aspect-ratio:1;margin:0 auto 2px}
+.shopitem-art svg{display:block;width:100%;height:100%;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
+.stgitem-art{display:block;width:100%;max-width:52px;aspect-ratio:1;margin:0 auto}
+.stgitem-art svg{display:block;width:100%;height:100%}
+.char-slot-ic svg{display:block;width:26px;height:26px}
+/* ── the shop, in daylight ──
+   The catalogue was a black modal dropped into a warm off-white app, which made
+   the one place people spend their coins feel like it belonged to a different
+   product. Everything below is scoped to .shop-full so the other modals keep
+   their own look; rarity survives the move as a tinted border and a tinted
+   wash instead of a neon glow, which is what rarity looks like on white. */
+.shop-full{background:var(--card)!important;border-color:var(--bd1)!important;box-shadow:0 24px 60px -20px rgba(20,30,60,.45)!important}
+.shop-full .sethdr{background:var(--card);border-bottom-color:var(--bd1);color:#d97757;text-shadow:none}
+.shop-full .shop-tabs{border-bottom-color:var(--bd1);background:linear-gradient(180deg,transparent,rgba(20,30,60,.03))}
+.shop-full .shop-tab{background:var(--card2);border-color:var(--bd1);color:var(--muted)}
+.shop-full .shop-tab.on{background:linear-gradient(135deg,#d9775714,#d9775722);border-color:#d97757;color:#c0603f;box-shadow:0 2px 10px -5px #d97757}
+.shop-full .shop-tab-n{color:#a8a49a}
+.shop-full .shop-tab.on .shop-tab-n{color:#d97757}
+.shop-full .shop-allbtn{background:var(--card2);border-color:var(--bd1);color:var(--muted)}
+.shop-full .shop-allbtn:hover{border-color:#d97757;color:#d97757}
+.shop-full .shop-allbtn.on{background:linear-gradient(135deg,#d9775718,#d9775728);border-color:#d97757;color:#c0603f;box-shadow:0 2px 10px -5px #d97757}
+.shop-full .shop-summary{color:var(--muted);border-bottom-color:var(--bd1)}
+.shop-full .shopitem{background:var(--card2);border-color:var(--bd1);color:var(--text);box-shadow:0 1px 2px rgba(20,30,60,.05)}
+.shop-full .shopitem:hover{border-color:#d9775788}
+.shop-full .shopitem-nm{color:var(--text)}
+.shop-full .shopitem-desc{color:var(--muted)}
+.shop-full .shopitem-rare{color:#a8a49a}
+.shop-full .shopitem.rare{border-color:#3aa8ff5c;background:linear-gradient(165deg,#3aa8ff0a,var(--card2))}
+.shop-full .shopitem.rare .shopitem-rare{color:#2b86d0}
+.shop-full .shopitem.epic{border-color:#9b4dff5c;background:linear-gradient(165deg,#9b4dff0d,var(--card2))}
+.shop-full .shopitem.epic .shopitem-rare{color:#7b3fd0}
+.shop-full .shopitem.legendary{border-color:#e0a01c8a;background:linear-gradient(165deg,#ffb3001a,var(--card2));box-shadow:0 2px 12px -6px #e0a01c}
+.shop-full .shopitem.legendary .shopitem-rare{color:#b8790a}
+.shop-full .shopitem.equipped{border-color:#00a6bd;box-shadow:0 0 0 1px #00a6bd66,0 3px 12px -6px #00a6bd}
+.shop-full .shopitem.legendary.equipped{border-color:#e0a01c;box-shadow:0 0 0 1px #e0a01c88,0 3px 14px -6px #e0a01c}
+.shop-full .shopitem-tag{color:var(--muted)}
+.shop-full .shopitem.equipped .shopitem-tag{color:#00a6bd}
+.shop-full .shopitem-art svg{filter:drop-shadow(0 2px 4px rgba(20,30,60,.22))}
+.shop-full .shopitem-icon-lg{filter:none}
+.shop-full .coinpill{color:#d97757}
 .shopitem-icon-lg{font-size:40px;line-height:1;filter:drop-shadow(0 0 6px rgba(0,240,255,.3));margin-bottom:4px}
 .shopitem-nm{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;color:#d0d0ff}
 .shopitem-rare{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.5px;color:var(--muted);text-transform:uppercase}
