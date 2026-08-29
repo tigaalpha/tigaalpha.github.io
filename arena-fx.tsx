@@ -248,6 +248,11 @@ export function useArenaFx() {
     const soft = reduced();
     const S = {
       parts: [], beams: [], rings: [], lasers: [], lobs: [], balls: [], smoke: [], flares: [],
+      /* debris is chunks with mass that bounce off the floor; embers are the
+         slow orange sparks that hang in the air after the blast has gone; a
+         scorch is the mark it leaves behind; a shock is the pressure ring that
+         travels faster than any of them */
+      debris: [], embers: [], scorch: [], shock: [],
       // where the two fighters actually are, as fractions of the stage width —
       // once they can walk, a bolt fired from a fixed 24% leaves from thin air
       pos: { me: 0.24, op: 0.76 }, air: { me: 0, op: 0 },
@@ -283,12 +288,20 @@ export function useArenaFx() {
       ctx.save();
       // a pool of light under each fighter, so they stand in the arena rather
       // than float over a wallpaper
-      for (const fx of [0.24, 0.76]) {
-        const g0 = ctx.createRadialGradient(S.w * fx, S.h * 0.9, 2, S.w * fx, S.h * 0.9, S.w * 0.2);
-        g0.addColorStop(0, "rgba(255,255,255,.55)"); g0.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = g0; ctx.fillRect(0, hz, S.w, S.h - hz);
+      // two overhead spots, one cool and one warm, so the fighters are lit from
+      // the arena rather than pasted onto it
+      ctx.globalCompositeOperation = "lighter";
+      for (const [fx, col] of [[0.24, "126,196,255"], [0.76, "255,150,110"]]) {
+        const g0 = ctx.createRadialGradient(S.w * fx, S.h * 0.9, 2, S.w * fx, S.h * 0.9, S.w * 0.26);
+        g0.addColorStop(0, `rgba(${col},.30)`); g0.addColorStop(0.5, `rgba(${col},.10)`); g0.addColorStop(1, `rgba(${col},0)`);
+        ctx.fillStyle = g0; ctx.fillRect(0, hz - 20, S.w, S.h - hz + 20);
       }
-      ctx.strokeStyle = "rgba(76,108,168,.24)"; ctx.lineWidth = 1;
+      // a glow along the horizon line — the light the room is lit by
+      const hg = ctx.createLinearGradient(0, hz - 34, 0, hz + 26);
+      hg.addColorStop(0, "rgba(90,150,255,0)"); hg.addColorStop(0.55, "rgba(120,175,255,.20)"); hg.addColorStop(1, "rgba(90,150,255,0)");
+      ctx.fillStyle = hg; ctx.fillRect(0, hz - 34, S.w, 60);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "rgba(122,170,255,.20)"; ctx.lineWidth = 1;
       for (let i = 1; i <= 7; i++) {
         const p = i / 7, y = hz + (S.h - hz) * p * p;
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(S.w, y); ctx.stroke();
@@ -299,17 +312,40 @@ export function useArenaFx() {
       }
       ctx.restore();
 
+      // ── scorch marks: painted on the floor before anything else, so the
+      //    fight leaves a record of where it has already gone off
+      for (let i = S.scorch.length - 1; i >= 0; i--) {
+        const k = S.scorch[i]; k.p += dt / k.dur;
+        if (k.p >= 1) { S.scorch.splice(i, 1); continue; }
+        const a2 = (1 - k.p) * 0.5;
+        ctx.save();
+        ctx.translate(k.x, k.y); ctx.scale(1, 0.3);
+        const g = ctx.createRadialGradient(0, 0, 1, 0, 0, k.r);
+        g.addColorStop(0, `rgba(28,20,16,${a2})`);
+        g.addColorStop(0.6, `rgba(40,28,22,${a2 * 0.5})`);
+        g.addColorStop(1, "rgba(40,28,22,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, k.r, 0, 7); ctx.fill();
+        ctx.restore();
+      }
+
       for (const m of S.motes) {
         m.y += m.vy * dt; if (m.y < 0) { m.y = S.h; m.x = Math.random() * S.w; }
-        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fillStyle = `rgba(140,190,255,${m.a})`; ctx.fill();
+        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fillStyle = `rgba(170,210,255,${m.a * 1.5})`; ctx.fill();
       }
+
+      /* Everything from here to the smoke is LIGHT, so it composites additively:
+         two beams crossing get brighter where they meet, a fireball blows out
+         to white in its core, and sparks read as embers rather than as confetti.
+         This one line is most of the difference between a particle system that
+         looks drawn and one that looks lit. */
+      ctx.globalCompositeOperation = "lighter";
 
       // ── bolts in flight
       for (let i = S.beams.length - 1; i >= 0; i--) {
         const b = S.beams[i]; b.p += dt / b.dur;
         if (b.p >= 1) { S.beams.splice(i, 1); continue; }
         const x = b.x0 + (b.x1 - b.x0) * b.p, y = b.y0 + (b.y1 - b.y0) * b.p;
-        const tail = 62 * (b.x1 > b.x0 ? -1 : 1);
+        const tail = 96 * (b.x1 > b.x0 ? -1 : 1);
         // a soft halo under the streak, or the round vanishes against a pale floor
         const halo = ctx.createRadialGradient(x, y, 1, x, y, b.w * 4);
         halo.addColorStop(0, b.c + "cc"); halo.addColorStop(1, b.c + "00");
@@ -321,6 +357,10 @@ export function useArenaFx() {
         ctx.strokeStyle = "#ffffffdd"; ctx.lineWidth = b.w * 0.6;
         ctx.beginPath(); ctx.moveTo(x + tail * 0.55, y); ctx.lineTo(x, y); ctx.stroke();
         ctx.beginPath(); ctx.arc(x, y, b.w * 1.15, 0, 7); ctx.fillStyle = "#fff"; ctx.fill();
+        // a cross-flare on the round itself: bright things flare in a lens
+        ctx.save(); ctx.globalAlpha = .7; ctx.strokeStyle = b.c; ctx.lineWidth = 1.6; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(x - b.w * 3, y); ctx.lineTo(x + b.w * 3, y);
+        ctx.moveTo(x, y - b.w * 2); ctx.lineTo(x, y + b.w * 2); ctx.stroke(); ctx.restore();
       }
 
       // ── sustained beams: a laser is a held line with a bloom, not a bolt
@@ -328,13 +368,25 @@ export function useArenaFx() {
         const l = S.lasers[i]; l.p += dt / l.dur;
         if (l.p >= 1) { S.lasers.splice(i, 1); continue; }
         const k = l.p < .15 ? l.p / .15 : l.p > .7 ? (1 - l.p) / .3 : 1;   // strike, hold, cut
+        // the beam breathes: a real high-energy line is never a steady width
+        const puls = 1 + Math.sin(S.t * 46) * 0.12 + Math.sin(S.t * 121) * 0.05;
         ctx.save(); ctx.lineCap = "round";
-        ctx.globalAlpha = 0.22 * k; ctx.strokeStyle = l.c; ctx.lineWidth = l.w * 4.5;
+        // outer haze — wide, dim, and what sells it as hot rather than painted
+        ctx.globalAlpha = 0.13 * k; ctx.strokeStyle = l.c; ctx.lineWidth = l.w * 9 * puls;
         ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
-        ctx.globalAlpha = 0.65 * k; ctx.lineWidth = l.w * 1.9;
+        ctx.globalAlpha = 0.3 * k; ctx.lineWidth = l.w * 4.5 * puls;
         ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
-        ctx.globalAlpha = k; ctx.strokeStyle = "#fff"; ctx.lineWidth = l.w * 0.7;
+        ctx.globalAlpha = 0.7 * k; ctx.lineWidth = l.w * 1.9 * puls;
         ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
+        ctx.globalAlpha = k; ctx.strokeStyle = "#fff"; ctx.lineWidth = l.w * 0.75;
+        ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
+        // the emitter end blooms, and the far end splashes where it lands
+        for (const [ex, ey, er] of [[l.x0, l.y0, l.w * 4.4], [l.x1, l.y1, l.w * 6.4]]) {
+          const g = ctx.createRadialGradient(ex, ey, 1, ex, ey, er * (0.7 + 0.5 * puls));
+          g.addColorStop(0, "#ffffff"); g.addColorStop(0.4, l.c); g.addColorStop(1, l.c + "00");
+          ctx.globalAlpha = k * 0.9; ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(ex, ey, er * (0.7 + 0.5 * puls), 0, 7); ctx.fill();
+        }
         ctx.globalAlpha = 1; ctx.restore();
       }
 
@@ -350,6 +402,17 @@ export function useArenaFx() {
         ctx.fillStyle = g; ctx.fill();
         ctx.beginPath(); ctx.arc(x, y, 10 + Math.sin(S.t * 40) * 2, 0, 7);
         ctx.strokeStyle = b.c; ctx.globalAlpha = .5; ctx.lineWidth = 1.4; ctx.stroke(); ctx.globalAlpha = 1;
+        // a smoke trail behind it, so you can see the shell coming and where
+        // from — a grenade that appears at the target is a magic trick
+        b.trail = (b.trail || 0) + dt;
+        if (b.trail > 0.028 && !reduced()) {
+          b.trail = 0;
+          S.smoke.push({ x, y, vx: (Math.random() - .5) * 22, vy: -8 - Math.random() * 14,
+            r: 4 + Math.random() * 4, p: 0, dur: 0.5 + Math.random() * 0.35 });
+          S.embers.push({ x, y, vx: (Math.random() - .5) * 40, vy: 10 + Math.random() * 30,
+            r: 0.7 + Math.random(), life: 0.3 + Math.random() * 0.3, max: 0.6,
+            fl: 30 + Math.random() * 20, ph: Math.random() * 7 });
+        }
       }
 
       // ── fireballs: white core, hot shell, cooling edge, all expanding
@@ -362,10 +425,15 @@ export function useArenaFx() {
         if (f.p <= 0) continue;
         const r = f.r * (0.25 + 0.75 * Math.sqrt(f.p)), a = Math.pow(1 - f.p, 1.6);
         const g = ctx.createRadialGradient(f.x, f.y, r * 0.05, f.x, f.y, r);
+        // a real fireball cools outward AND over time: white → yellow → orange
+        // → dull red, and the white core survives longest at the centre
+        const cool = Math.min(1, f.p * 1.4);
         g.addColorStop(0, `rgba(255,255,255,${a})`);
-        g.addColorStop(0.32, `rgba(255,214,90,${a * 0.95})`);
-        g.addColorStop(0.62, `rgba(255,118,40,${a * 0.7})`);
-        g.addColorStop(1, "rgba(190,60,20,0)");
+        g.addColorStop(0.18, `rgba(255,247,205,${a * 0.98})`);
+        g.addColorStop(0.38 + cool * 0.1, `rgba(255,198,64,${a * 0.92})`);
+        g.addColorStop(0.66, `rgba(255,104,28,${a * 0.66})`);
+        g.addColorStop(0.86, `rgba(196,44,14,${a * 0.3})`);
+        g.addColorStop(1, "rgba(120,26,10,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, 7); ctx.fill();
       }
 
@@ -385,14 +453,50 @@ export function useArenaFx() {
         ctx.restore();
       }
 
+      // ── the pressure wave: a thin, very fast ring that outruns the fire and
+      //    briefly whitens the air behind it
+      for (let i = S.shock.length - 1; i >= 0; i--) {
+        const k = S.shock[i]; k.p += dt / k.dur;
+        if (k.p >= 1) { S.shock.splice(i, 1); continue; }
+        const e = 1 - Math.pow(1 - k.p, 3);                 // fast out, then coasts
+        const r = k.r0 + (k.r1 - k.r0) * e, a2 = Math.pow(1 - k.p, 2.2);
+        const g = ctx.createRadialGradient(k.x, k.y, Math.max(1, r * 0.82), k.x, k.y, r * 1.06);
+        g.addColorStop(0, "rgba(255,255,255,0)");
+        g.addColorStop(0.6, `rgba(255,246,220,${a2 * 0.5})`);
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(k.x, k.y, r * 1.06, 0, 7); ctx.fill();
+        ctx.strokeStyle = `rgba(255,255,255,${a2 * 0.7})`; ctx.lineWidth = 1.6 * a2 + 0.4;
+        ctx.beginPath(); ctx.arc(k.x, k.y, r, 0, 7); ctx.stroke();
+      }
+
+      // ── embers: the slow orange motes that hang after the fire has gone.
+      //    They flicker, which is the cheapest thing that reads as burning.
+      for (let i = S.embers.length - 1; i >= 0; i--) {
+        const e = S.embers[i];
+        e.life -= dt;
+        if (e.life <= 0) { S.embers.splice(i, 1); continue; }
+        e.vy += 40 * dt; e.vy *= 0.985; e.vx *= 0.98;
+        e.x += e.vx * dt; e.y += e.vy * dt;
+        const a2 = Math.max(0, e.life / e.max) * (0.55 + 0.45 * Math.sin(S.t * e.fl + e.ph));
+        const g = ctx.createRadialGradient(e.x, e.y, 0.2, e.x, e.y, e.r * 3.4);
+        g.addColorStop(0, `rgba(255,240,200,${a2})`);
+        g.addColorStop(0.35, `rgba(255,150,50,${a2 * 0.8})`);
+        g.addColorStop(1, "rgba(255,90,20,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 3.4, 0, 7); ctx.fill();
+      }
+
       // ── smoke, which is what makes an explosion read as big
       for (let i = S.smoke.length - 1; i >= 0; i--) {
         const m = S.smoke[i]; m.p += dt / m.dur;
         if (m.p >= 1) { S.smoke.splice(i, 1); continue; }
         m.x += m.vx * dt; m.y += m.vy * dt; m.vy += 26 * dt; m.vx *= 0.99;
-        const r = m.r * (0.5 + m.p * 1.5), a = (1 - m.p) * 0.3;
-        ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, 7);
-        ctx.fillStyle = `rgba(120,124,138,${a})`; ctx.fill();
+        const r = m.r * (0.5 + m.p * 1.5), a = (1 - m.p) * 0.34;
+        // smoke lit from inside early on, cooling to plain grey as it drifts
+        const g = ctx.createRadialGradient(m.x, m.y, r * 0.1, m.x, m.y, r);
+        const warm = Math.max(0, 1 - m.p * 2.2);
+        g.addColorStop(0, `rgba(${Math.round(110 + 120 * warm)},${Math.round(112 + 70 * warm)},${Math.round(126 + 10 * warm)},${a})`);
+        g.addColorStop(1, "rgba(96,100,116,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, 7); ctx.fill();
       }
 
       // ── shockwave rings
@@ -418,6 +522,30 @@ export function useArenaFx() {
         ctx.strokeStyle = p.c; ctx.globalAlpha = a; ctx.lineWidth = p.r; ctx.lineCap = "round";
         ctx.stroke(); ctx.globalAlpha = 1;
       }
+
+      // ── back to normal blending: debris is matter, not light, and drawing
+      //    it additively would turn every chunk into a glowing blob
+      ctx.globalCompositeOperation = "source-over";
+
+      // ── debris: chunks with mass and spin that bounce once off the floor
+      for (let i = S.debris.length - 1; i >= 0; i--) {
+        const d = S.debris[i];
+        d.life -= dt;
+        if (d.life <= 0) { S.debris.splice(i, 1); continue; }
+        d.vy += 900 * dt; d.vx *= 0.995;
+        d.x += d.vx * dt; d.y += d.vy * dt; d.rot += d.spin * dt;
+        const floor = S.h * 0.94;
+        if (d.y > floor && d.vy > 0) { d.y = floor; d.vy *= -0.42; d.vx *= 0.6; d.spin *= 0.5; }
+        const a2 = Math.min(1, d.life / 0.45);
+        ctx.save();
+        ctx.translate(d.x, d.y); ctx.rotate(d.rot);
+        ctx.globalAlpha = a2; ctx.fillStyle = d.c;
+        ctx.fillRect(-d.w / 2, -d.h / 2, d.w, d.h);
+        ctx.globalAlpha = a2 * 0.5; ctx.fillStyle = "#ffffff";
+        ctx.fillRect(-d.w / 2, -d.h / 2, d.w, Math.max(0.8, d.h * 0.3));
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
 
       if (S.flash) {
         S.flash.p += dt / S.flash.dur;
@@ -451,7 +579,17 @@ export function useArenaFx() {
     const S = stateRef.current; if (!S) return;
     const { x, y } = at(side, part);
     S.rings.push({ x, y, r0: 6, r1: 40 + 44 * power, dur: 0.42, c: colour });
+    // a hot flash at the point of contact — a hit should look like it hurt
+    S.balls.push({ x, y, r: 15 + 16 * power, p: 0, dur: 0.16 });
+    if (power > 1.2) S.shock.push({ x, y, r0: 6, r1: 90 * power, p: 0, dur: 0.26 });
     if (reduced()) return;
+    for (let i = 0; i < Math.round(5 * power); i++) {
+      const a2 = Math.random() * Math.PI * 2, sp = 90 + Math.random() * 240 * power;
+      S.debris.push({ x, y, vx: Math.cos(a2) * sp, vy: Math.sin(a2) * sp - 150,
+        w: 1.6 + Math.random() * 3.4, h: 1.6 + Math.random() * 3,
+        rot: Math.random() * 7, spin: (Math.random() - 0.5) * 20,
+        life: 0.6 + Math.random() * 0.5, c: ["#3b3f4a", "#5a5f6d"][Math.floor(Math.random() * 2)] });
+    }
     const n = Math.min(38, Math.round(16 + 16 * power));
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = 90 + Math.random() * 320 * power;
@@ -485,6 +623,9 @@ export function useArenaFx() {
     const S = stateRef.current; if (!S) return;
     const { x, y } = at(from, part);
     S.rings.push({ x, y, r0: 2, r1: 20, dur: 0.2, c: colour });
+    // a short hot bloom at the barrel: the flash IS the shot leaving
+    S.balls.push({ x, y, r: 17, p: 0, dur: 0.14 });
+    S.flares.push({ x, y, r: 54, p: 0, dur: 0.16, c: colour });
     if (reduced()) return;
     for (let i = 0; i < 8; i++) {
       const a = (Math.random() - 0.5) * 1.1 + (from === "me" ? 0 : Math.PI), sp = 120 + Math.random() * 220;
@@ -493,30 +634,53 @@ export function useArenaFx() {
     }
   }, []);
 
-  /** The big one: white core, fireball, three rings at three speeds, debris and
-      smoke. Every layer is what a real blast has and a single ring does not. */
+  /** The big one, staged the way a real detonation actually resolves:
+      1. the pressure wave leaves first and outruns everything,
+      2. a white core that is gone in a fifth of a second,
+      3. the fireball proper, with two late secondary blooms so it billows
+         rather than simply expanding,
+      4. sparks, then debris with mass, then embers that hang and flicker,
+      5. smoke, which is what makes it read as BIG,
+      6. a scorch mark on the floor, which is what makes it read as REAL —
+         the fight leaves a record of where it has already gone off. */
   const boom = useCallback((side, power = 1.4, colour = "#ff9a3c", part = "body") => {
     const S = stateRef.current; if (!S) return;
     const { x, y } = at(side, part);
+    S.shock.push({ x, y, r0: 10, r1: 210 * power, p: 0, dur: 0.34 });
     S.balls.push({ x, y, r: 26 * power, p: 0, dur: 0.22 });     // the hard core, gone first
     S.balls.push({ x, y, r: 62 * power, p: 0, dur: 0.5 });
-    S.flares.push({ x, y, r: 150 * power, p: 0, dur: 0.34, c: colour });
+    S.flares.push({ x, y, r: 168 * power, p: 0, dur: 0.36, c: colour });
     S.balls.push({ x: x - 22 * power, y: y + 14, r: 38 * power, p: -0.18, dur: 0.62 });
     S.balls.push({ x: x + 26 * power, y: y - 16, r: 34 * power, p: -0.3, dur: 0.66 });
+    S.balls.push({ x: x + 8 * power, y: y + 22, r: 30 * power, p: -0.44, dur: 0.7 });
     [[0.34, 78], [0.5, 128], [0.72, 190]].forEach(([d, r]) =>
       S.rings.push({ x, y, r0: 8, r1: r * power, dur: d, c: colour }));
+    S.scorch.push({ x, y: S.h * 0.9, r: 40 * power, p: 0, dur: 3.4 });
     if (reduced()) return;
-    for (let i = 0; i < 64; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 140 + Math.random() * 620 * power;
+    for (let i = 0; i < 70; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 140 + Math.random() * 680 * power;
       S.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 130,
         r: 1 + Math.random() * 2.6, life: 0.45 + Math.random() * 0.7, max: 1.15,
         c: [colour, "#ffffff", "#ffd23f"][Math.floor(Math.random() * 3)] });
     }
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < Math.round(14 * power); i++) {
+      const a = Math.random() * Math.PI * 2, sp = 120 + Math.random() * 360 * power;
+      S.debris.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 220,
+        w: 2 + Math.random() * 5, h: 2 + Math.random() * 4,
+        rot: Math.random() * 7, spin: (Math.random() - 0.5) * 22,
+        life: 0.9 + Math.random() * 0.8, c: ["#3b3f4a", "#5a5f6d", "#2b2f38"][Math.floor(Math.random() * 3)] });
+    }
+    for (let i = 0; i < Math.round(18 * power); i++) {
+      const a = Math.random() * Math.PI * 2, sp = 30 + Math.random() * 150 * power;
+      S.embers.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 90,
+        r: 0.8 + Math.random() * 1.8, life: 0.9 + Math.random() * 1.3, max: 2.2,
+        fl: 18 + Math.random() * 26, ph: Math.random() * 7 });
+    }
+    for (let i = 0; i < 14; i++) {
       const a = Math.random() * Math.PI * 2;
       S.smoke.push({ x: x + Math.cos(a) * 14, y: y + Math.sin(a) * 10,
         vx: Math.cos(a) * (26 + Math.random() * 50), vy: -(26 + Math.random() * 46),
-        r: 14 + Math.random() * 20, p: 0, dur: 0.9 + Math.random() * 0.7 });
+        r: 14 + Math.random() * 22, p: 0, dur: 1.0 + Math.random() * 0.8 });
     }
   }, []);
 
@@ -524,7 +688,7 @@ export function useArenaFx() {
   const lob = useCallback((from, colour = "#ff9a3c", onLand) => {
     const S = stateRef.current; if (!S) return;
     const a = at(from, "hand"), b = at(from === "me" ? "op" : "me", "body");
-    S.lobs.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.46, arc: S.h * 0.42, c: colour, onLand });
+    S.lobs.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.46, arc: S.h * 0.42, c: colour, onLand, trail: 0 });
   }, []);
 
   const flash = useCallback((colour = "#ffffff", a = 0.5, dur = 0.3) => {

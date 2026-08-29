@@ -1459,6 +1459,10 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       <path d={d} fill={o.fill || bPlate} stroke="none" />
       <path d={d} fill={`url(#${id}-occ)`} stroke="none" opacity={o.occ == null ? 1 : o.occ} />
       <path d={d} fill={`url(#${id}-spec)`} stroke="none" opacity={o.spec == null ? 1 : o.spec} />
+      {/* the narrow hot-spot: the pass that makes it metal rather than matte */}
+      <path d={d} fill={`url(#${id}-hot)`} stroke="none" opacity={o.hot == null ? .9 : o.hot} />
+      {/* fresnel across the whole plate, then the grazing edge on top of it */}
+      <path d={d} fill={`url(#${id}-fres)`} stroke="none" opacity={o.fres == null ? .55 : o.fres} />
       <path d={d} fill="none" stroke={`url(#${id}-graze)`} strokeWidth={(o.lw || 1) * 1.6} strokeLinejoin="round" opacity={o.graze == null ? .55 : o.graze} />
       <path d={d} fill="none" stroke={o.line || bLine} strokeWidth={o.lw || 1} strokeLinejoin="round" opacity={o.lineOp == null ? .9 : o.lineOp} />
     </g>
@@ -1648,6 +1652,26 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               a plate to near-black and the silhouette dies into its own shadow */}
           <stop offset="84%" stopColor="#e8f1ff" stopOpacity="0" />
           <stop offset="100%" stopColor="#e8f1ff" stopOpacity=".34" />
+        </linearGradient>
+        {/* A broad sweep says "lit". A NARROW hot-spot says "metal": real
+            specular on a hard surface is a small, very bright kernel that
+            falls off fast, and its absence is why flat vector armour reads as
+            matte plastic no matter how many soft gradients are stacked on it.
+            In bounding-box space, so every plate gets one sized to itself. */}
+        <radialGradient id={`${id}-hot`} cx="0.29" cy="0.17" r="0.34">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".78" />
+          <stop offset="26%" stopColor="#ffffff" stopOpacity=".26" />
+          <stop offset="62%" stopColor="#ffffff" stopOpacity=".04" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        {/* Fresnel: a surface turned away from the camera reflects more, so
+            every silhouette edge picks up the cool of the room. This is what
+            keeps a dark chassis from dying into a dark background. */}
+        <linearGradient id={`${id}-fres`} x1="0.5" y1="1" x2="0.5" y2="0">
+          <stop offset="0%" stopColor="#bcd8ff" stopOpacity=".5" />
+          <stop offset="30%" stopColor="#bcd8ff" stopOpacity=".06" />
+          <stop offset="76%" stopColor="#bcd8ff" stopOpacity=".05" />
+          <stop offset="100%" stopColor="#e6f1ff" stopOpacity=".42" />
         </linearGradient>
         <linearGradient id={`${id}-graze`} x1="1" y1="1" x2="0.2" y2="0">
           <stop offset="0%" stopColor="#dbeaff" stopOpacity=".85" />

@@ -996,7 +996,13 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpfriend-nm{flex:1;min-width:0;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pvpfriend-go{font-family:'Share Tech Mono',monospace;font-size:10px;color:#d97757;flex:none}
 
-.pvpstage{position:relative;max-width:520px;margin:10px auto 0;height:270px;border-radius:16px;overflow:hidden;border:1px solid var(--bd1);background:radial-gradient(120% 80% at 50% 8%,#f7fafe 0%,#e8edf6 46%,#d5deec 100%)}
+/* A night arena. This used to be a pale room, and every laser, fireball and
+   ember drawn additively on top of near-white simply vanished — white plus
+   anything is still white. Fight scenes are dark for the same reason film sets
+   are: so the light in them has somewhere to show. */
+.pvpstage{position:relative;max-width:520px;margin:10px auto 0;height:270px;border-radius:16px;overflow:hidden;border:1px solid #ffffff1a;background:radial-gradient(130% 90% at 50% 4%,#20304e 0%,#131b30 42%,#080b16 100%);box-shadow:inset 0 0 60px -10px #000}
+/* a vignette, so the eye goes to the middle where the fighting is */
+.pvpstage::before{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(80% 70% at 50% 52%,rgba(0,0,0,0) 40%,rgba(0,0,0,.45) 100%)}
 .pvpstage.sh1{animation:pvpsh1 .32s ease-out}
 .pvpstage.sh2{animation:pvpsh2 .38s ease-out}
 .pvpstage.sh3{animation:pvpsh3 .5s ease-out}
@@ -1007,29 +1013,29 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    robot, and a canvas underneath means the first third of every shot is
    hidden by the machine that fired it */
 .pvpfx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4}
-.pvphps{position:absolute;left:0;right:0;top:0;z-index:6;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;padding:9px 11px;background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(255,255,255,0))}
+.pvphps{position:absolute;left:0;right:0;top:0;z-index:6;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;padding:9px 11px;background:linear-gradient(180deg,rgba(6,9,18,.82),rgba(6,9,18,0))}
 .pvphpcol{display:flex;flex-direction:column;gap:3px;min-width:0}
-.pvphp{height:9px;border-radius:20px;background:#0b152618;border:1px solid var(--bd1);overflow:hidden}
+.pvphp{height:9px;border-radius:20px;background:#00000059;border:1px solid #ffffff26;overflow:hidden;box-shadow:inset 0 1px 3px #0009}
 .pvphp i{display:block;height:100%;background:linear-gradient(90deg,#3ddc84,#2fa87a);transition:width .35s cubic-bezier(.4,0,.2,1)}
 .pvphp.op i{background:linear-gradient(90deg,#e0563f,#ff7a3c)}
-.pvphp-n{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:#40506a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pvphp-n{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:#c3d2ea;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px #000}
 .pvphp-n.op{text-align:right}
-.pvpvs{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;color:#8899b0;padding-top:1px}
+.pvpvs{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;color:#e6eefc;padding-top:1px;text-shadow:0 1px 4px #000}
 /* the fighters stand ON the floor grid, so they are anchored to its baseline */
 .pvpfighter{position:absolute;bottom:6px;width:44%;height:200px;z-index:3;display:flex;align-items:flex-end;justify-content:center;transition:transform .22s cubic-bezier(.34,1.4,.5,1)}
-.pvpfighter svg{display:block;height:198px;width:auto;filter:drop-shadow(0 12px 10px rgba(20,30,60,.28))}
+.pvpfighter svg{display:block;height:198px;width:auto;filter:drop-shadow(0 14px 12px rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(120,170,255,.14))}
 .pvpfighter.me{left:6%}
 .pvpfighter.op{right:6%}
 .pvpfighter.me.lunge{transform:translateX(38%) scale(1.06)}
 .pvpfighter.op.lunge{transform:translateX(-38%) scale(1.06)}
 .pvpfighter.me.knock{transform:translateX(-9%) rotate(-4deg)}
 .pvpfighter.op.knock{transform:translateX(9%) rotate(4deg)}
-.pvpflash{position:absolute;left:50%;top:14%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:17px;font-weight:800;pointer-events:none;animation:pvpfl .9s ease-out forwards;white-space:nowrap;text-shadow:0 2px 8px rgba(255,255,255,.95),0 0 2px #fff;z-index:7}
-.pvpflash.dmg{color:#e0563f}
-.pvpflash.heal{color:#2fa87a}
-.pvpflash.crit{color:#d97757}
-.pvpflash.block,.pvpflash.miss{color:#2b6ca8;font-size:12px}
-.pvpflash.buff{color:#7b3fd0;font-size:11px}
+.pvpflash{position:absolute;left:50%;top:14%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:17px;font-weight:800;pointer-events:none;animation:pvpfl .9s ease-out forwards;white-space:nowrap;text-shadow:0 0 14px currentColor,0 2px 5px #000;z-index:7}
+.pvpflash.dmg{color:#ff7a5f}
+.pvpflash.heal{color:#5ce8a8}
+.pvpflash.crit{color:#ffbe6a}
+.pvpflash.block,.pvpflash.miss{color:#7ec4ff;font-size:12px}
+.pvpflash.buff{color:#c9a6ff;font-size:11px}
 @keyframes pvpfl{0%{opacity:0;transform:translate(-50%,10px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-30px)}}
 @media (prefers-reduced-motion:reduce){.pvpstage.sh1,.pvpstage.sh2,.pvpstage.sh3{animation:none}.pvpfighter{transition:none}.pvpfighter.me.lunge,.pvpfighter.op.lunge,.pvpfighter.me.knock,.pvpfighter.op.knock{transform:none}}
 .pvpuntimed{max-width:520px;margin:12px auto 0;padding:0 15px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.3px;color:var(--muted)}
@@ -1047,7 +1053,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    orientations; only where they sit changes. */
 .pvppad{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;max-width:520px;margin:11px auto 0;padding:0 13px}
 .pvppad-l{display:flex;gap:7px}
+/* five buttons: ranged pair on top, the two melee together underneath where
+   the thumb rests, and the rocket across the bottom */
 .pvppad-r{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.pvppad-r .pvpact.rocket{grid-column:span 2;width:auto}
 .pvpdir,.pvpact{display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--bd1);background:var(--card);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;color:var(--text)}
 .pvpdir{width:52px;height:52px;border-radius:14px;font-size:19px;line-height:1}
 .pvpdir:active{transform:scale(.93);background:var(--card2)}
@@ -1061,10 +1070,19 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpact.punch{background:linear-gradient(135deg,#e2865f,#d05f43);border-color:transparent;color:#fff;box-shadow:0 6px 16px -10px #d97757}
 .pvpact.rocket{border-color:#d9775777;color:#b4522f}
 .pvpact.jump{border-color:#3ddc8477;color:#1f8a5b}
+.pvpact.kick{background:linear-gradient(135deg,#c9a227,#a8791b);border-color:transparent;color:#fff;box-shadow:0 6px 16px -10px #c9a227}
 
 /* ── landscape: the arena takes the whole screen and the pad floats on it ── */
 .pvppage.land{position:fixed;inset:0;z-index:60;min-height:0;padding:0;background:var(--bg);overflow:hidden}
-.pvppage.land .pvphdr{position:absolute;top:0;left:0;right:0;z-index:8;background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,0));border:none;padding:7px 12px}
+/* in landscape the header and the quiz sit ON the stage, which is now a night
+   arena — so both flip to light-on-dark. In portrait they sit on the page
+   below it and keep the page's own colours. */
+.pvppage.land .pvphdr{position:absolute;top:0;left:0;right:0;z-index:8;background:linear-gradient(180deg,rgba(6,9,18,.86),rgba(6,9,18,0));border:none;padding:7px 12px}
+.pvppage.land .pvphdr-t,.pvppage.land .pvpscore{color:#e8eefc;text-shadow:0 1px 4px #000}
+.pvppage.land .pvpback{background:rgba(255,255,255,.14);border-color:#ffffff2e;color:#eef3ff}
+.pvppage.land .pvpq{color:#f2f6ff;text-shadow:0 2px 10px #000,0 0 22px #000}
+.pvppage.land .pvpuntimed{color:#b8c8e4;text-shadow:0 1px 5px #000}
+.pvppage.land .pvpsk{background:rgba(255,255,255,.9)}
 .pvppage.land .pvpstage{position:absolute;inset:0;max-width:none;margin:0;height:100%;border-radius:0;border:none}
 .pvppage.land .pvpfighter{height:70%}
 .pvppage.land .pvpfighter svg{height:100%}
@@ -1076,10 +1094,13 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvppage.land .pvppad-l,.pvppage.land .pvppad-r{pointer-events:auto}
 .pvppage.land .pvpdir{width:58px;height:58px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px)}
 .pvppage.land .pvpact{width:66px;height:56px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px)}
+.pvppage.land .pvppad-r{grid-template-columns:repeat(3,1fr)}
+.pvppage.land .pvppad-r .pvpact.rocket{grid-column:auto}
 .pvppage.land .pvpact.punch{background:linear-gradient(135deg,#e2865fee,#d05f43ee)}
+.pvppage.land .pvpact.kick{background:linear-gradient(135deg,#c9a227ee,#a8791bee)}
 /* the quiz takes the middle of the screen when it interrupts */
 .pvppage.land .pvpuntimed{position:absolute;left:0;right:0;top:34%;z-index:10;margin:0}
-.pvppage.land .pvpq{position:absolute;left:0;right:0;top:39%;z-index:10;margin:0;padding:0 8%;text-shadow:0 1px 8px rgba(255,255,255,.95)}
+.pvppage.land .pvpq{position:absolute;left:0;right:0;top:39%;z-index:10;margin:0;padding:0 8%}
 .pvppage.land .pvpopts{position:absolute;left:0;right:0;bottom:14px;z-index:11;margin:0;max-width:none;grid-template-columns:repeat(4,1fr);padding:0 14px}
 .pvppage.land .pvpopt{padding:12px 6px;background:rgba(255,255,255,.94)}
 /* skills sit between the two thumbs, where nothing else is competing */
@@ -1097,10 +1118,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpfighter.guard{filter:drop-shadow(0 0 10px #5ce1ff)}
 /* combo counter: it pops on every increment because the key changes */
 .pvpcombo{position:absolute;left:50%;top:32%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;animation:pvpcb .32s cubic-bezier(.34,1.6,.5,1)}
-.pvpcombo b{font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:#d97757;text-shadow:0 2px 10px rgba(255,255,255,.95),0 0 3px #fff;line-height:1}
-.pvpcombo i{font-family:'Orbitron',sans-serif;font-style:normal;font-size:9px;letter-spacing:2px;color:#b4522f;text-shadow:0 1px 5px rgba(255,255,255,.9)}
+.pvpcombo b{font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:#ffb489;text-shadow:0 0 18px #d97757,0 2px 6px #000;line-height:1}
+.pvpcombo i{font-family:'Orbitron',sans-serif;font-style:normal;font-size:9px;letter-spacing:2px;color:#ffd0b6;text-shadow:0 0 10px #d97757,0 1px 3px #000}
 @keyframes pvpcb{0%{transform:translateX(-50%) scale(1.7);opacity:.4}100%{transform:translateX(-50%) scale(1);opacity:1}}
-.pvpbanner{position:absolute;left:0;right:0;top:44%;z-index:6;text-align:center;font-family:'Orbitron',sans-serif;font-size:20px;font-weight:800;color:#d97757;text-shadow:0 2px 12px rgba(255,255,255,.98),0 0 4px #fff;pointer-events:none;animation:pvpbn .45s cubic-bezier(.34,1.5,.5,1)}
+.pvpbanner{position:absolute;left:0;right:0;top:44%;z-index:6;text-align:center;font-family:'Orbitron',sans-serif;font-size:20px;font-weight:800;color:#ffd6a8;text-shadow:0 0 22px #d97757,0 0 6px #ff9a4c,0 2px 8px #000;pointer-events:none;animation:pvpbn .45s cubic-bezier(.34,1.5,.5,1)}
 @keyframes pvpbn{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}
 /* overdrive lights the whole arena */
 .pvpstage.od{box-shadow:inset 0 0 0 2px #ffd23f,0 0 24px -6px #ffd23f}

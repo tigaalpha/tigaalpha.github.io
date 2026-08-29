@@ -40,11 +40,17 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
   const GA = `url(#${uid}-a)`, GB = `url(#${uid}-b)`, GC = `url(#${uid}-c)`, GLOW = `url(#${uid}-glow)`;
 
   /* one plate, five passes — the same treatment the character's armour gets */
+  /* fill → form shadow → broad sheen → NARROW hot-spot → fresnel edge → outline.
+     The last two are what stop an item reading as a coloured sticker: real
+     material has one small very bright kernel where the key light lands, and
+     picks the room back up along every edge that turns away from the camera. */
   const P = (d, f, o = {}) => (
     <g key={o.k}>
       <path d={d} fill={f} />
       <path d={d} fill={`url(#${uid}-occ)`} opacity={o.occ == null ? 1 : o.occ} />
       <path d={d} fill={`url(#${uid}-spec)`} opacity={o.spec == null ? 1 : o.spec} />
+      <path d={d} fill={`url(#${uid}-hot)`} opacity={o.hot == null ? .92 : o.hot} />
+      <path d={d} fill={`url(#${uid}-fres)`} opacity={o.fres == null ? .5 : o.fres} />
       <path d={d} fill="none" stroke={o.line || edge} strokeWidth={o.lw || 1.4} strokeLinejoin="round" strokeLinecap="round" opacity={o.lineOp == null ? .95 : o.lineOp} />
     </g>
   );
@@ -892,6 +898,18 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
           <stop offset="0%" stopColor="#000814" stopOpacity="0" />
           <stop offset="45%" stopColor="#000814" stopOpacity=".04" />
           <stop offset="100%" stopColor="#000814" stopOpacity=".42" />
+        </linearGradient>
+        <radialGradient id={`${uid}-hot`} cx="0.28" cy="0.16" r="0.33">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".82" />
+          <stop offset="24%" stopColor="#ffffff" stopOpacity=".28" />
+          <stop offset="60%" stopColor="#ffffff" stopOpacity=".04" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`${uid}-fres`} x1="0.5" y1="1" x2="0.5" y2="0">
+          <stop offset="0%" stopColor="#c2dcff" stopOpacity=".46" />
+          <stop offset="28%" stopColor="#c2dcff" stopOpacity=".05" />
+          <stop offset="74%" stopColor="#c2dcff" stopOpacity=".04" />
+          <stop offset="100%" stopColor="#eaf3ff" stopOpacity=".4" />
         </linearGradient>
         <linearGradient id={`${uid}-spec`} x1="0.06" y1="0" x2="0.7" y2="0.9">
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".6" />

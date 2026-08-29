@@ -621,6 +621,9 @@ const BOT_GAP = { rookie: 1700, veteran: 1250, ace: 950 };
    the only answer to a bot that is faster than you. */
 const ACT = {
   punch:  { cd: 400,  dmg: 1.55, range: 0.27, move: "punch",   sfx: "hit" },
+  /* a kick is slower than a punch and reaches a little further, and it hits
+     harder for it — the trade every fighting game makes between the two */
+  kick:   { cd: 620,  dmg: 2.35, range: 0.34, move: "kick",    sfx: "kick" },
   fire:   { cd: 330,  dmg: 0.72, range: 9,    move: "blaster", sfx: "shot" },
   rocket: { cd: 3400, dmg: 3.2,  range: 9,    move: "grenade", sfx: "lob" },
 };
@@ -1132,6 +1135,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               </button>
               <button className="pvpact punch" aria-label={T("ต่อย", "Punch", "拳击")} onPointerDown={() => attack("punch")}>
                 <b>👊</b><i>{T("ต่อย", "PUNCH", "拳击")}</i>
+              </button>
+              <button className="pvpact kick" aria-label={T("เตะ", "Kick", "踢击")} onPointerDown={() => attack("kick")}>
+                <b>🦵</b><i>{T("เตะ", "KICK", "踢击")}</i>
               </button>
               <button className="pvpact rocket" aria-label={T("จรวด", "Rocket", "火箭")} onPointerDown={() => attack("rocket")}>
                 <b>🚀</b><i>{T("จรวด", "ROCKET", "火箭")}</i>
