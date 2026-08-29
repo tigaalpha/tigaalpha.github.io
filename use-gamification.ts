@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { trainFromExp } from "./pvp-arena";
 import {
   LEVELS, ALL_LEVELS, EXP, BADGES, levelInfo, prestigeInfo, unlockedBadgeIds, QUEST_GOAL, QUEST_BONUS,
   weekKey, activeChallenges, readWeekly, writeWeekly, CHALLENGE_REWARD,
@@ -137,6 +138,14 @@ export function useGamification({ session, profile, setProfile }) {
     if (activeEventRef.current && activeEventRef.current.expMult > 1) amount = Math.round(amount * activeEventRef.current.expMult);
     mascot("happy", 1400);
     bumpWeekly("exp", amount);
+    /* Practising also trains the chassis. Every feature in the app already
+       calls gainExp, so hooking the skill track here is what makes the arena
+       progress off real playing rather than off a grind of its own — and no
+       caller has to know the class system exists. */
+    if (!opts.noSkill) {
+      trainFromExp(amount);
+      try { window.dispatchEvent(new Event("tg-skillsp")); } catch (e) {}
+    }
     if (uid) {
       sb.rpc("league_bump_exp", { p_week_key: weekKey(), p_amount: amount }).then(() => {}, () => {});
       sb.rpc("school_quest_bump", { p_amount: amount }).then(() => {}, () => {}); // no-ops silently if not in a school / no active quest

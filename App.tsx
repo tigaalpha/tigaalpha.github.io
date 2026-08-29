@@ -6,6 +6,7 @@ import { CSS, useInjectCSS } from "./app-styles";
 import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw } from "./cyber-avatar";
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
+import { SkillTrack, PvpPage, trainFromExp, readSkillSp, skillRank } from "./pvp-arena";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -3782,6 +3783,9 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
    feature's own gamification page already shows the player, so a challenge
    score is exactly as trustworthy as any other stat already in the app. */
 const ACTIVITY_DUELS = [
+  { key: "arena", icon: "⚔", higherIsBetter: true, unit: "",
+    label: { th: "สนามประลอง PvP", en: "PvP Arena", zh: "PvP 竞技场" },
+    myBest: () => { try { return Number(localStorage.getItem("tg_arena_best") || 0); } catch (e) { return 0; } } },
   { key: "activity:eargym", icon: "🎧", higherIsBetter: true, unit: "",
     label: { th: "บันไดโสตศาสตร์", en: "Ear Gym Ladder", zh: "耳朵健身梯" },
     myBest: () => ladderBestScore() },
@@ -5935,6 +5939,35 @@ function ChestIcon({ size = 16, className = "" }) {
   );
 }
 
+/* ── PvpArenaMount ──
+   The arena is a pure component; this is the thin shell that gives it the
+   social data. Friends and open duels come from the SAME RPCs the Friends
+   modal already uses, and a challenge posts through the same duel_challenge —
+   so an arena duel is stored, listed and resolved exactly like a song duel,
+   with no backend change at all. `song_id` is unconstrained text server-side,
+   which is what makes "arena" a legal subject. */
+const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi }) {
+  const [friends, setFriends] = useState(null);
+  const [duels, setDuels] = useState(null);
+  const load = useCallback(() => {
+    sb.rpc("friend_list").then(({ data, error }) => setFriends(error ? [] : ((data && data.friends) || [])));
+    sb.rpc("duel_list").then(({ data, error }) => setDuels(error ? [] : (data || [])));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  return (
+    <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi}
+      friends={friends} duels={duels}
+      onChallenge={async (friend, score) => {
+        const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: "arena", p_score: Math.round(score), p_mode: "duel" });
+        if (!error) { playUi("reward"); load(); }
+      }}
+      onRespondDuel={async (duel, score) => {
+        const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: Math.round(score) });
+        if (!error) { playUi("reward"); load(); }
+      }} />
+  );
+});
+
 /* ── StoragePage ──
    The shop shows what is for sale; this shows what is yours. Same catalogue,
    inverted: every category lists only what has been bought or granted, says
@@ -6012,7 +6045,7 @@ const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, e
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -6113,6 +6146,14 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           </div>
           <div className="expnext">{toNext}</div>
         </div>
+
+        {/* ── skill track ──
+            Account EXP is what the PLAYER has learned; this is what the CHASSIS
+            has. It belongs to the class rather than the model, so switching
+            between two Strikers keeps the rank and switching class starts a
+            fresh one. The arena is the door directly under it because the bar
+            and the fight are the same loop. */}
+        <SkillTrack lang={lang} charModel={charModel} onOpenPvp={onOpenPvp} />
       </div>
 
       {/* ── Character / Avatar Dress-up Section ── */}
@@ -6158,11 +6199,11 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
                   </div>
                 ))}
               </div>
-              <div className="battlecard-soon">
-                {lang === "th" ? "โหมดประลอง PvP กำลังจะมา — ตอบคำถามดนตรีแข่งกัน แล้วหุ่นสู้กันตามผล"
-                  : lang === "zh" ? "PvP 对战模式即将推出 — 比拼音乐问答，机体依结果开战"
-                  : "PvP duels are coming — answer music questions against another player, and your chassis fight it out"}
-              </div>
+              <button className="battlecard-soon as-btn" onClick={() => onOpenPvp && onOpenPvp()}>
+                {lang === "th" ? "⚔ เข้าสนามประลอง PvP — ตอบคำถามดนตรีแข่งกัน แล้วหุ่นสู้กันตามผล"
+                  : lang === "zh" ? "⚔ 进入 PvP 竞技场 — 比拼音乐问答，机体依结果开战"
+                  : "⚔ Enter the PvP Arena — answer music questions against an opponent, and your chassis fight it out"}
+              </button>
             </div>
           );
         })()}
@@ -10219,7 +10260,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
@@ -10245,6 +10286,30 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           onEquip={(kind, it) => buyOrEquip(kind, it)}
           onBack={() => { setPage("profile"); playUi("click"); }}
           onOpenShop={() => { setShopOpen(true); playUi("click"); }} />
+      )}
+
+      {/* ─── PAGE: PVP ARENA ───
+          The friends list and the duel list are loaded here rather than inside
+          the arena so the page never owns a network call of its own: it is
+          handed data and two callbacks, exactly like every other page. */}
+      {page === "pvp" && (
+        <PvpArenaMount lang={lang} charModel={charModel}
+          gear={[SHOP_WEAPONS.find(x => x.id === charWeapon), SHOP_OUTFITS.find(x => x.id === charOutfit),
+                 SHOP_HATS.find(x => x.id === charHat), SHOP_ACCESSORIES.find(x => x.id === charAccessory)]}
+          onBack={() => { setPage("profile"); playUi("click"); }}
+          playUi={playUi}
+          onReward={(xp, c, res) => {
+            // noSkill: the arena already paid SP for this fight itself
+            if (xp) gainExp(xp, { quest: true, noSkill: true });
+            if (c) earnCoins(c);
+            bumpWeekly("games", 1);
+            if (res && res.win) bumpWeekly("perfect", 1);
+            // the arena's personal best is what a challenge is measured against
+            try {
+              const b = Number(localStorage.getItem("tg_arena_best") || 0);
+              if (res && res.score > b) localStorage.setItem("tg_arena_best", String(res.score));
+            } catch (e) {}
+          }} />
       )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}

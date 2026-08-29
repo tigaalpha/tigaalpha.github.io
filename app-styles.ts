@@ -915,6 +915,130 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    The product page for a thirty-thousand-coin purchase: it turns, it says what
    it is good at and what it is not, it lists what its skills actually do, and
    only then does it offer to take the money. */
+
+/* ── skill track ── the per-class SP bars under the account EXP bar, and the
+   door to the arena. Scoped light like the rest of the profile hero. */
+.skilltrack{width:100%;max-width:520px;margin:14px auto 0;padding:12px 13px 13px;border-radius:16px;background:var(--card);border:1px solid var(--bd1);box-shadow:0 6px 22px -18px rgba(20,30,60,.5)}
+.skt-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.skt-ic{display:block;width:22px;height:22px;flex:none}
+.skt-ic svg{display:block;width:100%;height:100%}
+.skt-ttl{display:flex;align-items:baseline;gap:7px;margin-right:auto;min-width:0}
+.skt-ttl b{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;color:var(--muted)}
+.skt-ttl i{font-family:'Rajdhani',sans-serif;font-style:normal;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.skt-rank{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.5px;padding:2px 8px;border-radius:20px;white-space:nowrap;background:color-mix(in srgb,var(--cc) 12%,transparent);border:1px solid color-mix(in srgb,var(--cc) 38%,transparent);color:var(--cc)}
+.skt-bar{height:9px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);overflow:hidden}
+.skt-fill{height:100%;border-radius:20px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.skt-sub{margin-top:5px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);text-align:center}
+.skt-all{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:5px;margin-top:10px}
+.skt-chip{display:flex;align-items:center;gap:4px;padding:4px 6px;border-radius:9px;background:var(--card2);border:1px solid var(--bd1);min-width:0}
+.skt-chip.on{background:color-mix(in srgb,var(--cc) 9%,transparent);border-color:color-mix(in srgb,var(--cc) 40%,transparent)}
+.skt-chip-ic{display:block;width:15px;height:15px;flex:none}
+.skt-chip-ic svg{display:block;width:100%;height:100%}
+.skt-chip-nm{font-family:'Rajdhani',sans-serif;font-size:9.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.skt-chip-bar{display:none}
+.skt-chip-r{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--cc);flex:none}
+.skt-pvp{display:flex;align-items:center;gap:10px;width:100%;margin-top:11px;padding:11px 12px;border:none;border-radius:13px;background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;text-align:left;cursor:pointer;box-shadow:0 8px 22px -12px #d97757}
+.skt-pvp:hover{filter:brightness(1.06)}
+.skt-pvp:active{transform:scale(.985)}
+.skt-pvp-ic{font-size:19px;line-height:1;flex:none}
+.skt-pvp-b{display:flex;flex-direction:column;gap:2px;margin-right:auto;min-width:0}
+.skt-pvp-b b{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:.2px}
+.skt-pvp-b i{font-style:normal;font-size:10.5px;line-height:1.35;opacity:.92}
+.skt-pvp-go{font-size:17px;flex:none;opacity:.9}
+
+/* ── PvP arena ── */
+.pvppage{min-height:100dvh;background:var(--bg);padding-bottom:26px}
+.pvphdr{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:9px;padding:11px 13px;background:var(--card);border-bottom:1px solid var(--bd1)}
+.pvphdr-t{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text);margin-right:auto}
+.pvpscore{font-family:'Share Tech Mono',monospace;font-size:14px;color:#d97757}
+.pvpbody{max-width:520px;margin:0 auto;padding:13px 13px 0}
+.pvpme{display:flex;gap:11px;padding:12px;border-radius:15px;background:var(--card);border:1px solid var(--bd1)}
+.pvpme-stage{width:96px;flex:none;height:190px;border-radius:11px;background:linear-gradient(178deg,#fff,#eef1f7);border:1px solid var(--bd1);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pvpme-stage svg{display:block;height:178px;width:auto}
+.pvpme-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.pvpme-nm{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
+.pvpme-rank{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--cc)}
+.pvpme-sk{display:flex;flex-direction:column;gap:6px}
+.pvpsk{display:flex;gap:7px;align-items:flex-start}
+.pvpsk.lock{opacity:.5}
+.pvpsk-ic{display:block;width:22px;height:22px;flex:none;margin-top:1px}
+.pvpsk-ic svg{display:block;width:100%;height:100%}
+.pvpsk-b{display:flex;flex-direction:column;min-width:0}
+.pvpsk-b b{font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:var(--text)}
+.pvpsk-b b i{font-style:normal;font-size:8px;padding:1px 5px;border-radius:20px;background:#14141310;color:var(--muted);margin-left:4px}
+.pvpsk-b span{font-size:10px;line-height:1.35;color:var(--muted)}
+.pvpsec-h{margin:16px 2px 8px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
+.pvptiers{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.pvptier{display:flex;flex-direction:column;gap:3px;padding:11px 7px;border-radius:13px;border:1px solid var(--bd1);background:var(--card);cursor:pointer;text-align:center}
+.pvptier:active{transform:scale(.97)}
+.pvptier b{font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--text)}
+.pvptier i{font-style:normal;font-size:9.5px;color:var(--muted)}
+.pvptier span{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:-.2px;color:#d97757;white-space:nowrap}
+.pvptier.t-rookie{border-color:#3ddc8455}
+.pvptier.t-veteran{border-color:#3d86c655}
+.pvptier.t-ace{border-color:#d9775777;box-shadow:0 0 0 1px #d9775722}
+.pvpnote{font-size:10.5px;line-height:1.5;color:var(--muted);background:var(--card2);border:1px solid var(--bd1);border-radius:11px;padding:9px 11px;margin-bottom:9px}
+.pvpempty{font-size:11.5px;color:var(--muted);text-align:center;padding:16px 10px;background:var(--card2);border:1px dashed var(--bd1);border-radius:12px}
+.pvpfriends{display:flex;flex-direction:column;gap:6px}
+.pvpfriend{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:12px;border:1px solid var(--bd1);background:var(--card);cursor:pointer;text-align:left}
+.pvpfriend:active{transform:scale(.99)}
+.pvpfriend-av{display:block;width:34px;height:34px;flex:none;border-radius:9px;background:var(--card2);overflow:hidden}
+.pvpfriend-av svg{display:block;width:100%;height:100%}
+.pvpfriend-nm{flex:1;min-width:0;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pvpfriend-go{font-family:'Share Tech Mono',monospace;font-size:10px;color:#d97757;flex:none}
+
+.pvparena{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:6px;max-width:520px;margin:10px auto 0;padding:0 13px}
+.pvpside{position:relative;display:flex;flex-direction:column;gap:4px}
+.pvphp{height:9px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);overflow:hidden}
+.pvphp i{display:block;height:100%;background:linear-gradient(90deg,#3ddc84,#2fa87a);transition:width .35s}
+.pvphp.op i{background:linear-gradient(90deg,#ff7a3c,#e0563f)}
+.pvphp-n{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
+.pvpbot{height:186px;border-radius:13px;background:linear-gradient(178deg,#fff,#eef1f7);border:1px solid var(--bd1);display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.pvpbot svg{display:block;height:180px;width:auto}
+.pvpbot.flip{transform:scaleX(-1)}
+.pvpvs{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:var(--muted);padding-bottom:78px}
+.pvpflash{position:absolute;left:50%;top:38%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:16px;font-weight:800;pointer-events:none;animation:pvpfl .9s ease-out forwards;white-space:nowrap;text-shadow:0 2px 6px rgba(255,255,255,.9)}
+.pvpflash.dmg{color:#e0563f}
+.pvpflash.heal{color:#2fa87a}
+.pvpflash.crit{color:#d97757}
+.pvpflash.block,.pvpflash.miss{color:#3d86c6;font-size:12px}
+.pvpflash.buff{color:#7b3fd0;font-size:11px}
+@keyframes pvpfl{0%{opacity:0;transform:translate(-50%,10px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px)}}
+.pvpnames{display:flex;justify-content:space-between;gap:10px;max-width:520px;margin:5px auto 0;padding:0 15px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:var(--muted)}
+.pvpnames span:last-child{text-align:right}
+.pvpclock{max-width:520px;margin:11px auto 0;height:6px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);overflow:hidden}
+.pvpclock i{display:block;height:100%;background:linear-gradient(90deg,#ffd23f,#d97757);transition:width .1s linear}
+.pvpq{max-width:520px;margin:18px auto 0;padding:0 15px;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;line-height:1.4;color:var(--text);text-align:center;text-wrap:balance}
+.pvpopts{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:520px;margin:12px auto 0;padding:0 13px}
+.pvpopt{padding:14px 8px;border-radius:13px;border:1px solid var(--bd1);background:var(--card);font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text);cursor:pointer}
+.pvpopt:active{transform:scale(.97)}
+.pvpopt.culled{opacity:.25;text-decoration:line-through}
+.pvpopt.right{border-color:#2fa87a;background:#2fa87a1a;color:#17805a}
+.pvpskills{max-width:520px;margin:14px auto 0;padding:0 13px}
+.pvpgauge{height:7px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);overflow:hidden}
+.pvpgauge i{display:block;height:100%;transition:width .3s}
+.pvpskbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.pvpskbtn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 6px;border-radius:13px;border:1px solid var(--bd1);background:var(--card2);cursor:not-allowed;opacity:.6}
+.pvpskbtn.on{cursor:pointer;opacity:1;background:var(--card);border-color:color-mix(in srgb,var(--cc) 50%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--cc) 22%,transparent)}
+.pvpskbtn.ult.on{border-color:#ffd23f;box-shadow:0 0 0 1px #ffd23f55}
+.pvpskbtn-ic{display:block;width:26px;height:26px}
+.pvpskbtn-ic svg{display:block;width:100%;height:100%}
+.pvpskbtn b{font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:var(--text);text-align:center;line-height:1.2}
+.pvpskbtn i{font-style:normal;font-size:9px;line-height:1.3;color:var(--muted);text-align:center}
+.pvpres{padding:16px 13px;border-radius:16px;background:var(--card);border:1px solid var(--bd1);text-align:center}
+.pvpres.win{border-color:#ffd23f88;box-shadow:0 0 0 1px #ffd23f33}
+.pvpres-stage{height:210px;display:flex;align-items:center;justify-content:center}
+.pvpres-stage svg{display:block;height:206px;width:auto}
+.pvpres-score{font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:#d97757}
+.pvpres-sub{font-size:11px;color:var(--muted);margin-top:4px}
+.pvpres-rew{display:flex;justify-content:center;gap:12px;margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text)}
+.pvpres-rank{margin-top:9px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--cc)}
+.pvpbig{width:100%;margin-top:11px;padding:13px 10px;border:none;border-radius:13px;background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer}
+.pvpres-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+.pvpghost{padding:12px 8px;border-radius:12px;border:1px solid var(--bd1);background:var(--card);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
+@media (max-width:360px){.pvpbot{height:150px}.pvpbot svg{height:144px}.pvpq{font-size:14px}}
+.battlecard-soon.as-btn{display:block;width:100%;text-align:left;cursor:pointer;border:1px solid color-mix(in srgb,#d97757 34%,transparent);background:#d9775712;color:#b4522f;border-radius:11px;padding:9px 11px;font-family:inherit;line-height:1.45}
+.battlecard-soon.as-btn:hover{background:#d9775720}
 .mdv{max-width:440px!important;width:calc(100% - 22px);max-height:93vh!important;display:flex;flex-direction:column;overflow:hidden;background:var(--card)!important;border-color:var(--bd1)!important;box-shadow:0 24px 60px -20px rgba(20,30,60,.45)!important}
 .mdv-hdr{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--bd1);flex-shrink:0}
 .mdv-ttl{display:flex;align-items:baseline;gap:7px;margin-right:auto;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:var(--text)}
