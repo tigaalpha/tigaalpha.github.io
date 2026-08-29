@@ -3,7 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
-import { CyberAvatar, CHAR_MODELS, MODEL_RIG, RobotGlyph, normalizeModel, wrapYaw } from "./cyber-avatar";
+import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw } from "./cyber-avatar";
 import { ItemArt } from "./item-art";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
@@ -5659,7 +5659,7 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
   // floating in front of the first.
   const armorA = (out && out.sw && out.sw[0]) || "#161d2c";
   const armorB = (out && out.sw && out.sw[1]) || "#3d5878";
-  const power = worn.reduce((n, it) => n + (CS_RARITY[it.rarity] + 1) * 120, 0);
+  const power = combatOf(model, [wpn, out, hat, acc]).total;
 
   /* Equipped items orbit the figure on the same axis the model turns on, so a
      weapon held at the character's side really does travel round behind it
@@ -5716,7 +5716,7 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
         onKeyDown={(e) => { if (e.key === "ArrowLeft") nudge(-15); else if (e.key === "ArrowRight") nudge(15); }} tabIndex={0} />
       <div className="cs-hud">
         <span className="cs-hud-tag">{best.toUpperCase()}</span>
-        <span className="cs-hud-pwr">PWR {power.toLocaleString()}</span>
+        <span className="cs-hud-pwr">CMB {power}</span>
       </div>
       <div className="cs-turn">
         <button type="button" className="cs-turn-b" onClick={() => nudge(-45)} aria-label={T("หมุนซ้าย", "Turn left", "向左转")}>◀</button>
@@ -5728,6 +5728,40 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
       </div>
       {!touched && <div className="cs-turn-hint">{T("ลากเพื่อหมุนดูรอบตัว 360°", "Drag to spin 360°", "拖动可 360° 旋转")}</div>}
       <i className="cs-bracket tl" /><i className="cs-bracket tr" /><i className="cs-bracket bl" /><i className="cs-bracket br" />
+    </div>
+  );
+});
+
+/* ── StatBars ──
+   The chassis's combat profile, for the duel mode these models are being built
+   toward: two players answer music questions and the answers drive a fight. It
+   is on screen now, before that mode ships, for two reasons — a number beside a
+   model is the difference between a skin and a character worth saving 30,000
+   coins for, and it is the only thing that makes the weapon rack read as more
+   than decoration once you see the rack raising POWER.
+
+   Every chassis totals the same 40. A shop that sold a strictly better body
+   would be selling a win rather than a character, so what money buys is a
+   shape: REAPER hits hardest and folds fastest, ATLAS is the reverse. */
+const STAT_KEYS = [
+  { k: "pwr", c: "#e0563f", th: "พลัง",   en: "POWER",  zh: "力量" },
+  { k: "arm", c: "#3d86c6", th: "เกราะ",  en: "ARMOUR", zh: "护甲" },
+  { k: "spd", c: "#2fa87a", th: "ความเร็ว", en: "SPEED", zh: "速度" },
+  { k: "syn", c: "#9b6bd6", th: "ซิงค์",  en: "SYNC",   zh: "同步" },
+];
+const StatBars = memo(function StatBars({ lang, stats, compact = false, max = 24 }) {
+  if (!stats) return null;
+  return (
+    <div className={`statbars${compact ? " compact" : ""}`}>
+      {STAT_KEYS.map(st => (
+        <div key={st.k} className="statrow" title={`${tr(st, lang)} ${stats[st.k]}`}>
+          {!compact && <span className="statlbl">{tr(st, lang)}</span>}
+          <span className="stattrack">
+            <i style={{ width: `${Math.min(100, (stats[st.k] / max) * 100).toFixed(1)}%`, background: st.c }} />
+          </span>
+          {!compact && <b className="statval">{stats[st.k]}</b>}
+        </div>
+      ))}
     </div>
   );
 });
@@ -5940,6 +5974,33 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           })()}
         </div>
         <CharacterStage lang={lang} model={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} />
+        {/* ── battle profile ──
+            What this chassis and this loadout are worth in a fight. The duel
+            mode is not shipped yet; the numbers are, because they are what turn
+            the weapon rack from decoration into a build. */}
+        {(() => {
+          const gear = [SHOP_WEAPONS.find(x => x.id === charWeapon), SHOP_OUTFITS.find(x => x.id === charOutfit),
+                        SHOP_HATS.find(x => x.id === charHat), SHOP_ACCESSORIES.find(x => x.id === charAccessory)];
+          const st = combatOf(charModel, gear);
+          return (
+            <div className="battlecard">
+              <div className="battlecard-h">
+                <span>⚔️ {lang === "th" ? "โปรไฟล์การต่อสู้" : lang === "zh" ? "战斗档案" : "Battle profile"}</span>
+                <span className="battlecard-t">{st.total}</span>
+              </div>
+              <StatBars lang={lang} stats={st} />
+              <div className="battlecard-sp">
+                <b>{lang === "th" ? "ท่าไม้ตาย" : lang === "zh" ? "绝技" : "Special"}</b>
+                <span>{tr(st.sp, lang)}</span>
+              </div>
+              <div className="battlecard-soon">
+                {lang === "th" ? "โหมดประลอง PvP กำลังจะมา — ตอบคำถามดนตรีแข่งกัน แล้วหุ่นสู้กันตามผล"
+                  : lang === "zh" ? "PvP 对战模式即将推出 — 比拼音乐问答，机体依结果开战"
+                  : "PvP duels are coming — answer music questions against another player, and your chassis fight it out"}
+              </div>
+            </div>
+          );
+        })()}
         <div className="char-slots">
           {[
             { label: "🥽", val: charHat, items: SHOP_HATS, kind: "charHat" },
@@ -9553,6 +9614,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <span className="mdlitem-head"><CyberAvatar model={it.model} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
           <span className="shopitem-nm">{tr(it, lang)}</span>
           <span className="shopitem-desc">{tr(it.desc, lang)}</span>
+          <StatBars lang={lang} stats={MODEL_COMBAT[it.model]} compact />
+          <span className="shopitem-sp">{tr((MODEL_COMBAT[it.model] || {}).sp, lang)}</span>
           <span className="shopitem-tag">{running ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost.toLocaleString()}</span>
         </button>
       );
@@ -10462,13 +10525,27 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               </div>
               <div className="mdlpick-body">
                 <div className="mdlpick-stage">
-                  <CyberAvatar model={sel} yaw={-18} glow="#00f0ff" accent="#aa00ff" armorA="#161d2c" armorB="#3d5878" />
+                  <CyberAvatar model={sel} yaw={-22} pose="ready" glow="#00f0ff" accent="#aa00ff" armorA="#161d2c" armorB="#3d5878" />
                 </div>
                 <div className="mdlpick-info">
                   <span className="mdlpick-code">{selM.code}</span>
                   <span className="mdlpick-name">{tr(selM, lang)}</span>
                   <span className="mdlpick-cls">{tr(selM.cls, lang)}</span>
                 </div>
+                {(() => {
+                  const st = MODEL_COMBAT[sel] || MODEL_COMBAT.vanguard;
+                  return (
+                    <div className="mdlpick-stats">
+                      <StatBars lang={lang} stats={st} />
+                      <div className="mdlpick-sp">
+                        <b>{T("ท่าไม้ตาย", "Special", "绝技")}</b><span>{tr(st.sp, lang)}</span>
+                      </div>
+                      <div className="mdlpick-fair">{T(`ทุกรุ่นมีแต้มรวมเท่ากัน ${COMBAT_TOTAL} — ต่างกันที่รูปแบบ`,
+                        `Every chassis totals the same ${COMBAT_TOTAL}. What changes is the shape.`,
+                        `每台机体总分同为 ${COMBAT_TOTAL}，差别在于分配。`)}</div>
+                    </div>
+                  );
+                })()}
                 <div className="mdlpick-grid">
                   {CHAR_MODELS.map(m => (
                     <button key={m.id} type="button" className={`char-model${sel === m.id ? " on" : ""}`}

@@ -117,6 +117,81 @@ export const CHAR_MODELS = [
 /* How each model is proportioned. Exported because the stage has to hang
    equipped gear on the right body — a chibi's head is nearly twice the size and
    its hands sit higher, so headgear and held items cannot use one fixed offset. */
+/* ── combat profile ──
+   For the duel mode: two players answer music questions and the answers drive a
+   fight between their chassis. Every model carries the SAME total — 40 points
+   across four stats — because these are bought with coins and a shop that sells
+   a strictly better body sells a win, not a character. What differs is the
+   shape: REAPER hits hardest and folds fastest, ATLAS is the opposite, PHANTOM
+   is nearly all speed. The special is the flavour the shape cannot carry.
+
+   POWER  scales damage dealt on a correct answer
+   ARMOUR reduces damage taken on a wrong one
+   SPEED  decides who answers into the clock first, and dodge chance
+   SYNC   how much a streak of correct answers compounds */
+export const MODEL_COMBAT = {
+  vanguard: { pwr: 13, arm: 10, spd: 9,  syn: 8,  sp: { th: "ยิงชุดต่อเนื่อง", en: "Suppressing Fire", zh: "压制射击" } },
+  sentinel: { pwr: 10, arm: 15, spd: 7,  syn: 8,  sp: { th: "ตั้งโล่กำบัง",    en: "Bulwark Stance",   zh: "壁垒姿态" } },
+  reaper:   { pwr: 17, arm: 8,  spd: 10, syn: 5,  sp: { th: "ตัดวงจร",        en: "Execute Protocol", zh: "处决协议" } },
+  ronin:    { pwr: 15, arm: 8,  spd: 13, syn: 4,  sp: { th: "วิถีดาบเดียว",    en: "Single Stroke",    zh: "一刀流" } },
+  phantom:  { pwr: 10, arm: 6,  spd: 16, syn: 8,  sp: { th: "เปลี่ยนรูปหลบ",   en: "Mimic Dodge",      zh: "拟态闪避" } },
+  envoy:    { pwr: 7,  arm: 11, spd: 8,  syn: 14, sp: { th: "แปลภาษาทุกชนิด",  en: "Six Million Forms", zh: "百万语系" } },
+  talon:    { pwr: 16, arm: 9,  spd: 12, syn: 3,  sp: { th: "ล็อกเป้าหมาย",    en: "Target Lock",      zh: "目标锁定" } },
+  sentry:   { pwr: 11, arm: 11, spd: 11, syn: 7,  sp: { th: "ยิงพร้อมกันเป็นแถว", en: "Volley Order",  zh: "齐射指令" } },
+  pip:      { pwr: 6,  arm: 12, spd: 10, syn: 12, sp: { th: "ซ่อมกลางสนาม",    en: "Field Repair",     zh: "战地维修" } },
+  pebble:   { pwr: 8,  arm: 8,  spd: 15, syn: 9,  sp: { th: "กลิ้งหลบ",        en: "Roll Away",        zh: "滚动闪避" } },
+  specter:  { pwr: 12, arm: 9,  spd: 12, syn: 7,  sp: { th: "แฝงตัวเข้าใกล้",   en: "Infiltrate",       zh: "潜入" } },
+  scout:    { pwr: 10, arm: 9,  spd: 11, syn: 10, sp: { th: "อ่านเกมล่วงหน้า",  en: "Preconstruct",     zh: "预演推算" } },
+  meridian: { pwr: 11, arm: 11, spd: 9,  syn: 9,  sp: { th: "ปลุกให้ตื่นรู้",   en: "Awaken",           zh: "觉醒" } },
+  atlas:    { pwr: 12, arm: 17, spd: 5,  syn: 6,  sp: { th: "ยืนรับแทน",       en: "Take The Hit",     zh: "代为承受" } },
+  keeper:   { pwr: 8,  arm: 13, spd: 9,  syn: 10, sp: { th: "ปกป้องคนข้างหลัง", en: "Shelter",          zh: "庇护" } },
+  halcyon:  { pwr: 9,  arm: 9,  spd: 10, syn: 12, sp: { th: "เสียงประสานสงบ",   en: "Calm Chorus",      zh: "宁静和声" } },
+  aurora:   { pwr: 9,  arm: 8,  spd: 11, syn: 12, sp: { th: "ท่อนฮุกตรึงใจ",    en: "Encore Hook",      zh: "安可副歌" } },
+  nova:     { pwr: 7,  arm: 11, spd: 10, syn: 12, sp: { th: "ส่งพลังหนุน",      en: "Assist Boost",     zh: "支援增幅" } },
+  pixel:    { pwr: 8,  arm: 10, spd: 12, syn: 10, sp: { th: "เปลี่ยนหน้าจอลวง",  en: "Screen Feint",     zh: "屏幕虚招" } },
+  mochi:    { pwr: 6,  arm: 14, spd: 9,  syn: 11, sp: { th: "ดูดซับแรงกระแทก",  en: "Squish Absorb",    zh: "软化吸收" } },
+};
+export const COMBAT_TOTAL = 40;
+/* Gear adds on top of the chassis, which is what makes the weapon rack matter:
+   a rarer piece is worth more, and each slot feeds the stat it belongs to. */
+const RARITY_PTS = { common: 1, rare: 2, epic: 3, legendary: 5 };
+export function combatOf(model, gear = []) {
+  const base = MODEL_COMBAT[normalizeModel(model)] || MODEL_COMBAT.vanguard;
+  const out = { pwr: base.pwr, arm: base.arm, spd: base.spd, syn: base.syn, sp: base.sp };
+  for (const g of gear) {
+    if (!g) continue;
+    const n = RARITY_PTS[g.rarity] || 1;
+    if (g.id && g.id.startsWith("wpn-")) out.pwr += n;
+    else if (g.id && g.id.startsWith("out-")) out.arm += n;
+    else if (g.id && g.id.startsWith("hat-")) out.syn += n;
+    else out.spd += n;
+  }
+  out.total = out.pwr + out.arm + out.spd + out.syn;
+  return out;
+}
+
+/* ── poses ──
+   Built for the duel mode these chassis are heading into: two figures facing
+   each other across a music quiz, and the outcome played back as a fight. A
+   pose is not new artwork — it is a set of rotations applied to limb groups
+   that are already separate plates, about the joints they actually bend on.
+   Degrees are signed as the viewer sees them, and `lean` tips the torso and
+   head together about the hips so the whole upper body commits to the move
+   instead of the arms waving on a static mannequin. */
+export const POSES = {
+  /* Positive swings a limb FORWARD and INWARD, on both sides — the right side
+     applies the negative so one number means one thing however it is mirrored.
+     The angles are small on purpose: a hand hangs 132 units below its shoulder,
+     so twenty degrees moves it forty-five, and a stance that looks modest in
+     the table is already a big movement on screen. */
+  idle:   { lean: 0,   armL: 0,   armR: 0,   legL: 0,   legR: 0,  head: 0,  lift: 0 },
+  ready:  { lean: -4,  armL: 15,  armR: 9,   legL: -5,  legR: -5, head: -3, lift: 0 },
+  attack: { lean: -10, armL: 34,  armR: -12, legL: -8,  legR: -3, head: -6, lift: -3 },
+  hit:    { lean: 11,  armL: -13, armR: -15, legL: 4,   legR: -8, head: 10, lift: 3 },
+  win:    { lean: -5,  armL: 26,  armR: 22,  legL: -4,  legR: -4, head: -13, lift: -9 },
+  down:   { lean: 16,  armL: -12, armR: -14, legL: -10, legR: 6,  head: 20, lift: 10 },
+};
+
 export const MODEL_RIG = {
   vanguard: { hs: 1.15 }, sentinel: { hs: 1.15 }, reaper: { hs: 1.15 }, ronin: { hs: 1.15 },
   phantom: { hs: 1.15 }, specter: { hs: 1.15 }, aurora: { hs: 1.15 },
@@ -168,7 +243,7 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 /* wrap any angle into −180…180 so callers can spin the yaw counter forever */
 export const wrapYaw = (d) => ((((d + 180) % 360) + 360) % 360) - 180;
 
-export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, armorA = "#1a2233", armorB = "#38506e", glow = "#00f0ff", accent = "#aa00ff" }) {
+export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOnly = false, armorA = "#1a2233", armorB = "#38506e", glow = "#00f0ff", accent = "#aa00ff" }) {
   const id = "ca" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const v = normalizeModel(model);
   const term = v === "vanguard";     // endoskeleton build
@@ -1316,6 +1391,12 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
     },
   }[v];
 
+  /* Limb pivots live where the joint is: shoulders on the pauldron line, hips
+     on the pelvis, and the upper body about the waist. A chibi's are its own —
+     its arms hang off a barrel, not off a shoulder line. */
+  const PZ = POSES[pose] || POSES.idle;
+  const posed = pose !== "idle";
+  const rot = (d, cx, cy) => `rotate(${d.toFixed(2)} ${cx} ${cy})`;
   const rig = MODEL_RIG[v] || MODEL_RIG.vanguard;
   const hs = rig.hs;                          // head size against the body
   const chibi = !!rig.chibi;
@@ -1585,19 +1666,30 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
             </g>
           )}
           {(front > 0.01 || rear > 0.01) && (
-            <g opacity={Math.max(front, rear).toFixed(3)}>
+            <g opacity={Math.max(front, rear).toFixed(3)} transform={`translate(0 ${PZ.lift})`}>
               {/* stubby arms, elbow-less, with mitten hands */}
-              {plate("M22 152 C10 155 3 176 4 200 C5 216 12 224 21 222 C28 220 30 200 29 180 C28 166 26 156 22 152 Z")}
-              {plate("M98 152 C110 155 117 176 116 200 C115 216 108 224 99 222 C92 220 90 200 91 180 C92 166 94 156 98 152 Z")}
-              {plate("M13 216 C5 216 0 224 0 233 C0 243 7 250 15 250 C24 250 29 242 29 232 C29 222 22 216 13 216 Z")}
-              {plate("M107 216 C115 216 120 224 120 233 C120 243 113 250 105 250 C96 250 91 242 91 232 C91 222 98 216 107 216 Z")}
+              <g transform={rot(PZ.armL * .8, 26, 156)}>
+                {plate("M22 152 C10 155 3 176 4 200 C5 216 12 224 21 222 C28 220 30 200 29 180 C28 166 26 156 22 152 Z")}
+                {plate("M13 216 C5 216 0 224 0 233 C0 243 7 250 15 250 C24 250 29 242 29 232 C29 222 22 216 13 216 Z")}
+              </g>
+              <g transform={rot(-PZ.armR * .8, 94, 156)}>
+                {plate("M98 152 C110 155 117 176 116 200 C115 216 108 224 99 222 C92 220 90 200 91 180 C92 166 94 156 98 152 Z")}
+                {plate("M107 216 C115 216 120 224 120 233 C120 243 113 250 105 250 C96 250 91 242 91 232 C91 222 98 216 107 216 Z")}
+              </g>
+              <g transform={rot(PZ.lean, 60, 280)}>
               {/* barrel body */}
               {plate("M60 116 C89 116 103 141 103 182 L101 246 C99 278 82 294 60 294 C38 294 21 278 19 246 L17 182 C17 141 31 116 60 116 Z", { lw: 1.4 })}
-              {/* little boots */}
-              {plate("M34 288 C29 294 28 334 30 354 C31 366 55 367 57 355 C60 336 59 294 55 288 Z")}
-              {plate("M65 288 C61 294 60 334 63 354 C64 366 88 367 90 355 C92 336 91 294 86 288 Z")}
-              {plate("M42 372 C28 372 19 379 19 385 C19 391 29 394 43 394 C57 394 66 391 66 385 C66 379 56 372 42 372 Z")}
-              {plate("M78 372 C64 372 55 379 55 385 C55 391 64 394 78 394 C92 394 101 391 101 385 C101 379 92 372 78 372 Z")}
+              </g>
+              {/* little boots, each on its own hip */}
+              <g transform={rot(PZ.legL * .7, 45, 290)}>
+                {plate("M34 288 C29 294 28 334 30 354 C31 366 55 367 57 355 C60 336 59 294 55 288 Z")}
+                {plate("M42 372 C28 372 19 379 19 385 C19 391 29 394 43 394 C57 394 66 391 66 385 C66 379 56 372 42 372 Z")}
+              </g>
+              <g transform={rot(-PZ.legR * .7, 75, 290)}>
+                {plate("M65 288 C61 294 60 334 63 354 C64 366 88 367 90 355 C92 336 91 294 86 288 Z")}
+                {plate("M78 372 C64 372 55 379 55 385 C55 391 64 394 78 394 C92 394 101 391 101 385 C101 379 92 372 78 372 Z")}
+              </g>
+              <g transform={rot(PZ.lean, 60, 280)}>
               <path d="M18 206 h13 M89 206 h13" stroke={bTrim} strokeWidth="5.5" strokeLinecap="round" />
               <path d="M34 348 h23 M65 348 h23" stroke={bTrim} strokeWidth="5.5" strokeLinecap="round" />
               {/* collar: where the worn outfit shows on a chibi */}
@@ -1623,6 +1715,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
                 <circle cx="60" cy="232" r="6.4" fill="none" stroke={glow} strokeWidth="1.3" opacity=".75" />
                 <circle cx="60" cy="232" r="2.6" fill={glow} className="ca-optic" />
                 {groove("M34 264 Q60 274 86 264", 1.4, .4)}
+              </g>
               </g>
             </g>
           )}
@@ -1671,16 +1764,23 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
             </g>
           )}
           {(front > 0.01 || rear > 0.01) && (
-            <g opacity={Math.max(front, rear).toFixed(3)}>
-              {/* arms: bicep, elbow actuator, forearm, hand */}
-              {plate("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z")}
-              {plate("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z")}
-              {joint(19, 158, 13)} {joint(101, 158, 13)}
-              {plate("M10 160 L30 163 L28 218 L14 216 Z")}
-              {plate("M110 160 L90 163 L92 218 L106 216 Z")}
-              {plate("M13 216 L28 219 L28 241 C23 250 15 249 12 240 Z", { fill: bTrim })}
-              {plate("M107 216 L92 219 L92 241 C97 250 105 249 108 240 Z", { fill: bTrim })}
-              {/* pauldrons */}
+            <g opacity={Math.max(front, rear).toFixed(3)} transform={`translate(0 ${PZ.lift})`}>
+              {/* arms swing from the shoulder; the whole limb is one group so
+                  bicep, elbow, forearm and hand travel together */}
+              <g transform={rot(PZ.armL, 24, 108)}>
+                {plate("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z")}
+                {joint(19, 158, 13)}
+                {plate("M10 160 L30 163 L28 218 L14 216 Z")}
+                {plate("M13 216 L28 219 L28 241 C23 250 15 249 12 240 Z", { fill: bTrim })}
+              </g>
+              <g transform={rot(-PZ.armR, 96, 108)}>
+                {plate("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z")}
+                {joint(101, 158, 13)}
+                {plate("M110 160 L90 163 L92 218 L106 216 Z")}
+                {plate("M107 216 L92 219 L92 241 C97 250 105 249 108 240 Z", { fill: bTrim })}
+              </g>
+              {/* pauldrons ride the shoulder line, so they take the same lean */}
+              <g transform={rot(PZ.lean, 60, 200)}>
               {plate("M36 90 C21 90 9 99 4 113 L2 133 L31 124 Z", { fill: bTrim, line: glow, lw: 1.2 })}
               {plate("M84 90 C99 90 111 99 116 113 L118 133 L89 124 Z", { fill: bTrim, line: glow, lw: 1.2 })}
               <circle cx="13" cy="117" r="2.8" fill={term ? "#ff2d46" : glow} className="ca-optic" />
@@ -1692,20 +1792,27 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
               {/* abdominal bands */}
               {plate("M28 157 L92 157 L89 172 L31 172 Z", { fill: bTrim })}
               {plate("M31 174 L89 174 L86 189 L34 189 Z", { fill: bTrim })}
-              {/* pelvis and hip plates */}
+              </g>
+              {/* pelvis and hip plates — planted, so the lean reads as a lean */}
               {plate("M32 187 L88 187 L92 217 L86 248 L34 248 L28 217 Z", { lw: 1.1 })}
               {plate("M31 196 L49 196 L47 231 L34 227 Z", { fill: bTrim })}
               {plate("M89 196 L71 196 L73 231 L86 227 Z", { fill: bTrim })}
-              {/* thigh, knee actuator, shin, ankle, boot */}
-              {plate("M34 240 L58 240 L56 302 L37 302 Z")}
-              {plate("M62 240 L86 240 L83 302 L64 302 Z")}
-              {joint(46, 303, 14)} {joint(74, 303, 14)}
-              {plate("M37 298 C41 294 51 294 55 298 C57 306 57 312 55 316 C51 320 41 320 37 316 C35 312 35 306 37 298 Z", { fill: bTrim, line: glow, lw: .9 })}
-              {plate("M65 298 C69 294 79 294 83 298 C85 306 85 312 83 316 C79 320 69 320 65 316 C63 312 63 306 65 298 Z", { fill: bTrim, line: glow, lw: .9 })}
-              {plate("M38 314 L55 314 L53 364 L40 364 Z")}
-              {plate("M65 314 L82 314 L80 364 L67 364 Z")}
-              {plate("M36 360 L55 360 L60 379 L60 392 L29 392 L29 377 Z", { fill: bTrim })}
-              {plate("M84 360 L65 360 L60 379 L60 392 L91 392 L91 377 Z", { fill: bTrim })}
+              {/* each leg swings from its own hip */}
+              <g transform={rot(PZ.legL, 46, 238)}>
+                {plate("M34 240 L58 240 L56 302 L37 302 Z")}
+                {joint(46, 303, 14)}
+                {plate("M37 298 C41 294 51 294 55 298 C57 306 57 312 55 316 C51 320 41 320 37 316 C35 312 35 306 37 298 Z", { fill: bTrim, line: glow, lw: .9 })}
+                {plate("M38 314 L55 314 L53 364 L40 364 Z")}
+                {plate("M36 360 L55 360 L60 379 L60 392 L29 392 L29 377 Z", { fill: bTrim })}
+              </g>
+              <g transform={rot(-PZ.legR, 74, 238)}>
+                {plate("M62 240 L86 240 L83 302 L64 302 Z")}
+                {joint(74, 303, 14)}
+                {plate("M65 298 C69 294 79 294 83 298 C85 306 85 312 83 316 C79 320 69 320 65 316 C63 312 63 306 65 298 Z", { fill: bTrim, line: glow, lw: .9 })}
+                {plate("M65 314 L82 314 L80 364 L67 364 Z")}
+                {plate("M84 360 L65 360 L60 379 L60 392 L91 392 L91 377 Z", { fill: bTrim })}
+              </g>
+              <g transform={rot(PZ.lean, 60, 200)}>
               {/* chest plating and the power core — gone once the back is toward us */}
               <g opacity={front.toFixed(3)}>
                 {groove("M60 88 L60 160", 1.2, .5)}
@@ -1729,11 +1836,12 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
                 {groove("M42 262 Q46 290 44 302 M78 262 Q74 290 76 302", 1.4, .45)}
                 {groove("M30 385 L58 385 M62 385 L90 385", 1.6, .45)}
               </g>
+              </g>
             </g>
           )}
         </>}
 
-        <g transform={headOnly ? undefined : `translate(60 -12) scale(${hs}) translate(-60 -3)`}>
+        <g transform={headOnly ? undefined : `translate(0 ${PZ.lift}) ${rot(PZ.lean, 60, chibi ? 280 : 200)} translate(60 -12) scale(${hs}) translate(-60 -3) ${rot(PZ.head, 60, 88)}`}>
         {/* ── neck ── */}
         {HEAD.neck || (
           <g transform={`translate(60 0) scale(${(0.72 + 0.28 * Math.abs(c)).toFixed(3)} 1) translate(-60 0)`}>
