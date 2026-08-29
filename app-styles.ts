@@ -952,42 +952,44 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .char-layer{font-size:36px;line-height:1;position:relative;z-index:1}
 
 /* ── 3D AAA Character Scene ── */
-.charstage{--floor:26px;position:relative;height:372px;margin:2px 0 10px;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse 120% 80% at 50% 108%,#141033 0%,#0a0618 55%,#050310 100%);border:1px solid #ffffff14;box-shadow:inset 0 0 40px #000a,0 6px 22px -10px var(--keyA),0 0 0 1px var(--keyA)33;isolation:isolate}
-/* deep sky + the two key lights bleeding in from the top corners */
-/* Two key lights washing in from the top corners. These used to be separate
-   rotated-and-blurred divs with mix-blend-mode; inside the stage's own
-   stacking context Chromium composited each one as a hard-edged rectangle
-   sitting over the character. Painting them straight into the sky is the same
-   light with nothing left to composite wrongly. */
-.cs-sky{position:absolute;inset:0;background:radial-gradient(ellipse 62% 74% at 14% -6%,color-mix(in srgb,var(--keyA) 34%,transparent) 0%,transparent 62%),radial-gradient(ellipse 62% 74% at 88% -4%,color-mix(in srgb,var(--keyB) 30%,transparent) 0%,transparent 62%),radial-gradient(ellipse 90% 40% at 50% 118%,color-mix(in srgb,var(--keyA) 16%,transparent) 0%,transparent 70%)}
-/* perspective floor: a flat grid laid down with rotateX, fading into the horizon */
-.cs-grid{position:absolute;left:-60%;right:-60%;top:calc(100% - var(--floor) - 22px);height:150px;transform:perspective(150px) rotateX(64deg);transform-origin:50% 0%;background-image:linear-gradient(color-mix(in srgb,var(--keyA) 48%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--keyA) 36%,transparent) 1px,transparent 1px);background-size:26px 22px;opacity:.5;-webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 34%,#000 100%);mask-image:linear-gradient(to bottom,transparent 0%,#000 34%,#000 100%);animation:csGrid 5.5s linear infinite}
+/* ── the viewport ──
+   A daylight studio, not a night club. The app is a warm off-white and a black
+   box punched into the middle of a light card reads as a hole in the page, so
+   the chamber is lit the way a product shot is: a soft graduated backdrop, a
+   pale floor with the grid drawn ON it, a real contact shadow under the feet
+   and a bounce card behind. Everything the equipped gear used to tint still
+   tints — the key colours just arrive as coloured light on white rather than
+   as glow in the dark. */
+.charstage{--floor:26px;position:relative;height:372px;margin:2px 0 10px;border-radius:16px;overflow:hidden;background:linear-gradient(178deg,#ffffff 0%,#f7f9fc 46%,#eef1f7 76%,#e4e9f2 100%);border:1px solid #14141314;box-shadow:inset 0 -34px 44px -34px rgba(20,30,60,.16),inset 0 1px 0 #fff,0 8px 26px -16px rgba(20,30,60,.4);isolation:isolate}
+/* the two key lights, arriving as coloured bounce off a white cyclorama */
+.cs-sky{position:absolute;inset:0;background:radial-gradient(ellipse 66% 62% at 16% 2%,color-mix(in srgb,var(--keyA) 20%,transparent) 0%,transparent 66%),radial-gradient(ellipse 66% 62% at 86% 4%,color-mix(in srgb,var(--keyB) 17%,transparent) 0%,transparent 66%),radial-gradient(ellipse 84% 46% at 50% 104%,color-mix(in srgb,var(--keyA) 13%,transparent) 0%,transparent 72%)}
+/* the floor grid, drawn onto the pale floor rather than glowing out of the dark */
+.cs-grid{position:absolute;left:-60%;right:-60%;top:calc(100% - var(--floor) - 20px);height:150px;transform:perspective(150px) rotateX(64deg);transform-origin:50% 0%;background-image:linear-gradient(color-mix(in srgb,var(--keyA) 44%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--keyA) 32%,transparent) 1px,transparent 1px);background-size:26px 22px;opacity:.34;-webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 40%,#000 100%);mask-image:linear-gradient(to bottom,transparent 0%,#000 40%,#000 100%);animation:csGrid 5.5s linear infinite}
 @keyframes csGrid{to{background-position:0 22px,0 0}}
-.cs-horizon{position:absolute;left:0;right:0;bottom:calc(var(--floor) + 20px);height:2px;background:linear-gradient(90deg,transparent,var(--keyA),#fff,var(--keyB),transparent);opacity:.85;filter:blur(.6px);box-shadow:0 0 22px 5px color-mix(in srgb,var(--keyA) 45%,transparent)}
-/* drifting motes — each one seeded off its index so they never march in step */
+/* where the floor meets the backdrop: a soft seam, not a neon strip */
+.cs-horizon{position:absolute;left:0;right:0;bottom:calc(var(--floor) + 18px);height:34px;background:linear-gradient(to bottom,transparent,color-mix(in srgb,var(--keyA) 12%,transparent) 60%,transparent);opacity:.9}
+/* dust in the light */
 .cs-motes{position:absolute;inset:0;pointer-events:none}
-.cs-motes i{position:absolute;bottom:-8px;left:calc(6% + var(--i) * 6.6%);width:3px;height:3px;border-radius:50%;background:var(--keyA);box-shadow:0 0 7px 2px color-mix(in srgb,var(--keyA) 70%,transparent);opacity:0;animation:csMote calc(7s + var(--i) * 0.55s) linear infinite;animation-delay:calc(var(--i) * -0.9s)}
-.cs-motes i:nth-child(even){background:var(--keyB);box-shadow:0 0 7px 2px color-mix(in srgb,var(--keyB) 70%,transparent);width:2px;height:2px}
-@keyframes csMote{0%{transform:translateY(0) translateX(0);opacity:0}12%{opacity:.85}100%{transform:translateY(-232px) translateX(14px);opacity:0}}
+.cs-motes i{position:absolute;bottom:-8px;left:calc(6% + var(--i) * 6.6%);width:3px;height:3px;border-radius:50%;background:var(--keyA);box-shadow:0 0 6px 1px color-mix(in srgb,var(--keyA) 45%,transparent);opacity:0;animation:csMote calc(7s + var(--i) * 0.55s) linear infinite;animation-delay:calc(var(--i) * -0.9s)}
+.cs-motes i:nth-child(even){background:var(--keyB);box-shadow:0 0 6px 1px color-mix(in srgb,var(--keyB) 45%,transparent);width:2px;height:2px}
+@keyframes csMote{0%{transform:translateY(0) translateX(0);opacity:0}12%{opacity:.6}100%{transform:translateY(-286px) translateX(14px);opacity:0}}
 /* the 3D scene proper — every layer parallaxes inside ONE preserve-3d space */
 .cs-scene{position:absolute;inset:0;perspective:620px;perspective-origin:50% 42%;transform-style:preserve-3d}
 /* counter-rotating holo rings around the figure */
-.cs-rings{position:absolute;left:50%;bottom:calc(var(--floor) - 28px);width:172px;height:172px;transform:translateX(-50%);transform-style:preserve-3d;pointer-events:none}
-.cs-ring{position:absolute;inset:0;border-radius:50%;border:1.5px solid transparent;background:conic-gradient(from 0deg,transparent 0deg,var(--keyA) 40deg,transparent 110deg,transparent 250deg,var(--keyB) 300deg,transparent 350deg) border-box;-webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:.75}
+.cs-rings{position:absolute;left:50%;bottom:calc(var(--floor) - 26px);width:186px;height:186px;transform:translateX(-50%);transform-style:preserve-3d;pointer-events:none}
+.cs-ring{position:absolute;inset:0;border-radius:50%;border:1.5px solid transparent;background:conic-gradient(from 0deg,transparent 0deg,var(--keyA) 40deg,transparent 110deg,transparent 250deg,var(--keyB) 300deg,transparent 350deg) border-box;-webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:.6}
 .cs-ring1{transform:rotateX(74deg);animation:csSpin 9s linear infinite}
-.cs-ring2{inset:22px;transform:rotateX(74deg);animation:csSpin 6.5s linear infinite reverse;opacity:.5}
-.cs-ring3{inset:-14px;transform:rotateX(80deg);animation:csSpin 14s linear infinite;opacity:.35}
+.cs-ring2{inset:24px;transform:rotateX(74deg);animation:csSpin 6.5s linear infinite reverse;opacity:.4}
+.cs-ring3{inset:-16px;transform:rotateX(80deg);animation:csSpin 14s linear infinite;opacity:.26}
 @keyframes csSpin{to{transform:rotateX(74deg) rotate(360deg)}}
 /* lit podium the figure stands on */
-.cs-podium{position:absolute;left:50%;bottom:calc(var(--floor) - 30px);width:132px;height:132px;transform:translateX(-50%) rotateX(76deg);transform-style:preserve-3d;pointer-events:none}
-.cs-podium-top{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--keyA) 30%,transparent) 0%,color-mix(in srgb,var(--keyB) 14%,transparent) 46%,transparent 70%);border:1.5px solid color-mix(in srgb,var(--keyA) 55%,transparent);box-shadow:0 0 26px 6px color-mix(in srgb,var(--keyA) 28%,transparent),inset 0 0 22px color-mix(in srgb,var(--keyB) 22%,transparent)}
-.cs-podium-glow{position:absolute;inset:26px;border-radius:50%;border:1px solid color-mix(in srgb,var(--keyB) 45%,transparent);animation:csPulse 3.2s ease-in-out infinite}
-@keyframes csPulse{0%,100%{opacity:.35;transform:scale(.94)}50%{opacity:.85;transform:scale(1.04)}}
-/* The figure. Every part is placed at an explicit y inside a fixed-size box
-   rather than stacked with flex margins — emoji have wildly different intrinsic
-   line boxes, so margin-stacking them collides the head into the torso at some
-   font sizes and gaps at others. Fixed slots make the silhouette stable
-   whatever is equipped. */
+.cs-podium{position:absolute;left:50%;bottom:calc(var(--floor) - 28px);width:142px;height:142px;transform:translateX(-50%) rotateX(76deg);transform-style:preserve-3d;pointer-events:none}
+.cs-podium-top{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--keyA) 22%,transparent) 0%,color-mix(in srgb,var(--keyB) 11%,transparent) 48%,transparent 72%);border:1.5px solid color-mix(in srgb,var(--keyA) 45%,transparent);box-shadow:0 0 22px 4px color-mix(in srgb,var(--keyA) 16%,transparent)}
+.cs-podium-glow{position:absolute;inset:28px;border-radius:50%;border:1px solid color-mix(in srgb,var(--keyB) 38%,transparent);animation:csPulse 3.2s ease-in-out infinite}
+@keyframes csPulse{0%,100%{opacity:.3;transform:scale(.94)}50%{opacity:.7;transform:scale(1.04)}}
+/* the shadow the figure actually casts on the floor — the single thing that
+   stops a light scene reading as a cut-out pasted on a gradient */
+.cs-cast{position:absolute;left:50%;bottom:calc(var(--floor) - 6px);width:118px;height:26px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse at 50% 50%,rgba(22,32,58,.4) 0%,rgba(22,32,58,.16) 46%,transparent 72%);pointer-events:none;z-index:1}
 /* Deliberately NOT preserve-3d. Each layer below carries a drop-shadow filter,
    and a filtered element that also has a translateZ inside a preserve-3d parent
    gets rasterised by Chromium as an opaque LAYER BOX — which painted a hard-edged
@@ -995,21 +997,20 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    stacking order and shadow weight instead; the real 3D is left to the podium and
    rings, which carry no filters and so composite cleanly. */
 .cs-figure,.cs-reflect{position:absolute;left:50%;bottom:var(--floor);width:127px;height:330px}
-.cs-figure{transform:translateX(-50%)}
-.cs-figure{animation:csFloat 4.2s ease-in-out infinite}
+.cs-figure{transform:translateX(-50%);animation:csFloat 4.2s ease-in-out infinite}
 @keyframes csFloat{0%,100%{translate:0 0}50%{translate:0 -7px}}
-.cs-aura{position:absolute;left:-16px;right:-16px;top:10px;height:318px;border-radius:50%;z-index:1;background:radial-gradient(circle,color-mix(in srgb,var(--keyA) 46%,transparent) 0%,color-mix(in srgb,var(--keyB) 22%,transparent) 42%,transparent 72%);filter:blur(11px);animation:csPulse 3.6s ease-in-out infinite}
+.cs-aura{position:absolute;left:-16px;right:-16px;top:10px;height:318px;border-radius:50%;z-index:1;background:radial-gradient(circle,color-mix(in srgb,var(--keyA) 26%,transparent) 0%,color-mix(in srgb,var(--keyB) 12%,transparent) 44%,transparent 72%);filter:blur(13px);animation:csPulse 3.6s ease-in-out infinite}
 /* each equipped layer gets rim light in ITS OWN colour, plus real depth offset */
 /* Rim light WITHOUT a filter. A drop-shadow() on a layer holding a colour-emoji
    made Chromium rasterise that layer's whole box as an opaque grey panel across
    the chamber — verified by toggling the filter off and watching the panel go.
    A radial gradient behind the glyph gives the same neon bloom, costs less, and
    composites correctly everywhere. */
-.cs-layer{position:absolute;left:50%;display:block;line-height:1;text-align:center;text-shadow:0 6px 10px rgba(0,0,0,.6)}
-.cs-layer::before{content:"";position:absolute;left:50%;top:50%;width:165%;height:165%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,var(--rim) 0%,transparent 62%);opacity:.4;z-index:-1;pointer-events:none}
+.cs-layer{position:absolute;left:50%;display:block;line-height:1;text-align:center;text-shadow:0 4px 8px rgba(20,30,60,.35)}
+.cs-layer::before{content:"";position:absolute;left:50%;top:50%;width:165%;height:165%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,var(--rim) 0%,transparent 62%);opacity:.32;z-index:-1;pointer-events:none}
 /* the drawn avatar fills the figure box; equipped emoji ride on top of it */
 .cs-av{position:absolute;inset:0;display:block;z-index:5}
-.cs-av svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 10px 14px rgba(0,0,0,.6))}
+.cs-av svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 10px 12px rgba(20,30,60,.28))}
 .ca-visor{animation:caVisor 3.4s ease-in-out infinite}
 @keyframes caVisor{0%,100%{opacity:.86}50%{opacity:1}}
 .ca-optic{animation:caVisor 2.2s ease-in-out infinite}
@@ -1023,32 +1024,30 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .ca-led circle:nth-child(3){transform-origin:center;transform-box:fill-box;animation:caSpin2 3.4s linear infinite}
 @keyframes caSpin2{to{transform:rotate(360deg)}}
 /* the endoskeleton's optics burn steadily rather than pulsing like a UI light */
-.ca-boy .ca-optic{animation:caEmber 3.6s ease-in-out infinite}
+.ca-vanguard .ca-optic,.ca-reaper .ca-optic{animation:caEmber 3.6s ease-in-out infinite}
 @keyframes caEmber{0%,100%{opacity:.88}50%{opacity:1}}
 /* PHANTOM's fissure: the alloy keeps closing itself */
 .ca-morph{animation:caMorph 4.4s ease-in-out infinite}
 @keyframes caMorph{0%,100%{opacity:.85;transform:translateX(0)}50%{opacity:.3;transform:translateX(1.5px)}}
-.ca-core{transform-origin:60px 100px;animation:caCore 2.8s ease-in-out infinite}
+.ca-core{transform-origin:60px 131px;animation:caCore 2.8s ease-in-out infinite}
 @keyframes caCore{0%,100%{opacity:.8;transform:scale(.94) rotate(0deg)}50%{opacity:1;transform:scale(1.06) rotate(180deg)}}
-.cs-hat{top:-11px;font-size:29px;transform:translateX(-50%);z-index:7;transform-origin:50% 92%}
-/* The outfit sits ON the body, not under it. The person emoji already draws its
-   own torso and shirt, so hanging a second garment below it read as two bodies
-   floating apart — the outfit now overlaps that torso (and stacks above it) so it
-   reads as the character WEARING the item. */
-.cs-wpn,.cs-acc{font-size:30px;z-index:9}
+/* equipped gear is drawn art now, so it is sized in px rather than by font */
+.cs-layer svg{display:block;width:100%;height:100%;filter:drop-shadow(0 3px 5px rgba(20,30,60,.3))}
+.cs-hat{top:-13px;width:38px;height:38px;transform:translateX(-50%);z-index:7;transform-origin:50% 92%}
+.cs-wpn,.cs-acc{width:38px;height:38px;z-index:9}
 /* Mirrored copy on the floor. transform-origin is the point that matters: the
    default centre origin flips the copy back UP over the figure, which reads as a
    glitch rather than a reflection. Pinning the origin to its own bottom edge
    mirrors it downward from the feet, where a floor reflection belongs. */
-.cs-reflect{transform:translateX(-50%) scaleY(-1);transform-origin:50% 100%;opacity:.16;filter:blur(2.5px) saturate(.5);pointer-events:none;-webkit-mask-image:linear-gradient(to top,transparent 4%,#000 62%);mask-image:linear-gradient(to top,transparent 4%,#000 62%)}
+.cs-reflect{transform:translateX(-50%) scaleY(-1);transform-origin:50% 100%;opacity:.13;filter:blur(2.5px) saturate(.6);pointer-events:none;-webkit-mask-image:linear-gradient(to top,transparent 6%,#000 58%);mask-image:linear-gradient(to top,transparent 6%,#000 58%)}
 .cs-reflect .cs-layer{filter:none}
 /* sweep + vignette + corner brackets: the HUD frame around the viewport */
-.cs-scan{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,transparent 0%,color-mix(in srgb,var(--keyA) 13%,transparent) 49%,transparent 53%);animation:csScan 4.5s linear infinite}
+.cs-scan{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,transparent 0%,color-mix(in srgb,var(--keyA) 9%,transparent) 49%,transparent 53%);animation:csScan 4.5s linear infinite}
 @keyframes csScan{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
-.cs-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 80% 70% at 50% 46%,transparent 46%,rgba(0,0,0,.55) 100%)}
+.cs-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 82% 74% at 50% 44%,transparent 52%,rgba(20,30,60,.09) 100%)}
 .cs-hud{position:absolute;left:26px;right:26px;top:10px;display:flex;justify-content:space-between;align-items:center;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:.12em;pointer-events:none}
-.cs-hud-tag{color:var(--keyA);text-shadow:0 0 8px var(--keyA)}
-.cs-hud-pwr{color:#fff9;text-shadow:0 0 6px var(--keyB)}
+.cs-hud-tag{color:color-mix(in srgb,var(--keyA) 72%,#0b1424)}
+.cs-hud-pwr{color:#6b7790}
 /* ── turntable ──
    The whole viewport is the drag handle, so the model is turned by grabbing it
    rather than by hunting for a control. touch-action:pan-y is what keeps a
@@ -1056,29 +1055,29 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .cs-drag{position:absolute;inset:0;z-index:8;touch-action:pan-y;cursor:grab;background:transparent;outline:none}
 .cs-drag:active{cursor:grabbing}
 .cs-drag:focus-visible{box-shadow:inset 0 0 0 2px var(--keyA)}
-.cs-turn{position:absolute;left:50%;bottom:7px;z-index:9;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:3px 5px;border-radius:999px;background:rgba(6,9,18,.72);border:1px solid #ffffff1f;backdrop-filter:blur(3px)}
-.cs-turn-b{display:inline-flex;align-items:center;gap:3px;min-width:24px;height:20px;justify-content:center;padding:0 6px;border:1px solid #ffffff24;border-radius:999px;background:#0d1425;color:#a9bdd8;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:color .16s,border-color .16s,background .16s}
-.cs-turn-b:hover{color:#fff;border-color:var(--keyA)}
+.cs-turn{position:absolute;left:50%;bottom:7px;z-index:9;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:3px 5px;border-radius:999px;background:rgba(255,255,255,.86);border:1px solid #14141317;box-shadow:0 2px 10px -4px rgba(20,30,60,.4);backdrop-filter:blur(4px)}
+.cs-turn-b{display:inline-flex;align-items:center;gap:3px;min-width:24px;height:20px;justify-content:center;padding:0 6px;border:1px solid #1414131f;border-radius:999px;background:#fff;color:#5c6880;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:color .16s,border-color .16s,background .16s}
+.cs-turn-b:hover{color:#101828;border-color:var(--keyA)}
 .cs-turn-b.wide{padding:0 8px}
-.cs-turn-b.on{color:#04121b;background:var(--keyA);border-color:var(--keyA);box-shadow:0 0 10px -2px var(--keyA)}
+.cs-turn-b.on{color:#04121b;background:var(--keyA);border-color:var(--keyA);box-shadow:0 0 10px -3px var(--keyA)}
 .cs-turn-ic{font-size:10px;line-height:1}
-.cs-turn-deg{min-width:30px;text-align:right;padding-right:3px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:#ffffff8c;font-variant-numeric:tabular-nums}
-.cs-turn-hint{position:absolute;left:50%;bottom:33px;z-index:9;transform:translateX(-50%);padding:3px 9px;border-radius:999px;background:rgba(6,9,18,.7);border:1px solid color-mix(in srgb,var(--keyA) 40%,transparent);color:#dbeaff;font-size:9.5px;font-weight:700;white-space:nowrap;pointer-events:none;animation:csHint 2.6s ease-in-out infinite}
-@keyframes csHint{0%,100%{opacity:.55}50%{opacity:1}}
-.cs-bracket{position:absolute;width:15px;height:15px;pointer-events:none;opacity:.72}
+.cs-turn-deg{min-width:30px;text-align:right;padding-right:3px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:#7a8497;font-variant-numeric:tabular-nums}
+.cs-turn-hint{position:absolute;left:50%;bottom:33px;z-index:9;transform:translateX(-50%);padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.9);border:1px solid color-mix(in srgb,var(--keyA) 45%,transparent);color:#26324a;font-size:9.5px;font-weight:700;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px -4px rgba(20,30,60,.4);animation:csHint 2.6s ease-in-out infinite}
+@keyframes csHint{0%,100%{opacity:.6}50%{opacity:1}}
+.cs-bracket{position:absolute;width:15px;height:15px;pointer-events:none;opacity:.5}
 .cs-bracket.tl{top:7px;left:7px;border-top:1.5px solid var(--keyA);border-left:1.5px solid var(--keyA)}
 .cs-bracket.tr{top:7px;right:7px;border-top:1.5px solid var(--keyB);border-right:1.5px solid var(--keyB)}
 .cs-bracket.bl{bottom:7px;left:7px;border-bottom:1.5px solid var(--keyB);border-left:1.5px solid var(--keyB)}
 .cs-bracket.br{bottom:7px;right:7px;border-bottom:1.5px solid var(--keyA);border-right:1.5px solid var(--keyA)}
 /* rarity raises the whole chamber's energy, it doesn't just recolour a chip */
-.charstage.rar-rare{box-shadow:inset 0 0 40px #000a,0 6px 26px -10px var(--keyA),0 0 0 1px var(--keyA)55}
-.charstage.rar-epic .cs-aura{filter:blur(14px);animation-duration:2.6s}
-.charstage.rar-epic{box-shadow:inset 0 0 44px #000b,0 8px 30px -10px var(--keyB),0 0 0 1.5px var(--keyB)77}
-.charstage.rar-legendary .cs-aura{filter:blur(17px);animation-duration:2s}
-.charstage.rar-legendary .cs-ring1,.charstage.rar-legendary .cs-ring2{opacity:1}
-.charstage.rar-legendary{box-shadow:inset 0 0 48px #000c,0 10px 36px -8px #ffd23f,0 0 0 1.5px #ffd23faa}
-@media (prefers-reduced-motion:reduce){.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.ca-led,.ca-led circle,.ca-morph,.cs-grid,.cs-beam,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan,.cs-turn-hint{animation:none}}
-@media (max-width:380px){.charstage{height:344px;--floor:22px}.cs-figure,.cs-reflect{width:114px;height:296px}.cs-aura{height:286px}.cs-hat{font-size:26px;top:-10px}.cs-wpn,.cs-acc{font-size:27px}.char-models{gap:3px}.char-model-nm{font-size:8px}}
+.charstage.rar-rare{box-shadow:inset 0 -34px 44px -34px rgba(20,30,60,.16),inset 0 1px 0 #fff,0 8px 26px -16px var(--keyA),0 0 0 1px color-mix(in srgb,var(--keyA) 34%,transparent)}
+.charstage.rar-epic .cs-aura{filter:blur(16px);animation-duration:2.6s}
+.charstage.rar-epic{box-shadow:inset 0 -34px 44px -34px rgba(20,30,60,.18),inset 0 1px 0 #fff,0 10px 30px -16px var(--keyB),0 0 0 1.5px color-mix(in srgb,var(--keyB) 45%,transparent)}
+.charstage.rar-legendary .cs-aura{filter:blur(19px);animation-duration:2s}
+.charstage.rar-legendary .cs-ring1,.charstage.rar-legendary .cs-ring2{opacity:.85}
+.charstage.rar-legendary{box-shadow:inset 0 -34px 44px -34px rgba(20,30,60,.2),inset 0 1px 0 #fff,0 12px 34px -14px #ffb300,0 0 0 1.5px #ffb30099}
+@media (prefers-reduced-motion:reduce){.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.ca-led,.ca-led circle,.ca-morph,.cs-grid,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan,.cs-turn-hint{animation:none}}
+@media (max-width:380px){.charstage{height:344px;--floor:22px}.cs-figure,.cs-reflect{width:114px;height:296px}.cs-aura{height:286px}.cs-cast{width:104px}.cs-hat{width:34px;height:34px;top:-11px}.cs-wpn,.cs-acc{width:34px;height:34px}.char-models{gap:3px}.char-model-nm{font-size:8px}}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}
 .char-slot-ic{font-size:18px}
@@ -1282,6 +1281,47 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .shopitem.legendary{border-color:#ffd23f;box-shadow:0 0 14px -3px #ffd23faa,0 0 20px -6px #aa00ff}
 .shopitem.legendary.equipped{border-color:#ffd23f;box-shadow:0 0 0 1px #ffd23f,0 0 16px -3px #ffd23f,0 0 24px -6px #aa00ff}
 .shopitem-new{position:absolute;top:-6px;right:-6px;background:linear-gradient(135deg,#00f0ff,#aa00ff);color:#fff;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:800;letter-spacing:.5px;padding:2px 6px;border-radius:8px;box-shadow:0 2px 6px -2px #d97757;z-index:1}
+/* a drawn item gets a square of its own rather than a text line box */
+.shopitem-art{display:block;width:100%;max-width:56px;aspect-ratio:1;margin:0 auto 2px}
+.shopitem-art svg{display:block;width:100%;height:100%;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
+.stgitem-art{display:block;width:100%;max-width:52px;aspect-ratio:1;margin:0 auto}
+.stgitem-art svg{display:block;width:100%;height:100%}
+.char-slot-ic svg{display:block;width:26px;height:26px}
+/* ── the shop, in daylight ──
+   The catalogue was a black modal dropped into a warm off-white app, which made
+   the one place people spend their coins feel like it belonged to a different
+   product. Everything below is scoped to .shop-full so the other modals keep
+   their own look; rarity survives the move as a tinted border and a tinted
+   wash instead of a neon glow, which is what rarity looks like on white. */
+.shop-full{background:var(--card)!important;border-color:var(--bd1)!important;box-shadow:0 24px 60px -20px rgba(20,30,60,.45)!important}
+.shop-full .sethdr{background:var(--card);border-bottom-color:var(--bd1);color:#d97757;text-shadow:none}
+.shop-full .shop-tabs{border-bottom-color:var(--bd1);background:linear-gradient(180deg,transparent,rgba(20,30,60,.03))}
+.shop-full .shop-tab{background:var(--card2);border-color:var(--bd1);color:var(--muted)}
+.shop-full .shop-tab.on{background:linear-gradient(135deg,#d9775714,#d9775722);border-color:#d97757;color:#c0603f;box-shadow:0 2px 10px -5px #d97757}
+.shop-full .shop-tab-n{color:#a8a49a}
+.shop-full .shop-tab.on .shop-tab-n{color:#d97757}
+.shop-full .shop-allbtn{background:var(--card2);border-color:var(--bd1);color:var(--muted)}
+.shop-full .shop-allbtn:hover{border-color:#d97757;color:#d97757}
+.shop-full .shop-allbtn.on{background:linear-gradient(135deg,#d9775718,#d9775728);border-color:#d97757;color:#c0603f;box-shadow:0 2px 10px -5px #d97757}
+.shop-full .shop-summary{color:var(--muted);border-bottom-color:var(--bd1)}
+.shop-full .shopitem{background:var(--card2);border-color:var(--bd1);color:var(--text);box-shadow:0 1px 2px rgba(20,30,60,.05)}
+.shop-full .shopitem:hover{border-color:#d9775788}
+.shop-full .shopitem-nm{color:var(--text)}
+.shop-full .shopitem-desc{color:var(--muted)}
+.shop-full .shopitem-rare{color:#a8a49a}
+.shop-full .shopitem.rare{border-color:#3aa8ff5c;background:linear-gradient(165deg,#3aa8ff0a,var(--card2))}
+.shop-full .shopitem.rare .shopitem-rare{color:#2b86d0}
+.shop-full .shopitem.epic{border-color:#9b4dff5c;background:linear-gradient(165deg,#9b4dff0d,var(--card2))}
+.shop-full .shopitem.epic .shopitem-rare{color:#7b3fd0}
+.shop-full .shopitem.legendary{border-color:#e0a01c8a;background:linear-gradient(165deg,#ffb3001a,var(--card2));box-shadow:0 2px 12px -6px #e0a01c}
+.shop-full .shopitem.legendary .shopitem-rare{color:#b8790a}
+.shop-full .shopitem.equipped{border-color:#00a6bd;box-shadow:0 0 0 1px #00a6bd66,0 3px 12px -6px #00a6bd}
+.shop-full .shopitem.legendary.equipped{border-color:#e0a01c;box-shadow:0 0 0 1px #e0a01c88,0 3px 14px -6px #e0a01c}
+.shop-full .shopitem-tag{color:var(--muted)}
+.shop-full .shopitem.equipped .shopitem-tag{color:#00a6bd}
+.shop-full .shopitem-art svg{filter:drop-shadow(0 2px 4px rgba(20,30,60,.22))}
+.shop-full .shopitem-icon-lg{filter:none}
+.shop-full .coinpill{color:#d97757}
 .shopitem-icon-lg{font-size:40px;line-height:1;filter:drop-shadow(0 0 6px rgba(0,240,255,.3));margin-bottom:4px}
 .shopitem-nm{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;color:#d0d0ff}
 .shopitem-rare{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.5px;color:var(--muted);text-transform:uppercase}

@@ -314,8 +314,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
         <circle cx="68" cy="44" r="2.2" fill="#ff2d46" className="ca-optic" />
       </>,
       neck: <>
-        <path d="M52 70 L52 90 M60 72 L60 92 M68 70 L68 90" stroke={`url(#${id}-chrome)`} strokeWidth="3.4" strokeLinecap="round" />
-        <path d="M52 70 L52 90 M60 72 L60 92 M68 70 L68 90" stroke="#e6eeff" strokeWidth=".7" strokeLinecap="round" opacity=".55" />
+        <path d="M51 70 L51 92 M60 72 L60 94 M69 70 L69 92" stroke={`url(#${id}-chrome)`} strokeWidth="4.6" strokeLinecap="round" />
+        <path d="M51 70 L51 92 M60 72 L60 94 M69 70 L69 92" stroke="#e6eeff" strokeWidth=".9" strokeLinecap="round" opacity=".55" />
         <circle cx="52" cy="80" r="2" fill="#8fa6c8" /><circle cx="68" cy="80" r="2" fill="#8fa6c8" />
         <circle cx="60" cy="85" r="2.3" fill="#ff2d46" opacity=".85" className="ca-optic" />
       </>,
@@ -795,6 +795,29 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
   const bPlate = `url(#${id}-${bodyKey})`;
   const bTrim = `url(#${id}-trim)`;
   const bLine = HEAD.bodyLine || HEAD.line;
+  /* Every armour plate goes through here: fill, form shadow, key highlight,
+     grazing rim, outline. Five passes over one path is what separates a plate
+     from a coloured shape, and it is the whole reason the figure reads as
+     metal rather than as a sticker. */
+  const plate = (d, o = {}) => (
+    <g>
+      <path d={d} fill={o.fill || bPlate} stroke="none" />
+      <path d={d} fill={`url(#${id}-occ)`} stroke="none" opacity={o.occ == null ? 1 : o.occ} />
+      <path d={d} fill={`url(#${id}-spec)`} stroke="none" opacity={o.spec == null ? 1 : o.spec} />
+      <path d={d} fill="none" stroke={`url(#${id}-graze)`} strokeWidth={(o.lw || 1) * 1.6} strokeLinejoin="round" opacity={o.graze == null ? .55 : o.graze} />
+      <path d={d} fill="none" stroke={o.line || bLine} strokeWidth={o.lw || 1} strokeLinejoin="round" opacity={o.lineOp == null ? .9 : o.lineOp} />
+    </g>
+  );
+  // an engraved seam: a cut, and the lit edge below where it catches the key
+  const groove = (d, w = 1, op = .55) => (
+    <g opacity={op}>
+      <path d={d} fill="none" stroke="#00060f" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" opacity=".7" />
+      <path d={d} fill="none" stroke="#eaf3ff" strokeWidth={w * .5} strokeLinecap="round" strokeLinejoin="round" transform="translate(0 .85)" opacity=".55" />
+    </g>
+  );
+  // the dark that gathers where two parts meet
+  const joint = (cx, cy, r) => <ellipse cx={cx} cy={cy} rx={r} ry={r * .78} fill={`url(#${id}-ao)`} />;
+
   /* ── the profile ──
      A parametric squash alone cannot turn a head: past about 45° there is
      nothing left of the face and the silhouette reads as a blank egg. So each
@@ -879,6 +902,36 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
           <stop offset="62%" stopColor="#2f8ede" />
           <stop offset="100%" stopColor="#102a58" />
         </radialGradient>
+        {/* ── the lighting rig ──
+            Flat vector armour reads as paper because every plate is one colour.
+            These three are painted over EVERY plate in object-bounding-box
+            space, so each piece gets its own falloff from its own shape: a key
+            light off the upper left, the form shadow turning away from it into
+            the lower right, and a grazing edge where the light wraps round the
+            far side. Done with gradients rather than SVG filters on purpose —
+            filters on a figure this size cost real frames on a phone, and this
+            costs nothing. */}
+        <linearGradient id={`${id}-occ`} x1="0.12" y1="0.02" x2="0.88" y2="1">
+          <stop offset="0%" stopColor="#000814" stopOpacity="0" />
+          <stop offset="40%" stopColor="#000814" stopOpacity=".05" />
+          <stop offset="72%" stopColor="#000814" stopOpacity=".26" />
+          <stop offset="100%" stopColor="#000814" stopOpacity=".52" />
+        </linearGradient>
+        <linearGradient id={`${id}-spec`} x1="0.08" y1="0" x2="0.72" y2="0.92">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".62" />
+          <stop offset="22%" stopColor="#ffffff" stopOpacity=".2" />
+          <stop offset="52%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`${id}-graze`} x1="1" y1="1" x2="0.2" y2="0">
+          <stop offset="0%" stopColor="#dbeaff" stopOpacity=".85" />
+          <stop offset="34%" stopColor="#dbeaff" stopOpacity=".12" />
+          <stop offset="100%" stopColor="#dbeaff" stopOpacity="0" />
+        </linearGradient>
+        {/* the shadow a body casts into its own joints */}
+        <radialGradient id={`${id}-ao`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="55%" stopColor="#000814" stopOpacity=".45" />
+          <stop offset="100%" stopColor="#000814" stopOpacity="0" />
+        </radialGradient>
         <linearGradient id={`${id}-plate`} x1="0.15" y1="0" x2="0.85" y2="1">
           <stop offset="0%" stopColor="#8b9ec2" />
           <stop offset="26%" stopColor="#4a5a78" />
@@ -924,146 +977,170 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
               in the collar, belt and cuffs instead. */}
           {ws > 0.02 && (
             <g opacity={ws.toFixed(3)} transform={`translate(${(cxs - 60).toFixed(2)} 0)${dir < 0 ? " translate(120 0) scale(-1 1)" : ""}`}>
-              <g opacity=".62">
-                <rect x="38" y="152" width="21" height="60" rx="10.5" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
-                <circle cx="48.5" cy="220" r="11.5" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
-                <rect x="40" y="286" width="22" height="70" rx="11" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
-                <ellipse cx="56" cy="374" rx="22" ry="17" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
+              <g opacity=".55">
+                {plate("M38 154 C31 158 30 190 34 206 C37 216 50 218 53 208 C56 196 55 168 52 156 Z")}
+                {plate("M50 214 C41 214 36 222 36 230 C36 239 43 245 51 245 C58 245 62 238 62 230 C62 221 57 214 50 214 Z")}
+                {plate("M40 288 C36 292 35 330 37 350 C38 360 52 361 54 351 C57 332 56 294 53 288 Z")}
+                {plate("M56 374 C44 374 36 380 36 384 C36 389 44 392 56 392 C70 392 78 388 78 383 C78 378 68 374 56 374 Z")}
               </g>
-              <path d="M60 116 C82 116 93 140 93 180 L91 246 C89 276 78 292 60 292 C42 292 32 276 30 246 L28 180 C28 140 38 116 60 116 Z"
-                fill={bPlate} stroke={bLine} strokeWidth="1.3" strokeLinejoin="round" />
-              <rect x="44" y="152" width="22" height="62" rx="11" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
-              <circle cx="55" cy="222" r="12" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
-              <rect x="47" y="286" width="24" height="72" rx="12" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
-              <ellipse cx="66" cy="374" rx="24" ry="18" fill={bPlate} stroke={bLine} strokeWidth="1.1" />
-              <path d="M40 130 Q60 122 82 132" fill="none" stroke={bTrim} strokeWidth="5" strokeLinecap="round" />
+              {plate("M60 116 C84 116 95 141 95 182 L93 246 C91 277 79 293 60 293 C41 293 30 277 28 246 L26 182 C26 141 36 116 60 116 Z", { lw: 1.3 })}
+              {plate("M46 152 C39 156 38 190 42 208 C45 218 60 220 63 209 C66 196 64 166 61 154 Z")}
+              {plate("M58 216 C48 216 43 224 43 232 C43 242 51 248 59 248 C67 248 71 240 71 232 C71 222 66 216 58 216 Z")}
+              {plate("M48 288 C44 292 43 332 45 352 C46 362 61 363 63 353 C66 334 65 294 62 288 Z")}
+              {plate("M64 374 C51 374 42 380 42 385 C42 390 51 393 64 393 C79 393 88 389 88 384 C88 378 78 374 64 374 Z")}
+              <path d="M40 130 Q60 121 82 132" fill="none" stroke={bTrim} strokeWidth="5.5" strokeLinecap="round" />
+              {groove("M42 262 Q60 272 80 262", 1.4, .45)}
               <g opacity={profArt.toFixed(3)}>
-                <ellipse cx="74" cy="206" rx="14" ry="26" fill="#ffffff" opacity=".22" />
-                <circle cx="82" cy="198" r="5" fill="none" stroke={glow} strokeWidth="1.2" opacity=".8" />
-                <circle cx="82" cy="198" r="2" fill={glow} className="ca-optic" />
+                <ellipse cx="74" cy="206" rx="14" ry="27" fill="#ffffff" opacity=".2" />
+                <circle cx="82" cy="198" r="5.4" fill="none" stroke={glow} strokeWidth="1.2" opacity=".85" />
+                <circle cx="82" cy="198" r="2.1" fill={glow} className="ca-optic" />
               </g>
             </g>
           )}
           {(front > 0.01 || rear > 0.01) && (
             <g opacity={Math.max(front, rear).toFixed(3)}>
-              {/* stubby arms with mitten hands */}
-              <rect x="0" y="152" width="22" height="62" rx="11" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
-              <rect x="98" y="152" width="22" height="62" rx="11" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
-              <circle cx="11" cy="222" r="12.5" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
-              <circle cx="109" cy="222" r="12.5" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
-              <path d="M0 206 h22 M98 206 h22" stroke={bTrim} strokeWidth="5" strokeLinecap="round" />
+              {/* stubby arms, elbow-less, with mitten hands */}
+              {plate("M22 152 C10 155 3 176 4 200 C5 216 12 224 21 222 C28 220 30 200 29 180 C28 166 26 156 22 152 Z")}
+              {plate("M98 152 C110 155 117 176 116 200 C115 216 108 224 99 222 C92 220 90 200 91 180 C92 166 94 156 98 152 Z")}
+              {plate("M13 216 C5 216 0 224 0 233 C0 243 7 250 15 250 C24 250 29 242 29 232 C29 222 22 216 13 216 Z")}
+              {plate("M107 216 C115 216 120 224 120 233 C120 243 113 250 105 250 C96 250 91 242 91 232 C91 222 98 216 107 216 Z")}
               {/* barrel body */}
-              <path d="M60 116 C88 116 101 140 101 180 L99 246 C97 276 82 292 60 292 C38 292 23 276 21 246 L19 180 C19 140 32 116 60 116 Z"
-                fill={bPlate} stroke={bLine} strokeWidth="1.4" strokeLinejoin="round" />
+              {plate("M60 116 C89 116 103 141 103 182 L101 246 C99 278 82 294 60 294 C38 294 21 278 19 246 L17 182 C17 141 31 116 60 116 Z", { lw: 1.4 })}
               {/* little boots */}
-              <rect x="33" y="286" width="24" height="72" rx="12" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
-              <rect x="63" y="286" width="24" height="72" rx="12" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
-              <ellipse cx="42" cy="374" rx="21" ry="18" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
-              <ellipse cx="78" cy="374" rx="21" ry="18" fill={bPlate} stroke={bLine} strokeWidth="1.2" />
-              <path d="M33 350 h24 M63 350 h24" stroke={bTrim} strokeWidth="5" strokeLinecap="round" />
+              {plate("M34 288 C29 294 28 334 30 354 C31 366 55 367 57 355 C60 336 59 294 55 288 Z")}
+              {plate("M65 288 C61 294 60 334 63 354 C64 366 88 367 90 355 C92 336 91 294 86 288 Z")}
+              {plate("M42 372 C28 372 19 379 19 385 C19 391 29 394 43 394 C57 394 66 391 66 385 C66 379 56 372 42 372 Z")}
+              {plate("M78 372 C64 372 55 379 55 385 C55 391 64 394 78 394 C92 394 101 391 101 385 C101 379 92 372 78 372 Z")}
+              <path d="M18 206 h13 M89 206 h13" stroke={bTrim} strokeWidth="5.5" strokeLinecap="round" />
+              <path d="M34 348 h23 M65 348 h23" stroke={bTrim} strokeWidth="5.5" strokeLinecap="round" />
               {/* collar: where the worn outfit shows on a chibi */}
-              <path d="M38 130 Q60 121 82 130" fill="none" stroke={bTrim} strokeWidth="6" strokeLinecap="round" />
+              <path d="M37 130 Q60 120 83 130" fill="none" stroke={bTrim} strokeWidth="6.5" strokeLinecap="round" />
+              {joint(60, 126, 26)}
               <g opacity={front.toFixed(3)}>
-                <ellipse cx="60" cy="206" rx="31" ry="36" fill="#ffffff" opacity=".26" />
-                <ellipse cx="60" cy="206" rx="31" ry="36" fill="none" stroke={glow} strokeWidth="1" opacity=".7" />
+                <ellipse cx="60" cy="208" rx="33" ry="38" fill="#ffffff" opacity=".3" />
+                <ellipse cx="60" cy="208" rx="33" ry="38" fill={`url(#${id}-spec)`} />
+                <ellipse cx="60" cy="208" rx="33" ry="38" fill="none" stroke={glow} strokeWidth="1.1" opacity=".8" />
                 <g className="ca-core">
-                  <circle cx="60" cy="206" r="14" fill="none" stroke={glow} strokeWidth="1.4" opacity=".9" />
-                  <path d="M60 194 L72 206 L60 218 L48 206 Z" fill={`url(#${id}-visor)`} />
-                  <circle cx="60" cy="206" r="5" fill="#fff" opacity=".95" />
+                  <circle cx="60" cy="208" r="15" fill="none" stroke={glow} strokeWidth="1.5" opacity=".95" />
+                  <path d="M60 195 L73 208 L60 221 L47 208 Z" fill={`url(#${id}-visor)`} />
+                  <circle cx="60" cy="208" r="5.4" fill="#fff" opacity=".95" />
                 </g>
-                <path d="M34 262 Q60 276 86 262" fill="none" stroke={bTrim} strokeWidth="6" strokeLinecap="round" />
-                <ellipse cx="42" cy="370" rx="10" ry="5" fill="#ffffff" opacity=".3" />
-                <ellipse cx="78" cy="370" rx="10" ry="5" fill="#ffffff" opacity=".3" />
+                {groove("M34 264 Q60 276 86 264", 1.4, .4)}
+                <ellipse cx="42" cy="379" rx="11" ry="5" fill="#ffffff" opacity=".35" />
+                <ellipse cx="78" cy="379" rx="11" ry="5" fill="#ffffff" opacity=".35" />
               </g>
               <g opacity={rear.toFixed(3)}>
-                <path d="M60 128 L60 282" stroke="#00000044" strokeWidth="2.4" />
-                <rect x="42" y="158" width="36" height="46" rx="9" fill={bTrim} stroke={glow} strokeWidth="1.1" opacity=".92" />
-                <path d="M48 169 L72 169 M48 180 L72 180 M48 191 L72 191" stroke="#00000044" strokeWidth="1.6" />
-                <circle cx="60" cy="232" r="6" fill="none" stroke={glow} strokeWidth="1.2" opacity=".7" />
-                <circle cx="60" cy="232" r="2.4" fill={glow} className="ca-optic" />
-                <path d="M34 262 Q60 274 86 262" fill="none" stroke={bTrim} strokeWidth="6" strokeLinecap="round" />
+                {groove("M60 130 L60 282", 2.4, .5)}
+                {plate("M42 158 L78 158 C81 158 82 160 82 163 L82 200 C82 203 81 205 78 205 L42 205 C39 205 38 203 38 200 L38 163 C38 160 39 158 42 158 Z", { fill: bTrim, line: glow, lw: 1.1 })}
+                {groove("M48 170 L72 170 M48 181 L72 181 M48 192 L72 192", 1.5, .5)}
+                <circle cx="60" cy="232" r="6.4" fill="none" stroke={glow} strokeWidth="1.3" opacity=".75" />
+                <circle cx="60" cy="232" r="2.6" fill={glow} className="ca-optic" />
+                {groove("M34 264 Q60 274 86 264", 1.4, .4)}
               </g>
             </g>
           )}
         </>}
+
         {!headOnly && !chibi && <>
+          {/* ── hero build ──
+              The same three-view treatment as the head, for the same reason: a
+              front-facing torso squashed sideways reads as a plank, so the
+              figure carries a drawn side view that takes over as it turns. Arms
+              hang in the silhouette rather than orbiting as separate parts,
+              which is what keeps the shoulders attached at every angle — and
+              every plate is articulated at the joint it actually bends on:
+              pauldron, bicep, elbow actuator, forearm, hand; hip, thigh, knee,
+              shin, ankle, boot. */}
           {ws > 0.02 && (
             <g opacity={ws.toFixed(3)} transform={`translate(${(cxs - 60).toFixed(2)} 0)${dir < 0 ? " translate(120 0) scale(-1 1)" : ""}`}>
-              {/* the arm on the far side of the body, behind everything */}
-              <path d="M50 104 L64 107 L60 176 L46 173 Z M47 174 L60 177 L58 234 L48 232 Z M47 232 L58 235 L58 252 Q52 258 47 250 Z"
-                fill={bPlate} stroke={bLine} strokeWidth=".9" strokeLinejoin="round" opacity=".6" />
-              {/* back leg */}
-              <path d="M43 240 L64 240 L62 304 L45 304 Z M46 302 L62 302 L60 368 L48 368 Z M44 362 L60 362 L74 379 L74 391 L41 391 L41 376 Z"
-                fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" opacity=".72" />
+              {/* far arm and far leg, behind the body */}
+              <g opacity=".55">
+                {plate("M50 104 C44 114 43 132 45 150 L61 152 C63 134 63 116 62 106 Z")}
+                {plate("M46 156 L61 158 L59 214 L48 212 Z")}
+                {plate("M47 212 L59 214 L59 234 C54 241 48 240 46 233 Z")}
+                {plate("M45 240 L64 240 L62 302 L47 302 Z")}
+                {plate("M48 304 L62 304 L60 364 L50 364 Z")}
+                {plate("M46 360 L60 360 L74 378 L74 391 L43 391 L43 375 Z")}
+              </g>
               {/* torso, seen edge-on: chest forward, shoulder blade back */}
-              <path d="M60 82 C70 82 78 90 81 100 L85 124 L83 154 L77 192 L43 192 L39 154 L39 124 L43 100 C46 90 52 82 60 82 Z"
-                fill={bPlate} stroke={bLine} strokeWidth="1.1" strokeLinejoin="round" />
-              <path d="M43 188 L79 188 L83 218 L77 246 L45 246 L39 218 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              {/* front leg, toe pointing the way the model faces */}
-              <path d="M47 240 L70 240 L68 304 L50 304 Z M51 302 L67 302 L65 368 L53 368 Z M49 362 L66 362 L81 379 L81 391 L47 391 L47 376 Z"
-                fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              <ellipse cx="59" cy="303" rx="8" ry="5.5" fill={bTrim} stroke={glow} strokeWidth=".8" />
-              {/* the near arm, in front of the chest */}
-              <path d="M52 102 L68 106 L64 176 L50 173 Z M51 174 L64 178 L62 234 L52 232 Z M51 232 L62 235 L62 252 Q56 258 51 250 Z"
-                fill={bTrim} stroke={bLine} strokeWidth=".9" strokeLinejoin="round" />
+              {plate("M60 84 C71 84 79 92 82 102 L86 126 L84 156 L78 194 L42 194 L38 156 L38 126 L42 102 C46 92 52 84 60 84 Z", { lw: 1.2 })}
+              {plate("M43 190 L79 190 L83 220 L77 248 L45 248 L39 220 Z", { fill: bTrim, lw: 1 })}
+              {/* near arm, in front of the chest */}
+              {plate("M52 100 C46 110 45 130 47 150 L65 153 C67 134 67 114 66 102 Z")}
+              {joint(56, 155, 11)}
+              {plate("M48 158 L64 161 L62 216 L51 214 Z")}
+              {plate("M50 214 L62 217 L62 238 C57 245 51 244 49 237 Z", { fill: bTrim })}
+              {/* near leg */}
+              {plate("M49 240 L71 240 L69 302 L51 302 Z")}
+              {joint(60, 303, 13)}
+              {plate("M52 304 L68 304 L66 364 L54 364 Z")}
+              {plate("M50 360 L66 360 L81 378 L81 391 L48 391 L48 375 Z", { fill: bTrim })}
               <g opacity={profArt.toFixed(3)}>
-                <path d="M52 94 L36 103 L36 128 L52 120 Z" fill={bTrim} stroke={glow} strokeWidth="1.1" strokeLinejoin="round" />
-                <path d="M42 112 L46 112 M44 130 Q60 138 78 132 M46 156 Q60 162 76 156" stroke={glow} strokeWidth=".9" opacity=".5" fill="none" />
-                <circle cx="80" cy="128" r="4.6" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.1" opacity=".8" />
-                <circle cx="80" cy="128" r="1.8" fill={term ? "#ff2d46" : glow} className="ca-optic" />
+                {plate("M46 96 L36 104 L36 128 L48 122 Z", { fill: bTrim, line: glow, lw: 1 })}
+                {groove("M44 132 Q60 140 80 134 M46 160 Q60 166 78 160", 1, .5)}
+                <circle cx="80" cy="128" r="5" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.2" opacity=".85" />
+                <circle cx="80" cy="128" r="2" fill={term ? "#ff2d46" : glow} className="ca-optic" />
               </g>
             </g>
           )}
           {(front > 0.01 || rear > 0.01) && (
             <g opacity={Math.max(front, rear).toFixed(3)}>
-              {/* arms, drawn first so the torso plate overlaps their tops */}
-              <path d="M23 106 L39 110 L35 176 L16 172 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              <path d="M97 106 L81 110 L85 176 L104 172 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              <path d="M17 174 L35 178 L33 234 L19 232 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              <path d="M103 174 L85 178 L87 234 L101 232 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              <path d="M18 232 L33 235 L33 252 Q25 259 18 250 Z" fill={bTrim} stroke={bLine} strokeWidth=".9" strokeLinejoin="round" />
-              <path d="M102 232 L87 235 L87 252 Q95 259 102 250 Z" fill={bTrim} stroke={bLine} strokeWidth=".9" strokeLinejoin="round" />
-              {/* shoulder pads */}
-              <path d="M36 92 L8 102 L6 129 L34 120 Z" fill={bTrim} stroke={glow} strokeWidth="1.2" strokeLinejoin="round" />
-              <path d="M84 92 L112 102 L114 129 L86 120 Z" fill={bTrim} stroke={glow} strokeWidth="1.2" strokeLinejoin="round" />
-              <circle cx="16" cy="114" r="2.6" fill={term ? "#ff2d46" : glow} className="ca-optic" />
-              <circle cx="104" cy="114" r="2.6" fill={accent} className="ca-optic" />
-              {/* torso */}
-              <path d="M60 82 C73 82 85 89 95 99 L103 124 L99 156 L88 192 L32 192 L21 156 L17 124 L25 99 C35 89 47 82 60 82 Z"
-                fill={bPlate} stroke={bLine} strokeWidth="1.2" strokeLinejoin="round" />
-              {/* pelvis */}
-              <path d="M32 188 L88 188 L93 218 L86 246 L34 246 L27 218 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              {/* thighs, shins, knee actuators, feet */}
-              <path d="M35 242 L57 242 L55 304 L37 304 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              <path d="M63 242 L85 242 L83 304 L65 304 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              <path d="M38 300 L54 300 L52 368 L40 368 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              <path d="M66 300 L82 300 L80 368 L68 368 Z" fill={bPlate} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              <ellipse cx="46" cy="302" rx="9.5" ry="5.5" fill={bTrim} stroke={glow} strokeWidth=".9" />
-              <ellipse cx="74" cy="302" rx="9.5" ry="5.5" fill={bTrim} stroke={glow} strokeWidth=".9" />
-              <path d="M36 362 L54 362 L59 380 L59 391 L30 391 L30 377 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
-              <path d="M66 362 L84 362 L90 377 L90 391 L61 391 L61 380 Z" fill={bTrim} stroke={bLine} strokeWidth="1" strokeLinejoin="round" />
+              {/* arms: bicep, elbow actuator, forearm, hand */}
+              {plate("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z")}
+              {plate("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z")}
+              {joint(19, 158, 13)} {joint(101, 158, 13)}
+              {plate("M10 160 L30 163 L28 218 L14 216 Z")}
+              {plate("M110 160 L90 163 L92 218 L106 216 Z")}
+              {plate("M13 216 L28 219 L28 241 C23 250 15 249 12 240 Z", { fill: bTrim })}
+              {plate("M107 216 L92 219 L92 241 C97 250 105 249 108 240 Z", { fill: bTrim })}
+              {/* pauldrons */}
+              {plate("M36 90 C21 90 9 99 4 113 L2 133 L31 124 Z", { fill: bTrim, line: glow, lw: 1.2 })}
+              {plate("M84 90 C99 90 111 99 116 113 L118 133 L89 124 Z", { fill: bTrim, line: glow, lw: 1.2 })}
+              <circle cx="13" cy="117" r="2.8" fill={term ? "#ff2d46" : glow} className="ca-optic" />
+              <circle cx="107" cy="117" r="2.8" fill={accent} className="ca-optic" />
+              {/* chest shell, then the pectoral plates that sit on it */}
+              {plate("M60 84 C73 84 84 91 92 101 L98 126 L95 155 L60 163 L25 155 L22 126 L28 101 C36 91 47 84 60 84 Z", { lw: 1.3 })}
+              {plate("M56 96 C45 96 35 104 31 117 L33 142 C42 151 50 154 56 155 Z")}
+              {plate("M64 96 C75 96 85 104 89 117 L87 142 C78 151 70 154 64 155 Z")}
+              {/* abdominal bands */}
+              {plate("M28 157 L92 157 L89 172 L31 172 Z", { fill: bTrim })}
+              {plate("M31 174 L89 174 L86 189 L34 189 Z", { fill: bTrim })}
+              {/* pelvis and hip plates */}
+              {plate("M32 187 L88 187 L92 217 L86 248 L34 248 L28 217 Z", { lw: 1.1 })}
+              {plate("M31 196 L49 196 L47 231 L34 227 Z", { fill: bTrim })}
+              {plate("M89 196 L71 196 L73 231 L86 227 Z", { fill: bTrim })}
+              {/* thigh, knee actuator, shin, ankle, boot */}
+              {plate("M34 240 L58 240 L56 302 L37 302 Z")}
+              {plate("M62 240 L86 240 L83 302 L64 302 Z")}
+              {joint(46, 303, 14)} {joint(74, 303, 14)}
+              {plate("M37 298 C41 294 51 294 55 298 C57 306 57 312 55 316 C51 320 41 320 37 316 C35 312 35 306 37 298 Z", { fill: bTrim, line: glow, lw: .9 })}
+              {plate("M65 298 C69 294 79 294 83 298 C85 306 85 312 83 316 C79 320 69 320 65 316 C63 312 63 306 65 298 Z", { fill: bTrim, line: glow, lw: .9 })}
+              {plate("M38 314 L55 314 L53 364 L40 364 Z")}
+              {plate("M65 314 L82 314 L80 364 L67 364 Z")}
+              {plate("M36 360 L55 360 L60 379 L60 392 L29 392 L29 377 Z", { fill: bTrim })}
+              {plate("M84 360 L65 360 L60 379 L60 392 L91 392 L91 377 Z", { fill: bTrim })}
               {/* chest plating and the power core — gone once the back is toward us */}
               <g opacity={front.toFixed(3)}>
-                <path d="M60 84 L60 190" stroke={term ? "#cfdcf4" : glow} strokeWidth=".9" opacity=".45" />
-                <path d="M34 106 L50 112 M86 106 L70 112" stroke={term ? "#cfdcf4" : glow} strokeWidth="1" opacity=".45" />
-                <path d="M34 166 L86 166 L83 188 L37 188 Z" fill={bTrim} stroke={glow} strokeWidth=".9" opacity=".9" />
-                <path d="M40 174 L80 174 M42 181 L78 181" stroke={glow} strokeWidth=".7" opacity=".45" />
+                {groove("M60 88 L60 160", 1.2, .5)}
+                {groove("M36 110 L53 118 M84 110 L67 118", 1, .45)}
+                {groove("M29 164 L91 164 M32 181 L88 181", 1.1, .45)}
                 <g className="ca-core">
-                  <circle cx="60" cy="130" r="13" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.3" opacity=".85" />
-                  <path d="M60 119 L71 130 L60 141 L49 130 Z" fill={term ? `url(#${id}-red)` : `url(#${id}-visor)`} />
-                  <circle cx="60" cy="130" r="4.6" fill="#fff" opacity=".92" />
+                  <circle cx="60" cy="131" r="14.5" fill="#00060f" opacity=".55" />
+                  <circle cx="60" cy="131" r="13" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.4" opacity=".9" />
+                  <path d="M60 119 L72 131 L60 143 L48 131 Z" fill={term ? `url(#${id}-red)` : `url(#${id}-visor)`} />
+                  <circle cx="60" cy="131" r="4.8" fill="#fff" opacity=".95" />
                 </g>
-                <path d="M42 250 L54 250 M66 250 L78 250" stroke={glow} strokeWidth="1" opacity=".5" />
-                <path d="M36 372 L54 372 M66 372 L84 372" stroke={glow} strokeWidth=".9" opacity=".45" />
+                {groove("M40 254 L54 254 M66 254 L80 254", 1, .45)}
+                {groove("M34 372 L54 372 M66 372 L86 372", 1, .4)}
               </g>
               {/* spine, dorsal vents and heels — what you see from behind */}
               <g opacity={rear.toFixed(3)}>
-                <path d="M60 86 L60 190" stroke="#05070c" strokeWidth="2.4" opacity=".7" />
-                <path d="M40 108 L80 108 M36 128 L84 128 M38 150 L82 150" stroke="#05070c" strokeWidth="1.5" opacity=".5" />
-                <path d="M46 92 L74 92 L78 116 L42 116 Z" fill={bTrim} stroke={glow} strokeWidth=".9" opacity=".9" />
-                <circle cx="60" cy="104" r="3.2" fill={glow} className="ca-optic" />
-                <path d="M42 262 Q46 290 44 302 M78 262 Q74 290 76 302" fill="none" stroke="#05070c" strokeWidth="1.4" opacity=".45" />
-                <path d="M30 384 L59 384 M61 384 L90 384" stroke="#05070c" strokeWidth="1.6" opacity=".5" />
+                {groove("M60 88 L60 188", 2.4, .6)}
+                {plate("M45 92 L75 92 L79 118 L41 118 Z", { fill: bTrim, line: glow, lw: 1 })}
+                {groove("M40 128 L80 128 M36 146 L84 146", 1.6, .5)}
+                <circle cx="60" cy="105" r="3.4" fill={glow} className="ca-optic" />
+                {groove("M42 262 Q46 290 44 302 M78 262 Q74 290 76 302", 1.4, .45)}
+                {groove("M30 385 L58 385 M62 385 L90 385", 1.6, .45)}
               </g>
             </g>
           )}
