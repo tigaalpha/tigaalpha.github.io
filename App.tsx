@@ -5152,23 +5152,44 @@ const SHOP_MODELS = [
     desc: { th: "โครงกระดูกรบ", en: "Combat endoskeleton", zh: "战斗骨架" }, sw: ["#e9f1ff", "#ff2d46"] },
   { id: "mdl-sentinel", model: "sentinel", cost: 21000, rarity: "legendary", th: "เซนทิเนล", en: "SENTINEL", zh: "哨兵",
     desc: { th: "หน่วยจู่โจมหนัก", en: "Heavy assault unit", zh: "重装突击" }, sw: ["#4a5a78", "#00f0ff"] },
+  { id: "mdl-reaper", model: "reaper", cost: 30000, rarity: "legendary", th: "รีปเปอร์", en: "REAPER", zh: "死神",
+    desc: { th: "เครื่องจักรสงคราม", en: "War machine", zh: "战争机器" }, sw: ["#0d1220", "#ff2d46"] },
+  { id: "mdl-ronin", model: "ronin", cost: 28000, rarity: "legendary", th: "โรนิน", en: "RONIN", zh: "浪人",
+    desc: { th: "ซามูไรไซเบอร์", en: "Cyber samurai", zh: "赛博武士" }, sw: ["#8c2b34", "#ffd23f"] },
+  { id: "mdl-phantom", model: "phantom", cost: 26000, rarity: "legendary", th: "แฟนธ่อม", en: "PHANTOM", zh: "液金",
+    desc: { th: "โลหะเหลวเปลี่ยนรูป", en: "Mimetic polyalloy", zh: "液态合金" }, sw: ["#f4f8ff", "#6d7f9e"] },
+  { id: "mdl-envoy", model: "envoy", cost: 25000, rarity: "legendary", th: "เอนวอย", en: "ENVOY", zh: "使节",
+    desc: { th: "หุ่นล่ามทองคำ", en: "Protocol unit", zh: "礼仪机器人" }, sw: ["#e8bf58", "#4a340a"], isNew: true },
+  { id: "mdl-talon", model: "talon", cost: 29000, rarity: "legendary", th: "ทาลอน", en: "TALON", zh: "利爪",
+    desc: { th: "นักล่าอุตสาหกรรม", en: "Industrial hunter", zh: "工业猎手" }, sw: ["#7f8ea8", "#ff3b30"], isNew: true },
+  { id: "mdl-sentry", model: "sentry", cost: 23000, rarity: "legendary", th: "เซนทรี", en: "SENTRY", zh: "步兵",
+    desc: { th: "ทหารราบผลิตจำนวนมาก", en: "Line infantry droid", zh: "量产步兵" }, sw: ["#c9b183", "#4f3f27"], isNew: true },
+  { id: "mdl-pip", model: "pip", cost: 22000, rarity: "legendary", th: "พิพ", en: "PIP", zh: "皮普",
+    desc: { th: "หุ่นช่างประจำยาน", en: "Astromech unit", zh: "机修机器人" }, sw: ["#ffffff", "#2f8ede"], isNew: true },
+  { id: "mdl-pebble", model: "pebble", cost: 24000, rarity: "legendary", th: "เพบเบิล", en: "PEBBLE", zh: "圆豆",
+    desc: { th: "หุ่นทรงกลมกลิ้งได้", en: "Rolling unit", zh: "滚球单元" }, sw: ["#ffffff", "#ff8a2a"], isNew: true },
   { id: "mdl-specter", model: "specter", cost: 22000, rarity: "legendary", th: "สเปกเตอร์", en: "SPECTER", zh: "幻影",
     desc: { th: "แอนดรอยด์แฝงตัว", en: "Infiltration android", zh: "潜行仿生人" }, sw: ["#dcc3b6", "#3aa8ff"] },
+  { id: "mdl-scout", model: "scout", cost: 26000, rarity: "legendary", th: "สเกาต์", en: "SCOUT", zh: "侦查",
+    desc: { th: "แอนดรอยด์เจรจา", en: "Negotiator android", zh: "谈判仿生人" }, sw: ["#dcc3b6", "#412b1d"], isNew: true },
+  { id: "mdl-meridian", model: "meridian", cost: 31000, rarity: "legendary", th: "เมริเดียน", en: "MERIDIAN", zh: "子午",
+    desc: { th: "แอนดรอยด์ผู้ดูแล", en: "Caretaker android", zh: "看护仿生人" }, sw: ["#c99a6e", "#5aa86a"], isNew: true },
+  { id: "mdl-atlas", model: "atlas", cost: 27000, rarity: "legendary", th: "แอตลาส", en: "ATLAS", zh: "阿特拉斯",
+    desc: { th: "แอนดรอยด์แรงงานหนัก", en: "Heavy labour android", zh: "重劳仿生人" }, sw: ["#8a5636", "#3aa8ff"], isNew: true },
+  { id: "mdl-keeper", model: "keeper", cost: 23000, rarity: "legendary", th: "คีปเปอร์", en: "KEEPER", zh: "守护",
+    desc: { th: "แอนดรอยด์ประจำบ้าน", en: "Domestic android", zh: "家用仿生人" }, sw: ["#dcc3b6", "#2b3149"], isNew: true },
+  { id: "mdl-halcyon", model: "halcyon", cost: 30000, rarity: "legendary", th: "ฮัลไซออน", en: "HALCYON", zh: "宁静",
+    desc: { th: "แอนดรอยด์รุ่นแรก", en: "First-generation android", zh: "初代仿生人" }, sw: ["#d8b56a", "#3aa8ff"], isNew: true },
+  { id: "mdl-aurora", model: "aurora", cost: 27000, rarity: "legendary", th: "ออโรร่า", en: "AURORA", zh: "极光",
+    desc: { th: "แอนดรอยด์ไอดอล", en: "Idol android", zh: "偶像仿生人" }, sw: ["#cbb8f0", "#d6f5ee"] },
   { id: "mdl-nova", model: "nova", cost: 22000, rarity: "legendary", th: "โนวา", en: "NOVA", zh: "新星",
     desc: { th: "หุ่นผู้ช่วยตัวจิ๋ว", en: "Little helper unit", zh: "迷你助手" }, sw: ["#ffffff", "#00f0ff"] },
   { id: "mdl-pixel", model: "pixel", cost: 23000, rarity: "legendary", th: "พิกเซล", en: "PIXEL", zh: "像素",
     desc: { th: "หุ่นหน้าจอจิ๋ว", en: "Screen-face buddy", zh: "屏幕脸小伙伴" }, sw: ["#0a1020", "#00f0ff"] },
   { id: "mdl-mochi", model: "mochi", cost: 24000, rarity: "legendary", th: "โมจิ", en: "MOCHI", zh: "麻糬",
     desc: { th: "หุ่นนุ่มนิ่มสุดน่ารัก", en: "Squishy pocket bot", zh: "软萌口袋机器人" }, sw: ["#ffc9dd", "#ff7aa5"] },
-  { id: "mdl-phantom", model: "phantom", cost: 26000, rarity: "legendary", th: "แฟนธ่อม", en: "PHANTOM", zh: "液金",
-    desc: { th: "โลหะเหลวเปลี่ยนรูป", en: "Mimetic polyalloy", zh: "液态合金" }, sw: ["#f4f8ff", "#6d7f9e"] },
-  { id: "mdl-aurora", model: "aurora", cost: 27000, rarity: "legendary", th: "ออโรร่า", en: "AURORA", zh: "极光",
-    desc: { th: "แอนดรอยด์ไอดอล", en: "Idol android", zh: "偶像仿生人" }, sw: ["#cbb8f0", "#d6f5ee"] },
-  { id: "mdl-ronin", model: "ronin", cost: 28000, rarity: "legendary", th: "โรนิน", en: "RONIN", zh: "浪人",
-    desc: { th: "ซามูไรไซเบอร์", en: "Cyber samurai", zh: "赛博武士" }, sw: ["#8c2b34", "#ffd23f"] },
-  { id: "mdl-reaper", model: "reaper", cost: 30000, rarity: "legendary", th: "รีปเปอร์", en: "REAPER", zh: "死神",
-    desc: { th: "เครื่องจักรสงคราม", en: "War machine", zh: "战争机器" }, sw: ["#0d1220", "#ff2d46"] },
 ];
+
 const MODEL_ITEM = Object.fromEntries(SHOP_MODELS.map(m => [m.model, m.id]));
 
 const SHOP_ACCESSORIES = [
@@ -10435,9 +10456,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="setcard mdlpick" onClick={e => e.stopPropagation()}>
               <div className="mdlpick-hdr">
                 <div className="mdlpick-ttl">{T("เลือกโครงร่างของคุณ", "Choose your chassis", "选择你的机体")}</div>
-                <div className="mdlpick-sub">{T("เลือกได้ครั้งเดียว — หลังจากนี้เปลี่ยนได้เฉพาะเมื่อใช้คอร์เปลี่ยนโครงร่างจากร้านค้า",
-                                                 "You choose once. After this, changing chassis takes a Reassignment Core from the shop.",
-                                                 "只能选择一次。之后更换机体需要商店里的重构核心。")}</div>
+                <div className="mdlpick-sub">{T("เลือกได้ครั้งเดียว ตัวนี้ฟรี — รุ่นอื่นต้องซื้อในร้านค้าหมวดสกินหุ่นยนต์",
+                                                 "This one is free, and you choose it once. Every other model is bought on the Robot skins shelf.",
+                                                 "这一台免费，只能选一次。其他机型需在商店的机器人皮肤分类购买。")}</div>
               </div>
               <div className="mdlpick-body">
                 <div className="mdlpick-stage">

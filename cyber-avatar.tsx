@@ -63,6 +63,7 @@ import { useId } from "react";
    rifle is a model, and further customisation rides on top of whichever is
    picked. Order runs heavy → light so the row reads as a spectrum. */
 export const CHAR_MODELS = [
+  /* combat frames */
   { id: "vanguard", code: "V-01",  th: "แวนการ์ด", en: "VANGUARD", zh: "先锋",
     cls: { th: "โครงกระดูกรบ",     en: "Combat endoskeleton", zh: "战斗骨架" } },
   { id: "sentinel", code: "S-02",  th: "เซนทิเนล", en: "SENTINEL", zh: "哨兵",
@@ -73,17 +74,41 @@ export const CHAR_MODELS = [
     cls: { th: "ซามูไรไซเบอร์",     en: "Cyber samurai",       zh: "赛博武士" } },
   { id: "phantom",  code: "PH-05", th: "แฟนธ่อม",  en: "PHANTOM",  zh: "液金",
     cls: { th: "โลหะเหลวเปลี่ยนรูป", en: "Mimetic polyalloy",  zh: "液态合金" } },
-  { id: "specter",  code: "SP-06", th: "สเปกเตอร์", en: "SPECTER", zh: "幻影",
+  /* service droids */
+  { id: "envoy",    code: "PX-06", th: "เอนวอย",   en: "ENVOY",    zh: "使节",
+    cls: { th: "หุ่นล่ามทองคำ",     en: "Protocol unit",       zh: "礼仪机器人" } },
+  { id: "talon",    code: "IG-07", th: "ทาลอน",    en: "TALON",    zh: "利爪",
+    cls: { th: "นักล่าอุตสาหกรรม",  en: "Industrial hunter",   zh: "工业猎手" } },
+  { id: "sentry",   code: "B1-08", th: "เซนทรี",   en: "SENTRY",   zh: "步兵",
+    cls: { th: "ทหารราบผลิตจำนวนมาก", en: "Line infantry droid", zh: "量产步兵" } },
+  { id: "pip",      code: "AS-09", th: "พิพ",      en: "PIP",      zh: "皮普",
+    cls: { th: "หุ่นช่างประจำยาน",   en: "Astromech unit",      zh: "机修机器人" } },
+  { id: "pebble",   code: "BB-10", th: "เพบเบิล",  en: "PEBBLE",   zh: "圆豆",
+    cls: { th: "หุ่นทรงกลมกลิ้งได้", en: "Rolling unit",        zh: "滚球单元" } },
+  /* androids that pass for people */
+  { id: "specter",  code: "SP-11", th: "สเปกเตอร์", en: "SPECTER", zh: "幻影",
     cls: { th: "แอนดรอยด์แฝงตัว",   en: "Infiltration android", zh: "潜行仿生人" } },
-  { id: "aurora",   code: "AU-07", th: "ออโรร่า",   en: "AURORA",  zh: "极光",
+  { id: "scout",    code: "RK-12", th: "สเกาต์",   en: "SCOUT",    zh: "侦查",
+    cls: { th: "แอนดรอยด์เจรจา",    en: "Negotiator android",  zh: "谈判仿生人" } },
+  { id: "meridian", code: "PL-13", th: "เมริเดียน", en: "MERIDIAN", zh: "子午",
+    cls: { th: "แอนดรอยด์ผู้ดูแล",   en: "Caretaker android",   zh: "看护仿生人" } },
+  { id: "atlas",    code: "TR-14", th: "แอตลาส",   en: "ATLAS",    zh: "阿特拉斯",
+    cls: { th: "แอนดรอยด์แรงงานหนัก", en: "Heavy labour android", zh: "重劳仿生人" } },
+  { id: "keeper",   code: "AX-15", th: "คีปเปอร์", en: "KEEPER",   zh: "守护",
+    cls: { th: "แอนดรอยด์ประจำบ้าน", en: "Domestic android",    zh: "家用仿生人" } },
+  /* the bright end */
+  { id: "halcyon",  code: "RT-16", th: "ฮัลไซออน", en: "HALCYON",  zh: "宁静",
+    cls: { th: "แอนดรอยด์รุ่นแรก",   en: "First-generation android", zh: "初代仿生人" } },
+  { id: "aurora",   code: "AU-17", th: "ออโรร่า",   en: "AURORA",  zh: "极光",
     cls: { th: "แอนดรอยด์ไอดอล",    en: "Idol android",        zh: "偶像仿生人" } },
-  { id: "nova",     code: "N-08",  th: "โนวา",      en: "NOVA",    zh: "新星",
+  { id: "nova",     code: "N-18",  th: "โนวา",      en: "NOVA",    zh: "新星",
     cls: { th: "หุ่นผู้ช่วยตัวจิ๋ว",  en: "Little helper unit",  zh: "迷你助手" } },
-  { id: "pixel",    code: "PX-09", th: "พิกเซล",    en: "PIXEL",   zh: "像素",
+  { id: "pixel",    code: "PX-19", th: "พิกเซล",    en: "PIXEL",   zh: "像素",
     cls: { th: "หุ่นหน้าจอจิ๋ว",     en: "Screen-face buddy",   zh: "屏幕脸小伙伴" } },
-  { id: "mochi",    code: "MO-10", th: "โมจิ",      en: "MOCHI",   zh: "麻糬",
+  { id: "mochi",    code: "MO-20", th: "โมจิ",      en: "MOCHI",   zh: "麻糬",
     cls: { th: "หุ่นนุ่มนิ่มสุดน่ารัก", en: "Squishy pocket bot", zh: "软萌口袋机器人" } },
 ];
+
 
 
 /* The picker used to be a boy/girl/cute switch, so saved choices are carried
@@ -95,6 +120,9 @@ export const CHAR_MODELS = [
 export const MODEL_RIG = {
   vanguard: { hs: 1.15 }, sentinel: { hs: 1.15 }, reaper: { hs: 1.15 }, ronin: { hs: 1.15 },
   phantom: { hs: 1.15 }, specter: { hs: 1.15 }, aurora: { hs: 1.15 },
+  scout: { hs: 1.15 }, meridian: { hs: 1.15 }, atlas: { hs: 1.12 }, halcyon: { hs: 1.15 }, keeper: { hs: 1.15 },
+  envoy: { hs: 1.15 }, talon: { hs: 1.12 }, sentry: { hs: 1.1 },
+  pip: { hs: 1.85, chibi: true }, pebble: { hs: 1.9, chibi: true },
   nova: { hs: 2.05, chibi: true }, pixel: { hs: 2.0, chibi: true }, mochi: { hs: 1.95, chibi: true },
 };
 
@@ -784,6 +812,508 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
       </>,
       neck: null,
     },
+
+    /* ── SCOUT · RK negotiator ──
+       A CyberLife build meant to stand in a room full of people and be taken
+       for one of them: an ordinary face, short swept hair, freckles, and the
+       one thing that gives it away sitting on the temple. */
+    scout: {
+      skull: "M60 8 C72 8 80 17 81 30 C82 42 78 52 72 60 C68 66 64 70 60 70 C56 70 52 66 48 60 C42 52 38 42 39 30 C40 17 48 8 60 8 Z",
+      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
+      shellArt: <>
+        <path d="M60 5 C75 5 84 15 84 30 C80 22 74 19 66 18 C56 17 46 20 39 27 C37 15 45 5 60 5 Z" fill={`url(#${id}-hairB)`} stroke="#2a1a10" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M39 27 C44 20 52 17 60 18 C52 21 45 26 41 34 Z" fill={`url(#${id}-hairB)`} stroke="#2a1a10" strokeWidth=".6" strokeLinejoin="round" />
+      </>,
+      art: <>
+        {face(49, <path d="M42 30 Q49 26.6 56 29" fill="none" stroke="#3d2718" strokeWidth="1.6" strokeLinecap="round" />, "b1")}
+        {face(71, <path d="M64 29 Q71 26.6 78 30" fill="none" stroke="#3d2718" strokeWidth="1.6" strokeLinecap="round" />, "b2")}
+        {face(50, <g className="ca-eye">
+          <path d="M43 36 Q50 31 57 36 Q50 41 43 36 Z" fill="#f6f1ea" />
+          <circle cx="50" cy="36" r="3.9" fill={`url(#${id}-brown)`} />
+          <circle cx="50" cy="36" r="1.6" fill="#140b06" />
+          <circle cx="51.4" cy="34.6" r="1.2" fill="#fff" />
+        </g>, "e1")}
+        {face(70, <g className="ca-eye">
+          <path d="M63 36 Q70 31 77 36 Q70 41 63 36 Z" fill="#f6f1ea" />
+          <circle cx="70" cy="36" r="3.9" fill={`url(#${id}-brown)`} />
+          <circle cx="70" cy="36" r="1.6" fill="#140b06" />
+          <circle cx="71.4" cy="34.6" r="1.2" fill="#fff" />
+        </g>, "e2")}
+        {face(60, <path d="M60 38 L60 47 M57 48.6 Q60 50.2 63 48.6" fill="none" stroke="#a97f60" strokeWidth="1" strokeLinecap="round" />, "n")}
+        {face(60, <path d="M53.5 56 Q57 53.8 60 55 Q63 53.8 66.5 56 Q63 59.6 60 59.6 Q57 59.6 53.5 56 Z" fill="#bd7f78" opacity=".72" />, "m")}
+        {/* freckles */}
+        {face(46, <g fill="#a4703f" opacity=".55"><circle cx="45" cy="43" r=".9" /><circle cx="49" cy="45.4" r=".8" /><circle cx="43" cy="46.6" r=".7" /></g>, "f1")}
+        {face(74, <g fill="#a4703f" opacity=".55"><circle cx="75" cy="43" r=".9" /><circle cx="71" cy="45.4" r=".8" /><circle cx="77" cy="46.6" r=".7" /></g>, "f2")}
+        {face(41.5, ledRing(41.5, 29), "led")}
+      </>,
+      side: SIDE_ORGANIC,
+      sideArt: <>
+        <path d="M60 5 C76 5 85 16 84 29 C80 20 71 17 60 18 C49 19 41 24 38 33 C36 16 45 5 60 5 Z" fill={`url(#${id}-hairB)`} stroke="#2a1a10" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M69 30 Q75 27 80 31" fill="none" stroke="#3d2718" strokeWidth="1.5" strokeLinecap="round" />
+        <g className="ca-eye">
+          <path d="M71 36 Q76 32.6 80.5 36 Q76 39.4 71 36 Z" fill="#f6f1ea" />
+          <circle cx="76.4" cy="36" r="2.4" fill={`url(#${id}-brown)`} />
+          <circle cx="76.4" cy="36" r="1" fill="#140b06" />
+        </g>
+        <path d="M73.5 50.5 Q77 49.4 79.5 51" fill="none" stroke="#bd7f78" strokeWidth="1.5" strokeLinecap="round" opacity=".8" />
+        {sideEar(`url(#${id}-skin)`, "#b08a6c")}
+        {ledRing(45, 26)}
+      </>,
+      rear: <>
+        <path d="M38 12 Q60 4 82 12 Q86 34 82 52 Q60 62 38 52 Q34 34 38 12 Z" fill={`url(#${id}-hairB)`} stroke="#2a1a10" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M48 18 Q60 30 52 52 M72 18 Q60 30 68 52" fill="none" stroke="#543724" strokeWidth=".9" opacity=".55" />
+      </>,
+      neck: null,
+    },
+
+    /* ── MERIDIAN · PL caretaker ──
+       Two different eyes, which in the source material is the mark of a unit
+       repaired with whatever parts were to hand. Close-cropped, deep skin. */
+    meridian: {
+      skull: "M60 8 C73 8 81 18 82 31 C83 43 78 53 72 61 C68 67 64 71 60 71 C56 71 52 67 48 61 C42 53 37 43 38 31 C39 18 47 8 60 8 Z",
+      fill: "skin2", line: "#8a5f42", neckFill: "skin2",
+      prof: { brow: 27, nose: 39, lip: 57, chin: 69 },
+      shellArt: <>
+        <path d="M60 5 C76 5 85 16 84 30 C79 23 71 20 60 20 C49 20 41 23 36 30 C35 16 44 5 60 5 Z" fill="#2a1d15" stroke="#1a1109" strokeWidth=".7" strokeLinejoin="round" opacity=".95" />
+        <path d="M40 27 Q60 20 80 27" fill="none" stroke="#3f2c1e" strokeWidth="1.4" opacity=".7" />
+      </>,
+      art: <>
+        {face(49, <path d="M42 30 Q49 26.4 56 29" fill="none" stroke="#2f1f14" strokeWidth="1.8" strokeLinecap="round" />, "b1")}
+        {face(71, <path d="M64 29 Q71 26.4 78 30" fill="none" stroke="#2f1f14" strokeWidth="1.8" strokeLinecap="round" />, "b2")}
+        {face(50, <g className="ca-eye">
+          <path d="M43 36.5 Q50 31.4 57 36.5 Q50 41.6 43 36.5 Z" fill="#f3ece2" />
+          <circle cx="50" cy="36.5" r="4" fill={`url(#${id}-iris)`} />
+          <circle cx="50" cy="36.5" r="1.7" fill="#0a0f1c" />
+          <circle cx="51.5" cy="35" r="1.3" fill="#fff" />
+        </g>, "e1")}
+        {face(70, <g className="ca-eye">
+          <path d="M63 36.5 Q70 31.4 77 36.5 Q70 41.6 63 36.5 Z" fill="#f3ece2" />
+          <circle cx="70" cy="36.5" r="4" fill={`url(#${id}-iris2)`} />
+          <circle cx="70" cy="36.5" r="1.7" fill="#0a1a0e" />
+          <circle cx="71.5" cy="35" r="1.3" fill="#fff" />
+        </g>, "e2")}
+        {face(60, <path d="M60 39 L60 48 M57 49.4 Q60 51 63 49.4" fill="none" stroke="#7a5138" strokeWidth="1" strokeLinecap="round" />, "n")}
+        {face(60, <path d="M53 57 Q56.6 54.6 60 56 Q63.4 54.6 67 57 Q63.4 60.8 60 60.8 Q56.6 60.8 53 57 Z" fill="#8f5a52" opacity=".8" />, "m")}
+        {face(44, <path d="M40 42 Q42 52 50 62" fill="none" stroke="#6b452e" strokeWidth=".7" opacity=".4" />, "s1")}
+        {face(76, <path d="M80 42 Q78 52 70 62" fill="none" stroke="#6b452e" strokeWidth=".7" opacity=".4" />, "s2")}
+        {face(41.5, ledRing(41.5, 29), "led")}
+      </>,
+      side: SIDE_ORGANIC,
+      sideArt: <>
+        <path d="M60 5 C77 5 86 16 85 30 C80 22 70 19 60 19 C48 19 40 23 36 32 C35 16 44 5 60 5 Z" fill="#2a1d15" stroke="#1a1109" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M69 30 Q75 26.6 80 31" fill="none" stroke="#2f1f14" strokeWidth="1.7" strokeLinecap="round" />
+        <g className="ca-eye">
+          <path d="M71 36.5 Q76 33 80.5 36.5 Q76 40 71 36.5 Z" fill="#f3ece2" />
+          <circle cx="76.4" cy="36.5" r="2.5" fill={`url(#${id}-iris2)`} />
+          <circle cx="76.4" cy="36.5" r="1" fill="#0a1a0e" />
+        </g>
+        <path d="M74 51.5 Q77.5 50.2 80 52" fill="none" stroke="#8f5a52" strokeWidth="1.6" strokeLinecap="round" opacity=".85" />
+        {sideEar(`url(#${id}-skin2)`, "#7e553a")}
+        {ledRing(45, 26)}
+      </>,
+      rear: <>
+        <path d="M37 12 Q60 3 83 12 Q87 34 83 54 Q60 64 37 54 Q33 34 37 12 Z" fill="#2a1d15" stroke="#1a1109" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M46 20 Q60 32 50 54 M74 20 Q60 32 70 54" fill="none" stroke="#3f2c1e" strokeWidth=".9" opacity=".55" />
+      </>,
+      neck: null,
+    },
+
+    /* ── ATLAS · TR heavy labour ──
+       Built for lifting, so the head is broader and the jaw squarer, and there
+       is nothing on it to catch: a bare scalp with its seam showing. */
+    atlas: {
+      skull: "M60 7 C75 7 84 18 85 32 C86 45 81 55 74 63 C69 69 65 72 60 72 C55 72 51 69 46 63 C39 55 34 45 35 32 C36 18 45 7 60 7 Z",
+      fill: "skin3", line: "#7a4a30", neckFill: "skin3",
+      prof: { brow: 26, nose: 39, lip: 57, chin: 71 },
+      shellArt: <>
+        <path d="M42 22 Q60 12 78 22" fill="none" stroke="#4a2b1c" strokeWidth="1.2" opacity=".55" />
+        <path d="M60 7 L60 20" stroke="#4a2b1c" strokeWidth=".9" opacity=".4" />
+      </>,
+      art: <>
+        {face(48, <path d="M40 30 Q48 25.6 57 29" fill="none" stroke="#24140c" strokeWidth="2.2" strokeLinecap="round" />, "b1")}
+        {face(72, <path d="M63 29 Q72 25.6 80 30" fill="none" stroke="#24140c" strokeWidth="2.2" strokeLinecap="round" />, "b2")}
+        {face(49, <g className="ca-eye">
+          <path d="M42 37 Q49 32.2 56 37 Q49 41.6 42 37 Z" fill="#efe6da" />
+          <circle cx="49" cy="37" r="3.8" fill={`url(#${id}-brown)`} />
+          <circle cx="49" cy="37" r="1.6" fill="#0d0704" />
+          <circle cx="50.4" cy="35.6" r="1.2" fill="#fff" />
+        </g>, "e1")}
+        {face(71, <g className="ca-eye">
+          <path d="M64 37 Q71 32.2 78 37 Q71 41.6 64 37 Z" fill="#efe6da" />
+          <circle cx="71" cy="37" r="3.8" fill={`url(#${id}-brown)`} />
+          <circle cx="71" cy="37" r="1.6" fill="#0d0704" />
+          <circle cx="72.4" cy="35.6" r="1.2" fill="#fff" />
+        </g>, "e2")}
+        {face(60, <path d="M60 39 L60 49 M56.4 50.6 Q60 52.4 63.6 50.6" fill="none" stroke="#68402a" strokeWidth="1.2" strokeLinecap="round" />, "n")}
+        {face(60, <path d="M52 58 Q56.4 55.6 60 57 Q63.6 55.6 68 58 Q63.6 62 60 62 Q56.4 62 52 58 Z" fill="#7d4a41" opacity=".8" />, "m")}
+        {face(60, <path d="M50 66 Q60 70 70 66" fill="none" stroke="#4a2b1c" strokeWidth=".8" opacity=".4" />, "j")}
+        {face(40, ledRing(40, 28), "led")}
+      </>,
+      side: SIDE_ORGANIC,
+      sideArt: <>
+        <path d="M44 22 Q62 13 82 24" fill="none" stroke="#4a2b1c" strokeWidth="1.2" opacity=".5" />
+        <path d="M69 30 Q75 26 81 31" fill="none" stroke="#24140c" strokeWidth="2" strokeLinecap="round" />
+        <g className="ca-eye">
+          <path d="M70 37 Q76 33.4 81 37 Q76 40.6 70 37 Z" fill="#efe6da" />
+          <circle cx="76" cy="37" r="2.5" fill={`url(#${id}-brown)`} />
+          <circle cx="76" cy="37" r="1" fill="#0d0704" />
+        </g>
+        <path d="M73 52 Q77 50.6 80 52.4" fill="none" stroke="#7d4a41" strokeWidth="1.8" strokeLinecap="round" opacity=".85" />
+        {sideEar(`url(#${id}-skin3)`, "#6e4229")}
+        {ledRing(44, 26)}
+      </>,
+      rear: <>
+        <path d="M60 10 L60 62" stroke="#4a2b1c" strokeWidth="1" opacity=".4" />
+        <path d="M42 24 Q60 16 78 24 M42 44 Q60 38 78 44" fill="none" stroke="#4a2b1c" strokeWidth="1" opacity=".4" />
+        {ledRing(80, 28)}
+      </>,
+      neck: null,
+    },
+
+    /* ── HALCYON · RT first generation ──
+       The demonstration model — the one that was meant to be looked at. Long
+       blonde hair, an open face, and the LED left deliberately visible. */
+    halcyon: {
+      skull: "M60 8 C72 8 80 17 81 30 C82 42 78 52 72 60 C68 66 64 70 60 70 C56 70 52 66 48 60 C42 52 38 42 39 30 C40 17 48 8 60 8 Z",
+      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
+      shellArt: <>
+        <path d="M60 4 C76 4 85 15 84 30 C79 21 71 18 60 18 C49 18 41 21 36 30 C35 15 44 4 60 4 Z" fill={`url(#${id}-hair2)`} stroke="#9c7530" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M37 26 Q28 48 31 72 Q32 86 26 98 L37 98 Q45 80 43 60 Q42 42 45 31 Z" fill={`url(#${id}-hair2)`} stroke="#9c7530" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M83 26 Q92 48 89 72 Q88 86 94 98 L83 98 Q75 80 77 60 Q78 42 75 31 Z" fill={`url(#${id}-hair2)`} stroke="#9c7530" strokeWidth=".7" strokeLinejoin="round" />
+      </>,
+      art: <>
+        {face(49, <path d="M42 29.5 Q49 26 56 28.6" fill="none" stroke="#a98134" strokeWidth="1.5" strokeLinecap="round" />, "b1")}
+        {face(71, <path d="M64 28.6 Q71 26 78 29.5" fill="none" stroke="#a98134" strokeWidth="1.5" strokeLinecap="round" />, "b2")}
+        {face(50, <g className="ca-eye">
+          <path d="M42.6 36 Q50 30.6 57.4 36 Q50 41.4 42.6 36 Z" fill="#f8f4ee" />
+          <circle cx="50" cy="36" r="4.2" fill={`url(#${id}-iris)`} />
+          <circle cx="50" cy="36" r="1.7" fill="#08101f" />
+          <circle cx="51.5" cy="34.5" r="1.4" fill="#fff" />
+        </g>, "e1")}
+        {face(70, <g className="ca-eye">
+          <path d="M62.6 36 Q70 30.6 77.4 36 Q70 41.4 62.6 36 Z" fill="#f8f4ee" />
+          <circle cx="70" cy="36" r="4.2" fill={`url(#${id}-iris)`} />
+          <circle cx="70" cy="36" r="1.7" fill="#08101f" />
+          <circle cx="71.5" cy="34.5" r="1.4" fill="#fff" />
+        </g>, "e2")}
+        {face(60, <path d="M60 38 L60 47 M57 48.6 Q60 50.2 63 48.6" fill="none" stroke="#b08f78" strokeWidth="1" strokeLinecap="round" />, "n")}
+        {face(60, <path d="M53.4 56 Q57 53.4 60 55 Q63 53.4 66.6 56 Q63 60 60 60 Q57 60 53.4 56 Z" fill="#d1868c" opacity=".8" />, "m")}
+        {face(42, <ellipse cx="42" cy="47" rx="4.6" ry="2.6" fill="#e8a0a8" opacity=".35" />, "bl1")}
+        {face(78, <ellipse cx="78" cy="47" rx="4.6" ry="2.6" fill="#e8a0a8" opacity=".35" />, "bl2")}
+        {face(41.5, ledRing(41.5, 28), "led")}
+      </>,
+      side: SIDE_ORGANIC,
+      sideArt: <>
+        <path d="M60 4 C77 4 86 16 85 29 C81 20 71 17 60 18 C48 19 40 23 37 32 C35 16 44 4 60 4 Z" fill={`url(#${id}-hair2)`} stroke="#9c7530" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M36 30 Q27 52 30 76 Q31 90 25 102 L38 102 Q46 84 44 62 Q43 44 47 33 Z" fill={`url(#${id}-hair2)`} stroke="#9c7530" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M69 29.5 Q75 26.4 80 30.5" fill="none" stroke="#a98134" strokeWidth="1.4" strokeLinecap="round" />
+        <g className="ca-eye">
+          <path d="M70.6 36 Q76 32.2 81 36 Q76 39.8 70.6 36 Z" fill="#f8f4ee" />
+          <circle cx="76.2" cy="36" r="2.6" fill={`url(#${id}-iris)`} />
+          <circle cx="76.2" cy="36" r="1.05" fill="#08101f" />
+        </g>
+        <path d="M74 50.5 Q77.4 49.2 80 51" fill="none" stroke="#d1868c" strokeWidth="1.6" strokeLinecap="round" opacity=".85" />
+        <ellipse cx="66" cy="47" rx="4" ry="2.3" fill="#e8a0a8" opacity=".3" />
+        {ledRing(45, 26)}
+      </>,
+      rear: <>
+        <path d="M36 12 Q60 2 84 12 Q90 40 86 72 Q82 90 78 102 L42 102 Q38 90 34 72 Q30 40 36 12 Z" fill={`url(#${id}-hair2)`} stroke="#9c7530" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M50 20 Q60 48 55 100 M70 20 Q60 48 65 100" fill="none" stroke="#b8913f" strokeWidth=".9" opacity=".6" />
+      </>,
+      neck: null,
+    },
+
+    /* ── KEEPER · AX domestic ──
+       The one that raises somebody's child. A bob, a soft jaw, and the same
+       ring on the temple that means it is not one. */
+    keeper: {
+      skull: "M60 8 C71 8 79 17 80 30 C81 42 77 52 71 60 C67 66 64 70 60 70 C56 70 53 66 49 60 C43 52 39 42 40 30 C41 17 49 8 60 8 Z",
+      fill: "skin", line: "#c8ab9e", neckFill: "skin",
+      prof: { brow: 27, nose: 38, lip: 56, chin: 68 },
+      shellArt: <>
+        <path d="M60 4 C76 4 84 15 83 30 C79 22 70 18 60 18 C50 18 41 22 37 30 C36 15 44 4 60 4 Z" fill={`url(#${id}-hair)`} stroke="#1f2436" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M37 27 Q31 42 33 58 Q34 66 30 72 L42 72 Q46 62 45 50 Q44 38 46 30 Z" fill={`url(#${id}-hair)`} stroke="#1f2436" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M83 27 Q89 42 87 58 Q86 66 90 72 L78 72 Q74 62 75 50 Q76 38 74 30 Z" fill={`url(#${id}-hair)`} stroke="#1f2436" strokeWidth=".7" strokeLinejoin="round" />
+      </>,
+      art: <>
+        {face(49, <path d="M42.6 29.6 Q49 26.4 55.6 29" fill="none" stroke="#4a4457" strokeWidth="1.4" strokeLinecap="round" />, "b1")}
+        {face(71, <path d="M64.4 29 Q71 26.4 77.4 29.6" fill="none" stroke="#4a4457" strokeWidth="1.4" strokeLinecap="round" />, "b2")}
+        {face(50, <g className="ca-eye">
+          <path d="M43.4 36 Q50 31 56.6 36 Q50 41 43.4 36 Z" fill="#f7f2ec" />
+          <circle cx="50" cy="36" r="3.9" fill={`url(#${id}-iris)`} />
+          <circle cx="50" cy="36" r="1.6" fill="#08101f" />
+          <circle cx="51.4" cy="34.6" r="1.25" fill="#fff" />
+        </g>, "e1")}
+        {face(70, <g className="ca-eye">
+          <path d="M63.4 36 Q70 31 76.6 36 Q70 41 63.4 36 Z" fill="#f7f2ec" />
+          <circle cx="70" cy="36" r="3.9" fill={`url(#${id}-iris)`} />
+          <circle cx="70" cy="36" r="1.6" fill="#08101f" />
+          <circle cx="71.4" cy="34.6" r="1.25" fill="#fff" />
+        </g>, "e2")}
+        {face(60, <path d="M60 38 L60 47 M57.2 48.4 Q60 50 62.8 48.4" fill="none" stroke="#b08f78" strokeWidth="1" strokeLinecap="round" />, "n")}
+        {face(60, <path d="M54 56 Q57.2 53.8 60 55 Q62.8 53.8 66 56 Q62.8 59.4 60 59.4 Q57.2 59.4 54 56 Z" fill="#c9848a" opacity=".78" />, "m")}
+        {face(41.5, ledRing(41.5, 29), "led")}
+      </>,
+      side: SIDE_ORGANIC,
+      sideArt: <>
+        <path d="M60 4 C77 4 85 16 84 29 C80 21 70 18 60 18 C49 19 41 23 38 32 C36 16 44 4 60 4 Z" fill={`url(#${id}-hair)`} stroke="#1f2436" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M37 29 Q31 44 33 60 Q34 68 30 74 L43 74 Q47 64 46 51 Q45 39 47 32 Z" fill={`url(#${id}-hair)`} stroke="#1f2436" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M69.4 29.6 Q75 26.6 80 30.4" fill="none" stroke="#4a4457" strokeWidth="1.3" strokeLinecap="round" />
+        <g className="ca-eye">
+          <path d="M71 36 Q76 32.6 80.6 36 Q76 39.4 71 36 Z" fill="#f7f2ec" />
+          <circle cx="76.2" cy="36" r="2.4" fill={`url(#${id}-iris)`} />
+          <circle cx="76.2" cy="36" r="1" fill="#08101f" />
+        </g>
+        <path d="M74 50.5 Q77.2 49.3 79.6 51" fill="none" stroke="#c9848a" strokeWidth="1.5" strokeLinecap="round" opacity=".85" />
+        {ledRing(45, 27)}
+      </>,
+      rear: <>
+        <path d="M37 12 Q60 3 83 12 Q87 36 84 58 Q82 68 79 74 L41 74 Q38 68 36 58 Q33 36 37 12 Z" fill={`url(#${id}-hair)`} stroke="#1f2436" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M50 20 Q60 42 54 72 M70 20 Q60 42 66 72" fill="none" stroke="#5b6489" strokeWidth=".9" opacity=".55" />
+      </>,
+      neck: null,
+    },
+
+    /* ── ENVOY · protocol unit ──
+       Gold plate polished past the point of dignity, two wide photoreceptors
+       that never quite stop staring, and a vocoder grille where a mouth would
+       be. The face does not move; the eyes do all of it. */
+    envoy: {
+      skull: "M60 6 C74 6 83 16 83 30 C83 40 80 48 76 55 C72 63 66 70 60 70 C54 70 48 63 44 55 C40 48 37 40 37 30 C37 16 46 6 60 6 Z",
+      fill: "gold", line: "#f6dc94", body: "gold", bodyLine: "#e0b855", hv: "26 -1 68 78",
+      prof: { brow: 23, nose: 35, lip: 54, chin: 68 },
+      shellArt: <>
+        <path d="M60 6 C74 6 83 16 83 30 L76 30 C76 20 70 15 60 15 C50 15 44 20 44 30 L37 30 C37 16 46 6 60 6 Z" fill={`url(#${id}-gold)`} stroke="#8a6215" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M60 6 L60 15" stroke="#8a6215" strokeWidth=".9" opacity=".6" />
+      </>,
+      art: <>
+        {face(60, <path d="M39 27 Q60 22 81 27 L79 44 Q60 50 41 44 Z" fill="#2a1c05" opacity=".55" />, "mask")}
+        {face(48, <g>
+          <circle cx="48" cy="35" r="9.4" fill="#160f04" />
+          <circle cx="48" cy="35" r="7.6" fill={`url(#${id}-amber)`} className="ca-optic" />
+          <circle cx="48" cy="35" r="3.2" fill="#3a2405" />
+          <circle cx="45.6" cy="32.4" r="2.2" fill="#fff8dd" opacity=".9" />
+        </g>, "e1")}
+        {face(72, <g>
+          <circle cx="72" cy="35" r="9.4" fill="#160f04" />
+          <circle cx="72" cy="35" r="7.6" fill={`url(#${id}-amber)`} className="ca-optic" />
+          <circle cx="72" cy="35" r="3.2" fill="#3a2405" />
+          <circle cx="69.6" cy="32.4" r="2.2" fill="#fff8dd" opacity=".9" />
+        </g>, "e2")}
+        {face(60, <path d="M56 44 L64 44 L62 52 L58 52 Z" fill="#2a1c05" opacity=".7" />, "nose")}
+        {face(60, <g>
+          <path d="M50 55 L70 55 L68 64 L52 64 Z" fill="#1c1204" />
+          {[54, 57.5, 61, 64.5].map((x, i) => <rect key={i} x={x} y="56.4" width="2.2" height="6" rx=".8" fill={`url(#${id}-gold)`} opacity=".9" />)}
+        </g>, "grille")}
+        {face(35, <ellipse cx="35" cy="36" rx="4.4" ry="7" fill={`url(#${id}-gold)`} stroke="#8a6215" strokeWidth=".7" />, "d1")}
+        {face(85, <ellipse cx="85" cy="36" rx="4.4" ry="7" fill={`url(#${id}-gold)`} stroke="#8a6215" strokeWidth=".7" />, "d2")}
+      </>,
+      side: SIDE_ORGANIC,
+      sideArt: <>
+        <path d="M60 6 C77 6 85 17 84 30 L77 30 C77 20 70 16 60 16 C50 16 42 21 40 31 L36 30 C37 16 46 6 60 6 Z" fill={`url(#${id}-gold)`} stroke="#8a6215" strokeWidth=".7" strokeLinejoin="round" />
+        <circle cx="74" cy="35" r="7.4" fill="#160f04" />
+        <circle cx="74" cy="35" r="5.8" fill={`url(#${id}-amber)`} className="ca-optic" />
+        <circle cx="72.4" cy="33" r="1.8" fill="#fff8dd" opacity=".9" />
+        <path d="M64 55 L80 55 L78 63 L65 63 Z" fill="#1c1204" />
+        <ellipse cx="52" cy="37" rx="5" ry="8" fill={`url(#${id}-gold)`} stroke="#8a6215" strokeWidth=".7" />
+        <path d="M42 24 Q40 42 46 58" fill="none" stroke="#8a6215" strokeWidth=".9" opacity=".55" />
+      </>,
+      rear: <>
+        <path d="M41 14 Q60 6 79 14 Q83 38 78 58 Q60 68 42 58 Q37 38 41 14 Z" fill={`url(#${id}-gold)`} stroke="#8a6215" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M60 10 L60 62 M44 28 Q60 22 76 28 M44 44 Q60 38 76 44" fill="none" stroke="#8a6215" strokeWidth="1" opacity=".55" />
+        <ellipse cx="35" cy="36" rx="4.4" ry="7" fill={`url(#${id}-gold)`} stroke="#8a6215" strokeWidth=".7" />
+        <ellipse cx="85" cy="36" rx="4.4" ry="7" fill={`url(#${id}-gold)`} stroke="#8a6215" strokeWidth=".7" />
+      </>,
+      neck: null,
+    },
+
+    /* ── TALON · industrial hunter ──
+       No face at all: a machined cylinder with a sensor band round it and a
+       pair of antennae. Nothing about it was designed to be read by a person,
+       which is the whole effect. */
+    talon: {
+      skull: "M44 12 L76 12 C79 12 80 14 80 17 L80 62 C80 66 78 68 74 68 L46 68 C42 68 40 66 40 62 L40 17 C40 14 41 12 44 12 Z",
+      fill: "plate", line: "#9fb0cc", hv: "30 -2 60 78",
+      prof: { brow: 20, nose: 34, lip: 52, chin: 66 },
+      shellArt: <>
+        <path d="M48 12 L48 5 M60 12 L60 3 M72 12 L72 5" stroke="#7f8ea8" strokeWidth="2.2" strokeLinecap="round" />
+        <circle cx="60" cy="2.4" r="2.4" fill="#ff3b30" className="ca-optic" />
+        <path d="M40 18 L80 18" stroke="#0b1120" strokeWidth="1.4" opacity=".6" />
+      </>,
+      art: <>
+        {face(60, <>
+          <path d="M39 28 L81 28 L81 42 L39 42 Z" fill="#080d18" />
+          <path d="M40.5 30 L79.5 30 L79.5 40 L40.5 40 Z" fill={`url(#${id}-plate)`} opacity=".7" />
+          {[48, 60, 72].map((x, i) => <g key={i}><circle cx={x} cy="35" r="4" fill="#2a0508" /><circle cx={x} cy="35" r="2.8" fill={`url(#${id}-red)`} className="ca-optic" /></g>)}
+        </>, "band")}
+        {face(60, <>
+          <path d="M44 48 L76 48 L76 60 L44 60 Z" fill="#0d1422" stroke="#6d7d97" strokeWidth=".7" />
+          {[50, 55, 60, 65, 70].map((x, i) => <rect key={i} x={x} y="50" width="2" height="8" rx=".7" fill="#7f8ea8" opacity=".8" />)}
+        </>, "vent")}
+        {face(44, <circle cx="44" cy="23" r="1.9" fill="#9fb0cc" />, "r1")}
+        {face(76, <circle cx="76" cy="23" r="1.9" fill="#9fb0cc" />, "r2")}
+        {face(60, <path d="M40 64 L80 64" stroke="#0b1120" strokeWidth="1.6" opacity=".6" />, "l")}
+      </>,
+      side: "M44 12 L76 12 C79 12 80 14 80 17 L80 62 C80 66 78 68 74 68 L46 68 C42 68 40 66 40 62 L40 17 C40 14 41 12 44 12 Z",
+      sideArt: <>
+        <path d="M48 12 L48 5 M60 12 L60 3 M72 12 L72 5" stroke="#7f8ea8" strokeWidth="2.2" strokeLinecap="round" />
+        <circle cx="60" cy="2.4" r="2.4" fill="#ff3b30" className="ca-optic" />
+        <path d="M39 28 L81 28 L81 42 L39 42 Z" fill="#080d18" />
+        <circle cx="70" cy="35" r="4" fill="#2a0508" />
+        <circle cx="70" cy="35" r="2.8" fill={`url(#${id}-red)`} className="ca-optic" />
+        <circle cx="50" cy="35" r="3" fill="#2a0508" />
+        <path d="M44 48 L76 48 L76 60 L44 60 Z" fill="#0d1422" stroke="#6d7d97" strokeWidth=".7" />
+        <path d="M40 18 L80 18 M40 64 L80 64" stroke="#0b1120" strokeWidth="1.5" opacity=".6" />
+      </>,
+      rear: <>
+        <path d="M40 14 L80 14 L80 66 L40 66 Z" fill={`url(#${id}-plate)`} stroke="#6d7d97" strokeWidth=".8" />
+        <path d="M46 22 L74 22 M46 34 L74 34 M46 46 L74 46 M46 58 L74 58" stroke="#0b1120" strokeWidth="1.6" opacity=".55" />
+        <path d="M48 14 L48 5 M60 14 L60 3 M72 14 L72 5" stroke="#7f8ea8" strokeWidth="2.2" strokeLinecap="round" />
+      </>,
+      neck: null,
+    },
+
+    /* ── SENTRY · line infantry ──
+       Mass-produced and cheap about it: pressed tan plate, a long vocoder
+       snout, and two eye slits set too high in the skull. */
+    sentry: {
+      skull: "M60 6 C70 6 76 13 77 24 C78 33 76 40 73 46 L70 62 C68 70 64 74 60 74 C56 74 52 70 50 62 L47 46 C44 40 42 33 43 24 C44 13 50 6 60 6 Z",
+      fill: "tan", line: "#8f7748", body: "tan", bodyLine: "#a98f5e", hv: "34 0 52 80",
+      prof: { brow: 20, nose: 34, lip: 56, chin: 72 },
+      shellArt: <>
+        <path d="M60 6 C70 6 76 13 77 24 L43 24 C44 13 50 6 60 6 Z" fill={`url(#${id}-tan)`} stroke="#7a6238" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M60 6 L60 22" stroke="#7a6238" strokeWidth=".9" opacity=".55" />
+      </>,
+      art: <>
+        {face(52, <path d="M47 26 L57 25 L57 32 L48 32 Z" fill="#150f06" />, "e1")}
+        {face(68, <path d="M73 26 L63 25 L63 32 L72 32 Z" fill="#150f06" />, "e2")}
+        {face(52, <circle cx="52" cy="28.6" r="1.5" fill="#ff8a2a" className="ca-optic" />, "p1")}
+        {face(68, <circle cx="68" cy="28.6" r="1.5" fill="#ff8a2a" className="ca-optic" />, "p2")}
+        {face(60, <>
+          <path d="M52 36 L68 36 L66 62 C65 68 62 70 60 70 C58 70 55 68 54 62 Z" fill={`url(#${id}-tan)`} stroke="#7a6238" strokeWidth=".8" strokeLinejoin="round" />
+          <path d="M55 42 L65 42 M55.6 48 L64.4 48 M56.4 54 L63.6 54" stroke="#3f331c" strokeWidth="1.4" opacity=".65" />
+          <ellipse cx="60" cy="65" rx="3.2" ry="2.2" fill="#150f06" opacity=".8" />
+        </>, "snout")}
+        {face(44, <path d="M42 30 L47 32 L46 44 L41 40 Z" fill={`url(#${id}-tan)`} stroke="#7a6238" strokeWidth=".7" />, "c1")}
+        {face(76, <path d="M78 30 L73 32 L74 44 L79 40 Z" fill={`url(#${id}-tan)`} stroke="#7a6238" strokeWidth=".7" />, "c2")}
+      </>,
+      side: "M58 6 C68 6 75 13 76 24 C77 33 75 40 72 46 L82 60 C84 66 80 72 74 70 L62 66 C56 64 52 58 51 50 L47 44 C44 38 42 32 43 24 C44 13 48 6 58 6 Z",
+      sideArt: <>
+        <path d="M58 6 C68 6 75 13 76 24 L44 24 C45 13 48 6 58 6 Z" fill={`url(#${id}-tan)`} stroke="#7a6238" strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M64 26 L74 25 L74 32 L64 32 Z" fill="#150f06" />
+        <circle cx="69" cy="28.6" r="1.6" fill="#ff8a2a" className="ca-optic" />
+        <path d="M56 40 L68 44 L80 60 C82 65 78 69 73 67 L60 62 C55 60 53 52 54 46 Z" fill={`url(#${id}-tan)`} stroke="#7a6238" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M60 48 L72 56 M58 54 L69 62" stroke="#3f331c" strokeWidth="1.4" opacity=".6" />
+        <path d="M46 30 Q44 42 50 52" fill="none" stroke="#7a6238" strokeWidth=".9" opacity=".5" />
+      </>,
+      rear: <>
+        <path d="M44 14 Q60 6 76 14 Q80 36 76 54 Q60 64 44 54 Q40 36 44 14 Z" fill={`url(#${id}-tan)`} stroke="#7a6238" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M60 10 L60 58 M48 26 Q60 20 72 26 M48 42 Q60 36 72 42" fill="none" stroke="#7a6238" strokeWidth="1" opacity=".55" />
+        <rect x="52" y="16" width="16" height="12" rx="3" fill="#3f331c" opacity=".5" />
+      </>,
+      neck: null,
+    },
+
+    /* ── PIP · astromech ──
+       A dome, a radar eye, and a holoprojector. It talks in beeps and every
+       panel on it opens onto a tool nobody expected it to have. */
+    pip: {
+      skull: "M60 8 C80 8 90 24 90 44 L90 62 C90 68 86 70 78 70 L42 70 C34 70 30 68 30 62 L30 44 C30 24 40 8 60 8 Z",
+      fill: "white", line: "#c8d8ec", hv: "24 1 72 76",
+      prof: { brow: 26, nose: 38, lip: 54, chin: 66 },
+      shellArt: <>
+        <path d="M60 8 C80 8 90 24 90 44 L82 44 C82 28 74 18 60 18 C46 18 38 28 38 44 L30 44 C30 24 40 8 60 8 Z" fill="#dfe9f7" stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M60 5 L60 11" stroke="#8fa6c8" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="60" cy="4" r="2.4" fill={glow} className="ca-optic" />
+      </>,
+      art: <>
+        {face(48, <>
+          <circle cx="48" cy="38" r="12" fill={`url(#${id}-trim)`} stroke={glow} strokeWidth="1" />
+          <circle cx="48" cy="38" r="8.4" fill="#0a1424" />
+          <circle cx="48" cy="38" r="6" fill={`url(#${id}-visor)`} className="ca-optic" />
+          <circle cx="45.6" cy="35.4" r="2.2" fill="#fff" opacity=".9" />
+        </>, "eye")}
+        {face(74, <>
+          <circle cx="74" cy="32" r="5" fill="#dfe9f7" stroke={glow} strokeWidth=".9" />
+          <circle cx="74" cy="32" r="2.2" fill={glow} className="ca-optic" />
+        </>, "holo")}
+        {face(72, <path d="M66 44 L82 44 L82 56 L66 56 Z" fill={`url(#${id}-trim)`} stroke={glow} strokeWidth=".8" />, "p1")}
+        {face(48, <path d="M38 52 L58 52 L58 62 L38 62 Z" fill="#dfe9f7" stroke={glow} strokeWidth=".8" />, "p2")}
+        {face(60, <path d="M32 46 Q60 42 88 46" fill="none" stroke={glow} strokeWidth="1" opacity=".6" />, "s")}
+      </>,
+      side: "M60 8 C80 8 90 24 90 44 L90 62 C90 68 86 70 78 70 L42 70 C34 70 30 68 30 62 L30 44 C30 24 40 8 60 8 Z",
+      sideArt: <>
+        <path d="M60 8 C80 8 90 24 90 44 L82 44 C82 28 74 18 60 18 C46 18 38 28 38 44 L30 44 C30 24 40 8 60 8 Z" fill="#dfe9f7" stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M60 5 L60 11" stroke="#8fa6c8" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="76" cy="38" r="9.6" fill={`url(#${id}-trim)`} stroke={glow} strokeWidth="1" />
+        <circle cx="76" cy="38" r="6.4" fill="#0a1424" />
+        <circle cx="76" cy="38" r="4.4" fill={`url(#${id}-visor)`} className="ca-optic" />
+        <path d="M36 46 L60 46 L60 60 L36 60 Z" fill="#dfe9f7" stroke={glow} strokeWidth=".8" />
+        <path d="M32 46 Q60 42 88 46" fill="none" stroke={glow} strokeWidth="1" opacity=".55" />
+      </>,
+      rear: <>
+        <path d="M60 8 C80 8 90 24 90 44 L90 62 C90 68 86 70 78 70 L42 70 C34 70 30 68 30 62 L30 44 C30 24 40 8 60 8 Z" fill={`url(#${id}-white)`} stroke={glow} strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M32 46 Q60 42 88 46" fill="none" stroke={glow} strokeWidth="1" opacity=".6" />
+        <path d="M44 20 L44 68 M60 14 L60 68 M76 20 L76 68" stroke={glow} strokeWidth=".9" opacity=".45" />
+        <circle cx="60" cy="34" r="7" fill={`url(#${id}-trim)`} stroke={glow} strokeWidth=".9" />
+        <circle cx="60" cy="34" r="2.8" fill={glow} className="ca-optic" />
+      </>,
+      neck: null,
+    },
+
+    /* ── PEBBLE · rolling unit ──
+       Nothing but a dome riding a ball, and somehow the most expressive thing
+       in the roster: one big lens, one small one, and the aerial it cocks when
+       it is listening. */
+    pebble: {
+      skull: "M60 12 C82 12 92 28 92 48 C92 62 80 70 60 70 C40 70 28 62 28 48 C28 28 38 12 60 12 Z",
+      fill: "white", line: "#d0e0f2", hv: "22 0 76 76",
+      prof: { brow: 28, nose: 42, lip: 56, chin: 66 },
+      shellArt: <>
+        <path d="M60 12 C82 12 92 28 92 48 L84 48 C84 32 74 22 60 22 C46 22 36 32 36 48 L28 48 C28 28 38 12 60 12 Z" fill="#e9f1fb" stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M46 12 L44 5 M74 12 L78 5" stroke="#8fa6c8" strokeWidth="1.8" strokeLinecap="round" />
+        <circle cx="43.6" cy="3.6" r="1.9" fill={glow} className="ca-optic" />
+        <circle cx="78.4" cy="3.6" r="1.9" fill={glow} className="ca-optic" />
+      </>,
+      art: <>
+        {face(52, <>
+          <circle cx="52" cy="42" r="14" fill="#0d1a2c" />
+          <circle cx="52" cy="42" r="11.4" fill={`url(#${id}-visor)`} className="ca-optic" />
+          <circle cx="52" cy="42" r="5" fill="#08111f" />
+          <circle cx="48" cy="37.6" r="3.4" fill="#fff" opacity=".92" />
+          <circle cx="55.6" cy="47" r="1.6" fill="#fff" opacity=".65" />
+        </>, "eye")}
+        {face(76, <>
+          <circle cx="76" cy="38" r="5.6" fill="#0d1a2c" />
+          <circle cx="76" cy="38" r="3.8" fill={`url(#${id}-trim)`} />
+          <circle cx="74.8" cy="36.6" r="1.4" fill="#fff" opacity=".8" />
+        </>, "lens")}
+        {face(60, <path d="M30 28 Q60 20 90 28" fill="none" stroke={`url(#${id}-trim)`} strokeWidth="4" opacity=".85" />, "band")}
+        {face(38, <path d="M32 52 C36 60 44 64 52 64" fill="none" stroke={`url(#${id}-trim)`} strokeWidth="3.4" strokeLinecap="round" opacity=".8" />, "arc1")}
+        {face(84, <path d="M88 52 C84 60 76 64 68 64" fill="none" stroke={`url(#${id}-trim)`} strokeWidth="3.4" strokeLinecap="round" opacity=".8" />, "arc2")}
+      </>,
+      side: "M60 12 C82 12 92 28 92 48 C92 62 80 70 60 70 C40 70 28 62 28 48 C28 28 38 12 60 12 Z",
+      sideArt: <>
+        <path d="M60 12 C82 12 92 28 92 48 L84 48 C84 32 74 22 60 22 C46 22 36 32 36 48 L28 48 C28 28 38 12 60 12 Z" fill="#e9f1fb" stroke={glow} strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M56 12 L52 5" stroke="#8fa6c8" strokeWidth="1.8" strokeLinecap="round" />
+        <circle cx="51.4" cy="3.6" r="1.9" fill={glow} className="ca-optic" />
+        <circle cx="76" cy="42" r="11.4" fill="#0d1a2c" />
+        <circle cx="76" cy="42" r="9" fill={`url(#${id}-visor)`} className="ca-optic" />
+        <circle cx="72.6" cy="38.4" r="2.8" fill="#fff" opacity=".9" />
+        <path d="M30 28 Q60 20 90 28" fill="none" stroke={`url(#${id}-trim)`} strokeWidth="4" opacity=".8" />
+        <path d="M34 52 C38 60 46 64 54 64" fill="none" stroke={`url(#${id}-trim)`} strokeWidth="3.4" strokeLinecap="round" opacity=".75" />
+      </>,
+      rear: <>
+        <path d="M60 12 C82 12 92 28 92 48 C92 62 80 70 60 70 C40 70 28 62 28 48 C28 28 38 12 60 12 Z" fill={`url(#${id}-white)`} stroke={glow} strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M30 28 Q60 20 90 28" fill="none" stroke={`url(#${id}-trim)`} strokeWidth="4" opacity=".8" />
+        <circle cx="60" cy="46" r="10" fill="none" stroke={`url(#${id}-trim)`} strokeWidth="3" opacity=".8" />
+        <circle cx="60" cy="46" r="3.4" fill={glow} className="ca-optic" />
+        <path d="M46 12 L44 5 M74 12 L78 5" stroke="#8fa6c8" strokeWidth="1.8" strokeLinecap="round" />
+      </>,
+      neck: null,
+    },
   }[v];
 
   const rig = MODEL_RIG[v] || MODEL_RIG.vanguard;
@@ -791,7 +1321,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
   const chibi = !!rig.chibi;
   const shellFill = `url(#${id}-${HEAD.fill})`;
   // the chassis takes the model's own material; the outfit's swatch re-plates the trim
-  const bodyKey = HEAD.body || (HEAD.fill === "skin" ? "plate" : HEAD.fill);
+  const bodyKey = HEAD.body || (HEAD.fill.startsWith("skin") ? "plate" : HEAD.fill);
   const bPlate = `url(#${id}-${bodyKey})`;
   const bTrim = `url(#${id}-trim)`;
   const bLine = HEAD.bodyLine || HEAD.line;
@@ -858,6 +1388,63 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, headOnly = false, arm
           <stop offset="42%" stopColor="#dcc3b6" />
           <stop offset="78%" stopColor="#a98d84" />
           <stop offset="100%" stopColor="#6d5a58" />
+        </linearGradient>
+        {/* Skin comes in more than one colour. Three ramps, each with its own
+            warmth in the light and its own depth in the shadow — a deep tone
+            lit with a pale tone's falloff just reads as a pale face turned
+            down, which is the usual way this gets done badly. */}
+        <linearGradient id={`${id}-skin2`} x1="0.35" y1="0" x2="0.65" y2="1">
+          <stop offset="0%" stopColor="#e8c19b" />
+          <stop offset="42%" stopColor="#c99a6e" />
+          <stop offset="78%" stopColor="#96694a" />
+          <stop offset="100%" stopColor="#5c3d2c" />
+        </linearGradient>
+        <linearGradient id={`${id}-skin3`} x1="0.35" y1="0" x2="0.65" y2="1">
+          <stop offset="0%" stopColor="#b07a55" />
+          <stop offset="40%" stopColor="#8a5636" />
+          <stop offset="76%" stopColor="#5e3623" />
+          <stop offset="100%" stopColor="#331c13" />
+        </linearGradient>
+        <linearGradient id={`${id}-hair2`} x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0%" stopColor="#f4dda2" />
+          <stop offset="52%" stopColor="#d8b56a" />
+          <stop offset="100%" stopColor="#8f6c33" />
+        </linearGradient>
+        <linearGradient id={`${id}-hairB`} x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0%" stopColor="#6b4a33" />
+          <stop offset="55%" stopColor="#412b1d" />
+          <stop offset="100%" stopColor="#20140d" />
+        </linearGradient>
+        <radialGradient id={`${id}-amber`}>
+          <stop offset="0%" stopColor="#fff6cf" />
+          <stop offset="34%" stopColor="#ffcf4a" />
+          <stop offset="100%" stopColor="#9a6a00" />
+        </radialGradient>
+        <radialGradient id={`${id}-brown`}>
+          <stop offset="0%" stopColor="#d8ae7c" />
+          <stop offset="52%" stopColor="#8a5a2e" />
+          <stop offset="100%" stopColor="#361f0f" />
+        </radialGradient>
+        <radialGradient id={`${id}-iris2`}>
+          <stop offset="0%" stopColor="#d9f7c4" />
+          <stop offset="55%" stopColor="#5aa86a" />
+          <stop offset="100%" stopColor="#1d4327" />
+        </radialGradient>
+        {/* protocol-droid gold: warm, over-polished, and worn at the edges */}
+        <linearGradient id={`${id}-gold`} x1="0.1" y1="0" x2="0.9" y2="1">
+          <stop offset="0%" stopColor="#fff3c4" />
+          <stop offset="20%" stopColor="#e8bf58" />
+          <stop offset="36%" stopColor="#fff6d8" />
+          <stop offset="56%" stopColor="#c99425" />
+          <stop offset="80%" stopColor="#8a6215" />
+          <stop offset="100%" stopColor="#4a340a" />
+        </linearGradient>
+        {/* battlefield tan, sand-scoured */}
+        <linearGradient id={`${id}-tan`} x1="0.2" y1="0" x2="0.8" y2="1">
+          <stop offset="0%" stopColor="#eadcbb" />
+          <stop offset="42%" stopColor="#c9b183" />
+          <stop offset="78%" stopColor="#94794f" />
+          <stop offset="100%" stopColor="#4f3f27" />
         </linearGradient>
         <linearGradient id={`${id}-white`} x1="0.3" y1="0" x2="0.7" y2="1">
           <stop offset="0%" stopColor="#ffffff" />
