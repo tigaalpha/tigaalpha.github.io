@@ -25,6 +25,7 @@ import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt } from "./item-art";
+import { petBonusOf, petById, petStage, readPet, PetArt } from "./pet-lab";
 import { createArenaAudio, useArenaFx } from "./arena-fx";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
@@ -629,6 +630,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   const A = useRef(fighterFrom(me, gear, myRank)).current;
   const B = useRef(fighterFrom(oppModel, [], 5)).current;
+  /* ── the pet ──
+     Read once, at the start of the fight, so a fight cannot change its own
+     terms halfway through. A pet under 50% happiness returns null and does
+     nothing at all — the care loop is what buys the bonus. */
+  const PET = useRef(petBonusOf()).current;
+  const petDmg = PET && PET.k === "dmg" ? 1 + PET.v : 1;
+  const petGuard = PET && PET.k === "guard" ? 1 - PET.v : 1;
+  const petSp = PET && PET.k === "sp" ? 1 + PET.v : 1;
+  const petPic = useRef(readPet()).current;
   const wpn = (gear || []).find(g => g && g.id && String(g.id).startsWith("wpn-"));
   const myBolt = (wpn && wpn.sw && wpn.sw[0]) || "#7fe8ff";
   /* A real-time exchange needs pools sized to a whole fight, not to ten hits.
@@ -786,7 +796,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       audioRef.current.sfx("block"); G.burst("me", .7, "#5ce1ff");
       say("me", T("กันได้!", "BLOCKED", "格挡"), "block"); return;
     }
-    const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1)));
+    const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1) * petGuard));
     const mHp = Math.max(0, hpRef.current.me - d);
     hpRef.current.me = mHp; setMyHp(mHp);
     // halved, not reset: with the bot landing every ~1.2s a full reset means
@@ -819,7 +829,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     comboRef.current += 1; setCombo(comboRef.current);
     setBestCombo(b => Math.max(b, comboRef.current));
     const comboK = Math.min(2.2, 1 + comboRef.current * (fx.passive === "streak" ? 0.08 : 0.04));
-    let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1);
+    let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1) * petDmg;
     let kind = act === "rocket" ? "ult" : "hit";
     if (nb.crit > 0) { dmg *= 2.2; nb.crit = 0; kind = "crit"; buffRef.current = nb; setBuffs(nb); }
     if (nb.anthem > 0) { dmg *= 1.4; nb.anthem -= 1; buffRef.current = nb; setBuffs(nb); }
@@ -828,7 +838,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (fx.passive === "repair") {
       const h = Math.min(MY_MAX, hpRef.current.me + 2); hpRef.current.me = h; setMyHp(h);
     }
-    setGauge(g => Math.min(100, g + (A.charge * (fx.passive === "resonate" ? 1.3 : 1)) / 4));
+    setGauge(g => Math.min(100, g + (A.charge * (fx.passive === "resonate" ? 1.3 : 1) * petSp) / 4));
     hitOp(dmg, kind, A2.move);
   }
 
@@ -951,6 +961,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (wave >= WAVES.length) { finish(); return; }
     setWave(w => w + 1);
     setLeft(WAVES[Math.min(wave, WAVES.length - 1)]);
+    // a healer pet patches you up between waves
+    if (PET && PET.k === "heal") {
+      const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * PET.v));
+      hpRef.current.me = h; setMyHp(h);
+      G.burst("me", .9, "#3ddc84"); say("me", "+" + Math.round(MY_MAX * PET.v), "heal");
+    }
     setLocked(false); setPhase("action");
   }
 
@@ -1033,6 +1049,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
             glow="#00b8d4" accent="#7c4dff" armorA="#1b2436" armorB="#41608a" />
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
+          {/* the pet fights at your heel — it does not take hits or throw
+              them, it stands there and applies the bonus you earned by
+              looking after it */}
+          {PET && petPic && (
+            <span className="pvppet" title={petById(petPic.species).en}>
+              <PetArt species={petPic.species} stage={petStage(petPic.bond)} mood={petPic.mood} />
+            </span>
+          )}
         </div>
         <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}`}
           style={{ left: `calc(${(opX * 100).toFixed(1)}% - 22%)`, right: "auto", bottom: `${6 + opAir * 62}px` }}>
