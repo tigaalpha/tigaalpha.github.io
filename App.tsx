@@ -5676,6 +5676,7 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
       <div className="cs-horizon" />
       <div className="cs-motes">{Array.from({ length: 14 }).map((_, i) => <i key={i} style={{ "--i": i }} />)}</div>
       <div className="cs-scene">
+        <div className="cs-cast" />
         <div className="cs-rings"><i className="cs-ring cs-ring1" /><i className="cs-ring cs-ring2" /><i className="cs-ring cs-ring3" /></div>
         <div className="cs-podium"><i className="cs-podium-top" /><i className="cs-podium-glow" /></div>
         <div className="cs-figure">
