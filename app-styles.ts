@@ -1043,15 +1043,56 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpwave{max-width:520px;margin:12px auto 0;height:7px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);overflow:hidden}
 .pvpwave i{display:block;height:100%;background:linear-gradient(90deg,#ffd23f,#d97757);transition:width .1s linear}
 .pvpwave-l{max-width:520px;margin:4px auto 0;text-align:center;font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--muted)}
-.pvpctrl{display:grid;grid-template-columns:1.7fr 1fr;gap:9px;max-width:520px;margin:11px auto 0;padding:0 13px}
-.pvpatk,.pvpgrd{display:flex;flex-direction:column;align-items:center;gap:1px;padding:16px 8px;border:none;border-radius:15px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
-.pvpatk{background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;box-shadow:0 8px 22px -12px #d97757}
-.pvpatk:active{transform:scale(.96);filter:brightness(1.1)}
-.pvpgrd{background:var(--card);border:1px solid #3d86c655;color:#2b6ca8}
-.pvpgrd:active{transform:scale(.96)}
-.pvpgrd.on{background:#3d86c61f;border-color:#3d86c6;box-shadow:0 0 0 2px #3d86c644}
-.pvpatk b,.pvpgrd b{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;letter-spacing:.6px}
-.pvpatk i,.pvpgrd i{font-style:normal;font-size:9.5px;opacity:.85}
+/* ── the pad ── left thumb walks, right thumb fights. Same buttons in both
+   orientations; only where they sit changes. */
+.pvppad{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;max-width:520px;margin:11px auto 0;padding:0 13px}
+.pvppad-l{display:flex;gap:7px}
+.pvppad-r{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.pvpdir,.pvpact{display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--bd1);background:var(--card);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;color:var(--text)}
+.pvpdir{width:52px;height:52px;border-radius:14px;font-size:19px;line-height:1}
+.pvpdir:active{transform:scale(.93);background:var(--card2)}
+.pvpdir.grd{border-color:#3d86c655;color:#2b6ca8}
+.pvpdir.grd.on{background:#3d86c61f;border-color:#3d86c6;box-shadow:0 0 0 2px #3d86c644}
+.pvpact{width:62px;height:52px;border-radius:14px;gap:1px}
+.pvpact:active{transform:scale(.93);filter:brightness(1.06)}
+.pvpact b{font-size:17px;line-height:1}
+.pvpact i{font-style:normal;font-family:'Rajdhani',sans-serif;font-size:8.5px;font-weight:700;letter-spacing:.4px;opacity:.9}
+.pvpact.fire{border-color:#3d86c666;color:#2b6ca8}
+.pvpact.punch{background:linear-gradient(135deg,#e2865f,#d05f43);border-color:transparent;color:#fff;box-shadow:0 6px 16px -10px #d97757}
+.pvpact.rocket{border-color:#d9775777;color:#b4522f}
+.pvpact.jump{border-color:#3ddc8477;color:#1f8a5b}
+
+/* ── landscape: the arena takes the whole screen and the pad floats on it ── */
+.pvppage.land{position:fixed;inset:0;z-index:60;min-height:0;padding:0;background:var(--bg);overflow:hidden}
+.pvppage.land .pvphdr{position:absolute;top:0;left:0;right:0;z-index:8;background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,0));border:none;padding:7px 12px}
+.pvppage.land .pvpstage{position:absolute;inset:0;max-width:none;margin:0;height:100%;border-radius:0;border:none}
+.pvppage.land .pvpfighter{height:70%}
+.pvppage.land .pvpfighter svg{height:100%}
+.pvppage.land .pvphps{padding:30px 14px 0}
+/* the wave clock reads under the health bars, not across the fighters */
+.pvppage.land .pvpwave{position:absolute;left:50%;transform:translateX(-50%);top:56px;width:min(46%,300px);max-width:none;margin:0;z-index:8}
+.pvppage.land .pvpwave-l{position:absolute;left:50%;transform:translateX(-50%);top:66px;margin:0;z-index:8}
+.pvppage.land .pvppad{position:absolute;left:0;right:0;bottom:0;max-width:none;margin:0;padding:0 16px 14px;z-index:9;pointer-events:none}
+.pvppage.land .pvppad-l,.pvppage.land .pvppad-r{pointer-events:auto}
+.pvppage.land .pvpdir{width:58px;height:58px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px)}
+.pvppage.land .pvpact{width:66px;height:56px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px)}
+.pvppage.land .pvpact.punch{background:linear-gradient(135deg,#e2865fee,#d05f43ee)}
+/* the quiz takes the middle of the screen when it interrupts */
+.pvppage.land .pvpuntimed{position:absolute;left:0;right:0;top:34%;z-index:10;margin:0}
+.pvppage.land .pvpq{position:absolute;left:0;right:0;top:39%;z-index:10;margin:0;padding:0 8%;text-shadow:0 1px 8px rgba(255,255,255,.95)}
+.pvppage.land .pvpopts{position:absolute;left:0;right:0;bottom:14px;z-index:11;margin:0;max-width:none;grid-template-columns:repeat(4,1fr);padding:0 14px}
+.pvppage.land .pvpopt{padding:12px 6px;background:rgba(255,255,255,.94)}
+/* skills sit between the two thumbs, where nothing else is competing */
+.pvppage.land .pvpskills{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:9;width:min(42%,260px);max-width:none;margin:0;padding:0}
+.pvppage.land .pvpskbtns{grid-template-columns:1fr 1fr;gap:6px;margin-top:5px}
+.pvppage.land .pvpskbtn{padding:5px 4px;background:rgba(255,255,255,.8)}
+.pvppage.land .pvpskbtn-ic{width:19px;height:19px}
+.pvppage.land .pvpskbtn b{font-size:9.5px}
+.pvppage.land .pvpskbtn i{display:none}
+@media (orientation:landscape) and (max-height:520px){
+  .pvppage.land .pvpfighter{height:56%}
+  .pvppage.land .pvpq{font-size:15px;top:36%}
+}
 /* the fighter braces while guarding */
 .pvpfighter.guard{filter:drop-shadow(0 0 10px #5ce1ff)}
 /* combo counter: it pops on every increment because the key changes */
