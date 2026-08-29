@@ -918,6 +918,15 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 
 /* ── skill track ── the per-class SP bars under the account EXP bar, and the
    door to the arena. Scoped light like the rest of the profile hero. */
+/* ── the gem rack ── mythic gear is the one tier coins cannot reach, so it is
+   marked everywhere it appears rather than blending into the coin shelves */
+.gempill{background:#a86bff14!important;border-color:#a86bff55!important;color:#7b46c9!important}
+.shop-tab.gem{border-color:#a86bff55;background:linear-gradient(160deg,#f7f2ff,#efe6ff)}
+.shop-tab.gem.on{border-color:#a86bff;box-shadow:0 0 0 1px #a86bff55}
+.shopitem-tag.gem{color:#7b46c9}
+.shop-full .shopitem.mythic,.shopitem.mythic{border-color:#a86bff;background:linear-gradient(160deg,#faf7ff,#f1e9ff);box-shadow:0 0 0 1px #a86bff33,0 8px 22px -14px #a86bff}
+.shop-full .shopitem.mythic .shopitem-rare,.shopitem.mythic .shopitem-rare{color:#7b46c9;font-weight:700}
+.stgitem.mythic,.rar-mythic{color:#7b46c9}
 .skilltrack{width:100%;max-width:520px;margin:14px auto 0;padding:12px 13px 13px;border-radius:16px;background:var(--card);border:1px solid var(--bd1);box-shadow:0 6px 22px -18px rgba(20,30,60,.5)}
 .skt-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .skt-ic{display:block;width:22px;height:22px;flex:none}

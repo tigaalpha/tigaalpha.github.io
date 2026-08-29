@@ -386,9 +386,9 @@ const pickMove = (clsKey) => {
 };
 
 const BOT_TIERS = [
-  { key: "rookie",  acc: .45, dmgK: .85, th: "มือใหม่",  en: "Rookie",  zh: "新手",   coins: 40,  xp: 12, sp: 24 },
-  { key: "veteran", acc: .62, dmgK: 1,   th: "มือเก๋า",  en: "Veteran", zh: "老手",   coins: 90,  xp: 25, sp: 48 },
-  { key: "ace",     acc: .78, dmgK: 1.2, th: "เอซ",      en: "Ace",     zh: "王牌",   coins: 180, xp: 45, sp: 90 },
+  { key: "rookie",  acc: .45, dmgK: .85, th: "โหมดง่าย",  en: "Easy Mode",   zh: "简单模式", coins: 40,  xp: 12, sp: 24 },
+  { key: "veteran", acc: .62, dmgK: 1,   th: "โหมดปานกลาง", en: "Medium Mode", zh: "中等模式", coins: 90,  xp: 25, sp: 48 },
+  { key: "ace",     acc: .78, dmgK: 1.2, th: "โหมดยาก",   en: "Hard Mode",   zh: "困难模式", coins: 180, xp: 45, sp: 90 },
 ];
 const ROUNDS = 12;
 

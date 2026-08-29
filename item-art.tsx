@@ -175,6 +175,28 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
     "stk-st-magic":   <g>{[[32, 30, 14], [20, 21, 6], [45, 41, 7]].map(([x, y, r], i) => <path key={i} d={`M${x} ${y - r} L${x + r * .28} ${y - r * .28} L${x + r} ${y} L${x + r * .28} ${y + r * .28} L${x} ${y + r} L${x - r * .28} ${y + r * .28} L${x - r} ${y} L${x - r * .28} ${y - r * .28} Z`} fill={i ? lite(C, .55) : "#fff"} opacity={i ? .85 : .95} />)}</g>,
   };
 
+
+  /* ── the mythic set ──
+     Fifty gem-priced items would be fifty more archetypes to draw, and drawn
+     one at a time they would not look like they belonged to each other. They
+     are a SET instead: five forms — a weapon, a plating, a module, a core, a
+     relic — each carrying one of ten emblems. Within a category no two items
+     share an emblem, so they read apart; across the whole tier they read as
+     one family, which is what a top-tier set is supposed to do. */
+  const EMBLEM = [
+    <path key="0" d="M32 18 L36 28 L47 29 L38.5 36 L41 47 L32 41 L23 47 L25.5 36 L17 29 L28 28 Z" fill="#fff" opacity=".92" />,
+    <path key="1" d="M37 14 L21 36 H30 L26 52 L44 27 H34 Z" fill="#fff" opacity=".92" />,
+    <path key="2" d="M32 15 C38 25 45 28 45 36 C45 43 39 48 32 48 C25 48 19 43 19 36 C19 30 25 28 27 21 C30 28 32 27 32 15 Z" fill="#fff" opacity=".92" />,
+    <path key="3" d="M40 16 A16 16 0 1 0 40 48 A13 13 0 1 1 40 16 Z" fill="#fff" opacity=".92" />,
+    <path key="4" d="M32 15 L46 32 L32 49 L18 32 Z M18 32 H46 M32 15 V49" fill="#fff" stroke="#fff" strokeWidth="1" opacity=".9" />,
+    <g key="5" opacity=".92"><ellipse cx="32" cy="32" rx="15" ry="9" fill="none" stroke="#fff" strokeWidth="3" /><circle cx="32" cy="32" r="5" fill="#fff" /></g>,
+    <path key="6" d="M17 36 C22 27 27 45 32 36 C37 27 42 45 47 36" fill="none" stroke="#fff" strokeWidth="3.6" strokeLinecap="round" opacity=".92" />,
+    <path key="7" d="M28 15 H36 V28 H49 V36 H36 V49 H28 V36 H15 V28 H28 Z" fill="#fff" opacity=".92" />,
+    <path key="8" d="M32 14 L47 23 V41 L32 50 L17 41 V23 Z" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinejoin="round" opacity=".92" />,
+    <g key="9" opacity=".92" fill="none" stroke="#fff" strokeWidth="3.4"><circle cx="24" cy="32" r="7.5" /><circle cx="40" cy="32" r="7.5" /></g>,
+  ];
+  const emb = (i) => EMBLEM[((i | 0) % EMBLEM.length + EMBLEM.length) % EMBLEM.length];
+
   const SHAPES = {
     /* ── weapons ── */
     sword: () => <>
@@ -740,6 +762,45 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
       {lit(32, 12, 3.2)}
     </>,
 
+    /* ── mythic forms ── */
+    pw: (i) => <>                                        {/* prime weapon */}
+      {P("M32 2 L41 13 L39 40 L32 47 L25 40 L23 13 Z", GA, { lw: 1.7 })}
+      {beamLine("M32 7 V42", 2.6)}
+      {P("M12 40 H52 L47 49 H17 Z", GB, { line: edgeB, lw: 1.3 })}
+      {P("M27 49 H37 V62 H27 Z", GB, { line: edgeB, lw: 1.2 })}
+      {E(32, 30, 11, 11, GC, { spec: .8, lw: 1.2, line: lite(C, .4) })}
+      <g transform="translate(32 30) scale(.62) translate(-32 -32)">{emb(i)}</g>
+      {[16, 48].map(x => <g key={x}>{lit(x, 44, 2.6)}</g>)}
+    </>,
+    pp: (i) => <>                                        {/* prime plating */}
+      {P("M32 3 L57 12 V33 C57 47 46 57 32 62 C18 57 7 47 7 33 V12 Z", GA, { lw: 1.7 })}
+      {P("M32 11 L49 17 V33 C49 42 42 49 32 53 C22 49 15 42 15 33 V17 Z", GB, { line: edgeB, lw: 1.2 })}
+      {E(32, 31, 13, 13, GC, { spec: .85, lw: 1.2, line: lite(C, .4) })}
+      <g transform="translate(32 31) scale(.72) translate(-32 -32)">{emb(i)}</g>
+      {seam("M32 6 V11 M11 20 H15 M49 20 H53")}
+    </>,
+    pm: (i) => <>                                        {/* prime module */}
+      {P("M32 5 C46 5 55 15 55 27 C55 33 52 38 48 41 L44 55 H20 L16 41 C12 38 9 33 9 27 C9 15 18 5 32 5 Z", GA, { lw: 1.6 })}
+      <ellipse cx="32" cy="17" rx="25" ry="7" fill="none" stroke={lite(C, .45)} strokeWidth="2.6" opacity=".9" />
+      {E(32, 30, 12, 12, GC, { spec: .85, lw: 1.2, line: lite(C, .4) })}
+      <g transform="translate(32 30) scale(.66) translate(-32 -32)">{emb(i)}</g>
+      {seam("M22 55 H42")}
+    </>,
+    pc: (i) => <>                                        {/* prime core */}
+      {[0, 60, 120].map(a => <ellipse key={a} cx="32" cy="32" rx="27" ry="11" fill="none" stroke={lite(A, .3)} strokeWidth="3" opacity=".85" transform={`rotate(${a} 32 32)`} />)}
+      <circle cx="32" cy="32" r="26" fill={GLOW} />
+      {E(32, 32, 16, 16, GC, { spec: .9, lw: 1.4, line: lite(C, .45) })}
+      <g transform="translate(32 32) scale(.86) translate(-32 -32)">{emb(i)}</g>
+      {[[32, 4], [8, 46], [56, 46]].map(([x, y], k) => <g key={k}>{lit(x, y, 3)}</g>)}
+    </>,
+    pr: (i) => <>                                        {/* relic gem */}
+      {P("M32 2 L54 20 L45 58 H19 L10 20 Z", GA, { lw: 1.7 })}
+      {P("M32 12 L46 23 L39 50 H25 L18 23 Z", GC, { spec: .9, lw: 1.2, line: lite(C, .45) })}
+      <path d="M18 23 H46 M32 12 L25 50 M32 12 L39 50" fill="none" stroke="#fff" strokeWidth=".9" opacity=".5" />
+      <g transform="translate(32 32) scale(.6) translate(-32 -32)">{emb(i)}</g>
+      {lit(32, 8, 3.4)}
+    </>,
+
     /* ── the five categories that used to be emoji ── */
     // a key skin is the colour a keybed wears, so it is sold as keys
     keycap: (motif) => <>
@@ -786,7 +847,9 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
     </>,
   };
 
-  const byPrefix = [
+  // "pw-3" is form pw carrying emblem 3
+  const mythic = /^(pw|pp|pm|pc|pr)-(\d+)$/.exec(art || "");
+  const byPrefix = mythic ? null : [
     ["out-", () => SHAPES.plate(PATTERNS[art] || PATTERNS["out-tshirt"])],
     ["key-", () => SHAPES.keycap(KEY_MOTIF[art])],
     ["thm-", () => SHAPES.scene(THEME_MOTIF[art])],
@@ -794,7 +857,8 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
     ["kbd-", () => SHAPES.keybed(KBD_MOTIF[art])],
     ["stk-", () => SHAPES.badge(STK_MOTIF[art])],
   ].find(([pre]) => art && art.startsWith(pre));
-  const draw = byPrefix ? byPrefix[1] : SHAPES[art];
+  const draw = mythic ? () => SHAPES[mythic[1]](Number(mythic[2]))
+    : byPrefix ? byPrefix[1] : SHAPES[art];
   return (
     <svg className={`ia ${className}`} viewBox="0 0 64 64" width={size || "100%"} height={size || "100%"} aria-hidden="true" overflow="visible">
       <defs>

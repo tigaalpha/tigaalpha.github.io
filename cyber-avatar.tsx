@@ -155,7 +155,11 @@ export const MODEL_COMBAT = {
 export const COMBAT_TOTAL = 40;
 /* Gear adds on top of the chassis, which is what makes the weapon rack matter:
    a rarer piece is worth more, and each slot feeds the stat it belongs to. */
-const RARITY_PTS = { common: 1, rare: 2, epic: 3, legendary: 5 };
+/* Mythic is worth double a legendary and is the only tier coins cannot buy —
+   gems come from Prestige tier-ups alone, so a full mythic loadout (+40, which
+   doubles a fresh chassis) is an endgame reward rather than a purchase that
+   settles a fight before it starts. */
+const RARITY_PTS = { common: 1, rare: 2, epic: 3, legendary: 5, mythic: 10 };
 export function combatOf(model, gear = []) {
   const base = MODEL_COMBAT[normalizeModel(model)] || MODEL_COMBAT.vanguard;
   const out = { pwr: base.pwr, arm: base.arm, spd: base.spd, syn: base.syn, sp: base.sp };
