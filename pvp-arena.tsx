@@ -25,7 +25,6 @@ import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt } from "./item-art";
-import { CHROMA, SCALE_DEF, CHORD_DEF, scaleNotesOf, chordNotesOf, pcIdx } from "./music-engine";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
 
@@ -81,138 +80,135 @@ export function trainFromExp(xp) {
 
 export function skillUnlocked(tier, rank) { return rank >= (SKILL_UNLOCK[tier] || 1); }
 
-/* ══════════════════════ question bank ══════════════════════ */
+/* ══════════════════════ question bank ══════════════════════
 
+   Three topics, and only three: the major scale, triads, and intervals. That
+   is the ground floor of written theory and it is what a beginner at a piano
+   app can actually answer. Rhythm values, modes, pentatonics and seventh
+   chords were in here and made the arena a wall rather than a game.
+
+   Every answer is spelled properly. The old version read note names straight
+   out of the chromatic table, so degree 4 of F major came back as "A#" and a
+   minor 6th above C came back as "G#" — both wrong, and wrong in a way that
+   teaches the mistake. A note's LETTER is fixed by the interval it sits at
+   (a 3rd is always two letters up, whatever its quality); the accidental is
+   then whatever it takes to reach the right pitch. */
+
+const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
+const LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+function parseName(n) {
+  const L = String(n).charAt(0).toUpperCase();
+  const off = String(n).slice(1).split("").reduce((a, c) => a + (c === "#" ? 1 : c === "b" ? -1 : 0), 0);
+  return { L, off, pc: ((LETTER_PC[L] || 0) + off + 120) % 12 };
+}
+/** The note `letterSteps` letters and `semis` semitones above `rootName`. */
+function spellFrom(rootName, letterSteps, semis) {
+  const r = parseName(rootName);
+  const L = LETTERS[(LETTERS.indexOf(r.L) + letterSteps) % 7];
+  const target = (r.pc + semis) % 12;
+  let d = (target - LETTER_PC[L] + 120) % 12;
+  if (d > 6) d -= 12;
+  return L + (d > 0 ? "#".repeat(d) : d < 0 ? "b".repeat(-d) : "");
+}
+const MAJOR_STEPS = [0, 2, 4, 5, 7, 9, 11];
+export const spellMajor = (root) => MAJOR_STEPS.map((s, i) => spellFrom(root, i, s));
+
+/* Intervals carry their letter distance with them — that is what makes an
+   augmented 4th spell differently from a diminished 5th at the same pitch. */
 const IV_NAME = [
-  { s: 0,  th: "ยูนิซัน",       en: "Unison",         zh: "同度" },
-  { s: 1,  th: "ไมเนอร์ 2",     en: "Minor 2nd",      zh: "小二度" },
-  { s: 2,  th: "เมเจอร์ 2",     en: "Major 2nd",      zh: "大二度" },
-  { s: 3,  th: "ไมเนอร์ 3",     en: "Minor 3rd",      zh: "小三度" },
-  { s: 4,  th: "เมเจอร์ 3",     en: "Major 3rd",      zh: "大三度" },
-  { s: 5,  th: "เพอร์เฟกต์ 4",  en: "Perfect 4th",    zh: "纯四度" },
-  { s: 6,  th: "ไทรโทน",        en: "Tritone",        zh: "三全音" },
-  { s: 7,  th: "เพอร์เฟกต์ 5",  en: "Perfect 5th",    zh: "纯五度" },
-  { s: 8,  th: "ไมเนอร์ 6",     en: "Minor 6th",      zh: "小六度" },
-  { s: 9,  th: "เมเจอร์ 6",     en: "Major 6th",      zh: "大六度" },
-  { s: 10, th: "ไมเนอร์ 7",     en: "Minor 7th",      zh: "小七度" },
-  { s: 11, th: "เมเจอร์ 7",     en: "Major 7th",      zh: "大七度" },
+  { s: 1,  L: 1, th: "ไมเนอร์ 2",    en: "Minor 2nd",     zh: "小二度" },
+  { s: 2,  L: 1, th: "เมเจอร์ 2",    en: "Major 2nd",     zh: "大二度" },
+  { s: 3,  L: 2, th: "ไมเนอร์ 3",    en: "Minor 3rd",     zh: "小三度" },
+  { s: 4,  L: 2, th: "เมเจอร์ 3",    en: "Major 3rd",     zh: "大三度" },
+  { s: 5,  L: 3, th: "เพอร์เฟกต์ 4", en: "Perfect 4th",   zh: "纯四度" },
+  { s: 7,  L: 4, th: "เพอร์เฟกต์ 5", en: "Perfect 5th",   zh: "纯五度" },
+  { s: 8,  L: 5, th: "ไมเนอร์ 6",    en: "Minor 6th",     zh: "小六度" },
+  { s: 9,  L: 5, th: "เมเจอร์ 6",    en: "Major 6th",     zh: "大六度" },
+  { s: 10, L: 6, th: "ไมเนอร์ 7",    en: "Minor 7th",     zh: "小七度" },
+  { s: 11, L: 6, th: "เมเจอร์ 7",    en: "Major 7th",     zh: "大七度" },
+  { s: 12, L: 7, th: "ออกเทฟ",       en: "Octave",        zh: "八度" },
 ];
-const CHORD_NAME = {
-  major: { th: "เมเจอร์", en: "Major", zh: "大三和弦" },
-  minor: { th: "ไมเนอร์", en: "Minor", zh: "小三和弦" },
-  dim:   { th: "ดิมินิช", en: "Diminished", zh: "减三和弦" },
-  aug:   { th: "ออกเมนต์", en: "Augmented", zh: "增三和弦" },
-  sus4:  { th: "ซัส 4", en: "Sus4", zh: "挂四和弦" },
-  maj7:  { th: "เมเจอร์ 7", en: "Major 7th", zh: "大七和弦" },
-  min7:  { th: "ไมเนอร์ 7", en: "Minor 7th", zh: "小七和弦" },
-  "7":   { th: "โดมิแนนต์ 7", en: "Dominant 7th", zh: "属七和弦" },
-};
-const SCALE_NAME = {
-  major: { th: "เมเจอร์", en: "Major", zh: "大调" },
-  "natural minor": { th: "ไมเนอร์ธรรมชาติ", en: "Natural Minor", zh: "自然小调" },
-  "harmonic minor": { th: "ฮาร์โมนิกไมเนอร์", en: "Harmonic Minor", zh: "和声小调" },
-  dorian: { th: "ดอเรียน", en: "Dorian", zh: "多利亚" },
-  mixolydian: { th: "มิกโซลิเดียน", en: "Mixolydian", zh: "混合利底亚" },
-  "major pentatonic": { th: "เพนตาโทนิกเมเจอร์", en: "Major Pentatonic", zh: "大调五声" },
-  blues: { th: "บลูส์", en: "Blues", zh: "布鲁斯" },
-};
-const NOTE_VAL = [
-  { th: "โน้ตตัวกลม",    en: "Whole note",     zh: "全音符",   beats: 4 },
-  { th: "โน้ตตัวขาว",    en: "Half note",      zh: "二分音符", beats: 2 },
-  { th: "โน้ตตัวดำ",     en: "Quarter note",   zh: "四分音符", beats: 1 },
-  { th: "โน้ตเขบ็ต 1 ชั้น", en: "Eighth note",  zh: "八分音符", beats: 0.5 },
-  { th: "โน้ตตัวขาวประจุด", en: "Dotted half",  zh: "附点二分", beats: 3 },
-  { th: "โน้ตตัวดำประจุด",  en: "Dotted quarter", zh: "附点四分", beats: 1.5 },
+const TRIADS = [
+  { k: "major", iv: [[2, 4], [4, 7]], th: "เมเจอร์",  en: "Major",      zh: "大三和弦" },
+  { k: "minor", iv: [[2, 3], [4, 7]], th: "ไมเนอร์",  en: "Minor",      zh: "小三和弦" },
+  { k: "dim",   iv: [[2, 3], [4, 6]], th: "ดิมินิช",  en: "Diminished", zh: "减三和弦" },
+  { k: "aug",   iv: [[2, 4], [4, 8]], th: "ออกเมนต์", en: "Augmented",  zh: "增三和弦" },
 ];
+// white-key roots only: every one of them spells cleanly with a single
+// accidental at most, so no question ever shows a double sharp
+const ROOTS = ["C", "D", "E", "F", "G", "A", "B"];
 const DEGREE_ORD = ["", "1", "2", "3", "4", "5", "6", "7"];
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const shuffle = (a) => { const c = a.slice(); for (let i = c.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [c[i], c[j]] = [c[j], c[i]]; } return c; };
 const tr3 = (o, lang) => (o && (o[lang] || o.en)) || "";
 
-/* Six question shapes, each returning { q, opts, ans, tag }. `q` and every
-   option are already-localised strings — the arena never renders raw ids. */
-export function makeQuestion(lang, hard = 0) {
-  const kinds = hard > 0 ? ["iv", "scale", "chord", "rhythm", "degree", "notin"] : ["iv", "scale", "chord", "rhythm", "degree"];
-  const kind = pick(kinds);
-  const roots = hard > 0 ? CHROMA : ["C", "D", "E", "F", "G", "A", "B"];
-  const root = pick(roots);
+/** Three distractors that are plausible for THIS question — other notes from
+    the same scale, or the same interval off a neighbour — rather than three
+    random chromatic names. A guessable wrong answer is what makes a right one
+    worth something. */
+function distract(ans, poolFn) {
+  const out = [];
+  for (let i = 0; i < 40 && out.length < 3; i++) {
+    const c = poolFn();
+    if (c && c !== ans && !out.includes(c)) out.push(c);
+  }
+  return out;
+}
+
+export function makeQuestion(lang) {
+  const kind = pick(["iv", "degree", "triad", "scale"]);
+  const root = pick(ROOTS);
 
   if (kind === "iv") {
-    const iv = pick(IV_NAME.slice(1));
-    const ans = CHROMA[(pcIdx(root) + iv.s) % 12];
-    const wrong = shuffle(CHROMA.filter(n => n !== ans)).slice(0, 3);
+    const iv = pick(IV_NAME);
+    const ans = spellFrom(root, iv.L, iv.s);
+    const wrong = distract(ans, () => { const o = pick(IV_NAME); return spellFrom(root, o.L, o.s); });
     return {
       tag: "iv",
-      q: lang === "th" ? `โน้ตที่อยู่สูงกว่า ${root} เป็นขั้นคู่ ${tr3(iv, "th")} คือโน้ตอะไร?`
+      q: lang === "th" ? `ขั้นคู่ ${tr3(iv, "th")} เหนือ ${root} คือโน้ตอะไร?`
         : lang === "zh" ? `${root} 上方的${tr3(iv, "zh")}是哪个音？`
         : `Which note is a ${tr3(iv, "en")} above ${root}?`,
       opts: shuffle([ans, ...wrong]), ans,
     };
   }
-  if (kind === "scale") {
-    const type = pick(Object.keys(SCALE_NAME));
-    const notes = scaleNotesOf(root, type);
-    const ans = notes[Math.min(2, notes.length - 1)];
-    const wrong = shuffle(CHROMA.filter(n => n !== ans)).slice(0, 3);
-    const nm = SCALE_NAME[type];
-    return {
-      tag: "scale",
-      q: lang === "th" ? `โน้ตตัวที่ 3 ของสเกล ${root} ${tr3(nm, "th")} คือโน้ตอะไร?`
-        : lang === "zh" ? `${root} ${tr3(nm, "zh")}音阶的第三个音是什么？`
-        : `What is the 3rd note of the ${root} ${tr3(nm, "en")} scale?`,
-      opts: shuffle([ans, ...wrong]), ans,
-    };
-  }
-  if (kind === "chord") {
-    const type = pick(Object.keys(CHORD_NAME));
-    const notes = chordNotesOf(root, type);
-    const ansObj = CHORD_NAME[type];
-    const ans = tr3(ansObj, lang);
-    const wrong = shuffle(Object.keys(CHORD_NAME).filter(k => k !== type)).slice(0, 3).map(k => tr3(CHORD_NAME[k], lang));
-    return {
-      tag: "chord",
-      q: lang === "th" ? `โน้ต ${notes.join(" – ")} รวมกันเป็นคอร์ดชนิดใด?`
-        : lang === "zh" ? `${notes.join(" – ")} 组成什么和弦？`
-        : `${notes.join(" – ")} together make which chord?`,
-      opts: shuffle([ans, ...wrong]), ans,
-    };
-  }
-  if (kind === "rhythm") {
-    const nv = pick(NOTE_VAL);
-    const ans = String(nv.beats);
-    const wrong = shuffle(NOTE_VAL.filter(v => v.beats !== nv.beats)).slice(0, 3).map(v => String(v.beats));
-    return {
-      tag: "rhythm",
-      q: lang === "th" ? `ในอัตราจังหวะ 4/4 ${tr3(nv, "th")} มีค่ากี่จังหวะ?`
-        : lang === "zh" ? `在 4/4 拍中，${tr3(nv, "zh")}是几拍？`
-        : `In 4/4 time, how many beats is a ${tr3(nv, "en").toLowerCase()}?`,
-      opts: shuffle([ans, ...wrong]), ans,
-    };
-  }
   if (kind === "degree") {
-    const notes = scaleNotesOf(root, "major");
-    const d = 2 + Math.floor(Math.random() * 6);      // degrees 2..7
+    const notes = spellMajor(root);
+    const d = 2 + Math.floor(Math.random() * 6);
     const ans = notes[d - 1];
-    const wrong = shuffle(CHROMA.filter(n => n !== ans)).slice(0, 3);
+    const wrong = distract(ans, () => pick(notes));
     return {
       tag: "degree",
-      q: lang === "th" ? `ขั้นที่ ${DEGREE_ORD[d]} ของบันไดเสียง ${root} เมเจอร์ คือโน้ตอะไร?`
+      q: lang === "th" ? `โน้ตตัวที่ ${DEGREE_ORD[d]} ของบันไดเสียง ${root} เมเจอร์ คือโน้ตอะไร?`
         : lang === "zh" ? `${root} 大调音阶的第 ${d} 级是什么音？`
-        : `What is degree ${d} of the ${root} major scale?`,
+        : `What is note ${d} of the ${root} major scale?`,
       opts: shuffle([ans, ...wrong]), ans,
     };
   }
-  // "notin": the one note that does NOT belong
-  const notes = scaleNotesOf(root, "major");
-  const outs = CHROMA.filter(n => !notes.includes(n));
-  const ans = pick(outs);
-  const wrong = shuffle(notes.filter(n => n !== root)).slice(0, 3);
+  if (kind === "scale") {
+    // one note that does NOT belong to the scale, against three that do
+    const notes = spellMajor(root);
+    const ivOut = pick(IV_NAME.filter(v => !MAJOR_STEPS.includes(v.s % 12) || v.s === 12));
+    const ans = spellFrom(root, ivOut.L, ivOut.s % 12);
+    if (notes.includes(ans)) return makeQuestion(lang);
+    const wrong = distract(ans, () => pick(notes.slice(1)));
+    return {
+      tag: "scale",
+      q: lang === "th" ? `โน้ตใดไม่ได้อยู่ในบันไดเสียง ${root} เมเจอร์?`
+        : lang === "zh" ? `哪个音不在 ${root} 大调音阶中？`
+        : `Which note is NOT in the ${root} major scale?`,
+      opts: shuffle([ans, ...wrong]), ans,
+    };
+  }
+  const t = pick(TRIADS);
+  const notes = [root, ...t.iv.map(([L, sm]) => spellFrom(root, L, sm))];
+  const ans = tr3(t, lang);
+  const wrong = TRIADS.filter(x => x.k !== t.k).map(x => tr3(x, lang));
   return {
-    tag: "notin",
-    q: lang === "th" ? `โน้ตใดไม่ได้อยู่ในบันไดเสียง ${root} เมเจอร์?`
-      : lang === "zh" ? `哪个音不在 ${root} 大调音阶中？`
-      : `Which note is NOT in the ${root} major scale?`,
+    tag: "triad",
+    q: lang === "th" ? `โน้ต ${notes.join(" – ")} รวมกันเป็นคอร์ดชนิดใด?`
+      : lang === "zh" ? `${notes.join(" – ")} 组成什么和弦？`
+      : `${notes.join(" – ")} together make which chord?`,
     opts: shuffle([ans, ...wrong]), ans,
   };
 }
@@ -226,29 +222,29 @@ export function makeQuestion(lang, hard = 0) {
    class level is also the only version of this that stays balanced: sixty
    bespoke rules is sixty places for one of them to be strictly best. */
 export const CLASS_FX = {
-  striker:   { passive: "quickdraw", active: "crit",    ult: "triple" },
+  striker:   { passive: "power",     active: "crit",    ult: "triple" },
   bulwark:   { passive: "tough",     active: "block",   ult: "fortress" },
   ghost:     { passive: "evade",     active: "cull",    ult: "phase" },
-  tactician: { passive: "clock",     active: "reveal",  ult: "foresee" },
+  tactician: { passive: "grace",     active: "reroll",  ult: "foresee" },
   engineer:  { passive: "repair",    active: "patch",   ult: "overhaul" },
   herald:    { passive: "resonate",  active: "anthem",  ult: "crescendo" },
-  virtuoso:  { passive: "streak",    active: "freeze",  ult: "finale" },
+  virtuoso:  { passive: "streak",    active: "sustain", ult: "finale" },
 };
 const FX_TEXT = {
-  quickdraw: { th: "ตอบเร็ว = แรงขึ้น 25%", en: "+25% damage on a fast answer", zh: "快速答对伤害 +25%" },
+  power:     { th: "ดาเมจ +25% ตลอดเวลา",   en: "+25% damage, always",         zh: "伤害恒定 +25%" },
   tough:     { th: "รับดาเมจน้อยลง 25%",    en: "Take 25% less damage",        zh: "受到伤害减少 25%" },
   evade:     { th: "มีโอกาส 20% หลบได้",    en: "20% chance to dodge a hit",   zh: "20% 几率闪避" },
-  clock:     { th: "เวลาตอบ +2 วินาที",      en: "+2s on every answer clock",   zh: "答题时间 +2 秒" },
+  grace:     { th: "ตอบผิดครั้งแรกไม่โดนตี",  en: "Your first wrong answer is free", zh: "首次答错不受伤害" },
   repair:    { th: "ตอบถูกฟื้น HP 3",        en: "Heal 3 HP per correct answer", zh: "答对回复 3 点 HP" },
   resonate:  { th: "เกจสกิลเต็มเร็วขึ้น 30%", en: "Skill gauge fills 30% faster", zh: "技能槽充能快 30%" },
   streak:    { th: "โบนัสคอมโบแรงเป็น 2 เท่า", en: "Combo bonus counts double",  zh: "连击加成翻倍" },
   crit:      { th: "หมัดต่อไปแรง 2.2 เท่า",   en: "Next hit deals 2.2×",         zh: "下一击造成 2.2 倍伤害" },
   block:     { th: "กันดาเมจครั้งถัดไปทั้งหมด", en: "Block the next hit entirely", zh: "完全格挡下一次攻击" },
   cull:      { th: "ตัดตัวเลือกผิดทิ้ง 2 ข้อ", en: "Strip two wrong options",     zh: "移除两个错误选项" },
-  reveal:    { th: "เพิ่มเวลา 6 วินาที",      en: "+6 seconds on this question", zh: "本题 +6 秒" },
+  reroll:    { th: "เปลี่ยนคำถามข้อนี้",       en: "Swap this question for another", zh: "更换本题" },
   patch:     { th: "ฟื้น HP 22",             en: "Repair 22 HP",                zh: "修复 22 点 HP" },
   anthem:    { th: "3 หมัดถัดไปแรงขึ้น 40%",  en: "Next 3 hits deal +40%",       zh: "接下来 3 击伤害 +40%" },
-  freeze:    { th: "หยุดเวลาข้อนี้",          en: "Freeze the clock this round", zh: "本回合冻结时间" },
+  sustain:   { th: "ตอบผิดครั้งหน้าคอมโบไม่ขาด", en: "Keep your combo through one miss", zh: "下次答错不断连击" },
   triple:    { th: "โจมตี 3 ครั้ง ครั้งละ 40%", en: "Three strikes at 40% each",  zh: "三连击，每击 40%" },
   fortress:  { th: "กันดาเมจ 3 รอบ",          en: "Block all damage for 3 rounds", zh: "3 回合内免疫伤害" },
   phase:     { th: "หลบทุกหมัด 2 รอบ",        en: "Dodge everything for 2 rounds", zh: "2 回合内完全闪避" },
@@ -268,7 +264,10 @@ export function fighterFrom(model, gear, spRank) {
     model, cls, st,
     maxHp: 90 + st.arm * 4,
     dmg: 5.5 + st.pwr * 0.62,
-    clock: 8 + Math.round(st.spd / 5),
+    // SPEED used to buy seconds on the answer clock. There is no clock any
+    // more, so it buys a follow-up strike instead: the fast chassis gets in
+    // twice before the other one has recovered.
+    follow: Math.min(0.45, st.spd / 40),
     charge: 16 + st.syn,          // skill gauge gained per correct answer
     rank: spRank,
   };
@@ -556,7 +555,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [myHp, setMyHp] = useState(A.maxHp);
   const [opHp, setOpHp] = useState(B.maxHp);
   const [round, setRound] = useState(1);
-  const [q, setQ] = useState(() => makeQuestion(lang, tier.acc > .5 ? 1 : 0));
+  const [q, setQ] = useState(() => makeQuestion(lang));
   const [culled, setCulled] = useState([]);
   const [gauge, setGauge] = useState(0);
   const [ultUsed, setUltUsed] = useState(false);
@@ -569,30 +568,21 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [opPose, setOpPose] = useState("ready");
   const [flash, setFlash] = useState(null);         // {side, text, kind}
   const [locked, setLocked] = useState(false);
-  const [buffs, setBuffs] = useState({ crit: 0, anthem: 0, block: 0, fortress: 0, phase: 0, foresee: 0 });
+  const [buffs, setBuffs] = useState({ crit: 0, anthem: 0, block: 0, fortress: 0, phase: 0, foresee: 0, sustain: 0 });
+  // the tactician's free mistake, spent once per duel
+  const [graceLeft, setGraceLeft] = useState(fx.passive === "grace" ? 1 : 0);
 
-  const baseClock = A.clock + (fx.passive === "clock" ? 2 : 0);
-  const [left, setLeft] = useState(baseClock);
-  const [frozen, setFrozen] = useState(false);
   const startedRef = useRef(Date.now());
   const doneRef = useRef(false);
-
-  // one clock per question; freezing parks it rather than stopping the round
-  useEffect(() => {
-    if (locked || frozen) return;
-    if (left <= 0) { answer(null); return; }
-    const t = setTimeout(() => setLeft(v => v - 0.1), 100);
-    return () => clearTimeout(t);
-  }, [left, locked, frozen]);
 
   const say = (side, text, kind) => { setFlash({ side, text, kind }); setTimeout(() => setFlash(null), 900); };
 
   const nextRound = useCallback((mHp, oHp, r) => {
     if (mHp <= 0 || oHp <= 0 || r > ROUNDS) return;
-    setQ(makeQuestion(lang, tier.acc > .5 ? 1 : 0));
-    setCulled([]); setLeft(baseClock); setFrozen(false); setLocked(false);
+    setQ(makeQuestion(lang));
+    setCulled([]); setLocked(false);
     setMyPose("ready"); setOpPose("ready");
-  }, [lang, tier.acc, baseClock]);
+  }, [lang]);
 
   function endFight(mHp, oHp, sc, cor, ask, bc) {
     if (doneRef.current) return;
@@ -601,8 +591,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // shape than a 106-HP striker ending on 38, and raw numbers say otherwise
     const win = oHp <= 0 || (mHp > 0 && (mHp / A.maxHp) >= (oHp / B.maxHp));
     setMyPose(win ? "win" : "down"); setOpPose(win ? "down" : "win");
+    // surviving is worth something: with no clock there is no speed bonus, so
+    // the score has to reward the half of the fight that is not answering
+    const final = sc + Math.max(0, Math.round(mHp)) * 3 + (win ? 400 : 0);
     setTimeout(() => onDone({
-      win, score: sc, correct: cor, asked: ask, bestCombo: bc, myHp: mHp, opHp: oHp, tier,
+      win, score: final, correct: cor, asked: ask, bestCombo: bc, myHp: mHp, opHp: oHp, tier,
       seconds: Math.round((Date.now() - startedRef.current) / 1000),
     }), 950);
   }
@@ -610,8 +603,6 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   function answer(choice) {
     if (locked || doneRef.current) return;
     setLocked(true);
-    const spent = baseClock - left;
-    const fast = spent <= baseClock * 0.4;
     const right = buffs.foresee > 0 ? true : choice === q.ans;
     const nAsked = asked + 1;
     setAsked(nAsked);
@@ -624,23 +615,31 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       nCor = correct + 1; setCorrect(nCor);
       nCombo = combo + 1;
       const comboK = 1 + nCombo * (fx.passive === "streak" ? 0.12 : 0.06);
-      let dmg = A.dmg * comboK * (fast && fx.passive === "quickdraw" ? 1.25 : 1) * (fast ? 1.15 : 1);
+      let dmg = A.dmg * comboK * (fx.passive === "power" ? 1.25 : 1);
       if (nb.crit > 0) { dmg *= 2.2; nb.crit = 0; say("op", "CRIT!", "crit"); }
       if (nb.anthem > 0) { dmg *= 1.4; nb.anthem -= 1; }
       dmg = Math.round(dmg);
+      // SPEED buys a second swing rather than seconds on a clock
+      const followed = Math.random() < A.follow;
+      if (followed) dmg += Math.round(dmg * 0.5);
       oHp = Math.max(0, opHp - dmg);
-      sc = score + 100 + Math.round(60 * (left / baseClock)) + nCombo * 15;
+      sc = score + 100 + nCombo * 20;
       if (fx.passive === "repair") mHp = Math.min(A.maxHp, mHp + 3);
       setMyPose("attack"); setOpPose("hit");
-      say("op", "-" + dmg, "dmg");
+      say("op", (followed ? "×2  " : "") + "-" + dmg, "dmg");
       setGauge(g => Math.min(100, g + A.charge * (fx.passive === "resonate" ? 1.3 : 1)));
       if (playUi) playUi("click");
     } else {
-      nCombo = 0;
+      if (nb.sustain > 0) { nb.sustain = 0; say("me", T("คอมโบไม่ขาด", "COMBO HELD", "连击保持"), "buff"); }
+      else nCombo = 0;
       // the bot only lands a hit when IT would have answered correctly too
       const botHits = Math.random() < tier.acc;
       if (botHits) {
-        if (nb.fortress > 0 || nb.block > 0 || nb.phase > 0 ||
+        if (graceLeft > 0) {
+          setGraceLeft(0);
+          say("me", T("ยกโทษให้", "FREE MISS", "免罚"), "block");
+          setMyPose("ready");
+        } else if (nb.fortress > 0 || nb.block > 0 || nb.phase > 0 ||
             (fx.passive === "evade" && Math.random() < 0.2)) {
           if (nb.block > 0) nb.block = 0;
           say("me", T("กันได้!", "BLOCKED", "格挡"), "block");
@@ -682,10 +681,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       setCulled(shuffle(wrong).slice(0, 2));
       say("me", tr3(FX_TEXT.cull, lang), "buff");
     }
-    else if (k === "reveal") { setLeft(v => v + 6); say("me", tr3(FX_TEXT.reveal, lang), "buff"); }
+    else if (k === "reroll") { setQ(makeQuestion(lang)); setCulled([]); say("me", tr3(FX_TEXT.reroll, lang), "buff"); }
     else if (k === "patch") { setMyHp(h => Math.min(A.maxHp, h + 22)); say("me", "+22", "heal"); }
     else if (k === "anthem") { setBuffs(b => ({ ...b, anthem: 3 })); say("me", tr3(FX_TEXT.anthem, lang), "buff"); }
-    else if (k === "freeze") { setFrozen(true); say("me", tr3(FX_TEXT.freeze, lang), "buff"); }
+    else if (k === "sustain") { setBuffs(b => ({ ...b, sustain: 1 })); say("me", tr3(FX_TEXT.sustain, lang), "buff"); }
     if (playUi) playUi("click");
   }
 
@@ -744,8 +743,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         <span>{oppKind === "player" ? oppName : `${tr3(tier, lang)} · ${tr3(CHAR_MODELS.find(m => m.id === oppModel) || {}, lang)}`}</span>
       </div>
 
-      <div className="pvpclock"><i style={{ width: `${Math.max(0, (left / baseClock) * 100)}%` }} /></div>
-
+      <div className="pvpuntimed">{T("ไม่จับเวลา — คิดได้เต็มที่", "No time limit — take as long as you like", "不计时 — 慢慢想")}</div>
       <div className="pvpq">{q.q}</div>
       <div className="pvpopts">
         {q.opts.map(o => (

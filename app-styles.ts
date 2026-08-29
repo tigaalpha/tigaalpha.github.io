@@ -1006,9 +1006,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 @keyframes pvpfl{0%{opacity:0;transform:translate(-50%,10px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px)}}
 .pvpnames{display:flex;justify-content:space-between;gap:10px;max-width:520px;margin:5px auto 0;padding:0 15px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:var(--muted)}
 .pvpnames span:last-child{text-align:right}
-.pvpclock{max-width:520px;margin:11px auto 0;height:6px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);overflow:hidden}
-.pvpclock i{display:block;height:100%;background:linear-gradient(90deg,#ffd23f,#d97757);transition:width .1s linear}
-.pvpq{max-width:520px;margin:18px auto 0;padding:0 15px;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;line-height:1.4;color:var(--text);text-align:center;text-wrap:balance}
+.pvpuntimed{max-width:520px;margin:12px auto 0;padding:0 15px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.3px;color:var(--muted)}
+.pvpq{max-width:520px;margin:8px auto 0;padding:0 15px;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;line-height:1.4;color:var(--text);text-align:center;text-wrap:balance}
 .pvpopts{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:520px;margin:12px auto 0;padding:0 13px}
 .pvpopt{padding:14px 8px;border-radius:13px;border:1px solid var(--bd1);background:var(--card);font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text);cursor:pointer}
 .pvpopt:active{transform:scale(.97)}
