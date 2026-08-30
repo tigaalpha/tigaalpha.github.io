@@ -1482,8 +1482,15 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
         <path d={d} fill="none" stroke="#ffffff" strokeWidth={(o.lw || 1) * 1.5} strokeLinejoin="round" opacity={o.bev == null ? .34 : o.bev} transform="translate(0 -0.9)" />
         <path d={d} fill="none" stroke="#00060f" strokeWidth={(o.lw || 1) * 1.5} strokeLinejoin="round" opacity={o.bev == null ? .3 : o.bev * .9} transform="translate(0 1.1)" />
       </g>
-      <path d={d} fill="none" stroke={`url(#${id}-graze)`} strokeWidth={(o.lw || 1) * 1.6} strokeLinejoin="round" opacity={o.graze == null ? .55 : o.graze} />
-      <path d={d} fill="none" stroke={o.line || bLine} strokeWidth={o.lw || 1} strokeLinejoin="round" opacity={o.lineOp == null ? .9 : o.lineOp} />
+      <path d={d} fill="none" stroke={`url(#${id}-graze)`} strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity={o.graze == null ? .4 : o.graze} />
+      {/* ── the contour ──
+          A plate's edge is first a CONTACT — the dark hairline where it meets
+          whatever is behind it — and only then a lit edge. Painting one fat
+          near-white outline around every plate is what turns a machine into a
+          sticker, so the dark contour carries the separation and the light
+          line is thinned to a glint on top of it. */}
+      <path d={d} fill="none" stroke="#00060f" strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity={o.lineOp == null ? .42 : o.lineOp * .47} />
+      <path d={d} fill="none" stroke={o.line || bLine} strokeWidth={(o.lw || 1) * .55} strokeLinejoin="round" opacity={o.lineOp == null ? .5 : o.lineOp * .56} />
       <clipPath id={`${id}-c${Math.abs(hashPath(d))}`}><path d={d} /></clipPath>
     </g>
   );
@@ -1503,6 +1510,18 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     <g opacity={op}>
       <path d={d} fill="none" stroke="#00060f" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" opacity=".7" />
       <path d={d} fill="none" stroke="#eaf3ff" strokeWidth={w * .5} strokeLinecap="round" strokeLinejoin="round" transform="translate(0 .85)" opacity=".55" />
+    </g>
+  );
+  /* A visible pivot — the disc a limb actually turns on, with a bolt through
+     it. The AO blob says "there is a gap here"; this says "there is a JOINT
+     here", which is what makes a machine look assembled rather than moulded. */
+  const pivot = (px, py, r) => (
+    <g>
+      <circle cx={px} cy={py} r={r} fill={bPlate} stroke={bLine} strokeWidth="1" opacity=".95" />
+      <circle cx={px} cy={py} r={r} fill={`url(#${id}-occ)`} />
+      <circle cx={px} cy={py} r={r * .62} fill="none" stroke={bLine} strokeWidth=".9" opacity=".55" />
+      <circle cx={px} cy={py} r={r * .26} fill={bLine} opacity=".5" />
+      <circle cx={px - r * .3} cy={py - r * .34} r={r * .18} fill="#fff" opacity=".5" />
     </g>
   );
   // the dark that gathers where two parts meet
@@ -1943,11 +1962,18 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               {/* stubby arms, elbow-less, with mitten hands */}
               <g transform={rot(PZ.armL * .8, 22, 154)}>
                 {plate("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z")}
+                {/* a chibi keeps its mitt, but three soft nubs peek out from
+                    under it — enough to read as a hand without giving a cute
+                    build the machined fingers the tall chassis wears */}
+                {[0, 1, 2].map(f => (
+                  <g key={f}>{plate(`M${-1 + f * 8} 240 L${-1 + f * 8} 250 C${-1 + f * 8} 255 ${5 + f * 8} 255 ${5 + f * 8} 250 L${5 + f * 8} 240 Z`, { lw: .7, deep: .8 })}</g>))}
                 {plate("M9 214 C1 214 -4 222 -4 231 C-4 241 3 248 11 248 C20 248 25 240 25 230 C25 220 18 214 9 214 Z")}
                 {castOn("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z", .55)}
               </g>
               <g transform={rot(-PZ.armR * .8, 98, 154)}>
                 {plate("M102 150 C114 154 121 174 120 198 C119 214 112 222 103 220 C96 218 94 198 95 178 C96 164 98 154 102 150 Z")}
+                {[0, 1, 2].map(f => (
+                  <g key={f}>{plate(`M${121 - f * 8} 240 L${121 - f * 8} 250 C${121 - f * 8} 255 ${115 - f * 8} 255 ${115 - f * 8} 250 L${115 - f * 8} 240 Z`, { lw: .7, deep: .8 })}</g>))}
                 {plate("M111 214 C119 214 124 222 124 231 C124 241 117 248 109 248 C100 248 95 240 95 230 C95 220 102 214 111 214 Z")}
                 {castOn("M102 150 C114 154 121 174 120 198 C119 214 112 222 103 220 C96 218 94 198 95 178 C96 164 98 154 102 150 Z", .55)}
               </g>
@@ -1963,11 +1989,15 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {plate("M34 288 C29 294 28 336 30 358 C31 372 55 373 57 360 C60 338 59 294 55 288 Z")}
                 {castOn("M34 288 C29 294 28 336 30 358 C31 372 55 373 57 360 C60 338 59 294 55 288 Z", .55)}
                 {plate("M42 368 C28 368 19 377 19 384 C19 391 29 394 43 394 C57 394 66 391 66 384 C66 377 56 368 42 368 Z")}
+                {/* the toe cap, cut in rather than bolted on: a filled band
+                    across a soft boot reads as a stripe, a seam reads as a toe */}
+                {groove("M21 383 C27 390 58 390 64 383", 1.2, .42)}
               </g>
               <g transform={rot(-PZ.legR * .7, 75, 290)}>
                 {plate("M65 288 C61 294 60 336 63 358 C64 372 88 373 90 360 C92 338 91 294 86 288 Z")}
                 {castOn("M65 288 C61 294 60 336 63 358 C64 372 88 373 90 360 C92 338 91 294 86 288 Z", .55)}
                 {plate("M78 368 C64 368 55 377 55 384 C55 391 64 394 78 394 C92 394 101 391 101 384 C101 377 92 368 78 368 Z")}
+                {groove("M57 383 C63 390 94 390 100 383", 1.2, .42)}
               </g>
               <g transform={rot(PZ.lean, 60, 280)}>
               <path d="M18 206 h13 M89 206 h13" stroke={bTrim} strokeWidth="5.5" strokeLinecap="round" />
@@ -2057,23 +2087,30 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {/* the pauldron sits over this bicep, so the bicep wears its shadow */}
                 {castOn("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z", .85)}
                 {joint(19, 158, 13)}
+                {pivot(19, 158, 6.2)}
                 {plate("M10 160 L30 163 L28 218 L14 216 Z", { deep: .9 })}
                 {castOn("M10 160 L30 163 L28 218 L14 216 Z", .45)}
                 {groove("M13 176 L27 178 M13 192 L27 194", .9, .3)}
                 {plate("M11 214 L30 217 L29 227 L11 224 Z", { fill: bTrim, deep: .9 })}
-                {plate("M12 226 L29 229 L29 242 C24 251 15 250 12 241 Z", { deep: .9 })}
-                {groove("M15 233 L27 235 M15 238 L26 240", .9, .45)}
+                {/* a hand, not a mitt: palm, three fingers, a thumb */}
+                {plate("M12 226 L29 229 L28 239 L13 237 Z", { deep: .9 })}
+                {[0, 1, 2].map(f => (
+                  <g key={f}>{plate(`M${13.5 + f * 5} ${237 + f * .4} L${17.6 + f * 5} ${237.6 + f * .4} L${17.2 + f * 5} ${248 - f * 1.2} C${15.6 + f * 5} ${251 - f * 1.2} ${13.6 + f * 5} ${250.6 - f * 1.2} ${13.2 + f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
+                {plate("M11 230 L14.2 230.4 L13.2 241 C11.8 243.6 9.2 243.2 8.8 240.6 Z", { lw: .8, deep: .9 })}
               </g>
               <g transform={rot(-PZ.armR, 96, 108)}>
                 {plate("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", { deep: .9 })}
                 {castOn("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", .85)}
                 {joint(101, 158, 13)}
+                {pivot(101, 158, 6.2)}
                 {plate("M110 160 L90 163 L92 218 L106 216 Z", { deep: .9 })}
                 {castOn("M110 160 L90 163 L92 218 L106 216 Z", .45)}
                 {groove("M107 176 L93 178 M107 192 L93 194", .9, .3)}
                 {plate("M109 214 L90 217 L91 227 L109 224 Z", { fill: bTrim, deep: .9 })}
-                {plate("M108 226 L91 229 L91 242 C96 251 105 250 108 241 Z", { deep: .9 })}
-                {groove("M105 233 L93 235 M105 238 L94 240", .9, .45)}
+                {plate("M108 226 L91 229 L92 239 L107 237 Z", { deep: .9 })}
+                {[0, 1, 2].map(f => (
+                  <g key={f}>{plate(`M${106.5 - f * 5} ${237 + f * .4} L${102.4 - f * 5} ${237.6 + f * .4} L${102.8 - f * 5} ${248 - f * 1.2} C${104.4 - f * 5} ${251 - f * 1.2} ${106.4 - f * 5} ${250.6 - f * 1.2} ${106.8 - f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
+                {plate("M109 230 L105.8 230.4 L106.8 241 C108.2 243.6 110.8 243.2 111.2 240.6 Z", { lw: .8, deep: .9 })}
               </g>
               {/* pauldrons ride the shoulder line, so they take the same lean */}
               <g transform={rot(PZ.lean, 60, 200)}>
@@ -2125,30 +2162,45 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               <g transform={rot(PZ.legL, 46, 238)}>
                 {plate("M34 240 L58 240 L56 302 L37 302 Z")}
                 {castOn("M34 240 L58 240 L56 302 L37 302 Z", .9)}
-                {groove("M39 258 L54 258 M39 274 L54 274", .9, .3)}
+                {/* the quad panel: a thigh is a slab until something is bolted
+                    onto it, and one inset plate does more than any number of
+                    engraved lines */}
+                {plate("M39 248 L53 248 L52 284 L40 284 Z", { fill: bTrim, lw: .8, deep: .8 })}
+                {groove("M42 258 L50 258 M42 268 L50 268", .8, .28)}
                 {joint(46, 303, 14)}
                 {plate("M37 298 C41 294 51 294 55 298 C57 306 57 312 55 316 C51 320 41 320 37 316 C35 312 35 306 37 298 Z", { fill: bTrim, line: glow, lw: .9 })}
                 {groove("M39 301 C43 298 49 298 53 301", .9, .5)}
-                <circle cx="46" cy="308" r="1.9" fill="#0a1220" opacity=".38" />
+                {pivot(46, 308, 4.4)}
                 {plate("M36 314 L57 314 L55 366 L38 366 Z")}
-                {groove("M40 330 L53 330 M40 346 L53 346", .9, .3)}
+                {/* the calf piston: the rod a leg actually straightens on */}
+                {plate("M52.4 318 L56 318 L54.6 358 L51.4 358 Z", { fill: bTrim, lw: .7, deep: .9 })}
+                {groove("M40 330 L49 330 M40 344 L49 344", .9, .3)}
+                {plate("M38 352 L55 352 L54 362 L37 362 Z", { fill: bTrim, lw: .8, deep: .8 })}
+                {pivot(46, 357, 4)}
                 {plate("M36 360 L55 360 L60 379 L60 392 L29 392 L29 377 Z", { fill: bTrim })}
+                {/* the toe cap, and the split that says the sole is a sole */}
+                {plate("M29 377 L60 379 L60 386 L29 384 Z", { lw: .8, deep: .8 })}
                 {plate("M29 384 L60 384 L60 392 L29 392 Z")}
-                {groove("M31 370 L57 370", 1.1, .4)}
+                {groove("M39 385 L39 392 M50 385 L50 392", .8, .34)}
               </g>
               <g transform={rot(-PZ.legR, 74, 238)}>
                 {plate("M62 240 L86 240 L83 302 L64 302 Z")}
                 {castOn("M62 240 L86 240 L83 302 L64 302 Z", .9)}
-                {groove("M66 258 L81 258 M66 274 L81 274", .9, .3)}
+                {plate("M67 248 L81 248 L80 284 L68 284 Z", { fill: bTrim, lw: .8, deep: .8 })}
+                {groove("M70 258 L78 258 M70 268 L78 268", .8, .28)}
                 {joint(74, 303, 14)}
                 {plate("M65 298 C69 294 79 294 83 298 C85 306 85 312 83 316 C79 320 69 320 65 316 C63 312 63 306 65 298 Z", { fill: bTrim, line: glow, lw: .9 })}
                 {groove("M67 301 C71 298 77 298 81 301", .9, .5)}
-                <circle cx="74" cy="308" r="1.9" fill="#0a1220" opacity=".38" />
+                {pivot(74, 308, 4.4)}
                 {plate("M63 314 L84 314 L82 366 L65 366 Z")}
-                {groove("M67 330 L80 330 M67 346 L80 346", .9, .3)}
+                {plate("M67.6 318 L64 318 L65.4 358 L68.6 358 Z", { fill: bTrim, lw: .7, deep: .9 })}
+                {groove("M71 330 L80 330 M71 344 L80 344", .9, .3)}
+                {plate("M82 352 L65 352 L66 362 L83 362 Z", { fill: bTrim, lw: .8, deep: .8 })}
+                {pivot(74, 357, 4)}
                 {plate("M84 360 L65 360 L60 379 L60 392 L91 392 L91 377 Z", { fill: bTrim })}
+                {plate("M91 377 L60 379 L60 386 L91 384 Z", { lw: .8, deep: .8 })}
                 {plate("M60 384 L91 384 L91 392 L60 392 Z")}
-                {groove("M63 370 L89 370", 1.1, .4)}
+                {groove("M70 385 L70 392 M81 385 L81 392", .8, .34)}
               </g>
               <g transform={rot(PZ.lean, 60, 200)}>
               {/* chest plating and the power core — gone once the back is toward us */}
