@@ -317,11 +317,18 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   /* ── ears ── drawn behind the head so they read as attached to it */
   const EARS = {
     bolt: <>{[-1, 1].map(k => (
-      <path key={k} d={`M${cx + k * hr * .5} ${hy - hr * .78} L${cx + k * hr * .3} ${hy - hr * 1.86} L${cx + k * hr * 1.32} ${hy - hr * 1.42} L${cx + k * hr * .82} ${hy - hr * 1.38} L${cx + k * hr * 1.2} ${hy - hr * .74} Z`}
-        fill={A} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />))}</>,
+      <g key={k}>
+        <path d={`M${cx + k * hr * .5} ${hy - hr * .78} L${cx + k * hr * .3} ${hy - hr * 1.86} L${cx + k * hr * 1.32} ${hy - hr * 1.42} L${cx + k * hr * .82} ${hy - hr * 1.38} L${cx + k * hr * 1.2} ${hy - hr * .74} Z`}
+          fill={A} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />
+        {/* inner ear — an ear with one flat colour is a paper cut-out */}
+        <path d={`M${cx + k * hr * .56} ${hy - hr * .86} L${cx + k * hr * .44} ${hy - hr * 1.58} L${cx + k * hr * 1.0} ${hy - hr * 1.34} Z`} fill={T.c} opacity=".38" />
+      </g>))}</>,
     horn: <>{[-1, 1].map(k => (
-      <path key={k} d={`M${cx + k * hr * .58} ${hy - hr * .7} C${cx + k * hr * .68} ${hy - hr * 1.42} ${cx + k * hr * 1.3} ${hy - hr * 1.74} ${cx + k * hr * 1.62} ${hy - hr * 1.64} C${cx + k * hr * 1.32} ${hy - hr * 1.3} ${cx + k * hr * 1.24} ${hy - hr * .82} ${cx + k * hr * 1.06} ${hy - hr * .5} Z`}
-        fill={A} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />))}</>,
+      <g key={k}>
+        <path d={`M${cx + k * hr * .58} ${hy - hr * .7} C${cx + k * hr * .68} ${hy - hr * 1.42} ${cx + k * hr * 1.3} ${hy - hr * 1.74} ${cx + k * hr * 1.62} ${hy - hr * 1.64} C${cx + k * hr * 1.32} ${hy - hr * 1.3} ${cx + k * hr * 1.24} ${hy - hr * .82} ${cx + k * hr * 1.06} ${hy - hr * .5} Z`}
+          fill={A} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />
+        <ellipse cx={cx + k * hr} cy={hy - hr * 1.05} rx={hr * .15} ry={hr * .28} fill={T.c} opacity=".3" transform={`rotate(${k * 22} ${cx + k * hr} ${hy - hr * 1.05})`} />
+      </g>))}</>,
     fin:  <>{[-1, 1].map(k => (
       <g key={k}>
         <path d={`M${cx + k * hr * .62} ${hy - hr * .5} C${cx + k * hr * 1.3} ${hy - hr * 1.16} ${cx + k * hr * 1.96} ${hy - hr * 1.02} ${cx + k * hr * 2.04} ${hy - hr * .44} C${cx + k * hr * 1.6} ${hy - hr * .18} ${cx + k * hr * 1.06} ${hy + hr * .06} ${cx + k * hr * .78} ${hy + hr * .18} Z`}
@@ -361,13 +368,24 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   /* ── eyes ── one rig, five expressions; every one narrows when sad */
   const ey = hy + hr * .1, ex = hr * .46, er = hr * .34;
   const EYES = {
-    big: <>{[-1, 1].map(k => (
+    big: <>{[-1, 1].map(k => {
+      const ry = sad ? er * .58 : er * 1.1;
+      return (
       <g key={k}>
-        <path d={ell(cx + k * ex, ey, er, sad ? er * .58 : er * 1.1)} fill="#0d1424" />
-        <path d={ell(cx + k * ex, ey, er * .82, (sad ? er * .58 : er * 1.1) * .82)} fill={`url(#${uid}-iris)`} />
-        <circle cx={cx + k * ex - er * .3} cy={ey - er * .34} r={er * .32} fill="#fff" />
-        <circle cx={cx + k * ex + er * .28} cy={ey + er * .38} r={er * .16} fill="#fff" opacity=".8" />
-      </g>))}</>,
+        {/* the socket the eye sits IN — a flat disc on the face is the single
+            biggest reason a cartoon face reads as a sticker */}
+        <path d={ell(cx + k * ex, ey + er * .1, er * 1.2, ry * 1.12)} fill="#00060f" opacity=".22" />
+        <path d={ell(cx + k * ex, ey, er, ry)} fill="#0d1424" />
+        <path d={ell(cx + k * ex, ey, er * .82, ry * .82)} fill={`url(#${uid}-iris)`} />
+        {/* a ring of the element around the iris, so the eye has an edge */}
+        <path d={ell(cx + k * ex, ey, er * .84, ry * .84)} fill="none" stroke={T.c} strokeWidth={er * .12} opacity=".55" />
+        {/* the glass over it: one big soft dome plus a hard little catchlight */}
+        <path d={`M${cx + k * ex - er * .86} ${ey - ry * .25} C${cx + k * ex - er * .6} ${ey - ry * .95} ${cx + k * ex + er * .5} ${ey - ry * 1.02} ${cx + k * ex + er * .8} ${ey - ry * .4} C${cx + k * ex + er * .3} ${ey - ry * .72} ${cx + k * ex - er * .4} ${ey - ry * .66} ${cx + k * ex - er * .86} ${ey - ry * .25} Z`}
+          fill="#ffffff" opacity=".55" />
+        <circle cx={cx + k * ex - er * .3} cy={ey - ry * .34} r={er * .34} fill="#fff" />
+        <circle cx={cx + k * ex + er * .3} cy={ey + ry * .4} r={er * .17} fill="#fff" opacity=".85" />
+      </g>);
+    })}</>,
     sharp: <>{[-1, 1].map(k => (
       <g key={k}>
         <path d={`M${cx + k * (ex + er * .95)} ${ey - er * (sad ? .1 : .55)} L${cx + k * (ex - er * .8)} ${ey - er * .1} L${cx + k * (ex + er * .85)} ${ey + er * .72} Z`} fill="#0d1424" />
@@ -379,12 +397,16 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
     visor: <>
       <path d={rr(cx, ey, hr * 1.62, er * 1.5, er * .5)} fill="#0d1424" />
       <path d={rr(cx, ey - er * .12, hr * 1.42, er * .72, er * .3)} fill={T.c} opacity={sad ? .45 : .9} />
+      <path d={`M${cx - hr * .74} ${ey - er * .5} L${cx - hr * .3} ${ey - er * .5} L${cx - hr * .52} ${ey + er * .5} L${cx - hr * .92} ${ey + er * .5} Z`} fill="#fff" opacity=".3" />
       <circle cx={cx - hr * .5} cy={ey + er * .36} r={er * .2} fill="#fff" opacity=".85" /></>,
     starry: <>{[-1, 1].map(k => (
       <g key={k}>
+        <path d={ell(cx + k * ex, ey + er * .1, er * 1.2, (sad ? er * .6 : er * 1.08) * 1.12)} fill="#00060f" opacity=".22" />
         <path d={ell(cx + k * ex, ey, er, sad ? er * .6 : er * 1.08)} fill="#0d1424" />
         <path d={`M${cx + k * ex} ${ey - er * .86} L${cx + k * ex + er * .24} ${ey - er * .22} L${cx + k * ex + er * .74} ${ey} L${cx + k * ex + er * .24} ${ey + er * .22} L${cx + k * ex} ${ey + er * .86} L${cx + k * ex - er * .24} ${ey + er * .22} L${cx + k * ex - er * .74} ${ey} L${cx + k * ex - er * .24} ${ey - er * .22} Z`} fill={T.c} />
-        <circle cx={cx + k * ex - er * .34} cy={ey - er * .34} r={er * .22} fill="#fff" />
+        <path d={`M${cx + k * ex - er * .84} ${ey - er * .3} C${cx + k * ex - er * .6} ${ey - er * .95} ${cx + k * ex + er * .5} ${ey - er} ${cx + k * ex + er * .78} ${ey - er * .42} C${cx + k * ex + er * .3} ${ey - er * .72} ${cx + k * ex - er * .4} ${ey - er * .66} ${cx + k * ex - er * .84} ${ey - er * .3} Z`}
+          fill="#ffffff" opacity=".5" />
+        <circle cx={cx + k * ex - er * .34} cy={ey - er * .34} r={er * .26} fill="#fff" />
       </g>))}</>,
   };
 
@@ -402,6 +424,9 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
       <g key={k}>
         {P(rr(cx + k * bw * .26, legTop + legH / 2, lw, legH, lw * .42), D, { spec: .5 })}
         {P(ell(cx + k * bw * .28, GROUND - 3.5, lw * .72, 4.6), F, { spec: .7, lw: 1.4 })}
+        {/* three toes — the difference between a foot and a pill */}
+        {[-1, 0, 1].map(j => (
+          <ellipse key={j} cx={cx + k * bw * .28 + j * lw * .26} cy={GROUND - 4.6} rx={lw * .13} ry={2} fill={B} opacity=".28" />))}
         {seam(`M${cx + k * bw * .26 - lw * .3} ${legTop + legH * .5} h${lw * .6}`, .35)}
       </g>))}</>;
   } else if (sp.build === "quad") {
@@ -414,6 +439,8 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
       <g key={k}>
         {P(rr(cx + k * bw * .2, bBot - 1, 10.5, GROUND - 4 - bBot + 2, 5), D, { spec: .55 })}
         {P(ell(cx + k * bw * .21, GROUND - 3, 8, 5), F, { spec: .8, lw: 1.4 })}
+        {[-1, 0, 1].map(j => (
+          <ellipse key={j} cx={cx + k * bw * .21 + j * 2.8} cy={GROUND - 4} rx="1.4" ry="2.1" fill={B} opacity=".28" />))}
         {[0, 1].map(j => seam(`M${cx + k * bw * .21 - 3.6 + j * 3.6} ${GROUND - 5.6} v3`, .5))}
       </g>))}
       {/* haunches, so a crouched quad has shoulders */}
@@ -555,6 +582,9 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
               <path d={rr(cx + k * bw * (sp.build === "quad" ? .21 : .26), GROUND - 12, 11, 2, 1)} fill={T.c} />
             </g>)))}
         {sp.build !== "float" && P(rr(cx, bTop - 3, bw * .4, 7, 3), D, { spec: .6, lw: 1.3 })}
+        {/* the head drops a shadow on the chest under it. Flat vector figures
+            read as decals precisely because this is missing. */}
+        <ellipse cx={cx} cy={bTop + 3} rx={hr * .7} ry="5" fill="#00060f" opacity=".2" />
         {EARS[sp.ear]}
         {P((HEADS[sp.head] || HEADS.round)(cx, hy, hr), F)}
         {[0, 1, 2].map(j => seam(`M${cx + hr * .62} ${hy + hr * .42 + j * 4} h${hr * .3}`, .4))}

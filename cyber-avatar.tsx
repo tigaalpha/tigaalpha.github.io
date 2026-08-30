@@ -1472,6 +1472,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       <path d={d} fill={`url(#${id}-hot)`} stroke="none" opacity={o.hot == null ? .9 : o.hot} />
       {/* fresnel across the whole plate, then the grazing edge on top of it */}
       <path d={d} fill={`url(#${id}-fres)`} stroke="none" opacity={o.fres == null ? .55 : o.fres} />
+      {o.deep ? <path d={d} fill={`url(#${id}-depth)`} stroke="none" opacity={o.deep} /> : null}
       {/* ── the bevel ──
           A machined plate has a lip: the top edge catches the key and the
           bottom edge falls into shadow. Two offset copies of the same outline,
@@ -1708,6 +1709,13 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           <stop offset="70%" stopColor="#ff2d46" stopOpacity=".06" />
           <stop offset="100%" stopColor="#ff2d46" stopOpacity="0" />
         </radialGradient>
+        {/* Depth. A limb is not on the same plane as the chest, and painting
+            them at identical brightness is most of why a flat figure reads as
+            a paper doll. This is the wash that pushes a limb back. */}
+        <linearGradient id={`${id}-depth`} x1="0.5" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stopColor="#0a1830" stopOpacity=".22" />
+          <stop offset="100%" stopColor="#0a1830" stopOpacity=".1" />
+        </linearGradient>
         <linearGradient id={`${id}-warm`} x1="0.1" y1="0" x2="0.75" y2="0.85">
           <stop offset="0%" stopColor="#fff0d6" stopOpacity=".34" />
           <stop offset="34%" stopColor="#ffe2b4" stopOpacity=".08" />
@@ -2045,26 +2053,26 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               {/* arms swing from the shoulder; the whole limb is one group so
                   bicep, elbow, forearm and hand travel together */}
               <g transform={rot(PZ.armL, 24, 108)}>
-                {plate("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z")}
+                {plate("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z", { deep: .9 })}
                 {/* the pauldron sits over this bicep, so the bicep wears its shadow */}
                 {castOn("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z", .85)}
                 {joint(19, 158, 13)}
-                {plate("M10 160 L30 163 L28 218 L14 216 Z")}
+                {plate("M10 160 L30 163 L28 218 L14 216 Z", { deep: .9 })}
                 {castOn("M10 160 L30 163 L28 218 L14 216 Z", .45)}
                 {groove("M13 176 L27 178 M13 192 L27 194", .9, .3)}
-                {plate("M11 214 L30 217 L29 227 L11 224 Z", { fill: bTrim })}
-                {plate("M12 226 L29 229 L29 242 C24 251 15 250 12 241 Z")}
+                {plate("M11 214 L30 217 L29 227 L11 224 Z", { fill: bTrim, deep: .9 })}
+                {plate("M12 226 L29 229 L29 242 C24 251 15 250 12 241 Z", { deep: .9 })}
                 {groove("M15 233 L27 235 M15 238 L26 240", .9, .45)}
               </g>
               <g transform={rot(-PZ.armR, 96, 108)}>
-                {plate("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z")}
+                {plate("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", { deep: .9 })}
                 {castOn("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", .85)}
                 {joint(101, 158, 13)}
-                {plate("M110 160 L90 163 L92 218 L106 216 Z")}
+                {plate("M110 160 L90 163 L92 218 L106 216 Z", { deep: .9 })}
                 {castOn("M110 160 L90 163 L92 218 L106 216 Z", .45)}
                 {groove("M107 176 L93 178 M107 192 L93 194", .9, .3)}
-                {plate("M109 214 L90 217 L91 227 L109 224 Z", { fill: bTrim })}
-                {plate("M108 226 L91 229 L91 242 C96 251 105 250 108 241 Z")}
+                {plate("M109 214 L90 217 L91 227 L109 224 Z", { fill: bTrim, deep: .9 })}
+                {plate("M108 226 L91 229 L91 242 C96 251 105 250 108 241 Z", { deep: .9 })}
                 {groove("M105 233 L93 235 M105 238 L94 240", .9, .45)}
               </g>
               {/* pauldrons ride the shoulder line, so they take the same lean */}
