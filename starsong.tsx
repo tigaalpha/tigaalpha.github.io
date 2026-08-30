@@ -25,6 +25,8 @@ import { memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { sb } from "./supabase-client";
 import { makeQuestion, spellMajor } from "./pvp-arena";
 import { playPianoNote, playBoom, playMiss, playWhoosh, haptic } from "./music-engine";
+import { CyberAvatar } from "./cyber-avatar";
+import { createArenaAudio, stageById } from "./arena-fx";
 
 const tr3 = (o, lang) => (o && (o[lang] || o.en)) || "";
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -88,6 +90,10 @@ export const statById = (id) => ESTATS.find(s => s.id === id) || ESTATS[0];
    each of them the one thing its makers said could not be uploaded. The
    fifth world is where it stops taking orders.
 
+   `track` names the arena stage whose procedural score plays here — each
+   world gets its own key, tempo and drum kit rather than one loop for the
+   whole game.
+
    `gate` is the Academy's rank requirement — the world does not open until
    the player has earned that much stat, and stat only comes from music.
    Each gate sits just BELOW what the previous world's own quests pay out
@@ -95,7 +101,7 @@ export const statById = (id) => ESTATS.find(s => s.id === id) || ESTATS[0];
    one without needing to farm anything. */
 export const WORLDS = [
   {
-    id: "terra", gate: 0, seed: "terra-nova-3187",
+    id: "terra", track: "grid", gate: 0, seed: "terra-nova-3187",
     name: { th: "เทอร์รา โนวา", en: "Terra Nova", zh: "新地星" },
     sub: {
       th: "อาณานิคมแรก · ที่ตั้งของ Resonance Academy",
@@ -121,7 +127,7 @@ export const WORLDS = [
     },
   },
   {
-    id: "ferros", gate: 22, seed: "ferros-nine-deep",
+    id: "ferros", track: "magma", gate: 22, seed: "ferros-nine-deep",
     name: { th: "เฟอร์รอส-9", en: "Ferros-9", zh: "铁核九号" },
     sub: {
       th: "ดาวเหมือง · แรงโน้มถ่วง 3.1G · ไม่มีมนุษย์เคยเหยียบ",
@@ -147,7 +153,7 @@ export const WORLDS = [
     },
   },
   {
-    id: "glacius", gate: 58, seed: "glacius-silent-field",
+    id: "glacius", track: "frost", gate: 58, seed: "glacius-silent-field",
     name: { th: "กลาซิอุส", en: "Glacius", zh: "冰寂星" },
     sub: {
       th: "ดาวน้ำแข็ง · อุณหภูมิ -190°C · เสียงเดินทางไม่ได้",
@@ -173,7 +179,7 @@ export const WORLDS = [
     },
   },
   {
-    id: "emberfall", gate: 95, seed: "emberfall-warzone",
+    id: "emberfall", track: "dojo", gate: 95, seed: "emberfall-warzone",
     name: { th: "เอมเบอร์ฟอลล์", en: "Emberfall", zh: "余烬陨落" },
     sub: {
       th: "เขตสงคราม · อาณานิคมที่ปฏิเสธคำสั่ง",
@@ -199,7 +205,7 @@ export const WORLDS = [
     },
   },
   {
-    id: "starsong", gate: 136, seed: "the-void-choir-final",
+    id: "starsong", track: "void", gate: 136, seed: "the-void-choir-final",
     name: { th: "สตาร์ซอง", en: "Starsong", zh: "星歌" },
     sub: {
       th: "ปลายทาง · แหล่งกำเนิดของสัญญาณที่ไม่มีใครส่ง",
@@ -756,6 +762,78 @@ function useCoop(worldId, meName, enabled) {
   return { peers, online, report, shout, onBoss: onBossRef };
 }
 
+/* ══════════════════════ the player's own chassis ══════════════════════
+
+   The figure walking around this world has to be the model the player chose
+   and looks at on their profile — a different robot in the game would make
+   the profile's chassis a decoration rather than a character.
+
+   The model is an SVG component, so it is rasterised once into an <img> and
+   blitted every frame after that. Serialising a live DOM node (rather than
+   building the markup by hand) means the sprite is by construction whatever
+   the profile is showing, including any future change to the models. */
+function useChassisSprite(model, glow, accent) {
+  const holdRef = useRef(null);
+  const [img, setImg] = useState(null);
+
+  useEffect(() => {
+    setImg(null);
+    const host = holdRef.current;
+    if (!host) return;
+    let dead = false, url = null;
+    // one frame, so React has painted the SVG we are about to read
+    const t = window.setTimeout(() => {
+      try {
+        const svg = host.querySelector("svg");
+        if (!svg) return;
+        const clone = svg.cloneNode(true);
+        // an <img> will not lay out a percentage-sized SVG, so pin it
+        clone.setAttribute("width", "320");
+        clone.setAttribute("height", "832");
+        clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        const src = new XMLSerializer().serializeToString(clone);
+        url = URL.createObjectURL(new Blob([src], { type: "image/svg+xml;charset=utf-8" }));
+        const im = new Image();
+        im.onload = () => { if (!dead) setImg(im); };
+        im.onerror = () => {};
+        im.src = url;
+      } catch (e) {}
+    }, 60);
+    return () => {
+      dead = true; window.clearTimeout(t);
+      if (url) try { URL.revokeObjectURL(url); } catch (e) {}
+    };
+  }, [model, glow, accent]);
+
+  /* The off-screen host stays mounted: it is what gets serialised, and it is
+     one hidden SVG rather than a per-frame cost. */
+  const host = (
+    <div ref={holdRef} aria-hidden="true"
+      style={{ position: "absolute", width: 160, height: 416, left: -9999, top: 0, opacity: 0, pointerEvents: "none" }}>
+      <CyberAvatar model={model} yaw={0} glow={glow} accent={accent} armorA="#161d2c" armorB="#3d5878" />
+    </div>
+  );
+  return { img, host };
+}
+
+/** Blit the rasterised chassis with a walk cycle faked on top: a bob, a
+    squash that follows it, and a flip so the figure faces where it is going.
+    Falls back to nothing while the sprite is still rasterising — the caller
+    draws the primitive bot in that gap so the player is never invisible. */
+function drawChassis(g, img, x, y, h, t, dir, ghost) {
+  const w = h * (160 / 416);
+  const bob = Math.sin(t * 7) * 2.2;
+  const sq = 1 + Math.sin(t * 7) * 0.03;
+  g.save();
+  g.globalAlpha = ghost ? 0.5 : 1;
+  g.fillStyle = "rgba(0,4,12,.42)";
+  g.beginPath(); g.ellipse(x, y, w * 0.34, w * 0.13, 0, 0, 6.284); g.fill();
+  g.translate(x, y + bob);
+  if (dir < 0) g.scale(-1, 1);
+  g.drawImage(img, -w / 2, -h * sq, w, h * sq);
+  g.restore();
+}
+
 /* One octave of white keys. Deliberately not a full piano: these phrases
    are about producing a shape cleanly under pressure, and a keyboard you
    have to hunt across is testing your eyes rather than your hands. */
@@ -770,7 +848,7 @@ const MiniKeys = memo(function MiniKeys({ onKey, lit, wrong }) {
   );
 });
 
-export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward = () => {}, playUi = () => {}, playerName = "TIGA-01" }) {
+export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward = () => {}, playUi = () => {}, playerName = "TIGA-01", charModel = "vanguard" }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [save, setSave] = useState(readSave);
   const saveRef = useRef(save);
@@ -806,6 +884,42 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   }, []);
 
   const coop = useCoop(W.id, playerName, screen === "world");
+  const { img: chassis, host: chassisHost } = useChassisSprite(charModel, W.glow, W.accent);
+
+  /* Landscape is the point of turning the phone: the world goes edge to edge,
+     the app chrome above it gets out of the way, and the two thumbs end up
+     where they already are. */
+  const [land, setLand] = useState(() => {
+    try { return window.innerWidth > window.innerHeight * 1.25; } catch (e) { return false; }
+  });
+  useEffect(() => {
+    const on = () => { try { setLand(window.innerWidth > window.innerHeight * 1.25); } catch (e) {} };
+    window.addEventListener("resize", on);
+    window.addEventListener("orientationchange", on);
+    return () => { window.removeEventListener("resize", on); window.removeEventListener("orientationchange", on); };
+  }, []);
+
+  /* ── the score ──
+     Each world plays its own arena track. It only starts on a real gesture
+     (browsers will not let it start otherwise) and it shifts up a gear the
+     moment a fight opens, which is most of what makes combat feel different
+     from walking. */
+  const [music, setMusic] = useState(() => { try { return localStorage.getItem("tg_ss_music") !== "0"; } catch (e) { return true; } });
+  const audioRef = useRef(null);
+  useEffect(() => {
+    if (!music || screen !== "world") {
+      if (audioRef.current) { try { audioRef.current.stop(); } catch (e) {} audioRef.current = null; }
+      return;
+    }
+    const a = createArenaAudio(stageById(W.track));
+    audioRef.current = a;
+    try { a.start(); } catch (e) {}
+    return () => { try { a.stop(); } catch (e) {} audioRef.current = null; };
+  }, [music, screen, W.track]);
+  useEffect(() => {
+    const a = audioRef.current; if (!a) return;
+    try { a.setGear(fight ? 1 : 0); } catch (e) {}
+  }, [fight]);
 
   // ── world (re)entry ─────────────────────────────────────────────────
   useEffect(() => {
@@ -1048,7 +1162,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           g.fillStyle = "#e8eefc"; g.font = `600 ${fs(11)}px Rajdhani, sans-serif`; g.textAlign = "center";
           g.fillText(tr3(e.o.name, lang), ex, ey + 30);
         } else if (e.k === "peer") {
-          drawBot(g, ex, ey, 1, "#9fb6de", (e.o.t || 0), true, W.glow);
+          if (chassis) drawChassis(g, chassis, ex, ey + 16, 68, e.o.t || 0, 1, true);
+          else drawBot(g, ex, ey, 1, "#9fb6de", (e.o.t || 0), true, W.glow);
           g.fillStyle = "#cddaf2cc"; g.font = `600 ${fs(10.5)}px Rajdhani, sans-serif`; g.textAlign = "center";
           g.fillText(String(e.o.name || "?").slice(0, 14), ex, ey + 30);
         } else if (e.k === "mob") {
@@ -1081,7 +1196,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           g.beginPath(); g.arc(ex, ey - 30, 2.4, 0, 6.284); g.fill();
           g.globalAlpha = 1;
         } else {
-          drawBot(g, ex, ey, 1.15, W.accent, me.t, false, W.glow);
+          if (chassis) drawChassis(g, chassis, ex, ey + 16, 74, me.t, me.dir, false);
+          else drawBot(g, ex, ey, 1.15, W.accent, me.t, false, W.glow);
         }
       }
 
@@ -1171,7 +1287,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, W.id, geo, coop.peers, ctrl, talk, task, lang]);
+  }, [screen, W.id, geo, coop.peers, ctrl, talk, task, lang, chassis]);
 
   // keyboard
   useEffect(() => {
@@ -1417,7 +1533,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
 
   // ══════════════════════ render ══════════════════════
   return (
-    <div className="sspage" style={{ "--wc": W.accent, "--wg": W.glow }}>
+    <div className={`sspage${land ? " land" : ""}`} style={{ "--wc": W.accent, "--wg": W.glow }}>
+      {chassisHost}
       <header className="sshdr">
         <button className="ssback" onClick={onBack} aria-label="Back">←</button>
         <div className="sshdr-t">
@@ -1429,6 +1546,12 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
             ◉ {coop.peers.length}
           </span>
         )}
+        <button className="ssnavbtn ssmute" aria-pressed={music}
+          title={T("เพลงประกอบ", "Soundtrack", "配乐")}
+          onClick={() => {
+            const v = !music; setMusic(v);
+            try { localStorage.setItem("tg_ss_music", v ? "1" : "0"); } catch (e) {}
+          }}>{music ? "♪" : "✕"}</button>
         <button className="ssnavbtn" onClick={() => { playUi("click"); setScreen(screen === "sheet" ? "world" : "sheet"); }}>{T("สถานะ", "Sheet", "状态")}</button>
         <button className="ssnavbtn" onClick={() => { playUi("click"); setScreen(screen === "map" ? "world" : "map"); }}>{T("แผนที่", "Map", "地图")}</button>
       </header>
@@ -1561,6 +1684,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
             <i>{near ? (near.kind === "arena" ? T("ท้าบอส", "Challenge", "挑战") : T("คุย", "Talk", "对话")) : T("เดินสำรวจ", "Explore", "探索")}</i>
           </button>
 
+          {!land && <div className="ssrotate">⟳ {T("หมุนจอเพื่อเล่นเต็มหน้าจอ", "Turn your phone for full screen", "旋转手机以全屏游玩")}</div>}
           {toast && <div className="sstoast">{toast}</div>}
         </div>
       )}
@@ -1708,13 +1832,10 @@ export const StarsongPod = memo(function StarsongPod({ lang, onOpen }) {
       style={{ "--pc": W.accent }}
       title={T("TIGA: STARSONG — เกม RPG โลกเปิด", "TIGA: STARSONG — open-world RPG", "TIGA: STARSONG — 开放世界 RPG")}>
       <span className="sspod-orb" style={{ background: `radial-gradient(circle at 34% 28%, ${W.sky[2]}, ${W.sky[0]})` }} />
-      {started ? <>
-        <b>{tr3(W.name, lang)}</b>
-        <i>{T("แรงก์", "Rank", "阶")} {chassisLevel(save)}</i>
-      </> : <>
-        <b>STARSONG</b>
-        <i>{T("เริ่มผจญภัย", "Begin", "开始")}</i>
-      </>}
+      <b>{T("โหมดผจญภัย", "Adventure Mode", "冒险模式")}</b>
+      {started
+        ? <i>{tr3(W.name, lang)} · {T("แรงก์", "Rk", "阶")} {chassisLevel(save)}</i>
+        : <i>{T("เริ่มเลย", "Start", "开始")}</i>}
       {openQ && <em aria-label={T("มีเควสต์ค้างอยู่", "Quest available", "有任务")} />}
     </button>
   );

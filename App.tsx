@@ -10584,6 +10584,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "starsong" && (
         <StarsongPage lang={lang} playUi={playUi}
           playerName={(profile && (profile.display_name || profile.full_name)) || (session && session.user && (session.user.user_metadata || {}).full_name) || "TIGA-01"}
+          charModel={charModel}
           onBack={() => { setPage("profile"); playUi("click"); }}
           onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
       )}

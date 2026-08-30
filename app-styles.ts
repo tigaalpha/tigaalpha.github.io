@@ -2336,11 +2336,14 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    so the character sits between the thing it looks after and the world it
    fights in. The game page itself owns its scroll — .tg is a clipped flex
    column and a page that forgets this silently overflows with nowhere to go. */
-.sspod{position:absolute;top:24px;left:10px;z-index:2;width:82px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px 7px;border:1px solid var(--bd4);border-radius:16px;background:var(--card);color:var(--text);cursor:pointer;box-shadow:0 8px 20px -16px rgba(20,30,60,.8)}
+.sspod{position:absolute;top:24px;left:10px;z-index:2;width:88px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 5px 7px;border:1px solid var(--bd4);border-radius:16px;background:var(--card);color:var(--text);cursor:pointer;box-shadow:0 8px 20px -16px rgba(20,30,60,.8)}
 .sspod:hover{border-color:var(--bd5)}
 .sspod:active{transform:scale(.96)}
-.sspod-orb{width:44px;height:44px;border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,var(--pc,#8ab) 40%,transparent),0 6px 16px -8px color-mix(in srgb,var(--pc,#8ab) 70%,transparent)}
-.sspod b{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;line-height:1.15;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sspod-orb{position:relative;width:44px;height:44px;border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,var(--pc,#8ab) 45%,transparent),0 0 0 5px color-mix(in srgb,var(--pc,#8ab) 14%,transparent),0 6px 16px -8px color-mix(in srgb,var(--pc,#8ab) 80%,transparent),inset -6px -7px 14px rgba(0,0,0,.55)}
+.sspod-orb::after{content:"";position:absolute;left:-7px;right:-7px;top:52%;height:3px;border-radius:50%;background:color-mix(in srgb,var(--pc,#8ab) 55%,transparent);transform:rotate(-16deg)}
+/* the label wraps rather than truncating: "Adventure Mode" clipped to
+   "Adventure …" tells the reader nothing the icon did not already */
+.sspod b{font-family:'Rajdhani',sans-serif;font-size:10.5px;font-weight:700;line-height:1.12;text-align:center;max-width:100%;white-space:normal}
 .sspod i{font-family:'Share Tech Mono',monospace;font-style:normal;font-size:9px;color:var(--muted)}
 .sspod em{position:absolute;top:-4px;left:-4px;width:12px;height:12px;border-radius:50%;background:#d97757;border:2px solid var(--card);animation:pppulse 1.6s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.sspod em{animation:none}}
@@ -2467,6 +2470,24 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .sswin p{font-family:'Rajdhani',sans-serif;font-style:italic;font-size:13.5px;line-height:1.6;color:#cad6ee;margin:0 0 16px}
 
 .ssallies{font-family:'Share Tech Mono',monospace;font-size:10px;color:#7fe0a0;background:#12351f;border:1px solid #24603a;border-radius:8px;padding:4px 9px;margin-bottom:10px;display:inline-block}
+
+
+/* ── Starsong: landscape ──
+   Turning the phone is the point: the world goes edge to edge over the app
+   chrome, the header shrinks to a translucent strip, and the two thumbs land
+   on the controls they were already reaching for. Fixed rather than flex so
+   the page is genuinely the whole screen and not a tall box inside one. */
+.sspage.land{position:fixed;inset:0;z-index:60;background:#080c16}
+.sspage.land .sshdr{position:absolute;top:0;left:0;right:0;z-index:8;padding:5px 10px;border:none;background:linear-gradient(180deg,rgba(6,10,20,.88),rgba(6,10,20,0))}
+.sspage.land .ssworldwrap{position:absolute;inset:0}
+.sspage.land .sshud{top:44px}
+.sspage.land .sspad{left:22px;bottom:16px;width:104px;height:104px}
+.sspage.land .ssact{right:24px;bottom:20px;width:84px;height:84px}
+.sspage.land .sssheet,.sspage.land .ssmap,.sspage.land .ssintro{position:absolute;inset:38px 0 0;overflow-y:auto}
+.ssmute{min-width:34px;text-align:center;font-size:14px}
+.ssmute[aria-pressed="false"]{color:#6b7a99}
+.ssrotate{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);z-index:5;pointer-events:none;font-family:'Share Tech Mono',monospace;font-size:10px;color:#8fa6c8;background:#0b1220b8;border:1px solid #253253;border-radius:20px;padding:5px 12px;white-space:nowrap}
+@media (orientation:landscape){.ssrotate{display:none}}
 
 `;
 
