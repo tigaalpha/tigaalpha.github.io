@@ -209,6 +209,123 @@ C–E–G♯–B · 梦幻、飘渺
       en: "Please teach me about 'Tension' on piano. Explain 9th, 11th, 13th notes, building extended chords, and resolution. List note names e.g. Cmaj9 = C4 E4 G4 B4 D5.",
       zh: "请教我钢琴上的'张力音(Tension)'。解释9度、11度、13度音符，构建扩展和弦，以及解决。列出音名如 Cmaj9 = C4 E4 G4 B4 D5。"
     },
+    /* The ten 9th-family voicings, written in C and transposed into whichever
+       of the 12 keys the learner picks. No demoFingers on purpose: every one
+       of these spans a major 9th (C4-D5) and the workable fingering depends on
+       hand size and voicing — a blank is honest where 1-2-3-4-5 would not be. */
+    types: [
+      { id: "maj9",     label: { th: "เมเจอร์ 9",            en: "Major 9",         zh: "大九"   }, symbol: "Δ9",     demo: ["C4","E4","G4","B4","D5"]    },
+      { id: "dom9",     label: { th: "โดมินันต์ 9",           en: "Dominant 9",      zh: "属九"   }, symbol: "9",     demo: ["C4","E4","G4","A#4","D5"]   },
+      { id: "min9",     label: { th: "ไมเนอร์ 9",             en: "Minor 9",         zh: "小九"   }, symbol: "m9",    demo: ["C4","D#4","G4","A#4","D5"]  },
+      { id: "m7b5add9", label: { th: "ไมเนอร์ 7♭5 (9)",       en: "Minor 7♭5 (9)",   zh: "半减九" }, symbol: "ø9",    demo: ["C4","D#4","F#4","A#4","D5"] },
+      { id: "ninesus4", label: { th: "ไนน์ ซัส 4",            en: "9 sus4",          zh: "九挂四" }, symbol: "9sus4", demo: ["C4","F4","G4","A#4","D5"]   },
+      { id: "dim9",     label: { th: "ดิมินิช 9",             en: "Diminished 9",    zh: "减九"   }, symbol: "°9",    demo: ["C4","D#4","F#4","A4","D5"]  },
+      { id: "six9",     label: { th: "เมเจอร์ 6/9",           en: "Major 6/9",       zh: "六九"   }, symbol: "6/9",   demo: ["C4","E4","G4","A4","D5"]    },
+      { id: "min69",    label: { th: "ไมเนอร์ 6/9",           en: "Minor 6/9",       zh: "小六九" }, symbol: "m6/9",  demo: ["C4","D#4","G4","A4","D5"]   },
+      { id: "aug9",     label: { th: "ออกเมนต์ 7 (9)",        en: "Augmented 7 (9)", zh: "增九"   }, symbol: "+9",    demo: ["C4","E4","G#4","A#4","D5"]  },
+      { id: "minmaj9",  label: { th: "ไมเนอร์-เมเจอร์ 9",    en: "Minor-Major 9",   zh: "小大九" }, symbol: "mΔ9",   demo: ["C4","D#4","G4","B4","D5"]   },
+    ],
+    typesInfo: {
+      th: `⚡ 10 ชนิดของคอร์ดเทนชั่นตระกูล 9 (ตัวอย่างคีย์ C)
+
+1️⃣ Major 9 (Δ9) — 1-3-5-7-9
+C–E–G–B–D · หรูหรา ลอย สว่าง
+
+2️⃣ Dominant 9 (9) — 1-3-5-♭7-9
+C–E–G–B♭–D · ฟังก์ บลูส์ อยากเคลื่อนต่อ
+
+3️⃣ Minor 9 (m9) — 1-♭3-5-♭7-9
+C–E♭–G–B♭–D · นุ่ม เท่ ละมุน
+
+4️⃣ Minor 7♭5 (9) (ø9) — 1-♭3-♭5-♭7-9
+C–E♭–G♭–B♭–D · ตึง เศร้า ใช้นำเข้า ii–V
+
+5️⃣ 9 sus4 (9sus4) — 1-4-5-♭7-9
+C–F–G–B♭–D · ค้างคา ยังไม่ตัดสินใจ
+
+6️⃣ Diminished 9 (°9) — 1-♭3-♭5-♭♭7-9
+C–E♭–G♭–A–D · มืด บีบ ใช้เป็นสะพาน
+
+7️⃣ Major 6/9 (6/9) — 1-3-5-6-9
+C–E–G–A–D · จบเพลงแบบอบอุ่น ไม่ตึง
+
+8️⃣ Minor 6/9 (m6/9) — 1-♭3-5-6-9
+C–E♭–G–A–D · ไมเนอร์ที่ไม่หม่น
+
+9️⃣ Augmented 7 (9) (+9) — 1-3-♯5-♭7-9
+C–E–G♯–B♭–D · แปลก ดันไปข้างหน้าแรง
+
+🔟 Minor-Major 9 (mΔ9) — 1-♭3-5-7-9
+C–E♭–G–B–D · ลึกลับ หนังสายลับ
+
+💡 ทุกตัวมีโน้ต 9 (D) เหมือนกัน — ที่ต่างกันคือโน้ตตัวที่ 3, 5 และ 7!`,
+      en: `⚡ The 10 tension chords of the 9th family (example in C)
+
+1️⃣ Major 9 (Δ9) — 1-3-5-7-9
+C–E–G–B–D · lush, floating, bright
+
+2️⃣ Dominant 9 (9) — 1-3-5-♭7-9
+C–E–G–B♭–D · funk and blues, wants to move
+
+3️⃣ Minor 9 (m9) — 1-♭3-5-♭7-9
+C–E♭–G–B♭–D · smooth, cool, velvety
+
+4️⃣ Minor 7♭5 (9) (ø9) — 1-♭3-♭5-♭7-9
+C–E♭–G♭–B♭–D · tense and sad, the ii of a minor ii–V
+
+5️⃣ 9 sus4 (9sus4) — 1-4-5-♭7-9
+C–F–G–B♭–D · suspended, undecided
+
+6️⃣ Diminished 9 (°9) — 1-♭3-♭5-♭♭7-9
+C–E♭–G♭–A–D · dark and squeezed, a passing bridge
+
+7️⃣ Major 6/9 (6/9) — 1-3-5-6-9
+C–E–G–A–D · a warm ending with no tension left
+
+8️⃣ Minor 6/9 (m6/9) — 1-♭3-5-6-9
+C–E♭–G–A–D · a minor that is not gloomy
+
+9️⃣ Augmented 7 (9) (+9) — 1-3-♯5-♭7-9
+C–E–G♯–B♭–D · strange, pushes hard forward
+
+🔟 Minor-Major 9 (mΔ9) — 1-♭3-5-7-9
+C–E♭–G–B–D · mysterious, spy-film
+
+💡 Every one of them carries the 9 (D) — what changes is the 3rd, 5th and 7th!`,
+      zh: `⚡ 九和弦家族的10种张力和弦（以C为例）
+
+1️⃣ 大九和弦 (Δ9) — 1-3-5-7-9
+C–E–G–B–D · 华丽、飘逸、明亮
+
+2️⃣ 属九和弦 (9) — 1-3-5-♭7-9
+C–E–G–B♭–D · 放克与蓝调，想要前进
+
+3️⃣ 小九和弦 (m9) — 1-♭3-5-♭7-9
+C–E♭–G–B♭–D · 柔和、时髦、丝滑
+
+4️⃣ 半减九和弦 (ø9) — 1-♭3-♭5-♭7-9
+C–E♭–G♭–B♭–D · 紧张忧伤，小调 ii–V 的 ii
+
+5️⃣ 九挂四 (9sus4) — 1-4-5-♭7-9
+C–F–G–B♭–D · 悬置、未决
+
+6️⃣ 减九和弦 (°9) — 1-♭3-♭5-♭♭7-9
+C–E♭–G♭–A–D · 阴暗紧缩，用作过渡
+
+7️⃣ 大六九和弦 (6/9) — 1-3-5-6-9
+C–E–G–A–D · 温暖的收尾，毫无张力
+
+8️⃣ 小六九和弦 (m6/9) — 1-♭3-5-6-9
+C–E♭–G–A–D · 不阴郁的小调
+
+9️⃣ 增七九和弦 (+9) — 1-3-♯5-♭7-9
+C–E–G♯–B♭–D · 奇异，强力推进
+
+🔟 小大九和弦 (mΔ9) — 1-♭3-5-7-9
+C–E♭–G–B–D · 神秘，谍战片风格
+
+💡 它们都含有9音(D) — 变化的是3音、5音和7音！`,
+    },
   },
   {
     id: "blockchord", icon: "🧱", title: { th: "บล็อกคอร์ดใต้ทำนอง", en: "Block Chords", zh: "块状和弦" }, subtitle: { th: "เล่นคอร์ดพร้อมเมโลดี้", en: "Block Chord Under the Melody", zh: "在旋律下弹奏块状和弦" },
