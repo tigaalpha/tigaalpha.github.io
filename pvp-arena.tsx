@@ -758,9 +758,22 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         a.sfx("boom"); setShake(big ? 3 : 2); later(() => setShake(0), 480);
       });
     } else {
-      a.sfx(mv.sfx === "kick" ? "kick" : crit ? "crit" : "hit");
-      later(() => G.burst(foe, power, colour, mv.part === "foot" ? "foot" : "body"), 160);
-      if (big) later(() => { G.boom(foe, 2, colour); a.sfx("boom"); }, 240);
+      /* ── melee ──
+         Three beats, because a hit that is only a burst of sparks has no
+         weight: the limb SWINGS (an arc you can see), it LANDS (a spiked
+         flash, a shockwave and a cone of sparks thrown the way the blow was
+         going), and the screen takes it (a harder shake and a short white
+         flash). A kick swings from the floor and kicks dust up with it. */
+      const isKick = mv.sfx === "kick";
+      G.swipe(side, isKick ? "#ffd23f" : colour, isKick ? "kick" : "punch");
+      a.sfx(isKick ? "kick" : crit ? "crit" : "hit");
+      later(() => {
+        G.impact(side, power * (isKick ? 1.25 : 1), colour, isKick ? "kick" : "punch");
+        G.flash("#ffffff", big ? .5 : crit ? .3 : .18, .16);
+        setShake(big ? 3 : crit ? 3 : 2);
+        a.sfx("hit");
+      }, isKick ? 175 : 140);
+      if (big) later(() => { G.boom(foe, 2, colour); a.sfx("boom"); }, 300);
     }
     if (big && mv.fx !== "grenade") G.flash("#ffffff", .55, .34);
     later(() => { setLunge(null); setShake(0); }, mv.fx === "grenade" ? 900 : 520);

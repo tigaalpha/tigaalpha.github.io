@@ -253,6 +253,11 @@ export function useArenaFx() {
          scorch is the mark it leaves behind; a shock is the pressure ring that
          travels faster than any of them */
       debris: [], embers: [], scorch: [], shock: [],
+      /* melee: a swipe is the arc the limb travels, a star is the hard spiked
+         flash at the moment of contact, and dust is what a kick kicks up */
+      swipes: [], stars: [], dust: [],
+      // radial speed lines — the single cheapest thing that says "this hit hard"
+      lines: [],
       // where the two fighters actually are, as fractions of the stage width —
       // once they can walk, a bolt fired from a fixed 24% leaves from thin air
       pos: { me: 0.24, op: 0.76 }, air: { me: 0, op: 0 },
@@ -361,6 +366,93 @@ export function useArenaFx() {
         ctx.save(); ctx.globalAlpha = .7; ctx.strokeStyle = b.c; ctx.lineWidth = 1.6; ctx.lineCap = "round";
         ctx.beginPath(); ctx.moveTo(x - b.w * 3, y); ctx.lineTo(x + b.w * 3, y);
         ctx.moveTo(x, y - b.w * 2); ctx.lineTo(x, y + b.w * 2); ctx.stroke(); ctx.restore();
+      }
+
+      // ── the swipe: the arc a fist or a foot travels through. A melee hit
+      //    with no arc is just two figures standing near each other; the
+      //    trail is what tells the eye something MOVED.
+      for (let i = S.swipes.length - 1; i >= 0; i--) {
+        const w = S.swipes[i]; w.p += dt / w.dur;
+        if (w.p >= 1) { S.swipes.splice(i, 1); continue; }
+        const e = 1 - Math.pow(1 - w.p, 2.4);        // fast out, trailing off
+        const a2 = Math.pow(1 - w.p, 1.5);
+        ctx.save(); ctx.lineCap = "round";
+        // the arc is swept: head runs ahead, tail follows a fraction behind
+        const head = e, tail = Math.max(0, e - 0.42);
+        const pt = (t) => {
+          const k = w.a0 + (w.a1 - w.a0) * t;
+          return [w.x + Math.cos(k) * w.r, w.y + Math.sin(k) * w.r * w.sq];
+        };
+        for (const [lw, col, al] of [[w.w * 3.2, w.c, .28], [w.w * 1.5, w.c, .7], [w.w * .55, "#ffffff", 1]]) {
+          ctx.globalAlpha = a2 * al; ctx.strokeStyle = col; ctx.lineWidth = lw;
+          ctx.beginPath();
+          for (let t = tail; t <= head + 0.001; t += 0.05) {
+            const [px, py] = pt(Math.min(1, t));
+            if (t === tail) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1; ctx.restore();
+      }
+
+      // ── the impact star: the hard spiked flash at the moment of contact.
+      //    Spikes of uneven length, because an even star reads as a sticker.
+      for (let i = S.stars.length - 1; i >= 0; i--) {
+        const k = S.stars[i]; k.p += dt / k.dur;
+        if (k.p >= 1) { S.stars.splice(i, 1); continue; }
+        const e = 1 - Math.pow(1 - k.p, 3), a2 = Math.pow(1 - k.p, 1.8);
+        // a hard white core that collapses as the spikes go out
+        const cr = k.r * 0.3 * (1 - k.p * 0.7);
+        const cg = ctx.createRadialGradient(k.x, k.y, 0, k.x, k.y, cr);
+        cg.addColorStop(0, `rgba(255,255,255,${a2})`);
+        cg.addColorStop(0.5, `rgba(255,246,214,${a2 * .8})`);
+        cg.addColorStop(1, k.c + "00");
+        ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(k.x, k.y, cr, 0, 7); ctx.fill();
+        ctx.save(); ctx.globalAlpha = a2;
+        for (let n = 0; n < k.n; n++) {
+          const ang = k.a0 + (n / k.n) * Math.PI * 2;
+          // uneven, but stable per spike — a hash, not a re-roll each frame
+          const jag = 0.45 + 0.55 * Math.abs(Math.sin(n * 12.9898 + k.seed));
+          const len = k.r * jag * e;
+          const wdt = k.r * 0.13 * jag * (1 - k.p * 0.5);
+          const cx2 = Math.cos(ang), sy = Math.sin(ang);
+          const px = -sy, py = cx2;
+          ctx.beginPath();
+          ctx.moveTo(k.x + px * wdt, k.y + py * wdt);
+          ctx.lineTo(k.x + cx2 * len, k.y + sy * len);
+          ctx.lineTo(k.x - px * wdt, k.y - py * wdt);
+          ctx.closePath();
+          const sg = ctx.createLinearGradient(k.x, k.y, k.x + cx2 * len, k.y + sy * len);
+          sg.addColorStop(0, "#ffffff"); sg.addColorStop(0.45, k.c); sg.addColorStop(1, k.c + "00");
+          ctx.fillStyle = sg; ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // ── speed lines: thin white streaks flung straight out from the point of
+      //    contact. Every fighting game draws these, because the eye reads
+      //    radiating lines as force before it reads anything else.
+      for (let i = S.lines.length - 1; i >= 0; i--) {
+        const l = S.lines[i]; l.p += dt / l.dur;
+        if (l.p >= 1) { S.lines.splice(i, 1); continue; }
+        const e = 1 - Math.pow(1 - l.p, 2.6), a2 = Math.pow(1 - l.p, 1.4);
+        ctx.save(); ctx.lineCap = "round"; ctx.globalAlpha = a2;
+        for (let n = 0; n < l.n; n++) {
+          const ang = l.a0 + (n / l.n) * Math.PI * 2;
+          const jag = 0.5 + 0.5 * Math.abs(Math.sin(n * 7.331 + l.seed));
+          const r0 = l.r * 0.28 + l.r * 0.95 * e * jag;
+          const r1 = r0 + l.r * 0.42 * jag * (1 - l.p * 0.6);
+          const g = ctx.createLinearGradient(
+            l.x + Math.cos(ang) * r0, l.y + Math.sin(ang) * r0,
+            l.x + Math.cos(ang) * r1, l.y + Math.sin(ang) * r1);
+          g.addColorStop(0, l.c + "00"); g.addColorStop(0.5, "#ffffff"); g.addColorStop(1, l.c + "00");
+          ctx.strokeStyle = g; ctx.lineWidth = 1.2 + 2.2 * a2 * jag;
+          ctx.beginPath();
+          ctx.moveTo(l.x + Math.cos(ang) * r0, l.y + Math.sin(ang) * r0);
+          ctx.lineTo(l.x + Math.cos(ang) * r1, l.y + Math.sin(ang) * r1);
+          ctx.stroke();
+        }
+        ctx.restore();
       }
 
       // ── sustained beams: a laser is a held line with a bloom, not a bolt
@@ -527,6 +619,18 @@ export function useArenaFx() {
       //    it additively would turn every chunk into a glowing blob
       ctx.globalCompositeOperation = "source-over";
 
+      // ── dust: what a foot kicks off the floor. Wide, low, and short-lived.
+      for (let i = S.dust.length - 1; i >= 0; i--) {
+        const d = S.dust[i]; d.p += dt / d.dur;
+        if (d.p >= 1) { S.dust.splice(i, 1); continue; }
+        d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 60 * dt; d.vx *= 0.97;
+        const r = d.r * (0.4 + d.p * 1.9), a2 = (1 - d.p) * 0.26;
+        const g = ctx.createRadialGradient(d.x, d.y, r * 0.1, d.x, d.y, r);
+        g.addColorStop(0, `rgba(196,206,228,${a2})`);
+        g.addColorStop(1, "rgba(150,162,188,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, r, 0, 7); ctx.fill();
+      }
+
       // ── debris: chunks with mass and spin that bounce once off the floor
       for (let i = S.debris.length - 1; i >= 0; i--) {
         const d = S.debris[i];
@@ -684,6 +788,80 @@ export function useArenaFx() {
     }
   }, []);
 
+  /** The arc a fist or a foot travels through, drawn from the striker toward
+      the target. A punch is a short flat hook at chest height; a kick is a
+      long arc swung up from the floor. Without this the two melee moves are
+      the same event with different labels. */
+  const swipe = useCallback((from, colour = "#ffd6a8", kind = "punch") => {
+    const S = stateRef.current; if (!S) return;
+    const a = at(from, kind === "kick" ? "foot" : "hand");
+    const b = at(from === "me" ? "op" : "me", "body");
+    const dir = b.x > a.x ? 1 : -1;
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if (kind === "kick") {
+      // swung up from below: start low behind, finish high in front
+      S.swipes.push({ x: mid.x, y: mid.y + S.h * 0.06, r: S.w * 0.13, sq: 1.5,
+        a0: dir > 0 ? Math.PI * 0.75 : Math.PI * 0.25,
+        a1: dir > 0 ? -Math.PI * 0.15 : Math.PI * 1.15,
+        p: 0, dur: 0.3, c: colour, w: 11 });
+    } else {
+      // a flat hook across chest height
+      S.swipes.push({ x: mid.x, y: mid.y, r: S.w * 0.1, sq: 0.55,
+        a0: dir > 0 ? Math.PI * 1.15 : Math.PI * -0.15,
+        a1: dir > 0 ? Math.PI * 0.15 : Math.PI * 0.85,
+        p: 0, dur: 0.24, c: colour, w: 9 });
+    }
+  }, []);
+
+  /** The moment of contact for a melee hit: a spiked flash, a shockwave, a
+      CONE of sparks and debris thrown the way the blow was going (a punch
+      throws material forward — a sphere of sparks reads as an explosion, not
+      as a hit), and dust off the floor when it was a kick. */
+  const impact = useCallback((side, power = 1, colour = "#ffd23f", kind = "punch") => {
+    const S = stateRef.current; if (!S) return;
+    const foe = side === "me" ? "op" : "me";
+    const { x, y } = at(foe, kind === "kick" ? "foot" : "body");
+    const dir = (S.pos[foe] || .5) > (S.pos[side] || .5) ? 1 : -1;
+    /* two stars, counter-rotated and different sizes, so the burst is dense
+       rather than a single tidy asterisk */
+    S.stars.push({ x, y, r: 84 * power, n: 7, a0: Math.random() * 6.28,
+      seed: Math.random() * 100, p: 0, dur: 0.26, c: colour });
+    S.stars.push({ x, y, r: 50 * power, n: 9, a0: Math.random() * 6.28,
+      seed: Math.random() * 100, p: 0, dur: 0.19, c: "#ffffff" });
+    S.lines.push({ x, y, r: 130 * power, n: 14, a0: Math.random() * 6.28,
+      seed: Math.random() * 100, p: 0, dur: 0.3, c: colour });
+    // two waves at two speeds: the crack, then the pressure behind it
+    S.shock.push({ x, y, r0: 5, r1: 118 * power, p: 0, dur: 0.24 });
+    S.shock.push({ x, y, r0: 5, r1: 186 * power, p: 0, dur: 0.42 });
+    S.balls.push({ x, y, r: 34 * power, p: 0, dur: 0.2 });
+    S.balls.push({ x, y, r: 16 * power, p: 0, dur: 0.11 });
+    S.flares.push({ x, y, r: 140 * power, p: 0, dur: 0.24, c: colour });
+    S.rings.push({ x, y, r0: 5, r1: 62 * power, dur: 0.3, c: colour });
+    if (reduced()) return;
+    // sparks in a forward cone rather than a sphere
+    const base = dir > 0 ? 0 : Math.PI;
+    for (let i = 0; i < Math.round(26 * power); i++) {
+      const a2 = base + (Math.random() - 0.5) * 1.5, sp = 180 + Math.random() * 520 * power;
+      S.parts.push({ x, y, vx: Math.cos(a2) * sp, vy: Math.sin(a2) * sp - 120,
+        r: 1 + Math.random() * 2.2, life: 0.3 + Math.random() * 0.4, max: 0.7,
+        c: Math.random() < 0.45 ? "#ffffff" : colour });
+    }
+    for (let i = 0; i < Math.round(7 * power); i++) {
+      const a2 = base + (Math.random() - 0.5) * 1.7, sp = 140 + Math.random() * 340 * power;
+      S.debris.push({ x, y, vx: Math.cos(a2) * sp, vy: Math.sin(a2) * sp - 180,
+        w: 1.8 + Math.random() * 3.6, h: 1.8 + Math.random() * 3,
+        rot: Math.random() * 7, spin: (Math.random() - 0.5) * 24,
+        life: 0.55 + Math.random() * 0.5, c: ["#3b3f4a", "#5a5f6d"][Math.floor(Math.random() * 2)] });
+    }
+    if (kind === "kick") {
+      for (let i = 0; i < 8; i++) {
+        S.dust.push({ x: x + (Math.random() - .5) * 30, y: S.h * 0.92,
+          vx: dir * (40 + Math.random() * 130), vy: -(10 + Math.random() * 40),
+          r: 9 + Math.random() * 12, p: 0, dur: 0.55 + Math.random() * 0.4 });
+      }
+    }
+  }, []);
+
   /** A shell that arcs over and detonates where it lands. */
   const lob = useCallback((from, colour = "#ff9a3c", onLand) => {
     const S = stateRef.current; if (!S) return;
@@ -696,5 +874,5 @@ export function useArenaFx() {
     S.flash = { c: colour, a, p: 0, dur };
   }, []);
 
-  return { canvasRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, beam: bolt };
+  return { canvasRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, swipe, impact, beam: bolt };
 }
