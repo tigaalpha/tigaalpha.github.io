@@ -1486,6 +1486,17 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       <clipPath id={`${id}-c${Math.abs(hashPath(d))}`}><path d={d} /></clipPath>
     </g>
   );
+  /* A LIT seam: a channel with energy running through it. Three passes — a
+     wide dim bloom, the line itself, a white core — so it reads as light
+     inside the armour rather than a coloured pen stroke on top of it. This is
+     what separates a machine that is switched on from one that is painted. */
+  const vein = (d, w = 1.4, col = glow) => (
+    <g>
+      <path d={d} fill="none" stroke={col} strokeWidth={w * 4.5} strokeLinecap="round" opacity=".14" />
+      <path d={d} fill="none" stroke={col} strokeWidth={w * 1.8} strokeLinecap="round" opacity=".5" />
+      <path d={d} fill="none" stroke="#ffffff" strokeWidth={w * .6} strokeLinecap="round" opacity=".8" />
+    </g>
+  );
   // an engraved seam: a cut, and the lit edge below where it catches the key
   const groove = (d, w = 1, op = .55) => (
     <g opacity={op}>
@@ -2139,6 +2150,11 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {groove("M38 100 L50 98 M38 105 L50 103 M38 110 L50 108", .9, .4)}
                 {groove("M82 100 L70 98 M82 105 L70 103 M82 110 L70 108", .9, .4)}
                 {groove("M29 164 L91 164 M32 181 L88 181", 1.1, .45)}
+                {/* power routed from the core out to the shoulders and down
+                    the flanks — the chassis reads as wired, not moulded */}
+                {vein("M60 113 L60 96 M60 149 L60 172", 1.3)}
+                {vein("M46 122 L33 112 M74 122 L87 112", 1.1)}
+                {vein("M38 170 L38 186 M82 170 L82 186", 1)}
                 <g className="ca-core">
                   {/* the light this core throws onto the plates around it */}
                   <circle cx="60" cy="131" r="46" fill={`url(#${id}-${term ? "bloomR" : "bloom"})`} />

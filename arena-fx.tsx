@@ -326,7 +326,7 @@ export function useArenaFx(stage) {
          flash at the moment of contact, and dust is what a kick kicks up */
       swipes: [], stars: [], dust: [],
       // radial speed lines — the single cheapest thing that says "this hit hard"
-      lines: [],
+      lines: [], rays: [], pools: [],
       // where the two fighters actually are, as fractions of the stage width —
       // once they can walk, a bolt fired from a fixed 24% leaves from thin air
       pos: { me: 0.24, op: 0.76 }, air: { me: 0, op: 0 },
@@ -571,6 +571,44 @@ export function useArenaFx(stage) {
           sg.addColorStop(0, "#ffffff"); sg.addColorStop(0.45, k.c); sg.addColorStop(1, k.c + "00");
           ctx.fillStyle = sg; ctx.fill();
         }
+        ctx.restore();
+      }
+
+      // ── light shafts: long soft wedges thrown out from a big blast. What a
+      //    very bright thing does to the air (and to a lens) around it.
+      for (let i = S.rays.length - 1; i >= 0; i--) {
+        const r = S.rays[i]; r.p += dt / r.dur;
+        if (r.p >= 1) { S.rays.splice(i, 1); continue; }
+        const e = 1 - Math.pow(1 - r.p, 2), a2 = Math.pow(1 - r.p, 2.2) * 0.55;
+        ctx.save(); ctx.globalAlpha = a2;
+        for (let n = 0; n < r.n; n++) {
+          const ang = r.a0 + (n / r.n) * Math.PI * 2;
+          const len = r.r * (0.5 + 0.5 * Math.abs(Math.sin(n * 5.17 + r.seed))) * (0.4 + 0.6 * e);
+          const spread = 0.05 + 0.05 * Math.abs(Math.cos(n * 3.1 + r.seed));
+          const g = ctx.createLinearGradient(r.x, r.y, r.x + Math.cos(ang) * len, r.y + Math.sin(ang) * len);
+          g.addColorStop(0, r.c); g.addColorStop(1, r.c + "00");
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.moveTo(r.x, r.y);
+          ctx.lineTo(r.x + Math.cos(ang - spread) * len, r.y + Math.sin(ang - spread) * len);
+          ctx.lineTo(r.x + Math.cos(ang + spread) * len, r.y + Math.sin(ang + spread) * len);
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // ── the pool of light a blast throws onto the floor beneath it. Without
+      //    this an explosion floats; with it the arena is lit by the blast.
+      for (let i = S.pools.length - 1; i >= 0; i--) {
+        const q = S.pools[i]; q.p += dt / q.dur;
+        if (q.p >= 1) { S.pools.splice(i, 1); continue; }
+        const a2 = Math.pow(1 - q.p, 2) * 0.6, rr2 = q.r * (0.5 + q.p * 0.9);
+        ctx.save(); ctx.translate(q.x, S.h * 0.9); ctx.scale(1, 0.26);
+        const g = ctx.createRadialGradient(0, 0, 1, 0, 0, rr2);
+        g.addColorStop(0, `rgba(255,240,210,${a2})`);
+        g.addColorStop(0.5, q.c + Math.round(a2 * 160).toString(16).padStart(2, "0"));
+        g.addColorStop(1, q.c + "00");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rr2, 0, 7); ctx.fill();
         ctx.restore();
       }
 
@@ -902,6 +940,8 @@ export function useArenaFx(stage) {
     const S = stateRef.current; if (!S) return;
     const { x, y } = at(side, part);
     S.shock.push({ x, y, r0: 10, r1: 210 * power, p: 0, dur: 0.34 });
+    S.rays.push({ x, y, r: 260 * power, n: 9, a0: Math.random() * 6.28, seed: Math.random() * 100, p: 0, dur: 0.4, c: colour });
+    S.pools.push({ x, r: 120 * power, p: 0, dur: 0.5, c: colour });
     S.balls.push({ x, y, r: 26 * power, p: 0, dur: 0.22 });     // the hard core, gone first
     S.balls.push({ x, y, r: 62 * power, p: 0, dur: 0.5 });
     S.flares.push({ x, y, r: 168 * power, p: 0, dur: 0.36, c: colour });
@@ -981,6 +1021,8 @@ export function useArenaFx(stage) {
       seed: Math.random() * 100, p: 0, dur: 0.19, c: "#ffffff" });
     S.lines.push({ x, y, r: 130 * power, n: 14, a0: Math.random() * 6.28,
       seed: Math.random() * 100, p: 0, dur: 0.3, c: colour });
+    S.rays.push({ x, y, r: 150 * power, n: 6, a0: Math.random() * 6.28, seed: Math.random() * 100, p: 0, dur: 0.28, c: colour });
+    S.pools.push({ x, r: 70 * power, p: 0, dur: 0.34, c: colour });
     // two waves at two speeds: the crack, then the pressure behind it
     S.shock.push({ x, y, r0: 5, r1: 118 * power, p: 0, dur: 0.24 });
     S.shock.push({ x, y, r0: 5, r1: 186 * power, p: 0, dur: 0.42 });
