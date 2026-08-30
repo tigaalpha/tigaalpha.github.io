@@ -2466,6 +2466,8 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .sswin h3{font-family:'Orbitron',sans-serif;font-size:17px;margin:6px 0 10px;color:#eef3ff}
 .sswin p{font-family:'Rajdhani',sans-serif;font-style:italic;font-size:13.5px;line-height:1.6;color:#cad6ee;margin:0 0 16px}
 
+.ssallies{font-family:'Share Tech Mono',monospace;font-size:10px;color:#7fe0a0;background:#12351f;border:1px solid #24603a;border-radius:8px;padding:4px 9px;margin-bottom:10px;display:inline-block}
+
 `;
 
 export function useInjectCSS() {

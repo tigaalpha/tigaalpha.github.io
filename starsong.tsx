@@ -24,10 +24,18 @@
 import { memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { sb } from "./supabase-client";
 import { makeQuestion, spellMajor } from "./pvp-arena";
+import { playPianoNote, playBoom, playMiss, playWhoosh, haptic } from "./music-engine";
 
 const tr3 = (o, lang) => (o && (o[lang] || o.en)) || "";
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
+/** "#8fd0ff" → "143,208,255", so a palette colour can be used inside an
+    rgba() with a computed alpha for the additive light pass. */
+function hexRgb(h) {
+  const v = String(h).replace("#", "");
+  const n = parseInt(v.length === 3 ? v.split("").map(c => c + c).join("") : v.slice(0, 6), 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
 
 /* A cheap deterministic hash → every player generates byte-identical
    terrain from the same world id, which is what lets two people standing
@@ -357,6 +365,9 @@ export const maxHp = (s) => 60 + chassisLevel(s) * 14 + (s.stats.stability || 0)
    seeded off the world id — every player's copy is identical to the pixel.
    That is what makes standing next to someone mean anything. */
 export const TILE = 56;
+/* How close the camera sits. 1 is the raw world scale, which on a phone put
+   the figure at about 45px tall and made the whole thing read as a map. */
+export const ZOOM = 1.62;
 export const WORLD_R = 1500;   // half-extent in world units; the map is a disc
 
 function terrainAt(seed, wx, wy) {
@@ -400,7 +411,20 @@ export function buildWorld(w) {
     npcs[slot].quests.push(q.id);
   }
   const arena = place(a0 + Math.PI, 1080);
-  return { seed, town, npcs, arena };
+  /* Structures are world objects with a position, not decals: anything with
+     height has to sort against the player by Y or it will draw over him when
+     it is standing behind him. */
+  const towers = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.4;
+    towers.push({ x: town.x + Math.cos(a) * 86, y: town.y + Math.sin(a) * 86, h: 26 + (hash32("tw" + i + w.id) % 22) });
+  }
+  const pillars = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    pillars.push({ x: arena.x + Math.cos(a) * 96, y: arena.y + Math.sin(a) * 96, i });
+  }
+  return { seed, town, npcs, arena, towers, pillars };
 }
 
 /** Monsters are spawned on a seeded lattice so two players in the same
@@ -426,10 +450,10 @@ export function spawnMobs(w, geo, n = 34) {
 /* Collision samples the terrain function directly, so the RENDER grid is
    free to be finer than the movement grid — and it has to be. Painting the
    colour field in 56px blocks turns every contour between ground types into
-   a staircase of big rectangles; at 18px the same contours read as coastline
+   a staircase of big rectangles; at 12px the same contours read as coastline
    and the grid disappears. Scatter stays on the coarse grid so props do not
    multiply with the resolution. */
-const RTILE = 18;
+const RTILE = 12;
 
 function drawTerrain(g, W, geo, cam, vw, vh) {
   const x0 = Math.floor((cam.x - vw / 2) / RTILE) - 1, x1 = Math.ceil((cam.x + vw / 2) / RTILE) + 1;
@@ -445,8 +469,8 @@ function drawTerrain(g, W, geo, cam, vw, vh) {
       // grain: a continuous field, sampled wider than a cell, so neighbours
       // differ only slightly and no chequerboard appears
       const j = fbm(geo.seed ^ 0x51ed, tx * 0.13, ty * 0.13) - 0.5;
-      g.fillStyle = j > 0 ? `rgba(255,255,255,${(j * 0.17).toFixed(3)})`
-                          : `rgba(0,0,0,${(-j * 0.2).toFixed(3)})`;
+      g.fillStyle = j > 0 ? `rgba(255,255,255,${(j * 0.22).toFixed(3)})`
+                          : `rgba(0,0,0,${(-j * 0.28).toFixed(3)})`;
       g.fillRect(sx, sy, RTILE + 1, RTILE + 1);
       if (t === 3 && terrainAt(geo.seed, wx + RTILE / 2, wy - RTILE / 2) !== 3) {
         g.fillStyle = "rgba(255,255,255,.1)";      // ridges catch the key on their top lip only
@@ -460,11 +484,11 @@ function drawTerrain(g, W, geo, cam, vw, vh) {
   for (let ty = cy0; ty <= cy1; ty++) {
     for (let tx = cx0; tx <= cx1; tx++) {
       const r = (hash32(tx + ":" + ty + ":" + geo.seed) % 1000) / 1000;
-      if (r > 0.085 && r < 0.975) continue;
+      if (r > 0.115 && r < 0.968) continue;
       const wx = tx * TILE, wy = ty * TILE;
       if (terrainAt(geo.seed, wx + TILE / 2, wy + TILE / 2) !== 2) continue;
       const sx = wx - cam.x + vw / 2, sy = wy - cam.y + vh / 2;
-      if (r < 0.085) {
+      if (r < 0.115) {
         const ox = sx + ((hash32("a" + tx + ty) % 100) / 100) * TILE;
         const oy = sy + ((hash32("b" + tx + ty) % 100) / 100) * TILE;
         const rr = 3 + r * 55;
@@ -489,73 +513,149 @@ function drawTerrain(g, W, geo, cam, vw, vh) {
 }
 
 /** One robot, drawn from primitives. `hue` is the chassis tint, `t` drives
-    the walk cycle, `ghost` dims a remote player so you can always tell
-    which one of the two of you is yours. */
+    the walk cycle, `ghost` dims a remote player so you can always tell which
+    one of the two of you is yours.
+
+    Eight passes rather than three: a cast shadow that squashes as the figure
+    bobs, plated limbs with their own joint discs, a lit core, a rim light
+    down the left edge and a visor with a moving glint. The rim light is what
+    separates it from the ground on a dark planet — a silhouette with no lit
+    edge reads as a hole, however good the fill is. */
 function drawBot(g, x, y, s, hue, t, ghost, glow) {
   const bob = Math.sin(t * 7) * 1.6 * s;
   const stride = Math.sin(t * 7) * 4 * s;
+  const arm = Math.sin(t * 7 + Math.PI) * 3.4 * s;
   g.save();
   g.translate(x, y + bob);
-  g.globalAlpha = ghost ? 0.45 : 1;
-  // contact shadow first: without it the figure floats over the ground
-  g.globalAlpha *= ghost ? 0.5 : 1;
-  g.fillStyle = "rgba(0,0,0,.34)";
+  const A = ghost ? 0.45 : 1;
+
+  // contact shadow: tightens as the figure rises, which is what sells the bob
+  g.globalAlpha = A * 0.55 * (1 - Math.abs(bob) / (3 * s));
+  g.fillStyle = "#00040c";
   g.beginPath(); g.ellipse(0, 15 * s - bob, 11 * s, 4.2 * s, 0, 0, 6.284); g.fill();
-  g.globalAlpha = ghost ? 0.45 : 1;
-  // legs
-  g.fillStyle = "#38445e";
-  g.fillRect(-6.5 * s, 4 * s + stride * .3, 5 * s, 12 * s - stride * .3);
-  g.fillRect(1.5 * s, 4 * s - stride * .3, 5 * s, 12 * s + stride * .3);
-  // torso
-  const grd = g.createLinearGradient(-9 * s, -8 * s, 9 * s, 10 * s);
-  grd.addColorStop(0, "#e8eefc"); grd.addColorStop(0.45, hue); grd.addColorStop(1, "#1e2740");
+  g.globalAlpha = A;
+
+  const dark = "#212b42", mid = "#3b4a68";
+  const plate = (fx, fy, fw, fh, r) => { g.beginPath(); g.roundRect(fx, fy, fw, fh, r); g.fill(); };
+
+  // legs, with a knee disc each
+  g.fillStyle = dark;
+  plate(-6.8 * s, 3 * s + stride * .3, 5.4 * s, 13 * s - stride * .3, 2 * s);
+  plate(1.4 * s, 3 * s - stride * .3, 5.4 * s, 13 * s + stride * .3, 2 * s);
+  g.fillStyle = mid;
+  g.beginPath(); g.arc(-4.1 * s, 8 * s + stride * .15, 2.1 * s, 0, 6.284); g.fill();
+  g.beginPath(); g.arc(4.1 * s, 8 * s - stride * .15, 2.1 * s, 0, 6.284); g.fill();
+
+  // torso: a real gradient down the form, not a flat tint
+  const grd = g.createLinearGradient(-9 * s, -9 * s, 8 * s, 8 * s);
+  grd.addColorStop(0, "#f2f6ff"); grd.addColorStop(0.38, hue);
+  grd.addColorStop(0.78, mid); grd.addColorStop(1, "#141c2e");
   g.fillStyle = grd;
-  g.beginPath(); g.roundRect(-9 * s, -8 * s, 18 * s, 15 * s, 4 * s); g.fill();
-  // arms swing opposite the legs
-  g.fillStyle = "#4a5877";
-  g.fillRect(-13 * s, -5 * s - stride * .25, 4.5 * s, 12 * s);
-  g.fillRect(8.5 * s, -5 * s + stride * .25, 4.5 * s, 12 * s);
-  // the core: the one lit thing on the whole chassis
+  plate(-9 * s, -8 * s, 18 * s, 15 * s, 4 * s);
+  // chest seam
+  g.strokeStyle = "rgba(0,6,15,.4)"; g.lineWidth = 0.9 * s;
+  g.beginPath(); g.moveTo(-6 * s, -3.5 * s); g.lineTo(6 * s, -3.5 * s); g.stroke();
+
+  // arms swing opposite the legs, each on a shoulder disc
+  g.fillStyle = mid;
+  plate(-13.4 * s, -5 * s + arm * .3, 4.6 * s, 12 * s, 2 * s);
+  plate(8.8 * s, -5 * s - arm * .3, 4.6 * s, 12 * s, 2 * s);
+  g.fillStyle = "#4e5e80";
+  g.beginPath(); g.arc(-11.1 * s, -5 * s + arm * .3, 2.5 * s, 0, 6.284); g.fill();
+  g.beginPath(); g.arc(11.1 * s, -5 * s - arm * .3, 2.5 * s, 0, 6.284); g.fill();
+
+  // the core, three passes: bloom, iris, hot centre
+  g.globalAlpha = A * 0.55;
   g.fillStyle = glow;
-  g.globalAlpha *= 0.9;
-  g.beginPath(); g.arc(0, -1 * s, 3.4 * s, 0, 6.284); g.fill();
-  g.globalAlpha = ghost ? 0.45 : 1;
-  g.fillStyle = "#fff";
+  g.beginPath(); g.arc(0, -1 * s, 6.4 * s, 0, 6.284); g.fill();
+  g.globalAlpha = A;
+  g.fillStyle = glow;
+  g.beginPath(); g.arc(0, -1 * s, 3.3 * s, 0, 6.284); g.fill();
+  g.fillStyle = "#ffffff";
   g.beginPath(); g.arc(0, -1 * s, 1.5 * s, 0, 6.284); g.fill();
-  // head + visor
-  g.fillStyle = "#dbe4f6";
-  g.beginPath(); g.roundRect(-6.5 * s, -20 * s, 13 * s, 12 * s, 4 * s); g.fill();
-  g.fillStyle = "#0d1424";
-  g.beginPath(); g.roundRect(-5 * s, -17 * s, 10 * s, 4.5 * s, 2 * s); g.fill();
+
+  // head, visor, and a glint that travels across it
+  const hg = g.createLinearGradient(-6.5 * s, -20 * s, 5 * s, -8 * s);
+  hg.addColorStop(0, "#f6f9ff"); hg.addColorStop(0.6, "#c3cfe6"); hg.addColorStop(1, "#6d7c99");
+  g.fillStyle = hg;
+  plate(-6.5 * s, -20 * s, 13 * s, 12 * s, 4 * s);
+  g.fillStyle = "#0a1120";
+  plate(-5.2 * s, -17.2 * s, 10.4 * s, 5 * s, 2 * s);
   g.fillStyle = glow;
-  g.beginPath(); g.roundRect(-4 * s, -16.2 * s, 8 * s, 2.6 * s, 1.3 * s); g.fill();
+  plate(-4.2 * s, -16.4 * s, 8.4 * s, 2.8 * s, 1.4 * s);
+  g.globalAlpha = A * 0.8;
+  g.fillStyle = "#ffffff";
+  const gx = -4.2 * s + ((t * 40) % 12) * s;
+  plate(gx, -16.4 * s, 1.6 * s, 2.8 * s, 0.8 * s);
+  g.globalAlpha = A;
+
+  /* rim light down the lit side — the pass that lifts the figure off a dark
+     planet. Clipped to nothing, just drawn as thin strokes on the left edge. */
+  g.strokeStyle = "rgba(226,238,255,.55)"; g.lineWidth = 1.1 * s;
+  g.beginPath();
+  g.moveTo(-9 * s, 5 * s); g.lineTo(-9 * s, -5 * s);
+  g.moveTo(-6.5 * s, -9.5 * s); g.lineTo(-6.5 * s, -17 * s);
+  g.stroke();
   g.restore();
 }
 
-/** Monsters: same primitive vocabulary, hostile silhouette — wider, lower,
-    and with a single eye rather than a visor band. */
+/** Monsters: the same vocabulary, hostile silhouette — wider, lower, a single
+    eye instead of a visor band, and a shell that cracks with light when hit. */
 function drawMob(g, x, y, s, col, t, hurt) {
   const bob = Math.sin(t * 4) * 2.4 * s;
+  const spin = t * 1.6;
   g.save();
   g.translate(x, y + bob);
-  g.fillStyle = "rgba(0,0,0,.34)";
+  g.fillStyle = "rgba(0,4,12,.42)";
   g.beginPath(); g.ellipse(0, 14 * s - bob, 13 * s, 4.6 * s, 0, 0, 6.284); g.fill();
-  if (hurt) { g.shadowColor = "#fff"; g.shadowBlur = 18; }
-  const grd = g.createLinearGradient(-12 * s, -12 * s, 12 * s, 12 * s);
-  grd.addColorStop(0, hurt ? "#ffffff" : "#cfd8ea"); grd.addColorStop(0.5, hurt ? "#ffd8d8" : col); grd.addColorStop(1, "#161d30");
+
+  // legs first, under the shell
+  g.fillStyle = "#232b3e";
+  g.beginPath(); g.roundRect(-7.5 * s, 8 * s, 4.4 * s, 8 * s, 1.6 * s); g.fill();
+  g.beginPath(); g.roundRect(3.1 * s, 8 * s, 4.4 * s, 8 * s, 1.6 * s); g.fill();
+
+  if (hurt) { g.shadowColor = "#ffffff"; g.shadowBlur = 22; }
+  const grd = g.createLinearGradient(-12 * s, -14 * s, 10 * s, 12 * s);
+  grd.addColorStop(0, hurt ? "#ffffff" : "#dbe4f4");
+  grd.addColorStop(0.42, hurt ? "#ffd0d0" : col);
+  grd.addColorStop(1, "#10162a");
   g.fillStyle = grd;
   g.beginPath();
-  g.moveTo(0, -15 * s); g.lineTo(12 * s, -3 * s); g.lineTo(9 * s, 12 * s);
+  g.moveTo(0, -16 * s); g.lineTo(12 * s, -3 * s); g.lineTo(9 * s, 12 * s);
   g.lineTo(-9 * s, 12 * s); g.lineTo(-12 * s, -3 * s); g.closePath(); g.fill();
   g.shadowBlur = 0;
-  // legs under the shell
-  g.fillStyle = "#2b3348";
-  g.fillRect(-7 * s, 10 * s, 4 * s, 6 * s); g.fillRect(3 * s, 10 * s, 4 * s, 6 * s);
-  // the eye
-  g.fillStyle = "#0c1120";
-  g.beginPath(); g.arc(0, -2 * s, 5 * s, 0, 6.284); g.fill();
+
+  // plate seams across the shell
+  g.strokeStyle = "rgba(0,6,15,.34)"; g.lineWidth = 0.9 * s;
+  g.beginPath();
+  g.moveTo(-10.6 * s, 1 * s); g.lineTo(10.6 * s, 1 * s);
+  g.moveTo(-9.7 * s, 6.5 * s); g.lineTo(9.7 * s, 6.5 * s);
+  g.stroke();
+
+  // a lit ring that turns, so a standing monster is never a static shape
+  g.save();
+  g.translate(0, -2 * s); g.rotate(spin);
+  g.strokeStyle = hurt ? "#ffffff" : "#ff6a6a"; g.lineWidth = 1.2 * s;
+  g.globalAlpha = 0.6;
+  g.beginPath(); g.arc(0, 0, 7.4 * s, 0.4, 2.2); g.stroke();
+  g.beginPath(); g.arc(0, 0, 7.4 * s, 3.6, 5.4); g.stroke();
+  g.restore();
+  g.globalAlpha = 1;
+
+  // the eye: socket, bloom, iris, catchlight
+  g.fillStyle = "#080d1a";
+  g.beginPath(); g.arc(0, -2 * s, 5.2 * s, 0, 6.284); g.fill();
+  g.globalAlpha = 0.6;
   g.fillStyle = hurt ? "#ffffff" : "#ff5a5a";
-  g.beginPath(); g.arc(0, -2 * s, 2.6 * s, 0, 6.284); g.fill();
+  g.beginPath(); g.arc(0, -2 * s, 4.4 * s, 0, 6.284); g.fill();
+  g.globalAlpha = 1;
+  g.fillStyle = hurt ? "#ffffff" : "#ff8a8a";
+  g.beginPath(); g.arc(0, -2 * s, 2.5 * s, 0, 6.284); g.fill();
+  g.fillStyle = "#ffffff";
+  g.beginPath(); g.arc(-0.9 * s, -3 * s, 0.9 * s, 0, 6.284); g.fill();
+
+  g.strokeStyle = "rgba(226,238,255,.42)"; g.lineWidth = 1 * s;
+  g.beginPath(); g.moveTo(-12 * s, -3 * s); g.lineTo(0, -16 * s); g.stroke();
   g.restore();
 }
 
@@ -697,6 +797,13 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const camRef = useRef({ x: 0, y: 0 });
   const fightRef = useRef(null);
   const hitFlashRef = useRef(0);
+  const popsRef = useRef([]);          // floating damage numbers
+  /** Push a number over a world position. Purely feedback — it reads nothing
+      and changes nothing, which is exactly what it should be. */
+  const pop = useCallback((x, y, txt, c, big) => {
+    popsRef.current.push({ x, y, txt, c, big, life: big ? 1.1 : 0.85, max: big ? 1.1 : 0.85 });
+    if (popsRef.current.length > 24) popsRef.current.shift();
+  }, []);
 
   const coop = useCoop(W.id, playerName, screen === "world");
 
@@ -710,6 +817,26 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   }, [W.id, geo]);
 
   useEffect(() => { fightRef.current = fight; }, [fight]);
+
+  /* ── the world boss is genuinely shared ──
+     Damage was already being broadcast, but nothing on the receiving end
+     applied it — so "everyone is fighting the same boss" was a claim the
+     code did not actually make true. Anyone in the ring now sees the bar
+     move when someone else lands a hit, and whoever takes it to zero ends
+     the fight for themselves; the rest see it drop and get the kill too. */
+  useEffect(() => {
+    coop.onBoss.current = ({ id, dmg, by }) => {
+      if (by === playerName) return;                 // our own shout, echoed back
+      const f = fightRef.current;
+      if (!f || f.kind !== "boss" || id !== W.boss.id) return;
+      const nhp = Math.max(0, f.hp - (Number(dmg) || 0));
+      pop(geo.arena.x + (Math.random() * 40 - 20), geo.arena.y - 26, "-" + Math.round(dmg), "#8fd0ff", false);
+      if (nhp <= 0) { winFight(f); return; }
+      setFight({ ...f, hp: nhp, allies: (f.allies || 0) + 1 });
+    };
+    return () => { coop.onBoss.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coop.onBoss, W.boss.id, playerName, geo]);
 
   const say = useCallback((text, ms = 2200) => {
     setToast(text);
@@ -757,11 +884,16 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       raf = requestAnimationFrame(step);
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
-      const vw = cv.clientWidth, vh = cv.clientHeight;
-      if (cv.width !== Math.round(vw * dpr) || cv.height !== Math.round(vh * dpr)) {
-        cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr);
+      const cw = cv.clientWidth, chh = cv.clientHeight;
+      if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(chh * dpr)) {
+        cv.width = Math.round(cw * dpr); cv.height = Math.round(chh * dpr);
       }
-      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      /* Camera zoom. Scaling the context rather than every draw call means
+         terrain, entities, lights and decals all zoom together and stay in
+         register; drawn at 1:1 the figure was a speck on a phone and the
+         world read as a map rather than a place you are standing in. */
+      g.setTransform(dpr * ZOOM, 0, 0, dpr * ZOOM, 0, 0);
+      const vw = cv.clientWidth / ZOOM, vh = cv.clientHeight / ZOOM;
 
       const busy = !!(fightRef.current || ctrl || talk || task);
       const me = meRef.current;
@@ -802,65 +934,177 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         }
       }
 
-      // ── paint ──
+      /* ── paint ──────────────────────────────────────────────────────
+         Layered like a real frame rather than drawn in whatever order the
+         entities happen to sit in an array:
+
+           sky + parallax  →  terrain  →  ground decals  →  entities SORTED
+           BY DEPTH  →  additive light pass  →  fog + vignette  →  motes
+
+         The depth sort is the one that stops it looking like a flash game:
+         without it a monster standing in front of you renders behind you,
+         and no amount of shading fixes that. The light pass is additive, so
+         it can only ever brighten — which is why it reads as light rather
+         than as a coloured film laid over the picture. */
+      const tsec = now / 1000;
+      /* Text lives in the zoomed space too, so a 11px label would render at
+         11 × ZOOM. Everything measured in screen pixels — type, hairlines,
+         the compass arrow — divides back out. */
+      const px = (n) => (n / ZOOM);
+      const fs = (n) => px(n).toFixed(1);
       const sky = g.createLinearGradient(0, 0, 0, vh);
       sky.addColorStop(0, W.sky[0]); sky.addColorStop(0.5, W.sky[1]); sky.addColorStop(1, W.sky[2]);
       g.fillStyle = sky; g.fillRect(0, 0, vw, vh);
+
+      // parallax starfield: drifts at a fraction of the camera, which is what
+      // makes the void beyond the map read as distance rather than as a hole
+      g.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 90; i++) {
+        const h1 = hash32("st" + i + W.id);
+        const rx = ((h1 % 2000) - cam.x * 0.12) % (vw + 40);
+        const ry = (((h1 >> 11) % 2000) - cam.y * 0.12) % (vh + 40);
+        const sxp = rx < 0 ? rx + vw + 40 : rx, syp = ry < 0 ? ry + vh + 40 : ry;
+        const tw = 0.35 + 0.65 * Math.abs(Math.sin(tsec * 0.7 + i));
+        g.fillStyle = `rgba(255,255,255,${(0.05 + (i % 5) * 0.03) * tw})`;
+        const ss = px((i % 7 === 0) ? 2.2 : 1.3); g.fillRect(sxp - 20, syp - 20, ss, ss);
+      }
+      g.globalCompositeOperation = "source-over";
+
       drawTerrain(g, W, geo, cam, vw, vh);
       const sxOf = (wx) => wx - cam.x + vw / 2, syOf = (wy) => wy - cam.y + vh / 2;
 
-      // town ring
-      g.strokeStyle = W.accent + "66"; g.lineWidth = 3;
-      g.beginPath(); g.arc(sxOf(geo.town.x), syOf(geo.town.y), 120, 0, 6.284); g.stroke();
-      g.fillStyle = W.accent + "14";
-      g.beginPath(); g.arc(sxOf(geo.town.x), syOf(geo.town.y), 120, 0, 6.284); g.fill();
+      /* ── ground decals: only what is genuinely flat on the floor ──
+         The towers and monoliths that used to live here now sort with the
+         entities, because anything with height has to. */
+      const townS = { x: sxOf(geo.town.x), y: syOf(geo.town.y) };
+      g.fillStyle = W.accent + "10";
+      g.beginPath(); g.arc(townS.x, townS.y, 108, 0, 6.284); g.fill();
+      g.strokeStyle = W.accent + "4a"; g.lineWidth = px(2);
+      g.beginPath(); g.arc(townS.x, townS.y, 108, 0, 6.284); g.stroke();
+      g.strokeStyle = W.accent + "33"; g.lineWidth = px(1.4);
+      for (let i = 1; i <= 3; i++) { g.beginPath(); g.arc(townS.x, townS.y, i * 22, 0, 6.284); g.stroke(); }
 
-      // boss arena
       const bossDone = !!saveRef.current.bosses[W.boss.id];
-      g.strokeStyle = bossDone ? "#7fe0a0aa" : "#ff5a5aaa"; g.lineWidth = 4;
-      g.setLineDash([12, 9]);
-      g.beginPath(); g.arc(sxOf(geo.arena.x), syOf(geo.arena.y), 96, 0, 6.284); g.stroke();
-      g.setLineDash([]);
+      const arenaS = { x: sxOf(geo.arena.x), y: syOf(geo.arena.y) };
+      g.strokeStyle = bossDone ? "#7fe0a0aa" : "#ff5a5aaa"; g.lineWidth = px(4);
+      g.setLineDash([px(12), px(9)]); g.lineDashOffset = -tsec * 22;   // a live ring reads as a threshold
+      g.beginPath(); g.arc(arenaS.x, arenaS.y, 96, 0, 6.284); g.stroke();
+      g.setLineDash([]); g.lineDashOffset = 0;
       g.fillStyle = bossDone ? "#7fe0a018" : "#ff5a5a1c";
-      g.beginPath(); g.arc(sxOf(geo.arena.x), syOf(geo.arena.y), 96, 0, 6.284); g.fill();
-      g.font = "700 13px Rajdhani, sans-serif"; g.textAlign = "center";
+      g.beginPath(); g.arc(arenaS.x, arenaS.y, 96, 0, 6.284); g.fill();
+      g.font = `700 ${fs(13)}px Rajdhani, sans-serif`; g.textAlign = "center";
       g.fillStyle = bossDone ? "#a8f0c0" : "#ffb0b0";
-      g.fillText(bossDone ? "✓ " + tr3(W.boss.name, lang) : "☠ " + tr3(W.boss.name, lang), sxOf(geo.arena.x), syOf(geo.arena.y) - 106);
+      g.fillText((bossDone ? "✓ " : "☠ ") + tr3(W.boss.name, lang), arenaS.x, arenaS.y - 106);
 
-      // NPCs
-      for (const n of geo.npcs) {
-        if (!n) continue;
-        const nx = sxOf(n.x), ny = syOf(n.y);
-        if (nx < -60 || nx > vw + 60 || ny < -80 || ny > vh + 80) continue;
-        drawBot(g, nx, ny, 1.05, "#c9d6ee", 0, false, "#ffd77a");
-        const hasWork = n.quests.some(qid => !(saveRef.current.quests[qid] || {}).done);
-        if (hasWork) {
-          g.fillStyle = "#ffd24d"; g.font = "900 20px Rajdhani, sans-serif";
-          g.fillText("!", nx, ny - 30 + Math.sin(now / 260) * 3);
+      /* ── entities, back to front ──
+         One list, sorted on world Y, so everything overlaps the way the
+         ground says it should. */
+      const ents = [];
+      for (const n of geo.npcs) if (n) ents.push({ y: n.y, k: "npc", o: n });
+      for (const pr of coop.peers) ents.push({ y: pr.y || 0, k: "peer", o: pr });
+      for (const m of mobsRef.current) if (!m.dead) ents.push({ y: m.y, k: "mob", o: m });
+      for (const tw of geo.towers) ents.push({ y: tw.y, k: "tower", o: tw });
+      for (const pl of geo.pillars) ents.push({ y: pl.y, k: "pillar", o: pl });
+      ents.push({ y: me.y, k: "me", o: me });
+      ents.sort((a, b) => a.y - b.y);
+
+      /* ── ground light, BEFORE the figures ──
+         A lamp lights the floor around it; it does not wash itself out. Burning
+         the additive pass in after the entities did exactly that — the player's
+         own core bloom was the brightest thing on its own chassis and you could
+         not read the model at all. Lighting the ground first and leaving only
+         the small emissive parts on the figures themselves is both the correct
+         order and the one that looks like light. */
+      g.globalCompositeOperation = "lighter";
+      for (const e of ents) {
+        const ex = sxOf(e.o.x), ey = syOf(e.o.y);
+        if (ex < -160 || ex > vw + 160 || ey < -160 || ey > vh + 160) continue;
+        const [lr, rgb, a] =
+          e.k === "me"     ? [138, hexRgb(W.glow), 0.30] :
+          e.k === "npc"    ? [58, "255,215,122", 0.20] :
+          e.k === "mob"    ? [40, "255,90,90", 0.18] :
+          e.k === "tower"  ? [54, hexRgb(W.glow), 0.14] :
+          e.k === "pillar" ? [40, bossDone ? "127,224,160" : "255,106,106", 0.14] :
+                             [50, hexRgb(W.glow), 0.12];
+        const rg = g.createRadialGradient(ex, ey + 6, 0, ex, ey + 6, lr);
+        rg.addColorStop(0, `rgba(${rgb},${a})`);
+        rg.addColorStop(0.5, `rgba(${rgb},${a * 0.3})`);
+        rg.addColorStop(1, `rgba(${rgb},0)`);
+        g.fillStyle = rg;
+        g.fillRect(ex - lr, ey + 6 - lr, lr * 2, lr * 2);
+      }
+      g.globalCompositeOperation = "source-over";
+
+      for (const e of ents) {
+        const ex = sxOf(e.o.x), ey = syOf(e.o.y);
+        if (ex < -70 || ex > vw + 70 || ey < -90 || ey > vh + 90) continue;
+        if (e.k === "npc") {
+          drawBot(g, ex, ey, 1.05, "#c9d6ee", 0, false, "#ffd77a");
+          const hasWork = e.o.quests.some(qid => !(saveRef.current.quests[qid] || {}).done);
+          if (hasWork) {
+            g.fillStyle = "#ffd24d"; g.font = `900 ${fs(20)}px Rajdhani, sans-serif`; g.textAlign = "center";
+            g.fillText("!", ex, ey - 30 + Math.sin(tsec * 4) * 3);
+          }
+          g.fillStyle = "#e8eefc"; g.font = `600 ${fs(11)}px Rajdhani, sans-serif`; g.textAlign = "center";
+          g.fillText(tr3(e.o.name, lang), ex, ey + 30);
+        } else if (e.k === "peer") {
+          drawBot(g, ex, ey, 1, "#9fb6de", (e.o.t || 0), true, W.glow);
+          g.fillStyle = "#cddaf2cc"; g.font = `600 ${fs(10.5)}px Rajdhani, sans-serif`; g.textAlign = "center";
+          g.fillText(String(e.o.name || "?").slice(0, 14), ex, ey + 30);
+        } else if (e.k === "mob") {
+          const hurt = e.o.flash && now - e.o.flash < 140;
+          drawMob(g, ex, ey, 1, W.accent, e.o.t + tsec, hurt);
+        } else if (e.k === "tower") {
+          const h = e.o.h;
+          g.fillStyle = "rgba(0,4,12,.4)";
+          g.beginPath(); g.ellipse(ex, ey + 3, 13, 5, 0, 0, 6.284); g.fill();
+          const tg = g.createLinearGradient(ex - 11, ey - h, ex + 11, ey);
+          tg.addColorStop(0, "#e6edfa"); tg.addColorStop(0.4, "#71809f"); tg.addColorStop(1, "#1b2438");
+          g.fillStyle = tg;
+          g.beginPath(); g.roundRect(ex - 11, ey - h, 22, h, 3); g.fill();
+          g.fillStyle = W.glow + "55";
+          g.fillRect(ex - 7, ey - h * 0.7, 14, 3);
+          g.fillRect(ex - 7, ey - h * 0.4, 14, 3);
+          g.fillStyle = W.glow;
+          g.beginPath(); g.arc(ex, ey - h - 3, 2.6, 0, 6.284); g.fill();
+        } else if (e.k === "pillar") {
+          g.fillStyle = "rgba(0,4,12,.42)";
+          g.beginPath(); g.ellipse(ex, ey + 2, 9, 4, 0, 0, 6.284); g.fill();
+          const mg = g.createLinearGradient(ex - 7, ey - 34, ex + 7, ey);
+          mg.addColorStop(0, bossDone ? "#cfeedd" : "#f0d6d6");
+          mg.addColorStop(0.5, bossDone ? "#5d8f75" : "#8f5d5d");
+          mg.addColorStop(1, "#191f2e");
+          g.fillStyle = mg;
+          g.beginPath(); g.moveTo(ex - 7, ey); g.lineTo(ex - 5, ey - 34); g.lineTo(ex + 5, ey - 34); g.lineTo(ex + 7, ey); g.closePath(); g.fill();
+          g.fillStyle = bossDone ? "#7fe0a0" : "#ff6a6a";
+          g.globalAlpha = 0.45 + 0.4 * Math.abs(Math.sin(tsec * 1.6 + e.o.i * 0.7));
+          g.beginPath(); g.arc(ex, ey - 30, 2.4, 0, 6.284); g.fill();
+          g.globalAlpha = 1;
+        } else {
+          drawBot(g, ex, ey, 1.15, W.accent, me.t, false, W.glow);
         }
-        g.fillStyle = "#e8eefc"; g.font = "600 11px Rajdhani, sans-serif";
-        g.fillText(tr3(n.name, lang), nx, ny + 30);
       }
 
-      // other players
-      for (const p of coop.peers) {
-        const px = sxOf(p.x), py = syOf(p.y);
-        if (px < -60 || px > vw + 60 || py < -80 || py > vh + 80) continue;
-        drawBot(g, px, py, 1, "#9fb6de", (p.t || 0), true, W.glow);
-        g.fillStyle = "#cddaf2cc"; g.font = "600 10.5px Rajdhani, sans-serif"; g.textAlign = "center";
-        g.fillText(String(p.name || "?").slice(0, 14), px, py + 30);
-      }
+      /* ── atmosphere ──
+         A vignette and a low fog. Both are cheap and both do the same job:
+         they push the edges of the frame back so the middle reads as near. */
+      const vg = g.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.32, vw / 2, vh / 2, Math.max(vw, vh) * 0.78);
+      vg.addColorStop(0, "rgba(0,0,0,0)");
+      vg.addColorStop(1, "rgba(4,7,16,.55)");
+      g.fillStyle = vg; g.fillRect(0, 0, vw, vh);
 
-      // mobs
-      for (const m of mobsRef.current) {
-        if (m.dead) continue;
-        const mx = sxOf(m.x), my = syOf(m.y);
-        if (mx < -60 || mx > vw + 60 || my < -80 || my > vh + 80) continue;
-        drawMob(g, mx, my, 1, W.accent, m.t + now / 700, false);
+      // drifting motes, lit by the world's own glow
+      g.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 26; i++) {
+        const h1 = hash32("mo" + i + W.id);
+        const sp = 6 + (h1 % 14);
+        const mx = ((h1 % 1600) - cam.x * 0.55 + tsec * sp) % (vw + 60);
+        const my = (((h1 >> 9) % 1600) - cam.y * 0.55 + Math.sin(tsec * 0.5 + i) * 26) % (vh + 60);
+        const fx = mx < 0 ? mx + vw + 60 : mx, fy = my < 0 ? my + vh + 60 : my;
+        g.fillStyle = W.glow + "22";
+        g.beginPath(); g.arc(fx - 30, fy - 30, px(1.6 + (i % 3)), 0, 6.284); g.fill();
       }
-
-      // me, on top of everything
-      drawBot(g, sxOf(me.x), syOf(me.y), 1.15, W.accent, me.t, false, W.glow);
+      g.globalCompositeOperation = "source-over";
 
       // damage flash
       if (hitFlashRef.current > 0) {
@@ -869,22 +1113,38 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         g.fillRect(0, 0, vw, vh);
       }
 
+      // floating damage numbers — the cheapest possible read on "that landed"
+      for (let i = popsRef.current.length - 1; i >= 0; i--) {
+        const q = popsRef.current[i];
+        q.life -= dt;
+        if (q.life <= 0) { popsRef.current.splice(i, 1); continue; }
+        const k = 1 - q.life / q.max;
+        g.globalAlpha = Math.min(1, q.life * 2.2);
+        g.font = `900 ${fs(q.big ? 22 : 17)}px Orbitron, sans-serif`; g.textAlign = "center";
+        g.fillStyle = "#00060f";
+        g.fillText(q.txt, sxOf(q.x) + 1, syOf(q.y) - k * 42 + 1);
+        g.fillStyle = q.c;
+        g.fillText(q.txt, sxOf(q.x), syOf(q.y) - k * 42);
+        g.globalAlpha = 1;
+      }
+
       // the compass edge marker: without it a big empty map is just lost
       const target = activeQuestTarget();
       if (target) {
         const dx = target.x - me.x, dy = target.y - me.y, dd = Math.hypot(dx, dy);
         if (dd > 260) {
-          const a = Math.atan2(dy, dx), rr = Math.min(vw, vh) * 0.33;
-          const px = vw / 2 + Math.cos(a) * rr, py = vh / 2 + Math.sin(a) * rr;
-          g.save(); g.translate(px, py); g.rotate(a);
+          const a = Math.atan2(dy, dx), rr = Math.min(vw, vh) * 0.36;
+          const ax0 = vw / 2 + Math.cos(a) * rr, ay0 = vh / 2 + Math.sin(a) * rr;
+          g.save(); g.translate(ax0, ay0); g.rotate(a);
+          g.shadowColor = target.c; g.shadowBlur = 12;
           g.fillStyle = target.c;
-          g.beginPath(); g.moveTo(13, 0); g.lineTo(-8, 8); g.lineTo(-8, -8); g.closePath(); g.fill();
+          g.beginPath(); g.moveTo(px(13), 0); g.lineTo(px(-8), px(8)); g.lineTo(px(-8), px(-8)); g.closePath(); g.fill();
           g.restore();
-          g.fillStyle = target.c; g.font = "700 10px 'Share Tech Mono', monospace"; g.textAlign = "center";
-          g.fillText(Math.round(dd) + "m", px, py + 22);
+          g.shadowBlur = 0;
+          g.fillStyle = target.c; g.font = `700 ${fs(10)}px 'Share Tech Mono', monospace`; g.textAlign = "center";
+          g.fillText(Math.round(dd) + "m", ax0, ay0 + px(22));
         }
       }
-
       coop.report(me.x, me.y, me.t, chassisLevel(saveRef.current));
       hudT += dt;
       if (hudT > 0.25) { hudT = 0; setTick(t => (t + 1) % 1000000); }
@@ -949,17 +1209,25 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     commit({ ...s, answers: s.answers + 1, right: s.right + (right ? 1 : 0) });
 
     if (right) {
-      playUi("ok");
+      const crit = f.streak >= 3;
+      playBoom(crit); haptic(crit ? 22 : 10);
       const dmg = playerHit(saveRef.current, f.streak) * (f.kind === "boss" ? 1 : 1.4);
       const nhp = Math.max(0, f.hp - dmg);
+      // the number lands on the thing that was hit, out in the world
+      const m = mobsRef.current.find(x => x.id === f.mobId);
+      const tx = f.kind === "boss" ? geo.arena.x : (m ? m.x : meRef.current.x);
+      const ty = f.kind === "boss" ? geo.arena.y : (m ? m.y : meRef.current.y);
+      if (m) m.flash = performance.now();
+      pop(tx, ty - 18, "-" + Math.round(dmg), crit ? "#ffd24d" : "#ffffff", crit);
       if (f.kind === "boss") coop.shout({ id: W.boss.id, dmg: Math.round(dmg), by: playerName });
       if (nhp <= 0) return winFight(f);
       setFight({ ...f, hp: nhp, streak: f.streak + 1, wrongRun: 0, q: makeQuestion(lang), flash: Date.now() });
       return;
     }
 
-    playUi("err");
+    playMiss(); haptic(30);
     const dmg = mobHit(saveRef.current, f.kind === "boss");
+    pop(meRef.current.x, meRef.current.y - 20, "-" + dmg, "#ff6a6a", false);
     hitFlashRef.current = 1;
     const nh = Math.max(0, hp - dmg);
     setHp(nh);
@@ -986,7 +1254,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       return;
     }
     const m = mobsRef.current.find(x => x.id === f.mobId);
-    if (m) { m.dead = 9; }
+    if (m) { m.dead = 9; pop(m.x, m.y - 24, "◆", W.glow, true); }
+    playWhoosh();
     commit({ ...saveRef.current, kills: saveRef.current.kills + 1 });
     const q = (QUESTS[s.world] || []).find(x => x.kind === "slay" && !(s.quests[x.id] || {}).done);
     if (q) { bumpQuest(q.id, 1); }
@@ -1009,8 +1278,11 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     if (!ctrl) return;
     const seq = controlPhrase(ctrl.n || 0);
     const want = seq[ctrl.step];
-    if (k !== want) { playUi("err"); setCtrl({ ...ctrl, bad: k }); window.setTimeout(() => setCtrl(c => (c ? { ...c, bad: null } : c)), 260); return; }
-    playUi("note");
+    // the key sounds whatever happens — you have to HEAR the wrong note to
+    // learn anything from playing it
+    playPianoNote(k + "4", 0.6, k === want ? 1 : 0.55);
+    if (k !== want) { playMiss(); haptic(18); setCtrl({ ...ctrl, bad: k }); window.setTimeout(() => setCtrl(c => (c ? { ...c, bad: null } : c)), 260); return; }
+    haptic(6);
     const step = ctrl.step + 1;
     if (step < seq.length) { setCtrl({ ...ctrl, step, bad: null }); return; }
     setCtrl(null);
@@ -1028,8 +1300,9 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   function taskKey(k) {
     if (!task) return;
     const want = task.quest.seq[task.step];
-    if (k !== want) { playUi("err"); setTask({ ...task, bad: k }); window.setTimeout(() => setTask(t => (t ? { ...t, bad: null } : t)), 260); return; }
-    playUi("note");
+    playPianoNote(k + "4", 0.6, k === want ? 1 : 0.55);
+    if (k !== want) { playMiss(); haptic(18); setTask({ ...task, bad: k }); window.setTimeout(() => setTask(t => (t ? { ...t, bad: null } : t)), 260); return; }
+    haptic(6);
     const step = task.step + 1;
     if (step < task.quest.seq.length) { setTask({ ...task, step, bad: null }); return; }
     const s = saveRef.current;
@@ -1106,13 +1379,13 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     const s = saveRef.current;
     commit({ ...s, answers: s.answers + 1, right: s.right + (right ? 1 : 0) });
     if (!right) {
-      playUi("err");
+      playMiss(); haptic(24);
       const wrongRun = f.wrongRun + 1;
       if (wrongRun >= 2) { setFight({ ...f, wrongRun: 0, q: makeQuestion(lang), destab: (f.destab || 0) + 1 }); setCtrl({ step: 0, bad: null, n: f.destab || 0 }); return; }
       setFight({ ...f, wrongRun, streak: 0, q: makeQuestion(lang) });
       return;
     }
-    playUi("ok");
+    playBoom(false); haptic(10);
     // banked one answer at a time rather than only at the end, so closing the
     // app mid-run costs nothing that was already earned
     const got = f.got + 1;
@@ -1383,6 +1656,9 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
                   <i style={{ width: (f.kind === "quiz" ? (f.got / f.need) : (f.hp / f.max)) * 100 + "%" }} />
                 </div>
                 {f.kind === "boss" && f.line && <p className="ssboss-line">{f.line}</p>}
+                {f.kind === "boss" && coop.peers.length > 1 && (
+                  <div className="ssallies">◉ {T("อีก", "with", "还有")} {coop.peers.length - 1} {T("คนกำลังสู้ตัวนี้อยู่", "others in this ring", "人同在此环中")}</div>
+                )}
                 {f.streak > 1 && <div className="ssstreak">×{f.streak} {T("ต่อเนื่อง", "streak", "连击")}</div>}
                 <div className="ssq">{f.q.q}</div>
                 <div className="ssopts">
