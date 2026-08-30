@@ -484,7 +484,13 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         </linearGradient>
       </defs>
 
+      {/* the light the creature itself gives off — faint as a hatchling, a real
+          aura once it is grown. Behind everything, so it reads as glow. */}
+      <ellipse cx={cx} cy={by - bh * .1} rx={bw * 1.5} ry={(hr + bh) * 1.15}
+        fill={`url(#${uid}-glow)`} opacity={0.1 + g * 0.22} />
       <ellipse cx={cx} cy={GROUND + 1} rx={bw * .78} ry="5.4" fill="#0b1526" opacity={sp.build === "float" ? .12 : .18} />
+      {/* a warm pool of its own colour on the floor underneath it */}
+      <ellipse cx={cx} cy={GROUND - 1} rx={bw * .62} ry="4" fill={T.c} opacity={.1 + g * .16} />
 
       {/* L12 — an aura ring on the floor, the last thing it earns */}
       {has(12) && <>
@@ -558,6 +564,14 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           <path key={k} d={`M${cx + k * hr * .34 - hr * .13} ${hy - hr * .84} L${cx + k * hr * .34} ${hy - hr * (k === 0 ? 1.62 : 1.32)} L${cx + k * hr * .34 + hr * .13} ${hy - hr * .84} Z`}
             fill={T.c} stroke={B} strokeWidth="1.2" strokeLinejoin="round" />))}
         {EYES[sp.eye]}
+        {/* blush — the single cheapest thing that reads as cute, and the one
+            piece of the face that is not machinery */}
+        {!sad && [-1, 1].map(k => (
+          <ellipse key={k} cx={cx + k * hr * .72} cy={hy + hr * .46} rx={hr * .22} ry={hr * .13}
+            fill="#ff8fa8" opacity=".38" />))}
+        {/* a glossy sweep across the top of the skull: a toy has a shine on it */}
+        <path d={`M${cx - hr * .66} ${hy - hr * .52} C${cx - hr * .3} ${hy - hr * .92} ${cx + hr * .18} ${hy - hr * .92} ${cx + hr * .46} ${hy - hr * .6} C${cx + hr * .12} ${hy - hr * .74} ${cx - hr * .3} ${hy - hr * .72} ${cx - hr * .66} ${hy - hr * .52} Z`}
+          fill="#ffffff" opacity=".5" />
         {!sad && <path d={`M${cx - hr * .22} ${hy + hr * .62} C${cx - hr * .06} ${hy + hr * .82} ${cx + hr * .06} ${hy + hr * .82} ${cx + hr * .22} ${hy + hr * .62}`} fill="none" stroke={B} strokeWidth="1.9" strokeLinecap="round" opacity=".62" />}
         {sad && <path d={`M${cx - hr * .22} ${hy + hr * .8} C${cx - hr * .06} ${hy + hr * .6} ${cx + hr * .06} ${hy + hr * .6} ${cx + hr * .22} ${hy + hr * .8}`} fill="none" stroke={B} strokeWidth="1.9" strokeLinecap="round" opacity=".62" />}
       </g>

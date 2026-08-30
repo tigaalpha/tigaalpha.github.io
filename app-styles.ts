@@ -960,6 +960,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvphdr{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:9px;padding:11px 13px;background:var(--card);border-bottom:1px solid var(--bd1)}
 .pvphdr-t{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text);margin-right:auto}
 .pvpscore{font-family:'Share Tech Mono',monospace;font-size:14px;color:#d97757}
+.pvparena{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.06em;color:var(--muted);padding:2px 8px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);white-space:nowrap}
+.pvppage.land .pvparena{background:rgba(255,255,255,.14);border-color:#ffffff2e;color:#dce6fb}
 .pvpbody{max-width:520px;margin:0 auto;padding:13px 13px 0}
 .pvpme{display:flex;gap:11px;padding:12px;border-radius:15px;background:var(--card);border:1px solid var(--bd1)}
 .pvpme-stage{width:96px;flex:none;height:190px;border-radius:11px;background:linear-gradient(178deg,#fff,#eef1f7);border:1px solid var(--bd1);display:flex;align-items:center;justify-content:center;overflow:hidden}

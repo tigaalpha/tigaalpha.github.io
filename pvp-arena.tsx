@@ -26,7 +26,7 @@ import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel } from
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt } from "./item-art";
 import { petBonusOf, petById, petLevel, readPet, PetArt } from "./pet-lab";
-import { createArenaAudio, useArenaFx } from "./arena-fx";
+import { createArenaAudio, useArenaFx, pickStage } from "./arena-fx";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
 
@@ -726,9 +726,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     return () => { window.removeEventListener("resize", on); window.removeEventListener("orientationchange", on); };
   }, []);
 
-  const G = useArenaFx();
+  /* Which arena this fight happens in. Seeded from the opponent so a rematch
+     against the same chassis stays in the same place, and so two players
+     fighting the same bot see the same room. */
+  const ARENA = useRef(pickStage(
+    String(oppKind === "player" ? oppName : oppModel).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 7)
+  )).current;
+  const G = useArenaFx(ARENA);
   const audioRef = useRef(null);
-  if (!audioRef.current) audioRef.current = createArenaAudio();
+  if (!audioRef.current) audioRef.current = createArenaAudio(ARENA);
   useEffect(() => { const a = audioRef.current; a.start(); return () => a.stop(); }, []);
   useEffect(() => {
     audioRef.current.setGear(myHp / MY_MAX < 0.34 || opHp / OP_MAX < 0.34);
@@ -1078,6 +1084,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       <div className="pvphdr">
         <button className="stgback" onClick={onBack} aria-label="back">←</button>
         <span className="pvphdr-t">{T("ยก", "Wave", "波次")} {Math.min(wave, WAVES.length)}/{WAVES.length}</span>
+        <span className="pvparena">{tr3(ARENA, lang)}</span>
         <span className="pvpscore">{score.toLocaleString()}</span>
       </div>
 

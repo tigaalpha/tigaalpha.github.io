@@ -49,17 +49,84 @@ const P = {
   bass:  [[0, 3, 6, 8, 11, 14], [0, 2, 3, 6, 8, 10, 11, 14]],
   arp:   [[0, 2, 4, 6, 8, 10, 12, 14], [0, 2, 4, 6, 8, 10, 12, 14]],
 };
-// Dm – Bb – F – C: the four chords every action score is built out of, because
-// they climb without ever resolving, which is exactly what a fight wants
-const CHORDS = [
-  { bass: 38, arp: [62, 65, 69, 74] },
-  { bass: 34, arp: [58, 62, 65, 70] },
-  { bass: 41, arp: [65, 69, 72, 77] },
-  { bass: 36, arp: [60, 64, 67, 72] },
-];
 
-export function createArenaAudio() {
-  let timer = null, step = 0, nextTime = 0, bpm = 150, gear = 0, live = false;
+/* ══════════════════════ the arenas ══════════════════════
+   Five places to fight in, each with its own light, its own floor and its own
+   music. One arena was fine when the mode was new; eight rounds in the same
+   blue room is the point at which a fighting game starts to feel small.
+
+   A stage is a palette plus a backdrop routine plus a track. The canvas reads
+   the palette for its floor, spots and horizon, so a new stage is a table
+   entry rather than a new renderer — and the fighters, the effects and the
+   pet are lit by whatever the stage says without any of them knowing.
+
+   The music is four chords and a drum pattern per stage. They all avoid
+   resolving, which is what a fight wants, but they sit in different keys at
+   different tempos so the arenas do not blur into one loop. */
+export const STAGES = [
+  {
+    id: "grid", th: "กริดไซเบอร์", en: "Cyber Grid", zh: "赛博网格",
+    sky: ["#20304e", "#131b30", "#080b16"],
+    grid: "rgba(122,170,255,.20)", horizon: "120,175,255",
+    spots: [[0.24, "126,196,255"], [0.76, "255,150,110"]],
+    mote: "170,210,255", back: "city",
+    bpm: 150, chords: [
+      { bass: 38, arp: [62, 65, 69, 74] }, { bass: 34, arp: [58, 62, 65, 70] },
+      { bass: 41, arp: [65, 69, 72, 77] }, { bass: 36, arp: [60, 64, 67, 72] },
+    ],
+  },
+  {
+    id: "magma", th: "หลุมลาวา", en: "Magma Pit", zh: "熔岩坑",
+    sky: ["#4a1c10", "#2a0e0a", "#120505"],
+    grid: "rgba(255,140,70,.22)", horizon: "255,120,50",
+    spots: [[0.22, "255,170,90"], [0.78, "255,90,40"]],
+    mote: "255,180,120", back: "embers",
+    bpm: 162, chords: [
+      { bass: 33, arp: [57, 60, 64, 69] }, { bass: 40, arp: [64, 67, 71, 76] },
+      { bass: 35, arp: [59, 62, 66, 71] }, { bass: 38, arp: [62, 66, 69, 74] },
+    ],
+  },
+  {
+    id: "frost", th: "ลานน้ำแข็ง", en: "Frost Vault", zh: "霜之殿",
+    sky: ["#173a52", "#0e2436", "#050f18"],
+    grid: "rgba(150,225,255,.26)", horizon: "150,225,255",
+    spots: [[0.24, "180,240,255"], [0.76, "120,190,255"]],
+    mote: "200,240,255", back: "shards",
+    bpm: 142, chords: [
+      { bass: 40, arp: [64, 68, 71, 76] }, { bass: 35, arp: [59, 63, 66, 71] },
+      { bass: 43, arp: [67, 71, 74, 79] }, { bass: 38, arp: [62, 66, 69, 74] },
+    ],
+  },
+  {
+    id: "void", th: "ห้วงอวกาศ", en: "Deep Void", zh: "深空",
+    sky: ["#2a1b4a", "#170f2e", "#06040f"],
+    grid: "rgba(180,140,255,.20)", horizon: "170,130,255",
+    spots: [[0.24, "190,150,255"], [0.76, "120,220,255"]],
+    mote: "215,190,255", back: "stars",
+    bpm: 134, chords: [
+      { bass: 32, arp: [56, 59, 63, 68] }, { bass: 37, arp: [61, 64, 68, 73] },
+      { bass: 39, arp: [63, 67, 70, 75] }, { bass: 34, arp: [58, 61, 65, 70] },
+    ],
+  },
+  {
+    id: "dojo", th: "โดโจกลางคืน", en: "Night Dojo", zh: "夜之道场",
+    sky: ["#2f2418", "#1c1610", "#0a0806"],
+    grid: "rgba(255,205,140,.18)", horizon: "255,190,120",
+    spots: [[0.24, "255,215,160"], [0.76, "255,170,110"]],
+    mote: "255,220,170", back: "lanterns",
+    bpm: 128, chords: [
+      { bass: 36, arp: [60, 63, 67, 72] }, { bass: 41, arp: [65, 68, 72, 77] },
+      { bass: 34, arp: [58, 61, 65, 70] }, { bass: 39, arp: [63, 66, 70, 75] },
+    ],
+  },
+];
+export const stageById = (id) => STAGES.find(s => s.id === id) || STAGES[0];
+/** A stage for this fight. Seeded so a rematch in the same arena stays there. */
+export const pickStage = (seed) => STAGES[Math.abs(Number(seed) || Math.floor(Math.random() * 9999)) % STAGES.length];
+
+export function createArenaAudio(stage) {
+  let ST = stage || STAGES[0];
+  let timer = null, step = 0, nextTime = 0, bpm = ST.bpm, gear = 0, live = false;
   let master = null, ac = null;
   const SPB = () => 60 / bpm / 4;               // seconds per sixteenth
 
@@ -134,7 +201,7 @@ export function createArenaAudio() {
     if (!live) return;
     const horizon = ac.currentTime + 0.14;
     while (nextTime < horizon) {
-      const s = step % 16, bar = Math.floor(step / 16) % 4, ch = CHORDS[bar];
+      const s = step % 16, bar = Math.floor(step / 16) % 4, ch = ST.chords[bar];
       if (P.kick[gear].includes(s)) kick(nextTime);
       if (P.snare[gear].includes(s)) snare(nextTime);
       if (P.hat[gear].includes(s)) hat(nextTime, s % 8 === 6);
@@ -153,7 +220,7 @@ export function createArenaAudio() {
       try {
         ensure();
         if (getSfxMuted()) return;
-        live = true; step = 0; gear = 0; bpm = 150;
+        live = true; step = 0; gear = 0; bpm = ST.bpm;
         nextTime = ac.currentTime + 0.08;
         master.gain.cancelScheduledValues(ac.currentTime);
         master.gain.setValueAtTime(0.0001, ac.currentTime);
@@ -161,11 +228,13 @@ export function createArenaAudio() {
         schedule();
       } catch (e) { live = false; }
     },
+    /** Move to another arena's track. Takes effect on the next bar. */
+    setStage(next) { if (next) { ST = next; bpm = gear ? Math.round(ST.bpm * 1.09) : ST.bpm; } },
     /** 0 = normal, 1 = someone is nearly down and the mix leans in */
     setGear(g) {
       const n = g ? 1 : 0;
       if (n === gear) return;
-      gear = n; bpm = n ? 164 : 150;
+      gear = n; bpm = n ? Math.round(ST.bpm * 1.09) : ST.bpm;
     },
     stop() {
       live = false;
@@ -238,7 +307,7 @@ export function createArenaAudio() {
 /** Imperative canvas over the arena. Held by ref so a hit can fire an effect
     without a React render — sixty frames of state updates would be sixty
     reconciles of two full avatar SVGs. */
-export function useArenaFx() {
+export function useArenaFx(stage) {
   const canvasRef = useRef(null);
   const stateRef = useRef(null);
 
@@ -261,7 +330,7 @@ export function useArenaFx() {
       // where the two fighters actually are, as fractions of the stage width —
       // once they can walk, a bolt fired from a fixed 24% leaves from thin air
       pos: { me: 0.24, op: 0.76 }, air: { me: 0, op: 0 },
-      flash: null, t: 0, raf: 0, w: 0, h: 0, dpr: 1, motes: [],
+      flash: null, t: 0, raf: 0, w: 0, h: 0, dpr: 1, motes: [], stage: stage || STAGES[0],
     };
     stateRef.current = S;
     const ctx = cv.getContext("2d");
@@ -293,20 +362,96 @@ export function useArenaFx() {
       ctx.save();
       // a pool of light under each fighter, so they stand in the arena rather
       // than float over a wallpaper
-      // two overhead spots, one cool and one warm, so the fighters are lit from
+      const SG = S.stage || STAGES[0];
+
+      /* ── the backdrop ── what is BEHIND the horizon. One routine per stage,
+         drawn before the floor so the fighters and the grid sit in front of
+         it. Cheap shapes on purpose: this runs every frame on a phone. */
+      ctx.save();
+      if (SG.back === "city") {
+        // a skyline of lit slabs receding into haze
+        ctx.globalAlpha = .5;
+        for (let i = 0; i < 14; i++) {
+          const bw = S.w * (0.04 + ((i * 37) % 11) / 130);
+          const bx = (i / 14) * S.w + ((i * 53) % 17) - 8;
+          const bh = hz * (0.22 + ((i * 71) % 13) / 22);
+          ctx.fillStyle = "rgba(30,48,86,.9)";
+          ctx.fillRect(bx, hz - bh, bw, bh);
+          ctx.fillStyle = `rgba(${SG.horizon},.5)`;
+          for (let w = 0; w < 5; w++) {
+            const wy = hz - bh + 6 + w * (bh / 6);
+            if (wy < hz - 3 && (i + w) % 3) ctx.fillRect(bx + 3, wy, bw - 6, 1.6);
+          }
+        }
+      } else if (SG.back === "embers") {
+        // a lava seam along the horizon, breathing
+        const puls = 0.6 + 0.4 * Math.sin(S.t * 1.7);
+        const g = ctx.createLinearGradient(0, hz - 26, 0, hz + 10);
+        g.addColorStop(0, "rgba(255,90,30,0)");
+        g.addColorStop(0.6, `rgba(255,120,40,${0.32 * puls})`);
+        g.addColorStop(1, "rgba(255,190,90,0)");
+        ctx.fillStyle = g; ctx.fillRect(0, hz - 26, S.w, 36);
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < 7; i++) {
+          const x = ((i * 137 + S.t * 12) % (S.w + 60)) - 30;
+          ctx.fillStyle = `rgba(255,150,60,${.25 * puls})`;
+          ctx.beginPath(); ctx.ellipse(x, hz - 4, 30, 6, 0, 0, 7); ctx.fill();
+        }
+        ctx.globalCompositeOperation = "source-over";
+      } else if (SG.back === "shards") {
+        // ice columns catching the light
+        for (let i = 0; i < 9; i++) {
+          const x = (i / 9) * S.w + ((i * 61) % 23);
+          const h2 = hz * (0.3 + ((i * 47) % 15) / 26), w2 = 12 + ((i * 29) % 16);
+          const g = ctx.createLinearGradient(x, hz - h2, x, hz);
+          g.addColorStop(0, "rgba(190,240,255,.30)");
+          g.addColorStop(1, "rgba(120,190,255,.05)");
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.moveTo(x, hz); ctx.lineTo(x + w2 / 2, hz - h2); ctx.lineTo(x + w2, hz); ctx.closePath(); ctx.fill();
+        }
+      } else if (SG.back === "stars") {
+        // a star field with one slow nebula behind it
+        const g = ctx.createRadialGradient(S.w * .68, hz * .5, 4, S.w * .68, hz * .5, S.w * .5);
+        g.addColorStop(0, "rgba(150,110,255,.22)");
+        g.addColorStop(1, "rgba(150,110,255,0)");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, S.w, hz + 20);
+        for (let i = 0; i < 60; i++) {
+          const x = ((i * 149) % 997) / 997 * S.w, y = ((i * 233) % 811) / 811 * hz;
+          const tw = 0.35 + 0.65 * Math.abs(Math.sin(S.t * 1.3 + i));
+          ctx.fillStyle = `rgba(230,220,255,${0.5 * tw})`;
+          ctx.fillRect(x, y, 1.6, 1.6);
+        }
+      } else if (SG.back === "lanterns") {
+        // paper lanterns hanging in the dark, swinging a little
+        for (let i = 0; i < 8; i++) {
+          const x = (i + 0.5) / 8 * S.w + Math.sin(S.t * 0.7 + i) * 5;
+          const y = hz * (0.22 + ((i * 53) % 9) / 30);
+          const g = ctx.createRadialGradient(x, y, 1, x, y, 26);
+          g.addColorStop(0, "rgba(255,205,130,.55)");
+          g.addColorStop(1, "rgba(255,160,80,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 26, 0, 7); ctx.fill();
+          ctx.fillStyle = "rgba(255,190,110,.9)";
+          ctx.beginPath(); ctx.ellipse(x, y, 6, 8, 0, 0, 7); ctx.fill();
+          ctx.strokeStyle = "rgba(255,200,140,.25)"; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, y - 8); ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      // two overhead spots, coloured by the stage, so the fighters are lit by
       // the arena rather than pasted onto it
       ctx.globalCompositeOperation = "lighter";
-      for (const [fx, col] of [[0.24, "126,196,255"], [0.76, "255,150,110"]]) {
+      for (const [fx, col] of SG.spots) {
         const g0 = ctx.createRadialGradient(S.w * fx, S.h * 0.9, 2, S.w * fx, S.h * 0.9, S.w * 0.26);
         g0.addColorStop(0, `rgba(${col},.30)`); g0.addColorStop(0.5, `rgba(${col},.10)`); g0.addColorStop(1, `rgba(${col},0)`);
         ctx.fillStyle = g0; ctx.fillRect(0, hz - 20, S.w, S.h - hz + 20);
       }
       // a glow along the horizon line — the light the room is lit by
       const hg = ctx.createLinearGradient(0, hz - 34, 0, hz + 26);
-      hg.addColorStop(0, "rgba(90,150,255,0)"); hg.addColorStop(0.55, "rgba(120,175,255,.20)"); hg.addColorStop(1, "rgba(90,150,255,0)");
+      hg.addColorStop(0, `rgba(${SG.horizon},0)`); hg.addColorStop(0.55, `rgba(${SG.horizon},.22)`); hg.addColorStop(1, `rgba(${SG.horizon},0)`);
       ctx.fillStyle = hg; ctx.fillRect(0, hz - 34, S.w, 60);
       ctx.globalCompositeOperation = "source-over";
-      ctx.strokeStyle = "rgba(122,170,255,.20)"; ctx.lineWidth = 1;
+      ctx.strokeStyle = SG.grid; ctx.lineWidth = 1;
       for (let i = 1; i <= 7; i++) {
         const p = i / 7, y = hz + (S.h - hz) * p * p;
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(S.w, y); ctx.stroke();
@@ -335,7 +480,7 @@ export function useArenaFx() {
 
       for (const m of S.motes) {
         m.y += m.vy * dt; if (m.y < 0) { m.y = S.h; m.x = Math.random() * S.w; }
-        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fillStyle = `rgba(170,210,255,${m.a * 1.5})`; ctx.fill();
+        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fillStyle = `rgba(${SG.mote},${m.a * 1.5})`; ctx.fill();
       }
 
       /* Everything from here to the smoke is LIGHT, so it composites additively:
@@ -673,6 +818,12 @@ export function useArenaFx() {
     const f = (S.pos[side] || 0.5) + (side === "me" ? lead : -lead);
     return { x: S.w * f, y: S.h * (AT_Y[part] || 0.52) - (S.air[side] || 0) * S.h * 0.16 };
   };
+  /** Move the canvas to another arena. */
+  const setStage = useCallback((next) => {
+    const S = stateRef.current; if (!S || !next) return;
+    S.stage = next;
+  }, []);
+
   /** Tell the canvas where the fighters are standing and how high they are. */
   const setPos = useCallback((mePos, opPos, meAir, opAir) => {
     const S = stateRef.current; if (!S) return;
@@ -874,5 +1025,5 @@ export function useArenaFx() {
     S.flash = { c: colour, a, p: 0, dur };
   }, []);
 
-  return { canvasRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, swipe, impact, beam: bolt };
+  return { canvasRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, beam: bolt };
 }
