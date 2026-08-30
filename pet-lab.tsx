@@ -288,6 +288,8 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
 
   const F = `url(#${uid}-body)`;
   const D = `url(#${uid}-limb)`;
+  const M = `url(#${uid}-mech)`;                // the machine half
+  const Bm = mixc(B, "#101826", .45);           // steel takes a cooler contour
   /* fill → form shadow → key highlight → outline, same five-pass rig as the
      robots and the gear */
   const P = (d, f, o = {}) => {
@@ -318,7 +320,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
      it drifts off the arm — which is exactly what it was doing. */
   const bracer = (bx, byy, w = 15, h = 9) => (
     <g>
-      <path d={rr(bx, byy, w, h, 3)} fill={A2} stroke={B} strokeWidth="1.3" />
+      <path d={rr(bx, byy, w, h, 3)} fill={M} stroke={Bm} strokeWidth="1.3" />
       <path d={rr(bx, byy, w * .74, h * .3, 1.3)} fill={T.c} opacity=".95" />
       <path d={rr(bx, byy - h * .22, w * .78, h * .16, 1)} fill="#fff" opacity=".3" />
     </g>
@@ -427,7 +429,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
     const lw = Math.max(8, bw * .28);
     limbs.back = <>{[-1, 1].map(k => (
       <g key={k} transform={`rotate(${k * 12} ${cx + k * (bw / 2 - 1)} ${bTop + bh * .34})`}>
-        {P(rr(cx + k * (bw / 2 + 2), bTop + bh * .34 + L.arm / 2, 9.5, L.arm, 4.6), D, { spec: .55 })}
+        {P(rr(cx + k * (bw / 2 + 2), bTop + bh * .34 + L.arm / 2, 9.5, L.arm, 4.6), M, { spec: 1, lw: 1.3 })}
         {P(ell(cx + k * (bw / 2 + 2), bTop + bh * .34 + L.arm, 6, 5.4), F, { spec: .8, lw: 1.4 })}
         {/* three little nubs: a paw rather than a pill */}
         {[-1, 0, 1].map(j => (
@@ -436,7 +438,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
       </g>))}</>;
     limbs.front = <>{[-1, 1].map(k => (
       <g key={k}>
-        {P(rr(cx + k * bw * .26, legTop + legH / 2, lw, legH, lw * .42), D, { spec: .5 })}
+        {P(rr(cx + k * bw * .26, legTop + legH / 2, lw, legH, lw * .42), M, { spec: 1, lw: 1.3 })}
         {P(ell(cx + k * bw * .28, GROUND - 3.5, lw * .72, 4.6), F, { spec: .7, lw: 1.4 })}
         {/* three toes — the difference between a foot and a pill */}
         {[-1, 0, 1].map(j => (
@@ -451,12 +453,12 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
       {[-1, 1].map(k => P(ell(cx + k * bw * .38, by + bh * .04, bw * .16, bh * .4), F, { spec: .45, occ: .85, lw: 1.3 }))}
       {[-1, 1].map(k => (
       <g key={k} opacity=".82">
-        {P(rr(cx + k * bw * .42, bBot - 1, 9, GROUND - 5 - bBot + 2, 4.4), D, { spec: .3 })}
+        {P(rr(cx + k * bw * .42, bBot - 1, 9, GROUND - 5 - bBot + 2, 4.4), M, { spec: .7, lw: 1.2 })}
         {P(ell(cx + k * bw * .42, GROUND - 3.5, 6.6, 4.4), D, { spec: .5, lw: 1.3 })}
       </g>))}</>;
     limbs.front = <>{[-1, 1].map(k => (
       <g key={k}>
-        {P(rr(cx + k * bw * .2, bBot - 1, 10.5, GROUND - 4 - bBot + 2, 5), D, { spec: .55 })}
+        {P(rr(cx + k * bw * .2, bBot - 1, 10.5, GROUND - 4 - bBot + 2, 5), M, { spec: 1, lw: 1.3 })}
         {P(ell(cx + k * bw * .21, GROUND - 3, 8, 5), F, { spec: .8, lw: 1.4 })}
         {[-1, 0, 1].map(j => (
           <ellipse key={j} cx={cx + k * bw * .21 + j * 2.8} cy={GROUND - 4} rx="1.4" ry="2.1" fill={B} opacity=".28" />))}
@@ -472,7 +474,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {has(5) && bracer(cx + k * (bw / 2 + 5), by - bh * .1 + L.arm * .12, 12.4, 7.4)}
       </g>))}
       {/* a short skirt and two thrusters instead of legs, riding a hover ring */}
-      {P(`M${cx - bw * .38} ${bBot - 4} C${cx - bw * .3} ${bBot + 9} ${cx + bw * .3} ${bBot + 9} ${cx + bw * .38} ${bBot - 4} Z`, D, { spec: .45, lw: 1.4 })}
+      {P(`M${cx - bw * .38} ${bBot - 4} C${cx - bw * .3} ${bBot + 9} ${cx + bw * .3} ${bBot + 9} ${cx + bw * .38} ${bBot - 4} Z`, M, { spec: 1, lw: 1.4 })}
       {[-1, 1].map(k => <circle key={k} cx={cx + k * bw * .22} cy={bBot + 8} r="4.2" fill={T.c} opacity=".8" />)}
       {[-1, 1].map(k => <ellipse key={k} cx={cx + k * bw * .22} cy={bBot + 15} rx="4.6" ry="7" fill={`url(#${uid}-glow)`} opacity=".55" />)}
       <ellipse cx={cx} cy={GROUND - 9} rx={bw * .5} ry="4" fill="none" stroke={T.c} strokeWidth="2.4" opacity=".55" />
@@ -495,6 +497,19 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         <linearGradient id={`${uid}-limb`} x1="0.2" y1="0" x2="0.8" y2="1">
           <stop offset="0%" stopColor={A2} />
           <stop offset="100%" stopColor={B} />
+        </linearGradient>
+        {/* ── the second material ──
+            Half creature, half machine only reads if the machine half is made
+            of something else. Every part of these was one hue at one value,
+            which is why they came out looking like painted plastic toys rather
+            than cyborgs; the bolted-on parts now wear steel instead, tinted a
+            little toward the species so it belongs to this animal and not to a
+            parts bin. */}
+        <linearGradient id={`${uid}-mech`} x1="0.2" y1="0" x2="0.78" y2="1">
+          <stop offset="0%" stopColor={mixc("#eef4ff", A, .14)} />
+          <stop offset="26%" stopColor={mixc("#b9c8dd", A, .18)} />
+          <stop offset="62%" stopColor={mixc("#6d7f99", A, .22)} />
+          <stop offset="100%" stopColor={mixc("#2c3849", A, .18)} />
         </linearGradient>
         <linearGradient id={`${uid}-rim`} x1="0" y1="1" x2="0.4" y2="0">
           <stop offset="0%" stopColor={T.c} stopOpacity={rim} />
@@ -585,7 +600,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         })}
         {P(torso, F)}
         {/* the chest hatch is there from the start; what changes is what is in it */}
-        {P(rr(cx, coreY, bw * .5, bh * .46, 4), D, { spec: .5, occ: .7, lw: 1.2, lineOp: .5 })}
+        {P(rr(cx, coreY, bw * .5, bh * .46, 4), M, { spec: 1, occ: .7, lw: 1.2, lineOp: .5 })}
         {seam(`M${cx - bw * .2} ${coreY - bh * .16} h${bw * .4}`, .4)}
         {/* L4 — a proper chest plate over the hatch */}
         {has(4) && P(`M${cx - bw * .36} ${coreY - bh * .3} H${cx + bw * .36} L${cx + bw * .28} ${coreY + bh * .16} L${cx} ${coreY + bh * .34} L${cx - bw * .28} ${coreY + bh * .16} Z`,
@@ -625,10 +640,10 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           ? <ellipse cx={cx} cy={bBot + 13} rx={bw * .44} ry="4" fill="none" stroke={T.c} strokeWidth="2.4" opacity=".8" />
           : [-1, 1].map(k => (
             <g key={k}>
-              <path d={rr(cx + k * bw * (sp.build === "quad" ? .21 : .26), GROUND - 12, 15, 6.4, 2.6)} fill={A2} stroke={B} strokeWidth="1.2" />
+              <path d={rr(cx + k * bw * (sp.build === "quad" ? .21 : .26), GROUND - 12, 15, 6.4, 2.6)} fill={M} stroke={Bm} strokeWidth="1.2" />
               <path d={rr(cx + k * bw * (sp.build === "quad" ? .21 : .26), GROUND - 12, 11, 2, 1)} fill={T.c} />
             </g>)))}
-        {sp.build !== "float" && P(rr(cx, bTop - 3, bw * .4, 7, 3), D, { spec: .6, lw: 1.3 })}
+        {sp.build !== "float" && P(rr(cx, bTop - 3, bw * .4, 7, 3), M, { spec: 1, lw: 1.3 })}
         {/* the head drops a shadow on the chest under it. Flat vector figures
             read as decals precisely because this is missing. */}
         <ellipse cx={cx} cy={bTop + 3} rx={hr * .7} ry="5" fill="#00060f" opacity=".2" />
