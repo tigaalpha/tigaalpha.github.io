@@ -313,6 +313,16 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
     );
   };
   const seam = (d, o = .45) => <path d={d} fill="none" stroke={B} strokeWidth="1.2" strokeLinecap="round" opacity={o} />;
+  /* A bracer is a band clamped AROUND a limb, so it has to be built where that
+     limb's own geometry and rotation live. Drawn from outside the limb group
+     it drifts off the arm — which is exactly what it was doing. */
+  const bracer = (bx, byy, w = 15, h = 9) => (
+    <g>
+      <path d={rr(bx, byy, w, h, 3)} fill={A2} stroke={B} strokeWidth="1.3" />
+      <path d={rr(bx, byy, w * .74, h * .3, 1.3)} fill={T.c} opacity=".95" />
+      <path d={rr(bx, byy - h * .22, w * .78, h * .16, 1)} fill="#fff" opacity=".3" />
+    </g>
+  );
 
   /* ── ears ── drawn behind the head so they read as attached to it */
   const EARS = {
@@ -419,6 +429,10 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
       <g key={k} transform={`rotate(${k * 12} ${cx + k * (bw / 2 - 1)} ${bTop + bh * .34})`}>
         {P(rr(cx + k * (bw / 2 + 2), bTop + bh * .34 + L.arm / 2, 9.5, L.arm, 4.6), D, { spec: .55 })}
         {P(ell(cx + k * (bw / 2 + 2), bTop + bh * .34 + L.arm, 6, 5.4), F, { spec: .8, lw: 1.4 })}
+        {/* three little nubs: a paw rather than a pill */}
+        {[-1, 0, 1].map(j => (
+          <ellipse key={j} cx={cx + k * (bw / 2 + 2) + j * 3.2} cy={bTop + bh * .34 + L.arm + 3.4} rx="1.3" ry="2" fill={B} opacity=".26" />))}
+        {has(5) && bracer(cx + k * (bw / 2 + 2), bTop + bh * .34 + L.arm - 8, 13, 8)}
       </g>))}</>;
     limbs.front = <>{[-1, 1].map(k => (
       <g key={k}>
@@ -430,7 +444,12 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {seam(`M${cx + k * bw * .26 - lw * .3} ${legTop + legH * .5} h${lw * .6}`, .35)}
       </g>))}</>;
   } else if (sp.build === "quad") {
-    limbs.back = <>{[-1, 1].map(k => (
+    limbs.back = <>
+      {/* haunches, so a crouched quad has shoulders. They belong BEHIND the
+          torso: drawn in front they stop being haunches and become two eggs
+          parked on the creature's chest. */}
+      {[-1, 1].map(k => P(ell(cx + k * bw * .38, by + bh * .04, bw * .16, bh * .4), F, { spec: .45, occ: .85, lw: 1.3 }))}
+      {[-1, 1].map(k => (
       <g key={k} opacity=".82">
         {P(rr(cx + k * bw * .42, bBot - 1, 9, GROUND - 5 - bBot + 2, 4.4), D, { spec: .3 })}
         {P(ell(cx + k * bw * .42, GROUND - 3.5, 6.6, 4.4), D, { spec: .5, lw: 1.3 })}
@@ -442,13 +461,15 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {[-1, 0, 1].map(j => (
           <ellipse key={j} cx={cx + k * bw * .21 + j * 2.8} cy={GROUND - 4} rx="1.4" ry="2.1" fill={B} opacity=".28" />))}
         {[0, 1].map(j => seam(`M${cx + k * bw * .21 - 3.6 + j * 3.6} ${GROUND - 5.6} v3`, .5))}
-      </g>))}
-      {/* haunches, so a crouched quad has shoulders */}
-      {[-1, 1].map(k => P(ell(cx + k * bw * .36, by + bh * .04, bw * .13, bh * .38), F, { spec: .45, occ: .85, lw: 1.3 }))}</>;
+        {has(5) && bracer(cx + k * bw * .2, GROUND - 25, 13, 7.4)}
+      </g>))}</>;
   } else {
     limbs.front = <>{[-1, 1].map(k => (
       <g key={k}>
         {P(ell(cx + k * (bw / 2 + 5), by - bh * .1, 6.2, L.arm * .42), F, { spec: .75, lw: 1.4 })}
+        {[-1, 0, 1].map(j => (
+          <ellipse key={j} cx={cx + k * (bw / 2 + 5) + j * 3.2} cy={by - bh * .1 + L.arm * .42 - 1.4} rx="1.3" ry="2" fill={B} opacity=".26" />))}
+        {has(5) && bracer(cx + k * (bw / 2 + 5), by - bh * .1 + L.arm * .12, 12.4, 7.4)}
       </g>))}
       {/* a short skirt and two thrusters instead of legs, riding a hover ring */}
       {P(`M${cx - bw * .38} ${bBot - 4} C${cx - bw * .3} ${bBot + 9} ${cx + bw * .3} ${bBot + 9} ${cx + bw * .38} ${bBot - 4} Z`, D, { spec: .45, lw: 1.4 })}
@@ -513,8 +534,8 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
 
       {/* the light the creature itself gives off — faint as a hatchling, a real
           aura once it is grown. Behind everything, so it reads as glow. */}
-      <ellipse cx={cx} cy={by - bh * .1} rx={bw * 1.5} ry={(hr + bh) * 1.15}
-        fill={`url(#${uid}-glow)`} opacity={0.1 + g * 0.22} />
+      <ellipse cx={cx} cy={by - bh * .1} rx={bw * 1.28} ry={(hr + bh) * .98}
+        fill={`url(#${uid}-glow)`} opacity={0.08 + g * 0.15} />
       <ellipse cx={cx} cy={GROUND + 1} rx={bw * .78} ry="5.4" fill="#0b1526" opacity={sp.build === "float" ? .12 : .18} />
       {/* a warm pool of its own colour on the floor underneath it */}
       <ellipse cx={cx} cy={GROUND - 1} rx={bw * .62} ry="4" fill={T.c} opacity={.1 + g * .16} />
@@ -540,9 +561,28 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             ))}
           </g>))}
         {/* L9 — wings, and L10 grows them */}
-        {has(9) && [-1, 1].map(k => (
-          <path key={k} d={`M${cx + k * bw * .32} ${bTop + 4} C${cx + k * bw * (has(10) ? 1.1 : .9)} ${bTop - (has(10) ? 32 : 24)} ${cx + k * bw * (has(10) ? 1.42 : 1.18)} ${bTop - 2} ${cx + k * bw * .56} ${bTop + 20} Z`}
-            fill={T.c} opacity=".82" stroke={B} strokeWidth="1.3" strokeLinejoin="round" />))}
+        {has(9) && [-1, 1].map(k => {
+          const sp1 = has(10) ? 1.1 : .9, sp2 = has(10) ? 1.42 : 1.18, lift = has(10) ? 32 : 24;
+          const wd = `M${cx + k * bw * .32} ${bTop + 4} C${cx + k * bw * sp1} ${bTop - lift} ${cx + k * bw * sp2} ${bTop - 2} ${cx + k * bw * .56} ${bTop + 20} Z`;
+          const wc = `${uid}-w${k > 0 ? "r" : "l"}`;
+          return (
+            <g key={k}>
+              <clipPath id={wc}><path d={wd} /></clipPath>
+              <path d={wd} fill={T.c} opacity=".82" />
+              <path d={wd} fill={`url(#${uid}-occ)`} opacity=".8" />
+              <path d={wd} fill="none" stroke={B} strokeWidth="1.3" strokeLinejoin="round" />
+              {/* a wing is a membrane stretched on ribs. Without them it is a
+                  coloured blob, and the blob is what made these read as cut
+                  paper. Clipped to the wing so a rib can never leave it. */}
+              <g clipPath={`url(#${wc})`}>
+                <ellipse cx={cx + k * bw * .78} cy={bTop - 4} rx={bw * .5} ry={lift * .5} fill="#ffffff" opacity=".16" />
+                {[.42, .68, .94].map(t => (
+                  <path key={t} fill="none" stroke={B} strokeWidth=".9" opacity=".24" strokeLinecap="round"
+                    d={`M${cx + k * bw * .34} ${bTop + 6} Q${cx + k * bw * sp1 * t} ${bTop - lift * t * .7} ${cx + k * bw * sp2 * t} ${bTop + 16 - lift * t * .34}`} />))}
+                <path d={wd} fill="none" stroke="#ffffff" strokeWidth="2.4" opacity=".34" strokeLinejoin="round" />
+              </g>
+            </g>);
+        })}
         {P(torso, F)}
         {/* the chest hatch is there from the start; what changes is what is in it */}
         {P(rr(cx, coreY, bw * .5, bh * .46, 4), D, { spec: .5, occ: .7, lw: 1.2, lineOp: .5 })}
@@ -555,7 +595,23 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             on the belly like a sticker */}
         {has(2) && <circle cx={cx} cy={coreY} r={bw * .85} fill={`url(#${uid}-glow)`} opacity=".42" />}
         {has(2) && <circle cx={cx} cy={coreY} r={bw * (has(4) ? .3 : .26)} fill={`url(#${uid}-glow)`} />}
-        <circle cx={cx} cy={coreY} r={Math.max(3, bw * .11)} fill={has(2) ? T.c : B} stroke={B} strokeWidth="1.2" opacity={has(2) ? 1 : .7} />
+        {/* the core, switched ON. A flat disc ringed in the outline colour is
+            the difference between a machine that is running and a badge sewn
+            onto its chest, so it gets the light's own three passes: a bloom, a
+            bright iris, a white hot centre — and a catchlight on the lens. */}
+        {(() => {
+          const cr = Math.max(3, bw * .11);
+          if (!has(2)) return <circle cx={cx} cy={coreY} r={cr} fill={B} stroke={B} strokeWidth="1.2" opacity=".7" />;
+          return (
+            <g>
+              <circle cx={cx} cy={coreY} r={cr * 1.9} fill={T.c} opacity=".22" />
+              <circle cx={cx} cy={coreY} r={cr * 1.34} fill="none" stroke={T.c} strokeWidth={cr * .3} opacity=".7" />
+              <circle cx={cx} cy={coreY} r={cr} fill={T.c} />
+              <circle cx={cx} cy={coreY} r={cr} fill="none" stroke={B} strokeWidth="1" opacity=".45" />
+              <circle cx={cx} cy={coreY} r={cr * .52} fill="#ffffff" opacity=".95" />
+              <circle cx={cx - cr * .3} cy={coreY - cr * .34} r={cr * .22} fill="#ffffff" />
+            </g>);
+        })()}
         {/* L3 — shoulder studs; L10 — full pauldrons over them */}
         {has(3) && [-1, 1].map(k => (
           <path key={k} d={`M${cx + k * bw * .3} ${bTop + 2} L${cx + k * bw * .62} ${bTop - 8} L${cx + k * bw * .58} ${bTop + 6} Z`}
@@ -563,16 +619,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {has(10) && sp.build !== "quad" && [-1, 1].map(k => P(
           `M${cx + k * bw * .16} ${bTop - 2} C${cx + k * bw * .62} ${bTop - 7} ${cx + k * bw * .76} ${bTop + 4} ${cx + k * bw * .66} ${bTop + 13} L${cx + k * bw * .2} ${bTop + 9} Z`, F, { spec: .85, lw: 1.4 }))}
         {limbs.front}
-        {/* L5 — bracers on the forelimbs */}
-        {has(5) && [-1, 1].map(k => {
-          const bxc = cx + k * (sp.build === "quad" ? bw * .2 : bw * .5 + 2);
-          const byc = sp.build === "quad" ? GROUND - 21 : bTop + bh * .34 + L.arm * .6;
-          return (
-            <g key={k}>
-              <path d={rr(bxc, byc, 15, 9, 3)} fill={A2} stroke={B} strokeWidth="1.3" />
-              <path d={rr(bxc, byc, 11, 2.6, 1.3)} fill={T.c} opacity=".95" />
-            </g>);
-        })}
+        {/* L5 — bracers: built inside each limb group, above */}
         {/* L7 — ankle rings */}
         {has(7) && (sp.build === "float"
           ? <ellipse cx={cx} cy={bBot + 13} rx={bw * .44} ry="4" fill="none" stroke={T.c} strokeWidth="2.4" opacity=".8" />
