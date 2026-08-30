@@ -163,11 +163,24 @@ export const EARN = {
   chapter: 10,      // a Pathway chapter, the first time it is read
   practice: 20,     // a Practice Mode drill — twice a chapter, per design
   studio: 12,       // a Studio drill finished
+  video: 15,        // a video lesson actually watched, once per video
   chat: 4,          // one real question to TIGA
 };
+/* A YouTube iframe gives us no playback progress, so "watched" has to be
+   inferred: a video pays only after it has been the video on screen, in a
+   visible tab, for this long. Scrolling past a reel of them pays nothing. */
+export const VIDEO_WATCH_MS = 60000;
 /* Daily ceilings on the things you could otherwise repeat forever. Chapters
    are finite and only pay on a first read, so they need no cap. */
-export const EARN_CAP = { chat: 12, studio: 30 };
+export const EARN_CAP = { chat: 12, studio: 30, video: 20 };
+
+/* Videos pay once each, like chapters — rewatching is free and always will be. */
+export function videoPaidSet() {
+  try { return new Set(JSON.parse(localStorage.getItem("tg_video_paid") || "[]")); } catch (e) { return new Set(); }
+}
+export function markVideoPaid(key) {
+  try { const s = videoPaidSet(); s.add(key); localStorage.setItem("tg_video_paid", JSON.stringify([...s])); } catch (e) {}
+}
 
 /** How many of a capped reward are still available today. */
 export function earnLeftToday(kind) {
@@ -3186,7 +3199,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     </>
   );
 }
-const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
+const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched }) {
   const lc = L[lang];
   const [categories, setCategories] = useState(null);  // null = loading; each row is one published lesson_videos entry
   const [activeCat, setActiveCat] = useState(null);     // lesson_videos.id of the selected category
@@ -3206,6 +3219,33 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
       else sb.from("video_likes").insert({ user_id: uid, file_id: key }).then(() => {}, () => {});
     }, () => {});
   }
+
+  /* ── paying for a watch ──
+     A YouTube iframe tells us nothing about playback, so a watch is inferred
+     from dwell: the slide has to stay the active one, in a VISIBLE tab, for a
+     full minute before it pays. Scrolling through a reel pays nothing, leaving
+     the tab in the background pays nothing, and each video pays once ever —
+     rewatching is free, exactly like re-reading a chapter. */
+  useEffect(() => {
+    if (!activeKey || !onWatched) return;
+    if (videoPaidSet().has(activeKey)) return;
+    let elapsed = 0, last = Date.now();
+    const id = setInterval(() => {
+      const now = Date.now();
+      // only count time while the tab is actually in front of somebody
+      if (document.visibilityState === "visible") elapsed += now - last;
+      last = now;
+      if (elapsed >= VIDEO_WATCH_MS) {
+        clearInterval(id);
+        /* Mark it paid only if a coin actually came out. When the daily cap is
+           already spent onWatched returns false, and marking it here anyway
+           would burn the video forever — it would never pay, not even
+           tomorrow. Left unmarked, it simply pays the next time it is watched. */
+        if (!videoPaidSet().has(activeKey) && onWatched(activeKey)) markVideoPaid(activeKey);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [activeKey, onWatched]);
 
   // Each published lesson_videos row is one CATEGORY (its title is the chip
   // label) — pointing at a YouTube playlist, or (legacy) a Drive folder/file.
@@ -10406,7 +10446,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </button>
       )}
       {page === "videos" && (
-        <VideoLessonsPage lang={lang} onAsk={(t) => {
+        <VideoLessonsPage lang={lang}
+          onWatched={() => {
+            if (!takeEarn("video")) return false;          // today's ceiling is spent
+            earnCoins(EARN.video); gainExp(EXP.chapter, { quest: true }); playUi("reward");
+            return true;
+          }}
+          onAsk={(t) => {
           playUi("click");
           setInput((lang === "th" ? 'ช่วยสอนเพิ่มเติมจากวิดีโอบทเรียน "' : lang === "zh" ? '请给我详细讲讲视频课程 "' : 'Teach me more about the video lesson "') + t + '"');
           setActiveStageId(null);
