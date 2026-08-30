@@ -3,7 +3,7 @@ import {
   fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP,
   getAC, playPianoNote, playUi, stopPracticeListeners, startMidiListener, startMicListener,
 } from "./music-engine";
-import { logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
+import { EARN, logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
 import { logActivity } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
@@ -66,7 +66,7 @@ function scoreRhythm(times) {
 export function readPracticeBests() { try { return JSON.parse(localStorage.getItem("tg_practice_best") || "{}") || {}; } catch (e) { return {}; } }
 function writePracticeBest(key, rec) { try { const m = readPracticeBests(); m[key] = rec; localStorage.setItem("tg_practice_best", JSON.stringify(m)); } catch (e) {} }
 
-export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang, bumpWeekly }) {
+export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly }) {
   // ── practice mode (listen to the learner play) ──
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceTarget, setPracticeTarget] = useState([]); // note names to play, in order
@@ -454,8 +454,19 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const bests = readPracticeBests();
     const prevBest = bests[bestKey] || null;
     const isNewBest = !prevBest || accuracy > prevBest.accuracy || bestStreak > prevBest.bestStreak;
-    earnCoins(5 + Math.round(accuracy / 20) + (isNewBest ? 5 : 0));
+    /* Practice pays DOUBLE a Pathway chapter: playing something is harder than
+       reading about it, and the economy should say so. Accuracy and a genuine
+       new best add on top, so a sloppy run still pays but a good one pays
+       properly. */
+    earnCoins(EARN.practice + Math.round(accuracy / 10) + (isNewBest ? 10 : 0));
     gainExp(20 + Math.round(accuracy / 5) + (isNewBest ? 10 : 0), { quest: true }); // 20–40 EXP scaled by accuracy, +10 on a genuine new best
+    /* Gems, and ONLY here. They are deliberately much rarer than coins: a drill
+       has to come in at 90%+ to qualify at all, it pays one gem rather than a
+       handful, and the server caps how many a day can be granted — gems are
+       protected by a database trigger precisely so the client cannot mint
+       them, so this asks and the server decides. If the RPC is not deployed
+       yet the call simply fails and no gem is granted; coins are unaffected. */
+    if (accuracy >= 90 && grantPracticeGem) grantPracticeGem();
     // Weekly challenges — "games"/"perfect" used to only ever bump from Play
     // Along's finishSong(), so Practice Mode could never complete 6 of the
     // week's 9 rotating challenge types. hits = notes actually played correctly.

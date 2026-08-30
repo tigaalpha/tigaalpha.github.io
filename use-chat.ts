@@ -6,7 +6,7 @@ import { tr, L, matchFaqTopic } from "./i18n";
 import { stopCloudTTS } from "./speech";
 import { memoryContext, homeworkContext } from "./ai-chat-context";
 import { streamChatCompletion } from "./ai-backend";
-import { EXP, buildAlternatingHistory, curriculumContext, songRecommendationHint } from "./App";
+import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRecommendationHint } from "./App";
 /* ── use-chat.ts ──
    Owns the main AI-sensei chat panel: the message list + typed-input box
    + streaming Claude call (send/callClaude), the [play:]-tag reply
@@ -68,7 +68,7 @@ function loadSavedChat(lang) {
   return null;
 }
 
-export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireLogin }) {
+export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin }) {
   const lc = L[lang];
 
   const [msgs, setMsgs] = useState(() => loadSavedChat(lang) || [{ role: "ai", text: lc.welcome }]);
@@ -231,11 +231,21 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
     if (faq) {
       topicHint.current = LESSON_MODE; // curated reading content — don't auto-detect notes from it
       setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
-      gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
+      payForAsk(); // reward engaging with the AI sensei
     } else if (!requireLogin("ai")) {
       callClaude(t); // tier 2: no prepared match — ask the live AI
-      gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
+      payForAsk(); // reward engaging with the AI sensei
     }
+  }
+
+  /* Asking a real question is worth coins as well as EXP, so the chat is a
+     place you can earn rather than only spend attention. Capped daily
+     (EARN_CAP.chat): one question deserves a reward, a hundred in a row is a
+     coin printer, and an uncapped chat reward would quietly devalue every
+     price in the shop. */
+  function payForAsk() {
+    gainExp(EXP.ask, { quest: true });
+    if (earnCoins && takeEarn("chat")) earnCoins(EARN.chat);
   }
 
   // Same two-tier pipeline as send(), for callers that already know exactly
@@ -253,10 +263,10 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
     if (faq) {
       topicHint.current = LESSON_MODE;
       setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
-      gainExp(EXP.ask, { quest: true });
+      payForAsk();
     } else if (!requireLogin("ai")) {
       callClaude(t);
-      gainExp(EXP.ask, { quest: true });
+      payForAsk();
     }
   }
   return { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, callClaude, pushMessage, setLessonContext };

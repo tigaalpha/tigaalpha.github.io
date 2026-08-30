@@ -147,6 +147,53 @@ export function vmDisplayText(reply) {
 ════════════════════════════════════════════════════════════ */
 export const EXP = { lesson: 50, chapter: 25, ask: 10, daily: 15 };
 
+/* ── the coin economy ──
+   One table, so what an activity is worth is legible in one place instead of
+   being scattered across a dozen call sites with different magic numbers.
+
+   Reading a Pathway chapter is the BASELINE. A Practice Mode drill pays double
+   it, because playing something is harder than reading about it, and a Studio
+   drill sits between the two. Talking to TIGA pays least per message and is
+   capped daily — a question is worth rewarding, a hundred questions in a row
+   is a coin printer, and an uncapped chat reward would quietly devalue every
+   price in the shop.
+
+   Coins are earned in-app only; nothing here can be bought. */
+export const EARN = {
+  chapter: 10,      // a Pathway chapter, the first time it is read
+  practice: 20,     // a Practice Mode drill — twice a chapter, per design
+  studio: 12,       // a Studio drill finished
+  chat: 4,          // one real question to TIGA
+};
+/* Daily ceilings on the things you could otherwise repeat forever. Chapters
+   are finite and only pay on a first read, so they need no cap. */
+export const EARN_CAP = { chat: 12, studio: 30 };
+
+/** How many of a capped reward are still available today. */
+export function earnLeftToday(kind) {
+  const cap = EARN_CAP[kind];
+  if (!cap) return Infinity;
+  try {
+    const v = JSON.parse(localStorage.getItem("tg_earn_day") || "{}");
+    if (v.d !== new Date().toDateString()) return cap;
+    return Math.max(0, cap - (v[kind] || 0));
+  } catch (e) { return cap; }
+}
+/** Book one unit of a capped reward. Returns false when today's cap is spent. */
+export function takeEarn(kind) {
+  const cap = EARN_CAP[kind];
+  if (!cap) return true;
+  try {
+    const today = new Date().toDateString();
+    let v = JSON.parse(localStorage.getItem("tg_earn_day") || "{}");
+    if (v.d !== today) v = { d: today };
+    if ((v[kind] || 0) >= cap) return false;
+    v[kind] = (v[kind] || 0) + 1;
+    localStorage.setItem("tg_earn_day", JSON.stringify(v));
+    return true;
+  } catch (e) { return true; }
+}
+
 // Rank ladder — each tier needs `min` total EXP. Level number = index + 1.
 // Colors stay within the pink/magenta/wine family, deepening as the learner advances.
 export const LEVELS = [
@@ -2783,13 +2830,20 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
         </div>
       )}
 
-      {/* Gamification: Lucky Bonus toast */}
+      {/* Gamification: Lucky Bonus toast — and the practice-gem toast, which
+          rides the same slot because two of these on screen at once would be
+          two banners fighting for the same strip of the header. */}
       {luckyToast && (
         <div style={{ position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)", zIndex: 2300,
-          background: "linear-gradient(135deg,#d97757,#f5a623)", color: "#fff", borderRadius: 20,
+          background: luckyToast.kind === "gem" ? "linear-gradient(135deg,#6a5acd,#48c6ef)" : "linear-gradient(135deg,#d97757,#f5a623)",
+          color: "#fff", borderRadius: 20,
           padding: "10px 22px", fontWeight: 700, fontSize: 15, pointerEvents: "none",
-          boxShadow: "0 4px 20px rgba(217,119,87,0.5)", animation: "pop 0.4s ease" }}>
-          ⚡ {T(`LUCKY BONUS! +${luckyToast.xp} EXP`, `LUCKY BONUS! +${luckyToast.xp} EXP`, `幸运奖励! +${luckyToast.xp} EXP`)}
+          boxShadow: luckyToast.kind === "gem" ? "0 4px 20px rgba(90,110,220,0.55)" : "0 4px 20px rgba(217,119,87,0.5)", animation: "pop 0.4s ease" }}>
+          {luckyToast.kind === "gem"
+            ? T(`💎 ได้เพชร +${luckyToast.n}! วันนี้เหลืออีก ${luckyToast.left}`,
+                `💎 Gem earned +${luckyToast.n}! ${luckyToast.left} more today`,
+                `💎 获得宝石 +${luckyToast.n}！今日还剩 ${luckyToast.left}`)
+            : T(`⚡ LUCKY BONUS! +${luckyToast.xp} EXP`, `⚡ LUCKY BONUS! +${luckyToast.xp} EXP`, `⚡ 幸运奖励! +${luckyToast.xp} EXP`)}
         </div>
       )}
 
@@ -9041,7 +9095,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [metroBpm, setMetroBpm] = useState(90);
   const [ambientOn, setAmbientOn] = useState(false);
   // coins · daily chest · mascot companion
-  const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
+  const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
   const [shopTab, setShopTab] = useState("all");
   const [friendsOpen, setFriendsOpen] = useState(false);
@@ -9402,7 +9456,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
   }
 
-  const { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, requireLogin });
+  const { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin });
   // Which Pathway topic is currently being studied on the Sensei page, so a
   // "back" button can jump straight to that topic's key picker re-opened —
   // instead of the ☰ menu → Pathway → find-the-card-again round trip.
@@ -9443,7 +9497,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [uid]);
 
 
-  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, isGuest, lang, bumpWeekly });
+  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly });
 
 
   const { vmOpen, setVmOpen, vmState, vmCaption, setVmCaption, vmMsgs, setVmMsgs, vmNotes, setVmNotes, vmErr, setVmErr, vmActiveRef, vmStateRef, vmRecRef, vmMsgsRef, vmNotesRef, vmFrozenRef, vmPlayReactT, vmSilenceT, vmRestartT, vmWatchdogT, vmListenSeqRef, vmEndRef, vmLastActivityRef, vmIdleNudgedRef, vmIdleTimerRef, vmSelfSpeakingRef, vmEarResetRef, vmEarFlushRef, vmDeafCountRef, vmTallyOkRef, vmTallyMissRef, vmFast, setVmFast, vmFastRef, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmPoly, setVmPoly, vmPolyRef, vmLangOpen, setVmLangOpen, vmMenuOpen, setVmMenuOpen, langRef, vmLastDemoRef, vmStreakRef, vmMissRef, vmFillersRef, vmFillerSrcRef, vmCloudDeadRef, vmLit, setVmLit, vmLitT, vmStaff, setVmStaff, vmInstant, setVmInstant, vmInstantT, vmExpectRef, vmSeqRef, vmEarRef, vmInterruptRef, vmTurnRef, vmSpokenRef, vmSpokeAtRef, vmSessionStartRef, vmActStartRef, vmFillerLastRef, vmInput, setVmInput, openVoice, exitVoice, vmOrbTap, vmOnNote, vmTogglePoly, vmProcess, vmToggle } = useVoiceTutor({ lang, session, profile, homework, setHomework, setPage, setStudioView, setMetroOn, setMetroBpm, metroTimingReport, openCamera, chooseSong, startPractice, lastSeq });
@@ -10117,7 +10171,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // open a "benefits of music" knowledge chapter — show curated content in the chat
   function readChapter(stage, caseObj) {
     if (!caseObj && stage && stage.id) logUsage("pathway", stage.id); // top-level card tap only, not a case-study drill-down
+    /* Coins for reading a chapter, but only the FIRST time it is read —
+       re-reading is free and always will be, and paying for it again would
+       turn the back button into a coin printer. */
+    const firstRead = stage && stage.id && !pathDoneSet().has(stage.id);
     if (stage && stage.id) markPathDone(stage.id);
+    if (firstRead) earnCoins(EARN.chapter);
     if (stage && stage.id) logActivity("read-chapter", stage.id, 0, 0, 120); // ~2 min of reading
     const title = caseObj ? tr(caseObj.title, lang) : tr(stage.title, lang);
     const body = caseObj ? tr(caseObj.content, lang) : tr(stage.content, lang);
@@ -10158,6 +10217,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // or close any modal a caller opened it from (StudioPage's SRS modal has
   // its own local srsOpen state, out of reach from here); callers close their
   // own UI first, then invoke this.
+  /* Every Studio drill already pays its own tuned amount for how well the run
+     went. This adds the flat Studio rate from EARN on top of that, so
+     finishing a drill in the Studio is worth coins in its own right and the
+     Studio is somewhere you can earn rather than only practise. Capped daily
+     so it cannot be farmed by starting and abandoning drills. */
+  function rewardStudio(xp, c, opts = {}) {
+    if (xp) gainExp(xp, { quest: true });
+    const bonus = takeEarn("studio") ? EARN.studio : 0;
+    if (c || bonus) earnCoins((c || 0) + bonus);
+    if (opts.games) bumpWeekly("games", 1);
+    if (opts.perfect) bumpWeekly("perfect", opts.perfect);
+  }
+
   function askAboutStruggle(item) {
     setPage("sensei");
     // Memory Streak — asking about a tracked struggle is a genuine review of
@@ -10310,14 +10382,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <TodayPage lang={lang} exp={(profile && profile.exp) || 0} homework={homework}
           onLearn={learnTopic} onRead={readChapter} onSong={chooseSong} onNavigate={handleCoachNavigate}
           onReviewStage={reviewStage}
-          onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }}
+          onReward={(xp, c) => rewardStudio(xp, c)}
           onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "eargym" && (
-        <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c, perfect) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); if (perfect) bumpWeekly("perfect", perfect); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
+        <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c, perfect) => rewardStudio(xp, c, { games: 1, perfect })} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "reading" && (
-        <ReadingPage lang={lang} onReward={(xp, c, perfect) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); if (perfect) bumpWeekly("perfect", perfect); }} onBack={() => { setPage("studio"); setStudioView("menu"); }}
+        <ReadingPage lang={lang} onReward={(xp, c, perfect) => rewardStudio(xp, c, { games: 1, perfect })} onBack={() => { setPage("studio"); setStudioView("menu"); }}
           onPlaySong={(song) => { chooseSong(song); setPage("studio"); setStudioView("songs"); }} />
       )}
       {page === "insights" && (

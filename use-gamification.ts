@@ -275,6 +275,22 @@ export function useGamification({ session, profile, setProfile }) {
     return true;
   }
 
+  /* Ask the server for a practice gem. Gems are protected by a database
+     trigger precisely so a client cannot mint them, so this asks and the
+     server decides — how many a day, and whether any are left. A failure
+     (including the RPC not being deployed yet) is silent and grants nothing;
+     coins from the same drill are unaffected either way. */
+  async function grantPracticeGem() {
+    if (!uid) return false;
+    const { data: r, error } = await sb.rpc("grant_practice_gem");
+    if (error || !r || !r.granted) return false;
+    setProfile(p => ({ ...(p || {}), gems: r.gems }));
+    playUi("levelup"); mascot("celebrate", 1800);
+    setLuckyToast && setLuckyToast({ kind: "gem", n: r.granted, left: r.remaining });
+    setTimeout(() => setLuckyToast && setLuckyToast(null), 3200);
+    return true;
+  }
+
   function buyFreeze() {
     const cost = 120;
     if (getCoins() < cost) { mascot("sad", 1200); playMiss(); return; }
@@ -324,5 +340,5 @@ export function useGamification({ session, profile, setProfile }) {
     };
   }, []);
 
-  return { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, buyFreeze, bumpWeekly, mascot, openChestNow };
+  return { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow };
 }
