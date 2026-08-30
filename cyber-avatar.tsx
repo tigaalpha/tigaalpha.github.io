@@ -2158,6 +2158,25 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               {plate("M31 195 C38 193 45 194 49 197 L47 231 C41 231 36 229 34 226 Z", { fill: bTrim })}
               {plate("M89 195 C82 193 75 194 71 197 L73 231 C79 231 84 229 86 226 Z", { fill: bTrim })}
               {castOn("M32 187 L88 187 L92 217 L86 248 L34 248 L28 217 Z", .7)}
+              {/* the pelvic latch: the one place on a machine where the top
+                  half is bolted to the bottom half, and the last flat span on
+                  the chassis that had nothing on it at all. A buckle belongs
+                  on the front, so it is scoped there — and the back gets the
+                  lumbar column it was owed instead. */}
+              <g opacity={front.toFixed(3)}>
+                {plate("M52 206 L68 206 L70 222 L60 230 L50 222 Z", { fill: bTrim, lw: .9, deep: .8 })}
+                {groove("M54 212 L66 212 M55 218 L65 218", .9, .34)}
+              </g>
+              <g opacity={rear.toFixed(3)}>
+                {plate("M54 196 L66 196 L67 236 L53 236 Z", { fill: bTrim, lw: .9, deep: .8 })}
+                {groove("M56 204 L64 204 M56 213 L64 213 M56 222 L64 222 M56 231 L64 231", .9, .34)}
+              </g>
+              {/* hips: the last joint on the body still drawn as a plain seam.
+                  Drawn under the legs so the thigh rides on the disc. */}
+              {joint(46, 240, 11)}
+              {joint(74, 240, 11)}
+              {pivot(46, 240, 5.4)}
+              {pivot(74, 240, 5.4)}
               {/* each leg swings from its own hip */}
               <g transform={rot(PZ.legL, 46, 238)}>
                 {plate("M34 240 L58 240 L56 302 L37 302 Z")}
