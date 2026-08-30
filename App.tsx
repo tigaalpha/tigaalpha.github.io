@@ -8,6 +8,7 @@ import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 import { SkillTrack, PvpPage, trainFromExp, readSkillSp, skillRank } from "./pvp-arena";
 import { PetPod, PetPage } from "./pet-lab";
+import { StarsongPod, StarsongPage } from "./starsong";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -6228,7 +6229,7 @@ const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, e
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPet, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPet, onOpenStarsong, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -6312,6 +6313,11 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             the corner the eye already lands on. It is absolutely positioned so
             it never pushes the avatar off centre. */}
         <PetPod lang={lang} onOpen={onOpenPet} />
+        {/* ── STARSONG pod ──
+            The mirror of the pet pod on the other side of the avatar: the
+            character stands between the thing it looks after and the world
+            it fights in. */}
+        <StarsongPod lang={lang} onOpen={onOpenStarsong} />
         <div className="profava-wrap">
           <div className="profava-ring" />
           <div className="profava-frame" />
@@ -10500,7 +10506,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} onOpenStarsong={() => { logUsage("nav", "starsong"); setPage("starsong"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
@@ -10566,6 +10572,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
             return true;
           }}
+          onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
+      )}
+
+      {/* ─── PAGE: TIGA — STARSONG ───
+          The open-world RPG. It pays out EXP and coins like any other
+          feature, but it mints its OWN progression (the eight emotion
+          stats) only from music answered or played — which is the whole
+          reason the game exists, so it is deliberately not wired to
+          anything that could grant stat for time spent. */}
+      {page === "starsong" && (
+        <StarsongPage lang={lang} playUi={playUi}
+          playerName={(profile && (profile.display_name || profile.full_name)) || (session && session.user && (session.user.user_metadata || {}).full_name) || "TIGA-01"}
+          onBack={() => { setPage("profile"); playUi("click"); }}
           onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
       )}
 

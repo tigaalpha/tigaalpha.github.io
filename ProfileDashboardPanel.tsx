@@ -15,7 +15,7 @@ import { SONGS } from "./songs-data";
    component import. Likewise questToday/readStreak/streakAtRisk/
    QUEST_GOAL are top-level in App.tsx but not exported, so they're
    threaded as props too. ── */
-export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, onOpenStorage, onOpenPvp, onOpenPet, setHelpOpen, setFriendsOpen, setBuyCurrencyOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, onOpenStorage, onOpenPvp, onOpenPet, onOpenStarsong, setHelpOpen, setFriendsOpen, setBuyCurrencyOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   return (
         <div className="profscroll">
@@ -79,7 +79,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
           {profile && profile.school_id && <SchoolLeaderboardSection lang={lang} schoolId={profile.school_id} />}
 
           <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins} gems={gems}
-            onOpenShop={() => setShopOpen(true)} onOpenStorage={onOpenStorage} onOpenPvp={onOpenPvp} onOpenPet={onOpenPet} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onBuyCurrency={() => setBuyCurrencyOpen(true)} onAskStruggle={onAskStruggle} onReplayDrill={onReplayDrill}
+            onOpenShop={() => setShopOpen(true)} onOpenStorage={onOpenStorage} onOpenPvp={onOpenPvp} onOpenPet={onOpenPet} onOpenStarsong={onOpenStarsong} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onBuyCurrency={() => setBuyCurrencyOpen(true)} onAskStruggle={onAskStruggle} onReplayDrill={onReplayDrill}
             charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />
         </div>
   );
