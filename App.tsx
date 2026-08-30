@@ -10589,12 +10589,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "sensei", ic: "◈", c: "#d97757", t: lc.navSensei },
           // free preview inside; the Max-only AI report/plan is upsold there, not walled off at the nav
           { p: "coach", ic: "🎯", c: "#d97757", t: "AI Daily Mentor" },
+          // the profile row is where your character lives, so it wears a
+          // humanoid android rather than the rank emoji it used to borrow.
+          // It sits high in the list because the character — and the pet pod
+          // beside it — is what people come back to open.
+          { p: "profile", ic: <RobotGlyph size={21} />, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "studio", sv: "songs", ic: "🎵", c: "#d97757", t: lc.studioPlayAlong },
           { p: "studio", sv: "menu", ic: "▶", c: "#d97757", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
-          // the profile row is where your character lives, so it wears a
-          // humanoid android rather than the rank emoji it used to borrow
-          { p: "profile", ic: <RobotGlyph size={21} />, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
           // no pet entry here on purpose — the pet lab is reached from the pod
           // beside the avatar on the profile, where the character lives
