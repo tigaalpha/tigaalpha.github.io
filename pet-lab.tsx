@@ -239,6 +239,8 @@ export const nextGrowth = (lv) => {
 /* Two path helpers do nearly all the geometry — an ellipse and a rounded box.
    Everything (torso, limbs, plates, hatches) is one of those two, which is
    what keeps twelve creatures from drifting into twelve different styles. */
+/** Stable per-path id so each part can clip its own bevel. */
+const hashd = (d) => { let h = 5381; for (let i = 0; i < d.length; i++) h = ((h << 5) + h + d.charCodeAt(i)) | 0; return h; };
 const ell = (x, y, rx, ry) =>
   `M${x - rx} ${y} C${x - rx} ${y - ry * 1.334} ${x + rx} ${y - ry * 1.334} ${x + rx} ${y} C${x + rx} ${y + ry * 1.334} ${x - rx} ${y + ry * 1.334} ${x - rx} ${y} Z`;
 const rr = (x, y, w, h, r) => {
@@ -288,15 +290,28 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   const D = `url(#${uid}-limb)`;
   /* fill → form shadow → key highlight → outline, same five-pass rig as the
      robots and the gear */
-  const P = (d, f, o = {}) => (
-    <g>
-      <path d={d} fill={f} />
-      <path d={d} fill={`url(#${uid}-occ)`} opacity={o.occ == null ? 1 : o.occ} />
-      <path d={d} fill={`url(#${uid}-spec)`} opacity={o.spec == null ? 1 : o.spec} />
-      <path d={d} fill={`url(#${uid}-rim)`} />
-      <path d={d} fill="none" stroke={B} strokeWidth={o.lw || 1.7} strokeLinejoin="round" opacity={o.lineOp == null ? .9 : o.lineOp} />
-    </g>
-  );
+  const P = (d, f, o = {}) => {
+    const cid = `${uid}-c${Math.abs(hashd(d))}`;
+    return (
+      <g>
+        <path d={d} fill={f} />
+        <path d={d} fill={`url(#${uid}-occ)`} opacity={o.occ == null ? 1 : o.occ} />
+        {/* a warm key and a cool bounce, rather than one white wash */}
+        <path d={d} fill={`url(#${uid}-warm)`} />
+        <path d={d} fill={`url(#${uid}-cool)`} />
+        <path d={d} fill={`url(#${uid}-spec)`} opacity={o.spec == null ? 1 : o.spec} />
+        <path d={d} fill={`url(#${uid}-rim)`} />
+        {/* the bevel: a lit lip along the top edge, a shadow along the bottom.
+            Clipped to the part so it stays a thickness and not an outline. */}
+        <g clipPath={`url(#${cid})`}>
+          <path d={d} fill="none" stroke="#ffffff" strokeWidth={(o.lw || 1.7) * 1.4} strokeLinejoin="round" opacity=".4" transform="translate(0 -1)" />
+          <path d={d} fill="none" stroke="#00060f" strokeWidth={(o.lw || 1.7) * 1.4} strokeLinejoin="round" opacity=".26" transform="translate(0 1.2)" />
+        </g>
+        <path d={d} fill="none" stroke={B} strokeWidth={o.lw || 1.7} strokeLinejoin="round" opacity={o.lineOp == null ? .9 : o.lineOp} />
+        <clipPath id={cid}><path d={d} /></clipPath>
+      </g>
+    );
+  };
   const seam = (d, o = .45) => <path d={d} fill="none" stroke={B} strokeWidth="1.2" strokeLinecap="round" opacity={o} />;
 
   /* ── ears ── drawn behind the head so they read as attached to it */
@@ -442,6 +457,16 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           <stop offset="42%" stopColor={T.c} />
           <stop offset="100%" stopColor={B} />
         </radialGradient>
+        <linearGradient id={`${uid}-warm`} x1="0.12" y1="0" x2="0.78" y2="0.9">
+          <stop offset="0%" stopColor="#fff1d8" stopOpacity=".36" />
+          <stop offset="34%" stopColor="#ffe3b8" stopOpacity=".08" />
+          <stop offset="100%" stopColor="#ffe3b8" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`${uid}-cool`} x1="0.88" y1="1" x2="0.32" y2="0.16">
+          <stop offset="0%" stopColor="#9fc8ff" stopOpacity=".3" />
+          <stop offset="42%" stopColor="#9fc8ff" stopOpacity=".05" />
+          <stop offset="100%" stopColor="#9fc8ff" stopOpacity="0" />
+        </linearGradient>
         <radialGradient id={`${uid}-glow`}>
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".95" />
           <stop offset="40%" stopColor={T.c} stopOpacity=".85" />
@@ -493,6 +518,9 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {has(4) && P(`M${cx - bw * .36} ${coreY - bh * .3} H${cx + bw * .36} L${cx + bw * .28} ${coreY + bh * .16} L${cx} ${coreY + bh * .34} L${cx - bw * .28} ${coreY + bh * .16} Z`,
           F, { spec: .9, occ: .45, lw: 1.5 })}
         {/* L2 — the core lights */}
+        {/* the core throws light onto the shell around it, rather than sitting
+            on the belly like a sticker */}
+        {has(2) && <circle cx={cx} cy={coreY} r={bw * .85} fill={`url(#${uid}-glow)`} opacity=".42" />}
         {has(2) && <circle cx={cx} cy={coreY} r={bw * (has(4) ? .3 : .26)} fill={`url(#${uid}-glow)`} />}
         <circle cx={cx} cy={coreY} r={Math.max(3, bw * .11)} fill={has(2) ? T.c : B} stroke={B} strokeWidth="1.2" opacity={has(2) ? 1 : .7} />
         {/* L3 — shoulder studs; L10 — full pauldrons over them */}

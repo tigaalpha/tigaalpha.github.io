@@ -159,6 +159,9 @@ export const COMBAT_TOTAL = 40;
    gems come from Prestige tier-ups alone, so a full mythic loadout (+40, which
    doubles a fresh chassis) is an endgame reward rather than a purchase that
    settles a fight before it starts. */
+/** djb2 over a path string — stable across renders, unlike a counter. */
+const hashPath = (d) => { let h = 5381; for (let i = 0; i < d.length; i++) h = ((h << 5) + h + d.charCodeAt(i)) | 0; return h; };
+
 const RARITY_PTS = { common: 1, rare: 2, epic: 3, legendary: 5, mythic: 10 };
 export function combatOf(model, gear = []) {
   const base = MODEL_COMBAT[normalizeModel(model)] || MODEL_COMBAT.vanguard;
@@ -1454,17 +1457,33 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
      grazing rim, outline. Five passes over one path is what separates a plate
      from a coloured shape, and it is the whole reason the figure reads as
      metal rather than as a sticker. */
+  /* A stable id per path so each plate can clip its own bevel. Hashed rather
+     than counted: a counter would give different ids on a re-render and break
+     the clip references. */
   const plate = (d, o = {}) => (
     <g>
       <path d={d} fill={o.fill || bPlate} stroke="none" />
       <path d={d} fill={`url(#${id}-occ)`} stroke="none" opacity={o.occ == null ? 1 : o.occ} />
+      {/* warm key, cool bounce — light with a colour, not a white wash */}
+      <path d={d} fill={`url(#${id}-warm)`} stroke="none" opacity={o.warm == null ? 1 : o.warm} />
+      <path d={d} fill={`url(#${id}-cool)`} stroke="none" opacity={o.cool == null ? 1 : o.cool} />
       <path d={d} fill={`url(#${id}-spec)`} stroke="none" opacity={o.spec == null ? 1 : o.spec} />
       {/* the narrow hot-spot: the pass that makes it metal rather than matte */}
       <path d={d} fill={`url(#${id}-hot)`} stroke="none" opacity={o.hot == null ? .9 : o.hot} />
       {/* fresnel across the whole plate, then the grazing edge on top of it */}
       <path d={d} fill={`url(#${id}-fres)`} stroke="none" opacity={o.fres == null ? .55 : o.fres} />
+      {/* ── the bevel ──
+          A machined plate has a lip: the top edge catches the key and the
+          bottom edge falls into shadow. Two offset copies of the same outline,
+          clipped to the plate, cost nothing and are the single biggest step
+          from "shape with a gradient" to "part with a thickness". */}
+      <g clipPath={`url(#${id}-c${Math.abs(hashPath(d))})`}>
+        <path d={d} fill="none" stroke="#ffffff" strokeWidth={(o.lw || 1) * 1.5} strokeLinejoin="round" opacity={o.bev == null ? .34 : o.bev} transform="translate(0 -0.9)" />
+        <path d={d} fill="none" stroke="#00060f" strokeWidth={(o.lw || 1) * 1.5} strokeLinejoin="round" opacity={o.bev == null ? .3 : o.bev * .9} transform="translate(0 1.1)" />
+      </g>
       <path d={d} fill="none" stroke={`url(#${id}-graze)`} strokeWidth={(o.lw || 1) * 1.6} strokeLinejoin="round" opacity={o.graze == null ? .55 : o.graze} />
       <path d={d} fill="none" stroke={o.line || bLine} strokeWidth={o.lw || 1} strokeLinejoin="round" opacity={o.lineOp == null ? .9 : o.lineOp} />
+      <clipPath id={`${id}-c${Math.abs(hashPath(d))}`}><path d={d} /></clipPath>
     </g>
   );
   // an engraved seam: a cut, and the lit edge below where it catches the key
@@ -1658,6 +1677,36 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             falls off fast, and its absence is why flat vector armour reads as
             matte plastic no matter how many soft gradients are stacked on it.
             In bounding-box space, so every plate gets one sized to itself. */}
+        {/* A single white key light is why flat-shaded armour looks like a
+            render test. Real light has a COLOUR and a bounce: a warm key from
+            the upper left, a cool fill coming back off the floor into the
+            lower right. Splitting the two is the cheapest thing that makes a
+            surface look photographed rather than filled. */}
+        {/* Emissive bloom. A lit core painted as a flat glyph is a sticker on
+            armour; a real light source spills onto the plates around it. This
+            is the halo that spill is made of. */}
+        <radialGradient id={`${id}-bloom`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stopColor={glow} stopOpacity=".55" />
+          <stop offset="34%" stopColor={glow} stopOpacity=".22" />
+          <stop offset="70%" stopColor={glow} stopOpacity=".06" />
+          <stop offset="100%" stopColor={glow} stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={`${id}-bloomR`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stopColor="#ff2d46" stopOpacity=".55" />
+          <stop offset="34%" stopColor="#ff2d46" stopOpacity=".22" />
+          <stop offset="70%" stopColor="#ff2d46" stopOpacity=".06" />
+          <stop offset="100%" stopColor="#ff2d46" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`${id}-warm`} x1="0.1" y1="0" x2="0.75" y2="0.85">
+          <stop offset="0%" stopColor="#fff0d6" stopOpacity=".34" />
+          <stop offset="34%" stopColor="#ffe2b4" stopOpacity=".08" />
+          <stop offset="100%" stopColor="#ffe2b4" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`${id}-cool`} x1="0.85" y1="1" x2="0.3" y2="0.15">
+          <stop offset="0%" stopColor="#9dc4ff" stopOpacity=".3" />
+          <stop offset="40%" stopColor="#9dc4ff" stopOpacity=".06" />
+          <stop offset="100%" stopColor="#9dc4ff" stopOpacity="0" />
+        </linearGradient>
         <radialGradient id={`${id}-hot`} cx="0.29" cy="0.17" r="0.34">
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".78" />
           <stop offset="26%" stopColor="#ffffff" stopOpacity=".26" />
@@ -2091,6 +2140,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {groove("M82 100 L70 98 M82 105 L70 103 M82 110 L70 108", .9, .4)}
                 {groove("M29 164 L91 164 M32 181 L88 181", 1.1, .45)}
                 <g className="ca-core">
+                  {/* the light this core throws onto the plates around it */}
+                  <circle cx="60" cy="131" r="46" fill={`url(#${id}-${term ? "bloomR" : "bloom"})`} />
                   <circle cx="60" cy="131" r="18" fill="none" stroke={CC} strokeWidth="1.6" opacity=".7" />
                   {/* bezel notches at the cardinals — a machined mount rather than
                       a ring drawn round a shape */}
