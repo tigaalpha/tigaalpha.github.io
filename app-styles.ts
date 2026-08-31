@@ -2670,6 +2670,22 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssb-ember{position:absolute;bottom:-8px;width:3px;height:3px;border-radius:50%;
   background:var(--wg,#8fd0ff);box-shadow:0 0 8px 2px var(--wg,#8fd0ff);opacity:0;animation:ssbEmber 11s linear infinite}
 @keyframes ssbEmber{0%{opacity:0;transform:translate(0,0) scale(.6)}12%{opacity:.85}70%{opacity:.5}100%{opacity:0;transform:translate(26px,-78vh) scale(1.3)}}
+/* rain: two sheets at different speeds and angles, because one sheet reads
+   as a texture and two read as weather */
+.ssb-rain{position:absolute;inset:-20%;opacity:.2;pointer-events:none;
+  background-image:repeating-linear-gradient(101deg,rgba(190,220,255,.5) 0 1px,transparent 1px 5px),
+                   repeating-linear-gradient(97deg,rgba(210,235,255,.32) 0 1px,transparent 1px 9px);
+  background-size:auto 190px,auto 260px;animation:ssbRainA .55s linear infinite,ssbRainB .85s linear infinite}
+@keyframes ssbRainA{to{background-position-y:190px,0}}
+@keyframes ssbRainB{to{background-position-y:0,260px}}
+/* the near plane: dark, thrown well out of focus, framing the shot */
+.ssb-fg{position:absolute;bottom:-14%;width:34%;height:62%;pointer-events:none;
+  background:linear-gradient(180deg,rgba(3,6,14,0),rgba(3,6,14,.9) 42%);filter:blur(16px);opacity:.85}
+.ssb-fg.l{left:-14%;transform:skewX(6deg)}
+.ssb-fg.r{right:-14%;transform:skewX(-6deg)}
+/* it does not rain inside a volcano */
+.ssbattle[data-stage="magma"] .ssb-rain{display:none}
+@media (prefers-reduced-motion:reduce){.ssb-rain{animation:none}}
 .ssb-haze{position:absolute;left:0;right:0;bottom:26%;height:22%;
   background:linear-gradient(180deg,transparent,var(--wc,#7fb2ff)1c 55%,transparent);filter:blur(14px);opacity:.5}
 

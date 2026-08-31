@@ -1607,7 +1607,8 @@ const BattleScreen = memo(function BattleScreen({
   lang, W, foe, hp, maxHpV, chassisEl, onAnswer, onFlee, shake, hurtFoe, hurtMe, playing, reveal, onNextQ, bt, onAct, bnr, cine,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
-  const G = useArenaFx(stageById(W.track));
+  const ST = stageById(W.track);
+  const G = useArenaFx(ST);
   const [t, setT] = useState(0);
   useEffect(() => {
     let raf = 0, t0 = performance.now();
@@ -1636,7 +1637,7 @@ const BattleScreen = memo(function BattleScreen({
      header was painting over the top of the fight and eating both HP bars —
      the two numbers the whole fight is about. Out here it cannot. */
   return createPortal((
-    <div className={`ssbattle${foe.boss ? " boss" : ""}${shake ? " shake" : ""}${hurtFoe ? " punchy" : ""}${cine ? " cine" : ""}`} style={{ "--wc": W.accent, "--wg": W.glow }}>
+    <div className={`ssbattle${foe.boss ? " boss" : ""}${shake ? " shake" : ""}${hurtFoe ? " punchy" : ""}${cine ? " cine" : ""}`} data-stage={ST.id} style={{ "--wc": W.accent, "--wg": W.glow }}>
       <canvas ref={G.canvasRef} className="ssbfx" />
       {/* atmosphere: a light shaft, drifting embers and a haze horizon. All
           CSS, so none of it costs a frame of the fight. */}
@@ -1652,6 +1653,10 @@ const BattleScreen = memo(function BattleScreen({
         ))}
         {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <i key={i} className="ssb-ember" style={{ left: `${5 + i * 12}%`, animationDelay: `${i * 1.6}s`, animationDuration: `${9 + (i % 4) * 2.5}s` }} />)}
         <span className="ssb-haze" />
+        {/* rain, and the frame it is falling through: two out-of-focus
+            foreground masses that give the shot a near plane */}
+        <span className="ssb-rain" />
+        <span className="ssb-fg l" /><span className="ssb-fg r" />
       </div>
       {/* the grade: a filmic curve, grain, a vignette and a whisper of
           chromatic fringe. Last layer over the picture, under the HUD. */}
