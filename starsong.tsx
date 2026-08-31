@@ -22,11 +22,12 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { sb } from "./supabase-client";
 import { makeQuestion, spellMajor } from "./pvp-arena";
 import { playPianoNote, playBoom, playMiss, playWhoosh, haptic } from "./music-engine";
 import { CyberAvatar } from "./cyber-avatar";
-import { createArenaAudio, stageById } from "./arena-fx";
+import { createArenaAudio, stageById, useArenaFx } from "./arena-fx";
 
 const tr3 = (o, lang) => (o && (o[lang] || o.en)) || "";
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -834,6 +835,230 @@ function drawChassis(g, img, x, y, h, t, dir, ghost) {
   g.restore();
 }
 
+/* ══════════════════════ the enemy ══════════════════════
+
+   One rig rather than five bespoke drawings: a shadow, legs, a carapace, arm
+   pieces, a head with one big eye, and a crest — each of which has a handful
+   of shapes, picked per world. That gets five distinct silhouettes out of one
+   set of parts, and a boss is the same rig with more of them and a size.
+
+   Everything is parametric on the world palette, so a new planet's fauna is
+   a data entry rather than an art commission. */
+const FOE_RIG = {
+  terra:     { body: "pod",   legs: "tri",   arms: "none",  crest: "ant",   eyes: 1 },
+  ferros:    { body: "hulk",  legs: "tread", arms: "claw",  crest: "stack", eyes: 1 },
+  glacius:   { body: "shard", legs: "float", arms: "none",  crest: "spire", eyes: 3 },
+  emberfall: { body: "mech",  legs: "biped", arms: "gun",   crest: "horn",  eyes: 2 },
+  starsong:  { body: "shard", legs: "float", arms: "wing",  crest: "halo",  eyes: 5 },
+};
+
+export const MonsterArt = memo(function MonsterArt({ world, boss, hurt, t = 0 }) {
+  const W = worldById(world);
+  const R = FOE_RIG[world] || FOE_RIG.terra;
+  const uid = "fo" + world + (boss ? "b" : "");
+  const C = W.accent, G = W.glow, D = "#0d1424";
+  const eye = hurt ? "#ffffff" : boss ? "#ff3d3d" : "#ff7a6a";
+  const bob = Math.sin(t * 2.4) * 3;
+  /* A boss that is the same drawing in a redder eye is not a boss. It gets
+     scale, a crown, shoulder pauldrons, a ground aura and a second pair of
+     eyes — the same rig, but visibly the thing the whole world was building
+     towards. */
+  const K = boss ? 1.16 : 1;
+
+  return (
+    <svg viewBox="0 0 200 210" width="100%" height="100%" aria-hidden="true"
+      style={{ filter: hurt ? "brightness(2.1) saturate(.3)" : `drop-shadow(0 0 18px ${G}55)` }}>
+      <defs>
+        <linearGradient id={uid + "-sh"} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor="#f2f6ff" />
+          <stop offset="34%" stopColor={C} />
+          <stop offset="78%" stopColor="#39445e" />
+          <stop offset="100%" stopColor="#0f1626" />
+        </linearGradient>
+        <linearGradient id={uid + "-lm"} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#8f9db8" />
+          <stop offset="100%" stopColor="#161d2e" />
+        </linearGradient>
+        <radialGradient id={uid + "-ey"}>
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="34%" stopColor={eye} />
+          <stop offset="100%" stopColor="#2a0a0a" />
+        </radialGradient>
+      </defs>
+
+      <ellipse cx="100" cy="196" rx={boss ? 66 : 46} ry={boss ? 14 : 10} fill="#00040c" opacity=".45" />
+      {boss && (
+        <g>
+          {[0, 1, 2].map(i => (
+            <ellipse key={i} cx="100" cy="194" rx={58 + i * 16} ry={12 + i * 3.4}
+              fill="none" stroke={eye} strokeWidth="2" opacity={(0.3 - i * 0.08) * (0.6 + 0.4 * Math.abs(Math.sin(t * 1.4 + i)))} />
+          ))}
+        </g>
+      )}
+
+      <g transform={`translate(100 ${bob}) scale(${K}) translate(-100 0)`}>
+        {/* ── legs ── */}
+        {R.legs === "tri" && [-1, 0, 1].map(k => (
+          <path key={k} d={`M${100 + k * 20} 128 L${100 + k * 42} 188 L${100 + k * 34} 190 L${100 + k * 12} 130 Z`}
+            fill={`url(#${uid}-lm)`} stroke="#0a1020" strokeWidth="1.4" />
+        ))}
+        {R.legs === "tread" && (
+          <g>
+            <rect x="34" y="150" width="132" height="40" rx="18" fill="#1b2334" stroke="#0a1020" strokeWidth="2" />
+            {[0, 1, 2, 3, 4, 5].map(i => <rect key={i} x={44 + i * 21} y="152" width="12" height="36" rx="4" fill="#39445e" />)}
+            <circle cx="56" cy="170" r="13" fill="#4a5875" stroke="#0a1020" strokeWidth="1.6" />
+            <circle cx="144" cy="170" r="13" fill="#4a5875" stroke="#0a1020" strokeWidth="1.6" />
+          </g>
+        )}
+        {R.legs === "biped" && [-1, 1].map(k => (
+          <g key={k}>
+            <path d={`M${100 + k * 22} 126 L${100 + k * 30} 160 L${100 + k * 24} 186 L${100 + k * 8} 184 L${100 + k * 12} 158 L${100 + k * 8} 128 Z`}
+              fill={`url(#${uid}-lm)`} stroke="#0a1020" strokeWidth="1.5" />
+            <rect x={100 + k * 30 - 20} y="182" width="34" height="10" rx="4" fill="#2b3448" stroke="#0a1020" strokeWidth="1.2" />
+          </g>
+        ))}
+        {R.legs === "float" && (
+          <g opacity=".85">
+            {[0, 1, 2].map(i => (
+              <ellipse key={i} cx="100" cy={162 + i * 12} rx={40 - i * 10} ry={7 - i * 1.6}
+                fill="none" stroke={G} strokeWidth="2.2" opacity={0.5 - i * 0.13} />
+            ))}
+          </g>
+        )}
+
+        {/* ── carapace ── */}
+        {R.body === "pod" && (
+          <path d="M100 26 C142 26 162 60 160 100 C158 128 132 142 100 142 C68 142 42 128 40 100 C38 60 58 26 100 26 Z"
+            fill={`url(#${uid}-sh)`} stroke="#0a1020" strokeWidth="2.2" />
+        )}
+        {R.body === "hulk" && (
+          <path d="M46 44 L154 44 L172 96 L160 148 L40 148 L28 96 Z"
+            fill={`url(#${uid}-sh)`} stroke="#0a1020" strokeWidth="2.4" />
+        )}
+        {R.body === "shard" && (
+          <path d="M100 14 L152 70 L136 140 L100 158 L64 140 L48 70 Z"
+            fill={`url(#${uid}-sh)`} stroke="#0a1020" strokeWidth="2.2" />
+        )}
+        {R.body === "mech" && (
+          <path d="M100 30 C132 30 148 46 152 72 L156 112 L146 146 L54 146 L44 112 L48 72 C52 46 68 30 100 30 Z"
+            fill={`url(#${uid}-sh)`} stroke="#0a1020" strokeWidth="2.2" />
+        )}
+        {/* plate seams — the pass that stops a silhouette reading as a sticker */}
+        <path d="M62 108 H138 M70 128 H130" stroke="#0a1020" strokeWidth="1.6" opacity=".45" fill="none" />
+
+        {/* ── arms ── */}
+        {R.arms === "claw" && [-1, 1].map(k => (
+          <g key={k}>
+            {/* upper arm, then a pincer that actually closes on something */}
+            <path d={`M${100 + k * 72} 64 L${100 + k * 100} 90 L${100 + k * 90} 102 L${100 + k * 62} 80 Z`}
+              fill={`url(#${uid}-lm)`} stroke="#0a1020" strokeWidth="1.8" />
+            <circle cx={100 + k * 96} cy={94} r="8" fill="#4a5875" stroke="#0a1020" strokeWidth="1.6" />
+            <path d={`M${100 + k * 98} 88 C${100 + k * 126} 78 ${100 + k * 142} 88 ${100 + k * 136} 100 C${100 + k * 128} 92 ${100 + k * 112} 90 ${100 + k * 100} 94 Z`}
+              fill={C} stroke="#0a1020" strokeWidth="1.6" />
+            <path d={`M${100 + k * 98} 100 C${100 + k * 124} 108 ${100 + k * 140} 118 ${100 + k * 132} 126 C${100 + k * 126} 114 ${100 + k * 110} 104 ${100 + k * 100} 102 Z`}
+              fill={C} stroke="#0a1020" strokeWidth="1.6" />
+            <circle cx={100 + k * 118} cy="96" r="2.6" fill={eye} opacity=".8" />
+          </g>
+        ))}
+        {R.arms === "gun" && [-1, 1].map(k => (
+          <g key={k}>
+            <rect x={100 + k * 70 - 11} y="62" width="22" height="52" rx="7" fill={`url(#${uid}-lm)`} stroke="#0a1020" strokeWidth="1.6" />
+            <rect x={100 + k * 70 - 7} y="108" width="14" height="26" rx="4" fill="#2b3448" stroke="#0a1020" strokeWidth="1.2" />
+            <circle cx={100 + k * 70} cy="134" r="5" fill={eye} opacity=".9" />
+          </g>
+        ))}
+        {R.arms === "wing" && [-1, 1].map(k => (
+          <g key={k}>
+            <path d={`M${100 + k * 46} 62 C${100 + k * 116} 26 ${100 + k * 150} 72 ${100 + k * 112} 122 C${100 + k * 90} 102 ${100 + k * 62} 88 ${100 + k * 46} 84 Z`}
+              fill={G} opacity=".28" stroke={G} strokeWidth="2.2" />
+            {[0.35, 0.6, 0.85].map(r => (
+              <path key={r} fill="none" stroke={G} strokeWidth="1.4" opacity=".5"
+                d={`M${100 + k * 50} 70 Q${100 + k * (60 + 70 * r)} ${52 - 10 * r} ${100 + k * (70 + 46 * r)} ${76 + 34 * r}`} />
+            ))}
+          </g>
+        ))}
+
+        {/* ── crest ── */}
+        {R.crest === "ant" && [-1, 1].map(k => (
+          <g key={k}>
+            <path d={`M${100 + k * 16} 32 L${100 + k * 34} ${-2 + Math.sin(t * 3 + k) * 4}`} stroke="#8f9db8" strokeWidth="3.4" strokeLinecap="round" fill="none" />
+            <circle cx={100 + k * 34} cy={-2 + Math.sin(t * 3 + k) * 4} r="5" fill={G} />
+          </g>
+        ))}
+        {R.crest === "stack" && [0, 1, 2].map(i => {
+          const x = 72 + i * 20, y = 12 + (i % 2) * 8;
+          return (
+            <g key={i}>
+              <rect x={x} y={y} width="16" height="36" rx="3" fill="#3a4560" stroke="#0a1020" strokeWidth="1.4" />
+              <rect x={x - 2} y={y - 4} width="20" height="7" rx="3" fill="#55637f" stroke="#0a1020" strokeWidth="1.2" />
+              {/* the heat coming off it — what makes a pipe read as an exhaust */}
+              <ellipse cx={x + 8} cy={y - 12 - Math.abs(Math.sin(t * 2 + i)) * 5} rx={5 + Math.abs(Math.sin(t * 2 + i)) * 3} ry="6"
+                fill={G} opacity={.34 - Math.abs(Math.sin(t * 2 + i)) * .2} />
+            </g>
+          );
+        })}
+        {R.crest === "spire" && [-1, 0, 1].map(k => (
+          <path key={k} d={`M${100 + k * 22} 40 L${100 + k * 26} ${k === 0 ? -12 : 4} L${100 + k * 30} 44 Z`}
+            fill={G} opacity=".9" stroke="#0a1020" strokeWidth="1.2" />
+        ))}
+        {R.crest === "horn" && [-1, 1].map(k => (
+          <path key={k} d={`M${100 + k * 34} 44 C${100 + k * 44} 12 ${100 + k * 76} 2 ${100 + k * 86} 14 C${100 + k * 68} 18 ${100 + k * 52} 34 ${100 + k * 46} 54 Z`}
+            fill={C} stroke="#0a1020" strokeWidth="1.6" />
+        ))}
+        {R.crest === "halo" && (
+          <g>
+            <ellipse cx="100" cy="18" rx="46" ry="13" fill="none" stroke={G} strokeWidth="3.4" opacity=".85" />
+            <ellipse cx="100" cy="18" rx="46" ry="13" fill="none" stroke="#fff" strokeWidth="1.1" opacity=".4" />
+          </g>
+        )}
+
+        {/* ── eyes: socket, bloom, iris, catchlight ── */}
+        {Array.from({ length: R.eyes }).map((_, i) => {
+          const n = R.eyes, cx = 100 + (i - (n - 1) / 2) * (n > 3 ? 22 : 30);
+          const r = n === 1 ? 26 : n === 2 ? 15 : n === 3 ? 12 : 8;
+          const cy = n > 3 ? 84 + Math.abs(i - (n - 1) / 2) * 7 : 86;
+          return (
+            <g key={i}>
+              <circle cx={cx} cy={cy} r={r + 5} fill={D} />
+              <circle cx={cx} cy={cy} r={r + 9} fill={eye} opacity=".22" />
+              <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}-ey)`} />
+              <circle cx={cx - r * .3} cy={cy - r * .34} r={r * .22} fill="#fff" opacity=".9" />
+            </g>
+          );
+        })}
+
+        {boss && (
+          <g>
+            {/* Regalia has to sit ON the carapace, not beside it. Floating a
+                pauldron out at the silhouette's edge reads as a bug on every
+                body shape that is not the one it was measured against, so
+                both pieces are tucked inside the widest point of the rig. */}
+            {[-1, 1].map(k => (
+              <g key={k}>
+                <path d={`M${100 + k * 40} 58 C${100 + k * 66} 52 ${100 + k * 78} 70 ${100 + k * 70} 88 L${100 + k * 42} 82 Z`}
+                  fill={C} stroke="#0a1020" strokeWidth="2" />
+                <path d={`M${100 + k * 46} 64 C${100 + k * 62} 60 ${100 + k * 70} 70 ${100 + k * 66} 80`}
+                  fill="none" stroke="#fff" strokeWidth="1.4" opacity=".35" />
+              </g>
+            ))}
+            {/* a low crown that rides the top of the shell */}
+            <path d="M70 46 H130" stroke={C} strokeWidth="7" strokeLinecap="round" />
+            <path d="M70 46 H130" stroke="#0a1020" strokeWidth="1.3" opacity=".45" />
+            {[-1, 0, 1].map(k => (
+              <path key={k} d={`M${100 + k * 20 - 7} 44 L${100 + k * 20} ${k === 0 ? 16 : 26} L${100 + k * 20 + 7} 44 Z`}
+                fill={eye} stroke="#0a1020" strokeWidth="1.3" />
+            ))}
+          </g>
+        )}
+
+        {/* the lit power seam every one of them carries */}
+        <path d="M100 148 V166" stroke={G} strokeWidth="4" strokeLinecap="round" opacity=".8" />
+        <path d="M100 148 V166" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" opacity=".8" />
+      </g>
+    </svg>
+  );
+});
+
 /* One octave of white keys. Deliberately not a full piano: these phrases
    are about producing a shape cleanly under pressure, and a keyboard you
    have to hunt across is testing your eyes rather than your hands. */
@@ -846,6 +1071,91 @@ const MiniKeys = memo(function MiniKeys({ onKey, lit, wrong }) {
       ))}
     </div>
   );
+});
+
+/* ══════════════════════ the battle screen ══════════════════════
+
+   A card with four buttons on it is a quiz. Stepping onto a lit stage where
+   your own chassis stands opposite something that is going to hit you is a
+   fight — and the difference is entirely in whether you can see it happen.
+
+   It borrows the PvP arena's FX engine wholesale, so a laser here is the same
+   laser that fires there: `setPos` places the two fighters in 0..1 across the
+   canvas and every effect is addressed to "me" or "op". The music question is
+   still the whole mechanic; what changed is that answering it now visibly
+   throws something.
+
+   The attack a right answer throws is picked by how long your streak is, so a
+   run of correct answers escalates from a jab to an orbital strike rather
+   than repeating one animation. */
+const MOVES = [
+  { id: "jab",    fx: "swipe",  sfx: "hit",   dmg: 1.0 },
+  { id: "beam",   fx: "bolt",   sfx: "laser", dmg: 1.08 },
+  { id: "burst",  fx: "laser",  sfx: "laser", dmg: 1.16 },
+  { id: "rocket", fx: "lob",    sfx: "boom",  dmg: 1.3 },
+  { id: "nova",   fx: "boom",   sfx: "boom",  dmg: 1.5 },
+];
+const moveFor = (streak) => MOVES[Math.min(streak, MOVES.length - 1)];
+
+const BattleScreen = memo(function BattleScreen({
+  lang, W, foe, hp, maxHpV, chassisEl, onAnswer, onFlee, shake, hurtFoe, hurtMe, playing,
+}) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const G = useArenaFx(stageById(W.track));
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    let raf = 0, t0 = performance.now();
+    const step = (n) => { raf = requestAnimationFrame(step); setT((n - t0) / 1000); };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  useEffect(() => { G.setPos(0.22, 0.78, 0, 0); }, [G]);
+  // hand the effect bus up so the parent can fire attacks from its own logic
+  useEffect(() => { if (playing) playing.current = G; }, [G, playing]);
+
+  const foePct = clamp(foe.hp / foe.max, 0, 1);
+  const mePct = clamp(hp / maxHpV, 0, 1);
+
+  /* Portalled to <body>. A fixed element still answers to the nearest
+     ancestor that owns a stacking context, and inside the app shell the
+     header was painting over the top of the fight and eating both HP bars —
+     the two numbers the whole fight is about. Out here it cannot. */
+  return createPortal((
+    <div className={`ssbattle${foe.boss ? " boss" : ""}${shake ? " shake" : ""}`} style={{ "--wc": W.accent, "--wg": W.glow }}>
+      <canvas ref={G.canvasRef} className="ssbfx" />
+
+      <div className="ssb-bars">
+        <div className="ssb-bar me">
+          <span className="ssb-nm">TIGA-01</span>
+          <i><b style={{ width: mePct * 100 + "%" }} /></i>
+          <span className="ssb-hp">{Math.max(0, Math.round(hp))}</span>
+        </div>
+        <div className="ssb-bar foe">
+          <span className="ssb-nm">{foe.name}</span>
+          <i><b style={{ width: foePct * 100 + "%" }} /></i>
+          <span className="ssb-hp">{Math.max(0, Math.round(foe.hp))}</span>
+        </div>
+      </div>
+
+      <div className="ssb-stage">
+        <div className={`ssb-side me${hurtMe ? " hit" : ""}`}>{chassisEl}</div>
+        <div className={`ssb-side foe${hurtFoe ? " hit" : ""}${foe.boss ? " big" : ""}`}>
+          <MonsterArt world={W.id} boss={foe.boss} hurt={hurtFoe} t={t} />
+        </div>
+      </div>
+
+      {foe.boss && foe.line && <p className="ssb-line">{foe.line}</p>}
+
+      <div className="ssb-ask">
+        {foe.streak > 1 && <div className="ssb-streak">×{foe.streak} · {tr3({ th: "ต่อเนื่อง", en: "streak", zh: "连击" }, lang)}</div>}
+        <div className="ssb-q">{foe.q.q}</div>
+        <div className="ssb-opts">
+          {foe.q.opts.map(o => <button key={o} className="ssb-opt" onClick={() => onAnswer(o)}>{o}</button>)}
+        </div>
+        <button className="ssb-flee" onClick={onFlee}>{T("ถอย", "Disengage", "脱离")}</button>
+      </div>
+    </div>
+  ), document.body);
 });
 
 export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward = () => {}, playUi = () => {}, playerName = "TIGA-01", charModel = "vanguard" }) {
@@ -876,6 +1186,10 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const fightRef = useRef(null);
   const hitFlashRef = useRef(0);
   const popsRef = useRef([]);          // floating damage numbers
+  const fxRef = useRef(null);          // the battle screen's effect bus, handed up
+  const [shake, setShake] = useState(0);
+  const [hurtFoe, setHurtFoe] = useState(false);
+  const [hurtMe, setHurtMe] = useState(false);
   /** Push a number over a world position. Purely feedback — it reads nothing
       and changes nothing, which is exactly what it should be. */
   const pop = useCallback((x, y, txt, c, big) => {
@@ -1301,7 +1615,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   function startFight(mob) {
     playUi("click");
     setFight({
-      kind: "mob", mobId: mob.id, hp: mob.hp * 22, max: mob.hp * 22,
+      kind: "mob", boss: false, mobId: mob.id, hp: mob.hp * 22, max: mob.hp * 22,
       q: makeQuestion(lang), streak: 0, wrongRun: 0,
       name: tr3(W.mob, lang), col: W.accent,
     });
@@ -1310,7 +1624,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     const b = W.boss;
     playUi("click");
     setFight({
-      kind: "boss", hp: b.hp, max: b.hp,
+      kind: "boss", boss: true, hp: b.hp, max: b.hp,
       q: makeQuestion(lang), streak: 0, wrongRun: 0,
       name: tr3(b.name, lang), col: "#ff6a6a", line: tr3(b.line, lang),
     });
@@ -1326,7 +1640,20 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
 
     if (right) {
       const crit = f.streak >= 3;
+      /* Throw the thing. The move escalates with the streak, so a run of
+         right answers visibly builds from a jab to a nova instead of
+         replaying one animation. */
+      const mv = moveFor(f.streak);
+      const G = fxRef.current;
+      if (G) {
+        if (mv.fx === "swipe") { G.swipe("me", W.glow, "punch"); window.setTimeout(() => G.impact("op", 1.2, W.glow, "punch"), 150); }
+        else if (mv.fx === "bolt") { G.muzzle("me", "hand", W.glow); G.bolt("me", W.glow, 6); window.setTimeout(() => G.burst("op", 1.2, W.glow), 130); }
+        else if (mv.fx === "laser") { G.muzzle("me", "hand", "#ff4d6a"); G.laser("me", "#ff4d6a", 6); window.setTimeout(() => G.boom("op", 1.3, "#ff9a3c"), 150); }
+        else if (mv.fx === "lob") { G.lob("me", "#ff9a3c", () => G.boom("op", 1.6, "#ff9a3c")); }
+        else { G.flash("#ffffff", .55, .3); G.boom("op", 2.2, W.glow); G.burst("op", 2, "#ffd23f"); }
+      }
       playBoom(crit); haptic(crit ? 22 : 10);
+      setHurtFoe(true); window.setTimeout(() => setHurtFoe(false), 190);
       const dmg = playerHit(saveRef.current, f.streak) * (f.kind === "boss" ? 1 : 1.4);
       const nhp = Math.max(0, f.hp - dmg);
       // the number lands on the thing that was hit, out in the world
@@ -1342,6 +1669,13 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     }
 
     playMiss(); haptic(30);
+    const G2 = fxRef.current;
+    if (G2) {
+      G2.swipe("op", "#ff6a6a", "punch");
+      window.setTimeout(() => { G2.impact("me", 1.3, "#ff6a6a", "punch"); G2.flash("#ff2a2a", .34, .22); }, 150);
+    }
+    setHurtMe(true); window.setTimeout(() => setHurtMe(false), 220);
+    setShake(x => x + 1); window.setTimeout(() => setShake(0), 300);
     const dmg = mobHit(saveRef.current, f.kind === "boss");
     pop(meRef.current.x, meRef.current.y - 20, "-" + dmg, "#ff6a6a", false);
     hitFlashRef.current = 1;
@@ -1757,8 +2091,21 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         </div>
       )}
 
-      {/* ── fights and quiz runs share one overlay ── */}
-      {f && !ctrl && (
+      {/* ── a real fight leaves the map ──
+          Mob and boss fights take over the screen so you can watch them
+          happen; a quiz run stays a card, because a quiz is not a fight and
+          dressing it as one would be a lie about what you are doing. */}
+      {f && !ctrl && f.kind !== "quiz" && !f.over && (
+        <BattleScreen
+          lang={lang} W={W} hp={hp} maxHpV={maxHp(save)}
+          foe={f} shake={shake} hurtFoe={hurtFoe} hurtMe={hurtMe} playing={fxRef}
+          chassisEl={<CyberAvatar model={charModel} yaw={52} pose="ready" glow={W.glow} accent={W.accent} armorA="#161d2c" armorB="#3d5878" />}
+          onAnswer={answer}
+          onFlee={() => { setFight(null); say(T("ถอยออกมาแล้ว", "Disengaged.", "已脱离。")); }} />
+      )}
+
+      {/* quiz runs, and the win card either kind ends on */}
+      {f && !ctrl && (f.kind === "quiz" || f.over) && (
         <div className="ssmodal">
           <div className={`ssfight${f.kind === "boss" ? " boss" : ""}`} style={{ "--fc": f.col }}>
             {f.over === "win" ? (
@@ -1772,33 +2119,16 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
               <>
                 <div className="ssfight-top">
                   <span className="ssfight-nm">{f.name}</span>
-                  {f.kind === "quiz"
-                    ? <span className="ssfight-hp-n">{f.got}/{f.need}</span>
-                    : <span className="ssfight-hp-n">{Math.max(0, Math.round(f.hp))}</span>}
+                  <span className="ssfight-hp-n">{f.got}/{f.need}</span>
                 </div>
-                <div className="ssfight-bar">
-                  <i style={{ width: (f.kind === "quiz" ? (f.got / f.need) : (f.hp / f.max)) * 100 + "%" }} />
-                </div>
-                {f.kind === "boss" && f.line && <p className="ssboss-line">{f.line}</p>}
-                {f.kind === "boss" && coop.peers.length > 1 && (
-                  <div className="ssallies">◉ {T("อีก", "with", "还有")} {coop.peers.length - 1} {T("คนกำลังสู้ตัวนี้อยู่", "others in this ring", "人同在此环中")}</div>
-                )}
+                <div className="ssfight-bar"><i style={{ width: (f.got / f.need) * 100 + "%" }} /></div>
                 {f.streak > 1 && <div className="ssstreak">×{f.streak} {T("ต่อเนื่อง", "streak", "连击")}</div>}
                 <div className="ssq">{f.q.q}</div>
                 <div className="ssopts">
-                  {f.q.opts.map(o => (
-                    <button key={o} className="ssopt" onClick={() => (f.kind === "quiz" ? quizAnswer(o) : answer(o))}>{o}</button>
-                  ))}
+                  {f.q.opts.map(o => <button key={o} className="ssopt" onClick={() => quizAnswer(o)}>{o}</button>)}
                 </div>
-                {f.kind !== "quiz" && (
-                  <div className="ssfight-hp">
-                    <span>{T("ตัวเรา", "Hull", "机体")}</span>
-                    <i><b style={{ width: hpPct * 100 + "%" }} /></i>
-                    <span>{Math.max(0, Math.round(hp))}</span>
-                  </div>
-                )}
-                <button className="ssflee" onClick={() => { setFight(null); say(T("ถอยออกมาแล้ว", "Disengaged.", "已脱离。")); }}>
-                  {T("ถอย", "Disengage", "脱离")}
+                <button className="ssflee" onClick={() => { setFight(null); say(T("หยุดไว้ก่อน", "Paused — progress is saved.", "已暂停 — 进度已保存。")); }}>
+                  {T("พอก่อน", "Stop for now", "先停下")}
                 </button>
               </>
             )}
@@ -1831,7 +2161,29 @@ export const StarsongPod = memo(function StarsongPod({ lang, onOpen }) {
     <button className={`sspod${openQ ? " need" : ""}`} onClick={onOpen}
       style={{ "--pc": W.accent }}
       title={T("TIGA: STARSONG — เกม RPG โลกเปิด", "TIGA: STARSONG — open-world RPG", "TIGA: STARSONG — 开放世界 RPG")}>
-      <span className="sspod-orb" style={{ background: `radial-gradient(circle at 34% 28%, ${W.sky[2]}, ${W.sky[0]})` }} />
+      {/* A flat dark disc read as "a circle"; a ringed world with a ship
+          arcing away from it reads as somewhere to go. */}
+      <span className="sspod-art" aria-hidden="true">
+        <svg viewBox="0 0 60 46" width="100%" height="100%">
+          <defs>
+            <radialGradient id="ssp-w" cx="0.34" cy="0.28" r="0.85">
+              <stop offset="0%" stopColor={W.sky[2]} />
+              <stop offset="62%" stopColor={W.sky[1]} />
+              <stop offset="100%" stopColor={W.sky[0]} />
+            </radialGradient>
+          </defs>
+          <circle cx="14" cy="7" r="1.5" fill={W.glow} opacity=".8" />
+          <circle cx="50" cy="34" r="1.1" fill={W.glow} opacity=".6" />
+          <circle cx="46" cy="9" r="1" fill="#fff" opacity=".5" />
+          <circle cx="27" cy="26" r="13" fill="url(#ssp-w)" />
+          <circle cx="22" cy="21" r="4.6" fill="#fff" opacity=".16" />
+          <ellipse cx="27" cy="26" rx="21" ry="6.4" fill="none" stroke={W.accent} strokeWidth="2" opacity=".85" transform="rotate(-20 27 26)" />
+          <ellipse cx="27" cy="26" rx="21" ry="6.4" fill="none" stroke="#fff" strokeWidth=".7" opacity=".35" transform="rotate(-20 27 26)" />
+          {/* the ship, and the trail that says it is leaving */}
+          <path d="M52 6 L56 12 L49.5 12.6 Z" fill={W.glow} />
+          <path d="M40 20 C45 15 49 10 51.5 7" fill="none" stroke={W.glow} strokeWidth="1.5" strokeLinecap="round" opacity=".55" strokeDasharray="3 3" />
+        </svg>
+      </span>
       <b>{T("โหมดผจญภัย", "Adventure Mode", "冒险模式")}</b>
       {started
         ? <i>{tr3(W.name, lang)} · {T("แรงก์", "Rk", "阶")} {chassisLevel(save)}</i>

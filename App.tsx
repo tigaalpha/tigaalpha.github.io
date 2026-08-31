@@ -10365,7 +10365,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               })()}
             </button>
           )}
-          {premium && plan !== "trial" && (() => { const b = planBadge(plan) || { t: "⭐ PRO", c: "" }; return <span className={`probadge ${b.c}`} title={PLAN_LABEL[plan] || "Premium"}>{b.t}</span>; })()}
+          {/* The plan badge used to sit here. It told the learner something they
+              already knew and could not act on; the two things they actually
+              reach for from anywhere — their character and the world it walks
+              in — take the space instead. */}
+          {/* not gated on sign-in: the drawer does not gate these two pages
+              either, and a shortcut that disagrees with the menu it shortcuts
+              is worse than no shortcut */}
+          {(
+            <button className="hdrgo adv" onClick={() => { playUi("click"); logUsage("nav", "starsong"); setPage("starsong"); }}
+              title={T("โหมดผจญภัย", "Adventure Mode", "冒险模式")} aria-label="Adventure Mode">
+              <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+                <circle cx="12" cy="12" r="6.2" fill="currentColor" opacity=".9" />
+                <circle cx="9.8" cy="9.8" r="2.1" fill="#fff" opacity=".45" />
+                <ellipse cx="12" cy="12" rx="10.4" ry="3.3" fill="none" stroke="currentColor" strokeWidth="1.5" transform="rotate(-22 12 12)" />
+              </svg>
+            </button>
+          )}
+          {(
+            <button className="hdrgo" onClick={() => { playUi("click"); logUsage("nav", "profile"); setPage("profile"); }}
+              title={lc.navProfile} aria-label={lc.navProfile}>
+              <RobotGlyph size={17} />
+            </button>
+          )}
           {!isGuest && <button className="shopbtn" onClick={() => setShopOpen(true)} title={lc.shopTitle} aria-label="Shop"><span className="shopbtn-ic">🛍️</span><span className="shopbtn-coins">🪙 {coins}</span></button>}
           {/* Daily-reward chest button removed from the header per feedback (decluttering) —
               still fully reachable from ProfilePage's own dailyhub chest button, same openChestNow(). */}

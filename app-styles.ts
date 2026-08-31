@@ -2339,8 +2339,7 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .sspod{position:absolute;top:24px;left:10px;z-index:2;width:88px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 5px 7px;border:1px solid var(--bd4);border-radius:16px;background:var(--card);color:var(--text);cursor:pointer;box-shadow:0 8px 20px -16px rgba(20,30,60,.8)}
 .sspod:hover{border-color:var(--bd5)}
 .sspod:active{transform:scale(.96)}
-.sspod-orb{position:relative;width:44px;height:44px;border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,var(--pc,#8ab) 45%,transparent),0 0 0 5px color-mix(in srgb,var(--pc,#8ab) 14%,transparent),0 6px 16px -8px color-mix(in srgb,var(--pc,#8ab) 80%,transparent),inset -6px -7px 14px rgba(0,0,0,.55)}
-.sspod-orb::after{content:"";position:absolute;left:-7px;right:-7px;top:52%;height:3px;border-radius:50%;background:color-mix(in srgb,var(--pc,#8ab) 55%,transparent);transform:rotate(-16deg)}
+.sspod-art{display:block;width:60px;height:46px;filter:drop-shadow(0 5px 12px color-mix(in srgb,var(--pc,#8ab) 55%,transparent))}
 /* the label wraps rather than truncating: "Adventure Mode" clipped to
    "Adventure …" tells the reader nothing the icon did not already */
 .sspod b{font-family:'Rajdhani',sans-serif;font-size:10.5px;font-weight:700;line-height:1.12;text-align:center;max-width:100%;white-space:normal}
@@ -2488,6 +2487,76 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssmute[aria-pressed="false"]{color:#6b7a99}
 .ssrotate{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);z-index:5;pointer-events:none;font-family:'Share Tech Mono',monospace;font-size:10px;color:#8fa6c8;background:#0b1220b8;border:1px solid #253253;border-radius:20px;padding:5px 12px;white-space:nowrap}
 @media (orientation:landscape){.ssrotate{display:none}}
+
+
+/* header shortcuts that replaced the plan badge */
+.hdrgo{display:flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 auto;border:1px solid var(--bd4);border-radius:11px;background:var(--card);color:var(--text);cursor:pointer;padding:0}
+.hdrgo:hover{border-color:#d97757}
+.hdrgo:active{transform:scale(.94)}
+.hdrgo.adv{color:#d97757;background:linear-gradient(150deg,color-mix(in srgb,#d97757 16%,var(--card)),var(--card));border-color:color-mix(in srgb,#d97757 45%,transparent)}
+
+
+/* ══════════ Starsong: the battle screen ══════════
+   Fixed to the viewport rather than nested in the page: a fight is the whole
+   screen, and a stage that scrolls is not a stage. Above the app header too —
+   at a lower z-index the header sat over the top of it and ate both HP bars,
+   which are the two numbers the fight is actually about. */
+.ssbattle{position:fixed;inset:0;z-index:1480;display:flex;flex-direction:column;background:#05070f;overflow:hidden;--wc:#7fb2ff;--wg:#8fd0ff}
+.ssbfx{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ssbattle.shake{animation:ssbshake .3s cubic-bezier(.36,.07,.19,.97)}
+@keyframes ssbshake{10%,90%{transform:translate(-2px,1px)}20%,80%{transform:translate(4px,-2px)}30%,50%,70%{transform:translate(-7px,2px)}40%,60%{transform:translate(7px,-1px)}}
+@media (prefers-reduced-motion:reduce){.ssbattle.shake{animation:none}}
+
+.ssb-bars{position:relative;z-index:3;display:flex;gap:10px;padding:10px 12px 0}
+.ssb-bar{flex:1;min-width:0;display:grid;grid-template-columns:1fr auto;grid-template-areas:"nm hp" "br br";gap:3px 6px}
+.ssb-nm{grid-area:nm;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:.04em;color:#dce7fb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ssb-hp{grid-area:hp;font-family:'Share Tech Mono',monospace;font-size:10px;color:#9fb2d0}
+.ssb-bar i{grid-area:br;display:block;height:9px;border-radius:5px;background:#101827;border:1px solid #26314a;overflow:hidden}
+.ssb-bar b{display:block;height:100%;border-radius:5px;transition:width .3s}
+.ssb-bar.me b{background:linear-gradient(90deg,#4ee08a,#7fe0a0)}
+.ssb-bar.foe b{background:linear-gradient(90deg,#ff5a5a,#ff9a6a)}
+.ssb-bar.foe{text-align:right}
+.ssb-bar.foe .ssb-nm{grid-area:hp;text-align:right}
+.ssb-bar.foe .ssb-hp{grid-area:nm;text-align:left}
+
+.ssb-stage{position:relative;z-index:2;flex:1;min-height:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 4px 4px}
+.ssb-side{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
+.ssb-side.me{width:40%;max-width:230px}
+.ssb-side.foe{width:54%;max-width:320px;align-items:center}
+/* the SVG carries its own headroom, so the figure is scaled past the box and
+   pushed down to actually stand on the floor the stage draws */
+.ssb-side.me>*{width:112%;height:112%;margin-bottom:-9%}
+.ssb-side.foe>svg{width:100%;height:auto;max-height:76%;margin-bottom:2%}
+.ssb-side.foe.big{width:64%;max-width:380px}
+.ssb-side.foe.big>svg{max-height:92%}
+.ssb-side.me{animation:ssbidle 2.6s ease-in-out infinite}
+.ssb-side.foe{animation:ssbidle 3.1s ease-in-out infinite .4s}
+@keyframes ssbidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.ssb-side.hit{animation:ssbhit .2s ease-out}
+@keyframes ssbhit{0%{transform:translateX(0)}35%{transform:translateX(14px) scale(1.04)}100%{transform:translateX(0)}}
+.ssb-side.foe.hit{animation:ssbhitf .2s ease-out}
+@keyframes ssbhitf{0%{transform:translateX(0)}35%{transform:translateX(-16px) scale(1.05)}100%{transform:translateX(0)}}
+@media (prefers-reduced-motion:reduce){.ssb-side,.ssb-side.hit,.ssb-side.foe.hit{animation:none}}
+
+.ssb-line{position:relative;z-index:3;margin:0 14px 6px;font-family:'Rajdhani',sans-serif;font-style:italic;font-size:12.5px;line-height:1.5;color:#f0c8c8;border-left:3px solid #ff6a6a;padding-left:10px;text-shadow:0 1px 6px #000}
+.ssb-ask{position:relative;z-index:3;background:linear-gradient(180deg,rgba(6,10,20,0),rgba(6,10,20,.94) 22%);padding:14px 12px calc(12px + env(safe-area-inset-bottom))}
+.ssb-streak{font-family:'Share Tech Mono',monospace;font-size:10px;color:#ffd24d;margin-bottom:5px;text-align:center}
+.ssb-q{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:16.5px;line-height:1.4;color:#f2f6ff;text-align:center;margin-bottom:11px;text-shadow:0 2px 10px #000}
+.ssb-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:9px}
+.ssb-opt{padding:15px 4px;border-radius:12px;border:1px solid var(--wc);background:linear-gradient(180deg,rgba(24,34,56,.95),rgba(12,18,32,.95));color:#f2f6ff;font-family:'Orbitron',sans-serif;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 14px -8px #000}
+.ssb-opt:active{transform:translateY(2px) scale(.97);background:var(--wc);color:#08101f}
+.ssb-flee{display:block;margin:0 auto;border:none;background:transparent;color:#6f7f9e;font-family:'Rajdhani',sans-serif;font-size:11.5px;cursor:pointer;padding:4px 12px}
+
+/* landscape: fighters go wide, the question sits under them */
+@media (orientation:landscape){
+  .ssb-stage{padding:0 30px 2px}
+  .ssb-side.me{width:26%}
+  .ssb-side.foe{width:30%}
+  .ssb-q{font-size:15px;margin-bottom:8px}
+  .ssb-opts{grid-template-columns:repeat(4,minmax(0,120px));justify-content:center}
+  .ssb-opt{padding:11px 4px}
+  .ssb-ask{padding:8px 12px 8px}
+}
 
 `;
 
