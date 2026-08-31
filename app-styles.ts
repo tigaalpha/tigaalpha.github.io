@@ -2729,7 +2729,7 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 /* the world wears the grade too — same curve, same vignette, same grain */
 .ssgrade{position:absolute;inset:0;z-index:3;pointer-events:none}
 .ssgrade::before{content:"";position:absolute;inset:0;mix-blend-mode:soft-light;
-  background:linear-gradient(180deg,rgba(150,200,255,.18),rgba(0,0,0,0) 46%,rgba(255,150,70,.14))}
+  background:linear-gradient(180deg,rgba(150,200,255,.14),rgba(0,0,0,0) 52%,rgba(255,150,70,.07))}
 .ssgrade::after{content:"";position:absolute;inset:0;
   background:radial-gradient(128% 94% at 50% 44%,rgba(0,0,0,0) 30%,rgba(3,6,14,.42) 76%,rgba(2,4,10,.7) 100%)}
 .ssb-grade{position:absolute;inset:0;z-index:8;pointer-events:none}

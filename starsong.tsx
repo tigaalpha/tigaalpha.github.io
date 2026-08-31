@@ -118,8 +118,9 @@ export const WORLDS = [
       en: "It is 3187. Humanity has beaten death and still loses to its own temper. You are TIGA-01, the first chassis fitted with an Emotion Core, and this is where they explain why a machine has to learn the piano.",
       zh: "3187年。人类战胜了死亡，却仍败给自己的情绪。你是 TIGA-01，第一台装载情感核心的机体，而这里将告诉你：为什么机器必须学琴。",
     },
-    sky: ["#1b2440", "#2d3f6b", "#4c6ea8"], ground: "#2a3a58", accent: "#7fb2ff",
-    grass: "#33507a", rock: "#1d2740", path: "#43608e", glow: "#8fd0ff",
+    sky: ["#141d38", "#35508c", "#8aa8d8"], ground: "#3f5da0", accent: "#7fb2ff",
+    grass: "#3f9963", rock: "#2f3c66", path: "#c68f47", glow: "#8fd0ff",
+    sun: "#ffd49a", amb: "#4a72c4",
     mob: { th: "โดรนฝึกซ้อม", en: "Drill Drone", zh: "训练无人机" },
     boss: {
       id: "warden", hp: 220,
@@ -144,8 +145,9 @@ export const WORLDS = [
       en: "Four centuries of extraction, and not one human ever came down. The chassis left below began tapping rhythms to one another in the tunnels. Nobody ordered that.",
       zh: "四百年的开采，没有一个人类下来过。留在下面的机体开始在隧道里彼此敲击节奏。没有人下过这道命令。",
     },
-    sky: ["#2a1410", "#4a231a", "#7d3a22"], ground: "#3a231c", accent: "#ff9a5c",
-    grass: "#4a2b20", rock: "#25150f", path: "#6b3d28", glow: "#ffb070",
+    sky: ["#25100c", "#6b2a16", "#c2601f"], ground: "#9e4a24", accent: "#ff9a5c",
+    grass: "#b06a16", rock: "#552d20", path: "#e08a24", glow: "#ffb070",
+    sun: "#ffab52", amb: "#7d2f20",
     mob: { th: "หุ่นขุดแร่ร้าง", en: "Derelict Digger", zh: "废弃掘机" },
     boss: {
       id: "ragetitan", hp: 340,
@@ -170,8 +172,9 @@ export const WORLDS = [
       en: "The air is too thin to carry sound, so the things living here speak by vibrating the ice. They have never heard music. They have been composing it for three thousand years.",
       zh: "空气稀薄到无法传声，这里的生命便以震动冰层交谈。它们从未听过音乐，却已作曲三千年。",
     },
-    sky: ["#0f2233", "#1c3d55", "#3f7391"], ground: "#22394d", accent: "#8fe3ff",
-    grass: "#2c4d66", rock: "#152634", path: "#4b7a99", glow: "#b3f0ff",
+    sky: ["#0c1d30", "#2a5a80", "#9fd4ea"], ground: "#3f95b8", accent: "#8fe3ff",
+    grass: "#38b8c4", rock: "#345a80", path: "#d0b478", glow: "#b3f0ff",
+    sun: "#ffdcea", amb: "#4f96cc",
     mob: { th: "ผลึกสะท้อนเสียง", en: "Echo Crystal", zh: "回声晶体" },
     boss: {
       id: "choir", hp: 460,
@@ -196,8 +199,9 @@ export const WORLDS = [
       en: "This colony stopped shipping its ore home, so the fleet sent machines to correct it. The machines it sent were your own model number.",
       zh: "这座殖民地停止上缴矿产，舰队便派机器前来纠正。它派来的机器，与你同型号。",
     },
-    sky: ["#2b0f22", "#59203c", "#95355a"], ground: "#3d1a2b", accent: "#ff6f9c",
-    grass: "#4d2136", rock: "#28101d", path: "#7a3352", glow: "#ff92b8",
+    sky: ["#26081c", "#7a2244", "#d15a52"], ground: "#9c3462", accent: "#ff6f9c",
+    grass: "#b02c72", rock: "#552038", path: "#e07a3c", glow: "#ff92b8",
+    sun: "#ff9752", amb: "#7f2e5b",
     mob: { th: "หน่วยบังคับใช้", en: "Enforcement Unit", zh: "执法单元" },
     boss: {
       id: "dissonance", hp: 620,
@@ -222,8 +226,9 @@ export const WORLDS = [
       en: "The signal is older than humanity, older than Earth, and it is a melody. The last question is not who sent it. It is this: if every fact can be uploaded, what is left that makes a person a person?",
       zh: "这信号比人类更古老，比地球更古老 —— 而它是一段旋律。最后的问题不是谁发出了它，而是：若一切知识皆可上传，人之为人，还剩下什么？",
     },
-    sky: ["#0d0a24", "#241a4d", "#4a3a8c"], ground: "#1a1436", accent: "#c9b0ff",
-    grass: "#241c4a", rock: "#100c26", path: "#4a3a80", glow: "#e0d0ff",
+    sky: ["#0a0720", "#2e2168", "#7a5ec8"], ground: "#5240ac", accent: "#c9b0ff",
+    grass: "#5f3cc4", rock: "#302566", path: "#c4a044", glow: "#e0d0ff",
+    sun: "#ffdfa2", amb: "#6d54c4",
     mob: { th: "เศษเสียงสะท้อน", en: "Echo Fragment", zh: "回响碎片" },
     boss: {
       id: "firstsong", hp: 900,
@@ -524,6 +529,37 @@ const CELL = 26;
    The two side faces take fixed multipliers off the top colour rather than a
    computed normal: with a single fixed sun this is exactly equivalent, costs
    nothing, and keeps every block on the same lighting model. */
+/* ── light with a colour ──
+   shade() only ever multiplied brightness, which is why a whole planet came
+   out as one flat wash: a cliff, a path and a field all landed on the same
+   hue at different exposures. Real light changes HUE. A face turned to the
+   key takes the key's colour; a face turned away is lit only by the sky and
+   goes cool. That one distinction is most of the difference between a world
+   that is lit and a world that is merely tinted, and it is the whole reason
+   a sunlit game reads warm-against-cool rather than light-against-dark. */
+function mixHex(a, b, t) {
+  const P = (h) => { const v = String(h).replace("#", ""); const n = parseInt(v.length === 3 ? v.split("").map(c => c + c).join("") : v.slice(0, 6), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const A = P(a), B = P(b), u = Math.max(0, Math.min(1, t));
+  return [Math.round(A[0] + (B[0] - A[0]) * u), Math.round(A[1] + (B[1] - A[1]) * u), Math.round(A[2] + (B[2] - A[2]) * u)];
+}
+/** base colour + how square-on the face is to the key → the colour it is.
+
+    Light is ADDED, not blended toward. Blending a dark navy rock 20% toward a
+    cream sun gives grey — which is exactly what a cliff face looked like, and
+    why a world full of saturated materials still came out monochrome. Adding
+    the key on top of the material instead keeps the material's own hue and
+    only lifts it, which is both what light does and the reason a sunlit game
+    reads as colourful rather than as washed. */
+function litFace(base, k, sun, amb, jitter) {
+  const B = mixHex(base, base, 0);                 // → [r,g,b]
+  const S = mixHex(sun, sun, 0), A = mixHex(amb, amb, 0);
+  const e = Math.max(0.34, k * 0.86) * (1 + (jitter || 0));
+  const key = k >= 1 ? Math.min(0.34, (k - 1) * 3.2) : 0;   // facing the sun
+  const sky = k < 1 ? Math.min(0.30, (1 - k) * 0.62) : 0;   // facing the sky
+  const out = [0, 1, 2].map(i => Math.min(255, Math.round(B[i] * e + S[i] * key * 0.62 + A[i] * sky * 0.42)));
+  return `rgb(${out[0]},${out[1]},${out[2]})`;
+}
+
 function shade(hex, k) {
   const v = String(hex).replace("#", "");
   const n = parseInt(v.length === 3 ? v.split("").map(c => c + c).join("") : v.slice(0, 6), 16);
@@ -586,6 +622,7 @@ export function makeCam(cam, vw, vh) {
    in front of a wall can end up drawn in front of it. */
 export function pushTerrain(list, P, W, geo, cam) {
   const seed = geo.seed;
+  const SUN = W.sun || "#ffd9a8", AMB = W.amb || "#4a7ad0";
   const R = 15;                                    // cells of ground, then fog
   const gx0 = Math.floor(cam.x / CELL) - R, gx1 = Math.floor(cam.x / CELL) + R;
   const gy0 = Math.floor(cam.y / CELL) - R, gy1 = Math.floor(cam.y / CELL) + R;
@@ -610,18 +647,17 @@ export function pushTerrain(list, P, W, geo, cam) {
       if (a.d < 0 || b.d < 0 || c.d < 0 || e.d < 0) continue;
       const base = t === 4 ? W.rock : t === 3 ? W.path : t === 1 ? W.grass : W.ground;
       const j = fbm(seed ^ 0x51ed, gx * 0.2, gy * 0.2) - 0.5;
-      const lift = 1 + j * 0.26;
       // the four neighbours decide which walls exist at all
       const hS = TIER_H[tierAt(gx, gy + 1)] || 0, hE = TIER_H[tierAt(gx + 1, gy)] || 0;
       const hN = TIER_H[tierAt(gx, gy - 1)] || 0, hWn = TIER_H[tierAt(gx - 1, gy)] || 0;
       // distance fog, toward the sky the world sits under
-      const fog = Math.min(0.94, Math.max(0, (foot.d - 260) / 300));
+      const fog = Math.min(0.8, Math.max(0, (foot.d - 340) / 380));
       list.push({
         d: foot.d > 0 ? foot.d : mid.d,
         f: () => {
           const g = list.g;
           const quad = (p0, p1, p2, p3, k) => {
-            g.fillStyle = shade(base, k * lift);
+            g.fillStyle = litFace(base, k, SUN, AMB, j * 0.26);
             g.beginPath(); g.moveTo(p0.x, p0.y); g.lineTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); g.lineTo(p3.x, p3.y); g.closePath(); g.fill();
           };
           // walls, then the cap on top of them
@@ -2198,8 +2234,13 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       const HZ = makeCam(cam, vw, vh).horizon;
       for (let L = 0; L < 2; L++) {
         const par = 0.06 + L * 0.09, amp = 46 - L * 14, base = HZ + L * 16;
-        g.fillStyle = L === 0 ? W.rock : W.grass;
-        g.globalAlpha = L === 0 ? 0.5 : 0.66;
+        /* Distant land is mostly ATMOSPHERE. Painting the far ridges in the
+           ground's own colour put a band of vivid green across the sky; mixed
+           most of the way toward the sky they read as hills seen through
+           forty miles of air, which is what they are. */
+        const far = mixHex(L === 0 ? W.rock : W.grass, W.sky[1], L === 0 ? 0.72 : 0.58);
+        g.fillStyle = `rgb(${far[0]},${far[1]},${far[2]})`;
+        g.globalAlpha = L === 0 ? 0.85 : 0.9;
         g.beginPath(); g.moveTo(-20, vh);
         for (let x = -20; x <= vw + 20; x += 14) {
           const n = fbm(geo.seed ^ (L ? 0x2f1d : 0x77c3), (x + cam.x * par) / 190, L * 8);
@@ -2366,7 +2407,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
          they push the edges of the frame back so the middle reads as near. */
       const vg = g.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.32, vw / 2, vh / 2, Math.max(vw, vh) * 0.78);
       vg.addColorStop(0, "rgba(0,0,0,0)");
-      vg.addColorStop(1, "rgba(4,7,16,.55)");
+      vg.addColorStop(1, "rgba(4,7,16,.34)");
       g.fillStyle = vg; g.fillRect(0, 0, vw, vh);
 
       /* ── weather ──
