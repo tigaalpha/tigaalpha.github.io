@@ -237,11 +237,29 @@ const POSES = {
   down:   { lean: 16,  armL: -12, armR: -14, legL: -10, legR: 6,  head: 20, lift: 10 },
 };
 
+/* hs = head scale · bw = body width · bh = overall height.
+   Every hero model was drawn on ONE torso, so a line of them read as the same
+   robot in different hats — which is exactly what they looked like. bw scales
+   the body about the neck joint (the head stays put) and bh scales the whole
+   figure about its feet (it stays on the ground), so a heavy labour unit is
+   now genuinely broad and short next to a slim negotiator without a single
+   path being redrawn. */
 export const MODEL_RIG = {
-  vanguard: { hs: 1.15 }, sentinel: { hs: 1.15 }, reaper: { hs: 1.15 }, ronin: { hs: 1.15 },
-  phantom: { hs: 1.15 }, specter: { hs: 1.15 }, aurora: { hs: 1.15 },
-  scout: { hs: 1.15 }, meridian: { hs: 1.15 }, atlas: { hs: 1.12 }, halcyon: { hs: 1.15 }, keeper: { hs: 1.15 },
-  envoy: { hs: 1.15 }, talon: { hs: 1.12 }, sentry: { hs: 1.1 },
+  vanguard: { hs: 1.15, bw: 1.02, bh: 1.01 },
+  sentinel: { hs: 1.15, bw: 1.11, bh: 1.02 },
+  reaper:   { hs: 1.15, bw: 1.07, bh: 1.05 },
+  ronin:    { hs: 1.15, bw: 1.04, bh: 1.0 },
+  phantom:  { hs: 1.15, bw: 0.88, bh: 1.04 },
+  specter:  { hs: 1.15, bw: 0.93, bh: 1.0 },
+  aurora:   { hs: 1.15, bw: 0.88, bh: 0.99 },
+  scout:    { hs: 1.15, bw: 0.90, bh: 1.03 },
+  meridian: { hs: 1.15, bw: 0.92, bh: 1.0 },
+  atlas:    { hs: 1.12, bw: 1.20, bh: 0.96 },
+  halcyon:  { hs: 1.15, bw: 0.95, bh: 0.98 },
+  keeper:   { hs: 1.15, bw: 0.99, bh: 0.97 },
+  envoy:    { hs: 1.15, bw: 0.96, bh: 1.02 },
+  talon:    { hs: 1.12, bw: 1.15, bh: 0.99 },
+  sentry:   { hs: 1.1,  bw: 1.09, bh: 0.97 },
   pip: { hs: 1.85, chibi: true }, pebble: { hs: 1.9, chibi: true },
   nova: { hs: 2.05, chibi: true }, pixel: { hs: 2.0, chibi: true }, mochi: { hs: 1.95, chibi: true },
 };
@@ -1447,6 +1465,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   const KIT = CLASS_KIT[classKeyOf(v)] || CLASS_KIT.striker;
   const hs = rig.hs;                          // head size against the body
   const chibi = !!rig.chibi;
+  const bw = rig.bw || 1, bh = rig.bh || 1;
   const shellFill = `url(#${id}-${HEAD.fill})`;
   // the chassis takes the model's own material; the outfit's swatch re-plates the trim
   const bodyKey = HEAD.body || (HEAD.fill.startsWith("skin") ? "plate" : HEAD.fill);
@@ -1918,8 +1937,9 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
         </linearGradient>
       </defs>
 
-      <g>
-        {!headOnly && <ellipse cx="60" cy="396" rx={chibi ? 46 : 42} ry="8.5" fill={`url(#${id}-gnd)`} />}
+      <g transform={headOnly || bh === 1 ? undefined : `translate(60 396) scale(${bh}) translate(-60 -396)`}>
+        {!headOnly && <ellipse cx="60" cy="396" rx={(chibi ? 46 : 42) * bw} ry="8.5" fill={`url(#${id}-gnd)`} />}
+        <g transform={headOnly || bw === 1 ? undefined : `translate(60 88) scale(${bw} 1) translate(-60 -88)`}>
         {/* ── body ──
             The same three-view treatment as the head, for the same reason: a
             front-facing torso squashed sideways reads as a plank, so the figure
@@ -2267,6 +2287,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             </g>
           )}
         </>}
+
+        </g>{/* end body width */}
 
         <g transform={headOnly ? undefined : `translate(0 ${PZ.lift}) ${rot(PZ.lean, 60, chibi ? 280 : 200)} translate(60 -12) scale(${hs}) translate(-60 -3) ${rot(PZ.head, 60, 88)}`}>
         {/* ── neck ── */}

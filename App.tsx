@@ -165,7 +165,7 @@ export const EARN = {
   practice: 35,     // a Practice Mode drill — the thing we most want repeated
   partial: 4,       // per note actually played, when a drill is left early
   studio: 12,       // a Studio drill finished
-  video: 15,        // a video lesson actually watched, once per video
+  video: 25,        // a video lesson actually watched, once per video
   chat: 4,          // one real question to TIGA
   game: 15,         // opening a Music Game, once per game per day
 };
@@ -3251,26 +3251,46 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
      full minute before it pays. Scrolling through a reel pays nothing, leaving
      the tab in the background pays nothing, and each video pays once ever —
      rewatching is free, exactly like re-reading a chapter. */
+  /* The callback lives in a ref, and that is the whole reason this works.
+     onWatched is written inline at the call site, so it is a NEW function on
+     every render of the app — and the app re-renders constantly. With it in
+     the dependency array the effect tore down and restarted the interval each
+     time, resetting elapsed to zero, so the minute was never once reached and
+     a video could never pay. Held in a ref, the clock depends only on which
+     slide is on screen. */
+  const onWatchedRef = useRef(onWatched);
+  useEffect(() => { onWatchedRef.current = onWatched; }, [onWatched]);
+  const [watchLeft, setWatchLeft] = useState(null);   // seconds until this one pays
+  const [watchPaid, setWatchPaid] = useState(false);
+
   useEffect(() => {
-    if (!activeKey || !onWatched) return;
-    if (videoPaidSet().has(activeKey)) return;
+    if (!activeKey) { setWatchLeft(null); setWatchPaid(false); return; }
+    if (videoPaidSet().has(activeKey)) { setWatchLeft(null); setWatchPaid(true); return; }
+    setWatchPaid(false);
+    setWatchLeft(Math.ceil(VIDEO_WATCH_MS / 1000));
     let elapsed = 0, last = Date.now();
     const id = setInterval(() => {
       const now = Date.now();
       // only count time while the tab is actually in front of somebody
       if (document.visibilityState === "visible") elapsed += now - last;
       last = now;
+      setWatchLeft(Math.max(0, Math.ceil((VIDEO_WATCH_MS - elapsed) / 1000)));
       if (elapsed >= VIDEO_WATCH_MS) {
         clearInterval(id);
         /* Mark it paid only if a coin actually came out. When the daily cap is
            already spent onWatched returns false, and marking it here anyway
            would burn the video forever — it would never pay, not even
            tomorrow. Left unmarked, it simply pays the next time it is watched. */
-        if (!videoPaidSet().has(activeKey) && onWatched(activeKey)) markVideoPaid(activeKey);
+        const f = onWatchedRef.current;
+        if (!videoPaidSet().has(activeKey) && f && f(activeKey)) {
+          markVideoPaid(activeKey);
+          setWatchPaid(true);
+        }
+        setWatchLeft(null);
       }
     }, 1000);
     return () => clearInterval(id);
-  }, [activeKey, onWatched]);
+  }, [activeKey]);
 
   // Each published lesson_videos row is one CATEGORY (its title is the chip
   // label) — pointing at a YouTube playlist, or (legacy) a Drive folder/file.
@@ -3372,6 +3392,14 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
             <VideoSlide s={s} active={activeKey === s.key} lang={lang} onAsk={onAsk}
               likeN={(likes[s.key] || {}).n || 0} likedByMe={!!(likes[s.key] || {}).me} onToggleLike={() => toggleLike(s.key)} />
             <div className="vidtopfade" />
+            {activeKey === s.key && (watchPaid ? (
+              <div className="vidcoin done">🪙 {lc.vidPaid}</div>
+            ) : watchLeft != null ? (
+              <div className="vidcoin">
+                <i style={{ width: `${100 - (watchLeft / (VIDEO_WATCH_MS / 1000)) * 100}%` }} />
+                <b>🪙 +{EARN.video} · {watchLeft}s</b>
+              </div>
+            ) : null)}
           </div>
         ))}
       </div>

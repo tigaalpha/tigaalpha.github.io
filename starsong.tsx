@@ -587,6 +587,20 @@ function drawTerrain(g, W, geo, cam, vw, vh) {
       // ── top face ──
       g.fillStyle = shade(base, 1.06 * lift);
       g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.closePath(); g.fill();
+
+      /* ── cast shadow ──
+         The key comes from behind-right, so anything taller behind this cell
+         drops its shadow onto it. Painted while drawing the RECEIVER rather
+         than the caster, because back-to-front order means a shadow drawn
+         from the caster would be painted straight over by the ground it was
+         supposed to land on. One lookup, no second pass, and it is the single
+         thing that makes a field of blocks read as lit from somewhere. */
+      const hB = Math.max(TIER_H[tierAt(gx, gy - 1)] || 0, TIER_H[tierAt(gx + 1, gy - 1)] || 0);
+      const dh = hB - h;
+      if (dh > 0) {
+        g.fillStyle = `rgba(0,5,16,${Math.min(0.44, dh / 48 * 0.44).toFixed(3)})`;
+        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.closePath(); g.fill();
+      }
       // a hairline along the lit edge stops a field of blocks reading as mush
       if (h > hS || h > hE) {
         g.strokeStyle = "rgba(255,255,255,.09)"; g.lineWidth = 1;
@@ -2873,6 +2887,9 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       {screen === "world" && (
         <div className="ssworldwrap">
           <canvas ref={cvRef} className="sscanvas" />
+          {/* the same grade the arena wears: a filmic curve, a vignette and
+              moving grain, so the world is photographed rather than drawn */}
+          <div className="ssgrade" aria-hidden="true"><span className="ssb-grain" /></div>
 
           <div className="sshud">
             <div className="sshp"><i style={{ width: hpPct * 100 + "%" }} /><b>{Math.max(0, Math.round(hp))}</b></div>

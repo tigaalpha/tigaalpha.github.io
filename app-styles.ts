@@ -293,6 +293,16 @@ html, body, #root{background:var(--bg)}
 .vidbar{position:absolute;left:0;right:0;bottom:env(safe-area-inset-bottom,0px);height:3px;background:var(--bd5);z-index:7}
 .vidbar span{display:block;height:100%;width:0;background: #d97757}
 /* ── TikTok chrome: top fade, right action rail (like / ask / save), floating hearts ── */
+/* the watch reward, shown as it accrues — a coin you cannot see coming is a
+   coin nobody knows they are earning */
+.vidcoin{position:absolute;left:50%;transform:translateX(-50%);bottom:96px;z-index:6;pointer-events:none;
+  min-width:132px;padding:6px 14px;border-radius:999px;overflow:hidden;
+  background:rgba(6,10,20,.78);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+  border:1px solid #ffffff2e;box-shadow:0 8px 22px -10px #000}
+.vidcoin i{position:absolute;inset:0;right:auto;display:block;background:linear-gradient(90deg,#d97757,#ffd24d);opacity:.42;transition:width 1s linear}
+.vidcoin b{position:relative;display:block;text-align:center;font-family:'Share Tech Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:#fff;text-shadow:0 1px 3px #000}
+.vidcoin.done{font-family:'Share Tech Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:#ffd24d;text-align:center;
+  border-color:#ffd24d66;box-shadow:0 0 18px -4px #ffd24d55}
 .vidtopfade{position:absolute;top:0;left:0;right:0;height:calc(64px + env(safe-area-inset-top,0px));background:linear-gradient(rgba(0,0,0,.42),transparent);pointer-events:none;z-index:3}
 /* the app header hides on the video feed — this translucent ☰ keeps navigation reachable */
 .vidfab{position:fixed;top:calc(64px + env(safe-area-inset-top,0px));left:10px;z-index:60;width:42px;height:42px;border-radius:50%;background:rgba(18,8,14,.55);border:1px solid #ffffff2a;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(4px)}
@@ -2716,6 +2726,12 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    What separates a picture from a render: a filmic curve with cool shadows
    and a warm top, a vignette that pushes the frame edges back, moving grain,
    and a whisper of chromatic fringe in the corners. */
+/* the world wears the grade too — same curve, same vignette, same grain */
+.ssgrade{position:absolute;inset:0;z-index:3;pointer-events:none}
+.ssgrade::before{content:"";position:absolute;inset:0;mix-blend-mode:soft-light;
+  background:linear-gradient(180deg,rgba(150,200,255,.18),rgba(0,0,0,0) 46%,rgba(255,150,70,.14))}
+.ssgrade::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(128% 94% at 50% 44%,rgba(0,0,0,0) 30%,rgba(3,6,14,.42) 76%,rgba(2,4,10,.7) 100%)}
 .ssb-grade{position:absolute;inset:0;z-index:8;pointer-events:none}
 .ssb-grade::before{content:"";position:absolute;inset:0;mix-blend-mode:soft-light;
   background:linear-gradient(180deg,rgba(150,200,255,.20),rgba(0,0,0,0) 42%,rgba(255,150,70,.16)),

@@ -39,51 +39,51 @@ export const PET_TYPES = {
 /* build · head · ear · tail · eye · palette — six slots, twelve animals.
    `build` is the silhouette you recognise across a room; the rest is detail. */
 export const PET_SPECIES = [
-  { id: "sparkit",  code: "PT-01", type: "volt",  build: "biped", head: "round",  ear: "bolt",  tail: "spark", eye: "big",
+  { id: "sparkit", pw: 1.0, ph: 1.0, phr: 1.0,  code: "PT-01", type: "volt",  build: "biped", head: "round",  ear: "bolt",  tail: "spark", eye: "big",
     sw: ["#ffe14d", "#7a5a00"], food: "pf-cell",
     th: "สปาร์คกิต", en: "Sparkit", zh: "电火兽", bonus: "dmg",
     dth: "ลูกไฟฟ้าจอมซน ชอบชาร์จตัวเองจนขนลุก", den: "A restless little charge that fluffs up when it powers on.", dzh: "顽皮的小电球，充能时全身炸毛。" },
-  { id: "cindra",   code: "PT-02", type: "ember", build: "quad", head: "sharp",    ear: "horn",  tail: "flame", eye: "sharp",
+  { id: "cindra", pw: 1.08, ph: 0.94, phr: 0.96,   code: "PT-02", type: "ember", build: "quad", head: "sharp",    ear: "horn",  tail: "flame", eye: "sharp",
     sw: ["#ff8a4c", "#5c1a00"], food: "pf-coal",
     th: "ซินดร้า", en: "Cindra", zh: "炽焰兽", bonus: "dmg",
     dth: "แมวเครื่องยนต์ หายใจเป็นไอร้อน", den: "An engine-cat that breathes warm exhaust when happy.", dzh: "引擎猫，开心时呼出热气。" },
-  { id: "nimbo",    code: "PT-03", type: "frost", build: "float", head: "round",   ear: "fin",   tail: "wisp",  eye: "sleepy",
+  { id: "nimbo", pw: 0.9, ph: 1.06, phr: 1.1,    code: "PT-03", type: "frost", build: "float", head: "round",   ear: "fin",   tail: "wisp",  eye: "sleepy",
     sw: ["#8fe8ff", "#0d4a66"], food: "pf-ice",
     th: "นิมโบ", en: "Nimbo", zh: "霜云兽", bonus: "guard",
     dth: "ก้อนเมฆเย็นที่ลอยตามเจ้าของไปทุกที่", den: "A cold little cloud that drifts wherever you go.", dzh: "冷冷的小云，总跟着主人飘。" },
-  { id: "verdle",   code: "PT-04", type: "flora", build: "biped", head: "blob",  ear: "leaf",  tail: "vine",  eye: "big",
+  { id: "verdle", pw: 0.94, ph: 1.02, phr: 1.04,   code: "PT-04", type: "flora", build: "biped", head: "blob",  ear: "leaf",  tail: "vine",  eye: "big",
     sw: ["#6fe39b", "#0d3a24"], food: "pf-seed",
     th: "เวิร์ดเดิ้ล", en: "Verdle", zh: "苗芽兽", bonus: "heal",
     dth: "ต้นกล้าไซเบอร์ที่งอกใบใหม่ทุกครั้งที่ถูกชม", den: "A cyber-sprout that grows a new leaf every time it is praised.", dzh: "赛博幼苗，被夸奖就长新叶。" },
-  { id: "bolton",   code: "PT-05", type: "steel", build: "biped", head: "boxy",   ear: "bolt",  tail: "gear",  eye: "visor",
+  { id: "bolton", pw: 1.14, ph: 0.9, phr: 0.9,   code: "PT-05", type: "steel", build: "biped", head: "boxy",   ear: "bolt",  tail: "gear",  eye: "visor",
     sw: ["#b8c2d4", "#2a3346"], food: "pf-bolt",
     th: "โบลตัน", en: "Bolton", zh: "螺钉兽", bonus: "guard",
     dth: "หุ่นเหลี่ยมใจดี ชอบให้ขัดเงาให้เงาวับ", den: "A blocky, good-natured thing that lives to be polished.", dzh: "方方正正的好脾气，最爱被擦亮。" },
-  { id: "lumen",    code: "PT-06", type: "aether",build: "float", head: "blob",   ear: "halo",  tail: "wisp",  eye: "starry",
+  { id: "lumen", pw: 0.88, ph: 1.08, phr: 1.08,    code: "PT-06", type: "aether",build: "float", head: "blob",   ear: "halo",  tail: "wisp",  eye: "starry",
     sw: ["#c7a6ff", "#2a1050"], food: "pf-prism",
     th: "ลูเมน", en: "Lumen", zh: "流光兽", bonus: "sp",
     dth: "แสงที่จับตัวเป็นก้อน เรืองขึ้นเมื่ออารมณ์ดี", den: "Light that decided to become a body. It glows when it is content.", dzh: "凝成实体的光，心情好时会发亮。" },
-  { id: "zapaw",    code: "PT-07", type: "volt",  build: "quad", head: "sharp",    ear: "fin",   tail: "spark", eye: "sharp",
+  { id: "zapaw", pw: 1.02, ph: 0.98, phr: 1.02,    code: "PT-07", type: "volt",  build: "quad", head: "sharp",    ear: "fin",   tail: "spark", eye: "sharp",
     sw: ["#ffd84d", "#4a3200"], food: "pf-cell",
     th: "แซปพอว์", en: "Zapaw", zh: "雷爪兽", bonus: "dmg",
     dth: "อุ้งเท้าปล่อยประกาย วิ่งเร็วจนเห็นเป็นเส้น", den: "Sparks off its paws and runs fast enough to blur.", dzh: "爪下带电，跑起来只剩残影。" },
-  { id: "pyrix",    code: "PT-08", type: "ember", build: "biped", head: "boxy",   ear: "horn",  tail: "flame", eye: "visor",
+  { id: "pyrix", pw: 1.1, ph: 0.92, phr: 0.94,    code: "PT-08", type: "ember", build: "biped", head: "boxy",   ear: "horn",  tail: "flame", eye: "visor",
     sw: ["#ff6a3c", "#3a0d00"], food: "pf-coal",
     th: "ไพริกซ์", en: "Pyrix", zh: "熔炉兽", bonus: "dmg",
     dth: "เตาหลอมเดินได้ อุ่นมือได้ในหน้าหนาว", den: "A walking furnace. Excellent to hold in winter.", dzh: "会走路的熔炉，冬天抱着正好。" },
-  { id: "glacio",   code: "PT-09", type: "frost", build: "quad", head: "round",    ear: "horn",  tail: "gear",  eye: "sleepy",
+  { id: "glacio", pw: 0.92, ph: 1.05, phr: 1.06,   code: "PT-09", type: "frost", build: "quad", head: "round",    ear: "horn",  tail: "gear",  eye: "sleepy",
     sw: ["#a6e8ff", "#123f5c"], food: "pf-ice",
     th: "เกลเซีย", en: "Glacio", zh: "冰晶兽", bonus: "guard",
     dth: "ขนเป็นเกล็ดน้ำแข็ง เดินแล้วมีเสียงกรุ๊งกริ๊ง", den: "A coat of ice scales that chimes softly as it walks.", dzh: "冰鳞外衣，走动时叮当作响。" },
-  { id: "mossel",   code: "PT-10", type: "flora", build: "float", head: "blob",   ear: "leaf",  tail: "vine",  eye: "sleepy",
+  { id: "mossel", pw: 1.12, ph: 0.93, phr: 0.92,   code: "PT-10", type: "flora", build: "float", head: "blob",   ear: "leaf",  tail: "vine",  eye: "sleepy",
     sw: ["#8fe0a8", "#14432c"], food: "pf-seed",
     th: "มอสเซล", en: "Mossel", zh: "苔壳兽", bonus: "heal",
     dth: "ก้อนมอสอบอุ่น ชอบนอนกลางแดดอ่อน", den: "A warm lump of moss that sleeps in soft light.", dzh: "温暖的苔藓球，爱在柔光下打盹。" },
-  { id: "cogsy",    code: "PT-11", type: "steel", build: "quad", head: "boxy",  ear: "bolt",  tail: "gear",  eye: "starry",
+  { id: "cogsy", pw: 1.06, ph: 0.96, phr: 0.98,    code: "PT-11", type: "steel", build: "quad", head: "boxy",  ear: "bolt",  tail: "gear",  eye: "starry",
     sw: ["#cdd6e6", "#3a4459"], food: "pf-bolt",
     th: "ค็อกซี่", en: "Cogsy", zh: "齿轮兽", bonus: "sp",
     dth: "เฟืองน้อยขยัน หมุนตัวเองเวลาตื่นเต้น", den: "A busy little cog that spins itself when excited.", dzh: "勤劳的小齿轮，兴奋时自转。" },
-  { id: "astrel",   code: "PT-12", type: "aether",build: "biped", head: "sharp",   ear: "halo",  tail: "wisp",  eye: "starry",
+  { id: "astrel", pw: 0.86, ph: 1.1, phr: 1.12,   code: "PT-12", type: "aether",build: "biped", head: "sharp",   ear: "halo",  tail: "wisp",  eye: "starry",
     sw: ["#b9a6ff", "#1a1040"], food: "pf-prism",
     th: "แอสเทรล", en: "Astrel", zh: "星舆兽", bonus: "sp",
     dth: "พกดาวไว้ในตัว บอกทางกลับบ้านได้เสมอ", den: "Carries a star inside. Always knows the way home.", dzh: "体内藏着星星，永远知道回家的路。" },
@@ -276,7 +276,14 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   const T = PET_TYPES[sp.type] || PET_TYPES.steel;
   const sad = mood < 35;
   const L = mix3(LAY[sp.build] || LAY.biped, g);
-  const cx = 60, hy = L.hy, hr = L.hr, by = L.by, bw = L.bw, bh = L.bh;
+  /* Per-species proportions. Every biped pet was laid out on one body, so a
+     shelf of them read as the same creature in different ear hats. A width, a
+     height and a head size per species turn twelve palette swaps into twelve
+     silhouettes without redrawing a single path. */
+  const cx = 60, hy = L.hy;
+  const hr = L.hr * (sp.phr || 1);
+  const bw = L.bw * (sp.pw || 1), bh = L.bh * (sp.ph || 1);
+  const by = L.by + (L.bh - bh) / 2;   // keep the belly on the ground as it shrinks
   const bTop = by - bh / 2, bBot = by + bh / 2;
   /* On top of the layout change, the whole creature scales up from the ground,
      so a grown pet plainly fills more of its frame than a hatchling. */
