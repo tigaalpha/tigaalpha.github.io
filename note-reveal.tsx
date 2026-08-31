@@ -52,24 +52,75 @@ const GAP = 11;                // pixels between staff lines
 const STAFF_W = 250, STAFF_H = 142, BOT = 108;   // BOT = y of the bottom line
 const yOf = (abs) => BOT - (abs - E4) * (GAP / 2);
 
-/* The clef is generated, not typed. The glyph is missing from plenty of
-   system fonts and a tofu box where the clef should be is worse than no
-   clef at all, so the head is a real logarithmic spiral wound onto the G
-   line — the one part of the shape that carries information — with the bow
-   and the tail drawn around it. */
-const CLEF = (() => {
-  const cx = 41, gy = BOT - GAP;                       // spiral centre = G4
-  const turns = 1.55, steps = 84, r0 = 16.5, r1 = 1.8;
-  const pt = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const th = Math.PI / 2 - turns * 2 * Math.PI * t;  // bottom, then anticlockwise
-    const r = r0 * Math.pow(r1 / r0, t);
-    pt.push(`${(cx + r * Math.cos(th)).toFixed(1)} ${(gy + r * Math.sin(th)).toFixed(1)}`);
+/* The clef is generated, not typed: the glyph is missing from plenty of
+   system fonts and a tofu box where the clef should be is worse than no clef.
+
+   Drawn as a RIBBON rather than a stroke. A constant-width line reads as a
+   doodle of a clef; the real glyph is a swelling band — hairline where it
+   leaves the spiral, heaviest through the bow, tapering to a point at the
+   top. So the skeleton is walked once, offset either side by a width
+   profile, and closed into one filled outline. The head is a true
+   logarithmic spiral wound onto the G line, which is the one part of the
+   shape that carries information. */
+function ribbon(pts, wAt) {
+  const n = pts.length, L = [], R = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    let dx = b[0] - a[0], dy = b[1] - a[1];
+    const m = Math.hypot(dx, dy) || 1;
+    dx /= m; dy /= m;
+    const w = wAt(i / (n - 1)) / 2;
+    L.push([pts[i][0] - dy * w, pts[i][1] + dx * w]);
+    R.push([pts[i][0] + dy * w, pts[i][1] - dx * w]);
   }
-  const head = `M 46 50 C 47 39 37 35 33 44 C 29 54 27 66 29 78 C 31 92 34 105 ${pt[0]} L ` + pt.slice(1).join(" L ");
-  const stem = `M 40 46 L 41 120 C 41 130 33 134 29 129 C 26 125 28 120 33 121`;
-  return { head, stem };
+  const f = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+  return "M " + f(L[0]) + " L " + L.slice(1).map(f).join(" L ")
+       + " L " + R.slice().reverse().map(f).join(" L ") + " Z";
+}
+
+/* piecewise-linear width profile, hairline at both free ends */
+function widthAt(t) {
+  const K = [[0, 1.0], [0.16, 2.2], [0.34, 4.3], [0.5, 5.0], [0.64, 4.4], [0.8, 3.0], [0.93, 1.8], [1, 0.9]];
+  for (let i = 1; i < K.length; i++) {
+    if (t <= K[i][0]) {
+      const [t0, w0] = K[i - 1], [t1, w1] = K[i];
+      return w0 + (w1 - w0) * ((t - t0) / (t1 - t0 || 1));
+    }
+  }
+  return K[K.length - 1][1];
+}
+
+const CLEF = (() => {
+  const cx = 41, gy = BOT - GAP;                        // spiral centre = G4
+  const pts = [];
+  // the spiral, walked from its centre outwards so the ribbon starts hairline
+  const turns = 1.62, steps = 74, r0 = 17.5, r1 = 1.5;
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps;
+    const th = Math.PI / 2 - turns * 2 * Math.PI * (1 - u);
+    const r = r1 * Math.pow(r0 / r1, u);
+    pts.push([cx + r * Math.cos(th), gy + r * Math.sin(th)]);
+  }
+  // …then the bow up the left side and the hook over the top
+  const bez = (p0, p1, p2, p3, m) => {
+    for (let i = 1; i <= m; i++) {
+      const u = i / m, v = 1 - u;
+      pts.push([
+        v * v * v * p0[0] + 3 * v * v * u * p1[0] + 3 * v * u * u * p2[0] + u * u * u * p3[0],
+        v * v * v * p0[1] + 3 * v * v * u * p1[1] + 3 * v * u * u * p2[1] + u * u * u * p3[1],
+      ]);
+    }
+  };
+  const out = pts[pts.length - 1];
+  bez(out, [24, 108], [21, 84], [26, 66], 26);          // up the left of the bow
+  bez([26, 66], [30, 50], [36, 42], [44, 39], 18);      // over the shoulder
+  bez([44, 39], [52, 36], [54, 47], [46, 50], 16);      // the hook, tip pointing down
+  return {
+    head: ribbon(pts, widthAt),
+    // the descending line is thin in a real clef, and ends in the tail hook
+    stem: "M 41.5 44 L 42 118 C 42 128 34 132 30 127 C 27 123 29 118 34 119",
+    dot: [cx, gy],
+  };
 })();
 
 const Staff = memo(function Staff({ notes, hi, bad }) {
@@ -87,9 +138,10 @@ const Staff = memo(function Staff({ notes, hi, bad }) {
         <line key={i} x1="14" x2={STAFF_W - 10} y1={BOT - i * GAP} y2={BOT - i * GAP}
           stroke="#8fa6c8" strokeWidth="1.2" opacity=".65" />
       ))}
-      <g stroke="#dbe6f7" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <path d={CLEF.stem} />
-        <path d={CLEF.head} />
+      <g>
+        <path d={CLEF.stem} fill="none" stroke="#dbe6f7" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={CLEF.head} fill="#dbe6f7" stroke="#dbe6f7" strokeWidth=".6" strokeLinejoin="round" />
+        <circle cx={CLEF.dot[0]} cy={CLEF.dot[1]} r="1.9" fill="#dbe6f7" />
       </g>
       {notes.map((n, i) => {
         const y = yOf(n.abs), x = xs[i];
@@ -106,8 +158,12 @@ const Staff = memo(function Staff({ notes, hi, bad }) {
             <ellipse cx={x} cy={y} rx="7.4" ry="5.6" fill={col} transform={`rotate(-18 ${x} ${y})`} />
             <line x1={x + 7} x2={x + 7} y1={y} y2={Math.max(18, y - 32)} stroke={col} strokeWidth="1.9" />
             {n.acc !== 0 && (
-              <text x={x - 15} y={y + 5} fontSize="17" fontWeight="700" fill={col} textAnchor="middle"
-                fontFamily="Georgia, 'Times New Roman', serif">{n.acc > 0 ? "♯" : "♭"}</text>
+              <text x={x - 15} y={y + 5} fontSize={n.acc >= 2 ? 15 : 17} fontWeight="700" fill={col} textAnchor="middle"
+                fontFamily="Georgia, 'Times New Roman', serif">
+                {/* the double sharp is engraved as an x, and the Unicode
+                    glyph for it is missing from most system fonts */}
+                {n.acc >= 2 ? "x" : n.acc === 1 ? "♯" : n.acc <= -2 ? "♭♭" : "♭"}
+              </text>
             )}
             <text x={x} y={Math.max(11, y - 40)} fontSize="11.5" fontWeight="700" fill={col} textAnchor="middle"
               fontFamily="'Rajdhani', sans-serif">{n.name}</text>

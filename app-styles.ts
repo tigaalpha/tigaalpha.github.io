@@ -2545,15 +2545,20 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssb-bar.foe .ssb-hp{grid-area:nm;text-align:left}
 
 .ssb-stage{position:relative;z-index:2;flex:1;min-height:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 4px 4px}
-.ssb-side{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
-.ssb-side.me{width:40%;max-width:230px}
-.ssb-side.foe{width:54%;max-width:320px;align-items:center}
-/* the SVG carries its own headroom, so the figure is scaled past the box and
-   pushed down to actually stand on the floor the stage draws */
-.ssb-side.me>*{width:112%;height:112%;margin-bottom:-9%}
-.ssb-side.foe>svg{width:100%;height:auto;max-height:76%;margin-bottom:2%}
-.ssb-side.foe.big{width:64%;max-width:380px}
-.ssb-side.foe.big>svg{max-height:92%}
+.ssb-slot{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center;transition:transform .13s ease-out;will-change:transform}
+.ssb-slot.me{width:40%;max-width:230px}
+.ssb-slot.foe{width:54%;max-width:320px}
+.ssb-slot.foe.big{width:64%;max-width:380px}
+.ssb-side{position:relative;height:100%;width:100%;display:flex;align-items:flex-end;justify-content:center}
+/* a braced fighter reads as braced */
+.ssb-side.guarding{filter:drop-shadow(0 0 12px var(--wg,#8fd0ff))}
+/* Size both figures by HEIGHT and let the width follow the viewBox. Sizing
+   by width letterboxed a 160x416 chassis inside a much narrower column, and
+   the figure ended up floating a third of the stage above the floor with the
+   empty band underneath doing nothing. */
+.ssb-side.me>*{height:97%;width:auto;max-width:none;margin-bottom:0}
+.ssb-side.foe>svg{height:74%;width:auto;max-width:none;margin-bottom:1%}
+.ssb-side.foe.big>svg{height:92%}
 .ssb-side.me{animation:ssbidle 2.6s ease-in-out infinite}
 .ssb-side.foe{animation:ssbidle 3.1s ease-in-out infinite .4s}
 @keyframes ssbidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
@@ -2572,15 +2577,41 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssb-opt:active{transform:translateY(2px) scale(.97);background:var(--wc);color:#08101f}
 .ssb-flee{display:block;margin:0 auto;border:none;background:transparent;color:#6f7f9e;font-family:'Rajdhani',sans-serif;font-size:11.5px;cursor:pointer;padding:4px 12px}
 
+/* ── the action phase ──
+   Twenty seconds of a real fight before the next question. The clock is the
+   loudest thing on the panel on purpose: it is the promise that the music is
+   still coming, which is what lets the fighting be fighting. */
+.ssb-timer{position:relative;height:16px;border-radius:9px;background:#131b2c;border:1px solid #26314a;overflow:hidden;margin-bottom:9px}
+.ssb-timer i{position:absolute;inset:0;right:auto;display:block;background:linear-gradient(90deg,var(--wc,#7fb2ff),var(--wg,#8fd0ff));opacity:.55;transition:width .12s linear}
+.ssb-timer b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.08em;color:#dbe6f7;text-shadow:0 1px 3px #000}
+.ssb-pad{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:8px}
+.ssb-pad-l,.ssb-pad-r{display:flex;gap:8px}
+.ssb-dir{width:56px;height:56px;border-radius:50%;border:1px solid #33415f;background:linear-gradient(180deg,rgba(30,42,68,.96),rgba(15,22,38,.96));color:#dbe6f7;font-size:20px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.ssb-dir:active{transform:scale(.93);background:var(--wc,#7fb2ff);color:#08101f}
+.ssb-dir.gd{border-color:var(--wg,#8fd0ff);color:var(--wg,#8fd0ff)}
+.ssb-act{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:74px;height:60px;border-radius:16px;border:1px solid #ffffff26;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.ssb-act b{font-size:20px;line-height:1}
+.ssb-act i{font-style:normal;font-family:'Orbitron',sans-serif;font-size:8.5px;letter-spacing:.09em;color:#1b1206}
+.ssb-act.punch{background:linear-gradient(135deg,#e2865f,#d05f43)}
+.ssb-act.kick{background:linear-gradient(135deg,#e6c04a,#b58c1c)}
+.ssb-act:active{transform:translateY(2px) scale(.96)}
+/* a cooling button is visibly spent rather than silently inert */
+.ssb-act.cool,.ssb-dir.cool{opacity:.42;filter:saturate(.4)}
+
 /* landscape: fighters go wide, the question sits under them */
 @media (orientation:landscape){
   .ssb-stage{padding:0 30px 2px}
-  .ssb-side.me{width:26%}
-  .ssb-side.foe{width:30%}
+  .ssb-slot.me{width:26%}
+  .ssb-slot.foe{width:30%}
   .ssb-q{font-size:15px;margin-bottom:8px}
   .ssb-opts{grid-template-columns:repeat(4,minmax(0,120px));justify-content:center}
   .ssb-opt{padding:11px 4px}
   .ssb-ask{padding:8px 12px 8px}
+  /* landscape puts the thumbs where they already are, out at the edges */
+  .ssb-pad{margin-bottom:4px}
+  .ssb-timer{width:min(52%,340px);margin:0 auto 6px}
+  .ssb-dir{width:50px;height:50px}
+  .ssb-act{width:68px;height:52px}
 }
 
 
