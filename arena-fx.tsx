@@ -344,12 +344,20 @@ function buildCity(w, hz) {
 }
 
 export function useArenaFx(stage) {
+  /* TWO canvases, because the arena is drawn on both sides of the fighters.
+     The backdrop — sky, city, floor, the wet road — has to be BEHIND them or
+     an opaque sky paints straight over their heads. The effects have to be in
+     FRONT of them or a fireball goes off behind the man it hit. One canvas
+     cannot be both, and the fighters are DOM elements, so no amount of
+     compositing inside a single canvas can fake it. */
+  const bgRef = useRef(null);
   const canvasRef = useRef(null);
   const stateRef = useRef(null);
 
   useEffect(() => {
     const cv = canvasRef.current;
     if (!cv) return;
+    const bg = bgRef.current;
     const soft = reduced();
     const S = {
       parts: [], beams: [], rings: [], lasers: [], lobs: [], balls: [], smoke: [], flares: [],
@@ -369,14 +377,21 @@ export function useArenaFx(stage) {
       flash: null, t: 0, raf: 0, w: 0, h: 0, dpr: 1, motes: [], stage: stage || STAGES[0],
     };
     stateRef.current = S;
-    const ctx = cv.getContext("2d");
+    const fxctx = cv.getContext("2d");
+    const bgctx = bg ? bg.getContext("2d") : null;
+    // without a backdrop canvas everything falls back to the single layer
+    let ctx = bgctx || fxctx;
 
     const fit = () => {
       const r = cv.getBoundingClientRect();
       S.dpr = Math.min(2, window.devicePixelRatio || 1);
       S.w = Math.max(1, r.width); S.h = Math.max(1, r.height);
       cv.width = Math.round(S.w * S.dpr); cv.height = Math.round(S.h * S.dpr);
-      ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+      fxctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+      if (bg && bgctx) {
+        bg.width = cv.width; bg.height = cv.height;
+        bgctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+      }
       // ambient dust, so the arena has air in it even between hits
       S.motes = Array.from({ length: soft ? 0 : 22 }, () => ({
         x: Math.random() * S.w, y: Math.random() * S.h,
@@ -391,7 +406,9 @@ export function useArenaFx(stage) {
     const frame = (now) => {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       S.t += dt;
+      ctx = bgctx || fxctx;           // the backdrop pass
       ctx.clearRect(0, 0, S.w, S.h);
+      if (bgctx) fxctx.clearRect(0, 0, S.w, S.h);
 
       // ── floor: a perspective grid receding to a horizon behind the fighters
       const hz = S.h * 0.52;
@@ -616,6 +633,9 @@ export function useArenaFx(stage) {
         m.y += m.vy * dt; if (m.y < 0) { m.y = S.h; m.x = Math.random() * S.w; }
         ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fillStyle = `rgba(${SG.mote},${m.a * 1.5})`; ctx.fill();
       }
+
+      // ── from here on it is drawn IN FRONT of the fighters ──
+      ctx = fxctx;
 
       /* Everything from here to the smoke is LIGHT, so it composites additively:
          two beams crossing get brighter where they meet, a fireball blows out
@@ -1201,5 +1221,5 @@ export function useArenaFx(stage) {
     S.flash = { c: colour, a, p: 0, dur };
   }, []);
 
-  return { canvasRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, beam: bolt };
+  return { canvasRef, bgRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, beam: bolt };
 }

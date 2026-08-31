@@ -1095,7 +1095,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       </div>
 
       <div className={`pvpstage${shake ? " sh" + shake : ""}${overdrive ? " od" : ""}`}>
-        <canvas ref={G.canvasRef} className="pvpfx" />
+        <canvas ref={G.bgRef} className="pvpbg" />
+      <canvas ref={G.canvasRef} className="pvpfx" />
         <div className="pvphps">
           <div className="pvphpcol">
             <div className="pvphp"><i style={{ width: `${Math.max(0, (myHp / MY_MAX) * 100)}%` }} /></div>

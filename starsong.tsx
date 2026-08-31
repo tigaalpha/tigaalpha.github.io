@@ -1638,6 +1638,7 @@ const BattleScreen = memo(function BattleScreen({
      the two numbers the whole fight is about. Out here it cannot. */
   return createPortal((
     <div className={`ssbattle${foe.boss ? " boss" : ""}${shake ? " shake" : ""}${hurtFoe ? " punchy" : ""}${cine ? " cine" : ""}`} data-stage={ST.id} style={{ "--wc": W.accent, "--wg": W.glow }}>
+      <canvas ref={G.bgRef} className="ssbbg" />
       <canvas ref={G.canvasRef} className="ssbfx" />
       {/* atmosphere: a light shaft, drifting embers and a haze horizon. All
           CSS, so none of it costs a frame of the fight. */}

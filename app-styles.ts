@@ -1026,6 +1026,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 /* over the fighters, not behind them: a bolt leaving a hand starts ON the
    robot, and a canvas underneath means the first third of every shot is
    hidden by the machine that fired it */
+/* the backdrop sits UNDER the fighters; the effects stay over them */
+.pvpbg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
 .pvpfx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4}
 .pvphps{position:absolute;left:0;right:0;top:0;z-index:6;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;padding:9px 11px;background:linear-gradient(180deg,rgba(6,9,18,.82),rgba(6,9,18,0))}
 .pvphpcol{display:flex;flex-direction:column;gap:3px;min-width:0}
@@ -2527,7 +2529,8 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    at a lower z-index the header sat over the top of it and ate both HP bars,
    which are the two numbers the fight is actually about. */
 .ssbattle{position:fixed;inset:0;z-index:1480;display:flex;flex-direction:column;background:#05070f;overflow:hidden;--wc:#7fb2ff;--wg:#8fd0ff}
-.ssbfx{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ssbbg{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.ssbfx{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:4;pointer-events:none}
 .ssbattle.shake{animation:ssbshake .3s cubic-bezier(.36,.07,.19,.97)}
 @keyframes ssbshake{10%,90%{transform:translate(-2px,1px)}20%,80%{transform:translate(4px,-2px)}30%,50%,70%{transform:translate(-7px,2px)}40%,60%{transform:translate(7px,-1px)}}
 @media (prefers-reduced-motion:reduce){.ssbattle.shake{animation:none}}
