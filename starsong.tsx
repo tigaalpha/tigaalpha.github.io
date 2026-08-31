@@ -790,6 +790,14 @@ const QUESTION_EVERY = 20;
 /* How long the foe telegraphs before it swings. Long enough to read on a
    phone, short enough that holding guard down is not a strategy. */
 const TELL = 0.55;
+/* [left%, top%, px, colour] — hand-placed so they read as a skyline rather
+   than as confetti, and warm against the world's cool accent. */
+const BOKEH = [
+  [6, 22, 26, "#ffb26b"], [17, 38, 16, "#8fd0ff"], [28, 15, 34, "#ffd28a"],
+  [39, 44, 14, "#9fe0ff"], [52, 24, 30, "#ffb26b"], [63, 40, 18, "#c9a7ff"],
+  [72, 17, 24, "#ffd28a"], [83, 36, 32, "#8fd0ff"], [92, 21, 18, "#ffb26b"],
+  [12, 52, 20, "#ffd28a"], [46, 56, 22, "#8fd0ff"], [78, 54, 16, "#ffb26b"],
+];
 const MOVE_KIND = {
   punch: { cd: 0.5,  reach: 0.40, mult: 0.24, fx: "punch" },
   kick:  { cd: 1.05, reach: 0.47, mult: 0.42, fx: "kick" },
@@ -1577,7 +1585,7 @@ const MOVES = [
 const moveFor = (streak) => MOVES[Math.min(streak, MOVES.length - 1)];
 
 const BattleScreen = memo(function BattleScreen({
-  lang, W, foe, hp, maxHpV, chassisEl, onAnswer, onFlee, shake, hurtFoe, hurtMe, playing, reveal, onNextQ, bt, onAct, bnr,
+  lang, W, foe, hp, maxHpV, chassisEl, onAnswer, onFlee, shake, hurtFoe, hurtMe, playing, reveal, onNextQ, bt, onAct, bnr, cine,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const G = useArenaFx(stageById(W.track));
@@ -1609,15 +1617,26 @@ const BattleScreen = memo(function BattleScreen({
      header was painting over the top of the fight and eating both HP bars —
      the two numbers the whole fight is about. Out here it cannot. */
   return createPortal((
-    <div className={`ssbattle${foe.boss ? " boss" : ""}${shake ? " shake" : ""}${hurtFoe ? " punchy" : ""}`} style={{ "--wc": W.accent, "--wg": W.glow }}>
+    <div className={`ssbattle${foe.boss ? " boss" : ""}${shake ? " shake" : ""}${hurtFoe ? " punchy" : ""}${cine ? " cine" : ""}`} style={{ "--wc": W.accent, "--wg": W.glow }}>
       <canvas ref={G.canvasRef} className="ssbfx" />
       {/* atmosphere: a light shaft, drifting embers and a haze horizon. All
           CSS, so none of it costs a frame of the fight. */}
       <div className="ssb-atmo" aria-hidden="true">
         <span className="ssb-shaft" /><span className="ssb-shaft b" />
+        {/* city bokeh: out-of-focus lights behind the fight, which is most of
+            what a night skyline actually looks like through a lens */}
+        {BOKEH.map((k, i) => (
+          <b key={i} className="ssb-bokeh" style={{
+            left: `${k[0]}%`, top: `${k[1]}%`, width: `${k[2]}px`, height: `${k[2]}px`,
+            background: k[3], animationDelay: `${i * 0.9}s`,
+          }} />
+        ))}
         {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <i key={i} className="ssb-ember" style={{ left: `${5 + i * 12}%`, animationDelay: `${i * 1.6}s`, animationDuration: `${9 + (i % 4) * 2.5}s` }} />)}
         <span className="ssb-haze" />
       </div>
+      {/* the grade: a filmic curve, grain, a vignette and a whisper of
+          chromatic fringe. Last layer over the picture, under the HUD. */}
+      <div className="ssb-grade" aria-hidden="true"><span className="ssb-grain" /><span className="ssb-ca" /></div>
 
       <div className="ssb-bars">
         <div className="ssb-bar me">
@@ -1637,10 +1656,16 @@ const BattleScreen = memo(function BattleScreen({
       <div className="ssb-stage">
         <div className="ssb-slot me" style={{ transform: `translateX(${(((bt && bt.me) || 0.24) - 0.24) * 100}vw)` }}>
           <div className={`ssb-side me${hurtMe ? " hit" : ""}${(bt && bt.guard) > 0 ? " guarding" : ""}`}>{chassisEl}</div>
+          {/* the wet floor. One mirrored, blurred, faded copy per fighter is
+              the single cheapest thing that makes a stage look expensive. */}
+          <div className="ssb-refl" aria-hidden="true"><div className="ssb-refl-in">{chassisEl}</div></div>
         </div>
         <div className={`ssb-slot foe${foe.boss ? " big" : ""}`} style={{ transform: `translateX(${(((bt && bt.foe) || 0.76) - 0.76) * 100}vw)` }}>
           <div className={`ssb-side foe${hurtFoe ? " hit" : ""}${foe.boss ? " big" : ""}${(bt && bt.tell) > 0 ? " tell" : ""}`}>
             <MonsterArt world={W.id} boss={foe.boss} hurt={hurtFoe} />
+          </div>
+          <div className="ssb-refl" aria-hidden="true">
+            <div className="ssb-refl-in"><MonsterArt world={W.id} boss={foe.boss} /></div>
           </div>
           {(bt && bt.tell) > 0 && <span className="ssb-tell">!</span>}
         </div>
@@ -1746,6 +1771,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const [reveal, setReveal] = useState(null);   // {q, chosen} — the answered question, held on screen
   const revealRef = useRef(null);
   const [bnr, setBnr] = useState(null);       // {text, kind} — PARRY / COMBO / OVERDRIVE
+  const [cine, setCine] = useState(false);    // letterbox bars, for the signature move
   const bnrT = useRef(0);
   const banner = useCallback((text, kind) => {
     setBnr({ text, kind, id: Date.now() });
@@ -2375,6 +2401,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       const G0 = fxRef.current;
       if (G0) { G0.flash("#ffffff", .9, .55); G0.beam("op", W.glow); }
       banner(T("โอเวอร์ไดรฟ์!", "OVERDRIVE!", "超载!"), "ult");
+      setCine(true); window.setTimeout(() => setCine(false), 1400);
       [0, 190, 380].forEach((d, i) => window.setTimeout(() => landHit(i === 2 ? "ult" : "kick", i === 2 ? 1.5 : 0.6, true), d));
       return;
     }
@@ -2926,7 +2953,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         <BattleScreen
           lang={lang} W={W} hp={hp} maxHpV={maxHp(save)}
           foe={f} shake={shake} hurtFoe={hurtFoe} hurtMe={hurtMe} playing={fxRef}
-          reveal={reveal} onNextQ={nextQ} bt={bt} onAct={act} bnr={bnr}
+          reveal={reveal} onNextQ={nextQ} bt={bt} onAct={act} bnr={bnr} cine={cine}
           chassisEl={<CyberAvatar model={charModel} yaw={52} pose="ready" glow={W.glow} accent={W.accent} armorA="#161d2c" armorB="#3d5878" />}
           onAnswer={answer}
           onFlee={() => { setFight(null); setReveal(null); say(T("ถอยออกมาแล้ว", "Disengaged.", "已脱离。")); }} />

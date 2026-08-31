@@ -2545,11 +2545,22 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssb-bar.foe .ssb-hp{grid-area:nm;text-align:left}
 
 .ssb-stage{position:relative;z-index:2;flex:1;min-height:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 4px 4px}
-.ssb-slot{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center;transition:transform .13s ease-out;will-change:transform}
+.ssb-slot{position:relative;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;transition:transform .13s ease-out;will-change:transform}
 .ssb-slot.me{width:40%;max-width:230px}
 .ssb-slot.foe{width:62%;max-width:344px}
 .ssb-slot.foe.big{width:70%;max-width:410px}
-.ssb-side{position:relative;height:100%;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.ssb-side{position:relative;flex:1 1 auto;min-height:0;width:100%;display:flex;align-items:flex-end;justify-content:center}
+/* ── the wet floor ──
+   One mirrored copy per fighter, blurred, desaturated and faded out into the
+   plate. scaleY(-1) about the element's own centre keeps the box where it is
+   and reverses the content; the short overflow window then shows only the
+   part nearest the floor, which is exactly what a reflection is. */
+.ssb-refl{position:relative;flex:0 0 auto;width:100%;height:19%;overflow:hidden;pointer-events:none;
+  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.62),transparent 86%);
+  mask-image:linear-gradient(180deg,rgba(0,0,0,.62),transparent 86%)}
+.ssb-refl-in{position:absolute;top:0;left:0;right:0;display:flex;justify-content:center;
+  transform:scaleY(-1);filter:blur(1.7px) saturate(.5) brightness(.72)}
+.ssb-refl-in>*{width:100%;height:auto}
 /* a braced fighter reads as braced */
 .ssb-side.guarding{filter:drop-shadow(0 0 12px var(--wg,#8fd0ff))}
 /* Size by WIDTH and let the viewBox give the height. width:auto on an INLINE
@@ -2649,15 +2660,43 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    Light shafts, embers and a haze horizon, all in CSS so none of it costs a
    frame of the fight. Depth is what separates a stage from a backdrop. */
 .ssb-atmo{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
-.ssb-shaft{position:absolute;top:-12%;left:14%;width:26%;height:96%;transform:skewX(-11deg);
-  background:linear-gradient(180deg,var(--wg,#8fd0ff)22,transparent 72%);opacity:.16;filter:blur(9px);animation:ssbShaft 9s ease-in-out infinite}
-.ssb-shaft.b{left:58%;width:19%;animation-delay:-4.5s;opacity:.11}
-@keyframes ssbShaft{0%,100%{opacity:.09}50%{opacity:.22}}
+.ssb-shaft{position:absolute;top:-14%;left:12%;width:30%;height:104%;transform:skewX(-13deg);
+  background:linear-gradient(178deg,var(--wg,#8fd0ff)3a,transparent 76%);opacity:.22;filter:blur(11px);animation:ssbShaft 9s ease-in-out infinite}
+.ssb-shaft.b{left:56%;width:22%;transform:skewX(9deg);animation-delay:-4.5s;opacity:.15}
+@keyframes ssbShaft{0%,100%{opacity:.1;transform:skewX(-13deg) translateX(-3%)}50%{opacity:.3;transform:skewX(-11deg) translateX(3%)}}
+.ssb-bokeh{position:absolute;border-radius:50%;filter:blur(11px);opacity:.28;animation:ssbBok 7s ease-in-out infinite;will-change:opacity}
+@keyframes ssbBok{0%,100%{opacity:.18}50%{opacity:.4}}
+.ssbattle.boss .ssb-bokeh{filter:blur(13px) hue-rotate(-24deg)}
 .ssb-ember{position:absolute;bottom:-8px;width:3px;height:3px;border-radius:50%;
   background:var(--wg,#8fd0ff);box-shadow:0 0 8px 2px var(--wg,#8fd0ff);opacity:0;animation:ssbEmber 11s linear infinite}
 @keyframes ssbEmber{0%{opacity:0;transform:translate(0,0) scale(.6)}12%{opacity:.85}70%{opacity:.5}100%{opacity:0;transform:translate(26px,-78vh) scale(1.3)}}
 .ssb-haze{position:absolute;left:0;right:0;bottom:26%;height:22%;
   background:linear-gradient(180deg,transparent,var(--wc,#7fb2ff)1c 55%,transparent);filter:blur(14px);opacity:.5}
+
+/* ── the grade ──
+   What separates a picture from a render: a filmic curve with cool shadows
+   and a warm top, a vignette that pushes the frame edges back, moving grain,
+   and a whisper of chromatic fringe in the corners. */
+.ssb-grade{position:absolute;inset:0;z-index:8;pointer-events:none}
+.ssb-grade::before{content:"";position:absolute;inset:0;mix-blend-mode:soft-light;
+  background:linear-gradient(180deg,rgba(150,200,255,.20),rgba(0,0,0,0) 42%,rgba(255,150,70,.16)),
+             radial-gradient(120% 88% at 50% 40%,rgba(255,255,255,.14),rgba(0,0,0,0) 46%)}
+.ssb-grade::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(125% 92% at 50% 44%,rgba(0,0,0,0) 32%,rgba(3,6,14,.44) 78%,rgba(2,4,10,.76) 100%)}
+.ssb-grain{position:absolute;inset:-40%;opacity:.05;mix-blend-mode:overlay;animation:ssbGrain .5s steps(2) infinite;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='180' height='180' filter='url(%23n)'/></svg>")}
+@keyframes ssbGrain{0%{transform:translate(0,0)}25%{transform:translate(-3%,2%)}50%{transform:translate(2%,-3%)}75%{transform:translate(-2%,-2%)}100%{transform:translate(0,0)}}
+.ssb-ca{position:absolute;inset:0;mix-blend-mode:screen;opacity:.16;
+  background:radial-gradient(120% 90% at 50% 46%,rgba(0,0,0,0) 62%,rgba(255,60,90,.5) 92%),
+             radial-gradient(118% 88% at 50% 44%,rgba(0,0,0,0) 64%,rgba(40,180,255,.42) 96%)}
+/* the signature move gets the letterbox */
+.ssbattle.cine::before,.ssbattle.cine::after{content:"";position:absolute;left:0;right:0;height:9%;background:#000;z-index:9;pointer-events:none;animation:ssbCine .28s ease-out both}
+.ssbattle.cine::before{top:0}
+.ssbattle.cine::after{bottom:0}
+@keyframes ssbCine{0%{transform:scaleY(0)}100%{transform:scaleY(1)}}
+.ssbattle.cine::before{transform-origin:top}
+.ssbattle.cine::after{transform-origin:bottom}
+@media (prefers-reduced-motion:reduce){.ssb-grain{animation:none}}
 .ssbattle.boss .ssb-shaft{background:linear-gradient(180deg,#ff5a5a2e,transparent 72%)}
 /* a landed blow punches the whole frame for a beat */
 .ssbattle.punchy{animation:ssbPunch .16s ease-out}
