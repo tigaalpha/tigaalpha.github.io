@@ -162,10 +162,12 @@ export const EXP = { lesson: 50, chapter: 25, ask: 10, daily: 15 };
    Coins are earned in-app only; nothing here can be bought. */
 export const EARN = {
   chapter: 10,      // a Pathway chapter, the first time it is read
-  practice: 20,     // a Practice Mode drill — twice a chapter, per design
+  practice: 35,     // a Practice Mode drill — the thing we most want repeated
+  partial: 4,       // per note actually played, when a drill is left early
   studio: 12,       // a Studio drill finished
   video: 15,        // a video lesson actually watched, once per video
   chat: 4,          // one real question to TIGA
+  game: 15,         // opening a Music Game, once per game per day
 };
 /* A YouTube iframe gives us no playback progress, so "watched" has to be
    inferred: a video pays only after it has been the video on screen, in a
@@ -173,7 +175,29 @@ export const EARN = {
 export const VIDEO_WATCH_MS = 60000;
 /* Daily ceilings on the things you could otherwise repeat forever. Chapters
    are finite and only pay on a first read, so they need no cap. */
-export const EARN_CAP = { chat: 12, studio: 30, video: 20 };
+export const EARN_CAP = { chat: 12, studio: 30, video: 20, partial: 12 };
+
+/* Music Games are links out to somebody else's game, so there is no score to
+   pay on — the only honest signal we have is that you opened one. Each game
+   therefore pays once a day: worth trying all of them, worth nothing to tap
+   the same card twenty times. */
+export function gamesPaidToday() {
+  try {
+    const v = JSON.parse(localStorage.getItem("tg_game_day") || "{}");
+    return v.d === new Date().toDateString() && Array.isArray(v.ids) ? new Set(v.ids) : new Set();
+  } catch (e) { return new Set(); }
+}
+export function takeGameEarn(id) {
+  try {
+    const today = new Date().toDateString();
+    let v = JSON.parse(localStorage.getItem("tg_game_day") || "{}");
+    if (v.d !== today || !Array.isArray(v.ids)) v = { d: today, ids: [] };
+    if (v.ids.includes(String(id))) return false;
+    v.ids.push(String(id));
+    localStorage.setItem("tg_game_day", JSON.stringify(v));
+    return true;
+  } catch (e) { return false; }
+}
 
 /* Videos pay once each, like chapters — rewatching is free and always will be. */
 export function videoPaidSet() {
@@ -8701,9 +8725,17 @@ function AdminGames({ lang }) {
 }
 
 /* ── Music Games page — shows game cards loaded from admin-managed list ── */
-const GamesPage = memo(function GamesPage({ lang }) {
+const GamesPage = memo(function GamesPage({ lang, earnCoins, gainExp }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [games, setGames] = useState<any[] | null>(null);
+  const [paid, setPaid] = useState(() => gamesPaidToday());
+  const payFor = (id) => {
+    if (!takeGameEarn(id)) return;
+    if (earnCoins) earnCoins(EARN.game);
+    if (gainExp) gainExp(6, { quest: true });
+    try { playUi("reward"); } catch (e) {}
+    setPaid(gamesPaidToday());
+  };
 
   useEffect(() => {
     sb.from("app_settings").select("value").eq("key", "music_games").maybeSingle()
@@ -8718,7 +8750,9 @@ const GamesPage = memo(function GamesPage({ lang }) {
         </div>
         <div className="profname">Music Games</div>
         <div className="profxp-lbl" style={{ color: "var(--muted)", fontSize: 13 }}>
-          {T("เกมดนตรีจากทั่วโลก — กดเพื่อเล่น!", "Music games from around the world — tap to play!", "来自世界各地的音乐游戏 — 点击即玩！")}
+          {T(`เกมดนตรีจากทั่วโลก — เล่นเกมไหนก็ได้ 🪙 +${EARN.game} (เกมละครั้งต่อวัน)`,
+              `Music games from around the world — every game pays 🪙 +${EARN.game}, once each per day`,
+              `来自世界各地的音乐游戏 — 每款游戏 🪙 +${EARN.game}，每天各一次`)}
         </div>
       </div>
       <div style={{ padding: "0 14px 24px" }}>
@@ -8733,7 +8767,7 @@ const GamesPage = memo(function GamesPage({ lang }) {
             {games.map((g: any) => (
               <a key={g.id} href={g.link} target="_blank" rel="noopener noreferrer"
                 style={{ textDecoration: "none", display: "flex", flexDirection: "column", background: "var(--card)", borderRadius: 16, overflow: "hidden", border: "1px solid var(--bd6)", transition: "transform .15s", boxShadow: "0 2px 12px rgba(0,0,0,.12)" }}
-                onClick={() => { try { playUi("click"); } catch(_) {} }}>
+                onClick={() => { try { playUi("click"); } catch(_) {} payFor(g.id); }}>
                 {g.cover ? (
                   <img src={g.cover} alt={g.title} style={{ width: "100%", height: 110, objectFit: "cover" }} />
                 ) : (
@@ -8742,8 +8776,15 @@ const GamesPage = memo(function GamesPage({ lang }) {
                 <div style={{ padding: "10px 12px 14px" }}>
                   <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text)", marginBottom: 4 }}>{g.title}</div>
                   {g.desc && <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>{g.desc}</div>}
-                  <div style={{ marginTop: 10, display: "inline-block", background: "#d97757", color: "#fff", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700 }}>
-                    ▶ {T("เล่น", "Play", "开始游戏")}
+                  <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ display: "inline-block", background: "#d97757", color: "#fff", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700 }}>
+                      ▶ {T("เล่น", "Play", "开始游戏")}
+                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: paid.has(String(g.id)) ? "var(--muted)" : "#c8891f" }}>
+                      {paid.has(String(g.id))
+                        ? T("รับแล้ววันนี้", "Claimed today", "今日已领")
+                        : `🪙 +${EARN.game}`}
+                    </span>
                   </div>
                 </div>
               </a>
@@ -10535,7 +10576,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
-      {page === "gamepage" && <GamesPage lang={lang} />}
+      {page === "gamepage" && <GamesPage lang={lang} earnCoins={earnCoins} gainExp={gainExp} />}
       {page === "storage" && (
         <StoragePage lang={lang} coins={coins} owned={owned} charModel={charModel}
           cats={[

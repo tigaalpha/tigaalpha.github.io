@@ -3,7 +3,7 @@ import {
   fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP,
   getAC, playPianoNote, playUi, stopPracticeListeners, startMidiListener, startMicListener,
 } from "./music-engine";
-import { EARN, logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
+import { EARN, takeEarn, logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
 import { logActivity } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
@@ -92,6 +92,9 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceIdxRef = useRef(0);
   const practiceHitSetRef = useRef(new Set()); // hit target indices — block-style chord/interval practice only
   const practiceHitsRef = useRef(0);
+  // set the moment a finish pays, so a finish cannot pay twice and an exit
+  // straight after one does not pay again on top
+  const practicePaidRef = useRef(false);
   const practiceMissRef = useRef(0);
   const practiceVelsRef = useRef([]); // MIDI velocities of hit notes this drill — see scoreDynamics()
   const practiceTimesRef = useRef([]); // Date.now() of each correct hit this drill — see scoreRhythm()
@@ -286,6 +289,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const seq = lastSeq.current;
     if (!seq || !seq.notes || !seq.notes.length) return;
     clearSeq(); // actually silence any still-ringing demo chord before the mic starts listening (clearSeq now really stops the audio, not just the UI state)
+    practicePaidRef.current = false;   // a fresh run is unpaid
     // finger numbers for the currently selected hand (falls back to the played fingers)
     const pf = fingersForNotes(seq.key, seq.mode, seq.notes, hand);
     let notes = seq.notes.slice();
@@ -407,6 +411,15 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   }
 
   function exitPractice() {
+    /* Leaving early still pays for what you actually played. A drill you gave
+       up on halfway is still half a drill of practice, and paying nothing for
+       it taught people to avoid the hard ones. Capped per day so it cannot
+       become a tap-in-tap-out coin tap. */
+    if (!practicePaidRef.current && practiceHitsRef.current >= 4 && takeEarn("partial")) {
+      earnCoins(Math.min(EARN.practice, practiceHitsRef.current * EARN.partial));
+      gainExp(6, { quest: true });
+    }
+    practicePaidRef.current = false;
     practiceActiveRef.current = false;
     stopPracticeListeners();
     clearTimeout(practiceHeardTimer.current);
@@ -417,6 +430,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
 
   function finishPractice() {
     const total = practiceTargetRef.current.length;
+    if (practicePaidRef.current) return;      // a finish pays exactly once
     const hits = practiceHitsRef.current;
     const miss = practiceMissRef.current;
     const accuracy = hits + miss > 0 ? Math.round((hits / (hits + miss)) * 100) : 100;
@@ -458,15 +472,21 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
        reading about it, and the economy should say so. Accuracy and a genuine
        new best add on top, so a sloppy run still pays but a good one pays
        properly. */
-    earnCoins(EARN.practice + Math.round(accuracy / 10) + (isNewBest ? 10 : 0));
+    /* Practice is the thing we most want repeated, so it pays like it. A base,
+       a quarter of the accuracy, the best streak of the run, and a real bonus
+       for beating your own record: a sloppy run still pays, a good one pays
+       several times a Pathway chapter. */
+    const streakBonus = Math.min(20, bestStreak * 2);
+    earnCoins(EARN.practice + Math.round(accuracy / 4) + streakBonus + (isNewBest ? 25 : 0));
     gainExp(20 + Math.round(accuracy / 5) + (isNewBest ? 10 : 0), { quest: true }); // 20–40 EXP scaled by accuracy, +10 on a genuine new best
+    practicePaidRef.current = true;
     /* Gems, and ONLY here. They are deliberately much rarer than coins: a drill
        has to come in at 90%+ to qualify at all, it pays one gem rather than a
        handful, and the server caps how many a day can be granted — gems are
        protected by a database trigger precisely so the client cannot mint
        them, so this asks and the server decides. If the RPC is not deployed
        yet the call simply fails and no gem is granted; coins are unaffected. */
-    if (accuracy >= 90 && grantPracticeGem) grantPracticeGem();
+    if ((accuracy >= 70 || isNewBest) && grantPracticeGem) grantPracticeGem();
     // Weekly challenges — "games"/"perfect" used to only ever bump from Play
     // Along's finishSong(), so Practice Mode could never complete 6 of the
     // week's 9 rotating challenge types. hits = notes actually played correctly.

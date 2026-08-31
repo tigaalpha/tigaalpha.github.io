@@ -1128,8 +1128,21 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvppage.land .pvpact.punch{background:linear-gradient(135deg,#e2865fee,#d05f43ee)}
 .pvppage.land .pvpact.kick{background:linear-gradient(135deg,#c9a227ee,#a8791bee)}
 /* the quiz takes the middle of the screen when it interrupts */
-.pvppage.land .pvpuntimed{position:absolute;left:0;right:0;top:34%;z-index:10;margin:0}
-.pvppage.land .pvpq{position:absolute;left:0;right:0;top:39%;z-index:10;margin:0;padding:0 8%}
+/* ── the question has to WIN against the backdrop ──
+   A text-shadow is enough over a flat plate and hopeless over a lit city: at
+   full screen the question was sitting on top of ten thousand windows and
+   simply disappeared into them. It gets a real panel — dark, blurred and
+   bordered — so it reads at a glance no matter what is behind it. */
+.pvppage.land .pvpuntimed{position:absolute;left:50%;transform:translateX(-50%);top:29%;z-index:10;margin:0;
+  width:max-content;max-width:86%;padding:5px 15px;border-radius:999px;
+  background:rgba(4,8,18,.74);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border:1px solid #ffffff24;color:#cfe0ff;text-shadow:none}
+.pvppage.land .pvpq{position:absolute;left:50%;transform:translateX(-50%);top:35.5%;z-index:10;margin:0;
+  width:max-content;max-width:88%;padding:13px 24px;border-radius:18px;
+  background:linear-gradient(180deg,rgba(7,11,24,.93),rgba(3,6,14,.96));
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+  border:1px solid #ffffff2b;box-shadow:0 16px 40px -14px #000,0 0 0 1px rgba(0,0,0,.55);
+  font-size:20px;color:#fff;text-shadow:0 2px 6px #000}
 .pvppage.land .pvpopts{position:absolute;left:0;right:0;bottom:14px;z-index:11;margin:0;max-width:none;grid-template-columns:repeat(4,1fr);padding:0 14px}
 .pvppage.land .pvpopt{padding:12px 6px;background:rgba(255,255,255,.94)}
 /* skills sit between the two thumbs, where nothing else is competing */
@@ -1141,13 +1154,15 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvppage.land .pvpskbtn i{display:none}
 @media (orientation:landscape) and (max-height:520px){
   .pvppage.land .pvpfighter{height:52%}
-  .pvppage.land .pvpq{font-size:15px;top:36%}
+  .pvppage.land .pvpq{font-size:16px;top:33%;padding:10px 18px}
+  .pvppage.land .pvpuntimed{top:26%}
 }
 /* the fighter braces while guarding */
 .pvpfighter.guard{filter:drop-shadow(0 0 10px #5ce1ff)}
 /* combo counter: it pops on every increment because the key changes */
 .pvpcombo{position:absolute;left:50%;top:32%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;animation:pvpcb .32s cubic-bezier(.34,1.6,.5,1)}
-.pvpcombo b{font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:#ffb489;text-shadow:0 0 18px #d97757,0 2px 6px #000;line-height:1}
+.pvpcombo b{font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:#ffb489;line-height:1;
+  text-shadow:0 0 18px #d97757,0 2px 6px #000,0 0 3px #000,2px 0 3px #000,-2px 0 3px #000,0 -2px 3px #000}
 .pvpcombo i{font-family:'Orbitron',sans-serif;font-style:normal;font-size:9px;letter-spacing:2px;color:#ffd0b6;text-shadow:0 0 10px #d97757,0 1px 3px #000}
 @keyframes pvpcb{0%{transform:translateX(-50%) scale(1.7);opacity:.4}100%{transform:translateX(-50%) scale(1);opacity:1}}
 .pvpbanner{position:absolute;left:0;right:0;top:44%;z-index:6;text-align:center;font-family:'Orbitron',sans-serif;font-size:20px;font-weight:800;color:#ffd6a8;text-shadow:0 0 22px #d97757,0 0 6px #ff9a4c,0 2px 8px #000;pointer-events:none;animation:pvpbn .45s cubic-bezier(.34,1.5,.5,1)}
@@ -2588,8 +2603,13 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 
 .ssb-line{position:relative;z-index:3;margin:0 14px 6px;font-family:'Rajdhani',sans-serif;font-style:italic;font-size:12.5px;line-height:1.5;color:#f0c8c8;border-left:3px solid #ff6a6a;padding-left:10px;text-shadow:0 1px 6px #000}
 .ssb-ask{position:relative;z-index:3;background:linear-gradient(180deg,rgba(6,10,20,0),rgba(6,10,20,.94) 22%);padding:14px 12px calc(12px + env(safe-area-inset-bottom))}
-.ssb-streak{font-family:'Share Tech Mono',monospace;font-size:10px;color:#ffd24d;margin-bottom:5px;text-align:center}
-.ssb-q{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:16.5px;line-height:1.4;color:#f2f6ff;text-align:center;margin-bottom:11px;text-shadow:0 2px 10px #000}
+.ssb-streak{font-family:'Share Tech Mono',monospace;font-size:10px;color:#ffd24d;margin:0 auto 6px;text-align:center;
+  width:max-content;padding:3px 12px;border-radius:999px;background:rgba(4,8,18,.74);border:1px solid #ffffff24}
+.ssb-q{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:17.5px;line-height:1.4;color:#fff;text-align:center;
+  margin:0 auto 11px;width:max-content;max-width:100%;padding:11px 18px;border-radius:16px;
+  background:linear-gradient(180deg,rgba(7,11,24,.93),rgba(3,6,14,.96));
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+  border:1px solid #ffffff2b;box-shadow:0 14px 34px -14px #000;text-shadow:0 2px 6px #000}
 .ssb-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:9px}
 .ssb-opt{padding:15px 4px;border-radius:12px;border:1px solid var(--wc);background:linear-gradient(180deg,rgba(24,34,56,.95),rgba(12,18,32,.95));color:#f2f6ff;font-family:'Orbitron',sans-serif;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 14px -8px #000}
 .ssb-opt:active{transform:translateY(2px) scale(.97);background:var(--wc);color:#08101f}
@@ -2729,7 +2749,8 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 @keyframes ssbTellPop{0%{opacity:0;scale:.4}30%{opacity:1;scale:1.2}100%{opacity:.9;scale:1}}
 /* combo counter and the shout banners */
 .ssb-combo{position:absolute;left:50%;top:24%;transform:translateX(-50%);z-index:6;display:flex;flex-direction:column;align-items:center;pointer-events:none;animation:ssbCb .3s cubic-bezier(.34,1.6,.5,1)}
-.ssb-combo b{font-family:'Orbitron',sans-serif;font-size:38px;font-weight:900;color:#ffd24d;text-shadow:0 0 22px #ff9a3c,0 3px 8px #000;line-height:1}
+.ssb-combo b{font-family:'Orbitron',sans-serif;font-size:38px;font-weight:900;color:#ffd24d;line-height:1;
+  text-shadow:0 0 22px #ff9a3c,0 3px 8px #000,0 0 3px #000,2px 0 3px #000,-2px 0 3px #000,0 -2px 3px #000}
 .ssb-combo i{font-style:normal;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:3px;color:#ffe6b0;text-shadow:0 0 10px #ff9a3c,0 1px 3px #000}
 @keyframes ssbCb{0%{opacity:0;scale:1.9}60%{opacity:1;scale:.94}100%{scale:1}}
 .ssb-bnr{position:absolute;left:0;right:0;top:38%;z-index:7;text-align:center;pointer-events:none;
