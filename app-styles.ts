@@ -2558,6 +2558,27 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
   .ssb-ask{padding:8px 12px 8px}
 }
 
+
+/* ══════════ Starsong: the title sequence ══════════ */
+.sscine{position:fixed;inset:0;z-index:1490;background:#000;cursor:pointer;overflow:hidden}
+.sscine-cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+.sscine-txt{position:absolute;left:0;right:0;top:19%;z-index:2;text-align:center;padding:0 22px;pointer-events:none}
+.sscine-title{font-family:'Orbitron',sans-serif;font-weight:900;font-size:clamp(22px,7.4vw,44px);letter-spacing:.16em;color:#f2f6ff;text-shadow:0 0 26px rgba(140,200,255,.55),0 3px 12px #000;animation:sscTitle 1.5s cubic-bezier(.16,1,.3,1) both}
+.sscine-title span{color:var(--wg,#8fd0ff)}
+@keyframes sscTitle{0%{opacity:0;letter-spacing:.5em;filter:blur(8px)}100%{opacity:1;letter-spacing:.16em;filter:blur(0)}}
+.sscine-tag{margin-top:10px;font-family:'Rajdhani',sans-serif;font-size:clamp(11px,3.3vw,15px);line-height:1.5;color:#b9c9e6;text-shadow:0 2px 10px #000;animation:sscFade 1.6s ease .5s both}
+.sscine-world{margin-top:26px;animation:sscFade 1.2s ease both}
+.sscine-world b{display:block;font-family:'Orbitron',sans-serif;font-size:clamp(15px,4.6vw,24px);letter-spacing:.08em;color:var(--wg,#8fd0ff);text-shadow:0 0 18px rgba(140,200,255,.5),0 2px 8px #000}
+.sscine-world i{display:block;margin-top:5px;font-style:normal;font-family:'Share Tech Mono',monospace;font-size:clamp(9px,2.7vw,11.5px);letter-spacing:.06em;color:#8fa6c8;text-shadow:0 2px 8px #000}
+@keyframes sscFade{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
+/* the log sits on its own scrim: typed white over a lit planet rim is the
+   one place in the sequence where the text could lose the background */
+.sscine-log{position:absolute;left:0;right:0;bottom:calc(9% + 22px);z-index:2;padding:14px 26px 16px;text-align:center;pointer-events:none;background:linear-gradient(180deg,rgba(2,4,12,0),rgba(2,4,12,.72) 42%,rgba(2,4,12,.86))}
+.sscine-log span{font-family:'Rajdhani',sans-serif;font-size:clamp(12.5px,3.6vw,16px);line-height:1.62;color:#dbe5f7;text-shadow:0 2px 12px #000;border-right:2px solid var(--wg,#8fd0ff);padding-right:3px}
+.sscine-skip{position:absolute;right:14px;bottom:calc(9% + 4px);z-index:3;border:1px solid #ffffff2e;background:#0009;color:#c9d6ee;border-radius:20px;padding:6px 14px;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:.1em;cursor:pointer}
+.sscine-skip:active{transform:scale(.95)}
+@media (prefers-reduced-motion:reduce){.sscine-title,.sscine-tag,.sscine-world{animation:none}}
+
 `;
 
 export function useInjectCSS() {

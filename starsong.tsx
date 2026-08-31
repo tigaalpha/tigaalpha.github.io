@@ -43,6 +43,9 @@ function hexRgb(h) {
 /* A cheap deterministic hash → every player generates byte-identical
    terrain from the same world id, which is what lets two people standing
    in the same place actually be standing in the same place. */
+/* NOTE: this returns an UNSIGNED 32-bit value, so shift it with `>>>`.
+   A signed `>>` turns anything at or above 2^31 negative, and a negative
+   radius makes canvas throw rather than draw. */
 function hash32(s) {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -835,6 +838,193 @@ function drawChassis(g, img, x, y, h, t, dir, ghost) {
   g.restore();
 }
 
+/* ══════════════════════ the title sequence ══════════════════════
+
+   A card with a paragraph on it is a loading screen. The premise — humanity
+   beat death, poured itself into machines and went out to take the sky, and
+   the only thing it could not upload was the ability to govern what it felt —
+   deserves an establishing shot.
+
+   So: black, then stars, then a world rising out of frame with its atmosphere
+   lit along the terminator, then the ship that is carrying you down to it,
+   then the title, then the log entry typing itself out underneath. Ten
+   seconds, letterboxed, skippable on any tap. Everything is drawn — no asset
+   to load, and the palette comes from the world record, so every planet gets
+   its own arrival rather than one generic one. */
+const CinematicIntro = memo(function CinematicIntro({ W, lang, onDone }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const cvRef = useRef(null);
+  const [t, setT] = useState(0);
+  const doneRef = useRef(false);
+  const DUR = 11.5;
+
+  useEffect(() => {
+    const cv = cvRef.current; if (!cv) return;
+    const g = cv.getContext("2d");
+    let raf = 0, t0 = performance.now();
+    const seed = hash32(W.seed);
+
+    const step = (now) => {
+      raf = requestAnimationFrame(step);
+      const tt = (now - t0) / 1000;
+      setT(tt);
+      if (tt > DUR && !doneRef.current) { doneRef.current = true; onDone(); return; }
+
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const vw = cv.clientWidth, vh = cv.clientHeight;
+      if (cv.width !== Math.round(vw * dpr)) { cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr); }
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // ── deep space ──
+      const sky = g.createLinearGradient(0, 0, 0, vh);
+      sky.addColorStop(0, "#01020a");
+      sky.addColorStop(0.55, W.sky[0]);
+      sky.addColorStop(1, "#01020a");
+      g.fillStyle = sky; g.fillRect(0, 0, vw, vh);
+
+      // nebula, drifting — two soft washes, additive so they only ever lift
+      g.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 2; i++) {
+        const nx = vw * (0.3 + i * 0.45) + Math.sin(tt * 0.11 + i) * 40;
+        const ny = vh * (0.28 + i * 0.2) + Math.cos(tt * 0.09 + i) * 26;
+        const rr = Math.max(vw, vh) * (0.45 + i * 0.2);
+        const ng = g.createRadialGradient(nx, ny, 0, nx, ny, rr);
+        ng.addColorStop(0, `rgba(${hexRgb(i ? W.accent : W.glow)},${0.09 * Math.min(1, tt / 1.4)})`);
+        ng.addColorStop(1, `rgba(${hexRgb(i ? W.accent : W.glow)},0)`);
+        g.fillStyle = ng; g.fillRect(nx - rr, ny - rr, rr * 2, rr * 2);
+      }
+      // stars fade up over the first beat and drift for the rest
+      const starA = Math.min(1, tt / 1.6);
+      for (let i = 0; i < 170; i++) {
+        const h = hash32("ci" + i + W.id);
+        const sx = (h % 1000) / 1000 * vw;
+        const sy = ((h >>> 10) % 1000) / 1000 * vh - tt * (4 + (i % 5) * 3);
+        const yy = ((sy % (vh + 40)) + vh + 40) % (vh + 40) - 20;
+        const tw = 0.4 + 0.6 * Math.abs(Math.sin(tt * 1.6 + i));
+        const r = (i % 23 === 0) ? 1.9 : (i % 7 === 0) ? 1.2 : 0.8;
+        g.fillStyle = `rgba(255,255,255,${(0.16 + (i % 5) * 0.11) * tw * starA})`;
+        g.beginPath(); g.arc(sx, yy, r, 0, 6.284); g.fill();
+      }
+      g.globalCompositeOperation = "source-over";
+
+      /* ── the world, rising ──
+         It comes up from below the frame on an ease-out, so the shot opens on
+         empty sky and fills. The atmosphere is a rim on the lit side and a
+         wide falloff outside the disc; the terminator is a second sphere in
+         shadow drawn over the first. */
+      const rise = clamp((tt - 0.7) / 3.4, 0, 1);
+      const ease = 1 - Math.pow(1 - rise, 3);
+      /* Big, and close. The shot is about the size of the thing you are
+         falling toward; a small disc peeking over the bottom edge reads as a
+         decoration rather than as a world. */
+      const pr = Math.min(vw, vh) * 1.02;
+      const pcx = vw * 0.5, pcy = vh + pr * (1.05 - 0.97 * ease);
+      if (rise > 0) {
+        // outer atmosphere
+        g.globalCompositeOperation = "lighter";
+        const ag = g.createRadialGradient(pcx, pcy, pr * 0.9, pcx, pcy, pr * 1.35);
+        ag.addColorStop(0, `rgba(${hexRgb(W.glow)},.32)`);
+        ag.addColorStop(1, `rgba(${hexRgb(W.glow)},0)`);
+        g.fillStyle = ag; g.beginPath(); g.arc(pcx, pcy, pr * 1.35, 0, 6.284); g.fill();
+        g.globalCompositeOperation = "source-over";
+        // the disc
+        const pg = g.createRadialGradient(pcx - pr * 0.4, pcy - pr * 0.45, pr * 0.1, pcx, pcy, pr);
+        pg.addColorStop(0, W.sky[2]);
+        pg.addColorStop(0.5, W.sky[1]);
+        pg.addColorStop(1, W.sky[0]);
+        g.fillStyle = pg; g.beginPath(); g.arc(pcx, pcy, pr, 0, 6.284); g.fill();
+        // surface: seeded bands, clipped to the disc
+        g.save();
+        g.beginPath(); g.arc(pcx, pcy, pr, 0, 6.284); g.clip();
+        for (let i = 0; i < 22; i++) {
+          const h = hash32("sf" + i + W.id);
+          const bx = pcx - pr + ((h % 1000) / 1000) * pr * 2;
+          const by = pcy - pr + (((h >>> 9) % 1000) / 1000) * pr * 2;
+          const brx = pr * (0.08 + ((h >>> 3) % 100) / 420);
+          g.fillStyle = (i % 3 === 0) ? "rgba(255,255,255,.05)" : "rgba(0,0,0,.13)";
+          g.beginPath(); g.ellipse(bx, by, brx * 1.7, brx * 0.55, 0.4, 0, 6.284); g.fill();
+        }
+        // night side
+        const ng2 = g.createLinearGradient(pcx - pr * .1, pcy - pr, pcx + pr, pcy + pr * .6);
+        ng2.addColorStop(0, "rgba(0,2,10,0)");
+        ng2.addColorStop(0.42, "rgba(0,2,10,.28)");
+        ng2.addColorStop(1, "rgba(0,2,10,.92)");
+        g.fillStyle = ng2; g.fillRect(pcx - pr, pcy - pr, pr * 2, pr * 2);
+        g.restore();
+        // the lit rim along the terminator
+        g.strokeStyle = `rgba(${hexRgb(W.glow)},.85)`;
+        g.lineWidth = 2.4;
+        g.beginPath(); g.arc(pcx, pcy, pr, Math.PI * 1.08, Math.PI * 1.86); g.stroke();
+      }
+
+      /* ── the ship ──
+         Small on purpose. The shot is about how big the thing it is falling
+         toward is, and a hero ship filling the frame would say the opposite. */
+      const fly = clamp((tt - 2.1) / 4.2, 0, 1);
+      if (fly > 0 && fly < 1) {
+        const fx = vw * (-0.12 + fly * 1.24);
+        const fy = vh * (0.42 + fly * fly * 0.14);
+        g.globalCompositeOperation = "lighter";
+        for (let i = 0; i < 26; i++) {
+          const k = i / 26;
+          g.fillStyle = `rgba(${hexRgb(W.glow)},${(1 - k) * 0.4})`;
+          g.beginPath(); g.arc(fx - k * 130, fy - k * 20, (1 - k) * 3.6 + 0.4, 0, 6.284); g.fill();
+        }
+        g.globalCompositeOperation = "source-over";
+        g.save(); g.translate(fx, fy); g.rotate(0.16);
+        g.fillStyle = "#e8eefc";
+        g.beginPath(); g.moveTo(11, 0); g.lineTo(-7, 5); g.lineTo(-4, 0); g.lineTo(-7, -5); g.closePath(); g.fill();
+        g.fillStyle = W.glow;
+        g.beginPath(); g.arc(-5, 0, 2.2, 0, 6.284); g.fill();
+        g.restore();
+      }
+
+      // ── letterbox ──
+      const bar = Math.min(1, tt / 0.7) * vh * 0.085;
+      g.fillStyle = "#000";
+      g.fillRect(0, 0, vw, bar);
+      g.fillRect(0, vh - bar, vw, bar);
+
+      // ── the fade the scene ends on ──
+      if (tt > DUR - 1) {
+        g.fillStyle = `rgba(0,0,0,${clamp(tt - (DUR - 1), 0, 1)})`;
+        g.fillRect(0, 0, vw, vh);
+      }
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [W.id]);
+
+  const skip = () => { if (!doneRef.current) { doneRef.current = true; onDone(); } };
+
+  // text beats ride on top as real DOM, so they stay crisp and translatable
+  const showTitle = t > 3.2, showWorld = t > 5.0, showLog = t > 6.4;
+  const logText = tr3(W.intro, lang);
+  const typed = showLog ? logText.slice(0, Math.floor((t - 6.4) * 46)) : "";
+
+  return createPortal((
+    <div className="sscine" onClick={skip}>
+      <canvas ref={cvRef} className="sscine-cv" />
+      <div className="sscine-txt">
+        {showTitle && <div className="sscine-title">TIGA<span>:</span> STARSONG</div>}
+        {showTitle && <div className="sscine-tag">{T(
+          "ในวันที่ความรู้ดาวน์โหลดได้ทุกอย่าง สิ่งเดียวที่ยังต้องฝึกเองคือการควบคุมใจตัวเอง",
+          "When machines learned everything, humans had only one thing left to master.",
+          "当机器学会了一切，人类只剩下一样东西要去掌握。")}</div>}
+        {showWorld && (
+          <div className="sscine-world">
+            <b>{tr3(W.name, lang)}</b>
+            <i>{tr3(W.sub, lang)}</i>
+          </div>
+        )}
+      </div>
+      {showLog && <div className="sscine-log"><span>{typed}</span></div>}
+      <button className="sscine-skip" onClick={skip}>{T("ข้าม", "Skip", "跳过")} ›</button>
+    </div>
+  ), document.body);
+});
+
 /* ══════════════════════ the enemy ══════════════════════
 
    One rig rather than five bespoke drawings: a shadow, legs, a carapace, arm
@@ -1390,13 +1580,30 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       for (let i = 0; i < 90; i++) {
         const h1 = hash32("st" + i + W.id);
         const rx = ((h1 % 2000) - cam.x * 0.12) % (vw + 40);
-        const ry = (((h1 >> 11) % 2000) - cam.y * 0.12) % (vh + 40);
+        const ry = (((h1 >>> 11) % 2000) - cam.y * 0.12) % (vh + 40);
         const sxp = rx < 0 ? rx + vw + 40 : rx, syp = ry < 0 ? ry + vh + 40 : ry;
         const tw = 0.35 + 0.65 * Math.abs(Math.sin(tsec * 0.7 + i));
         g.fillStyle = `rgba(255,255,255,${(0.05 + (i % 5) * 0.03) * tw})`;
         const ss = px((i % 7 === 0) ? 2.2 : 1.3); g.fillRect(sxp - 20, syp - 20, ss, ss);
       }
       g.globalCompositeOperation = "source-over";
+
+      /* ── far parallax ──
+         A ridge line that moves at a fraction of the camera. It is the
+         cheapest possible statement that the world continues past the edge of
+         what you can walk on, and without it the map reads as a tabletop. */
+      for (let L = 0; L < 2; L++) {
+        const par = 0.06 + L * 0.09, amp = 46 - L * 14, base = vh * (0.30 + L * 0.09);
+        g.fillStyle = L === 0 ? W.rock : W.grass;
+        g.globalAlpha = L === 0 ? 0.5 : 0.66;
+        g.beginPath(); g.moveTo(-20, vh);
+        for (let x = -20; x <= vw + 20; x += 14) {
+          const n = fbm(geo.seed ^ (L ? 0x2f1d : 0x77c3), (x + cam.x * par) / 190, L * 8);
+          g.lineTo(x, base + (n - 0.5) * amp * 2);
+        }
+        g.lineTo(vw + 20, vh); g.closePath(); g.fill();
+        g.globalAlpha = 1;
+      }
 
       drawTerrain(g, W, geo, cam, vw, vh);
       const sxOf = (wx) => wx - cam.x + vw / 2, syOf = (wy) => wy - cam.y + vh / 2;
@@ -1523,13 +1730,55 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       vg.addColorStop(1, "rgba(4,7,16,.55)");
       g.fillStyle = vg; g.fillRect(0, 0, vw, vh);
 
+      /* ── weather ──
+         Each planet gets the thing falling through its own air: ash over the
+         mine, snow over the ice field, embers over the war zone. It is the
+         layer that makes a place feel like it has weather rather than a
+         palette. */
+      const WX = { terra: null, ferros: "ember", glacius: "snow", emberfall: "ember", starsong: "spark" }[W.id];
+      if (WX) {
+        g.globalCompositeOperation = WX === "snow" ? "source-over" : "lighter";
+        for (let i = 0; i < 46; i++) {
+          const h = hash32("wx" + i + W.id);
+          const spd = WX === "snow" ? 26 + (h % 22) : -50 - (h % 60);
+          const wx0 = (h % 1400) - cam.x * 0.3 + Math.sin(tsec * 0.8 + i) * 22;
+          const wy0 = ((h >>> 7) % 1400) - cam.y * 0.3 + tsec * spd;
+          const fx = ((wx0 % (vw + 50)) + vw + 50) % (vw + 50) - 25;
+          const fy = ((wy0 % (vh + 50)) + vh + 50) % (vh + 50) - 25;
+          const r = px(WX === "snow" ? 1.4 + (i % 3) * 0.8 : 1 + (i % 4) * 0.7);
+          g.fillStyle = WX === "snow" ? `rgba(226,240,255,${0.28 + (i % 4) * 0.1})`
+            : WX === "ember" ? `rgba(255,${150 - (i % 5) * 20},70,${0.32 + (i % 4) * 0.12})`
+            : `rgba(${hexRgb(W.glow)},${0.3 + (i % 4) * 0.12})`;
+          g.beginPath(); g.arc(fx, fy, r, 0, 6.284); g.fill();
+        }
+        g.globalCompositeOperation = "source-over";
+      }
+
+      /* ── god rays ──
+         Two wide shafts leaning in from the top, additive and very faint.
+         They cost one gradient each and they are most of the difference
+         between "a lit scene" and "a place with an atmosphere in it". */
+      g.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 2; i++) {
+        const rx0 = vw * (0.24 + i * 0.46) + Math.sin(tsec * 0.13 + i) * 30;
+        const rg2 = g.createLinearGradient(rx0, 0, rx0 + vw * 0.24, vh * 0.9);
+        rg2.addColorStop(0, `rgba(${hexRgb(W.glow)},.09)`);
+        rg2.addColorStop(1, `rgba(${hexRgb(W.glow)},0)`);
+        g.fillStyle = rg2;
+        g.beginPath();
+        g.moveTo(rx0 - vw * 0.1, 0); g.lineTo(rx0 + vw * 0.16, 0);
+        g.lineTo(rx0 + vw * 0.44, vh); g.lineTo(rx0 + vw * 0.06, vh);
+        g.closePath(); g.fill();
+      }
+      g.globalCompositeOperation = "source-over";
+
       // drifting motes, lit by the world's own glow
       g.globalCompositeOperation = "lighter";
       for (let i = 0; i < 26; i++) {
         const h1 = hash32("mo" + i + W.id);
         const sp = 6 + (h1 % 14);
         const mx = ((h1 % 1600) - cam.x * 0.55 + tsec * sp) % (vw + 60);
-        const my = (((h1 >> 9) % 1600) - cam.y * 0.55 + Math.sin(tsec * 0.5 + i) * 26) % (vh + 60);
+        const my = (((h1 >>> 9) % 1600) - cam.y * 0.55 + Math.sin(tsec * 0.5 + i) * 26) % (vh + 60);
         const fx = mx < 0 ? mx + vw + 60 : mx, fy = my < 0 ? my + vh + 60 : my;
         g.fillStyle = W.glow + "22";
         g.beginPath(); g.arc(fx - 30, fy - 30, px(1.6 + (i % 3)), 0, 6.284); g.fill();
@@ -1890,18 +2139,11 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         <button className="ssnavbtn" onClick={() => { playUi("click"); setScreen(screen === "map" ? "world" : "map"); }}>{T("แผนที่", "Map", "地图")}</button>
       </header>
 
-      {/* ── the opening card for a world you have not stood on before ── */}
-      {screen === "intro" && (
-        <div className="ssintro">
-          <div className="ssintro-card">
-            <div className="ssintro-eyebrow">{T("บันทึกภารกิจ", "MISSION LOG", "任务日志")} · 3187</div>
-            <h2>{tr3(W.name, lang)}</h2>
-            <div className="ssintro-sub">{tr3(W.sub, lang)}</div>
-            <p>{tr3(W.intro, lang)}</p>
-            <button className="ssbtn primary" onClick={beginWorld}>{T("ลงจอด", "Make planetfall", "着陆")}</button>
-          </div>
-        </div>
-      )}
+      {/* ── the opening card for a world you have not stood on before ──
+          An establishing shot rather than a paragraph on a card: the premise
+          is a colonial empire that beat death and still lost to its own
+          temper, and that deserves a title sequence. */}
+      {screen === "intro" && <CinematicIntro W={W} lang={lang} onDone={beginWorld} />}
 
       {/* ── the character sheet: the whole point of the game, on one screen ── */}
       {screen === "sheet" && (
