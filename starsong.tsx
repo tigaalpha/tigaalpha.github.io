@@ -531,6 +531,141 @@ function shade(hex, k) {
   return `rgb(${Math.min(255, r)},${Math.min(255, gg)},${Math.min(255, b)})`;
 }
 
+
+/* ══════════════════════════ the camera ══════════════════════════
+
+   A real perspective camera orbiting behind the player, in place of the
+   affine isometric transform this world used to be drawn with. The world data
+   is untouched — (x, y) on the ground, h up, the same height field, the same
+   walkability — only the view changes, so quests, collision and every entity
+   position carry over exactly.
+
+   Conventions, once, so nothing downstream has to guess:
+     yaw 0 looks along +y.  forward = (sin yaw, cos yaw).  right = (cos yaw,
+     -sin yaw).  The eye sits DIST behind the target and HIGH above the
+     ground, and the pitch is DERIVED from those two rather than set — which
+     is what keeps the player pinned to the middle of frame at any distance
+     instead of drifting up the screen. */
+export const CAM = { dist: 300, high: 168, look: 34, fov: 58, near: 26, far: 1500 };
+
+export function makeCam(cam, vw, vh) {
+  const fx = Math.sin(cam.yaw), fy = Math.cos(cam.yaw);
+  const rx = Math.cos(cam.yaw), ry = -Math.sin(cam.yaw);
+  const ex = cam.x - fx * CAM.dist, ey = cam.y - fy * CAM.dist, ez = CAM.high;
+  const p = Math.atan2(CAM.high - CAM.look, CAM.dist);   // derived, not chosen
+  const cp = Math.cos(p), sp = Math.sin(p);
+  const focal = (vh / 2) / Math.tan((CAM.fov * Math.PI / 180) / 2);
+  const hw = vw / 2, hh = vh / 2;
+  /* → {x, y, d, s}. d is depth along the view axis, s is pixels per world
+     unit at that depth: a 90-unit robot is 90*s pixels tall, which is the
+     whole of how a billboard knows its size. */
+  const project = (wx, wy, h) => {
+    const dx = wx - ex, dy = wy - ey, dz = (h || 0) - ez;
+    const fwd = dx * fx + dy * fy;
+    const d = fwd * cp - dz * sp;
+    if (d < CAM.near) return { x: 0, y: 0, d: -1, s: 0 };
+    const s = focal / d;
+    return {
+      x: hw + (dx * rx + dy * ry) * s,
+      y: hh - (fwd * sp + dz * cp) * s,
+      d, s,
+    };
+  };
+  /* where the ground plane vanishes: a point at infinite distance. The
+     backdrop has to be pinned to THIS, not to a fraction of the viewport, or
+     the hills float above the horizon or sink under it as the camera tilts. */
+  const horizon = hh - focal * (sp / cp);
+  return { project, fx, fy, rx, ry, ex, ey, ez, focal, hw, hh, horizon };
+}
+
+/* ── the ground, as boxes ──
+   Every cell in range becomes a box and every box contributes its visible
+   faces to ONE draw list shared with the entities. A rotating camera kills
+   the isometric trick where depth was just x+y, so the list is sorted by real
+   camera depth — far first — which is also the only way a monster standing
+   in front of a wall can end up drawn in front of it. */
+export function pushTerrain(list, P, W, geo, cam) {
+  const seed = geo.seed;
+  const R = 15;                                    // cells of ground, then fog
+  const gx0 = Math.floor(cam.x / CELL) - R, gx1 = Math.floor(cam.x / CELL) + R;
+  const gy0 = Math.floor(cam.y / CELL) - R, gy1 = Math.floor(cam.y / CELL) + R;
+  const tierAt = (gx, gy) => terrainAt(seed, gx * CELL + CELL / 2, gy * CELL + CELL / 2);
+  for (let gx = gx0; gx <= gx1; gx++) {
+    for (let gy = gy0; gy <= gy1; gy++) {
+      const t = tierAt(gx, gy);
+      if (t === 0) continue;                       // a hole: the sky shows through
+      const h = TIER_H[t];
+      const wx = gx * CELL, wy = gy * CELL;
+      // one probe first: a cell whose centre is behind the eye or well off to
+      // the side cannot contribute anything, and probing is far cheaper than
+      // projecting eight corners to find that out
+      const mid = P.project(wx + CELL / 2, wy + CELL / 2, h);
+      if (mid.d < 0 || mid.x < -CELL * 6 || mid.x > P.hw * 2 + CELL * 6 || mid.y > P.hh * 2 + CELL * 8) continue;
+      // depth is taken at the FOOT of the box, not its cap: sorting a tall
+      // block by its top face makes it think it is further away than it is,
+      // and it ends up painted behind things it is standing in front of
+      const foot = P.project(wx + CELL / 2, wy + CELL / 2, 0);
+      const a = P.project(wx, wy, h), b = P.project(wx + CELL, wy, h);
+      const c = P.project(wx + CELL, wy + CELL, h), e = P.project(wx, wy + CELL, h);
+      if (a.d < 0 || b.d < 0 || c.d < 0 || e.d < 0) continue;
+      const base = t === 4 ? W.rock : t === 3 ? W.path : t === 1 ? W.grass : W.ground;
+      const j = fbm(seed ^ 0x51ed, gx * 0.2, gy * 0.2) - 0.5;
+      const lift = 1 + j * 0.26;
+      // the four neighbours decide which walls exist at all
+      const hS = TIER_H[tierAt(gx, gy + 1)] || 0, hE = TIER_H[tierAt(gx + 1, gy)] || 0;
+      const hN = TIER_H[tierAt(gx, gy - 1)] || 0, hWn = TIER_H[tierAt(gx - 1, gy)] || 0;
+      // distance fog, toward the sky the world sits under
+      const fog = Math.min(0.94, Math.max(0, (foot.d - 260) / 300));
+      list.push({
+        d: foot.d > 0 ? foot.d : mid.d,
+        f: () => {
+          const g = list.g;
+          const quad = (p0, p1, p2, p3, k) => {
+            g.fillStyle = shade(base, k * lift);
+            g.beginPath(); g.moveTo(p0.x, p0.y); g.lineTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); g.lineTo(p3.x, p3.y); g.closePath(); g.fill();
+          };
+          // walls, then the cap on top of them
+          if (h > hS) { const e2 = P.project(wx, wy + CELL, hS), c2 = P.project(wx + CELL, wy + CELL, hS); if (e2.d > 0 && c2.d > 0) quad(e, c, c2, e2, 0.5); }
+          if (h > hE) { const b2 = P.project(wx + CELL, wy, hE), c2 = P.project(wx + CELL, wy + CELL, hE); if (b2.d > 0 && c2.d > 0) quad(b, c, c2, b2, 0.72); }
+          if (h > hN) { const a2 = P.project(wx, wy, hN), b2 = P.project(wx + CELL, wy, hN); if (a2.d > 0 && b2.d > 0) quad(a, b, b2, a2, 0.86); }
+          if (h > hWn) { const a2 = P.project(wx, wy, hWn), e2 = P.project(wx, wy + CELL, hWn); if (a2.d > 0 && e2.d > 0) quad(a, e, e2, a2, 0.62); }
+          quad(a, b, c, e, 1.08);
+          /* the cast shadow, on the RECEIVER. The key is behind-right, so
+             anything taller behind this cell drops onto it — and painting it
+             from the caster would only get covered by the ground it was
+             meant to land on. */
+          const dh = Math.max(hN, TIER_H[tierAt(gx + 1, gy - 1)] || 0) - h;
+          if (dh > 0) {
+            g.fillStyle = `rgba(0,5,16,${Math.min(0.42, dh / 48 * 0.42).toFixed(3)})`;
+            g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.closePath(); g.fill();
+          }
+          if (h > hS || h > hE) {
+            g.strokeStyle = "rgba(255,255,255,.1)"; g.lineWidth = 1;
+            g.beginPath(); g.moveTo(e.x, e.y); g.lineTo(c.x, c.y); g.lineTo(b.x, b.y); g.stroke();
+          }
+          if (fog > 0.01) {
+            g.fillStyle = `rgba(${hexRgb(W.sky[1])},${fog.toFixed(3)})`;
+            g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.closePath(); g.fill();
+          }
+        },
+      });
+    }
+  }
+}
+
+/** A flat ring on the ground, projected — decals cannot be ellipses any more. */
+export function ringPath(g, P, wx, wy, r, h) {
+  g.beginPath();
+  for (let i = 0; i <= 24; i++) {
+    const a = (i / 24) * Math.PI * 2;
+    const q = P.project(wx + Math.cos(a) * r, wy + Math.sin(a) * r, h || 0);
+    if (q.d < 0) { g.closePath(); return false; }
+    if (i === 0) g.moveTo(q.x, q.y); else g.lineTo(q.x, q.y);
+  }
+  g.closePath();
+  return true;
+}
+
 function drawTerrain(g, W, geo, cam, vw, vh) {
   const seed = geo.seed;
   // the visible ground quad, from the four screen corners projected back
@@ -1799,7 +1934,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const padRef = useRef({ ax: 0, ay: 0, on: false, ox: 0, oy: 0 });
   const keysRef = useRef({});
   const mobsRef = useRef([]);
-  const camRef = useRef({ x: 0, y: 0 });
+  const camRef = useRef({ x: 0, y: 0, yaw: 0 });
   const fightRef = useRef(null);
   const hitFlashRef = useRef(0);
   const popsRef = useRef([]);          // floating damage numbers
@@ -1868,7 +2003,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     mobsRef.current = spawnMobs(W, geo);
     const sp = nearestWalkable(geo.seed, geo.town.x, geo.town.y + 60);
     meRef.current = { x: sp.x, y: sp.y, t: 0, dir: 0 };
-    camRef.current = { x: sp.x, y: sp.y };
+    camRef.current = { x: sp.x, y: sp.y, yaw: 0 };
     setHp(maxHp(saveRef.current));
     setFight(null); setCtrl(null); setTalk(null); setTask(null);
   }, [W.id, geo]);
@@ -1973,21 +2108,34 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       if (K.ArrowUp || K.w) ay -= 1; if (K.ArrowDown || K.s) ay += 1;
       const mag = Math.hypot(ax, ay);
       if (mag > 1) { ax /= mag; ay /= mag; }
+      const camS = camRef.current;
       if (!busy && (ax || ay)) {
-        /* The stick is read in SCREEN space and converted to world, because a
-           player pushing up expects to walk up the screen — not along a world
-           axis that the projection has rotated 45° away from them. */
-        const w = unIso(ax, ay);
-        const m2 = Math.hypot(w.x, w.y) || 1;
-        const sp = 168 * dt;
-        const nx = me.x + (w.x / m2) * sp * Math.min(1, mag || 1), ny = me.y + (w.y / m2) * sp * Math.min(1, mag || 1);
+        /* The stick is read RELATIVE TO THE CAMERA: push up and you walk away
+           from it, whichever way it happens to be facing. That is the whole
+           contract of a third-person camera, and it is why the stick no longer
+           goes through the old fixed isometric axes. */
+        const fX = Math.sin(camS.yaw), fY = Math.cos(camS.yaw);
+        const rX = Math.cos(camS.yaw), rY = -Math.sin(camS.yaw);
+        const wxv = rX * ax + fX * (-ay), wyv = rY * ax + fY * (-ay);
+        const m2 = Math.hypot(wxv, wyv) || 1;
+        const sp = 190 * dt * Math.min(1, mag || 1);
+        const nx = me.x + (wxv / m2) * sp, ny = me.y + (wyv / m2) * sp;
         if (walkable(geo.seed, nx, me.y)) me.x = nx;      // slide along walls rather than sticking
         if (walkable(geo.seed, me.x, ny)) me.y = ny;
-        me.t += dt; me.dir = ax || me.dir;
+        me.t += dt;
+        me.face = Math.atan2(wxv, wyv);
+        /* and the camera swings in behind you, the shortest way round. Turning
+           the long way is the thing that makes a chase camera feel broken. */
+        let dyaw = me.face - camS.yaw;
+        while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+        while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+        camS.yaw += dyaw * Math.min(1, dt * 2.6);
+        // which way the sprite faces is now left/right OF THE CAMERA
+        me.dir = Math.abs(dyaw) > Math.PI / 2 ? -me.dir || 1 : (rX * wxv + rY * wyv) > 0 ? 1 : -1;
       }
-      camRef.current.x += (me.x - camRef.current.x) * Math.min(1, dt * 7);
-      camRef.current.y += (me.y - camRef.current.y) * Math.min(1, dt * 7);
-      const cam = camRef.current;
+      camS.x += (me.x - camS.x) * Math.min(1, dt * 7);
+      camS.y += (me.y - camS.y) * Math.min(1, dt * 7);
+      const cam = camS;
 
       // mobs wander near their anchor, and charge once you are close
       if (!busy) {
@@ -2047,8 +2195,9 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
          A ridge line that moves at a fraction of the camera. It is the
          cheapest possible statement that the world continues past the edge of
          what you can walk on, and without it the map reads as a tabletop. */
+      const HZ = makeCam(cam, vw, vh).horizon;
       for (let L = 0; L < 2; L++) {
-        const par = 0.06 + L * 0.09, amp = 46 - L * 14, base = vh * (0.30 + L * 0.09);
+        const par = 0.06 + L * 0.09, amp = 46 - L * 14, base = HZ + L * 16;
         g.fillStyle = L === 0 ? W.rock : W.grass;
         g.globalAlpha = L === 0 ? 0.5 : 0.66;
         g.beginPath(); g.moveTo(-20, vh);
@@ -2060,54 +2209,68 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         g.globalAlpha = 1;
       }
 
-      drawTerrain(g, W, geo, cam, vw, vh);
-      /* Ground positions go through the projection now, lifted to whatever
-         elevation the cell under them sits at — so a robot standing on a
-         ridge stands ON it rather than inside it. */
+      /* ── the 3D pass ──
+         One draw list, terrain and entities together, sorted by real camera
+         depth and painted far to near. The world is the same height field it
+         always was; only the camera in front of it changed. */
+      const CM = makeCam(cam, vw, vh);
+      const DL = []; DL.g = g;
+      pushTerrain(DL, CM, W, geo, cam);
+      DL.sort((u, v) => v.d - u.d);          // far first
+      for (const it of DL) it.f();
+      /* Ground positions still lift to whatever elevation the cell under them
+         sits at — so a robot standing on a ridge stands ON it, not inside. */
       const groundH = (wx, wy) => TIER_H[terrainAt(geo.seed, wx, wy)] || 0;
-      const proj = (wx, wy, h) => {
-        const q = iso(wx - cam.x, wy - cam.y, (h == null ? groundH(wx, wy) : h));
-        return { x: q.x + vw / 2, y: q.y + vh / 2 };
-      };
+      const proj = (wx, wy, h) => CM.project(wx, wy, h == null ? groundH(wx, wy) : h);
+      /* Everything on screen keeps the size it had, and now shrinks with
+         distance: rel() is 1.0 at the player's own depth, so every existing
+         pixel measurement carries over untouched and simply gains perspective. */
+      const meQ = CM.project(me.x, me.y, groundH(me.x, me.y));
+      const SREF = meQ.d > 0 ? meQ.s : 1;
+      const rel = (q) => (q && q.s ? q.s / SREF : 1);
       const sxOf = (wx, wy) => proj(wx, wy).x, syOf = (wx, wy) => proj(wx, wy).y;
 
       /* ── ground decals: only what is genuinely flat on the floor ──
          The towers and monoliths that used to live here now sort with the
          entities, because anything with height has to. */
-      const townS = proj(geo.town.x, geo.town.y);
+      /* Decals are PROJECTED rings now. In perspective a circle on the floor
+         is no longer an ellipse of fixed proportion — it opens out as it comes
+         toward the camera — so each one is walked as 24 points. */
+      const ringAt = (wx, wy, r) => ringPath(g, CM, wx, wy, r, groundH(wx, wy) + 0.6);
       g.fillStyle = W.accent + "10";
-      const ring = (cx0, cy0, r) => { g.beginPath(); g.ellipse(cx0, cy0, r * IX * 1.42, r * IY * 1.42, 0, 0, 6.284); };
-      ring(townS.x, townS.y, 108); g.fill();
-      g.strokeStyle = W.accent + "4a"; g.lineWidth = px(2);
-      ring(townS.x, townS.y, 108); g.stroke();
-      g.strokeStyle = W.accent + "33"; g.lineWidth = px(1.4);
-      for (let i = 1; i <= 3; i++) { ring(townS.x, townS.y, i * 22); g.stroke(); }
+      if (ringAt(geo.town.x, geo.town.y, 108)) g.fill();
+      g.strokeStyle = W.accent + "4a"; g.lineWidth = 2;
+      if (ringAt(geo.town.x, geo.town.y, 108)) g.stroke();
+      g.strokeStyle = W.accent + "33"; g.lineWidth = 1.4;
+      for (let i = 1; i <= 3; i++) if (ringAt(geo.town.x, geo.town.y, i * 22)) g.stroke();
 
       const bossDone = !!saveRef.current.bosses[W.boss.id];
       const arenaS = proj(geo.arena.x, geo.arena.y);
-      g.strokeStyle = bossDone ? "#7fe0a0aa" : "#ff5a5aaa"; g.lineWidth = px(4);
-      g.setLineDash([px(12), px(9)]); g.lineDashOffset = -tsec * 22;   // a live ring reads as a threshold
-      g.beginPath(); g.ellipse(arenaS.x, arenaS.y, 96 * IX * 1.42, 96 * IY * 1.42, 0, 0, 6.284); g.stroke();
+      g.strokeStyle = bossDone ? "#7fe0a0aa" : "#ff5a5aaa"; g.lineWidth = 4;
+      g.setLineDash([12, 9]); g.lineDashOffset = -tsec * 22;   // a live ring reads as a threshold
+      if (ringAt(geo.arena.x, geo.arena.y, 96)) g.stroke();
       g.setLineDash([]); g.lineDashOffset = 0;
       g.fillStyle = bossDone ? "#7fe0a018" : "#ff5a5a1c";
-      g.beginPath(); g.ellipse(arenaS.x, arenaS.y, 96 * IX * 1.42, 96 * IY * 1.42, 0, 0, 6.284); g.fill();
-      g.font = `700 ${fs(13)}px Rajdhani, sans-serif`; g.textAlign = "center";
-      g.fillStyle = bossDone ? "#a8f0c0" : "#ffb0b0";
-      g.fillText((bossDone ? "✓ " : "☠ ") + tr3(W.boss.name, lang), arenaS.x, arenaS.y - 106);
+      if (ringAt(geo.arena.x, geo.arena.y, 96)) g.fill();
+      if (arenaS.d > 0) {
+        g.font = `700 ${Math.max(9, 13 * arenaS.s * 40).toFixed(1)}px Rajdhani, sans-serif`; g.textAlign = "center";
+        g.fillStyle = bossDone ? "#a8f0c0" : "#ffb0b0";
+        g.fillText((bossDone ? "✓ " : "☠ ") + tr3(W.boss.name, lang), arenaS.x, arenaS.y - 96 * arenaS.s * 1.1);
+      }
 
       /* ── entities, back to front ──
          One list, sorted on world Y, so everything overlaps the way the
          ground says it should. */
       const ents = [];
-      const push = (o, k) => ents.push({ d: (o.x || 0) + (o.y || 0), k, o });
+      const push = (o, k) => { const q = proj(o.x || 0, o.y || 0); if (q.d > 0) ents.push({ d: q.d, k, o, q }); };
       for (const n of geo.npcs) if (n) push(n, "npc");
       for (const pr of coop.peers) push(pr, "peer");
       for (const m of mobsRef.current) if (!m.dead) push(m, "mob");
       for (const tw of geo.towers) push(tw, "tower");
       for (const pl of geo.pillars) push(pl, "pillar");
       push(me, "me");
-      // depth in a dimetric projection is simply x + y
-      ents.sort((a, b) => a.d - b.d);
+      // far to near, on real camera depth — a rotating camera has no shortcut
+      ents.sort((a, b) => b.d - a.d);
 
       /* ── ground light, BEFORE the figures ──
          A lamp lights the floor around it; it does not wash itself out. Burning
@@ -2118,15 +2281,16 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
          order and the one that looks like light. */
       g.globalCompositeOperation = "lighter";
       for (const e of ents) {
-        const pp = proj(e.o.x, e.o.y); const ex = pp.x, ey = pp.y;
+        const pp = e.q; const ex = pp.x, ey = pp.y, k = rel(pp);
         if (ex < -160 || ex > vw + 160 || ey < -160 || ey > vh + 160) continue;
-        const [lr, rgb, a] =
+        const [lr0, rgb, a] =
           e.k === "me"     ? [138, hexRgb(W.glow), 0.30] :
           e.k === "npc"    ? [58, "255,215,122", 0.20] :
           e.k === "mob"    ? [40, "255,90,90", 0.18] :
           e.k === "tower"  ? [54, hexRgb(W.glow), 0.14] :
           e.k === "pillar" ? [40, bossDone ? "127,224,160" : "255,106,106", 0.14] :
                              [50, hexRgb(W.glow), 0.12];
+        const lr = Math.max(6, lr0 * k);
         const rg = g.createRadialGradient(ex, ey + 6, 0, ex, ey + 6, lr);
         rg.addColorStop(0, `rgba(${rgb},${a})`);
         rg.addColorStop(0.5, `rgba(${rgb},${a * 0.3})`);
@@ -2137,25 +2301,25 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       g.globalCompositeOperation = "source-over";
 
       for (const e of ents) {
-        const pp = proj(e.o.x, e.o.y); const ex = pp.x, ey = pp.y;
-        if (ex < -70 || ex > vw + 70 || ey < -90 || ey > vh + 90) continue;
+        const pp = e.q; const ex = pp.x, ey = pp.y, k = rel(pp);
+        if (ex < -170 || ex > vw + 170 || ey < -200 || ey > vh + 200) continue;
         if (e.k === "npc") {
-          drawBot(g, ex, ey, 1.05, "#c9d6ee", 0, false, "#ffd77a");
+          drawBot(g, ex, ey, 1.05 * k, "#c9d6ee", 0, false, "#ffd77a");
           const hasWork = e.o.quests.some(qid => !(saveRef.current.quests[qid] || {}).done);
           if (hasWork) {
-            g.fillStyle = "#ffd24d"; g.font = `900 ${fs(20)}px Rajdhani, sans-serif`; g.textAlign = "center";
-            g.fillText("!", ex, ey - 30 + Math.sin(tsec * 4) * 3);
+            g.fillStyle = "#ffd24d"; g.font = `900 ${(20 * k).toFixed(1)}px Rajdhani, sans-serif`; g.textAlign = "center";
+            g.fillText("!", ex, ey - 30 * k + Math.sin(tsec * 4) * 3);
           }
-          g.fillStyle = "#e8eefc"; g.font = `600 ${fs(11)}px Rajdhani, sans-serif`; g.textAlign = "center";
-          g.fillText(tr3(e.o.name, lang), ex, ey + 30);
+          g.fillStyle = "#e8eefc"; g.font = `600 ${Math.max(8, 11 * k).toFixed(1)}px Rajdhani, sans-serif`; g.textAlign = "center";
+          g.fillText(tr3(e.o.name, lang), ex, ey + 30 * k);
         } else if (e.k === "peer") {
-          if (chassis) drawChassis(g, chassis, ex, ey, 62, e.o.t || 0, 1, true);
-          else drawBot(g, ex, ey, 1, "#9fb6de", (e.o.t || 0), true, W.glow);
-          g.fillStyle = "#cddaf2cc"; g.font = `600 ${fs(10.5)}px Rajdhani, sans-serif`; g.textAlign = "center";
-          g.fillText(String(e.o.name || "?").slice(0, 14), ex, ey + 30);
+          if (chassis) drawChassis(g, chassis, ex, ey, 62 * k, e.o.t || 0, 1, true);
+          else drawBot(g, ex, ey, 1 * k, "#9fb6de", (e.o.t || 0), true, W.glow);
+          g.fillStyle = "#cddaf2cc"; g.font = `600 ${Math.max(8, 10.5 * k).toFixed(1)}px Rajdhani, sans-serif`; g.textAlign = "center";
+          g.fillText(String(e.o.name || "?").slice(0, 14), ex, ey + 30 * k);
         } else if (e.k === "mob") {
           const hurt = e.o.flash && now - e.o.flash < 140;
-          drawMob(g, ex, ey, 1, W.accent, e.o.t + tsec, hurt);
+          drawMob(g, ex, ey, 1 * k, W.accent, e.o.t + tsec, hurt);
         } else if (e.k === "tower" || e.k === "pillar") {
           /* A real solid: a footprint on the ground, two lit side faces and a
              cap. Drawn from the world footprint rather than as a rectangle on
@@ -2192,8 +2356,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           g.beginPath(); g.arc(cap.x, cap.y, 3.2, 0, 6.284); g.fill();
           g.globalAlpha = 1;
         } else {
-          if (chassis) drawChassis(g, chassis, ex, ey, 68, me.t, me.dir, false);
-          else drawBot(g, ex, ey, 1.15, W.accent, me.t, false, W.glow);
+          if (chassis) drawChassis(g, chassis, ex, ey, 68 * k, me.t, me.dir, false);
+          else drawBot(g, ex, ey, 1.15 * k, W.accent, me.t, false, W.glow);
         }
       }
 
