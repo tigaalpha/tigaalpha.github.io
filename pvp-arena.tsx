@@ -27,6 +27,7 @@ import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-
 import { ItemArt } from "./item-art";
 import { petBonusOf, petById, petLevel, readPet, PetArt } from "./pet-lab";
 import { createArenaAudio, useArenaFx, pickStage } from "./arena-fx";
+import { AnswerReveal } from "./note-reveal";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
 
@@ -168,6 +169,7 @@ export function makeQuestion(lang) {
     const wrong = distract(ans, () => { const o = pick(IV_NAME); return spellFrom(root, o.L, o.s); });
     return {
       tag: "iv",
+      teach: { notes: [root, ans], hi: [ans], label: tr3(iv, lang) },
       q: lang === "th" ? `ขั้นคู่ ${tr3(iv, "th")} เหนือ ${root} คือโน้ตอะไร?`
         : lang === "zh" ? `${root} 上方的${tr3(iv, "zh")}是哪个音？`
         : `Which note is a ${tr3(iv, "en")} above ${root}?`,
@@ -181,6 +183,7 @@ export function makeQuestion(lang) {
     const wrong = distract(ans, () => pick(notes));
     return {
       tag: "degree",
+      teach: { notes, hi: [ans], label: `${root} major` },
       q: lang === "th" ? `โน้ตตัวที่ ${DEGREE_ORD[d]} ของบันไดเสียง ${root} เมเจอร์ คือโน้ตอะไร?`
         : lang === "zh" ? `${root} 大调音阶的第 ${d} 级是什么音？`
         : `What is note ${d} of the ${root} major scale?`,
@@ -196,6 +199,7 @@ export function makeQuestion(lang) {
     const wrong = distract(ans, () => pick(notes.slice(1)));
     return {
       tag: "scale",
+      teach: { notes: notes.concat([ans]).sort((a, b) => LETTERS.indexOf(a[0]) - LETTERS.indexOf(b[0])), hi: [ans], bad: [ans], label: `${root} major` },
       q: lang === "th" ? `โน้ตใดไม่ได้อยู่ในบันไดเสียง ${root} เมเจอร์?`
         : lang === "zh" ? `哪个音不在 ${root} 大调音阶中？`
         : `Which note is NOT in the ${root} major scale?`,
@@ -208,6 +212,7 @@ export function makeQuestion(lang) {
   const wrong = TRIADS.filter(x => x.k !== t.k).map(x => tr3(x, lang));
   return {
     tag: "triad",
+    teach: { notes, hi: notes, label: `${root} ${tr3(t, "en")}` },
     q: lang === "th" ? `โน้ต ${notes.join(" – ")} รวมกันเป็นคอร์ดชนิดใด?`
       : lang === "zh" ? `${notes.join(" – ")} 组成什么和弦？`
       : `${notes.join(" – ")} together make which chord?`,
@@ -698,6 +703,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     try { return window.innerWidth > window.innerHeight * 1.25; } catch (e) { return false; }
   });
   const [cool, setCool] = useState({ punch: 0, fire: 0, rocket: 0, jump: 0, guard: 0 });
+  const [reveal, setReveal] = useState(null);   // the answered question, held until the learner moves on
 
   const startedRef = useRef(Date.now());
   const doneRef = useRef(false);
@@ -980,12 +986,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       G.flash(clsInfo.c, .45, .4);
       // three staged hits, so a right answer is the loudest thing in the round
       [0, 260, 520].forEach((d, i) => later(() => hitOp(A.dmg * 9, i === 2 ? "ult" : "crit"), d));
-      later(() => { setOverdrive(false); setBanner(null); nextWave(); }, 1500);
+      later(() => { setOverdrive(false); setBanner(null); setReveal({ q, chosen: choice }); }, 1500);
     } else {
       setBanner(T("ตอบผิด! โดนสวนหนัก", "WRONG! CRUSHING BLOW", "答错! 遭到重击"));
       audioRef.current.sfx("miss");
       later(() => punish(), 320);
-      later(() => { setBanner(null); nextWave(); }, 2100);
+      later(() => { setBanner(null); setReveal({ q, chosen: choice }); }, 2100);
     }
   }
 
@@ -1102,7 +1108,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           </div>
         </div>
         <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}
-          style={{ left: `calc(${(myX * 100).toFixed(1)}% - 22%)`, bottom: `${6 + myAir * 62}px` }}>
+          style={{ left: `calc(${(myX * 100).toFixed(1)}% - 22%)`, bottom: `calc(var(--pvpfloor, 6px) + ${(myAir * 62).toFixed(1)}px)` }}>
           <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
             glow="#00b8d4" accent="#7c4dff" armorA="#1b2436" armorB="#41608a" />
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
@@ -1116,7 +1122,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           )}
         </div>
         <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}`}
-          style={{ left: `calc(${(opX * 100).toFixed(1)}% - 22%)`, right: "auto", bottom: `${6 + opAir * 62}px` }}>
+          style={{ left: `calc(${(opX * 100).toFixed(1)}% - 22%)`, right: "auto", bottom: `calc(var(--pvpfloor, 6px) + ${(opAir * 62).toFixed(1)}px)` }}>
           <Bot model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose}
             glow="#ff7a3c" accent="#ff4d6a" armorA="#2b1a1a" armorB="#8a4a3a" />
           {flash && flash.side === "op" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
@@ -1167,7 +1173,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         </>
       )}
 
-      {phase === "quiz" && q && (
+      {phase === "quiz" && q && (reveal ? (
+        /* The round holds on the answer. A tick and the next question tells a
+           learner they were right; the keyboard and the staff tell them what
+           the answer was, which is the only version of this that teaches. */
+        <AnswerReveal q={reveal.q} chosen={reveal.chosen} lang={lang}
+          onNext={() => { setReveal(null); nextWave(); }}
+          nextLabel={T("สู้ต่อ", "Back to the fight", "继续战斗")} />
+      ) : (
         <>
           <div className="pvpuntimed">{T("ตอบถูก = โอเวอร์ไดรฟ์ · ไม่จับเวลา", "Answer right for OVERDRIVE · no time limit", "答对触发超载 · 不计时")}</div>
           <div className="pvpq">{q.q}</div>
@@ -1178,7 +1191,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             ))}
           </div>
         </>
-      )}
+      ))}
 
       <div className="pvpskills">
         <div className="pvpgauge"><i style={{ width: `${gauge}%`, background: clsInfo.c }} /></div>

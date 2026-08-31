@@ -1002,7 +1002,19 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    ember drawn additively on top of near-white simply vanished — white plus
    anything is still white. Fight scenes are dark for the same reason film sets
    are: so the light in them has somewhere to show. */
-.pvpstage{position:relative;max-width:520px;margin:10px auto 0;height:270px;border-radius:16px;overflow:hidden;border:1px solid #ffffff1a;background:radial-gradient(130% 90% at 50% 4%,#20304e 0%,#131b30 42%,#080b16 100%);box-shadow:inset 0 0 60px -10px #000}
+.pvpstage{position:relative;max-width:520px;margin:10px auto 0;height:300px;border-radius:16px;overflow:hidden;border:1px solid #ffffff1a;background:radial-gradient(130% 90% at 50% 4%,#20304e 0%,#131b30 42%,#080b16 100%);box-shadow:inset 0 0 60px -10px #000;perspective:620px;perspective-origin:50% 34%}
+/* ── the floor ──
+   The stage drew a horizon and put two flat cut-outs in front of it, so the
+   fighters read as stickers on a backdrop. A real tilted plane under them —
+   with the grid receding on it — is what gives the shot a ground, and it is
+   the thing the shadows can then land on. */
+.pvpstage::after{content:"";position:absolute;left:-30%;right:-30%;bottom:-4%;height:62%;pointer-events:none;z-index:1;
+  background:
+    repeating-linear-gradient(90deg,rgba(140,190,255,.16) 0 1px,transparent 1px 46px),
+    repeating-linear-gradient(0deg,rgba(140,190,255,.13) 0 1px,transparent 1px 40px),
+    linear-gradient(180deg,rgba(120,170,255,.10),rgba(10,16,30,.55));
+  transform:rotateX(66deg);transform-origin:50% 100%;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 24%,#000);mask-image:linear-gradient(180deg,transparent,#000 24%,#000)}
 /* a vignette, so the eye goes to the middle where the fighting is */
 .pvpstage::before{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(80% 70% at 50% 52%,rgba(0,0,0,0) 40%,rgba(0,0,0,.45) 100%)}
 .pvpstage.sh1{animation:pvpsh1 .32s ease-out}
@@ -1024,8 +1036,14 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvphp-n.op{text-align:right}
 .pvpvs{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;color:#e6eefc;padding-top:1px;text-shadow:0 1px 4px #000}
 /* the fighters stand ON the floor grid, so they are anchored to its baseline */
-.pvpfighter{position:absolute;bottom:6px;width:44%;height:200px;z-index:3;display:flex;align-items:flex-end;justify-content:center;transition:transform .22s cubic-bezier(.34,1.4,.5,1)}
-.pvpfighter svg{display:block;height:198px;width:auto;filter:drop-shadow(0 14px 12px rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(120,170,255,.14))}
+.pvpfighter{position:absolute;bottom:16px;width:44%;height:210px;z-index:3;display:flex;align-items:flex-end;justify-content:center;transition:transform .22s cubic-bezier(.34,1.4,.5,1)}
+.pvpfighter svg{display:block;height:206px;width:auto;filter:drop-shadow(0 14px 12px rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(120,170,255,.14))}
+/* the contact shadow, lying ON the floor plane rather than under the sprite:
+   an ellipse squashed to the same rake as the grid is what stops a figure
+   floating a centimetre above the stage */
+.pvpfighter::before{content:"";position:absolute;bottom:-10px;left:50%;width:120px;height:26px;transform:translateX(-50%);border-radius:50%;
+  background:radial-gradient(ellipse at 50% 50%,rgba(0,4,12,.62),rgba(0,4,12,0) 70%);pointer-events:none;z-index:-1}
+.pvpfighter.op{filter:brightness(.94) saturate(.96)}
 .pvpfighter.me{left:6%}
 .pvpfighter.op{right:6%}
 .pvpfighter.me.lunge{transform:translateX(38%) scale(1.06)}
@@ -1086,8 +1104,15 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvppage.land .pvpuntimed{color:#b8c8e4;text-shadow:0 1px 5px #000}
 .pvppage.land .pvpsk{background:rgba(255,255,255,.9)}
 .pvppage.land .pvpstage{position:absolute;inset:0;max-width:none;margin:0;height:100%;border-radius:0;border:none}
-.pvppage.land .pvpfighter{height:70%}
+/* the floor line the fighters stand on. Full screen means the thumb pads own
+   the bottom of the stage, so the figures step up off it rather than standing
+   behind the buttons. */
+.pvppage.land{--pvpfloor:88px}
+/* landscape stands the fighters ON the floor plane and clear of the thumb
+   pads: at 70% of a 412px-tall phone their legs ran behind the buttons */
+.pvppage.land .pvpfighter{height:58%}
 .pvppage.land .pvpfighter svg{height:100%}
+.pvppage.land .pvpfighter::before{bottom:-7px;width:96px;height:22px}
 .pvppage.land .pvphps{padding:30px 14px 0}
 /* the wave clock reads under the health bars, not across the fighters */
 .pvppage.land .pvpwave{position:absolute;left:50%;transform:translateX(-50%);top:56px;width:min(46%,300px);max-width:none;margin:0;z-index:8}
@@ -1113,7 +1138,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvppage.land .pvpskbtn b{font-size:9.5px}
 .pvppage.land .pvpskbtn i{display:none}
 @media (orientation:landscape) and (max-height:520px){
-  .pvppage.land .pvpfighter{height:56%}
+  .pvppage.land .pvpfighter{height:52%}
   .pvppage.land .pvpq{font-size:15px;top:36%}
 }
 /* the fighter braces while guarding */
@@ -2578,6 +2603,44 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .sscine-skip{position:absolute;right:14px;bottom:calc(9% + 4px);z-index:3;border:1px solid #ffffff2e;background:#0009;color:#c9d6ee;border-radius:20px;padding:6px 14px;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:.1em;cursor:pointer}
 .sscine-skip:active{transform:scale(.95)}
 @media (prefers-reduced-motion:reduce){.sscine-title,.sscine-tag,.sscine-world{animation:none}}
+
+
+/* ══════════ answer reveal ══════════
+   Shown after every answer in both the arena and the RPG: a green tick tells
+   a learner they were right, a keyboard and a staff tell them what the answer
+   WAS — which is the only version of this that teaches anything. */
+.nrv{background:linear-gradient(180deg,rgba(11,18,32,.97),rgba(7,11,22,.98));border:1px solid #26314a;border-radius:16px;padding:12px 12px 13px}
+.nrv.ok{border-color:#2c6b45;box-shadow:0 0 0 1px #2c6b4544 inset}
+.nrv.no{border-color:#7a3141;box-shadow:0 0 0 1px #7a314144 inset}
+.nrv-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:4px}
+.nrv-verdict{font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:.1em}
+.nrv.ok .nrv-verdict{color:#7fe0a0}
+.nrv.no .nrv-verdict{color:#ff8a8a}
+.nrv-ans{font-family:'Orbitron',sans-serif;font-size:19px;font-weight:900;color:#3fb9ff;text-shadow:0 0 16px #3fb9ff66}
+.nrv-lab{font-family:'Share Tech Mono',monospace;font-size:10px;color:#8b9ec4;margin-left:auto}
+.nrv-you{font-family:'Rajdhani',sans-serif;font-size:11.5px;color:#c99;margin-bottom:5px}
+.nrv-you b{color:#ff8a8a}
+.nrv-staffwrap{background:#0a101d;border:1px solid #1d2740;border-radius:11px;padding:4px 2px;margin-bottom:8px}
+.nrv-keyswrap{filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}
+.nrv-staff,.nrv-keys{display:block;width:100%;height:auto}
+.nrv-next{margin-top:10px;width:100%;border:1px solid #3fb9ff;background:#3fb9ff;color:#06243a;border-radius:11px;padding:11px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;cursor:pointer}
+.nrv-next:active{transform:scale(.98)}
+/* the arena keeps the reveal on the page rhythm the question card had */
+.pvppage .nrv{max-width:520px;margin:10px auto 0;width:calc(100% - 26px)}
+/* landscape is short, so the staff and the keyboard sit side by side rather
+   than stacked — both halves of the answer stay on screen at once */
+@media (orientation:landscape){
+  .nrv{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:"hd hd" "yo yo" "st ky" "nx nx";column-gap:11px;padding:9px 11px 10px;max-width:640px;margin-left:auto;margin-right:auto}
+  .nrv-head{grid-area:hd;margin-bottom:2px}
+  .nrv-you{grid-area:yo;margin-bottom:3px}
+  .nrv-staffwrap{grid-area:st;margin-bottom:0;align-self:center}
+  .nrv-keyswrap{grid-area:ky;align-self:center}
+  .nrv-next{grid-area:nx;margin-top:7px;padding:9px}
+}
+/* in the full-screen arena the reveal is an overlay: everything else on that
+   page is positioned off the viewport edges, so a card left in normal flow
+   would sit behind the stage */
+.pvppage.land .nrv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:12;width:min(94%,640px);max-width:none;margin:0;max-height:90%;overflow-y:auto;box-shadow:0 26px 64px -22px #000}
 
 `;
 

@@ -28,6 +28,7 @@ import { makeQuestion, spellMajor } from "./pvp-arena";
 import { playPianoNote, playBoom, playMiss, playWhoosh, haptic } from "./music-engine";
 import { CyberAvatar } from "./cyber-avatar";
 import { createArenaAudio, stageById, useArenaFx } from "./arena-fx";
+import { AnswerReveal } from "./note-reveal";
 
 const tr3 = (o, lang) => (o && (o[lang] || o.en)) || "";
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -1372,7 +1373,7 @@ const MOVES = [
 const moveFor = (streak) => MOVES[Math.min(streak, MOVES.length - 1)];
 
 const BattleScreen = memo(function BattleScreen({
-  lang, W, foe, hp, maxHpV, chassisEl, onAnswer, onFlee, shake, hurtFoe, hurtMe, playing,
+  lang, W, foe, hp, maxHpV, chassisEl, onAnswer, onFlee, shake, hurtFoe, hurtMe, playing, reveal, onNextQ,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const G = useArenaFx(stageById(W.track));
@@ -1421,12 +1422,21 @@ const BattleScreen = memo(function BattleScreen({
       {foe.boss && foe.line && <p className="ssb-line">{foe.line}</p>}
 
       <div className="ssb-ask">
-        {foe.streak > 1 && <div className="ssb-streak">×{foe.streak} · {tr3({ th: "ต่อเนื่อง", en: "streak", zh: "连击" }, lang)}</div>}
-        <div className="ssb-q">{foe.q.q}</div>
-        <div className="ssb-opts">
-          {foe.q.opts.map(o => <button key={o} className="ssb-opt" onClick={() => onAnswer(o)}>{o}</button>)}
-        </div>
-        <button className="ssb-flee" onClick={onFlee}>{T("ถอย", "Disengage", "脱离")}</button>
+        {reveal ? (
+          /* The fight pauses on the answer. Rushing straight to the next
+             question is what makes a quiz feel like a slot machine — this is
+             the two seconds where the learning actually happens. */
+          <AnswerReveal q={reveal.q} chosen={reveal.chosen} lang={lang} onNext={onNextQ} />
+        ) : (
+          <>
+            {foe.streak > 1 && <div className="ssb-streak">×{foe.streak} · {tr3({ th: "ต่อเนื่อง", en: "streak", zh: "连击" }, lang)}</div>}
+            <div className="ssb-q">{foe.q.q}</div>
+            <div className="ssb-opts">
+              {foe.q.opts.map(o => <button key={o} className="ssb-opt" onClick={() => onAnswer(o)}>{o}</button>)}
+            </div>
+            <button className="ssb-flee" onClick={onFlee}>{T("ถอย", "Disengage", "脱离")}</button>
+          </>
+        )}
       </div>
     </div>
   ), document.body);
@@ -1464,6 +1474,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const [shake, setShake] = useState(0);
   const [hurtFoe, setHurtFoe] = useState(false);
   const [hurtMe, setHurtMe] = useState(false);
+  const [reveal, setReveal] = useState(null);   // {q, chosen} — the answered question, held on screen
   /** Push a number over a world position. Purely feedback — it reads nothing
       and changes nothing, which is exactly what it should be. */
   const pop = useCallback((x, y, txt, c, big) => {
@@ -2022,7 +2033,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       pop(tx, ty - 18, "-" + Math.round(dmg), crit ? "#ffd24d" : "#ffffff", crit);
       if (f.kind === "boss") coop.shout({ id: W.boss.id, dmg: Math.round(dmg), by: playerName });
       if (nhp <= 0) return winFight(f);
-      setFight({ ...f, hp: nhp, streak: f.streak + 1, wrongRun: 0, q: makeQuestion(lang), flash: Date.now() });
+      setReveal({ q: f.q, chosen: opt });
+      setFight({ ...f, hp: nhp, streak: f.streak + 1, wrongRun: 0, flash: Date.now() });
       return;
     }
 
@@ -2043,12 +2055,22 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     if (nh <= 0) return loseFight();
     // the lore's own rule, made mechanical: you cannot fight your way out
     // of losing your composure — you have to play your way out
+    setReveal({ q: f.q, chosen: opt });
     if (wrongRun >= 2 || nh < maxHp(saveRef.current) * 0.34) {
-      setFight({ ...f, streak: 0, wrongRun: 0, q: makeQuestion(lang), destab: (f.destab || 0) + 1 });
+      setFight({ ...f, streak: 0, wrongRun: 0, destab: (f.destab || 0) + 1 });
       setCtrl({ step: 0, bad: null, n: f.destab || 0 });
       return;
     }
-    setFight({ ...f, streak: 0, wrongRun, q: makeQuestion(lang) });
+    setFight({ ...f, streak: 0, wrongRun });
+  }
+
+  /* Dismissing the reveal is what deals the next question. Answering and
+     advancing used to be one action, which meant the answer was on screen
+     for exactly as long as it took to read the next one. */
+  function nextQ() {
+    setReveal(null);
+    const f = fightRef.current;
+    if (f && !f.over) setFight({ ...f, q: makeQuestion(lang) });
   }
 
   function winFight(f) {
@@ -2058,6 +2080,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       const q = (QUESTS[s.world] || []).find(x => x.kind === "boss");
       if (q) { bumpQuest(q.id, 1); award(q.stat, 6, tr3(W.boss.name, lang)); }
       onReward(60, 40);
+      setReveal(null);
       setFight({ ...f, over: "win", hp: 0 });
       return;
     }
@@ -2069,10 +2092,10 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     if (q) { bumpQuest(q.id, 1); }
     award("courage", 1);
     onReward(4, 2);
-    setFight(null);
+    setReveal(null); setFight(null);
   }
   function loseFight() {
-    setFight(null); setCtrl(null);
+    setFight(null); setCtrl(null); setReveal(null);
     const me = meRef.current;
     me.x = geo.town.x; me.y = geo.town.y + 60;
     setHp(Math.round(maxHp(saveRef.current) * 0.55));
@@ -2189,8 +2212,9 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     if (!right) {
       playMiss(); haptic(24);
       const wrongRun = f.wrongRun + 1;
-      if (wrongRun >= 2) { setFight({ ...f, wrongRun: 0, q: makeQuestion(lang), destab: (f.destab || 0) + 1 }); setCtrl({ step: 0, bad: null, n: f.destab || 0 }); return; }
-      setFight({ ...f, wrongRun, streak: 0, q: makeQuestion(lang) });
+      setReveal({ q: f.q, chosen: opt });
+      if (wrongRun >= 2) { setFight({ ...f, wrongRun: 0, destab: (f.destab || 0) + 1 }); setCtrl({ step: 0, bad: null, n: f.destab || 0 }); return; }
+      setFight({ ...f, wrongRun, streak: 0 });
       return;
     }
     playBoom(false); haptic(10);
@@ -2199,11 +2223,12 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     const got = f.got + 1;
     bumpQuest(f.quest.id, 1);
     if (got >= f.need) {
-      setFight(null);
+      setFight(null); setReveal(null);
       setTalk({ npcName: f.quest.giver, quest: f.quest, phase: "done" });
       return;
     }
-    setFight({ ...f, got, streak: f.streak + 1, wrongRun: 0, q: makeQuestion(lang) });
+    setReveal({ q: f.q, chosen: opt });
+    setFight({ ...f, got, streak: f.streak + 1, wrongRun: 0 });
   }
 
   // ── travel ──────────────────────────────────────────────────────────
@@ -2450,9 +2475,10 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         <BattleScreen
           lang={lang} W={W} hp={hp} maxHpV={maxHp(save)}
           foe={f} shake={shake} hurtFoe={hurtFoe} hurtMe={hurtMe} playing={fxRef}
+          reveal={reveal} onNextQ={nextQ}
           chassisEl={<CyberAvatar model={charModel} yaw={52} pose="ready" glow={W.glow} accent={W.accent} armorA="#161d2c" armorB="#3d5878" />}
           onAnswer={answer}
-          onFlee={() => { setFight(null); say(T("ถอยออกมาแล้ว", "Disengaged.", "已脱离。")); }} />
+          onFlee={() => { setFight(null); setReveal(null); say(T("ถอยออกมาแล้ว", "Disengaged.", "已脱离。")); }} />
       )}
 
       {/* quiz runs, and the win card either kind ends on */}
@@ -2473,12 +2499,14 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
                   <span className="ssfight-hp-n">{f.got}/{f.need}</span>
                 </div>
                 <div className="ssfight-bar"><i style={{ width: (f.got / f.need) * 100 + "%" }} /></div>
-                {f.streak > 1 && <div className="ssstreak">×{f.streak} {T("ต่อเนื่อง", "streak", "连击")}</div>}
-                <div className="ssq">{f.q.q}</div>
-                <div className="ssopts">
-                  {f.q.opts.map(o => <button key={o} className="ssopt" onClick={() => quizAnswer(o)}>{o}</button>)}
-                </div>
-                <button className="ssflee" onClick={() => { setFight(null); say(T("หยุดไว้ก่อน", "Paused — progress is saved.", "已暂停 — 进度已保存。")); }}>
+                {reveal ? <AnswerReveal q={reveal.q} chosen={reveal.chosen} lang={lang} onNext={nextQ} /> : <>
+                  {f.streak > 1 && <div className="ssstreak">×{f.streak} {T("ต่อเนื่อง", "streak", "连击")}</div>}
+                  <div className="ssq">{f.q.q}</div>
+                  <div className="ssopts">
+                    {f.q.opts.map(o => <button key={o} className="ssopt" onClick={() => quizAnswer(o)}>{o}</button>)}
+                  </div>
+                </>}
+                <button className="ssflee" onClick={() => { setFight(null); setReveal(null); say(T("หยุดไว้ก่อน", "Paused — progress is saved.", "已暂停 — 进度已保存。")); }}>
                   {T("พอก่อน", "Stop for now", "先停下")}
                 </button>
               </>
