@@ -378,18 +378,44 @@ export const TILE = 56;
 /* How close the camera sits. 1 is the raw world scale, which on a phone put
    the figure at about 45px tall and made the whole thing read as a map. */
 export const ZOOM = 1.62;
+
+/* ══════════════════════ the projection ══════════════════════
+
+   The world is stored flat — x and y on a plane, which is what collision and
+   the terrain sampler want — and drawn isometric, which is what makes it look
+   like a place rather than a floor plan. One function stands between the two,
+   and it takes a HEIGHT: everything from a cliff face to a robot's head is
+   just the same ground position lifted off the plane by some amount.
+
+   The dimetric ratio (0.9 across, 0.5 down) is the usual one for a reason —
+   it keeps a square cell reading as a square seen from above rather than as a
+   stretched lozenge, and it makes the vertical scale legible next to it. */
+export const IX = 0.9, IY = 0.5, IH = 0.66;
+export const iso = (wx, wy, h = 0) => ({ x: (wx - wy) * IX, y: (wx + wy) * IY - h * IH });
+/** Screen back to ground, for working out which cells the camera can see. */
+export const unIso = (sx, sy) => ({ x: (sx / IX + sy / IY) / 2, y: (sy / IY - sx / IX) / 2 });
+
+/* Terrain tiers become real elevations, so a ridge is a cliff you can see the
+   side of rather than a differently coloured patch of floor. */
+export const TIER_H = [0, 0, 13, 26, 48];
 export const WORLD_R = 1500;   // half-extent in world units; the map is a disc
 
+/* Five tiers, not three. With only "low / ground / rock" almost every cell
+   landed in the middle band and the world came out a flat plateau — which
+   wastes the whole point of drawing it as blocks. Splitting the walkable
+   middle into three elevations puts a visible terrace under your feet
+   wherever you stand, and the extrusion has something to show. */
 function terrainAt(seed, wx, wy) {
   const n = fbm(seed, wx / 340, wy / 340);
   const edge = Math.hypot(wx, wy) / WORLD_R;
   const v = n - Math.max(0, edge - 0.72) * 1.6;   // the disc falls away at the rim
-  if (v < 0.30) return 0;   // void / chasm — impassable
-  if (v < 0.40) return 1;   // low ground
-  if (v > 0.66) return 3;   // rock ridge — impassable
-  return 2;                 // walkable ground
+  if (v < 0.28) return 0;   // chasm — the sky shows through
+  if (v < 0.42) return 1;   // low flats
+  if (v < 0.545) return 2;  // ground
+  if (v < 0.655) return 3;  // rise
+  return 4;                 // rock shelf — impassable
 }
-export const walkable = (seed, wx, wy) => { const t = terrainAt(seed, wx, wy); return t === 1 || t === 2; };
+export const walkable = (seed, wx, wy) => { const t = terrainAt(seed, wx, wy); return t >= 1 && t <= 3; };
 
 /** Landmarks: the town, the quest-givers standing in it, and the boss ring.
     Placed by walking outward from a seeded angle until the terrain is
@@ -463,60 +489,118 @@ export function spawnMobs(w, geo, n = 34) {
    a staircase of big rectangles; at 12px the same contours read as coastline
    and the grid disappears. Scatter stays on the coarse grid so props do not
    multiply with the resolution. */
-const RTILE = 12;
+/* Cells are bigger than the old flat grid because each one is now a solid
+   with three visible faces rather than a filled rectangle, and a cliff reads
+   better in chunks than in crumbs. */
+const CELL = 26;
+
+/* ══════════════════════ terrain ══════════════════════
+
+   Every cell is a block: a top face at its own elevation, and — where the
+   neighbour in front of it sits lower — a left and right wall dropping to
+   meet it. Painted back to front (by wx+wy, which IS depth in this
+   projection) so the walls in front occlude the tops behind them.
+
+   The two side faces take fixed multipliers off the top colour rather than a
+   computed normal: with a single fixed sun this is exactly equivalent, costs
+   nothing, and keeps every block on the same lighting model. */
+function shade(hex, k) {
+  const v = String(hex).replace("#", "");
+  const n = parseInt(v.length === 3 ? v.split("").map(c => c + c).join("") : v.slice(0, 6), 16);
+  const r = Math.round(((n >> 16) & 255) * k), gg = Math.round(((n >> 8) & 255) * k), b = Math.round((n & 255) * k);
+  return `rgb(${Math.min(255, r)},${Math.min(255, gg)},${Math.min(255, b)})`;
+}
 
 function drawTerrain(g, W, geo, cam, vw, vh) {
-  const x0 = Math.floor((cam.x - vw / 2) / RTILE) - 1, x1 = Math.ceil((cam.x + vw / 2) / RTILE) + 1;
-  const y0 = Math.floor((cam.y - vh / 2) / RTILE) - 1, y1 = Math.ceil((cam.y + vh / 2) / RTILE) + 1;
-  for (let ty = y0; ty <= y1; ty++) {
-    for (let tx = x0; tx <= x1; tx++) {
-      const wx = tx * RTILE, wy = ty * RTILE;
-      const t = terrainAt(geo.seed, wx + RTILE / 2, wy + RTILE / 2);
-      if (t === 0) continue;                       // void reads as the sky behind
-      const sx = wx - cam.x + vw / 2, sy = wy - cam.y + vh / 2;
-      g.fillStyle = t === 3 ? W.rock : t === 1 ? W.grass : W.ground;
-      g.fillRect(sx, sy, RTILE + 1, RTILE + 1);
-      // grain: a continuous field, sampled wider than a cell, so neighbours
-      // differ only slightly and no chequerboard appears
-      const j = fbm(geo.seed ^ 0x51ed, tx * 0.13, ty * 0.13) - 0.5;
-      g.fillStyle = j > 0 ? `rgba(255,255,255,${(j * 0.22).toFixed(3)})`
-                          : `rgba(0,0,0,${(-j * 0.28).toFixed(3)})`;
-      g.fillRect(sx, sy, RTILE + 1, RTILE + 1);
-      if (t === 3 && terrainAt(geo.seed, wx + RTILE / 2, wy - RTILE / 2) !== 3) {
-        g.fillStyle = "rgba(255,255,255,.1)";      // ridges catch the key on their top lip only
-        g.fillRect(sx, sy, RTILE + 1, 3);
-      }
-    }
+  const seed = geo.seed;
+  // the visible ground quad, from the four screen corners projected back
+  const corners = [unIso(-vw / 2, -vh / 2), unIso(vw / 2, -vh / 2), unIso(-vw / 2, vh / 2), unIso(vw / 2, vh / 2)];
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const c of corners) {
+    minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x);
+    minY = Math.min(minY, c.y); maxY = Math.max(maxY, c.y);
   }
-  // ── scatter, on the coarse grid ──
-  const cx0 = Math.floor((cam.x - vw / 2) / TILE) - 1, cx1 = Math.ceil((cam.x + vw / 2) / TILE) + 1;
-  const cy0 = Math.floor((cam.y - vh / 2) / TILE) - 1, cy1 = Math.ceil((cam.y + vh / 2) / TILE) + 1;
-  for (let ty = cy0; ty <= cy1; ty++) {
-    for (let tx = cx0; tx <= cx1; tx++) {
-      const r = (hash32(tx + ":" + ty + ":" + geo.seed) % 1000) / 1000;
-      if (r > 0.115 && r < 0.968) continue;
-      const wx = tx * TILE, wy = ty * TILE;
-      if (terrainAt(geo.seed, wx + TILE / 2, wy + TILE / 2) !== 2) continue;
-      const sx = wx - cam.x + vw / 2, sy = wy - cam.y + vh / 2;
-      if (r < 0.115) {
-        const ox = sx + ((hash32("a" + tx + ty) % 100) / 100) * TILE;
-        const oy = sy + ((hash32("b" + tx + ty) % 100) / 100) * TILE;
-        const rr = 3 + r * 55;
-        g.fillStyle = "rgba(0,0,0,.28)";
-        g.beginPath(); g.ellipse(ox, oy + rr * .5, rr * 1.15, rr * .5, 0, 0, 6.284); g.fill();
-        g.fillStyle = W.rock;
-        g.beginPath(); g.ellipse(ox, oy, rr, rr * .8, 0, 0, 6.284); g.fill();
-        g.fillStyle = "rgba(255,255,255,.14)";
-        g.beginPath(); g.ellipse(ox - rr * .25, oy - rr * .28, rr * .45, rr * .3, 0, 0, 6.284); g.fill();
-      } else {
-        // a lit shard, so the eye has somewhere to land on a long walk
-        const ox = sx + TILE * .5, oy = sy + TILE * .5;
-        g.fillStyle = W.glow + "3a";
-        g.beginPath(); g.arc(ox, oy, 15, 0, 6.284); g.fill();
-        g.fillStyle = W.glow;
-        g.beginPath(); g.moveTo(ox, oy - 12); g.lineTo(ox + 5.5, oy); g.lineTo(ox, oy + 10); g.lineTo(ox - 5.5, oy); g.closePath(); g.fill();
-        g.fillStyle = "rgba(255,255,255,.7)";
-        g.beginPath(); g.moveTo(ox, oy - 12); g.lineTo(ox + 2, oy - 2); g.lineTo(ox, oy + 2); g.lineTo(ox - 2, oy - 2); g.closePath(); g.fill();
+  // a generous skirt: tall blocks poke into frame from below the visible band
+  const pad = 4;
+  const cx0 = Math.floor((cam.x + minX) / CELL) - pad, cx1 = Math.ceil((cam.x + maxX) / CELL) + pad;
+  const cy0 = Math.floor((cam.y + minY) / CELL) - pad, cy1 = Math.ceil((cam.y + maxY) / CELL) + pad;
+
+  const tierAt = (gx, gy) => terrainAt(seed, gx * CELL + CELL / 2, gy * CELL + CELL / 2);
+  const scr = (wx, wy, h) => {
+    const q = iso(wx - cam.x, wy - cam.y, h);
+    return { x: q.x + vw / 2, y: q.y + vh / 2 };
+  };
+
+  /* Back to front. In this projection depth is simply wx+wy, so walking the
+     grid diagonally IS painter's order — no sort, no z-buffer. */
+  for (let d = cx0 + cy0; d <= cx1 + cy1; d++) {
+    for (let gx = cx0; gx <= cx1; gx++) {
+      const gy = d - gx;
+      if (gy < cy0 || gy > cy1) continue;
+      const t = tierAt(gx, gy);
+      if (t === 0) continue;                       // a hole: the sky shows through
+      const h = TIER_H[t];
+      const wx = gx * CELL, wy = gy * CELL;
+      const a = scr(wx, wy, h), b = scr(wx + CELL, wy, h);
+      const c = scr(wx + CELL, wy + CELL, h), e = scr(wx, wy + CELL, h);
+      if (c.x < -CELL * 3 || a.x > vw + CELL * 3 || c.y < -CELL * 4 || a.y > vh + CELL * 6) continue;
+
+      const base = t === 4 ? W.rock : t === 3 ? W.path : t === 1 ? W.grass : W.ground;
+      // grain, sampled wider than a cell so neighbours differ only slightly
+      const j = fbm(seed ^ 0x51ed, gx * 0.2, gy * 0.2) - 0.5;
+      const lift = 1 + j * 0.3;
+
+      // ── walls, drawn first so the top face sits on them ──
+      const hS = TIER_H[tierAt(gx, gy + 1)] || 0;      // the cell in front-left
+      const hE = TIER_H[tierAt(gx + 1, gy)] || 0;      // the cell in front-right
+      if (h > hS) {
+        const e2 = scr(wx, wy + CELL, hS), c2 = scr(wx + CELL, wy + CELL, hS);
+        g.fillStyle = shade(base, 0.52 * lift);
+        g.beginPath(); g.moveTo(e.x, e.y); g.lineTo(c.x, c.y); g.lineTo(c2.x, c2.y); g.lineTo(e2.x, e2.y); g.closePath(); g.fill();
+      }
+      if (h > hE) {
+        const b2 = scr(wx + CELL, wy, hE), c2 = scr(wx + CELL, wy + CELL, hE);
+        g.fillStyle = shade(base, 0.72 * lift);
+        g.beginPath(); g.moveTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(c2.x, c2.y); g.lineTo(b2.x, b2.y); g.closePath(); g.fill();
+      }
+
+      // ── top face ──
+      g.fillStyle = shade(base, 1.06 * lift);
+      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.closePath(); g.fill();
+      // a hairline along the lit edge stops a field of blocks reading as mush
+      if (h > hS || h > hE) {
+        g.strokeStyle = "rgba(255,255,255,.09)"; g.lineWidth = 1;
+        g.beginPath(); g.moveTo(e.x, e.y); g.lineTo(c.x, c.y); g.lineTo(b.x, b.y); g.stroke();
+      }
+
+      /* ── scatter, standing ON the block ──
+         Boulders and shards are placed on the cell's own top face and lifted
+         to its elevation, so nothing floats over a cliff or sinks into one. */
+      const r = (hash32(gx + ":" + gy + ":" + seed) % 1000) / 1000;
+      if ((t === 2 || t === 3) && (r < 0.07 || r > 0.982)) {
+        const ox = wx + ((hash32("a" + gx + gy) % 100) / 100) * CELL;
+        const oy = wy + ((hash32("b" + gx + gy) % 100) / 100) * CELL;
+        const p0 = scr(ox, oy, h);
+        if (r < 0.07) {
+          const rr = 5 + r * 90;
+          const top = scr(ox, oy, h + rr * 0.7);
+          g.fillStyle = "rgba(0,4,12,.34)";
+          g.beginPath(); g.ellipse(p0.x, p0.y, rr * 1.05, rr * 0.5, 0, 0, 6.284); g.fill();
+          g.fillStyle = shade(base, 0.78);
+          g.beginPath(); g.ellipse(p0.x, p0.y - rr * 0.32, rr * 0.92, rr * 0.72, 0, 0, 6.284); g.fill();
+          g.fillStyle = shade(base, 1.5);
+          g.beginPath(); g.ellipse(top.x, top.y + rr * 0.28, rr * 0.66, rr * 0.34, 0, 0, 6.284); g.fill();
+        } else {
+          const top = scr(ox, oy, h + 26);
+          g.fillStyle = "rgba(0,4,12,.3)";
+          g.beginPath(); g.ellipse(p0.x, p0.y, 10, 5, 0, 0, 6.284); g.fill();
+          g.fillStyle = W.glow + "3a";
+          g.beginPath(); g.arc(top.x, top.y + 6, 15, 0, 6.284); g.fill();
+          g.fillStyle = W.glow;
+          g.beginPath(); g.moveTo(top.x, top.y); g.lineTo(top.x + 6, top.y + 13); g.lineTo(p0.x, p0.y); g.lineTo(top.x - 6, top.y + 13); g.closePath(); g.fill();
+          g.fillStyle = "rgba(255,255,255,.65)";
+          g.beginPath(); g.moveTo(top.x, top.y); g.lineTo(top.x + 2.4, top.y + 11); g.lineTo(top.x, top.y + 15); g.closePath(); g.fill();
+        }
       }
     }
   }
@@ -1524,11 +1608,16 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       const mag = Math.hypot(ax, ay);
       if (mag > 1) { ax /= mag; ay /= mag; }
       if (!busy && (ax || ay)) {
+        /* The stick is read in SCREEN space and converted to world, because a
+           player pushing up expects to walk up the screen — not along a world
+           axis that the projection has rotated 45° away from them. */
+        const w = unIso(ax, ay);
+        const m2 = Math.hypot(w.x, w.y) || 1;
         const sp = 168 * dt;
-        const nx = me.x + ax * sp, ny = me.y + ay * sp;
+        const nx = me.x + (w.x / m2) * sp * Math.min(1, mag || 1), ny = me.y + (w.y / m2) * sp * Math.min(1, mag || 1);
         if (walkable(geo.seed, nx, me.y)) me.x = nx;      // slide along walls rather than sticking
         if (walkable(geo.seed, me.x, ny)) me.y = ny;
-        me.t += dt; me.dir = ax;
+        me.t += dt; me.dir = ax || me.dir;
       }
       camRef.current.x += (me.x - camRef.current.x) * Math.min(1, dt * 7);
       camRef.current.y += (me.y - camRef.current.y) * Math.min(1, dt * 7);
@@ -1606,27 +1695,36 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       }
 
       drawTerrain(g, W, geo, cam, vw, vh);
-      const sxOf = (wx) => wx - cam.x + vw / 2, syOf = (wy) => wy - cam.y + vh / 2;
+      /* Ground positions go through the projection now, lifted to whatever
+         elevation the cell under them sits at — so a robot standing on a
+         ridge stands ON it rather than inside it. */
+      const groundH = (wx, wy) => TIER_H[terrainAt(geo.seed, wx, wy)] || 0;
+      const proj = (wx, wy, h) => {
+        const q = iso(wx - cam.x, wy - cam.y, (h == null ? groundH(wx, wy) : h));
+        return { x: q.x + vw / 2, y: q.y + vh / 2 };
+      };
+      const sxOf = (wx, wy) => proj(wx, wy).x, syOf = (wx, wy) => proj(wx, wy).y;
 
       /* ── ground decals: only what is genuinely flat on the floor ──
          The towers and monoliths that used to live here now sort with the
          entities, because anything with height has to. */
-      const townS = { x: sxOf(geo.town.x), y: syOf(geo.town.y) };
+      const townS = proj(geo.town.x, geo.town.y);
       g.fillStyle = W.accent + "10";
-      g.beginPath(); g.arc(townS.x, townS.y, 108, 0, 6.284); g.fill();
+      const ring = (cx0, cy0, r) => { g.beginPath(); g.ellipse(cx0, cy0, r * IX * 1.42, r * IY * 1.42, 0, 0, 6.284); };
+      ring(townS.x, townS.y, 108); g.fill();
       g.strokeStyle = W.accent + "4a"; g.lineWidth = px(2);
-      g.beginPath(); g.arc(townS.x, townS.y, 108, 0, 6.284); g.stroke();
+      ring(townS.x, townS.y, 108); g.stroke();
       g.strokeStyle = W.accent + "33"; g.lineWidth = px(1.4);
-      for (let i = 1; i <= 3; i++) { g.beginPath(); g.arc(townS.x, townS.y, i * 22, 0, 6.284); g.stroke(); }
+      for (let i = 1; i <= 3; i++) { ring(townS.x, townS.y, i * 22); g.stroke(); }
 
       const bossDone = !!saveRef.current.bosses[W.boss.id];
-      const arenaS = { x: sxOf(geo.arena.x), y: syOf(geo.arena.y) };
+      const arenaS = proj(geo.arena.x, geo.arena.y);
       g.strokeStyle = bossDone ? "#7fe0a0aa" : "#ff5a5aaa"; g.lineWidth = px(4);
       g.setLineDash([px(12), px(9)]); g.lineDashOffset = -tsec * 22;   // a live ring reads as a threshold
-      g.beginPath(); g.arc(arenaS.x, arenaS.y, 96, 0, 6.284); g.stroke();
+      g.beginPath(); g.ellipse(arenaS.x, arenaS.y, 96 * IX * 1.42, 96 * IY * 1.42, 0, 0, 6.284); g.stroke();
       g.setLineDash([]); g.lineDashOffset = 0;
       g.fillStyle = bossDone ? "#7fe0a018" : "#ff5a5a1c";
-      g.beginPath(); g.arc(arenaS.x, arenaS.y, 96, 0, 6.284); g.fill();
+      g.beginPath(); g.ellipse(arenaS.x, arenaS.y, 96 * IX * 1.42, 96 * IY * 1.42, 0, 0, 6.284); g.fill();
       g.font = `700 ${fs(13)}px Rajdhani, sans-serif`; g.textAlign = "center";
       g.fillStyle = bossDone ? "#a8f0c0" : "#ffb0b0";
       g.fillText((bossDone ? "✓ " : "☠ ") + tr3(W.boss.name, lang), arenaS.x, arenaS.y - 106);
@@ -1635,13 +1733,15 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
          One list, sorted on world Y, so everything overlaps the way the
          ground says it should. */
       const ents = [];
-      for (const n of geo.npcs) if (n) ents.push({ y: n.y, k: "npc", o: n });
-      for (const pr of coop.peers) ents.push({ y: pr.y || 0, k: "peer", o: pr });
-      for (const m of mobsRef.current) if (!m.dead) ents.push({ y: m.y, k: "mob", o: m });
-      for (const tw of geo.towers) ents.push({ y: tw.y, k: "tower", o: tw });
-      for (const pl of geo.pillars) ents.push({ y: pl.y, k: "pillar", o: pl });
-      ents.push({ y: me.y, k: "me", o: me });
-      ents.sort((a, b) => a.y - b.y);
+      const push = (o, k) => ents.push({ d: (o.x || 0) + (o.y || 0), k, o });
+      for (const n of geo.npcs) if (n) push(n, "npc");
+      for (const pr of coop.peers) push(pr, "peer");
+      for (const m of mobsRef.current) if (!m.dead) push(m, "mob");
+      for (const tw of geo.towers) push(tw, "tower");
+      for (const pl of geo.pillars) push(pl, "pillar");
+      push(me, "me");
+      // depth in a dimetric projection is simply x + y
+      ents.sort((a, b) => a.d - b.d);
 
       /* ── ground light, BEFORE the figures ──
          A lamp lights the floor around it; it does not wash itself out. Burning
@@ -1652,7 +1752,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
          order and the one that looks like light. */
       g.globalCompositeOperation = "lighter";
       for (const e of ents) {
-        const ex = sxOf(e.o.x), ey = syOf(e.o.y);
+        const pp = proj(e.o.x, e.o.y); const ex = pp.x, ey = pp.y;
         if (ex < -160 || ex > vw + 160 || ey < -160 || ey > vh + 160) continue;
         const [lr, rgb, a] =
           e.k === "me"     ? [138, hexRgb(W.glow), 0.30] :
@@ -1671,7 +1771,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       g.globalCompositeOperation = "source-over";
 
       for (const e of ents) {
-        const ex = sxOf(e.o.x), ey = syOf(e.o.y);
+        const pp = proj(e.o.x, e.o.y); const ex = pp.x, ey = pp.y;
         if (ex < -70 || ex > vw + 70 || ey < -90 || ey > vh + 90) continue;
         if (e.k === "npc") {
           drawBot(g, ex, ey, 1.05, "#c9d6ee", 0, false, "#ffd77a");
@@ -1690,31 +1790,40 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         } else if (e.k === "mob") {
           const hurt = e.o.flash && now - e.o.flash < 140;
           drawMob(g, ex, ey, 1, W.accent, e.o.t + tsec, hurt);
-        } else if (e.k === "tower") {
-          const h = e.o.h;
+        } else if (e.k === "tower" || e.k === "pillar") {
+          /* A real solid: a footprint on the ground, two lit side faces and a
+             cap. Drawn from the world footprint rather than as a rectangle on
+             screen, so the building sits in the same space the terrain does
+             and turns with it. */
+          const tower = e.k === "tower";
+          const R = tower ? 13 : 8, H = tower ? e.o.h + 22 : 40;
+          const gh = groundH(e.o.x, e.o.y);
+          const P = (dx, dy, hh) => proj(e.o.x + dx, e.o.y + dy, gh + hh);
+          const b0 = P(-R, -R, 0), b1 = P(R, -R, 0), b2 = P(R, R, 0), b3 = P(-R, R, 0);
+          const t0 = P(-R, -R, H), t1 = P(R, -R, H), t2 = P(R, R, H), t3 = P(-R, R, H);
+          const body = tower ? "#7d8ba8" : (bossDone ? "#6f9d84" : "#9d6f6f");
+          // cast shadow on the ground
           g.fillStyle = "rgba(0,4,12,.4)";
-          g.beginPath(); g.ellipse(ex, ey + 3, 13, 5, 0, 0, 6.284); g.fill();
-          const tg = g.createLinearGradient(ex - 11, ey - h, ex + 11, ey);
-          tg.addColorStop(0, "#e6edfa"); tg.addColorStop(0.4, "#71809f"); tg.addColorStop(1, "#1b2438");
-          g.fillStyle = tg;
-          g.beginPath(); g.roundRect(ex - 11, ey - h, 22, h, 3); g.fill();
-          g.fillStyle = W.glow + "55";
-          g.fillRect(ex - 7, ey - h * 0.7, 14, 3);
-          g.fillRect(ex - 7, ey - h * 0.4, 14, 3);
-          g.fillStyle = W.glow;
-          g.beginPath(); g.arc(ex, ey - h - 3, 2.6, 0, 6.284); g.fill();
-        } else if (e.k === "pillar") {
-          g.fillStyle = "rgba(0,4,12,.42)";
-          g.beginPath(); g.ellipse(ex, ey + 2, 9, 4, 0, 0, 6.284); g.fill();
-          const mg = g.createLinearGradient(ex - 7, ey - 34, ex + 7, ey);
-          mg.addColorStop(0, bossDone ? "#cfeedd" : "#f0d6d6");
-          mg.addColorStop(0.5, bossDone ? "#5d8f75" : "#8f5d5d");
-          mg.addColorStop(1, "#191f2e");
-          g.fillStyle = mg;
-          g.beginPath(); g.moveTo(ex - 7, ey); g.lineTo(ex - 5, ey - 34); g.lineTo(ex + 5, ey - 34); g.lineTo(ex + 7, ey); g.closePath(); g.fill();
-          g.fillStyle = bossDone ? "#7fe0a0" : "#ff6a6a";
-          g.globalAlpha = 0.45 + 0.4 * Math.abs(Math.sin(tsec * 1.6 + e.o.i * 0.7));
-          g.beginPath(); g.arc(ex, ey - 30, 2.4, 0, 6.284); g.fill();
+          g.beginPath(); g.moveTo(b0.x, b0.y); g.lineTo(b1.x, b1.y); g.lineTo(b2.x, b2.y); g.lineTo(b3.x, b3.y); g.closePath(); g.fill();
+          const face = (p, q, r2, u, k) => {
+            g.fillStyle = shade(body, k);
+            g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y); g.lineTo(r2.x, r2.y); g.lineTo(u.x, u.y); g.closePath(); g.fill();
+          };
+          face(b3, b2, t2, t3, 0.55);       // front-left wall, away from the sun
+          face(b2, b1, t1, t2, 0.82);       // front-right wall, catching it
+          face(t0, t1, t2, t3, 1.16);       // cap
+          // lit bands and the beacon on top
+          for (const f of tower ? [0.42, 0.66] : [0.55]) {
+            const q0 = P(R, -R, H * f), q1 = P(R, R, H * f);
+            g.strokeStyle = tower ? W.glow : (bossDone ? "#7fe0a0" : "#ff6a6a");
+            g.lineWidth = 3; g.globalAlpha = .7;
+            g.beginPath(); g.moveTo(q0.x, q0.y); g.lineTo(q1.x, q1.y); g.stroke();
+            g.globalAlpha = 1;
+          }
+          const cap = P(0, 0, H + 6);
+          g.fillStyle = tower ? W.glow : (bossDone ? "#7fe0a0" : "#ff6a6a");
+          g.globalAlpha = tower ? 1 : 0.45 + 0.4 * Math.abs(Math.sin(tsec * 1.6 + e.o.i * 0.7));
+          g.beginPath(); g.arc(cap.x, cap.y, 3.2, 0, 6.284); g.fill();
           g.globalAlpha = 1;
         } else {
           if (chassis) drawChassis(g, chassis, ex, ey + 16, 74, me.t, me.dir, false);
@@ -1801,9 +1910,9 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         g.globalAlpha = Math.min(1, q.life * 2.2);
         g.font = `900 ${fs(q.big ? 22 : 17)}px Orbitron, sans-serif`; g.textAlign = "center";
         g.fillStyle = "#00060f";
-        g.fillText(q.txt, sxOf(q.x) + 1, syOf(q.y) - k * 42 + 1);
+        g.fillText(q.txt, proj(q.x, q.y).x + 1, proj(q.x, q.y).y - k * 42 + 1);
         g.fillStyle = q.c;
-        g.fillText(q.txt, sxOf(q.x), syOf(q.y) - k * 42);
+        g.fillText(q.txt, proj(q.x, q.y).x, proj(q.x, q.y).y - k * 42);
         g.globalAlpha = 1;
       }
 
