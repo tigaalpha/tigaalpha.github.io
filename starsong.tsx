@@ -418,6 +418,25 @@ function terrainAt(seed, wx, wy) {
 }
 export const walkable = (seed, wx, wy) => { const t = terrainAt(seed, wx, wy); return t >= 1 && t <= 3; };
 
+/* The nearest place you are allowed to stand.
+
+   Standing INSIDE a block is unrecoverable on its own: a step is 2.8px and a
+   cell is 26, so every move is tested against the same solid cell and
+   rejected, for ever. The spawn point is a fixed offset from the town and on
+   Terra Nova — the world every single player starts in — that offset landed
+   in a wall, which is exactly the "I cannot move at all" report. */
+export function nearestWalkable(seed, wx, wy) {
+  if (walkable(seed, wx, wy)) return { x: wx, y: wy };
+  for (let r = 13; r <= 520; r += 13) {
+    for (let i = 0; i < 24; i++) {
+      const a2 = (i / 24) * Math.PI * 2;
+      const x = wx + Math.cos(a2) * r, y = wy + Math.sin(a2) * r;
+      if (walkable(seed, x, y)) return { x, y };
+    }
+  }
+  return { x: wx, y: wy };
+}
+
 /** Landmarks: the town, the quest-givers standing in it, and the boss ring.
     Placed by walking outward from a seeded angle until the terrain is
     walkable, so a landmark never lands inside a cliff. */
@@ -1756,7 +1775,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const [tick, setTick] = useState(0);        // forces a HUD repaint; the canvas has its own loop
 
   const cvRef = useRef(null);
-  const meRef = useRef({ x: geo.town.x, y: geo.town.y + 60, t: 0, dir: 0 });
+  const meRef = useRef({ ...nearestWalkable(geo.seed, geo.town.x, geo.town.y + 60), t: 0, dir: 0 });
   const padRef = useRef({ ax: 0, ay: 0, on: false, ox: 0, oy: 0 });
   const keysRef = useRef({});
   const mobsRef = useRef([]);
@@ -1827,8 +1846,9 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   // ── world (re)entry ─────────────────────────────────────────────────
   useEffect(() => {
     mobsRef.current = spawnMobs(W, geo);
-    meRef.current = { x: geo.town.x, y: geo.town.y + 60, t: 0, dir: 0 };
-    camRef.current = { x: geo.town.x, y: geo.town.y + 60 };
+    const sp = nearestWalkable(geo.seed, geo.town.x, geo.town.y + 60);
+    meRef.current = { x: sp.x, y: sp.y, t: 0, dir: 0 };
+    camRef.current = { x: sp.x, y: sp.y };
     setHp(maxHp(saveRef.current));
     setFight(null); setCtrl(null); setTalk(null); setTask(null);
   }, [W.id, geo]);
@@ -1914,6 +1934,17 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
 
       const busy = !!(fightRef.current || ctrl || talk || task);
       const me = meRef.current;
+
+      /* Rescue. Whatever put the player inside a block — a spawn, a world
+         change, a later change to the terrain — walk them back out of it
+         regardless of what the stick says, because from in there no input
+         can ever succeed. */
+      if (!busy && !walkable(geo.seed, me.x, me.y)) {
+        const out = nearestWalkable(geo.seed, me.x, me.y);
+        const dx = out.x - me.x, dy = out.y - me.y, d = Math.hypot(dx, dy) || 1;
+        const step = Math.min(d, 260 * dt);
+        me.x += (dx / d) * step; me.y += (dy / d) * step;
+      }
 
       // input → velocity
       let ax = padRef.current.ax, ay = padRef.current.ay;
@@ -2575,7 +2606,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   function loseFight() {
     setFight(null); setCtrl(null); setReveal(null);
     const me = meRef.current;
-    me.x = geo.town.x; me.y = geo.town.y + 60;
+    const sp = nearestWalkable(geo.seed, geo.town.x, geo.town.y + 60);
+    me.x = sp.x; me.y = sp.y;
     setHp(Math.round(maxHp(saveRef.current) * 0.55));
     say(T("Emotion Core ล้มเหลว — กลับมาที่เมืองแล้ว ไม่มีอะไรถูกริบไป",
           "Emotion Core failed — recovered to town. Nothing was taken from you.",
