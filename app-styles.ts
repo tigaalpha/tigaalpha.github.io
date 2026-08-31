@@ -2547,18 +2547,22 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssb-stage{position:relative;z-index:2;flex:1;min-height:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 4px 4px}
 .ssb-slot{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center;transition:transform .13s ease-out;will-change:transform}
 .ssb-slot.me{width:40%;max-width:230px}
-.ssb-slot.foe{width:54%;max-width:320px}
-.ssb-slot.foe.big{width:64%;max-width:380px}
+.ssb-slot.foe{width:62%;max-width:344px}
+.ssb-slot.foe.big{width:70%;max-width:410px}
 .ssb-side{position:relative;height:100%;width:100%;display:flex;align-items:flex-end;justify-content:center}
 /* a braced fighter reads as braced */
 .ssb-side.guarding{filter:drop-shadow(0 0 12px var(--wg,#8fd0ff))}
-/* Size both figures by HEIGHT and let the width follow the viewBox. Sizing
-   by width letterboxed a 160x416 chassis inside a much narrower column, and
-   the figure ended up floating a third of the stage above the floor with the
-   empty band underneath doing nothing. */
-.ssb-side.me>*{height:97%;width:auto;max-width:none;margin-bottom:0}
-.ssb-side.foe>svg{height:74%;width:auto;max-width:none;margin-bottom:1%}
-.ssb-side.foe.big>svg{height:92%}
+/* Size by WIDTH and let the viewBox give the height. width:auto on an INLINE
+   svg resolves to 100% of its container rather than from the ratio — measured,
+   not assumed — so height-sizing letterboxed one figure and let the other grow
+   past its slot and swallow the player. Width-sizing cannot do either: the
+   slot width IS the figure's width. */
+/* max-height is the safety net for a short stage — landscape is barely 230px
+   tall and width-sizing alone shot both figures straight off the top. An SVG
+   clamped this way scales its contents to fit instead of being cropped. */
+.ssb-side.me>*{width:100%;height:auto;max-height:100%;margin-bottom:0}
+.ssb-side.foe>svg{width:100%;height:auto;max-height:88%;margin-bottom:1%}
+.ssb-side.foe.big>svg{width:116%}
 .ssb-side.me{animation:ssbidle 2.6s ease-in-out infinite}
 .ssb-side.foe{animation:ssbidle 3.1s ease-in-out infinite .4s}
 @keyframes ssbidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
@@ -2575,13 +2579,120 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssb-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:9px}
 .ssb-opt{padding:15px 4px;border-radius:12px;border:1px solid var(--wc);background:linear-gradient(180deg,rgba(24,34,56,.95),rgba(12,18,32,.95));color:#f2f6ff;font-family:'Orbitron',sans-serif;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 14px -8px #000}
 .ssb-opt:active{transform:translateY(2px) scale(.97);background:var(--wc);color:#08101f}
+/* ══════════ the creatures ══════════
+   Every moving part of a foe is a compositor animation rather than a React
+   render, which is what pays for the detail: the SVG is drawn once and only
+   redrawn when the creature actually changes state. */
+.foart{overflow:visible;filter:drop-shadow(0 10px 22px rgba(0,0,0,.55)) drop-shadow(0 0 26px var(--fg,#8fd0ff))}
+.foart.hurt{filter:brightness(2.3) saturate(.25) drop-shadow(0 0 30px #fff)}
+.foart *{transform-box:fill-box}
+.fo-bob{animation:foBob 3.1s ease-in-out infinite;transform-origin:center}
+@keyframes foBob{0%,100%{translate:0 0}50%{translate:0 -6px}}
+/* the core breathing behind the hull */
+.fo-core{animation:foCore 2.4s ease-in-out infinite;transform-origin:center}
+@keyframes foCore{0%,100%{opacity:.62;scale:1}50%{opacity:1;scale:1.09}}
+/* light running along the etched circuitry */
+.fo-trace{stroke-dasharray:16 13;animation:foTrace 2.6s linear infinite}
+@keyframes foTrace{to{stroke-dashoffset:-58}}
+/* the holographic sheen crawling across the shell */
+.fo-sheen{animation:foSheen 4.6s cubic-bezier(.5,0,.5,1) infinite}
+@keyframes foSheen{0%{translate:0 0}55%,100%{translate:300px 0}}
+/* the pad: rings leaving the platform */
+.fo-ring{animation:foRing 3.3s ease-out infinite;transform-origin:100px 194px;opacity:0}
+@keyframes foRing{0%{opacity:.65;scale:.86}100%{opacity:0;scale:1.5}}
+.fo-pad{animation:foPadGlow 2.8s ease-in-out infinite}
+@keyframes foPadGlow{0%,100%{opacity:.72}50%{opacity:1}}
+/* shards and runes in orbit, counter-rotating */
+.fo-orbit{animation:foOrbit 11s linear infinite;transform-origin:100px 104px}
+.fo-orbit.rev{animation:foOrbit 15s linear infinite reverse;transform-origin:100px 92px}
+@keyframes foOrbit{to{rotate:360deg}}
+.fo-shard{animation:foShard 2.2s ease-in-out infinite;transform-origin:center}
+@keyframes foShard{0%,100%{opacity:.55;scale:.86}50%{opacity:1;scale:1.14}}
+.fo-rune{animation:foRune 3.4s ease-in-out infinite;transform-origin:center;font-family:'Share Tech Mono',monospace}
+@keyframes foRune{0%,100%{opacity:.35}50%{opacity:1}}
+/* limbs, antennae, wings */
+.fo-armL{animation:foArm 2.5s ease-in-out infinite;transform-origin:center}
+.fo-armR{animation:foArm 2.5s ease-in-out infinite -1.25s;transform-origin:center}
+@keyframes foArm{0%,100%{translate:0 0;rotate:0deg}50%{translate:0 5px;rotate:3deg}}
+.fo-wingL{animation:foWingL 1.7s ease-in-out infinite;transform-origin:right center}
+.fo-wingR{animation:foWingR 1.7s ease-in-out infinite;transform-origin:left center}
+@keyframes foWingL{0%,100%{rotate:0deg}50%{rotate:-11deg}}
+@keyframes foWingR{0%,100%{rotate:0deg}50%{rotate:11deg}}
+.fo-antL{animation:foAntL 2.9s ease-in-out infinite;transform-origin:bottom right}
+.fo-antR{animation:foAntR 2.9s ease-in-out infinite;transform-origin:bottom left}
+@keyframes foAntL{0%,100%{rotate:-4deg}50%{rotate:5deg}}
+@keyframes foAntR{0%,100%{rotate:4deg}50%{rotate:-5deg}}
+.fo-hover{animation:foHover 1.9s ease-in-out infinite;transform-origin:center}
+@keyframes foHover{0%,100%{opacity:.35;scale:1}50%{opacity:.95;scale:1.1}}
+.fo-hub{animation:foCore 1.5s ease-in-out infinite;transform-origin:center}
+.fo-puff{animation:foPuff 2.1s ease-out infinite;transform-origin:center;opacity:0}
+@keyframes foPuff{0%{opacity:.5;scale:.5;translate:0 0}100%{opacity:0;scale:1.5;translate:0 -20px}}
+.fo-halo{animation:foHalo 5s linear infinite;transform-origin:100px 16px}
+@keyframes foHalo{0%,100%{rotate:0deg;opacity:.8}50%{rotate:8deg;opacity:1}}
+/* a rare, fast blink — a slow one is shut in most frames and just reads as a
+   creature drawn with its eyes closed */
+.fo-lid{animation:foBlink 5.4s linear infinite}
+@keyframes foBlink{0%,95.5%,100%{scale:1 1}97.5%{scale:1 .06}}
+.fo-scan{animation:foScan 3.1s linear infinite;transform-box:view-box}
+@keyframes foScan{0%{translate:0 0;opacity:0}14%{opacity:.45}86%{opacity:.45}100%{translate:0 var(--sc,44px);opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .foart *{animation:none!important}
+}
+
 .ssb-flee{display:block;margin:0 auto;border:none;background:transparent;color:#6f7f9e;font-family:'Rajdhani',sans-serif;font-size:11.5px;cursor:pointer;padding:4px 12px}
 
 /* ── the action phase ──
    Twenty seconds of a real fight before the next question. The clock is the
    loudest thing on the panel on purpose: it is the promise that the music is
    still coming, which is what lets the fighting be fighting. */
-.ssb-timer{position:relative;height:16px;border-radius:9px;background:#131b2c;border:1px solid #26314a;overflow:hidden;margin-bottom:9px}
+/* ── stage atmosphere ──
+   Light shafts, embers and a haze horizon, all in CSS so none of it costs a
+   frame of the fight. Depth is what separates a stage from a backdrop. */
+.ssb-atmo{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.ssb-shaft{position:absolute;top:-12%;left:14%;width:26%;height:96%;transform:skewX(-11deg);
+  background:linear-gradient(180deg,var(--wg,#8fd0ff)22,transparent 72%);opacity:.16;filter:blur(9px);animation:ssbShaft 9s ease-in-out infinite}
+.ssb-shaft.b{left:58%;width:19%;animation-delay:-4.5s;opacity:.11}
+@keyframes ssbShaft{0%,100%{opacity:.09}50%{opacity:.22}}
+.ssb-ember{position:absolute;bottom:-8px;width:3px;height:3px;border-radius:50%;
+  background:var(--wg,#8fd0ff);box-shadow:0 0 8px 2px var(--wg,#8fd0ff);opacity:0;animation:ssbEmber 11s linear infinite}
+@keyframes ssbEmber{0%{opacity:0;transform:translate(0,0) scale(.6)}12%{opacity:.85}70%{opacity:.5}100%{opacity:0;transform:translate(26px,-78vh) scale(1.3)}}
+.ssb-haze{position:absolute;left:0;right:0;bottom:26%;height:22%;
+  background:linear-gradient(180deg,transparent,var(--wc,#7fb2ff)1c 55%,transparent);filter:blur(14px);opacity:.5}
+.ssbattle.boss .ssb-shaft{background:linear-gradient(180deg,#ff5a5a2e,transparent 72%)}
+/* a landed blow punches the whole frame for a beat */
+.ssbattle.punchy{animation:ssbPunch .16s ease-out}
+@keyframes ssbPunch{0%{filter:none}45%{filter:brightness(1.35) contrast(1.12) saturate(1.2)}100%{filter:none}}
+/* the wind-up you can read and parry */
+.ssb-side.foe.tell{animation:ssbTell .55s ease-out}
+@keyframes ssbTell{0%{filter:none}55%{filter:brightness(1.6) drop-shadow(0 0 24px #ff5a5a)}100%{filter:none}}
+.ssb-tell{position:absolute;left:50%;top:8%;transform:translateX(-50%);z-index:6;
+  font-family:'Orbitron',sans-serif;font-size:34px;font-weight:900;color:#ffd24d;
+  text-shadow:0 0 18px #ff5a5a,0 2px 8px #000;animation:ssbTellPop .55s ease-out;pointer-events:none}
+@keyframes ssbTellPop{0%{opacity:0;scale:.4}30%{opacity:1;scale:1.2}100%{opacity:.9;scale:1}}
+/* combo counter and the shout banners */
+.ssb-combo{position:absolute;left:50%;top:24%;transform:translateX(-50%);z-index:6;display:flex;flex-direction:column;align-items:center;pointer-events:none;animation:ssbCb .3s cubic-bezier(.34,1.6,.5,1)}
+.ssb-combo b{font-family:'Orbitron',sans-serif;font-size:38px;font-weight:900;color:#ffd24d;text-shadow:0 0 22px #ff9a3c,0 3px 8px #000;line-height:1}
+.ssb-combo i{font-style:normal;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:3px;color:#ffe6b0;text-shadow:0 0 10px #ff9a3c,0 1px 3px #000}
+@keyframes ssbCb{0%{opacity:0;scale:1.9}60%{opacity:1;scale:.94}100%{scale:1}}
+.ssb-bnr{position:absolute;left:0;right:0;top:38%;z-index:7;text-align:center;pointer-events:none;
+  font-family:'Orbitron',sans-serif;font-size:clamp(24px,7.6vw,46px);font-weight:900;letter-spacing:.06em;
+  animation:ssbBnr 1.1s cubic-bezier(.16,1,.3,1) both}
+.ssb-bnr.parry{color:#8fd0ff;text-shadow:0 0 30px #8fd0ff,0 3px 10px #000}
+.ssb-bnr.combo{color:#ffd24d;text-shadow:0 0 30px #ff9a3c,0 3px 10px #000}
+.ssb-bnr.ult{color:#fff;text-shadow:0 0 40px var(--wg,#8fd0ff),0 0 18px #fff,0 3px 10px #000}
+@keyframes ssbBnr{0%{opacity:0;letter-spacing:.5em;filter:blur(10px)}25%{opacity:1;letter-spacing:.06em;filter:blur(0)}75%{opacity:1}100%{opacity:0;scale:1.12}}
+
+.ssb-meters{display:flex;gap:8px;margin-bottom:9px}
+.ssb-meters>*{flex:1;min-width:0}
+.ssb-od{position:relative;height:16px;border-radius:9px;background:#131b2c;border:1px solid #26314a;overflow:hidden}
+.ssb-od i{position:absolute;inset:0;right:auto;display:block;background:linear-gradient(90deg,#d97757,#ffd24d);transition:width .18s ease-out}
+.ssb-od b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.1em;color:#dbe6f7;text-shadow:0 1px 3px #000}
+.ssb-od.full{border-color:#ffd24d;box-shadow:0 0 14px #ffd24d66;animation:ssbOd .9s ease-in-out infinite}
+@keyframes ssbOd{0%,100%{box-shadow:0 0 10px #ffd24d55}50%{box-shadow:0 0 22px #ffd24daa}}
+.ssb-act.ult{background:linear-gradient(135deg,#fff0c2,#ffd24d);animation:ssbOd 1s ease-in-out infinite}
+.ssb-act.ult b{font-size:22px;color:#7a4a06}
+
+.ssb-timer{position:relative;height:16px;border-radius:9px;background:#131b2c;border:1px solid #26314a;overflow:hidden}
 .ssb-timer i{position:absolute;inset:0;right:auto;display:block;background:linear-gradient(90deg,var(--wc,#7fb2ff),var(--wg,#8fd0ff));opacity:.55;transition:width .12s linear}
 .ssb-timer b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.08em;color:#dbe6f7;text-shadow:0 1px 3px #000}
 .ssb-pad{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:8px}
@@ -2602,14 +2713,16 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 @media (orientation:landscape){
   .ssb-stage{padding:0 30px 2px}
   .ssb-slot.me{width:26%}
-  .ssb-slot.foe{width:30%}
+  .ssb-slot.foe{width:34%}
   .ssb-q{font-size:15px;margin-bottom:8px}
   .ssb-opts{grid-template-columns:repeat(4,minmax(0,120px));justify-content:center}
   .ssb-opt{padding:11px 4px}
   .ssb-ask{padding:8px 12px 8px}
   /* landscape puts the thumbs where they already are, out at the edges */
   .ssb-pad{margin-bottom:4px}
-  .ssb-timer{width:min(52%,340px);margin:0 auto 6px}
+  .ssb-meters{width:min(58%,420px);margin:0 auto 6px}
+  .ssb-combo{top:14%}
+  .ssb-bnr{top:30%}
   .ssb-dir{width:50px;height:50px}
   .ssb-act{width:68px;height:52px}
 }

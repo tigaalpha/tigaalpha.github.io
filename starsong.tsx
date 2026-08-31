@@ -787,6 +787,13 @@ const controlPhrase = (n) => CONTROL_PHRASES[Math.min(n, CONTROL_PHRASES.length 
    Twenty seconds is enough for a real exchange and short enough that the
    music never becomes optional. */
 const QUESTION_EVERY = 20;
+/* How long the foe telegraphs before it swings. Long enough to read on a
+   phone, short enough that holding guard down is not a strategy. */
+const TELL = 0.55;
+const MOVE_KIND = {
+  punch: { cd: 0.5,  reach: 0.40, mult: 0.24, fx: "punch" },
+  kick:  { cd: 1.05, reach: 0.47, mult: 0.42, fx: "kick" },
+};
 
 function playerHit(save, streak) {
   const base = 6 + chassisLevel(save) * 1.1;
@@ -1159,18 +1166,23 @@ const CinematicIntro = memo(function CinematicIntro({ W, lang, onDone }) {
    Everything is parametric on the world palette, so a new planet's fauna is
    a data entry rather than an art commission. */
 /* ── the creatures ──────────────────────────────────────────────────────
-   Built round on purpose. A faceted polygon reads as a hazard icon; these
-   are meant to read as characters a nine-year-old wants to beat and then
-   keep. Every silhouette is a soft body with a gloss, a belly, big glassy
-   eyes with two catchlights, cheeks and a mouth — the mascot grammar — and
-   the world's own accent is the only thing that changes between them, so a
-   Ferros drone still reads as Ferros. */
+   Cyber fantasy, drawn round. The silhouette stays a mascot — soft body,
+   huge glassy eyes, cheeks, a mouth — because that is what makes a foe worth
+   beating twice. Everything ON that silhouette is where the genre lives: a
+   translucent shell with an energy core burning through it, circuitry etched
+   in light, a rim light peeling the figure off the background, a
+   holographic sheen crawling across the surface, and shards and runes in
+   orbit around the whole thing.
+
+   Nothing here reads `t`. Every moving part is a CSS keyframe, so the
+   creature animates in the compositor and React re-renders it only when it
+   actually changes — which is what buys the detail. */
 const FOE_RIG = {
-  terra:     { body: "blob",  legs: "stub",  arms: "mitt", crest: "ant",   eyes: 2, face: "smile", cheek: 1 },
-  ferros:    { body: "chunk", legs: "roll",  arms: "paw",  crest: "stack", eyes: 2, face: "grin",  cheek: 1 },
-  glacius:   { body: "drop",  legs: "float", arms: "fin",  crest: "spire", eyes: 3, face: "oh",    cheek: 1 },
-  emberfall: { body: "chunk", legs: "stub",  arms: "paw",  crest: "horn",  eyes: 2, face: "fang",  cheek: 1 },
-  starsong:  { body: "drop",  legs: "float", arms: "wing", crest: "halo",  eyes: 4, face: "smile", cheek: 0 },
+  terra:     { body: "blob",  legs: "stub",  arms: "mitt", crest: "ant",   eyes: 2, face: "smile", cheek: 1, rune: "◈" },
+  ferros:    { body: "chunk", legs: "roll",  arms: "paw",  crest: "stack", eyes: 2, face: "grin",  cheek: 1, rune: "⬢" },
+  glacius:   { body: "drop",  legs: "float", arms: "fin",  crest: "spire", eyes: 3, face: "oh",    cheek: 1, rune: "❋" },
+  emberfall: { body: "chunk", legs: "stub",  arms: "paw",  crest: "horn",  eyes: 2, face: "fang",  cheek: 1, rune: "⟁" },
+  starsong:  { body: "drop",  legs: "float", arms: "wing", crest: "halo",  eyes: 4, face: "smile", cheek: 0, rune: "✦" },
 };
 
 const FOE_BODY = {
@@ -1179,117 +1191,223 @@ const FOE_BODY = {
   drop:  "M100 22 C118 22 133 40 148 62 C164 85 172 100 172 121 C172 155 140 176 100 176 C60 176 28 155 28 121 C28 100 36 85 52 62 C67 40 82 22 100 22 Z",
 };
 
-export const MonsterArt = memo(function MonsterArt({ world, boss, hurt, t = 0 }) {
+/* the etched circuitry, per body — traced so it follows the shell rather
+   than sitting on top of it like a decal */
+const FOE_TRACE = {
+  blob:  "M32 100 H58 L70 86 M130 86 L142 100 H168 M44 138 H72 M128 138 H156 M100 24 V40",
+  chunk: "M28 96 H56 L68 82 M132 82 L144 96 H172 M40 142 H72 M128 142 H160 M100 26 V40",
+  drop:  "M30 112 H56 L68 98 M132 98 L144 112 H170 M46 146 H76 M124 146 H154 M100 30 V46",
+};
+
+export const MonsterArt = memo(function MonsterArt({ world, boss, hurt }) {
   const W = worldById(world);
   const R = FOE_RIG[world] || FOE_RIG.terra;
   const uid = "fo" + world + (boss ? "b" : "");
-  const C = W.accent, G = W.glow, D = "#0d1424";
+  const C = W.accent, G = W.glow, D = "#0a1020";
   const eye = hurt ? "#ffffff" : boss ? "#ff3d3d" : "#ff7a6a";
-  const bob = Math.sin(t * 2.4) * 3;
-  /* Blinking is most of what makes a face feel alive, and it costs one
-     number. It has to be RARE and fast: a slow wink is shut in most frames,
-     which just reads as a creature drawn with its eyes closed. */
-  const bph = (t * 0.3) % 1;
-  const blink = bph > 0.94 ? 1 - Math.abs(bph - 0.97) / 0.03 : 0;
-  const K = boss ? 1.16 : 1;
+  const K = boss ? 1.14 : 1;
+  const body = FOE_BODY[R.body] || FOE_BODY.blob;
+  const trace = FOE_TRACE[R.body] || FOE_TRACE.blob;
+  const orbit = boss ? 6 : 3;
 
   return (
-    <svg viewBox="0 0 200 210" width="100%" height="100%" aria-hidden="true"
-      style={{ filter: hurt ? "brightness(2.1) saturate(.3)" : `drop-shadow(0 0 18px ${G}55)` }}>
+    <svg viewBox="0 -12 200 222" width="100%" height="100%" aria-hidden="true"
+      className={`foart${boss ? " boss" : ""}${hurt ? " hurt" : ""}`}
+      style={{ "--fg": G, "--fc": C, "--fe": eye }}>
       <defs>
-        {/* a soft top-lit body rather than a metal ramp: light on the crown,
-            the accent through the middle, and only a little shade underneath */}
-        <radialGradient id={uid + "-sh"} cx="0.36" cy="0.24" r="0.92">
+        {/* the shell: lit from above and in front, with the world's accent
+            carrying the middle and almost no black — a body that goes to
+            black at the edge reads as plastic, not as something lit */}
+        <radialGradient id={uid + "-sh"} cx="0.36" cy="0.2" r="0.95">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="22%" stopColor="#e8f1ff" />
-          <stop offset="52%" stopColor={C} />
-          <stop offset="100%" stopColor="#1b2336" />
+          <stop offset="18%" stopColor="#eaf3ff" />
+          <stop offset="46%" stopColor={C} />
+          <stop offset="82%" stopColor="#2b3550" />
+          <stop offset="100%" stopColor="#151d30" />
+        </radialGradient>
+        {/* the core burning through the shell from inside */}
+        <radialGradient id={uid + "-core"} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".95" />
+          <stop offset="26%" stopColor={G} stopOpacity=".8" />
+          <stop offset="62%" stopColor={C} stopOpacity=".35" />
+          <stop offset="100%" stopColor={C} stopOpacity="0" />
         </radialGradient>
         <linearGradient id={uid + "-lm"} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#c6d3ea" />
-          <stop offset="100%" stopColor="#3b4763" />
+          <stop offset="0%" stopColor="#dbe6fa" />
+          <stop offset="100%" stopColor="#39456180" />
         </linearGradient>
-        <radialGradient id={uid + "-ey"} cx="0.5" cy="0.42" r="0.7">
+        <radialGradient id={uid + "-ey"} cx="0.44" cy="0.36" r="0.76">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="26%" stopColor={eye} />
-          <stop offset="100%" stopColor="#25060c" />
+          <stop offset="22%" stopColor={eye} />
+          <stop offset="78%" stopColor="#8d1a22" />
+          <stop offset="100%" stopColor="#3a0810" />
         </radialGradient>
-        <clipPath id={uid + "-clip"}><path d={FOE_BODY[R.body] || FOE_BODY.blob} /></clipPath>
+        {/* A rim light is a light SOURCE, not an outline. It falls off across
+            the body, and the cool bounce comes back off the floor on the
+            opposite corner — the two strokes that stop a filled shape
+            reading as a sticker. */}
+        <linearGradient id={uid + "-rim"} x1="0.1" y1="0" x2="0.9" y2="1">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".95" />
+          <stop offset="16%" stopColor={G} stopOpacity=".9" />
+          <stop offset="46%" stopColor={G} stopOpacity=".22" />
+          <stop offset="100%" stopColor={G} stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={uid + "-bnc"} x1="1" y1="1" x2="0.25" y2="0.15">
+          <stop offset="0%" stopColor="#9fd8ff" stopOpacity=".7" />
+          <stop offset="34%" stopColor="#9fd8ff" stopOpacity=".1" />
+          <stop offset="100%" stopColor="#9fd8ff" stopOpacity="0" />
+        </linearGradient>
+        {/* the sheen that crawls across the shell */}
+        <linearGradient id={uid + "-shn"} x1="0" y1="0" x2="1" y2="0.3">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="40%" stopColor="#bfe6ff" stopOpacity=".2" />
+          <stop offset="52%" stopColor="#ffffff" stopOpacity=".34" />
+          <stop offset="64%" stopColor="#ffc7f2" stopOpacity=".18" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+        {/* hull panelling, so the shell has a surface rather than a fill */}
+        <pattern id={uid + "-hex"} width="17" height="29.5" patternUnits="userSpaceOnUse" patternTransform="scale(.86)">
+          <path d="M8.5 0 L17 5 V15 L8.5 20 L0 15 V5 Z" fill="none" stroke="#ffffff" strokeOpacity=".1" strokeWidth=".9" />
+          <path d="M8.5 29.5 L17 24.5 M8.5 29.5 L0 24.5" fill="none" stroke="#ffffff" strokeOpacity=".07" strokeWidth=".9" />
+        </pattern>
+        <filter id={uid + "-bloom"} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="3.4" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <filter id={uid + "-soft"} x="-70%" y="-70%" width="240%" height="240%">
+          <feGaussianBlur stdDeviation="6" />
+        </filter>
+        <clipPath id={uid + "-clip"}><path d={body} /></clipPath>
       </defs>
 
-      <ellipse cx="100" cy="196" rx={boss ? 66 : 46} ry={boss ? 14 : 10} fill="#00040c" opacity=".45" />
-      {boss && (
-        <g>
-          {[0, 1, 2].map(i => (
-            <ellipse key={i} cx="100" cy="194" rx={58 + i * 16} ry={12 + i * 3.4}
-              fill="none" stroke={eye} strokeWidth="2" opacity={(0.3 - i * 0.08) * (0.6 + 0.4 * Math.abs(Math.sin(t * 1.4 + i)))} />
-          ))}
-        </g>
-      )}
+      {/* ── the pad it stands on ── */}
+      <ellipse cx="100" cy="196" rx={boss ? 68 : 48} ry={boss ? 15 : 11} fill="#00040c" opacity=".5" />
+      <g className="fo-pad">
+        <ellipse cx="100" cy="194" rx={boss ? 74 : 54} ry={boss ? 17 : 12} fill="none" stroke={G} strokeWidth="1.6" opacity=".5" />
+        {[0, 1, 2].map(i => (
+          <ellipse key={i} className="fo-ring" style={{ animationDelay: `${i * 1.1}s` }}
+            cx="100" cy="194" rx={boss ? 74 : 54} ry={boss ? 17 : 12}
+            fill="none" stroke={boss ? eye : G} strokeWidth="2" />
+        ))}
+        {/* six anchor ticks — the pad reads as machined rather than drawn */}
+        {[0, 1, 2, 3, 4, 5].map(i => {
+          const a = (i / 6) * Math.PI * 2, rx = boss ? 74 : 54, ry = boss ? 17 : 12;
+          return <circle key={i} cx={100 + Math.cos(a) * rx} cy={194 + Math.sin(a) * ry} r="1.9" fill={G} opacity=".75" />;
+        })}
+      </g>
 
-      <g transform={`translate(100 ${bob}) scale(${K}) translate(-100 0)`}>
+      {/* ── orbiting shards and runes ── */}
+      <g className="fo-orbit">
+        {Array.from({ length: orbit }).map((_, i) => {
+          const a = (i / orbit) * Math.PI * 2;
+          const x = 100 + Math.cos(a) * 72, y = 106 + Math.sin(a) * 25;
+          return (
+            <g key={i} className="fo-shard" style={{ animationDelay: `${i * 0.45}s` }}>
+              <path d={`M${x} ${y - 12} L${x + 8} ${y} L${x} ${y + 12} L${x - 8} ${y} Z`}
+                fill={G} opacity=".95" filter={`url(#${uid}-bloom)`} />
+              <path d={`M${x} ${y - 12} L${x + 8} ${y} L${x} ${y + 12} L${x - 8} ${y} Z`}
+                fill="none" stroke="#ffffff" strokeWidth="1.1" opacity=".8" />
+            </g>
+          );
+        })}
+      </g>
+      <g className="fo-orbit rev">
+        {[0, 1].map(i => {
+          const a = i * Math.PI + 0.6;
+          return (
+            <text key={i} className="fo-rune" style={{ animationDelay: `${i * 0.9}s` }}
+              x={100 + Math.cos(a) * 84} y={94 + Math.sin(a) * 18}
+              fontSize="21" textAnchor="middle" fill={G} opacity=".95">{R.rune}</text>
+          );
+        })}
+      </g>
+
+      <g className="fo-bob" transform={`translate(100 0) scale(${K}) translate(-100 0)`}>
         {/* ── legs ── */}
         {R.legs === "stub" && [-1, 1].map(k => (
           <g key={k}>
-            <rect x={100 + k * 30 - 14} y="140" width="28" height="44" rx="14" fill={`url(#${uid}-lm)`} stroke="#0a1020" strokeWidth="2" />
-            <ellipse cx={100 + k * 30} cy="182" rx="20" ry="11" fill="#e3eaf8" stroke="#0a1020" strokeWidth="2" />
-            <ellipse cx={100 + k * 30 - 4} cy="179" rx="9" ry="4" fill="#fff" opacity=".55" />
+            <rect x={100 + k * 30 - 14} y="140" width="28" height="44" rx="14" fill={`url(#${uid}-lm)`} stroke={D} strokeWidth="2" />
+            <ellipse cx={100 + k * 30} cy="182" rx="20" ry="11" fill="#e6edfa" stroke={D} strokeWidth="2" />
+            <ellipse cx={100 + k * 30 - 4} cy="179" rx="9" ry="4" fill="#fff" opacity=".6" />
+            <path d={`M${100 + k * 30 - 11} 186 H${100 + k * 30 + 11}`} stroke={G} strokeWidth="2" strokeLinecap="round" opacity=".7" />
           </g>
         ))}
         {R.legs === "roll" && (
           <g>
-            <rect x="40" y="146" width="120" height="42" rx="21" fill="#2a3550" stroke="#0a1020" strokeWidth="2.2" />
-            <circle cx="66" cy="167" r="16" fill={`url(#${uid}-lm)`} stroke="#0a1020" strokeWidth="2" />
-            <circle cx="134" cy="167" r="16" fill={`url(#${uid}-lm)`} stroke="#0a1020" strokeWidth="2" />
-            <circle cx="66" cy="167" r="6" fill={G} opacity=".8" />
-            <circle cx="134" cy="167" r="6" fill={G} opacity=".8" />
-          </g>
-        )}
-        {R.legs === "float" && (
-          <g opacity=".9">
-            {[0, 1, 2].map(i => (
-              <ellipse key={i} cx="100" cy={168 + i * 11} rx={42 - i * 12} ry={8 - i * 1.8}
-                fill="none" stroke={G} strokeWidth="3" strokeLinecap="round"
-                opacity={(0.55 - i * 0.14) * (0.7 + 0.3 * Math.abs(Math.sin(t * 2 + i)))} />
+            <rect x="40" y="146" width="120" height="42" rx="21" fill="#25304a" stroke={D} strokeWidth="2.2" />
+            <rect x="48" y="152" width="104" height="7" rx="3.5" fill={G} opacity=".45" />
+            {[66, 134].map(cx => (
+              <g key={cx}>
+                <circle cx={cx} cy="167" r="16" fill={`url(#${uid}-lm)`} stroke={D} strokeWidth="2" />
+                <circle className="fo-hub" cx={cx} cy="167" r="7" fill={G} filter={`url(#${uid}-bloom)`} />
+              </g>
             ))}
           </g>
         )}
+        {R.legs === "float" && (
+          <g>
+            {[0, 1, 2].map(i => (
+              <ellipse key={i} className="fo-hover" style={{ animationDelay: `${i * 0.4}s` }}
+                cx="100" cy={168 + i * 11} rx={44 - i * 13} ry={8 - i * 1.8}
+                fill="none" stroke={G} strokeWidth="3" strokeLinecap="round" />
+            ))}
+            <ellipse cx="100" cy="176" rx="34" ry="9" fill={G} opacity=".22" filter={`url(#${uid}-soft)`} />
+          </g>
+        )}
 
-        {/* ── body ── */}
-        <path d={FOE_BODY[R.body] || FOE_BODY.blob} fill={`url(#${uid}-sh)`} stroke="#0a1020" strokeWidth="2.4" strokeLinejoin="round" />
+        {/* ── the shell ── */}
+        <g filter={hurt ? undefined : `url(#${uid}-soft)`} opacity=".55">
+          <path d={body} fill={C} />
+        </g>
+        <path d={body} fill={`url(#${uid}-sh)`} stroke={D} strokeWidth="2.4" strokeLinejoin="round" />
         <g clipPath={`url(#${uid}-clip)`}>
-          {/* the belly, then the gloss — the two marks that turn a filled
-              shape into something with a surface */}
-          <ellipse cx="100" cy="136" rx="44" ry="36" fill="#ffffff" opacity=".15" />
-          <path d="M54 74 C64 46 86 33 112 35" stroke="#ffffff" strokeWidth="11" strokeLinecap="round" fill="none" opacity=".26" />
-          <path d="M150 60 C166 84 168 118 156 144" stroke="#0a1020" strokeWidth="14" strokeLinecap="round" fill="none" opacity=".14" />
+          {/* core → panels → traces → sheen → rim. Order is the whole trick:
+              the core sits UNDER the panelling so it reads as light coming
+              through the hull, and the rim goes last so nothing dulls it. */}
+          <rect x="0" y="0" width="200" height="210" fill={`url(#${uid}-hex)`} />
+          <ellipse cx="100" cy="136" rx="44" ry="36" fill="#ffffff" opacity=".1" />
+          <ellipse className="fo-core" cx="100" cy="122" rx="58" ry="50" fill={`url(#${uid}-core)`} />
+          <path className="fo-trace" d={trace} fill="none" stroke={G} strokeWidth="2.2"
+            strokeLinecap="round" strokeLinejoin="round" filter={`url(#${uid}-bloom)`} />
+          <path d={trace} fill="none" stroke="#ffffff" strokeWidth=".8" strokeLinecap="round" opacity=".55" />
+          <path d="M50 70 C60 44 84 32 110 34" stroke="#ffffff" strokeWidth="11" strokeLinecap="round" fill="none" opacity=".3" />
+          <rect className="fo-sheen" x="-60" y="-10" width="30" height="230" fill={`url(#${uid}-shn)`} transform="skewX(-16)" />
+          {/* rim light: the same silhouette, stroked fat and clipped, so only
+              the inner half of the stroke survives — one line and the figure
+              stops being a sticker */}
+          <path d="M150 56 C168 82 170 120 158 148" stroke={D} strokeWidth="16" strokeLinecap="round" fill="none" opacity=".2" />
+          <path d={body} fill="none" stroke={`url(#${uid}-bnc)`} strokeWidth="8" />
+          <path d={body} fill="none" stroke={`url(#${uid}-rim)`} strokeWidth="8" />
+          <path d={body} fill="none" stroke={`url(#${uid}-rim)`} strokeWidth="2.6" />
         </g>
 
         {/* ── arms ── */}
-        {(R.arms === "mitt" || R.arms === "paw") && [-1, 1].map(k => {
-          const sw = Math.sin(t * 2.4 + (k > 0 ? 0 : Math.PI)) * 5;
-          return (
-            <g key={k} transform={`translate(0 ${sw})`}>
-              <path d={`M${100 + k * 62} 96 Q${100 + k * 74} 110 ${100 + k * 78} 130`}
-                stroke={`url(#${uid}-lm)`} strokeWidth="15" strokeLinecap="round" fill="none" />
-              <circle cx={100 + k * 80} cy="138" r={R.arms === "paw" ? 18 : 15} fill="#e3eaf8" stroke="#0a1020" strokeWidth="2" />
-              {R.arms === "paw" && [-1, 0, 1].map(j => (
-                <circle key={j} cx={100 + k * 80 + j * 8} cy={130 + Math.abs(j) * 3} r="4" fill={C} opacity=".55" />
-              ))}
-              <circle cx={100 + k * 80 - 5} cy="133" r="5" fill="#fff" opacity=".6" />
-            </g>
-          );
-        })}
+        {(R.arms === "mitt" || R.arms === "paw") && [-1, 1].map(k => (
+          <g key={k} className={k > 0 ? "fo-armR" : "fo-armL"}>
+            <path d={`M${100 + k * 62} 96 Q${100 + k * 74} 110 ${100 + k * 78} 130`}
+              stroke={`url(#${uid}-lm)`} strokeWidth="15" strokeLinecap="round" fill="none" />
+            <circle cx={100 + k * 80} cy="138" r={R.arms === "paw" ? 18 : 15} fill="#e6edfa" stroke={D} strokeWidth="2" />
+            <circle cx={100 + k * 80} cy="138" r={R.arms === "paw" ? 18 : 15} fill="none" stroke={G} strokeWidth="2" opacity=".65" />
+            {R.arms === "paw" && [-1, 0, 1].map(j => (
+              <circle key={j} cx={100 + k * 80 + j * 8} cy={130 + Math.abs(j) * 3} r="4" fill={C} opacity=".6" />
+            ))}
+            <circle cx={100 + k * 80 - 5} cy="133" r="5" fill="#fff" opacity=".65" />
+          </g>
+        ))}
         {R.arms === "fin" && [-1, 1].map(k => (
-          <path key={k} d={`M${100 + k * 62} 92 C${100 + k * 98} 88 ${100 + k * 112} 118 ${100 + k * 88} 148 C${100 + k * 88} 128 ${100 + k * 74} 110 ${100 + k * 62} 106 Z`}
-            fill={G} opacity=".5" stroke={G} strokeWidth="2.4" strokeLinejoin="round" />
+          <g key={k} className={k > 0 ? "fo-armR" : "fo-armL"}>
+            <path d={`M${100 + k * 62} 92 C${100 + k * 98} 88 ${100 + k * 112} 118 ${100 + k * 88} 148 C${100 + k * 80} 128 ${100 + k * 74} 110 ${100 + k * 62} 106 Z`}
+              fill={G} opacity=".42" stroke={G} strokeWidth="2.4" strokeLinejoin="round" />
+            <path d={`M${100 + k * 68} 100 C${100 + k * 92} 102 ${100 + k * 100} 120 ${100 + k * 88} 138`}
+              fill="none" stroke="#ffffff" strokeWidth="1.4" opacity=".55" />
+          </g>
         ))}
         {R.arms === "wing" && [-1, 1].map(k => (
-          <g key={k}>
+          <g key={k} className={k > 0 ? "fo-wingR" : "fo-wingL"}>
             <path d={`M${100 + k * 46} 66 C${100 + k * 110} 34 ${100 + k * 146} 76 ${100 + k * 108} 124 C${100 + k * 88} 106 ${100 + k * 62} 90 ${100 + k * 46} 86 Z`}
-              fill={G} opacity=".3" stroke={G} strokeWidth="2.6" strokeLinejoin="round" />
+              fill={G} opacity=".26" stroke={G} strokeWidth="2.6" strokeLinejoin="round" filter={`url(#${uid}-bloom)`} />
             {[0.4, 0.72].map(r => (
-              <path key={r} fill="none" stroke={G} strokeWidth="1.8" strokeLinecap="round" opacity=".55"
+              <path key={r} fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" opacity=".5"
                 d={`M${100 + k * 52} 74 Q${100 + k * (64 + 62 * r)} ${56 - 8 * r} ${100 + k * (72 + 40 * r)} ${80 + 30 * r}`} />
             ))}
           </g>
@@ -1297,57 +1415,70 @@ export const MonsterArt = memo(function MonsterArt({ world, boss, hurt, t = 0 })
 
         {/* ── crest ── */}
         {R.crest === "ant" && [-1, 1].map(k => (
-          <g key={k}>
-            <path d={`M${100 + k * 18} 34 Q${100 + k * 30} 8 ${100 + k * 36} ${-2 + Math.sin(t * 3 + k) * 5}`}
-              stroke="#c6d3ea" strokeWidth="4.5" strokeLinecap="round" fill="none" />
-            <circle cx={100 + k * 36} cy={-2 + Math.sin(t * 3 + k) * 5} r="7.5" fill={G} />
-            <circle cx={100 + k * 36} cy={-2 + Math.sin(t * 3 + k) * 5} r="7.5" fill="none" stroke="#0a1020" strokeWidth="1.4" />
-            <circle cx={100 + k * 34} cy={-5 + Math.sin(t * 3 + k) * 5} r="2.6" fill="#fff" opacity=".8" />
+          <g key={k} className={k > 0 ? "fo-antR" : "fo-antL"}>
+            <path d={`M${100 + k * 18} 34 Q${100 + k * 30} 8 ${100 + k * 36} -2`} stroke="#cbd8ee" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+            <circle cx={100 + k * 36} cy="-2" r="7.5" fill={G} filter={`url(#${uid}-bloom)`} />
+            <circle cx={100 + k * 36} cy="-2" r="7.5" fill="none" stroke={D} strokeWidth="1.4" />
+            <circle cx={100 + k * 34} cy="-5" r="2.6" fill="#fff" opacity=".85" />
           </g>
         ))}
         {R.crest === "stack" && [0, 1, 2].map(i => {
           const x = 78 + i * 16, y = 14 + (i % 2) * 7;
           return (
             <g key={i}>
-              <rect x={x} y={y} width="15" height="34" rx="7.5" fill="#4a5875" stroke="#0a1020" strokeWidth="1.8" />
-              <ellipse cx={x + 7.5} cy={y + 2} rx="8" ry="4" fill="#6d7d9c" stroke="#0a1020" strokeWidth="1.4" />
-              <circle cx={x + 7.5} cy={y - 11 - Math.abs(Math.sin(t * 2 + i)) * 6} r={5 + Math.abs(Math.sin(t * 2 + i)) * 3}
-                fill={G} opacity={.4 - Math.abs(Math.sin(t * 2 + i)) * .24} />
+              <rect x={x} y={y} width="15" height="34" rx="7.5" fill="#4a5875" stroke={D} strokeWidth="1.8" />
+              <rect x={x + 3} y={y + 6} width="9" height="3" rx="1.5" fill={G} opacity=".8" />
+              <ellipse cx={x + 7.5} cy={y + 2} rx="8" ry="4" fill="#75859f" stroke={D} strokeWidth="1.4" />
+              <circle className="fo-puff" style={{ animationDelay: `${i * 0.5}s` }} cx={x + 7.5} cy={y - 6} r="6" fill={G} />
             </g>
           );
         })}
         {R.crest === "spire" && [-1, 0, 1].map(k => (
-          <path key={k} d={`M${100 + k * 27 - 10} 44 Q${100 + k * 27} ${k === 0 ? -6 : 10} ${100 + k * 27 + 10} 44 Z`}
-            fill={G} opacity=".92" stroke="#0a1020" strokeWidth="1.8" strokeLinejoin="round" />
+          <g key={k}>
+            <path d={`M${100 + k * 27 - 10} 44 Q${100 + k * 27} ${k === 0 ? -6 : 10} ${100 + k * 27 + 10} 44 Z`}
+              fill={G} opacity=".95" stroke={D} strokeWidth="1.8" strokeLinejoin="round" />
+            <path d={`M${100 + k * 27 - 3} 42 Q${100 + k * 27} ${k === 0 ? 2 : 16} ${100 + k * 27 + 2} 42 Z`} fill="#ffffff" opacity=".6" />
+          </g>
         ))}
         {R.crest === "horn" && [-1, 1].map(k => (
-          <path key={k} d={`M${100 + k * 34} 48 C${100 + k * 40} 16 ${100 + k * 66} 6 ${100 + k * 76} 18 C${100 + k * 60} 24 ${100 + k * 50} 38 ${100 + k * 46} 56 Z`}
-            fill={C} stroke="#0a1020" strokeWidth="2" strokeLinejoin="round" />
+          <g key={k}>
+            <path d={`M${100 + k * 34} 48 C${100 + k * 40} 16 ${100 + k * 66} 6 ${100 + k * 76} 18 C${100 + k * 60} 24 ${100 + k * 50} 38 ${100 + k * 46} 56 Z`}
+              fill={C} stroke={D} strokeWidth="2" strokeLinejoin="round" />
+            <path d={`M${100 + k * 40} 42 C${100 + k * 46} 22 ${100 + k * 62} 16 ${100 + k * 70} 20`}
+              fill="none" stroke={G} strokeWidth="2" strokeLinecap="round" opacity=".85" />
+          </g>
         ))}
         {R.crest === "halo" && (
-          <g>
-            <ellipse cx="100" cy="16" rx="46" ry="13" fill="none" stroke={G} strokeWidth="4.5" opacity=".85" />
-            <ellipse cx="100" cy="16" rx="46" ry="13" fill="none" stroke="#fff" strokeWidth="1.4" opacity=".45" />
+          <g className="fo-halo">
+            <ellipse cx="100" cy="16" rx="46" ry="13" fill="none" stroke={G} strokeWidth="4.5" filter={`url(#${uid}-bloom)`} />
+            <ellipse cx="100" cy="16" rx="46" ry="13" fill="none" stroke="#fff" strokeWidth="1.4" opacity=".55" />
           </g>
         )}
 
-        {/* ── face: eyes, cheeks, mouth ── */}
+        {/* ── face ── */}
         {Array.from({ length: R.eyes }).map((_, i) => {
           const n = R.eyes, cx = 100 + (i - (n - 1) / 2) * (n > 3 ? 26 : n === 3 ? 32 : 36);
           const r = n === 1 ? 28 : n === 2 ? 21 : n === 3 ? 16 : 11.5;
           const cy = n > 3 ? 88 + Math.abs(i - (n - 1) / 2) * 6 : 92;
           return (
             <g key={i}>
-              <ellipse cx={cx} cy={cy} rx={r + 4} ry={(r + 4) * (1 - blink * 0.92)} fill={D} />
-              <circle cx={cx} cy={cy} r={r + 8} fill={eye} opacity=".16" />
-              <ellipse cx={cx} cy={cy} rx={r} ry={r * (1 - blink * 0.92)} fill={`url(#${uid}-ey)`} />
-              <ellipse cx={cx} cy={cy} rx={r} ry={r * (1 - blink * 0.92)} fill="none" stroke="#0a1020" strokeWidth="2" opacity=".7" />
-              {blink < 0.5 && (
-                <g>
-                  <circle cx={cx - r * .34} cy={cy - r * .36} r={r * .3} fill="#fff" opacity=".95" />
-                  <circle cx={cx + r * .3} cy={cy + r * .34} r={r * .14} fill="#fff" opacity=".55" />
+              <circle cx={cx} cy={cy} r={r + 10} fill={eye} opacity=".2" filter={`url(#${uid}-soft)`} />
+              <circle cx={cx} cy={cy} r={r + 4} fill="#080d18" />
+              <circle cx={cx} cy={cy} r={r + 4} fill="none" stroke={G} strokeWidth="1.6" opacity=".55" />
+              <clipPath id={`${uid}-ec${i}`}><circle cx={cx} cy={cy} r={r} /></clipPath>
+              <g className="fo-lid" style={{ animationDelay: `${i * 0.06}s`, transformOrigin: `${cx}px ${cy}px` }}>
+                <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}-ey)`} />
+                {/* the scan bar that says this eye is a sensor. It has to be
+                    clipped by a real clipPath — a CSS basic shape resolves
+                    against the rect's own box and the bar escaped across the
+                    whole face as a stray white line. */}
+                <g clipPath={`url(#${uid}-ec${i})`}>
+                  <rect className="fo-scan" x={cx - r} y={cy - r * 1.1} width={r * 2} height={r * 0.3}
+                    fill="#ffffff" opacity=".4" />
                 </g>
-              )}
+                <circle cx={cx - r * .34} cy={cy - r * .36} r={r * .3} fill="#fff" opacity=".95" />
+                <circle cx={cx + r * .3} cy={cy + r * .34} r={r * .14} fill="#fff" opacity=".6" />
+              </g>
             </g>
           );
         })}
@@ -1364,7 +1495,7 @@ export const MonsterArt = memo(function MonsterArt({ world, boss, hurt, t = 0 })
         {R.face === "oh" && (
           <g>
             <ellipse cx="100" cy="130" rx="10" ry="13" fill={D} />
-            <ellipse cx="100" cy="136" rx="6" ry="6" fill={eye} opacity=".5" />
+            <ellipse className="fo-core" cx="100" cy="136" rx="6" ry="6" fill={eye} opacity=".6" />
           </g>
         )}
         {R.face === "fang" && (
@@ -1383,17 +1514,21 @@ export const MonsterArt = memo(function MonsterArt({ world, boss, hurt, t = 0 })
             {[-1, 1].map(k => (
               <g key={k}>
                 <path d={`M${100 + k * 38} 56 C${100 + k * 68} 48 ${100 + k * 80} 72 ${100 + k * 68} 90 L${100 + k * 40} 82 Z`}
-                  fill={C} stroke="#0a1020" strokeWidth="2.2" strokeLinejoin="round" />
-                <path d={`M${100 + k * 46} 62 C${100 + k * 62} 58 ${100 + k * 70} 70 ${100 + k * 64} 80`}
-                  fill="none" stroke="#fff" strokeWidth="1.6" opacity=".4" />
+                  fill={C} stroke={D} strokeWidth="2.2" strokeLinejoin="round" />
+                <path d={`M${100 + k * 44} 60 C${100 + k * 66} 54 ${100 + k * 76} 72 ${100 + k * 66} 86`}
+                  fill="none" stroke={G} strokeWidth="2.2" opacity=".9" />
+                <path d={`M${100 + k * 46} 66 C${100 + k * 62} 62 ${100 + k * 70} 72 ${100 + k * 64} 80`}
+                  fill="none" stroke="#fff" strokeWidth="1.6" opacity=".45" />
               </g>
             ))}
             <path d="M70 44 H130" stroke={C} strokeWidth="8" strokeLinecap="round" />
+            <path d="M70 44 H130" stroke={G} strokeWidth="2.4" strokeLinecap="round" opacity=".9" />
             {[-1, 0, 1].map(k => (
               <g key={k}>
                 <path d={`M${100 + k * 20 - 8} 44 Q${100 + k * 20} ${k === 0 ? 12 : 22} ${100 + k * 20 + 8} 44 Z`}
-                  fill={eye} stroke="#0a1020" strokeWidth="1.5" strokeLinejoin="round" />
-                <circle cx={100 + k * 20} cy={k === 0 ? 18 : 26} r="4.5" fill="#ffe08a" stroke="#0a1020" strokeWidth="1.2" />
+                  fill={eye} stroke={D} strokeWidth="1.5" strokeLinejoin="round" />
+                <circle className="fo-core" cx={100 + k * 20} cy={k === 0 ? 18 : 26} r="4.5"
+                  fill="#ffe08a" stroke={D} strokeWidth="1.2" />
               </g>
             ))}
           </g>
@@ -1442,7 +1577,7 @@ const MOVES = [
 const moveFor = (streak) => MOVES[Math.min(streak, MOVES.length - 1)];
 
 const BattleScreen = memo(function BattleScreen({
-  lang, W, foe, hp, maxHpV, chassisEl, onAnswer, onFlee, shake, hurtFoe, hurtMe, playing, reveal, onNextQ, bt, onAct,
+  lang, W, foe, hp, maxHpV, chassisEl, onAnswer, onFlee, shake, hurtFoe, hurtMe, playing, reveal, onNextQ, bt, onAct, bnr,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const G = useArenaFx(stageById(W.track));
@@ -1457,7 +1592,7 @@ const BattleScreen = memo(function BattleScreen({
   /* Keys for anyone on a laptop: the same five actions the thumbs get. */
   useEffect(() => {
     if (!onAct) return;
-    const K = { ArrowLeft: "left", a: "left", ArrowRight: "right", d: "right", j: "punch", z: "punch", k: "kick", x: "kick", " ": "guard" };
+    const K = { ArrowLeft: "left", a: "left", ArrowRight: "right", d: "right", j: "punch", z: "punch", k: "kick", x: "kick", " ": "guard", Enter: "ult", e: "ult" };
     const dn = (e) => { const m = K[e.key] || K[e.key.toLowerCase()]; if (m) { e.preventDefault(); onAct(m); } };
     window.addEventListener("keydown", dn);
     return () => window.removeEventListener("keydown", dn);
@@ -1474,8 +1609,15 @@ const BattleScreen = memo(function BattleScreen({
      header was painting over the top of the fight and eating both HP bars —
      the two numbers the whole fight is about. Out here it cannot. */
   return createPortal((
-    <div className={`ssbattle${foe.boss ? " boss" : ""}${shake ? " shake" : ""}`} style={{ "--wc": W.accent, "--wg": W.glow }}>
+    <div className={`ssbattle${foe.boss ? " boss" : ""}${shake ? " shake" : ""}${hurtFoe ? " punchy" : ""}`} style={{ "--wc": W.accent, "--wg": W.glow }}>
       <canvas ref={G.canvasRef} className="ssbfx" />
+      {/* atmosphere: a light shaft, drifting embers and a haze horizon. All
+          CSS, so none of it costs a frame of the fight. */}
+      <div className="ssb-atmo" aria-hidden="true">
+        <span className="ssb-shaft" /><span className="ssb-shaft b" />
+        {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <i key={i} className="ssb-ember" style={{ left: `${5 + i * 12}%`, animationDelay: `${i * 1.6}s`, animationDuration: `${9 + (i % 4) * 2.5}s` }} />)}
+        <span className="ssb-haze" />
+      </div>
 
       <div className="ssb-bars">
         <div className="ssb-bar me">
@@ -1497,11 +1639,16 @@ const BattleScreen = memo(function BattleScreen({
           <div className={`ssb-side me${hurtMe ? " hit" : ""}${(bt && bt.guard) > 0 ? " guarding" : ""}`}>{chassisEl}</div>
         </div>
         <div className={`ssb-slot foe${foe.boss ? " big" : ""}`} style={{ transform: `translateX(${(((bt && bt.foe) || 0.76) - 0.76) * 100}vw)` }}>
-          <div className={`ssb-side foe${hurtFoe ? " hit" : ""}${foe.boss ? " big" : ""}`}>
-            <MonsterArt world={W.id} boss={foe.boss} hurt={hurtFoe} t={t} />
+          <div className={`ssb-side foe${hurtFoe ? " hit" : ""}${foe.boss ? " big" : ""}${(bt && bt.tell) > 0 ? " tell" : ""}`}>
+            <MonsterArt world={W.id} boss={foe.boss} hurt={hurtFoe} />
           </div>
+          {(bt && bt.tell) > 0 && <span className="ssb-tell">!</span>}
         </div>
       </div>
+
+      {/* the two numbers a fighting game lives on */}
+      {(bt && bt.combo) > 1 && <div className="ssb-combo" key={bt.combo}><b>{bt.combo}</b><i>{T("คอมโบ", "COMBO", "连击")}</i></div>}
+      {bnr && <div className={`ssb-bnr ${bnr.kind}`} key={bnr.id}>{bnr.text}</div>}
 
       {foe.boss && foe.line && <p className="ssb-line">{foe.line}</p>}
 
@@ -1512,9 +1659,15 @@ const BattleScreen = memo(function BattleScreen({
              walks you down, a punch only lands inside its reach, and guard
              costs you the ground you would otherwise be taking. */
           <>
-            <div className="ssb-timer">
-              <i style={{ width: `${(1 - (bt.qIn || 0) / QUESTION_EVERY) * 100}%` }} />
-              <b>{T("คำถามในอีก", "Question in", "问题将在")} {Math.ceil(bt.qIn || 0)}s</b>
+            <div className="ssb-meters">
+              <div className="ssb-timer">
+                <i style={{ width: `${(1 - (bt.qIn || 0) / QUESTION_EVERY) * 100}%` }} />
+                <b>{T("คำถามในอีก", "Question in", "问题将在")} {Math.ceil(bt.qIn || 0)}s</b>
+              </div>
+              <div className={`ssb-od${(bt.od || 0) >= 100 ? " full" : ""}`}>
+                <i style={{ width: `${bt.od || 0}%` }} />
+                <b>{(bt.od || 0) >= 100 ? T("พร้อม!", "READY!", "就绪!") : "OVERDRIVE"}</b>
+              </div>
             </div>
             <div className="ssb-pad">
               <div className="ssb-pad-l">
@@ -1523,6 +1676,11 @@ const BattleScreen = memo(function BattleScreen({
                 <button className="ssb-dir" aria-label={T("เข้าหา", "Forward", "前进")} onPointerDown={() => onAct("right")}>▶</button>
               </div>
               <div className="ssb-pad-r">
+                {(bt.od || 0) >= 100 && (
+                  <button className="ssb-act ult" onPointerDown={() => onAct("ult")}>
+                    <b>✦</b><i>{T("ปลดปล่อย", "OVERDRIVE", "超载")}</i>
+                  </button>
+                )}
                 <button className={`ssb-act punch${(bt.cd || {}).punch > 0 ? " cool" : ""}`} onPointerDown={() => onAct("punch")}>
                   <b>👊</b><i>{T("ต่อย", "PUNCH", "拳击")}</i>
                 </button>
@@ -1587,6 +1745,13 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const [hurtMe, setHurtMe] = useState(false);
   const [reveal, setReveal] = useState(null);   // {q, chosen} — the answered question, held on screen
   const revealRef = useRef(null);
+  const [bnr, setBnr] = useState(null);       // {text, kind} — PARRY / COMBO / OVERDRIVE
+  const bnrT = useRef(0);
+  const banner = useCallback((text, kind) => {
+    setBnr({ text, kind, id: Date.now() });
+    window.clearTimeout(bnrT.current);
+    bnrT.current = window.setTimeout(() => setBnr(null), 1100);
+  }, []);
   useEffect(() => { revealRef.current = reveal; }, [reveal]);
   /** Push a number over a world position. Purely feedback — it reads nothing
       and changes nothing, which is exactly what it should be. */
@@ -2099,11 +2264,12 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
      numbers live in a ref and are mirrored into state at ~20fps, because a
      spacing duel does not need 60 renders a second and the canvas has its
      own loop anyway. */
-  const btRef = useRef({ me: 0.24, foe: 0.76, guard: 0, qIn: QUESTION_EVERY, foeCd: 2.2, cd: { punch: 0, kick: 0, guard: 0 }, hitLag: 0 });
+  const btRef = useRef({ me: 0.24, foe: 0.76, guard: 0, qIn: QUESTION_EVERY, foeCd: 2.2, cd: { punch: 0, kick: 0, guard: 0 }, tell: 0, tellAt: 0, guardAt: 0, combo: 0, comboAt: 0, od: 0 });
   const [bt, setBt] = useState(() => ({ ...btRef.current }));
   const resetArena = useCallback(() => {
-    btRef.current = { me: 0.24, foe: 0.76, guard: 0, qIn: QUESTION_EVERY, foeCd: 2.4, cd: { punch: 0, kick: 0, guard: 0 }, hitLag: 0 };
+    btRef.current = { me: 0.24, foe: 0.76, guard: 0, qIn: QUESTION_EVERY, foeCd: 2.4, cd: { punch: 0, kick: 0, guard: 0 }, tell: 0, tellAt: 0, guardAt: 0, combo: 0, comboAt: 0, od: 0 };
     setBt({ ...btRef.current });
+    setBnr(null);
   }, []);
 
   useEffect(() => {
@@ -2124,10 +2290,25 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         b.qIn = Math.max(0, b.qIn - dt);
         // the foe walks you down, then swings when it is in reach
         const gap = b.foe - b.me;
-        if (gap > 0.17) b.foe = Math.max(b.me + 0.16, b.foe - dt * 0.16);
-        else if (gap < 0.13) b.foe = Math.min(0.79, b.foe + dt * 0.1);
+        /* The gaps are tuned to how wide the figures actually draw: at rest
+           their centres sit 0.5 of the stage apart, so "in your face" is
+           0.34, not 0.16 — which had the foe standing inside the player. */
+        if (gap > 0.36) b.foe = Math.max(b.me + 0.34, b.foe - dt * 0.15);
+        else if (gap < 0.32) b.foe = Math.min(0.79, b.foe + dt * 0.1);
+        /* The wind-up is the whole reason guard is a skill. The foe tells
+           for a beat before it swings; guard pressed INSIDE that beat is a
+           parry, guard held from before it is only a block. */
         b.foeCd -= dt;
-        if (b.foeCd <= 0 && gap < 0.22) { b.foeCd = cur.boss ? 1.7 : 2.3; foeSwing(); }
+        if (b.tell > 0) {
+          b.tell -= dt;
+          if (b.tell <= 0) { b.tell = 0; foeSwing(); }
+        } else if (b.foeCd <= 0 && gap < 0.44) {
+          b.foeCd = cur.boss ? 1.9 : 2.5;
+          b.tell = TELL; b.tellAt = now;
+          playWhoosh();
+        }
+        // the combo lapses if you stop hitting
+        if (b.combo > 0 && now - b.comboAt > 1600) b.combo = 0;
         if (b.qIn <= 0) {
           b.qIn = QUESTION_EVERY;
           setFight({ ...cur, phase: "quiz", q: makeQuestion(lang) });
@@ -2142,14 +2323,28 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fight && fight.kind, fight && fight.phase, fight && fight.over, ctrl, lang]);
 
-  /** The foe's own swing. Guard eats most of it; distance eats all of it. */
+  /** The foe's own swing. A parry beats it outright, guard eats most of it,
+      and distance eats all of it. */
   function foeSwing() {
     const b = btRef.current, f = fightRef.current;
     if (!f || f.over) return;
     const G = fxRef.current;
     if (G) { G.swipe("op", "#ff6a6a", "punch"); window.setTimeout(() => G.impact("me", 1.1, "#ff6a6a", "punch"), 140); }
+    // guard raised INSIDE the wind-up: read the tell, take the round
+    if (b.guard > 0 && b.guardAt >= b.tellAt) {
+      b.od = Math.min(100, b.od + 26);
+      b.foeCd = 1.5; b.foe = Math.min(0.79, b.foe + 0.08);
+      haptic(26); playBoom(true);
+      if (G) { G.flash("#8fd0ff", .6, .34); G.burst("me", 2.4, "#8fd0ff"); }
+      banner(T("สวนกลับ!", "PARRY!", "招架!"), "parry");
+      pop(meRef.current.x, meRef.current.y - 24, T("สวนกลับ!", "PARRY!", "招架!"), "#8fd0ff", true);
+      setBt({ ...b });
+      // the free counter a parry earns
+      window.setTimeout(() => landHit("kick", 0.5, true), 120);
+      return;
+    }
     playMiss();
-    if (b.guard > 0) { haptic(8); pop(meRef.current.x, meRef.current.y - 20, tr3({ th: "กัน", en: "BLOCK", zh: "格挡" }, lang), "#7fd0ff", false); return; }
+    if (b.guard > 0) { haptic(8); pop(meRef.current.x, meRef.current.y - 20, T("กัน", "BLOCK", "格挡"), "#7fd0ff", false); return; }
     const dmg = Math.max(2, Math.round(mobHit(saveRef.current, f.boss) * 0.42));
     haptic(16);
     setHurtMe(true); window.setTimeout(() => setHurtMe(false), 200);
@@ -2167,28 +2362,53 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   function act(kind) {
     const b = btRef.current, f = fightRef.current;
     if (!f || f.over || f.phase !== "act" || revealRef.current) return;
-    if (kind === "left")  { b.me = Math.max(0.2, b.me - 0.07); setBt({ ...b }); return; }
-    if (kind === "right") { b.me = Math.min(b.foe - 0.1, b.me + 0.07); setBt({ ...b }); return; }
+    if (kind === "left")  { b.me = Math.max(0.18, b.me - 0.06); setBt({ ...b }); return; }
+    if (kind === "right") { b.me = Math.min(b.foe - 0.28, b.me + 0.06); setBt({ ...b }); return; }
     if (kind === "guard") {
       if (b.cd.guard > 0) return;
-      b.cd.guard = 2.2; b.guard = 1.1; haptic(6); playWhoosh(); setBt({ ...b }); return;
+      b.cd.guard = 1.6; b.guard = 0.85; b.guardAt = performance.now();
+      haptic(6); playWhoosh(); setBt({ ...b }); return;
     }
-    const M = kind === "kick"
-      ? { cd: 1.15, reach: 0.26, mult: 0.42, fx: "kick" }
-      : { cd: 0.55, reach: 0.19, mult: 0.24, fx: "punch" };
-    if (b.cd[kind] > 0) return;
+    if (kind === "ult") {
+      if (b.od < 100) return;
+      b.od = 0; b.cd.punch = 0.9; b.cd.kick = 0.9; setBt({ ...b });
+      const G0 = fxRef.current;
+      if (G0) { G0.flash("#ffffff", .9, .55); G0.beam("op", W.glow); }
+      banner(T("โอเวอร์ไดรฟ์!", "OVERDRIVE!", "超载!"), "ult");
+      [0, 190, 380].forEach((d, i) => window.setTimeout(() => landHit(i === 2 ? "ult" : "kick", i === 2 ? 1.5 : 0.6, true), d));
+      return;
+    }
+    const M = MOVE_KIND[kind];
+    if (!M || b.cd[kind] > 0) return;
     b.cd[kind] = M.cd; setBt({ ...b });
     const G = fxRef.current;
     if (G) G.swipe("me", W.glow, M.fx);
-    if (Math.abs(b.foe - b.me) > M.reach) { playMiss(); haptic(4); return; }
-    const dmg = Math.max(1, Math.round(playerHit(saveRef.current, 0) * M.mult));
-    if (G) { G.impact("op", kind === "kick" ? 1.5 : 1.1, W.accent, M.fx); }
-    playBoom(false); haptic(kind === "kick" ? 14 : 8);
+    if (Math.abs(b.foe - b.me) > M.reach) { playMiss(); haptic(4); b.combo = 0; return; }
+    landHit(kind, M.mult, false);
+  }
+
+  /** One landed blow. Combo escalates the damage and feeds the overdrive
+      meter, which is what turns a string of hits into a run worth chasing. */
+  function landHit(kind, mult, free) {
+    const b = btRef.current, f = fightRef.current;
+    if (!f || f.over) return;
+    const now = performance.now();
+    b.combo = (now - b.comboAt < 1600 ? b.combo : 0) + 1;
+    b.comboAt = now;
+    b.od = Math.min(100, b.od + (kind === "kick" ? 9 : kind === "ult" ? 0 : 6));
+    const chain = 1 + Math.min(b.combo, 8) * 0.09;
+    const dmg = Math.max(1, Math.round(playerHit(saveRef.current, 0) * mult * chain));
+    const G = fxRef.current;
+    if (G) G.impact("op", kind === "ult" ? 2.6 : kind === "kick" ? 1.5 : 1.1, W.accent, kind === "ult" ? "nova" : kind);
+    playBoom(b.combo >= 5 || !!free); haptic(kind === "kick" ? 14 : 8);
     setHurtFoe(true); window.setTimeout(() => setHurtFoe(false), 150);
     const m = mobsRef.current.find(x => x.id === f.mobId);
     const tx = f.kind === "boss" ? geo.arena.x : (m ? m.x : meRef.current.x);
     const ty = f.kind === "boss" ? geo.arena.y : (m ? m.y : meRef.current.y);
-    pop(tx, ty - 18, "-" + dmg, "#ffffff", false);
+    pop(tx, ty - 18, "-" + dmg, b.combo >= 5 ? "#ffd24d" : "#ffffff", b.combo >= 5);
+    if (b.combo === 5) banner(T("คอมโบ 5!", "5 HIT COMBO!", "5连击!"), "combo");
+    if (b.combo === 10) banner(T("คอมโบ 10!!", "10 HIT COMBO!!", "10连击!!"), "combo");
+    setBt({ ...b });
     const nhp = Math.max(0, f.hp - dmg);
     if (nhp <= 0) { winFight(f); return; }
     setFight({ ...f, hp: nhp });
@@ -2203,7 +2423,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   function startFight(mob) {
     playUi("click");
     setFight({
-      kind: "mob", boss: false, mobId: mob.id, hp: mob.hp * 22, max: mob.hp * 22,
+      kind: "mob", boss: false, mobId: mob.id, hp: mob.hp * 62, max: mob.hp * 62,
       phase: "act", q: null, streak: 0, wrongRun: 0,
       name: tr3(W.mob, lang), col: W.accent,
     });
@@ -2244,7 +2464,10 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       }
       playBoom(crit); haptic(crit ? 22 : 10);
       setHurtFoe(true); window.setTimeout(() => setHurtFoe(false), 190);
-      const dmg = playerHit(saveRef.current, f.streak) * (f.kind === "boss" ? 1 : 1.4);
+      /* Chip damage is what the pad is for; the ANSWER is the heavy hit, and
+         it is floored at a share of the foe's whole bar so it stays the
+         heaviest thing in the fight however long the fight runs. */
+      const dmg = Math.max(playerHit(saveRef.current, f.streak) * (f.kind === "boss" ? 1 : 1.4), f.max * 0.17);
       const nhp = Math.max(0, f.hp - dmg);
       // the number lands on the thing that was hit, out in the world
       const m = mobsRef.current.find(x => x.id === f.mobId);
@@ -2253,6 +2476,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       if (m) m.flash = performance.now();
       pop(tx, ty - 18, "-" + Math.round(dmg), crit ? "#ffd24d" : "#ffffff", crit);
       if (f.kind === "boss") coop.shout({ id: W.boss.id, dmg: Math.round(dmg), by: playerName });
+      btRef.current.od = Math.min(100, btRef.current.od + 30);
       if (nhp <= 0) return winFight(f);
       setReveal({ q: f.q, chosen: opt });
       setFight({ ...f, hp: nhp, streak: f.streak + 1, wrongRun: 0, flash: Date.now() });
@@ -2702,7 +2926,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         <BattleScreen
           lang={lang} W={W} hp={hp} maxHpV={maxHp(save)}
           foe={f} shake={shake} hurtFoe={hurtFoe} hurtMe={hurtMe} playing={fxRef}
-          reveal={reveal} onNextQ={nextQ} bt={bt} onAct={act}
+          reveal={reveal} onNextQ={nextQ} bt={bt} onAct={act} bnr={bnr}
           chassisEl={<CyberAvatar model={charModel} yaw={52} pose="ready" glow={W.glow} accent={W.accent} armorA="#161d2c" armorB="#3d5878" />}
           onAnswer={answer}
           onFlee={() => { setFight(null); setReveal(null); say(T("ถอยออกมาแล้ว", "Disengaged.", "已脱离。")); }} />
