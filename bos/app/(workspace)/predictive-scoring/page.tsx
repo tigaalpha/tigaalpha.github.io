@@ -29,7 +29,7 @@ const SCORE_COLOR = (score: number) => score >= 80 ? "text-emerald-600" : score 
 const SCORE_BG = (score: number) => score >= 80 ? "bg-emerald-500" : score >= 60 ? "bg-amber-500" : "bg-red-500";
 const SCORE_VARIANT = (score: number): "success" | "warning" | "danger" => score >= 80 ? "success" : score >= 60 ? "warning" : "danger";
 
-function calculateLeadScore(lead: Record<string, unknown>): LeadScore {
+function calculateLeadScore(lead: any): LeadScore {
   const now = new Date();
   const createdAt = new Date(lead.created_at);
   const lastContact = lead.last_contact_at ? new Date(lead.last_contact_at) : createdAt;
@@ -183,7 +183,7 @@ export default function PredictiveScoringPage() {
       {/* Filter Buttons */}
       <div className="flex gap-2">
         {(["all", "high", "medium", "low"] as const).map(f => (
-          <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)}>
+          <Button key={f} variant={filter === f ? "primary" : "outline"} size="sm" onClick={() => setFilter(f)}>
             {f === "all" ? "ทั้งหมด" : f === "high" ? "🔥 High (80+)" : f === "medium" ? "⚡ Medium (50-79)" : "❄️ Low (<50)"}
           </Button>
         ))}

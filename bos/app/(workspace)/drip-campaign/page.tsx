@@ -48,12 +48,13 @@ export default function DripCampaignPage() {
       for (const campaign of dripCampaigns ?? []) {
         // Count customers in segment
         let segmentCustomers = customers;
-        if (campaign.segment === "hot") {
-          segmentCustomers = customers.filter(c => c.sales_status === "hot");
-        } else if (campaign.segment === "cold") {
-          segmentCustomers = customers.filter(c => c.sales_status === "cold");
-        } else if (campaign.segment === "new") {
-          segmentCustomers = customers.filter(c => c.sales_status === "new");
+        const seg = String(campaign.segment || "");
+        if (seg === "hot") {
+          segmentCustomers = customers.filter(c => c.sales_status === "contacted");
+        } else if (seg === "cold") {
+          segmentCustomers = customers.filter(c => c.sales_status === "new_lead");
+        } else if (seg === "new") {
+          segmentCustomers = customers.filter(c => c.sales_status === "new_lead");
         }
         
         // Count drip sends for this campaign
@@ -65,7 +66,7 @@ export default function DripCampaignPage() {
         campaignsData.push({
           id: campaign.id,
           name: campaign.name,
-          segment: campaign.segment,
+          segment: String(campaign.segment || null),
           messageTemplate: campaign.message_template || "",
           intervalDays: campaign.interval_days || 7,
           active: campaign.active ?? true,

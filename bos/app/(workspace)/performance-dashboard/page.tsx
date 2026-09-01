@@ -42,7 +42,7 @@ export default function PerformanceDashboardPage() {
       
       // Load articles performance
       const articles = await repos.articles.list();
-      const contentData: ContentPerformance[] = articles.map(article => ({
+      const contentData = articles.map((article: any): ContentPerformance => ({
         id: article.id,
         title: article.title || "ไม่มีชื่อ",
         type: article.type || "article",
@@ -57,8 +57,8 @@ export default function PerformanceDashboardPage() {
       setContent(contentData);
       
       // Load marketing channels
-      const marketingChannels = await repos.marketingChannels.list();
-      const channelsData: ChannelPerformance[] = marketingChannels.map(ch => ({
+      const marketingChannels = await repos.marketingChannels.listManualStats();
+      const channelsData: ChannelPerformance[] = marketingChannels.map((ch: any) => ({
         channel: ch.platform || "unknown",
         followers: ch.followers_count || 0,
         engagement: ch.engagement_rate || 0,

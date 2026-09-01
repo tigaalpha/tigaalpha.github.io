@@ -162,7 +162,7 @@ export default function PersonalizationEnginePage() {
             <div className="text-center py-8 text-secondary/50">ไม่มี lead ในระบบ</div>
           ) : (
             profiles.map((profile) => {
-              const segCfg = SEGMENT_CONFIG[profile.segment] || SEGMENT_CONFIG.default;
+              const segCfg = SEGMENT_CONFIG[profile.segment] ?? SEGMENT_CONFIG["default"] ?? { color: "text-secondary", bg: "bg-secondary/10", icon: "👤" };
               return (
                 <div key={profile.id} className={cn("rounded-xl border border-line/10 p-4", segCfg.bg)}>
                   <div className="flex items-center justify-between mb-2">

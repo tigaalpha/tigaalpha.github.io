@@ -60,7 +60,7 @@ export default function ReferralTrackingPage() {
       
       referralCustomers.forEach(c => {
         // Use notes or metadata to find who referred them
-        const referrerName = (c as Record<string, unknown>).notes?.match(/referred by[:\s]+(.+)/i)?.[1] || 
+        const referrerName = (c as any).notes?.match(/referred by[:\s]+(.+)/i)?.[1] || 
                              (c.lead_source || "").replace(/referral[-_\s]*/i, "").trim() || 
                              "Direct Referral";
         const existing = referrerMap.get(referrerName) || { referred: 0, converted: 0 };
@@ -99,7 +99,7 @@ export default function ReferralTrackingPage() {
       // Recent referral events
       const events = referralCustomers.slice(0, 10).map(c => ({
         date: c.created_at?.slice(0, 10) || "N/A",
-        referrer: (c as Record<string, unknown>).notes?.match(/referred by[:\s]+(.+)/i)?.[1] || "Direct",
+        referrer: (c as any).notes?.match(/referred by[:\s]+(.+)/i)?.[1] || "Direct",
         referred: c.name || "ไม่ระบุชื่อ",
         source: c.lead_source || "Referral",
         status: c.sales_status === "won" ? "converted" : c.sales_status === "contacted" ? "trial" : "pending",
@@ -208,7 +208,7 @@ export default function ReferralTrackingPage() {
           {loading ? <div className="text-center py-4 text-secondary/50">กำลังโหลด...</div> : recentEvents.length === 0 ? (
             <div className="text-center py-4 text-secondary/50">ยังไม่มี referral events</div>
           ) : recentEvents.map((event, i) => {
-            const st = STATUS_MAP[event.status] ?? STATUS_MAP.pending;
+            const st = (STATUS_MAP as any)[event.status ?? "pending"] ?? STATUS_MAP.pending;
             return (
               <div key={i} className="flex items-center justify-between rounded-xl border border-line/10 px-3 py-2">
                 <div className="min-w-0 flex-1">

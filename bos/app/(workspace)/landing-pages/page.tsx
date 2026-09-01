@@ -52,7 +52,7 @@ export default function LandingPagesPage() {
       const repos = createRepositories(createClient());
       const articles = await repos.articles.list();
       
-      const landingPages: LandingPageData[] = articles.map((a: Record<string, unknown>, i: number) => ({
+      const landingPages: LandingPageData[] = articles.map((a: any, i: number) => ({
         id: a.id || String(i),
         title: a.title || `Landing Page ${i + 1}`,
         slug: a.slug || `/page/${i}`,
@@ -120,8 +120,8 @@ export default function LandingPagesPage() {
       {loading ? <div className="text-center py-8 text-secondary/50">กำลังโหลด...</div> : (
         <div className="space-y-3">
           {pages.map((page) => {
-            const type = TYPE_MAP[page.type] ?? TYPE_MAP.seo_article;
-            const st = STATUS_MAP[page.status] ?? STATUS_MAP.draft;
+            const type = (TYPE_MAP as any)[page.type] ?? TYPE_MAP.seo_article;
+            const st = (STATUS_MAP as any)[page.status] ?? STATUS_MAP.draft;
             const isSelected = selected === page.id;
             const url = `https://tigaalpha.github.io/studio${page.slug}`;
             return (
@@ -152,7 +152,7 @@ export default function LandingPagesPage() {
                     <span className="text-xs text-secondary/40">Best CTA:</span>
                     <Badge variant="outline" className="text-[10px]">{page.bestCta}</Badge>
                     <CopyButton value={url} />
-                    <Button size="sm" variant="ghost" asChild><a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3" /></a></Button>
+                    <a href={url} target="_blank" rel="noopener noreferrer"><Button size="sm" variant="ghost"><ExternalLink className="h-3 w-3" /></Button></a>
                     <Button size="sm" variant="ghost" onClick={() => setSelected(isSelected ? null : page.id)}>{isSelected ? "ปิด" : "ดูเพิ่มเติม"}</Button>
                   </div>
                 </CardContent>

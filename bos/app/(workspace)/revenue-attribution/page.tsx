@@ -218,7 +218,7 @@ export default function RevenueAttributionPage() {
       {/* Period Toggle */}
       <div className="flex gap-2">
         {(["month", "quarter", "year"] as const).map((p) => (
-          <Button key={p} variant={period === p ? "default" : "outline"} size="sm" onClick={() => setPeriod(p)}>
+          <Button key={p} variant={period === p ? "primary" : "outline"} size="sm" onClick={() => setPeriod(p)}>
             {p === "month" ? "เดือนนี้" : p === "quarter" ? "ไตรมาสนี้" : "ปีนี้"}
           </Button>
         ))}
@@ -235,7 +235,7 @@ export default function RevenueAttributionPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {CHANNELS.sort((a, b) => b.roi - a.roi).map((ch) => {
-            const health = HEALTH_MAP[ch.health] ?? HEALTH_MAP.good;
+            const health = (HEALTH_MAP as any)[ch.health] ?? HEALTH_MAP.good;
             return (
               <div key={ch.channel} className="rounded-xl border border-line/10 p-4 space-y-3">
                 <div className="flex items-center justify-between">

@@ -52,7 +52,7 @@ export default function MarketingROIPage() {
       
       // Get customers grouped by lead source
       const customers = await repos.customers.listPipeline();
-      const transactions = await repos.transactions.list();
+      const transactions = await repos.transactions.listAll();
       
       // Group by lead source
       const sourceMap: Record<string, { leads: number; conversions: number; revenue: number }> = {};
@@ -121,7 +121,7 @@ export default function MarketingROIPage() {
           revenue: data.revenue,
           cac,
           roi,
-          trend: data.conversions > 0 ? "up" : "stable",
+          trend: (data.conversions > 0 ? "up" : "stable") as "up" | "down" | "stable",
           recommendation: roi === Infinity ? "ฟรี — มี lead เยอะ ควรเพิ่ม content" : roi > 500 ? "ROI ดี — รักษาไว้" : roi > 0 ? "ROI พอได้ — ลอง optimize" : "ขาดทุน — ทบทวน",
           status,
         };
@@ -173,7 +173,7 @@ export default function MarketingROIPage() {
       {/* Period Toggle */}
       <div className="flex gap-2">
         {(["month", "quarter", "year"] as const).map((p) => (
-          <Button key={p} variant={period === p ? "default" : "outline"} size="sm" onClick={() => setPeriod(p)}>
+          <Button key={p} variant={period === p ? "primary" : "outline"} size="sm" onClick={() => setPeriod(p)}>
             {p === "month" ? "เดือนนี้" : p === "quarter" ? "ไตรมาสนี้" : "ปีนี้"}
           </Button>
         ))}
@@ -192,7 +192,7 @@ export default function MarketingROIPage() {
             <div className="text-center py-8 text-secondary/50">ไม่มีข้อมูล</div>
           ) : (
             channels.map((ch) => {
-              const st = STATUS_MAP[ch.status] ?? STATUS_MAP.good;
+              const st = (STATUS_MAP as any)[ch.status ?? "good"] ?? STATUS_MAP.good;
               const revenueBar = totalRevenue > 0 ? (ch.revenue / totalRevenue) * 100 : 0;
               return (
                 <div key={ch.channel} className="rounded-xl border border-line/10 p-4 space-y-3">

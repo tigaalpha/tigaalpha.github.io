@@ -53,7 +53,7 @@ export default function InternalLinkingPage() {
       const repos = createRepositories(createClient());
       const dbArticles = await repos.articles.list();
       
-      const articlesData: Article[] = dbArticles.map(article => {
+      const articlesData: Article[] = dbArticles.map((article: any) => {
         const internalLinks = (article.internal_links as string[]) || [];
         const type = article.type === "landing" ? "landing" : article.type === "course" ? "course" : "article";
         
@@ -113,7 +113,7 @@ export default function InternalLinkingPage() {
             <div className="text-center py-4 text-secondary/50">ยังไม่มี articles</div>
           ) : (
             articles.map((article) => {
-              const type = TYPE_MAP[article.type] ?? TYPE_MAP.article;
+              const type = (TYPE_MAP as any)[article.type] ?? TYPE_MAP.article;
               const health = article.internalLinks >= 2 ? "good" : article.internalLinks >= 1 ? "ok" : "poor";
               return (
                 <div key={article.id} className="flex items-center gap-3 rounded-xl border border-line/10 px-3 py-2">
@@ -139,7 +139,7 @@ export default function InternalLinkingPage() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-secondary">Suggested Internal Links</h2>
         {articles.map((article) => {
-          const type = TYPE_MAP[article.type] ?? TYPE_MAP.article;
+          const type = (TYPE_MAP as any)[article.type] ?? TYPE_MAP.article;
           return (
             <Card key={article.id}>
               <CardContent className="space-y-3 pt-4">

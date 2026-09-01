@@ -80,7 +80,7 @@ export default function LeadQuizPage() {
       const levels: Record<string, number> = { beginner: 0, elementary: 0, intermediate: 0, advanced: 0 };
       quizRelated.forEach(c => {
         const level = classifyLevel(c.lead_source);
-        levels[level]++;
+        levels[level] = (levels[level] || 0) + 1;
       });
 
       const total = quizRelated.length || 1;
@@ -91,16 +91,19 @@ export default function LeadQuizPage() {
         advanced: { label: "🎼 Advanced", color: "text-amber-500", bgColor: "bg-amber-500", recommendedCourse: "Private Course + Jazz" },
       };
 
-      const results: QuizResult[] = Object.entries(levels).map(([level, count]) => ({
+      const results: QuizResult[] = Object.entries(levels).map(([level, count]) => {
+        const cfg = (levelConfig as any)[level] ?? levelConfig.beginner;
+        return {
         level,
-        label: levelConfig[level].label,
-        color: levelConfig[level].color,
-        bgColor: levelConfig[level].bgColor,
+        label: cfg.label,
+        color: cfg.color,
+        bgColor: cfg.bgColor,
         count,
         percentage: total > 0 ? (count / total * 100) : 0,
-        recommendedCourse: levelConfig[level].recommendedCourse,
+        recommendedCourse: cfg.recommendedCourse,
         conversionRate: level === "advanced" ? 26.3 : level === "intermediate" ? 18.4 : level === "elementary" ? 12.3 : 8.5,
-      }));
+      };
+      });
       setQuizResults(results);
 
       // Map to QuizLead format
@@ -159,7 +162,7 @@ export default function LeadQuizPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {loading ? <div className="text-center py-8 text-secondary/50">กำลังโหลด...</div> : quizFunnel.map((step, i) => {
-            const pct = quizFunnel[0].count > 0 ? (step.count / quizFunnel[0].count) * 100 : 0;
+            const pct = (quizFunnel[0]?.count ?? 0) > 0 ? (step.count / quizFunnel[0]!.count) * 100 : 0;
             return (
               <div key={i} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
@@ -217,7 +220,7 @@ export default function LeadQuizPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {loading ? <div className="text-center py-4 text-secondary/50">กำลังโหลด...</div> : quizLeads.map((lead) => {
-            const st = STATUS_MAP[lead.status] ?? STATUS_MAP.new;
+            const st = (STATUS_MAP as any)[lead.status ?? "new"] ?? STATUS_MAP.new;
             return (
               <div key={lead.id} className="flex items-center justify-between rounded-xl border border-line/10 px-3 py-2">
                 <div className="min-w-0 flex-1">

@@ -140,7 +140,7 @@ export default function StrategyActionsPage() {
       <div className="space-y-3">
         {filteredActions.map((action) => {
           const pri = PRIORITY_MAP[action.priority] ?? PRIORITY_MAP.low;
-          const st = STATUS_MAP[action.status] ?? STATUS_MAP.todo;
+          const st = (STATUS_MAP as any)[action?.status ?? "todo"] ?? STATUS_MAP.todo;
           const StatusIcon = st.icon;
           return (
             <Card key={action.id}>
