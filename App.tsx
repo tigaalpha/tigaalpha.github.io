@@ -11075,10 +11075,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           ],
         };
         const allLabel = lang === "th" ? "ทั้งหมด" : lang === "zh" ? "全部" : "All";
-        const battleCount = SUB_CATS.battle.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
-        const studioCount = SUB_CATS.studio.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
-        const primeCount  = SUB_CATS.prime.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
-        const CAT_COUNTS = { battle: battleCount, studio: studioCount, prime: primeCount };
         const CAT_ITEMS = {
           skin: SHOP_SKINS, theme: SHOP_THEMES, frame: SHOP_FRAMES,
           keyboard: SHOP_KEYBOARDS, sticker: SHOP_STICKERS,
@@ -11087,6 +11083,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           gemWeapon: GEM_WEAPONS, gemOutfit: GEM_PLATING, gemHat: GEM_MODULES,
           gemAccessory: GEM_CORES, gemSticker: GEM_RELICS,
         };
+        const battleCount = SUB_CATS.battle.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
+        const studioCount = SUB_CATS.studio.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
+        const primeCount  = SUB_CATS.prime.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
+        const CAT_COUNTS = { battle: battleCount, studio: studioCount, prime: primeCount };
         // a gem tab is a shop CATEGORY, but the thing it sells is worn from an
         // existing slot — this is the only place the two names differ
         const CAT_SLOT = {
