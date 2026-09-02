@@ -321,29 +321,29 @@ html, body, #root{background:var(--bg)}
 .pathpage{flex:1;overflow-y:auto;padding:0 0 24px;scrollbar-width:thin;scrollbar-color:#d97757 var(--card3)}
 .pathpage::-webkit-scrollbar{width:4px}
 .pathpage::-webkit-scrollbar-thumb{background:#d97757;border-radius:2px}
-.pathhero{position:relative;text-align:center;padding:22px 16px 20px;margin-bottom:8px;overflow:hidden;border-bottom:1px solid #d977571f}
+.pathhero{position:relative;text-align:center;padding:10px 16px 8px;margin-bottom:4px;overflow:hidden;border-bottom:1px solid #d977571f}
 .pathhero-glow{position:absolute;top:-60%;left:50%;transform:translateX(-50%);width:280px;height:280px;pointer-events:none}
 .pathbadge{position:relative;display:inline-block;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:#d97757;border:1px solid #d9775744;border-radius:20px;padding:4px 15px;margin-bottom:12px;background:rgba(217,119,87,.05)}
 .pathh1{position:relative;font-family:'Orbitron',sans-serif;font-size:19px;font-weight:900;color:var(--text);text-shadow:0 0 16px #d9775777;letter-spacing:1px;margin-bottom:13px}
 .pathguide{position:relative;font-size:12px;color:var(--text2);line-height:1.65;background: rgba(217,119,87,.07);border:1px solid #d9775722;border-radius:10px;padding:11px 14px;font-family:'Rajdhani',sans-serif;max-width:430px;margin:0 auto}
-.pgroup{padding:0 14px;margin-bottom:22px}
+.pgroup{padding:0 14px;margin-bottom:10px}
 /* world-map re-skin: each topic group reads as an "island" zone, connected to
    the next by a short trail — same cards/grid/unlock logic underneath, purely
    presentational (see PathwayPage) */
-.pgroup.pisland{position:relative;border-radius:18px;padding-top:14px;padding-bottom:18px;border:1px dashed var(--gc,#d97757)}
+.pgroup.pisland{position:relative;border-radius:18px;padding-top:8px;padding-bottom:10px;border:1px dashed var(--gc,#d97757)}
 .pgroup.pisland::before{content:'';position:absolute;inset:0;background:var(--gc,#d97757);opacity:.06;border-radius:17px;pointer-events:none;z-index:0}
 .pgroup.pisland>*{position:relative;z-index:1}
-.ptrail{display:flex;flex-direction:column;align-items:center;height:30px}
+.ptrail{display:flex;flex-direction:column;align-items:center;height:16px}
 .ptrail-line{width:3px;flex:1;border-radius:2px;opacity:.55}
 .ptrail-node{width:26px;height:26px;border-radius:50%;background:var(--card2);border:2px solid var(--bd4);display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:-3px;box-shadow:0 2px 8px -2px #000;flex-shrink:0}
-.pgrouphdr{display:flex;align-items:center;gap:11px;margin-bottom:13px}
+.pgrouphdr{display:flex;align-items:center;gap:11px;margin-bottom:8px}
 .pgbar{width:4px;height:34px;border-radius:3px;flex-shrink:0;box-shadow:0 0 10px currentColor}
 .pgicon{font-size:21px;line-height:1;flex-shrink:0}
 .pginfo{flex:1;min-width:0}
 .pglabel{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--text);letter-spacing:2px;line-height:1.2}
 .pgdesc{font-size:11px;color:var(--muted);font-family:'Rajdhani',sans-serif;margin-top:2px}
 .pgstep{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;flex-shrink:0}
-.pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 /* row-to-row trail inside a group — was previously only between the 4 group
    islands (.ptrail below), leaving every individual stage disconnected */
 .pnode-connector{display:flex;align-items:center;justify-content:center;padding:2px 0;margin:-2px 0}
@@ -375,7 +375,7 @@ html, body, #root{background:var(--bg)}
 .instile span{font-size:9.5px;color:var(--muted);font-family:'Rajdhani',sans-serif;font-weight:600;line-height:1.2;display:block}
 .certrow{display:flex;align-items:center;gap:11px;padding:12px;border-radius:13px;border:1px solid var(--bd2);background:var(--card2);margin-bottom:9px}
 .certrow.earned{border-color:#d9775766;background:var(--card3)}
-.pcard{position:relative;display:flex;flex-direction:column;text-align:left;background:var(--card2);border:1px solid var(--bd1);border-top:2px solid var(--ac,#d97757);border-radius:13px;padding:13px;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s;overflow:hidden;font-family:'Rajdhani',sans-serif;color:var(--text2);min-height:152px;width:100%}
+.pcard{position:relative;display:flex;flex-direction:column;text-align:left;background:var(--card2);border:1px solid var(--bd1);border-top:2px solid var(--ac,#d97757);border-radius:13px;padding:13px;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s;overflow:hidden;font-family:'Rajdhani',sans-serif;color:var(--text2);min-height:130px;width:100%}
 .pcardglow{position:absolute;top:-30px;right:-30px;width:90px;height:90px;border-radius:50%;pointer-events:none}
 .pcard.done{border-color:#d9775755}
 .pcard.tier-bronze{border-color:#cd7f3277}
