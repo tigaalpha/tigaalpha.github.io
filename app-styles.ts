@@ -1103,6 +1103,16 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpact.rocket{border-color:#d9775777;color:#b4522f}
 .pvpact.jump{border-color:#3ddc8477;color:#1f8a5b}
 .pvpact.kick{background:linear-gradient(135deg,#c9a227,#a8791b);border-color:transparent;color:#fff;box-shadow:0 6px 16px -10px #c9a227}
+/* Adventure's overdrive. It lives on the pad rather than appearing there
+   when it charges: a button that materialises mid-fight shoves every other
+   button out from under a thumb already reaching for one. */
+.pvpact.ult{grid-column:span 2;width:auto;background:linear-gradient(135deg,#fff0c2,#ffd23f);border-color:transparent;color:#7a4a06;box-shadow:0 6px 18px -10px #ffd23f;animation:pvpOdPulse 1s ease-in-out infinite}
+.pvpact.ult b{color:#7a4a06}
+.pvpact.ult.cool{background:var(--card);border-color:var(--bd1);color:var(--muted);box-shadow:none;animation:none;opacity:.55}
+.pvpact.ult.cool b{color:var(--muted)}
+@keyframes pvpOdPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.14)}}
+.pvpact:disabled,.pvpdir:disabled{cursor:default}
+.pvpact.cool,.pvpdir.cool{opacity:.42;filter:saturate(.4)}
 
 /* ── landscape: the arena takes the whole screen and the pad floats on it ── */
 .pvppage.land{position:fixed;inset:0;z-index:60;min-height:0;padding:0;background:var(--bg);overflow:hidden}
@@ -2517,7 +2527,6 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssfight-hp-n{font-family:'Share Tech Mono',monospace;font-size:11px;color:#8b9ec4}
 .ssfight-bar{height:8px;border-radius:5px;background:#141d31;overflow:hidden;margin-bottom:10px}
 .ssfight-bar i{display:block;height:100%;background:var(--fc,#7fb2ff);border-radius:5px;transition:width .3s}
-.ssboss-line{font-family:'Rajdhani',sans-serif;font-style:italic;font-size:13px;line-height:1.55;color:#e0b0b0;border-left:3px solid #ff6a6a;padding-left:10px;margin:0 0 12px}
 .ssstreak{font-family:'Share Tech Mono',monospace;font-size:10px;color:#ffd24d;margin-bottom:6px}
 .ssq{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:16px;line-height:1.45;color:#eef3ff;margin-bottom:12px}
 .ssopts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
@@ -2565,30 +2574,63 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    screen, and a stage that scrolls is not a stage. Above the app header too —
    at a lower z-index the header sat over the top of it and ate both HP bars,
    which are the two numbers the fight is actually about. */
-.ssbattle{position:fixed;inset:0;z-index:1480;display:flex;flex-direction:column;background:#05070f;overflow:hidden;--wc:#7fb2ff;--wg:#8fd0ff}
-.ssbbg{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
-.ssbfx{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:4;pointer-events:none}
+/* ── the Adventure fight wears the PvP arena's chrome ──
+   Everything here is an OVERRIDE of a .pvp* rule, never a copy of one: the
+   markup already carries the PvP classes, and a parallel set of rules is
+   exactly how two screens that are meant to match drift apart again. What is
+   left is only what PvP has no equivalent for - the weather, the film grade,
+   the wet floor, and a monster that telegraphs before it swings. */
+.ssbattle{position:fixed;inset:0;z-index:1480;display:flex;flex-direction:column;background:var(--bg);overflow:hidden;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));--wc:#7fb2ff;--wg:#8fd0ff}
+/* Every .pvp* block centres itself with an auto margin and a max-width,
+   which works because PvP's page is a block container. This one is a flex
+   column, where an auto cross-axis margin makes the item shrink-to-fit its
+   content instead - and all of this content is absolutely positioned, so the
+   stage collapsed to its 2px of border. Stretch them back to full width and
+   let their own max-width do the centring. */
+.ssbattle>*{width:100%;align-self:center;box-sizing:border-box}   /* border-box, or the stage's border and the pad's padding are ADDED to
+      the 100% and both hang 2px and 26px past the edge of the phone */
+/* Portrait: PvP's framed card, inset from the edges so it reads as one - but
+   it takes the height the controls leave it rather than PvP's fixed 300px.
+   Capped instead, it left a 130px band of empty page between the card and the
+   thumbs; the fighters are bounded separately below, so a tall card is just
+   more city behind them rather than more empty sky. */
+.ssbattle .pvpstage{flex:1 1 auto;height:auto;min-height:224px;width:calc(100% - 20px)}
+/* PvP anchors one figure per side at a fixed height; Adventure's two stack a
+   figure over its own reflection, so the fighter becomes a column while
+   keeping PvP's absolute placement off a 0..1 position */
+/* The stage is free to be as tall as the screen allows, but the fighters
+   are not: stretched between top and bottom they grew to 545px and the
+   chassis lost its head off the top of the frame. Anchor them to the
+   floor at a fixed size and let the stage be as big as it likes. */
+.ssbattle .pvpfighter{flex-direction:column;justify-content:flex-end;align-items:center;top:auto;height:min(62%,318px);transition:left .13s ease-out}
+.ssbattle .pvpfighter::before{display:none}          /* the mirror is the contact shadow */
+.ssbattle .pvpfighter.me{width:42%;max-width:232px}
+.ssbattle .pvpfighter.op{width:56%;max-width:312px}
+.ssbattle .pvpfighter.op.big{width:66%;max-width:372px}
+.ssbattle .pvpfighter svg{filter:drop-shadow(0 14px 12px rgba(0,0,0,.55))}
+.ssbattle .pvphps{padding-top:10px}
+.ssbattle .pvpskills{margin-top:8px}
+.ssbattle .pvpwave-l{margin-top:3px}
+/* ── landscape ──
+   .pvppage.land already moves the header, pad, question and options onto the
+   stage; these are the three things it cannot know about. */
+.ssbattle.land{z-index:1480;padding-bottom:0}          /* .pvppage.land drops to 60, which is under the app header */
+/* land pins the stage with inset:0; the portrait card's inset width then wins
+   over the right edge and leaves a 20px strip of page showing down the side */
+.ssbattle.land .pvpstage{width:auto}
+/* an empty gauge whose track is the light page colour reads as a FULL gauge
+   once it is sitting on the night stage instead of under it */
+.ssbattle.land .pvpgauge{background:rgba(4,8,18,.62);border-color:#ffffff2e}
+/* land pins the fighter's height, so it has to stop being stretched between
+   top and bottom or the floor anchor is the constraint the browser discards */
+.ssbattle.land .pvpfighter{top:auto}
+.ssbattle.land .ssb-line{position:absolute;left:50%;top:84px;transform:translateX(-50%);z-index:8;max-width:min(64%,420px);margin:0;
+  padding:6px 12px;border-radius:12px;background:rgba(4,8,18,.66);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .ssbattle.shake{animation:ssbshake .3s cubic-bezier(.36,.07,.19,.97)}
 @keyframes ssbshake{10%,90%{transform:translate(-2px,1px)}20%,80%{transform:translate(4px,-2px)}30%,50%,70%{transform:translate(-7px,2px)}40%,60%{transform:translate(7px,-1px)}}
 @media (prefers-reduced-motion:reduce){.ssbattle.shake{animation:none}}
 
-.ssb-bars{position:relative;z-index:3;display:flex;gap:10px;padding:10px 12px 0}
-.ssb-bar{flex:1;min-width:0;display:grid;grid-template-columns:1fr auto;grid-template-areas:"nm hp" "br br";gap:3px 6px}
-.ssb-nm{grid-area:nm;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:.04em;color:#dce7fb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ssb-hp{grid-area:hp;font-family:'Share Tech Mono',monospace;font-size:10px;color:#9fb2d0}
-.ssb-bar i{grid-area:br;display:block;height:9px;border-radius:5px;background:#101827;border:1px solid #26314a;overflow:hidden}
-.ssb-bar b{display:block;height:100%;border-radius:5px;transition:width .3s}
-.ssb-bar.me b{background:linear-gradient(90deg,#4ee08a,#7fe0a0)}
-.ssb-bar.foe b{background:linear-gradient(90deg,#ff5a5a,#ff9a6a)}
-.ssb-bar.foe{text-align:right}
-.ssb-bar.foe .ssb-nm{grid-area:hp;text-align:right}
-.ssb-bar.foe .ssb-hp{grid-area:nm;text-align:left}
 
-.ssb-stage{position:relative;z-index:2;flex:1;min-height:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 4px 4px}
-.ssb-slot{position:relative;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;transition:transform .13s ease-out;will-change:transform}
-.ssb-slot.me{width:40%;max-width:230px}
-.ssb-slot.foe{width:62%;max-width:344px}
-.ssb-slot.foe.big{width:70%;max-width:410px}
 .ssb-side{position:relative;flex:1 1 auto;min-height:0;width:100%;display:flex;align-items:flex-end;justify-content:center}
 /* ── the wet floor ──
    One mirrored copy per fighter, blurred, desaturated and faded out into the
@@ -2623,18 +2665,7 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 @keyframes ssbhitf{0%{transform:translateX(0)}35%{transform:translateX(-16px) scale(1.05)}100%{transform:translateX(0)}}
 @media (prefers-reduced-motion:reduce){.ssb-side,.ssb-side.hit,.ssb-side.foe.hit{animation:none}}
 
-.ssb-line{position:relative;z-index:3;margin:0 14px 6px;font-family:'Rajdhani',sans-serif;font-style:italic;font-size:12.5px;line-height:1.5;color:#f0c8c8;border-left:3px solid #ff6a6a;padding-left:10px;text-shadow:0 1px 6px #000}
-.ssb-ask{position:relative;z-index:3;background:linear-gradient(180deg,rgba(6,10,20,0),rgba(6,10,20,.94) 22%);padding:14px 12px calc(12px + env(safe-area-inset-bottom))}
-.ssb-streak{font-family:'Share Tech Mono',monospace;font-size:10px;color:#ffd24d;margin:0 auto 6px;text-align:center;
-  width:max-content;padding:3px 12px;border-radius:999px;background:rgba(4,8,18,.74);border:1px solid #ffffff24}
-.ssb-q{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:17.5px;line-height:1.4;color:#fff;text-align:center;
-  margin:0 auto 11px;width:max-content;max-width:100%;padding:11px 18px;border-radius:16px;
-  background:linear-gradient(180deg,rgba(7,11,24,.93),rgba(3,6,14,.96));
-  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
-  border:1px solid #ffffff2b;box-shadow:0 14px 34px -14px #000;text-shadow:0 2px 6px #000}
-.ssb-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:9px}
-.ssb-opt{padding:15px 4px;border-radius:12px;border:1px solid var(--wc);background:linear-gradient(180deg,rgba(24,34,56,.95),rgba(12,18,32,.95));color:#f2f6ff;font-family:'Orbitron',sans-serif;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 14px -8px #000}
-.ssb-opt:active{transform:translateY(2px) scale(.97);background:var(--wc);color:#08101f}
+.ssb-line{position:relative;z-index:3;max-width:520px;margin:9px auto 0;font-family:'Rajdhani',sans-serif;font-style:italic;font-size:12.5px;line-height:1.5;color:#f0c8c8;border-left:3px solid #ff6a6a;padding-left:10px;text-shadow:0 1px 6px #000}
 /* ══════════ the creatures ══════════
    Every moving part of a foe is a compositor animation rather than a React
    render, which is what pays for the detail: the SVG is drawn once and only
@@ -2705,7 +2736,6 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
   .foart *{animation:none!important}
 }
 
-.ssb-flee{display:block;margin:0 auto;border:none;background:transparent;color:#6f7f9e;font-family:'Rajdhani',sans-serif;font-size:11.5px;cursor:pointer;padding:4px 12px}
 
 /* ── the action phase ──
    Twenty seconds of a real fight before the next question. The clock is the
@@ -2791,64 +2821,9 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
   font-family:'Orbitron',sans-serif;font-size:34px;font-weight:900;color:#ffd24d;
   text-shadow:0 0 18px #ff5a5a,0 2px 8px #000;animation:ssbTellPop .55s ease-out;pointer-events:none}
 @keyframes ssbTellPop{0%{opacity:0;scale:.4}30%{opacity:1;scale:1.2}100%{opacity:.9;scale:1}}
-/* combo counter and the shout banners */
-.ssb-combo{position:absolute;left:50%;top:24%;transform:translateX(-50%);z-index:6;display:flex;flex-direction:column;align-items:center;pointer-events:none;animation:ssbCb .3s cubic-bezier(.34,1.6,.5,1)}
-.ssb-combo b{font-family:'Orbitron',sans-serif;font-size:38px;font-weight:900;color:#ffd24d;line-height:1;
-  text-shadow:0 0 22px #ff9a3c,0 3px 8px #000,0 0 3px #000,2px 0 3px #000,-2px 0 3px #000,0 -2px 3px #000}
-.ssb-combo i{font-style:normal;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:3px;color:#ffe6b0;text-shadow:0 0 10px #ff9a3c,0 1px 3px #000}
-@keyframes ssbCb{0%{opacity:0;scale:1.9}60%{opacity:1;scale:.94}100%{scale:1}}
-.ssb-bnr{position:absolute;left:0;right:0;top:38%;z-index:7;text-align:center;pointer-events:none;
-  font-family:'Orbitron',sans-serif;font-size:clamp(24px,7.6vw,46px);font-weight:900;letter-spacing:.06em;
-  animation:ssbBnr 1.1s cubic-bezier(.16,1,.3,1) both}
-.ssb-bnr.parry{color:#8fd0ff;text-shadow:0 0 30px #8fd0ff,0 3px 10px #000}
-.ssb-bnr.combo{color:#ffd24d;text-shadow:0 0 30px #ff9a3c,0 3px 10px #000}
-.ssb-bnr.ult{color:#fff;text-shadow:0 0 40px var(--wg,#8fd0ff),0 0 18px #fff,0 3px 10px #000}
-@keyframes ssbBnr{0%{opacity:0;letter-spacing:.5em;filter:blur(10px)}25%{opacity:1;letter-spacing:.06em;filter:blur(0)}75%{opacity:1}100%{opacity:0;scale:1.12}}
 
-.ssb-meters{display:flex;gap:8px;margin-bottom:9px}
-.ssb-meters>*{flex:1;min-width:0}
-.ssb-od{position:relative;height:16px;border-radius:9px;background:#131b2c;border:1px solid #26314a;overflow:hidden}
-.ssb-od i{position:absolute;inset:0;right:auto;display:block;background:linear-gradient(90deg,#d97757,#ffd24d);transition:width .18s ease-out}
-.ssb-od b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.1em;color:#dbe6f7;text-shadow:0 1px 3px #000}
-.ssb-od.full{border-color:#ffd24d;box-shadow:0 0 14px #ffd24d66;animation:ssbOd .9s ease-in-out infinite}
 @keyframes ssbOd{0%,100%{box-shadow:0 0 10px #ffd24d55}50%{box-shadow:0 0 22px #ffd24daa}}
-.ssb-act.ult{background:linear-gradient(135deg,#fff0c2,#ffd24d);animation:ssbOd 1s ease-in-out infinite}
-.ssb-act.ult b{font-size:22px;color:#7a4a06}
 
-.ssb-timer{position:relative;height:16px;border-radius:9px;background:#131b2c;border:1px solid #26314a;overflow:hidden}
-.ssb-timer i{position:absolute;inset:0;right:auto;display:block;background:linear-gradient(90deg,var(--wc,#7fb2ff),var(--wg,#8fd0ff));opacity:.55;transition:width .12s linear}
-.ssb-timer b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.08em;color:#dbe6f7;text-shadow:0 1px 3px #000}
-.ssb-pad{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:8px}
-.ssb-pad-l,.ssb-pad-r{display:flex;gap:8px}
-.ssb-dir{width:56px;height:56px;border-radius:50%;border:1px solid #33415f;background:linear-gradient(180deg,rgba(30,42,68,.96),rgba(15,22,38,.96));color:#dbe6f7;font-size:20px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.ssb-dir:active{transform:scale(.93);background:var(--wc,#7fb2ff);color:#08101f}
-.ssb-dir.gd{border-color:var(--wg,#8fd0ff);color:var(--wg,#8fd0ff)}
-.ssb-act{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:74px;height:60px;border-radius:16px;border:1px solid #ffffff26;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.ssb-act b{font-size:20px;line-height:1}
-.ssb-act i{font-style:normal;font-family:'Orbitron',sans-serif;font-size:8.5px;letter-spacing:.09em;color:#1b1206}
-.ssb-act.punch{background:linear-gradient(135deg,#e2865f,#d05f43)}
-.ssb-act.kick{background:linear-gradient(135deg,#e6c04a,#b58c1c)}
-.ssb-act:active{transform:translateY(2px) scale(.96)}
-/* a cooling button is visibly spent rather than silently inert */
-.ssb-act.cool,.ssb-dir.cool{opacity:.42;filter:saturate(.4)}
-
-/* landscape: fighters go wide, the question sits under them */
-@media (orientation:landscape){
-  .ssb-stage{padding:0 30px 2px}
-  .ssb-slot.me{width:26%}
-  .ssb-slot.foe{width:34%}
-  .ssb-q{font-size:15px;margin-bottom:8px}
-  .ssb-opts{grid-template-columns:repeat(4,minmax(0,120px));justify-content:center}
-  .ssb-opt{padding:11px 4px}
-  .ssb-ask{padding:8px 12px 8px}
-  /* landscape puts the thumbs where they already are, out at the edges */
-  .ssb-pad{margin-bottom:4px}
-  .ssb-meters{width:min(58%,420px);margin:0 auto 6px}
-  .ssb-combo{top:14%}
-  .ssb-bnr{top:30%}
-  .ssb-dir{width:50px;height:50px}
-  .ssb-act{width:68px;height:52px}
-}
 
 
 /* ══════════ Starsong: the title sequence ══════════ */

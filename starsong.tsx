@@ -2402,6 +2402,18 @@ const BattleScreen = memo(function BattleScreen({
   // hand the effect bus up so the parent can fire attacks from its own logic
   useEffect(() => { if (playing) playing.current = G; }, [G, playing]);
 
+  /* the same orientation switch the PvP arena uses, so both fights go
+     full-screen at the same moment and with the same layout */
+  const [land, setLand] = useState(() => {
+    try { return window.innerWidth > window.innerHeight * 1.25; } catch (e) { return false; }
+  });
+  useEffect(() => {
+    const on = () => { try { setLand(window.innerWidth > window.innerHeight * 1.25); } catch (e) {} };
+    window.addEventListener("resize", on);
+    window.addEventListener("orientationchange", on);
+    return () => { window.removeEventListener("resize", on); window.removeEventListener("orientationchange", on); };
+  }, []);
+
   const foePct = clamp(foe.hp / foe.max, 0, 1);
   const mePct = clamp(hp / maxHpV, 0, 1);
   const acting = !!onAct && !reveal && (foe.phase === "act" || !foe.q);
@@ -2409,57 +2421,79 @@ const BattleScreen = memo(function BattleScreen({
   /* Portalled to <body>. A fixed element still answers to the nearest
      ancestor that owns a stacking context, and inside the app shell the
      header was painting over the top of the fight and eating both HP bars —
-     the two numbers the whole fight is about. Out here it cannot. */
+     the two numbers the whole fight is about. Out here it cannot.
+
+     ── the chrome is the PvP arena's, not a copy of it ──
+     Adventure and PvP are the same fight with a different opponent, so they
+     are now the same screen: one header, one framed stage with the health
+     bars inside it, one pad, one question plate. Everything below wears the
+     .pvp* classes directly rather than a parallel set of .ssb-* ones — a
+     second copy of a look is how two screens drift apart again. What stays
+     .ssb-* is only what PvP has no equivalent for: the weather, the grade,
+     the wet floor and the monster's tell. */
+  const mePos = (bt && bt.me) || 0.24, foePos = (bt && bt.foe) || 0.76;
+  const odNow = (bt && bt.od) || 0;
   return createPortal((
-    <div className={`ssbattle${foe.boss ? " boss" : ""}${shake ? " shake" : ""}${hurtFoe ? " punchy" : ""}${cine ? " cine" : ""}`} data-stage={ST.id} style={{ "--wc": W.accent, "--wg": W.glow }}>
-      <canvas ref={G.bgRef} className="ssbbg" />
-      <canvas ref={G.canvasRef} className="ssbfx" />
-      {/* atmosphere: a light shaft, drifting embers and a haze horizon. All
-          CSS, so none of it costs a frame of the fight. */}
-      <div className="ssb-atmo" aria-hidden="true">
-        <span className="ssb-shaft" /><span className="ssb-shaft b" />
-        {/* city bokeh: out-of-focus lights behind the fight, which is most of
-            what a night skyline actually looks like through a lens */}
-        {BOKEH.map((k, i) => (
-          <b key={i} className="ssb-bokeh" style={{
-            left: `${k[0]}%`, top: `${k[1]}%`, width: `${k[2]}px`, height: `${k[2]}px`,
-            background: k[3], animationDelay: `${i * 0.9}s`,
-          }} />
-        ))}
-        {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <i key={i} className="ssb-ember" style={{ left: `${5 + i * 12}%`, animationDelay: `${i * 1.6}s`, animationDuration: `${9 + (i % 4) * 2.5}s` }} />)}
-        <span className="ssb-haze" />
-        {/* rain, and the frame it is falling through: two out-of-focus
-            foreground masses that give the shot a near plane */}
-        <span className="ssb-rain" />
-        <span className="ssb-fg l" /><span className="ssb-fg r" />
-      </div>
-      {/* the grade: a filmic curve, grain, a vignette and a whisper of
-          chromatic fringe. Last layer over the picture, under the HUD. */}
-      <div className="ssb-grade" aria-hidden="true"><span className="ssb-grain" /><span className="ssb-ca" /></div>
+    <div className={`pvppage fight ssbattle${land ? " land" : ""}${foe.boss ? " boss" : ""}${hurtFoe ? " punchy" : ""}${cine ? " cine" : ""}`}
+      data-stage={ST.id} style={{ "--wc": W.accent, "--wg": W.glow }}>
 
-      <div className="ssb-bars">
-        <div className="ssb-bar me">
-          <span className="ssb-nm">TIGA-01</span>
-          <i><b style={{ width: mePct * 100 + "%" }} /></i>
-          <span className="ssb-hp">{Math.max(0, Math.round(hp))}</span>
-        </div>
-        <div className="ssb-bar foe">
-          <span className="ssb-nm">{foe.name}</span>
-          <i><b style={{ width: foePct * 100 + "%" }} /></i>
-          <span className="ssb-hp">{Math.max(0, Math.round(foe.hp))}</span>
-        </div>
+      <div className="pvphdr">
+        <button className="stgback" onClick={onFlee} aria-label={T("ถอย", "Disengage", "脱离")}>←</button>
+        <span className="pvphdr-t">{tr3(W.name, lang)}</span>
+        <span className="pvparena">{tr3(ST, lang)}</span>
+        <span className="pvpscore">{foe.streak > 1 ? `×${foe.streak}` : ""}</span>
       </div>
 
-      {/* The slot carries the spacing, the side carries the idle bob and the
-          recoil — one transform each, so neither cancels the other out. */}
-      <div className="ssb-stage">
-        <div className="ssb-slot me" style={{ transform: `translateX(${(((bt && bt.me) || 0.24) - 0.24) * 100}vw)` }}>
+      <div className={`pvpstage${shake ? " sh2" : ""}${odNow >= 100 ? " od" : ""}`}>
+        <canvas ref={G.bgRef} className="pvpbg" />
+        <canvas ref={G.canvasRef} className="pvpfx" />
+        {/* atmosphere: a light shaft, drifting embers and a haze horizon. All
+            CSS, so none of it costs a frame of the fight. */}
+        <div className="ssb-atmo" aria-hidden="true">
+          <span className="ssb-shaft" /><span className="ssb-shaft b" />
+          {/* city bokeh: out-of-focus lights behind the fight, which is most of
+              what a night skyline actually looks like through a lens */}
+          {BOKEH.map((k, i) => (
+            <b key={i} className="ssb-bokeh" style={{
+              left: `${k[0]}%`, top: `${k[1]}%`, width: `${k[2]}px`, height: `${k[2]}px`,
+              background: k[3], animationDelay: `${i * 0.9}s`,
+            }} />
+          ))}
+          {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <i key={i} className="ssb-ember" style={{ left: `${5 + i * 12}%`, animationDelay: `${i * 1.6}s`, animationDuration: `${9 + (i % 4) * 2.5}s` }} />)}
+          <span className="ssb-haze" />
+          {/* rain, and the frame it is falling through: two out-of-focus
+              foreground masses that give the shot a near plane */}
+          <span className="ssb-rain" />
+          <span className="ssb-fg l" /><span className="ssb-fg r" />
+        </div>
+        {/* the grade: a filmic curve, grain, a vignette and a whisper of
+            chromatic fringe. Last layer over the picture, under the HUD. */}
+        <div className="ssb-grade" aria-hidden="true"><span className="ssb-grain" /><span className="ssb-ca" /></div>
+
+        <div className="pvphps">
+          <div className="pvphpcol">
+            <div className="pvphp"><i style={{ width: `${mePct * 100}%` }} /></div>
+            <div className="pvphp-n">TIGA-01 · {Math.max(0, Math.round(hp))}</div>
+          </div>
+          <div className="pvpvs">VS</div>
+          <div className="pvphpcol">
+            <div className="pvphp op"><i style={{ width: `${foePct * 100}%` }} /></div>
+            <div className="pvphp-n op">{Math.max(0, Math.round(foe.hp))} · {foe.name}</div>
+          </div>
+        </div>
+
+        {/* Both fighters are placed the way PvP places them: absolutely, off a
+            0..1 position, so the two arenas move their figures with the same
+            arithmetic. The wet-floor mirror rides along underneath. */}
+        <div className={`pvpfighter me${hurtMe ? " knock" : ""}`}
+          style={{ left: `calc(${(mePos * 100).toFixed(1)}% - 21%)`, bottom: "var(--pvpfloor, 10px)" }}>
           <div className={`ssb-side me${hurtMe ? " hit" : ""}${(bt && bt.guard) > 0 ? " guarding" : ""}`}>{chassisEl}</div>
           {/* the wet floor. One mirrored, blurred, faded copy per fighter is
               the single cheapest thing that makes a stage look expensive. */}
           <div className="ssb-refl" aria-hidden="true"><div className="ssb-refl-in">{chassisEl}</div></div>
         </div>
-        <div className={`ssb-slot foe${foe.boss ? " big" : ""}`} style={{ transform: `translateX(${(((bt && bt.foe) || 0.76) - 0.76) * 100}vw)` }}>
+        <div className={`pvpfighter op${foe.boss ? " big" : ""}${hurtFoe ? " knock" : ""}`}
+          style={{ left: `calc(${(foePos * 100).toFixed(1)}% - ${foe.boss ? 33 : 28}%)`, right: "auto", bottom: "var(--pvpfloor, 10px)" }}>
           <div className={`ssb-side foe${hurtFoe ? " hit" : ""}${foe.boss ? " big" : ""}${(bt && bt.tell) > 0 ? " tell" : ""}`}>
             <MonsterArt world={W.id} foe={foe.sp} boss={foe.boss} hurt={hurtFoe} />
           </div>
@@ -2468,69 +2502,64 @@ const BattleScreen = memo(function BattleScreen({
           </div>
           {(bt && bt.tell) > 0 && <span className="ssb-tell">!</span>}
         </div>
-      </div>
 
-      {/* the two numbers a fighting game lives on */}
-      {(bt && bt.combo) > 1 && <div className="ssb-combo" key={bt.combo}><b>{bt.combo}</b><i>{T("คอมโบ", "COMBO", "连击")}</i></div>}
-      {bnr && <div className={`ssb-bnr ${bnr.kind}`} key={bnr.id}>{bnr.text}</div>}
+        {/* the two numbers a fighting game lives on */}
+        {(bt && bt.combo) > 1 && <div className="pvpcombo" key={bt.combo}><b>{bt.combo}</b><i>{T("คอมโบ", "COMBO", "连击")}</i></div>}
+        {bnr && <div className="pvpbanner" key={bnr.id}>{bnr.text}</div>}
+      </div>
 
       {foe.boss && foe.line && <p className="ssb-line">{foe.line}</p>}
 
-      <div className="ssb-ask">
-        {acting ? (
-          /* ── the action phase ──
-             Twenty seconds of an actual fight. Spacing is the play: the foe
-             walks you down, a punch only lands inside its reach, and guard
-             costs you the ground you would otherwise be taking. */
-          <>
-            <div className="ssb-meters">
-              <div className="ssb-timer">
-                <i style={{ width: `${(1 - (bt.qIn || 0) / QUESTION_EVERY) * 100}%` }} />
-                <b>{T("คำถามในอีก", "Question in", "问题将在")} {Math.ceil(bt.qIn || 0)}s</b>
-              </div>
-              <div className={`ssb-od${(bt.od || 0) >= 100 ? " full" : ""}`}>
-                <i style={{ width: `${bt.od || 0}%` }} />
-                <b>{(bt.od || 0) >= 100 ? T("พร้อม!", "READY!", "就绪!") : "OVERDRIVE"}</b>
-              </div>
+      {acting ? (
+        /* ── the action phase ──
+           Twenty seconds of an actual fight. Spacing is the play: the foe
+           walks you down, a punch only lands inside its reach, and guard
+           costs you the ground you would otherwise be taking. */
+        <>
+          <div className="pvpwave"><i style={{ width: `${Math.max(0, Math.min(100, ((bt.qIn || 0) / QUESTION_EVERY) * 100))}%` }} /></div>
+          <div className="pvpwave-l">{T("คำถามจะมาใน", "Question in", "问题将在")} {Math.ceil(bt.qIn || 0)}s</div>
+          <div className="pvppad">
+            <div className="pvppad-l">
+              <button className="pvpdir" aria-label={T("ถอย", "Back", "后退")} onPointerDown={() => onAct("left")}>◀</button>
+              <button className={`pvpdir grd${(bt.cd || {}).guard > 0 ? " cool" : ""}`} aria-label={T("ตั้งการ์ด", "Guard", "格挡")} onPointerDown={() => onAct("guard")}>🛡</button>
+              <button className="pvpdir" aria-label={T("เข้าหา", "Forward", "前进")} onPointerDown={() => onAct("right")}>▶</button>
             </div>
-            <div className="ssb-pad">
-              <div className="ssb-pad-l">
-                <button className="ssb-dir" aria-label={T("ถอย", "Back", "后退")} onPointerDown={() => onAct("left")}>◀</button>
-                <button className={`ssb-dir gd${(bt.cd || {}).guard > 0 ? " cool" : ""}`} aria-label={T("ตั้งการ์ด", "Guard", "格挡")} onPointerDown={() => onAct("guard")}>🛡</button>
-                <button className="ssb-dir" aria-label={T("เข้าหา", "Forward", "前进")} onPointerDown={() => onAct("right")}>▶</button>
-              </div>
-              <div className="ssb-pad-r">
-                {(bt.od || 0) >= 100 && (
-                  <button className="ssb-act ult" onPointerDown={() => onAct("ult")}>
-                    <b>✦</b><i>{T("ปลดปล่อย", "OVERDRIVE", "超载")}</i>
-                  </button>
-                )}
-                <button className={`ssb-act punch${(bt.cd || {}).punch > 0 ? " cool" : ""}`} onPointerDown={() => onAct("punch")}>
-                  <b>👊</b><i>{T("ต่อย", "PUNCH", "拳击")}</i>
-                </button>
-                <button className={`ssb-act kick${(bt.cd || {}).kick > 0 ? " cool" : ""}`} onPointerDown={() => onAct("kick")}>
-                  <b>🦵</b><i>{T("เตะ", "KICK", "踢击")}</i>
-                </button>
-              </div>
+            <div className="pvppad-r">
+              <button className={`pvpact punch${(bt.cd || {}).punch > 0 ? " cool" : ""}`} aria-label={T("ต่อย", "Punch", "拳击")} onPointerDown={() => onAct("punch")}>
+                <b>👊</b><i>{T("ต่อย", "PUNCH", "拳击")}</i>
+              </button>
+              <button className={`pvpact kick${(bt.cd || {}).kick > 0 ? " cool" : ""}`} aria-label={T("เตะ", "Kick", "踢击")} onPointerDown={() => onAct("kick")}>
+                <b>🦵</b><i>{T("เตะ", "KICK", "踢击")}</i>
+              </button>
+              {/* always present, dimmed until it is charged: a button that
+                  appears on the pad mid-fight moves every other button under
+                  a thumb that is already reaching for one */}
+              <button className={`pvpact ult${odNow >= 100 ? "" : " cool"}`} disabled={odNow < 100}
+                aria-label={T("ปลดปล่อย", "Overdrive", "超载")} onPointerDown={() => odNow >= 100 && onAct("ult")}>
+                <b>✦</b><i>{T("ปลดปล่อย", "OVERDRIVE", "超载")}</i>
+              </button>
             </div>
-            <button className="ssb-flee" onClick={onFlee}>{T("ถอย", "Disengage", "脱离")}</button>
-          </>
-        ) : reveal ? (
-          /* The fight pauses on the answer. Rushing straight to the next
-             question is what makes a quiz feel like a slot machine — this is
-             the two seconds where the learning actually happens. */
-          <AnswerReveal q={reveal.q} chosen={reveal.chosen} lang={lang} onNext={onNextQ} />
-        ) : (
-          <>
-            {foe.streak > 1 && <div className="ssb-streak">×{foe.streak} · {tr3({ th: "ต่อเนื่อง", en: "streak", zh: "连击" }, lang)}</div>}
-            <div className="ssb-q">{foe.q.q}</div>
-            <div className="ssb-opts">
-              {foe.q.opts.map(o => <button key={o} className="ssb-opt" onClick={() => onAnswer(o)}>{o}</button>)}
-            </div>
-            <button className="ssb-flee" onClick={onFlee}>{T("ถอย", "Disengage", "脱离")}</button>
-          </>
-        )}
-      </div>
+          </div>
+          <div className="pvpskills">
+            <div className="pvpgauge"><i style={{ width: `${odNow}%`, background: odNow >= 100 ? "#ffd23f" : "#d97757" }} /></div>
+          </div>
+        </>
+      ) : reveal ? (
+        /* The fight pauses on the answer. Rushing straight to the next
+           question is what makes a quiz feel like a slot machine — this is
+           the two seconds where the learning actually happens. */
+        <AnswerReveal q={reveal.q} chosen={reveal.chosen} lang={lang} onNext={onNextQ} />
+      ) : (
+        <>
+          <div className="pvpuntimed">{foe.streak > 1
+            ? T(`ต่อเนื่อง ×${foe.streak} · ตอบถูกเพื่อโจมตีแรงขึ้น`, `Streak ×${foe.streak} · answer right to hit harder`, `连击 ×${foe.streak} · 答对打得更重`)
+            : T("ตอบถูก = โจมตี · ไม่จับเวลา", "Answer right to strike · no time limit", "答对即出击 · 不计时")}</div>
+          <div className="pvpq">{foe.q.q}</div>
+          <div className="pvpopts">
+            {foe.q.opts.map(o => <button key={o} className="pvpopt" onClick={() => onAnswer(o)}>{o}</button>)}
+          </div>
+        </>
+      )}
     </div>
   ), document.body);
 });
