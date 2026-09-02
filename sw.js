@@ -1,6 +1,8 @@
-// v10: network-first for JS/CSS so deploy always serves latest code.
-// Cache bumped to tiga-v13 to force SW reinstall on all clients.
-const CACHE = "tiga-v13";
+// v9: force-refresh clients still holding the pre-fix bundle from the
+// User Activity flicker bug (see commit history) — a new cache name makes the
+// browser reinstall this SW exactly once, which posts SW_UPDATED and the app
+// auto-reloads onto the fixed build.
+const CACHE = "tiga-v12";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
@@ -18,6 +20,9 @@ self.addEventListener("activate", e => {
   );
 });
 
+// Re-engagement push (see shared-infra.ts subscribePush / the send-streak-reminders
+// Edge Function) arrives here as { title, body, url, tag } — without this handler
+// the push event fires but nothing is ever shown, silently.
 self.addEventListener("push", e => {
   let data = {};
   try { data = e.data ? e.data.json() : {}; } catch (err) {}
@@ -39,6 +44,10 @@ self.addEventListener("notificationclick", e => {
   const page = (e.notification.data && e.notification.data.page) || null;
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+      // An already-open tab can only be focused, not navigated, from here — so
+      // hand it a NAVIGATE message and let the app's own router act on it
+      // (see App.tsx's serviceWorker message listener). A fresh launch instead
+      // opens `url` directly, whose #hash the app reads once on boot.
       for (const c of list) {
         if ("focus" in c) { if (page) c.postMessage({ type: "NAVIGATE", page }); return c.focus(); }
       }
@@ -52,20 +61,9 @@ self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Network-first for HTML (always get the freshest app code)
   const isHtml = url.pathname === "/" || url.pathname.endsWith(".html");
   if (isHtml) {
-    e.respondWith(
-      fetch(e.request).then(res => {
-        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
-        return res;
-      }).catch(() => caches.match(e.request))
-    );
-    return;
-  }
-
-  // Network-first for JS/CSS (always get latest code)
-  const isJsCss = url.pathname.endsWith(".js") || url.pathname.endsWith(".css");
-  if (isJsCss) {
     e.respondWith(
       fetch(e.request).then(res => {
         if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
