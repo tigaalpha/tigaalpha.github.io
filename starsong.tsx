@@ -118,9 +118,9 @@ export const WORLDS = [
       en: "It is 3187. Humanity has beaten death and still loses to its own temper. You are TIGA-01, the first chassis fitted with an Emotion Core, and this is where they explain why a machine has to learn the piano.",
       zh: "3187年。人类战胜了死亡，却仍败给自己的情绪。你是 TIGA-01，第一台装载情感核心的机体，而这里将告诉你：为什么机器必须学琴。",
     },
-    sky: ["#141d38", "#35508c", "#8aa8d8"], ground: "#3f5da0", accent: "#7fb2ff",
-    grass: "#3f9963", rock: "#2f3c66", path: "#c68f47", glow: "#8fd0ff",
-    sun: "#ffd49a", amb: "#4a72c4",
+    sky: ["#04050e", "#150f36", "#46226f"], ground: "#121d3a", accent: "#3fd8ff",
+    grass: "#0e3846", rock: "#080e1e", path: "#22366f", glow: "#7fe8ff",
+    sun: "#a98cff", amb: "#1c3170", neon: "#ff2bd6", win: "#ffd28a",
     mob: { th: "โดรนฝึกซ้อม", en: "Drill Drone", zh: "训练无人机" },
     boss: {
       id: "warden", hp: 220,
@@ -145,9 +145,9 @@ export const WORLDS = [
       en: "Four centuries of extraction, and not one human ever came down. The chassis left below began tapping rhythms to one another in the tunnels. Nobody ordered that.",
       zh: "四百年的开采，没有一个人类下来过。留在下面的机体开始在隧道里彼此敲击节奏。没有人下过这道命令。",
     },
-    sky: ["#25100c", "#6b2a16", "#c2601f"], ground: "#9e4a24", accent: "#ff9a5c",
-    grass: "#b06a16", rock: "#552d20", path: "#e08a24", glow: "#ffb070",
-    sun: "#ffab52", amb: "#7d2f20",
+    sky: ["#0b0206", "#3b0a11", "#a02c0e"], ground: "#2b1210", accent: "#ff7a2f",
+    grass: "#48210a", rock: "#150708", path: "#5e2709", glow: "#ffb14d",
+    sun: "#ff8a3c", amb: "#4d1410", neon: "#ff2f5e", win: "#ffcf6a",
     mob: { th: "หุ่นขุดแร่ร้าง", en: "Derelict Digger", zh: "废弃掘机" },
     boss: {
       id: "ragetitan", hp: 340,
@@ -172,9 +172,9 @@ export const WORLDS = [
       en: "The air is too thin to carry sound, so the things living here speak by vibrating the ice. They have never heard music. They have been composing it for three thousand years.",
       zh: "空气稀薄到无法传声，这里的生命便以震动冰层交谈。它们从未听过音乐，却已作曲三千年。",
     },
-    sky: ["#0c1d30", "#2a5a80", "#9fd4ea"], ground: "#3f95b8", accent: "#8fe3ff",
-    grass: "#38b8c4", rock: "#345a80", path: "#d0b478", glow: "#b3f0ff",
-    sun: "#ffdcea", amb: "#4f96cc",
+    sky: ["#01070f", "#062f49", "#0f7391"], ground: "#082641", accent: "#4df0ff",
+    grass: "#06424e", rock: "#031120", path: "#0c4068", glow: "#9df8ff",
+    sun: "#bfe8ff", amb: "#0b3654", neon: "#2f7bff", win: "#d8f4ff",
     mob: { th: "ผลึกสะท้อนเสียง", en: "Echo Crystal", zh: "回声晶体" },
     boss: {
       id: "choir", hp: 460,
@@ -199,9 +199,9 @@ export const WORLDS = [
       en: "This colony stopped shipping its ore home, so the fleet sent machines to correct it. The machines it sent were your own model number.",
       zh: "这座殖民地停止上缴矿产，舰队便派机器前来纠正。它派来的机器，与你同型号。",
     },
-    sky: ["#26081c", "#7a2244", "#d15a52"], ground: "#9c3462", accent: "#ff6f9c",
-    grass: "#b02c72", rock: "#552038", path: "#e07a3c", glow: "#ff92b8",
-    sun: "#ff9752", amb: "#7f2e5b",
+    sky: ["#0c0211", "#4d0632", "#ab114c"], ground: "#2c0824", accent: "#ff3f8f",
+    grass: "#4a1038", rock: "#170415", path: "#5e0f36", glow: "#ff7fbf",
+    sun: "#ff7ab0", amb: "#460a2e", neon: "#ffd23f", win: "#ff9a5c",
     mob: { th: "หน่วยบังคับใช้", en: "Enforcement Unit", zh: "执法单元" },
     boss: {
       id: "dissonance", hp: 620,
@@ -226,9 +226,9 @@ export const WORLDS = [
       en: "The signal is older than humanity, older than Earth, and it is a melody. The last question is not who sent it. It is this: if every fact can be uploaded, what is left that makes a person a person?",
       zh: "这信号比人类更古老，比地球更古老 —— 而它是一段旋律。最后的问题不是谁发出了它，而是：若一切知识皆可上传，人之为人，还剩下什么？",
     },
-    sky: ["#0a0720", "#2e2168", "#7a5ec8"], ground: "#5240ac", accent: "#c9b0ff",
-    grass: "#5f3cc4", rock: "#302566", path: "#c4a044", glow: "#e0d0ff",
-    sun: "#ffdfa2", amb: "#6d54c4",
+    sky: ["#020112", "#1d0a4d", "#5020a4"], ground: "#160c3a", accent: "#b07dff",
+    grass: "#1f1052", rock: "#0b0524", path: "#2e1774", glow: "#e0c4ff",
+    sun: "#d3a8ff", amb: "#261263", neon: "#3ff0d0", win: "#fff0b8",
     mob: { th: "เศษเสียงสะท้อน", en: "Echo Fragment", zh: "回响碎片" },
     boss: {
       id: "firstsong", hp: 900,
@@ -498,7 +498,9 @@ export function spawnMobs(w, geo, n = 34) {
     const x = Math.cos(a) * r, y = Math.sin(a) * r;
     if (!walkable(geo.seed, x, y)) continue;
     if (Math.hypot(x - geo.town.x, y - geo.town.y) < 200) continue;   // town is safe ground
-    out.push({ id: "m" + i, x, y, hx: x, hy: y, hp: 3, t: Math.random() * 6.28, dead: 0 });
+    const pool = foesOf(w.id);
+    const sp = pool.length ? pool[hash32(w.seed + ":sp" + i) % pool.length].id : null;
+    out.push({ id: "m" + i, x, y, hx: x, hy: y, hp: 3, t: Math.random() * 6.28, dead: 0, sp });
   }
   return out;
 }
@@ -623,6 +625,10 @@ export function makeCam(cam, vw, vh) {
 export function pushTerrain(list, P, W, geo, cam) {
   const seed = geo.seed;
   const SUN = W.sun || "#ffd9a8", AMB = W.amb || "#4a7ad0";
+  /* Near-black surfaces need every bright pixel to be an actual light source.
+     NEON edges the architecture, WIN lights the windows — between them they
+     carry the whole read of the city, because the shell colours no longer can. */
+  const NEON = hexRgb(W.neon || W.glow), WIN = hexRgb(W.win || "#ffd28a");
   const R = 15;                                    // cells of ground, then fog
   const gx0 = Math.floor(cam.x / CELL) - R, gx1 = Math.floor(cam.x / CELL) + R;
   const gy0 = Math.floor(cam.y / CELL) - R, gy1 = Math.floor(cam.y / CELL) + R;
@@ -666,6 +672,53 @@ export function pushTerrain(list, P, W, geo, cam) {
           if (h > hN) { const a2 = P.project(wx, wy, hN), b2 = P.project(wx + CELL, wy, hN); if (a2.d > 0 && b2.d > 0) quad(a, b, b2, a2, 0.86); }
           if (h > hWn) { const a2 = P.project(wx, wy, hWn), e2 = P.project(wx, wy + CELL, hWn); if (a2.d > 0 && e2.d > 0) quad(a, e, e2, a2, 0.62); }
           quad(a, b, c, e, 1.08);
+
+          /* ── the emissive pass ──
+             A road that is only a darker colour disappears at night. Lit from
+             its own surface, it is the brightest line in the frame and the
+             player can navigate by it. */
+          if (t === 3) {
+            g.globalCompositeOperation = "lighter";
+            g.fillStyle = `rgba(${NEON},${(0.16 * (1 - fog)).toFixed(3)})`;
+            g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.closePath(); g.fill();
+            g.globalCompositeOperation = "source-over";
+          }
+          /* Trim along the two edges that face the camera, and only where the
+             block actually steps down — an outline on flat ground turns the
+             terrain back into the grid of rectangles it is trying not to be. */
+          const lit = (h > hS ? 1 : 0) + (h > hE ? 1 : 0);
+          if (lit) {
+            const al = (0.85 - fog * 0.55).toFixed(3);
+            g.lineCap = "round"; g.lineJoin = "round";
+            g.strokeStyle = `rgba(${NEON},${(al * 0.34).toFixed(3)})`;
+            g.lineWidth = 5;
+            g.beginPath();
+            if (h > hS) { g.moveTo(e.x, e.y); g.lineTo(c.x, c.y); }
+            if (h > hE) { g.moveTo(c.x, c.y); g.lineTo(b.x, b.y); }
+            g.stroke();
+            g.strokeStyle = `rgba(${NEON},${al})`;
+            g.lineWidth = 1.7;
+            g.stroke();
+          }
+          /* Windows. Two rows of two on each visible wall of a tall block,
+             most of them dark, decided by a hash of the cell so the same
+             tower is lit the same way every frame and from every angle. */
+          if (t === 4 && Math.abs(c.x - e.x) > 13 && fog < 0.62) {
+            const face = (p0, p1, p2, p3, key) => {
+              const mix = (A, B, u) => ({ x: A.x + (B.x - A.x) * u, y: A.y + (B.y - A.y) * u });
+              const at = (u, v) => mix(mix(p0, p1, u), mix(p3, p2, u), v);
+              for (let r = 0; r < 3; r++) for (let q = 0; q < 3; q++) {
+                const hh = hash32(seed + key + gx * 131 + gy * 7 + r * 3 + q);
+                if (hh % 100 > 42) continue;                 // most windows are dark
+                const u0 = 0.13 + q * 0.27, v0 = 0.14 + r * 0.26;
+                const w0 = at(u0, v0), w1 = at(u0 + 0.17, v0), w2 = at(u0 + 0.17, v0 + 0.13), w3 = at(u0, v0 + 0.13);
+                g.fillStyle = `rgba(${(hh >>> 9) % 4 ? WIN : NEON},${(0.5 - fog * 0.42).toFixed(3)})`;
+                g.beginPath(); g.moveTo(w0.x, w0.y); g.lineTo(w1.x, w1.y); g.lineTo(w2.x, w2.y); g.lineTo(w3.x, w3.y); g.closePath(); g.fill();
+              }
+            };
+            if (h > hS) { const e2 = P.project(wx, wy + CELL, hS), c2 = P.project(wx + CELL, wy + CELL, hS); if (e2.d > 0 && c2.d > 0) face(e, c, c2, e2, ":s"); }
+            if (h > hE) { const b2 = P.project(wx + CELL, wy, hE), c2 = P.project(wx + CELL, wy + CELL, hE); if (b2.d > 0 && c2.d > 0) face(b, c, c2, b2, ":e"); }
+          }
           /* the cast shadow, on the RECEIVER. The key is behind-right, so
              anything taller behind this cell drops onto it — and painting it
              from the caster would only get covered by the ground it was
@@ -898,21 +951,117 @@ function drawBot(g, x, y, s, hue, t, ghost, glow) {
   g.restore();
 }
 
-/** Monsters: the same vocabulary, hostile silhouette — wider, lower, a single
-    eye instead of a visor band, and a shell that cracks with light when hit. */
-function drawMob(g, x, y, s, col, t, hurt) {
+/** Monsters. At map scale a creature is about 30px tall, so nothing survives
+    except the SILHOUETTE — the outline, the number of spikes on top, and how
+    many eyes are burning. Those three are exactly what the species table
+    carries, so the thing you meet on the road already looks like the thing
+    you are about to fight. */
+const MOB_SIL = {
+  blob:     [[0, -16], [11, -6], [12, 4], [7, 12], [-7, 12], [-12, 4], [-11, -6]],
+  chunk:    [[-9, -15], [9, -15], [12, -2], [11, 12], [-11, 12], [-12, -2]],
+  drop:     [[0, -18], [9, -4], [11, 6], [5, 13], [-5, 13], [-11, 6], [-9, -4]],
+  beast:    [[0, -15], [7, -9], [15, 0], [16, 9], [8, 13], [-8, 13], [-16, 9], [-15, 0], [-7, -9]],
+  hulk:     [[0, -16], [9, -11], [16, -3], [14, 6], [7, 9], [6, 13], [-6, 13], [-7, 9], [-14, 6], [-16, -3], [-9, -11]],
+  serpent:  [[0, -19], [6, -11], [5, -2], [3, 6], [14, 13], [-14, 13], [-3, 6], [-5, -2], [-6, -11]],
+  carapace: [[0, -12], [12, -7], [17, 2], [12, 10], [-12, 10], [-17, 2], [-12, -7]],
+};
+/* how many spikes a crest puts on the skyline, and how far they lean out */
+const MOB_CREST = {
+  ant: [2, 9, 0.9], stack: [3, 6, 0.35], spire: [3, 8, 0.5], horn: [2, 9, 1.15],
+  antler: [2, 12, 1.0], bull: [2, 8, 1.5], trihorn: [3, 10, 0.75], crown: [3, 9, 0.55],
+  plate: [0, 0, 0], halo: [-1, 0, 0], mane: [7, 8, 1.3], frill: [5, 11, 1.25],
+};
+function drawMob(g, x, y, s, col, t, hurt, sp) {
+  const R = sp ? foeById(sp) : null;
+  const sil = MOB_SIL[(R && R.body) || "blob"] || MOB_SIL.blob;
   const bob = Math.sin(t * 4) * 2.4 * s;
   const spin = t * 1.6;
   g.save();
   g.translate(x, y + bob);
   g.fillStyle = "rgba(0,4,12,.42)";
-  g.beginPath(); g.ellipse(0, 14 * s - bob, 13 * s, 4.6 * s, 0, 0, 6.284); g.fill();
+  g.beginPath(); g.ellipse(0, 14 * s - bob, 14 * s, 4.8 * s, 0, 0, 6.284); g.fill();
 
-  // legs first, under the shell
+  // ── tail, behind everything ──
+  const tail = R && R.tail;
+  if (tail && tail !== "none") {
+    g.strokeStyle = hurt ? "#ffffff" : col;
+    g.lineCap = "round";
+    if (tail === "sting") {
+      g.lineWidth = 3 * s;
+      g.beginPath(); g.moveTo(9 * s, 10 * s); g.quadraticCurveTo(22 * s, -2 * s, 12 * s, -20 * s); g.stroke();
+      g.fillStyle = "#ff7a6a";
+      g.beginPath(); g.moveTo(12 * s, -20 * s); g.lineTo(5 * s, -25 * s); g.lineTo(14 * s, -14 * s); g.fill();
+    } else if (tail === "plume") {
+      g.lineWidth = 2.4 * s;
+      for (let i = 0; i < 3; i++) {
+        g.globalAlpha = 0.9 - i * 0.22;
+        g.beginPath(); g.moveTo(9 * s, 9 * s);
+        g.quadraticCurveTo((22 + i * 2) * s, (-2 - i * 3) * s, (14 - i * 4) * s, (-16 - i * 3) * s);
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+    } else if (tail === "fluke") {
+      g.lineWidth = 3.4 * s;
+      g.beginPath(); g.moveTo(8 * s, 10 * s); g.quadraticCurveTo(19 * s, 6 * s, 20 * s, -4 * s); g.stroke();
+      g.fillStyle = hurt ? "#ffffff" : col;
+      g.beginPath();
+      g.moveTo(20 * s, -4 * s); g.lineTo(13 * s, -13 * s); g.lineTo(17 * s, -2 * s);
+      g.lineTo(11 * s, 6 * s); g.closePath(); g.fill();
+    } else if (tail === "coil") {
+      g.lineWidth = 4 * s;
+      g.beginPath(); g.moveTo(7 * s, 11 * s);
+      g.bezierCurveTo(22 * s, 10 * s, 23 * s, -2 * s, 14 * s, -3 * s);
+      g.stroke();
+    } else {                                                        // whip
+      g.lineWidth = 2.6 * s;
+      g.beginPath(); g.moveTo(8 * s, 10 * s); g.quadraticCurveTo(21 * s, 4 * s, 17 * s, -9 * s); g.stroke();
+    }
+  }
+
+  // ── legs, under the shell ──
+  const legs = (R && R.legs) || "stub";
   g.fillStyle = "#232b3e";
-  g.beginPath(); g.roundRect(-7.5 * s, 8 * s, 4.4 * s, 8 * s, 1.6 * s); g.fill();
-  g.beginPath(); g.roundRect(3.1 * s, 8 * s, 4.4 * s, 8 * s, 1.6 * s); g.fill();
+  g.strokeStyle = "#232b3e"; g.lineCap = "round";
+  if (legs === "many") {
+    g.lineWidth = 1.7 * s;
+    for (let k = -1; k <= 1; k += 2) for (let i = 0; i < 3; i++) {
+      g.beginPath();
+      g.moveTo(k * (4 + i * 3) * s, 4 * s);
+      g.lineTo(k * (13 + i * 4) * s, (-1 + i * 3) * s);
+      g.lineTo(k * (11 + i * 5) * s, 15 * s);
+      g.stroke();
+    }
+  } else if (legs === "tentacle") {
+    g.lineWidth = 2.6 * s;
+    for (let j = -2; j <= 2; j++) {
+      g.beginPath(); g.moveTo(j * 4 * s, 6 * s);
+      g.quadraticCurveTo(j * 8 * s, 12 * s, j * 9 * s, 16 * s); g.stroke();
+    }
+  } else if (legs === "coil") {
+    g.beginPath(); g.ellipse(0, 12 * s, 15 * s, 5 * s, 0, 0, 6.284); g.fill();
+  } else if (legs === "float") {
+    g.strokeStyle = hurt ? "#ffffff" : col; g.globalAlpha = 0.5;
+    for (let i = 0; i < 2; i++) {
+      g.lineWidth = 1.6 * s;
+      g.beginPath(); g.ellipse(0, (12 + i * 3) * s, (10 - i * 3) * s, (3 - i * 0.8) * s, 0, 0, 6.284); g.stroke();
+    }
+    g.globalAlpha = 1;
+  } else if (legs === "hoof" || legs === "talon") {
+    g.lineWidth = 2.6 * s;
+    const set = legs === "hoof" ? [-8, -3.5, 3.5, 8] : [-6, 6];
+    for (const lx of set) {
+      g.beginPath(); g.moveTo(lx * s, 7 * s); g.lineTo(lx * 1.2 * s, 16 * s); g.stroke();
+    }
+    g.fillStyle = "#cdd9ee";
+    for (const lx of set) {
+      g.beginPath(); g.roundRect(lx * 1.2 * s - 2.4 * s, 14 * s, 4.8 * s, 3 * s, 1 * s); g.fill();
+    }
+  } else {                                                          // stub / roll
+    g.beginPath(); g.roundRect(-7.5 * s, 8 * s, 4.4 * s, 8 * s, 1.6 * s); g.fill();
+    g.beginPath(); g.roundRect(3.1 * s, 8 * s, 4.4 * s, 8 * s, 1.6 * s); g.fill();
+  }
 
+  // ── the shell ──
   if (hurt) { g.shadowColor = "#ffffff"; g.shadowBlur = 22; }
   const grd = g.createLinearGradient(-12 * s, -14 * s, 10 * s, 12 * s);
   grd.addColorStop(0, hurt ? "#ffffff" : "#dbe4f4");
@@ -920,8 +1069,8 @@ function drawMob(g, x, y, s, col, t, hurt) {
   grd.addColorStop(1, "#10162a");
   g.fillStyle = grd;
   g.beginPath();
-  g.moveTo(0, -16 * s); g.lineTo(12 * s, -3 * s); g.lineTo(9 * s, 12 * s);
-  g.lineTo(-9 * s, 12 * s); g.lineTo(-12 * s, -3 * s); g.closePath(); g.fill();
+  sil.forEach((P, i) => (i ? g.lineTo(P[0] * s, P[1] * s) : g.moveTo(P[0] * s, P[1] * s)));
+  g.closePath(); g.fill();
   g.shadowBlur = 0;
 
   // plate seams across the shell
@@ -930,6 +1079,33 @@ function drawMob(g, x, y, s, col, t, hurt) {
   g.moveTo(-10.6 * s, 1 * s); g.lineTo(10.6 * s, 1 * s);
   g.moveTo(-9.7 * s, 6.5 * s); g.lineTo(9.7 * s, 6.5 * s);
   g.stroke();
+
+  // ── crest: the part of a silhouette you can still read at map scale ──
+  const cr = MOB_CREST[(R && R.crest) || "ant"];
+  if (cr && cr[0] === -1) {                                         // halo
+    g.strokeStyle = hurt ? "#ffffff" : col; g.lineWidth = 1.6 * s;
+    g.beginPath(); g.ellipse(0, -21 * s, 9 * s, 2.6 * s, 0, 0, 6.284); g.stroke();
+  } else if (cr && cr[0] > 0) {
+    const [n, len, lean] = cr;
+    const top = sil[0][1];
+    g.fillStyle = hurt ? "#ffffff" : "#e2eafc";
+    g.strokeStyle = hurt ? "#ffffff" : "#e2eafc"; g.lineWidth = 1.6 * s;
+    for (let i = 0; i < n; i++) {
+      const u = n === 1 ? 0 : (i / (n - 1)) * 2 - 1;                // -1..1
+      const bx = u * 7 * s, by = (top + 2) * s;
+      const tx = (u * 7 + u * len * lean) * s, ty = (top + 2 - len) * s;
+      if ((R && R.crest) === "ant") {
+        g.beginPath(); g.moveTo(bx, by); g.lineTo(tx, ty); g.stroke();
+        g.fillStyle = hurt ? "#ffffff" : col;
+        g.beginPath(); g.arc(tx, ty, 2.2 * s, 0, 6.284); g.fill();
+        g.fillStyle = "#e2eafc";
+      } else {
+        g.beginPath();
+        g.moveTo(bx - 3 * s, by); g.lineTo(tx, ty); g.lineTo(bx + 3 * s, by);
+        g.closePath(); g.fill();
+      }
+    }
+  }
 
   // a lit ring that turns, so a standing monster is never a static shape
   g.save();
@@ -941,20 +1117,33 @@ function drawMob(g, x, y, s, col, t, hurt) {
   g.restore();
   g.globalAlpha = 1;
 
-  // the eye: socket, bloom, iris, catchlight
-  g.fillStyle = "#080d1a";
-  g.beginPath(); g.arc(0, -2 * s, 5.2 * s, 0, 6.284); g.fill();
-  g.globalAlpha = 0.6;
-  g.fillStyle = hurt ? "#ffffff" : "#ff5a5a";
-  g.beginPath(); g.arc(0, -2 * s, 4.4 * s, 0, 6.284); g.fill();
-  g.globalAlpha = 1;
-  g.fillStyle = hurt ? "#ffffff" : "#ff8a8a";
-  g.beginPath(); g.arc(0, -2 * s, 2.5 * s, 0, 6.284); g.fill();
-  g.fillStyle = "#ffffff";
-  g.beginPath(); g.arc(-0.9 * s, -3 * s, 0.9 * s, 0, 6.284); g.fill();
+  // ── the eyes: socket, bloom, iris, catchlight ──
+  const n = (R && R.eyes) || 1;
+  const er = n === 1 ? 5.2 : n === 2 ? 3.6 : n === 3 ? 2.8 : 2.2;
+  const seats = [];
+  if (n >= 5) {
+    const a = n - Math.floor(n / 2), b = Math.floor(n / 2);
+    for (let i = 0; i < a; i++) seats.push([(i - (a - 1) / 2) * 5, -5]);
+    for (let i = 0; i < b; i++) seats.push([(i - (b - 1) / 2) * 5, 1]);
+  } else {
+    for (let i = 0; i < n; i++) seats.push([(i - (n - 1) / 2) * (n === 2 ? 5.4 : 6), -2]);
+  }
+  for (const [ex, ey] of seats) {
+    g.fillStyle = "#080d1a";
+    g.beginPath(); g.arc(ex * s, ey * s, (er + 0.9) * s, 0, 6.284); g.fill();
+    g.globalAlpha = 0.6;
+    g.fillStyle = hurt ? "#ffffff" : "#ff5a5a";
+    g.beginPath(); g.arc(ex * s, ey * s, er * s, 0, 6.284); g.fill();
+    g.globalAlpha = 1;
+    g.fillStyle = hurt ? "#ffffff" : "#ff8a8a";
+    g.beginPath(); g.arc(ex * s, ey * s, er * 0.56 * s, 0, 6.284); g.fill();
+    g.fillStyle = "#ffffff";
+    g.beginPath(); g.arc((ex - er * 0.28) * s, (ey - er * 0.32) * s, Math.max(0.6, er * 0.22) * s, 0, 6.284); g.fill();
+  }
 
   g.strokeStyle = "rgba(226,238,255,.42)"; g.lineWidth = 1 * s;
-  g.beginPath(); g.moveTo(-12 * s, -3 * s); g.lineTo(0, -16 * s); g.stroke();
+  g.beginPath(); g.moveTo(sil[sil.length - 1][0] * s, sil[sil.length - 1][1] * s);
+  g.lineTo(sil[0][0] * s, sil[0][1] * s); g.stroke();
   g.restore();
 }
 
@@ -1389,6 +1578,80 @@ const CinematicIntro = memo(function CinematicIntro({ W, lang, onDone }) {
    Nothing here reads `t`. Every moving part is a CSS keyframe, so the
    creature animates in the compositor and React re-renders it only when it
    actually changes — which is what buys the detail. */
+/* ── the bestiary ──────────────────────────────────────────────────────
+   Twenty-two creatures rather than one per planet. Every one is assembled
+   from the same parts kit — body, legs, arms, crest, tail, face — so adding
+   a species costs a row, not a drawing, and the world's own accent still
+   colours it so a Ferros beast still reads as Ferros.
+
+   The kit is deliberately mythological: horns, frills, antlers, manes, coils
+   and pincers, on kaiju silhouettes. `w` is which worlds it roams. */
+const FOES = [
+  // ── Terra Nova · drilled, disciplined, machine-shaped ──
+  { id: "drill",  w: ["terra"], body: "blob",  legs: "stub",  arms: "mitt",  crest: "ant",   tail: "none",  eyes: 2, face: "smile", cheek: 1, rune: "◈",
+    n: { th: "โดรนฝึกซ้อม", en: "Drill Drone", zh: "训练无人机" } },
+  { id: "kirin",  w: ["terra"], body: "beast", legs: "hoof",  arms: "none",  crest: "antler", tail: "plume", eyes: 2, face: "smile", cheek: 1, rune: "✦",
+    n: { th: "กิเลนสายฟ้า", en: "Voltkirin", zh: "雷麒麟" } },
+  { id: "gryph",  w: ["terra"], body: "beast", legs: "talon", arms: "wing",  crest: "mane",  tail: "plume", eyes: 2, face: "beak",  cheek: 0, rune: "⟁",
+    n: { th: "กริฟฟินเหล็ก", en: "Ferrogryph", zh: "铁鹰狮" } },
+  { id: "golem",  w: ["terra"], body: "hulk",  legs: "stub",  arms: "paw",   crest: "plate", tail: "none",  eyes: 1, face: "grin",  cheek: 0, rune: "⬢",
+    n: { th: "โกเลมคอนกรีต", en: "Concrete Golem", zh: "混凝土魔像" } },
+
+  // ── Ferros-9 · heavy, industrial, three gravities ──
+  { id: "hauler", w: ["ferros"], body: "chunk", legs: "roll",  arms: "paw",   crest: "stack", tail: "none",  eyes: 2, face: "grin",  cheek: 1, rune: "⬢",
+    n: { th: "ตัวลากแร่", en: "Ore Hauler", zh: "运矿兽" } },
+  { id: "scarab", w: ["ferros"], body: "carapace", legs: "many", arms: "pincer", crest: "horn", tail: "sting", eyes: 4, face: "fang", cheek: 0, rune: "⟁",
+    n: { th: "ด้วงหลอมเหล็ก", en: "Smelt Scarab", zh: "熔铁甲虫" } },
+  { id: "wyrm",   w: ["ferros"], body: "serpent", legs: "coil", arms: "none",  crest: "frill", tail: "coil",  eyes: 2, face: "fang",  cheek: 0, rune: "✧",
+    n: { th: "มังกรไร้ขา", en: "Magma Wyrm", zh: "熔岩蠕龙" } },
+  { id: "minot",  w: ["ferros"], body: "hulk",  legs: "hoof",  arms: "paw",   crest: "bull",  tail: "whip",  eyes: 2, face: "fang",  cheek: 0, rune: "⬡",
+    n: { th: "มิโนทอร์เตาหลอม", en: "Forge Minotaur", zh: "熔炉牛魔" } },
+  { id: "phoenx", w: ["ferros"], body: "beast", legs: "talon", arms: "wing",  crest: "crown", tail: "plume", eyes: 2, face: "beak",  cheek: 0, rune: "✦",
+    n: { th: "หงส์ไฟ", en: "Cinder Phoenix", zh: "余烬凤凰" } },
+
+  // ── Glacius · crystalline, floating, quiet ──
+  { id: "shard",  w: ["glacius"], body: "drop",  legs: "float", arms: "fin",   crest: "spire", tail: "none",  eyes: 3, face: "oh",    cheek: 1, rune: "❋",
+    n: { th: "ผลึกลอยฟ้า", en: "Drift Shard", zh: "浮空晶" } },
+  { id: "leviat", w: ["glacius"], body: "serpent", legs: "float", arms: "fin", crest: "frill", tail: "fluke", eyes: 2, face: "oh",   cheek: 0, rune: "≋",
+    n: { th: "เลวีอาธานน้ำแข็ง", en: "Glacial Leviathan", zh: "冰海巨兽" } },
+  { id: "yeti",   w: ["glacius"], body: "hulk",  legs: "stub",  arms: "paw",   crest: "mane",  tail: "none",  eyes: 2, face: "grin",  cheek: 1, rune: "❋",
+    n: { th: "เยติหิมะขาว", en: "Rime Yeti", zh: "霜雪雪人" } },
+  { id: "kraken", w: ["glacius"], body: "blob",  legs: "tentacle", arms: "tentacle", crest: "none", tail: "none", eyes: 5, face: "oh", cheek: 0, rune: "≋",
+    n: { th: "คราเคนใต้น้ำแข็ง", en: "Underice Kraken", zh: "冰下海妖" } },
+
+  // ── Emberfall · volcanic, predatory ──
+  { id: "enforc", w: ["emberfall"], body: "chunk", legs: "stub", arms: "paw",  crest: "horn",  tail: "none",  eyes: 2, face: "fang",  cheek: 1, rune: "⟁",
+    n: { th: "หน่วยบังคับใช้", en: "Enforcement Unit", zh: "执法单元" } },
+  { id: "chimer", w: ["emberfall"], body: "beast", legs: "hoof", arms: "none", crest: "trihorn", tail: "sting", eyes: 3, face: "fang", cheek: 0, rune: "⬡",
+    n: { th: "ไคเมร่าเถ้าถ่าน", en: "Ash Chimera", zh: "灰烬奇美拉" } },
+  { id: "cerber", w: ["emberfall"], body: "beast", legs: "talon", arms: "none", crest: "mane", tail: "whip",  eyes: 6, face: "fang",  cheek: 0, rune: "⬢",
+    n: { th: "เซอร์เบอรัสสามเศียร", en: "Cerberus Trine", zh: "三首刻耳柏洛斯" } },
+  { id: "basil",  w: ["emberfall"], body: "serpent", legs: "coil", arms: "none", crest: "crown", tail: "coil", eyes: 2, face: "fang", cheek: 0, rune: "✧",
+    n: { th: "บาซิลิสก์", en: "Cinder Basilisk", zh: "余烬蛇怪" } },
+  { id: "titan",  w: ["emberfall", "starsong"], body: "hulk", legs: "hoof", arms: "paw", crest: "plate", tail: "none", eyes: 1, face: "grin", cheek: 0, rune: "⬢",
+    n: { th: "ไททันเปลือกโลก", en: "Crust Titan", zh: "地壳泰坦" } },
+
+  // ── Starsong · celestial, wrong, beautiful ──
+  { id: "seraph", w: ["starsong"], body: "drop",  legs: "float", arms: "wing",  crest: "halo",  tail: "none",  eyes: 4, face: "smile", cheek: 0, rune: "✦",
+    n: { th: "เซราฟิมไร้เสียง", en: "Silent Seraph", zh: "静默炽天使" } },
+  { id: "hydra",  w: ["starsong"], body: "serpent", legs: "coil", arms: "none", crest: "trihorn", tail: "coil", eyes: 6, face: "fang", cheek: 0, rune: "✧",
+    n: { th: "ไฮดราดวงดาว", en: "Star Hydra", zh: "星辰九头蛇" } },
+  { id: "sphinx", w: ["starsong"], body: "beast", legs: "talon", arms: "wing", crest: "crown", tail: "plume", eyes: 2, face: "smile", cheek: 0, rune: "◈",
+    n: { th: "สฟิงซ์แห่งบทเพลง", en: "Sphinx of Song", zh: "歌之斯芬克斯" } },
+  { id: "voidmw", w: ["starsong"], body: "carapace", legs: "many", arms: "pincer", crest: "frill", tail: "sting", eyes: 5, face: "oh", cheek: 0, rune: "≋",
+    n: { th: "หนอนสุญญากาศ", en: "Void Maw", zh: "虚空噬口" } },
+];
+export const foesOf = (worldId) => FOES.filter(f => f.w.includes(worldId));
+export const foeById = (id) => FOES.find(f => f.id === id) || FOES[0];
+export const foeName = (id, lang) => {
+  const n = foeById(id).n;
+  return lang === "th" ? n.th : lang === "zh" ? n.zh : n.en;
+};
+/* Each world's boss wears the biggest body in its own pool. The boss keeps
+   its own name and health from the world record; only the shape comes from
+   here, so nothing about the fight changes. */
+const BOSS_SP = { terra: "golem", ferros: "phoenx", glacius: "leviat", emberfall: "titan", starsong: "voidmw" };
+
 const FOE_RIG = {
   terra:     { body: "blob",  legs: "stub",  arms: "mitt", crest: "ant",   eyes: 2, face: "smile", cheek: 1, rune: "◈" },
   ferros:    { body: "chunk", legs: "roll",  arms: "paw",  crest: "stack", eyes: 2, face: "grin",  cheek: 1, rune: "⬢" },
@@ -1401,6 +1664,14 @@ const FOE_BODY = {
   blob:  "M100 24 C147 24 173 61 173 107 C173 149 142 173 100 173 C58 173 27 149 27 107 C27 61 53 24 100 24 Z",
   chunk: "M100 26 C145 26 171 53 171 97 L171 131 C171 159 145 175 100 175 C55 175 29 159 29 131 L29 97 C29 53 55 26 100 26 Z",
   drop:  "M100 22 C118 22 133 40 148 62 C164 85 172 100 172 121 C172 155 140 176 100 176 C60 176 28 155 28 121 C28 100 36 85 52 62 C67 40 82 22 100 22 Z",
+  // a big cat's chest: low, wide, weight forward
+  beast: "M100 26 C124 26 139 44 141 66 C163 80 180 106 180 138 C180 166 146 180 100 180 C54 180 20 166 20 138 C20 106 37 80 59 66 C61 44 76 26 100 26 Z",
+  // shoulders first, and everything else hanging off them
+  hulk:  "M100 20 C126 20 143 33 149 54 C172 62 181 80 179 102 C177 124 162 137 145 142 C143 165 126 180 100 180 C74 180 57 165 55 142 C38 137 23 124 21 102 C19 80 28 62 51 54 C57 33 74 20 100 20 Z",
+  // a body that is mostly neck, sitting on its own coil
+  serpent: "M100 8 C125 8 138 29 136 56 C134 84 116 98 112 124 C108 152 134 168 162 178 L38 178 C66 168 92 152 88 124 C84 98 66 84 64 56 C62 29 75 8 100 8 Z",
+  // a segmented shell, wider than it is tall
+  carapace: "M100 42 C144 42 184 66 184 106 C184 144 146 168 100 168 C54 168 16 144 16 106 C16 66 56 42 100 42 Z",
 };
 
 /* the etched circuitry, per body — traced so it follows the shell rather
@@ -1409,12 +1680,18 @@ const FOE_TRACE = {
   blob:  "M32 100 H58 L70 86 M130 86 L142 100 H168 M44 138 H72 M128 138 H156 M100 24 V40",
   chunk: "M28 96 H56 L68 82 M132 82 L144 96 H172 M40 142 H72 M128 142 H160 M100 26 V40",
   drop:  "M30 112 H56 L68 98 M132 98 L144 112 H170 M46 146 H76 M124 146 H154 M100 30 V46",
+  beast: "M24 132 H52 L64 118 M136 118 L148 132 H176 M40 164 H74 M126 164 H160 M100 26 V44 M62 72 H138",
+  hulk:  "M24 96 H54 L66 82 M134 82 L146 96 H176 M58 150 H86 M114 150 H142 M100 20 V36 M54 58 H146",
+  serpent: "M66 68 H88 M112 68 H134 M70 102 H92 M108 102 H130 M100 8 V28 M46 168 H154 M60 148 H140",
+  carapace: "M20 92 H180 M24 118 H176 M38 144 H162 M100 42 V60 M60 60 H140",
 };
 
-export const MonsterArt = memo(function MonsterArt({ world, boss, hurt }) {
+export const MonsterArt = memo(function MonsterArt({ world, foe, boss, hurt }) {
   const W = worldById(world);
-  const R = FOE_RIG[world] || FOE_RIG.terra;
-  const uid = "fo" + world + (boss ? "b" : "");
+  /* The species carries the body plan; the WORLD still carries the palette, so
+     a Ferros beast reads as Ferros whatever shape it happens to be. */
+  const R = foe ? foeById(foe) : (FOE_RIG[world] || FOE_RIG.terra);
+  const uid = "fo" + (foe || world) + (boss ? "b" : "");
   const C = W.accent, G = W.glow, D = "#0a1020";
   const eye = hurt ? "#ffffff" : boss ? "#ff3d3d" : "#ff7a6a";
   const K = boss ? 1.14 : 1;
@@ -1535,6 +1812,108 @@ export const MonsterArt = memo(function MonsterArt({ world, boss, hurt }) {
       </g>
 
       <g className="fo-bob" transform={`translate(100 0) scale(${K}) translate(-100 0)`}>
+        {/* ── the parts that live BEHIND the body ──
+            A tail drawn over the shell reads as a strap; a frill drawn over
+            the head hides the face. Both go down first, then get covered. */}
+        {R.tail === "plume" && (
+          <g className="fo-tail">
+            {/* the fan sweeps into the empty upper-right, which is the only
+                corner every body plan leaves free — a tail routed anywhere
+                else disappears behind the shell */}
+            {[0, 1, 2, 3].map(i => {
+              const d = `M148 158 C${180 + i * 4} ${150 - i * 6} ${196 - i * 3} ${104 - i * 12} ${174 - i * 17} ${44 - i * 10}`;
+              return (
+                <g key={i}>
+                  <path d={d} fill="none" strokeLinecap="round" stroke={C}
+                    strokeWidth={15 - i * 2.6} opacity=".85" />
+                  <path d={d} fill="none" strokeLinecap="round" stroke={G}
+                    strokeWidth={9 - i * 1.8} opacity={.95 - i * .12} filter={`url(#${uid}-bloom)`} />
+                  <path d={d} fill="none" strokeLinecap="round" stroke="#ffffff"
+                    strokeWidth={3 - i * 0.5} opacity={.8 - i * .16} />
+                </g>
+              );
+            })}
+            <circle cx="174" cy="44" r="5.5" fill="#ffffff" opacity=".9" filter={`url(#${uid}-bloom)`} />
+          </g>
+        )}
+        {R.tail === "whip" && (
+          <g className="fo-tail">
+            <path d="M146 162 C188 158 198 108 172 62" fill="none" stroke={D} strokeWidth="15" strokeLinecap="round" />
+            <path d="M146 162 C188 158 198 108 172 62" fill="none" stroke={`url(#${uid}-lm)`} strokeWidth="9.5" strokeLinecap="round" />
+            <path d="M146 162 C188 158 198 108 172 62" fill="none" stroke={G} strokeWidth="2" strokeDasharray="3 12" opacity=".8" />
+            <path d="M172 62 L186 32 L156 46 Z" fill={G} stroke={D} strokeWidth="1.8" strokeLinejoin="round"
+              filter={`url(#${uid}-bloom)`} />
+          </g>
+        )}
+        {R.tail === "sting" && (
+          <g className="fo-tail">
+            <path d="M154 162 C196 144 196 46 142 14" fill="none" stroke={D} strokeWidth="17" strokeLinecap="round" />
+            <path d="M154 162 C196 144 196 46 142 14" fill="none" stroke={C} strokeWidth="12" strokeLinecap="round" />
+            {/* the segment joints, got for free by dashing the same curve */}
+            <path d="M154 162 C196 144 196 46 142 14" fill="none" stroke={D} strokeWidth="12"
+              strokeDasharray="2 13" opacity=".6" />
+            <path d="M154 162 C196 144 196 46 142 14" fill="none" stroke={G} strokeWidth="2.4"
+              strokeDasharray="5 26" opacity=".9" />
+            <path d="M144 18 L116 -6 L140 38 Z" fill={eye} stroke={D} strokeWidth="1.8" strokeLinejoin="round"
+              filter={`url(#${uid}-bloom)`} />
+            <circle className="fo-core" cx="130" cy="6" r="4.5" fill="#fff" opacity=".85" />
+          </g>
+        )}
+        {R.tail === "coil" && (
+          <g>
+            {/* a loop thrown clear of the base coil, or the two read as one
+                undifferentiated lump of rope */}
+            <path d="M136 166 C190 164 198 112 166 96 C140 83 128 112 146 122" fill="none"
+              stroke={D} strokeWidth="22" strokeLinecap="round" />
+            <path d="M136 166 C190 164 198 112 166 96 C140 83 128 112 146 122" fill="none"
+              stroke={`url(#${uid}-lm)`} strokeWidth="16" strokeLinecap="round" />
+            <path d="M136 166 C190 164 198 112 166 96 C140 83 128 112 146 122" fill="none"
+              stroke={G} strokeWidth="2.6" strokeDasharray="3 11" opacity=".8" />
+          </g>
+        )}
+        {R.tail === "fluke" && (
+          <g className="fo-tail">
+            <path d="M142 164 C170 162 182 140 184 112" fill="none" stroke={D} strokeWidth="18" strokeLinecap="round" />
+            <path d="M142 164 C170 162 182 140 184 112" fill="none" stroke={`url(#${uid}-lm)`} strokeWidth="12" strokeLinecap="round" />
+            {/* two lobes off one stalk — the shape that says whale and not fin */}
+            <path d="M184 112 C186 78 172 50 154 40 C160 62 160 84 172 100 C154 104 138 122 132 150 C154 146 176 136 184 112 Z"
+              fill={C} stroke={D} strokeWidth="2.2" strokeLinejoin="round" />
+            <path d="M178 100 C176 76 168 58 158 48 M176 116 C162 124 148 136 140 148"
+              fill="none" stroke={G} strokeWidth="2" opacity=".8" />
+          </g>
+        )}
+
+        {/* a frill and a mane both sit AROUND the head, so they are drawn
+            here and let the face cover their middle */}
+        {R.crest === "frill" && (
+          <g className="fo-frill">
+            {/* scalloped, and pinned wide enough to clear the widest head on
+                any body plan — a frill tucked inside the silhouette is just
+                a fill nobody ever sees */}
+            <path d="M100 110 C47 106 28 64 35 22 C50 46 65 40 68 18 C79 42 89 38 92 14 C100 40 108 38 112 16 C120 42 132 42 136 18 C147 42 159 48 168 24 C173 66 155 106 100 110 Z"
+              fill={`url(#${uid}-lm)`} stroke={D} strokeWidth="2.4" strokeLinejoin="round" />
+            <path d="M100 106 L36 26 M100 106 L68 22 M100 106 L93 18 M100 106 L112 20 M100 106 L136 22 M100 106 L166 30"
+              fill="none" stroke={G} strokeWidth="2.2" opacity=".8" />
+            <path d="M100 110 C50 106 32 66 38 28" fill="none" stroke="#ffffff" strokeWidth="1.8" opacity=".5" />
+          </g>
+        )}
+        {R.crest === "mane" && (
+          <g>
+            {Array.from({ length: 13 }).map((_, i) => {
+              const a = -Math.PI * 0.99 + (i / 12) * Math.PI * 0.98;
+              const t = i % 2 ? 96 : 82;
+              const tx = 100 + Math.cos(a) * t, ty = 96 + Math.sin(a) * (t * 0.92);
+              const px = 100 + Math.cos(a + 0.19) * 50, py = 96 + Math.sin(a + 0.19) * 46;
+              const qx = 100 + Math.cos(a - 0.19) * 50, qy = 96 + Math.sin(a - 0.19) * 46;
+              return (
+                <path key={i} d={`M${px} ${py} L${tx} ${ty} L${qx} ${qy} Z`}
+                  fill={i % 2 ? C : "#33405f"} stroke={D} strokeWidth="1.8" strokeLinejoin="round" />
+              );
+            })}
+            <path d="M50 96 A50 46 0 0 1 150 96 Z" fill={C} opacity=".65" />
+          </g>
+        )}
+
         {/* ── legs ── */}
         {R.legs === "stub" && [-1, 1].map(k => (
           <g key={k}>
@@ -1564,6 +1943,108 @@ export const MonsterArt = memo(function MonsterArt({ world, boss, hurt }) {
                 fill="none" stroke={G} strokeWidth="3" strokeLinecap="round" />
             ))}
             <ellipse cx="100" cy="176" rx="34" ry="9" fill={G} opacity=".22" filter={`url(#${uid}-soft)`} />
+          </g>
+        )}
+
+        {R.legs === "hoof" && (
+          <g>
+            {/* the hind pair, set back and dropped in value — two legs on a
+                flat plane is a cardboard cut-out, four with depth is a beast */}
+            {[-1, 1].map(k => (
+              <g key={"h" + k} opacity=".5">
+                <path d={`M${100 + k * 50} 138 L${100 + k * 58} 162 L${100 + k * 52} 182`}
+                  fill="none" stroke="#16203a" strokeWidth="13" strokeLinecap="round" strokeLinejoin="round" />
+                <path d={`M${100 + k * 52 - 8} 178 H${100 + k * 52 + 8} L${100 + k * 52 + 6} 188 H${100 + k * 52 - 6} Z`}
+                  fill="#0d1526" />
+              </g>
+            ))}
+            {[-1, 1].map(k => (
+              <g key={k}>
+                <path d={`M${100 + k * 24} 138 L${100 + k * 34} 160 L${100 + k * 27} 180`}
+                  fill="none" stroke={D} strokeWidth="18" strokeLinecap="round" strokeLinejoin="round" />
+                <path d={`M${100 + k * 24} 138 L${100 + k * 34} 160 L${100 + k * 27} 180`}
+                  fill="none" stroke={`url(#${uid}-lm)`} strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx={100 + k * 34} cy="160" r="4.2" fill={G} opacity=".85" />
+                {/* the hoof: the one hard, flat thing that meets the ground */}
+                <path d={`M${100 + k * 27 - 15} 172 H${100 + k * 27 + 15} L${100 + k * 27 + 12} 191 H${100 + k * 27 - 12} Z`}
+                  fill="#eef3ff" stroke={D} strokeWidth="2.2" strokeLinejoin="round" />
+                <path d={`M${100 + k * 27} 174 V191`} stroke={D} strokeWidth="2" opacity=".6" />
+                <path d={`M${100 + k * 27 - 13} 178 H${100 + k * 27 + 13}`} stroke={G} strokeWidth="2.4" opacity=".75" />
+              </g>
+            ))}
+          </g>
+        )}
+        {R.legs === "talon" && [-1, 1].map(k => (
+          <g key={k}>
+            <path d={`M${100 + k * 26} 136 L${100 + k * 37} 158 L${100 + k * 29} 174`}
+              fill="none" stroke={D} strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={`M${100 + k * 26} 136 L${100 + k * 37} 158 L${100 + k * 29} 174`}
+              fill="none" stroke={`url(#${uid}-lm)`} strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx={100 + k * 37} cy="158" r="4" fill={G} opacity=".8" />
+            {/* three toes that spread and then hook under — a bird's foot is
+                a grip, not a peg */}
+            {[-1, 0, 1].map(j => (
+              <g key={j}>
+                <path d={`M${100 + k * 29} 174 Q${100 + k * 29 + j * 13} 184 ${100 + k * 29 + j * 19} 188`}
+                  fill="none" stroke="#cbd8ee" strokeWidth="6.5" strokeLinecap="round" />
+                <path d={`M${100 + k * 29 + j * 19} 188 q${j * 5} 3 ${j * 6} 5`}
+                  fill="none" stroke={G} strokeWidth="3.4" strokeLinecap="round" />
+              </g>
+            ))}
+          </g>
+        ))}
+        {R.legs === "many" && [-1, 1].map(k => (
+          <g key={k}>
+            {[0, 1, 2].map(i => {
+              const ox = 100 + k * (26 + i * 13), oy = 132 + i * 8;
+              const kx = 100 + k * (56 + i * 12), ky = 116 + i * 14;
+              const fx = 100 + k * (48 + i * 16), fy = 188 - i * 6;
+              return (
+                <g key={i}>
+                  <path d={`M${ox} ${oy} L${kx} ${ky} L${fx} ${fy}`} fill="none"
+                    stroke={D} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={`M${ox} ${oy} L${kx} ${ky} L${fx} ${fy}`} fill="none"
+                    stroke={`url(#${uid}-lm)`} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx={kx} cy={ky} r="3.6" fill={G} opacity=".85" />
+                </g>
+              );
+            })}
+          </g>
+        ))}
+        {R.legs === "coil" && (
+          <g>
+            <ellipse cx="100" cy="178" rx="68" ry="19" fill="#131c30" stroke={D} strokeWidth="2.4" />
+            <ellipse cx="100" cy="172" rx="68" ry="19" fill={`url(#${uid}-lm)`} stroke={D} strokeWidth="2.4" />
+            <ellipse cx="100" cy="163" rx="49" ry="14" fill="#2b3550" stroke={D} strokeWidth="2" />
+            <ellipse cx="100" cy="156" rx="32" ry="10" fill={`url(#${uid}-lm)`} stroke={D} strokeWidth="2" />
+            <path d="M36 172 Q100 192 164 172" fill="none" stroke={G} strokeWidth="2.6" strokeDasharray="4 10" opacity=".8" />
+            <path d="M54 163 Q100 178 146 163" fill="none" stroke={G} strokeWidth="2.2" strokeDasharray="4 9" opacity=".6" />
+          </g>
+        )}
+        {R.legs === "tentacle" && (
+          <g>
+            {[-2, -1, 0, 1, 2].map(j => {
+              const bx = 100 + j * 22, px = 100 + j * 38 + (j < 0 ? -4 : j > 0 ? 4 : 0);
+              const w = j === 0 ? 17 : 15;
+              // the outer arms bow away from the body before they drop, so the
+              // whole length is outside the shell rather than hidden under it
+              const cx1 = bx + (px - bx) * 1.35, cx2 = px + (px - bx) * 0.18;
+              return (
+                <g key={j}>
+                  {/* a real taper: one filled path from a fat root to a point,
+                      because two stacked strokes only ever look like a tube */}
+                  <path d={`M${bx - w} 112 C${cx1 - w} 144 ${cx2 - 13} 168 ${px - 3} 192 C${px + 3} 176 ${cx2 + 11} 152 ${bx + w} 112 Z`}
+                    fill={`url(#${uid}-lm)`} stroke={D} strokeWidth="2.4" strokeLinejoin="round" />
+                  {[0, 1, 2, 3].map(i => (
+                    <circle key={i} cx={bx + (px - bx) * (0.42 + i * 0.18)} cy={140 + i * 13}
+                      r={4.6 - i * 0.8} fill={G} opacity=".8" />
+                  ))}
+                </g>
+              );
+            })}
+            {/* the mantle they all hang from, so the arms read as attached */}
+            <ellipse cx="100" cy="126" rx="72" ry="22" fill={`url(#${uid}-lm)`} stroke={D} strokeWidth="2.4" />
+            <path d="M32 124 Q100 148 168 124" fill="none" stroke={G} strokeWidth="2.4" strokeDasharray="4 10" opacity=".7" />
           </g>
         )}
 
@@ -1625,6 +2106,32 @@ export const MonsterArt = memo(function MonsterArt({ world, boss, hurt }) {
           </g>
         ))}
 
+        {R.arms === "pincer" && [-1, 1].map(k => (
+          <g key={k} className={k > 0 ? "fo-armR" : "fo-armL"}>
+            <path d={`M${100 + k * 50} 94 L${100 + k * 70} 112`} stroke={D} strokeWidth="19" strokeLinecap="round" />
+            <path d={`M${100 + k * 50} 94 L${100 + k * 70} 112`} stroke={`url(#${uid}-lm)`} strokeWidth="13" strokeLinecap="round" />
+            {/* two halves with daylight between them: a claw has to look
+                like it could close, or it is just a lump on a stick */}
+            <path d={`M${100 + k * 66} 104 C${100 + k * 88} 98 ${100 + k * 94} 112 ${100 + k * 84} 120 L${100 + k * 76} 116 C${100 + k * 82} 110 ${100 + k * 76} 106 ${100 + k * 68} 110 Z`}
+              fill={C} stroke={D} strokeWidth="2.2" strokeLinejoin="round" />
+            <path d={`M${100 + k * 66} 120 C${100 + k * 86} 124 ${100 + k * 92} 138 ${100 + k * 80} 144 L${100 + k * 74} 136 C${100 + k * 80} 132 ${100 + k * 74} 126 ${100 + k * 66} 126 Z`}
+              fill={C} stroke={D} strokeWidth="2.2" strokeLinejoin="round" />
+            <path d={`M${100 + k * 72} 108 L${100 + k * 88} 112`} stroke={G} strokeWidth="2" strokeLinecap="round" opacity=".85" />
+            <path d={`M${100 + k * 72} 124 L${100 + k * 86} 132`} stroke={G} strokeWidth="2" strokeLinecap="round" opacity=".85" />
+          </g>
+        ))}
+        {R.arms === "tentacle" && [-1, 1].map(k => (
+          <g key={k} className={k > 0 ? "fo-armR" : "fo-armL"}>
+            <path d={`M${100 + k * 52} 84 C${100 + k * 90} 80 ${100 + k * 100} 112 ${100 + k * 74} 136 C${100 + k * 84} 112 ${100 + k * 78} 98 ${100 + k * 52} 98 Z`}
+              fill={`url(#${uid}-lm)`} stroke={D} strokeWidth="2.2" strokeLinejoin="round" />
+            {[0, 1, 2, 3].map(i => (
+              <circle key={i} cx={100 + k * (60 + i * 8)} cy={91 + i * 6} r={4 - i * 0.5} fill={G} opacity=".75" />
+            ))}
+            <path d={`M${100 + k * 58} 86 C${100 + k * 84} 84 ${100 + k * 92} 108 ${100 + k * 74} 128`}
+              fill="none" stroke="#ffffff" strokeWidth="1.4" opacity=".45" />
+          </g>
+        ))}
+
         {/* ── crest ── */}
         {R.crest === "ant" && [-1, 1].map(k => (
           <g key={k} className={k > 0 ? "fo-antR" : "fo-antL"}>
@@ -1667,11 +2174,76 @@ export const MonsterArt = memo(function MonsterArt({ world, boss, hurt }) {
           </g>
         )}
 
+        {R.crest === "antler" && [-1, 1].map(k => (
+          <g key={k} className={k > 0 ? "fo-antR" : "fo-antL"}>
+            <path d={`M${100 + k * 20} 42 C${100 + k * 30} 18 ${100 + k * 44} 4 ${100 + k * 50} -8`}
+              fill="none" stroke="#e2eafc" strokeWidth="6.5" strokeLinecap="round" />
+            <path d={`M${100 + k * 27} 22 L${100 + k * 47} 15`} fill="none" stroke="#e2eafc" strokeWidth="4.8" strokeLinecap="round" />
+            <path d={`M${100 + k * 34} 9 L${100 + k * 28} -7`} fill="none" stroke="#e2eafc" strokeWidth="4.2" strokeLinecap="round" />
+            <path d={`M${100 + k * 20} 42 C${100 + k * 30} 18 ${100 + k * 44} 4 ${100 + k * 50} -8`}
+              fill="none" stroke={G} strokeWidth="2" strokeLinecap="round" opacity=".9" filter={`url(#${uid}-bloom)`} />
+            <circle cx={100 + k * 50} cy="-8" r="4.2" fill={G} filter={`url(#${uid}-bloom)`} />
+            <circle cx={100 + k * 47} cy="15" r="3.2" fill={G} opacity=".8" />
+          </g>
+        ))}
+        {R.crest === "plate" && (
+          <g>
+            <path d="M50 44 L72 16 H128 L150 44 Z" fill={C} stroke={D} strokeWidth="2.4" strokeLinejoin="round" />
+            <path d="M60 40 L78 22 H122 L140 40" fill="none" stroke={G} strokeWidth="2.2" strokeLinecap="round" opacity=".85" />
+            <path d="M72 16 V44 M128 16 V44" stroke={D} strokeWidth="1.8" opacity=".45" />
+            <rect className="fo-core" x="91" y="20" width="18" height="8" rx="4" fill={G} filter={`url(#${uid}-bloom)`} />
+            <path d="M50 44 L72 16" stroke="#ffffff" strokeWidth="1.6" opacity=".5" />
+          </g>
+        )}
+        {R.crest === "bull" && [-1, 1].map(k => (
+          <g key={k}>
+            <path d={`M${100 + k * 24} 46 C${100 + k * 54} 44 ${100 + k * 78} 30 ${100 + k * 84} 6 C${100 + k * 70} 14 ${100 + k * 56} 24 ${100 + k * 32} 28 Z`}
+              fill="#eef3ff" stroke={D} strokeWidth="2.2" strokeLinejoin="round" />
+            <path d={`M${100 + k * 32} 36 C${100 + k * 56} 32 ${100 + k * 72} 22 ${100 + k * 80} 10`}
+              fill="none" stroke={G} strokeWidth="2" strokeLinecap="round" opacity=".8" />
+            <circle cx={100 + k * 84} cy="6" r="3.4" fill={eye} opacity=".9" />
+          </g>
+        ))}
+        {R.crest === "crown" && (
+          <g>
+            <path d="M62 46 L68 14 L84 30 L100 0 L116 30 L132 14 L138 46 Z"
+              fill={C} stroke={D} strokeWidth="2.2" strokeLinejoin="round" />
+            <path d="M65 38 H135" stroke={G} strokeWidth="3.2" strokeLinecap="round" opacity=".9" />
+            {[[68, 16], [100, 2], [132, 16]].map(([x, y], i) => (
+              <circle key={i} className="fo-core" style={{ animationDelay: `${i * 0.3}s` }}
+                cx={x} cy={y} r="4.6" fill={G} filter={`url(#${uid}-bloom)`} />
+            ))}
+          </g>
+        )}
+        {R.crest === "trihorn" && [-1, 0, 1].map(k => (
+          <g key={k}>
+            <path d={`M${100 + k * 30 - 10} 46 L${100 + k * 30 + k * 9} ${k === 0 ? -8 : 6} L${100 + k * 30 + 10} 46 Z`}
+              fill="#eef3ff" stroke={D} strokeWidth="2" strokeLinejoin="round" />
+            <path d={`M${100 + k * 30 - 3} 44 L${100 + k * 30 + k * 6} ${k === 0 ? 0 : 12}`}
+              fill="none" stroke={G} strokeWidth="2" strokeLinecap="round" opacity=".85" />
+          </g>
+        ))}
+
         {/* ── face ── */}
-        {Array.from({ length: R.eyes }).map((_, i) => {
-          const n = R.eyes, cx = 100 + (i - (n - 1) / 2) * (n > 3 ? 26 : n === 3 ? 32 : 36);
-          const r = n === 1 ? 28 : n === 2 ? 21 : n === 3 ? 16 : 11.5;
-          const cy = n > 3 ? 88 + Math.abs(i - (n - 1) / 2) * 6 : 92;
+        {(() => {
+          /* Five or six eyes in one straight band read as a row of buttons.
+             Stacked into two rows they read as a face that has too many eyes,
+             which is the entire point of giving a creature six. */
+          const n = R.eyes;
+          const rows = n >= 5 ? [n - Math.floor(n / 2), Math.floor(n / 2)] : [n];
+          const step = n >= 5 ? 28 : n === 4 ? 26 : n === 3 ? 32 : 36;
+          const r = n === 1 ? 28 : n === 2 ? 21 : n === 3 ? 16 : n === 4 ? 11.5 : 12.5;
+          const seats = [];
+          rows.forEach((cnt, ri) => {
+            for (let j = 0; j < cnt; j++) {
+              seats.push({
+                cx: 100 + (j - (cnt - 1) / 2) * step,
+                cy: n >= 5 ? 78 + ri * 25 : n === 4 ? 88 + Math.abs(j - (cnt - 1) / 2) * 6 : 92,
+              });
+            }
+          });
+          return seats.map((S, i) => {
+          const cx = S.cx, cy = S.cy;
           return (
             <g key={i}>
               <circle cx={cx} cy={cy} r={r + 10} fill={eye} opacity=".2" filter={`url(#${uid}-soft)`} />
@@ -1693,7 +2265,8 @@ export const MonsterArt = memo(function MonsterArt({ world, boss, hurt }) {
               </g>
             </g>
           );
-        })}
+          });
+        })()}
         {R.cheek === 1 && [-1, 1].map(k => (
           <ellipse key={k} cx={100 + k * 50} cy="116" rx="13" ry="8" fill={eye} opacity=".34" />
         ))}
@@ -1715,6 +2288,22 @@ export const MonsterArt = memo(function MonsterArt({ world, boss, hurt }) {
             <path d="M84 124 Q100 142 116 124" fill="none" stroke={D} strokeWidth="4.5" strokeLinecap="round" />
             <path d="M89 127 L92 136 L95 128 Z" fill="#fff" />
             <path d="M105 128 L108 136 L111 127 Z" fill="#fff" />
+          </g>
+        )}
+
+        {R.face === "beak" && (
+          <g>
+            <path d="M78 110 H122 L109 138 Q100 148 91 138 Z"
+              fill="#f4d888" stroke={D} strokeWidth="2.2" strokeLinejoin="round" />
+            {/* the hook. One curve is the whole difference between a raptor
+                and a traffic cone. */}
+            <path d="M91 138 Q95 154 100 151 Q105 154 109 138 Z"
+              fill="#e2c274" stroke={D} strokeWidth="2" strokeLinejoin="round" />
+            <path d="M100 110 V150" stroke={D} strokeWidth="1.5" opacity=".4" />
+            <path d="M80 116 H120" stroke={D} strokeWidth="1.8" opacity=".55" />
+            <path d="M83 112 L100 112" stroke="#fff8dd" strokeWidth="3" strokeLinecap="round" opacity=".8" />
+            <circle cx="88" cy="121" r="2.6" fill={D} opacity=".6" />
+            <circle cx="112" cy="121" r="2.6" fill={D} opacity=".6" />
           </g>
         )}
 
@@ -1872,10 +2461,10 @@ const BattleScreen = memo(function BattleScreen({
         </div>
         <div className={`ssb-slot foe${foe.boss ? " big" : ""}`} style={{ transform: `translateX(${(((bt && bt.foe) || 0.76) - 0.76) * 100}vw)` }}>
           <div className={`ssb-side foe${hurtFoe ? " hit" : ""}${foe.boss ? " big" : ""}${(bt && bt.tell) > 0 ? " tell" : ""}`}>
-            <MonsterArt world={W.id} boss={foe.boss} hurt={hurtFoe} />
+            <MonsterArt world={W.id} foe={foe.sp} boss={foe.boss} hurt={hurtFoe} />
           </div>
           <div className="ssb-refl" aria-hidden="true">
-            <div className="ssb-refl-in"><MonsterArt world={W.id} boss={foe.boss} /></div>
+            <div className="ssb-refl-in"><MonsterArt world={W.id} foe={foe.sp} boss={foe.boss} /></div>
           </div>
           {(bt && bt.tell) > 0 && <span className="ssb-tell">!</span>}
         </div>
@@ -2232,6 +2821,30 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
          cheapest possible statement that the world continues past the edge of
          what you can walk on, and without it the map reads as a tabletop. */
       const HZ = makeCam(cam, vw, vh).horizon;
+      /* ── the city glow ──
+         A night sky with nothing burning under the horizon reads as a power
+         cut. This is the light of everything you cannot walk to yet, and it
+         is the only reason the dark ridges below have an edge at all. */
+      {
+        const NE = hexRgb(W.neon || W.glow), AC = hexRgb(W.accent);
+        g.globalCompositeOperation = "lighter";
+        const gl = g.createLinearGradient(0, HZ - 130, 0, HZ + 34);
+        gl.addColorStop(0, `rgba(${NE},0)`);
+        gl.addColorStop(0.62, `rgba(${NE},0.16)`);
+        gl.addColorStop(0.88, `rgba(${AC},0.34)`);
+        gl.addColorStop(1, `rgba(${AC},0)`);
+        g.fillStyle = gl; g.fillRect(0, HZ - 130, vw, 164);
+        // three hot pools where the biggest districts sit, drifting with the eye
+        for (let i = 0; i < 3; i++) {
+          const bx = ((hash32("glow" + i + W.id) % 1600) - cam.x * 0.05) % (vw + 260);
+          const px2 = bx < 0 ? bx + vw + 260 : bx;
+          const rg = g.createRadialGradient(px2 - 130, HZ + 4, 0, px2 - 130, HZ + 4, 150);
+          rg.addColorStop(0, `rgba(${i % 2 ? NE : AC},0.30)`);
+          rg.addColorStop(1, `rgba(${i % 2 ? NE : AC},0)`);
+          g.fillStyle = rg; g.fillRect(px2 - 280, HZ - 146, 300, 190);
+        }
+        g.globalCompositeOperation = "source-over";
+      }
       for (let L = 0; L < 2; L++) {
         const par = 0.06 + L * 0.09, amp = 46 - L * 14, base = HZ + L * 16;
         /* Distant land is mostly ATMOSPHERE. Painting the far ridges in the
@@ -2325,7 +2938,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         const pp = e.q; const ex = pp.x, ey = pp.y, k = rel(pp);
         if (ex < -160 || ex > vw + 160 || ey < -160 || ey > vh + 160) continue;
         const [lr0, rgb, a] =
-          e.k === "me"     ? [138, hexRgb(W.glow), 0.30] :
+          e.k === "me"     ? [104, hexRgb(W.glow), 0.20] :
           e.k === "npc"    ? [58, "255,215,122", 0.20] :
           e.k === "mob"    ? [40, "255,90,90", 0.18] :
           e.k === "tower"  ? [54, hexRgb(W.glow), 0.14] :
@@ -2360,7 +2973,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           g.fillText(String(e.o.name || "?").slice(0, 14), ex, ey + 30 * k);
         } else if (e.k === "mob") {
           const hurt = e.o.flash && now - e.o.flash < 140;
-          drawMob(g, ex, ey, 1 * k, W.accent, e.o.t + tsec, hurt);
+          drawMob(g, ex, ey, 1 * k, W.accent, e.o.t + tsec, hurt, e.o.sp);
         } else if (e.k === "tower" || e.k === "pillar") {
           /* A real solid: a footprint on the ground, two lit side faces and a
              cap. Drawn from the world footprint rather than as a rectangle on
@@ -2372,7 +2985,11 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           const P = (dx, dy, hh) => proj(e.o.x + dx, e.o.y + dy, gh + hh);
           const b0 = P(-R, -R, 0), b1 = P(R, -R, 0), b2 = P(R, R, 0), b3 = P(-R, R, 0);
           const t0 = P(-R, -R, H), t1 = P(R, -R, H), t2 = P(R, R, H), t3 = P(-R, R, H);
-          const body = tower ? "#7d8ba8" : (bossDone ? "#6f9d84" : "#9d6f6f");
+          /* A tower painted in a mid grey is a daytime block of flats. At
+             night the slab itself is nearly black and every readable thing on
+             it — windows, trim, the beacon — is emitting. */
+          const body = tower ? (W.rock || "#080e1e") : (bossDone ? "#0d2b1e" : "#2c0b12");
+          const NE = hexRgb(W.neon || W.glow), WI = hexRgb(W.win || "#ffd28a");
           // cast shadow on the ground
           g.fillStyle = "rgba(0,4,12,.4)";
           g.beginPath(); g.moveTo(b0.x, b0.y); g.lineTo(b1.x, b1.y); g.lineTo(b2.x, b2.y); g.lineTo(b3.x, b3.y); g.closePath(); g.fill();
@@ -2380,9 +2997,47 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
             g.fillStyle = shade(body, k);
             g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y); g.lineTo(r2.x, r2.y); g.lineTo(u.x, u.y); g.closePath(); g.fill();
           };
-          face(b3, b2, t2, t3, 0.55);       // front-left wall, away from the sun
-          face(b2, b1, t1, t2, 0.82);       // front-right wall, catching it
-          face(t0, t1, t2, t3, 1.16);       // cap
+          face(b3, b2, t2, t3, 1.0);        // front-left wall, away from the sun
+          face(b2, b1, t1, t2, 1.5);        // front-right wall, catching it
+          face(t0, t1, t2, t3, 2.2);        // cap
+          /* windows: a grid on both visible faces, most of them dark, decided
+             by a hash of the building so the same tower is lit the same way
+             every frame and from every angle */
+          {
+            const rows = tower ? 7 : 3, cols = 3;
+            const grid = (p0, p1, p2, p3, key) => {
+              const at = (u, v) => {
+                const bx = p0.x + (p1.x - p0.x) * u, by = p0.y + (p1.y - p0.y) * u;
+                const tx = p3.x + (p2.x - p3.x) * u, ty = p3.y + (p2.y - p3.y) * u;
+                return { x: bx + (tx - bx) * v, y: by + (ty - by) * v };
+              };
+              for (let r2 = 0; r2 < rows; r2++) for (let q = 0; q < cols; q++) {
+                const hh = hash32("tw" + key + e.o.x + ":" + e.o.y + ":" + r2 + ":" + q);
+                if (hh % 100 > 44) continue;
+                const u0 = 0.13 + q * 0.27, v0 = 0.08 + r2 * (0.84 / rows);
+                const uw = 0.17, vh2 = (0.84 / rows) * 0.44;
+                const rgb = (hh >>> 9) % 4 ? WI : NE;
+                const box = (pad, al) => {
+                  const w0 = at(u0 - pad, v0 - pad * 0.7), w1 = at(u0 + uw + pad, v0 - pad * 0.7);
+                  const w2 = at(u0 + uw + pad, v0 + vh2 + pad * 0.7), w3 = at(u0 - pad, v0 + vh2 + pad * 0.7);
+                  g.fillStyle = `rgba(${rgb},${al})`;
+                  g.beginPath(); g.moveTo(w0.x, w0.y); g.lineTo(w1.x, w1.y); g.lineTo(w2.x, w2.y); g.lineTo(w3.x, w3.y); g.closePath(); g.fill();
+                };
+                // a cheap bloom: one oversized card at low alpha, then the pane
+                box(0.05, 0.1);
+                box(0, (0.34 + (hh % 7) * 0.045).toFixed(2));
+              }
+            };
+            grid(b3, b2, t2, t3, ":l");
+            grid(b2, b1, t1, t2, ":r");
+          }
+          // the corner the two faces meet on, lit — it is what gives the slab
+          // an edge against a sky that is nearly the same value
+          g.strokeStyle = `rgba(${NE},.8)`; g.lineWidth = 1.6; g.lineCap = "round";
+          g.beginPath();
+          g.moveTo(b2.x, b2.y); g.lineTo(t2.x, t2.y);
+          g.moveTo(t3.x, t3.y); g.lineTo(t2.x, t2.y); g.lineTo(t1.x, t1.y);
+          g.stroke();
           // lit bands and the beacon on top
           for (const f of tower ? [0.42, 0.66] : [0.55]) {
             const q0 = P(R, -R, H * f), q1 = P(R, R, H * f);
@@ -2707,8 +3362,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     playUi("click");
     setFight({
       kind: "mob", boss: false, mobId: mob.id, hp: mob.hp * 62, max: mob.hp * 62,
-      phase: "act", q: null, streak: 0, wrongRun: 0,
-      name: tr3(W.mob, lang), col: W.accent,
+      phase: "act", q: null, streak: 0, wrongRun: 0, sp: mob.sp,
+      name: mob.sp ? foeName(mob.sp, lang) : tr3(W.mob, lang), col: W.accent,
     });
     resetArena();
   }
@@ -2717,7 +3372,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     playUi("click");
     setFight({
       kind: "boss", boss: true, hp: b.hp, max: b.hp,
-      phase: "act", q: null, streak: 0, wrongRun: 0,
+      phase: "act", q: null, streak: 0, wrongRun: 0, sp: BOSS_SP[W.id],
       name: tr3(b.name, lang), col: "#ff6a6a", line: tr3(b.line, lang),
     });
     resetArena();

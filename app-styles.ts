@@ -2666,6 +2666,12 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .fo-antR{animation:foAntR 2.9s ease-in-out infinite;transform-origin:bottom left}
 @keyframes foAntL{0%,100%{rotate:-4deg}50%{rotate:5deg}}
 @keyframes foAntR{0%,100%{rotate:4deg}50%{rotate:-5deg}}
+/* a tail swings from where it JOINS the body, so the pivot is the left edge
+   of its own box, not its centre - transform-box:fill-box makes that exact */
+.fo-tail{animation:foTail 2.9s ease-in-out infinite;transform-origin:left center}
+@keyframes foTail{0%,100%{rotate:-4deg}50%{rotate:6deg}}
+.fo-frill{animation:foFrill 4.2s ease-in-out infinite;transform-origin:bottom center}
+@keyframes foFrill{0%,100%{scale:1 1}50%{scale:1.05 1.08}}
 .fo-hover{animation:foHover 1.9s ease-in-out infinite;transform-origin:center}
 @keyframes foHover{0%,100%{opacity:.35;scale:1}50%{opacity:.95;scale:1.1}}
 .fo-hub{animation:foCore 1.5s ease-in-out infinite;transform-origin:center}
@@ -2728,10 +2734,14 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    and a whisper of chromatic fringe in the corners. */
 /* the world wears the grade too — same curve, same vignette, same grain */
 .ssgrade{position:absolute;inset:0;z-index:3;pointer-events:none}
+/* Split-tone, not haze. A pale blue soft-light lift is a daylight grade: over
+   a near-black city it only raises the darks into milk and every neon in the
+   frame loses its lead. Violet up top, magenta down low, and a vignette deep
+   enough that the lit edges are the brightest thing left. */
 .ssgrade::before{content:"";position:absolute;inset:0;mix-blend-mode:soft-light;
-  background:linear-gradient(180deg,rgba(150,200,255,.14),rgba(0,0,0,0) 52%,rgba(255,150,70,.07))}
+  background:linear-gradient(180deg,rgba(126,60,255,.22),rgba(0,0,0,0) 46%,rgba(255,54,168,.16))}
 .ssgrade::after{content:"";position:absolute;inset:0;
-  background:radial-gradient(128% 94% at 50% 44%,rgba(0,0,0,0) 30%,rgba(3,6,14,.42) 76%,rgba(2,4,10,.7) 100%)}
+  background:radial-gradient(122% 92% at 50% 42%,rgba(0,0,0,0) 22%,rgba(4,2,14,.5) 70%,rgba(1,0,7,.84) 100%)}
 .ssb-grade{position:absolute;inset:0;z-index:8;pointer-events:none}
 .ssb-grade::before{content:"";position:absolute;inset:0;mix-blend-mode:soft-light;
   background:linear-gradient(180deg,rgba(150,200,255,.20),rgba(0,0,0,0) 42%,rgba(255,150,70,.16)),
