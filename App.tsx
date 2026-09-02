@@ -7,6 +7,7 @@ import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotG
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 import { SkillTrack, PvpPage, trainFromExp, readSkillSp, skillRank } from "./pvp-arena";
+import { MonsterBattlePage } from "./pve-battle";
 import { PetPod, PetPage } from "./pet-lab";
 import { StarsongPod, StarsongPage } from "./starsong";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
@@ -6281,7 +6282,7 @@ const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, e
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPet, onOpenStarsong, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPve, onOpenPet, onOpenStarsong, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -6450,6 +6451,12 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
                 {lang === "th" ? "⚔ เข้าสนามประลอง PvP — ตอบคำถามดนตรีแข่งกัน แล้วหุ่นสู้กันตามผล"
                   : lang === "zh" ? "⚔ 进入 PvP 竞技场 — 比拼音乐问答，机体依结果开战"
                   : "⚔ Enter the PvP Arena — answer music questions against an opponent, and your chassis fight it out"}
+              </button>
+              <button className="battlecard-soon as-btn" style={{ marginTop: 6, background: "linear-gradient(135deg, #7c4dff, #b388ff)" }}
+                onClick={() => onOpenPve && onOpenPve()}>
+                {lang === "th" ? "🐉 ดันเจี้ยนมอนสเตอร์ — สู้กับสัตว์ประหลาด ฝึกฝีมือ"
+                  : lang === "zh" ? "🐉 怪物地下城 — 对战怪物，磨练技艺"
+                  : "🐉 Monster Dungeon — fight monsters to sharpen your skills"}
               </button>
             </div>
           );
@@ -10598,7 +10605,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} onOpenStarsong={() => { logUsage("nav", "starsong"); setPage("starsong"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPve={() => { logUsage("nav", "pve"); setPage("pve"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} onOpenStarsong={() => { logUsage("nav", "starsong"); setPage("starsong"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
@@ -10650,7 +10657,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           }} />
       )}
 
-      {/* ─── PAGE: CYBER PET ───
+{/* ─── PAGE: MONSTER BATTLE (PvE) ─── */}
+      {page === "pve" && (
+        <MonsterBattlePage lang={lang} charModel={charModel}
+          gear={[ALL_WEAPONS.find(x => x.id === charWeapon), ALL_OUTFITS.find(x => x.id === charOutfit),
+                 ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory)]}
+          onBack={() => { setPage("profile"); playUi("click"); }}
+          onReward={(xp, c, res) => {
+            if (xp) gainExp(xp, { quest: true, noSkill: true });
+            if (c) earnCoins(c);
+            bumpWeekly("games", 1);
+            if (res && res.win) bumpWeekly("perfect", 1);
+          }}
+          playUi={playUi} />
+      )}
+
+            {/* ─── PAGE: CYBER PET ───
           Coins are spent through the same getCoins/setCoinsLS pair the shop
           uses, so the pantry can never drift from the balance shown anywhere
           else. Food is a consumable and lives in its own counter map rather
