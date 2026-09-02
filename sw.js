@@ -1,8 +1,6 @@
-// v9: force-refresh clients still holding the pre-fix bundle from the
-// User Activity flicker bug (see commit history) — a new cache name makes the
-// browser reinstall this SW exactly once, which posts SW_UPDATED and the app
-// auto-reloads onto the fixed build.
-const CACHE = "tiga-v12";
+// v10: network-first for JS/CSS to prevent stale cached bundles.
+// Bumped cache name to v13 so every client reinstalls this SW once.
+const CACHE = "tiga-v13";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
@@ -64,6 +62,19 @@ self.addEventListener("fetch", e => {
   // Network-first for HTML (always get the freshest app code)
   const isHtml = url.pathname === "/" || url.pathname.endsWith(".html");
   if (isHtml) {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Network-first for JS/CSS (prevent stale cached bundles)
+  const isJsCss = url.pathname.endsWith(".js") || url.pathname.endsWith(".css") ||
+    url.pathname.includes("/assets/");
+  if (isJsCss) {
     e.respondWith(
       fetch(e.request).then(res => {
         if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
