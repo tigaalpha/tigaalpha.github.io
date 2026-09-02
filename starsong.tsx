@@ -2250,7 +2250,7 @@ export const MonsterArt = memo(function MonsterArt({ world, foe, boss, hurt }) {
               <circle cx={cx} cy={cy} r={r + 4} fill="#080d18" />
               <circle cx={cx} cy={cy} r={r + 4} fill="none" stroke={G} strokeWidth="1.6" opacity=".55" />
               <clipPath id={`${uid}-ec${i}`}><circle cx={cx} cy={cy} r={r} /></clipPath>
-              <g className="fo-lid" style={{ animationDelay: `${i * 0.06}s`, transformOrigin: `${cx}px ${cy}px` }}>
+              <g className="fo-lid" style={{ animationDelay: `${i * 0.06}s`, transformOrigin: "center" }}>
                 <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}-ey)`} />
                 {/* the scan bar that says this eye is a sensor. It has to be
                     clipped by a real clipPath — a CSS basic shape resolves

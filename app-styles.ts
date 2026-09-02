@@ -2629,6 +2629,10 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    redrawn when the creature actually changes state. */
 .foart{overflow:visible;filter:drop-shadow(0 10px 22px rgba(0,0,0,.55)) drop-shadow(0 0 26px var(--fg,#8fd0ff))}
 .foart.hurt{filter:brightness(2.3) saturate(.25) drop-shadow(0 0 30px #fff)}
+/* fill-box makes every transform-origin below resolve against the element's
+   OWN box, not the SVG canvas - so a px origin copied from the artwork's
+   coordinates lands somewhere else entirely (the blink dropped the eye 132px
+   onto the belly). Everything here wants its own centre, so say center. */
 .foart *{transform-box:fill-box}
 .fo-bob{animation:foBob 3.1s ease-in-out infinite;transform-origin:center}
 @keyframes foBob{0%,100%{translate:0 0}50%{translate:0 -6px}}
@@ -2642,13 +2646,13 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .fo-sheen{animation:foSheen 4.6s cubic-bezier(.5,0,.5,1) infinite}
 @keyframes foSheen{0%{translate:0 0}55%,100%{translate:300px 0}}
 /* the pad: rings leaving the platform */
-.fo-ring{animation:foRing 3.3s ease-out infinite;transform-origin:100px 194px;opacity:0}
+.fo-ring{animation:foRing 3.3s ease-out infinite;transform-origin:center;opacity:0}
 @keyframes foRing{0%{opacity:.65;scale:.86}100%{opacity:0;scale:1.5}}
 .fo-pad{animation:foPadGlow 2.8s ease-in-out infinite}
 @keyframes foPadGlow{0%,100%{opacity:.72}50%{opacity:1}}
 /* shards and runes in orbit, counter-rotating */
-.fo-orbit{animation:foOrbit 11s linear infinite;transform-origin:100px 104px}
-.fo-orbit.rev{animation:foOrbit 15s linear infinite reverse;transform-origin:100px 92px}
+.fo-orbit{animation:foOrbit 11s linear infinite;transform-origin:center}
+.fo-orbit.rev{animation:foOrbit 15s linear infinite reverse;transform-origin:center}
 @keyframes foOrbit{to{rotate:360deg}}
 .fo-shard{animation:foShard 2.2s ease-in-out infinite;transform-origin:center}
 @keyframes foShard{0%,100%{opacity:.55;scale:.86}50%{opacity:1;scale:1.14}}
@@ -2677,7 +2681,7 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .fo-hub{animation:foCore 1.5s ease-in-out infinite;transform-origin:center}
 .fo-puff{animation:foPuff 2.1s ease-out infinite;transform-origin:center;opacity:0}
 @keyframes foPuff{0%{opacity:.5;scale:.5;translate:0 0}100%{opacity:0;scale:1.5;translate:0 -20px}}
-.fo-halo{animation:foHalo 5s linear infinite;transform-origin:100px 16px}
+.fo-halo{animation:foHalo 5s linear infinite;transform-origin:center}
 @keyframes foHalo{0%,100%{rotate:0deg;opacity:.8}50%{rotate:8deg;opacity:1}}
 /* a rare, fast blink — a slow one is shut in most frames and just reads as a
    creature drawn with its eyes closed */
@@ -2743,11 +2747,13 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssgrade::after{content:"";position:absolute;inset:0;
   background:radial-gradient(122% 92% at 50% 42%,rgba(0,0,0,0) 22%,rgba(4,2,14,.5) 70%,rgba(1,0,7,.84) 100%)}
 .ssb-grade{position:absolute;inset:0;z-index:8;pointer-events:none}
+/* the same split-tone the world map uses, so walking into a fight does not
+   change what planet you are standing on */
 .ssb-grade::before{content:"";position:absolute;inset:0;mix-blend-mode:soft-light;
-  background:linear-gradient(180deg,rgba(150,200,255,.20),rgba(0,0,0,0) 42%,rgba(255,150,70,.16)),
-             radial-gradient(120% 88% at 50% 40%,rgba(255,255,255,.14),rgba(0,0,0,0) 46%)}
+  background:linear-gradient(180deg,rgba(126,60,255,.26),rgba(0,0,0,0) 44%,rgba(255,54,168,.2)),
+             radial-gradient(120% 88% at 50% 40%,rgba(255,255,255,.1),rgba(0,0,0,0) 46%)}
 .ssb-grade::after{content:"";position:absolute;inset:0;
-  background:radial-gradient(125% 92% at 50% 44%,rgba(0,0,0,0) 32%,rgba(3,6,14,.44) 78%,rgba(2,4,10,.76) 100%)}
+  background:radial-gradient(122% 90% at 50% 42%,rgba(0,0,0,0) 26%,rgba(4,2,14,.5) 74%,rgba(1,0,7,.84) 100%)}
 .ssb-grain{position:absolute;inset:-40%;opacity:.05;mix-blend-mode:overlay;animation:ssbGrain .5s steps(2) infinite;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='180' height='180' filter='url(%23n)'/></svg>")}
 @keyframes ssbGrain{0%{transform:translate(0,0)}25%{transform:translate(-3%,2%)}50%{transform:translate(2%,-3%)}75%{transform:translate(-2%,-2%)}100%{transform:translate(0,0)}}

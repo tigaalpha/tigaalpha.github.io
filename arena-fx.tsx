@@ -70,6 +70,7 @@ export const STAGES = [
     grid: "rgba(122,170,255,.20)", horizon: "120,175,255",
     spots: [[0.24, "126,196,255"], [0.76, "255,150,110"]],
     mote: "170,210,255", back: "city",
+    neon: ["255,43,214", "63,216,255"], face: "16,22,44",
     bpm: 150, chords: [
       { bass: 38, arp: [62, 65, 69, 74] }, { bass: 34, arp: [58, 62, 65, 70] },
       { bass: 41, arp: [65, 69, 72, 77] }, { bass: 36, arp: [60, 64, 67, 72] },
@@ -81,6 +82,7 @@ export const STAGES = [
     grid: "rgba(255,140,70,.22)", horizon: "255,120,50",
     spots: [[0.22, "255,170,90"], [0.78, "255,90,40"]],
     mote: "255,180,120", back: "embers",
+    neon: ["255,47,94", "255,170,60"], face: "36,16,14",
     bpm: 162, chords: [
       { bass: 33, arp: [57, 60, 64, 69] }, { bass: 40, arp: [64, 67, 71, 76] },
       { bass: 35, arp: [59, 62, 66, 71] }, { bass: 38, arp: [62, 66, 69, 74] },
@@ -92,6 +94,7 @@ export const STAGES = [
     grid: "rgba(150,225,255,.26)", horizon: "150,225,255",
     spots: [[0.24, "180,240,255"], [0.76, "120,190,255"]],
     mote: "200,240,255", back: "shards",
+    neon: ["47,123,255", "77,240,255"], face: "10,32,52",
     bpm: 142, chords: [
       { bass: 40, arp: [64, 68, 71, 76] }, { bass: 35, arp: [59, 63, 66, 71] },
       { bass: 43, arp: [67, 71, 74, 79] }, { bass: 38, arp: [62, 66, 69, 74] },
@@ -103,6 +106,7 @@ export const STAGES = [
     grid: "rgba(180,140,255,.20)", horizon: "170,130,255",
     spots: [[0.24, "190,150,255"], [0.76, "120,220,255"]],
     mote: "215,190,255", back: "stars",
+    neon: ["63,240,208", "176,125,255"], face: "24,14,58",
     bpm: 134, chords: [
       { bass: 32, arp: [56, 59, 63, 68] }, { bass: 37, arp: [61, 64, 68, 73] },
       { bass: 39, arp: [63, 67, 70, 75] }, { bass: 34, arp: [58, 61, 65, 70] },
@@ -114,6 +118,7 @@ export const STAGES = [
     grid: "rgba(255,205,140,.18)", horizon: "255,190,120",
     spots: [[0.24, "255,215,160"], [0.76, "255,170,110"]],
     mote: "255,220,170", back: "lanterns",
+    neon: ["255,210,63", "255,90,120"], face: "38,26,16",
     bpm: 128, chords: [
       { bass: 36, arp: [60, 63, 67, 72] }, { bass: 41, arp: [65, 68, 72, 77] },
       { bass: 34, arp: [58, 61, 65, 70] }, { bass: 39, arp: [63, 66, 70, 75] },
@@ -452,27 +457,38 @@ export function useArenaFx(stage) {
       if (SG.back === "city") {
         if (!S.city || S.city.w !== S.w || S.city.hz !== hz) S.city = buildCity(S.w, hz);
         for (let L = 0; L < 3; L++) {
-          const face = ["rgba(52,78,130,", "rgba(30,46,84,", "rgba(13,20,38,"][L];
+          const FC = SG.face || "16,22,44";
+          const face = `rgba(${FC},`;
           for (const b of S.city.layers[L]) {
             const bg2 = ctx.createLinearGradient(0, b.y, 0, b.y + b.h);
-            bg2.addColorStop(0, face + (0.5 + L * 0.14) + ")");
-            bg2.addColorStop(1, face + (0.78 + L * 0.18) + ")");
+            /* Nearer planes are DARKER, not lighter: the far ones sit behind
+               more air and pick up the horizon, which is what separates them. */
+            bg2.addColorStop(0, face + (0.42 + L * 0.2) + ")");
+            bg2.addColorStop(1, face + (0.7 + L * 0.1) + ")");
             ctx.fillStyle = bg2;
             ctx.fillRect(b.x, b.y, b.w, b.h);
-            // the roof edge catching the sky, and one shaded flank
-            ctx.fillStyle = `rgba(${SG.horizon},${0.1 + L * 0.07})`;
-            ctx.fillRect(b.x, b.y, b.w, 1.4);
+            /* the roof edge, lit. Once the slabs went near-black the skyline
+               dissolved into a field of loose window lights; one bright line
+               per roof is what puts the buildings back. */
+            const RN = (SG.neon || ["255,43,214", "63,216,255"])[L % 2];
+            ctx.fillStyle = `rgba(${RN},${(0.16 + L * 0.2).toFixed(2)})`;
+            ctx.fillRect(b.x - 1, b.y - 1.4, b.w + 2, 2.6);
+            ctx.fillStyle = `rgba(${SG.horizon},${0.16 + L * 0.14})`;
+            ctx.fillRect(b.x, b.y, b.w, 1.2);
             ctx.fillStyle = "rgba(0,4,12,.22)";
             ctx.fillRect(b.x + b.w - 3, b.y, 3, b.h);
             for (const p of b.win) {
               const fl = p.fl ? 0.35 + 0.65 * Math.abs(Math.sin(S.t * p.fl)) : 1;
               ctx.fillStyle = p.warm
-                ? `rgba(255,206,138,${(0.14 + L * 0.17) * fl})`
-                : `rgba(${SG.horizon},${(0.13 + L * 0.15) * fl})`;
+                ? `rgba(255,206,138,${(0.3 + L * 0.24) * fl})`
+                : `rgba(${(SG.neon || ["255,43,214"])[1] || SG.horizon},${(0.26 + L * 0.22) * fl})`;
               ctx.fillRect(p.x, p.y, p.w, p.h);
             }
             if (b.neon) {
-              const c = `${(Math.sin(b.neon.hue) * 60 + 195) | 0},${(Math.cos(b.neon.hue) * 70 + 150) | 0},255`;
+              /* The old hue maths funnelled every sign to the same blue-violet
+                 whatever the arena was. The stage picks its own pair now. */
+              const NP = SG.neon || ["255,43,214", "63,216,255"];
+              const c = NP[b.neon.hue % NP.length];
               ctx.globalCompositeOperation = "lighter";
               const ng = ctx.createLinearGradient(0, b.neon.y - 7, 0, b.neon.y + b.neon.h + 7);
               ng.addColorStop(0, `rgba(${c},0)`); ng.addColorStop(0.5, `rgba(${c},.5)`); ng.addColorStop(1, `rgba(${c},0)`);
