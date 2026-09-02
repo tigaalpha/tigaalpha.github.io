@@ -1701,6 +1701,18 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .shop-full .shopitem-tag{color:var(--muted)}
 .shop-full .shopitem.equipped .shopitem-tag{color:#00a6bd}
 .shop-full .shopitem-art svg{filter:drop-shadow(0 2px 4px rgba(20,30,60,.22))}
+
+/* ── Shop Top-Up button (header) ── */
+.shop-topup-btn{display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#f59e0b,#ef4444);border:none;border-radius:20px;padding:5px 14px;cursor:pointer;font-size:12px;font-weight:800;font-family:'Rajdhani',sans-serif;color:#fff;letter-spacing:.3px;box-shadow:0 2px 8px rgba(245,158,11,.3);transition:all .2s;white-space:nowrap}
+.shop-topup-btn:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(245,158,11,.4)}
+.shop-topup-btn:active{transform:scale(.97)}
+/* ── Sub-category chips ── */
+.shop-subtabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd1);background:var(--card2)}
+.shop-subtab{display:inline-flex;align-items:center;gap:3px;background:var(--card);border:1.5px solid var(--bd1);border-radius:16px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:600;font-family:'Rajdhani',sans-serif;color:var(--muted);transition:all .15s;white-space:nowrap}
+.shop-subtab.on{background:linear-gradient(135deg,#d9775718,#d9775728);border-color:#d97757;color:#c0603f}
+.shop-subtab.gem{border-color:#a86bff44;color:#7b46c9}
+.shop-subtab.gem.on{border-color:#a86bff;background:linear-gradient(135deg,#a86bff18,#a86bff28);box-shadow:0 0 6px rgba(168,107,255,.2)}
+
 .shop-full .shopitem-icon-lg{filter:none}
 .shop-full .coinpill{color:#d97757}
 .shopitem-icon-lg{font-size:40px;line-height:1;filter:drop-shadow(0 0 6px rgba(0,240,255,.3));margin-bottom:4px}

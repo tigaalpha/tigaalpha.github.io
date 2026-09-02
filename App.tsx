@@ -9213,6 +9213,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
   const [shopTab, setShopTab] = useState("all");
+  const [shopSubTab, setShopSubTab] = useState(null);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false); // optional-side login (corner pill) — GuestGateScreen is the forced-side equivalent, see app-shell.tsx
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
@@ -11044,27 +11045,40 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
            "everything at once" is no longer one of them — it moved to its own
            control in the top right, where a view switch belongs. */
         const T2 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        /* ── Consolidated categories: 4 main tabs instead of 15 ── */
         const ALL_CATS = [
-          { key: "charModel",     icon: "🤖", label: lang === "th" ? "สกินหุ่นยนต์" : lang === "zh" ? "机器人皮肤" : "Robot skins" },
-          { key: "charWeapon",    icon: "🦾", label: lc.shopWeapons },
-          { key: "charHat",       icon: "🥽", label: lc.shopHats },
-          { key: "charOutfit",    icon: "🦿", label: lc.shopOutfits },
-          { key: "charAccessory", icon: "🔋", label: lc.shopAccessories },
-          { key: "skin",          icon: "🎹", label: lc.shopSkins },
-          { key: "theme",         icon: "🎨", label: lc.shopThemes },
-          { key: "frame",         icon: "🖼️", label: lc.shopFrames },
-          { key: "keyboard",      icon: "⌨️", label: lc.shopKeyboards },
-          { key: "sticker",       icon: "🏷️", label: lc.shopStickers },
-          /* the gem rack, kept in its own tabs rather than mixed into the coin
-             shelves: nothing here can be bought with coins at all, and burying
-             a 25-gem item between two 200-coin ones would only confuse both */
-          { key: "gemWeapon",     icon: "💎", label: T2("อาวุธไพรม์", "Prime Weapons", "至尊武器"), gem: true },
-          { key: "gemOutfit",     icon: "💎", label: T2("เกราะไพรม์", "Prime Plating", "至尊装甲"), gem: true },
-          { key: "gemHat",        icon: "💎", label: T2("โมดูลไพรม์", "Prime Modules", "至尊模块"), gem: true },
-          { key: "gemAccessory",  icon: "💎", label: T2("แกนไพรม์", "Prime Cores", "至尊核心"), gem: true },
-          { key: "gemSticker",    icon: "💎", label: T2("เรลิก", "Relics", "遗物"), gem: true },
+          { key: "battle",  icon: "🤖", label: T2("สู้รบ", "Battle", "战斗") },
+          { key: "studio",  icon: "🎹", label: T2("สตูดิโอ", "Studio", "工作室") },
+          { key: "prime",   icon: "💎", label: T2("ไพรม์", "Prime", "至尊"), gem: true },
         ];
+        const SUB_CATS = {
+          battle: [
+            { key: "charModel",     icon: "🤖", label: lang === "th" ? "สกินหุ่น" : lang === "zh" ? "机器人" : "Skins" },
+            { key: "charWeapon",    icon: "⚔️", label: lc.shopWeapons },
+            { key: "charHat",       icon: "🥽", label: lc.shopHats },
+            { key: "charOutfit",    icon: "🦿", label: lc.shopOutfits },
+            { key: "charAccessory", icon: "🔋", label: lc.shopAccessories },
+          ],
+          studio: [
+            { key: "skin",     icon: "🎹", label: lc.shopSkins },
+            { key: "theme",    icon: "🎨", label: lc.shopThemes },
+            { key: "frame",    icon: "🖼️", label: lc.shopFrames },
+            { key: "keyboard", icon: "⌨️", label: lc.shopKeyboards },
+            { key: "sticker",  icon: "🏷️", label: lc.shopStickers },
+          ],
+          prime: [
+            { key: "gemWeapon",    icon: "⚔️", label: T2("อาวุธ", "Weapons", "武器"), gem: true },
+            { key: "gemOutfit",    icon: "🦿", label: T2("เกราะ", "Plating", "装甲"), gem: true },
+            { key: "gemHat",       icon: "🥽", label: T2("โมดูล", "Modules", "模块"), gem: true },
+            { key: "gemAccessory", icon: "🔋", label: T2("แกน", "Cores", "核心"), gem: true },
+            { key: "gemSticker",   icon: "🔮", label: T2("เรลิก", "Relics", "遗物"), gem: true },
+          ],
+        };
         const allLabel = lang === "th" ? "ทั้งหมด" : lang === "zh" ? "全部" : "All";
+        const battleCount = SUB_CATS.battle.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
+        const studioCount = SUB_CATS.studio.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
+        const primeCount  = SUB_CATS.prime.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
+        const CAT_COUNTS = { battle: battleCount, studio: studioCount, prime: primeCount };
         const CAT_ITEMS = {
           skin: SHOP_SKINS, theme: SHOP_THEMES, frame: SHOP_FRAMES,
           keyboard: SHOP_KEYBOARDS, sticker: SHOP_STICKERS,
@@ -11085,35 +11099,56 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           gemWeapon: charWeapon, gemOutfit: charOutfit, gemHat: charHat,
           gemAccessory: charAccessory, gemSticker: sticker,
         };
-        const filtered = shopTab === "all"
-          ? Object.entries(CAT_ITEMS).flatMap(([kind, items]) => items.map(it => ({ ...it, _kind: kind })))
-          : (CAT_ITEMS[shopTab] || []).map(it => ({ ...it, _kind: shopTab }));
-        // a consumable is never in `owned` — it is stocked, so it counts as held
-        // when there is at least one on the shelf
+        /* Resolve active sub-categories for the current main tab */
+        const activeSubs = (shopTab === "all" || !SUB_CATS[shopTab])
+          ? Object.values(SUB_CATS).flat()
+          : (shopSubTab && SUB_CATS[shopTab].find(s => s.key === shopSubTab))
+            ? SUB_CATS[shopTab].filter(s => s.key === shopSubTab)
+            : SUB_CATS[shopTab];
+        const filtered = activeSubs.flatMap(c => (CAT_ITEMS[c.key] || []).map(it => ({ ...it, _kind: c.key })));
         const ownedCount = filtered.filter(it => owned.includes(it.id)).length;
         return (
-          <div className="setov" onClick={() => setShopOpen(false)}>
+          <div className="setov" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>
             <div className="setcard shop-full" onClick={e => e.stopPropagation()}>
+              {/* ── Header: coins / gems / Top Up button ── */}
               <div className="sethdr shop-hdr">
                 <span className="shop-hdr-t">🛍️ {lc.shopTitle}</span>
                 <span className="coinpill">🪙 {coins}</span>
                 <span className="coinpill gempill">💎 {gems}</span>
-                <button className={`shop-allbtn${shopTab === "all" ? " on" : ""}`} aria-pressed={shopTab === "all"}
-                  title={allLabel} onClick={() => setShopTab(shopTab === "all" ? ALL_CATS[0].key : "all")}>
-                  <span aria-hidden="true">📦</span><span className="shop-allbtn-l">{allLabel}</span>
+                <button className="shop-topup-btn" onClick={() => { setShopOpen(false); setShopSubTab(null); openBuyCurrency(); }}>
+                  {lang === "th" ? "💰 เติมเงิน" : lang === "zh" ? "💰 充值" : "💰 Top Up"}
                 </button>
-                <button className="cbtn" onClick={() => setShopOpen(false)}>{lc.close}</button>
+                <button className="cbtn" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>{lc.close}</button>
               </div>
+              {/* ── Main category tabs ── */}
               <div className="shop-tabs">
                 {ALL_CATS.map(c => (
                   <button key={c.key} className={`shop-tab${shopTab === c.key ? " on" : ""}${c.gem ? " gem" : ""}`}
-                    title={`${c.label} · ${(CAT_ITEMS[c.key] || []).length}`} onClick={() => setShopTab(c.key)}>
+                    title={`${c.label} · ${CAT_COUNTS[c.key] || 0}`}
+                    onClick={() => { setShopTab(c.key); setShopSubTab(null); }}>
                     <span className="shop-tab-ic">{c.icon}</span>
                     <span className="shop-tab-lbl">{c.label}</span>
-                    <span className="shop-tab-n">{(CAT_ITEMS[c.key] || []).length}</span>
+                    <span className="shop-tab-n">{CAT_COUNTS[c.key] || 0}</span>
                   </button>
                 ))}
               </div>
+              {/* ── Sub-category chips (when a main tab is active) ── */}
+              {shopTab !== "all" && SUB_CATS[shopTab] && (
+                <div className="shop-subtabs">
+                  <button className={`shop-subtab${!shopSubTab ? " on" : ""}`}
+                    onClick={() => setShopSubTab(null)}>
+                    {allLabel}
+                  </button>
+                  {SUB_CATS[shopTab].map(sc => (
+                    <button key={sc.key}
+                      className={`shop-subtab${shopSubTab === sc.key ? " on" : ""}${sc.gem ? " gem" : ""}`}
+                      onClick={() => setShopSubTab(sc.key)}>
+                      <span>{sc.icon}</span> {sc.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* ── Items grid ── */}
               <div className="setbody shop-body">
                 <div className="shop-summary">
                   <span>{lang === "th" ? "มีทั้งหมด" : lang === "zh" ? "共" : "Total"}: {filtered.length} {lang === "th" ? "ชิ้น" : lang === "zh" ? "件" : "items"}</span>
