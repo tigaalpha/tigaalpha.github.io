@@ -9244,7 +9244,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // E1: Register service worker; auto-reload when a new version activates
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register("/sw.js").then(reg => {
+      reg.update().catch(() => {});
+      if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      const t = setTimeout(() => { try { if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" }); } catch(e){} }, 2000);
+      return () => clearTimeout(t);
+    }).catch(() => {});
     const onMsg = (e) => { if (e.data && e.data.type === "SW_UPDATED") window.location.reload(); };
     navigator.serviceWorker.addEventListener("message", onMsg);
     return () => navigator.serviceWorker.removeEventListener("message", onMsg);
