@@ -1223,7 +1223,38 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpstage.od{box-shadow:inset 0 0 0 2px #ffd23f,0 0 24px -6px #ffd23f}
 .pvpstage.od::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(120% 90% at 50% 50%,rgba(255,210,63,0) 40%,rgba(255,210,63,.28) 100%);animation:pvpod .5s ease-in-out infinite alternate}
 @keyframes pvpod{from{opacity:.5}to{opacity:1}}
-@media (prefers-reduced-motion:reduce){.pvpcombo,.pvpbanner{animation:none}.pvpstage.od::after{animation:none}}
+/* comeback: a slow red pulse at the frame edge says "still in this" without
+   covering the fight the way a banner would if it never went away */
+.pvpstage.comeback{box-shadow:inset 0 0 0 2px #ff4d6a,0 0 30px -8px #ff4d6a}
+.pvpstage.comeback::before{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;background:radial-gradient(120% 90% at 50% 100%,rgba(255,45,85,.22),rgba(255,45,85,0) 62%);animation:pvpcomeback 1.1s ease-in-out infinite}
+@keyframes pvpcomeback{0%,100%{opacity:.55}50%{opacity:1}}
+/* sudden death: gold hazard striping, because the next hit ends everything */
+.pvpstage.sudden{box-shadow:inset 0 0 0 2px #ffd23f,0 0 30px -6px #ff2d55}
+.pvpsuddenbar{max-width:520px;margin:12px auto 0;padding:6px 10px;border-radius:20px;text-align:center;
+  background:linear-gradient(90deg,#ff2d55,#ffd23f);color:#1a0d06;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:800;letter-spacing:.06em;
+  animation:pvpsuddenpulse 1s ease-in-out infinite}
+@keyframes pvpsuddenpulse{0%,100%{opacity:.86;transform:scale(1)}50%{opacity:1;transform:scale(1.02)}}
+/* the finisher hold: the loser desaturates and drops back, the winner gets
+   the light — a beat of stillness before the result screen instead of the
+   fight just quietly ending */
+.pvpstage.finisher .pvpfighter{transition:filter .5s ease,transform .5s ease,opacity .5s ease}
+.pvpstage.finisher.win .pvpfighter.op{filter:grayscale(.7) brightness(.55)}
+.pvpstage.finisher.win .pvpfighter.me{filter:drop-shadow(0 0 22px #ffd23f) brightness(1.12);transform:scale(1.06)}
+.pvpstage.finisher.lose .pvpfighter.me{filter:grayscale(.7) brightness(.55)}
+.pvpstage.finisher.lose .pvpfighter.op{filter:drop-shadow(0 0 22px #ff4d6a) brightness(1.12);transform:scale(1.06)}
+.pvpko{position:absolute;left:0;right:0;top:38%;z-index:7;text-align:center;pointer-events:none}
+.pvpko b{display:inline-block;font-family:'Orbitron',sans-serif;font-size:44px;font-weight:900;letter-spacing:.04em;
+  color:#fff;text-shadow:0 0 30px #ffd23f,0 0 10px #ff9a4c,0 3px 10px #000;animation:pvpkoZoom .6s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pvpkoZoom{0%{transform:scale(2.6);opacity:0}55%{opacity:1}100%{transform:scale(1);opacity:1}}
+/* the one-time guard tutorial: dead centre, dismiss-anywhere, gone for good
+   the moment it has been seen once */
+.pvptut{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(4,8,16,.55);backdrop-filter:blur(2px);cursor:pointer;animation:pvptutIn .25s ease}
+@keyframes pvptutIn{from{opacity:0}to{opacity:1}}
+.pvptut-card{max-width:280px;padding:18px 20px;border-radius:16px;background:var(--card);border:1px solid var(--bd1);box-shadow:0 20px 50px -18px #000;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.pvptut-card .pvptut-ic{font-size:30px;line-height:1}
+.pvptut-card b{font-family:'Rajdhani',sans-serif;font-size:14.5px;font-weight:700;color:var(--text)}
+.pvptut-card i{font-style:normal;font-size:11px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.pvpcombo,.pvpbanner{animation:none}.pvpstage.od::after{animation:none}.pvpstage.comeback::before{animation:none}.pvpsuddenbar{animation:none}.pvpko b{animation:none}.pvptut{animation:none}}
 .pvpskills{max-width:520px;margin:14px auto 0;padding:0 13px}
 .pvpgauge{height:7px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);overflow:hidden}
 .pvpgauge i{display:block;height:100%;transition:width .3s}
@@ -1241,6 +1272,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpres-stage svg{display:block;height:206px;width:auto}
 .pvpres-score{font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:#d97757}
 .pvpres-sub{font-size:11px;color:var(--muted);margin-top:4px}
+.pvpres-flawless{margin-top:9px;display:inline-block;padding:4px 12px;border-radius:20px;font-family:'Orbitron',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.03em;
+  color:#1a1206;background:linear-gradient(90deg,#ffd23f,#ff9a4c);box-shadow:0 4px 14px -4px #d9775788}
 .pvpres-rew{display:flex;justify-content:center;gap:12px;margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text)}
 .pvpres-rank{margin-top:9px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--cc)}
 .pvpbig{width:100%;margin-top:11px;padding:13px 10px;border:none;border-radius:13px;background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer}

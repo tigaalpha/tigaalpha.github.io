@@ -445,9 +445,12 @@ export const PvpPage = memo(function PvpPage({
     setPhase("result");
     const won = res.win;
     const t = res.tier;
-    const coins = won ? t.coins : Math.round(t.coins * 0.25);
-    const xp = won ? t.xp : Math.round(t.xp * 0.3);
-    const gained = addSkillSp(myCls, won ? t.sp : Math.round(t.sp * 0.35));
+    // a perfect 8/8 fight pays 40% more on top of the win — the counters were
+    // always tracked, they just never bought anything
+    const flawlessMul = (won && res.flawless) ? 1.4 : 1;
+    const coins = Math.round((won ? t.coins : Math.round(t.coins * 0.25)) * flawlessMul);
+    const xp = Math.round((won ? t.xp : Math.round(t.xp * 0.3)) * flawlessMul);
+    const gained = addSkillSp(myCls, Math.round((won ? t.sp : Math.round(t.sp * 0.35)) * flawlessMul));
     setSp(readSkillSp());
     try { window.dispatchEvent(new Event("tg-skillsp")); } catch (e) {}
     // the arena pays SP directly above, so its EXP must not ALSO trickle into
@@ -549,6 +552,7 @@ export const PvpPage = memo(function PvpPage({
   /* ── result ── */
   if (phase === "result" && result) {
     const g = result.spGained;
+    const flawlessMul = (result.win && result.flawless) ? 1.4 : 1;
     return (
       <div className="pvppage">
         <div className="pvphdr">
@@ -566,10 +570,13 @@ export const PvpPage = memo(function PvpPage({
               {" "}{T("คอมโบสูงสุด", "Best combo", "最高连击")} {result.bestCombo} ·
               {" "}HP {Math.max(0, Math.round(result.myHp))}
             </div>
+            {result.flawless && (
+              <div className="pvpres-flawless">✨ {T("ไร้ที่ติ — ตอบถูกครบทุกข้อ", "FLAWLESS — every question right", "完美无瑕 — 全部答对")}</div>
+            )}
             <div className="pvpres-rew">
-              <span>🪙 {result.win ? result.tier.coins : Math.round(result.tier.coins * .25)}</span>
-              <span>✦ {result.win ? result.tier.xp : Math.round(result.tier.xp * .3)}</span>
-              <span style={{ color: clsInfo.c }}>SP +{result.win ? result.tier.sp : Math.round(result.tier.sp * .35)}</span>
+              <span>🪙 {Math.round((result.win ? result.tier.coins : Math.round(result.tier.coins * .25)) * flawlessMul)}</span>
+              <span>✦ {Math.round((result.win ? result.tier.xp : Math.round(result.tier.xp * .3)) * flawlessMul)}</span>
+              <span style={{ color: clsInfo.c }}>SP +{Math.round((result.win ? result.tier.sp : Math.round(result.tier.sp * .35)) * flawlessMul)}</span>
             </div>
             {g && g.rankedUp && <div className="pvpres-rank" style={{ "--cc": clsInfo.c }}>⬆ {tr3(clsInfo, lang)} {T("แรงก์", "rank", "等级")} {g.rank}</div>}
           </div>
@@ -630,6 +637,15 @@ const BOT_GAP = {
   novice: 2000, rookie: 1700, cadet: 1480, veteran: 1250, ranger: 1100,
   ace: 950, elite: 820, warlord: 700, overlord: 590, legend: 480,
 };
+
+/* ── comeback, tutorial, sudden death ──
+   Three small rules that used to make a losing fight feel like a foregone
+   conclusion: no reason to keep tapping once you were behind, no one ever
+   explained the guard button existed, and a close fight at the final bell was
+   decided silently by a percentage instead of one last exchange. */
+const COMEBACK_HP = 0.25, COMEBACK_DMG = 1.20, COMEBACK_GAUGE = 1.30;
+const SUDDEN_DEATH_MARGIN = 0.08, SUDDEN_DEATH_DMG = 2, SUDDEN_DEATH_TIMEOUT = 10000;
+const TUT_KEY = "tg_pvp_tut_seen";
 
 /* ── the moveset ──
    Once the robots can walk, the buttons have to mean different things or the
@@ -707,6 +723,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [graceLeft, setGraceLeft] = useState(fx.passive === "grace" ? 1 : 0);
   const [lunge, setLunge] = useState(null);
   const [shake, setShake] = useState(0);
+  const [finisher, setFinisher] = useState(false);
+  const [outcome, setOutcome] = useState(null);       // "win" | "lose", set the instant finish() decides
+  const [showTut, setShowTut] = useState(false);
+  const tutShownRef = useRef(false);
+  const [suddenDeath, setSuddenDeath] = useState(false);
+  const suddenDeathRef = useRef(false);
+  const comebackAnnouncedRef = useRef(false);
   // ── where everyone is standing, and who is off the ground ──
   const [myX, setMyX] = useState(0.24);
   const [opX, setOpX] = useState(0.76);
@@ -809,17 +832,32 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     doneRef.current = true;
     const mHp = hpRef.current.me, oHp = hpRef.current.op;
     const win = oHp <= 0 || (mHp > 0 && (mHp / MY_MAX) >= (oHp / OP_MAX));
+    // a KO is an actual zero, not a bell decided on percentages — only a real
+    // knockout earns the slow-motion finisher, so the cinematic stays a
+    // reward for landing the killing blow rather than firing on every fight
+    const ko = win ? oHp <= 0 : mHp <= 0;
+    const flawless = askedRef.current >= ASK_ROUNDS && correctRef.current === askedRef.current;
+    setOutcome(win ? "win" : "lose");
     setPhase("done");
     setMyPose(win ? "win" : "down"); setOpPose(win ? "down" : "win");
-    audioRef.current.stop(); audioRef.current.sfx(win ? "win" : "lose");
-    G.flash(win ? "#ffd23f" : "#0b1526", .4, .6);
-    G.burst(win ? "op" : "me", 2, win ? "#ffd23f" : "#8899aa");
-    const final = scoreRef.current + Math.max(0, Math.round(mHp)) + (win ? 400 : 0);
+    audioRef.current.stop();
+    if (ko) {
+      setFinisher(true);
+      audioRef.current.sfx(win ? "ult" : "lose");
+      G.flash(win ? "#ffd23f" : "#8899aa", .6, .5);
+      G.boom(win ? "op" : "me", 2.6, win ? "#ffd23f" : "#ff2d55");
+    } else {
+      audioRef.current.sfx(win ? "win" : "lose");
+      G.flash(win ? "#ffd23f" : "#0b1526", .4, .6);
+      G.burst(win ? "op" : "me", 2, win ? "#ffd23f" : "#8899aa");
+    }
+    const final = scoreRef.current + Math.max(0, Math.round(mHp)) + (win ? 400 : 0) + (flawless ? 300 : 0);
     later(() => onDone({
       win, score: final, correct: correctRef.current, asked: askedRef.current,
       bestCombo: Math.max(bestCombo, comboRef.current),
-      myHp: mHp, opHp: oHp, tier, seconds: Math.round((Date.now() - startedRef.current) / 1000),
-    }), 950);
+      myHp: mHp, myMax: MY_MAX, opHp: oHp, opMax: OP_MAX, tier, seconds: Math.round((Date.now() - startedRef.current) / 1000),
+      ko, flawless, suddenDeath: suddenDeathRef.current, oppKind, oppName, oppModel, myCls, oppCls,
+    }), ko ? 1900 : 950);
   }
 
   /** Damage the opponent. One path for taps, skills and the overdrive combo. */
@@ -833,7 +871,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     strike("me", kind, myBolt, mv);
     say("op", "-" + d, kind === "crit" ? "crit" : "dmg");
     scoreRef.current += 10 + comboRef.current * 2; setScore(scoreRef.current);
-    if (oHp <= 0) later(finish, 420);
+    if (oHp <= 0 || suddenDeathRef.current) later(finish, 420);
   }
 
   /** Damage the player, after every guard, block and dodge has had a say. */
@@ -852,6 +890,17 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1) * petGuard));
     const mHp = Math.max(0, hpRef.current.me - d);
     hpRef.current.me = mHp; setMyHp(mHp);
+    // the first real hit of a player's life is the honest moment to teach
+    // guard — anyone who never gets hit never needed the lesson anyway
+    if (!tutShownRef.current) {
+      let seen = false;
+      try { seen = localStorage.getItem(TUT_KEY) === "1"; } catch (e) {}
+      if (!seen) {
+        tutShownRef.current = true; setShowTut(true);
+        try { localStorage.setItem(TUT_KEY, "1"); } catch (e) {}
+        later(() => setShowTut(false), 4200);
+      }
+    }
     // halved, not reset: with the bot landing every ~1.2s a full reset means
     // the combo never gets past three and the mechanic may as well not exist
     comboRef.current = Math.floor(comboRef.current / 2); setCombo(comboRef.current);
@@ -859,7 +908,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     setOpPose(MOVES[mv].pose); setMyPose("hit");
     strike("op", "hit", "#ff7a3c", mv);
     say("me", "-" + d, "dmg");
-    if (mHp <= 0) later(finish, 420);
+    if (mHp <= 0 || suddenDeathRef.current) later(finish, 420);
   }
 
   /* ── your attacks ── one path, three buttons, three shapes of risk ── */
@@ -882,7 +931,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     comboRef.current += 1; setCombo(comboRef.current);
     setBestCombo(b => Math.max(b, comboRef.current));
     const comboK = Math.min(2.2, 1 + comboRef.current * (fx.passive === "streak" ? 0.08 : 0.04));
-    let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1) * petDmg;
+    let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1) * petDmg
+      * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1);
     let kind = act === "rocket" ? "ult" : "hit";
     if (nb.crit > 0) { dmg *= 2.2; nb.crit = 0; kind = "crit"; buffRef.current = nb; setBuffs(nb); }
     if (nb.anthem > 0) { dmg *= 1.4; nb.anthem -= 1; buffRef.current = nb; setBuffs(nb); }
@@ -891,7 +941,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (fx.passive === "repair") {
       const h = Math.min(MY_MAX, hpRef.current.me + 2); hpRef.current.me = h; setMyHp(h);
     }
-    setGauge(g => Math.min(100, g + (A.charge * (fx.passive === "resonate" ? 1.3 : 1) * petSp) / 4));
+    setGauge(g => Math.min(100, g + (A.charge * (fx.passive === "resonate" ? 1.3 : 1) * petSp * (comeback ? COMEBACK_GAUGE : 1)) / 4));
     hitOp(dmg, kind, A2.move);
   }
 
@@ -945,9 +995,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     return () => clearInterval(id);
   }, [phase, G]);
 
-  /* ── the wave clock, and the bot that fights through it ── */
+  /* ── the wave clock, and the bot that fights through it ──
+     Sudden death suspends the clock entirely: there is no question to ask
+     until one side lands the deciding blow, so the normal 15s countdown just
+     stands down rather than sneaking in one more quiz mid-showdown. */
   useEffect(() => {
-    if (phase !== "action" || doneRef.current) return;
+    if (phase !== "action" || doneRef.current || suddenDeath) return;
     const total = WAVES[Math.min(wave - 1, WAVES.length - 1)];
     const t0 = Date.now();
     const id = setInterval(() => {
@@ -957,20 +1010,20 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       if (el >= total) { clearInterval(id); toQuiz(); }
     }, 100);
     return () => clearInterval(id);
-  }, [phase, wave]);
+  }, [phase, wave, suddenDeath]);
 
   useEffect(() => {
     if (phase !== "action" || doneRef.current) return;
-    const gap = Math.round((BOT_GAP[tier.key] || 1250) * Math.max(0.6, 1 - (wave - 1) * 0.08));
+    const gap = suddenDeath ? 420 : Math.round((BOT_GAP[tier.key] || 1250) * Math.max(0.6, 1 - (wave - 1) * 0.08));
     let alive = true, t = null;
     const step = () => {
       if (!alive || doneRef.current) return;
-      hitMe(B.dmg * tier.dmgK * BOT_DMG);
+      hitMe(B.dmg * tier.dmgK * BOT_DMG * (suddenDeathRef.current ? SUDDEN_DEATH_DMG : 1));
       t = setTimeout(step, gap + Math.random() * 260 - 130);
     };
     t = setTimeout(step, gap);
     return () => { alive = false; if (t) clearTimeout(t); };
-  }, [phase, wave, tier]);
+  }, [phase, wave, tier, suddenDeath]);
 
   /* ── the knowledge break ── */
   function toQuiz() {
@@ -1033,7 +1086,22 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   function nextWave() {
     if (doneRef.current) return;
     if (hpRef.current.me <= 0 || hpRef.current.op <= 0) { finish(); return; }
-    if (wave >= WAVES.length) { finish(); return; }
+    if (wave >= WAVES.length) {
+      // still close after the full eight rounds — one last exchange at
+      // double damage decides it outright, instead of a percentage doing the
+      // deciding silently while the screen just says "time's up"
+      const mFrac = hpRef.current.me / MY_MAX, oFrac = hpRef.current.op / OP_MAX;
+      if (!suddenDeathRef.current && Math.abs(mFrac - oFrac) < SUDDEN_DEATH_MARGIN) {
+        suddenDeathRef.current = true; setSuddenDeath(true);
+        setBanner(T("⚡ ยกชี้ขาด! ดาเมจ 2 เท่า", "⚡ SUDDEN DEATH! 2× DAMAGE", "⚡ 生死决战！伤害 2 倍"));
+        audioRef.current.sfx("bell"); G.flash("#ff2d55", .5, .4);
+        later(() => setBanner(null), 2000);
+        setLocked(false); setPhase("action");
+        later(() => { if (!doneRef.current) finish(); }, SUDDEN_DEATH_TIMEOUT);
+        return;
+      }
+      finish(); return;
+    }
     setWave(w => w + 1);
     setLeft(WAVES[Math.min(wave, WAVES.length - 1)]);
     // a healer pet patches you up between waves
@@ -1097,6 +1165,17 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const canActive = gauge >= 100 && myRank >= SKILL_UNLOCK.active && !doneRef.current;
   const canUlt = gauge >= 100 && myRank >= SKILL_UNLOCK.ultimate && !ultUsed && !doneRef.current;
   const waveTotal = WAVES[Math.min(wave - 1, WAVES.length - 1)];
+  /* Below a quarter tank, the tide should still be turnable — not a mercy
+     rule, just a reason to keep fighting instead of watching the bar drain. */
+  const comeback = myHp > 0 && (myHp / MY_MAX) < COMEBACK_HP;
+  useEffect(() => {
+    if (comeback && !comebackAnnouncedRef.current) {
+      comebackAnnouncedRef.current = true;
+      setBanner(T("พลิกเกม! ดาเมจ/เกจโตขึ้น", "COMEBACK! Damage & gauge boosted", "絕地反击！伤害/能量提升"));
+      audioRef.current.sfx("charge");
+      later(() => setBanner(null), 1800);
+    } else if (!comeback) comebackAnnouncedRef.current = false;
+  }, [comeback]);
 
   return (
     <div className={`pvppage fight${land ? " land" : ""}`}>
@@ -1107,7 +1186,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         <span className="pvpscore">{score.toLocaleString()}</span>
       </div>
 
-      <div className={`pvpstage${shake ? " sh" + shake : ""}${overdrive ? " od" : ""}`}>
+      <div className={`pvpstage${shake ? " sh" + shake : ""}${overdrive ? " od" : ""}${comeback ? " comeback" : ""}${suddenDeath ? " sudden" : ""}${finisher ? " finisher " + (outcome || "") : ""}`}>
         <canvas ref={G.bgRef} className="pvpbg" />
       <canvas ref={G.canvasRef} className="pvpfx" />
         <div className="pvphps">
@@ -1143,12 +1222,33 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         </div>
         {combo > 2 && <div className="pvpcombo" key={combo}><b>{combo}</b><i>{T("คอมโบ", "COMBO", "连击")}</i></div>}
         {banner && <div className="pvpbanner">{banner}</div>}
+        {finisher && (
+          <div className="pvpko">
+            <b>{outcome === "win" ? "K.O." : T("แพ้ยับเยิน", "K.O.'D", "被击倒")}</b>
+          </div>
+        )}
       </div>
+
+      {showTut && (
+        <div className="pvptut" onClick={() => setShowTut(false)}>
+          <div className="pvptut-card">
+            <span className="pvptut-ic">🛡</span>
+            <b>{T("กดค้างปุ่มการ์ดเพื่อกันดาเมจ!", "Hold the Guard button to block damage!", "按住格挡键可减免伤害！")}</b>
+            <i>{T("แตะที่ไหนก็ได้เพื่อปิด", "Tap anywhere to dismiss", "点击任意处关闭")}</i>
+          </div>
+        </div>
+      )}
 
       {phase === "action" && (
         <>
-          <div className="pvpwave"><i style={{ width: `${Math.max(0, (left / waveTotal) * 100)}%` }} /></div>
-          <div className="pvpwave-l">{T("คำถามจะมาใน", "Question in", "问题将在")} {Math.ceil(left / 1000)}s</div>
+          {suddenDeath ? (
+            <div className="pvpsuddenbar">⚡ {T("ยกชี้ขาด — โดนก่อนแพ้", "SUDDEN DEATH — first hit wins", "生死决战 — 先中招者败")}</div>
+          ) : (
+            <>
+              <div className="pvpwave"><i style={{ width: `${Math.max(0, (left / waveTotal) * 100)}%` }} /></div>
+              <div className="pvpwave-l">{T("คำถามจะมาใน", "Question in", "问题将在")} {Math.ceil(left / 1000)}s</div>
+            </>
+          )}
           {/* ── the pad ──
               Left thumb walks, right thumb fights. In landscape these two
               clusters float over the arena at the bottom corners, which is
