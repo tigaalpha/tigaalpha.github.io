@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { trainFromExp } from "./pvp-arena";
+import { addSkillSp, runningClassKey } from "./pvp-arena";
 import {
   LEVELS, ALL_LEVELS, EXP, BADGES, levelInfo, prestigeInfo, unlockedBadgeIds, QUEST_GOAL, QUEST_BONUS,
   weekKey, activeChallenges, readWeekly, writeWeekly, CHALLENGE_REWARD,
@@ -138,14 +138,12 @@ export function useGamification({ session, profile, setProfile }) {
     if (activeEventRef.current && activeEventRef.current.expMult > 1) amount = Math.round(amount * activeEventRef.current.expMult);
     mascot("happy", 1400);
     bumpWeekly("exp", amount);
-    /* Practising also trains the chassis. Every feature in the app already
-       calls gainExp, so hooking the skill track here is what makes the arena
-       progress off real playing rather than off a grind of its own — and no
-       caller has to know the class system exists. */
-    if (!opts.noSkill) {
-      trainFromExp(amount);
-      try { window.dispatchEvent(new Event("tg-skillsp")); } catch (e) {}
-    }
+    /* Learning EXP and Skill EXP are two separate currencies now, and this
+       function only ever mints the first of them. What you learn raises your
+       account level, your league standing and your daily quest; what you FIGHT
+       raises your chassis' class rank and unlocks its skills. gainExp used to
+       quietly do both, which made the whole class system a passive by-product
+       of practising rather than something you go and earn in the world. */
     if (uid) {
       sb.rpc("league_bump_exp", { p_week_key: weekKey(), p_amount: amount }).then(() => {}, () => {});
       sb.rpc("school_quest_bump", { p_amount: amount }).then(() => {}, () => {}); // no-ops silently if not in a school / no active quest
@@ -308,6 +306,29 @@ export function useGamification({ session, profile, setProfile }) {
     writeWeekly(w);
   }
 
+  /* ── Skill EXP: the other half of the split ──────────────────────────
+     Earned by fighting - swinging at monsters on the Adventure map, taking a
+     boss, winning in the arena - and spent nowhere: it is the rank that gates
+     a chassis class' passive, active and ultimate. Kept deliberately separate
+     from account EXP so the two progressions answer two different questions:
+     "how much have you learned" and "how hard can your machine hit". */
+  function gainSkillExp(n, opts = {}) {
+    const amt = Math.max(0, Math.round(n || 0));
+    if (!amt) return null;
+    const r = addSkillSp(runningClassKey(), amt);
+    try { window.dispatchEvent(new Event("tg-skillsp")); } catch (e) {}
+    if (r && r.rankedUp) {
+      // a class rank is a real unlock - it is worth the same noise as a level
+      setLevelUp({ level: r.rank, tier: { name: "Skill Rank " + r.rank, color: "#7fd0ff" }, skill: true });
+      playUi("levelup"); mascot("celebrate", 3000);
+      clearTimeout(lvUpTimer.current);
+      lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
+    } else if (!opts.quiet) {
+      mascot("happy", 900);
+    }
+    return r;
+  }
+
   function mascot(mood, ms = 2200) { setMascotMood(mood); clearTimeout(mascotT.current); mascotT.current = setTimeout(() => setMascotMood("idle"), ms); }
 
   useEffect(() => { setChestAvail(chestAvailable()); }, []);
@@ -340,5 +361,5 @@ export function useGamification({ session, profile, setProfile }) {
     };
   }, []);
 
-  return { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow };
+  return { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, gainSkillExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow };
 }

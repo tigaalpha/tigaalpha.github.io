@@ -2452,7 +2452,27 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .sshp{position:relative;height:16px;border-radius:9px;background:#0b1220cc;border:1px solid #2b3654;overflow:hidden;max-width:190px}
 .sshp i{position:absolute;inset:0;background:linear-gradient(90deg,#4ee08a,#7fe0a0);border-radius:9px;transition:width .22s}
 .sshp b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:9.5px;color:#04140b;font-weight:700}
-.sstrack{display:inline-flex;align-items:center;gap:7px;max-width:100%;background:#0b1220d9;border:1px solid #2b3654;border-radius:10px;padding:5px 9px;align-self:flex-start}
+/* Skill EXP, top right of the world HUD. It is NOT the account level - it is
+   the chassis class rank, earned by fighting, and it is tinted with the
+   class colour so the two currencies never read as the same bar. */
+.ssxp{position:absolute;top:0;right:0;box-sizing:border-box;width:180px;max-width:46vw;display:grid;
+  grid-template-columns:auto 1fr auto;align-items:center;gap:6px;
+  background:#0b1220d9;border:1px solid #2b3654;border-radius:10px;padding:4px 8px 5px}
+.ssxp-r{grid-row:1;font-family:'Share Tech Mono',monospace;font-size:10px;font-weight:700;
+  color:#04101c;background:var(--xc,#7fd0ff);border-radius:5px;padding:1px 4px;line-height:1.35}
+.ssxp-bar{grid-row:1;position:relative;height:7px;border-radius:5px;background:#111a2c;
+  border:1px solid #26314c;overflow:hidden}
+.ssxp-bar i{position:absolute;inset:0;right:auto;border-radius:5px;transition:width .28s ease-out;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--xc,#7fd0ff) 55%,#0b1220),var(--xc,#7fd0ff));
+  box-shadow:0 0 7px color-mix(in srgb,var(--xc,#7fd0ff) 60%,transparent)}
+.ssxp-n{grid-row:1;font-family:'Share Tech Mono',monospace;font-size:9px;color:#9fb3d6}
+.ssxp b{grid-row:2;grid-column:1/-1;font-family:'Rajdhani',sans-serif;font-weight:700;
+  font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--xc,#7fd0ff);
+  text-align:right;opacity:.9;line-height:1.1}
+/* The Skill EXP block is absolutely positioned top-right and is two rows
+   tall, so the quest chip below the HP bar has to stop short of it or the
+   two overlap. 188px of clearance = its 180px border-box width plus the gap. */
+.sstrack{display:inline-flex;box-sizing:border-box;align-items:center;gap:7px;max-width:calc(100% - 190px);background:#0b1220d9;border:1px solid #2b3654;border-radius:10px;padding:5px 9px;align-self:flex-start}
 .sstrack-k{font-size:12px}
 .sstrack-t{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:11.5px;color:#dce7fb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sstrack-p{font-family:'Share Tech Mono',monospace;font-size:10px;color:#ffd24d}

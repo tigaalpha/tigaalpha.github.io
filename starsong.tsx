@@ -24,13 +24,38 @@
 import { memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { sb } from "./supabase-client";
-import { makeQuestion, spellMajor } from "./pvp-arena";
+import { makeQuestion, spellMajor, readSkillSp, skillRank, runningClassKey, RANK_MAX } from "./pvp-arena";
+import { MODEL_CLASS } from "./model-skills";
 import { playPianoNote, playBoom, playMiss, playWhoosh, haptic } from "./music-engine";
 import { CyberAvatar } from "./cyber-avatar";
 import { createArenaAudio, stageById, useArenaFx } from "./arena-fx";
 import { AnswerReveal } from "./note-reveal";
 
 const tr3 = (o, lang) => (o && (o[lang] || o.en)) || "";
+
+/* ══════════════════════ the Skill EXP read-out ══════════════════════
+
+   Two EXP currencies exist in this app and they answer two different
+   questions. LEARNING EXP is your account level - it comes from lessons,
+   ear training, reading, playing, and it is what the profile and the leagues
+   are measured in. SKILL EXP is your chassis' class rank - it comes from
+   FIGHTING, it is what unlocks the class' passive, active and ultimate, and
+   this map is its main source. The bar below is the second one, live, in the
+   corner of the world, so a player can watch it move as they swing. */
+function useSkillTrack() {
+  const read = () => {
+    const k = runningClassKey();
+    return { k, cls: MODEL_CLASS[k] || MODEL_CLASS.striker, r: skillRank((readSkillSp() || {})[k] || 0) };
+  };
+  const [st, setSt] = useState(read);
+  useEffect(() => {
+    const sync = () => setSt(read());
+    window.addEventListener("tg-skillsp", sync);
+    window.addEventListener("focus", sync);
+    return () => { window.removeEventListener("tg-skillsp", sync); window.removeEventListener("focus", sync); };
+  }, []);
+  return st;
+}
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 /** "#8fd0ff" → "143,208,255", so a palette colour can be used inside an
@@ -2898,6 +2923,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const [tick, setTick] = useState(0);        // forces a HUD repaint; the canvas has its own loop
 
   const cvRef = useRef(null);
+  const skill = useSkillTrack();          // the Skill EXP bar in the corner
   const meRef = useRef({ ...nearestWalkable(geo.seed, geo.town.x, geo.town.y + 60), t: 0, dir: 1, mv: 0 });
   const padRef = useRef({ ax: 0, ay: 0, on: false, ox: 0, oy: 0 });
   const keysRef = useRef({});
@@ -3841,6 +3867,11 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     if (walkable(geo.seed, kx, ky)) { m.x = kx; m.y = ky; }
     pop(m.x, m.y - 30, (crit ? "✦ " : "") + "-" + dmg, crit ? "#ffd24d" : "#ffffff", crit);
     playBoom(crit); haptic(crit ? 18 : 9);
+    /* Every landed swing pays Skill EXP, not just the kill. Paying only on
+       death made a long fight feel like nothing was happening for four
+       seconds; paying per hit is what makes the bar in the corner move while
+       you are actually fighting, which is the whole point of showing it. */
+    onReward(0, 0, { grind: true, skill: crit ? 3 : 2 });
     if (m.hp <= 0) killMob(m);
   }
 
@@ -3858,11 +3889,12 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     if (q) bumpQuest(q.id, 1);
     // courage every third kill: a toast on every one of them is noise
     if (kills % 3 === 0) award("courage", 1);
-    /* `grind` is the flag that keeps this game's own promise. EXP and coin are
-       fine; what a kill must NOT do is tick the daily LEARNING quest, or five
-       minutes of swinging at drones completes the goal that is supposed to
-       mean you practised. */
-    onReward(4, 2, { grind: true });
+    /* A kill pays SKILL EXP and coin, and no Learning EXP at all. The two
+       are separate currencies: what you fight raises your chassis' class rank,
+       what you LEARN raises your account level. `grind` keeps this off the
+       daily learning quest either way - five minutes of swinging at drones
+       must never complete the goal that is supposed to mean you practised. */
+    onReward(0, 2, { grind: true, skill: 12 });
     setTarget(null);
   }
 
@@ -3979,7 +4011,9 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       commit({ ...s, bosses: { ...s.bosses, [W.boss.id]: true } });
       const q = (QUESTS[s.world] || []).find(x => x.kind === "boss");
       if (q) { bumpQuest(q.id, 1); award(q.stat, 6, tr3(W.boss.name, lang)); }
-      onReward(60, 40);
+      /* The one fight that pays both currencies, because it is the one fight
+         that asks real theory questions between the punches. */
+      onReward(60, 40, { skill: 120 });
       setReveal(null);
       setFight({ ...f, over: "win", hp: 0 });
       return;
@@ -4258,6 +4292,18 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
 
           <div className="sshud">
             <div className="sshp"><i style={{ width: hpPct * 100 + "%" }} /><b>{Math.max(0, Math.round(hp))}</b></div>
+            {/* ── Skill EXP, top right ──
+                Deliberately NOT the account level. This is the class rank the
+                chassis earns by fighting, and every swing on this map moves
+                it, so the corner of the screen answers "is what I am doing
+                right now getting me anywhere". */}
+            <div className="ssxp" style={{ "--xc": skill.cls.c }}
+              title={T("EXP ทักษะ - ได้จากการต่อสู้", "Skill EXP - earned by fighting", "技能经验 - 战斗获得")}>
+              <span className="ssxp-r">R{skill.r.rank}</span>
+              <span className="ssxp-bar"><i style={{ width: (skill.r.max ? 1 : skill.r.pct) * 100 + "%" }} /></span>
+              <span className="ssxp-n">{skill.r.max ? T("สูงสุด", "MAX", "满级") : skill.r.into + "/" + skill.r.need}</span>
+              <b>{tr3(skill.cls, lang)}</b>
+            </div>
             {activeQuest && (
               <div className="sstrack">
                 <span className="sstrack-k">{activeQuest.kind === "boss" ? "☠" : activeQuest.kind === "slay" ? "⚔" : activeQuest.kind === "play" ? "🎹" : "?"}</span>

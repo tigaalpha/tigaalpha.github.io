@@ -6,7 +6,7 @@ import { CSS, useInjectCSS } from "./app-styles";
 import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw } from "./cyber-avatar";
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
-import { SkillTrack, PvpPage, trainFromExp, readSkillSp, skillRank } from "./pvp-arena";
+import { SkillTrack, PvpPage, readSkillSp, skillRank } from "./pvp-arena";
 import { MonsterBattlePage } from "./pve-battle";
 import { PetPod, PetPage } from "./pet-lab";
 import { StarsongPod, StarsongPage } from "./starsong";
@@ -9217,7 +9217,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [metroBpm, setMetroBpm] = useState(90);
   const [ambientOn, setAmbientOn] = useState(false);
   // coins · daily chest · mascot companion
-  const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
+  const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, gainSkillExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
   const [shopTab, setShopTab] = useState("all");
   const [shopSubTab, setShopSubTab] = useState(null);
@@ -10649,8 +10649,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           onBack={() => { setPage("profile"); playUi("click"); }}
           playUi={playUi}
           onReward={(xp, c, res) => {
-            // noSkill: the arena already paid SP for this fight itself
-            if (xp) gainExp(xp, { quest: true, noSkill: true });
+            // the arena pays its own SP; gainExp is Learning EXP only now
+            if (xp) gainExp(xp, { quest: true });
             if (c) earnCoins(c);
             bumpWeekly("games", 1);
             if (res && res.win) bumpWeekly("perfect", 1);
@@ -10669,7 +10669,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                  ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory)]}
           onBack={() => { setPage("profile"); playUi("click"); }}
           onReward={(xp, c, res) => {
-            if (xp) gainExp(xp, { quest: true, noSkill: true });
+            if (xp) gainExp(xp, { quest: true });
             if (c) earnCoins(c);
             bumpWeekly("games", 1);
             if (res && res.win) bumpWeekly("perfect", 1);
@@ -10705,7 +10705,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           playerName={(profile && (profile.display_name || profile.full_name)) || (session && session.user && (session.user.user_metadata || {}).full_name) || "TIGA-01"}
           charModel={charModel}
           onBack={() => { setPage("profile"); playUi("click"); }}
-          onReward={(xp, c, o) => { if (xp) gainExp(xp, { quest: !(o && o.grind) }); if (c) earnCoins(c); }} />
+          gear={[ALL_WEAPONS.find(x => x.id === charWeapon), ALL_OUTFITS.find(x => x.id === charOutfit),
+                 ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory)]}
+          /* Two currencies, two callers. `skill` is Skill EXP, minted only by
+             fighting; `xp` is Learning EXP, and `grind` says this xp came from
+             the world rather than from a lesson so it must not tick the daily
+             learning quest. A kill sends skill and no xp at all. */
+          onReward={(xp, c, o) => {
+            if (xp) gainExp(xp, { quest: !(o && o.grind) });
+            if (c) earnCoins(c);
+            if (o && o.skill) gainSkillExp(o.skill, { quiet: !!o.grind });
+          }} />
       )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}

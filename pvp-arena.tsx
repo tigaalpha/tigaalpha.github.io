@@ -73,14 +73,6 @@ export function runningClassKey() {
   return classKeyOf(normalizeModel(m));
 }
 
-/** Practice feeds the fight: account EXP also trains the running chassis's
-    class, at half rate. Called from gainExp so every feature in the app
-    contributes without any of them knowing this file exists. */
-export function trainFromExp(xp) {
-  if (!xp || xp <= 0) return null;
-  return addSkillSp(runningClassKey(), Math.max(1, Math.round(xp / 2)));
-}
-
 export function skillUnlocked(tier, rank) { return rank >= (SKILL_UNLOCK[tier] || 1); }
 
 /* ══════════════════════ question bank ══════════════════════
