@@ -2421,7 +2421,7 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .sspod em{position:absolute;top:-4px;left:-4px;width:12px;height:12px;border-radius:50%;background:#d97757;border:2px solid var(--card);animation:pppulse 1.6s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.sspod em{animation:none}}
 
-.sspage{flex:1;min-height:0;display:flex;flex-direction:column;background:#080c16;color:#e8eefc;overflow:hidden;position:relative}
+.sspage{flex:1;min-height:0;display:flex;flex-direction:column;background:#080c16;color:#e8eefc;overflow:hidden;position:relative;isolation:isolate;contain:paint}
 .sshdr{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0c1220;border-bottom:1px solid #1e2942;flex:0 0 auto}
 .ssback{width:32px;height:32px;flex:0 0 auto;border-radius:9px;border:1px solid #2a3550;background:#141d31;color:#cfe0ff;font-size:17px;cursor:pointer}
 .sshdr-t{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.18}
@@ -2432,7 +2432,21 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssnavbtn:active{transform:scale(.96)}
 
 .ssworldwrap{flex:1;min-height:0;position:relative;overflow:hidden}
-.sscanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+/* ── the map canvas ──
+   The world is drawn into a backing store of 860x1452 device pixels sitting
+   inside a scrolling app shell, and the compositor was intermittently showing
+   a STALE tile for part of it: a scaled ghost of the page header, Thai text
+   from a screen the player had left, or the chassis smeared over itself.
+   Proven to be compositing rather than drawing - getImageData on the canvas
+   comes back correct in exactly the frames whose screenshot is wrong.
+
+   Three lines, each doing a different job:
+   - its own compositor layer, so the tile is never shared with the shell;
+   - no back face, which stops the layer being re-rasterised on transform;
+   - and an OPAQUE ground colour, so that if a tile is ever missed anyway the
+     hole shows the night sky rather than the app's own header. */
+.sscanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;
+  background:#05070f;transform:translateZ(0);backface-visibility:hidden}
 
 .sshud{position:absolute;top:8px;left:8px;right:8px;z-index:3;display:flex;flex-direction:column;gap:6px;pointer-events:none}
 .sshp{position:relative;height:16px;border-radius:9px;background:#0b1220cc;border:1px solid #2b3654;overflow:hidden;max-width:190px}

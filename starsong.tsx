@@ -645,6 +645,7 @@ export function buildWorld(w) {
     if (slot < 0) { seenGivers.push(key); slot = seenGivers.length - 1; }
     npcs[slot] = npcs[slot] || {
       key,
+      i: slot,                      // phase offset, so the square is not a chorus line
       name: q.giver,
       ...place(a0 + 0.9 + slot * 1.7, 250 + slot * 44),
       quests: [],
@@ -1042,16 +1043,20 @@ export function ringPath(g, P, wx, wy, r, h) {
     down the left edge and a visor with a moving glint. The rim light is what
     separates it from the ground on a dark planet — a silhouette with no lit
     edge reads as a hole, however good the fill is. */
-function drawBot(g, x, y, s, hue, t, ghost, glow) {
-  const bob = Math.sin(t * 7) * 1.6 * s;
-  const stride = Math.sin(t * 7) * 4 * s;
-  const arm = Math.sin(t * 7 + Math.PI) * 3.4 * s;
+function drawBot(g, x, y, s, hue, t, ghost, glow, mv) {
+  /* mv is how much of the walk cycle to play: 1 while moving, 0 while
+     standing. A figure at 0 does not stop dead - it keeps a slow breath, so a
+     robot standing still reads as alive rather than as a pasted image. */
+  const m = mv == null ? 1 : mv;
+  const bob = (Math.sin(t * 7) * 1.6 * m + Math.sin(t * 1.9) * 0.9 * (1 - m)) * s;
+  const stride = Math.sin(t * 7) * 4 * s * m;
+  const arm = (Math.sin(t * 7 + Math.PI) * 3.4 * m + Math.sin(t * 1.9 + Math.PI) * 1.1 * (1 - m)) * s;
   g.save();
   g.translate(x, y + bob);
   const A = ghost ? 0.45 : 1;
 
   // contact shadow: tightens as the figure rises, which is what sells the bob
-  g.globalAlpha = A * 0.55 * (1 - Math.abs(bob) / (3 * s));
+  g.globalAlpha = A * 0.55 * (1 - Math.min(0.9, Math.abs(bob) / (3 * s)));
   g.fillStyle = "#00040c";
   g.beginPath(); g.ellipse(0, 15 * s - bob, 11 * s, 4.2 * s, 0, 0, 6.284); g.fill();
   g.globalAlpha = A;
@@ -1567,17 +1572,24 @@ function useChassisSprite(model, glow, accent) {
     squash that follows it, and a flip so the figure faces where it is going.
     Falls back to nothing while the sprite is still rasterising — the caller
     draws the primitive bot in that gap so the player is never invisible. */
-function drawChassis(g, img, x, y, h, t, dir, ghost) {
+function drawChassis(g, img, x, y, h, t, dir, ghost, mv) {
   // the sprite is trimmed to its ink, so its own aspect is the truth and its
   // bottom edge is the soles of the feet
   const w = h * ((img.width || 160) / (img.height || 416));
-  const bob = Math.sin(t * 7) * 2.2;
-  const sq = 1 + Math.sin(t * 7) * 0.03;
+  /* mv: 1 while walking, 0 while standing. The walk cycle scales away as the
+     player stops, but an IDLE CYCLE fades in underneath it - a slower, smaller
+     breath plus a shallow lean. The sprite is one rasterised image, so if the
+     clock ever stops the figure is a literally frozen picture; it never does. */
+  const m = mv == null ? 1 : mv;
+  const bob = Math.sin(t * 7) * 2.2 * m + Math.sin(t * 1.9) * 1.0 * (1 - m);
+  const sq = 1 + Math.sin(t * 7) * 0.03 * m + Math.sin(t * 1.9) * 0.014 * (1 - m);
+  const lean = Math.sin(t * 1.55) * 0.016 * (1 - m);   // radians: a weight shift
   g.save();
   g.globalAlpha = ghost ? 0.5 : 1;
   g.fillStyle = "rgba(0,4,12,.42)";
   g.beginPath(); g.ellipse(x, y, w * 0.34, w * 0.13, 0, 0, 6.284); g.fill();
   g.translate(x, y + bob);
+  if (lean) { g.translate(0, -h * 0.06); g.rotate(lean); g.translate(0, h * 0.06); }
   if (dir < 0) g.scale(-1, 1);
   g.drawImage(img, -w / 2, -h * sq, w, h * sq);
   g.restore();
@@ -2886,7 +2898,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const [tick, setTick] = useState(0);        // forces a HUD repaint; the canvas has its own loop
 
   const cvRef = useRef(null);
-  const meRef = useRef({ ...nearestWalkable(geo.seed, geo.town.x, geo.town.y + 60), t: 0, dir: 0 });
+  const meRef = useRef({ ...nearestWalkable(geo.seed, geo.town.x, geo.town.y + 60), t: 0, dir: 1, mv: 0 });
   const padRef = useRef({ ax: 0, ay: 0, on: false, ox: 0, oy: 0 });
   const keysRef = useRef({});
   const mobsRef = useRef([]);
@@ -2958,7 +2970,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   useEffect(() => {
     mobsRef.current = spawnMobs(W, geo);
     const sp = nearestWalkable(geo.seed, geo.town.x, geo.town.y + 60);
-    meRef.current = { x: sp.x, y: sp.y, t: 0, dir: 0 };
+    meRef.current = { x: sp.x, y: sp.y, t: 0, dir: 1, mv: 0 };
     camRef.current = { x: sp.x, y: sp.y, yaw: 0 };
     setHp(maxHp(saveRef.current));
     setFight(null); setCtrl(null); setTalk(null); setTask(null);
@@ -3078,7 +3090,6 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         const nx = me.x + (wxv / m2) * sp, ny = me.y + (wyv / m2) * sp;
         if (walkable(geo.seed, nx, me.y)) me.x = nx;      // slide along walls rather than sticking
         if (walkable(geo.seed, me.x, ny)) me.y = ny;
-        me.t += dt;
         me.face = Math.atan2(wxv, wyv);
         /* and the camera swings in behind you, the shortest way round. Turning
            the long way is the thing that makes a chase camera feel broken. */
@@ -3086,9 +3097,21 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         while (dyaw > Math.PI) dyaw -= Math.PI * 2;
         while (dyaw < -Math.PI) dyaw += Math.PI * 2;
         camS.yaw += dyaw * Math.min(1, dt * 2.6);
-        // which way the sprite faces is now left/right OF THE CAMERA
-        me.dir = Math.abs(dyaw) > Math.PI / 2 ? -me.dir || 1 : (rX * wxv + rY * wyv) > 0 ? 1 : -1;
+        /* Which way the sprite faces is left/right OF THE CAMERA. While the
+           camera is still more than a quarter turn behind the stick, screen
+           left/right is meaningless and flips frame to frame - so HOLD the
+           facing until the swing catches up. Negating it here instead made the
+           sprite mirror on every single frame of the turn: measured 70 flips
+           in 113 frames, a mirror-strobe on the character at frame rate. */
+        if (Math.abs(dyaw) <= Math.PI / 2) me.dir = (rX * wxv + rY * wyv) > 0 ? 1 : -1;
+        else if (!me.dir) me.dir = 1;
       }
+      /* The animation clock runs ALWAYS, and mv says how much of the walk
+         cycle to play. Advancing t only while the stick was pushed froze the
+         chassis sprite the instant you let go - measured: 48 consecutive
+         frames on one single value of t, i.e. a still image. */
+      me.mv += ((!busy && (ax || ay) ? 1 : 0) - (me.mv || 0)) * Math.min(1, dt * 9);
+      me.t += dt;
       camS.x += (me.x - camS.x) * Math.min(1, dt * 7);
       camS.y += (me.y - camS.y) * Math.min(1, dt * 7);
       const cam = camS;
@@ -3209,15 +3232,26 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         gl.addColorStop(0.88, `rgba(${AC},0.34)`);
         gl.addColorStop(1, `rgba(${AC},0)`);
         g.fillStyle = gl; g.fillRect(0, HZ - 130, vw, 164);
-        // three hot pools where the biggest districts sit, drifting with the eye
+        /* Three hot pools where the biggest districts sit, drifting with the
+           eye. A CIRCLE of radius 150 at 0.30 was not a distant glow - on a
+           430px phone it is a 300px pink disc floating in the sky, and it read
+           as a moon nobody put there. A district glow is wide, shallow, dim,
+           and it hugs the horizon: squashed flat, half the opacity, and
+           clipped so none of it climbs above the skyline. */
+        g.save();
+        g.beginPath(); g.rect(0, HZ - 54, vw, 92); g.clip();
         for (let i = 0; i < 3; i++) {
           const bx = ((hash32("glow" + i + W.id) % 1600) - cam.x * 0.05) % (vw + 260);
-          const px2 = bx < 0 ? bx + vw + 260 : bx;
-          const rg = g.createRadialGradient(px2 - 130, HZ + 4, 0, px2 - 130, HZ + 4, 150);
-          rg.addColorStop(0, `rgba(${i % 2 ? NE : AC},0.30)`);
+          const px2 = (bx < 0 ? bx + vw + 260 : bx) - 130;
+          const rg = g.createRadialGradient(px2, HZ + 10, 0, px2, HZ + 10, 150);
+          rg.addColorStop(0, `rgba(${i % 2 ? NE : AC},0.16)`);
           rg.addColorStop(1, `rgba(${i % 2 ? NE : AC},0)`);
-          g.fillStyle = rg; g.fillRect(px2 - 280, HZ - 146, 300, 190);
+          g.save();
+          g.translate(px2, HZ + 10); g.scale(1, 0.34); g.translate(-px2, -(HZ + 10));
+          g.fillStyle = rg; g.fillRect(px2 - 150, HZ + 10 - 150, 300, 300);
+          g.restore();
         }
+        g.restore();
         g.globalCompositeOperation = "source-over";
       }
       for (let L = 0; L < 2; L++) {
@@ -3333,7 +3367,10 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         const pp = e.q; const ex = pp.x, ey = pp.y, k = rel(pp);
         if (ex < -170 || ex > vw + 170 || ey < -200 || ey > vh + 200) continue;
         if (e.k === "npc") {
-          drawBot(g, ex, ey, 1.05 * k, "#c9d6ee", 0, false, "#ffd77a");
+          /* t was the literal 0 here, so every villager in the world stood
+             frozen on frame one of its own idle. They get the shared clock,
+             offset per NPC so the square is not a chorus line. */
+          drawBot(g, ex, ey, 1.05 * k, "#c9d6ee", tsec + (e.o.i || 0) * 1.7, false, "#ffd77a", 0);
           const hasWork = e.o.quests.some(qid => !(saveRef.current.quests[qid] || {}).done);
           if (hasWork) {
             g.fillStyle = "#ffd24d"; g.font = `900 ${(20 * k).toFixed(1)}px Rajdhani, sans-serif`; g.textAlign = "center";
@@ -3342,8 +3379,17 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           g.fillStyle = "#e8eefc"; g.font = `600 ${Math.max(8, 11 * k).toFixed(1)}px Rajdhani, sans-serif`; g.textAlign = "center";
           g.fillText(tr3(e.o.name, lang), ex, ey + 30 * k);
         } else if (e.k === "peer") {
-          if (chassis) drawChassis(g, chassis, ex, ey, 62 * k, e.o.t || 0, 1, true);
-          else drawBot(g, ex, ey, 1 * k, "#9fb6de", (e.o.t || 0), true, W.glow);
+          /* A peer's t arrives over the wire every 600ms, so driving the walk
+             cycle from it stepped the sprite in 600ms jumps. Local clock with a
+             per-peer phase; mv comes from whether their position is actually
+             changing, which the presence feed does tell us honestly. */
+          const pt = tsec + (hash32("pr" + (e.o.name || "")) % 200) / 40;
+          const moved = Math.hypot(e.o.x - (e.o._px == null ? e.o.x : e.o._px), e.o.y - (e.o._py == null ? e.o.y : e.o._py));
+          e.o._mv = ((e.o._mv || 0) * 0.88) + (moved > 0.4 ? 0.12 : 0);
+          e.o._px = e.o.x; e.o._py = e.o.y;
+          const pmv = Math.min(1, (e.o._mv || 0) * 1.6);
+          if (chassis) drawChassis(g, chassis, ex, ey, 62 * k, pt, 1, true, pmv);
+          else drawBot(g, ex, ey, 1 * k, "#9fb6de", pt, true, W.glow, pmv);
           g.fillStyle = "#cddaf2cc"; g.font = `600 ${Math.max(8, 10.5 * k).toFixed(1)}px Rajdhani, sans-serif`; g.textAlign = "center";
           g.fillText(String(e.o.name || "?").slice(0, 14), ex, ey + 30 * k);
         } else if (e.k === "mob") {
@@ -3428,8 +3474,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           g.beginPath(); g.arc(cap.x, cap.y, 3.2, 0, 6.284); g.fill();
           g.globalAlpha = 1;
         } else {
-          if (chassis) drawChassis(g, chassis, ex, ey, 68 * k, me.t, me.dir, false);
-          else drawBot(g, ex, ey, 1.15 * k, W.accent, me.t, false, W.glow);
+          if (chassis) drawChassis(g, chassis, ex, ey, 68 * k, me.t, me.dir, false, me.mv);
+          else drawBot(g, ex, ey, 1.15 * k, W.accent, me.t, false, W.glow, me.mv);
         }
       }
 
