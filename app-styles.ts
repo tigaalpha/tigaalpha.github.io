@@ -961,14 +961,29 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .skt-chip-nm{font-family:'Rajdhani',sans-serif;font-size:9.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
 .skt-chip-bar{display:none}
 .skt-chip-r{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--cc);flex:none}
-.skt-pvp{display:flex;align-items:center;gap:10px;width:100%;margin-top:11px;padding:11px 12px;border:none;border-radius:13px;background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;text-align:left;cursor:pointer;box-shadow:0 8px 22px -12px #d97757}
-.skt-pvp:hover{filter:brightness(1.06)}
-.skt-pvp:active{transform:scale(.985)}
-.skt-pvp-ic{font-size:19px;line-height:1;flex:none}
-.skt-pvp-b{display:flex;flex-direction:column;gap:2px;margin-right:auto;min-width:0}
-.skt-pvp-b b{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:.2px}
-.skt-pvp-b i{font-style:normal;font-size:10.5px;line-height:1.35;opacity:.92}
-.skt-pvp-go{font-size:17px;flex:none;opacity:.9}
+/* The one card on the profile asking the player to go DO something, so it
+   gets the loudest treatment on the page: a wider, brighter gradient, a lit
+   icon badge instead of a bare glyph, and a slow breathing glow rather than a
+   static shadow - the eye should land here before it lands on a stat bar.
+   Named .profpvp rather than .pvpbanner: that name was already taken by the
+   in-fight "banner" element ArenaFight flashes text through (see .pvpbanner
+   further down, position:absolute) - same class name, equal specificity, and
+   the later rule in the cascade silently made THIS card absolutely
+   positioned too, stacking it on top of the EXP row instead of below it. */
+.profpvp{display:flex;align-items:center;gap:13px;width:100%;max-width:520px;margin:14px auto 0;padding:16px 17px;
+  border:none;border-radius:18px;background:linear-gradient(135deg,#ff9a66,#e2502f);color:#fff;text-align:left;cursor:pointer;
+  box-shadow:0 12px 30px -10px #d9775799,0 0 0 1px #ffffff26 inset;animation:profpvpGlow 2.6s ease-in-out infinite}
+.profpvp:hover{filter:brightness(1.07)}
+.profpvp:active{transform:scale(.98)}
+.profpvp-ic{font-size:24px;line-height:1;flex:none;width:46px;height:46px;display:flex;align-items:center;justify-content:center;
+  background:#ffffff2a;border-radius:50%;box-shadow:inset 0 0 0 1px #ffffff40}
+.profpvp-b{display:flex;flex-direction:column;gap:2px;margin-right:auto;min-width:0}
+.profpvp-b b{font-family:'Rajdhani',sans-serif;font-size:16.5px;font-weight:800;letter-spacing:.2px;text-shadow:0 1px 8px rgba(0,0,0,.18)}
+.profpvp-b i{font-style:normal;font-size:11px;line-height:1.4;opacity:.95}
+.profpvp-go{font-size:21px;font-weight:700;flex:none;opacity:.95}
+@keyframes profpvpGlow{0%,100%{box-shadow:0 12px 30px -10px #d9775799,0 0 0 1px #ffffff26 inset}
+  50%{box-shadow:0 14px 36px -6px #ff7a4fcc,0 0 0 1px #ffffff40 inset}}
+@media (prefers-reduced-motion:reduce){.profpvp{animation:none}}
 
 /* ── PvP arena ── */
 .pvppage{flex:1;min-height:0;overflow-y:auto;background:var(--bg);padding-bottom:26px;scrollbar-width:thin;scrollbar-color:#d97757 var(--card3)}
@@ -994,15 +1009,27 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpsk-b b i{font-style:normal;font-size:8px;padding:1px 5px;border-radius:20px;background:#14141310;color:var(--muted);margin-left:4px}
 .pvpsk-b span{font-size:10px;line-height:1.35;color:var(--muted)}
 .pvpsec-h{margin:16px 2px 8px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
-.pvptiers{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+/* Two columns rather than three: ten cards at three-across leaves an orphan
+   card alone on its own row, and the longer labels ("Fairly Hard Mode") need
+   the extra width three columns don't leave them. */
+.pvptiers{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
 .pvptier{display:flex;flex-direction:column;gap:3px;padding:11px 7px;border-radius:13px;border:1px solid var(--bd1);background:var(--card);cursor:pointer;text-align:center}
 .pvptier:active{transform:scale(.97)}
 .pvptier b{font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--text)}
 .pvptier i{font-style:normal;font-size:9.5px;color:var(--muted)}
 .pvptier span{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:-.2px;color:#d97757;white-space:nowrap}
+/* A cool-to-hot ramp across all ten, so the ladder reads at a glance before
+   anyone reads a single word of the label: green is safe, red is not. */
+.pvptier.t-novice{border-color:#6fe0a055}
 .pvptier.t-rookie{border-color:#3ddc8455}
+.pvptier.t-cadet{border-color:#3ddcc055}
 .pvptier.t-veteran{border-color:#3d86c655}
+.pvptier.t-ranger{border-color:#7c7fe055}
 .pvptier.t-ace{border-color:#d9775777;box-shadow:0 0 0 1px #d9775722}
+.pvptier.t-elite{border-color:#e0935a77;box-shadow:0 0 0 1px #e0935a22}
+.pvptier.t-warlord{border-color:#e2685f88;box-shadow:0 0 0 1px #e2685f2e}
+.pvptier.t-overlord{border-color:#e0435a99;box-shadow:0 0 0 1px #e0435a3a}
+.pvptier.t-legend{border-color:#ff2d55aa;box-shadow:0 0 10px -2px #ff2d5555,0 0 0 1px #ff2d5540}
 .pvpnote{font-size:10.5px;line-height:1.5;color:var(--muted);background:var(--card2);border:1px solid var(--bd1);border-radius:11px;padding:9px 11px;margin-bottom:9px}
 .pvpempty{font-size:11.5px;color:var(--muted);text-align:center;padding:16px 10px;background:var(--card2);border:1px dashed var(--bd1);border-radius:12px}
 .pvpfriends{display:flex;flex-direction:column;gap:6px}

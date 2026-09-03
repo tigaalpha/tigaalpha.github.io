@@ -6,7 +6,7 @@ import { CSS, useInjectCSS } from "./app-styles";
 import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw } from "./cyber-avatar";
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
-import { SkillTrack, PvpPage, readSkillSp, skillRank } from "./pvp-arena";
+import { SkillTrack, PvpBanner, PvpPage, readSkillSp, skillRank } from "./pvp-arena";
 import { PetPod, PetPage } from "./pet-lab";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
@@ -6388,13 +6388,18 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           <div className="expnext">{toNext}</div>
         </div>
 
+        {/* the one thing on this page asking the player to go DO something
+            rather than reporting what they already did — right under the EXP
+            bar so it's the first door anyone sees, not a footnote at the
+            bottom of the skill card it used to hide inside. */}
+        <PvpBanner lang={lang} onOpenPvp={onOpenPvp} />
+
         {/* ── skill track ──
             Account EXP is what the PLAYER has learned; this is what the CHASSIS
             has. It belongs to the class rather than the model, so switching
             between two Strikers keeps the rank and switching class starts a
-            fresh one. The arena is the door directly under it because the bar
-            and the fight are the same loop. */}
-        <SkillTrack lang={lang} charModel={charModel} onOpenPvp={onOpenPvp} />
+            fresh one. */}
+        <SkillTrack lang={lang} charModel={charModel} />
       </div>
 
       {/* ── Character / Avatar Dress-up Section ── */}

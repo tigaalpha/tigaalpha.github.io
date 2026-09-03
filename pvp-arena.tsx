@@ -268,7 +268,30 @@ export function fighterFrom(model, gear, spRank) {
 /** The per-class SP bars, plus the door to the arena. Lives directly under the
     account EXP bar, because it is the same idea one layer down: that one is
     what the ACCOUNT has learned, this one is what the CHASSIS has. */
-export const SkillTrack = memo(function SkillTrack({ lang, charModel, onOpenPvp }) {
+/** The one loud thing on the profile: everything else on this page reports on
+    what the player already did, and this is the only card asking them to go
+    do something. It used to live buried at the bottom of the skill card,
+    which made it read as a footnote to the stat bars rather than the door it
+    actually is - moved out to its own component so a caller can put it
+    wherever it deserves to be seen, and given the glow/pulse treatment that
+    makes it the thing the eye lands on first. */
+export const PvpBanner = memo(function PvpBanner({ lang, onOpenPvp }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  return (
+    <button className="profpvp" onClick={onOpenPvp}>
+      <span className="profpvp-ic">⚔</span>
+      <span className="profpvp-b">
+        <b>{T("สนามประลอง PvP", "PvP Arena", "PvP 竞技场")}</b>
+        <i>{T("เอาหุ่นยนต์ไปสู้ — ตอบคำถามดนตรีให้ไวและแม่นกว่า",
+              "Send your chassis in — answer music questions faster than they do",
+              "派出你的机体 — 比对手更快答对音乐题")}</i>
+      </span>
+      <span className="profpvp-go">→</span>
+    </button>
+  );
+});
+
+export const SkillTrack = memo(function SkillTrack({ lang, charModel }) {
   const [sp, setSp] = useState(() => readSkillSp());
   useEffect(() => {
     const sync = () => setSp(readSkillSp());
@@ -311,17 +334,6 @@ export const SkillTrack = memo(function SkillTrack({ lang, charModel, onOpenPvp 
           );
         })}
       </div>
-
-      <button className="skt-pvp" onClick={onOpenPvp}>
-        <span className="skt-pvp-ic">⚔</span>
-        <span className="skt-pvp-b">
-          <b>{T("สนามประลอง PvP", "PvP Arena", "PvP 竞技场")}</b>
-          <i>{T("เอาหุ่นยนต์ไปสู้ — ตอบคำถามดนตรีให้ไวและแม่นกว่า",
-                "Send your chassis in — answer music questions faster than they do",
-                "派出你的机体 — 比对手更快答对音乐题")}</i>
-        </span>
-        <span className="skt-pvp-go">→</span>
-      </button>
     </div>
   );
 });
@@ -374,10 +386,25 @@ const pickMove = (clsKey) => {
   return l[Math.floor(Math.random() * l.length)];
 };
 
+/* Ten steps rather than three, so "Fight a bot" is a ladder a player climbs
+   rather than a single wall they either clear or don't. rookie/veteran/ace
+   keep the EXACT numbers the game already shipped with (acc/dmgK/rewards) at
+   their new positions (Easy/Medium/Hard) - nothing anyone was already tuned
+   against moves. The other seven are interpolated/extrapolated around them:
+   dmgK (the bot's real damage multiplier - acc is cosmetic, see startFight)
+   and BOT_GAP below (its attack cadence) are what actually makes a tier
+   harder, so both climb together rather than acc alone doing the work. */
 const BOT_TIERS = [
-  { key: "rookie",  acc: .45, dmgK: .85, th: "โหมดง่าย",  en: "Easy Mode",   zh: "简单模式", coins: 40,  xp: 12, sp: 24 },
-  { key: "veteran", acc: .62, dmgK: 1,   th: "โหมดปานกลาง", en: "Medium Mode", zh: "中等模式", coins: 90,  xp: 25, sp: 48 },
-  { key: "ace",     acc: .78, dmgK: 1.2, th: "โหมดยาก",   en: "Hard Mode",   zh: "困难模式", coins: 180, xp: 45, sp: 90 },
+  { key: "novice",   acc: .35, dmgK: .70, th: "โหมดง่ายมาก",     en: "Very Easy Mode",   zh: "超简单模式", coins: 25,  xp: 8,   sp: 16 },
+  { key: "rookie",   acc: .45, dmgK: .85, th: "โหมดง่าย",       en: "Easy Mode",        zh: "简单模式",   coins: 40,  xp: 12,  sp: 24 },
+  { key: "cadet",    acc: .54, dmgK: .93, th: "โหมดค่อนข้างง่าย", en: "Fairly Easy Mode", zh: "较简单模式", coins: 60,  xp: 18,  sp: 34 },
+  { key: "veteran",  acc: .62, dmgK: 1,   th: "โหมดปานกลาง",    en: "Medium Mode",      zh: "中等模式",   coins: 90,  xp: 25,  sp: 48 },
+  { key: "ranger",   acc: .70, dmgK: 1.10, th: "โหมดค่อนข้างยาก", en: "Fairly Hard Mode", zh: "较困难模式", coins: 125, xp: 34,  sp: 66 },
+  { key: "ace",      acc: .78, dmgK: 1.2, th: "โหมดยาก",       en: "Hard Mode",        zh: "困难模式",   coins: 180, xp: 45,  sp: 90 },
+  { key: "elite",    acc: .85, dmgK: 1.35, th: "โหมดยากมาก",    en: "Very Hard Mode",   zh: "超困难模式", coins: 235, xp: 58,  sp: 118 },
+  { key: "warlord",  acc: .90, dmgK: 1.50, th: "โหมดโหด",       en: "Brutal Mode",      zh: "残暴模式",   coins: 300, xp: 72,  sp: 150 },
+  { key: "overlord", acc: .94, dmgK: 1.68, th: "โหมดโหดมาก",    en: "Extreme Mode",     zh: "极限模式",   coins: 380, xp: 90,  sp: 190 },
+  { key: "legend",   acc: .97, dmgK: 1.90, th: "โหมดนรก",       en: "Hell Mode",        zh: "地狱模式",   coins: 480, xp: 112, sp: 240 },
 ];
 const ROUNDS = 12;
 
@@ -395,7 +422,7 @@ export const PvpPage = memo(function PvpPage({
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [phase, setPhase] = useState("lobby");    // lobby | fight | result
-  const [tier, setTier] = useState(BOT_TIERS[1]);
+  const [tier, setTier] = useState(BOT_TIERS[3]);  // veteran/"Medium" - the bot-fight default, and also the fixed baseline a player-vs-player duel scores against
   const [oppKind, setOppKind] = useState("bot");  // bot | player
   const [oppName, setOppName] = useState("");
   const [pendingFriend, setPendingFriend] = useState(null);
@@ -492,7 +519,7 @@ export const PvpPage = memo(function PvpPage({
           ) : (
             <div className="pvpfriends">
               {friends.map(f => (
-                <button key={f.user_id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[1], f.name || f.email || "?", f)}>
+                <button key={f.user_id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], f.name || f.email || "?", f)}>
                   <span className="pvpfriend-av"><CyberAvatar model={chassisFor(f.user_id || f.name || "x")} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
                   <span className="pvpfriend-nm">{f.name || f.email}</span>
                   <span className="pvpfriend-go">{T("ท้า", "Challenge", "挑战")} →</span>
@@ -505,7 +532,7 @@ export const PvpPage = memo(function PvpPage({
               <div className="pvpsec-h">📨 {T("คำท้าที่รออยู่", "Challenges waiting", "待处理的挑战")}</div>
               <div className="pvpfriends">
                 {openDuels.map(d => (
-                  <button key={d.id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[1], d.opp_name, { duel: d })}>
+                  <button key={d.id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], d.opp_name, { duel: d })}>
                     <span className="pvpfriend-av"><CyberAvatar model={chassisFor(d.opp_name || "x")} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
                     <span className="pvpfriend-nm">{d.opp_name} · {d.opp_score != null ? d.opp_score : "—"}</span>
                     <span className="pvpfriend-go">{T("รับคำท้า", "Accept", "接受")} →</span>
@@ -599,7 +626,10 @@ const WAVES = Array.from({ length: ASK_ROUNDS }, () => ASK_EVERY);
    everything else. Three mistakes is most of a health bar. */
 const WRONG_PUNISH = 0.30;
 const GUARD_MS = 900, GUARD_CD = 2400;
-const BOT_GAP = { rookie: 1700, veteran: 1250, ace: 950 };
+const BOT_GAP = {
+  novice: 2000, rookie: 1700, cadet: 1480, veteran: 1250, ranger: 1100,
+  ace: 950, elite: 820, warlord: 700, overlord: 590, legend: 480,
+};
 
 /* ── the moveset ──
    Once the robots can walk, the buttons have to mean different things or the
