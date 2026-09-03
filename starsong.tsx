@@ -1560,56 +1560,160 @@ function useCoop(worldId, meName, enabled) {
    blitted every frame after that. Serialising a live DOM node (rather than
    building the markup by hand) means the sprite is by construction whatever
    the profile is showing, including any future change to the models. */
-function useChassisSprite(model, glow, accent, armorA, armorB) {
+/* ── the walk cycle ──────────────────────────────────────────────────────
+   The figure used to be ONE bitmap with a sine wave applied to it: the whole
+   robot slid up and down as a rigid board and not one joint ever bent, which
+   is exactly what "stiff" looks like. CyberAvatar is not a picture though - it
+   is a rig, with the arms hung off the shoulders, the legs off the hips and
+   the torso off the waist, each rotating about its real joint. So the sprite
+   is now a SHEET: the same rig posed frame by frame and rasterised once.
+
+   Angles are signed the way the rig reads them - positive swings a limb
+   forward, and the right side is mirrored for you - so one number means one
+   thing on both sides. Arms counter the legs, because that is what walking
+   is; and `lift` rises twice per stride, at the two moments the feet pass
+   each other, which is the detail that stops a walk reading as a shuffle. */
+const GAIT_N = 8, IDLE_N = 6;
+const WALK_FRAMES = Array.from({ length: GAIT_N }, (_, i) => {
+  const th = (i / GAIT_N) * Math.PI * 2, S = Math.sin(th);
+  /* Amplitudes are set for the size the figure is actually SEEN at - about
+     110 css px tall on a phone. Angles that look generous in a 390px preview
+     are three or four pixels down there, so the first pass read as a statue
+     that shrugged. Front-on, a walk is carried by the stride, the counter-swing
+     of the arms, the two-per-stride rise, and the weight shifting side to side
+     through the torso - so all four are pushed to where they read at that size
+     while staying inside the frame the rig is drawn in. */
+  return {
+    lean: -3 + S * 3.4,
+    legL: S * 23, legR: -S * 23,
+    armL: -S * 17, armR: S * 17,
+    head: -1.5 + S * 2.6,
+    lift: -4.6 * Math.abs(Math.cos(th)),   // up as the feet pass, down on contact
+  };
+});
+const IDLE_FRAMES = Array.from({ length: IDLE_N }, (_, i) => {
+  const th = (i / IDLE_N) * Math.PI * 2, S = Math.sin(th), C = Math.cos(th);
+  /* Standing still is not a pose, it is a slow shift of weight. Two rules make
+     the difference between an idle and a statue:
+       · every channel is driven by BOTH sin and cos, so the pose walks round a
+         loop instead of along a line - a pure sine samples the same value on
+         the way out and the way back, and half the frames come out identical.
+       · the two arms get different amplitudes and different phases, because a
+         figure whose limbs move in perfect symmetry reads as a mechanism
+         ticking over rather than as someone standing there. */
+  return {
+    lean: S * 4.6,
+    legL: C * 2.4, legR: C * 2.4,        // same sign on both = a rock, not a stride
+    armL: 2.5 + S * 5.4, armR: 2.5 - C * 4.4,
+    head: -S * 5.2 + C * 1.6,
+    lift: -4.2 - C * 4.0,                // the breath
+  };
+});
+const ATTACK_FRAME = { lean: -11, legL: -9, legR: -3, armL: 33, armR: -13, head: -6, lift: -3 };
+const SHEET = [...WALK_FRAMES, ...IDLE_FRAMES, ATTACK_FRAME];
+const SHEET_W = 200, SHEET_H = 520;          // 2x the size it is ever drawn at
+
+/** Rasterise the whole sheet, one frame at a time through a SINGLE hidden
+    avatar. Mounting thirteen of them at once would put thirteen full chassis
+    SVGs in the DOM; posing one and reading it back thirteen times costs a few
+    hundred milliseconds at page open and nothing at all after that. */
+function useChassisSheet(model, glow, accent, armorA, armorB) {
   const holdRef = useRef(null);
-  const [img, setImg] = useState(null);
+  const [step, setStep] = useState(0);            // which frame the host is posing
+  const [frames, setFrames] = useState(null);     // the finished sheet
+  const rawRef = useRef([]);
+  const key = [model, glow, accent, armorA, armorB].join("|");
+  const keyRef = useRef(key);
+
+  useEffect(() => { keyRef.current = key; rawRef.current = []; setFrames(null); setStep(0); }, [key]);
 
   useEffect(() => {
-    setImg(null);
+    if (step >= SHEET.length) return;
     const host = holdRef.current;
     if (!host) return;
+    const mine = keyRef.current;
     let dead = false, url = null;
-    // one frame, so React has painted the SVG we are about to read
+    /* ONE ink box for the whole sheet. Trimming each frame to its own ink
+       would give every pose a different bounding box, and the figure would
+       jitter half a body width between frames - the sheet has to share a
+       registration or it is worse than the single bitmap it replaces. */
+    const finish = (mine) => {
+      try {
+        const raws = rawRef.current;
+        const c = document.createElement("canvas");
+        c.width = SHEET_W; c.height = SHEET_H;
+        const cg = c.getContext("2d", { willReadFrequently: true });
+        let x0 = SHEET_W, y0 = SHEET_H, x1 = -1, y1 = -1;
+        for (const im of raws) {
+          if (!im) continue;
+          cg.clearRect(0, 0, SHEET_W, SHEET_H);
+          cg.drawImage(im, 0, 0, SHEET_W, SHEET_H);
+          const d = cg.getImageData(0, 0, SHEET_W, SHEET_H).data;
+          for (let y = 0; y < SHEET_H; y++) for (let x = 0; x < SHEET_W; x++) {
+            if (d[(y * SHEET_W + x) * 4 + 3] > 8) {
+              if (x < x0) x0 = x; if (x > x1) x1 = x;
+              if (y < y0) y0 = y; if (y > y1) y1 = y;
+            }
+          }
+        }
+        if (x1 <= x0 || y1 <= y0) return;
+        const w = x1 - x0 + 1, h = y1 - y0 + 1;
+        const out = raws.map(im => {
+          if (!im) return null;
+          const cut = document.createElement("canvas");
+          cut.width = w; cut.height = h;
+          // the full frame at native size, offset so the shared crop lands at 0,0
+          cut.getContext("2d").drawImage(im, -x0, -y0, SHEET_W, SHEET_H);
+          return cut;
+        });
+        if (keyRef.current === mine) setFrames(out.filter(Boolean).length === SHEET.length ? out : null);
+      } catch (e) {}
+    };
+
+    // one tick, so React has painted the pose we are about to read
     const t = window.setTimeout(() => {
+      const done = () => { if (!dead && keyRef.current === mine) setStep(step + 1); };
       try {
         const svg = host.querySelector("svg");
-        if (!svg) return;
+        if (!svg) return done();
         const clone = svg.cloneNode(true);
-        // an <img> will not lay out a percentage-sized SVG, so pin it
-        clone.setAttribute("width", "320");
-        clone.setAttribute("height", "832");
+        clone.setAttribute("width", String(SHEET_W));
+        clone.setAttribute("height", String(SHEET_H));
         clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-        const src = new XMLSerializer().serializeToString(clone);
-        url = URL.createObjectURL(new Blob([src], { type: "image/svg+xml;charset=utf-8" }));
+        url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" }));
         const im = new Image();
         im.onload = () => {
-          if (dead) return;
-          /* Trim to the ink. Every model carries a different amount of empty
-             space under its feet, and blitting the raw box bottom-aligned
-             left the figure hovering over its own shadow — which, while
-             walking, reads as a smear the robot drags along behind it. */
-          setImg(trimToInk(im, 320, 832));
+          if (dead || keyRef.current !== mine) return;
+          rawRef.current[step] = im;
+          if (step + 1 >= SHEET.length) finish(mine);
+          else setStep(step + 1);
         };
-        im.onerror = () => {};
+        im.onerror = done;
         im.src = url;
-      } catch (e) {}
-    }, 60);
-    return () => {
-      dead = true; window.clearTimeout(t);
-      if (url) try { URL.revokeObjectURL(url); } catch (e) {}
-    };
-  }, [model, glow, accent, armorA, armorB]);
+      } catch (e) { done(); }
+    }, step === 0 ? 60 : 0);
 
-  /* The off-screen host stays mounted: it is what gets serialised, and it is
-     one hidden SVG rather than a per-frame cost. */
+    return () => { dead = true; window.clearTimeout(t); if (url) try { URL.revokeObjectURL(url); } catch (e) {} };
+  }, [key, step]);
+
+  /* The off-screen host stays mounted and simply changes pose: it is what gets
+     serialised, and it is one hidden SVG rather than a per-frame cost. */
   const host = (
     <div ref={holdRef} aria-hidden="true"
-      style={{ position: "absolute", width: 160, height: 416, left: -9999, top: 0, opacity: 0, pointerEvents: "none" }}>
-      <CyberAvatar model={model} yaw={0} glow={glow} accent={accent}
-        armorA={armorA || "#161d2c"} armorB={armorB || "#3d5878"} />
+      style={{ position: "absolute", width: SHEET_W / 2, height: SHEET_H / 2, left: -9999, top: 0, opacity: 0, pointerEvents: "none" }}>
+      <CyberAvatar model={model} yaw={0} pose={SHEET[Math.min(step, SHEET.length - 1)]}
+        glow={glow} accent={accent} armorA={armorA || "#161d2c"} armorB={armorB || "#3d5878"} />
     </div>
   );
-  return { img, host };
+  return { frames, host };
+}
+
+/** Which frame of the sheet to show right now. */
+function gaitFrame(frames, t, mv, swing) {
+  if (!frames) return null;
+  if (swing > 0 && swing < 0.42) return frames[GAIT_N + IDLE_N];          // mid-attack
+  if (mv > 0.35) return frames[Math.floor(t * (1.1 + mv * 1.5) * GAIT_N) % GAIT_N];
+  return frames[GAIT_N + (Math.floor(t * 0.36 * IDLE_N) % IDLE_N)];
 }
 
 /* ── gear sprites ────────────────────────────────────────────────────────
@@ -1685,18 +1789,22 @@ function trimToInk(im, fallbackW, fallbackH) {
     squash that follows it, and a flip so the figure faces where it is going.
     Falls back to nothing while the sprite is still rasterising — the caller
     draws the primitive bot in that gap so the player is never invisible. */
-function drawChassis(g, img, x, y, h, t, dir, ghost, mv, gear) {
+function drawChassis(g, img, x, y, h, t, dir, ghost, mv, gear, rigged) {
   // the sprite is trimmed to its ink, so its own aspect is the truth and its
   // bottom edge is the soles of the feet
   const w = h * ((img.width || 160) / (img.height || 416));
-  /* mv: 1 while walking, 0 while standing. The walk cycle scales away as the
-     player stops, but an IDLE CYCLE fades in underneath it - a slower, smaller
-     breath plus a shallow lean. The sprite is one rasterised image, so if the
-     clock ever stops the figure is a literally frozen picture; it never does. */
+  /* Two eras of this figure live here. With a SHEET (rigged), the arms, legs,
+     torso and head are already bent in the frame itself and the only thing
+     left to add is the mirror - adding a bob on top would slide a walking
+     figure up and down as well, which is the rigid-board look the sheet exists
+     to get rid of. Without one - the first few hundred milliseconds, before the
+     sheet finishes rasterising - the old fake cycle keeps the figure alive:
+     a walk bob that scales away as you stop, with a slower, smaller breath
+     fading in underneath it. */
   const m = mv == null ? 1 : mv;
-  const bob = Math.sin(t * 7) * 2.2 * m + Math.sin(t * 1.9) * 1.0 * (1 - m);
-  const sq = 1 + Math.sin(t * 7) * 0.03 * m + Math.sin(t * 1.9) * 0.014 * (1 - m);
-  const lean = Math.sin(t * 1.55) * 0.016 * (1 - m);   // radians: a weight shift
+  const bob = rigged ? 0 : Math.sin(t * 7) * 2.2 * m + Math.sin(t * 1.9) * 1.0 * (1 - m);
+  const sq = rigged ? 1 : 1 + Math.sin(t * 7) * 0.03 * m + Math.sin(t * 1.9) * 0.014 * (1 - m);
+  const lean = rigged ? 0 : Math.sin(t * 1.55) * 0.016 * (1 - m);   // radians: a weight shift
   g.save();
   g.globalAlpha = ghost ? 0.5 : 1;
   g.fillStyle = "rgba(0,4,12,.42)";
@@ -3040,7 +3148,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
      armour the player is wearing. */
   const maxHpNow = useCallback(() => maxHp(saveRef.current) + loRef.current.hp, []);
   const auraCol = (LO.acc && LO.acc.sw && LO.acc.sw[0]) || W.glow;
-  const { img: chassis, host: chassisHost } = useChassisSprite(
+  const { frames: sheet, host: chassisHost } = useChassisSheet(
     charModel, auraCol, W.accent,
     (LO.out && LO.out.sw && LO.out.sw[1]) || null,
     (LO.out && LO.out.sw && LO.out.sw[0]) || null);
@@ -3548,7 +3656,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           e.o._mv = ((e.o._mv || 0) * 0.88) + (moved > 0.4 ? 0.12 : 0);
           e.o._px = e.o.x; e.o._py = e.o.y;
           const pmv = Math.min(1, (e.o._mv || 0) * 1.6);
-          if (chassis) drawChassis(g, chassis, ex, ey, 62 * k, pt, 1, true, pmv);
+          const pfr = gaitFrame(sheet, pt, pmv, 0);
+          if (pfr) drawChassis(g, pfr, ex, ey, 62 * k, pt, 1, true, pmv, null, true);
           else drawBot(g, ex, ey, 1 * k, "#9fb6de", pt, true, W.glow, pmv);
           g.fillStyle = "#cddaf2cc"; g.font = `600 ${Math.max(8, 10.5 * k).toFixed(1)}px Rajdhani, sans-serif`; g.textAlign = "center";
           g.fillText(String(e.o.name || "?").slice(0, 14), ex, ey + 30 * k);
@@ -3635,8 +3744,10 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           g.globalAlpha = 1;
         } else {
           const LOc = loRef.current;
-          const gearDraw = { wpn: wpnImg, hat: hatImg, swing: clamp(1 - swingRef.current / (SWING_CD * LOc.cd), 0, 1) };
-          if (chassis) drawChassis(g, chassis, ex, ey, 68 * k, me.t, me.dir, false, me.mv, gearDraw);
+          const swp = clamp(1 - swingRef.current / (SWING_CD * LOc.cd), 0, 1);
+          const gearDraw = { wpn: wpnImg, hat: hatImg, swing: swp };
+          const fr = gaitFrame(sheet, me.t, me.mv, swingRef.current > 0 ? swp : 0);
+          if (fr) drawChassis(g, fr, ex, ey, 68 * k, me.t, me.dir, false, me.mv, gearDraw, true);
           else drawBot(g, ex, ey, 1.15 * k, W.accent, me.t, false, auraCol, me.mv);
         }
       }
@@ -3770,7 +3881,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, W.id, geo, coop.peers, ctrl, talk, task, lang, chassis]);
+  }, [screen, W.id, geo, coop.peers, ctrl, talk, task, lang, sheet]);
 
   // keyboard
   useEffect(() => {

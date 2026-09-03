@@ -1457,8 +1457,12 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   /* Limb pivots live where the joint is: shoulders on the pauldron line, hips
      on the pelvis, and the upper body about the waist. A chibi's are its own —
      its arms hang off a barrel, not off a shoulder line. */
-  const PZ = POSES[pose] || POSES.idle;
-  const posed = pose !== "idle";
+  /* A pose is either one of the named stances above or, for anything that needs
+     to animate rather than strike an attitude, a bare table of joint angles.
+     The walk cycle in the Adventure world drives this rig frame by frame - the
+     rotations are already about the real joints, so there is nothing to add
+     but the numbers. */
+  const PZ = (pose && typeof pose === "object") ? { ...POSES.idle, ...pose } : (POSES[pose] || POSES.idle);
   const rot = (d, cx, cy) => `rotate(${d.toFixed(2)} ${cx} ${cy})`;
   const rig = MODEL_RIG[v] || MODEL_RIG.vanguard;
   const CC = classOf(v).c;                    // the duel class this chassis fights as
