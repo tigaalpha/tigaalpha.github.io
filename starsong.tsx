@@ -808,6 +808,34 @@ export function makeCam(cam, vw, vh) {
    the isometric trick where depth was just x+y, so the list is sorted by real
    camera depth — far first — which is also the only way a monster standing
    in front of a wall can end up drawn in front of it. */
+/* A crystal's halo, drawn once into a 64px sprite per colour and blitted
+   after that. Building a radial gradient per crystal per frame cost eight
+   frames a second on its own - the gradient is identical every time, only
+   its position moves. */
+const GLOW_SPRITE = {};
+/* An integer mixer, because the scatter has to ask "is there a rock here?" of
+   roughly a thousand cells every frame and hash32 wants a STRING - building
+   `gx + ":" + gy + ":" + seed` a thousand times a frame allocates a thousand
+   strings a frame. Same job, no garbage. */
+function ihash(x, y, k) {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(k, 2246822519)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) | 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function glowSprite(rgb) {
+  if (GLOW_SPRITE[rgb]) return GLOW_SPRITE[rgb];
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const x = c.getContext("2d");
+  const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, `rgba(${rgb},.55)`);
+  gr.addColorStop(0.5, `rgba(${rgb},.16)`);
+  gr.addColorStop(1, `rgba(${rgb},0)`);
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  GLOW_SPRITE[rgb] = c;
+  return c;
+}
+
 export function pushTerrain(list, P, W, geo, cam) {
   const seed = geo.seed;
   const SUN = W.sun || "#ffd9a8", AMB = W.amb || "#4a7ad0";
@@ -815,6 +843,7 @@ export function pushTerrain(list, P, W, geo, cam) {
      NEON edges the architecture, WIN lights the windows — between them they
      carry the whole read of the city, because the shell colours no longer can. */
   const NEON = hexRgb(W.neon || W.glow), WIN = hexRgb(W.win || "#ffd28a");
+  const sh = hash32(seed) >>> 0;              // the seed, hashed once, not per cell
   const R = 15;                                    // cells of ground, then fog
   const gx0 = Math.floor(cam.x / CELL) - R, gx1 = Math.floor(cam.x / CELL) + R;
   const gy0 = Math.floor(cam.y / CELL) - R, gy1 = Math.floor(cam.y / CELL) + R;
@@ -922,6 +951,69 @@ export function pushTerrain(list, P, W, geo, cam) {
             g.fillStyle = `rgba(${hexRgb(W.sky[1])},${fog.toFixed(3)})`;
             g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.closePath(); g.fill();
           }
+
+          /* ── scatter ──
+             A boulder or a lit crystal standing ON this cell, pushed with the
+             cell so it sorts at the same depth. This used to live in the flat
+             isometric renderer, which nothing has called since the camera
+             became a real one - the ground has been bare ever since, and bare
+             ground is most of why the map read as empty. */
+          /* Density and reach are the whole cost: this is three or four filled
+             paths, and at 7% of a thousand visible cells that was two hundred
+             extra fills a frame and seven frames a second. Measured back to
+             within noise of the bare map at 4.5% and a tighter cull, and the
+             ground still reads as scattered rather than swept. */
+          const rs = ihash(gx, gy, sh);
+          if (rs > 0.955 && foot.d < 520) {
+            // the two placement hashes are only paid for by cells that HAVE a prop
+            const ox = wx + (0.05 + ihash(gx, gy, sh ^ 0x9e37) * 0.9) * CELL;
+            const oy = wy + (0.05 + ihash(gx, gy, sh ^ 0x85eb) * 0.9) * CELL;
+            const p0 = P.project(ox, oy, h);
+            const al = 1 - fog;
+            if (p0.d > 0 && al > 0.05) {
+              g.globalAlpha = al;
+              if (rs < 0.986) {
+                // a rock: three ellipses, a shadow and a lit cap
+                const rr = (5 + (rs - 0.955) * 900) * p0.s;
+                g.fillStyle = "rgba(0,4,12,.42)";
+                g.beginPath(); g.ellipse(p0.x, p0.y, rr * 1.05, rr * 0.44, 0, 0, 6.284); g.fill();
+                g.fillStyle = litFace(base, 0.62, SUN, AMB, j * 0.3);
+                g.beginPath(); g.ellipse(p0.x, p0.y - rr * 0.36, rr * 0.92, rr * 0.74, 0, 0, 6.284); g.fill();
+                g.fillStyle = litFace(base, 1.16, SUN, AMB, j * 0.3);
+                g.beginPath(); g.ellipse(p0.x - rr * 0.12, p0.y - rr * 0.74, rr * 0.6, rr * 0.3, 0, 0, 6.284); g.fill();
+              } else {
+                // a crystal: the one thing out here that is its own light
+                const hh = 24 + (rs - 0.986) * 1800;
+                const tp = P.project(ox, oy, h + hh);
+                if (tp.d > 0) {
+                  const wdt = Math.max(3, 7 * p0.s), hal = wdt * 6;
+                  g.globalCompositeOperation = "lighter";
+                  g.drawImage(glowSprite(hexRgb(W.glow)), tp.x - hal, tp.y - hal, hal * 2, hal * 2);
+                  g.globalCompositeOperation = "source-over";
+                  /* the body takes the ACCENT, not the glow. Glow is a
+                     near-white halo colour - a shard painted in it is a white
+                     shard with a white highlight, which is a paper cut-out.
+                     Two flat facets rather than a gradient: the gradient was
+                     a second allocation per crystal per frame and the facets
+                     read as a cut stone anyway. */
+                  g.fillStyle = W.accent;
+                  g.beginPath();
+                  g.moveTo(tp.x, tp.y); g.lineTo(p0.x + wdt, p0.y - wdt);
+                  g.lineTo(p0.x, p0.y); g.lineTo(p0.x - wdt, p0.y - wdt);
+                  g.closePath(); g.fill();
+                  g.fillStyle = W.glow;
+                  g.beginPath();
+                  g.moveTo(tp.x, tp.y); g.lineTo(p0.x + wdt, p0.y - wdt);
+                  g.lineTo(p0.x, p0.y); g.closePath(); g.fill();
+                  g.fillStyle = "rgba(255,255,255,.62)";
+                  g.beginPath();
+                  g.moveTo(tp.x, tp.y); g.lineTo(p0.x + wdt * 0.3, p0.y - wdt * 0.9);
+                  g.lineTo(p0.x, p0.y); g.closePath(); g.fill();
+                }
+              }
+              g.globalAlpha = 1;
+            }
+          }
         },
       });
     }
@@ -939,115 +1031,6 @@ export function ringPath(g, P, wx, wy, r, h) {
   }
   g.closePath();
   return true;
-}
-
-function drawTerrain(g, W, geo, cam, vw, vh) {
-  const seed = geo.seed;
-  // the visible ground quad, from the four screen corners projected back
-  const corners = [unIso(-vw / 2, -vh / 2), unIso(vw / 2, -vh / 2), unIso(-vw / 2, vh / 2), unIso(vw / 2, vh / 2)];
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const c of corners) {
-    minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x);
-    minY = Math.min(minY, c.y); maxY = Math.max(maxY, c.y);
-  }
-  // a generous skirt: tall blocks poke into frame from below the visible band
-  const pad = 4;
-  const cx0 = Math.floor((cam.x + minX) / CELL) - pad, cx1 = Math.ceil((cam.x + maxX) / CELL) + pad;
-  const cy0 = Math.floor((cam.y + minY) / CELL) - pad, cy1 = Math.ceil((cam.y + maxY) / CELL) + pad;
-
-  const tierAt = (gx, gy) => terrainAt(seed, gx * CELL + CELL / 2, gy * CELL + CELL / 2);
-  const scr = (wx, wy, h) => {
-    const q = iso(wx - cam.x, wy - cam.y, h);
-    return { x: q.x + vw / 2, y: q.y + vh / 2 };
-  };
-
-  /* Back to front. In this projection depth is simply wx+wy, so walking the
-     grid diagonally IS painter's order — no sort, no z-buffer. */
-  for (let d = cx0 + cy0; d <= cx1 + cy1; d++) {
-    for (let gx = cx0; gx <= cx1; gx++) {
-      const gy = d - gx;
-      if (gy < cy0 || gy > cy1) continue;
-      const t = tierAt(gx, gy);
-      if (t === 0) continue;                       // a hole: the sky shows through
-      const h = TIER_H[t];
-      const wx = gx * CELL, wy = gy * CELL;
-      const a = scr(wx, wy, h), b = scr(wx + CELL, wy, h);
-      const c = scr(wx + CELL, wy + CELL, h), e = scr(wx, wy + CELL, h);
-      if (c.x < -CELL * 3 || a.x > vw + CELL * 3 || c.y < -CELL * 4 || a.y > vh + CELL * 6) continue;
-
-      const base = t === 4 ? W.rock : t === 3 ? W.path : t === 1 ? W.grass : W.ground;
-      // grain, sampled wider than a cell so neighbours differ only slightly
-      const j = fbm(seed ^ 0x51ed, gx * 0.2, gy * 0.2) - 0.5;
-      const lift = 1 + j * 0.3;
-
-      // ── walls, drawn first so the top face sits on them ──
-      const hS = TIER_H[tierAt(gx, gy + 1)] || 0;      // the cell in front-left
-      const hE = TIER_H[tierAt(gx + 1, gy)] || 0;      // the cell in front-right
-      if (h > hS) {
-        const e2 = scr(wx, wy + CELL, hS), c2 = scr(wx + CELL, wy + CELL, hS);
-        g.fillStyle = shade(base, 0.52 * lift);
-        g.beginPath(); g.moveTo(e.x, e.y); g.lineTo(c.x, c.y); g.lineTo(c2.x, c2.y); g.lineTo(e2.x, e2.y); g.closePath(); g.fill();
-      }
-      if (h > hE) {
-        const b2 = scr(wx + CELL, wy, hE), c2 = scr(wx + CELL, wy + CELL, hE);
-        g.fillStyle = shade(base, 0.72 * lift);
-        g.beginPath(); g.moveTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(c2.x, c2.y); g.lineTo(b2.x, b2.y); g.closePath(); g.fill();
-      }
-
-      // ── top face ──
-      g.fillStyle = shade(base, 1.06 * lift);
-      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.closePath(); g.fill();
-
-      /* ── cast shadow ──
-         The key comes from behind-right, so anything taller behind this cell
-         drops its shadow onto it. Painted while drawing the RECEIVER rather
-         than the caster, because back-to-front order means a shadow drawn
-         from the caster would be painted straight over by the ground it was
-         supposed to land on. One lookup, no second pass, and it is the single
-         thing that makes a field of blocks read as lit from somewhere. */
-      const hB = Math.max(TIER_H[tierAt(gx, gy - 1)] || 0, TIER_H[tierAt(gx + 1, gy - 1)] || 0);
-      const dh = hB - h;
-      if (dh > 0) {
-        g.fillStyle = `rgba(0,5,16,${Math.min(0.44, dh / 48 * 0.44).toFixed(3)})`;
-        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.closePath(); g.fill();
-      }
-      // a hairline along the lit edge stops a field of blocks reading as mush
-      if (h > hS || h > hE) {
-        g.strokeStyle = "rgba(255,255,255,.09)"; g.lineWidth = 1;
-        g.beginPath(); g.moveTo(e.x, e.y); g.lineTo(c.x, c.y); g.lineTo(b.x, b.y); g.stroke();
-      }
-
-      /* ── scatter, standing ON the block ──
-         Boulders and shards are placed on the cell's own top face and lifted
-         to its elevation, so nothing floats over a cliff or sinks into one. */
-      const r = (hash32(gx + ":" + gy + ":" + seed) % 1000) / 1000;
-      if ((t === 2 || t === 3) && (r < 0.07 || r > 0.982)) {
-        const ox = wx + ((hash32("a" + gx + gy) % 100) / 100) * CELL;
-        const oy = wy + ((hash32("b" + gx + gy) % 100) / 100) * CELL;
-        const p0 = scr(ox, oy, h);
-        if (r < 0.07) {
-          const rr = 5 + r * 90;
-          const top = scr(ox, oy, h + rr * 0.7);
-          g.fillStyle = "rgba(0,4,12,.34)";
-          g.beginPath(); g.ellipse(p0.x, p0.y, rr * 1.05, rr * 0.5, 0, 0, 6.284); g.fill();
-          g.fillStyle = shade(base, 0.78);
-          g.beginPath(); g.ellipse(p0.x, p0.y - rr * 0.32, rr * 0.92, rr * 0.72, 0, 0, 6.284); g.fill();
-          g.fillStyle = shade(base, 1.5);
-          g.beginPath(); g.ellipse(top.x, top.y + rr * 0.28, rr * 0.66, rr * 0.34, 0, 0, 6.284); g.fill();
-        } else {
-          const top = scr(ox, oy, h + 26);
-          g.fillStyle = "rgba(0,4,12,.3)";
-          g.beginPath(); g.ellipse(p0.x, p0.y, 10, 5, 0, 0, 6.284); g.fill();
-          g.fillStyle = W.glow + "3a";
-          g.beginPath(); g.arc(top.x, top.y + 6, 15, 0, 6.284); g.fill();
-          g.fillStyle = W.glow;
-          g.beginPath(); g.moveTo(top.x, top.y); g.lineTo(top.x + 6, top.y + 13); g.lineTo(p0.x, p0.y); g.lineTo(top.x - 6, top.y + 13); g.closePath(); g.fill();
-          g.fillStyle = "rgba(255,255,255,.65)";
-          g.beginPath(); g.moveTo(top.x, top.y); g.lineTo(top.x + 2.4, top.y + 11); g.lineTo(top.x, top.y + 15); g.closePath(); g.fill();
-        }
-      }
-    }
-  }
 }
 
 /** One robot, drawn from primitives. `hue` is the chassis tint, `t` drives
@@ -3175,6 +3158,39 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       }
       g.globalCompositeOperation = "source-over";
 
+      /* ── aurora ──
+         Two slow ribbons of the world's own neon, drifting at a fraction of
+         the camera. A gradient sky is a backdrop; a sky with something moving
+         in it is weather, and it costs one path per frame. */
+      {
+        const NE = hexRgb(W.neon || W.glow), AC = hexRgb(W.accent);
+        g.globalCompositeOperation = "lighter";
+        for (let L = 0; L < 2; L++) {
+          const c = L ? AC : NE, base = vh * (0.14 + L * 0.1);
+          const amp = vh * (0.05 + L * 0.02), par = 0.02 + L * 0.015;
+          /* The gradient is the same every frame - only the ribbon under it
+             moves - so it is built once per viewport instead of twice per
+             frame, and the ribbon is walked in 56px steps rather than 26.
+             At this scale the curve is smooth either way. */
+          const key = L + ":" + Math.round(vh);
+          if (auroraG.current.k !== key + ":" + c) {
+            const gr = g.createLinearGradient(0, base - amp * 2.4, 0, base + amp * 2.4);
+            gr.addColorStop(0, `rgba(${c},0)`);
+            gr.addColorStop(0.5, `rgba(${c},${(0.11 - L * 0.03).toFixed(3)})`);
+            gr.addColorStop(1, `rgba(${c},0)`);
+            auroraG.current[L] = gr; auroraG.current.k = key + ":" + c;
+          }
+          g.fillStyle = auroraG.current[L] || `rgba(${c},.08)`;
+          const wob = (x) => Math.sin((x + cam.x * par) / 190 + tsec * 0.08 + L * 2.1)
+                           + Math.sin((x + cam.x * par) / 83 - tsec * 0.05) * 0.4;
+          g.beginPath(); g.moveTo(-20, base);
+          for (let x = -20; x <= vw + 20; x += 56) g.lineTo(x, base + wob(x) * amp);
+          for (let x = vw + 20; x >= -20; x -= 56) g.lineTo(x, base + wob(x) * amp + amp * 1.5);
+          g.closePath(); g.fill();
+        }
+        g.globalCompositeOperation = "source-over";
+      }
+
       /* ── far parallax ──
          A ridge line that moves at a fraction of the camera. It is the
          cheapest possible statement that the world continues past the edge of
@@ -3750,6 +3766,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
      costs the cooldown, so mashing into empty air is not free. */
   const swingRef = useRef(0);
   const targetRef = useRef(null);
+  const auroraG = useRef({ k: null });
   const [target, setTarget] = useState(null);
   function swing() {
     if (fightRef.current || ctrl || talk || task || swingRef.current > 0) return;
