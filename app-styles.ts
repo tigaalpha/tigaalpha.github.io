@@ -2335,8 +2335,11 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .pcf-name{width:100%;margin-top:9px;padding:9px 11px;border:1px solid var(--bd4);border-radius:11px;background:var(--card2);color:var(--text);font-size:13px;font-family:inherit}
 .pcf-go{width:100%;margin-top:8px;padding:11px;border:none;border-radius:12px;background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;cursor:pointer}
 
-.pet-room{position:relative;height:230px;margin:11px 13px;border:1px solid var(--bd4);border-radius:18px;overflow:hidden;background:radial-gradient(ellipse 120% 90% at 50% 6%,color-mix(in srgb,var(--tc,#8cf) 20%,#100e1c),#08070f)}
-.pr-floor{position:absolute;left:0;right:0;bottom:0;height:38%;background:linear-gradient(180deg,#ffffff0d,#ffffff03);border-top:1px solid #ffffff14}
+/* var(--card) rather than a hardcoded white: this stays a plain light stage
+   in light theme (matching .pet-bond right below it) and a dark card in dark
+   theme, instead of a fixed white box breaking the rest of a dark UI. */
+.pet-room{position:relative;height:230px;margin:11px 13px;border:1px solid var(--bd4);border-radius:18px;overflow:hidden;background:var(--card)}
+.pr-floor{position:absolute;left:0;right:0;bottom:0;height:38%;background:linear-gradient(180deg,color-mix(in srgb,var(--tc,#8cf) 7%,transparent),transparent);border-top:1px solid var(--bd4)}
 .pr-pet{position:absolute;left:50%;bottom:10px;width:152px;height:172px;transform:translateX(-50%);cursor:pointer;filter:drop-shadow(0 10px 22px color-mix(in srgb,var(--pc,#8ab) 55%,transparent))}
 .pr-pet:active{transform:translateX(-50%) scale(.97)}
 .pr-pet.sad{filter:saturate(.55) drop-shadow(0 8px 20px #0006)}
