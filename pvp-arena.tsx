@@ -386,7 +386,7 @@ const pickMove = (clsKey) => {
   return l[Math.floor(Math.random() * l.length)];
 };
 
-/* Ten steps rather than three, so "Fight a bot" is a ladder a player climbs
+/* Ten steps rather than three, so "Fight Mode" is a ladder a player climbs
    rather than a single wall they either clear or don't. rookie/veteran/ace
    keep the EXACT numbers the game already shipped with (acc/dmgK/rewards) at
    their new positions (Easy/Medium/Hard) - nothing anyone was already tuned
@@ -495,7 +495,7 @@ export const PvpPage = memo(function PvpPage({
             </div>
           </div>
 
-          <div className="pvpsec-h">🤖 {T("สู้กับบอท", "Fight a bot", "对战电脑")}</div>
+          <div className="pvpsec-h">🤖 {T("โหมดต่อสู้", "Fight Mode", "战斗模式")}</div>
           <div className="pvptiers">
             {BOT_TIERS.map(t => (
               <button key={t.key} className={`pvptier t-${t.key}`} onClick={() => startFight("bot", t, tr3(CHAR_MODELS.find(m => m.id === chassisFor(t.key + Date.now())) || {}, lang))}>
