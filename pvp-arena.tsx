@@ -64,15 +64,6 @@ export function addSkillSp(clsKey, n) {
   return { cls: clsKey, sp: all[clsKey], rank: after, rankedUp: after > before };
 }
 
-/** The class of whatever chassis is running right now, read the same way the
-    rest of the app reads the equipped model. Used by the EXP hook, which has
-    no idea what a chassis is. */
-export function runningClassKey() {
-  let m = "vanguard";
-  try { m = localStorage.getItem("tg_charModel") || "vanguard"; } catch (e) {}
-  return classKeyOf(normalizeModel(m));
-}
-
 export function skillUnlocked(tier, rank) { return rank >= (SKILL_UNLOCK[tier] || 1); }
 
 /* ══════════════════════ question bank ══════════════════════

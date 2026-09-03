@@ -7,9 +7,7 @@ import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotG
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 import { SkillTrack, PvpPage, readSkillSp, skillRank } from "./pvp-arena";
-import { MonsterBattlePage } from "./pve-battle";
 import { PetPod, PetPage } from "./pet-lab";
-import { StarsongPod, StarsongPage } from "./starsong";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -6282,7 +6280,7 @@ const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, e
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPve, onOpenPet, onOpenStarsong, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPet, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -6366,11 +6364,6 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             the corner the eye already lands on. It is absolutely positioned so
             it never pushes the avatar off centre. */}
         <PetPod lang={lang} onOpen={onOpenPet} />
-        {/* ── STARSONG pod ──
-            The mirror of the pet pod on the other side of the avatar: the
-            character stands between the thing it looks after and the world
-            it fights in. */}
-        <StarsongPod lang={lang} onOpen={onOpenStarsong} />
         <div className="profava-wrap">
           <div className="profava-ring" />
           <div className="profava-frame" />
@@ -6451,12 +6444,6 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
                 {lang === "th" ? "⚔ เข้าสนามประลอง PvP — ตอบคำถามดนตรีแข่งกัน แล้วหุ่นสู้กันตามผล"
                   : lang === "zh" ? "⚔ 进入 PvP 竞技场 — 比拼音乐问答，机体依结果开战"
                   : "⚔ Enter the PvP Arena — answer music questions against an opponent, and your chassis fight it out"}
-              </button>
-              <button className="battlecard-soon as-btn" style={{ marginTop: 6, background: "linear-gradient(135deg, #7c4dff, #b388ff)" }}
-                onClick={() => onOpenPve && onOpenPve()}>
-                {lang === "th" ? "🐉 ดันเจี้ยนมอนสเตอร์ — สู้กับสัตว์ประหลาด ฝึกฝีมือ"
-                  : lang === "zh" ? "🐉 怪物地下城 — 对战怪物，磨练技艺"
-                  : "🐉 Monster Dungeon — fight monsters to sharpen your skills"}
               </button>
             </div>
           );
@@ -9217,7 +9204,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [metroBpm, setMetroBpm] = useState(90);
   const [ambientOn, setAmbientOn] = useState(false);
   // coins · daily chest · mascot companion
-  const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, gainSkillExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
+  const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
   const [shopTab, setShopTab] = useState("all");
   const [shopSubTab, setShopSubTab] = useState(null);
@@ -10458,19 +10445,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               already knew and could not act on; the two things they actually
               reach for from anywhere — their character and the world it walks
               in — take the space instead. */}
-          {/* not gated on sign-in: the drawer does not gate these two pages
-              either, and a shortcut that disagrees with the menu it shortcuts
-              is worse than no shortcut */}
-          {(
-            <button className="hdrgo adv" onClick={() => { playUi("click"); logUsage("nav", "starsong"); setPage("starsong"); }}
-              title={T("โหมดผจญภัย", "Adventure Mode", "冒险模式")} aria-label="Adventure Mode">
-              <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                <circle cx="12" cy="12" r="6.2" fill="currentColor" opacity=".9" />
-                <circle cx="9.8" cy="9.8" r="2.1" fill="#fff" opacity=".45" />
-                <ellipse cx="12" cy="12" rx="10.4" ry="3.3" fill="none" stroke="currentColor" strokeWidth="1.5" transform="rotate(-22 12 12)" />
-              </svg>
-            </button>
-          )}
+          {/* not gated on sign-in: the drawer does not gate this page either,
+              and a shortcut that disagrees with the menu it shortcuts is worse
+              than no shortcut */}
           {(
             <button className="hdrgo" onClick={() => { playUi("click"); logUsage("nav", "profile"); setPage("profile"); }}
               title={lc.navProfile} aria-label={lc.navProfile}>
@@ -10617,7 +10594,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPve={() => { logUsage("nav", "pve"); setPage("pve"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} onOpenStarsong={() => { logUsage("nav", "starsong"); setPage("starsong"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
@@ -10668,20 +10645,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           }} />
       )}
 
-{/* ─── PAGE: MONSTER BATTLE (PvE) ─── */}
-      {page === "pve" && (
-        <MonsterBattlePage lang={lang} charModel={charModel}
-          gear={equippedGear}
-          onBack={() => { setPage("profile"); playUi("click"); }}
-          onReward={(xp, c, res) => {
-            if (xp) gainExp(xp, { quest: true });
-            if (c) earnCoins(c);
-            bumpWeekly("games", 1);
-            if (res && res.win) bumpWeekly("perfect", 1);
-          }}
-          playUi={playUi} />
-      )}
-
             {/* ─── PAGE: CYBER PET ───
           Coins are spent through the same getCoins/setCoinsLS pair the shop
           uses, so the pantry can never drift from the balance shown anywhere
@@ -10697,29 +10660,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             return true;
           }}
           onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
-      )}
-
-      {/* ─── PAGE: TIGA — STARSONG ───
-          The open-world RPG. It pays out EXP and coins like any other
-          feature, but it mints its OWN progression (the eight emotion
-          stats) only from music answered or played — which is the whole
-          reason the game exists, so it is deliberately not wired to
-          anything that could grant stat for time spent. */}
-      {page === "starsong" && (
-        <StarsongPage lang={lang} playUi={playUi}
-          playerName={(profile && (profile.display_name || profile.full_name)) || (session && session.user && (session.user.user_metadata || {}).full_name) || "TIGA-01"}
-          charModel={charModel}
-          onBack={() => { setPage("profile"); playUi("click"); }}
-          gear={equippedGear}
-          /* Two currencies, two callers. `skill` is Skill EXP, minted only by
-             fighting; `xp` is Learning EXP, and `grind` says this xp came from
-             the world rather than from a lesson so it must not tick the daily
-             learning quest. A kill sends skill and no xp at all. */
-          onReward={(xp, c, o) => {
-            if (xp) gainExp(xp, { quest: !(o && o.grind) });
-            if (c) earnCoins(c);
-            if (o && o.skill) gainSkillExp(o.skill, { quiet: !!o.grind });
-          }} />
       )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
