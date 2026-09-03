@@ -2449,6 +2449,22 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssact.on{border-color:var(--wc,#7fb2ff);color:#fff;background:color-mix(in srgb,var(--wc,#7fb2ff) 26%,#0f1728)}
 .ssact i{font-style:normal;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:11px}
 .ssact:active{transform:scale(.94)}
+/* ── the attack button ──
+   Under the right thumb and bigger than Talk, because on this map swinging is
+   the verb you reach for most. Talk steps aside and up. */
+.ssatk{position:absolute;right:22px;bottom:22px;z-index:5;width:104px;height:104px;border-radius:50%;
+  border:2px solid #7a3b3b;background:radial-gradient(circle at 36% 30%,#5a2530,#2a1018 72%);
+  color:#ffb6a0;font-size:34px;line-height:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;
+  box-shadow:0 8px 22px -10px #000,inset 0 0 22px -8px #ff6a6a}
+.ssatk i{font-style:normal;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:11px;letter-spacing:.06em}
+/* lit only when a swing would actually connect - an always-bright button
+   teaches nothing about range, which is the whole skill here */
+.ssatk.on{border-color:#ff8a6a;color:#fff;background:radial-gradient(circle at 36% 30%,#a8394a,#4a1420 74%);
+  box-shadow:0 8px 26px -8px #ff6a6a,inset 0 0 26px -6px #ffb46a}
+.ssatk:active{transform:scale(.93)}
+.ssact{right:26px;bottom:142px;width:72px;height:72px;font-size:20px}
+.ssact i{font-size:9.5px}
 
 .sstoast{position:absolute;left:50%;bottom:132px;transform:translateX(-50%);z-index:6;max-width:88%;text-align:center;background:#0b1220ee;border:1px solid var(--wc,#7fb2ff);color:#e8eefc;border-radius:11px;padding:9px 14px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:12.5px;line-height:1.35}
 
@@ -2554,7 +2570,11 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .sspage.land .ssworldwrap{position:absolute;inset:0}
 .sspage.land .sshud{top:44px}
 .sspage.land .sspad{left:22px;bottom:16px;width:104px;height:104px}
-.sspage.land .ssact{right:24px;bottom:20px;width:84px;height:84px}
+/* Talk moves up out of Attack's way. This landscape rule was still parking
+   it in the corner Attack now owns, so the two sat exactly on top of each
+   other and z-index simply hid it. */
+.sspage.land .ssact{right:26px;bottom:130px;width:68px;height:68px;font-size:19px}
+.sspage.land .ssatk{right:20px;bottom:16px;width:96px;height:96px}
 .sspage.land .sssheet,.sspage.land .ssmap,.sspage.land .ssintro{position:absolute;inset:38px 0 0;overflow-y:auto}
 .ssmute{min-width:34px;text-align:center;font-size:14px}
 .ssmute[aria-pressed="false"]{color:#6b7a99}

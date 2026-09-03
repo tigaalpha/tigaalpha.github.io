@@ -488,6 +488,11 @@ export function buildWorld(w) {
   return { seed, town, npcs, arena, towers, pillars };
 }
 
+/** How much a wandering monster can take before it goes down. Later worlds
+    are gated on stat, so their population is scaled by the same number the
+    gate uses - the fight stays roughly as long a fight wherever you are. */
+export const mobMaxHp = (w) => 22 + Math.round((w.gate || 0) * 0.45);
+
 /** Monsters are spawned on a seeded lattice so two players in the same
     world see the same population, then wander locally from there. */
 export function spawnMobs(w, geo, n = 34) {
@@ -500,7 +505,8 @@ export function spawnMobs(w, geo, n = 34) {
     if (Math.hypot(x - geo.town.x, y - geo.town.y) < 200) continue;   // town is safe ground
     const pool = foesOf(w.id);
     const sp = pool.length ? pool[hash32(w.seed + ":sp" + i) % pool.length].id : null;
-    out.push({ id: "m" + i, x, y, hx: x, hy: y, hp: 3, t: Math.random() * 6.28, dead: 0, sp });
+    const mx = mobMaxHp(w);
+    out.push({ id: "m" + i, x, y, hx: x, hy: y, hp: mx, max: mx, cd: 0, flash: 0, t: Math.random() * 6.28, dead: 0, sp });
   }
   return out;
 }
@@ -971,7 +977,7 @@ const MOB_CREST = {
   antler: [2, 12, 1.0], bull: [2, 8, 1.5], trihorn: [3, 10, 0.75], crown: [3, 9, 0.55],
   plate: [0, 0, 0], halo: [-1, 0, 0], mane: [7, 8, 1.3], frill: [5, 11, 1.25],
 };
-function drawMob(g, x, y, s, col, t, hurt, sp) {
+function drawMob(g, x, y, s, col, t, hurt, sp, hpFrac, aimed) {
   const R = sp ? foeById(sp) : null;
   const sil = MOB_SIL[(R && R.body) || "blob"] || MOB_SIL.blob;
   const bob = Math.sin(t * 4) * 2.4 * s;
@@ -1144,6 +1150,28 @@ function drawMob(g, x, y, s, col, t, hurt, sp) {
   g.strokeStyle = "rgba(226,238,255,.42)"; g.lineWidth = 1 * s;
   g.beginPath(); g.moveTo(sil[sil.length - 1][0] * s, sil[sil.length - 1][1] * s);
   g.lineTo(sil[0][0] * s, sil[0][1] * s); g.stroke();
+
+  /* ── the two things a fight on the map needs you to be able to read ──
+     which one the next swing lands on, and how close it is to going down.
+     Both are drawn last so nothing on the creature covers them. */
+  if (aimed) {
+    g.strokeStyle = "#ffd24d"; g.lineWidth = 1.6 * s;
+    g.globalAlpha = 0.55 + 0.45 * Math.abs(Math.sin(t * 4));
+    g.beginPath(); g.ellipse(0, 15 * s, 17 * s, 6 * s, 0, 0, 6.284); g.stroke();
+    for (let i = 0; i < 4; i++) {
+      const a = Math.PI / 4 + i * Math.PI / 2;
+      const cx = Math.cos(a) * 17 * s, cy = 15 * s + Math.sin(a) * 6 * s;
+      g.beginPath(); g.moveTo(cx * 0.82, 15 * s + (cy - 15 * s) * 0.82); g.lineTo(cx * 1.18, 15 * s + (cy - 15 * s) * 1.18); g.stroke();
+    }
+    g.globalAlpha = 1;
+  }
+  if (hpFrac != null && hpFrac < 0.999) {
+    const w = 26 * s, h = 3.4 * s, by = (sil[0][1] - 7) * s;
+    g.fillStyle = "rgba(4,8,18,.78)";
+    g.beginPath(); g.roundRect(-w / 2 - 1, by - 1, w + 2, h + 2, 2 * s); g.fill();
+    g.fillStyle = hpFrac > 0.5 ? "#4ee08a" : hpFrac > 0.22 ? "#ffd24d" : "#ff5a5a";
+    g.beginPath(); g.roundRect(-w / 2, by, Math.max(1, w * hpFrac), h, 1.6 * s); g.fill();
+  }
   g.restore();
 }
 
@@ -1213,6 +1241,17 @@ function playerHit(save, streak) {
   const courage = (save.stats.courage || 0) * 0.1;
   return Math.round((base + focus + courage) * (1 + Math.min(streak, 5) * 0.14));
 }
+/* ── combat on the map ──
+   Ragnarok's contract, and the one the player asked for: the fight happens
+   where you are standing. A swing reaches whatever is in front of you, the
+   damage floats off it, and the world never cuts away. Being taken to the
+   arena is what a BOSS is for - it should mean something, and it cannot mean
+   anything if every drone on the road does it too. */
+const SWING_CD = 0.46;      // seconds between swings
+const SWING_REACH = 62;     // world units a swing covers
+const MOB_REACH = 34;       // how close it has to be to hit back
+const MOB_CD = 1.4;         // and how often it may
+
 function mobHit(save, boss) {
   const raw = boss ? 13 : 8;
   const guard = (save.stats.stability || 0) * 0.06 + (save.stats.control || 0) * 0.05;
@@ -2843,21 +2882,32 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       const cam = camS;
 
       // mobs wander near their anchor, and charge once you are close
+      swingRef.current = Math.max(0, swingRef.current - dt);
       if (!busy) {
+        let near = null, nd = SWING_REACH;
         for (const m of mobsRef.current) {
-          if (m.dead) { m.dead -= dt; if (m.dead <= 0) { m.dead = 0; m.hp = 3; } continue; }
+          if (m.dead) { m.dead -= dt; if (m.dead <= 0) { m.dead = 0; m.hp = m.max || mobMaxHp(W); } continue; }
           const d = Math.hypot(m.x - me.x, m.y - me.y);
-          if (d < 230) {
+          /* It stops at arm's length instead of walking into you: a monster
+             standing inside the player has no readable distance, and distance
+             is the only thing this fight is made of. */
+          if (d < 230 && d > MOB_REACH * 0.8) {
             const k = 52 * dt / (d || 1);
             const nx = m.x + (me.x - m.x) * k, ny = m.y + (me.y - m.y) * k;
             if (walkable(geo.seed, nx, ny)) { m.x = nx; m.y = ny; }
-          } else {
+          } else if (d >= 230) {
             m.t += dt * 0.7;
             const nx = m.hx + Math.cos(m.t) * 46, ny = m.hy + Math.sin(m.t * 1.3) * 46;
             if (walkable(geo.seed, nx, ny)) { m.x = nx; m.y = ny; }
           }
-          if (d < 26 && !fightRef.current) startFight(m);
+          // and it hits back, on its own clock
+          m.cd = Math.max(0, (m.cd || 0) - dt);
+          if (d < MOB_REACH && m.cd <= 0) { m.cd = MOB_CD; mobStrike(m); }
+          if (d < nd) { nd = d; near = m; }
         }
+        // whatever the next swing would land on, so the HUD can point at it
+        const tid = near ? near.id : null;
+        if (tid !== targetRef.current) { targetRef.current = tid; setTarget(tid); }
       }
 
       /* ── paint ──────────────────────────────────────────────────────
@@ -3053,7 +3103,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           g.fillText(String(e.o.name || "?").slice(0, 14), ex, ey + 30 * k);
         } else if (e.k === "mob") {
           const hurt = e.o.flash && now - e.o.flash < 140;
-          drawMob(g, ex, ey, 1 * k, W.accent, e.o.t + tsec, hurt, e.o.sp);
+          drawMob(g, ex, ey, 1 * k, W.accent, e.o.t + tsec, hurt, e.o.sp,
+            e.o.max ? e.o.hp / e.o.max : null, e.o.id === targetRef.current);
         } else if (e.k === "tower" || e.k === "pillar") {
           /* A real solid: a footprint on the ground, two lit side faces and a
              cap. Drawn from the world footprint rather than as a rectangle on
@@ -3464,15 +3515,72 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
      QUESTION_EVERY seconds. Gating every single blow behind a music question
      turned a boss into a worksheet with a health bar; this is the balance
      the game was missing between playing and learning. */
-  function startFight(mob) {
-    playUi("click");
-    setFight({
-      kind: "mob", boss: false, mobId: mob.id, hp: mob.hp * 62, max: mob.hp * 62,
-      phase: "act", q: null, streak: 0, wrongRun: 0, sp: mob.sp,
-      name: mob.sp ? foeName(mob.sp, lang) : tr3(W.mob, lang), col: W.accent,
-    });
-    resetArena();
+  /* ── swing ──
+     One reach check against everything alive, nearest wins. A miss still
+     costs the cooldown, so mashing into empty air is not free. */
+  const swingRef = useRef(0);
+  const targetRef = useRef(null);
+  const [target, setTarget] = useState(null);
+  function swing() {
+    if (fightRef.current || ctrl || talk || task || swingRef.current > 0) return;
+    swingRef.current = SWING_CD;
+    const me = meRef.current;
+    let best = null, bd = SWING_REACH;
+    for (const m of mobsRef.current) {
+      if (m.dead) continue;
+      const d = Math.hypot(m.x - me.x, m.y - me.y);
+      if (d < bd) { bd = d; best = m; }
+    }
+    playWhoosh();
+    if (!best) { haptic(4); pop(me.x, me.y - 34, T("พลาด", "MISS", "落空"), "#8ea2c4", false); return; }
+    hitMob(best);
   }
+
+  function hitMob(m) {
+    const s = saveRef.current;
+    const crit = Math.random() < 0.13;
+    const dmg = Math.max(1, Math.round(playerHit(s, 0) * (0.85 + Math.random() * 0.3) * (crit ? 2 : 1)));
+    m.hp = Math.max(0, m.hp - dmg);
+    m.flash = Date.now();
+    // knocked back along the line of the blow, so a hit visibly moves it
+    const dx = m.x - meRef.current.x, dy = m.y - meRef.current.y, len = Math.hypot(dx, dy) || 1;
+    const kx = m.x + (dx / len) * (crit ? 16 : 9), ky = m.y + (dy / len) * (crit ? 16 : 9);
+    if (walkable(geo.seed, kx, ky)) { m.x = kx; m.y = ky; }
+    pop(m.x, m.y - 30, (crit ? "✦ " : "") + "-" + dmg, crit ? "#ffd24d" : "#ffffff", crit);
+    playBoom(crit); haptic(crit ? 18 : 9);
+    if (m.hp <= 0) killMob(m);
+  }
+
+  /* A kill is the only thing on this map that pays, and it pays the same
+     currencies the arena does - stat, EXP and coin - so grinding the road and
+     taking the boss are the same progression seen at two speeds. */
+  function killMob(m) {
+    m.dead = 9;
+    pop(m.x, m.y - 34, "◆", W.glow, true);
+    playWhoosh();
+    const s = saveRef.current;
+    const kills = s.kills + 1;
+    commit({ ...s, kills });
+    const q = (QUESTS[s.world] || []).find(x => x.kind === "slay" && !(s.quests[x.id] || {}).done);
+    if (q) bumpQuest(q.id, 1);
+    // courage every third kill: a toast on every one of them is noise
+    if (kills % 3 === 0) award("courage", 1);
+    onReward(4, 2);
+    setTarget(null);
+  }
+
+  function mobStrike(m) {
+    const dmg = Math.max(1, Math.round(mobHit(saveRef.current, false) * 0.7));
+    pop(meRef.current.x, meRef.current.y - 30, "-" + dmg, "#ff6a6a", false);
+    playMiss(); haptic(14);
+    setShake(x => x + 1); window.setTimeout(() => setShake(0), 200);
+    setHp(h => {
+      const nh = Math.max(0, h - dmg);
+      if (nh <= 0) window.setTimeout(loseFight, 320);
+      return nh;
+    });
+  }
+
   function startBoss() {
     const b = W.boss;
     playUi("click");
@@ -3579,14 +3687,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       setFight({ ...f, over: "win", hp: 0 });
       return;
     }
-    const m = mobsRef.current.find(x => x.id === f.mobId);
-    if (m) { m.dead = 9; pop(m.x, m.y - 24, "◆", W.glow, true); }
-    playWhoosh();
-    commit({ ...saveRef.current, kills: saveRef.current.kills + 1 });
-    const q = (QUESTS[s.world] || []).find(x => x.kind === "slay" && !(s.quests[x.id] || {}).done);
-    if (q) { bumpQuest(q.id, 1); }
-    award("courage", 1);
-    onReward(4, 2);
+    /* Nothing but a boss reaches the arena any more - roadside monsters are
+       fought where they stand - so there is no second branch to write. */
     setReveal(null); setFight(null);
   }
   function loseFight() {
@@ -3888,6 +3990,14 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
             <span className="sspad-knob" style={{ transform: `translate(${padRef.current.ax * 26}px, ${padRef.current.ay * 26}px)` }} />
           </div>
 
+          {/* Attack is the big one under the thumb, because on this map it is
+              the verb you use most. Talk sits beside it and only lights up
+              when there is someone to talk to. */}
+          <button className={`ssatk${target ? " on" : ""}`}
+            onPointerDown={(e) => { e.preventDefault(); swing(); }}
+            aria-label={T("โจมตี", "Attack", "攻击")}>
+            ⚔<i>{T("โจมตี", "ATTACK", "攻击")}</i>
+          </button>
           <button className={`ssact${near ? " on" : ""}`} onClick={interact} disabled={!near}>
             {near ? (near.kind === "arena" ? "☠" : "!") : "·"}
             <i>{near ? (near.kind === "arena" ? T("ท้าบอส", "Challenge", "挑战") : T("คุย", "Talk", "对话")) : T("เดินสำรวจ", "Explore", "探索")}</i>
