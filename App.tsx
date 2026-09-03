@@ -9382,6 +9382,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [charOutfit, setCharOutfit] = useState(getEquip("charOutfit", "out-tshirt"));
   const [charWeapon, setCharWeapon] = useState(getEquip("charWeapon", "wpn-stick"));
   const [charAccessory, setCharAccessory] = useState(getEquip("charAccessory", "acc-shield"));
+  /* One stable array for the equipped loadout. Built inline at the call site it
+     was a new literal on every render of this (very large) component, which
+     defeats the memo() on every page it is handed to. */
+  const equippedGear = useMemo(() => [
+    ALL_WEAPONS.find(x => x.id === charWeapon), ALL_OUTFITS.find(x => x.id === charOutfit),
+    ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory),
+  ], [charWeapon, charOutfit, charHat, charAccessory]);
   const [mode, setMode] = useState(getEquip("mode", "light"));   // "dark" | "light" — whole-app color scheme; light is the preset for first-time visitors, a saved preference always wins
 
 
@@ -10644,8 +10651,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           handed data and two callbacks, exactly like every other page. */}
       {page === "pvp" && (
         <PvpArenaMount lang={lang} charModel={charModel}
-          gear={[ALL_WEAPONS.find(x => x.id === charWeapon), ALL_OUTFITS.find(x => x.id === charOutfit),
-                 ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory)]}
+          gear={equippedGear}
           onBack={() => { setPage("profile"); playUi("click"); }}
           playUi={playUi}
           onReward={(xp, c, res) => {
@@ -10665,8 +10671,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 {/* ─── PAGE: MONSTER BATTLE (PvE) ─── */}
       {page === "pve" && (
         <MonsterBattlePage lang={lang} charModel={charModel}
-          gear={[ALL_WEAPONS.find(x => x.id === charWeapon), ALL_OUTFITS.find(x => x.id === charOutfit),
-                 ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory)]}
+          gear={equippedGear}
           onBack={() => { setPage("profile"); playUi("click"); }}
           onReward={(xp, c, res) => {
             if (xp) gainExp(xp, { quest: true });
@@ -10705,8 +10710,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           playerName={(profile && (profile.display_name || profile.full_name)) || (session && session.user && (session.user.user_metadata || {}).full_name) || "TIGA-01"}
           charModel={charModel}
           onBack={() => { setPage("profile"); playUi("click"); }}
-          gear={[ALL_WEAPONS.find(x => x.id === charWeapon), ALL_OUTFITS.find(x => x.id === charOutfit),
-                 ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory)]}
+          gear={equippedGear}
           /* Two currencies, two callers. `skill` is Skill EXP, minted only by
              fighting; `xp` is Learning EXP, and `grind` says this xp came from
              the world rather than from a lesson so it must not tick the daily

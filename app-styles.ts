@@ -2528,6 +2528,28 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .ssstat-bar{height:7px;border-radius:5px;background:#141d31;overflow:hidden}
 .ssstat-bar i{display:block;height:100%;background:var(--sc);border-radius:5px;transition:width .3s}
 .ssstat-v{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--sc);text-align:right}
+/* ── the loadout panel on the character sheet ──
+   Four slots, each stating what it is actually doing on this map. An empty
+   slot is drawn dimmed and still says what it WOULD give, which is the whole
+   argument for going and buying one. */
+.ssgear{margin:14px 0 4px}
+.ssgear h3{font-family:'Orbitron',sans-serif;font-size:12px;color:#8b9ec4;margin:0 0 8px}
+.ssgear-r{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:9px;
+  padding:7px 10px;border:1px solid #1f2a45;border-radius:10px;background:#0d1424;margin-bottom:6px}
+.ssgear-r.empty{opacity:.5;border-style:dashed}
+.ssgear-ic{width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+  border-radius:9px;background:#0a1120;border:1px solid var(--gc,#2b3654);font-size:15px;
+  box-shadow:inset 0 0 12px color-mix(in srgb,var(--gc,#2b3654) 30%,transparent)}
+.ssgear-ic svg{width:100%;height:100%;display:block}
+.ssgear-t{display:flex;flex-direction:column;gap:1px;min-width:0}
+.ssgear-t b{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12.5px;color:#dbe5f8;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ssgear-t i{font-family:'Share Tech Mono',monospace;font-style:normal;font-size:9.5px;color:#8fa6c8;line-height:1.35}
+.ssgear-q{font-family:'Share Tech Mono',monospace;font-size:8.5px;text-transform:uppercase;
+  letter-spacing:.08em;padding:2px 6px;border-radius:5px;border:1px solid currentColor;opacity:.85}
+.ssgear-q.r-common{color:#8fa6c8}.ssgear-q.r-rare{color:#5ce1ff}
+.ssgear-q.r-epic{color:#c78ff5}.ssgear-q.r-legendary{color:#ffd23f}.ssgear-q.r-mythic{color:#ff66c4}
+.ssgear-note{font-family:'Rajdhani',sans-serif;font-size:11px;color:#6f82a6;margin:8px 2px 0;line-height:1.5}
 .ssquestlog h3{font-family:'Orbitron',sans-serif;font-size:12px;color:#8b9ec4;margin:0 0 8px}
 .ssql{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;padding:8px 10px;border:1px solid #1f2a45;border-radius:10px;background:#0d1424;margin-bottom:6px}
 .ssql.done{opacity:.55}

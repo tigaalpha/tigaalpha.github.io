@@ -27,7 +27,8 @@ import { sb } from "./supabase-client";
 import { makeQuestion, spellMajor, readSkillSp, skillRank, runningClassKey, RANK_MAX } from "./pvp-arena";
 import { MODEL_CLASS } from "./model-skills";
 import { playPianoNote, playBoom, playMiss, playWhoosh, haptic } from "./music-engine";
-import { CyberAvatar } from "./cyber-avatar";
+import { CyberAvatar, combatOf } from "./cyber-avatar";
+import { ItemArt } from "./item-art";
 import { createArenaAudio, stageById, useArenaFx } from "./arena-fx";
 import { AnswerReveal } from "./note-reveal";
 
@@ -1428,6 +1429,48 @@ const JUMP_CD = 1.5, JUMP_MS = 620;
    wall, and every backward move stops at it. */
 const ARENA_LEFT = 0.22;
 
+/* ══════════════════════ the loadout ══════════════════════
+
+   What you buy in the shop has to matter HERE, or the shop is a wardrobe.
+   Four slots, four different questions, so a build is a real choice rather
+   than a single "power" number to max out:
+
+     weapon   pwr  → damage per swing
+     plating  arm  → max HP, and how much of a hit gets through
+     core     spd  → swing cooldown, and walking speed
+     module   syn  → crit chance, swing reach, and Skill EXP earned
+
+   The numbers come from combatOf(), the SAME function the shop's own stat
+   bars and the arena are drawn from - so the bars on the buy screen are a
+   promise about this map, not decoration. Only the DELTA over the bare
+   chassis is applied, which means a player with nothing equipped fights
+   exactly as they did before and every purchase is a visible step up. */
+export function loadoutOf(model, gear) {
+  const g = (gear || []).filter(Boolean);
+  const full = combatOf(model, g), bare = combatOf(model, []);
+  const d = { pwr: full.pwr - bare.pwr, arm: full.arm - bare.arm, spd: full.spd - bare.spd, syn: full.syn - bare.syn };
+  /* Slots are read off the id prefix, exactly the way combatOf() decides which
+     stat an item feeds, so the picture and the number can never disagree.
+     Anything that is not a weapon, plating or head module is a core - which is
+     also combatOf's own else-branch. */
+  const pick = (p) => g.find(x => x && String(x.id || "").startsWith(p)) || null;
+  const isSlot = (x) => ["wpn-", "out-", "hat-"].some(p => String(x.id || "").startsWith(p));
+  return {
+    d, st: full,
+    wpn: pick("wpn-"), out: pick("out-"), hat: pick("hat-"),
+    acc: g.find(x => !isSlot(x)) || null,
+    dmg: 1 + d.pwr * 0.09,                        // weapon
+    hp: Math.round(d.arm * 6),                    // plating
+    guard: Math.min(0.30, d.arm * 0.045),
+    cd: Math.max(0.6, 1 - d.spd * 0.05),          // core
+    move: 1 + d.spd * 0.03,
+    crit: 0.13 + d.syn * 0.02,                    // module
+    reach: 1 + d.syn * 0.035,
+    spGain: 1 + d.syn * 0.05,
+  };
+}
+const NO_GEAR = loadoutOf("vanguard", []);
+
 function playerHit(save, streak) {
   const base = 6 + chassisLevel(save) * 1.1;
   const focus = (save.stats.focus || 0) * 0.14;
@@ -1517,7 +1560,7 @@ function useCoop(worldId, meName, enabled) {
    blitted every frame after that. Serialising a live DOM node (rather than
    building the markup by hand) means the sprite is by construction whatever
    the profile is showing, including any future change to the models. */
-function useChassisSprite(model, glow, accent) {
+function useChassisSprite(model, glow, accent, armorA, armorB) {
   const holdRef = useRef(null);
   const [img, setImg] = useState(null);
 
@@ -1545,32 +1588,7 @@ function useChassisSprite(model, glow, accent) {
              space under its feet, and blitting the raw box bottom-aligned
              left the figure hovering over its own shadow — which, while
              walking, reads as a smear the robot drags along behind it. */
-          try {
-            const c = document.createElement("canvas");
-            c.width = im.naturalWidth || 320; c.height = im.naturalHeight || 832;
-            const cg = c.getContext("2d", { willReadFrequently: true });
-            cg.drawImage(im, 0, 0, c.width, c.height);
-            const d = cg.getImageData(0, 0, c.width, c.height).data;
-            let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
-            for (let y = 0; y < c.height; y++) {
-              for (let x = 0; x < c.width; x++) {
-                if (d[(y * c.width + x) * 4 + 3] > 8) {
-                  if (x < x0) x0 = x;
-                  if (x > x1) x1 = x;
-                  if (y < y0) y0 = y;
-                  if (y > y1) y1 = y;
-                }
-              }
-            }
-            if (x1 > x0 && y1 > y0) {
-              const cut = document.createElement("canvas");
-              cut.width = x1 - x0 + 1; cut.height = y1 - y0 + 1;
-              cut.getContext("2d").drawImage(c, x0, y0, cut.width, cut.height, 0, 0, cut.width, cut.height);
-              setImg(cut);
-              return;
-            }
-          } catch (e) {}
-          setImg(im);
+          setImg(trimToInk(im, 320, 832));
         };
         im.onerror = () => {};
         im.src = url;
@@ -1580,24 +1598,94 @@ function useChassisSprite(model, glow, accent) {
       dead = true; window.clearTimeout(t);
       if (url) try { URL.revokeObjectURL(url); } catch (e) {}
     };
-  }, [model, glow, accent]);
+  }, [model, glow, accent, armorA, armorB]);
 
   /* The off-screen host stays mounted: it is what gets serialised, and it is
      one hidden SVG rather than a per-frame cost. */
   const host = (
     <div ref={holdRef} aria-hidden="true"
       style={{ position: "absolute", width: 160, height: 416, left: -9999, top: 0, opacity: 0, pointerEvents: "none" }}>
-      <CyberAvatar model={model} yaw={0} glow={glow} accent={accent} armorA="#161d2c" armorB="#3d5878" />
+      <CyberAvatar model={model} yaw={0} glow={glow} accent={accent}
+        armorA={armorA || "#161d2c"} armorB={armorB || "#3d5878"} />
     </div>
   );
   return { img, host };
+}
+
+/* ── gear sprites ────────────────────────────────────────────────────────
+   The weapon in the hand and the module over the head are the same trick the
+   chassis uses: the shop's OWN drawing, serialised out of a hidden node and
+   rasterised once, then blitted every frame. It is deliberately the identical
+   <ItemArt> the buy screen renders, so the thing you paid for is literally the
+   thing that turns up in your hand - not a stand-in that approximates it. */
+function useItemSprite(item, box) {
+  const holdRef = useRef(null);
+  const [img, setImg] = useState(null);
+  const key = item ? item.id + ":" + (item.sw || []).join(",") : "";
+  useEffect(() => {
+    setImg(null);
+    if (!item) return;
+    const host = holdRef.current;
+    if (!host) return;
+    let dead = false, url = null;
+    const t = window.setTimeout(() => {
+      try {
+        const svg = host.querySelector("svg");
+        if (!svg) return;
+        const clone = svg.cloneNode(true);
+        clone.setAttribute("width", String(box));
+        clone.setAttribute("height", String(box));
+        clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" }));
+        const im = new Image();
+        im.onload = () => { if (!dead) setImg(trimToInk(im, box)); };
+        im.onerror = () => {};
+        im.src = url;
+      } catch (e) {}
+    }, 60);
+    return () => { dead = true; window.clearTimeout(t); if (url) try { URL.revokeObjectURL(url); } catch (e) {} };
+  }, [key, box]);
+  const host = (
+    <div ref={holdRef} aria-hidden="true"
+      style={{ position: "absolute", width: box, height: box, left: -9999, top: 0, opacity: 0, pointerEvents: "none" }}>
+      {item ? <ItemArt art={item.art} sw={item.sw} /> : null}
+    </div>
+  );
+  return { img, host };
+}
+
+/** Crop a rasterised SVG down to the pixels that actually have ink in them.
+    Both sprite hooks need it - an item drawn inside a square viewBox is mostly
+    empty, and blitting the raw square puts the object nowhere near the hand. */
+function trimToInk(im, fallbackW, fallbackH) {
+  try {
+    const c = document.createElement("canvas");
+    c.width = im.naturalWidth || fallbackW || 160; c.height = im.naturalHeight || fallbackH || fallbackW || 160;
+    const cg = c.getContext("2d", { willReadFrequently: true });
+    cg.drawImage(im, 0, 0, c.width, c.height);
+    const d = cg.getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+      if (d[(y * c.width + x) * 4 + 3] > 8) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+    if (x1 > x0 && y1 > y0) {
+      const cut = document.createElement("canvas");
+      cut.width = x1 - x0 + 1; cut.height = y1 - y0 + 1;
+      cut.getContext("2d").drawImage(c, x0, y0, cut.width, cut.height, 0, 0, cut.width, cut.height);
+      return cut;
+    }
+  } catch (e) {}
+  return im;
 }
 
 /** Blit the rasterised chassis with a walk cycle faked on top: a bob, a
     squash that follows it, and a flip so the figure faces where it is going.
     Falls back to nothing while the sprite is still rasterising — the caller
     draws the primitive bot in that gap so the player is never invisible. */
-function drawChassis(g, img, x, y, h, t, dir, ghost, mv) {
+function drawChassis(g, img, x, y, h, t, dir, ghost, mv, gear) {
   // the sprite is trimmed to its ink, so its own aspect is the truth and its
   // bottom edge is the soles of the feet
   const w = h * ((img.width || 160) / (img.height || 416));
@@ -1617,6 +1705,29 @@ function drawChassis(g, img, x, y, h, t, dir, ghost, mv) {
   if (lean) { g.translate(0, -h * 0.06); g.rotate(lean); g.translate(0, h * 0.06); }
   if (dir < 0) g.scale(-1, 1);
   g.drawImage(img, -w / 2, -h * sq, w, h * sq);
+  /* ── the gear the player actually bought ──
+     Drawn INSIDE the mirror, so the weapon stays in the same hand whichever
+     way the figure is facing. `sw` is 0..1 through the swing and swings the
+     weapon through a real arc rather than teleporting it. */
+  if (gear) {
+    const hh = h * sq;
+    if (gear.wpn) {
+      const iw = 0.40 * h, ih = iw * (gear.wpn.height / (gear.wpn.width || 1));
+      const sw = gear.swing || 0;
+      // ease out: fast on the way down, unhurried on the recovery
+      const arc = sw > 0 ? Math.sin(Math.min(1, sw * 1.9) * Math.PI) : 0;
+      g.save();
+      g.translate(w * 0.30, -hh * 0.46);           // the hand
+      g.rotate(-0.55 + arc * 2.0);
+      g.drawImage(gear.wpn, -iw * 0.22, -ih * 0.5, iw, ih);
+      g.restore();
+    }
+    if (gear.hat) {
+      // sized to a head rather than to the shop card it came off
+      const iw = 0.235 * h, ih = iw * (gear.hat.height / (gear.hat.width || 1));
+      g.drawImage(gear.hat, -iw / 2, -hh - ih * 0.58, iw, ih);
+    }
+  }
   g.restore();
 }
 
@@ -2903,7 +3014,7 @@ const BattleScreen = memo(function BattleScreen({
   );
 });
 
-export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward = () => {}, playUi = () => {}, playerName = "TIGA-01", charModel = "vanguard" }) {
+export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward = () => {}, playUi = () => {}, playerName = "TIGA-01", charModel = "vanguard", gear = [] }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [save, setSave] = useState(readSave);
   const saveRef = useRef(save);
@@ -2913,7 +3024,30 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const geo = useMemo(() => buildWorld(W), [W.id]);
   const total = totalStat(save);
 
-  const [hp, setHp] = useState(() => maxHp(save));
+  /* ── the loadout, and the figure that wears it ──
+     Four slots and four visible consequences, because a shop whose purchases
+     you cannot see is a wardrobe nobody opens:
+       plating  re-plates the whole chassis in the item's own two colours
+       core     re-tints the light the figure stands in and the aura it wears
+       weapon   is drawn in the hand and swings with the attack
+       module   sits over the head
+     All four are the SHOP'S OWN artwork, serialised out of the same <ItemArt>
+     the buy screen draws, so what arrives is exactly what was on the card. */
+  const LO = useMemo(() => loadoutOf(charModel, gear), [charModel, gear]);
+  const loRef = useRef(LO); loRef.current = LO;
+  /* Plating raises the ceiling, so every HP figure in this page reads through
+     one helper rather than calling the bare maxHp() and quietly ignoring the
+     armour the player is wearing. */
+  const maxHpNow = useCallback(() => maxHp(saveRef.current) + loRef.current.hp, []);
+  const auraCol = (LO.acc && LO.acc.sw && LO.acc.sw[0]) || W.glow;
+  const { img: chassis, host: chassisHost } = useChassisSprite(
+    charModel, auraCol, W.accent,
+    (LO.out && LO.out.sw && LO.out.sw[1]) || null,
+    (LO.out && LO.out.sw && LO.out.sw[0]) || null);
+  const { img: wpnImg, host: wpnHost } = useItemSprite(LO.wpn, 128);
+  const { img: hatImg, host: hatHost } = useItemSprite(LO.hat, 128);
+
+  const [hp, setHp] = useState(() => maxHp(save) + LO.hp);
   const [screen, setScreen] = useState(() => (save.seen[W.id] ? "world" : "intro"));  // intro|world|map|sheet
   const [fight, setFight] = useState(null);   // {kind:"mob"|"boss", hp, max, q, streak, wrongRun, name, col, mobId}
   const [ctrl, setCtrl] = useState(null);     // {step, bad} — Emotion Core stabilisation
@@ -2955,7 +3089,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   }, []);
 
   const coop = useCoop(W.id, playerName, screen === "world");
-  const { img: chassis, host: chassisHost } = useChassisSprite(charModel, W.glow, W.accent);
+
 
   /* Landscape is the point of turning the phone: the world goes edge to edge,
      the app chrome above it gets out of the way, and the two thumbs end up
@@ -2998,7 +3132,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     const sp = nearestWalkable(geo.seed, geo.town.x, geo.town.y + 60);
     meRef.current = { x: sp.x, y: sp.y, t: 0, dir: 1, mv: 0 };
     camRef.current = { x: sp.x, y: sp.y, yaw: 0 };
-    setHp(maxHp(saveRef.current));
+    setHp(maxHpNow());
     setFight(null); setCtrl(null); setTalk(null); setTask(null);
   }, [W.id, geo]);
 
@@ -3112,7 +3246,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         const rX = Math.cos(camS.yaw), rY = -Math.sin(camS.yaw);
         const wxv = rX * ax + fX * (-ay), wyv = rY * ax + fY * (-ay);
         const m2 = Math.hypot(wxv, wyv) || 1;
-        const sp = 190 * dt * Math.min(1, mag || 1);
+        const sp = 190 * loRef.current.move * dt * Math.min(1, mag || 1);
         const nx = me.x + (wxv / m2) * sp, ny = me.y + (wyv / m2) * sp;
         if (walkable(geo.seed, nx, me.y)) me.x = nx;      // slide along walls rather than sticking
         if (walkable(geo.seed, me.x, ny)) me.y = ny;
@@ -3373,7 +3507,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
         const pp = e.q; const ex = pp.x, ey = pp.y, k = rel(pp);
         if (ex < -160 || ex > vw + 160 || ey < -160 || ey > vh + 160) continue;
         const [lr0, rgb, a] =
-          e.k === "me"     ? [104, hexRgb(W.glow), 0.20] :
+          e.k === "me"     ? [104, hexRgb(auraCol), 0.20] :
           e.k === "npc"    ? [58, "255,215,122", 0.20] :
           e.k === "mob"    ? [40, "255,90,90", 0.18] :
           e.k === "tower"  ? [54, hexRgb(W.glow), 0.14] :
@@ -3500,8 +3634,10 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           g.beginPath(); g.arc(cap.x, cap.y, 3.2, 0, 6.284); g.fill();
           g.globalAlpha = 1;
         } else {
-          if (chassis) drawChassis(g, chassis, ex, ey, 68 * k, me.t, me.dir, false, me.mv);
-          else drawBot(g, ex, ey, 1.15 * k, W.accent, me.t, false, W.glow, me.mv);
+          const LOc = loRef.current;
+          const gearDraw = { wpn: wpnImg, hat: hatImg, swing: clamp(1 - swingRef.current / (SWING_CD * LOc.cd), 0, 1) };
+          if (chassis) drawChassis(g, chassis, ex, ey, 68 * k, me.t, me.dir, false, me.mv, gearDraw);
+          else drawBot(g, ex, ey, 1.15 * k, W.accent, me.t, false, auraCol, me.mv);
         }
       }
 
@@ -3842,9 +3978,10 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   const [target, setTarget] = useState(null);
   function swing() {
     if (fightRef.current || ctrl || talk || task || swingRef.current > 0) return;
-    swingRef.current = SWING_CD;
+    const LOc = loRef.current;
+    swingRef.current = SWING_CD * LOc.cd;              // core: a faster swing
     const me = meRef.current;
-    let best = null, bd = SWING_REACH;
+    let best = null, bd = SWING_REACH * LOc.reach;     // module: a longer reach
     for (const m of mobsRef.current) {
       if (m.dead) continue;
       const d = Math.hypot(m.x - me.x, m.y - me.y);
@@ -3857,8 +3994,9 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
 
   function hitMob(m) {
     const s = saveRef.current;
-    const crit = Math.random() < 0.13;
-    const dmg = Math.max(1, Math.round(playerHit(s, 0) * (0.85 + Math.random() * 0.3) * (crit ? 2 : 1)));
+    const LOc = loRef.current;
+    const crit = Math.random() < LOc.crit;             // module: a sharper eye
+    const dmg = Math.max(1, Math.round(playerHit(s, 0) * LOc.dmg * (0.85 + Math.random() * 0.3) * (crit ? 2 : 1)));
     m.hp = Math.max(0, m.hp - dmg);
     m.flash = Date.now();
     // knocked back along the line of the blow, so a hit visibly moves it
@@ -3871,7 +4009,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
        death made a long fight feel like nothing was happening for four
        seconds; paying per hit is what makes the bar in the corner move while
        you are actually fighting, which is the whole point of showing it. */
-    onReward(0, 0, { grind: true, skill: crit ? 3 : 2 });
+    onReward(0, 0, { grind: true, skill: Math.max(1, Math.round((crit ? 3 : 2) * LOc.spGain)) });
     if (m.hp <= 0) killMob(m);
   }
 
@@ -3894,12 +4032,13 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
        what you LEARN raises your account level. `grind` keeps this off the
        daily learning quest either way - five minutes of swinging at drones
        must never complete the goal that is supposed to mean you practised. */
-    onReward(0, 2, { grind: true, skill: 12 });
+    onReward(0, 2, { grind: true, skill: Math.round(12 * loRef.current.spGain) });
     setTarget(null);
   }
 
   function mobStrike(m) {
-    const dmg = Math.max(1, Math.round(mobHit(saveRef.current, false) * 0.7));
+    // plating: a slice of every incoming hit simply does not land
+    const dmg = Math.max(1, Math.round(mobHit(saveRef.current, false) * 0.7 * (1 - loRef.current.guard)));
     pop(meRef.current.x, meRef.current.y - 30, "-" + dmg, "#ff6a6a", false);
     playMiss(); haptic(14);
     setShake(x => x + 1); window.setTimeout(() => setShake(0), 200);
@@ -3982,7 +4121,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     // the lore's own rule, made mechanical: you cannot fight your way out
     // of losing your composure — you have to play your way out
     setReveal({ q: f.q, chosen: opt });
-    if (wrongRun >= 2 || nh < maxHp(saveRef.current) * 0.34) {
+    if (wrongRun >= 2 || nh < maxHpNow() * 0.34) {
       setFight({ ...f, streak: 0, wrongRun: 0, destab: (f.destab || 0) + 1 });
       setCtrl({ step: 0, bad: null, n: f.destab || 0 });
       return;
@@ -4027,7 +4166,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     const me = meRef.current;
     const sp = nearestWalkable(geo.seed, geo.town.x, geo.town.y + 60);
     me.x = sp.x; me.y = sp.y;
-    setHp(Math.round(maxHp(saveRef.current) * 0.55));
+    setHp(Math.round(maxHpNow() * 0.55));
     say(T("Emotion Core ล้มเหลว — กลับมาที่เมืองแล้ว ไม่มีอะไรถูกริบไป",
           "Emotion Core failed — recovered to town. Nothing was taken from you.",
           "情感核心失效 —— 已送回城镇。你没有失去任何东西。"), 3400);
@@ -4051,7 +4190,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     else say(T("Core เสถียรแล้ว — แต่ครั้งนี้ไม่ได้แต้ม",
                "Core stabilised — no stat for a repeat in the same fight.",
                "核心已稳定 —— 同一场战斗中重复稳定不计入状态。"));
-    setHp(h => Math.min(maxHp(saveRef.current), h + 18));
+    setHp(h => Math.min(maxHpNow(), h + 18));
     const f = fightRef.current;
     if (f) setFight({ ...f, streak: 2, buff: true });
   }
@@ -4174,13 +4313,13 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     setScreen("world");
   }
 
-  const hpPct = clamp(hp / maxHp(save), 0, 1);
+  const hpPct = clamp(hp / (maxHp(save) + LO.hp), 0, 1);
   const f = fight;
 
   // ══════════════════════ render ══════════════════════
   return (
     <div className={`sspage${land ? " land" : ""}`} style={{ "--wc": W.accent, "--wg": W.glow }}>
-      {chassisHost}
+      {chassisHost}{wpnHost}{hatHost}
       <header className="sshdr">
         <button className="ssback" onClick={onBack} aria-label="Back">←</button>
         <div className="sshdr-t">
@@ -4236,6 +4375,45 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
               );
             })}
           </div>
+          {/* ── the loadout ──
+              What the shop sold you, and exactly what it is doing for you out
+              there. A player who cannot see that the Plasma Sword is +27%
+              damage has no reason to save up for one, so every slot states its
+              own number, and an empty slot says what it WOULD give. */}
+          <div className="ssgear">
+            <h3>{T("อุปกรณ์ที่สวมใส่", "Loadout", "装备")}</h3>
+            {[
+              { it: LO.wpn, k: "wpn", ic: "⚔", n: T("อาวุธ", "Weapon", "武器"),
+                on: T(`แรงโจมตี +${Math.round((LO.dmg - 1) * 100)}%`, `+${Math.round((LO.dmg - 1) * 100)}% damage`, `攻击 +${Math.round((LO.dmg - 1) * 100)}%`),
+                off: T("เพิ่มแรงโจมตี", "raises damage", "提升攻击") },
+              { it: LO.out, k: "out", ic: "🛡", n: T("เกราะ", "Plating", "装甲"),
+                on: T(`พลังชีวิต +${LO.hp} · ลดดาเมจ ${Math.round(LO.guard * 100)}%`, `+${LO.hp} HP · ${Math.round(LO.guard * 100)}% less damage taken`, `生命 +${LO.hp} · 减伤 ${Math.round(LO.guard * 100)}%`),
+                off: T("เพิ่มพลังชีวิตและลดดาเมจ", "raises HP and blunts hits", "提升生命并减伤") },
+              { it: LO.acc, k: "acc", ic: "⚡", n: T("แกนพลัง", "Core", "核心"),
+                on: T(`โจมตีเร็วขึ้น ${Math.round((1 - LO.cd) * 100)}% · เดินเร็วขึ้น ${Math.round((LO.move - 1) * 100)}%`, `${Math.round((1 - LO.cd) * 100)}% faster swing · ${Math.round((LO.move - 1) * 100)}% faster on foot`, `攻速 +${Math.round((1 - LO.cd) * 100)}% · 移速 +${Math.round((LO.move - 1) * 100)}%`),
+                off: T("โจมตีและเดินเร็วขึ้น", "faster swings and faster feet", "加快攻击与移动") },
+              { it: LO.hat, k: "hat", ic: "🎯", n: T("โมดูลหัว", "Head module", "头部模块"),
+                on: T(`คริติคอล ${Math.round(LO.crit * 100)}% · ระยะ +${Math.round((LO.reach - 1) * 100)}% · EXP ทักษะ +${Math.round((LO.spGain - 1) * 100)}%`, `${Math.round(LO.crit * 100)}% crit · +${Math.round((LO.reach - 1) * 100)}% reach · +${Math.round((LO.spGain - 1) * 100)}% Skill EXP`, `暴击 ${Math.round(LO.crit * 100)}% · 范围 +${Math.round((LO.reach - 1) * 100)}% · 技能经验 +${Math.round((LO.spGain - 1) * 100)}%`),
+                off: T("เพิ่มคริติคอล ระยะ และ EXP ทักษะ", "raises crit, reach and Skill EXP", "提升暴击、范围与技能经验") },
+            ].map(row => (
+              <div key={row.k} className={`ssgear-r${row.it ? "" : " empty"}`}>
+                <span className="ssgear-ic" style={{ "--gc": (row.it && row.it.sw && row.it.sw[0]) || "#4a5876" }}>
+                  {row.it ? <ItemArt art={row.it.art} sw={row.it.sw} /> : row.ic}
+                </span>
+                <span className="ssgear-t">
+                  <b>{row.it ? tr3(row.it, lang) : row.n}</b>
+                  <i>{row.it ? row.on : row.off}</i>
+                </span>
+                {row.it && <span className={`ssgear-q r-${row.it.rarity}`}>{row.it.rarity}</span>}
+              </div>
+            ))}
+            <p className="ssgear-note">
+              {T("ซื้อและสวมอุปกรณ์ได้ที่หน้าโปรไฟล์ ของทุกชิ้นมีผลจริงกับการต่อสู้ในแมพนี้",
+                 "Buy and equip on the Profile page. Every piece here changes how you actually fight on this map.",
+                 "在个人页购买并装备。这里的每一件都会真实影响你在本地图的战斗。")}
+            </p>
+          </div>
+
           <div className="ssquestlog">
             <h3>{T("บันทึกเควสต์", "Quest log", "任务日志")} · {tr3(W.name, lang)}</h3>
             {(QUESTS[W.id] || []).map(q => {
@@ -4425,7 +4603,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           dressing it as one would be a lie about what you are doing. */}
       {f && !ctrl && f.kind !== "quiz" && !f.over && (
         <BattleScreen
-          lang={lang} W={W} hp={hp} maxHpV={maxHp(save)}
+          lang={lang} W={W} hp={hp} maxHpV={maxHp(save) + LO.hp}
           foe={f} shake={shake} hurtFoe={hurtFoe} hurtMe={hurtMe} playing={fxRef}
           reveal={reveal} onNextQ={nextQ} bt={bt} onAct={act} bnr={bnr} cine={cine}
           chassisEl={<CyberAvatar model={charModel} yaw={52} pose="ready" glow={W.glow} accent={W.accent} armorA="#161d2c" armorB="#3d5878" />}
