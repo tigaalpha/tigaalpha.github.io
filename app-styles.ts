@@ -875,7 +875,12 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .probadge.max{background: #d97757;color:#fff}
 .probadge.maxfam{background: #d97757;color:#fff}
 .probadge.trial{background:transparent;color:#d97757;border:1.5px solid #d97757}
-.shopbtn{display:flex;align-items:center;gap:4px;background:none;border:1.5px solid #d9775755;border-radius:20px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;color:#d97757;transition:all .2s;white-space:nowrap}
+/* height is explicit rather than left to line-height, because an emoji's
+   natural line-height varies a lot by platform (Android in particular renders
+   🛍️/🪙 noticeably taller than desktop Chromium does) - .hdrgo next to it is a
+   fixed 38px square, and only a fixed height here can guarantee they match on
+   every device instead of just the one this was checked on. */
+.shopbtn{display:flex;align-items:center;gap:4px;height:38px;box-sizing:border-box;background:none;border:1.5px solid #d9775755;border-radius:20px;padding:0 10px;cursor:pointer;font-size:12px;font-weight:700;color:#d97757;transition:all .2s;white-space:nowrap}
 .shopbtn:hover{border-color:#d97757;background:rgba(217,119,87,.1);box-shadow:0 0 10px rgba(217,119,87,.2)}
 .shopbtn-ic{font-size:14px}
 .shopbtn-coins{font-family:"Orbitron",sans-serif;font-size:10px;letter-spacing:.3px}
@@ -2405,8 +2410,9 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .pet-note{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:60;max-width:88vw;padding:9px 16px;border-radius:22px;background:var(--card);border:1px solid var(--bd5);color:var(--text);font-size:12.5px;box-shadow:0 12px 34px -16px rgba(20,30,60,.7);animation:petnote .25s ease}
 @keyframes petnote{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
 
-/* header shortcuts that replaced the plan badge */
-.hdrgo{display:flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 auto;border:1px solid var(--bd4);border-radius:11px;background:var(--card);color:var(--text);cursor:pointer;padding:0}
+/* header shortcuts that replaced the plan badge - 38px to match .shopbtn's
+   own explicit height, so the two read as the same size next to each other */
+.hdrgo{display:flex;align-items:center;justify-content:center;width:38px;height:38px;box-sizing:border-box;flex:0 0 auto;border:1px solid var(--bd4);border-radius:12px;background:var(--card);color:var(--text);cursor:pointer;padding:0}
 .hdrgo:hover{border-color:#d97757}
 .hdrgo:active{transform:scale(.94)}
 
