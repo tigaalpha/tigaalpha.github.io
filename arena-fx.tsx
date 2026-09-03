@@ -42,12 +42,70 @@ function noise(ac) {
 
 /* One bar of sixteenths. The second row of each pattern is the "pushed" mix
    that comes in when somebody is nearly down — same groove, more of it. */
-const P = {
-  kick:  [[0, 6, 8, 14], [0, 3, 6, 8, 11, 14]],
-  snare: [[4, 12], [4, 12, 15]],
-  hat:   [[0, 2, 4, 6, 8, 10, 12, 14], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]],
-  bass:  [[0, 3, 6, 8, 11, 14], [0, 2, 3, 6, 8, 10, 11, 14]],
-  arp:   [[0, 2, 4, 6, 8, 10, 12, 14], [0, 2, 4, 6, 8, 10, 12, 14]],
+/* ── grooves ──
+   A different chord progression over the same beat still reads as the same
+   track. The groove IS the pattern set, so a place can be a four-on-the-floor
+   drive, a half-time crawl or an almost-empty pulse before a single note
+   changes. Each is [calm, fired-up] - the second gear is what a fight
+   switches to. */
+const GROOVES = {
+  drive: {
+    kick:  [[0, 6, 8, 14], [0, 3, 6, 8, 11, 14]],
+    snare: [[4, 12], [4, 12, 15]],
+    hat:   [[0, 2, 4, 6, 8, 10, 12, 14], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]],
+    bass:  [[0, 3, 6, 8, 11, 14], [0, 2, 3, 6, 8, 10, 11, 14]],
+    arp:   [[0, 2, 4, 6, 8, 10, 12, 14], [0, 2, 4, 6, 8, 10, 12, 14]],
+  },
+  // heavy and slow: one boot down, a long gap, then the answer
+  march: {
+    kick:  [[0, 4, 8, 12], [0, 3, 4, 8, 11, 12]],
+    snare: [[4, 12], [4, 10, 12, 14]],
+    hat:   [[2, 6, 10, 14], [0, 2, 4, 6, 8, 10, 12, 14]],
+    bass:  [[0, 4, 8, 10, 12], [0, 2, 4, 8, 10, 12, 14]],
+    arp:   [[0, 6, 8, 14], [0, 4, 6, 8, 12, 14]],
+  },
+  // half time: the backbeat lands once a bar and everything hangs off it
+  halftime: {
+    kick:  [[0, 10], [0, 6, 10]],
+    snare: [[8], [8, 14]],
+    hat:   [[0, 4, 8, 12], [0, 2, 4, 6, 8, 10, 12, 14]],
+    bass:  [[0, 5, 10], [0, 3, 5, 10, 13]],
+    arp:   [[0, 3, 6, 9, 12], [0, 2, 4, 6, 8, 10, 12, 14]],
+  },
+  // barely there: cold rooms and empty ones
+  sparse: {
+    kick:  [[0], [0, 8]],
+    snare: [[], [12]],
+    hat:   [[4, 12], [2, 6, 10, 14]],
+    bass:  [[0, 7], [0, 7, 11]],
+    arp:   [[0, 4, 8, 12], [0, 2, 6, 10, 14]],
+  },
+  // an even machine pulse, sixteenths on the offbeat
+  pulse: {
+    kick:  [[0, 4, 8, 12], [0, 2, 4, 6, 8, 10, 12, 14]],
+    snare: [[4, 12], [4, 12, 14]],
+    hat:   [[1, 3, 5, 7, 9, 11, 13, 15], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]],
+    bass:  [[0, 4, 8, 12], [0, 4, 6, 8, 12, 14]],
+    arp:   [[0, 1, 4, 5, 8, 9, 12, 13], [0, 1, 4, 5, 8, 9, 12, 13]],
+  },
+  // off-kilter, never quite where the foot expects it
+  swirl: {
+    kick:  [[0, 7], [0, 7, 11]],
+    snare: [[8], [4, 8, 12]],
+    hat:   [[0, 3, 6, 9, 12, 15], [0, 2, 3, 5, 6, 8, 9, 11, 12, 14]],
+    bass:  [[0, 3, 7, 10], [0, 3, 5, 7, 10, 13]],
+    arp:   [[0, 2, 3, 5, 7, 9, 11, 13], [0, 2, 3, 5, 7, 9, 11, 13]],
+  },
+};
+
+/* ── the hook ──
+   A motif is one character per sixteenth, four bars of sixteen. '.' is a rest;
+   anything else is a semitone offset above that bar's chord root, in base 32,
+   so 0-9 then a-v covers two and a half octaves. This is the difference
+   between a map that throbs and a map you can hum. */
+const motif = (str) => {
+  const t = String(str).replace(/[^0-9a-v.]/g, "");
+  return t.length === 64 ? t.split("").map(c => (c === "." ? null : parseInt(c, 32))) : null;
 };
 
 /* ══════════════════════ the arenas ══════════════════════
@@ -71,7 +129,10 @@ export const STAGES = [
     spots: [[0.24, "126,196,255"], [0.76, "255,150,110"]],
     mote: "170,210,255", back: "city",
     neon: ["255,43,214", "63,216,255"], face: "16,22,44",
-    bpm: 150, chords: [
+    bpm: 150, feel: "drive", lead: "square", padOsc: "sawtooth", bright: 1500,
+    /* the academy: a bright descending call, answered a step lower */
+    hook: motif("c...a...7...5..." + "7...5...3...5..." + "c...e...c...a..." + "7.....5.3......."),
+    chords: [
       { bass: 38, arp: [62, 65, 69, 74] }, { bass: 34, arp: [58, 62, 65, 70] },
       { bass: 41, arp: [65, 69, 72, 77] }, { bass: 36, arp: [60, 64, 67, 72] },
     ],
@@ -83,7 +144,10 @@ export const STAGES = [
     spots: [[0.22, "255,170,90"], [0.78, "255,90,40"]],
     mote: "255,180,120", back: "embers",
     neon: ["255,47,94", "255,170,60"], face: "36,16,14",
-    bpm: 162, chords: [
+    bpm: 162, feel: "march", lead: "sawtooth", padOsc: "square", bright: 1100,
+    /* four hundred years of machines keeping time for nobody */
+    hook: motif("0...0.3.5...3..." + "0...0.3.7...5..." + "a...7...5...3..." + "0.......0.3.5..."),
+    chords: [
       { bass: 33, arp: [57, 60, 64, 69] }, { bass: 40, arp: [64, 67, 71, 76] },
       { bass: 35, arp: [59, 62, 66, 71] }, { bass: 38, arp: [62, 66, 69, 74] },
     ],
@@ -95,9 +159,27 @@ export const STAGES = [
     spots: [[0.24, "180,240,255"], [0.76, "120,190,255"]],
     mote: "200,240,255", back: "shards",
     neon: ["47,123,255", "77,240,255"], face: "10,32,52",
-    bpm: 142, chords: [
+    bpm: 118, feel: "sparse", lead: "triangle", padOsc: "triangle", bright: 2400,
+    /* a world where sound does not carry: single notes, long silences */
+    hook: motif("c.......f......." + "e.......c......." + "a.......c......." + "7...........c..."),
+    chords: [
       { bass: 40, arp: [64, 68, 71, 76] }, { bass: 35, arp: [59, 63, 66, 71] },
       { bass: 43, arp: [67, 71, 74, 79] }, { bass: 38, arp: [62, 66, 69, 74] },
+    ],
+  },
+  {
+    id: "ashfall", th: "ม่านเถ้า", en: "Ashfall", zh: "落灰之地",
+    sky: ["#3d0a20", "#22061a", "#0c0210"],
+    grid: "rgba(255,90,150,.22)", horizon: "255,90,150",
+    spots: [[0.22, "255,120,170"], [0.78, "255,210,63"]],
+    mote: "255,170,200", back: "embers",
+    neon: ["255,210,63", "255,63,143"], face: "34,8,26",
+    bpm: 156, feel: "pulse", lead: "square", padOsc: "sawtooth", bright: 1300,
+    /* a machine that will not stop: one figure, hammered */
+    hook: motif("0.0.3.0.5.0.3.0." + "0.0.3.0.7.0.5.0." + "a.a.7.a.5.a.3.a." + "0.3.5.7.a.7.5.3."),
+    chords: [
+      { bass: 32, arp: [56, 59, 63, 68] }, { bass: 39, arp: [63, 66, 70, 75] },
+      { bass: 37, arp: [61, 64, 68, 73] }, { bass: 34, arp: [58, 61, 65, 70] },
     ],
   },
   {
@@ -107,9 +189,72 @@ export const STAGES = [
     spots: [[0.24, "190,150,255"], [0.76, "120,220,255"]],
     mote: "215,190,255", back: "stars",
     neon: ["63,240,208", "176,125,255"], face: "24,14,58",
-    bpm: 134, chords: [
+    bpm: 134, feel: "swirl", lead: "sine", padOsc: "sawtooth", bright: 1900,
+    /* the first song, heard from very far away */
+    hook: motif("c..a..7..c..e..." + "f..e..c..a..7..." + "c..e..h..e..c..." + "a..7..5..7..a..."),
+    chords: [
       { bass: 32, arp: [56, 59, 63, 68] }, { bass: 37, arp: [61, 64, 68, 73] },
       { bass: 39, arp: [63, 67, 70, 75] }, { bass: 34, arp: [58, 61, 65, 70] },
+    ],
+  },
+  {
+    id: "bloom", th: "เรือนยอดเรืองแสง", en: "Glow Canopy", zh: "辉光林冠",
+    sky: ["#0a2e26", "#06201c", "#020c0a"],
+    grid: "rgba(90,255,190,.20)", horizon: "90,255,190",
+    spots: [[0.24, "120,255,200"], [0.76, "255,220,120"]],
+    mote: "150,255,210", back: "lanterns",
+    neon: ["63,255,178", "255,214,102"], face: "8,34,28",
+    bpm: 126, feel: "halftime", lead: "triangle", padOsc: "triangle", bright: 2100,
+    /* something enormous and green, breathing in its sleep */
+    hook: motif("....7.....a....." + "....5.....7....." + "....c.....a....." + "....7.....5....."),
+    chords: [
+      { bass: 36, arp: [60, 63, 67, 70] }, { bass: 41, arp: [65, 68, 72, 75] },
+      { bass: 34, arp: [58, 61, 65, 68] }, { bass: 39, arp: [63, 66, 70, 73] },
+    ],
+  },
+  {
+    id: "gilt", th: "ระเบียงทองคำ", en: "The Gilded Tier", zh: "鎏金层",
+    sky: ["#2e2208", "#1c1405", "#0a0702"],
+    grid: "rgba(255,200,90,.20)", horizon: "255,200,90",
+    spots: [[0.24, "255,224,150"], [0.76, "200,150,255"]],
+    mote: "255,228,170", back: "lanterns",
+    neon: ["255,196,63", "186,125,255"], face: "36,26,8",
+    bpm: 108, feel: "swirl", lead: "sawtooth", padOsc: "sawtooth", bright: 2600,
+    /* money's own music: ornamented, unhurried, faintly smug */
+    hook: motif("c.e.f.e.c.a.7.a." + "e.f.h.f.e.c.a.c." + "f.h.j.h.f.e.c.e." + "c.a.7.5.3.5.7.a."),
+    chords: [
+      { bass: 41, arp: [65, 69, 72, 76] }, { bass: 36, arp: [60, 64, 67, 71] },
+      { bass: 43, arp: [67, 71, 74, 78] }, { bass: 38, arp: [62, 66, 69, 73] },
+    ],
+  },
+  {
+    id: "tide", th: "ใต้กระแสน้ำ", en: "The Undertide", zh: "潮下",
+    sky: ["#031a2e", "#021221", "#00070f"],
+    grid: "rgba(70,190,255,.18)", horizon: "70,190,255",
+    spots: [[0.24, "90,210,255"], [0.76, "140,120,255"]],
+    mote: "120,215,255", back: "stars",
+    neon: ["46,190,255", "126,102,255"], face: "4,22,40",
+    bpm: 96, feel: "sparse", lead: "sine", padOsc: "sine", bright: 1700,
+    /* very slow, very wide, and nothing in a hurry to answer */
+    hook: motif("7..............." + "c..............." + "a.......7......." + "5..............."),
+    chords: [
+      { bass: 30, arp: [54, 57, 61, 66] }, { bass: 35, arp: [59, 62, 66, 71] },
+      { bass: 33, arp: [57, 60, 64, 69] }, { bass: 28, arp: [52, 55, 59, 64] },
+    ],
+  },
+  {
+    id: "requiem", th: "บทเพลงอาลัย", en: "Requiem Vault", zh: "安魂殿",
+    sky: ["#2a0714", "#18040e", "#080105"],
+    grid: "rgba(255,120,140,.20)", horizon: "255,120,140",
+    spots: [[0.24, "255,150,160"], [0.76, "230,230,255"]],
+    mote: "255,190,200", back: "stars",
+    neon: ["255,80,110", "236,236,255"], face: "30,6,16",
+    bpm: 144, feel: "pulse", lead: "sawtooth", padOsc: "sawtooth", bright: 2200,
+    /* the last one: a choir that never resolves */
+    hook: motif("c...c...a...c..." + "f...f...e...f..." + "h...h...f...h..." + "c...a...7...5..."),
+    chords: [
+      { bass: 33, arp: [57, 60, 64, 67] }, { bass: 40, arp: [64, 67, 71, 74] },
+      { bass: 38, arp: [62, 65, 69, 72] }, { bass: 31, arp: [55, 58, 62, 65] },
     ],
   },
   {
@@ -119,7 +264,9 @@ export const STAGES = [
     spots: [[0.24, "255,215,160"], [0.76, "255,170,110"]],
     mote: "255,220,170", back: "lanterns",
     neon: ["255,210,63", "255,90,120"], face: "38,26,16",
-    bpm: 128, chords: [
+    bpm: 128, feel: "drive", lead: "triangle", padOsc: "triangle", bright: 1800,
+    hook: motif("5...7...a...7..." + "3...5...7...5..." + "a...c...a...7..." + "5...3...5......."),
+    chords: [
       { bass: 36, arp: [60, 63, 67, 72] }, { bass: 41, arp: [65, 68, 72, 77] },
       { bass: 34, arp: [58, 61, 65, 70] }, { bass: 39, arp: [63, 66, 70, 75] },
     ],
@@ -131,6 +278,8 @@ export const pickStage = (seed) => STAGES[Math.abs(Number(seed) || Math.floor(Ma
 
 export function createArenaAudio(stage) {
   let ST = stage || STAGES[0];
+  let P = GROOVES[ST.feel] || GROOVES.drive;
+  let M = ST.hook || null;
   let timer = null, step = 0, nextTime = 0, bpm = ST.bpm, gear = 0, live = false;
   let master = null, ac = null;
   const SPB = () => 60 / bpm / 4;               // seconds per sixteenth
@@ -190,11 +339,25 @@ export function createArenaAudio(stage) {
     env(g, t, 0.11, 0.004, 0.11);
     o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.18);
   }
+  /* the melody line. It gets its own voice and its own filter sweep, because
+     a hook played on the same pluck as the arpeggio just thickens the
+     arpeggio - it has to sit on top of the track to be the thing you
+     remember about a place. */
+  function lead(t, midi, dur) {
+    const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+    o.type = ST.lead || "square";
+    o.frequency.value = mf(midi);
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(3000, t);
+    lp.frequency.exponentialRampToValueAtTime(900, t + dur);
+    env(g, t, 0.075, 0.01, dur);
+    o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.06);
+  }
   function pad(t, midi, dur) {
     for (const d of [-5, 5]) {
       const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
-      o.type = "sawtooth"; o.frequency.value = mf(midi); o.detune.value = d;
-      lp.type = "lowpass"; lp.frequency.value = 1500;
+      o.type = ST.padOsc || "sawtooth"; o.frequency.value = mf(midi); o.detune.value = d;
+      lp.type = "lowpass"; lp.frequency.value = ST.bright || 1500;
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.035, t + dur * 0.35);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -212,6 +375,7 @@ export function createArenaAudio(stage) {
       if (P.hat[gear].includes(s)) hat(nextTime, s % 8 === 6);
       if (P.bass[gear].includes(s)) bass(nextTime, s === 11 ? ch.bass + 12 : s === 6 || s === 14 ? ch.bass + 7 : ch.bass);
       if (P.arp[gear].includes(s)) pluck(nextTime, ch.arp[(s / 2) % ch.arp.length]);
+      if (M) { const n = M[step % 64]; if (n != null) lead(nextTime, ch.bass + 12 + n, SPB() * 2); }
       if (s === 0) pad(nextTime, ch.arp[0] - 12, SPB() * 16);
       nextTime += SPB();
       step++;
@@ -234,7 +398,11 @@ export function createArenaAudio(stage) {
       } catch (e) { live = false; }
     },
     /** Move to another arena's track. Takes effect on the next bar. */
-    setStage(next) { if (next) { ST = next; bpm = gear ? Math.round(ST.bpm * 1.09) : ST.bpm; } },
+    setStage(next) {
+      if (!next) return;
+      ST = next; P = GROOVES[ST.feel] || GROOVES.drive; M = ST.hook || null;
+      bpm = gear ? Math.round(ST.bpm * 1.09) : ST.bpm;
+    },
     /** 0 = normal, 1 = someone is nearly down and the mix leans in */
     setGear(g) {
       const n = g ? 1 : 0;

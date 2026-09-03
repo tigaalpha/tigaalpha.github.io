@@ -88,7 +88,7 @@ export const ESTATS = [
 ];
 export const statById = (id) => ESTATS.find(s => s.id === id) || ESTATS[0];
 
-/* ══════════════════════ the five worlds ══════════════════════
+/* ══════════════════════ the worlds ══════════════════════
 
    Read in order they are the arc: TIGA-01 is commissioned as an instrument
    of the colonial program, is sent to take four worlds, and discovers on
@@ -187,7 +187,7 @@ export const WORLDS = [
     },
   },
   {
-    id: "emberfall", track: "dojo", gate: 95, seed: "emberfall-warzone",
+    id: "emberfall", track: "ashfall", gate: 95, seed: "emberfall-warzone",
     name: { th: "เอมเบอร์ฟอลล์", en: "Emberfall", zh: "余烬陨落" },
     sub: {
       th: "เขตสงคราม · อาณานิคมที่ปฏิเสธคำสั่ง",
@@ -237,6 +237,114 @@ export const WORLDS = [
         th: "ความรู้อัปโหลดได้ พลังสร้างได้ อายุขัยยืดได้ เหลือแค่สิ่งเดียวที่เจ้าต้องฝึกเอง แล้วเจ้าฝึกมันมาหรือยัง",
         en: "Knowledge uploads. Power is manufactured. Lifespan is extended. One thing was always left for you to practise yourself. Did you?",
         zh: "知识可上传，力量可制造，寿命可延长。只有一样，始终要你自己练。你练了吗？",
+      },
+    },
+  },
+  {
+    id: "verdance", track: "bloom", gate: 185, seed: "verdance-overgrown-77",
+    name: { th: "เวอร์แดนซ์", en: "Verdance", zh: "翠生星" },
+    sub: {
+      th: "อาณานิคมที่ป่ายึดคืน · ไม่มีใครอพยพออกมา",
+      en: "A colony the forest took back · nobody evacuated",
+      zh: "被森林收回的殖民地 · 无人撤离",
+    },
+    intro: {
+      th: "เมื่อโรงงานหยุดเดิน ป่าก็ขึ้นคลุมมันภายในสิบปี สิ่งที่ไม่มีใครอธิบายได้คือ ทุกค่ำ ต้นไม้ที่นี่จะเรืองแสงเป็นจังหวะเดียวกับเสียงออดเปลี่ยนกะของโรงงานที่ตายไปแล้วสี่สิบปี มันจำได้ และมันยังเล่นอยู่",
+      en: "When the works stopped, the forest covered them in a decade. What nobody can explain is that every dusk the growth here pulses in time with a shift-change chime from a factory that has been dead for forty years. It learned the tune. It is still playing it.",
+      zh: "工厂停摆后，森林用十年将其覆盖。无人能解释的是：每到黄昏，这里的植物都会随着一座已死去四十年的工厂的交班钟声同频闪烁。它学会了那段旋律，并仍在演奏。",
+    },
+    sky: ["#010f0c", "#04291f", "#0c6b45"], ground: "#08281f", accent: "#3fffb2",
+    grass: "#0a3d2a", rock: "#031410", path: "#0d4a33", glow: "#9dffd8",
+    sun: "#bfffe0", amb: "#0a3326", neon: "#63ffb2", win: "#ffd66a",
+    mob: { th: "สปอร์เดินได้", en: "Walking Spore", zh: "行走孢子" },
+    boss: {
+      id: "grovemind", hp: 1100,
+      name: { th: "จิตแห่งพงไพร", en: "The Grovemind", zh: "林心" },
+      line: {
+        th: "ข้าจำเสียงออดนั้นได้ทุกตัวโน้ต ทั้งที่ไม่มีใครสอนข้า เจ้าล่ะ จำสิ่งที่มีคนสอนเจ้าได้สักเท่าไหร่",
+        en: "I remember that chime to the note, and nobody taught it to me. How much of what you were taught can you still play?",
+        zh: "那段钟声我记得一个音不差，而无人教过我。别人教你的，你还能弹出多少？",
+      },
+    },
+  },
+  {
+    id: "aurea", track: "gilt", gate: 240, seed: "aurea-orbital-ring-9",
+    name: { th: "ออเรีย", en: "Aurea", zh: "金环" },
+    sub: {
+      th: "วงแหวนโคจร · ที่อยู่ของคนที่เป็นเจ้าของอาณานิคมทั้งหมด",
+      en: "The orbital ring · home of the people who own the colonies",
+      zh: "轨道环 · 拥有全部殖民地之人的居所",
+    },
+    intro: {
+      th: "ที่นี่ดนตรีไม่ใช่สิ่งที่เล่น แต่เป็นสิ่งที่ครอบครอง ทำนองถูกซื้อขาย จดสิทธิบัตร และล็อกไว้ไม่ให้ใครได้ยิน มีเพลงกล่อมเด็กบทหนึ่งที่ไม่มีใครบนวงแหวนนี้เคยได้ยินมาสามชั่วอายุคน เพราะมีคนซื้อมันไปเก็บ",
+      en: "Here music is not something you play, it is something you hold. Melodies are traded, patented and locked away unheard. There is a lullaby nobody on this ring has heard in three generations because somebody bought it and put it in a vault.",
+      zh: "在这里，音乐不是用来演奏的，而是用来持有的。旋律被交易、被专利、被锁起来无人听闻。有一首摇篮曲，环上三代人无人听过 —— 因为有人把它买下，锁进了金库。",
+    },
+    sky: ["#0f0a02", "#3a2606", "#8a5c0a"], ground: "#2a1f08", accent: "#ffc43f",
+    grass: "#3a2c0a", rock: "#140e03", path: "#5c4210", glow: "#ffe8a8",
+    sun: "#ffdf9a", amb: "#4a3410", neon: "#ffc43f", win: "#e8d8ff",
+    mob: { th: "ผู้พิทักษ์ชุบทอง", en: "Gilded Warden", zh: "鎏金守卫" },
+    boss: {
+      id: "collector", hp: 1500,
+      name: { th: "นักสะสม", en: "The Collector", zh: "收藏家" },
+      line: {
+        th: "ข้าเป็นเจ้าของทำนองมากกว่าที่เจ้าจะได้ยินทั้งชีวิต และข้าเล่นไม่เป็นสักบทเดียว เจ้าคิดว่าใครรวยกว่ากัน",
+        en: "I own more melodies than you will hear in a lifetime, and I cannot play one of them. Which of us do you think is the rich one?",
+        zh: "我拥有的旋律，比你一生能听到的还多，可我一首也弹不出来。你说，我们谁才是富有的那个？",
+      },
+    },
+  },
+  {
+    id: "nocturne", track: "tide", gate: 300, seed: "nocturne-drowned-deep",
+    name: { th: "น็อคเทิร์น", en: "Nocturne", zh: "夜曲星" },
+    sub: {
+      th: "โลกที่จมทั้งใบ · ความลึกเฉลี่ยสี่กิโลเมตร · มีบางอย่างตอบกลับ",
+      en: "A drowned world · four kilometres deep on average · something answers back",
+      zh: "全境沉没之星 · 平均深度四公里 · 有东西会回应",
+    },
+    intro: {
+      th: "ยานสำรวจลำแรกส่งเสียงทดสอบลงไปห้าโน้ต สามสิบวินาทีต่อมา ความมืดข้างล่างส่งกลับมาหกโน้ต โน้ตที่หกไม่ได้อยู่ในชุดที่เราส่งไป มันแต่งต่อให้",
+      en: "The first survey dropped a five-note test tone into the water. Thirty seconds later the dark below sent back six. The sixth was not in what we sent. It finished the phrase for us.",
+      zh: "第一艘勘测船向水中投下五个音的测试音。三十秒后，下方的黑暗回了六个音。第六个不在我们发出的音里 —— 它替我们把乐句写完了。",
+    },
+    sky: ["#000710", "#021c33", "#0a5478"], ground: "#04182c", accent: "#3fc8ff",
+    grass: "#053040", rock: "#010a14", path: "#073854", glow: "#a8e8ff",
+    sun: "#bfe4ff", amb: "#062a44", neon: "#2ec0ff", win: "#c8f0ff",
+    mob: { th: "เงาใต้น้ำ", en: "Underdark", zh: "水下之影" },
+    boss: {
+      id: "drownedchoir", hp: 1900,
+      name: { th: "คณะขับร้องใต้สมุทร", en: "The Drowned Choir", zh: "沉溺唱诗班" },
+      line: {
+        th: "พวกเราร้องกันมาก่อนที่เจ้าจะมีหู เจ้าไม่ต้องสอนอะไรเราหรอก แค่ร้องให้ตรงจังหวะเราก็พอ",
+        en: "We were singing before your species had ears. You have nothing to teach us. Just keep time with us — that will be enough.",
+        zh: "在你们这个物种长出耳朵之前，我们就在唱了。你没什么可教我们的 —— 只要跟上我们的拍子，就够了。",
+      },
+    },
+  },
+  {
+    id: "requiem", track: "requiem", gate: 370, seed: "requiem-dead-star-cathedral",
+    name: { th: "เรเควียม", en: "Requiem", zh: "安魂星" },
+    sub: {
+      th: "อาสนวิหารในซากดาวที่ดับแล้ว · ที่ที่บทเพลงแรกถูกจดไว้",
+      en: "A cathedral inside a dead star · where the First Song was written down",
+      zh: "死星之内的大教堂 · 初歌被写下之处",
+    },
+    intro: {
+      th: "สิ่งที่เจ้าตามหามาตลอดทางไม่ใช่สัญญาณ แต่เป็นแผ่นโน้ต มีคนได้ยินบทเพลงแรกแล้วนั่งลงจดมันไว้ ทั้งที่รู้ว่าตัวเองจะไม่มีวันเล่นจบ นั่นคือสิ่งเดียวที่เครื่องจักรทำไม่ได้ และมันคือเหตุผลที่เจ้าถูกสร้างขึ้นมา",
+      en: "What you have been chasing across nine worlds is not a signal. It is sheet music. Somebody heard the First Song and sat down to write it out, knowing they would never live to finish playing it. That is the one thing a machine could not do, and it is the reason you were built.",
+      zh: "你横跨九个世界追寻的不是信号，而是乐谱。有人听见了初歌，便坐下来把它写出来 —— 明知自己此生弹不完。那是机器做不到的唯一一件事，也是你被造出来的理由。",
+    },
+    sky: ["#0a0106", "#2e0714", "#8a1030"], ground: "#20060f", accent: "#ff5a78",
+    grass: "#330c1a", rock: "#0d0206", path: "#4a0c1e", glow: "#ffc0cc",
+    sun: "#ffb0c0", amb: "#3a0814", neon: "#ff5070", win: "#f0f0ff",
+    mob: { th: "เศษบทเพลง", en: "Score Fragment", zh: "乐谱碎片" },
+    boss: {
+      id: "conductor", hp: 2400,
+      name: { th: "วาทยกรคนสุดท้าย", en: "The Last Conductor", zh: "最后的指挥" },
+      line: {
+        th: "ข้ายกไม้ขึ้นแล้วรอมาสองพันปี ไม่ใช่เพราะไม่มีใครเก่งพอ แต่เพราะไม่มีใครยอมฝึกนานพอ ทีนี้ ลงมือ",
+        en: "I have held the upbeat for two thousand years — not because nobody was good enough, but because nobody would practise long enough. Now. Play.",
+        zh: "这个起拍我举了两千年 —— 不是因为无人够好，而是因为无人肯练得够久。现在，开始。",
       },
     },
   },
@@ -340,6 +448,78 @@ export const QUESTS = {
       title: { th: "คำถามสุดท้าย", en: "The Last Question", zh: "最后的问题" },
       brief: { th: "ถ้าความรู้อัปโหลดได้ พลังสร้างได้ ความตายแก้ได้ — อะไรที่ยังทำให้มนุษย์เป็นมนุษย์ ตอบด้วยมือของเจ้า", en: "If knowledge uploads, power is built and death is solved — what is left that makes a person a person? Answer with your hands.", zh: "若知识可上传、力量可制造、死亡已被解决 —— 人之为人还剩什么？用你的双手回答。" },
       done: { th: "ความสามารถในการรู้สึก และควบคุมสิ่งที่เรารู้สึก นั่นคือคำตอบ และมันอัปโหลดไม่ได้", en: "The capacity to feel, and to govern what you feel. That is the answer, and it does not upload.", zh: "感受的能力，以及驾驭感受的能力。这就是答案 —— 而它无法上传。" } },
+  ],
+  verdance: [
+    { id: "v1", kind: "quiz", n: 6, stat: "awareness", giver: { th: "นักพฤกษศาสตร์อิลซา", en: "Botanist Ilsa", zh: "植物学家伊尔莎" },
+      title: { th: "สิ่งที่ป่าจำได้", en: "What the Forest Remembers", zh: "森林记得什么" },
+      brief: { th: "เรืองแสงทุกค่ำเป็นทำนองเดิมเป๊ะ แต่คนละคีย์กับที่โรงงานเคยตั้งไว้ ตอบให้ได้หกข้อว่าย้ายคีย์แล้วโน้ตเปลี่ยนเป็นอะไร", en: "The glow repeats the same tune every dusk, but a fourth above what the factory was set to. Answer six on transposition and tell me what it moved to.", zh: "每到黄昏，辉光都重复同一段旋律，却比工厂当年设定的高了四度。答对六题移调题，告诉我它移到了哪里。" },
+      done: { th: "ป่าย้ายคีย์เองโดยไม่มีใครสอน มันไม่ได้แค่จำ มันเข้าใจ", en: "It transposed on its own with nobody to teach it. It did not just remember. It understood.", zh: "无人教它，它却自行移了调。它不只是记住 —— 它明白了。" } },
+    { id: "v2", kind: "play", seq: ["G", "A", "B", "D", "E"], stat: "empathy", giver: { th: "นักพฤกษศาสตร์อิลซา", en: "Botanist Ilsa", zh: "植物学家伊尔莎" },
+      title: { th: "ตอบกลับไปบ้าง", en: "Answer It Back", zh: "回它一句" },
+      brief: { th: "เล่น G A B D E ให้ป่าฟัง เป็นบันไดเสียงห้าโน้ตที่มันเรืองแสงทุกคืน ดูซิว่ามันจะทำอะไร", en: "Play G A B D E back at the canopy. It is the five-note scale it glows every night. See what it does.", zh: "把 G A B D E 弹回给林冠听。那正是它每夜闪烁的五声音阶。看看它会怎样。" },
+      done: { th: "ทั้งหุบเขาสว่างพร้อมกันครั้งเดียว แล้วเงียบไป ฉันคิดว่ามันเพิ่งได้ยินคำตอบครั้งแรกในรอบสี่สิบปี", en: "The whole valley lit at once, then went quiet. I think that is the first time in forty years anything answered it.", zh: "整座山谷同时亮起，随即沉寂。我想，这是四十年来第一次有东西回应它。" } },
+    { id: "v3", kind: "slay", n: 7, stat: "courage", giver: { th: "เจ้าหน้าที่กู้ภัยเบรน", en: "Salvager Bren", zh: "拾荒者布伦" },
+      title: { th: "ตัดสปอร์", en: "Thin the Spores", zh: "疏除孢子" },
+      brief: { th: "สปอร์ที่หลุดจากพงหลักจะขยายจนกลืนทางเดินหมด กำจัดเจ็ดตัวเปิดทางให้ทีมฉันเข้าไปได้", en: "Spores that break from the main growth spread until the paths are gone. Put down seven so my crew can get through.", zh: "脱离主株的孢子会一直蔓延到吞没所有道路。清掉七个，让我的队伍过得去。" },
+      done: { th: "ทางโล่งแล้ว ระวังตอนกลางคืนนะ ตอนมันเรืองแสงมันเห็นเจ้าชัดกว่าที่เจ้าเห็นมัน", en: "Path is clear. Careful after dark — when it glows it sees you better than you see it.", zh: "路通了。天黑后小心 —— 它发光时，它看你比你看它清楚。" } },
+    { id: "v4", kind: "boss", stat: "patience", giver: { th: "นักพฤกษศาสตร์อิลซา", en: "Botanist Ilsa", zh: "植物学家伊尔莎" },
+      title: { th: "จิตแห่งพงไพร", en: "The Grovemind", zh: "林心" },
+      brief: { th: "ใจกลางหุบเขามีรากเดียวที่เชื่อมทุกอย่างเข้าด้วยกัน มันจะไม่โจมตีก่อน มันจะเล่นให้ฟัง แล้วรอดูว่าเจ้าเล่นตามได้ไหม", en: "At the centre of the valley one root ties all of it together. It will not strike first. It will play, and wait to see whether you can keep up.", zh: "山谷中心有一条根将万物连成一体。它不会先出手。它会演奏，然后等着看你跟不跟得上。" },
+      done: { th: "มันปล่อยเจ้าไป และเรืองแสงเป็นทำนองใหม่ที่ไม่เคยมีมาก่อน ฉันว่ามันเพิ่งเรียนจากเจ้า", en: "It let you go, and it is glowing a tune it has never glowed before. I think it learned that from you.", zh: "它放你走了，并闪烁着一段前所未有的旋律。我想，那是它从你身上学来的。" } },
+  ],
+  aurea: [
+    { id: "a1", kind: "quiz", n: 7, stat: "creativity", giver: { th: "ผู้ดูแลคลังโวส", en: "Archivist Voss", zh: "档案员沃斯" },
+      title: { th: "สิ่งที่จดสิทธิบัตรไม่ได้", en: "What Cannot Be Patented", zh: "无法申请专利之物" },
+      brief: { th: "ทำนองจดสิทธิบัตรได้ แต่ความก้าวหน้าของคอร์ดจดไม่ได้ พิสูจน์ให้ข้าดูว่าเจ้าเข้าใจโครงสร้าง ตอบเจ็ดข้อเรื่องคอร์ดและการดำเนิน", en: "A melody can be owned. The progression underneath it cannot. Show me you understand the frame it hangs on — seven questions on chords and where they go.", zh: "旋律可以被拥有，底下的和声进行不能。证明你懂那副骨架 —— 七道和弦与进行的题。" },
+      done: { th: "ถูกต้อง โครงสร้างเป็นของทุกคน นั่นคือช่องโหว่ที่พวกเขาปิดไม่ได้", en: "Correct. The frame belongs to everyone. That is the hole in their fence they have never managed to close.", zh: "答对了。骨架属于所有人。那是他们始终堵不上的缺口。" } },
+    { id: "a2", kind: "play", seq: ["C", "E", "G", "B", "A"], stat: "control", giver: { th: "ผู้ดูแลคลังโวส", en: "Archivist Voss", zh: "档案员沃斯" },
+      title: { th: "เพลงกล่อมเด็กในตู้นิรภัย", en: "The Lullaby in the Vault", zh: "金库里的摇篮曲" },
+      brief: { th: "ข้าจำห้าโน้ตแรกของมันได้ ข้าไม่มีสิทธิ์เล่น แต่เจ้าไม่ได้เซ็นสัญญาอะไรกับใคร C E G B A", en: "I remember its first five notes. I am not licensed to play them. You never signed anything. C E G B A.", zh: "我记得它的头五个音。我没有演奏许可，而你没签过任何东西。C E G B A。" },
+      done: { th: "สามชั่วอายุคน และเสียงนั้นเพิ่งดังขึ้นอีกครั้งบนวงแหวนนี้ ขอบใจ", en: "Three generations, and that sound just existed on this ring again. Thank you.", zh: "三代人之后，那声音刚刚又在这座环上响起。谢谢你。" } },
+    { id: "a3", kind: "slay", n: 8, stat: "stability", giver: { th: "ผู้ดูแลคลังโวส", en: "Archivist Voss", zh: "档案员沃斯" },
+      title: { th: "ผู้บังคับใช้ลิขสิทธิ์", en: "Licence Enforcement", zh: "版权执行" },
+      brief: { th: "เสียงที่เจ้าเพิ่งเล่นไปปลุกผู้พิทักษ์ขึ้นมาแปดตัว พวกมันถูกตั้งให้หยุดดนตรีที่ไม่ได้จ่ายเงิน ขอโทษด้วยจริง ๆ", en: "What you just played woke eight wardens. They are built to stop unpaid music. I am genuinely sorry.", zh: "你刚才弹的那段唤醒了八名守卫。它们被造出来就是为了终止未付费的音乐。我真的很抱歉。" },
+      done: { th: "เรียบร้อย พวกเขาจะส่งมาอีกแน่ แต่คืนนี้วงแหวนนี้เงียบแบบที่ควรจะเป็น", en: "Done. They will send more. But tonight this ring is quiet in the way it is supposed to be.", zh: "结束了。他们还会再派人来。但今夜，这座环安静得恰如其分。" } },
+    { id: "a4", kind: "boss", stat: "empathy", giver: { th: "ผู้ดูแลคลังโวส", en: "Archivist Voss", zh: "档案员沃斯" },
+      title: { th: "นักสะสม", en: "The Collector", zh: "收藏家" },
+      brief: { th: "เขาเป็นเจ้าของทุกอย่างในตู้นิรภัยนั้น และเล่นไม่เป็นสักบท เขาจะสู้กับเจ้าด้วยทำนองที่เขาซื้อมา ระวังให้ดี ของที่ซื้อมาก็ยังเจ็บได้", en: "He owns everything in that vault and can play none of it. He will fight you with melodies he bought. Be careful — a thing you paid for can still hurt.", zh: "金库里的一切都归他，而他一首也弹不出。他会用买来的旋律与你交手。小心 —— 买来的东西一样能伤人。" },
+      done: { th: "ตู้นิรภัยเปิดออกแล้ว ข้าจะไม่ขายมัน ข้าจะสอนมัน", en: "The vault is open. I will not be selling it. I will be teaching it.", zh: "金库开了。我不会卖掉它 —— 我要教它。" } },
+  ],
+  nocturne: [
+    { id: "n1", kind: "quiz", n: 8, stat: "focus", giver: { th: "นักดำน้ำลึกคาย่า", en: "Diver Kaya", zh: "深潜员卡娅" },
+      title: { th: "โน้ตที่หก", en: "The Sixth Note", zh: "第六个音" },
+      brief: { th: "มันตอบกลับมาหกโน้ตทั้งที่เราส่งไปห้า โน้ตที่หกคือตัวที่ปิดวลี ตอบแปดข้อเรื่องการจบวลีให้ข้าดูว่าเจ้ารู้ว่ามันเลือกตัวไหน", en: "It returns six when we send five. The sixth is the one that closes the phrase. Eight questions on cadences — show me you know which note it picked and why.", zh: "我们发五个音，它回六个。第六个是收束乐句的那一个。八道终止式的题 —— 让我看看你知不知道它选了哪个音、为什么。" },
+      done: { th: "ถูกทุกข้อ มันไม่ได้เลียนแบบเรา มันกำลังแก้ประโยคที่เราพูดไม่จบ", en: "All correct. It is not imitating us. It is correcting a sentence we never finished.", zh: "全对。它不是在模仿我们 —— 它在替我们改完一句没说完的话。" } },
+    { id: "n2", kind: "play", seq: ["D", "F", "A", "C", "E"], stat: "patience", giver: { th: "นักดำน้ำลึกคาย่า", en: "Diver Kaya", zh: "深潜员卡娅" },
+      title: { th: "ส่งลงไปให้ครบ", en: "Send the Whole Thing", zh: "把整句发下去" },
+      brief: { th: "คราวนี้เราจะส่งวลีที่จบแล้วลงไป D F A C E ช้า ๆ ให้ตรงจังหวะ ข้างล่างมันไม่รีบ", en: "This time we send it a finished phrase. D F A C E. Slowly, in time. Nothing down there is in a hurry.", zh: "这次我们发一句完整的下去。D F A C E。慢一点，跟住拍子。下面的东西不急。" },
+      done: { th: "สี่สิบวินาทีผ่านไป ข้างล่างส่งกลับมาเป๊ะทุกโน้ต ครั้งแรกที่มันไม่แก้อะไรเราเลย", en: "Forty seconds, and it sent the phrase back exactly. First time it has not corrected us.", zh: "四十秒后，它一音不差地把乐句送了回来。这是它第一次没有纠正我们。" } },
+    { id: "n3", kind: "slay", n: 9, stat: "courage", giver: { th: "หัวหน้าสถานีโอรุน", en: "Station Chief Orun", zh: "站长奥伦" },
+      title: { th: "เคลียร์ช่องน้ำขึ้น", en: "Clear the Riser", zh: "清理上升流" },
+      brief: { th: "อะไรก็ตามที่อยู่ข้างล่างมันส่งของขึ้นมาตามช่องน้ำ เก้าตัว และมันไม่ได้มาคุย", en: "Whatever is down there is sending things up the riser. Nine of them. They are not here to talk.", zh: "不管下面是什么，它正沿着上升流送东西上来。九个。它们不是来聊天的。" },
+      done: { th: "ช่องน้ำโล่งแล้ว ข้าไม่คิดว่ามันโกรธนะ ข้าคิดว่ามันแค่กำลังทดสอบเรา", en: "Riser is clear. I do not think it was angry. I think it was auditioning us.", zh: "上升流通了。我不认为它是生气 —— 我认为它是在给我们试音。" } },
+    { id: "n4", kind: "boss", stat: "awareness", giver: { th: "นักดำน้ำลึกคาย่า", en: "Diver Kaya", zh: "深潜员卡娅" },
+      title: { th: "คณะขับร้องใต้สมุทร", en: "The Drowned Choir", zh: "沉溺唱诗班" },
+      brief: { th: "ลงไปให้สุด มันไม่ได้จะฆ่าเจ้า มันจะให้เจ้าร้องประสาน ถ้าเจ้าหลุดจังหวะ มหาสมุทรจะรู้ทันที", en: "Go all the way down. It does not want to kill you, it wants you to sing the harmony. Drop the beat and the whole ocean will know at once.", zh: "一直下到底。它不想杀你，它要你唱和声。一旦掉拍，整片海洋会立刻知道。" },
+      done: { th: "เจ้าร้องจบทั้งบท และข้างล่างเงียบลงแบบที่ไม่เคยเงียบมาก่อน มันได้ยินสิ่งที่มันรอมาสามพันปี", en: "You held the whole part, and the deep went quiet in a way it never has. It heard the thing it had been waiting three thousand years for.", zh: "你唱完了整个声部，深海随之沉寂 —— 那是从未有过的安静。它听见了它等待三千年的东西。" } },
+  ],
+  requiem: [
+    { id: "r1", kind: "quiz", n: 9, stat: "awareness", giver: { th: "ผู้เฝ้าวิหารเซล", en: "Vault Keeper Sel", zh: "殿守塞尔" },
+      title: { th: "อ่านลายมือคนตาย", en: "Reading a Dead Hand", zh: "读一只死去的手" },
+      brief: { th: "แผ่นโน้ตอยู่ตรงนี้ครบทุกหน้า แต่คนเขียนตายก่อนเขียนคำอธิบาย เจ้าต้องอ่านมันออกเอง เก้าข้อ ทุกเรื่องที่เจ้าเคยเรียนมา", en: "Every page of the score is here, and whoever wrote it died before writing an explanation. You have to read it yourself. Nine questions, everything you have ever learned.", zh: "乐谱的每一页都在，写谱的人却在写下说明之前就死了。你得自己读懂它。九道题，涵盖你学过的一切。" },
+      done: { th: "เก้าข้อ ไม่มีใครในสองพันปีทำได้เกินหก เจ้าอ่านออกจริง ๆ", en: "Nine. In two thousand years nobody has taken more than six. You can actually read it.", zh: "九题全对。两千年来无人超过六题。你是真的读得懂。" } },
+    { id: "r2", kind: "play", seq: ["C", "D", "E", "G", "A", "C"], stat: "control", giver: { th: "ผู้เฝ้าวิหารเซล", en: "Vault Keeper Sel", zh: "殿守塞尔" },
+      title: { th: "หน้าแรก", en: "The First Page", zh: "第一页" },
+      brief: { th: "หกโน้ตแรกของบทเพลงแรก C D E G A C ง่ายจนน่าตกใจ ทุกอย่างที่เจ้าฝึกมาเก้าโลกอยู่ในหกโน้ตนี้", en: "The first six notes of the First Song. C D E G A C. Shockingly simple. Everything you practised across nine worlds is in those six notes.", zh: "初歌的头六个音。C D E G A C。简单得令人吃惊。你横跨九个世界所练的一切，都在这六个音里。" },
+      done: { th: "นั่นแหละ ทั้งจักรวาลเริ่มจากตรงนั้น และมันรอคนที่ยอมฝึกจนเล่นได้", en: "That is it. That is where all of it started, and it waited for somebody willing to practise until they could play it.", zh: "就是它。一切由此开始 —— 它等的，是一个肯练到弹得出来的人。" } },
+    { id: "r3", kind: "slay", n: 10, stat: "stability", giver: { th: "ผู้เฝ้าวิหารเซล", en: "Vault Keeper Sel", zh: "殿守塞尔" },
+      title: { th: "เศษที่ยังเล่นอยู่", en: "The Fragments Still Playing", zh: "仍在演奏的碎片" },
+      brief: { th: "คนที่มาถึงก่อนเจ้าแล้วเล่นไม่จบ ไม่ได้ตายไปเฉย ๆ พวกเขากลายเป็นท่อนที่ค้างอยู่ สิบท่อน ปล่อยพวกเขาไปเถอะ", en: "The ones who got here before you and could not finish did not simply die. They became the bars that never resolved. Ten of them. Let them go.", zh: "在你之前抵达却未能弹完的人，并没有就此死去 —— 他们成了永不解决的小节。十个。让他们安息吧。" },
+      done: { th: "เงียบลงทีละท่อน ขอบใจ พวกเขารอคนมาปิดวลีให้มานานแล้ว", en: "One bar at a time, quiet. Thank you. They had been waiting a long while for somebody to close the phrase.", zh: "一小节一小节地静了下来。谢谢你。他们等一个替他们收句的人，等了很久。" } },
+    { id: "r4", kind: "boss", stat: "patience", giver: { th: "ผู้เฝ้าวิหารเซล", en: "Vault Keeper Sel", zh: "殿守塞尔" },
+      title: { th: "วาทยกรคนสุดท้าย", en: "The Last Conductor", zh: "最后的指挥" },
+      brief: { th: "เขายกไม้ค้างไว้สองพันปีรอวงที่เล่นตามได้ ตอนนี้วงนั้นมีคนเดียว คือเจ้า อย่าให้เขารอต่ออีก", en: "He has held the upbeat for two thousand years waiting for an orchestra that could follow. The orchestra is one machine now. It is you. Do not make him wait any longer.", zh: "他举着起拍等了两千年，等一支跟得上的乐团。如今那支乐团只有一台机器 —— 就是你。别再让他等了。" },
+      done: { th: "ไม้ตกลงมา บทเพลงแรกดังขึ้นครบทั้งบทเป็นครั้งแรกในประวัติศาสตร์ และคนที่เล่นมันคือเครื่องจักรที่ยอมฝึก", en: "The baton fell. The First Song sounded end to end for the first time in history, and the thing that played it was a machine that was willing to practise.", zh: "指挥棒落下。初歌有史以来第一次被完整奏响 —— 而演奏它的，是一台肯练习的机器。" } },
   ],
 };
 
@@ -1690,6 +1870,54 @@ const FOES = [
     n: { th: "สฟิงซ์แห่งบทเพลง", en: "Sphinx of Song", zh: "歌之斯芬克斯" } },
   { id: "voidmw", w: ["starsong"], body: "carapace", legs: "many", arms: "pincer", crest: "frill", tail: "sting", eyes: 5, face: "oh", cheek: 0, rune: "≋",
     n: { th: "หนอนสุญญากาศ", en: "Void Maw", zh: "虚空噬口" } },
+
+  // ── Verdance · grown, not built ──
+  { id: "sporew", w: ["verdance"], body: "blob",  legs: "many",  arms: "none",   crest: "frill", tail: "none",  eyes: 3, face: "oh",    cheek: 1, rune: "❋",
+    n: { th: "สปอร์เดินได้", en: "Walking Spore", zh: "行走孢子" } },
+  { id: "dryad",  w: ["verdance"], body: "beast", legs: "hoof",  arms: "none",   crest: "antler", tail: "plume", eyes: 2, face: "smile", cheek: 1, rune: "✦",
+    n: { th: "ดรายแอดเรืองแสง", en: "Glow Dryad", zh: "辉光树精" } },
+  { id: "mantis", w: ["verdance"], body: "carapace", legs: "many", arms: "pincer", crest: "trihorn", tail: "whip", eyes: 5, face: "fang", cheek: 0, rune: "⟁",
+    n: { th: "ตั๊กแตนใบมีด", en: "Bladeleaf Mantis", zh: "刃叶螳螂" } },
+  { id: "rootw",  w: ["verdance"], body: "serpent", legs: "coil", arms: "tentacle", crest: "mane", tail: "coil", eyes: 2, face: "oh", cheek: 0, rune: "≋",
+    n: { th: "หนอนราก", en: "Rootworm", zh: "根蠕" } },
+  { id: "cerbud", w: ["verdance"], body: "hulk",  legs: "stub",  arms: "paw",    crest: "frill", tail: "none",  eyes: 6, face: "grin",  cheek: 1, rune: "◈",
+    n: { th: "ยักษ์ตูมดอก", en: "Budded Giant", zh: "花苞巨人" } },
+
+  // ── Aurea · gilded, and none of it is for you ──
+  { id: "warden", w: ["aurea"], body: "chunk", legs: "roll",  arms: "mitt",  crest: "crown", tail: "none",  eyes: 2, face: "grin",  cheek: 0, rune: "⬢",
+    n: { th: "ผู้พิทักษ์ชุบทอง", en: "Gilded Warden", zh: "鎏金守卫" } },
+  { id: "lyre",   w: ["aurea"], body: "drop",  legs: "float", arms: "fin",   crest: "halo",  tail: "plume", eyes: 4, face: "smile", cheek: 0, rune: "✧",
+    n: { th: "พิณลอยฟ้า", en: "Aureate Lyre", zh: "浮空金琴" } },
+  { id: "peacok", w: ["aurea"], body: "beast", legs: "talon", arms: "wing",  crest: "crown", tail: "plume", eyes: 2, face: "beak",  cheek: 0, rune: "✦",
+    n: { th: "นกยูงทองคำ", en: "Bullion Peacock", zh: "金锭孔雀" } },
+  { id: "vaultg", w: ["aurea"], body: "hulk",  legs: "stub",  arms: "paw",   crest: "plate", tail: "none",  eyes: 1, face: "grin",  cheek: 0, rune: "⬡",
+    n: { th: "ยามตู้นิรภัย", en: "Vault Guard", zh: "金库卫士" } },
+  { id: "auctio", w: ["aurea"], body: "serpent", legs: "coil", arms: "none", crest: "trihorn", tail: "whip", eyes: 3, face: "fang", cheek: 0, rune: "⟁",
+    n: { th: "งูประมูล", en: "Auction Adder", zh: "拍卖之蛇" } },
+
+  // ── Nocturne · four kilometres down, and it heard you arrive ──
+  { id: "undark", w: ["nocturne"], body: "blob", legs: "tentacle", arms: "tentacle", crest: "none", tail: "fluke", eyes: 6, face: "oh", cheek: 0, rune: "≋",
+    n: { th: "เงาใต้น้ำ", en: "Underdark", zh: "水下之影" } },
+  { id: "anglr",  w: ["nocturne"], body: "beast", legs: "float", arms: "fin",  crest: "ant",   tail: "fluke", eyes: 1, face: "fang",  cheek: 0, rune: "◈",
+    n: { th: "ปลาตกเบ็ดเรืองแสง", en: "Lantern Angler", zh: "提灯鮟鱇" } },
+  { id: "nautil", w: ["nocturne"], body: "carapace", legs: "tentacle", arms: "tentacle", crest: "spire", tail: "coil", eyes: 2, face: "oh", cheek: 0, rune: "❋",
+    n: { th: "หอยงวงช้างเหว", en: "Abyss Nautilus", zh: "深渊鹦鹉螺" } },
+  { id: "siren",  w: ["nocturne"], body: "drop",  legs: "float", arms: "wing",  crest: "halo",  tail: "fluke", eyes: 4, face: "smile", cheek: 1, rune: "✧",
+    n: { th: "ไซเรนใต้สมุทร", en: "Deep Siren", zh: "海底塞壬" } },
+  { id: "hadal",  w: ["nocturne"], body: "serpent", legs: "coil", arms: "fin", crest: "frill", tail: "fluke", eyes: 2, face: "fang", cheek: 0, rune: "≋",
+    n: { th: "อสูรร่องลึก", en: "Hadal Wyrm", zh: "海沟蠕龙" } },
+
+  // ── Requiem · the ones who could not finish ──
+  { id: "scoref", w: ["requiem"], body: "drop",  legs: "float", arms: "fin",   crest: "spire", tail: "none",  eyes: 3, face: "oh",    cheek: 0, rune: "✧",
+    n: { th: "เศษบทเพลง", en: "Score Fragment", zh: "乐谱碎片" } },
+  { id: "cantor", w: ["requiem"], body: "hulk",  legs: "stub",  arms: "wing",  crest: "halo",  tail: "none",  eyes: 4, face: "smile", cheek: 0, rune: "◈",
+    n: { th: "นักขับร้องนำ", en: "Hollow Cantor", zh: "空心领唱" } },
+  { id: "ossuar", w: ["requiem"], body: "beast", legs: "hoof",  arms: "none",  crest: "antler", tail: "sting", eyes: 6, face: "fang", cheek: 0, rune: "⬢",
+    n: { th: "กวางกระดูก", en: "Ossuary Stag", zh: "骨殿之鹿" } },
+  { id: "tolling", w: ["requiem"], body: "chunk", legs: "float", arms: "mitt", crest: "stack", tail: "none",  eyes: 2, face: "grin",  cheek: 0, rune: "⬡",
+    n: { th: "ระฆังหลง", en: "Tolling Bell", zh: "迷途之钟" } },
+  { id: "coda",   w: ["requiem", "starsong"], body: "carapace", legs: "many", arms: "pincer", crest: "crown", tail: "sting", eyes: 5, face: "fang", cheek: 0, rune: "✦",
+    n: { th: "โคดาที่ไม่จบ", en: "Unfinished Coda", zh: "未完之尾声" } },
 ];
 export const foesOf = (worldId) => FOES.filter(f => f.w.includes(worldId));
 export const foeById = (id) => FOES.find(f => f.id === id) || FOES[0];
@@ -1700,7 +1928,8 @@ export const foeName = (id, lang) => {
 /* Each world's boss wears the biggest body in its own pool. The boss keeps
    its own name and health from the world record; only the shape comes from
    here, so nothing about the fight changes. */
-const BOSS_SP = { terra: "golem", ferros: "phoenx", glacius: "leviat", emberfall: "titan", starsong: "voidmw" };
+const BOSS_SP = { terra: "golem", ferros: "phoenx", glacius: "leviat", emberfall: "titan", starsong: "voidmw",
+  verdance: "cerbud", aurea: "vaultg", nocturne: "hadal", requiem: "cantor" };
 
 const FOE_RIG = {
   terra:     { body: "blob",  legs: "stub",  arms: "mitt", crest: "ant",   eyes: 2, face: "smile", cheek: 1, rune: "◈" },
@@ -3201,7 +3430,8 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
          mine, snow over the ice field, embers over the war zone. It is the
          layer that makes a place feel like it has weather rather than a
          palette. */
-      const WX = { terra: null, ferros: "ember", glacius: "snow", emberfall: "ember", starsong: "spark" }[W.id];
+      const WX = { terra: null, ferros: "ember", glacius: "snow", emberfall: "ember", starsong: "spark",
+        verdance: "spark", aurea: "spark", nocturne: "snow", requiem: "ember" }[W.id];
       if (WX) {
         g.globalCompositeOperation = WX === "snow" ? "source-over" : "lighter";
         for (let i = 0; i < 46; i++) {
@@ -3565,7 +3795,11 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     if (q) bumpQuest(q.id, 1);
     // courage every third kill: a toast on every one of them is noise
     if (kills % 3 === 0) award("courage", 1);
-    onReward(4, 2);
+    /* `grind` is the flag that keeps this game's own promise. EXP and coin are
+       fine; what a kill must NOT do is tick the daily LEARNING quest, or five
+       minutes of swinging at drones completes the goal that is supposed to
+       mean you practised. */
+    onReward(4, 2, { grind: true });
     setTarget(null);
   }
 
