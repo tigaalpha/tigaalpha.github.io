@@ -1106,7 +1106,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 /* Adventure's overdrive. It lives on the pad rather than appearing there
    when it charges: a button that materialises mid-fight shoves every other
    button out from under a thumb already reaching for one. */
-.pvpact.ult{grid-column:span 2;width:auto;background:linear-gradient(135deg,#fff0c2,#ffd23f);border-color:transparent;color:#7a4a06;box-shadow:0 6px 18px -10px #ffd23f;animation:pvpOdPulse 1s ease-in-out infinite}
+.pvpact.ult{background:linear-gradient(135deg,#fff0c2,#ffd23f);border-color:transparent;color:#7a4a06;box-shadow:0 6px 18px -10px #ffd23f;animation:pvpOdPulse 1s ease-in-out infinite}
 .pvpact.ult b{color:#7a4a06}
 .pvpact.ult.cool{background:var(--card);border-color:var(--bd1);color:var(--muted);box-shadow:none;animation:none;opacity:.55}
 .pvpact.ult.cool b{color:var(--muted)}
@@ -2575,55 +2575,49 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    at a lower z-index the header sat over the top of it and ate both HP bars,
    which are the two numbers the fight is actually about. */
 /* ── the Adventure fight wears the PvP arena's chrome ──
-   Everything here is an OVERRIDE of a .pvp* rule, never a copy of one: the
-   markup already carries the PvP classes, and a parallel set of rules is
-   exactly how two screens that are meant to match drift apart again. What is
-   left is only what PvP has no equivalent for - the weather, the film grade,
-   the wet floor, and a monster that telegraphs before it swings. */
-.ssbattle{position:fixed;inset:0;z-index:1480;display:flex;flex-direction:column;background:var(--bg);overflow:hidden;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));--wc:#7fb2ff;--wg:#8fd0ff}
-/* Every .pvp* block centres itself with an auto margin and a max-width,
-   which works because PvP's page is a block container. This one is a flex
-   column, where an auto cross-axis margin makes the item shrink-to-fit its
-   content instead - and all of this content is absolutely positioned, so the
-   stage collapsed to its 2px of border. Stretch them back to full width and
-   let their own max-width do the centring. */
-.ssbattle>*{width:100%;align-self:center;box-sizing:border-box}   /* border-box, or the stage's border and the pad's padding are ADDED to
-      the 100% and both hang 2px and 26px past the edge of the phone */
-/* Portrait: PvP's framed card, inset from the edges so it reads as one - but
-   it takes the height the controls leave it rather than PvP's fixed 300px.
-   Capped instead, it left a 130px band of empty page between the card and the
-   thumbs; the fighters are bounded separately below, so a tall card is just
-   more city behind them rather than more empty sky. */
-.ssbattle .pvpstage{flex:1 1 auto;height:auto;min-height:224px;width:calc(100% - 20px)}
-/* PvP anchors one figure per side at a fixed height; Adventure's two stack a
-   figure over its own reflection, so the fighter becomes a column while
-   keeping PvP's absolute placement off a 0..1 position */
-/* The stage is free to be as tall as the screen allows, but the fighters
-   are not: stretched between top and bottom they grew to 545px and the
-   chassis lost its head off the top of the frame. Anchor them to the
-   floor at a fixed size and let the stage be as big as it likes. */
-.ssbattle .pvpfighter{flex-direction:column;justify-content:flex-end;align-items:center;top:auto;height:min(62%,318px);transition:left .13s ease-out}
+   The markup already carries the .pvp* classes, so this block is only what
+   PvP has no equivalent for. Two things earn their place here and nothing
+   else does:
+
+   1. WHERE it sits. PvP's fight is a block inside the app shell, which is why
+      the TIGA header, the coins and the language picker stay on screen above
+      it. This was a portal fixed to the whole viewport and blanked all three
+      out - the single biggest reason the two screens still did not look alike.
+      Absolute inside .sspage covers the map without leaving the shell.
+   2. The FIGHTER, which here is a figure stacked over its own reflection
+      rather than PvP's single sprite.
+
+   Everything else - the stage's size, the pad, the question, the options, the
+   skill row - is PvP's own rule, untouched, so the two cannot drift. */
+.ssbattle{position:absolute;inset:0;z-index:30;background:var(--bg);overflow-y:auto;--wc:#7fb2ff;--wg:#8fd0ff}
+.ssbattle .pvpfighter{flex-direction:column;justify-content:flex-end;align-items:center;transition:left .13s ease-out}
 .ssbattle .pvpfighter::before{display:none}          /* the mirror is the contact shadow */
 .ssbattle .pvpfighter.me{width:42%;max-width:232px}
 .ssbattle .pvpfighter.op{width:56%;max-width:312px}
 .ssbattle .pvpfighter.op.big{width:66%;max-width:372px}
 .ssbattle .pvpfighter svg{filter:drop-shadow(0 14px 12px rgba(0,0,0,.55))}
-.ssbattle .pvphps{padding-top:10px}
-.ssbattle .pvpskills{margin-top:8px}
-.ssbattle .pvpwave-l{margin-top:3px}
+/* the skill row is read, not pressed, so it must not look clickable */
+.ssbattle .pvpskbtn{cursor:default}
+/* PvP's rocket spans both columns because it is the fifth of five. This pad
+   has six - the overdrive rides beside it - so the two heavy buttons share
+   the bottom row and the pad keeps PvP's three-row height. */
+.ssbattle .pvppad-r .pvpact.rocket{grid-column:auto;width:62px}
+/* quiet, and out of the way of both thumbs */
+.ssdisengage{display:block;max-width:520px;margin:10px auto 0;width:auto;padding:9px 18px;font-size:12px;color:var(--muted);background:transparent;border-color:transparent}
+.ssdisengage:active{background:var(--card2)}
+/* landscape is the immersive one: the stage is the whole screen and both
+   thumb clusters are already on it, so there is nowhere quiet left */
+.ssbattle.land .ssdisengage{display:none}
 /* ── landscape ──
    .pvppage.land already moves the header, pad, question and options onto the
    stage; these are the three things it cannot know about. */
-.ssbattle.land{z-index:1480;padding-bottom:0}          /* .pvppage.land drops to 60, which is under the app header */
-/* land pins the stage with inset:0; the portrait card's inset width then wins
-   over the right edge and leaves a 20px strip of page showing down the side */
-.ssbattle.land .pvpstage{width:auto}
+.ssbattle.land{z-index:1480}                           /* .pvppage.land drops to 60, which is under the app header */
 /* an empty gauge whose track is the light page colour reads as a FULL gauge
    once it is sitting on the night stage instead of under it */
 .ssbattle.land .pvpgauge{background:rgba(4,8,18,.62);border-color:#ffffff2e}
+.ssbattle.land .pvpskbtn{background:rgba(255,255,255,.88);opacity:1}
 /* land pins the fighter's height, so it has to stop being stretched between
    top and bottom or the floor anchor is the constraint the browser discards */
-.ssbattle.land .pvpfighter{top:auto}
 .ssbattle.land .ssb-line{position:absolute;left:50%;top:84px;transform:translateX(-50%);z-index:8;max-width:min(64%,420px);margin:0;
   padding:6px 12px;border-radius:12px;background:rgba(4,8,18,.66);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .ssbattle.shake{animation:ssbshake .3s cubic-bezier(.36,.07,.19,.97)}

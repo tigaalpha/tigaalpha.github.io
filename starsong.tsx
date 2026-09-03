@@ -1191,10 +1191,21 @@ const BOKEH = [
   [72, 17, 24, "#ffd28a"], [83, 36, 32, "#8fd0ff"], [92, 21, 18, "#ffb26b"],
   [12, 52, 20, "#ffd28a"], [46, 56, 22, "#8fd0ff"], [78, 54, 16, "#ffb26b"],
 ];
+/* Two melee, two ranged, and the reach is the whole trade: a punch is cheap
+   and only lands in close, a rocket reaches across the arena but leaves you
+   holding an empty tube for nearly three seconds. Same shape as PvP's, which
+   is where the five buttons on the pad come from. */
 const MOVE_KIND = {
-  punch: { cd: 0.5,  reach: 0.40, mult: 0.24, fx: "punch" },
-  kick:  { cd: 1.05, reach: 0.47, mult: 0.42, fx: "kick" },
+  punch:  { cd: 0.5,  reach: 0.40, mult: 0.24, fx: "punch" },
+  kick:   { cd: 1.05, reach: 0.47, mult: 0.42, fx: "kick" },
+  fire:   { cd: 0.8,  reach: 0.95, mult: 0.17, fx: "bolt" },
+  rocket: { cd: 2.7,  reach: 0.92, mult: 0.66, fx: "lob" },
 };
+const JUMP_CD = 1.5, JUMP_MS = 620;
+/* The player sprite is 42% of the stage wide and is placed at `centre - 21%`,
+   so a centre left of 0.21 walks its own left edge off the frame. This is the
+   wall, and every backward move stops at it. */
+const ARENA_LEFT = 0.22;
 
 function playerHit(save, streak) {
   const base = 6 + chassisLevel(save) * 1.1;
@@ -2378,7 +2389,7 @@ const MOVES = [
 const moveFor = (streak) => MOVES[Math.min(streak, MOVES.length - 1)];
 
 const BattleScreen = memo(function BattleScreen({
-  lang, W, foe, hp, maxHpV, chassisEl, onAnswer, onFlee, shake, hurtFoe, hurtMe, playing, reveal, onNextQ, bt, onAct, bnr, cine,
+  lang, W, foe, hp, maxHpV, chassisEl, onAnswer, onFlee, onExit, rank, shake, hurtFoe, hurtMe, playing, reveal, onNextQ, bt, onAct, bnr, cine,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const ST = stageById(W.track);
@@ -2394,7 +2405,9 @@ const BattleScreen = memo(function BattleScreen({
   /* Keys for anyone on a laptop: the same five actions the thumbs get. */
   useEffect(() => {
     if (!onAct) return;
-    const K = { ArrowLeft: "left", a: "left", ArrowRight: "right", d: "right", j: "punch", z: "punch", k: "kick", x: "kick", " ": "guard", Enter: "ult", e: "ult" };
+    const K = { ArrowLeft: "left", a: "left", ArrowRight: "right", d: "right", j: "punch", z: "punch",
+      k: "kick", x: "kick", " ": "guard", Enter: "ult", e: "ult",
+      f: "fire", c: "fire", w: "jump", ArrowUp: "jump", r: "rocket", v: "rocket" };
     const dn = (e) => { const m = K[e.key] || K[e.key.toLowerCase()]; if (m) { e.preventDefault(); onAct(m); } };
     window.addEventListener("keydown", dn);
     return () => window.removeEventListener("keydown", dn);
@@ -2418,10 +2431,14 @@ const BattleScreen = memo(function BattleScreen({
   const mePct = clamp(hp / maxHpV, 0, 1);
   const acting = !!onAct && !reveal && (foe.phase === "act" || !foe.q);
 
-  /* Portalled to <body>. A fixed element still answers to the nearest
-     ancestor that owns a stacking context, and inside the app shell the
-     header was painting over the top of the fight and eating both HP bars —
-     the two numbers the whole fight is about. Out here it cannot.
+  /* ── it sits INSIDE the page, exactly where PvP's fight sits ──
+     This used to be portalled to <body> and fixed to the whole viewport,
+     because the app header painted over the health bars. The bars live in the
+     stage now, so the reason is gone — and being a portal was the single
+     biggest thing that still made this look like a different screen: PvP
+     keeps the TIGA header, the coin count and the language picker above the
+     fight, and this one blanked them out. Absolute inside .sspage covers the
+     map without ever leaving the shell.
 
      ── the chrome is the PvP arena's, not a copy of it ──
      Adventure and PvP are the same fight with a different opponent, so they
@@ -2433,15 +2450,15 @@ const BattleScreen = memo(function BattleScreen({
      the wet floor and the monster's tell. */
   const mePos = (bt && bt.me) || 0.24, foePos = (bt && bt.foe) || 0.76;
   const odNow = (bt && bt.od) || 0;
-  return createPortal((
+  return (
     <div className={`pvppage fight ssbattle${land ? " land" : ""}${foe.boss ? " boss" : ""}${hurtFoe ? " punchy" : ""}${cine ? " cine" : ""}`}
       data-stage={ST.id} style={{ "--wc": W.accent, "--wg": W.glow }}>
 
       <div className="pvphdr">
-        <button className="stgback" onClick={onFlee} aria-label={T("ถอย", "Disengage", "脱离")}>←</button>
+        <button className="stgback" onClick={onExit} aria-label={T("กลับหน้าโปรไฟล์", "Back to profile", "返回个人页")}>←</button>
         <span className="pvphdr-t">{tr3(W.name, lang)}</span>
         <span className="pvparena">{tr3(ST, lang)}</span>
-        <span className="pvpscore">{foe.streak > 1 ? `×${foe.streak}` : ""}</span>
+        <span className="pvpscore">{T("แรงก์", "Rank", "阶")} {rank}</span>
       </div>
 
       <div className={`pvpstage${shake ? " sh2" : ""}${odNow >= 100 ? " od" : ""}`}>
@@ -2524,12 +2541,25 @@ const BattleScreen = memo(function BattleScreen({
               <button className={`pvpdir grd${(bt.cd || {}).guard > 0 ? " cool" : ""}`} aria-label={T("ตั้งการ์ด", "Guard", "格挡")} onPointerDown={() => onAct("guard")}>🛡</button>
               <button className="pvpdir" aria-label={T("เข้าหา", "Forward", "前进")} onPointerDown={() => onAct("right")}>▶</button>
             </div>
+            {/* PvP's five, in PvP's order: the ranged pair on top, the melee
+                pair together where the thumb rests, and the heavy one across
+                the bottom. Overdrive replaces PvP's rocket in that slot -
+                it is this fight's big red button. */}
             <div className="pvppad-r">
+              <button className={`pvpact fire${(bt.cd || {}).fire > 0 ? " cool" : ""}`} aria-label={T("ยิง", "Fire", "射击")} onPointerDown={() => onAct("fire")}>
+                <b>🔫</b><i>{T("ยิง", "FIRE", "射击")}</i>
+              </button>
+              <button className={`pvpact jump${(bt.cd || {}).jump > 0 ? " cool" : ""}`} aria-label={T("กระโดด", "Jump", "跳跃")} onPointerDown={() => onAct("jump")}>
+                <b>⤴</b><i>{T("กระโดด", "JUMP", "跳跃")}</i>
+              </button>
               <button className={`pvpact punch${(bt.cd || {}).punch > 0 ? " cool" : ""}`} aria-label={T("ต่อย", "Punch", "拳击")} onPointerDown={() => onAct("punch")}>
                 <b>👊</b><i>{T("ต่อย", "PUNCH", "拳击")}</i>
               </button>
               <button className={`pvpact kick${(bt.cd || {}).kick > 0 ? " cool" : ""}`} aria-label={T("เตะ", "Kick", "踢击")} onPointerDown={() => onAct("kick")}>
                 <b>🦵</b><i>{T("เตะ", "KICK", "踢击")}</i>
+              </button>
+              <button className={`pvpact rocket${(bt.cd || {}).rocket > 0 ? " cool" : ""}`} aria-label={T("จรวด", "Rocket", "火箭")} onPointerDown={() => onAct("rocket")}>
+                <b>🚀</b><i>{T("จรวด", "ROCKET", "火箭")}</i>
               </button>
               {/* always present, dimmed until it is charged: a button that
                   appears on the pad mid-fight moves every other button under
@@ -2540,9 +2570,30 @@ const BattleScreen = memo(function BattleScreen({
               </button>
             </div>
           </div>
+          {/* the two panels that fill PvP's skill row. PvP's are its active
+              and ultimate skills; Adventure fires its ultimate from the pad,
+              so these carry the two numbers that actually decide how hard the
+              next blow lands — which is what a skill panel is for. */}
           <div className="pvpskills">
             <div className="pvpgauge"><i style={{ width: `${odNow}%`, background: odNow >= 100 ? "#ffd23f" : "#d97757" }} /></div>
+            <div className="pvpskbtns">
+              <div className={`pvpskbtn${(bt.combo || 0) > 1 ? " on" : ""}`} style={{ "--cc": W.glow }}>
+                <b>{T("คอมโบ", "Combo", "连击")} ×{bt.combo || 0}</b>
+                <i>{(bt.combo || 0) > 1
+                  ? T(`แรง +${Math.round(Math.min(60, (bt.combo - 1) * 12))}%`, `+${Math.round(Math.min(60, (bt.combo - 1) * 12))}% damage`, `伤害 +${Math.round(Math.min(60, (bt.combo - 1) * 12))}%`)
+                  : T("ต่อยติดกันเพื่อสะสม", "Chain hits to build it", "连续命中以积累")}</i>
+              </div>
+              <div className={`pvpskbtn ult${foe.streak > 0 ? " on" : ""}`} style={{ "--cc": "#ffd23f" }}>
+                <b>{T("ตอบต่อเนื่อง", "Answer streak", "答题连胜")} ×{foe.streak || 0}</b>
+                <i>{T("ท่าถัดไป", "Next strike", "下一击")}: {moveFor(foe.streak || 0).id.toUpperCase()}</i>
+              </div>
+            </div>
           </div>
+          {/* The header arrow leaves the game for the profile page, which is
+              what it was asked to do - so this is the only way back to the
+              map with the fight abandoned. Without it a fight you walked into
+              can only be finished, never left. */}
+          <button className="pvpghost ssdisengage" onClick={onFlee}>{T("ถอยกลับสู่แผนที่", "Disengage to the map", "撤回地图")}</button>
         </>
       ) : reveal ? (
         /* The fight pauses on the answer. Rushing straight to the next
@@ -2561,7 +2612,7 @@ const BattleScreen = memo(function BattleScreen({
         </>
       )}
     </div>
-  ), document.body);
+  );
 });
 
 export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward = () => {}, playUi = () => {}, playerName = "TIGA-01", charModel = "vanguard" }) {
@@ -3230,10 +3281,10 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
      numbers live in a ref and are mirrored into state at ~20fps, because a
      spacing duel does not need 60 renders a second and the canvas has its
      own loop anyway. */
-  const btRef = useRef({ me: 0.24, foe: 0.76, guard: 0, qIn: QUESTION_EVERY, foeCd: 2.2, cd: { punch: 0, kick: 0, guard: 0 }, tell: 0, tellAt: 0, guardAt: 0, combo: 0, comboAt: 0, od: 0 });
+  const btRef = useRef({ me: 0.24, foe: 0.76, guard: 0, qIn: QUESTION_EVERY, foeCd: 2.2, cd: { punch: 0, kick: 0, guard: 0, fire: 0, rocket: 0, jump: 0 }, tell: 0, tellAt: 0, guardAt: 0, combo: 0, comboAt: 0, od: 0, air: 0 });
   const [bt, setBt] = useState(() => ({ ...btRef.current }));
   const resetArena = useCallback(() => {
-    btRef.current = { me: 0.24, foe: 0.76, guard: 0, qIn: QUESTION_EVERY, foeCd: 2.4, cd: { punch: 0, kick: 0, guard: 0 }, tell: 0, tellAt: 0, guardAt: 0, combo: 0, comboAt: 0, od: 0 };
+    btRef.current = { me: 0.24, foe: 0.76, guard: 0, qIn: QUESTION_EVERY, foeCd: 2.4, cd: { punch: 0, kick: 0, guard: 0, fire: 0, rocket: 0, jump: 0 }, tell: 0, tellAt: 0, guardAt: 0, combo: 0, comboAt: 0, od: 0, air: 0 };
     setBt({ ...btRef.current });
     setBnr(null);
   }, []);
@@ -3247,7 +3298,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       const b = btRef.current, cur = fightRef.current;
       if (!cur || cur.over) return;
-      for (const k of ["punch", "kick", "guard"]) b.cd[k] = Math.max(0, b.cd[k] - dt);
+      for (const k in b.cd) b.cd[k] = Math.max(0, b.cd[k] - dt);
       b.guard = Math.max(0, b.guard - dt);
       b.hitLag = Math.max(0, b.hitLag - dt);
 
@@ -3295,7 +3346,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     const b = btRef.current, f = fightRef.current;
     if (!f || f.over) return;
     const G = fxRef.current;
-    if (G) { G.swipe("op", "#ff6a6a", "punch"); window.setTimeout(() => G.impact("me", 1.1, "#ff6a6a", "punch"), 140); }
+    if (G) { G.swipe("op", "#ff6a6a", "punch"); window.setTimeout(() => G.impact("op", 1.1, "#ff6a6a", "punch"), 140); }
     // guard raised INSIDE the wind-up: read the tell, take the round
     if (b.guard > 0 && b.guardAt >= b.tellAt) {
       b.od = Math.min(100, b.od + 26);
@@ -3310,6 +3361,14 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       return;
     }
     playMiss();
+    if (b.air > 0) {
+      /* airborne when it swings: the swing goes under you. A jump that does
+         not actually dodge anything is a button that lies. */
+      haptic(10); b.od = Math.min(100, b.od + 8); setBt({ ...b });
+      if (G) G.burst("me", 1.2, W.glow);
+      pop(meRef.current.x, meRef.current.y - 20, T("หลบ!", "DODGE!", "闪避!"), "#8fd0ff", true);
+      return;
+    }
     if (b.guard > 0) { haptic(8); pop(meRef.current.x, meRef.current.y - 20, T("กัน", "BLOCK", "格挡"), "#7fd0ff", false); return; }
     const dmg = Math.max(2, Math.round(mobHit(saveRef.current, f.boss) * 0.42));
     haptic(16);
@@ -3328,7 +3387,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
   function act(kind) {
     const b = btRef.current, f = fightRef.current;
     if (!f || f.over || f.phase !== "act" || revealRef.current) return;
-    if (kind === "left")  { b.me = Math.max(0.18, b.me - 0.06); setBt({ ...b }); return; }
+    if (kind === "left")  { b.me = Math.max(ARENA_LEFT, b.me - 0.06); setBt({ ...b }); return; }
     if (kind === "right") { b.me = Math.min(b.foe - 0.28, b.me + 0.06); setBt({ ...b }); return; }
     if (kind === "guard") {
       if (b.cd.guard > 0) return;
@@ -3337,19 +3396,37 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     }
     if (kind === "ult") {
       if (b.od < 100) return;
-      b.od = 0; b.cd.punch = 0.9; b.cd.kick = 0.9; setBt({ ...b });
+      b.od = 0; b.cd.punch = 0.9; b.cd.kick = 0.9; b.cd.fire = 0.9; b.cd.rocket = 1.4; setBt({ ...b });
       const G0 = fxRef.current;
-      if (G0) { G0.flash("#ffffff", .9, .55); G0.beam("op", W.glow); }
+      if (G0) { G0.flash("#ffffff", .9, .55); G0.beam("me", W.glow); }
       banner(T("โอเวอร์ไดรฟ์!", "OVERDRIVE!", "超载!"), "ult");
       setCine(true); window.setTimeout(() => setCine(false), 1400);
       [0, 190, 380].forEach((d, i) => window.setTimeout(() => landHit(i === 2 ? "ult" : "kick", i === 2 ? 1.5 : 0.6, true), d));
+      return;
+    }
+    if (kind === "jump") {
+      /* PvP jumps to dodge; there is no vertical axis here, so this is the
+         same idea on the axis that does exist - a hop backwards that spends
+         ground to buy time, and lands you out of reach of the wind-up. */
+      if (b.cd.jump > 0) return;
+      b.cd.jump = JUMP_CD; b.me = Math.max(ARENA_LEFT, b.me - 0.13); b.air = 1;
+      haptic(6); playWhoosh(); setBt({ ...b });
+      const G1 = fxRef.current;
+      if (G1) G1.burst("me", 0.7, W.glow);
+      window.setTimeout(() => { const bb = btRef.current; bb.air = 0; setBt({ ...bb }); }, JUMP_MS);
       return;
     }
     const M = MOVE_KIND[kind];
     if (!M || b.cd[kind] > 0) return;
     b.cd[kind] = M.cd; setBt({ ...b });
     const G = fxRef.current;
-    if (G) G.swipe("me", W.glow, M.fx);
+    /* a thrown weapon has to LEAVE you: a swipe at arm's length reads as a
+       punch no matter what the button said */
+    if (G) {
+      if (kind === "fire") G.bolt("me", W.glow);
+      else if (kind === "rocket") G.lob("me", W.accent);
+      else G.swipe("me", W.glow, M.fx);
+    }
     if (Math.abs(b.foe - b.me) > M.reach) { playMiss(); haptic(4); b.combo = 0; return; }
     landHit(kind, M.mult, false);
   }
@@ -3366,7 +3443,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
     const chain = 1 + Math.min(b.combo, 8) * 0.09;
     const dmg = Math.max(1, Math.round(playerHit(saveRef.current, 0) * mult * chain));
     const G = fxRef.current;
-    if (G) G.impact("op", kind === "ult" ? 2.6 : kind === "kick" ? 1.5 : 1.1, W.accent, kind === "ult" ? "nova" : kind);
+    if (G) G.impact("me", kind === "ult" ? 2.6 : kind === "kick" ? 1.5 : 1.1, W.accent, kind === "ult" ? "nova" : kind);
     playBoom(b.combo >= 5 || !!free); haptic(kind === "kick" ? 14 : 8);
     setHurtFoe(true); window.setTimeout(() => setHurtFoe(false), 150);
     const m = mobsRef.current.find(x => x.id === f.mobId);
@@ -3423,7 +3500,7 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
       const mv = moveFor(f.streak);
       const G = fxRef.current;
       if (G) {
-        if (mv.fx === "swipe") { G.swipe("me", W.glow, "punch"); window.setTimeout(() => G.impact("op", 1.2, W.glow, "punch"), 150); }
+        if (mv.fx === "swipe") { G.swipe("me", W.glow, "punch"); window.setTimeout(() => G.impact("me", 1.2, W.glow, "punch"), 150); }
         else if (mv.fx === "bolt") { G.muzzle("me", "hand", W.glow); G.bolt("me", W.glow, 6); window.setTimeout(() => G.burst("op", 1.2, W.glow), 130); }
         else if (mv.fx === "laser") { G.muzzle("me", "hand", "#ff4d6a"); G.laser("me", "#ff4d6a", 6); window.setTimeout(() => G.boom("op", 1.3, "#ff9a3c"), 150); }
         else if (mv.fx === "lob") { G.lob("me", "#ff9a3c", () => G.boom("op", 1.6, "#ff9a3c")); }
@@ -3900,7 +3977,9 @@ export const StarsongPage = memo(function StarsongPage({ lang, onBack, onReward 
           reveal={reveal} onNextQ={nextQ} bt={bt} onAct={act} bnr={bnr} cine={cine}
           chassisEl={<CyberAvatar model={charModel} yaw={52} pose="ready" glow={W.glow} accent={W.accent} armorA="#161d2c" armorB="#3d5878" />}
           onAnswer={answer}
-          onFlee={() => { setFight(null); setReveal(null); say(T("ถอยออกมาแล้ว", "Disengaged.", "已脱离。")); }} />
+          rank={chassisLevel(save)}
+          onFlee={() => { setFight(null); setReveal(null); say(T("ถอยออกมาแล้ว", "Disengaged.", "已脱离。")); }}
+          onExit={() => { setFight(null); setReveal(null); onBack(); }} />
       )}
 
       {/* quiz runs, and the win card either kind ends on */}
