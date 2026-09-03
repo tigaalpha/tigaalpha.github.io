@@ -1,6 +1,12 @@
 // v10: network-first for JS/CSS to prevent stale cached bundles.
-// Bumped cache name to v13 so every client reinstalls this SW once.
-const CACHE = "tiga-v13";
+// v14: "network-first" was still handing fetch() to the BROWSER'S OWN HTTP
+// cache, which GitHub Pages' default Cache-Control lets satisfy a request
+// for several minutes with no request ever reaching the origin - so a user
+// who reopens the app within that window can get old HTML/CSS even though
+// the SW's own logic never touched a stale byte. cache:"no-store" forces an
+// actual round trip every time. Bumped cache name to v14 so every client
+// reinstalls this SW once.
+const CACHE = "tiga-v14";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
@@ -63,11 +69,13 @@ self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Network-first for HTML (always get the freshest app code)
+  // Network-first for HTML (always get the freshest app code). cache:"no-store"
+  // is the part that actually matters - without it this is "network-first
+  // according to the browser's HTTP cache", which is not the same promise.
   const isHtml = url.pathname === "/" || url.pathname.endsWith(".html");
   if (isHtml) {
     e.respondWith(
-      fetch(e.request).then(res => {
+      fetch(e.request, { cache: "no-store" }).then(res => {
         if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
         return res;
       }).catch(() => caches.match(e.request))
@@ -80,7 +88,7 @@ self.addEventListener("fetch", e => {
     url.pathname.includes("/assets/");
   if (isJsCss) {
     e.respondWith(
-      fetch(e.request).then(res => {
+      fetch(e.request, { cache: "no-store" }).then(res => {
         if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
         return res;
       }).catch(() => caches.match(e.request))
