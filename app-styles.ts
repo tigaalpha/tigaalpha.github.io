@@ -1002,6 +1002,12 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpme-sk{display:flex;flex-direction:column;gap:6px}
 .pvpme-gear{display:flex;flex-direction:column;gap:2px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd1)}
 .pvpme-gear span{font-size:9.5px;color:var(--muted);font-family:'Share Tech Mono',monospace}
+/* the command list, printed the way an arcade cabinet prints it */
+.pvpmoves{display:flex;flex-direction:column;gap:3px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd1)}
+.pvpmoves b{font-family:'Orbitron',sans-serif;font-size:9.5px;font-weight:800;letter-spacing:.05em;color:var(--text);margin-bottom:2px}
+.pvpmoves span{display:flex;align-items:center;gap:5px;font-size:9.5px;color:var(--muted);font-family:'Share Tech Mono',monospace}
+.pvpmoves em{font-style:normal;padding:1px 5px;border-radius:5px;background:color-mix(in srgb,#7fd7ff 16%,transparent);border:1px solid #7fd7ff44;color:#3d86c6;letter-spacing:1px}
+.pvpmoves i{font-style:normal;margin-left:auto;color:var(--text2, var(--text));opacity:.85}
 .pvpsk{display:flex;gap:7px;align-items:flex-start}
 .pvpsk.lock{opacity:.5}
 .pvpsk-ic{display:block;width:22px;height:22px;flex:none;margin-top:1px}
@@ -1103,11 +1109,25 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvphps{position:absolute;left:0;right:0;top:0;z-index:6;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;padding:9px 11px;background:linear-gradient(180deg,rgba(6,9,18,.82),rgba(6,9,18,0))}
 .pvphpcol{display:flex;flex-direction:column;gap:3px;min-width:0}
 .pvphp{height:9px;border-radius:20px;background:#00000059;border:1px solid #ffffff26;overflow:hidden;box-shadow:inset 0 1px 3px #0009}
-.pvphp i{display:block;height:100%;background:linear-gradient(90deg,#3ddc84,#2fa87a);transition:width .35s cubic-bezier(.4,0,.2,1)}
+.pvphp{position:relative}
+.pvphp i{display:block;height:100%;background:linear-gradient(90deg,#3ddc84,#2fa87a);transition:width .35s cubic-bezier(.4,0,.2,1);position:relative;z-index:2}
 .pvphp.op i{background:linear-gradient(90deg,#e0563f,#ff7a3c)}
+/* the arcade "chip" bar: the damage you just took, still draining behind the
+   real one, so a big hit reads as a big hit */
+.pvphp u{position:absolute;inset:0 auto 0 0;display:block;height:100%;z-index:1;background:linear-gradient(90deg,#ffd23f,#ff9a3c);opacity:.75}
+/* round wins, one pip per round taken */
+.pvppips{display:inline-flex;gap:3px;vertical-align:middle;margin:0 5px}
+.pvppips b{width:7px;height:7px;border-radius:50%;background:#ffffff2e;border:1px solid #ffffff4d;display:block}
+.pvppips b.on{background:#ffd23f;border-color:#ffd23f;box-shadow:0 0 7px #ffd23f}
 .pvphp-n{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:#c3d2ea;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px #000}
 .pvphp-n.op{text-align:right}
-.pvpvs{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;color:#e6eefc;padding-top:1px;text-shadow:0 1px 4px #000}
+/* the round clock, where a cabinet always puts it: dead centre, between the
+   two bars, and it goes red when it is nearly out */
+.pvpvs{display:flex;flex-direction:column;align-items:center;gap:1px;font-family:'Orbitron',sans-serif;color:#e6eefc;padding-top:1px;text-shadow:0 1px 4px #000}
+.pvpvs b{font-size:20px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+.pvpvs b.low{color:#ff4d6a;text-shadow:0 0 12px #ff2d55,0 1px 4px #000;animation:pvpclockLow .5s ease-in-out infinite alternate}
+.pvpvs i{font-style:normal;font-size:8.5px;letter-spacing:.08em;opacity:.75}
+@keyframes pvpclockLow{from{transform:scale(1)}to{transform:scale(1.14)}}
 /* the fighters stand ON the floor grid, so they are anchored to its baseline */
 .pvpfighter{position:absolute;bottom:16px;width:44%;height:210px;z-index:3;display:flex;align-items:flex-end;justify-content:center;transition:transform .22s cubic-bezier(.34,1.4,.5,1)}
 .pvpfighter svg{display:block;height:206px;width:auto;filter:drop-shadow(0 14px 12px rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(120,170,255,.14))}
@@ -1271,6 +1291,39 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpstage.finisher.win .pvpfighter.me{filter:drop-shadow(0 0 22px #ffd23f) brightness(1.12);transform:scale(1.06)}
 .pvpstage.finisher.lose .pvpfighter.me{filter:grayscale(.7) brightness(.55)}
 .pvpstage.finisher.lose .pvpfighter.op{filter:drop-shadow(0 0 22px #ff4d6a) brightness(1.12);transform:scale(1.06)}
+/* ── the announcer ──
+   Every call the cabinet makes, in the one place the eye is already looking.
+   Each kind gets its own colour so ROUND 2 and K.O. never read the same. */
+.pvpann{position:absolute;left:0;right:0;top:34%;z-index:9;text-align:center;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;gap:4px;animation:pvpannIn .4s cubic-bezier(.2,1.5,.4,1)}
+.pvpann b{font-family:'Orbitron',sans-serif;font-size:38px;font-weight:900;letter-spacing:.04em;line-height:1;
+  color:#fff;text-shadow:0 0 26px currentColor,0 3px 10px #000,0 0 4px #000}
+.pvpann i{font-family:'Rajdhani',sans-serif;font-style:normal;font-size:12.5px;font-weight:700;color:#e9f1ff;text-shadow:0 2px 6px #000}
+.pvpann.round b{color:#7fd7ff}
+.pvpann.fight b{color:#ffd23f;font-size:46px;animation:pvpannPunch .45s cubic-bezier(.2,1.6,.4,1)}
+.pvpann.ko b{color:#ff4d6a;font-size:48px}
+.pvpann.perfect b{color:#ffd23f;font-size:44px}
+.pvpann.win b{color:#3ddc84}
+.pvpann.lose b{color:#8899aa}
+@keyframes pvpannIn{0%{transform:scale(1.9);opacity:0}55%{opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes pvpannPunch{0%{transform:scale(2.6) rotate(-6deg);opacity:0}60%{opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+/* the bot's wind-up, and its guard — both have to be readable at a glance or
+   blocking and punishing are guesswork */
+.pvpfighter.tell{filter:drop-shadow(0 0 14px #ffd23f) brightness(1.12)}
+.pvptell{position:absolute;top:-6px;left:50%;transform:translateX(-50%);z-index:6;
+  font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;color:#ffd23f;
+  text-shadow:0 0 14px #ff9a3c,0 2px 6px #000;animation:pvptellPulse .3s ease-in-out infinite alternate}
+@keyframes pvptellPulse{from{transform:translateX(-50%) scale(.9)}to{transform:translateX(-50%) scale(1.15)}}
+.pvpguardic{position:absolute;top:14%;left:50%;transform:translateX(-50%);z-index:6;font-size:19px;filter:drop-shadow(0 0 8px #5ce1ff)}
+.pvpdizzy{position:absolute;top:-4px;left:50%;transform:translateX(-50%);z-index:6;font-size:15px;letter-spacing:2px;color:#ffd23f;
+  text-shadow:0 0 12px #ffd23f;animation:pvpdizzySpin 1.1s linear infinite}
+@keyframes pvpdizzySpin{from{transform:translateX(-50%) rotate(0)}to{transform:translateX(-50%) rotate(360deg)}}
+/* training-mode input read-out */
+.pvpinputs{display:flex;justify-content:center;gap:5px;max-width:520px;margin:7px auto 0}
+.pvpinputs span{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;
+  background:rgba(8,12,22,.72);border:1px solid #ffffff2e;color:#7fd7ff;font-size:11px;
+  animation:pvpinIn .16s ease}
+@keyframes pvpinIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
 .pvpko{position:absolute;left:0;right:0;top:38%;z-index:7;text-align:center;pointer-events:none}
 .pvpko b{display:inline-block;font-family:'Orbitron',sans-serif;font-size:44px;font-weight:900;letter-spacing:.04em;
   color:#fff;text-shadow:0 0 30px #ffd23f,0 0 10px #ff9a4c,0 3px 10px #000;animation:pvpkoZoom .6s cubic-bezier(.2,1.4,.4,1)}
@@ -1301,6 +1354,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpres-stage svg{display:block;height:206px;width:auto}
 .pvpres-score{font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:#d97757}
 .pvpres-line{font-family:'Rajdhani',sans-serif;font-style:italic;font-size:12.5px;color:var(--muted);margin-top:2px}
+/* the round score, read the way a cabinet prints it */
+.pvpres-rounds{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px}
+.pvpres-rounds span{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;color:var(--muted);min-width:20px}
+.pvpres-rounds span.on{color:#ffd23f;text-shadow:0 0 14px #ffd23f66}
+.pvpres-rounds em{font-style:normal;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--muted)}
 .pvpres-sub{font-size:11px;color:var(--muted);margin-top:4px}
 .pvpres-flawless{margin-top:9px;display:inline-block;padding:4px 12px;border-radius:20px;font-family:'Orbitron',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.03em;
   color:#1a1206;background:linear-gradient(90deg,#ffd23f,#ff9a4c);box-shadow:0 4px 14px -4px #d9775788}
