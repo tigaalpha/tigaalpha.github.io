@@ -8,9 +8,7 @@ export const metadata = {
 export default function AiAutomationChatPage() {
   return (
     <OwnerOnlyGuard>
-      <div className="p-4 lg:p-6">
-        <AiAutomationChat />
-      </div>
+      <AiAutomationChat />
     </OwnerOnlyGuard>
   );
 }
