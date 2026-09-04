@@ -1153,6 +1153,79 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 @media (prefers-reduced-motion:reduce){.pvpstage.sh1,.pvpstage.sh2,.pvpstage.sh3{animation:none}.pvpfighter{transition:none}.pvpfighter.me.lunge,.pvpfighter.op.lunge,.pvpfighter.me.knock,.pvpfighter.op.knock{transform:none}}
 .pvpuntimed{max-width:520px;margin:12px auto 0;padding:0 15px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.3px;color:var(--muted)}
 .pvpq{max-width:520px;margin:8px auto 0;padding:0 15px;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;line-height:1.4;color:var(--text);text-align:center;text-wrap:balance}
+/* ── the shot clock ──
+   Four seconds, drawn as a bar that empties rather than a number that counts,
+   because a bar is readable out of the corner of an eye that is still on the
+   fight. It turns red on the last second and a half. */
+.pvpshot{position:relative;max-width:520px;margin:12px auto 0;height:16px;border-radius:9px;overflow:hidden;
+  background:var(--card2);border:1px solid var(--bd1)}
+.pvpshot i{display:block;height:100%;background:linear-gradient(90deg,#3ddc84,#7fe8ff);transition:width .08s linear}
+.pvpshot.low i{background:linear-gradient(90deg,#ff2d55,#ffd23f);animation:pvpshotlow .3s ease-in-out infinite alternate}
+@keyframes pvpshotlow{from{opacity:.72}to{opacity:1}}
+.pvpshot b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'Share Tech Mono',monospace;font-size:10px;color:#0b1220;text-shadow:0 1px 0 #ffffff66;font-variant-numeric:tabular-nums}
+.pvpshot-l{max-width:520px;margin:5px auto 0;padding:0 15px;text-align:center;
+  font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.3px;color:#d97757}
+
+/* ── the keyboard the answer is played on ──
+   One octave, laid out the way a piano is: the black keys sit ON the white
+   ones, offset into the gaps, because a keyboard that is really twelve equal
+   buttons teaches the wrong shape. Sized for thumbs — the white keys are the
+   full tap target and the black keys overlay their top two thirds. */
+.pvpkeys{position:relative;display:flex;width:calc(100% - 26px);max-width:494px;margin:12px auto 0;height:104px;
+  touch-action:manipulation;user-select:none}
+.pvpkey{position:relative;flex:1;display:flex;align-items:flex-end;justify-content:center;padding-bottom:9px;
+  border:1px solid var(--bd1);border-right-width:0;background:linear-gradient(180deg,#ffffff,#eef1f6);
+  color:#1b2230;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+.pvpkey:first-child{border-radius:5px 0 0 9px}
+.pvpkey:last-of-type{border-radius:0 5px 9px 0;border-right-width:1px}
+.pvpkey:active{background:linear-gradient(180deg,#e6ecf6,#d3dced)}
+/* the black keys leave the flow and straddle the seam between their neighbours */
+.pvpkey.blk{position:absolute;top:0;width:8.2%;height:64%;z-index:2;flex:0 0 auto;padding-bottom:6px;
+  border:1px solid #05080f;border-radius:0 0 6px 6px;background:linear-gradient(180deg,#2a3346,#0d1220);
+  color:#dbe4f2;font-size:8.5px;line-height:1.05;box-shadow:0 3px 6px -2px rgba(0,0,0,.6)}
+.pvpkey.blk:active{background:linear-gradient(180deg,#1b2334,#05080f)}
+.pvpkey.blk span{display:flex;flex-direction:column;align-items:center}
+.pvpkey.blk em{font-style:normal}
+/* five black keys, placed against the seven white ones behind them */
+/* each one straddles the seam between the two white keys it sits between:
+   a seventh of the width per white key, less half a black key */
+.pvpkey.blk:nth-child(2){left:10.19%}
+.pvpkey.blk:nth-child(4){left:24.47%}
+.pvpkey.blk:nth-child(7){left:53.04%}
+.pvpkey.blk:nth-child(9){left:67.33%}
+.pvpkey.blk:nth-child(11){left:81.61%}
+.pvpkey.culled{opacity:.32;cursor:default}
+.pvpkey.right{background:linear-gradient(180deg,#3ddc84,#2bb46a);color:#05130b;
+  box-shadow:0 0 0 2px #3ddc84,0 0 18px -4px #3ddc84}
+.pvpkey.blk.right{background:linear-gradient(180deg,#3ddc84,#1e8a52);color:#05130b}
+@media (max-width:380px){.pvpkeys{height:92px}.pvpkey{font-size:13px}}
+
+/* ── the super's question ──
+   Laid over the held frame, not in place of it: the whole idea is that the
+   punch is already in the air while this is being answered. */
+.pvpultq{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:18px;
+  background:rgba(6,9,18,.72);backdrop-filter:blur(3px);animation:pvpultqin .16s ease}
+@keyframes pvpultqin{from{opacity:0}to{opacity:1}}
+.pvpultq-card{width:100%;max-width:400px;border-radius:18px;padding:15px 15px 14px;text-align:center;
+  background:linear-gradient(180deg,#141d33,#0a0f1d);border:1.5px solid #ffd23f;
+  box-shadow:0 0 40px -8px #ffd23f,0 20px 50px -20px #000}
+.pvpultq-card>b{display:block;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;letter-spacing:.08em;color:#ffd23f}
+.pvpultq-bar{height:6px;border-radius:4px;margin:9px 0 11px;background:#ffffff1a;overflow:hidden}
+.pvpultq-bar i{display:block;height:100%;background:linear-gradient(90deg,#ffd23f,#ff2d55);transition:width .08s linear}
+.pvpultq-card p{margin:0 0 11px;font-family:'Rajdhani',sans-serif;font-size:15.5px;font-weight:700;line-height:1.35;color:#eaf1ff;text-wrap:balance}
+.pvpultq-opts{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.pvpultq-opts button{padding:12px 6px;border-radius:11px;border:1px solid #ffd23f55;background:#ffd23f12;
+  font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:#ffe9a8;cursor:pointer}
+.pvpultq-opts button:active{background:#ffd23f2e;transform:scale(.97)}
+
+/* the free special a fast answer bought, announced where the thumbs are */
+.pvpfreesp{max-width:520px;margin:6px auto 0;padding:4px 10px;border-radius:20px;text-align:center;
+  background:linear-gradient(90deg,#ffd23f,#3ddc84);color:#0b1220;
+  font-family:'Orbitron',sans-serif;font-size:9.5px;font-weight:800;letter-spacing:.05em;
+  animation:pvpfreesp .9s ease-in-out infinite alternate}
+@keyframes pvpfreesp{from{opacity:.8}to{opacity:1}}
 .pvpopts{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:520px;margin:12px auto 0;padding:0 13px}
 .pvpopt{padding:14px 8px;border-radius:13px;border:1px solid var(--bd1);background:var(--card);font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text);cursor:pointer}
 .pvpopt:active{transform:scale(.97)}
@@ -1246,6 +1319,16 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
   font-size:20px;color:#fff;text-shadow:0 2px 6px #000}
 .pvppage.land .pvpopts{position:absolute;left:0;right:0;bottom:14px;z-index:11;margin:0;max-width:none;grid-template-columns:repeat(4,1fr);padding:0 14px}
 .pvppage.land .pvpopt{padding:12px 6px;background:rgba(255,255,255,.94)}
+/* the shot clock and the keyboard take the same over-the-stage treatment the
+   question and the option row already had — a quiz element that stays in the
+   portrait flow while everything around it goes absolute lands behind the
+   fighters, which is exactly where it cannot be read */
+.pvppage.land .pvpshot{position:absolute;left:50%;transform:translateX(-50%);top:24.5%;z-index:11;margin:0;width:min(46%,260px)}
+.pvppage.land .pvpshot-l{position:absolute;left:50%;transform:translateX(-50%);top:20.5%;z-index:11;margin:0;
+  width:max-content;max-width:86%;padding:3px 12px;border-radius:999px;
+  background:rgba(4,8,18,.74);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid #ffffff24}
+.pvppage.land .pvpkeys{position:absolute;left:14px;right:14px;bottom:12px;z-index:11;margin:0;width:auto;max-width:none;height:86px}
+.pvppage.land .pvpfreesp{position:absolute;left:50%;transform:translateX(-50%);top:15.5%;z-index:11;margin:0;width:max-content;max-width:86%}
 /* skills sit between the two thumbs, where nothing else is competing */
 .pvppage.land .pvpskills{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:9;width:min(42%,260px);max-width:none;margin:0;padding:0}
 .pvppage.land .pvpskbtns{grid-template-columns:1fr 1fr;gap:6px;margin-top:5px}
@@ -1257,6 +1340,9 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
   .pvppage.land .pvpfighter{height:52%}
   .pvppage.land .pvpq{font-size:16px;top:33%;padding:10px 18px}
   .pvppage.land .pvpuntimed{top:26%}
+  .pvppage.land .pvpshot{top:22%}
+  .pvppage.land .pvpshot-l{top:17.5%}
+  .pvppage.land .pvpkeys{height:74px}
 }
 /* the fighter braces while guarding */
 .pvpfighter.guard{filter:drop-shadow(0 0 10px #5ce1ff)}
@@ -1283,6 +1369,58 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
   background:linear-gradient(90deg,#ff2d55,#ffd23f);color:#1a0d06;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:800;letter-spacing:.06em;
   animation:pvpsuddenpulse 1s ease-in-out infinite}
 @keyframes pvpsuddenpulse{0%,100%{opacity:.86;transform:scale(1)}50%{opacity:1;transform:scale(1.02)}}
+/* ══════════ round two: hitstop, the corner, the guard meter ══════════ */
+
+/* HITSTOP. The frame the blow lands, the whole stage holds: a hard punch of
+   brightness and a shove in the direction the hit was travelling, then it is
+   gone. It is over in a tenth of a second and it is the single thing players
+   feel most. The transition is deliberately absent — a hitstop that eases is
+   not a hitstop. */
+.pvpstage.hitstop{filter:brightness(1.22) contrast(1.08)}
+.pvpstage.hitstop.hs-r{transform:translateX(3px)}
+.pvpstage.hitstop.hs-l{transform:translateX(-3px)}
+@media (prefers-reduced-motion:reduce){
+  .pvpstage.hitstop.hs-r,.pvpstage.hitstop.hs-l{transform:none}
+}
+
+/* THE CORNER. The wall the trapped fighter is pinned against lights up on
+   their side only, so which of you is in trouble is readable at a glance.
+   These are real elements, not pseudo-elements: .pvpstage::after is already
+   the floor and ::before is already the vignette, and quietly replacing
+   either of them would delete the stage to draw a wall on it. */
+.pvpwall{position:absolute;top:0;bottom:0;width:34px;z-index:4;pointer-events:none;opacity:0;transition:opacity .18s ease}
+.pvpwall.l{left:0;background:linear-gradient(90deg,rgba(255,45,85,.5),rgba(255,45,85,0))}
+.pvpwall.r{right:0;background:linear-gradient(270deg,rgba(255,210,63,.5),rgba(255,210,63,0))}
+.pvpstage.cornerme .pvpwall.l,.pvpstage.cornerop .pvpwall.r{opacity:1;animation:pvpcornerpulse .9s ease-in-out infinite}
+@keyframes pvpcornerpulse{0%,100%{opacity:.55}50%{opacity:1}}
+
+/* THE STAGGER. Three seconds with the guard gone. The stage runs a red bias
+   the whole time so the player knows the window is still open without having
+   to watch a number. */
+.pvpstage.staggered{box-shadow:inset 0 0 0 2px #ff2d55aa,inset 0 0 60px -10px #000}
+.pvpstagger{position:absolute;left:50%;top:-14px;transform:translateX(-50%);z-index:6;
+  font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:#ff2d55;
+  text-shadow:0 0 10px #ff2d55,0 2px 4px #000;animation:pvpstaggershake .32s linear infinite}
+@keyframes pvpstaggershake{0%,100%{transform:translateX(-50%) rotate(-9deg)}50%{transform:translateX(-52%) rotate(9deg)}}
+
+/* THE GUARD METER, worn by the button it belongs to. */
+.pvpdir.grd{position:relative;overflow:hidden}
+.pvpgmtr{position:absolute;left:6px;right:6px;bottom:5px;height:3px;border-radius:2px;background:#3d86c633;overflow:hidden}
+.pvpgmtr i{display:block;height:100%;border-radius:2px;background:#3d86c6;transition:width .18s linear}
+.pvpdir.grd.spent{border-color:#ff2d5566;color:#ff2d55;opacity:.72}
+.pvpdir.grd.spent .pvpgmtr i{background:#ff2d55}
+
+/* ══════════ the stage knows which round it is ══════════
+   Round 1 is the room as designed. Round 2 drops the light and closes the
+   walls in. The decider burns — if a match has come this far it should not
+   look like the round that opened it. */
+.pvpstage.r2{filter:saturate(1.12) brightness(.92);border-color:#ffffff2e}
+.pvpstage.r3{filter:saturate(1.3) brightness(.88) hue-rotate(-8deg);border-color:#ff4d6a4d;
+  box-shadow:inset 0 0 60px -10px #000,inset 0 -40px 60px -40px #ff2d5566}
+/* the decider gets a crowd: a slow warm wash rising off the floor, which is
+   the cheapest way to make a room sound louder without a sound */
+.pvpstage.r3 .pvpwall{opacity:.4}
+
 /* the finisher hold: the loser desaturates and drops back, the winner gets
    the light — a beat of stillness before the result screen instead of the
    fight just quietly ending */

@@ -1275,10 +1275,6 @@ export const PvpPage = memo(function PvpPage({
 const ASK_EVERY = 15000;
 const ASK_ROUNDS = 8;
 const WAVES = Array.from({ length: ASK_ROUNDS }, () => ASK_EVERY);
-/* A wrong answer is not a dodgeable attack — it is a punishment for the
-   answer, so it lands for a flat 30% of your pool through guard, evasion and
-   everything else. Three mistakes is most of a health bar. */
-const WRONG_PUNISH = 0.30;
 const GUARD_MS = 900, GUARD_CD = 2400;
 /* The old fixed attack cadence, kept only as the shape of each tier's
    pressure — BOT_BRAIN below is what actually drives the bot now. */
@@ -1313,6 +1309,57 @@ const ROUND_INTRO_MS = 1150, FIGHT_CALL_MS = 800, ROUND_END_MS = 1700;
 // a round has a clock, the way every cabinet round does, and running it out
 // hands the round to whoever is further ahead rather than stalling forever
 const ROUND_TIME = 45000;
+
+/* ══════════ round two: the rules a cabinet has and this did not ══════════
+
+   HITSTOP. The frame a blow connects is the frame the whole world holds
+   still. It is the cheapest thing in the genre and the most felt — players
+   cannot name it, but they can tell instantly when it is missing. Heavier
+   moves hold longer.
+
+   THE CORNER. X_MIN/X_MAX used to be nothing but a clamp on a number. Your
+   back against the wall is now the worst place to be: you cannot give ground,
+   and everything hurts more. It is the one spatial idea that makes walking
+   forward a threat instead of a way to get in range.
+
+   THE GUARD METER. Guard already cost a little chip damage, but it never ran
+   out, so holding it was free in every way that mattered. It is a resource
+   now: block too much and it breaks, and a broken guard leaves you staggered.
+
+   THE STAGGER. A wrong answer used to remove a flat 30% of the pool and end
+   there — a tax, paid and forgotten. It now leaves you STAGGERED: no guard,
+   half again the damage, three seconds. It is the same severity delivered as
+   something you have to survive rather than something you simply absorb. */
+const HITSTOP = { punch: 60, kick: 80, fire: 45, rocket: 110, throw: 90, ult: 130 };
+/* ── the shot clock ──
+   The quiz used to be untimed, which sounds kind and is not: an untimed
+   question in the middle of a fight is a fight that stops. Four seconds is
+   enough to know an interval and not enough to work it out on your fingers,
+   which is exactly the line between recall and arithmetic. */
+const QUIZ_TIME = 4000;
+const ULTQ_TIME = 2200;          // the super's own question, deliberately tighter
+/* Answering fast is worth more than answering slowly. Under a second and a
+   half the gauge fills outright and the next special is free — the reward
+   for actually KNOWING it rather than reasoning to it in time. */
+const FAST_MS = 1500, QUICK_MS = 3000;
+/* One octave, drawn the way a piano is. A learner picks a KEY, not a spelling
+   — F# and Gb are the same key under the hand, and judging the answer by
+   pitch is both the musically honest rule and the only one a keyboard can
+   express. */
+const KEYS = [
+  { n: "C", b: false }, { n: "C#", b: true }, { n: "D", b: false }, { n: "D#", b: true },
+  { n: "E", b: false }, { n: "F", b: false }, { n: "F#", b: true }, { n: "G", b: false },
+  { n: "G#", b: true }, { n: "A", b: false }, { n: "A#", b: true }, { n: "B", b: false },
+];
+const FLAT_OF = { "C#": "D♭", "D#": "E♭", "F#": "G♭", "G#": "A♭", "A#": "B♭" };
+// the three question kinds whose answer is a note you can physically play
+const PLAYABLE = { iv: 1, degree: 1, scale: 1 };
+const CORNER_ZONE = 0.055, CORNER_DMG = 1.15;
+const GUARD_MAX = 100, GUARD_HIT_COST = 24, GUARD_REGEN = 8;   // regen per second
+const STAGGER_MS = 3000, STAGGER_DMG = 1.5;
+// the immediate sting of a wrong answer; the stagger that follows is the
+// real price, and unlike a flat 30% it is one a good player can play through
+const WRONG_CHIP = 0.08;
 
 /* Every button now costs time as well as cooldown: a short wind-up before it
    can land, and a longer tail where you are committed and punishable. The
@@ -1476,6 +1523,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [dizzy, setDizzy] = useState({ me: false, op: false });
   const [inputs, setInputs] = useState([]);         // training-mode style input read-out
   const [chipHp, setChipHp] = useState({ me: 1, op: 1 });   // the delayed bar that trails the real one
+  const [hitStop, setHitStop] = useState(false);   // the world is held for a beat
+  const [hitDir, setHitDir] = useState("r");       // which way the blow was travelling
+  const [corner, setCorner] = useState({ me: false, op: false });
+  const [guardMtr, setGuardMtr] = useState(GUARD_MAX);
+  const [stagger, setStagger] = useState(false);
+  const hitstopRef = useRef(0);                    // the tick simply does not advance until this
+  const guardMtrRef = useRef(GUARD_MAX);
+  const staggerRef = useRef(0);
   const [roundLeft, setRoundLeft] = useState(ROUND_TIME);
   const roundClockRef = useRef(0);
   const roundWinsRef = useRef({ me: 0, op: 0 });
@@ -1505,6 +1560,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   });
   const [cool, setCool] = useState({ punch: 0, fire: 0, rocket: 0, jump: 0, guard: 0 });
   const [reveal, setReveal] = useState(null);   // the answered question, held until the learner moves on
+  const [quizLeft, setQuizLeft] = useState(QUIZ_TIME);   // the shot clock
+  const [ultQ, setUltQ] = useState(null);      // the super's own question, mid-cinematic
+  const [ultQLeft, setUltQLeft] = useState(ULTQ_TIME);
+  const quizStartRef = useRef(0);              // when this question went up, for the speed tiers
+  const freeSpecialRef = useRef(false);        // earned by a sub-1.5s answer
+  const [freeSpecial, setFreeSpecial] = useState(false);
 
   const startedRef = useRef(Date.now());
   const doneRef = useRef(false);
@@ -1582,18 +1643,39 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (mv.lunge) setLunge(side);
     setShake(big ? 3 : crit ? 2 : 1);
     const a = audioRef.current;
+    /* ── hitstop ──
+       Held on the frame the blow CONNECTS, not the frame the button was
+       pressed, which is why each branch below schedules it at its own impact
+       delay: a lobbed rocket lands a long way after it is thrown. The tick
+       reads hitstopRef and stops advancing the floor entirely, so both robots
+       and the round clock hang together for the beat. */
+    const weight = mv.fx === "grenade" ? "rocket"
+      : mv.fx === "laser" || mv.fx === "bolt" ? "fire"
+      : mv.sfx === "kick" ? "kick" : "punch";
+    const stopMs = big ? HITSTOP.ult : Math.round(HITSTOP[weight] * (crit ? 1.35 : 1));
+    const freeze = (delay) => later(() => {
+      if (doneRef.current) return;
+      hitstopRef.current = Date.now() + stopMs;
+      setHitDir(side === "me" ? "r" : "l");
+      setHitStop(true);
+      later(() => setHitStop(false), stopMs);
+    }, delay);
     if (mv.fx === "bolt") {
       G.bolt(side, colour, crit ? 7 : 5, mv.part); a.sfx("shot");
       later(() => { G.burst(foe, power, colour); a.sfx("hit"); }, 190);
+      freeze(190);
     } else if (mv.fx === "laser") {
       G.laser(side, colour, big ? 7 : crit ? 5 : 4, mv.part); a.sfx("laser");
       later(() => G.burst(foe, power * 1.1, colour), 130);
       if (big) later(() => { G.boom(foe, 1.5, colour); a.sfx("boom"); }, 260);
+      freeze(130);
     } else if (mv.fx === "grenade") {
       a.sfx("lob");
       G.lob(side, colour, () => {
         G.boom(foe, big ? 2.4 : 1.5, "#ff9a3c"); G.flash("#fff4d0", big ? .6 : .34, .32);
         a.sfx("boom"); setShake(big ? 3 : 2); later(() => setShake(0), 480);
+        // the lob's own callback IS its impact frame, so freeze from here
+        freeze(0);
       });
     } else {
       /* ── melee ──
@@ -1611,6 +1693,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         setShake(big ? 3 : crit ? 3 : 2);
         a.sfx("hit");
       }, isKick ? 175 : 140);
+      freeze(isKick ? 175 : 140);
       if (big) later(() => { G.boom(foe, 2, colour); a.sfx("boom"); }, 300);
     }
     if (big && mv.fx !== "grenade") G.flash("#ffffff", .55, .34);
@@ -1659,6 +1742,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     setMyPose("ready"); setOpPose("ready");
     setBotTell(false); setBotGuard(false);
     setChipHp({ me: 1, op: 1 });
+    guardMtrRef.current = GUARD_MAX; setGuardMtr(GUARD_MAX);
+    staggerRef.current = 0; setStagger(false);
+    hitstopRef.current = 0; setHitStop(false);
+    setCorner({ me: false, op: false });
     announceRound();
   }
 
@@ -1755,6 +1842,25 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     return false;
   }
 
+  /** Open the player up for three seconds: no guard, half again the damage.
+      Two things arrive here — a broken guard and a wrong answer — and both
+      want the same thing, which is a window the opponent has to be beaten
+      out of rather than a number quietly removed from a bar. */
+  function beginStagger(label) {
+    if (doneRef.current) return;
+    const now = Date.now();
+    staggerRef.current = now + STAGGER_MS;
+    setStagger(true);
+    guardUntil.current = 0; setGuarding(false);
+    audioRef.current.sfx("miss");
+    G.flash("#ff2d55", .4, .35);
+    setBanner(label);
+    later(() => setBanner(null), 1300);
+    later(() => {
+      if (Date.now() >= staggerRef.current) setStagger(false);
+    }, STAGGER_MS + 30);
+  }
+
   /** Damage the opponent. One path for taps, skills and the overdrive combo. */
   function hitOp(dmg, kind, moveKey, opts) {
     if (doneRef.current) return;
@@ -1763,7 +1869,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // caught them mid-wind-up: in a fighting game that is a counter-hit, and
     // it is the whole reason to watch what the other side is doing
     const counter = !o.noCounter && botRef.current.startup > now;
-    const d = Math.max(1, Math.round(dmg * (counter ? COUNTER_MUL : 1)));
+    // the corner is not a player-only rule — pinning the bot against its own
+    // wall is the reward for walking it down
+    const oppCornered = posRef.current.op >= X_MAX - CORNER_ZONE;
+    const d = Math.max(1, Math.round(dmg * (counter ? COUNTER_MUL : 1) * (oppCornered ? CORNER_DMG : 1)));
     const oHp = Math.max(0, hpRef.current.op - d);
     hpRef.current.op = oHp; setOpHp(oHp);
     // hitstun and pushback: the bot loses its turn and gives ground
@@ -1795,14 +1904,30 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     const now = Date.now();
     // a throw goes straight through a guard — that is what throws are for
     if (!o.unblockable) {
-      if (now < guardUntil.current) {
+      // a stagger takes the guard away entirely — that is the whole point of it
+      if (now < guardUntil.current && staggerRef.current <= now) {
         audioRef.current.sfx("block"); G.burst("me", .8, "#5ce1ff");
-        say("me", T("กัน!", "GUARD", "格挡"), "block");
         // chip damage, so turtling forever is not a strategy
         const chip = Math.max(1, Math.round(dmg * 0.12));
         const cHp = Math.max(1, hpRef.current.me - chip);
         hpRef.current.me = cHp; setMyHp(cHp);
         posRef.current.me = Math.max(X_MIN, posRef.current.me - KNOCKBACK * 0.6);
+        /* ── the guard meter ──
+           Chip damage alone never made holding block a real decision, because
+           the meter that mattered — the one that runs out — did not exist.
+           Every blocked hit spends a quarter of it, and emptying it snaps the
+           guard open and leaves you staggered, which is the moment the other
+           side has been pressuring you for. */
+        const gm = Math.max(0, guardMtrRef.current - GUARD_HIT_COST);
+        guardMtrRef.current = gm; setGuardMtr(gm);
+        if (gm <= 0) {
+          guardUntil.current = 0; setGuarding(false);
+          guardMtrRef.current = GUARD_MAX * 0.4; setGuardMtr(GUARD_MAX * 0.4);
+          beginStagger(T("การ์ดแตก!", "GUARD BREAK!", "破防!"));
+          practiceTip("guardbreak", T("กันมากไปการ์ดแตก — สลับถอยหรือสวนกลับบ้าง",
+            "Blocking everything breaks your guard — mix in walking back or hitting first",
+            "一味格挡会破防 — 试着后退或抢先出手"));
+        } else say("me", T("กัน!", "GUARD", "格挡"), "block");
         return;
       }
       if (airRef.current.me > 0) { audioRef.current.sfx("miss"); say("me", T("หลบ!", "AIRBORNE", "腾空"), "block"); return; }
@@ -1817,9 +1942,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     }
     // the bot gets counter-hits too, on exactly the same terms
     const counter = !o.noCounter && myAtkRef.current.startup > now;
+    // your back is on the wall, or your guard has just been broken: both are
+    // positions you got yourself into, and both cost extra
+    const cornered = posRef.current.me <= X_MIN + CORNER_ZONE;
     const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1) * petGuard * (SFX.dmgTake || 1)
       * (matchup === 1 ? 1 - MATCHUP_DMG : matchup === -1 ? 1 + MATCHUP_DMG : 1)
-      * (1 - itemFx.dmgReduce) * (counter ? COUNTER_MUL : 1)));
+      * (1 - itemFx.dmgReduce) * (counter ? COUNTER_MUL : 1)
+      * (cornered ? CORNER_DMG : 1) * (staggerRef.current > now ? STAGGER_DMG : 1)));
     const mHp = Math.max(0, hpRef.current.me - d);
     hpRef.current.me = mHp; setMyHp(mHp);
     hitstunRef.current.me = now + HITSTUN_MS;
@@ -1884,7 +2013,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   function doSpecial(sp, now) {
     const F = FRAMES[sp.key] || FRAMES.punch;
     motionRef.current = []; setInputs([]);
-    setGauge(g => Math.max(0, g - SPECIAL_COST));
+    // a special bought by answering inside a second and a half costs nothing
+    if (freeSpecialRef.current) { freeSpecialRef.current = false; setFreeSpecial(false); }
+    else setGauge(g => Math.max(0, g - SPECIAL_COST));
     myAtkRef.current = { startup: now + F.startup, recover: now + F.startup + F.recover, act: sp.key };
     cdRef.current[sp.act] = now + (ACT[sp.act] || ACT.punch).cd;
     setMyPose(MOVES[sp.move].pose);
@@ -1962,7 +2093,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
     // a motion in the buffer turns the same button into something else
     const sp = readMotion(act, now);
-    if (sp && gauge >= SPECIAL_COST) { doSpecial(sp, now); return; }
+    if (sp && (freeSpecialRef.current || gauge >= SPECIAL_COST)) { doSpecial(sp, now); return; }
 
     // nose to nose against a guard, punch becomes a throw
     const gapNow = Math.abs(posRef.current.me - posRef.current.op);
@@ -2051,6 +2182,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (phase !== "action" || doneRef.current || !liveRef.current) return;
     const now = Date.now();
     if (hitstunRef.current.me > now || dizzyUntilRef.current.me > now) return;
+    // staggered means exactly this: the guard button does nothing
+    if (staggerRef.current > now) {
+      say("me", T("การ์ดไม่ได้!", "NO GUARD!", "无法格挡!"), "dmg");
+      return;
+    }
+    if (guardMtrRef.current < GUARD_HIT_COST) {
+      say("me", T("การ์ดหมด", "GUARD EMPTY", "格挡耗尽"), "dmg");
+      return;
+    }
     if (now < guardCd.current) return;
     guardUntil.current = now + GUARD_MS; guardCd.current = now + GUARD_CD;
     setGuarding(true);
@@ -2075,9 +2215,20 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (phase !== "action" || doneRef.current) return;
     const id = setInterval(() => {
       if (doneRef.current) return;
+      const now0 = Date.now();
+      // HITSTOP: the frame a blow connects, nothing moves — not the fighters,
+      // not the bot's brain, not the round clock. Everything resumes together.
+      if (hitstopRef.current > now0) return;
       const dt = 0.06;
-      const now = Date.now();
+      const now = now0;
       const P = posRef.current;
+      // guard comes back on its own, slowly, so a broken guard is a real
+      // setback rather than a permanent one
+      if (guardMtrRef.current < GUARD_MAX && guardUntil.current < now) {
+        const gm = Math.min(GUARD_MAX, guardMtrRef.current + GUARD_REGEN * dt);
+        guardMtrRef.current = gm; setGuardMtr(gm);
+      }
+      if (staggerRef.current && staggerRef.current <= now) { staggerRef.current = 0; setStagger(false); }
       const stunnedMe = hitstunRef.current.me > now || dizzyUntilRef.current.me > now;
       if (dirRef.current && !stunnedMe) P.me = Math.min(X_MAX, Math.max(X_MIN, P.me + dirRef.current * WALK * dt));
 
@@ -2169,6 +2320,20 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       P.op = Math.min(X_MAX, Math.max(X_MIN, P.op + botDir * WALK * 0.68 * botSpeed * dt));
       if (P.op - P.me < GAP_MIN) P.op = Math.min(X_MAX, P.me + GAP_MIN);
       setMyX(P.me); setOpX(P.op);
+      // whose back is on the wall. Announced once per trip into the corner so
+      // it reads as a thing that HAPPENED rather than a permanent label.
+      const cMe = P.me <= X_MIN + CORNER_ZONE, cOp = P.op >= X_MAX - CORNER_ZONE;
+      setCorner(c => {
+        if (c.me === cMe && c.op === cOp) return c;
+        if (cMe && !c.me) {
+          say("me", T("จนมุม!", "CORNERED!", "被逼入角落!"), "dmg");
+          practiceTip("corner", T("หลังติดกำแพง — ถอยไม่ได้และเจ็บกว่าเดิม กระโดดข้ามไปอีกฝั่ง",
+            "Back to the wall: you cannot retreat and everything hurts more — jump out over it",
+            "背靠墙角：无法后退且受伤更重 — 用跳跃换边"));
+        }
+        if (cOp && !c.op) say("op", T("จนมุม!", "CORNERED!", "被逼入角落!"), "crit");
+        return { me: cMe, op: cOp };
+      });
 
       // a jump is a half sine, so it leaves and lands instead of teleporting
       const h = airRef.current.me ? Math.sin(Math.PI * Math.min(1, (JUMP_MS - Math.max(0, cdRef.current.jump - JUMP_CD + JUMP_MS - now)) / JUMP_MS)) : 0;
@@ -2237,6 +2402,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (doneRef.current) return;
     setPhase("quiz");
     setQ(makeQuestion(lang, weightedTag())); setCulled([]); setLocked(false);
+    quizStartRef.current = Date.now();
+    setQuizLeft(QUIZ_TIME);
     setMyPose("ready"); setOpPose("ready");
     audioRef.current.sfx("bell");
     G.flash("#ffffff", .32, .3);
@@ -2244,11 +2411,38 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     later(() => setBanner(null), 1500);
   }
 
-  function answer(choice) {
+  /* ── the shot clock ──
+     Runs only while a question is actually on screen and unanswered. Letting
+     it expire is a wrong answer, and it says so, because a question you did
+     not answer and a question you got wrong are the same thing to the fight
+     and should look the same to the learner. */
+  useEffect(() => {
+    if (phase !== "quiz" || locked || reveal || doneRef.current) return;
+    const id = setInterval(() => {
+      const gone = Date.now() - quizStartRef.current;
+      const rem = Math.max(0, QUIZ_TIME - gone);
+      setQuizLeft(rem);
+      if (rem <= 0) { clearInterval(id); answer(null, true); }
+    }, 80);
+    return () => clearInterval(id);
+  }, [phase, locked, reveal]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** A piano has one key for F# and one for Gb, and they are the same key. So
+      a note answer is judged on the PITCH the learner picked, never on the
+      spelling — which they were never offered a way to choose. Chord-name
+      questions have no key to press and stay an exact match. */
+  function isRight(choice, qq) {
+    if (choice == null || !qq) return false;
+    if (!PLAYABLE[qq.tag]) return choice === qq.ans;
+    try { return parseName(choice).pc === parseName(qq.ans).pc; } catch (e) { return choice === qq.ans; }
+  }
+
+  function answer(choice, timedOut) {
     if (locked || doneRef.current) return;
     setLocked(true);
+    const took = Date.now() - quizStartRef.current;
     const usedForesee = buffRef.current.foresee > 0;
-    const right = usedForesee ? true : choice === q.ans;
+    const right = usedForesee ? true : isRight(choice, q);
     if (usedForesee) { const nb = { ...buffRef.current, foresee: 0 }; buffRef.current = nb; setBuffs(nb); }
     // an auto-answered question teaches nothing about the player's real
     // accuracy, so it must not corrupt the weak-spot signal either way
@@ -2256,21 +2450,36 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     askedRef.current += 1; setAsked(askedRef.current);
     if (right) {
       correctRef.current += 1; setCorrect(correctRef.current);
-      scoreRef.current += Math.round(250 * (SFX.scoreMul || 1)); setScore(scoreRef.current);
+      /* ── the speed tiers ──
+         Every correct answer used to pay exactly the same whether it came
+         back in one second or in twenty. Knowing a thing and working it out
+         are different skills, and only one of them is the one being taught,
+         so only one of them fills the gauge outright. */
+      const fast = took <= FAST_MS, quick = took <= QUICK_MS;
+      scoreRef.current += Math.round(250 * (fast ? 1.6 : quick ? 1.25 : 1) * (SFX.scoreMul || 1));
+      setScore(scoreRef.current);
       const healFrac = (SFX.healPerCorrect || 0) + itemFx.healPerCorrect;
       if (healFrac) {
         const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * healFrac));
         hpRef.current.me = h; setMyHp(h);
       }
-      setBanner(T("OVERDRIVE!", "OVERDRIVE!", "超载!"));
+      if (fast) {
+        setGauge(100);
+        freeSpecialRef.current = true; setFreeSpecial(true);
+      } else setGauge(g => Math.min(100, g + (quick ? 34 : 17)));
+      setBanner(fast ? T("ทันใจ! เกจเต็ม + ท่าไม้ตายฟรี", "PERFECT READ! Gauge full + free special", "神速！能量全满 + 免费必杀")
+        : quick ? T("เร็ว! OVERDRIVE", "QUICK! OVERDRIVE", "迅速！超载")
+        : T("OVERDRIVE!", "OVERDRIVE!", "超载!"));
       setOverdrive(true);
       audioRef.current.sfx("ult");
-      G.flash(clsInfo.c, .45, .4);
+      G.flash(fast ? "#ffd23f" : clsInfo.c, fast ? .6 : .45, .4);
       // three staged hits, so a right answer is the loudest thing in the round
-      [0, 260, 520].forEach((d, i) => later(() => hitOp(A.dmg * 4.5, i === 2 ? "ult" : "crit", null, { noCounter: true }), d));
+      const bonus = fast ? 1.35 : quick ? 1.15 : 1;
+      [0, 260, 520].forEach((d, i) => later(() => hitOp(A.dmg * 4.5 * bonus, i === 2 ? "ult" : "crit", null, { noCounter: true }), d));
       later(() => { setOverdrive(false); setBanner(null); setReveal({ q, chosen: choice }); }, 1500);
     } else {
-      setBanner(T("ตอบผิด! โดนสวนหนัก", "WRONG! CRUSHING BLOW", "答错! 遭到重击"));
+      setBanner(timedOut ? T("หมดเวลา! เซ", "TIME! STAGGERED", "超时！踉跄")
+        : T("ตอบผิด! เสียหลัก", "WRONG! STAGGERED", "答错！踉跄"));
       audioRef.current.sfx("miss");
       later(() => punish(), 320);
       later(() => { setBanner(null); setReveal({ q, chosen: choice }); }, 2100);
@@ -2279,14 +2488,25 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   /** The price of a wrong answer. Deliberately NOT routed through hitMe: guard,
       evasion, the free-miss grace and every buff are bypassed, because none of
-      them has anything to do with knowing the note. Flat 30% of the pool. */
+      them has anything to do with knowing the note.
+
+      It used to be a flat 30% of the pool and nothing else — a tax, paid and
+      immediately forgotten, and three of them ended a fight no matter how
+      well it was being played. Now it is a small sting plus a STAGGER: three
+      seconds with no guard and half again the damage taken. The severity is
+      the same if the opponent capitalises, and it is survivable if you make
+      space instead of standing there — which is a thing you can get better
+      at, unlike a subtraction. */
   function punish() {
     if (doneRef.current) return;
-    const d = Math.max(1, Math.round(MY_MAX * WRONG_PUNISH * (1 - itemFx.punishReduce)));
+    const d = Math.max(1, Math.round(MY_MAX * WRONG_CHIP * (1 - itemFx.punishReduce)));
     const mHp = Math.max(0, hpRef.current.me - d);
     hpRef.current.me = mHp; setMyHp(mHp);
     comboRef.current = 0; setCombo(0);
-    practiceTip("wronganswer", T("เคล็ดลับ: ไม่จับเวลา ตอบช้าแต่ชัวร์ดีกว่า", "TIP: It's untimed — a slow, sure answer beats a fast guess", "小提示：不计时，慢而准比快而猜更好"));
+    if (mHp > 0) beginStagger(T("เซ! กันไม่ได้ 3 วิ", "STAGGERED! No guard, 3s", "踉跄！3 秒无法格挡"));
+    practiceTip("wronganswer", T("ตอบผิดแล้วจะเซ — ถอยห่างไว้ก่อนจนกว่าจะหาย",
+      "A wrong answer staggers you — back off and make space until it wears off",
+      "答错会踉跄 — 先拉开距离撑过去"));
     /* the opponent's biggest move, staged so it reads as an execution rather
        than another chip hit */
     const mv = ULT_MOVE[oppCls] || "cannon";
@@ -2296,7 +2516,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     later(() => { G.boom("me", 3, "#ff2d55"); G.flash("#ff2d55", .7, .5); audioRef.current.sfx("boom"); setShake(3); }, 260);
     later(() => { G.boom("me", 2.2, "#ffd23f"); audioRef.current.sfx("boom"); }, 520);
     later(() => { setLunge(null); setShake(0); }, 900);
-    say("me", "-" + Math.round(WRONG_PUNISH * (1 - itemFx.punishReduce) * 100) + "%", "dmg");
+    say("me", "-" + Math.round(WRONG_CHIP * (1 - itemFx.punishReduce) * 100) + "%", "dmg");
     if (mHp <= 0) later(() => roundOver("op"), 760);
   }
 
@@ -2354,27 +2574,67 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (playUi) playUi("click");
   }
 
+  /* ── the super, and the question inside it ──
+     The ultimate is the one moment a fight already stops for, so it is the
+     one place a question costs nothing in pace. Two seconds, one answer:
+     right doubles it and the cinematic plays in full, wrong halves it. It is
+     the only mechanic in the game where knowing the theory and winning the
+     fight are literally the same button press. */
   function useUlt() {
     if (ultUsed || gauge < 100 || myRank < SKILL_UNLOCK.ultimate || doneRef.current) return;
     setUltUsed(true); setGauge(0);
+    setUltQ({ q: makeQuestion(lang, weightedTag()), start: Date.now() });
+    setUltQLeft(ULTQ_TIME);
+    audioRef.current.sfx("charge");
+    G.flash("#ffd23f", .5, .45);
+    setLunge("me");
+    if (playUi) playUi("click");
+  }
+
+  /** The super's question came back — now actually fire it, scaled by whether
+      they knew the answer. */
+  function fireUlt(mul, right) {
+    setUltQ(null); setLunge(null);
+    if (doneRef.current) return;
+    bumpWeak(ultQRef.current ? ultQRef.current.tag : "iv", !!right);
+    setBanner(right ? T("ท่าไม้ตายเต็มกำลัง!", "FULL POWER SUPER!", "全力必杀!")
+      : T("ท่าไม้ตายไม่สมบูรณ์", "MISFIRED SUPER", "必杀失手"));
+    later(() => setBanner(null), 1200);
     const k = fx.ult, nb = { ...buffRef.current };
     const mvKey = ULT_MOVE[myCls] || "punch";
-    if (k === "triple") [0, 220, 440].forEach(d => later(() => hitOp(A.dmg * 3.5, "ult", mvKey), d));
-    else if (k === "crescendo") hitOp(OP_MAX * 0.16, "ult", mvKey);
-    else if (k === "finale") hitOp(A.dmg * (4 + comboRef.current * 0.5), "ult", mvKey);
+    if (k === "triple") [0, 220, 440].forEach(d => later(() => hitOp(A.dmg * 3.5 * mul, "ult", mvKey), d));
+    else if (k === "crescendo") hitOp(OP_MAX * 0.16 * mul, "ult", mvKey);
+    else if (k === "finale") hitOp(A.dmg * (4 + comboRef.current * 0.5) * mul, "ult", mvKey);
     else {
       audioRef.current.sfx("ult"); G.flash(clsInfo.c, .4, .4); G.burst("me", 1.6, clsInfo.c);
-      if (k === "fortress") { nb.fortress = 3; say("me", tr3(FX_TEXT.fortress, lang), "buff"); }
-      else if (k === "phase") { nb.phase = 2; say("me", tr3(FX_TEXT.phase, lang), "buff"); }
+      // the buff ultimates cannot be "doubled", so they run longer instead
+      const ext = right ? 1 : 0;
+      if (k === "fortress") { nb.fortress = 3 + ext; say("me", tr3(FX_TEXT.fortress, lang), "buff"); }
+      else if (k === "phase") { nb.phase = 2 + ext; say("me", tr3(FX_TEXT.phase, lang), "buff"); }
       else if (k === "foresee") { nb.foresee = 1; say("me", tr3(FX_TEXT.foresee, lang), "buff"); }
       else if (k === "overhaul") {
-        const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * 0.3));
-        hpRef.current.me = h; setMyHp(h); say("me", "+" + Math.round(MY_MAX * .3), "heal");
+        const frac = 0.3 * mul;
+        const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * frac));
+        hpRef.current.me = h; setMyHp(h); say("me", "+" + Math.round(MY_MAX * frac), "heal");
       }
       buffRef.current = nb; setBuffs(nb);
     }
     if (playUi) playUi("reward");
   }
+
+  /* The super's question has its own two-second clock. Letting it run out is
+     the same as getting it wrong — the move still comes out, just weakly. */
+  const ultQRef = useRef(null);
+  useEffect(() => { ultQRef.current = ultQ && ultQ.q; }, [ultQ]);
+  useEffect(() => {
+    if (!ultQ || doneRef.current) return;
+    const id = setInterval(() => {
+      const rem = Math.max(0, ULTQ_TIME - (Date.now() - ultQ.start));
+      setUltQLeft(rem);
+      if (rem <= 0) { clearInterval(id); fireUlt(0.5, false); }
+    }, 80);
+    return () => clearInterval(id);
+  }, [ultQ]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const mySk = skillsOf(me);
   const activeSk = mySk.find(s => s.tier === "active");
@@ -2403,9 +2663,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         <span className="pvpscore">{score.toLocaleString()}</span>
       </div>
 
-      <div className={`pvpstage${shake ? " sh" + shake : ""}${overdrive ? " od" : ""}${comeback ? " comeback" : ""}${suddenDeath ? " sudden" : ""}${finisher ? " finisher " + (outcome || "") : ""}`}>
+      {/* The stage carries the round on its own class: the light drops and the
+          room tightens in round 2, and the decider burns. Nothing has to say
+          "this one matters" out loud if the room already does. */}
+      <div className={`pvpstage r${Math.min(3, round)}${shake ? " sh" + shake : ""}${overdrive ? " od" : ""}${comeback ? " comeback" : ""}${suddenDeath ? " sudden" : ""}${hitStop ? " hitstop hs-" + hitDir : ""}${corner.me ? " cornerme" : ""}${corner.op ? " cornerop" : ""}${stagger ? " staggered" : ""}${finisher ? " finisher " + (outcome || "") : ""}`}>
         <canvas ref={G.bgRef} className="pvpbg" />
       <canvas ref={G.canvasRef} className="pvpfx" />
+        {/* the two walls, lit only for whoever has their back to one */}
+        <span className="pvpwall l" /><span className="pvpwall r" />
         <div className="pvphps">
           <div className="pvphpcol">
             {/* the pale bar behind is the damage you just took, still draining
@@ -2440,6 +2705,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" />
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
           {dizzy.me && <span className="pvpdizzy">✦✦✦</span>}
+          {stagger && !dizzy.me && <span className="pvpstagger">✖</span>}
           {/* the pet fights at your heel — it does not take hits or throw
               them, it stands there and applies the bonus you earned by
               looking after it */}
@@ -2475,6 +2741,24 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         )}
       </div>
 
+      {/* ── the super's question ──
+          Rendered over the held frame rather than in place of it: the point
+          is that the fight is mid-swing while this is being answered. */}
+      {ultQ && (
+        <div className="pvpultq">
+          <div className="pvpultq-card">
+            <b>{T("ท่าไม้ตาย — ตอบให้ทัน!", "SUPER — answer to power it!", "必杀技 — 答对增幅!")}</b>
+            <div className="pvpultq-bar"><i style={{ width: `${Math.max(0, (ultQLeft / ULTQ_TIME) * 100)}%` }} /></div>
+            <p>{ultQ.q.q}</p>
+            <div className="pvpultq-opts">
+              {ultQ.q.opts.map(o => (
+                <button key={o} type="button" onClick={() => fireUlt(isRight(o, ultQ.q) ? 2 : 0.5, isRight(o, ultQ.q))}>{o}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showTut && (
         <div className="pvptut" onClick={() => setShowTut(false)}>
           <div className="pvptut-card">
@@ -2506,13 +2790,21 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           {inputs.length > 0 && (
             <div className="pvpinputs">{inputs.map((g, i) => <span key={i}>{g}</span>)}</div>
           )}
+          {freeSpecial && (
+            <div className="pvpfreesp">{T("ท่าไม้ตายฟรีพร้อมใช้ — กดทิศแล้วต่อย", "FREE SPECIAL READY — motion + punch", "免费必杀就绪 — 方向 + 拳击")}</div>
+          )}
           <div className="pvppad">
             <div className="pvppad-l">
               <button className="pvpdir" aria-label={T("ถอย", "Back", "后退")}
                 onPointerDown={() => { dirRef.current = -1; pushMotion(-1); }} onPointerUp={() => { dirRef.current = 0; }}
                 onPointerLeave={() => { dirRef.current = 0; }} onPointerCancel={() => { dirRef.current = 0; }}>◀</button>
-              <button className={`pvpdir grd${guarding ? " on" : ""}`} aria-label={T("การ์ด", "Guard", "防御")}
-                onPointerDown={guard}>🛡</button>
+              {/* the guard button wears its own meter: a resource you can see
+                  running out is a decision, an invisible one is a surprise */}
+              <button className={`pvpdir grd${guarding ? " on" : ""}${guardMtr < GUARD_HIT_COST ? " spent" : ""}`}
+                aria-label={T("การ์ด", "Guard", "防御")} onPointerDown={guard}>
+                <span>🛡</span>
+                <span className="pvpgmtr"><i style={{ width: `${Math.max(0, (guardMtr / GUARD_MAX) * 100)}%` }} /></span>
+              </button>
               <button className="pvpdir" aria-label={T("เดินหน้า", "Forward", "前进")}
                 onPointerDown={() => { dirRef.current = 1; pushMotion(1); }} onPointerUp={() => { dirRef.current = 0; }}
                 onPointerLeave={() => { dirRef.current = 0; }} onPointerCancel={() => { dirRef.current = 0; }}>▶</button>
@@ -2547,14 +2839,47 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           nextLabel={T("สู้ต่อ", "Back to the fight", "继续战斗")} />
       ) : (
         <>
-          <div className="pvpuntimed">{T("ตอบถูก = โอเวอร์ไดรฟ์ · ไม่จับเวลา", "Answer right for OVERDRIVE · no time limit", "答对触发超载 · 不计时")}</div>
-          <div className="pvpq">{q.q}</div>
-          <div className="pvpopts">
-            {q.opts.map(o => (
-              <button key={o} className={`pvpopt${culled.includes(o) ? " culled" : ""}${locked && o === q.ans ? " right" : ""}`}
-                disabled={locked || culled.includes(o)} onClick={() => answer(o)}>{o}</button>
-            ))}
+          {/* the shot clock, and what beating it is worth */}
+          <div className={`pvpshot${quizLeft < 1500 ? " low" : ""}`}>
+            <i style={{ width: `${Math.max(0, (quizLeft / QUIZ_TIME) * 100)}%` }} />
+            <b>{(quizLeft / 1000).toFixed(1)}s</b>
           </div>
+          <div className="pvpshot-l">
+            {T("ต่ำกว่า 1.5 วิ = เกจเต็ม + ท่าไม้ตายฟรี",
+               "Under 1.5s = full gauge + a free special",
+               "1.5 秒内 = 能量全满 + 免费必杀")}
+          </div>
+          <div className="pvpq">{q.q}</div>
+          {PLAYABLE[q.tag] ? (
+            /* ── answer on the keys ──
+               Three of the four question kinds ask for a NOTE, and a note has
+               a place under the hand. Picking it off a piano instead of a list
+               of four is the difference between recognising a word and
+               spelling it: it is the same knowledge going into the hands the
+               learner actually plays with. Judged by pitch, so the black key
+               is right whether the question spelled it F# or Gb. */
+            <div className="pvpkeys" role="group" aria-label={T("เลือกโน้ต", "Pick the note", "选择音符")}>
+              {KEYS.map(k => {
+                const dim = culled.some(c => { try { return parseName(c).pc === parseName(k.n).pc; } catch (e) { return false; } });
+                const isAns = locked && (() => { try { return parseName(q.ans).pc === parseName(k.n).pc; } catch (e) { return false; } })();
+                return (
+                  <button key={k.n} type="button"
+                    className={`pvpkey${k.b ? " blk" : ""}${dim ? " culled" : ""}${isAns ? " right" : ""}`}
+                    disabled={locked || dim} onClick={() => answer(k.n)}
+                    aria-label={k.b ? `${k.n} / ${FLAT_OF[k.n]}` : k.n}>
+                    <span>{k.b ? <><em>{k.n}</em><em>{FLAT_OF[k.n]}</em></> : k.n}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="pvpopts">
+              {q.opts.map(o => (
+                <button key={o} className={`pvpopt${culled.includes(o) ? " culled" : ""}${locked && o === q.ans ? " right" : ""}`}
+                  disabled={locked || culled.includes(o)} onClick={() => answer(o)}>{o}</button>
+              ))}
+            </div>
+          )}
         </>
       ))}
 
