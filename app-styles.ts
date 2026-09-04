@@ -1000,6 +1000,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpme-nm{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
 .pvpme-rank{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--cc)}
 .pvpme-sk{display:flex;flex-direction:column;gap:6px}
+.pvpme-gear{display:flex;flex-direction:column;gap:2px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd1)}
+.pvpme-gear span{font-size:9.5px;color:var(--muted);font-family:'Share Tech Mono',monospace}
 .pvpsk{display:flex;gap:7px;align-items:flex-start}
 .pvpsk.lock{opacity:.5}
 .pvpsk-ic{display:block;width:22px;height:22px;flex:none;margin-top:1px}
@@ -1013,6 +1015,20 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    card alone on its own row, and the longer labels ("Fairly Hard Mode") need
    the extra width three columns don't leave them. */
 .pvptiers{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.pvploadouts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.pvploadout{position:relative;display:flex;flex-direction:column;gap:2px;padding:10px 8px;border-radius:12px;border:1px dashed var(--bd1);background:var(--card);cursor:pointer;text-align:center}
+.pvploadout:not(.empty){border-style:solid;border-color:color-mix(in srgb,var(--cc,#d97757) 45%,transparent)}
+.pvploadout b{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;color:var(--text)}
+.pvploadout i{font-style:normal;font-size:9px;color:var(--muted)}
+.pvploadout.empty b{font-size:18px;color:var(--muted)}
+.pvploadout-x{position:absolute;top:3px;right:5px;font-size:10px;color:var(--muted);padding:2px}
+.pvpcolorways{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px}
+.pvpcw{flex:none;width:84px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 6px;border-radius:12px;border:1px solid var(--bd1);background:var(--card);cursor:pointer}
+.pvpcw.on{border-color:var(--g);box-shadow:0 0 0 1px var(--g)55}
+.pvpcw.lock{opacity:.55}
+.pvpcw-sw{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--g),var(--a));box-shadow:0 0 10px -2px var(--g)}
+.pvpcw b{font-family:'Rajdhani',sans-serif;font-size:10.5px;font-weight:700;color:var(--text);white-space:nowrap}
+.pvpcw i{font-style:normal;font-size:8.5px;color:var(--muted);white-space:nowrap}
 .pvptier{display:flex;flex-direction:column;gap:3px;padding:11px 7px;border-radius:13px;border:1px solid var(--bd1);background:var(--card);cursor:pointer;text-align:center}
 .pvptier:active{transform:scale(.97)}
 .pvptier b{font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--text)}
@@ -1030,6 +1046,19 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvptier.t-warlord{border-color:#e2685f88;box-shadow:0 0 0 1px #e2685f2e}
 .pvptier.t-overlord{border-color:#e0435a99;box-shadow:0 0 0 1px #e0435a3a}
 .pvptier.t-legend{border-color:#ff2d55aa;box-shadow:0 0 10px -2px #ff2d5555,0 0 0 1px #ff2d5540}
+.pvptier.t-gauntlet{border-color:#aa00ff88;box-shadow:0 0 0 1px #aa00ff2e;background:linear-gradient(160deg,var(--card),color-mix(in srgb,#aa00ff 8%,var(--card)))}
+.pvptier.t-weeklyboss{border-color:#ffd23f99;box-shadow:0 0 10px -3px #ffd23f66,0 0 0 1px #ffd23f3a;background:linear-gradient(160deg,var(--card),color-mix(in srgb,#ffd23f 10%,var(--card)))}
+.pvptier.t-rival{border-color:#ff4d6a88;box-shadow:0 0 0 1px #ff4d6a2e;background:linear-gradient(160deg,var(--card),color-mix(in srgb,#ff4d6a 8%,var(--card)))}
+.pvptier.t-practice{border-color:#3ddc8488;box-shadow:0 0 0 1px #3ddc842e;background:linear-gradient(160deg,var(--card),color-mix(in srgb,#3ddc84 8%,var(--card)))}
+/* rank + daily target strip, sitting right under the header */
+.pvprank{display:flex;align-items:center;gap:9px;padding:8px 12px;margin-bottom:11px;border-radius:13px;background:var(--card);border:1px solid var(--bd1);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cc) 30%,transparent)}
+.pvprank-ic{font-size:16px;line-height:1}
+.pvprank-b{display:flex;flex-direction:column;gap:3px;min-width:76px}
+.pvprank-b b{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;color:var(--cc)}
+.pvprank-bar{width:76px;height:4px;border-radius:20px;background:var(--card2);overflow:hidden}
+.pvprank-bar i{display:block;height:100%;background:var(--cc)}
+.pvprank-daily{margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--muted);white-space:nowrap}
+.pvpshare{width:100%;margin-top:8px}
 .pvpnote{font-size:10.5px;line-height:1.5;color:var(--muted);background:var(--card2);border:1px solid var(--bd1);border-radius:11px;padding:9px 11px;margin-bottom:9px}
 .pvpempty{font-size:11.5px;color:var(--muted);text-align:center;padding:16px 10px;background:var(--card2);border:1px dashed var(--bd1);border-radius:12px}
 .pvpfriends{display:flex;flex-direction:column;gap:6px}
@@ -1271,6 +1300,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpres-stage{height:210px;display:flex;align-items:center;justify-content:center}
 .pvpres-stage svg{display:block;height:206px;width:auto}
 .pvpres-score{font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:#d97757}
+.pvpres-line{font-family:'Rajdhani',sans-serif;font-style:italic;font-size:12.5px;color:var(--muted);margin-top:2px}
 .pvpres-sub{font-size:11px;color:var(--muted);margin-top:4px}
 .pvpres-flawless{margin-top:9px;display:inline-block;padding:4px 12px;border-radius:20px;font-family:'Orbitron',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.03em;
   color:#1a1206;background:linear-gradient(90deg,#ffd23f,#ff9a4c);box-shadow:0 4px 14px -4px #d9775788}

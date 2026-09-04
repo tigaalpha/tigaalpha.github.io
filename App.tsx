@@ -5499,7 +5499,7 @@ function shareLine(text: string) {
 }
 // D1: Backing chord helpers
 // generate a shareable achievement card image (Web Share API, else download)
-async function shareCard({ title, big, sub, lines = [] }) {
+export async function shareCard({ title, big, sub, lines = [] }) {
   try {
     const W = 640, H = 800, c = document.createElement("canvas"); c.width = W; c.height = H;
     const x = c.getContext("2d");
@@ -6181,7 +6181,7 @@ function ChestIcon({ size = 16, className = "" }) {
    so an arena duel is stored, listed and resolved exactly like a song duel,
    with no backend change at all. `song_id` is unconstrained text server-side,
    which is what makes "arena" a legal subject. */
-const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi }) {
+const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout }) {
   const [friends, setFriends] = useState(null);
   const [duels, setDuels] = useState(null);
   const load = useCallback(() => {
@@ -6191,7 +6191,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
   useEffect(() => { load(); }, [load]);
   return (
     <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi}
-      friends={friends} duels={duels}
+      friends={friends} duels={duels} onApplyLoadout={onApplyLoadout}
       onChallenge={async (friend, score) => {
         const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: "arena", p_score: Math.round(score), p_mode: "duel" });
         if (!error) { playUi("reward"); load(); }
@@ -6199,7 +6199,16 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
       onRespondDuel={async (duel, score) => {
         const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: Math.round(score) });
         if (!error) { playUi("reward"); load(); }
-      }} />
+      }}
+      onShare={(res) => shareCard({
+        title: res.win ? "Victory!" : "Defeat",
+        big: Math.round(res.score).toLocaleString(),
+        sub: res.tier ? (lang === "th" ? res.tier.th : lang === "zh" ? res.tier.zh : res.tier.en) : "",
+        lines: [
+          (lang === "th" ? "คอมโบสูงสุด " : lang === "zh" ? "最高连击 " : "Best combo ") + res.bestCombo,
+          `${res.correct}/${res.asked} ` + (lang === "th" ? "ตอบถูก" : lang === "zh" ? "答对" : "correct"),
+        ],
+      })} />
   );
 });
 
@@ -10060,6 +10069,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const EQUIP_SETTERS = { skin: setSkin, theme: setTheme, frame: setFrame, keyboard: setKeyboard, sticker: setSticker, charHat: setCharHat, charOutfit: setCharOutfit, charWeapon: setCharWeapon, charAccessory: setCharAccessory };
+  // PvP loadout presets swap between OWNED gear only — this equips, it never
+  // buys, so a preset saved before an item was sold/lost just skips that slot
+  function applyLoadout(rec) {
+    if (!rec) return;
+    if (rec.model) {
+      const n = normalizeModel(rec.model);
+      if (owned.includes(MODEL_ITEM[n])) { setCharModelState(n); setEquipLS("charModel", n); }
+    }
+    if (rec.weapon && owned.includes(rec.weapon)) { setCharWeapon(rec.weapon); setEquipLS("charWeapon", rec.weapon); }
+    if (rec.outfit && owned.includes(rec.outfit)) { setCharOutfit(rec.outfit); setEquipLS("charOutfit", rec.outfit); }
+    if (rec.hat && owned.includes(rec.hat)) { setCharHat(rec.hat); setEquipLS("charHat", rec.hat); }
+    if (rec.accessory && owned.includes(rec.accessory)) { setCharAccessory(rec.accessory); setEquipLS("charAccessory", rec.accessory); }
+    playUi("reward");
+  }
   function buyOrEquip(kind, item) {
     // a chassis is bought and then RUN — it does not go through the equip
     // setters because what gets stored is the model id, not the item id
@@ -10636,6 +10659,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           gear={equippedGear}
           onBack={() => { setPage("profile"); playUi("click"); }}
           playUi={playUi}
+          onApplyLoadout={applyLoadout}
           onReward={(xp, c, res) => {
             // the arena pays its own SP; gainExp is Learning EXP only now
             if (xp) gainExp(xp, { quest: true });

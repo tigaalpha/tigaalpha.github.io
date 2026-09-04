@@ -162,7 +162,7 @@ export const COMBAT_TOTAL = 40;
 /** djb2 over a path string — stable across renders, unlike a counter. */
 const hashPath = (d) => { let h = 5381; for (let i = 0; i < d.length; i++) h = ((h << 5) + h + d.charCodeAt(i)) | 0; return h; };
 
-const RARITY_PTS = { common: 1, rare: 2, epic: 3, legendary: 5, mythic: 10 };
+export const RARITY_PTS = { common: 1, rare: 2, epic: 3, legendary: 5, mythic: 10 };
 export function combatOf(model, gear = []) {
   const base = MODEL_COMBAT[normalizeModel(model)] || MODEL_COMBAT.vanguard;
   const out = { pwr: base.pwr, arm: base.arm, spd: base.spd, syn: base.syn, sp: base.sp };

@@ -22,7 +22,7 @@
    yours from rank 1, the active at rank 3, the ultimate at rank 6. ── */
 
 import { useState, useEffect, useRef, useCallback, memo } from "react";
-import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel } from "./cyber-avatar";
+import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt } from "./item-art";
 import { petBonusOf, petById, petLevel, readPet, PetArt } from "./pet-lab";
@@ -142,8 +142,8 @@ function distract(ans, poolFn) {
   return out;
 }
 
-export function makeQuestion(lang) {
-  const kind = pick(["iv", "degree", "triad", "scale"]);
+export function makeQuestion(lang, forceKind) {
+  const kind = forceKind || pick(["iv", "degree", "triad", "scale"]);
   const root = pick(ROOTS);
 
   if (kind === "iv") {
@@ -243,6 +243,211 @@ const FX_TEXT = {
   crescendo: { th: "ดาเมจ 20% ของเลือดเต็มคู่ต่อสู้", en: "Deal 20% of their max HP", zh: "造成对手最大 HP 的 20%" },
   finale:    { th: "ดาเมจตามคอมโบที่สะสมไว้",  en: "Damage scales with your combo", zh: "伤害随连击成长" },
 };
+
+/* ── stage effects ──
+   arena-fx.tsx already draws ten distinct rooms; picking one used to be pure
+   decoration. Each now carries a small, honest trade-off in the fight
+   itself, keyed by the same stage id pickStage() already returns. */
+const STAGE_FX = {
+  grid:    { gauge: 1.08 },
+  magma:   { dmgDeal: 1.08, dmgTake: 1.08 },
+  frost:   { dmgDeal: 0.92, dmgTake: 0.85 },
+  ashfall: { comboGrowth: 1.15, comboFullReset: true },
+  void:    { critChance: 0.12, hpMax: 0.90 },
+  bloom:   { healPerCorrect: 0.02 },
+  gilt:    { scoreMul: 1.15, dmgDeal: 0.92 },
+  tide:    { dmgDeal: 0.90, botGap: 1.12 },
+  requiem: { gauge: 1.15, dmgTake: 1.08 },
+  dojo:    { meleeDmg: 1.15 },
+};
+const STAGE_FX_LABEL = {
+  grid:    { th: "เกจสกิล +8%", en: "Skill gauge +8%", zh: "技能槽 +8%" },
+  magma:   { th: "ดาเมจ +8% · รับดาเมจ +8%", en: "+8% dmg dealt · +8% dmg taken", zh: "伤害+8% · 承伤+8%" },
+  frost:   { th: "ดาเมจ -8% · รับดาเมจ -15%", en: "-8% dmg dealt · -15% dmg taken", zh: "伤害-8% · 承伤-15%" },
+  ashfall: { th: "คอมโบโต +15% แต่โดนตีคอมโบหลุดหมด", en: "+15% combo growth, hits fully reset combo", zh: "连击成长+15%，但被击中连击清零" },
+  void:    { th: "คริติคอล +12% · เลือดสูงสุด -10%", en: "+12% crit chance · -10% max HP", zh: "暴击+12% · 最大HP-10%" },
+  bloom:   { th: "ฟื้น HP เมื่อตอบถูก", en: "Heals HP on correct answers", zh: "答对时回复HP" },
+  gilt:    { th: "คะแนน +15% · ดาเมจ -8%", en: "+15% score · -8% dmg dealt", zh: "分数+15% · 伤害-8%" },
+  tide:    { th: "ทุกอย่างช้าลงใต้น้ำ", en: "Everything slows underwater", zh: "水下万物变慢" },
+  requiem: { th: "เกจสกิล +15% · รับดาเมจ +8%", en: "+15% gauge · +8% dmg taken", zh: "技能槽+15% · 承伤+8%" },
+  dojo:    { th: "ดาเมจระยะประชิด +15%", en: "+15% melee damage", zh: "近战伤害+15%" },
+};
+const stageFx = (arena) => STAGE_FX[arena && arena.id] || {};
+
+/* ── class triangle ──
+   Seven classes, one ring: each beats the class ahead of it and loses to the
+   one behind. A small nudge rather than a hard counter — the quiz still
+   decides the fight, this only decides how much a guess costs either way. */
+const CLASS_RING = ["bulwark", "striker", "ghost", "virtuoso", "engineer", "herald", "tactician"];
+function classMatchup(mine, theirs) {
+  const i = CLASS_RING.indexOf(mine), j = CLASS_RING.indexOf(theirs);
+  if (i < 0 || j < 0 || i === j) return 0;
+  const n = CLASS_RING.length;
+  if ((j - i + n) % n === 1) return 1;    // mine beats theirs
+  if ((i - j + n) % n === 1) return -1;   // theirs beats mine
+  return 0;
+}
+const MATCHUP_DMG = 0.10;
+
+/* ── weak-spot tracking ──
+   The three question kinds (interval / scale degree / triad / off-scale
+   note) already carry a `tag`. Recording a miss per tag and biasing the next
+   pick toward the worst one means winning a fight also means drilling
+   whatever the player actually gets wrong, instead of an even random split
+   that never notices a real weak spot. */
+const WEAK_KEY = "tg_pvp_weak";
+function readWeak() { try { const v = JSON.parse(localStorage.getItem(WEAK_KEY) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } }
+function bumpWeak(tag, right) {
+  try {
+    const v = readWeak();
+    const t = v[tag] || { right: 0, wrong: 0 };
+    if (right) t.right++; else t.wrong++;
+    v[tag] = t;
+    localStorage.setItem(WEAK_KEY, JSON.stringify(v));
+  } catch (e) {}
+}
+const Q_TAGS = ["iv", "degree", "scale", "triad"];
+function weightedTag() {
+  const v = readWeak();
+  const weights = Q_TAGS.map(t => {
+    const s = v[t];
+    if (!s || s.right + s.wrong < 3) return 1;         // not enough data yet
+    return 0.6 + (s.wrong / (s.right + s.wrong)) * 2.4;  // worse accuracy → more likely
+  });
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < Q_TAGS.length; i++) { r -= weights[i]; if (r <= 0) return Q_TAGS[i]; }
+  return Q_TAGS[Q_TAGS.length - 1];
+}
+
+/* ══════════════════════ item effects ══════════════════════
+
+   combatOf() already turns gear into flat stat points by rarity; this turns
+   the SAME gear into a genuinely different FEEL by what it visually IS.
+   Every weapon/outfit/hat/accessory already carries an `art` key naming its
+   look — grouping those into a handful of honest archetypes (a blade fights
+   differently from a blaster, heavy plating differently from light) is the
+   only version of "distinct effects" that stays hand-verifiable: one number
+   per archetype, scaled by the same RARITY_PTS combatOf() already uses,
+   rather than ninety bespoke numbers nobody could balance or remember. */
+const WPN_ARCHETYPE = {
+  // blade — melee weight: swords, cutters, hammers, tools, claws
+  sword: "blade", cutter: "blade", greatsword: "blade", hammer: "blade", multitool: "blade",
+  boomerang: "blade", wrench: "blade", driver: "blade", arm: "blade", magnet: "blade",
+  // blaster — directed energy, fired at range
+  torch: "blaster", beam: "blaster", blaster: "blaster", barrier: "blaster", piston: "blaster", railgun: "blaster",
+  // ordnance — heavy and slow, the family the rocket already belongs to
+  lance: "ordnance", charge: "ordnance", grenade: "ordnance", coil: "ordnance", reactor: "ordnance", burst: "ordnance",
+  // support — the music bench: nothing here throws a punch, it feeds the gauge
+  fork: "support", pendulum: "support", baton: "support", disc: "support", keytar: "support", speaker: "support",
+};
+const WPN_ARCHETYPE_ORDER = ["blade", "blaster", "ordnance", "support"];
+function wpnArchetype(art) {
+  if (WPN_ARCHETYPE[art]) return WPN_ARCHETYPE[art];
+  const m = /^pw-(\d)/.exec(art || "");
+  return m ? WPN_ARCHETYPE_ORDER[Number(m[1]) % 4] : null;
+}
+const OUT_ARCHETYPE = {
+  "out-tshirt": "light", "out-hoodie": "light", "out-alloy": "light", "out-carbon": "light",
+  "out-kimono": "elemental", "out-cryo": "elemental", "out-magma": "elemental",
+  "out-armor": "heavy", "out-tuxedo": "heavy", "out-royal": "heavy", "out-titan": "heavy",
+  "out-dress": "prestige", "out-celestial": "prestige", "out-prism": "prestige",
+};
+const OUT_ARCHETYPE_ORDER = ["light", "elemental", "heavy", "prestige"];
+function outArchetype(art) {
+  if (OUT_ARCHETYPE[art]) return OUT_ARCHETYPE[art];
+  const m = /^pp-(\d)/.exec(art || "");
+  return m ? OUT_ARCHETYPE_ORDER[Number(m[1]) % 4] : null;
+}
+const HAT_ARCHETYPE = {
+  visor: "sensor", scope: "sensor", antenna: "sensor", satellite: "sensor", beacon: "sensor", rivets: "sensor",
+  brain: "cognition", crown: "cognition", diadem: "cognition", orb: "cognition", atom: "cognition", crest: "cognition", aegis: "cognition",
+  halo: "regal", sigil: "regal", mask: "regal", wreath: "regal", holo: "regal", helm: "regal",
+};
+const HAT_ARCHETYPE_ORDER = ["sensor", "cognition", "regal"];
+function hatArchetype(art) {
+  if (HAT_ARCHETYPE[art]) return HAT_ARCHETYPE[art];
+  const m = /^pm-(\d)/.exec(art || "");
+  return m ? HAT_ARCHETYPE_ORDER[Number(m[1]) % 3] : null;
+}
+const ACC_ARCHETYPE = {
+  rotor: "mobility", thruster: "mobility", drone: "mobility", gyro: "mobility", vent: "mobility",
+  fusion: "power", singularity: "power", battery: "power", plug: "power",
+  shield: "defense", eye: "defense", limb: "defense", pad: "defense",
+  chip: "utility", trail: "utility", fork: "utility", pendulum: "utility", wreath: "utility",
+};
+const ACC_ARCHETYPE_ORDER = ["mobility", "power", "defense", "utility"];
+function accArchetype(art) {
+  if (ACC_ARCHETYPE[art]) return ACC_ARCHETYPE[art];
+  const m = /^pc-(\d)/.exec(art || "");
+  return m ? ACC_ARCHETYPE_ORDER[Number(m[1]) % 4] : null;
+}
+const ITEM_FX_LABEL = {
+  blade: { th: "อาวุธประชิด: ดาเมจต่อยเตะเพิ่ม", en: "Blade: bonus punch/kick damage", zh: "近战：拳踢伤害提升" },
+  blaster: { th: "อาวุธระยะไกล: ดาเมจยิงเพิ่ม", en: "Blaster: bonus fire damage", zh: "远程：射击伤害提升" },
+  ordnance: { th: "อาวุธหนัก: คูลดาวน์จรวดสั้นลง", en: "Ordnance: shorter rocket cooldown", zh: "重武器：火箭冷却缩短" },
+  support: { th: "เครื่องดนตรี: เกจสกิลโตไวขึ้น", en: "Support: faster skill gauge", zh: "支援：技能槽增长更快" },
+  light: { th: "เกราะเบา: มีโอกาสหลบ", en: "Light plating: chance to dodge", zh: "轻甲：有几率闪避" },
+  elemental: { th: "เกราะธาตุ: บทลงโทษตอบผิดลดลง", en: "Elemental plating: less wrong-answer punishment", zh: "元素装甲：答错惩罚降低" },
+  heavy: { th: "เกราะหนัก: ลดดาเมจที่ได้รับ", en: "Heavy plating: reduced damage taken", zh: "重甲：减少受到的伤害" },
+  prestige: { th: "เกราะเกียรติยศ: ฟื้น HP เมื่อตอบถูก", en: "Prestige plating: heals on correct answers", zh: "尊贵装甲：答对回血" },
+  sensor: { th: "โมดูลเซนเซอร์: โอกาสคริติคอลเพิ่ม", en: "Sensor module: bonus crit chance", zh: "传感模块：暴击几率提升" },
+  cognition: { th: "โมดูลสมองกล: เริ่มไฟต์เกจไม่ว่างเปล่า", en: "Cognition module: starts fights with gauge charged", zh: "认知模块：开局技能槽预充" },
+  regal: { th: "โมดูลเกียรติยศ: คอมโบโตไวขึ้น", en: "Regal module: faster combo growth", zh: "尊贵模块：连击成长更快" },
+  mobility: { th: "อุปกรณ์เสริมความคล่องตัว: คูลดาวน์กระโดดสั้นลง", en: "Mobility gear: shorter jump cooldown", zh: "机动装备：跳跃冷却缩短" },
+  power: { th: "อุปกรณ์เสริมพลัง: โอเวอร์ไดรฟ์แรงขึ้น", en: "Power gear: stronger overdrive", zh: "动力装备：超载伤害提升" },
+  defense: { th: "อุปกรณ์เสริมป้องกัน: โอกาสกันดาเมจเต็ม", en: "Defense gear: chance to fully block", zh: "防御装备：有几率完全格挡" },
+  utility: { th: "อุปกรณ์เสริมทั่วไป: คะแนนเพิ่ม", en: "Utility gear: bonus score", zh: "通用装备：分数提升" },
+};
+/** Aggregates every equipped item's archetype effect, scaled by rarity — the
+    same RARITY_PTS combatOf() already uses for flat stats. */
+export function itemEffectsOf(gear) {
+  const fx = {
+    meleeDmg: 1, fireDmg: 1, rocketCdMul: 1, gaugeMul: 1,
+    dodge: 0, punishReduce: 0, dmgReduce: 0, healPerCorrect: 0,
+    critChance: 0, gaugeStart: 0, comboGrowth: 1,
+    jumpCdMul: 1, overdriveDmg: 1, blockChance: 0, scoreMul: 1,
+    archetypes: [],
+  };
+  for (const g of gear || []) {
+    if (!g || !g.id) continue;
+    const pts = RARITY_PTS[g.rarity] || 1;
+    let a = null;
+    if (g.id.startsWith("wpn-")) {
+      a = wpnArchetype(g.art);
+      if (a === "blade") fx.meleeDmg += pts * 0.02;
+      else if (a === "blaster") fx.fireDmg += pts * 0.02;
+      else if (a === "ordnance") fx.rocketCdMul -= Math.min(0.4, pts * 0.04);
+      else if (a === "support") fx.gaugeMul += pts * 0.03;
+    } else if (g.id.startsWith("out-")) {
+      a = outArchetype(g.art);
+      if (a === "light") fx.dodge += pts * 0.015;
+      else if (a === "elemental") fx.punishReduce += pts * 0.03;
+      else if (a === "heavy") fx.dmgReduce += pts * 0.01;
+      else if (a === "prestige") fx.healPerCorrect += pts * 0.004;
+    } else if (g.id.startsWith("hat-")) {
+      a = hatArchetype(g.art);
+      if (a === "sensor") fx.critChance += pts * 0.01;
+      else if (a === "cognition") fx.gaugeStart += pts * 2;
+      else if (a === "regal") fx.comboGrowth += pts * 0.01;
+    } else if (g.id.startsWith("acc-")) {
+      a = accArchetype(g.art);
+      if (a === "mobility") fx.jumpCdMul -= Math.min(0.4, pts * 0.03);
+      else if (a === "power") fx.overdriveDmg += pts * 0.02;
+      else if (a === "defense") fx.blockChance += pts * 0.01;
+      else if (a === "utility") fx.scoreMul += pts * 0.02;
+    }
+    if (a) fx.archetypes.push(a);
+  }
+  fx.rocketCdMul = Math.max(0.5, fx.rocketCdMul);
+  fx.jumpCdMul = Math.max(0.5, fx.jumpCdMul);
+  fx.dodge = Math.min(0.35, fx.dodge);
+  fx.punishReduce = Math.min(0.6, fx.punishReduce);
+  fx.dmgReduce = Math.min(0.4, fx.dmgReduce);
+  fx.critChance = Math.min(0.35, fx.critChance);
+  fx.blockChance = Math.min(0.3, fx.blockChance);
+  return fx;
+}
 
 /* HP, damage and clock come from the chassis's own combat profile — the same
    numbers the shop shows, so the stat bars on the buy screen are not
@@ -417,8 +622,173 @@ function chassisFor(seedStr) {
   return CHAR_MODELS[h % CHAR_MODELS.length].id;
 }
 
+/* ── weekly featured bot ──
+   ISO-ish week key so the same seven days always resolve to the same boss,
+   client-only: no server clock to disagree with, just Monday-anchored UTC
+   weeks, which is close enough for a bonus that resets on its own. */
+function weekKey(d = new Date()) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((t - yearStart) / 86400000) + 1) / 7);
+  return `${t.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+const WEEKLY_TIERS = ["ranger", "ace", "elite", "warlord"];
+function weeklyFeatured() {
+  const wk = weekKey();
+  let h = 0; for (let i = 0; i < wk.length; i++) h = (h * 31 + wk.charCodeAt(i)) >>> 0;
+  const tier = BOT_TIERS.find(t => t.key === WEEKLY_TIERS[h % WEEKLY_TIERS.length]) || BOT_TIERS[5];
+  return { wk, tier, name: "WK-" + wk.slice(2) };
+}
+const WEEKLY_BADGE_KEY = "tg_pvp_weekly_badges";
+function readWeeklyBadges() { try { const v = JSON.parse(localStorage.getItem(WEEKLY_BADGE_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function markWeeklyBadge(wk) {
+  try { const v = readWeeklyBadges(); if (!v.includes(wk)) { v.push(wk); localStorage.setItem(WEEKLY_BADGE_KEY, JSON.stringify(v)); } } catch (e) {}
+}
+
+/* ── rival ghost ──
+   No live opponent data crosses a device, so the "rival" is a standing local
+   opponent: rolled once and kept forever, its record tracked like a real
+   rivalry, and it climbs a tier every time it loses to you so beating it
+   never stops meaning something. */
+const RIVAL_KEY = "tg_pvp_rival";
+const RIVAL_NAMES = ["VEX", "KAI-9", "NULLA", "ORBIT", "ZETTA", "ROOK", "IVRY", "QUARK", "NYX-7", "DRIFT"];
+const RIVAL_CEILING = "elite";   // tough, but never the very top — always beatable
+function readRival() {
+  try {
+    const v = JSON.parse(localStorage.getItem(RIVAL_KEY) || "null");
+    if (v && v.name && v.model && v.tierKey) return v;
+  } catch (e) {}
+  const model = CHAR_MODELS[Math.floor(Math.random() * CHAR_MODELS.length)].id;
+  const name = RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)] + "-" + (100 + Math.floor(Math.random() * 900));
+  const rival = { name, model, tierKey: "cadet", w: 0, l: 0 };
+  try { localStorage.setItem(RIVAL_KEY, JSON.stringify(rival)); } catch (e) {}
+  return rival;
+}
+function saveRival(r) { try { localStorage.setItem(RIVAL_KEY, JSON.stringify(r)); } catch (e) {} }
+function rivalResult(rival, won) {
+  const nr = { ...rival };
+  if (won) {
+    nr.w++;
+    const idx = BOT_TIERS.findIndex(t => t.key === nr.tierKey);
+    const ceilingIdx = BOT_TIERS.findIndex(t => t.key === RIVAL_CEILING);
+    if (idx >= 0 && idx < ceilingIdx) nr.tierKey = BOT_TIERS[idx + 1].key;
+  } else nr.l++;
+  saveRival(nr);
+  return nr;
+}
+
+/* ── daily target ──
+   Yesterday's best score is today's number to beat — a soft, single-device
+   leaderboard with no realtime backend behind it at all. */
+const DAILY_KEY = "tg_pvp_daily";
+const todayStr = (d = new Date()) => d.toISOString().slice(0, 10);
+function readDailyRaw() { try { const v = JSON.parse(localStorage.getItem(DAILY_KEY) || "null"); return v && typeof v === "object" ? v : null; } catch (e) { return null; } }
+function saveDailyRaw(v) { try { localStorage.setItem(DAILY_KEY, JSON.stringify(v)); } catch (e) {} }
+/** Rolls the day over if needed, then returns {target, bestToday}. */
+function dailyTarget() {
+  const today = todayStr();
+  let v = readDailyRaw();
+  if (!v || v.date !== today) {
+    const target = v ? (v.bestToday || 0) : 0;
+    v = { date: today, bestToday: 0, target };
+    saveDailyRaw(v);
+  }
+  return { target: v.target || 0, bestToday: v.bestToday || 0 };
+}
+/** Returns true if this score set a new best for today. */
+function bumpDailyBest(score) {
+  const today = todayStr();
+  let v = readDailyRaw();
+  if (!v || v.date !== today) { dailyTarget(); v = readDailyRaw(); }
+  if (score > (v.bestToday || 0)) { v.bestToday = score; saveDailyRaw(v); return true; }
+  return false;
+}
+
+/* ── PvP rank ladder ──
+   Separate from the account-wide League, which counts total EXP — this
+   counts real wins and losses inside the arena specifically, bronze through
+   diamond, the way a fighting game's own ladder would. */
+export const RANK_TIERS = [
+  { key: "bronze",   th: "บรอนซ์",     en: "Bronze",   zh: "青铜", min: 0,    c: "#cd7f32" },
+  { key: "silver",   th: "ซิลเวอร์",   en: "Silver",   zh: "白银", min: 150,  c: "#c0c0c8" },
+  { key: "gold",     th: "โกลด์",      en: "Gold",     zh: "黄金", min: 400,  c: "#ffd23f" },
+  { key: "platinum", th: "แพลทินัม",   en: "Platinum", zh: "铂金", min: 800,  c: "#7fd7ff" },
+  { key: "diamond",  th: "ไดมอนด์",    en: "Diamond",  zh: "钻石", min: 1400, c: "#b98cff" },
+];
+const RANK_KEY = "tg_pvp_rank";
+export function readRankPts() { try { return Math.max(0, parseInt(localStorage.getItem(RANK_KEY) || "0", 10) || 0); } catch (e) { return 0; } }
+function saveRankPts(v) { try { localStorage.setItem(RANK_KEY, String(Math.max(0, Math.round(v)))); } catch (e) {} }
+export function rankOf(pts) {
+  let cur = RANK_TIERS[0];
+  for (const t of RANK_TIERS) if (pts >= t.min) cur = t;
+  const idx = RANK_TIERS.indexOf(cur);
+  const next = RANK_TIERS[idx + 1] || null;
+  return { tier: cur, next, into: pts - cur.min, need: next ? next.min - cur.min : 0, pct: next ? (pts - cur.min) / (next.min - cur.min) : 1 };
+}
+
+/* ── two-class synergy ──
+   readSkillSp already tracks every class separately; the only thing missing
+   was a reason to actually rank up a second one instead of pouring every
+   fight into the class already mained. Rank 3 in any OTHER class alongside
+   the one being played unlocks a small always-on cross-training bonus. */
+const SYNERGY_RANK = 3, SYNERGY_DMG = 1.08, SYNERGY_GAUGE = 1.10;
+const hasSynergy = (sp, mine) => Object.keys(MODEL_CLASS).some(k => k !== mine && skillRank((sp && sp[k]) || 0).rank >= SYNERGY_RANK);
+
+/* ── loadout presets ──
+   Three saved gear sets, purely local — the shop already gates what can be
+   equipped, this just remembers up to three combinations of it. */
+const LOADOUT_KEY = "tg_loadouts";
+export function readLoadouts() {
+  try { const v = JSON.parse(localStorage.getItem(LOADOUT_KEY) || "[]"); return Array.isArray(v) ? v.slice(0, 3) : []; } catch (e) { return []; }
+}
+function saveLoadouts(v) { try { localStorage.setItem(LOADOUT_KEY, JSON.stringify(v.filter(Boolean).slice(0, 3))); } catch (e) {} }
+
+/* ── Valor: the PvP-only currency ──
+   Earned only from arena wins, spent only on colourways for the fighter's
+   glow/accent — cosmetic, not stats, so grinding it never buys a win. */
+const VALOR_KEY = "tg_pvp_valor";
+export function readValor() { try { return Math.max(0, parseInt(localStorage.getItem(VALOR_KEY) || "0", 10) || 0); } catch (e) { return 0; } }
+function addValor(n) { const v = Math.max(0, readValor() + Math.round(n)); try { localStorage.setItem(VALOR_KEY, String(v)); } catch (e) {} return v; }
+function spendValor(n) { const v = readValor(); if (v < n) return false; try { localStorage.setItem(VALOR_KEY, String(v - n)); } catch (e) {} return true; }
+export const COLORWAYS = [
+  { key: "default", cost: 0,  glow: "#00b8d4", accent: "#7c4dff", th: "มาตรฐาน", en: "Standard", zh: "标准" },
+  { key: "inferno", cost: 30, glow: "#ff5a1f", accent: "#ffd23f", th: "อัคคี",    en: "Inferno",  zh: "烈焰" },
+  { key: "toxic",   cost: 30, glow: "#3ddc84", accent: "#c8ff3d", th: "พิษเขียว", en: "Toxic",    zh: "剧毒" },
+  { key: "royal",   cost: 45, glow: "#b98cff", accent: "#ff66c4", th: "ราชวงศ์",  en: "Royal",    zh: "皇室" },
+  { key: "arctic",  cost: 45, glow: "#7fe8ff", accent: "#e9f6ff", th: "อาร์กติก", en: "Arctic",   zh: "极地" },
+  { key: "crimson", cost: 60, glow: "#ff2d55", accent: "#0b0d14", th: "เลือดเข้ม", en: "Crimson",  zh: "赤红" },
+];
+const COLORWAY_KEY = "tg_pvp_colorway";
+export function readColorwayKey() { try { return localStorage.getItem(COLORWAY_KEY) || "default"; } catch (e) { return "default"; } }
+function saveColorwayKey(k) { try { localStorage.setItem(COLORWAY_KEY, k); } catch (e) {} }
+const COLORWAYS_OWNED_KEY = "tg_pvp_colorways_owned";
+function readOwnedColorways() { try { const v = JSON.parse(localStorage.getItem(COLORWAYS_OWNED_KEY) || "[\"default\"]"); return Array.isArray(v) ? v : ["default"]; } catch (e) { return ["default"]; } }
+function ownColorway(key) { try { const v = readOwnedColorways(); if (!v.includes(key)) { v.push(key); localStorage.setItem(COLORWAYS_OWNED_KEY, JSON.stringify(v)); } } catch (e) {} }
+export const colorwayOf = (key) => COLORWAYS.find(c => c.key === key) || COLORWAYS[0];
+
+/* ── class-specific win poses/lines ──
+   A rank-6+ chassis gets its "ultimate" line instead of the base one — a
+   pure collectible, no combat weight at all. */
+const CLASS_WIN_LINES = {
+  striker:   { line: { th: "จบไวจบแรง",              en: "Fast in, fast out.",              zh: "速战速决。" },
+               ult:  { th: "ไม่มีใครตามทัน",          en: "Nobody keeps up.",                zh: "无人能及。" } },
+  bulwark:   { line: { th: "ยืนตรงนี้ ไม่ถอย",        en: "Stood my ground.",                zh: "寸步不让。" },
+               ult:  { th: "กำแพงที่ไม่เคยแตก",       en: "The wall never breaks.",          zh: "永不崩塌的墙。" } },
+  ghost:     { line: { th: "ไม่ทันเห็นด้วยซ้ำ",        en: "You never even saw me.",          zh: "你根本没看见我。" },
+               ult:  { th: "เงาที่จับไม่ได้",          en: "An untouchable shadow.",          zh: "无法触及的影子。" } },
+  tactician: { line: { th: "คิดไว้แล้วทุกก้าว",        en: "Planned every move.",             zh: "每一步都算好了。" },
+               ult:  { th: "เกมจบตั้งแต่ยังไม่เริ่ม",   en: "The game ended before it began.", zh: "未战已定局。" } },
+  engineer:  { line: { th: "ซ่อมไว ซ่อมทัน",           en: "Repaired faster than you could hit.", zh: "修复速度超过你的攻击。" },
+               ult:  { th: "ไม่มีวันพัง",              en: "Built to never break.",           zh: "永不损坏。" } },
+  herald:    { line: { th: "เสียงนี้คือชัยชนะ",         en: "That sound was victory.",         zh: "那声音就是胜利。" },
+               ult:  { th: "บทเพลงสุดท้ายเป็นของฉัน",  en: "The final note is mine.",         zh: "终曲属于我。" } },
+  virtuoso:  { line: { th: "คอมโบไม่เคยขาด",           en: "The combo never dropped.",        zh: "连击从未中断。" },
+               ult:  { th: "ทุกจังหวะคือศิลปะ",         en: "Every beat, a masterpiece.",      zh: "每一拍都是杰作。" } },
+};
+
 export const PvpPage = memo(function PvpPage({
-  lang, charModel = "vanguard", gear = [], onBack, onReward, playUi, friends = null, onChallenge, duels = null, onRespondDuel,
+  lang, charModel = "vanguard", gear = [], onBack, onReward, playUi, friends = null, onChallenge, duels = null, onRespondDuel, onShare, onApplyLoadout,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [phase, setPhase] = useState("lobby");    // lobby | fight | result
@@ -427,20 +797,146 @@ export const PvpPage = memo(function PvpPage({
   const [oppName, setOppName] = useState("");
   const [pendingFriend, setPendingFriend] = useState(null);
   const [sp, setSp] = useState(() => readSkillSp());
+  const [isWeekly, setIsWeekly] = useState(false);
+  const weekly = useRef(weeklyFeatured()).current;
+  const [weeklyClaimed, setWeeklyClaimed] = useState(() => readWeeklyBadges().includes(weekly.wk));
+  const [gauntlet, setGauntlet] = useState(null);            // {ix, hpFrac, totals, cleared}
+  const [gauntletSummary, setGauntletSummary] = useState(null);
+  const [rival, setRival] = useState(() => readRival());
+  const [isRival, setIsRival] = useState(false);
+  const [daily] = useState(() => dailyTarget());
+  const [rankPts, setRankPts] = useState(() => readRankPts());
+  const rank = rankOf(rankPts);
+  const [loadouts, setLoadouts] = useState(() => readLoadouts());
+  const [valor, setValor] = useState(() => readValor());
+  const [colorwayKey, setColorwayKey] = useState(() => readColorwayKey());
+  const [ownedCw, setOwnedCw] = useState(() => readOwnedColorways());
+  const [practiceMode, setPracticeMode] = useState(false);
+  const colorway = colorwayOf(colorwayKey);
 
   const me = normalizeModel(charModel);
   const myCls = classKeyOf(me);
   const myRank = skillRank(sp[myCls] || 0).rank;
   const mySkills = skillsOf(me);
   const clsInfo = MODEL_CLASS[myCls] || MODEL_CLASS.striker;
+  // what the equipped gear actually does in a fight, not just its stat points
+  const gearFx = itemEffectsOf(gear);
+  const gearArchetypes = [...new Set(gearFx.archetypes)];
 
   const startFight = (kind, t, name, friend) => {
     setOppKind(kind); setTier(t); setOppName(name || ""); setPendingFriend(friend || null);
     setPhase("fight"); if (playUi) playUi("click");
   };
+  const startWeekly = () => {
+    const boosted = { ...weekly.tier, coins: weekly.tier.coins * 2, xp: weekly.tier.xp * 2, sp: weekly.tier.sp * 2 };
+    setIsWeekly(true);
+    startFight("bot", boosted, weekly.name);
+  };
+  const startRivalFight = () => {
+    const t = BOT_TIERS.find(x => x.key === rival.tierKey) || BOT_TIERS[2];
+    setIsRival(true);
+    startFight("bot", t, rival.name);
+  };
+  const startPractice = () => {
+    setPracticeMode(true);
+    startFight("bot", BOT_TIERS[3], T("โหมดซ้อม", "Practice Bot", "陪练机器人"));
+  };
+  const saveLoadoutSlot = (i) => {
+    const g = gear || [];
+    const findId = (pfx) => { const it = g.find(x => x && x.id && String(x.id).startsWith(pfx)); return it ? it.id : null; };
+    const rec = {
+      name: tr3(clsInfo, lang) + " " + (i + 1), model: me,
+      weapon: findId("wpn-"), outfit: findId("out-"), hat: findId("hat-"), accessory: findId("acc-"),
+    };
+    const next = loadouts.slice(); next[i] = rec;
+    setLoadouts(next); saveLoadouts(next);
+    if (playUi) playUi("click");
+  };
+  const applyLoadoutSlot = (i) => {
+    const rec = loadouts[i];
+    if (!rec || !onApplyLoadout) return;
+    onApplyLoadout(rec);
+    if (playUi) playUi("reward");
+  };
+  const clearLoadoutSlot = (i) => {
+    const next = loadouts.slice(); next[i] = null;
+    setLoadouts(next); saveLoadouts(next);
+  };
+  const pickColorway = (cw) => {
+    if (ownedCw.includes(cw.key)) { setColorwayKey(cw.key); saveColorwayKey(cw.key); if (playUi) playUi("click"); return; }
+    if (valor < cw.cost) { if (playUi) playUi("click"); return; }
+    if (!spendValor(cw.cost)) return;
+    ownColorway(cw.key);
+    setOwnedCw(readOwnedColorways()); setValor(readValor());
+    setColorwayKey(cw.key); saveColorwayKey(cw.key);
+    if (playUi) playUi("reward");
+  };
+  const startGauntlet = () => {
+    setGauntlet({ ix: 0, hpFrac: 1, totals: { coins: 0, xp: 0, sp: 0 }, cleared: [] });
+    startFight("bot", BOT_TIERS[0], tr3(CHAR_MODELS.find(m => m.id === chassisFor("gauntlet0" + Date.now())) || {}, lang));
+  };
 
   const [result, setResult] = useState(null);
   const finish = useCallback((res) => {
+    const wasWeekly = isWeekly;
+    if (wasWeekly) { setIsWeekly(false); if (res.win) { markWeeklyBadge(weekly.wk); setWeeklyClaimed(true); } }
+    const wasRival = isRival;
+    if (wasRival) { setIsRival(false); setRival(rivalResult(rival, res.win)); }
+    const wasPractice = practiceMode;
+    if (wasPractice) {
+      // no stakes means no stakes: no coins, no XP, no SP, no rank, no daily
+      // best — just the result screen and whatever the live tips taught
+      setPracticeMode(false);
+      res.practice = true;
+      setResult(res);
+      setPhase("result");
+      if (playUi) playUi(res.win ? "reward" : "click");
+      return;
+    }
+
+    if (gauntlet) {
+      const t = res.tier;
+      if (res.win) {
+        const totals = { coins: gauntlet.totals.coins + t.coins, xp: gauntlet.totals.xp + t.xp, sp: gauntlet.totals.sp + t.sp };
+        const cleared = [...gauntlet.cleared, t.key];
+        const hpFrac = Math.max(0.001, res.myHp / res.myMax);
+        if (gauntlet.ix + 1 >= BOT_TIERS.length) {
+          // cleared all ten — the completion bonus is the whole reason to run it back to back
+          const bonus = { coins: 1000, xp: 150, sp: 300 };
+          const final = { coins: totals.coins + bonus.coins, xp: totals.xp + bonus.xp, sp: totals.sp + bonus.sp };
+          const gained = addSkillSp(myCls, final.sp);
+          setSp(readSkillSp()); try { window.dispatchEvent(new Event("tg-skillsp")); } catch (e) {}
+          if (onReward) onReward(final.xp, final.coins, res);
+          setGauntlet(null);
+          setGauntletSummary({ cleared, totals: final, complete: true, spGained: gained });
+          setPhase("result");
+          if (playUi) playUi("reward");
+          return;
+        }
+        const ix = gauntlet.ix + 1;
+        setGauntlet({ ix, hpFrac, totals, cleared });
+        setTier(BOT_TIERS[ix]);
+        setOppName(tr3(CHAR_MODELS.find(m => m.id === chassisFor("gauntlet" + ix + Date.now())) || {}, lang));
+        if (playUi) playUi("click");
+        return;   // stay on phase "fight" — the key change below remounts ArenaFight fresh
+      }
+      // lost — the run ends here, paying out whatever was already banked
+      const gained = gauntlet.totals.sp ? addSkillSp(myCls, gauntlet.totals.sp) : null;
+      setSp(readSkillSp()); try { window.dispatchEvent(new Event("tg-skillsp")); } catch (e) {}
+      if (onReward && (gauntlet.totals.coins || gauntlet.totals.xp)) onReward(gauntlet.totals.xp, gauntlet.totals.coins, res);
+      setGauntlet(null);
+      setGauntletSummary({ cleared: gauntlet.cleared, totals: gauntlet.totals, complete: false, spGained: gained });
+      setPhase("result");
+      if (playUi) playUi("click");
+      return;
+    }
+
+    res.weeklyWin = wasWeekly && res.win;
+    if (wasRival) res.rivalMatch = true;
+    res.newDailyBest = bumpDailyBest(res.score);
+    const tierIdx = res.tier ? BOT_TIERS.findIndex(x => x.key === res.tier.key) : -1;
+    if (tierIdx >= 0) { saveRankPts(readRankPts() + (res.win ? (tierIdx + 1) * 8 : -4)); setRankPts(readRankPts()); }
+    if (res.win) setValor(addValor(3 + (tierIdx >= 0 ? tierIdx : 0)));
     setResult(res);
     setPhase("result");
     const won = res.win;
@@ -459,7 +955,7 @@ export const PvpPage = memo(function PvpPage({
     if (onReward) onReward(xp, coins, res);
     res.spGained = gained;
     if (playUi) playUi(won ? "reward" : "click");
-  }, [myCls, onReward, playUi]);
+  }, [myCls, onReward, playUi, gauntlet, isWeekly, weekly, isRival, rival, practiceMode, lang]);
 
   /* ── lobby ── */
   if (phase === "lobby") {
@@ -475,8 +971,18 @@ export const PvpPage = memo(function PvpPage({
         </div>
 
         <div className="pvpbody">
+          <div className="pvprank" style={{ "--cc": rank.tier.c }} title={rank.next ? `${rank.into}/${rank.need}` : ""}>
+            <span className="pvprank-ic">🎖</span>
+            <span className="pvprank-b">
+              <b>{tr3(rank.tier, lang)}</b>
+              <span className="pvprank-bar"><i style={{ width: `${Math.round(rank.pct * 100)}%` }} /></span>
+            </span>
+            {daily.target > 0 && (
+              <span className="pvprank-daily">🎯 {T("เป้าวันนี้", "Today's target", "今日目标")} {daily.target.toLocaleString()}</span>
+            )}
+          </div>
           <div className="pvpme">
-            <div className="pvpme-stage"><CyberAvatar model={me} yaw={22} pose="ready" glow="#00b8d4" accent="#7c4dff" armorA="#1b2436" armorB="#41608a" /></div>
+            <div className="pvpme-stage"><CyberAvatar model={me} yaw={22} pose="ready" glow={colorway.glow} accent={colorway.accent} armorA="#1b2436" armorB="#41608a" /></div>
             <div className="pvpme-b">
               <div className="pvpme-nm">{tr3(CHAR_MODELS.find(m => m.id === me) || {}, lang)}</div>
               <div className="pvpme-rank" style={{ "--cc": clsInfo.c }}>{T("แรงก์สกิล", "Skill rank", "技能等级")} {myRank}</div>
@@ -495,7 +1001,72 @@ export const PvpPage = memo(function PvpPage({
                   );
                 })}
               </div>
+              {gearArchetypes.length > 0 && (
+                <div className="pvpme-gear">
+                  {gearArchetypes.map(a => <span key={a}>⚙ {tr3(ITEM_FX_LABEL[a], lang)}</span>)}
+                </div>
+              )}
             </div>
+          </div>
+
+          <div className="pvpsec-h">💾 {T("ชุดที่บันทึกไว้", "Loadout Presets", "预设装备")}</div>
+          <div className="pvploadouts">
+            {[0, 1, 2].map(i => {
+              const rec = loadouts[i];
+              return (
+                <button key={i} className={`pvploadout${rec ? "" : " empty"}`} onClick={() => rec ? applyLoadoutSlot(i) : saveLoadoutSlot(i)}>
+                  {rec ? (
+                    <>
+                      <b>{rec.name}</b>
+                      <i>{T("แตะเพื่อสวมใส่", "Tap to equip", "点击装备")}</i>
+                      <span className="pvploadout-x" onClick={e => { e.stopPropagation(); clearLoadoutSlot(i); }}>✕</span>
+                    </>
+                  ) : (
+                    <><b>+</b><i>{T("บันทึกชุดปัจจุบัน", "Save current set", "保存当前套装")}</i></>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="pvpsec-h">⚔ {T("วาลอร์", "Valor", "荣耀值")} · {valor.toLocaleString()}</div>
+          <div className="pvpcolorways">
+            {COLORWAYS.map(cw => {
+              const owned = ownedCw.includes(cw.key);
+              const on = colorwayKey === cw.key;
+              return (
+                <button key={cw.key} className={`pvpcw${on ? " on" : ""}${!owned && valor < cw.cost ? " lock" : ""}`}
+                  style={{ "--g": cw.glow, "--a": cw.accent }} onClick={() => pickColorway(cw)}>
+                  <span className="pvpcw-sw" />
+                  <b>{tr3(cw, lang)}</b>
+                  <i>{owned ? (on ? T("ใช้อยู่", "Equipped", "使用中") : T("แตะเพื่อใช้", "Tap to wear", "点击佩戴")) : `⚔ ${cw.cost}`}</i>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="pvpsec-h">⭐ {T("ไฟต์พิเศษ", "Special Fights", "特别对战")}</div>
+          <div className="pvptiers">
+            <button className="pvptier t-gauntlet" onClick={startGauntlet}>
+              <b>🔥 {T("เกาน์ท์เล็ต", "Gauntlet", "极限远征")}</b>
+              <i>{T("ลุยรวด 10 ด่าน ไม่พัก HP", "All 10 tiers, no HP rest", "连闯十关，HP 不回复")}</i>
+              <span>🏆 {T("โบนัสก้อนใหญ่เมื่อจบครบ", "Big bonus on a full clear", "全通有大奖")}</span>
+            </button>
+            <button className="pvptier t-weeklyboss" onClick={startWeekly}>
+              <b>👑 {T("บอสประจำสัปดาห์", "Weekly Boss", "本周首领")} {weeklyClaimed ? "✓" : ""}</b>
+              <i>{tr3(weekly.tier, lang)} · {T("รางวัล 2 เท่า", "2× rewards", "奖励 2 倍")}</i>
+              <span>🪙 {weekly.tier.coins * 2} · ✦ {weekly.tier.xp * 2} · SP {weekly.tier.sp * 2}</span>
+            </button>
+            <button className="pvptier t-rival" onClick={startRivalFight}>
+              <b>😤 {T("คู่ปรับ", "Rival", "劲敌")} {rival.name}</b>
+              <i>{tr3(BOT_TIERS.find(t => t.key === rival.tierKey) || {}, lang)}</i>
+              <span>{T("สถิติ", "Record", "战绩")} {rival.w}-{rival.l}</span>
+            </button>
+            <button className="pvptier t-practice" onClick={startPractice}>
+              <b>🎓 {T("โหมดซ้อม", "Practice", "陪练模式")}</b>
+              <i>{T("ไม่มีเดิมพัน มีติ๊ปสด", "No stakes, live tips", "无风险，实时提示")}</i>
+              <span>{T("ไม่เสียเหรียญ/EXP", "No coins/EXP lost", "不消耗金币/经验")}</span>
+            </button>
           </div>
 
           <div className="pvpsec-h">🤖 {T("โหมดต่อสู้", "Fight Mode", "战斗模式")}</div>
@@ -549,6 +1120,38 @@ export const PvpPage = memo(function PvpPage({
     );
   }
 
+  /* ── gauntlet summary ── */
+  if (phase === "result" && gauntletSummary) {
+    const gs = gauntletSummary;
+    return (
+      <div className="pvppage">
+        <div className="pvphdr">
+          <button className="stgback" onClick={() => { setGauntletSummary(null); setPhase("lobby"); }} aria-label="back">←</button>
+          <span className="pvphdr-t">{gs.complete ? "🏆 " + T("พิชิตครบ 10 ด่าน!", "GAUNTLET CLEARED!", "十关制霸！") : T("จบเกาน์ท์เล็ต", "Gauntlet Over", "远征结束")}</span>
+        </div>
+        <div className="pvpbody">
+          <div className={`pvpres ${gs.complete ? "win" : ""}`}>
+            <div className="pvpres-score">{gs.cleared.length}/{BOT_TIERS.length}</div>
+            <div className="pvpres-sub">
+              {T("ด่านที่ผ่าน", "Tiers cleared", "已通过关卡")}: {gs.cleared.length ? gs.cleared.map(k => tr3(BOT_TIERS.find(t => t.key === k) || {}, lang)).join(" → ") : "—"}
+            </div>
+            {gs.complete && <div className="pvpres-flawless">🏆 {T("รวมโบนัสพิชิตครบแล้ว", "Full-clear bonus included", "已包含全通奖励")}</div>}
+            <div className="pvpres-rew">
+              <span>🪙 {gs.totals.coins}</span>
+              <span>✦ {gs.totals.xp}</span>
+              <span style={{ color: clsInfo.c }}>SP +{gs.totals.sp}</span>
+            </div>
+            {gs.spGained && gs.spGained.rankedUp && <div className="pvpres-rank" style={{ "--cc": clsInfo.c }}>⬆ {tr3(clsInfo, lang)} {T("แรงก์", "rank", "等级")} {gs.spGained.rank}</div>}
+          </div>
+          <div className="pvpres-btns">
+            <button className="pvpghost" onClick={() => { setGauntletSummary(null); setPhase("lobby"); }}>{T("กลับสนาม", "Back to arena", "返回竞技场")}</button>
+            <button className="pvpghost" onClick={() => { setGauntletSummary(null); startGauntlet(); }}>{T("ลองอีกครั้ง", "Try again", "再试一次")}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   /* ── result ── */
   if (phase === "result" && result) {
     const g = result.spGained;
@@ -562,22 +1165,39 @@ export const PvpPage = memo(function PvpPage({
         <div className="pvpbody">
           <div className={`pvpres ${result.win ? "win" : "lose"}`}>
             <div className="pvpres-stage">
-              <CyberAvatar model={me} yaw={0} pose={result.win ? "win" : "down"} glow="#00b8d4" accent="#7c4dff" armorA="#1b2436" armorB="#41608a" />
+              <CyberAvatar model={me} yaw={0} pose={result.win ? "win" : "down"} glow={colorway.glow} accent={colorway.accent} armorA="#1b2436" armorB="#41608a" />
             </div>
             <div className="pvpres-score">{result.score}</div>
+            {result.win && CLASS_WIN_LINES[myCls] && (
+              <div className="pvpres-line">"{tr3(myRank >= 6 ? CLASS_WIN_LINES[myCls].ult : CLASS_WIN_LINES[myCls].line, lang)}"</div>
+            )}
             <div className="pvpres-sub">
               {T("ตอบถูก", "Correct", "答对")} {result.correct}/{result.asked} ·
               {" "}{T("คอมโบสูงสุด", "Best combo", "最高连击")} {result.bestCombo} ·
               {" "}HP {Math.max(0, Math.round(result.myHp))}
             </div>
+            {result.practice && (
+              <div className="pvpres-flawless">🎓 {T("โหมดซ้อม — ไม่มีรางวัล", "Practice mode — no rewards", "陪练模式 — 无奖励")}</div>
+            )}
             {result.flawless && (
               <div className="pvpres-flawless">✨ {T("ไร้ที่ติ — ตอบถูกครบทุกข้อ", "FLAWLESS — every question right", "完美无瑕 — 全部答对")}</div>
             )}
-            <div className="pvpres-rew">
-              <span>🪙 {Math.round((result.win ? result.tier.coins : Math.round(result.tier.coins * .25)) * flawlessMul)}</span>
-              <span>✦ {Math.round((result.win ? result.tier.xp : Math.round(result.tier.xp * .3)) * flawlessMul)}</span>
-              <span style={{ color: clsInfo.c }}>SP +{Math.round((result.win ? result.tier.sp : Math.round(result.tier.sp * .35)) * flawlessMul)}</span>
-            </div>
+            {result.weeklyWin && (
+              <div className="pvpres-flawless">👑 {T("แชมป์บอสประจำสัปดาห์!", "Weekly Boss defeated!", "本周首领已击败！")}</div>
+            )}
+            {result.rivalMatch && (
+              <div className="pvpres-flawless">😤 {result.win ? T(`ชนะ ${rival.name}!`, `Beat ${rival.name}!`, `击败了 ${rival.name}！`) : T(`แพ้ ${rival.name}`, `Lost to ${rival.name}`, `败给了 ${rival.name}`)}</div>
+            )}
+            {result.newDailyBest && (
+              <div className="pvpres-flawless">🎯 {T("สถิติสูงสุดของวันนี้ครั้งใหม่!", "New daily best!", "今日最高分！")}</div>
+            )}
+            {!result.practice && (
+              <div className="pvpres-rew">
+                <span>🪙 {Math.round((result.win ? result.tier.coins : Math.round(result.tier.coins * .25)) * flawlessMul)}</span>
+                <span>✦ {Math.round((result.win ? result.tier.xp : Math.round(result.tier.xp * .3)) * flawlessMul)}</span>
+                <span style={{ color: clsInfo.c }}>SP +{Math.round((result.win ? result.tier.sp : Math.round(result.tier.sp * .35)) * flawlessMul)}</span>
+              </div>
+            )}
             {g && g.rankedUp && <div className="pvpres-rank" style={{ "--cc": clsInfo.c }}>⬆ {tr3(clsInfo, lang)} {T("แรงก์", "rank", "等级")} {g.rank}</div>}
           </div>
 
@@ -595,6 +1215,9 @@ export const PvpPage = memo(function PvpPage({
             <button className="pvpghost" onClick={() => setPhase("lobby")}>{T("กลับสนาม", "Back to arena", "返回竞技场")}</button>
             <button className="pvpghost" onClick={() => setPhase("fight")}>{T("สู้อีกครั้ง", "Rematch", "再战")}</button>
           </div>
+          {onShare && (
+            <button className="pvpghost pvpshare" onClick={() => onShare(result)}>📤 {T("แชร์ผลการต่อสู้", "Share this fight", "分享战绩")}</button>
+          )}
         </div>
       </div>
     );
@@ -603,8 +1226,9 @@ export const PvpPage = memo(function PvpPage({
   /* ── fight ── */
   return (
     <ArenaFight
-      key={`${oppKind}-${tier.key}-${phase}`}
-      lang={lang} me={me} gear={gear} myRank={myRank} tier={tier}
+      key={`${oppKind}-${tier.key}-${phase}-${gauntlet ? "g" + gauntlet.ix : "x"}`}
+      lang={lang} me={me} gear={gear} myRank={myRank} tier={tier} sp={sp}
+      initHpFrac={gauntlet ? gauntlet.hpFrac : 1} colorway={colorway} practice={practiceMode}
       oppKind={oppKind} oppName={oppName} onDone={finish} onBack={() => setPhase("lobby")} playUi={playUi}
     />
   );
@@ -669,16 +1293,31 @@ const X_MIN = 0.08, X_MAX = 0.92, GAP_MIN = 0.16;
 // budget; they only actually change when a pose or an angle does
 const Bot = memo(CyberAvatar);
 
-const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppKind, oppName, onDone, onBack, playUi }) {
+const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppKind, oppName, onDone, onBack, playUi, initHpFrac = 1, sp = null, colorway = null, practice = false }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const myCls = classKeyOf(me);
   const fx = CLASS_FX[myCls] || CLASS_FX.striker;
   const clsInfo = MODEL_CLASS[myCls] || MODEL_CLASS.striker;
+  const myGlow = (colorway && colorway.glow) || "#00b8d4", myAccent = (colorway && colorway.accent) || "#7c4dff";
   const oppModel = useRef(chassisFor(oppKind === "player" ? oppName : tier.key + "-" + Math.floor(Math.random() * 999))).current;
   const oppCls = classKeyOf(oppModel);
+  // a small, honest nudge from the class ring (+10%/-10%), not a hard counter
+  const matchup = classMatchup(myCls, oppCls);
+  // ranking a second class alongside this one unlocks a small cross-training bonus
+  const synergy = hasSynergy(sp, myCls);
+  /* Which arena this fight happens in. Seeded from the opponent so a rematch
+     against the same chassis stays in the same place, and so two players
+     fighting the same bot see the same room. Computed early because its
+     small combat trade-off (SFX) feeds the HP pools below. */
+  const ARENA = useRef(pickStage(
+    String(oppKind === "player" ? oppName : oppModel).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 7)
+  )).current;
+  const SFX = stageFx(ARENA);
 
   const A = useRef(fighterFrom(me, gear, myRank)).current;
   const B = useRef(fighterFrom(oppModel, [], 5)).current;
+  // every equipped item's archetype effect, aggregated once for the fight
+  const itemFx = useRef(itemEffectsOf(gear)).current;
   /* ── the pet ──
      Read once, at the start of the fight, so a fight cannot change its own
      terms halfway through. A pet under 50% happiness returns null and does
@@ -695,17 +1334,19 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      that time and the player gets ~160 taps in, so the pools and the two
      damage numbers below are set so that a fight that goes the distance ends
      near the last wave rather than in the first twenty seconds. */
-  const MY_MAX = A.maxHp * 12, OP_MAX = B.maxHp * 12;
+  const MY_MAX = A.maxHp * 12 * (SFX.hpMax || 1), OP_MAX = B.maxHp * 12 * (SFX.hpMax || 1);
   const TAP_DMG = 0.55, BOT_DMG = 0.95;
 
   const [phase, setPhase] = useState("action");   // action | quiz | done
   const [wave, setWave] = useState(1);
   const [left, setLeft] = useState(WAVES[0]);
-  const [myHp, setMyHp] = useState(MY_MAX);
+  // a Gauntlet leg after the first carries whatever fraction of the pool
+  // survived the last one — "no rest between rounds" is the whole mechanic
+  const [myHp, setMyHp] = useState(() => MY_MAX * Math.max(0.001, Math.min(1, initHpFrac)));
   const [opHp, setOpHp] = useState(OP_MAX);
   const [q, setQ] = useState(null);
   const [culled, setCulled] = useState([]);
-  const [gauge, setGauge] = useState(0);
+  const [gauge, setGauge] = useState(() => Math.min(100, itemFx.gaugeStart));
   const [ultUsed, setUltUsed] = useState(false);
   const [combo, setCombo] = useState(0);
   const [bestCombo, setBestCombo] = useState(0);
@@ -730,6 +1371,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [suddenDeath, setSuddenDeath] = useState(false);
   const suddenDeathRef = useRef(false);
   const comebackAnnouncedRef = useRef(false);
+  const practiceTipsRef = useRef(new Set());
+  /** Fires a live tip exactly once per key, per fight — practice mode only. */
+  const practiceTip = (key, text) => {
+    if (!practice || practiceTipsRef.current.has(key)) return;
+    practiceTipsRef.current.add(key);
+    later(() => { setBanner(text); later(() => setBanner(null), 2400); }, 650);
+  };
   // ── where everyone is standing, and who is off the ground ──
   const [myX, setMyX] = useState(0.24);
   const [opX, setOpX] = useState(0.76);
@@ -743,9 +1391,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   const startedRef = useRef(Date.now());
   const doneRef = useRef(false);
-  const hpRef = useRef({ me: MY_MAX, op: OP_MAX });
+  const hpRef = useRef({ me: MY_MAX * Math.max(0.001, Math.min(1, initHpFrac)), op: OP_MAX });
   const guardUntil = useRef(0), guardCd = useRef(0);
   const cdRef = useRef({ punch: 0, fire: 0, rocket: 0, jump: 0 });
+  const jumpGateRef = useRef(0);   // when jump() is next allowed — separate from cdRef.jump's arc-timing role
   const posRef = useRef({ me: 0.24, op: 0.76 });
   const airRef = useRef({ me: 0, op: 0 });     // 0..1, height off the floor
   const dirRef = useRef(0);                     // -1 back, 0 still, +1 forward
@@ -768,12 +1417,6 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     return () => { window.removeEventListener("resize", on); window.removeEventListener("orientationchange", on); };
   }, []);
 
-  /* Which arena this fight happens in. Seeded from the opponent so a rematch
-     against the same chassis stays in the same place, and so two players
-     fighting the same bot see the same room. */
-  const ARENA = useRef(pickStage(
-    String(oppKind === "player" ? oppName : oppModel).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 7)
-  )).current;
   const G = useArenaFx(ARENA);
   const audioRef = useRef(null);
   if (!audioRef.current) audioRef.current = createArenaAudio(ARENA);
@@ -781,6 +1424,30 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   useEffect(() => {
     audioRef.current.setGear(myHp / MY_MAX < 0.34 || opHp / OP_MAX < 0.34);
   }, [myHp, opHp, MY_MAX, OP_MAX]);
+
+  // teach the two things that are otherwise invisible math: which stage
+  // trade-off is live, and whether the class matchup favours either side
+  useEffect(() => {
+    const lbl = STAGE_FX_LABEL[ARENA.id];
+    if (lbl) {
+      setBanner(tr3(ARENA, lang) + " — " + tr3(lbl, lang));
+      later(() => setBanner(null), 2000);
+    }
+    if (matchup !== 0) {
+      later(() => {
+        setBanner(matchup === 1
+          ? T("ได้เปรียบคลาส! ดาเมจ +10% / รับดาเมจ -10%", "TYPE ADVANTAGE! +10% dmg / -10% dmg taken", "克制优势！伤害+10% / 承伤-10%")
+          : T("เสียเปรียบคลาส! ดาเมจ -10% / รับดาเมจ +10%", "TYPE DISADVANTAGE! -10% dmg / +10% dmg taken", "克制劣势！伤害-10% / 承伤+10%"));
+        later(() => setBanner(null), 2000);
+      }, lbl ? 2300 : 0);
+    }
+    if (synergy) {
+      later(() => {
+        setBanner(T("โบนัสข้ามคลาส! ดาเมจ/เกจ +8-10%", "CROSS-CLASS SYNERGY! +8-10% dmg/gauge", "跨职业加成！伤害/能量 +8-10%"));
+        later(() => setBanner(null), 2000);
+      }, (lbl ? 2300 : 0) + (matchup !== 0 ? 2300 : 0));
+    }
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const say = (side, text, kind) => { setFlash({ side, text, kind }); later(() => setFlash(null), 900); };
 
@@ -870,7 +1537,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     setMyPose(MOVES[mv].pose); setOpPose("hit");
     strike("me", kind, myBolt, mv);
     say("op", "-" + d, kind === "crit" ? "crit" : "dmg");
-    scoreRef.current += 10 + comboRef.current * 2; setScore(scoreRef.current);
+    scoreRef.current += Math.round((10 + comboRef.current * 2) * (SFX.scoreMul || 1) * itemFx.scoreMul); setScore(scoreRef.current);
     if (oHp <= 0 || suddenDeathRef.current) later(finish, 420);
   }
 
@@ -882,12 +1549,16 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (now < guardUntil.current) { audioRef.current.sfx("block"); G.burst("me", .8, "#5ce1ff"); say("me", T("กัน!", "GUARD", "格挡"), "block"); return; }
     if (airRef.current.me > 0) { audioRef.current.sfx("miss"); say("me", T("หลบ!", "AIRBORNE", "腾空"), "block"); return; }
     if (graceRef.current > 0) { graceRef.current = 0; setGraceLeft(0); audioRef.current.sfx("block"); say("me", T("ยกโทษให้", "FREE MISS", "免罚"), "block"); return; }
-    if (nb.fortress > 0 || nb.block > 0 || nb.phase > 0 || (fx.passive === "evade" && Math.random() < 0.2)) {
+    if (nb.fortress > 0 || nb.block > 0 || nb.phase > 0
+      || (fx.passive === "evade" && Math.random() < 0.2)
+      || Math.random() < itemFx.dodge || Math.random() < itemFx.blockChance) {
       if (nb.block > 0) { nb.block = 0; buffRef.current = nb; setBuffs(nb); }
       audioRef.current.sfx("block"); G.burst("me", .7, "#5ce1ff");
       say("me", T("กันได้!", "BLOCKED", "格挡"), "block"); return;
     }
-    const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1) * petGuard));
+    const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1) * petGuard * (SFX.dmgTake || 1)
+      * (matchup === 1 ? 1 - MATCHUP_DMG : matchup === -1 ? 1 + MATCHUP_DMG : 1)
+      * (1 - itemFx.dmgReduce)));
     const mHp = Math.max(0, hpRef.current.me - d);
     hpRef.current.me = mHp; setMyHp(mHp);
     // the first real hit of a player's life is the honest moment to teach
@@ -901,9 +1572,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         later(() => setShowTut(false), 4200);
       }
     }
+    practiceTip("guard", T("เคล็ดลับ: กดค้าง 🛡 ก่อนโดนตี!", "TIP: Hold 🛡 Guard right before a hit lands!", "小提示：被击中前按住 🛡 格挡！"));
     // halved, not reset: with the bot landing every ~1.2s a full reset means
     // the combo never gets past three and the mechanic may as well not exist
-    comboRef.current = Math.floor(comboRef.current / 2); setCombo(comboRef.current);
+    // — except the ashfall stage, which trades a faster-growing combo for
+    // exactly that harsher reset
+    comboRef.current = SFX.comboFullReset ? 0 : Math.floor(comboRef.current / 2); setCombo(comboRef.current);
     const mv = moveKey || pickMove(oppCls);
     setOpPose(MOVES[mv].pose); setMyPose("hit");
     strike("op", "hit", "#ff7a3c", mv);
@@ -917,8 +1591,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     const A2 = ACT[act]; if (!A2) return;
     const now = Date.now();
     if (now < cdRef.current[act] || now < guardUntil.current) return;
-    cdRef.current[act] = now + A2.cd;
-    setCool(c => ({ ...c, [act]: now + A2.cd }));
+    const cd = A2.cd * (act === "rocket" ? itemFx.rocketCdMul : 1);
+    cdRef.current[act] = now + cd;
+    setCool(c => ({ ...c, [act]: now + cd }));
     // a punch thrown from across the arena is a whiff, not a hit
     if (Math.abs(posRef.current.me - posRef.current.op) > A2.range) {
       audioRef.current.sfx("miss");
@@ -930,27 +1605,39 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     const nb = { ...buffRef.current };
     comboRef.current += 1; setCombo(comboRef.current);
     setBestCombo(b => Math.max(b, comboRef.current));
-    const comboK = Math.min(2.2, 1 + comboRef.current * (fx.passive === "streak" ? 0.08 : 0.04));
+    const comboK = Math.min(2.2, 1 + comboRef.current * (fx.passive === "streak" ? 0.08 : 0.04) * (SFX.comboGrowth || 1) * itemFx.comboGrowth);
+    const isMelee = act === "punch" || act === "kick";
     let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1) * petDmg
-      * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1);
+      * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1)
+      * (SFX.dmgDeal || 1) * (isMelee ? (SFX.meleeDmg || 1) : 1)
+      * (matchup === 1 ? 1 + MATCHUP_DMG : matchup === -1 ? 1 - MATCHUP_DMG : 1)
+      * (synergy ? SYNERGY_DMG : 1)
+      * (isMelee ? itemFx.meleeDmg : act === "fire" ? itemFx.fireDmg : 1);
     let kind = act === "rocket" ? "ult" : "hit";
     if (nb.crit > 0) { dmg *= 2.2; nb.crit = 0; kind = "crit"; buffRef.current = nb; setBuffs(nb); }
     if (nb.anthem > 0) { dmg *= 1.4; nb.anthem -= 1; buffRef.current = nb; setBuffs(nb); }
-    if (overdrive) dmg *= 1.6;
+    if (overdrive) dmg *= 1.6 * itemFx.overdriveDmg;
     if (Math.random() < A.follow) { dmg *= 1.5; if (kind === "hit") kind = "crit"; }
+    if (SFX.critChance && Math.random() < SFX.critChance) { dmg *= 1.5; if (kind === "hit") kind = "crit"; }
+    if (itemFx.critChance && Math.random() < itemFx.critChance) { dmg *= 1.5; if (kind === "hit") kind = "crit"; }
     if (fx.passive === "repair") {
       const h = Math.min(MY_MAX, hpRef.current.me + 2); hpRef.current.me = h; setMyHp(h);
     }
-    setGauge(g => Math.min(100, g + (A.charge * (fx.passive === "resonate" ? 1.3 : 1) * petSp * (comeback ? COMEBACK_GAUGE : 1)) / 4));
+    setGauge(g => Math.min(100, g + (A.charge * (fx.passive === "resonate" ? 1.3 : 1) * petSp * (comeback ? COMEBACK_GAUGE : 1) * (SFX.gauge || 1) * (synergy ? SYNERGY_GAUGE : 1) * itemFx.gaugeMul) / 4));
     hitOp(dmg, kind, A2.move);
   }
 
   function jump() {
     if (phase !== "action" || doneRef.current) return;
     const now = Date.now();
-    if (now < cdRef.current.jump) return;
+    if (now < jumpGateRef.current) return;
+    // cdRef.current.jump anchors the footwork effect's arc-height math below,
+    // which hardcodes JUMP_CD as the offset back to jump-start — it has to
+    // stay tied to that same constant. The item's cooldown discount is
+    // tracked separately, in the ready-to-jump-again gate only.
     cdRef.current.jump = now + JUMP_CD;
-    setCool(c => ({ ...c, jump: now + JUMP_CD }));
+    jumpGateRef.current = now + JUMP_CD * itemFx.jumpCdMul;
+    setCool(c => ({ ...c, jump: jumpGateRef.current }));
     airRef.current.me = 1;
     audioRef.current.sfx("charge");
     later(() => { airRef.current.me = 0; setMyAir(0); }, JUMP_MS);
@@ -1014,7 +1701,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   useEffect(() => {
     if (phase !== "action" || doneRef.current) return;
-    const gap = suddenDeath ? 420 : Math.round((BOT_GAP[tier.key] || 1250) * Math.max(0.6, 1 - (wave - 1) * 0.08));
+    const gap = suddenDeath ? 420 : Math.round((BOT_GAP[tier.key] || 1250) * Math.max(0.6, 1 - (wave - 1) * 0.08) * (SFX.botGap || 1));
     let alive = true, t = null;
     const step = () => {
       if (!alive || doneRef.current) return;
@@ -1029,7 +1716,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   function toQuiz() {
     if (doneRef.current) return;
     setPhase("quiz");
-    setQ(makeQuestion(lang)); setCulled([]); setLocked(false);
+    setQ(makeQuestion(lang, weightedTag())); setCulled([]); setLocked(false);
     setMyPose("ready"); setOpPose("ready");
     audioRef.current.sfx("bell");
     G.flash("#ffffff", .32, .3);
@@ -1040,12 +1727,21 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   function answer(choice) {
     if (locked || doneRef.current) return;
     setLocked(true);
-    const right = buffRef.current.foresee > 0 ? true : choice === q.ans;
-    if (buffRef.current.foresee > 0) { const nb = { ...buffRef.current, foresee: 0 }; buffRef.current = nb; setBuffs(nb); }
+    const usedForesee = buffRef.current.foresee > 0;
+    const right = usedForesee ? true : choice === q.ans;
+    if (usedForesee) { const nb = { ...buffRef.current, foresee: 0 }; buffRef.current = nb; setBuffs(nb); }
+    // an auto-answered question teaches nothing about the player's real
+    // accuracy, so it must not corrupt the weak-spot signal either way
+    if (!usedForesee) bumpWeak(q.tag, right);
     askedRef.current += 1; setAsked(askedRef.current);
     if (right) {
       correctRef.current += 1; setCorrect(correctRef.current);
-      scoreRef.current += 250; setScore(scoreRef.current);
+      scoreRef.current += Math.round(250 * (SFX.scoreMul || 1)); setScore(scoreRef.current);
+      const healFrac = (SFX.healPerCorrect || 0) + itemFx.healPerCorrect;
+      if (healFrac) {
+        const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * healFrac));
+        hpRef.current.me = h; setMyHp(h);
+      }
       setBanner(T("OVERDRIVE!", "OVERDRIVE!", "超载!"));
       setOverdrive(true);
       audioRef.current.sfx("ult");
@@ -1066,10 +1762,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       them has anything to do with knowing the note. Flat 30% of the pool. */
   function punish() {
     if (doneRef.current) return;
-    const d = Math.max(1, Math.round(MY_MAX * WRONG_PUNISH));
+    const d = Math.max(1, Math.round(MY_MAX * WRONG_PUNISH * (1 - itemFx.punishReduce)));
     const mHp = Math.max(0, hpRef.current.me - d);
     hpRef.current.me = mHp; setMyHp(mHp);
     comboRef.current = 0; setCombo(0);
+    practiceTip("wronganswer", T("เคล็ดลับ: ไม่จับเวลา ตอบช้าแต่ชัวร์ดีกว่า", "TIP: It's untimed — a slow, sure answer beats a fast guess", "小提示：不计时，慢而准比快而猜更好"));
     /* the opponent's biggest move, staged so it reads as an execution rather
        than another chip hit */
     const mv = ULT_MOVE[oppCls] || "cannon";
@@ -1079,7 +1776,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     later(() => { G.boom("me", 3, "#ff2d55"); G.flash("#ff2d55", .7, .5); audioRef.current.sfx("boom"); setShake(3); }, 260);
     later(() => { G.boom("me", 2.2, "#ffd23f"); audioRef.current.sfx("boom"); }, 520);
     later(() => { setLunge(null); setShake(0); }, 900);
-    say("me", "-" + Math.round(WRONG_PUNISH * 100) + "%", "dmg");
+    say("me", "-" + Math.round(WRONG_PUNISH * (1 - itemFx.punishReduce) * 100) + "%", "dmg");
     if (mHp <= 0) later(finish, 760);
   }
 
@@ -1124,7 +1821,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       if (q) setCulled(shuffle(q.opts.filter(o => o !== q.ans)).slice(0, 2));
       say("me", tr3(FX_TEXT.cull, lang), "buff");
     }
-    else if (k === "reroll") { if (q) { setQ(makeQuestion(lang)); setCulled([]); } say("me", tr3(FX_TEXT.reroll, lang), "buff"); }
+    else if (k === "reroll") { if (q) { setQ(makeQuestion(lang, weightedTag())); setCulled([]); } say("me", tr3(FX_TEXT.reroll, lang), "buff"); }
     else if (k === "patch") {
       const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * 0.14));
       hpRef.current.me = h; setMyHp(h);
@@ -1203,7 +1900,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}
           style={{ left: `calc(${(myX * 100).toFixed(1)}% - 22%)`, bottom: `calc(var(--pvpfloor, 6px) + ${(myAir * 62).toFixed(1)}px)` }}>
           <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
-            glow="#00b8d4" accent="#7c4dff" armorA="#1b2436" armorB="#41608a" />
+            glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" />
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
           {/* the pet fights at your heel — it does not take hits or throw
               them, it stands there and applies the bonus you earned by
