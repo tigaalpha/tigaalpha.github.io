@@ -1016,7 +1016,9 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpsk-b b{font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:var(--text)}
 .pvpsk-b b i{font-style:normal;font-size:8px;padding:1px 5px;border-radius:20px;background:#14141310;color:var(--muted);margin-left:4px}
 .pvpsk-b span{font-size:10px;line-height:1.35;color:var(--muted)}
-.pvpsec-h{margin:16px 2px 8px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
+/* a flex row so a section head can carry a counter and a toggle on the right
+   without either of them needing to be positioned */
+.pvpsec-h{display:flex;align-items:center;margin:16px 2px 8px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
 /* Two columns rather than three: ten cards at three-across leaves an orphan
    card alone on its own row, and the longer labels ("Fairly Hard Mode") need
    the extra width three columns don't leave them. */
@@ -1219,6 +1221,64 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpultq-opts button{padding:12px 6px;border-radius:11px;border:1px solid #ffd23f55;background:#ffd23f12;
   font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:#ffe9a8;cursor:pointer}
 .pvpultq-opts button:active{background:#ffd23f2e;transform:scale(.97)}
+
+/* ══════════ seasons, trials, objectives, the ghost ══════════ */
+
+/* the season strip: which one, how long is left, and whether placements are
+   still running — the three facts that make a ladder feel like it has stakes */
+.pvpseason{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;max-width:520px;margin:6px auto 0;padding:7px 12px;
+  border-radius:12px;border:1px solid var(--bd1);background:var(--card)}
+.pvpseason b{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--text)}
+.pvpseason i{font-style:normal;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
+.pvpseason em{flex:1 0 100%;font-style:normal;font-family:'Share Tech Mono',monospace;font-size:9.5px;line-height:1.4;color:var(--muted)}
+.pvpseason em.pl{color:#d97757}
+.pvpseason-bd{flex:1 0 100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.pvpseason-bd u{text-decoration:none;padding:2px 6px;border-radius:6px;border:1px solid var(--cc);color:var(--cc);
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:800;letter-spacing:.04em}
+
+/* the ghost's travel form */
+.pvpghostbar{display:flex;flex-wrap:wrap;gap:6px;max-width:520px;margin:8px auto 0;padding:0 13px}
+.pvpghostbar button{flex:1 1 45%;padding:8px 6px;border-radius:11px;border:1px solid var(--bd1);background:var(--card);
+  font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer}
+.pvpghostbar button:disabled{opacity:.45;cursor:default}
+.pvpghostbar em{flex:1 0 100%;font-style:normal;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:#3ddc84}
+.pvptier.t-ghost{border-color:#b98cff55}
+.pvptier.t-ghost.off{opacity:.55}
+
+/* the trials list: numbered, because the number is how a player refers to one */
+.pvpsec-n{margin-left:6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);font-weight:400}
+.pvpsec-t{margin-left:auto;padding:2px 9px;border-radius:8px;border:1px solid var(--bd1);background:var(--card);
+  font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--muted);cursor:pointer}
+.pvptrials{max-width:520px;margin:8px auto 0;padding:0 13px;display:flex;flex-direction:column;gap:4px}
+.pvptrial{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;
+  border:1px solid var(--bd1);background:var(--card)}
+.pvptrial b{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pvptrial i{flex:1;font-style:normal;font-size:12.5px;line-height:1.35;color:var(--text)}
+.pvptrial span{font-family:'Share Tech Mono',monospace;font-size:10px;color:#d97757;white-space:nowrap}
+.pvptrial.on{border-color:#3ddc8455;background:#3ddc840f}
+.pvptrial.on b,.pvptrial.on i{color:#1c7a4a}
+.pvptrial.on span{color:#3ddc84;font-size:13px}
+
+/* the match objectives, at the bell and on the scoreboard */
+.pvpobjstrip{position:absolute;left:50%;transform:translateX(-50%);bottom:9px;z-index:8;width:max-content;max-width:92%;
+  padding:6px 12px;border-radius:12px;background:rgba(4,8,18,.8);border:1px solid #ffffff26;
+  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);pointer-events:none;
+  display:flex;flex-direction:column;gap:2px;animation:pvpbn .4s ease}
+.pvpobjstrip b{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:800;letter-spacing:.12em;color:#ffd23f}
+.pvpobjstrip i{font-style:normal;font-family:'Share Tech Mono',monospace;font-size:10px;color:#cfe0ff}
+.pvpobjstrip em{font-style:normal;color:#d9a06a}
+.pvpobjres{max-width:520px;margin:10px auto 0;padding:10px 12px;border-radius:13px;border:1px solid var(--bd1);background:var(--card)}
+.pvpobjres>b{display:block;margin-bottom:6px;font-family:'Orbitron',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.05em;color:var(--text)}
+.pvpobjres.trial{border-color:#3ddc8455;background:#3ddc840f}
+.pvpobj{display:flex;align-items:center;gap:8px;padding:3px 0}
+.pvpobj span{width:15px;text-align:center;font-size:12px;color:var(--muted)}
+.pvpobj i{flex:1;font-style:normal;font-size:12.5px;color:var(--muted)}
+.pvpobj em{font-style:normal;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
+.pvpobj.on span,.pvpobj.on em{color:#3ddc84}
+.pvpobj.on i{color:var(--text)}
+.pvpvalorgain{max-width:520px;margin:8px auto 0;padding:7px 12px;border-radius:12px;text-align:center;
+  background:linear-gradient(90deg,#d9775722,#ffd23f22);border:1px solid #d9775744;
+  font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;color:#d97757}
 
 /* ══════════ the training lab ══════════
    Practice mode only. Dense on purpose: it is a control panel, not a page,

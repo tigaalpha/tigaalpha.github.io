@@ -729,6 +729,173 @@ export function rankOf(pts) {
   return { tier: cur, next, into: pts - cur.min, need: next ? next.min - cur.min : 0, pct: next ? (pts - cur.min) / (next.min - cur.min) : 1 };
 }
 
+/* ══════════ seasons ══════════
+   The ladder was one integer in localStorage that only ever went up, which
+   makes it a lifetime total rather than a ladder: there was no moment where
+   anybody's rank was at stake and nothing to come back for once Diamond was
+   reached. Thirty-day seasons, a soft reset to 60% (harsh enough to matter,
+   never far enough to undo a year), five placement matches that count double,
+   and a badge for the tier you finished at that is yours permanently. */
+const SEASON_DAYS = 30, PLACEMENTS = 5, SEASON_KEEP = 0.6;
+const SEASON_EPOCH = Date.UTC(2025, 0, 6);   // a Monday, so seasons start on one
+const SEASON_KEY = "tg_pvp_season";
+function seasonNow(d = new Date()) {
+  const day = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - SEASON_EPOCH) / 86400000);
+  const id = Math.max(1, Math.floor(day / SEASON_DAYS) + 1);
+  const into = ((day % SEASON_DAYS) + SEASON_DAYS) % SEASON_DAYS;
+  return { id, daysLeft: Math.max(1, SEASON_DAYS - into) };
+}
+function readSeason() {
+  try {
+    const v = JSON.parse(localStorage.getItem(SEASON_KEY) || "null");
+    if (v && typeof v.id === "number") return { id: v.id, placed: v.placed || 0, badges: Array.isArray(v.badges) ? v.badges : [] };
+  } catch (e) {}
+  return null;
+}
+function saveSeason(v) { try { localStorage.setItem(SEASON_KEY, JSON.stringify(v)); } catch (e) {} }
+/** Called once on entering the arena: rolls the season over if the calendar
+    has, banking a badge for wherever the last one finished. */
+function rollSeason() {
+  const now = seasonNow();
+  const st = readSeason();
+  if (!st) { const fresh = { id: now.id, placed: 0, badges: [] }; saveSeason(fresh); return fresh; }
+  if (st.id === now.id) return st;
+  const finishedAt = rankOf(readRankPts()).tier;
+  const badges = st.badges.concat([{ id: st.id, tierKey: finishedAt.key }]).slice(-24);
+  saveRankPts(Math.round(readRankPts() * SEASON_KEEP));
+  const next = { id: now.id, placed: 0, badges };
+  saveSeason(next);
+  return next;
+}
+function bumpPlacement() {
+  const st = readSeason() || { id: seasonNow().id, placed: 0, badges: [] };
+  if (st.placed < PLACEMENTS) { st.placed += 1; saveSeason(st); }
+  return st;
+}
+
+/* ══════════ combo trials ══════════
+   Everything the last round of work added — counter-hits, throws against a
+   guard, dizzy, the corner, specials — is invisible unless something asks
+   for it by name. This is how every fighting game teaches its own systems:
+   a numbered list of things to do once, each paying a little, each naming a
+   mechanic the player did not know was there. Checked against flags the
+   fight already has to track anyway. */
+const TRIALS = [
+  { key: "counter1",  v: 4,  th: "ลง counter-hit ให้ได้หนึ่งครั้ง", en: "Land a counter-hit", zh: "打出一次反击" },
+  { key: "counter3",  v: 8, th: "ลง counter-hit 3 ครั้งในแมตช์เดียว", en: "Land 3 counter-hits in one match", zh: "单场打出三次反击" },
+  { key: "noguard",   v: 7, th: "ชนะหนึ่งยกโดยไม่กดการ์ดเลย", en: "Win a round without pressing guard", zh: "不按格挡赢下一回合" },
+  { key: "spfinish",  v: 9, th: "จบแมตช์ด้วยท่าไม้ตาย", en: "Finish the match with a special", zh: "用必杀技终结比赛" },
+  { key: "throwgrd",  v: 7, th: "ทุ่มคู่ต่อสู้ตอนมันการ์ดอยู่", en: "Throw an opponent who is guarding", zh: "投技破解对手格挡" },
+  { key: "dizzy",     v: 8, th: "ทำให้คู่ต่อสู้มึนงง", en: "Leave the opponent dizzy", zh: "让对手陷入眩晕" },
+  { key: "cornerko",  v: 10, th: "น็อกคู่ต่อสู้ตอนมันจนมุม", en: "KO them while they are cornered", zh: "在角落将对手击倒" },
+  { key: "combo8",    v: 8, th: "ต่อคอมโบให้ถึง 8 ฮิต", en: "Reach an 8-hit combo", zh: "打出 8 连击" },
+  { key: "fast3",     v: 9, th: "ตอบคำถามใต้ 1.5 วิ สามข้อ", en: "Answer 3 questions under 1.5s", zh: "三题在 1.5 秒内答出" },
+  { key: "perfectrd", v: 12, th: "ชนะหนึ่งยกโดยไม่เสียเลือดเลย", en: "Win a round without taking a hit", zh: "零失血赢下一回合" },
+  { key: "allright",  v: 14, th: "ตอบถูกทุกข้อในแมตช์", en: "Answer every question correctly", zh: "全场答题全对" },
+  { key: "superq",    v: 8, th: "ตอบคำถามท่าไม้ตายให้ถูก", en: "Answer the super's question right", zh: "答对必杀技的提问" },
+  { key: "nobreak",   v: 7, th: "จบแมตช์โดยการ์ดไม่เคยแตก", en: "Finish a match without your guard breaking", zh: "全场格挡未被破" },
+  { key: "nospecial", v: 8, th: "ชนะโดยไม่ใช้ท่าไม้ตายเลย", en: "Win without using a single special", zh: "不用必杀技取胜" },
+  { key: "fastwin",   v: 10, th: "ชนะแมตช์ภายใน 90 วินาที", en: "Win a match in under 90 seconds", zh: "90 秒内赢下比赛" },
+];
+const TRIAL_KEY = "tg_pvp_trials";
+function readTrials() { try { const v = JSON.parse(localStorage.getItem(TRIAL_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveTrials(v) { try { localStorage.setItem(TRIAL_KEY, JSON.stringify(v)); } catch (e) {} }
+/** Which trials this match's flags just satisfied, for the first time. */
+function trialsCleared(res) {
+  const done = readTrials();
+  const f = res.flags || {};
+  const test = {
+    counter1:  f.counters >= 1,
+    counter3:  f.counters >= 3,
+    noguard:   f.wonRoundNoGuard,
+    spfinish:  f.finishedWithSpecial,
+    throwgrd:  f.threwGuarding,
+    dizzy:     f.dizzyDealt >= 1,
+    cornerko:  f.cornerKo,
+    combo8:    (res.bestCombo || 0) >= 8,
+    fast3:     f.fastAnswers >= 3,
+    perfectrd: f.perfectRound,
+    allright:  res.asked > 0 && res.correct === res.asked,
+    superq:    f.superRight,
+    nobreak:   res.win && !f.guardBroke,
+    nospecial: res.win && !f.usedSpecial,
+    fastwin:   res.win && (res.seconds || 999) < 90,
+  };
+  const fresh = TRIALS.filter(t => test[t.key] && !done.includes(t.key));
+  if (fresh.length) saveTrials(done.concat(fresh.map(t => t.key)));
+  return fresh;
+}
+
+/* ══════════ per-match objectives ══════════
+   Three rolled before every fight from the same flag set, so fighting the
+   same tier twice is two different assignments. Seeded on the day and the
+   tier, which means a retry after a loss is the SAME three — you get to go
+   back and finish what you were doing rather than being handed new homework
+   for losing. */
+const OBJECTIVES = [
+  { key: "win60",   v: 3, th: "ชนะภายใน 60 วินาที", en: "Win in under 60s", zh: "60 秒内取胜" },
+  { key: "half",    v: 3, th: "อย่าให้เลือดต่ำกว่าครึ่ง", en: "Never drop below half HP", zh: "血量不低于一半" },
+  { key: "sp2",     v: 3, th: "ลงท่าไม้ตาย 2 ครั้ง", en: "Land two specials", zh: "命中两次必杀技" },
+  { key: "ctr2",    v: 3, th: "ลง counter-hit 2 ครั้ง", en: "Land two counter-hits", zh: "打出两次反击" },
+  { key: "q6",      v: 3, th: "ตอบถูกอย่างน้อย 6 ข้อ", en: "Get at least 6 answers right", zh: "至少答对六题" },
+  { key: "thr1",    v: 3, th: "ทุ่มให้ได้หนึ่งครั้ง", en: "Land a throw", zh: "命中一次投技" },
+  { key: "corner",  v: 3, th: "ต้อนมันเข้ามุมแล้วตี", en: "Hit them in the corner", zh: "在角落击中对手" },
+  { key: "clean2",  v: 3, th: "ชนะ 2-0", en: "Win 2 rounds to 0", zh: "2-0 取胜" },
+];
+function objectivesFor(tierKey) {
+  const seed = todayStr() + "|" + tierKey;
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const pool = OBJECTIVES.slice();
+  const out = [];
+  for (let i = 0; i < 3 && pool.length; i++) { h = (h * 1103515245 + 12345) >>> 0; out.push(pool.splice(h % pool.length, 1)[0]); }
+  return out;
+}
+function objectiveMet(key, res) {
+  const f = res.flags || {};
+  switch (key) {
+    case "win60":  return res.win && (res.seconds || 999) < 60;
+    case "half":   return (res.myHp / res.myMax) >= 0.5 && !f.everBelowHalf;
+    case "sp2":    return f.specialsLanded >= 2;
+    case "ctr2":   return f.counters >= 2;
+    case "q6":     return res.correct >= 6;
+    case "thr1":   return f.throwsLanded >= 1;
+    case "corner": return f.cornerHits >= 1;
+    case "clean2": return res.win && res.rounds && res.rounds.op === 0;
+    default: return false;
+  }
+}
+
+/* ══════════ your own ghost ══════════
+   The rival system already stores a standing opponent; the one opponent it
+   could not offer was the player at their best. A win that beats the stored
+   score overwrites it, and the ghost can be handed to somebody else as a
+   short code — which is as close to a real duel as anything here gets
+   without a server to run it on. */
+const GHOST_KEY = "tg_pvp_ghost";
+function readGhost() {
+  try { const v = JSON.parse(localStorage.getItem(GHOST_KEY) || "null"); return v && v.model && v.tierKey ? v : null; } catch (e) { return null; }
+}
+function saveGhost(g) { try { localStorage.setItem(GHOST_KEY, JSON.stringify(g)); } catch (e) {} }
+/** Keep the best run only — a ghost of an average fight teaches nothing. */
+function bumpGhost(res, name) {
+  if (!res.win) return null;
+  const cur = readGhost();
+  if (cur && cur.score >= res.score) return null;
+  const g = { name: name || "YOU", model: res.myModel, tierKey: res.tier.key, score: res.score,
+    acc: res.asked ? Math.round((res.correct / res.asked) * 100) : 0, at: todayStr() };
+  saveGhost(g);
+  return g;
+}
+function ghostCode(g) {
+  try { return btoa(unescape(encodeURIComponent(JSON.stringify(g)))).replace(/=+$/, ""); } catch (e) { return ""; }
+}
+function ghostFromCode(code) {
+  try {
+    const j = JSON.parse(decodeURIComponent(escape(atob(String(code).trim()))));
+    return j && j.model && j.tierKey ? j : null;
+  } catch (e) { return null; }
+}
+
 /* ── two-class synergy ──
    readSkillSp already tracks every class separately; the only thing missing
    was a reason to actually rank up a second one instead of pouring every
@@ -760,6 +927,13 @@ export const COLORWAYS = [
   { key: "royal",   cost: 45, glow: "#b98cff", accent: "#ff66c4", th: "ราชวงศ์",  en: "Royal",    zh: "皇室" },
   { key: "arctic",  cost: 45, glow: "#7fe8ff", accent: "#e9f6ff", th: "อาร์กติก", en: "Arctic",   zh: "极地" },
   { key: "crimson", cost: 60, glow: "#ff2d55", accent: "#0b0d14", th: "เลือดเข้ม", en: "Crimson",  zh: "赤红" },
+  /* The trials pay out roughly 129 Valor once, which would have bought the
+     five above outright and left the currency with nothing to be for. These
+     three are the sink that one-time payout is aimed at — priced so a full
+     trial sweep is a real head start on them and not a purchase of them. */
+  { key: "solaris", cost: 90,  glow: "#ffd23f", accent: "#ff8a3c", th: "สุริยะ",   en: "Solaris",  zh: "耀阳" },
+  { key: "abyss",   cost: 120, glow: "#2b6cff", accent: "#00f0ff", th: "เหวลึก",  en: "Abyss",    zh: "深渊" },
+  { key: "prism",   cost: 160, glow: "#ff66c4", accent: "#7fe8ff", th: "ปริซึม",  en: "Prism",    zh: "棱镜" },
 ];
 const COLORWAY_KEY = "tg_pvp_colorway";
 export function readColorwayKey() { try { return localStorage.getItem(COLORWAY_KEY) || "default"; } catch (e) { return "default"; } }
@@ -807,8 +981,24 @@ export const PvpPage = memo(function PvpPage({
   const [rival, setRival] = useState(() => readRival());
   const [isRival, setIsRival] = useState(false);
   const [daily] = useState(() => dailyTarget());
+  /* The season rolls over the moment the arena is opened, before the rank is
+     read — otherwise the first fight of a new season would score against the
+     old season's points and then get reset out from under it. */
+  const [season, setSeason] = useState(() => rollSeason());
+  const seasonInfo = seasonNow();
   const [rankPts, setRankPts] = useState(() => readRankPts());
   const rank = rankOf(rankPts);
+  const [trialsDone, setTrialsDone] = useState(() => readTrials());
+  const [trialsJustCleared, setTrialsJustCleared] = useState([]);
+  const [objectives, setObjectives] = useState([]);
+  const [ghost, setGhost] = useState(() => readGhost());
+  const [isGhost, setIsGhost] = useState(false);
+  const [ghostNote, setGhostNote] = useState(null);
+  const [showTrials, setShowTrials] = useState(false);
+  // the lobby's own throwaway timers, cleared if the page goes away under them
+  const lobbyTimers = useRef([]);
+  const later0 = (fn, ms) => { const t = setTimeout(fn, ms); lobbyTimers.current.push(t); return t; };
+  useEffect(() => () => { lobbyTimers.current.forEach(clearTimeout); lobbyTimers.current = []; }, []);
   const [loadouts, setLoadouts] = useState(() => readLoadouts());
   const [valor, setValor] = useState(() => readValor());
   const [colorwayKey, setColorwayKey] = useState(() => readColorwayKey());
@@ -827,6 +1017,10 @@ export const PvpPage = memo(function PvpPage({
 
   const startFight = (kind, t, name, friend) => {
     setOppKind(kind); setTier(t); setOppName(name || ""); setPendingFriend(friend || null);
+    // seeded on the day and the tier, so losing and retrying hands back the
+    // SAME three — a retry is a second go at what you were doing, not new
+    // homework for having lost
+    setObjectives(objectivesFor(t.key).map(o => ({ ...o, done: false })));
     setPhase("fight"); if (playUi) playUi("click");
   };
   const startWeekly = () => {
@@ -840,6 +1034,30 @@ export const PvpPage = memo(function PvpPage({
     const t = BOT_TIERS.find(x => x.key === rival.tierKey) || BOT_TIERS[2];
     setIsRival(true);
     startFight("bot", t, rival.name);
+  };
+  const startGhostFight = () => {
+    if (!ghost) return;
+    const t = BOT_TIERS.find(x => x.key === ghost.tierKey) || BOT_TIERS[3];
+    setIsGhost(true);
+    startFight("player", t, ghost.name || "YOU");
+  };
+  const copyGhost = () => {
+    if (!ghost) return;
+    const code = ghostCode(ghost);
+    const done = () => { setGhostNote(T("คัดลอกรหัสเงาแล้ว", "Ghost code copied", "已复制幽灵代码")); later0(() => setGhostNote(null), 2200); };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, done);
+      else done();
+    } catch (e) { done(); }
+  };
+  const pasteGhost = () => {
+    const code = window.prompt(T("วางรหัสเงาของเพื่อน", "Paste a friend's ghost code", "粘贴好友的幽灵代码") || "");
+    if (!code) return;
+    const g = ghostFromCode(code);
+    if (!g) { setGhostNote(T("รหัสไม่ถูกต้อง", "That code did not read", "代码无法识别")); later0(() => setGhostNote(null), 2200); return; }
+    const t = BOT_TIERS.find(x => x.key === g.tierKey) || BOT_TIERS[3];
+    setIsGhost(true);
+    startFight("player", t, g.name || "GHOST");
   };
   const startPractice = () => {
     setPracticeMode(true);
@@ -886,6 +1104,7 @@ export const PvpPage = memo(function PvpPage({
     if (wasWeekly) { setIsWeekly(false); if (res.win) { markWeeklyBadge(weekly.wk); setWeeklyClaimed(true); } }
     const wasRival = isRival;
     if (wasRival) { setIsRival(false); setRival(rivalResult(rival, res.win)); }
+    const wasGhost = isGhost;
     const wasPractice = practiceMode;
     if (wasPractice) {
       // no stakes means no stakes: no coins, no XP, no SP, no rank, no daily
@@ -939,8 +1158,41 @@ export const PvpPage = memo(function PvpPage({
     if (wasRival) res.rivalMatch = true;
     res.newDailyBest = bumpDailyBest(res.score);
     const tierIdx = res.tier ? BOT_TIERS.findIndex(x => x.key === res.tier.key) : -1;
-    if (tierIdx >= 0) { saveRankPts(readRankPts() + (res.win ? (tierIdx + 1) * 8 : -4)); setRankPts(readRankPts()); }
-    if (res.win) setValor(addValor(3 + (tierIdx >= 0 ? tierIdx : 0)));
+    /* ── the season ──
+       The first five matches of a season are PLACEMENTS and count double in
+       both directions: the ladder finds where you actually are in a handful
+       of fights rather than making you grind back to it. */
+    const st = readSeason() || { id: seasonNow().id, placed: 0, badges: [] };
+    const placing = st.placed < PLACEMENTS;
+    if (tierIdx >= 0) {
+      const delta = (res.win ? (tierIdx + 1) * 8 : -4) * (placing ? 2 : 1);
+      saveRankPts(readRankPts() + delta);
+      setRankPts(readRankPts());
+      setSeason(bumpPlacement());
+      res.placing = placing;
+      res.rankDelta = delta;
+    }
+    let valorGain = res.win ? 3 + (tierIdx >= 0 ? tierIdx : 0) : 0;
+    /* ── trials and objectives ──
+       Both graded off the same flag set the fight already carried out, and
+       both paid in Valor, which is the arena's own currency and the only
+       thing these should ever be worth. */
+    const cleared = trialsCleared(res);
+    if (cleared.length) {
+      valorGain += cleared.reduce((a, t) => a + t.v, 0);
+      setTrialsDone(readTrials());
+      setTrialsJustCleared(cleared);
+    } else setTrialsJustCleared([]);
+    const objDone = objectives.map(o => ({ ...o, done: objectiveMet(o.key, res) }));
+    res.objectives = objDone;
+    valorGain += objDone.filter(o => o.done).reduce((a, o) => a + o.v, 0);
+    if (valorGain > 0) setValor(addValor(valorGain));
+    res.valorGain = valorGain;
+    res.trialsCleared = cleared;
+    // a win better than the stored one becomes the ghost you can fight later
+    const g = bumpGhost(res, T("ตัวคุณที่เก่งที่สุด", "YOUR BEST", "你的最佳"));
+    if (g) { setGhost(g); res.newGhost = true; }
+    if (wasGhost) setIsGhost(false);
     setResult(res);
     setPhase("result");
     const won = res.win;
@@ -959,7 +1211,7 @@ export const PvpPage = memo(function PvpPage({
     if (onReward) onReward(xp, coins, res);
     res.spGained = gained;
     if (playUi) playUi(won ? "reward" : "click");
-  }, [myCls, onReward, playUi, gauntlet, isWeekly, weekly, isRival, rival, practiceMode, lang]);
+  }, [myCls, onReward, playUi, gauntlet, isWeekly, weekly, isRival, rival, practiceMode, lang, isGhost, objectives]);
 
   /* ── lobby ── */
   if (phase === "lobby") {
@@ -983,6 +1235,31 @@ export const PvpPage = memo(function PvpPage({
             </span>
             {daily.target > 0 && (
               <span className="pvprank-daily">🎯 {T("เป้าวันนี้", "Today's target", "今日目标")} {daily.target.toLocaleString()}</span>
+            )}
+          </div>
+          {/* ── the season ──
+              A ladder with no end date is a lifetime total. This one says
+              which season it is, how long is left of it, and — for the first
+              five matches — that the placements are still running. */}
+          <div className="pvpseason">
+            <b>{T("ซีซัน", "Season", "赛季")} {season.id}</b>
+            <i>{T(`เหลืออีก ${seasonInfo.daysLeft} วัน`, `${seasonInfo.daysLeft} days left`, `剩余 ${seasonInfo.daysLeft} 天`)}</i>
+            {season.placed < PLACEMENTS ? (
+              <em className="pl">{T(`จัดอันดับ ${season.placed}/${PLACEMENTS} · แต้มคูณสอง`,
+                `Placements ${season.placed}/${PLACEMENTS} · double points`,
+                `定级赛 ${season.placed}/${PLACEMENTS} · 双倍积分`)}</em>
+            ) : (
+              <em>{T("จบซีซันแล้วได้ตราถาวร · แต้มเหลือ 60%",
+                "Season end banks a permanent badge · points carry at 60%",
+                "赛季结束获得永久徽章 · 积分保留 60%")}</em>
+            )}
+            {season.badges.length > 0 && (
+              <span className="pvpseason-bd">
+                {season.badges.slice(-6).map(b => {
+                  const t = RANK_TIERS.find(x => x.key === b.tierKey) || RANK_TIERS[0];
+                  return <u key={b.id} style={{ "--cc": t.c }} title={`S${b.id} · ${tr3(t, lang)}`}>S{b.id}</u>;
+                })}
+              </span>
             )}
           </div>
           <div className="pvpme">
@@ -1080,6 +1357,14 @@ export const PvpPage = memo(function PvpPage({
               <em className="pvpbossrule">⚠ {tr3(BOSS_RULES[weekly.rule] || {}, lang)}</em>
               <span>🪙 {weekly.tier.coins * 2} · ✦ {weekly.tier.xp * 2} · SP {weekly.tier.sp * 2}</span>
             </button>
+            {/* the one opponent the rival system could never offer: you */}
+            <button className={`pvptier t-ghost${ghost ? "" : " off"}`} onClick={ghost ? startGhostFight : undefined} disabled={!ghost}>
+              <b>👤 {T("เงาตัวเอง", "Your Ghost", "自身幽灵")}</b>
+              <i>{ghost
+                ? `${tr3(BOT_TIERS.find(t => t.key === ghost.tierKey) || {}, lang)} · ${ghost.score.toLocaleString()} · ${ghost.acc}%`
+                : T("ชนะสักแมตช์แล้วเงาจะถูกบันทึก", "Win a match and your best run is saved here", "赢一场后会保存你的最佳战绩")}</i>
+              <span>{ghost ? T("ท้าตัวเองที่เก่งที่สุด", "Fight your best self", "挑战最强的自己") : T("ยังไม่มีเงา", "No ghost yet", "尚无幽灵")}</span>
+            </button>
             <button className="pvptier t-rival" onClick={startRivalFight}>
               <b>😤 {T("คู่ปรับ", "Rival", "劲敌")} {rival.name}</b>
               <i>{tr3(BOT_TIERS.find(t => t.key === rival.tierKey) || {}, lang)}</i>
@@ -1087,10 +1372,45 @@ export const PvpPage = memo(function PvpPage({
             </button>
             <button className="pvptier t-practice" onClick={startPractice}>
               <b>🎓 {T("โหมดซ้อม", "Practice", "陪练模式")}</b>
-              <i>{T("ไม่มีเดิมพัน มีติ๊ปสด", "No stakes, live tips", "无风险，实时提示")}</i>
+              <i>{T("ไม่มีเดิมพัน มีติ๊ปสด · ตั้งค่าหุ่นได้", "No stakes, live tips, dummy controls", "无风险、实时提示、可设定木人")}</i>
               <span>{T("ไม่เสียเหรียญ/EXP", "No coins/EXP lost", "不消耗金币/经验")}</span>
             </button>
           </div>
+
+          {/* ── the ghost's travel form ──
+              No server to duel across, so the ghost travels as a short code
+              somebody can paste on the other end. */}
+          <div className="pvpghostbar">
+            <button type="button" onClick={copyGhost} disabled={!ghost}>📋 {T("คัดลอกรหัสเงา", "Copy ghost code", "复制幽灵代码")}</button>
+            <button type="button" onClick={pasteGhost}>📥 {T("สู้กับเงาเพื่อน", "Fight a friend's ghost", "挑战好友幽灵")}</button>
+            {ghostNote && <em>{ghostNote}</em>}
+          </div>
+
+          {/* ── the trials ──
+              Everything the fight can do, listed by name. This is the only
+              place a player finds out that throwing a guarding opponent, or
+              cornering one, is a thing the game has an opinion about. */}
+          <div className="pvpsec-h">
+            🎯 {T("บททดสอบ", "Combo Trials", "连段试炼")}
+            <span className="pvpsec-n">{trialsDone.length}/{TRIALS.length}</span>
+            <button type="button" className="pvpsec-t" onClick={() => setShowTrials(v => !v)}>
+              {showTrials ? T("ซ่อน", "Hide", "收起") : T("ดู", "Show", "展开")}
+            </button>
+          </div>
+          {showTrials && (
+            <div className="pvptrials">
+              {TRIALS.map((t, i) => {
+                const done = trialsDone.includes(t.key);
+                return (
+                  <div key={t.key} className={`pvptrial${done ? " on" : ""}`}>
+                    <b>{String(i + 1).padStart(2, "0")}</b>
+                    <i>{tr3(t, lang)}</i>
+                    <span>{done ? "✓" : `⚔ ${t.v}`}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="pvpsec-h">🤖 {T("โหมดต่อสู้", "Fight Mode", "战斗模式")}</div>
           <div className="pvptiers">
@@ -1229,7 +1549,41 @@ export const PvpPage = memo(function PvpPage({
               </div>
             )}
             {g && g.rankedUp && <div className="pvpres-rank" style={{ "--cc": clsInfo.c }}>⬆ {tr3(clsInfo, lang)} {T("แรงก์", "rank", "等级")} {g.rank}</div>}
+            {result.newGhost && (
+              <div className="pvpres-flawless">👤 {T("บันทึกเป็นเงาตัวใหม่แล้ว", "Saved as your new ghost", "已保存为新的幽灵")}</div>
+            )}
+            {result.placing && (
+              <div className="pvpres-flawless">🎖 {T("แมตช์จัดอันดับ — แต้มคูณสอง", "Placement match — double points", "定级赛 — 双倍积分")}</div>
+            )}
           </div>
+
+          {/* ── what the three objectives asked for, and how it went ── */}
+          {!result.practice && result.objectives && result.objectives.length > 0 && (
+            <div className="pvpobjres">
+              <b>{T("ภารกิจแมตช์นี้", "Match objectives", "本场任务")}</b>
+              {result.objectives.map(o => (
+                <div key={o.key} className={`pvpobj${o.done ? " on" : ""}`}>
+                  <span>{o.done ? "✓" : "○"}</span>
+                  <i>{tr3(o, lang)}</i>
+                  <em>⚔ {o.v}</em>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* trials clear once, ever, so they are worth calling out loudly */}
+          {!result.practice && result.trialsCleared && result.trialsCleared.length > 0 && (
+            <div className="pvpobjres trial">
+              <b>🎯 {T("ผ่านบททดสอบใหม่!", "New trials cleared!", "新试炼达成！")}</b>
+              {result.trialsCleared.map(t => (
+                <div key={t.key} className="pvpobj on">
+                  <span>✓</span><i>{tr3(t, lang)}</i><em>⚔ {t.v}</em>
+                </div>
+              ))}
+            </div>
+          )}
+          {!result.practice && result.valorGain > 0 && (
+            <div className="pvpvalorgain">⚔ +{result.valorGain} {T("วาเลอร์", "Valor", "勇气值")}</div>
+          )}
 
           {oppKind === "player" && pendingFriend && !pendingFriend.duel && (
             <button className="pvpbig" onClick={() => { if (onChallenge) onChallenge(pendingFriend, result.score); setPhase("lobby"); }}>
@@ -1259,6 +1613,7 @@ export const PvpPage = memo(function PvpPage({
       key={`${oppKind}-${tier.key}-${phase}-${gauntlet ? "g" + gauntlet.ix : "x"}`}
       lang={lang} me={me} gear={gear} myRank={myRank} tier={tier} sp={sp}
       initHpFrac={gauntlet ? gauntlet.hpFrac : 1} colorway={colorway} practice={practiceMode}
+      objectives={objectives}
       oppKind={oppKind} oppName={oppName} onDone={finish} onBack={() => setPhase("lobby")} playUi={playUi}
     />
   );
@@ -1540,7 +1895,7 @@ const X_MIN = 0.08, X_MAX = 0.92, GAP_MIN = 0.16;
 // budget; they only actually change when a pose or an angle does
 const Bot = memo(CyberAvatar);
 
-const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppKind, oppName, onDone, onBack, playUi, initHpFrac = 1, sp = null, colorway = null, practice = false }) {
+const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppKind, oppName, onDone, onBack, playUi, initHpFrac = 1, sp = null, colorway = null, practice = false, objectives = [] }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const myCls = classKeyOf(me);
   const fx = CLASS_FX[myCls] || CLASS_FX.striker;
@@ -1835,6 +2190,18 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      Multipliers on top of the tier and the style, recomputed at every round
      break from how the player actually won or lost the one before. */
   const ADAPT = useRef({ aggro: 1, block: 1, jump: 1, grab: 1 }).current;
+  /* Everything the trials and the match objectives are graded on. Kept in one
+     ref rather than a dozen pieces of state: none of it is rendered during
+     the fight, and the result screen is written from a timeout that would
+     otherwise read a stale render. */
+  const FLAGS = useRef({
+    counters: 0, dizzyDealt: 0, cornerHits: 0, cornerKo: false, specialsLanded: 0,
+    throwsLanded: 0, threwGuarding: false, usedSpecial: false, guardBroke: false,
+    fastAnswers: 0, superRight: false, finishedWithSpecial: false,
+    wonRoundNoGuard: false, perfectRound: false, everBelowHalf: false,
+  }).current;
+  const roundGuardRef = useRef(0);      // guard presses inside the current round
+  const lastWasSpecialRef = useRef(false);
   const usedRef = useRef({ melee: 0, ranged: 0, guard: 0, special: 0, jump: 0, thrown: 0 });
 
   function announceRound() {
@@ -1950,6 +2317,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       kind: byTime ? "ko" : perfect ? "perfect" : "ko",
     });
     if (perfect) scoreRef.current += 500;
+    if (winner === "me") {
+      if (roundGuardRef.current === 0) FLAGS.wonRoundNoGuard = true;
+      if (perfect) FLAGS.perfectRound = true;
+    }
+    roundGuardRef.current = 0;
     if (w[winner] >= ROUNDS_TO_WIN || roundRef.current >= MAX_ROUNDS) {
       later(() => matchOver(), ROUND_END_MS);
       return;
@@ -1997,6 +2369,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       myHp: mHp, myMax: MY_MAX, opHp: oHp, opMax: OP_MAX, tier, seconds: Math.round((Date.now() - startedRef.current) / 1000),
       ko, flawless, suddenDeath: suddenDeathRef.current, oppKind, oppName, oppModel, myCls, oppCls,
       rounds: { me: rw.me, op: rw.op },
+      // everything the trials and the match objectives are graded on
+      flags: { ...FLAGS }, myModel: me, botStyle: styleKey,
     }), ko ? 2100 : 1300);
   }
   // every old call site still says finish(); the match is what it always meant
@@ -2068,15 +2442,22 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     const mv = moveKey || pickMove(myCls);
     setMyPose(MOVES[mv].pose); setOpPose("hit");
     strike("me", counter ? "crit" : kind, myBolt, mv);
-    if (counter) say("op", T("สวนกลับ!", "COUNTER!", "反击!"), "crit");
+    if (counter) { FLAGS.counters += 1; say("op", T("สวนกลับ!", "COUNTER!", "反击!"), "crit"); }
     else say("op", "-" + d, kind === "crit" ? "crit" : "dmg");
+    if (oppCornered) FLAGS.cornerHits += 1;
     scoreRef.current += Math.round((10 + comboRef.current * 2) * (SFX.scoreMul || 1) * itemFx.scoreMul * (counter ? 1.5 : 1));
     setScore(scoreRef.current);
     if (oHp > 0 && noteStunHit("op", now)) {
+      FLAGS.dizzyDealt += 1;
       say("op", T("มึนงง!", "DIZZY!", "眩晕!"), "crit");
       audioRef.current.sfx("crit");
     }
-    if (oHp <= 0) { later(() => roundOver("me"), 380); return; }
+    if (oHp <= 0) {
+      if (oppCornered) FLAGS.cornerKo = true;
+      FLAGS.finishedWithSpecial = lastWasSpecialRef.current;
+      later(() => roundOver("me"), 380);
+      return;
+    }
     if (suddenDeathRef.current) later(finish, 420);
   }
 
@@ -2107,6 +2488,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         if (gm <= 0) {
           guardUntil.current = 0; setGuarding(false);
           guardMtrRef.current = GUARD_MAX * 0.4; setGuardMtr(GUARD_MAX * 0.4);
+          FLAGS.guardBroke = true;
           beginStagger(T("การ์ดแตก!", "GUARD BREAK!", "破防!"));
           practiceTip("guardbreak", T("กันมากไปการ์ดแตก — สลับถอยหรือสวนกลับบ้าง",
             "Blocking everything breaks your guard — mix in walking back or hitting first",
@@ -2135,6 +2517,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       * (cornered ? CORNER_DMG : 1) * (staggerRef.current > now ? STAGGER_DMG : 1)));
     const mHp = Math.max(0, hpRef.current.me - d);
     hpRef.current.me = mHp; setMyHp(mHp);
+    if (mHp / MY_MAX < 0.5) FLAGS.everBelowHalf = true;
     hitstunRef.current.me = now + HITSTUN_MS;
     posRef.current.me = Math.max(X_MIN, posRef.current.me - KNOCKBACK);
     myAtkRef.current = { startup: 0, recover: now + HITSTUN_MS, act: null };
@@ -2201,6 +2584,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (freeSpecialRef.current) { freeSpecialRef.current = false; setFreeSpecial(false); }
     else setGauge(g => Math.max(0, g - SPECIAL_COST));
     usedRef.current.special += 1;
+    FLAGS.usedSpecial = true;
     myAtkRef.current = { startup: now + F.startup, recover: now + F.startup + F.recover, act: sp.key };
     cdRef.current[sp.act] = now + (ACT[sp.act] || ACT.punch).cd;
     setMyPose(MOVES[sp.move].pose);
@@ -2223,6 +2607,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       comboRef.current += 1; setCombo(comboRef.current);
       setBestCombo(b => Math.max(b, comboRef.current));
       const R = sp.fx || {};
+      FLAGS.specialsLanded += 1;
+      lastWasSpecialRef.current = true;
       const dmg = A.dmg * TAP_DMG * sp.dmg * (fx.passive === "power" ? 1.25 : 1) * petDmg
         * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1)
         * (SFX.dmgDeal || 1) * (matchup === 1 ? 1 + MATCHUP_DMG : matchup === -1 ? 1 - MATCHUP_DMG : 1)
@@ -2288,6 +2674,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         audioRef.current.sfx("block");
         return;
       }
+      FLAGS.throwsLanded += 1;
+      // attack() only routes punch into a throw when the bot is holding block,
+      // so a landed throw here IS a throw through a guard
+      if (botRef.current.blockUntil > Date.now() - 400) FLAGS.threwGuarding = true;
       setBanner(T("ทุ่ม!", "THROW!", "投技!"));
       later(() => setBanner(null), 800);
       comboRef.current += 1; setCombo(comboRef.current);
@@ -2321,6 +2711,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (act === "punch" && gapNow <= THROW_RANGE && now >= throwCdRef.current
       && botRef.current.blockUntil > now) { doThrow(now); return; }
 
+    lastWasSpecialRef.current = false;
     // the histogram the bot reads at the round break
     const U = usedRef.current;
     if (act === "punch" || act === "kick") U.melee += 1; else U.ranged += 1;
@@ -2419,6 +2810,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (now < guardCd.current) return;
     guardUntil.current = now + GUARD_MS; guardCd.current = now + GUARD_CD;
     usedRef.current.guard += 1;
+    roundGuardRef.current += 1;
     setGuarding(true);
     audioRef.current.sfx("charge");
     G.burst("me", .6, "#5ce1ff");
@@ -2745,6 +3137,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         hpRef.current.me = h; setMyHp(h);
       }
       if (fast) {
+        FLAGS.fastAnswers += 1;
         setGauge(100);
         freeSpecialRef.current = true; setFreeSpecial(true);
       } else setGauge(g => Math.min(100, g + (quick ? 34 : 17)));
@@ -2884,6 +3277,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     setUltQ(null); setLunge(null);
     if (doneRef.current) return;
     bumpWeak(ultQRef.current ? ultQRef.current.tag : "iv", !!right);
+    if (right) FLAGS.superRight = true;
     setBanner(right ? T("ท่าไม้ตายเต็มกำลัง!", "FULL POWER SUPER!", "全力必杀!")
       : T("ท่าไม้ตายไม่สมบูรณ์", "MISFIRED SUPER", "必杀失手"));
     later(() => setBanner(null), 1200);
@@ -3027,6 +3421,16 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           </div>
         )}
       </div>
+
+      {/* The assignment, readable during the round-1 announcement and gone by
+          the time the fight starts — a checklist that stays up all match is
+          something to stare at instead of the opponent. */}
+      {!practice && objectives.length > 0 && round === 1 && announce && (
+        <div className="pvpobjstrip">
+          <b>{T("ภารกิจ", "OBJECTIVES", "任务")}</b>
+          {objectives.map(o => <i key={o.key}>{tr3(o, lang)} <em>⚔{o.v}</em></i>)}
+        </div>
+      )}
 
       {/* ── the super's question ──
           Rendered over the held frame rather than in place of it: the point
