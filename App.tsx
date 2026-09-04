@@ -10479,7 +10479,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           {(
             <button className="hdrgo" onClick={() => { playUi("click"); logUsage("nav", "profile"); setPage("profile"); }}
               title={lc.navProfile} aria-label={lc.navProfile}>
-              <RobotGlyph size={19} />
+              <RobotGlyph size={23} />
             </button>
           )}
           {!isGuest && <button className="shopbtn" onClick={() => setShopOpen(true)} title={lc.shopTitle} aria-label="Shop"><span className="shopbtn-ic">🛍️</span><span className="shopbtn-coins">🪙 {coins}</span></button>}

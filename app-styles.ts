@@ -2566,9 +2566,14 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 @keyframes petnote{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
 
 /* header shortcuts that replaced the plan badge - 38px to match .shopbtn's
-   own explicit height, so the two read as the same size next to each other */
-.hdrgo{display:flex;align-items:center;justify-content:center;width:38px;height:38px;box-sizing:border-box;flex:0 0 auto;border:1px solid var(--bd4);border-radius:12px;background:var(--card);color:var(--text);cursor:pointer;padding:0}
-.hdrgo:hover{border-color:#d97757}
+   own explicit height, so the two read as the same size next to each other.
+   Matching the height alone was not enough: at 12px radius, a hairline neutral
+   border and a small glyph, this still READ as the smaller of the two next to
+   the shop pill. The radius, the border weight and the accent colour are now
+   the shop pill's, so the pair reads as one family and the square stops
+   looking like a leftover. */
+.hdrgo{display:flex;align-items:center;justify-content:center;width:38px;height:38px;box-sizing:border-box;flex:0 0 auto;border:1.5px solid #d9775755;border-radius:20px;background:var(--card);color:#d97757;cursor:pointer;padding:0;transition:all .2s}
+.hdrgo:hover{border-color:#d97757;background:rgba(217,119,87,.1);box-shadow:0 0 10px rgba(217,119,87,.2)}
 .hdrgo:active{transform:scale(.94)}
 
 /* ══════════ answer reveal ══════════
