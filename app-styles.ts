@@ -1220,6 +1220,30 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
   font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:#ffe9a8;cursor:pointer}
 .pvpultq-opts button:active{background:#ffd23f2e;transform:scale(.97)}
 
+/* ══════════ the training lab ══════════
+   Practice mode only. Dense on purpose: it is a control panel, not a page,
+   and every row of it is data the fight actually runs on. */
+.pvplab{max-width:520px;margin:8px auto 0;padding:0 13px}
+.pvplab-row{display:flex;flex-wrap:wrap;gap:5px}
+.pvplab-b{padding:5px 9px;border-radius:9px;border:1px solid var(--bd1);background:var(--card);
+  font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.2px;color:var(--muted);cursor:pointer}
+.pvplab-b.on{border-color:#3ddc84;background:#3ddc8418;color:#1c7a4a}
+.pvplab-b.mv{margin-left:auto;border-color:#d9775766;color:#d97757}
+.pvplab-b.mv.on{background:#d9775718;border-color:#d97757}
+.pvplab-moves{margin-top:6px;border:1px solid var(--bd1);border-radius:11px;background:var(--card);overflow:hidden}
+.pvplab-moves table{width:100%;border-collapse:collapse;font-family:'Share Tech Mono',monospace;font-size:10.5px;
+  font-variant-numeric:tabular-nums}
+.pvplab-moves th{padding:5px 7px;text-align:left;color:var(--muted);font-weight:400;
+  border-bottom:1px solid var(--bd1);background:var(--card2);letter-spacing:.3px}
+.pvplab-moves td{padding:4px 7px;border-bottom:1px solid var(--bd4);color:var(--text)}
+.pvplab-moves tr:last-child td{border-bottom:0}
+.pvplab-moves tr.sp td{color:#d97757}
+.pvplab-moves i{display:block;padding:5px 7px 6px;font-style:normal;font-family:'Share Tech Mono',monospace;
+  font-size:9.5px;line-height:1.4;color:var(--muted);border-top:1px solid var(--bd1)}
+.pvppage.land .pvplab{position:absolute;left:12px;top:12px;z-index:12;width:min(60%,340px);margin:0;padding:0}
+.pvppage.land .pvplab-b{background:rgba(255,255,255,.86);backdrop-filter:blur(3px)}
+.pvppage.land .pvplab-moves{background:rgba(255,255,255,.92);backdrop-filter:blur(4px)}
+
 /* the free special a fast answer bought, announced where the thumbs are */
 .pvpfreesp{max-width:520px;margin:6px auto 0;padding:4px 10px;border-radius:20px;text-align:center;
   background:linear-gradient(90deg,#ffd23f,#3ddc84);color:#0b1220;
@@ -1376,6 +1400,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    gone. It is over in a tenth of a second and it is the single thing players
    feel most. The transition is deliberately absent — a hitstop that eases is
    not a hitstop. */
+/* the weekly boss wears its rule on the lobby card, in the warning colour */
+.pvpbossrule{display:block;margin:3px 0 1px;font-style:normal;font-family:'Share Tech Mono',monospace;
+  font-size:9.5px;line-height:1.35;letter-spacing:.2px;color:#d97757}
+
 .pvpstage.hitstop{filter:brightness(1.22) contrast(1.08)}
 .pvpstage.hitstop.hs-r{transform:translateX(3px)}
 .pvpstage.hitstop.hs-l{transform:translateX(-3px)}

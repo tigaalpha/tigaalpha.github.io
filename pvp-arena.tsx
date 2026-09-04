@@ -638,7 +638,9 @@ function weeklyFeatured() {
   const wk = weekKey();
   let h = 0; for (let i = 0; i < wk.length; i++) h = (h * 31 + wk.charCodeAt(i)) >>> 0;
   const tier = BOT_TIERS.find(t => t.key === WEEKLY_TIERS[h % WEEKLY_TIERS.length]) || BOT_TIERS[5];
-  return { wk, tier, name: "WK-" + wk.slice(2) };
+  // a different broken rule from the tier, so a week is never the same twice
+  const rule = BOSS_RULE_ORDER[Math.floor(h / 7) % BOSS_RULE_ORDER.length];
+  return { wk, tier, name: "WK-" + wk.slice(2), rule };
 }
 const WEEKLY_BADGE_KEY = "tg_pvp_weekly_badges";
 function readWeeklyBadges() { try { const v = JSON.parse(localStorage.getItem(WEEKLY_BADGE_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
@@ -828,7 +830,9 @@ export const PvpPage = memo(function PvpPage({
     setPhase("fight"); if (playUi) playUi("click");
   };
   const startWeekly = () => {
-    const boosted = { ...weekly.tier, coins: weekly.tier.coins * 2, xp: weekly.tier.xp * 2, sp: weekly.tier.sp * 2 };
+    // the rule rides on the tier object, which the fight already receives —
+    // no new prop for something only one opponent in the game ever has
+    const boosted = { ...weekly.tier, coins: weekly.tier.coins * 2, xp: weekly.tier.xp * 2, sp: weekly.tier.sp * 2, bossRule: weekly.rule };
     setIsWeekly(true);
     startFight("bot", boosted, weekly.name);
   };
@@ -1011,7 +1015,7 @@ export const PvpPage = memo(function PvpPage({
                   here, and the fight itself shows what it read. */}
               <div className="pvpmoves">
                 <b>{T("ท่าไม้ตาย", "Special Moves", "必杀技")} · {SPECIAL_COST} {T("เกจ", "gauge", "能量")}</b>
-                {SPECIALS.map(s => (
+                {specialsOf(myCls).map(s => (
                   <span key={s.key}>
                     <em>{s.glyph}</em> + {s.act === "punch" ? T("ต่อย", "Punch", "拳") : s.act === "kick" ? T("เตะ", "Kick", "踢") : T("ยิง", "Fire", "射")}
                     <i>{tr3(s, lang)}</i>
@@ -1071,6 +1075,9 @@ export const PvpPage = memo(function PvpPage({
             <button className="pvptier t-weeklyboss" onClick={startWeekly}>
               <b>👑 {T("บอสประจำสัปดาห์", "Weekly Boss", "本周首领")} {weeklyClaimed ? "✓" : ""}</b>
               <i>{tr3(weekly.tier, lang)} · {T("รางวัล 2 เท่า", "2× rewards", "奖励 2 倍")}</i>
+              {/* the week's broken rule, up front — a boss you only discover
+                  is cheating after it kills you is not a boss, it is a bug */}
+              <em className="pvpbossrule">⚠ {tr3(BOSS_RULES[weekly.rule] || {}, lang)}</em>
               <span>🪙 {weekly.tier.coins * 2} · ✦ {weekly.tier.xp * 2} · SP {weekly.tier.sp * 2}</span>
             </button>
             <button className="pvptier t-rival" onClick={startRivalFight}>
@@ -1376,6 +1383,52 @@ const FRAMES = {
   blast:  { startup: 180, recover: 300 },
 };
 
+/* ── how it plays, as opposed to how well ──
+   The ten tiers are a difficulty dial: the same fighter, faster. That is why
+   the fifth bot and the eighth bot felt like one opponent at two speeds.
+   Style is the other axis. It does not change how GOOD the bot is at all —
+   only what it wants: where it would rather stand, which of the four buttons
+   it reaches for, whether it would rather block you or grab you. Ten tiers
+   times five styles is fifty fights out of the same brain.
+
+   `gap` is the distance it tries to hold. `wPunch/wKick/wFire` are how it
+   picks a move once it commits. `poke` is how willing it is to throw
+   something out from range, `grab` how readily it goes for a throw, and
+   aggro/block/jump scale the tier's own numbers rather than replacing them. */
+const BOT_STYLE = {
+  rushdown:  { th: "สายบุก",      en: "Rushdown",  zh: "压制型",
+    aggro: 1.28, block: 0.55, jump: 1.6, gap: 0.20, wPunch: .50, wKick: .38, heavy: .04, poke: .04, grab: .10 },
+  zoner:     { th: "สายยิงไกล",   en: "Zoner",     zh: "远程型",
+    aggro: 0.80, block: 1.00, jump: 0.5, gap: 0.60, wPunch: .12, wKick: .18, heavy: .13, poke: .42, grab: .02 },
+  grappler:  { th: "สายจับทุ่ม",  en: "Grappler",  zh: "投技型",
+    aggro: 1.10, block: 0.80, jump: 0.7, gap: 0.17, wPunch: .55, wKick: .40, heavy: .05, poke: .02, grab: .34 },
+  turtle:    { th: "สายตั้งรับ",  en: "Turtle",    zh: "防守型",
+    aggro: 0.62, block: 1.75, jump: 0.4, gap: 0.33, wPunch: .34, wKick: .50, heavy: .10, poke: .08, grab: .12 },
+  trickster: { th: "สายหลอก",     en: "Trickster", zh: "欺诈型",
+    aggro: 1.00, block: 1.20, jump: 1.9, gap: 0.40, wPunch: .34, wKick: .28, heavy: .09, poke: .22, grab: .16 },
+};
+const BOT_STYLE_ORDER = ["rushdown", "zoner", "grappler", "turtle", "trickster"];
+/** Stable for a named opponent (a rival is always the same fighter), rolled
+    fresh for an anonymous bot (so the same tier twice is two fights). */
+function styleFor(seedStr) {
+  let h = 0;
+  for (let i = 0; i < String(seedStr).length; i++) h = (h * 31 + String(seedStr).charCodeAt(i)) >>> 0;
+  return BOT_STYLE_ORDER[h % BOT_STYLE_ORDER.length];
+}
+
+/* ── the weekly boss's one broken rule ──
+   A featured bot that is just a normal bot paying double was a reason to
+   collect, not a reason to turn up. Each week it gets exactly ONE rule that
+   nothing else in the game is allowed to have, so the week's question is
+   "what is it doing this time" rather than "which tier is it". */
+const BOSS_RULES = {
+  armor:      { th: "เกราะ: หมัดแรกของทุกยกไม่สะเทือน", en: "ARMOR — shrugs off the first hit of every round", zh: "霸体 — 无视每回合第一击" },
+  grip:       { th: "มือเหล็ก: ทุ่มแรงสองเท่า แต่แก้ทุ่มของคุณไม่ได้", en: "IRON GRIP — double throw damage, but it can never tech yours", zh: "铁腕 — 投技伤害翻倍，但无法受身" },
+  feed:       { th: "ดูดพลัง: ตอบผิดเมื่อไหร่มันฟื้นเลือด", en: "FEEDER — it heals every time you answer wrong", zh: "汲取 — 你每答错一次它就回血" },
+  relentless: { th: "ไม่ยั้ง: แทบไม่มีจังหวะพักฟื้นให้สวน", en: "RELENTLESS — almost no recovery to punish", zh: "无休 — 几乎没有硬直可反击" },
+};
+const BOSS_RULE_ORDER = ["armor", "grip", "feed", "relentless"];
+
 /* How well the bot plays, per tier. `block` is how often it reads an incoming
    attack, `aggro` how willing it is to commit, and startup/recover are its own
    frames — a novice telegraphs for nearly half a second and stands in its
@@ -1396,14 +1449,65 @@ const BOT_BRAIN = {
 /* Three motions, three buttons. Nothing here is a secret: the lobby lists
    them and the input display shows what the game just read, the way a
    training mode does, so learning them is practice rather than folklore. */
-const SPECIALS = [
-  { key: "dash",  act: "punch", motion: [1, 1],   glyph: "▶▶",  dmg: 3.6, move: "punch",
-    th: "หมัดพุ่ง",   en: "Dash Fist",    zh: "冲拳" },
-  { key: "rise",  act: "kick",  motion: [-1, 1],  glyph: "◀▶",  dmg: 4.0, move: "kick",
-    th: "เตะทะยาน",  en: "Rising Kick",  zh: "升龙踢" },
-  { key: "blast", act: "fire",  motion: [-1, -1], glyph: "◀◀",  dmg: 3.2, move: "laser",
-    th: "ลำแสงอัด",  en: "Charge Blast", zh: "蓄力波" },
+/* ── the moves, per class ──
+   All seven classes used to share these three, which meant choosing a class
+   changed the colour of your robot and the numbers on your stat line and
+   nothing about how you actually fought. The three MOTIONS stay the same for
+   everyone on purpose — ▶▶, ◀▶ and ◀◀ is the whole grammar, and relearning
+   it per class would be hostile — but what comes out of them is now the
+   class's own, with a small mechanical rider that matches what the class is
+   supposed to be for. A Bulwark's specials give it its guard back. A Ghost's
+   put it somewhere else. A Virtuoso's get better the longer the combo runs.
+
+   `fx` riders: push (extra knockback) · heal · guardFill · gauge (refund) ·
+   teleport (cross up behind them) · multi (hit count) · comboScale. */
+const MOTION_SLOTS = [
+  { act: "punch", motion: [1, 1],   glyph: "▶▶" },
+  { act: "kick",  motion: [-1, 1],  glyph: "◀▶" },
+  { act: "fire",  motion: [-1, -1], glyph: "◀◀" },
 ];
+const CLASS_SPECIAL_DEFS = {
+  striker: [
+    { key: "dash",   dmg: 3.6, move: "punch",  th: "หมัดพุ่ง",     en: "Dash Fist",      zh: "冲拳" },
+    { key: "rise",   dmg: 4.0, move: "kick",   th: "เตะทะยาน",    en: "Rising Kick",    zh: "升龙踢" },
+    { key: "blast",  dmg: 3.2, move: "laser",  th: "ลำแสงอัด",    en: "Charge Blast",   zh: "蓄力波" },
+  ],
+  bulwark: [
+    { key: "dash",   dmg: 3.0, move: "punch",  fx: { guardFill: 45 },  th: "หมัดสมอ",      en: "Anchor Fist",    zh: "定锚拳" },
+    { key: "rise",   dmg: 3.4, move: "kick",   fx: { stun: 2 },        th: "กระแทกโล่",    en: "Shield Bash",    zh: "盾击" },
+    { key: "blast",  dmg: 2.8, move: "laser",  fx: { push: 0.14 },     th: "คลื่นผลัก",    en: "Bulwark Wave",   zh: "壁垒波" },
+  ],
+  ghost: [
+    { key: "dash",   dmg: 3.2, move: "punch",  fx: { teleport: 1 },    th: "ก้าวเงา",      en: "Phantom Step",   zh: "幻影步" },
+    { key: "rise",   dmg: 3.8, move: "kick",   th: "ฉีกเงา",       en: "Shadow Rip",     zh: "影裂" },
+    { key: "blast",  dmg: 3.0, move: "laser",  fx: { pierce: 1 },      th: "หอกสุญญากาศ",  en: "Void Lance",     zh: "虚空枪" },
+  ],
+  virtuoso: [
+    { key: "dash",   dmg: 2.6, move: "punch",  fx: { comboScale: 0.22 }, th: "หมัดไต่เสียง", en: "Crescendo Fist", zh: "渐强拳" },
+    { key: "rise",   dmg: 3.6, move: "kick",   th: "เตะโน้ตประดับ", en: "Grace Note Kick", zh: "装饰音踢" },
+    { key: "blast",  dmg: 3.0, move: "laser",  fx: { gauge: 14 },      th: "ลำแสงกำทอน",   en: "Resonance Beam", zh: "共鸣波" },
+  ],
+  engineer: [
+    { key: "dash",   dmg: 3.5, move: "punch",  th: "หมัดลูกสูบ",    en: "Piston Drive",   zh: "活塞冲" },
+    { key: "rise",   dmg: 3.7, move: "kick",   th: "เตะเซอร์โว",    en: "Servo Kick",     zh: "伺服踢" },
+    { key: "blast",  dmg: 1.4, move: "laser",  fx: { multi: 3 },       th: "ป้อมยิงรัว",    en: "Turret Volley",  zh: "炮塔连射" },
+  ],
+  herald: [
+    { key: "dash",   dmg: 3.4, move: "punch",  fx: { heal: 0.05 },     th: "หมัดประกาศ",   en: "Fanfare Fist",   zh: "号角拳" },
+    { key: "rise",   dmg: 4.0, move: "kick",   th: "เตะทะยานฟ้า",   en: "Ascend Kick",    zh: "升天踢" },
+    { key: "blast",  dmg: 3.0, move: "laser",  fx: { guardFill: 30 },  th: "ลำแสงบทเพลง",  en: "Hymn Blast",     zh: "圣歌波" },
+  ],
+  tactician: [
+    { key: "dash",   dmg: 3.3, move: "punch",  fx: { readCounter: 1 }, th: "หมัดอ่านเกม",  en: "Read Punch",     zh: "读招拳" },
+    { key: "rise",   dmg: 3.6, move: "kick",   th: "เตะเปลี่ยนมุม",  en: "Pivot Kick",     zh: "转身踢" },
+    { key: "blast",  dmg: 3.1, move: "laser",  fx: { cull: 2 },        th: "ลำแสงพยากรณ์", en: "Predict Beam",   zh: "预判波" },
+  ],
+};
+/** The three motions, filled in with one class's moves. */
+function specialsOf(clsKey) {
+  const defs = CLASS_SPECIAL_DEFS[clsKey] || CLASS_SPECIAL_DEFS.striker;
+  return MOTION_SLOTS.map((slot, i) => ({ ...slot, ...defs[i], fx: defs[i].fx || {} }));
+}
 
 /* ── comeback, tutorial, sudden death ──
    Three small rules that used to make a losing fight feel like a foregone
@@ -1528,6 +1632,16 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [corner, setCorner] = useState({ me: false, op: false });
   const [guardMtr, setGuardMtr] = useState(GUARD_MAX);
   const [stagger, setStagger] = useState(false);
+  /* ── the training dummy ──
+     Practice mode had live tips but no way to make the opponent DO anything,
+     which meant you could not actually practise the thing you were failing
+     at. Five behaviours, switchable mid-fight: a dummy that stands there for
+     combo work, one that blocks everything so you have to throw it, one that
+     punishes every whiff so you learn your own recovery, and one that grabs
+     the moment you are in range. */
+  const [dummy, setDummy] = useState("spar");
+  const dummyRef = useRef("spar");
+  const [showMoves, setShowMoves] = useState(false);
   const hitstopRef = useRef(0);                    // the tick simply does not advance until this
   const guardMtrRef = useRef(GUARD_MAX);
   const staggerRef = useRef(0);
@@ -1606,7 +1720,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   // ROUND 1 — FIGHT! Nothing lands before the announcer says so, on either
   // side, which is also what gives the stage and matchup callouts below room
   // to be read before anybody throws a punch.
-  useEffect(() => { announceRound(); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { bossArmorRef.current = BOSS === "armor"; announceRound(); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // teach the two things that are otherwise invisible math: which stage
   // trade-off is live, and whether the class matchup favours either side
@@ -1709,6 +1823,19 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   // the shared table would leave every later fight carrying the last one's
   // aggression
   const BRAIN = useRef({ ...(BOT_BRAIN[tier.key] || BOT_BRAIN.veteran) }).current;
+  /* Which fighter this bot is, as opposed to how good. Seeded from the
+     opponent so a named rival is always the same fighter, and effectively
+     rolled for an anonymous bot so the same tier twice is two fights. */
+  const MY_SPECIALS = useRef(specialsOf(myCls)).current;
+  const styleKey = useRef(styleFor(String(oppModel) + oppName + tier.key + (oppKind === "bot" ? Math.floor(Math.random() * 997) : ""))).current;
+  const STYLE = BOT_STYLE[styleKey] || BOT_STYLE.rushdown;
+  const BOSS = tier.bossRule || null;
+  const bossArmorRef = useRef(false);   // the ARMOR rule's one free hit this round
+  /* ── what it learned from the last round ──
+     Multipliers on top of the tier and the style, recomputed at every round
+     break from how the player actually won or lost the one before. */
+  const ADAPT = useRef({ aggro: 1, block: 1, jump: 1, grab: 1 }).current;
+  const usedRef = useRef({ melee: 0, ranged: 0, guard: 0, special: 0, jump: 0, thrown: 0 });
 
   function announceRound() {
     if (doneRef.current) return;
@@ -1724,8 +1851,56 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     }, ROUND_INTRO_MS);
   }
 
+  /* ── what it learned ──
+     Round two used to be round one again, byte for byte, which made a
+     best-of-three three attempts at the same fight instead of one argument
+     with a reply in it. The bot now looks at how the round it just played was
+     actually played and leans the other way: walked down, it starts blocking;
+     kept at arm's length, it starts jumping in; held block against, it starts
+     grabbing. It says which, out loud, because an opponent that adapts in
+     silence is indistinguishable from one that got lucky. */
+  function adaptToLastRound() {
+    const U = usedRef.current;
+    const shots = U.melee + U.ranged;
+    ADAPT.aggro = 1; ADAPT.block = 1; ADAPT.jump = 1; ADAPT.grab = 1;
+    let note = null;
+    if (shots >= 4 && U.ranged > U.melee * 1.4) {
+      // zoned out: it comes to you, over the top
+      ADAPT.jump = 2.1; ADAPT.aggro = 1.18;
+      note = T("มันอ่านเกมยิงของคุณออก — เตรียมโดนกระโดดเข้าใส่",
+        "It read your zoning — expect it to jump in",
+        "它看穿了你的远程 — 小心它跳进来");
+    } else if (shots >= 4 && U.melee > U.ranged * 1.6) {
+      // walked down: it starts holding the button you keep running into
+      ADAPT.block = 1.7; ADAPT.grab = 1.3;
+      note = T("มันอ่านเกมบุกของคุณออก — มันจะการ์ดถี่ขึ้น",
+        "It read your rushdown — it will block far more",
+        "它看穿了你的压制 — 它会更频繁格挡");
+    } else if (U.guard >= 5) {
+      // turtled: throws are the answer and it has found them
+      ADAPT.grab = 2.0; ADAPT.aggro = 1.12;
+      note = T("คุณการ์ดเยอะไป — มันจะเข้ามาทุ่ม",
+        "You blocked a lot — it will come in for throws",
+        "你格挡太多 — 它会进来投技");
+    } else if (U.special >= 3) {
+      // reading your specials: it waits for the startup and punishes
+      ADAPT.block = 1.5; ADAPT.aggro = 0.9;
+      note = T("มันเริ่มรอสวนท่าไม้ตายของคุณ",
+        "It is waiting to punish your specials now",
+        "它开始等着惩罚你的必杀技");
+    }
+    usedRef.current = { melee: 0, ranged: 0, guard: 0, special: 0, jump: 0, thrown: 0 };
+    if (note) later(() => {
+      if (doneRef.current) return;
+      setBanner("⟳ " + note);
+      audioRef.current.sfx("charge");
+      later(() => setBanner(null), 2600);
+    }, ROUND_INTRO_MS + FIGHT_CALL_MS + 300);
+  }
+
   function nextRound() {
     if (doneRef.current) return;
+    adaptToLastRound();
     roundRef.current += 1; setRound(roundRef.current);
     hpRef.current = { me: MY_MAX, op: OP_MAX };
     setMyHp(MY_MAX); setOpHp(OP_MAX);
@@ -1743,6 +1918,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     setBotTell(false); setBotGuard(false);
     setChipHp({ me: 1, op: 1 });
     guardMtrRef.current = GUARD_MAX; setGuardMtr(GUARD_MAX);
+    bossArmorRef.current = BOSS === "armor";
     staggerRef.current = 0; setStagger(false);
     hitstopRef.current = 0; setHitStop(false);
     setCorner({ me: false, op: false });
@@ -1872,6 +2048,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // the corner is not a player-only rule — pinning the bot against its own
     // wall is the reward for walking it down
     const oppCornered = posRef.current.op >= X_MAX - CORNER_ZONE;
+    // the weekly boss's ARMOR: the first hit of each round does not move it
+    if (bossArmorRef.current) {
+      bossArmorRef.current = false;
+      audioRef.current.sfx("block");
+      G.burst("op", 1.1, "#ffd23f");
+      say("op", T("เกราะ!", "ARMOR!", "霸体!"), "block");
+      return;
+    }
     const d = Math.max(1, Math.round(dmg * (counter ? COUNTER_MUL : 1) * (oppCornered ? CORNER_DMG : 1)));
     const oHp = Math.max(0, hpRef.current.op - d);
     hpRef.current.op = oHp; setOpHp(oHp);
@@ -2005,7 +2189,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     motionRef.current = buf;
     if (buf.length < 2) return null;
     const last2 = [buf[buf.length - 2].dir, buf[buf.length - 1].dir];
-    return SPECIALS.find(s => s.act === act && s.motion[0] === last2[0] && s.motion[1] === last2[1]) || null;
+    return MY_SPECIALS.find(s => s.act === act && s.motion[0] === last2[0] && s.motion[1] === last2[1]) || null;
   }
 
   /** Fire a special: gauge-priced, bigger than any normal button, and it
@@ -2016,6 +2200,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // a special bought by answering inside a second and a half costs nothing
     if (freeSpecialRef.current) { freeSpecialRef.current = false; setFreeSpecial(false); }
     else setGauge(g => Math.max(0, g - SPECIAL_COST));
+    usedRef.current.special += 1;
     myAtkRef.current = { startup: now + F.startup, recover: now + F.startup + F.recover, act: sp.key };
     cdRef.current[sp.act] = now + (ACT[sp.act] || ACT.punch).cd;
     setMyPose(MOVES[sp.move].pose);
@@ -2037,11 +2222,46 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       }
       comboRef.current += 1; setCombo(comboRef.current);
       setBestCombo(b => Math.max(b, comboRef.current));
+      const R = sp.fx || {};
       const dmg = A.dmg * TAP_DMG * sp.dmg * (fx.passive === "power" ? 1.25 : 1) * petDmg
         * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1)
         * (SFX.dmgDeal || 1) * (matchup === 1 ? 1 + MATCHUP_DMG : matchup === -1 ? 1 - MATCHUP_DMG : 1)
-        * (synergy ? SYNERGY_DMG : 1);
-      hitOp(dmg, "ult", sp.move);
+        * (synergy ? SYNERGY_DMG : 1)
+        // a Virtuoso's opener is weak and grows with the phrase it is part of
+        * (1 + (R.comboScale || 0) * comboRef.current);
+      /* ── the class rider ──
+         The part that makes three shared motions read as seven different
+         movesets: the same input, the same cost, a different consequence. */
+      if (R.multi) {
+        // the Engineer's turret: one input, a burst
+        for (let i = 0; i < R.multi; i++) later(() => hitOp(dmg, i === R.multi - 1 ? "ult" : "crit", sp.move, { noCounter: i > 0 }), i * 170);
+      } else hitOp(dmg, "ult", sp.move, R.pierce ? { unblockable: true } : undefined);
+      if (R.push) posRef.current.op = Math.min(X_MAX, posRef.current.op + R.push);
+      if (R.stun) noteStunHit("op", Date.now());
+      if (R.guardFill) {
+        const gm = Math.min(GUARD_MAX, guardMtrRef.current + R.guardFill);
+        guardMtrRef.current = gm; setGuardMtr(gm);
+        say("me", T("การ์ดคืน", "GUARD UP", "格挡回复"), "block");
+      }
+      if (R.heal) {
+        const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * R.heal));
+        hpRef.current.me = h; setMyHp(h);
+        G.burst("me", .8, "#3ddc84"); say("me", "+" + Math.round(MY_MAX * R.heal), "heal");
+      }
+      if (R.gauge) setGauge(g => Math.min(100, g + R.gauge));
+      if (R.teleport) {
+        // the Ghost crosses up: it ends the move on the far side of them
+        const opX2 = posRef.current.op;
+        posRef.current.me = Math.min(X_MAX - GAP_MIN, Math.max(X_MIN, opX2 - GAP_MIN * 0.9));
+        G.burst("me", 1, "#b98cff");
+      }
+      if (R.cull && q) {
+        // the Tactician reads ahead: two wrong answers are gone before the
+        // question is even asked
+        setCulled(shuffle(q.opts.filter(o => o !== q.ans)).slice(0, R.cull));
+        say("me", T("อ่านเกมออก", "READ AHEAD", "预判"), "buff");
+      }
+      if (R.readCounter) { const nb = { ...buffRef.current, crit: 1 }; buffRef.current = nb; setBuffs(nb); }
     }, F.startup);
   }
 
@@ -2049,6 +2269,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       answer to an opponent who has decided to just hold block. */
   function doThrow(now) {
     throwCdRef.current = now + THROW_CD;
+    usedRef.current.thrown += 1;
     const F = FRAMES.throw;
     myAtkRef.current = { startup: now + F.startup, recover: now + F.startup + F.recover, act: "throw" };
     setMyPose("attack"); setLunge("me");
@@ -2100,6 +2321,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (act === "punch" && gapNow <= THROW_RANGE && now >= throwCdRef.current
       && botRef.current.blockUntil > now) { doThrow(now); return; }
 
+    // the histogram the bot reads at the round break
+    const U = usedRef.current;
+    if (act === "punch" || act === "kick") U.melee += 1; else U.ranged += 1;
     const F = FRAMES[act] || FRAMES.punch;
     const cd = A2.cd * (act === "rocket" ? itemFx.rocketCdMul : 1);
     cdRef.current[act] = now + cd;
@@ -2170,6 +2394,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // which hardcodes JUMP_CD as the offset back to jump-start — it has to
     // stay tied to that same constant. The item's cooldown discount is
     // tracked separately, in the ready-to-jump-again gate only.
+    usedRef.current.jump += 1;
     cdRef.current.jump = now + JUMP_CD;
     jumpGateRef.current = now + JUMP_CD * itemFx.jumpCdMul;
     setCool(c => ({ ...c, jump: jumpGateRef.current }));
@@ -2193,6 +2418,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     }
     if (now < guardCd.current) return;
     guardUntil.current = now + GUARD_MS; guardCd.current = now + GUARD_CD;
+    usedRef.current.guard += 1;
     setGuarding(true);
     audioRef.current.sfx("charge");
     G.burst("me", .6, "#5ce1ff");
@@ -2260,19 +2486,41 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               "它落空了 — 这就是你的反击机会"));
           }
         } else if (!botBusy) {
+          const DM = practice ? dummyRef.current : "spar";
+          // ── the dummy overrides the brain entirely in the lab ──
+          if (DM !== "spar") {
+            if (DM === "block") {
+              bot.blockUntil = now + 420; bot.state = "block"; setBotGuard(true);
+              later(() => setBotGuard(false), 420);
+            } else if (DM === "counter" && myAtkRef.current.recover > now && gap <= ACT.kick.range) {
+              // it punishes the instant you are in recovery, every time —
+              // which is the only way to learn where your own recovery ends
+              bot.act = "punch"; bot.startup = now + 90; bot.state = "startup"; setBotTell(true);
+            } else if (DM === "grab" && gap <= THROW_RANGE + 0.04 && now >= botThrowCdRef.current) {
+              botThrowCdRef.current = now + THROW_CD;
+              bot.recover = now + BRAIN.recover; bot.state = "recover";
+              setLunge("op"); later(() => setLunge(null), 420);
+              audioRef.current.sfx("kick");
+              say("me", T("โดนทุ่ม!", "THROWN!", "被投!"), "dmg");
+              hitMe(B.dmg * tier.dmgK * BOT_DMG * THROW_DMG * 0.45, "punch", { unblockable: true, noCounter: true });
+            } else bot.state = DM === "grab" ? "approach" : "idle";
+          }
           // ── you are holding guard, so it throws you ──
           // guard stops strikes and nothing else. That mixup is the oldest
           // decision in the genre and it has to cut both ways, or holding
           // block would simply be the correct answer to everything.
-          if (now < guardUntil.current && gap <= THROW_RANGE + 0.04
-            && now >= botThrowCdRef.current && Math.random() < BRAIN.aggro * 0.4) {
+          // A guard invites a throw from anyone. A GRAPPLER does not wait to be
+          // invited — walking into its range at all is the mistake.
+          else if (gap <= THROW_RANGE + 0.04 && now >= botThrowCdRef.current
+            && ((now < guardUntil.current && Math.random() < BRAIN.aggro * 0.4)
+              || Math.random() < STYLE.grab * ADAPT.grab)) {
             botThrowCdRef.current = now + THROW_CD;
             bot.recover = now + BRAIN.recover; bot.state = "recover";
             setBotTell(false); setLunge("op");
             later(() => setLunge(null), 420);
             audioRef.current.sfx("kick");
             say("me", T("โดนทุ่ม!", "THROWN!", "被投!"), "dmg");
-            hitMe(B.dmg * tier.dmgK * BOT_DMG * THROW_DMG * 0.45, "punch", { unblockable: true, noCounter: true });
+            hitMe(B.dmg * tier.dmgK * BOT_DMG * THROW_DMG * 0.45 * (BOSS === "grip" ? 2 : 1), "punch", { unblockable: true, noCounter: true });
             practiceTip("thrown", T("การ์ดกันหมัดได้ แต่กันทุ่มไม่ได้ — ถอยหรือกระโดดบ้าง",
               "Guard stops strikes, not throws — walk back or jump instead of holding it",
               "格挡挡得住打击，挡不住投技 — 试着后退或跳跃"));
@@ -2284,24 +2532,32 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             // a confident bot will throw its heaviest move out, which hurts
             // badly if it lands and is the longest punish in the game if it
             // does not — the same bet the player makes with the rocket
+            const heavy = BRAIN.aggro > 0.6 && Math.random() < STYLE.heavy;
             const roll = Math.random();
-            const heavy = BRAIN.aggro > 0.6 && roll > 0.92;
-            bot.act = heavy ? "rocket" : roll < 0.45 ? "punch" : roll < 0.8 ? "kick" : "fire";
+            bot.act = heavy ? "rocket"
+              : roll < STYLE.wPunch ? "punch"
+              : roll < STYLE.wPunch + STYLE.wKick ? "kick" : "fire";
             bot.startup = now + BRAIN.startup * (heavy ? 1.9 : 1);
             bot.state = "startup";
             setBotTell(true);
             setOpPose("ready");
           } else if (gap > ACT.kick.range) {
-            // ── out of range: close, or take to the air, or poke ──
+            /* ── out of range ──
+               Where a bot goes when it cannot hit you is most of its
+               personality. A rusher closes every time (poke .04, gap .20). A
+               zoner would rather stay out here and throw lasers (poke .42,
+               gap .60) and only walks in if you run away from it. */
             const roll = Math.random();
             if (roll < BRAIN.jump && airRef.current.op === 0) {
               airRef.current.op = 1;
               later(() => { airRef.current.op = 0; setOpAir(0); }, JUMP_MS);
               bot.state = "jumpin";
-            } else if (roll < BRAIN.jump + 0.06) {
+            } else if (roll < BRAIN.jump + STYLE.poke) {
               bot.act = "fire"; bot.startup = now + BRAIN.startup; bot.state = "startup"; setBotTell(true);
-            } else {
+            } else if (gap > STYLE.gap * 1.2) {
               bot.state = "approach";
+            } else {
+              bot.state = "spacing";
             }
           } else {
             bot.state = "spacing";
@@ -2314,7 +2570,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       if (liveRef.current && !botStunned && bot.startup <= now && bot.blockUntil <= now) {
         if (bot.state === "approach" || bot.state === "jumpin") botDir = -1;      // close on the player
         else if (bot.state === "recover") botDir = 0;                              // committed, cannot move
-        else if (bot.state === "spacing") botDir = gap < ACT.punch.range * 0.8 ? 1 : 0;
+        // hold the distance the style wants: step out if crowded, step in if
+        // the player has drifted further away than it likes to fight
+        else if (bot.state === "spacing") botDir = gap < STYLE.gap * 0.85 ? 1 : gap > STYLE.gap * 1.15 ? -1 : 0;
       }
       const botSpeed = bot.state === "jumpin" ? 1.5 : 1;
       P.op = Math.min(X_MAX, Math.max(X_MIN, P.op + botDir * WALK * 0.68 * botSpeed * dt));
@@ -2391,11 +2649,34 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (phase !== "action" || doneRef.current) return;
     const base = BOT_BRAIN[tier.key] || BOT_BRAIN.veteran;
     const rush = 1 + (wave - 1) * 0.05 + (suddenDeath ? 0.6 : 0);
-    BRAIN.aggro = Math.min(0.98, base.aggro * rush);
+    // tier is how good it is; style is who it is; ADAPT is what it just
+    // learned about you. All three multiply the same six numbers.
+    BRAIN.aggro = Math.min(0.98, base.aggro * rush * STYLE.aggro * ADAPT.aggro);
     BRAIN.startup = Math.round(base.startup * (SFX.botGap || 1) / (suddenDeath ? 1.35 : 1));
-    BRAIN.recover = Math.round(base.recover * (SFX.botGap || 1));
-    BRAIN.block = base.block; BRAIN.jump = base.jump; BRAIN.throwEsc = base.throwEsc;
-  }, [phase, wave, tier, suddenDeath]);   // eslint-disable-line react-hooks/exhaustive-deps
+    BRAIN.recover = Math.round(base.recover * (SFX.botGap || 1) * (BOSS === "relentless" ? 0.55 : 1));
+    BRAIN.block = Math.min(0.95, base.block * STYLE.block * ADAPT.block);
+    BRAIN.jump = Math.min(0.55, base.jump * STYLE.jump * ADAPT.jump);
+    // the IRON GRIP boss trades its own escape for a throw that hurts twice
+    BRAIN.throwEsc = BOSS === "grip" ? 0 : base.throwEsc;
+  }, [phase, wave, round, tier, suddenDeath]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Say out loud who this is and what it is allowed to do. A style you cannot
+     name is just inconsistency, and a boss rule you have to infer from being
+     killed by it is not a rule, it is a bug report. */
+  useEffect(() => {
+    const t0 = ROUND_INTRO_MS + FIGHT_CALL_MS + 200;
+    later(() => {
+      setBanner(T(`คู่ต่อสู้: ${STYLE.th}`, `OPPONENT STYLE: ${STYLE.en.toUpperCase()}`, `对手风格：${STYLE.zh}`));
+      later(() => setBanner(null), 1900);
+    }, t0 - 200);
+    if (BOSS && BOSS_RULES[BOSS]) {
+      later(() => {
+        setBanner("⚠ " + tr3(BOSS_RULES[BOSS], lang));
+        audioRef.current.sfx("bell");
+        later(() => setBanner(null), 2600);
+      }, t0 + 2000);
+    }
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── the knowledge break ── */
   function toQuiz() {
@@ -2504,6 +2785,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     hpRef.current.me = mHp; setMyHp(mHp);
     comboRef.current = 0; setCombo(0);
     if (mHp > 0) beginStagger(T("เซ! กันไม่ได้ 3 วิ", "STAGGERED! No guard, 3s", "踉跄！3 秒无法格挡"));
+    // the weekly FEEDER boss is the one opponent your mistakes actually feed
+    if (BOSS === "feed") {
+      const oh = Math.min(OP_MAX, hpRef.current.op + Math.round(OP_MAX * 0.12));
+      hpRef.current.op = oh; setOpHp(oh);
+      G.burst("op", 1, "#3ddc84"); say("op", "+" + Math.round(OP_MAX * 0.12), "heal");
+    }
     practiceTip("wronganswer", T("ตอบผิดแล้วจะเซ — ถอยห่างไว้ก่อนจนกว่าจะหาย",
       "A wrong answer staggers you — back off and make space until it wears off",
       "答错会踉跄 — 先拉开距离撑过去"));
@@ -2792,6 +3079,65 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           )}
           {freeSpecial && (
             <div className="pvpfreesp">{T("ท่าไม้ตายฟรีพร้อมใช้ — กดทิศแล้วต่อย", "FREE SPECIAL READY — motion + punch", "免费必杀就绪 — 方向 + 拳击")}</div>
+          )}
+          {/* ── the lab ──
+              Only in practice, where there are no stakes to protect: tell the
+              dummy what to do, and read the real frame data off the same
+              table the fight itself runs on. */}
+          {practice && (
+            <div className="pvplab">
+              <div className="pvplab-row">
+                {[
+                  { k: "spar",    th: "สู้ปกติ",   en: "Spar",     zh: "对练" },
+                  { k: "stand",   th: "ยืนนิ่ง",   en: "Stand",    zh: "站桩" },
+                  { k: "block",   th: "การ์ดตลอด", en: "Block",    zh: "常格挡" },
+                  { k: "counter", th: "สวนทุกครั้ง", en: "Punish", zh: "必反击" },
+                  { k: "grab",    th: "ทุ่มอย่างเดียว", en: "Grab", zh: "只投技" },
+                ].map(o => (
+                  <button key={o.k} type="button" className={`pvplab-b${dummy === o.k ? " on" : ""}`}
+                    onClick={() => { setDummy(o.k); dummyRef.current = o.k; if (playUi) playUi("click"); }}>
+                    {tr3(o, lang)}
+                  </button>
+                ))}
+                <button type="button" className={`pvplab-b mv${showMoves ? " on" : ""}`}
+                  onClick={() => setShowMoves(v => !v)}>{T("สมุดท่า", "Moves", "招式表")}</button>
+              </div>
+              {showMoves && (
+                <div className="pvplab-moves">
+                  <table>
+                    <thead><tr>
+                      <th>{T("ท่า", "Move", "招式")}</th>
+                      <th>{T("ออกท่า", "Startup", "发生")}</th>
+                      <th>{T("ฟื้นตัว", "Recover", "硬直")}</th>
+                      <th>{T("ระยะ", "Range", "距离")}</th>
+                    </tr></thead>
+                    <tbody>
+                      {[["punch", T("ต่อย", "Punch", "拳")], ["kick", T("เตะ", "Kick", "踢")],
+                        ["fire", T("ยิง", "Fire", "射")], ["rocket", T("จรวด", "Rocket", "火箭")],
+                        ["throw", T("ทุ่ม", "Throw", "投")]].map(([k, label]) => (
+                        <tr key={k}>
+                          <td>{label}</td>
+                          <td>{FRAMES[k].startup}ms</td>
+                          <td>{FRAMES[k].recover}ms</td>
+                          <td>{ACT[k] ? (ACT[k].range > 1 ? "∞" : ACT[k].range.toFixed(2)) : THROW_RANGE.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                      {MY_SPECIALS.map(sp => (
+                        <tr key={sp.key} className="sp">
+                          <td>{sp.glyph} {tr3(sp, lang)}</td>
+                          <td>{FRAMES[sp.key].startup}ms</td>
+                          <td>{FRAMES[sp.key].recover}ms</td>
+                          <td>{sp.key === "blast" ? "∞" : (ACT.kick.range + 0.06).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <i>{T("ยิ่ง “ฟื้นตัว” นาน ยิ่งโดนสวนง่ายเมื่อพลาด",
+                        "The longer the recovery, the worse a whiff is punished",
+                        "硬直越长，落空被反击越惨")}</i>
+                </div>
+              )}
+            </div>
           )}
           <div className="pvppad">
             <div className="pvppad-l">
