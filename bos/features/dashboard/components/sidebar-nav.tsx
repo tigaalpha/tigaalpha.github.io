@@ -62,6 +62,7 @@ import {
   GitBranch,
   Rocket,
   Target,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -85,9 +86,10 @@ interface NavGroup {
 }
 
 /** Solo Mode's flat core list, in display order — hrefs looked up from TOP_LEVEL_ITEMS/NAV_GROUPS below so labels/icons stay single-sourced. */
-const CORE_HREFS = ["/dashboard", "/chat", "/students", "/sales", "/calendar", "/booking", "/knowledge", "/accounting", "/settings"];
+const CORE_HREFS = ["/ai-automation-chat", "/dashboard", "/chat", "/students", "/sales", "/calendar", "/booking", "/knowledge", "/accounting", "/settings"];
 
 const TOP_LEVEL_ITEMS: NavItem[] = [
+  { href: "/ai-automation-chat", label: "AI Automation Chat", icon: MessageSquare, ownerOnly: true },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/marketing-dashboard", label: "Marketing Dashboard", icon: LineChart },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
