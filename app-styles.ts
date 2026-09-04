@@ -2368,6 +2368,10 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    min-height page just overflows the clip with nowhere to go */
 .petpage{flex:1;min-height:0;overflow-y:auto;background:var(--bg);color:var(--text);padding:0 0 90px;scrollbar-width:thin;scrollbar-color:#d97757 var(--card3)}
 .petpage>*{max-width:560px;margin-left:auto;margin-right:auto}
+/* the real centering now happens once, on the single wrapper — individual
+   cards inside are free to set their own margin without re-fighting it on a
+   wide screen or iPad */
+.pet-inner{max-width:560px;margin:0 auto}
 .pet-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;max-width:none !important;padding:11px 13px;background:var(--card);border-bottom:1px solid var(--bd1)}
 .pet-top>b{flex:1;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;text-align:center}
 .pet-back{width:34px;height:34px;flex:none;border:1px solid var(--bd4);border-radius:11px;background:var(--card2);color:var(--text);font-size:16px;cursor:pointer}

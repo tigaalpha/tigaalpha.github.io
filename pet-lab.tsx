@@ -978,6 +978,12 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
 
   return (
     <div className="petpage" style={{ "--pc": sp.sw[0], "--pd": sp.sw[1], "--tc": ty.c }}>
+      {/* Every card below sets its own vertical-spacing margin (11px, 13px…),
+          which on a wide/iPad viewport fought the page's own centering — two
+          rules of equal specificity, and the later, per-card one won. One
+          real centered column here sidesteps that instead of hunting down
+          every card's margin. */}
+      <div className="pet-inner">
       <div className="pet-top">
         <button className="pet-back" onClick={onBack}>←</button>
         <b>{pet.name || tr3(sp, lang)}</b>
@@ -1104,6 +1110,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
       </div>
 
       {note && <div className="pet-note">{note}</div>}
+      </div>
     </div>
   );
 });
