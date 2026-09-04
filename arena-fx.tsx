@@ -374,7 +374,7 @@ export function createArenaAudio(stage) {
       if (P.snare[gear].includes(s)) snare(nextTime);
       if (P.hat[gear].includes(s)) hat(nextTime, s % 8 === 6);
       if (P.bass[gear].includes(s)) bass(nextTime, s === 11 ? ch.bass + 12 : s === 6 || s === 14 ? ch.bass + 7 : ch.bass);
-      if (P.arp[gear].includes(s)) pluck(nextTime, ch.arp[(s / 2) % ch.arp.length]);
+      if (P.arp[gear].includes(s)) pluck(nextTime, ch.arp[Math.floor(s / 2) % ch.arp.length]);
       if (M) { const n = M[step % 64]; if (n != null) lead(nextTime, ch.bass + 12 + n, SPB() * 2); }
       if (s === 0) pad(nextTime, ch.arp[0] - 12, SPB() * 16);
       nextTime += SPB();
