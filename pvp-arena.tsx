@@ -22,7 +22,7 @@
    yours from rank 1, the active at rank 3, the ultimate at rank 6. ── */
 
 import { useState, useEffect, useRef, useCallback, memo } from "react";
-import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS } from "./cyber-avatar";
+import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt } from "./item-art";
 import { petBonusOf, petById, petLevel, readPet, PetArt } from "./pet-lab";
@@ -409,43 +409,57 @@ export function itemEffectsOf(gear) {
     jumpCdMul: 1, overdriveDmg: 1, blockChance: 0, scoreMul: 1,
     archetypes: [],
   };
+  /* ── how much a piece of gear is worth ──
+     These numbers used to be almost apologetic: a LEGENDARY blade bought for
+     600 coins moved melee damage by ten percent, which no player could feel
+     and which made the whole rack cosmetic in practice. They are roughly two
+     and a half times bigger now, and they read effRarityPts rather than raw
+     rarity, so the five upgrade levels stack on top. A maxed legendary blade
+     is worth 10 points at 0.05 — half again the damage — which is a lot, and
+     is meant to be: coins come only from practising, so this is the payoff
+     for the practising, not a shortcut past it. */
   for (const g of gear || []) {
     if (!g || !g.id) continue;
-    const pts = RARITY_PTS[g.rarity] || 1;
+    const pts = effRarityPts(g);
     let a = null;
     if (g.id.startsWith("wpn-")) {
       a = wpnArchetype(g.art);
-      if (a === "blade") fx.meleeDmg += pts * 0.02;
-      else if (a === "blaster") fx.fireDmg += pts * 0.02;
-      else if (a === "ordnance") fx.rocketCdMul -= Math.min(0.4, pts * 0.04);
-      else if (a === "support") fx.gaugeMul += pts * 0.03;
+      if (a === "blade") fx.meleeDmg += pts * 0.05;
+      else if (a === "blaster") fx.fireDmg += pts * 0.055;
+      else if (a === "ordnance") fx.rocketCdMul -= Math.min(0.45, pts * 0.055);
+      else if (a === "support") fx.gaugeMul += pts * 0.06;
     } else if (g.id.startsWith("out-")) {
       a = outArchetype(g.art);
-      if (a === "light") fx.dodge += pts * 0.015;
-      else if (a === "elemental") fx.punishReduce += pts * 0.03;
-      else if (a === "heavy") fx.dmgReduce += pts * 0.01;
-      else if (a === "prestige") fx.healPerCorrect += pts * 0.004;
+      if (a === "light") fx.dodge += pts * 0.028;
+      else if (a === "elemental") fx.punishReduce += pts * 0.06;
+      else if (a === "heavy") fx.dmgReduce += pts * 0.025;
+      else if (a === "prestige") fx.healPerCorrect += pts * 0.009;
     } else if (g.id.startsWith("hat-")) {
       a = hatArchetype(g.art);
-      if (a === "sensor") fx.critChance += pts * 0.01;
-      else if (a === "cognition") fx.gaugeStart += pts * 2;
-      else if (a === "regal") fx.comboGrowth += pts * 0.01;
+      if (a === "sensor") fx.critChance += pts * 0.025;
+      else if (a === "cognition") fx.gaugeStart += pts * 4;
+      else if (a === "regal") fx.comboGrowth += pts * 0.028;
     } else if (g.id.startsWith("acc-")) {
       a = accArchetype(g.art);
-      if (a === "mobility") fx.jumpCdMul -= Math.min(0.4, pts * 0.03);
-      else if (a === "power") fx.overdriveDmg += pts * 0.02;
-      else if (a === "defense") fx.blockChance += pts * 0.01;
-      else if (a === "utility") fx.scoreMul += pts * 0.02;
+      if (a === "mobility") fx.jumpCdMul -= Math.min(0.45, pts * 0.04);
+      else if (a === "power") fx.overdriveDmg += pts * 0.05;
+      else if (a === "defense") fx.blockChance += pts * 0.022;
+      else if (a === "utility") fx.scoreMul += pts * 0.05;
     }
     if (a) fx.archetypes.push(a);
   }
-  fx.rocketCdMul = Math.max(0.5, fx.rocketCdMul);
-  fx.jumpCdMul = Math.max(0.5, fx.jumpCdMul);
-  fx.dodge = Math.min(0.35, fx.dodge);
-  fx.punishReduce = Math.min(0.6, fx.punishReduce);
-  fx.dmgReduce = Math.min(0.4, fx.dmgReduce);
-  fx.critChance = Math.min(0.35, fx.critChance);
-  fx.blockChance = Math.min(0.3, fx.blockChance);
+  /* The caps still exist — nobody should reach total immunity by shopping —
+     but they were tuned against the old, smaller numbers and would now be hit
+     by a half-upgraded loadout, which would quietly make the top of the rack
+     worthless again. Raised to sit just past what a fully maxed piece can
+     reach on its own, so the ceiling only binds when several pieces stack. */
+  fx.rocketCdMul = Math.max(0.45, fx.rocketCdMul);
+  fx.jumpCdMul = Math.max(0.45, fx.jumpCdMul);
+  fx.dodge = Math.min(0.42, fx.dodge);
+  fx.punishReduce = Math.min(0.75, fx.punishReduce);
+  fx.dmgReduce = Math.min(0.5, fx.dmgReduce);
+  fx.critChance = Math.min(0.5, fx.critChance);
+  fx.blockChance = Math.min(0.4, fx.blockChance);
   return fx;
 }
 
@@ -2001,6 +2015,22 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const petPic = useRef(readPet()).current;
   const wpn = (gear || []).find(g => g && g.id && String(g.id).startsWith("wpn-"));
   const myBolt = (wpn && wpn.sw && wpn.sw[0]) || "#7fe8ff";
+  /* ── the gear you paid for, on the robot that is fighting ──
+     CyberAvatar takes no gear props at all, so up to now everything bought in
+     the shop was invisible the moment a fight started: the same grey chassis
+     whether you were carrying a starter torch or a thousand-coin comet lance.
+     These are drawn as overlays INSIDE the fighter rather than surgery into a
+     thousand-path SVG — the weapon rides the hand, the hat sits on the head,
+     and both use the exact same ItemArt the shop does, so what you bought is
+     literally what you see. */
+  const myHat = (gear || []).find(g => g && g.id && String(g.id).startsWith("hat-"));
+  const myAcc = (gear || []).find(g => g && g.id && String(g.id).startsWith("acc-"));
+  /* The loudest thing money buys: the aura tier is the BEST rarity worn, so a
+     single legendary reads across the room even on an otherwise plain kit. */
+  const myTier = bestRarity(gear || []) || "common";
+  const gearLv = (wpn ? itemLv(wpn.id) : 0) + (myHat ? itemLv(myHat.id) : 0)
+    + (myAcc ? itemLv(myAcc.id) : 0)
+    + ((gear || []).filter(g => g && g.id && String(g.id).startsWith("out-")).reduce((a, g) => a + itemLv(g.id), 0));
   /* These pools are per ROUND, not per fight, which is why they are less than
      half what they were: a round wants to be over in half a minute or so, and
      a match is up to three of them plus the quiz breaks — about the two
@@ -3596,8 +3626,33 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}
           style={{ transform: `translate3d(${((myX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-myAir * 62).toFixed(1)}px, 0)` }}>
           <div className="pvpfighter-in">
-          <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
-            glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" />
+          {/* ── .pvpbody shrink-wraps the chassis SVG ──
+              The fighter box is 184px wide and the robot inside it is 79 —
+              43% of it, starting at 28%. Percentages measured against the BOX
+              therefore land in empty air beside the robot, which is exactly
+              where the first attempt put the weapon. Everything worn hangs off
+              this wrapper instead, so a percentage means a fraction of the
+              actual body. */}
+          <div className="pvpbody">
+            <span className={`pvpaura r-${myTier}`} aria-hidden="true" />
+            <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
+              glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" />
+            {myHat && (
+              <span className={`pvpgear hat r-${myHat.rarity}`} aria-hidden="true">
+                <ItemArt art={myHat.art} sw={myHat.sw} />
+              </span>
+            )}
+            {wpn && (
+              <span className={`pvpgear wpn r-${wpn.rarity}${itemLv(wpn.id) >= ITEM_MAX_LV ? " maxed" : ""}`} aria-hidden="true">
+                <ItemArt art={wpn.art} sw={wpn.sw} />
+              </span>
+            )}
+            {myAcc && (
+              <span className={`pvpgear acc r-${myAcc.rarity}`} aria-hidden="true">
+                <ItemArt art={myAcc.art} sw={myAcc.sw} />
+              </span>
+            )}
+          </div>
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
           {dizzy.me && <span className="pvpdizzy">✦✦✦</span>}
           {stagger && !dizzy.me && <span className="pvpstagger">✖</span>}

@@ -3,7 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { CSS, useInjectCSS } from "./app-styles";
-import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw } from "./cyber-avatar";
+import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 import { SkillTrack, PvpBanner, PvpPage, readSkillSp, skillRank } from "./pvp-arena";
@@ -9220,6 +9220,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // coins · daily chest · mascot companion
   const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
+  // bumped on every upgrade so anything reading itemLv() re-renders with it
+  const [itemLvTick, setItemLvTick] = useState(0);
   const [shopTab, setShopTab] = useState("all");
   const [shopSubTab, setShopSubTab] = useState(null);
   const [friendsOpen, setFriendsOpen] = useState(false);
@@ -10154,15 +10156,50 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </button>
       );
     }
+    /* ── the upgrade rail ──
+       Buying used to be the end of an item's story: a legendary blade was
+       worth exactly what it was worth on the day it was bought, forever, and
+       once you owned the piece you wanted the shop had nothing left to sell
+       you. Every owned item now takes five levels, each one worth a full
+       rarity point, so a rare you actually invest in overtakes a legendary
+       nobody has fed. Gear-slot items only — a keyboard skin has no stat to
+       raise, and pretending otherwise would be a button that lies. */
+    const isGear = /^(wpn|out|hat|acc)-/.test(it.id || "");
+    const lv = isGear ? itemLv(it.id) : 0;
+    const maxed = lv >= ITEM_MAX_LV;
+    const upCost = maxed ? 0 : upgradeCost(it, lv);
+    const canUp = own && isGear && !maxed && coins >= upCost;
+    const doUpgrade = (e) => {
+      e.stopPropagation();          // the card itself equips; this button must not
+      if (!own || !isGear || maxed) return;
+      if (coins < upCost) { mascot("sad", 1200); return; }
+      // the same coin path a purchase takes, so the server copy stays in step
+      const v = getCoins() - upCost; setCoinsLS(v); setCoins(v);
+      if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+      setItemLv(it.id, lv + 1);
+      setItemLvTick(t => t + 1);    // stat bars and the arena re-read on this
+      mascot("celebrate", 1600);
+      playUi("reward");
+    };
     return (
-      <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}`} onClick={() => buyOrEquip(kind, it)}>
+      <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}${lv > 0 ? " upgraded" : ""}`} onClick={() => buyOrEquip(kind, it)}>
         {it.isNew && !own && <span className="shopitem-new">{lc.shopNew}</span>}
+        {lv > 0 && <span className={`shopitem-lv${maxed ? " max" : ""}`}>+{lv}</span>}
         {it.art
           ? <span className="shopitem-art"><ItemArt art={it.art} sw={it.sw} /></span>
           : <span className="shopitem-icon-lg">{it.icon}</span>}
         <span className="shopitem-nm">{tr(it, lang)}</span>
         <span className="shopitem-rare">{RARITY_LABEL[it.rarity]}</span>
         <span className={`shopitem-tag${it.gem ? " gem" : ""}`}>{eq ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : it.gem ? "💎 " + it.gem : "🪙 " + it.cost}</span>
+        {own && isGear && (
+          maxed
+            ? <span className="shopitem-up max">★ {tr({ th: "อัปเกรดเต็ม", en: "Fully upgraded", zh: "已满级" }, lang)}</span>
+            : <span className={`shopitem-up${canUp ? "" : " poor"}`} role="button" tabIndex={0}
+                onClick={doUpgrade}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") doUpgrade(e); }}>
+                ⬆ +{lv + 1} · 🪙 {upCost.toLocaleString()}
+              </span>
+        )}
       </button>
     );
   }

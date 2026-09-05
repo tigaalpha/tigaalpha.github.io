@@ -163,12 +163,57 @@ export const COMBAT_TOTAL = 40;
 const hashPath = (d) => { let h = 5381; for (let i = 0; i < d.length; i++) h = ((h << 5) + h + d.charCodeAt(i)) | 0; return h; };
 
 export const RARITY_PTS = { common: 1, rare: 2, epic: 3, legendary: 5, mythic: 10 };
+
+/* ══════════════════════ item levels ══════════════════════
+   Buying a piece used to be the end of its story: a legendary blade was worth
+   five points on the day you bought it and five points forever. Every owned
+   item can now be levelled to +5, which is the other half of what makes a
+   shop worth visiting — a reason to keep earning after the thing you wanted
+   is already yours, and a way for a player who cannot yet afford a legendary
+   to make their rare one genuinely competitive.
+
+   A level is worth one rarity point, so a fully-upgraded rare (2+5=7) beats a
+   fresh legendary (5) but not a levelled one (10). The ladder stays honest:
+   rarity sets the ceiling's height, levels are how you climb to it. */
+const ITEMLV_KEY = "tg_item_lv";
+export const ITEM_MAX_LV = 5;
+export function readItemLv() {
+  try { const v = JSON.parse(localStorage.getItem(ITEMLV_KEY) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; }
+}
+export function writeItemLv(v) { try { localStorage.setItem(ITEMLV_KEY, JSON.stringify(v)); } catch (e) {} }
+export function itemLv(id) {
+  if (!id) return 0;
+  const v = readItemLv()[id];
+  return Math.max(0, Math.min(ITEM_MAX_LV, parseInt(v, 10) || 0));
+}
+export function setItemLv(id, lv) {
+  const all = readItemLv();
+  all[id] = Math.max(0, Math.min(ITEM_MAX_LV, lv));
+  writeItemLv(all);
+  return all[id];
+}
+/* Costs climb ~55% per level and start from the rarity, so topping out a
+   legendary is a real project while a common is a few practice sessions. */
+const UPG_BASE = { common: 60, rare: 110, epic: 200, legendary: 340, mythic: 520 };
+export function upgradeCost(item, lv) {
+  if (!item) return 0;
+  const base = UPG_BASE[item.rarity] || 60;
+  return Math.round(base * Math.pow(1.55, Math.max(0, lv)));
+}
+/** What a piece is actually worth right now: its rarity plus what it was fed. */
+export function effRarityPts(g) {
+  if (!g) return 0;
+  return (RARITY_PTS[g.rarity] || 1) + itemLv(g.id);
+}
+
 export function combatOf(model, gear = []) {
   const base = MODEL_COMBAT[normalizeModel(model)] || MODEL_COMBAT.vanguard;
   const out = { pwr: base.pwr, arm: base.arm, spd: base.spd, syn: base.syn, sp: base.sp };
   for (const g of gear) {
     if (!g) continue;
-    const n = RARITY_PTS[g.rarity] || 1;
+    // levels count here too, so the stat bars on the buy screen move the
+    // moment an upgrade is paid for rather than only on a new purchase
+    const n = effRarityPts(g);
     if (g.id && g.id.startsWith("wpn-")) out.pwr += n;
     else if (g.id && g.id.startsWith("out-")) out.arm += n;
     else if (g.id && g.id.startsWith("hat-")) out.syn += n;
@@ -176,6 +221,17 @@ export function combatOf(model, gear = []) {
   }
   out.total = out.pwr + out.arm + out.spd + out.syn;
   return out;
+}
+/** The best rarity worn, which is what the arena's aura tier is drawn from. */
+export const RARITY_ORDER = ["common", "rare", "epic", "legendary", "mythic"];
+export function bestRarity(gear = []) {
+  let best = null, bi = -1;
+  for (const g of gear) {
+    if (!g || !g.rarity) continue;
+    const i = RARITY_ORDER.indexOf(g.rarity);
+    if (i > bi) { bi = i; best = g.rarity; }
+  }
+  return best;
 }
 
 /* ── poses ──

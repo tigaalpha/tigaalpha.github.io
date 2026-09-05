@@ -1238,6 +1238,84 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
   font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:#ffe9a8;cursor:pointer}
 .pvpultq-opts button:active{background:#ffd23f2e;transform:scale(.97)}
 
+/* ══════════ the upgrade rail on a shop card ══════════
+   A second, quieter action on a card whose main job is still buy-or-equip:
+   the level badge sits top-left where the "NEW" flag sits top-right, and the
+   upgrade strip is pinned under the price so the two money decisions read as
+   a pair rather than competing. */
+.shopitem-lv{position:absolute;top:5px;left:5px;z-index:2;padding:1px 6px;border-radius:7px;
+  font-family:'Orbitron',sans-serif;font-size:9.5px;font-weight:800;letter-spacing:.03em;
+  background:#3ddc84;color:#05130b}
+.shopitem-lv.max{background:linear-gradient(90deg,#ffd23f,#ff9a3c);color:#2a1500}
+.shopitem-up{display:block;margin-top:4px;padding:3px 6px;border-radius:8px;cursor:pointer;
+  font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.2px;
+  background:#3ddc8418;border:1px solid #3ddc8455;color:#1c7a4a}
+.shopitem-up:active{transform:scale(.96)}
+.shopitem-up.poor{background:var(--card2);border-color:var(--bd1);color:var(--muted);cursor:default}
+.shopitem-up.max{background:linear-gradient(90deg,#ffd23f22,#ff9a3c22);border-color:#ffd23f66;color:#9a6b00;cursor:default}
+/* an upgraded piece is worth spotting in a grid of forty */
+.shopitem.upgraded{box-shadow:0 0 0 1px #3ddc8455,0 2px 10px -6px #3ddc84}
+
+/* ══════════ the gear you paid for, worn in the fight ══════════
+   Overlays inside .pvpfighter-in, sized and placed against the 206px-tall
+   chassis SVG rather than against the stage, so they stay put when the
+   fighter walks. Each one is pointer-transparent and aria-hidden: they are
+   decoration on top of a figure that is already announced. */
+/* shrink-wraps the chassis so everything worn can be placed as a fraction of
+   the BODY rather than of the much wider fighter box around it */
+.pvpbody{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
+.pvpbody > svg{display:block;height:206px;width:auto;position:relative;z-index:1}
+.pvpgear{position:absolute;pointer-events:none;z-index:4;display:block;
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.55))}
+.pvpgear svg{display:block;width:100%;height:100%}
+/* the weapon rides the leading hand, just outside the silhouette the way a
+   held object sits, and swings when the body lunges */
+.pvpgear.wpn{width:46px;height:46px;right:-22%;bottom:30%;transform:rotate(-18deg);
+  transition:transform .16s ease;transform-origin:50% 70%}
+.pvpfighter.op .pvpgear.wpn{right:auto;left:-22%;transform:rotate(18deg) scaleX(-1)}
+.pvpfighter.me.lunge .pvpgear.wpn{transform:rotate(-56deg) translate(5px,-7px)}
+.pvpfighter.op.lunge .pvpgear.wpn{transform:rotate(56deg) scaleX(-1) translate(5px,-7px)}
+.pvpgear.hat{width:38px;height:38px;left:50%;top:-4%;margin-left:-19px;z-index:5}
+/* measured: the wrapper runs ~14px wider than the chassis on each side (the
+   chassis SVG's drop-shadow inflates its own box), so -14% put this a clear
+   21px off the body. 10% lands it on the hip where a belt module belongs. */
+.pvpgear.acc{width:24px;height:24px;left:10%;bottom:42%;opacity:.95}
+.pvpfighter.op .pvpgear.acc{left:auto;right:10%}
+@media (max-width:360px){
+  .pvpgear.wpn{width:38px;height:38px}
+  .pvpgear.hat{width:32px;height:32px;margin-left:-16px}
+  .pvpgear.acc{width:20px;height:20px}
+}
+
+/* ── rarity has to be visible before the first punch ──
+   The aura sits BEHIND the chassis and its tier is the best piece worn, so a
+   player who saved up for one legendary sees it immediately. Common gets
+   nothing at all on purpose: if every kit glows then no kit glows. */
+.pvpaura{position:absolute;left:50%;bottom:0;width:150px;height:150px;margin-left:-75px;
+  border-radius:50%;z-index:0;pointer-events:none}
+.pvpaura.r-common{display:none}
+.pvpaura.r-rare{background:radial-gradient(circle,rgba(92,225,255,.30),rgba(92,225,255,0) 68%)}
+.pvpaura.r-epic{background:radial-gradient(circle,rgba(185,140,255,.38),rgba(185,140,255,0) 70%);
+  animation:pvpaurapulse 2.4s ease-in-out infinite}
+.pvpaura.r-legendary{background:radial-gradient(circle,rgba(255,210,63,.46),rgba(255,154,60,.14) 46%,rgba(255,210,63,0) 72%);
+  animation:pvpaurapulse 1.7s ease-in-out infinite}
+.pvpaura.r-mythic{background:radial-gradient(circle,rgba(255,45,85,.5),rgba(170,0,255,.24) 42%,rgba(0,240,255,.12) 60%,rgba(255,45,85,0) 74%);
+  animation:pvpaurapulse 1.15s ease-in-out infinite}
+@keyframes pvpaurapulse{0%,100%{opacity:.62;transform:scale(.96)}50%{opacity:1;transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){.pvpaura{animation:none!important}}
+
+/* the weapon itself carries its rarity too, so the thing in the hand reads as
+   expensive even when the aura is behind the body */
+.pvpgear.wpn.r-epic{filter:drop-shadow(0 3px 5px rgba(0,0,0,.55)) drop-shadow(0 0 7px #b98cff)}
+.pvpgear.wpn.r-legendary{filter:drop-shadow(0 3px 5px rgba(0,0,0,.55)) drop-shadow(0 0 9px #ffd23f)}
+.pvpgear.wpn.r-mythic{filter:drop-shadow(0 3px 5px rgba(0,0,0,.55)) drop-shadow(0 0 11px #ff2d55) drop-shadow(0 0 18px #aa00ff)}
+/* fully upgraded: a slow shimmer, so five levels of investment are visible */
+.pvpgear.wpn.maxed::after{content:"";position:absolute;inset:-4px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.4),rgba(255,255,255,0) 62%);
+  animation:pvpgearmax 1.4s ease-in-out infinite}
+@keyframes pvpgearmax{0%,100%{opacity:.15}50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.pvpgear.wpn.maxed::after{animation:none}}
+
 /* ══════════ seasons, trials, objectives, the ghost ══════════ */
 
 /* the season strip: which one, how long is left, and whether placements are
