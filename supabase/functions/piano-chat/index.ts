@@ -544,14 +544,32 @@ Deno.serve(async (req: Request) => {
     const stream = new ReadableStream({
       async start(controller) {
         const enc = new TextEncoder();
+        /* ── keep-alive ──
+           A provider thinking about its first token sends nothing, and the
+           client cannot tell that apart from a dead connection: its stall
+           watchdog was aborting perfectly healthy requests and the learner
+           was told the AI was busy. A comment line is valid SSE that every
+           parser ignores, but it IS a read on the client, which is what
+           resets that watchdog. Sent whenever the stream has been silent for
+           a few seconds — before the first token and between later ones, so
+           a slow reasoning model is never mistaken for a hung one. */
+        let lastSent = Date.now();
+        const ping = setInterval(() => {
+          if (Date.now() - lastSent < 4000) return;
+          try { controller.enqueue(enc.encode(": keep-alive\n\n")); lastSent = Date.now(); } catch (_e) {}
+        }, 2000);
         try {
-          for await (const piece of gen) controller.enqueue(enc.encode(sseChunk(piece)));
+          for await (const piece of gen) {
+            controller.enqueue(enc.encode(sseChunk(piece)));
+            lastSent = Date.now();
+          }
         } catch (e) {
           // Never stream raw provider errors into the chat — typed event instead
           // (see sseError above). Log server-side for diagnosis.
           console.error("[piano-chat] provider stream failed:", (e as Error).message);
           controller.enqueue(enc.encode(sseError((e as Error).message)));
         } finally {
+          clearInterval(ping);
           controller.enqueue(enc.encode(SSE_DONE));
           controller.close();
         }

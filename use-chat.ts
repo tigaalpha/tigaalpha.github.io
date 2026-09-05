@@ -204,8 +204,24 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       setLoading(false);
     } catch (e) {
       console.error("Chat error:", e);
-      // never surface the raw provider error (401/429 JSON) — friendly copy only
-      setMsgs(prev => [...prev, { role: "ai", text: lc.chatErr }]);
+      /* Two fixes in here. First, the message: an aborted request is a slow
+         CONNECTION, not a busy AI, and telling somebody on weak mobile data
+         that the service is busy sends them away to wait for something that
+         will never change. Second, the bubble: onStart already inserted an
+         empty one, and appending a second left the empty one orphaned above
+         the error — which is the doubled "TIGA CHAT" bubble in the report.
+         Fill the empty bubble if there is one, append only if there is not. */
+      const aborted = (e && (e.name === "AbortError" || /abort/i.test(String(e.message || ""))));
+      const text = aborted ? lc.chatSlow : lc.chatErr;
+      setMsgs(prev => {
+        const copy = prev.slice();
+        const last = copy[copy.length - 1];
+        if (last && last.role === "ai" && !String(last.text || "").trim()) {
+          copy[copy.length - 1] = { ...last, text };
+          return copy;
+        }
+        return [...copy, { role: "ai", text }];
+      });
       setLoading(false);
     } finally {
       streamingRef.current = false;
