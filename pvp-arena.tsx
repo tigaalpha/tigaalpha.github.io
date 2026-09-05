@@ -22,6 +22,7 @@
    yours from rank 1, the active at rank 3, the ultimate at rank 6. ── */
 
 import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { createPortal } from "react-dom";
 import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt } from "./item-art";
@@ -1764,8 +1765,17 @@ const HITSTOP = { punch: 60, kick: 80, fire: 45, rocket: 110, throw: 90, ult: 13
    question in the middle of a fight is a fight that stops. Four seconds is
    enough to know an interval and not enough to work it out on your fingers,
    which is exactly the line between recall and arithmetic. */
-const QUIZ_TIME = 4000;
-const ULTQ_TIME = 2200;          // the super's own question, deliberately tighter
+/* ── no clock on a question ──
+   The shot clock was four seconds, and running it out counted as a wrong
+   answer. It made the quiz a reflex test on top of a knowledge test, and the
+   two are not the same skill — the fight is already the reflex half. Answering
+   FAST still pays (see FAST_MS / QUICK_MS below), it just no longer punishes
+   anyone for thinking. The same goes for the super's own question. */
+/* How long the standby card holds its own button before it can be pressed.
+   Long enough that a finger still hammering the attack pad cannot carry
+   straight through it, short enough that nobody waits for it. */
+const STANDBY_ARM = 900;
+const ULTQ_ARM = 500;
 /* Answering fast is worth more than answering slowly. Under a second and a
    half the gauge fills outright and the next special is free — the reward
    for actually KNOWING it rather than reasoning to it in time. */
@@ -2139,9 +2149,24 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   });
   const [cool, setCool] = useState({ punch: 0, fire: 0, rocket: 0, jump: 0, guard: 0 });
   const [reveal, setReveal] = useState(null);   // the answered question, held until the learner moves on
-  const [quizLeft, setQuizLeft] = useState(QUIZ_TIME);   // the shot clock
+  /* ── the standby beat ──
+     A player in the middle of a fight is mashing PUNCH, and the answer
+     buttons used to appear underneath that finger — so the first thing that
+     happened at a question was often a wrong answer nobody chose. The round
+     stops on this card instead: it covers the whole stage so the mash lands
+     on nothing, and its own button does not accept a press until the arming
+     beat has passed. The question does not exist until they ask for it. */
+  const [standby, setStandby] = useState(false);
+  const [armed, setArmed] = useState(false);
+  const [ultArmed, setUltArmed] = useState(false);
+  /* A cull bought during the fight has to survive until there IS a question:
+     the Tactician's rule and the cull skill both fire while the arena is
+     still swinging, and used to strike two answers off the question that had
+     just been ANSWERED — which toQuiz then wiped. It is banked here and spent
+     on the next question instead, which is what both of them always said. */
+  const cullNextRef = useRef(0);
   const [ultQ, setUltQ] = useState(null);      // the super's own question, mid-cinematic
-  const [ultQLeft, setUltQLeft] = useState(ULTQ_TIME);
+
   const quizStartRef = useRef(0);              // when this question went up, for the speed tiers
   const freeSpecialRef = useRef(false);        // earned by a sub-1.5s answer
   const [freeSpecial, setFreeSpecial] = useState(false);
@@ -2775,10 +2800,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         posRef.current.me = Math.min(X_MAX - GAP_MIN, Math.max(X_MIN, opX2 - GAP_MIN * 0.9));
         G.burst("me", 1, "#b98cff");
       }
-      if (R.cull && q) {
+      if (R.cull) {
         // the Tactician reads ahead: two wrong answers are gone before the
-        // question is even asked
-        setCulled(shuffle(q.opts.filter(o => o !== q.ans)).slice(0, R.cull));
+        // question is even asked — banked, because it is not asked yet
+        cullNextRef.current = Math.max(cullNextRef.current, R.cull);
+        if (q) setCulled(shuffle(q.opts.filter(o => o !== q.ans)).slice(0, R.cull));
         say("me", T("อ่านเกมออก", "READ AHEAD", "预判"), "buff");
       }
       if (R.readCounter) { const nb = { ...buffRef.current, crit: 1 }; buffRef.current = nb; setBuffs(nb); }
@@ -3305,31 +3331,28 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   function toQuiz() {
     if (doneRef.current) return;
     setPhase("quiz");
-    setQ(makeQuestion(lang, weightedTag())); setCulled([]); setLocked(false);
-    quizStartRef.current = Date.now();
-    setQuizLeft(QUIZ_TIME);
+    setQ(null); setCulled([]); setLocked(false); setReveal(null);
+    setStandby(true); setArmed(false);
     setMyPose("ready"); setOpPose("ready");
     audioRef.current.sfx("bell");
     G.flash("#ffffff", .32, .3);
-    setBanner(T("⚡ ช่วงคำถาม", "⚡ KNOWLEDGE BREAK", "⚡ 知识时刻"));
-    later(() => setBanner(null), 1500);
+    later(() => setArmed(true), STANDBY_ARM);
   }
 
-  /* ── the shot clock ──
-     Runs only while a question is actually on screen and unanswered. Letting
-     it expire is a wrong answer, and it says so, because a question you did
-     not answer and a question you got wrong are the same thing to the fight
-     and should look the same to the learner. */
-  useEffect(() => {
-    if (phase !== "quiz" || locked || reveal || doneRef.current) return;
-    const id = setInterval(() => {
-      const gone = Date.now() - quizStartRef.current;
-      const rem = Math.max(0, QUIZ_TIME - gone);
-      setQuizLeft(rem);
-      if (rem <= 0) { clearInterval(id); answer(null, true); }
-    }, 80);
-    return () => clearInterval(id);
-  }, [phase, locked, reveal]);   // eslint-disable-line react-hooks/exhaustive-deps
+  /** The question is built HERE, on a deliberate press, so nothing can be
+      answered by a finger that was already moving. */
+  function beginQuestion() {
+    if (doneRef.current || !armed) return;
+    const nq = makeQuestion(lang, weightedTag());
+    setQ(nq);
+    // whatever was banked while the arena was still swinging is spent now
+    const n = cullNextRef.current; cullNextRef.current = 0;
+    setCulled(n > 0 ? shuffle(nq.opts.filter(o => o !== nq.ans)).slice(0, n) : []);
+    setLocked(false);
+    setStandby(false);
+    quizStartRef.current = Date.now();
+    if (playUi) playUi("click");
+  }
 
   /** A piano has one key for F# and one for Gb, and they are the same key. So
       a note answer is judged on the PITCH the learner picked, never on the
@@ -3341,7 +3364,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     try { return parseName(choice).pc === parseName(qq.ans).pc; } catch (e) { return choice === qq.ans; }
   }
 
-  function answer(choice, timedOut) {
+  function answer(choice) {
     if (locked || doneRef.current) return;
     setLocked(true);
     const took = Date.now() - quizStartRef.current;
@@ -3383,8 +3406,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       [0, 260, 520].forEach((d, i) => later(() => hitOp(A.dmg * 4.5 * bonus, i === 2 ? "ult" : "crit", null, { noCounter: true }), d));
       later(() => { setOverdrive(false); setBanner(null); setReveal({ q, chosen: choice }); }, 1500);
     } else {
-      setBanner(timedOut ? T("หมดเวลา! เซ", "TIME! STAGGERED", "超时！踉跄")
-        : T("ตอบผิด! เสียหลัก", "WRONG! STAGGERED", "答错！踉跄"));
+      setBanner(T("ตอบผิด! เสียหลัก", "WRONG! STAGGERED", "答错！踉跄"));
       audioRef.current.sfx("miss");
       later(() => punish(), 320);
       later(() => { setBanner(null); setReveal({ q, chosen: choice }); }, 2100);
@@ -3469,7 +3491,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (k === "crit") { nb.crit = 1; say("me", tr3(FX_TEXT.crit, lang), "buff"); }
     else if (k === "block") { nb.block = 1; say("me", tr3(FX_TEXT.block, lang), "buff"); }
     else if (k === "cull") {
+      // works on the question on screen, or on the next one if there is none
       if (q) setCulled(shuffle(q.opts.filter(o => o !== q.ans)).slice(0, 2));
+      else cullNextRef.current = Math.max(cullNextRef.current, 2);
       say("me", tr3(FX_TEXT.cull, lang), "buff");
     }
     else if (k === "reroll") { if (q) { setQ(makeQuestion(lang, weightedTag())); setCulled([]); } say("me", tr3(FX_TEXT.reroll, lang), "buff"); }
@@ -3495,7 +3519,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (ultUsed || gauge < 100 || myRank < SKILL_UNLOCK.ultimate || doneRef.current) return;
     setUltUsed(true); setGauge(0);
     setUltQ({ q: makeQuestion(lang, weightedTag()), start: Date.now() });
-    setUltQLeft(ULTQ_TIME);
+    setUltArmed(false); later(() => setUltArmed(true), ULTQ_ARM);
     audioRef.current.sfx("charge");
     G.flash("#ffd23f", .5, .45);
     setLunge("me");
@@ -3534,19 +3558,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (playUi) playUi("reward");
   }
 
-  /* The super's question has its own two-second clock. Letting it run out is
-     the same as getting it wrong — the move still comes out, just weakly. */
+  /* The super holds mid-swing until the question is answered. It used to run
+     out after two seconds and fire weakly, which meant the strongest move in
+     the game could be spent by hesitating. */
   const ultQRef = useRef(null);
   useEffect(() => { ultQRef.current = ultQ && ultQ.q; }, [ultQ]);
-  useEffect(() => {
-    if (!ultQ || doneRef.current) return;
-    const id = setInterval(() => {
-      const rem = Math.max(0, ULTQ_TIME - (Date.now() - ultQ.start));
-      setUltQLeft(rem);
-      if (rem <= 0) { clearInterval(id); fireUlt(0.5, false); }
-    }, 80);
-    return () => clearInterval(id);
-  }, [ultQ]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const mySk = skillsOf(me);
   const activeSk = mySk.find(s => s.tier === "active");
@@ -3713,12 +3729,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       {ultQ && (
         <div className="pvpultq">
           <div className="pvpultq-card">
-            <b>{T("ท่าไม้ตาย — ตอบให้ทัน!", "SUPER — answer to power it!", "必杀技 — 答对增幅!")}</b>
-            <div className="pvpultq-bar"><i style={{ width: `${Math.max(0, (ultQLeft / ULTQ_TIME) * 100)}%` }} /></div>
+            <b>{T("ท่าไม้ตาย — ตอบให้ถูก!", "SUPER — answer to power it!", "必杀技 — 答对增幅!")}</b>
             <p>{ultQ.q.q}</p>
-            <div className="pvpultq-opts">
+            <div className={`pvpultq-opts${ultArmed ? "" : " arming"}`}>
               {ultQ.q.opts.map(o => (
-                <button key={o} type="button" onClick={() => fireUlt(isRight(o, ultQ.q) ? 2 : 0.5, isRight(o, ultQ.q))}>{o}</button>
+                <button key={o} type="button" disabled={!ultArmed}
+                  onClick={() => fireUlt(isRight(o, ultQ.q) ? 2 : 0.5, isRight(o, ultQ.q))}>{o}</button>
               ))}
             </div>
           </div>
@@ -3855,6 +3871,33 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         </>
       )}
 
+      {/* ── the standby beat ──
+          The whole point is that it is IN THE WAY. It covers the arena, so a
+          finger still hammering the attack pad hits this and nothing else,
+          and its own button stays dead until the arming beat has passed —
+          because the mistake being fixed here is an answer nobody chose. */}
+      {standby && typeof document !== "undefined" && createPortal((
+        <div className="pvpstandby" onPointerDown={(e) => e.stopPropagation()}>
+          <div className="pvpstandby-card">
+            <span className="pvpstandby-ic" aria-hidden="true">✋</span>
+            <em>{T("ช่วงคำถาม", "KNOWLEDGE BREAK", "知识时刻")}</em>
+            <b>{T("พักมือก่อน", "HANDS OFF", "先放开手")}</b>
+            <p>{T("ปล่อยปุ่มต่อสู้ หายใจสักครั้ง แล้วค่อยกดเริ่ม",
+                  "Let go of the fight buttons, take a breath, then start when you are ready.",
+                  "松开战斗按键，喘口气，准备好再开始。")}</p>
+            <span className="pvpstandby-n">{T(`คำถามที่ ${asked + 1}`, `QUESTION ${asked + 1}`, `第 ${asked + 1} 题`)}</span>
+            <button type="button" className={`pvpstandby-go${armed ? " on" : ""}`}
+              disabled={!armed} onClick={beginQuestion}
+              style={{ "--arm": `${STANDBY_ARM}ms` }}>
+              <span>{armed ? T("พร้อมแล้ว", "I'M READY", "我准备好了") : T("เตรียมตัว…", "GET READY…", "准备中…")}</span>
+            </button>
+            <i>{T("ไม่มีจับเวลา คิดได้เต็มที่ — แต่ตอบเร็วกว่า 1.5 วิ ยังได้เกจเต็ม",
+                  "No clock — take your time. Answering inside 1.5s still fills the gauge.",
+                  "没有倒计时，慢慢想 — 1.5 秒内作答仍可充满能量。")}</i>
+          </div>
+        </div>
+      ), document.body)}
+
       {phase === "quiz" && q && (reveal ? (
         /* The round holds on the answer. A tick and the next question tells a
            learner they were right; the keyboard and the staff tell them what
@@ -3864,11 +3907,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           nextLabel={T("สู้ต่อ", "Back to the fight", "继续战斗")} />
       ) : (
         <>
-          {/* the shot clock, and what beating it is worth */}
-          <div className={`pvpshot${quizLeft < 1500 ? " low" : ""}`}>
-            <i style={{ width: `${Math.max(0, (quizLeft / QUIZ_TIME) * 100)}%` }} />
-            <b>{(quizLeft / 1000).toFixed(1)}s</b>
-          </div>
+          {/* No clock — but speed is still worth something, so it still says so */}
           <div className="pvpshot-l">
             {T("ต่ำกว่า 1.5 วิ = เกจเต็ม + ท่าไม้ตายฟรี",
                "Under 1.5s = full gauge + a free special",

@@ -1175,15 +1175,55 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    Four seconds, drawn as a bar that empties rather than a number that counts,
    because a bar is readable out of the corner of an eye that is still on the
    fight. It turns red on the last second and a half. */
-.pvpshot{position:relative;max-width:520px;margin:12px auto 0;height:16px;border-radius:9px;overflow:hidden;
-  background:var(--card2);border:1px solid var(--bd1)}
-.pvpshot i{display:block;height:100%;background:linear-gradient(90deg,#3ddc84,#7fe8ff);transition:width .08s linear}
-.pvpshot.low i{background:linear-gradient(90deg,#ff2d55,#ffd23f);animation:pvpshotlow .3s ease-in-out infinite alternate}
-@keyframes pvpshotlow{from{opacity:.72}to{opacity:1}}
-.pvpshot b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-family:'Share Tech Mono',monospace;font-size:10px;color:#0b1220;text-shadow:0 1px 0 #ffffff66;font-variant-numeric:tabular-nums}
-.pvpshot-l{max-width:520px;margin:5px auto 0;padding:0 15px;text-align:center;
+/* The draining bar and its digits are gone with the shot clock. What is left
+   is the line that says speed is still WORTH something, which was always the
+   fun part — the countdown was only the threat. */
+.pvpshot-l{max-width:520px;margin:12px auto 0;padding:0 15px;text-align:center;
   font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.3px;color:#d97757}
+
+/* ── the standby beat ──────────────────────────────────────────────────────
+   Deliberately IN THE WAY. It covers the arena so that a finger still
+   hammering the attack pad lands here and nowhere else, and its own button
+   fills up before it will take a press — you can watch it arm, so the wait
+   reads as part of the game rather than as lag. */
+.pvpstandby{position:fixed;inset:0;z-index:1480;display:flex;align-items:center;justify-content:center;
+  padding:20px;background:rgba(4,8,16,.72);backdrop-filter:blur(3px);animation:pvpsbIn .18s ease}
+@keyframes pvpsbIn{from{opacity:0}to{opacity:1}}
+.pvpstandby-card{width:100%;max-width:330px;padding:22px 22px 18px;border-radius:20px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  background:linear-gradient(180deg,#141c2e,#0c1220);border:1px solid #ffffff1f;
+  box-shadow:0 26px 60px -22px #000,inset 0 1px 0 #ffffff14;animation:pvpsbPop .26s cubic-bezier(.34,1.5,.5,1)}
+@keyframes pvpsbPop{from{transform:translateY(14px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+.pvpstandby-ic{font-size:34px;line-height:1;filter:drop-shadow(0 4px 10px #0009)}
+.pvpstandby-card em{font-style:normal;font-family:'Share Tech Mono',monospace;font-size:9.5px;
+  letter-spacing:2.2px;color:#7fe8ff;text-transform:uppercase}
+.pvpstandby-card b{font-family:'Orbitron',sans-serif;font-size:21px;font-weight:800;color:#fff;letter-spacing:.5px;
+  text-shadow:0 0 18px #7fe8ff55}
+.pvpstandby-card p{margin:0;font-family:'Rajdhani',sans-serif;font-size:13.5px;line-height:1.45;color:#c3cede;text-wrap:balance}
+.pvpstandby-n{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1.4px;color:#8d9bb0;
+  padding:3px 11px;border-radius:20px;background:#ffffff0d;border:1px solid #ffffff14}
+/* the button arms itself: a sweep fills left to right, and only then does it
+   light up and start accepting presses */
+.pvpstandby-go{position:relative;overflow:hidden;width:100%;margin-top:5px;padding:14px 18px;border-radius:14px;
+  border:1px solid #ffffff1f;background:#1b2436;color:#7e8b9e;cursor:not-allowed;
+  font-family:'Orbitron',sans-serif;font-size:14.5px;font-weight:800;letter-spacing:1px}
+.pvpstandby-go::before{content:"";position:absolute;left:0;top:0;bottom:0;width:100%;z-index:0;
+  background:linear-gradient(90deg,#1f6f8f,#2a8fb0);transform-origin:0 50%;transform:scaleX(0);
+  animation:pvpsbArm var(--arm,900ms) linear forwards}
+@keyframes pvpsbArm{to{transform:scaleX(1)}}
+.pvpstandby-go > *{position:relative;z-index:1}
+.pvpstandby-go.on{cursor:pointer;color:#04121a;border-color:#7fe8ff66;
+  background:linear-gradient(180deg,#8ff0ff,#3ddc84);box-shadow:0 10px 26px -12px #3ddc84}
+.pvpstandby-go.on::before{display:none}
+.pvpstandby-go.on:active{transform:translateY(1px)}
+.pvpstandby-card i{font-style:normal;font-size:10.5px;line-height:1.5;color:#8d9bb0;text-wrap:balance}
+@media (prefers-reduced-motion:reduce){
+  .pvpstandby,.pvpstandby-card{animation:none}
+  .pvpstandby-go::before{animation:none;transform:scaleX(1);opacity:.35}
+}
+/* the super's answers arm too — the finger that pressed the ultimate is
+   already moving, and this is the one question that decides a whole move */
+.pvpultq-opts.arming button{opacity:.45;cursor:not-allowed}
 
 /* ── the keyboard the answer is played on ──
    One octave, laid out the way a piano is: the black keys sit ON the white
@@ -1230,8 +1270,6 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
   background:linear-gradient(180deg,#141d33,#0a0f1d);border:1.5px solid #ffd23f;
   box-shadow:0 0 40px -8px #ffd23f,0 20px 50px -20px #000}
 .pvpultq-card>b{display:block;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;letter-spacing:.08em;color:#ffd23f}
-.pvpultq-bar{height:6px;border-radius:4px;margin:9px 0 11px;background:#ffffff1a;overflow:hidden}
-.pvpultq-bar i{display:block;height:100%;background:linear-gradient(90deg,#ffd23f,#ff2d55);transition:width .08s linear}
 .pvpultq-card p{margin:0 0 11px;font-family:'Rajdhani',sans-serif;font-size:15.5px;font-weight:700;line-height:1.35;color:#eaf1ff;text-wrap:balance}
 .pvpultq-opts{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .pvpultq-opts button{padding:12px 6px;border-radius:11px;border:1px solid #ffd23f55;background:#ffd23f12;
