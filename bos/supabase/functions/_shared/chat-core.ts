@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { generate } from "./ai-provider.ts";
-import type { ChatMessage } from "./ai-types.ts";
+import type { ChatMessage, ToolDefinition } from "./ai-types.ts";
 import { buildSystemPrompt, type PromptName } from "./prompts.ts";
+import { CHIEF_OF_STAFF_SLUG, DELEGATE_TO_DEPARTMENT_TOOL, departmentBySlug, type DepartmentDef } from "./departments.ts";
 import { detectLanguage, LANG_INSTRUCTION } from "./chat-features.ts";
-import { AI_TOOLS, OWNER_TOOLS, ALL_OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts";
+import { AI_TOOLS, OWNER_TOOLS, ALL_OWNER_TOOLS, executeTool, translateDbError, setDelegateResponder } from "./tools.ts";
 import { getLatestCompetitorContext } from "./competitor-context.ts";
 import { logAiUsage } from "./usage-logging.ts";
 import { cleanReplyText } from "./text-clean.ts";
@@ -13,6 +14,71 @@ import { refreshLeadScore } from "./lead-score-db.ts";
 
 const MAX_TOOL_ITERATIONS = 4;
 const RECENT_MESSAGE_LIMIT = 12;
+
+// Chief of Staff → department delegation. Delivers the CoS directive into
+// the target department's own conversation (creating it on first use, same
+// "dept:<slug>" tagging the AI Automation Chat page uses), runs that
+// department's agent on it synchronously, and leaves a visible trail in BOTH
+// threads: the directive appears in the department chat, and the department's
+// reply is appended there too. Returns a compact result the CoS model reads
+// as its tool output. Depth guard stops a department from chaining
+// delegation onward (only the CoS even has the tool, but this protects
+// against prompt-injected tool definitions).
+async function delegateDirective(
+  db: SupabaseClient,
+  targetSlug: string,
+  directive: string,
+  depth: number = 0
+): Promise<Record<string, unknown>> {
+  if (depth > 0) return { error: "ไม่อนุญาตให้แผนกส่งงานต่อไปยังแผนกอื่น" };
+  const dept = departmentBySlug(targetSlug);
+  if (!dept || targetSlug === CHIEF_OF_STAFF_SLUG) {
+    return { error: `สั่งงานแผนก "${targetSlug}" ไม่ได้` };
+  }
+
+  const tag = `dept:${targetSlug}`;
+  const { data: existing } = await db
+    .from("conversations")
+    .select("id")
+    .eq("line_user_id", tag)
+    .eq("channel", "internal")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let convId = existing?.id as string | undefined;
+  if (!convId) {
+    const { data: created, error: createErr } = await db
+      .from("conversations")
+      .insert({ channel: "internal", line_user_id: tag })
+      .select("id")
+      .single();
+    if (createErr) return { error: "สร้างแชทของแผนกไม่สำเร็จ" };
+    convId = created.id;
+  }
+
+  try {
+    const result = await respond(
+      db,
+      convId,
+      `[คำสั่งจาก Chief of Staff] ${directive}\n\n(ปฏิบัติภารกิจนี้ตามหน้าที่ของแผนก สรุปผล ข้อเสนอ หรือสิ่งที่ต้องตัดสินใจเป็นข้อความเดียว กระชับ ชัดเจน)`,
+      ["owner", "sales", "booking", "knowledge"],
+      null,
+      { department: dept }
+    );
+    return {
+      department: dept.label,
+      reply: result.reply,
+      needsReview: result.needsReview,
+      note: `ส่งคำสั่งให้${dept.label}แล้ว — คำตอบถูกบันทึกในแชทของ${dept.label}ด้วย สรุปให้เจ้าของฟังต่อได้เลย`,
+    };
+  } catch (error) {
+    return { department: dept.label, error: error instanceof Error ? error.message : "ส่งงานไม่สำเร็จ" };
+  }
+}
+
+// Install the responder tools.ts lazily calls (avoids the
+// respond -> executeTool -> respond import cycle).
+setDelegateResponder((db, targetSlug, directive) => delegateDirective(db, targetSlug, directive, 0));
 // FAQ answers (pricing, hours) can change, so a cached reply isn't reused forever.
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -112,12 +178,21 @@ function hasBannedPhrase(content: string): boolean {
   return BANNED_REPLY_PATTERNS.some((re) => re.test(content));
 }
 
+// AI Automation department options: when a conversation belongs to a
+// department (conversations.line_user_id = "dept:<slug>"), the caller passes
+// the department def so respond() speaks with that department's persona and
+// — for the Chief of Staff only — gains the delegate_to_department tool.
+export interface RespondOptions {
+  department?: DepartmentDef;
+}
+
 export async function respond(
   db: SupabaseClient,
   conversationId: string,
   customerMessage: string,
   promptContext: PromptName[] = ["sales", "booking", "knowledge", "customer_service"],
-  callerId: string | null = null
+  callerId: string | null = null,
+  options: RespondOptions = {}
 ): Promise<RespondResult> {
   const isOwnerMode = promptContext.includes("owner");
   const { count: priorMessageCount } = await db
@@ -224,7 +299,15 @@ export async function respond(
   // what they type or whether a customer row is linked yet (an unlinked
   // LINE/web user would otherwise get boundCustomerId=null and the old
   // `boundCustomerId === null` gate would wrongly expose owner tools).
-  const tools = conversation?.channel === "internal" ? [...AI_TOOLS, ...ALL_OWNER_TOOLS] : AI_TOOLS;
+  const tools = conversation?.channel === "internal" ? [...AI_TOOLS, ...ALL_OWNER_TOOLS] : [...AI_TOOLS];
+
+  // Chief of Staff authority: only the chief_of_staff department conversation
+  // can command other departments (see departments.ts for why the reverse is
+  // never allowed — delegation flows downward only, so a department agent can
+  // never loop delegation back to the CoS or recurse into itself).
+  if (options.department?.slug === CHIEF_OF_STAFF_SLUG) {
+    tools.push(DELEGATE_TO_DEPARTMENT_TOOL as unknown as ToolDefinition);
+  }
 
   // Fetch the most recent RECENT_MESSAGE_LIMIT messages (descending so the
   // limit keeps the newest ones -- including the customer message just
@@ -237,7 +320,10 @@ export async function respond(
     .limit(RECENT_MESSAGE_LIMIT);
   const history = recentHistory ? [...recentHistory].reverse() : recentHistory;
 
-  const systemParts = [buildSystemPrompt(promptContext)];
+  // Department conversations speak with their own persona instead of the
+  // generic owner-assistant prompt; everything layered on top (summary,
+  // policies, playbook, language) still applies to them.
+  const systemParts = [options.department ? options.department.systemPrompt : buildSystemPrompt(promptContext)];
   if (conversation?.summary) {
     systemParts.push(`Summary of earlier messages in this conversation (not repeated below):\n${conversation.summary}`);
   }
