@@ -16,8 +16,11 @@ import {
   Share2,
   Target,
   Loader2,
+  Cpu,
 } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
+import { createRepositories } from "@/services/repositories";
+import { CHAT_MODELS, DEFAULT_CHAT_MODEL_ID } from "@/lib/chat-models";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -246,12 +249,18 @@ function ThreadView({
   onBack,
   onSend,
   sending,
+  chatModel,
+  onModelChange,
+  savingModel,
 }: {
   dept: Department;
   messages: Tables<"messages">[];
   onBack: () => void;
   onSend: (text: string) => void;
   sending: boolean;
+  chatModel: string;
+  onModelChange: (value: string) => void;
+  savingModel: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -278,6 +287,24 @@ function ThreadView({
         <div className="flex-1 min-w-0">
           <span className="text-sm font-semibold text-gray-900">{dept.label}</span>
           <p className="text-[11px] text-gray-400">AI Automation</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 pl-2 pr-1 py-1">
+          <Cpu className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+          <select
+            value={chatModel}
+            onChange={(e) => onModelChange(e.target.value)}
+            disabled={savingModel}
+            aria-label="เลือกโมเดล AI"
+            title="โมเดล AI ที่แผนกนี้ใช้ตอบ — เปลี่ยนได้ที่นี่"
+            className="min-w-0 max-w-[120px] cursor-pointer appearance-none border-0 bg-transparent py-0.5 pr-1 text-xs font-medium text-gray-700 focus:outline-none focus:ring-0"
+          >
+            {CHAT_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          {savingModel && <Loader2 className="h-3 w-3 shrink-0 animate-spin text-gray-400" />}
         </div>
       </div>
 
@@ -372,7 +399,31 @@ export function AiAutomationChat() {
   >({});
   const [query, setQuery] = useState("");
   const [mobileShowThread, setMobileShowThread] = useState(false);
+  const [chatModel, setChatModel] = useState(DEFAULT_CHAT_MODEL_ID);
+  const [savingModel, setSavingModel] = useState(false);
   const selectedDept = DEPARTMENTS.find((d) => d.slug === selectedSlug) ?? null;
+
+  // Load the model the whole AI Automation system currently runs on
+  // (same `ai_chat_model` setting the ai-chat edge function reads).
+  useEffect(() => {
+    const repos = createRepositories(createClient());
+    repos.integrations
+      .get("ai_chat_model")
+      .then((v) => setChatModel(v ?? DEFAULT_CHAT_MODEL_ID))
+      .catch(() => {});
+  }, []);
+
+  async function changeChatModel(value: string) {
+    setChatModel(value);
+    setSavingModel(true);
+    try {
+      const repos = createRepositories(createClient());
+      await repos.integrations.set("ai_chat_model", value);
+    } catch {
+      // keep the optimistic UI; the next load re-syncs from the server
+    }
+    setSavingModel(false);
+  }
 
   useEffect(() => {
     (async () => {
@@ -441,12 +492,34 @@ export function AiAutomationChat() {
           mobileShowThread ? "hidden lg:flex" : "flex"
         )}
       >
-        {/* Header */}
+        {/* Header — model selector sits right beside the title */}
         <div className="border-b border-gray-200 px-4 py-4 bg-white">
-          <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-blue-500" />
-            AI Automation Chat
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2 shrink-0">
+              <MessageSquare className="h-5 w-5 text-blue-500" />
+              AI Automation Chat
+            </h2>
+            <div className="relative min-w-0 flex-1 flex justify-end">
+              <div className="flex min-w-0 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 pl-2 pr-1 py-1">
+                <Cpu className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                <select
+                  value={chatModel}
+                  onChange={(e) => void changeChatModel(e.target.value)}
+                  disabled={savingModel}
+                  aria-label="เลือกโมเดล AI"
+                  title="โมเดล AI ที่ทุกแผนกใช้ตอบ — เปลี่ยนได้ที่นี่"
+                  className="min-w-0 max-w-[150px] truncate cursor-pointer appearance-none border-0 bg-transparent py-0.5 pr-1 text-xs font-medium text-gray-700 focus:outline-none focus:ring-0"
+                >
+                  {CHAT_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+                {savingModel && <Loader2 className="h-3 w-3 shrink-0 animate-spin text-gray-400" />}
+              </div>
+            </div>
+          </div>
           <p className="mt-0.5 text-[11px] text-gray-400">
             สนทนากับ AI แยกตามแผนก
           </p>
@@ -499,6 +572,9 @@ export function AiAutomationChat() {
             onBack={() => setMobileShowThread(false)}
             onSend={handleSend}
             sending={sending}
+            chatModel={chatModel}
+            onModelChange={(v) => void changeChatModel(v)}
+            savingModel={savingModel}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center bg-gray-50">
