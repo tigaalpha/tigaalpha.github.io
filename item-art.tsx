@@ -13,7 +13,7 @@
    from its own geometry. Gradients, not filters: an inventory screen can have
    sixty of these on it at once. ── */
 
-import { useId } from "react";
+import { memo, useId } from "react";
 
 /* ── colour ──
    Swatches arrive as flat hex. A material needs a ramp, so each one is bent
@@ -30,7 +30,13 @@ const mix = (a, b, t) => { const A = hx(a), B = hx(b); return toHex(A[0] + (B[0]
 const lite = (c, t = .5) => mix(c, "#ffffff", t);
 const dim = (c, t = .5) => mix(c, "#0b1020", t);
 
-export function ItemArt({ art = "module", sw = [], size, className = "" }) {
+/* Memoised because it is not only a shop icon any more: three of these ride
+   the fighter in PvP (hat, weapon, accessory) and were being rebuilt on every
+   tick of the fight — the colour maths alone (`mix`/`lite`, called dozens of
+   times per item) measured at 8% of all script time during a round. The props
+   are a name, a swatch array held on the item record, and a size, none of
+   which change while a fight is running. */
+export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, className = "" }) {
   const uid = "ia" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const A = sw[0] || "#9fb2d2";
   const B = sw[1] || "#26324a";
@@ -920,4 +926,4 @@ export function ItemArt({ art = "module", sw = [], size, className = "" }) {
       {draw ? draw() : SHAPES.orb()}
     </svg>
   );
-}
+});

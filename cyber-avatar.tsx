@@ -57,7 +57,7 @@
    is the chamber's key light. The endoskeleton's optics deliberately ignore
    both and stay red — a T-800 with cyan eyes is not a T-800. ── */
 
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { classOf, classKeyOf } from "./model-skills";
 
 /* The five base chassis. No gender axis — these are models, the way a car or a
@@ -1539,7 +1539,32 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   /* A stable id per path so each plate can clip its own bevel. Hashed rather
      than counted: a counter would give different ids on a re-render and break
      the clip references. */
-  const plate = (d, o = {}) => (
+  /* ── the element cache ──
+     A pose is a handful of joint angles, but changing one of them used to
+     rebuild the entire robot. `plate` draws its path THIRTEEN times — fill,
+     five light passes, depth, a clipped bevel, graze, contour, glint — and a
+     chassis carries around fifty-five plates, so React had seven hundred
+     freshly built elements to diff for what amounts to eight `transform`
+     attributes. Measured, that was the hitch you felt every time a punch
+     landed: seventy-odd dropped frames and a second of long tasks in an
+     eight-second round.
+
+     Every drawing helper below returns the SAME element object for the same
+     arguments now. React compares props by identity, sees the subtree is
+     untouched and skips it whole, so a pose change reaches the DOM as a few
+     transform writes instead of a full rebuild. The cache is dropped the
+     moment anything that changes the ARTWORK changes; the pose is not one of
+     those things, and neither is the yaw, which no cached helper reads. */
+  const artKey = [v, id, armorA, armorB, glow, accent, headOnly ? 1 : 0].join("|");
+  const cacheRef = useRef({ k: null, m: null });
+  if (cacheRef.current.k !== artKey) cacheRef.current = { k: artKey, m: new Map() };
+  const keep = (tag, fn) => (...a) => {
+    const m = cacheRef.current.m, k = tag + JSON.stringify(a);
+    if (!m.has(k)) m.set(k, fn(...a));
+    return m.get(k);
+  };
+
+  const plate = keep("pl", (d, o = {}) => (
     <g>
       <path d={d} fill={o.fill || bPlate} stroke="none" />
       <path d={d} fill={`url(#${id}-occ)`} stroke="none" opacity={o.occ == null ? 1 : o.occ} />
@@ -1572,29 +1597,29 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       <path d={d} fill="none" stroke={o.line || bLine} strokeWidth={(o.lw || 1) * .55} strokeLinejoin="round" opacity={o.lineOp == null ? .5 : o.lineOp * .56} />
       <clipPath id={`${id}-c${Math.abs(hashPath(d))}`}><path d={d} /></clipPath>
     </g>
-  );
+  ));
   /* A LIT seam: a channel with energy running through it. Three passes — a
      wide dim bloom, the line itself, a white core — so it reads as light
      inside the armour rather than a coloured pen stroke on top of it. This is
      what separates a machine that is switched on from one that is painted. */
-  const vein = (d, w = 1.4, col = glow) => (
+  const vein = keep("vn", (d, w = 1.4, col = glow) => (
     <g>
       <path d={d} fill="none" stroke={col} strokeWidth={w * 4.5} strokeLinecap="round" opacity=".14" />
       <path d={d} fill="none" stroke={col} strokeWidth={w * 1.8} strokeLinecap="round" opacity=".5" />
       <path d={d} fill="none" stroke="#ffffff" strokeWidth={w * .6} strokeLinecap="round" opacity=".8" />
     </g>
-  );
+  ));
   // an engraved seam: a cut, and the lit edge below where it catches the key
-  const groove = (d, w = 1, op = .55) => (
+  const groove = keep("gr", (d, w = 1, op = .55) => (
     <g opacity={op}>
       <path d={d} fill="none" stroke="#00060f" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" opacity=".7" />
       <path d={d} fill="none" stroke="#eaf3ff" strokeWidth={w * .5} strokeLinecap="round" strokeLinejoin="round" transform="translate(0 .85)" opacity=".55" />
     </g>
-  );
+  ));
   /* A visible pivot — the disc a limb actually turns on, with a bolt through
      it. The AO blob says "there is a gap here"; this says "there is a JOINT
      here", which is what makes a machine look assembled rather than moulded. */
-  const pivot = (px, py, r) => (
+  const pivot = keep("pv", (px, py, r) => (
     <g>
       <circle cx={px} cy={py} r={r} fill={bPlate} stroke={bLine} strokeWidth="1" opacity=".95" />
       <circle cx={px} cy={py} r={r} fill={`url(#${id}-occ)`} />
@@ -1602,15 +1627,15 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       <circle cx={px} cy={py} r={r * .26} fill={bLine} opacity=".5" />
       <circle cx={px - r * .3} cy={py - r * .34} r={r * .18} fill="#fff" opacity=".5" />
     </g>
-  );
+  ));
   // the dark that gathers where two parts meet
-  const joint = (cx, cy, r) => <ellipse cx={cx} cy={cy} rx={r} ry={r * .78} fill={`url(#${id}-ao)`} />;
+  const joint = keep("jt", (cx, cy, r) => <ellipse cx={cx} cy={cy} rx={r} ry={r * .78} fill={`url(#${id}-ao)`} />);
   /* The shadow the part in front drops onto the one behind it. It is painted
      as a re-fill of the RECEIVING path, not as a free-floating ellipse: a
      shadow that can wander off its own surface onto the background is worse
      than no shadow at all, and in bounding-box space one gradient serves every
      plate whatever its shape. */
-  const castOn = (d, op = 1) => <path d={d} fill={`url(#${id}-cast)`} opacity={op} />;
+  const castOn = keep("co", (d, op = 1) => <path d={d} fill={`url(#${id}-cast)`} opacity={op} />);
 
   /* ── the profile ──
      A parametric squash alone cannot turn a head: past about 45° there is

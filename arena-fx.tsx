@@ -516,6 +516,261 @@ function buildCity(w, hz) {
   return { w, hz, layers };
 }
 
+/* ── the backdrop, painted once ──────────────────────────────────────────
+   Everything here is fixed for a given arena at a given size: the sky, the
+   skyline, the overhead spots, the perspective floor. Redrawing it every
+   frame cost more main-thread time than both fighters put together, so it
+   goes into an offscreen canvas that the frame loop simply blits. The pieces
+   that DO move are collected as they are laid out — flickering windows are
+   baked at their dimmest and get their pulse added back live, beacons are
+   recorded but not drawn — and `lit`, the list of bright things whose
+   reflections streak down the wet road, is gathered here too. */
+function bakeBackdrop(w, h, dpr, SG, hz, key) {
+  let cv;
+  try {
+    cv = document.createElement("canvas");
+    cv.width = Math.max(1, Math.round(w * dpr));
+    cv.height = Math.max(1, Math.round(h * dpr));
+  } catch (e) { return null; }
+  const ctx = cv.getContext("2d");
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const lit = [], flick = [], beacons = [];
+
+  /* ── the sky ──
+     Painted rather than left to the page background, so the frame has a
+     horizon to sit under and the top of the picture is not flat black. */
+  const sky = ctx.createLinearGradient(0, 0, 0, hz + 30);
+  sky.addColorStop(0, SG.sky[2]); sky.addColorStop(0.55, SG.sky[1]); sky.addColorStop(1, SG.sky[0]);
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, w, hz + 30);
+  // the key light, and the bloom it throws into the air around it
+  const mx = w * 0.74, my = hz * 0.24;
+  const mg = ctx.createRadialGradient(mx, my, 2, mx, my, w * 0.34);
+  mg.addColorStop(0, `rgba(${SG.horizon},.34)`);
+  mg.addColorStop(0.35, `rgba(${SG.horizon},.09)`);
+  mg.addColorStop(1, `rgba(${SG.horizon},0)`);
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = mg; ctx.fillRect(0, 0, w, hz + 30);
+  ctx.fillStyle = `rgba(240,248,255,.5)`;
+  ctx.beginPath(); ctx.arc(mx, my, 9, 0, 7); ctx.fill();
+  // the anamorphic streak every real lens puts across a light that bright
+  const an = ctx.createLinearGradient(mx - w * 0.3, 0, mx + w * 0.3, 0);
+  an.addColorStop(0, `rgba(${SG.horizon},0)`);
+  an.addColorStop(0.5, `rgba(${SG.horizon},.22)`);
+  an.addColorStop(1, `rgba(${SG.horizon},0)`);
+  ctx.fillStyle = an; ctx.fillRect(mx - w * 0.3, my - 1.6, w * 0.6, 3.2);
+  ctx.globalCompositeOperation = "source-over";
+
+  /* ── the backdrop ── what is BEHIND the horizon. One routine per stage,
+     drawn before the floor so the fighters and the grid sit in front of it. */
+  ctx.save();
+  if (SG.back === "city") {
+    const city = buildCity(w, hz);
+    for (let L = 0; L < 3; L++) {
+      const FC = SG.face || "16,22,44";
+      const face = `rgba(${FC},`;
+      for (const b of city.layers[L]) {
+        const bg2 = ctx.createLinearGradient(0, b.y, 0, b.y + b.h);
+        /* Nearer planes are DARKER, not lighter: the far ones sit behind
+           more air and pick up the horizon, which is what separates them. */
+        bg2.addColorStop(0, face + (0.42 + L * 0.2) + ")");
+        bg2.addColorStop(1, face + (0.7 + L * 0.1) + ")");
+        ctx.fillStyle = bg2;
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        /* the roof edge, lit. Once the slabs went near-black the skyline
+           dissolved into a field of loose window lights; one bright line
+           per roof is what puts the buildings back. */
+        const RN = (SG.neon || ["255,43,214", "63,216,255"])[L % 2];
+        ctx.fillStyle = `rgba(${RN},${(0.16 + L * 0.2).toFixed(2)})`;
+        ctx.fillRect(b.x - 1, b.y - 1.4, b.w + 2, 2.6);
+        ctx.fillStyle = `rgba(${SG.horizon},${0.16 + L * 0.14})`;
+        ctx.fillRect(b.x, b.y, b.w, 1.2);
+        ctx.fillStyle = "rgba(0,4,12,.22)";
+        ctx.fillRect(b.x + b.w - 3, b.y, 3, b.h);
+        for (const p of b.win) {
+          const col = p.warm
+            ? "255,206,138"
+            : ((SG.neon || ["255,43,214"])[1] || SG.horizon);
+          const a = p.warm ? 0.3 + L * 0.24 : 0.26 + L * 0.22;
+          /* a flickering window is baked at its DIMMEST and the pulse added
+             back additively each frame, so the bake stays valid all match */
+          const f0 = p.fl ? 0.35 : 1;
+          ctx.fillStyle = `rgba(${col},${a * f0})`;
+          ctx.fillRect(p.x, p.y, p.w, p.h);
+          if (p.fl) flick.push({ x: p.x, y: p.y, w: p.w, h: p.h, c: col, a, fl: p.fl });
+        }
+        if (b.neon) {
+          /* The old hue maths funnelled every sign to the same blue-violet
+             whatever the arena was. The stage picks its own pair now. */
+          const NP = SG.neon || ["255,43,214", "63,216,255"];
+          const c = NP[b.neon.hue % NP.length];
+          ctx.globalCompositeOperation = "lighter";
+          const ng = ctx.createLinearGradient(0, b.neon.y - 7, 0, b.neon.y + b.neon.h + 7);
+          ng.addColorStop(0, `rgba(${c},0)`); ng.addColorStop(0.5, `rgba(${c},.5)`); ng.addColorStop(1, `rgba(${c},0)`);
+          ctx.fillStyle = ng; ctx.fillRect(b.neon.x - 4, b.neon.y - 7, b.neon.w + 8, b.neon.h + 14);
+          ctx.fillStyle = `rgba(255,255,255,.75)`;
+          ctx.fillRect(b.neon.x, b.neon.y, b.neon.w, b.neon.h);
+          ctx.globalCompositeOperation = "source-over";
+          if (L === 2) lit.push({ x: b.neon.x + b.neon.w / 2, w: b.neon.w * 0.9, c, a: 0.3 });
+        }
+        if (b.beacon) beacons.push({ x: b.beacon.x, y: b.beacon.y });
+      }
+      // haze BETWEEN the planes: the mechanism, not a filter over the top
+      ctx.fillStyle = `rgba(${SG.horizon},${[0.055, 0.03, 0.012][L]})`;
+      ctx.fillRect(0, 0, w, hz + 4);
+    }
+    // the buildings dissolve into the street rather than being cut off at it
+    const gf = ctx.createLinearGradient(0, hz - 46, 0, hz + 6);
+    gf.addColorStop(0, "rgba(168,198,238,0)");
+    gf.addColorStop(1, "rgba(168,198,238,.15)");
+    ctx.fillStyle = gf; ctx.fillRect(0, hz - 46, w, 52);
+    // street level, where all that light pools before it hits the road
+    const sl = ctx.createLinearGradient(0, hz - 40, 0, hz + 4);
+    sl.addColorStop(0, `rgba(${SG.horizon},0)`); sl.addColorStop(1, `rgba(${SG.horizon},.2)`);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = sl; ctx.fillRect(0, hz - 40, w, 44);
+    ctx.globalCompositeOperation = "source-over";
+    for (let i = 0; i < 9; i++) lit.push({ x: w * (0.06 + i * 0.11), w: 17, c: SG.horizon, a: 0.12 });
+  } else if (SG.back === "embers") {
+    // the seam itself breathes, so it is drawn live; only its road light is fixed
+    for (let i = 0; i < 6; i++) lit.push({ x: w * (0.1 + i * 0.16), w: 34, c: "255,140,60", a: 0.24 });
+  } else if (SG.back === "shards") {
+    // ice columns catching the light
+    for (let i = 0; i < 9; i++) {
+      const x = (i / 9) * w + ((i * 61) % 23);
+      const h2 = hz * (0.3 + ((i * 47) % 15) / 26), w2 = 12 + ((i * 29) % 16);
+      const g = ctx.createLinearGradient(x, hz - h2, x, hz);
+      g.addColorStop(0, "rgba(190,240,255,.30)");
+      g.addColorStop(1, "rgba(120,190,255,.05)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(x, hz); ctx.lineTo(x + w2 / 2, hz - h2); ctx.lineTo(x + w2, hz); ctx.closePath(); ctx.fill();
+    }
+  } else if (SG.back === "stars") {
+    // one slow nebula; the stars themselves twinkle, so they are drawn live
+    const g = ctx.createRadialGradient(w * .68, hz * .5, 4, w * .68, hz * .5, w * .5);
+    g.addColorStop(0, "rgba(150,110,255,.22)");
+    g.addColorStop(1, "rgba(150,110,255,0)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, hz + 20);
+  }
+  ctx.restore();
+
+  // two overhead spots, coloured by the stage, so the fighters are lit by
+  // the arena rather than pasted onto it
+  ctx.globalCompositeOperation = "lighter";
+  for (const [fx, col] of SG.spots) {
+    const g0 = ctx.createRadialGradient(w * fx, h * 0.9, 2, w * fx, h * 0.9, w * 0.26);
+    g0.addColorStop(0, `rgba(${col},.30)`); g0.addColorStop(0.5, `rgba(${col},.10)`); g0.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = g0; ctx.fillRect(0, hz - 20, w, h - hz + 20);
+  }
+  // a glow along the horizon line — the light the room is lit by
+  const hg = ctx.createLinearGradient(0, hz - 34, 0, hz + 26);
+  hg.addColorStop(0, `rgba(${SG.horizon},0)`); hg.addColorStop(0.55, `rgba(${SG.horizon},.22)`); hg.addColorStop(1, `rgba(${SG.horizon},0)`);
+  ctx.fillStyle = hg; ctx.fillRect(0, hz - 34, w, 60);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.strokeStyle = SG.grid; ctx.lineWidth = 1;
+  for (let i = 1; i <= 7; i++) {
+    const p = i / 7, y = hz + (h - hz) * p * p;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+  for (let i = -6; i <= 6; i++) {
+    const x = w / 2 + i * (w / 9);
+    ctx.beginPath(); ctx.moveTo(w / 2 + i * 8, hz); ctx.lineTo(x, h); ctx.stroke();
+  }
+  return { cv, key, lit, flick, beacons };
+}
+
+/** The handful of backdrop things that actually change from frame to frame,
+    drawn over the blitted bake. Everything static was paid for once already. */
+function liveBackdrop(ctx, S, SG, hz, B) {
+  // flickering windows: the bake holds their dimmest, this adds the pulse
+  if (B.flick.length) {
+    ctx.globalCompositeOperation = "lighter";
+    for (const p of B.flick) {
+      const add = p.a * 0.65 * Math.abs(Math.sin(S.t * p.fl));
+      if (add < 0.012) continue;
+      ctx.fillStyle = `rgba(${p.c},${add.toFixed(3)})`;
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+  if (B.beacons.length) {
+    ctx.globalCompositeOperation = "lighter";
+    for (const bc of B.beacons) {
+      const pu = 0.35 + 0.65 * Math.abs(Math.sin(S.t * 2.2 + bc.x));
+      const bg = ctx.createRadialGradient(bc.x, bc.y, 0, bc.x, bc.y, 12);
+      bg.addColorStop(0, `rgba(255,90,90,${0.85 * pu})`); bg.addColorStop(1, "rgba(255,90,90,0)");
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bc.x, bc.y, 12, 0, 7); ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  let road = B.lit;
+  if (SG.back === "embers") {
+    // a lava seam along the horizon, breathing
+    const puls = 0.6 + 0.4 * Math.sin(S.t * 1.7);
+    const g = ctx.createLinearGradient(0, hz - 26, 0, hz + 10);
+    g.addColorStop(0, "rgba(255,90,30,0)");
+    g.addColorStop(0.6, `rgba(255,120,40,${0.32 * puls})`);
+    g.addColorStop(1, "rgba(255,190,90,0)");
+    ctx.fillStyle = g; ctx.fillRect(0, hz - 26, S.w, 36);
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < 7; i++) {
+      const x = ((i * 137 + S.t * 12) % (S.w + 60)) - 30;
+      ctx.fillStyle = `rgba(255,150,60,${.25 * puls})`;
+      ctx.beginPath(); ctx.ellipse(x, hz - 4, 30, 6, 0, 0, 7); ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+  } else if (SG.back === "stars") {
+    for (let i = 0; i < 60; i++) {
+      const x = ((i * 149) % 997) / 997 * S.w, y = ((i * 233) % 811) / 811 * hz;
+      const tw = 0.35 + 0.65 * Math.abs(Math.sin(S.t * 1.3 + i));
+      ctx.fillStyle = `rgba(230,220,255,${0.5 * tw})`;
+      ctx.fillRect(x, y, 1.6, 1.6);
+    }
+  } else if (SG.back === "lanterns") {
+    // paper lanterns hanging in the dark, swinging a little
+    road = [];
+    for (let i = 0; i < 8; i++) {
+      const x = (i + 0.5) / 8 * S.w + Math.sin(S.t * 0.7 + i) * 5;
+      const y = hz * (0.22 + ((i * 53) % 9) / 30);
+      const g = ctx.createRadialGradient(x, y, 1, x, y, 26);
+      g.addColorStop(0, "rgba(255,205,130,.55)");
+      g.addColorStop(1, "rgba(255,160,80,0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 26, 0, 7); ctx.fill();
+      ctx.fillStyle = "rgba(255,190,110,.9)";
+      ctx.beginPath(); ctx.ellipse(x, y, 6, 8, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = "rgba(255,200,140,.25)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, y - 8); ctx.stroke();
+      road.push({ x, w: 18, c: "255,190,110", a: 0.26 });
+    }
+  }
+
+  /* ── the wet road ──
+     Each light above the horizon smeared down the tarmac beneath it,
+     wobbling a little as if the surface were moving. Nothing else says
+     "night exterior" as cheaply as this does. */
+  ctx.globalCompositeOperation = "lighter";
+  const rl = (S.h - hz) * 0.72;
+  for (const q of road) {
+    const wob = Math.sin(S.t * 1.5 + q.x * 0.06) * 3;
+    const g2 = ctx.createLinearGradient(0, hz, 0, hz + rl);
+    /* zero at the waterline: a smear that starts at full strength draws a
+       hard rule across the picture exactly where the road begins */
+    g2.addColorStop(0, `rgba(${q.c},0)`);
+    g2.addColorStop(0.07, `rgba(${q.c},${q.a})`);
+    g2.addColorStop(0.38, `rgba(${q.c},${q.a * 0.32})`);
+    g2.addColorStop(1, `rgba(${q.c},0)`);
+    ctx.fillStyle = g2;
+    // and it widens as it comes toward the camera, like everything else
+    const half = q.w / 2, far = half * 1.85, dx = q.x + wob, dx2 = q.x + wob * 2.2;
+    ctx.beginPath();
+    ctx.moveTo(dx - half, hz); ctx.lineTo(dx + half, hz);
+    ctx.lineTo(dx2 + far, hz + rl); ctx.lineTo(dx2 - far, hz + rl);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+
 export function useArenaFx(stage) {
   /* TWO canvases, because the arena is drawn on both sides of the fighters.
      The backdrop — sky, city, floor, the wet road — has to be BEHIND them or
@@ -585,216 +840,26 @@ export function useArenaFx(stage) {
 
       // ── floor: a perspective grid receding to a horizon behind the fighters
       const hz = S.h * 0.52;
-      ctx.save();
-      // a pool of light under each fighter, so they stand in the arena rather
-      // than float over a wallpaper
       const SG = S.stage || STAGES[0];
 
-      /* ── the sky ──
-         Painted rather than left to the page background, so the frame has a
-         horizon to sit under and the top of the picture is not flat black. */
-      const sky = ctx.createLinearGradient(0, 0, 0, hz + 30);
-      sky.addColorStop(0, SG.sky[2]); sky.addColorStop(0.55, SG.sky[1]); sky.addColorStop(1, SG.sky[0]);
-      ctx.fillStyle = sky; ctx.fillRect(0, 0, S.w, hz + 30);
-      // the key light, and the bloom it throws into the air around it
-      const mx = S.w * 0.74, my = hz * 0.24;
-      const mg = ctx.createRadialGradient(mx, my, 2, mx, my, S.w * 0.34);
-      mg.addColorStop(0, `rgba(${SG.horizon},.34)`);
-      mg.addColorStop(0.35, `rgba(${SG.horizon},.09)`);
-      mg.addColorStop(1, `rgba(${SG.horizon},0)`);
-      ctx.globalCompositeOperation = "lighter";
-      ctx.fillStyle = mg; ctx.fillRect(0, 0, S.w, hz + 30);
-      ctx.fillStyle = `rgba(240,248,255,.5)`;
-      ctx.beginPath(); ctx.arc(mx, my, 9, 0, 7); ctx.fill();
-      // the anamorphic streak every real lens puts across a light that bright
-      const an = ctx.createLinearGradient(mx - S.w * 0.3, 0, mx + S.w * 0.3, 0);
-      an.addColorStop(0, `rgba(${SG.horizon},0)`);
-      an.addColorStop(0.5, `rgba(${SG.horizon},.22)`);
-      an.addColorStop(1, `rgba(${SG.horizon},0)`);
-      ctx.fillStyle = an; ctx.fillRect(mx - S.w * 0.3, my - 1.6, S.w * 0.6, 3.2);
-      ctx.globalCompositeOperation = "source-over";
-
-      /* every bright thing above the horizon smears down the road below it,
-         which is the whole reason a night city reads as WET and not just dark */
-      const lit = [];
-
-      /* ── the backdrop ── what is BEHIND the horizon. One routine per stage,
-         drawn before the floor so the fighters and the grid sit in front of
-         it. Cheap shapes on purpose: this runs every frame on a phone. */
+      /* ── the backdrop is painted ONCE ──
+         Sky, skyline, spotlights and the floor grid are identical from one
+         frame to the next, yet they were being redrawn sixty times a second:
+         about six hundred window rectangles and forty gradient objects every
+         frame, which measured as a QUARTER of all main-thread time during a
+         fight. It is baked into an offscreen canvas now and blitted, and only
+         the parts that genuinely move — flickering windows, beacons, lanterns,
+         embers, stars, the wet-road smears — are drawn live on top. */
+      const bkey = (SG.id || "s") + "|" + Math.round(S.w) + "x" + Math.round(S.h) + "@" + S.dpr;
+      if (!S.bake || S.bake.key !== bkey) {
+        // a null bake still takes the key, so a failed canvas is not retried
+        // sixty times a second for the rest of the match
+        S.bake = bakeBackdrop(S.w, S.h, S.dpr, SG, hz, bkey)
+          || { cv: null, key: bkey, lit: [], flick: [], beacons: [] };
+      }
+      if (S.bake.cv) ctx.drawImage(S.bake.cv, 0, 0, S.w, S.h);
       ctx.save();
-      if (SG.back === "city") {
-        if (!S.city || S.city.w !== S.w || S.city.hz !== hz) S.city = buildCity(S.w, hz);
-        for (let L = 0; L < 3; L++) {
-          const FC = SG.face || "16,22,44";
-          const face = `rgba(${FC},`;
-          for (const b of S.city.layers[L]) {
-            const bg2 = ctx.createLinearGradient(0, b.y, 0, b.y + b.h);
-            /* Nearer planes are DARKER, not lighter: the far ones sit behind
-               more air and pick up the horizon, which is what separates them. */
-            bg2.addColorStop(0, face + (0.42 + L * 0.2) + ")");
-            bg2.addColorStop(1, face + (0.7 + L * 0.1) + ")");
-            ctx.fillStyle = bg2;
-            ctx.fillRect(b.x, b.y, b.w, b.h);
-            /* the roof edge, lit. Once the slabs went near-black the skyline
-               dissolved into a field of loose window lights; one bright line
-               per roof is what puts the buildings back. */
-            const RN = (SG.neon || ["255,43,214", "63,216,255"])[L % 2];
-            ctx.fillStyle = `rgba(${RN},${(0.16 + L * 0.2).toFixed(2)})`;
-            ctx.fillRect(b.x - 1, b.y - 1.4, b.w + 2, 2.6);
-            ctx.fillStyle = `rgba(${SG.horizon},${0.16 + L * 0.14})`;
-            ctx.fillRect(b.x, b.y, b.w, 1.2);
-            ctx.fillStyle = "rgba(0,4,12,.22)";
-            ctx.fillRect(b.x + b.w - 3, b.y, 3, b.h);
-            for (const p of b.win) {
-              const fl = p.fl ? 0.35 + 0.65 * Math.abs(Math.sin(S.t * p.fl)) : 1;
-              ctx.fillStyle = p.warm
-                ? `rgba(255,206,138,${(0.3 + L * 0.24) * fl})`
-                : `rgba(${(SG.neon || ["255,43,214"])[1] || SG.horizon},${(0.26 + L * 0.22) * fl})`;
-              ctx.fillRect(p.x, p.y, p.w, p.h);
-            }
-            if (b.neon) {
-              /* The old hue maths funnelled every sign to the same blue-violet
-                 whatever the arena was. The stage picks its own pair now. */
-              const NP = SG.neon || ["255,43,214", "63,216,255"];
-              const c = NP[b.neon.hue % NP.length];
-              ctx.globalCompositeOperation = "lighter";
-              const ng = ctx.createLinearGradient(0, b.neon.y - 7, 0, b.neon.y + b.neon.h + 7);
-              ng.addColorStop(0, `rgba(${c},0)`); ng.addColorStop(0.5, `rgba(${c},.5)`); ng.addColorStop(1, `rgba(${c},0)`);
-              ctx.fillStyle = ng; ctx.fillRect(b.neon.x - 4, b.neon.y - 7, b.neon.w + 8, b.neon.h + 14);
-              ctx.fillStyle = `rgba(255,255,255,.75)`;
-              ctx.fillRect(b.neon.x, b.neon.y, b.neon.w, b.neon.h);
-              ctx.globalCompositeOperation = "source-over";
-              if (L === 2) lit.push({ x: b.neon.x + b.neon.w / 2, w: b.neon.w * 0.9, c, a: 0.3 });
-            }
-            if (b.beacon) {
-              const pu = 0.35 + 0.65 * Math.abs(Math.sin(S.t * 2.2 + b.beacon.x));
-              ctx.globalCompositeOperation = "lighter";
-              const bg = ctx.createRadialGradient(b.beacon.x, b.beacon.y, 0, b.beacon.x, b.beacon.y, 12);
-              bg.addColorStop(0, `rgba(255,90,90,${0.85 * pu})`); bg.addColorStop(1, "rgba(255,90,90,0)");
-              ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(b.beacon.x, b.beacon.y, 12, 0, 7); ctx.fill();
-              ctx.globalCompositeOperation = "source-over";
-            }
-          }
-          // haze BETWEEN the planes: the mechanism, not a filter over the top
-          ctx.fillStyle = `rgba(${SG.horizon},${[0.055, 0.03, 0.012][L]})`;
-          ctx.fillRect(0, 0, S.w, hz + 4);
-        }
-        // the buildings dissolve into the street rather than being cut off at it
-        const gf = ctx.createLinearGradient(0, hz - 46, 0, hz + 6);
-        gf.addColorStop(0, "rgba(168,198,238,0)");
-        gf.addColorStop(1, "rgba(168,198,238,.15)");
-        ctx.fillStyle = gf; ctx.fillRect(0, hz - 46, S.w, 52);
-        // street level, where all that light pools before it hits the road
-        const sl = ctx.createLinearGradient(0, hz - 40, 0, hz + 4);
-        sl.addColorStop(0, `rgba(${SG.horizon},0)`); sl.addColorStop(1, `rgba(${SG.horizon},.2)`);
-        ctx.globalCompositeOperation = "lighter";
-        ctx.fillStyle = sl; ctx.fillRect(0, hz - 40, S.w, 44);
-        ctx.globalCompositeOperation = "source-over";
-        for (let i = 0; i < 9; i++) lit.push({ x: S.w * (0.06 + i * 0.11), w: 17, c: SG.horizon, a: 0.12 });
-      } else if (SG.back === "embers") {
-        // a lava seam along the horizon, breathing
-        const puls = 0.6 + 0.4 * Math.sin(S.t * 1.7);
-        const g = ctx.createLinearGradient(0, hz - 26, 0, hz + 10);
-        g.addColorStop(0, "rgba(255,90,30,0)");
-        g.addColorStop(0.6, `rgba(255,120,40,${0.32 * puls})`);
-        g.addColorStop(1, "rgba(255,190,90,0)");
-        ctx.fillStyle = g; ctx.fillRect(0, hz - 26, S.w, 36);
-        for (let i = 0; i < 6; i++) lit.push({ x: S.w * (0.1 + i * 0.16), w: 34, c: "255,140,60", a: 0.24 });
-        ctx.globalCompositeOperation = "lighter";
-        for (let i = 0; i < 7; i++) {
-          const x = ((i * 137 + S.t * 12) % (S.w + 60)) - 30;
-          ctx.fillStyle = `rgba(255,150,60,${.25 * puls})`;
-          ctx.beginPath(); ctx.ellipse(x, hz - 4, 30, 6, 0, 0, 7); ctx.fill();
-        }
-        ctx.globalCompositeOperation = "source-over";
-      } else if (SG.back === "shards") {
-        // ice columns catching the light
-        for (let i = 0; i < 9; i++) {
-          const x = (i / 9) * S.w + ((i * 61) % 23);
-          const h2 = hz * (0.3 + ((i * 47) % 15) / 26), w2 = 12 + ((i * 29) % 16);
-          const g = ctx.createLinearGradient(x, hz - h2, x, hz);
-          g.addColorStop(0, "rgba(190,240,255,.30)");
-          g.addColorStop(1, "rgba(120,190,255,.05)");
-          ctx.fillStyle = g;
-          ctx.beginPath(); ctx.moveTo(x, hz); ctx.lineTo(x + w2 / 2, hz - h2); ctx.lineTo(x + w2, hz); ctx.closePath(); ctx.fill();
-        }
-      } else if (SG.back === "stars") {
-        // a star field with one slow nebula behind it
-        const g = ctx.createRadialGradient(S.w * .68, hz * .5, 4, S.w * .68, hz * .5, S.w * .5);
-        g.addColorStop(0, "rgba(150,110,255,.22)");
-        g.addColorStop(1, "rgba(150,110,255,0)");
-        ctx.fillStyle = g; ctx.fillRect(0, 0, S.w, hz + 20);
-        for (let i = 0; i < 60; i++) {
-          const x = ((i * 149) % 997) / 997 * S.w, y = ((i * 233) % 811) / 811 * hz;
-          const tw = 0.35 + 0.65 * Math.abs(Math.sin(S.t * 1.3 + i));
-          ctx.fillStyle = `rgba(230,220,255,${0.5 * tw})`;
-          ctx.fillRect(x, y, 1.6, 1.6);
-        }
-      } else if (SG.back === "lanterns") {
-        // paper lanterns hanging in the dark, swinging a little
-        for (let i = 0; i < 8; i++) {
-          const x = (i + 0.5) / 8 * S.w + Math.sin(S.t * 0.7 + i) * 5;
-          const y = hz * (0.22 + ((i * 53) % 9) / 30);
-          const g = ctx.createRadialGradient(x, y, 1, x, y, 26);
-          g.addColorStop(0, "rgba(255,205,130,.55)");
-          g.addColorStop(1, "rgba(255,160,80,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 26, 0, 7); ctx.fill();
-          ctx.fillStyle = "rgba(255,190,110,.9)";
-          ctx.beginPath(); ctx.ellipse(x, y, 6, 8, 0, 0, 7); ctx.fill();
-          ctx.strokeStyle = "rgba(255,200,140,.25)"; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, y - 8); ctx.stroke();
-          lit.push({ x, w: 18, c: "255,190,110", a: 0.26 });
-        }
-      }
-      ctx.restore();
-
-      // two overhead spots, coloured by the stage, so the fighters are lit by
-      // the arena rather than pasted onto it
-      ctx.globalCompositeOperation = "lighter";
-      for (const [fx, col] of SG.spots) {
-        const g0 = ctx.createRadialGradient(S.w * fx, S.h * 0.9, 2, S.w * fx, S.h * 0.9, S.w * 0.26);
-        g0.addColorStop(0, `rgba(${col},.30)`); g0.addColorStop(0.5, `rgba(${col},.10)`); g0.addColorStop(1, `rgba(${col},0)`);
-        ctx.fillStyle = g0; ctx.fillRect(0, hz - 20, S.w, S.h - hz + 20);
-      }
-      // a glow along the horizon line — the light the room is lit by
-      const hg = ctx.createLinearGradient(0, hz - 34, 0, hz + 26);
-      hg.addColorStop(0, `rgba(${SG.horizon},0)`); hg.addColorStop(0.55, `rgba(${SG.horizon},.22)`); hg.addColorStop(1, `rgba(${SG.horizon},0)`);
-      ctx.fillStyle = hg; ctx.fillRect(0, hz - 34, S.w, 60);
-      ctx.globalCompositeOperation = "source-over";
-      ctx.strokeStyle = SG.grid; ctx.lineWidth = 1;
-      for (let i = 1; i <= 7; i++) {
-        const p = i / 7, y = hz + (S.h - hz) * p * p;
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(S.w, y); ctx.stroke();
-      }
-      for (let i = -6; i <= 6; i++) {
-        const x = S.w / 2 + i * (S.w / 9);
-        ctx.beginPath(); ctx.moveTo(S.w / 2 + i * 8, hz); ctx.lineTo(x, S.h); ctx.stroke();
-      }
-
-      /* ── the wet road ──
-         Each light above the horizon smeared down the tarmac beneath it,
-         wobbling a little as if the surface were moving. Nothing else says
-         "night exterior" as cheaply as this does. */
-      ctx.globalCompositeOperation = "lighter";
-      const rl = (S.h - hz) * 0.72;
-      for (const q of lit) {
-        const wob = Math.sin(S.t * 1.5 + q.x * 0.06) * 3;
-        const g2 = ctx.createLinearGradient(0, hz, 0, hz + rl);
-        /* zero at the waterline: a smear that starts at full strength draws a
-           hard rule across the picture exactly where the road begins */
-        g2.addColorStop(0, `rgba(${q.c},0)`);
-        g2.addColorStop(0.07, `rgba(${q.c},${q.a})`);
-        g2.addColorStop(0.38, `rgba(${q.c},${q.a * 0.32})`);
-        g2.addColorStop(1, `rgba(${q.c},0)`);
-        ctx.fillStyle = g2;
-        // and it widens as it comes toward the camera, like everything else
-        const half = q.w / 2, far = half * 1.85, dx = q.x + wob, dx2 = q.x + wob * 2.2;
-        ctx.beginPath();
-        ctx.moveTo(dx - half, hz); ctx.lineTo(dx + half, hz);
-        ctx.lineTo(dx2 + far, hz + rl); ctx.lineTo(dx2 - far, hz + rl);
-        ctx.closePath(); ctx.fill();
-      }
-      ctx.globalCompositeOperation = "source-over";
+      liveBackdrop(ctx, S, SG, hz, S.bake);
       ctx.restore();
 
       // ── scorch marks: painted on the floor before anything else, so the
