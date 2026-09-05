@@ -26,7 +26,7 @@ import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARIT
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt } from "./item-art";
 import { petBonusOf, petById, petLevel, readPet, PetArt } from "./pet-lab";
-import { createArenaAudio, useArenaFx, pickStage } from "./arena-fx";
+import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio } from "./arena-fx";
 import { AnswerReveal } from "./note-reveal";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
@@ -1043,6 +1043,9 @@ export const PvpPage = memo(function PvpPage({
   const lobbyTimers = useRef([]);
   const later0 = (fn, ms) => { const t = setTimeout(fn, ms); lobbyTimers.current.push(t); return t; };
   useEffect(() => () => { lobbyTimers.current.forEach(clearTimeout); lobbyTimers.current = []; }, []);
+  /* Pay for the audio graph here, where nothing is moving, instead of on the
+     tap that starts a round. */
+  useEffect(() => { warmArenaAudio(); }, []);
   const [loadouts, setLoadouts] = useState(() => readLoadouts());
   const [valor, setValor] = useState(() => readValor());
   const [colorwayKey, setColorwayKey] = useState(() => readColorwayKey());

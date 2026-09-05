@@ -771,6 +771,16 @@ function liveBackdrop(ctx, S, SG, hz, B) {
   ctx.globalCompositeOperation = "source-over";
 }
 
+/** Build the audio graph while the player is still choosing an opponent.
+    The master bus carries a generated reverb impulse — a hundred and thirty
+    thousand samples — and whoever asks for sound FIRST pays for it. Left
+    alone that was the fight itself: the tap that opens a round would build
+    the tail before the arena could draw. Called from the lobby, it is paid
+    for during a moment when nothing is moving. */
+export function warmArenaAudio() {
+  try { audioBus(); } catch (e) {}
+}
+
 export function useArenaFx(stage) {
   /* TWO canvases, because the arena is drawn on both sides of the fighters.
      The backdrop — sky, city, floor, the wet road — has to be BEHIND them or
@@ -810,10 +820,21 @@ export function useArenaFx(stage) {
     // without a backdrop canvas everything falls back to the single layer
     let ctx = bgctx || fxctx;
 
-    const fit = () => {
-      const r = cv.getBoundingClientRect();
-      S.dpr = Math.min(2, window.devicePixelRatio || 1);
-      S.w = Math.max(1, r.width); S.h = Math.max(1, r.height);
+    /* The observer hands us the box for free; asking for it again with
+       getBoundingClientRect forces a synchronous layout of a page that has
+       just had two thousand fresh SVG nodes inserted into it, and the observer
+       fires several times while the arena settles. That measured at 216ms —
+       17% of the whole tap-to-playable window — for a number we were already
+       given. And a size that has not actually changed is a no-op: reassigning
+       a canvas's width reallocates its backing store and throws away the
+       baked backdrop with it. */
+    const fit = (cw, chh) => {
+      let w = cw, h = chh;
+      if (w == null || h == null) { const r = cv.getBoundingClientRect(); w = r.width; h = r.height; }
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      w = Math.max(1, w); h = Math.max(1, h);
+      if (dpr === S.dpr && Math.abs(w - S.w) < 0.5 && Math.abs(h - S.h) < 0.5) return;
+      S.dpr = dpr; S.w = w; S.h = h;
       cv.width = Math.round(S.w * S.dpr); cv.height = Math.round(S.h * S.dpr);
       fxctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
       if (bg && bgctx) {
@@ -827,7 +848,10 @@ export function useArenaFx(stage) {
       }));
     };
     fit();
-    const ro = new ResizeObserver(fit);
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries && entries[0] && entries[0].contentRect;
+      fit(cr ? cr.width : null, cr ? cr.height : null);
+    });
     ro.observe(cv);
 
     let last = performance.now();
