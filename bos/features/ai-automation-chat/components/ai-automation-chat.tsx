@@ -252,6 +252,7 @@ function ThreadView({
   chatModel,
   onModelChange,
   savingModel,
+  canDelegate,
 }: {
   dept: Department;
   messages: Tables<"messages">[];
@@ -261,6 +262,7 @@ function ThreadView({
   chatModel: string;
   onModelChange: (value: string) => void;
   savingModel: boolean;
+  canDelegate: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -317,6 +319,16 @@ function ThreadView({
             <p className="mt-1 text-xs text-gray-400">เริ่มสนทนากับ AI {dept.label} ได้เลย</p>
           </div>
         )}
+        {canDelegate && messages.length === 0 && (
+          <div className="mx-auto max-w-md rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center">
+            <p className="text-xs font-medium text-amber-800">
+              👑 Chief of Staff สั่งงานแผนกอื่นได้ทุกแผนก
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
+              พิมพ์คำสั่ง เช่น "ให้การตลาดวางแผนแคมเปญเปิดเทอม" หรือ "สั่งฝ่ายขายติดตาม lead ค้าง 7 วัน" — คำสั่งจะถูกส่งเข้าแชทของแผนกนั้นโดยอัตโนมัติ และแผนกจะตอบกลับในแชทของมันเอง
+            </p>
+          </div>
+        )}
         {messages.map((msg) => {
           const isOwner = msg.sender === "owner";
           return (
@@ -365,7 +377,11 @@ function ThreadView({
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={`พิมพ์ข้อความถึง ${dept.label}...`}
+            placeholder={
+              canDelegate
+                ? `สั่งงาน ${dept.label} หรือสั่งให้ไปสั่งแผนกอื่น...`
+                : `พิมพ์ข้อความถึง ${dept.label}...`
+            }
             className="min-h-[40px] max-h-[120px] resize-none bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -447,6 +463,11 @@ export function AiAutomationChat() {
     })();
   }, []);
 
+  // Chief of Staff can command every other department — show a hint so the
+  // owner knows to just type orders here ("ให้การตลาดทำแคมเปญใหม่") and the
+  // CoS will delegate across chats by itself.
+  const isChiefOfStaff = selectedDept?.slug === "chief_of_staff";
+
   async function selectDept(slug: string) {
     setSelectedSlug(slug);
     setMobileShowThread(true);
@@ -474,6 +495,29 @@ export function AiAutomationChat() {
       // Silently handle errors
     }
     setSending(false);
+    // Refresh the sidebar preview so a delegated reply that landed in another
+    // department's chat shows up there too.
+    try {
+      const results: Record<string, { text: string; time: string }> = {};
+      for (const dept of DEPARTMENTS) {
+        const conv = await findDeptConversation(dept.slug);
+        if (conv) {
+          const msgs = await loadMessages(conv.id);
+          if (msgs.length > 0) {
+            const lastMsg = msgs[msgs.length - 1];
+            if (lastMsg) {
+              results[dept.slug] = {
+                text: lastMsg.content.slice(0, 80),
+                time: formatTime(lastMsg.created_at),
+              };
+            }
+          }
+        }
+      }
+      setLastMessages(results);
+    } catch {
+      // previews are best-effort
+    }
   }
 
   const filteredDepts = DEPARTMENTS.filter((d) =>
@@ -575,6 +619,7 @@ export function AiAutomationChat() {
             chatModel={chatModel}
             onModelChange={(v) => void changeChatModel(v)}
             savingModel={savingModel}
+            canDelegate={isChiefOfStaff}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center bg-gray-50">

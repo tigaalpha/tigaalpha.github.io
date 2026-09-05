@@ -11,6 +11,8 @@ import { createPayment, confirmPayment } from "./payments.ts";
 import { createLessonSummary } from "./lesson-summary.ts";
 import { push as linePush } from "./line.ts";
 import { executeMarketingTool } from "./marketing-tools.ts";
+import { CHIEF_OF_STAFF_SLUG, departmentBySlug, DEPARTMENTS } from "./departments.ts";
+import { CHIEF_OF_STAFF_SLUG, departmentBySlug, DEPARTMENTS } from "./departments.ts";
 
 // ISO (UTC) → Bangkok local time for display in messages, e.g. "17:00".
 function formatLessonTime(iso: string): string {
@@ -562,6 +564,21 @@ export function translateDbError(error: unknown): string {
  * model to call these tools against a completely different customer's
  * record (a prompt-injection-to-database-write path).
  */
+// Lazily-bound responder for delegate_to_department: chat-core.ts installs
+// its own respond() here at module load so tools.ts can deliver a Chief of
+// Staff directive into a target department's conversation without an import
+// cycle (respond -> executeTool -> respond). Other callers of executeTool
+// never hit it because only the CoS conversation is offered the tool.
+type DelegateResponder = (
+  db: SupabaseClient,
+  targetSlug: string,
+  directive: string
+) => Promise<Record<string, unknown>>;
+let delegateResponder: DelegateResponder | null = null;
+export function setDelegateResponder(fn: DelegateResponder): void {
+  delegateResponder = fn;
+}
+
 export async function executeTool(
   call: ToolCall,
   db: SupabaseClient,
@@ -1479,6 +1496,24 @@ export async function executeTool(
         .limit(50);
       if (aErr) throw aErr;
       return { approvals: approvals ?? [], count: (approvals ?? []).length };
+    }
+
+    case "delegate_to_department": {
+      // Chief of Staff command channel: deliver the directive into the target
+      // department's own conversation and have that department's agent answer
+      // it immediately (synchronously, so the CoS can quote the result back
+      // to the owner in the same turn). Refuse self/cos targets — delegation
+      // flows downward only (departments.ts).
+      const targetSlug = String(args.department ?? "");
+      const directive = String(args.directive ?? "").trim();
+      if (!directive) return { error: "คำสั่งว่างเปล่า — ระบุ directive ที่ชัดเจน" };
+      if (targetSlug === CHIEF_OF_STAFF_SLUG) return { error: "Chief of Staff ไม่สั่งงานตัวเองได้" };
+      const targetDept = departmentBySlug(targetSlug);
+      if (!targetDept) {
+        return { error: `ไม่พบแผนก "${targetSlug}" — แผนกที่มี: ${DEPARTMENTS.map((d) => d.slug).join(", ")}` };
+      }
+      if (!delegateResponder) return { error: "ระบบส่งงานยังไม่พร้อม ลองใหม่อีกครั้ง" };
+      return await delegateResponder(db, targetSlug, directive);
     }
 
     default: {
