@@ -24,7 +24,7 @@ export const STRATEGY_MODELS: StrategyModelDef[] = [
   { id: "gpt", label: "GPT (OpenAI)", envKey: "OPENROUTER_API_KEY" },
   { id: "grok", label: "Grok (xAI)", envKey: "OPENROUTER_API_KEY" },
   { id: "deepseek", label: "DeepSeek V4 Flash", envKey: "OPENROUTER_API_KEY" },
-  { id: "deepseek-v3-free", label: "DeepSeek V3", envKey: "OPENROUTER_API_KEY" },
+  { id: "deepseek-v3-free", label: "DeepSeek V3 (ฟรี)", envKey: "OPENROUTER_API_KEY" },
   { id: "kimi", label: "Kimi (Moonshot AI)", envKey: "OPENROUTER_API_KEY" },
   { id: "glm", label: "GLM (Zhipu / Z.ai)", envKey: "OPENROUTER_API_KEY" },
   { id: "mimo", label: "MiMo 7B RL (Xiaomi)", envKey: "OPENROUTER_API_KEY" },
@@ -36,7 +36,8 @@ const OPENROUTER_MODEL_SLUGS: Record<Exclude<StrategyModelId, "gemini">, { envVa
   gpt: { envVar: "OPENAI_STRATEGY_MODEL", slug: "openai/gpt-5.1" },
   grok: { envVar: "XAI_STRATEGY_MODEL", slug: "x-ai/grok-4" },
   deepseek: { envVar: "DEEPSEEK_STRATEGY_MODEL", slug: "deepseek/deepseek-v4-flash" },
-  "deepseek-v3-free": { envVar: "DEEPSEEK_V3_FREE_STRATEGY_MODEL", slug: "deepseek/deepseek-chat-v3-0324" },
+  // the :free route — no cost, rate-limited rather than billed
+  "deepseek-v3-free": { envVar: "DEEPSEEK_V3_FREE_STRATEGY_MODEL", slug: "deepseek/deepseek-chat-v3-0324:free" },
   kimi: { envVar: "MOONSHOT_STRATEGY_MODEL", slug: "moonshotai/kimi-k2" },
   glm: { envVar: "ZHIPU_STRATEGY_MODEL", slug: "z-ai/glm-4.6" },
   mimo: { envVar: "MIMO_STRATEGY_MODEL", slug: "xiaomi/mimo-7b-rl" },

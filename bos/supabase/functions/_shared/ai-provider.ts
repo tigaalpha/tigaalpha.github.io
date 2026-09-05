@@ -44,7 +44,7 @@ export const CHAT_MODELS: ChatModelDef[] = [
   { id: "glm52", label: "GLM 5.2", envKey: "OPENROUTER_API_KEY" },
   { id: "grok", label: "Grok", envKey: "OPENROUTER_API_KEY" },
   { id: "deepseek", label: "DeepSeek V4 Flash", envKey: "OPENROUTER_API_KEY" },
-  { id: "deepseek-v3-free", label: "DeepSeek V3 (128K)", envKey: "OPENROUTER_API_KEY" },
+  { id: "deepseek-v3-free", label: "DeepSeek V3 (ฟรี)", envKey: "OPENROUTER_API_KEY" },
   { id: "mimo", label: "MiMo 7B RL (Xiaomi)", envKey: "OPENROUTER_API_KEY" },
 ];
 
@@ -61,7 +61,12 @@ const OPENROUTER_MODEL_SLUGS: Record<Exclude<ChatModelId, "gemini">, { envVar: s
   glm52: { envVar: "ZHIPU_CHAT_MODEL_52", slug: "z-ai/glm-5.2" },
   grok: { envVar: "XAI_CHAT_MODEL", slug: "x-ai/grok-4" },
   deepseek: { envVar: "DEEPSEEK_CHAT_MODEL", slug: "deepseek/deepseek-v4-flash" },
-  "deepseek-v3-free": { envVar: "DEEPSEEK_V3_FREE_MODEL", slug: "deepseek/deepseek-chat-v3-0324" },
+  /* The :free suffix is what makes this cost nothing — the same model without
+     it is a normal paid route. OpenRouter rate-limits free routes rather than
+     billing them, so this is the model to pick when the answer matters less
+     than the bill. DEEPSEEK_V3_FREE_MODEL can repoint it without a redeploy
+     if the free route is ever withdrawn. */
+  "deepseek-v3-free": { envVar: "DEEPSEEK_V3_FREE_MODEL", slug: "deepseek/deepseek-chat-v3-0324:free" },
   mimo: { envVar: "MIMO_CHAT_MODEL", slug: "xiaomi/mimo-7b-rl" },
 };
 

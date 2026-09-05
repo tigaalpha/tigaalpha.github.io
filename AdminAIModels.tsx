@@ -27,6 +27,15 @@ export const AI_PROVIDERS = {
   openrouter: { icon: "🌐", label: "OpenRouter", models: [
     { id: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash" },
     { id: "deepseek/deepseek-v4-pro", label: "DeepSeek V4 Pro" },
+    /* The :free suffix is the whole point — the same model without it is a
+       normal paid route. OpenRouter rate-limits free routes instead of
+       billing them, which is why the edge function treats a 429 from one as
+       "move to the next provider" rather than an error worth showing a
+       learner: picking this as the default must never mean the chat stops
+       working when the free quota runs out for the hour. Offered under
+       OpenRouter only — DeepSeek's own API has no free tier, so a "free"
+       entry under DeepSeek (ตรง) would be a lie. */
+    { id: "deepseek/deepseek-chat-v3-0324:free", label: "DeepSeek V3 (ฟรี · ไม่มีค่าใช้จ่าย)" },
   ]},
   elevenlabs: { icon: "🎙️", label: "ElevenLabs", models: [
     { id: "eleven_v3", label: "Eleven v3 (ภาษาไทยดีที่สุด)" },

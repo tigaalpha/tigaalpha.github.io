@@ -58,10 +58,16 @@
 //   ANTHROPIC_API_KEY   — required for Anthropic (the default).
 //   GEMINI_API_KEY      — for Gemini options. https://aistudio.google.com/apikey
 //   DEEPSEEK_API_KEY    — for DeepSeek V4 options (direct API). https://platform.deepseek.com
-//   OPENROUTER_API_KEY  — for DeepSeek V4 via OpenRouter (flat price, no peak
+//   OPENROUTER_API_KEY  — for DeepSeek via OpenRouter (flat price, no peak
 //                         surcharge, often 2-6x cheaper than direct — the
 //                         admin "AI Models" panel can route any chat-type
-//                         feature to either). https://openrouter.ai/keys
+//                         feature to either), and for the FREE V3 route
+//                         "deepseek/deepseek-chat-v3-0324:free", which costs
+//                         nothing at all and is rate-limited rather than
+//                         billed. A 429 from any :free route falls through to
+//                         the next configured provider instead of failing the
+//                         learner, so it is safe to select as a default.
+//                         https://openrouter.ai/keys
 //   SUPABASE_URL / SUPABASE_ANON_KEY — auto-injected by the Supabase
 //                         runtime for every edge function, nothing to set.
 
@@ -130,6 +136,18 @@ function nextProvidersWithKey(exclude: string): string[] {
 // so the admin actually notices them.
 function isAuthError(msg: string): boolean {
   return /(401|403|unauthorized|authentication|invalid api key|not authorized|permission denied|api key|credential)/i.test(msg);
+}
+/* ── free routes are rate-limited, not billed ──
+   OpenRouter's ":free" models answer 429 once the hour's free quota is spent.
+   For a PAID model a 429 is a real problem the admin should see, which is why
+   quota errors normally surface as-is. For a free one it is the expected
+   steady state, and the whole appeal of picking it — no cost — evaporates if
+   choosing it means the chat dies whenever the quota runs out. So a 429 from
+   a free route is treated exactly like an auth failure: move quietly to the
+   next configured provider and answer the learner. */
+const isFreeRoute = (model: string) => /:free$/i.test(model || "");
+function isRateLimit(msg: string): boolean {
+  return /(429|rate.?limit|too many requests|quota)/i.test(msg);
 }
 function effectiveDefault(): { provider: string; model: string } {
   return effective(DEFAULT_MODEL);
@@ -441,7 +459,7 @@ function mkStream(p: string, m: string, system: string, full: ChatMsg[]): AsyncG
 // Streaming with auth fallback: a 401/403 on the FIRST token switches to the
 // next provider with a configured key; a mid-stream failure is never spliced
 // across providers (would corrupt the partial reply already sent).
-async function* withAuthFallback(entries: Array<{ provider: string; gen: AsyncGenerator<string> }>): AsyncGenerator<string> {
+async function* withAuthFallback(entries: Array<{ provider: string; model?: string; gen: AsyncGenerator<string> }>): AsyncGenerator<string> {
   for (let i = 0; i < entries.length; i++) {
     let yielded = false;
     try {
@@ -450,8 +468,9 @@ async function* withAuthFallback(entries: Array<{ provider: string; gen: AsyncGe
     } catch (e) {
       if (yielded) throw e;
       const msg = (e as Error)?.message || "";
-      if (isAuthError(msg) && i < entries.length - 1) {
-        console.error(`[piano-chat] ${entries[i].provider} auth failed (${msg.slice(0, 120)}), falling back to ${entries[i + 1].provider}`);
+      const freeExhausted = isFreeRoute(entries[i].model || "") && isRateLimit(msg);
+      if ((isAuthError(msg) || freeExhausted) && i < entries.length - 1) {
+        console.error(`[piano-chat] ${entries[i].provider} ${freeExhausted ? "free quota spent" : "auth failed"} (${msg.slice(0, 120)}), falling back to ${entries[i + 1].provider}`);
         continue;
       }
       throw e;
@@ -472,8 +491,10 @@ async function callWithAuthFallback(provider: string, model: string, system: str
         : await callAnthropicOnce(c.model, system, full);
     } catch (e) {
       const msg = (e as Error)?.message || "";
-      if (isAuthError(msg) && i < chain.length - 1) {
-        console.error(`[piano-chat] ${c.provider} auth failed (${msg.slice(0, 120)}), falling back to ${chain[i + 1].provider}`);
+      // same rule as the streaming path: a spent free quota is not an error
+      const freeExhausted = isFreeRoute(c.model) && isRateLimit(msg);
+      if ((isAuthError(msg) || freeExhausted) && i < chain.length - 1) {
+        console.error(`[piano-chat] ${c.provider} ${freeExhausted ? "free quota spent" : "auth failed"} (${msg.slice(0, 120)}), falling back to ${chain[i + 1].provider}`);
         continue;
       }
       throw e;
@@ -518,7 +539,7 @@ Deno.serve(async (req: Request) => {
     // Chain: the admin's choice first, then every provider with a configured
     // key — a 401/403 on the first token hops down the chain automatically.
     const chain = [{ provider, model }, ...nextProvidersWithKey(provider).map((p) => ({ provider: p, model: defaultModelFor(p) }))];
-    const gen = withAuthFallback(chain.map((c) => ({ provider: c.provider, gen: mkStream(c.provider, c.model, system, full) })));
+    const gen = withAuthFallback(chain.map((c) => ({ provider: c.provider, model: c.model, gen: mkStream(c.provider, c.model, system, full) })));
 
     const stream = new ReadableStream({
       async start(controller) {

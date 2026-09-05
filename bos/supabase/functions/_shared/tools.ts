@@ -388,7 +388,7 @@ export const OWNER_TOOLS: ToolDefinition[] = [
         },
         topic: { type: "string", description: "Topic or subject for the content. If not specified, AI picks a relevant topic about TIGA/piano/music." },
         language: { type: "string", enum: ["th", "en", "zh"], description: "Language for the content (th=Thai, en=English, zh=Chinese)." },
-        model: { type: "string", description: "AI model to use (gemini, claude, gpt, qwen, kimi, glm, grok, deepseek)." },
+        model: { type: "string", description: "AI model to use (gemini, claude, gpt, qwen, kimi, glm, grok, deepseek, deepseek-v3-free). deepseek-v3-free costs nothing." },
       },
       required: ["contentType"],
     },
@@ -402,7 +402,7 @@ export const OWNER_TOOLS: ToolDefinition[] = [
       properties: {
         article: { type: "string", description: "The full article text to analyze and generate images from." },
         sceneCount: { type: "number", description: "Number of scenes to break the article into (2-10). Default 4." },
-        model: { type: "string", description: "AI model to use (gemini, claude, gpt, qwen, kimi, glm, grok, deepseek)." },
+        model: { type: "string", description: "AI model to use (gemini, claude, gpt, qwen, kimi, glm, grok, deepseek, deepseek-v3-free). deepseek-v3-free costs nothing." },
       },
       required: ["article"],
     },

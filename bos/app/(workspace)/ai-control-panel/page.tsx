@@ -41,6 +41,7 @@ const AI_MODELS = [
   { id: "claude", label: "Claude Sonnet 5", provider: "Anthropic", status: "connected", tier: "Smart/Paid", color: "bg-purple-500" },
   { id: "gpt", label: "ChatGPT 5.1", provider: "OpenAI", status: "connected", tier: "Smart/Paid", color: "bg-teal-500" },
   { id: "deepseek", label: "DeepSeek V4 Flash", provider: "DeepSeek", status: "connected", tier: "Smart/Cheap", color: "bg-indigo-500" },
+  { id: "deepseek-v3-free", label: "DeepSeek V3 (ฟรี)", provider: "DeepSeek", status: "active", tier: "Fast/Free", color: "bg-cyan-500" },
   { id: "qwen", label: "Qwen3 Max", provider: "Alibaba", status: "connected", tier: "Smart/Paid", color: "bg-orange-500" },
   { id: "kimi", label: "Kimi K2", provider: "Moonshot", status: "connected", tier: "Smart/Paid", color: "bg-pink-500" },
   { id: "glm", label: "GLM 5.1", provider: "Zhipu", status: "connected", tier: "Smart/Paid", color: "bg-red-500" },
