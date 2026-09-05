@@ -2834,6 +2834,15 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .pet-coins{flex:none;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);min-width:34px;text-align:right}
 .pet-intro{font-size:12.5px;line-height:1.6;color:var(--text2);margin:12px 13px}
 
+/* the shelf splits cute from cool, because thirty-two eggs on one page is a
+   wall and nobody browses a wall */
+.pet-looks{display:flex;gap:7px;justify-content:center;padding:0 13px 10px}
+.pet-look{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--bd4);background:var(--card);color:var(--muted);
+  font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;letter-spacing:.3px}
+.pet-look em{font-style:normal;font-family:'Share Tech Mono',monospace;font-size:9.5px;opacity:.65;font-variant-numeric:tabular-nums}
+.pet-look.on{color:var(--text);border-color:#7fd7ff88;background:color-mix(in srgb,#7fd7ff 12%,var(--card));
+  box-shadow:0 0 0 1px #7fd7ff33 inset}
 .pet-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px;padding:0 13px}
 .pet-card{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 6px 7px;border:1px solid var(--bd4);border-radius:14px;background:var(--card);color:var(--text);cursor:pointer}
 .pet-card:hover{border-color:var(--bd5)}
