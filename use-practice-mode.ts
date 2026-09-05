@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import {
   fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP,
   getAC, playPianoNote, playUi, stopPracticeListeners, startMidiListener, startMicListener,
+  DUP_WINDOW_MS,
 } from "./music-engine";
 import { EARN, takeEarn, logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
 import { logActivity } from "./shared-infra";
@@ -104,6 +105,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceStageIdRef = useRef(null); // Pathway stage id this drill grades, if launched from learnTopic() — null for Studio/AI-custom drills
   const practiceBossGroupRef = useRef(null); // Pathway group id, if this is a Group Boss Challenge run — see startBossChallenge()
   const practiceHandlerRef = useRef(() => {});
+  const lastInputRef = useRef(null);   // for the cross-source de-duplication below
   const practiceHeardTimer = useRef(null);
   const tuneOffsetRef = useRef(0); // learned piano tuning offset (cents), mic only
 
@@ -159,6 +161,21 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (!practiceActiveRef.current) return;
     // accept legacy string calls too, just in case
     if (typeof d === "string") d = { note: d, freq: null };
+    /* ── one press, one credit ──
+       With MIDI and the microphone both live, a single key press can arrive
+       twice: the mic hears the MIDI instrument, or hears the app's own synth
+       playing the note back. Same pitch class, DIFFERENT source, inside
+       140ms = one press heard twice. Two presses of the same note that far
+       apart is not something a human does on purpose, and a repeat from the
+       SAME source is always honoured, so nothing real is ever dropped. */
+    if (d.note) {
+      const pc = pcOf(d.note);
+      const src = d.source || "screen";
+      const last = lastInputRef.current;
+      const now = Date.now();
+      if (last && last.pc === pc && last.src !== src && now - last.t < DUP_WINDOW_MS) return;
+      lastInputRef.current = { pc, src, t: now };
+    }
     // Polyphonic mic detection reports everything it heard in one strike as
     // d.notes. In BLOCK practice that batch is the whole point: the learner is
     // being asked to strike the chord's notes TOGETHER, so a genuine attempt
@@ -269,14 +286,30 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   // that starts a drill is guaranteed a live listener, instead of relying on
   // each caller to remember to reacquire one itself — see restartPractice()'s
   // header for the bug this fixes.
+  /* ── every input, all the time ──
+     This used to be an either/or: if a MIDI device answered, the microphone
+     was never started at all. That is wrong for the way people actually
+     practise — a learner with a MIDI controller plugged into the tablet may
+     still be sitting at an acoustic piano, and a learner with neither still
+     has the on-screen keys. All three routes are live simultaneously now
+     (screen taps never went through here at all — they call the handler
+     directly — but they were the ones being blamed for the other two).
+     `dedupe` below is what makes running both listeners safe. */
   async function acquireListener(usePoly) {
     stopPracticeListeners();
     setPracticeSrc(null);
     const onDetect = (d) => practiceHandlerRef.current(d);
-    const midiOk = await startMidiListener(onDetect, () => setPracticeSrc({ type: "midi" }));
-    if (!midiOk) {
-      await startMicListener(onDetect, () => setPracticeSrc({ type: "mic" }), () => setPracticeSrc({ type: "error" }), usePoly ? { poly: true } : undefined);
-    }
+    const srcs = [];
+    const midiOk = await startMidiListener(onDetect, () => {
+      srcs.push("midi"); setPracticeSrc({ type: "midi", all: srcs.slice() });
+    });
+    // started whether or not MIDI answered
+    await startMicListener(
+      onDetect,
+      () => { srcs.push("mic"); setPracticeSrc({ type: midiOk ? "midi" : "mic", all: srcs.slice() }); },
+      () => { if (!midiOk) setPracticeSrc({ type: "error" }); },
+      usePoly ? { poly: true } : undefined
+    );
   }
 
   // chordStyleOverride: replayDrill() below needs to grade against the style

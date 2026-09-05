@@ -1013,6 +1013,13 @@ export const PITCH_TOL_CENTS = 95;   // wide slack (~0.95 semitone) so out-of-tu
 export const TUNE_OFFSET_CAP = 45;   // follow pianos that sit consistently flat/sharp up to ±45 cents
 
 export let _practiceStop = { midi: null, mic: null };
+/* Both listeners now run TOGETHER (see acquireListener), which means one
+   physical press can be reported twice: a MIDI keyboard's own speaker, or the
+   app's synth playing the note back, is audible to the microphone. A pitch
+   class that arrives twice from DIFFERENT sources inside this window is the
+   same press heard twice, not two presses — 140ms is far shorter than any
+   deliberate repeat of the same note, so nothing real is ever swallowed. */
+export const DUP_WINDOW_MS = 140;
 export async function startMidiListener(onDetect, onReady) {
   if (!navigator.requestMIDIAccess) return false;
   try {
@@ -1031,7 +1038,11 @@ export async function startMidiListener(onDetect, onReady) {
     };
     attach();
     access.onstatechange = attach;
-    if (!count) { access.onstatechange = null; return false; } // no device → fall back to mic
+    // No device attached: report failure so the caller knows there is no MIDI,
+    // but the caller now starts the microphone REGARDLESS of this answer —
+    // a learner with a MIDI controller plugged in may still be playing an
+    // acoustic piano, and the old either/or silently switched one of them off.
+    if (!count) { access.onstatechange = null; return false; }
     if (onReady) onReady();
     _practiceStop.midi = () => {
       try { for (const inp of access.inputs.values()) inp.onmidimessage = null; access.onstatechange = null; } catch (e) {}
@@ -1982,7 +1993,14 @@ function usePianoKeys(onNote) {
   };
   const onKeyPointerDown = (e, note) => {
     e.preventDefault();
-    if (activeRef.current.has(e.pointerId)) return; // defensive, shouldn't happen
+    /* A pointer whose release happened OFF the keyboard (finger slid past the
+       edge, the browser cancelled the gesture, a scroll took over) never fired
+       onPointerUp on any key, so its entry stayed in activeRef forever. This
+       used to `return` on that — and because touch pointerIds are recycled on
+       Android, the next press that happened to reuse that id was silently
+       swallowed. That is the "sometimes the on-screen keys just do nothing"
+       bug. Recover from the stale entry instead of being defeated by it. */
+    if (activeRef.current.has(e.pointerId)) endNote(e.pointerId);
     const handle = startPianoNote(note, velocityFromPointer(e));
     activeRef.current.set(e.pointerId, { note, handle });
     haptic();
@@ -1990,6 +2008,20 @@ function usePianoKeys(onNote) {
     setHeld(prev => { const n = new Set(prev); n.add(note); return n; });
     flashNote(note);
   };
+  /* The safety net for the above: the window hears every release and cancel,
+     including the ones that happen outside the keyboard entirely. Deliberately
+     NOT setPointerCapture — capturing would pin every later event to the key
+     first touched, which is exactly what glissando must not do. */
+  useEffect(() => {
+    const release = (e) => endNote(e.pointerId);
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    return () => {
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+    };
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+
   const onKeyPointerMove = (e, note) => {
     const entry = activeRef.current.get(e.pointerId);
     if (!entry || note === entry.note) return;

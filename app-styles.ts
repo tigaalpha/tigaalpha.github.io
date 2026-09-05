@@ -1131,8 +1131,24 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpvs i{font-style:normal;font-size:8.5px;letter-spacing:.08em;opacity:.75}
 @keyframes pvpclockLow{from{transform:scale(1)}to{transform:scale(1.14)}}
 /* the fighters stand ON the floor grid, so they are anchored to its baseline */
-.pvpfighter{position:absolute;bottom:16px;width:44%;height:210px;z-index:3;display:flex;align-items:flex-end;justify-content:center;transition:transform .22s cubic-bezier(.34,1.4,.5,1)}
-.pvpfighter svg{display:block;height:206px;width:auto;filter:drop-shadow(0 14px 12px rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(120,170,255,.14))}
+/* ── why the fighter is two elements ──
+   Walking used to be driven by the CSS left property, which forces LAYOUT:
+   every 60ms
+   tick asked the browser to re-lay-out a subtree holding about a thousand SVG
+   paths, twice, which is most of where the stutter on a cheap phone came from.
+   The outer element now only translates — a compositor-only operation that
+   never touches layout — and carries no transition, so a step is instant.
+   Everything that squashes, lunges, recoils or poses lives on the inner
+   element, which does have a transition and can animate freely without ever
+   fighting the walk for the same property. */
+.pvpfighter{position:absolute;bottom:var(--pvpfloor,6px);width:44%;height:210px;z-index:3;
+  will-change:transform;contain:layout paint}
+.pvpfighter-in{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;
+  transition:transform .22s cubic-bezier(.34,1.4,.5,1)}
+/* ONE drop-shadow, not two: each one rasterises the entire path subtree, and
+   the second (a faint blue bloom) was costing a full extra pass for something
+   almost nobody could see. */
+.pvpfighter svg{display:block;height:206px;width:auto;filter:drop-shadow(0 12px 11px rgba(0,0,0,.62))}
 /* the contact shadow, lying ON the floor plane rather than under the sprite:
    an ellipse squashed to the same rake as the grid is what stops a figure
    floating a centimetre above the stage */
@@ -1141,10 +1157,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpfighter.op{filter:brightness(.94) saturate(.96)}
 .pvpfighter.me{left:6%}
 .pvpfighter.op{right:6%}
-.pvpfighter.me.lunge{transform:translateX(38%) scale(1.06)}
-.pvpfighter.op.lunge{transform:translateX(-38%) scale(1.06)}
-.pvpfighter.me.knock{transform:translateX(-9%) rotate(-4deg)}
-.pvpfighter.op.knock{transform:translateX(9%) rotate(4deg)}
+.pvpfighter.me.lunge .pvpfighter-in{transform:translateX(38%) scale(1.06)}
+.pvpfighter.op.lunge .pvpfighter-in{transform:translateX(-38%) scale(1.06)}
+.pvpfighter.me.knock .pvpfighter-in{transform:translateX(-9%) rotate(-4deg)}
+.pvpfighter.op.knock .pvpfighter-in{transform:translateX(9%) rotate(4deg)}
 .pvpflash{position:absolute;left:50%;top:14%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:17px;font-weight:800;pointer-events:none;animation:pvpfl .9s ease-out forwards;white-space:nowrap;text-shadow:0 0 14px currentColor,0 2px 5px #000;z-index:7}
 .pvpflash.dmg{color:#ff7a5f}
 .pvpflash.heal{color:#5ce8a8}
@@ -1152,7 +1168,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpflash.block,.pvpflash.miss{color:#7ec4ff;font-size:12px}
 .pvpflash.buff{color:#c9a6ff;font-size:11px}
 @keyframes pvpfl{0%{opacity:0;transform:translate(-50%,10px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-30px)}}
-@media (prefers-reduced-motion:reduce){.pvpstage.sh1,.pvpstage.sh2,.pvpstage.sh3{animation:none}.pvpfighter{transition:none}.pvpfighter.me.lunge,.pvpfighter.op.lunge,.pvpfighter.me.knock,.pvpfighter.op.knock{transform:none}}
+@media (prefers-reduced-motion:reduce){.pvpstage.sh1,.pvpstage.sh2,.pvpstage.sh3{animation:none}.pvpfighter-in{transition:none}.pvpfighter.me.lunge .pvpfighter-in,.pvpfighter.op.lunge .pvpfighter-in,.pvpfighter.me.knock .pvpfighter-in,.pvpfighter.op.knock .pvpfighter-in{transform:none}}
 .pvpuntimed{max-width:520px;margin:12px auto 0;padding:0 15px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.3px;color:var(--muted)}
 .pvpq{max-width:520px;margin:8px auto 0;padding:0 15px;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;line-height:1.4;color:var(--text);text-align:center;text-wrap:balance}
 /* ── the shot clock ──
@@ -1453,6 +1469,13 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
   background:linear-gradient(90deg,#ff2d55,#ffd23f);color:#1a0d06;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:800;letter-spacing:.06em;
   animation:pvpsuddenpulse 1s ease-in-out infinite}
 @keyframes pvpsuddenpulse{0%,100%{opacity:.86;transform:scale(1)}50%{opacity:1;transform:scale(1.02)}}
+/* the opponent's super gauge, under its health bar — thin, and it burns when
+   it is full, because that is the moment the player has to react to */
+.pvpbotgauge{height:3px;margin-top:3px;border-radius:2px;background:#ffffff1f;overflow:hidden}
+.pvpbotgauge i{display:block;height:100%;border-radius:2px;background:#ff7a3c;transition:width .2s linear}
+.pvpbotgauge.full i{background:linear-gradient(90deg,#ff2d55,#ffd23f);animation:pvpbotgfull .45s ease-in-out infinite alternate}
+@keyframes pvpbotgfull{from{opacity:.6}to{opacity:1}}
+
 /* ══════════ round two: hitstop, the corner, the guard meter ══════════ */
 
 /* HITSTOP. The frame the blow lands, the whole stage holds: a hard punch of
@@ -1512,11 +1535,14 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 /* the finisher hold: the loser desaturates and drops back, the winner gets
    the light — a beat of stillness before the result screen instead of the
    fight just quietly ending */
-.pvpstage.finisher .pvpfighter{transition:filter .5s ease,transform .5s ease,opacity .5s ease}
+.pvpstage.finisher .pvpfighter{transition:filter .5s ease,opacity .5s ease}
+.pvpstage.finisher .pvpfighter-in{transition:transform .5s ease}
 .pvpstage.finisher.win .pvpfighter.op{filter:grayscale(.7) brightness(.55)}
-.pvpstage.finisher.win .pvpfighter.me{filter:drop-shadow(0 0 22px #ffd23f) brightness(1.12);transform:scale(1.06)}
+.pvpstage.finisher.win .pvpfighter.me{filter:drop-shadow(0 0 22px #ffd23f) brightness(1.12)}
+.pvpstage.finisher.win .pvpfighter.me .pvpfighter-in{transform:scale(1.06)}
 .pvpstage.finisher.lose .pvpfighter.me{filter:grayscale(.7) brightness(.55)}
-.pvpstage.finisher.lose .pvpfighter.op{filter:drop-shadow(0 0 22px #ff4d6a) brightness(1.12);transform:scale(1.06)}
+.pvpstage.finisher.lose .pvpfighter.op{filter:drop-shadow(0 0 22px #ff4d6a) brightness(1.12)}
+.pvpstage.finisher.lose .pvpfighter.op .pvpfighter-in{transform:scale(1.06)}
 /* ── the announcer ──
    Every call the cabinet makes, in the one place the eye is already looking.
    Each kind gets its own colour so ROUND 2 and K.O. never read the same. */

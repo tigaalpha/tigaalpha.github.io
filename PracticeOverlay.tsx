@@ -131,12 +131,20 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
             </div>
           )}
           <div className="practicebody">
+            {/* Every route that is actually live, not just the first one that
+                answered. MIDI, the microphone and the on-screen keys all feed
+                the same handler at the same time, so the badge lists them —
+                a learner who can see "keyboard + mic + screen" knows the tap
+                they just made was heard, rather than guessing. */}
             <div className={`practicesrc${practiceSrc && practiceSrc.type === "error" ? " err" : ""}`}>
-              {!practiceSrc ? "…"
-                : practiceSrc.type === "midi" ? lc.practiceMidi
-                : practiceSrc.type === "mic"
-                  ? (practiceTune != null ? `${lc.practiceMic} · 🎚 ${practiceTune > 0 ? "+" : ""}${practiceTune}¢` : lc.practiceMic)
-                : lc.practiceMicErr}
+              {!practiceSrc ? "…" : practiceSrc.type === "error" ? lc.practiceMicErr : (() => {
+                const all = practiceSrc.all || [practiceSrc.type];
+                const parts = [];
+                if (all.includes("midi")) parts.push(lc.practiceMidi);
+                if (all.includes("mic")) parts.push(practiceTune != null ? `${lc.practiceMic} · 🎚 ${practiceTune > 0 ? "+" : ""}${practiceTune}¢` : lc.practiceMic);
+                parts.push("👆");
+                return parts.join(" + ");
+              })()}
             </div>
 
             {/* hand picker — finger numbers update to the correct hand */}

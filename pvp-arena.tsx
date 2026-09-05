@@ -599,18 +599,48 @@ const pickMove = (clsKey) => {
    dmgK (the bot's real damage multiplier - acc is cosmetic, see startFight)
    and BOT_GAP below (its attack cadence) are what actually makes a tier
    harder, so both climb together rather than acc alone doing the work. */
+/* ── the difficulty curve ──
+   The old dmgK ran .70 → 1.90, which is not a curve, it is a gentle ramp: the
+   hardest bot in the game hit less than three times as hard as the easiest
+   one, and with the bigger HP pools below that made the top of the ladder a
+   longer version of the middle rather than a different game. It is a real
+   curve now — the bottom four are barely touched (a beginner should still be
+   able to finish a fight), and everything from `ace` up climbs steeply. Read
+   alongside HP_POOL below: low tiers got *safer*, the top got much worse.
+
+   `traits` is the other half, and the more interesting one. Numbers alone
+   make a bot that kills you faster; traits make a bot you have to play
+   differently. Each one unlocks at the tier where the player should have
+   learned the answer to it. */
 const BOT_TIERS = [
-  { key: "novice",   acc: .35, dmgK: .70, th: "โหมดง่ายมาก",     en: "Very Easy Mode",   zh: "超简单模式", coins: 25,  xp: 8,   sp: 16 },
-  { key: "rookie",   acc: .45, dmgK: .85, th: "โหมดง่าย",       en: "Easy Mode",        zh: "简单模式",   coins: 40,  xp: 12,  sp: 24 },
-  { key: "cadet",    acc: .54, dmgK: .93, th: "โหมดค่อนข้างง่าย", en: "Fairly Easy Mode", zh: "较简单模式", coins: 60,  xp: 18,  sp: 34 },
-  { key: "veteran",  acc: .62, dmgK: 1,   th: "โหมดปานกลาง",    en: "Medium Mode",      zh: "中等模式",   coins: 90,  xp: 25,  sp: 48 },
-  { key: "ranger",   acc: .70, dmgK: 1.10, th: "โหมดค่อนข้างยาก", en: "Fairly Hard Mode", zh: "较困难模式", coins: 125, xp: 34,  sp: 66 },
-  { key: "ace",      acc: .78, dmgK: 1.2, th: "โหมดยาก",       en: "Hard Mode",        zh: "困难模式",   coins: 180, xp: 45,  sp: 90 },
-  { key: "elite",    acc: .85, dmgK: 1.35, th: "โหมดยากมาก",    en: "Very Hard Mode",   zh: "超困难模式", coins: 235, xp: 58,  sp: 118 },
-  { key: "warlord",  acc: .90, dmgK: 1.50, th: "โหมดโหด",       en: "Brutal Mode",      zh: "残暴模式",   coins: 300, xp: 72,  sp: 150 },
-  { key: "overlord", acc: .94, dmgK: 1.68, th: "โหมดโหดมาก",    en: "Extreme Mode",     zh: "极限模式",   coins: 380, xp: 90,  sp: 190 },
-  { key: "legend",   acc: .97, dmgK: 1.90, th: "โหมดนรก",       en: "Hell Mode",        zh: "地狱模式",   coins: 480, xp: 112, sp: 240 },
+  { key: "novice",   acc: .35, hpK: 0.72, dmgK: .70, th: "โหมดง่ายมาก",     en: "Very Easy Mode",   zh: "超简单模式", coins: 25,  xp: 8,   sp: 16 },
+  { key: "rookie",   acc: .45, hpK: 0.8, dmgK: .86, th: "โหมดง่าย",       en: "Easy Mode",        zh: "简单模式",   coins: 40,  xp: 12,  sp: 24 },
+  { key: "cadet",    acc: .54, hpK: 0.88, dmgK: 1.00, th: "โหมดค่อนข้างง่าย", en: "Fairly Easy Mode", zh: "较简单模式", coins: 60,  xp: 18,  sp: 34 },
+  { key: "veteran",  acc: .62, hpK: 1.0, dmgK: 1.18, th: "โหมดปานกลาง",    en: "Medium Mode",      zh: "中等模式",   coins: 90,  xp: 25,  sp: 48,
+    traits: ["special"] },
+  { key: "ranger",   acc: .70, hpK: 1.08, dmgK: 1.40, th: "โหมดค่อนข้างยาก", en: "Fairly Hard Mode", zh: "较困难模式", coins: 125, xp: 34,  sp: 66,
+    traits: ["special"] },
+  { key: "ace",      acc: .78, hpK: 1.16, dmgK: 1.68, th: "โหมดยาก",       en: "Hard Mode",        zh: "困难模式",   coins: 180, xp: 45,  sp: 90,
+    traits: ["special", "chain"] },
+  { key: "elite",    acc: .85, hpK: 1.24, dmgK: 2.05, th: "โหมดยากมาก",    en: "Very Hard Mode",   zh: "超困难模式", coins: 235, xp: 58,  sp: 118,
+    traits: ["special", "chain", "super"] },
+  { key: "warlord",  acc: .90, hpK: 1.32, dmgK: 2.50, th: "โหมดโหด",       en: "Brutal Mode",      zh: "残暴模式",   coins: 300, xp: 72,  sp: 150,
+    traits: ["special", "chain", "super", "wakeup"] },
+  { key: "overlord", acc: .94, hpK: 1.42, dmgK: 3.05, th: "โหมดโหดมาก",    en: "Extreme Mode",     zh: "极限模式",   coins: 380, xp: 90,  sp: 190,
+    traits: ["special", "chain", "super", "wakeup", "whiffpunish"] },
+  { key: "legend",   acc: .97, hpK: 1.55, dmgK: 3.80, th: "โหมดนรก",       en: "Hell Mode",        zh: "地狱模式",   coins: 480, xp: 112, sp: 240,
+    traits: ["special", "chain", "super", "wakeup", "whiffpunish", "readinput"] },
 ];
+/** Does this fight's opponent have a given high-tier trait? */
+const hasTrait = (tier, k) => !!(tier && tier.traits && tier.traits.indexOf(k) >= 0);
+const TRAIT_TEXT = {
+  special:     { th: "มีท่าไม้ตายของตัวเอง", en: "Has its own special moves", zh: "拥有自己的必杀技" },
+  chain:       { th: "ต่อคอมโบได้",          en: "Chains attacks",            zh: "能接连段" },
+  super:       { th: "มีท่าไม้ตายสูงสุด",    en: "Has an ultimate",           zh: "拥有终极技" },
+  wakeup:      { th: "ลุกขึ้นมาพร้อมเกราะ",  en: "Wake-up armor",             zh: "起身霸体" },
+  whiffpunish: { th: "สวนทันทีเมื่อคุณพลาด", en: "Punishes every whiff",      zh: "必惩罚落空" },
+  readinput:   { th: "อ่านท่าไม้ตายของคุณออก", en: "Reads your specials",     zh: "看穿你的必杀技" },
+};
 const ROUNDS = 12;
 
 /* A friend has a chassis we cannot read from here, so derive a stable one from
@@ -1634,7 +1664,16 @@ export const PvpPage = memo(function PvpPage({
    a round used to take — the difference is that it now asks eight times rather
    than four. The question itself stays untimed; the fifteen seconds is the gap
    between questions, not a shot clock on your thinking. */
-const ASK_EVERY = 15000;
+/* ── the wave budget has to cover the fight ──
+   These two numbers and ROUND_TIME are one system, and deepening the HP pools
+   broke the relationship between them: at 15s a match ran out of questions
+   after 120 seconds while three 60-second rounds need closer to 170, so the
+   match ended on the quiz clock and was decided by an HP percentage instead
+   of by rounds won — which quietly bypassed the whole best-of-three. Twenty
+   seconds keeps the same EIGHT questions (the quiz is not the thing being
+   made harder) and spreads them across the longer fight, which also means
+   one fewer interruption per round. */
+const ASK_EVERY = 20000;
 const ASK_ROUNDS = 8;
 const WAVES = Array.from({ length: ASK_ROUNDS }, () => ASK_EVERY);
 const GUARD_MS = 900, GUARD_CD = 2400;
@@ -1669,8 +1708,18 @@ const MOTION_WINDOW = 720;        // how long a direction stays live in the buff
 const SPECIAL_COST = 18;          // gauge per special move
 const ROUND_INTRO_MS = 1150, FIGHT_CALL_MS = 800, ROUND_END_MS = 1700;
 // a round has a clock, the way every cabinet round does, and running it out
-// hands the round to whoever is further ahead rather than stalling forever
-const ROUND_TIME = 45000;
+// hands the round to whoever is further ahead rather than stalling forever.
+// Sixty seconds rather than forty-five, because the pools below are half
+// again as deep and a fight that is decided by the bell is not a fight.
+const ROUND_TIME = 55000;
+
+/* ── how much fight is in a fighter ──
+   The pools were shallow enough that a round could be over in three good
+   exchanges, which is why the whole ladder read as "tap fast, win" — there
+   was never room to lose an exchange and come back from it. Half again as
+   deep, on both sides, so a round is an argument rather than a race. Every
+   damage constant in the file is set against this number. */
+const HP_POOL = 7.5;
 
 /* ══════════ round two: the rules a cabinet has and this did not ══════════
 
@@ -1864,6 +1913,27 @@ function specialsOf(clsKey) {
   return MOTION_SLOTS.map((slot, i) => ({ ...slot, ...defs[i], fx: defs[i].fx || {} }));
 }
 
+/* ── the bot's own moveset ──
+   Until now every special move in the game belonged to the player: the bot
+   had four buttons and the player had four buttons plus three specials plus
+   an ultimate, which is most of why the top of the ladder felt like a slow
+   novice. These are the bot's. They telegraph for half again as long as a
+   normal attack — they are supposed to be blockable — but they hurt, and at
+   the top tiers they come out often enough that "just walk in and swing" is
+   no longer a plan. Shape-compatible with ACT so the landing code does not
+   have to care which kind of attack it just resolved. */
+const BOT_SPECIALS = [
+  { key: "bslam",  dmg: 3.4, range: 0.38, move: "punch",   th: "ทุบพื้น",     en: "Ground Slam",  zh: "震地击" },
+  { key: "bsweep", dmg: 3.0, range: 0.42, move: "kick",    th: "กวาดขา",     en: "Wide Sweep",   zh: "横扫腿" },
+  { key: "bbeam",  dmg: 2.8, range: 9,    move: "laser",   th: "ลำแสงเจาะ",  en: "Pierce Beam",  zh: "穿透光束" },
+  { key: "bdive",  dmg: 3.8, range: 0.34, move: "kick",    th: "พุ่งทะลวง",  en: "Dive Rush",    zh: "突进踢" },
+];
+const BOT_SP_CD = 5200;          // between specials
+const BOT_SP_CHANCE = 0.26;      // when in range, off cooldown
+const BOT_CHAIN_CHANCE = 0.42;   // "chain" tier: a second hit off the first
+const BOT_SUPER_AT = 100;        // the bot's own gauge
+const BOT_WAKEUP_MS = 380;       // "wakeup" tier: armor coming out of hitstun
+
 /* ── comeback, tutorial, sudden death ──
    Three small rules that used to make a losing fight feel like a foregone
    conclusion: no reason to keep tapping once you were behind, no one ever
@@ -1936,7 +2006,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      a match is up to three of them plus the quiz breaks — about the two
      minutes the fight always took, just shaped like a fighting game now.
      Both damage constants are set against this pool, not the old one. */
-  const MY_MAX = A.maxHp * 5 * (SFX.hpMax || 1), OP_MAX = B.maxHp * 5 * (SFX.hpMax || 1);
+  /* The player's pool is the same in every fight; the OPPONENT's is not.
+     Deepening both equally made the easy tiers long rather than easy — a
+     beginner spent three minutes sawing through a bot that could not hurt
+     them, which is boredom, not difficulty. A novice now falls fast and a
+     legend takes half again as much punishment as a veteran, so the ladder
+     gets both harder AND longer as it climbs instead of uniformly longer. */
+  const MY_MAX = A.maxHp * HP_POOL * (SFX.hpMax || 1);
+  const OP_MAX = B.maxHp * HP_POOL * (tier.hpK || 1) * (SFX.hpMax || 1);
   const TAP_DMG = 0.55, BOT_DMG = 1.15;
 
   const [phase, setPhase] = useState("action");   // action | quiz | done
@@ -2186,6 +2263,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const STYLE = BOT_STYLE[styleKey] || BOT_STYLE.rushdown;
   const BOSS = tier.bossRule || null;
   const bossArmorRef = useRef(false);   // the ARMOR rule's one free hit this round
+  /* the bot's half of the fight: a special cooldown, a gauge of its own, one
+     super per round, and the wake-up armor window the top tiers get */
+  const botSpCdRef = useRef(0);
+  const botGaugeRef = useRef(0);
+  const botSuperUsedRef = useRef(false);
+  const botArmorUntilRef = useRef(0);
+  const [botGauge, setBotGauge] = useState(0);
   /* ── what it learned from the last round ──
      Multipliers on top of the tier and the style, recomputed at every round
      break from how the player actually won or lost the one before. */
@@ -2285,6 +2369,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     setBotTell(false); setBotGuard(false);
     setChipHp({ me: 1, op: 1 });
     guardMtrRef.current = GUARD_MAX; setGuardMtr(GUARD_MAX);
+    botSpCdRef.current = 0;
+    botGaugeRef.current = 0; setBotGauge(0);
+    botSuperUsedRef.current = false;
+    botArmorUntilRef.current = 0;
     bossArmorRef.current = BOSS === "armor";
     staggerRef.current = 0; setStagger(false);
     hitstopRef.current = 0; setHitStop(false);
@@ -2422,6 +2510,18 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // the corner is not a player-only rule — pinning the bot against its own
     // wall is the reward for walking it down
     const oppCornered = posRef.current.op >= X_MAX - CORNER_ZONE;
+    /* ── wake-up armor ──
+       From `warlord` up. It is deliberately NOT active during hitstun — a
+       combo you have already started still works — only in the short window
+       as it comes out of one, which is exactly the window an infinite loop
+       would otherwise live in. One hit, then it is spent. */
+    if (hasTrait(tier, "wakeup") && botArmorUntilRef.current > now && hitstunRef.current.op <= now) {
+      botArmorUntilRef.current = 0;
+      audioRef.current.sfx("block");
+      G.burst("op", 1, "#ff8a4c");
+      say("op", T("ทนได้!", "ARMOR", "霸体"), "block");
+      return;
+    }
     // the weekly boss's ARMOR: the first hit of each round does not move it
     if (bossArmorRef.current) {
       bossArmorRef.current = false;
@@ -2435,6 +2535,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     hpRef.current.op = oHp; setOpHp(oHp);
     // hitstun and pushback: the bot loses its turn and gives ground
     hitstunRef.current.op = now + HITSTUN_MS;
+    if (hasTrait(tier, "wakeup")) botArmorUntilRef.current = now + HITSTUN_MS + BOT_WAKEUP_MS;
     posRef.current.op = Math.min(X_MAX, posRef.current.op + KNOCKBACK);
     const bot = botRef.current;
     bot.startup = 0; bot.recover = now + HITSTUN_MS; bot.state = "hurt"; bot.act = null;
@@ -2844,7 +2945,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       // setback rather than a permanent one
       if (guardMtrRef.current < GUARD_MAX && guardUntil.current < now) {
         const gm = Math.min(GUARD_MAX, guardMtrRef.current + GUARD_REGEN * dt);
-        guardMtrRef.current = gm; setGuardMtr(gm);
+        guardMtrRef.current = gm;
+        // the bar is 3px wide; a tenth of a percent is not a visible change
+        setGuardMtr(prev => (Math.abs(prev - gm) < 1 && gm < GUARD_MAX ? prev : gm));
       }
       if (staggerRef.current && staggerRef.current <= now) { staggerRef.current = 0; setStagger(false); }
       const stunnedMe = hitstunRef.current.me > now || dizzyUntilRef.current.me > now;
@@ -2859,7 +2962,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         // ── the wind-up has finished: this is the instant it can land ──
         if (bot.startup && bot.startup <= now) {
           const act = bot.act || "punch";
-          const A2 = ACT[act] || ACT.punch;
+          // a special carries its own damage/range/move and is otherwise
+          // resolved exactly like a button, so this branch stays one branch
+          const A2 = (act === "special" && bot.spDef) ? bot.spDef
+            : (act === "super" && bot.spDef) ? bot.spDef
+            : (ACT[act] || ACT.punch);
           bot.startup = 0;
           bot.recover = now + BRAIN.recover;
           bot.state = "recover";
@@ -2867,6 +2974,24 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           if (gap <= A2.range) {
             hitMe(B.dmg * tier.dmgK * BOT_DMG * A2.dmg * 0.62
               * (suddenDeathRef.current ? SUDDEN_DEATH_DMG : 1), A2.move);
+            /* ── the chain ──
+               A bot that throws one attack and then stands in its recovery is
+               a bot you trade with for free. From `ace` up a landed hit can
+               buy it a second one on a short startup, which is what turns
+               "I got hit" into "I am being combo'd" and is the single thing
+               that makes the top tiers feel like they are pressing you. */
+            if (hasTrait(tier, "chain") && Math.random() < BOT_CHAIN_CHANCE && hpRef.current.me > 0) {
+              const nxt = Math.random() < .55 ? "punch" : "kick";
+              bot.act = nxt; bot.spDef = null;
+              bot.startup = now + Math.round(BRAIN.startup * 0.55);
+              bot.recover = 0; bot.state = "startup";
+              setBotTell(true);
+            }
+            // its gauge fills on contact, the same way yours does
+            if (hasTrait(tier, "super")) {
+              botGaugeRef.current = Math.min(BOT_SUPER_AT, botGaugeRef.current + 16);
+              setBotGauge(botGaugeRef.current);
+            }
           } else {
             // whiffed into thin air, and now it has to stand there and wear it
             audioRef.current.sfx("miss");
@@ -2896,6 +3021,59 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               say("me", T("โดนทุ่ม!", "THROWN!", "被投!"), "dmg");
               hitMe(B.dmg * tier.dmgK * BOT_DMG * THROW_DMG * 0.45, "punch", { unblockable: true, noCounter: true });
             } else bot.state = DM === "grab" ? "approach" : "idle";
+          }
+          /* ── the super ──
+             One per round, from `elite` up, on a gauge it fills by landing
+             hits. Telegraphed for a very long time on purpose: it is meant to
+             be the moment you have to do something about, not the moment you
+             find out you are dead. */
+          else if (hasTrait(tier, "super") && !botSuperUsedRef.current
+            && botGaugeRef.current >= BOT_SUPER_AT && gap <= 0.55) {
+            botSuperUsedRef.current = true;
+            botGaugeRef.current = 0; setBotGauge(0);
+            bot.act = "super";
+            bot.spDef = { dmg: 5.4, range: 0.6, move: ULT_MOVE[oppCls] || "cannon" };
+            bot.startup = now + Math.round(BRAIN.startup * 2.6);
+            bot.state = "startup"; setBotTell(true);
+            audioRef.current.sfx("charge");
+            G.flash("#ff2d55", .45, .4);
+            setBanner(T("คู่ต่อสู้ปล่อยท่าไม้ตาย!", "OPPONENT SUPER INCOMING!", "对手释放终极技！"));
+            later(() => setBanner(null), 1500);
+            practiceTip("botsuper", T("ท่าไม้ตายของมันเล็งนาน — ถอยออกให้พ้นระยะหรือกันไว้",
+              "Its super telegraphs for ages — walk out of range or hold guard",
+              "它的终极技前摇很长 — 退出距离或格挡"));
+          }
+          /* ── the whiff punish ──
+             From `overlord` up it does not wait to see whether you are still
+             swinging: the frame your attack misses, it is already moving. */
+          else if (hasTrait(tier, "whiffpunish") && myAtkRef.current.recover > now
+            && myAtkRef.current.startup === 0 && gap <= ACT.kick.range) {
+            bot.act = Math.random() < .5 ? "punch" : "kick"; bot.spDef = null;
+            bot.startup = now + Math.round(BRAIN.startup * 0.5);
+            bot.state = "startup"; setBotTell(true);
+          }
+          /* ── reading your specials ──
+             `legend` only. Your motion special has a startup like anything
+             else, and at the very top the bot is looking for it. */
+          else if (hasTrait(tier, "readinput") && myAtkRef.current.startup > now
+            && myAtkRef.current.act && FRAMES[myAtkRef.current.act] && gap < 0.55
+            && Math.random() < 0.85) {
+            bot.blockUntil = now + 460; bot.state = "block"; setBotGuard(true);
+            later(() => setBotGuard(false), 460);
+          }
+          /* ── its own special ──
+             From `veteran` up, off a cooldown, when it is close enough for one
+             to make sense. */
+          else if (hasTrait(tier, "special") && now >= botSpCdRef.current
+            && gap <= 0.55 && Math.random() < BOT_SP_CHANCE) {
+            const bsp = BOT_SPECIALS[Math.floor(Math.random() * BOT_SPECIALS.length)];
+            botSpCdRef.current = now + BOT_SP_CD;
+            bot.act = "special"; bot.spDef = bsp;
+            bot.startup = now + Math.round(BRAIN.startup * 1.5);
+            bot.state = "startup"; setBotTell(true);
+            audioRef.current.sfx("charge");
+            setBanner(tr3(bsp, lang).toUpperCase());
+            later(() => setBanner(null), 900);
           }
           // ── you are holding guard, so it throws you ──
           // guard stops strikes and nothing else. That mixup is the oldest
@@ -2929,6 +3107,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             bot.act = heavy ? "rocket"
               : roll < STYLE.wPunch ? "punch"
               : roll < STYLE.wPunch + STYLE.wKick ? "kick" : "fire";
+            bot.spDef = null;
             bot.startup = now + BRAIN.startup * (heavy ? 1.9 : 1);
             bot.state = "startup";
             setBotTell(true);
@@ -2969,7 +3148,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       const botSpeed = bot.state === "jumpin" ? 1.5 : 1;
       P.op = Math.min(X_MAX, Math.max(X_MIN, P.op + botDir * WALK * 0.68 * botSpeed * dt));
       if (P.op - P.me < GAP_MIN) P.op = Math.min(X_MAX, P.me + GAP_MIN);
-      setMyX(P.me); setOpX(P.op);
+      // both fighters standing still is the common case between exchanges
+      setMyX(prev => (Math.abs(prev - P.me) < 0.0008 ? prev : P.me));
+      setOpX(prev => (Math.abs(prev - P.op) < 0.0008 ? prev : P.op));
       // whose back is on the wall. Announced once per trip into the corner so
       // it reads as a thing that HAPPENED rather than a permanent label.
       const cMe = P.me <= X_MIN + CORNER_ZONE, cOp = P.op >= X_MAX - CORNER_ZONE;
@@ -2987,16 +3168,20 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
       // a jump is a half sine, so it leaves and lands instead of teleporting
       const h = airRef.current.me ? Math.sin(Math.PI * Math.min(1, (JUMP_MS - Math.max(0, cdRef.current.jump - JUMP_CD + JUMP_MS - now)) / JUMP_MS)) : 0;
-      setMyAir(airRef.current.me ? Math.max(0.05, h) : 0);
+      const mh = airRef.current.me ? Math.max(0.05, h) : 0;
+      setMyAir(prev => (Math.abs(prev - mh) < 0.002 ? prev : mh));
       const oh = airRef.current.op ? 0.85 : 0;
-      setOpAir(oh);
+      setOpAir(prev => (prev === oh ? prev : oh));
       G.setPos(P.me, P.op, airRef.current.me ? Math.max(0.05, h) : 0, oh);
 
       // ── the round clock ──
       if (liveRef.current) {
         roundClockRef.current += 60;
         const rl = Math.max(0, ROUND_TIME - roundClockRef.current);
-        setRoundLeft(rl);
+        /* The clock is DISPLAYED as whole seconds, so pushing a new value 16
+           times a second asked React to reconcile the entire arena tree 16
+           times to change nothing. Only publish it when the digit moves. */
+        setRoundLeft(prev => (Math.ceil(prev / 1000) === Math.ceil(rl / 1000) && rl > 0 ? prev : rl));
         if (rl <= 0) {
           // time up hands the round to whoever is further ahead
           const mFrac = hpRef.current.me / MY_MAX, oFrac = hpRef.current.op / OP_MAX;
@@ -3008,7 +3193,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       setChipHp(c => {
         const tm = hpRef.current.me / MY_MAX, to = hpRef.current.op / OP_MAX;
         const ease = (a, b) => (Math.abs(a - b) < 0.004 ? b : a + (b - a) * 0.16);
-        return { me: ease(c.me, tm), op: ease(c.op, to) };
+        const me = ease(c.me, tm), op = ease(c.op, to);
+        // returning the SAME object once it has settled lets React bail out of
+        // the render entirely, instead of re-rendering to identical numbers
+        // for the whole of the fight the bar is not moving
+        return (me === c.me && op === c.op) ? c : { me, op };
       });
     }, 60);
     return () => clearInterval(id);
@@ -3061,12 +3250,21 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       setBanner(T(`คู่ต่อสู้: ${STYLE.th}`, `OPPONENT STYLE: ${STYLE.en.toUpperCase()}`, `对手风格：${STYLE.zh}`));
       later(() => setBanner(null), 1900);
     }, t0 - 200);
+    // the tier's traits, named. A bot that suddenly has an ultimate and never
+    // said so is not difficulty, it is a surprise.
+    if (tier.traits && tier.traits.length) {
+      later(() => {
+        setBanner("⚔ " + tier.traits.map(k => tr3(TRAIT_TEXT[k] || {}, lang)).filter(Boolean).join(" · "));
+        later(() => setBanner(null), 2800);
+      }, t0 + 1900);
+    }
     if (BOSS && BOSS_RULES[BOSS]) {
       later(() => {
         setBanner("⚠ " + tr3(BOSS_RULES[BOSS], lang));
         audioRef.current.sfx("bell");
         later(() => setBanner(null), 2600);
-      }, t0 + 2000);
+        // after the trait line above, not on top of it
+      }, t0 + (tier.traits && tier.traits.length ? 4900 : 2000));
     }
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -3374,14 +3572,30 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               <u style={{ width: `${Math.max(0, chipHp.op * 100)}%` }} />
               <i style={{ width: `${Math.max(0, (opHp / OP_MAX) * 100)}%` }} />
             </div>
+            {/* the opponent's own gauge, from `elite` up. A super you cannot
+                see charging is a jump scare, not a mechanic. */}
+            {hasTrait(tier, "super") && !botSuperUsedRef.current && (
+              <div className={`pvpbotgauge${botGauge >= BOT_SUPER_AT ? " full" : ""}`}>
+                <i style={{ width: `${Math.min(100, botGauge)}%` }} />
+              </div>
+            )}
             <div className="pvphp-n op">
               {Math.max(0, Math.round(opHp))} · {oppKind === "player" ? oppName : tr3(CHAR_MODELS.find(m => m.id === oppModel) || {}, lang)}
               <span className="pvppips">{[0, 1].map(i => <b key={i} className={roundWins.op > i ? "on" : ""} />)}</span>
             </div>
           </div>
         </div>
+        {/* The walk is written as a plain `transform`, NOT as a CSS custom
+            property. Custom properties are INHERITED, so setting one on this
+            element invalidates style for every one of the thousand-odd SVG
+            paths beneath it — measured at 1.28s of style recalculation across
+            twelve seconds of walking, which was worse than the layout cost it
+            was meant to replace. `transform` does not inherit, so the recalc
+            stops at this element and the move stays on the compositor.
+            The percentage is of THIS element (44% of the stage), hence 100/44. */}
         <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}
-          style={{ left: `calc(${(myX * 100).toFixed(1)}% - 22%)`, bottom: `calc(var(--pvpfloor, 6px) + ${(myAir * 62).toFixed(1)}px)` }}>
+          style={{ transform: `translate3d(${((myX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-myAir * 62).toFixed(1)}px, 0)` }}>
+          <div className="pvpfighter-in">
           <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
             glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" />
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
@@ -3395,9 +3609,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               <PetArt species={petPic.species} level={petLevel(petPic.bond).lv} mood={petPic.mood} />
             </span>
           )}
+          </div>
         </div>
         <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}${botGuard ? " guard" : ""}${botTell ? " tell" : ""}`}
-          style={{ left: `calc(${(opX * 100).toFixed(1)}% - 22%)`, right: "auto", bottom: `calc(var(--pvpfloor, 6px) + ${(opAir * 62).toFixed(1)}px)` }}>
+          style={{ left: 0, right: "auto", transform: `translate3d(${((opX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-opAir * 62).toFixed(1)}px, 0)` }}>
+          <div className="pvpfighter-in">
           <Bot model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose}
             glow="#ff7a3c" accent="#ff4d6a" armorA="#2b1a1a" armorB="#8a4a3a" />
           {flash && flash.side === "op" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
@@ -3405,6 +3621,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           {botTell && <span className="pvptell">!</span>}
           {botGuard && <span className="pvpguardic">🛡</span>}
           {dizzy.op && <span className="pvpdizzy">✦✦✦</span>}
+          </div>
         </div>
         {combo > 2 && <div className="pvpcombo" key={combo}><b>{combo}</b><i>{T("ฮิต", "HITS", "连击")}</i></div>}
         {banner && <div className="pvpbanner">{banner}</div>}
