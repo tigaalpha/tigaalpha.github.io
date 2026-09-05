@@ -108,6 +108,48 @@ export const CHAR_MODELS = [
     cls: { th: "หุ่นหน้าจอจิ๋ว",     en: "Screen-face buddy",   zh: "屏幕脸小伙伴" } },
   { id: "mochi",    code: "MO-20", th: "โมจิ",      en: "MOCHI",   zh: "麻糬",
     cls: { th: "หุ่นนุ่มนิ่มสุดน่ารัก", en: "Squishy pocket bot", zh: "软萌口袋机器人" } },
+  /* ── the soft intake ── ten built to be held rather than feared */
+  { id: "pudding",  code: "PD-21", th: "พุดดิ้ง",    en: "PUDDING",  zh: "布丁",
+    cls: { th: "หุ่นเนื้อนุ่มสั่นได้",  en: "Wobble-shell unit",   zh: "布丁外壳单元" } },
+  { id: "acorn",    code: "AC-22", th: "เอคอร์น",   en: "ACORN",    zh: "橡实",
+    cls: { th: "หุ่นเปลือกเมล็ด",     en: "Seed-shell servitor", zh: "种壳侍从" } },
+  { id: "cocoa",    code: "CC-23", th: "โกโก้",      en: "COCOA",    zh: "可可",
+    cls: { th: "หุ่นเพื่อนตัวอุ่น",    en: "Warm-shell companion", zh: "暖壳伙伴" } },
+  { id: "blossom",  code: "BL-24", th: "บลอสซั่ม",   en: "BLOSSOM",  zh: "花萼",
+    cls: { th: "หุ่นมงกุฎกลีบดอก",    en: "Petal-crowned herald", zh: "花冠传令者" } },
+  { id: "pengu",    code: "PG-25", th: "เพนกุ",      en: "PENGU",    zh: "企鹅",
+    cls: { th: "หุ่นดูแลเขตหนาว",     en: "Cold-weather steward", zh: "极寒管家" } },
+  { id: "bubbly",   code: "BB-26", th: "บับบลี้",    en: "BUBBLY",   zh: "泡泡",
+    cls: { th: "หุ่นโดมดำน้ำ",        en: "Sealed-dome diver",   zh: "密封潜水单元" } },
+  { id: "poppy",    code: "PP-27", th: "ป๊อปปี้",    en: "POPPY",    zh: "波比",
+    cls: { th: "หุ่นผู้ช่วยเสาเดี่ยว",  en: "Single-antenna helper", zh: "单天线助手" } },
+  { id: "honey",    code: "HN-28", th: "ฮันนี่",     en: "HONEY",    zh: "蜜蜂",
+    cls: { th: "หุ่นผู้ดูแลรัง",       en: "Hive keeper",         zh: "蜂巢守护者" } },
+  { id: "snowbun",  code: "SB-29", th: "สโนว์บัน",   en: "SNOWBUN",  zh: "雪团",
+    cls: { th: "หุ่นส่งของเงียบเชียบ", en: "Quiet courier",       zh: "静音信使" } },
+  { id: "plushy",   code: "PL-30", th: "พลัชชี่",    en: "PLUSHY",   zh: "布偶",
+    cls: { th: "หุ่นตุ๊กตาเย็บมือ",    en: "Stitched companion",  zh: "缝合布偶" } },
+  /* ── the hard intake ── ten built to be read across a room */
+  { id: "wraith",   code: "WR-31", th: "เรธ",        en: "WRAITH",   zh: "幽骸",
+    cls: { th: "หุ่นโครงกลวงลอบเร้น",  en: "Hollow-frame infiltrator", zh: "空壳潜入者" } },
+  { id: "magnus",   code: "MG-32", th: "แม็กนัส",    en: "MAGNUS",   zh: "巨铁",
+    cls: { th: "โครงล้อมปราการ",      en: "Siege frame",         zh: "攻城机架" } },
+  { id: "saber",    code: "SA-33", th: "เซเบอร์",    en: "SABER",    zh: "剑锋",
+    cls: { th: "โครงประลองดาบ",       en: "Duelling frame",      zh: "决斗机架" } },
+  { id: "oracle",   code: "OR-34", th: "ออราเคิล",   en: "ORACLE",   zh: "谕者",
+    cls: { th: "หุ่นกลุ่มเซนเซอร์",    en: "Sensor cluster",      zh: "感测阵列" } },
+  { id: "korax",    code: "KX-35", th: "โคแรกซ์",    en: "KORAX",    zh: "渡鸦",
+    cls: { th: "โครงอีกา",            en: "Corvid frame",        zh: "鸦形机架" } },
+  { id: "tempest",  code: "TP-36", th: "เทมเพสต์",   en: "TEMPEST",  zh: "风暴",
+    cls: { th: "หุ่นสกัดกั้นความเร็วสูง", en: "High-speed interceptor", zh: "高速拦截机" } },
+  { id: "bastion",  code: "BS-37", th: "แบสเตียน",   en: "BASTION",  zh: "壁垒",
+    cls: { th: "หุ่นหัวป้อมปราการ",    en: "Bunker head",         zh: "堡垒头部单元" } },
+  { id: "nyx",      code: "NX-38", th: "นิกซ์",      en: "NYX",      zh: "夜阑",
+    cls: { th: "โครงราตรี",           en: "Night frame",         zh: "夜行机架" } },
+  { id: "forge",    code: "FG-39", th: "ฟอร์จ",      en: "FORGE",    zh: "熔工",
+    cls: { th: "โครงเตาหลอม",         en: "Foundry frame",       zh: "熔铸机架" } },
+  { id: "zenith",   code: "ZN-40", th: "เซนิธ",      en: "ZENITH",   zh: "天顶",
+    cls: { th: "โครงพิธีการ",         en: "Ceremonial frame",    zh: "礼典机架" } },
 ];
 
 
@@ -151,6 +193,29 @@ export const MODEL_COMBAT = {
   nova:     { pwr: 7,  arm: 11, spd: 10, syn: 12, sp: { th: "ส่งพลังหนุน",      en: "Assist Boost",     zh: "支援增幅" } },
   pixel:    { pwr: 8,  arm: 10, spd: 12, syn: 10, sp: { th: "เปลี่ยนหน้าจอลวง",  en: "Screen Feint",     zh: "屏幕虚招" } },
   mochi:    { pwr: 6,  arm: 14, spd: 9,  syn: 11, sp: { th: "ดูดซับแรงกระแทก",  en: "Squish Absorb",    zh: "软化吸收" } },
+  /* Both new intakes are held to the same forty points as everything above.
+     A shop that sells a strictly better body sells a win, not a character —
+     so what changes is the SHAPE of the forty, never the size of it. */
+  pudding:  { pwr: 8,  arm: 12, spd: 8,  syn: 12, sp: { th: "คลื่นสั่นสะเทือน",  en: "Wobble Pulse",     zh: "颤动脉冲" } },
+  acorn:    { pwr: 9,  arm: 12, spd: 8,  syn: 11, sp: { th: "เปลือกแข็ง",      en: "Shell Up",         zh: "硬壳护体" } },
+  cocoa:    { pwr: 9,  arm: 15, spd: 7,  syn: 9,  sp: { th: "กอดหมี",          en: "Bear Hug",         zh: "熊抱" } },
+  blossom:  { pwr: 8,  arm: 10, spd: 9,  syn: 13, sp: { th: "กลีบบานสะพรั่ง",   en: "Full Bloom",       zh: "盛放" } },
+  pengu:    { pwr: 8,  arm: 14, spd: 9,  syn: 9,  sp: { th: "ไถลบนน้ำแข็ง",     en: "Belly Slide",      zh: "滑行冲刺" } },
+  bubbly:   { pwr: 8,  arm: 11, spd: 10, syn: 11, sp: { th: "โดมกันแรง",       en: "Dome Seal",        zh: "穹顶封锁" } },
+  poppy:    { pwr: 8,  arm: 10, spd: 12, syn: 10, sp: { th: "สัญญาณกระตุก",    en: "Signal Jolt",      zh: "信号震颤" } },
+  honey:    { pwr: 10, arm: 9,  spd: 10, syn: 11, sp: { th: "ฝูงผึ้งรุม",       en: "Swarm Call",       zh: "蜂群召集" } },
+  snowbun:  { pwr: 9,  arm: 7,  spd: 16, syn: 8,  sp: { th: "กระโดดหิมะ",      en: "Powder Hop",       zh: "踏雪跃" } },
+  plushy:   { pwr: 7,  arm: 16, spd: 6,  syn: 11, sp: { th: "ตะเข็บซ่อมตัวเอง", en: "Reseam",           zh: "自缝合" } },
+  wraith:   { pwr: 12, arm: 6,  spd: 17, syn: 5,  sp: { th: "ผ่านทะลุ",        en: "Pass Through",     zh: "穿身而过" } },
+  magnus:   { pwr: 12, arm: 17, spd: 5,  syn: 6,  sp: { th: "ทุบลงพื้น",       en: "Ground Slam",      zh: "碎地重击" } },
+  saber:    { pwr: 16, arm: 8,  spd: 13, syn: 3,  sp: { th: "ชักดาบครั้งเดียว",  en: "One Draw",         zh: "居合一闪" } },
+  oracle:   { pwr: 8,  arm: 10, spd: 9,  syn: 13, sp: { th: "อ่านอนาคต",       en: "Read Ahead",       zh: "预读" } },
+  korax:    { pwr: 13, arm: 7,  spd: 15, syn: 5,  sp: { th: "โฉบลงจากมืด",     en: "Dark Stoop",       zh: "暗袭俯冲" } },
+  tempest:  { pwr: 14, arm: 7,  spd: 15, syn: 4,  sp: { th: "พุ่งทะลวง",       en: "Overrun",          zh: "突进" } },
+  bastion:  { pwr: 10, arm: 18, spd: 5,  syn: 7,  sp: { th: "ปิดช่องยิง",       en: "Close The Slit",   zh: "闭合射孔" } },
+  nyx:      { pwr: 12, arm: 8,  spd: 14, syn: 6,  sp: { th: "จันทร์เสี้ยว",     en: "Crescent Cut",     zh: "弦月斩" } },
+  forge:    { pwr: 13, arm: 13, spd: 6,  syn: 8,  sp: { th: "เปิดเตา",         en: "Open The Furnace", zh: "开炉" } },
+  zenith:   { pwr: 9,  arm: 11, spd: 7,  syn: 13, sp: { th: "วงแหวนศักดิ์สิทธิ์", en: "Halo Chord",      zh: "圣环和弦" } },
 };
 export const COMBAT_TOTAL = 40;
 /* Gear adds on top of the chassis, which is what makes the weapon rack matter:
@@ -318,6 +383,23 @@ export const MODEL_RIG = {
   sentry:   { hs: 1.1,  bw: 1.09, bh: 0.97 },
   pip: { hs: 1.85, chibi: true }, pebble: { hs: 1.9, chibi: true },
   nova: { hs: 2.05, chibi: true }, pixel: { hs: 2.0, chibi: true }, mochi: { hs: 1.95, chibi: true },
+  /* the soft intake: heads oversized against the body, which is the whole
+     reason they read as young rather than as small adults */
+  pudding: { hs: 2.0, chibi: true }, acorn: { hs: 1.95, chibi: true }, cocoa: { hs: 1.9, chibi: true },
+  blossom: { hs: 1.95, chibi: true }, pengu: { hs: 1.9, chibi: true }, bubbly: { hs: 2.0, chibi: true },
+  poppy: { hs: 2.05, chibi: true }, honey: { hs: 1.95, chibi: true }, snowbun: { hs: 2.0, chibi: true },
+  plushy: { hs: 1.98, chibi: true },
+  /* the hard intake: full frames, and the width goes into the shoulders */
+  wraith:  { hs: 1.14, bw: 0.90, bh: 1.03 },
+  magnus:  { hs: 1.10, bw: 1.22, bh: 0.95 },
+  saber:   { hs: 1.15, bw: 1.00, bh: 1.02 },
+  oracle:  { hs: 1.16, bw: 0.94, bh: 1.00 },
+  korax:   { hs: 1.14, bw: 0.92, bh: 1.02 },
+  tempest: { hs: 1.15, bw: 0.96, bh: 1.01 },
+  bastion: { hs: 1.08, bw: 1.24, bh: 0.94 },
+  nyx:     { hs: 1.15, bw: 0.90, bh: 1.02 },
+  forge:   { hs: 1.12, bw: 1.16, bh: 0.98 },
+  zenith:  { hs: 1.16, bw: 0.98, bh: 1.00 },
 };
 
 const LEGACY = { boy: "vanguard", girl: "specter", cute: "nova" };
@@ -1508,6 +1590,898 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       </>,
       neck: null,
     },
+    /* ══ the soft intake ══════════════════════════════════════════════════
+       Ten built to be held rather than feared. One recipe, run ten ways: a
+       wide skull that is roundest at the CHEEK rather than the crown, eyes
+       big enough to be most of the face, a blush, and one silhouette feature
+       on top that says what it is from across a room. Nothing here comes to
+       a point anywhere. */
+
+    /* ── PUDDING · dessert-grade chassis ── a dome that has clearly settled */
+    pudding: {
+      skull: "M60 7 C86 7 96 24 96 44 C96 62 82 72 60 72 C38 72 24 62 24 44 C24 24 34 7 60 7 Z",
+      fill: "cream", line: "#e8c99a", body: "cream", bodyLine: "#c8a570", hv: "18 -6 84 86",
+      prof: { brow: 30, nose: 43, lip: 57, chin: 69 },
+      shellArt: <>
+        {/* the wobble line where the set surface meets the soft one */}
+        <path d="M27 30 Q60 22 93 30" fill="none" stroke="#e0b87e" strokeWidth="1.4" opacity=".7" />
+        <path d="M52 8 Q60 -2 68 8 Q60 3 52 8 Z" fill="#ffb9c8" stroke="#e08fa4" strokeWidth=".7" strokeLinejoin="round" />
+      </>,
+      art: <>
+        {face(60, <path d="M50 20 Q60 12 70 20 Q60 17 50 20 Z" fill="#ffb9c8" stroke="#e08fa4" strokeWidth=".6" className="ca-optic" />, "cap")}
+        {face(46, <g className="ca-eye">
+          <ellipse cx="46" cy="44" rx="10" ry="11.6" fill="#241a12" />
+          <ellipse cx="46" cy="44" rx="8.4" ry="9.9" fill={`url(#${id}-bigiris)`} />
+          <circle cx="49" cy="40" r="3.6" fill="#fff" /><circle cx="43" cy="48" r="1.9" fill="#fff" opacity=".9" />
+        </g>, "e1")}
+        {face(74, <g className="ca-eye">
+          <ellipse cx="74" cy="44" rx="10" ry="11.6" fill="#241a12" />
+          <ellipse cx="74" cy="44" rx="8.4" ry="9.9" fill={`url(#${id}-bigiris)`} />
+          <circle cx="77" cy="40" r="3.6" fill="#fff" /><circle cx="71" cy="48" r="1.9" fill="#fff" opacity=".9" />
+        </g>, "e2")}
+        {face(32, <ellipse cx="32" cy="54" rx="6.8" ry="4.4" fill="#ffa8bd" opacity=".8" />, "b1")}
+        {face(88, <ellipse cx="88" cy="54" rx="6.8" ry="4.4" fill="#ffa8bd" opacity=".8" />, "b2")}
+        {face(60, <path d="M55 60 Q60 65 65 60" fill="none" stroke="#b98055" strokeWidth="2.2" strokeLinecap="round" />, "m")}
+      </>,
+      side: "M60 7 C86 7 95 24 95 44 C95 60 85 70 72 72 Q60 74 50 70 C34 65 25 57 25 44 C25 24 35 7 60 7 Z",
+      sideArt: <>
+        <path d="M28 30 Q58 23 92 30" fill="none" stroke="#e0b87e" strokeWidth="1.3" opacity=".65" />
+        <g className="ca-eye">
+          <ellipse cx="76" cy="44" rx="8.6" ry="11" fill="#241a12" />
+          <ellipse cx="76" cy="44" rx="7" ry="9.2" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78.6" cy="40.4" r="3.1" fill="#fff" />
+        </g>
+        <ellipse cx="60" cy="55" rx="6.2" ry="4" fill="#ffa8bd" opacity=".75" />
+        <path d="M77 60 Q82 64 85 59" fill="none" stroke="#b98055" strokeWidth="2" strokeLinecap="round" />
+      </>,
+      rear: <>
+        <path d="M27 18 Q60 6 93 18 Q98 46 90 64 Q60 76 30 64 Q22 46 27 18 Z" fill={`url(#${id}-cream)`} stroke="#e0b87e" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M28 32 Q60 25 92 32" fill="none" stroke="#e0b87e" strokeWidth="1.3" opacity=".6" />
+        <path d="M52 10 Q60 0 68 10 Q60 5 52 10 Z" fill="#ffb9c8" stroke="#e08fa4" strokeWidth=".7" strokeLinejoin="round" />
+      </>,
+      neck: null,
+    },
+
+    /* ── ACORN · seed-shell service unit ── a cap you could lift off */
+    acorn: {
+      skull: "M60 8 C84 8 94 26 94 45 C94 63 80 72 60 72 C40 72 26 63 26 45 C26 26 36 8 60 8 Z",
+      fill: "sage", line: "#a8c9a0", body: "sage", bodyLine: "#6d9a70", hv: "20 -8 80 88",
+      prof: { brow: 30, nose: 44, lip: 57, chin: 69 },
+      shellArt: <>
+        {/* the nut cap: a scalloped dome with a stalk out of the top of it */}
+        <path d="M26 33 C26 16 40 4 60 4 C80 4 94 16 94 33 Q60 25 26 33 Z" fill={`url(#${id}-bronze)`} stroke="#8a6636" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M31 27 Q39 22 47 25 M53 22 Q60 19 67 22 M73 25 Q81 22 89 27" fill="none" stroke="#7c5a2e" strokeWidth="1.1" opacity=".65" />
+        <path d="M58 5 L58 -6 Q60 -9 62 -6 L62 5 Z" fill={`url(#${id}-bronze)`} stroke="#8a6636" strokeWidth=".8" strokeLinejoin="round" />
+      </>,
+      art: <>
+        {face(45, <g className="ca-eye">
+          <ellipse cx="45" cy="47" rx="9.4" ry="10.8" fill="#16241a" />
+          <ellipse cx="45" cy="47" rx="7.8" ry="9.1" fill={`url(#${id}-bigiris)`} />
+          <circle cx="48" cy="43" r="3.3" fill="#fff" /><circle cx="42" cy="51" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e1")}
+        {face(75, <g className="ca-eye">
+          <ellipse cx="75" cy="47" rx="9.4" ry="10.8" fill="#16241a" />
+          <ellipse cx="75" cy="47" rx="7.8" ry="9.1" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78" cy="43" r="3.3" fill="#fff" /><circle cx="72" cy="51" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e2")}
+        {face(32, <ellipse cx="32" cy="56" rx="6.2" ry="4" fill="#ffb090" opacity=".7" />, "b1")}
+        {face(88, <ellipse cx="88" cy="56" rx="6.2" ry="4" fill="#ffb090" opacity=".7" />, "b2")}
+        {face(60, <path d="M56 61 Q60 65 64 61" fill="none" stroke="#5e7f58" strokeWidth="2" strokeLinecap="round" />, "m")}
+      </>,
+      side: "M60 8 C84 8 93 26 93 45 C93 61 84 70 71 72 Q60 74 50 70 C35 65 27 57 27 45 C27 26 37 8 60 8 Z",
+      sideArt: <>
+        <path d="M27 33 C27 16 41 4 60 4 C80 4 93 16 93 33 Q60 25 27 33 Z" fill={`url(#${id}-bronze)`} stroke="#8a6636" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M58 5 L58 -6 Q60 -9 62 -6 L62 5 Z" fill={`url(#${id}-bronze)`} stroke="#8a6636" strokeWidth=".8" />
+        <g className="ca-eye">
+          <ellipse cx="76" cy="47" rx="8" ry="10.2" fill="#16241a" />
+          <ellipse cx="76" cy="47" rx="6.6" ry="8.6" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78.4" cy="43.6" r="2.9" fill="#fff" />
+        </g>
+        <ellipse cx="61" cy="57" rx="5.6" ry="3.6" fill="#ffb090" opacity=".65" />
+      </>,
+      rear: <>
+        <path d="M28 20 Q60 8 92 20 Q97 48 89 65 Q60 76 31 65 Q23 48 28 20 Z" fill={`url(#${id}-sage)`} stroke="#7fa87c" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M27 33 C27 16 41 4 60 4 C80 4 93 16 93 33 Q60 25 27 33 Z" fill={`url(#${id}-bronze)`} stroke="#8a6636" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M58 5 L58 -6 Q60 -9 62 -6 L62 5 Z" fill={`url(#${id}-bronze)`} stroke="#8a6636" strokeWidth=".8" />
+        <path d="M44 44 Q60 38 76 44" fill="none" stroke="#7fa87c" strokeWidth="1.1" opacity=".6" />
+      </>,
+      neck: null,
+    },
+
+    /* ── COCOA · warm-shell companion ── two round ears and nothing sharp */
+    cocoa: {
+      skull: "M60 9 C85 9 95 26 95 45 C95 63 81 72 60 72 C39 72 25 63 25 45 C25 26 35 9 60 9 Z",
+      fill: "brown", line: "#c9a07a", body: "bronze", bodyLine: "#8a6636", hv: "10 -4 100 84",
+      prof: { brow: 31, nose: 44, lip: 58, chin: 69 },
+      shellArt: <>
+        <circle cx="24" cy="22" r="13" fill={`url(#${id}-brown)`} stroke="#a97f56" strokeWidth="1" />
+        <circle cx="96" cy="22" r="13" fill={`url(#${id}-brown)`} stroke="#a97f56" strokeWidth="1" />
+        <circle cx="24" cy="22" r="7" fill="#f0b9a0" opacity=".5" />
+        <circle cx="96" cy="22" r="7" fill="#f0b9a0" opacity=".5" />
+      </>,
+      art: <>
+        {face(45, <g className="ca-eye">
+          <ellipse cx="45" cy="45" rx="9.6" ry="11" fill="#1d120c" />
+          <ellipse cx="45" cy="45" rx="8" ry="9.3" fill={`url(#${id}-bigiris)`} />
+          <circle cx="48" cy="41" r="3.4" fill="#fff" /><circle cx="42" cy="49" r="1.8" fill="#fff" opacity=".9" />
+        </g>, "e1")}
+        {face(75, <g className="ca-eye">
+          <ellipse cx="75" cy="45" rx="9.6" ry="11" fill="#1d120c" />
+          <ellipse cx="75" cy="45" rx="8" ry="9.3" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78" cy="41" r="3.4" fill="#fff" /><circle cx="72" cy="49" r="1.8" fill="#fff" opacity=".9" />
+        </g>, "e2")}
+        {face(60, <ellipse cx="60" cy="56" rx="7.5" ry="5.6" fill="#f6d3bb" />, "sn")}
+        {face(60, <ellipse cx="60" cy="53" rx="3.2" ry="2.4" fill="#4a2c1c" />, "no")}
+        {face(60, <path d="M54 59 Q60 64 66 59" fill="none" stroke="#7d4b30" strokeWidth="1.9" strokeLinecap="round" />, "m")}
+        {face(33, <ellipse cx="33" cy="55" rx="6" ry="3.9" fill="#f09a86" opacity=".65" />, "b1")}
+        {face(87, <ellipse cx="87" cy="55" rx="6" ry="3.9" fill="#f09a86" opacity=".65" />, "b2")}
+      </>,
+      side: "M60 9 C85 9 94 26 94 45 C94 61 84 70 71 72 Q60 74 50 70 C34 65 26 57 26 45 C26 26 36 9 60 9 Z",
+      sideArt: <>
+        <circle cx="44" cy="22" r="12" fill={`url(#${id}-brown)`} stroke="#a97f56" strokeWidth="1" />
+        <circle cx="44" cy="22" r="6.4" fill="#f0b9a0" opacity=".45" />
+        <g className="ca-eye">
+          <ellipse cx="76" cy="45" rx="8.2" ry="10.4" fill="#1d120c" />
+          <ellipse cx="76" cy="45" rx="6.8" ry="8.8" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78.6" cy="41.4" r="3" fill="#fff" />
+        </g>
+        <ellipse cx="86" cy="55" rx="6.4" ry="4.8" fill="#f6d3bb" />
+        <ellipse cx="88" cy="53" rx="2.6" ry="2" fill="#4a2c1c" />
+      </>,
+      rear: <>
+        <path d="M27 20 Q60 8 93 20 Q98 48 90 65 Q60 76 30 65 Q22 48 27 20 Z" fill={`url(#${id}-brown)`} stroke="#a97f56" strokeWidth=".9" strokeLinejoin="round" />
+        <circle cx="24" cy="22" r="13" fill={`url(#${id}-brown)`} stroke="#a97f56" strokeWidth="1" />
+        <circle cx="96" cy="22" r="13" fill={`url(#${id}-brown)`} stroke="#a97f56" strokeWidth="1" />
+        <path d="M46 42 Q60 36 74 42" fill="none" stroke="#a97f56" strokeWidth="1.1" opacity=".6" />
+      </>,
+      neck: null,
+    },
+
+    /* ── BLOSSOM · petal-crowned herald ── the crown IS the silhouette */
+    blossom: {
+      skull: "M60 10 C83 10 93 27 93 46 C93 63 80 72 60 72 C40 72 27 63 27 46 C27 27 37 10 60 10 Z",
+      fill: "plum", line: "#d6a8e0", body: "plum", bodyLine: "#9a63ad", hv: "8 -12 104 96",
+      prof: { brow: 31, nose: 45, lip: 58, chin: 69 },
+      shellArt: <>
+        {[0, 72, 144, 216, 288].map(a => (
+          <ellipse key={a} cx="60" cy="-6" rx="9" ry="15" fill="#ff9ec9" stroke="#dc6fa2" strokeWidth=".8"
+            transform={`rotate(${a} 60 12)`} opacity=".95" />))}
+        <circle cx="60" cy="12" r="6" fill="#ffe38a" stroke="#d8a83e" strokeWidth=".8" className="ca-optic" />
+      </>,
+      art: <>
+        {face(46, <g className="ca-eye">
+          <ellipse cx="46" cy="46" rx="9.2" ry="10.6" fill="#241832" />
+          <ellipse cx="46" cy="46" rx="7.6" ry="9" fill={`url(#${id}-bigiris)`} />
+          <circle cx="49" cy="42" r="3.2" fill="#fff" /><circle cx="43" cy="50" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e1")}
+        {face(74, <g className="ca-eye">
+          <ellipse cx="74" cy="46" rx="9.2" ry="10.6" fill="#241832" />
+          <ellipse cx="74" cy="46" rx="7.6" ry="9" fill={`url(#${id}-bigiris)`} />
+          <circle cx="77" cy="42" r="3.2" fill="#fff" /><circle cx="71" cy="50" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e2")}
+        {face(33, <ellipse cx="33" cy="55" rx="6" ry="3.9" fill="#ff9ec9" opacity=".7" />, "b1")}
+        {face(87, <ellipse cx="87" cy="55" rx="6" ry="3.9" fill="#ff9ec9" opacity=".7" />, "b2")}
+        {face(60, <path d="M55 60 Q60 65 65 60" fill="none" stroke="#a15f8a" strokeWidth="2" strokeLinecap="round" />, "m")}
+      </>,
+      side: "M60 10 C83 10 92 27 92 46 C92 61 83 70 70 72 Q60 74 50 70 C35 65 28 57 28 46 C28 27 38 10 60 10 Z",
+      sideArt: <>
+        {[0, 72, 216, 288].map(a => (
+          <ellipse key={a} cx="60" cy="-6" rx="8" ry="14" fill="#ff9ec9" stroke="#dc6fa2" strokeWidth=".8"
+            transform={`rotate(${a} 60 12)`} opacity=".9" />))}
+        <circle cx="60" cy="12" r="5.4" fill="#ffe38a" stroke="#d8a83e" strokeWidth=".8" />
+        <g className="ca-eye">
+          <ellipse cx="76" cy="46" rx="7.8" ry="10" fill="#241832" />
+          <ellipse cx="76" cy="46" rx="6.4" ry="8.4" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78.4" cy="42.4" r="2.9" fill="#fff" />
+        </g>
+        <ellipse cx="62" cy="56" rx="5.4" ry="3.6" fill="#ff9ec9" opacity=".65" />
+      </>,
+      rear: <>
+        <path d="M29 22 Q60 10 91 22 Q96 48 88 65 Q60 76 32 65 Q24 48 29 22 Z" fill={`url(#${id}-plum)`} stroke="#b57cc6" strokeWidth=".9" strokeLinejoin="round" />
+        {[0, 72, 144, 216, 288].map(a => (
+          <ellipse key={a} cx="60" cy="-6" rx="9" ry="15" fill="#ff9ec9" stroke="#dc6fa2" strokeWidth=".8"
+            transform={`rotate(${a} 60 12)`} opacity=".9" />))}
+        <path d="M46 44 Q60 38 74 44" fill="none" stroke="#b57cc6" strokeWidth="1.1" opacity=".6" />
+      </>,
+      neck: null,
+    },
+
+    /* ── PENGU · cold-weather steward ── a beak, and a bib that is a shirt */
+    pengu: {
+      skull: "M60 8 C82 8 92 25 92 45 C92 64 79 72 60 72 C41 72 28 64 28 45 C28 25 38 8 60 8 Z",
+      fill: "obsidian", line: "#8ba3bd", body: "obsidian", bodyLine: "#46566d", hv: "20 -6 80 86",
+      prof: { brow: 30, nose: 46, lip: 58, chin: 69 },
+      shellArt: <>
+        <path d="M52 6 Q60 -3 68 6" fill="none" stroke="#8ba3bd" strokeWidth="2.4" strokeLinecap="round" />
+        <circle cx="60" cy="-4" r="3" fill="#ffd23f" className="ca-optic" />
+      </>,
+      art: <>
+        {/* the white face-front: the single mark that makes it a penguin */}
+        {face(60, <path d="M60 20 C76 20 84 34 84 48 C84 62 74 70 60 70 C46 70 36 62 36 48 C36 34 44 20 60 20 Z" fill={`url(#${id}-white)`} stroke="#c8d6e6" strokeWidth=".8" />, "bib")}
+        {face(48, <g className="ca-eye">
+          <ellipse cx="48" cy="42" rx="7.8" ry="9.4" fill="#101822" />
+          <ellipse cx="48" cy="42" rx="6.4" ry="7.9" fill={`url(#${id}-bigiris)`} />
+          <circle cx="50.4" cy="38.6" r="2.9" fill="#fff" />
+        </g>, "e1")}
+        {face(72, <g className="ca-eye">
+          <ellipse cx="72" cy="42" rx="7.8" ry="9.4" fill="#101822" />
+          <ellipse cx="72" cy="42" rx="6.4" ry="7.9" fill={`url(#${id}-bigiris)`} />
+          <circle cx="74.4" cy="38.6" r="2.9" fill="#fff" />
+        </g>, "e2")}
+        {face(60, <path d="M52 54 L68 54 L60 66 Z" fill={`url(#${id}-amber)`} stroke="#c98a2a" strokeWidth=".8" strokeLinejoin="round" />, "beak")}
+        {face(37, <ellipse cx="37" cy="53" rx="5.4" ry="3.4" fill="#ff9fb4" opacity=".55" />, "b1")}
+        {face(83, <ellipse cx="83" cy="53" rx="5.4" ry="3.4" fill="#ff9fb4" opacity=".55" />, "b2")}
+      </>,
+      side: "M60 8 C82 8 91 25 91 45 C91 62 82 70 70 72 Q60 74 50 70 C36 65 29 57 29 45 C29 25 39 8 60 8 Z",
+      sideArt: <>
+        <path d="M52 6 Q60 -3 68 6" fill="none" stroke="#8ba3bd" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M70 22 C82 24 88 36 88 48 C88 62 78 70 66 71 Q58 66 58 48 C58 34 60 24 70 22 Z" fill={`url(#${id}-white)`} stroke="#c8d6e6" strokeWidth=".8" />
+        <g className="ca-eye">
+          <ellipse cx="74" cy="42" rx="7" ry="9" fill="#101822" />
+          <ellipse cx="74" cy="42" rx="5.8" ry="7.6" fill={`url(#${id}-bigiris)`} />
+          <circle cx="76.2" cy="38.8" r="2.6" fill="#fff" />
+        </g>
+        <path d="M80 52 L94 57 L79 64 Z" fill={`url(#${id}-amber)`} stroke="#c98a2a" strokeWidth=".8" strokeLinejoin="round" />
+      </>,
+      rear: <>
+        <path d="M30 20 Q60 8 90 20 Q95 48 87 65 Q60 76 33 65 Q25 48 30 20 Z" fill={`url(#${id}-obsidian)`} stroke="#6b7f96" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M52 8 Q60 -1 68 8" fill="none" stroke="#8ba3bd" strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M46 42 Q60 36 74 42" fill="none" stroke="#6b7f96" strokeWidth="1.1" opacity=".55" />
+      </>,
+      neck: null,
+    },
+
+    /* ── BUBBLY · sealed-dome diver ── a face behind glass, and it likes it */
+    bubbly: {
+      skull: "M60 8 C84 8 94 25 94 45 C94 64 80 72 60 72 C40 72 26 64 26 45 C26 25 36 8 60 8 Z",
+      fill: "sky", line: "#9ed4ec", body: "sky", bodyLine: "#4a90b5", hv: "18 -8 84 88",
+      prof: { brow: 30, nose: 44, lip: 57, chin: 69 },
+      shellArt: <>
+        {/* the air line, coiling off the crown */}
+        <path d="M76 12 C90 6 96 -4 90 -12" fill="none" stroke="#7fbcd8" strokeWidth="2.6" strokeLinecap="round" />
+        <circle cx="90" cy="-14" r="3.2" fill="#c8f0ff" stroke="#7fbcd8" strokeWidth=".8" />
+        <circle cx="36" cy="20" r="4" fill="#ffffff" opacity=".5" />
+        <circle cx="30" cy="30" r="2.4" fill="#ffffff" opacity=".35" />
+      </>,
+      art: <>
+        {/* the dome glass sits over the whole face rather than around the eyes */}
+        {face(60, <ellipse cx="60" cy="44" rx="27" ry="25" fill="#bfe9fb" opacity=".34" stroke="#a7dcf2" strokeWidth="1" />, "dome")}
+        {face(47, <g className="ca-eye">
+          <ellipse cx="47" cy="44" rx="9" ry="10.4" fill="#12222c" />
+          <ellipse cx="47" cy="44" rx="7.4" ry="8.8" fill={`url(#${id}-bigiris)`} />
+          <circle cx="50" cy="40" r="3.2" fill="#fff" /><circle cx="44" cy="48" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e1")}
+        {face(73, <g className="ca-eye">
+          <ellipse cx="73" cy="44" rx="9" ry="10.4" fill="#12222c" />
+          <ellipse cx="73" cy="44" rx="7.4" ry="8.8" fill={`url(#${id}-bigiris)`} />
+          <circle cx="76" cy="40" r="3.2" fill="#fff" /><circle cx="70" cy="48" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e2")}
+        {face(60, <path d="M55 58 Q60 63 65 58" fill="none" stroke="#3f7f9c" strokeWidth="2" strokeLinecap="round" />, "m")}
+        {face(45, <path d="M40 26 Q48 20 58 22" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" opacity=".55" />, "gl")}
+      </>,
+      side: "M60 8 C84 8 93 25 93 45 C93 62 84 70 71 72 Q60 74 50 70 C35 65 27 57 27 45 C27 25 37 8 60 8 Z",
+      sideArt: <>
+        <path d="M74 12 C88 6 94 -4 88 -12" fill="none" stroke="#7fbcd8" strokeWidth="2.4" strokeLinecap="round" />
+        <ellipse cx="66" cy="44" rx="25" ry="24" fill="#bfe9fb" opacity=".3" stroke="#a7dcf2" strokeWidth="1" />
+        <g className="ca-eye">
+          <ellipse cx="76" cy="44" rx="7.8" ry="9.8" fill="#12222c" />
+          <ellipse cx="76" cy="44" rx="6.4" ry="8.2" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78.4" cy="40.6" r="2.9" fill="#fff" />
+        </g>
+        <path d="M46 26 Q54 20 62 22" fill="none" stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round" opacity=".5" />
+      </>,
+      rear: <>
+        <path d="M28 20 Q60 8 92 20 Q97 48 89 65 Q60 76 31 65 Q23 48 28 20 Z" fill={`url(#${id}-sky)`} stroke="#7fbcd8" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M76 14 C90 8 96 -2 90 -10" fill="none" stroke="#7fbcd8" strokeWidth="2.6" strokeLinecap="round" />
+        <circle cx="60" cy="42" r="9" fill="none" stroke="#7fbcd8" strokeWidth="1.4" opacity=".65" />
+        <circle cx="60" cy="42" r="3.4" fill="#c8f0ff" opacity=".8" />
+      </>,
+      neck: null,
+    },
+
+    /* ── POPPY · single-antenna helper ── one bobble, and it never stops moving */
+    poppy: {
+      skull: "M60 9 C82 9 92 26 92 45 C92 63 79 72 60 72 C41 72 28 63 28 45 C28 26 38 9 60 9 Z",
+      fill: "mint", line: "#a4e3c8", body: "mint", bodyLine: "#4fa383", hv: "20 -18 80 98",
+      prof: { brow: 31, nose: 44, lip: 58, chin: 69 },
+      shellArt: <>
+        <path d="M60 8 C58 -2 66 -6 64 -16" fill="none" stroke="#7fd0ae" strokeWidth="2.8" strokeLinecap="round" />
+        <circle cx="64" cy="-20" r="5.4" fill="#ffd23f" stroke="#d8a83e" strokeWidth=".9" className="ca-optic" />
+        <circle cx="62" cy="-22" r="1.8" fill="#fff" opacity=".8" />
+      </>,
+      art: <>
+        {face(46, <g className="ca-eye">
+          <ellipse cx="46" cy="45" rx="9.4" ry="10.8" fill="#12251d" />
+          <ellipse cx="46" cy="45" rx="7.8" ry="9.1" fill={`url(#${id}-bigiris)`} />
+          <circle cx="49" cy="41" r="3.3" fill="#fff" /><circle cx="43" cy="49" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e1")}
+        {face(74, <g className="ca-eye">
+          <ellipse cx="74" cy="45" rx="9.4" ry="10.8" fill="#12251d" />
+          <ellipse cx="74" cy="45" rx="7.8" ry="9.1" fill={`url(#${id}-bigiris)`} />
+          <circle cx="77" cy="41" r="3.3" fill="#fff" /><circle cx="71" cy="49" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e2")}
+        {face(60, <path d="M53 59 Q60 66 67 59" fill="none" stroke="#3f8b6c" strokeWidth="2.2" strokeLinecap="round" />, "m")}
+        {face(33, <ellipse cx="33" cy="54" rx="6" ry="3.8" fill="#ffb3a0" opacity=".6" />, "b1")}
+        {face(87, <ellipse cx="87" cy="54" rx="6" ry="3.8" fill="#ffb3a0" opacity=".6" />, "b2")}
+      </>,
+      side: "M60 9 C82 9 91 26 91 45 C91 61 82 70 70 72 Q60 74 50 70 C36 65 29 57 29 45 C29 26 39 9 60 9 Z",
+      sideArt: <>
+        <path d="M62 8 C60 -2 68 -6 66 -16" fill="none" stroke="#7fd0ae" strokeWidth="2.6" strokeLinecap="round" />
+        <circle cx="66" cy="-20" r="5" fill="#ffd23f" stroke="#d8a83e" strokeWidth=".9" />
+        <g className="ca-eye">
+          <ellipse cx="76" cy="45" rx="8" ry="10.2" fill="#12251d" />
+          <ellipse cx="76" cy="45" rx="6.6" ry="8.6" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78.4" cy="41.6" r="2.9" fill="#fff" />
+        </g>
+        <ellipse cx="62" cy="55" rx="5.4" ry="3.5" fill="#ffb3a0" opacity=".55" />
+      </>,
+      rear: <>
+        <path d="M30 20 Q60 8 90 20 Q95 48 87 65 Q60 76 33 65 Q25 48 30 20 Z" fill={`url(#${id}-mint)`} stroke="#7fd0ae" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M60 10 C58 0 66 -4 64 -14" fill="none" stroke="#7fd0ae" strokeWidth="2.8" strokeLinecap="round" />
+        <circle cx="64" cy="-18" r="5.4" fill="#ffd23f" stroke="#d8a83e" strokeWidth=".9" />
+        <path d="M46 44 Q60 38 74 44" fill="none" stroke="#7fd0ae" strokeWidth="1.1" opacity=".6" />
+      </>,
+      neck: null,
+    },
+
+    /* ── HONEY · hive-keeper ── stripes, and a pair of feelers that lead */
+    honey: {
+      skull: "M60 9 C83 9 93 26 93 45 C93 63 80 72 60 72 C40 72 27 63 27 45 C27 26 37 9 60 9 Z",
+      fill: "amber", line: "#e8bf6a", body: "amber", bodyLine: "#b8862c", hv: "16 -16 88 96",
+      prof: { brow: 31, nose: 44, lip: 58, chin: 69 },
+      shellArt: <>
+        {[-1, 1].map(k => (
+          <g key={k}>
+            <path d={`M${60 + k * 10} 10 C${60 + k * 18} -2 ${60 + k * 26} -6 ${60 + k * 30} -14`} fill="none" stroke="#8a6320" strokeWidth="2.4" strokeLinecap="round" />
+            <circle cx={60 + k * 31} cy={-17} r="3.6" fill="#3a2a08" />
+          </g>))}
+      </>,
+      art: <>
+        {/* the stripes are the costume: three bands across the whole face */}
+        {face(60, <>
+          <path d="M30 30 Q60 24 90 30 L90 37 Q60 31 30 37 Z" fill="#3a2a08" opacity=".72" />
+          <path d="M28 52 Q60 46 92 52 L92 59 Q60 53 28 59 Z" fill="#3a2a08" opacity=".72" />
+        </>, "stripe")}
+        {face(46, <g className="ca-eye">
+          <ellipse cx="46" cy="44" rx="9.2" ry="10.6" fill="#2a1c04" />
+          <ellipse cx="46" cy="44" rx="7.6" ry="9" fill={`url(#${id}-bigiris)`} />
+          <circle cx="49" cy="40" r="3.2" fill="#fff" /><circle cx="43" cy="48" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e1")}
+        {face(74, <g className="ca-eye">
+          <ellipse cx="74" cy="44" rx="9.2" ry="10.6" fill="#2a1c04" />
+          <ellipse cx="74" cy="44" rx="7.6" ry="9" fill={`url(#${id}-bigiris)`} />
+          <circle cx="77" cy="40" r="3.2" fill="#fff" /><circle cx="71" cy="48" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e2")}
+        {face(60, <path d="M55 63 Q60 68 65 63" fill="none" stroke="#8a6320" strokeWidth="2" strokeLinecap="round" />, "m")}
+      </>,
+      side: "M60 9 C83 9 92 26 92 45 C92 61 83 70 71 72 Q60 74 50 70 C35 65 28 57 28 45 C28 26 38 9 60 9 Z",
+      sideArt: <>
+        <path d="M68 10 C76 -2 84 -6 88 -14" fill="none" stroke="#8a6320" strokeWidth="2.4" strokeLinecap="round" />
+        <circle cx="89" cy="-17" r="3.6" fill="#3a2a08" />
+        <path d="M30 30 Q60 24 90 30 L90 37 Q60 31 30 37 Z" fill="#3a2a08" opacity=".68" />
+        <path d="M28 52 Q60 46 92 52 L92 59 Q60 53 28 59 Z" fill="#3a2a08" opacity=".68" />
+        <g className="ca-eye">
+          <ellipse cx="76" cy="44" rx="7.8" ry="10" fill="#2a1c04" />
+          <ellipse cx="76" cy="44" rx="6.4" ry="8.4" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78.4" cy="40.6" r="2.9" fill="#fff" />
+        </g>
+      </>,
+      rear: <>
+        <path d="M29 20 Q60 8 91 20 Q96 48 88 65 Q60 76 32 65 Q24 48 29 20 Z" fill={`url(#${id}-amber)`} stroke="#c9982e" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M30 32 Q60 26 90 32 L90 39 Q60 33 30 39 Z" fill="#3a2a08" opacity=".7" />
+        <path d="M29 52 Q60 46 91 52 L91 59 Q60 53 29 59 Z" fill="#3a2a08" opacity=".7" />
+        {[-1, 1].map(k => (
+          <path key={k} d={`M${60 + k * 10} 12 C${60 + k * 18} 0 ${60 + k * 26} -4 ${60 + k * 30} -12`} fill="none" stroke="#8a6320" strokeWidth="2.4" strokeLinecap="round" />))}
+      </>,
+      neck: null,
+    },
+
+    /* ── SNOWBUN · quiet courier ── the ears are half the height of the model */
+    snowbun: {
+      skull: "M60 12 C81 12 90 28 90 46 C90 64 78 72 60 72 C42 72 30 64 30 46 C30 28 39 12 60 12 Z",
+      fill: "white", line: "#cfe0ef", body: "pearl", bodyLine: "#9fb2c8", hv: "18 -34 84 114",
+      prof: { brow: 32, nose: 45, lip: 58, chin: 69 },
+      shellArt: <>
+        {[-1, 1].map(k => (
+          <g key={k}>
+            <path d={`M${60 + k * 12} 16 C${60 + k * 6} -6 ${60 + k * 14} -30 ${60 + k * 26} -30 C${60 + k * 34} -12 ${60 + k * 30} 4 ${60 + k * 24} 16 Z`}
+              fill={`url(#${id}-white)`} stroke="#cfe0ef" strokeWidth="1" strokeLinejoin="round" />
+            <path d={`M${60 + k * 15} 12 C${60 + k * 11} -4 ${60 + k * 17} -22 ${60 + k * 24} -23 C${60 + k * 28} -10 ${60 + k * 26} 2 ${60 + k * 22} 12 Z`}
+              fill="#ffc4d4" opacity=".55" />
+          </g>))}
+      </>,
+      art: <>
+        {face(47, <g className="ca-eye">
+          <ellipse cx="47" cy="45" rx="8.6" ry="10.2" fill="#1d2430" />
+          <ellipse cx="47" cy="45" rx="7.1" ry="8.6" fill={`url(#${id}-bigiris)`} />
+          <circle cx="49.8" cy="41.4" r="3.1" fill="#fff" /><circle cx="44.4" cy="49" r="1.6" fill="#fff" opacity=".85" />
+        </g>, "e1")}
+        {face(73, <g className="ca-eye">
+          <ellipse cx="73" cy="45" rx="8.6" ry="10.2" fill="#1d2430" />
+          <ellipse cx="73" cy="45" rx="7.1" ry="8.6" fill={`url(#${id}-bigiris)`} />
+          <circle cx="75.8" cy="41.4" r="3.1" fill="#fff" /><circle cx="70.4" cy="49" r="1.6" fill="#fff" opacity=".85" />
+        </g>, "e2")}
+        {face(60, <path d="M56 56 L64 56 L60 61 Z" fill="#ffa8bd" stroke="#e08fa4" strokeWidth=".6" strokeLinejoin="round" />, "no")}
+        {face(60, <path d="M54 64 Q60 68 66 64" fill="none" stroke="#8fa2b8" strokeWidth="1.8" strokeLinecap="round" />, "m")}
+        {face(35, <ellipse cx="35" cy="55" rx="5.6" ry="3.6" fill="#ffb0c4" opacity=".55" />, "b1")}
+        {face(85, <ellipse cx="85" cy="55" rx="5.6" ry="3.6" fill="#ffb0c4" opacity=".55" />, "b2")}
+      </>,
+      side: "M60 12 C81 12 89 28 89 46 C89 62 81 70 70 72 Q60 74 51 70 C38 66 31 57 31 46 C31 28 40 12 60 12 Z",
+      sideArt: <>
+        <path d="M72 16 C66 -6 74 -30 86 -30 C94 -12 90 4 84 16 Z" fill={`url(#${id}-white)`} stroke="#cfe0ef" strokeWidth="1" strokeLinejoin="round" />
+        <path d="M75 12 C71 -4 77 -22 84 -23 C88 -10 86 2 82 12 Z" fill="#ffc4d4" opacity=".5" />
+        <g className="ca-eye">
+          <ellipse cx="76" cy="45" rx="7.4" ry="9.6" fill="#1d2430" />
+          <ellipse cx="76" cy="45" rx="6.1" ry="8.1" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78.4" cy="41.6" r="2.8" fill="#fff" />
+        </g>
+        <path d="M84 55 L90 56 L86 60 Z" fill="#ffa8bd" stroke="#e08fa4" strokeWidth=".6" strokeLinejoin="round" />
+      </>,
+      rear: <>
+        <path d="M32 22 Q60 11 88 22 Q93 48 86 65 Q60 76 34 65 Q27 48 32 22 Z" fill={`url(#${id}-white)`} stroke="#cfe0ef" strokeWidth=".9" strokeLinejoin="round" />
+        {[-1, 1].map(k => (
+          <path key={k} d={`M${60 + k * 12} 18 C${60 + k * 6} -4 ${60 + k * 14} -28 ${60 + k * 26} -28 C${60 + k * 34} -10 ${60 + k * 30} 6 ${60 + k * 24} 18 Z`}
+            fill={`url(#${id}-white)`} stroke="#cfe0ef" strokeWidth="1" strokeLinejoin="round" />))}
+        <circle cx="60" cy="46" r="7" fill="#e8f2fb" stroke="#cfe0ef" strokeWidth=".9" />
+      </>,
+      neck: null,
+    },
+
+    /* ── PLUSHY · stitched companion ── seams, a button eye, and a patch */
+    plushy: {
+      skull: "M60 8 C85 8 96 25 96 45 C96 64 82 72 60 72 C38 72 24 64 24 45 C24 25 35 8 60 8 Z",
+      fill: "ivory", line: "#d8c8b0", body: "ivory", bodyLine: "#b09c80", hv: "14 -8 92 88",
+      prof: { brow: 30, nose: 44, lip: 58, chin: 69 },
+      shellArt: <>
+        {/* the seam that runs over the crown, with real stitches on it */}
+        <path d="M60 6 L60 72" stroke="#b09c80" strokeWidth="1" opacity=".55" strokeDasharray="3 3" />
+        <path d="M24 45 L96 45" stroke="#b09c80" strokeWidth="1" opacity=".35" strokeDasharray="3 3" />
+        <path d="M40 12 Q48 4 56 10" fill="none" stroke="#b09c80" strokeWidth="1.1" opacity=".5" strokeDasharray="2.5 3" />
+      </>,
+      art: <>
+        {/* one button and one embroidered X — a plush that has been repaired */}
+        {face(46, <g className="ca-eye">
+          <circle cx="46" cy="44" r="10" fill="#3a2c1e" />
+          <circle cx="46" cy="44" r="8.2" fill={`url(#${id}-bigiris)`} />
+          <circle cx="49" cy="40.4" r="3.4" fill="#fff" />
+          <circle cx="43.4" cy="48" r="1.7" fill="#fff" opacity=".85" />
+        </g>, "e1")}
+        {face(74, <g className="ca-eye">
+          <circle cx="74" cy="44" r="9.6" fill="#efe2cd" stroke="#b09c80" strokeWidth="1.1" />
+          <path d="M69.4 39.4 L78.6 48.6 M78.6 39.4 L69.4 48.6" stroke="#8b7658" strokeWidth="2.2" strokeLinecap="round" />
+        </g>, "e2")}
+        {face(60, <path d="M53 58 Q60 64 67 58" fill="none" stroke="#8b7658" strokeWidth="2.2" strokeLinecap="round" />, "m")}
+        {face(32, <ellipse cx="32" cy="54" rx="6.4" ry="4.2" fill="#f0a894" opacity=".6" />, "b1")}
+        {face(88, <ellipse cx="88" cy="54" rx="6.4" ry="4.2" fill="#f0a894" opacity=".6" />, "b2")}
+        {face(84, <g>
+          <path d="M76 24 L94 22 L96 34 L78 36 Z" fill="#d8c0a0" stroke="#b09c80" strokeWidth=".9" strokeLinejoin="round" opacity=".9" />
+          <path d="M76 27 L96 25 M77 32 L96 30" stroke="#8b7658" strokeWidth=".8" opacity=".5" strokeDasharray="2 2.5" />
+        </g>, "patch")}
+      </>,
+      side: "M60 8 C85 8 95 25 95 45 C95 62 85 70 72 72 Q60 74 50 70 C34 65 25 57 25 45 C25 25 36 8 60 8 Z",
+      sideArt: <>
+        <path d="M60 6 Q66 38 62 72" fill="none" stroke="#b09c80" strokeWidth="1" opacity=".5" strokeDasharray="3 3" />
+        <g className="ca-eye">
+          <circle cx="76" cy="44" r="9.2" fill="#3a2c1e" />
+          <circle cx="76" cy="44" r="7.6" fill={`url(#${id}-bigiris)`} />
+          <circle cx="78.6" cy="40.6" r="3.1" fill="#fff" />
+        </g>
+        <path d="M78 58 Q84 63 88 57" fill="none" stroke="#8b7658" strokeWidth="2" strokeLinecap="round" />
+        <ellipse cx="62" cy="55" rx="5.8" ry="3.8" fill="#f0a894" opacity=".55" />
+      </>,
+      rear: <>
+        <path d="M26 20 Q60 8 94 20 Q99 48 91 65 Q60 76 29 65 Q21 48 26 20 Z" fill={`url(#${id}-ivory)`} stroke="#c8b498" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M60 10 L60 72" stroke="#b09c80" strokeWidth="1" opacity=".5" strokeDasharray="3 3" />
+        <path d="M32 40 Q60 34 88 40" fill="none" stroke="#b09c80" strokeWidth="1" opacity=".45" strokeDasharray="3 3" />
+        <path d="M44 22 L62 20 L64 32 L46 34 Z" fill="#d8c0a0" stroke="#b09c80" strokeWidth=".9" strokeLinejoin="round" opacity=".85" />
+      </>,
+      neck: null,
+    },
+
+    /* ══ the hard intake ══════════════════════════════════════════════════
+       Ten built to be read across a room and not argued with. The recipe is
+       the soft one run backwards: a narrow skull that is widest at the BROW,
+       optics reduced to a slit or a band, hard vents, and one crest or blade
+       in the silhouette. Nothing here has a cheek. */
+
+    /* ── WRAITH · hollow-frame infiltrator ── a helmet with nobody in it */
+    wraith: {
+      skull: "M60 6 L84 18 L86 44 L74 66 L60 72 L46 66 L34 44 L36 18 Z",
+      fill: "obsidian", line: "#7f8ba0", body: "obsidian", bodyLine: "#3d4a5e", hv: "28 -2 64 80",
+      prof: { brow: 22, nose: 38, lip: 54, chin: 68 },
+      shellArt: <>
+        <path d="M60 6 L60 -8 M52 9 L48 -2 M68 9 L72 -2" stroke="#5f6c82" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M36 18 L84 18" stroke="#0a0f1a" strokeWidth="1.6" opacity=".7" />
+      </>,
+      art: <>
+        {face(60, <>
+          {/* the hollow: a socket with nothing behind it but one cold line */}
+          <path d="M38 26 L82 26 L78 44 L42 44 Z" fill="#04070e" />
+          <path d="M42 33 L78 33" stroke={`url(#${id}-iris)`} strokeWidth="3.4" className="ca-optic" />
+          <path d="M42 33 L78 33" stroke="#ffffff" strokeWidth="1" opacity=".7" />
+        </>, "hollow")}
+        {face(60, <path d="M46 52 L74 52 L70 62 L50 62 Z" fill="#0b1220" stroke="#5f6c82" strokeWidth=".7" />, "jaw")}
+        {face(60, <>{[52, 60, 68].map(x => <rect key={x} x={x - 1} y="53" width="2" height="8" rx=".6" fill="#5f6c82" opacity=".7" />)}</>, "bars")}
+      </>,
+      side: "M60 6 L84 18 L86 44 L74 66 L60 72 L46 66 L34 44 L36 18 Z",
+      sideArt: <>
+        <path d="M60 6 L60 -8 M68 9 L72 -2" stroke="#5f6c82" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M38 26 L82 26 L78 44 L42 44 Z" fill="#04070e" />
+        <path d="M56 33 L78 33" stroke={`url(#${id}-iris)`} strokeWidth="3.4" className="ca-optic" />
+        <path d="M46 52 L74 52 L70 62 L50 62 Z" fill="#0b1220" stroke="#5f6c82" strokeWidth=".7" />
+        <path d="M36 18 L86 18" stroke="#0a0f1a" strokeWidth="1.5" opacity=".65" />
+      </>,
+      rear: <>
+        <path d="M36 14 L84 14 L86 46 L74 68 L46 68 L34 46 Z" fill={`url(#${id}-obsidian)`} stroke="#5f6c82" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M44 24 L76 24 M44 36 L76 36 M46 48 L74 48" stroke="#0a0f1a" strokeWidth="1.6" opacity=".6" />
+        <path d="M60 14 L60 -6" stroke="#5f6c82" strokeWidth="1.8" strokeLinecap="round" />
+      </>,
+      neck: null,
+    },
+
+    /* ── MAGNUS · siege frame ── a brow you could park a truck on */
+    magnus: {
+      skull: "M40 10 L80 10 C86 10 88 14 88 20 L88 30 L84 34 L84 58 C84 66 78 70 70 70 L50 70 C42 70 36 66 36 58 L36 34 L32 30 L32 20 C32 14 34 10 40 10 Z",
+      fill: "graphite", line: "#8b98ad", body: "graphite", bodyLine: "#4a5668", hv: "26 0 68 78",
+      prof: { brow: 24, nose: 40, lip: 55, chin: 68 },
+      shellArt: <>
+        <path d="M32 20 L88 20" stroke="#0b1120" strokeWidth="2" opacity=".65" />
+        <path d="M36 6 L52 6 L52 10 L36 10 Z M68 6 L84 6 L84 10 L68 10 Z" fill="#6d7b90" stroke="#4a5668" strokeWidth=".7" />
+        {[44, 60, 76].map(x => <circle key={x} cx={x} cy="15" r="2.2" fill="#4a5668" />)}
+      </>,
+      art: <>
+        {face(60, <path d="M30 28 L90 28 L88 38 L32 38 Z" fill="#05090f" />, "shade")}
+        {face(48, <g className="ca-eye"><rect x="40" y="30" width="16" height="6" rx="2" fill="#1a0508" /><rect x="41.5" y="31.4" width="13" height="3.2" rx="1.4" fill={`url(#${id}-red)`} className="ca-optic" /></g>, "e1")}
+        {face(72, <g className="ca-eye"><rect x="64" y="30" width="16" height="6" rx="2" fill="#1a0508" /><rect x="65.5" y="31.4" width="13" height="3.2" rx="1.4" fill={`url(#${id}-red)`} className="ca-optic" /></g>, "e2")}
+        {face(60, <>
+          <path d="M42 46 L78 46 L76 64 L44 64 Z" fill="#0d1422" stroke="#6d7b90" strokeWidth=".8" />
+          {[48, 54, 60, 66, 72].map(x => <rect key={x} x={x - 1.4} y="48" width="2.8" height="14" rx="1" fill="#6d7b90" opacity=".75" />)}
+        </>, "grille")}
+      </>,
+      side: "M40 10 L80 10 C86 10 88 14 88 20 L88 30 L84 34 L84 58 C84 66 78 70 70 70 L50 70 C42 70 36 66 36 58 L36 34 L32 30 L32 20 C32 14 34 10 40 10 Z",
+      sideArt: <>
+        <path d="M32 20 L88 20" stroke="#0b1120" strokeWidth="2" opacity=".6" />
+        <path d="M68 6 L84 6 L84 10 L68 10 Z" fill="#6d7b90" stroke="#4a5668" strokeWidth=".7" />
+        <path d="M30 28 L90 28 L88 38 L32 38 Z" fill="#05090f" />
+        <rect x="66" y="30" width="16" height="6" rx="2" fill="#1a0508" />
+        <rect x="67.5" y="31.4" width="13" height="3.2" rx="1.4" fill={`url(#${id}-red)`} className="ca-optic" />
+        <path d="M50 46 L82 46 L80 64 L52 64 Z" fill="#0d1422" stroke="#6d7b90" strokeWidth=".8" />
+      </>,
+      rear: <>
+        <path d="M34 12 L86 12 L86 58 C86 66 80 70 70 70 L50 70 C40 70 34 66 34 58 Z" fill={`url(#${id}-graphite)`} stroke="#6d7b90" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M40 22 L80 22 M40 34 L80 34 M40 46 L80 46 M42 58 L78 58" stroke="#0b1120" strokeWidth="1.8" opacity=".55" />
+        {[44, 60, 76].map(x => <circle key={x} cx={x} cy="17" r="2.2" fill="#4a5668" />)}
+      </>,
+      neck: null,
+    },
+
+    /* ── SABER · duelling frame ── a blade crest straight down the centreline */
+    saber: {
+      skull: "M60 4 L78 20 L80 46 L70 66 L60 72 L50 66 L40 46 L42 20 Z",
+      fill: "slateb", line: "#9fb6d0", body: "slateb", bodyLine: "#4b6c8e", hv: "26 -16 68 94",
+      prof: { brow: 22, nose: 38, lip: 54, chin: 68 },
+      shellArt: <>
+        {/* the crest: a fin that rises above the crown and tapers back */}
+        <path d="M60 4 L64 -22 L60 -30 L56 -22 Z" fill={`url(#${id}-chrome)`} stroke="#8fa8c4" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M60 -26 L60 2" stroke="#5ce1ff" strokeWidth="1.4" opacity=".8" className="ca-optic" />
+        <path d="M46 14 L38 4 M74 14 L82 4" stroke="#8fa8c4" strokeWidth="2" strokeLinecap="round" />
+      </>,
+      art: <>
+        {face(60, <path d="M42 26 L78 26 L74 40 L46 40 Z" fill="#05090f" />, "sh")}
+        {face(50, <g className="ca-eye">
+          <path d="M44 30 L58 28 L57 36 L44 35 Z" fill="#04121a" />
+          <path d="M45.4 31.4 L56.4 29.8 L55.6 34.4 L45.4 33.6 Z" fill={`url(#${id}-iris)`} className="ca-optic" />
+        </g>, "e1")}
+        {face(70, <g className="ca-eye">
+          <path d="M76 30 L62 28 L63 36 L76 35 Z" fill="#04121a" />
+          <path d="M74.6 31.4 L63.6 29.8 L64.4 34.4 L74.6 33.6 Z" fill={`url(#${id}-iris)`} className="ca-optic" />
+        </g>, "e2")}
+        {face(60, <path d="M50 48 L70 48 L66 62 L54 62 Z" fill="#0d1422" stroke="#7f97b4" strokeWidth=".7" />, "jaw")}
+        {face(60, <path d="M53 52 L67 52 M54 57 L66 57" stroke="#7f97b4" strokeWidth="1.3" opacity=".7" />, "v")}
+      </>,
+      side: "M60 4 L78 20 L80 46 L70 66 L60 72 L50 66 L40 46 L42 20 Z",
+      sideArt: <>
+        <path d="M60 4 L64 -22 L60 -30 L56 -22 Z" fill={`url(#${id}-chrome)`} stroke="#8fa8c4" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M74 14 L82 4" stroke="#8fa8c4" strokeWidth="2" strokeLinecap="round" />
+        <path d="M42 26 L78 26 L74 40 L46 40 Z" fill="#05090f" />
+        <path d="M76 30 L62 28 L63 36 L76 35 Z" fill="#04121a" />
+        <path d="M74.6 31.4 L63.6 29.8 L64.4 34.4 L74.6 33.6 Z" fill={`url(#${id}-iris)`} className="ca-optic" />
+        <path d="M54 48 L74 48 L70 62 L58 62 Z" fill="#0d1422" stroke="#7f97b4" strokeWidth=".7" />
+      </>,
+      rear: <>
+        <path d="M42 16 L78 16 L80 46 L70 68 L50 68 L40 46 Z" fill={`url(#${id}-slateb)`} stroke="#7f97b4" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M60 16 L64 -20 L60 -28 L56 -20 Z" fill={`url(#${id}-chrome)`} stroke="#8fa8c4" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M48 28 L72 28 M46 40 L74 40 M50 52 L70 52" stroke="#0b1120" strokeWidth="1.6" opacity=".55" />
+      </>,
+      neck: null,
+    },
+
+    /* ── ORACLE · sensor cluster ── seven optics, and none of them blink */
+    oracle: {
+      skull: "M60 6 C80 6 90 22 90 44 C90 62 78 70 60 70 C42 70 30 62 30 44 C30 22 40 6 60 6 Z",
+      fill: "pearl", line: "#c4d2e2", body: "pearl", bodyLine: "#8fa2b8", hv: "24 -4 72 80",
+      prof: { brow: 26, nose: 40, lip: 55, chin: 68 },
+      shellArt: <>
+        <path d="M30 34 C30 18 43 6 60 6 C77 6 90 18 90 34 Q60 26 30 34 Z" fill={`url(#${id}-chrome)`} stroke="#a8bccf" strokeWidth=".9" strokeLinejoin="round" opacity=".9" />
+        <circle cx="60" cy="2" r="3" fill="#7fe8ff" className="ca-optic" />
+        <path d="M60 5 L60 -6" stroke="#a8bccf" strokeWidth="1.6" strokeLinecap="round" />
+      </>,
+      art: <>
+        {/* a ring of small lenses around one big one — a face made of looking */}
+        {face(60, <circle cx="60" cy="44" r="11" fill="#071018" stroke="#8fa2b8" strokeWidth=".9" />, "main")}
+        {face(60, <circle cx="60" cy="44" r="7.4" fill={`url(#${id}-iris)`} className="ca-optic" />, "iris")}
+        {face(60, <circle cx="57" cy="41" r="2.6" fill="#fff" opacity=".8" />, "gl")}
+        {[[42, 38], [46, 52], [60, 60], [74, 52], [78, 38]].map(([x, y], i) => (
+          face(x, <g key={i}>
+            <circle cx={x} cy={y} r="4.2" fill="#071018" stroke="#8fa2b8" strokeWidth=".7" />
+            <circle cx={x} cy={y} r="2.6" fill={`url(#${id}-iris)`} opacity=".9" className="ca-optic" />
+          </g>, "o" + i)))}
+      </>,
+      side: "M60 6 C80 6 89 22 89 44 C89 60 80 68 70 70 Q60 72 51 69 C38 65 31 56 31 44 C31 22 40 6 60 6 Z",
+      sideArt: <>
+        <path d="M31 34 C31 18 44 6 60 6 C77 6 89 18 89 34 Q60 26 31 34 Z" fill={`url(#${id}-chrome)`} stroke="#a8bccf" strokeWidth=".9" strokeLinejoin="round" opacity=".9" />
+        <circle cx="60" cy="2" r="3" fill="#7fe8ff" className="ca-optic" />
+        <circle cx="74" cy="44" r="10" fill="#071018" stroke="#8fa2b8" strokeWidth=".9" />
+        <circle cx="74" cy="44" r="6.8" fill={`url(#${id}-iris)`} className="ca-optic" />
+        <circle cx="71.4" cy="41.2" r="2.4" fill="#fff" opacity=".75" />
+        {[[58, 54], [56, 38]].map(([x, y], i) => (
+          <g key={i}><circle cx={x} cy={y} r="3.8" fill="#071018" stroke="#8fa2b8" strokeWidth=".7" />
+            <circle cx={x} cy={y} r="2.3" fill={`url(#${id}-iris)`} opacity=".85" /></g>))}
+      </>,
+      rear: <>
+        <path d="M32 18 Q60 6 88 18 Q93 46 85 64 Q60 74 35 64 Q27 46 32 18 Z" fill={`url(#${id}-pearl)`} stroke="#a8bccf" strokeWidth=".9" strokeLinejoin="round" />
+        <circle cx="60" cy="42" r="10" fill="none" stroke="#a8bccf" strokeWidth="1.4" opacity=".7" />
+        <circle cx="60" cy="42" r="4" fill="#7fe8ff" opacity=".55" />
+        <path d="M60 8 L60 -4" stroke="#a8bccf" strokeWidth="1.6" strokeLinecap="round" />
+      </>,
+      neck: null,
+    },
+
+    /* ── KORAX · corvid frame ── a beak, and the eyes set behind it */
+    korax: {
+      skull: "M60 6 C78 6 88 20 88 40 C88 54 80 64 70 68 L60 74 L50 68 C40 64 32 54 32 40 C32 20 42 6 60 6 Z",
+      fill: "carbon", line: "#7a8798", body: "carbon", bodyLine: "#3b4552", hv: "26 -14 68 94",
+      prof: { brow: 24, nose: 40, lip: 56, chin: 70 },
+      shellArt: <>
+        {/* three swept quills off the back of the skull */}
+        {[0, 1, 2].map(i => (
+          <path key={i} d={`M${44 + i * 8} 10 C${36 + i * 8} -6 ${30 + i * 8} -14 ${22 + i * 8} -18 C${32 + i * 8} -10 ${36 + i * 8} -2 ${40 + i * 8} 12 Z`}
+            fill={`url(#${id}-carbon)`} stroke="#5a6675" strokeWidth=".8" strokeLinejoin="round" opacity={.95 - i * .1} />))}
+      </>,
+      art: <>
+        {face(60, <path d="M40 30 L80 30 L76 42 L44 42 Z" fill="#04070e" />, "band")}
+        {face(48, <g className="ca-eye"><ellipse cx="48" cy="36" rx="6" ry="4.2" fill="#180405" /><ellipse cx="48" cy="36" rx="4.2" ry="2.8" fill={`url(#${id}-red)`} className="ca-optic" /></g>, "e1")}
+        {face(72, <g className="ca-eye"><ellipse cx="72" cy="36" rx="6" ry="4.2" fill="#180405" /><ellipse cx="72" cy="36" rx="4.2" ry="2.8" fill={`url(#${id}-red)`} className="ca-optic" /></g>, "e2")}
+        {face(60, <path d="M52 44 L68 44 L64 60 L60 74 L56 60 Z" fill={`url(#${id}-graphite)`} stroke="#5a6675" strokeWidth=".9" strokeLinejoin="round" />, "beak")}
+        {face(60, <path d="M56 50 L64 50" stroke="#2a323d" strokeWidth="1.2" opacity=".8" />, "bl")}
+      </>,
+      side: "M60 6 C78 6 87 20 87 40 C87 54 80 64 70 68 L60 74 L50 68 C40 64 33 54 33 40 C33 20 42 6 60 6 Z",
+      sideArt: <>
+        {[0, 1].map(i => (
+          <path key={i} d={`M${48 + i * 8} 10 C${40 + i * 8} -6 ${34 + i * 8} -14 ${26 + i * 8} -18 C${36 + i * 8} -10 ${40 + i * 8} -2 ${44 + i * 8} 12 Z`}
+            fill={`url(#${id}-carbon)`} stroke="#5a6675" strokeWidth=".8" strokeLinejoin="round" />))}
+        <path d="M40 30 L82 30 L78 42 L44 42 Z" fill="#04070e" />
+        <ellipse cx="72" cy="36" rx="5.6" ry="4" fill="#180405" />
+        <ellipse cx="72" cy="36" rx="3.9" ry="2.6" fill={`url(#${id}-red)`} className="ca-optic" />
+        <path d="M76 44 L94 52 L74 62 L70 46 Z" fill={`url(#${id}-graphite)`} stroke="#5a6675" strokeWidth=".9" strokeLinejoin="round" />
+      </>,
+      rear: <>
+        <path d="M34 16 Q60 6 86 16 Q91 44 82 62 Q60 72 38 62 Q29 44 34 16 Z" fill={`url(#${id}-carbon)`} stroke="#5a6675" strokeWidth=".9" strokeLinejoin="round" />
+        {[0, 1, 2].map(i => (
+          <path key={i} d={`M${44 + i * 8} 12 C${36 + i * 8} -4 ${30 + i * 8} -12 ${22 + i * 8} -16 C${32 + i * 8} -8 ${36 + i * 8} 0 ${40 + i * 8} 14 Z`}
+            fill={`url(#${id}-carbon)`} stroke="#5a6675" strokeWidth=".8" strokeLinejoin="round" opacity={.9 - i * .1} />))}
+        <path d="M44 36 L76 36 M46 48 L74 48" stroke="#232a33" strokeWidth="1.6" opacity=".6" />
+      </>,
+      neck: null,
+    },
+
+    /* ── TEMPEST · high-speed interceptor ── everything on it is swept back */
+    tempest: {
+      skull: "M60 6 L80 18 L82 40 L72 62 L60 72 L48 62 L38 40 L40 18 Z",
+      fill: "steelblu", line: "#8fc0e0", body: "steelblu", bodyLine: "#3f7ba8", hv: "20 -8 80 88",
+      prof: { brow: 22, nose: 38, lip: 54, chin: 68 },
+      shellArt: <>
+        {/* intake vanes, raked hard so the head reads as moving even at rest */}
+        {[0, 1, 2].map(i => (
+          <g key={i}>
+            <path d={`M${40 - i * 3} ${20 + i * 9} L${20 - i * 4} ${8 + i * 9}`} stroke="#6fa8cc" strokeWidth={2.6 - i * .4} strokeLinecap="round" />
+            <path d={`M${80 + i * 3} ${20 + i * 9} L${100 + i * 4} ${8 + i * 9}`} stroke="#6fa8cc" strokeWidth={2.6 - i * .4} strokeLinecap="round" />
+          </g>))}
+        <path d="M60 6 L60 -8" stroke="#6fa8cc" strokeWidth="2" strokeLinecap="round" />
+      </>,
+      art: <>
+        {face(60, <path d="M40 24 L80 24 L76 40 L44 40 Z" fill="#04121a" />, "vis")}
+        {face(60, <path d="M43 27 L77 27 L74 37 L46 37 Z" fill={`url(#${id}-iris)`} opacity=".95" className="ca-optic" />, "lit")}
+        {face(48, <path d="M44 28 L56 27 L54 33 L44 33 Z" fill="#ffffff" opacity=".38" />, "gl")}
+        {face(60, <>
+          <path d="M48 46 L72 46 L68 62 L52 62 Z" fill="#0b1a26" stroke="#6fa8cc" strokeWidth=".8" />
+          {[54, 60, 66].map(x => <path key={x} d={`M${x} 48 L${x - 2} 60`} stroke="#6fa8cc" strokeWidth="1.4" opacity=".75" />)}
+        </>, "jaw")}
+      </>,
+      side: "M60 6 L80 18 L82 40 L72 62 L60 72 L48 62 L38 40 L40 18 Z",
+      sideArt: <>
+        {[0, 1, 2].map(i => (
+          <path key={i} d={`M${80 + i * 3} ${20 + i * 9} L${100 + i * 4} ${8 + i * 9}`} stroke="#6fa8cc" strokeWidth={2.6 - i * .4} strokeLinecap="round" />))}
+        <path d="M40 24 L82 24 L78 40 L44 40 Z" fill="#04121a" />
+        <path d="M46 27 L79 27 L76 37 L49 37 Z" fill={`url(#${id}-iris)`} opacity=".95" className="ca-optic" />
+        <path d="M52 46 L76 46 L72 62 L56 62 Z" fill="#0b1a26" stroke="#6fa8cc" strokeWidth=".8" />
+      </>,
+      rear: <>
+        <path d="M40 14 L80 14 L82 40 L72 64 L48 64 L38 40 Z" fill={`url(#${id}-steelblu)`} stroke="#6fa8cc" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M46 26 L74 26 M44 38 L76 38 M48 50 L72 50" stroke="#0b1a26" strokeWidth="1.7" opacity=".55" />
+        <circle cx="60" cy="38" r="5" fill={`url(#${id}-iris)`} opacity=".5" />
+      </>,
+      neck: null,
+    },
+
+    /* ── BASTION · bunker head ── rivets, a slit, and no other openings */
+    bastion: {
+      skull: "M38 12 L82 12 C86 12 88 15 88 19 L88 60 C88 66 84 70 78 70 L42 70 C36 70 32 66 32 60 L32 19 C32 15 34 12 38 12 Z",
+      fill: "bronze", line: "#c8a05c", body: "bronze", bodyLine: "#8a6636", hv: "26 2 68 76",
+      prof: { brow: 22, nose: 38, lip: 54, chin: 68 },
+      shellArt: <>
+        <path d="M32 22 L88 22" stroke="#5c3f16" strokeWidth="2" opacity=".7" />
+        <path d="M42 12 L42 4 L54 4 L54 12 Z M66 12 L66 4 L78 4 L78 12 Z" fill={`url(#${id}-bronze)`} stroke="#8a6636" strokeWidth=".8" strokeLinejoin="round" />
+        {[38, 50, 70, 82].map(x => <circle key={x} cx={x} cy="17" r="2" fill="#8a6636" />)}
+      </>,
+      art: <>
+        {face(60, <>
+          {/* one long slit, and the armour lip that overhangs it */}
+          <path d="M34 30 L86 30 L86 42 L34 42 Z" fill="#0a0704" />
+          <path d="M37 33 L83 33 L83 39 L37 39 Z" fill={`url(#${id}-amber)`} className="ca-optic" />
+          <path d="M34 28 L86 28 L84 31 L36 31 Z" fill="#a07c3a" />
+        </>, "slit")}
+        {face(60, <>
+          <path d="M40 50 L80 50 L80 64 L40 64 Z" fill="#160f06" stroke="#a07c3a" strokeWidth=".8" />
+          {[46, 53, 60, 67, 74].map(x => <rect key={x} x={x - 1.5} y="52" width="3" height="10" rx="1" fill="#a07c3a" opacity=".7" />)}
+        </>, "grille")}
+        {[36, 84].map((x, i) => face(x, <circle key={i} cx={x} cy="56" r="2.4" fill="#8a6636" />, "rv" + i))}
+      </>,
+      side: "M38 12 L82 12 C86 12 88 15 88 19 L88 60 C88 66 84 70 78 70 L42 70 C36 70 32 66 32 60 L32 19 C32 15 34 12 38 12 Z",
+      sideArt: <>
+        <path d="M32 22 L88 22" stroke="#5c3f16" strokeWidth="2" opacity=".65" />
+        <path d="M66 12 L66 4 L78 4 L78 12 Z" fill={`url(#${id}-bronze)`} stroke="#8a6636" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M34 30 L86 30 L86 42 L34 42 Z" fill="#0a0704" />
+        <path d="M56 33 L83 33 L83 39 L56 39 Z" fill={`url(#${id}-amber)`} className="ca-optic" />
+        <path d="M46 50 L84 50 L84 64 L46 64 Z" fill="#160f06" stroke="#a07c3a" strokeWidth=".8" />
+        {[38, 50, 70, 82].map(x => <circle key={x} cx={x} cy="17" r="2" fill="#8a6636" />)}
+      </>,
+      rear: <>
+        <path d="M32 14 L88 14 L88 60 C88 66 84 70 78 70 L42 70 C36 70 32 66 32 60 Z" fill={`url(#${id}-bronze)`} stroke="#a07c3a" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M38 26 L82 26 M38 40 L82 40 M38 54 L82 54" stroke="#5c3f16" strokeWidth="1.8" opacity=".6" />
+        {[38, 50, 70, 82].map(x => <circle key={x} cx={x} cy="19" r="2" fill="#8a6636" />)}
+        {[38, 50, 70, 82].map(x => <circle key={"b" + x} cx={x} cy="64" r="2" fill="#8a6636" />)}
+      </>,
+      neck: null,
+    },
+
+    /* ── NYX · night frame ── one crescent, and it is the only light on it */
+    nyx: {
+      skull: "M60 5 C79 5 89 20 89 42 C89 60 77 70 60 72 C43 70 31 60 31 42 C31 20 41 5 60 5 Z",
+      fill: "plum", line: "#b98cff", body: "obsidian", bodyLine: "#4a3a6a", hv: "24 -14 72 94",
+      prof: { brow: 24, nose: 40, lip: 55, chin: 69 },
+      shellArt: <>
+        {/* two horns curving back, and a crescent hung between them */}
+        {[-1, 1].map(k => (
+          <path key={k} d={`M${60 + k * 20} 12 C${60 + k * 30} -4 ${60 + k * 30} -16 ${60 + k * 22} -22 C${60 + k * 28} -10 ${60 + k * 26} -2 ${60 + k * 24} 14 Z`}
+            fill={`url(#${id}-plum)`} stroke="#8f5fc4" strokeWidth=".9" strokeLinejoin="round" />))}
+        <path d="M50 -6 A12 12 0 1 0 70 -6 A9 12 0 1 1 50 -6 Z" fill="#e8d3ff" stroke="#b98cff" strokeWidth=".8" className="ca-optic" />
+      </>,
+      art: <>
+        {face(60, <path d="M34 28 L86 28 L82 44 L38 44 Z" fill="#08040f" />, "band")}
+        {face(60, <path d="M42 38 A20 20 0 0 1 78 38 A26 26 0 0 0 42 38 Z" fill={`url(#${id}-iris)`} className="ca-optic" />, "cres")}
+        {face(60, <path d="M46 36 A16 16 0 0 1 74 36" fill="none" stroke="#ffffff" strokeWidth="1.2" opacity=".7" />, "hi")}
+        {face(60, <>
+          <path d="M46 50 L74 50 L70 64 L50 64 Z" fill="#0d0818" stroke="#8f5fc4" strokeWidth=".7" />
+          {[53, 60, 67].map(x => <path key={x} d={`M${x} 52 L${x} 62`} stroke="#8f5fc4" strokeWidth="1.3" opacity=".7" />)}
+        </>, "jaw")}
+      </>,
+      side: "M60 5 C79 5 88 20 88 42 C88 58 79 68 70 71 Q60 74 51 70 C40 66 32 56 32 42 C32 20 42 5 60 5 Z",
+      sideArt: <>
+        <path d="M80 12 C90 -4 90 -16 82 -22 C88 -10 86 -2 84 14 Z" fill={`url(#${id}-plum)`} stroke="#8f5fc4" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M52 -6 A12 12 0 1 0 72 -6 A9 12 0 1 1 52 -6 Z" fill="#e8d3ff" stroke="#b98cff" strokeWidth=".8" />
+        <path d="M36 28 L86 28 L82 44 L40 44 Z" fill="#08040f" />
+        <path d="M56 38 A18 18 0 0 1 82 34 A24 24 0 0 0 56 38 Z" fill={`url(#${id}-iris)`} className="ca-optic" />
+        <path d="M52 50 L78 50 L74 64 L54 64 Z" fill="#0d0818" stroke="#8f5fc4" strokeWidth=".7" />
+      </>,
+      rear: <>
+        <path d="M33 18 Q60 6 87 18 Q92 46 84 64 Q60 74 36 64 Q28 46 33 18 Z" fill={`url(#${id}-plum)`} stroke="#8f5fc4" strokeWidth=".9" strokeLinejoin="round" />
+        {[-1, 1].map(k => (
+          <path key={k} d={`M${60 + k * 20} 14 C${60 + k * 30} -2 ${60 + k * 30} -14 ${60 + k * 22} -20 C${60 + k * 28} -8 ${60 + k * 26} 0 ${60 + k * 24} 16 Z`}
+            fill={`url(#${id}-plum)`} stroke="#8f5fc4" strokeWidth=".9" strokeLinejoin="round" />))}
+        <circle cx="60" cy="42" r="8" fill="none" stroke="#8f5fc4" strokeWidth="1.4" opacity=".7" />
+        <circle cx="60" cy="42" r="3" fill="#e8d3ff" opacity=".7" />
+      </>,
+      neck: null,
+    },
+
+    /* ── FORGE · foundry frame ── a furnace behind the face, and it shows */
+    forge: {
+      skull: "M40 10 L80 10 L86 22 L84 54 L72 68 L48 68 L36 54 L34 22 Z",
+      fill: "graphite", line: "#a08050", body: "bronze", bodyLine: "#8a6636", hv: "26 -6 68 84",
+      prof: { brow: 23, nose: 39, lip: 55, chin: 68 },
+      shellArt: <>
+        {/* two exhaust stacks, glowing at the lip */}
+        {[-1, 1].map(k => (
+          <g key={k}>
+            <path d={`M${60 + k * 16} 10 L${60 + k * 14} -10 L${60 + k * 24} -10 L${60 + k * 24} 12 Z`}
+              fill={`url(#${id}-graphite)`} stroke="#6a5a48" strokeWidth=".9" strokeLinejoin="round" />
+            <path d={`M${60 + k * 14} -10 L${60 + k * 24} -10`} stroke="#ff8a3c" strokeWidth="2.6" strokeLinecap="round" className="ca-optic" />
+          </g>))}
+      </>,
+      art: <>
+        {face(60, <path d="M36 26 L84 26 L82 40 L38 40 Z" fill="#0d0703" />, "b")}
+        {face(48, <g className="ca-eye"><rect x="41" y="29" width="14" height="8" rx="2.4" fill="#2a0d02" /><rect x="42.6" y="30.6" width="10.8" height="4.8" rx="1.8" fill={`url(#${id}-amber)`} className="ca-optic" /></g>, "e1")}
+        {face(72, <g className="ca-eye"><rect x="65" y="29" width="14" height="8" rx="2.4" fill="#2a0d02" /><rect x="66.6" y="30.6" width="10.8" height="4.8" rx="1.8" fill={`url(#${id}-amber)`} className="ca-optic" /></g>, "e2")}
+        {face(60, <>
+          {/* the grate: hot metal seen through slots */}
+          <path d="M42 46 L78 46 L74 64 L46 64 Z" fill="#1a0c04" stroke="#a08050" strokeWidth=".8" />
+          {[50, 56, 62, 68].map(x => <path key={x} d={`M${x} 48 L${x - 2} 62`} stroke="#ff8a3c" strokeWidth="2.2" opacity=".8" className="ca-optic" />)}
+        </>, "grate")}
+      </>,
+      side: "M40 10 L80 10 L86 22 L84 54 L72 68 L48 68 L36 54 L34 22 Z",
+      sideArt: <>
+        <path d="M76 10 L74 -10 L84 -10 L84 12 Z" fill={`url(#${id}-graphite)`} stroke="#6a5a48" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M74 -10 L84 -10" stroke="#ff8a3c" strokeWidth="2.6" strokeLinecap="round" className="ca-optic" />
+        <path d="M36 26 L86 26 L84 40 L38 40 Z" fill="#0d0703" />
+        <rect x="67" y="29" width="14" height="8" rx="2.4" fill="#2a0d02" />
+        <rect x="68.6" y="30.6" width="10.8" height="4.8" rx="1.8" fill={`url(#${id}-amber)`} className="ca-optic" />
+        <path d="M48 46 L82 46 L78 64 L52 64 Z" fill="#1a0c04" stroke="#a08050" strokeWidth=".8" />
+      </>,
+      rear: <>
+        <path d="M36 16 L84 16 L86 52 L72 68 L48 68 L34 52 Z" fill={`url(#${id}-graphite)`} stroke="#6a5a48" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M42 28 L78 28 M42 42 L78 42 M46 56 L74 56" stroke="#1a1208" strokeWidth="1.8" opacity=".6" />
+        {[-1, 1].map(k => (
+          <path key={k} d={`M${60 + k * 16} 16 L${60 + k * 14} -8 L${60 + k * 24} -8 L${60 + k * 24} 18 Z`}
+            fill={`url(#${id}-graphite)`} stroke="#6a5a48" strokeWidth=".9" strokeLinejoin="round" />))}
+      </>,
+      neck: null,
+    },
+
+    /* ── ZENITH · ceremonial frame ── gold, and a ring of light over it */
+    zenith: {
+      skull: "M60 8 C79 8 88 22 88 42 C88 60 77 70 60 71 C43 70 32 60 32 42 C32 22 41 8 60 8 Z",
+      fill: "gold", line: "#f0d68a", body: "gold", bodyLine: "#c19a3a", hv: "22 -20 76 98",
+      prof: { brow: 25, nose: 40, lip: 55, chin: 68 },
+      shellArt: <>
+        {/* a halo held clear of the crown by two thin struts */}
+        <ellipse cx="60" cy="-14" rx="24" ry="7" fill="none" stroke="#ffe9a8" strokeWidth="3.2" opacity=".95" className="ca-optic" />
+        <ellipse cx="60" cy="-14" rx="24" ry="7" fill="none" stroke="#ffffff" strokeWidth="1" opacity=".7" />
+        <path d="M46 8 L50 -10 M74 8 L70 -10" stroke="#e0c070" strokeWidth="1.6" strokeLinecap="round" />
+        {[0, 1, 2, 3, 4].map(i => (
+          <path key={i} d={`M${44 + i * 8} 10 L${44 + i * 8} 2`} stroke="#e0c070" strokeWidth="1.8" strokeLinecap="round" />))}
+      </>,
+      art: <>
+        {face(60, <path d="M34 26 L86 26 L82 42 L38 42 Z" fill="#1a1204" />, "band")}
+        {face(49, <g className="ca-eye">
+          <path d="M42 34 L56 30 L56 38 L42 38 Z" fill="#241a05" />
+          <path d="M43.4 34.6 L54.6 31.4 L54.6 36.6 L43.4 36.6 Z" fill={`url(#${id}-amber)`} className="ca-optic" />
+        </g>, "e1")}
+        {face(71, <g className="ca-eye">
+          <path d="M78 34 L64 30 L64 38 L78 38 Z" fill="#241a05" />
+          <path d="M76.6 34.6 L65.4 31.4 L65.4 36.6 L76.6 36.6 Z" fill={`url(#${id}-amber)`} className="ca-optic" />
+        </g>, "e2")}
+        {face(60, <path d="M60 44 L66 52 L60 62 L54 52 Z" fill={`url(#${id}-chrome)`} stroke="#c19a3a" strokeWidth=".8" strokeLinejoin="round" />, "gem")}
+        {face(60, <path d="M46 66 L74 66" stroke="#c19a3a" strokeWidth="1.6" opacity=".7" />, "l")}
+      </>,
+      side: "M60 8 C79 8 87 22 87 42 C87 58 78 68 70 70 Q60 73 51 69 C41 65 33 56 33 42 C33 22 41 8 60 8 Z",
+      sideArt: <>
+        <ellipse cx="60" cy="-14" rx="22" ry="6.4" fill="none" stroke="#ffe9a8" strokeWidth="3" opacity=".92" />
+        <path d="M74 8 L70 -10" stroke="#e0c070" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M36 26 L86 26 L82 42 L40 42 Z" fill="#1a1204" />
+        <path d="M80 34 L64 30 L64 38 L80 38 Z" fill="#241a05" />
+        <path d="M78.6 34.6 L65.4 31.4 L65.4 36.6 L78.6 36.6 Z" fill={`url(#${id}-amber)`} className="ca-optic" />
+        <path d="M66 44 L72 52 L66 62 L60 52 Z" fill={`url(#${id}-chrome)`} stroke="#c19a3a" strokeWidth=".8" strokeLinejoin="round" />
+      </>,
+      rear: <>
+        <path d="M34 20 Q60 8 86 20 Q91 46 83 64 Q60 74 37 64 Q29 46 34 20 Z" fill={`url(#${id}-gold)`} stroke="#d8b45c" strokeWidth=".9" strokeLinejoin="round" />
+        <ellipse cx="60" cy="-12" rx="24" ry="7" fill="none" stroke="#ffe9a8" strokeWidth="3.2" opacity=".9" />
+        <path d="M46 40 Q60 34 74 40" fill="none" stroke="#c19a3a" strokeWidth="1.3" opacity=".65" />
+        <path d="M60 46 L66 54 L60 64 L54 54 Z" fill={`url(#${id}-chrome)`} stroke="#c19a3a" strokeWidth=".8" strokeLinejoin="round" />
+      </>,
+      neck: null,
+    },
+
   }[v];
 
   /* Limb pivots live where the joint is: shoulders on the pauldron line, hips
