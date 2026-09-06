@@ -1000,6 +1000,16 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvphdr-t{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text);margin-right:auto}
 .pvpscore{font-family:'Share Tech Mono',monospace;font-size:14px;color:#d97757}
 .pvparena{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.06em;color:var(--muted);padding:2px 8px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);white-space:nowrap}
+/* ── full screen ──
+   Sits at the end of the header row, which is where the browser's own chrome
+   is stealing the space it buys back. Sized like the back button so the row
+   still reads as one strip of controls. */
+.pvpfs{width:32px;height:32px;flex-shrink:0;margin-left:2px;border-radius:9px;
+  border:1px solid var(--bd1);background:var(--card2);color:var(--text);
+  font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pvpfs:hover{border-color:#d97757}
+.pvpfs.on{border-color:#d97757;color:#d97757;background:rgba(217,119,87,.12)}
+.pvppage.land .pvpfs{background:rgba(255,255,255,.14);border-color:#ffffff2e;color:#e8eefc}
 .pvppage.land .pvparena{background:rgba(255,255,255,.14);border-color:#ffffff2e;color:#dce6fb}
 .pvpbody{max-width:520px;margin:0 auto;padding:13px 13px 0}
 .pvpme{display:flex;gap:11px;padding:12px;border-radius:15px;background:var(--card);border:1px solid var(--bd1)}

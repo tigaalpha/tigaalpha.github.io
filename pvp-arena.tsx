@@ -1093,6 +1093,7 @@ export const PvpPage = memo(function PvpPage({
   const [loadouts, setLoadouts] = useState(() => readLoadouts());
   const [valor, setValor] = useState(() => readValor());
   const [colorwayKey, setColorwayKey] = useState(() => readColorwayKey());
+  const lobbyFs = useFs();
   const [ownedCw, setOwnedCw] = useState(() => readOwnedColorways());
   const [practiceMode, setPracticeMode] = useState(false);
   const colorway = colorwayOf(colorwayKey);
@@ -1315,6 +1316,17 @@ export const PvpPage = memo(function PvpPage({
           <span className="mdv-cls" style={{ "--cc": clsInfo.c }}>
             <span className="mdv-cls-ic"><ItemArt art={clsInfo.art} sw={[clsInfo.c, "#22283a"]} /></span>{tr3(clsInfo, lang)}
           </span>
+          {/* the same control on the lobby, so a player who went fullscreen for
+              a fight is never left without a way back out of it */}
+          {FS_OK && (
+            <button className={`pvpfs${lobbyFs ? " on" : ""}`} onPointerDown={toggleFs}
+              aria-label={lobbyFs ? T("ออกจากเต็มจอ", "Exit full screen", "退出全屏")
+                                  : T("เต็มจอ", "Full screen", "全屏")}
+              title={lobbyFs ? T("ออกจากเต็มจอ", "Exit full screen", "退出全屏")
+                             : T("เต็มจอ", "Full screen", "全屏")}>
+              {lobbyFs ? "⤡" : "⛶"}
+            </button>
+          )}
         </div>
 
         <div className="pvpbody">
@@ -2019,6 +2031,52 @@ const TUT_KEY = "tg_pvp_tut_seen";
    blaster reaches but hits softest; the rocket reaches and hurts, and makes
    you wait for it. Jumping lifts you over anything on the ground, which is
    the only answer to a bot that is faster than you. */
+/* ── full screen ──
+   A phone browser spends a third of the display on its own chrome, and in a
+   fight that is exactly the third the arena wanted. Going fullscreen also
+   earns the right to ASK for landscape on Android, which is the orientation
+   this stage was laid out for. iPhone Safari supports neither on a div, so
+   the button is not offered there at all rather than being a control that
+   quietly does nothing. */
+const FS_OK = typeof document !== "undefined" && !!(
+  document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+function fsOn() {
+  if (typeof document === "undefined") return false;
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+async function toggleFs() {
+  try {
+    if (fsOn()) {
+      try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {}
+      if (document.exitFullscreen) await document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      return;
+    }
+    const el = document.documentElement;
+    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: "hide" });
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    // best effort: a phone that cannot lock just stays in whatever it is in
+    try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); } catch (e) {}
+  } catch (e) {}
+}
+/** The button, plus the state that keeps its icon honest when the user leaves
+    fullscreen with Escape or a system gesture instead of the button. */
+function useFs() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (!FS_OK) return undefined;
+    const sync = () => setOn(fsOn());
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener("webkitfullscreenchange", sync);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener("webkitfullscreenchange", sync);
+    };
+  }, []);
+  return on;
+}
+
 const ACT = {
   punch:  { cd: 400,  dmg: 1.55, range: 0.27, move: "punch",   sfx: "hit" },
   /* a kick is slower than a punch and reaches a little further, and it hits
@@ -2139,6 +2197,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   const [phase, setPhase] = useState("action");   // action | quiz | done
   const [wave, setWave] = useState(1);
+  const fullscreen = useFs();
   const [left, setLeft] = useState(WAVES[0]);
   // a Gauntlet leg after the first carries whatever fraction of the pool
   // survived the last one — "no rest between rounds" is the whole mechanic
@@ -3766,6 +3825,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         <span className="pvphdr-t">{T("ยก", "Wave", "波次")} {Math.min(wave, WAVES.length)}/{WAVES.length}</span>
         <span className="pvparena">{tr3(ARENA, lang)}</span>
         <span className="pvpscore">{score.toLocaleString()}</span>
+        {FS_OK && (
+          <button className={`pvpfs${fullscreen ? " on" : ""}`} onPointerDown={toggleFs}
+            aria-label={fullscreen ? T("ออกจากเต็มจอ", "Exit full screen", "退出全屏")
+                                   : T("เต็มจอ", "Full screen", "全屏")}
+            title={fullscreen ? T("ออกจากเต็มจอ", "Exit full screen", "退出全屏")
+                              : T("เต็มจอ", "Full screen", "全屏")}>
+            {fullscreen ? "⤡" : "⛶"}
+          </button>
+        )}
       </div>
 
       {/* The stage carries the round on its own class: the light drops and the
