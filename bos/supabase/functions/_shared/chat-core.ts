@@ -4,7 +4,7 @@ import type { ChatMessage, ToolDefinition } from "./ai-types.ts";
 import { buildSystemPrompt, type PromptName } from "./prompts.ts";
 import { CHIEF_OF_STAFF_SLUG, DELEGATE_TO_DEPARTMENT_TOOL, departmentBySlug, type DepartmentDef } from "./departments.ts";
 import { detectLanguage, LANG_INSTRUCTION } from "./chat-features.ts";
-import { AI_TOOLS, OWNER_TOOLS, ALL_OWNER_TOOLS, executeTool, translateDbError, setDelegateResponder } from "./tools.ts";
+import { AI_TOOLS, OWNER_TOOLS, ALL_OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts";
 import { getLatestCompetitorContext } from "./competitor-context.ts";
 import { logAiUsage } from "./usage-logging.ts";
 import { cleanReplyText } from "./text-clean.ts";
@@ -76,9 +76,6 @@ async function delegateDirective(
   }
 }
 
-// Install the responder tools.ts lazily calls (avoids the
-// respond -> executeTool -> respond import cycle).
-setDelegateResponder((db, targetSlug, directive) => delegateDirective(db, targetSlug, directive, 0));
 // FAQ answers (pricing, hours) can change, so a cached reply isn't reused forever.
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -561,7 +558,9 @@ export async function respond(
     messages.push(result.message);
 
     for (const call of result.message.toolCalls) {
-      const toolResult = await executeTool(call, db, activeCustomerId, callerId).catch((error: unknown) => ({
+      const toolResult = await executeTool(call, db, activeCustomerId, callerId, {
+        delegate: (targetSlug, directive) => delegateDirective(db, targetSlug, directive, 0),
+      }).catch((error: unknown) => ({
         // A raw Postgres error (has a .code) is translated to a plain Thai
         // message before it ever reaches the model -- confirmed in
         // production that the model will otherwise paraphrase a raw
