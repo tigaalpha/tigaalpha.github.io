@@ -1311,7 +1311,7 @@ export const PvpPage = memo(function PvpPage({
             )}
           </div>
           <div className="pvpme">
-            <div className="pvpme-stage"><CyberAvatar model={me} yaw={22} pose="ready" glow={colorway.glow} accent={colorway.accent} armorA="#1b2436" armorB="#41608a" /></div>
+            <div className="pvpme-stage"><CyberAvatar model={me} yaw={22} pose="ready" glow={colorway.glow} accent={colorway.accent} /></div>
             <div className="pvpme-b">
               <div className="pvpme-nm">{tr3(CHAR_MODELS.find(m => m.id === me) || {}, lang)}</div>
               <div className="pvpme-rank" style={{ "--cc": clsInfo.c }}>{T("แรงก์สกิล", "Skill rank", "技能等级")} {myRank}</div>
@@ -1485,7 +1485,7 @@ export const PvpPage = memo(function PvpPage({
             <div className="pvpfriends">
               {friends.map(f => (
                 <button key={f.user_id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], f.name || f.email || "?", f)}>
-                  <span className="pvpfriend-av"><CyberAvatar model={chassisFor(f.user_id || f.name || "x")} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
+                  <span className="pvpfriend-av"><CyberAvatar model={chassisFor(f.user_id || f.name || "x")} headOnly /></span>
                   <span className="pvpfriend-nm">{f.name || f.email}</span>
                   <span className="pvpfriend-go">{T("ท้า", "Challenge", "挑战")} →</span>
                 </button>
@@ -1498,7 +1498,7 @@ export const PvpPage = memo(function PvpPage({
               <div className="pvpfriends">
                 {openDuels.map(d => (
                   <button key={d.id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], d.opp_name, { duel: d })}>
-                    <span className="pvpfriend-av"><CyberAvatar model={chassisFor(d.opp_name || "x")} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
+                    <span className="pvpfriend-av"><CyberAvatar model={chassisFor(d.opp_name || "x")} headOnly /></span>
                     <span className="pvpfriend-nm">{d.opp_name} · {d.opp_score != null ? d.opp_score : "—"}</span>
                     <span className="pvpfriend-go">{T("รับคำท้า", "Accept", "接受")} →</span>
                   </button>
@@ -1556,7 +1556,7 @@ export const PvpPage = memo(function PvpPage({
         <div className="pvpbody">
           <div className={`pvpres ${result.win ? "win" : "lose"}`}>
             <div className="pvpres-stage">
-              <CyberAvatar model={me} yaw={0} pose={result.win ? "win" : "down"} glow={colorway.glow} accent={colorway.accent} armorA="#1b2436" armorB="#41608a" />
+              <CyberAvatar model={me} yaw={0} pose={result.win ? "win" : "down"} glow={colorway.glow} accent={colorway.accent} />
             </div>
             <div className="pvpres-score">{result.score}</div>
             {result.win && CLASS_WIN_LINES[myCls] && (

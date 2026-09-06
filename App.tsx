@@ -3,7 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { useInjectCSS } from "./app-styles";
-import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
+import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 import { SkillTrack, PvpBanner, PvpPage, readSkillSp, skillRank } from "./pvp-arena";
@@ -6011,16 +6011,19 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
   const acc = ALL_ACCESSORIES.find(x => x.id === charAccessory);
   const worn = [hat, out, wpn, acc].filter(Boolean);
   const best = worn.reduce((m, it) => (CS_RARITY[it.rarity] > CS_RARITY[m] ? it.rarity : m), "common");
-  // the chamber's two key lights, picked from the gear actually worn
+  // the chamber's two key lights, picked from the gear actually worn — and
+  // when nothing is worn, from the FRAME, so a fresh account sees its own
+  // machine rather than the same cyan-and-violet every model used to default to
+  const MSK = MODEL_SKIN[model] || MODEL_SKIN.vanguard;
   const sw = worn.flatMap(it => it.sw || []).filter(Boolean);
-  const keyA = sw[0] || "#00f0ff";
-  const keyB = sw.find(c => c !== keyA) || "#aa00ff";
+  const keyA = sw[0] || MSK.glow;
+  const keyB = sw.find(c => c !== keyA) || MSK.accent;
   const rimOf = (it) => (it && it.sw && it.sw[1]) || (it && it.sw && it.sw[0]) || keyA;
   // The OUTFIT re-plates the armour rather than being pasted on as a garment
   // sprite — which is what used to make the shirt read as a second body
   // floating in front of the first.
-  const armorA = (out && out.sw && out.sw[0]) || "#161d2c";
-  const armorB = (out && out.sw && out.sw[1]) || "#3d5878";
+  const armorA = (out && out.sw && out.sw[0]) || undefined;
+  const armorB = (out && out.sw && out.sw[1]) || undefined;
   const power = combatOf(model, [wpn, out, hat, acc]).total;
 
   /* Equipped items orbit the figure on the same axis the model turns on, so a
@@ -6188,7 +6191,7 @@ const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, run
         </div>
         <div className="mdv-body">
           <div className="mdv-stage">
-            <CyberAvatar model={model} yaw={yaw} glow="#00b8d4" accent="#7c4dff" armorA="#1b2436" armorB="#41608a" />
+            <CyberAvatar model={model} yaw={yaw} />
             <div className="mdv-drag" onPointerDown={grab} onPointerMove={drag} onPointerUp={drop} onPointerCancel={drop}
               role="slider" aria-label={T("หมุนโมเดล", "Rotate model", "旋转模型")} aria-valuenow={Math.round(wrapYaw(yaw))} aria-valuemin={-180} aria-valuemax={180} tabIndex={0}
               onKeyDown={(e) => { if (e.key === "ArrowLeft") { setSpin(false); setYaw(y => wrapYaw(y - 15)); } else if (e.key === "ArrowRight") { setSpin(false); setYaw(y => wrapYaw(y + 15)); } }} />
@@ -6354,7 +6357,7 @@ const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, e
                 return (
                   <button key={it.id} className={`stgitem ${it.rarity}${on ? " on" : ""}`} onClick={() => onEquip(g.key, it)}>
                     {it.model
-                      ? <span className="stgitem-head"><CyberAvatar model={it.model} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
+                      ? <span className="stgitem-head"><CyberAvatar model={it.model} headOnly /></span>
                       : it.art
                         ? <span className="stgitem-art"><ItemArt art={it.art} sw={it.sw} /></span>
                         : <span className="stgitem-ic">{it.icon}</span>}
@@ -10259,7 +10262,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const running = charModel === it.model;
       return (
         <button key={it.id} className={`shopitem ${it.rarity} mdlitem${running ? " equipped" : ""}`} onClick={() => { setModelDetail(it.id); playUi("click"); }}>
-          <span className="mdlitem-head"><CyberAvatar model={it.model} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
+          <span className="mdlitem-head"><CyberAvatar model={it.model} headOnly /></span>
           <span className="shopitem-nm">{tr(it, lang)}</span>
           <span className="shopitem-desc">{tr(it.desc, lang)}</span>
           <span className="shopitem-cls" style={{ "--cc": classOf(it.model).c }}>{tr(classOf(it.model), lang)}</span>
@@ -11376,7 +11379,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               </div>
               <div className="mdlpick-body">
                 <div className="mdlpick-stage">
-                  <CyberAvatar model={sel} yaw={-22} pose="ready" glow="#00f0ff" accent="#aa00ff" armorA="#161d2c" armorB="#3d5878" />
+                  <CyberAvatar model={sel} yaw={-22} pose="ready" />
                 </div>
                 <div className="mdlpick-info">
                   <span className="mdlpick-code">{selM.code}</span>
@@ -11406,7 +11409,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   {CHAR_MODELS.map(m => (
                     <button key={m.id} type="button" className={`char-model${sel === m.id ? " on" : ""}`}
                       title={`${m.code} · ${tr(m.cls, lang)}`} onClick={() => { setModelPickSel(m.id); playUi("click"); }}>
-                      <span className="char-model-thumb"><CyberAvatar model={m.id} headOnly glow="#7fd7ff" accent="#b98cff" armorA="#182133" armorB="#3f5f8a" /></span>
+                      <span className="char-model-thumb"><CyberAvatar model={m.id} headOnly /></span>
                       <span className="char-model-nm">{tr(m, lang)}</span>
                     </button>
                   ))}

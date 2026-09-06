@@ -578,6 +578,57 @@ export const MODEL_BUILD = {
   zenith:   { pa: "dome",  core: "star",    back: "array" },
 };
 
+/* ── the alloy each chassis is actually made of ──
+   The plate gradient was hardcoded gunmetal, and armorA/armorB only ever came
+   from equipped gear — so with nothing equipped, all twenty-five combat frames
+   rendered as the same grey robot and the only thing telling them apart was a
+   head. Forty palettes: three tones for the metal itself plus the two lights
+   it carries. The chassis is now the MODEL and the trim stays the gear, so a
+   loadout still recolours what it always recoloured and PvP keeps its
+   side-identifying blue and red on top of a machine you can still recognise. */
+export const MODEL_SKIN = {
+  vanguard:  { s: ["#f0f4fb", "#889fc9", "#edf2fb", "#556789", "#2a3856", "#0e1420"], glow: "#7fd7ff", accent: "#4d7cff" },
+  sentinel:  { s: ["#ccd3dc", "#58667d", "#c1cad5", "#3b4658", "#232c3a", "#0f131a"], glow: "#8fe3ff", accent: "#ff8a4d" },
+  specter:   { s: ["#c2c3ce", "#4f5172", "#b4b6c4", "#33354c", "#1d1e2c", "#0c0d14"], glow: "#b98cff", accent: "#7fd7ff" },
+  nova:      { s: ["#d9f3e7", "#93e8c0", "#c4eeda", "#4ae49d", "#3d8464", "#223f33"], glow: "#9fe8c0", accent: "#7fd7ff" },
+  phantom:   { s: ["#eeeaf5", "#9c95c2", "#eae5f4", "#7c7b9e", "#616682", "#373c50"], glow: "#c08bff", accent: "#7c4dff" },
+  reaper:    { s: ["#c6b9c3", "#63374d", "#bbaab6", "#412538", "#251727", "#0f0811"], glow: "#ff4d6a", accent: "#ff2d46" },
+  ronin:     { s: ["#c18b8b", "#61181a", "#b67071", "#400f12", "#26090c", "#0d0405"], glow: "#ffb15c", accent: "#ff5a3c" },
+  aurora:    { s: ["#fdfafc", "#d2cded", "#fdf9fb", "#b8abd5", "#a18fc2", "#534679"], glow: "#ffc2f0", accent: "#a0e8ff" },
+  pixel:     { s: ["#d8ebf9", "#8ecbfa", "#c2e0f8", "#3baaff", "#336894", "#1f3142"], glow: "#a0e8ff", accent: "#5cc8ff" },
+  mochi:     { s: ["#fdeef3", "#ffcbdd", "#fde3ec", "#ff70a1", "#dc608d", "#49182b"], glow: "#ffb8d0", accent: "#ff8fd0" },
+  scout:     { s: ["#f5f7fb", "#b3bed1", "#f2f6fa", "#929bab", "#767e8d", "#484f5a"], glow: "#9fe8ff", accent: "#5cc8ff" },
+  meridian:  { s: ["#d4e2e6", "#518696", "#cadce1", "#395e70", "#253d50", "#0e1b26"], glow: "#4de1c8", accent: "#ffb15c" },
+  atlas:     { s: ["#ebd3b5", "#ad712c", "#e8caa4", "#794e1f", "#503114", "#241609"], glow: "#ffb15c", accent: "#ffd23f" },
+  halcyon:   { s: ["#e6d1e8", "#965197", "#e2c7e4", "#66356c", "#3e1e48", "#1b0b1f"], glow: "#ff8fd0", accent: "#c08bff" },
+  keeper:    { s: ["#e4ebe1", "#809f7c", "#dee7da", "#5e775d", "#425744", "#202c22"], glow: "#8fe08a", accent: "#3ddc84" },
+  envoy:     { s: ["#f8efd8", "#d6a73c", "#f7edce", "#977222", "#63450d", "#302206"], glow: "#ffd23f", accent: "#ffb15c" },
+  talon:     { s: ["#c1dbe5", "#3b80a0", "#b3d4e1", "#275975", "#163a51", "#091926"], glow: "#5ce1ff", accent: "#3ddc84" },
+  sentry:    { s: ["#ede6d2", "#c0a66e", "#eae1c8", "#9b8153", "#7c643d", "#342918"], glow: "#e8dd8a", accent: "#c8b45c" },
+  pip:       { s: ["#f4e7d5", "#edc384", "#f0dbbc", "#efa738", "#896837", "#403221"], glow: "#ffd8a0", accent: "#ffb15c" },
+  pebble:    { s: ["#eef0f8", "#ced5f0", "#e4e8f5", "#8597e0", "#6375aa", "#272d3a"], glow: "#d8c4ff", accent: "#a0e8ff" },
+  pudding:   { s: ["#f8edd6", "#f9d486", "#f6e4be", "#ffbe33", "#907134", "#403421"], glow: "#ffe89a", accent: "#ffd23f" },
+  acorn:     { s: ["#dde6d6", "#a5c38d", "#cbdabf", "#82b15c", "#526648", "#2b3829"], glow: "#c8e8a0", accent: "#8fe08a" },
+  cocoa:     { s: ["#edd8c4", "#dd9a55", "#e6c4a2", "#d97b1c", "#885725", "#502f11"], glow: "#ffd8a0", accent: "#c08b5c" },
+  blossom:   { s: ["#dfc9e9", "#af65d1", "#cfaae0", "#982fca", "#63327c", "#371a47"], glow: "#f0b8ff", accent: "#c08bff" },
+  pengu:     { s: ["#d1d4e0", "#8089b2", "#b8bcd0", "#58659c", "#434a6a", "#212540"], glow: "#a0d8ff", accent: "#ffd23f" },
+  bubbly:    { s: ["#d8ecf9", "#8ccffb", "#c1e2f8", "#3ab1ff", "#326a92", "#1f3142"], glow: "#a8e8ff", accent: "#7fd7ff" },
+  poppy:     { s: ["#dbf3e2", "#96e8ae", "#c6eed2", "#4ee47a", "#3e8057", "#233e31"], glow: "#a8f0b0", accent: "#3ddc84" },
+  honey:     { s: ["#f7e7bd", "#ffca3d", "#f7dd97", "#fdb800", "#dfa405", "#5d4304"], glow: "#ffd23f", accent: "#ffb15c" },
+  snowbun:   { s: ["#ebf0f7", "#c5d6ef", "#dfe7f4", "#7ba4e2", "#526b91", "#272e3a"], glow: "#d8f0ff", accent: "#a0e8ff" },
+  plushy:    { s: ["#f3ede9", "#e3d1c0", "#ede4dc", "#cea681", "#827164", "#303031"], glow: "#ffe0c0", accent: "#ffb8d0" },
+  wraith:    { s: ["#beb7cb", "#463563", "#b0a7c1", "#2f2446", "#1c162e", "#0b0814"], glow: "#a86bff", accent: "#ff4dd0" },
+  magnus:    { s: ["#cbd2dd", "#4f617f", "#c0c9d7", "#354259", "#202939", "#0d121a"], glow: "#6fb6ff", accent: "#ffd23f" },
+  saber:     { s: ["#e3e9f1", "#7a91b0", "#dde4ee", "#50637f", "#2d3d56", "#121b29"], glow: "#ff5a5a", accent: "#7fd7ff" },
+  oracle:    { s: ["#faf7f0", "#c6c2ac", "#f9f6ec", "#94968e", "#6b7175", "#3b4249"], glow: "#ffe89a", accent: "#7fd7ff" },
+  korax:     { s: ["#b3beb8", "#354d45", "#a2b0a9", "#23332f", "#141e1e", "#080c0d"], glow: "#6fe08a", accent: "#ff8a4d" },
+  tempest:   { s: ["#c8d9eb", "#3e6fa4", "#bbd1e8", "#294e77", "#173352", "#091626"], glow: "#5cc8ff", accent: "#c08bff" },
+  bastion:   { s: ["#e5d1b7", "#9c6c30", "#e1c7a6", "#6f4b21", "#4a2f15", "#211509"], glow: "#ffb15c", accent: "#8fa6c8" },
+  nyx:       { s: ["#c3b9cc", "#503164", "#b6a9c2", "#352145", "#1f152c", "#0c0713"], glow: "#ff4dd0", accent: "#a86bff" },
+  forge:     { s: ["#ebcfb4", "#ad6424", "#e8c5a2", "#794519", "#4f2c11", "#231307"], glow: "#ff7a3c", accent: "#ffd23f" },
+  zenith:    { s: ["#faf3de", "#dfb13c", "#faf1d6", "#9b7723", "#64480e", "#302307"], glow: "#ffd23f", accent: "#fff3c4" },
+};
+
 const LEGACY = { boy: "vanguard", girl: "specter", cute: "nova" };
 export function normalizeModel(v) {
   if (LEGACY[v]) return LEGACY[v];
@@ -620,9 +671,26 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 /* wrap any angle into −180…180 so callers can spin the yaw counter forever */
 export const wrapYaw = (d) => ((((d + 180) % 360) + 360) % 360) - 180;
 
-export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOnly = false, armorA = "#1a2233", armorB = "#38506e", glow = "#00f0ff", accent = "#aa00ff" }) {
+export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOnly = false,
+                             armorA: armorAIn, armorB: armorBIn, glow: glowIn, accent: accentIn }) {
   const id = "ca" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const v = normalizeModel(model);
+  /* The chassis is the model; the trim and the lights are whatever the
+     caller equips. A caller that equips nothing gets the frame's own
+     factory colours rather than the same cyan-and-violet every other
+     frame used to fall back to. */
+  const SK = MODEL_SKIN[v] || MODEL_SKIN.vanguard;
+  const armorA = armorAIn || SK.s[4], armorB = armorBIn || SK.s[1];
+  const glow = glowIn || SK.glow, accent = accentIn || SK.accent;
+  /* The room light a silhouette catches is still cool, but it picks up the
+     frame's own signature — which is what stops forty machines sharing one
+     white-blue edge and reading as the same silhouette in a thumbnail. */
+  const grazeC = mixc("#dbeaff", SK.glow, .42);
+  const fresC = mixc("#bcd8ff", SK.glow, .3);
+  /* Panel lines are the alloy's own darkest tone taken most of the way to
+     black, not one blue-black for everything: a bronze outlined in blue reads
+     as a bronze sticker on a steel drawing. */
+  const inkC = mixc(SK.s[5], "#00060f", .5);
   const term = v === "vanguard";     // endoskeleton build
   const bare = v === "nova";         // skin deactivated, chassis showing
   const helm = v === "sentinel";     // sealed faceplate
@@ -2680,7 +2748,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   const cb = CUTE_BUILD[v] || CUTE_BUILD.nova;         // badge / belly / tail
   const shellFill = `url(#${id}-${HEAD.fill})`;
   // the chassis takes the model's own material; the outfit's swatch re-plates the trim
-  const bodyKey = HEAD.body || (HEAD.fill.startsWith("skin") ? "plate" : HEAD.fill);
+  const bodyKey = "plate";
   const bPlate = `url(#${id}-${bodyKey})`;
   const bTrim = `url(#${id}-trim)`;
   const bLine = HEAD.bodyLine || HEAD.line;
@@ -2727,7 +2795,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       <path d={d} fill={o.fill || bPlate} stroke="none" />
       <path d={d} fill={`url(#${id}-occ)`} stroke="none" opacity=".85" />
       <path d={d} fill={`url(#${id}-spec)`} stroke="none" opacity=".6" />
-      <path d={d} fill="none" stroke="#00060f" strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity=".45" />
+      <path d={d} fill="none" stroke={inkC} strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity=".45" />
     </g>
   ) : (
     <g>
@@ -2749,7 +2817,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           from "shape with a gradient" to "part with a thickness". */}
       <g clipPath={`url(#${id}-c${Math.abs(hashPath(d))})`}>
         <path d={d} fill="none" stroke="#ffffff" strokeWidth={(o.lw || 1) * 1.5} strokeLinejoin="round" opacity={o.bev == null ? .34 : o.bev} transform="translate(0 -0.9)" />
-        <path d={d} fill="none" stroke="#00060f" strokeWidth={(o.lw || 1) * 1.5} strokeLinejoin="round" opacity={o.bev == null ? .3 : o.bev * .9} transform="translate(0 1.1)" />
+        <path d={d} fill="none" stroke={inkC} strokeWidth={(o.lw || 1) * 1.5} strokeLinejoin="round" opacity={o.bev == null ? .3 : o.bev * .9} transform="translate(0 1.1)" />
       </g>
       <path d={d} fill="none" stroke={`url(#${id}-graze)`} strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity={o.graze == null ? .4 : o.graze} />
       {/* ── the contour ──
@@ -2758,7 +2826,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           near-white outline around every plate is what turns a machine into a
           sticker, so the dark contour carries the separation and the light
           line is thinned to a glint on top of it. */}
-      <path d={d} fill="none" stroke="#00060f" strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity={o.lineOp == null ? .42 : o.lineOp * .47} />
+      <path d={d} fill="none" stroke={inkC} strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity={o.lineOp == null ? .42 : o.lineOp * .47} />
       <path d={d} fill="none" stroke={o.line || bLine} strokeWidth={(o.lw || 1) * .55} strokeLinejoin="round" opacity={o.lineOp == null ? .5 : o.lineOp * .56} />
       <clipPath id={`${id}-c${Math.abs(hashPath(d))}`}><path d={d} /></clipPath>
     </g>
@@ -2777,7 +2845,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   // an engraved seam: a cut, and the lit edge below where it catches the key
   const groove = keep("gr", (d, w = 1, op = .55) => (
     <g opacity={op}>
-      <path d={d} fill="none" stroke="#00060f" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" opacity=".7" />
+      <path d={d} fill="none" stroke={inkC} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" opacity=".7" />
       <path d={d} fill="none" stroke="#eaf3ff" strokeWidth={w * .5} strokeLinecap="round" strokeLinejoin="round" transform="translate(0 .85)" opacity=".55" />
     </g>
   ));
@@ -3024,15 +3092,15 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             every silhouette edge picks up the cool of the room. This is what
             keeps a dark chassis from dying into a dark background. */}
         <linearGradient id={`${id}-fres`} x1="0.5" y1="1" x2="0.5" y2="0">
-          <stop offset="0%" stopColor="#bcd8ff" stopOpacity=".5" />
-          <stop offset="30%" stopColor="#bcd8ff" stopOpacity=".06" />
-          <stop offset="76%" stopColor="#bcd8ff" stopOpacity=".05" />
-          <stop offset="100%" stopColor="#e6f1ff" stopOpacity=".42" />
+          <stop offset="0%" stopColor={fresC} stopOpacity=".5" />
+          <stop offset="30%" stopColor={fresC} stopOpacity=".06" />
+          <stop offset="76%" stopColor={fresC} stopOpacity=".05" />
+          <stop offset="100%" stopColor={mixc(fresC, "#ffffff", .45)} stopOpacity=".42" />
         </linearGradient>
         <linearGradient id={`${id}-graze`} x1="1" y1="1" x2="0.2" y2="0">
-          <stop offset="0%" stopColor="#dbeaff" stopOpacity=".85" />
-          <stop offset="34%" stopColor="#dbeaff" stopOpacity=".12" />
-          <stop offset="100%" stopColor="#dbeaff" stopOpacity="0" />
+          <stop offset="0%" stopColor={grazeC} stopOpacity=".85" />
+          <stop offset="34%" stopColor={grazeC} stopOpacity=".12" />
+          <stop offset="100%" stopColor={grazeC} stopOpacity="0" />
         </linearGradient>
         {/* the patch of floor the figure is standing on. Without it a full-body
             render floats on the card, which is the single loudest tell that a
@@ -3078,88 +3146,122 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             head does. Same four-stop structure as -plate: lit edge, body,
             turn, core shadow. */}
         <linearGradient id={`${id}-graphite`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#a8b2bf" />
-          <stop offset="26%" stopColor="#5d6875" />
-          <stop offset="62%" stopColor="#2f3742" />
+          <stop offset="0%" stopColor="#c3c9d1" />
+          <stop offset="18%" stopColor="#5c6876" />
+          <stop offset="34%" stopColor="#bac1cb" />
+          <stop offset="56%" stopColor="#434d59" />
+          <stop offset="78%" stopColor="#2f3742" />
           <stop offset="100%" stopColor="#14181f" />
         </linearGradient>
         <linearGradient id={`${id}-obsidian`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#7d7590" />
-          <stop offset="26%" stopColor="#443c56" />
-          <stop offset="62%" stopColor="#241f33" />
+          <stop offset="0%" stopColor="#a49fb0" />
+          <stop offset="18%" stopColor="#443b57" />
+          <stop offset="34%" stopColor="#9791a5" />
+          <stop offset="56%" stopColor="#322b43" />
+          <stop offset="78%" stopColor="#241f33" />
           <stop offset="100%" stopColor="#0d0a16" />
         </linearGradient>
         <linearGradient id={`${id}-pearl`} x1="0.15" y1="0" x2="0.85" y2="1">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="26%" stopColor="#dfe7f5" />
-          <stop offset="62%" stopColor="#a9b8d0" />
+          <stop offset="18%" stopColor="#dee7f6" />
+          <stop offset="34%" stopColor="#ffffff" />
+          <stop offset="56%" stopColor="#c1cde1" />
+          <stop offset="78%" stopColor="#a9b8d0" />
           <stop offset="100%" stopColor="#6b7a93" />
         </linearGradient>
         <linearGradient id={`${id}-steelblu`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#93b6d8" />
-          <stop offset="26%" stopColor="#4c7ba8" />
-          <stop offset="62%" stopColor="#24486e" />
+          <stop offset="0%" stopColor="#b6cce1" />
+          <stop offset="18%" stopColor="#477bad" />
+          <stop offset="34%" stopColor="#abc5de" />
+          <stop offset="56%" stopColor="#345f8a" />
+          <stop offset="78%" stopColor="#24486e" />
           <stop offset="100%" stopColor="#0e2138" />
         </linearGradient>
         <linearGradient id={`${id}-cream`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#fff6e6" />
-          <stop offset="26%" stopColor="#f0dcbd" />
-          <stop offset="62%" stopColor="#cbb08a" />
+          <stop offset="0%" stopColor="#fef8ec" />
+          <stop offset="18%" stopColor="#f3ddba" />
+          <stop offset="34%" stopColor="#fff7e8" />
+          <stop offset="56%" stopColor="#ddc4a0" />
+          <stop offset="78%" stopColor="#cbb08a" />
           <stop offset="100%" stopColor="#93785a" />
         </linearGradient>
         <linearGradient id={`${id}-carbon`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#6c7683" />
-          <stop offset="26%" stopColor="#3a424e" />
-          <stop offset="62%" stopColor="#1d2129" />
+          <stop offset="0%" stopColor="#989fa8" />
+          <stop offset="18%" stopColor="#39424f" />
+          <stop offset="34%" stopColor="#89919c" />
+          <stop offset="56%" stopColor="#2a303a" />
+          <stop offset="78%" stopColor="#1d2129" />
           <stop offset="100%" stopColor="#0a0d12" />
         </linearGradient>
         <linearGradient id={`${id}-ivory`} x1="0.15" y1="0" x2="0.85" y2="1">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="26%" stopColor="#f0f2f6" />
-          <stop offset="62%" stopColor="#ccd2dd" />
+          <stop offset="18%" stopColor="#f0f2f6" />
+          <stop offset="34%" stopColor="#ffffff" />
+          <stop offset="56%" stopColor="#dce0e8" />
+          <stop offset="78%" stopColor="#ccd2dd" />
           <stop offset="100%" stopColor="#8e97a6" />
         </linearGradient>
         <linearGradient id={`${id}-slateb`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#b9c8dd" />
-          <stop offset="26%" stopColor="#7089a8" />
-          <stop offset="62%" stopColor="#3c5170" />
+          <stop offset="0%" stopColor="#cfd9e6" />
+          <stop offset="18%" stopColor="#6d89ab" />
+          <stop offset="34%" stopColor="#c8d3e3" />
+          <stop offset="56%" stopColor="#526a8a" />
+          <stop offset="78%" stopColor="#3c5170" />
           <stop offset="100%" stopColor="#17253a" />
         </linearGradient>
         <linearGradient id={`${id}-bronze`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#e2b47a" />
-          <stop offset="26%" stopColor="#a8763c" />
-          <stop offset="62%" stopColor="#6b4520" />
+          <stop offset="0%" stopColor="#e7caa6" />
+          <stop offset="18%" stopColor="#ad7637" />
+          <stop offset="34%" stopColor="#e5c398" />
+          <stop offset="56%" stopColor="#895b2a" />
+          <stop offset="78%" stopColor="#6b4520" />
           <stop offset="100%" stopColor="#33200e" />
         </linearGradient>
         <linearGradient id={`${id}-sage`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#dfe8dd" />
-          <stop offset="26%" stopColor="#a9bda6" />
-          <stop offset="62%" stopColor="#6e8570" />
+          <stop offset="0%" stopColor="#e6ece4" />
+          <stop offset="18%" stopColor="#a8bea5" />
+          <stop offset="34%" stopColor="#e2eae0" />
+          <stop offset="56%" stopColor="#889f88" />
+          <stop offset="78%" stopColor="#6e8570" />
           <stop offset="100%" stopColor="#3a4b3d" />
         </linearGradient>
         <linearGradient id={`${id}-plum`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#c9a6e0" />
-          <stop offset="26%" stopColor="#8a5ba8" />
-          <stop offset="62%" stopColor="#4e2c68" />
+          <stop offset="0%" stopColor="#d9c3e7" />
+          <stop offset="18%" stopColor="#8b57ac" />
+          <stop offset="34%" stopColor="#d3b9e5" />
+          <stop offset="56%" stopColor="#693f87" />
+          <stop offset="78%" stopColor="#4e2c68" />
           <stop offset="100%" stopColor="#22102f" />
         </linearGradient>
         <linearGradient id={`${id}-mint`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#e8fbf4" />
-          <stop offset="26%" stopColor="#b9e6d6" />
-          <stop offset="62%" stopColor="#82bfab" />
+          <stop offset="0%" stopColor="#edfbf6" />
+          <stop offset="18%" stopColor="#b7e8d7" />
+          <stop offset="34%" stopColor="#eafbf5" />
+          <stop offset="56%" stopColor="#9ad2bf" />
+          <stop offset="78%" stopColor="#82bfab" />
           <stop offset="100%" stopColor="#4a7b6b" />
         </linearGradient>
         <linearGradient id={`${id}-sky`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#e9f4ff" />
-          <stop offset="26%" stopColor="#bcd9f2" />
-          <stop offset="62%" stopColor="#83aacd" />
+          <stop offset="0%" stopColor="#eef6fe" />
+          <stop offset="18%" stopColor="#b9d9f5" />
+          <stop offset="34%" stopColor="#ebf5ff" />
+          <stop offset="56%" stopColor="#9bbfdf" />
+          <stop offset="78%" stopColor="#83aacd" />
           <stop offset="100%" stopColor="#4a6a8c" />
         </linearGradient>
+        {/* ── the chassis ──
+            Six stops, not four, and the third one is BRIGHTER than the second:
+            that is the horizon a curved metal panel reflects, and it is the
+            whole difference between a plate and a shape with a gradient on it.
+            The colours are the model's own, so forty frames are forty alloys
+            instead of one gunmetal with forty heads. */}
         <linearGradient id={`${id}-plate`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor="#8b9ec2" />
-          <stop offset="26%" stopColor="#4a5a78" />
-          <stop offset="62%" stopColor="#232d42" />
-          <stop offset="100%" stopColor="#0d1220" />
+          <stop offset="0%" stopColor={SK.s[0]} />
+          <stop offset="18%" stopColor={SK.s[1]} />
+          <stop offset="34%" stopColor={SK.s[2]} />
+          <stop offset="56%" stopColor={SK.s[3]} />
+          <stop offset="78%" stopColor={SK.s[4]} />
+          <stop offset="100%" stopColor={SK.s[5]} />
         </linearGradient>
         <linearGradient id={`${id}-hair`} x1="0" y1="0" x2="0.4" y2="1">
           <stop offset="0%" stopColor="#4a5372" />
