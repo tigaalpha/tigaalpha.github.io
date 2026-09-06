@@ -1163,6 +1163,20 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    floating a centimetre above the stage */
 .pvpfighter::before{content:"";position:absolute;bottom:-10px;left:50%;width:120px;height:26px;transform:translateX(-50%);border-radius:50%;
   background:radial-gradient(ellipse at 50% 50%,rgba(0,4,12,.62),rgba(0,4,12,0) 70%);pointer-events:none;z-index:-1}
+/* ── D4: the limbs travel ──
+   The body already lunged on a transition, but the ARMS teleported: a pose
+   change swapped the rotate() on each limb group in one frame, so a punch
+   arrived without ever having been thrown. The transform on an SVG element is a
+   real CSS property, so transitioning it tweens the swing — short enough that
+   a jab still reads as fast, long enough that the eye sees it travel. */
+.ca-limb{transition:transform .085s cubic-bezier(.3,.9,.4,1)}
+@media (prefers-reduced-motion:reduce){.ca-limb{transition:none}}
+/* ── D5: the room lights the fighters ──
+   A rim from each side, screened over the stage so it only brightens what is
+   already there — the edge a figure catches from the arena's own lamps, which
+   is what stops both robots reading as stickers on a photograph. */
+.pvpstage::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;mix-blend-mode:screen;
+  background:linear-gradient(100deg,rgba(126,196,255,.16) 0%,rgba(126,196,255,0) 26%,rgba(255,150,110,0) 74%,rgba(255,150,110,.16) 100%)}
 .pvpfighter.op{filter:brightness(.94) saturate(.96)}
 .pvpfighter.me{left:6%}
 .pvpfighter.op{right:6%}

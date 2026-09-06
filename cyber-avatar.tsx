@@ -3239,7 +3239,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 </g>
               )}
               {/* stubby arms, elbow-less, with mitten hands */}
-              <g transform={rot(PZ.armL * .8, 22, 154)}>
+              <g className="ca-limb" transform={rot(PZ.armL * .8, 22, 154)}>
                 {plate("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z")}
                 {/* a chibi keeps its mitt, but three soft nubs peek out from
                     under it — enough to read as a hand without giving a cute
@@ -3249,7 +3249,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {plate("M9 214 C1 214 -4 222 -4 231 C-4 241 3 248 11 248 C20 248 25 240 25 230 C25 220 18 214 9 214 Z")}
                 {castOn("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z", .55)}
               </g>
-              <g transform={rot(-PZ.armR * .8, 98, 154)}>
+              <g className="ca-limb" transform={rot(-PZ.armR * .8, 98, 154)}>
                 {plate("M102 150 C114 154 121 174 120 198 C119 214 112 222 103 220 C96 218 94 198 95 178 C96 164 98 154 102 150 Z")}
                 {[0, 1, 2].map(f => (
                   <g key={f}>{plate(`M${121 - f * 8} 240 L${121 - f * 8} 250 C${121 - f * 8} 255 ${115 - f * 8} 255 ${115 - f * 8} 250 L${115 - f * 8} 240 Z`, { lw: .7, deep: .8 })}</g>))}
@@ -3264,7 +3264,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               {castOn("M60 116 C89 116 103 141 103 182 L101 246 C99 278 82 294 60 294 C38 294 21 278 19 246 L17 182 C17 141 31 116 60 116 Z", .95)}
               </g>
               {/* little boots, each on its own hip */}
-              <g transform={rot(PZ.legL * .7, 45, 290)}>
+              <g className="ca-limb" transform={rot(PZ.legL * .7, 45, 290)}>
                 {plate("M34 288 C29 294 28 336 30 358 C31 372 55 373 57 360 C60 338 59 294 55 288 Z")}
                 {castOn("M34 288 C29 294 28 336 30 358 C31 372 55 373 57 360 C60 338 59 294 55 288 Z", .55)}
                 {plate("M42 368 C28 368 19 377 19 384 C19 391 29 394 43 394 C57 394 66 391 66 384 C66 377 56 368 42 368 Z")}
@@ -3272,7 +3272,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                     across a soft boot reads as a stripe, a seam reads as a toe */}
                 {groove("M21 383 C27 390 58 390 64 383", 1.2, .42)}
               </g>
-              <g transform={rot(-PZ.legR * .7, 75, 290)}>
+              <g className="ca-limb" transform={rot(-PZ.legR * .7, 75, 290)}>
                 {plate("M65 288 C61 294 60 336 63 358 C64 372 88 373 90 360 C92 338 91 294 86 288 Z")}
                 {castOn("M65 288 C61 294 60 336 63 358 C64 372 88 373 90 360 C92 338 91 294 86 288 Z", .55)}
                 {plate("M78 368 C64 368 55 377 55 384 C55 391 64 394 78 394 C92 394 101 391 101 384 C101 377 92 368 78 368 Z")}
@@ -3392,7 +3392,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               })()}
               {/* arms swing from the shoulder; the whole limb is one group so
                   bicep, elbow, forearm and hand travel together */}
-              <g transform={rot(PZ.armL, 24, 108)}>
+              <g className="ca-limb" transform={rot(PZ.armL, 24, 108)}>
                 {plate("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z", { deep: .9 })}
                 {/* the pauldron sits over this bicep, so the bicep wears its shadow */}
                 {castOn("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z", .85)}
@@ -3408,7 +3408,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                   <g key={f}>{plate(`M${13.5 + f * 5} ${237 + f * .4} L${17.6 + f * 5} ${237.6 + f * .4} L${17.2 + f * 5} ${248 - f * 1.2} C${15.6 + f * 5} ${251 - f * 1.2} ${13.6 + f * 5} ${250.6 - f * 1.2} ${13.2 + f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
                 {plate("M11 230 L14.2 230.4 L13.2 241 C11.8 243.6 9.2 243.2 8.8 240.6 Z", { lw: .8, deep: .9 })}
               </g>
-              <g transform={rot(-PZ.armR, 96, 108)}>
+              <g className="ca-limb" transform={rot(-PZ.armR, 96, 108)}>
                 {plate("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", { deep: .9 })}
                 {castOn("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", .85)}
                 {joint(101, 158, 13)}
@@ -3501,7 +3501,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               {pivot(46, 240, 5.4)}
               {pivot(74, 240, 5.4)}
               {/* each leg swings from its own hip */}
-              <g transform={rot(PZ.legL, 46, 238)}>
+              <g className="ca-limb" transform={rot(PZ.legL, 46, 238)}>
                 {plate("M34 240 L58 240 L56 302 L37 302 Z")}
                 {castOn("M34 240 L58 240 L56 302 L37 302 Z", .9)}
                 {/* the quad panel: a thigh is a slab until something is bolted
@@ -3525,7 +3525,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {plate("M29 384 L60 384 L60 392 L29 392 Z")}
                 {groove("M39 385 L39 392 M50 385 L50 392", .8, .34)}
               </g>
-              <g transform={rot(-PZ.legR, 74, 238)}>
+              <g className="ca-limb" transform={rot(-PZ.legR, 74, 238)}>
                 {plate("M62 240 L86 240 L83 302 L64 302 Z")}
                 {castOn("M62 240 L86 240 L83 302 L64 302 Z", .9)}
                 {plate("M67 248 L81 248 L80 284 L68 284 Z", { fill: bTrim, lw: .8, deep: .8 })}
