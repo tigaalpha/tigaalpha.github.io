@@ -6,7 +6,14 @@
 // the SW's own logic never touched a stale byte. cache:"no-store" forces an
 // actual round trip every time. Bumped cache name to v14 so every client
 // reinstalls this SW once.
-const CACHE = "tiga-v14";
+// v15: and that "bumped once, by hand" was the whole problem. A browser only
+// reinstalls a worker whose BYTES changed, and the build copied this file
+// verbatim, so it never changed, so `activate` below never ran, so the
+// SW_UPDATED message App.tsx reloads on was never sent. Anyone with the app
+// open kept running the build they first loaded. 3658a9a71058 is replaced at
+// build time with a hash of the page itself (scripts/stamp-sw.mjs), so this
+// file now changes exactly when the app does.
+const CACHE = "tiga-v15-3658a9a71058";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {

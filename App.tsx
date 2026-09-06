@@ -9347,7 +9347,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const t = setTimeout(() => { try { if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" }); } catch(e){} }, 2000);
       return () => clearTimeout(t);
     }).catch(() => {});
-    const onMsg = (e) => { if (e.data && e.data.type === "SW_UPDATED") window.location.reload(); };
+    /* Reloading somebody out of a round they are winning is worse than letting
+       them finish on yesterday's build, so hold the reload while a fight is on
+       screen and take the first gap after it. */
+    const onMsg = (e) => {
+      if (!e.data || e.data.type !== "SW_UPDATED") return;
+      const go = () => {
+        if (document.querySelector(".pvppage.fight")) { setTimeout(go, 4000); return; }
+        window.location.reload();
+      };
+      go();
+    };
     navigator.serviceWorker.addEventListener("message", onMsg);
     return () => navigator.serviceWorker.removeEventListener("message", onMsg);
   }, []);
