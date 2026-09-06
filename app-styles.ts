@@ -1335,11 +1335,46 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpgear svg{display:block;width:100%;height:100%}
 /* the weapon rides the leading hand, just outside the silhouette the way a
    held object sits, and swings when the body lunges */
-.pvpgear.wpn{width:46px;height:46px;right:-22%;bottom:30%;transform:rotate(-18deg);
+/* Measured against the live fighter: the chassis box is 94px wide and the two
+   bodies close to touching when someone is cornered, so a weapon pushed right
+   out to the hand (right:-50%) spent half the round hidden behind the
+   opponent. It rides the near flank instead — grip at the hip, blade sweeping
+   up past the shoulder — which reads as held from this camera and never
+   depends on how far apart the fighters happen to be standing. */
+.pvpgear.wpn{width:64px;height:64px;right:-8%;bottom:36%;transform:rotate(-16deg);
   transition:transform .16s ease;transform-origin:50% 70%}
-.pvpfighter.op .pvpgear.wpn{right:auto;left:-22%;transform:rotate(18deg) scaleX(-1)}
+/* ── the weapon is the receipt ──
+   Rarity is a SIZE before it is a colour: the thing in the hand physically
+   grows with what it cost, so a legendary reads at a glance across a phone
+   screen rather than needing the player to squint at a glow. */
+.pvpgear.wpn.r-epic{width:71px;height:71px}
+.pvpgear.wpn.r-legendary{width:79px;height:79px}
+.pvpgear.wpn.r-mythic{width:87px;height:87px}
+.pvpfighter.op .pvpgear.wpn{right:auto;left:-8%;transform:rotate(16deg) scaleX(-1)}
 .pvpfighter.me.lunge .pvpgear.wpn{transform:rotate(-56deg) translate(5px,-7px)}
 .pvpfighter.op.lunge .pvpgear.wpn{transform:rotate(56deg) scaleX(-1) translate(5px,-7px)}
+/* the weapon carries its own light, taken from the item's own bolt colour */
+.pvpgear.wpn::before{content:"";position:absolute;inset:-30%;border-radius:50%;z-index:-1;
+  background:radial-gradient(circle,var(--wglow,#7fe8ff) 0%,transparent 62%);opacity:0}
+.pvpgear.wpn.r-epic::before{opacity:.3}
+.pvpgear.wpn.r-legendary::before{opacity:.44;animation:pvpaurapulse 1.7s ease-in-out infinite}
+.pvpgear.wpn.r-mythic::before{opacity:.56;animation:pvpaurapulse 1.15s ease-in-out infinite}
+/* the swing: an arc the blade leaves behind, so the weapon is what you see
+   land the hit rather than an ornament that happens to be nearby */
+.pvpwpn-trail{position:absolute;inset:-16% -42% -16% -8%;border-radius:50%;pointer-events:none;
+  border:3px solid transparent;border-top-color:var(--wglow,#7fe8ff);opacity:0}
+.pvpfighter.me.lunge .pvpwpn-trail{animation:pvpwpnswing .26s ease-out}
+.pvpfighter.op.lunge .pvpwpn-trail{animation:pvpwpnswing .26s ease-out}
+@keyframes pvpwpnswing{0%{opacity:0;transform:rotate(-42deg) scale(.82)}
+  34%{opacity:.95}100%{opacity:0;transform:rotate(46deg) scale(1.2)}}
+/* every level you hammered into it, on the weapon, during the fight */
+.pvpwpn-lv{position:absolute;right:-3px;bottom:-1px;z-index:2;
+  font:800 10px/1 system-ui,sans-serif;color:#12161f;letter-spacing:.2px;
+  background:linear-gradient(#ffe89a,#ffb15c);border-radius:6px;padding:2px 4px;
+  box-shadow:0 1px 3px rgba(0,0,0,.55)}
+.pvpgear.wpn.maxed .pvpwpn-lv{background:linear-gradient(#ffffff,#ffd23f);
+  box-shadow:0 0 9px #ffd23f,0 1px 3px rgba(0,0,0,.55)}
+.pvpfighter.op .pvpwpn-lv{right:auto;left:-3px;transform:scaleX(-1)}
 .pvpgear.hat{width:38px;height:38px;left:50%;top:-4%;margin-left:-19px;z-index:5}
 /* measured: the wrapper runs ~14px wider than the chassis on each side (the
    chassis SVG's drop-shadow inflates its own box), so -14% put this a clear
@@ -1347,9 +1382,13 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpgear.acc{width:24px;height:24px;left:10%;bottom:42%;opacity:.95}
 .pvpfighter.op .pvpgear.acc{left:auto;right:10%}
 @media (max-width:360px){
-  .pvpgear.wpn{width:38px;height:38px}
+  .pvpgear.wpn{width:54px;height:54px}
+  .pvpgear.wpn.r-epic{width:60px;height:60px}
+  .pvpgear.wpn.r-legendary{width:67px;height:67px}
+  .pvpgear.wpn.r-mythic{width:73px;height:73px}
   .pvpgear.hat{width:32px;height:32px;margin-left:-16px}
   .pvpgear.acc{width:20px;height:20px}
+  .pvpwpn-lv{font-size:9px;padding:1px 3px}
 }
 
 /* ── rarity has to be visible before the first punch ──

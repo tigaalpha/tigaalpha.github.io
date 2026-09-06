@@ -333,21 +333,48 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {lit(14, 25, 2.6)}
       {lit(44, 25, 2.6)}
     </>,
+    /* A deployed rig rather than three loose slabs: a powered spine with the
+       blade, the cutter head and the gripper all folded OUT of one hub, which
+       is the whole idea a multi-tool is supposed to sell. */
     multitool: () => <>
-      {P("M8 46 L24 12 L31 15 L15 50 Z", GA)}
-      {P("M56 46 L40 12 L33 15 L49 50 Z", GB, { line: edgeB })}
-      {E(32, 32, 9, 9, GC, { line: edge })}
-      {lit(32, 32, 3.2)}
-      {R(24, 50, 16, 10, 4, GB, { line: edgeB })}
+      {/* the blade, thrown out to the top right */}
+      {P("M34 30 L40 36 L60 6 L52 4 Z", GA)}
+      {beamLine("M38 31 L55 8", 1.5)}
+      {/* the cutter head, spun out to the top left */}
+      {P("M23.0 17.0 L26.0 17.0 L25.4 20.4 L20.8 22.3 L22.9 24.4 L20.1 26.4 L15.5 24.5 L15.5 27.5 L12.1 26.9 L10.2 22.3 L8.1 24.4 L6.1 21.6 L8.0 17.0 L5.0 17.0 L5.6 13.6 L10.2 11.7 L8.1 9.6 L10.9 7.6 L15.5 9.5 L15.5 6.5 L18.9 7.1 L20.8 11.7 L22.9 9.6 L24.9 12.4 Z", GB, { line: edgeB, lw: 1 })}
+      {E(15.5, 17, 4.6, 4.6, GC, { lw: .9 })}
+      {/* the gripper: two hooked prongs off one joint, closing on a gap */}
+      {P("M25 41 C22 48 20 53 16 57 L21 60 C26 55 29 49 31 42 Z", GB, { line: edgeB })}
+      {P("M37 41 C40 48 42 53 46 57 L41 60 C36 55 33 49 31 42 Z", GB, { line: edgeB })}
+      {[[18.5, 58.5], [43.5, 58.5]].map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r="1.6" fill={lite(C, .45)} opacity=".9" />))}
+      {/* the hub every arm folds out of */}
+      {E(31, 33, 11, 11, GA, { lw: 1.4 })}
+      {[0, 72, 144, 216, 288].map(a => <g key={a} transform={`rotate(${a} 31 33)`}>{seam("M31 25 V29", .9)}</g>)}
+      {E(31, 33, 5, 5, GC, { lw: 1 })}
+      {lit(31, 33, 3.4)}
     </>,
+    /* The most expensive weapon on the coin rack, so it gets the full build:
+       a wrapped haft, a swept guard, a faceted head with a ridge down it, and
+       the comet it is named after burning off the butt. */
     lance: () => <>
-      {P("M8 56 L38 26 L44 32 L14 62 Z", GB, { line: edgeB })}
-      {P("M34 22 L44 12 L60 4 L52 20 L42 30 Z", GA)}
-      {P("M42 14 L54 8 L50 18 Z", "#fff", { spec: .2, occ: .1, line: lite(A, .5), lw: .8 })}
-      {R(31, 27, 12, 8, 3, GC, { line: edge })}
-      {beamLine("M46 16 L59 5", 1.8)}
-      {lit(52, 13, 3)}
-      <g opacity=".55">{beamLine("M16 50 C10 54 7 58 5 62", 1.2)}</g>
+      {/* haft, along the bottom-left to top-right axis */}
+      {P("M5.7 53.7 L10.3 58.3 L42.3 26.3 L37.7 21.7 Z", GB, { line: edgeB })}
+      {seam("M10 52 L14 56 M14 48 L18 52 M18 44 L22 48", 1)}
+      {/* the swept guard */}
+      {P("M28.8 22.4 L32.4 18.8 L45.2 31.6 L41.6 35.2 Z", GC, { line: edge, lw: 1.2 })}
+      {lit(31, 21, 2)}
+      {lit(43, 33, 2)}
+      {/* the head: two facets meeting on a lit ridge */}
+      {P("M40 24 L33 17 L61 3 Z", GA)}
+      {P("M40 24 L47 31 L61 3 Z", GC, { line: edge, lw: 1.1 })}
+      {beamLine("M41 23 L59 5", 1.7)}
+      {lit(58, 6, 3.2)}
+      {/* the comet burning off the butt */}
+      <g opacity=".7">{beamLine("M9 55 C5 59 3 62 1.5 65", 1.6)}</g>
+      <g opacity=".45">{beamLine("M13 57 C10 60 8 63 7 66", 1.2)}</g>
+      {[[20, 44], [27, 36], [15, 50]].map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={1.5 - i * .3} fill={lite(C, .5)} opacity=".8" />))}
     </>,
     wrench: () => <>
       {P("M32 4 C42 4 50 12 50 22 C50 30 45 37 38 40 L38 46 L26 46 L26 40 C19 37 14 30 14 22 C14 12 22 4 32 4 Z", GA)}
@@ -785,12 +812,26 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {lit(32, 32, 5)}
       {[[32, 8], [11, 44], [53, 44]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3" fill={lite(C, .5)} stroke="#fff" strokeWidth=".8" />)}
     </>,
+    /* A rail cannon reads from its RAILS: two parallel bars with the charge
+       running up between them and blooming out of the muzzle. The old one was
+       a receiver with three fins glued on and no visible mechanism at all. */
     railgun: () => <>
-      {P("M4 26 H40 L46 22 H58 L58 42 H46 L40 38 H4 Z", GA, { lw: 1.5 })}
-      {[0, 1, 2].map(i => <g key={i}>{R(12 + i * 10, 18, 6, 28, 2, GB, { line: edgeB, lw: 1 })}</g>)}
-      {beamLine("M44 32 H62", 3.2)}
-      {P("M8 40 L20 40 L16 54 L6 54 Z", GB, { line: edgeB })}
-      {lit(50, 32, 3.4)}
+      {/* shoulder stock */}
+      {P("M1 28 L9 23 L14 28 L14 46 L6 51 L1 45 Z", GB, { line: edgeB })}
+      {/* receiver */}
+      {R(11, 22, 26, 22, 4, GA, { lw: 1.5 })}
+      {seam("M16 28 H32 M16 38 H32")}
+      {lit(20, 33, 2.4)}
+      {/* the two rails the slug rides */}
+      {R(34, 21, 27, 6, 2, GB, { line: edgeB, lw: 1 })}
+      {R(34, 39, 27, 6, 2, GB, { line: edgeB, lw: 1 })}
+      {[0, 1, 2].map(i => <g key={i}>{seam(`M${41 + i * 8} 27 V39`, .9)}</g>)}
+      {/* the charge, accelerating out of the muzzle */}
+      {beamLine("M36 33 H60", 3.4)}
+      {lit(50, 33, 2.6)}
+      {lit(61, 33, 4.2)}
+      {/* pistol grip */}
+      {P("M15 44 L27 44 L24 59 L15 59 Z", GB, { line: edgeB })}
     </>,
     aegis: () => <>
       {P("M32 4 C46 4 54 14 54 26 C54 36 48 44 42 48 L22 48 C16 44 10 36 10 26 C10 14 18 4 32 4 Z", GA, { lw: 1.6 })}
@@ -838,13 +879,17 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {beamLine("M48 6 L58 2", 1.6)}
       {lit(17, 47, 3)}
     </>,
+    /* A cutting disc, not a record: twelve raked teeth, a lit drive hub and
+       the arc it leaves in the air. At 820 coins it has to bite. */
     disc: () => <>
-      {E(32, 32, 25, 25, GB, { line: edgeB, lw: 1.3 })}
-      {[21, 17, 13].map(r => <circle key={r} cx="32" cy="32" r={r} fill="none" stroke={lite(A, .3)} strokeWidth=".9" opacity=".55" />)}
-      {E(32, 32, 9, 9, GA, { lw: 1 })}
-      <circle cx="32" cy="32" r="2.4" fill={dim(B, .6)} />
-      <path d="M14 22 A22 22 0 0 1 40 10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" opacity=".3" />
-      {lit(32, 32, 2.2)}
+      {P("M54.0 32.0 L61.0 32.0 L60.3 38.3 L51.1 43.0 L57.1 46.5 L53.3 51.6 L43.0 51.1 L46.5 57.1 L40.7 59.7 L32.0 54.0 L32.0 61.0 L25.7 60.3 L21.0 51.1 L17.5 57.1 L12.4 53.3 L12.9 43.0 L6.9 46.5 L4.3 40.7 L10.0 32.0 L3.0 32.0 L3.7 25.7 L12.9 21.0 L6.9 17.5 L10.7 12.4 L21.0 12.9 L17.5 6.9 L23.3 4.3 L32.0 10.0 L32.0 3.0 L38.3 3.7 L43.0 12.9 L46.5 6.9 L51.6 10.7 L51.1 21.0 L57.1 17.5 L59.7 23.3 Z", GB, { line: edgeB, lw: 1.2 })}
+      {E(32, 32, 20, 20, GA, { lw: 1.1 })}
+      {[16, 12].map(r => <circle key={r} cx="32" cy="32" r={r} fill="none" stroke={lite(A, .35)} strokeWidth=".9" opacity=".5" />)}
+      {[0, 60, 120].map(a => <g key={a} transform={`rotate(${a} 32 32)`}>{seam("M32 15 V22", 1)}</g>)}
+      {E(32, 32, 7, 7, GC, { lw: 1 })}
+      <path d="M9 22 A26 26 0 0 1 38 6" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" opacity=".34" />
+      <path d="M55 42 A26 26 0 0 1 26 58" fill="none" stroke={lite(C, .4)} strokeWidth="2.4" strokeLinecap="round" opacity=".45" />
+      {lit(32, 32, 3.4)}
     </>,
     mask: () => <>
       {P("M8 20 C8 12 20 8 32 8 C44 8 56 12 56 20 C56 36 46 52 32 56 C18 52 8 36 8 20 Z", GA)}

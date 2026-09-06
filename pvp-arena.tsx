@@ -2050,6 +2050,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const petElemTake = 1 - petMatch * PET_MATCH_DMG * (beast ? BEAST_ELEM_MUL : 1);  // theirs
   const wpn = (gear || []).find(g => g && g.id && String(g.id).startsWith("wpn-"));
   const myBolt = (wpn && wpn.sw && wpn.sw[0]) || "#7fe8ff";
+  const wpnLv = wpn ? itemLv(wpn.id) : 0;
   /* ── the gear you paid for, on the robot that is fighting ──
      CyberAvatar takes no gear props at all, so up to now everything bought in
      the shop was invisible the moment a fight started: the same grey chassis
@@ -3782,9 +3783,18 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
                 <ItemArt art={myHat.art} sw={myHat.sw} />
               </span>
             )}
+            {/* ── the thing you actually paid for ──
+                It used to be a 46px badge parked behind the hip, so a maxed
+                thousand-coin lance and a free starter torch were the same
+                unreadable smudge and nobody could see what the money bought.
+                It is held now, in front of the body, sized by rarity, lit by
+                its own bolt colour, and it swings when the punch lands. */}
             {wpn && (
-              <span className={`pvpgear wpn r-${wpn.rarity}${itemLv(wpn.id) >= ITEM_MAX_LV ? " maxed" : ""}`} aria-hidden="true">
+              <span className={`pvpgear wpn r-${wpn.rarity}${wpnLv >= ITEM_MAX_LV ? " maxed" : ""}`}
+                style={{ "--wglow": myBolt }} aria-hidden="true">
+                <span className="pvpwpn-trail" />
                 <ItemArt art={wpn.art} sw={wpn.sw} />
+                {wpnLv > 0 && <span className="pvpwpn-lv">+{wpnLv}</span>}
               </span>
             )}
             {myAcc && (
