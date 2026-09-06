@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { trainPet } from "./pet-lab";
 import {
   LEVELS, ALL_LEVELS, EXP, BADGES, levelInfo, prestigeInfo, unlockedBadgeIds, QUEST_GOAL, QUEST_BONUS,
   weekKey, activeChallenges, readWeekly, writeWeekly, CHALLENGE_REWARD,
@@ -137,6 +138,10 @@ export function useGamification({ session, profile, setProfile }) {
     if (activeEventRef.current && activeEventRef.current.expMult > 1) amount = Math.round(amount * activeEventRef.current.expMult);
     mascot("happy", 1400);
     bumpWeekly("exp", amount);
+    /* the pet is trained by the practising, not only by the feeding — one
+       call here reaches every mode that pays EXP, and trainPet does its own
+       daily capping so this cannot be farmed */
+    try { trainPet(amount); } catch (e) {}
     /* Learning EXP and Skill EXP are two separate currencies, and this
        function only ever mints the first of them. What you learn raises your
        account level, your league standing and your daily quest; what you FIGHT

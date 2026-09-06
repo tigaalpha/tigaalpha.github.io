@@ -1260,6 +1260,191 @@ export function pathNames(speciesId) {
   return pathsOf(speciesId).map((w, i) => (PET_PATHS[i] ? (w === "b" ? PET_PATHS[i].b : PET_PATHS[i].a) : null)).filter(Boolean);
 }
 
+/* ── the room ──
+   A pet with nowhere to live is a sprite on a background. Eight pieces, bought
+   with coins and drawn rather than photographed, so they take the same light as
+   everything else in the app. Owning is the whole mechanic — no placement grid,
+   because a grid turns a two-second decoration into a chore. */
+const ROOM_KEY = "tg_petroom";
+export const FURNITURE = [
+  { id: "rug",    cost: 120, th: "\u0e1e\u0e23\u0e21",        en: "Rug",         zh: "\u5730\u6bef" },
+  { id: "lamp",   cost: 180, th: "\u0e42\u0e04\u0e21\u0e44\u0e1f",      en: "Lamp",        zh: "\u843d\u5730\u706f" },
+  { id: "plant",  cost: 220, th: "\u0e15\u0e49\u0e19\u0e44\u0e21\u0e49",     en: "Plant",       zh: "\u76c6\u683d" },
+  { id: "shelf",  cost: 260, th: "\u0e0a\u0e31\u0e49\u0e19\u0e27\u0e32\u0e07\u0e02\u0e2d\u0e07", en: "Shelf",       zh: "\u7f6e\u7269\u67b6" },
+  { id: "poster", cost: 300, th: "\u0e42\u0e1b\u0e2a\u0e40\u0e15\u0e2d\u0e23\u0e4c",   en: "Poster",      zh: "\u6d77\u62a5" },
+  { id: "bed",    cost: 420, th: "\u0e40\u0e15\u0e35\u0e22\u0e07\u0e19\u0e2d\u0e19",   en: "Bed",         zh: "\u5c0f\u5e8a" },
+  { id: "piano",  cost: 700, th: "\u0e40\u0e1b\u0e35\u0e22\u0e42\u0e19\u0e08\u0e34\u0e4b\u0e27", en: "Toy piano",   zh: "\u73a9\u5177\u94a2\u7434" },
+  { id: "window", cost: 900, th: "\u0e2b\u0e19\u0e49\u0e32\u0e15\u0e48\u0e32\u0e07\u0e40\u0e21\u0e37\u0e2d\u0e07", en: "City window", zh: "\u57ce\u5e02\u7a97\u666f" },
+];
+export function readRoom() {
+  try { const v = JSON.parse(localStorage.getItem(ROOM_KEY) || "null"); if (Array.isArray(v)) return v; } catch (e) {}
+  return [];
+}
+export function ownsFurniture(id) { return readRoom().indexOf(id) >= 0; }
+export function buyFurniture(id) {
+  const v = readRoom();
+  if (v.indexOf(id) >= 0) return false;
+  v.push(id);
+  try { localStorage.setItem(ROOM_KEY, JSON.stringify(v)); } catch (e) {}
+  try { window.dispatchEvent(new Event("tg-pet")); } catch (e) {}
+  return true;
+}
+
+/** The room, drawn behind the pet. Everything owned, all at once. */
+export function PetRoom({ owned }) {
+  const has = (id) => owned.indexOf(id) >= 0;
+  return (
+    <svg className="pet-room" viewBox="0 0 240 130" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+      <defs>
+        <linearGradient id="pr-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#233a63" /><stop offset="100%" stopColor="#0e1728" />
+        </linearGradient>
+      </defs>
+      {has("window") && <g>
+        <rect x="150" y="14" width="66" height="46" rx="4" fill="#12203a" stroke="#3b5478" strokeWidth="2" />
+        <rect x="154" y="18" width="58" height="38" fill="url(#pr-sky)" />
+        {[158, 170, 182, 196].map((x, i) => <rect key={x} x={x} y={30 + (i % 2) * 6} width="9" height={26 - (i % 2) * 6} fill="#0d1728" />)}
+        {[160, 173, 185, 199].map((x, i) => <rect key={"w" + x} x={x} y={34 + (i % 2) * 6} width="3" height="3" fill="#ffd23f" opacity=".8" />)}
+        <path d="M150 37 H216 M183 14 V60" stroke="#3b5478" strokeWidth="2" />
+      </g>}
+      {has("poster") && <g>
+        <rect x="26" y="16" width="42" height="30" rx="3" fill="#241a33" stroke="#6b5a8a" strokeWidth="2" />
+        <path d="M34 38 L44 24 L52 34 L60 27" fill="none" stroke="#ff6bd6" strokeWidth="2.4" strokeLinecap="round" />
+      </g>}
+      {has("shelf") && <g>
+        <rect x="20" y="56" width="56" height="5" rx="2" fill="#6b4f34" />
+        <rect x="26" y="44" width="8" height="12" fill="#7fe8ff" opacity=".85" />
+        <rect x="38" y="47" width="7" height="9" fill="#ffd23f" opacity=".85" />
+        <rect x="49" y="42" width="9" height="14" fill="#ff7a9c" opacity=".85" />
+      </g>}
+      {has("lamp") && <g>
+        <ellipse cx="208" cy="76" rx="30" ry="22" fill="#ffd23f" opacity=".13" />
+        <rect x="206" y="66" width="4" height="44" fill="#5a6478" />
+        <path d="M196 66 L220 66 L214 50 L202 50 Z" fill="#ffd8a0" />
+        <ellipse cx="208" cy="112" rx="14" ry="4" fill="#5a6478" />
+      </g>}
+      {has("plant") && <g>
+        <path d="M24 110 L36 110 L34 92 L26 92 Z" fill="#8a5a3c" />
+        <path d="M30 92 C18 84 20 68 30 62 C40 68 42 84 30 92 Z" fill="#3ddc84" />
+        <path d="M30 88 C20 82 22 72 30 68 C38 72 39 82 30 88 Z" fill="#2fb56c" />
+      </g>}
+      {has("piano") && <g>
+        <rect x="86" y="88" width="56" height="16" rx="3" fill="#1b2233" stroke="#46536e" strokeWidth="1.6" />
+        <rect x="90" y="96" width="48" height="8" fill="#f2f6fc" />
+        {[96, 104, 112, 120, 128].map(x => <rect key={x} x={x} y="96" width="2.4" height="5" fill="#1b2233" />)}
+      </g>}
+      {has("bed") && <g>
+        <rect x="150" y="90" width="64" height="18" rx="7" fill="#3a4a6a" />
+        <rect x="150" y="86" width="24" height="14" rx="6" fill="#e8eefc" opacity=".9" />
+      </g>}
+      {has("rug") && <ellipse cx="120" cy="116" rx="76" ry="12" fill="#7a4a6a" opacity=".55" />}
+    </svg>
+  );
+}
+
+/* ── expeditions ──
+   The one thing a pet in a practice app can do that the app cannot: keep
+   working while the app is shut. You send it out, close the tab, and it is
+   still gone when you come back — the clock is wall-clock, stored, and read on
+   return, so nothing has to be running for time to pass. Longer trips pay
+   better and are the only source of the rarer foods.
+
+   One trip at a time, per pet, which is what stops it being an idle-game
+   button you tap forty times. */
+const EXP_KEY = "tg_petexped";
+export const EXPEDITIONS = [
+  { id: "park",  mins: 30,  bond: 14, coins: 40,  th: "เดินเล่นในสวน",  en: "Park stroll",   zh: "公园散步" },
+  { id: "ruins", mins: 180, bond: 46, coins: 140, th: "สำรวจซากเมือง",  en: "Ruin sweep",    zh: "废墟探索" },
+  { id: "deep",  mins: 480, bond: 120, coins: 380, th: "ลงลึกใต้เมือง", en: "Deep descent",  zh: "深层下潜" },
+];
+export function readExped() {
+  try { const v = JSON.parse(localStorage.getItem(EXP_KEY) || "null"); if (v && v.id) return v; } catch (e) {}
+  return null;
+}
+function writeExped(v) {
+  try { if (v) localStorage.setItem(EXP_KEY, JSON.stringify(v)); else localStorage.removeItem(EXP_KEY); } catch (e) {}
+  try { window.dispatchEvent(new Event("tg-pet")); } catch (e) {}
+}
+export function sendExped(id) {
+  const E = EXPEDITIONS.find(x => x.id === id);
+  if (!E || readExped()) return false;
+  writeExped({ id, until: Date.now() + E.mins * 60000 });
+  return true;
+}
+/** null while away, or the payout once the clock has run out. */
+export function expedDone() {
+  const cur = readExped();
+  if (!cur) return null;
+  if (Date.now() < cur.until) return null;
+  return EXPEDITIONS.find(x => x.id === cur.id) || null;
+}
+export function claimExped() {
+  const E = expedDone();
+  if (!E) return null;
+  writeExped(null);
+  const p = readPet();
+  if (p) { writePet({ ...p, bond: (p.bond || 0) + E.bond, mood: Math.min(100, (p.mood || 0) + 6) }); }
+  return E;
+}
+/** Milliseconds left, or 0. */
+export function expedLeft() {
+  const cur = readExped();
+  return cur ? Math.max(0, cur.until - Date.now()) : 0;
+}
+
+/* ── practice trains it ──
+   The pet lived in its own room: bond came only from feeding, washing and
+   brushing it, and an hour of real piano did nothing for it at all. That is
+   backwards for a companion in a music app — the thing you want rewarded is
+   the practising. Every session that pays EXP now pays the pet too, on a
+   sliding scale so a long session is worth more than a tap, and capped per day
+   so it supplements care rather than replacing it.
+
+   It also remembers WHEN you last practised, which is what C5 reads. */
+const TRAIN_KEY = "tg_pettrain";
+export const TRAIN_DAILY_CAP = 60;
+function readTrain() {
+  try { const v = JSON.parse(localStorage.getItem(TRAIN_KEY) || "null"); if (v && typeof v === "object") return v; } catch (e) {}
+  return { d: "", got: 0, last: 0 };
+}
+function writeTrain(v) { try { localStorage.setItem(TRAIN_KEY, JSON.stringify(v)); } catch (e) {} }
+const dayKey = () => new Date().toISOString().slice(0, 10);
+
+/** Pay the pet for a practice session. Returns the bond actually granted. */
+export function trainPet(exp) {
+  const p = readPet();
+  if (!p || !exp) return 0;
+  const t = readTrain();
+  if (t.d !== dayKey()) { t.d = dayKey(); t.got = 0; }
+  const want = Math.max(1, Math.min(14, Math.round(exp / 6)));
+  const give = Math.max(0, Math.min(want, TRAIN_DAILY_CAP - t.got));
+  t.got += give; t.last = Date.now();
+  writeTrain(t);
+  if (give > 0) {
+    // practising also cheers it up — it was waiting for you
+    const v = { ...p, bond: (p.bond || 0) + give, mood: Math.min(100, (p.mood || 0) + 4) };
+    writePet(v);
+    try { window.dispatchEvent(new Event("tg-pet")); } catch (e) {}
+  }
+  return give;
+}
+/** Days since you last practised, for the pet to have an opinion about. */
+export function daysSincePractice() {
+  const t = readTrain();
+  if (!t.last) return null;
+  return Math.floor((Date.now() - t.last) / 86400000);
+}
+/** What the pet has to say about your practising, if anything. */
+export function practiceMood(lang) {
+  const d = daysSincePractice();
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  if (d === null) return null;
+  if (d === 0) return { good: true, text: T("วันนี้คุณซ้อมแล้ว — มันดูมีความสุขมาก", "You practised today — it is delighted", "你今天练琴了 — 它很开心") };
+  if (d === 1) return { good: true, text: T("มันรอคุณซ้อมอยู่วันนี้", "It is waiting for you to practise today", "它在等你今天练琴") };
+  if (d < 4) return { good: false, text: T(`ไม่ได้ซ้อมมา ${d} วันแล้ว มันเริ่มเหงา`, `${d} days without practice — it is getting lonely`, `${d} 天没练琴了 — 它有点寂寞`) };
+  return { good: false, text: T(`ไม่ได้ซ้อมมา ${d} วัน มันคิดถึงคุณมาก`, `${d} days without practice — it misses you`, `${d} 天没练琴 — 它很想你`) };
+}
+
 export function petBonusOf() {
   const p = readPet();
   if (!p) return null;
@@ -1375,6 +1560,8 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
   const [naming, setNaming] = useState("");
   const [note, setNote] = useState(null);
   const [evo, setEvo] = useState(null);        // the evolution cutscene, when one is playing
+  const [expTick, setExpTick] = useState(0);   // re-render the expedition clock
+  useEffect(() => { const id = setInterval(() => setExpTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
   const { fx, pop } = useCareFx();
 
   const save = useCallback((v) => {
@@ -1603,6 +1790,68 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
         </div>
       )}
 
+      {/* ── the room ── bought pieces, drawn behind the creature */}
+      {(() => {
+        const owned = readRoom();
+        return (
+          <div className="pet-shopfur">
+            <b>{T("แต่งห้องให้มัน", "Furnish its room", "布置它的房间")}</b>
+            <div className="pet-fur-row">
+              {FURNITURE.map(F => {
+                const has = owned.indexOf(F.id) >= 0;
+                return (
+                  <button key={F.id} className={`pet-fur${has ? " own" : ""}`} disabled={has || coins < F.cost}
+                    onClick={() => { if (onSpend && onSpend(F.cost)) { buyFurniture(F.id); playUi("reward"); setExpTick(t => t + 1); } }}>
+                    <b>{tr3(F, lang)}</b><i>{has ? T("มีแล้ว", "Owned", "已有") : `🪙${F.cost}`}</i>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── expeditions ──
+          Sent out, then genuinely gone: the clock is wall-clock and stored, so
+          it keeps running with the app shut. */}
+      {(() => {
+        const left = expedLeft(), done = expedDone(), out = !!readExped();
+        void expTick;   // the interval above is what makes this line move
+        if (done) return (
+          <div className="pet-exped done">
+            <b>{T("มันกลับมาแล้ว!", "It is back!", "它回来了！")}</b>
+            <button onClick={() => { const E = claimExped(); if (E) { onReward && onReward(0, E.coins); say(T(`ได้ ${E.coins} เหรียญ`, `+${E.coins} coins`, `+${E.coins} 金币`)); playUi("reward"); setPet(readPet()); } }}>
+              {T("รับรางวัล", "Collect", "领取")}
+            </button>
+          </div>
+        );
+        if (out) {
+          const m = Math.floor(left / 60000), sec = Math.floor((left % 60000) / 1000);
+          return <div className="pet-exped"><b>{T("ออกลุยอยู่", "Out on an expedition", "外出探险中")}</b><i>{m}m {sec}s</i></div>;
+        }
+        return (
+          <div className="pet-exped pick">
+            <b>{T("ส่งไปผจญภัย", "Send it out", "派它出去")}</b>
+            <div className="pet-exped-row">
+              {EXPEDITIONS.map(E => (
+                <button key={E.id} onClick={() => { if (sendExped(E.id)) { playUi("click"); say(T("ออกเดินทางแล้ว", "Off it goes", "出发了")); setExpTick(t => t + 1); } }}>
+                  <b>{tr3(E, lang)}</b><i>{E.mins >= 60 ? `${E.mins / 60}h` : `${E.mins}m`} · +{E.bond} · 🪙{E.coins}</i>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── C5: it has an opinion about your practising ──
+          The care stats say whether you looked after it. This says whether you
+          practised, which in a piano app is the thing that actually matters —
+          and it is the pet, not a chart, that tells you. */}
+      {(() => {
+        const pm = practiceMood(lang);
+        return pm ? <div className={`pet-practice${pm.good ? " good" : ""}`}>{pm.text}</div> : null;
+      })()}
+
       {/* ── the fork ──
           A pet at a branch point stops and asks. Both answers are shown with
           what they actually do, and the choice is permanent — which is what
@@ -1649,6 +1898,8 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
       {/* ── the room ── the pet, its mess, and whatever just happened to it ── */}
       <div className="pet-room">
         <div className="pr-floor" />
+        {/* what you bought for it, behind the creature and in front of the floor */}
+        <PetRoom owned={readRoom()} />
         {/* a tap on the creature is free affection — a stroke, a heart, no
             stat and no coins. Playing is the priced button below; an accidental
             tap in here must never cost anybody 25 coins. */}

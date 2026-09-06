@@ -2911,7 +2911,7 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    theme, instead of a fixed white box breaking the rest of a dark UI. */
 .pet-room{position:relative;height:230px;margin:11px 13px;border:1px solid var(--bd4);border-radius:18px;overflow:hidden;background:var(--card)}
 .pr-floor{position:absolute;left:0;right:0;bottom:0;height:38%;background:linear-gradient(180deg,color-mix(in srgb,var(--tc,#8cf) 7%,transparent),transparent);border-top:1px solid var(--bd4)}
-.pr-pet{position:absolute;left:50%;bottom:10px;width:152px;height:172px;transform:translateX(-50%);cursor:pointer;filter:drop-shadow(0 10px 22px color-mix(in srgb,var(--pc,#8ab) 55%,transparent))}
+.pr-pet{position:absolute;left:50%;bottom:10px;width:152px;height:172px;transform:translateX(-50%);cursor:pointer;z-index:2;filter:drop-shadow(0 10px 22px color-mix(in srgb,var(--pc,#8ab) 55%,transparent))}
 .pr-pet:active{transform:translateX(-50%) scale(.97)}
 .pr-pet.sad{filter:saturate(.55) drop-shadow(0 8px 20px #0006)}
 .pr-mess{position:absolute;width:28px;height:28px;padding:0;border:none;border-radius:50%;background:#ffffff14;font-size:15px;line-height:1;cursor:pointer;transform:translate(-50%,-50%)}
@@ -3022,6 +3022,31 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 @keyframes petawake{0%,100%{filter:drop-shadow(0 0 14px #fff) drop-shadow(0 0 28px rgba(255,210,63,.6))}
   50%{filter:drop-shadow(0 0 22px #fff) drop-shadow(0 0 44px rgba(255,210,63,.9))}}
 /* ── the branch fork on the pet page ── */
+.pet-room{position:absolute;left:0;right:0;bottom:0;width:100%;height:64%;pointer-events:none;z-index:1}
+.pet-shopfur{margin:8px 0;padding:11px 13px;border-radius:14px;background:#16203a;border:1px solid #ffffff1f;font-family:'Rajdhani',sans-serif}
+.pet-shopfur>b{display:block;font-size:15px;color:#e8eefc;margin-bottom:8px}
+.pet-fur-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.pet-fur{display:flex;flex-direction:column;gap:2px;align-items:center;padding:8px 4px;border-radius:10px;cursor:pointer;
+  background:#0f1626;border:1px solid #ffffff1f;color:#e8eefc;font-family:'Rajdhani',sans-serif}
+.pet-fur:disabled{cursor:default}
+.pet-fur.own{background:#15291f;border-color:#3ddc8440}
+.pet-fur:disabled:not(.own){opacity:.45}
+.pet-fur b{font-size:12px;font-weight:700;text-align:center;line-height:1.15}
+.pet-fur i{font-style:normal;font-size:11px;color:#8fa3bd}
+.pet-exped{margin:8px 0;padding:11px 13px;border-radius:14px;background:#16203a;border:1px solid #ffffff1f;font-family:'Rajdhani',sans-serif;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pet-exped>b{font-size:15px;color:#e8eefc}
+.pet-exped>i{font-style:normal;font-size:15px;color:#7fe8ff;font-variant-numeric:tabular-nums}
+.pet-exped.done{background:#15291f;border-color:#3ddc8440}
+.pet-exped button{padding:9px 15px;border-radius:10px;border:1px solid #ffffff26;background:#0f1626;color:#e8eefc;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700}
+.pet-exped.pick{flex-direction:column;align-items:stretch}
+.pet-exped-row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}
+.pet-exped-row button{display:flex;flex-direction:column;gap:3px;align-items:center;padding:9px 6px}
+.pet-exped-row button b{font-size:13px}
+.pet-exped-row button i{font-style:normal;font-size:11px;color:#8fa3bd}
+.pet-practice{margin:8px 0;padding:9px 13px;border-radius:12px;font-family:'Rajdhani',sans-serif;font-size:14px;
+  background:#2a1f16;border:1px solid #ffae5726;color:#ffb877;text-align:center}
+.pet-practice.good{background:#15291f;border-color:#3ddc8426;color:#7fe8b0}
 .pet-fork{margin:10px 0;padding:12px;border-radius:16px;background:linear-gradient(180deg,#1a2337,#141c2c);border:1px solid #ffffff1f}
 .pet-fork>b{display:block;font-family:'Rajdhani',sans-serif;font-size:15px;color:#ffd23f;margin-bottom:8px;text-align:center}
 .pet-fork-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
