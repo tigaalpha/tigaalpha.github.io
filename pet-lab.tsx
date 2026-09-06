@@ -27,6 +27,36 @@ import { ItemArt } from "./item-art";
 
 /* ══════════════════════ species ══════════════════════ */
 
+/* ── the type wheel ──
+   Six elements had been declared since the pets shipped, each with a name in
+   three languages and a colour, and not one of them ever decided anything: the
+   type was a label on a card. It is a ring now — each element beats exactly one
+   and loses to exactly one, so every pet is strong somewhere and soft somewhere
+   and which one you bring is a choice rather than a skin.
+
+     ember burns flora · flora cracks steel · steel earths volt
+     volt scrambles aether · aether slips past frost · frost quenches ember */
+export const TYPE_BEATS = {
+  ember: "flora", flora: "steel", steel: "volt",
+  volt: "aether", aether: "frost", frost: "ember",
+};
+/** 1 = a beats b · -1 = b beats a · 0 = neither. */
+export function typeMatchup(a, b) {
+  if (!a || !b || a === b) return 0;
+  if (TYPE_BEATS[a] === b) return 1;
+  if (TYPE_BEATS[b] === a) return -1;
+  return 0;
+}
+/** What a type's command does when you send the pet in. */
+export const TYPE_CMD = {
+  volt:   { k: "stagger", th: "ช็อต",     en: "Jolt",    zh: "电击" },
+  ember:  { k: "burn",    th: "เผา",      en: "Scorch",  zh: "灼烧" },
+  frost:  { k: "slow",    th: "แช่แข็ง",  en: "Chill",   zh: "冰缓" },
+  flora:  { k: "heal",    th: "ฟื้นฟู",   en: "Bloom",   zh: "回复" },
+  steel:  { k: "guard",   th: "ตั้งเกราะ", en: "Bulwark", zh: "护盾" },
+  aether: { k: "gauge",   th: "อัดพลัง",  en: "Surge",   zh: "充能" },
+};
+
 export const PET_TYPES = {
   volt:  { th: "สายไฟฟ้า", en: "Volt",  zh: "电元", c: "#ffd23f" },
   ember: { th: "สายเพลิง", en: "Ember", zh: "焰元", c: "#ff7a3c" },

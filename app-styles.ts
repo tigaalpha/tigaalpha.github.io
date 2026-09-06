@@ -2979,6 +2979,35 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .pvppet{position:absolute;left:0;bottom:2px;width:52px;height:58px;z-index:2;pointer-events:none;animation:pvppetin .5s ease}
 .pvpfighter.op .pvppet{left:auto;right:0}
 .pvppet svg{display:block;width:100%;height:100%;filter:drop-shadow(0 5px 7px rgba(20,30,60,.34))}
+/* ── the pet as a third body ──
+   Same absolute frame as a fighter so it shares the floor line, but its own
+   width and its own transform. --petk is how grown it is. */
+.pvppet3{position:absolute;bottom:var(--pvpfloor,6px);left:0;width:44%;height:96px;z-index:2;pointer-events:none;
+  display:flex;align-items:flex-end;justify-content:center;will-change:transform;transition:transform .09s linear}
+.pvppet3-in{display:block;width:74px;height:88px;transform:scale(var(--petk,.85));transform-origin:50% 100%;
+  animation:pvppetin .5s ease;transition:transform .16s cubic-bezier(.34,1.56,.64,1)}
+.pvppet3-in svg{display:block;width:100%;height:100%}
+/* the contact shadow — a pet with no shadow floats, whatever its build */
+.pvppet3-sh{position:absolute;bottom:1px;left:50%;width:46px;height:9px;transform:translateX(-50%) scale(var(--petk,.85));
+  border-radius:50%;background:radial-gradient(50% 50% at 50% 50%,rgba(6,10,22,.5),rgba(6,10,22,0) 72%)}
+/* it turns to face what you are fighting */
+.pvppet3-in{transform:scale(var(--petk,.85)) scaleX(-1)}
+.pvppet3.cheer .pvppet3-in{animation:pvppetcheer .6s ease}
+.pvppet3.flinch .pvppet3-in{transform:scale(calc(var(--petk,.85) * .88)) scaleX(-1) translateY(4px)}
+.pvppet3.cast .pvppet3-in{transform:scale(calc(var(--petk,.85) * 1.14)) scaleX(-1)}
+.pvppet3.win .pvppet3-in{animation:pvppetcheer .7s ease infinite}
+.pvppet3.lose .pvppet3-in{transform:scale(calc(var(--petk,.85) * .9)) scaleX(-1) translateY(6px);filter:saturate(.5)}
+@keyframes pvppetcheer{0%{transform:scale(var(--petk,.85)) scaleX(-1) translateY(0)}
+  35%{transform:scale(calc(var(--petk,.85) * 1.1)) scaleX(-1) translateY(-13px)}
+  60%{transform:scale(var(--petk,.85)) scaleX(-1) translateY(0)}
+  78%{transform:scale(calc(var(--petk,.85) * 1.05)) scaleX(-1) translateY(-6px)}
+  100%{transform:scale(var(--petk,.85)) scaleX(-1) translateY(0)}}
+@media (prefers-reduced-motion:reduce){.pvppet3,.pvppet3-in{animation:none;transition:none}}
+/* the pet command sits with the attack buttons and wears its element's colour */
+.pvpact.petcmd{background:linear-gradient(180deg,color-mix(in srgb,var(--pc,#8fa6c8) 26%,transparent),color-mix(in srgb,var(--pc,#8fa6c8) 12%,transparent));
+  border-color:color-mix(in srgb,var(--pc,#8fa6c8) 55%,transparent)}
+.pvpact.petcmd b{filter:drop-shadow(0 0 6px var(--pc,#8fa6c8))}
+.pvpact.petcmd.cd{opacity:.42;filter:grayscale(.6)}
 @keyframes pvppetin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
 .pet-note{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:60;max-width:88vw;padding:9px 16px;border-radius:22px;background:var(--card);border:1px solid var(--bd5);color:var(--text);font-size:12.5px;box-shadow:0 12px 34px -16px rgba(20,30,60,.7);animation:petnote .25s ease}

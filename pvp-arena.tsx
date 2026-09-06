@@ -26,7 +26,7 @@ import { createPortal } from "react-dom";
 import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt } from "./item-art";
-import { petBonusOf, petById, petLevel, readPet, PetArt } from "./pet-lab";
+import { petBonusOf, petById, petLevel, petStage, readPet, PetArt, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
 import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio } from "./arena-fx";
 import { AnswerReveal } from "./note-reveal";
 
@@ -2022,10 +2022,22 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      terms halfway through. A pet under 50% happiness returns null and does
      nothing at all — the care loop is what buys the bonus. */
   const PET = useRef(petBonusOf()).current;
-  const petDmg = PET && PET.k === "dmg" ? 1 + PET.v : 1;
+  const petDmg = (PET && PET.k === "dmg" ? 1 + PET.v : 1);
   const petGuard = PET && PET.k === "guard" ? 1 - PET.v : 1;
   const petSp = PET && PET.k === "sp" ? 1 + PET.v : 1;
   const petPic = useRef(readPet()).current;
+  /* ── the pet's element against this opponent ──
+     The robot you are fighting is given an element of its own, seeded from its
+     chassis so a rematch feels the same and two players facing the same bot see
+     the same matchup. Your pet's type is then read against the wheel: a nudge
+     the same size as the class ring, not a hard counter. */
+  const petSpec = petPic ? petById(petPic.species) : null;
+  const ELEMS = ["volt", "ember", "frost", "flora", "steel", "aether"];
+  const oppElem = useRef(ELEMS[Math.abs(String(oppModel).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 11)) % 6]).current;
+  const petMatch = petSpec ? typeMatchup(petSpec.type, oppElem) : 0;
+  const PET_MATCH_DMG = 0.1;
+  const petElemDmg = 1 + petMatch * PET_MATCH_DMG;        // your hits
+  const petElemTake = 1 - petMatch * PET_MATCH_DMG;       // theirs
   const wpn = (gear || []).find(g => g && g.id && String(g.id).startsWith("wpn-"));
   const myBolt = (wpn && wpn.sw && wpn.sw[0]) || "#7fe8ff";
   /* ── the gear you paid for, on the robot that is fighting ──
@@ -2141,6 +2153,16 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   };
   // ── where everyone is standing, and who is off the ground ──
   const [myX, setMyX] = useState(0.24);
+  /* ── the pet is a body now ──
+     It used to be a sprite pinned inside the fighter's own box, which meant it
+     could never be anywhere the robot was not: it slid with every step, stood
+     in the robot's shadow, and had no way to react to anything. It gets its
+     own place on the floor instead — its own x, trailing the robot rather than
+     welded to it, its own scale from how grown it is, its own contact shadow,
+     and it turns to face whoever it is angry at. */
+  const [petX, setPetX] = useState(0.12);
+  const petXRef = useRef(0.12);
+  const [petAct, setPetAct] = useState("");   // cheer · flinch · win · lose · cast
   const [opX, setOpX] = useState(0.76);
   const [myAir, setMyAir] = useState(0);
   const [opAir, setOpAir] = useState(0);
@@ -2487,6 +2509,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // knockout earns the slow-motion finisher, so the cinematic stays a
     // reward for landing the killing blow rather than firing on every fight
     const ko = win ? oHp <= 0 : mHp <= 0;
+    // the pet celebrates or sags with you, and stays that way on the result
+    setPetAct(win ? "win" : "lose");
     const flawless = askedRef.current >= ASK_ROUNDS && correctRef.current === askedRef.current;
     setOutcome(win ? "win" : "lose");
     setPhase("done");
@@ -2558,6 +2582,39 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   }
 
   /** Damage the opponent. One path for taps, skills and the overdrive combo. */
+  /* ── the pet command ──
+     Until now the pet was a passive stat: you fed it, it granted a percentage,
+     and during the fight there was nothing to DO with it. One button, one long
+     cooldown, and what it does depends on which element you raised — so the
+     pet you chose changes how you play, not just your numbers. */
+  const PET_CD = 18000;
+  const [petCdEnd, setPetCdEnd] = useState(0);
+  const petCmd = petSpec ? (TYPE_CMD[petSpec.type] || TYPE_CMD.steel) : null;
+  const burnRef = useRef(0);      // ember: hits land harder while it burns
+  const chillRef = useRef(0);     // frost: the bot recovers slower
+  const bulwarkRef = useRef(0);   // steel: you take less
+  function sendPet() {
+    if (!petCmd || !liveRef.current || phase !== "action") return;
+    const now = Date.now();
+    if (now < petCdEnd) return;
+    setPetCdEnd(now + PET_CD);
+    petReact("cast", 800);
+    if (playUi) playUi("click");
+    const k = petCmd.k;
+    if (k === "stagger") { staggerRef.current = Math.max(staggerRef.current, now + 1200); setFlash({ side: "op", kind: "crit", text: "⚡" }); }
+    else if (k === "burn") { burnRef.current = now + 7000; setFlash({ side: "op", kind: "crit", text: "🔥" }); }
+    else if (k === "slow") { chillRef.current = now + 7000; setFlash({ side: "op", kind: "crit", text: "❄" }); }
+    else if (k === "heal") { hpRef.current.me = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * 0.08)); setMyHp(hpRef.current.me); setFlash({ side: "me", kind: "heal", text: "＋" }); }
+    else if (k === "guard") { bulwarkRef.current = now + 7000; setFlash({ side: "me", kind: "heal", text: "🛡" }); }
+    else if (k === "gauge") { setGauge(g => Math.min(100, g + 26)); setFlash({ side: "me", kind: "heal", text: "✦" }); }
+    later(() => setFlash(null), 700);
+  }
+
+  /* one place to poke the pet, so a reaction can never outlive the round */
+  function petReact(kind, ms = 700) {
+    setPetAct(kind);
+    later(() => setPetAct(a => (a === kind ? "" : a)), ms);
+  }
   function hitOp(dmg, kind, moveKey, opts) {
     if (doneRef.current) return;
     const o = opts || {};
@@ -2595,6 +2652,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     hitstunRef.current.op = now + HITSTUN_MS;
     if (hasTrait(tier, "wakeup")) botArmorUntilRef.current = now + HITSTUN_MS + BOT_WAKEUP_MS;
     posRef.current.op = Math.min(X_MAX, posRef.current.op + KNOCKBACK);
+    petReact("cheer", 620);   // it saw that
     const bot = botRef.current;
     bot.startup = 0; bot.recover = now + HITSTUN_MS; bot.state = "hurt"; bot.act = null;
     setBotTell(false); setBotGuard(false);
@@ -2670,7 +2728,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // your back is on the wall, or your guard has just been broken: both are
     // positions you got yourself into, and both cost extra
     const cornered = posRef.current.me <= X_MIN + CORNER_ZONE;
-    const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1) * petGuard * (SFX.dmgTake || 1)
+    petReact("flinch", 560);
+    const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1) * petGuard * petElemTake * (bulwarkRef.current > Date.now() ? 0.78 : 1) * (SFX.dmgTake || 1)
       * (matchup === 1 ? 1 - MATCHUP_DMG : matchup === -1 ? 1 + MATCHUP_DMG : 1)
       * (1 - itemFx.dmgReduce) * (counter ? COUNTER_MUL : 1)
       * (cornered ? CORNER_DMG : 1) * (staggerRef.current > now ? STAGGER_DMG : 1)));
@@ -2768,7 +2827,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       const R = sp.fx || {};
       FLAGS.specialsLanded += 1;
       lastWasSpecialRef.current = true;
-      const dmg = A.dmg * TAP_DMG * sp.dmg * (fx.passive === "power" ? 1.25 : 1) * petDmg
+      const dmg = A.dmg * TAP_DMG * sp.dmg * (fx.passive === "power" ? 1.25 : 1) * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1)
         * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1)
         * (SFX.dmgDeal || 1) * (matchup === 1 ? 1 + MATCHUP_DMG : matchup === -1 ? 1 - MATCHUP_DMG : 1)
         * (synergy ? SYNERGY_DMG : 1)
@@ -2842,7 +2901,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       later(() => setBanner(null), 800);
       comboRef.current += 1; setCombo(comboRef.current);
       posRef.current.op = Math.min(X_MAX, posRef.current.op + KNOCKBACK * 3);
-      hitOp(A.dmg * TAP_DMG * THROW_DMG * petDmg * (comeback ? COMEBACK_DMG : 1), "crit", "punch", { noCounter: true, unblockable: true });
+      hitOp(A.dmg * TAP_DMG * THROW_DMG * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1) * (comeback ? COMEBACK_DMG : 1), "crit", "punch", { noCounter: true, unblockable: true });
     }, F.startup);
   }
 
@@ -2915,7 +2974,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     setBestCombo(b => Math.max(b, comboRef.current));
     const comboK = Math.min(2.2, 1 + comboRef.current * (fx.passive === "streak" ? 0.08 : 0.04) * (SFX.comboGrowth || 1) * itemFx.comboGrowth);
     const isMelee = act === "punch" || act === "kick";
-    let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1) * petDmg
+    let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1) * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1)
       * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1)
       * (SFX.dmgDeal || 1) * (isMelee ? (SFX.meleeDmg || 1) : 1)
       * (matchup === 1 ? 1 + MATCHUP_DMG : matchup === -1 ? 1 - MATCHUP_DMG : 1)
@@ -2998,6 +3057,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       // not the bot's brain, not the round clock. Everything resumes together.
       if (hitstopRef.current > now0) return;
       const dt = 0.06;
+      /* The pet trails the robot at a fixed heel-distance, springing rather
+         than snapping — a companion that matched position exactly would look
+         welded on again, just at an offset. */
+      {
+        const want = Math.max(X_MIN - 0.06, posRef.current.me - 0.115);
+        const dxp = want - petXRef.current;
+        petXRef.current += dxp * 0.14;
+        if (Math.abs(dxp) > 0.002) setPetX(petXRef.current);
+      }
       const now = now0;
       const P = posRef.current;
       // guard comes back on its own, slowly, so a broken guard is a real
@@ -3027,7 +3095,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             : (act === "super" && bot.spDef) ? bot.spDef
             : (ACT[act] || ACT.punch);
           bot.startup = 0;
-          bot.recover = now + BRAIN.recover;
+          bot.recover = now + BRAIN.recover * (chillRef.current > now ? 1.45 : 1);
           bot.state = "recover";
           setBotTell(false);
           if (gap <= A2.range) {
@@ -3074,7 +3142,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               bot.act = "punch"; bot.startup = now + 90; bot.state = "startup"; setBotTell(true);
             } else if (DM === "grab" && gap <= THROW_RANGE + 0.04 && now >= botThrowCdRef.current) {
               botThrowCdRef.current = now + THROW_CD;
-              bot.recover = now + BRAIN.recover; bot.state = "recover";
+              bot.recover = now + BRAIN.recover * (chillRef.current > now ? 1.45 : 1); bot.state = "recover";
               setLunge("op"); later(() => setLunge(null), 420);
               audioRef.current.sfx("kick");
               say("me", T("โดนทุ่ม!", "THROWN!", "被投!"), "dmg");
@@ -3144,7 +3212,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             && ((now < guardUntil.current && Math.random() < BRAIN.aggro * 0.4)
               || Math.random() < STYLE.grab * ADAPT.grab)) {
             botThrowCdRef.current = now + THROW_CD;
-            bot.recover = now + BRAIN.recover; bot.state = "recover";
+            bot.recover = now + BRAIN.recover * (chillRef.current > now ? 1.45 : 1); bot.state = "recover";
             setBotTell(false); setLunge("op");
             later(() => setLunge(null), 420);
             audioRef.current.sfx("kick");
@@ -3675,16 +3743,28 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
           {dizzy.me && <span className="pvpdizzy">✦✦✦</span>}
           {stagger && !dizzy.me && <span className="pvpstagger">✖</span>}
-          {/* the pet fights at your heel — it does not take hits or throw
-              them, it stands there and applies the bonus you earned by
-              looking after it */}
-          {PET && petPic && (
-            <span className="pvppet" title={petById(petPic.species).en}>
-              <PetArt species={petPic.species} level={petLevel(petPic.bond).lv} mood={petPic.mood} />
-            </span>
-          )}
           </div>
         </div>
+        {/* ── the pet, on the floor ──
+            A sibling of the fighters rather than a child of one, so it stands
+            on the same ground line, at its own x, at a size that says how far
+            it has come. It still takes no hits and throws none — what it does
+            is be THERE: trailing you, turning to face the thing you are
+            fighting, ducking when you get caught and bouncing when you land
+            one. The bonus it grants is unchanged; this is the half that was
+            missing, which is that you could see it was yours. */}
+        {petPic && (
+          <div className={`pvppet3 ${petAct}`} title={petById(petPic.species).en}
+            style={{
+              transform: `translate3d(${((petX * 100 - 22) * (100 / 44)).toFixed(2)}%, 0, 0)`,
+              "--petk": (0.72 + petStage(petPic.bond) * 0.075).toFixed(3),
+            }}>
+            <span className="pvppet3-sh" aria-hidden="true" />
+            <span className="pvppet3-in">
+              <PetArt species={petPic.species} level={petLevel(petPic.bond).lv} mood={petPic.mood} />
+            </span>
+          </div>
+        )}
         <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}${botGuard ? " guard" : ""}${botTell ? " tell" : ""}`}
           style={{ left: 0, right: "auto", transform: `translate3d(${((opX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-opAir * 62).toFixed(1)}px, 0)` }}>
           <div className="pvpfighter-in">
@@ -3866,6 +3946,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               <button className="pvpact rocket" aria-label={T("จรวด", "Rocket", "火箭")} onPointerDown={() => attack("rocket")}>
                 <b>🚀</b><i>{T("จรวด", "ROCKET", "火箭")}</i>
               </button>
+              {petCmd && (
+                <button className={`pvpact petcmd${Date.now() < petCdEnd ? " cd" : ""}`}
+                  style={{ "--pc": (PET_TYPES[petSpec.type] || PET_TYPES.steel).c }}
+                  aria-label={tr3(petCmd, lang)} onPointerDown={sendPet}>
+                  <b>🐾</b><i>{tr3(petCmd, lang).toUpperCase()}</i>
+                </button>
+              )}
             </div>
           </div>
         </>
