@@ -3008,6 +3008,13 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
   border-color:color-mix(in srgb,var(--pc,#8fa6c8) 55%,transparent)}
 .pvpact.petcmd b{filter:drop-shadow(0 0 6px var(--pc,#8fa6c8))}
 .pvpact.petcmd.cd{opacity:.42;filter:grayscale(.6)}
+/* the fusion: the pet leaves your heel and crosses the stage with you */
+.pvppet3.fusion{transition:transform .34s cubic-bezier(.3,1.4,.5,1);transform:translate3d(80%,0,0) !important}
+.pvppet3.fusion .pvppet3-in{transform:scale(calc(var(--petk,.85) * 1.3)) scaleX(-1);filter:drop-shadow(0 0 16px #fff)}
+/* the beast round: the creature leads and is lit for it */
+.pvppet3.beast{z-index:4}
+.pvppet3.beast .pvppet3-in{transform:scale(calc(var(--petk,.85) * 1.26)) scaleX(-1);filter:drop-shadow(0 0 14px rgba(255,210,63,.7))}
+.pvppet3.beast .pvppet3-sh{width:58px;height:11px}
 @keyframes pvppetin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
 .pet-note{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:60;max-width:88vw;padding:9px 16px;border-radius:22px;background:var(--card);border:1px solid var(--bd5);color:var(--text);font-size:12.5px;box-shadow:0 12px 34px -16px rgba(20,30,60,.7);animation:petnote .25s ease}

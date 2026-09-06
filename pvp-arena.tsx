@@ -2035,9 +2035,19 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const ELEMS = ["volt", "ember", "frost", "flora", "steel", "aether"];
   const oppElem = useRef(ELEMS[Math.abs(String(oppModel).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 11)) % 6]).current;
   const petMatch = petSpec ? typeMatchup(petSpec.type, oppElem) : 0;
+  /* ── the beast round ──
+     A best-of-three that reaches 1-1 is the moment a match is actually
+     decided, and until now the decider looked exactly like the two rounds
+     before it. If you brought a pet, the third round is ITS round: both
+     creatures come off the heel and to the front, the robots give ground, and
+     the element wheel counts double — so the animal you raised is what settles
+     the fight you could not settle yourself. */
+  const [beast, setBeast] = useState(false);
+  const beastRef = useRef(false);
+  const BEAST_ELEM_MUL = 2;
   const PET_MATCH_DMG = 0.1;
-  const petElemDmg = 1 + petMatch * PET_MATCH_DMG;        // your hits
-  const petElemTake = 1 - petMatch * PET_MATCH_DMG;       // theirs
+  const petElemDmg = 1 + petMatch * PET_MATCH_DMG * (beast ? BEAST_ELEM_MUL : 1);   // your hits
+  const petElemTake = 1 - petMatch * PET_MATCH_DMG * (beast ? BEAST_ELEM_MUL : 1);  // theirs
   const wpn = (gear || []).find(g => g && g.id && String(g.id).startsWith("wpn-"));
   const myBolt = (wpn && wpn.sw && wpn.sw[0]) || "#7fe8ff";
   /* ── the gear you paid for, on the robot that is fighting ──
@@ -2471,6 +2481,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     const w = { me: roundWinsRef.current.me, op: roundWinsRef.current.op };
     w[winner] += 1;
     roundWinsRef.current = w; setRoundWins(w);
+    // a decider, and you have a companion to send in: the next round is theirs
+    if (w.me === 1 && w.op === 1 && petSpec) { beastRef.current = true; setBeast(true); }
     setMyPose(winner === "me" ? "win" : "down");
     setOpPose(winner === "me" ? "down" : "win");
     setFinisher(true); setOutcome(winner === "me" ? "win" : "lose");
@@ -2587,6 +2599,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      and during the fight there was nothing to DO with it. One button, one long
      cooldown, and what it does depends on which element you raised — so the
      pet you chose changes how you play, not just your numbers. */
+  /* ── the fusion super ──
+     A grown pet and a full gauge turn the class special into a joint attack:
+     the pet leaves your heel, crosses the stage with you, and the two of you
+     land together. It costs the WHOLE gauge rather than the usual slice, so it
+     is a real decision — and it only exists for a pet you actually raised,
+     which is the point of raising one. */
+  const FUSION_STAGE = 3;
+  const FUSION_DMG = 1.55;
   const PET_CD = 18000;
   const [petCdEnd, setPetCdEnd] = useState(0);
   const petCmd = petSpec ? (TYPE_CMD[petSpec.type] || TYPE_CMD.steel) : null;
@@ -2825,6 +2845,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       comboRef.current += 1; setCombo(comboRef.current);
       setBestCombo(b => Math.max(b, comboRef.current));
       const R = sp.fx || {};
+      /* fused? decided here, once, so the damage and the show agree */
+      const fused = !!petSpec && petPic && petStage(petPic.bond) >= FUSION_STAGE && gauge >= 96;
+      if (fused) {
+        setGauge(0);
+        petReact("fusion", 1000);
+        say("me", T("รวมพลัง!", "FUSION!", "合体!"), "crit");
+      }
       FLAGS.specialsLanded += 1;
       lastWasSpecialRef.current = true;
       const dmg = A.dmg * TAP_DMG * sp.dmg * (fx.passive === "power" ? 1.25 : 1) * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1)
@@ -2832,7 +2859,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         * (SFX.dmgDeal || 1) * (matchup === 1 ? 1 + MATCHUP_DMG : matchup === -1 ? 1 - MATCHUP_DMG : 1)
         * (synergy ? SYNERGY_DMG : 1)
         // a Virtuoso's opener is weak and grows with the phrase it is part of
-        * (1 + (R.comboScale || 0) * comboRef.current);
+        * (1 + (R.comboScale || 0) * comboRef.current)
+        * (fused ? FUSION_DMG : 1);
       /* ── the class rider ──
          The part that makes three shared motions read as seven different
          movesets: the same input, the same cost, a different consequence. */
@@ -3061,7 +3089,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
          than snapping — a companion that matched position exactly would look
          welded on again, just at an offset. */
       {
-        const want = Math.max(X_MIN - 0.06, posRef.current.me - 0.115);
+        // in a beast round the creature comes off the heel and leads
+        const want = beastRef.current
+          ? Math.min(X_MAX - 0.04, posRef.current.me + 0.1)
+          : Math.max(X_MIN - 0.06, posRef.current.me - 0.115);
         const dxp = want - petXRef.current;
         petXRef.current += dxp * 0.14;
         if (Math.abs(dxp) > 0.002) setPetX(petXRef.current);
@@ -3754,7 +3785,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             one. The bonus it grants is unchanged; this is the half that was
             missing, which is that you could see it was yours. */}
         {petPic && (
-          <div className={`pvppet3 ${petAct}`} title={petById(petPic.species).en}
+          <div className={`pvppet3 ${petAct}${beast ? " beast" : ""}`} title={petById(petPic.species).en}
             style={{
               transform: `translate3d(${((petX * 100 - 22) * (100 / 44)).toFixed(2)}%, 0, 0)`,
               "--petk": (0.72 + petStage(petPic.bond) * 0.075).toFixed(3),
