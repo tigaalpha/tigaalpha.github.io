@@ -103,6 +103,16 @@ const KBD_CASE = {
   "kbd-kb-jade": "stage", "kbd-kb-aurora": "stage", "kbd-kb-ice": "stage",
 };
 
+/* Key-skin profiles. These already differed by motif and colour, so the caps
+   only need enough of a profile change to stop the row reading as one keyboard
+   photographed fourteen times: a sculpted cap dips in the middle, a low-profile
+   one is a thin slab, a tall one is a chunky retro key. */
+const KEY_PROFILE = {
+  "key-gold": "tall", "key-magma": "tall", "key-fire": "tall",
+  "key-neon": "low", "key-void": "low", "key-galaxy": "low", "key-prism": "low",
+  "key-candy": "sculpt", "key-sakura": "sculpt", "key-jade": "sculpt",
+};
+
 export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, className = "" }) {
   const uid = "ia" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const A = sw[0] || "#9fb2d2";
@@ -904,13 +914,22 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
 
     /* ── the five categories that used to be emoji ── */
     // a key skin is the colour a keybed wears, so it is sold as keys
-    keycap: (motif) => <>
-      {[6, 23, 40].map(x => <g key={x}>{R(x, 20, 17, 36, 2.5, "#f4f7fc", { line: edge, lw: 1.1, spec: .55 })}</g>)}
-      {[6, 23, 40].map(x => <g key={"f" + x}>{P(`M${x} 44 H${x + 17} V53.5 A2.5 2.5 0 0 1 ${x + 14.5} 56 H${x + 2.5} A2.5 2.5 0 0 1 ${x} 53.5 Z`, GA, { lw: 1.1 })}</g>)}
-      {[17.5, 34.5].map(x => <g key={"s" + x}>{R(x, 20, 12, 22, 2, GB, { line: edgeB, lw: 1 })}</g>)}
-      {seam("M23 20 V44 M40 20 V44")}
-      {motif}
-    </>,
+    keycap: (motif, prof) => {
+      const top = prof === "low" ? 26 : prof === "tall" ? 17 : 20;
+      const skirt = prof === "low" ? 48 : 44;
+      return <>
+        {[6, 23, 40].map(x => <g key={x}>{R(x, top, 17, skirt - top, 2.5, "#f4f7fc", { line: edge, lw: 1.1, spec: .55 })}</g>)}
+        {/* a sculpted cap is dished: the dip across its face is the whole
+            difference between a typing key and a piano key */}
+        {prof === "sculpt" && [6, 23, 40].map(x => (
+          <path key={"d" + x} d={`M${x + 1.5} ${top + 5} Q${x + 8.5} ${top + 11} ${x + 15.5} ${top + 5}`}
+            fill="none" stroke={edge} strokeWidth="1.1" opacity=".4" />))}
+        {[6, 23, 40].map(x => <g key={"f" + x}>{P(`M${x} ${skirt} H${x + 17} V${skirt + 9.5} A2.5 2.5 0 0 1 ${x + 14.5} ${skirt + 12} H${x + 2.5} A2.5 2.5 0 0 1 ${x} ${skirt + 9.5} Z`, GA, { lw: 1.1 })}</g>)}
+        {[17.5, 34.5].map(x => <g key={"s" + x}>{R(x, top, 12, (skirt - top) * .62, 2, GB, { line: edgeB, lw: 1 })}</g>)}
+        {seam(`M23 ${top} V${skirt} M40 ${top} V${skirt}`)}
+        {motif}
+      </>;
+    },
     // a theme is a place, so it is sold as a window on to that place
     scene: (motif) => <>
       <clipPath id={`${uid}-sc`}><rect x="7" y="11" width="50" height="42" rx="6" /></clipPath>
@@ -988,7 +1007,7 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
     ["out-", () => (OUT_CUT[art]
       ? SHAPES.garment(OUT_CUT[art], PATTERNS[art] || PATTERNS["out-tshirt"])
       : SHAPES.plate(PATTERNS[art] || PATTERNS["out-tshirt"]))],
-    ["key-", () => SHAPES.keycap(KEY_MOTIF[art])],
+    ["key-", () => SHAPES.keycap(KEY_MOTIF[art], KEY_PROFILE[art])],
     ["thm-", () => SHAPES.scene(THEME_MOTIF[art])],
     ["frm-", () => SHAPES.frame(FRAME_MOTIF[art], FRAME_CUT[art])],
     ["kbd-", () => SHAPES.keybed(KBD_MOTIF[art], KBD_CASE[art])],
