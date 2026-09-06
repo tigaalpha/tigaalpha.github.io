@@ -285,6 +285,10 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
     <g key="9" opacity=".92" fill="none" stroke="#fff" strokeWidth="3.4"><circle cx="24" cy="32" r="7.5" /><circle cx="40" cy="32" r="7.5" /></g>,
   ];
   const emb = (i) => EMBLEM[((i | 0) % EMBLEM.length + EMBLEM.length) % EMBLEM.length];
+  /* the house mark, set into a weapon wherever that weapon has a face for it */
+  const inlay = (i, x, y, s) => (
+    <g transform={`translate(${x} ${y}) scale(${s}) translate(-32 -32)`}>{emb(i)}</g>
+  );
 
   const SHAPES = {
     /* ── weapons ── */
@@ -458,20 +462,33 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {lit(32, 4, 3.6, C)}
       {lit(32, 52, 3)}
     </>,
+    /* an EMP charge, not a pineapple: a banded casing with the coil visibly
+       wound round it and the discharge already arcing off the fins */
     grenade: () => <>
-      {E(32, 38, 19, 19, GA)}
-      <path d="M32 38 m-19 0 a19 19 0 0 1 19 -19 a19 19 0 0 1 6 1 A19 19 0 0 0 13 38 Z" fill="#fff" opacity=".22" />
-      {R(26, 14, 12, 10, 3, GB, { line: edgeB })}
-      {P("M38 14 L50 12 L50 17 L38 21 Z", GB, { line: edgeB })}
-      {seam("M20 32 C26 28 38 28 44 32 M18 42 C26 47 38 47 46 42")}
-      {lit(32, 38, 4.4)}
+      {E(32, 39, 19, 19, GA)}
+      <path d="M32 39 m-19 0 a19 19 0 0 1 19 -19 a19 19 0 0 1 6 1 A19 19 0 0 0 13 39 Z" fill="#fff" opacity=".2" />
+      {[26, 39, 51].map(y => (
+        <path key={y} d={`M${32 - Math.sqrt(Math.max(0, 361 - (y - 39) ** 2))} ${y} H${32 + Math.sqrt(Math.max(0, 361 - (y - 39) ** 2))}`}
+          stroke={lite(C, .35)} strokeWidth="2.2" opacity=".7" fill="none" />))}
+      {[-1, 1].map(k2 => (
+        <path key={k2} d={`M${32 + k2 * 19} 39 C${32 + k2 * 25} 32 ${32 + k2 * 25} 46 ${32 + k2 * 19} 39 Z`}
+          fill={GC} stroke={edge} strokeWidth="1" />))}
+      {R(26, 13, 12, 11, 3, GB, { line: edgeB })}
+      {P("M38 13 L52 10 L52 16 L38 20 Z", GB, { line: edgeB })}
+      {E(32, 39, 7, 7, GC, { spec: .85, lw: 1.1, line: lite(C, .4) })}
+      {lit(32, 39, 3.6)}
+      <g opacity=".8">{beamLine("M13 33 L6 28 M51 33 L58 28", 1.3)}</g>
     </>,
     boomerang: () => <>
       {P("M32 54 C23 49 12 33 6 17 C4 11 10 5 15 9 C23 20 29 31 32 39 C35 31 41 20 49 9 C54 5 60 11 58 17 C52 33 41 49 32 54 Z", GA)}
+      {/* the cut edge on the leading side of each arm, and the spin it rides */}
+      {P("M15 9 C23 20 29 31 32 39 L28 41 C24 32 18 21 11 11 Z", GC, { spec: .8, lw: .9, line: lite(C, .35) })}
+      {P("M49 9 C41 20 35 31 32 39 L36 41 C40 32 46 21 53 11 Z", GC, { spec: .8, lw: .9, line: lite(C, .35) })}
       {beamLine("M13 13 C21 24 28 34 31 42", 1.4)}
       {beamLine("M51 13 C43 24 36 34 33 42", 1.4)}
-      {E(32, 46, 5, 5, GC, { line: edge })}
-      {lit(32, 46, 2.2)}
+      <path d="M9 44 A26 26 0 0 0 55 44" fill="none" stroke={lite(C, .4)} strokeWidth="2.2" strokeLinecap="round" opacity=".45" />
+      {E(32, 46, 6, 6, GC, { line: edge })}
+      {lit(32, 46, 2.6)}
     </>,
     burst: () => <>
       <circle cx="32" cy="32" r="28" fill={GLOW} />
@@ -919,15 +936,140 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
     </>,
 
     /* ── mythic forms ── */
-    pw: (i) => <>                                        {/* prime weapon */}
-      {P("M32 2 L41 13 L39 40 L32 47 L25 40 L23 13 Z", GA, { lw: 1.7 })}
-      {beamLine("M32 7 V42", 2.6)}
-      {P("M12 40 H52 L47 49 H17 Z", GB, { line: edgeB, lw: 1.3 })}
-      {P("M27 49 H37 V62 H27 Z", GB, { line: edgeB, lw: 1.2 })}
-      {E(32, 30, 11, 11, GC, { spec: .8, lw: 1.2, line: lite(C, .4) })}
-      <g transform="translate(32 30) scale(.62) translate(-32 -32)">{emb(i)}</g>
-      {[16, 48].map(x => <g key={x}>{lit(x, 44, 2.6)}</g>)}
-    </>,
+    /* ── the ten primes ──
+       These are the most expensive things in the game, bought with gems, and
+       all ten of them used to be ONE sword with a different badge stamped in
+       the middle: the Meteor Lance was not a lance, the Photon Bow was not a
+       bow, and the Pulsar Hammer was not a hammer. Each is now the weapon it
+       is named after, and the house mark is set into whatever face that
+       weapon actually has — a pommel, a core, a crossbar. */
+    pw: (i) => {
+      const k = ((i | 0) % 10 + 10) % 10;
+      const PW = [
+        /* 0 · Solar Edge — a broad sun-forged blade over a corona guard */
+        () => <>
+          {P("M32 1 L41 15 L38 37 L32 45 L26 37 L23 15 Z", GA, { lw: 1.7 })}
+          {beamLine("M32 6 V41", 2.6)}
+          {[0, 30, 60, 90, 120, 150].map(a => (
+            <g key={a} transform={`rotate(${a} 32 45)`}>
+              <path d="M32 27 L34.6 43 L29.4 43 Z" fill={lite(C, .42)} opacity=".8" />
+              <path d="M32 63 L34.6 47 L29.4 47 Z" fill={lite(C, .42)} opacity=".8" />
+            </g>))}
+          <circle cx="32" cy="45" r="19" fill={GLOW} />
+          {E(32, 45, 11, 11, GC, { spec: .85, lw: 1.3, line: lite(C, .45) })}
+          {inlay(k, 32, 45, .52)}
+          {P("M28 54 H36 V63 H28 Z", GB, { line: edgeB, lw: 1.2 })}
+        </>,
+        /* 1 · Meteor Lance — a spear on the diagonal, burning off the butt */
+        () => <>
+          {P("M4 55 L9 60 L43 27 L38 22 Z", GB, { line: edgeB, lw: 1.3 })}
+          {seam("M9 53 L13 57 M14 48 L18 52 M19 43 L23 47", 1)}
+          {P("M40 24 L33 17 L62 2 Z", GA)}
+          {P("M40 24 L47 31 L62 2 Z", GC, { line: edge, lw: 1.1 })}
+          {beamLine("M41 23 L60 4", 1.7)}
+          {lit(59, 5, 3)}
+          {E(36.5, 27.5, 7, 7, GC, { spec: .8, lw: 1.1, line: lite(C, .4) })}
+          {inlay(k, 36.5, 27.5, .34)}
+          <g opacity=".7">{beamLine("M8 57 C4 61 2 63 1 65", 1.6)}</g>
+        </>,
+        /* 2 · Quasar Cannon — a shouldered barrel with the charge behind it */
+        () => <>
+          {P("M2 27 L9 22 L14 27 L14 45 L6 50 L2 44 Z", GB, { line: edgeB })}
+          {R(11, 21, 24, 24, 5, GA, { lw: 1.6 })}
+          {P("M35 25 H51 L61 32 L51 40 H35 Z", GA, { lw: 1.5 })}
+          {E(57, 32, 4, 8, GB, { line: edgeB, lw: 1.1 })}
+          {beamLine("M38 32 H63", 3.2)}
+          {lit(62, 32, 4.2)}
+          {E(22, 32, 9, 9, GC, { spec: .85, lw: 1.2, line: lite(C, .45) })}
+          {inlay(k, 22, 32, .44)}
+          {P("M15 45 L27 45 L24 60 H15 Z", GB, { line: edgeB })}
+        </>,
+        /* 3 · Celestial Rod — an orb cradled in a crescent on a slim staff */
+        () => <>
+          {R(29, 24, 6, 39, 3, GB, { line: edgeB, lw: 1.2 })}
+          {seam("M31 34 H33 M31 44 H33 M31 54 H33", .9)}
+          <path d="M14 24 C14 8 50 8 50 24" fill="none" stroke={lite(A, .3)} strokeWidth="4" strokeLinecap="round" opacity=".9" />
+          {[14, 50].map(x => <g key={x}>{lit(x, 24, 2.6)}</g>)}
+          {E(32, 20, 13, 13, GC, { spec: .9, lw: 1.4, line: lite(C, .45) })}
+          {inlay(k, 32, 20, .6)}
+          {E(32, 61, 4.6, 4.6, GA, { lw: 1.1 })}
+        </>,
+        /* 4 · Void Blade — a curved edge with a bite taken out of the spine */
+        () => <>
+          {P("M16 50 C26 38 42 20 58 5 L62 12 C48 26 32 44 22 57 Z", GA, { lw: 1.5 })}
+          {P("M44 20 C48 16 52 12 56 9 L58 12 C54 15 50 19 46 23 Z", "#0a0a14", { spec: .2, occ: .2, line: lite(C, .3), lw: .8 })}
+          {beamLine("M22 51 C31 40 45 24 58 10", 1.5)}
+          {E(15, 51, 8, 6, GC, { spec: .8, lw: 1.2, line: lite(C, .4) })}
+          {inlay(k, 15, 51, .3)}
+          {P("M3 62 L11 54 L15 58 L7 66 Z", GB, { line: edgeB, lw: 1.2 })}
+        </>,
+        /* 5 · Pulsar Hammer — a block head with the pulse caged inside it */
+        () => <>
+          {/* a chamfered head with the striking faces called out, so it stops
+              reading as a rectangle with rivets painted on it */}
+          {P("M14 3 H50 L58 11 V27 L50 35 H14 L6 27 V11 Z", GA, { lw: 1.7 })}
+          {[[6, 11], [50, 11]].map(([x, y], j) => (
+            <g key={j}>{R(x, y, 8, 16, 2, GB, { line: edgeB, lw: 1 })}</g>))}
+          {[[10, 15], [10, 23], [54, 15], [54, 23]].map(([x, y], j) => (
+            <circle key={j} cx={x} cy={y} r="1.6" fill={lite(A, .6)} stroke={edge} strokeWidth=".6" />))}
+          {seam("M20 8 V30 M44 8 V30")}
+          {E(32, 19, 10, 10, GC, { spec: .85, lw: 1.3, line: lite(C, .45) })}
+          {inlay(k, 32, 19, .48)}
+          {[17, 47].map(x => <g key={x}>{lit(x, 19, 2)}</g>)}
+          {R(28, 30, 8, 30, 3, GB, { line: edgeB, lw: 1.2 })}
+          {R(23, 58, 18, 6, 3, GB, { line: edgeB, lw: 1.2 })}
+        </>,
+        /* 6 · Genesis Laser — a rifle with the lens actually lit */
+        () => <>
+          {R(6, 25, 30, 17, 4, GA, { lw: 1.6 })}
+          {R(13, 18, 13, 7, 2, GB, { line: edgeB, lw: 1 })}
+          {R(36, 28, 19, 11, 3, GB, { line: edgeB, lw: 1.2 })}
+          {[40, 46].map(x => <g key={x}>{seam(`M${x} 29 V38`, .9)}</g>)}
+          {E(57, 33, 4, 7, GC, { spec: .9, lw: 1.1, line: lite(C, .4) })}
+          {beamLine("M40 33 H63", 3)}
+          {lit(63, 33, 4)}
+          {E(18, 33, 7.5, 7.5, GC, { spec: .85, lw: 1.1, line: lite(C, .4) })}
+          {inlay(k, 18, 33, .36)}
+          {P("M13 42 L24 42 L21 58 H12 Z", GB, { line: edgeB })}
+        </>,
+        /* 7 · Photon Bow — a recurve drawn on a light arrow */
+        () => <>
+          <path d="M30 3 C50 14 50 50 30 61" fill="none" stroke={dim(A, .3)} strokeWidth="6.5" strokeLinecap="round" />
+          <path d="M30 3 C50 14 50 50 30 61" fill="none" stroke={lite(A, .45)} strokeWidth="3" strokeLinecap="round" />
+          {[3, 61].map(y => <g key={y}>{lit(30, y, 2.4)}</g>)}
+          <path d="M30 4 L17 32 L30 60" fill="none" stroke={lite(C, .5)} strokeWidth="1.6" opacity=".85" />
+          {beamLine("M15 32 H60", 2.4)}
+          {P("M56 27 L64 32 L56 37 Z", GC, { line: edge, lw: 1 })}
+          {E(31, 32, 8, 10, GB, { line: edgeB, lw: 1.2 })}
+          {inlay(k, 31, 32, .36)}
+        </>,
+        /* 8 · Plasma Trident — three prongs off a lit crossbar */
+        () => <>
+          {[[32, 0], [17, 7], [47, 7]].map(([x, y], j) => (
+            <g key={j}>
+              {P(`M${x} ${y} L${x + 4} ${y + 8} L${x + 3} 27 H${x - 3} L${x - 4} ${y + 8} Z`, GA, { lw: 1.4 })}
+              {beamLine(`M${x} ${y + 5} V25`, 1.4)}
+            </g>))}
+          {R(13, 26, 38, 7, 3, GB, { line: edgeB, lw: 1.3 })}
+          {E(32, 29.5, 7.5, 6, GC, { spec: .85, lw: 1.1, line: lite(C, .45) })}
+          {inlay(k, 32, 29.5, .34)}
+          {R(29, 33, 6, 29, 3, GB, { line: edgeB, lw: 1.2 })}
+          {seam("M31 40 H33 M31 50 H33", .9)}
+        </>,
+        /* 9 · Lightning Whip — a handle and the arc coming off it */
+        () => <>
+          {R(6, 42, 13, 20, 5, GA, { lw: 1.5 })}
+          {seam("M9 47 H16 M9 52 H16 M9 57 H16", .9)}
+          {E(12.5, 40, 6, 5, GC, { spec: .85, lw: 1.1, line: lite(C, .4) })}
+          {inlay(k, 12.5, 40, .28)}
+          {beamLine("M13 36 L26 30 L19 21 L34 15 L27 7 L44 3", 2.6)}
+          <g opacity=".55">{beamLine("M26 30 L37 28 M19 21 L30 20 M34 15 L45 14", 1.2)}</g>
+          {[[26, 30], [34, 15], [44, 3]].map(([x, y], j) => (
+            <g key={j}>{lit(x, y, 2.4 - j * .4)}</g>))}
+        </>,
+      ];
+      return PW[k]();
+    },
     pp: (i) => <>                                        {/* prime plating */}
       {P("M32 3 L57 12 V33 C57 47 46 57 32 62 C18 57 7 47 7 33 V12 Z", GA, { lw: 1.7 })}
       {P("M32 11 L49 17 V33 C49 42 42 49 32 53 C22 49 15 42 15 33 V17 Z", GB, { line: edgeB, lw: 1.2 })}

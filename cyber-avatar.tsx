@@ -530,22 +530,38 @@ const CUTE_GLYPH = {
 };
 
 /* Assigned so no two neighbours in the shop grid wear the same badge. */
+/* ── the front of a cute frame ──
+   Fifteen chibis shared ONE white oval on the belly, so past the head they
+   were one doll in fifteen colours. Each wears its own panel now: a penguin
+   gets a bib, a bear a pouch, a plush a heart, a bee a segmented shell. It
+   is the largest surface on the body, so it does most of the work of telling
+   them apart at thumbnail size. */
+export const CUTE_FRONT = {
+  egg:   "M60 180 C78 180 88 200 88 228 C88 258 76 274 60 274 C44 274 32 258 32 228 C32 200 42 180 60 180 Z",
+  bib:   "M36 176 C44 171 76 171 84 176 C86 202 80 242 60 266 C40 242 34 202 36 176 Z",
+  pouch: "M34 212 C34 204 86 204 86 212 L86 252 C86 266 74 275 60 275 C46 275 34 266 34 252 Z",
+  apron: "M34 186 L86 186 C88 186 89 189 89 193 L89 256 C89 266 82 272 73 272 L47 272 C38 272 31 266 31 256 L31 193 C31 189 32 186 34 186 Z",
+  vee:   "M31 178 L89 178 L89 198 L60 268 L31 198 Z",
+  heart: "M60 275 C34 253 30 227 30 210 C30 194 43 186 52 191 C57 193 60 198 60 203 C60 198 63 193 68 191 C77 186 90 194 90 210 C90 227 86 253 60 275 Z",
+  shell: "M60 179 C79 179 89 200 89 229 C89 259 76 275 60 275 C44 275 31 259 31 229 C31 200 41 179 60 179 Z",
+};
+
 export const CUTE_BUILD = {
-  pip:     { badge: "bolt",   belly: 1 },
-  pebble:  { badge: "drop",   belly: 1 },
-  nova:    { badge: "star",   belly: 1 },
-  pixel:   { badge: "pixel",  belly: 0 },
-  mochi:   { badge: "heart",  belly: 1 },
-  pudding: { badge: "cloud",  belly: 1 },
-  acorn:   { badge: "leaf",   belly: 1, tail: "puff" },
-  cocoa:   { badge: "paw",    belly: 1, tail: "puff" },
-  blossom: { badge: "flower", belly: 1 },
-  pengu:   { badge: "snow",   belly: 1, tail: "puff" },
-  bubbly:  { badge: "bubble", belly: 1 },
-  poppy:   { badge: "flower", belly: 1 },
-  honey:   { badge: "hex",    belly: 1, tail: "puff" },
-  snowbun: { badge: "snow",   belly: 1, tail: "puff" },
-  plushy:  { badge: "heart",  belly: 1, tail: "puff" },
+  pip:     { badge: "bolt",   belly: 1, front: "apron" },
+  pebble:  { badge: "drop",   belly: 1, front: "egg" },
+  nova:    { badge: "star",   belly: 1, front: "vee" },
+  pixel:   { badge: "pixel",  belly: 0, front: "vee" },
+  mochi:   { badge: "heart",  belly: 1, front: "heart" },
+  pudding: { badge: "cloud",  belly: 1, front: "apron" },
+  acorn:   { badge: "leaf",   belly: 1, tail: "puff", front: "pouch" },
+  cocoa:   { badge: "paw",    belly: 1, tail: "puff", front: "pouch" },
+  blossom: { badge: "flower", belly: 1, front: "heart" },
+  pengu:   { badge: "snow",   belly: 1, tail: "puff", front: "bib" },
+  bubbly:  { badge: "bubble", belly: 1, front: "shell" },
+  poppy:   { badge: "flower", belly: 1, front: "vee" },
+  honey:   { badge: "hex",    belly: 1, tail: "puff", front: "shell" },
+  snowbun: { badge: "snow",   belly: 1, tail: "puff", front: "bib" },
+  plushy:  { badge: "heart",  belly: 1, tail: "puff", front: "heart" },
 };
 
 /* Which model gets what. The cute frames are not listed: their chassis is a
@@ -3395,7 +3411,15 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 <ellipse cx="60" cy="208" rx="38" ry="43" fill="none" stroke={CC} strokeWidth="1.4" opacity=".6" />
                 {/* the tummy: a paler front, which is what makes a soft thing
                     look soft. Painted under the badge so the badge sits ON it. */}
-                {cb.belly ? <ellipse cx="60" cy="228" rx="30" ry="46" fill="#ffffff" opacity=".17" /> : null}
+                {cb.belly ? (
+                  <g>
+                    <path d={CUTE_FRONT[cb.front] || CUTE_FRONT.egg} fill="#ffffff" opacity=".3" />
+                    <path d={CUTE_FRONT[cb.front] || CUTE_FRONT.egg} fill={`url(#${id}-fres)`} opacity=".45" />
+                    <path d={CUTE_FRONT[cb.front] || CUTE_FRONT.egg} fill="none" stroke="#ffffff" strokeWidth="1.3" opacity=".55" />
+                    {cb.front === "shell" && (
+                      <path d="M35 210 Q60 219 85 210 M34 238 Q60 247 86 238" fill="none" stroke="#ffffff" strokeWidth="1.3" opacity=".32" />)}
+                  </g>
+                ) : null}
                 <g className="ca-core">
                   <circle cx="60" cy="208" r="15" fill="none" stroke={glow} strokeWidth="1.5" opacity=".95" />
                   <circle cx="60" cy="208" r="11.5" fill={glow} opacity=".14" />

@@ -69,51 +69,51 @@ export const PET_TYPES = {
 /* build · head · ear · tail · eye · palette — six slots, twelve animals.
    `build` is the silhouette you recognise across a room; the rest is detail. */
 export const PET_SPECIES = [
-  { id: "sparkit", pw: 1.0, ph: 1.0, phr: 1.0,  code: "PT-01", type: "volt", look: "cute",  build: "biped", head: "round",  ear: "bolt",  tail: "spark", eye: "big",
+  { id: "sparkit", pw: 1.0, ph: 1.0, phr: 1.0,  code: "PT-01", type: "volt", look: "cute",  build: "biped", head: "round",  ear: "bolt",  tail: "spark", eye: "big", mark: "star",
     sw: ["#ffe14d", "#4c4000"], food: "pf-cell",
     th: "สปาร์คกิต", en: "Sparkit", zh: "电火兽", bonus: "dmg",
     dth: "ลูกไฟฟ้าจอมซน ชอบชาร์จตัวเองจนขนลุก", den: "A restless little charge that fluffs up when it powers on.", dzh: "顽皮的小电球，充能时全身炸毛。" },
-  { id: "cindra", pw: 1.08, ph: 0.94, phr: 0.96,   code: "PT-02", type: "ember", look: "cool", build: "quad", head: "sharp",    ear: "horn",  tail: "flame", eye: "sharp",
+  { id: "cindra", pw: 1.08, ph: 0.94, phr: 0.96,   code: "PT-02", type: "ember", look: "cool", build: "quad", head: "sharp",    ear: "horn",  tail: "flame", eye: "sharp", mark: "flame",
     sw: ["#ff8a4c", "#4c1a00"], food: "pf-coal",
     th: "ซินดร้า", en: "Cindra", zh: "炽焰兽", bonus: "dmg",
     dth: "แมวเครื่องยนต์ หายใจเป็นไอร้อน", den: "An engine-cat that breathes warm exhaust when happy.", dzh: "引擎猫，开心时呼出热气。" },
-  { id: "nimbo", pw: 0.9, ph: 1.06, phr: 1.1,    code: "PT-03", type: "frost", look: "cute", build: "float", head: "round",   ear: "fin",   tail: "wisp",  eye: "sleepy",
+  { id: "nimbo", pw: 0.9, ph: 1.06, phr: 1.1,    code: "PT-03", type: "frost", look: "cute", build: "float", head: "round",   ear: "fin",   tail: "wisp",  eye: "sleepy", mark: "patch",
     sw: ["#8fe8ff", "#003d4c"], food: "pf-ice",
     th: "นิมโบ", en: "Nimbo", zh: "霜云兽", bonus: "guard",
     dth: "ก้อนเมฆเย็นที่ลอยตามเจ้าของไปทุกที่", den: "A cold little cloud that drifts wherever you go.", dzh: "冷冷的小云，总跟着主人飘。" },
-  { id: "verdle", pw: 0.94, ph: 1.02, phr: 1.04,   code: "PT-04", type: "flora", look: "cute", build: "biped", head: "blob",  ear: "leaf",  tail: "vine",  eye: "big",
+  { id: "verdle", pw: 0.94, ph: 1.02, phr: 1.04,   code: "PT-04", type: "flora", look: "cute", build: "biped", head: "blob",  ear: "leaf",  tail: "vine",  eye: "big", mark: "spots",
     sw: ["#6fe39b", "#0b4120"], food: "pf-seed",
     th: "เวิร์ดเดิ้ล", en: "Verdle", zh: "苗芽兽", bonus: "heal",
     dth: "ต้นกล้าไซเบอร์ที่งอกใบใหม่ทุกครั้งที่ถูกชม", den: "A cyber-sprout that grows a new leaf every time it is praised.", dzh: "赛博幼苗，被夸奖就长新叶。" },
-  { id: "bolton", pw: 1.14, ph: 0.9, phr: 0.9,   code: "PT-05", type: "steel", look: "cool", build: "biped", head: "boxy",   ear: "bolt",  tail: "gear",  eye: "visor",
+  { id: "bolton", pw: 1.14, ph: 0.9, phr: 0.9,   code: "PT-05", type: "steel", look: "cool", build: "biped", head: "boxy",   ear: "bolt",  tail: "gear",  eye: "visor", mark: "band",
     sw: ["#b8c2d4", "#253146"], food: "pf-bolt",
     th: "โบลตัน", en: "Bolton", zh: "螺钉兽", bonus: "guard",
     dth: "หุ่นเหลี่ยมใจดี ชอบให้ขัดเงาให้เงาวับ", den: "A blocky, good-natured thing that lives to be polished.", dzh: "方方正正的好脾气，最爱被擦亮。" },
-  { id: "lumen", pw: 0.88, ph: 1.08, phr: 1.08,    code: "PT-06", type: "aether", look: "cute",build: "float", head: "blob",   ear: "halo",  tail: "wisp",  eye: "starry",
+  { id: "lumen", pw: 0.88, ph: 1.08, phr: 1.08,    code: "PT-06", type: "aether", look: "cute",build: "float", head: "blob",   ear: "halo",  tail: "wisp",  eye: "starry", mark: "star",
     sw: ["#c7a6ff", "#1c004c"], food: "pf-prism",
     th: "ลูเมน", en: "Lumen", zh: "流光兽", bonus: "sp",
     dth: "แสงที่จับตัวเป็นก้อน เรืองขึ้นเมื่ออารมณ์ดี", den: "Light that decided to become a body. It glows when it is content.", dzh: "凝成实体的光，心情好时会发亮。" },
-  { id: "zapaw", pw: 1.02, ph: 0.98, phr: 1.02,    code: "PT-07", type: "volt", look: "cool",  build: "quad", head: "sharp",    ear: "fin",   tail: "spark", eye: "sharp",
+  { id: "zapaw", pw: 1.02, ph: 0.98, phr: 1.02,    code: "PT-07", type: "volt", look: "cool",  build: "quad", head: "sharp",    ear: "fin",   tail: "spark", eye: "sharp", mark: "stripe",
     sw: ["#ffc23d", "#4c3400"], food: "pf-cell",
     th: "แซปพอว์", en: "Zapaw", zh: "雷爪兽", bonus: "dmg",
     dth: "อุ้งเท้าปล่อยประกาย วิ่งเร็วจนเห็นเป็นเส้น", den: "Sparks off its paws and runs fast enough to blur.", dzh: "爪下带电，跑起来只剩残影。" },
-  { id: "pyrix", pw: 1.1, ph: 0.92, phr: 0.94,    code: "PT-08", type: "ember", look: "cool", build: "biped", head: "boxy",   ear: "horn",  tail: "flame", eye: "visor",
+  { id: "pyrix", pw: 1.1, ph: 0.92, phr: 0.94,    code: "PT-08", type: "ember", look: "cool", build: "biped", head: "boxy",   ear: "horn",  tail: "flame", eye: "visor", mark: "flame",
     sw: ["#ff5330", "#4c0d00"], food: "pf-coal",
     th: "ไพริกซ์", en: "Pyrix", zh: "熔炉兽", bonus: "dmg",
     dth: "เตาหลอมเดินได้ อุ่นมือได้ในหน้าหนาว", den: "A walking furnace. Excellent to hold in winter.", dzh: "会走路的熔炉，冬天抱着正好。" },
-  { id: "glacio", pw: 0.92, ph: 1.05, phr: 1.06,   code: "PT-09", type: "frost", look: "cute", build: "quad", head: "round",    ear: "horn",  tail: "gear",  eye: "sleepy",
+  { id: "glacio", pw: 0.92, ph: 1.05, phr: 1.06,   code: "PT-09", type: "frost", look: "cute", build: "quad", head: "round",    ear: "horn",  tail: "gear",  eye: "sleepy", mark: "scale",
     sw: ["#7ff0dc", "#07453a"], food: "pf-ice",
     th: "เกลเซีย", en: "Glacio", zh: "冰晶兽", bonus: "guard",
     dth: "ขนเป็นเกล็ดน้ำแข็ง เดินแล้วมีเสียงกรุ๊งกริ๊ง", den: "A coat of ice scales that chimes softly as it walks.", dzh: "冰鳞外衣，走动时叮当作响。" },
-  { id: "mossel", pw: 1.12, ph: 0.93, phr: 0.92,   code: "PT-10", type: "flora", look: "cute", build: "float", head: "blob",   ear: "leaf",  tail: "vine",  eye: "sleepy",
+  { id: "mossel", pw: 1.12, ph: 0.93, phr: 0.92,   code: "PT-10", type: "flora", look: "cute", build: "float", head: "blob",   ear: "leaf",  tail: "vine",  eye: "sleepy", mark: "band",
     sw: ["#a8cf62", "#2c3c10"], food: "pf-seed",
     th: "มอสเซล", en: "Mossel", zh: "苔壳兽", bonus: "heal",
     dth: "ก้อนมอสอบอุ่น ชอบนอนกลางแดดอ่อน", den: "A warm lump of moss that sleeps in soft light.", dzh: "温暖的苔藓球，爱在柔光下打盹。" },
-  { id: "cogsy", pw: 1.06, ph: 0.96, phr: 0.98,    code: "PT-11", type: "steel", look: "cute", build: "quad", head: "boxy",  ear: "bolt",  tail: "gear",  eye: "starry",
+  { id: "cogsy", pw: 1.06, ph: 0.96, phr: 0.98,    code: "PT-11", type: "steel", look: "cute", build: "quad", head: "boxy",  ear: "bolt",  tail: "gear",  eye: "starry", mark: "band",
     sw: ["#e0d6c2", "#4a3c21"], food: "pf-bolt",
     th: "ค็อกซี่", en: "Cogsy", zh: "齿轮兽", bonus: "sp",
     dth: "เฟืองน้อยขยัน หมุนตัวเองเวลาตื่นเต้น", den: "A busy little cog that spins itself when excited.", dzh: "勤劳的小齿轮，兴奋时自转。" },
-  { id: "astrel", pw: 0.86, ph: 1.1, phr: 1.12,   code: "PT-12", type: "aether", look: "cool",build: "biped", head: "sharp",   ear: "halo",  tail: "wisp",  eye: "starry",
+  { id: "astrel", pw: 0.86, ph: 1.1, phr: 1.12,   code: "PT-12", type: "aether", look: "cool",build: "biped", head: "sharp",   ear: "halo",  tail: "wisp",  eye: "starry", mark: "star",
     sw: ["#9fb4ff", "#00114c"], food: "pf-prism",
     th: "แอสเทรล", en: "Astrel", zh: "星舆兽", bonus: "sp",
     dth: "พกดาวไว้ในตัว บอกทางกลับบ้านได้เสมอ", den: "Carries a star inside. Always knows the way home.", dzh: "体内藏着星星，永远知道回家的路。" },
@@ -126,43 +126,43 @@ export const PET_SPECIES = [
      CUTE is built the same way every time: a narrow crown over a wide jaw,
      a head oversized against the body (phr well over 1), something long and
      soft on top, and nothing anywhere that comes to a point. */
-  { id: "bunbun", pw: 0.88, ph: 1.06, phr: 1.18, code: "PT-13", type: "volt", look: "cute", build: "biped", head: "moon", ear: "bunny", tail: "puff", eye: "dot",
+  { id: "bunbun", pw: 0.88, ph: 1.06, phr: 1.18, code: "PT-13", type: "volt", look: "cute", build: "biped", head: "moon", ear: "bunny", tail: "puff", eye: "dot", mark: "bib",
     sw: ["#fff0a8", "#4c3f00"], food: "pf-cell",
     th: "บันบัน", en: "Bunbun", zh: "蹦蹦兽", bonus: "heal",
     dth: "กระต่ายไฟฟ้าตัวนุ่ม กระโดดทีไรมีประกายตามหลัง", den: "A soft electric rabbit. Every hop leaves a little trail of sparks behind it.", dzh: "软绵绵的电兔，每跳一下都拖着小火花。" },
-  { id: "puffle", pw: 0.9, ph: 1.08, phr: 1.16, code: "PT-14", type: "frost", look: "cute", build: "float", head: "blob", ear: "flop", tail: "bubble", eye: "wink",
+  { id: "puffle", pw: 0.9, ph: 1.08, phr: 1.16, code: "PT-14", type: "frost", look: "cute", build: "float", head: "blob", ear: "flop", tail: "bubble", eye: "wink", mark: "bib",
     sw: ["#b8d8ff", "#00224c"], food: "pf-ice",
     th: "พัฟเฟิล", en: "Puffle", zh: "泡泡兽", bonus: "guard",
     dth: "ลอยได้เพราะเบามาก ปล่อยฟองเย็นๆ ตอนหัวเราะ", den: "Floats because there is almost nothing to it. Blows cold bubbles when it laughs.", dzh: "轻得能飘起来，笑的时候会吐冷泡泡。" },
-  { id: "beepo", pw: 0.86, ph: 1.04, phr: 1.2, code: "PT-15", type: "steel", look: "cute", build: "biped", head: "bean", ear: "antenna", tail: "coil", eye: "dot",
+  { id: "beepo", pw: 0.86, ph: 1.04, phr: 1.2, code: "PT-15", type: "steel", look: "cute", build: "biped", head: "bean", ear: "antenna", tail: "coil", eye: "dot", mark: "stripe",
     sw: ["#eef2f8", "#152338"], food: "pf-bolt",
     th: "บีโป", en: "Beepo", zh: "哔波兽", bonus: "sp",
     dth: "หุ่นจิ๋วพูดได้คำเดียว ส่ายเสาอากาศเวลาดีใจ", den: "A tiny bot with one word in its vocabulary. Waggles its antennae when pleased.", dzh: "只会说一个字的小机器人，开心时天线乱晃。" },
-  { id: "tofu", pw: 0.94, ph: 1.02, phr: 1.12, code: "PT-16", type: "flora", look: "cute", build: "quad", head: "moon", ear: "flop", tail: "puff", eye: "sleepy",
+  { id: "tofu", pw: 0.94, ph: 1.02, phr: 1.12, code: "PT-16", type: "flora", look: "cute", build: "quad", head: "moon", ear: "flop", tail: "puff", eye: "sleepy", mark: "patch",
     sw: ["#e2f0a8", "#37420a"], food: "pf-seed",
     th: "เต้าหู้", en: "Tofu", zh: "豆腐兽", bonus: "heal",
     dth: "ก้อนนุ่มสี่ขา เดินช้ามากแต่ไม่เคยหยุด", den: "A soft four-legged block. Very slow, and it never once stops.", dzh: "软软的四脚方块，走得极慢却从不停下。" },
-  { id: "pompom", pw: 0.9, ph: 1.05, phr: 1.15, code: "PT-17", type: "ember", look: "cute", build: "biped", head: "blob", ear: "bunny", tail: "plume", eye: "big",
+  { id: "pompom", pw: 0.9, ph: 1.05, phr: 1.15, code: "PT-17", type: "ember", look: "cute", build: "biped", head: "blob", ear: "bunny", tail: "plume", eye: "big", mark: "heart",
     sw: ["#ff9aa8", "#4c000b"], food: "pf-coal",
     th: "ปอมปอม", en: "Pompom", zh: "绒绒兽", bonus: "dmg",
     dth: "ขนฟูอุ่นๆ กอดแล้วเหมือนกอดผ้าห่มอุ่น", den: "Warm and fluffy. Holding it is like holding a blanket fresh off the line.", dzh: "毛茸茸暖呼呼，抱着像抱刚晒好的被子。" },
-  { id: "cloudi", pw: 0.85, ph: 1.1, phr: 1.19, code: "PT-18", type: "aether", look: "cute", build: "float", head: "moon", ear: "halo", tail: "bubble", eye: "starry",
+  { id: "cloudi", pw: 0.85, ph: 1.1, phr: 1.19, code: "PT-18", type: "aether", look: "cute", build: "float", head: "moon", ear: "halo", tail: "bubble", eye: "starry", mark: "bib",
     sw: ["#f0c0ff", "#3a004c"], food: "pf-prism",
     th: "คลาวดี้", en: "Cloudi", zh: "云朵兽", bonus: "sp",
     dth: "เมฆน้อยติดวงแหวน ลอยต่ำลงมาเวลาง่วง", den: "A small cloud with a ring around it. Drifts lower and lower as it gets sleepy.", dzh: "带着光环的小云，越困飘得越低。" },
-  { id: "mochee", pw: 0.89, ph: 1.03, phr: 1.17, code: "PT-19", type: "flora", look: "cute", build: "biped", head: "bean", ear: "leaf", tail: "coil", eye: "wink",
+  { id: "mochee", pw: 0.89, ph: 1.03, phr: 1.17, code: "PT-19", type: "flora", look: "cute", build: "biped", head: "bean", ear: "leaf", tail: "coil", eye: "wink", mark: "heart",
     sw: ["#8ff0d0", "#084430"], food: "pf-seed",
     th: "โมชี่", en: "Mochee", zh: "麻糬兽", bonus: "heal",
     dth: "ตัวเหนียวนุ่ม ยืดได้นิดหน่อยตอนตื่นเต้น", den: "Soft and slightly stretchy. Gets a little longer when it is excited.", dzh: "软糯有弹性，兴奋时会稍微拉长。" },
-  { id: "wobble", pw: 0.96, ph: 1.0, phr: 1.13, code: "PT-20", type: "volt", look: "cute", build: "quad", head: "round", ear: "antenna", tail: "puff", eye: "dot",
+  { id: "wobble", pw: 0.96, ph: 1.0, phr: 1.13, code: "PT-20", type: "volt", look: "cute", build: "quad", head: "round", ear: "antenna", tail: "puff", eye: "dot", mark: "spots",
     sw: ["#d9f25c", "#3c4705"], food: "pf-cell",
     th: "ว็อบเบิ้ล", en: "Wobble", zh: "摇摇兽", bonus: "guard",
     dth: "ล้มแล้วเด้งกลับทุกครั้ง ไม่เคยล้มค้าง", den: "Tips over constantly and rights itself every single time.", dzh: "老是摔倒，但每次都会自己弹回来。" },
-  { id: "snowpea", pw: 0.87, ph: 1.07, phr: 1.16, code: "PT-21", type: "frost", look: "cute", build: "biped", head: "moon", ear: "bunny", tail: "bubble", eye: "big",
+  { id: "snowpea", pw: 0.87, ph: 1.07, phr: 1.16, code: "PT-21", type: "frost", look: "cute", build: "biped", head: "moon", ear: "bunny", tail: "bubble", eye: "big", mark: "spots",
     sw: ["#ddfbf0", "#07452e"], food: "pf-ice",
     th: "สโนว์พี", en: "Snowpea", zh: "雪豆兽", bonus: "guard",
     dth: "ตัวเล็กแต่ทนหนาวที่สุด ชอบนอนในตู้เย็น", den: "The smallest thing here and the hardest to freeze. Sleeps in the fridge given the chance.", dzh: "个头最小却最耐寒，有机会就睡冰箱里。" },
-  { id: "sunnie", pw: 0.92, ph: 1.04, phr: 1.14, code: "PT-22", type: "ember", look: "cute", build: "float", head: "blob", ear: "flop", tail: "plume", eye: "wink",
+  { id: "sunnie", pw: 0.92, ph: 1.04, phr: 1.14, code: "PT-22", type: "ember", look: "cute", build: "float", head: "blob", ear: "flop", tail: "plume", eye: "wink", mark: "patch",
     sw: ["#ffc47a", "#4c2b00"], food: "pf-coal",
     th: "ซันนี่", en: "Sunnie", zh: "暖阳兽", bonus: "heal",
     dth: "อุ่นตลอดเวลา ลอยตามหน้าต่างที่มีแดด", den: "Warm all the way through. Drifts towards whichever window has the sun in it.", dzh: "浑身暖洋洋，总飘向有阳光的窗边。" },
@@ -170,43 +170,43 @@ export const PET_SPECIES = [
   /* COOL is the same rules run backwards: a body wider than the head, a
      crown or a wing on top instead of something soft, and at least one hard
      point in the silhouette. Every one of them has an edge somewhere. */
-  { id: "noctis", pw: 1.16, ph: 0.9, phr: 0.88, code: "PT-23", type: "aether", look: "cool", build: "quad", head: "fang", ear: "crown", tail: "blade", eye: "slit",
+  { id: "noctis", pw: 1.16, ph: 0.9, phr: 0.88, code: "PT-23", type: "aether", look: "cool", build: "quad", head: "fang", ear: "crown", tail: "blade", eye: "slit", mark: "star",
     sw: ["#7c6bff", "#09004c"], food: "pf-prism",
     th: "น็อคทิส", en: "Noctis", zh: "夜刃兽", bonus: "dmg",
     dth: "ล่าเงียบในความมืด ได้ยินแค่ตอนมันอยากให้ได้ยิน", den: "Hunts in the dark without a sound, and is heard only when it wants to be.", dzh: "黑暗中无声狩猎，只在它愿意时才被听见。" },
-  { id: "raijin", pw: 1.12, ph: 0.94, phr: 0.92, code: "PT-24", type: "volt", look: "cool", build: "biped", head: "crest", ear: "wing", tail: "spark", eye: "scan",
+  { id: "raijin", pw: 1.12, ph: 0.94, phr: 0.92, code: "PT-24", type: "volt", look: "cool", build: "biped", head: "crest", ear: "wing", tail: "spark", eye: "scan", mark: "stripe",
     sw: ["#f5a623", "#492f03"], food: "pf-cell",
     th: "ไรจิน", en: "Raijin", zh: "雷神兽", bonus: "dmg",
     dth: "เดินมาพร้อมเสียงฟ้าร้อง ขนลุกทั้งห้องก่อนมันจะถึง", den: "Arrives with the thunder. The room's hair stands up before it does.", dzh: "伴着雷声而来，它到之前满屋汗毛先立。" },
-  { id: "obsidian", pw: 1.2, ph: 0.88, phr: 0.86, code: "PT-25", type: "steel", look: "cool", build: "quad", head: "boxy", ear: "crown", tail: "gear", eye: "visor",
+  { id: "obsidian", pw: 1.2, ph: 0.88, phr: 0.86, code: "PT-25", type: "steel", look: "cool", build: "quad", head: "boxy", ear: "crown", tail: "gear", eye: "visor", mark: "band",
     sw: ["#6b7386", "#2c323f"], food: "pf-bolt",
     th: "ออบซิเดียน", en: "Obsidian", zh: "黑曜兽", bonus: "guard",
     dth: "หนักที่สุดในรุ่น ยืนขวางแล้วไม่มีอะไรผ่าน", den: "The heaviest thing in the line. Puts itself in the way and nothing gets past.", dzh: "同批最重的一只，往那一站什么都过不去。" },
-  { id: "vulkar", pw: 1.15, ph: 0.92, phr: 0.9, code: "PT-26", type: "ember", look: "cool", build: "quad", head: "fang", ear: "horn", tail: "blade", eye: "slit",
+  { id: "vulkar", pw: 1.15, ph: 0.92, phr: 0.9, code: "PT-26", type: "ember", look: "cool", build: "quad", head: "fang", ear: "horn", tail: "blade", eye: "slit", mark: "flame",
     sw: ["#e8324a", "#45070f"], food: "pf-coal",
     th: "วัลคาร์", en: "Vulkar", zh: "熔岩兽", bonus: "dmg",
     dth: "เกล็ดร้อนจนพื้นไหม้เป็นรอยเท้า", den: "Scales hot enough that the floor keeps its footprints.", dzh: "鳞片烫得地板留下它的脚印。" },
-  { id: "zephyr", pw: 1.06, ph: 0.96, phr: 0.94, code: "PT-27", type: "frost", look: "cool", build: "float", head: "crest", ear: "wing", tail: "plume", eye: "sharp",
+  { id: "zephyr", pw: 1.06, ph: 0.96, phr: 0.94, code: "PT-27", type: "frost", look: "cool", build: "float", head: "crest", ear: "wing", tail: "plume", eye: "sharp", mark: "band",
     sw: ["#7fc8f5", "#052e47"], food: "pf-ice",
     th: "เซเฟอร์", en: "Zephyr", zh: "疾风兽", bonus: "sp",
     dth: "ไม่เคยแตะพื้น ลมหนาวพัดไปทางไหนมันไปทางนั้น", den: "Never touches the ground. Goes wherever the cold wind is already going.", dzh: "从不落地，冷风往哪吹它就往哪去。" },
-  { id: "thornix", pw: 1.1, ph: 0.95, phr: 0.91, code: "PT-28", type: "flora", look: "cool", build: "biped", head: "sharp", ear: "crown", tail: "blade", eye: "scan",
+  { id: "thornix", pw: 1.1, ph: 0.95, phr: 0.91, code: "PT-28", type: "flora", look: "cool", build: "biped", head: "sharp", ear: "crown", tail: "blade", eye: "scan", mark: "scale",
     sw: ["#4ec24a", "#133b12"], food: "pf-seed",
     th: "ธอร์นิกซ์", en: "Thornix", zh: "荆棘兽", bonus: "dmg",
     dth: "หนามยาวขึ้นทุกครั้งที่ชนะ", den: "Grows another thorn every time it wins.", dzh: "每赢一次就多长一根刺。" },
-  { id: "voidra", pw: 1.04, ph: 0.98, phr: 0.94, code: "PT-29", type: "aether", look: "cool", build: "float", head: "crest", ear: "halo", tail: "wisp", eye: "slit",
+  { id: "voidra", pw: 1.04, ph: 0.98, phr: 0.94, code: "PT-29", type: "aether", look: "cool", build: "float", head: "crest", ear: "halo", tail: "wisp", eye: "slit", mark: "spots",
     sw: ["#d05cff", "#36004c"], food: "pf-prism",
     th: "วอยดร้า", en: "Voidra", zh: "虚空兽", bonus: "sp",
     dth: "แสงรอบตัวมันโค้งงอ มองตรงๆ ไม่ค่อยติด", den: "Light bends around it, so looking straight at it never quite works.", dzh: "周围的光会拐弯，直视它总是看不真切。" },
-  { id: "ferrox", pw: 1.18, ph: 0.9, phr: 0.87, code: "PT-30", type: "steel", look: "cool", build: "biped", head: "boxy", ear: "wing", tail: "blade", eye: "visor",
+  { id: "ferrox", pw: 1.18, ph: 0.9, phr: 0.87, code: "PT-30", type: "steel", look: "cool", build: "biped", head: "boxy", ear: "wing", tail: "blade", eye: "visor", mark: "stripe",
     sw: ["#c8a898", "#492f22"], food: "pf-bolt",
     th: "เฟอร์ร็อกซ์", en: "Ferrox", zh: "铁爪兽", bonus: "guard",
     dth: "กรงเล็บเหล็กกล้า ขูดกำแพงเป็นรอยลึก", den: "Steel claws. Leaves grooves in a wall it only meant to lean on.", dzh: "钢铁利爪，靠一下墙都留下深痕。" },
-  { id: "kaisen", pw: 1.13, ph: 0.93, phr: 0.9, code: "PT-31", type: "volt", look: "cool", build: "quad", head: "fang", ear: "fin", tail: "spark", eye: "slit",
+  { id: "kaisen", pw: 1.13, ph: 0.93, phr: 0.9, code: "PT-31", type: "volt", look: "cool", build: "quad", head: "fang", ear: "fin", tail: "spark", eye: "slit", mark: "scale",
     sw: ["#5ce1ff", "#003e4c"], food: "pf-cell",
     th: "ไคเซ็น", en: "Kaisen", zh: "海闪兽", bonus: "dmg",
     dth: "ว่ายในอากาศได้เหมือนอยู่ในน้ำ ทิ้งประกายไว้ข้างหลัง", den: "Swims through air the way it would through water, trailing sparks.", dzh: "在空中像在水里游动，身后拖着电光。" },
-  { id: "umbrix", pw: 1.08, ph: 0.94, phr: 0.92, code: "PT-32", type: "frost", look: "cool", build: "biped", head: "crest", ear: "crown", tail: "gear", eye: "scan",
+  { id: "umbrix", pw: 1.08, ph: 0.94, phr: 0.92, code: "PT-32", type: "frost", look: "cool", build: "biped", head: "crest", ear: "crown", tail: "gear", eye: "scan", mark: "scale",
     sw: ["#7f9fe0", "#0e1e3f"], food: "pf-ice",
     th: "อัมบริกซ์", en: "Umbrix", zh: "霜影兽", bonus: "guard",
     dth: "หนาวเงียบ ยืนนิ่งจนกระจกรอบตัวเป็นฝ้า", den: "Quietly, steadily cold. Stands still long enough to frost the glass around it.", dzh: "安静地冷着，站久了周围玻璃都结霜。" },
@@ -1037,8 +1037,43 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             A pale front is how almost every animal is marked, and it is the
             cheapest thing that turns a coloured lozenge into a body. It goes
             UNDER the hatch, so the machine still reads as set into it. */}
-        <path d={sp.build === "quad" ? ell(cx, by + bh * .12, bw * .34, bh * .3) : ell(cx, by + bh * .1, bw * .32, bh * .34)}
-          fill={`url(#${uid}-belly)`} opacity=".85" />
+        {/* ── the coat marking ──
+            The pale front was ONE oval on all thirty-two species, so below the
+            ears they were the same animal in different paint. A marking is the
+            cheapest thing that makes a coat belong to a species: a bib, a pair
+            of stripes, a scale row, a flame licking up the belly. Every one is
+            drawn in the same belly gradient, so it still reads as fur catching
+            the light rather than as a decal stuck on. */}
+        {(() => {
+          const q = sp.build === "quad";
+          const my = by + (q ? bh * .12 : bh * .1);
+          const MARK = {
+            patch:  [q ? ell(cx, my, bw * .34, bh * .3) : ell(cx, my, bw * .32, bh * .34)],
+            bib:    [`M${cx - bw * .3} ${bTop + bh * .16} C${cx - bw * .32} ${by + bh * .18} ${cx - bw * .2} ${by + bh * .4} ${cx} ${by + bh * .46} C${cx + bw * .2} ${by + bh * .4} ${cx + bw * .32} ${by + bh * .18} ${cx + bw * .3} ${bTop + bh * .16} Z`],
+            stripe: [rr(cx - bw * .15, my, bw * .13, bh * .52, bw * .065),
+                     rr(cx + bw * .15, my, bw * .13, bh * .52, bw * .065)],
+            band:   [rr(cx, my - bh * .04, bw * .62, bh * .22, bh * .11),
+                     rr(cx, my + bh * .24, bw * .44, bh * .14, bh * .07)],
+            spots:  [ell(cx - bw * .19, my - bh * .1, bw * .11, bh * .11),
+                     ell(cx + bw * .17, my + bh * .06, bw * .1, bh * .1),
+                     ell(cx - bw * .03, my + bh * .24, bw * .09, bh * .09)],
+            scale:  [0, 1, 2].map(i => `M${cx - bw * .28} ${my - bh * .16 + i * bh * .17} Q${cx} ${my - bh * .02 + i * bh * .17} ${cx + bw * .28} ${my - bh * .16 + i * bh * .17} L${cx + bw * .28} ${my - bh * .08 + i * bh * .17} Q${cx} ${my + bh * .06 + i * bh * .17} ${cx - bw * .28} ${my - bh * .08 + i * bh * .17} Z`),
+            heart:  [`M${cx} ${my + bh * .38} C${cx - bw * .34} ${my + bh * .1} ${cx - bw * .34} ${my - bh * .24} ${cx - bw * .15} ${my - bh * .24} C${cx - bw * .05} ${my - bh * .24} ${cx} ${my - bh * .14} ${cx} ${my - bh * .08} C${cx} ${my - bh * .14} ${cx + bw * .05} ${my - bh * .24} ${cx + bw * .15} ${my - bh * .24} C${cx + bw * .34} ${my - bh * .24} ${cx + bw * .34} ${my + bh * .1} ${cx} ${my + bh * .38} Z`],
+            flame:  [`M${cx} ${my - bh * .3} C${cx + bw * .22} ${my - bh * .06} ${cx + bw * .26} ${my + bh * .22} ${cx} ${my + bh * .4} C${cx - bw * .26} ${my + bh * .22} ${cx - bw * .22} ${my - bh * .06} ${cx} ${my - bh * .3} Z`,
+                     `M${cx} ${my - bh * .04} C${cx + bw * .1} ${my + bh * .1} ${cx + bw * .1} ${my + bh * .24} ${cx} ${my + bh * .32} C${cx - bw * .1} ${my + bh * .24} ${cx - bw * .1} ${my + bh * .1} ${cx} ${my - bh * .04} Z`],
+            star:   [`M${cx} ${my - bh * .3} L${cx + bw * .1} ${my - bh * .04} L${cx + bw * .32} ${my} L${cx + bw * .15} ${my + bh * .16} L${cx + bw * .2} ${my + bh * .4} L${cx} ${my + bh * .27} L${cx - bw * .2} ${my + bh * .4} L${cx - bw * .15} ${my + bh * .16} L${cx - bw * .32} ${my} L${cx - bw * .1} ${my - bh * .04} Z`],
+          };
+          /* the chest hatch sits over the middle of the torso, so a marking
+             that only had a soft fill lost its shape behind it. The contour is
+             what survives: it reads round the hatch and tells you whether you
+             are looking at a bib, a flame or a scale row. */
+          return (MARK[sp.mark] || MARK.patch).map((d, i) => (
+            <g key={i}>
+              <path d={d} fill={`url(#${uid}-belly)`} opacity={i ? .7 : .95} />
+              <path d={d} fill="none" stroke={mixc(A, "#ffffff", .62)} strokeWidth=".9"
+                strokeLinejoin="round" opacity={i ? .34 : .5} />
+            </g>));
+        })()}
         {/* the chest hatch is there from the start; what changes is what is in
             it. Cut down from half the torso, because at that size it WAS the
             torso and the creature's colour never got a look in. */}
