@@ -62,6 +62,47 @@ const OUT_CUT = {
   "out-royal": "robe", "out-celestial": "robe",
 };
 
+/* ── outer cuts for frames and stickers ──
+   Ten avatar frames were ten copies of the same rounded square, and fourteen
+   stickers were fourteen copies of the same disc. The corner ornaments and the
+   glyphs differed, but the OUTLINE is what you see at gallery size and the
+   outline never changed once. These are die-cut shapes: the whole point of a
+   sticker is that it is cut to its own edge. */
+const CUT = {
+  hex:     "M32.0 6.0 L54.5 19.0 L54.5 45.0 L32.0 58.0 L9.5 45.0 L9.5 19.0 Z",
+  oct:     "M32.0 6.0 L50.4 13.6 L58.0 32.0 L50.4 50.4 L32.0 58.0 L13.6 50.4 L6.0 32.0 L13.6 13.6 Z",
+  rhomb:   "M32.0 5.0 L59.0 32.0 L32.0 59.0 L5.0 32.0 Z",
+  shield:  "M32 5 L56 13 C56 34 47 50 32 59 C17 50 8 34 8 13 Z",
+  star:    "M32.0 4.0 L39.3 14.4 L51.8 12.2 L49.6 24.7 L60.0 32.0 L49.6 39.3 L51.8 51.8 L39.3 49.6 L32.0 60.0 L24.7 49.6 L12.2 51.8 L14.4 39.3 L4.0 32.0 L14.4 24.7 L12.2 12.2 L24.7 14.4 Z",
+  burst:   "M32.0 4.0 L37.7 10.7 L46.0 7.8 L47.6 16.4 L56.2 18.0 L53.3 26.3 L60.0 32.0 L53.3 37.7 L56.2 46.0 L47.6 47.6 L46.0 56.2 L37.7 53.3 L32.0 60.0 L26.3 53.3 L18.0 56.2 L16.4 47.6 L7.8 46.0 L10.7 37.7 L4.0 32.0 L10.7 26.3 L7.8 18.0 L16.4 16.4 L18.0 7.8 L26.3 10.7 Z",
+  scallop: "M55.0 32.0 Q57.3 41.2 49.6 46.8 Q45.5 55.3 36.0 54.7 Q27.3 58.5 20.5 51.9 Q11.4 49.3 10.4 39.9 Q5.1 32.0 10.4 24.1 Q11.4 14.7 20.5 12.1 Q27.3 5.5 36.0 9.3 Q45.5 8.7 49.6 17.2 Q57.3 22.8 55.0 32.0 Z",
+  flame:   "M32 3 C40 15 52 20 52 34 C52 48 43 59 32 59 C21 59 12 48 12 34 C12 24 22 21 24 12 C28 20 32 18 32 3 Z",
+};
+/* Which frame and which sticker are cut which way. Anything not listed keeps
+   the original rounded square / disc, which suits the plainer ones. */
+const FRAME_CUT = {
+  "frm-fr-diamond": "rhomb", "frm-fr-neon": "oct", "frm-fr-circuit": "hex",
+  "frm-fr-laurel": "shield", "frm-fr-mecha": "oct", "frm-fr-prism": "rhomb",
+  "frm-fr-gold": "shield",
+};
+const STK_CUT = {
+  "stk-st-star": "star", "stk-st-magic": "burst", "stk-st-flame": "flame",
+  "stk-st-diamond": "rhomb", "stk-st-crown": "shield", "stk-st-rocket": "shield",
+  "stk-st-bolt": "burst", "stk-st-paw": "scallop", "stk-st-heart": "scallop",
+  "stk-st-medal": "scallop", "stk-st-trophy": "shield",
+};
+
+/* ── the instrument, not just the keys ──
+   Thirteen keyboards were thirteen recolours of one keybed. A grand piano, a
+   stage synth and a slab controller are three different OBJECTS, and which one
+   you bought should be visible before you read the label. */
+const KBD_CASE = {
+  "kbd-kb-classic": "grand", "kbd-kb-gold": "grand", "kbd-kb-midnight": "grand",
+  "kbd-kb-neon": "synth", "kbd-kb-galaxy": "synth", "kbd-kb-rainbow": "synth",
+  "kbd-kb-carbon": "synth",
+  "kbd-kb-jade": "stage", "kbd-kb-aurora": "stage", "kbd-kb-ice": "stage",
+};
+
 export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, className = "" }) {
   const uid = "ia" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const A = sw[0] || "#9fb2d2";
@@ -882,8 +923,8 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       <path d="M12 14 H24" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" opacity=".35" />
     </>,
     // an avatar frame only means anything round a face, so it gets one
-    frame: (motif) => <>
-      {R(7, 7, 50, 50, 9, GA, { lw: 1.5 })}
+    frame: (motif, cut) => <>
+      {cut ? P(CUT[cut], GA, { lw: 1.5 }) : R(7, 7, 50, 50, 9, GA, { lw: 1.5 })}
       {R(14, 14, 36, 36, 6, dim(B, .35), { spec: .3, occ: .55, line: edgeB, lw: 1.1 })}
       <g opacity=".8">
         <circle cx="32" cy="27" r="7.2" fill={lite(A, .55)} />
@@ -892,19 +933,53 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {motif}
     </>,
     // a keyboard skin is a keybed with its light bar lit
-    keybed: (motif) => <>
-      {R(4, 18, 56, 30, 4, GA, { lw: 1.4 })}
-      {Array.from({ length: 7 }).map((_, i) => <g key={i}>{R(7.5 + i * 7, 27, 6, 18, 1.2, "#f2f6fc", { line: edge, lw: .7, spec: .5 })}</g>)}
-      {[0, 1, 3, 4, 5].map(i => <g key={"b" + i}>{R(11 + i * 7, 27, 4, 11, .8, GB, { line: edgeB, lw: .6 })}</g>)}
-      {motif}
-    </>,
+    keybed: (motif, cse) => {
+      // a grand has a raised lid behind the keys; a stage board stands on legs
+      const keys = (y, h) => <>
+        {Array.from({ length: 7 }).map((_, i) => <g key={i}>{R(7.5 + i * 7, y, 6, h, 1.2, "#f2f6fc", { line: edge, lw: .7, spec: .5 })}</g>)}
+        {[0, 1, 3, 4, 5].map(i => <g key={"b" + i}>{R(11 + i * 7, y, 4, h * .6, .8, GB, { line: edgeB, lw: .6 })}</g>)}
+      </>;
+      if (cse === "grand") return <>
+        {P("M6 30 C14 13 40 9 58 15 L58 22 C42 18 20 22 12 33 Z", GB, { lw: 1.2, line: edgeB })}
+        {R(4, 30, 56, 20, 4, GA, { lw: 1.4 })}
+        {keys(34, 13)}
+        {motif}
+      </>;
+      if (cse === "synth") return <>
+        {R(4, 16, 56, 32, 4, GA, { lw: 1.4 })}
+        {[10, 19, 28].map(x => <g key={x}><circle cx={x} cy="23" r="3.6" fill={dim(B, .25)} stroke={lite(C, .4)} strokeWidth="1" /><path d={`M${x} 20 V23`} stroke={lite(C, .6)} strokeWidth="1.3" strokeLinecap="round" /></g>)}
+        {R(37, 20, 19, 6, 1.6, dim(B, .3), { line: edgeB, lw: .8 })}
+        {keys(30, 16)}
+        {motif}
+      </>;
+      if (cse === "stage") return <>
+        {R(4, 16, 56, 24, 4, GA, { lw: 1.4 })}
+        {keys(24, 14)}
+        {P("M14 40 L20 40 L16 58 L10 58 Z", GB, { lw: 1, line: edgeB })}
+        {P("M50 40 L44 40 L48 58 L54 58 Z", GB, { lw: 1, line: edgeB })}
+        {R(8, 55, 48, 4, 2, dim(B, .3), { line: edgeB, lw: .8 })}
+        {motif}
+      </>;
+      return <>
+        {R(4, 18, 56, 30, 4, GA, { lw: 1.4 })}
+        {keys(27, 18)}
+        {motif}
+      </>;
+    },
     // a sticker is a die-cut vinyl disc, white border and all
-    badge: (motif) => <>
+    badge: (motif, cut) => (cut ? <>
+      {/* die-cut: the white vinyl border follows the cut, so a star sticker is
+          a star all the way to its edge rather than a star printed on a disc */}
+      <g transform="translate(32 32) scale(1.14) translate(-32 -32)">{P(CUT[cut], "#ffffff", { spec: .3, occ: .25, line: "#dfe5ef", lw: 1 })}</g>
+      {P(CUT[cut], GA, { lw: 1.2 })}
+      <path d={CUT[cut]} fill="none" stroke={lite(A, .55)} strokeWidth="1.4" strokeLinejoin="round" opacity=".55" />
+      {motif}
+    </> : <>
       {E(32, 32, 25, 25, "#ffffff", { spec: .3, occ: .25, line: "#dfe5ef", lw: 1 })}
       {E(32, 32, 21, 21, GA, { lw: 1.2 })}
       {E(32, 32, 21, 21, "none", { line: lite(A, .55), lw: 1.4, lineOp: .55 })}
       {motif}
-    </>,
+    </>),
   };
 
   // "pw-3" is form pw carrying emblem 3
@@ -915,9 +990,9 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       : SHAPES.plate(PATTERNS[art] || PATTERNS["out-tshirt"]))],
     ["key-", () => SHAPES.keycap(KEY_MOTIF[art])],
     ["thm-", () => SHAPES.scene(THEME_MOTIF[art])],
-    ["frm-", () => SHAPES.frame(FRAME_MOTIF[art])],
-    ["kbd-", () => SHAPES.keybed(KBD_MOTIF[art])],
-    ["stk-", () => SHAPES.badge(STK_MOTIF[art])],
+    ["frm-", () => SHAPES.frame(FRAME_MOTIF[art], FRAME_CUT[art])],
+    ["kbd-", () => SHAPES.keybed(KBD_MOTIF[art], KBD_CASE[art])],
+    ["stk-", () => SHAPES.badge(STK_MOTIF[art], STK_CUT[art])],
   ].find(([pre]) => art && art.startsWith(pre));
   const draw = mythic ? () => SHAPES[mythic[1]](Number(mythic[2]))
     : byPrefix ? byPrefix[1] : SHAPES[art];

@@ -323,7 +323,23 @@ export const petLevel = (bond) => {
 };
 /* The three named stages are just milestones on the same continuous curve —
    the body changes every level, this is only what to call it. */
-export const petStage = (bond) => (petLevel(bond).lv >= 9 ? 3 : petLevel(bond).lv >= 5 ? 2 : 1);
+/* Five named stages now, not three. The body still changes every level; these
+   are the five moments worth announcing. */
+export const PET_STAGES = 5;
+export const petStage = (bond) => {
+  const lv = petLevel(bond).lv;
+  return lv >= 18 ? 5 : lv >= 13 ? 4 : lv >= 8 ? 3 : lv >= 4 ? 2 : 1;
+};
+export const STAGE_NAME = [
+  null,
+  { th: "ฟักใหม่", en: "Hatchling", zh: "初生" },
+  { th: "เติบโต", en: "Youngling", zh: "成长" },
+  { th: "ชำนาญ", en: "Adept", zh: "熟练" },
+  { th: "แชมเปียน", en: "Champion", zh: "冠军" },
+  { th: "ผู้ตื่นรู้", en: "Ascendant", zh: "觉醒" },
+];
+/** The level a stage begins at — used to show how far the next form is. */
+export const STAGE_AT = [0, 1, 4, 8, 13, 18];
 export const petHappy = (p) => Math.round(((p.hunger + p.clean + p.coat + p.mood) / 4));
 
 /* ══════════════════════ the creature ══════════════════════ */
@@ -361,7 +377,7 @@ const LAY = {
    level rather than jumping three times in a creature's whole life. On top of
    that continuous change, one visible part is bolted on per level — that is
    what makes a level-up something you can see rather than a number going up. */
-export const PET_ARTLV = 12;                 // the level the body finishes growing at
+export const PET_ARTLV = 20;                 // the level the body finishes growing at
 const lerp = (a, b, t) => a + (b - a) * t;
 const hx = (c) => { const h = String(c).replace("#", ""); const n = parseInt(h.length === 3 ? h.split("").map(x => x + x).join("") : h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 /** Blend two hex colours. A grown pet runs hotter in its own element. */
@@ -375,8 +391,16 @@ const mix3 = (k, g) => {
   return out;
 };
 /** One new part per level. Index is the level it appears at. */
+/* Twelve levels of growth ended with a ring on the floor, and everything
+   between level 2 and level 12 was an ACCESSORY — a stud, a bracer, a plate.
+   None of it changed the animal's outline, so a grown pet was a hatchling at
+   115% with jewellery on. The back half of the ladder is deliberately made of
+   parts that stick OUT: horns, a ruff, a second tail, a crown, shards in the
+   air around it. Those are the ones you can see from across a room, and
+   "evolution" that you cannot see from across a room does not feel like one. */
 export const GROW = [
   null, null, "core", "studs", "plate", "bracers", "crest", "anklets", "vents", "wings", "pauldrons", "tailglow", "aura",
+  "horns", "mane", "twintail", "claws", "crown", "shards", "halo", "sigil",
 ];
 export const GROW_TEXT = {
   core:      { th: "แกนพลังติดไฟ", en: "Power core lights up", zh: "核心点亮" },
@@ -390,6 +414,14 @@ export const GROW_TEXT = {
   pauldrons: { th: "เกราะไหล่", en: "Pauldrons", zh: "肩铠" },
   tailglow:  { th: "หางเรืองแสง", en: "Glowing tail", zh: "尾巴发光" },
   aura:      { th: "วงออร่า", en: "Aura ring", zh: "光环" },
+  horns:     { th: "เขา", en: "Horns", zh: "犄角" },
+  mane:      { th: "ขนคอฟู", en: "Neck ruff", zh: "颈毛" },
+  twintail:  { th: "หางคู่", en: "Twin tail", zh: "双尾" },
+  claws:     { th: "กรงเล็บ", en: "Claws", zh: "利爪" },
+  crown:     { th: "มงกุฎ", en: "Crown", zh: "王冠" },
+  shards:    { th: "เกล็ดพลังลอยรอบตัว", en: "Orbiting shards", zh: "环绕碎片" },
+  halo:      { th: "วงแสงเหนือหัว", en: "Halo", zh: "头顶光环" },
+  sigil:     { th: "อักขระพลังด้านหลัง", en: "Power sigil", zh: "背后符文" },
 };
 /** What the next level adds, for the bond card to promise. */
 export const nextGrowth = (lv) => {
@@ -440,7 +472,7 @@ const HEADS = {
 export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, size, className = "" }) {
   const sp = petById(species);
   // `stage` is still accepted so older call sites keep working
-  const lv = Math.max(1, Math.round(level || (stage ? [1, 5, 10][Math.min(2, stage - 1)] : 1)));
+  const lv = Math.max(1, Math.round(level || (stage ? [1, 4, 8, 13, 18][Math.min(4, stage - 1)] : 1)));
   const g = Math.min(1, (lv - 1) / (PET_ARTLV - 1));
   const uid = "pt" + sp.id + Math.min(lv, PET_ARTLV);
   const has = (n) => lv >= n;
@@ -892,6 +924,18 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
       {/* a warm pool of its own colour on the floor underneath it */}
       <ellipse cx={cx} cy={GROUND - 1} rx={bw * .62} ry="4" fill={T.c} opacity={.1 + g * .16} />
 
+      {/* L20 — a rune sigil burning behind it. Drawn first, so the creature
+          stands IN FRONT of its own power rather than wearing it as a badge. */}
+      {has(20) && <g opacity=".5">
+        <circle cx={cx} cy={hy + 6} r={hr * 2.5} fill="none" stroke={T.c} strokeWidth="2.2" />
+        <circle cx={cx} cy={hy + 6} r={hr * 2.0} fill="none" stroke={T.c} strokeWidth="1.1" opacity=".7" />
+        {[0, 1, 2, 3, 4, 5].map(i => {
+          const a = i * Math.PI / 3 - Math.PI / 2;
+          return <path key={i} strokeLinecap="round" stroke={T.c} strokeWidth="1.8" opacity=".8"
+            d={`M${cx + Math.cos(a) * hr * 2.0} ${hy + 6 + Math.sin(a) * hr * 2.0} L${cx + Math.cos(a) * hr * 2.5} ${hy + 6 + Math.sin(a) * hr * 2.5}`} />;
+        })}
+      </g>}
+
       {/* L12 — an aura ring on the floor, the last thing it earns */}
       {has(12) && <>
         <ellipse cx={cx} cy={GROUND - 2} rx={bw * .95} ry="9" fill="none" stroke={T.c} strokeWidth="2" opacity=".45" />
@@ -900,6 +944,12 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
 
       <g transform={"translate(60 " + GROUND + ") scale(" + SC.toFixed(3) + ") translate(-60 -" + GROUND + ")"}>
       <g className={sad ? "pa-sag" : "pa-bob"}>
+        {/* L15 — a second tail, set behind and above the first so the pair
+            reads as two rather than as one thick one */}
+        {has(15) && (
+          <g transform={`rotate(-16 ${tx} ${ty}) translate(0 ${-bh * .18})`} opacity=".9">
+            {TAILS[sp.tail]}
+          </g>)}
         {TAILS[sp.tail]}
         {/* L11 — the tail lights up */}
         {has(11) && <circle cx={tx + 16} cy={ty - 4} r={7} fill={`url(#${uid}-glow)`} opacity=".85" />}
@@ -992,6 +1042,40 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {/* the head drops a shadow on the chest under it. Flat vector figures
             read as decals precisely because this is missing. */}
         <ellipse cx={cx} cy={bTop + 3} rx={hr * .7} ry="5" fill="#00060f" opacity=".2" />
+        {/* L14 — a ruff around the neck. Fills the gap between a big head and
+            a small body, which is the join these builds have always been
+            weakest at. */}
+        {has(14) && (() => {
+          /* Anchored to the NECK, not to the head: at hy + hr*.82 it sat 82%
+             of the way down the skull and covered the mouth. It also wants to
+             read as fluff rather than as a dark spiked collar, so it is built
+             from overlapping rounded lobes in a lightened body colour. */
+          const ny = Math.max(hy + hr * 1.02, bTop - 1);
+          /* Mixed toward the BODY colour, not toward white: B is the dark
+             swatch, so a lightened B on a pale blue pet still read as a black
+             scarf rather than as the animal's own fur. */
+          const lobe = mixc(mixc(B, A2, .62), "#ffffff", .16);
+          return (
+            <g>
+              {[-1.15, -.78, -.4, 0, .4, .78, 1.15].map((t, i) => (
+                <ellipse key={i} cx={cx + t * hr * .74} cy={ny + Math.abs(t) * hr * .12}
+                  rx={hr * .3} ry={hr * .24} fill={lobe} opacity=".95"
+                  transform={`rotate(${t * 26} ${cx + t * hr * .74} ${ny})`} />
+              ))}
+              <ellipse cx={cx} cy={ny - hr * .06} rx={hr * .86} ry={hr * .2} fill={lobe} />
+              <ellipse cx={cx} cy={ny - hr * .1} rx={hr * .66} ry={hr * .12} fill={T.c} opacity=".42" />
+            </g>);
+        })()}
+        {/* L13 — horns. The first part that changes the OUTLINE of the head,
+            which is why it opens the back half of the ladder rather than
+            closing it. Drawn behind the head so they root into the skull. */}
+        {has(13) && [-1, 1].map(k => (
+          <g key={"hn" + k}>
+            <path fill={B} stroke={B} strokeWidth="1" strokeLinejoin="round"
+              d={`M${cx + k * hr * .52} ${hy - hr * .58} C${cx + k * hr * .96} ${hy - hr * 1.02} ${cx + k * hr * 1.02} ${hy - hr * 1.62} ${cx + k * hr * .74} ${hy - hr * 2.0} C${cx + k * hr * .96} ${hy - hr * 1.4} ${cx + k * hr * .74} ${hy - hr * .92} ${cx + k * hr * .3} ${hy - hr * .74} Z`} />
+            <path fill={T.c} opacity=".55"
+              d={`M${cx + k * hr * .56} ${hy - hr * .66} C${cx + k * hr * .9} ${hy - hr * 1.06} ${cx + k * hr * .94} ${hy - hr * 1.54} ${cx + k * hr * .74} ${hy - hr * 1.86} C${cx + k * hr * .82} ${hy - hr * 1.36} ${cx + k * hr * .68} ${hy - hr * .98} ${cx + k * hr * .42} ${hy - hr * .82} Z`} />
+          </g>))}
         {EARS[sp.ear]}
         {/* The head took the full five-pass treatment every armour plate gets:
             a broad specular sweep and a white bevel lip right round the crown.
@@ -1020,6 +1104,17 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {has(6) && [-1, 0, 1].map(k => (
           <path key={k} d={`M${cx + k * hr * .34 - hr * .13} ${hy - hr * .84} L${cx + k * hr * .34} ${hy - hr * (k === 0 ? 1.62 : 1.32)} L${cx + k * hr * .34 + hr * .13} ${hy - hr * .84} Z`}
             fill={T.c} stroke={B} strokeWidth="1.2" strokeLinejoin="round" />))}
+        {/* L17 — a crown, and L19 the halo over it */}
+        {has(17) && (
+          <g>
+            <path fill={T.c} stroke={B} strokeWidth="1.2" strokeLinejoin="round" opacity=".95"
+              d={`M${cx - hr * .62} ${hy - hr * .86} L${cx - hr * .62} ${hy - hr * 1.34} L${cx - hr * .3} ${hy - hr * 1.06} L${cx} ${hy - hr * 1.5} L${cx + hr * .3} ${hy - hr * 1.06} L${cx + hr * .62} ${hy - hr * 1.34} L${cx + hr * .62} ${hy - hr * .86} Z`} />
+            {[-.44, 0, .44].map(t => <circle key={t} cx={cx + t * hr} cy={hy - hr * .98} r="2.2" fill="#fff" opacity=".9" />)}
+          </g>)}
+        {has(19) && <>
+          <ellipse cx={cx} cy={hy - hr * 1.86} rx={hr * .84} ry={hr * .22} fill="none" stroke={T.c} strokeWidth="3.2" opacity=".8" />
+          <ellipse cx={cx} cy={hy - hr * 1.86} rx={hr * .84} ry={hr * .22} fill="none" stroke="#fff" strokeWidth="1.2" opacity=".65" />
+        </>}
         {EYES[sp.eye]}
         {/* blush — the single cheapest thing that reads as cute, and the one
             piece of the face that is not machinery */}
@@ -1029,6 +1124,33 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {/* a glossy sweep across the top of the skull: a toy has a shine on it */}
         <path d={`M${cx - hr * .66} ${hy - hr * .52} C${cx - hr * .3} ${hy - hr * .92} ${cx + hr * .18} ${hy - hr * .92} ${cx + hr * .46} ${hy - hr * .6} C${cx + hr * .12} ${hy - hr * .74} ${cx - hr * .3} ${hy - hr * .72} ${cx - hr * .66} ${hy - hr * .52} Z`}
           fill="#ffffff" opacity=".5" />
+        {/* L16 — claws. The floor contact is the one place a cute build can
+            take something sharp without stopping being cute. */}
+        {has(16) && sp.build !== "float" && (() => {
+          /* Anchored to the TOE line, not to an absolute floor: the first
+             version ran to GROUND + 2, so on a floating build — which has no
+             feet at all — three spikes appeared standing on the aura ring by
+             themselves. Grounded builds only, and the tips stop at the floor. */
+          const fx = sp.build === "quad" ? .42 : .26;
+          return [-1, 1].map(k => (
+            <g key={"cl" + k}>
+              {[-1, 0, 1].map(j => (
+                <path key={j} fill={B} opacity=".85"
+                  d={`M${cx + k * bw * fx + j * 4.4 - 1.3} ${GROUND - 7} L${cx + k * bw * fx + j * 4.4 + 1.3} ${GROUND - 7} L${cx + k * bw * fx + j * 4.4} ${GROUND - 1.5} Z`} />
+              ))}
+            </g>));
+        })()}
+        {/* L18 — shards in orbit. Six of them, on two radii, so the ring has
+            depth instead of reading as a drawn circle of dots. */}
+        {has(18) && [0, 1, 2, 3, 4, 5].map(i => {
+          const a = i * Math.PI / 3 + .4, rr2 = i % 2 ? hr * 2.1 : hr * 1.7;
+          const sx = cx + Math.cos(a) * rr2, sy = hy + hr * .5 + Math.sin(a) * rr2 * .52;
+          return (
+            <g key={"sh" + i}>
+              <circle cx={sx} cy={sy} r="6" fill={`url(#${uid}-glow)`} opacity=".7" />
+              <path d={`M${sx} ${sy - 4.4} L${sx + 3} ${sy} L${sx} ${sy + 4.4} L${sx - 3} ${sy} Z`} fill={T.c} stroke="#fff" strokeWidth=".8" opacity=".95" />
+            </g>);
+        })}
         {!sad && <path d={`M${cx - hr * .22} ${hy + hr * .62} C${cx - hr * .06} ${hy + hr * .82} ${cx + hr * .06} ${hy + hr * .82} ${cx + hr * .22} ${hy + hr * .62}`} fill="none" stroke={B} strokeWidth="1.9" strokeLinecap="round" opacity=".62" />}
         {sad && <path d={`M${cx - hr * .22} ${hy + hr * .8} C${cx - hr * .06} ${hy + hr * .6} ${cx + hr * .06} ${hy + hr * .6} ${cx + hr * .22} ${hy + hr * .8}`} fill="none" stroke={B} strokeWidth="1.9" strokeLinecap="round" opacity=".62" />}
       </g>
@@ -1063,7 +1185,7 @@ export function petBonusOf() {
   if (!b) return null;
   /* a stage-three pet is worth more than a hatchling, and a merely-okay pet
      is worth less than a thriving one */
-  const scale = (petStage(p.bond) === 3 ? 1.4 : petStage(p.bond) === 2 ? 1.15 : 1) * (happy >= 80 ? 1 : 0.7);
+  const scale = [1, 1, 1.15, 1.4, 1.7, 2.05][petStage(p.bond)] * (happy >= 80 ? 1 : 0.7);
   return { k: b.k, v: b.v * scale, species: sp, happy, stage: petStage(p.bond) };
 }
 
@@ -1389,7 +1511,10 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
       <div className="pet-idcard">
         <span className="pi-code">{sp.code}</span>
         <span className="pi-type" style={{ "--tc": ty.c }}>{tr3(ty, lang)}</span>
-        <span className="pi-stage">{T("ขั้น", "Stage", "阶段")} {stage}</span>
+        {/* the stage now has a NAME. "Stage 4" tells you a number; "Champion"
+            tells you what your pet became, which is the half a player repeats
+            to somebody else. */}
+        <span className="pi-stage">{stage}. {tr3(STAGE_NAME[stage] || STAGE_NAME[1], lang)}</span>
         <span className={`pi-happy${happy < 50 ? " low" : ""}`}>{happy < 35 ? "😿" : happy < 60 ? "😐" : happy < 85 ? "🙂" : "😻"} {happy}%</span>
       </div>
 
