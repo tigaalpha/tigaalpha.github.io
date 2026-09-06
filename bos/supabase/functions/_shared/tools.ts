@@ -12,7 +12,6 @@ import { createLessonSummary } from "./lesson-summary.ts";
 import { push as linePush } from "./line.ts";
 import { executeMarketingTool } from "./marketing-tools.ts";
 import { CHIEF_OF_STAFF_SLUG, departmentBySlug, DEPARTMENTS } from "./departments.ts";
-import { CHIEF_OF_STAFF_SLUG, departmentBySlug, DEPARTMENTS } from "./departments.ts";
 
 // ISO (UTC) → Bangkok local time for display in messages, e.g. "17:00".
 function formatLessonTime(iso: string): string {
@@ -564,26 +563,20 @@ export function translateDbError(error: unknown): string {
  * model to call these tools against a completely different customer's
  * record (a prompt-injection-to-database-write path).
  */
-// Lazily-bound responder for delegate_to_department: chat-core.ts installs
-// its own respond() here at module load so tools.ts can deliver a Chief of
-// Staff directive into a target department's conversation without an import
-// cycle (respond -> executeTool -> respond). Other callers of executeTool
-// never hit it because only the CoS conversation is offered the tool.
-type DelegateResponder = (
-  db: SupabaseClient,
-  targetSlug: string,
-  directive: string
-) => Promise<Record<string, unknown>>;
-let delegateResponder: DelegateResponder | null = null;
-export function setDelegateResponder(fn: DelegateResponder): void {
-  delegateResponder = fn;
+// delegate_to_department is delivered by the caller (chat-core.ts) via the
+// `delegate` callback passed into executeTool — that keeps tools.ts free of
+// an import cycle with chat-core (respond -> executeTool -> respond) while
+// still letting the Chief of Staff command a target department's agent.
+export interface ExecuteToolDeps {
+  delegate?: (targetSlug: string, directive: string) => Promise<Record<string, unknown>>;
 }
 
 export async function executeTool(
   call: ToolCall,
   db: SupabaseClient,
   boundCustomerId: string | null = null,
-  callerId: string | null = null
+  callerId: string | null = null,
+  deps: ExecuteToolDeps = {}
 ): Promise<unknown> {
   const args = call.arguments as Record<string, string | number | undefined>;
 
@@ -1512,8 +1505,8 @@ export async function executeTool(
       if (!targetDept) {
         return { error: `ไม่พบแผนก "${targetSlug}" — แผนกที่มี: ${DEPARTMENTS.map((d) => d.slug).join(", ")}` };
       }
-      if (!delegateResponder) return { error: "ระบบส่งงานยังไม่พร้อม ลองใหม่อีกครั้ง" };
-      return await delegateResponder(db, targetSlug, directive);
+      if (!deps.delegate) return { error: "ระบบส่งงานยังไม่พร้อม ลองใหม่อีกครั้ง" };
+      return await deps.delegate(targetSlug, directive);
     }
 
     default: {
