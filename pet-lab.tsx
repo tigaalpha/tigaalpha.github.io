@@ -244,6 +244,69 @@ export function decay(v) {
   return out;
 }
 
+/* ── the stable ─────────────────────────────────────────────────────────────
+   A pet used to be a single record in a single slot: hatched once, kept for
+   ever, and that was the whole system. A second pet has to go somewhere, so
+   the ones you are not carrying live here. The ACTIVE pet stays exactly where
+   it always was, under `tg_pet`, which means every existing reader — the
+   arena bonus, the profile pod, the care page — finds its pet without knowing
+   the stable exists at all. */
+const BOX = "tg_petbox";
+export function readBox() {
+  try {
+    const v = JSON.parse(localStorage.getItem(BOX) || "[]");
+    return Array.isArray(v) ? v.filter(x => x && x.species) : [];
+  } catch (e) { return []; }
+}
+function writeBox(v) { try { localStorage.setItem(BOX, JSON.stringify(v)); } catch (e) {} }
+function announce() { try { window.dispatchEvent(new Event("tg-pet")); } catch (e) {} }
+
+/** Everything owned, the one being carried first. */
+export function allPets() {
+  const a = readPet();
+  return (a ? [a] : []).concat(readBox().map(decay));
+}
+export function ownsSpecies(id) {
+  const a = readPet();
+  if (a && a.species === id) return true;
+  return readBox().some(p => p.species === id);
+}
+export function carriedSpecies() { const a = readPet(); return a ? a.species : null; }
+
+/** Take on a species. It goes straight to your side if you have no pet at
+    all, and into the stable if you do — buying a companion should never
+    silently put down the one you already have. */
+export function adoptPet(speciesId) {
+  if (ownsSpecies(speciesId)) return false;
+  const p = newPet(speciesId);
+  if (!readPet()) writePet(p); else writeBox([...readBox(), p]);
+  announce();
+  return true;
+}
+
+/** Carry a different one. The pet you put down keeps everything — its name,
+    its bond, how hungry it is, the mess it made — because a pet swapped out
+    is not a pet thrown away, and it will still be hungry when you come back
+    to it. Its decay clock keeps running: a stabled pet is a neglected one. */
+export function carryPet(speciesId) {
+  const cur = readPet();
+  if (cur && cur.species === speciesId) return false;
+  const box = readBox();
+  const i = box.findIndex(p => p && p.species === speciesId);
+  if (i < 0) return false;
+  const next = box[i];
+  writeBox(cur ? box.slice(0, i).concat(box.slice(i + 1), [cur]) : box.slice(0, i).concat(box.slice(i + 1)));
+  writePet(decay(next));
+  announce();
+  return true;
+}
+
+/* Every pet costs the same. Their arena bonuses are deliberately small and
+   deliberately comparable, so a price ladder would be pricing a preference —
+   and which animal you want to look after is not a thing to charge more for.
+   The first one is still free out of the hatchery. */
+export const PET_COST = 1500;
+
 export function newPet(speciesId) {
   return {
     species: speciesId, name: "", born: Date.now(), seen: Date.now(),
@@ -1282,6 +1345,9 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
   const bonus = PET_BONUS[sp.bonus];
   const mess = pet.mess || [];
   const owned = PET_FOODS.filter(f => (bag[f.id] || 0) > 0);
+  // everything owned, the carried one first — the rail below only shows when
+  // there is more than one, so a single-pet player never sees a chooser
+  const stable = allPets();
 
   return (
     <div className="petpage" style={{ "--pc": sp.sw[0], "--pd": sp.sw[1], "--tc": ty.c }}>
@@ -1296,6 +1362,29 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
         <b>{pet.name || tr3(sp, lang)}</b>
         <span className="pet-coins">🪙 {coins.toLocaleString()}</span>
       </div>
+
+      {/* ── the stable ──
+          Buying a second pet in the shop and then finding no trace of it here
+          would be a bug wearing a feature's clothes. Everything owned is on
+          this rail; tapping one brings it out. The one you put down keeps
+          its name, its bond and its hunger — it is waiting, not gone. */}
+      {stable.length > 1 && (
+        <div className="pet-stable" role="group" aria-label={T("สัตว์เลี้ยงของคุณ", "Your pets", "你的宠物")}>
+          {stable.map(o => {
+            const osp = petById(o.species);
+            const here = o.species === pet.species;
+            return (
+              <button key={o.species} type="button" className={`pet-stall${here ? " on" : ""}`}
+                style={{ "--sc": osp.sw[0] }}
+                onClick={() => { if (!here && carryPet(o.species)) { setPet(readPet()); playUi("reward"); } }}>
+                <span className="ps-art"><PetArt species={o.species} level={petLevel(o.bond).lv} mood={here ? happy : petHappy(o)} /></span>
+                <b>{o.name || tr3(osp, lang)}</b>
+                <i>{here ? T("อยู่ข้างคุณ", "With you", "在你身边") : "Lv " + petLevel(o.bond).lv}</i>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="pet-idcard">
         <span className="pi-code">{sp.code}</span>

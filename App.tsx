@@ -7,7 +7,8 @@ import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotG
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 import { SkillTrack, PvpBanner, PvpPage, readSkillSp, skillRank } from "./pvp-arena";
-import { PetPod, PetPage } from "./pet-lab";
+import { PetPod, PetPage, PetArt, PET_SPECIES, PET_TYPES, PET_BONUS, PET_COST,
+  adoptPet, carryPet, ownsSpecies, carriedSpecies, allPets } from "./pet-lab";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -5426,6 +5427,19 @@ const SHOP_MODELS = [
     desc: { th: "โครงพิธีการ", en: "Ceremonial frame", zh: "礼典机架" }, sw: ["#f0d68a", "#ffe9a8"] },
 ];
 
+/* ── the menagerie ──
+   Every species on one shelf, at one price. The first pet is still free out
+   of the hatchery; this is where the second one comes from, and where you
+   swap which of them walks beside you. `pet` is the species id — namespaced
+   away from the gear ids the same way a chassis is. */
+const SHOP_PETS = PET_SPECIES.map(sp => ({
+  id: "pet-" + sp.id, pet: sp.id, cost: PET_COST,
+  rarity: sp.look === "cool" ? "epic" : "rare",
+  th: sp.th, en: sp.en, zh: sp.zh,
+  desc: { th: sp.dth, en: sp.den, zh: sp.dzh },
+  sw: sp.sw,
+}));
+
 /* ── the gem tier ──
    Fifty items that cannot be bought with coins at all. Gems come only from
    Prestige tier-ups, so this is an endgame rack rather than a second currency
@@ -9267,6 +9281,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [shopOpen, setShopOpen] = useState(false);
   // bumped on every upgrade so anything reading itemLv() re-renders with it
   const [itemLvTick, setItemLvTick] = useState(0);
+  // the stable lives in its own storage, so the shelf needs telling when it moves
+  const [petTick, setPetTick] = useState(0);
+  useEffect(() => {
+    const sync = () => setPetTick(t => t + 1);
+    window.addEventListener("tg-pet", sync);
+    return () => window.removeEventListener("tg-pet", sync);
+  }, []);
   const [shopTab, setShopTab] = useState("all");
   const [shopSubTab, setShopSubTab] = useState(null);
   const [friendsOpen, setFriendsOpen] = useState(false);
@@ -10185,6 +10206,28 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     playUi("reward"); mascot("celebrate", 2400);
   }
   const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL, mythic: lang === "th" ? "มหาเทพ" : lang === "zh" ? "神话" : "Mythic" };
+  /* ── the menagerie ──
+     One button does both jobs, the way every other shelf in this shop works:
+     if you do not have the animal it costs coins, and if you do it walks
+     beside you instead of whichever one currently does. Nothing is ever put
+     down for good — the one you swap out keeps its name, its bond and its
+     hunger, and is waiting in the stable when you come back for it. */
+  function buyOrCarryPet(it) {
+    if (ownsSpecies(it.pet)) {
+      if (carriedSpecies() === it.pet) { haptic(6); return; }
+      carryPet(it.pet);
+      setPetTick(t => t + 1);
+      playUi("reward"); haptic(6);
+      return;
+    }
+    if (coins < it.cost) { mascot("sad", 1400); return; }
+    const v = getCoins() - it.cost; setCoinsLS(v); setCoins(v);
+    if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+    adoptPet(it.pet);
+    setPetTick(t => t + 1);
+    playUi("reward"); mascot("celebrate", 2400);
+  }
+
   function renderShopItem(kind, it, equippedId) {
     const own = owned.includes(it.id), eq = equippedId === it.id;
     if (it.model) {
@@ -10198,6 +10241,28 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <StatBars lang={lang} stats={MODEL_COMBAT[it.model]} compact />
           <span className="shopitem-sp">{tr((MODEL_COMBAT[it.model] || {}).sp, lang)}</span>
           <span className="shopitem-tag">{running ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost.toLocaleString()}</span>
+        </button>
+      );
+    }
+    if (it.pet) {
+      const have = ownsSpecies(it.pet);
+      const here = carriedSpecies() === it.pet;
+      const sp = PET_SPECIES.find(x => x.id === it.pet) || PET_SPECIES[0];
+      const ty = PET_TYPES[sp.type] || {};
+      return (
+        <button key={it.id} data-tick={petTick}
+          className={`shopitem ${it.rarity} petitem${here ? " equipped" : ""}`}
+          onClick={() => buyOrCarryPet(it)}>
+          <span className="petitem-art"><PetArt species={sp.id} level={1} /></span>
+          <span className="shopitem-nm">{tr(it, lang)}</span>
+          <span className="petitem-type" style={{ "--tc": ty.c }}>{tr(ty, lang)}</span>
+          <span className="shopitem-desc">{tr(it.desc, lang)}</span>
+          <span className="petitem-bonus">{tr(PET_BONUS[sp.bonus] || {}, lang)}</span>
+          <span className="shopitem-tag">
+            {here ? "✓ " + T("อยู่ข้างคุณ", "With you", "在你身边")
+              : have ? T("พาตัวนี้ไป", "Take this one", "带上它")
+                : "🪙 " + it.cost.toLocaleString()}
+          </span>
         </button>
       );
     }
@@ -10720,6 +10785,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             { key: "charHat",       icon: "🥽", label: lc.shopHats,         items: SHOP_HATS },
             { key: "charOutfit",    icon: "🦿", label: lc.shopOutfits,      items: SHOP_OUTFITS },
             { key: "charAccessory", icon: "🔋", label: lc.shopAccessories,  items: SHOP_ACCESSORIES },
+            { key: "pet",           icon: "🐾", label: T("สัตว์เลี้ยง", "Pets", "宠物"), items: SHOP_PETS },
             { key: "skin",          icon: "🎹", label: lc.shopSkins,        items: SHOP_SKINS },
             { key: "theme",         icon: "🎨", label: lc.shopThemes,       items: SHOP_THEMES },
             { key: "frame",         icon: "🖼️", label: lc.shopFrames,       items: SHOP_FRAMES },
@@ -11146,6 +11212,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         const SUB_CATS = {
           battle: [
             { key: "charModel",     icon: "🤖", label: lang === "th" ? "สกินหุ่น" : lang === "zh" ? "机器人" : "Skins" },
+            { key: "pet",           icon: "🐾", label: T2("สัตว์เลี้ยง", "Pets", "宠物") },
             { key: "charWeapon",    icon: "⚔️", label: lc.shopWeapons },
             { key: "charHat",       icon: "🥽", label: lc.shopHats },
             { key: "charOutfit",    icon: "🦿", label: lc.shopOutfits },
@@ -11171,7 +11238,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           skin: SHOP_SKINS, theme: SHOP_THEMES, frame: SHOP_FRAMES,
           keyboard: SHOP_KEYBOARDS, sticker: SHOP_STICKERS,
           charHat: SHOP_HATS, charOutfit: SHOP_OUTFITS,
-          charWeapon: SHOP_WEAPONS, charAccessory: SHOP_ACCESSORIES, charModel: SHOP_MODELS,
+          charWeapon: SHOP_WEAPONS, charAccessory: SHOP_ACCESSORIES, charModel: SHOP_MODELS, pet: SHOP_PETS,
           gemWeapon: GEM_WEAPONS, gemOutfit: GEM_PLATING, gemHat: GEM_MODULES,
           gemAccessory: GEM_CORES, gemSticker: GEM_RELICS,
         };
@@ -11198,7 +11265,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             ? SUB_CATS[shopTab].filter(s => s.key === shopSubTab)
             : SUB_CATS[shopTab];
         const filtered = activeSubs.flatMap(c => (CAT_ITEMS[c.key] || []).map(it => ({ ...it, _kind: c.key })));
-        const ownedCount = filtered.filter(it => owned.includes(it.id)).length;
+        const ownedCount = filtered.filter(it => (it.pet ? ownsSpecies(it.pet) : owned.includes(it.id))).length;
         return (
           <div className="setov" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>
             <div className="setcard shop-full" onClick={e => e.stopPropagation()}>

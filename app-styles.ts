@@ -1358,6 +1358,35 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 @keyframes pvpgearmax{0%,100%{opacity:.15}50%{opacity:.55}}
 @media (prefers-reduced-motion:reduce){.pvpgear.wpn.maxed::after{animation:none}}
 
+/* ── the menagerie shelf ──
+   A pet card is taller than a gear card because the thing being sold is the
+   animal itself, not an icon standing in for it: the art gets room, and the
+   element and the arena bonus sit under the name because those are the two
+   facts somebody actually chooses on. */
+/* ── the stable rail ──
+   Only appears once there is more than one pet to choose between, so a
+   single-pet player never meets a chooser with one thing in it. */
+.pet-stable{display:flex;gap:8px;overflow-x:auto;padding:0 13px 2px;margin:10px auto 0;max-width:520px;
+  scrollbar-width:none}
+.pet-stable::-webkit-scrollbar{display:none}
+.pet-stall{flex:0 0 84px;display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;
+  padding:7px 5px 6px;border-radius:14px;border:1px solid var(--bd4);background:var(--card);color:var(--text)}
+.pet-stall .ps-art{display:block;width:100%;aspect-ratio:1/1.05;
+  filter:drop-shadow(0 4px 8px color-mix(in srgb,var(--sc,#8ab) 38%,transparent))}
+.pet-stall b{font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;line-height:1.1;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pet-stall i{font-style:normal;font-family:'Share Tech Mono',monospace;font-size:8.5px;color:var(--muted)}
+.pet-stall.on{border-color:#3ddc84aa;box-shadow:0 0 0 1px #3ddc8455 inset}
+.pet-stall.on i{color:#3ddc84}
+
+.petitem{gap:3px}
+.petitem-art{display:block;width:100%;aspect-ratio:1/1.06;margin-bottom:2px;
+  filter:drop-shadow(0 5px 10px rgba(11,21,38,.28))}
+.petitem-type{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.6px;
+  color:var(--tc,#8ab);text-transform:uppercase}
+.petitem-bonus{font-family:'Rajdhani',sans-serif;font-size:10.5px;font-weight:700;color:var(--muted)}
+.petitem.equipped{border-color:#3ddc84aa;box-shadow:0 0 0 1px #3ddc8455 inset,0 10px 24px -16px #3ddc84}
+
 /* ══════════ seasons, trials, objectives, the ghost ══════════ */
 
 /* the season strip: which one, how long is left, and whether placements are
