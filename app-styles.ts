@@ -314,6 +314,15 @@ html, body, #root{background:var(--bg)}
 .vidact:active .vidact-ic{transform:scale(.85)}
 .vidact.on .vidact-ic,.vidact.fav .vidact-ic{filter:none;animation:heartpop .32s ease-out}
 .vidact-n{font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:#fff;text-shadow:0 1px 4px #000;min-height:13px}
+/* the subtitle picker: opens to the LEFT of the rail so it never leaves the
+   screen on a phone, and sits above the player chrome */
+.vidsub-wrap{position:relative;display:flex;flex-direction:column;align-items:center}
+.vidsub-menu{position:absolute;right:52px;bottom:-6px;min-width:150px;background:rgba(14,20,34,.96);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:6px;z-index:12;box-shadow:0 18px 44px -14px #000;backdrop-filter:blur(8px)}
+.vidsub-head{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8fa3bd;padding:4px 10px 6px}
+.vidsub-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:none;border:none;color:#e8eefc;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;padding:9px 10px;border-radius:9px;cursor:pointer;text-align:left}
+.vidsub-opt:active{background:rgba(255,255,255,.09)}
+.vidsub-opt.on{background:rgba(0,240,255,.14);color:#7fe8ff}
+.vidsub-opt b{color:#7fe8ff;font-size:14px}
 @keyframes heartpop{0%{transform:scale(.55)}55%{transform:scale(1.35)}100%{transform:scale(1)}}
 .vidheart{position:absolute;font-size:74px;pointer-events:none;z-index:9;animation:heartfloat .82s ease-out forwards}
 @keyframes heartfloat{0%{opacity:0;transform:scale(.4)}18%{opacity:1;transform:scale(1.15)}100%{opacity:0;transform:translateY(-110px) scale(1.35)}}

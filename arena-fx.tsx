@@ -603,7 +603,75 @@ function bakeBackdrop(w, h, dpr, SG, hz, key) {
   an.addColorStop(0.5, `rgba(${SG.horizon},.22)`);
   an.addColorStop(1, `rgba(${SG.horizon},0)`);
   ctx.fillStyle = an; ctx.fillRect(mx - w * 0.3, my - 1.6, w * 0.6, 3.2);
+
+  /* ── god rays ──
+     Wedges of light leaving the key and fanning down across the skyline. This
+     is the single cheapest thing that makes a flat backdrop look like a shot
+     from a film — and because the whole backdrop is BAKED, it is paid for once
+     when the stage is built and never again, however long the fight runs. */
+  for (let i = 0; i < 7; i++) {
+    const a0 = 1.05 + i * 0.13 + (i % 2 ? 0.04 : 0);
+    const len = hz * (1.5 + (i % 3) * 0.45), spread = 0.016 + (i % 3) * 0.011;
+    const gg = ctx.createLinearGradient(mx, my, mx + Math.cos(a0) * len, my + Math.sin(a0) * len);
+    gg.addColorStop(0, `rgba(${SG.horizon},${0.13 - (i % 3) * 0.03})`);
+    gg.addColorStop(1, `rgba(${SG.horizon},0)`);
+    ctx.fillStyle = gg;
+    ctx.beginPath();
+    ctx.moveTo(mx, my);
+    ctx.lineTo(mx + Math.cos(a0 - spread) * len, my + Math.sin(a0 - spread) * len);
+    ctx.lineTo(mx + Math.cos(a0 + spread) * len, my + Math.sin(a0 + spread) * len);
+    ctx.closePath(); ctx.fill();
+  }
   ctx.globalCompositeOperation = "source-over";
+
+  /* ── weather ──
+     Cloud banks, thin and wide and drawn in the horizon's own colour so they
+     read as lit from below by the city rather than pasted on. Ellipses at very
+     low alpha, overlapping — a cloud is never one shape. */
+  for (let i = 0; i < 9; i++) {
+    const cy = hz * (0.12 + ((i * 37) % 100) / 100 * 0.6);
+    const cx2 = ((i * 149) % 100) / 100 * w;
+    const cw = w * (0.16 + ((i * 71) % 100) / 100 * 0.24), ch = hz * 0.035;
+    const cg = ctx.createRadialGradient(cx2, cy, 1, cx2, cy, cw);
+    cg.addColorStop(0, `rgba(${SG.horizon},${(0.05 + (i % 3) * 0.02).toFixed(3)})`);
+    cg.addColorStop(1, `rgba(${SG.horizon},0)`);
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.ellipse(cx2, cy, cw, ch, 0, 0, 7); ctx.fill();
+  }
+
+  /* ── the landmark ──
+     Every stage had a skyline but nothing to look AT: an even field of blocks
+     reads as texture, not as a place. Two tapered megastructures sit furthest
+     back, lit up one edge, with a strobe at the top — the thing on the horizon
+     you recognise the arena by. Drawn before the per-stage backdrop so the
+     nearer planes overlap them and the depth stacks properly. */
+  for (const T of [{ x: w * 0.17, wd: w * 0.055, top: hz * 0.16 }, { x: w * 0.86, wd: w * 0.04, top: hz * 0.34 }]) {
+    const base = hz + 6, tw = T.wd * 0.42;
+    ctx.fillStyle = `rgba(${SG.face || "16,22,44"},.62)`;
+    ctx.beginPath();
+    ctx.moveTo(T.x - T.wd / 2, base);
+    ctx.lineTo(T.x - tw / 2, T.top);
+    ctx.lineTo(T.x + tw / 2, T.top);
+    ctx.lineTo(T.x + T.wd / 2, base);
+    ctx.closePath(); ctx.fill();
+    // the lit edge, and the mast above it
+    ctx.fillStyle = `rgba(${SG.horizon},.3)`;
+    ctx.fillRect(T.x - tw / 2, T.top, 1.6, base - T.top);
+    ctx.fillRect(T.x - 0.9, T.top - hz * 0.09, 1.8, hz * 0.09);
+    ctx.globalCompositeOperation = "lighter";
+    const tg = ctx.createRadialGradient(T.x, T.top - hz * 0.09, 1, T.x, T.top - hz * 0.09, 14);
+    tg.addColorStop(0, `rgba(${SG.horizon},.5)`); tg.addColorStop(1, `rgba(${SG.horizon},0)`);
+    ctx.fillStyle = tg;
+    ctx.beginPath(); ctx.arc(T.x, T.top - hz * 0.09, 14, 0, 7); ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    beacons.push({ x: T.x, y: T.top - hz * 0.09 });
+    // floor-level lamps up the tower — cheap, and they sell the scale
+    for (let k = 1; k < 5; k++) {
+      const t = k / 5, yy = base - (base - T.top) * t;
+      ctx.fillStyle = `rgba(${SG.horizon},${(0.22 - t * 0.1).toFixed(2)})`;
+      ctx.fillRect(T.x - T.wd * (0.5 - t * 0.29) / 1, yy, T.wd * (1 - t * 0.58), 1.1);
+    }
+  }
 
   /* ── the backdrop ── what is BEHIND the horizon. One routine per stage,
      drawn before the floor so the fighters and the grid sit in front of it. */
@@ -697,6 +765,18 @@ function bakeBackdrop(w, h, dpr, SG, hz, key) {
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, hz + 20);
   }
   ctx.restore();
+
+  /* ── depth haze ──
+     A band of the sky's own colour laid back OVER the bottom of the skyline.
+     Aerial perspective is what stops a city looking like a sticker: the far
+     buildings should be sitting behind air, and without this every plane
+     reads at the same distance no matter how it is shaded. */
+  const hazeTop = hz - hz * 0.42;
+  const haze = ctx.createLinearGradient(0, hazeTop, 0, hz + 8);
+  haze.addColorStop(0, `rgba(${SG.horizon},0)`);
+  haze.addColorStop(0.62, `rgba(${SG.horizon},.10)`);
+  haze.addColorStop(1, `rgba(${SG.horizon},.20)`);
+  ctx.fillStyle = haze; ctx.fillRect(0, hazeTop, w, hz + 8 - hazeTop);
 
   // two overhead spots, coloured by the stage, so the fighters are lit by
   // the arena rather than pasted onto it

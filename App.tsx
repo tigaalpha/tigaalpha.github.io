@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } fro
 import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
-import { CSS, useInjectCSS } from "./app-styles";
+import { useInjectCSS } from "./app-styles";
 import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
@@ -3118,6 +3118,7 @@ function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("t
 // convention as this app's other sticky per-feature preferences.
 const VIDSUB_CYCLE = [null, "th", "en", "zh"];
 const VIDSUB_CC_CODE = { th: "th", en: "en", zh: "zh-Hans" };
+const VIDSUB_NAME = { th: "ไทย", en: "EN", zh: "中文" };
 function readVidSubLang() { try { return localStorage.getItem("tg_vidsub_lang") || null; } catch (e) { return null; } }
 function writeVidSubLang(v) { try { if (v) localStorage.setItem("tg_vidsub_lang", v); else localStorage.removeItem("tg_vidsub_lang"); } catch (e) {} }
 // share a lesson video — native share sheet on mobile (Web Share API), else LINE + clipboard
@@ -3141,12 +3142,14 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [faved, setFaved] = useState(() => readVidFav(s.key));
   const [subLang, setSubLang] = useState(() => readVidSubLang());
+  const [subOpen, setSubOpen] = useState(false);
   if (!active) return <div className="vidplaceholder">🎬</div>;
-  function cycleSubLang(e) {
-    e.stopPropagation();
-    const next = VIDSUB_CYCLE[(VIDSUB_CYCLE.indexOf(subLang) + 1) % VIDSUB_CYCLE.length];
-    setSubLang(next);
-    writeVidSubLang(next);
+  /* The CC button used to CYCLE Off -> TH -> EN -> ZH on each tap, so getting
+     to Chinese meant three taps through two languages you did not want, and
+     nothing on screen ever told you the other options existed. It opens a
+     picker instead: the three languages and Off, all visible, one tap each. */
+  function pickSubLang(v) {
+    setSubLang(v); writeVidSubLang(v); setSubOpen(false);
     playUi("click"); haptic(6);
   }
   // Forces YouTube's own caption system on in the chosen language when a
@@ -3163,10 +3166,26 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
         <span className="vidact-ic">💬</span>
         <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
       </button>
-      <button className={`vidact${subLang ? " on" : ""}`} onClick={cycleSubLang} title={T("คำบรรยาย — แตะเพื่อเปลี่ยนภาษา", "Subtitles — tap to change language", "字幕 — 点击切换语言")}>
-        <span className="vidact-ic" style={{ fontWeight: 900, fontSize: 15, letterSpacing: -0.5 }}>CC</span>
-        <span className="vidact-n">{subLang ? subLang.toUpperCase() : T("ปิด", "Off", "关")}</span>
-      </button>
+      <div className="vidsub-wrap">
+        <button className={`vidact${subLang ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); setSubOpen(o => !o); playUi("click"); haptic(6); }}
+          title={T("คำบรรยาย", "Subtitles", "字幕")}>
+          <span className="vidact-ic" style={{ fontWeight: 900, fontSize: 15, letterSpacing: -0.5 }}>CC</span>
+          <span className="vidact-n">{subLang ? VIDSUB_NAME[subLang] : T("ปิด", "Off", "关")}</span>
+        </button>
+        {subOpen && (
+          <div className="vidsub-menu" onClick={e => e.stopPropagation()}>
+            <div className="vidsub-head">{T("คำบรรยาย", "Subtitles", "字幕")}</div>
+            {[["th", "ไทย"], ["en", "English"], ["zh", "中文"]].map(([code, label]) => (
+              <button key={code} className={`vidsub-opt${subLang === code ? " on" : ""}`} onClick={() => pickSubLang(code)}>
+                <span>{label}</span>{subLang === code ? <b>✓</b> : null}
+              </button>
+            ))}
+            <button className={`vidsub-opt${subLang ? "" : " on"}`} onClick={() => pickSubLang(null)}>
+              <span>{T("ปิดคำบรรยาย", "Off", "关闭")}</span>{subLang ? null : <b>✓</b>}
+            </button>
+          </div>
+        )}
+      </div>
       <button className="vidact" onClick={(e) => { e.stopPropagation(); shareVideo(s, lang); }}>
         <span className="vidact-ic">📤</span>
         <span className="vidact-n">{T("แชร์", "Share", "分享")}</span>
