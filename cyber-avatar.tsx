@@ -402,6 +402,182 @@ export const MODEL_RIG = {
   zenith:  { hs: 1.16, bw: 0.98, bh: 1.00 },
 };
 
+/* ── the build ──
+   Every hero model was drawn on ONE chassis, and the only thing that changed
+   between them was the head and a class crest. Forty of them side by side read
+   as one robot in forty hats — which is exactly the complaint. Silhouette is
+   what tells two machines apart at arm's length, so the parts that stick OUT
+   of the body are the ones worth varying: the shoulder, the thing on its back,
+   and the light in its chest. Everything here is authored for the LEFT side
+   and mirrored, so a new pauldron costs one path, not two.
+
+   pa = pauldron · core = what is burning in the chest · back = the silhouette
+   behind the shoulders. */
+const PAULDRON = {
+  // the original: a domed cap that wraps the shoulder ball
+  dome: {
+    main: "M38 90 C24 87 12 94 6 106 C2 115 1 126 3 135 C11 139 21 138 28 132 C32 125 35 114 38 103 Z",
+    lame: "M4 133 C12 138 22 137 29 130 L31 139 C23 147 12 148 3 143 Z",
+    gr: "M11 101 C19 95 29 93 36 96",
+    riv: [[8.5, 112], [6.5, 125], [17, 100]],
+  },
+  // a tank's shoulder: squared off, hung further out, and heavy at the lip
+  slab: {
+    main: "M38 86 L12 79 C0 76 -10 84 -11 97 L-11 132 C-11 142 -3 149 8 147 L35 140 C37 120 38 102 38 86 Z",
+    lame: "M-11 135 C2 145 22 145 35 138 L34 154 C20 162 -2 161 -10 151 Z",
+    gr: "M-6 94 L32 89 M-7 106 L33 101",
+    riv: [[-5, 118], [-5, 131], [12, 85]],
+  },
+  // aggression: a hard cap with a blade coming off the top of it
+  spike: {
+    main: "M38 90 C24 86 12 92 5 104 C1 113 0 125 2 134 C10 138 20 137 27 131 C31 124 35 113 38 103 Z",
+    blade: "M21 92 L-3 63 L-7 99 Z",
+    lame: "M3 132 C11 137 21 136 28 129 L30 138 C22 146 11 147 2 142 Z",
+    gr: "M10 102 C18 96 28 94 35 97",
+    riv: [[7, 113], [5, 126]],
+  },
+  // speed: a slim cap with the mass swept backwards into a fin
+  swept: {
+    main: "M38 92 C27 88 17 94 11 105 C7 114 6 124 8 132 C14 136 23 135 29 129 C32 122 35 112 38 104 Z",
+    blade: "M14 100 L-16 116 L-23 141 L1 127 L11 114 Z",
+    lame: "M9 130 C15 134 24 133 30 127 L31 136 C25 143 15 144 8 139 Z",
+    gr: "M15 103 C22 98 30 96 36 99",
+    riv: [[11, 114], [10, 125]],
+  },
+  // engineering: a dome with a vent bored through it
+  vent: {
+    main: "M38 90 C24 87 11 93 5 105 C1 114 0 126 2 135 C10 139 21 138 28 132 C32 125 35 114 38 103 Z",
+    lame: "M3 133 C11 138 21 137 28 130 L30 139 C22 147 11 148 2 143 Z",
+    gr: "M10 100 C18 94 28 92 35 95",
+    vent: [16, 117, 8.4],
+    riv: [[6, 104], [5, 131]],
+  },
+  // stealth: barely there, so the arm reads as bare
+  bare: {
+    main: "M36 94 C26 90 17 95 13 104 C10 111 10 120 12 127 C18 130 26 129 31 124 C33 117 35 105 36 96 Z",
+    lame: "M11 125 C17 129 26 128 32 123 L33 131 C27 138 17 139 10 134 Z",
+    gr: "M17 102 C23 98 29 97 34 99",
+    riv: [[14, 110], [13, 121]],
+  },
+};
+
+/* What is burning in the chest. Authored around (60,131) — the same mount for
+   all of them, so only the glyph and its bezel change. */
+const CORE_GLYPH = {
+  diamond: "M60 119 L72 131 L60 143 L48 131 Z",
+  hex: "M60 118 L70.4 124 L70.4 138 L60 144 L49.6 138 L49.6 124 Z",
+  slit: "M56.4 119 L63.6 119 L63.6 143 L56.4 143 Z",
+  cross: "M56.6 119 L63.4 119 L63.4 127.6 L72 127.6 L72 134.4 L63.4 134.4 L63.4 143 L56.6 143 L56.6 134.4 L48 134.4 L48 127.6 L56.6 127.6 Z",
+  star: "M60 117 L63.4 127.6 L74 131 L63.4 134.4 L60 145 L56.6 134.4 L46 131 L56.6 127.6 Z",
+  tri: "M49 121.5 L71 121.5 L71 126.5 L49 126.5 Z M49 128.5 L71 128.5 L71 133.5 L49 133.5 Z M49 135.5 L71 135.5 L71 140.5 L49 140.5 Z",
+  orb: "",
+};
+
+/* Behind the shoulders. Drawn under the arms and the torso, so only the part
+   that escapes the body outline survives — which is the whole point, and the
+   trap: the torso spans x 22..98 and the arms and pauldrons own x -7..38, so
+   anything authored between them is drawn and then completely covered up.
+   These all live ABOVE and OUTSIDE the shoulder line, where there is nothing
+   in front of them. Authored left, mirrored right, same as the pauldrons. */
+const BACKPACK = {
+  none: null,
+  // twin boosters standing up off the back — height and menace, no width
+  thruster: {
+    plates: ["M34 100 L18 103 L4 48 C3 41 7 36 14 37 L23 39 C28 40 31 44 32 50 Z"],
+    trim: ["M6 56 L31 51 L33 62 L8 67 Z"],
+    lit: ["M5 40 C5 34 10 31 16 32 L23 34 C28 35 30 39 29 44 Z"],
+  },
+  // a swept blade off each shoulder, angled up and out
+  fin: {
+    plates: ["M36 104 L12 80 L-8 32 L16 58 L34 90 Z"],
+    trim: ["M20 74 L4 46 L12 44 L27 70 Z"],
+  },
+  /* sensor masts: the tallest silhouette in the set. A 7px rod was correct
+     engineering and invisible art — at lobby thumbnail size it landed on two
+     screen pixels. Widened, and given a crossbar, which is what actually
+     reads as an ANTENNA rather than a stick. */
+  array: {
+    plates: ["M22 100 L36 100 L32 22 L26 22 Z", "M12 44 L34 39 L35 47 L13 52 Z"],
+    trim: ["M18 92 L40 92 L39 110 L19 110 Z"],
+    lamps: [[29, 18]],
+  },
+  // wings sweeping out past the arms — the widest silhouette in the set
+  wing: {
+    plates: ["M36 100 L-12 122 L-30 170 L0 140 L20 122 L38 116 Z"],
+    trim: ["M30 112 L-6 130 L-16 154 L4 134 L26 122 Z"],
+  },
+};
+
+/* ── the soft build ──
+   The cute frames had exactly the same problem as the hero frames and a worse
+   version of it: fifteen of them shared one egg, one collar and one cyan
+   diamond, so the only thing telling a bear from a penguin was the face. A
+   badge on the chest, a paler tummy and a tail are what a child actually reads
+   as "that one is MINE" — and none of them need a new skeleton. */
+const CUTE_GLYPH = {
+  heart: "M60 221 C46 210 48 195.5 56.5 195.5 C59.4 195.5 60 198.6 60 198.6 C60 198.6 60.6 195.5 63.5 195.5 C72 195.5 74 210 60 221 Z",
+  star: "M60 193 L64.4 205 L77 205.6 L67 213.4 L70.6 225.6 L60 218.4 L49.4 225.6 L53 213.4 L43 205.6 L55.6 205 Z",
+  cloud: "M48 216 C42 216 40.5 206.8 47 205.4 C47.4 197 58.6 194.4 62.4 201 C68 196.4 76 200.6 74.6 207.4 C79.4 209 78.4 216 72 216 Z",
+  bolt: "M64 193 L49 210.5 L58 211.5 L54 224 L71 205.5 L61.5 204.5 Z",
+  drop: "M60 193 C68 203 74 209.4 74 214.4 C74 221 67.6 225 60 225 C52.4 225 46 221 46 214.4 C46 209.4 52 203 60 193 Z",
+  hex: "M60 194 L72.1 201 L72.1 215 L60 222 L47.9 215 L47.9 201 Z",
+  pixel: "M50 197 h9 v9 h-9 Z M61 197 h9 v9 h-9 Z M50 208 h9 v9 h-9 Z M61 208 h9 v9 h-9 Z",
+  leaf: "M60 192 C74 200 76 214 62 224 C48 214 46 200 60 192 Z",
+  paw: "M51.6 214.0 a8.4 8.4 0 1 0 16.8 0 a8.4 8.4 0 1 0 -16.8 0 M47.1 202.0 a3.4 3.4 0 1 0 6.8 0 a3.4 3.4 0 1 0 -6.8 0 M53.2 197.6 a3.4 3.4 0 1 0 6.8 0 a3.4 3.4 0 1 0 -6.8 0 M60.0 197.6 a3.4 3.4 0 1 0 6.8 0 a3.4 3.4 0 1 0 -6.8 0 M66.1 202.0 a3.4 3.4 0 1 0 6.8 0 a3.4 3.4 0 1 0 -6.8 0",
+  flower: "M54.6 198.4 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 M62.8 204.3 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 M59.7 214.0 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 M49.5 214.0 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 M46.4 204.3 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 M55.6 207.0 a4.4 4.4 0 1 0 8.8 0 a4.4 4.4 0 1 0 -8.8 0",
+  snow: "M61.9 207.0 L61.9 195.0 L58.1 195.0 L58.1 207.0 Z M61.0 208.6 L71.3 202.6 L69.4 199.4 L59.0 205.4 Z M59.0 208.6 L69.4 214.6 L71.3 211.4 L61.0 205.4 Z M58.1 207.0 L58.1 219.0 L61.9 219.0 L61.9 207.0 Z M59.0 205.4 L48.7 211.4 L50.6 214.6 L61.0 208.6 Z M61.0 205.4 L50.6 199.4 L48.7 202.6 L59.0 208.6 Z",
+  bubble: "M48.0 208.0 a12.0 12.0 0 1 0 24.0 0 a12.0 12.0 0 1 0 -24.0 0 M52.4 204.0 a3.6 3.6 0 1 0 7.2 0 a3.6 3.6 0 1 0 -7.2 0",
+};
+
+/* Assigned so no two neighbours in the shop grid wear the same badge. */
+export const CUTE_BUILD = {
+  pip:     { badge: "bolt",   belly: 1 },
+  pebble:  { badge: "drop",   belly: 1 },
+  nova:    { badge: "star",   belly: 1 },
+  pixel:   { badge: "pixel",  belly: 0 },
+  mochi:   { badge: "heart",  belly: 1 },
+  pudding: { badge: "cloud",  belly: 1 },
+  acorn:   { badge: "leaf",   belly: 1, tail: "puff" },
+  cocoa:   { badge: "paw",    belly: 1, tail: "puff" },
+  blossom: { badge: "flower", belly: 1 },
+  pengu:   { badge: "snow",   belly: 1, tail: "puff" },
+  bubbly:  { badge: "bubble", belly: 1 },
+  poppy:   { badge: "flower", belly: 1 },
+  honey:   { badge: "hex",    belly: 1, tail: "puff" },
+  snowbun: { badge: "snow",   belly: 1, tail: "puff" },
+  plushy:  { badge: "heart",  belly: 1, tail: "puff" },
+};
+
+/* Which model gets what. The cute frames are not listed: their chassis is a
+   different build entirely and pauldrons on an egg look like a mistake. */
+export const MODEL_BUILD = {
+  vanguard: { pa: "slab",  core: "diamond", back: "thruster" },
+  sentinel: { pa: "slab",  core: "cross",   back: "none" },
+  reaper:   { pa: "spike", core: "star",    back: "fin" },
+  ronin:    { pa: "spike", core: "slit",    back: "fin" },
+  phantom:  { pa: "swept", core: "slit",    back: "wing" },
+  specter:  { pa: "swept", core: "hex",     back: "none" },
+  aurora:   { pa: "bare",  core: "orb",     back: "array" },
+  scout:    { pa: "swept", core: "tri",     back: "none" },
+  meridian: { pa: "vent",  core: "hex",     back: "array" },
+  atlas:    { pa: "slab",  core: "hex",     back: "thruster" },
+  halcyon:  { pa: "bare",  core: "orb",     back: "wing" },
+  keeper:   { pa: "vent",  core: "cross",   back: "none" },
+  envoy:    { pa: "dome",  core: "diamond", back: "array" },
+  talon:    { pa: "spike", core: "star",    back: "wing" },
+  sentry:   { pa: "slab",  core: "tri",     back: "thruster" },
+  wraith:   { pa: "swept", core: "slit",    back: "fin" },
+  magnus:   { pa: "slab",  core: "hex",     back: "thruster" },
+  saber:    { pa: "spike", core: "diamond", back: "fin" },
+  oracle:   { pa: "vent",  core: "orb",     back: "array" },
+  korax:    { pa: "spike", core: "cross",   back: "fin" },
+  tempest:  { pa: "swept", core: "star",    back: "wing" },
+  bastion:  { pa: "slab",  core: "cross",   back: "thruster" },
+  nyx:      { pa: "bare",  core: "slit",    back: "wing" },
+  forge:    { pa: "vent",  core: "tri",     back: "thruster" },
+  zenith:   { pa: "dome",  core: "star",    back: "array" },
+};
+
 const LEGACY = { boy: "vanguard", girl: "specter", cute: "nova" };
 export function normalizeModel(v) {
   if (LEGACY[v]) return LEGACY[v];
@@ -2500,6 +2676,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   const hs = rig.hs;                          // head size against the body
   const chibi = !!rig.chibi;
   const bw = rig.bw || 1, bh = rig.bh || 1;
+  const bd = MODEL_BUILD[v] || MODEL_BUILD.vanguard;   // pauldron / core / backpack
+  const cb = CUTE_BUILD[v] || CUTE_BUILD.nova;         // badge / belly / tail
   const shellFill = `url(#${id}-${HEAD.fill})`;
   // the chassis takes the model's own material; the outfit's swatch re-plates the trim
   const bodyKey = HEAD.body || (HEAD.fill.startsWith("skin") ? "plate" : HEAD.fill);
@@ -2538,7 +2716,20 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     return m.get(k);
   };
 
-  const plate = keep("pl", (d, o = {}) => (
+  const plate = keep("pl", (d, o = {}) => (o.lite ? (
+    /* ── the cheap plate ──
+       Thirteen passes is the right price for a plate you can read the machining
+       on. It is the wrong price for a booster behind a shoulder: that part is
+       covered by the torso and survives only as an OUTLINE, and nobody has ever
+       seen the fresnel on a silhouette. Four passes — colour, occlusion, sheen,
+       contact line — and the added parts stop costing the fight frames. */
+    <g>
+      <path d={d} fill={o.fill || bPlate} stroke="none" />
+      <path d={d} fill={`url(#${id}-occ)`} stroke="none" opacity=".85" />
+      <path d={d} fill={`url(#${id}-spec)`} stroke="none" opacity=".6" />
+      <path d={d} fill="none" stroke="#00060f" strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity=".45" />
+    </g>
+  ) : (
     <g>
       <path d={d} fill={o.fill || bPlate} stroke="none" />
       <path d={d} fill={`url(#${id}-occ)`} stroke="none" opacity={o.occ == null ? 1 : o.occ} />
@@ -2571,7 +2762,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       <path d={d} fill="none" stroke={o.line || bLine} strokeWidth={(o.lw || 1) * .55} strokeLinejoin="round" opacity={o.lineOp == null ? .5 : o.lineOp * .56} />
       <clipPath id={`${id}-c${Math.abs(hashPath(d))}`}><path d={d} /></clipPath>
     </g>
-  ));
+  )));
   /* A LIT seam: a channel with energy running through it. Three passes — a
      wide dim bloom, the line itself, a white core — so it reads as light
      inside the armour rather than a coloured pen stroke on top of it. This is
@@ -3038,6 +3229,15 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           )}
           {(front > 0.01 || rear > 0.01) && (
             <g opacity={Math.max(front, rear).toFixed(3)} transform={`translate(0 ${PZ.lift})`}>
+              {/* a tail, drawn before the body so the body covers its root and
+                  only the puff clears the hip. Sized to peek past x=17, which is
+                  where the barrel ends — anything narrower is invisible. */}
+              {cb.tail === "puff" && (
+                <g transform={rot(PZ.lean, 60, 280)}>
+                  {plate("M22 248 C8 244 -4 252 -4 266 C-4 280 8 288 22 284 C30 280 30 252 22 248 Z", { lw: 1, lite: 1 })}
+                  <ellipse cx="8" cy="262" rx="9" ry="8" fill="#ffffff" opacity=".22" />
+                </g>
+              )}
               {/* stubby arms, elbow-less, with mitten hands */}
               <g transform={rot(PZ.armL * .8, 22, 154)}>
                 {plate("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z")}
@@ -3091,12 +3291,19 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                     on its chest instead */}
                 {plate("M60 140 L71 149 L60 165 L49 149 Z", { fill: `url(#${id}-cls)`, line: mixc(CC, "#000814", .5), lw: 1 })}
                 <ellipse cx="60" cy="208" rx="38" ry="43" fill="none" stroke={CC} strokeWidth="1.4" opacity=".6" />
+                {/* the tummy: a paler front, which is what makes a soft thing
+                    look soft. Painted under the badge so the badge sits ON it. */}
+                {cb.belly ? <ellipse cx="60" cy="228" rx="30" ry="46" fill="#ffffff" opacity=".17" /> : null}
                 <g className="ca-core">
                   <circle cx="60" cy="208" r="15" fill="none" stroke={glow} strokeWidth="1.5" opacity=".95" />
                   <circle cx="60" cy="208" r="11.5" fill={glow} opacity=".14" />
-                  <path d="M60 195 L73 208 L60 221 L47 208 Z" fill={`url(#${id}-visor)`} />
-                  <circle cx="60" cy="208" r="5.4" fill="#fff" opacity=".95" />
-                  <circle cx="56.8" cy="204.4" r="2.1" fill="#fff" opacity=".8" />
+                  {/* the badge: a heart, a paw, a snowflake. One diamond on all
+                      fifteen of them was the reason a bear and a penguin read as
+                      the same toy in two colours. */}
+                  <path d={CUTE_GLYPH[cb.badge] || CUTE_GLYPH.star} fill={`url(#${id}-visor)`} fillRule="evenodd" />
+                  <path d={CUTE_GLYPH[cb.badge] || CUTE_GLYPH.star} fill="none" stroke="#ffffff" strokeWidth=".9" fillRule="evenodd" opacity=".55" />
+                  <circle cx="60" cy="208" r="3.4" fill="#fff" opacity=".9" />
+                  <circle cx="56.8" cy="204.4" r="1.6" fill="#fff" opacity=".75" />
                 </g>
                 {groove("M34 264 Q60 276 86 264", 1.4, .4)}
                 <ellipse cx="42" cy="379" rx="11" ry="5" fill="#ffffff" opacity=".35" />
@@ -3159,6 +3366,30 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           )}
           {(front > 0.01 || rear > 0.01) && (
             <g opacity={Math.max(front, rear).toFixed(3)} transform={`translate(0 ${PZ.lift})`}>
+              {/* ── what it carries on its back ──
+                  Drawn FIRST, so the arms and the torso cover it and only its
+                  outline survives. That outline is the whole point: it is what
+                  makes one of these readable across a lobby at thumbnail size. */}
+              {(() => {
+                const B = BACKPACK[bd.back]; if (!B) return null;
+                const one = (
+                  <>
+                    {B.plates.map((d, i) => <g key={"p" + i}>{plate(d, { lw: 1, lite: 1 })}</g>)}
+                    {(B.trim || []).map((d, i) => <g key={"t" + i}>{plate(d, { fill: bTrim, lw: .9, lite: 1 })}</g>)}
+                    {(B.lit || []).map((d, i) => (
+                      <path key={"l" + i} d={d} fill={term ? "#ff2d46" : glow} opacity=".6" className="ca-optic" />
+                    ))}
+                    {(B.lamps || []).map((c, i) => (
+                      <circle key={"m" + i} cx={c[0]} cy={c[1]} r="2.8" fill={term ? "#ff2d46" : glow} className="ca-optic" />
+                    ))}
+                  </>
+                );
+                return (
+                  <g transform={rot(PZ.lean, 60, 200)} opacity=".95">
+                    {one}<g transform="translate(120 0) scale(-1 1)">{one}</g>
+                  </g>
+                );
+              })()}
               {/* arms swing from the shoulder; the whole limb is one group so
                   bicep, elbow, forearm and hand travel together */}
               <g transform={rot(PZ.armL, 24, 108)}>
@@ -3197,17 +3428,30 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                   lame under its lip. The flat outward crescent this replaces read
                   as a paper wing pinned on beside the arm rather than armour
                   sitting over it. */}
-              {plate("M38 90 C24 87 12 94 6 106 C2 115 1 126 3 135 C11 139 21 138 28 132 C32 125 35 114 38 103 Z", { lw: 1.2 })}
-              {plate("M4 133 C12 138 22 137 29 130 L31 139 C23 147 12 148 3 143 Z", { fill: bTrim, line: glow, lw: 1 })}
-              {groove("M11 101 C19 95 29 93 36 96", 1.2, .5)}
-              {plate("M82 90 C96 87 108 94 114 106 C118 115 119 126 117 135 C109 139 99 138 92 132 C88 125 85 114 82 103 Z", { lw: 1.2 })}
-              {plate("M116 133 C108 138 98 137 91 130 L89 139 C97 147 108 148 117 143 Z", { fill: bTrim, line: glow, lw: 1 })}
-              {groove("M109 101 C101 95 91 93 84 96", 1.2, .5)}
-              {/* rim rivets: the cheapest detail that tells a plate from a blob */}
-              <g opacity=".45" fill="#0a1220">
-                <circle cx="8.5" cy="112" r="1.25" /><circle cx="6.5" cy="125" r="1.25" /><circle cx="17" cy="100" r="1.25" />
-                <circle cx="111.5" cy="112" r="1.25" /><circle cx="113.5" cy="125" r="1.25" /><circle cx="103" cy="100" r="1.25" />
-              </g>
+              {(() => {
+                /* One shoulder, authored left, mirrored right. The blade and the
+                   vent are what actually separate a tank from a skirmisher at a
+                   glance — the dome underneath is nearly the same on all of them. */
+                const P = PAULDRON[bd.pa] || PAULDRON.dome;
+                const one = (
+                  <>
+                    {P.blade && plate(P.blade, { lw: 1, lite: 1 })}
+                    {plate(P.main, { lw: 1.2 })}
+                    {plate(P.lame, { fill: bTrim, line: glow, lw: 1 })}
+                    {groove(P.gr, 1.2, .5)}
+                    {P.vent && <>
+                      <circle cx={P.vent[0]} cy={P.vent[1]} r={P.vent[2]} fill="#00060f" opacity=".7" />
+                      <circle cx={P.vent[0]} cy={P.vent[1]} r={P.vent[2]} fill="none" stroke={bLine} strokeWidth="1.1" opacity=".7" />
+                      <circle cx={P.vent[0]} cy={P.vent[1]} r={P.vent[2] * .52} fill={glow} opacity=".5" className="ca-optic" />
+                    </>}
+                    {/* rim rivets: the cheapest detail that tells a plate from a blob */}
+                    <g opacity=".45" fill="#0a1220">
+                      {P.riv.map((r, i) => <circle key={i} cx={r[0]} cy={r[1]} r="1.25" />)}
+                    </g>
+                  </>
+                );
+                return <>{one}<g transform="translate(120 0) scale(-1 1)">{one}</g></>;
+              })()}
               {(() => {
                 const crest = (
                   <>
@@ -3326,7 +3570,13 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                   <circle cx="60" cy="131" r="14.5" fill="#00060f" opacity=".55" />
                   <circle cx="60" cy="131" r="13" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.4" opacity=".9" />
                   <circle cx="60" cy="131" r="10" fill={term ? "#ff2d46" : glow} opacity=".16" />
-                  <path d="M60 119 L72 131 L60 143 L48 131 Z" fill={term ? `url(#${id}-red)` : `url(#${id}-visor)`} />
+                  {/* the glyph is the model's signature: the same lamp in every
+                      chest is the loudest way to say "these are recolours" */}
+                  {CORE_GLYPH[bd.core] ? (
+                    <path d={CORE_GLYPH[bd.core]} fill={term ? `url(#${id}-red)` : `url(#${id}-visor)`} />
+                  ) : (
+                    <circle cx="60" cy="131" r="11" fill={term ? `url(#${id}-red)` : `url(#${id}-visor)`} />
+                  )}
                   <circle cx="60" cy="131" r="4.8" fill="#fff" opacity=".95" />
                   <circle cx="57.2" cy="127.6" r="1.9" fill="#fff" opacity=".8" />
                 </g>

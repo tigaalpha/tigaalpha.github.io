@@ -36,6 +36,32 @@ const dim = (c, t = .5) => mix(c, "#0b1020", t);
    times per item) measured at 8% of all script time during a round. The props
    are a name, a swatch array held on the item record, and a size, none of
    which change while a fight is running. */
+/* Cuts, in the same 64-box every other item is drawn in. `extra` is the one
+   line that tells two garments apart once they are both grey — a lapel, a
+   kimono's crossed front, the seam down a robe. */
+const OUT_FORM = {
+  tee:    { d: "M24 11 L28 9 C29 12.5 35 12.5 36 9 L40 11 L56 19 L50 29 L45 26 L45 57 L19 57 L19 26 L14 29 L8 19 Z",
+            gloss: "M22 14 L22 54" },
+  hoodie: { d: "M24 13 L28 11 C29 14.5 35 14.5 36 11 L40 13 L56 21 L50 31 L45 28 L45 57 L19 57 L19 28 L14 31 L8 21 Z",
+            hood: "M24 16 C22 4 42 4 40 16 C36 20 28 20 24 16 Z",
+            extra: "M29 17 L29 40 M35 17 L35 40", gloss: "M22 22 L22 54" },
+  jacket: { d: "M24 11 L32 15 L40 11 L56 19 L50 29 L45 26 L45 57 L19 57 L19 26 L14 29 L8 19 Z",
+            extra: "M25 12 L32 30 L39 12", gloss: "M22 14 L22 54" },
+  dress:  { d: "M25 11 L28 9 C29 12.5 35 12.5 36 9 L39 11 L43 21 L41 31 L53 57 L11 57 L23 31 L21 21 Z",
+            extra: "M32 14 L32 30", gloss: "M26 14 L22 42" },
+  kimono: { d: "M22 11 L32 15 L42 11 L58 23 L53 33 L46 28 L46 57 L18 57 L18 28 L11 33 L6 23 Z",
+            extra: "M32 15 L24 34 M32 15 L40 34 M20 40 H44", gloss: "M21 18 L21 54" },
+  robe:   { d: "M26 10 L32 14 L38 10 L47 17 L44 27 L51 57 L13 57 L20 27 L17 17 Z",
+            extra: "M32 14 L32 52", gloss: "M24 16 L20 46" },
+};
+
+/* Plating keeps the shield; anything you wear gets a cut. */
+const OUT_CUT = {
+  "out-tshirt": "tee", "out-hoodie": "hoodie", "out-jacket": "jacket",
+  "out-dress": "dress", "out-kimono": "kimono", "out-tuxedo": "jacket",
+  "out-royal": "robe", "out-celestial": "robe",
+};
+
 export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, className = "" }) {
   const uid = "ia" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const A = sw[0] || "#9fb2d2";
@@ -521,6 +547,28 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       <path d="M32 8 L52 15 C52 33 45 47 32 55" fill="none" stroke="#ffffff" strokeWidth="1.2" opacity=".3" />
     </>,
 
+    /* ── clothes ──
+       Fifteen outfits all came out of SHAPES.plate, which is a SHIELD. A
+       t-shirt, a hoodie, a kimono and a ball gown were the same crest outline
+       with a different texture clipped inside it, and no pattern rescues a
+       silhouette that is wrong: the shape is what the eye reads first and it
+       was saying "armour" fifteen times. Plating still gets the shield — that
+       one was right — and everything you could actually wear gets its own cut. */
+    garment: (form, pat) => {
+      const G = OUT_FORM[form] || OUT_FORM.tee;
+      return (
+        <>
+          {G.hood && P(G.hood, GB, { lw: 1.4, line: edgeB })}
+          {P(G.d, GA, { lw: 1.6 })}
+          <clipPath id={`${uid}-cg`}><path d={G.d} /></clipPath>
+          <g clipPath={`url(#${uid}-cg)`}>{pat}</g>
+          {G.extra ? <path d={G.extra} fill="none" stroke={lite(C, .4)} strokeWidth="1.7" strokeLinecap="round" opacity=".85" /> : null}
+          <path d={G.d} fill="none" stroke={edge} strokeWidth="1.6" strokeLinejoin="round" />
+          {G.gloss ? <path d={G.gloss} fill="none" stroke="#ffffff" strokeWidth="1.2" opacity=".28" /> : null}
+        </>
+      );
+    },
+
     /* ── accessories ── */
     shield: () => SHAPES.plate(<>
       {seam("M32 6 V58")}
@@ -862,7 +910,9 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
   // "pw-3" is form pw carrying emblem 3
   const mythic = /^(pw|pp|pm|pc|pr)-(\d+)$/.exec(art || "");
   const byPrefix = mythic ? null : [
-    ["out-", () => SHAPES.plate(PATTERNS[art] || PATTERNS["out-tshirt"])],
+    ["out-", () => (OUT_CUT[art]
+      ? SHAPES.garment(OUT_CUT[art], PATTERNS[art] || PATTERNS["out-tshirt"])
+      : SHAPES.plate(PATTERNS[art] || PATTERNS["out-tshirt"]))],
     ["key-", () => SHAPES.keycap(KEY_MOTIF[art])],
     ["thm-", () => SHAPES.scene(THEME_MOTIF[art])],
     ["frm-", () => SHAPES.frame(FRAME_MOTIF[art])],

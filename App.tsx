@@ -5941,9 +5941,15 @@ const GameStats = memo(function GameStats({ lang }) {
 const CS_RARITY = { common: 0, rare: 1, epic: 2, legendary: 3 };
 const CharacterStage = memo(function CharacterStage({ lang, model, charHat, charOutfit, charWeapon, charAccessory }) {
   const [yaw, setYaw] = useState(-16);
-  const [spin, setSpin] = useState(() => {
-    try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return true; }
-  });
+  /* ── it stands still until you ask it not to ──
+     The turntable used to start itself. A model that will not hold still is
+     a model you cannot look at: you never get to see the front of your own
+     robot, the pose you are actually wearing is whatever frame it happened
+     to be on, and the card is doing a render a frame the whole time the
+     page is open. It parks at a slight three-quarter — enough turn to have
+     depth, near enough to front-on to read as a portrait — and the 360°
+     button, the arrows and dragging it all still work exactly as before. */
+  const [spin, setSpin] = useState(false);
   const [touched, setTouched] = useState(false);
   const dragRef = useRef(null);
 

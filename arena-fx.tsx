@@ -434,14 +434,34 @@ export function createArenaAudio(stage) {
           g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
           o.connect(g); g.connect(dest || bus); o.start(t); o.stop(t + dur + 0.05);
         };
-        const hiss = (hz, peak, dur, type = "highpass") => {
+        /* `hz1` sweeps the filter across the life of the sound. A whoosh is a
+           band of noise MOVING through the spectrum; with the band nailed in
+           one place the best you can ever get is a hiss, which is why the
+           rocket sounded like a kettle. `at` delays the whole thing without a
+           setTimeout, so a launch and its own tail stay sample-locked. */
+        const hiss = (hz, peak, dur, type = "highpass", hz1, at = 0, q) => {
           const s = a.createBufferSource(); s.buffer = noise(a);
-          const f = a.createBiquadFilter(); f.type = type; f.frequency.value = hz;
+          const f = a.createBiquadFilter(); f.type = type;
+          const t0 = t + at;
+          f.frequency.setValueAtTime(hz, t0);
+          if (hz1 && hz1 !== hz) f.frequency.exponentialRampToValueAtTime(Math.max(20, hz1), t0 + dur);
+          if (q) f.Q.value = q;
           const g = a.createGain();
-          g.gain.setValueAtTime(0.0001, t);
-          g.gain.exponentialRampToValueAtTime(peak, t + 0.005);
-          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-          s.connect(f); f.connect(g); g.connect(bus); s.start(t); s.stop(t + dur + 0.05);
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(peak, t0 + 0.005);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+          s.connect(f); f.connect(g); g.connect(bus); s.start(t0); s.stop(t0 + dur + 0.05);
+        };
+        /* A tone that starts LATER, for layering a sound out of parts without
+           a stack of setTimeouts drifting against each other. */
+        const at2 = (delay, type, f0, f1, peak, dur) => {
+          const o = a.createOscillator(), g = a.createGain(), t0 = t + delay;
+          o.type = type; o.frequency.setValueAtTime(f0, t0);
+          if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(peak, t0 + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+          o.connect(g); g.connect(bus); o.start(t0); o.stop(t0 + dur + 0.05);
         };
         if (kind === "hit")       { hiss(900, 0.3, 0.16, "bandpass"); tone("sine", 180, 55, 0.34, 0.18); }
         else if (kind === "crit") { hiss(2200, 0.3, 0.26, "bandpass"); tone("square", 900, 180, 0.2, 0.3); tone("sine", 150, 45, 0.4, 0.34); }
@@ -459,9 +479,33 @@ export function createArenaAudio(stage) {
           setTimeout(() => { hiss(400, 0.45, 0.6, "lowpass"); tone("sine", 120, 35, 0.5, 0.7); }, 540);
         }
         else if (kind === "shot")   { tone("square", 1500, 320, 0.18, 0.14); hiss(2600, 0.12, 0.09, "bandpass"); }
-        else if (kind === "laser")  { tone("sawtooth", 760, 700, 0.13, 0.42); tone("square", 1560, 1400, 0.07, 0.4); hiss(3200, 0.09, 0.4, "bandpass"); }
+        else if (kind === "laser")  {
+          /* Three sounds, in the order the weapon makes them. A capacitor
+             winding up, the discharge itself, and the room afterwards.
+             The two saws are detuned by seven hertz on purpose: the beat
+             between them is the whole reason it sounds like energy rather
+             than like a buzzer. */
+          at2(0, "sine", 420, 2200, 0.07, 0.1);                    // the charge
+          tone("sawtooth", 1180, 620, 0.13, 0.34);                 // the beam
+          tone("sawtooth", 1187, 627, 0.11, 0.34);                 // and its beat
+          at2(0.02, "square", 2400, 1500, 0.05, 0.26);             // the metal edge on it
+          hiss(900, 0.16, 0.3, "bandpass", 5200, 0, 3);            // the crackle, rising
+          at2(0.03, "sine", 150, 42, 0.3, 0.4);                    // what it does to the floor
+          hiss(2600, 0.06, 0.5, "highpass", 700, 0.14);            // the room, dying away
+        }
         else if (kind === "kick")   { tone("sine", 220, 48, 0.42, 0.24); hiss(600, 0.28, 0.14, "bandpass"); }
-        else if (kind === "lob")    { tone("sine", 300, 900, 0.08, 0.4); }
+        else if (kind === "lob")    {
+          /* It was one rising sine — a boop, and the reason the rocket read as
+             a bright fish before you even looked at it. A launch is a shove
+             and then a departure: the thump of the tube, a hard crack of
+             ignition, and the motor itself — noise sweeping DOWN as it goes
+             away from you, which is the whole sound of something leaving. */
+          tone("sine", 190, 48, 0.34, 0.16);                       // the tube
+          hiss(1800, 0.26, 0.09, "bandpass", 600, 0, 1.4);         // ignition
+          hiss(2600, 0.17, 0.42, "bandpass", 420, 0.02, 1.1);      // the motor, going away
+          at2(0.02, "sawtooth", 240, 96, 0.07, 0.4);               // the body of it
+          at2(0.05, "triangle", 700, 380, 0.05, 0.34);             // and the whistle over the top
+        }
         else if (kind === "boom")   {
           hiss(240, 0.6, 0.85, "lowpass"); tone("sine", 160, 28, 0.55, 0.8);
           setTimeout(() => hiss(700, 0.2, 0.7, "bandpass"), 90);
@@ -781,6 +825,156 @@ export function warmArenaAudio() {
   try { audioBus(); } catch (e) {}
 }
 
+/* ── the beam ──
+   Same reason as the missile: a laser lives for four hundred milliseconds in
+   the middle of a fight, which is not long enough to judge it. Given a beam
+   record and a clock it draws the whole thing — haze, core, filaments, both
+   ends and the strike — so it can be rendered on its own and looked at. */
+export function drawLaser(ctx, l, t) {
+  const k = l.p < .15 ? l.p / .15 : l.p > .7 ? (1 - l.p) / .3 : 1;   // strike, hold, cut
+  // the beam breathes: a real high-energy line is never a steady width
+  const puls = 1 + Math.sin(t * 46) * 0.12 + Math.sin(t * 121) * 0.05;
+  ctx.save(); ctx.lineCap = "round";
+  // outer haze — wide, dim, and what sells it as hot rather than painted
+  ctx.globalAlpha = 0.13 * k; ctx.strokeStyle = l.c; ctx.lineWidth = l.w * 9 * puls;
+  ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
+  ctx.globalAlpha = 0.3 * k; ctx.lineWidth = l.w * 4.5 * puls;
+  ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
+  ctx.globalAlpha = 0.7 * k; ctx.lineWidth = l.w * 1.9 * puls;
+  ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
+  ctx.globalAlpha = k; ctx.strokeStyle = "#fff"; ctx.lineWidth = l.w * 0.75;
+  ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
+  /* ── arc filaments ──
+     A perfectly straight line is a laser POINTER. What makes a weapon
+     of it is the energy that will not stay inside it: two filaments
+     crawling the length of the beam, snapping to new positions several
+     times a second. The jitter is hashed off the segment index and a
+     quantised clock rather than Math.random, so it flickers like
+     electricity instead of boiling like noise — and allocates nothing. */
+  const dxl = l.x1 - l.x0, dyl = l.y1 - l.y0;
+  const nlx = -dyl / (Math.hypot(dxl, dyl) || 1), nly = dxl / (Math.hypot(dxl, dyl) || 1);
+  const tick = Math.floor(t * 22);
+  ctx.globalAlpha = 0.75 * k; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = l.w * 0.42;
+  for (let a = 0; a < 2; a++) {
+    ctx.beginPath();
+    for (let seg = 0; seg <= 8; seg++) {
+      const f = seg / 8;
+      const h = Math.sin((seg * 12.9898 + tick * 4.1414 + a * 78.233)) * 43758.5453;
+      const j = (h - Math.floor(h) - 0.5) * l.w * (seg === 0 || seg === 8 ? 0 : 4.0);
+      const px = l.x0 + dxl * f + nlx * j, py = l.y0 + dyl * f + nly * j;
+      if (seg === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // the emitter end blooms, and the far end splashes where it lands
+  for (const [ex, ey, er] of [[l.x0, l.y0, l.w * 4.4], [l.x1, l.y1, l.w * 7.6]]) {
+    const g = ctx.createRadialGradient(ex, ey, 1, ex, ey, er * (0.7 + 0.5 * puls));
+    g.addColorStop(0, "#ffffff"); g.addColorStop(0.4, l.c); g.addColorStop(1, l.c + "00");
+    ctx.globalAlpha = k * 0.9; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(ex, ey, er * (0.7 + 0.5 * puls), 0, 7); ctx.fill();
+  }
+
+  /* ── the strike ──
+     Everything above holds for the length of the beam. This is the half
+     of a laser that only happens at the START: a hard star at the point
+     of contact and a ring leaving it, both gone inside a fifth of a
+     second. A beam that arrives with no event at the far end reads as a
+     drawing of a laser rather than something landing on someone. */
+  if (l.p < 0.24) {
+    const q = l.p / 0.24, out = 1 - Math.pow(1 - q, 2.2), fade = 1 - q;
+    /* Kept deliberately TIGHT. The wide pressure wave is already spawned as a
+       one-shot `shock` at the moment of contact; a second big ring here only
+       draws a circle on top of it. This is the hot collar right at the point
+       of contact — small, thick, and gone. */
+    ctx.globalAlpha = fade * k;
+    ctx.strokeStyle = l.c; ctx.lineWidth = l.w * 1.7 * fade;
+    ctx.beginPath(); ctx.arc(l.x1, l.y1, l.w * (2 + 9 * out), 0, 7); ctx.stroke();
+    // the emitter kicks back: a smaller collar leaving the barrel as well
+    ctx.lineWidth = l.w * 1.1 * fade;
+    ctx.beginPath(); ctx.arc(l.x0, l.y0, l.w * (1.5 + 5.5 * out), 0, 7); ctx.stroke();
+    // six spikes, uneven, thinning as they go
+    ctx.globalAlpha = fade * fade * k;
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = l.w * 0.7 * fade;
+    for (let n = 0; n < 6; n++) {
+      const ang2 = n * 1.0472 + 0.4;
+      const len = l.w * (5 + 11 * out) * (n % 2 ? 0.5 : 1);
+      ctx.beginPath();
+      ctx.moveTo(l.x1, l.y1);
+      ctx.lineTo(l.x1 + Math.cos(ang2) * len, l.y1 + Math.sin(ang2) * len);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.globalAlpha = 1; ctx.restore();
+}
+
+/* ── the missile ──
+   Pulled out of the frame loop so it can be drawn on its own and LOOKED at.
+   Four hundred milliseconds inside a fight is not a review; a picture of the
+   thing at rest is. `ang` is the tangent of its own arc, so it banks over the
+   top of the throw the way something with fins would, and `flick` is the
+   exhaust flutter — passed in rather than read off a clock so a still frame
+   is reproducible. */
+export function drawRocket(ctx, x, y, ang, colour, flick) {
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(ang);
+  // ── the flame, behind the body so the body cuts into it ──
+  ctx.globalCompositeOperation = "lighter";
+  const fl = 26 * flick;
+  const fg = ctx.createLinearGradient(-12, 0, -12 - fl, 0);
+  fg.addColorStop(0, "#ffffff");
+  fg.addColorStop(0.22, colour);
+  fg.addColorStop(1, colour + "00");
+  ctx.fillStyle = fg;
+  ctx.beginPath();
+  ctx.moveTo(-11, -4.6); ctx.quadraticCurveTo(-12 - fl * .5, -2.2, -12 - fl, 0);
+  ctx.quadraticCurveTo(-12 - fl * .5, 2.2, -11, 4.6);
+  ctx.closePath(); ctx.fill();
+  // the hot core of the exhaust, short and white
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.moveTo(-11, -2.2); ctx.quadraticCurveTo(-12 - fl * .3, 0, -11, 2.2);
+  ctx.closePath(); ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+
+  // ── the body: metal, not the weapon's colour, or it reads as a blob ──
+  ctx.beginPath();
+  ctx.moveTo(-12, -3.8);
+  ctx.lineTo(5, -3.8);
+  ctx.quadraticCurveTo(13, -2.6, 16, 0);      // nose
+  ctx.quadraticCurveTo(13, 2.6, 5, 3.8);
+  ctx.lineTo(-12, 3.8);
+  ctx.closePath();
+  ctx.fillStyle = "#c9d6e6"; ctx.fill();
+  // one shadow along the underside so the tube reads as round
+  ctx.fillStyle = "rgba(20,30,48,.34)";
+  ctx.beginPath();
+  ctx.moveTo(-12, 1.1); ctx.lineTo(5, 1.1);
+  ctx.quadraticCurveTo(11.6, 1.8, 14.2, 1.5);
+  ctx.quadraticCurveTo(11.6, 3.1, 5, 3.8);
+  ctx.lineTo(-12, 3.8);
+  ctx.closePath(); ctx.fill();
+  // and a lit strip along the top edge
+  ctx.fillStyle = "rgba(255,255,255,.5)";
+  ctx.fillRect(-11, -3.2, 15, 1.5);
+  // the warhead band, in the weapon's own colour
+  ctx.fillStyle = colour;
+  ctx.fillRect(2.6, -3.7, 3.4, 7.4);
+  // fins
+  ctx.fillStyle = "#8d9bb0";
+  ctx.beginPath(); ctx.moveTo(-7, -3.6); ctx.lineTo(-13, -9.4); ctx.lineTo(-13, -3.4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-7, 3.6); ctx.lineTo(-13, 9.4); ctx.lineTo(-13, 3.4); ctx.closePath(); ctx.fill();
+  // the outline last, so every edge stays crisp against the flame
+  ctx.strokeStyle = "#2a3547"; ctx.lineWidth = 1.1; ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(-12, -3.8); ctx.lineTo(5, -3.8);
+  ctx.quadraticCurveTo(13, -2.6, 16, 0);
+  ctx.quadraticCurveTo(13, 2.6, 5, 3.8);
+  ctx.lineTo(-12, 3.8); ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+
 export function useArenaFx(stage) {
   /* TWO canvases, because the arena is drawn on both sides of the fighters.
      The backdrop — sky, city, floor, the wet road — has to be BEHIND them or
@@ -1069,49 +1263,41 @@ export function useArenaFx(stage) {
       for (let i = S.lasers.length - 1; i >= 0; i--) {
         const l = S.lasers[i]; l.p += dt / l.dur;
         if (l.p >= 1) { S.lasers.splice(i, 1); continue; }
-        const k = l.p < .15 ? l.p / .15 : l.p > .7 ? (1 - l.p) / .3 : 1;   // strike, hold, cut
-        // the beam breathes: a real high-energy line is never a steady width
-        const puls = 1 + Math.sin(S.t * 46) * 0.12 + Math.sin(S.t * 121) * 0.05;
-        ctx.save(); ctx.lineCap = "round";
-        // outer haze — wide, dim, and what sells it as hot rather than painted
-        ctx.globalAlpha = 0.13 * k; ctx.strokeStyle = l.c; ctx.lineWidth = l.w * 9 * puls;
-        ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
-        ctx.globalAlpha = 0.3 * k; ctx.lineWidth = l.w * 4.5 * puls;
-        ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
-        ctx.globalAlpha = 0.7 * k; ctx.lineWidth = l.w * 1.9 * puls;
-        ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
-        ctx.globalAlpha = k; ctx.strokeStyle = "#fff"; ctx.lineWidth = l.w * 0.75;
-        ctx.beginPath(); ctx.moveTo(l.x0, l.y0); ctx.lineTo(l.x1, l.y1); ctx.stroke();
-        // the emitter end blooms, and the far end splashes where it lands
-        for (const [ex, ey, er] of [[l.x0, l.y0, l.w * 4.4], [l.x1, l.y1, l.w * 6.4]]) {
-          const g = ctx.createRadialGradient(ex, ey, 1, ex, ey, er * (0.7 + 0.5 * puls));
-          g.addColorStop(0, "#ffffff"); g.addColorStop(0.4, l.c); g.addColorStop(1, l.c + "00");
-          ctx.globalAlpha = k * 0.9; ctx.fillStyle = g;
-          ctx.beginPath(); ctx.arc(ex, ey, er * (0.7 + 0.5 * puls), 0, 7); ctx.fill();
-        }
-        ctx.globalAlpha = 1; ctx.restore();
+        drawLaser(ctx, l, S.t);
       }
 
       // ── lobbed shells: a real parabola, so a grenade arcs instead of sliding
+      /* ── the rocket ──
+         It used to be a white dot inside a coloured glow with a ring pulsing
+         around it, which is not a rocket — it is a bright fish. A rocket is
+         four things and it needs all four: a hard body you can see the SHAPE
+         of, a nose that points the way it is going, fins at the back so the
+         eye knows which end is which, and a flame coming out of the tail.
+         The whole thing is drawn along the tangent of its own arc, so it
+         banks over the top of the throw the way something with fins would.
+         Costs one gradient a frame — the same as the glowing dot did. */
       for (let i = S.lobs.length - 1; i >= 0; i--) {
         const b = S.lobs[i]; b.p += dt / b.dur;
         if (b.p >= 1) { S.lobs.splice(i, 1); b.onLand && b.onLand(); continue; }
         const x = b.x0 + (b.x1 - b.x0) * b.p;
         const y = b.y0 + (b.y1 - b.y0) * b.p - b.arc * 4 * b.p * (1 - b.p);
-        ctx.beginPath(); ctx.arc(x, y, 6, 0, 7);
-        const g = ctx.createRadialGradient(x - 2, y - 2, 1, x, y, 8);
-        g.addColorStop(0, "#fff"); g.addColorStop(1, b.c);
-        ctx.fillStyle = g; ctx.fill();
-        ctx.beginPath(); ctx.arc(x, y, 10 + Math.sin(S.t * 40) * 2, 0, 7);
-        ctx.strokeStyle = b.c; ctx.globalAlpha = .5; ctx.lineWidth = 1.4; ctx.stroke(); ctx.globalAlpha = 1;
-        // a smoke trail behind it, so you can see the shell coming and where
-        // from — a grenade that appears at the target is a magic trick
+        // the tangent of the parabola: where it is pointing IS where it is going
+        const vx = b.x1 - b.x0, vy = (b.y1 - b.y0) - b.arc * 4 * (1 - 2 * b.p);
+        const ang = Math.atan2(vy, vx);
+        const flick = 0.72 + 0.28 * Math.sin(S.t * 63) + 0.12 * Math.sin(S.t * 149);
+
+        drawRocket(ctx, x, y, ang, b.c, flick);
+
+        /* a smoke trail behind it, so you can see the shell coming and where
+           from — a grenade that appears at the target is a magic trick. It
+           leaves the TAIL now rather than the middle of the body. */
         b.trail = (b.trail || 0) + dt;
         if (b.trail > 0.028 && !reduced()) {
           b.trail = 0;
-          S.smoke.push({ x, y, vx: (Math.random() - .5) * 22, vy: -8 - Math.random() * 14,
+          const tx2 = x - Math.cos(ang) * 13, ty2 = y - Math.sin(ang) * 13;
+          S.smoke.push({ x: tx2, y: ty2, vx: (Math.random() - .5) * 22, vy: -8 - Math.random() * 14,
             r: 4 + Math.random() * 4, p: 0, dur: 0.5 + Math.random() * 0.35 });
-          S.embers.push({ x, y, vx: (Math.random() - .5) * 40, vy: 10 + Math.random() * 30,
+          S.embers.push({ x: tx2, y: ty2, vx: (Math.random() - .5) * 40, vy: 10 + Math.random() * 30,
             r: 0.7 + Math.random(), life: 0.3 + Math.random() * 0.3, max: 0.6,
             fl: 30 + Math.random() * 20, ph: Math.random() * 7 });
         }
@@ -1335,6 +1521,24 @@ export function useArenaFx(stage) {
     const a = at(from, part), b = at(from === "me" ? "op" : "me", "body");
     S.lasers.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.42, c: colour, w });
     muzzle(from, part, colour);
+    /* ── what the far end does about being hit ──
+       The beam itself is a held line, and a held line drawn onto somebody is
+       still just a line. These are one-shot, spawned once at the moment of
+       contact rather than every frame: a hard flash where it lands, a
+       pressure ring off it, and sparks thrown back UP the beam, which is the
+       direction a spatter actually goes. */
+    S.balls.push({ x: b.x, y: b.y, r: 16 + w * 3, p: 0, dur: 0.2 });
+    S.shock.push({ x: b.x, y: b.y, r0: 4, r1: 54 + w * 5, p: 0, dur: 0.3 });
+    if (!reduced()) {
+      const back = Math.atan2(a.y - b.y, a.x - b.x);
+      for (let i = 0; i < 12; i++) {
+        const sp = back + (Math.random() - 0.5) * 1.5, v = 90 + Math.random() * 190;
+        S.embers.push({ x: b.x, y: b.y, vx: Math.cos(sp) * v, vy: Math.sin(sp) * v - 40,
+          r: 0.8 + Math.random() * 1.3, life: 0.3 + Math.random() * 0.4, max: 0.7,
+          fl: 34 + Math.random() * 26, ph: Math.random() * 7 });
+      }
+      S.scorch.push({ x: b.x, y: S.h * 0.86, r: 22 + w * 2, p: 0, dur: 1.5 });
+    }
   }, []);
 
   /** The flash at the barrel. Small, but it is what places the shot on a hand
