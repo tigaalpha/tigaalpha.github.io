@@ -1331,7 +1331,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpfbody{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
 .pvpfbody > svg{display:block;height:206px;width:auto;position:relative;z-index:1}
 .pvpgear{position:absolute;pointer-events:none;z-index:4;display:block;
-  filter:drop-shadow(0 3px 5px rgba(0,0,0,.55))}
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
 .pvpgear svg{display:block;width:100%;height:100%}
 /* the weapon rides the leading hand, just outside the silhouette the way a
    held object sits, and swings when the body lunges */
@@ -1353,18 +1353,21 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpfighter.op .pvpgear.wpn{right:auto;left:-8%;transform:rotate(16deg) scaleX(-1)}
 .pvpfighter.me.lunge .pvpgear.wpn{transform:rotate(-56deg) translate(5px,-7px)}
 .pvpfighter.op.lunge .pvpgear.wpn{transform:rotate(56deg) scaleX(-1) translate(5px,-7px)}
-/* the weapon carries its own light, taken from the item's own bolt colour */
+/* ── both of these are display:none until they have something to say ──
+   An invisible box is not free: it still lands in the layer tree and still
+   composites every frame, and this is a fight running at 4x throttle on the
+   cheapest phone we support. The glow only exists on kit that glows, and the
+   swing arc only exists while the body is actually lunging. */
 .pvpgear.wpn::before{content:"";position:absolute;inset:-30%;border-radius:50%;z-index:-1;
-  background:radial-gradient(circle,var(--wglow,#7fe8ff) 0%,transparent 62%);opacity:0}
-.pvpgear.wpn.r-epic::before{opacity:.3}
-.pvpgear.wpn.r-legendary::before{opacity:.44;animation:pvpaurapulse 1.7s ease-in-out infinite}
-.pvpgear.wpn.r-mythic::before{opacity:.56;animation:pvpaurapulse 1.15s ease-in-out infinite}
+  background:radial-gradient(circle,var(--wglow,#7fe8ff) 0%,transparent 62%);display:none}
+.pvpgear.wpn.r-epic::before{display:block;opacity:.3}
+.pvpgear.wpn.r-legendary::before{display:block;opacity:.44;animation:pvpaurapulse 1.7s ease-in-out infinite}
+.pvpgear.wpn.r-mythic::before{display:block;opacity:.56;animation:pvpaurapulse 1.15s ease-in-out infinite}
 /* the swing: an arc the blade leaves behind, so the weapon is what you see
    land the hit rather than an ornament that happens to be nearby */
 .pvpwpn-trail{position:absolute;inset:-16% -42% -16% -8%;border-radius:50%;pointer-events:none;
-  border:3px solid transparent;border-top-color:var(--wglow,#7fe8ff);opacity:0}
-.pvpfighter.me.lunge .pvpwpn-trail{animation:pvpwpnswing .26s ease-out}
-.pvpfighter.op.lunge .pvpwpn-trail{animation:pvpwpnswing .26s ease-out}
+  border:3px solid transparent;border-top-color:var(--wglow,#7fe8ff);opacity:0;display:none}
+.pvpfighter.lunge .pvpwpn-trail{display:block;animation:pvpwpnswing .26s ease-out}
 @keyframes pvpwpnswing{0%{opacity:0;transform:rotate(-42deg) scale(.82)}
   34%{opacity:.95}100%{opacity:0;transform:rotate(46deg) scale(1.2)}}
 /* every level you hammered into it, on the weapon, during the fight */

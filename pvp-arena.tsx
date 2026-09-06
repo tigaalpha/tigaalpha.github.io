@@ -585,6 +585,49 @@ export const MOVES = {
              th: "ปืนใหญ่จากอาวุธ", en: "Weapon Cannon", zh: "武器炮击" },
   grenade: { pose: "throw",  part: "hand",   fx: "grenade", sfx: "lob",   lunge: 0,
              th: "ขว้างระเบิด",    en: "Grenade",       zh: "投掷炸弹" },
+  /* ── what a carried weapon actually does ──
+     A sword that only nudged a damage number was a sword nobody could feel.
+     These are the swings and shots the RACK reaches for, picked by what is
+     in the hand rather than by which button was pressed. */
+  slash:   { pose: "attack", part: "weapon", fx: "melee",   sfx: "hit",   lunge: 1,
+             th: "ฟันดาบ",         en: "Blade Slash",   zh: "斩击" },
+  cleave:  { pose: "kick",   part: "weapon", fx: "melee",   sfx: "kick",  lunge: 1,
+             th: "ฟันหนัก",        en: "Heavy Cleave",  zh: "重斩" },
+  pulse:   { pose: "shoot",  part: "weapon", fx: "bolt",    sfx: "shot",  lunge: 0,
+             th: "คลื่นเสียง",      en: "Sonic Pulse",   zh: "音波脉冲" },
+  shell:   { pose: "shoot",  part: "weapon", fx: "bolt",    sfx: "shot",  lunge: 0,
+             th: "ยิงกระสุน",       en: "Shell Shot",    zh: "炮弹射击" },
+};
+
+/* ── the weapon IS the moveset ──
+   The two ranged buttons keep their jobs — one fast poke, one big slow
+   commitment — but WHAT COMES OUT is whatever you are carrying. A blade
+   turns them into a slash and an overhead cleave that have to be walked into
+   range; a blaster gives up that damage for a bolt and a full beam thrown
+   from anywhere; ordnance lobs a real rocket; the music bench fires sound.
+   Everything is a trade, so no purchase is strictly better than another —
+   it just plays differently, which is the reason to own more than one. */
+export const WPN_ACT = {
+  blade: {
+    fire:   { move: "slash",   range: 0.46, dmg: 1.9, cd: 470,  frame: "punch" },
+    rocket: { move: "cleave",  range: 0.54, dmg: 3.9, cd: 3400, frame: "rocket" },
+    th: ["ฟัน", "ฟันหนัก"], en: ["SLASH", "CLEAVE"], zh: ["斩", "重斩"], ic: ["\u2694\ufe0f", "\ud83d\udca5"],
+  },
+  blaster: {
+    fire:   { move: "blaster", range: 9,    dmg: 0.72, cd: 320,  frame: "fire" },
+    rocket: { move: "laser",   range: 9,    dmg: 3.2,  cd: 3400, frame: "rocket" },
+    th: ["ยิง", "เลเซอร์"], en: ["SHOOT", "LASER"], zh: ["射击", "激光"], ic: ["\ud83d\udd2b", "\u2734\ufe0f"],
+  },
+  ordnance: {
+    fire:   { move: "shell",   range: 9,    dmg: 0.86, cd: 390,  frame: "fire" },
+    rocket: { move: "grenade", range: 9,    dmg: 3.4,  cd: 3400, frame: "rocket" },
+    th: ["ยิงกระสุน", "จรวด"], en: ["SHELL", "ROCKET"], zh: ["炮弹", "火箭"], ic: ["\ud83d\udca3", "\ud83d\ude80"],
+  },
+  support: {
+    fire:   { move: "pulse",   range: 9,    dmg: 0.64, cd: 290,  frame: "fire" },
+    rocket: { move: "cannon",  range: 9,    dmg: 3.0,  cd: 3200, frame: "rocket" },
+    th: ["คลื่นเสียง", "เรโซแนนซ์"], en: ["PULSE", "RESONATE"], zh: ["音波", "共鸣"], ic: ["\ud83c\udf9a\ufe0f", "\ud83d\udd0a"],
+  },
 };
 // what each class reaches for; repeats are weights, not typos
 const CLASS_MOVES = {
@@ -2051,6 +2094,18 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const wpn = (gear || []).find(g => g && g.id && String(g.id).startsWith("wpn-"));
   const myBolt = (wpn && wpn.sw && wpn.sw[0]) || "#7fe8ff";
   const wpnLv = wpn ? itemLv(wpn.id) : 0;
+  /* Which of the four movesets the thing in your hand belongs to. With
+     nothing equipped the buttons stay exactly what they always were. */
+  const wpnKit = (wpn && WPN_ACT[wpnArchetype(wpn.art)]) || null;
+  const actFor = (act) => {
+    const base = ACT[act];
+    if (!base) return null;
+    const o = wpnKit && wpnKit[act];
+    return o ? { ...base, ...o } : base;
+  };
+  const kitLabel = (i) => (wpnKit ? T(wpnKit.th[i], wpnKit.en[i], wpnKit.zh[i])
+    : i === 0 ? T("ยิง", "FIRE", "射击") : T("จรวด", "ROCKET", "火箭"));
+  const kitIcon = (i) => (wpnKit ? wpnKit.ic[i] : i === 0 ? "\ud83d\udd2b" : "\ud83d\ude80");
   /* ── the gear you paid for, on the robot that is fighting ──
      CyberAvatar takes no gear props at all, so up to now everything bought in
      the shop was invisible the moment a fight started: the same grey chassis
@@ -2964,7 +3019,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      the difference between a fight and a tapping contest. */
   function attack(act) {
     if (phase !== "action" || doneRef.current || !liveRef.current) return;
-    const A2 = ACT[act]; if (!A2) return;
+    const A2 = actFor(act); if (!A2) return;
     const now = Date.now();
     // hitstun, dizzy and your own recovery all lock you out — same rules the
     // bot plays by
@@ -2985,7 +3040,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // the histogram the bot reads at the round break
     const U = usedRef.current;
     if (act === "punch" || act === "kick") U.melee += 1; else U.ranged += 1;
-    const F = FRAMES[act] || FRAMES.punch;
+    const F = FRAMES[A2.frame || act] || FRAMES.punch;
     const cd = A2.cd * (act === "rocket" ? itemFx.rocketCdMul : 1);
     cdRef.current[act] = now + cd;
     setCool(c => ({ ...c, [act]: now + cd }));
@@ -3024,13 +3079,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     comboRef.current += 1; setCombo(comboRef.current);
     setBestCombo(b => Math.max(b, comboRef.current));
     const comboK = Math.min(2.2, 1 + comboRef.current * (fx.passive === "streak" ? 0.08 : 0.04) * (SFX.comboGrowth || 1) * itemFx.comboGrowth);
-    const isMelee = act === "punch" || act === "kick";
+    const isMelee = (MOVES[A2.move] || MOVES.punch).fx === "melee";
     let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1) * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1) * (awakenRef.current > Date.now() ? 1.3 : 1)
       * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1)
       * (SFX.dmgDeal || 1) * (isMelee ? (SFX.meleeDmg || 1) : 1)
       * (matchup === 1 ? 1 + MATCHUP_DMG : matchup === -1 ? 1 - MATCHUP_DMG : 1)
       * (synergy ? SYNERGY_DMG : 1)
-      * (isMelee ? itemFx.meleeDmg : act === "fire" ? itemFx.fireDmg : 1);
+      * (isMelee ? itemFx.meleeDmg : act === "fire" ? itemFx.fireDmg : 1);   // eslint-disable-line
     let kind = act === "rocket" ? "ult" : "hit";
     if (nb.crit > 0) { dmg *= 2.2; nb.crit = 0; kind = "crit"; buffRef.current = nb; setBuffs(nb); }
     if (nb.anthem > 0) { dmg *= 1.4; nb.anthem -= 1; buffRef.current = nb; setBuffs(nb); }
@@ -3951,15 +4006,19 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
                     </tr></thead>
                     <tbody>
                       {[["punch", T("ต่อย", "Punch", "拳")], ["kick", T("เตะ", "Kick", "踢")],
-                        ["fire", T("ยิง", "Fire", "射")], ["rocket", T("จรวด", "Rocket", "火箭")],
-                        ["throw", T("ทุ่ม", "Throw", "投")]].map(([k, label]) => (
+                        ["fire", kitLabel(0)], ["rocket", kitLabel(1)],
+                        ["throw", T("ทุ่ม", "Throw", "投")]].map(([k, label]) => {
+                        const AK = actFor(k);
+                        const FK = FRAMES[(AK && AK.frame) || k] || FRAMES.punch;
+                        return (
                         <tr key={k}>
                           <td>{label}</td>
-                          <td>{FRAMES[k].startup}ms</td>
-                          <td>{FRAMES[k].recover}ms</td>
-                          <td>{ACT[k] ? (ACT[k].range > 1 ? "∞" : ACT[k].range.toFixed(2)) : THROW_RANGE.toFixed(2)}</td>
+                          <td>{FK.startup}ms</td>
+                          <td>{FK.recover}ms</td>
+                          <td>{AK ? (AK.range > 1 ? "∞" : AK.range.toFixed(2)) : THROW_RANGE.toFixed(2)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                       {MY_SPECIALS.map(sp => (
                         <tr key={sp.key} className="sp">
                           <td>{sp.glyph} {tr3(sp, lang)}</td>
@@ -3994,8 +4053,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
                 onPointerLeave={() => { dirRef.current = 0; }} onPointerCancel={() => { dirRef.current = 0; }}>▶</button>
             </div>
             <div className="pvppad-r">
-              <button className="pvpact fire" aria-label={T("ยิง", "Fire", "射击")} onPointerDown={() => attack("fire")}>
-                <b>🔫</b><i>{T("ยิง", "FIRE", "射击")}</i>
+              <button className="pvpact fire" aria-label={kitLabel(0)} onPointerDown={() => attack("fire")}>
+                <b>{kitIcon(0)}</b><i>{kitLabel(0)}</i>
               </button>
               <button className="pvpact jump" aria-label={T("กระโดด", "Jump", "跳跃")} onPointerDown={jump}>
                 <b>⤴</b><i>{T("กระโดด", "JUMP", "跳跃")}</i>
@@ -4006,8 +4065,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               <button className="pvpact kick" aria-label={T("เตะ", "Kick", "踢击")} onPointerDown={() => attack("kick")}>
                 <b>🦵</b><i>{T("เตะ", "KICK", "踢击")}</i>
               </button>
-              <button className="pvpact rocket" aria-label={T("จรวด", "Rocket", "火箭")} onPointerDown={() => attack("rocket")}>
-                <b>🚀</b><i>{T("จรวด", "ROCKET", "火箭")}</i>
+              <button className="pvpact rocket" aria-label={kitLabel(1)} onPointerDown={() => attack("rocket")}>
+                <b>{kitIcon(1)}</b><i>{kitLabel(1)}</i>
               </button>
               {petCmd && (
                 <button className={`pvpact petcmd${Date.now() < petCdEnd ? " cd" : ""}`}
