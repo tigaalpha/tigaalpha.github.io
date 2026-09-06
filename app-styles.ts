@@ -3015,6 +3015,33 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .pvppet3.beast{z-index:4}
 .pvppet3.beast .pvppet3-in{transform:scale(calc(var(--petk,.85) * 1.26)) scaleX(-1);filter:drop-shadow(0 0 14px rgba(255,210,63,.7))}
 .pvppet3.beast .pvppet3-sh{width:58px;height:11px}
+/* awakened: it grows, burns white at the edges, and stands in front of you */
+.pvppet3.awake{z-index:4}
+.pvppet3.awake .pvppet3-in{transform:scale(calc(var(--petk,.85) * 1.42)) scaleX(-1);
+  filter:drop-shadow(0 0 18px #fff) drop-shadow(0 0 34px rgba(255,210,63,.75));animation:petawake 1.1s ease-in-out infinite}
+@keyframes petawake{0%,100%{filter:drop-shadow(0 0 14px #fff) drop-shadow(0 0 28px rgba(255,210,63,.6))}
+  50%{filter:drop-shadow(0 0 22px #fff) drop-shadow(0 0 44px rgba(255,210,63,.9))}}
+/* ── the branch fork on the pet page ── */
+.pet-fork{margin:10px 0;padding:12px;border-radius:16px;background:linear-gradient(180deg,#1a2337,#141c2c);border:1px solid #ffffff1f}
+.pet-fork>b{display:block;font-family:'Rajdhani',sans-serif;font-size:15px;color:#ffd23f;margin-bottom:8px;text-align:center}
+.pet-fork-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pet-fork-opt{display:flex;flex-direction:column;gap:3px;align-items:center;padding:11px 8px;border-radius:12px;cursor:pointer;
+  background:#0f1626;border:1px solid #ffffff26;color:#e8eefc;font-family:'Rajdhani',sans-serif}
+.pet-fork-opt:active{transform:scale(.97)}
+.pet-fork-opt b{font-size:16px;font-weight:700}
+.pet-fork-opt i{font-size:12px;color:#8fa3bd;font-style:normal}
+/* ── the evolution cutscene ── */
+.pet-evo{position:fixed;inset:0;z-index:1500;display:flex;align-items:center;justify-content:center;background:rgba(5,8,16,.82);backdrop-filter:blur(6px);animation:petevoin .3s ease}
+.pet-evo-in{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:22px}
+.pet-evo-art{width:190px;height:210px;animation:petevopop .8s cubic-bezier(.3,1.5,.5,1)}
+.pet-evo-art svg{width:100%;height:100%;filter:drop-shadow(0 0 26px rgba(255,255,255,.55))}
+.pet-evo-in b{font-family:'Rajdhani',sans-serif;font-size:30px;font-weight:800;color:#fff;letter-spacing:.03em}
+.pet-evo-in i{font-family:'Rajdhani',sans-serif;font-size:14px;font-style:normal;color:#7fe8ff}
+.pet-evo-in button{margin-top:12px;padding:11px 30px;border-radius:999px;border:none;cursor:pointer;
+  background:linear-gradient(180deg,#ffd23f,#f0a500);color:#2a1c00;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:800}
+@keyframes petevoin{from{opacity:0}to{opacity:1}}
+@keyframes petevopop{0%{transform:scale(.3);filter:brightness(4)}55%{transform:scale(1.12);filter:brightness(1.6)}100%{transform:scale(1);filter:brightness(1)}}
+@media (prefers-reduced-motion:reduce){.pet-evo,.pet-evo-art{animation:none}}
 @keyframes pvppetin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
 .pet-note{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:60;max-width:88vw;padding:9px 16px;border-radius:22px;background:var(--card);border:1px solid var(--bd5);color:var(--text);font-size:12.5px;box-shadow:0 12px 34px -16px rgba(20,30,60,.7);animation:petnote .25s ease}

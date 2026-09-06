@@ -2605,6 +2605,17 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      land together. It costs the WHOLE gauge rather than the usual slice, so it
      is a real decision — and it only exists for a pet you actually raised,
      which is the point of raising one. */
+  /* ── the awakened form ──
+     Once a match, and it is not a button: when you drop under a third of your
+     health the pet awakens on its own and stands in front of you. A third pet
+     control would have been a third thing to remember mid-fight; this is the
+     animal reacting to you being in trouble, which is the story the whole
+     feature is telling. */
+  const AWAKEN_AT = 0.32;
+  const AWAKEN_MS = 9000;
+  const awokeRef = useRef(false);
+  const awakenRef = useRef(0);
+  const [awake, setAwake] = useState(false);
   const FUSION_STAGE = 3;
   const FUSION_DMG = 1.55;
   const PET_CD = 18000;
@@ -2749,13 +2760,24 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // positions you got yourself into, and both cost extra
     const cornered = posRef.current.me <= X_MIN + CORNER_ZONE;
     petReact("flinch", 560);
-    const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1) * petGuard * petElemTake * (bulwarkRef.current > Date.now() ? 0.78 : 1) * (SFX.dmgTake || 1)
+    /* checked AFTER the hit lands, below, once the new HP is known */
+    const d = Math.max(1, Math.round(dmg * (fx.passive === "tough" ? 0.75 : 1) * petGuard * petElemTake * (bulwarkRef.current > Date.now() ? 0.78 : 1) * (awakenRef.current > Date.now() ? 0.75 : 1) * (SFX.dmgTake || 1)
       * (matchup === 1 ? 1 - MATCHUP_DMG : matchup === -1 ? 1 + MATCHUP_DMG : 1)
       * (1 - itemFx.dmgReduce) * (counter ? COUNTER_MUL : 1)
       * (cornered ? CORNER_DMG : 1) * (staggerRef.current > now ? STAGGER_DMG : 1)));
     const mHp = Math.max(0, hpRef.current.me - d);
     hpRef.current.me = mHp; setMyHp(mHp);
     if (mHp / MY_MAX < 0.5) FLAGS.everBelowHalf = true;
+    /* the pet awakens — once, when you are genuinely in trouble */
+    if (!awokeRef.current && petSpec && mHp > 0 && mHp / MY_MAX < AWAKEN_AT) {
+      awokeRef.current = true;
+      awakenRef.current = now + AWAKEN_MS;
+      setAwake(true);
+      later(() => setAwake(false), AWAKEN_MS);
+      petReact("awaken", AWAKEN_MS);
+      say("me", T("ตื่นแล้ว!", "AWAKENED!", "觉醒!"), "crit");
+      if (playUi) playUi("reward");
+    }
     hitstunRef.current.me = now + HITSTUN_MS;
     posRef.current.me = Math.max(X_MIN, posRef.current.me - KNOCKBACK);
     myAtkRef.current = { startup: 0, recover: now + HITSTUN_MS, act: null };
@@ -2854,7 +2876,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       }
       FLAGS.specialsLanded += 1;
       lastWasSpecialRef.current = true;
-      const dmg = A.dmg * TAP_DMG * sp.dmg * (fx.passive === "power" ? 1.25 : 1) * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1)
+      const dmg = A.dmg * TAP_DMG * sp.dmg * (fx.passive === "power" ? 1.25 : 1) * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1) * (awakenRef.current > Date.now() ? 1.3 : 1)
         * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1)
         * (SFX.dmgDeal || 1) * (matchup === 1 ? 1 + MATCHUP_DMG : matchup === -1 ? 1 - MATCHUP_DMG : 1)
         * (synergy ? SYNERGY_DMG : 1)
@@ -2929,7 +2951,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       later(() => setBanner(null), 800);
       comboRef.current += 1; setCombo(comboRef.current);
       posRef.current.op = Math.min(X_MAX, posRef.current.op + KNOCKBACK * 3);
-      hitOp(A.dmg * TAP_DMG * THROW_DMG * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1) * (comeback ? COMEBACK_DMG : 1), "crit", "punch", { noCounter: true, unblockable: true });
+      hitOp(A.dmg * TAP_DMG * THROW_DMG * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1) * (awakenRef.current > Date.now() ? 1.3 : 1) * (comeback ? COMEBACK_DMG : 1), "crit", "punch", { noCounter: true, unblockable: true });
     }, F.startup);
   }
 
@@ -3002,7 +3024,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     setBestCombo(b => Math.max(b, comboRef.current));
     const comboK = Math.min(2.2, 1 + comboRef.current * (fx.passive === "streak" ? 0.08 : 0.04) * (SFX.comboGrowth || 1) * itemFx.comboGrowth);
     const isMelee = act === "punch" || act === "kick";
-    let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1) * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1)
+    let dmg = A.dmg * TAP_DMG * A2.dmg * comboK * (fx.passive === "power" ? 1.25 : 1) * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1) * (awakenRef.current > Date.now() ? 1.3 : 1)
       * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1)
       * (SFX.dmgDeal || 1) * (isMelee ? (SFX.meleeDmg || 1) : 1)
       * (matchup === 1 ? 1 + MATCHUP_DMG : matchup === -1 ? 1 - MATCHUP_DMG : 1)
@@ -3785,7 +3807,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             one. The bonus it grants is unchanged; this is the half that was
             missing, which is that you could see it was yours. */}
         {petPic && (
-          <div className={`pvppet3 ${petAct}${beast ? " beast" : ""}`} title={petById(petPic.species).en}
+          <div className={`pvppet3 ${petAct}${beast ? " beast" : ""}${awake ? " awake" : ""}`} title={petById(petPic.species).en}
             style={{
               transform: `translate3d(${((petX * 100 - 22) * (100 / 44)).toFixed(2)}%, 0, 0)`,
               "--petk": (0.72 + petStage(petPic.bond) * 0.075).toFixed(3),

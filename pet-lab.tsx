@@ -1205,6 +1205,61 @@ export function writePetBag(v) { try { localStorage.setItem(BAG, JSON.stringify(
 /** What the pet is worth in the arena right now. A neglected pet gives
     nothing — that is the whole point of the care loop, and it is why the
     bonus is read fresh at the start of every fight rather than cached. */
+/* ── branching evolution ──
+   Growth was one line: every pet of a species ended up identical at level 20.
+   Three times on the way up — entering stage 2, 3 and 4 — the pet asks which
+   way it is going, and the two answers are genuinely different animals by the
+   end. Eight endings per species instead of one, and the choice is permanent,
+   which is what makes it a choice rather than a menu.
+
+   The path is stored per species, so a stable of pets each keep their own. */
+const PATH_KEY = "tg_petpath";
+export const PET_PATHS = [
+  { at: 2, a: { id: "swift",   th: "สายว่องไว", en: "Swift",   zh: "迅捷", dmg: 0.9,  gauge: 1.25, guard: 1.0 },
+           b: { id: "sturdy",  th: "สายทนทาน", en: "Sturdy",  zh: "坚韧", dmg: 1.0,  gauge: 0.9,  guard: 1.3 } },
+  { at: 3, a: { id: "wild",    th: "สายดุร้าย", en: "Wild",    zh: "狂野", dmg: 1.3,  gauge: 1.0,  guard: 0.9 },
+           b: { id: "keen",    th: "สายเฉียบ",  en: "Keen",    zh: "锐敏", dmg: 1.0,  gauge: 1.3,  guard: 1.0 } },
+  { at: 4, a: { id: "radiant", th: "สายรุ่งโรจน์", en: "Radiant", zh: "辉耀", dmg: 1.15, gauge: 1.15, guard: 1.0 },
+           b: { id: "umbral",  th: "สายเงามืด",  en: "Umbral",  zh: "暗影", dmg: 1.25, gauge: 1.0,  guard: 1.1 } },
+];
+export function readPaths() {
+  try { const v = JSON.parse(localStorage.getItem(PATH_KEY) || "null"); if (v && typeof v === "object") return v; } catch (e) {}
+  return {};
+}
+export function pathsOf(speciesId) { const v = readPaths()[speciesId]; return Array.isArray(v) ? v : []; }
+export function choosePath(speciesId, idx, which) {
+  const all = readPaths();
+  const cur = Array.isArray(all[speciesId]) ? all[speciesId].slice() : [];
+  cur[idx] = which;
+  all[speciesId] = cur;
+  try { localStorage.setItem(PATH_KEY, JSON.stringify(all)); } catch (e) {}
+  try { window.dispatchEvent(new Event("tg-pet")); } catch (e) {}
+}
+/** The branch this pet is standing at right now, or null if none is due. */
+export function pendingPath(p) {
+  if (!p) return null;
+  const st = petStage(p.bond), taken = pathsOf(p.species);
+  for (let i = 0; i < PET_PATHS.length; i++) {
+    if (st >= PET_PATHS[i].at && !taken[i]) return { idx: i, ...PET_PATHS[i] };
+  }
+  return null;
+}
+/** Multipliers earned from the branches already taken. */
+export function pathMul(speciesId) {
+  const taken = pathsOf(speciesId);
+  const m = { dmg: 1, gauge: 1, guard: 1 };
+  taken.forEach((w, i) => {
+    const P = PET_PATHS[i]; if (!P || !w) return;
+    const arm = w === "b" ? P.b : P.a;
+    m.dmg *= arm.dmg; m.gauge *= arm.gauge; m.guard *= arm.guard;
+  });
+  return m;
+}
+/** The names of the branches taken, for the id card. */
+export function pathNames(speciesId) {
+  return pathsOf(speciesId).map((w, i) => (PET_PATHS[i] ? (w === "b" ? PET_PATHS[i].b : PET_PATHS[i].a) : null)).filter(Boolean);
+}
+
 export function petBonusOf() {
   const p = readPet();
   if (!p) return null;
@@ -1216,7 +1271,10 @@ export function petBonusOf() {
   /* a stage-three pet is worth more than a hatchling, and a merely-okay pet
      is worth less than a thriving one */
   const scale = [1, 1, 1.15, 1.4, 1.7, 2.05][petStage(p.bond)] * (happy >= 80 ? 1 : 0.7);
-  return { k: b.k, v: b.v * scale, species: sp, happy, stage: petStage(p.bond) };
+  // the branches it took multiply the axis they were about
+  const pm = pathMul(p.species);
+  const axis = b.k === "guard" ? pm.guard : b.k === "sp" ? pm.gauge : pm.dmg;
+  return { k: b.k, v: b.v * scale * axis, species: sp, happy, stage: petStage(p.bond), paths: pathNames(p.species) };
 }
 
 /* ══════════════════════ the care screen ══════════════════════ */
@@ -1316,6 +1374,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
   const [look, setLook] = useState("all");
   const [naming, setNaming] = useState("");
   const [note, setNote] = useState(null);
+  const [evo, setEvo] = useState(null);        // the evolution cutscene, when one is playing
   const { fx, pop } = useCareFx();
 
   const save = useCallback((v) => {
@@ -1399,7 +1458,12 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
       say(T(`เลเวลอัป! Lv.${after}`, `Level up! Lv.${after}`, `升级了！Lv.${after}`));
       playUi("reward");
       if (petStage(v.bond) > petStage(pet.bond)) {
-        say(T("มันเติบโตขึ้นอีกขั้น!", "It grew into its next form!", "它进化到下一形态了！"));
+        /* A new form used to be a line of text in a feed you were not reading.
+           It is the biggest thing that happens to a pet, so it gets the screen:
+           the old shape holds, flares white, and the new one is standing there
+           when the light drops. */
+        setEvo({ from: petStage(pet.bond), to: petStage(v.bond), species: v.species, lv: after });
+        playUi("reward");
       }
     }
   }, [pet, bag, coins, onSpend, save, stash, say, pop, playUi, payDaily, lang]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -1492,6 +1556,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
   const sp = petById(pet.species);
   const ty = PET_TYPES[sp.type];
   const stage = petStage(pet.bond);
+  const branch = pendingPath(pet);
   const lv = petLevel(pet.bond);
   const happy = petHappy(pet);
   const bonus = PET_BONUS[sp.bonus];
@@ -1535,6 +1600,39 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* ── the fork ──
+          A pet at a branch point stops and asks. Both answers are shown with
+          what they actually do, and the choice is permanent — which is what
+          makes two pets of the same species end up different animals. */}
+      {branch && (
+        <div className="pet-fork">
+          <b>{T("มันพร้อมจะเลือกทางแล้ว", "It is ready to choose a path", "它准备好选择道路了")}</b>
+          <div className="pet-fork-row">
+            {["a", "b"].map(w => {
+              const arm = w === "b" ? branch.b : branch.a;
+              return (
+                <button key={w} className="pet-fork-opt" onClick={() => { choosePath(pet.species, branch.idx, w); playUi("reward"); setPet(readPet()); }}>
+                  <b>{tr3(arm, lang)}</b>
+                  <i>{arm.dmg !== 1 ? `⚔ ×${arm.dmg} ` : ""}{arm.gauge !== 1 ? `✦ ×${arm.gauge} ` : ""}{arm.guard !== 1 ? `🛡 ×${arm.guard}` : ""}</i>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── the evolution ── the one moment that deserves the whole screen */}
+      {evo && (
+        <div className="pet-evo" onClick={() => setEvo(null)}>
+          <div className="pet-evo-in">
+            <div className="pet-evo-art"><PetArt species={evo.species} level={evo.lv} mood={95} /></div>
+            <b>{tr3(STAGE_NAME[evo.to] || STAGE_NAME[1], lang)}</b>
+            <i>{T(`ขั้น ${evo.from} → ${evo.to}`, `Stage ${evo.from} → ${evo.to}`, `阶段 ${evo.from} → ${evo.to}`)}</i>
+            <button onClick={() => setEvo(null)}>{T("เยี่ยม!", "Nice!", "太好了！")}</button>
+          </div>
         </div>
       )}
 
