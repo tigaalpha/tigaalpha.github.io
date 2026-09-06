@@ -1301,8 +1301,12 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    decoration on top of a figure that is already announced. */
 /* shrink-wraps the chassis so everything worn can be placed as a fraction of
    the BODY rather than of the much wider fighter box around it */
-.pvpbody{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
-.pvpbody > svg{display:block;height:206px;width:auto;position:relative;z-index:1}
+/* NOT .pvpbody — that name was already taken by the lobby page's own body
+   wrapper thirty rules up, and reusing it turned the whole PvP landing page
+   into a bottom-aligned flex ROW: every card in one line running off the
+   side of the screen, with the height of the stage as a blank gap above it. */
+.pvpfbody{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
+.pvpfbody > svg{display:block;height:206px;width:auto;position:relative;z-index:1}
 .pvpgear{position:absolute;pointer-events:none;z-index:4;display:block;
   filter:drop-shadow(0 3px 5px rgba(0,0,0,.55))}
 .pvpgear svg{display:block;width:100%;height:100%}

@@ -3645,14 +3645,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}
           style={{ transform: `translate3d(${((myX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-myAir * 62).toFixed(1)}px, 0)` }}>
           <div className="pvpfighter-in">
-          {/* ── .pvpbody shrink-wraps the chassis SVG ──
+          {/* ── .pvpfbody shrink-wraps the chassis SVG ──
               The fighter box is 184px wide and the robot inside it is 79 —
               43% of it, starting at 28%. Percentages measured against the BOX
               therefore land in empty air beside the robot, which is exactly
               where the first attempt put the weapon. Everything worn hangs off
               this wrapper instead, so a percentage means a fraction of the
               actual body. */}
-          <div className="pvpbody">
+          <div className="pvpfbody">
             <span className={`pvpaura r-${myTier}`} aria-hidden="true" />
             <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
               glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" />
