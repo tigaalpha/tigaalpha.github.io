@@ -1614,9 +1614,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvppage.land .pvpfighter svg{height:100%}
 .pvppage.land .pvpfighter::before{bottom:-7px;width:96px;height:22px}
 .pvppage.land .pvphps{padding:30px 14px 0}
-/* the wave clock reads under the health bars, not across the fighters */
-.pvppage.land .pvpwave{position:absolute;left:50%;transform:translateX(-50%);top:56px;width:min(46%,300px);max-width:none;margin:0;z-index:8}
-.pvppage.land .pvpwave-l{position:absolute;left:50%;transform:translateX(-50%);top:66px;margin:0;z-index:8}
+/* the wave clock reads under the health bars, not across the fighters — and
+   not across the ROUND CLOCK either, which is what 56px did: the timer bar
+   landed straight on top of the "R1" label sitting under the countdown. */
+.pvppage.land .pvpwave{position:absolute;left:50%;transform:translateX(-50%);top:72px;width:min(46%,300px);max-width:none;margin:0;z-index:8}
+.pvppage.land .pvpwave-l{position:absolute;left:50%;transform:translateX(-50%);top:82px;margin:0;z-index:8}
 .pvppage.land .pvppad{position:absolute;left:0;right:0;bottom:0;max-width:none;margin:0;padding:0 16px 14px;z-index:9;pointer-events:none}
 .pvppage.land .pvppad-l,.pvppage.land .pvppad-r{pointer-events:auto}
 .pvppage.land .pvpdir{width:58px;height:58px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px)}
