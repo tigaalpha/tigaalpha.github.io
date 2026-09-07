@@ -11,7 +11,7 @@
 // Run manually the same way CI does:  node scripts/auto-release.mjs [native]
 // (pass "native" as argv[2] to also flag apkVersion — normally CI decides).
 import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -49,5 +49,24 @@ execSync("npm run build", { stdio: "inherit", cwd: root });
 
 // ── 3. publish the OTA bundle (updates/dist-<v>.zip + manifest.json) ─────────
 execSync("node scripts/publish-update.mjs", { stdio: "inherit", cwd: root });
+
+/* ── 4. prune the OTA archive ────────────────────────────────────────────────
+   Every release dropped a ~1.4 MB zip into updates/ and nothing ever removed
+   one, so 229 of them had piled up: 237 MB of a 266 MB repo, all of it served
+   by GitHub Pages on every deploy. The deploy step went past its ten-minute
+   limit and started failing, which froze the live site — while manifest.json,
+   the only thing the mobile updater actually reads, pointed at exactly ONE of
+   those files. Keep a short rollback window and drop the rest, every release,
+   so this cannot silently grow back into an outage. */
+const KEEP = 3;
+const upd = path.join(root, "updates");
+const verOf = (f) => {
+  const m = /^dist-(\d+)\.(\d+)\.(\d+)\.zip$/.exec(f);
+  return m ? Number(m[1]) * 1e6 + Number(m[2]) * 1e3 + Number(m[3]) : -1;
+};
+const zips = readdirSync(upd).filter((f) => verOf(f) >= 0).sort((a, b) => verOf(b) - verOf(a));
+const drop = zips.slice(KEEP);
+for (const f of drop) rmSync(path.join(upd, f));
+console.log(`OTA archive: kept ${Math.min(KEEP, zips.length)}, removed ${drop.length}`);
 
 console.log(`Auto-release ${next} ready.`);
