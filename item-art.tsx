@@ -292,13 +292,17 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
 
   const SHAPES = {
     /* ── weapons ── */
+    /* a blade needs a point: the old one was a bar with a flat cut end, which
+       at icon size is a ruler no matter what colour it is */
     sword: () => <>
-      {P("M21 45 C27 35 37 20 46 9 L53 15 C45 27 33 42 26 51 Z", GA)}
-      {beamLine("M46 9 L53 15", 1.6)}
-      {seam("M25 43 C31 34 39 22 47 12")}
-      {P("M13 43 L26 56 L21 61 L8 48 Z", GB, { line: edgeB })}
-      {P("M9 51 L17 59 L12 62 L6 56 Z", GB, { line: edgeB })}
-      {lit(16.5, 51.5, 2.2)}
+      {P("M18.4 40.6 L46.5 12.6 L57 7 L51.5 17.4 L25.6 47.4 Z", GA, { lw: 1.5 })}
+      {seam("M23.5 43 L49.5 17")}
+      {beamLine("M50 15 L55.5 9.5", 1.5)}
+      <g transform="rotate(43.5 20 46)">{R(11, 43, 18, 6, 2, GB, { line: edgeB, lw: 1.2 })}</g>
+      <g transform="rotate(-46.5 13 53)">{R(6, 50, 14, 6, 3, GB, { line: edgeB, lw: 1.2 })}</g>
+      {seam("M10.5 47.5 L15.5 52.5 M7.5 51 L12.5 56", .9)}
+      {E(7.6, 58.4, 4.2, 4.2, GA, { lw: 1.2 })}
+      {lit(20, 46, 2.2)}
     </>,
     cutter: () => <>
       {P("M40 10 L46 16 L34 28 L28 22 Z", GB, { line: edgeB })}
@@ -323,19 +327,31 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {R(14, 40, 13, 20, 5, GB, { line: edgeB })}
       {lit(18, 25, 2.2)}
     </>,
-    coil: () => <>
-      {R(27, 16, 10, 44, 5, GB, { line: edgeB })}
-      {[22, 32, 42].map((y, i) => <g key={i}>{E(32, y, 15 - i * 1.5, 5, GA)}</g>)}
-      {beamLine("M32 16 C24 10 22 6 24 3 M32 16 C40 10 42 6 40 3", 1.4)}
-      {lit(32, 12, 4)}
-      {seam("M32 46 V58")}
-    </>,
+    /* a coil is WOUND. Three flat rings threaded on a rod is a shish kebab —
+       one continuous serpentine reads as turns of wire from any distance. */
+    coil: () => {
+      const wind = "M20 13 C20 6 44 6 44 14 C44 21 20 21 20 28 C20 35 44 35 44 42 C44 49 20 49 20 56";
+      return <>
+        {R(29, 6, 6, 54, 3, GB, { line: edgeB })}
+        <path d={wind} fill="none" stroke={dim(A, .5)} strokeWidth="6.6" strokeLinecap="round" />
+        <path d={wind} fill="none" stroke={GA} strokeWidth="4.2" strokeLinecap="round" />
+        <path d={wind} fill="none" stroke={lite(A, .7)} strokeWidth="1.3" strokeLinecap="round" opacity=".65" transform="translate(0 -1.3)" />
+        {beamLine("M25 21 L30 25 L26 29", 1.2)}
+        {beamLine("M39 39 L35 43 L40 47", 1.2)}
+        {lit(32, 8, 4.4)}
+        {R(27, 55, 10, 8, 3, GB, { line: edgeB, lw: 1.1 })}
+      </>;
+    },
     hammer: () => <>
-      {P("M12 12 L46 12 L50 20 L50 30 L46 38 L12 38 L8 30 L8 20 Z", GA)}
-      {seam("M20 16 V34 M38 16 V34")}
-      {R(26, 34, 10, 28, 4, GB, { line: edgeB })}
-      {lit(14, 25, 2.6)}
-      {lit(44, 25, 2.6)}
+      {P("M12 8 L46 8 L52 16 V30 L46 38 L12 38 L6 30 V16 Z", GA, { lw: 1.6 })}
+      {P("M12 8 L19 8 V38 H12 L6 30 V16 Z", GB, { line: edgeB, lw: 1.1 })}
+      {[14, 32].map(y => <circle key={y} cx="12.5" cy={y} r="1.6" fill={lite(A, .6)} stroke={edge} strokeWidth=".6" />)}
+      {seam("M24 12 V34 M42 12 V34")}
+      {R(24, 36, 16, 7, 3, GB, { line: edgeB, lw: 1.2 })}
+      {R(27, 41, 10, 19, 4, GB, { line: edgeB, lw: 1.2 })}
+      {seam("M28 46 H36 M28 51 H36", .9)}
+      {E(32, 60, 8, 3.6, GA, { lw: 1.2 })}
+      {lit(46, 23, 2.6)}
     </>,
     /* A deployed rig rather than three loose slabs: a powered spine with the
        blade, the cutter head and the gripper all folded OUT of one hub, which
@@ -381,11 +397,14 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
         <circle key={i} cx={x} cy={y} r={1.5 - i * .3} fill={lite(C, .5)} opacity=".8" />))}
     </>,
     wrench: () => <>
-      {P("M32 4 C42 4 50 12 50 22 C50 30 45 37 38 40 L38 46 L26 46 L26 40 C19 37 14 30 14 22 C14 12 22 4 32 4 Z", GA)}
-      {P("M32 13 L40 17.5 L40 26.5 L32 31 L24 26.5 L24 17.5 Z", "#0c1220", { spec: .3, occ: .2, line: edge, lw: 1 })}
-      {R(26, 42, 12, 12, 3, GB, { line: edgeB })}
-      {P("M22 50 L42 50 L42 60 L34 60 L34 55 L30 55 L30 60 L22 60 Z", GC, { line: edge })}
-      {seam("M32 44 V50")}
+      {P("M19 4 H27 V13 H37 V4 H45 V21 C45 28 39 33 32 33 C25 33 19 28 19 21 Z", GA, { lw: 1.6 })}
+      {R(27, 30, 10, 16, 4, GA, { lw: 1.4 })}
+      {seam("M32 34 V44", .8)}
+      {E(32, 52, 11, 10, GA, { lw: 1.5 })}
+      {P("M32 45 L38 48.5 V55.5 L32 59 L26 55.5 V48.5 Z", "#0c1220", { spec: .3, occ: .2, line: edge, lw: 1 })}
+      {R(26, 28, 12, 5, 2, GB, { line: edgeB, lw: 1.1 })}
+      {lit(23, 8, 2)}
+      {lit(41, 8, 2)}
     </>,
     magnet: () => <>
       {P("M12 46 C12 24 20 12 32 12 C44 12 52 24 52 46 L40 46 C40 30 37 24 32 24 C27 24 24 30 24 46 Z", GA)}
@@ -433,11 +452,17 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {lit(46, 32, 3.4)}
     </>,
     beam: () => <>
-      <path d="M32 2 L36 26 L60 30 L36 34 L32 60 L28 34 L4 30 L28 26 Z" fill={GLOW} />
-      {beamLine("M32 6 V56", 2.6)}
-      {beamLine("M8 30 H56", 2.6)}
-      {beamLine("M17 15 L47 45 M47 15 L17 45", 1.4)}
-      {lit(32, 30, 5)}
+      <path d="M10 56 L60 6 L64 14 L16 62 Z" fill={GLOW} opacity=".55" />
+      {P("M5 49 L14 44 L19 53 L10 59 Z", GB, { line: edgeB, lw: 1.2 })}
+      {seam("M8 50 L13 47", .9)}
+      {beamLine("M13 51 L60 6", 3)}
+      {/* the flare rings a focused beam throws as it leaves the lens */}
+      {[[24, 40, 5], [38, 26, 3.4], [50, 15, 2.2]].map(([x, y, r], j) => (
+        <g key={j} transform={`rotate(-44 ${x} ${y})`}>
+          <ellipse cx={x} cy={y} rx={r * .5} ry={r} fill="none" stroke={lite(C, .55)} strokeWidth="1.1" opacity={.75 - j * .15} />
+        </g>))}
+      {lit(13, 51, 3.4)}
+      {lit(60, 6, 4.4)}
     </>,
     blaster: () => <>
       {P("M8 22 L44 22 L52 26 L52 34 L20 34 L18 30 L8 30 Z", GA)}
@@ -839,12 +864,18 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {seam("M32 14 V42")}
     </>,
     piston: () => <>
-      {R(6, 24, 20, 16, 4, GB, { line: edgeB })}
-      {R(24, 27, 14, 10, 2, GA)}
-      {P("M38 22 L54 22 L58 32 L54 42 L38 42 Z", GA, { lw: 1.5 })}
-      {beamLine("M40 32 H58", 2.6)}
-      {seam("M11 29 H21 M11 35 H21")}
-      {lit(16, 32, 3)}
+      {R(8, 36, 13, 24, 5, GB, { line: edgeB })}
+      {seam("M10 42 H19 M10 48 H19 M10 54 H19", .9)}
+      {R(4, 16, 32, 22, 8, GA, { lw: 1.6 })}
+      {[12, 18, 24, 30].map(x => <g key={x}>{seam(`M${x} 20 V34`, .9)}</g>)}
+      {R(34, 20, 9, 14, 2, GB, { line: edgeB, lw: 1.1 })}
+      {R(41, 24, 12, 6, 1, GC, { line: edge, lw: 1 })}
+      {P("M53 21 L60 24.5 V29.5 L53 33 L46 29.5 V24.5 Z", GA, { lw: 1.4 })}
+      {/* the blow it just landed */}
+      {[0, 1, 2].map(j => (
+        <path key={j} d={`M${56 + j * 2} ${17 - j * 2} A${8 + j * 3} ${8 + j * 3} 0 0 1 ${56 + j * 2} ${37 + j * 2}`}
+          fill="none" stroke={lite(C, .5)} strokeWidth="1.3" opacity={.6 - j * .18} />))}
+      {lit(14, 27, 3)}
     </>,
     reactor: () => <>
       {E(32, 32, 22, 22, GB, { line: edgeB, lw: 1.4 })}
@@ -1033,40 +1064,61 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
           {inlay(k, 22, 32, .44)}
           {P("M15 45 L27 45 L24 60 H15 Z", GB, { line: edgeB })}
         </>,
-        /* 3 · Celestial Rod — an orb cradled in a crescent on a slim staff */
+        /* 3 · Celestial Rod — an orb cradled in a real crescent, horns and all.
+           Drawn as a single thin arc it read as a lollipop with two beads. */
         () => <>
-          {R(29, 24, 6, 39, 3, GB, { line: edgeB, lw: 1.2 })}
-          {seam("M31 34 H33 M31 44 H33 M31 54 H33", .9)}
-          <path d="M14 24 C14 8 50 8 50 24" fill="none" stroke={lite(A, .3)} strokeWidth="4" strokeLinecap="round" opacity=".9" />
-          {[14, 50].map(x => <g key={x}>{lit(x, 24, 2.6)}</g>)}
-          {E(32, 20, 13, 13, GC, { spec: .9, lw: 1.4, line: lite(C, .45) })}
-          {inlay(k, 32, 20, .6)}
-          {E(32, 61, 4.6, 4.6, GA, { lw: 1.1 })}
+          {R(28.5, 32, 7, 26, 3, GB, { line: edgeB, lw: 1.2 })}
+          {[36, 44, 52].map(y => <g key={y}>{R(27, y, 10, 4, 2, GA, { lw: 1 })}</g>)}
+          {P("M28.5 57 H35.5 L32 64 Z", GA, { lw: 1.2 })}
+          <circle cx="32" cy="21" r="20" fill={GLOW} opacity=".8" />
+          <g transform="rotate(-18 32 21)">
+            <ellipse cx="32" cy="21" rx="21" ry="6.5" fill="none" stroke={lite(A, .35)} strokeWidth="3.4" />
+          </g>
+          {E(32, 21, 12, 12, GC, { spec: .9, lw: 1.4, line: lite(C, .45) })}
+          {inlay(k, 32, 21, .56)}
+          <g transform="rotate(-18 32 21)">
+            <path d="M11 21 A21 6.5 0 0 0 53 21" fill="none" stroke={lite(A, .55)} strokeWidth="3.4" strokeLinecap="round" />
+          </g>
+          {/* three stars keeping station around it */}
+          {[[8, 8, 3.4], [55, 10, 2.6], [50, 40, 2]].map(([x, y, r], j) => (
+            <path key={j} d={`M${x} ${y - r} L${x + r * .3} ${y - r * .3} L${x + r} ${y} L${x + r * .3} ${y + r * .3} L${x} ${y + r} L${x - r * .3} ${y + r * .3} L${x - r} ${y} L${x - r * .3} ${y - r * .3} Z`}
+              fill={lite(C, .55)} opacity=".9" />))}
         </>,
-        /* 4 · Void Blade — a curved edge with a bite taken out of the spine */
+        /* 4 · Void Blade — a katana: sori through the spine, a chisel point,
+           a hamon down the edge and a bite of nothing taken out of the back.
+           It was a uniform bar with a flat cut end, which reads as a ruler. */
         () => <>
-          {P("M16 50 C26 38 42 20 58 5 L62 12 C48 26 32 44 22 57 Z", GA, { lw: 1.5 })}
-          {P("M44 20 C48 16 52 12 56 9 L58 12 C54 15 50 19 46 23 Z", "#0a0a14", { spec: .2, occ: .2, line: lite(C, .3), lw: .8 })}
-          {beamLine("M22 51 C31 40 45 24 58 10", 1.5)}
-          {E(15, 51, 8, 6, GC, { spec: .8, lw: 1.2, line: lite(C, .4) })}
-          {inlay(k, 15, 51, .3)}
-          {P("M3 62 L11 54 L15 58 L7 66 Z", GB, { line: edgeB, lw: 1.2 })}
+          <path d="M22 52 C34 42 46 28 58 12" fill="none" stroke={dim(B, .1)} strokeWidth="9" strokeLinecap="round" opacity=".22" />
+          {P("M17.5 43.5 C28 30 42 17 54 8 L60 6 L57.5 13.5 C46 24 34 37 24.5 50.5 Z", GA, { lw: 1.4 })}
+          {/* the bite: real geometry cut from the spine, not a painted stripe */}
+          {P("M36 22 L49 11 L44.5 21.5 Z", "#08080f", { spec: .18, occ: .2, line: lite(C, .4), lw: 1 })}
+          {[[33, 19, 1.6], [49, 10, 1.2], [41, 8, .9]].map(([x, y, r], j) => (
+            <circle key={j} cx={x} cy={y} r={r} fill={lite(C, .5)} opacity=".8" />))}
+          {/* hamon — the temper line that says forged rather than extruded */}
+          <path d="M25.5 48 C34 38.5 45 26 55.5 14 " fill="none" stroke={lite(A, .55)} strokeWidth="1.1" strokeDasharray="5 3" opacity=".75" />
+          {beamLine("M56.5 12 L59.5 7.5", 1.4)}
+          <g transform="rotate(45 20 46)">{E(20, 46, 10, 3.4, GC, { spec: .85, lw: 1.2, line: lite(C, .45) })}</g>
+          {inlay(k, 20, 46, .26)}
+          {P("M16.5 46.5 L21 51 L8.5 63.5 L4 59 Z", GB, { line: edgeB, lw: 1.2 })}
+          {seam("M11.5 51.5 L16 56 M8 55 L12.5 59.5", .9)}
         </>,
-        /* 5 · Pulsar Hammer — a block head with the pulse caged inside it */
+        /* 5 · Pulsar Hammer — a warhammer, not a signboard on a post: one broad
+           striking face, one splitting wedge, and a haft thick enough to swing
+           passing through a collar rather than parked underneath. */
         () => <>
-          {/* a chamfered head with the striking faces called out, so it stops
-              reading as a rectangle with rivets painted on it */}
-          {P("M14 3 H50 L58 11 V27 L50 35 H14 L6 27 V11 Z", GA, { lw: 1.7 })}
-          {[[6, 11], [50, 11]].map(([x, y], j) => (
-            <g key={j}>{R(x, y, 8, 16, 2, GB, { line: edgeB, lw: 1 })}</g>))}
-          {[[10, 15], [10, 23], [54, 15], [54, 23]].map(([x, y], j) => (
-            <circle key={j} cx={x} cy={y} r="1.6" fill={lite(A, .6)} stroke={edge} strokeWidth=".6" />))}
-          {seam("M20 8 V30 M44 8 V30")}
-          {E(32, 19, 10, 10, GC, { spec: .85, lw: 1.3, line: lite(C, .45) })}
-          {inlay(k, 32, 19, .48)}
-          {[17, 47].map(x => <g key={x}>{lit(x, 19, 2)}</g>)}
-          {R(28, 30, 8, 30, 3, GB, { line: edgeB, lw: 1.2 })}
-          {R(23, 58, 18, 6, 3, GB, { line: edgeB, lw: 1.2 })}
+          {P("M6 10 L10 4 H42 L58 17 L42 30 H10 L6 24 Z", GA, { lw: 1.7 })}
+          {P("M6 10 L10 4 H17 V30 H10 L6 24 Z", GB, { line: edgeB, lw: 1.1 })}
+          {[9, 25].map(y => <circle key={y} cx="11.5" cy={y} r="1.7" fill={lite(A, .6)} stroke={edge} strokeWidth=".6" />)}
+          {seam("M21 7 V27")}
+          {/* the pulse, caged behind two bars */}
+          {E(31, 17, 9, 9, GC, { spec: .85, lw: 1.3, line: lite(C, .45) })}
+          {inlay(k, 31, 17, .44)}
+          <circle cx="31" cy="17" r="12.4" fill="none" stroke={lite(C, .5)} strokeWidth="1" opacity=".45" />
+          {seam("M26 8 V26 M36 8 V26", .9)}
+          {R(23, 29, 18, 7, 3, GB, { line: edgeB, lw: 1.2 })}
+          {R(27, 34, 10, 24, 4, GB, { line: edgeB, lw: 1.2 })}
+          {seam("M28 40 H36 M28 45 H36 M28 50 H36", .9)}
+          {E(32, 59, 8.5, 4, GA, { lw: 1.2 })}
         </>,
         /* 6 · Genesis Laser — a rifle with the lens actually lit */
         () => <>
