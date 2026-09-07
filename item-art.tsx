@@ -1070,34 +1070,128 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       ];
       return PW[k]();
     },
-    pp: (i) => <>                                        {/* prime plating */}
-      {P("M32 3 L57 12 V33 C57 47 46 57 32 62 C18 57 7 47 7 33 V12 Z", GA, { lw: 1.7 })}
-      {P("M32 11 L49 17 V33 C49 42 42 49 32 53 C22 49 15 42 15 33 V17 Z", GB, { line: edgeB, lw: 1.2 })}
-      {E(32, 31, 13, 13, GC, { spec: .85, lw: 1.2, line: lite(C, .4) })}
-      <g transform="translate(32 31) scale(.72) translate(-32 -32)">{emb(i)}</g>
-      {seam("M32 6 V11 M11 20 H15 M49 20 H53")}
-    </>,
-    pm: (i) => <>                                        {/* prime module */}
-      {P("M32 5 C46 5 55 15 55 27 C55 33 52 38 48 41 L44 55 H20 L16 41 C12 38 9 33 9 27 C9 15 18 5 32 5 Z", GA, { lw: 1.6 })}
-      <ellipse cx="32" cy="17" rx="25" ry="7" fill="none" stroke={lite(C, .45)} strokeWidth="2.6" opacity=".9" />
-      {E(32, 30, 12, 12, GC, { spec: .85, lw: 1.2, line: lite(C, .4) })}
-      <g transform="translate(32 30) scale(.66) translate(-32 -32)">{emb(i)}</g>
-      {seam("M22 55 H42")}
-    </>,
-    pc: (i) => <>                                        {/* prime core */}
-      {[0, 60, 120].map(a => <ellipse key={a} cx="32" cy="32" rx="27" ry="11" fill="none" stroke={lite(A, .3)} strokeWidth="3" opacity=".85" transform={`rotate(${a} 32 32)`} />)}
-      <circle cx="32" cy="32" r="26" fill={GLOW} />
-      {E(32, 32, 16, 16, GC, { spec: .9, lw: 1.4, line: lite(C, .45) })}
-      <g transform="translate(32 32) scale(.86) translate(-32 -32)">{emb(i)}</g>
-      {[[32, 4], [8, 46], [56, 46]].map(([x, y], k) => <g key={k}>{lit(x, y, 3)}</g>)}
-    </>,
-    pr: (i) => <>                                        {/* relic gem */}
-      {P("M32 2 L54 20 L45 58 H19 L10 20 Z", GA, { lw: 1.7 })}
-      {P("M32 12 L46 23 L39 50 H25 L18 23 Z", GC, { spec: .9, lw: 1.2, line: lite(C, .45) })}
-      <path d="M18 23 H46 M32 12 L25 50 M32 12 L39 50" fill="none" stroke="#fff" strokeWidth=".9" opacity=".5" />
-      <g transform="translate(32 32) scale(.6) translate(-32 -32)">{emb(i)}</g>
-      {lit(32, 8, 3.4)}
-    </>,
+    /* ── the four prime families ──
+       Same story as the prime weapons: forty gem items were FOUR drawings
+       with a badge stamped in the middle, so a whole shelf of the most
+       expensive things in the game read as one shield, one crown, one atom
+       and one pentagon in ten colours. The names already said what each one
+       was meant to be — an Aegis is not a Carapace, a Diadem is not a Halo —
+       so the shape now follows the name, and the two families whose names
+       repeat get their geometry rotated instead. */
+    pp: (i) => {                                         /* prime plating */
+      const k = ((i | 0) % 10 + 10) % 10;
+      // Aegis · Carapace · Shell · Mail, in the order the shelf lists them
+      const FORM = ["aegis", "carapace", "shell", "mail", "carapace",
+                    "aegis", "shell", "mail", "aegis", "carapace"][k];
+      const body = {
+        aegis:    "M32 3 L57 12 V33 C57 47 46 57 32 62 C18 57 7 47 7 33 V12 Z",
+        carapace: "M32 4 C48 4 58 14 58 28 C58 44 46 60 32 60 C18 60 6 44 6 28 C6 14 16 4 32 4 Z",
+        shell:    "M6 46 C6 22 18 4 32 4 C46 4 58 22 58 46 L52 58 H12 Z",
+        // a hauberk: square yoke, straight body, the pointed hem mail actually has
+        mail:     "M9 7 H55 V44 L48 59 L41 46 L34 59 L27 46 L20 59 L13 46 L9 44 Z",
+      }[FORM];
+      return <>
+        {P(body, GA, { lw: 1.7 })}
+        {FORM === "carapace" && [0, 1, 2].map(j => (
+          <path key={j} d={`M9 ${22 + j * 12} C20 ${28 + j * 12} 44 ${28 + j * 12} 55 ${22 + j * 12}`}
+            fill="none" stroke={lite(A, .38)} strokeWidth="2.4" opacity=".7" />))}
+        {FORM === "mail" && [0, 1, 2, 3].map(j => (
+          <path key={j} d={`M12 ${15 + j * 9} H52`} fill="none" stroke={lite(A, .34)}
+            strokeWidth="2" strokeDasharray="2.6 2.6" strokeLinecap="round" opacity=".7" />))}
+        {FORM === "shell" && <path d="M12 46 H52" fill="none" stroke={lite(A, .35)} strokeWidth="2.2" opacity=".7" />}
+        {FORM === "aegis" && P("M32 11 L49 17 V33 C49 42 42 49 32 53 C22 49 15 42 15 33 V17 Z", GB, { line: edgeB, lw: 1.2 })}
+        {E(32, 31, 13, 13, GC, { spec: .85, lw: 1.2, line: lite(C, .4) })}
+        {inlay(k, 32, 31, .72)}
+        {seam("M32 6 V11 M11 20 H15 M49 20 H53")}
+      </>;
+    },
+    pm: (i) => {                                         /* prime module */
+      const k = ((i | 0) % 10 + 10) % 10;
+      // Diadem · Circlet · Crown · Halo — four different things to wear
+      const FORM = ["diadem", "circlet", "crown", "halo", "diadem",
+                    "circlet", "crown", "halo", "crown", "diadem"][k];
+      return <>
+        {FORM === "diadem" && <>
+          {P("M6 46 C6 26 17 14 32 14 C47 14 58 26 58 46 L52 50 H12 Z", GA, { lw: 1.6 })}
+          {P("M32 1 L41 17 L32 13 L23 17 Z", GC, { line: edge, lw: 1 })}
+          {lit(32, 8, 2.6)}
+        </>}
+        {FORM === "circlet" && <>
+          {P("M8 30 C8 22 18 17 32 17 C46 17 56 22 56 30 L56 40 C56 47 46 51 32 51 C18 51 8 47 8 40 Z", GA, { lw: 1.6 })}
+          {[16, 32, 48].map(x => <g key={x}>{lit(x, 24, 2.2)}</g>)}
+        </>}
+        {FORM === "crown" && <>
+          {P("M6 50 L10 16 L21 30 L32 10 L43 30 L54 16 L58 50 Z", GA, { lw: 1.6 })}
+          {[[10, 16], [32, 10], [54, 16]].map(([x, y], j) => <g key={j}>{lit(x, y, 2.6)}</g>)}
+          {seam("M10 44 H54")}
+        </>}
+        {FORM === "halo" && <>
+          <ellipse cx="32" cy="20" rx="26" ry="9" fill="none" stroke={lite(C, .5)} strokeWidth="5" opacity=".95" />
+          <ellipse cx="32" cy="20" rx="26" ry="9" fill="none" stroke="#fff" strokeWidth="1.6" opacity=".7" />
+          {P("M18 34 C18 30 46 30 46 34 L44 56 H20 Z", GA, { lw: 1.5 })}
+        </>}
+        {E(32, FORM === "halo" ? 42 : 33, 11, 11, GC, { spec: .85, lw: 1.2, line: lite(C, .4) })}
+        {inlay(k, 32, FORM === "halo" ? 42 : 33, .62)}
+      </>;
+    },
+    pc: (i) => {                                         /* prime core */
+      const k = ((i | 0) % 10 + 10) % 10;
+      // ten cores, five geometries — nobody should see two the same side by side
+      const FORM = ["orbit", "prism", "torus", "lattice", "spark"][k % 5];
+      return <>
+        <circle cx="32" cy="32" r="26" fill={GLOW} />
+        {FORM === "orbit" && [0, 60, 120].map(a => (
+          <ellipse key={a} cx="32" cy="32" rx="27" ry="11" fill="none" stroke={lite(A, .3)}
+            strokeWidth="3" opacity=".85" transform={`rotate(${a} 32 32)`} />))}
+        {FORM === "prism" && <>
+          {P("M32 3 L58 32 L32 61 L6 32 Z", GA, { lw: 1.5 })}
+          <path d="M6 32 H58 M32 3 V61" fill="none" stroke="#fff" strokeWidth="1" opacity=".45" />
+        </>}
+        {FORM === "torus" && <>
+          {E(32, 32, 28, 28, GA, { lw: 1.5 })}
+          {E(32, 32, 19, 19, "#07101c", { spec: .3, occ: .2, line: lite(C, .3), lw: 1.1 })}
+        </>}
+        {FORM === "lattice" && [0, 45, 90, 135].map(a => (
+          <g key={a} transform={`rotate(${a} 32 32)`}>
+            {P("M32 4 L37 32 L32 60 L27 32 Z", GA, { lw: 1, spec: .7 })}
+          </g>))}
+        {FORM === "spark" && [0, 30, 60, 90, 120, 150].map(a => (
+          <path key={a} d="M32 4 L35 32 L32 60 L29 32 Z" fill={lite(C, .4)} opacity=".75"
+            transform={`rotate(${a} 32 32)`} />))}
+        {E(32, 32, 15, 15, GC, { spec: .9, lw: 1.4, line: lite(C, .45) })}
+        {inlay(k, 32, 32, .8)}
+        {[[32, 4], [8, 46], [56, 46]].map(([x, y], j) => <g key={j}>{lit(x, y, 2.6)}</g>)}
+      </>;
+    },
+    pr: (i) => {                                         /* relic gem */
+      const k = ((i | 0) % 10 + 10) % 10;
+      // ten relics, five cuts — a jeweller would not sell the same stone twice
+      const CUT = ["brilliant", "marquise", "emerald", "pear", "cushion"][k % 5];
+      const outer = {
+        brilliant: "M32 2 L54 20 L45 58 H19 L10 20 Z",
+        marquise:  "M32 1 C46 14 52 26 52 32 C52 38 46 50 32 63 C18 50 12 38 12 32 C12 26 18 14 32 1 Z",
+        emerald:   "M20 4 H44 L58 18 V46 L44 60 H20 L6 46 V18 Z",
+        pear:      "M32 3 C44 16 54 28 54 40 C54 52 44 61 32 61 C20 61 10 52 10 40 C10 28 20 16 32 3 Z",
+        cushion:   "M18 5 H46 C54 5 59 10 59 18 V46 C59 54 54 59 46 59 H18 C10 59 5 54 5 46 V18 C5 10 10 5 18 5 Z",
+      }[CUT];
+      const inner = {
+        brilliant: "M32 12 L46 23 L39 50 H25 L18 23 Z",
+        marquise:  "M32 12 C41 21 44 28 44 32 C44 36 41 43 32 52 C23 43 20 36 20 32 C20 28 23 21 32 12 Z",
+        emerald:   "M24 13 H40 L50 22 V42 L40 51 H24 L14 42 V22 Z",
+        pear:      "M32 14 C40 23 45 31 45 39 C45 47 39 52 32 52 C25 52 19 47 19 39 C19 31 24 23 32 14 Z",
+        cushion:   "M22 14 H42 C48 14 50 17 50 22 V42 C50 47 48 50 42 50 H22 C16 50 14 47 14 42 V22 C14 17 16 14 22 14 Z",
+      }[CUT];
+      return <>
+        {P(outer, GA, { lw: 1.7 })}
+        {P(inner, GC, { spec: .9, lw: 1.2, line: lite(C, .45) })}
+        <path d={CUT === "emerald" || CUT === "cushion"
+          ? "M14 22 H50 M14 42 H50 M24 13 V51 M40 13 V51"
+          : "M18 23 H46 M32 12 L25 50 M32 12 L39 50"}
+          fill="none" stroke="#fff" strokeWidth=".9" opacity=".5" />
+        {inlay(k, 32, 32, .6)}
+        {lit(32, CUT === "marquise" || CUT === "pear" ? 12 : 8, 3.4)}
+      </>;
+    },
 
     /* ── the five categories that used to be emoji ── */
     // a key skin is the colour a keybed wears, so it is sold as keys
