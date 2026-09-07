@@ -447,20 +447,44 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {R(30, 32, 14, 8, 3, GC, { line: edge })}
       {lit(58, 30, 3.2)}
     </>,
+    /* A projected field, not a flat hexagon: an emitter throws it, the surface
+       is cellular the way a field is, and something has just hit it. */
     barrier: () => <>
-      <path d="M32 4 L56 17 V47 L32 60 L8 47 V17 Z" fill={GLOW} opacity=".8" />
-      {P("M32 6 L54 18 V46 L32 58 L10 46 V18 Z", GA, { spec: .8, occ: .5, lw: 1.8, line: lite(C, .1) })}
-      <path d="M32 14 L47 22 V42 L32 50 L17 42 V22 Z" fill="none" stroke={lite(C, .5)} strokeWidth="1.2" opacity=".8" />
-      <path d="M32 6 L32 58 M10 18 L54 46 M54 18 L10 46" stroke={lite(C, .55)} strokeWidth=".8" opacity=".45" fill="none" />
-      {lit(32, 32, 4)}
+      <path d="M32 2 L58 16 V46 L32 60 L6 46 V16 Z" fill={GLOW} opacity=".85" />
+      {P("M32 5 L55 17 V45 L32 57 L9 45 V17 Z", GA, { spec: .85, occ: .42, lw: 1.6, line: lite(C, .35) })}
+      {[[32, 32], [32, 16], [32, 48], [18, 24], [18, 40], [46, 24], [46, 40]].map(([x, y], i) => (
+        <path key={i} d={`M${x} ${y - 8} L${x + 7} ${y - 4} V${y + 4} L${x} ${y + 8} L${x - 7} ${y + 4} V${y - 4} Z`}
+          fill="none" stroke={lite(C, .5)} strokeWidth=".85" opacity={i ? .38 : .7} />
+      ))}
+      {/* the impact: one cell lit, the shock still running out along the lattice */}
+      <path d="M46 24 L38 30 M46 24 L54 20 M46 24 L44 15" fill="none" stroke="#fff" strokeWidth="1.1" strokeLinecap="round" opacity=".7" />
+      {lit(46, 24, 3.4)}
+      {/* the emitter itself: prongs at the shoulders, grip across the bottom */}
+      {P("M9 21 L2 25 L2 37 L9 41 Z", GB, { line: edgeB, lw: 1 })}
+      {P("M55 21 L62 25 L62 37 L55 41 Z", GB, { line: edgeB, lw: 1 })}
+      {R(20, 49, 24, 11, 4, GB, { line: edgeB })}
+      <path d="M25 54 H39" stroke={lite(C, .5)} strokeWidth="2.4" strokeLinecap="round" />
+      {lit(4.6, 31, 1.7)}
+      {lit(59.4, 31, 1.7)}
     </>,
+    /* A breaching charge rather than a stick of butter: banded canister on a
+       magnetic clamp, detonator capped, timer already counting. */
     charge: () => <>
-      {R(20, 18, 24, 42, 7, GA)}
-      {R(20, 18, 24, 11, 5, GB, { line: edgeB })}
-      {seam("M25 36 H39 M25 45 H39")}
-      <path d="M32 18 C30 12 34 10 32 4" fill="none" stroke={dim(B, .2)} strokeWidth="2.4" strokeLinecap="round" />
-      {lit(32, 4, 3.6, C)}
-      {lit(32, 52, 3)}
+      {R(19, 11, 26, 41, 8, GA)}
+      {R(19, 17, 26, 7, 3, GB, { line: edgeB, lw: 1 })}
+      {R(19, 42, 26, 7, 3, GB, { line: edgeB, lw: 1 })}
+      {P("M24 28 H40 V38 H24 Z", "#080c16", { spec: .3, occ: .3, line: dim(A, .25), lw: 1 })}
+      <path d="M28 31 V35 M32 31 V35 M36 31 V35" fill="none" stroke={lite(C, .55)} strokeWidth="1.8" strokeLinecap="round" />
+      {/* the clamp foot, stencilled with the chevrons you back away from */}
+      {R(14, 51, 36, 9, 4, GB, { line: edgeB })}
+      {[0, 1, 2, 3].map(i => (
+        <path key={i} d={`M${17 + i * 8} 58 L${21 + i * 8} 53 L${25 + i * 8} 58`}
+          fill="none" stroke={lite(C, .4)} strokeWidth="2.2" strokeLinecap="round" opacity=".85" />
+      ))}
+      {R(26, 4, 12, 8, 3, GC, { line: lite(C, .3), lw: 1 })}
+      <path d="M38 7 C45 6 47 5 46 3" fill="none" stroke={dim(B, .15)} strokeWidth="1.8" strokeLinecap="round" />
+      {lit(46, 3, 2.4, C)}
+      {lit(32, 21, 2.2)}
     </>,
     /* an EMP charge, not a pineapple: a banded casing with the coil visibly
        wound round it and the discharge already arcing off the fins */
@@ -882,19 +906,44 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {beamLine("M46 16 C50 20 50 26 46 30", 1.8)}
       {lit(32, 46, 3)}
     </>,
+    /* An actual metronome, not a triangle: tapered case, open front, the rod
+       caught at the top of its swing with the ghost of where it came from. */
     pendulum: () => <>
-      {P("M20 56 L32 6 L44 56 Z", GA)}
-      {P("M24 50 H40 V56 H24 Z", GB, { line: edgeB, lw: 1 })}
-      {seam("M32 12 V48")}
-      {P("M27 26 L37 26 L37 33 L27 33 Z", GC, { line: lite(C, .3), lw: 1 })}
-      <path d="M32 10 L44 22" stroke={lite(A, .45)} strokeWidth="1.4" opacity=".7" />
-      {lit(32, 48, 2.6)}
+      {P("M14 58 L25 12 H39 L50 58 Z", GA)}
+      {P("M22 58 L28.5 24 H35.5 L42 58 Z", "#070b15", { spec: .22, occ: .28, line: dim(A, .35), lw: 1 })}
+      {[30, 36, 42, 48, 54].map((y, i) => (
+        <path key={i} d={`M${(28.5 - (y - 24) * .191).toFixed(1)} ${y} h${(2.2 + i * .3).toFixed(1)}`}
+          fill="none" stroke={lite(C, .5)} strokeWidth=".8" opacity=".7" />
+      ))}
+      {P("M24 9 H40 V13 H24 Z", GB, { line: edgeB, lw: 1 })}
+      <path d="M32 54 C34 38 36 20 37 4" fill="none" stroke={lite(A, .4)} strokeWidth="2.2" strokeLinecap="round" />
+      {P("M30.5 30 H38.5 L37.5 37 H31.5 Z", GC, { line: lite(C, .3), lw: 1 })}
+      <path d="M27 6 C31 3 33 3 37 6" fill="none" stroke={lite(C, .5)} strokeWidth="1.1" strokeDasharray="2.5 3" opacity=".7" />
+      {lit(37, 4, 2.6)}
+      {lit(32, 54, 2.2)}
     </>,
+    /* A conductor's baton: turned grip, ferrule, a shaft that actually tapers —
+       and the beat it just drew still hanging in the air behind the tip. */
     baton: () => <>
-      {P("M14 50 C12 46 14 42 18 42 L44 12 L50 18 L22 46 C22 50 18 53 14 50 Z", GA)}
-      {P("M42 10 L52 20 C55 17 55 12 52 9 C49 6 45 7 42 10 Z", GC, { line: lite(C, .3) })}
-      {beamLine("M48 6 L58 2", 1.6)}
-      {lit(17, 47, 3)}
+      {/* the sweep the tip just cut, well behind the stick so it reads as air */}
+      <path d="M17 24 C29 10 44 5 57 9" fill="none" stroke={C} strokeWidth="6" strokeLinecap="round" opacity=".16" />
+      <path d="M17 24 C29 10 44 5 57 9" fill="none" stroke={lite(C, .4)} strokeWidth="1.4" strokeLinecap="round" strokeDasharray="4 5" opacity=".7" />
+      {/* the grip is a short blunt bulb, not a tuft — a tapering coloured point
+          on a white stick is a paintbrush, which is exactly what it read as */}
+      <g transform="rotate(-46 15 51)">
+        {P("M7 51 a8 5.8 0 1 0 16 0 a8 5.8 0 1 0 -16 0 Z", GB, { spec: .7, lw: 1.3, line: edgeB })}
+        <path d="M11 46.4 C10 48.6 10 53.4 11 55.6" fill="none" stroke={edgeB} strokeWidth="1" opacity=".5" />
+      </g>
+      {P("M22.6 46.5 L53 13 L52 12 L19.4 43.5 Z", GA, { spec: .95, lw: 1, line: lite(A, .12) })}
+      <path d="M19.1 43.1 L23.9 47.9" stroke={lite(C, .5)} strokeWidth="4.4" strokeLinecap="round" />
+      <path d="M19.6 44.4 L23.4 48.2" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" opacity=".5" />
+      {[[30, 6, .9], [45, 32, .78]].map(([x, y, k], i) => (
+        <g key={i} transform={`translate(${x} ${y}) scale(${k})`} opacity=".85">
+          <ellipse cx="-2.6" cy="4" rx="3.4" ry="2.5" fill={lite(C, .5)} transform="rotate(-22 -2.6 4)" />
+          <path d="M.6 3.4 V-7 C3.6 -6 5 -3.4 4.2 -1" fill="none" stroke={lite(C, .5)} strokeWidth="1.4" strokeLinecap="round" />
+        </g>
+      ))}
+      {lit(52, 13, 2.8)}
     </>,
     /* A cutting disc, not a record: twelve raked teeth, a lit drive hub and
        the arc it leaves in the air. At 820 coins it has to bite. */
