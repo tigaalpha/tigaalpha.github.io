@@ -547,21 +547,72 @@ export const CUTE_FRONT = {
 };
 
 export const CUTE_BUILD = {
-  pip:     { badge: "bolt",   belly: 1, front: "apron" },
-  pebble:  { badge: "drop",   belly: 1, front: "egg" },
-  nova:    { badge: "star",   belly: 1, front: "vee" },
-  pixel:   { badge: "pixel",  belly: 0, front: "vee" },
-  mochi:   { badge: "heart",  belly: 1, front: "heart" },
-  pudding: { badge: "cloud",  belly: 1, front: "apron" },
-  acorn:   { badge: "leaf",   belly: 1, tail: "puff", front: "pouch" },
-  cocoa:   { badge: "paw",    belly: 1, tail: "puff", front: "pouch" },
-  blossom: { badge: "flower", belly: 1, front: "heart" },
-  pengu:   { badge: "snow",   belly: 1, tail: "puff", front: "bib" },
-  bubbly:  { badge: "bubble", belly: 1, front: "shell" },
-  poppy:   { badge: "flower", belly: 1, front: "vee" },
-  honey:   { badge: "hex",    belly: 1, tail: "puff", front: "shell" },
-  snowbun: { badge: "snow",   belly: 1, tail: "puff", front: "bib" },
-  plushy:  { badge: "heart",  belly: 1, tail: "puff", front: "heart" },
+  pip:     { badge: "bolt",   belly: 1, front: "apron", foot: "sneak" },
+  pebble:  { badge: "drop",   belly: 1, front: "egg", foot: "flip" },
+  nova:    { badge: "star",   belly: 1, front: "vee", foot: "sneak" },
+  pixel:   { badge: "pixel",  belly: 0, front: "vee", foot: "pod" },
+  mochi:   { badge: "heart",  belly: 1, front: "heart", foot: "round" },
+  pudding: { badge: "cloud",  belly: 1, front: "apron", foot: "round" },
+  acorn:   { badge: "leaf",   belly: 1, tail: "puff", front: "pouch", foot: "paw" },
+  cocoa:   { badge: "paw",    belly: 1, tail: "puff", front: "pouch", foot: "paw" },
+  blossom: { badge: "flower", belly: 1, front: "heart", foot: "round" },
+  pengu:   { badge: "snow",   belly: 1, tail: "puff", front: "bib", foot: "flip" },
+  bubbly:  { badge: "bubble", belly: 1, front: "shell", foot: "flip" },
+  poppy:   { badge: "flower", belly: 1, front: "vee", foot: "sneak" },
+  honey:   { badge: "hex",    belly: 1, tail: "puff", front: "shell", foot: "pod" },
+  snowbun: { badge: "snow",   belly: 1, tail: "puff", front: "bib", foot: "paw" },
+  plushy:  { badge: "heart",  belly: 1, tail: "puff", front: "heart", foot: "paw" },
+};
+
+/* ── what a chibi stands on ──
+   All fifteen cute frames walked around on the identical rounded blob. The
+   foot is the one part of a chibi that is never covered — no cape reaches it,
+   no pose hides it — so it earns five shapes rather than one. Each is built
+   from the ankle's x, so the left and right legs share the code instead of
+   drifting a pixel apart the way the hand-written pair had.
+   `cut` is stroked as seams: a filled band across a soft boot reads as a
+   stripe, a seam reads as a toe. */
+export const BOOT = {
+  round: (x) => ({
+    d: `M${x} 368 C${x - 14} 368 ${x - 23} 377 ${x - 23} 384 C${x - 23} 391 ${x - 13} 394 ${x + 1} 394 C${x + 15} 394 ${x + 24} 391 ${x + 24} 384 C${x + 24} 377 ${x + 14} 368 ${x} 368 Z`,
+    cut: [`M${x - 21} 383 C${x - 15} 390 ${x + 16} 390 ${x + 22} 383`],
+  }),
+  // three toe beans and a pad — the animal frames
+  paw: (x) => ({
+    d: `M${x} 366 C${x - 15} 366 ${x - 25} 376 ${x - 25} 384 C${x - 25} 391 ${x - 14} 395 ${x} 395 C${x + 14} 395 ${x + 25} 391 ${x + 25} 384 C${x + 25} 376 ${x + 15} 366 ${x} 366 Z`,
+    cut: [
+      `M${x - 17} 380 C${x - 17} 374 ${x - 9} 374 ${x - 9} 380`,
+      `M${x - 4} 377 C${x - 4} 371 ${x + 4} 371 ${x + 4} 377`,
+      `M${x + 9} 380 C${x + 9} 374 ${x + 17} 374 ${x + 17} 380`,
+      `M${x - 12} 385 C${x - 7} 393 ${x + 7} 393 ${x + 12} 385`,
+    ],
+  }),
+  // wide, flat and webbed — the water frames
+  flip: (x) => ({
+    d: `M${x} 370 C${x - 17} 370 ${x - 28} 378 ${x - 28} 386 C${x - 28} 392 ${x - 16} 395 ${x} 395 C${x + 16} 395 ${x + 28} 392 ${x + 28} 386 C${x + 28} 378 ${x + 17} 370 ${x} 370 Z`,
+    cut: [
+      `M${x - 24} 383 C${x - 18} 389 ${x + 18} 389 ${x + 24} 383`,
+      `M${x - 9} 394 C${x - 9} 388 ${x - 8} 383 ${x - 6} 379`,
+      `M${x + 9} 394 C${x + 9} 388 ${x + 8} 383 ${x + 6} 379`,
+    ],
+  }),
+  // a real shoe: sole slab, toe cap, lace band
+  sneak: (x) => ({
+    d: `M${x - 2} 364 C${x - 16} 364 ${x - 24} 374 ${x - 24} 383 C${x - 24} 391 ${x - 13} 394 ${x + 2} 394 C${x + 16} 394 ${x + 25} 391 ${x + 25} 383 C${x + 25} 375 ${x + 14} 364 ${x - 2} 364 Z`,
+    cut: [
+      `M${x - 24} 387 C${x - 16} 391 ${x + 17} 391 ${x + 25} 387`,
+      `M${x - 13} 391 C${x - 11} 380 ${x + 11} 380 ${x + 13} 391`,
+      `M${x - 9} 371 H${x + 9} M${x - 8} 376 H${x + 8}`,
+    ],
+  }),
+  // no foot at all: a tapered hover pod riding just off the floor
+  pod: (x) => ({
+    d: `M${x} 368 C${x - 13} 368 ${x - 20} 374 ${x - 20} 380 C${x - 20} 386 ${x - 11} 389 ${x} 389 C${x + 11} 389 ${x + 20} 386 ${x + 20} 380 C${x + 20} 374 ${x + 13} 368 ${x} 368 Z`,
+    cut: [
+      `M${x - 17} 383 C${x - 11} 387 ${x + 11} 387 ${x + 17} 383`,
+      `M${x - 8} 374 H${x + 8}`,
+    ],
+  }),
 };
 
 /* Which model gets what. The cute frames are not listed: their chassis is a
@@ -2761,7 +2812,9 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   const chibi = !!rig.chibi;
   const bw = rig.bw || 1, bh = rig.bh || 1;
   const bd = MODEL_BUILD[v] || MODEL_BUILD.vanguard;   // pauldron / core / backpack
-  const cb = CUTE_BUILD[v] || CUTE_BUILD.nova;         // badge / belly / tail
+  const cb = CUTE_BUILD[v] || CUTE_BUILD.nova;         // badge / belly / tail / foot
+  const mkBoot = BOOT[cb.foot] || BOOT.round;
+  const bootL = mkBoot(42), bootR = mkBoot(78);
   const shellFill = `url(#${id}-${HEAD.fill})`;
   // the chassis takes the model's own material; the outfit's swatch re-plates the trim
   const bodyKey = "plate";
@@ -3381,20 +3434,19 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                   is the single biggest depth cue on the whole build */}
               {castOn("M60 116 C89 116 103 141 103 182 L101 246 C99 278 82 294 60 294 C38 294 21 278 19 246 L17 182 C17 141 31 116 60 116 Z", .95)}
               </g>
-              {/* little boots, each on its own hip */}
+              {/* little boots, each on its own hip — the shape comes from the
+                  model's own footwear so the fifteen frames stop sharing one */}
               <g className="ca-limb" transform={rot(PZ.legL * .7, 45, 290)}>
                 {plate("M34 288 C29 294 28 336 30 358 C31 372 55 373 57 360 C60 338 59 294 55 288 Z")}
                 {castOn("M34 288 C29 294 28 336 30 358 C31 372 55 373 57 360 C60 338 59 294 55 288 Z", .55)}
-                {plate("M42 368 C28 368 19 377 19 384 C19 391 29 394 43 394 C57 394 66 391 66 384 C66 377 56 368 42 368 Z")}
-                {/* the toe cap, cut in rather than bolted on: a filled band
-                    across a soft boot reads as a stripe, a seam reads as a toe */}
-                {groove("M21 383 C27 390 58 390 64 383", 1.2, .42)}
+                {plate(bootL.d)}
+                {bootL.cut.map((d, i) => <g key={i}>{groove(d, 1.5, .55)}</g>)}
               </g>
               <g className="ca-limb" transform={rot(-PZ.legR * .7, 75, 290)}>
                 {plate("M65 288 C61 294 60 336 63 358 C64 372 88 373 90 360 C92 338 91 294 86 288 Z")}
                 {castOn("M65 288 C61 294 60 336 63 358 C64 372 88 373 90 360 C92 338 91 294 86 288 Z", .55)}
-                {plate("M78 368 C64 368 55 377 55 384 C55 391 64 394 78 394 C92 394 101 391 101 384 C101 377 92 368 78 368 Z")}
-                {groove("M57 383 C63 390 94 390 100 383", 1.2, .42)}
+                {plate(bootR.d)}
+                {bootR.cut.map((d, i) => <g key={i}>{groove(d, 1.5, .55)}</g>)}
               </g>
               <g transform={rot(PZ.lean, 60, 280)}>
               <path d="M18 206 h13 M89 206 h13" stroke={bTrim} strokeWidth="5.5" strokeLinecap="round" />
