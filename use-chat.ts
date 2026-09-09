@@ -177,49 +177,73 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         pendingFlush = setTimeout(flush, wait);
       };
 
-      /* ONE silent retry: a single transient provider blip (429/5xx/overload
-         — verified live 2026-09-09: the endpoint itself was healthy, one
-         request just got a one-off error event) used to surface instantly as
-         the "AI is a bit busy" bubble for something the very next request
-         would have answered. Retry only while NOTHING has streamed yet —
-         latest stays empty — so a half-written answer is never restarted and
-         no duplicate empty bubble appears (onStart reuses the existing one).
-         AbortError is excluded: that is the slow-connection watchdog, and
-         retrying would double the wait before the honest chatSlow message. */
+      /* Three-layer resilience for the request (verified live 2026-09-09:
+         the endpoint answers correctly from a clean network — the failures
+         happen on the last leg, the phone's own connection, or as a
+         "successful" stream that carries zero content):
+           1. streaming attempt
+           2. on a transient provider blip (error before ANY content): one
+              silent streaming retry — no half-written answer is restarted
+           3. non-streaming JSON fallback (stream:false) — a single response
+              instead of an SSE stream, which survives proxies/carriers that
+              stall or buffer event streams; also catches the empty-200 case
+              (a reasoning model can burn the server's whole token budget
+              thinking and stream nothing).
+         An abort (20s of silence) skips the second streaming try (waiting
+         twice for a dead connection helps nobody) and goes straight to the
+         JSON transport. Only if every transport fails does the friendly
+         error bubble appear. */
+      const isAbort = (e) => e && (e.name === "AbortError" || /abort/i.test(String(e.message || "")));
       let acc = "";
-      const MAX_ATTEMPTS = 2;
-      for (let attempt = 1; ; attempt++) {
-        latest = "";
-        try {
-          acc = await streamChatCompletion(
-            { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat" },
-            {
-              // insert an empty AI bubble we will fill as tokens arrive —
-              // reused, not duplicated, if a retry follows a pre-token failure
-              onStart: () => {
-                setMsgs(prev => {
-                  const last = prev[prev.length - 1];
-                  if (last && last.role === "ai" && !String(last.text || "").trim()) return prev;
-                  return [...prev, { role: "ai", text: "" }];
-                });
-                setLoading(false);
-              },
-              onChunk: (soFar) => { latest = soFar; scheduleFlush(); },
-            }
-          );
-          break;
-        } catch (err) {
-          const aborted = (err && (err.name === "AbortError" || /abort/i.test(String(err.message || ""))));
-          if (attempt < MAX_ATTEMPTS && !latest.trim() && !aborted) {
-            console.warn("Chat attempt " + attempt + " failed before any content — retrying once:", err && err.message);
+      let haveBubble = false; // did any streaming attempt reach the response?
+      const runStream = () => streamChatCompletion(
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: true },
+        {
+          // insert an empty AI bubble we will fill as tokens arrive —
+          // reused, not duplicated, if a retry follows a pre-token failure
+          onStart: () => {
+            haveBubble = true;
+            setMsgs(prev => {
+              const last = prev[prev.length - 1];
+              if (last && last.role === "ai" && !String(last.text || "").trim()) return prev;
+              return [...prev, { role: "ai", text: "" }];
+            });
+            setLoading(false);
+          },
+          onChunk: (soFar) => { latest = soFar; scheduleFlush(); },
+        }
+      );
+      const runJson = () => fetchChatCompletion(
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: false }
+      );
+      try {
+        acc = await runStream();
+        if (!acc.trim()) acc = await runJson(); // 200-but-empty → different transport
+      } catch (e1) {
+        if (!isAbort(e1) && !latest.trim()) {
+          // transient blip: one silent streaming retry, then JSON as the net
+          try {
             await new Promise(r => setTimeout(r, 800));
-            continue;
+            acc = await runStream();
+            if (!acc.trim()) acc = await runJson();
+          } catch (e2) {
+            acc = await runJson(); // final transport; a throw here → outer catch below
           }
-          throw err;
+        } else {
+          acc = await runJson(); // abort/mid-stream: JSON only, no double wait
         }
       }
       if (pendingFlush) clearTimeout(pendingFlush);
       latest = acc;
+      // the JSON fallback can succeed without any streaming attempt reaching
+      // the response — make sure a bubble exists before filling it
+      if (acc.trim() && !haveBubble) {
+        setMsgs(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === "ai" && !String(last.text || "").trim()) return prev;
+          return [...prev, { role: "ai", text: "" }];
+        });
+      }
       flush(); // final flush with the complete text
 
       if (acc.trim()) {
