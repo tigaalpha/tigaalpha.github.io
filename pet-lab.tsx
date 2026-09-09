@@ -1383,7 +1383,7 @@ export function buyFurniture(id) {
 export function PetRoom({ owned }) {
   const has = (id) => owned.indexOf(id) >= 0;
   return (
-    <svg className="pet-room" viewBox="0 0 240 130" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+    <svg className="pet-scene" viewBox="0 0 240 130" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
       <defs>
         <linearGradient id="pr-sky" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#233a63" /><stop offset="100%" stopColor="#0e1728" />

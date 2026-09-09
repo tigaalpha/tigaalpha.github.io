@@ -2982,11 +2982,11 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .pr-pet{position:absolute;left:50%;bottom:10px;width:152px;height:172px;transform:translateX(-50%);cursor:pointer;z-index:2;filter:drop-shadow(0 10px 22px color-mix(in srgb,var(--pc,#8ab) 55%,transparent))}
 .pr-pet:active{transform:translateX(-50%) scale(.97)}
 .pr-pet.sad{filter:saturate(.55) drop-shadow(0 8px 20px #0006)}
-.pr-mess{position:absolute;width:28px;height:28px;padding:0;border:none;border-radius:50%;background:#ffffff14;font-size:15px;line-height:1;cursor:pointer;transform:translate(-50%,-50%)}
+.pr-mess{position:absolute;width:28px;height:28px;padding:0;border:none;border-radius:50%;background:#ffffff14;font-size:15px;line-height:1;cursor:pointer;transform:translate(-50%,-50%);z-index:3}
 .pr-mess:hover{background:#ffffff2b}
 .pr-fx{position:absolute;bottom:56px;font-size:19px;pointer-events:none;animation:prfx 1.4s ease-out forwards}
 @keyframes prfx{0%{opacity:0;transform:translateY(0) rotate(0)}18%{opacity:1}100%{opacity:0;transform:translateY(-88px) rotate(var(--rot,0deg))}}
-.pr-hint{position:absolute;left:0;right:0;top:9px;text-align:center;font-size:10.5px;color:#e6ecf8;opacity:.72}
+.pr-hint{position:absolute;left:50%;transform:translateX(-50%);top:9px;max-width:92%;padding:3px 12px;border-radius:20px;border:1px solid var(--bd1);background:color-mix(in srgb,var(--card2) 88%,transparent);text-align:center;font-size:10.5px;white-space:nowrap;color:var(--text2);opacity:.92}
 
 .pet-idcard{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:11px 13px 0}
 .pet-idcard span{font-size:10.5px;padding:3px 9px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);color:var(--text2)}
@@ -3090,7 +3090,7 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 @keyframes petawake{0%,100%{filter:drop-shadow(0 0 14px #fff) drop-shadow(0 0 28px rgba(255,210,63,.6))}
   50%{filter:drop-shadow(0 0 22px #fff) drop-shadow(0 0 44px rgba(255,210,63,.9))}}
 /* ── the branch fork on the pet page ── */
-.pet-room{position:absolute;left:0;right:0;bottom:0;width:100%;height:64%;pointer-events:none;z-index:1}
+.pet-scene{position:absolute;left:0;right:0;bottom:0;width:100%;height:64%;pointer-events:none;z-index:1}
 .pet-shopfur{margin:8px 0;padding:11px 13px;border-radius:14px;background:#16203a;border:1px solid #ffffff1f;font-family:'Rajdhani',sans-serif}
 .pet-shopfur>b{display:block;font-size:15px;color:#e8eefc;margin-bottom:8px}
 .pet-fur-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
