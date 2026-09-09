@@ -177,14 +177,47 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         pendingFlush = setTimeout(flush, wait);
       };
 
-      const acc = await streamChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat" },
-        {
-          // insert an empty AI bubble we will fill as tokens arrive
-          onStart: () => { setMsgs(prev => [...prev, { role: "ai", text: "" }]); setLoading(false); },
-          onChunk: (soFar) => { latest = soFar; scheduleFlush(); },
+      /* ONE silent retry: a single transient provider blip (429/5xx/overload
+         — verified live 2026-09-09: the endpoint itself was healthy, one
+         request just got a one-off error event) used to surface instantly as
+         the "AI is a bit busy" bubble for something the very next request
+         would have answered. Retry only while NOTHING has streamed yet —
+         latest stays empty — so a half-written answer is never restarted and
+         no duplicate empty bubble appears (onStart reuses the existing one).
+         AbortError is excluded: that is the slow-connection watchdog, and
+         retrying would double the wait before the honest chatSlow message. */
+      let acc = "";
+      const MAX_ATTEMPTS = 2;
+      for (let attempt = 1; ; attempt++) {
+        latest = "";
+        try {
+          acc = await streamChatCompletion(
+            { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat" },
+            {
+              // insert an empty AI bubble we will fill as tokens arrive —
+              // reused, not duplicated, if a retry follows a pre-token failure
+              onStart: () => {
+                setMsgs(prev => {
+                  const last = prev[prev.length - 1];
+                  if (last && last.role === "ai" && !String(last.text || "").trim()) return prev;
+                  return [...prev, { role: "ai", text: "" }];
+                });
+                setLoading(false);
+              },
+              onChunk: (soFar) => { latest = soFar; scheduleFlush(); },
+            }
+          );
+          break;
+        } catch (err) {
+          const aborted = (err && (err.name === "AbortError" || /abort/i.test(String(err.message || ""))));
+          if (attempt < MAX_ATTEMPTS && !latest.trim() && !aborted) {
+            console.warn("Chat attempt " + attempt + " failed before any content — retrying once:", err && err.message);
+            await new Promise(r => setTimeout(r, 800));
+            continue;
+          }
+          throw err;
         }
-      );
+      }
       if (pendingFlush) clearTimeout(pendingFlush);
       latest = acc;
       flush(); // final flush with the complete text
