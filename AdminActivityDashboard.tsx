@@ -67,6 +67,8 @@ export function AdminActivity({ lang }) {
   const [sel, setSel] = useState(null);      // selected user uuid
   const [detail, setDetail] = useState(null);
   const [showSim, setShowSim] = useState(true);
+  const [hours, setHours] = useState(null);   // [{h:0..23, events, users, time_ms}] — null until admin_activity_hourly exists (RPC error → card stays hidden)
+  const [hourSel, setHourSel] = useState(null); // tapped hour for the detail line
 
   // compute the ISO cutoff INSIDE each callback — computing it during render made
   // `since` a new string every render (Date.now() advances), giving `load` a new
@@ -84,6 +86,11 @@ export function AdminActivity({ lang }) {
       .then(({ data }) => setOverview(data || {}), () => setOverview((o) => o || {}));
     sb.rpc("admin_activity_users", { p_since: since })
       .then(({ data }) => setUsers(data || []), () => setUsers((u) => u || []));
+    // by-hour buckets ( Bangkok wall-clock, computed server-side — see
+    // supabase-activity-hourly-migration.sql ). On failure (RPC not yet applied)
+    // hours stays null and the histogram card is simply not rendered.
+    sb.rpc("admin_activity_hourly", { p_since: since, p_include_sim: showSim })
+      .then(({ data }) => setHours((data && data.hours) || []), () => setHours(null));
   }, [range, showSim]);
 
   useEffect(() => { load(); }, [load]);
@@ -133,6 +140,52 @@ export function AdminActivity({ lang }) {
               </div>
             ))}
           </div>
+
+          {/* when users come in — 24h histogram (hours null → RPC missing → skip card) */}
+          {hours && hours.length > 0 && (() => {
+            const evs = hours.map((h) => Number(h.events) || 0);
+            const maxE = Math.max(...evs, 1);
+            const peak = hours.reduce((a, b) => (((Number(b.events) || 0) > (Number(a.events) || 0)) ? b : a), hours[0]);
+            const hh = (n) => String(n).padStart(2, "0");
+            return (
+              <div className="adminpay-cfg">
+                <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 2 }}>🕒 {T("ช่วงเวลาที่ผู้ใช้เข้ามา (เวลาไทย)", "When users come in (Bangkok time)", "用户活跃时段（曼谷时间）")}</div>
+                <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 8 }}>
+                  {T("แตะแท่งเพื่อดูรายละเอียด · ช่วงพีค: ", "Tap a bar for detail · Peak: ", "点击柱子查看详情 · 高峰: ")}
+                  <b>{hh(peak.h)}:00</b> ({Number(peak.events) || 0} {T("ครั้ง", "events", "次")})
+                </div>
+                <div style={{ display: "flex", alignItems: "stretch", gap: 2, height: 90 }}>
+                  {hours.map((h) => {
+                    const ev = Number(h.events) || 0;
+                    const pct = (ev / maxE) * 100;
+                    return (
+                      <div key={h.h}
+                        title={`${hh(h.h)}:00 — ${ev} ${T("ครั้ง", "events", "次")} · ${h.users} ${T("คน", "users", "人")}`}
+                        onClick={() => setHourSel(hourSel === h.h ? null : h.h)}
+                        style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", cursor: "pointer" }}>
+                        {hourSel === h.h && <div style={{ fontSize: 9, textAlign: "center", fontWeight: 700, marginBottom: 2 }}>{ev}</div>}
+                        <div style={{ height: `${Math.max(ev > 0 ? 6 : 2, pct)}%`, background: hourSel === h.h ? "#d97757" : "rgba(217,119,87,.7)", borderRadius: 3 }} />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
+                  {hours.map((h) => (
+                    <div key={h.h} style={{ flex: 1, minWidth: 0, fontSize: 8, textAlign: "center", opacity: h.h % 6 === 0 ? 0.85 : 0.3 }}>{h.h}</div>
+                  ))}
+                </div>
+                {hourSel !== null && (() => {
+                  const h = hours.find((x) => x.h === hourSel);
+                  return h ? (
+                    <div style={{ fontSize: 11, marginTop: 6, background: "var(--tg-card, #f6f6f8)", borderRadius: 8, padding: "6px 10px" }}>
+                      🕒 {hh(h.h)}:00–{hh(h.h)}:59 — <b>{Number(h.events) || 0}</b> {T("เหตุการณ์ · ", "events · ", "事件 · ")}
+                      <b>{h.users}</b> {T("คน · ", "users · ", "人 · ")}{fmtMs(h.time_ms)}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            );
+          })()}
 
           {/* pages by dwell time */}
           <div className="adminpay-cfg">
