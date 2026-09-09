@@ -9271,16 +9271,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { localStorage.setItem("tg_push_primed", "1"); } catch (e) {}
   }
 
-  // App()'s own LangPickerScreen gate guarantees profile.lang is always
-  // already set by the time PianoApp exists at all (first-ever visit picks
-  // it, before PianoApp ever mounts) — so this reads a real per-user choice,
-  // not a guessed default. setLang persists any LATER change (the ☰ flag
-  // switcher) the same way: profiles.lang for a real account, the guest's
-  // own already-persisted local profile object otherwise.
-    const [lang, setLangState] = useState(profile.lang || "en");
-  // First-time language picker: show as overlay popup only when profile.lang
-  // was never set (null). Once picked, never shown again (persisted to DB).
-  const [langPickerOpen, setLangPickerOpen] = useState(!profile.lang);
+  // With the first-run language picker SUSPENDED (LANG_PICKER_ENABLED below),
+  // PianoApp can now mount with profile.lang still null — it falls back to
+  // "en" until the user switches language from Settings, and setLang
+  // persists that change the same way as before: profiles.lang for a real
+  // account, the guest's own already-persisted local profile otherwise.
+  const [lang, setLangState] = useState(profile.lang || "en");
+  // First-time language picker: SUSPENDED (owner request 2026-09) - the popup
+  // felt like a wall between a new user and the piano. The state/JSX are kept
+  // intact for a future re-enable: flip LANG_PICKER_ENABLED back to true and
+  // the overlay at the bottom of the file lights up again with zero other
+  // edits. Language remains fully switchable any time from Settings via
+  // setLang(), which persists the choice.
+  const LANG_PICKER_ENABLED = false;
+  const [langPickerOpen, setLangPickerOpen] = useState(LANG_PICKER_ENABLED && !profile.lang);
   function setLang(lg) {
     setLangState(lg);
     if (session && session.user && session.user.id) {
@@ -9464,7 +9468,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle().then(({ data }) => { if (data) setProfile(data); });
     });
   }
-  const [welcomeOpen, setWelcomeOpen] = useState(() => { try { return !localStorage.getItem("tg_welcomed"); } catch (e) { return false; } });
+  // First-run welcome/onboarding card: SUSPENDED (owner request 2026-09) -
+  // same reason as the language picker; two popups before the first piano key
+  // was a churn risk. Kept verbatim behind WELCOME_ENABLED so re-enabling is
+  // a one-line flip; the tg_welcomed flag semantics are untouched (marking
+  // it is harmless and stays correct whenever this comes back).
+  const WELCOME_ENABLED = false;
+  const [welcomeOpen, setWelcomeOpen] = useState(() => { try { return WELCOME_ENABLED && !localStorage.getItem("tg_welcomed"); } catch (e) { return false; } });
   const [owned, setOwned] = useState(getOwned());
   const [skin, setSkin] = useState(getEquip("skin", "aqua"));
   const [theme, setTheme] = useState(getEquip("theme", "midnight"));
@@ -11213,8 +11223,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* WELCOME / first-run onboarding */}
-      {welcomeOpen && (
+      {/* WELCOME / first-run onboarding — SUSPENDED (owner request 2026-09):
+          WELCOME_ENABLED above is false so this never mounts. Kept verbatim so
+          re-enabling is a one-line flip. */}
+      {false && welcomeOpen && (
         <div className="chestov" onClick={() => {}}>
           <div className="setcard wlc" onClick={e => e.stopPropagation()}>
             <div className="wlc-mascot">🎹</div>
@@ -11797,8 +11809,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* One-time language picker popup — shown as overlay on first visit when profile.lang is null */}
-      {langPickerOpen && (
+      {/* One-time language picker popup — SUSPENDED (owner request 2026-09):
+          LANG_PICKER_ENABLED above is false so this never mounts. Kept verbatim
+          so re-enabling is a one-line flip. */}
+      {false && langPickerOpen && (
         <div className="apkpopov" style={{ zIndex: 9999 }}>
           <div className="apkpop apkpop2" onClick={e => e.stopPropagation()} style={{ maxWidth: 340 }}>
             <img className="apkpop-icon" src="./icon.svg" alt="" />
