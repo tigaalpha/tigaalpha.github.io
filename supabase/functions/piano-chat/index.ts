@@ -1,15 +1,10 @@
 // piano-chat — Supabase Edge Function (Deno)
 //
-// ⚠️ IMPORTANT CONTEXT FOR WHOEVER DEPLOYS THIS:
-// This file was written WITHOUT read access to the currently-deployed
-// piano-chat function (Supabase MCP access wasn't available in this session).
-// It's a from-scratch reconstruction, built strictly from the wire contract
-// the CLIENT (App.tsx) actually sends/expects — verified line-by-line against
-// the real client code, not guessed. Before replacing your live function with
-// this: diff it against what's currently deployed and confirm nothing you
-// depend on (extra logging, rate limiting, a different default model, etc.)
-// gets silently dropped. Treat this as a reference implementation to merge
-// from, not a blind swap.
+// This file IS the deployed function. It was originally reconstructed from the
+// client's wire contract without read access to the live copy; on 2026-09-10
+// the live copy (v24) was finally read back and confirmed to be a strict subset
+// of this one — same contract, minus the free-route handling and the keep-alive
+// below — and this version was deployed over it. Deploy from here.
 //
 // WIRE CONTRACT (confirmed from App.tsx):
 //   Request:  POST { message: string, conversationHistory: {role,content}[], system: string, stream?: boolean, feature?: string }
@@ -58,16 +53,14 @@
 //   ANTHROPIC_API_KEY   — required for Anthropic (the default).
 //   GEMINI_API_KEY      — for Gemini options. https://aistudio.google.com/apikey
 //   DEEPSEEK_API_KEY    — for DeepSeek V4 options (direct API). https://platform.deepseek.com
-//   OPENROUTER_API_KEY  — for DeepSeek via OpenRouter (flat price, no peak
-//                         surcharge, often 2-6x cheaper than direct — the
-//                         admin "AI Models" panel can route any chat-type
-//                         feature to either), and for the FREE V3 route
-//                         "deepseek/deepseek-chat-v3-0324:free", which costs
-//                         nothing at all and is rate-limited rather than
-//                         billed. A 429 from any :free route falls through to
-//                         the next configured provider instead of failing the
-//                         learner, so it is safe to select as a default.
-//                         https://openrouter.ai/keys
+//   OPENROUTER_API_KEY  — routes any chat-type feature through OpenRouter, and
+//                         is what makes the FREE tier possible. NOTE: OpenRouter
+//                         retires free routes without notice — as of 2026-09-10
+//                         it lists no free DeepSeek route at all, which is what
+//                         took every AI feature in this app down. Free ids
+//                         therefore live in FREE_LADDER below and are walked in
+//                         order, so a retirement or a spent quota costs a
+//                         moment, not the feature. https://openrouter.ai/keys
 //   SUPABASE_URL / SUPABASE_ANON_KEY — auto-injected by the Supabase
 //                         runtime for every edge function, nothing to set.
 
@@ -100,6 +93,18 @@ const hasKey = (p: string) =>
   : p === "openrouter" ? !!OPENROUTER_API_KEY
   : !!ANTHROPIC_API_KEY;
 
+/* Free OpenRouter routes to walk when the configured one is gone or spent,
+   best first. Verified against the live /api/v1/models catalogue on
+   2026-09-10 — as of that date OpenRouter lists NO free DeepSeek route at all,
+   so a "free DeepSeek" setting can no longer be honoured by any id.
+   "openrouter/free" is last on purpose: it is OpenRouter's own Free Models
+   Router, which picks a random free model, so it always resolves to
+   *something* even after everything above it is retired too. */
+const FREE_LADDER = [
+  "google/gemma-4-31b-it:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "openrouter/free",
+];
 // A provider whose API key is not configured can never succeed — silently route
 // to one that IS configured (Anthropic ↔ Gemini ↔ DeepSeek ↔ OpenRouter) instead
 // of 401/403-ing the learner's every message. Keeps the chat alive when the
@@ -110,7 +115,7 @@ function effective(choice: { provider: string; model: string }): { provider: str
     if (ANTHROPIC_API_KEY) return { provider: "anthropic", model: DEFAULT_MODEL.model };
     if (GEMINI_API_KEY) return { provider: "gemini", model: GEMINI_FALLBACK_MODEL };
     if (DEEPSEEK_API_KEY) return { provider: "deepseek", model: "deepseek-v4-flash" };
-    if (OPENROUTER_API_KEY) return { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
+    if (OPENROUTER_API_KEY) return { provider: "openrouter", model: FREE_LADDER[0] };
   }
   return choice;
 }
@@ -120,7 +125,7 @@ function effective(choice: { provider: string; model: string }): { provider: str
 function defaultModelFor(p: string): string {
   return p === "gemini" ? GEMINI_FALLBACK_MODEL
     : p === "deepseek" ? "deepseek-v4-flash"
-    : p === "openrouter" ? "deepseek/deepseek-v4-flash"
+    : p === "openrouter" ? FREE_LADDER[0]   // never bill by accident on a fallback
     : DEFAULT_MODEL.model;
 }
 
@@ -145,9 +150,25 @@ function isAuthError(msg: string): boolean {
    choosing it means the chat dies whenever the quota runs out. So a 429 from
    a free route is treated exactly like an auth failure: move quietly to the
    next configured provider and answer the learner. */
-const isFreeRoute = (model: string) => /:free$/i.test(model || "");
+const isFreeRoute = (model: string) =>
+  /:free$/i.test(model || "") || model === "openrouter/free";
 function isRateLimit(msg: string): boolean {
   return /(429|rate.?limit|too many requests|quota)/i.test(msg);
+}
+/* ── a route that no longer exists ──
+   OpenRouter RETIRES free routes. On 2026-09-10 every feature in this app was
+   pointed at "deepseek/deepseek-chat-v3-0324:free" and OpenRouter had removed
+   it, answering:
+     404 "This model is unavailable for free. The paid version is available
+          now - use this slug instead: deepseek/deepseek-chat-v3-0324"
+   A 404 is neither an auth error nor a rate limit, so nothing caught it and
+   every single AI feature — chat, voice, coach tips, weekly reports, song
+   generation — died with "the AI is a bit busy" for as long as it took someone
+   to read the function logs. Retirement is a permanent, expected event on a
+   free tier, so it must degrade the same way a quota does: quietly, to the
+   next route. */
+function isDeadRoute(msg: string): boolean {
+  return /(404|no endpoints found|not a valid model|model not found|unavailable for free|is not available|deprecated)/i.test(msg);
 }
 function effectiveDefault(): { provider: string; model: string } {
   return effective(DEFAULT_MODEL);
@@ -447,6 +468,20 @@ async function callOpenRouterOnce(model: string, system: string, messages: ChatM
   return data?.choices?.[0]?.message?.content || "";
 }
 
+/* The order things get tried in: the admin's choice, then — if that was a free
+   OpenRouter route — the rest of the free ladder, then every other provider
+   holding a key. Walking the ladder BEFORE leaving OpenRouter is what keeps a
+   "free" setting free: hopping straight to another provider could start
+   billing, which is the opposite of what picking a free route asked for. */
+function buildChain(provider: string, model: string): Array<{ provider: string; model: string }> {
+  const chain = [{ provider, model }];
+  if (provider === "openrouter" && isFreeRoute(model)) {
+    for (const m of FREE_LADDER) if (m !== model) chain.push({ provider: "openrouter", model: m });
+  }
+  for (const p of nextProvidersWithKey(provider)) chain.push({ provider: p, model: defaultModelFor(p) });
+  return chain;
+}
+
 // ── auth-failure fallback (see isAuthError) ──
 function mkStream(p: string, m: string, system: string, full: ChatMsg[]): AsyncGenerator<string> {
   return p === "gemini"
@@ -468,9 +503,11 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
     } catch (e) {
       if (yielded) throw e;
       const msg = (e as Error)?.message || "";
-      const freeExhausted = isFreeRoute(entries[i].model || "") && isRateLimit(msg);
-      if ((isAuthError(msg) || freeExhausted) && i < entries.length - 1) {
-        console.error(`[piano-chat] ${entries[i].provider} ${freeExhausted ? "free quota spent" : "auth failed"} (${msg.slice(0, 120)}), falling back to ${entries[i + 1].provider}`);
+      const m = entries[i].model || "";
+      const freeExhausted = isFreeRoute(m) && isRateLimit(msg);
+      if ((isAuthError(msg) || freeExhausted || isDeadRoute(msg)) && i < entries.length - 1) {
+        const why = freeExhausted ? "free quota spent" : isDeadRoute(msg) ? "route retired" : "auth failed";
+        console.error(`[piano-chat] ${entries[i].provider}/${m} ${why} (${msg.slice(0, 160)}) -> trying ${entries[i + 1].provider}/${entries[i + 1].model}`);
         continue;
       }
       throw e;
@@ -480,7 +517,7 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
 
 // Non-streaming twin of withAuthFallback.
 async function callWithAuthFallback(provider: string, model: string, system: string, full: ChatMsg[]): Promise<string> {
-  const chain = [{ provider, model }, ...nextProvidersWithKey(provider).map((p) => ({ provider: p, model: defaultModelFor(p) }))];
+  const chain = buildChain(provider, model);
   for (let i = 0; i < chain.length; i++) {
     const c = chain[i];
     try {
@@ -493,8 +530,9 @@ async function callWithAuthFallback(provider: string, model: string, system: str
       const msg = (e as Error)?.message || "";
       // same rule as the streaming path: a spent free quota is not an error
       const freeExhausted = isFreeRoute(c.model) && isRateLimit(msg);
-      if ((isAuthError(msg) || freeExhausted) && i < chain.length - 1) {
-        console.error(`[piano-chat] ${c.provider} ${freeExhausted ? "free quota spent" : "auth failed"} (${msg.slice(0, 120)}), falling back to ${chain[i + 1].provider}`);
+      if ((isAuthError(msg) || freeExhausted || isDeadRoute(msg)) && i < chain.length - 1) {
+        const why = freeExhausted ? "free quota spent" : isDeadRoute(msg) ? "route retired" : "auth failed";
+        console.error(`[piano-chat] ${c.provider}/${c.model} ${why} (${msg.slice(0, 160)}) -> trying ${chain[i + 1].provider}/${chain[i + 1].model}`);
         continue;
       }
       throw e;
@@ -538,7 +576,7 @@ Deno.serve(async (req: Request) => {
 
     // Chain: the admin's choice first, then every provider with a configured
     // key — a 401/403 on the first token hops down the chain automatically.
-    const chain = [{ provider, model }, ...nextProvidersWithKey(provider).map((p) => ({ provider: p, model: defaultModelFor(p) }))];
+    const chain = buildChain(provider, model);
     const gen = withAuthFallback(chain.map((c) => ({ provider: c.provider, model: c.model, gen: mkStream(c.provider, c.model, system, full) })));
 
     const stream = new ReadableStream({
