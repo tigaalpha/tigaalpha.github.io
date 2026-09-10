@@ -173,6 +173,22 @@ const isFreeRoute = (model: string) => /:free$/i.test(model || "");
 function isRateLimit(msg: string): boolean {
   return /(429|rate.?limit|too many requests|quota)/i.test(msg);
 }
+/* ── transient failures are invisible to the learner, so fall through ──
+   2026-09-10 live probe of the then-deployed function: a TIGA Chat request
+   died with `Gemini 503: high demand` while other providers sat unused — the
+   chain only hopped on auth errors and free-route 429s, so ONE provider's
+   outage was a TOTAL outage for the learner (the recurring "AI asks but never
+   answers" report). A provider-side outage (5xx family: "overloaded", "high
+   demand", "service unavailable", "try again later") or an account wall the
+   learner cannot fix (OpenRouter 402 "Insufficient credits") is not their
+   problem to see: hop to the next configured provider instead. A PAID model's
+   429 still surfaces as-is (isRateLimit is deliberately NOT folded in here) —
+   that is the one failure the admin genuinely needs to notice. Mid-stream
+   failures still throw: a half-spliced answer would be worse than an error. */
+function isTransient(msg: string): boolean {
+  return /(\b5\d\d\b|internal server error|service unavailable|overloaded|high demand|bad gateway|gateway timeout|temporarily unavailable|try again later|unavailable)/i.test(msg)
+    || /(402|insufficient (credits|funds|balance)|credit balance|out of credits)/i.test(msg);
+}
 function effectiveDefault(): { provider: string; model: string } {
   return effective(DEFAULT_MODEL);
 }
@@ -489,13 +505,20 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
     let yielded = false;
     try {
       for await (const piece of entries[i].gen) { yielded = true; yield piece; }
-      return;
+      /* A provider can answer 200 and stream NOTHING (a reasoning model that
+         burned its budget thinking) — the client used to rescue this with its
+         own second round, doubling the wait. Empty stream + more chain left →
+         try the next provider here, where it costs nothing. */
+      if (yielded || i >= entries.length - 1) return;
+      console.error(`[piano-chat] ${entries[i].provider} streamed zero content, falling back to ${entries[i + 1].provider}`);
+      continue;
     } catch (e) {
       if (yielded) throw e;
       const msg = (e as Error)?.message || "";
       const freeExhausted = isFreeRoute(entries[i].model || "") && isRateLimit(msg);
-      if ((isAuthError(msg) || freeExhausted) && i < entries.length - 1) {
-        console.error(`[piano-chat] ${entries[i].provider} ${freeExhausted ? "free quota spent" : "auth failed"} (${msg.slice(0, 120)}), falling back to ${entries[i + 1].provider}`);
+      const transient = isTransient(msg);
+      if ((isAuthError(msg) || freeExhausted || transient) && i < entries.length - 1) {
+        console.error(`[piano-chat] ${entries[i].provider} ${freeExhausted ? "free quota spent" : transient ? "transient provider failure" : "auth failed"} (${msg.slice(0, 120)}), falling back to ${entries[i + 1].provider}`);
         continue;
       }
       throw e;
@@ -509,17 +532,24 @@ async function callWithAuthFallback(provider: string, model: string, system: str
   for (let i = 0; i < chain.length; i++) {
     const c = chain[i];
     try {
-      return c.provider === "gemini"
+      const text = c.provider === "gemini"
         ? await callGeminiOnce(c.model, system, toGeminiContents(full.slice(0, -1), full[full.length - 1]?.content || ""))
         : c.provider === "deepseek" ? await callDeepSeekOnce(c.model, system, full)
         : c.provider === "openrouter" ? await callOpenRouterOnce(c.model, system, full)
         : await callAnthropicOnce(c.model, system, full);
+      // same empty-reply rule as the streaming path: try the next provider
+      // rather than returning a blank the client has to rescue
+      if (text.trim() || i >= chain.length - 1) return text;
+      console.error(`[piano-chat] ${c.provider} returned zero content, falling back to ${chain[i + 1].provider}`);
+      continue;
     } catch (e) {
       const msg = (e as Error)?.message || "";
-      // same rule as the streaming path: a spent free quota is not an error
+      // same rule as the streaming path: a spent free quota is not an error,
+      // and neither is a provider outage or an out-of-credits wall
       const freeExhausted = isFreeRoute(c.model) && isRateLimit(msg);
-      if ((isAuthError(msg) || freeExhausted) && i < chain.length - 1) {
-        console.error(`[piano-chat] ${c.provider} ${freeExhausted ? "free quota spent" : "auth failed"} (${msg.slice(0, 120)}), falling back to ${chain[i + 1].provider}`);
+      const transient = isTransient(msg);
+      if ((isAuthError(msg) || freeExhausted || transient) && i < chain.length - 1) {
+        console.error(`[piano-chat] ${c.provider} ${freeExhausted ? "free quota spent" : transient ? "transient provider failure" : "auth failed"} (${msg.slice(0, 120)}), falling back to ${chain[i + 1].provider}`);
         continue;
       }
       throw e;
