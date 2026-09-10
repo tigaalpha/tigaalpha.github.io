@@ -5502,7 +5502,7 @@ const GEM_MODULES = [
   { id: "hat-gmd-4", icon: "💎", art: "pm-4", gem: 9, cost: 0, rarity: "mythic", th: "มงกุฎสุญญากาศ", en: "Void Diadem", zh: "虚空冠冕", sw: ["#3ddc84", "#0a3320"], isNew: true },
   { id: "hat-gmd-5", icon: "💎", art: "pm-5", gem: 11, cost: 0, rarity: "mythic", th: "มงกุฎพัลซาร์", en: "Pulsar Circlet", zh: "脉冲星头环", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
   { id: "hat-gmd-6", icon: "💎", art: "pm-6", gem: 13, cost: 0, rarity: "mythic", th: "มงกุฎปฐมกาล", en: "Genesis Crown", zh: "创世皇冠", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
-  { id: "hat-gmd-7", icon: "💎", art: "pm-7", gem: 16, cost: 0, rarity: "mythic", th: "มงกุฎโฟตอน", en: "Photon Halo", zh: "光子光环", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "hat-gmd-7", icon: "💎", art: "pm-7", gem: 16, cost: 0, rarity: "mythic", th: "มงกุฎโฟตอน", en: "Photon Crown", zh: "光子皇冠", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
   { id: "hat-gmd-8", icon: "💎", art: "pm-8", gem: 20, cost: 0, rarity: "mythic", th: "มงกุฎพลาสมา", en: "Plasma Crown", zh: "等离子皇冠", sw: ["#e9edf6", "#2a3346"], isNew: true },
   { id: "hat-gmd-9", icon: "💎", art: "pm-9", gem: 25, cost: 0, rarity: "mythic", th: "มงกุฎสายฟ้า", en: "Storm Diadem", zh: "风暴冠冕", sw: ["#ffe14d", "#3a2c00"], isNew: true },
 ];

@@ -58,15 +58,14 @@
 //   ANTHROPIC_API_KEY   — required for Anthropic (the default).
 //   GEMINI_API_KEY      — for Gemini options. https://aistudio.google.com/apikey
 //   DEEPSEEK_API_KEY    — for DeepSeek V4 options (direct API). https://platform.deepseek.com
-//   OPENROUTER_API_KEY  — for DeepSeek via OpenRouter (flat price, no peak
-//                         surcharge, often 2-6x cheaper than direct — the
-//                         admin "AI Models" panel can route any chat-type
-//                         feature to either), and for the FREE V3 route
-//                         "deepseek/deepseek-chat-v3-0324:free", which costs
-//                         nothing at all and is rate-limited rather than
-//                         billed. A 429 from any :free route falls through to
-//                         the next configured provider instead of failing the
-//                         learner, so it is safe to select as a default.
+//   OPENROUTER_API_KEY  — routes any chat-type feature through OpenRouter and
+//                         is what makes the free tier possible. NOTE: OpenRouter
+//                         RETIRES free routes without notice — on 2026-09-10 it
+//                         dropped the free DeepSeek V3 route every feature here
+//                         was pointed at, and as of that date lists no free
+//                         DeepSeek route at all. Free ids therefore live in
+//                         FREE_LADDER below and are walked in order, so a
+//                         retirement costs a moment rather than the feature.
 //                         https://openrouter.ai/keys
 //   SUPABASE_URL / SUPABASE_ANON_KEY — auto-injected by the Supabase
 //                         runtime for every edge function, nothing to set.
@@ -93,8 +92,24 @@ const DEFAULT_MODEL = { provider: "anthropic", model: "claude-sonnet-4-6" };
 // of the cheapest paid options — before falling further to the other
 // configured providers. An admin ai_models["chat"] choice always overrides
 // this built-in; this only decides what happens while that row is empty.
-const CHAT_DEFAULT_MODEL = { provider: "openrouter", model: "deepseek/deepseek-chat-v3-0324:free" };
-const CHAT_SECOND_CHOICE = { provider: "openrouter", model: "deepseek/deepseek-v4-flash" }; // "ถ้า v3 ใช้ไม่ได้" hop
+/* Free OpenRouter routes, best first, checked against the live
+   /api/v1/models catalogue on 2026-09-10. That check is why this list exists:
+   the previous built-in default here was "deepseek/deepseek-chat-v3-0324:free"
+   and OpenRouter had RETIRED it — there is now no free DeepSeek route at all,
+   every deepseek/* id is priced, so "free DeepSeek" cannot be honoured by any
+   spelling. "openrouter/free" is last on purpose: it is OpenRouter's own
+   router over whatever is free that day, so the final rung cannot itself go
+   missing the way a named id can. */
+const FREE_LADDER = [
+  "google/gemma-4-31b-it:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "openrouter/free",
+];
+const CHAT_DEFAULT_MODEL = { provider: "openrouter", model: FREE_LADDER[0] };
+// last resort once every free rung is gone: the cheapest PAID route on the same
+// key. Reached only after the whole ladder has been tried, so picking free
+// stays free while anything free is working.
+const CHAT_SECOND_CHOICE = { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
 const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"; // used when the active provider's key is missing
 const MAX_TOKENS = 1500;
 // DeepSeek V4 Pro is a reasoning model — its chain-of-thought consumes part of
@@ -120,7 +135,7 @@ function effective(choice: { provider: string; model: string }): { provider: str
     if (ANTHROPIC_API_KEY) return { provider: "anthropic", model: DEFAULT_MODEL.model };
     if (GEMINI_API_KEY) return { provider: "gemini", model: GEMINI_FALLBACK_MODEL };
     if (DEEPSEEK_API_KEY) return { provider: "deepseek", model: "deepseek-v4-flash" };
-    if (OPENROUTER_API_KEY) return { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
+    if (OPENROUTER_API_KEY) return { provider: "openrouter", model: FREE_LADDER[0] };
   }
   return choice;
 }
@@ -131,10 +146,17 @@ function effective(choice: { provider: string; model: string }): { provider: str
 // provider is spliced in as the second hop — "same provider, one tier up" is
 // the cheapest way to survive a spent free quota, and nextProvidersWithKey
 // alone would skip straight past it because it excludes the primary provider.
-function providerChain(primary: { provider: string; model: string }, feature: string): Array<{ provider: string; model: string }> {
+function providerChain(primary: { provider: string; model: string }, _feature: string): Array<{ provider: string; model: string }> {
   const rest = nextProvidersWithKey(primary.provider).map((p) => ({ provider: p, model: defaultModelFor(p) }));
-  if (feature === "chat" && primary.provider === CHAT_DEFAULT_MODEL.provider && primary.model === CHAT_DEFAULT_MODEL.model && hasKey(CHAT_SECOND_CHOICE.provider)) {
-    return [primary, CHAT_SECOND_CHOICE, ...rest];
+  /* A free route's next hop has to be another FREE route on the same key.
+     Hopping straight to the paid one — which is what this did — means choosing
+     "free" quietly starts billing the moment the free side hiccups, which is
+     the opposite of what choosing it asked for. Walk the rest of the ladder
+     first; the paid rung stays, but at the END, after free is exhausted. */
+  if (primary.provider === "openrouter" && isFreeRoute(primary.model)) {
+    const rungs = FREE_LADDER.filter((m) => m !== primary.model).map((m) => ({ provider: "openrouter", model: m }));
+    const paid = hasKey(CHAT_SECOND_CHOICE.provider) ? [CHAT_SECOND_CHOICE] : [];
+    return [primary, ...rungs, ...paid, ...rest];
   }
   return [primary, ...rest];
 }
@@ -144,7 +166,7 @@ function providerChain(primary: { provider: string; model: string }, feature: st
 function defaultModelFor(p: string): string {
   return p === "gemini" ? GEMINI_FALLBACK_MODEL
     : p === "deepseek" ? "deepseek-v4-flash"
-    : p === "openrouter" ? "deepseek/deepseek-v4-flash"
+    : p === "openrouter" ? FREE_LADDER[0]   // free rung, never bill by accident
     : DEFAULT_MODEL.model;
 }
 
@@ -169,7 +191,8 @@ function isAuthError(msg: string): boolean {
    choosing it means the chat dies whenever the quota runs out. So a 429 from
    a free route is treated exactly like an auth failure: move quietly to the
    next configured provider and answer the learner. */
-const isFreeRoute = (model: string) => /:free$/i.test(model || "");
+const isFreeRoute = (model: string) =>
+  /:free$/i.test(model || "") || model === "openrouter/free";
 function isRateLimit(msg: string): boolean {
   return /(429|rate.?limit|too many requests|quota)/i.test(msg);
 }
@@ -185,6 +208,18 @@ function isRateLimit(msg: string): boolean {
    429 still surfaces as-is (isRateLimit is deliberately NOT folded in here) —
    that is the one failure the admin genuinely needs to notice. Mid-stream
    failures still throw: a half-spliced answer would be worse than an error. */
+/* ── a route that no longer exists ──
+   OpenRouter RETIRES free routes. On 2026-09-10 every feature was pointed at
+   "deepseek/deepseek-chat-v3-0324:free" and OpenRouter had removed it:
+     404 "This model is unavailable for free. The paid version is available
+          now - use this slug instead: deepseek/deepseek-chat-v3-0324"
+   isTransient below happens to catch that on the word "unavailable", but only
+   by accident and with the wrong meaning: retirement is permanent, so the hop
+   must go to another FREE rung rather than being retried as a blip. Naming the
+   case keeps the log honest about why the chain moved. */
+function isDeadRoute(msg: string): boolean {
+  return /(\b404\b|no endpoints found|not a valid model|model not found|unavailable for free|deprecated)/i.test(msg);
+}
 function isTransient(msg: string): boolean {
   return /(\b5\d\d\b|internal server error|service unavailable|overloaded|high demand|bad gateway|gateway timeout|temporarily unavailable|try again later|unavailable)/i.test(msg)
     || /(402|insufficient (credits|funds|balance)|credit balance|out of credits)/i.test(msg);
@@ -515,10 +550,13 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
     } catch (e) {
       if (yielded) throw e;
       const msg = (e as Error)?.message || "";
-      const freeExhausted = isFreeRoute(entries[i].model || "") && isRateLimit(msg);
+      const m = entries[i].model || "";
+      const freeExhausted = isFreeRoute(m) && isRateLimit(msg);
+      const dead = isDeadRoute(msg);
       const transient = isTransient(msg);
-      if ((isAuthError(msg) || freeExhausted || transient) && i < entries.length - 1) {
-        console.error(`[piano-chat] ${entries[i].provider} ${freeExhausted ? "free quota spent" : transient ? "transient provider failure" : "auth failed"} (${msg.slice(0, 120)}), falling back to ${entries[i + 1].provider}`);
+      if ((isAuthError(msg) || freeExhausted || dead || transient) && i < entries.length - 1) {
+        const why = dead ? "route retired" : freeExhausted ? "free quota spent" : transient ? "transient provider failure" : "auth failed";
+        console.error(`[piano-chat] ${entries[i].provider}/${m} ${why} (${msg.slice(0, 160)}) -> trying ${entries[i + 1].provider}/${entries[i + 1].model}`);
         continue;
       }
       throw e;
@@ -547,9 +585,11 @@ async function callWithAuthFallback(provider: string, model: string, system: str
       // same rule as the streaming path: a spent free quota is not an error,
       // and neither is a provider outage or an out-of-credits wall
       const freeExhausted = isFreeRoute(c.model) && isRateLimit(msg);
+      const dead = isDeadRoute(msg);
       const transient = isTransient(msg);
-      if ((isAuthError(msg) || freeExhausted || transient) && i < chain.length - 1) {
-        console.error(`[piano-chat] ${c.provider} ${freeExhausted ? "free quota spent" : transient ? "transient provider failure" : "auth failed"} (${msg.slice(0, 120)}), falling back to ${chain[i + 1].provider}`);
+      if ((isAuthError(msg) || freeExhausted || dead || transient) && i < chain.length - 1) {
+        const why = dead ? "route retired" : freeExhausted ? "free quota spent" : transient ? "transient provider failure" : "auth failed";
+        console.error(`[piano-chat] ${c.provider}/${c.model} ${why} (${msg.slice(0, 160)}) -> trying ${chain[i + 1].provider}/${chain[i + 1].model}`);
         continue;
       }
       throw e;
