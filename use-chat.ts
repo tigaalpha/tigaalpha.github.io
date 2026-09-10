@@ -5,7 +5,7 @@ import {
 import { tr, L, matchFaqTopic } from "./i18n";
 import { stopCloudTTS } from "./speech";
 import { memoryContext, homeworkContext } from "./ai-chat-context";
-import { streamChatCompletion } from "./ai-backend";
+import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRecommendationHint } from "./App";
 /* ── use-chat.ts ──
    Owns the main AI-sensei chat panel: the message list + typed-input box
