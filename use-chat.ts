@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   LESSON_MODE, extractNotes, playPianoNote, FINGERING_REF,
 } from "./music-engine";
@@ -93,6 +93,16 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
   // ends up last.
   const streamingRef = useRef(false);
 
+  // One-tap retry: the last question that went to the live AI (set in
+  // send()/askDirect()), plus a latest-ref handle to callClaude so the
+  // stable retryLast callback never fires a stale closure (callClaude is
+  // re-created every render and closes over msgs/lang; a stale one would
+  // resend a stale conversation history). `slow` drives the typing
+  // indicator's "still connecting" note during long retry windows.
+  const lastAskRef = useRef(null);
+  const callClaudeRef = useRef(null);
+  const [slow, setSlow] = useState(false);
+
   function pushMessage(msg) { setMsgs(prev => [...prev, msg]); }
   function setLessonContext(hint, key = null) { topicHint.current = hint; lessonKey.current = key; }
 
@@ -141,7 +151,10 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
   }
 
   function buildHistory() {
-    return buildAlternatingHistory(msgs, 6);
+    // Never feed a failed-error bubble into the AI's context: ↻ retry resends
+    // right after removing one, and state updates asynchronously — the filter
+    // (not call timing) is what guarantees the model never sees the apology.
+    return buildAlternatingHistory(msgs.filter(m => !m.error), 6);
   }
 
   /* Chat via the Supabase Edge Function proxy — streams the reply word-by-word.
@@ -151,7 +164,9 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     if (streamingRef.current) return; // a stream is already in flight — never let two calls interleave
     streamingRef.current = true;
     setLoading(true);
+    setSlow(false);
     const history = buildHistory();
+    let retryHintT = null; // "still connecting" hint timer (12s of round-1 silence)
 
     try {
       // throttle UI updates to ~16fps instead of re-rendering on every token
@@ -205,7 +220,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
             haveBubble = true;
             setMsgs(prev => {
               const last = prev[prev.length - 1];
-              if (last && last.role === "ai" && !String(last.text || "").trim()) return prev;
+              if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) return prev;
               return [...prev, { role: "ai", text: "" }];
             });
             setLoading(false);
@@ -216,31 +231,71 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       const runJson = () => fetchChatCompletion(
         { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: false }
       );
-      try {
-        acc = await runStream();
-        if (!acc.trim()) acc = await runJson(); // 200-but-empty → different transport
-      } catch (e1) {
-        if (!isAbort(e1) && !latest.trim()) {
-          // transient blip: one silent streaming retry, then JSON as the net
-          try {
-            await new Promise(r => setTimeout(r, 800));
-            acc = await runStream();
-            if (!acc.trim()) acc = await runJson();
-          } catch (e2) {
-            acc = await runJson(); // final transport; a throw here → outer catch below
+      /* One full resilience pass: streaming → silent streaming retry on a
+         transient blip → non-streaming JSON. Three transports because the
+         failures happen on the last leg (the phone's own connection) or as
+         a "successful" stream that carries zero content (a reasoning model
+         can burn the server's whole token budget thinking and stream
+         nothing). An abort (silence) skips the second streaming try —
+         waiting twice for a dead connection helps nobody. */
+      const oneRound = async () => {
+        try {
+          const a = await runStream();
+          if (a.trim()) return a;
+        } catch (e1) {
+          if (isAbort(e1) || latest.trim()) {
+            // abort/mid-stream: JSON only, no double wait on a dead connection
+            return await runJson();
           }
+        }
+        if (latest.trim()) return latest;
+        // transient blip: one silent streaming retry, then JSON as the net
+        try {
+          await new Promise(r => setTimeout(r, 800));
+          const a2 = await runStream();
+          if (a2.trim()) return a2;
+        } catch (e2) { /* fall through to JSON */ }
+        return await runJson(); // final transport; a throw here → caller's catch
+      };
+      try {
+        acc = await oneRound();
+      } catch (round1Err) {
+        /* Round 1 (all three transports) failed — almost always the phone's
+           own connection dipping rather than the service being down. Showing
+           the error now wastes a perfectly retryable failure, so: brief
+           backoff, one full second round, and a visible "still connecting,
+           retrying automatically" note on the empty bubble so the long wait
+           reads as progress, not a hang. Round 2 only runs while nothing has
+           reached the bubble; anything partial goes to the error path below. */
+        if (!latest.trim()) {
+          // (haveBubble false here means not even the response headers ever
+          // arrived — the pure "never connected" case worth retrying whole.)
+          setMsgs(prev => {
+            const copy = prev.slice();
+            for (let i = copy.length - 1; i >= 0; i--) {
+              if (copy[i].role === "ai" && !String(copy[i].text || "").trim()) {
+                copy[i] = { ...copy[i], text: "", retrying: true };
+                break;
+              }
+            }
+            return copy;
+          });
+          setSlow(true);
+          await new Promise(r => { retryHintT = r; setTimeout(r, 4000); });
+          acc = await oneRound();
         } else {
-          acc = await runJson(); // abort/mid-stream: JSON only, no double wait
+          throw round1Err;
         }
       }
       if (pendingFlush) clearTimeout(pendingFlush);
+      setSlow(false);
       latest = acc;
       // the JSON fallback can succeed without any streaming attempt reaching
       // the response — make sure a bubble exists before filling it
       if (acc.trim() && !haveBubble) {
         setMsgs(prev => {
           const last = prev[prev.length - 1];
-          if (last && last.role === "ai" && !String(last.text || "").trim()) return prev;
+          if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) return prev;
           return [...prev, { role: "ai", text: "" }];
         });
       }
@@ -249,11 +304,12 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       if (acc.trim()) {
         handleAIReply(acc);
       } else {
-        // nothing streamed back — surface a friendly error in the empty bubble
+        // nothing streamed back — friendly error in the empty bubble, with
+        // error:true so the UI renders the one-tap retry button on it
         setMsgs(prev => {
           const copy = prev.slice();
           for (let i = copy.length - 1; i >= 0; i--) {
-            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text: lc.chatErr }; break; }
+            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text: lc.chatErr, error: true }; break; }
           }
           return copy;
         });
@@ -261,6 +317,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       setLoading(false);
     } catch (e) {
       console.error("Chat error:", e);
+      if (retryHintT) clearTimeout(retryHintT);
       /* Two fixes in here. First, the message: an aborted request is a slow
          CONNECTION, not a busy AI, and telling somebody on weak mobile data
          that the service is busy sends them away to wait for something that
@@ -270,20 +327,37 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
          Fill the empty bubble if there is one, append only if there is not. */
       const aborted = (e && (e.name === "AbortError" || /abort/i.test(String(e.message || ""))));
       const text = aborted ? lc.chatSlow : lc.chatErr;
+      setSlow(false);
       setMsgs(prev => {
         const copy = prev.slice();
         const last = copy[copy.length - 1];
-        if (last && last.role === "ai" && !String(last.text || "").trim()) {
-          copy[copy.length - 1] = { ...last, text };
+        if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) {
+          copy[copy.length - 1] = { ...last, text, error: true };
           return copy;
         }
-        return [...copy, { role: "ai", text }];
+        return [...copy, { role: "ai", text, error: true }];
       });
       setLoading(false);
     } finally {
       streamingRef.current = false;
     }
   }
+  callClaudeRef.current = callClaude; // keeps retryLast off a stale closure (see refs above)
+
+  // One-tap retry on a failed bubble: resend the exact question that just
+  // failed (lastAskRef) without retyping it. The old error bubble is removed
+  // first so the visible story is "question → (empty, thinking) → answer";
+  // callClaude's empty-bubble handling then fills/reuses correctly.
+  const retryLast = useCallback(() => {
+    const t = lastAskRef.current;
+    if (!t || streamingRef.current || loading) return;
+    setMsgs(prev => {
+      const last = prev[prev.length - 1];
+      if (last && last.role === "ai" && last.error) return prev.slice(0, -1);
+      return prev;
+    });
+    callClaudeRef.current && callClaudeRef.current(t);
+  }, [loading]);
 
   function send() {
     const t = input.trim();
@@ -306,6 +380,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
       payForAsk(); // reward engaging with the AI sensei
     } else if (!requireLogin("ai")) {
+      lastAskRef.current = t; // remembered for the failed-bubble retry button
       callClaude(t); // tier 2: no prepared match — ask the live AI
       payForAsk(); // reward engaging with the AI sensei
     }
@@ -338,9 +413,10 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
       payForAsk();
     } else if (!requireLogin("ai")) {
+      lastAskRef.current = t;
       callClaude(t);
       payForAsk();
     }
   }
-  return { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, callClaude, pushMessage, setLessonContext };
+  return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, retryLast, callClaude, pushMessage, setLessonContext };
 }

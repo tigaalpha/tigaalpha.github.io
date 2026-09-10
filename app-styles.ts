@@ -187,6 +187,11 @@ html, body, #root{background:var(--bg)}
 .msg.a .bbl{background:var(--card3);border:1px solid #d9775722;border-radius:2px 8px 8px 8px;color:var(--text2)}
 .atag{font-family:'Orbitron',sans-serif;font-size:8px;color:#d97757;letter-spacing:1px;margin-bottom:5px}
 .mact{display:flex;gap:6px;margin-top:7px;align-items:center;flex-wrap:wrap}
+.retrybtn{display:inline-flex;align-items:center;gap:6px;background:rgba(217,119,87,.08);border:1px dashed #d9775788;border-radius:20px;padding:6px 16px;cursor:pointer;font-size:11px;font-family:'Orbitron',sans-serif;letter-spacing:.8px;color:#d97757;transition:all .22s}
+.retrybtn:hover{border-style:solid;border-color:#d97757;background:rgba(217,119,87,.15);box-shadow:0 0 14px -4px #d97757}
+.retrybtn:active{transform:scale(.95)}
+.slowhint{margin-top:8px;font-size:11px;color:var(--muted,#8a8172);opacity:.85;animation:slowpulse 1.6s ease-in-out infinite}
+@keyframes slowpulse{0%,100%{opacity:.55}50%{opacity:.95}}
 .spkbtn{display:flex;align-items:center;gap:8px;background: rgba(217,119,87,.09);border:1px solid #d9775755;border-radius:20px;padding:6px 14px 6px 12px;cursor:pointer;font-size:10px;font-family:'Orbitron',sans-serif;letter-spacing:.8px;transition:all .22s;color:#d97757}
 .spkbtn:hover{border-color:#d97757;box-shadow:0 0 14px -4px #d97757;background: rgba(217,119,87,.15)}
 .spkbtn:active{transform:scale(.95)}

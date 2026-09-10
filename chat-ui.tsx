@@ -62,7 +62,7 @@ export const SpeakBtn = memo(function SpeakBtn({ text, lang, id, activeId, setAc
 });
 
 /* ── Message (memoized: only re-renders when its own props change) ── */
-export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay }) {
+export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay, onRetry }) {
   // parse notes only when the message text or language actually changes
   const parsed = useMemo(
     () => (m.role === "ai" && m.text ? extractNotes(m.text) : null),
@@ -78,6 +78,16 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
       </div>
       {/* the row is skipped entirely when it would be empty, so turning TTS off
           leaves no stray gap under messages that carry no notes */}
+      {/* One-tap retry on a failed answer — the question is still in the thread
+          right above, so ↻ resends it verbatim instead of making the learner
+          retype it (the #1 most-requested recovery after a dropped reply). */}
+      {m.role === "ai" && m.error && onRetry && (
+        <div className="mact">
+          <button className="retrybtn" onClick={onRetry}>
+            <span>↻</span><span>{lang === "th" ? "ลองส่งใหม่" : lang === "zh" ? "重试" : "Retry"}</span>
+          </button>
+        </div>
+      )}
       {m.role === "ai" && (TTS_ENABLED || parsed) && (
         <div className="mact">
           {TTS_ENABLED && (
@@ -96,12 +106,18 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
   );
 });
 
-export const Typing = memo(function Typing() {
+export const Typing = memo(function Typing({ slow, lang }) {
+  const slowText = lang === "th"
+    ? "ยังเชื่อมต่ออยู่ — กำลังลองใหม่อัตโนมัติ…"
+    : lang === "zh"
+    ? "仍在连接中 — 正在自动重试…"
+    : "Still connecting — retrying automatically…";
   return (
     <div className="msg a">
       <div className="bbl">
         <div className="atag">◈ TIGA CHAT</div>
         <div className="typing"><div className="tdd"/><div className="tdd"/><div className="tdd"/></div>
+        {slow && <div className="slowhint">{slowText}</div>}
       </div>
     </div>
   );
