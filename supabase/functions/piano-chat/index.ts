@@ -1,15 +1,9 @@
 // piano-chat — Supabase Edge Function (Deno)
 //
-// ⚠️ IMPORTANT CONTEXT FOR WHOEVER DEPLOYS THIS:
-// This file was written WITHOUT read access to the currently-deployed
-// piano-chat function (Supabase MCP access wasn't available in this session).
-// It's a from-scratch reconstruction, built strictly from the wire contract
-// the CLIENT (App.tsx) actually sends/expects — verified line-by-line against
-// the real client code, not guessed. Before replacing your live function with
-// this: diff it against what's currently deployed and confirm nothing you
-// depend on (extra logging, rate limiting, a different default model, etc.)
-// gets silently dropped. Treat this as a reference implementation to merge
-// from, not a blind swap.
+// This file IS the deployed function — deploy from here. (It began as a
+// reconstruction from the client's wire contract, written without read access
+// to the live copy; on 2026-09-10 the live copy was read back, confirmed to
+// match, and this has been the source of truth since.)
 //
 // WIRE CONTRACT (confirmed from App.tsx):
 //   Request:  POST { message: string, conversationHistory: {role,content}[], system: string, stream?: boolean, feature?: string }
@@ -84,17 +78,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const DEFAULT_MODEL = { provider: "anthropic", model: "claude-sonnet-4-6" };
-// Built-in default for the student chat feature ("chat") ONLY: the free
-// DeepSeek V3 route via OpenRouter (owner request 2026-09 — TIGA Chat runs on
-// the cheap/free model; every other feature keeps the Anthropic default).
-// If V3 free is unusable (hourly quota spent → 429, or auth trouble) the chain
-// below hops to paid DeepSeek V4 Flash on the same OpenRouter key — still one
-// of the cheapest paid options — before falling further to the other
-// configured providers. An admin ai_models["chat"] choice always overrides
-// this built-in; this only decides what happens while that row is empty.
 /* Free OpenRouter routes, best first, checked against the live
    /api/v1/models catalogue on 2026-09-10. That check is why this list exists:
-   the previous built-in default here was "deepseek/deepseek-chat-v3-0324:free"
+   the previous built-in chat default was "deepseek/deepseek-chat-v3-0324:free"
    and OpenRouter had RETIRED it — there is now no free DeepSeek route at all,
    every deepseek/* id is priced, so "free DeepSeek" cannot be honoured by any
    spelling. "openrouter/free" is last on purpose: it is OpenRouter's own
@@ -105,10 +91,14 @@ const FREE_LADDER = [
   "nvidia/nemotron-3-super-120b-a12b:free",
   "openrouter/free",
 ];
+// Built-in default for the student chat feature ("chat") ONLY — owner request
+// 2026-09: TIGA Chat runs free, every other feature keeps the Anthropic
+// default. An admin ai_models["chat"] choice always overrides this; it only
+// decides what happens while that row is empty.
 const CHAT_DEFAULT_MODEL = { provider: "openrouter", model: FREE_LADDER[0] };
-// last resort once every free rung is gone: the cheapest PAID route on the same
-// key. Reached only after the whole ladder has been tried, so picking free
-// stays free while anything free is working.
+// Last resort once EVERY free rung is gone: the cheapest paid route on the
+// same key. Deliberately at the end of the chain rather than second — see
+// providerChain.
 const CHAT_SECOND_CHOICE = { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
 const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"; // used when the active provider's key is missing
 const MAX_TOKENS = 1500;
@@ -140,12 +130,8 @@ function effective(choice: { provider: string; model: string }): { provider: str
   return choice;
 }
 
-// The ordered provider/model chain for one request. The admin's (or built-in)
-// choice first, then every OTHER provider with a configured key. For the chat
-// feature whose primary is the free V3 route, the paid V4 Flash on the same
-// provider is spliced in as the second hop — "same provider, one tier up" is
-// the cheapest way to survive a spent free quota, and nextProvidersWithKey
-// alone would skip straight past it because it excludes the primary provider.
+// The ordered provider/model chain for one request: the admin's (or built-in)
+// choice first, then every OTHER provider with a configured key.
 function providerChain(primary: { provider: string; model: string }, _feature: string): Array<{ provider: string; model: string }> {
   const rest = nextProvidersWithKey(primary.provider).map((p) => ({ provider: p, model: defaultModelFor(p) }));
   /* A free route's next hop has to be another FREE route on the same key.
@@ -196,18 +182,6 @@ const isFreeRoute = (model: string) =>
 function isRateLimit(msg: string): boolean {
   return /(429|rate.?limit|too many requests|quota)/i.test(msg);
 }
-/* ── transient failures are invisible to the learner, so fall through ──
-   2026-09-10 live probe of the then-deployed function: a TIGA Chat request
-   died with `Gemini 503: high demand` while other providers sat unused — the
-   chain only hopped on auth errors and free-route 429s, so ONE provider's
-   outage was a TOTAL outage for the learner (the recurring "AI asks but never
-   answers" report). A provider-side outage (5xx family: "overloaded", "high
-   demand", "service unavailable", "try again later") or an account wall the
-   learner cannot fix (OpenRouter 402 "Insufficient credits") is not their
-   problem to see: hop to the next configured provider instead. A PAID model's
-   429 still surfaces as-is (isRateLimit is deliberately NOT folded in here) —
-   that is the one failure the admin genuinely needs to notice. Mid-stream
-   failures still throw: a half-spliced answer would be worse than an error. */
 /* ── a route that no longer exists ──
    OpenRouter RETIRES free routes. On 2026-09-10 every feature was pointed at
    "deepseek/deepseek-chat-v3-0324:free" and OpenRouter had removed it:
@@ -220,8 +194,23 @@ function isRateLimit(msg: string): boolean {
 function isDeadRoute(msg: string): boolean {
   return /(\b404\b|no endpoints found|not a valid model|model not found|unavailable for free|deprecated)/i.test(msg);
 }
+/* ── transient failures are invisible to the learner, so fall through ──
+   2026-09-10 live probe of the then-deployed function: a TIGA Chat request
+   died with `Gemini 503: high demand` while other providers sat unused — the
+   chain only hopped on auth errors and free-route 429s, so ONE provider's
+   outage was a TOTAL outage for the learner (the recurring "AI asks but never
+   answers" report). A provider-side outage (5xx family: "overloaded", "high
+   demand", "service unavailable", "try again later") or an account wall the
+   learner cannot fix (OpenRouter 402 "Insufficient credits") is not their
+   problem to see: hop to the next configured provider instead. A PAID model's
+   429 still surfaces as-is (isRateLimit is deliberately NOT folded in here) —
+   that is the one failure the admin genuinely needs to notice. Mid-stream
+   failures still throw: a half-spliced answer would be worse than an error. */
 function isTransient(msg: string): boolean {
-  return /(\b5\d\d\b|internal server error|service unavailable|overloaded|high demand|bad gateway|gateway timeout|temporarily unavailable|try again later|unavailable)/i.test(msg)
+  // "try again later" is deliberately NOT matched: a paid model's 429 often
+  // carries that phrase, and hopping on it would contradict the rule above
+  // that a paid 429 must surface so the admin sees real quota exhaustion.
+  return /(\b5\d\d\b|internal server error|service unavailable|overloaded|high demand|bad gateway|gateway timeout|temporarily unavailable|unavailable)/i.test(msg)
     || /(402|insufficient (credits|funds|balance)|credit balance|out of credits)/i.test(msg);
 }
 function effectiveDefault(): { provider: string; model: string } {
@@ -230,7 +219,7 @@ function effectiveDefault(): { provider: string; model: string } {
 
 // ── which provider/model a given FEATURE should use right now ──
 // Resolution: ai_models[feature] → ai_models["default"] → legacy ai_model → built-in default
-// (the built-in default is DeepSeek V3 free for the "chat" feature, Anthropic for everything else).
+// (the built-in default is the free ladder's top rung for "chat", Anthropic for everything else).
 async function resolveActiveModel(authHeader: string | null, feature: string): Promise<{ provider: string; model: string }> {
   const pick = (map: Record<string, any>, key: string) => {
     const v = map && map[key];
@@ -449,12 +438,10 @@ async function callDeepSeekOnce(model: string, system: string, messages: ChatMsg
   return data?.choices?.[0]?.message?.content || "";
 }
 
-// ── OpenRouter (OpenAI-compatible API, streaming) — DeepSeek V4 via the
-// OpenRouter router. Same wire shape as DeepSeek direct; the model id is the
-// OpenRouter route id (e.g. "deepseek/deepseek-v4-flash"). Flat pricing — no
-// DeepSeek peak/off-peak split, and third-party fp8 routes make it 2-6x
-// cheaper than the direct API for the same model family. X-Title identifies
-// the app in the OpenRouter dashboard.
+// ── OpenRouter (OpenAI-compatible API, streaming) — same wire shape as DeepSeek
+// direct; the model id is the OpenRouter route id (a FREE_LADDER rung, or a
+// paid id like "deepseek/deepseek-v4-flash"). X-Title names the app in the
+// OpenRouter dashboard.
 async function* streamOpenRouter(model: string, system: string, messages: ChatMsg[]): AsyncGenerator<string> {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -545,7 +532,7 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
          own second round, doubling the wait. Empty stream + more chain left →
          try the next provider here, where it costs nothing. */
       if (yielded || i >= entries.length - 1) return;
-      console.error(`[piano-chat] ${entries[i].provider} streamed zero content, falling back to ${entries[i + 1].provider}`);
+      console.error(`[piano-chat] ${entries[i].provider}/${entries[i].model} streamed zero content -> trying ${entries[i + 1].provider}/${entries[i + 1].model}`);
       continue;
     } catch (e) {
       if (yielded) throw e;
@@ -578,7 +565,7 @@ async function callWithAuthFallback(provider: string, model: string, system: str
       // same empty-reply rule as the streaming path: try the next provider
       // rather than returning a blank the client has to rescue
       if (text.trim() || i >= chain.length - 1) return text;
-      console.error(`[piano-chat] ${c.provider} returned zero content, falling back to ${chain[i + 1].provider}`);
+      console.error(`[piano-chat] ${c.provider}/${c.model} returned zero content -> trying ${chain[i + 1].provider}/${chain[i + 1].model}`);
       continue;
     } catch (e) {
       const msg = (e as Error)?.message || "";
@@ -631,10 +618,10 @@ Deno.serve(async (req: Request) => {
       return json({ text });
     }
 
-    // Chain: the admin's (or built-in) choice first — for chat that means the
-    // free DeepSeek V3 route with paid V4 Flash spliced in second — then every
-    // provider with a configured key. A 401/403 on the first token, or a spent
-    // free quota (429 on a :free route), hops down the chain automatically.
+    // Chain: the admin's (or built-in) choice first, then the rest of the free
+    // ladder if that choice was free, then the paid rung, then every other
+    // provider with a key. Auth failures, spent free quotas, retired routes and
+    // provider outages all hop down it automatically.
     const chain = providerChain({ provider, model }, feature);
     const gen = withAuthFallback(chain.map((c) => ({ provider: c.provider, model: c.model, gen: mkStream(c.provider, c.model, system, full) })));
 
