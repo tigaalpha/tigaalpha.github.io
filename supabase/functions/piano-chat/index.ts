@@ -78,18 +78,31 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const DEFAULT_MODEL = { provider: "anthropic", model: "claude-sonnet-4-6" };
-/* Free OpenRouter routes, best first, checked against the live
-   /api/v1/models catalogue on 2026-09-10. That check is why this list exists:
-   the previous built-in chat default was "deepseek/deepseek-chat-v3-0324:free"
-   and OpenRouter had RETIRED it — there is now no free DeepSeek route at all,
-   every deepseek/* id is priced, so "free DeepSeek" cannot be honoured by any
-   spelling. "openrouter/free" is last on purpose: it is OpenRouter's own
-   router over whatever is free that day, so the final rung cannot itself go
-   missing the way a named id can. */
+/* Free OpenRouter routes, best first. This order is the SAME ranking the admin
+   AI-Models page shows the owner (see AI_PROVIDERS in AdminAIModels.tsx), so
+   what the automatic fallback does and what the panel advertises cannot drift
+   apart. It came from a live bake-off on 2026-09-10: every free route in
+   OpenRouter's catalogue was sent one real task from this app — a Thai child
+   asking why her right hand loses the beat once the left hand joins, under the
+   TIGA tutor system prompt — and judged on Thai that reads like a teacher,
+   obeying "exactly 3 numbered steps", context, and schema-clean JSON.
+
+   That check is also why the list exists at all: the previous default was
+   "deepseek/deepseek-chat-v3-0324:free", which OpenRouter had RETIRED, and as
+   of that date it lists no free DeepSeek route at all — so "free DeepSeek"
+   cannot be honoured by any spelling.
+
+   One deliberate difference from the displayed ranking: "openrouter/free" is
+   shown 4th but sits LAST here. As a primary it is a mediocre pick because it
+   answers from a random free model each call and the teacher's voice drifts;
+   as the final rung it is the best possible one, because it is a router over
+   whatever is free that day and so cannot itself go missing. */
 const FREE_LADDER = [
-  "google/gemma-4-31b-it:free",
-  "nvidia/nemotron-3-super-120b-a12b:free",
-  "openrouter/free",
+  "nvidia/nemotron-3-super-120b-a12b:free",  // #1 smartest, holds the persona
+  "nex-agi/nex-n2.5-pro:free",               // #2 warm Thai, JSON, vision
+  "google/gemma-4-26b-a4b-it:free",          // #3 fastest, cleanest formatting
+  "nvidia/nemotron-3.5-lightning:free",      // #5 1M context, fast
+  "openrouter/free",                         // #4 shown, last here — see above
 ];
 // Built-in default for the student chat feature ("chat") ONLY — owner request
 // 2026-09: TIGA Chat runs free, every other feature keeps the Anthropic
