@@ -3,6 +3,7 @@ import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { respond } from "../_shared/chat-core.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
+import { attributeReferral } from "../_shared/referrals.ts";
 
 /**
  * Feature #4 — public web chat widget endpoint (embedded on the studio's
@@ -38,6 +39,11 @@ Deno.serve(async (req: Request) => {
     const leadName = lead && typeof lead.name === "string" ? lead.name.trim() : "";
     const leadPhone = lead && typeof lead.phone === "string" ? lead.phone.trim() : "";
     const leadLineUserId = lead && typeof lead.lineUserId === "string" ? lead.lineUserId.trim() : "";
+    // Referral attribution: the widget sends the ?ref= code (from the URL the
+    // visitor arrived on) with every lead payload. Applied after the customer
+    // row exists — works for both a newly created lead and an existing one
+    // returning through a friend's link.
+    const leadReferralCode = lead && typeof lead.referralCode === "string" ? lead.referralCode.trim() : "";
     let customerId: string | null = null;
     if (leadName || leadPhone) {
       let customer: { id: string } | null = null;
@@ -70,6 +76,10 @@ Deno.serve(async (req: Request) => {
         }
       }
       customerId = customer?.id ?? null;
+    }
+    if (leadReferralCode && customerId) {
+      // Fire-and-forget attribution: never block or fail the chat on it.
+      attributeReferral(admin, leadReferralCode, customerId, leadName || null, leadPhone || null).catch(() => {});
     }
 
     let convId = conversationId;

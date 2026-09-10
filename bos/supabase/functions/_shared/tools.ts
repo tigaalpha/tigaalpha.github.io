@@ -10,6 +10,7 @@ import { sumTransactions } from "./business-metrics.ts";
 import { createPayment, confirmPayment } from "./payments.ts";
 import { createLessonSummary } from "./lesson-summary.ts";
 import { push as linePush } from "./line.ts";
+import { attributeReferral } from "./referrals.ts";
 import { executeMarketingTool } from "./marketing-tools.ts";
 import { CHIEF_OF_STAFF_SLUG, departmentBySlug, DEPARTMENTS } from "./departments.ts";
 
@@ -201,6 +202,22 @@ export const AI_TOOLS: ToolDefinition[] = [
         status: { type: "string", enum: ["confirmed", "declined"] },
       },
       required: ["status"],
+    },
+  },
+  {
+    name: "get_my_referral_code",
+    description:
+      "Get or create THIS customer's personal referral code (customer chats only — no id needed, the chat is bound to the caller). Returns the code and a ready-to-share Thai message. Use the moment a happy/enthusiastic customer mentions telling friends, asks about recommending the studio, or you want to equip them to spread the word.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "apply_referral_code",
+    description:
+      "Attribute the CURRENT customer to the referral code they arrived with (e.g. 'เพื่อนให้โค้ด TIGA-XXXX มา'). Call it as soon as the customer mentions any referral code — this credits their friend when the customer eventually pays. Never call it with the customer's own code.",
+    parameters: {
+      type: "object",
+      properties: { referralCode: { type: "string", description: "The referral code the customer mentioned, e.g. TIGA-ABC123." } },
+      required: ["referralCode"],
     },
   },
 ];
@@ -985,6 +1002,44 @@ export async function executeTool(
       return { ok: true, lessonLabel, lessonTime, status };
     }
 
+    case "get_my_referral_code": {
+      // Customer-facing counterpart of create_referral_link (owner tool).
+      // Customer chats are bound to the caller, so no id is accepted — an
+      // owner commanding this on someone's behalf gets told to use
+      // create_referral_link instead.
+      if (!boundCustomerId) {
+        throw new Error("Only available in a customer chat — in owner mode use create_referral_link with a customerId");
+      }
+      const { data: customer, error: custErr } = await db
+        .from("customers")
+        .select("id, name, referral_code")
+        .eq("id", boundCustomerId)
+        .maybeSingle();
+      if (custErr || !customer) throw new Error("Customer not found");
+      let code = (customer as { referral_code: string | null }).referral_code;
+      if (!code) {
+        code = "TIGA-" + Date.now().toString(36).toUpperCase().slice(-6) + Math.random().toString(36).slice(2, 5).toUpperCase();
+        const { error: upErr } = await db.from("customers").update({ referral_code: code }).eq("id", boundCustomerId);
+        if (upErr) throw upErr;
+      }
+      return {
+        referralCode: code,
+        shareMessage: `🎁 แนะนำเพื่อนมาเรียนเปียโนที่ Tiga Studio — ให้เพื่อนใช้โค้ด ${code} ตอนทักแชท แล้วเพื่อนจะได้ส่วนลดพิเศษ คุณก็ได้รับรางวัลเมื่อเพื่อนสมัครค่ะ`,
+        // Friend-facing link: the published widget page reads ?ref= and
+        // remembers the code, so one tap opens a chat that attributes itself.
+        referralUrl: `https://tigaalpha.github.io/studio/widget-demo.html?ref=${code}`,
+      };
+    }
+
+    case "apply_referral_code": {
+      if (!boundCustomerId) throw new Error("Only available in a customer chat");
+      const code = String(args.referralCode ?? "").trim();
+      if (!code) throw new Error("referralCode is required");
+      // attributeReferral is idempotent per (code, customer) and handles
+      // self-referral rejection + owner notification server-side.
+      return await attributeReferral(db, code, boundCustomerId, null, null);
+    }
+
     case "mark_payment_paid": {
       if (!callerId) throw new Error("Not authorized: no caller identity for this action");
       await requireOwnerOrAdmin(db, callerId);
@@ -1024,8 +1079,10 @@ export async function executeTool(
         body: `${customer.name} — โค้ด ${code}`,
         customer_id: customer.id,
       });
-      const shareMessage = `🎁 แนะนำเพื่อนมาเรียนที่ Tiga Studio รับส่วนลดพิเศษ! ใช้โค้ด ${code} ตอนสมัคร แล้วแจ้งให้ทีมงานทราบได้เลยค่ะ`;
-      return { referralCode: code, shareMessage };
+      const shareMessage = `🎁 แนะนำเพื่อนมาเรียนที่ Tiga Studio รับส่วนลดพิเศษ! ให้เพื่อนใช้โค้ด ${code} ตอนทักแชท หรือส่งลิงก์นี้ให้เพื่อนกดเลย: https://tigaalpha.github.io/studio/widget-demo.html?ref=${code}`;
+      // Codes are multi-use — one referrer can bring several friends; each
+      // friend who pays triggers its own reward reminder (payments.ts).
+      return { referralCode: code, shareMessage, referralUrl: `https://tigaalpha.github.io/studio/widget-demo.html?ref=${code}` };
     }
 
     case "record_transaction": {
