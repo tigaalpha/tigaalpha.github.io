@@ -79,6 +79,12 @@ jobs:
   # BOS (TIGA Automation) — separate job, deploys to GitHub Pages /studio/
   # ═══════════════════════════════════════════════════════════════════════
   deploy-bos:
+    # Must run AFTER auto-release, not beside it: auto-release commits the
+    # version bump and pushes main mid-job, which fires a legacy Pages build;
+    # deploy-pages then waits on a Pages deployment that is already contended
+    # and times out ("Timeout reached, aborting"), failing the whole deploy.
+    # Serializing keeps the Pages state consistent and the deploy reliable.
+    needs: auto-release
     if: ${{ !startsWith(github.event.head_commit.message, 'Auto-release') }}
     runs-on: ubuntu-latest
     permissions:
