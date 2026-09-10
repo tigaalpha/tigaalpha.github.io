@@ -85,6 +85,16 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const DEFAULT_MODEL = { provider: "anthropic", model: "claude-sonnet-4-6" };
+// Built-in default for the student chat feature ("chat") ONLY: the free
+// DeepSeek V3 route via OpenRouter (owner request 2026-09 — TIGA Chat runs on
+// the cheap/free model; every other feature keeps the Anthropic default).
+// If V3 free is unusable (hourly quota spent → 429, or auth trouble) the chain
+// below hops to paid DeepSeek V4 Flash on the same OpenRouter key — still one
+// of the cheapest paid options — before falling further to the other
+// configured providers. An admin ai_models["chat"] choice always overrides
+// this built-in; this only decides what happens while that row is empty.
+const CHAT_DEFAULT_MODEL = { provider: "openrouter", model: "deepseek/deepseek-chat-v3-0324:free" };
+const CHAT_SECOND_CHOICE = { provider: "openrouter", model: "deepseek/deepseek-v4-flash" }; // "ถ้า v3 ใช้ไม่ได้" hop
 const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"; // used when the active provider's key is missing
 const MAX_TOKENS = 1500;
 // DeepSeek V4 Pro is a reasoning model — its chain-of-thought consumes part of
@@ -113,6 +123,20 @@ function effective(choice: { provider: string; model: string }): { provider: str
     if (OPENROUTER_API_KEY) return { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
   }
   return choice;
+}
+
+// The ordered provider/model chain for one request. The admin's (or built-in)
+// choice first, then every OTHER provider with a configured key. For the chat
+// feature whose primary is the free V3 route, the paid V4 Flash on the same
+// provider is spliced in as the second hop — "same provider, one tier up" is
+// the cheapest way to survive a spent free quota, and nextProvidersWithKey
+// alone would skip straight past it because it excludes the primary provider.
+function providerChain(primary: { provider: string; model: string }, feature: string): Array<{ provider: string; model: string }> {
+  const rest = nextProvidersWithKey(primary.provider).map((p) => ({ provider: p, model: defaultModelFor(p) }));
+  if (feature === "chat" && primary.provider === CHAT_DEFAULT_MODEL.provider && primary.model === CHAT_DEFAULT_MODEL.model && hasKey(CHAT_SECOND_CHOICE.provider)) {
+    return [primary, CHAT_SECOND_CHOICE, ...rest];
+  }
+  return [primary, ...rest];
 }
 
 // Built-in model id for a provider (used when falling back away from the admin's
@@ -154,7 +178,8 @@ function effectiveDefault(): { provider: string; model: string } {
 }
 
 // ── which provider/model a given FEATURE should use right now ──
-// Resolution: ai_models[feature] → ai_models["default"] → legacy ai_model → built-in default.
+// Resolution: ai_models[feature] → ai_models["default"] → legacy ai_model → built-in default
+// (the built-in default is DeepSeek V3 free for the "chat" feature, Anthropic for everything else).
 async function resolveActiveModel(authHeader: string | null, feature: string): Promise<{ provider: string; model: string }> {
   const pick = (map: Record<string, any>, key: string) => {
     const v = map && map[key];
@@ -180,7 +205,7 @@ async function resolveActiveModel(authHeader: string | null, feature: string): P
       if (l) return l;
     }
   } catch (_e) { /* fall through to default */ }
-  return effectiveDefault();
+  return feature === "chat" ? effective(CHAT_DEFAULT_MODEL) : effectiveDefault();
 }
 
 // ── SSE helpers: every provider's raw stream gets normalized to this ──
@@ -479,8 +504,8 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
 }
 
 // Non-streaming twin of withAuthFallback.
-async function callWithAuthFallback(provider: string, model: string, system: string, full: ChatMsg[]): Promise<string> {
-  const chain = [{ provider, model }, ...nextProvidersWithKey(provider).map((p) => ({ provider: p, model: defaultModelFor(p) }))];
+async function callWithAuthFallback(provider: string, model: string, system: string, full: ChatMsg[], feature = ""): Promise<string> {
+  const chain = providerChain({ provider, model }, feature);
   for (let i = 0; i < chain.length; i++) {
     const c = chain[i];
     try {
@@ -532,13 +557,15 @@ Deno.serve(async (req: Request) => {
     const full = [...conversationHistory, { role: "user", content: message }];
 
     if (!wantStream) {
-      const text = await callWithAuthFallback(provider, model, system, full);
+      const text = await callWithAuthFallback(provider, model, system, full, feature);
       return json({ text });
     }
 
-    // Chain: the admin's choice first, then every provider with a configured
-    // key — a 401/403 on the first token hops down the chain automatically.
-    const chain = [{ provider, model }, ...nextProvidersWithKey(provider).map((p) => ({ provider: p, model: defaultModelFor(p) }))];
+    // Chain: the admin's (or built-in) choice first — for chat that means the
+    // free DeepSeek V3 route with paid V4 Flash spliced in second — then every
+    // provider with a configured key. A 401/403 on the first token, or a spent
+    // free quota (429 on a :free route), hops down the chain automatically.
+    const chain = providerChain({ provider, model }, feature);
     const gen = withAuthFallback(chain.map((c) => ({ provider: c.provider, model: c.model, gen: mkStream(c.provider, c.model, system, full) })));
 
     const stream = new ReadableStream({
