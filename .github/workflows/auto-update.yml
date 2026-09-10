@@ -112,11 +112,21 @@ jobs:
         run: npm run build
 
       # ── Merge both apps into _site/ ───────────────────────────────────
+      # version.json + updates/ live at repo root (never inside dist/), but the
+      # app fetches both from the site root at runtime: version.json drives the
+      # in-app APK install/update banner and updates/manifest.json is the native
+      # Android OTA feed (native-updater.ts). Without copying them here every
+      # deploy 404s those paths — silently disabling OTA and the APK banner for
+      # everyone, even though npm run build and the OTA zip publishing all ran.
       - name: "Merge: TIGA AI at root + BOS at /studio/"
         run: |
           cp -r dist _site
           mkdir -p _site/studio
           cp -r bos/out/* _site/studio/
+          cp version.json _site/version.json
+          mkdir -p _site/updates
+          cp updates/manifest.json _site/updates/manifest.json
+          cp updates/dist-*.zip _site/updates/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
