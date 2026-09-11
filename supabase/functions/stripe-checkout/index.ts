@@ -66,7 +66,12 @@ serve(async (req) => {
        outside — the app asks first and hides its card button unless the answer
        is "live". Says nothing about the key itself, only which mode it is in. */
     if (body && body.probe === true) {
-      return new Response(JSON.stringify({ mode: key.startsWith("sk_live_") ? "live" : "test" }), { headers });
+      // Live keys come in two shapes: the standard secret key (sk_live_) and a
+      // restricted key (rk_live_), which is what Stripe nudges you toward for
+      // least privilege. Checking only sk_live_ would report a perfectly good
+      // restricted key as "test" and keep the card button hidden for good.
+      const live = key.startsWith("sk_live_") || key.startsWith("rk_live_");
+      return new Response(JSON.stringify({ mode: live ? "live" : "test" }), { headers });
     }
 
     const { plan, cycle, cur, expect } = body;
