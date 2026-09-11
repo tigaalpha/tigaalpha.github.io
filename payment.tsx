@@ -64,7 +64,14 @@ export function promptPayQR(target, amount) {
    to the page, and the files live in payqr/ — pointing them at the site root
    (which is where they used to point) makes every Chinese customer's checkout
    show a broken image instead of a QR to scan, which is exactly as bad as
-   having no Chinese payment method at all. Keep in step with the real files. */
+   having no Chinese payment method at all. Keep in step with the real files.
+
+   The source of truth is public/payqr/, so Vite copies them into dist/ — which
+   is what Capacitor bundles as the native app (webDir: "dist") and what the OTA
+   updater zips. They used to sit only at the repo root, which GitHub Pages
+   serves next to index.html, so the WEB checkout worked and the Android/iOS one
+   showed a broken image: the relative path resolved inside a bundle that had no
+   payqr/ in it. The build copies them back out to the repo root for Pages. */
 export const ALIPAY_QR = "./payqr/alipay.jpg";
 export const WECHAT_QR = "./payqr/wechat.png";
 
