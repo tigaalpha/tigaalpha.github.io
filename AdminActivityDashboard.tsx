@@ -98,6 +98,46 @@ const fmtSecs = (ms) => {
   return (Number.isInteger(m) ? m : m.toFixed(1)) + " min";
 };
 
+/* Which door the people who DID get an account came through. Rendered on both
+   admin pages: the activity page asks how many visitors never signed up, and
+   this is the other half of the same question, so it reads as a pair on either.
+   One component rather than two copies — the last thing this dashboard needs is
+   a second place to update when the wording or the maths changes.
+
+   The big number is all-time deliberately. Scoped to the selected range it
+   would read "0 and 0" on a quiet week and look broken rather than
+   informative; the in-range figure is the small line underneath, where a zero
+   is honest instead of alarming. */
+function SignupMethodCards({ signup, range, T }) {
+  if (!signup) return null;
+  const su = signup;
+  const total = Number(su.total) || 0;
+  const rangeLabel = range === "all"
+    ? T("ทั้งหมด", "all time", "全部")
+    : T(`${range} วันนี้`, `last ${range}d`, `近 ${range} 天`);
+  return (
+    <div className="sumeth">
+      <div className="sumeth-c">
+        <div className="sumeth-k">🔵 {T("ล็อกอินด้วย Google", "Signed in with Google", "用 Google 登录")}</div>
+        <div className="sumeth-v">{su.google ?? 0}<span>{T("คน", "people", "人")}</span></div>
+        <div className="sumeth-s">{T("ใหม่", "new", "新增")} {rangeLabel}: <b>{su.google_new ?? 0}</b></div>
+      </div>
+      <div className="sumeth-c">
+        <div className="sumeth-k">✉️ {T("สมัครสมาชิกใหม่ (อีเมล)", "Signed up with email", "邮箱注册")}</div>
+        <div className="sumeth-v">{su.email ?? 0}<span>{T("คน", "people", "人")}</span></div>
+        <div className="sumeth-s">{T("ใหม่", "new", "新增")} {rangeLabel}: <b>{su.email_new ?? 0}</b></div>
+      </div>
+      {total > 0 && (
+        <div className="sumeth-f">
+          {T(`สมาชิกทั้งหมด ${total} คน`, `${total} members in total`, `共 ${total} 位会员`)}
+          {" · "}{Math.round(((Number(su.google) || 0) / total) * 100)}% Google
+          {" · "}{Math.round(((Number(su.email) || 0) / total) * 100)}% {T("อีเมล", "email", "邮箱")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AdminAnonVisitors({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [range, setRange] = useState("7");
@@ -107,6 +147,7 @@ export function AdminAnonVisitors({ lang }) {
   const [err, setErr] = useState("");
   const [sel, setSel] = useState(null);
   const [trail, setTrail] = useState([]);
+  const [signup, setSignup] = useState(null); // Google vs email sign-up split
 
   const since = useCallback(() => {
     if (range === "all") return null;
@@ -117,14 +158,18 @@ export function AdminAnonVisitors({ lang }) {
     setBusy(true); setErr("");
     try {
       const p_since = since();
-      const [a, b] = await Promise.all([
+      const [a, b, c] = await Promise.all([
         sb.rpc("admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS }),
         sb.rpc("admin_anon_visitors", { p_since, p_limit: 200 }),
+        sb.rpc("admin_signup_methods", { p_since }),
       ]);
       if (a.error) throw a.error;
       if (b.error) throw b.error;
       setOv(a.data || null);
       setRows(b.data || []);
+      // Not fatal: this page is about visitors, and the sign-up split is extra
+      // context. If the RPC is missing the cards just don't render.
+      setSignup(c.error ? null : (c.data || null));
     } catch (e) {
       setErr((e && e.message) || "load failed");
     } finally { setBusy(false); }
@@ -186,6 +231,11 @@ export function AdminAnonVisitors({ lang }) {
               </div>
             ))}
           </div>
+
+          {/* The same two cards as the activity page. This page answers "who never
+              made an account"; these say which door the ones who did came
+              through, and the pair only means something read together. */}
+          <SignupMethodCards signup={signup} range={range} T={T} />
 
           {webviewShare && webviewShare.pct >= 20 && (
             <div className="anonwv">
@@ -356,10 +406,6 @@ export function AdminActivity({ lang, onOpenAnon }) {
   };
 
   const t = overview?.totals || {};
-  const su = signup || {};
-  const rangeLabel = range === "all"
-    ? T("ทั้งหมด", "all time", "全部")
-    : T(`${range} วันนี้`, `last ${range}d`, `近 ${range} 天`);
 
   const anonWv = (() => {
     const b = (anon && anon.browsers) || [];
@@ -401,29 +447,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
           route was built for the ~70% arriving inside an in-app browser, where
           Google refuses to sign anyone in, so these two numbers are what say
           whether that route is carrying its weight. */}
-      {signup && (
-        <div className="sumeth">
-          <div className="sumeth-c">
-            <div className="sumeth-k">🔵 {T("ล็อกอินด้วย Google", "Signed in with Google", "用 Google 登录")}</div>
-            <div className="sumeth-v">{su.google ?? 0}<span>{T("คน", "people", "人")}</span></div>
-            <div className="sumeth-s">{T("ใหม่", "new", "新增")} {rangeLabel}: <b>{su.google_new ?? 0}</b></div>
-          </div>
-          <div className="sumeth-c">
-            <div className="sumeth-k">✉️ {T("สมัครสมาชิกใหม่ (อีเมล)", "Signed up with email", "邮箱注册")}</div>
-            <div className="sumeth-v">{su.email ?? 0}<span>{T("คน", "people", "人")}</span></div>
-            <div className="sumeth-s">{T("ใหม่", "new", "新增")} {rangeLabel}: <b>{su.email_new ?? 0}</b></div>
-          </div>
-          {(Number(su.total) || 0) > 0 && (
-            <div className="sumeth-f">
-              {T(`สมาชิกทั้งหมด ${su.total} คน`, `${su.total} members in total`, `共 ${su.total} 位会员`)}
-              {" · "}
-              {Math.round(((Number(su.google) || 0) / (Number(su.total) || 1)) * 100)}% Google
-              {" · "}
-              {Math.round(((Number(su.email) || 0) / (Number(su.total) || 1)) * 100)}% {T("อีเมล", "email", "邮箱")}
-            </div>
-          )}
-        </div>
-      )}
+      <SignupMethodCards signup={signup} range={range} T={T} />
 
       <RangePicker range={range} setRange={setRange} T={T} />
 
