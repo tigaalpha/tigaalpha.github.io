@@ -22,6 +22,9 @@ const NAV_LABELS = {
   profile: "Profile", admin: "Admin", today: "วันนี้", insights: "Insights", eargym: "Ear Gym",
   reading: "Reading", challenging: "Challenging", songs: "เพลง",
 };
+// minutes to one decimal — the unit the owner actually thinks in when asking
+// "how long did they play before leaving"
+const fmtMin = (ms) => ((Number(ms) || 0) / 60000).toFixed(1);
 const fmtMs = (ms) => {
   const n = Number(ms) || 0;
   if (n < 60000) return Math.round(n / 1000) + " วิ";
@@ -53,7 +56,7 @@ function RankRows({ rows, valueFor, T, valueLabel }) {
       <span className="anrow-rank">#{i + 1}</span>
       <span className="anrow-name" style={{ maxWidth: "42%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label(r.item_id)}</span>
       <span className="anrow-barwrap"><span className="anrow-bar" style={{ width: `${Math.max(5, ((Number(valueFor(r)) || 0) / max) * 100)}%` }} /></span>
-      <span className="anrow-hits">{valueLabel(Number(valueFor(r)) || 0)}</span>
+      <span className="anrow-hits">{valueLabel(Number(valueFor(r)) || 0, r)}</span>
     </div>
   ));
 }
@@ -156,9 +159,11 @@ export function AdminAnonVisitors({ lang }) {
             {[
               [T("ผู้เข้าชม", "Visitors", "访客"), ov.visitors],
               [T("ยังไม่ล็อกอิน", "Never logged in", "未登录"), ov.anon_only],
+              [T("เล่นเฉลี่ยคนละ", "Average each", "人均"), fmtMin(ov.avg_ms) + T(" นาที", " min", " 分")],
+              [T("ค่ากลาง", "Median", "中位数"), fmtMin(ov.median_ms) + T(" นาที", " min", " 分")],
+              [T("นานที่สุด", "Longest", "最长"), fmtMin(ov.max_ms) + T(" นาที", " min", " 分")],
+              [T("เวลารวม", "Total time", "总时长"), fmtMin(ov.dwell_ms) + T(" นาที", " min", " 分")],
               [T("สมัครแล้ว", "Signed up", "已注册"), ov.converted],
-              [T("เปิดหน้าเดียวแล้วออก", "Bounced", "跳出"), ov.bounced],
-              [T("เวลารวม", "Total time", "总时长"), fmtMs(ov.dwell_ms)],
             ].map(([k, v]) => (
               <div key={k} className="admmg" style={{ padding: "10px 12px" }}>
                 <div className="admstu-row-sub" style={{ marginBottom: 2 }}>{k}</div>
@@ -180,6 +185,32 @@ export function AdminAnonVisitors({ lang }) {
             </div>
           )}
 
+          {/* How long they lasted, against the 2.5-minute gate. This is the
+              number that says whether the gate is reachable — a gate nobody
+              plays long enough to see cannot convert anyone. */}
+          <div className="admmg" style={{ marginBottom: 12 }}>
+            <div className="admmg-h">⏱️ {T("เล่นนานแค่ไหนก่อนจะออก", "How long they lasted", "停留时长分布")}</div>
+            {(() => {
+              const a = Number(ov.under30) || 0, b = Number(ov.mid) || 0, c = Number(ov.reached) || 0;
+              const tot = a + b + c;
+              if (!tot) return <div className="admstu-empty">{T("ยังไม่มีข้อมูล", "No data yet", "暂无数据")}</div>;
+              const rows = [
+                [T("ไม่ถึง 30 วินาที — เข้ามาแล้วออกเลย", "Under 30 seconds", "不到 30 秒"), a, "#ff6b81"],
+                [T("30 วินาที – 2.5 นาที — ลองเล่นแต่ยังไม่ถึงจุดชวนสมัคร", "30 s – 2.5 min", "30 秒 – 2.5 分"), b, "#ffb236"],
+                [T("2.5 นาทีขึ้นไป — เห็นหน้าชวนสมัครแล้ว", "2.5 min or more — saw the sign-up gate", "2.5 分钟以上"), c, "#3ddc84"],
+              ];
+              return rows.map(([lb, n, col]) => (
+                <div key={lb} className="anrow">
+                  <span className="anrow-name" style={{ maxWidth: "52%", whiteSpace: "normal", lineHeight: 1.35 }}>{lb}</span>
+                  <span className="anrow-barwrap">
+                    <span className="anrow-bar" style={{ width: `${Math.max(3, (n / tot) * 100)}%`, background: col }} />
+                  </span>
+                  <span className="anrow-hits">{n} {T("คน", "", "人")} ({Math.round((n / tot) * 100)}%)</span>
+                </div>
+              ));
+            })()}
+          </div>
+
           <div className="admmg-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
             <div className="admmg">
               <div className="admmg-h">🌐 {T("เข้ามาจากเบราว์เซอร์อะไร", "Which browser", "使用的浏览器")}</div>
@@ -192,9 +223,10 @@ export function AdminAnonVisitors({ lang }) {
                 valueFor={(r) => r.n} T={T} valueLabel={(n) => n + T(" คน", "", " 人")} />
             </div>
             <div className="admmg">
-              <div className="admmg-h">🎯 {T("ใช้ฟีเจอร์อะไรบ้าง", "Features they used", "使用的功能")}</div>
-              <RankRows rows={(ov.features || []).map(b => ({ item_id: b.kind + " · " + b.item, n: b.people }))}
-                valueFor={(r) => r.n} T={T} valueLabel={(n) => n + T(" คน", "", " 人")} />
+              <div className="admmg-h">🎯 {T("ใช้ฟีเจอร์อะไร และนานแค่ไหน", "Features and time spent", "功能与时长")}</div>
+              <RankRows rows={(ov.features || []).map(b => ({ item_id: b.kind + " · " + b.item, n: b.people, ms: b.ms }))}
+                valueFor={(r) => r.n} T={T}
+                valueLabel={(n, r) => n + T(" คน", "p", "人") + (r && Number(r.ms) ? " · " + fmtMin(r.ms) + T(" น.", "m", "分") : "")} />
             </div>
             <div className="admmg">
               <div className="admmg-h">🚪 {T("ทำอะไรเป็นอย่างสุดท้ายก่อนออก", "Last thing before leaving", "离开前最后一步")}</div>
@@ -321,10 +353,14 @@ export function AdminActivity({ lang, onOpenAnon }) {
             <div className="anonhero-k">{T("ผู้เข้าชมที่ยังไม่ล็อกอิน", "Visitors not logged in", "未登录访客")}</div>
             <div className="anonhero-v">{anon.anon_only ?? 0}<span>{T("คน", "people", "人")}</span></div>
           </div>
+          <div className="anonhero-l" style={{ borderLeft: "1px solid var(--bd2)", paddingLeft: 14 }}>
+            <div className="anonhero-k">{T("เล่นเฉลี่ยคนละ", "Average time each", "人均时长")}</div>
+            <div className="anonhero-v">{fmtMin(anon.avg_ms)}<span>{T("นาที", "min", "分")}</span></div>
+          </div>
           <div className="anonhero-r">
-            <div className="anonhero-s"><b>{anon.visitors ?? 0}</b> {T("เข้าชมทั้งหมด", "visitors", "总访客")}</div>
+            <div className="anonhero-s"><b>{fmtMin(anon.median_ms)}</b> {T("นาที — ค่ากลาง (ครึ่งหนึ่งเล่นน้อยกว่านี้)", "min median", "分 中位数")}</div>
+            <div className="anonhero-s"><b>{anon.reached ?? 0}</b> {T("คนเล่นถึง 2.5 นาที (เห็นหน้าชวนสมัคร)", "reached the 2.5 min gate", "达到 2.5 分钟")}</div>
             <div className="anonhero-s"><b>{anon.converted ?? 0}</b> {T("สมัครแล้ว", "signed up", "已注册")}</div>
-            <div className="anonhero-s"><b>{anon.bounced ?? 0}</b> {T("เปิดหน้าเดียวแล้วออก", "bounced", "跳出")}</div>
             {anonWv >= 20 && <div className="anonhero-w">⚠️ {anonWv}% {T("มาจากเบราว์เซอร์ในแอป", "in-app browser", "应用内浏览器")}</div>}
           </div>
           <span className="anonhero-go">{T("ดูรายละเอียด", "Details", "详情")} ›</span>
