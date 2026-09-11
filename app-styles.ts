@@ -3193,6 +3193,65 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    would sit behind the stage */
 .pvppage.land .nrv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:12;width:min(94%,640px);max-width:none;margin:0;max-height:90%;overflow-y:auto;box-shadow:0 26px 64px -22px #000}
 
+
+/* ── AUTH PANEL (login / sign-up) ──
+   Minimal-modern on purpose: one card, one accent (#d97757), hairline borders,
+   generous 48-50px targets, no glow. The old version buried e-mail sign-up
+   behind a link reading "log in with existing account", so a visitor with no
+   Google account had no visible way in at all — the two routes are equal here
+   and the choice is made with a segmented control before anything else.
+
+   Colours are LITERAL, not the --text/--card theme variables. This panel only
+   ever renders inside .setcard and the gate, both of which are a hard-coded
+   dark gradient that does not follow the light/dark theme — so theme variables
+   flip underneath it and put near-black text on a near-black card, which is
+   exactly what the first version did in light mode. ── */
+.au{--auT:#f4f1fa;--auM:#a29bb8;--auS:rgba(255,255,255,.055);--auB:rgba(255,255,255,.14);
+    display:flex;flex-direction:column;gap:16px;width:100%}
+.au-head{text-align:center}
+.au-title{font-family:'Rajdhani',sans-serif;font-size:23px;font-weight:700;color:var(--auT);letter-spacing:.2px;line-height:1.25}
+.au-sub{font-size:13px;color:var(--auM);margin-top:5px;line-height:1.55;white-space:pre-line}
+.au-seg{display:flex;gap:4px;padding:4px;background:var(--auS);border:1px solid var(--auB);border-radius:12px}
+.au-segb{flex:1;padding:10px 8px;border:none;border-radius:9px;background:none;color:var(--auM);font-family:'Rajdhani',sans-serif;font-size:14.5px;font-weight:600;cursor:pointer;transition:.18s}
+.au-segb.on{background:#d97757;color:#fff}
+.au-g{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:50px;border-radius:12px;border:1px solid rgba(0,0,0,.12);background:#fff;color:#1f1f1f;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:.18s}
+.au-g:hover{transform:translateY(-1px);box-shadow:0 6px 18px -8px #000}
+.au-g:active{transform:none}
+.au-gico{width:20px;height:20px;flex:none}
+.au-or{display:flex;align-items:center;gap:12px;color:var(--auM);font-size:12px}
+.au-or:before,.au-or:after{content:"";flex:1;height:1px;background:var(--auB)}
+.au-f{display:flex;flex-direction:column;gap:10px}
+.au-in{width:100%;height:48px;padding:0 14px;border-radius:12px;border:1px solid var(--auB);background:var(--auS);color:var(--auT);font-family:'Rajdhani',sans-serif;font-size:15px;outline:none;transition:.18s;box-sizing:border-box}
+.au-in::placeholder{color:var(--auM)}
+.au-in:focus{border-color:#d97757;box-shadow:0 0 0 3px #d9775733}
+.au-cta{width:100%;height:50px;border:none;border-radius:12px;background:#d97757;color:#fff;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;cursor:pointer;transition:.18s}
+.au-cta:hover:not(:disabled){filter:brightness(1.08)}
+.au-cta:disabled{opacity:.5;cursor:default}
+.au-link{background:none;border:none;color:var(--auM);font-family:'Rajdhani',sans-serif;font-size:13px;cursor:pointer;padding:3px;text-decoration:underline;text-underline-offset:3px}
+.au-link:hover{color:var(--auT)}
+.au-err{background:#ff4d6a1f;border:1px solid #ff4d6a55;color:#ff97a6;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5}
+.au-ok{background:#3ddc841f;border:1px solid #3ddc8455;color:#7fe7b4;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5}
+/* PDPA: the required purpose and the optional one are visually separate on
+   purpose — consent to marketing must be refusable without losing the service,
+   and one lumped checkbox cannot express that. */
+.au-pdpa{background:var(--auS);border:1px solid var(--auB);border-radius:12px;padding:13px;display:flex;flex-direction:column;gap:11px}
+.au-pdpa-h{font-size:11px;font-weight:700;color:var(--auM);letter-spacing:.7px}
+.au-pdpa-p{font-size:12px;color:var(--auM);line-height:1.65;margin:-4px 0 1px}
+.au-ck{display:flex;gap:11px;align-items:flex-start;cursor:pointer;font-size:12.5px;line-height:1.55;color:var(--auT)}
+.au-ck input{appearance:none;-webkit-appearance:none;flex:none;width:20px;height:20px;margin:0;border-radius:6px;border:1.5px solid var(--auB);background:rgba(0,0,0,.25);cursor:pointer;position:relative;transition:.15s}
+.au-ck input:checked{background:#d97757;border-color:#d97757}
+.au-ck input:checked:after{content:"";position:absolute;left:6.5px;top:2.5px;width:4px;height:9px;border:solid #fff;border-width:0 2.2px 2.2px 0;transform:rotate(43deg)}
+.au-ck a{color:#e8967a;text-decoration:underline;text-underline-offset:2px}
+.au-req{color:#e8967a;font-weight:700}
+.au-fine{font-size:11px;color:var(--auM);line-height:1.65;text-align:center}
+.au-fine a{color:var(--auM);text-decoration:underline;text-underline-offset:2px}
+/* in-app browser escape hatch — see inAppBrowser() in app-shell.tsx */
+.au-warn{background:#ffb2361f;border:1px solid #ffb23666;border-radius:12px;padding:12px 13px;font-size:12.5px;line-height:1.6;color:#e0ab76}
+.au-warn b{color:#ffb236;display:block;margin-bottom:3px;font-size:13px}
+.au-esc{display:flex;gap:8px}
+.au-escb{flex:1;height:42px;border-radius:10px;border:1px solid var(--auB);background:var(--auS);color:var(--auT);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:.18s}
+.au-escb:hover{border-color:#ffb23688}
+
 `;
 
 export function useInjectCSS() {

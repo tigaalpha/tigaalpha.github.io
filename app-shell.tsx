@@ -152,50 +152,78 @@ export function openInRealBrowser() {
   } catch (e) { return false; }
 }
 
+/* The privacy notice this sign-up form asks people to agree to. Bump it
+   whenever privacy-policy.html changes in a way that alters what is collected
+   or why: consent is given to a specific notice, and a policy that changes
+   underneath a stored "true" is not consent to the new one. The stored version
+   is what makes it possible to tell who agreed to what. */
+export const PDPA_VERSION = "2026-09-11";
+const PRIVACY_URL = "privacy-policy.html";
+
+function GoogleMark() {
+  return (
+    <svg className="au-gico" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.1-3.8 6.6-9.4 6.6-16.1z" />
+      <path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.5-3.8-12.2-9H4.5v5.7C8.1 41.1 15.4 46 24 46z" />
+      <path fill="#FBBC05" d="M11.8 28.2c-.4-1.3-.7-2.7-.7-4.2s.3-2.9.7-4.2v-5.7H4.5C3 17.1 2.1 20.4 2.1 24s.9 6.9 2.4 9.9l7.3-5.7z" />
+      <path fill="#EA4335" d="M24 10.8c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4.2 29.9 2 24 2 15.4 2 8.1 6.9 4.5 14.1l7.3 5.7c1.7-5.2 6.5-9 12.2-9z" />
+    </svg>
+  );
+}
+
+/* One panel, two equally visible ways in. The previous version made Google the
+   only real button and hid e-mail behind a link reading "log in with existing
+   account" — so someone with no Google account, or in a WebView where Google
+   refuses to work at all, saw no way to create one. */
 function LoginOptions({ profile, onGoogleLogin }) {
   const [inApp] = useState(() => inAppBrowser());
-  const [copied, setCopied] = useState(false);
-  // In a WebView the email form IS the path, so it opens already expanded —
-  // one less tap between a paid visitor and an account.
-  const [showEmail, setShowEmail] = useState(() => inAppBrowser());
   const [mode, setMode] = useState("signup"); // signup | login
+  const [copied, setCopied] = useState(false);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [agree, setAgree] = useState(false);      // required purpose — never pre-ticked
+  const [marketing, setMarketing] = useState(false); // separate optional purpose
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
 
+  const signup = mode === "signup";
+
   async function submit() {
     if (busy) return;
     setErr(""); setMsg("");
+    if (signup && !name.trim()) { setErr("กรุณากรอกชื่อที่อยากให้ครูเรียก · Please enter a name"); return; }
     if (!email.trim() || !password) { setErr("กรุณากรอกอีเมลและรหัสผ่าน · Please enter your email and password"); return; }
     if (password.length < 6) { setErr("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร · Password must be at least 6 characters"); return; }
-    if (mode === "signup" && password !== confirm) { setErr("รหัสผ่านไม่ตรงกัน · Passwords don't match"); return; }
+    if (signup && password !== confirm) { setErr("รหัสผ่านไม่ตรงกัน · Passwords don't match"); return; }
+    // PDPA: processing may not begin without a freely given, specific,
+    // informed consent — so this is a hard stop, not a nudge.
+    if (signup && !agree) { setErr("กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัคร · Please accept the privacy notice to continue"); return; }
     setBusy(true);
     try {
-      // Same guest-progress-carries-over handoff the Google button already
-      // does — loadProfile() in App() merges it into the real row once this
-      // account's session lands, regardless of which method created it.
-      saveGuestProfile(profile);
-      const { data, error } = mode === "signup"
-        ? await sb.auth.signUp({ email: email.trim(), password })
+      saveGuestProfile(profile); // progress made as a guest follows them in
+      const { data, error } = signup
+        ? await sb.auth.signUp({
+            email: email.trim(),
+            password,
+            // Carried as auth metadata so handle_new_user() can land the
+            // consent record even when e-mail confirmation means there is no
+            // session yet to write with.
+            options: { data: {
+              full_name: name.trim(),
+              pdpa_version: PDPA_VERSION,
+              marketing_consent: !!marketing,
+            } },
+          })
         : await sb.auth.signInWithPassword({ email: email.trim(), password });
       if (error) { setErr(friendlyAuthError(error.message)); return; }
-      // A fresh session (Google's OAuth redirect and this both end here)
-      // completes App()'s own sb.auth.onAuthStateChange listener, which is
-      // what actually carries the app forward — nothing more to do here. If
-      // the project requires email confirmation, signUp() instead returns a
-      // user with no session yet, so say so instead of looking like nothing
-      // happened.
-      if (mode === "signup" && data && data.user && !data.session) {
-        setMsg("สมัครสำเร็จ! ตรวจสอบอีเมลเพื่อยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ · Account created! Check your email to confirm it, then come back and log in.");
+      if (signup && data && data.user && !data.session) {
+        setMsg("สมัครสำเร็จ! ตรวจสอบอีเมลเพื่อยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ · Account created — check your email to confirm it, then log in.");
       }
+      // A live session completes through App()'s own onAuthStateChange.
     } catch (e) {
-      // A genuine network drop can reject instead of resolving with
-      // {error} — without this, that would skip setBusy(false) entirely
-      // and leave the form stuck showing "..." forever with no way to
-      // retry short of a reload.
       setErr(friendlyAuthError(e && e.message));
     } finally {
       setBusy(false);
@@ -203,93 +231,126 @@ function LoginOptions({ profile, onGoogleLogin }) {
   }
 
   async function forgotPassword() {
-    if (!email.trim()) { setErr("กรอกอีเมลก่อนเพื่อรีเซ็ตรหัสผ่าน · Enter your email above first to reset your password"); return; }
+    if (!email.trim()) { setErr("กรอกอีเมลก่อนเพื่อรีเซ็ตรหัสผ่าน · Enter your email above first"); return; }
     setBusy(true); setErr(""); setMsg("");
     try {
       const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + window.location.pathname });
       if (error) setErr(friendlyAuthError(error.message));
-      else setMsg("ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว ตรวจสอบกล่องจดหมาย · Reset link sent — check your inbox");
-    } catch (e) {
-      setErr(friendlyAuthError(e && e.message));
-    } finally {
-      setBusy(false);
-    }
+      else setMsg("ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว · Reset link sent — check your inbox");
+    } catch (e) { setErr(friendlyAuthError(e && e.message)); }
+    finally { setBusy(false); }
   }
 
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      setCopied(true); setTimeout(() => setCopied(false), 2500);
     } catch (e) {
-      setErr("คัดลอกไม่สำเร็จ กดค้างที่แถบที่อยู่เพื่อคัดลอก · Copy failed — long-press the address bar to copy the link");
+      setErr("คัดลอกไม่สำเร็จ กดค้างที่แถบที่อยู่เพื่อคัดลอก · Copy failed — long-press the address bar instead");
     }
   }
 
   return (
-    <>
-      {inApp && (
-        <div style={{
-          width: "100%", borderRadius: 12, padding: "11px 13px", marginBottom: 4,
-          background: "rgba(255,178,54,0.12)", border: "1.5px solid rgba(255,178,54,0.45)",
-          color: "#ffd9a0", fontSize: 13, lineHeight: 1.5,
-        }}>
-          <b style={{ color: "#ffb236" }}>⚠️ Google ใช้ไม่ได้ในเบราว์เซอร์ของแอปนี้</b><br />
-          เปิดจาก Facebook / YouTube / TikTok ใช่ไหมคะ — Google ไม่ยอมให้ล็อกอินในนี้<br />
-          <span style={{ opacity: .85 }}>สมัครด้วยอีเมลด้านล่างได้เลย ใช้ได้ปกติ หรือกดเปิดในเบราว์เซอร์จริง</span>
-          <br /><span style={{ opacity: .7, fontSize: 12 }}>Google blocks sign-in inside this app's browser. Use email below, or open in a real browser.</span>
+    <div className="au">
+      <div className="au-head">
+        <div className="au-title">{signup ? "สมัครสมาชิกฟรี" : "ยินดีต้อนรับกลับมา"}</div>
+        <div className="au-sub">
+          {!signup
+            ? "เข้าสู่ระบบเพื่อเล่นต่อจากที่ค้างไว้\nLog in to pick up where you left off"
+            : inApp
+            // promising Google here would be a lie: it cannot work in a WebView
+            ? "สมัครด้วยอีเมลได้เลย ไม่ต้องมีบัญชี Google\nSign up with an email — no Google account needed"
+            : "เลือกได้เลย — สมัครด้วยอีเมล หรือใช้บัญชี Google\nSign up with an email, or use Google"}
         </div>
-      )}
-      {inApp && (
-        <div style={{ width: "100%", display: "flex", gap: 8, marginBottom: 6 }}>
-          <button className="memberlink" style={{ flex: 1, border: "1.5px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: "9px 8px" }}
-            onClick={() => openInRealBrowser()}>
-            🌐 เปิดในเบราว์เซอร์ · Open in browser
-          </button>
-          <button className="memberlink" style={{ flex: 1, border: "1.5px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: "9px 8px" }}
-            onClick={copyLink}>
-            {copied ? "✓ คัดลอกแล้ว · Copied" : "🔗 คัดลอกลิงก์ · Copy link"}
-          </button>
-        </div>
-      )}
-      {!inApp && (
-        <button className="oauthbtn google" onClick={onGoogleLogin}>
-          <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google · Continue with Google
-        </button>
-      )}
-      {!showEmail ? (
-        <button className="memberlink" onClick={() => setShowEmail(true)}>
-          ✉️ สมัครด้วยอีเมล / เข้าสู่ระบบ · Sign up or log in with email
-        </button>
+      </div>
+
+      <div className="au-seg" role="tablist">
+        <button className={`au-segb${signup ? " on" : ""}`} role="tab" aria-selected={signup}
+          onClick={() => { setMode("signup"); setErr(""); setMsg(""); }}>สมัครสมาชิกใหม่</button>
+        <button className={`au-segb${!signup ? " on" : ""}`} role="tab" aria-selected={!signup}
+          onClick={() => { setMode("login"); setErr(""); setMsg(""); }}>เข้าสู่ระบบ</button>
+      </div>
+
+      {inApp ? (
+        <>
+          <div className="au-warn">
+            <b>⚠️ Google ใช้ไม่ได้ในเบราว์เซอร์ของแอปนี้</b>
+            เปิดจาก Facebook / YouTube / TikTok ใช่ไหมคะ — Google ไม่ยอมให้ล็อกอินในนี้
+            {" "}สมัครด้วยอีเมลด้านล่างได้ตามปกติ หรือกดเปิดในเบราว์เซอร์จริง
+          </div>
+          <div className="au-esc">
+            <button className="au-escb" onClick={() => openInRealBrowser()}>🌐 เปิดในเบราว์เซอร์</button>
+            <button className="au-escb" onClick={copyLink}>{copied ? "✓ คัดลอกแล้ว" : "🔗 คัดลอกลิงก์"}</button>
+          </div>
+        </>
       ) : (
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 2 }}>
-          <input className="memberinput" type="email" inputMode="email" autoComplete="email"
-            placeholder="อีเมล · Email" value={email} onChange={e => setEmail(e.target.value)} />
-          <input className="memberinput" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"}
-            placeholder="รหัสผ่าน · Password" value={password} onChange={e => setPassword(e.target.value)} />
-          {mode === "signup" && (
-            <input className="memberinput" type="password" autoComplete="new-password"
-              placeholder="ยืนยันรหัสผ่าน · Confirm password" value={confirm} onChange={e => setConfirm(e.target.value)} />
-          )}
-          {err && <div className="lockerr">{err}</div>}
-          {msg && <div className="locksub" style={{ color: "#4caf82" }}>{msg}</div>}
-          <button className="lockbtn" disabled={busy} onClick={submit} style={{ width: "100%" }}>
-            {busy ? "..." : mode === "signup" ? "สมัครสมาชิก ▶ Sign up" : "เข้าสู่ระบบ ▶ Log in"}
+        <>
+          <button className="au-g" onClick={onGoogleLogin}>
+            <GoogleMark /> {signup ? "สมัครด้วย Google" : "เข้าสู่ระบบด้วย Google"}
           </button>
-          <button className="memberlink" onClick={() => { setMode(mode === "signup" ? "login" : "signup"); setErr(""); setMsg(""); }}>
-            {mode === "signup" ? "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ · Already have an account? Log in" : "ยังไม่มีบัญชี? สมัครสมาชิก · New here? Sign up"}
-          </button>
-          {mode === "login" && (
-            <button className="memberlink" onClick={forgotPassword}>ลืมรหัสผ่าน? · Forgot password?</button>
-          )}
+          <div className="au-or">หรือ · or</div>
+        </>
+      )}
+
+      <div className="au-f">
+        {signup && (
+          <input className="au-in" type="text" autoComplete="name" placeholder="ชื่อที่อยากให้ครูเรียก · Your name"
+            value={name} onChange={e => setName(e.target.value)} />
+        )}
+        <input className="au-in" type="email" inputMode="email" autoComplete="email" placeholder="อีเมล · Email"
+          value={email} onChange={e => setEmail(e.target.value)} />
+        <input className="au-in" type="password" autoComplete={signup ? "new-password" : "current-password"}
+          placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว) · Password" value={password} onChange={e => setPassword(e.target.value)} />
+        {signup && (
+          <input className="au-in" type="password" autoComplete="new-password" placeholder="ยืนยันรหัสผ่าน · Confirm password"
+            value={confirm} onChange={e => setConfirm(e.target.value)} />
+        )}
+      </div>
+
+      {signup && (
+        <div className="au-pdpa">
+          <div className="au-pdpa-h">ความเป็นส่วนตัว · Privacy</div>
+          <div className="au-pdpa-p">
+            เราเก็บชื่อ อีเมล และความคืบหน้าการเรียนของคุณ เพื่อใช้เปิดบัญชีและบันทึกการเรียนเท่านั้น
+            ไม่ขายข้อมูลให้ใคร และคุณขอลบบัญชีได้ทุกเมื่อ
+          </div>
+          <label className="au-ck">
+            <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
+            <span>
+              <span className="au-req">*</span> ฉันยอมรับ
+              {" "}<a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">นโยบายความเป็นส่วนตัว</a>
+              {" "}และยินยอมให้เก็บข้อมูลข้างต้นเพื่อให้บริการ
+            </span>
+          </label>
+          <label className="au-ck">
+            <input type="checkbox" checked={marketing} onChange={e => setMarketing(e.target.checked)} />
+            <span>
+              (ไม่บังคับ) ส่งข่าวคอร์สใหม่และโปรโมชันให้ฉันทางอีเมล — ไม่เลือกก็สมัครได้ตามปกติ
+            </span>
+          </label>
         </div>
       )}
+
+      {err && <div className="au-err">{err}</div>}
+      {msg && <div className="au-ok">{msg}</div>}
+
+      <button className="au-cta" disabled={busy} onClick={submit}>
+        {busy ? "กำลังดำเนินการ..." : signup ? "สมัครสมาชิกฟรี" : "เข้าสู่ระบบ"}
+      </button>
+
+      {!signup && <button className="au-link" onClick={forgotPassword}>ลืมรหัสผ่าน? · Forgot password?</button>}
+
       {inApp && (
-        <button className="memberlink" style={{ opacity: .65, fontSize: 12, marginTop: 2 }} onClick={onGoogleLogin}>
-          ลองใช้ Google ต่อไป (อาจไม่ทำงานในนี้) · Try Google anyway (may not work here)
+        <button className="au-link" style={{ opacity: .6, fontSize: 12 }} onClick={onGoogleLogin}>
+          ลองใช้ Google ต่อไป (อาจไม่ทำงานในนี้) · Try Google anyway
         </button>
       )}
-    </>
+
+      <div className="au-fine">
+        ฟรี ไม่ต้องใช้บัตรเครดิต · No credit card needed<br />
+        การสมัครถือว่ายอมรับ <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">นโยบายความเป็นส่วนตัว</a> (ฉบับ {PDPA_VERSION})
+      </div>
+    </div>
   );
 }
 
@@ -318,6 +379,10 @@ export function LoginModal({ profile, onGoogleLogin, onClose }) {
 export function GuestGateScreen({ reason, profile, onLogin }) {
   const [gateInApp] = useState(() => inAppBrowser());
   const [showSignup, setShowSignup] = useState(false);
+  // PDPA: never pre-ticked, and the optional marketing purpose is asked for
+  // separately so refusing it cannot cost them the account.
+  const [gateAgree, setGateAgree] = useState(false);
+  const [gateMarketing, setGateMarketing] = useState(false);
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
@@ -339,6 +404,7 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
     // social app's WebView that is the one door that is shut (see
     // inAppBrowser). Ask for the email instead of walking them into it.
     if (gateInApp && !signupEmail.trim()) { setSignupErr("กรุณากรอกอีเมล (ในเบราว์เซอร์ของแอปนี้ต้องใช้อีเมลสมัคร) · Email is required in this app's browser"); return; }
+    if (!gateAgree) { setSignupErr("กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัคร · Please accept the privacy notice to continue"); return; }
     setSignupBusy(true);
     try {
       saveGuestProfile(profile);
@@ -346,6 +412,15 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
         const { data, error } = await sb.auth.signUp({
           email: signupEmail.trim(),
           password: signupPassword,
+          // handle_new_user() lands these on the profile, so the consent is
+          // recorded even when e-mail confirmation leaves no session to write
+          // with — which is exactly when the old client-side upsert below
+          // silently did nothing.
+          options: { data: {
+            full_name: signupName.trim(),
+            pdpa_version: PDPA_VERSION,
+            marketing_consent: !!gateMarketing,
+          } },
         });
         if (error) { setSignupErr(friendlyAuthError(error.message)); setSignupBusy(false); return; }
         if (data && data.user) {
@@ -507,6 +582,26 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
                     color: "#ff8a80", fontSize: 13, lineHeight: 1.4,
                   }}>{signupErr}</div>
                 )}
+
+                <div className="au-pdpa">
+                  <div className="au-pdpa-h">ความเป็นส่วนตัว · Privacy</div>
+                  <div className="au-pdpa-p">
+                    เราเก็บชื่อ อีเมล และความคืบหน้าการเรียนของคุณ เพื่อเปิดบัญชีและบันทึกการเรียนเท่านั้น
+                    ไม่ขายข้อมูลให้ใคร และคุณขอลบบัญชีได้ทุกเมื่อ
+                  </div>
+                  <label className="au-ck">
+                    <input type="checkbox" checked={gateAgree} onChange={e => setGateAgree(e.target.checked)} />
+                    <span>
+                      <span className="au-req">*</span> ฉันยอมรับ
+                      {" "}<a href="privacy-policy.html" target="_blank" rel="noopener noreferrer">นโยบายความเป็นส่วนตัว</a>
+                      {" "}และยินยอมให้เก็บข้อมูลข้างต้นเพื่อให้บริการ
+                    </span>
+                  </label>
+                  <label className="au-ck">
+                    <input type="checkbox" checked={gateMarketing} onChange={e => setGateMarketing(e.target.checked)} />
+                    <span>(ไม่บังคับ) ส่งข่าวคอร์สใหม่และโปรโมชันให้ฉันทางอีเมล</span>
+                  </label>
+                </div>
 
                 <button
                   onClick={handleSignupSubmit}
