@@ -206,29 +206,33 @@ export function recordNoteMisses(notes) {
    of cumulative use (persists across visits — refreshing buys no extra time),
    tracked separately from any one page's `profile.exp` etc. so it survives
    a guest bouncing between pages. */
-/* Fifteen seconds, picked against where people actually decide rather than by
-   shortening the last guess again. Grouping the signed-out visitors by how
-   long they stayed, and counting who signed up WITHOUT being asked:
+/* Ten seconds, set by the owner. The data the app has on the question is kept
+   below because it does not support ten — the next person to change this
+   should re-read it rather than re-derive it.
+
+   Signed-out visitors grouped by how long they stayed, counting who signed up
+   WITHOUT being asked:
 
      0-5 s   40 people   0 signed up
      5-10 s   4 people   0
      10-14 s  3 people   0
-     14-20 s  3 people   1          <- willingness starts here
+     14-20 s  3 people   1          <- first unprompted sign-up
      20-30 s  3 people   2
      30 s+    5 people   0
 
-   Every unprompted sign-up happened between 14 and 26 seconds; before 14
-   nobody is ready. So the gate wants to land at the near edge of that window:
-   10 s would fire before anyone has ever shown willingness, and the three
-   extra people it reaches sit in a band with a 0% sign-up rate, while 20 s
-   arrives after two people in the willing band have already left. Fifteen
-   reaches both of them and still fires inside the window.
+   Every unprompted sign-up landed between 14 and 26 seconds; nobody below 14
+   has ever volunteered. So ten reaches three more people than fifteen did,
+   all from a band with a 0% unprompted rate, and asks everyone else before
+   any willingness has ever been observed.
 
-   Caveat for whoever reads this next: those percentages rest on three
-   sign-ups. It is the best-supported guess available, not a settled fact.
-   The number that will actually decide it is sign-ups AFTER the gate, which
-   did not exist until now because no one ever reached the old one. */
-export const GUEST_TRIAL_MS = 15 * 1000;
+   That is an argument, not a verdict. The percentages rest on three sign-ups,
+   and signing up unprompted is not the same act as converting at a gate —
+   nobody ever reached the old 2.5-minute gate, so the app has no data at all
+   on how people behave when they are actually asked. Ten seconds tests it.
+   What settles it is sign-ups AFTER the gate: the admin dashboard now counts
+   those by method, so compare the rate against the fifteen-second stretch
+   before moving this number again. */
+export const GUEST_TRIAL_MS = 10 * 1000;
 export const GUEST_PROFILE_KEY = "tg_guest_profile";
 export const GUEST_MS_KEY = "tg_guest_ms";
 export function freshGuestProfile() {
