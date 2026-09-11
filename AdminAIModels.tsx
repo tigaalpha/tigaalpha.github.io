@@ -315,6 +315,7 @@ const ADMIN_NAV_GROUPS = [
     { id: "payments", icon: "💳", tier: 3, th: "ชำระเงิน", en: "Payments", zh: "付款" },
     { id: "analytics", icon: "📊", tier: 3, th: "สถิติ", en: "Analytics", zh: "统计" },
     { id: "activity", icon: "📈", tier: 3, th: "กิจกรรมผู้ใช้", en: "User Activity", zh: "用户活动" },
+    { id: "anonvisit", icon: "👁️", tier: 3, th: "ผู้เข้าชม (ยังไม่ล็อกอิน)", en: "Visitors (not logged in)", zh: "未登录访客" },
     { id: "simbots", icon: "🤖", tier: 3, th: "ข้อมูลจำลอง", en: "Demo Bots", zh: "模拟数据" },
   ]},
   { id: "leadsale", icon: "🎯", th: "Lead Sale", en: "Lead Sale", zh: "获客与销售", items: [

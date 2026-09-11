@@ -78,14 +78,87 @@ export async function unsubscribePush() {
 // the admin can see what's actually used. Never awaited, never blocks the UI,
 // and any failure (offline, RLS, whatever) is silently swallowed — a missed
 // analytics row is never worth degrading the learner's experience.
+/* A stable id for THIS BROWSER, with no account behind it. Lets the admin see
+   that one person opened six pages and left, rather than six unrelated hits —
+   and, because it keeps being sent after login too, lets a visit be matched to
+   the account it eventually became. Not an identity: it is a random value in
+   this browser's own localStorage, it never leaves the device except on these
+   rows, and clearing site data resets it. */
+const ANON_ID_KEY = "tg_anon_id";
+export function anonId() {
+  try {
+    let v = localStorage.getItem(ANON_ID_KEY);
+    if (!v) {
+      v = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem(ANON_ID_KEY, v);
+    }
+    return v;
+  } catch (e) { return null; }
+}
+
+/* Where this visit came from, captured ONCE on the first page of the visit —
+   document.referrer is blank after the first client-side navigation, and
+   utm_source only ever appears on the landing URL, so reading either later
+   gives "direct" for traffic that was actually paid for. */
+const SRC_KEY = "tg_src";
+export function trafficSource() {
+  try {
+    const saved = localStorage.getItem(SRC_KEY);
+    if (saved) return saved;
+    const q = new URLSearchParams(window.location.search);
+    const utm = q.get("utm_source") || q.get("source") || q.get("fbclid") && "facebook" || "";
+    let v = utm;
+    if (!v && document.referrer) {
+      try { v = new URL(document.referrer).hostname.replace(/^www\./, ""); } catch (e) {}
+    }
+    v = (v || "direct").slice(0, 60);
+    localStorage.setItem(SRC_KEY, v);
+    return v;
+  } catch (e) { return "direct"; }
+}
+
+/* Which browser this is, bucketed. The whole reason this column exists: on
+   2026-09-11 a paid campaign produced 393 visits and zero accounts because
+   Google refuses OAuth inside a social app's WebView, and nothing in the data
+   would have shown that. Now the share of visitors stuck in one is countable. */
+export function uaKind() {
+  try {
+    const ua = navigator.userAgent || "";
+    if (/FBAN|FBAV|FB_IAB|FBIOS/i.test(ua)) return "facebook-webview";
+    if (/Instagram/i.test(ua)) return "instagram-webview";
+    if (/Messenger/i.test(ua)) return "messenger-webview";
+    if (/Line\/|LIFF/i.test(ua)) return "line-webview";
+    if (/TikTok|musical_ly|BytedanceWebview/i.test(ua)) return "tiktok-webview";
+    if (/Android/i.test(ua) && /;\s*wv\)/i.test(ua)) return "android-webview";
+    if (/CriOS/i.test(ua)) return "ios-chrome";
+    if (/iPhone|iPad|iPod/i.test(ua)) return /Safari\//i.test(ua) ? "ios-safari" : "ios-webview";
+    if (/Android/i.test(ua)) return "android-chrome";
+    return "desktop";
+  } catch (e) { return "?"; }
+}
+
+/* Fire-and-forget usage tracking. This used to `return` whenever there was no
+   session, which meant a visitor who never logged in left no trace at all —
+   the admin could see what members did and nothing whatsoever about the people
+   the advertising actually brought in. usage_events.user_id was already
+   nullable; the row just was not being written. */
 export function logUsage(kind, itemId, durationMs = null) {
-  sb.auth.getSession().then(({ data }) => {
-    const uid = data && data.session && data.session.user && data.session.user.id;
-    if (!uid || !itemId) return;
-    const row = { user_id: uid, kind, item_id: String(itemId) };
-    if (durationMs != null) row.duration_ms = Math.max(0, Math.round(durationMs)); // page dwell time (admin analytics)
-    sb.from("usage_events").insert(row).then(() => {}, () => {});
-  }, () => {});
+  if (!itemId) return;
+  const row = {
+    kind, item_id: String(itemId),
+    anon_id: anonId(), src: trafficSource(), ua: uaKind(),
+  };
+  if (durationMs != null) row.duration_ms = Math.max(0, Math.round(durationMs)); // page dwell time (admin analytics)
+  const send = (uid) => {
+    // user_id must stay null for a signed-out visitor: the anon insert policy
+    // only accepts rows that claim no user.
+    sb.from("usage_events").insert(uid ? { ...row, user_id: uid } : row).then(() => {}, () => {});
+  };
+  sb.auth.getSession().then(
+    ({ data }) => send((data && data.session && data.session.user && data.session.user.id) || null),
+    () => send(null),
+  );
 }
 
 /* ── practice activity log (localStorage) powering the progress dashboard ── */

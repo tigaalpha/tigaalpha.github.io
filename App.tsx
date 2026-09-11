@@ -91,7 +91,7 @@ import { LeadLandingPage } from "./LeadLandingPage";
 import { PianoLevelQuiz } from "./PianoLevelQuiz";
 import { ReferralDashboard } from "./ReferralDashboard";
 import { LeadSaleDashboard } from "./LeadSaleDashboard";
-import { AdminActivity, AdminSimBots } from "./AdminActivityDashboard";
+import { AdminActivity, AdminSimBots, AdminAnonVisitors } from "./AdminActivityDashboard";
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -346,7 +346,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.245";
+const APP_VER = "13.7.244";
 
 async function signInWith(provider) {
   try {
@@ -9069,6 +9069,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
         : adminTab === "activity" && tier >= 3 ? <AdminActivity lang={lang} />
+        : adminTab === "anonvisit" && tier >= 3 ? <AdminAnonVisitors lang={lang} />
         : adminTab === "simbots" && tier >= 3 ? <AdminSimBots lang={lang} />
         : adminTab === "ai" && tier >= 3 ? (<>
 

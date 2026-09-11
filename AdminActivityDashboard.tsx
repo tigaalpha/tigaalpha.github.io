@@ -58,6 +58,188 @@ function RankRows({ rows, valueFor, T, valueLabel }) {
   ));
 }
 
+
+/* ═══════════════ 3. ANONYMOUS VISITORS ═══════════════
+   Who came to the site and never logged in, and what they did while they were
+   here. This existed nowhere before: logUsage() returned early whenever there
+   was no session, so the admin could see everything members did and nothing at
+   all about the people the advertising actually paid for. Three days of ads
+   bought 393 visits, produced 0 accounts, and left no record to look at.
+
+   The browser column is here for a specific reason — see uaKind() in
+   shared-infra.ts. Google refuses OAuth inside a social app's WebView, so a
+   high "facebook-webview" share is not trivia: it is the number that explains
+   a dead sign-up funnel. */
+const UA_LABEL = {
+  "facebook-webview": "📘 ในแอป Facebook",
+  "instagram-webview": "📷 ในแอป Instagram",
+  "messenger-webview": "💬 ในแอป Messenger",
+  "line-webview": "💚 ในแอป LINE",
+  "tiktok-webview": "🎵 ในแอป TikTok",
+  "android-webview": "📱 ในแอปอื่น (Android)",
+  "ios-webview": "📱 ในแอปอื่น (iOS)",
+  "android-chrome": "✅ Chrome (Android)",
+  "ios-chrome": "✅ Chrome (iOS)",
+  "ios-safari": "✅ Safari",
+  desktop: "🖥️ คอมพิวเตอร์",
+};
+const uaLabel = (u) => UA_LABEL[u] || String(u || "?");
+const isWebview = (u) => String(u || "").includes("webview");
+
+export function AdminAnonVisitors({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [range, setRange] = useState("7");
+  const [ov, setOv] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [busy, setBusy] = useState(true);
+  const [err, setErr] = useState("");
+  const [sel, setSel] = useState(null);
+  const [trail, setTrail] = useState([]);
+
+  const since = useCallback(() => {
+    if (range === "all") return null;
+    return new Date(Date.now() - Number(range) * 86400000).toISOString();
+  }, [range]);
+
+  const load = useCallback(async () => {
+    setBusy(true); setErr("");
+    try {
+      const p_since = since();
+      const [a, b] = await Promise.all([
+        sb.rpc("admin_anon_overview", { p_since }),
+        sb.rpc("admin_anon_visitors", { p_since, p_limit: 200 }),
+      ]);
+      if (a.error) throw a.error;
+      if (b.error) throw b.error;
+      setOv(a.data || null);
+      setRows(b.data || []);
+    } catch (e) {
+      setErr((e && e.message) || "load failed");
+    } finally { setBusy(false); }
+  }, [since]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function openTrail(anon) {
+    setSel(anon); setTrail([]);
+    try {
+      const { data, error } = await sb.rpc("admin_anon_visitor_detail", { p_anon: anon, p_limit: 200 });
+      if (!error) setTrail(data || []);
+    } catch (e) {}
+  }
+
+  const webviewShare = (() => {
+    const b = (ov && ov.browsers) || [];
+    const total = b.reduce((n, x) => n + (Number(x.n) || 0), 0);
+    if (!total) return null;
+    const wv = b.filter(x => isWebview(x.ua)).reduce((n, x) => n + (Number(x.n) || 0), 0);
+    return { pct: Math.round((wv / total) * 100), wv, total };
+  })();
+
+  return (
+    <div className="admstu">
+      <div className="admstu-head">
+        <div>
+          <div className="admstu-title">{T("ผู้เข้าชมที่ยังไม่ล็อกอิน", "Visitors who never logged in", "未登录访客")}</div>
+          <div className="admstu-sub">{T("คนที่เข้าเว็บมาแล้วทำอะไรบ้าง ก่อนจะสมัครหรือหายไป",
+            "What people did before they signed up — or left", "访客在注册或离开前做了什么")}</div>
+        </div>
+        <RangePicker range={range} setRange={setRange} T={T} />
+      </div>
+
+      {err && <div className="lockerr" style={{ margin: "8px 0" }}>{err}</div>}
+      {busy && <div className="admstu-empty">{T("กำลังโหลด...", "Loading...", "加载中...")}</div>}
+
+      {!busy && ov && (
+        <>
+          <div className="admmg-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10, marginBottom: 12 }}>
+            {[
+              [T("ผู้เข้าชม", "Visitors", "访客"), ov.visitors],
+              [T("ยังไม่ล็อกอิน", "Never logged in", "未登录"), ov.anon_only],
+              [T("สมัครแล้ว", "Signed up", "已注册"), ov.converted],
+              [T("เปิดหน้าเดียวแล้วออก", "Bounced", "跳出"), ov.bounced],
+              [T("เวลารวม", "Total time", "总时长"), fmtMs(ov.dwell_ms)],
+            ].map(([k, v]) => (
+              <div key={k} className="admmg" style={{ padding: "10px 12px" }}>
+                <div className="admstu-row-sub" style={{ marginBottom: 2 }}>{k}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#d97757" }}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {webviewShare && webviewShare.pct >= 20 && (
+            <div style={{
+              borderRadius: 12, padding: "11px 13px", marginBottom: 12,
+              background: "rgba(255,178,54,0.12)", border: "1.5px solid rgba(255,178,54,0.45)",
+              color: "#ffd9a0", fontSize: 13, lineHeight: 1.55,
+            }}>
+              <b style={{ color: "#ffb236" }}>⚠️ {webviewShare.pct}% {T("เข้ามาจากเบราว์เซอร์ในแอป", "arrived inside an in-app browser", "来自应用内浏览器")}</b><br />
+              {T("Google ไม่ยอมให้ล็อกอินในเบราว์เซอร์ของ Facebook / YouTube / TikTok — คนกลุ่มนี้จะสมัครด้วย Google ไม่ได้เลย ตอนนี้แอปจะเสนอสมัครด้วยอีเมลให้แทนโดยอัตโนมัติ",
+                "Google refuses to sign people in inside the Facebook / YouTube / TikTok browser. These visitors cannot use Google at all — the app now offers them email sign-up instead.",
+                "Google 拒绝在应用内浏览器登录，这些访客无法使用 Google 注册 — 应用现已自动改为邮箱注册。")}
+            </div>
+          )}
+
+          <div className="admmg-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+            <div className="admmg">
+              <div className="admmg-h">🌐 {T("เข้ามาจากเบราว์เซอร์อะไร", "Which browser", "使用的浏览器")}</div>
+              <RankRows rows={(ov.browsers || []).map(b => ({ item_id: uaLabel(b.ua), n: b.n }))}
+                valueFor={(r) => r.n} T={T} valueLabel={(n) => n + T(" คน", "", " 人")} />
+            </div>
+            <div className="admmg">
+              <div className="admmg-h">📍 {T("มาจากไหน", "Where from", "来源")}</div>
+              <RankRows rows={(ov.sources || []).map(b => ({ item_id: b.src, n: b.n }))}
+                valueFor={(r) => r.n} T={T} valueLabel={(n) => n + T(" คน", "", " 人")} />
+            </div>
+            <div className="admmg">
+              <div className="admmg-h">🎯 {T("ใช้ฟีเจอร์อะไรบ้าง", "Features they used", "使用的功能")}</div>
+              <RankRows rows={(ov.features || []).map(b => ({ item_id: b.kind + " · " + b.item, n: b.people }))}
+                valueFor={(r) => r.n} T={T} valueLabel={(n) => n + T(" คน", "", " 人")} />
+            </div>
+            <div className="admmg">
+              <div className="admmg-h">🚪 {T("ทำอะไรเป็นอย่างสุดท้ายก่อนออก", "Last thing before leaving", "离开前最后一步")}</div>
+              <RankRows rows={(ov.exits || []).map(b => ({ item_id: b.kind + " · " + b.item, n: b.n }))}
+                valueFor={(r) => r.n} T={T} valueLabel={(n) => n + T(" คน", "", " 人")} />
+            </div>
+          </div>
+
+          <div className="admmg" style={{ marginTop: 12 }}>
+            <div className="admmg-h">👤 {T("รายคน", "Visitor by visitor", "逐位访客")} ({rows.length})</div>
+            {!rows.length && <div className="admstu-empty">{T("ยังไม่มีข้อมูล", "No data yet", "暂无数据")}</div>}
+            {rows.map(r => (
+              <div key={r.anon_id}>
+                <button className="anrow" style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+                  onClick={() => openTrail(r.anon_id === sel ? null : r.anon_id)}>
+                  <span className="anrow-rank">{r.converted ? "✅" : isWebview(r.ua) ? "⚠️" : "👤"}</span>
+                  <span className="anrow-name" style={{ maxWidth: "34%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {r.last_item || "—"}
+                  </span>
+                  <span className="admstu-row-sub" style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {uaLabel(r.ua)} · {r.src || "direct"} · {r.events} {T("ครั้ง", "events", "次")} · {fmtMs(r.dwell_ms)}
+                  </span>
+                  <span className="anrow-hits">{fmtTime(r.last_seen)}</span>
+                </button>
+                {sel === r.anon_id && (
+                  <div style={{ padding: "4px 0 10px 26px" }}>
+                    {!trail.length && <div className="admstu-empty">{T("กำลังโหลด...", "Loading...", "加载中...")}</div>}
+                    {trail.map((t, i) => (
+                      <div key={i} className="admstu-row-sub" style={{ display: "flex", gap: 10, padding: "2px 0" }}>
+                        <span style={{ opacity: .6, minWidth: 96 }}>{fmtTime(t.created_at)}</span>
+                        <span style={{ flex: 1 }}>{t.signed_in ? "🔓 " : ""}{t.kind} · {label(t.item_id)}</span>
+                        <span style={{ opacity: .6 }}>{t.duration_ms ? fmtMs(t.duration_ms) : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ═══════════════ 1. ACTIVITY DASHBOARD ═══════════════ */
 export function AdminActivity({ lang }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
