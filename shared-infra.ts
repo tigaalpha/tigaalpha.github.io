@@ -206,11 +206,15 @@ export function recordNoteMisses(notes) {
    of cumulative use (persists across visits — refreshing buys no extra time),
    tracked separately from any one page's `profile.exp` etc. so it survives
    a guest bouncing between pages. */
-// 2.5 minutes, halved from 5 on 2026-09-11. The gate is the only moment the
-// app asks for anything, and it was arriving after most visitors had already
-// gone: the paid traffic that week averaged well under a minute on site, so a
-// five-minute trial meant the great majority never saw the ask at all.
-export const GUEST_TRIAL_MS = 2.5 * 60 * 1000;
+/* One minute. This has now been cut twice — five minutes, then 2.5, now 1 —
+   each time for the same reason, and the measurements say the earlier cuts
+   were not nearly enough. Of 53 signed-out visitors, 49 left inside THIRTY
+   SECONDS, the median stay was under two seconds, and the longest anyone has
+   ever stayed is 2.1 minutes. Nobody has reached even the 2.5-minute gate, so
+   for every visitor so far the ask may as well not have existed.
+   A minute is still past the point most people leave, but it is the first
+   setting where the gate is reachable at all by the few who do stay. */
+export const GUEST_TRIAL_MS = 1 * 60 * 1000;
 export const GUEST_PROFILE_KEY = "tg_guest_profile";
 export const GUEST_MS_KEY = "tg_guest_ms";
 export function freshGuestProfile() {

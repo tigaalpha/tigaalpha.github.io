@@ -135,8 +135,14 @@ export function AdminAnonVisitors({ lang }) {
     const b = (ov && ov.browsers) || [];
     const total = b.reduce((n, x) => n + (Number(x.n) || 0), 0);
     if (!total) return null;
-    const wv = b.filter(x => isWebview(x.ua)).reduce((n, x) => n + (Number(x.n) || 0), 0);
-    return { pct: Math.round((wv / total) * 100), wv, total };
+    const rows = b.filter(x => isWebview(x.ua)).sort((x, y) => (Number(y.n) || 0) - (Number(x.n) || 0));
+    const wv = rows.reduce((n, x) => n + (Number(x.n) || 0), 0);
+    /* Name the apps actually in the data instead of a fixed guess. The text
+       used to read "Facebook / YouTube / TikTok" whatever the numbers said,
+       which was wrong the moment Instagram became the second largest source
+       at a third of all traffic and went unmentioned. */
+    const names = rows.slice(0, 4).map(x => `${uaLabel(x.ua)} ${x.n}`).join(" · ");
+    return { pct: Math.round((wv / total) * 100), wv, total, names };
   })();
 
   return (
@@ -173,15 +179,12 @@ export function AdminAnonVisitors({ lang }) {
           </div>
 
           {webviewShare && webviewShare.pct >= 20 && (
-            <div style={{
-              borderRadius: 12, padding: "11px 13px", marginBottom: 12,
-              background: "rgba(255,178,54,0.12)", border: "1.5px solid rgba(255,178,54,0.45)",
-              color: "#ffd9a0", fontSize: 13, lineHeight: 1.55,
-            }}>
-              <b style={{ color: "#ffb236" }}>⚠️ {webviewShare.pct}% {T("เข้ามาจากเบราว์เซอร์ในแอป", "arrived inside an in-app browser", "来自应用内浏览器")}</b><br />
-              {T("Google ไม่ยอมให้ล็อกอินในเบราว์เซอร์ของ Facebook / YouTube / TikTok — คนกลุ่มนี้จะสมัครด้วย Google ไม่ได้เลย ตอนนี้แอปจะเสนอสมัครด้วยอีเมลให้แทนโดยอัตโนมัติ",
-                "Google refuses to sign people in inside the Facebook / YouTube / TikTok browser. These visitors cannot use Google at all — the app now offers them email sign-up instead.",
-                "Google 拒绝在应用内浏览器登录，这些访客无法使用 Google 注册 — 应用现已自动改为邮箱注册。")}
+            <div className="anonwv">
+              <b>⚠️ {webviewShare.pct}% {T("เข้ามาจากเบราว์เซอร์ในแอป", "arrived inside an in-app browser", "来自应用内浏览器")}</b>
+              {webviewShare.names && <div className="anonwv-n">{webviewShare.names}</div>}
+              {T("Google ไม่ยอมให้ล็อกอินในเบราว์เซอร์ที่ฝังมากับแอปพวกนี้ — คนกลุ่มนี้จะสมัครด้วย Google ไม่ได้เลย ตอนนี้แอปจะเสนอสมัครด้วยอีเมลให้แทนโดยอัตโนมัติ",
+                "Google refuses to sign people in inside these apps' built-in browsers. These visitors cannot use Google at all — the app now offers them email sign-up instead.",
+                "Google 拒绝在这些应用的内置浏览器中登录，这些访客无法使用 Google 注册 — 应用现已自动改为邮箱注册。")}
             </div>
           )}
 
@@ -196,8 +199,8 @@ export function AdminAnonVisitors({ lang }) {
               if (!tot) return <div className="admstu-empty">{T("ยังไม่มีข้อมูล", "No data yet", "暂无数据")}</div>;
               const rows = [
                 [T("ไม่ถึง 30 วินาที — เข้ามาแล้วออกเลย", "Under 30 seconds", "不到 30 秒"), a, "#ff6b81"],
-                [T("30 วินาที – 2.5 นาที — ลองเล่นแต่ยังไม่ถึงจุดชวนสมัคร", "30 s – 2.5 min", "30 秒 – 2.5 分"), b, "#ffb236"],
-                [T("2.5 นาทีขึ้นไป — เห็นหน้าชวนสมัครแล้ว", "2.5 min or more — saw the sign-up gate", "2.5 分钟以上"), c, "#3ddc84"],
+                [T("30 วินาที – 1 นาที — ลองเล่นแต่ยังไม่ถึงจุดชวนสมัคร", "30 s – 1 min", "30 秒 – 1 分"), b, "#ffb236"],
+                [T("1 นาทีขึ้นไป — เห็นหน้าชวนสมัครแล้ว", "1 min or more — saw the sign-up gate", "1 分钟以上"), c, "#3ddc84"],
               ];
               return rows.map(([lb, n, col]) => (
                 <div key={lb} className="anrow">
@@ -359,7 +362,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
           </div>
           <div className="anonhero-r">
             <div className="anonhero-s"><b>{fmtMin(anon.median_ms)}</b> {T("นาที — ค่ากลาง (ครึ่งหนึ่งเล่นน้อยกว่านี้)", "min median", "分 中位数")}</div>
-            <div className="anonhero-s"><b>{anon.reached ?? 0}</b> {T("คนเล่นถึง 2.5 นาที (เห็นหน้าชวนสมัคร)", "reached the 2.5 min gate", "达到 2.5 分钟")}</div>
+            <div className="anonhero-s"><b>{anon.reached ?? 0}</b> {T("คนเล่นถึง 1 นาที (เห็นหน้าชวนสมัคร)", "reached the 1 min gate", "达到 1 分钟")}</div>
             <div className="anonhero-s"><b>{anon.converted ?? 0}</b> {T("สมัครแล้ว", "signed up", "已注册")}</div>
             {anonWv >= 20 && <div className="anonhero-w">⚠️ {anonWv}% {T("มาจากเบราว์เซอร์ในแอป", "in-app browser", "应用内浏览器")}</div>}
           </div>

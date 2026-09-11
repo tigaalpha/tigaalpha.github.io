@@ -3267,6 +3267,19 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .anonhero-s b{color:var(--text);font-size:13.5px}
 .anonhero-w{font-size:11.5px;color:#d9944a;font-weight:600;margin-top:2px}
 .anonhero-go{flex:none;font-size:12px;font-weight:700;color:#d97757;white-space:nowrap}
+/* The in-app-browser warning. Its colours used to be written inline for a dark
+   card (#ffd9a0 body on a faint amber wash) while the admin page follows the
+   theme — so in light mode it was pale cream on near-white and effectively
+   unreadable. Same class of bug as the auth panel: a palette picked for one
+   theme applied to a surface that has two. Dark ink in light mode, the
+   original light ink in dark mode, both on the same amber wash. */
+.anonwv{border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:13px;line-height:1.55;
+  background:rgba(217,148,74,.16);border:1.5px solid rgba(191,120,40,.55);color:#5d3a08}
+.anonwv b{display:block;margin-bottom:2px;font-size:13.5px;color:#95540d}
+.anonwv-n{font-size:11.5px;font-weight:700;color:#7a4a0c;opacity:.9;margin-bottom:4px}
+html[data-theme="dark"] .anonwv{background:rgba(255,178,54,.12);border-color:rgba(255,178,54,.45);color:#ffd9a0}
+html[data-theme="dark"] .anonwv b{color:#ffb236}
+html[data-theme="dark"] .anonwv-n{color:#ffc97a}
 @media(max-width:430px){.anonhero{gap:10px;padding:11px 12px}.anonhero-v{font-size:28px}.anonhero-go{display:none}}
 
 `;
