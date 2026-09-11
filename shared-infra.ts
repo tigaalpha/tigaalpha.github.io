@@ -206,20 +206,29 @@ export function recordNoteMisses(notes) {
    of cumulative use (persists across visits — refreshing buys no extra time),
    tracked separately from any one page's `profile.exp` etc. so it survives
    a guest bouncing between pages. */
-/* Twenty seconds. Cut four times now — 5 min, 2.5, 1, and this — chasing a
-   distribution that keeps turning out shorter than the last guess. Measured
-   against the 55 signed-out visitors on record, the gate is reached by:
-     2.5 min → 0 people      1 min → 4      30 s → 5      20 s → 6
-   Forty-nine of them leave before twenty seconds, and the median stay is
-   under two seconds, so no threshold reaches most of this traffic; the
-   question is only how many of the few who do stay ever see the ask.
+/* Fifteen seconds, picked against where people actually decide rather than by
+   shortening the last guess again. Grouping the signed-out visitors by how
+   long they stayed, and counting who signed up WITHOUT being asked:
 
-   Worth knowing when reading a conversion number later: twenty seconds is
-   early enough that someone can meet the ask before they have played
-   anything worth signing up for, which is its own way to lose them. The
-   measurement to watch is not how many SEE the gate but how many sign up
-   after it. */
-export const GUEST_TRIAL_MS = 20 * 1000;
+     0-5 s   40 people   0 signed up
+     5-10 s   4 people   0
+     10-14 s  3 people   0
+     14-20 s  3 people   1          <- willingness starts here
+     20-30 s  3 people   2
+     30 s+    5 people   0
+
+   Every unprompted sign-up happened between 14 and 26 seconds; before 14
+   nobody is ready. So the gate wants to land at the near edge of that window:
+   10 s would fire before anyone has ever shown willingness, and the three
+   extra people it reaches sit in a band with a 0% sign-up rate, while 20 s
+   arrives after two people in the willing band have already left. Fifteen
+   reaches both of them and still fires inside the window.
+
+   Caveat for whoever reads this next: those percentages rest on three
+   sign-ups. It is the best-supported guess available, not a settled fact.
+   The number that will actually decide it is sign-ups AFTER the gate, which
+   did not exist until now because no one ever reached the old one. */
+export const GUEST_TRIAL_MS = 15 * 1000;
 export const GUEST_PROFILE_KEY = "tg_guest_profile";
 export const GUEST_MS_KEY = "tg_guest_ms";
 export function freshGuestProfile() {
