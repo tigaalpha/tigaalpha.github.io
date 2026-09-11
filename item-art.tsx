@@ -561,12 +561,21 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       {seam("M32 20 V43", 1.6)}
       <path d="M13 25 C17 23 24 22 28 22" stroke="#fff" strokeWidth="1.6" opacity=".55" fill="none" strokeLinecap="round" />
     </>,
+    /* A combat helm is a solid dome with a brow and a nose guard. The old one
+       carved an arch out of the middle of the dome, and a thick arch with two
+       legs is a horseshoe magnet at any size — the cut-out was reading as the
+       subject. Dome stays whole; the detail goes on top of it. */
     helm: () => <>
-      {P("M32 8 C48 8 58 19 58 34 L58 40 L44 40 L44 34 C44 26 39 22 32 22 C25 22 20 26 20 34 L20 40 L6 40 L6 34 C6 19 16 8 32 8 Z", GA)}
-      {P("M6 38 L58 38 L58 46 C58 50 54 52 48 52 L16 52 C10 52 6 50 6 46 Z", GB, { line: edgeB })}
-      {seam("M32 9 V22")}
-      {lit(15, 45, 2.4)}
-      {lit(49, 45, 2.4)}
+      {P("M32 7 C47 7 56 18 56 32 V37 H8 V32 C8 18 17 7 32 7 Z", GA)}
+      {P("M4 36 H60 L56 45 C56 48 52 49 48 49 H16 C12 49 8 48 8 45 Z", GB, { line: edgeB })}
+      {/* nose guard — the one line that says helmet rather than bowl */}
+      {P("M28 45 H36 V54 L32 58 L28 54 Z", GB, { line: edgeB })}
+      {/* brow slit */}
+      <path d="M14 30 H50" stroke="#050a14" strokeWidth="3.4" strokeLinecap="round" opacity=".5" />
+      <path d="M14 30 H50" stroke={lite(C, .35)} strokeWidth="1.3" strokeLinecap="round" opacity=".8" />
+      {seam("M32 8 V28")}
+      {lit(13, 42, 2.2)}
+      {lit(51, 42, 2.2)}
     </>,
     phones: () => <>
       <path d="M10 40 C6 22 16 8 32 8 C48 8 58 22 54 40" fill="none" stroke={dim(A, .25)} strokeWidth="6" strokeLinecap="round" />
@@ -619,24 +628,42 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       ))}
       {lit(32, 7, 3.4)}
     </>,
+    /* Rivets are what hold a brow plate on, so the plate is the shape and the
+       rivets ride its edge. Drawn as a rounded rectangle with a 3×2 grid of
+       cross-marked dots inside, this was a pill blister pack — the giveaway
+       being that the dots sat in the middle, where no rivet ever goes. */
     rivets: () => <>
-      {R(6, 16, 52, 32, 8, GA)}
-      {seam("M6 32 H58")}
-      {[[16, 25], [32, 25], [48, 25], [16, 40], [32, 40], [48, 40]].map(([x, y], i) => (
+      {P("M8 46 C8 26 18 14 32 14 C46 14 56 26 56 46 L52 52 H12 Z", GA)}
+      {/* raised centre ridge — two plates bolted together, not one slab */}
+      {P("M28 15 C30 26 30 38 29 52 H35 C34 38 34 26 36 15 Z", GB, { line: edgeB, lw: 1.2 })}
+      {[[15, 40], [21, 28], [32, 22], [43, 28], [49, 40]].map(([x, y], i) => (
         <g key={i}>
-          {E(x, y, 5, 5, GB, { line: edgeB })}
-          <path d={`M${x - 2.6} ${y - 2.6} L${x + 2.6} ${y + 2.6} M${x + 2.6} ${y - 2.6} L${x - 2.6} ${y + 2.6}`} stroke={lite(C, .3)} strokeWidth="1.3" strokeLinecap="round" />
+          {E(x, y, 4.2, 4.2, GB, { line: edgeB })}
+          <path d={`M${x - 2} ${y - 2} L${x + 2} ${y + 2} M${x + 2} ${y - 2} L${x - 2} ${y + 2}`}
+            stroke={lite(C, .35)} strokeWidth="1.2" strokeLinecap="round" />
         </g>
       ))}
+      {lit(24, 20, 2.2)}
     </>,
+    /* A scope you WEAR is a monocle on a swing arm, not a length of pipe lying
+       on its side — which is what a horizontal tube with two end caps was. The
+       arm and the brow band are what make it headgear; the tilt keeps it from
+       going back to being plumbing. */
     scope: () => <>
-      {R(4, 24, 56, 18, 9, GA)}
-      {R(14, 20, 12, 26, 4, GB, { line: edgeB })}
-      {E(57, 33, 6, 10, GC, { line: edge })}
-      <circle cx="57" cy="33" r="4.4" fill="none" stroke="#fff" strokeWidth="1" opacity=".8" />
-      <path d="M53 33 H61 M57 27 V39" stroke="#fff" strokeWidth=".9" opacity=".8" />
-      {R(24, 44, 14, 14, 4, GB, { line: edgeB })}
-      {lit(10, 33, 2.6)}
+      {/* brow band */}
+      {P("M8 40 C8 34 18 31 32 31 C46 31 56 34 56 40 L54 50 H10 Z", GB, { line: edgeB })}
+      {/* swing arm off the right of the band */}
+      {P("M44 36 L52 34 L56 20 L49 18 Z", GB, { line: edgeB, lw: 1.2 })}
+      {/* the barrel, angled so it reads as aimed */}
+      <g transform="rotate(-26 42 18)">
+        {R(24, 11, 36, 14, 7, GA)}
+        <path d="M30 13 H54" stroke="#fff" strokeWidth="1.1" opacity=".3" />
+        {E(60, 18, 5, 8, GC, { line: edge })}
+        <circle cx="60" cy="18" r="3.4" fill="none" stroke="#fff" strokeWidth=".9" opacity=".85" />
+        <path d="M56 18 H64 M60 12 V24" stroke="#fff" strokeWidth=".8" opacity=".85" />
+        {E(25, 18, 3.4, 6, GB, { line: edgeB })}
+      </g>
+      {lit(20, 36, 2.4)}
     </>,
     beacon: () => <>
       {R(22, 44, 20, 14, 4, GB, { line: edgeB })}
@@ -646,15 +673,26 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       <path d="M20 20 C24 14 30 12 34 12" stroke="#fff" strokeWidth="2.6" opacity=".6" fill="none" strokeLinecap="round" />
       {lit(32, 28, 5)}
     </>,
+    /* A dish drawn as an upright bowl with a slab either side is a bathtub with
+       taps. A real dish is seen at an angle — an ellipse, not a bowl — with the
+       feed horn out in front of it on a strut, and it is mounted on something.
+       The tilt is what does the work: it is the only thing that says "aimed at
+       the sky" rather than "filled with water". */
     satellite: () => <>
-      {P("M32 50 C18 50 8 38 8 24 L56 24 C56 38 46 50 32 50 Z", GA, { spec: .9 })}
-      <path d="M32 48 C20 48 11 38 11 26 L53 26 C53 38 44 48 32 48 Z" fill="none" stroke={lite(C, .3)} strokeWidth="1" opacity=".6" />
-      {R(28, 6, 8, 20, 3, GB, { line: edgeB })}
-      {E(32, 6, 5, 5, GC, { line: edge })}
-      {R(2, 30, 12, 22, 2, GB, { line: edgeB })}
-      {R(50, 30, 12, 22, 2, GB, { line: edgeB })}
-      {seam("M8 34 V48 M56 34 V48")}
-      {lit(32, 6, 2.6)}
+      <g transform="rotate(-24 30 26)">
+        {E(30, 26, 22, 15, GA, { spec: .92, lw: 1.5 })}
+        <ellipse cx="30" cy="26" rx="15.5" ry="10" fill="none" stroke={lite(C, .3)} strokeWidth="1.1" opacity=".65" />
+        <ellipse cx="30" cy="26" rx="8" ry="5" fill="none" stroke={lite(C, .25)} strokeWidth="1" opacity=".5" />
+        {/* feed horn on its strut, standing off the face of the dish */}
+        <path d="M30 26 L44 12" stroke={edgeB} strokeWidth="3.4" strokeLinecap="round" />
+        <path d="M30 26 L44 12" stroke={lite(A, .3)} strokeWidth="1.6" strokeLinecap="round" />
+        {E(45, 11, 4.6, 4.6, GC, { line: edge })}
+        {lit(45, 11, 2.4)}
+      </g>
+      {/* the mount — without it the dish is just floating crockery */}
+      {P("M27 44 H37 L39 52 H25 Z", GB, { line: edgeB, lw: 1.2 })}
+      {P("M12 52 H52 L50 58 H14 Z", GB, { line: edgeB, lw: 1.2 })}
+      {seam("M29 46 H35")}
     </>,
     atom: () => <>
       <circle cx="32" cy="32" r="24" fill={GLOW} opacity=".45" />
@@ -1208,31 +1246,160 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
     },
     pm: (i) => {                                         /* prime module */
       const k = ((i | 0) % 10 + 10) % 10;
-      // Diadem · Circlet · Crown · Halo — four different things to wear
-      const FORM = ["diadem", "circlet", "crown", "halo", "diadem",
-                    "circlet", "crown", "halo", "crown", "diadem"][k];
+      /* Ten mythic head items shared FOUR silhouettes — diadem ×3, circlet ×2,
+         crown ×3, halo ×2 — so the gem shelf sold the same three hats over and
+         over at rising prices, and "Photon Crown" was drawn as a halo. At icon
+         size the outline is the entire read: a palette swap is not a different
+         hat. Each index now gets the shape its NAME already promised, and the
+         ten are picked to differ in OUTLINE rather than in motif — a rayed disc,
+         a diagonal streak, a vertical spike, a floating ring, a crescent, a V,
+         round lobes, a fine comb, curls, a zigzag. Nothing here is a recolour of
+         its neighbour. The jewel and its inlay stay on every one, and that is
+         what still reads them as a single set. */
+      const rail = (d) => P(d, GB, { lw: 1.5, line: edgeB });
+      const BAND = "M10 40 C10 35 19 33 32 33 C45 33 54 35 54 40 L52 53 H12 Z";
+      const CUT = [
+        /* 0 Solar Diadem — a sun clearing the brow, corona out to the rim */
+        () => <>
+          {[...Array(12)].map((_, j) => (
+            <path key={j} d="M32 22 L29.2 5 L32 0.5 L34.8 5 Z" fill={lite(C, .45)} opacity=".92"
+              transform={`rotate(${j * 30} 32 22)`} />
+          ))}
+          {E(32, 22, 10.5, 10.5, GA, { spec: .95, lw: 1.4 })}
+          {rail(BAND)}
+          {lit(28, 18, 2.8)}
+        </>,
+        /* 1 Meteor Circlet — the meteor passes OVER the hoop, never through it:
+           a streak crossing the middle of a ring reads as a pair of scissors */
+        () => <>
+          <ellipse cx="32" cy="34" rx="24" ry="7.5" fill="none" stroke={dim(A, .3)} strokeWidth="6.6"
+            transform="rotate(-7 32 34)" />
+          <ellipse cx="32" cy="34" rx="24" ry="7.5" fill="none" stroke={lite(A, .42)} strokeWidth="2.4"
+            opacity=".85" transform="rotate(-7 32 34)" />
+          {/* The streak arcs ACROSS the top, clear of the hoop. Aimed into the
+             hoop it became a pin through a ring, and a second bright ball up
+             there fought the jewel for the eye — so the head is a point of
+             light on the arc, not a second sphere. */}
+          <path d="M2 22 C16 6 40 2 58 6 L57 11 C40 8 19 12 6 25 Z" fill={lite(C, .42)} opacity=".85" />
+          <path d="M5 22 C18 9 39 6 56 9" fill="none" stroke="#fff" strokeWidth="1.2" opacity=".55" strokeLinecap="round" />
+          {lit(57, 8, 3.4)}
+        </>,
+        /* 2 Quasar Crown — twin polar jets off a flat accretion disc. The lower
+           jet stops at the brow: run it any further and it skewers the jewel,
+           which turns the whole icon into a sink plunger. */
+        () => <>
+          <path d="M32 18 L35.5 0 H28.5 Z" fill={lite(C, .42)} opacity=".9" />
+          <path d="M32 18 L35.5 33 H28.5 Z" fill={lite(C, .42)} opacity=".45" />
+          {beamLine("M32 1 V32", 2)}
+          {E(32, 18, 23, 6, GA, { spec: .95, lw: 1.3 })}
+          <ellipse cx="32" cy="18" rx="14" ry="3.2" fill="none" stroke="#fff" strokeWidth="1" opacity=".55" />
+          {lit(32, 18, 2.8)}
+          {rail("M13 37 C13 33 21 31 32 31 C43 31 51 33 51 37 L49 50 H15 Z")}
+        </>,
+        /* 3 Celestial Halo — a ring that floats: nothing under it but the jewel */
+        () => <>
+          <ellipse cx="32" cy="16" rx="25" ry="8.5" fill="none" stroke={dim(A, .28)} strokeWidth="7.4" />
+          <ellipse cx="32" cy="16" rx="25" ry="8.5" fill="none" stroke={lite(C, .5)} strokeWidth="3.6" />
+          <ellipse cx="32" cy="16" rx="25" ry="8.5" fill="none" stroke="#fff" strokeWidth="1.2" opacity=".7" />
+          <ellipse cx="32" cy="16" rx="16" ry="4.6" fill="none" stroke={lite(C, .35)} strokeWidth="1.4" opacity=".5" />
+          {[10, 32, 54].map(x => <g key={x}>{lit(x, 16, 2.2)}</g>)}
+        </>,
+        /* 4 Void Diadem — an eclipse: the disc is the absence, the rim is the
+           light. Built by masking one circle out of another rather than by two
+           SVG arcs: when a chord is longer than the radius the renderer scales
+           the radii up to reach, and the "crescent" silently comes out a full
+           disc — which is exactly what it did. A mask cannot be talked out of
+           the shape. */
+        () => <>
+          <mask id={`${uid}-vd`} maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+            <rect x="0" y="0" width="64" height="64" fill="#fff" />
+            <circle cx="40" cy="16" r="14.5" fill="#000" />
+          </mask>
+          <g mask={`url(#${uid}-vd)`}>
+            {E(32, 23, 17, 17, GA, { spec: .9, lw: 1.5 })}
+            <circle cx="32" cy="23" r="16" fill="none" stroke={lite(C, .6)} strokeWidth="2.4" opacity=".95" />
+            <circle cx="32" cy="23" r="16" fill="none" stroke="#fff" strokeWidth=".9" opacity=".55" />
+          </g>
+          {rail(BAND)}
+        </>,
+        /* 5 Pulsar Circlet — two sweeping beams. They have to be pale, soft-edged
+           and clearly lit from the band: solid mid-tone wedges at this angle are
+           a pair of rabbit ears, which is what the first pass drew. */
+        () => <>
+          {/* A pulsar PULSES, so it is drawn as the ping rather than as two
+             beams: any symmetric pair of wedges rising off a headband is a set
+             of ears, and no amount of tinting talks the eye out of it. */}
+          {[11, 18, 25].map((r, j) => (
+            <path key={r} d={`M${32 - r} 34 A${r} ${r} 0 0 1 ${32 + r} 34`} fill="none"
+              stroke={lite(C, .55)} strokeWidth={3.4 - j * .7} strokeLinecap="round"
+              opacity={.85 - j * .22} />
+          ))}
+          {[11, 18, 25].map((r, j) => (
+            <path key={`w${r}`} d={`M${32 - r} 34 A${r} ${r} 0 0 1 ${32 + r} 34`} fill="none"
+              stroke="#fff" strokeWidth={1.1 - j * .2} strokeLinecap="round" opacity={.5 - j * .13} />
+          ))}
+          {rail("M11 32 C11 27 20 24 32 24 C44 24 53 27 53 32 L51 46 H13 Z")}
+          {lit(32, 29, 3.2)}
+        </>,
+        /* 6 Genesis Crown — a bud opening; the only round-lobed outline in the set */
+        () => <>
+          {[-52, -26, 26, 52].map(a => (
+            <g key={a} transform={`rotate(${a} 32 40)`}>
+              {P("M32 40 C24 34 22 22 32 12 C42 22 40 34 32 40 Z", GA, { lw: 1.3 })}
+            </g>
+          ))}
+          {P("M32 40 C24 34 22 22 32 12 C42 22 40 34 32 40 Z", GC, { lw: 1.2, spec: .9, line: lite(C, .4) })}
+          {rail("M14 40 C14 36 22 34 32 34 C42 34 50 36 50 40 L48 51 H16 Z")}
+        </>,
+        /* 7 Photon Crown — needles of light; the finest outline in the set */
+        () => <>
+          {/* Needles have to TAPER to a point. Parallel bars each capped with a
+             round glow are seven birthday candles, which is what the first
+             pass lit on the cake. */}
+          {[10, 17, 24, 32, 40, 47, 54].map((x, j) => {
+            const h = [21, 14, 8, 2, 8, 14, 21][j];
+            return <g key={x}>
+              <path d={`M${x - 3} 35 L${x} ${h} L${x + 3} 35 Z`} fill={GLOW} opacity=".9" />
+              <path d={`M${x - 2.3} 35 L${x} ${h} L${x + 2.3} 35 Z`} fill={lite(C, .5)} />
+              <path d={`M${x - .9} 35 L${x} ${h + 2} L${x + .9} 35 Z`} fill="#fff" opacity=".75" />
+            </g>;
+          })}
+          {rail("M8 34 H56 L54 47 H10 Z")}
+        </>,
+        /* 8 Plasma Crown — filaments that curl instead of pointing */
+        () => <>
+          {/* An electrical arc is hottest where it ends. Even-width curls with
+             cold ends are cigarette smoke — the tip node is what turns them
+             back into plasma. */}
+          {[[13, -1], [22, -1], [32, 1], [42, 1], [51, 1]].map(([x, sg], j) => {
+            const d = `M${x} 38 C${x + sg * 9} 30 ${x - sg * 9} 22 ${x + sg * 6} 12 C${x + sg * 11} 7 ${x + sg * 3} 3 ${x - sg * 2} 6`;
+            return <g key={j}>
+              <path d={d} fill="none" stroke={dim(A, .28)} strokeWidth="6" strokeLinecap="round" />
+              <path d={d} fill="none" stroke={lite(C, .45)} strokeWidth="2.6" strokeLinecap="round" />
+              <path d={d} fill="none" stroke="#fff" strokeWidth="1" strokeLinecap="round" opacity=".45" />
+              {lit(x - sg * 2, 6, 2.2)}
+            </g>;
+          })}
+          {rail("M10 38 C10 34 19 32 32 32 C45 32 54 34 54 38 L52 51 H12 Z")}
+        </>,
+        /* 9 Storm Diadem — the peaks are bolts, so the outline zigzags */
+        () => <>
+          {[[14, 4], [32, 0], [50, 4]].map(([x, dy], j) => {
+            const d = `M${x + 4} ${34 + dy} L${x - 3} ${18 + dy} L${x + 2} ${17 + dy} L${x - 4} ${2 + dy}`;
+            return <g key={j}>
+              <path d={d} fill="none" stroke={dim(A, .3)} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={d} fill="none" stroke={lite(C, .5)} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={d} fill="none" stroke="#fff" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" opacity=".6" />
+            </g>;
+          })}
+          {rail(BAND)}
+        </>,
+      ];
+      const gy = [43, 40, 43, 42, 44, 40, 45, 43, 43, 43][k];
       return <>
-        {FORM === "diadem" && <>
-          {P("M6 46 C6 26 17 14 32 14 C47 14 58 26 58 46 L52 50 H12 Z", GA, { lw: 1.6 })}
-          {P("M32 1 L41 17 L32 13 L23 17 Z", GC, { line: edge, lw: 1 })}
-          {lit(32, 8, 2.6)}
-        </>}
-        {FORM === "circlet" && <>
-          {P("M8 30 C8 22 18 17 32 17 C46 17 56 22 56 30 L56 40 C56 47 46 51 32 51 C18 51 8 47 8 40 Z", GA, { lw: 1.6 })}
-          {[16, 32, 48].map(x => <g key={x}>{lit(x, 24, 2.2)}</g>)}
-        </>}
-        {FORM === "crown" && <>
-          {P("M6 50 L10 16 L21 30 L32 10 L43 30 L54 16 L58 50 Z", GA, { lw: 1.6 })}
-          {[[10, 16], [32, 10], [54, 16]].map(([x, y], j) => <g key={j}>{lit(x, y, 2.6)}</g>)}
-          {seam("M10 44 H54")}
-        </>}
-        {FORM === "halo" && <>
-          <ellipse cx="32" cy="20" rx="26" ry="9" fill="none" stroke={lite(C, .5)} strokeWidth="5" opacity=".95" />
-          <ellipse cx="32" cy="20" rx="26" ry="9" fill="none" stroke="#fff" strokeWidth="1.6" opacity=".7" />
-          {P("M18 34 C18 30 46 30 46 34 L44 56 H20 Z", GA, { lw: 1.5 })}
-        </>}
-        {E(32, FORM === "halo" ? 42 : 33, 11, 11, GC, { spec: .85, lw: 1.2, line: lite(C, .4) })}
-        {inlay(k, 32, FORM === "halo" ? 42 : 33, .62)}
+        {CUT[k]()}
+        {E(32, gy, 11, 11, GC, { spec: .85, lw: 1.2, line: lite(C, .4) })}
+        {inlay(k, 32, gy, .62)}
       </>;
     },
     pc: (i) => {                                         /* prime core */
