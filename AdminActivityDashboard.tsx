@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { sb } from "./supabase-client";
+import { GUEST_TRIAL_MS } from "./shared-infra";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ADMIN ACTIVITY ANALYTICS — visible ONLY to admin_tier >= 3 (the owner).
@@ -88,6 +89,14 @@ const UA_LABEL = {
 };
 const uaLabel = (u) => UA_LABEL[u] || String(u || "?");
 const isWebview = (u) => String(u || "").includes("webview");
+/* The gate has been seconds and minutes at different times, so print whichever
+   unit reads naturally rather than "0.3 min". */
+const fmtSecs = (ms) => {
+  const s = Math.round((Number(ms) || 0) / 1000);
+  if (s < 90) return s + "s";
+  const m = s / 60;
+  return (Number.isInteger(m) ? m : m.toFixed(1)) + " min";
+};
 
 export function AdminAnonVisitors({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
@@ -109,7 +118,7 @@ export function AdminAnonVisitors({ lang }) {
     try {
       const p_since = since();
       const [a, b] = await Promise.all([
-        sb.rpc("admin_anon_overview", { p_since }),
+        sb.rpc("admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS }),
         sb.rpc("admin_anon_visitors", { p_since, p_limit: 200 }),
       ]);
       if (a.error) throw a.error;
@@ -188,19 +197,24 @@ export function AdminAnonVisitors({ lang }) {
             </div>
           )}
 
-          {/* How long they lasted, against the 2.5-minute gate. This is the
-              number that says whether the gate is reachable — a gate nobody
-              plays long enough to see cannot convert anyone. */}
+          {/* How long they lasted, split at the sign-up gate. This is the number
+              that says whether the gate is reachable at all — a gate nobody
+              plays long enough to see cannot convert anyone. The boundaries
+              come from gate_ms, which the server echoed back from the value
+              this app is actually using, so the bars can never be graded
+              against a threshold the app has moved on from. */}
           <div className="admmg" style={{ marginBottom: 12 }}>
             <div className="admmg-h">⏱️ {T("เล่นนานแค่ไหนก่อนจะออก", "How long they lasted", "停留时长分布")}</div>
             {(() => {
-              const a = Number(ov.under30) || 0, b = Number(ov.mid) || 0, c = Number(ov.reached) || 0;
+              const a = Number(ov.under30) || 0, b = Number(ov.mid) || 0, c = Number(ov.well_past) || 0;
               const tot = a + b + c;
               if (!tot) return <div className="admstu-empty">{T("ยังไม่มีข้อมูล", "No data yet", "暂无数据")}</div>;
+              const gate = fmtSecs(Number(ov.gate_ms) || GUEST_TRIAL_MS);
+              const far = fmtSecs((Number(ov.gate_ms) || GUEST_TRIAL_MS) * 3);
               const rows = [
-                [T("ไม่ถึง 30 วินาที — เข้ามาแล้วออกเลย", "Under 30 seconds", "不到 30 秒"), a, "#ff6b81"],
-                [T("30 วินาที – 1 นาที — ลองเล่นแต่ยังไม่ถึงจุดชวนสมัคร", "30 s – 1 min", "30 秒 – 1 分"), b, "#ffb236"],
-                [T("1 นาทีขึ้นไป — เห็นหน้าชวนสมัครแล้ว", "1 min or more — saw the sign-up gate", "1 分钟以上"), c, "#3ddc84"],
+                [T(`ไม่ถึง ${gate} — เข้ามาแล้วออกเลย`, `Under ${gate} — in and straight out`, `不到 ${gate}`), a, "#ff6b81"],
+                [T(`${gate} – ${far} — เห็นหน้าชวนสมัครแล้ว`, `${gate} – ${far} — saw the sign-up gate`, `${gate} – ${far}`), b, "#ffb236"],
+                [T(`${far} ขึ้นไป — อยู่ต่อหลังเห็นหน้าชวนสมัคร`, `${far}+ — stayed on past the gate`, `${far} 以上`), c, "#3ddc84"],
               ];
               return rows.map(([lb, n, col]) => (
                 <div key={lb} className="anrow">
@@ -311,7 +325,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
       .then(({ data }) => setHours((data && data.hours) || []), () => setHours(null));
     // Signed-out visitors are the top line of this page now: they are most of
     // the traffic and none of them are in the member list below.
-    sb.rpc("admin_anon_overview", { p_since: since })
+    sb.rpc("admin_anon_overview", { p_since: since, p_gate_ms: GUEST_TRIAL_MS })
       .then(({ data }) => setAnon(data || null), () => setAnon(null));
   }, [range, showSim]);
 
@@ -362,7 +376,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
           </div>
           <div className="anonhero-r">
             <div className="anonhero-s"><b>{fmtMin(anon.median_ms)}</b> {T("นาที — ค่ากลาง (ครึ่งหนึ่งเล่นน้อยกว่านี้)", "min median", "分 中位数")}</div>
-            <div className="anonhero-s"><b>{anon.reached ?? 0}</b> {T("คนเล่นถึง 1 นาที (เห็นหน้าชวนสมัคร)", "reached the 1 min gate", "达到 1 分钟")}</div>
+            <div className="anonhero-s"><b>{anon.reached ?? 0}</b> {T(`คนเล่นถึง ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)} (เห็นหน้าชวนสมัคร)`, `reached the ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)} gate`, `达到 ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)}`)}</div>
             <div className="anonhero-s"><b>{anon.converted ?? 0}</b> {T("สมัครแล้ว", "signed up", "已注册")}</div>
             {anonWv >= 20 && <div className="anonhero-w">⚠️ {anonWv}% {T("มาจากเบราว์เซอร์ในแอป", "in-app browser", "应用内浏览器")}</div>}
           </div>

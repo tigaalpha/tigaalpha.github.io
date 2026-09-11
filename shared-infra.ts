@@ -206,15 +206,20 @@ export function recordNoteMisses(notes) {
    of cumulative use (persists across visits — refreshing buys no extra time),
    tracked separately from any one page's `profile.exp` etc. so it survives
    a guest bouncing between pages. */
-/* One minute. This has now been cut twice — five minutes, then 2.5, now 1 —
-   each time for the same reason, and the measurements say the earlier cuts
-   were not nearly enough. Of 53 signed-out visitors, 49 left inside THIRTY
-   SECONDS, the median stay was under two seconds, and the longest anyone has
-   ever stayed is 2.1 minutes. Nobody has reached even the 2.5-minute gate, so
-   for every visitor so far the ask may as well not have existed.
-   A minute is still past the point most people leave, but it is the first
-   setting where the gate is reachable at all by the few who do stay. */
-export const GUEST_TRIAL_MS = 1 * 60 * 1000;
+/* Twenty seconds. Cut four times now — 5 min, 2.5, 1, and this — chasing a
+   distribution that keeps turning out shorter than the last guess. Measured
+   against the 55 signed-out visitors on record, the gate is reached by:
+     2.5 min → 0 people      1 min → 4      30 s → 5      20 s → 6
+   Forty-nine of them leave before twenty seconds, and the median stay is
+   under two seconds, so no threshold reaches most of this traffic; the
+   question is only how many of the few who do stay ever see the ask.
+
+   Worth knowing when reading a conversion number later: twenty seconds is
+   early enough that someone can meet the ask before they have played
+   anything worth signing up for, which is its own way to lose them. The
+   measurement to watch is not how many SEE the gate but how many sign up
+   after it. */
+export const GUEST_TRIAL_MS = 20 * 1000;
 export const GUEST_PROFILE_KEY = "tg_guest_profile";
 export const GUEST_MS_KEY = "tg_guest_ms";
 export function freshGuestProfile() {
