@@ -114,6 +114,10 @@ const CHAT_DEFAULT_MODEL = { provider: "openrouter", model: FREE_LADDER[0] };
 // providerChain.
 const CHAT_SECOND_CHOICE = { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
 const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"; // used when the active provider's key is missing
+// The one free rung that can actually see an image. The camera coach and the
+// slip reader fall back to it when the paid/quota'd vision providers are gone —
+// a blind rung would answer confidently about a picture it never received.
+const VISION_FREE_MODEL = "nex-agi/nex-n2.5-pro:free";
 const MAX_TOKENS = 1500;
 // DeepSeek V4 Pro is a reasoning model — its chain-of-thought consumes part of
 // the token budget, so give it more room than the 1500 used elsewhere or a long
@@ -376,7 +380,7 @@ async function callGeminiOnce(model: string, system: string, contents: any[]): P
   const body: any = { contents, generationConfig: { maxOutputTokens: MAX_TOKENS } };
   if (system) body.systemInstruction = { parts: [{ text: system }] };
   const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text().catch(() => "")).slice(0, 900)}`);
   const data = await res.json();
   const parts = data?.candidates?.[0]?.content?.parts;
   return Array.isArray(parts) ? parts.map((p: any) => p.text || "").join("") : "";
@@ -500,6 +504,11 @@ async function* streamOpenRouter(model: string, system: string, messages: ChatMs
 }
 
 // ── OpenRouter (non-streaming, for stream:false) ──
+// `reasoning: { exclude: true }` matters here in a way it does not on the
+// streaming path: every free rung is a reasoning model, and on a single-shot
+// call they will happily spend the whole token budget thinking and return
+// `content: ""`. That is what silently broke coach-tip / weekly-report /
+// practice-plan — the three features that ask for strict JSON with stream:false.
 async function callOpenRouterOnce(model: string, system: string, messages: ChatMsg[]): Promise<string> {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -512,6 +521,7 @@ async function callOpenRouterOnce(model: string, system: string, messages: ChatM
       model,
       max_tokens: DEEPSEEK_MAX_TOKENS,
       stream: false,
+      reasoning: { exclude: true },
       messages: [
         ...(system ? [{ role: "system", content: system }] : []),
         ...messages,
@@ -520,7 +530,14 @@ async function callOpenRouterOnce(model: string, system: string, messages: ChatM
   });
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
   const data = await res.json();
-  return data?.choices?.[0]?.message?.content || "";
+  const m = data?.choices?.[0]?.message;
+  const out = m?.content || "";
+  if (out.trim()) return out;
+  // Some rungs ignore the exclude flag and put the whole answer in the thinking
+  // field anyway — an answer in the wrong field still beats a blank reply.
+  const think = m?.reasoning || m?.reasoning_content || "";
+  if (think.trim()) { console.error(`[piano-chat] ${model} put its whole answer in reasoning, using that`); return think; }
+  return "";
 }
 
 // ── auth-failure fallback (see isAuthError) ──
@@ -536,6 +553,16 @@ function mkStream(p: string, m: string, system: string, full: ChatMsg[]): AsyncG
 // next provider with a configured key; a mid-stream failure is never spliced
 // across providers (would corrupt the partial reply already sent).
 async function* withAuthFallback(entries: Array<{ provider: string; model?: string; gen: AsyncGenerator<string> }>): AsyncGenerator<string> {
+  /* What the chain reports when EVERY rung fails. It used to rethrow whichever
+     error came last, which meant the admin was shown the final fallback's
+     complaint — "Gemini 429" — no matter what the provider they actually chose
+     had said. That is worse than useless: it sent this very investigation
+     chasing a Gemini quota that was not the problem. Keep the FIRST failure
+     (the chosen provider's) and list what else was tried. */
+  const tried: string[] = [];
+  let firstErr: Error | null = null;
+  const exhausted = () =>
+    new Error(`all providers failed — ${firstErr?.message || "no content"} [tried: ${tried.join(" ; ")}]`);
   for (let i = 0; i < entries.length; i++) {
     let yielded = false;
     try {
@@ -544,13 +571,17 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
          burned its budget thinking) — the client used to rescue this with its
          own second round, doubling the wait. Empty stream + more chain left →
          try the next provider here, where it costs nothing. */
-      if (yielded || i >= entries.length - 1) return;
-      console.error(`[piano-chat] ${entries[i].provider}/${entries[i].model} streamed zero content -> trying ${entries[i + 1].provider}/${entries[i + 1].model}`);
-      continue;
+      if (yielded) return;
+      tried.push(`${entries[i].provider}/${entries[i].model}: empty`);
+      if (!firstErr) firstErr = new Error(`${entries[i].provider}/${entries[i].model} streamed zero content`);
+      if (i < entries.length - 1) console.error(`[piano-chat] ${entries[i].provider}/${entries[i].model} streamed zero content -> trying ${entries[i + 1].provider}/${entries[i + 1].model}`);
+      continue;   // last rung falls out of the loop into exhausted() below
     } catch (e) {
       if (yielded) throw e;
       const msg = (e as Error)?.message || "";
       const m = entries[i].model || "";
+      tried.push(`${entries[i].provider}/${m}: ${msg.slice(0, 60)}`);
+      if (!firstErr) firstErr = e as Error;
       const freeExhausted = isFreeRoute(m) && isRateLimit(msg);
       const dead = isDeadRoute(msg);
       const transient = isTransient(msg);
@@ -559,14 +590,20 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
         console.error(`[piano-chat] ${entries[i].provider}/${m} ${why} (${msg.slice(0, 160)}) -> trying ${entries[i + 1].provider}/${entries[i + 1].model}`);
         continue;
       }
-      throw e;
+      // the chosen provider's own failure is the one worth surfacing
+      throw i === 0 ? e : exhausted();
     }
   }
+  throw exhausted();
 }
 
 // Non-streaming twin of withAuthFallback.
 async function callWithAuthFallback(provider: string, model: string, system: string, full: ChatMsg[], feature = ""): Promise<string> {
   const chain = providerChain({ provider, model }, feature);
+  const tried: string[] = [];
+  let firstErr: Error | null = null;
+  const exhausted = () =>
+    new Error(`all providers failed — ${firstErr?.message || "no content"} [tried: ${tried.join(" ; ")}]`);
   for (let i = 0; i < chain.length; i++) {
     const c = chain[i];
     try {
@@ -577,11 +614,15 @@ async function callWithAuthFallback(provider: string, model: string, system: str
         : await callAnthropicOnce(c.model, system, full);
       // same empty-reply rule as the streaming path: try the next provider
       // rather than returning a blank the client has to rescue
-      if (text.trim() || i >= chain.length - 1) return text;
-      console.error(`[piano-chat] ${c.provider}/${c.model} returned zero content -> trying ${chain[i + 1].provider}/${chain[i + 1].model}`);
-      continue;
+      if (text.trim()) return text;
+      tried.push(`${c.provider}/${c.model}: empty`);
+      if (!firstErr) firstErr = new Error(`${c.provider}/${c.model} returned zero content`);
+      if (i < chain.length - 1) console.error(`[piano-chat] ${c.provider}/${c.model} returned zero content -> trying ${chain[i + 1].provider}/${chain[i + 1].model}`);
+      continue;   // last rung falls out of the loop into exhausted() below
     } catch (e) {
       const msg = (e as Error)?.message || "";
+      tried.push(`${c.provider}/${c.model}: ${msg.slice(0, 60)}`);
+      if (!firstErr) firstErr = e as Error;
       // same rule as the streaming path: a spent free quota is not an error,
       // and neither is a provider outage or an out-of-credits wall
       const freeExhausted = isFreeRoute(c.model) && isRateLimit(msg);
@@ -592,10 +633,10 @@ async function callWithAuthFallback(provider: string, model: string, system: str
         console.error(`[piano-chat] ${c.provider}/${c.model} ${why} (${msg.slice(0, 160)}) -> trying ${chain[i + 1].provider}/${chain[i + 1].model}`);
         continue;
       }
-      throw e;
+      throw i === 0 ? e : exhausted();
     }
   }
-  throw new Error("no provider available");
+  throw exhausted();
 }
 
 Deno.serve(async (req: Request) => {
@@ -715,16 +756,43 @@ async function handleRawPassthrough(body: any, authHeader: string | null, featur
     ? { provider: "anthropic", model: DEFAULT_MODEL.model }
     : cfg;
 
-  if (provider === "gemini") {
+  // Walk the vision-capable providers instead of dying on the first one. The
+  // chat path has had a fallback ladder for a while; this path had none, so a
+  // single Gemini quota 429 reached the learner as a dead camera coach even
+  // though two other keys on this project can read an image perfectly well.
+  // Order: whatever the admin picked, then Anthropic, then the free rung, then
+  // Gemini (when it was not already first).
+  const chain: { provider: string; model: string }[] = [{ provider, model }];
+  if (provider !== "anthropic" && ANTHROPIC_API_KEY) chain.push({ provider: "anthropic", model: DEFAULT_MODEL.model });
+  if (OPENROUTER_API_KEY) chain.push({ provider: "openrouter", model: VISION_FREE_MODEL });
+  if (provider !== "gemini" && GEMINI_API_KEY) chain.push({ provider: "gemini", model: GEMINI_FALLBACK_MODEL });
+
+  const tried: string[] = [];
+  let firstErr: Error | null = null;
+  for (const step of chain) {
     try {
-      const text = await callGeminiRaw(model, body);
-      return json({ content: [{ type: "text", text }] });
+      const text = step.provider === "gemini"
+        ? await callGeminiRaw(step.model, body)
+        : step.provider === "openrouter"
+        ? await callOpenRouterRaw(step.model, body)
+        : await callAnthropicRaw(step.model, body);
+      if (text.trim()) return json({ content: [{ type: "text", text }] });
+      throw new Error("empty reply");
     } catch (e) {
-      return json({ error: (e as Error).message || "gemini raw failed" }, 502);
+      const err = e instanceof Error ? e : new Error(String(e));
+      tried.push(`${step.provider}/${step.model}: ${err.message.slice(0, 160)}`);
+      // Keep the FIRST failure — the chosen provider's — so the message names
+      // the provider the admin actually configured, not the last straw.
+      if (!firstErr) firstErr = err;
+      console.error(`[piano-chat] vision ${step.provider}/${step.model} failed: ${err.message.slice(0, 200)}`);
     }
   }
+  return json({ error: `all vision providers failed — ${firstErr?.message || "no content"} [tried: ${tried.join(" ; ")}]` }, 502);
+}
 
-  // anthropic (default) — exact same call as before
+// One Anthropic vision call → the reply text (or throws). Lifted out of the old
+// inline fetch so the chain above can retry into it like any other rung.
+async function callAnthropicRaw(model: string, body: any): Promise<string> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -736,7 +804,46 @@ async function handleRawPassthrough(body: any, authHeader: string | null, featur
     }),
   });
   const data = await res.json().catch(() => ({}));
-  return json(data, res.status);
+  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${JSON.stringify(data?.error || data).slice(0, 300)}`);
+  const parts = data?.content;
+  return Array.isArray(parts) ? parts.filter((b: any) => b?.type === "text").map((b: any) => b.text || "").join("") : "";
+}
+
+// Same raw body, OpenRouter's OpenAI-shaped wire format: image blocks become
+// image_url data URIs and the system prompt becomes a leading system message.
+async function callOpenRouterRaw(model: string, body: any): Promise<string> {
+  const messages: any[] = (body.messages || []).map((m: any) => ({
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: (Array.isArray(m.content) ? m.content : [{ type: "text", text: m.content || "" }]).map((b: any) =>
+      b.type === "image"
+        ? { type: "image_url", image_url: { url: `data:${b.source?.media_type || "image/jpeg"};base64,${b.source?.data || ""}` } }
+        : { type: "text", text: b.text || "" }
+    ),
+  }));
+  if (body.system) messages.unshift({ role: "system", content: String(body.system) });
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "X-Title": "TIGA.AI",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: body.max_tokens || MAX_TOKENS,
+      stream: false,
+      reasoning: { exclude: true },
+      messages,
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  const data = await res.json();
+  const msg = data?.choices?.[0]?.message;
+  const out = msg?.content;
+  if (typeof out === "string" && out.trim()) return out;
+  // Reasoning models occasionally put the whole answer in the thinking field.
+  const think = msg?.reasoning || msg?.reasoning_content;
+  return typeof think === "string" ? think : "";
 }
 
 // Convert the Anthropic-style raw body (text + image content blocks) to a Gemini
@@ -755,7 +862,9 @@ async function callGeminiRaw(model: string, body: any): Promise<string> {
   if (body.system) g.systemInstruction = { parts: [{ text: body.system }] };
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${GEMINI_API_KEY}`;
   const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(g) });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  // 300 chars used to cut off Google's quota-metric name (the URLs in the
+  // message eat the budget), which is exactly the part that says WHICH limit.
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text().catch(() => "")).slice(0, 900)}`);
   const data = await res.json();
   const parts = data?.candidates?.[0]?.content?.parts;
   return Array.isArray(parts) ? parts.map((p: any) => p.text || "").join("") : "";
