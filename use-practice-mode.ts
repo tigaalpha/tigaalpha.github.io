@@ -3,6 +3,7 @@ import {
   fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP,
   getAC, playPianoNote, playUi, stopPracticeListeners, startMidiListener, startMicListener,
   DUP_WINDOW_MS,
+  THEORY_REF,
 } from "./music-engine";
 import { EARN, takeEarn, logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
 import { logActivity } from "./shared-infra";
@@ -608,7 +609,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         : lang === "zh"
         ? `学员刚在钢琴上练习了"${label}"，完成全部 ${total} 个音，准确率 ${accuracy}%（中途失误 ${miss} 次），最高连击 ${bestStreak} 个音。作为 TiGA 钢琴老师，请简短温暖地表扬鼓励，并给出 1-2 个可继续提升的小建议。简洁中文回答，不要列音名`
         : `The learner just practiced "${label}" on piano, completing all ${total} notes at ${accuracy}% accuracy (${miss} wrong notes along the way), with a best combo of ${bestStreak} notes in a row. As TiGA the piano teacher, give a short, warm word of praise and encouragement, then 1-2 tips to improve next. Be concise; no note names needed.`;
-      fetchChatCompletion({ message: fb, conversationHistory: [], stream: false, feature: "practice-tip" })
+      fetchChatCompletion({ message: fb, conversationHistory: [], system: THEORY_REF, stream: false, feature: "practice-tip" })
         .then(txt => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiText: txt || null, aiLoading: false } : prev)))
         .catch(() => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiLoading: false } : prev)));
     }

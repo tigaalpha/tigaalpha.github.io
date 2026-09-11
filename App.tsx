@@ -26,7 +26,7 @@ import {
 import {
   NF, KEYS_12, CHROMA, LESSON_MODE,
   FINGERINGS_RH, FINGERINGS_LH, FINGERING_REF, TRIAD_FINGER_RH, TRIAD_FINGER_LH,
-  SCALE_TYPES, spellScale, spellFromRoot,
+  SCALE_TYPES, spellScale, spellFromRoot, THEORY_REF,
   getFingers, fingersForNotes, extractNotes, chordNotesOf, identifyChord, interpretPlayed,
   INTERVAL_FEEL, TRIAD_FEEL, SEVENTH_FEEL,
   normalizeSeq, noteKeyFrac, transposeNotes, semisFromC,
@@ -2263,7 +2263,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
         : "";
       const prompt = `Create a ${moodDesc} ${styleDesc} piano melody in ${composeKey} major, 24-32 notes, musical and satisfying for a beginner. The name should reflect the mood.${weaknessNote}`;
       const sys = "You turn a melody request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names C4-B5 only; \"R\"=rest; beats are 0.5,1,1.5,2. Keep it 24-32 notes, melodic and musical.";
-      const acc = await streamChatCompletion({ message: prompt, conversationHistory: [], system: sys, feature: "compose" });
+      const acc = await streamChatCompletion({ message: prompt, conversationHistory: [], system: sys + THEORY_REF, feature: "compose" });
       const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
       const obj = JSON.parse(jm[0]);
       const seq = normalizeSeq(obj.seq || []);
@@ -3465,7 +3465,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     setGenerating(true); setGenErr(false);
     try {
       const sys = "You turn a song request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON, no prose, no markdown: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names from C4 to B5 only; use \"R\" for a rest; beats are 0.5, 1, 1.5 or 2. Keep it 16-48 notes and recognizable.";
-      const acc = await streamChatCompletion({ message: "Create this song: " + genText, conversationHistory: [], system: sys, feature: "song-gen" });
+      const acc = await streamChatCompletion({ message: "Create this song: " + genText, conversationHistory: [], system: sys + THEORY_REF, feature: "song-gen" });
       const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
       const obj = JSON.parse(jm[0]);
       const seq = normalizeSeq(obj.seq || []);
@@ -4700,7 +4700,7 @@ async function generateCoachTip(lang, profile) {
   // more rather than letting a single flaky reply surface as a hard error.
   async function attempt() {
     try {
-      const txt = await fetchChatCompletion({ message: msg, conversationHistory: [], system: sys, stream: false, feature: "coach-tip" });
+      const txt = await fetchChatCompletion({ message: msg, conversationHistory: [], system: sys + THEORY_REF, stream: false, feature: "coach-tip" });
       if (!txt) return null;
       const fenced = txt.match(/```(?:json)?\s*([\s\S]*?)```/i);
       const body2 = fenced ? fenced[1] : txt;

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
-  LESSON_MODE, extractNotes, playPianoNote, FINGERING_REF,
+  LESSON_MODE, extractNotes, playPianoNote, FINGERING_REF, THEORY_REF,
 } from "./music-engine";
 import { tr, L, matchFaqTopic } from "./i18n";
 import { stopCloudTTS } from "./speech";
@@ -212,7 +212,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       let acc = "";
       let haveBubble = false; // did any streaming attempt reach the response?
       const runStream = () => streamChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: true },
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + THEORY_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: true },
         {
           // insert an empty AI bubble we will fill as tokens arrive —
           // reused, not duplicated, if a retry follows a pre-token failure
@@ -229,7 +229,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         }
       );
       const runJson = () => fetchChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: false }
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + THEORY_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: false }
       );
       /* One full resilience pass: streaming → silent streaming retry on a
          transient blip → non-streaming JSON. Three transports because the

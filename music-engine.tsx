@@ -246,15 +246,15 @@ export const TRIAD_FINGER_LH = [5,3,1];
 export const FINGERING_REF =
   "\n\n[FINGERING FACTS — authoritative. Use these EXACT finger numbers; never invent or guess them. 1=thumb,2=index,3=middle,4=ring,5=pinky.]\n" +
   "Scales, ASCENDING (low→high pitch):\n" +
-  "• Right hand — C, G, D, A, E, B major and A, E, D minor = 1 2 3 1 2 3 4 5\n" +
+  "• Right hand — C, G, D, A, E, B major and A, E, D, C, G, B minor = 1 2 3 1 2 3 4 5\n" +
   "• Right hand — F major and F minor = 1 2 3 4 1 2 3 4\n" +
   "• Right hand — F# major = 2 3 4 1 2 3 1 2\n" +
   "• Right hand — Db major = 2 3 1 2 3 4 1 2\n" +
   "• Right hand — Ab major = 3 4 1 2 3 1 2 3\n" +
   "• Right hand — Eb major = 3 1 2 3 4 1 2 3\n" +
   "• Right hand — Bb major = 2 1 2 3 1 2 3 4\n" +
-  "• Left hand — C, G, D, A, E, F major and A, E, D, F minor = 5 4 3 2 1 3 2 1\n" +
-  "• Left hand — B major = 4 3 2 1 4 3 2 1\n" +
+  "• Left hand — C, G, D, A, E, F major and A, E, D, F, C, G minor = 5 4 3 2 1 3 2 1\n" +
+  "• Left hand — B major and B minor = 4 3 2 1 4 3 2 1\n" +
   "• Left hand — F# major = 4 3 2 1 3 2 1 4\n" +
   "• Left hand — Db, Ab, Eb major = 3 2 1 4 3 2 1 3\n" +
   "• Left hand — Bb major = 3 2 1 4 3 2 1 2\n" +
@@ -262,6 +262,35 @@ export const FINGERING_REF =
   "Triads (root position): right hand = 1 3 5 · left hand = 5 3 1.\n" +
   "Technique: ascending right hand passes the THUMB UNDER (after finger 3); ascending left hand crosses finger 3 OVER the thumb. " +
   "If a key is not in this list, teach the principle — do NOT invent finger numbers.";
+
+/* Appended to every AI system prompt in the app, alongside FINGERING_REF.
+
+   The models know music theory, but they answer in whatever notation the
+   conversation drifts into, and the one thing a beginner cannot check is
+   whether "C D# G" was a typo or a lesson. This block fixes the notation and
+   the formulas so every AI surface — chat, voice, coach tips, song analysis —
+   agrees with what the app's own theory engine prints on the pathway screens.
+   Written as rules and formulas rather than note lists: a formula is true in
+   all twelve keys, a note list is only true in one. */
+export const THEORY_REF =
+  "\n\n[MUSIC THEORY — authoritative. Answer only from established Western music theory. Never invent terms, formulas or note spellings. If something is genuinely ambiguous or outside standard theory, say so plainly instead of guessing.]\n" +
+  "SPELLING (this is the rule learners most often see broken):\n" +
+  "• A scale uses each letter name A-G exactly once, in order. C harmonic minor is C D Eb F G Ab B C — never C D D# F G G# B C.\n" +
+  "• A chord tone takes the letter its DEGREE names. A minor triad is 1-b3-5, so C minor is C Eb G, never C D# G. A diminished 7th is 1-b3-b5-bb7, so C dim7 is C Eb Gb Bbb — the seventh is a DOUBLE flat, not A.\n" +
+  "• Use double sharps and double flats when the spelling requires them: F# major has E#, Eb minor has Cb, G# harmonic minor has F double-sharp.\n" +
+  "• Never respell a note enharmonically to avoid an accidental. The pitch and the notation are different questions.\n" +
+  "SCALES (semitones from the tonic):\n" +
+  "• Major 0 2 4 5 7 9 11 12 — W W H W W W H\n" +
+  "• Natural minor 0 2 3 5 7 8 10 12 — W H W W H W W (the key signature, nothing raised; = b3 b6 b7 against major)\n" +
+  "• Harmonic minor 0 2 3 5 7 8 11 12 — natural minor with a RAISED 7th; the 6th-to-7th gap is an augmented 2nd\n" +
+  "• Melodic minor 0 2 3 5 7 9 11 12 ASCENDING (raised 6th AND 7th); classical practice DESCENDS as natural minor. Jazz commonly uses the ascending form both ways — name which convention you mean.\n" +
+  "• All three minor forms share degrees 1-5. Only the 6th and 7th ever differ.\n" +
+  "INTERVALS by semitone: 0 P1, 1 m2, 2 M2, 3 m3, 4 M3, 5 P4, 6 tritone (A4 or d5 — the spelling depends on the degree), 7 P5, 8 m6, 9 M6, 10 m7, 11 M7, 12 P8.\n" +
+  "TRIADS: major 1-3-5 · minor 1-b3-5 · diminished 1-b3-b5 · augmented 1-3-#5.\n" +
+  "SEVENTHS: maj7 1-3-5-7 · dominant 7 1-3-5-b7 · min7 1-b3-5-b7 · minor-major 7 1-b3-5-7 · half-diminished (m7b5) 1-b3-b5-b7 · diminished 7 1-b3-b5-bb7 · augmented 7 (7#5) 1-3-#5-b7 · augmented-major 7 1-3-#5-7.\n" +
+  "KEY SIGNATURES: sharps appear in the order F C G D A E B; flats in the reverse order B E A D G C F. Major keys — C 0, G 1#, D 2#, A 3#, E 4#, B 5#, F# 6#, C# 7#, F 1b, Bb 2b, Eb 3b, Ab 4b, Db 5b, Gb 6b, Cb 7b. A minor key shares its signature with the major a minor 3rd above (A minor with C major, C minor with Eb major).\n" +
+  "MODES of the major scale, in order: Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian.\n" +
+  "Use the learner's own language for prose, but keep note names, chord symbols and degree numbers in standard notation.";
 
 // pick fingering for a key by hand
 
