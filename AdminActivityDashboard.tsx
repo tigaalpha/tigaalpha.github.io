@@ -294,6 +294,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [range, setRange] = useState("7");
   const [anon, setAnon] = useState(null);   // headline count of signed-out visitors
+  const [signup, setSignup] = useState(null); // Google vs email sign-up split
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState(null);
   const [sel, setSel] = useState(null);      // selected user uuid
@@ -327,6 +328,11 @@ export function AdminActivity({ lang, onOpenAnon }) {
     // the traffic and none of them are in the member list below.
     sb.rpc("admin_anon_overview", { p_since: since, p_gate_ms: GUEST_TRIAL_MS })
       .then(({ data }) => setAnon(data || null), () => setAnon(null));
+    // How the people who DID get an account actually got one. The email path
+    // exists because Google will not work inside an in-app browser, so the
+    // split between the two is the measure of whether that was worth building.
+    sb.rpc("admin_signup_methods", { p_since: since })
+      .then(({ data }) => setSignup(data || null), () => setSignup(null));
   }, [range, showSim]);
 
   useEffect(() => { load(); }, [load]);
@@ -350,6 +356,10 @@ export function AdminActivity({ lang, onOpenAnon }) {
   };
 
   const t = overview?.totals || {};
+  const su = signup || {};
+  const rangeLabel = range === "all"
+    ? T("ทั้งหมด", "all time", "全部")
+    : T(`${range} วันนี้`, `last ${range}d`, `近 ${range} 天`);
 
   const anonWv = (() => {
     const b = (anon && anon.browsers) || [];
@@ -382,6 +392,37 @@ export function AdminActivity({ lang, onOpenAnon }) {
           </div>
           <span className="anonhero-go">{T("ดูรายละเอียด", "Details", "详情")} ›</span>
         </button>
+      )}
+
+      {/* ── how the people who DID sign up got in ──
+          Second on the page, straight under the visitor count, because it is
+          the other half of the same story: the one above is who never made an
+          account, this is which door the ones who did came through. The email
+          route was built for the ~70% arriving inside an in-app browser, where
+          Google refuses to sign anyone in, so these two numbers are what say
+          whether that route is carrying its weight. */}
+      {signup && (
+        <div className="sumeth">
+          <div className="sumeth-c">
+            <div className="sumeth-k">🔵 {T("ล็อกอินด้วย Google", "Signed in with Google", "用 Google 登录")}</div>
+            <div className="sumeth-v">{su.google ?? 0}<span>{T("คน", "people", "人")}</span></div>
+            <div className="sumeth-s">{T("ใหม่", "new", "新增")} {rangeLabel}: <b>{su.google_new ?? 0}</b></div>
+          </div>
+          <div className="sumeth-c">
+            <div className="sumeth-k">✉️ {T("สมัครสมาชิกใหม่ (อีเมล)", "Signed up with email", "邮箱注册")}</div>
+            <div className="sumeth-v">{su.email ?? 0}<span>{T("คน", "people", "人")}</span></div>
+            <div className="sumeth-s">{T("ใหม่", "new", "新增")} {rangeLabel}: <b>{su.email_new ?? 0}</b></div>
+          </div>
+          {(Number(su.total) || 0) > 0 && (
+            <div className="sumeth-f">
+              {T(`สมาชิกทั้งหมด ${su.total} คน`, `${su.total} members in total`, `共 ${su.total} 位会员`)}
+              {" · "}
+              {Math.round(((Number(su.google) || 0) / (Number(su.total) || 1)) * 100)}% Google
+              {" · "}
+              {Math.round(((Number(su.email) || 0) / (Number(su.total) || 1)) * 100)}% {T("อีเมล", "email", "邮箱")}
+            </div>
+          )}
+        </div>
       )}
 
       <RangePicker range={range} setRange={setRange} T={T} />

@@ -3280,6 +3280,27 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 html[data-theme="dark"] .anonwv{background:rgba(255,178,54,.12);border-color:rgba(255,178,54,.45);color:#ffd9a0}
 html[data-theme="dark"] .anonwv b{color:#ffb236}
 html[data-theme="dark"] .anonwv-n{color:#ffc97a}
+/* The two sign-up-route cards that sit directly under the visitor hero. Two
+   columns that stack on a narrow phone, with the all-time figure as the big
+   number and the in-range figure beneath, so the card still says something on
+   a quiet week instead of reading as a pair of zeroes. */
+.sumeth{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 12px}
+.sumeth-c{background:var(--card3);border:1px solid var(--bd4);border-radius:12px;padding:11px 13px;min-width:0;
+  display:flex;flex-direction:column}
+/* The label wraps rather than truncating: "สมัครสมาชิกใหม่ (อีเมล)" does not fit
+   one phone-width column, and an ellipsis on the only word that says which
+   route this is would defeat the card. min-height keeps the two big numbers on
+   the same baseline when one label wraps and the other does not. */
+.sumeth-k{font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:4px;
+  line-height:1.3;min-height:2.6em;display:flex;align-items:flex-start}
+.sumeth-v{font-size:29px;font-weight:800;color:#d97757;line-height:1;display:flex;align-items:baseline;gap:5px}
+.sumeth-v span{font-size:12px;font-weight:600;color:var(--muted)}
+.sumeth-s{font-size:11.5px;color:var(--muted);margin-top:5px}
+.sumeth-s b{color:var(--text)}
+.sumeth-f{grid-column:1/-1;font-size:11.5px;color:var(--muted);text-align:center;padding-top:1px}
+/* Only stack on genuinely tiny screens — every normal phone keeps the pair
+   side by side, matching the stat cards already on this page. */
+@media(max-width:339px){.sumeth{grid-template-columns:1fr}.sumeth-k{min-height:0}}
 @media(max-width:430px){.anonhero{gap:10px;padding:11px 12px}.anonhero-v{font-size:28px}.anonhero-go{display:none}}
 
 `;
