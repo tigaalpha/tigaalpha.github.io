@@ -57,9 +57,19 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Sign in required" }), { status: 401, headers });
     }
     const key = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!key) return new Response(JSON.stringify({ error: "Stripe not configured" }), { status: 503, headers });
+    if (!key) return new Response(JSON.stringify({ error: "Stripe not configured", mode: "none" }), { status: 503, headers });
 
-    const { plan, cycle, cur, expect } = await req.json();
+    const body = await req.json();
+
+    /* Mode probe. A test key builds a checkout page that looks entirely normal
+       and then declines every real card, so the failure is invisible from the
+       outside — the app asks first and hides its card button unless the answer
+       is "live". Says nothing about the key itself, only which mode it is in. */
+    if (body && body.probe === true) {
+      return new Response(JSON.stringify({ mode: key.startsWith("sk_live_") ? "live" : "test" }), { headers });
+    }
+
+    const { plan, cycle, cur, expect } = body;
     const currency = ["thb", "usd", "cny"].includes(cur) ? cur : "thb";
     const monthly = PRICES[currency][plan];
     if (!monthly) return new Response(JSON.stringify({ error: "Unknown plan" }), { status: 400, headers });

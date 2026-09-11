@@ -25,11 +25,32 @@ function promptPayPayload(target, amount) {
     acc = "0066" + local; tag = "01";
   }
   const merchant = _ppTLV("00", "A000000677010111") + _ppTLV(tag, acc);
-  let s = _ppTLV("00", "01") + _ppTLV("01", amount > 0 ? "12" : "11") + _ppTLV("29", merchant) + _ppTLV("53", "764") + _ppTLV("58", "TH");
+  // EMVCo data objects, in ascending tag order: 00, 01, 29, 53, 54, 58, 63.
+  // The amount (54) used to be appended after the country code (58) because it
+  // is optional. A bank app parses TLV into a map so either order scans, but
+  // every Thai reference generator emits this order and there is no upside to
+  // being the one QR in the country shaped differently.
+  let s = _ppTLV("00", "01") + _ppTLV("01", amount > 0 ? "12" : "11") + _ppTLV("29", merchant) + _ppTLV("53", "764");
   if (amount > 0) s += _ppTLV("54", Number(amount).toFixed(2));
-  s += "6304";
+  s += _ppTLV("58", "TH") + "6304";
   return s + _ppCrc16(s);
 }
+/* Is the server's Stripe key a live key or a test key? A test key still returns
+   a perfectly valid-looking checkout URL, but it only ever accepts Stripe's test
+   cards — a real customer's card is declined and no money moves. That failure is
+   invisible from the outside, so the app asks the server which mode it is in and
+   refuses to show a card button that cannot take money. Cached per page load. */
+let _stripeModeP: Promise<string> | null = null;
+export function stripeMode(): Promise<string> {
+  if (!_stripeModeP) {
+    _stripeModeP = fetch(SUPABASE_URL + "/functions/v1/stripe-checkout", {
+      method: "POST", headers: { ...apiHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ probe: true }),
+    }).then(r => r.json()).then(j => (j && j.mode) || "unknown").catch(() => "unknown");
+  }
+  return _stripeModeP;
+}
+
 export function promptPayQR(target, amount) {
   try {
     const payload = promptPayPayload(target, amount);
@@ -169,6 +190,8 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
   const [zhTab, setZhTab] = useState<"ali"|"wx">("ali"); // Chinese tab: alipay | wechat
   const zhFileRef = useRef(null);
   const [stripeLoading, setStripeLoading] = useState(false);
+  const [payMode, setPayMode] = useState("");   // "" | live | test | unknown
+  useEffect(() => { stripeMode().then(setPayMode); }, []);
   const fileRef = useRef(null);
   // guards against a fast double-click/double-tap firing openStripe/onFile twice before
   // React re-renders with the disabled button — state (stripeLoading/st) alone isn't
@@ -271,12 +294,23 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
     if (!error) { setCfg(value); playUi("levelup"); }
   }
 
-  const showStripeBtn = lang === "th" || lang === "en";
+  /* A test-mode Stripe key produces a checkout page that looks completely
+     normal and then declines every real card. Showing that button is worse
+     than showing nothing — the buyer concludes their card is the problem and
+     leaves, instead of using PromptPay or a transfer that actually works. So
+     the card button waits for the probe and only appears on a live key. */
+  const stripeUsable = payMode === "live";
+  /* Every language, not just th/en. stripe-checkout prices in thb, usd AND cny
+     and Stripe takes a card in all three, so the Chinese edition had a working
+     rail sitting unused behind a language check — its buyers could only scan
+     Alipay or WeChat, which excludes anyone paying with an overseas card. */
+  const showStripeBtn = stripeUsable;
   const hasQrChannel = channels.length > 0;
   const nothingConfigured = !showStripeBtn && !hasQrChannel && lang !== "zh";
-  // Stripe is the ONLY rail in English until a transfer account is filled in, so
-  // say so where the owner will actually see it rather than leaving a silent gap.
-  const transferMissing = lang === "en" && !hasQrChannel;
+  // The bank-transfer rail is switched on purely by having an account number
+  // on file. Thai admins never saw this warning because PromptPay alone was
+  // enough to satisfy the old check, so the missing account went unnoticed.
+  const transferMissing = (lang === "th" || lang === "en") && !acct;
 
   return (
     <div className="setov" onClick={onClose}>
@@ -335,7 +369,7 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
                     {stripeLoading ? "⏳ " + T("กำลังเปิดหน้าชำระเงินปลอดภัย...", "Opening secure checkout...", "正在打开安全支付页...") : "💳 " + T("จ่ายด้วยบัตร (รองรับทั่วโลก)", "Pay by card — worldwide", "银行卡支付（支持全球）")}
                   </button>
                   {st === "stripe-err" && <div className="aicreate-err">{T("ไม่สามารถเชื่อมต่อ Stripe ได้ ลองใหม่หรือใช้ QR", "Stripe unavailable — try again or use QR below", "Stripe 连接失败，请重试或用下方二维码")}</div>}
-                  {hasQrChannel && <div className="aiNotice">🌍 {T("หรือสแกน QR ด้านล่าง", "Or scan a QR below", "或扫描下方二维码")}</div>}
+                  {(hasQrChannel || lang === "zh") && <div className="aiNotice">🌍 {T("หรือสแกน QR ด้านล่าง", "Or scan a QR below", "或使用上方二维码支付")}</div>}
                 </>
               )}
 
@@ -405,11 +439,18 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
                 </div>
               )}
 
+              {payMode === "test" && isAdmin && (
+                <div className="aicreate-err">⚠️ {T(
+                  "Stripe ยังเป็นคีย์ทดสอบ (sk_test) — บัตรจริงจะถูกปฏิเสธทุกใบ ปุ่มจ่ายด้วยบัตรจึงถูกซ่อนไว้ ใส่คีย์ sk_live_ ใน Supabase แล้วปุ่มจะกลับมาเอง",
+                  "Stripe is still on a TEST key (sk_test) — every real card is declined, so the card button is hidden. Add your sk_live_ key in Supabase and the button returns on its own.",
+                  "Stripe 仍使用测试密钥（sk_test），真实银行卡都会被拒绝，因此已隐藏刷卡按钮。在 Supabase 中填入 sk_live_ 密钥后按钮会自动恢复。")}</div>
+              )}
+
               {transferMissing && isAdmin && (
                 <div className="aiNotice">⚙️ {T(
-                  "ยังไม่ได้ตั้งค่าเลขบัญชีสำหรับโอนตรง — เพิ่มได้ที่ แอดมิน › ตั้งค่าช่องทางรับเงิน",
-                  "No transfer account configured yet — add one in Admin › Payment channel settings and buyers get a direct-transfer option beside the card.",
-                  "尚未配置转账账户 — 请在管理员 › 收款渠道设置中添加。")}</div>
+                  "ยังไม่ได้ใส่เลขที่บัญชีธนาคาร — ลูกค้าจึงยังไม่เห็นตัวเลือก \u201cโอนเข้าบัญชี\u201d ใส่ได้ที่ แอดมิน › ตั้งค่าช่องทางรับเงิน › โอนเข้าบัญชีโดยตรง",
+                  "No bank account number on file — buyers don\u2019t see the \u201cBank transfer\u201d option at all. Add it in Admin › Payment channel settings › Direct bank transfer.",
+                  "尚未填写银行账号 \u2014 买家看不到\u201c银行转账\u201d选项。请在管理员 › 收款渠道设置 › 银行直接转账中填写。")}</div>
               )}
 
               {nothingConfigured && !isAdmin && (
@@ -436,7 +477,12 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const tier = schoolCheckout.tier === "plus" ? "school_plus" : "school_standard";
   const tierLabel = schoolCheckout.tier === "plus" ? "Plus" : "Standard";
-  const cur = CURRENCY_BY_LANG[lang] || "thb";
+  /* Deliberately THB regardless of app language. school_submit_payment_request()
+     prices B2B seats in baht and nothing converts them, so showing an English
+     buyer "US$1,720/seat" quoted a total 34x the amount they would be asked to
+     transfer. The preview now uses the same baht math the RPC uses, which makes
+     the figure on this screen the figure that gets charged. */
+  const cur = "thb";
   const uid = session && session.user && session.user.id;
 
   const [step, setStep] = useState("details"); // details | pay
@@ -465,7 +511,11 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
   const ppId = payCfg && payCfg.promptpay;
   const aliQr = (payCfg && payCfg.alipay_qr) || ALIPAY_QR;
   const wxQr = (payCfg && payCfg.wechat_qr) || WECHAT_QR;
+  const acct = (payCfg && payCfg.bank_account && String(payCfg.bank_account).trim()) || "";
+  const swift = (payCfg && payCfg.bank_swift && String(payCfg.bank_swift).trim()) || "";
   const qr = useMemo(() => (activeChan === "promptpay" && ppId && amount) ? promptPayQR(ppId, amount) : null, [activeChan, ppId, amount]);
+  const [payMode, setPayMode] = useState("");
+  useEffect(() => { stripeMode().then(setPayMode); }, []);
 
   function continueToPay() {
     if (!instName.trim()) { setErr(T("กรอกชื่อสถาบันก่อน", "Enter an institution name", "请输入机构名称")); return; }
@@ -535,8 +585,10 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
     } catch { setSt("error"); uploadRef.current = false; }
   }
 
-  const showStripeBtn = lang === "th" || lang === "en";
-  const showPromptPay = lang === "th" && !!ppId;
+  // Same reasoning as CheckoutModal: a test key's card button can never collect.
+  const showStripeBtn = payMode === "live";   // card works in every language
+  const showPromptPay = (lang === "th" || lang === "en") && !!ppId;
+  const showBank = (lang === "th" || lang === "en") && !!acct;
 
   return (
     <div className="setov" onClick={onClose}>
@@ -585,6 +637,9 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
                 {showPromptPay && (
                   <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => payWithQr("promptpay")}>🇹🇭 {T("จ่ายผ่าน PromptPay", "Pay via PromptPay", "PromptPay 付款")}</button>
                 )}
+                {showBank && (
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => payWithQr("banktransfer")}>🏦 {T("โอนเข้าบัญชีธนาคาร", "Pay by bank transfer", "银行转账付款")}</button>
+                )}
                 {lang === "zh" && (<>
                   <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("alipay"); payWithQr("alipay"); }}>🔵 {T("จ่ายผ่าน Alipay", "Pay via Alipay", "支付宝付款")}</button>
                   <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("wechat"); payWithQr("wechat"); }}>🟢 {T("จ่ายผ่าน WeChat", "Pay via WeChat", "微信付款")}</button>
@@ -603,6 +658,27 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
                   <p className="pr-sub">{T("สแกน QR ด้วยแอปธนาคาร โอนตามยอด แล้วอัปโหลดสลิปเพื่อยืนยัน", "Scan with your banking app, pay the exact amount, then upload the slip.", "用银行App扫码付款，然后上传凭证。")}</p>
                   <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
                     {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload slip", "上传凭证")}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+
+              {activeChan === "banktransfer" && (
+                <>
+                  <div className="payinfo">
+                    {payCfg && payCfg.bank && <div>🏦 {T("ธนาคาร", "Bank", "银行")}: <b>{payCfg.bank}</b></div>}
+                    {payCfg && payCfg.name && <div>👤 {T("ชื่อบัญชี", "Account name", "账户名")}: <b>{payCfg.name}</b></div>}
+                    <div>#️⃣ {T("เลขที่บัญชี", "Account number", "账号")}: <b>{acct}</b></div>
+                    {swift && <div>🌐 SWIFT / BIC: <b>{swift}</b></div>}
+                    <div>💰 {T("ยอดที่ต้องโอน", "Amount to transfer", "转账金额")}: <b>{fmtPrice("thb", amount)}</b></div>
+                  </div>
+                  <p className="pr-sub">{T(
+                    "โอนตามยอดด้านบนเข้าบัญชีนี้ แล้วอัปโหลดสลิปเพื่อยืนยัน",
+                    "Transfer the amount above to this account, then upload your transfer receipt to confirm.",
+                    "请按上述金额转账至该账户，然后上传转账凭证。")}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload receipt", "上传凭证")}
                   </button>
                   {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
                   <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
@@ -737,7 +813,11 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
     } catch (e) { setSt("error"); uploadRef.current = false; }
   }
 
-  const cur = CURRENCY_BY_LANG[lang] || "thb";
+  /* Coin and gem packages have exactly one price list and it is in baht
+     (_currency_package_price in SQL is the authority). Formatting those same
+     numbers with the app language's symbol told an English buyer a ฿49 pack
+     cost US$49.00 and a Chinese buyer ¥49 — neither figure is ever charged. */
+  const cur = "thb";
   const showQrPicker = channels.length > 0 && !chanKey;
 
   return (
@@ -832,8 +912,8 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
                   <PayQrImg src={zhTab === "wechat" ? wxQr : aliQr} alt={zhTab === "wechat" ? "WeChat Pay QR" : "Alipay QR"} lang={lang} />
                   <p className="pr-sub" style={{ textAlign: "center" }}>
                     {zhTab === "wechat"
-                      ? `打开微信 → 扫一扫 → 支付 ¥${(price || 0).toLocaleString()}`
-                      : `打开支付宝 → 扫一扫 → 支付 ¥${(price || 0).toLocaleString()}`}
+                      ? `打开微信 → 扫一扫 → 支付 ฿${(price || 0).toLocaleString()}`
+                      : `打开支付宝 → 扫一扫 → 支付 ฿${(price || 0).toLocaleString()}`}
                   </p>
                   <p className="pr-sub" style={{ textAlign: "center", marginTop: 0 }}>付款后上传截图以确认订单</p>
                   <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
