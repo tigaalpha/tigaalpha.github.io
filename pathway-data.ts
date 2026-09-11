@@ -9,6 +9,80 @@ export const PATHWAY = [
       en: "Teach me 'Scales' on piano in detail: (1) what a scale is (2) structure and W-W-H-W-W-W-H formula (3) all notes in this key (4) fingering for both ascending and descending (5) thumb-under technique (6) practice tips and common mistakes. List all note names like C4 D4 E4 and give example songs using this scale.",
       zh: "详细教我钢琴'音阶'：(1)什么是音阶 (2)结构和 W-W-H-W-W-W-H 公式 (3)此调的所有音符 (4)上行和下行的指法 (5)拇指穿越技巧 (6)练习技巧和常见错误。列出所有音名如 C4 D4 E4，并举例使用此音阶的歌曲。"
     },
+    /* Written in C and transposed to the chosen key at lesson time. The three
+       minor forms differ only in degrees 6 and 7 — that contrast is the lesson,
+       so they are separate options rather than one "minor" that silently picks one.
+       Melodic minor carries the descent as well (C5 down to C4) because the
+       ascending-raised / descending-natural pair IS the scale; showing only the
+       way up would teach half of it. */
+    scaleType: "major",
+    types: [
+      { id: "major", scaleType: "major", label: { th: "เมเจอร์", en: "Major", zh: "大调" }, symbol: "M",
+        demo: ["C4","D4","E4","F4","G4","A4","B4","C5"], demoFingers: [1,2,3,1,2,3,4,5] },
+      { id: "natural_minor", scaleType: "natural_minor", label: { th: "ไมเนอร์ (Natural)", en: "Minor · Natural", zh: "自然小调" }, symbol: "m",
+        demo: ["C4","D4","Eb4","F4","G4","Ab4","Bb4","C5"], demoFingers: [1,2,3,1,2,3,4,5] },
+      { id: "harmonic_minor", scaleType: "harmonic_minor", label: { th: "ไมเนอร์ (Harmonic)", en: "Minor · Harmonic", zh: "和声小调" }, symbol: "m♮7",
+        demo: ["C4","D4","Eb4","F4","G4","Ab4","B4","C5"], demoFingers: [1,2,3,1,2,3,4,5] },
+      { id: "melodic_minor", scaleType: "melodic_minor", label: { th: "ไมเนอร์ (Melodic)", en: "Minor · Melodic", zh: "旋律小调" }, symbol: "m♮6♮7",
+        demo: ["C4","D4","Eb4","F4","G4","A4","B4","C5","Bb4","Ab4","G4","F4","Eb4","D4","C4"],
+        demoFingers: [1,2,3,1,2,3,4,5,4,3,2,1,3,2,1] },
+    ],
+    typesInfo: {
+      th: `🎼 สเกล 4 แบบที่ต้องรู้ (ตัวอย่างคีย์ C)
+
+1️⃣ เมเจอร์ (Major) — W-W-H-W-W-W-H
+C D E F G A B C · สดใส มั่นคง
+
+2️⃣ ไมเนอร์ ธรรมชาติ (Natural Minor) — W-H-W-W-H-W-W
+C D E♭ F G A♭ B♭ C · เศร้า นุ่ม (ใช้ตัวโน้ตตาม key signature ตรง ๆ ไม่มีการยก)
+
+3️⃣ ไมเนอร์ ฮาร์โมนิก (Harmonic Minor) — ยกขั้นที่ 7 ขึ้นครึ่งเสียง
+C D E♭ F G A♭ B C · ได้ leading note จริง (B→C) คอร์ด V กลายเป็นเมเจอร์
+ช่องว่าง A♭→B เป็น augmented 2nd (1 เสียงครึ่ง) — นั่นคือกลิ่นอายแบบตะวันออกกลางที่ได้ยิน
+
+4️⃣ ไมเนอร์ เมโลดิก (Melodic Minor) — ขาขึ้นยกขั้นที่ 6 และ 7
+ขึ้น: C D E♭ F G A B C
+ลง: C B♭ A♭ G F E♭ D C (กลับเป็น natural minor)
+เหตุผล: ยก 6 ด้วยเพื่อลบช่องว่าง augmented 2nd ทำให้ทำนองขาขึ้นลื่นไหล พอขาลงไม่ต้องวิ่งเข้าหาโทนิกแล้วจึงคืนค่าเดิม
+
+💡 ทั้งสามแบบของไมเนอร์ต่างกันแค่ขั้นที่ 6 กับ 7 เท่านั้น ขั้นที่ 1-5 เหมือนกันหมด`,
+      en: `🎼 The four scales to know (shown in C)
+
+1️⃣ Major — W-W-H-W-W-W-H
+C D E F G A B C · bright and settled
+
+2️⃣ Natural minor — W-H-W-W-H-W-W
+C D E♭ F G A♭ B♭ C · dark and soft; exactly the key signature, nothing raised
+
+3️⃣ Harmonic minor — raise the 7th a semitone
+C D E♭ F G A♭ B C · now there is a real leading note (B→C) and the V chord turns major.
+The gap A♭→B is an augmented 2nd (three semitones) — that leap is the sound people call "Middle Eastern".
+
+4️⃣ Melodic minor — raise the 6th AND 7th going up
+Up: C D E♭ F G A B C
+Down: C B♭ A♭ G F E♭ D C (reverts to natural minor)
+Why: raising the 6th removes that augmented 2nd so the line climbs smoothly; coming down there is no tonic to lean into, so the notes go back.
+
+💡 All three minors share degrees 1-5. Only the 6th and 7th ever change.`,
+      zh: `🎼 必须掌握的四种音阶（以 C 为例）
+
+1️⃣ 大调 (Major) — W-W-H-W-W-W-H
+C D E F G A B C · 明亮、稳定
+
+2️⃣ 自然小调 (Natural Minor) — W-H-W-W-H-W-W
+C D E♭ F G A♭ B♭ C · 忧郁柔和；完全按调号，不升任何音
+
+3️⃣ 和声小调 (Harmonic Minor) — 第7级升半音
+C D E♭ F G A♭ B C · 有了真正的导音 (B→C)，V 级和弦变为大三和弦。
+A♭→B 是增二度（三个半音）——这就是所谓"中东风味"的来源。
+
+4️⃣ 旋律小调 (Melodic Minor) — 上行同时升第6、第7级
+上行：C D E♭ F G A B C
+下行：C B♭ A♭ G F E♭ D C（还原为自然小调）
+原因：升第6级消除了增二度，上行更流畅；下行不需要趋向主音，所以还原。
+
+💡 三种小调的第1-5级完全相同，只有第6、7级在变。`
+    },
   },
   {
     id: "interval", icon: "📏", title: { th: "ขั้นคู่ (Interval)", en: "Interval", zh: "音程 (Interval)" }, subtitle: { th: "ระยะห่างระหว่างโน้ต 2 ตัว", en: "Distance between two notes", zh: "两个音之间的距离" },
@@ -20,18 +94,18 @@ export const PATHWAY = [
       zh: "请教我钢琴上的'音程(Interval)'。解释音程是什么、关键音程(3度、5度、八度)、大三度与小三度的区别，以及纯五度。列出音名。"
     },
     types: [
-      { id: "m2", label: { th: "ไมเนอร์ 2",    en: "Minor 2nd",   zh: "小二度" }, symbol: "m2", demo: ["C4","C#4"], demoFingers: [1,2] },
-      { id: "M2", label: { th: "เมเจอร์ 2",    en: "Major 2nd",   zh: "大二度" }, symbol: "M2", demo: ["C4","D4"],  demoFingers: [1,2] },
-      { id: "m3", label: { th: "ไมเนอร์ 3",    en: "Minor 3rd",   zh: "小三度" }, symbol: "m3", demo: ["C4","D#4"], demoFingers: [1,3] },
-      { id: "M3", label: { th: "เมเจอร์ 3",    en: "Major 3rd",   zh: "大三度" }, symbol: "M3", demo: ["C4","E4"],  demoFingers: [1,3] },
-      { id: "P4", label: { th: "เพอร์เฟกต์ 4", en: "Perfect 4th", zh: "纯四度" }, symbol: "P4", demo: ["C4","F4"],  demoFingers: [1,4] },
-      { id: "TT", label: { th: "ไทรโทน",       en: "Tritone",     zh: "三全音" }, symbol: "TT", demo: ["C4","F#4"], demoFingers: [1,4] },
-      { id: "P5", label: { th: "เพอร์เฟกต์ 5", en: "Perfect 5th", zh: "纯五度" }, symbol: "P5", demo: ["C4","G4"],  demoFingers: [1,5] },
-      { id: "m6", label: { th: "ไมเนอร์ 6",    en: "Minor 6th",   zh: "小六度" }, symbol: "m6", demo: ["C4","G#4"], demoFingers: [1,5] },
-      { id: "M6", label: { th: "เมเจอร์ 6",    en: "Major 6th",   zh: "大六度" }, symbol: "M6", demo: ["C4","A4"],  demoFingers: [1,5] },
-      { id: "m7", label: { th: "ไมเนอร์ 7",    en: "Minor 7th",   zh: "小七度" }, symbol: "m7", demo: ["C4","A#4"], demoFingers: [1,5] },
-      { id: "M7", label: { th: "เมเจอร์ 7",    en: "Major 7th",   zh: "大七度" }, symbol: "M7", demo: ["C4","B4"],  demoFingers: [1,5] },
-      { id: "P8", label: { th: "ออกเทฟ",       en: "Octave",      zh: "八度"   }, symbol: "P8", demo: ["C4","C5"],  demoFingers: [1,5] },
+      { id: "m2", label: { th: "ไมเนอร์ 2",    en: "Minor 2nd",   zh: "小二度" }, symbol: "m2", degrees: [[1,0],[2,1]], demo: ["C4","C#4"], demoFingers: [1,2] },
+      { id: "M2", label: { th: "เมเจอร์ 2",    en: "Major 2nd",   zh: "大二度" }, symbol: "M2", degrees: [[1,0],[2,2]], demo: ["C4","D4"],  demoFingers: [1,2] },
+      { id: "m3", label: { th: "ไมเนอร์ 3",    en: "Minor 3rd",   zh: "小三度" }, symbol: "m3", degrees: [[1,0],[3,3]], demo: ["C4","D#4"], demoFingers: [1,3] },
+      { id: "M3", label: { th: "เมเจอร์ 3",    en: "Major 3rd",   zh: "大三度" }, symbol: "M3", degrees: [[1,0],[3,4]], demo: ["C4","E4"],  demoFingers: [1,3] },
+      { id: "P4", label: { th: "เพอร์เฟกต์ 4", en: "Perfect 4th", zh: "纯四度" }, symbol: "P4", degrees: [[1,0],[4,5]], demo: ["C4","F4"],  demoFingers: [1,4] },
+      { id: "TT", label: { th: "ไทรโทน",       en: "Tritone",     zh: "三全音" }, symbol: "TT", degrees: [[1,0],[4,6]], demo: ["C4","F#4"], demoFingers: [1,4] },
+      { id: "P5", label: { th: "เพอร์เฟกต์ 5", en: "Perfect 5th", zh: "纯五度" }, symbol: "P5", degrees: [[1,0],[5,7]], demo: ["C4","G4"],  demoFingers: [1,5] },
+      { id: "m6", label: { th: "ไมเนอร์ 6",    en: "Minor 6th",   zh: "小六度" }, symbol: "m6", degrees: [[1,0],[6,8]], demo: ["C4","G#4"], demoFingers: [1,5] },
+      { id: "M6", label: { th: "เมเจอร์ 6",    en: "Major 6th",   zh: "大六度" }, symbol: "M6", degrees: [[1,0],[6,9]], demo: ["C4","A4"],  demoFingers: [1,5] },
+      { id: "m7", label: { th: "ไมเนอร์ 7",    en: "Minor 7th",   zh: "小七度" }, symbol: "m7", degrees: [[1,0],[7,10]], demo: ["C4","A#4"], demoFingers: [1,5] },
+      { id: "M7", label: { th: "เมเจอร์ 7",    en: "Major 7th",   zh: "大七度" }, symbol: "M7", degrees: [[1,0],[7,11]], demo: ["C4","B4"],  demoFingers: [1,5] },
+      { id: "P8", label: { th: "ออกเทฟ",       en: "Octave",      zh: "八度"   }, symbol: "P8", degrees: [[1,0],[8,12]], demo: ["C4","C5"],  demoFingers: [1,5] },
     ],
   },
   {
@@ -44,10 +118,10 @@ export const PATHWAY = [
       zh: "请教我钢琴上的'三和弦(Triad)'。解释根音、三度、五度，大/小/减/增三和弦的区别，以及流行的和弦进行。列出音名。"
     },
     types: [
-      { id: "major", label: { th: "เมเจอร์", en: "Major",      zh: "大三" }, symbol: "Δ",  demo: ["C4","E4","G4"],   demoFingers: [1,3,5] },
-      { id: "minor", label: { th: "ไมเนอร์", en: "Minor",      zh: "小三" }, symbol: "m",  demo: ["C4","D#4","G4"],  demoFingers: [1,3,5] },
-      { id: "dim",   label: { th: "ดิมินิช", en: "Diminished", zh: "减三" }, symbol: "°",  demo: ["C4","D#4","F#4"], demoFingers: [1,3,5] },
-      { id: "aug",   label: { th: "ออกเมนต์", en: "Augmented", zh: "增三" }, symbol: "+",  demo: ["C4","E4","G#4"],  demoFingers: [1,3,5] },
+      { id: "major", label: { th: "เมเจอร์", en: "Major",      zh: "大三" }, symbol: "Δ",  degrees: [[1,0],[3,4],[5,7]], demo: ["C4","E4","G4"],   demoFingers: [1,3,5] },
+      { id: "minor", label: { th: "ไมเนอร์", en: "Minor",      zh: "小三" }, symbol: "m",  degrees: [[1,0],[3,3],[5,7]], demo: ["C4","D#4","G4"],  demoFingers: [1,3,5] },
+      { id: "dim",   label: { th: "ดิมินิช", en: "Diminished", zh: "减三" }, symbol: "°",  degrees: [[1,0],[3,3],[5,6]], demo: ["C4","D#4","F#4"], demoFingers: [1,3,5] },
+      { id: "aug",   label: { th: "ออกเมนต์", en: "Augmented", zh: "增三" }, symbol: "+",  degrees: [[1,0],[3,4],[5,8]], demo: ["C4","E4","G#4"],  demoFingers: [1,3,5] },
     ],
     typesInfo: {
       th: `🔺 4 ชนิดของ Triad (ตัวอย่างคีย์ C)
@@ -107,14 +181,14 @@ C–E–G♯ · 奇异、神秘
       zh: "请教我钢琴上的'七和弦(7th Chord)'。解释大七、属七、小七和弦，各自的情感差异，以及在爵士/灵魂/放克中的运用。列出音名如 Cmaj7 = C4 E4 G4 B4。"
     },
     types: [
-      { id: "maj7",    label: { th: "เมเจอร์ 7",          en: "Major 7",       zh: "大七"   }, symbol: "maj7", demo: ["C4","E4","G4","B4"],    demoFingers: [1,2,3,5] },
-      { id: "dom7",    label: { th: "โดมินันต์ 7",         en: "Dominant 7",    zh: "属七"   }, symbol: "7",    demo: ["C4","E4","G4","A#4"],   demoFingers: [1,2,3,5] },
-      { id: "min7",    label: { th: "ไมเนอร์ 7",           en: "Minor 7",       zh: "小七"   }, symbol: "m7",   demo: ["C4","D#4","G4","A#4"],  demoFingers: [1,2,3,5] },
-      { id: "minmaj7", label: { th: "ไมเนอร์-เมเจอร์ 7",  en: "Minor-Major 7", zh: "小大七" }, symbol: "mΔ7", demo: ["C4","D#4","G4","B4"],   demoFingers: [1,2,3,5] },
-      { id: "halfdim", label: { th: "ฮาล์ฟดิมินิช",       en: "Half-Dim",      zh: "半减七" }, symbol: "ø7",  demo: ["C4","D#4","F#4","A#4"], demoFingers: [1,2,3,5] },
-      { id: "dim7",    label: { th: "ดิมินิช 7",           en: "Diminished 7",  zh: "减七"   }, symbol: "°7",  demo: ["C4","D#4","F#4","A4"],  demoFingers: [1,2,3,5] },
-      { id: "aug7",    label: { th: "ออกเมนต์ 7",          en: "Augmented 7",   zh: "增七"   }, symbol: "+7",  demo: ["C4","E4","G#4","A#4"],  demoFingers: [1,2,3,5] },
-      { id: "augmaj7", label: { th: "ออกเมนต์-เมเจอร์ 7", en: "Aug-Major 7",  zh: "增大七" }, symbol: "+Δ7", demo: ["C4","E4","G#4","B4"],   demoFingers: [1,2,3,5] },
+      { id: "maj7",    label: { th: "เมเจอร์ 7",          en: "Major 7",       zh: "大七"   }, symbol: "maj7", degrees: [[1,0],[3,4],[5,7],[7,11]], demo: ["C4","E4","G4","B4"],    demoFingers: [1,2,3,5] },
+      { id: "dom7",    label: { th: "โดมินันต์ 7",         en: "Dominant 7",    zh: "属七"   }, symbol: "7",    degrees: [[1,0],[3,4],[5,7],[7,10]], demo: ["C4","E4","G4","A#4"],   demoFingers: [1,2,3,5] },
+      { id: "min7",    label: { th: "ไมเนอร์ 7",           en: "Minor 7",       zh: "小七"   }, symbol: "m7",   degrees: [[1,0],[3,3],[5,7],[7,10]], demo: ["C4","D#4","G4","A#4"],  demoFingers: [1,2,3,5] },
+      { id: "minmaj7", label: { th: "ไมเนอร์-เมเจอร์ 7",  en: "Minor-Major 7", zh: "小大七" }, symbol: "mΔ7", degrees: [[1,0],[3,3],[5,7],[7,11]], demo: ["C4","D#4","G4","B4"],   demoFingers: [1,2,3,5] },
+      { id: "halfdim", label: { th: "ฮาล์ฟดิมินิช",       en: "Half-Dim",      zh: "半减七" }, symbol: "ø7",  degrees: [[1,0],[3,3],[5,6],[7,10]], demo: ["C4","D#4","F#4","A#4"], demoFingers: [1,2,3,5] },
+      { id: "dim7",    label: { th: "ดิมินิช 7",           en: "Diminished 7",  zh: "减七"   }, symbol: "°7",  degrees: [[1,0],[3,3],[5,6],[7,9]], demo: ["C4","D#4","F#4","A4"],  demoFingers: [1,2,3,5] },
+      { id: "aug7",    label: { th: "ออกเมนต์ 7",          en: "Augmented 7",   zh: "增七"   }, symbol: "+7",  degrees: [[1,0],[3,4],[5,8],[7,10]], demo: ["C4","E4","G#4","A#4"],  demoFingers: [1,2,3,5] },
+      { id: "augmaj7", label: { th: "ออกเมนต์-เมเจอร์ 7", en: "Aug-Major 7",  zh: "增大七" }, symbol: "+Δ7", degrees: [[1,0],[3,4],[5,8],[7,11]], demo: ["C4","E4","G#4","B4"],   demoFingers: [1,2,3,5] },
     ],
     typesInfo: {
       th: `7️⃣ 8 ชนิดของ 7th Chord (ตัวอย่างคีย์ C)

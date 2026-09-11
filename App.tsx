@@ -26,6 +26,7 @@ import {
 import {
   NF, KEYS_12, CHROMA, LESSON_MODE,
   FINGERINGS_RH, FINGERINGS_LH, FINGERING_REF, TRIAD_FINGER_RH, TRIAD_FINGER_LH,
+  SCALE_TYPES, spellScale, spellFromRoot,
   getFingers, fingersForNotes, extractNotes, chordNotesOf, identifyChord, interpretPlayed,
   INTERVAL_FEEL, TRIAD_FEEL, SEVENTH_FEEL,
   normalizeSeq, noteKeyFrac, transposeNotes, semisFromC,
@@ -10376,6 +10377,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const demoSrc = chordType || stage;
     const semis = semisFromC(keyId);
     const demoNotes = transposeNotes(demoSrc.demo || stage.demo, semis);
+    const scaleType = (chordType && chordType.scaleType) || stage.scaleType || "major";
     let demoFingers = demoSrc.demoFingers || stage.demoFingers || null;
     let chartKey = null;   // canonical key so the chart can recompute fingering on a hand switch
     if (stage.demoMode === "scale") {
@@ -10384,10 +10386,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       // (an honest blank beats teaching a wrong fingering). Use the picker's own
       // spelling (keyId) directly — routing it through CHROMA (sharps-only) would
       // silently respell Db/Ab/Eb/Bb as C#/G#/D#/A# and miss the lookup entirely.
-      const scaleKey = keyId.toLowerCase() + " major scale";
+      // The minor/major half matters too: this asked for "<key> major scale"
+      // unconditionally, so every minor scale was handed major fingering.
+      const isMinor = String(scaleType).indexOf("minor") >= 0;
+      const scaleKey = keyId.toLowerCase() + (isMinor ? " minor scale" : " major scale");
       const map = hand === "left" ? FINGERINGS_LH : FINGERINGS_RH;
       const fk = map[scaleKey];
-      demoFingers = fk ? fk.slice(0, demoNotes.length) : null;
+      // Melodic minor's demo runs up AND back down, so it needs more numbers
+      // than the ascending table holds: the descent is the ascent reversed,
+      // minus the shared top note.
+      demoFingers = fk
+        ? (demoNotes.length > fk.length
+            ? fk.concat(fk.slice().reverse().slice(1)).slice(0, demoNotes.length)
+            : fk.slice(0, demoNotes.length))
+        : null;
       // Keep the key ONLY when we have verified data — then switching L/R hand
       // recomputes the correct fingering instead of keeping the other hand's.
       chartKey = fk ? scaleKey : null;
@@ -10397,6 +10409,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const sTitle = tr(stage.title, lang);
     const typeName = chordType ? tr(chordType.label, lang) : null;
     const fullTitle = typeName ? `${typeName} ${sTitle}` : sTitle;
+    /* What the lesson PRINTS, which is not what it plays. transposeNotes works
+       in the sharps-only table the synth indexes, so it renders E♭ major as
+       "D♯ F G G♯ A♯ C D" — right pitches, wrong notation, and wrong in a way a
+       teacher would mark. spellScale re-derives the same pitches letter by
+       letter so the page shows E♭ F G A♭ B♭ C D. Playback keeps demoNotes. */
+    let spelled = null;
+    if (stage.demoMode === "scale") {
+      const st = SCALE_TYPES[scaleType] || SCALE_TYPES.major;
+      const minor = scaleType !== "major";
+      spelled = spellScale(keyId, st.up, { minor });
+      if (st.down) spelled = spelled.concat(spellScale(keyId, st.down, { minor }).slice(1));
+    } else if (demoSrc.degrees) {
+      // Same rule for intervals and chords: a chord tone takes the letter its
+      // DEGREE names. That is what makes a diminished 7th read C–E♭–G♭–B𝄫
+      // rather than C–D♯–F♯–A, which names four pitches correctly and every
+      // interval in the chord wrongly.
+      spelled = spellFromRoot(keyId, demoSrc.degrees);
+    }
     return {
       notes: demoNotes,
       mode: stage.demoMode,
@@ -10404,6 +10434,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       label: `${fullTitle} · ${keyLabel}`,
       key: chartKey,
       stageId: stage.id,
+      scaleType, spelled,
       keyId, keyLabel, fullTitle,
     };
   }
@@ -10464,7 +10495,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (stage && stage.id) { if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); setActiveStageType(chordType); }
     const basePrompt = stage.learn[lang] || stage.learn.en;
     const demoParsed = buildStageDemoSeq(stage, key, chordType);
-    const { keyId, keyLabel, fullTitle, notes: demoNotes } = demoParsed;
+    const { keyId, keyLabel, fullTitle, notes: demoNotes, spelled, scaleType } = demoParsed;
     const sTitle = tr(stage.title, lang);
     const typeName = chordType ? tr(chordType.label, lang) : null;
     logActivity("lesson", stage.id + "/" + keyId.toLowerCase(), 0, 0, 180); // ~3 min of study per topic-in-key
@@ -10498,7 +10529,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (stage.typesInfo && !chordType) intro.push({ role: "ai", text: tr(stage.typesInfo, lang) });
     // tier 1: scale/interval/triad/7th topics are formulaic — answer instantly from
     // the app's own theory engine instead of asking the live AI every time
-    const local = localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes, fullTitle, lang);
+    const local = localPathwayLesson(stage, keyId, keyLabel, chordType, spelled || demoNotes, fullTitle, lang, scaleType);
     if (local) intro.push({ role: "ai", text: local });
     intro.forEach(m => pushMessage(m));
     const dt = setTimeout(() => playSequence(demoParsed), 300);

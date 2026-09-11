@@ -29,8 +29,51 @@ export function degreeLabel(i, lang) {
   return arr[i] || `#${i + 1}`;
 }
 // stage/key/type → ready-made lesson text, or null (→ caller falls through to the live AI)
-export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes, fullTitle, lang) {
+/* Per-scale-type teaching copy. The formulas here are the authority the
+   pathway prints, so they are written as intervals from the tonic rather than
+   as note names — a formula is true in every key, a note list is only true in
+   one. Degrees 1-5 are identical across all three minors; every difference
+   lives in 6 and 7, which is what the text leads with. */
+const SCALE_TYPE_INFO = {
+  major: {
+    steps: "W-W-H-W-W-W-H",
+    th: "บันไดเสียงเมเจอร์ — สูตรระยะห่างนี้เหมือนกันทุกคีย์ เปลี่ยนแค่โน้ตเริ่มต้น ครึ่งเสียงอยู่ระหว่างขั้น 3-4 และ 7-8 เสียงสดใส มั่นคง",
+    en: "The major scale — the same step pattern in every key, only the starting note moves. The two half steps fall between degrees 3-4 and 7-8. Bright and settled.",
+    zh: "大调音阶——每个调的公式完全相同，只是起始音不同。两个半音位于第3-4级和第7-8级之间。明亮稳定。",
+  },
+  natural_minor: {
+    steps: "W-H-W-W-H-W-W",
+    th: "ไมเนอร์ธรรมชาติ — ใช้โน้ตตาม key signature ตรง ๆ ไม่ยกขั้นไหนเลย ครึ่งเสียงอยู่ที่ขั้น 2-3 และ 5-6 เทียบกับเมเจอร์คือลดขั้น 3, 6 และ 7 ลงครึ่งเสียง (♭3 ♭6 ♭7) เสียงเศร้า นุ่ม",
+    en: "Natural minor — exactly the key signature, nothing raised. Half steps fall between degrees 2-3 and 5-6. Against the major scale it is ♭3, ♭6 and ♭7. Dark and soft.",
+    zh: "自然小调——完全按调号，不升任何音。半音位于第2-3级和第5-6级之间。与大调相比是 ♭3、♭6、♭7。忧郁柔和。",
+  },
+  harmonic_minor: {
+    steps: "W-H-W-W-H-A2-H",
+    th: "ไมเนอร์ฮาร์โมนิก — ยกขั้นที่ 7 ขึ้นครึ่งเสียงจากไมเนอร์ธรรมชาติ (♭3 ♭6 แต่ 7 เป็นเนเชอรัล) ผลคือได้ leading note จริงที่วิ่งเข้าหาโทนิก และคอร์ด V กลายเป็นเมเจอร์ (V7 ได้เต็มรูป) ช่องระหว่างขั้น 6-7 กว้างเป็น augmented 2nd (สามครึ่งเสียง) — นั่นคือสีสันเฉพาะตัวที่ได้ยิน",
+    en: "Harmonic minor — natural minor with the 7th raised a semitone (♭3, ♭6, natural 7). That gives a true leading note pulling into the tonic, and turns the V chord major so a full V7 becomes available. The gap between degrees 6 and 7 widens to an augmented 2nd (three semitones), which is the colour you hear.",
+    zh: "和声小调——在自然小调基础上把第7级升高半音（♭3、♭6，第7级还原）。由此获得真正的导音，V 级和弦变为大三和弦，可用完整的 V7。第6-7级之间扩大为增二度（三个半音），这正是它独特的色彩来源。",
+  },
+  melodic_minor: {
+    steps: "W-H-W-W-W-W-H",
+    th: "ไมเนอร์เมโลดิก — ขาขึ้นยกทั้งขั้นที่ 6 และ 7 (♭3 แต่ 6 และ 7 เป็นเนเชอรัล) เพื่อลบช่วง augmented 2nd ของฮาร์โมนิกออก ทำนองขาขึ้นจึงลื่นไหล ส่วนขาลงกลับไปใช้ไมเนอร์ธรรมชาติทุกตัว เพราะไม่ต้องวิ่งเข้าหาโทนิกแล้ว (นี่คือธรรมเนียมแบบคลาสสิก ส่วนแจ๊สมักใช้รูปขาขึ้นทั้งขึ้นและลง)",
+    en: "Melodic minor — going up, both the 6th and 7th are raised (♭3, natural 6 and 7), which removes harmonic minor's augmented 2nd and lets the line climb smoothly. Coming down it reverts to natural minor, because there is no tonic to lean into on the way down. (That is the classical convention; jazz usually keeps the ascending form in both directions.)",
+    zh: "旋律小调——上行时第6、第7级同时升高（♭3，第6、7级还原），消除了和声小调的增二度，旋律上行更流畅。下行还原为自然小调，因为下行不需要趋向主音。（这是古典惯例；爵士乐通常上下行都用上行形式。）",
+  },
+};
+
+export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes, fullTitle, lang, scaleType) {
   const notesTxt = demoNotes.join(" ");
+  if (stage.demoMode === "scale" && stage.types) {
+    const info = SCALE_TYPE_INFO[scaleType] || SCALE_TYPE_INFO.major;
+    const isMel = scaleType === "melodic_minor";
+    const body = info[lang] || info.en;
+    const T = {
+      th: `🎼 ${fullTitle} · ${keyLabel}\n\nโน้ตทั้งหมด: ${notesTxt}\nสูตรระยะห่าง (W=เสียงเต็ม, H=ครึ่งเสียง, A2=augmented 2nd): ${info.steps}${isMel ? "\nขาลง: W-W-H-W-W-H-W (กลับเป็นไมเนอร์ธรรมชาติ)" : ""}\n\n${body}\n\n💡 ฝึกแยกมือก่อน ไล่ขึ้น-ลงช้า ๆ ให้จังหวะสม่ำเสมอ นิ้วโป้งสอดลอดใต้ฝ่ามืออย่างนุ่มนวลโดยไม่ยกข้อมือ (ดูเลขนิ้วในผังด้านล่าง) พอแม่นแล้วค่อยเพิ่มความเร็ว`,
+      en: `🎼 ${fullTitle} · ${keyLabel}\n\nAll notes: ${notesTxt}\nStep formula (W=whole, H=half, A2=augmented 2nd): ${info.steps}${isMel ? "\nComing down: W-W-H-W-W-H-W (back to natural minor)" : ""}\n\n${body}\n\n💡 Practise hands separately first, slow and even in both directions. The thumb passes smoothly under the palm without lifting the wrist (finger numbers are in the chart below). Add speed only once it is accurate.`,
+      zh: `🎼 ${fullTitle} · ${keyLabel}\n\n所有音符：${notesTxt}\n音程公式（W=全音，H=半音，A2=增二度）：${info.steps}${isMel ? "\n下行：W-W-H-W-W-H-W（还原为自然小调）" : ""}\n\n${body}\n\n💡 先分手练习，上下行都要慢而均匀。大拇指平顺地穿到手掌下方，手腕不要抬起（指法见下方图表）。准确之后再加速。`,
+    };
+    return T[lang] || T.en;
+  }
   if (stage.demoMode === "scale" && !stage.types) {
     const T = {
       th: `🎼 ${fullTitle} · ${keyLabel}\n\nโน้ตทั้งหมด: ${notesTxt}\nสูตรระยะห่าง (Whole/Half step): W-W-H-W-W-W-H\n\nนี่คือบันไดเสียงเมเจอร์ — สูตรระยะห่างนี้ใช้ได้กับทุกคีย์เหมือนกันหมด แค่เปลี่ยนโน้ตเริ่มต้น เสียงจะให้ความรู้สึกสดใส มั่นคง เป็นฐานของเพลงส่วนใหญ่ที่เราคุ้นเคย\n\n💡 ฝึกแยกมือก่อน ไล่ขึ้น-ลงช้า ๆ ให้จังหวะสม่ำเสมอ นิ้วโป้งต้องสอดลอดใต้ฝ่ามือแบบนุ่มนวลไม่ยกข้อมือ (ดูเลขนิ้วในผังด้านล่าง) พอชัวร์แล้วค่อยเพิ่มความเร็ว`,

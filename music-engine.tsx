@@ -196,6 +196,14 @@ export const FINGERINGS_RH = {
   "e minor scale":  [1,2,3,1,2,3,4,5],
   "d minor scale":  [1,2,3,1,2,3,4,5],
   "f minor scale":  [1,2,3,4,1,2,3,4],
+  // The minor half of this table used to hold four keys, so picking any other
+  // minor key fell through to the major lookup and was taught major fingering.
+  // These three take the same standard shape as their majors; the remaining
+  // minors are deliberately absent rather than guessed — a missing fingering
+  // shows as a blank, which is honest, and a wrong one is not.
+  "c minor scale":  [1,2,3,1,2,3,4,5],
+  "g minor scale":  [1,2,3,1,2,3,4,5],
+  "b minor scale":  [1,2,3,1,2,3,4,5],
   "c scale":        [1,2,3,1,2,3,4,5],
   "g scale":        [1,2,3,1,2,3,4,5],
   "pentatonic":     [1,2,3,4,5,1],
@@ -221,6 +229,9 @@ export const FINGERINGS_LH = {
   "e minor scale":  [5,4,3,2,1,3,2,1],
   "d minor scale":  [5,4,3,2,1,3,2,1],
   "f minor scale":  [5,4,3,2,1,3,2,1],
+  "c minor scale":  [5,4,3,2,1,3,2,1],
+  "g minor scale":  [5,4,3,2,1,3,2,1],
+  "b minor scale":  [4,3,2,1,4,3,2,1],
   "c scale":        [5,4,3,2,1,3,2,1],
   "g scale":        [5,4,3,2,1,3,2,1],
   "pentatonic":     [5,4,3,2,1,5],
@@ -477,6 +488,110 @@ export const SEVENTH_FEEL = {
   aug7: { th: "โดมินันต์แปลกๆ อยากคลี่คลายแบบมีสีสัน", en: "an edgy dominant that resolves with extra color", zh: "另类属和弦，带着色彩感解决", formula: "1–3–♯5–♭7" },
   augmaj7: { th: "ฝันลอย ล้ำสมัย", en: "dreamy and futuristic", zh: "梦幻、前卫", formula: "1–3–♯5–7" },
 };
+
+/* ── Scale theory: the app's own authority on what a scale contains ──────────
+   Two separate jobs, deliberately kept apart:
+
+   SOUND is chromatic. The audio engine indexes a sharps-only table, so a
+   played E-flat is the same key as a played D-sharp and nothing downstream
+   cares which name it was given.
+
+   NOTATION is not. A scale is spelled with each letter A-G used exactly once,
+   and which accidental lands on that letter follows from the letter, not from
+   the pitch. E-flat major is E♭ F G A♭ B♭ C D — never D♯ F G G♯ A♯ C D, which
+   is what a sharps-only transpose produces and what this app used to print on
+   every pathway lesson outside the key of C. C harmonic minor is the sharpest
+   example: its seventh is B natural, and the flat sixth is A♭, so spelling it
+   chromatically gives "G♯ B" where the theory says "A♭ B".
+
+   spellScale() therefore walks LETTERS, not semitones: degree i always takes
+   the i-th letter above the tonic, and the accidental is whatever closes the
+   gap between that letter's natural pitch and the pitch the formula asks for.
+   That is what produces E♯ in F♯ major and C♭/F♭ in A♭ minor — both correct,
+   and both unreachable by a chromatic spelling. ─────────────────────────── */
+const SPELL_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
+const LETTER_SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+// −2..+2 as real accidental glyphs; double-flat/double-sharp are genuinely
+// needed (G♯ harmonic minor's seventh is F𝄪) so they are not clamped away.
+const ACC_GLYPH = { "-2": "𝄫", "-1": "♭", "0": "", "1": "♯", "2": "𝄪" };
+
+/* Semitone offsets from the tonic. The three minor forms differ only in the
+   6th and 7th degrees, which is the whole point of teaching them together:
+     natural  ♭6 ♭7   — the key signature, nothing raised
+     harmonic ♭6  7   — raised 7th gives a real leading note, and the augmented
+                        2nd between ♭6 and 7 is what makes it sound the way it does
+     melodic   6  7   — ascending only; classical practice descends as natural
+                        minor, which is why melodic carries its own down[] */
+export const SCALE_TYPES = {
+  major:          { up: [0, 2, 4, 5, 7, 9, 11, 12], steps: "W-W-H-W-W-W-H" },
+  natural_minor:  { up: [0, 2, 3, 5, 7, 8, 10, 12], steps: "W-H-W-W-H-W-W" },
+  harmonic_minor: { up: [0, 2, 3, 5, 7, 8, 11, 12], steps: "W-H-W-W-H-A2-H" },
+  melodic_minor:  { up: [0, 2, 3, 5, 7, 9, 11, 12], steps: "W-H-W-W-W-W-H",
+                    down: [12, 10, 8, 7, 5, 3, 2, 0], downSteps: "W-W-H-W-W-H-W" },
+};
+
+/* The 12 minor keys as they are actually written. The key picker is spelled
+   for major keys, where D♭ and A♭ are the standard choices; their minors are
+   not — D♭ minor would need eight flats. C♯ minor (4♯) and G♯ minor (5♯) are
+   the real keys, so a minor scale re-spells those two tonics before spelling
+   the scale. The rest already match: E♭ minor (6♭) and B♭ minor (5♭) are the
+   conventional choices over D♯/A♯ minor, and F♯ minor (3♯) over G♭ minor. */
+const MINOR_TONIC_RESPELL = { Db: "C#", Ab: "G#" };
+
+function accGlyph(n) {
+  const k = String(Math.max(-2, Math.min(2, n)));
+  return ACC_GLYPH[k] != null ? ACC_GLYPH[k] : (n < 0 ? "♭".repeat(-n) : "♯".repeat(n));
+}
+
+// "Eb" → { letter: "E", acc: -1 }; accepts ♯/♭ glyphs as well as #/b
+export function splitTonic(id) {
+  const m = String(id || "C").replace("♯", "#").replace("♭", "b").match(/^([A-Ga-g])(#|b)?$/);
+  if (!m) return { letter: "C", acc: 0 };
+  return { letter: m[1].toUpperCase(), acc: m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0 };
+}
+
+/* Spell one scale as display text: ["E♭","F","G","A♭","B♭","C","D","E♭"].
+   `pattern` is semitone offsets from the tonic (SCALE_TYPES[...].up/.down). */
+export function spellScale(tonicId, pattern, opts) {
+  const o = opts || {};
+  const tonic = splitTonic(o.minor ? (MINOR_TONIC_RESPELL[tonicId] || tonicId) : tonicId);
+  const li0 = SPELL_LETTERS.indexOf(tonic.letter);
+  const rootSemi = LETTER_SEMI[tonic.letter] + tonic.acc;
+  const asc = !(pattern[0] > pattern[pattern.length - 1]);
+  return pattern.map((sem, i) => {
+    // Degree i takes the i-th letter above (or below) the tonic — descending
+    // runs walk the letters backwards so melodic minor's down[] still spells
+    // one letter per degree instead of repeating one.
+    const step = asc ? i : -i;
+    const li = ((li0 + step) % 7 + 7) % 7;
+    const letter = SPELL_LETTERS[li];
+    const want = ((rootSemi + sem) % 12 + 12) % 12;
+    let acc = want - LETTER_SEMI[letter];
+    if (acc > 6) acc -= 12;
+    if (acc < -6) acc += 12;
+    return letter + accGlyph(acc);
+  });
+}
+
+/* The same letter-first rule for a chord or interval built on a root: each
+   member takes the letter its DEGREE names, so a C minor triad is C–E♭–G
+   (third = some kind of E) and never C–D♯–G. `degrees` pairs each chord tone's
+   scale degree (1-based, 1=root, 3=third, 7=seventh) with its semitone offset. */
+export function spellFromRoot(rootId, degrees, opts) {
+  const o = opts || {};
+  const tonic = splitTonic(o.minor ? (MINOR_TONIC_RESPELL[rootId] || rootId) : rootId);
+  const li0 = SPELL_LETTERS.indexOf(tonic.letter);
+  const rootSemi = LETTER_SEMI[tonic.letter] + tonic.acc;
+  return degrees.map(([deg, sem]) => {
+    const li = ((li0 + (deg - 1)) % 7 + 7) % 7;
+    const letter = SPELL_LETTERS[li];
+    const want = ((rootSemi + sem) % 12 + 12) % 12;
+    let acc = want - LETTER_SEMI[letter];
+    if (acc > 6) acc -= 12;
+    if (acc < -6) acc += 12;
+    return letter + accGlyph(acc);
+  });
+}
 
 export const KEYS_12 = [
   { id: "C",  name: "C",  th: "โด",        zh: "C",  black: false },
