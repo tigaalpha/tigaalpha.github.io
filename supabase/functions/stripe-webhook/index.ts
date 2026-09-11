@@ -39,6 +39,30 @@ serve(async (req) => {
     const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!secret || !url || !svc) return new Response(JSON.stringify({ error: "not configured" }), { status: 503, headers });
 
+    /* Owner-only configuration self-check.
+
+       In live mode Stripe offers no "send test event" button — fake events are
+       a sandbox-only feature — so the usual way to discover that the signing
+       secret was pasted wrong is a real customer paying and the fulfilment
+       silently not firing. This reports the SHAPE of the secret (present,
+       prefix, length, stray whitespace), never the secret itself, which is
+       enough to catch every realistic paste error: a truncated copy, a
+       leading space, or the wrong string entirely.
+
+       It is not a public probe. This function runs with verify_jwt=false so
+       that Stripe can reach it, which means anyone can POST here; the check is
+       therefore gated on the project service key, which only the owner and the
+       server ever hold. Without that header this is dead code to the outside
+       world. */
+    if (req.headers.get("x-config-check") === svc) {
+      return new Response(JSON.stringify({
+        secret_present: true,
+        starts_with_whsec: secret.startsWith("whsec_"),
+        length: secret.length,
+        has_edge_whitespace: secret !== secret.trim(),
+      }), { headers });
+    }
+
     const raw = await req.text();
     if (!(await validSignature(raw, req.headers.get("stripe-signature"), secret))) {
       return new Response(JSON.stringify({ error: "bad signature" }), { status: 400, headers });
