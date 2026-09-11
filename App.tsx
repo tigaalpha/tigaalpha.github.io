@@ -346,7 +346,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.247";
+const APP_VER = "13.7.246";
 
 async function signInWith(provider) {
   try {
@@ -9068,7 +9068,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
-        : adminTab === "activity" && tier >= 3 ? <AdminActivity lang={lang} />
+        : adminTab === "activity" && tier >= 3 ? <AdminActivity lang={lang} onOpenAnon={() => setAdminTab("anonvisit")} />
         : adminTab === "anonvisit" && tier >= 3 ? <AdminAnonVisitors lang={lang} />
         : adminTab === "simbots" && tier >= 3 ? <AdminSimBots lang={lang} />
         : adminTab === "ai" && tier >= 3 ? (<>

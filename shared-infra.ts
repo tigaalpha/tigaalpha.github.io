@@ -206,7 +206,11 @@ export function recordNoteMisses(notes) {
    of cumulative use (persists across visits — refreshing buys no extra time),
    tracked separately from any one page's `profile.exp` etc. so it survives
    a guest bouncing between pages. */
-export const GUEST_TRIAL_MS = 5 * 60 * 1000;
+// 2.5 minutes, halved from 5 on 2026-09-11. The gate is the only moment the
+// app asks for anything, and it was arriving after most visitors had already
+// gone: the paid traffic that week averaged well under a minute on site, so a
+// five-minute trial meant the great majority never saw the ask at all.
+export const GUEST_TRIAL_MS = 2.5 * 60 * 1000;
 export const GUEST_PROFILE_KEY = "tg_guest_profile";
 export const GUEST_MS_KEY = "tg_guest_ms";
 export function freshGuestProfile() {

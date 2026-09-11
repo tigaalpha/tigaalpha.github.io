@@ -3252,6 +3252,23 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .au-escb{flex:1;height:42px;border-radius:10px;border:1px solid var(--auB);background:var(--auS);color:var(--auT);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:.18s}
 .au-escb:hover{border-color:#ffb23688}
 
+
+/* ── signed-out visitor headline (top of User Activity) ── */
+.anonhero{display:flex;align-items:center;gap:14px;width:100%;text-align:left;cursor:pointer;
+  background:linear-gradient(135deg,#d9775718,#d9775708);border:1.5px solid #d9775755;
+  border-radius:14px;padding:13px 15px;margin-bottom:10px;transition:.18s;font-family:'Rajdhani',sans-serif}
+.anonhero:hover{border-color:#d97757aa;transform:translateY(-1px)}
+.anonhero-l{flex:none}
+.anonhero-k{font-size:11.5px;color:var(--muted);letter-spacing:.3px;margin-bottom:1px}
+.anonhero-v{font-size:34px;font-weight:800;color:#d97757;line-height:1;display:flex;align-items:baseline;gap:5px}
+.anonhero-v span{font-size:13px;font-weight:600;color:var(--muted)}
+.anonhero-r{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.anonhero-s{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.anonhero-s b{color:var(--text);font-size:13.5px}
+.anonhero-w{font-size:11.5px;color:#d9944a;font-weight:600;margin-top:2px}
+.anonhero-go{flex:none;font-size:12px;font-weight:700;color:#d97757;white-space:nowrap}
+@media(max-width:430px){.anonhero{gap:10px;padding:11px 12px}.anonhero-v{font-size:28px}.anonhero-go{display:none}}
+
 `;
 
 export function useInjectCSS() {

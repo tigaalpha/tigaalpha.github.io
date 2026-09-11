@@ -241,9 +241,10 @@ export function AdminAnonVisitors({ lang }) {
 }
 
 /* ═══════════════ 1. ACTIVITY DASHBOARD ═══════════════ */
-export function AdminActivity({ lang }) {
+export function AdminActivity({ lang, onOpenAnon }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [range, setRange] = useState("7");
+  const [anon, setAnon] = useState(null);   // headline count of signed-out visitors
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState(null);
   const [sel, setSel] = useState(null);      // selected user uuid
@@ -273,6 +274,10 @@ export function AdminActivity({ lang }) {
     // hours stays null and the histogram card is simply not rendered.
     sb.rpc("admin_activity_hourly", { p_since: since, p_include_sim: showSim })
       .then(({ data }) => setHours((data && data.hours) || []), () => setHours(null));
+    // Signed-out visitors are the top line of this page now: they are most of
+    // the traffic and none of them are in the member list below.
+    sb.rpc("admin_anon_overview", { p_since: since })
+      .then(({ data }) => setAnon(data || null), () => setAnon(null));
   }, [range, showSim]);
 
   useEffect(() => { load(); }, [load]);
@@ -297,8 +302,35 @@ export function AdminActivity({ lang }) {
 
   const t = overview?.totals || {};
 
+  const anonWv = (() => {
+    const b = (anon && anon.browsers) || [];
+    const total = b.reduce((n, x) => n + (Number(x.n) || 0), 0);
+    if (!total) return 0;
+    return Math.round((b.filter(x => isWebview(x.ua)).reduce((n, x) => n + (Number(x.n) || 0), 0) / total) * 100);
+  })();
+
   return (
     <div className="adminpay">
+      {/* ── signed-out visitors, first thing on the page ──
+          They are the majority of the traffic and appear nowhere in the member
+          list below, so burying them was how "393 visits, 0 accounts" stayed
+          invisible for three days. */}
+      {anon && (
+        <button className="anonhero" onClick={() => onOpenAnon && onOpenAnon()}>
+          <div className="anonhero-l">
+            <div className="anonhero-k">{T("ผู้เข้าชมที่ยังไม่ล็อกอิน", "Visitors not logged in", "未登录访客")}</div>
+            <div className="anonhero-v">{anon.anon_only ?? 0}<span>{T("คน", "people", "人")}</span></div>
+          </div>
+          <div className="anonhero-r">
+            <div className="anonhero-s"><b>{anon.visitors ?? 0}</b> {T("เข้าชมทั้งหมด", "visitors", "总访客")}</div>
+            <div className="anonhero-s"><b>{anon.converted ?? 0}</b> {T("สมัครแล้ว", "signed up", "已注册")}</div>
+            <div className="anonhero-s"><b>{anon.bounced ?? 0}</b> {T("เปิดหน้าเดียวแล้วออก", "bounced", "跳出")}</div>
+            {anonWv >= 20 && <div className="anonhero-w">⚠️ {anonWv}% {T("มาจากเบราว์เซอร์ในแอป", "in-app browser", "应用内浏览器")}</div>}
+          </div>
+          <span className="anonhero-go">{T("ดูรายละเอียด", "Details", "详情")} ›</span>
+        </button>
+      )}
+
       <RangePicker range={range} setRange={setRange} T={T} />
 
       <label style={{ display: "flex", alignItems: "center", gap: 6, margin: "8px 0", fontSize: 12, color: "var(--tg-sub, #888)" }}>
