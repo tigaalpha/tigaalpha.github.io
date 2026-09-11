@@ -48,9 +48,19 @@
 //     built-in default (Anthropic Claude Sonnet). No client change, no
 //   redeploy needed to switch models: flip it in /admin → AI Models, it
 //   applies to the very next request of that feature.
+//   NOTE: the app_settings read below runs as the CALLER. The table's read
+//   policy is granted to `authenticated` only, so a real signed-in learner
+//   sees the admin's choices while an anon-key caller reads zero rows and
+//   silently gets the built-in defaults. Anything probing this function with
+//   the anon key is therefore NOT testing the configured models.
 //
 // ENV VARS THIS FUNCTION NEEDS (set via `supabase secrets set`):
-//   ANTHROPIC_API_KEY   — required for Anthropic (the default).
+//   ANTHROPIC_API_KEY   — the built-in default and the ONLY provider the admin
+//                         "Teach AI" tab can use. As of 2026-09-11 this is NOT
+//                         set on this project: api.anthropic.com answers
+//                         401 "x-api-key header is required", so Teach AI is
+//                         dead until a key is added and every other feature
+//                         runs on the free ladder below.
 //   GEMINI_API_KEY      — for Gemini options. https://aistudio.google.com/apikey
 //   DEEPSEEK_API_KEY    — for DeepSeek V4 options (direct API). https://platform.deepseek.com
 //   OPENROUTER_API_KEY  — routes any chat-type feature through OpenRouter and
@@ -136,16 +146,25 @@ const hasKey = (p: string) =>
   : !!ANTHROPIC_API_KEY;
 
 // A provider whose API key is not configured can never succeed — silently route
-// to one that IS configured (Anthropic ↔ Gemini ↔ DeepSeek ↔ OpenRouter) instead
+// to one that IS configured (Anthropic ↔ OpenRouter ↔ Gemini ↔ DeepSeek) instead
 // of 401/403-ing the learner's every message. Keeps the chat alive when the
 // admin panel points at a provider whose key is missing/expired, or when a key
 // gets revoked mid-flight.
+//
+// OpenRouter sits ahead of Gemini here on purpose. Gemini's free tier is capped
+// PER DAY: once a project spends it, every Gemini call answers 429 until the
+// window rolls over, so preferring it means the reroute lands on a provider
+// that is reliably dead for the rest of the day. Confirmed live 2026-09-11 —
+// with no Anthropic key configured, every feature that fell back this way was
+// answering "Gemini 429: You exceeded your current quota". The OpenRouter free
+// ladder is this app's designated free tier and is rate-limited per hour, not
+// spent for the day, so it is the fallback that actually answers the learner.
 function effective(choice: { provider: string; model: string }): { provider: string; model: string } {
   if (!hasKey(choice.provider)) {
     if (ANTHROPIC_API_KEY) return { provider: "anthropic", model: DEFAULT_MODEL.model };
+    if (OPENROUTER_API_KEY) return { provider: "openrouter", model: FREE_LADDER[0] };
     if (GEMINI_API_KEY) return { provider: "gemini", model: GEMINI_FALLBACK_MODEL };
     if (DEEPSEEK_API_KEY) return { provider: "deepseek", model: "deepseek-v4-flash" };
-    if (OPENROUTER_API_KEY) return { provider: "openrouter", model: FREE_LADDER[0] };
   }
   return choice;
 }
@@ -178,8 +197,11 @@ function defaultModelFor(p: string): string {
 
 // Providers that have a usable key, in the built-in preference order — this is
 // the auth-failure fallback chain (see isAuthError / withAuthFallback).
+// OpenRouter before Gemini for the reason given on effective(): a spent Gemini
+// day-quota is dead until the window rolls over, so trying it first only costs
+// the learner a round-trip.
 function nextProvidersWithKey(exclude: string): string[] {
-  return ["anthropic", "gemini", "deepseek", "openrouter"].filter((p) => p !== exclude && hasKey(p));
+  return ["anthropic", "openrouter", "gemini", "deepseek"].filter((p) => p !== exclude && hasKey(p));
 }
 
 // A key that is present but invalid/expired answers 401/403 — treat those as
@@ -752,13 +774,18 @@ async function handleRawPassthrough(body: any, authHeader: string | null, featur
 
   // camera / slip-check — resolve the feature's model. DeepSeek has no vision
   // at all, and most OpenRouter rungs are text-only, so a choice that cannot
-  // see an image falls back to the Anthropic default rather than being sent a
-  // picture it will silently ignore. VISION_FREE_MODEL is the exception: it is
-  // an OpenRouter rung that genuinely reads images, and the admin panel offers
-  // it as the free camera-coach option, so it is honoured as picked.
+  // see an image falls back rather than being sent a picture it will silently
+  // ignore. VISION_FREE_MODEL is the exception: it is an OpenRouter rung that
+  // genuinely reads images, and the admin panel offers it as the free
+  // camera-coach option, so it is honoured as picked.
   const cfg = await resolveActiveModel(authHeader, feature);
   const canSee = cfg.provider !== "deepseek" && (cfg.provider !== "openrouter" || cfg.model === VISION_FREE_MODEL);
-  const { provider, model } = canSee ? cfg : { provider: "anthropic", model: DEFAULT_MODEL.model };
+  // Where a blind choice lands: Anthropic normally, but a keyless Anthropic can
+  // only 401, so prefer the free rung that can actually read the image.
+  const blindFallback = ANTHROPIC_API_KEY || !OPENROUTER_API_KEY
+    ? { provider: "anthropic", model: DEFAULT_MODEL.model }
+    : { provider: "openrouter", model: VISION_FREE_MODEL };
+  const { provider, model } = canSee ? cfg : blindFallback;
 
   // Walk the vision-capable providers instead of dying on the first one. The
   // chat path has had a fallback ladder for a while; this path had none, so a
