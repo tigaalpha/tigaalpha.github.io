@@ -8935,7 +8935,16 @@ function AdminPage({ lang, onExit, adminTier }) {
   const [loading, setLoading] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
   const [attachedImg, setAttachedImg] = useState(null); // {dataUrl, mediaType, name}
-  const [adminTab, setAdminTab] = useState(tier >= 3 ? "ai" : "students"); // "ai" chat · "students" back-office · "autoteach"
+  /* #admin-payments opens straight on the payment-channel settings. That screen
+     is needed rarely but urgently — a missing bank account or a stale Stripe key
+     stops every sale until someone fixes it — and the admin console is otherwise
+     reachable only by tapping the logo five times and typing the code, which is
+     not something you can talk someone through quickly. The unlock screen and
+     the tier >= 3 check below both still apply; the hash only picks the tab. */
+  const [adminTab, setAdminTab] = useState(() => {
+    if (tier >= 3 && typeof window !== "undefined" && window.location.hash === "#admin-payments") return "payments";
+    return tier >= 3 ? "ai" : "students";   // "ai" chat · "students" back-office · "autoteach"
+  });
   const endRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -9624,6 +9633,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // NAVIGATE listener below for the "already open" case).
   useEffect(() => {
     if (window.location.hash === "#daily-mentor") setPage("coach");
+  }, []);
+
+  // Payment-settings deep link. Stops at the unlock screen unless this browser
+  // has already been unlocked — the hash is a shortcut, not a way in.
+  useEffect(() => {
+    if (window.location.hash === "#admin-payments") setPage("admin");
   }, []);
 
   // ── Auto Teaching: while a Max-plan learner is anywhere in the app (any page except
