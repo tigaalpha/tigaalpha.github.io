@@ -23,11 +23,11 @@
 //               coach (feature "camera"), the admin slip-reader ("slip-check")
 //               and the admin "Teach AI" tab ("admin-chat", which needs
 //               Anthropic's web_search tool + vision image blocks). The
-//               provider is resolved per-feature too: anthropic and gemini are
-//               both supported (vision); deepseek has no vision models, so a
-//               deepseek choice on one of these falls back to the default.
-//               admin-chat is locked to Anthropic because its web_search tool
-//               only exists there.
+//               provider is resolved per-feature too: Anthropic, Gemini and the
+//               one image-reading OpenRouter rung are supported; anything that
+//               cannot see (DeepSeek, the text-only free rungs) falls back to
+//               the default. admin-chat is locked to Anthropic because its
+//               web_search tool only exists there.
 //   Response (stream, default): text/event-stream-shaped body where each
 //             line is `data: {"content":"<token text>"}`, client also
 //             tolerates a trailing `data: [DONE]`. Provider failures are
@@ -35,8 +35,9 @@
 //             the client can show a friendly localized message.
 //   Response (stream:false): `{ "text": "<full reply>" }`.
 //   Response (raw passthrough): Anthropic's own Messages API JSON, unchanged
-//             (client reads `data.content` blocks itself) — Gemini raw replies
-//             are normalized to that same `{content:[{type:"text",...}]}` shape.
+//             (client reads `data.content` blocks itself) — Gemini and
+//             OpenRouter raw replies are normalized to that same
+//             `{content:[{type:"text",...}]}` shape.
 //
 // PER-FEATURE MODEL SELECTION (this file's reason for existing):
 //   Reads an admin-configurable app_settings row (key "ai_models", value
@@ -116,7 +117,9 @@ const CHAT_SECOND_CHOICE = { provider: "openrouter", model: "deepseek/deepseek-v
 const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"; // used when the active provider's key is missing
 // The one free rung that can actually see an image. The camera coach and the
 // slip reader fall back to it when the paid/quota'd vision providers are gone —
-// a blind rung would answer confidently about a picture it never received.
+// a blind rung would answer confidently about a picture it never received. It
+// is also what the admin panel offers as the free choice for those two
+// features (VISION_MODELS in AdminAIModels.tsx — keep the two in step).
 const VISION_FREE_MODEL = "nex-agi/nex-n2.5-pro:free";
 const MAX_TOKENS = 1500;
 // DeepSeek V4 Pro is a reasoning model — its chain-of-thought consumes part of
@@ -650,7 +653,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     // ── raw passthrough (camera / slip-check / admin Teach AI) — provider
-    // resolved per feature; deepseek falls back (no vision); admin-chat stays Anthropic ──
+    // resolved per feature; anything blind falls back; admin-chat stays Anthropic ──
     if (Array.isArray(body.messages)) {
       return await handleRawPassthrough(body, authHeader, feature);
     }
@@ -722,8 +725,8 @@ Deno.serve(async (req: Request) => {
 });
 
 // ── raw passthrough: Anthropic-style body, per-feature provider ──
-//   "camera"/"slip-check" need vision → anthropic or gemini (deepseek has no
-//   vision, so a deepseek choice falls back to the default).
+//   "camera"/"slip-check" need vision → Anthropic, Gemini, or the one
+//   image-reading OpenRouter rung; anything blind falls back to the default.
 //   "admin-chat" needs Anthropic's web_search tool → always Anthropic (model ID
 //   still switchable among Anthropic models via ai_models).
 // Replies are normalized to Anthropic's {content:[{type:"text",...}]} JSON
@@ -747,14 +750,15 @@ async function handleRawPassthrough(body: any, authHeader: string | null, featur
     return json(data, res.status);
   }
 
-  // camera / slip-check — resolve the feature's model; deepseek/openrouter
-  // (the OpenRouter presets are DeepSeek V4 chat models) have no vision, so a
-  // choice there deterministically falls back to the Anthropic default (never
-  // routes a chat-model id into a vision call).
+  // camera / slip-check — resolve the feature's model. DeepSeek has no vision
+  // at all, and most OpenRouter rungs are text-only, so a choice that cannot
+  // see an image falls back to the Anthropic default rather than being sent a
+  // picture it will silently ignore. VISION_FREE_MODEL is the exception: it is
+  // an OpenRouter rung that genuinely reads images, and the admin panel offers
+  // it as the free camera-coach option, so it is honoured as picked.
   const cfg = await resolveActiveModel(authHeader, feature);
-  const { provider, model } = cfg.provider === "deepseek" || cfg.provider === "openrouter"
-    ? { provider: "anthropic", model: DEFAULT_MODEL.model }
-    : cfg;
+  const canSee = cfg.provider !== "deepseek" && (cfg.provider !== "openrouter" || cfg.model === VISION_FREE_MODEL);
+  const { provider, model } = canSee ? cfg : { provider: "anthropic", model: DEFAULT_MODEL.model };
 
   // Walk the vision-capable providers instead of dying on the first one. The
   // chat path has had a fallback ladder for a while; this path had none, so a
@@ -764,7 +768,7 @@ async function handleRawPassthrough(body: any, authHeader: string | null, featur
   // Gemini (when it was not already first).
   const chain: { provider: string; model: string }[] = [{ provider, model }];
   if (provider !== "anthropic" && ANTHROPIC_API_KEY) chain.push({ provider: "anthropic", model: DEFAULT_MODEL.model });
-  if (OPENROUTER_API_KEY) chain.push({ provider: "openrouter", model: VISION_FREE_MODEL });
+  if (OPENROUTER_API_KEY && !(provider === "openrouter" && model === VISION_FREE_MODEL)) chain.push({ provider: "openrouter", model: VISION_FREE_MODEL });
   if (provider !== "gemini" && GEMINI_API_KEY) chain.push({ provider: "gemini", model: GEMINI_FALLBACK_MODEL });
 
   const tried: string[] = [];

@@ -9,10 +9,12 @@ import { playUi } from "./music-engine";
    — the piano-chat / piano-tts edge functions resolve per request:
    ai_models[feature] → ai_models["default"] → legacy "ai_model" → built-in.
    DeepSeek V4 Flash/Pro are OpenAI-compatible chat models (no vision), so the
-   camera coach / slip-check features only offer Anthropic/Gemini; the admin
-   "Teach AI" tab stays on Anthropic because its web-search tool only exists
-   there. "voice-tts" is the speech-synthesis engine (Gemini TTS vs ElevenLabs)
-   and is used only by the AI Voice Tutor. ── */
+   camera coach / slip-check features offer only the providers that can read an
+   image, and their shelf is filtered through VISION_MODELS below so a rung that
+   cannot see is never offered; the admin "Teach AI" tab stays on Anthropic
+   because its web-search tool only exists there. "voice-tts" is the
+   speech-synthesis engine (Gemini TTS vs ElevenLabs) and is used only by the
+   AI Voice Tutor. ── */
 
 export const AI_PROVIDERS = {
   anthropic: { icon: "🟠", label: "Anthropic", models: [{ id: "claude-sonnet-4-6", label: "Claude Sonnet" }] },
@@ -68,13 +70,22 @@ export const AI_FEATURES = [
   { id: "practice-tip", icon: "🎯", th: "คำชมท้ายฝึกซ้อม", en: "Practice Mode result praise", zh: "练习结果点评", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "weekly-report", icon: "📋", th: "รายงานพัฒนาการ AI", en: "AI weekly report", zh: "AI 周报", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "practice-plan", icon: "🗓️", th: "แผนซ้อมส่วนตัว AI", en: "AI practice plan", zh: "AI 练习计划", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
-  { id: "camera", icon: "✋", th: "กล้องจับท่ามือ", en: "Hand-posture coach", zh: "手型教练", prov: ["anthropic", "gemini"],
-    noteTh: "ต้องใช้โมเดลที่ดูรูปได้ (DeepSeek ยังไม่มีฟีเจอร์รูปภาพ)", noteEn: "Needs a vision model (DeepSeek has no image support yet)", noteZh: "需要视觉模型（DeepSeek 暂不支持图片）" },
-  { id: "slip-check", icon: "🧾", th: "ตรวจสลิปโอนเงิน (แอดมิน)", en: "Slip verification (admin)", zh: "转账凭证核验（管理员）", prov: ["anthropic", "gemini"],
-    noteTh: "ต้องใช้โมเดลที่ดูรูปได้ (DeepSeek ยังไม่มีฟีเจอร์รูปภาพ)", noteEn: "Needs a vision model (DeepSeek has no image support yet)", noteZh: "需要视觉模型（DeepSeek 暂不支持图片）" },
+  { id: "camera", icon: "✋", th: "กล้องจับท่ามือ", en: "Hand-posture coach", zh: "手型教练", prov: ["anthropic", "gemini", "openrouter"], vision: true,
+    noteTh: "ต้องใช้โมเดลที่ดูรูปได้ — มีตัวเลือกฟรีคือ ② Nex N2.5 Pro (DeepSeek ยังไม่มีฟีเจอร์รูปภาพ)", noteEn: "Needs a vision model — the free option is ② Nex N2.5 Pro (DeepSeek has no image support yet)", noteZh: "需要视觉模型 — 免费选项为 ② Nex N2.5 Pro（DeepSeek 暂不支持图片）" },
+  { id: "slip-check", icon: "🧾", th: "ตรวจสลิปโอนเงิน (แอดมิน)", en: "Slip verification (admin)", zh: "转账凭证核验（管理员）", prov: ["anthropic", "gemini", "openrouter"], vision: true,
+    noteTh: "ต้องใช้โมเดลที่ดูรูปได้ — มีตัวเลือกฟรีคือ ② Nex N2.5 Pro (DeepSeek ยังไม่มีฟีเจอร์รูปภาพ)", noteEn: "Needs a vision model — the free option is ② Nex N2.5 Pro (DeepSeek has no image support yet)", noteZh: "需要视觉模型 — 免费选项为 ② Nex N2.5 Pro（DeepSeek 暂不支持图片）" },
   { id: "admin-chat", icon: "🤖", th: "แท็บสอน AI (แอดมิน)", en: "Teach AI tab (admin)", zh: "训练 AI（管理员）", prov: ["anthropic"],
     noteTh: "ต้องใช้ Claude — ฟีเจอร์ค้นเน็ต/รูปภาพมีเฉพาะ Anthropic", noteEn: "Locked to Claude — its web-search/vision tools only exist there", noteZh: "锁定 Claude — 联网/图片功能仅 Anthropic 提供" },
 ];
+
+/* Which models can actually SEE an image. Vision features (camera coach, slip
+   reader) filter their shelf through this. Every Anthropic and Gemini model on
+   the shelf is a vision model, so only OpenRouter needs narrowing — exactly one
+   free rung reads images, and offering the other four would look like a free
+   camera coach that quietly answers about a picture it never received. */
+const VISION_MODELS = { openrouter: ["nex-agi/nex-n2.5-pro:free"] };
+const shelfFor = (provider, models, visionOnly) =>
+  visionOnly && VISION_MODELS[provider] ? (models || []).filter(m => VISION_MODELS[provider].includes(m.id)) : (models || []);
 
 const DEFAULT_ENTRY = { provider: "anthropic", model: "claude-sonnet-4-6" };
 
@@ -220,7 +231,8 @@ export function AdminAIModels({ lang }) {
     const d = drafts[fid] || cfg.default;
     const providers = isDefault ? ["anthropic", "gemini", "deepseek", "openrouter"] : f.prov;
     const provMeta = AI_PROVIDERS[d.provider] || AI_PROVIDERS.anthropic;
-    const isCustom = !(provMeta.models || []).some(m => m.id === d.model);
+    const shelf = shelfFor(d.provider, provMeta.models, !isDefault && f.vision);
+    const isCustom = !shelf.some(m => m.id === d.model);
     return (
       <div className="admmg" key={fid}>
         <div className="admmg-h">{f.icon} {isDefault ? T("ค่าเริ่มต้น (ทุกฟีเจอร์)", "Default (all features)", "默认（所有功能）") : nameOf(f, lang)}</div>
@@ -233,16 +245,16 @@ export function AdminAIModels({ lang }) {
           {providers.map(p => (
             <button key={p} className={`setlangbtn${d.provider === p ? " on" : ""}`} disabled={busyKey === fid}
               onClick={() => {
-                const meta = AI_PROVIDERS[p];
-                setDraft(fid, { provider: p, model: (meta.models && meta.models[0]) ? meta.models[0].id : d.model });
+                const picks = shelfFor(p, AI_PROVIDERS[p].models, !isDefault && f.vision);
+                setDraft(fid, { provider: p, model: picks[0] ? picks[0].id : d.model });
               }}>
               {AI_PROVIDERS[p].icon} {AI_PROVIDERS[p].label}
             </button>
           ))}
         </div>
-        {(provMeta.models || []).length > 0 && (
+        {shelf.length > 0 && (
           <div className="setlangs" style={{ marginTop: 7 }}>
-            {provMeta.models.map(m => (
+            {shelf.map(m => (
               <button key={m.id} className={`setlangbtn${d.model === m.id ? " on" : ""}`} disabled={busyKey === fid}
                 onClick={() => setDraft(fid, { model: m.id })}>{m.label}</button>
             ))}
