@@ -50,27 +50,27 @@ serve(async (req) => {
       const uid = meta.user_id || (s && s.client_reference_id);
       const plan = meta.plan;
       const days = Math.max(1, parseInt(meta.days || "30", 10));
-      if (s && s.payment_status === "paid" && uid && plan) {
-        const until = new Date(Date.now() + days * 86400000).toISOString();
+      if (s && s.payment_status === "paid") {
         const H = { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json" };
-        await fetch(url + "/rest/v1/profiles?id=eq." + uid, {
-          method: "PATCH", headers: { ...H, Prefer: "return=minimal" },
-          body: JSON.stringify({ plan, plan_until: until, updated_at: new Date().toISOString() }),
-        });
-        // books stay in THB: prefer our own metadata over Stripe's charge
-        // currency (a ¥888 or US$119.99 charge still records its ฿ price)
-        const amountTHB = parseInt(meta.amount_thb || "0", 10) || Math.round((s.amount_total || 0) / 100);
-        const curNote = meta.currency && meta.currency !== "thb" ? " " + meta.currency + ":" + ((s.amount_total || 0) / 100) : "";
-        await fetch(url + "/rest/v1/payments", {
-          method: "POST", headers: { ...H, Prefer: "return=minimal" },
-          body: JSON.stringify({
-            user_id: uid,
-            email: (s.customer_details && s.customer_details.email) || null,
-            plan, amount: amountTHB, days,
-            method: "stripe", status: "approved",
-            note: "stripe:" + s.id + curNote, reviewed_at: new Date().toISOString(),
-          }),
-        });
+        const ref = "stripe:" + s.id;
+        /* Both fulfilment paths — this webhook and the app's verify-on-return
+           call — run these same two functions. They key off the Checkout
+           Session id and do nothing on a second run, so whichever arrives
+           first does the work and the other is a no-op. */
+        const rpc = (fn: string, args: Record<string, unknown>) =>
+          fetch(url + "/rest/v1/rpc/" + fn, { method: "POST", headers: H, body: JSON.stringify(args) });
+
+        if (meta.kind === "currency" && meta.payment_id) {
+          await rpc("fulfill_currency_purchase", { p_id: meta.payment_id, p_ref: ref });
+        } else if (uid && plan) {
+          // books stay in THB: prefer our own metadata over Stripe's charge
+          // currency (a ¥888 or US$119.99 charge still records its ฿ price)
+          const amountTHB = parseInt(meta.amount_thb || "0", 10) || Math.round((s.amount_total || 0) / 100);
+          await rpc("fulfill_plan_purchase", {
+            p_uid: uid, p_plan: plan, p_days: days, p_amount: amountTHB, p_ref: ref,
+            p_email: (s.customer_details && s.customer_details.email) || null,
+          });
+        }
       }
     }
     return new Response(JSON.stringify({ received: true }), { headers });

@@ -758,6 +758,9 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
   // submittingRef / SchoolCheckoutModal's submitRef+uploadRef.
   const submitRef = useRef(false);
   const uploadRef = useRef(false);
+  const [payMode, setPayMode] = useState("");
+  const [stripeLoading, setStripeLoading] = useState(false);
+  useEffect(() => { stripeMode().then(setPayMode); }, []);
   const uid = session && session.user && session.user.id;
 
   const packages = currencyType === "coins" ? COIN_PACKAGES : GEM_PACKAGES;
@@ -783,6 +786,31 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
     ...((lang === "th" || lang === "en") && acct ? [{ k: "banktransfer", ic: "🏦", label: T("โอนเข้าบัญชี", "Bank transfer", "银行转账") }] : []),
   ];
   const qr = useMemo(() => (chanKey === "promptpay" && ppId && price) ? promptPayQR(ppId, price) : null, [chanKey, ppId, price]);
+
+  /* Card checkout for a coin/gem package. Creates the same pending row every
+     other rail creates, then hands its id to the edge function — the price is
+     re-read server-side from that row, so the package a browser asks for can
+     never be cheaper than the one it gets. */
+  async function payByCard() {
+    if (!uid || stripeLoading || submitRef.current) return;
+    submitRef.current = true;
+    setStripeLoading(true);
+    try {
+      const amount = currencyType === "coins" ? pkg.coins : pkg.gems;
+      const { data, error } = await sb.rpc("submit_currency_purchase", { p_currency_type: currencyType, p_amount: amount, p_method: "stripe" });
+      if (error || !data) throw error || new Error("no request");
+      const res = await fetch(SUPABASE_URL + "/functions/v1/currency-stripe-checkout", {
+        method: "POST",
+        headers: { ...apiHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: data.id }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.url) throw new Error(j.error || "no url");
+      window.location.href = j.url;
+    } catch {
+      setSt("error"); setStripeLoading(false); submitRef.current = false;
+    }
+  }
 
   async function chooseChannel(k) {
     if (!uid || st === "submitting" || submitRef.current) return;
@@ -855,6 +883,11 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
                 </>
               )}
 
+              {showQrPicker && payMode === "live" && (
+                <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={stripeLoading || st === "submitting"} onClick={payByCard}>
+                  {stripeLoading ? "⏳ " + T("กำลังเปิดหน้าชำระเงินปลอดภัย...", "Opening secure checkout...", "正在打开安全支付页...") : "💳 " + T("จ่ายด้วยบัตร (เข้าบัญชีทันที)", "Pay by card — credited instantly", "银行卡支付（即时到账）")}
+                </button>
+              )}
               {showQrPicker && (
                 <>
                   {channels.map(c => (
@@ -865,7 +898,7 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
                   {st === "error" && <div className="aicreate-err">{T("ไม่สามารถสร้างคำขอได้ ลองใหม่อีกครั้ง", "Couldn't start the request — try again", "无法创建请求，请重试")}</div>}
                 </>
               )}
-              {!channels.length && !chanKey && (
+              {!channels.length && !chanKey && payMode !== "live" && (
                 <div className="aicreate-err">{T("ยังไม่ได้ตั้งค่าช่องทางรับเงินสำหรับภาษานี้", "No payment channel configured for this language yet", "此语言尚未配置收款渠道")}</div>
               )}
 

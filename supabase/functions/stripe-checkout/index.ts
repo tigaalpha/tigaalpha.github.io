@@ -94,12 +94,15 @@ serve(async (req) => {
     const form = new URLSearchParams();
     form.set("mode", "payment");
     form.set("client_reference_id", payload.sub);
-    form.set("success_url", SITE + "/?paid=1");
+    // session_id lets the app confirm the sale itself on return, so a missing
+    // or misconfigured webhook cannot leave a charged customer un-upgraded.
+    form.set("success_url", SITE + "/?paid=1&session_id={CHECKOUT_SESSION_ID}");
     form.set("cancel_url", SITE + "/?paid=0");
     form.set("line_items[0][quantity]", "1");
     form.set("line_items[0][price_data][currency]", currency);
     form.set("line_items[0][price_data][unit_amount]", String(Math.round(amount * 100))); // satang / cents / fen
     form.set("line_items[0][price_data][product_data][name]", (LABELS[plan] || plan) + (yearly ? " (1 year)" : " (1 month)"));
+    form.set("metadata[kind]", "plan");
     form.set("metadata[user_id]", payload.sub);
     form.set("metadata[plan]", plan);
     form.set("metadata[days]", String(days));
