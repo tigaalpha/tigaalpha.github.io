@@ -91,8 +91,73 @@ function friendlyAuthError(msg) {
 // Thai+English only, matching every other string on these screens — `lang`
 // is PianoApp-local state that doesn't exist yet this early (these screens
 // render before PianoApp ever mounts), so there's no language to switch on.
+/* ════ IN-APP BROWSER DETECTION ════
+   2026-09-11, found by reading auth logs against a live ad campaign: real
+   visitors WERE tapping "Continue with Google" — Supabase logged
+   `/authorize → Redirecting to external provider, provider=google` with
+   referer https://tigaalpha.github.io/ — and not one of them ever came back.
+   Zero accounts were created in the seven days the ads ran, against 393
+   paid visits.
+
+   The reason is not our code: Google refuses to serve its consent screen
+   inside an embedded WebView and answers `disallowed_useragent`. Facebook,
+   Instagram, YouTube, TikTok and LINE all open links in exactly such a
+   WebView, so every visitor arriving from a social ad on a phone hit a dead
+   end that looked like our login was broken. native-auth.ts already documents
+   this for the Capacitor build (it side-steps it by opening the system
+   browser); the WEBSITE had no handling at all.
+
+   So: detect the WebView, and in it stop leading with the button that cannot
+   work. Email sign-up works perfectly in a WebView and becomes the primary
+   path, with a one-tap escape to a real browser for anyone who prefers
+   Google. */
+function isNativeShell() {
+  try { return !!(window as any).Capacitor && (window as any).Capacitor.isNativePlatform && (window as any).Capacitor.isNativePlatform(); }
+  catch (e) { return false; }
+}
+export function inAppBrowser() {
+  if (typeof navigator === "undefined") return false;
+  // our own native build has a WORKING OAuth path (native-auth.ts) — it must
+  // not be told to go and find a different browser
+  if (isNativeShell()) return false;
+  const ua = navigator.userAgent || "";
+  if (/FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|Line\/|LIFF|TikTok|musical_ly|BytedanceWebview|MicroMessenger|KAKAOTALK|Snapchat|Pinterest|Twitter/i.test(ua)) return true;
+  // Android WebViews (YouTube's link handler among them) carry the "; wv)" token
+  if (/Android/i.test(ua) && /;\s*wv\)/i.test(ua)) return true;
+  // iOS WKWebView inside another app: Safari-like UA with no "Safari/" token
+  if (/iPhone|iPad|iPod/i.test(ua) && /AppleWebKit/i.test(ua) && !/Safari\//i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua)) return true;
+  return false;
+}
+
+/* Best-effort jump out of the in-app WebView into the phone's real browser.
+   Android takes an intent: URL that names Chrome directly. iOS has no such
+   thing — googlechrome:// only works if Chrome is installed and silently does
+   nothing otherwise — so the caller always keeps the copy-link fallback
+   visible rather than relying on this having worked. */
+export function openInRealBrowser() {
+  const url = window.location.href;
+  const ua = navigator.userAgent || "";
+  try {
+    if (/Android/i.test(ua)) {
+      window.location.href = "intent://" + url.replace(/^https?:\/\//, "") +
+        "#Intent;scheme=https;package=com.android.chrome;end";
+      return true;
+    }
+    if (/iPhone|iPad|iPod/i.test(ua)) {
+      window.location.href = url.replace(/^https?:\/\//, "googlechrome://");
+      return true;
+    }
+    window.open(url, "_blank", "noopener");
+    return true;
+  } catch (e) { return false; }
+}
+
 function LoginOptions({ profile, onGoogleLogin }) {
-  const [showEmail, setShowEmail] = useState(false);
+  const [inApp] = useState(() => inAppBrowser());
+  const [copied, setCopied] = useState(false);
+  // In a WebView the email form IS the path, so it opens already expanded —
+  // one less tap between a paid visitor and an account.
+  const [showEmail, setShowEmail] = useState(() => inAppBrowser());
   const [mode, setMode] = useState("signup"); // signup | login
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -151,13 +216,51 @@ function LoginOptions({ profile, onGoogleLogin }) {
     }
   }
 
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) {
+      setErr("คัดลอกไม่สำเร็จ กดค้างที่แถบที่อยู่เพื่อคัดลอก · Copy failed — long-press the address bar to copy the link");
+    }
+  }
+
   return (
     <>
-      <button className="oauthbtn google" onClick={onGoogleLogin}>
-        <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google · Continue with Google
-      </button>
+      {inApp && (
+        <div style={{
+          width: "100%", borderRadius: 12, padding: "11px 13px", marginBottom: 4,
+          background: "rgba(255,178,54,0.12)", border: "1.5px solid rgba(255,178,54,0.45)",
+          color: "#ffd9a0", fontSize: 13, lineHeight: 1.5,
+        }}>
+          <b style={{ color: "#ffb236" }}>⚠️ Google ใช้ไม่ได้ในเบราว์เซอร์ของแอปนี้</b><br />
+          เปิดจาก Facebook / YouTube / TikTok ใช่ไหมคะ — Google ไม่ยอมให้ล็อกอินในนี้<br />
+          <span style={{ opacity: .85 }}>สมัครด้วยอีเมลด้านล่างได้เลย ใช้ได้ปกติ หรือกดเปิดในเบราว์เซอร์จริง</span>
+          <br /><span style={{ opacity: .7, fontSize: 12 }}>Google blocks sign-in inside this app's browser. Use email below, or open in a real browser.</span>
+        </div>
+      )}
+      {inApp && (
+        <div style={{ width: "100%", display: "flex", gap: 8, marginBottom: 6 }}>
+          <button className="memberlink" style={{ flex: 1, border: "1.5px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: "9px 8px" }}
+            onClick={() => openInRealBrowser()}>
+            🌐 เปิดในเบราว์เซอร์ · Open in browser
+          </button>
+          <button className="memberlink" style={{ flex: 1, border: "1.5px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: "9px 8px" }}
+            onClick={copyLink}>
+            {copied ? "✓ คัดลอกแล้ว · Copied" : "🔗 คัดลอกลิงก์ · Copy link"}
+          </button>
+        </div>
+      )}
+      {!inApp && (
+        <button className="oauthbtn google" onClick={onGoogleLogin}>
+          <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google · Continue with Google
+        </button>
+      )}
       {!showEmail ? (
-        <button className="memberlink" onClick={() => setShowEmail(true)}>เข้าสู่ระบบด้วย ID ที่มีอยู่แล้ว · Log in with existing account</button>
+        <button className="memberlink" onClick={() => setShowEmail(true)}>
+          ✉️ สมัครด้วยอีเมล / เข้าสู่ระบบ · Sign up or log in with email
+        </button>
       ) : (
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 2 }}>
           <input className="memberinput" type="email" inputMode="email" autoComplete="email"
@@ -180,6 +283,11 @@ function LoginOptions({ profile, onGoogleLogin }) {
             <button className="memberlink" onClick={forgotPassword}>ลืมรหัสผ่าน? · Forgot password?</button>
           )}
         </div>
+      )}
+      {inApp && (
+        <button className="memberlink" style={{ opacity: .65, fontSize: 12, marginTop: 2 }} onClick={onGoogleLogin}>
+          ลองใช้ Google ต่อไป (อาจไม่ทำงานในนี้) · Try Google anyway (may not work here)
+        </button>
       )}
     </>
   );
@@ -208,6 +316,7 @@ export function LoginModal({ profile, onGoogleLogin, onClose }) {
 // continue past this point), but it always appears at a natural stopping
 // point (next navigation / on tap), never yanked up mid-exercise.
 export function GuestGateScreen({ reason, profile, onLogin }) {
+  const [gateInApp] = useState(() => inAppBrowser());
   const [showSignup, setShowSignup] = useState(false);
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
@@ -226,6 +335,10 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
     setSignupErr("");
     if (!signupName.trim()) { setSignupErr("กรุณากรอกชื่อ · Please enter your name"); return; }
     if (!signupPassword || signupPassword.length < 6) { setSignupErr("รหัสผ่านต้องมีอย่างน้อย 6 ตัว · Password must be at least 6 characters"); return; }
+    // Without an email this branch finishes by handing off to Google, and in a
+    // social app's WebView that is the one door that is shut (see
+    // inAppBrowser). Ask for the email instead of walking them into it.
+    if (gateInApp && !signupEmail.trim()) { setSignupErr("กรุณากรอกอีเมล (ในเบราว์เซอร์ของแอปนี้ต้องใช้อีเมลสมัคร) · Email is required in this app's browser"); return; }
     setSignupBusy(true);
     try {
       saveGuestProfile(profile);
@@ -417,13 +530,20 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
                   <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
                 </div>
 
-                <button
-                  className="oauthbtn google"
-                  onClick={() => { saveGuestProfile(profile); onLogin(); }}
-                  style={{ width: "100%" }}
-                >
-                  <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google
-                </button>
+                {gateInApp ? (
+                  <button className="memberlink" style={{ width: "100%", border: "1.5px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: "10px" }}
+                    onClick={() => openInRealBrowser()}>
+                    🌐 เปิดในเบราว์เซอร์จริงเพื่อใช้ Google · Open in a real browser for Google
+                  </button>
+                ) : (
+                  <button
+                    className="oauthbtn google"
+                    onClick={() => { saveGuestProfile(profile); onLogin(); }}
+                    style={{ width: "100%" }}
+                  >
+                    <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google
+                  </button>
+                )}
 
                 <div style={{ fontSize: 11, opacity: 0.35, textAlign: "center", lineHeight: 1.5, marginTop: 4 }}>
                   ไม่ต้องบัตรเครดิต · No credit card required
