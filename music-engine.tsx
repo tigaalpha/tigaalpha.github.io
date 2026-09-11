@@ -1760,7 +1760,12 @@ export function staffStep(note, clef = "treble") {
 // of fifths; the enharmonic choice at the far side is the conventional one
 // (D♭ major over C♯ major, etc.).
 export const KEYSIG_MAJOR = { 0: 0, 7: 1, 2: 2, 9: 3, 4: 4, 11: 5, 6: 6, 1: -5, 8: -4, 3: -3, 10: -2, 5: -1 };
-export const KEYSIG_MINOR = { 9: 0, 4: 1, 11: 2, 6: 3, 1: 4, 8: 5, 3: 6, 2: -1, 7: -2, 0: -3, 5: -4, 10: -5 };
+// Pitch class 3 is the one place the label and the signature disagreed: it is
+// named "E♭m" in KEY_NAME_MINOR, which is six FLATS, while this table asked for
+// six sharps — the staff drew D♯ minor's signature under an E♭ minor title.
+// E♭ minor is the conventional choice of the pair, so the signature follows the
+// name rather than the other way round.
+export const KEYSIG_MINOR = { 9: 0, 4: 1, 11: 2, 6: 3, 1: 4, 8: 5, 3: -6, 2: -1, 7: -2, 0: -3, 5: -4, 10: -5 };
 // The fixed order signature accidentals are written in, and where each sits
 // on a TREBLE staff. A bass staff writes the identical shape two steps
 // lower, which is exactly how the two clefs relate (see staffStepFor).
