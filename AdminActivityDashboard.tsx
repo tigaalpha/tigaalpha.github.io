@@ -410,8 +410,13 @@ export function AdminAnonVisitors({ lang }) {
               const far = fmtSecs((Number(ov.gate_ms) || GUEST_TRIAL_MS) * 3);
               const rows = [
                 [T(`ไม่ถึง ${gate} — เข้ามาแล้วออกเลย`, `Under ${gate} — in and straight out`, `不到 ${gate}`), a, "#ff6b81"],
-                [T(`${gate} – ${far} — เห็นหน้าชวนสมัครแล้ว`, `${gate} – ${far} — saw the sign-up gate`, `${gate} – ${far}`), b, "#ffb236"],
-                [T(`${far} ขึ้นไป — อยู่ต่อหลังเห็นหน้าชวนสมัคร`, `${far}+ — stayed on past the gate`, `${far} 以上`), c, "#3ddc84"],
+                // These bars measure TIME, nothing more. They used to be labelled
+                // "saw the sign-up screen", which was an inference from dwell —
+                // and a false one: the gate's effect depends on [isGuest, page],
+                // so it cannot be raised for anyone who never changed page, and
+                // most never do. What was actually shown is its own panel below.
+                [T(`${gate} – ${far} — อยู่ต่ออีกหน่อย`, `${gate} – ${far} — stayed a little`, `${gate} – ${far}`), b, "#ffb236"],
+                [T(`${far} ขึ้นไป — อยู่ต่อจริงจัง`, `${far}+ — stayed properly`, `${far} 以上`), c, "#3ddc84"],
               ];
               return rows.map(([lb, n, col]) => (
                 <div key={lb} className="anrow">
@@ -424,6 +429,41 @@ export function AdminAnonVisitors({ lang }) {
               ));
             })()}
           </div>
+
+          {/* ── Was the sign-up screen ever actually shown? ──
+              Counted from a real "gate" event, not guessed from how long
+              somebody stayed. It sits next to the number who never changed
+              page, because the gate is raised by a page change: those two
+              together say whether the door was ever even offered. */}
+          {(() => {
+            const shown = Number(ov.gate_shown) || 0;
+            const stuck = Number(ov.never_navigated) || 0;
+            const moved = Number(ov.navigated) || 0;
+            const guests = Number(ov.anon_only) || 0;
+            if (!guests) return null;
+            return (
+              <div className="admmg" style={{ marginBottom: 12 }}>
+                <div className="admmg-h">🚪 {T("ได้เห็นหน้าชวนสมัครจริงกี่คน", "Who was actually shown the sign-up screen", "实际看到注册页的人数")}</div>
+                <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "2px 0 10px" }}>
+                  <div><b style={{ fontSize: 19, color: shown ? "#d97757" : "#c2410c" }}>{shown}</b> <span className="admstu-row-sub">{T("เห็นแล้ว", "shown", "已显示")}</span></div>
+                  <div><b style={{ fontSize: 19 }}>{moved}</b> <span className="admstu-row-sub">{T("เปลี่ยนหน้า (เด้งได้)", "changed page (gate can fire)", "换过页面")}</span></div>
+                  <div><b style={{ fontSize: 19, color: stuck > moved ? "#c2410c" : "inherit" }}>{stuck}</b> <span className="admstu-row-sub">{T("ไม่เคยเปลี่ยนหน้า (เด้งไม่ได้)", "never changed page (gate cannot fire)", "从未换页")}</span></div>
+                </div>
+                <div className="admstu-row-sub">
+                  {T(`จาก ${guests} คนที่ยังไม่ล็อกอิน — หน้าสมัครจะเด้งเมื่อเปลี่ยนหน้าเท่านั้น`,
+                     `of ${guests} signed-out visitors — the gate is only raised on a page change`,
+                     `共 ${guests} 位未登录访客 — 注册页仅在换页时弹出`)}
+                </div>
+                {shown === 0 && (
+                  <div className="admstu-row-sub" style={{ marginTop: 6, color: "#c2410c" }}>
+                    {T("ยังไม่มีการบันทึกสักครั้ง — เริ่มเก็บตั้งแต่เวอร์ชันนี้ ตัวเลขจะขึ้นเมื่อมีคนเจอจริง",
+                       "Nothing recorded yet — collection starts with this version; it fills in as people hit it",
+                       "尚无记录 — 本版本开始收集")}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="admmg-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
             <div className="admmg">
@@ -514,7 +554,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
     // previous data visible while refreshing can only ever look calm.
     sb.rpc("admin_activity_overview", { p_since: since, p_include_sim: showSim })
       .then(({ data }) => setOverview(data || {}), () => setOverview((o) => o || {}));
-    sb.rpc("admin_activity_users", { p_since: since })
+    sb.rpc("admin_activity_users", { p_since: since, p_include_sim: showSim })
       .then(({ data }) => setUsers(data || []), () => setUsers((u) => u || []));
     // by-hour buckets ( Bangkok wall-clock, computed server-side — see
     // supabase-activity-hourly-migration.sql ). On failure (RPC not yet applied)
@@ -607,15 +647,29 @@ export function AdminActivity({ lang, onOpenAnon }) {
         <>
           {/* totals */}
           <div className="adminpay-cfg" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {/* "ผู้ใช้ที่ทำกิจกรรม" is count(distinct user_id), and user_id is NULL
+                for a signed-out visitor — count(distinct) drops nulls, so it has
+                always meant MEMBERS. The events and minutes beside it had no such
+                filter and counted everybody, which read as "3 users, 503 events"
+                when the truth was 3 members plus 193 signed-out visitors. Each
+                tile now names its own population and carries the other underneath. */}
             {[
-              [T("ผู้ใช้ที่ทำกิจกรรม", "Active users", "活跃用户"), t.users ?? 0],
-              [T("เหตุการณ์ทั้งหมด", "Total events", "事件总数"), t.events ?? 0],
-              [T("เวลาใช้แอปรวม", "Total app time", "总使用时长"), fmtMs(t.page_time_ms)],
-              [T("Score ขึ้น/เหตุการณ์คะแนน", "Score events", "分数事件"), t.score_events ?? 0],
-            ].map(([k, v]) => (
+              [T("สมาชิกที่ใช้งาน", "Active members", "活跃会员"), t.users ?? 0,
+               T(`ผู้เข้าชมไม่ล็อกอิน ${t.visitors ?? 0}`, `${t.visitors ?? 0} signed-out visitors`, `未登录访客 ${t.visitors ?? 0}`)],
+              [T("เหตุการณ์ (สมาชิก)", "Events (members)", "事件（会员）"), t.member_events ?? 0,
+               T(`ผู้เข้าชม ${t.visitor_events ?? 0}`, `${t.visitor_events ?? 0} from visitors`, `访客 ${t.visitor_events ?? 0}`)],
+              [T("เวลาใช้แอป (สมาชิก)", "App time (members)", "使用时长（会员）"), fmtMs(t.member_ms),
+               T(`ผู้เข้าชม ${fmtMs(t.visitor_ms)}`, `${fmtMs(t.visitor_ms)} from visitors`, `访客 ${fmtMs(t.visitor_ms)}`)],
+              [T("Score ขึ้น/เหตุการณ์คะแนน", "Score events", "分数事件"), t.score_events ?? 0,
+               // `overview`, not `ov` — that name belongs to the visitor panel
+               overview?.boot && Number(overview.boot.n)
+                 ? T(`โหลดเฉลี่ย ${fmtLoad(overview.boot.median_ms)}`, `${fmtLoad(overview.boot.median_ms)} median load`, `加载中位数 ${fmtLoad(overview.boot.median_ms)}`)
+                 : ""],
+            ].map(([k, v, sub]) => (
               <div key={k} style={{ background: "var(--tg-card, #fff)", borderRadius: 12, padding: "10px 12px" }}>
                 <div style={{ fontSize: 11, opacity: 0.6 }}>{k}</div>
                 <div style={{ fontSize: 18, fontWeight: 700 }}>{v}</div>
+                {sub ? <div style={{ fontSize: 10.5, opacity: 0.55, marginTop: 1 }}>{sub}</div> : null}
               </div>
             ))}
           </div>

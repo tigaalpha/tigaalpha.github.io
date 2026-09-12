@@ -8387,14 +8387,21 @@ function AdminAnalytics({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [range, setRange] = useState("all"); // '7' | '30' | 'all'
   const [stats, setStats] = useState(null);
+  /* Measured before this switch existed: 307 of the rows this panel counted
+     were simulated bot traffic — 50 fake users against 18 real members — and
+     the panel had no way to leave them out, because get_usage_stats took no
+     parameter for it. Real people are the default now; the bots are a choice. */
+  const [withBots, setWithBots] = useState(false);
   const NAV_LABELS = { pathway: "⬡ PATHWAY", sensei: "◈ TIGA CHAT", studio: "▶ STUDIO", videos: "🎬 " + T("วิดีโอสอน", "Video Lessons", "视频课程"), profile: "PROFILE", admin: "ADMIN" };
 
   const load = useCallback(() => {
     setStats(null);
     const since = range === "all" ? null : new Date(Date.now() - Number(range) * 86400000).toISOString();
-    sb.rpc("get_usage_stats", { p_kind: null, p_since: since })
+    // p_limit 500 against 225 distinct item/kind pairs — the old hard-coded
+     // 200 was silently dropping 25 of them off the bottom of every list.
+    sb.rpc("get_usage_stats", { p_kind: null, p_since: since, p_include_sim: withBots, p_limit: 500 })
       .then(({ data, error }) => setStats(error ? [] : (data || [])), () => setStats([]));
-  }, [range]);
+  }, [range, withBots]);
   useEffect(() => { load(); }, [load]);
 
   const byKind = (k) => (stats || []).filter(r => r.kind === k);
@@ -8408,9 +8415,25 @@ function AdminAnalytics({ lang }) {
             <span className="anrow-rank">#{i + 1}</span>
             <span className="anrow-name">{labelFor ? labelFor(r.item_id) : r.item_id}</span>
             <span className="anrow-barwrap"><span className="anrow-bar" style={{ width: `${Math.max(6, (Number(r.hits) / max) * 100)}%` }} /></span>
-            <span className="anrow-hits">{r.hits}</span>
+            {/* members and signed-out visitors were added together with no way
+                to tell them apart; the split rides along with every row now */}
+            <span className="anrow-hits" title={`${r.member_hits ?? 0} member · ${r.visitor_hits ?? 0} visitor`}>
+              {r.hits}
+              {Number(r.visitor_hits) > 0 && (
+                <span style={{ fontSize: 10, opacity: .6, marginLeft: 4 }}>
+                  ({r.member_hits ?? 0}+{r.visitor_hits ?? 0})
+                </span>
+              )}
+            </span>
           </div>
         ))}
+        {!!rows.length && (
+          <div className="admstu-row-sub" style={{ marginTop: 6, fontSize: 10.5 }}>
+            {T("ในวงเล็บ = สมาชิก + ผู้เข้าชมที่ยังไม่ล็อกอิน",
+               "in brackets = members + signed-out visitors",
+               "括号内 = 会员 + 未登录访客")}
+          </div>
+        )}
       </div>
     );
   };
@@ -8422,6 +8445,13 @@ function AdminAnalytics({ lang }) {
           <button key={v} className={`billtog${range === v ? " on" : ""}`} onClick={() => setRange(v)}>{l}</button>
         ))}
       </div>
+      {/* Off by default: these lists are for reading real behaviour, and 50
+          simulated bots against 18 real members drowns it. Same wording as the
+          activity page's checkbox so the two mean the same thing. */}
+      <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 2px 10px", fontSize: 12.5, cursor: "pointer" }}>
+        <input type="checkbox" checked={withBots} onChange={e => setWithBots(e.target.checked)} />
+        {T("รวมข้อมูลจำลอง (บอท)", "Include simulated data (bots)", "包含模拟数据（机器人）")}
+      </label>
       {stats === null ? <div className="admstu-msg">⏳</div> : (
         <>
           <Panel title={T("⬡ หัวข้อเส้นทางการเรียนรู้ (Pathway)", "⬡ Pathway topics", "⬡ 学习路径主题")} rows={byKind("pathway")}
@@ -9743,12 +9773,28 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // null | "time" | "ai" — which GuestGateScreen (if any) currently covers the
   // screen. Two distinct producers, one shared consumer (see render below).
   const [guestGateReason, setGuestGateReason] = useState(null);
+  const gateLoggedRef = useRef(false);   // one "gate" event per visit, not per render
   const [guestMsLeft, setGuestMsLeft] = useState(GUEST_TRIAL_MS); // soft, non-blocking countdown — see corner pill
   // Returns true (and raises the gate) if this guest needs to log in before
   // continuing — call at the top of anything that needs a real account, and
   // bail out if it returns true. reason picks GuestGateScreen's copy:
   // "ai" for AI-backed features, "account" for everything else account-bound.
-  function requireLogin(reason = "account") { if (isGuest) { setGuestGateReason(reason); return true; } return false; }
+  function requireLogin(reason = "account") { if (isGuest) { raiseGate(reason); return true; } return false; }
+  /* Raise the sign-up gate AND write down that it happened.
+     Nothing recorded this before, so the visitor panel's "อยู่ต่อหลังเห็นหน้า
+     ชวนสมัคร" bar was an inference from dwell time, not a measurement — and
+     the inference was wrong: of the 30 people that bar counted, 22 had never
+     changed page, and the effect below can only fire on a page change, so the
+     screen could not have been raised for them at all. One event ends the
+     guessing. Only fires on the transition, never on a re-render. */
+  function raiseGate(reason) {
+    // The write stays OUTSIDE the state updater: React calls updaters twice
+    // under StrictMode, which this app does use, and a log line in there would
+    // have counted every gate twice — precisely the kind of number this whole
+    // pass exists to stop producing. The ref makes it once per visit.
+    if (!gateLoggedRef.current) { gateLoggedRef.current = true; logUsage("gate", reason || "account"); }
+    setGuestGateReason(prev => prev || reason);
+  }
   // Ticks tg_guest_ms forward by real elapsed time, mirroring syncProgress's own
   // interval/visibility wiring (~10226 below) rather than inventing a new style.
   useEffect(() => {
@@ -9767,7 +9813,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // (exercises/overlays are their own state, layered on top of `page` — `page`
   // itself only changes once the guest has returned to a list/menu).
   useEffect(() => {
-    if (isGuest && getGuestMs() >= GUEST_TRIAL_MS) setGuestGateReason("time");
+    if (isGuest && getGuestMs() >= GUEST_TRIAL_MS) raiseGate("time");
   }, [isGuest, page]);
 
   // School Plan Pro: the teacher dashboard has no nav entry anywhere — it's reached
