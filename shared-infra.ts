@@ -206,12 +206,10 @@ export function recordNoteMisses(notes) {
    of cumulative use (persists across visits — refreshing buys no extra time),
    tracked separately from any one page's `profile.exp` etc. so it survives
    a guest bouncing between pages. */
-/* Ten seconds, set by the owner. The data the app has on the question is kept
-   below because it does not support ten — the next person to change this
-   should re-read it rather than re-derive it.
+/* Five seconds, set by the owner.
 
-   Signed-out visitors grouped by how long they stayed, counting who signed up
-   WITHOUT being asked:
+   The historical argument against going this low is kept below, because it is
+   the only measured thing the app has on the question:
 
      0-5 s   40 people   0 signed up
      5-10 s   4 people   0
@@ -220,19 +218,23 @@ export function recordNoteMisses(notes) {
      20-30 s  3 people   2
      30 s+    5 people   0
 
-   Every unprompted sign-up landed between 14 and 26 seconds; nobody below 14
-   has ever volunteered. So ten reaches three more people than fifteen did,
-   all from a band with a 0% unprompted rate, and asks everyone else before
-   any willingness has ever been observed.
+   Every unprompted sign-up landed between 14 and 26 seconds.
 
-   That is an argument, not a verdict. The percentages rest on three sign-ups,
-   and signing up unprompted is not the same act as converting at a gate —
-   nobody ever reached the old 2.5-minute gate, so the app has no data at all
-   on how people behave when they are actually asked. Ten seconds tests it.
-   What settles it is sign-ups AFTER the gate: the admin dashboard now counts
-   those by method, so compare the rate against the fifteen-second stretch
-   before moving this number again. */
-export const GUEST_TRIAL_MS = 10 * 1000;
+   What changed is that a later look at a full day of arrivals showed the
+   number was never the binding constraint: of 90 signed-out visitors, 5 used
+   the menu and 9 opened a lesson. Roughly 80 left without touching anything,
+   most of them inside an in-app browser, and 0 of the 90 signed up. Whatever
+   is losing people happens well before any gate, so the gate is cheap to move
+   and the honest next step is to watch post-gate sign-ups by method on the
+   dashboard rather than argue the second-mark again. */
+export const GUEST_TRIAL_MS = 5 * 1000;
+/* How often the guest clock is written down. It has to stay well under the
+   gate: the gate can only fire on a flushed total, so a tick coarser than
+   GUEST_TRIAL_MS silently postpones it to the next tick. That is not
+   hypothetical — this was a flat 10 s while the gate was 15 s, which made the
+   real gate 20 s, and a 5 s gate would likewise have behaved as a 10 s one.
+   Deriving it from the gate means the two cannot drift apart again. */
+export const GUEST_TICK_MS = Math.max(1000, Math.min(10000, Math.round(GUEST_TRIAL_MS / 2)));
 export const GUEST_PROFILE_KEY = "tg_guest_profile";
 export const GUEST_MS_KEY = "tg_guest_ms";
 export function freshGuestProfile() {

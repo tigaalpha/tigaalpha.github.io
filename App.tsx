@@ -59,7 +59,7 @@ import {
   readHomework, setHomeworkLS, homeworkContext,
 } from "./ai-chat-context";
 import {
-  GUEST_TRIAL_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
+  GUEST_TRIAL_MS, GUEST_TICK_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
   pushSupported, subscribePush, unsubscribePush, logUsage,
   readActLog, logActivity, recordNoteMisses, readPracticeLog,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
@@ -515,7 +515,10 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
     <div className="pathpage">
       <div className="pathhero">
         <div className="pathhero-glow" />
-        <div className="pathbadge">◈ PATHWAY OF LEARNING ◈</div>
+        {/* The one line every arrival reads first, so it follows the chosen
+            language like the rest of the page — i18n has carried pathTitle in
+            all three since the beginning; only this banner ignored it. */}
+        <div className="pathbadge">◈ {lc.pathTitle} ◈</div>
       </div>
 
       {groups.map((g, gi) => {
@@ -533,7 +536,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
                 <div className="pglabel">{g.label}</div>
                 <div className="pgdesc">{g.desc}</div>
               </div>
-              <span className="pgstep">STEP {gi + 1}</span>
+              <span className="pgstep">{lc.stepLabel.replace("{n}", String(gi + 1))}</span>
             </header>
 
             <div className="pgrid" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "10px" }}>
@@ -9287,7 +9290,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // "en" until the user switches language from Settings, and setLang
   // persists that change the same way as before: profiles.lang for a real
   // account, the guest's own already-persisted local profile otherwise.
-  const [lang, setLangState] = useState(profile.lang || "en");
+  /* Thai is the preset. Nearly all arrivals come from the school's own Thai
+     Facebook and Instagram, and until now every one of them opened an English
+     app: a guest has no profile.lang, so the fallback decided the language for
+     them. Anyone can switch in one tap from the flag in the header, and that
+     choice persists — profiles.lang for an account, the local guest profile
+     otherwise — so this only decides what someone sees before they choose. */
+  const [lang, setLangState] = useState(profile.lang || "th");
   // First-time language picker: SUSPENDED (owner request 2026-09) - the popup
   // felt like a wall between a new user and the piano. The state/JSX are kept
   // intact for a future re-enable: flip LANG_PICKER_ENABLED back to true and
@@ -9603,7 +9612,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     let last = Date.now();
     const flush = () => { const now = Date.now(); addGuestMs(now - last); last = now; setGuestMsLeft(Math.max(0, GUEST_TRIAL_MS - getGuestMs())); };
     flush();
-    const iv = setInterval(flush, 10000);
+    const iv = setInterval(flush, GUEST_TICK_MS);
     const onHide = () => { if (document.visibilityState === "hidden") flush(); };
     const onPageHide = () => flush();
     document.addEventListener("visibilitychange", onHide);
