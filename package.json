@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp dist/index.template.html dist/index.html && cp dist/index.template.html index.html && cp public/manifest.webmanifest manifest.webmanifest && cp public/icon.svg icon.svg && mkdir -p payqr && cp public/payqr/* payqr/ && node scripts/stamp-sw.mjs",
+    "build": "vite build && cp dist/index.template.html dist/index.html && cp dist/index.template.html index.html && rm -rf bundle && cp -r dist/bundle bundle && cp public/manifest.webmanifest manifest.webmanifest && cp public/icon.svg icon.svg && mkdir -p payqr && cp public/payqr/* payqr/ && node scripts/stamp-sw.mjs",
     "preview": "vite preview",
     "release": "npm run build && node scripts/publish-update.mjs && npx cap sync"
   },

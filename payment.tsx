@@ -146,19 +146,28 @@ export function b2bYearPriceByCur(cur: string, tier: string): number {
   return cur === "usd" ? Math.ceil(n) - 0.01 : Math.ceil(n / 10) * 10;
 }
 export const YEAR_PLANS = ["premium", "max", "maxfamily"];   // tiers that offer a yearly option
-/* How long a free trial runs. The founding-member trial (the first 100 signups
-   ever — profiles.founding_member, set once at signup by the handle_new_user()
-   trigger, see supabase-founding-member-trial-migration.sql) was three months;
-   it is one month now. A trial is Premium-level and uncapped, so every trial
-   day is real AI cost, and ninety of them per head does not pay for itself.
-   Thirty is still four times what the competition offers.
+/* How long a free trial runs — thirty days, the same for everyone.
+
+   It used to be two numbers: ninety days for the founding members (the first
+   100 signups ever — profiles.founding_member, set once at signup by the
+   handle_new_user() trigger, see supabase-founding-member-trial-migration.sql),
+   cut to thirty, against seven for everyone after them. Two numbers meant the
+   app advertised two different trials depending on who was reading, which is
+   the kind of detail a buyer notices and does not ask about — they just stop
+   trusting the page. One number, and the banner, the pricing card and the
+   actual entitlement finally agree.
+
+   Thirty days of Premium-level, uncapped access is real AI cost per head. It
+   is a deliberate trade: the plan is a few hundred committed learners rather
+   than a crowd, and a month is long enough for someone to build a practice
+   habit and see their own progress before being asked to pay.
 
    The length is NOT stored anywhere — effectivePlan() measures it from
-   profiles.created_at on every read — so changing this number changes the
-   trial for existing accounts too, not only new ones. At the time of the cut
-   that moved three not-yet-paying founding accounts from trial to free. */
+   profiles.created_at on every read — so this number changes the trial for
+   existing accounts too, not only new ones. Raising it hands a month back to
+   anyone who signed up within the last thirty days. */
 export const TRIAL_DAYS_FOUNDING = 30;   // the first 100 signups ever
-export const TRIAL_DAYS_STANDARD = 7;    // everyone after them
+export const TRIAL_DAYS_STANDARD = 30;   // everyone after them — same deal
 export function trialLenDays(p) { return p && p.founding_member ? TRIAL_DAYS_FOUNDING : TRIAL_DAYS_STANDARD; }
 // the live, authoritative plan for a profile row (admins = full; paid only while not expired)
 export function effectivePlan(p) {

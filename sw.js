@@ -10,10 +10,10 @@
 // reinstalls a worker whose BYTES changed, and the build copied this file
 // verbatim, so it never changed, so `activate` below never ran, so the
 // SW_UPDATED message App.tsx reloads on was never sent. Anyone with the app
-// open kept running the build they first loaded. 449913283533 is replaced at
+// open kept running the build they first loaded. 23c275a85a9c is replaced at
 // build time with a hash of the page itself (scripts/stamp-sw.mjs), so this
 // file now changes exactly when the app does.
-const CACHE = "tiga-v15-449913283533";
+const CACHE = "tiga-v15-23c275a85a9c";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
@@ -90,9 +90,25 @@ self.addEventListener("fetch", e => {
     return;
   }
 
-  // Network-first for JS/CSS (prevent stale cached bundles)
+  /* Build output under /assets/ is content-hashed by Vite: the filename
+     changes whenever the bytes do, so a cached copy can never be stale and
+     re-fetching one is pure waste. Cache-first here is what makes a second
+     visit cost a few kB of HTML instead of the whole bundle. The HTML itself
+     stays network-first above, so it is always the freshest index.html that
+     decides which hashed file to ask for. */
+  if (url.pathname.includes("/bundle/") && /-[A-Za-z0-9_-]{8,}\.(js|css)$/.test(url.pathname)) {
+    e.respondWith(
+      caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+        return res;
+      }))
+    );
+    return;
+  }
+
+  // Network-first for any other JS/CSS (unhashed names could go stale)
   const isJsCss = url.pathname.endsWith(".js") || url.pathname.endsWith(".css") ||
-    url.pathname.includes("/assets/");
+    url.pathname.includes("/bundle/") || url.pathname.includes("/assets/");
   if (isJsCss) {
     e.respondWith(
       fetch(e.request, { cache: "no-store" }).then(res => {
