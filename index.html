@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#faf9f5" />
+    <!-- Declares the scheme for the boot screen below, which paints before any
+         stylesheet loads. An in-app browser (Messenger, LINE) running in dark
+         mode will otherwise algorithmically darken it. The app's own CSS sets
+         color-scheme per theme afterwards and overrides this. -->
+    <meta name="color-scheme" content="light" />
     <meta name="description" content="TiGA AI — AI-powered piano teacher with interactive keyboard, scales, chords and a learning pathway." />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
@@ -65,7 +70,7 @@
         #boot .bar i { background: #f5f0ed; }
       }
     </style>
-    <script type="module" crossorigin src="./bundle/index.template-D5GR5XOG.js"></script>
+    <script type="module" crossorigin src="./bundle/index.template-DROTVfpi.js"></script>
   </head>
   <body>
     <div id="boot">

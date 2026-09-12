@@ -461,7 +461,7 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
   const copy = {
     time: {
       icon: "⏳",
-      title: "กรุณาล็อกอินเพื่อเล่นฟรีต่อ 7 วัน",
+      title: "สมัครฟรี แล้วเล่นต่อได้อีก 30 วัน",
       sub: "ล็อกอินหรือสมัครสมาชิกฟรีเพื่อเล่นต่อ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nLog in or sign up free to keep playing — everything you did stays saved.",
     },
     ai: {
@@ -493,8 +493,8 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
     return (
       <div className="tg" style={{ position: "fixed", inset: 0, zIndex: 2000, alignItems: "center", justifyContent: "center" }}>
         <div className="scan" />
-        <div style={{
-          width: "100%", maxWidth: 380, maxHeight: "90vh", overflowY: "auto",
+        <div className="gatecard" style={{
+          width: "100%", maxWidth: 380, overflowY: "auto",
           background: "linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%)",
           borderRadius: 24, padding: "32px 24px",
           border: "1px solid rgba(255,255,255,0.1)",
@@ -656,7 +656,9 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
       <div className="scan" />
       <div className="banscreen">
         <div style={{ fontSize: 52 }}>{c.icon}</div>
-        <div className="locktitle">{c.title}</div>
+        {/* .welcome, not the bare alarm-red .locktitle — this screen is an
+            invitation to join, not a suspension notice */}
+        <div className="locktitle welcome">{c.title}</div>
         <div className="locksub">{c.sub}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%", maxWidth: 300, marginTop: 8 }}>
           <LoginOptions profile={profile} onGoogleLogin={onLogin} />
@@ -719,7 +721,7 @@ export function LangPickerScreen({ session, profile, setProfile }) {
       <div className="scan" />
       <div className="memberwrap">
         <div className="lockicon" style={{ fontSize: 36 }}>🌐</div>
-        <div className="locktitle">เลือกภาษา · Choose your language · 选择语言</div>
+        <div className="locktitle welcome">เลือกภาษา · Choose your language · 选择语言</div>
         <div className="locksub">
           จะใช้ภาษานี้ทุกครั้งที่เข้ามา เปลี่ยนได้ทีหลังในตั้งค่า<br />
           This will be used every time you come back — change it later in Settings anytime.
@@ -765,7 +767,7 @@ export function ProfileForm({ session, onSaved, onSignOut }) {
       <div className="scan" />
       <div className="memberwrap">
         <div className="lockicon" style={{ fontSize: 36 }}>👋</div>
-        <div className="locktitle">ยินดีต้อนรับ</div>
+        <div className="locktitle welcome">ยินดีต้อนรับ</div>
         <div className="locksub">แค่นี้ก็เริ่มเรียนได้เลย — ส่วนที่เหลือกรอกทีหลังก็ได้<br />{meta.full_name || userEmail}</div>
         <input className="memberinput" type="email" placeholder="อีเมล (Email)" value={email} onChange={e => setEmail(e.target.value)} inputMode="email" />
         <input className="memberinput" placeholder="LINE ID (ไม่บังคับ)" value={line} onChange={e => setLine(e.target.value)} />
