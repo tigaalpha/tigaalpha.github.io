@@ -9774,6 +9774,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // screen. Two distinct producers, one shared consumer (see render below).
   const [guestGateReason, setGuestGateReason] = useState(null);
   const gateLoggedRef = useRef(false);   // one "gate" event per visit, not per render
+  const gatePendingRef = useRef(false);  // clock ran out; raise as soon as it is polite to
+  const busyRef = useRef(false);         // a full-screen exercise is running right now
   const [guestMsLeft, setGuestMsLeft] = useState(GUEST_TRIAL_MS); // soft, non-blocking countdown — see corner pill
   // Returns true (and raises the gate) if this guest needs to log in before
   // continuing — call at the top of anything that needs a real account, and
@@ -9800,7 +9802,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => {
     if (!isGuest) return;
     let last = Date.now();
-    const flush = () => { const now = Date.now(); addGuestMs(now - last); last = now; setGuestMsLeft(Math.max(0, GUEST_TRIAL_MS - getGuestMs())); };
+    const flush = () => {
+      const now = Date.now(); addGuestMs(now - last); last = now;
+      const left = Math.max(0, GUEST_TRIAL_MS - getGuestMs());
+      setGuestMsLeft(left);
+      /* THE GATE IS RAISED HERE, off the clock itself. It used to be raised
+         only by the effect below, whose deps are [isGuest, page] — so it could
+         fire on a page change and nothing else. Measured against live traffic:
+         211 of 221 signed-out visitors never changed page even once (guests
+         only ever reach two pages at all), so 95.5% of people were never once
+         asked to sign up, however long they stayed. That is the whole reason
+         the sign-up count was zero.
+         Mid-exercise is still protected — see the watcher below — but now by
+         waiting for a good moment rather than by never arriving. */
+      if (left <= 0) {
+        gatePendingRef.current = true;
+        if (!busyRef.current) raiseGate("time");
+      }
+    };
     flush();
     const iv = setInterval(flush, GUEST_TICK_MS);
     const onHide = () => { if (document.visibilityState === "hidden") flush(); };
@@ -9973,6 +9992,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   const { vmOpen, setVmOpen, vmState, vmCaption, setVmCaption, vmMsgs, setVmMsgs, vmNotes, setVmNotes, vmErr, setVmErr, vmActiveRef, vmStateRef, vmRecRef, vmMsgsRef, vmNotesRef, vmFrozenRef, vmPlayReactT, vmSilenceT, vmRestartT, vmWatchdogT, vmListenSeqRef, vmEndRef, vmLastActivityRef, vmIdleNudgedRef, vmIdleTimerRef, vmSelfSpeakingRef, vmEarResetRef, vmEarFlushRef, vmDeafCountRef, vmTallyOkRef, vmTallyMissRef, vmFast, setVmFast, vmFastRef, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmPoly, setVmPoly, vmPolyRef, vmLangOpen, setVmLangOpen, vmMenuOpen, setVmMenuOpen, langRef, vmLastDemoRef, vmStreakRef, vmMissRef, vmFillersRef, vmFillerSrcRef, vmCloudDeadRef, vmLit, setVmLit, vmLitT, vmStaff, setVmStaff, vmInstant, setVmInstant, vmInstantT, vmExpectRef, vmSeqRef, vmEarRef, vmInterruptRef, vmTurnRef, vmSpokenRef, vmSpokeAtRef, vmSessionStartRef, vmActStartRef, vmFillerLastRef, vmInput, setVmInput, openVoice, exitVoice, vmOrbTap, vmOnNote, vmTogglePoly, vmProcess, vmToggle } = useVoiceTutor({ lang, session, profile, homework, setHomework, setPage, setStudioView, setMetroOn, setMetroBpm, metroTimingReport, openCamera, chooseSong, startPractice, lastSeq });
 
+
+  /* The other half of the fix. The gate must not land in the middle of a
+     run — a sight-reading sprint, a song, the camera coach — so the clock
+     above only marks it pending while one is on screen, and this raises it
+     the moment the exercise ends. Five full-screen exercises, listed rather
+     than inferred: everything else on top of a page is a panel the visitor
+     opened themselves and can be interrupted. */
+  useEffect(() => {
+    busyRef.current = !!(practiceOpen || songOpen || sightOpen || camOpen || vmOpen);
+    if (!busyRef.current && gatePendingRef.current && isGuest) raiseGate("time");
+  }, [practiceOpen, songOpen, sightOpen, camOpen, vmOpen, isGuest]);
 
   // close flag menu on outside click
   useEffect(() => {

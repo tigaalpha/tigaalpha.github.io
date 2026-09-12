@@ -227,14 +227,14 @@ export function recordNoteMisses(notes) {
    is losing people happens well before any gate, so the gate is cheap to move
    and the honest next step is to watch post-gate sign-ups by method on the
    dashboard rather than argue the second-mark again. */
-export const GUEST_TRIAL_MS = 5 * 1000;
+export const GUEST_TRIAL_MS = 10 * 1000;
 /* How often the guest clock is written down. It has to stay well under the
    gate: the gate can only fire on a flushed total, so a tick coarser than
    GUEST_TRIAL_MS silently postpones it to the next tick. That is not
    hypothetical — this was a flat 10 s while the gate was 15 s, which made the
    real gate 20 s, and a 5 s gate would likewise have behaved as a 10 s one.
    Deriving it from the gate means the two cannot drift apart again. */
-export const GUEST_TICK_MS = Math.max(1000, Math.min(10000, Math.round(GUEST_TRIAL_MS / 2)));
+export const GUEST_TICK_MS = Math.max(1000, Math.min(5000, Math.round(GUEST_TRIAL_MS / 4)));
 export const GUEST_PROFILE_KEY = "tg_guest_profile";
 export const GUEST_MS_KEY = "tg_guest_ms";
 export function freshGuestProfile() {
