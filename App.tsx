@@ -7355,11 +7355,15 @@ function LockScreen({ lang, tier, checkCode, onUnlocked }) {
     setShowCode(true);
   }
 
-  function submitCode() {
+  async function submitCode() {
     if (!checkCode(code)) { setErr(lc.lockErr); setCode(""); return; }
     setErr("");
-    // right after the one moment we know they belong here, and only once
-    if (avail && !enrolled) { setOffer(true); return; }
+    /* Ask the device directly rather than trusting `avail`. That flag is filled
+       in by an async probe on mount, and someone who types a six-digit code
+       quickly can beat it — in which case the offer silently never appeared and
+       fingerprint unlock could never be switched on at all. The state is still
+       useful for what it renders; it is just not what decides this. */
+    if (!enrolled && (avail || await bioAvailable())) { setOffer(true); return; }
     onUnlocked();
   }
 
@@ -7399,6 +7403,13 @@ function LockScreen({ lang, tier, checkCode, onUnlocked }) {
 
       {enrolled && !showCode && (
         <button className="lockalt" onClick={() => setShowCode(true)}>{lc.bioOr}</button>
+      )}
+
+      {/* Before enrolling there is no button to show — a fingerprint cannot be
+          offered until a correct code has vouched for it — so say so, otherwise
+          the feature is invisible to the one person entitled to switch it on. */}
+      {showCode && avail && !enrolled && (
+        <div className="biohint">{lc.bioHint}</div>
       )}
 
       {showCode && (

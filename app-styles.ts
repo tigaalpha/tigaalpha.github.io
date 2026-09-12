@@ -562,7 +562,8 @@ html, body, #root{background:var(--bg)}
 .biobtn:disabled{opacity:.6;cursor:default}
 .biobtn-ic{font-size:21px;line-height:1}
 .lockalt{display:block;margin:12px auto 0;background:none;border:none;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:13.5px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px 10px}
-.lockalt:hover{color:#d97757}.lockbtn:active{transform:scale(.95)}
+.lockalt:hover{color:#d97757}
+.biohint{max-width:300px;margin:2px auto 12px;padding:9px 13px;border-radius:11px;background:rgba(217,119,87,.09);border:1px solid #d9775733;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:12.5px;line-height:1.5}.lockbtn:active{transform:scale(.95)}
 .lockerr{color:#ff5252;font-size:11px;font-family:'Share Tech Mono',monospace;min-height:14px;animation:shake .3s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 /* ── membership / login ── */
