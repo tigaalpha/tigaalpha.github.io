@@ -335,16 +335,14 @@ html, body, #root{background:var(--bg)}
 .pathpage{flex:1;overflow-y:auto;padding:0 0 24px;scrollbar-width:thin;scrollbar-color:#d97757 var(--card3)}
 .pathpage::-webkit-scrollbar{width:4px}
 .pathpage::-webkit-scrollbar-thumb{background:#d97757;border-radius:2px}
-.pathhero{position:relative;text-align:center;padding:10px 16px 8px;margin-bottom:4px;overflow:hidden;border-bottom:1px solid #d977571f}
+.pathhero{position:relative;text-align:center;padding:10px 16px 0;margin-bottom:4px;overflow:hidden;border-bottom:1px solid #d977571f}
 .pathhero-glow{position:absolute;top:-60%;left:50%;transform:translateX(-50%);width:280px;height:280px;pointer-events:none}
 .pathbadge{position:relative;display:inline-block;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:#d97757;border:1px solid #d9775744;border-radius:20px;padding:4px 15px;margin-bottom:12px;background:rgba(217,119,87,.05)}
 /* The hero keyboard that replaced the .pathbadge title (see PathwayPage).
    .kr sizes itself to its container, so the only job here is to give it a
    sensible width and keep it clear of the glow behind it. */
-.pathpiano{position:relative;max-width:430px;margin:2px auto 10px;padding:0 2px}
+.pathpiano{position:relative;max-width:430px;margin:2px auto 0;padding:0 2px}
 .pathpiano .kr{touch-action:none}
-.pathpiano-cap{margin-top:9px;font-family:'Rajdhani',sans-serif;font-size:12px;line-height:1.5;color:var(--text2);letter-spacing:.2px}
-.pathpiano-cap-on{color:#d97757;font-weight:600}
 .pathh1{position:relative;font-family:'Orbitron',sans-serif;font-size:19px;font-weight:900;color:var(--text);text-shadow:0 0 16px #d9775777;letter-spacing:1px;margin-bottom:13px}
 .pathguide{position:relative;font-size:12px;color:var(--text2);line-height:1.65;background: rgba(217,119,87,.07);border:1px solid #d9775722;border-radius:10px;padding:11px 14px;font-family:'Rajdhani',sans-serif;max-width:430px;margin:0 auto}
 .pgroup{padding:0 14px;margin-bottom:10px}

@@ -481,16 +481,17 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
 
   /* Hero keyboard. The octave is deliberately fixed and middle-ish: an octave
      picker here would be one more decision placed in front of someone who has
-     not yet heard a note. The count is session-only on purpose — it drives the
-     caption, nothing that needs to survive a reload. Only the FIRST press is
-     logged, so the admin can see how many arrivals actually touch the piano
-     without one enthusiastic visitor writing a hundred rows. */
+     not yet heard a note. There is no caption either — a keyboard on screen
+     already says what it is, and a line of text under it only delays the tap.
+     Only the FIRST press is logged, so the admin can see what share of
+     arrivals actually touch the piano without one keen visitor writing a
+     hundred rows. */
   const heroOct = 4;
-  const [heroNotes, setHeroNotes] = useState(0);
   const heroLogged = useRef(false);
   const onHeroNote = useCallback(() => {
-    setHeroNotes(n => n + 1);
-    if (!heroLogged.current) { heroLogged.current = true; logUsage("hero", "piano"); }
+    if (heroLogged.current) return;
+    heroLogged.current = true;
+    logUsage("hero", "piano");
   }, []);
   // initialOpenStageId re-opens the topic the learner just came from (via the
   // Sensei page's "change key" back button) so its key picker is right there —
@@ -544,11 +545,6 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
         <div className="pathhero-glow" />
         <div className="pathpiano">
           <Piano small onNote={onHeroNote} baseOct={heroOct} />
-          <div className="pathpiano-cap">
-            {heroNotes >= 3
-              ? <span className="pathpiano-cap-on">{lc.heroPlayed.replace("{n}", String(heroNotes))}</span>
-              : lc.heroTap}
-          </div>
         </div>
       </div>
 
