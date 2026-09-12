@@ -552,7 +552,17 @@ html, body, #root{background:var(--bg)}
 .lockinput{background:var(--card3);border:1px solid #ff525255;border-radius:8px;padding:12px 16px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:15px;text-align:center;letter-spacing:3px;outline:none;width:200px;transition:all .2s}
 .lockinput:focus{border-color:#ff5252;box-shadow:0 0 14px #ff525244}
 .lockbtn{background: #ff5252;border:none;border-radius:8px;padding:11px 28px;cursor:pointer;color:#fff;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:2px;transition:all .2s}
-.lockbtn:active{transform:scale(.95)}
+
+/* Fingerprint unlock on the admin lock screen (see LockScreen / biometric-lock.ts).
+   It is the primary control when this device has enrolled, so it gets the size
+   and the outline; the passcode drops to a quiet text link underneath. */
+.biobtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:280px;margin:4px auto 0;padding:15px 18px;border-radius:14px;border:2px solid #d97757;background:rgba(217,119,87,.08);color:#d97757;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:.4px;cursor:pointer;transition:background .15s,transform .1s}
+.biobtn:hover{background:rgba(217,119,87,.15)}
+.biobtn:active{transform:scale(.985)}
+.biobtn:disabled{opacity:.6;cursor:default}
+.biobtn-ic{font-size:21px;line-height:1}
+.lockalt{display:block;margin:12px auto 0;background:none;border:none;color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:13.5px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px 10px}
+.lockalt:hover{color:#d97757}.lockbtn:active{transform:scale(.95)}
 .lockerr{color:#ff5252;font-size:11px;font-family:'Share Tech Mono',monospace;min-height:14px;animation:shake .3s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 /* ── membership / login ── */

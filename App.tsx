@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } from "react";
+import { bioAvailable, bioEnrolled, bioEnroll, bioVerify } from "./biometric-lock";
 import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
@@ -7317,25 +7318,100 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
 });
 
 /* ── Admin lock screen ── */
-function LockScreen({ lang, onUnlock }) {
+/* Two ways in: the passcode, or this device's fingerprint / face sensor.
+
+   The fingerprint is offered only after a correct passcode has enrolled it,
+   and only on the device that did the enrolling — so it is a shortcut for the
+   person who already had the right to be here, not a second door. It is worth
+   having because the passcode is typed in public: in a cafe or a classroom,
+   a finger cannot be read over your shoulder.
+
+   Worth being plain about what it is not. The console's real protection is
+   server-side, where every query it makes is re-checked against
+   profiles.is_admin, and the passcode lives in the shipped bundle. This makes
+   the doorway harder to walk through casually; it does not make the room
+   itself safer. See biometric-lock.ts. */
+function LockScreen({ lang, tier, checkCode, onUnlocked }) {
   const lc = L[lang];
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
-  function tryUnlock() {
-    if (onUnlock(code)) { setErr(""); }
-    else { setErr(lc.lockErr); setCode(""); }
+  const [avail, setAvail] = useState(false);      // does this device have a sensor
+  const [enrolled, setEnrolled] = useState(() => bioEnrolled(tier));
+  const [busy, setBusy] = useState(false);
+  const [offer, setOffer] = useState(false);      // "turn it on?" after a correct code
+  const [showCode, setShowCode] = useState(() => !bioEnrolled(tier));
+
+  useEffect(() => { let live = true; bioAvailable().then(v => { if (live) setAvail(v); }); return () => { live = false; }; }, []);
+
+  async function scan() {
+    if (busy) return;
+    setBusy(true); setErr("");
+    const ok = await bioVerify(tier);
+    setBusy(false);
+    if (ok) return onUnlocked();
+    /* A failed scan is usually a cancel or the wrong finger, not a broken
+       enrolment — so open the passcode rather than silently doing nothing. */
+    setErr(lc.bioFail);
+    setShowCode(true);
   }
+
+  function submitCode() {
+    if (!checkCode(code)) { setErr(lc.lockErr); setCode(""); return; }
+    setErr("");
+    // right after the one moment we know they belong here, and only once
+    if (avail && !enrolled) { setOffer(true); return; }
+    onUnlocked();
+  }
+
+  async function enrollNow() {
+    setBusy(true);
+    const ok = await bioEnroll(tier);
+    setBusy(false);
+    if (ok) setEnrolled(true);
+    else setErr(lc.bioOfferErr);
+    onUnlocked();                        // they are in either way; the code was right
+  }
+
+  if (offer) {
+    return (
+      <div className="lockwrap">
+        <div className="lockicon">🧬</div>
+        <div className="locktitle">{lc.bioOfferT}</div>
+        <div className="locksub">{lc.bioOfferS}</div>
+        <button className="lockbtn" disabled={busy} onClick={enrollNow}>{busy ? "…" : lc.bioOfferYes}</button>
+        <button className="lockalt" onClick={onUnlocked}>{lc.bioOfferNo}</button>
+      </div>
+    );
+  }
+
   return (
     <div className="lockwrap">
       <div className="lockicon">🔐</div>
       <div className="locktitle">{lc.lockTitle}</div>
       <div className="locksub">{lc.lockSub}</div>
-      <input className="lockinput" type="password" value={code}
-        placeholder={lc.lockPlace}
-        onChange={e => setCode(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }} />
-      <div className="lockerr">{err}</div>
-      <button className="lockbtn" onClick={tryUnlock}>{lc.lockEnter}</button>
+
+      {enrolled && (
+        <button className="biobtn" onClick={scan} disabled={busy} aria-label={lc.bioUnlock}>
+          <span className="biobtn-ic">{busy ? "●" : "☝️"}</span>
+          <span>{busy ? lc.bioWait : lc.bioUnlock}</span>
+        </button>
+      )}
+
+      {enrolled && !showCode && (
+        <button className="lockalt" onClick={() => setShowCode(true)}>{lc.bioOr}</button>
+      )}
+
+      {showCode && (
+        <>
+          <input className="lockinput" type="password" value={code}
+            placeholder={lc.lockPlace}
+            onChange={e => setCode(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") submitCode(); }} />
+          <div className="lockerr">{err}</div>
+          <button className="lockbtn" onClick={submitCode}>{lc.lockEnter}</button>
+        </>
+      )}
+      {!showCode && <div className="lockerr">{err}</div>}
     </div>
   );
 }
@@ -9744,14 +9820,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // lower admin tiers (1–2) keep the staff code.
   const ADMIN_CODE = "666666";        // staff (admin tier 1–2)
   const TOP_ADMIN_CODE = "tiga2026";  // owner only (admin tier 3)
-  function tryUnlock(code) {
-    const myTier = (profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0);
-    if (code === (myTier >= 3 ? TOP_ADMIN_CODE : ADMIN_CODE)) {
-      setAdminUnlocked(true);
-      setShowLock(false);
-      return true;
-    }
-    return false;
+  /* Checking the code and opening the door used to be one function. They are
+     two now because the fingerprint path opens the door without a code, and
+     the enrolment offer needs to know the code was right while still holding
+     the door shut for one more screen. */
+  const adminTier = (profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0);
+  function checkAdminCode(code) {
+    return code === (adminTier >= 3 ? TOP_ADMIN_CODE : ADMIN_CODE);
+  }
+  function openAdmin() {
+    setAdminUnlocked(true);
+    setShowLock(false);
   }
   function exitAdmin() {
     setAdminUnlocked(false);
@@ -10803,7 +10882,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "admin" && (
         adminUnlocked
           ? <AdminPage lang={lang} onExit={exitAdmin} adminTier={(profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0)} />
-          : <LockScreen lang={lang} onUnlock={tryUnlock} />
+          : <LockScreen lang={lang} tier={adminTier} checkCode={checkAdminCode} onUnlocked={openAdmin} />
       )}
 
       {/* ─── PAGE: HOME (new landing page — UX refactor) ─── */}
@@ -11005,7 +11084,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           // Report, before the MAX Exclusive Features section) per request —
           // no longer a separate drawer entry, same page either way.
           // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
-          // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
+          // logo gesture + code (handleLogoTap/checkAdminCode), never a visible nav link.
         ].map(it => {
           const isOn = it.p === "studio" ? (page === "studio" && studioView === it.sv) : page === it.p;
           return (
