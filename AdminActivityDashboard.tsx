@@ -148,6 +148,12 @@ export function AdminAnonVisitors({ lang }) {
   const [sel, setSel] = useState(null);
   const [trail, setTrail] = useState([]);
   const [signup, setSignup] = useState(null); // Google vs email sign-up split
+  // Whether the "สมัครแล้ว" tile's breakdown is open. "converted" only ever
+  // meant "this anon_id was later seen with a real user_id" — it said nothing
+  // about which door they walked through. admin_anon_overview now reports that
+  // too (signup_methods), and admin_anon_visitors names it per row (provider),
+  // so the click just reveals what was already being fetched.
+  const [showConvBreak, setShowConvBreak] = useState(false);
 
   const since = useCallback(() => {
     if (range === "all") return null;
@@ -217,20 +223,77 @@ export function AdminAnonVisitors({ lang }) {
         <>
           <div className="admmg-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10, marginBottom: 12 }}>
             {[
-              [T("ผู้เข้าชม", "Visitors", "访客"), ov.visitors],
-              [T("ยังไม่ล็อกอิน", "Never logged in", "未登录"), ov.anon_only],
-              [T("เล่นเฉลี่ยคนละ", "Average each", "人均"), fmtMin(ov.avg_ms) + T(" นาที", " min", " 分")],
-              [T("ค่ากลาง", "Median", "中位数"), fmtMin(ov.median_ms) + T(" นาที", " min", " 分")],
-              [T("นานที่สุด", "Longest", "最长"), fmtMin(ov.max_ms) + T(" นาที", " min", " 分")],
-              [T("เวลารวม", "Total time", "总时长"), fmtMin(ov.dwell_ms) + T(" นาที", " min", " 分")],
-              [T("สมัครแล้ว", "Signed up", "已注册"), ov.converted],
-            ].map(([k, v]) => (
-              <div key={k} className="admmg" style={{ padding: "10px 12px" }}>
+              { id: "visitors", k: T("ผู้เข้าชม", "Visitors", "访客"), v: ov.visitors },
+              { id: "anon_only", k: T("ยังไม่ล็อกอิน", "Never logged in", "未登录"), v: ov.anon_only },
+              { id: "avg", k: T("เล่นเฉลี่ยคนละ", "Average each", "人均"), v: fmtMin(ov.avg_ms) + T(" นาที", " min", " 分") },
+              { id: "median", k: T("ค่ากลาง", "Median", "中位数"), v: fmtMin(ov.median_ms) + T(" นาที", " min", " 分") },
+              { id: "max", k: T("นานที่สุด", "Longest", "最长"), v: fmtMin(ov.max_ms) + T(" นาที", " min", " 分") },
+              { id: "total_time", k: T("เวลารวม", "Total time", "总时长"), v: fmtMin(ov.dwell_ms) + T(" นาที", " min", " 分") },
+              { id: "converted", k: T("สมัครแล้ว", "Signed up", "已注册"), v: ov.converted },
+            ].map(({ id, k, v }) => id === "converted" ? (
+              // The one tile that opens something — tappable, and says so with a
+              // caret, rather than looking identical to its six read-only siblings.
+              <button key={id} type="button" className="admmg" disabled={!ov.converted}
+                onClick={() => setShowConvBreak(o => !o)}
+                style={{ padding: "10px 12px", textAlign: "left", cursor: ov.converted ? "pointer" : "default",
+                  border: showConvBreak ? "1px solid #d97757" : "1px solid transparent", font: "inherit", color: "inherit" }}>
+                <div className="admstu-row-sub" style={{ marginBottom: 2, display: "flex", justifyContent: "space-between", gap: 6 }}>
+                  <span>{k}</span>
+                  {!!ov.converted && <span style={{ fontSize: 10, opacity: .7 }}>{showConvBreak ? "▲" : "▼"}</span>}
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#d97757" }}>{v}</div>
+              </button>
+            ) : (
+              <div key={id} className="admmg" style={{ padding: "10px 12px" }}>
                 <div className="admstu-row-sub" style={{ marginBottom: 2 }}>{k}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: "#d97757" }}>{v}</div>
               </div>
             ))}
           </div>
+
+          {/* "สมัครแล้ว" only ever counted a browser that was later seen
+              signed in — it never said which door. The totals here come from
+              ov.signup_methods (exact, independent of the 200-row cap below);
+              the list underneath names WHICH of the converted anon_ids used
+              which method, straight from admin_anon_visitors' new `provider`
+              column, so it can only ever agree with the totals above it. */}
+          {showConvBreak && !!ov.converted && (() => {
+            const sm = ov.signup_methods || {};
+            const g = Number(sm.google) || 0, e = Number(sm.email) || 0;
+            const other = (Number(sm.other) || 0) + (Number(sm.unknown) || 0);
+            const conv = rows.filter(r => r.converted);
+            return (
+              <div className="admmg" style={{ marginBottom: 12 }}>
+                <div className="admmg-h">🔑 {T("สมัครแล้ว — ผ่านช่องทางไหน", "Signed up — which door", "已注册 — 通过哪种方式")} ({ov.converted})</div>
+                <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "2px 0 12px" }}>
+                  <div><b style={{ fontSize: 19 }}>{g}</b> <span className="admstu-row-sub">🔵 Google</span></div>
+                  <div><b style={{ fontSize: 19 }}>{e}</b> <span className="admstu-row-sub">✉️ {T("แอป TIGA (อีเมล)", "TIGA app (email)", "TIGA 应用（邮箱）")}</span></div>
+                  {other > 0 && <div><b style={{ fontSize: 19 }}>{other}</b> <span className="admstu-row-sub">{T("อื่น ๆ / ไม่ทราบ", "other / unknown", "其他/未知")}</span></div>}
+                </div>
+                {conv.length ? conv.map(r => (
+                  <div key={r.anon_id} className="anrow">
+                    <span className="anrow-rank" style={{ width: 26 }}>{r.provider === "google" ? "🔵" : r.provider === "email" ? "✉️" : "❔"}</span>
+                    <span className="anrow-name" style={{ maxWidth: "34%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.last_item || "—"}
+                    </span>
+                    <span className="admstu-row-sub" style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {uaLabel(r.ua)} · {r.src || "direct"}
+                    </span>
+                    <span className="anrow-hits">{fmtTime(r.last_seen)}</span>
+                  </div>
+                )) : (
+                  // Only reachable if MORE than the 200-row cap below converted in
+                  // this range — the totals above stay exact either way, only
+                  // this per-person list is capped.
+                  <div className="admstu-empty">
+                    {T("คนสมัครมีมากกว่าที่รายชื่อด้านล่างแสดงได้ — ตัวเลขด้านบนยังถูกต้อง",
+                       "More people signed up than the list below can show — the totals above are still exact",
+                       "本时段注册人数超过下方列表可显示上限 — 以上总数仍准确")}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* The same two cards as the activity page. This page answers "who never
               made an account"; these say which door the ones who did came
