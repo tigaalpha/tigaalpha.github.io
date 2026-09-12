@@ -19,7 +19,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
             <div className="setbody">
               {plan === "trial" && trialDaysLeft(profile) > 0 && (
                 <div style={{ background: "rgba(217,119,87,.12)", border: "1.5px solid #d97757", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
-                  🎁 {lc.trialBanner} · {trialDaysLeft(profile)} {lc.trialDaysLeft}
+                  {lc.trialBanner} · {trialDaysLeft(profile)} {lc.trialDaysLeft}
                 </div>
               )}
               <p className="pr-sub">{lc.prSub}</p>
