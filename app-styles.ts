@@ -220,6 +220,10 @@ html, body, #root{background:var(--bg)}
 .typing{display:flex;gap:5px;align-items:center;padding:10px 14px}
 .tdd{width:7px;height:7px;border-radius:50%;background:#d97757;animation:bounce 1.2s infinite}
 .tdd:nth-child(2){animation-delay:.2s}.tdd:nth-child(3){animation-delay:.4s}
+/* The wait while a code-split page fetches itself. Same dots as the chat's
+   typing indicator, centred and holding roughly the page's height so the
+   layout does not jump when the real page lands. */
+.lazybits{display:flex;gap:6px;align-items:center;justify-content:center;min-height:110px;width:100%}
 /* Knowledge Quest conversation starters — a compact, horizontally-scrolling
    row of tappable case-study picks, sitting between the message list and the
    input so it reads as "try one of these next" rather than a permanent

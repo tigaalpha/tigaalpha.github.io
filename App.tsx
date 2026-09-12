@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } from "react";
+import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment, lazy, Suspense } from "react";
 import { bioAvailable, bioEnrolled, bioEnroll, bioVerify } from "./biometric-lock";
 import { Capacitor } from "@capacitor/core";
 import { PATHWAY } from "./pathway-data";
@@ -7,7 +7,21 @@ import { useInjectCSS } from "./app-styles";
 import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
 import { ItemArt } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
-import { SkillTrack, PvpBanner, PvpPage, readSkillSp, skillRank } from "./pvp-arena";
+/* ── Split off the first screen's dead weight ──
+   The app shipped as one 731 kB (gzip) file, so a first-time visitor had to
+   download the arena, the robot art and the admin console before they could
+   touch a piano key. Measured in an Instagram webview on a mid-range phone,
+   that wait was 1.9s on good 4G and 8.4s on a congested one, of which 78-90%
+   was pure download — and 73% of visitors left within a second of it finally
+   finishing. None of the modules below can be reached from the first screen:
+   the arena lives on the PvP and Profile pages, the console behind an admin
+   passcode. They load when someone actually goes there.
+
+   readSkillSp and skillRank used to be imported here and were never once used
+   in this file — dropped rather than carried into a chunk for nothing. */
+const PvpPage = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpPage })));
+const PvpBanner = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpBanner })));
+const SkillTrack = lazy(() => import("./pvp-arena").then(m => ({ default: m.SkillTrack })));
 import { PetPod, PetPage, PetArt, PET_SPECIES, PET_TYPES, PET_BONUS, PET_COST,
   adoptPet, carryPet, ownsSpecies, carriedSpecies, allPets } from "./pet-lab";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
@@ -93,7 +107,21 @@ import { LeadLandingPage } from "./LeadLandingPage";
 import { PianoLevelQuiz } from "./PianoLevelQuiz";
 import { ReferralDashboard } from "./ReferralDashboard";
 import { LeadSaleDashboard } from "./LeadSaleDashboard";
-import { AdminActivity, AdminSimBots, AdminAnonVisitors } from "./AdminActivityDashboard";
+/* Shown while a split-off page fetches its code — the same three dots the
+   chat uses, for the same reason: a still frame reads as broken, a moving one
+   reads as working. Sized to roughly hold the page's place so the layout does
+   not jump when the real thing lands. */
+function LazyBits({ tall = false }) {
+  return (
+    <div className="lazybits" style={tall ? { minHeight: "55vh" } : null} role="status" aria-live="polite">
+      <div className="tdd" /><div className="tdd" /><div className="tdd" />
+    </div>
+  );
+}
+
+const AdminActivity = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminActivity })));
+const AdminSimBots = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminSimBots })));
+const AdminAnonVisitors = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminAnonVisitors })));
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -6309,6 +6337,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
   }, []);
   useEffect(() => { load(); }, [load]);
   return (
+    <Suspense fallback={<LazyBits tall />}>
     <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi}
       friends={friends} duels={duels} onApplyLoadout={onApplyLoadout}
       onChallenge={async (friend, score) => {
@@ -6328,6 +6357,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
           `${res.correct}/${res.asked} ` + (lang === "th" ? "ตอบถูก" : lang === "zh" ? "答对" : "correct"),
         ],
       })} />
+    </Suspense>
   );
 });
 
@@ -6520,14 +6550,14 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             rather than reporting what they already did — right under the EXP
             bar so it's the first door anyone sees, not a footnote at the
             bottom of the skill card it used to hide inside. */}
-        <PvpBanner lang={lang} onOpenPvp={onOpenPvp} />
+        <Suspense fallback={<LazyBits />}><PvpBanner lang={lang} onOpenPvp={onOpenPvp} /></Suspense>
 
         {/* ── skill track ──
             Account EXP is what the PLAYER has learned; this is what the CHASSIS
             has. It belongs to the class rather than the model, so switching
             between two Strikers keeps the rank and switching class starts a
             fresh one. */}
-        <SkillTrack lang={lang} charModel={charModel} />
+        <Suspense fallback={<LazyBits />}><SkillTrack lang={lang} charModel={charModel} /></Suspense>
       </div>
 
       {/* ── Character / Avatar Dress-up Section ── */}
@@ -9195,9 +9225,9 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
-        : adminTab === "activity" && tier >= 3 ? <AdminActivity lang={lang} onOpenAnon={() => setAdminTab("anonvisit")} />
-        : adminTab === "anonvisit" && tier >= 3 ? <AdminAnonVisitors lang={lang} />
-        : adminTab === "simbots" && tier >= 3 ? <AdminSimBots lang={lang} />
+        : adminTab === "activity" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminActivity lang={lang} onOpenAnon={() => setAdminTab("anonvisit")} /></Suspense>
+        : adminTab === "anonvisit" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminAnonVisitors lang={lang} /></Suspense>
+        : adminTab === "simbots" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminSimBots lang={lang} /></Suspense>
         : adminTab === "ai" && tier >= 3 ? (<>
 
       <div className="mmsgs">

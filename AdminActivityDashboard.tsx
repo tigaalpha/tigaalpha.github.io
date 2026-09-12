@@ -91,6 +91,12 @@ const uaLabel = (u) => UA_LABEL[u] || String(u || "?");
 const isWebview = (u) => String(u || "").includes("webview");
 /* The gate has been seconds and minutes at different times, so print whichever
    unit reads naturally rather than "0.3 min". */
+/* Load times live in the 0.3-9s range, where fmtSecs' whole-second rounding
+   erases exactly the differences worth seeing (0.4s and 1.4s both become "1s"). */
+const fmtLoad = (ms) => {
+  const n = Number(ms) || 0;
+  return n < 10000 ? (n / 1000).toFixed(1) + "s" : Math.round(n / 1000) + "s";
+};
 const fmtSecs = (ms) => {
   const s = Math.round((Number(ms) || 0) / 1000);
   if (s < 90) return s + "s";
@@ -108,6 +114,17 @@ const fmtSecs = (ms) => {
    would read "0 and 0" on a quiet week and look broken rather than
    informative; the in-range figure is the small line underneath, where a zero
    is honest instead of alarming. */
+/* navigator.connection.effectiveType, in words. "4g" is the browser's own
+   coarse bucket and covers everything from a weak 4G bar to fibre, so it is
+   named for what it means to a visitor rather than quoted back verbatim. */
+function netLabel(net, T) {
+  if (net === "4g") return T("เน็ตเร็ว (4G/5G/wifi)", "Fast (4G/5G/wifi)", "快速 (4G/5G/wifi)");
+  if (net === "3g") return T("เน็ตปานกลาง (3G)", "Medium (3G)", "中速 (3G)");
+  if (net === "2g") return T("เน็ตช้า (2G)", "Slow (2G)", "慢速 (2G)");
+  if (net === "slow-2g") return T("เน็ตช้ามาก", "Very slow", "极慢");
+  return T("ไม่ทราบ", "Unknown", "未知");
+}
+
 function SignupMethodCards({ signup, range, T }) {
   if (!signup) return null;
   const su = signup;
@@ -229,10 +246,17 @@ export function AdminAnonVisitors({ lang }) {
               { id: "median", k: T("ค่ากลาง", "Median", "中位数"), v: fmtMin(ov.median_ms) + T(" นาที", " min", " 分") },
               { id: "max", k: T("นานที่สุด", "Longest", "最长"), v: fmtMin(ov.max_ms) + T(" นาที", " min", " 分") },
               { id: "total_time", k: T("เวลารวม", "Total time", "总时长"), v: fmtMin(ov.dwell_ms) + T(" นาที", " min", " 分") },
-              { id: "converted", k: T("สมัครแล้ว", "Signed up", "已注册"), v: ov.converted },
-            ].map(({ id, k, v }) => id === "converted" ? (
-              // The one tile that opens something — tappable, and says so with a
-              // caret, rather than looking identical to its six read-only siblings.
+              // One tile used to read "สมัครแล้ว" and count anyone later seen
+              // signed in — which is equally true of a MEMBER COMING BACK. On
+              // 11-12 Sep it showed 8 while the real number of new members was
+              // zero; all eight were accounts opened between June and August.
+              // Two tiles, never re-added, because only the left one answers
+              // "is the sign-up form working".
+              { id: "new_signups", k: T("สมัครใหม่", "New sign-ups", "新注册"), v: ov.new_signups ?? 0 },
+              { id: "returning", k: T("คนเก่ากลับมา", "Members returning", "老用户回访"), v: ov.returning ?? 0 },
+            ].map(({ id, k, v }) => (id === "new_signups" || id === "returning") ? (
+              // The tiles that open something — tappable, and saying so with a
+              // caret, rather than looking identical to their read-only siblings.
               <button key={id} type="button" className="admmg" disabled={!ov.converted}
                 onClick={() => setShowConvBreak(o => !o)}
                 style={{ padding: "10px 12px", textAlign: "left", cursor: ov.converted ? "pointer" : "default",
@@ -241,7 +265,7 @@ export function AdminAnonVisitors({ lang }) {
                   <span>{k}</span>
                   {!!ov.converted && <span style={{ fontSize: 10, opacity: .7 }}>{showConvBreak ? "▲" : "▼"}</span>}
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#d97757" }}>{v}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: id === "new_signups" ? "#d97757" : "var(--muted)" }}>{v}</div>
               </button>
             ) : (
               <div key={id} className="admmg" style={{ padding: "10px 12px" }}>
@@ -251,25 +275,40 @@ export function AdminAnonVisitors({ lang }) {
             ))}
           </div>
 
-          {/* "สมัครแล้ว" only ever counted a browser that was later seen
-              signed in — it never said which door. The totals here come from
-              ov.signup_methods (exact, independent of the 200-row cap below);
-              the list underneath names WHICH of the converted anon_ids used
-              which method, straight from admin_anon_visitors' new `provider`
-              column, so it can only ever agree with the totals above it. */}
+          {/* Which door, and — the part that was missing — whether the person
+              walking through it was new. ov.signup_methods now counts NEW
+              members only; returning members get their own line rather than
+              being folded into the same total, because they say nothing about
+              whether the sign-up form works, which is the only question this
+              panel exists to answer. */}
           {showConvBreak && !!ov.converted && (() => {
             const sm = ov.signup_methods || {};
             const g = Number(sm.google) || 0, e = Number(sm.email) || 0;
             const other = (Number(sm.other) || 0) + (Number(sm.unknown) || 0);
-            const conv = rows.filter(r => r.converted);
+            const newN = Number(ov.new_signups) || 0, retN = Number(ov.returning) || 0;
+            const conv = rows.filter(r => r.is_new_signup);
+            const back = rows.filter(r => r.converted && !r.is_new_signup);
             return (
               <div className="admmg" style={{ marginBottom: 12 }}>
-                <div className="admmg-h">🔑 {T("สมัครแล้ว — ผ่านช่องทางไหน", "Signed up — which door", "已注册 — 通过哪种方式")} ({ov.converted})</div>
-                <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "2px 0 12px" }}>
-                  <div><b style={{ fontSize: 19 }}>{g}</b> <span className="admstu-row-sub">🔵 Google</span></div>
-                  <div><b style={{ fontSize: 19 }}>{e}</b> <span className="admstu-row-sub">✉️ {T("แอป TIGA (อีเมล)", "TIGA app (email)", "TIGA 应用（邮箱）")}</span></div>
-                  {other > 0 && <div><b style={{ fontSize: 19 }}>{other}</b> <span className="admstu-row-sub">{T("อื่น ๆ / ไม่ทราบ", "other / unknown", "其他/未知")}</span></div>}
-                </div>
+                <div className="admmg-h">🔑 {T("สมัครใหม่ — ผ่านช่องทางไหน", "New sign-ups — which door", "新注册 — 通过哪种方式")} ({newN})</div>
+                {newN === 0 ? (
+                  <div className="admstu-empty" style={{ marginBottom: 12 }}>
+                    {T("ยังไม่มีใครสมัครใหม่ในช่วงนี้ — ที่เห็นด้านล่างคือสมาชิกเก่าที่กลับมาล็อกอิน",
+                       "Nobody new signed up in this range — everyone below is an existing member logging back in",
+                       "本时段没有新注册 — 下面都是老用户回访登录")}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "2px 0 12px" }}>
+                    <div><b style={{ fontSize: 19 }}>{g}</b> <span className="admstu-row-sub">🔵 Google</span></div>
+                    <div><b style={{ fontSize: 19 }}>{e}</b> <span className="admstu-row-sub">✉️ {T("แอป TIGA (อีเมล)", "TIGA app (email)", "TIGA 应用（邮箱）")}</span></div>
+                    {other > 0 && <div><b style={{ fontSize: 19 }}>{other}</b> <span className="admstu-row-sub">{T("อื่น ๆ / ไม่ทราบ", "other / unknown", "其他/未知")}</span></div>}
+                  </div>
+                )}
+                {back.length > 0 && (
+                  <div className="admstu-row-sub" style={{ margin: "0 0 8px" }}>
+                    ↩︎ {T("สมาชิกเก่ากลับมาล็อกอิน", "existing members logging back in", "老用户回访登录")} <b>{retN}</b> {T("คน", "", "人")}
+                  </div>
+                )}
                 {conv.length ? conv.map(r => (
                   <div key={r.anon_id} className="anrow">
                     <span className="anrow-rank" style={{ width: 26 }}>{r.provider === "google" ? "🔵" : r.provider === "email" ? "✉️" : "❔"}</span>
@@ -316,6 +355,51 @@ export function AdminAnonVisitors({ lang }) {
               come from gate_ms, which the server echoed back from the value
               this app is actually using, so the bars can never be graded
               against a threshold the app has moved on from. */}
+          {/* ── The wait nobody could see ──
+              Every other number on this page starts counting the moment the app
+              mounts. This one counts from the tap, so it covers the part that
+              used to be invisible: the bundle downloading while a visitor looks
+              at a loading bar. It matters because the two are easy to confuse —
+              someone who waited eight seconds and gave up recorded exactly the
+              same "left almost immediately" as someone who never waited at all.
+              Split by connection class, because the answer is different for a
+              phone on fibre and a phone on a crowded cell. */}
+          {!!(ov.boot && Number(ov.boot.n) > 0) && (
+            <div className="admmg" style={{ marginBottom: 12 }}>
+              <div className="admmg-h">🚀 {T("กว่าแอปจะใช้งานได้ (นับตั้งแต่กดลิงก์)", "How long until the app is usable (from the tap)", "从点击到可用耗时")}</div>
+              {(() => {
+                const b = ov.boot || {};
+                const med = Number(b.median_ms) || 0, p90 = Number(b.p90_ms) || 0;
+                const n = Number(b.n) || 0, slow = Number(b.over3s) || 0;
+                const nets = Array.isArray(b.by_net) ? b.by_net : [];
+                // 3s is where a page stops reading as loading and starts reading
+                // as broken; it is the line worth watching, not an average.
+                const bad = slow && n ? Math.round(100 * slow / n) : 0;
+                return (
+                  <>
+                    <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "2px 0 10px" }}>
+                      <div><b style={{ fontSize: 19, color: med >= 3000 ? "#c2410c" : "#d97757" }}>{fmtLoad(med)}</b> <span className="admstu-row-sub">{T("ค่ากลาง", "median", "中位数")}</span></div>
+                      <div><b style={{ fontSize: 19, color: p90 >= 5000 ? "#c2410c" : "inherit" }}>{fmtLoad(p90)}</b> <span className="admstu-row-sub">{T("ช้าสุด 10%", "slowest 10%", "最慢 10%")}</span></div>
+                      <div><b style={{ fontSize: 19, color: bad >= 25 ? "#c2410c" : "inherit" }}>{bad}%</b> <span className="admstu-row-sub">{T("รอเกิน 3 วินาที", "waited over 3s", "等待超过 3 秒")}</span></div>
+                    </div>
+                    {nets.map(x => (
+                      <div key={x.net} className="anrow">
+                        <span className="anrow-name" style={{ maxWidth: "38%" }}>{netLabel(x.net, T)}</span>
+                        <span className="admstu-row-sub" style={{ flex: 1 }}>{x.n} {T("คน", "people", "人")}</span>
+                        <span className="anrow-hits" style={{ color: Number(x.median_ms) >= 3000 ? "#c2410c" : "inherit" }}>{fmtLoad(x.median_ms)}</span>
+                      </div>
+                    ))}
+                    <div className="admstu-row-sub" style={{ marginTop: 8 }}>
+                      {T("เวลานี้ไม่ถูกนับรวมในตัวเลข \"เล่นนานแค่ไหน\" ด้านล่าง — คนละเรื่องกัน",
+                         "This is not counted in the dwell figures below — they measure different things",
+                         "此数据不计入下方停留时长 — 两者含义不同")}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
           <div className="admmg" style={{ marginBottom: 12 }}>
             <div className="admmg-h">⏱️ {T("เล่นนานแค่ไหนก่อนจะออก", "How long they lasted", "停留时长分布")}</div>
             {(() => {
@@ -496,7 +580,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
           <div className="anonhero-r">
             <div className="anonhero-s"><b>{fmtMin(anon.median_ms)}</b> {T("นาที — ค่ากลาง (ครึ่งหนึ่งเล่นน้อยกว่านี้)", "min median", "分 中位数")}</div>
             <div className="anonhero-s"><b>{anon.reached ?? 0}</b> {T(`คนเล่นถึง ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)} (เห็นหน้าชวนสมัคร)`, `reached the ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)} gate`, `达到 ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)}`)}</div>
-            <div className="anonhero-s"><b>{anon.converted ?? 0}</b> {T("สมัครแล้ว", "signed up", "已注册")}</div>
+            <div className="anonhero-s"><b>{anon.new_signups ?? 0}</b> {T("สมัครใหม่", "new sign-ups", "新注册")}</div>
             {anonWv >= 20 && <div className="anonhero-w">⚠️ {anonWv}% {T("มาจากเบราว์เซอร์ในแอป", "in-app browser", "应用内浏览器")}</div>}
           </div>
           <span className="anonhero-go">{T("ดูรายละเอียด", "Details", "详情")} ›</span>
