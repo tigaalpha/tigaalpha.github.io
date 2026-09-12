@@ -478,6 +478,20 @@ const SIGHT_ROUND = 10; // notes per sight-reading round
 const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, initialOpenStageId, initialSelectedType, userName = "" }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
+
+  /* Hero keyboard. The octave is deliberately fixed and middle-ish: an octave
+     picker here would be one more decision placed in front of someone who has
+     not yet heard a note. The count is session-only on purpose — it drives the
+     caption, nothing that needs to survive a reload. Only the FIRST press is
+     logged, so the admin can see how many arrivals actually touch the piano
+     without one enthusiastic visitor writing a hundred rows. */
+  const heroOct = 4;
+  const [heroNotes, setHeroNotes] = useState(0);
+  const heroLogged = useRef(false);
+  const onHeroNote = useCallback(() => {
+    setHeroNotes(n => n + 1);
+    if (!heroLogged.current) { heroLogged.current = true; logUsage("hero", "piano"); }
+  }, []);
   // initialOpenStageId re-opens the topic the learner just came from (via the
   // Sensei page's "change key" back button) so its key picker is right there —
   // this only matters on first mount, same as any other useState initializer.
@@ -513,12 +527,29 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
   }
   return (
     <div className="pathpage">
+      {/* The first thing anyone sees is now an instrument, not a heading.
+
+          A full day of signed-out arrivals said the old top of this page was
+          where they were lost: 90 people came in, 9 opened a lesson, 0 signed
+          up. The page opened on a title and a table of contents — nothing on
+          it made a sound, so someone who tapped an advert about learning piano
+          had to read a curriculum before they could touch a key. The title is
+          gone and the keys are here instead: no lesson to pick, no account to
+          make, press one and it plays.
+
+          The caption becomes a nudge toward the first lesson once they have
+          actually played something, because that is the moment the invitation
+          has been accepted and the next step is worth naming. */}
       <div className="pathhero">
         <div className="pathhero-glow" />
-        {/* The one line every arrival reads first, so it follows the chosen
-            language like the rest of the page — i18n has carried pathTitle in
-            all three since the beginning; only this banner ignored it. */}
-        <div className="pathbadge">◈ {lc.pathTitle} ◈</div>
+        <div className="pathpiano">
+          <Piano small onNote={onHeroNote} baseOct={heroOct} />
+          <div className="pathpiano-cap">
+            {heroNotes >= 3
+              ? <span className="pathpiano-cap-on">{lc.heroPlayed.replace("{n}", String(heroNotes))}</span>
+              : lc.heroTap}
+          </div>
+        </div>
       </div>
 
       {groups.map((g, gi) => {
