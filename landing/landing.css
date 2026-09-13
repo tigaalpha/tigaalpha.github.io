@@ -255,6 +255,10 @@ body {
   border-radius: 13px; padding: 0 18px; font: inherit; font-weight: 700; cursor: pointer;
 }
 .lp-send:disabled { opacity: .45; cursor: default; }
+.lp-ask input:disabled { opacity: .6; }
+/* The free-question counter. Quiet on purpose: it is a reassurance ("this
+   really is free") rather than a meter counting down at somebody. */
+.lp-askfree { padding: 6px 2px 0; font-size: 12px; color: var(--muted); }
 
 /* ── sign-up ── */
 .lp-signup {

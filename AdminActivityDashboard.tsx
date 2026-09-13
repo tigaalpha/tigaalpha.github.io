@@ -139,6 +139,7 @@ const LAND_STEPS = [
   ["touched",    "กดคีย์เปียโน",      "Played a key",      "弹了琴键"],
   ["asked",      "กดถามคำถาม",       "Asked a question",  "点了问题"],
   ["typed",      "พิมพ์คำถามเอง",     "Typed their own",   "自己输入问题"],
+  ["ai_answered","AI ตอบให้จริง",     "AI answered it",    "AI 作答"],
   ["saw_signup", "เห็นหน้าสมัคร",     "Saw the sign-up",   "看到注册"],
   ["tried",      "กดปุ่มสมัคร",       "Tapped sign up",    "点击注册"],
   ["signed_up",  "สมัครสำเร็จ",       "Signed up",         "注册成功"],
@@ -183,7 +184,14 @@ function LandingFunnelCard({ f, T }) {
         );
       })}
 
-      <div className="admstu-row" style={{ marginTop: 8, display: "flex", gap: 16 }}>
+      <div className="admstu-row" style={{ marginTop: 8, display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <b style={{ fontSize: 17 }}>{Number(f.ai_total) || 0}</b>{" "}
+          <span className="admstu-row-sub">{T("คำถามที่ AI ตอบ", "AI answers given", "AI 回答数")}</span>
+          {!!Number(f.ai_failed) && (
+            <span className="admstu-row-sub" style={{ color: "#c2410c" }}> · {f.ai_failed} {T("ตอบไม่ได้", "failed", "失败")}</span>
+          )}
+        </div>
         <div>
           <b style={{ fontSize: 17 }}>{f.dwell_med != null ? fmtSecs(f.dwell_med) : "—"}</b>{" "}
           <span className="admstu-row-sub">{T("อยู่บนหน้า (ค่ากลาง)", "on page (median)", "停留中位数")}</span>

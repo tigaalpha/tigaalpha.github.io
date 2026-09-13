@@ -5,6 +5,7 @@ import { sb } from "../supabase-client";
 import { inAppBrowser, openInRealBrowser, PDPA_VERSION, friendlyAuthError } from "../app-shell";
 import { LESSONS } from "./landing-lessons";
 import { C, LANGS, FLAGS, FLAG_NAMES, pickLang } from "./landing-copy";
+import { askLandingAI } from "./landing-ai";
 import "./landing.css";
 
 /* ── marketing landing page 1 ──
@@ -26,6 +27,14 @@ import "./landing.css";
      3. one ask, placed after the value, not in front of it.  ── */
 
 const APP_URL = "/";
+
+/* How many real AI answers a stranger gets before being asked for an account.
+   Three is enough to prove the thing works on THEIR question — which is the
+   whole pitch — and the ask then arrives at the one moment it is welcome:
+   mid-conversation, with more they want to say. The function enforces its own
+   larger ceiling independently, so this number is the product decision, not
+   the protection. */
+const FREE_ASKS = 3;
 
 /* Landing events are logged under their own kind so they can never be mixed
    into the app's own visitor and activity numbers. Everything here is a
@@ -77,6 +86,8 @@ export default function LandingPage1() {
   const [typing, setTyping] = useState(false);
   const [used, setUsed] = useState([]);
   const [askText, setAskText] = useState("");
+  const [asking, setAsking] = useState(false);   // an AI answer is in flight
+  const [asked, setAsked] = useState(0);         // how many they have spent
 
   /* conversion */
   const [signup, setSignup] = useState(null);  // null | { q }
@@ -91,14 +102,18 @@ export default function LandingPage1() {
 
   const lessonById = (id) => LESSONS.find(l => l.id === id);
   const msgText = (m) => {
-    if (m.raw != null) return m.raw;
+    if (m.raw != null) return m.raw;            // what the visitor typed
+    if (m.ai) return m.text || "";              // a live AI answer, streaming in
     const l = lessonById(m.lessonId);
     if (!l) return "";
     if (m.who === "me") return l.ask[lang];
     return l.answer[lang].slice(0, m.n);
   };
-  const msgDone = (m) => m.raw != null || m.who === "me" ||
-    m.n >= (lessonById(m.lessonId)?.answer[lang].length || 0);
+  const msgDone = (m) => {
+    if (m.raw != null || m.who === "me") return true;
+    if (m.ai) return !!m.done;
+    return m.n >= (lessonById(m.lessonId)?.answer[lang].length || 0);
+  };
 
   /* ── arrival, and how long they stayed ──
      The dwell number is the one thing a bounce cannot tell you any other way:
@@ -149,10 +164,11 @@ export default function LandingPage1() {
     land("lang:" + lg);
     setLang(lg);
     storeLang(lg);
-    // A half-streamed answer would otherwise keep revealing at an index that
-    // belongs to the old text — finish it instead, in the new language.
+    // A half-streamed lesson would otherwise keep revealing at an index that
+    // belongs to the old text — finish it instead, in the new language. An AI
+    // answer was written in the language it was asked in and stays as it is.
     clearInterval(streamRef.current);
-    setMsgs(m => m.map(x => (x.who === "tiga" ? { ...x, n: 1e9 } : x)));
+    setMsgs(m => m.map(x => (x.who === "tiga" && !x.ai ? { ...x, n: 1e9 } : x)));
   }
 
   /* ── the keyboard demo ──
@@ -233,7 +249,7 @@ export default function LandingPage1() {
   // an animation to read their own answer.
   function finishTyping() {
     clearInterval(streamRef.current);
-    setMsgs(m => m.map(x => (x.who === "tiga" ? { ...x, n: 1e9 } : x)));
+    setMsgs(m => m.map(x => (x.who === "tiga" && !x.ai ? { ...x, n: 1e9 } : x)));
   }
 
   const onHeroNote = useCallback(() => {
@@ -245,17 +261,79 @@ export default function LandingPage1() {
 
   function openSignup(q, from) {
     land(from);
-    setSignup({ q: q || "" });
+    setSignup({ q: q || "", quota: from === "quota" });
     requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
 
-  function submitAsk(e) {
+  /* ── the typed question goes to the real AI ──
+     This is the page's actual promise. The four chips are canned lessons, and
+     a stranger can tell: the moment that matters is the one where THEIR
+     question — the thing they actually came wondering about — gets a real
+     answer. So it does, for free, before any account is asked for.
+
+     The sign-up card is what happens when the free run ends, or if the answer
+     genuinely cannot be produced, so a failure still leads somewhere. */
+  async function submitAsk(e) {
     e.preventDefault();
     const q = askText.trim();
-    if (!q) return;
-    setMsgs(m => [...m, { who: "me", raw: q }]);
+    if (!q || asking) return;
+
+    if (asked >= FREE_ASKS) { openSignup(q, "quota"); return; }
+
+    land("ask");
     setAskText("");
-    openSignup(q, "ask");
+    setAsking(true);
+    setMsgs(m => [...m, { who: "me", raw: q }]);
+    setTyping(true);
+    scrollDown();
+
+    // Only the last few turns, and only completed ones — enough for "and what
+    // about the left hand?" to make sense, without shipping the transcript.
+    const history = msgs
+      .filter(m => msgDone(m))
+      .slice(-4)
+      .map(m => ({ role: m.who === "me" ? "user" : "assistant", content: msgText(m) }))
+      .filter(m => m.content);
+
+    let started = false;
+    try {
+      await askLandingAI({
+        question: q,
+        history,
+        lang,
+        onChunk: (full) => {
+          if (!started) {
+            started = true;
+            setTyping(false);
+            setMsgs(m => [...m, { who: "tiga", ai: true, text: "", done: false }]);
+          }
+          setMsgs(m => {
+            const copy = m.slice();
+            for (let k = copy.length - 1; k >= 0; k--) {
+              if (copy[k].ai) { copy[k] = { ...copy[k], text: full }; break; }
+            }
+            return copy;
+          });
+        },
+      });
+      setAsked(n => n + 1);
+      land("ai");
+      setSticky(true);
+    } catch (err) {
+      setTyping(false);
+      if (err && err.limit) {
+        land("ai:limit");
+        openSignup(q, "quota");
+      } else {
+        land("ai:fail");
+        setMsgs(m => [...m, { who: "tiga", ai: true, text: t.askFailed, done: true }]);
+      }
+    } finally {
+      setMsgs(m => m.map(x => (x.ai ? { ...x, done: true } : x)));
+      setAsking(false);
+      setTyping(false);
+      scrollDown();
+    }
   }
 
   const answered = msgs.some(m => m.who === "tiga");
@@ -330,21 +408,32 @@ export default function LandingPage1() {
           </>
         )}
 
-        {answered && !signup && (
-          <form className="lp-ask" onSubmit={submitAsk}>
-            <input
-              value={askText}
-              onChange={e => setAskText(e.target.value)}
-              placeholder={t.askPh}
-              aria-label={t.askPh} />
-            <button className="lp-send" type="submit" disabled={!askText.trim()}>{t.askBtn}</button>
-          </form>
+        {/* Present from the first second, not unlocked after a chip: the four
+            chips are the warm-up, this is the product. */}
+        {!signup && (
+          <>
+            <form className="lp-ask" onSubmit={submitAsk}>
+              <input
+                value={askText}
+                onChange={e => setAskText(e.target.value)}
+                placeholder={t.askPh}
+                aria-label={t.askPh}
+                disabled={asking}
+                enterKeyHint="send" />
+              <button className="lp-send" type="submit" disabled={asking || !askText.trim()}>
+                {asking ? "…" : t.askBtn}
+              </button>
+            </form>
+            <div className="lp-askfree">
+              {asking ? t.askThinking : t.askFree.replace("{n}", String(Math.max(0, FREE_ASKS - asked)))}
+            </div>
+          </>
         )}
         <div ref={bottomRef} />
       </div>
 
       {signup
-        ? <div ref={signupRef}><SignupCard q={signup.q} t={t} /></div>
+        ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} t={t} /></div>
         : (
           <div className="lp-proof">
             <div><b>192</b><span>{t.proof1}</span></div>
@@ -373,7 +462,7 @@ export default function LandingPage1() {
    they were just given and what the account adds. The auth calls themselves
    are the app's, unchanged — same PDPA consent record, same metadata, same
    friendly errors — because there must be exactly one way an account is made. */
-function SignupCard({ q, t }) {
+function SignupCard({ q, quota, t }) {
   const [inApp] = useState(() => inAppBrowser());
   const [mode, setMode] = useState(() => (inAppBrowser() ? "email" : "pick"));
   const [name, setName] = useState("");
@@ -435,7 +524,7 @@ function SignupCard({ q, t }) {
 
   return (
     <section className="lp-signup">
-      <h2>{q ? t.signupTitleQ : t.signupTitle}</h2>
+      <h2>{quota ? t.askQuotaTitle : q ? t.signupTitleQ : t.signupTitle}</h2>
       <p>{t.signupBody}</p>
 
       {q && <div className="lp-q"><span>{t.qLabel}</span>{q}</div>}
