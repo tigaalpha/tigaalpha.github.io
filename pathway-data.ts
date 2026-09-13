@@ -13,12 +13,12 @@ export const PATHWAY_PRACTICE = {
   foundation: [
     {
       id: "play-scales", icon: "🎼", color: "#c2410c", cat: "major",
-      title: { th: "ฝึกสเกลกับจังหวะจริง", en: "Scales to a real beat", zh: "跟着节奏练音阶" },
+      title: { th: "ฝึกสเกลกับจังหวะ", en: "Scales with the beat", zh: "跟着节奏练音阶" },
       subtitle: { th: "โน้ตไหลลงมา เล่นตามให้ตรงจังหวะ", en: "Notes fall — play along in time", zh: "音符落下，跟着节奏弹" },
     },
     {
       id: "play-songs", icon: "🎵", color: "#d97757", cat: "songs",
-      title: { th: "เล่นตามเพลงจริง", en: "Play along to real songs", zh: "跟弹真实歌曲" },
+      title: { th: "ฝึกเล่นเพลง", en: "Practise real songs", zh: "练习弹歌曲" },
       subtitle: { th: "เพลงเต็มเพลง เล่นตามโน้ตที่ไหลลงมา", en: "Whole songs, note by falling note", zh: "完整歌曲，跟着落下的音符" },
     },
   ],
