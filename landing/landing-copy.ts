@@ -10,16 +10,17 @@ export const LANGS = ["th", "en", "zh"];
 export const FLAGS = { th: "🇹🇭", en: "🇬🇧", zh: "🇨🇳" };   // same three as the app's settings panel
 export const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文" };
 
-/* Thai first: it is the ad market this page was built for, and the fallback
-   when a browser reports something we have no translation for. */
+/* ── Thai on arrival. Always. ──
+   This used to read navigator.language, which sounds helpful and was wrong
+   here: a large share of phones in Thailand are set to English, so Thai
+   visitors arriving from a Thai-language ad were greeted in English — a
+   worse first impression than no detection at all, and on the one screen
+   where the first impression is the entire job.
+
+   The flags are right there if somebody wants another language, and a choice
+   they actually made is remembered below. Nothing guesses on their behalf. */
 export function pickLang(stored) {
-  if (LANGS.includes(stored)) return stored;
-  try {
-    const n = (navigator.language || "").toLowerCase();
-    if (n.startsWith("th")) return "th";
-    if (n.startsWith("zh")) return "zh";
-    if (n.startsWith("en")) return "en";
-  } catch (e) {}
+  if (LANGS.includes(stored)) return stored;   // they picked before — honour it
   return "th";
 }
 
