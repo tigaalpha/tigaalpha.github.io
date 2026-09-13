@@ -79,7 +79,13 @@ self.addEventListener("fetch", e => {
   // Network-first for HTML (always get the freshest app code). cache:"no-store"
   // is the part that actually matters - without it this is "network-first
   // according to the browser's HTTP cache", which is not the same promise.
-  const isHtml = url.pathname === "/" || url.pathname.endsWith(".html");
+  /* A directory URL like /landing/ is a page, but it is neither "/" nor
+     *.html, so it used to fall through to the cache-first branch at the
+     bottom and a returning visitor could be served a stale copy of a page we
+     had already replaced. request.mode === "navigate" is the reliable test:
+     it is exactly "the browser is loading a document here". */
+  const isHtml = e.request.mode === "navigate" ||
+    url.pathname === "/" || url.pathname.endsWith(".html");
   if (isHtml) {
     e.respondWith(
       fetch(e.request, { cache: "no-store" }).then(res => {

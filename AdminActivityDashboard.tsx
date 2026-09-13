@@ -125,6 +125,102 @@ function netLabel(net, T) {
   return T("ไม่ทราบ", "Unknown", "未知");
 }
 
+/* ── marketing landing page 1 funnel ──
+   Reads kind='land' rows, which every other panel on this page excludes on
+   purpose: the landing page and the app are two different front doors and
+   mixing their visitor counts is how a comparison stops meaning anything.
+
+   Every step is DISTINCT PEOPLE, not events — "how many got this far" is the
+   only question being asked — and each row carries its conversion off the
+   previous step, because the drop between two steps is the finding, never the
+   absolute number. Renders nothing at all until the page has traffic. */
+const LAND_STEPS = [
+  ["visitors",   "เปิดหน้า",         "Opened the page",   "打开页面"],
+  ["touched",    "กดคีย์เปียโน",      "Played a key",      "弹了琴键"],
+  ["asked",      "กดถามคำถาม",       "Asked a question",  "点了问题"],
+  ["typed",      "พิมพ์คำถามเอง",     "Typed their own",   "自己输入问题"],
+  ["saw_signup", "เห็นหน้าสมัคร",     "Saw the sign-up",   "看到注册"],
+  ["tried",      "กดปุ่มสมัคร",       "Tapped sign up",    "点击注册"],
+  ["signed_up",  "สมัครสำเร็จ",       "Signed up",         "注册成功"],
+];
+const LESSON_LABELS = {
+  cmajor: "🎼 C major scale", basics: "🎹 Piano ขั้นพื้นฐาน",
+  triad: "🎵 Triad", chords: "🎸 คอร์ดพื้นฐาน",
+};
+
+function LandingFunnelCard({ f, T }) {
+  if (!f || !Number(f.visitors)) return null;
+  const top = Number(f.visitors) || 1;
+  return (
+    <div className="admstu-card" style={{ marginBottom: 10 }}>
+      <div className="admstu-h">
+        {T("หน้าโฆษณา · marketing landing page 1", "Marketing landing page 1", "营销落地页 1")}
+        <span className="admstu-row-sub" style={{ marginLeft: 8, fontWeight: 400 }}>/landing/</span>
+      </div>
+
+      {LAND_STEPS.map(([k, th, en, zh], i) => {
+        const n = Number(f[k]) || 0;
+        const prev = i === 0 ? n : (Number(f[LAND_STEPS[i - 1][0]]) || 0);
+        // conversion off the PREVIOUS step — where people are actually lost
+        const step = i === 0 ? null : (prev ? Math.round((n / prev) * 100) : 0);
+        const last = k === "signed_up";
+        return (
+          <div key={k} className="anrow">
+            <span className="anrow-rank" style={{ opacity: .5 }}>{i + 1}</span>
+            <span className="anrow-name" style={{ maxWidth: "40%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {T(th, en, zh)}
+            </span>
+            <span className="anrow-barwrap">
+              <span className="anrow-bar" style={{
+                width: `${Math.max(2, (n / top) * 100)}%`,
+                background: last && n > 0 ? "#16a34a" : undefined,
+              }} />
+            </span>
+            <span className="anrow-hits" style={{ color: last && n > 0 ? "#16a34a" : undefined }}>
+              {n}{step != null && <span className="admstu-row-sub"> · {step}%</span>}
+            </span>
+          </div>
+        );
+      })}
+
+      <div className="admstu-row" style={{ marginTop: 8, display: "flex", gap: 16 }}>
+        <div>
+          <b style={{ fontSize: 17 }}>{f.dwell_med != null ? fmtSecs(f.dwell_med) : "—"}</b>{" "}
+          <span className="admstu-row-sub">{T("อยู่บนหน้า (ค่ากลาง)", "on page (median)", "停留中位数")}</span>
+        </div>
+        <div>
+          <b style={{ fontSize: 17 }}>{f.dwell_p90 != null ? fmtSecs(f.dwell_p90) : "—"}</b>{" "}
+          <span className="admstu-row-sub">{T("บนสุด 10%", "top 10%", "前 10%")}</span>
+        </div>
+      </div>
+
+      {!!(f.lessons || []).length && (
+        <>
+          <div className="admstu-row-sub" style={{ marginTop: 10 }}>
+            {T("คำถามที่คนเลือก", "Which question they picked", "他们选的问题")}
+          </div>
+          {(f.lessons || []).map((l) => (
+            <div key={l.id} className="anrow">
+              <span className="anrow-name" style={{ maxWidth: "52%" }}>{LESSON_LABELS[l.id] || l.id}</span>
+              <span className="anrow-barwrap">
+                <span className="anrow-bar" style={{ width: `${Math.max(4, (Number(l.people) / top) * 100)}%` }} />
+              </span>
+              <span className="anrow-hits">{l.people}</span>
+            </div>
+          ))}
+        </>
+      )}
+
+      {!!(f.sources || []).length && (
+        <div className="admstu-row-sub" style={{ marginTop: 10 }}>
+          {T("มาจาก", "From", "来自")}{" "}
+          {(f.sources || []).map((x) => `${x.src} ${x.people}`).join(" · ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SignupMethodCards({ signup, range, T }) {
   if (!signup) return null;
   const su = signup;
@@ -537,6 +633,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
   const [range, setRange] = useState("7");
   const [anon, setAnon] = useState(null);   // headline count of signed-out visitors
   const [signup, setSignup] = useState(null); // Google vs email sign-up split
+  const [landing, setLanding] = useState(null);   // marketing landing page 1 funnel
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState(null);
   const [sel, setSel] = useState(null);      // selected user uuid
@@ -575,6 +672,11 @@ export function AdminActivity({ lang, onOpenAnon }) {
     // split between the two is the measure of whether that was worth building.
     sb.rpc("admin_signup_methods", { p_since: since })
       .then(({ data }) => setSignup(data || null), () => setSignup(null));
+    /* Marketing landing page 1 (/landing/). On failure — the RPC not applied
+       yet — `landing` stays null and the card simply is not rendered, the same
+       convention the hourly histogram uses. */
+    sb.rpc("admin_landing_funnel", { p_since: since })
+      .then(({ data }) => setLanding(data || null), () => setLanding(null));
   }, [range, showSim]);
 
   useEffect(() => { load(); }, [load]);
@@ -640,6 +742,14 @@ export function AdminActivity({ lang, onOpenAnon }) {
           Google refuses to sign anyone in, so these two numbers are what say
           whether that route is carrying its weight. */}
       <SignupMethodCards signup={signup} range={range} T={T} />
+
+      {/* ── marketing landing page 1 ──
+          The experiment this card exists to settle: does letting a stranger
+          play a key and get a real lesson BEFORE asking for an account produce
+          the sign-ups that asking first never did. It sits beside the app's own
+          numbers rather than inside them — landing rows are kind='land', which
+          every panel above now excludes. */}
+      <LandingFunnelCard f={landing} T={T} />
 
       <RangePicker range={range} setRange={setRange} T={T} />
 

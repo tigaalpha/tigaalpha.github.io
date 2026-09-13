@@ -10,10 +10,10 @@
 // reinstalls a worker whose BYTES changed, and the build copied this file
 // verbatim, so it never changed, so `activate` below never ran, so the
 // SW_UPDATED message App.tsx reloads on was never sent. Anyone with the app
-// open kept running the build they first loaded. 002563f77553 is replaced at
+// open kept running the build they first loaded. 78b1492a36fe is replaced at
 // build time with a hash of the page itself (scripts/stamp-sw.mjs), so this
 // file now changes exactly when the app does.
-const CACHE = "tiga-v15-002563f77553";
+const CACHE = "tiga-v15-78b1492a36fe";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
@@ -79,7 +79,13 @@ self.addEventListener("fetch", e => {
   // Network-first for HTML (always get the freshest app code). cache:"no-store"
   // is the part that actually matters - without it this is "network-first
   // according to the browser's HTTP cache", which is not the same promise.
-  const isHtml = url.pathname === "/" || url.pathname.endsWith(".html");
+  /* A directory URL like /landing/ is a page, but it is neither "/" nor
+     *.html, so it used to fall through to the cache-first branch at the
+     bottom and a returning visitor could be served a stale copy of a page we
+     had already replaced. request.mode === "navigate" is the reliable test:
+     it is exactly "the browser is loading a document here". */
+  const isHtml = e.request.mode === "navigate" ||
+    url.pathname === "/" || url.pathname.endsWith(".html");
   if (isHtml) {
     e.respondWith(
       fetch(e.request, { cache: "no-store" }).then(res => {

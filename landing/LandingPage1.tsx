@@ -1,0 +1,455 @@
+import { useState, useRef, useEffect, useCallback, Fragment } from "react";
+import { Piano, startPianoNote, releasePianoNote } from "../music-engine";
+import { logUsage } from "../shared-infra";
+import { sb } from "../supabase-client";
+import { inAppBrowser, openInRealBrowser, PDPA_VERSION, friendlyAuthError } from "../app-shell";
+import { LESSONS } from "./landing-lessons";
+import "./landing.css";
+
+/* ── marketing landing page 1 ──
+   A page of its own, at /landing/, with its own bundle and its own stylesheet.
+   Ads point here; the app at / is untouched, and so is the pathway page.
+
+   Why it exists, in one line: 328 visitors reached the app, 105 got as far as
+   the pathway screen, 2 of them touched the piano, and 0 signed up. People
+   were being asked to join something they had not yet experienced.
+
+   So the order is inverted here. The product happens FIRST — a key that
+   sounds under your finger, then a real lesson with the keyboard playing
+   along — and the account is asked for only once there is something to lose
+   by walking away. Nothing above the sign-up card is gated, on purpose.
+
+   Three things earn their keep on this page and nothing else does:
+     1. the keyboard, playable within one tap of arriving;
+     2. four questions that answer instantly AND play what they describe;
+     3. one ask, placed after the value, not in front of it.  ── */
+
+const APP_URL = "/";
+
+/* Landing events are logged under their own kind so they can never be mixed
+   into the app's own visitor and activity numbers. Everything here is a
+   guest — user_id stays null, which is what the anon insert policy allows. */
+function land(what, ms) { try { logUsage("land", what, ms); } catch (e) {} }
+
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+let viewLogged = false;
+
+/* **bold** → <b>. Written for STREAMING text, so a half-typed marker at the
+   very end is trimmed rather than rendered as a stray asterisk. */
+function rich(text) {
+  const clean = text.replace(/\*{1,2}$/, "");
+  return clean.split("**").map((part, i) =>
+    i % 2 ? <b key={i}>{part}</b> : <Fragment key={i}>{part}</Fragment>
+  );
+}
+
+export default function LandingPage1() {
+  /* keyboard */
+  const [lit, setLit] = useState([]);
+  const [fingers, setFingers] = useState({});
+  const [nowPlaying, setNowPlaying] = useState(null);
+  const [touched, setTouched] = useState(false);
+
+  /* conversation */
+  const [msgs, setMsgs] = useState([]);        // { who: "tiga"|"me", text, full, lessonId }
+  const [typing, setTyping] = useState(false);
+  const [used, setUsed] = useState([]);
+  const [askText, setAskText] = useState("");
+
+  /* conversion */
+  const [signup, setSignup] = useState(null);  // null | { q }
+  const [sticky, setSticky] = useState(false);
+
+  const demoRef = useRef({ stop: false, voices: [] });
+  const streamRef = useRef(null);
+  const bottomRef = useRef(null);
+  const signupRef = useRef(null);
+  const firstKey = useRef(false);
+  const t0 = useRef(Date.now());
+
+  /* ── arrival, and how long they stayed ──
+     The dwell number is the one thing a bounce cannot tell you any other way:
+     an event fires when they leave, not while they are here. */
+  useEffect(() => {
+    // Module-level, not a ref: StrictMode mounts twice in dev and a ref is
+    // recreated on the second mount, so only this survives to stop a double
+    // "view" — the same guard the app's gate logging needed.
+    if (!viewLogged) { viewLogged = true; land("view"); }
+    const leave = () => {
+      if (leave.done) return;
+      leave.done = true;
+      land("leave", Date.now() - t0.current);
+    };
+    const onHide = () => { if (document.visibilityState === "hidden") leave(); };
+    // pagehide fires on mobile Safari's back/forward cache where unload does not
+    window.addEventListener("pagehide", leave);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", leave);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, []);
+
+  /* The bottom CTA is held back until the page has had a chance to be worth
+     something — an answer read, or fifteen seconds of consideration. Asking
+     on arrival is what the app already does, and it does not work. */
+  useEffect(() => {
+    const t = setTimeout(() => setSticky(true), 15000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => () => { demoRef.current.stop = true; clearInterval(streamRef.current); }, []);
+
+  const scrollDown = useCallback(() => {
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
+  }, []);
+
+  /* ── the keyboard demo ──
+     Runs beside the streaming answer, so the text and the sound arrive
+     together. A second demo cancels the first rather than overlapping it. */
+  const releaseAll = (run) => {
+    for (const h of run.voices) { try { releasePianoNote(h, 0.2); } catch (e) {} }
+    run.voices = [];
+  };
+
+  async function playDemo(steps, label) {
+    demoRef.current.stop = true;
+    releaseAll(demoRef.current);
+    const run = { stop: false, voices: [] };
+    demoRef.current = run;
+    // "ลองกดดูสิ" has done its job the moment the keyboard is playing — leaving
+    // it up would sit on top of the now-playing pill and read as a stuck badge.
+    setTouched(true);
+    setNowPlaying(label || null);
+    for (const st of steps) {
+      if (run.stop) break;
+      releaseAll(run);
+      if (st.n && st.n.length) {
+        setLit(st.n);
+        setFingers(st.f || {});
+        if (st.say) setNowPlaying(st.say);
+        for (const n of st.n) {
+          const h = startPianoNote(n, 1);
+          if (h) run.voices.push(h);
+        }
+      } else {
+        setLit([]); setFingers({});
+      }
+      await wait(st.d);
+    }
+    releaseAll(run);
+    if (!run.stop) { setLit([]); setFingers({}); setNowPlaying(null); }
+  }
+
+  /* ── asking one of the four ── */
+  async function askLesson(lesson) {
+    if (typing) return;
+    land("q:" + lesson.id);
+    setUsed(u => u.includes(lesson.id) ? u : [...u, lesson.id]);
+    setMsgs(m => [...m, { who: "me", text: lesson.ask }]);
+    setTyping(true);
+    scrollDown();
+
+    await wait(650);
+    setTyping(false);
+    const idx = { i: 0 };
+    setMsgs(m => [...m, { who: "tiga", text: "", full: lesson.answer, lessonId: lesson.id }]);
+    scrollDown();
+
+    playDemo(lesson.demo, lesson.demoLabel);
+
+    /* Reveal over a fixed ~2.2s rather than at a fixed speed, so a longer
+       answer is not a longer wait — the pacing should feel like the model
+       thinking, never like the page being slow. */
+    clearInterval(streamRef.current);
+    const total = lesson.answer.length;
+    const ticks = 55;
+    const per = Math.max(1, Math.ceil(total / ticks));
+    streamRef.current = setInterval(() => {
+      idx.i += per;
+      const done = idx.i >= total;
+      setMsgs(m => {
+        const copy = m.slice();
+        for (let k = copy.length - 1; k >= 0; k--) {
+          if (copy[k].who === "tiga") { copy[k] = { ...copy[k], text: lesson.answer.slice(0, idx.i) }; break; }
+        }
+        return copy;
+      });
+      if (done) { clearInterval(streamRef.current); setSticky(true); }
+    }, 40);
+  }
+
+  // Tapping a half-typed answer finishes it — nobody should have to wait for
+  // an animation to read their own answer.
+  function finishTyping() {
+    clearInterval(streamRef.current);
+    setMsgs(m => m.map(x => (x.who === "tiga" && x.full ? { ...x, text: x.full } : x)));
+  }
+
+  const onHeroNote = useCallback(() => {
+    setTouched(true);
+    if (firstKey.current) return;
+    firstKey.current = true;
+    land("piano");
+  }, []);
+
+  function openSignup(q, from) {
+    land(from);
+    setSignup({ q: q || "" });
+    requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }
+
+  function submitAsk(e) {
+    e.preventDefault();
+    const q = askText.trim();
+    if (!q) return;
+    setMsgs(m => [...m, { who: "me", text: q }]);
+    setAskText("");
+    openSignup(q, "ask");
+  }
+
+  const answered = msgs.some(m => m.who === "tiga");
+
+  return (
+    <div className="lp">
+      <header className="lp-top">
+        <span className="lp-mark">TIGA</span>
+        <span className="lp-kicker">AI PIANO TEACHER</span>
+      </header>
+
+      <h1 className="lp-h1">ถามครูเปียโน AI แล้วดูมัน<em>เล่นให้ดูบนคีย์จริง</em></h1>
+      <p className="lp-sub">
+        กดคีย์ข้างล่างได้เลย — ไม่ต้องสมัคร ไม่ต้องโหลดอะไรทั้งนั้น
+        เลือกคำถามสักข้อ แล้ว TIGA จะอธิบายพร้อมเล่นให้ดูทีละนิ้ว
+      </p>
+
+      <div className="lp-stage">
+        <div className={`lp-pianowrap${touched ? " played" : ""}`} data-hint="👆 ลองกดดูสิ">
+          {nowPlaying && <div className="lp-nowplaying">{nowPlaying}</div>}
+          <Piano small litSet={lit} fingerMap={fingers} onNote={onHeroNote} baseOct={4} />
+        </div>
+      </div>
+
+      <div className="lp-chat">
+        <div className="lp-row">
+          <div className="lp-av">AI</div>
+          <div className="lp-bub">
+            สวัสดีครับ ผมคือ TIGA ครูเปียโน AI 🎹{"\n"}
+            อยากให้สอนเรื่องไหนก่อนดีครับ? เลือกได้เลย — ตอบทันที ไม่ต้องสมัครสมาชิก
+          </div>
+        </div>
+
+        {msgs.map((m, i) => (
+          <div className={`lp-row${m.who === "me" ? " me" : ""}`} key={i}>
+            {m.who === "tiga" && <div className="lp-av">AI</div>}
+            <div className="lp-bub" onClick={m.full && m.text !== m.full ? finishTyping : undefined}>
+              {rich(m.text)}
+              {m.full && m.text !== m.full && <i className="lp-caret" />}
+            </div>
+          </div>
+        ))}
+
+        {typing && (
+          <div className="lp-row">
+            <div className="lp-av">AI</div>
+            <div className="lp-bub lp-dots"><i /><i /><i /></div>
+          </div>
+        )}
+
+        {!typing && (
+          <>
+            <div className="lp-chips">
+              {LESSONS.map(l => (
+                <button key={l.id}
+                  className={`lp-chip${used.includes(l.id) ? " used" : ""}`}
+                  onClick={() => askLesson(l)}>
+                  {l.chip}
+                </button>
+              ))}
+            </div>
+            {!answered && <div className="lp-chiphint">แตะสักข้อ แล้วดูคีย์บอร์ดข้างบน</div>}
+          </>
+        )}
+
+        {answered && !signup && (
+          <form className="lp-ask" onSubmit={submitAsk}>
+            <input
+              value={askText}
+              onChange={e => setAskText(e.target.value)}
+              placeholder="ถามคำถามของคุณเอง…"
+              aria-label="ถามคำถามของคุณเอง" />
+            <button className="lp-send" type="submit" disabled={!askText.trim()}>ถาม</button>
+          </form>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {signup
+        ? <div ref={signupRef}><SignupCard q={signup.q} /></div>
+        : (
+          <div className="lp-proof">
+            <div><b>192</b><span>เพลงให้เล่นตาม</span></div>
+            <div><b>AI</b><span>ถามได้ทุกเรื่อง</span></div>
+            <div><b>ฟรี</b><span>ไม่ต้องใช้บัตร</span></div>
+          </div>
+        )}
+
+      <p className="lp-foot">
+        TIGA AI · เรียนเปียโนกับครู AI<br />
+        <a href={APP_URL}>เข้าแอปเลย</a> · <a href="/privacy-policy.html">นโยบายความเป็นส่วนตัว</a>
+      </p>
+
+      {sticky && !signup && (
+        <div className="lp-sticky">
+          <button className="lp-btn primary" onClick={() => openSignup("", "cta")}>
+            สมัครฟรี — ถามได้ไม่จำกัด
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── the ask ──
+   Deliberately not the app's own gate screen. That one is a wall thrown up
+   mid-session and reads like one; this is the end of a demo, so it names what
+   they were just given and what the account adds. The auth calls themselves
+   are the app's, unchanged — same PDPA consent record, same metadata, same
+   friendly errors — because there must be exactly one way an account is made. */
+function SignupCard({ q }) {
+  const [inApp] = useState(() => inAppBrowser());
+  const [mode, setMode] = useState(() => (inAppBrowser() ? "email" : "pick"));
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [agree, setAgree] = useState(false);       // never pre-ticked
+  const [marketing, setMarketing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState("");
+
+  async function google() {
+    if (busy) return;
+    land("try:google");
+    setBusy(true); setErr("");
+    try {
+      // Back to the APP, not back to this page — the landing page has done its
+      // job by the time the OAuth round trip returns.
+      await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin + "/" },
+      });
+    } catch (e) {
+      setErr(friendlyAuthError(e && e.message));
+      setBusy(false);
+    }
+  }
+
+  async function signupEmail(e) {
+    e.preventDefault();
+    if (busy) return;
+    setErr(""); setDone("");
+    if (!name.trim()) { setErr("กรุณากรอกชื่อที่อยากให้ครูเรียก · Please enter a name"); return; }
+    if (!email.trim() || !password) { setErr("กรุณากรอกอีเมลและรหัสผ่าน · Please enter your email and password"); return; }
+    if (password.length < 6) { setErr("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร · Password must be at least 6 characters"); return; }
+    if (!agree) { setErr("กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัคร · Please accept the privacy notice to continue"); return; }
+    land("try:email");
+    setBusy(true);
+    try {
+      const { data, error } = await sb.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: {
+          full_name: name.trim(),
+          pdpa_version: PDPA_VERSION,
+          marketing_consent: !!marketing,
+        } },
+      });
+      if (error) { setErr(friendlyAuthError(error.message)); return; }
+      land("signup:email");
+      if (data && data.session) { window.location.href = APP_URL; return; }
+      setDone("สมัครสำเร็จ! ตรวจสอบอีเมลเพื่อยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ · Account created — check your email to confirm it, then log in.");
+    } catch (e2) {
+      setErr(friendlyAuthError(e2 && e2.message));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="lp-signup">
+      <h2>{q ? "คำถามของคุณพร้อมแล้ว 🎹" : "เปิดห้องเรียนของคุณเอง 🎹"}</h2>
+      <p>
+        สี่คำตอบเมื่อกี้เป็นบทเรียนสำเร็จรูป — ของจริงคือ TIGA ตอบคำถามของคุณเองได้ไม่จำกัด
+        จำได้ว่าคุณติดตรงไหน และเลือกแบบฝึกให้ตรงจุดอ่อน สมัครฟรี ไม่ต้องใช้บัตร
+      </p>
+
+      {q && <div className="lp-q"><span>คำถามที่คุณถาม</span>{q}</div>}
+
+      {err && <div className="lp-err">{err}</div>}
+      {done && <div className="lp-ok">{done}</div>}
+
+      {inApp && (
+        <div className="lp-inapp">
+          คุณกำลังเปิดจากในแอปอื่น (Facebook / LINE / IG) ซึ่งปุ่ม Google มักใช้ไม่ได้
+          — สมัครด้วยอีเมลข้างล่างได้เลย หรือกดเปิดในเบราว์เซอร์จริงก่อน
+        </div>
+      )}
+
+      {mode === "pick" && (
+        <>
+          <button className="lp-btn google" onClick={google} disabled={busy}>
+            <GoogleG /> สมัคร / เข้าสู่ระบบด้วย Google
+          </button>
+          <div className="lp-or">หรือ</div>
+          <button className="lp-btn ghost" onClick={() => setMode("email")}>สมัครด้วยอีเมล</button>
+        </>
+      )}
+
+      {mode === "email" && (
+        <form onSubmit={signupEmail}>
+          <label className="lp-field">
+            <input value={name} onChange={e => setName(e.target.value)}
+              placeholder="ชื่อที่อยากให้ครูเรียก" autoComplete="name" />
+          </label>
+          <label className="lp-field">
+            <input value={email} onChange={e => setEmail(e.target.value)}
+              type="email" placeholder="อีเมล" autoComplete="email" />
+          </label>
+          <label className="lp-field">
+            <input value={password} onChange={e => setPassword(e.target.value)}
+              type="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autoComplete="new-password" />
+          </label>
+          <label className="lp-check">
+            <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
+            <span>ฉันยอมรับ <a href="/privacy-policy.html" target="_blank" rel="noreferrer">นโยบายความเป็นส่วนตัว</a> และยินยอมให้เก็บข้อมูลเพื่อให้บริการเรียนเปียโน</span>
+          </label>
+          <label className="lp-check">
+            <input type="checkbox" checked={marketing} onChange={e => setMarketing(e.target.checked)} />
+            <span>ยินดีรับข่าวสารและโปรโมชัน (ไม่บังคับ)</span>
+          </label>
+          <button className="lp-btn primary" type="submit" disabled={busy}>
+            {busy ? "กำลังสมัคร…" : "สมัครฟรี"}
+          </button>
+          {!inApp && <button className="lp-btn ghost" type="button" onClick={() => setMode("pick")}>ใช้ Google แทน</button>}
+          {inApp && <button className="lp-btn ghost" type="button" onClick={() => { land("openreal"); openInRealBrowser(); }}>เปิดในเบราว์เซอร์จริง</button>}
+        </form>
+      )}
+
+      <p className="lp-foot" style={{ marginTop: 14 }}>
+        มีบัญชีอยู่แล้ว? <a href={APP_URL}>เข้าสู่ระบบในแอป</a>
+      </p>
+    </section>
+  );
+}
+
+function GoogleG() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2.5 24 .5 14.6.5 6.5 5.8 2.6 13.6l7.8 6c1.9-5.7 7.2-10.1 13.6-10.1z" />
+      <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.9 7.2l7.6 5.9c4.4-4.1 7.1-10.2 7.1-17.6z" />
+      <path fill="#FBBC05" d="M10.4 28.4c-.5-1.4-.8-2.9-.8-4.4s.3-3 .8-4.4l-7.8-6C1 16.7 0 20.2 0 24s1 7.3 2.6 10.4l7.8-6z" />
+      <path fill="#34A853" d="M24 47.5c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.8 2.3-8.3 2.3-6.4 0-11.7-4.4-13.6-10.1l-7.8 6C6.5 42.2 14.6 47.5 24 47.5z" />
+    </svg>
+  );
+}

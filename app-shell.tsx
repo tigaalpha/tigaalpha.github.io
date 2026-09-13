@@ -76,7 +76,7 @@ export function BannedScreen({ onSignOut }) {
 // drop rejects instead of resolving) — GoTrue's client doesn't consistently
 // pick one or the other for a raw fetch failure, so both paths need the same
 // mapping or a plain "Failed to fetch" can leak straight to the screen.
-function friendlyAuthError(msg) {
+export function friendlyAuthError(msg) {
   const m = msg || "";
   if (/already registered|already exists/i.test(m)) return "อีเมลนี้สมัครไว้แล้ว — ลองเข้าสู่ระบบแทน · This email is already registered — try logging in instead";
   if (/invalid login credentials/i.test(m)) return "อีเมลหรือรหัสผ่านไม่ถูกต้อง · Incorrect email or password";
