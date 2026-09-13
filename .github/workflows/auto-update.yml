@@ -133,6 +133,26 @@ jobs:
           mkdir -p _site/updates
           cp updates/manifest.json _site/updates/manifest.json
           cp updates/dist-*.zip _site/updates/
+          # ── everything below is a file that lives at the REPO ROOT and is
+          # therefore NOT inside dist/ ──
+          # The published site is this _site directory, never the repo tree, so
+          # anything not copied here 404s no matter how correctly it was built
+          # and committed. That is not hypothetical: /privacy-policy.html is
+          # linked from the PDPA consent checkbox on the sign-up screen and has
+          # been returning 404 for every user, and marketing landing page 1 was
+          # committed, deployed and completely unreachable for the same reason.
+          cp privacy-policy.html _site/privacy-policy.html
+          mkdir -p _site/landing
+          cp landing/index.html _site/landing/index.html
+          cp -r landing/bundle _site/landing/bundle
+          cp landing.html _site/landing.html
+          # Fail the deploy loudly rather than shipping a site with a dead
+          # marketing URL on it — silence is exactly how this went unnoticed.
+          test -s _site/landing/index.html
+          test -s _site/landing.html
+          test -s _site/privacy-policy.html
+          test -d _site/landing/bundle
+          echo "published extras:"; ls -la _site/landing _site/landing.html _site/privacy-policy.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
