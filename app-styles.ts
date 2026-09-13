@@ -220,6 +220,16 @@ html, body, #root{background:var(--bg)}
 .typing{display:flex;gap:5px;align-items:center;padding:10px 14px}
 .tdd{width:7px;height:7px;border-radius:50%;background:#d97757;animation:bounce 1.2s infinite}
 .tdd:nth-child(2){animation-delay:.2s}.tdd:nth-child(3){animation-delay:.4s}
+/* The Play Along doors sitting in the lesson grid. Deliberately the same card
+   as a lesson — same size, same corners, same grid cell — because they belong
+   to the same journey and a different shape would read as an advert dropped in
+   among the lessons. The accent is what separates them: a warmer fill and a ▶
+   where a lesson says →. */
+.pcard.pcard-play{background:linear-gradient(160deg,var(--ac)14,var(--ac)06)}
+.pcard.pcard-play .pcardicon{filter:saturate(1.1)}
+.pcard.pcard-play .pcardgo{color:var(--ac);font-weight:700}
+.pcard.pcard-play .pcardarrow{font-size:.85em}
+
 /* The wait while a code-split page fetches itself. Same dots as the chat's
    typing indicator, centred and holding roughly the page's height so the
    layout does not jump when the real page lands. */

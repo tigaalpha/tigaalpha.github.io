@@ -1,4 +1,29 @@
 // Auto-generated from App.tsx — do not manually edit large data
+/* ── Practice cards ──
+   Play Along already holds a full set of scale, interval and chord drills that
+   fall down the screen in time — and until now the only way in was a drawer
+   item most people never open. These put that behind a card in the pathway
+   itself, sitting in the same grid as the lessons it practises: read the
+   lesson on the left, play it to a beat on the right.
+
+   They are NOT stages: they carry no progress, no tier, no completion, and
+   nothing that counts them toward a group being finished. They are doors.
+   `cat` is the Play Along category the door opens on. */
+export const PATHWAY_PRACTICE = {
+  foundation: [
+    {
+      id: "play-scales", icon: "🎼", color: "#c2410c", cat: "major",
+      title: { th: "ฝึกสเกลกับจังหวะจริง", en: "Scales to a real beat", zh: "跟着节奏练音阶" },
+      subtitle: { th: "โน้ตไหลลงมา เล่นตามให้ตรงจังหวะ", en: "Notes fall — play along in time", zh: "音符落下，跟着节奏弹" },
+    },
+    {
+      id: "play-songs", icon: "🎵", color: "#d97757", cat: "songs",
+      title: { th: "เล่นตามเพลงจริง", en: "Play along to real songs", zh: "跟弹真实歌曲" },
+      subtitle: { th: "เพลงเต็มเพลง เล่นตามโน้ตที่ไหลลงมา", en: "Whole songs, note by falling note", zh: "完整歌曲，跟着落下的音符" },
+    },
+  ],
+};
+
 export const PATHWAY = [
   {
     id: "scale", icon: "🎼", title: { th: "สเกล (Scale)", en: "Scale", zh: "音阶 (Scale)" }, subtitle: { th: "บันไดเสียง — รากฐานของทุกอย่าง", en: "The foundation of everything", zh: "一切的基础" },

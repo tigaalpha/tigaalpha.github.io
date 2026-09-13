@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment, lazy, Suspense } from "react";
 import { bioAvailable, bioEnrolled, bioEnroll, bioVerify } from "./biometric-lock";
 import { Capacitor } from "@capacitor/core";
-import { PATHWAY } from "./pathway-data";
+import { PATHWAY, PATHWAY_PRACTICE } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { useInjectCSS } from "./app-styles";
 import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
@@ -504,9 +504,23 @@ const SIGHT_ROUND = 10; // notes per sight-reading round
 
 
 /* ── Pathway Page ── */
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, initialOpenStageId, initialSelectedType, userName = "" }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, initialOpenStageId, initialSelectedType, userName = "" }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
+  /* Card numbers run straight through the whole pathway — foundation 01-02,
+     then chords 03-04 — because each stage carries its own `level`. Slotting a
+     practice card into foundation would hand it a number already in use two
+     groups down, so the number comes from position instead: insert anything,
+     and what follows renumbers rather than duplicating. It is only ever a
+     label; nothing in the app keys off it. */
+  const cardNo = useMemo(() => {
+    const m = {}; let n = 0;
+    groups.forEach(g => {
+      (STAGES_BY_GROUP[g.id] || []).forEach(st => { m[st.id] = ++n; });
+      (PATHWAY_PRACTICE[g.id] || []).forEach(pc => { m[pc.id] = ++n; });
+    });
+    return m;
+  }, [groups]);
 
   /* Hero keyboard. The octave is deliberately fixed and middle-ish: an octave
      picker here would be one more decision placed in front of someone who has
@@ -620,7 +634,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
                     <span className="pcardglow" />
                     {pathDone.has(st.id) && <span className="pcarddone">{tierIcon[tier] || "✓"}</span>}
                     {st.id === currentId && <span className="pcardhere">{lc.pathHere}</span>}
-                    <span className="pcardlevel">{String(st.level).padStart(2, "0")}</span>
+                    <span className="pcardlevel">{String(cardNo[st.id] || st.level).padStart(2, "0")}</span>
                     <span className="pcardicon" aria-hidden="true">{st.icon}</span>
                     <span className="pcardtitle">{tr(st.title, lang)}</span>
                     <span className="pcardsub">{tr(st.subtitle, lang)}</span>
@@ -748,6 +762,27 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
                   </Fragment>
                 );
               })}
+
+              {/* The doors into Play Along, in the same grid as the lessons they
+                  practise — read it on one card, play it to a beat on the next.
+                  The drills behind them have existed all along; the only way in
+                  was a drawer item almost nobody opens, so they may as well not
+                  have. Carries no progress and no tick: this is a door, not a
+                  stage, and the group is still finished by its lessons alone. */}
+              {(PATHWAY_PRACTICE[g.id] || []).map(pc => (
+                <button key={pc.id} className="pcard pcard-play" style={{ "--ac": pc.color }}
+                  onClick={() => onPlayAlong && onPlayAlong(pc.cat, pc.id)}>
+                  <span className="pcardglow" />
+                  <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
+                  <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
+                  <span className="pcardtitle">{tr(pc.title, lang)}</span>
+                  <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
+                  <span className="pcardgo">
+                    {lc.playBtn}
+                    <span className="pcardarrow">▶</span>
+                  </span>
+                </button>
+              ))}
             </div>
           </section>
 
@@ -3488,7 +3523,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
 
 /* ── Song picker page (falling-notes play-along) ── */
 const SONG_REQ = { 1: 1, 2: 2, 3: 4 };   // level required to unlock by difficulty
-const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "", onStartSetlist }) {
+const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "", onStartSetlist, initialCat = "songs" }) {
   const lc = L[lang];
   const [filter, setFilter] = useState(-1);   // -1 all · 0 favorites · 1/2/3 by difficulty
   const [favs, setFavs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_favs") || "[]"); } catch (e) { return []; } });
@@ -3507,7 +3542,9 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   const [humNotes, setHumNotes] = useState<string[]>([]);
   const humTimerRef = useRef<any>(null);
   // Play-Along categories: songs · scales · chords · intervals (all on this one page)
-  const [cat, setCat] = useState("songs");
+  // Read once, on mount: this page is only reached by navigating to it, so it
+  // remounts each time and picks up whatever category sent the visitor here.
+  const [cat, setCat] = useState(initialCat);
   const [genreFilter, setGenreFilter] = useState("all");
   const [minorType, setMinorType] = useState("natural minor");
   const [triadQual, setTriadQual] = useState("major");
@@ -9707,6 +9744,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // ── studio sub-nav + sight-reading + hand coach ──
   const [studioView, setStudioView] = useState("menu");    // menu | songs
+  // which Play Along category to land on — the pathway's practice cards aim at
+  // a specific one (scales, songs) rather than dropping people on the default
+  const [songsCat, setSongsCat] = useState("songs");
   const [earGymInitialTab, setEarGymInitialTab] = useState("int"); // which Ear Gym tab to land on — set before navigating there for skill remediation
 
   const [setAdvancedOpen, setSetAdvancedOpen] = useState(false); // progressive disclosure for Metronome BPM/tap-tempo
@@ -11005,7 +11045,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: HOME (new landing page — UX refactor) ─── */}
       {/* ─── PAGE: PATHWAY ─── */}
       {page === "pathway" && (
-        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge} initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
+        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
+          onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
+          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
       )}
 
       {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}
@@ -11060,7 +11102,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
       {page === "studio" && (
         studioView === "songs"
-          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => setStudioView("menu")} onStartSetlist={startSetlist} />
+          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} initialCat={songsCat} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => { setSongsCat("songs"); setStudioView("menu"); }} onStartSetlist={startSetlist} />
           : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis} onAskStruggle={askAboutStruggle}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
