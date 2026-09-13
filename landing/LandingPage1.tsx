@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { Piano, startPianoNote, releasePianoNote } from "../music-engine";
-import { logUsage } from "../shared-infra";
+import { logUsage, GUEST_PROFILE_KEY } from "../shared-infra";
 import { sb } from "../supabase-client";
 import { inAppBrowser, openInRealBrowser, PDPA_VERSION, friendlyAuthError } from "../app-shell";
 import { LESSONS } from "./landing-lessons";
+import { C, LANGS, FLAGS, FLAG_NAMES, pickLang } from "./landing-copy";
 import "./landing.css";
 
 /* ── marketing landing page 1 ──
@@ -34,24 +35,45 @@ function land(what, ms) { try { logUsage("land", what, ms); } catch (e) {} }
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 let viewLogged = false;
 
+/* ── language, shared with the app ──
+   The app reads `lang` off the guest profile in localStorage, so writing the
+   choice back there means somebody who picks English here arrives in an
+   English app rather than being asked twice. */
+function readStoredLang() {
+  try { return (JSON.parse(localStorage.getItem(GUEST_PROFILE_KEY) || "{}") || {}).lang; }
+  catch (e) { return null; }
+}
+function storeLang(lg) {
+  try {
+    const p = JSON.parse(localStorage.getItem(GUEST_PROFILE_KEY) || "{}") || {};
+    localStorage.setItem(GUEST_PROFILE_KEY, JSON.stringify({ ...p, lang: lg }));
+  } catch (e) {}
+}
+
 /* **bold** → <b>. Written for STREAMING text, so a half-typed marker at the
    very end is trimmed rather than rendered as a stray asterisk. */
 function rich(text) {
-  const clean = text.replace(/\*{1,2}$/, "");
+  const clean = String(text || "").replace(/\*{1,2}$/, "");
   return clean.split("**").map((part, i) =>
     i % 2 ? <b key={i}>{part}</b> : <Fragment key={i}>{part}</Fragment>
   );
 }
 
 export default function LandingPage1() {
+  const [lang, setLang] = useState(() => pickLang(readStoredLang()));
+  const t = C[lang];
+
   /* keyboard */
   const [lit, setLit] = useState([]);
   const [fingers, setFingers] = useState({});
   const [nowPlaying, setNowPlaying] = useState(null);
   const [touched, setTouched] = useState(false);
 
-  /* conversation */
-  const [msgs, setMsgs] = useState([]);        // { who: "tiga"|"me", text, full, lessonId }
+  /* conversation — messages store WHICH lesson, never the rendered string, so
+     switching language re-translates what is already on screen instead of
+     leaving a half-Thai half-English transcript behind. `n` is how many
+     characters of the answer have been revealed so far. */
+  const [msgs, setMsgs] = useState([]);        // {who:"me",lessonId|raw} | {who:"tiga",lessonId,n}
   const [typing, setTyping] = useState(false);
   const [used, setUsed] = useState([]);
   const [askText, setAskText] = useState("");
@@ -66,6 +88,17 @@ export default function LandingPage1() {
   const signupRef = useRef(null);
   const firstKey = useRef(false);
   const t0 = useRef(Date.now());
+
+  const lessonById = (id) => LESSONS.find(l => l.id === id);
+  const msgText = (m) => {
+    if (m.raw != null) return m.raw;
+    const l = lessonById(m.lessonId);
+    if (!l) return "";
+    if (m.who === "me") return l.ask[lang];
+    return l.answer[lang].slice(0, m.n);
+  };
+  const msgDone = (m) => m.raw != null || m.who === "me" ||
+    m.n >= (lessonById(m.lessonId)?.answer[lang].length || 0);
 
   /* ── arrival, and how long they stayed ──
      The dwell number is the one thing a bounce cannot tell you any other way:
@@ -90,12 +123,19 @@ export default function LandingPage1() {
     };
   }, []);
 
+  // Keep the document itself honest about what language it is in — screen
+  // readers, translate prompts and Thai line-breaking all read this.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.title = t.htmlTitle;
+  }, [lang, t.htmlTitle]);
+
   /* The bottom CTA is held back until the page has had a chance to be worth
      something — an answer read, or fifteen seconds of consideration. Asking
      on arrival is what the app already does, and it does not work. */
   useEffect(() => {
-    const t = setTimeout(() => setSticky(true), 15000);
-    return () => clearTimeout(t);
+    const tm = setTimeout(() => setSticky(true), 15000);
+    return () => clearTimeout(tm);
   }, []);
 
   useEffect(() => () => { demoRef.current.stop = true; clearInterval(streamRef.current); }, []);
@@ -103,6 +143,17 @@ export default function LandingPage1() {
   const scrollDown = useCallback(() => {
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
   }, []);
+
+  function chooseLang(lg) {
+    if (lg === lang) return;
+    land("lang:" + lg);
+    setLang(lg);
+    storeLang(lg);
+    // A half-streamed answer would otherwise keep revealing at an index that
+    // belongs to the old text — finish it instead, in the new language.
+    clearInterval(streamRef.current);
+    setMsgs(m => m.map(x => (x.who === "tiga" ? { ...x, n: 1e9 } : x)));
+  }
 
   /* ── the keyboard demo ──
      Runs beside the streaming answer, so the text and the sound arrive
@@ -128,8 +179,8 @@ export default function LandingPage1() {
         setLit(st.n);
         setFingers(st.f || {});
         if (st.say) setNowPlaying(st.say);
-        for (const n of st.n) {
-          const h = startPianoNote(n, 1);
+        for (const nt of st.n) {
+          const h = startPianoNote(nt, 1);
           if (h) run.voices.push(h);
         }
       } else {
@@ -146,32 +197,31 @@ export default function LandingPage1() {
     if (typing) return;
     land("q:" + lesson.id);
     setUsed(u => u.includes(lesson.id) ? u : [...u, lesson.id]);
-    setMsgs(m => [...m, { who: "me", text: lesson.ask }]);
+    setMsgs(m => [...m, { who: "me", lessonId: lesson.id }]);
     setTyping(true);
     scrollDown();
 
     await wait(650);
     setTyping(false);
     const idx = { i: 0 };
-    setMsgs(m => [...m, { who: "tiga", text: "", full: lesson.answer, lessonId: lesson.id }]);
+    setMsgs(m => [...m, { who: "tiga", lessonId: lesson.id, n: 0 }]);
     scrollDown();
 
-    playDemo(lesson.demo, lesson.demoLabel);
+    playDemo(lesson.demo, lesson.demoLabel[lang]);
 
     /* Reveal over a fixed ~2.2s rather than at a fixed speed, so a longer
        answer is not a longer wait — the pacing should feel like the model
        thinking, never like the page being slow. */
     clearInterval(streamRef.current);
-    const total = lesson.answer.length;
-    const ticks = 55;
-    const per = Math.max(1, Math.ceil(total / ticks));
+    const total = lesson.answer[lang].length;
+    const per = Math.max(1, Math.ceil(total / 55));
     streamRef.current = setInterval(() => {
       idx.i += per;
       const done = idx.i >= total;
       setMsgs(m => {
         const copy = m.slice();
         for (let k = copy.length - 1; k >= 0; k--) {
-          if (copy[k].who === "tiga") { copy[k] = { ...copy[k], text: lesson.answer.slice(0, idx.i) }; break; }
+          if (copy[k].who === "tiga") { copy[k] = { ...copy[k], n: idx.i }; break; }
         }
         return copy;
       });
@@ -183,7 +233,7 @@ export default function LandingPage1() {
   // an animation to read their own answer.
   function finishTyping() {
     clearInterval(streamRef.current);
-    setMsgs(m => m.map(x => (x.who === "tiga" && x.full ? { ...x, text: x.full } : x)));
+    setMsgs(m => m.map(x => (x.who === "tiga" ? { ...x, n: 1e9 } : x)));
   }
 
   const onHeroNote = useCallback(() => {
@@ -203,7 +253,7 @@ export default function LandingPage1() {
     e.preventDefault();
     const q = askText.trim();
     if (!q) return;
-    setMsgs(m => [...m, { who: "me", text: q }]);
+    setMsgs(m => [...m, { who: "me", raw: q }]);
     setAskText("");
     openSignup(q, "ask");
   }
@@ -214,17 +264,29 @@ export default function LandingPage1() {
     <div className="lp">
       <header className="lp-top">
         <span className="lp-mark">TIGA</span>
-        <span className="lp-kicker">AI PIANO TEACHER</span>
+        <span className="lp-kicker">{t.kicker}</span>
+        {/* The same three flags as the app's settings panel, so somebody who
+            already knows the product recognises the control instantly. */}
+        <nav className="lp-langs" aria-label={FLAG_NAMES[lang]}>
+          {LANGS.map(lg => (
+            <button key={lg}
+              className={`lp-lang${lg === lang ? " on" : ""}`}
+              onClick={() => chooseLang(lg)}
+              aria-pressed={lg === lang}
+              title={FLAG_NAMES[lg]}
+              lang={lg}>
+              <span aria-hidden="true">{FLAGS[lg]}</span>
+              <span className="lp-sr">{FLAG_NAMES[lg]}</span>
+            </button>
+          ))}
+        </nav>
       </header>
 
-      <h1 className="lp-h1">ถามครูเปียโน AI แล้วดูมัน<em>เล่นให้ดูบนคีย์จริง</em></h1>
-      <p className="lp-sub">
-        กดคีย์ข้างล่างได้เลย — ไม่ต้องสมัคร ไม่ต้องโหลดอะไรทั้งนั้น
-        เลือกคำถามสักข้อ แล้ว TIGA จะอธิบายพร้อมเล่นให้ดูทีละนิ้ว
-      </p>
+      <h1 className="lp-h1">{t.h1a}<em>{t.h1b}</em></h1>
+      <p className="lp-sub">{t.sub}</p>
 
       <div className="lp-stage">
-        <div className={`lp-pianowrap${touched ? " played" : ""}`} data-hint="👆 ลองกดดูสิ">
+        <div className={`lp-pianowrap${touched ? " played" : ""}`} data-hint={t.tapHint}>
           {nowPlaying && <div className="lp-nowplaying">{nowPlaying}</div>}
           <Piano small litSet={lit} fingerMap={fingers} onNote={onHeroNote} baseOct={4} />
         </div>
@@ -233,18 +295,15 @@ export default function LandingPage1() {
       <div className="lp-chat">
         <div className="lp-row">
           <div className="lp-av">AI</div>
-          <div className="lp-bub">
-            สวัสดีครับ ผมคือ TIGA ครูเปียโน AI 🎹{"\n"}
-            อยากให้สอนเรื่องไหนก่อนดีครับ? เลือกได้เลย — ตอบทันที ไม่ต้องสมัครสมาชิก
-          </div>
+          <div className="lp-bub">{t.greet}</div>
         </div>
 
         {msgs.map((m, i) => (
           <div className={`lp-row${m.who === "me" ? " me" : ""}`} key={i}>
             {m.who === "tiga" && <div className="lp-av">AI</div>}
-            <div className="lp-bub" onClick={m.full && m.text !== m.full ? finishTyping : undefined}>
-              {rich(m.text)}
-              {m.full && m.text !== m.full && <i className="lp-caret" />}
+            <div className="lp-bub" onClick={msgDone(m) ? undefined : finishTyping}>
+              {rich(msgText(m))}
+              {!msgDone(m) && <i className="lp-caret" />}
             </div>
           </div>
         ))}
@@ -263,11 +322,11 @@ export default function LandingPage1() {
                 <button key={l.id}
                   className={`lp-chip${used.includes(l.id) ? " used" : ""}`}
                   onClick={() => askLesson(l)}>
-                  {l.chip}
+                  {l.chip[lang]}
                 </button>
               ))}
             </div>
-            {!answered && <div className="lp-chiphint">แตะสักข้อ แล้วดูคีย์บอร์ดข้างบน</div>}
+            {!answered && <div className="lp-chiphint">{t.chipHint}</div>}
           </>
         )}
 
@@ -276,34 +335,32 @@ export default function LandingPage1() {
             <input
               value={askText}
               onChange={e => setAskText(e.target.value)}
-              placeholder="ถามคำถามของคุณเอง…"
-              aria-label="ถามคำถามของคุณเอง" />
-            <button className="lp-send" type="submit" disabled={!askText.trim()}>ถาม</button>
+              placeholder={t.askPh}
+              aria-label={t.askPh} />
+            <button className="lp-send" type="submit" disabled={!askText.trim()}>{t.askBtn}</button>
           </form>
         )}
         <div ref={bottomRef} />
       </div>
 
       {signup
-        ? <div ref={signupRef}><SignupCard q={signup.q} /></div>
+        ? <div ref={signupRef}><SignupCard q={signup.q} t={t} /></div>
         : (
           <div className="lp-proof">
-            <div><b>192</b><span>เพลงให้เล่นตาม</span></div>
-            <div><b>AI</b><span>ถามได้ทุกเรื่อง</span></div>
-            <div><b>ฟรี</b><span>ไม่ต้องใช้บัตร</span></div>
+            <div><b>192</b><span>{t.proof1}</span></div>
+            <div><b>AI</b><span>{t.proof2}</span></div>
+            <div><b>{lang === "th" ? "ฟรี" : lang === "zh" ? "免费" : "Free"}</b><span>{t.proof3}</span></div>
           </div>
         )}
 
       <p className="lp-foot">
-        TIGA AI · เรียนเปียโนกับครู AI<br />
-        <a href={APP_URL}>เข้าแอปเลย</a> · <a href="/privacy-policy.html">นโยบายความเป็นส่วนตัว</a>
+        {t.footTag}<br />
+        <a href={APP_URL}>{t.enterApp}</a> · <a href="/privacy-policy.html">{t.privacy}</a>
       </p>
 
       {sticky && !signup && (
         <div className="lp-sticky">
-          <button className="lp-btn primary" onClick={() => openSignup("", "cta")}>
-            สมัครฟรี — ถามได้ไม่จำกัด
-          </button>
+          <button className="lp-btn primary" onClick={() => openSignup("", "cta")}>{t.sticky}</button>
         </div>
       )}
     </div>
@@ -316,7 +373,7 @@ export default function LandingPage1() {
    they were just given and what the account adds. The auth calls themselves
    are the app's, unchanged — same PDPA consent record, same metadata, same
    friendly errors — because there must be exactly one way an account is made. */
-function SignupCard({ q }) {
+function SignupCard({ q, t }) {
   const [inApp] = useState(() => inAppBrowser());
   const [mode, setMode] = useState(() => (inAppBrowser() ? "email" : "pick"));
   const [name, setName] = useState("");
@@ -349,10 +406,10 @@ function SignupCard({ q }) {
     e.preventDefault();
     if (busy) return;
     setErr(""); setDone("");
-    if (!name.trim()) { setErr("กรุณากรอกชื่อที่อยากให้ครูเรียก · Please enter a name"); return; }
-    if (!email.trim() || !password) { setErr("กรุณากรอกอีเมลและรหัสผ่าน · Please enter your email and password"); return; }
-    if (password.length < 6) { setErr("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร · Password must be at least 6 characters"); return; }
-    if (!agree) { setErr("กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัคร · Please accept the privacy notice to continue"); return; }
+    if (!name.trim()) { setErr(t.errName); return; }
+    if (!email.trim() || !password) { setErr(t.errFields); return; }
+    if (password.length < 6) { setErr(t.errShort); return; }
+    if (!agree) { setErr(t.errAgree); return; }
     land("try:email");
     setBusy(true);
     try {
@@ -368,7 +425,7 @@ function SignupCard({ q }) {
       if (error) { setErr(friendlyAuthError(error.message)); return; }
       land("signup:email");
       if (data && data.session) { window.location.href = APP_URL; return; }
-      setDone("สมัครสำเร็จ! ตรวจสอบอีเมลเพื่อยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ · Account created — check your email to confirm it, then log in.");
+      setDone(t.done);
     } catch (e2) {
       setErr(friendlyAuthError(e2 && e2.message));
     } finally {
@@ -378,31 +435,23 @@ function SignupCard({ q }) {
 
   return (
     <section className="lp-signup">
-      <h2>{q ? "คำถามของคุณพร้อมแล้ว 🎹" : "เปิดห้องเรียนของคุณเอง 🎹"}</h2>
-      <p>
-        สี่คำตอบเมื่อกี้เป็นบทเรียนสำเร็จรูป — ของจริงคือ TIGA ตอบคำถามของคุณเองได้ไม่จำกัด
-        จำได้ว่าคุณติดตรงไหน และเลือกแบบฝึกให้ตรงจุดอ่อน สมัครฟรี ไม่ต้องใช้บัตร
-      </p>
+      <h2>{q ? t.signupTitleQ : t.signupTitle}</h2>
+      <p>{t.signupBody}</p>
 
-      {q && <div className="lp-q"><span>คำถามที่คุณถาม</span>{q}</div>}
+      {q && <div className="lp-q"><span>{t.qLabel}</span>{q}</div>}
 
       {err && <div className="lp-err">{err}</div>}
       {done && <div className="lp-ok">{done}</div>}
 
-      {inApp && (
-        <div className="lp-inapp">
-          คุณกำลังเปิดจากในแอปอื่น (Facebook / LINE / IG) ซึ่งปุ่ม Google มักใช้ไม่ได้
-          — สมัครด้วยอีเมลข้างล่างได้เลย หรือกดเปิดในเบราว์เซอร์จริงก่อน
-        </div>
-      )}
+      {inApp && <div className="lp-inapp">{t.inApp}</div>}
 
       {mode === "pick" && (
         <>
           <button className="lp-btn google" onClick={google} disabled={busy}>
-            <GoogleG /> สมัคร / เข้าสู่ระบบด้วย Google
+            <GoogleG /> {t.google}
           </button>
-          <div className="lp-or">หรือ</div>
-          <button className="lp-btn ghost" onClick={() => setMode("email")}>สมัครด้วยอีเมล</button>
+          <div className="lp-or">{t.or}</div>
+          <button className="lp-btn ghost" onClick={() => setMode("email")}>{t.emailBtn}</button>
         </>
       )}
 
@@ -410,34 +459,34 @@ function SignupCard({ q }) {
         <form onSubmit={signupEmail}>
           <label className="lp-field">
             <input value={name} onChange={e => setName(e.target.value)}
-              placeholder="ชื่อที่อยากให้ครูเรียก" autoComplete="name" />
+              placeholder={t.namePh} autoComplete="name" />
           </label>
           <label className="lp-field">
             <input value={email} onChange={e => setEmail(e.target.value)}
-              type="email" placeholder="อีเมล" autoComplete="email" />
+              type="email" placeholder={t.emailPh} autoComplete="email" />
           </label>
           <label className="lp-field">
             <input value={password} onChange={e => setPassword(e.target.value)}
-              type="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autoComplete="new-password" />
+              type="password" placeholder={t.passPh} autoComplete="new-password" />
           </label>
           <label className="lp-check">
             <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
-            <span>ฉันยอมรับ <a href="/privacy-policy.html" target="_blank" rel="noreferrer">นโยบายความเป็นส่วนตัว</a> และยินยอมให้เก็บข้อมูลเพื่อให้บริการเรียนเปียโน</span>
+            <span>{t.agree} <a href="/privacy-policy.html" target="_blank" rel="noreferrer">{t.agreeLink}</a>{t.agreeTail}</span>
           </label>
           <label className="lp-check">
             <input type="checkbox" checked={marketing} onChange={e => setMarketing(e.target.checked)} />
-            <span>ยินดีรับข่าวสารและโปรโมชัน (ไม่บังคับ)</span>
+            <span>{t.marketing}</span>
           </label>
           <button className="lp-btn primary" type="submit" disabled={busy}>
-            {busy ? "กำลังสมัคร…" : "สมัครฟรี"}
+            {busy ? t.submitBusy : t.submit}
           </button>
-          {!inApp && <button className="lp-btn ghost" type="button" onClick={() => setMode("pick")}>ใช้ Google แทน</button>}
-          {inApp && <button className="lp-btn ghost" type="button" onClick={() => { land("openreal"); openInRealBrowser(); }}>เปิดในเบราว์เซอร์จริง</button>}
+          {!inApp && <button className="lp-btn ghost" type="button" onClick={() => setMode("pick")}>{t.useGoogle}</button>}
+          {inApp && <button className="lp-btn ghost" type="button" onClick={() => { land("openreal"); openInRealBrowser(); }}>{t.openReal}</button>}
         </form>
       )}
 
       <p className="lp-foot" style={{ marginTop: 14 }}>
-        มีบัญชีอยู่แล้ว? <a href={APP_URL}>เข้าสู่ระบบในแอป</a>
+        {t.have} <a href={APP_URL}>{t.haveLink}</a>
       </p>
     </section>
   );

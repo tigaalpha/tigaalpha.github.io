@@ -91,11 +91,38 @@ body {
 
 /* ── header ── */
 .lp-top { display: flex; align-items: center; gap: 10px; padding-block: 14px 10px; }
+.lp-top .lp-kicker { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .lp-mark {
   font-family: var(--mark); font-weight: 900; font-size: 13px; letter-spacing: 2px;
   color: var(--acc); border: 1.5px solid var(--acc); border-radius: 6px; padding: 3px 7px; line-height: 1;
 }
 .lp-kicker { font-size: 11.5px; color: var(--muted); letter-spacing: .04em; }
+
+/* ── the three-flag language switcher, top right ──
+   All three are always visible rather than hidden behind a menu: the point of
+   a flag is that you spot your own at a glance, which a dropdown defeats. Same
+   three flags as the app's settings panel, so a returning visitor recognises
+   the control instantly. */
+.lp-langs {
+  margin-left: auto; display: flex; gap: 2px; padding: 2px;
+  background: var(--card2); border: 1px solid var(--line); border-radius: 999px;
+}
+.lp-lang {
+  border: 0; background: transparent; cursor: pointer;
+  /* 42x32 rather than the 38x26 this started at — a flag is a thumb target on
+     a phone, not a desktop menu item. */
+  padding: 8px 11px; border-radius: 999px; line-height: 1;
+  font-size: 16px; opacity: .45; transition: opacity .15s, background .15s;
+}
+.lp-lang:hover { opacity: .8; }
+.lp-lang.on { opacity: 1; background: var(--card); box-shadow: 0 1px 3px #0000001f; }
+.lp-lang:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+/* The flag emoji carries no accessible name of its own, so each button also
+   holds the language's name for a screen reader. */
+.lp-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
 
 .lp-h1 {
   margin: 4px 0 6px; font-size: clamp(23px, 6.6vw, 30px); line-height: 1.28;
