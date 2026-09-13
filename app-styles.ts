@@ -365,6 +365,29 @@ html, body, #root{background:var(--bg)}
    sensible width and keep it clear of the glow behind it. */
 .pathpiano{position:relative;max-width:430px;margin:2px auto 0;padding:0 2px}
 .pathpiano .kr{touch-action:none}
+/* ── "this is playable" ──
+   The hero keyboard was being read as a picture: on 13 Sep it was on screen for
+   105 people and two of them touched it. The cue sits ON the keys rather than
+   under them, so it adds no height and the orange rule stays tight beneath the
+   keyboard, and it is pointer-events:none so it can never eat the very tap it
+   is asking for. Both cues vanish the moment a note is played. */
+.pathpiano{position:relative}
+.pathpiano:not(.played)::after{
+  content:attr(data-hint);
+  position:absolute;left:50%;top:24%;transform:translateX(-50%);
+  padding:5px 13px;border-radius:999px;
+  background:#d97757;color:#fff;
+  font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:700;letter-spacing:.2px;
+  white-space:nowrap;pointer-events:none;z-index:3;
+  box-shadow:0 5px 16px -5px rgba(0,0,0,.5);
+  animation:pianopoke 1.7s ease-in-out infinite;
+}
+@keyframes pianopoke{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
+.pathpiano:not(.played) .kr{animation:pianobreathe 2.6s ease-in-out infinite}
+@keyframes pianobreathe{0%,100%{filter:none}50%{filter:brightness(1.07)}}
+@media (prefers-reduced-motion:reduce){
+  .pathpiano:not(.played)::after,.pathpiano:not(.played) .kr{animation:none}
+}
 .pathh1{position:relative;font-family:'Orbitron',sans-serif;font-size:19px;font-weight:900;color:var(--text);text-shadow:0 0 16px #d9775777;letter-spacing:1px;margin-bottom:13px}
 .pathguide{position:relative;font-size:12px;color:var(--text2);line-height:1.65;background: rgba(217,119,87,.07);border:1px solid #d9775722;border-radius:10px;padding:11px 14px;font-family:'Rajdhani',sans-serif;max-width:430px;margin:0 auto}
 .pgroup{padding:0 14px;margin-bottom:10px}

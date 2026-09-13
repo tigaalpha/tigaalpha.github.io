@@ -450,9 +450,14 @@ export function AdminAnonVisitors({ lang }) {
                   <div><b style={{ fontSize: 19, color: stuck > moved ? "#c2410c" : "inherit" }}>{stuck}</b> <span className="admstu-row-sub">{T("ไม่เคยเปลี่ยนหน้า (เด้งไม่ได้)", "never changed page (gate cannot fire)", "从未换页")}</span></div>
                 </div>
                 <div className="admstu-row-sub">
-                  {T(`จาก ${guests} คนที่ยังไม่ล็อกอิน — หน้าสมัครจะเด้งเมื่อเปลี่ยนหน้าเท่านั้น`,
-                     `of ${guests} signed-out visitors — the gate is only raised on a page change`,
-                     `共 ${guests} 位未登录访客 — 注册页仅在换页时弹出`)}
+                  {/* This used to read "the gate is only raised on a page change",
+                      which was true until 13 Sep and is not any more — it now
+                      fires off the guest clock itself. A caption that describes
+                      last week's behaviour is the same kind of wrong number this
+                      panel exists to stop printing. */}
+                  {T(`จาก ${guests} คนที่ยังไม่ล็อกอิน — หน้าสมัครเด้งเมื่ออยู่ครบ 10 วินาที`,
+                     `of ${guests} signed-out visitors — the gate is raised once they have stayed 10 seconds`,
+                     `共 ${guests} 位未登录访客 — 停留满 10 秒后弹出注册页`)}
                 </div>
                 {shown === 0 && (
                   <div className="admstu-row-sub" style={{ marginTop: 6, color: "#c2410c" }}>

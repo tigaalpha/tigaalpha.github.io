@@ -531,7 +531,13 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
      hundred rows. */
   const heroOct = 4;
   const heroLogged = useRef(false);
+  /* Until somebody has actually played it, the keyboard has to say that it CAN
+     be played. It reads as a picture otherwise: 105 people had it on screen on
+     13 Sep and two touched it. The cue is an overlay, so it costs no height and
+     leaves the orange rule sitting directly under the keys. */
+  const [heroPlayed, setHeroPlayed] = useState(false);
   const onHeroNote = useCallback(() => {
+    setHeroPlayed(true);
     if (heroLogged.current) return;
     heroLogged.current = true;
     logUsage("hero", "piano");
@@ -586,7 +592,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
           has been accepted and the next step is worth naming. */}
       <div className="pathhero">
         <div className="pathhero-glow" />
-        <div className="pathpiano">
+        <div className={`pathpiano${heroPlayed ? " played" : ""}`} data-hint={lc.tapHint}>
           <Piano small onNote={onHeroNote} baseOct={heroOct} />
         </div>
       </div>

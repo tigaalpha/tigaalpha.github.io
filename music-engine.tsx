@@ -732,23 +732,34 @@ export function playPianoNote(note, dur = 0.7, velocity = 1) {
 // forget one-shot used by demo playback, chime feedback, backing chords, etc.)
 // rather than folding hold-detection into it, since those callers don't have
 // a "release" moment to call back into.
-export function startPianoNote(note, velocity = 1) {
+/* ── The first key anyone pressed made no sound ──
+   A browser hands out an AudioContext in the "suspended" state and its clock
+   is FROZEN at 0 until a user gesture resumes it. resume() is asynchronous, so
+   a note scheduled during that same gesture is written against a clock that
+   has not started: measured on the live build, the first tap scheduled its
+   five voices at t=0 with the envelope ending at 0.29s, and by the time audio
+   actually began flowing the clock read 1.22s. The whole note was already
+   almost a second in the past. It never played.
+
+   Only the first press was affected — by the second, the context was running.
+   But the first press is the one that matters here: the entire first screen is
+   a piano with no lesson to pick and no account to make, on the promise that
+   you press a key and hear it. That promise has been failing for every new
+   visitor, which is the likeliest reason 105 people saw the keyboard today and
+   two touched it.
+
+   So when the clock is not running yet, hand the caller a handle immediately
+   and build the voices once it is. The key still lights and still feels
+   pressed; the sound simply waits the fraction of a second it has to. */
+function _buildPianoVoices(handle, f, velocity) {
   try {
-    if (_sfxMuted) return null;
-    const f = NF[note]; if (!f) return null;
-    // Hold duration isn't known yet, so suppress mic self-echo for a generous
-    // window; releasePianoNote() re-suppresses for the release tail below.
-    _accMarkSuppress(f, 50, Date.now() + 6000);
     const { ac, bus } = audioBus();
     const t0 = ac.currentTime;
     const lp = ac.createBiquadFilter();
     lp.type = "lowpass";
-    // brighter timbre at higher velocity — a harder hammer strike excites more
-    // high-frequency content on a real piano too
     lp.frequency.value = Math.min(9000, f * 6 + 1800 + velocity * 900);
     lp.connect(bus);
     const peak = 0.33 * Math.max(0.15, Math.min(1, velocity));
-    const voices = [];
     for (const [mul, amp, dscale] of _PARTIALS) {
       if (f * mul > 12000) continue;
       const osc = ac.createOscillator();
@@ -763,13 +774,41 @@ export function startPianoNote(note, velocity = 1) {
       const entry = { osc, g };
       _activeNotes.push(entry);
       osc.onended = () => { const i = _activeNotes.indexOf(entry); if (i >= 0) _activeNotes.splice(i, 1); };
-      voices.push(entry);
+      handle.voices.push(entry);
     }
-    return { note, voices };
+    /* A quick tap lets go before a waking clock is ready, so by the time we get
+       here the key is already up. Play the short note it actually asked for
+       rather than nothing — cancelling it was the first version of this fix,
+       and it turned "the first key is silent" into "the first key is still
+       silent", which is how it was caught. */
+    if (handle.released) releasePianoNote(handle, 0.18);
+  } catch (e) {}
+}
+
+export function startPianoNote(note, velocity = 1) {
+  try {
+    if (_sfxMuted) return null;
+    const f = NF[note]; if (!f) return null;
+    // Hold duration isn't known yet, so suppress mic self-echo for a generous
+    // window; releasePianoNote() re-suppresses for the release tail below.
+    _accMarkSuppress(f, 50, Date.now() + 6000);
+    const { ac } = audioBus();
+    const handle = { note, voices: [], released: false };
+    if (ac.state === "suspended") {
+      // wait for the clock, then play — see the note above
+      Promise.resolve(ac.resume && ac.resume())
+        .then(() => _buildPianoVoices(handle, f, velocity), () => {});
+      return handle;
+    }
+    _buildPianoVoices(handle, f, velocity);
+    return handle;
   } catch (e) { return null; }
 }
+
 export function releasePianoNote(handle, releaseTime = 0.22) {
   if (!handle) return;
+  // a note still queued behind a resuming audio clock must never start now
+  handle.released = true;
   try {
     const ac = _busCtx || getAC();
     const t0 = ac.currentTime;
