@@ -87,6 +87,59 @@ Look at the keyboard above — I'm playing it for you, one finger at a time 👆
   },
 
   {
+    id: "chords",
+    chip: { th: "🎸 สอนคอร์ดพื้นฐาน", en: "🎸 The four chords", zh: "🎸 最基础的和弦" },
+    ask: { th: "สอนคอร์ดพื้นฐานหน่อย", en: "Teach me the basic chords", zh: "教我最基础的和弦" },
+    demoLabel: { th: "C · G · Am · F", en: "C · G · Am · F", zh: "C · G · Am · F" },
+    answer: {
+      th:
+`มีคอร์ดอยู่ **4 ตัว** ที่ถ้าเล่นได้ คุณจะเล่นเพลงป็อปได้เป็นพัน ๆ เพลง:
+
+**C** = C–E–G
+**G** = G–B–D
+**Am** = A–C–E
+**F** = F–A–C
+
+เรียงวนแบบนี้ **C → G → Am → F** แล้วซ้ำไปเรื่อย ๆ นี่คือชุดคอร์ดที่อยู่ในเพลงดังนับไม่ถ้วน ตั้งแต่ Let It Be มาจนถึงเพลงไทยที่คุณเพิ่งฟังเมื่อเช้านี้
+
+ข้อสังเกตที่ช่วยได้มาก: ทั้งสี่คอร์ดนี้ **ใช้คีย์ขาวล้วน** เพราะทุกตัวอยู่ในคีย์ C หมด — ไม่ต้องแตะคีย์ดำสักอันเดียว
+
+และถ้าสังเกตดี ๆ: **Am ก็คือ C ที่เลื่อนขึ้นไปหนึ่งตัวโน้ต** เท่านั้นเอง ดูตอนผมเล่นให้ดูข้างบนครับ 👆`,
+      en:
+`There are **four chords** that, once you can play them, unlock thousands of pop songs:
+
+**C** = C–E–G
+**G** = G–B–D
+**Am** = A–C–E
+**F** = F–A–C
+
+Go round them in this order — **C → G → Am → F** — then repeat. This is the progression sitting inside a staggering number of hits, from Let It Be to whatever was playing in the café this morning.
+
+One observation that helps enormously: all four are **played on white keys only**, because every one of them belongs to the key of C. You never touch a black key.
+
+And look closely: **Am is simply C shifted up by one note**. Watch while I play them above 👆`,
+      zh:
+`有**四个和弦**，只要你会弹，就能解锁成千上万首流行歌：
+
+**C** = C–E–G
+**G** = G–B–D
+**Am** = A–C–E
+**F** = F–A–C
+
+按这个顺序循环——**C → G → Am → F**——然后一直重复。从 Let It Be 到今天早上咖啡馆里放的那一首，数不清的金曲里都是这套和弦。
+
+一个特别有用的观察：这四个和弦**全部只用白键**，因为它们都属于 C 大调——一个黑键都不用碰。
+
+再仔细看：**Am 其实就是 C 整体往上挪一个音**。看我在上面弹给你看 👆`,
+    },
+    demo: [
+      { n: ["C4", "E4", "G4"], d: 900, say: "C" },
+      { n: ["G4", "B4", "D5"], d: 900, say: "G" },
+      { n: ["A4", "C5", "E5"], d: 900, say: "Am" },
+      { n: ["F4", "A4", "C5"], d: 1200, say: "F" },
+    ],
+  },
+  {
     id: "basics",
     chip: { th: "🎹 สอน Piano ขั้นพื้นฐาน", en: "🎹 Piano from scratch", zh: "🎹 钢琴入门基础" },
     ask: { th: "สอน Piano ขั้นพื้นฐานให้หน่อย", en: "Teach me the piano basics", zh: "教我钢琴的基础" },
@@ -194,57 +247,4 @@ Remember these two lines and you can build a triad in all 12 keys:
     ],
   },
 
-  {
-    id: "chords",
-    chip: { th: "🎸 สอนคอร์ดพื้นฐาน", en: "🎸 The four chords", zh: "🎸 最基础的和弦" },
-    ask: { th: "สอนคอร์ดพื้นฐานหน่อย", en: "Teach me the basic chords", zh: "教我最基础的和弦" },
-    demoLabel: { th: "C · G · Am · F", en: "C · G · Am · F", zh: "C · G · Am · F" },
-    answer: {
-      th:
-`มีคอร์ดอยู่ **4 ตัว** ที่ถ้าเล่นได้ คุณจะเล่นเพลงป็อปได้เป็นพัน ๆ เพลง:
-
-**C** = C–E–G
-**G** = G–B–D
-**Am** = A–C–E
-**F** = F–A–C
-
-เรียงวนแบบนี้ **C → G → Am → F** แล้วซ้ำไปเรื่อย ๆ นี่คือชุดคอร์ดที่อยู่ในเพลงดังนับไม่ถ้วน ตั้งแต่ Let It Be มาจนถึงเพลงไทยที่คุณเพิ่งฟังเมื่อเช้านี้
-
-ข้อสังเกตที่ช่วยได้มาก: ทั้งสี่คอร์ดนี้ **ใช้คีย์ขาวล้วน** เพราะทุกตัวอยู่ในคีย์ C หมด — ไม่ต้องแตะคีย์ดำสักอันเดียว
-
-และถ้าสังเกตดี ๆ: **Am ก็คือ C ที่เลื่อนขึ้นไปหนึ่งตัวโน้ต** เท่านั้นเอง ดูตอนผมเล่นให้ดูข้างบนครับ 👆`,
-      en:
-`There are **four chords** that, once you can play them, unlock thousands of pop songs:
-
-**C** = C–E–G
-**G** = G–B–D
-**Am** = A–C–E
-**F** = F–A–C
-
-Go round them in this order — **C → G → Am → F** — then repeat. This is the progression sitting inside a staggering number of hits, from Let It Be to whatever was playing in the café this morning.
-
-One observation that helps enormously: all four are **played on white keys only**, because every one of them belongs to the key of C. You never touch a black key.
-
-And look closely: **Am is simply C shifted up by one note**. Watch while I play them above 👆`,
-      zh:
-`有**四个和弦**，只要你会弹，就能解锁成千上万首流行歌：
-
-**C** = C–E–G
-**G** = G–B–D
-**Am** = A–C–E
-**F** = F–A–C
-
-按这个顺序循环——**C → G → Am → F**——然后一直重复。从 Let It Be 到今天早上咖啡馆里放的那一首，数不清的金曲里都是这套和弦。
-
-一个特别有用的观察：这四个和弦**全部只用白键**，因为它们都属于 C 大调——一个黑键都不用碰。
-
-再仔细看：**Am 其实就是 C 整体往上挪一个音**。看我在上面弹给你看 👆`,
-    },
-    demo: [
-      { n: ["C4", "E4", "G4"], d: 900, say: "C" },
-      { n: ["G4", "B4", "D5"], d: 900, say: "G" },
-      { n: ["A4", "C5", "E5"], d: 900, say: "Am" },
-      { n: ["F4", "A4", "C5"], d: 1200, say: "F" },
-    ],
-  },
 ];

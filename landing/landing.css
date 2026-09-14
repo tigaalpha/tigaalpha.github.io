@@ -236,12 +236,12 @@ body {
 .lp-replay:disabled { opacity: .5; cursor: default; }
 
 /* ── question chips ── */
-.lp-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 0 36px; }
+.lp-chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 0 0 30px; }
 .lp-chip {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--card); color: var(--text);
   border: 1px solid var(--line2); border-radius: 999px;
-  padding: 8px 14px; font: inherit; font-size: 13.5px; font-weight: 600;
+  padding: 8px 11px; font: inherit; font-size: 13px; font-weight: 600;
   cursor: pointer; transition: background .15s, border-color .15s, transform .1s;
 }
 .lp-chip:hover { border-color: var(--acc); background: var(--acc-soft); }
