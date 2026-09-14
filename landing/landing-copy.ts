@@ -11,21 +11,27 @@ export const FLAGS = { th: "🇹🇭", en: "🇬🇧", zh: "🇨🇳" };   // sa
 export const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文" };
 
 /* ── which language the page opens in ──
-   Never navigator.language. That sounds helpful and is wrong here: a large
-   share of phones in Thailand are set to English, so Thai visitors arriving
-   from a Thai-language ad were greeted in English — a worse first impression
-   than no detection at all, on the one screen where the first impression is
-   the entire job.
+   The URL. Nothing else. /landing/ is Thai, /landing-en/ is English,
+   /landing-zh/ is Chinese, every time, for everyone.
 
-   `preset` is the page's own language, declared in its <html lang> and set by
-   which of the three landing URLs the ad pointed at (/landing/ Thai,
-   /landing-en/, /landing-zh/). The advertiser has already decided who this
-   campaign is for, so that decision is the default — no guessing.
+   Two things it deliberately does NOT consult:
 
-   A choice the visitor actually made still wins, because they made it. */
-export function pickLang(stored, preset) {
-  if (LANGS.includes(stored)) return stored;   // they picked before — honour it
-  if (LANGS.includes(preset)) return preset;   // the campaign's own language
+   navigator.language — a large share of phones in Thailand are set to
+   English, so Thai visitors arriving from a Thai-language ad were greeted in
+   English, which is a worse first impression than no detection at all.
+
+   A previously stored choice — this one was a real bug, not a theory. Tapping
+   a flag once saved that language, and from then on it overrode the URL: the
+   English and Chinese links both opened in Thai for anyone who had ever used
+   the site. Three separate links exist precisely so each campaign lands in
+   its own language, and a preference set on a different page is no reason to
+   break that.
+
+   The flags still switch the language right now, and that choice is still
+   written to the guest profile so the APP opens in it after sign-up — it just
+   no longer decides what THIS page opens in. */
+export function pickLang(preset) {
+  if (LANGS.includes(preset)) return preset;
   return "th";
 }
 

@@ -51,14 +51,14 @@ function land(what, ms) { try { logUsage("land", what, ms); } catch (e) {} }
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 let viewLogged = false;
 
-/* ── language, shared with the app ──
+/* ── the language handoff into the app ──
    The app reads `lang` off the guest profile in localStorage, so writing the
-   choice back there means somebody who picks English here arrives in an
-   English app rather than being asked twice. */
-function readStoredLang() {
-  try { return (JSON.parse(localStorage.getItem(GUEST_PROFILE_KEY) || "{}") || {}).lang; }
-  catch (e) { return null; }
-}
+   choice here means somebody who picks English arrives in an English app
+   rather than being asked twice.
+
+   Written, never read back: reading it was what let a preference set on one
+   landing page override the URL of another, so the English and Chinese links
+   opened in Thai. Which page you are on is decided by the page, above. */
 function storeLang(lg) {
   try {
     const p = JSON.parse(localStorage.getItem(GUEST_PROFILE_KEY) || "{}") || {};
@@ -89,7 +89,7 @@ function presetLang() {
 const PRESET = typeof document !== "undefined" ? presetLang() : "th";
 
 export default function LandingPage1() {
-  const [lang, setLang] = useState(() => pickLang(readStoredLang(), PRESET));
+  const [lang, setLang] = useState(() => pickLang(PRESET));
   const t = C[lang];
 
   /* keyboard */
