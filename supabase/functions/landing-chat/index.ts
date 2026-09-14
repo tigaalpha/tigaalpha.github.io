@@ -6,26 +6,12 @@
 // The AI behind the question box on marketing landing page 1, which ships as
 // three URLs: /landing/ (Thai), /landing-en/, /landing-zh/.
 //
-// WHY THIS EXISTS INSTEAD OF piano-chat
-// piano-chat has verify_jwt enabled on purpose: it requires a genuine per-user
-// session so it cannot be called anonymously off the project's AI budget. The
-// landing page needs exactly the thing that lock forbids — a stranger from an
-// ad, with no account, typing one real question and getting a real answer —
-// so it gets its own door with its own bouncer, rather than unlocking the
-// app's.
-//
-// verify_jwt is therefore FALSE here, and every protection is in this file:
-//
-//   1. This function owns the system prompt. The client cannot supply one, so
-//      this cannot be turned into a free general-purpose LLM proxy.
+// verify_jwt is FALSE here, and every protection is in this file:
+//   1. This function owns the system prompt. The client cannot supply one.
 //   2. Hard caps on input length, history length and output tokens.
-//   3. Three rate limits, checked before any provider is called: per visitor,
-//      per IP, and a global daily ceiling so the free tier cannot be drained
-//      in an afternoon no matter how many machines try.
-//   4. Free OpenRouter routes only — the same ladder TIGA Chat itself runs on,
-//      walked downward when a rung is rate-limited or retired. There is no
-//      paid rung in this file at all: the worst case for this endpoint is that
-//      it stops answering, never that it starts billing.
+//   3. Three rate limits, checked before any provider is called.
+//   4. Free OpenRouter routes only — the worst case is that it stops
+//      answering, never that it starts billing.
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -58,6 +44,21 @@ const FREE_LADDER = [
 ];
 
 const MAX_TOKENS = 700;        // a landing-page answer is short by design
+// A rung gets this long to produce its FIRST token, and this long in total.
+// Without these a single slow free route holds the whole request open — a
+// pg_net probe on 14 Sep sat for the full 120s and got nothing, because rung 1
+// was rate-limited and rung 2 simply never finished. A visitor waits far less
+// than 120s before closing the tab, so a rung that is this slow is no more use
+// than one that is down: abandon it and try the next.
+// Measured, not guessed: a live probe on 14 Sep saw a healthy rung take about
+// 20s to its first token and still return a perfectly good Thai answer, so a
+// 12s deadline would have thrown away a working reply. 25s is past that and
+// still far short of the 120s hang this exists to stop.
+const RUNG_FIRST_TOKEN_MS = 25000;
+const RUNG_TOTAL_MS = 60000;
+// And a ceiling on the whole ladder walk, so five slow rungs in a row cannot
+// add up to something no visitor would ever wait for.
+const LADDER_BUDGET_MS = 75000;
 const MAX_QUESTION = 500;      // characters
 const MAX_HISTORY = 4;         // turns kept from whatever the client sends
 
@@ -271,8 +272,17 @@ function stripThinking(lang: string) {
 // One free rung, streamed. Throws with the provider's message on failure.
 async function* streamRung(model: string, system: string, messages: { role: string; content: string }[], lang = "th"): AsyncGenerator<string> {
   const strip = stripThinking(lang);
+  // One controller for the whole rung: the deadlines below abort the fetch
+  // itself, so a hung route frees the connection instead of leaking it.
+  const ac = new AbortController();
+  const started = Date.now();
+  let gotFirst = false;
+  const firstTimer = setTimeout(() => { if (!gotFirst) ac.abort(); }, RUNG_FIRST_TOKEN_MS);
+  const totalTimer = setTimeout(() => ac.abort(), RUNG_TOTAL_MS);
+  try {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
+    signal: ac.signal,
     headers: {
       "content-type": "application/json",
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
@@ -310,6 +320,7 @@ async function* streamRung(model: string, system: string, messages: { role: stri
       // simply never looking at that field.
       const piece = evt?.choices?.[0]?.delta?.content;
       if (typeof piece === "string" && piece) {
+        gotFirst = true;                 // the route is alive, drop the first-token deadline
         const clean = strip.push(piece);
         if (clean) yield clean;
       }
@@ -317,6 +328,18 @@ async function* streamRung(model: string, system: string, messages: { role: stri
   }
   const tail = strip.flush();
   if (tail) yield tail;
+  } catch (e) {
+    // An abort is this function's own deadline firing, not a provider fault.
+    // Report it as retryable so the ladder moves on instead of surfacing
+    // "AbortError" to a stranger reading a landing page.
+    if ((e as Error)?.name === "AbortError") {
+      throw new Error(`${model} too slow (${Date.now() - started}ms) - rate limit`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(firstTimer);
+    clearTimeout(totalTimer);
+  }
 }
 
 // Walk the ladder: a rung that is rate-limited, retired or having an outage
@@ -325,8 +348,13 @@ async function* streamRung(model: string, system: string, messages: { role: stri
 // be worse than an error.
 async function* answer(system: string, messages: { role: string; content: string }[], lang = "th"): AsyncGenerator<string> {
   let firstErr = "";
+  const deadline = Date.now() + LADDER_BUDGET_MS;
   for (let i = 0; i < FREE_LADDER.length; i++) {
     const model = FREE_LADDER[i];
+    if (Date.now() > deadline) {
+      console.error(`[landing-chat] ladder budget spent before ${model}`);
+      break;
+    }
     let yielded = false;
     try {
       for await (const piece of streamRung(model, system, messages, lang)) { yielded = true; yield piece; }
