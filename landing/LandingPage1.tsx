@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { Piano, startPianoNote, releasePianoNote } from "../music-engine";
-import { logUsage, GUEST_PROFILE_KEY } from "../shared-infra";
-import { sb } from "../supabase-client";
-import { inAppBrowser, openInRealBrowser, PDPA_VERSION, friendlyAuthError } from "../app-shell";
+import { logLand } from "./land-log";
+import { GUEST_PROFILE_KEY, setSkipOnboard } from "../local-identity";
+import { inAppBrowser, openInRealBrowser, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
 import { LESSONS } from "./landing-lessons";
 import { C, LANGS, FLAGS, FLAG_NAMES, pickLang } from "./landing-copy";
 import { askLandingAI } from "./landing-ai";
@@ -46,7 +46,17 @@ const FREE_MS = 3 * 60 * 1000;
 /* Landing events are logged under their own kind so they can never be mixed
    into the app's own visitor and activity numbers. Everything here is a
    guest — user_id stays null, which is what the anon insert policy allows. */
-function land(what, ms) { try { logUsage("land", what, ms); } catch (e) {} }
+function land(what, ms) { try { logLand("land", what, ms); } catch (e) {} }
+
+/* The Supabase client is only needed the moment somebody decides to sign up —
+   never to play, never to read an answer. Loading it then (dynamic import)
+   keeps it out of the bytes an ad click pays for. First caller awaits it, so
+   two rapid taps share one load. */
+let sbPromise = null;
+function getSb() {
+  if (!sbPromise) sbPromise = import("../supabase-client").then(m => m.sb);
+  return sbPromise;
+}
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 let viewLogged = false;
@@ -201,10 +211,36 @@ export default function LandingPage1() {
 
   /* The trial clock. It only RAISES a flag — the gate itself waits below for a
      moment that is not rude, because yanking the card up mid-answer would cut
-     off the very thing that was about to convince them. */
+     off the very thing that was about to convince them.
+
+     And it no longer punishes the people who are doing exactly what the page
+     asked: the dashboard showed the clock firing mid-conversation at 3:00
+     sharp for someone actively tapping keys. Time still runs out, but genuine
+     activity in the last 90s earns one 2-minute extension (twice, max) —
+     enough to finish the thought, not enough to make the trial unlimited. */
   const [timeUp, setTimeUp] = useState(false);
+  const lastActive = useRef(Date.now());
+  const extensions = useRef(0);
   useEffect(() => {
-    const tm = setTimeout(() => setTimeUp(true), FREE_MS);
+    const bump = () => { lastActive.current = Date.now(); };
+    window.addEventListener("pointerdown", bump, { passive: true });
+    window.addEventListener("keydown", bump);
+    return () => {
+      window.removeEventListener("pointerdown", bump);
+      window.removeEventListener("keydown", bump);
+    };
+  }, []);
+  useEffect(() => {
+    const tm = setTimeout(() => {
+      if (extensions.current < 2 && Date.now() - lastActive.current < 90000) {
+        extensions.current += 1;
+        land("timeup:extended");
+        setTimeUp(false);
+        setTimeout(() => setTimeUp(true), 2 * 60 * 1000);
+      } else {
+        setTimeUp(true);
+      }
+    }, FREE_MS);
     return () => clearTimeout(tm);
   }, []);
 
@@ -561,11 +597,39 @@ function SignupCard({ q, quota, timeUp, t }) {
     if (busy) return;
     land("try:google");
     setBusy(true); setErr("");
+    // Signed-up here = already gave us a name; the app's own profile form
+    // would be the second form in five minutes. One flag, read once inside
+    // the app, then cleared.
+    setSkipOnboard();
     try {
       // Back to the APP, not back to this page — the landing page has done its
       // job by the time the OAuth round trip returns.
+      const sb = await getSb();
       await sb.auth.signInWithOAuth({
         provider: "google",
+        options: { redirectTo: window.location.origin + "/" },
+      });
+    } catch (e) {
+      setErr(friendlyAuthError(e && e.message));
+      setBusy(false);
+    }
+  }
+
+  /* LINE Login — the one provider that works INSIDE the webviews two thirds
+     of this page's visitors arrive in (Google refuses OAuth there, which is
+     where the 393-visits-zero-accounts campaign died). Needs a LINE Channel
+     with its callback URL whitelisted in the Supabase dashboard before the
+     button does anything; until then it surfaces the provider's own error
+     via friendlyAuthError rather than pretending to work. */
+  async function lineLogin() {
+    if (busy) return;
+    land("try:line");
+    setBusy(true); setErr("");
+    setSkipOnboard();
+    try {
+      const sb = await getSb();
+      await sb.auth.signInWithOAuth({
+        provider: "line",
         options: { redirectTo: window.location.origin + "/" },
       });
     } catch (e) {
@@ -584,7 +648,9 @@ function SignupCard({ q, quota, timeUp, t }) {
     if (!agree) { setErr(t.errAgree); return; }
     land("try:email");
     setBusy(true);
+    setSkipOnboard();
     try {
+      const sb = await getSb();
       const { data, error } = await sb.auth.signUp({
         email: email.trim(),
         password,
@@ -619,9 +685,25 @@ function SignupCard({ q, quota, timeUp, t }) {
 
       {mode === "pick" && (
         <>
-          <button className="lp-btn google" onClick={google} disabled={busy}>
-            <GoogleG /> {t.google}
-          </button>
+          {/* The offer, before the form. The trial already exists and is already
+              paid for — the old card asked for an account without ever saying
+              what the account was FOR, which is one reason 21 people saw this
+              card and 1 tapped it. */}
+          <div className="lp-trialline">{t.trialLine}</div>
+          {/* Google first in a real browser (95% of members choose it);
+              LINE first inside a webview, where Google cannot load at all
+              and LINE's own consent screen can. */}
+          {inApp
+            ? <button className="lp-btn line" onClick={lineLogin} disabled={busy}><LineMark /> {t.lineBtn}</button>
+            : <button className="lp-btn google" onClick={google} disabled={busy}>
+                <GoogleG /> {t.google}
+              </button>}
+          <div className="lp-or">{t.or}</div>
+          {inApp
+            ? <button className="lp-btn google" onClick={google} disabled={busy}>
+                <GoogleG /> {t.googleInApp}
+              </button>
+            : <button className="lp-btn line" onClick={lineLogin} disabled={busy}><LineMark /> {t.lineBtn}</button>}
           <div className="lp-or">{t.or}</div>
           <button className="lp-btn ghost" onClick={() => setMode("email")}>{t.emailBtn}</button>
         </>
@@ -671,6 +753,14 @@ function GoogleG() {
       <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.9 7.2l7.6 5.9c4.4-4.1 7.1-10.2 7.1-17.6z" />
       <path fill="#FBBC05" d="M10.4 28.4c-.5-1.4-.8-2.9-.8-4.4s.3-3 .8-4.4l-7.8-6C1 16.7 0 20.2 0 24s1 7.3 2.6 10.4l7.8-6z" />
       <path fill="#34A853" d="M24 47.5c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.8 2.3-8.3 2.3-6.4 0-11.7-4.4-13.6-10.1l-7.8 6C6.5 42.2 14.6 47.5 24 47.5z" />
+    </svg>
+  );
+}
+
+function LineMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#fff" d="M24 10.3c0-5.2-5.4-9.4-12-9.4S0 5.1 0 10.3c0 4.7 4.1 8.6 9.7 9.3.4.1.9.2 1 .5.1.3.1.8 0 1.1l-.2 1c0 .3-.2 1.1 1 .6 1.2-.5 6.3-3.7 8.6-6.3h-.1c1.6-1.7 3-3.7 3-6.2zM8.1 13.6H5.6a.65.65 0 0 1-.65-.65V8.2a.65.65 0 0 1 1.3 0v4.1h1.85a.65.65 0 0 1 0 1.3zm2.75-.65a.65.65 0 0 1-1.3 0V8.2a.65.65 0 0 1 1.3 0v4.75zm6.05 0a.65.65 0 0 1-1.17.39l-2.28-3.1v2.71a.65.65 0 0 1-1.3 0V8.2a.65.65 0 0 1 1.17-.39l2.28 3.1V8.2a.65.65 0 0 1 1.3 0v4.75z" />
     </svg>
   );
 }

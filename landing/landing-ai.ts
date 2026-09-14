@@ -1,4 +1,4 @@
-import { anonId } from "../shared-infra";
+import { anonId } from "../local-identity";
 
 /* ── landing/landing-ai.ts ──
    Talks to the `landing-chat` Edge Function, which is the ONLY backend on this
