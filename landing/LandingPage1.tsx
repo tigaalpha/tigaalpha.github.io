@@ -455,13 +455,13 @@ export default function LandingPage1() {
 
       <div className="lp-chat">
         <div className="lp-row">
-          <div className="lp-av">AI</div>
+          <div className="lp-av">TIGA<br />AI</div>
           <div className="lp-bub">{t.greet}</div>
         </div>
 
         {msgs.map((m, i) => (
           <div className={`lp-row${m.who === "me" ? " me" : ""}`} key={i}>
-            {m.who === "tiga" && <div className="lp-av">AI</div>}
+            {m.who === "tiga" && <div className="lp-av">TIGA<br />AI</div>}
             <div className="lp-bub" onClick={msgDone(m) ? undefined : finishTyping}>
               {rich(msgText(m))}
               {!msgDone(m) && <i className="lp-caret" />}
@@ -471,7 +471,7 @@ export default function LandingPage1() {
 
         {typing && (
           <div className="lp-row">
-            <div className="lp-av">AI</div>
+            <div className="lp-av">TIGA<br />AI</div>
             <div className="lp-bub lp-dots"><i /><i /><i /></div>
           </div>
         )}
