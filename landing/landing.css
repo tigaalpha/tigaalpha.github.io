@@ -90,7 +90,7 @@ body {
 .lp { max-width: 520px; margin: 0 auto; padding: 0 16px calc(96px + env(safe-area-inset-bottom)); }
 
 /* ── header ── */
-.lp-top { display: flex; align-items: center; gap: 10px; padding-block: 14px 10px; }
+.lp-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 8px; padding-block: 14px 10px; }
 .lp-top .lp-kicker { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .lp-mark {
   font-family: var(--mark); font-weight: 900; font-size: 13px; letter-spacing: 2px;
@@ -106,6 +106,34 @@ body {
 .lp-langs {
   margin-left: auto; display: flex; gap: 2px; padding: 2px;
   background: var(--card2); border: 1px solid var(--line); border-radius: 999px;
+}
+
+/* ── "open in browser" ──
+   Sits under the flags on the right, so the top row keeps the brand on the
+   left and every control on the right. .lp-top wraps for it rather than the
+   button competing with the flags for the same line on a narrow phone. */
+.lp-openbtn {
+  order: 4; margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+  font: inherit; font-size: 12px; font-weight: 600; line-height: 1;
+  padding: 7px 11px; border-radius: 999px; cursor: pointer;
+  background: var(--card2); color: var(--muted);
+  border: 1px solid var(--line);
+}
+.lp-openbtn:hover { border-color: var(--acc); color: var(--text); }
+.lp-openbtn:active { transform: scale(.97); }
+/* In a detected in-app browser this is not a convenience, it is the fix for a
+   sign-in that cannot work — so it stops being quiet. */
+.lp-openbtn.warn {
+  background: var(--acc); color: var(--acc-ink); border-color: var(--acc); font-weight: 700;
+}
+.lp-openwhy {
+  margin: 0 0 4px; padding: 9px 12px; border-radius: 12px;
+  font-size: 12.5px; line-height: 1.45;
+  background: var(--acc-soft); color: var(--text); border: 1px solid var(--acc);
+}
+.lp-opencopied {
+  margin: 0 0 4px; padding: 8px 12px; border-radius: 12px;
+  font-size: 12.5px; background: var(--card2); color: var(--text); border: 1px solid var(--line2);
 }
 .lp-lang {
   border: 0; background: transparent; cursor: pointer;
@@ -250,17 +278,21 @@ body {
 .lp-chiphint { padding: 2px 0 0 36px; font-size: 12px; color: var(--muted); }
 
 /* ── the ask box ── */
+/* Sized 5% up from the original 15px/12px/13px on request — the box read as
+   small next to the chips above it, and it is the one control on the page that
+   has to look worth typing into. */
 .lp-ask { display: flex; gap: 8px; margin: 14px 0 0; }
 .lp-ask input {
-  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 15px;
-  padding: 12px 14px; border-radius: 13px;
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 15.75px;
+  padding: 12.6px 14.7px; border-radius: 13.65px;
   border: 1px solid var(--line2); background: var(--card); color: var(--text);
 }
 .lp-ask input::placeholder { color: var(--muted); }
 .lp-ask input:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
 .lp-send {
   flex: 0 0 auto; background: var(--acc); color: var(--acc-ink); border: 0;
-  border-radius: 13px; padding: 0 18px; font: inherit; font-weight: 700; cursor: pointer;
+  border-radius: 13.65px; padding: 0 18.9px; font: inherit; font-size: 15.75px;
+  font-weight: 700; cursor: pointer;
 }
 .lp-send:disabled { opacity: .45; cursor: default; }
 .lp-ask input:disabled { opacity: .6; }

@@ -113,6 +113,28 @@ export default function LandingPage1() {
   const [signup, setSignup] = useState(null);  // null | { q }
   const [sticky, setSticky] = useState(false);
 
+  /* escaping an in-app browser (Facebook / LINE / TikTok / Instagram) */
+  const [inApp] = useState(() => inAppBrowser());
+  const [copied, setCopied] = useState(false);
+  const escapeBrowser = () => {
+    land("openreal-top");
+    /* Copy BEFORE trying to leave. openInRealBrowser() navigates by assigning
+       location.href, so on Android the jump can win the race and the clipboard
+       write never runs — leaving somebody whose intent: URL was refused with no
+       link and no way out. Copying first costs nothing if the jump succeeds. */
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(window.location.href).catch(() => {});
+      }
+    } catch (e) {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 6000);
+    /* Best effort only. Android takes an intent: URL naming Chrome; iOS has no
+       equivalent that is allowed to work, so the copied link above is the real
+       fallback there rather than a nicety. */
+    openInRealBrowser();
+  };
+
   const demoRef = useRef({ stop: false, voices: [] });
   const streamRef = useRef(null);
   const bottomRef = useRef(null);
@@ -398,7 +420,28 @@ export default function LandingPage1() {
             </button>
           ))}
         </nav>
+        {/* ── the way out of an in-app browser ──
+            Most of the paid traffic arrives inside Facebook's, LINE's or
+            TikTok's built-in browser, where Google refuses to sign anybody in.
+            The escape hatch existed already, but only on the sign-up card —
+            which nobody reaches, because they leave long before that. It
+            belongs here, in the first screenful, next to the flags.
+
+            Shown to everyone rather than only to detected WebViews: detection
+            is a guess (every app ships a new UA eventually), and in a real
+            browser the button simply opens a normal new tab, which costs a
+            visitor nothing. Detection is still used — it decides whether the
+            button shouts, and whether the banner below explains why. */}
+        <button type="button"
+          className={`lp-openbtn${inApp ? " warn" : ""}`}
+          onClick={escapeBrowser}
+          title={t.openReal}>
+          <span aria-hidden="true">⧉</span> {t.openTop}
+        </button>
       </header>
+
+      {inApp && <p className="lp-openwhy">⚠️ {t.openWhy}</p>}
+      {copied && <p className="lp-opencopied" role="status">{t.openCopied}</p>}
 
       <h1 className="lp-h1">{t.h1a}<em>{t.h1b}</em></h1>
       <p className="lp-sub">{t.sub}</p>
