@@ -36,6 +36,13 @@ const APP_URL = "/";
    the protection. */
 const FREE_ASKS = 3;
 
+/* ── and a time limit on the whole trial ──
+   Three minutes is long enough to play the keyboard, read a lesson and ask a
+   real question, and short enough that the page stays a taste rather than
+   becoming the product. Whichever runs out first — the questions or the
+   clock — is when the account is asked for. */
+const FREE_MS = 3 * 60 * 1000;
+
 /* Landing events are logged under their own kind so they can never be mixed
    into the app's own visitor and activity numbers. Everything here is a
    guest — user_id stays null, which is what the anon insert policy allows. */
@@ -68,8 +75,21 @@ function rich(text) {
   );
 }
 
+/* Which of the three landing URLs this is. Each variant ships with its own
+   <html lang>, so the page reads its campaign language straight out of the
+   document rather than needing a separate mechanism. Read once, before the
+   effect below starts writing to the same attribute. */
+function presetLang() {
+  try {
+    const l = (document.documentElement.getAttribute("lang") || "").slice(0, 2).toLowerCase();
+    if (LANGS.includes(l)) return l;
+  } catch (e) {}
+  return "th";
+}
+const PRESET = typeof document !== "undefined" ? presetLang() : "th";
+
 export default function LandingPage1() {
-  const [lang, setLang] = useState(() => pickLang(readStoredLang()));
+  const [lang, setLang] = useState(() => pickLang(readStoredLang(), PRESET));
   const t = C[lang];
 
   /* keyboard */
@@ -122,7 +142,11 @@ export default function LandingPage1() {
     // Module-level, not a ref: StrictMode mounts twice in dev and a ref is
     // recreated on the second mount, so only this survives to stop a double
     // "view" — the same guard the app's gate logging needed.
-    if (!viewLogged) { viewLogged = true; land("view"); }
+    if (!viewLogged) {
+      viewLogged = true;
+      land("view");
+      land("page:" + PRESET);   // which of the three URLs the ad pointed at
+    }
     const leave = () => {
       if (leave.done) return;
       leave.done = true;
@@ -152,6 +176,22 @@ export default function LandingPage1() {
     const tm = setTimeout(() => setSticky(true), 15000);
     return () => clearTimeout(tm);
   }, []);
+
+  /* The trial clock. It only RAISES a flag — the gate itself waits below for a
+     moment that is not rude, because yanking the card up mid-answer would cut
+     off the very thing that was about to convince them. */
+  const [timeUp, setTimeUp] = useState(false);
+  useEffect(() => {
+    const tm = setTimeout(() => setTimeUp(true), FREE_MS);
+    return () => clearTimeout(tm);
+  }, []);
+
+  useEffect(() => {
+    if (!timeUp || asking || signup) return;
+    land("timeup");
+    setSignup({ q: "", quota: false, timeUp: true });
+    requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }, [timeUp, asking, signup]);
 
   useEffect(() => () => { demoRef.current.stop = true; clearInterval(streamRef.current); }, []);
 
@@ -393,7 +433,7 @@ export default function LandingPage1() {
           </div>
         )}
 
-        {!typing && (
+        {!typing && !signup && (
           <>
             <div className="lp-chips">
               {LESSONS.map(l => (
@@ -433,7 +473,7 @@ export default function LandingPage1() {
       </div>
 
       {signup
-        ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} t={t} /></div>
+        ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} timeUp={signup.timeUp} t={t} /></div>
         : (
           <div className="lp-proof">
             <div><b>192</b><span>{t.proof1}</span></div>
@@ -462,7 +502,7 @@ export default function LandingPage1() {
    they were just given and what the account adds. The auth calls themselves
    are the app's, unchanged — same PDPA consent record, same metadata, same
    friendly errors — because there must be exactly one way an account is made. */
-function SignupCard({ q, quota, t }) {
+function SignupCard({ q, quota, timeUp, t }) {
   const [inApp] = useState(() => inAppBrowser());
   const [mode, setMode] = useState(() => (inAppBrowser() ? "email" : "pick"));
   const [name, setName] = useState("");
@@ -524,8 +564,8 @@ function SignupCard({ q, quota, t }) {
 
   return (
     <section className="lp-signup">
-      <h2>{quota ? t.askQuotaTitle : q ? t.signupTitleQ : t.signupTitle}</h2>
-      <p>{t.signupBody}</p>
+      <h2>{timeUp ? t.askTimeTitle : quota ? t.askQuotaTitle : q ? t.signupTitleQ : t.signupTitle}</h2>
+      <p>{timeUp ? t.askTimeBody : t.signupBody}</p>
 
       {q && <div className="lp-q"><span>{t.qLabel}</span>{q}</div>}
 

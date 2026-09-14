@@ -142,17 +142,29 @@ jobs:
           # been returning 404 for every user, and marketing landing page 1 was
           # committed, deployed and completely unreachable for the same reason.
           cp privacy-policy.html _site/privacy-policy.html
-          mkdir -p _site/landing
-          cp landing/index.html _site/landing/index.html
-          cp -r landing/bundle _site/landing/bundle
-          cp landing.html _site/landing.html
+          # Marketing landing page 1 ships as three URLs, one per market. The
+          # en/zh variants reference ../landing/bundle/, so there is exactly
+          # one copy of the code behind all three.
+          mkdir -p _site/landing _site/landing-en _site/landing-zh
+          cp landing/index.html    _site/landing/index.html
+          cp landing-en/index.html _site/landing-en/index.html
+          cp landing-zh/index.html _site/landing-zh/index.html
+          cp -r landing/bundle     _site/landing/bundle
+          cp landing.html landing-en.html landing-zh.html _site/
           # Fail the deploy loudly rather than shipping a site with a dead
-          # marketing URL on it — silence is exactly how this went unnoticed.
-          test -s _site/landing/index.html
-          test -s _site/landing.html
-          test -s _site/privacy-policy.html
-          test -d _site/landing/bundle
-          echo "published extras:"; ls -la _site/landing _site/landing.html _site/privacy-policy.html
+          # marketing URL on it — silence is exactly how this went unnoticed
+          # the first time, when the whole page 404'd for hours.
+          for f in privacy-policy.html landing.html landing-en.html landing-zh.html \
+                   landing/index.html landing-en/index.html landing-zh/index.html; do
+            test -s "_site/$f" || { echo "MISSING: _site/$f"; exit 1; }
+          done
+          test -d _site/landing/bundle || { echo "MISSING: _site/landing/bundle"; exit 1; }
+          # ...and that each variant really is in its own language, not three
+          # copies of the Thai one.
+          grep -q '<html lang="th">' _site/landing/index.html    || { echo "landing/ is not Thai"; exit 1; }
+          grep -q '<html lang="en">' _site/landing-en/index.html || { echo "landing-en/ is not English"; exit 1; }
+          grep -q '<html lang="zh">' _site/landing-zh/index.html || { echo "landing-zh/ is not Chinese"; exit 1; }
+          echo "published: 3 landing URLs + their root-level mirrors"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -10,17 +10,22 @@ export const LANGS = ["th", "en", "zh"];
 export const FLAGS = { th: "🇹🇭", en: "🇬🇧", zh: "🇨🇳" };   // same three as the app's settings panel
 export const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文" };
 
-/* ── Thai on arrival. Always. ──
-   This used to read navigator.language, which sounds helpful and was wrong
-   here: a large share of phones in Thailand are set to English, so Thai
-   visitors arriving from a Thai-language ad were greeted in English — a
-   worse first impression than no detection at all, and on the one screen
-   where the first impression is the entire job.
+/* ── which language the page opens in ──
+   Never navigator.language. That sounds helpful and is wrong here: a large
+   share of phones in Thailand are set to English, so Thai visitors arriving
+   from a Thai-language ad were greeted in English — a worse first impression
+   than no detection at all, on the one screen where the first impression is
+   the entire job.
 
-   The flags are right there if somebody wants another language, and a choice
-   they actually made is remembered below. Nothing guesses on their behalf. */
-export function pickLang(stored) {
+   `preset` is the page's own language, declared in its <html lang> and set by
+   which of the three landing URLs the ad pointed at (/landing/ Thai,
+   /landing-en/, /landing-zh/). The advertiser has already decided who this
+   campaign is for, so that decision is the default — no guessing.
+
+   A choice the visitor actually made still wins, because they made it. */
+export function pickLang(stored, preset) {
   if (LANGS.includes(stored)) return stored;   // they picked before — honour it
+  if (LANGS.includes(preset)) return preset;   // the campaign's own language
   return "th";
 }
 
@@ -40,6 +45,8 @@ export const C = {
     askThinking: "TIGA กำลังคิด…",
     askFailed: "ขอโทษครับ ตอนนี้ตอบไม่ได้ ลองถามอีกครั้งได้ไหมครับ",
     askQuotaTitle: "ถามต่อได้ไม่จำกัด 🎹",
+    askTimeTitle: "หมดเวลาทดลองแล้ว 🎹",
+    askTimeBody: "คุณลองมา 3 นาทีแล้ว — สมัครฟรีเพื่อเล่นและถามต่อได้ไม่จำกัด ไม่ต้องใช้บัตร",
     sticky: "สมัครฟรี — ถามได้ไม่จำกัด",
     proof1: "เพลงให้เล่นตาม", proof2: "ถามได้ทุกเรื่อง", proof3: "ไม่ต้องใช้บัตร",
     signupTitleQ: "คำถามของคุณพร้อมแล้ว 🎹",
@@ -84,6 +91,8 @@ export const C = {
     askThinking: "TIGA is thinking…",
     askFailed: "Sorry — I couldn't answer just then. Try asking again?",
     askQuotaTitle: "Keep asking, without limit 🎹",
+    askTimeTitle: "That's the free trial 🎹",
+    askTimeBody: "You've had three minutes — sign up free to keep playing and keep asking, without limit. No card needed.",
     sticky: "Sign up free — ask anything, unlimited",
     proof1: "songs to play along to", proof2: "ask it anything", proof3: "no card needed",
     signupTitleQ: "Your question is ready 🎹",
@@ -128,6 +137,8 @@ export const C = {
     askThinking: "TIGA 正在思考…",
     askFailed: "抱歉，刚才没能回答。再问一次好吗？",
     askQuotaTitle: "无限次提问 🎹",
+    askTimeTitle: "免费试用结束 🎹",
+    askTimeBody: "你已经体验了三分钟——免费注册即可无限继续弹奏和提问，无需银行卡。",
     sticky: "免费注册 — 无限提问",
     proof1: "首曲子可跟弹", proof2: "什么都能问", proof3: "无需银行卡",
     signupTitleQ: "你的问题准备好了 🎹",

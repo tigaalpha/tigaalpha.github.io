@@ -144,6 +144,7 @@ const LAND_STEPS = [
   ["tried",      "กดปุ่มสมัคร",       "Tapped sign up",    "点击注册"],
   ["signed_up",  "สมัครสำเร็จ",       "Signed up",         "注册成功"],
 ];
+const PAGE_LABELS = { th: "🇹🇭 /landing/", en: "🇬🇧 /landing-en/", zh: "🇨🇳 /landing-zh/" };
 const LESSON_LABELS = {
   cmajor: "🎼 C major scale", basics: "🎹 Piano ขั้นพื้นฐาน",
   triad: "🎵 Triad", chords: "🎸 คอร์ดพื้นฐาน",
@@ -217,6 +218,39 @@ function LandingFunnelCard({ f, T }) {
             </div>
           ))}
         </>
+      )}
+
+      {/* The three campaign URLs, side by side. Summing them would average a
+          Thai market against two foreign ones and tell you nothing. */}
+      {!!(f.pages || []).length && (
+        <>
+          <div className="admstu-row-sub" style={{ marginTop: 10 }}>
+            {T("แยกตามหน้า (ภาษา)", "By landing page", "按落地页")}
+          </div>
+          {(f.pages || []).map((pg) => (
+            <div key={pg.page} className="anrow">
+              <span className="anrow-name" style={{ maxWidth: "44%" }}>
+                {PAGE_LABELS[pg.page] || pg.page}
+              </span>
+              <span className="anrow-barwrap">
+                <span className="anrow-bar" style={{ width: `${Math.max(4, (Number(pg.people) / top) * 100)}%` }} />
+              </span>
+              <span className="anrow-hits">
+                {pg.people}
+                <span className="admstu-row-sub"> · AI {pg.ai} · {T("สมัคร", "joined", "注册")} {pg.signed_up}</span>
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+
+      {(!!Number(f.hit_clock) || !!Number(f.hit_quota)) && (
+        <div className="admstu-row-sub" style={{ marginTop: 8 }}>
+          {T("เจอหน้าสมัครเพราะ", "Sign-up shown by", "触发注册的原因")}:{" "}
+          {T("หมดเวลา 3 นาที", "the 3-min clock", "3 分钟到")} {Number(f.hit_clock) || 0}
+          {" · "}
+          {T("ถามครบ 3 ข้อ", "using all 3 questions", "问完 3 个问题")} {Number(f.hit_quota) || 0}
+        </div>
       )}
 
       {!!(f.sources || []).length && (
