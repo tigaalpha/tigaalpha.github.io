@@ -78,7 +78,7 @@ import {
   pushSupported, subscribePush, unsubscribePush, logUsage,
   readActLog, logActivity, recordNoteMisses, readPracticeLog,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
-  guestHasProgress, mergeGuestProgressIntoProfile,
+  guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync } from "./cloud-sync";
 import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal } from "./app-shell";
@@ -9455,6 +9455,19 @@ export default function App() {
   if (!profileReady) return <Splash />;
   if (profile && profile.banned && !profile.is_admin) return <BannedScreen onSignOut={signOut} />;
   if (!profile || !profile.onboarded) {
+    // Someone who signed up on /landing/ already answered the "name" ask there
+    // (and the OAuth providers supply an email) — re-asking them here, before
+    // they have seen a single screen of the thing they just joined, is the
+    // leak the landing analytics pointed at. The flag is written only by the
+    // landing sign-up card and consumed once, so an unrelated later login can
+    // never ride it; the profile row still gets onboarded=true, set directly
+    // so the gate stops firing on every future login too. Guests and app-born
+    // sign-ups never see this — they keep the full ProfileForm.
+    if (session && session.user && consumeSkipOnboard()) {
+      sb.from("profiles").update({ onboarded: true, updated_at: new Date().toISOString() }).eq("id", session.user.id)
+        .then(() => loadProfile(session.user.id), () => loadProfile(session.user.id));
+      return <Splash />;
+    }
     return <ProfileForm session={session} onSignOut={signOut} onSaved={() => loadProfile(session.user.id)} />;
   }
   return <PianoApp session={session} profile={profile} setProfile={setProfile} onSignOut={signOut} />;

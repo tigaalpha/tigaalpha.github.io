@@ -324,6 +324,17 @@ body {
 }
 .lp-btn.google { background: #fff; color: #1f1f1f; border-color: #dadce0; }
 .lp-btn.google:active { background: #f1f3f4; }
+/* LINE's brand green — the button must read as "the LINE thing" at a glance,
+   the same way the Google button reads by its colors. */
+.lp-btn.line { background: #06c755; color: #fff; border-color: #06c755; }
+.lp-btn.line:active { background: #05b04b; }
+/* The offer line: the whole reason the account is worth making, stated in
+   one row above the buttons that make it. */
+.lp-trialline {
+  background: rgba(217, 119, 87, .1); border: 1px solid rgba(217, 119, 87, .45);
+  color: var(--acc, #d97757); border-radius: 11px; padding: 9px 12px;
+  font-size: 13.5px; font-weight: 700; text-align: center; margin-bottom: 12px;
+}
 .lp-btn.primary { background: var(--acc); color: var(--acc-ink); }
 .lp-btn.ghost { background: transparent; color: var(--text2); border-color: var(--line2); font-weight: 600; font-size: 14px; }
 .lp-btn:disabled { opacity: .55; cursor: default; }
