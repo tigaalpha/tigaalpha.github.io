@@ -1,3 +1,12 @@
+-- ⚠️ SUPERSEDED — DO NOT RUN THIS FILE.
+-- This draft was never applied, so the "when users come in" histogram never
+-- rendered once. It is now live via supabase-admin-metrics-accuracy-migration.sql,
+-- which fixes three things wrong with the version below: it counted `boot` and
+-- `land` rows that every other number on the panel excludes, it counted only
+-- signed-in users under a label that says "people", and it gated on
+-- is_top_admin() while every sibling RPC on the same page gates on
+-- is_app_admin(). Kept only as the record of what was drafted.
+--
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Activity-by-hour migration (additive + re-runnable)
 --

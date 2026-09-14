@@ -9765,25 +9765,60 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // drawer. Navigation stays drawer-only — a bottom tab bar was tried and
   // removed after it read as more confusing, not less.
   const [page, setPage] = useState("pathway");
-  // usage analytics: log each page WITH dwell time — recorded on exit (page
-  // change) and flushed on tab-hide so mobile backgrounding still counts.
+  // usage analytics: log each page WITH dwell time.
+  //
+  // Dwell is VISIBLE time, not wall-clock. It used to be (leave − enter), which
+  // meant a tab left open recorded the time the phone spent in someone's pocket
+  // as time spent learning: the live table held single page views of 247, 263
+  // and 280 minutes, all of them a signed-out tab parked on `pathway`. Six rows
+  // out of 903 were carrying the admin's "average time each" tile — it read
+  // 2 min 24 s while the median visitor stayed 1.1 seconds.
+  //
+  // So the clock banks on hide and restarts on show. The previous version did
+  // flush on hide, but then stopped tracking the page entirely to avoid
+  // double-counting, which threw away everything the visitor did after coming
+  // back. Banking keeps both properties: nothing counted twice, nothing lost.
   const prevPageRef = useRef(null);
-  const pageEnterAtRef = useRef(Date.now());
+  const dwellMsRef = useRef(0);               // visible ms banked on this page
+  const dwellSinceRef = useRef(Date.now());   // start of the current visible stretch, null while hidden
+  // Ceiling on one page view, matching public.clamp_dwell_ms server-side. The
+  // visible-time clock above catches every case the BROWSER reports — a phone
+  // locking, an app switch, a tab switch — but not a desktop window simply left
+  // open behind another one, where visibilityState stays "visible" for hours.
+  // Nothing in the DOM can tell us whether somebody is looking at that window,
+  // so the honest ceiling is the same 30 minutes analytics products use as a
+  // session timeout. The admin RPCs clamp too; doing it here as well keeps the
+  // raw table clean rather than only the reports built on it.
+  const DWELL_CAP_MS = 30 * 60 * 1000;
+  const takeDwell = () => {
+    if (dwellSinceRef.current != null) {
+      dwellMsRef.current += Date.now() - dwellSinceRef.current;
+      dwellSinceRef.current = null;
+    }
+    const ms = Math.min(dwellMsRef.current, DWELL_CAP_MS);
+    dwellMsRef.current = 0;
+    return ms;
+  };
   useEffect(() => {
-    const now = Date.now();
-    if (prevPageRef.current != null) logUsage("page", prevPageRef.current, now - pageEnterAtRef.current);
+    const ms = takeDwell();
+    // A page nobody actually saw (changed while the tab was hidden) writes no
+    // row, so `hits` counts times a page was on screen rather than times state
+    // happened to change.
+    if (prevPageRef.current != null && ms > 0) logUsage("page", prevPageRef.current, ms);
     prevPageRef.current = page;
-    pageEnterAtRef.current = now;
+    if (document.visibilityState !== "hidden") dwellSinceRef.current = Date.now();
   }, [page]);
   useEffect(() => {
-    const flushDwell = () => {
-      if (prevPageRef.current != null && document.visibilityState === "hidden") {
-        logUsage("page", prevPageRef.current, Date.now() - pageEnterAtRef.current);
-        prevPageRef.current = null; // don't double-count on return
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        const ms = takeDwell();   // flush what was really watched; the page stays current
+        if (prevPageRef.current != null && ms > 0) logUsage("page", prevPageRef.current, ms);
+      } else if (dwellSinceRef.current == null) {
+        dwellSinceRef.current = Date.now();
       }
     };
-    document.addEventListener("visibilitychange", flushDwell);
-    return () => document.removeEventListener("visibilitychange", flushDwell);
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
   useEffect(() => { if (page !== "sensei") clearSeq(); }, [page]); // stop any Sensei demo audio the instant the learner navigates away
   // remember the most recent non-Sensei page so the Sensei chat's ← button can

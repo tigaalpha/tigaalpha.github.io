@@ -4,6 +4,23 @@ import App from "./App";
 import { ErrorBoundary } from "./app-shell";
 import { logUsage } from "./shared-infra";
 
+/* Was this tab ever in the background before the app finished painting?
+   It matters because the boot measurement below sits inside requestAnimationFrame,
+   and rAF does not fire in a background tab at all — so a tab opened behind
+   another one measures "time until somebody finally looked at it" and files it
+   as load time. That is not a theory: the live table holds boot samples of 14,
+   18, 72 and 225 minutes, each one timestamped within seconds of a matching
+   multi-hour page row from the same parked tab.
+   Read at module scope, which runs long before first paint, and kept up to date
+   after that. */
+let everHidden = false;
+try {
+  everHidden = document.visibilityState === "hidden";
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") everHidden = true;
+  });
+} catch (e) {}
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <ErrorBoundary>
@@ -40,6 +57,16 @@ requestAnimationFrame(() => requestAnimationFrame(() => {
   const ms = Math.round(performance.now());
   const later = window.requestIdleCallback || (fn => setTimeout(fn, 1500));
   later(() => {
+    // Not every sample is a load time. This code runs inside requestAnimationFrame,
+    // which is suspended entirely while the tab is in the background, so a tab
+    // opened behind another one — or a phone locked mid-load — reports the wait
+    // for a human, not the wait for the network. Such a sample is dropped rather
+    // than recorded: a wrong load time is worse than a missing one, because the
+    // whole point of this number is deciding whether the app is too slow.
+    // 60s is the same ceiling admin RPCs use (public.is_real_boot_ms), chosen
+    // from the gap in the real data: genuine boots top out at 36.5s, the next
+    // sample up is 241.6s.
+    if (everHidden || !(ms >= 0) || ms >= 60000) return;
     let net = "?";
     try { net = (navigator.connection && navigator.connection.effectiveType) || "?"; } catch (e) {}
     // kind "boot" — the admin RPCs keep it out of every dwell total on purpose,

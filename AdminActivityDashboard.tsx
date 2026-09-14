@@ -532,6 +532,18 @@ export function AdminAnonVisitors({ lang }) {
                          "This is not counted in the dwell figures below — they measure different things",
                          "此数据不计入下方停留时长 — 两者含义不同")}
                     </div>
+                    {/* Discarded samples are named rather than quietly removed. A tab
+                        opened in the background does not run requestAnimationFrame, so
+                        its "load time" is really the wait for somebody to look at it —
+                        minutes or hours. Those are excluded from the three figures
+                        above; saying so is what keeps the exclusion honest. */}
+                    {Number(b.dropped) > 0 && (
+                      <div className="admstu-row-sub" style={{ marginTop: 2, opacity: .75 }}>
+                        {T(`ไม่นับ ${b.dropped} ครั้งที่เปิดทิ้งไว้เบื้องหลัง (วัดเป็นเวลารอคน ไม่ใช่เวลาโหลด)`,
+                           `${b.dropped} background-tab samples excluded (they measure the wait for a person, not the load)`,
+                           `已排除 ${b.dropped} 次后台标签页样本（衡量的是等待用户，而非加载）`)}
+                      </div>
+                    )}
                   </>
                 );
               })()}
