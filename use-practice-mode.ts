@@ -97,6 +97,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   // set the moment a finish pays, so a finish cannot pay twice and an exit
   // straight after one does not pay again on top
   const practicePaidRef = useRef(false);
+  const practiceChordGrpRef = useRef(-1); // progression block practice: start index of the chord window currently being struck, or -1 when this drill is not a chord-by-chord progression
   const practiceMissRef = useRef(0);
   const practiceVelsRef = useRef([]); // MIDI velocities of hit notes this drill — see scoreDynamics()
   const practiceTimesRef = useRef([]); // Date.now() of each correct hit this drill — see scoreRhythm()
@@ -190,9 +191,18 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       const tg = practiceTargetRef.current;
       const hitSet = practiceHitSetRef.current;
       if (practiceModeRef.current === "chord" && chordStyle === "block") {
-        const remaining = tg.length - hitSet.size;
+        // Window = the slice of the target this strike is graded against. A
+        // chord PROGRESSION opens one chord at a time (practiceChordGrpRef ≥ 0
+        // is the window's start, size from lastSeq.chordGroupSize); a plain
+        // chord/interval lesson keeps grp -1 = the whole target, which reduces
+        // every line below to exactly the original whole-target behavior.
+        const grp = practiceChordGrpRef.current;
+        const win = grp >= 0 ? (((lastSeq.current || {}).chordGroupSize) || tg.length) : tg.length;
+        const lo = grp >= 0 ? grp : 0;
+        const hi = grp >= 0 ? Math.min(tg.length, grp + win) : tg.length;
+        const remaining = hi - lo - hitSet.size;   // hitSet ⊆ [lo, hi) always
         const matches = [];
-        for (let i = 0; i < tg.length; i++) {
+        for (let i = lo; i < hi; i++) {
           if (hitSet.has(i)) continue;
           if (d.notes.some(n => notePitchMatches({ note: n, freq: null }, pcOf(tg[i])))) matches.push(i);
         }
@@ -216,8 +226,14 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
 
     if (isBlock) {
       const hit = practiceHitSetRef.current;
+      // Same window rule as the batch gate above: a progression grades only the
+      // current chord's slice; a plain chord/interval grades the whole target.
+      const grp = practiceChordGrpRef.current;
+      const win = grp >= 0 ? (((lastSeq.current || {}).chordGroupSize) || targets.length) : targets.length;
+      const lo = grp >= 0 ? grp : 0;
+      const hi = grp >= 0 ? Math.min(targets.length, grp + win) : targets.length;
       let matchedIdx = -1;
-      for (let i = 0; i < targets.length; i++) {
+      for (let i = lo; i < hi; i++) {
         if (hit.has(i)) continue;
         if (notePitchMatches(d, pcOf(targets[i]))) { matchedIdx = i; break; }
       }
@@ -231,17 +247,40 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         setPracticeStreak(practiceStreakRef.current);
         playPianoNote(targets[matchedIdx], 0.5);
         setPracticeHeard({ note: heardNote, ok: true });
-        practiceIdxRef.current = hit.size; // reused purely as a "how many done" progress count
-        setPracticeIdx(hit.size);
-        setPracticeHitIdxs(Array.from(hit));
-        if (hit.size >= targets.length) finishPractice();
+        // "how many done" across the WHOLE drill: for a plain chord lo is 0, so
+        // this is the original hit.size; for a progression the earlier chords
+        // (all indices below the window) are already banked.
+        const doneTotal = lo + hit.size;
+        practiceIdxRef.current = doneTotal;
+        setPracticeIdx(doneTotal);
+        // The overlay reads hitIdxs as "which targets are complete": a
+        // progression's completed chords stay complete, so report every index
+        // below doneTotal, not just the current window.
+        setPracticeHitIdxs(grp >= 0 ? Array.from({ length: doneTotal }, (_, i) => i) : Array.from(hit));
+        if (doneTotal >= targets.length) finishPractice();
+        else if (hit.size >= hi - lo) {
+          // progression drill: this chord is complete — slide the accepted
+          // window to the next chord. A plain chord/interval lesson has
+          // grp -1 and hi-lo = the whole target, so it can never land here
+          // (finishing is its only way out).
+          const start = hi;
+          const end = Math.min(targets.length, start + win);
+          hit.clear();
+          for (let i = start; i < end; i++) hit.add(i);
+          practiceChordGrpRef.current = start;
+        }
       } else {
         // A block chord keeps ringing after the first hit, and a learner who only
         // got some notes often replays the WHOLE chord to catch the rest — either
         // way the mic can re-report a note already matched. That's not a mistake,
         // just an echo of a correct note, so it must never count against accuracy
         // (or the streak — resetting a combo on a harmless echo would be unfair).
-        const isRepeat = targets.some((tn, i) => hit.has(i) && pcOf(tn) === pcOf(heardNote));
+        // A note from a LATER chord of the progression (rehearsed early, or a
+        // ringing string) is also not a mistake — same reasoning as the echo
+        // above: it never counts against accuracy or the streak.
+        const isRepeat = practiceChordGrpRef.current >= 0
+          ? targets.some(tn => pcOf(tn) === pcOf(heardNote))
+          : targets.some((tn, i) => hit.has(i) && pcOf(tn) === pcOf(heardNote));
         if (!isRepeat) {
           practiceMissRef.current += 1;
           setPracticeMiss(practiceMissRef.current);
@@ -346,7 +385,16 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceKeyRef.current = seq.key || null;
     practiceModeRef.current = seq.mode || "seq";
     practiceIdxRef.current = 0;
-    practiceHitSetRef.current = new Set();
+    // A chord PROGRESSION drilled block-style is graded chord-by-chord, not as
+    // one big any-order soup: practiceHitSetRef is pre-seeded with the FIRST
+    // chord's indices (so only its notes are accepted) and each completion
+    // advances to the next chord's window — see handlePlayedNote(). A plain
+    // chord/interval lesson stays unseeded (whole target open, any order), and
+    // broken-style grading never reads the set.
+    const gs0 = seq.chordGroupSize || 0;
+    const seed0 = practiceModeRef.current === "chord" && (chordStyleOverride || chordStyle) === "block" && gs0 > 0 && gs0 < notes.length;
+    practiceChordGrpRef.current = seed0 ? 0 : -1;
+    practiceHitSetRef.current = seed0 ? new Set(notes.slice(0, gs0).map((_, i) => i)) : new Set();
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practiceVelsRef.current = [];
@@ -393,9 +441,18 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   // on the result screen), so the SAME listener started once by
   // startPractice()/replayDrill() just keeps running, correctly configured,
   // for every subsequent round — nothing to reacquire, nothing to race.
-  function restartPractice() {
+  function restartPractice(chordStyleOverride) {
     practiceIdxRef.current = 0;
-    practiceHitSetRef.current = new Set();
+    // Re-derive the chord-by-chord windows from the CURRENT seq (lastSeq), not
+    // from startPractice's closure — a mid-drill Block⇄Broken switch (see
+    // switchPracticeChordStyle) lands here after its setChordStyle() has NOT
+    // yet been applied to state, so the style must arrive as an argument.
+    const seqR = lastSeq.current;
+    const gsR = (seqR && seqR.chordGroupSize) || 0;
+    const tgtR = practiceTargetRef.current;
+    const seedR = practiceModeRef.current === "chord" && (chordStyleOverride || chordStyle) === "block" && gsR > 0 && gsR < tgtR.length;
+    practiceChordGrpRef.current = seedR ? 0 : -1;
+    practiceHitSetRef.current = seedR ? new Set(tgtR.slice(0, gsR).map((_, i) => i)) : new Set();
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practiceVelsRef.current = [];
@@ -423,7 +480,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     playUi("click");
     const next = chordStyle === "block" ? "broken" : "block";
     setChordStyle(next);
-    restartPractice();
+    restartPractice(next); // pass the new style — state hasn't updated yet inside restartPractice
     getAC();
     await acquireListener(next === "block");
   }
@@ -440,7 +497,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (!entry || !entry.notes || !entry.notes.length) return;
     const style = entry.mode === "chord" && entry.chordStyle ? entry.chordStyle : chordStyle;
     if (style !== chordStyle) setChordStyle(style); // keep the persistent toggle in sync for next render; startPractice(style) below doesn't wait on it
-    lastSeq.current = { notes: entry.notes, mode: entry.mode, key: entry.key, label: entry.label, stageId: entry.stageId, bossGroup: entry.bossGroup, fingers: null };
+    lastSeq.current = { notes: entry.notes, mode: entry.mode, key: entry.key, label: entry.label, stageId: entry.stageId, bossGroup: entry.bossGroup, chordGroupSize: entry.chordGroupSize || null, fingers: null };
     startPractice(style);
   }
 
@@ -540,6 +597,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       notes: practiceAscRef.current.slice(),
       mode: practiceModeRef.current,
       key: practiceKeyRef.current,
+      chordGroupSize: (lastSeq.current && lastSeq.current.chordGroupSize) || null,
       label,
       stageId: practiceStageIdRef.current,
       bossGroup: practiceBossGroupRef.current,

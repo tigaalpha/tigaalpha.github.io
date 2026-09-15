@@ -53,7 +53,7 @@ import {
   expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes, noteTypeName,
   MINOR_TYPES, TRIAD_TYPES, SEVENTH_TYPES, INTERVAL_DEFS,
   MAJOR_SCALE_SONGS, MINOR_SCALE_SONGS, TRIAD_SONGS, SEVENTH_SONGS, INTERVAL_SONGS,
-  PROG_LENS, PROGRESSION_SONGS,
+  PROG_LENS, PROGRESSION_SONGS, buildProgressionChords, pcIdx,
   SIGHT_NOTES, SIGHT_NOTES_BASS,
   Piano, GamePiano, StaffSVG, StaffNotes, PlayAlongStaff,
   PC_SOLFA, PC_SOLFA_TH, EG_INT_BASE, EG_INT_FULL, EG_INT_MASTER, SEVENTH_TYPES, RC_LEVELS, CHORD_MOODS,
@@ -505,7 +505,7 @@ const SIGHT_ROUND = 10; // notes per sight-reading round
 
 
 /* ── Pathway Page ── */
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, initialOpenStageId, initialSelectedType, userName = "" }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "" }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   /* Card numbers run straight through the whole pathway — foundation 01-02,
@@ -565,6 +565,18 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
     setSelectedType(null);
   }
   function pickType(t) { setSelectedType(t); }
+  /* Hit Chords doors (05/06): the chord-path length (2/4/8) is chosen on the
+     card itself — the picker expands in the grid right under the tapped card,
+     exactly like a lesson card's type/key panel — and the choice then opens
+     the Sensei teaching page for that progression. Only these two cards grow
+     a picker; every other practice door still jumps straight to Play Along. */
+  const [progPickId, setProgPickId] = useState(null); // pc.id of the open Hit Chords door
+  const [progLenChoice, setProgLenChoice] = useState({}); // { pcId: 2|4|8 } remembered while the picker is open
+  function openProgPick(pc) {
+    if (progPickId === pc.id) { setProgPickId(null); return; }
+    logUsage("pathway", pc.id);
+    setProgPickId(pc.id);
+  }
   const pathDone = pathDoneSet();
   const pathAcc = pathAccMap();   // { stageId: {best,last,lastAt,interval,nextDue} } — .best drives the bronze/silver/gold badge, layered on top of pathDone
   const keyDone = keyDoneMap();   // { stageId: ["c","g",...] } — keys already studied per topic
@@ -777,18 +789,90 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                   have. Carries no progress and no tick: this is a door, not a
                   stage, and the group is still finished by its lessons alone. */}
               {(PATHWAY_PRACTICE[g.id] || []).map(pc => (
-                <button key={pc.id} className="pcard pcard-play" style={{ "--ac": pc.color }}
-                  onClick={() => onPlayAlong && onPlayAlong(pc.cat, pc.id)}>
-                  <span className="pcardglow" />
-                  <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
-                  <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
-                  <span className="pcardtitle">{tr(pc.title, lang)}</span>
-                  <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
-                  <span className="pcardgo">
-                    {lc.playBtn}
-                    <span className="pcardarrow">▶</span>
-                  </span>
-                </button>
+                pc.cat === "chords-major" || pc.cat === "chords-minor" ? (
+                  <Fragment key={pc.id}>
+                    <button id={"pcard-" + pc.id} className={`pcard pcard-play${progPickId === pc.id ? " active" : ""}`} style={{ "--ac": pc.color }}
+                      onClick={() => openProgPick(pc)}>
+                      <span className="pcardglow" />
+                      <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
+                      <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
+                      <span className="pcardtitle">{tr(pc.title, lang)}</span>
+                      <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
+                      <span className="pcardgo">
+                        {lc.playBtn}
+                        <span className="pcardarrow">{progPickId === pc.id ? "▾" : "▶"}</span>
+                      </span>
+                    </button>
+                    {progPickId === pc.id && (
+                      <div className="keypanel" style={{
+                        "--ac": pc.color,
+                        background: "var(--card2)",
+                        border: `1px solid ${pc.color}`,
+                        borderRadius: "14px",
+                        padding: "14px 13px",
+                        marginTop: 0,
+                        gridColumn: "1 / -1",
+                      }}>
+                        <div className="keypanel-head" style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "13px", paddingBottom: "10px", borderBottom: "1px solid var(--bd1)" }}>
+                          <span style={{ fontSize: "18px" }}>{pc.icon}</span>
+                          <span style={{ flex: 1, fontFamily: "'Orbitron',sans-serif", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(pc.title, lang)}</span>
+                          <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "9px", color: pc.color, whiteSpace: "nowrap" }}>
+                            {lang === "th" ? "เลือกทางคอร์ด" : lang === "zh" ? "选择和弦进行" : "Pick a chord path"}
+                          </span>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "9px", marginBottom: "12px" }}>
+                          {PROG_LENS.map(n => (
+                            <button key={n} onClick={() => { setProgLenChoice(m => ({ ...m, [pc.id]: n })); }} style={{
+                              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px",
+                              padding: "13px 8px", borderRadius: "11px", cursor: "pointer",
+                              background: "var(--card3)",
+                              border: `1px solid ${(progLenChoice[pc.id] || 4) === n ? pc.color : pc.color + "55"}`,
+                              transition: "all .15s",
+                            }}>
+                              <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "20px", fontWeight: 900, color: pc.color, lineHeight: 1 }}>{n}</span>
+                              <span style={{ fontSize: "10px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2 }}>
+                                {lang === "th" ? "คอร์ด" : lang === "zh" ? "和弦" : "chords"}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="keygrid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "8px" }}>
+                          {KEYS_12.map(k => (
+                            <button key={k.id} className={`keybtn${k.black ? " black" : ""}`}
+                              style={{
+                                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px",
+                                padding: "11px 5px", borderRadius: "10px", cursor: "pointer",
+                                background: "var(--card3)",
+                                border: "1px solid var(--bd4)",
+                              }}
+                              onClick={() => { setProgPickId(null); onProgression && onProgression(pc, progLenChoice[pc.id] || 4, k.id); }}>
+                              <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>{k.name}</span>
+                              <span style={{ fontSize: "8.5px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", lineHeight: 1.5, marginTop: "10px" }}>
+                          {lang === "th" ? "AI จะสอนทั้งแบบ Block และ Broken พร้อมโหมดฝึก"
+                            : lang === "zh" ? "AI 将以 Block 和 Broken 两种方式教学，并配有练习模式"
+                            : "AI teaches it Block and Broken, with Practice Mode for both"}
+                        </div>
+                      </div>
+                    )}
+                  </Fragment>
+                ) : (
+                  <button key={pc.id} className="pcard pcard-play" style={{ "--ac": pc.color }}
+                    onClick={() => onPlayAlong && onPlayAlong(pc.cat, pc.id)}>
+                    <span className="pcardglow" />
+                    <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
+                    <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
+                    <span className="pcardtitle">{tr(pc.title, lang)}</span>
+                    <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
+                    <span className="pcardgo">
+                      {lc.playBtn}
+                      <span className="pcardarrow">▶</span>
+                    </span>
+                  </button>
+                )
               ))}
             </div>
           </section>
@@ -10855,6 +10939,78 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     startPractice();
   }
 
+  // ── Hit Chords (pathway cards 05/06): teach a hit chord PROGRESSION on the
+  // Sensei page ──
+  // The learner picks the chord-path length (2/4/8) on the pathway card itself,
+  // then this opens the same teaching page every pathway lesson uses: TIGA
+  // explains the progression, the piano plays it, and the Practice button
+  // grades it — in BOTH voicings, because the Block ⇄ Broken toggle on that
+  // page is live for any "chord"-mode demo and this demo is one. Broken walks
+  // the triads note-by-note; block strikes each chord whole, chord by chord
+  // down the progression (see playSequence's chordGroupSize branch). Practice
+  // Mode mirrors both: broken advances one note at a time, block opens one
+  // chord's window at a time (chordGroupSize rides on lastSeq into
+  // use-practice-mode). Deliberately NOT a pathway stage: no markPathDone, no
+  // tier — same door-not-stage rule as the Play Along cards these grew from.
+  const PROG_LABELS = {
+    th: { pickLen: "เลือกทางคอร์ด", chords: "คอร์ด", play: "เล่นให้ฟัง", practice: "ฝึกเลย", broken: "Broken (แยกโน้ต)", block: "Block (รวมโน้ต)" },
+    en: { pickLen: "Pick a chord path", chords: "chords", play: "Hear it", practice: "Practice it", broken: "Broken (one note)", block: "Block (together)" },
+    zh: { pickLen: "选择和弦进行", chords: "和弦", play: "听一遍", practice: "练习", broken: "Broken（分解）", block: "Block（齐奏）" },
+  };
+  function learnProgression(pc, len, keyName = null) {
+    const L = PROG_LABELS[lang] || PROG_LABELS.en;
+    const quality = pc.cat === "chords-minor" ? "minor" : "major";
+    const homePC = pc.cat === "chords-minor" ? "A" : "C"; // each door's home key
+    const pi = keyName ? pcIdx(keyName) : -1;
+    const rootPC = pi >= 0 ? CHROMA[pi] : homePC;
+    const keyLabel = rootPC;
+    const chords = buildProgressionChords(rootPC, quality, len);
+    // One flat playable sequence: broken = each triad climbs root-3-5-octave
+    // (exactly the voicing the Play Along drill grades); the block voicing is
+    // the same notes struck together (playSequence's block branch) — so both
+    // styles teach identical pitches.
+    const notes = chords.flatMap(c => c.notes.concat([c.notes[0].replace(/4$/, "5")]));
+    const degList = chords.map(c => c.name + " (" + c.notes.join(" ") + ")").join(", ");
+    const styleLine = lang === "th"
+      ? "สอน 2 แบบ: Broken = เล่นทีละโน้ต ไต่จากรากขึ้น 3-5 และคู่แปด / Block = กดโน้ตทั้งคอร์ดพร้อมกันทีละคอร์ด"
+      : lang === "zh"
+        ? "两种弹法：Broken＝逐音上行（根音-三音-五音-八度）；Block＝每个和弦整体同时按下，逐个和弦进行。"
+        : "Taught both ways: Broken = the triad climbs one note at a time (root-3-5-octave); Block = each chord struck whole, moving chord by chord.";
+    const romanLine = lang === "th"
+      ? "ทางเสียงของทางคอร์ดนี้คือ " + chords.map(c => c.name).join(" → ") + " — หัวใจของเพลงป๊อปนับหมื่นเพลง"
+      : lang === "zh"
+        ? "这条进行的级数是 " + chords.map(c => c.name).join(" → ") + " — 上万首流行歌的心脏。"
+        : "The sound path is " + chords.map(c => c.name).join(" → ") + " — the heart of ten thousand pop songs.";
+    const title = tr(pc.title, lang) + " · " + keyLabel + " · " + len + " " + L.chords;
+    logActivity("lesson", "hit-chords-" + quality + "-" + len, 0, 0, 180);
+    setLessonContext(LESSON_MODE);
+    setActiveStageId(null);
+    setActiveStageType(null);
+    setPage("sensei");
+    pushMessage({ role: "user", text: "🎹 " + title });
+    pushMessage({ role: "ai", text:
+      (lang === "th" ? "ทางคอร์ดยอดฮิตในคีย์ " + keyLabel + (quality === "major" ? " เมเจอร์" : " ไมเนอร์") + " (" + len + " " + L.chords + ")\n"
+        : lang === "zh" ? keyLabel + (quality === "major" ? " 大调" : " 小调") + "热门和弦进行（" + len + " " + L.chords + "）\n"
+        : "The hit chord path in " + keyLabel + " " + quality + " (" + len + " " + L.chords + "):\n")
+      + romanLine + "\n"
+      + degList + "\n\n"
+      + styleLine + "\n"
+      + (lang === "th" ? "ฟังจากปุ่มเล่น แล้วลองตามด้วยปุ่มฝึก — สลับ Block ⇄ Broken ได้เลย"
+        : lang === "zh" ? "先听一遍，再用练习按钮跟着弹 — Block ⇄ Broken 随时切换"
+        : "Hear it with the play button, then follow with Practice — switch Block ⇄ Broken any time") });
+    // Finger numbers per chord, right-hand canonical (1-3-5 + 5 on the octave
+    // top), mirrored wholesale for the left hand the same way every triad
+    // lesson's demoFingers already mirrors. key stays null so playSequence
+    // uses these as given instead of trying a per-key scale lookup.
+    const fingers = hand === "left"
+      ? notes.map((_, i) => [5, 3, 1, 5][i % 4])
+      : notes.map((_, i) => [1, 3, 5, 5][i % 4]);
+    const demoParsed = { notes, mode: "chord", fingers, label: title, key: null, stageId: null, chordGroupSize: notes.length / len };
+    playSequence(demoParsed); // sets lastSeq for BOTH the demo replay and startPractice below
+    gainExp(EXP.lesson, { lesson: true, quest: true });
+  }
+
+
   function learnTopic(stage, key, chordType = null) {
     // NOTE: does NOT markPathDone here — opening/hearing the lesson isn't
     // demonstrated skill. The stage is marked done (and given a bronze/
@@ -11129,6 +11285,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "pathway" && (
         <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
           onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
+          onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
           initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
       )}
 
@@ -11372,7 +11529,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>
 
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
-      {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} />}
+      {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} />}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
       {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} />}

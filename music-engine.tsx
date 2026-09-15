@@ -1818,6 +1818,29 @@ export const PROGRESSION_SONGS = {
   minor: PROG_LENS.reduce((m, len) => { m[len] = DRILL_KEYS.map(k => makeProgressionSong(k.pc, k.nm, "minor", len)); return m; }, {}),
 };
 
+/* Teaching data for the pathway "Hit Chords" doors — the SAME degree
+   progressions makeProgressionSong() plays in Play Along, but returned
+   per-CHORD so the Sensei page can teach and practice each chord as its
+   own unit. Each entry: the roman-numeral degree name, the triad quality,
+   the chord's pitch classes, and its ascending voicing as playable note
+   names ("C4"...). Broken drills play notes[] + the octave-top repeat,
+   block drills play notes[] all together — identical pitches to what the
+   Play Along drill grades, so what the lesson teaches is what practice
+   grades. */
+export const PROG_ROMANS = {
+  major: ["I", "ii", "iii", "IV", "V", "vi", "vii\u00b0"],
+  minor: ["i", "ii\u00b0", "III", "iv", "v", "VI", "VII"],
+};
+export function buildProgressionChords(rootPC, quality, len) {
+  const degrees = PROG_PATTERNS[len][quality];
+  const triads = PROG_DEGREE_TRIADS[quality];
+  return degrees.map(d => {
+    const t = triads[d - 1];
+    const pcs = chordNotesOf(CHROMA[(pcIdx(rootPC) + t.deg) % 12], t.q);
+    return { name: PROG_ROMANS[quality][d - 1], quality: t.q, pcs, notes: _ascNotes(pcs, 4) };
+  });
+}
+
 export const SIGHT_NOTES = ["C4","D4","E4","F4","G4","A4","B4","C5","D5","E5","F5","G5","A5"];
 
 export const SIGHT_NOTES_BASS = ["F2","G2","A2","B2","C3","D3","E3","F3","G3","A3","B3","C4"];
