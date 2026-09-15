@@ -1767,6 +1767,57 @@ export const TRIAD_SONGS = TRIAD_TYPES.reduce((m, t) => { m[t.key] = DRILL_KEYS.
 export const SEVENTH_SONGS = SEVENTH_TYPES.reduce((m, t) => { m[t.key] = DRILL_KEYS.map(k => makeChordSong(k.pc, k.nm, t.key, t.lab)); return m; }, {});
 export const INTERVAL_SONGS = INTERVAL_DEFS.map(d => makeIntervalSong(d.semi, d));
 
+/* Chord-progression drills — the hit chord paths of each key quality.
+   Each drill walks a famous diatonic progression in one key, one chord per
+   bar, voiced as a broken triad rising to the octave root — the classic
+   accompaniment shape a beginner can actually follow while notes fall.
+   Degrees are scale-degree roots; each degree's triad quality is the diatonic
+   one (major key: I ii iii IV V vi vii° · natural minor: i ii° III iv v VI
+   VII). Patterns deliberately use only non-diminished degrees — those sound
+   like mistakes to a beginner ear, not harmony.
+   2 = the eternal two-chord vamp (I–V / i–v) · 4 = THE pop progression
+   (I–V–vi–IV, minor's i–VI–III–VII) · 8 = two famous 4s stitched into a loop. */
+const PROG_DEGREE_TRIADS = {
+  major: [
+    { deg: 0, q: "major" }, { deg: 2, q: "minor" }, { deg: 4, q: "minor" },
+    { deg: 5, q: "major" }, { deg: 7, q: "major" }, { deg: 9, q: "minor" },
+    { deg: 11, q: "dim" },
+  ],
+  minor: [
+    { deg: 0, q: "minor" }, { deg: 2, q: "dim" }, { deg: 3, q: "major" },
+    { deg: 5, q: "minor" }, { deg: 7, q: "minor" }, { deg: 8, q: "major" },
+    { deg: 10, q: "major" },
+  ],
+};
+export const PROG_PATTERNS = {
+  2: { major: [1, 5], minor: [1, 5] },
+  4: { major: [1, 5, 6, 4], minor: [1, 6, 3, 7] },
+  8: { major: [1, 4, 5, 1, 1, 5, 6, 4], minor: [1, 4, 1, 5, 1, 6, 3, 7] },
+};
+export const PROG_LENS = [2, 4, 8];
+export function makeProgressionSong(rootPC, rootNm, quality, len, bpm = 80) {
+  const degrees = PROG_PATTERNS[len][quality];
+  const triads = PROG_DEGREE_TRIADS[quality];
+  const seq = [];
+  degrees.forEach(d => {
+    const t = triads[d - 1];
+    const pcs = chordNotesOf(CHROMA[(pcIdx(rootPC) + t.deg) % 12], t.q);
+    const asc = _ascNotes(pcs, 4);
+    [...asc, asc[0].replace(/4$/, "5")].forEach(n => seq.push([n, 1]));
+  });
+  return {
+    id: "pg_" + quality + "_" + len + "_" + rootPC, drill: true, cat: "chord", diff: 1, bpm,
+    th: rootNm + " คอร์ด" + (quality === "major" ? "เมเจอร์" : "ไมเนอร์") + " " + len + " ตัว",
+    en: rootNm + (quality === "major" ? " Major" : " Minor") + " · " + len + " Chords",
+    zh: rootNm + (quality === "major" ? "大调" : "小调") + " · " + len + "和弦",
+    seq,
+  };
+}
+export const PROGRESSION_SONGS = {
+  major: PROG_LENS.reduce((m, len) => { m[len] = DRILL_KEYS.map(k => makeProgressionSong(k.pc, k.nm, "major", len)); return m; }, {}),
+  minor: PROG_LENS.reduce((m, len) => { m[len] = DRILL_KEYS.map(k => makeProgressionSong(k.pc, k.nm, "minor", len)); return m; }, {}),
+};
+
 export const SIGHT_NOTES = ["C4","D4","E4","F4","G4","A4","B4","C5","D5","E5","F5","G5","A5"];
 
 export const SIGHT_NOTES_BASS = ["F2","G2","A2","B2","C3","D3","E3","F3","G3","A3","B3","C4"];
