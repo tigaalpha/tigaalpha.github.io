@@ -90,11 +90,19 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
     </div>
   );
 }
-export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, switchPracticeChordStyle }) {
+export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, switchPracticeChordStyle, chordGroupSize = 0 }) {
   const lc = L[lang];
         const isBlockMode = practiceModeRef.current === "chord" && chordStyle === "block";
+        // A chord-PROGRESSION drill lights only the CURRENT chord's remaining
+        // notes (windows are uniform and full, so floor(practiceIdx / size)
+        // recovers the window's start from the whole-drill progress count); a
+        // plain chord/interval keeps the original whole-target display.
+        const progWin = isBlockMode && chordGroupSize > 0 && chordGroupSize < practiceTarget.length
+          ? Math.floor(practiceIdx / chordGroupSize) * chordGroupSize : -1;
         const remainingIdxs = isBlockMode
-          ? practiceTarget.map((_, i) => i).filter(i => !practiceHitIdxs.includes(i))
+          ? (progWin >= 0
+              ? practiceTarget.map((_, i) => i).filter(i => i >= progWin && i < Math.min(practiceTarget.length, progWin + chordGroupSize) && !practiceHitIdxs.includes(i))
+              : practiceTarget.map((_, i) => i).filter(i => !practiceHitIdxs.includes(i)))
           : [];
         const remainingNotes = isBlockMode ? remainingIdxs.map(i => practiceTarget[i]) : [];
         const remainingFingerMap = isBlockMode
