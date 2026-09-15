@@ -53,6 +53,7 @@ import {
   expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes, noteTypeName,
   MINOR_TYPES, TRIAD_TYPES, SEVENTH_TYPES, INTERVAL_DEFS,
   MAJOR_SCALE_SONGS, MINOR_SCALE_SONGS, TRIAD_SONGS, SEVENTH_SONGS, INTERVAL_SONGS,
+  PROG_LENS, PROGRESSION_SONGS,
   SIGHT_NOTES, SIGHT_NOTES_BASS,
   Piano, GamePiano, StaffSVG, StaffNotes, PlayAlongStaff,
   PC_SOLFA, PC_SOLFA_TH, EG_INT_BASE, EG_INT_FULL, EG_INT_MASTER, SEVENTH_TYPES, RC_LEVELS, CHORD_MOODS,
@@ -3550,11 +3551,21 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   // Play-Along categories: songs · scales · chords · intervals (all on this one page)
   // Read once, on mount: this page is only reached by navigating to it, so it
   // remounts each time and picks up whatever category sent the visitor here.
-  const [cat, setCat] = useState(initialCat);
+  const [cat, setCat] = useState(initialCat === "chords-major" || initialCat === "chords-minor" ? "progression" : initialCat);
   const [genreFilter, setGenreFilter] = useState("all");
   const [minorType, setMinorType] = useState("natural minor");
   const [triadQual, setTriadQual] = useState("major");
   const [seventhQual, setSeventhQual] = useState("maj7");
+  /* Chord-progression drills (the pathway "Hit Chords" doors): the quality is
+     implied by which door was used ("chords-major"/"chords-minor" map here);
+     the learner picks the chord COUNT — 2, 4 or 8 — first, exactly as asked.
+     initialCat lands directly on the count picker, not the top tab row. */
+  const [progQual, setProgQual] = useState("major");
+  const [progLen, setProgLen] = useState(4);
+  useEffect(() => {
+    if (initialCat === "chords-major") setProgQual("major");
+    else if (initialCat === "chords-minor") setProgQual("minor");
+  }, [initialCat]);
   const play = (s) => { try { localStorage.setItem("tg_last_song", s.id); } catch (e) {} onPlay(s); };
   let lastId = null; try { lastId = localStorage.getItem("tg_last_song"); } catch (e) {}
   const ALL = [...mySongs, ...SONGS];
@@ -3693,14 +3704,21 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     { k: "minor",    ic: "🎹", t: { th: "ไมเนอร์สเกล",  en: "Minor Scales", zh: "小调音阶" } },
     { k: "triad",    ic: "🎶", t: { th: "ไทรแอด",       en: "Triads",      zh: "三和弦" } },
     { k: "seventh",  ic: "🎷", t: { th: "คอร์ด 7",      en: "7th Chords",  zh: "七和弦" } },
+    { k: "chords-major", ic: "🎹", t: { th: "คอร์ดเมเจอร์", en: "Chords M",  zh: "大调和弦" } },
+    { k: "chords-minor", ic: "🌙", t: { th: "คอร์ดไมเนอร์", en: "Chords m",  zh: "小调和弦" } },
     { k: "interval", ic: "📏", t: { th: "ขั้นคู่",        en: "Intervals",   zh: "音程" } },
   ];
+  /* Inside a chord-path view the second filter row becomes the chord-count
+     picker (2 / 4 / 8) — the "choose the chord path first" step. Switching
+     counts keeps the key list intact so comparing lengths is one tap. */
+  const progLens = PROG_LENS;
   const drillList = cat === "major" ? MAJOR_SCALE_SONGS
     : cat === "minor" ? (MINOR_SCALE_SONGS[minorType] || [])
     : cat === "triad" ? (TRIAD_SONGS[triadQual] || [])
     : cat === "seventh" ? (SEVENTH_SONGS[seventhQual] || [])
+    : (cat === "chords-major" || cat === "chords-minor") ? (PROGRESSION_SONGS[cat === "chords-major" ? "major" : "minor"][progLen] || [])
     : cat === "interval" ? INTERVAL_SONGS : [];
-  const drillIcon = cat === "interval" ? "📏" : (cat === "triad" || cat === "seventh") ? "🎶" : cat === "minor" ? "🎹" : "🎼";
+  const drillIcon = cat === "interval" ? "📏" : (cat === "triad" || cat === "seventh") ? "🎶" : (cat === "chords-major" || cat === "chords-minor") ? "🎹" : cat === "minor" ? "🎹" : "🎼";
   const drillHint = lang === "th" ? "แตะการ์ดเพื่อเริ่ม — โน้ตจะไหลลงมา เล่นตามให้ตรง (ขึ้นแล้วลง)"
     : lang === "zh" ? "点击卡片开始 — 音符会落下，跟着弹（上行再下行）"
     : "Tap a card to start — notes fall, play along up then down";
@@ -3807,6 +3825,14 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           {cat === "seventh" && (
             <div className="songfilters">
               {SEVENTH_TYPES.map(t => <button key={t.key} className={`songfilter${seventhQual === t.key ? " on" : ""}`} onClick={() => { haptic(); setSeventhQual(t.key); }}>{tr(t, lang)}</button>)}
+            </div>
+          )}
+          {/* Chord-path count picker — the "choose how many chords" step the
+              pathway doors land on. Reuses the same filter-chip row the other
+              drill sub-selectors use, so it feels native, not bolted on. */}
+          {(cat === "chords-major" || cat === "chords-minor") && (
+            <div className="songfilters">
+              {progLens.map(n => <button key={n} className={`songfilter${progLen === n ? " on" : ""}`} onClick={() => { haptic(); setProgLen(n); }}>{n} {lang === "th" ? "คอร์ด" : lang === "zh" ? "和弦" : "chords"}</button>)}
             </div>
           )}
           <p className="drillhint">{drillHint}</p>
@@ -4347,7 +4373,8 @@ function actTopicLabel(e, lang) {
   }
   if (e.k === "game") {
     const all = [...SONGS, ...MAJOR_SCALE_SONGS, ...INTERVAL_SONGS,
-      ...Object.values(MINOR_SCALE_SONGS).flat(), ...Object.values(TRIAD_SONGS).flat(), ...Object.values(SEVENTH_SONGS).flat()];
+      ...Object.values(MINOR_SCALE_SONGS).flat(), ...Object.values(TRIAD_SONGS).flat(), ...Object.values(SEVENTH_SONGS).flat(),
+      ...PROG_LENS.flatMap(n => [...PROGRESSION_SONGS.major[n], ...PROGRESSION_SONGS.minor[n]])];
     const s = all.find(x => x.id === e.id);
     return s ? tr(s, lang) : e.id;
   }
@@ -4360,7 +4387,8 @@ function actTopicLabel(e, lang) {
 function actSongOf(e) {
   if (e.k !== "game") return null;
   const all = [...SONGS, ...MAJOR_SCALE_SONGS, ...INTERVAL_SONGS,
-    ...Object.values(MINOR_SCALE_SONGS).flat(), ...Object.values(TRIAD_SONGS).flat(), ...Object.values(SEVENTH_SONGS).flat()];
+    ...Object.values(MINOR_SCALE_SONGS).flat(), ...Object.values(TRIAD_SONGS).flat(), ...Object.values(SEVENTH_SONGS).flat(),
+    ...PROG_LENS.flatMap(n => [...PROGRESSION_SONGS.major[n], ...PROGRESSION_SONGS.minor[n]])];
   return all.find(x => x.id === e.id) || null;
 }
 

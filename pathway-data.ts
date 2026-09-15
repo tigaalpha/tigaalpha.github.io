@@ -21,6 +21,19 @@ export const PATHWAY_PRACTICE = {
       title: { th: "ฝึกเล่นเพลง", en: "Practise real songs", zh: "练习弹歌曲" },
       subtitle: { th: "เพลงเต็มเพลง เล่นตามโน้ตที่ไหลลงมา", en: "Whole songs, note by falling note", zh: "完整歌曲，跟着落下的音符" },
     },
+    {
+      /* New chord-path doors (owner request): no #5 (Major) and #6 (Minor).
+         Each opens Play Along on a chord-progression drill set, where the
+         learner first picks how many chords — 2, 4 or 8 — then a key. */
+      id: "play-chords-major", icon: "🎹", color: "#b45309", cat: "chords-major",
+      title: { th: "คอร์ดยอดฮิต (Major)", en: "Hit Chords · Major", zh: "热门和弦 · 大调" },
+      subtitle: { th: "ทางคอร์ดเมเจอร์ยอดนิยม เลือก 2/4/8 คอร์ด", en: "Popular major chord paths — pick 2/4/8 chords", zh: "流行大调和弦进行，选 2/4/8 和弦" },
+    },
+    {
+      id: "play-chords-minor", icon: "🌙", color: "#7c3aed", cat: "chords-minor",
+      title: { th: "คอร์ดยอดฮิต (Minor)", en: "Hit Chords · Minor", zh: "热门和弦 · 小调" },
+      subtitle: { th: "ทางคอร์ดไมเนอร์ยอดนิยม เลือก 2/4/8 คอร์ด", en: "Popular minor chord paths — pick 2/4/8 chords", zh: "流行小调和弦进行，选 2/4/8 和弦" },
+    },
   ],
 };
 
