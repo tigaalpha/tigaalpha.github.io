@@ -725,12 +725,12 @@ function SignupCard({ q, quota, timeUp, t }) {
     }
   }
 
-  /* LINE Login — the one provider that works INSIDE the webviews two thirds
-     of this page's visitors arrive in (Google refuses OAuth there, which is
-     where the 393-visits-zero-accounts campaign died). Needs a LINE Channel
-     with its callback URL whitelisted in the Supabase dashboard before the
-     button does anything; until then it surfaces the provider's own error
-     via friendlyAuthError rather than pretending to work. */
+  /* LINE Login — kept but not offered on the card: the provider was never
+     turned on in the Supabase dashboard, so every tap died in an error and
+     the button was removed rather than broken. Needs a LINE Channel with its
+     callback URL whitelisted in Supabase before the button comes back; it
+     then surfaces the provider's own error via friendlyAuthError rather
+     than pretending to work. */
   async function lineLogin() {
     if (busy) return;
     land("try:line");
@@ -838,20 +838,14 @@ function SignupCard({ q, quota, timeUp, t }) {
               what the account was FOR, which is one reason 21 people saw this
               card and 1 tapped it. */}
           <div className="lp-trialline">{t.trialLine}</div>
-          {/* Google first in a real browser (95% of members choose it);
-              LINE first inside a webview, where Google cannot load at all
-              and LINE's own consent screen can. */}
-          {inApp
-            ? <button className="lp-btn line" onClick={lineLogin} disabled={busy}><LineMark /> {t.lineBtn}</button>
-            : <button className="lp-btn google" onClick={google} disabled={busy}>
-                <GoogleG /> {t.google}
-              </button>}
-          <div className="lp-or">{t.or}</div>
-          {inApp
-            ? <button className="lp-btn google" onClick={google} disabled={busy}>
-                <GoogleG /> {t.googleInApp}
-              </button>
-            : <button className="lp-btn line" onClick={lineLogin} disabled={busy}><LineMark /> {t.lineBtn}</button>}
+          {/* Google only, for now. LINE was offered here while its provider
+              was still unconfigured in Supabase, so the button's promise was
+              an error screen — worse than no button. The lineLogin code is
+              kept below, ready to re-add the moment the owner turns the
+              provider on. */}
+          <button className="lp-btn google" onClick={google} disabled={busy}>
+            <GoogleG /> {inApp ? t.googleInApp : t.google}
+          </button>
           <div className="lp-or">{t.or}</div>
           {/* The one-field email path is the DEFAULT — it is the lowest-
               friction way in, and inside webviews it is the only one that
