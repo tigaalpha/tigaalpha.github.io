@@ -375,14 +375,17 @@ html, body, #root{background:var(--bg)}
 .pathpiano .kr{touch-action:none}
 /* Heights pair with the octave counts set in PathwayPage (2 / 4 / 6): more
    keys on the same width means each key is narrower, so the row grows a
-   little taller per step to keep a finger-sized landing strip. */
+   little taller per step to keep a finger-sized landing strip.
+   On tablet-and-up the row drops its phone cap and runs FULL WIDTH — the
+   hero's own 16px side padding is the only margin — so an iPad shows all
+   four octaves edge to edge instead of a capped strip in the middle. */
 @media (min-width:600px){
-  .pathpiano{max-width:620px}
+  .pathpiano{max-width:100%}
   .pathpiano .pk.w{height:88px}
   .pathpiano .pk.b{height:55px}
 }
 @media (min-width:1024px){
-  .pathpiano{max-width:860px}
+  .pathpiano{max-width:100%}
   .pathpiano .pk.w{height:96px}
   .pathpiano .pk.b{height:60px}
 }
