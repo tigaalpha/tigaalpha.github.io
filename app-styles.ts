@@ -373,13 +373,16 @@ html, body, #root{background:var(--bg)}
    finger-sized rather than stretching into long flat slabs. */
 .pathpiano{position:relative;max-width:430px;margin:2px auto 0;padding:0 2px}
 .pathpiano .kr{touch-action:none}
+/* Heights pair with the octave counts set in PathwayPage (2 / 4 / 6): more
+   keys on the same width means each key is narrower, so the row grows a
+   little taller per step to keep a finger-sized landing strip. */
 @media (min-width:600px){
-  .pathpiano{max-width:560px}
-  .pathpiano .pk.w{height:84px}
-  .pathpiano .pk.b{height:52px}
+  .pathpiano{max-width:620px}
+  .pathpiano .pk.w{height:88px}
+  .pathpiano .pk.b{height:55px}
 }
 @media (min-width:1024px){
-  .pathpiano{max-width:680px}
+  .pathpiano{max-width:860px}
   .pathpiano .pk.w{height:96px}
   .pathpiano .pk.b{height:60px}
 }

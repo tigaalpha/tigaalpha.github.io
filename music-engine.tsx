@@ -2371,8 +2371,8 @@ function usePianoKeys(onNote) {
   return { held, flash, onKeyPointerDown, onKeyPointerMove, onKeyPointerUp };
 }
 
-export const Piano = memo(function Piano({ litNote = null, litSet = null, fingerMap = {}, small = false, onNote = null, baseOct = 4 }) {
-  const keys = baseOct === 4 ? KEYS : keysFor(baseOct);
+export const Piano = memo(function Piano({ litNote = null, litSet = null, fingerMap = {}, small = false, onNote = null, baseOct = 4, octs = null }) {
+  const keys = octs != null ? keysFor(baseOct, octs) : (baseOct === 4 ? KEYS : keysFor(baseOct));
   const { held, flash, onKeyPointerDown, onKeyPointerMove, onKeyPointerUp } = usePianoKeys(onNote);
   // White keys flex to fill whatever width the container has (phone or tablet) —
   // no fixed pixel width, so nothing ever overflows into a horizontal scroll.

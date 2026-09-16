@@ -530,8 +530,35 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
      already says what it is, and a line of text under it only delays the tap.
      Only the FIRST press is logged, so the admin can see what share of
      arrivals actually touch the piano without one keen visitor writing a
-     hundred rows. */
+     hundred rows.
+
+     The RANGE, though, is not one-size: a phone keeps the classic 2 octaves,
+     an iPad grows to 4 (the width was already there — the keys were just
+     stretched, and a stretched key is not finger-sized), and a desktop
+     window gets 6. baseOct stays 4 everywhere so a note lights the same
+     letter on every device; the synth covers C2..C7, so 6 octaves from C4
+     clears the top of the map without leaving it. Measured with a matchMedia
+     pair (not one numeric breakpoint chain) so the three shapes are exact. */
   const heroOct = 4;
+  const [heroOcts, setHeroOcts] = useState(() =>
+    (typeof window !== "undefined" && window.matchMedia)
+      ? (window.matchMedia("(min-width:1024px)").matches ? 6
+        : window.matchMedia("(min-width:600px)").matches ? 4
+        : 2)
+      : 2);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mqT = window.matchMedia("(min-width:600px)");
+    const mqD = window.matchMedia("(min-width:1024px)");
+    const apply = () => setHeroOcts(mqD.matches ? 6 : mqT.matches ? 4 : 2);
+    apply();
+    mqT.addEventListener ? mqT.addEventListener("change", apply) : mqT.addListener(apply);
+    mqD.addEventListener ? mqD.addEventListener("change", apply) : mqD.addListener(apply);
+    return () => {
+      mqT.removeEventListener ? mqT.removeEventListener("change", apply) : mqT.removeListener(apply);
+      mqD.removeEventListener ? mqD.removeEventListener("change", apply) : mqD.removeListener(apply);
+    };
+  }, []);
   const heroLogged = useRef(false);
   /* Until somebody has actually played it, the keyboard has to say that it CAN
      be played. It reads as a picture otherwise: 105 people had it on screen on
@@ -607,7 +634,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
       <div className="pathhero">
         <div className="pathhero-glow" />
         <div className={`pathpiano${heroPlayed ? " played" : ""}`} data-hint={lc.tapHint}>
-          <Piano small onNote={onHeroNote} baseOct={heroOct} />
+          <Piano small onNote={onHeroNote} baseOct={heroOct} octs={heroOcts} />
         </div>
       </div>
 
