@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { getFingers, TRIAD_FINGER_LH, TRIAD_FINGER_RH, stopAllPianoNotes, playPianoNote, playUi, getAC } from "./music-engine";
+import { getFingers, TRIAD_FINGER_LH, TRIAD_FINGER_RH, stopAllPianoNotes, playPianoNote, playUi, getAC, PROG_FINGER_RH, PROG_FINGER_LH } from "./music-engine";
 /* ── use-keyboard.ts ──
    Owns the on-screen keyboard's display state (lit note/keys, finger
    numbers, the persistent fingering chart, chord voicing style, hand
@@ -60,6 +60,7 @@ export function useKeyboard() {
       if (!prev) return prev;
       let fingers = null;
       if (prev.key) fingers = getFingers(prev.key, prev.mode, hand);
+      else if (prev.mode === "prog") fingers = prev.notes.flatMap(() => (hand === "left" ? PROG_FINGER_LH : PROG_FINGER_RH).slice());
       else if (prev.mode === "chord" || (prev.mode === "seq" && prev.notes.length === 3)) {
         fingers = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
       }
@@ -96,6 +97,7 @@ export function useKeyboard() {
     } else if (!fingers) {
       // no explicit fingers provided — fall back to a sensible default
       if (mode === "chord" && notes.length === 3) fingers = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
+      else if (mode === "prog") fingers = notes.flatMap(() => (hand === "left" ? PROG_FINGER_LH : PROG_FINGER_RH).slice());
       else if (mode === "seq" && notes.length === 3) fingers = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
     }
     // else: use the explicit fingers passed in (e.g. transposed lesson demo)
@@ -129,6 +131,11 @@ export function useKeyboard() {
     if (mode === "chord") {
       order = notes;
       fingerOrder = fingers ? fingers.slice() : notes.map(() => null);
+    } else if (mode === "prog") {
+      // chord progression: play each chord's notes broken bottom-up, then a
+      // longer breath before the next chord (like the demo's bar boundaries).
+      order = notes;
+      fingerOrder = fingers ? fingers.slice() : notes.map(() => null);
     } else {
       // scales/sequences: ascending then descending (skip duplicate top note)
       const up = notes.slice();
@@ -139,19 +146,34 @@ export function useKeyboard() {
       fingerOrder = fUp.concat(fDown);
     }
 
-    const interval = mode === "chord" ? 398 : 1094;  // 50% slower per request (was 199/547)
-    const dur = mode === "chord" ? 2.5 : 1.54;       // note length scaled to match
+    const interval = mode === "chord" ? 398 : mode === "prog" ? 430 : 1094;  // 50% slower per request (was 199/547)
+    const dur = mode === "chord" ? 2.5 : mode === "prog" ? 1.7 : 1.54;       // note length scaled to match
+
+    // prog mode breathes between chords: notes inside a chord come at `interval`,
+    // then the first note of the NEXT chord waits an extra bar-boundary gap.
+    // (chordSizes e.g. [3,3,3,3] — must sum to notes.length, else falls back.)
+    let at = null;
+    if (mode === "prog" && parsed.chordSizes && parsed.chordSizes.reduce((a, b) => a + b, 0) === notes.length) {
+      at = [];
+      let t = 0;
+      parsed.chordSizes.forEach((sz, ci) => {
+        for (let j = 0; j < sz; j++) { at.push(t); t += interval; }
+        if (ci < parsed.chordSizes.length - 1) t += 260; // breath between chords
+      });
+    }
 
     order.forEach((n, i) => {
+      const delay = at ? at[i] : i * interval;
       const t = setTimeout(() => {
         playPianoNote(n, dur);
         setLitNote(n);
         const fg = fingerOrder[i];
         setFingerMap(fg != null ? { [n]: fg } : {});
-      }, i * interval);
+      }, delay);
       seqTimers.current.push(t);
     });
-    const tEnd = setTimeout(() => { setLitNote(null); setFingerMap({}); setSeqPlaying(false); }, order.length * interval + 400);
+    const totalMs = at ? at[at.length - 1] : order.length * interval;
+    const tEnd = setTimeout(() => { setLitNote(null); setFingerMap({}); setSeqPlaying(false); }, totalMs + 400);
     seqTimers.current.push(tEnd);
   }
 

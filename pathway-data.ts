@@ -201,8 +201,71 @@ C–E–G♯–B · 梦幻、飘渺
     },
   },
   {
+    id: "progression", icon: "🧭", title: { th: "ทางคอร์ด (Progression)", en: "Chord Progression", zh: "和弦进行 (Progression)" }, subtitle: { th: "ลำดับคอร์ดยอดฮิต I vi ii V — เลือกทางคอร์ดแล้วไล่คีย์", en: "Hit progressions in Roman numerals — pick one, then drill the key", zh: "热门级数进行 I vi ii V — 先选进行，再练调" },
+    level: 5, color: "#d97757", group: "chords",
+    demo: ["C4","E4","G4","A4","C5","E5","D4","F4","A4","G4","B4","D5"], demoMode: "prog", demoFingers: [1,2,3,1,3,5,1,2,4,1,2,4],
+    learn: {
+      th: "ช่วยสอนเรื่อง 'ทางคอร์ด (Chord Progression)' บนเปียโนให้หน่อยครับ อธิบายว่าการเล่นคอร์ดต่อเนื่อง I vi ii V คืออะไร เหตุใดจึงเป็นทางคอร์ดยอดนิยมที่สุดในป๊อป (ดีกรีของสเกล, บทบาท Tonic/Subdominant/Dominant, การ resolve V→I) พร้อมตัวอย่างเพลงดังที่ใช้ และเปรียบเทียบกับ I V vi IV และ ii V I ตอบภาษาไทยและระบุชื่อคอร์ดทุกตัว",
+      en: "Please teach me about 'Chord Progressions' on piano. Explain what playing I vi ii V means, why it is pop's most popular progression (scale degrees, Tonic/Subdominant/Dominant roles, V→I resolution), give famous song examples, and compare with I V vi IV and ii V I. Name every chord.",
+      zh: "请教我钢琴上的'和弦进行(Chord Progression)'。解释 I vi ii V 是什么，为什么它是流行乐最常用的进行（音阶级、主/下属/属功能、V→I 解决），举例名曲，并对比 I V vi IV 和 ii V I。列出每个和弦名。"
+    },
+    types: [
+      { id: "p1645", label: { th: "คลาสสิกป๊อป", en: "Classic Pop", zh: "经典流行" }, symbol: "I vi ii V", romans: ["I","vi","ii","V"], demo: ["C4","E4","G4","A4","C5","E5","D4","F4","A4","G4","B4","D5"], demoFingers: [1,2,3,1,3,5,1,2,4,1,2,4] },
+      { id: "p1564", label: { th: "เพลงฮิต 4 คอร์ด", en: "4-Chord Hit", zh: "四和弦金曲" }, symbol: "I V vi IV", romans: ["I","V","vi","IV"], demo: ["C4","E4","G4","G4","B4","D5","A4","C5","E5","F4","A4","C5"], demoFingers: [1,2,3,1,2,4,1,3,5,1,3,5] },
+      { id: "p251",  label: { th: "เพลงแจ๊ส", en: "Jazz Turn", zh: "爵士进行" }, symbol: "ii V I",  romans: ["ii","V","I"], demo: ["D4","F4","A4","G4","B4","D5","C4","E4","G4"], demoFingers: [1,2,4,1,2,4,1,3,5] },
+      { id: "p6415", label: { th: "เศร้า 4 คอร์ด", en: "Sad 4-Chord", zh: "忧伤四和弦" }, symbol: "vi IV I V", romans: ["vi","IV","I","V"], demo: ["A4","C5","E5","F4","A4","C5","C4","E4","G4","G4","B4","D5"], demoFingers: [1,3,5,1,3,5,1,2,3,1,2,4] },
+    ],
+    typesInfo: {
+      th: `🧭 4 ทางคอร์ดยอดฮิต (ตัวเลข = ดีกรีของสเกล)
+
+1️⃣ I vi ii V — คลาสสิกป๊อป 50s ถึงวันนี้
+C · Am · Dm · G — จบสวยด้วย V→I
+
+2️⃣ I V vi IV — 4 คอร์ดเพลงฮิตทั่วโลก
+C · G · Am · F — สดใส มีพลัง
+
+3️⃣ ii V I — หัวใจของแจ๊ส
+Dm · G · C — การไหลของเสียงที่ลื่นที่สุด
+
+4️⃣ vi IV I V — โทนเศร้า ลึกซึ้ง
+Am · F · C · G — เริ่มที่ relative minor
+
+💡 ตัวเลขโรมันคือ "สูตรสากล" — รู้สูตรเดียว เล่นได้ทุกคีย์ 12 คีย์!`,
+      en: `🧭 The 4 hit progressions (numerals = scale degrees)
+
+1️⃣ I vi ii V — classic pop, 1950s to today
+C · Am · Dm · G — resolves beautifully V→I
+
+2️⃣ I V vi IV — the global 4-chord hit
+C · G · Am · F — bright, powerful
+
+3️⃣ ii V I — the heart of jazz
+Dm · G · C — the smoothest pull in music
+
+4️⃣ vi IV I V — melancholy flip
+Am · F · C · G — starts on the relative minor
+
+💡 Roman numerals are the universal formula — learn one shape, play all 12 keys!`,
+      zh: `🧭 4 种热门进行（数字 = 音阶级）
+
+1️⃣ I vi ii V — 经典流行，从50年代至今
+C · Am · Dm · G — V→I 完美解决
+
+2️⃣ I V vi IV — 全球四和弦金曲
+C · G · Am · F — 明亮有力
+
+3️⃣ ii V I — 爵士乐的核心
+Dm · G · C — 最流畅的和声引力
+
+4️⃣ vi IV I V — 忧伤翻转
+Am · F · C · G — 从关系小调开始
+
+💡 罗马数字是通用公式 — 学会一个形状，12个调都能弹！`,
+    },
+  },
+  {
     id: "tension", icon: "⚡", title: { th: "เทนชั่น (Tension)", en: "Tension", zh: "张力音 (Tension)" }, subtitle: { th: "โน้ตสีสัน 9, 11, 13", en: "Color notes — 9, 11, 13", zh: "色彩音 — 9、11、13" },
-    level: 5, color: "#d97757", group: "advanced",
+    level: 6, color: "#d97757", group: "advanced",
     demo: ["C4","E4","G4","B4","D5"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'เทนชั่น (Tension)' บนเปียโนให้หน่อยครับ อธิบายว่า tension คืออะไร โน้ต 9th, 11th, 13th การสร้าง extended chord และการ resolve ตอบภาษาไทยและระบุชื่อโน้ต เช่น Cmaj9 = C4 E4 G4 B4 D5",
@@ -212,7 +275,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   {
     id: "blockchord", icon: "🧱", title: { th: "บล็อกคอร์ดใต้ทำนอง", en: "Block Chords", zh: "块状和弦" }, subtitle: { th: "เล่นคอร์ดพร้อมเมโลดี้", en: "Block Chord Under the Melody", zh: "在旋律下弹奏块状和弦" },
-    level: 6, color: "#d97757", group: "advanced",
+    level: 7, color: "#d97757", group: "advanced",
     demo: ["C4","E4","G4"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'Block Chord ใต้ทำนอง (Block Chord Under the Melody)' บนเปียโนให้หน่อยครับ อธิบายเทคนิคเล่นคอร์ดเต็มพร้อมโน้ตทำนองบนสุด สไตล์ George Shearing และการประยุกต์ใน solo piano ตอบภาษาไทยและระบุชื่อโน้ต",
@@ -222,7 +285,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   {
     id: "slashchord", icon: "➗", title: { th: "สแลชคอร์ด (Slash Chord)", en: "Slash Chord", zh: "斜杠和弦 (Slash Chord)" }, subtitle: { th: "คอร์ดที่มีเบสต่างจากราก", en: "A chord with a different bass note", zh: "低音不同于根音的和弦" },
-    level: 7, color: "#ff5252", group: "advanced",
+    level: 8, color: "#ff5252", group: "advanced",
     demo: ["E4","G4","C5"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'สแลชคอร์ด (Slash Chord)' บนเปียโนให้หน่อยครับ อธิบายว่า C/E คืออะไร การสร้าง bass line ที่เคลื่อนนุ่มนวล และการใช้ใน Gospel/Soul/Ballad ตอบภาษาไทยและระบุชื่อโน้ต",
@@ -232,7 +295,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   {
     id: "padchord", icon: "🌫️", title: { th: "แพดคอร์ด (Pad Chord)", en: "Pad Chord", zh: "铺底和弦 (Pad Chord)" }, subtitle: { th: "Harmony ขั้นสูง — เสียงพื้นหลังที่ลอย", en: "Advanced harmony — floating background", zh: "高级和声 — 漂浮的背景音" },
-    level: 8, color: "#d97757", group: "advanced",
+    level: 9, color: "#d97757", group: "advanced",
     demo: ["C4","G4","B4","D5","E5"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'แพดคอร์ด (Pad Chord)' และ voicing ขั้นสูงบนเปียโนให้หน่อยครับ อธิบาย open voicing การกระจายโน้ตแบบ 4th/5th และการใช้ใน EDM/Ambient/Neo Soul เพื่อสร้างบรรยากาศล้ำๆ ตอบภาษาไทยและระบุชื่อโน้ต",
@@ -242,7 +305,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   /* ───────── BENEFITS OF MUSIC — knowledge chapters (read, no key) ───────── */
   {
-    id: "why-music", icon: "🌍", level: 9, color: "#d97757", group: "benefits",
+    id: "why-music", icon: "🌍", level: 10, color: "#d97757", group: "benefits",
     title: { th: "ประโยชน์ของดนตรี", en: "Why Music Matters", zh: "音乐的力量" },
     subtitle: { th: "ทำไมดนตรีถึงทรงพลัง", en: "The power of music", zh: "为何音乐如此重要" },
     content: {
@@ -282,7 +345,7 @@ In the next 5 chapters we'll see how people really use music in: Business 💼 �
     },
   },
   {
-    id: "music-business", icon: "💼", level: 10, color: "#d97757", group: "benefits",
+    id: "music-business", icon: "💼", level: 11, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีกับธุรกิจ", en: "Music in Business", zh: "音乐与商业" },
     subtitle: { th: "เสียงที่ขายของได้", en: "Sound that sells", zh: "会卖货的声音" },
     content: {
@@ -340,7 +403,7 @@ The classic Milliman (1982) study: slow-tempo music in a supermarket made shoppe
     },
   },
   {
-    id: "music-military", icon: "🎺", level: 11, color: "#d97757", group: "benefits",
+    id: "music-military", icon: "🎺", level: 12, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีในกองทัพ", en: "Music in the Military", zh: "军队中的音乐" },
     subtitle: { th: "สั่งการ ปลุกใจ ข่มขวัญ", en: "Command, morale, intimidation", zh: "指挥·士气·震慑" },
     content: {
@@ -392,7 +455,7 @@ Modern armies have blasted loud music to pressure opponents — e.g. the operati
     },
   },
   {
-    id: "music-nation", icon: "🇹🇭", level: 12, color: "#d97757", group: "benefits",
+    id: "music-nation", icon: "🇹🇭", level: 13, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีกับความเป็นชาติ", en: "Music & National Identity", zh: "音乐与国家认同" },
     subtitle: { th: "เสียงที่หลอมรวมผู้คน", en: "Sound that unites a people", zh: "凝聚人民的声音" },
     content: {
@@ -444,7 +507,7 @@ The most powerful nation-building tool. Thailand plays its anthem nationwide eve
     },
   },
   {
-    id: "music-elite", icon: "👑", level: 13, color: "#d97757", group: "benefits",
+    id: "music-elite", icon: "👑", level: 14, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีกับชนชั้นสูง", en: "Music & the Elite", zh: "音乐与精英阶层" },
     subtitle: { th: "สัญลักษณ์ของอำนาจและรสนิยม", en: "A symbol of power and taste", zh: "权力与品味的象征" },
     content: {
@@ -496,7 +559,7 @@ Royal court music (piphat ensembles) has a long lineage, and King Rama IX (Bhumi
     },
   },
   {
-    id: "music-therapy", icon: "💚", level: 14, color: "#d97757", group: "benefits",
+    id: "music-therapy", icon: "💚", level: 15, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีบำบัด", en: "Music Therapy", zh: "音乐疗法" },
     subtitle: { th: "เยียวยากาย ใจ และสมอง", en: "Healing & wellness", zh: "疗愈与健康" },
     content: {
@@ -557,7 +620,7 @@ Music lowers cortisol, blood pressure and anxiety — used before/during surgery
     },
   },
   {
-    id: "music-marketing", icon: "📣", level: 15, color: "#d97757", group: "benefits",
+    id: "music-marketing", icon: "📣", level: 16, color: "#d97757", group: "benefits",
     title: { th: "การตลาดสำหรับศิลปิน", en: "Marketing for Artists", zh: "音乐人营销" },
     subtitle: { th: "ทำเพลงให้ดังและขายได้", en: "Get heard & get paid", zh: "让作品被听见并变现" },
     content: {

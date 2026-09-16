@@ -26,6 +26,7 @@ import {
   getAC, playPianoNote, stopAllPianoNotes, playUi, playClick, playMiss, playWhoosh, playBoom, haptic,
   playComboTone, startAmbient, stopAmbient, vmThinkCue, setSfxVol, setSfxMuted, getSfxVol, getSfxMuted,
   pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP, _practiceStop,
+  progressionNotes, progressionChordLabels, PROG_FINGER_LH, PROG_FINGER_RH,
   startMidiListener, startMicListener, stopPracticeListeners, laneHue, roundRect, rhythmReport,
   SONG_LEAD, SONG_HITWINDOW, SONG_PERFECT, SONG_DEBOUNCE_MS, SONG_ECHO_MS, SONG_MISSWINDOW,
   expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes, noteTypeName,
@@ -514,7 +515,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, i
                           border: `1px solid ${openStage.color}55`,
                           transition: "all .15s",
                         }}>
-                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "20px", fontWeight: 900, color: openStage.color, lineHeight: 1 }}>{t.symbol}</span>
+                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: t.symbol.length > 6 ? 15 : (t.symbol.length > 4 ? 17 : 20), fontWeight: 900, color: openStage.color, lineHeight: 1 }}>{t.symbol}</span>
                           <span style={{ fontSize: "10px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2, textAlign: "center" }}>{tr(t.label, lang)}</span>
                         </button>
                       ))}
@@ -8783,6 +8784,25 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     // Use chord-type's demo notes if a type was selected, otherwise stage defaults
     const demoSrc = chordType || stage;
     const semis = semisFromC(keyId);
+    // Chord-progression topics (demoMode "prog"): the selected type carries the
+    // Roman numerals — re-derive the voicing in the drilled key from the theory
+    // engine instead of transposing C's demo (keeps per-degree spelling right),
+    // and pass chordSizes so the demo breathes between chords.
+    if (stage.demoMode === "prog" && chordType && chordType.romans) {
+      const notes = progressionNotes(chordType.romans, keyId);
+      const labels = progressionChordLabels(chordType.romans, keyId);
+      return {
+        notes,
+        mode: "prog",
+        fingers: chordType.romans.map(() => (hand === "left" ? PROG_FINGER_LH : PROG_FINGER_RH).slice()).flat(),
+        chordSizes: chordType.romans.map(() => 3),
+        chordLabels: labels,
+        label: `${tr(chordType.label, lang)} ${tr(stage.title, lang)} · ${keyLabel}`,
+        key: null,
+        stageId: stage.id,
+        keyId, keyLabel, fullTitle,
+      };
+    }
     const demoNotes = transposeNotes(demoSrc.demo || stage.demo, semis);
     let demoFingers = demoSrc.demoFingers || stage.demoFingers || null;
     let chartKey = null;   // canonical key so the chart can recompute fingering on a hand switch
@@ -8880,7 +8900,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
     // strict instruction scoped to the specific chord type (if any)
     let strict;
-    if (chordType) {
+    if (chordType && chordType.romans) {
+      // progression type: speak in Roman numerals and name the actual chords
+      const romans = chordType.romans.join(" ");
+      const chords = progressionChordLabels(chordType.romans, keyId); // "C · Am · Dm · G"
+      if (lang === "th") {
+        strict = `สอนเฉพาะทางคอร์ด "${romans}" ของ "${sTitle}" คีย์ ${keyId} (${keyLabel}) เท่านั้น ชื่อคอร์ดคือ ${chords} อธิบายบทบาทของแต่ละคอร์ดในทาง (Tonic/Subdominant/Dominant) และทำไมการเล่นทางนี้เหมาะกับเพลงจริง ห้ามสอนหัวข้ออื่น ตอบภาษาไทย `;
+      } else if (lang === "zh") {
+        strict = `只教授 "${sTitle}"中的级数进行 "${romans}" ，使用 ${keyId} (${keyLabel}) 调。各和弦为 ${chords}，解释每个和弦的角色（主/下属/属）与为什么这个进行适合真实歌曲。不要讲其他主题。 `;
+      } else {
+        strict = `Teach ONLY the progression "${romans}" from "${sTitle}" in the key of ${keyId} (${keyLabel}). The chords are ${chords}. Explain each chord's role (Tonic/Subdominant/Dominant) and why this progression fits real songs. Do not teach other topics. `;
+      }
+    } else if (chordType) {
       const sym = chordType.symbol;
       if (lang === "th") {
         strict = `สอนเฉพาะ "${typeName}" ใน "${sTitle}" คีย์ ${keyId} (${keyLabel}) เท่านั้น อธิบายสูตร โน้ตทุกตัว และความรู้สึกของเสียง ระบุชื่อโน้ตทุกตัวในคีย์ ${keyId} (${keyLabel}). `;

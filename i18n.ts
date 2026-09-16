@@ -1,5 +1,5 @@
 import { PATHWAY } from "./pathway-data";
-import { INTERVAL_FEEL, TRIAD_FEEL, SEVENTH_FEEL } from "./music-engine";
+import { INTERVAL_FEEL, TRIAD_FEEL, SEVENTH_FEEL, progressionChordLabels } from "./music-engine";
 
 /* ── i18n.ts ──
    Translation strings (`tr()`, `L`, `FLAGS`, `FLAG_NAMES`), the Pathway's
@@ -31,6 +31,17 @@ export function degreeLabel(i, lang) {
 // stage/key/type → ready-made lesson text, or null (→ caller falls through to the live AI)
 export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes, fullTitle, lang) {
   const notesTxt = demoNotes.join(" ");
+  if (stage.demoMode === "prog" && chordType && chordType.romans) {
+    const romans = chordType.romans.join(" ");
+    const chordNames = progressionChordLabels(chordType.romans, keyId).split(" · ");
+    const degs = chordType.romans.map((r, i2) => `${r} = ${chordNames[i2] || "?"}`).join(", ");
+    const T = {
+      th: `🧭 ${fullTitle} · ${keyLabel}\n\nทางคอร์ด: ${romans}\nโน้ต: ${notesTxt}\nชื่อคอร์ด: ${degs}\n\n💡 เล่นทีละคอร์ดแบบ broken (ไล่โน้ตจากล่างขึ้นบน) เว้นจังหวะสั้น ๆ ระหว่างคอร์ด จำตัวเลขโรมันให้ได้ (สูตรสากล) แล้วลองย้ายไปคีย์อื่น — รู้สูตรเดียว เล่นได้ทุกคีย์ 12 คีย์!`,
+      en: `🧭 ${fullTitle} · ${keyLabel}\n\nProgression: ${romans}\nNotes: ${notesTxt}\nChord names: ${degs}\n\n💡 Play one chord at a time, broken (bottom-up), with a short breath between chords. Memorize the Roman numerals (the universal formula), then try another key — learn one shape, play all 12 keys!`,
+      zh: `🧭 ${fullTitle} · ${keyLabel}\n\n进行：${romans}\n音符：${notesTxt}\n和弦名：${degs}\n\n💡 一次弹一个和弦，分解（从下往上），和弦之间稍作停顿。记住罗马数字（通用公式），然后试试其他调 — 学会一个形状，12个调都能弹！`,
+    };
+    return T[lang] || T.en;
+  }
   if (stage.demoMode === "scale" && !stage.types) {
     const T = {
       th: `🎼 ${fullTitle} · ${keyLabel}\n\nโน้ตทั้งหมด: ${notesTxt}\nสูตรระยะห่าง (Whole/Half step): W-W-H-W-W-W-H\n\nนี่คือบันไดเสียงเมเจอร์ — สูตรระยะห่างนี้ใช้ได้กับทุกคีย์เหมือนกันหมด แค่เปลี่ยนโน้ตเริ่มต้น เสียงจะให้ความรู้สึกสดใส มั่นคง เป็นฐานของเพลงส่วนใหญ่ที่เราคุ้นเคย\n\n💡 ฝึกแยกมือก่อน ไล่ขึ้น-ลงช้า ๆ ให้จังหวะสม่ำเสมอ นิ้วโป้งต้องสอดลอดใต้ฝ่ามือแบบนุ่มนวลไม่ยกข้อมือ (ดูเลขนิ้วในผังด้านล่าง) พอชัวร์แล้วค่อยเพิ่มความเร็ว`,

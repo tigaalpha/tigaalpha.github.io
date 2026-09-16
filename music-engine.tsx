@@ -166,6 +166,40 @@ export function transposeNotes(notes, semis) {
     return CHROMA[abs] + oct;
   });
 }
+// ── Roman-numeral chord progressions (e.g. I vi ii V) ──
+// A progression is a list of Roman numerals relative to the major scale of the
+// chosen key. Convention baked in: UPPERCASE numeral = major triad, lowercase =
+// minor, with vii-style degree + dim = diminished. Each chord is voiced root
+// position / closed, with the root in octave 4, so every chord in every key
+// lands inside the app's C4..B5 keyboard range (root ≤ B4, fifth ≤ F#5).
+export const ROMAN_DEGREE = { "I": 0, "ii": 2, "iii": 4, "IV": 5, "V": 7, "vi": 9, "vii": 11 };
+export const ROMAN_QUALITY = { "I": "maj", "ii": "min", "iii": "min", "IV": "maj", "V": "maj", "vi": "min", "vii": "dim" };
+const TRIAD_SEMIS = { maj: [0, 4, 7], min: [0, 3, 7], dim: [0, 3, 6] };
+const CHORD_SUFFIX = { maj: "", min: "m", dim: "dim" };
+// the 3 notes of one Roman-numeral chord in a key, ascending
+export function progressionChordNotes(roman, keyId) {
+  const deg = ROMAN_DEGREE[roman];
+  if (deg == null) return [];
+  const q = ROMAN_QUALITY[roman] || "maj";
+  const rootAbs = (semisFromC(keyId) + deg) % 12;
+  return TRIAD_SEMIS[q].map(s => { const a = rootAbs + s; return CHROMA[a % 12] + (4 + Math.floor(a / 12)); });
+}
+// every chord of a progression, flattened note-by-note (drill/demo order)
+export function progressionNotes(romans, keyId) {
+  const out = [];
+  for (const r of romans) out.push(...progressionChordNotes(r, keyId));
+  return out;
+}
+// chord NAMES of a progression in a key, e.g. ["I","vi","ii","V"] + C → "C · Am · Dm · G"
+export function progressionChordLabels(romans, keyId = "C") {
+  return romans.map(r => {
+    const deg = ROMAN_DEGREE[r];
+    if (deg == null) return "?";
+    const q = ROMAN_QUALITY[r] || "maj";
+    return CHROMA[(semisFromC(keyId) + deg) % 12] + CHORD_SUFFIX[q];
+  }).join(" · ");
+}
+
 // semitone distance from C to the chosen root
 export function semisFromC(root) {
   const flatMap = { "DB":"C#","EB":"D#","GB":"F#","AB":"G#","BB":"A#" };
@@ -229,6 +263,10 @@ export const FINGERINGS_LH = {
 // triad fingering (root position): RH = 1-3-5, LH = 5-3-1
 export const TRIAD_FINGER_RH = [1,3,5];
 export const TRIAD_FINGER_LH = [5,3,1];
+// per-chord fingering for broken progressions (each chord's 3 notes, bottom-up):
+// RH 1-2-3 within a chord, thumb resets at each new chord; LH mirrors 5-3-1.
+export const PROG_FINGER_RH = [1,2,3];
+export const PROG_FINGER_LH = [5,3,1];
 
 export const FINGERING_REF =
   "\n\n[FINGERING FACTS — authoritative. Use these EXACT finger numbers; never invent or guess them. 1=thumb,2=index,3=middle,4=ring,5=pinky.]\n" +
