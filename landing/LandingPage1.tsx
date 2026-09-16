@@ -346,6 +346,14 @@ export default function LandingPage1() {
   /* ── asking one of the four ── */
   async function askLesson(lesson) {
     if (typing) return;
+    /* The chips share the free quota with typed questions. The counter says
+       "2 free questions", not "2 free AI calls plus unlimited lessons" — a
+       visitor who spends all of it here and then finds the typed box refuse
+       them had been promised something else, and the promise is the product.
+       Used chips stay tappable to replay, but a NEW chip past the quota goes
+       to the sign-up card like anything else. */
+    if (!used.includes(lesson.id) && asked >= FREE_ASKS) { openSignup("", "quota"); return; }
+    if (!used.includes(lesson.id)) { setAsked(n => n + 1); land("q:spend"); }
     land("q:" + lesson.id);
     setUsed(u => u.includes(lesson.id) ? u : [...u, lesson.id]);
     setMsgs(m => [...m, { who: "me", lessonId: lesson.id }]);
@@ -629,7 +637,7 @@ export default function LandingPage1() {
                 <button key={l.id}
                   className={`lp-chip${used.includes(l.id) ? " used" : ""}`}
                   onClick={() => askLesson(l)}>
-                  {l.chip[lang]}
+                  {l.chip[lang]}{used.includes(l.id) ? " ↻" : ""}
                 </button>
               ))}
             </div>
