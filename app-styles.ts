@@ -362,9 +362,27 @@ html, body, #root{background:var(--bg)}
 .pathbadge{position:relative;display:inline-block;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:#d97757;border:1px solid #d9775744;border-radius:20px;padding:4px 15px;margin-bottom:12px;background:rgba(217,119,87,.05)}
 /* The hero keyboard that replaced the .pathbadge title (see PathwayPage).
    .kr sizes itself to its container, so the only job here is to give it a
-   sensible width and keep it clear of the glow behind it. */
+   sensible width and keep it clear of the glow behind it.
+
+   Width steps up with the screen instead of staying phone-sized everywhere:
+   the 430px cap was chosen for a phone, and on an iPad it left a small
+   keyboard floating in a sea of empty hero — on the Pathway page, which is
+   the page a new visitor lands on, that reads as decoration rather than
+   instrument. Phone stays exactly as it was; tablet gets 560px, desktop
+   680px, and the key heights grow with each step so the keys stay
+   finger-sized rather than stretching into long flat slabs. */
 .pathpiano{position:relative;max-width:430px;margin:2px auto 0;padding:0 2px}
 .pathpiano .kr{touch-action:none}
+@media (min-width:600px){
+  .pathpiano{max-width:560px}
+  .pathpiano .pk.w{height:84px}
+  .pathpiano .pk.b{height:52px}
+}
+@media (min-width:1024px){
+  .pathpiano{max-width:680px}
+  .pathpiano .pk.w{height:96px}
+  .pathpiano .pk.b{height:60px}
+}
 /* ── "this is playable" ──
    The hero keyboard was being read as a picture: on 13 Sep it was on screen for
    105 people and two of them touched it. The cue sits ON the keys rather than
