@@ -61,6 +61,19 @@ function getSb() {
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 let viewLogged = false;
 
+/* ── Google OAuth, one function, two doors ──
+   Both the sign-up card and the Model B gate offer Google, so the OAuth
+   handoff lives here at module level where both can call it — two doors,
+   one code path, exactly one way an account is made. */
+async function startGoogleAuth() {
+  setSkipOnboard();
+  const sb = await getSb();
+  await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin + "/" },
+  });
+}
+
 /* ── the language handoff into the app ──
    The app reads `lang` off the guest profile in localStorage, so writing the
    choice here means somebody who picks English arrives in an English app
@@ -127,6 +140,7 @@ export default function LandingPage1() {
      is one tap and permanent for the session; the gate never re-fires after
      it, because a gate that will not go away teaches people to leave. */
   const [gate, setGate] = useState(false);
+  const [gateBusy, setGateBusy] = useState(false);
   const gateSkipped = useRef(false);
   /* The inline nudge after the first real AI answer. The dashboard killed the
      old plan of asking after three answers: nobody was still there by the
@@ -441,22 +455,28 @@ export default function LandingPage1() {
     teased.current = true;
     /* ลองกดดูสิ 5 ตัวแรกของโน้ตไทยทุกคนชินหู — เร็ว พอให้เป็นคำถามว่า "เดี๋ยว
        นะ เล่นได้จริงเหรอ" แต่หยุดก่อนจบ ให้คนต้องกดเองต่อ */
-    const steps = [
+    playDemo([
       { n: ["E5"], d: 170 }, { n: ["D5"], d: 170 }, { n: ["C5"], d: 170 },
       { n: ["D5"], d: 170 }, { n: ["E5"], d: 170 }, { n: ["E5"], d: 170 },
       { n: ["E5"], d: 340 },
-    ];
-    const total = steps.reduce((a, s) => a + s.d, 0);
-    setTimeout(() => {
-      if (!teased.current) return;
-      land("gate:shown");
-      setGate(true);
-    }, total);
-    playDemo(steps, null);
+    ], null);
   }, []);
 
+  /* The gate rides 15 seconds BEHIND the first tap, not on it. The riff's
+     job is the wow; the gate's job is the ask — and an ask that interrupts
+     the riff reads as a trap. Fifteen seconds lets the visitor land, tap a
+     key or two of their own, and reach the natural pause where an account
+     question fits. The skip link stays, and gate && !signup keeps the gate
+     from ever covering an open sign-up card. */
   useEffect(() => {
-    const onFirst = () => playTeaser();
+    const onFirst = () => {
+      playTeaser();
+      setTimeout(() => {
+        if (gateSkipped.current || !teased.current) return;
+        land("gate:shown");
+        setGate(true);
+      }, 15000);
+    };
     window.addEventListener("pointerdown", onFirst, { passive: true, once: true });
     return () => window.removeEventListener("pointerdown", onFirst);
   }, [playTeaser]);
@@ -722,10 +742,26 @@ export default function LandingPage1() {
             <div className="lp-gatemark">TIGA</div>
             <h2>{t.gateTitle}</h2>
             <p className="lp-gatesub">{t.gateSub}</p>
-            {/* One primary button that hands off to the sign-up card — the
-                same card, the same auth calls, exactly one way an account is
-                made. A second Google button here would be a second code path
-                to maintain for zero extra accounts. */}
+            {/* The two doors the owner asked for, in tap order: Google for
+                anyone with a Google account (the choice 95% of members
+                make), new-member sign-up for everyone else. Both lead to
+                the same auth calls; the card hand-off keeps a single code
+                path for the email side. A Google failure falls back to the
+                sign-up card, where friendly errors already render. */}
+            <button className="lp-btn google" disabled={gateBusy}
+              onClick={async () => {
+                land("gate:google");
+                setGateBusy(true);
+                try { await startGoogleAuth(); }
+                catch (e) {
+                  setGate(false);
+                  setSignup({ q: "", quota: false });
+                  requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+                }
+              }}>
+              <GoogleG /> {t.gateGoogle}
+            </button>
+            <div className="lp-or">{t.or}</div>
             <button className="lp-btn primary" onClick={() => { land("gate:cta"); setSignup({ q: "", quota: false }); requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>
               {t.gateBtn}
             </button>
@@ -759,18 +795,10 @@ function SignupCard({ q, quota, timeUp, t }) {
     if (busy) return;
     land("try:google");
     setBusy(true); setErr("");
-    // Signed-up here = already gave us a name; the app's own profile form
-    // would be the second form in five minutes. One flag, read once inside
-    // the app, then cleared.
-    setSkipOnboard();
     try {
       // Back to the APP, not back to this page — the landing page has done its
       // job by the time the OAuth round trip returns.
-      const sb = await getSb();
-      await sb.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: window.location.origin + "/" },
-      });
+      await startGoogleAuth();
     } catch (e) {
       setErr(friendlyAuthError(e && e.message));
       setBusy(false);
