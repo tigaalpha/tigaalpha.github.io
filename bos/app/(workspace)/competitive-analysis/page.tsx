@@ -30,20 +30,42 @@ export default function CompetitiveAnalysisPage() {
     setLoading(true);
     try {
       const repos = createRepositories(createClient());
-      const analyses = await repos.competitorAnalyses.list();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const analyses: any[] = await repos.competitorAnalyses.list();
       
-      const competitorsData: Competitor[] = analyses.map(analysis => ({
-        id: analysis.id,
-        name: analysis.competitor_name || "ไม่ระบุ",
-        type: (analysis.type as "direct" | "indirect") || "direct",
-        followers: analysis.followers || 0,
-        engagement: analysis.engagement_rate || 0,
-        postsPerWeek: analysis.posts_per_week || 0,
-        strengths: (analysis.strengths as string[]) || [],
-        weaknesses: (analysis.weaknesses as string[]) || [],
-        opportunities: (analysis.opportunities as string[]) || [],
-        threatLevel: (analysis.threat_level as "high" | "medium" | "low") || "medium",
-      }));
+      const competitorsData: Competitor[] = [];
+      for (const analysis of analyses) {
+        const competitors = (analysis.competitors || []) as { name: string; type: string; notes?: string; marketingChannels?: string[] }[];
+        for (const c of competitors) {
+          competitorsData.push({
+            id: `${analysis.id}-${c.name}`,
+            name: c.name || "ไม่ระบุ",
+            type: (c.type as "direct" | "indirect") || "direct",
+            followers: 0,
+            engagement: 0,
+            postsPerWeek: 0,
+            strengths: [],
+            weaknesses: [],
+            opportunities: [c.notes || ""],
+            threatLevel: "medium",
+          });
+        }
+        // If no nested competitors, add the analysis itself
+        if (competitors.length === 0) {
+          competitorsData.push({
+            id: analysis.id,
+            name: analysis.summary?.slice(0, 40) || "ไม่ระบุ",
+            type: "direct",
+            followers: 0,
+            engagement: 0,
+            postsPerWeek: 0,
+            strengths: [],
+            weaknesses: [],
+            opportunities: [],
+            threatLevel: "medium",
+          });
+        }
+      }
       
       setCompetitors(competitorsData);
     } catch (err) {

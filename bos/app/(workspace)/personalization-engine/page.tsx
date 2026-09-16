@@ -162,7 +162,7 @@ export default function PersonalizationEnginePage() {
             <div className="text-center py-8 text-secondary/50">ไม่มี lead ในระบบ</div>
           ) : (
             profiles.map((profile) => {
-              const segCfg = SEGMENT_CONFIG[profile.segment] || SEGMENT_CONFIG.default;
+              const segCfg = SEGMENT_CONFIG[profile.segment] ?? SEGMENT_CONFIG["default"] ?? { color: "text-secondary", bg: "bg-secondary/10", icon: "👤" };
               return (
                 <div key={profile.id} className={cn("rounded-xl border border-line/10 p-4", segCfg.bg)}>
                   <div className="flex items-center justify-between mb-2">
@@ -177,7 +177,7 @@ export default function PersonalizationEnginePage() {
                   </div>
                   <div className="rounded-lg bg-white/5 p-3 mt-2">
                     <p className="text-xs text-secondary/60 mb-1">ข้อความแนะนำ:</p>
-                    <p className="text-sm text-secondary">"{profile.recommendedMessage}"</p>
+                    <p className="text-sm text-secondary">&quot;{profile.recommendedMessage}&quot;</p>
                   </div>
                   <div className="flex gap-2 mt-3">
                     <Button size="sm" variant="outline">

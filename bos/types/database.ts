@@ -1448,6 +1448,31 @@ export interface Database {
           suggested_fix: string;
         }[];
       };
+      // public.referral_stats() — added by supabase-referral-loop-migration.sql.
+      // Returns the full referral read-model (rows + totals) for the Referral
+      // Tracking page; null when the caller is not staff (RLS-style guard
+      // inside the SECURITY DEFINER function).
+      referral_stats: {
+        Args: Record<string, never>;
+        Returns: {
+          referrals: {
+            id: string;
+            code: string;
+            referrerName: string;
+            referrerPhone: string | null;
+            referredName: string;
+            referredPhone: string | null;
+            status: "code_shared" | "pending" | "trial" | "converted" | "rewarded";
+            createdAt: string;
+          }[];
+          totals: {
+            total: number;
+            attributed: number;
+            converted: number;
+            rewardsPending: number;
+          };
+        } | null;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

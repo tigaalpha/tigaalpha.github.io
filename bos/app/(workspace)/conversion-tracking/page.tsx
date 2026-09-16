@@ -39,7 +39,7 @@ export default function ConversionTrackingPage() {
     try {
       const repos = createRepositories(createClient());
       const customers = await repos.customers.listPipeline();
-      const transactions = await repos.transactions.list();
+      const transactions = await repos.transactions.listAll();
       
       // Group customers by lead source
       const sourceMap: Record<string, { leads: number; conversions: number; revenue: number }> = {};

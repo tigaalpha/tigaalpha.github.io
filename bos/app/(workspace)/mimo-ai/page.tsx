@@ -186,7 +186,7 @@ export default function MimoAIPage() {
                 </button>
               ))}
             </div>
-            <p className="text-xs text-secondary/40 ml-8">ไปที่ Settings → Integrations → เลือก "MiMo 7B RL (Xiaomi)" เป็นโมเดลหลัก</p>
+            <p className="text-xs text-secondary/40 ml-8">ไปที่ Settings → Integrations → เลือก &quot;MiMo 7B RL (Xiaomi)&quot; เป็นโมเดลหลัก</p>
           </div>
         </CardContent>
       </Card>
@@ -279,16 +279,16 @@ export default function MimoAIPage() {
             <code className="text-xs text-primary-accent break-all">Will use existing prompts from bos/prompts/system.md</code>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" asChild>
-              <a href="https://openrouter.ai/docs" target="_blank" rel="noopener noreferrer">
+            <a href="https://openrouter.ai/docs" target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="outline">
                 <ExternalLink className="h-3 w-3 mr-1" />OpenRouter Docs
-              </a>
-            </Button>
-            <Button size="sm" variant="outline" asChild>
-              <a href="https://openrouter.ai/models?q=mimo" target="_blank" rel="noopener noreferrer">
+              </Button>
+            </a>
+            <a href="https://openrouter.ai/models?q=mimo" target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="outline">
                 <ExternalLink className="h-3 w-3 mr-1" />View Mimo Models
-              </a>
-            </Button>
+              </Button>
+            </a>
           </div>
         </CardContent>
       </Card>

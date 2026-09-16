@@ -38,7 +38,7 @@ const ALERTS: IntelAlert[] = [
   { date: "2025-08-12", competitor: "Piano Academy", type: "pricing", alert: "ลดราคาจาก ฿27,000 เหลือ ฿25,000", action: "ไม่ลดราคา — เน้น value instead" },
 ];
 
-const TYPE_MAP: Record<string, { label: string; variant: "danger" | "warning" | "info" | "outline" }> = {
+const TYPE_MAP: Record<string, { label: string; variant: "danger" | "warning" | "info" | "outline" | "success" }> = {
   pricing: { label: "💰 Pricing", variant: "warning" },
   content: { label: "📝 Content", variant: "info" },
   review: { label: "⭐ Review", variant: "success" },
@@ -81,7 +81,7 @@ export default function CompetitiveIntelPage() {
       <Card><CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Intel Alerts</CardTitle><CardDescription>AI ตรวจจับการเปลี่ยนแปลงของคู่แข่ง</CardDescription></CardHeader>
         <CardContent className="space-y-2">
           {ALERTS.map((alert, i) => {
-            const typeCfg = TYPE_MAP[alert.type] ?? TYPE_MAP.content;
+            const typeCfg = TYPE_MAP[alert.type] ?? { label: alert.type, variant: "outline" as const };
             return (
               <div key={i} className="flex items-start gap-3 rounded-xl border border-line/10 p-3">
                 <Badge variant={typeCfg.variant} className="text-[9px] shrink-0">{typeCfg.label}</Badge>

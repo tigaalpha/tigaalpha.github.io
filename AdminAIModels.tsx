@@ -9,10 +9,12 @@ import { playUi } from "./music-engine";
    — the piano-chat / piano-tts edge functions resolve per request:
    ai_models[feature] → ai_models["default"] → legacy "ai_model" → built-in.
    DeepSeek V4 Flash/Pro are OpenAI-compatible chat models (no vision), so the
-   camera coach / slip-check features only offer Anthropic/Gemini; the admin
-   "Teach AI" tab stays on Anthropic because its web-search tool only exists
-   there. "voice-tts" is the speech-synthesis engine (Gemini TTS vs ElevenLabs)
-   and is used only by the AI Voice Tutor. ── */
+   camera coach / slip-check features offer only the providers that can read an
+   image, and their shelf is filtered through VISION_MODELS below so a rung that
+   cannot see is never offered; the admin "Teach AI" tab stays on Anthropic
+   because its web-search tool only exists there. "voice-tts" is the
+   speech-synthesis engine (Gemini TTS vs ElevenLabs) and is used only by the
+   AI Voice Tutor. ── */
 
 export const AI_PROVIDERS = {
   anthropic: { icon: "🟠", label: "Anthropic", models: [{ id: "claude-sonnet-4-6", label: "Claude Sonnet" }] },
@@ -24,9 +26,27 @@ export const AI_PROVIDERS = {
     { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash" },
     { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro" },
   ]},
+  /* ── the free shelf, ranked ──
+     Ordered #1..#5 by a live bake-off on 2026-09-10: every free route in
+     OpenRouter's catalogue was sent the SAME real task from this app — a Thai
+     child asking why her right hand loses the beat once the left hand joins,
+     under the TIGA tutor system prompt — and judged on Thai that reads like a
+     teacher, obeying "exactly 3 numbered steps", context, and whether it can
+     emit schema-clean JSON (eight code paths here parse JSON out of a reply).
+     Rank #1 sits FIRST on purpose: picking the OpenRouter provider button
+     auto-selects models[0], so the best free option is the one you land on.
+     NOTE the previous entry here, "deepseek/deepseek-chat-v3-0324:free", was
+     RETIRED by OpenRouter and 404'd every request — it took every AI feature
+     in the app down. As of that date OpenRouter lists no free DeepSeek route
+     at all, so there is nothing to put back. Paid DeepSeek stays below. */
   openrouter: { icon: "🌐", label: "OpenRouter", models: [
-    { id: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash" },
-    { id: "deepseek/deepseek-v4-pro", label: "DeepSeek V4 Pro" },
+    { id: "nvidia/nemotron-3-super-120b-a12b:free", label: "① Nemotron 3 Super · ฟรี (ฉลาดสุด)" },
+    { id: "nex-agi/nex-n2.5-pro:free", label: "② Nex N2.5 Pro · ฟรี (ดูรูปได้)" },
+    { id: "google/gemma-4-26b-a4b-it:free", label: "③ Gemma 4 26B · ฟรี (เร็วสุด)" },
+    { id: "openrouter/free", label: "④ Free Router · ฟรี (ไม่มีวันหาย)" },
+    { id: "nvidia/nemotron-3.5-lightning:free", label: "⑤ Nemotron Lightning · ฟรี (ctx 1M)" },
+    { id: "deepseek/deepseek-v4-flash", label: "💰 DeepSeek V4 Flash (เสียเงิน)" },
+    { id: "deepseek/deepseek-v4-pro", label: "💰 DeepSeek V4 Pro (เสียเงิน)" },
   ]},
   elevenlabs: { icon: "🎙️", label: "ElevenLabs", models: [
     { id: "eleven_v3", label: "Eleven v3 (ภาษาไทยดีที่สุด)" },
@@ -50,13 +70,22 @@ export const AI_FEATURES = [
   { id: "practice-tip", icon: "🎯", th: "คำชมท้ายฝึกซ้อม", en: "Practice Mode result praise", zh: "练习结果点评", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "weekly-report", icon: "📋", th: "รายงานพัฒนาการ AI", en: "AI weekly report", zh: "AI 周报", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "practice-plan", icon: "🗓️", th: "แผนซ้อมส่วนตัว AI", en: "AI practice plan", zh: "AI 练习计划", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
-  { id: "camera", icon: "✋", th: "กล้องจับท่ามือ", en: "Hand-posture coach", zh: "手型教练", prov: ["anthropic", "gemini"],
-    noteTh: "ต้องใช้โมเดลที่ดูรูปได้ (DeepSeek ยังไม่มีฟีเจอร์รูปภาพ)", noteEn: "Needs a vision model (DeepSeek has no image support yet)", noteZh: "需要视觉模型（DeepSeek 暂不支持图片）" },
-  { id: "slip-check", icon: "🧾", th: "ตรวจสลิปโอนเงิน (แอดมิน)", en: "Slip verification (admin)", zh: "转账凭证核验（管理员）", prov: ["anthropic", "gemini"],
-    noteTh: "ต้องใช้โมเดลที่ดูรูปได้ (DeepSeek ยังไม่มีฟีเจอร์รูปภาพ)", noteEn: "Needs a vision model (DeepSeek has no image support yet)", noteZh: "需要视觉模型（DeepSeek 暂不支持图片）" },
+  { id: "camera", icon: "✋", th: "กล้องจับท่ามือ", en: "Hand-posture coach", zh: "手型教练", prov: ["anthropic", "gemini", "openrouter"], vision: true,
+    noteTh: "ต้องใช้โมเดลที่ดูรูปได้ — มีตัวเลือกฟรีคือ ② Nex N2.5 Pro (DeepSeek ยังไม่มีฟีเจอร์รูปภาพ)", noteEn: "Needs a vision model — the free option is ② Nex N2.5 Pro (DeepSeek has no image support yet)", noteZh: "需要视觉模型 — 免费选项为 ② Nex N2.5 Pro（DeepSeek 暂不支持图片）" },
+  { id: "slip-check", icon: "🧾", th: "ตรวจสลิปโอนเงิน (แอดมิน)", en: "Slip verification (admin)", zh: "转账凭证核验（管理员）", prov: ["anthropic", "gemini", "openrouter"], vision: true,
+    noteTh: "ต้องใช้โมเดลที่ดูรูปได้ — มีตัวเลือกฟรีคือ ② Nex N2.5 Pro (DeepSeek ยังไม่มีฟีเจอร์รูปภาพ)", noteEn: "Needs a vision model — the free option is ② Nex N2.5 Pro (DeepSeek has no image support yet)", noteZh: "需要视觉模型 — 免费选项为 ② Nex N2.5 Pro（DeepSeek 暂不支持图片）" },
   { id: "admin-chat", icon: "🤖", th: "แท็บสอน AI (แอดมิน)", en: "Teach AI tab (admin)", zh: "训练 AI（管理员）", prov: ["anthropic"],
     noteTh: "ต้องใช้ Claude — ฟีเจอร์ค้นเน็ต/รูปภาพมีเฉพาะ Anthropic", noteEn: "Locked to Claude — its web-search/vision tools only exist there", noteZh: "锁定 Claude — 联网/图片功能仅 Anthropic 提供" },
 ];
+
+/* Which models can actually SEE an image. Vision features (camera coach, slip
+   reader) filter their shelf through this. Every Anthropic and Gemini model on
+   the shelf is a vision model, so only OpenRouter needs narrowing — exactly one
+   free rung reads images, and offering the other four would look like a free
+   camera coach that quietly answers about a picture it never received. */
+const VISION_MODELS = { openrouter: ["nex-agi/nex-n2.5-pro:free"] };
+const shelfFor = (provider, models, visionOnly) =>
+  visionOnly && VISION_MODELS[provider] ? (models || []).filter(m => VISION_MODELS[provider].includes(m.id)) : (models || []);
 
 const DEFAULT_ENTRY = { provider: "anthropic", model: "claude-sonnet-4-6" };
 
@@ -161,11 +190,39 @@ export function AdminAIModels({ lang }) {
       <div className="admstu-row-sub" style={{ marginTop: 10, whiteSpace: "normal", lineHeight: 1.7 }}>
         🧭 {T("แต่ละตัวเลือกเหมาะกับอะไร:", "What each option is for:", "各选项用途：")}
         <br />🟣 {T("DeepSeek (ตรง) — API ของ DeepSeek โดยตรง ถูก แต่มีค่า peak ช่วงกลางวัน", "DeepSeek (direct) — cheap direct API, but peak pricing during Thai daytime", "DeepSeek（直连）— 直连 API 价格低，但泰国白天有高峰价")}
-        <br />🌐 {T("OpenRouter — DeepSeek ผ่านตัวกลาง ราคาแบนถูกสุดตลอด 24 ชม.", "OpenRouter — DeepSeek via a router, flat & cheapest around the clock", "OpenRouter — 通过路由使用 DeepSeek，全天最便宜")}
-        <br />🔵 {T("Google Gemini — key ฟรี (จำกัด quota) เหมาะเป็นโมเดลสำรอง", "Google Gemini — free key (rate-limited), good as a backup", "Google Gemini — 免费密钥（有限额），适合做备用")}
+        <br />🌐 {T("OpenRouter — ทางเดียวที่มีรุ่นฟรีจริง (ดูอันดับด้านล่าง)", "OpenRouter — the only route with genuinely free models (ranked below)", "OpenRouter — 唯一有真正免费模型的通道（排名见下）")}
+        <br />🔵 {T("Google Gemini — key ฟรี (จำกัด quota) ใช้กับกล้อง/สลิปที่ต้องดูรูป", "Google Gemini — free key (rate-limited), used by camera/slip which need vision", "Google Gemini — 免费密钥（有限额），用于需要视觉的手型/凭证")}
         <br />🟠 {T("Anthropic — คุณภาพสูงสุด ต้องตั้ง ANTHROPIC_API_KEY (ยังไม่ได้ตั้ง)", "Anthropic — highest quality, requires ANTHROPIC_API_KEY (not set yet)", "Anthropic — 质量最高，需要设置 ANTHROPIC_API_KEY（尚未设置）")}
         <br />🎙️ {T("ElevenLabs — เสียงภาษาไทย (เฉพาะโหมดเสียง) ~$0.10 ต่อ 1,000 ตัวอักษร", "ElevenLabs — Thai voice (voice mode only) ~$0.10 per 1K chars", "ElevenLabs — 泰语语音（仅语音模式）约 $0.10/千字符")}
-        <br />👁️ {T("กล้อง/สลิป ต้องใช้โมเดลที่ดูรูปได้ (Claude/Gemini) — DeepSeek/OpenRouter ยังดูรูปไม่ได้", "Camera/slip-check need a vision model (Claude/Gemini) — DeepSeek/OpenRouter can't see images yet", "手型/凭证需要视觉模型（Claude/Gemini）— DeepSeek/OpenRouter 暂不支持图片")}
+        <br />👁️ {T("กล้อง/สลิป ยังบังคับใช้ Claude/Gemini เสมอ แม้ตั้งเป็น OpenRouter ก็ตาม", "Camera/slip always run on Claude/Gemini, even if set to OpenRouter", "手型/凭证始终使用 Claude/Gemini，即使设为 OpenRouter")}
+      </div>
+
+      {/* ── the free shelf, ranked ──
+          The owner picks the model, so the reasoning behind the order has to
+          live HERE, next to the buttons, not in a commit message they will
+          never read. Ranked by a live bake-off (see AI_PROVIDERS above). */}
+      <div className="admstu-row-sub" style={{ marginTop: 10, whiteSpace: "normal", lineHeight: 1.75 }}>
+        🏆 {T("อันดับรุ่นฟรีที่เหมาะกับแอปนี้ (ทดสอบจริงด้วยคำถามครูสอนเปียโนภาษาไทย 10 ก.ย. 2026)",
+              "Free models ranked for this app (live-tested with a real Thai piano-teaching prompt, 10 Sep 2026)",
+              "适合本应用的免费模型排名（2026-09-10 用真实泰语钢琴教学提问实测）")}
+        <br />① <b>Nemotron 3 Super</b> — {T("ฉลาดที่สุด 120B · ตัวเดียวที่รับบุคลิก “ครูตีก้า” มาใช้เอง · เขียน JSON ตาม schema ได้ · ไม่ดูรูป",
+              "smartest at 120B · the only one that picked up the “ครูตีก้า” persona unprompted · schema-clean JSON · no vision",
+              "最聪明的 120B · 唯一自动沿用「ครูตีก้า」人设 · 可输出规范 JSON · 无视觉")}
+        <br />② <b>Nex N2.5 Pro</b> — {T("ไทยดี อบอุ่น · JSON ได้ · ดูรูปได้ (อนาคตอาจย้ายกล้อง/สลิปมาที่นี่ได้) · ค่ายใหม่ ยังไม่มีประวัติยาว",
+              "warm Thai · JSON · vision, so camera/slip could move here later · new vendor, short track record",
+              "泰语温暖自然 · 支持 JSON · 有视觉（将来手型/凭证可迁移）· 新厂商，履历尚短")}
+        <br />③ <b>Gemma 4 26B</b> — {T("เร็วที่สุดในสามอันดับแรก · จัดรูปแบบเป๊ะสุด · ไทยไว้ใจได้ · ไม่มี JSON schema",
+              "fastest of the top three · cleanest formatting · dependable Thai · no JSON schema mode",
+              "前三名中最快 · 排版最干净 · 泰语可靠 · 无 JSON schema")}
+        <br />④ <b>Free Router</b> — {T("ไม่มีวันหาย (OpenRouter เลือกรุ่นฟรีที่ยังอยู่ให้เอง) · แต่สุ่มรุ่นทุกครั้ง น้ำเสียงครูจะไม่คงที่ — เหมาะเป็นตัวสำรอง ไม่ใช่ตัวหลัก",
+              "can never go missing (OpenRouter picks whatever is free today) · but random each call, so the teacher's voice drifts — a backup, not a primary",
+              "永不失效（OpenRouter 自动挑选当日免费模型）· 但每次随机，老师语气不一致 — 适合做备用而非主力")}
+        <br />⑤ <b>Nemotron Lightning</b> — {T("context 1 ล้าน token · เร็ว · ไทยดี · ไม่มี JSON schema, ไม่ดูรูป",
+              "1M-token context · fast · good Thai · no JSON schema, no vision",
+              "100 万 token 上下文 · 快速 · 泰语良好 · 无 JSON schema、无视觉")}
+        <br />⚠️ {T("รุ่นฟรีมีเพดานการใช้งาน — ถ้ามีคนใช้พร้อมกันเยอะจะโดน rate limit ระบบจะไล่ไปตัวถัดไปในอันดับให้เอง แล้วค่อยไปรุ่นเสียเงินเป็นทางสุดท้าย",
+              "Free routes are rate-limited — under load the system walks down this ranking automatically, and only then reaches a paid route",
+              "免费通道有速率上限 — 高并发时系统会按此排名自动下移，最后才使用付费通道")}
       </div>
     </div>
   );
@@ -174,7 +231,8 @@ export function AdminAIModels({ lang }) {
     const d = drafts[fid] || cfg.default;
     const providers = isDefault ? ["anthropic", "gemini", "deepseek", "openrouter"] : f.prov;
     const provMeta = AI_PROVIDERS[d.provider] || AI_PROVIDERS.anthropic;
-    const isCustom = !(provMeta.models || []).some(m => m.id === d.model);
+    const shelf = shelfFor(d.provider, provMeta.models, !isDefault && f.vision);
+    const isCustom = !shelf.some(m => m.id === d.model);
     return (
       <div className="admmg" key={fid}>
         <div className="admmg-h">{f.icon} {isDefault ? T("ค่าเริ่มต้น (ทุกฟีเจอร์)", "Default (all features)", "默认（所有功能）") : nameOf(f, lang)}</div>
@@ -187,16 +245,16 @@ export function AdminAIModels({ lang }) {
           {providers.map(p => (
             <button key={p} className={`setlangbtn${d.provider === p ? " on" : ""}`} disabled={busyKey === fid}
               onClick={() => {
-                const meta = AI_PROVIDERS[p];
-                setDraft(fid, { provider: p, model: (meta.models && meta.models[0]) ? meta.models[0].id : d.model });
+                const picks = shelfFor(p, AI_PROVIDERS[p].models, !isDefault && f.vision);
+                setDraft(fid, { provider: p, model: picks[0] ? picks[0].id : d.model });
               }}>
               {AI_PROVIDERS[p].icon} {AI_PROVIDERS[p].label}
             </button>
           ))}
         </div>
-        {(provMeta.models || []).length > 0 && (
+        {shelf.length > 0 && (
           <div className="setlangs" style={{ marginTop: 7 }}>
-            {provMeta.models.map(m => (
+            {shelf.map(m => (
               <button key={m.id} className={`setlangbtn${d.model === m.id ? " on" : ""}`} disabled={busyKey === fid}
                 onClick={() => setDraft(fid, { model: m.id })}>{m.label}</button>
             ))}
@@ -256,6 +314,9 @@ const ADMIN_NAV_GROUPS = [
   { id: "business", icon: "💰", th: "ธุรกิจ", en: "Business", zh: "业务", items: [
     { id: "payments", icon: "💳", tier: 3, th: "ชำระเงิน", en: "Payments", zh: "付款" },
     { id: "analytics", icon: "📊", tier: 3, th: "สถิติ", en: "Analytics", zh: "统计" },
+    { id: "activity", icon: "📈", tier: 3, th: "กิจกรรมผู้ใช้", en: "User Activity", zh: "用户活动" },
+    { id: "anonvisit", icon: "👁️", tier: 3, th: "ผู้เข้าชม (ยังไม่ล็อกอิน)", en: "Visitors (not logged in)", zh: "未登录访客" },
+    { id: "simbots", icon: "🤖", tier: 3, th: "ข้อมูลจำลอง", en: "Demo Bots", zh: "模拟数据" },
   ]},
   { id: "leadsale", icon: "🎯", th: "Lead Sale", en: "Lead Sale", zh: "获客与销售", items: [
     { id: "leadsale", icon: "📊", tier: 0, th: "แดชบอร์ด Lead", en: "Lead Dashboard", zh: "线索仪表板" },

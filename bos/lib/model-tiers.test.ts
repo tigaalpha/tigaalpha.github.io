@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveTierModelId, DEFAULT_MODEL_ID } from "../supabase/functions/_shared/model-tiers";
 
-const VALID = ["gemini", "claude", "gpt", "qwen", "kimi", "glm", "grok", "deepseek"];
+const VALID = ["gemini", "claude", "gpt", "qwen", "kimi", "glm", "grok", "deepseek", "deepseek-v3-free"];
 
 describe("resolveTierModelId", () => {
   it("uses the tier value when set and valid", () => {

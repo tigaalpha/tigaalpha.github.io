@@ -130,7 +130,7 @@ export default function FunnelPage() {
       {/* Period Toggle */}
       <div className="flex gap-2">
         {(["week", "month", "quarter"] as const).map((p) => (
-          <Button key={p} variant={period === p ? "default" : "outline"} size="sm" onClick={() => setPeriod(p)}>
+          <Button key={p} variant={period === p ? "primary" : "outline"} size="sm" onClick={() => setPeriod(p)}>
             {p === "week" ? "7 วัน" : p === "month" ? "30 วัน" : "90 วัน"}
           </Button>
         ))}
@@ -147,7 +147,8 @@ export default function FunnelPage() {
             <div className="space-y-1">
               {stages.map((stage, i) => {
                 const pct = totalLeads > 0 ? (stage.count / totalLeads) * 100 : 0;
-                const dropOff = i > 0 && stages[i - 1].count > 0 ? ((stages[i - 1].count - stage.count) / stages[i - 1].count) * 100 : 0;
+                const prevStage = i > 0 ? stages[i - 1] : undefined;
+                const dropOff = prevStage && prevStage.count > 0 ? ((prevStage.count - stage.count) / prevStage.count) * 100 : 0;
                 const cfg = STAGE_CONFIG[i];
                 return (
                   <div key={stage.status} className="space-y-1">
@@ -222,7 +223,7 @@ export default function FunnelPage() {
         <CardContent className="space-y-3">
           {stages.slice(1).map((stage, i) => {
             const prev = stages[i];
-            if (prev.count === 0) return null;
+            if (!prev || prev.count === 0) return null;
             const dropOff = ((prev.count - stage.count) / prev.count) * 100;
             if (dropOff < 10) return null;
             return (

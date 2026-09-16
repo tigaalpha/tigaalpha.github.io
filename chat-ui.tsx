@@ -62,23 +62,46 @@ export const SpeakBtn = memo(function SpeakBtn({ text, lang, id, activeId, setAc
 });
 
 /* ── Message (memoized: only re-renders when its own props change) ── */
-export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay }) {
+export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay, onRetry }) {
   // parse notes only when the message text or language actually changes
   const parsed = useMemo(
     () => (m.role === "ai" && m.text ? extractNotes(m.text) : null),
     [m.role, m.text]
   );
   const lc = L[lang];
+  /* An answer is placed in the thread the moment it is asked for and filled in
+     when it arrives, so between those two moments this rendered a bubble with
+     an empty paragraph in it — a labelled box with nothing inside, which reads
+     as the app having hung rather than as it working. It gets the same three
+     bouncing dots the standalone Typing indicator uses; three because that is
+     already this app's sign for "thinking" and a second, different count would
+     be a second sign for the same thing. */
+  const waiting = m.role === "ai" && !m.text && !m.img;
   return (
     <div className={`msg ${m.role === "user" ? "u" : "a"}`}>
       <div className="bbl">
         {m.role === "ai" && <div className="atag">◈ TIGA CHAT</div>}
         {m.img && <img src={m.img} alt="" className="adminimg" />}
-        <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{m.text}</p>
+        {waiting
+          ? <div className="typing" role="status" aria-live="polite"
+                 aria-label={lang === "th" ? "กำลังคิดคำตอบ" : lang === "zh" ? "正在思考" : "Thinking"}>
+              <div className="tdd" /><div className="tdd" /><div className="tdd" />
+            </div>
+          : <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{m.text}</p>}
       </div>
       {/* the row is skipped entirely when it would be empty, so turning TTS off
           leaves no stray gap under messages that carry no notes */}
-      {m.role === "ai" && (TTS_ENABLED || parsed) && (
+      {/* One-tap retry on a failed answer — the question is still in the thread
+          right above, so ↻ resends it verbatim instead of making the learner
+          retype it (the #1 most-requested recovery after a dropped reply). */}
+      {m.role === "ai" && m.error && onRetry && (
+        <div className="mact">
+          <button className="retrybtn" onClick={onRetry}>
+            <span>↻</span><span>{lang === "th" ? "ลองส่งใหม่" : lang === "zh" ? "重试" : "Retry"}</span>
+          </button>
+        </div>
+      )}
+      {m.role === "ai" && !waiting && (TTS_ENABLED || parsed) && (
         <div className="mact">
           {TTS_ENABLED && (
             <SpeakBtn text={m.text} lang={lang} id={idx}
@@ -96,12 +119,18 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
   );
 });
 
-export const Typing = memo(function Typing() {
+export const Typing = memo(function Typing({ slow, lang }) {
+  const slowText = lang === "th"
+    ? "ยังเชื่อมต่ออยู่ — กำลังลองใหม่อัตโนมัติ…"
+    : lang === "zh"
+    ? "仍在连接中 — 正在自动重试…"
+    : "Still connecting — retrying automatically…";
   return (
     <div className="msg a">
       <div className="bbl">
         <div className="atag">◈ TIGA CHAT</div>
         <div className="typing"><div className="tdd"/><div className="tdd"/><div className="tdd"/></div>
+        {slow && <div className="slowhint">{slowText}</div>}
       </div>
     </div>
   );

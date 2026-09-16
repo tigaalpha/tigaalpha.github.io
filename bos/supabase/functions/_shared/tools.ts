@@ -10,7 +10,9 @@ import { sumTransactions } from "./business-metrics.ts";
 import { createPayment, confirmPayment } from "./payments.ts";
 import { createLessonSummary } from "./lesson-summary.ts";
 import { push as linePush } from "./line.ts";
+import { attributeReferral } from "./referrals.ts";
 import { executeMarketingTool } from "./marketing-tools.ts";
+import { CHIEF_OF_STAFF_SLUG, departmentBySlug, DEPARTMENTS } from "./departments.ts";
 
 // ISO (UTC) → Bangkok local time for display in messages, e.g. "17:00".
 function formatLessonTime(iso: string): string {
@@ -202,6 +204,22 @@ export const AI_TOOLS: ToolDefinition[] = [
       required: ["status"],
     },
   },
+  {
+    name: "get_my_referral_code",
+    description:
+      "Get or create THIS customer's personal referral code (customer chats only — no id needed, the chat is bound to the caller). Returns the code and a ready-to-share Thai message. Use the moment a happy/enthusiastic customer mentions telling friends, asks about recommending the studio, or you want to equip them to spread the word.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "apply_referral_code",
+    description:
+      "Attribute the CURRENT customer to the referral code they arrived with (e.g. 'เพื่อนให้โค้ด TIGA-XXXX มา'). Call it as soon as the customer mentions any referral code — this credits their friend when the customer eventually pays. Never call it with the customer's own code.",
+    parameters: {
+      type: "object",
+      properties: { referralCode: { type: "string", description: "The referral code the customer mentioned, e.g. TIGA-ABC123." } },
+      required: ["referralCode"],
+    },
+  },
 ];
 
 // Only ever offered to the model on the internal/owner channel (see
@@ -388,7 +406,7 @@ export const OWNER_TOOLS: ToolDefinition[] = [
         },
         topic: { type: "string", description: "Topic or subject for the content. If not specified, AI picks a relevant topic about TIGA/piano/music." },
         language: { type: "string", enum: ["th", "en", "zh"], description: "Language for the content (th=Thai, en=English, zh=Chinese)." },
-        model: { type: "string", description: "AI model to use (gemini, claude, gpt, qwen, kimi, glm, grok, deepseek)." },
+        model: { type: "string", description: "AI model to use (gemini, claude, gpt, qwen, kimi, glm, grok, deepseek, deepseek-v3-free). deepseek-v3-free costs nothing." },
       },
       required: ["contentType"],
     },
@@ -402,7 +420,7 @@ export const OWNER_TOOLS: ToolDefinition[] = [
       properties: {
         article: { type: "string", description: "The full article text to analyze and generate images from." },
         sceneCount: { type: "number", description: "Number of scenes to break the article into (2-10). Default 4." },
-        model: { type: "string", description: "AI model to use (gemini, claude, gpt, qwen, kimi, glm, grok, deepseek)." },
+        model: { type: "string", description: "AI model to use (gemini, claude, gpt, qwen, kimi, glm, grok, deepseek, deepseek-v3-free). deepseek-v3-free costs nothing." },
       },
       required: ["article"],
     },
@@ -562,11 +580,20 @@ export function translateDbError(error: unknown): string {
  * model to call these tools against a completely different customer's
  * record (a prompt-injection-to-database-write path).
  */
+// delegate_to_department is delivered by the caller (chat-core.ts) via the
+// `delegate` callback passed into executeTool — that keeps tools.ts free of
+// an import cycle with chat-core (respond -> executeTool -> respond) while
+// still letting the Chief of Staff command a target department's agent.
+export interface ExecuteToolDeps {
+  delegate?: (targetSlug: string, directive: string) => Promise<Record<string, unknown>>;
+}
+
 export async function executeTool(
   call: ToolCall,
   db: SupabaseClient,
   boundCustomerId: string | null = null,
-  callerId: string | null = null
+  callerId: string | null = null,
+  deps: ExecuteToolDeps = {}
 ): Promise<unknown> {
   const args = call.arguments as Record<string, string | number | undefined>;
 
@@ -975,6 +1002,44 @@ export async function executeTool(
       return { ok: true, lessonLabel, lessonTime, status };
     }
 
+    case "get_my_referral_code": {
+      // Customer-facing counterpart of create_referral_link (owner tool).
+      // Customer chats are bound to the caller, so no id is accepted — an
+      // owner commanding this on someone's behalf gets told to use
+      // create_referral_link instead.
+      if (!boundCustomerId) {
+        throw new Error("Only available in a customer chat — in owner mode use create_referral_link with a customerId");
+      }
+      const { data: customer, error: custErr } = await db
+        .from("customers")
+        .select("id, name, referral_code")
+        .eq("id", boundCustomerId)
+        .maybeSingle();
+      if (custErr || !customer) throw new Error("Customer not found");
+      let code = (customer as { referral_code: string | null }).referral_code;
+      if (!code) {
+        code = "TIGA-" + Date.now().toString(36).toUpperCase().slice(-6) + Math.random().toString(36).slice(2, 5).toUpperCase();
+        const { error: upErr } = await db.from("customers").update({ referral_code: code }).eq("id", boundCustomerId);
+        if (upErr) throw upErr;
+      }
+      return {
+        referralCode: code,
+        shareMessage: `🎁 แนะนำเพื่อนมาเรียนเปียโนที่ Tiga Studio — ให้เพื่อนใช้โค้ด ${code} ตอนทักแชท แล้วเพื่อนจะได้ส่วนลดพิเศษ คุณก็ได้รับรางวัลเมื่อเพื่อนสมัครค่ะ`,
+        // Friend-facing link: the published widget page reads ?ref= and
+        // remembers the code, so one tap opens a chat that attributes itself.
+        referralUrl: `https://tigaalpha.github.io/studio/widget-demo.html?ref=${code}`,
+      };
+    }
+
+    case "apply_referral_code": {
+      if (!boundCustomerId) throw new Error("Only available in a customer chat");
+      const code = String(args.referralCode ?? "").trim();
+      if (!code) throw new Error("referralCode is required");
+      // attributeReferral is idempotent per (code, customer) and handles
+      // self-referral rejection + owner notification server-side.
+      return await attributeReferral(db, code, boundCustomerId, null, null);
+    }
+
     case "mark_payment_paid": {
       if (!callerId) throw new Error("Not authorized: no caller identity for this action");
       await requireOwnerOrAdmin(db, callerId);
@@ -1014,8 +1079,10 @@ export async function executeTool(
         body: `${customer.name} — โค้ด ${code}`,
         customer_id: customer.id,
       });
-      const shareMessage = `🎁 แนะนำเพื่อนมาเรียนที่ Tiga Studio รับส่วนลดพิเศษ! ใช้โค้ด ${code} ตอนสมัคร แล้วแจ้งให้ทีมงานทราบได้เลยค่ะ`;
-      return { referralCode: code, shareMessage };
+      const shareMessage = `🎁 แนะนำเพื่อนมาเรียนที่ Tiga Studio รับส่วนลดพิเศษ! ให้เพื่อนใช้โค้ด ${code} ตอนทักแชท หรือส่งลิงก์นี้ให้เพื่อนกดเลย: https://tigaalpha.github.io/studio/widget-demo.html?ref=${code}`;
+      // Codes are multi-use — one referrer can bring several friends; each
+      // friend who pays triggers its own reward reminder (payments.ts).
+      return { referralCode: code, shareMessage, referralUrl: `https://tigaalpha.github.io/studio/widget-demo.html?ref=${code}` };
     }
 
     case "record_transaction": {
@@ -1105,11 +1172,22 @@ export async function executeTool(
     case "get_business_summary": {
       const period = String(args.period ?? "today");
       const days = period === "today" ? 1 : period === "week" ? 7 : 30;
-      const start = new Date();
-      if (period === "today") start.setHours(0, 0, 0, 0);
-      else start.setTime(Date.now() - days * 24 * 60 * 60 * 1000);
-      const startISO = start.toISOString();
-      const startDateStr = startISO.slice(0, 10);
+      let startISO: string;
+      let startDateStr: string;
+      if (period === "today") {
+        // Bangkok day boundary (UTC+7, no DST) — using server-local midnight
+        // made "วันนี้" wrong by 7 hours: between 00:00-06:59 Thai time the
+        // summary silently included yesterday's bookings/transactions.
+        const nowShifted = new Date(Date.now() + 7 * 60 * 60 * 1000);
+        startDateStr = nowShifted.toISOString().slice(0, 10);
+        const bkkMidnightShifted = new Date(nowShifted);
+        bkkMidnightShifted.setUTCHours(0, 0, 0, 0);
+        startISO = new Date(bkkMidnightShifted.getTime() - 7 * 60 * 60 * 1000).toISOString();
+      } else {
+        const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        startISO = start.toISOString();
+        startDateStr = startISO.slice(0, 10);
+      }
 
       const [txResult, lessonsResult, leadsResult, wonResult] = await Promise.all([
         db.from("transactions").select("type, amount").gte("transaction_date", startDateStr),
@@ -1468,6 +1546,24 @@ export async function executeTool(
         .limit(50);
       if (aErr) throw aErr;
       return { approvals: approvals ?? [], count: (approvals ?? []).length };
+    }
+
+    case "delegate_to_department": {
+      // Chief of Staff command channel: deliver the directive into the target
+      // department's own conversation and have that department's agent answer
+      // it immediately (synchronously, so the CoS can quote the result back
+      // to the owner in the same turn). Refuse self/cos targets — delegation
+      // flows downward only (departments.ts).
+      const targetSlug = String(args.department ?? "");
+      const directive = String(args.directive ?? "").trim();
+      if (!directive) return { error: "คำสั่งว่างเปล่า — ระบุ directive ที่ชัดเจน" };
+      if (targetSlug === CHIEF_OF_STAFF_SLUG) return { error: "Chief of Staff ไม่สั่งงานตัวเองได้" };
+      const targetDept = departmentBySlug(targetSlug);
+      if (!targetDept) {
+        return { error: `ไม่พบแผนก "${targetSlug}" — แผนกที่มี: ${DEPARTMENTS.map((d) => d.slug).join(", ")}` };
+      }
+      if (!deps.delegate) return { error: "ระบบส่งงานยังไม่พร้อม ลองใหม่อีกครั้ง" };
+      return await deps.delegate(targetSlug, directive);
     }
 
     default: {

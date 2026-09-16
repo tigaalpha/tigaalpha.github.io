@@ -183,7 +183,7 @@ export default function PredictiveScoringPage() {
       {/* Filter Buttons */}
       <div className="flex gap-2">
         {(["all", "high", "medium", "low"] as const).map(f => (
-          <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)}>
+          <Button key={f} variant={filter === f ? "primary" : "outline"} size="sm" onClick={() => setFilter(f)}>
             {f === "all" ? "ทั้งหมด" : f === "high" ? "🔥 High (80+)" : f === "medium" ? "⚡ Medium (50-79)" : "❄️ Low (<50)"}
           </Button>
         ))}

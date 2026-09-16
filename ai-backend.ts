@@ -62,23 +62,47 @@ export function apiHeaders() {
 // call site. Resets on every stream read, not just content-bearing ones -
 // a slow-but-actively-connected response is never killed, only a
 // genuinely stalled one.
-export async function streamChatCompletion(body, { onStart, onChunk, onRawChunk, signal, stallMs = 9000 } = {}) {
-  let ctrl = null, stallTimer = null;
-  if (!signal && stallMs) {
+export async function streamChatCompletion(body, { onStart, onChunk, onRawChunk, signal, stallMs = 20000, connectMs = 30000 } = {}) {
+  /* ── why this is three budgets and not one ──
+     It used to be a single 9-second timer, armed BEFORE the fetch and only
+     ever reset after the first successful read. That one budget had to cover
+     the connection, the edge function's cold start, its lookup of the admin's
+     chosen model, AND the provider's time to its first token — and a
+     reasoning model on a phone's mobile data will not do all of that in nine
+     seconds. When it overran, the abort landed in the caller's catch and the
+     learner was told "the AI is a bit busy", which was never true: nothing
+     was busy, we hung up on it. The tell was a pair of bubbles — an empty one
+     from onStart, then the error — which can only happen if the response had
+     already arrived.
+
+     So: `connectMs` covers everything up to the response headers, and
+     `stallMs` covers SILENCE BETWEEN READS once the stream is open. The
+     server also sends a keep-alive comment every few seconds while a
+     provider is thinking, so a live-but-slow answer resets this on schedule
+     and only a genuinely dead connection ever trips it. */
+  let ctrl = null, timer = null;
+  const armTo = (ms) => {
+    if (!ctrl) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => ctrl.abort(), ms);
+  };
+  if (!signal) {
     ctrl = new AbortController();
     signal = ctrl.signal;
-    stallTimer = setTimeout(() => ctrl.abort(), stallMs);
+    armTo(connectMs);
   }
-  const arm = () => { if (stallTimer) { clearTimeout(stallTimer); stallTimer = setTimeout(() => ctrl.abort(), stallMs); } };
+  const arm = () => armTo(stallMs);
 
   const res = await fetch(API_URL, { method: "POST", headers: apiHeaders(), body: JSON.stringify(body), signal });
   if (!res.ok || !res.body) {
-    if (stallTimer) clearTimeout(stallTimer);
+    clearTimeout(timer);
     let detail = "";
     try { const j = await res.json(); detail = j?.error || ""; } catch (e) {}
     throw new Error(detail || ("HTTP " + res.status));
   }
   if (onStart) onStart();
+  // the connection is up; from here the only thing worth aborting on is silence
+  arm();
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let acc = "", buffer = "";
@@ -110,7 +134,7 @@ export async function streamChatCompletion(body, { onStart, onChunk, onRawChunk,
       }
     }
   }
-  if (stallTimer) clearTimeout(stallTimer);
+  clearTimeout(timer);
   return acc;
 }
 

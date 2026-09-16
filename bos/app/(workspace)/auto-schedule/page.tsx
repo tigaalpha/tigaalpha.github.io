@@ -58,7 +58,8 @@ export default function AutoSchedulePage() {
         .order("scheduled_at", { ascending: false })
         .limit(20);
       
-      const postsData: ScheduledPost[] = (socialPosts ?? []).map(post => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const postsData: ScheduledPost[] = ((socialPosts ?? []) as any[]).map((post: any) => ({
         id: post.id,
         content: (post.content as string || "").slice(0, 100),
         platforms: (post.platforms as string[]) || [],
@@ -70,10 +71,10 @@ export default function AutoSchedulePage() {
       setPosts(postsData);
       
       // Get marketing channels data
-      const channels = await repos.marketingChannels.list();
+      const channels = await repos.marketingChannels.listManualStats();
       const metricsData: PlatformMetric[] = channels.map(ch => ({
-        platform: ch.platform || "unknown",
-        followers: ch.followers_count || 0,
+        platform: (ch.channel as string) || "unknown",
+        followers: ch.followers || 0,
         postsThisWeek: 0,
         avgReach: 0,
         bestTime: "18:00",
@@ -136,7 +137,7 @@ export default function AutoSchedulePage() {
             <div className="text-center py-4 text-secondary/50">ยังไม่ได้เชื่อมต่อ Platform ใดๆ</div>
           ) : (
             metrics.map((metric) => {
-              const cfg = PLATFORM_CONFIG[metric.platform] || PLATFORM_CONFIG.facebook;
+              const cfg = PLATFORM_CONFIG[metric.platform] ?? { color: "text-secondary", bg: "", icon: "📊" };
               return (
                 <div key={metric.platform} className={cn("flex items-center justify-between rounded-xl border border-line/10 p-3", cfg.bg)}>
                   <div className="flex items-center gap-3">

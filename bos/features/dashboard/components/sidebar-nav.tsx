@@ -61,6 +61,8 @@ import {
   Cpu,
   GitBranch,
   Rocket,
+  Target,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -84,9 +86,10 @@ interface NavGroup {
 }
 
 /** Solo Mode's flat core list, in display order — hrefs looked up from TOP_LEVEL_ITEMS/NAV_GROUPS below so labels/icons stay single-sourced. */
-const CORE_HREFS = ["/dashboard", "/chat", "/students", "/sales", "/calendar", "/booking", "/knowledge", "/accounting", "/settings"];
+const CORE_HREFS = ["/ai-automation-chat", "/dashboard", "/chat", "/students", "/sales", "/calendar", "/booking", "/knowledge", "/accounting", "/settings"];
 
 const TOP_LEVEL_ITEMS: NavItem[] = [
+  { href: "/ai-automation-chat", label: "AI Automation Chat", icon: MessageSquare, ownerOnly: true },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/marketing-dashboard", label: "Marketing Dashboard", icon: LineChart },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
@@ -155,28 +158,38 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    id: "content-marketing",
-    label: "Content & Marketing",
+    id: "marketing",
+    label: "📣 Marketing",
     items: [
       { href: "/marketing-roi", label: "Marketing ROI", icon: DollarSign, ownerOnly: true },
       { href: "/weekly-report", label: "AI Weekly Report", icon: FileBarChart },
-      { href: "/auto-schedule", label: "AI Auto-Schedule", icon: CalendarClock },
-      { href: "/auto-publish", label: "Auto-Publish Pipeline", icon: Rocket },
       { href: "/ab-test-ai", label: "A/B Test AI", icon: Target },
-      { href: "/content-repurpose", label: "Content Repurpose", icon: Sparkles },
-      { href: "/personalization-engine", label: "Personalization", icon: UserCheck },
       { href: "/competitive-intel", label: "Competitive Intel", icon: Radar },
       { href: "/competitive-analysis", label: "Competitive Analysis", icon: Swords },
+      { href: "/conversion-tracking", label: "Conversion Tracking", icon: Target },
+      { href: "/performance-dashboard", label: "Performance Dashboard", icon: BarChart3 },
+      { href: "/ads", label: "แคมเปญโฆษณา", icon: Megaphone },
+      { href: "/marketing-channels", label: "Marketing Channels", icon: Radar },
+      { href: "/social-trends", label: "Social Trends", icon: TrendingUp },
+      { href: "/marketing-skills", label: "Marketing Skills", icon: Sparkles },
+      { href: "/landing-pages", label: "Landing Pages", icon: Layout },
+      { href: "/drip-campaign", label: "Drip Campaign", icon: Mail },
+    ],
+  },
+  {
+    id: "content",
+    label: "✏️ Content",
+    items: [
+      { href: "/auto-schedule", label: "AI Auto-Schedule", icon: CalendarClock },
+      { href: "/auto-publish", label: "Auto-Publish Pipeline", icon: Rocket },
+      { href: "/content-repurpose", label: "Content Repurpose", icon: Sparkles },
+      { href: "/personalization-engine", label: "Personalization", icon: UserCheck },
       { href: "/content-optimization", label: "Content Optimization", icon: Sparkles },
       { href: "/mobile-content", label: "Mobile-First Content", icon: Smartphone },
       { href: "/internal-linking", label: "Internal Linking", icon: Link2 },
-      { href: "/conversion-tracking", label: "Conversion Tracking", icon: Target },
-      { href: "/performance-dashboard", label: "Performance Dashboard", icon: BarChart3 },
       { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
       { href: "/content", label: "SEO/AEO Content", icon: FileText },
       { href: "/seo-publish", label: "SEO Publish Pipeline", icon: Globe },
-      { href: "/landing-pages", label: "Landing Pages", icon: Layout },
-      { href: "/drip-campaign", label: "Drip Campaign", icon: Mail },
       { href: "/course-writer", label: "Online Course Writer", icon: GraduationCap },
       { href: "/app-ad-kit", label: "App Ad Kit", icon: Smartphone },
       { href: "/images", label: "Image Studio", icon: ImageIcon },
@@ -184,10 +197,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/video-articles", label: "Voice Over", icon: Mic },
       { href: "/video-script-writer", label: "Video Script Writer", icon: Captions },
       { href: "/post", label: "Post ทุกช่องทาง", icon: Share2 },
-      { href: "/ads", label: "แคมเปญโฆษณา", icon: Megaphone },
-      { href: "/marketing-channels", label: "Marketing Channels", icon: Radar },
-      { href: "/social-trends", label: "Social Trends", icon: TrendingUp },
-      { href: "/marketing-skills", label: "Marketing Skills", icon: Sparkles },
     ],
   },
   {

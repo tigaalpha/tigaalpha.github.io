@@ -1,2 +1,7 @@
 node_modules/
 dist/
+
+dist-landing/
+
+landing-en/bundle/
+landing-zh/bundle/

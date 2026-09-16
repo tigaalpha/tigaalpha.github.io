@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { L, tr } from "./i18n";
 import { PlayAlongStaff, GamePiano } from "./music-engine";
 import { CountUp } from "./app-shell";
@@ -6,8 +7,34 @@ import { CountUp } from "./app-shell";
    (songOpen && songMeta), extracted verbatim from PianoApp's inline JSX as
    part of Phase 2 componentization — no logic changes. lc is derived from
    lang internally, same convention as the other overlay components. ── */
-export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm }) {
+export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songNextLit2, songFingerMap, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand, setSongPhase }) {
   const lc = L[lang];
+  // Landscape orientation prompt for Play Along — detect portrait on mobile
+  // The rotate hint is a one-time lesson, not a recurring nag: once it has
+  // been seen it never appears again on this device, however many songs are
+  // played afterwards. It taught what it needed to teach.
+  const ORIENT_SEEN_KEY = "tg_orient_hint_seen";
+  const [orientSkipped, setOrientSkipped] = useState(() => {
+    try { return localStorage.getItem(ORIENT_SEEN_KEY) === "1"; } catch (e) { return false; }
+  });
+  function dismissOrientHint() {
+    setOrientSkipped(true);
+    try { localStorage.setItem(ORIENT_SEEN_KEY, "1"); } catch (e) {}
+  }
+  // seeing it at all counts as having been taught — mark it the moment it shows
+  useEffect(() => {
+    if (orientSkipped || songPhase !== "playing") return;
+    try { localStorage.setItem(ORIENT_SEEN_KEY, "1"); } catch (e) {}
+  }, [orientSkipped, songPhase]);
+  const [isPortrait, setIsPortrait] = useState(() => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(orientation: portrait)").matches && window.innerHeight > window.innerWidth);
+  useEffect(() => {
+    if (orientSkipped) return;
+    const mq = window.matchMedia("(orientation: portrait)");
+    const handler = (e) => setIsPortrait(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [orientSkipped]);
+  const showOrientPrompt = isPortrait && !orientSkipped && songPhase === "playing" && typeof window !== "undefined" && window.innerWidth < 600;
   return (
         <div className="songov">
           <div className="songhdr">
@@ -48,7 +75,10 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                 {songSetlistPos && <span className="setlistpos">🎤 {songSetlistPos.idx + 1}/{songSetlistPos.total}</span>}
               </div>
               <div className="songprog"><div style={{ width: songHud.progress + "%" }} /></div>
-              <div className="songstaffwrap"><PlayAlongStaff notes={songStaffNotes} songMeta={songMeta} /></div>
+              <div className={`songstaffwrap${playAlongHand === "both" ? " grand" : ""}`}>
+                <PlayAlongStaff notes={songStaffNotes.list} startBeat={songStaffNotes.startBeat} spanBeats={songStaffNotes.spanBeats}
+                  songMeta={songMeta} handMode={playAlongHand} />
+              </div>
             </>
           )}
 
@@ -102,6 +132,23 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                       🎸 {lang === "th" ? "คอร์ดประกอบ" : lang === "zh" ? "和弦伴奏" : "Backing"}
                     </button>}
                   </div>
+                  {/* Hand mode selector — prominent, before Start button */}
+                  <div style={{ marginTop: 10, marginBottom: 4 }}>
+                    <div style={{ fontSize: 13, color: "var(--muted, #aaa)", marginBottom: 6, textAlign: "center" }}>
+                      {lang === "th" ? "🎹 เลือกมือที่จะฝึก" : lang === "zh" ? "🎹 选择练习的手" : "🎹 Choose hand to practice"}
+                    </div>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                      {["right", "left", "both"].map(h => (
+                        <button key={h}
+                          style={{ flex: 1, padding: "10px 6px", borderRadius: 10, border: playAlongHand === h ? "2px solid var(--accent, #d97757)" : "1px solid var(--bd1, #444)", background: playAlongHand === h ? "var(--accent, #d97757)" : "var(--card, #222)", color: playAlongHand === h ? "#fff" : "var(--text, #ddd)", fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "center" }}
+                          onClick={() => changePlayAlongHand(h)}>
+                          {h === "right" ? (lang === "th" ? "🖐️ มือขวา" : lang === "zh" ? "🖐️ 右手" : "🖐️ Right")
+                           : h === "left" ? (lang === "th" ? "🤚 มือซ้าย" : lang === "zh" ? "🤚 左手" : "🤚 Left")
+                           : (lang === "th" ? "🤲 สองมือ" : lang === "zh" ? "🤲 双手" : "🤲 Both")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="songready-btns">
                     <button className="songbtn ghost" onClick={previewSong}>▶ {lc.songPreview}</button>
                     <button className="songbtn go" onClick={startSongPlay}>▶ {lc.songStart}</button>
@@ -114,7 +161,10 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
 
           {songPhase === "playing" && (
             <>
-              <GamePiano fullWidth litNote={songNextLit} onNote={(n) => songInputRef.current({ note: n, freq: null, source: "tap" })} />
+              <GamePiano fullWidth litSet={[songNextLit, songNextLit2].filter(Boolean)} fingerMap={songFingerMap}
+                baseOct={playAlongHand === "left" ? 2 : playAlongHand === "both" ? 3 : 4}
+                octs={playAlongHand === "both" ? 4 : 2}
+                onNote={(n) => songInputRef.current({ note: n, freq: null, source: "tap" })} />
               <div className="songsrcbar">
                 {!songSrc ? "…" : songSrc.type === "midi" ? lc.practiceMidi : songSrc.type === "mic" ? lc.practiceMic : lc.practiceMicErr}
               </div>
@@ -165,7 +215,7 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                 <button className="songbtn ghost" onClick={exitSong}>↩ {lc.songBackList}</button>
                 <button className="songbtn ghost" onClick={() => shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: "★".repeat(songResult.stars) + "☆".repeat(3 - songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] })}>📤 {lc.shareBtn}</button>
                 <button className="songbtn ghost" style={{ borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${tr(songMeta, lang)} — ${"★".repeat(songResult.stars)} ${songResult.acc}% 🎵 TiGA Piano AI tigaalpha.github.io`)}>🟢 LINE</button>
-                <button className="songbtn go" onClick={startSongPlay}>↻ {lc.songRetry}</button>
+                <button className="songbtn go" onClick={() => setSongPhase("ready")}>↻ {lc.songRetry}</button>
               </div>
               {/* C1: Friend Challenge — share a challenge link */}
               <button className="songbtn ghost" style={{ width: "100%", marginTop: 6, fontSize: 12 }}
@@ -200,6 +250,28 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* A one-time tip, not an instruction: both orientations work fully —
+              landscape just gives a wider keyboard — so it says so plainly and
+              never appears again once it has been read. */}
+          {showOrientPrompt && (
+            <div className="orientation-prompt">
+              <div className="op-icon">📱↻</div>
+              <div className="op-title">
+                {lang === "th" ? "เล่นได้ทั้งแนวตั้งและแนวนอน" : lang === "zh" ? "竖屏、横屏都能弹" : "Play in portrait or landscape"}
+              </div>
+              <div className="op-sub">
+                {lang === "th"
+                  ? "ถนัดแบบไหนใช้แบบนั้นได้เลย ทำได้ทั้งคู่ — ถ้าหมุนเป็นแนวนอน เปียโนจะกว้างขึ้นและโน้ตชัดขึ้น (บอกครั้งเดียว ไม่กวนอีก)"
+                  : lang === "zh"
+                  ? "两种都可以，看你习惯 — 横屏时钢琴更宽、音符更清晰。（只提示这一次）"
+                  : "Whichever you prefer — both work fully. Turning sideways just gives you a wider piano and clearer notes. (Shown once only.)"}
+              </div>
+              <button className="op-skip" onClick={dismissOrientHint}>
+                {lang === "th" ? "รับทราบ เริ่มเล่นเลย" : lang === "zh" ? "知道了，开始弹" : "Got it — let's play"}
+              </button>
             </div>
           )}
         </div>

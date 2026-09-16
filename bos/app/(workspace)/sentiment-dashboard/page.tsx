@@ -107,7 +107,7 @@ export default function SentimentDashboardPage() {
             id: conv.id,
             name: conv.customerName || "ลูกค้า",
             sentiment,
-            icon: SENTIMENT_CONFIG[sentiment].icon,
+            icon: (SENTIMENT_CONFIG as any)[sentiment]?.icon ?? "👤",
             message: lastMessage.slice(0, 60),
             time: getTimeAgo(conv.updated_at),
             urgency: sentiment === "angry" ? "high" : "medium",
@@ -223,7 +223,7 @@ export default function SentimentDashboardPage() {
             <div className="text-center py-8 text-secondary/50">ไม่มี conversation</div>
           ) : (
             conversations.sort((a, b) => a.score - b.score).map((conv) => {
-              const cfg = SENTIMENT_CONFIG[conv.sentiment];
+              const cfg = (SENTIMENT_CONFIG as any)[conv.sentiment] ?? { bg: "bg-secondary/10", icon: "👤", text: "text-secondary" };
               return (
                 <div key={conv.id} className={cn("flex items-center gap-3 rounded-lg border border-line/5 px-3 py-2", cfg.bg)}>
                   <span className="text-lg">{cfg.icon}</span>

@@ -66,7 +66,7 @@ export function findDuplicateCandidates(customers: CustomerLike[]): DuplicatePai
       byPhone.set(phone, list);
     }
     const name = normalizeName(customer.name);
-    if (name.length >= 2) {
+    if (name.length >= 4) {
       const list = byName.get(name) ?? [];
       list.push(customer);
       byName.set(name, list);

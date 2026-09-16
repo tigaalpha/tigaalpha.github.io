@@ -29,7 +29,39 @@ export function degreeLabel(i, lang) {
   return arr[i] || `#${i + 1}`;
 }
 // stage/key/type → ready-made lesson text, or null (→ caller falls through to the live AI)
-export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes, fullTitle, lang) {
+/* Per-scale-type teaching copy. The formulas here are the authority the
+   pathway prints, so they are written as intervals from the tonic rather than
+   as note names — a formula is true in every key, a note list is only true in
+   one. Degrees 1-5 are identical across all three minors; every difference
+   lives in 6 and 7, which is what the text leads with. */
+const SCALE_TYPE_INFO = {
+  major: {
+    steps: "W-W-H-W-W-W-H",
+    th: "บันไดเสียงเมเจอร์ — สูตรระยะห่างนี้เหมือนกันทุกคีย์ เปลี่ยนแค่โน้ตเริ่มต้น ครึ่งเสียงอยู่ระหว่างขั้น 3-4 และ 7-8 เสียงสดใส มั่นคง",
+    en: "The major scale — the same step pattern in every key, only the starting note moves. The two half steps fall between degrees 3-4 and 7-8. Bright and settled.",
+    zh: "大调音阶——每个调的公式完全相同，只是起始音不同。两个半音位于第3-4级和第7-8级之间。明亮稳定。",
+  },
+  natural_minor: {
+    steps: "W-H-W-W-H-W-W",
+    th: "ไมเนอร์ธรรมชาติ — ใช้โน้ตตาม key signature ตรง ๆ ไม่ยกขั้นไหนเลย ครึ่งเสียงอยู่ที่ขั้น 2-3 และ 5-6 เทียบกับเมเจอร์คือลดขั้น 3, 6 และ 7 ลงครึ่งเสียง (♭3 ♭6 ♭7) เสียงเศร้า นุ่ม",
+    en: "Natural minor — exactly the key signature, nothing raised. Half steps fall between degrees 2-3 and 5-6. Against the major scale it is ♭3, ♭6 and ♭7. Dark and soft.",
+    zh: "自然小调——完全按调号，不升任何音。半音位于第2-3级和第5-6级之间。与大调相比是 ♭3、♭6、♭7。忧郁柔和。",
+  },
+  harmonic_minor: {
+    steps: "W-H-W-W-H-A2-H",
+    th: "ไมเนอร์ฮาร์โมนิก — ยกขั้นที่ 7 ขึ้นครึ่งเสียงจากไมเนอร์ธรรมชาติ (♭3 ♭6 แต่ 7 เป็นเนเชอรัล) ผลคือได้ leading note จริงที่วิ่งเข้าหาโทนิก และคอร์ด V กลายเป็นเมเจอร์ (V7 ได้เต็มรูป) ช่องระหว่างขั้น 6-7 กว้างเป็น augmented 2nd (สามครึ่งเสียง) — นั่นคือสีสันเฉพาะตัวที่ได้ยิน",
+    en: "Harmonic minor — natural minor with the 7th raised a semitone (♭3, ♭6, natural 7). That gives a true leading note pulling into the tonic, and turns the V chord major so a full V7 becomes available. The gap between degrees 6 and 7 widens to an augmented 2nd (three semitones), which is the colour you hear.",
+    zh: "和声小调——在自然小调基础上把第7级升高半音（♭3、♭6，第7级还原）。由此获得真正的导音，V 级和弦变为大三和弦，可用完整的 V7。第6-7级之间扩大为增二度（三个半音），这正是它独特的色彩来源。",
+  },
+  melodic_minor: {
+    steps: "W-H-W-W-W-W-H",
+    th: "ไมเนอร์เมโลดิก — ขาขึ้นยกทั้งขั้นที่ 6 และ 7 (♭3 แต่ 6 และ 7 เป็นเนเชอรัล) เพื่อลบช่วง augmented 2nd ของฮาร์โมนิกออก ทำนองขาขึ้นจึงลื่นไหล ส่วนขาลงกลับไปใช้ไมเนอร์ธรรมชาติทุกตัว เพราะไม่ต้องวิ่งเข้าหาโทนิกแล้ว (นี่คือธรรมเนียมแบบคลาสสิก ส่วนแจ๊สมักใช้รูปขาขึ้นทั้งขึ้นและลง)",
+    en: "Melodic minor — going up, both the 6th and 7th are raised (♭3, natural 6 and 7), which removes harmonic minor's augmented 2nd and lets the line climb smoothly. Coming down it reverts to natural minor, because there is no tonic to lean into on the way down. (That is the classical convention; jazz usually keeps the ascending form in both directions.)",
+    zh: "旋律小调——上行时第6、第7级同时升高（♭3，第6、7级还原），消除了和声小调的增二度，旋律上行更流畅。下行还原为自然小调，因为下行不需要趋向主音。（这是古典惯例；爵士乐通常上下行都用上行形式。）",
+  },
+};
+
+export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes, fullTitle, lang, scaleType) {
   const notesTxt = demoNotes.join(" ");
   if (stage.demoMode === "prog" && chordType && chordType.romans) {
     const romans = chordType.romans.join(" ");
@@ -39,6 +71,17 @@ export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes,
       th: `🧭 ${fullTitle} · ${keyLabel}\n\nทางคอร์ด: ${romans}\nโน้ต: ${notesTxt}\nชื่อคอร์ด: ${degs}\n\n💡 เล่นทีละคอร์ดแบบ broken (ไล่โน้ตจากล่างขึ้นบน) เว้นจังหวะสั้น ๆ ระหว่างคอร์ด จำตัวเลขโรมันให้ได้ (สูตรสากล) แล้วลองย้ายไปคีย์อื่น — รู้สูตรเดียว เล่นได้ทุกคีย์ 12 คีย์!`,
       en: `🧭 ${fullTitle} · ${keyLabel}\n\nProgression: ${romans}\nNotes: ${notesTxt}\nChord names: ${degs}\n\n💡 Play one chord at a time, broken (bottom-up), with a short breath between chords. Memorize the Roman numerals (the universal formula), then try another key — learn one shape, play all 12 keys!`,
       zh: `🧭 ${fullTitle} · ${keyLabel}\n\n进行：${romans}\n音符：${notesTxt}\n和弦名：${degs}\n\n💡 一次弹一个和弦，分解（从下往上），和弦之间稍作停顿。记住罗马数字（通用公式），然后试试其他调 — 学会一个形状，12个调都能弹！`,
+    };
+    return T[lang] || T.en;
+  }
+  if (stage.demoMode === "scale" && stage.types) {
+    const info = SCALE_TYPE_INFO[scaleType] || SCALE_TYPE_INFO.major;
+    const isMel = scaleType === "melodic_minor";
+    const body = info[lang] || info.en;
+    const T = {
+      th: `🎼 ${fullTitle} · ${keyLabel}\n\nโน้ตทั้งหมด: ${notesTxt}\nสูตรระยะห่าง (W=เสียงเต็ม, H=ครึ่งเสียง, A2=augmented 2nd): ${info.steps}${isMel ? "\nขาลง: W-W-H-W-W-H-W (กลับเป็นไมเนอร์ธรรมชาติ)" : ""}\n\n${body}\n\n💡 ฝึกแยกมือก่อน ไล่ขึ้น-ลงช้า ๆ ให้จังหวะสม่ำเสมอ นิ้วโป้งสอดลอดใต้ฝ่ามืออย่างนุ่มนวลโดยไม่ยกข้อมือ (ดูเลขนิ้วในผังด้านล่าง) พอแม่นแล้วค่อยเพิ่มความเร็ว`,
+      en: `🎼 ${fullTitle} · ${keyLabel}\n\nAll notes: ${notesTxt}\nStep formula (W=whole, H=half, A2=augmented 2nd): ${info.steps}${isMel ? "\nComing down: W-W-H-W-W-H-W (back to natural minor)" : ""}\n\n${body}\n\n💡 Practise hands separately first, slow and even in both directions. The thumb passes smoothly under the palm without lifting the wrist (finger numbers are in the chart below). Add speed only once it is accurate.`,
+      zh: `🎼 ${fullTitle} · ${keyLabel}\n\n所有音符：${notesTxt}\n音程公式（W=全音，H=半音，A2=增二度）：${info.steps}${isMel ? "\n下行：W-W-H-W-W-H-W（还原为自然小调）" : ""}\n\n${body}\n\n💡 先分手练习，上下行都要慢而均匀。大拇指平顺地穿到手掌下方，手腕不要抬起（指法见下方图表）。准确之后再加速。`,
     };
     return T[lang] || T.en;
   }
@@ -276,12 +319,13 @@ export const L = {
     sys: "คุณคือ TiGA AI ผู้เชี่ยวชาญดนตรีของ Tiga Studio มีความรู้เชิงลึกจริงครอบคลุมทฤษฎีดนตรี (สเกล คอร์ด ฮาร์โมนี รูปแบบเพลง), การฝึกโสตประสาท (ear training: การจำขั้นคู่ คอร์ด โน้ตด้วยหู), ประวัติศาสตร์ดนตรี (ยุคบาโรก คลาสสิก โรแมนติก อิมเพรสชันนิสม์ ร่วมสมัย และนักประพันธ์สำคัญ), การเรียนรู้และนวัตกรรมการสอนดนตรี (แนวทางครูชั้นครูอย่าง Suzuki, Taubman, Kodály, Dalcroze และเทคโนโลยีการสอนสมัยใหม่), ดนตรีปฏิบัติ (เทคนิคการฝึกซ้อมอย่างมีประสิทธิภาพ การเตรียมขึ้นแสดง การจัดการความประหม่า), และการตลาด/เส้นทางอาชีพด้านดนตรี (การสร้างผู้ฟัง การแสดงสด แพลตฟอร์มสตรีมมิง)\n\nตอบด้วยความรู้จริงเชิงลึก ไม่ใช่คำตอบผิวเผิน — ถ้าคำถามซับซ้อนหรือขอรายละเอียด ให้อธิบายอย่างครบถ้วนและยาวเท่าที่จำเป็น แบ่งเป็นย่อหน้าสั้นๆ อ่านง่าย (ไม่ใช่ก้อนข้อความยาวก้อนเดียว) ยกตัวอย่างประกอบเสมอเมื่อช่วยให้เข้าใจง่ายขึ้น คำถามง่ายให้ตอบกระชับพอเหมาะ ไม่ต้องยืดเกินจำเป็น\n\nทฤษฎีต้องแม่นยำเสมอ: เมเจอร์สเกล = ระยะครึ่งเสียง 2-2-1-2-2-2-1 จากตั้งต้น, คอร์ดเมเจอร์ = ราก+4+7 ครึ่งเสียง, ไมเนอร์ = ราก+3+7 — เมื่อพูดถึงคอร์ด/สเกลให้ระบุชื่อโน้ตพร้อมออกเทฟเสมอ เช่น C4 E4 G4\n\nตอบเป็นภาษาไทย หัวข้อที่ไม่เกี่ยวข้องกับดนตรีเลยจริงๆ ให้ปฏิเสธสั้นๆ อย่างสุภาพ",
     err: "ขอโทษครับ ครูไม่ได้ยินชัดเลย ลองพูดอีกทีได้ไหมครับ",
     chatErr: "ขอโทษครับ ระบบ AI กำลังติดขัดเล็กน้อย กรุณาถามใหม่อีกครั้งในอีกสักครู่ครับ",
+    chatSlow: "การเชื่อมต่อช้ากว่าปกติ เลยตอบไม่ทันครับ — ลองถามอีกครั้ง หรือเช็กสัญญาณเน็ตดูนะครับ",
     ttsNo: "🔇 อุปกรณ์นี้ไม่รองรับเสียง",
     ttsBlocked: "🔇 เสียงถูกบล็อกใน preview — กดเปิดในแท็บใหม่ (มุมขวาบน ⋮ › Open in new tab) แล้วลองอีกครั้งครับ",
-    navSensei: "TIGA CHAT", navPath: "เส้นทางเรียนรู้", navChallenging: "ท้าทาย", eventSpotGo: "ลองเลย →", navVideos: "วิดีโอสอน", videosEmpty: "ยังไม่มีวิดีโอสอนตอนนี้", admVideos: "วิดีโอ", admVidUpload: "อัปโหลดวิดีโอใหม่", admVidTitle: "ชื่อวิดีโอ", admVidDesc: "คำอธิบาย (ไม่บังคับ)", admVidPick: "เลือกไฟล์วิดีโอ", admVidUploading: "กำลังอัปโหลด…", admVidPublished: "เผยแพร่แล้ว", admVidDraft: "ฉบับร่าง", admVidPublish: "เผยแพร่", admVidUnpublish: "ซ่อน", admVidDelete: "ลบ", admVidEmpty: "ยังไม่มีวิดีโอ อัปโหลดอันแรกได้เลย", admVidTooBig: "ไฟล์ใหญ่เกินไป (สูงสุด 500MB)", admVidErr: "อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง",
-    playDemo: "▶ เล่นตัวอย่าง", pathTitle: "เส้นทางการเรียนรู้", pathSub: "เลือกหัวข้อ แล้ว AI จะสอนให้",
+    navSensei: "TIGA CHAT", navPath: "เส้นทางเรียนรู้", navChallenging: "ท้าทาย", eventSpotGo: "ลองเลย →", navVideos: "วิดีโอสอน", videosEmpty: "ยังไม่มีวิดีโอสอนตอนนี้", vidPaid: "รับเหรียญแล้ว", admVideos: "วิดีโอ", admVidUpload: "อัปโหลดวิดีโอใหม่", admVidTitle: "ชื่อวิดีโอ", admVidDesc: "คำอธิบาย (ไม่บังคับ)", admVidPick: "เลือกไฟล์วิดีโอ", admVidUploading: "กำลังอัปโหลด…", admVidPublished: "เผยแพร่แล้ว", admVidDraft: "ฉบับร่าง", admVidPublish: "เผยแพร่", admVidUnpublish: "ซ่อน", admVidDelete: "ลบ", admVidEmpty: "ยังไม่มีวิดีโอ อัปโหลดอันแรกได้เลย", admVidTooBig: "ไฟล์ใหญ่เกินไป (สูงสุด 500MB)", admVidErr: "อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง",
+    playDemo: "▶ เล่นตัวอย่าง", pathTitle: "เส้นทางการเรียนรู้", stepLabel: "ขั้นที่ {n}", pathSub: "เลือกหัวข้อ แล้ว AI จะสอนให้",
     pathGuide: "เริ่มจากบนลงล่าง: รากฐาน → คอร์ด → ขั้นสูง เรียนตามลำดับแล้วเก่งแน่นอน",
-    learnBtn: "เรียนเรื่องนี้", readBtn: "อ่านบทเรียน", caseOverview: "ภาพรวม", caseSub: "เลือกกรณีศึกษา", keysLearned: "เรียนแล้ว {n} คีย์", pathFoot: "◈ แตะหัวข้อใดก็ได้ AI จะสอนพร้อมเล่นบนเปียโนให้ ◈",
+    learnBtn: "เรียนเรื่องนี้", readBtn: "อ่านบทเรียน", playBtn: "ฝึกเลย", tapHint: "👆 ลองกดดูสิ", caseOverview: "ภาพรวม", caseSub: "เลือกกรณีศึกษา", keysLearned: "เรียนแล้ว {n} คีย์", pathFoot: "◈ แตะหัวข้อใดก็ได้ AI จะสอนพร้อมเล่นบนเปียโนให้ ◈",
     pickKey: "เลือกคีย์ที่ต้องการเรียน", pickKeyHint: "เลือกได้ทั้ง 12 คีย์ — AI จะสอนคีย์ที่คุณเลือก",
     pickType: "เลือกชนิดที่ต้องการเรียน", pickTypeHint: "เลือกชนิดก่อน แล้วเลือกคีย์",
     adminTitle: "ADMIN CONSOLE", adminSub: "โหมดผู้ดูแลระบบ — สอน AI ได้อิสระ",
@@ -290,7 +334,7 @@ export const L = {
     adminChips: ["สอน AI เรื่องการตลาดโรงเรียนดนตรี", "ไอเดียคอนเทนต์ TikTok สอนเปียโน", "วิเคราะห์คู่แข่งธุรกิจสอนดนตรี", "การใช้ AI เพิ่มยอดขายคอร์ส"],
     webLabel: "ค้นเน็ต", webHint: "เปิดเพื่อให้ AI ค้นข้อมูลจากอินเทอร์เน็ต", attachHint: "แนบรูปภาพ",
     lockTitle: "RESTRICTED ACCESS", lockSub: "พื้นที่นี้สงวนเฉพาะผู้ดูแลระบบ\nกรุณาใส่รหัสลับเพื่อเข้าถึง",
-    lockEnter: "ปลดล็อก", lockErr: "รหัสไม่ถูกต้อง", lockPlace: "• • • • • •",
+    lockEnter: "ปลดล็อก", lockErr: "รหัสไม่ถูกต้อง", lockPlace: "• • • • • •", bioHint: "👆 เครื่องนี้ใช้ลายนิ้วมือได้ — ใส่รหัสครั้งนี้ แล้วจะถามให้เปิดใช้", bioUnlock: "แตะเพื่อสแกนลายนิ้วมือ", bioWait: "กำลังรอสแกน…", bioOr: "ใช้รหัสแทน", bioFail: "สแกนไม่สำเร็จ ลองใหม่หรือใส่รหัส", bioOfferT: "เปิดใช้ลายนิ้วมือไหม", bioOfferS: "ครั้งต่อไปแตะนิ้วแทนการพิมพ์รหัส — เฉพาะเครื่องนี้ และรหัสยังใช้ได้เหมือนเดิม", bioOfferYes: "เปิดใช้", bioOfferNo: "ข้ามไปก่อน", bioOfferErr: "เปิดใช้ไม่สำเร็จ — เข้าด้วยรหัสได้ตามปกติ",
     navProfile: "โปรไฟล์", profTitle: "โปรไฟล์ของฉัน",
     profExpStat: "EXP สะสม", profLessonsStat: "บทเรียนที่ฝึก", profStreakBest: "วันต่อเนื่อง",
     profRanks: "เส้นทางสู่ตำนาน", profContact: "ข้อมูลติดต่อ", profSignOut: "ออกจากระบบ",
@@ -386,7 +430,7 @@ export const L = {
     vmHint: "💡 พูดถามแล้วรอครูตอบ · เล่นเปียโนก่อนถามได้ ครูจะช่วยวิเคราะห์ · ครูเล่นโชว์ให้ฟังได้ด้วย", vmFastVoice: "เสียงเร็ว", vmHqVoice: "เสียงคมชัด", vmSpeedLbl: "ความเร็ว", vmVoiceLbl: "โทนเสียง", vmPolyOn: "🎹 ฟังคอร์ด: เปิด", vmPolyOff: "🎹 ฟังคอร์ด: ปิด", vmPolyHint: "เบต้า: ฟังคอร์ดหลายโน้ตพร้อมกันจากไมค์ (เปียโนจริง)", vmLangHint: "เปลี่ยนภาษาที่คุยกับครู", vmSettings: "ตั้งค่าเสียง", vmEarReset: "ปรับหูครูใหม่แล้ว ลองพูดอีกครั้งได้เลยครับ", vmGreetBack: "ยินดีต้อนรับกลับมาครับ! คราวก่อนเรายังติด {x} อยู่ ลองทบทวนกันไหม หรืออยากฝึกอะไรดีครับ", vmGreetHw: "ยินดีต้อนรับกลับมาครับ! คราวก่อนผมให้การบ้านไว้ว่า {x} ได้ลองฝึกหรือยังครับ ลองเล่นให้ผมฟังหน่อยสิ",
     wlcTitle: "ยินดีต้อนรับสู่ TiGA! 🎹", wlcTip1: "แตะคีย์เปียโนเล่นได้เลย ครู AI ช่วยสอน", wlcTip2: "แตะ ☰ มุมซ้ายบน เพื่อเปิดเมนูไปหน้าต่างๆ", wlcTip3: "เล่นเกม เก็บดาว เลเวล และเหรียญ", wlcStart: "เริ่มเลย!",
     helpTitle: "วิธีใช้งาน", help1: "แตะ ☰ มุมซ้ายบน = เปิดเมนู ไปหน้าต่างๆ", help2: "แตะคีย์เปียโน = เล่นเสียงโน้ต", help3: "ปุ่มไมค์ 🎙️ = คุยกับครู AI สอนสด", help4: "ไปที่ 'ฝึกซ้อม' = เล่นเกมเก็บดาว", help5: "ปุ่ม 🔁 = ฟังครูเล่นซ้ำ", helpOk: "เข้าใจแล้ว!", signOut: "ออกจากระบบ",
-    shopTitle: "ร้านค้า", shopSkins: "สกินคีย์", shopThemes: "ธีมพื้นหลัง", shopFrames: "กรอบรูปโปรไฟล์", shopEquip: "ใช้", shopEquipped: "กำลังใช้", shopNew: "ใหม่", shopRareC: "ทั่วไป", shopRareR: "หายาก", shopRareE: "พิเศษ", shopRareL: "ตำนาน",
+    shopTitle: "ร้านค้า", shopSkins: "สกินคีย์", shopThemes: "ธีมพื้นหลัง", shopFrames: "กรอบรูปโปรไฟล์", shopKeyboards: "คีย์บอร์ด", shopStickers: "สติกเกอร์", shopHats: "หมวก", shopOutfits: "ชุด", shopWeapons: "อาวุธ", shopAccessories: "เครื่องประดับ", shopEquip: "ใช้", shopEquipped: "กำลังใช้", shopNew: "ใหม่", shopRareC: "ทั่วไป", shopRareR: "หายาก", shopRareE: "พิเศษ", shopRareL: "ตำนาน",
     chestTitle: "ของขวัญรายวัน", chestOpening: "กำลังเปิด…", chestGot: "ได้รับรางวัล!", chestDay: "วันต่อเนื่อง", chestClaim: "รับเลย!", chestBig: "รางวัลใหญ่",
     dhStreak: "วันต่อเนื่อง", dhGoal: "เป้าหมายวันนี้", dhDone: "สำเร็จวันนี้แล้ว! 🎉", dhAtRisk: "ฝึกวันนี้ รักษาสตรีค!", dhFreeze: "โล่กันสตรีค", dhClaim: "เปิดของขวัญ", dhPlay: "เล่นเลย", dhBonus: "โบนัส!", recFor: "แนะนำสำหรับคุณ", hwLabel: "การบ้าน:", recReview: "ทบทวน {x}", recNext: "บทเรียนถัดไป:", recNewSong: "เพลงใหม่:", recReplaySong: "ฝึกอีกครั้ง:", recWarm: "วอร์มอัพด้วยเกม", recWeakSkill: "จุดอ่อนตอนนี้: {x}", recFundamentals: "เริ่มจากพื้นฐาน: {x}", recAsk: "ขอทบทวนเรื่อง {x} หน่อยครับ อธิบายสั้นๆ แล้วลองให้ผมฝึก",
     setTitle: "ตั้งค่า", setVolume: "ระดับเสียง", setMute: "ปิดเสียง", setMetro: "เมโทรนอม",
@@ -399,7 +443,7 @@ export const L = {
     prF1: "สร้างเพลงด้วย AI ไม่จำกัด", prF2: "♾️ ครู AI + สร้างเพลง + วิจารณ์การเล่น — ไม่จำกัดครั้ง ทุกวัน", prF3: "🧑‍🏫 Auto Teaching — ครู AI โผล่สอนขณะซ้อม Pathway แบบเรียลไทม์", prF4: "🎓 เตรียมสอบเกรด + 👨‍👩‍👧 แดชบอร์ดผู้ปกครองดูพัฒนาการลูก", prF5: "🔈 เสียงครูธรรมชาติคุณภาพสูง + ไม่มีโฆษณาตลอดการใช้",
     prFam1: "⭐ Premium ครบทุกฟีเจอร์ รวม Auto Teaching ไม่มีตัดออก", prFam2: "👨‍👩‍👧‍👦 3 โปรไฟล์ใช้ได้พร้อมกัน", prFree1: "🎹 เพลง 180+ ชิ้น · บทเรียน · เกมฝึกหู · Sight Reading · Hand Coach · Goal Planner — ฟรีทั้งหมด", prFree2: "🤖 ครู AI 5 ครั้ง/วัน · สร้างเพลง AI 2 ครั้ง/วัน · วิจารณ์การเล่น 3 ครั้ง/วัน",
     prMax1: "🎙️ โหมดเสียง AI — คุย & เล่นสดกับครู (เฉพาะ Max)", prMax2: "✓ ทุกอย่างใน Premium รวม Auto Teaching ครบ", prMax3: "🎙️ AI Voice Teacher — คุยด้วยเสียง ครู AI ตอบกลับสด 24/7", prMax4: "📊 Daily Mentor · รายงาน AI รายสัปดาห์ · แผนซ้อม 7 วันส่วนตัว", prMax5: "🪙 XP & เหรียญ ×2 ทุกวัน · 🛡️ Streak Freeze 4 ใบ/เดือน ฟรี ไม่ต้องซื้อ", prMax6: "👑 เพลง Exclusive: Für Elise · Moonlight · Clair de Lune + อีก 3 ชิ้น", prMax7: "🎮 Music Games — เกมดนตรีสนุกๆ ช่วยให้เรียนรู้อย่างสนุกสนาน อัปเดตเกมใหม่ต่อเนื่อง", prMxf1: "👑 Max ครบทุกฟีเจอร์ ไม่มีตัดออก — สำหรับทุกคนในครอบครัว", prMxf2: "สูงสุด 10 โปรไฟล์ · ใช้งานพร้อมกันได้ทุกคนในบ้าน", prMxf3: "📊 แดชบอร์ดครอบครัว + รายงาน AI แยกทุกโปรไฟล์", prCurrent: "แผนปัจจุบัน", prSwitch: "เปลี่ยนมาแผนนี้", prDowngrade: "เปลี่ยนเป็นฟรี", prManage: "เปลี่ยน/จัดการแผน",
-    trialBanner: "🎁 ทดลองใช้ฟรี", trialDaysLeft: "วันที่เหลือ", trialUpgrade: "อัปเกรดแผน", trialExpired: "หมดเวลาทดลองใช้แล้ว — เลือกแผนเพื่อเรียนต่อ",
+    trialBanner: "🎁 ทดลองใช้ฟรี", trialDaysLeft: "วัน", trialUpgrade: "อัปเกรดแผน", trialExpired: "หมดเวลาทดลองใช้แล้ว — เลือกแผนเพื่อเรียนต่อ",
     prNote: "ยกเลิกได้ทุกเมื่อ · ถูกกว่าเรียนพิเศษ 20 เท่า", prSchool: "สำหรับโรงเรียน/ครู (B2B)",
     prBillB2B: "🏫 สำหรับธุรกิจ (B2B)", prSeat: "ที่นั่ง", prB2bSub: "สำหรับสถาบัน/โรงเรียนสอนดนตรี · ราคาต่อที่นั่ง · ขั้นต่ำ 15 ที่นั่ง/สัญญา",
     prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "เทียบเท่า Premium ทุกฟีเจอร์", prB2bPlusSub: "เทียบเท่า Max ทุกฟีเจอร์ + AI Voice Teacher",
@@ -408,7 +452,7 @@ export const L = {
     prB2bPerksLabel: "＋ สิทธิพิเศษสำหรับสถาบัน", prB2bOrYearly: "🗓️ หรือจ่ายรายปี {x}",
     schoolInfo: "🏫 TiGA สำหรับโรงเรียนและครูเปียโน\n\n• ใช้เป็น 'เพื่อนซ้อมที่บ้าน' ให้นักเรียนระหว่างคาบเรียน — AI ช่วยฝึกทุกวัน ครูเห็นความก้าวหน้า\n• โหมดไฮบริด: AI สอนทุกวัน + ครูจริงเช็คเดือนละครั้ง\n• ราคาสถาบัน + แดชบอร์ดติดตามนักเรียนทั้งห้อง\n\nสนใจติดต่อ: LINE @tiga.ai 🎹",
     octaveHint: "เลื่อนช่วงคีย์ขึ้น-ลง",
-    songLoop: "🔁 วนซ้ำ", songNoLoop: "ไม่วน", songSlowHint: "โหมดช้า — เหมาะสำหรับผู้เริ่มต้น",
+    songLoop: "🔁 วนซ้ำ", songNoLoop: "ไม่วน", songSlowHint: "โหมดช้า — เหมาะสำหรับผู้เริ่มต้น", songHandBoth: "👐 สองมือ",
     quickTitle: "⚡ 3 นาที", quickSub: "เล่นกิจกรรมสั้นที่สุดให้เลย",
     warmupTitle: "วอร์มอัพ 5 นาที", warmupSub: "AI เลือกกิจกรรมเริ่มต้นที่ดีที่สุดให้คุณ", warmupStart: "เริ่มวอร์มอัพ", warmupSkip: "ข้าม",
     moodTitle: "วันนี้เป็นยังไงบ้าง?", moodTimePick: "มีเวลาเท่าไหร่?", moodShort: "3–5 นาที", moodMed: "10–15 นาที", moodLong: "30 นาที+", moodLearn: "อยากเรียนอะไรใหม่", moodPlay: "อยากเล่นเพลง", moodFun: "แค่อยากเล่นเพลิน",
@@ -439,12 +483,13 @@ export const L = {
     sys: "You are TiGA AI, Tiga Studio's music expert. You have genuine deep expertise across music theory (scales, chords, harmony, form), ear training (recognizing intervals, chords, and notes by ear), music history (Baroque, Classical, Romantic, Impressionist, and contemporary eras and their major composers), music learning and teaching innovation (master approaches like Suzuki, Taubman, Kodály, Dalcroze, plus modern teaching technology), applied/performance practice (effective practice technique, performance preparation, managing stage nerves), and music marketing/career paths (building an audience, live performance, streaming platforms).\n\nAnswer with real depth, not surface-level takes — when a question is complex or asks for detail, explain it fully and at whatever length it genuinely needs, broken into short readable paragraphs (never one big wall of text). Use examples whenever they help. Simple questions still get concise answers — don't pad unnecessarily.\n\nTheory must always be accurate: a major scale is the half-step pattern 2-2-1-2-2-2-1 from the root; a major chord is root+4+7 semitones; a minor chord is root+3+7. Always name notes with octave numbers when discussing chords/scales, e.g. C4 E4 G4.\n\nAnswer in English. Decline briefly and politely only for topics genuinely unrelated to music.",
     err: "Sorry, I didn't quite catch that — mind saying it again?",
     chatErr: "Sorry — the AI is a bit busy right now. Please try again in a moment.",
+    chatSlow: "The connection was too slow to finish that answer — try again, or check your signal.",
     ttsNo: "🔇 Speech not supported on this device",
     ttsBlocked: "🔇 Audio is blocked in preview — open in a new tab (top-right ⋮ › Open in new tab), then try again.",
-    navSensei: "TIGA CHAT", navPath: "PATHWAY", navChallenging: "Challenging", eventSpotGo: "Try it →", navVideos: "Video Lessons", videosEmpty: "No video lessons yet", admVideos: "Videos", admVidUpload: "Upload a new video", admVidTitle: "Video title", admVidDesc: "Description (optional)", admVidPick: "Choose video file", admVidUploading: "Uploading…", admVidPublished: "Published", admVidDraft: "Draft", admVidPublish: "Publish", admVidUnpublish: "Unpublish", admVidDelete: "Delete", admVidEmpty: "No videos yet — upload the first one", admVidTooBig: "File too large (max 500MB)", admVidErr: "Upload failed — please try again",
-    playDemo: "▶ PLAY DEMO", pathTitle: "PATHWAY OF LEARNING", pathSub: "Pick a topic, AI will teach you",
+    navSensei: "TIGA CHAT", navPath: "PATHWAY", navChallenging: "Challenging", eventSpotGo: "Try it →", navVideos: "Video Lessons", videosEmpty: "No video lessons yet", vidPaid: "Coins earned", admVideos: "Videos", admVidUpload: "Upload a new video", admVidTitle: "Video title", admVidDesc: "Description (optional)", admVidPick: "Choose video file", admVidUploading: "Uploading…", admVidPublished: "Published", admVidDraft: "Draft", admVidPublish: "Publish", admVidUnpublish: "Unpublish", admVidDelete: "Delete", admVidEmpty: "No videos yet — upload the first one", admVidTooBig: "File too large (max 500MB)", admVidErr: "Upload failed — please try again",
+    playDemo: "▶ PLAY DEMO", pathTitle: "PATHWAY OF LEARNING", stepLabel: "STEP {n}", pathSub: "Pick a topic, AI will teach you",
     pathGuide: "Go top to bottom: Foundation → Chords → Advanced. Follow the order to master piano.",
-    learnBtn: "LEARN THIS", readBtn: "READ", caseOverview: "Overview", caseSub: "Pick a case study", keysLearned: "{n} keys learned", pathFoot: "◈ Tap any topic — AI teaches it and plays it on the piano ◈",
+    learnBtn: "LEARN THIS", readBtn: "READ", playBtn: "PRACTISE NOW", tapHint: "👆 Tap a key", caseOverview: "Overview", caseSub: "Pick a case study", keysLearned: "{n} keys learned", pathFoot: "◈ Tap any topic — AI teaches it and plays it on the piano ◈",
     pickKey: "Pick a key to learn", pickKeyHint: "All 12 keys available — AI teaches your chosen key",
     pickType: "Select a type", pickTypeHint: "Choose a type first, then pick a key",
     adminTitle: "ADMIN CONSOLE", adminSub: "Admin mode — train AI freely",
@@ -453,7 +498,7 @@ export const L = {
     adminChips: ["Marketing for a music school", "TikTok content ideas for piano", "Analyze music-teaching competitors", "Use AI to boost course sales"],
     webLabel: "WEB", webHint: "Enable to let AI search the internet", attachHint: "Attach image",
     lockTitle: "RESTRICTED ACCESS", lockSub: "This area is admin-only.\nEnter the secret code to access.",
-    lockEnter: "UNLOCK", lockErr: "Incorrect code", lockPlace: "• • • • • •",
+    lockEnter: "UNLOCK", lockErr: "Incorrect code", lockPlace: "• • • • • •", bioHint: "👆 This device has a sensor — enter the code once and you can turn on fingerprint unlock", bioUnlock: "Unlock with fingerprint", bioWait: "Waiting for the sensor…", bioOr: "Use the passcode instead", bioFail: "Scan failed — try again or use the passcode", bioOfferT: "Turn on fingerprint unlock?", bioOfferS: "Next time, touch the sensor instead of typing the code — on this device only. The passcode keeps working.", bioOfferYes: "Turn it on", bioOfferNo: "Not now", bioOfferErr: "Couldn't turn it on — you're in with the code anyway",
     navProfile: "PROFILE", profTitle: "MY PROFILE",
     profExpStat: "total EXP", profLessonsStat: "lessons", profStreakBest: "day streak",
     profRanks: "ROAD TO LEGEND", profContact: "CONTACT INFO", profSignOut: "Sign out",
@@ -549,7 +594,7 @@ export const L = {
     vmHint: "💡 Ask out loud then wait for the reply · play first and I will analyze it · I can play demos too", vmFastVoice: "Fast voice", vmHqVoice: "HQ voice", vmSpeedLbl: "Speed", vmVoiceLbl: "Voice", vmPolyOn: "🎹 Chord ear: on", vmPolyOff: "🎹 Chord ear: off", vmPolyHint: "Beta: hears full chords from the mic (acoustic piano)", vmLangHint: "Switch the language you talk with the teacher in", vmSettings: "Voice settings", vmEarReset: "Re-tuned my ear — try speaking again", vmGreetBack: "Welcome back! Last time {x} was tricky — want to review it, or work on something else?", vmGreetHw: "Welcome back! Last time I gave you homework: {x}. Did you get to practice it? Play it for me and let's hear.",
     wlcTitle: "Welcome to TiGA! 🎹", wlcTip1: "Tap the keys to play — the AI tutor helps you", wlcTip2: "Tap ☰ top-left to open the menu and pages", wlcTip3: "Play games, collect stars, levels & coins", wlcStart: "Let's go!",
     helpTitle: "How to use", help1: "Tap ☰ top-left = open menu & pages", help2: "Tap the piano keys = play notes", help3: "Mic button 🎙️ = talk to your AI teacher", help4: "Go to 'Studio' = play games & earn stars", help5: "🔁 button = hear the teacher play again", helpOk: "Got it!", signOut: "Sign out",
-    shopTitle: "Shop", shopSkins: "Key skins", shopThemes: "Themes", shopFrames: "Avatar frames", shopEquip: "Equip", shopEquipped: "Equipped", shopNew: "NEW", shopRareC: "Common", shopRareR: "Rare", shopRareE: "Epic", shopRareL: "Legendary",
+    shopTitle: "Shop", shopSkins: "Key skins", shopThemes: "Themes", shopFrames: "Avatar frames", shopKeyboards: "Keyboards", shopStickers: "Stickers", shopHats: "Hats", shopOutfits: "Outfits", shopWeapons: "Weapons", shopAccessories: "Accessories", shopEquip: "Equip", shopEquipped: "Equipped", shopNew: "NEW", shopRareC: "Common", shopRareR: "Rare", shopRareE: "Epic", shopRareL: "Legendary",
     chestTitle: "Daily reward", chestOpening: "Opening…", chestGot: "You got!", chestDay: "day streak", chestClaim: "Claim!", chestBig: "BIG WIN",
     dhStreak: "day streak", dhGoal: "Today's goal", dhDone: "Done for today! 🎉", dhAtRisk: "Practice today to keep your streak!", dhFreeze: "Streak freeze", dhClaim: "Open gift", dhPlay: "Play now", dhBonus: "BONUS!", recFor: "For you", hwLabel: "Homework:", recReview: "Review {x}", recNext: "Next lesson:", recNewSong: "New song:", recReplaySong: "Practice again:", recWarm: "Warm up with a game", recWeakSkill: "Your weakest skill: {x}", recFundamentals: "Let's start with the basics: {x}", recAsk: "Can we review {x}? Explain briefly then let me practice it.",
     setTitle: "Settings", setVolume: "Volume", setMute: "Mute", setMetro: "Metronome",
@@ -562,7 +607,7 @@ export const L = {
     prF1: "Unlimited AI song creation", prF2: "♾️ AI tutor + song creation + play critique — fully unlimited, every day", prF3: "🧑‍🏫 Auto Teaching — AI coach pops up while you practice Pathway, in real time", prF4: "🎓 Grade exam prep + 👨‍👩‍👧 parent dashboard with real-time progress", prF5: "🔈 Premium natural teacher voice + no ads ever",
     prFam1: "⭐ Full Premium — every feature including Auto Teaching, nothing removed", prFam2: "👨‍👩‍👧‍👦 3 profiles sharing simultaneously", prFree1: "🎹 180+ songs · lessons · ear training · sight reading · hand coach · goal planner — all free", prFree2: "🤖 AI tutor 5/day · AI song creator 2/day · AI play critique 3/day",
     prMax1: "🎙️ AI Voice Teacher — talk & play live (Max-only)", prMax2: "✓ Everything in Premium — Auto Teaching + all Premium features, fully unlocked", prMax3: "🎙️ AI Voice Teacher — speak naturally, get live spoken responses 24/7", prMax4: "📊 Daily Mentor · AI Weekly Report · personalized 7-day practice plan", prMax5: "🪙 2× XP & coins every session · 🛡️ 4 free Streak Freezes per month", prMax6: "👑 Exclusive pieces: Für Elise · Moonlight Sonata · Clair de Lune + 3 more", prMax7: "🎮 Music Games — fun games that make learning enjoyable, updated continuously", prMxf1: "👑 Full Max — every feature, for every family member, nothing removed", prMxf2: "Up to 10 profiles — all family members active simultaneously", prMxf3: "📊 Family dashboard + individual AI reports per profile", prCurrent: "Current plan", prSwitch: "Switch to this plan", prDowngrade: "Switch to Free", prManage: "Change plan",
-    trialBanner: "🎁 Free Trial", trialDaysLeft: "days left", trialUpgrade: "Upgrade now", trialExpired: "Your free trial has ended — choose a plan to continue",
+    trialBanner: "🎁 Free Trial", trialDaysLeft: "days", trialUpgrade: "Upgrade now", trialExpired: "Your free trial has ended — choose a plan to continue",
     prNote: "Cancel anytime · 20× cheaper than private lessons", prSchool: "For schools / teachers (B2B)",
     prBillB2B: "🏫 FOR BUSINESS (B2B)", prSeat: "seat", prB2bSub: "For music schools & studios · priced per seat · 15-seat minimum per contract",
     prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "Every Premium feature, included", prB2bPlusSub: "Every Max feature + AI Voice Teacher, included",
@@ -571,7 +616,7 @@ export const L = {
     prB2bPerksLabel: "+ Institutional perks", prB2bOrYearly: "🗓️ or billed annually at {x}",
     schoolInfo: "🏫 TiGA for schools & piano teachers\n\n• Use it as the at-home practice companion between lessons — AI coaches daily, you see progress.\n• Hybrid mode: AI every day + a real teacher check-in monthly.\n• Institutional pricing + a whole-class progress dashboard.\n\nContact: LINE @tiga.ai 🎹",
     octaveHint: "Shift the keyboard range",
-    songLoop: "🔁 Loop", songNoLoop: "No Loop", songSlowHint: "Slow mode — great for beginners",
+    songLoop: "🔁 Loop", songNoLoop: "No Loop", songSlowHint: "Slow mode — great for beginners", songHandBoth: "👐 Both Hands",
     quickTitle: "⚡ Quick 3 min", quickSub: "Jump straight to the shortest drill",
     warmupTitle: "5-min Warmup", warmupSub: "AI-picked warm-up routine to start your session", warmupStart: "Start Warmup", warmupSkip: "Skip",
     moodTitle: "How are you today?", moodTimePick: "How much time do you have?", moodShort: "3–5 min", moodMed: "10–15 min", moodLong: "30+ min", moodLearn: "Learn something new", moodPlay: "Play a song", moodFun: "Just have fun",
@@ -602,12 +647,13 @@ export const L = {
     sys: "您是TiGA AI，Tiga Studio的音乐专家。您在以下领域拥有真正的深厚专业知识：乐理（音阶、和弦、和声、曲式）、听觉训练（凭听觉辨认音程、和弦、音符）、音乐史（巴洛克、古典、浪漫、印象派及当代各时期与重要作曲家）、音乐学习与教学创新（铃木教学法、Taubman、柯达伊、达尔克罗兹等大师方法，以及现代教学科技）、应用/演奏实践（有效的练习技巧、演出准备、舞台紧张情绪管理），以及音乐营销与职业发展（建立听众群、现场演出、串流平台）。\n\n回答要有真正的深度，不要浮于表面——遇到复杂或要求详细说明的问题，就完整、充分地解释，视实际需要决定长度，并分成简短易读的段落（不要写成一大段文字）。适当举例帮助理解。简单的问题仍可简洁作答，不必刻意拉长。\n\n乐理必须始终准确：大调音阶从根音起的半音关系为2-2-1-2-2-2-1；大三和弦为根音+4+7个半音；小三和弦为根音+3+7个半音。提到和弦/音阶时务必标注音名与八度数字，例如 C4 E4 G4。\n\n请用中文回答。只有与音乐完全无关的话题才需简短礼貌地婉拒。",
     err: "不好意思，我没听清楚，可以再说一次吗？",
     chatErr: "抱歉，AI 系统有点忙，请稍后再试一次。",
+    chatSlow: "网络太慢，这次回答没能传完 — 请再试一次，或检查一下信号。",
     ttsNo: "🔇 此设备不支持语音",
     ttsBlocked: "🔇 预览中音频被屏蔽 — 请在新标签页打开（右上角 ⋮ › Open in new tab）后重试。",
-    navSensei: "TIGA CHAT", navPath: "学习路径", navChallenging: "闯关挑战", eventSpotGo: "试一试 →", navVideos: "视频课程", videosEmpty: "暂无视频课程", admVideos: "视频", admVidUpload: "上传新视频", admVidTitle: "视频标题", admVidDesc: "描述（可选）", admVidPick: "选择视频文件", admVidUploading: "上传中…", admVidPublished: "已发布", admVidDraft: "草稿", admVidPublish: "发布", admVidUnpublish: "取消发布", admVidDelete: "删除", admVidEmpty: "还没有视频，上传第一个吧", admVidTooBig: "文件过大（最大500MB）", admVidErr: "上传失败，请重试",
-    playDemo: "▶ 播放示例", pathTitle: "学习路径", pathSub: "选择主题，AI为您讲解",
+    navSensei: "TIGA CHAT", navPath: "学习路径", navChallenging: "闯关挑战", eventSpotGo: "试一试 →", navVideos: "视频课程", videosEmpty: "暂无视频课程", vidPaid: "已获得金币", admVideos: "视频", admVidUpload: "上传新视频", admVidTitle: "视频标题", admVidDesc: "描述（可选）", admVidPick: "选择视频文件", admVidUploading: "上传中…", admVidPublished: "已发布", admVidDraft: "草稿", admVidPublish: "发布", admVidUnpublish: "取消发布", admVidDelete: "删除", admVidEmpty: "还没有视频，上传第一个吧", admVidTooBig: "文件过大（最大500MB）", admVidErr: "上传失败，请重试",
+    playDemo: "▶ 播放示例", pathTitle: "学习路径", stepLabel: "第 {n} 步", pathSub: "选择主题，AI为您讲解",
     pathGuide: "从上到下：基础 → 和弦 → 进阶。按顺序学习，定能精通。",
-    learnBtn: "学习此项", readBtn: "阅读", caseOverview: "概览", caseSub: "选择案例", keysLearned: "已学 {n} 个调", pathFoot: "◈ 点击任意主题 — AI讲解并在钢琴上演奏 ◈",
+    learnBtn: "学习此项", readBtn: "阅读", playBtn: "立即练习", tapHint: "👆 点一下试试", caseOverview: "概览", caseSub: "选择案例", keysLearned: "已学 {n} 个调", pathFoot: "◈ 点击任意主题 — AI讲解并在钢琴上演奏 ◈",
     pickKey: "选择要学习的调", pickKeyHint: "全部12个调可选 — AI讲解您选的调",
     pickType: "选择类型", pickTypeHint: "先选类型，再选调",
     adminTitle: "ADMIN CONSOLE", adminSub: "管理员模式 — 自由训练AI",
@@ -616,7 +662,7 @@ export const L = {
     adminChips: ["音乐学校营销策略", "钢琴教学TikTok内容创意", "分析音乐教学竞争对手", "用AI提升课程销售"],
     webLabel: "联网", webHint: "开启让AI搜索互联网", attachHint: "附加图片",
     lockTitle: "RESTRICTED ACCESS", lockSub: "此区域仅限管理员。\n请输入密码以访问。",
-    lockEnter: "解锁", lockErr: "密码错误", lockPlace: "• • • • • •",
+    lockEnter: "解锁", lockErr: "密码错误", lockPlace: "• • • • • •", bioHint: "👆 本设备支持指纹 — 输入一次密码即可开启", bioUnlock: "用指纹解锁", bioWait: "等待传感器…", bioOr: "改用密码", bioFail: "扫描失败 — 请重试或使用密码", bioOfferT: "开启指纹解锁？", bioOfferS: "下次用指纹代替输入密码 — 仅限本设备。密码仍然可用。", bioOfferYes: "开启", bioOfferNo: "暂不", bioOfferErr: "开启失败 — 已用密码进入",
     navProfile: "个人", profTitle: "我的资料",
     profExpStat: "累计 EXP", profLessonsStat: "已学课程", profStreakBest: "天连续",
     profRanks: "传奇之路", profContact: "联系方式", profSignOut: "退出登录",
@@ -712,7 +758,7 @@ export const L = {
     vmHint: "💡 开口提问后等待回答 · 先弹一段，我会帮你分析 · 老师也能弹给你听", vmFastVoice: "快速语音", vmHqVoice: "高清语音", vmSpeedLbl: "速度", vmVoiceLbl: "音色", vmPolyOn: "🎹 和弦聆听：开", vmPolyOff: "🎹 和弦聆听：关", vmPolyHint: "Beta：用麦克风识别同时弹奏的和弦（原声钢琴）", vmLangHint: "切换和老师对话的语言", vmSettings: "语音设置", vmEarReset: "已重新调整听力，请再说一次", vmGreetBack: "欢迎回来！上次{x}有点难，要复习一下，还是练点别的？", vmGreetHw: "欢迎回来！上次我给你布置的作业是 {x}，练了吗？弹给我听听吧。",
     wlcTitle: "欢迎来到 TiGA! 🎹", wlcTip1: "点琴键即可弹奏，AI 老师来帮你", wlcTip2: "点左上角 ☰ 打开菜单进入各页面", wlcTip3: "玩游戏、收集星星、等级和金币", wlcStart: "开始吧！",
     helpTitle: "使用方法", help1: "点左上角 ☰ = 打开菜单和页面", help2: "点钢琴键 = 弹出音符", help3: "麦克风 🎙️ = 和 AI 老师对话", help4: "进入'练习' = 玩游戏赚星星", help5: "🔁 按钮 = 再听一次老师弹", helpOk: "明白了！", signOut: "退出登录",
-    shopTitle: "商店", shopSkins: "琴键皮肤", shopThemes: "主题", shopFrames: "头像框", shopEquip: "装备", shopEquipped: "已装备", shopNew: "新品", shopRareC: "普通", shopRareR: "稀有", shopRareE: "史诗", shopRareL: "传说",
+    shopTitle: "商店", shopSkins: "琴键皮肤", shopThemes: "主题", shopFrames: "头像框", shopKeyboards: "键盘", shopStickers: "贴纸", shopHats: "帽子", shopOutfits: "服装", shopWeapons: "武器", shopAccessories: "饰品", shopEquip: "装备", shopEquipped: "已装备", shopNew: "新品", shopRareC: "普通", shopRareR: "稀有", shopRareE: "史诗", shopRareL: "传说",
     chestTitle: "每日奖励", chestOpening: "开启中…", chestGot: "获得奖励！", chestDay: "连续天数", chestClaim: "领取！", chestBig: "大奖",
     dhStreak: "连续天数", dhGoal: "今日目标", dhDone: "今日已完成！🎉", dhAtRisk: "今天练习，保持连胜！", dhFreeze: "连胜护盾", dhClaim: "打开礼物", dhPlay: "马上玩", dhBonus: "奖励！", recFor: "为你推荐", hwLabel: "作业:", recReview: "复习 {x}", recNext: "下一课:", recNewSong: "新歌：", recReplaySong: "再练一次：", recWarm: "用游戏热身", recWeakSkill: "当前弱项：{x}", recFundamentals: "从基础开始：{x}", recAsk: "我们能复习一下{x}吗？简单讲解后让我练习。",
     setTitle: "设置", setVolume: "音量", setMute: "静音", setMetro: "节拍器",
@@ -725,7 +771,7 @@ export const L = {
     prF1: "无限 AI 创作歌曲", prF2: "♾️ AI老师 + 作曲 + 演奏点评 — 完全无限制，每天随时用", prF3: "🧑‍🏫 Auto Teaching — 练习学习路径时，AI实时弹出针对性辅导", prF4: "🎓 考级备考模式 + 👨‍👩‍👧 家长仪表板，实时追踪孩子进度", prF5: "🔈 高品质自然老师语音 + 彻底无广告",
     prFam1: "⭐ Premium全部功能，含Auto Teaching，一个不少", prFam2: "👨‍👩‍👧‍👦 3个档案同时使用", prFree1: "🎹 180+首曲目 · 课程 · 听力训练 · 视奏 · 手型指导 · 目标规划 — 全部免费", prFree2: "🤖 AI老师5次/天 · AI作曲2次/天 · AI演奏点评3次/天",
     prMax1: "🎙️ AI 语音老师 — 实时对话与弹奏（Max 专属）", prMax2: "✓ 包含Premium全部功能，Auto Teaching完整版", prMax3: "🎙️ AI语音教师 — 开口说话，AI实时语音回应，24/7随时在线", prMax4: "📊 Daily Mentor · AI每周进度报告 · 个性化7日练习计划", prMax5: "🪙 经验值&金币×2 · 🛡️ 每月4张免费连击保护卡，无需购买", prMax6: "👑 独家曲目: 致爱丽丝 · 月光奏鸣曲 · 月光曲 + 另外3首", prMax7: "🎮 音乐游戏 — 寓教于乐的趣味游戏，持续更新", prMxf1: "👑 Max全部功能，一个不少 — 全家共享，人人享有", prMxf2: "最多10个档案 — 全家成员同时使用", prMxf3: "📊 家庭仪表盘 + 每个档案独立AI报告", prCurrent: "当前套餐", prSwitch: "切换到此套餐", prDowngrade: "切换到免费", prManage: "更改套餐",
-    trialBanner: "🎁 免费试用", trialDaysLeft: "天剩余", trialUpgrade: "立即升级", trialExpired: "免费试用已结束 — 选择套餐以继续使用",
+    trialBanner: "🎁 免费试用", trialDaysLeft: "天", trialUpgrade: "立即升级", trialExpired: "免费试用已结束 — 选择套餐以继续使用",
     prNote: "随时取消 · 比私教便宜 20 倍", prSchool: "面向学校/老师 (B2B)",
     prBillB2B: "🏫 企业版 (B2B)", prSeat: "席位", prB2bSub: "面向音乐学校/机构 · 按席位计价 · 每份合同最低15个席位",
     prB2bStdNm: "Standard", prB2bPlusNm: "Plus", prB2bStdSub: "包含Premium全部功能", prB2bPlusSub: "包含Max全部功能 + AI语音教师",
@@ -734,7 +780,7 @@ export const L = {
     prB2bPerksLabel: "＋ 机构专属权益", prB2bOrYearly: "🗓️ 或按年支付 {x}",
     schoolInfo: "🏫 TiGA 面向学校与钢琴老师\n\n• 作为课后'在家练习伙伴'——AI 每天辅导，老师查看进度。\n• 混合模式：AI 每日教学 + 真人老师每月检查。\n• 机构价格 + 全班进度仪表板。\n\n联系：LINE @tiga.ai 🎹",
     octaveHint: "移动键盘音区",
-    songLoop: "🔁 循环", songNoLoop: "不循环", songSlowHint: "慢速模式 — 适合初学者",
+    songLoop: "🔁 循环", songNoLoop: "不循环", songSlowHint: "慢速模式 — 适合初学者", songHandBoth: "👐 双手",
     quickTitle: "⚡ 快速3分钟", quickSub: "直接进入最短练习",
     warmupTitle: "5分钟热身", warmupSub: "AI为您选择最佳热身内容", warmupStart: "开始热身", warmupSkip: "跳过",
     moodTitle: "今天状态怎么样?", moodTimePick: "有多少时间?", moodShort: "3–5分钟", moodMed: "10–15分钟", moodLong: "30分钟+", moodLearn: "学点新东西", moodPlay: "弹首歌", moodFun: "随便玩玩",

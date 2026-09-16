@@ -5,6 +5,7 @@ import {
   SONG_LEAD, SONG_HITWINDOW, SONG_PERFECT, SONG_DEBOUNCE_MS, SONG_ECHO_MS, SONG_MISSWINDOW,
   expandSong, normalizeSeq, noteKeyFrac, _PC, playBackingChord, songTonic,
   songTechniqueProfile, estimateSongDifficulty,
+  THEORY_REF,
 } from "./music-engine";
 import { tr } from "./i18n";
 import { SONGS, SONG_TIMESIG } from "./songs-data";
@@ -99,7 +100,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const [battlePickOpen, setBattlePickOpen] = useState(false);
   const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
   const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
-  const [songStaffNotes, setSongStaffNotes] = useState([]); // upcoming notes shown on the reading staff
+  // The reading staff's current window: {list, startBeat, spanBeats}. The
+  // beat bounds travel with the notes because the staff positions everything
+  // by real beat, so it needs to know the window it's drawing, not just what
+  // happens to be in it.
+  const EMPTY_STAFF_WIN = { list: [], startBeat: 0, spanBeats: 20 };
+  const [songStaffNotes, setSongStaffNotes] = useState(EMPTY_STAFF_WIN);
   const [songBest, setSongBest] = useState(0);
   const [songBursts, setSongBursts] = useState([]);   // particle bursts
   const [songShake, setSongShake] = useState(false);  // screen shake on milestones
@@ -132,9 +138,19 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songAnnounceT = useRef(null);
   const [songSrc, setSongSrc] = useState(null);            // {type:"midi"|"mic"|"error"}
   const [songCountdown, setSongCountdown] = useState(null);
+  // Hand mode for Play Along: "right" (melody), "left" (bass), "both" (melody+bass)
+  const [playAlongHand, setPlayAlongHand] = useState("right");
+  const playAlongHandRef = useRef(playAlongHand);
+  useEffect(() => { playAlongHandRef.current = playAlongHand; }, [playAlongHand]);
   const [songAutoLoop, setSongAutoLoop] = useState(false);
   const songAutoLoopRef = useRef(false);
   const songLoopRetryT = useRef(null);
+  // Hand-mode: "right" (default, unchanged behavior) | "left" (same melody,
+  // re-fingered for the left hand) | "both" (adds a generated left-hand
+  // accompaniment voice as real, separately-scored gameplay). Sticky across
+  // song choices, same convention as songTempo.
+  const [songFingerMap, setSongFingerMap] = useState({});   // {noteName: finger} for whichever key(s) are currently lit
+  const [songNextLit2, setSongNextLit2] = useState(null);   // second hand's next-due note — only set when both hands are simultaneously active
 
   // play-along runtime refs (driven by rAF; kept off React state for 60fps)
   const songCanvasRef = useRef(null);
@@ -174,7 +190,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   }
   function chooseSong(meta) {
     clearSongPreview();
-    songDataRef.current = expandSong(meta);
+    songDataRef.current = expandSong(meta, playAlongHand);
     setSongMeta(meta);
     setSongResult(null);
     setSongAnalysis(null);
@@ -271,26 +287,78 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         acc: done > 0 ? Math.round(songHitsRef.current / done * 100) : 100,
         progress: Math.round(done / total * 100),
       });
-      // guide: light the next upcoming note on the in-game piano, and feed a
-      // sliding window (a couple already-played + the current + a few ahead)
+      // guide: light the next-due note on the in-game piano — both hands' next
+      // note when two are simultaneously in play — and feed a sliding window
       // to the reading staff so the learner can see where they are, not just
-      // what's next — sight-reading while playing, not just a note preview.
+      // what's next. In two-hand mode BOTH voices go to the staff, which
+      // draws them as a real grand staff (melody in treble, accompaniment in
+      // bass) rather than the single treble line it used to be limited to.
       const allNotes = songNotesRef.current;
-      let curIdx = allNotes.findIndex(n => !n.hit && !n.missed);
-      if (curIdx === -1) curIdx = allNotes.length;
-      setSongNextLit(curIdx < allNotes.length ? allNotes[curIdx].note : null);
-      const winStart = Math.max(0, curIdx - 2);
-      // sight-reading window: 2 already-played + the current + FOUR full bars
-      // ahead (16 quarter-notes in 4/4), so the learner can read ahead
+      const nextByHand = {};
+      for (const n of allNotes) {
+        if (n.hit || n.missed) continue;
+        const h = n.hand === "left" ? "left" : "right";
+        if (!nextByHand[h]) nextByHand[h] = n;
+        if (nextByHand.right && nextByHand.left) break;
+      }
+      const primaryNext = nextByHand.right || nextByHand.left || null;
+      const secondaryNext = (nextByHand.right && nextByHand.left) ? nextByHand.left : null;
+      setSongNextLit(primaryNext ? primaryNext.note : null);
+      setSongNextLit2(secondaryNext ? secondaryNext.note : null);
+      const fm = {};
+      if (primaryNext) fm[primaryNext.note] = primaryNext.finger;
+      if (secondaryNext) fm[secondaryNext.note] = secondaryNext.finger;
+      setSongFingerMap(fm);
+      // Sight-reading window, measured in BEATS rather than in note count:
+      // one bar already played + four bars ahead. A fixed beat span is what
+      // lets the staff space notes by their real rhythmic position (and keeps
+      // both staves of a grand staff aligned on the beat) instead of spacing
+      // them evenly by array index, which made every rhythm look identical.
       const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
       const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
-      const curBeat = curIdx < allNotes.length ? allNotes[curIdx].beat : (allNotes.length ? allNotes[allNotes.length - 1].beat : 0);
-      let winEnd = curIdx + 1;
-      while (winEnd < allNotes.length && winEnd - winStart < 24 && allNotes[winEnd].beat <= curBeat + beatsPerBar * 4) winEnd++;
-      setSongStaffNotes(allNotes.slice(winStart, winEnd).map((n, i) => ({
-        note: n.note, beat: n.beat,
-        state: (winStart + i) < curIdx ? "past" : (winStart + i) === curIdx ? "current" : "future",
-      })));
+      const spanBeats = beatsPerBar * 5;
+      // "Where we are" is read off the SAME CLOCK the falling notes are drawn
+      // from, not off which notes happen to have been played yet. A meteor is
+      // at the hit line when songTime === note.t + SONG_LEAD, so the moment
+      // currently being played is (songTime - SONG_LEAD) — convert that to
+      // beats and the staff and the falling notes are showing the identical
+      // instant of the music by construction.
+      //
+      // Driving it from hit/missed state instead (as before) meant the staff
+      // ran ahead whenever the learner played early and lagged whenever they
+      // stopped playing, so the notation and the meteors disagreed about
+      // where in the bar the song was.
+      const spb = 60 / ((songMeta && songMeta.bpm) || 90);
+      const nowSec = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current - SONG_LEAD;
+      const nowBeat = Math.max(0, nowSec / spb);
+      const winStartBeat = Math.max(0, nowBeat - beatsPerBar);
+      const winEndBeat = winStartBeat + spanBeats;
+      // the note being played right now = the one whose span contains the
+      // clock, else the next one due
+      const melody = allNotes.filter(n => n.hand !== "left");
+      const lead = (melody.length ? melody : allNotes);
+      const curNote = lead.find(n => nowBeat >= n.beat - 0.001 && nowBeat < n.beat + (n.durBeats || 1) - 0.001)
+        || lead.find(n => n.beat >= nowBeat - 0.001) || null;
+      // The staff draws ENGRAVED glyphs (bar-split, tied, rests filled in —
+      // see buildNotation), not the raw played notes: a note held across a
+      // bar line is two tied heads on the page but one note in the game, and
+      // a bar's worth of silence is a rest glyph with no note behind it at
+      // all. srcIdx is what links a drawn head back to the note being graded.
+      const notation = (songDataRef.current && songDataRef.current.notation) || null;
+      const stateOf = (g, voice) => {
+        if (g.kind === "rest" || g.srcIdx == null) return "future";
+        const src = voice[g.srcIdx];
+        if (!src) return "future";
+        if (src.hit || src.missed) return "past";
+        return src === curNote ? "current" : "future";
+      };
+      const inWin = g => g.beat >= winStartBeat - 0.001 && g.beat <= winEndBeat + 0.001;
+      const staffList = [];
+      if (notation) {
+        for (const g of notation.right) if (inWin(g)) staffList.push({ ...g, hand: "right", state: stateOf(g, allNotes) });
+        for (const g of notation.left) if (inWin(g)) staffList.push({ ...g, hand: "left", state: stateOf(g, allNotes) });
+      }
+      setSongStaffNotes({ startBeat: winStartBeat, spanBeats, list: staffList });
       // ghost race vs your best run
       const st = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
       songSamplesRef.current.push({ t: +st.toFixed(2), s: songScoreRef.current });
@@ -313,7 +381,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongResult(null);
     setSongCountdown(null);
     setSongNextLit(null);
-    setSongStaffNotes([]);
+    setSongStaffNotes(EMPTY_STAFF_WIN);
     setSongJudge(null);
     setSongBursts([]); setSongShake(false); setSongGo(false); setSongGhost(null); setSongBonus(null);
     songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
@@ -335,6 +403,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const now = performance.now();
     const tSec = now / 1000;
     const fever = songFeverRef.current;
+    // Rotating the phone leaves the play area wide but SHORT, so meteors that
+    // look well-spaced in portrait end up stacked on top of each other with
+    // barely any gap between them. Halve them in landscape — same lane
+    // positions, just smaller heads, so consecutive notes read as separate.
+    const landscape = W > H;
+    const noteScale = landscape ? 0.5 : 1;
     // deep-space nebula backdrop — pre-rendered offscreen once per size, drawn each frame
     let neb = songNebulaRef.current;
     if (!neb || neb.w !== W || neb.h !== H) {
@@ -378,7 +452,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     ctx.fillStyle = earthGrad; ctx.fillRect(0, hitY - 30, W, 38);
     // Each lane's x-position is the actual key it maps to, so a falling note lands
     // directly above the piano key (and the lit key) the learner must press.
-    const laneFrac = lanes.map(ln => noteKeyFrac(ln) || { cx: 0.5, w: 1 / 14 });
+    // Map each lane to its real piano key position using noteKeyFrac.
+    // The GamePiano component adjusts its octave range (baseOct) to match
+    // the hand mode, so noteKeyFrac positions always align with visible keys.
+    const hand = playAlongHandRef.current;
+    const handBaseOct = hand === "left" ? 2 : 4;
+    const handNW = hand === "both" ? 28 : 14;
+    const laneFrac = lanes.map(ln => noteKeyFrac(ln, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 });
     for (let i = 0; i < nLane; i++) {
       const f = laneFrac[i], hue = laneHue(lanes[i]);
       const cw = f.w * W, cx = f.cx * W - cw / 2;
@@ -400,10 +480,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (yFrac < -0.05 || yFrac > 1.4) continue;
       const y = yFrac * hitY;
       const h = Math.max(14, n.durSec * pxPerSec);
-      const f = laneFrac[n.lane] || noteKeyFrac(n.note) || { cx: 0.5, w: 1 / 14 };
+      const f = laneFrac[n.lane] || noteKeyFrac(n.note, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 };
       const w = Math.max(10, f.w * W - 4), top = y - h, hue = laneHue(n.note);
       const mcx = f.cx * W;
-      const rr = Math.max(7, Math.min(w / 2 - 1, 21)); // meteor head radius (+15% cap)
+      const rr = Math.max(7 * noteScale, Math.min(w / 2 - 1, 21) * noteScale); // meteor head radius (+15% cap), halved in landscape
       const hy = y - rr;                               // head rides the leading (falling) edge
       const spin = tSec * 1.6 + n.t * 2.3;             // slow tumble, phase unique per note
       if (!n.missed) {
@@ -444,9 +524,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         ctx.beginPath(); ctx.ellipse(cxk, cyk, crr, crr * 0.75, a, 0, Math.PI * 2); ctx.fill();
       }
       if (!n.missed) {
+        // the note letter shrinks with the head, or it would overflow a
+        // half-size meteor in landscape
+        const fs = Math.max(8, Math.round(13 * noteScale));
         ctx.fillStyle = "rgba(255,255,255,0.96)";
-        ctx.font = "bold 13px Rajdhani, sans-serif"; ctx.textAlign = "center";
-        ctx.fillText(pcOf(n.note), mcx, hy + 4);
+        ctx.font = `bold ${fs}px Rajdhani, sans-serif`; ctx.textAlign = "center";
+        ctx.fillText(pcOf(n.note), mcx, hy + fs * 0.32);
       }
     }
     // ── rockets: a hit launches one from the hit-line, climbing to blow the meteor up ──
@@ -577,19 +660,38 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const inPC = pcOf(d.note);
     const tnow = performance.now();
     const src = d.source;
+    // Echo/debounce guards key off the EXACT note (pitch + octave), not just
+    // pitch class — a real physical press always lands on one exact key, and
+    // this matters once a two-hand song can have the melody and the
+    // accompaniment sharing a pitch class in different octaves close
+    // together in time (e.g. a right-hand C5 and a left-hand C3 root in the
+    // same beat): keying by pitch class alone would let the second genuine
+    // press wrongly suppress the first as if it were an echo/repeat of it.
+    //
     // Echo guard: when you TAP, the app plays that note and the mic hears it ~100ms
     // later — ignore a mic onset of the same pitch right after a tap so one tap can't
     // become 2–3 hits. (Pure real-piano play never sets this, so repeats stay fine.)
-    if (src === "mic" && tnow - (songEchoRef.current[inPC] || 0) < SONG_ECHO_MS) return;
+    if (src === "mic" && tnow - (songEchoRef.current[d.note] || 0) < SONG_ECHO_MS) return;
     // Debounce: one press = one note (a sustained key can re-fire the same pitch).
-    if (tnow - (songDebounceRef.current[inPC] || 0) < SONG_DEBOUNCE_MS) return;
-    songDebounceRef.current[inPC] = tnow;
-    if (src === "tap") songEchoRef.current[inPC] = tnow; // this tap's sound will echo into the mic
+    if (tnow - (songDebounceRef.current[d.note] || 0) < SONG_DEBOUNCE_MS) return;
+    songDebounceRef.current[d.note] = tnow;
+    if (src === "tap") songEchoRef.current[d.note] = tnow; // this tap's sound will echo into the mic
+    // Prefer an exact note (pitch + octave) match first — same two-hand reason
+    // as above — and fall back to the original pitch-class-only search
+    // (deliberately lenient: playing the right note an octave off still
+    // counts) only when no exact candidate is in the hit window.
     let best = null, bestd = 1e9;
     for (const n of songNotesRef.current) {
-      if (n.hit || n.missed || pcOf(n.note) !== inPC) continue;
+      if (n.hit || n.missed || n.note !== d.note) continue;
       const dt = Math.abs(songTime - (n.t + SONG_LEAD));
       if (dt < bestd) { bestd = dt; best = n; }
+    }
+    if (!best) {
+      for (const n of songNotesRef.current) {
+        if (n.hit || n.missed || pcOf(n.note) !== inPC) continue;
+        const dt = Math.abs(songTime - (n.t + SONG_LEAD));
+        if (dt < bestd) { bestd = dt; best = n; }
+      }
     }
     const now = performance.now();
     if (best && bestd <= SONG_HITWINDOW) {
@@ -725,7 +827,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     bumpWeekly("games", 1); if (perfects) bumpWeekly("perfect", perfects);
     setSongCountdown(null);
     setSongNextLit(null);
-    setSongStaffNotes([]);
+    setSongStaffNotes(EMPTY_STAFF_WIN);
     const missedNotes = songNotesRef.current.filter(n => n.missed).map(n => n.note);
     if (missedNotes.length) recordNoteMisses(missedNotes);
     // Setlist mode: this song's own log entry, always recorded even though the
@@ -777,7 +879,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       songSetlistIdxRef.current++;
       const nextSong = songSetlistRef.current[songSetlistIdxRef.current];
       setSongSetlistPos({ idx: songSetlistIdxRef.current, total: songSetlistRef.current.length });
-      songDataRef.current = expandSong(nextSong);
+      songDataRef.current = expandSong(nextSong, playAlongHandRef.current);
       setSongMeta(nextSong);
       setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward, nextSong: tr(nextSong, lang) });
       clearTimeout(songLoopRetryT.current);
@@ -808,7 +910,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         zh: `你是"TiGA老师"，学员刚弹完歌曲"${label}"，准确率 ${result.acc}%（弹对 ${result.hits}/${result.total} 个音）。弹错的音（按演奏顺序）：${missedTxt}\n\n分析弹错的位置/模式，并给出练习建议。只回JSON {"weakness":"...","steps":["...","..."]} — weakness 不超过15字，说明错误的位置/模式（若全对则给予表扬），steps 为2-4个简短练习步骤，每条不超过15字，用中文，JSON外不要任何文字`,
         en: `You are "Teacher TiGA". The learner just finished playing "${label}" at ${result.acc}% accuracy (${result.hits}/${result.total} notes hit). Notes they missed, in play order: ${missedTxt}.\n\nAnalyze where/what pattern they missed, then give a fix. Reply with JSON only: {"weakness":"...","steps":["...","..."]} — weakness under 15 words naming the spot/pattern they missed (or praise if nothing was missed), steps has 2-4 short fix-it practice steps, each under 15 words, in English. No text outside the JSON.`,
       };
-      const txt = await fetchChatCompletion({ message: "Analyze my run of this song.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en, feature: "song-analysis" });
+      const txt = await fetchChatCompletion({ message: "Analyze my run of this song.", conversationHistory: [], system: (sysByLang[lang] || sysByLang.en) + THEORY_REF, feature: "song-analysis" });
       const m = txt.match(/\{[\s\S]*\}/);
       const obj = m ? JSON.parse(m[0]) : null;
       if (obj && obj.weakness && Array.isArray(obj.steps) && obj.steps.length) setSongAnalysis(obj);
@@ -845,7 +947,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         : "";
       const prompt = `Rearrange the piano melody "${songName}" in a ${styleDesc[style] || style} style for a beginner falling-notes game. The original melody starts: ${seqStr}. Keep it recognizable but add ${style} character. 20-32 notes.${weaknessNote}`;
       const sys = "Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes: C4-B5 only; R=rest; beats: 0.5,1,1.5,2.";
-      const acc = await streamChatCompletion({ message: prompt, conversationHistory: [], system: sys, feature: "song-style" });
+      const acc = await streamChatCompletion({ message: prompt, conversationHistory: [], system: sys + THEORY_REF, feature: "song-style" });
       const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
       const obj = JSON.parse(jm[0]);
       const seq = normalizeSeq(obj.seq || []);
@@ -869,7 +971,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         localStorage.setItem("tg_mysongs", JSON.stringify([newSong, ...existing].slice(0, 20)));
       } catch (e) {}
       if (!premium) bumpUsage("styleTransform");
-      songDataRef.current = expandSong(newSong);
+      songDataRef.current = expandSong(newSong, playAlongHandRef.current);
       setSongResult(null); setSongAnalysis(null); setSongPhase("ready");
       setSongMeta(newSong);
     } catch (e) { /* silent fail — user stays on result screen */ }
@@ -885,5 +987,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   songLoopRef.current = songLoop;
   songInputRef.current = handleSongInput;
   songFinishRef.current = finishSong;
-  return { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform };
+  // ════ HAND MODE (right/left/both) ════
+  function changePlayAlongHand(h) {
+    if (h === playAlongHand) return;
+    setPlayAlongHand(h);
+    if (songMeta && songPhase === "ready") {
+      songDataRef.current = expandSong(songMeta, h);
+    }
+  }
+  return { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand };
 }

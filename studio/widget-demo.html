@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TIGA Chat Widget — Demo</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 640px; margin: 0 auto; padding: 40px 20px; color: #222; line-height: 1.6; }
+    h1 { font-size: 24px; }
+    pre { background: #f5f5f5; padding: 14px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+    code { background: #f0f0f0; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>💬 TIGA AI Chat Widget</h1>
+  <p>แชทบอท AI ของสตูดิโอ — embed ในเว็บไซต์ใดก็ได้ด้วยโค้ดด้านล่าง ปุ่มแชทจะเด้งมุมขวาล่าง</p>
+  <h2>วิธีใช้</h2>
+  <ol>
+    <li>ตั้งค่า <code>web_chat_secret</code> ใน Settings → Integrations (หรือบอกให้ทีมตั้งให้)</li>
+    <li>วางโค้ดนี้ก่อนปิด <code>&lt;/body&gt;</code> ของเว็บคุณ</li>
+  </ol>
+  <pre>&lt;div id="tiga-widget"&gt;&lt;/div&gt;
+&lt;script src="/studio/chat-widget.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  window.TIGA_WIDGET_CONFIG = {
+    url: "https://tzgktczefypwhhmyxlmj.supabase.co/functions/v1/web-chat",
+    secret: "&lt;web_chat_secret&gt;",
+    title: "คุยกับ TIGA",
+    subtitle: "ตอบไว พร้อมช่วยเรื่องคอร์สเรียนเปียโน",
+  };
+&lt;/script&gt;</pre>
+
+  <script src="/studio/chat-widget.js"></script>
+  <script>
+    window.TIGA_WIDGET_CONFIG = {
+      url: "https://tzgktczefypwhhmyxlmj.supabase.co/functions/v1/web-chat",
+      secret: "bbcd2cc4a0674dd187144648f7797122",
+      title: "คุยกับ TIGA",
+      subtitle: "ตอบไว พร้อมช่วยเรื่องคอร์สเรียนเปียโน",
+    };
+  </script>
+</body>
+</html>

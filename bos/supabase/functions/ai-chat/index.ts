@@ -2,8 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { respond } from "../_shared/chat-core.ts";
+import { departmentBySlug } from "../_shared/departments.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
+import { ModelUnavailableError } from "../_shared/openai-compatible.ts";
 import { logSystemEvent, handleUnexpectedError } from "../_shared/monitor.ts";
 
 Deno.serve(async (req: Request) => {
@@ -37,14 +39,36 @@ Deno.serve(async (req: Request) => {
       convId = data.id;
     }
 
+    // AI Automation department chats tag their conversations with
+    // "dept:<slug>" in line_user_id (see features/ai-automation-chat). Those
+    // chats speak with the department's own persona — and the Chief of Staff
+    // chat gains the delegate_to_department tool so it can command every
+    // other department across chats.
+    let department = undefined;
+    if (convId) {
+      const { data: convRow } = await admin
+        .from("conversations")
+        .select("line_user_id")
+        .eq("id", convId)
+        .maybeSingle();
+      const tag = convRow?.line_user_id;
+      if (typeof tag === "string" && tag.startsWith("dept:")) {
+        department = departmentBySlug(tag.slice("dept:".length)) ?? undefined;
+      }
+    }
+
     const result = isOwner
-      ? await respond(admin, convId, message, ["owner", "sales", "booking", "knowledge"], userId)
+      ? await respond(admin, convId, message, ["owner", "sales", "booking", "knowledge"], userId, { department })
       : await respond(admin, convId, message);
     return jsonResponse({ conversationId: convId, ...result });
   } catch (error) {
     if (error instanceof RateLimitError) {
       await logSystemEvent(admin, "ai-chat", "warning", error.message);
       return jsonResponse({ error: error.message }, 429);
+    }
+    if (error instanceof ModelUnavailableError) {
+      await logSystemEvent(admin, "ai-chat", "warning", error.message);
+      return jsonResponse({ error: error.message }, 502);
     }
     return await handleUnexpectedError(admin, "ai-chat", error);
   }

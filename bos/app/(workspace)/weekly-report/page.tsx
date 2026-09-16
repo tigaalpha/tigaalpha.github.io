@@ -138,7 +138,8 @@ export default function WeeklyReportPage() {
         .map(c => {
           const lastContact = c.last_contact_at ? new Date(c.last_contact_at).getTime() : new Date(c.created_at).getTime();
           const daysSince = Math.floor((nowTs - lastContact) / (1000 * 60 * 60 * 24));
-          return { id: c.id, name: c.name || "ไม่ระบุชื่อ", lastLesson: c.last_contact_at?.slice(0, 10) || "N/A", daysSince, courseLeft: 0, risk: daysSince > 30 ? "high" : daysSince > 14 ? "medium" : "low" };
+          const risk: "high" | "medium" | "low" = daysSince > 30 ? "high" : daysSince > 14 ? "medium" : "low";
+          return { id: c.id, name: c.name || "ไม่ระบุชื่อ", lastLesson: c.last_contact_at?.slice(0, 10) || "N/A", daysSince, courseLeft: 0, risk };
         })
         .filter(c => c.daysSince >= 14)
         .sort((a, b) => b.daysSince - a.daysSince)
@@ -263,13 +264,13 @@ export default function WeeklyReportPage() {
           {actionItems.map((item, i) => {
             const pri = PRIORITY_MAP[item.priority] ?? PRIORITY_MAP.low;
             return (
-              <div key={i} className={cn("rounded-xl border p-4", pri.color)}>
+              <div key={i} className={cn("rounded-xl border p-4", pri?.color ?? "")}>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{i + 1}</span>
                     <span className="text-sm font-medium text-secondary">{item.action}</span>
                   </div>
-                  <Badge variant={pri.variant} className="text-[9px] shrink-0">{pri.label}</Badge>
+                  <Badge variant={pri?.variant ?? "default"} className="text-[9px] shrink-0">{pri?.label}</Badge>
                 </div>
                 <p className="text-xs text-secondary/50 ml-8">💬 {item.reason}</p>
                 <div className="flex items-center gap-2 ml-8 mt-1">

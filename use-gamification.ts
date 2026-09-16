@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from "react";
+import { trainPet } from "./pet-lab";
 import {
-  LEVELS, EXP, BADGES, levelInfo, prestigeInfo, unlockedBadgeIds, QUEST_GOAL, QUEST_BONUS,
+  LEVELS, ALL_LEVELS, EXP, BADGES, levelInfo, prestigeInfo, unlockedBadgeIds, QUEST_GOAL, QUEST_BONUS,
   weekKey, activeChallenges, readWeekly, writeWeekly, CHALLENGE_REWARD,
   getCoins, setCoinsLS, chestAvailable, claimChest, chestSpinAngle, addFreeze, logExpGain,
 } from "./App";
 import { isMaxPlan, getPlan } from "./payment";
 import { getAC, playUi, playMiss } from "./music-engine";
 import { sb } from "./supabase-client";
-import { ymd, saveGuestProfile } from "./shared-infra";
+import { ymd, saveGuestProfile, logUsage } from "./shared-infra";
 /* ── use-gamification.ts ──
    Owns PianoApp's core progression loop: coins, gems, the daily chest,
    the mascot companion, EXP/level-up/prestige/badge celebrations, weekly
@@ -137,6 +138,17 @@ export function useGamification({ session, profile, setProfile }) {
     if (activeEventRef.current && activeEventRef.current.expMult > 1) amount = Math.round(amount * activeEventRef.current.expMult);
     mascot("happy", 1400);
     bumpWeekly("exp", amount);
+    /* the pet is trained by the practising, not only by the feeding — one
+       call here reaches every mode that pays EXP, and trainPet does its own
+       daily capping so this cannot be farmed */
+    try { trainPet(amount); } catch (e) {}
+    /* Learning EXP and Skill EXP are two separate currencies, and this
+       function only ever mints the first of them. What you learn raises your
+       account level, your league standing and your daily quest; what you FIGHT
+       raises your chassis' class rank and unlocks its skills, and the PvP
+       arena pays that itself. gainExp used to quietly do both, which made the
+       whole class system a passive by-product of practising rather than
+       something you go and earn. */
     if (uid) {
       sb.rpc("league_bump_exp", { p_week_key: weekKey(), p_amount: amount }).then(() => {}, () => {});
       sb.rpc("school_quest_bump", { p_amount: amount }).then(() => {}, () => {}); // no-ops silently if not in a school / no active quest
@@ -160,6 +172,7 @@ export function useGamification({ session, profile, setProfile }) {
     expRef.current = after;
     lessonsRef.current = newLessons;
     logExpGain(amount + bonus);   // daily EXP for the progress dashboard
+    logUsage("score", (opts.reason || "exp") + ":" + (amount + bonus)); // admin analytics: score flow
 
     if (setProfile) setProfile(p => {
       const next = { ...(p || {}), exp: after, lessons_done: newLessons, ...(questFields || {}) };
@@ -177,11 +190,11 @@ export function useGamification({ session, profile, setProfile }) {
       clearTimeout(lvUpTimer.current);
       lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
     } else if (prestigeInfo(after).tier > prestigeInfo(beforeExp).tier) {
-      // past the level-10 cap: celebrate each new Legend Star the same way a
-      // level-up is celebrated, so the loyalest players still get feedback
+      // past the level-99 cap (Legend X): celebrate each new Legend Star the
+      // same way a level-up is celebrated, so the loyalest players still get feedback
       leveled = true;
       const pTier = prestigeInfo(after).tier;
-      setLevelUp({ level: 10, tier: LEVELS[LEVELS.length - 1], prestige: pTier });
+      setLevelUp({ level: 99, tier: ALL_LEVELS[ALL_LEVELS.length - 1], prestige: pTier });
       playUi("levelup"); mascot("celebrate", 3200);
       clearTimeout(lvUpTimer.current);
       lvUpTimer.current = setTimeout(() => setLevelUp(null), 3400);
@@ -245,6 +258,7 @@ export function useGamification({ session, profile, setProfile }) {
     const mult = (isMaxPlan(planRef.current) ? 2 : 1) * (activeEventRef.current && activeEventRef.current.coinMult > 1 ? activeEventRef.current.coinMult : 1);
     const v = getCoins() + n * mult;
     setCoinsLS(v); setCoins(v);
+    if (n > 0) logUsage("score", "coins:+" + (n * mult)); // admin analytics
     if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
     // guests have no uid to write to — mirror into the synthetic guest profile
     // too (not just the separate tg_coins cache) so profile.coins stays
@@ -261,6 +275,22 @@ export function useGamification({ session, profile, setProfile }) {
     setProfile(p => ({ ...(p || {}), gems: Math.max(0, ((p && p.gems) || 0) - r.spent) }));
     const v = getCoins() + r.coins; setCoinsLS(v); setCoins(v);
     playUi("reward"); mascot("celebrate", 1600);
+    return true;
+  }
+
+  /* Ask the server for a practice gem. Gems are protected by a database
+     trigger precisely so a client cannot mint them, so this asks and the
+     server decides — how many a day, and whether any are left. A failure
+     (including the RPC not being deployed yet) is silent and grants nothing;
+     coins from the same drill are unaffected either way. */
+  async function grantPracticeGem() {
+    if (!uid) return false;
+    const { data: r, error } = await sb.rpc("grant_practice_gem");
+    if (error || !r || !r.granted) return false;
+    setProfile(p => ({ ...(p || {}), gems: r.gems }));
+    playUi("levelup"); mascot("celebrate", 1800);
+    setLuckyToast && setLuckyToast({ kind: "gem", n: r.granted, left: r.remaining });
+    setTimeout(() => setLuckyToast && setLuckyToast(null), 3200);
     return true;
   }
 
@@ -313,5 +343,5 @@ export function useGamification({ session, profile, setProfile }) {
     };
   }, []);
 
-  return { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, buyFreeze, bumpWeekly, mascot, openChestNow };
+  return { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow };
 }
