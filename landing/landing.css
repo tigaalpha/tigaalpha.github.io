@@ -384,6 +384,32 @@ body {
 }
 .lp-inapp { margin: 0 0 12px; padding: 10px 13px; border-radius: 11px; background: var(--card2); border: 1px solid var(--line); font-size: 12.5px; color: var(--text2); }
 
+/* ── the Model B gate ──
+   "Play first, then ask." Drops the moment the teaser riff ends — the proof
+   (the piano answered) has already happened, so this is a follow-up, not a
+   wall over nothing. Centered card, one primary action, and a skip link
+   that is deliberately small but never hidden: the no-account path stays
+   open, it just is not the road the page points down. */
+.lp-gate {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  padding: 22px; background: #141413a6; backdrop-filter: blur(2px);
+  animation: lp-rise .3s cubic-bezier(.2,.8,.3,1) both;
+}
+.lp-gatebox {
+  width: 100%; max-width: 400px; padding: 26px 22px 16px; border-radius: 20px;
+  background: var(--bg); border: 1px solid var(--line2); box-shadow: var(--shadow);
+  text-align: center; display: flex; flex-direction: column; gap: 10px;
+}
+.lp-gatemark { font-family: var(--mark); font-weight: 900; letter-spacing: .22em; padding-left: .22em; color: var(--acc); font-size: 22px; }
+.lp-gatebox h2 { margin: 0; font-size: 20px; line-height: 1.35; text-wrap: balance; }
+.lp-gatesub { margin: 0 0 4px; font-size: 13.5px; color: var(--text2); line-height: 1.55; }
+.lp-gateskip {
+  background: none; border: 0; padding: 6px 8px; margin-top: 2px;
+  font: inherit; font-size: 12.5px; color: var(--muted); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+
 /* ── the full-screen webview escape ──
    Owns the viewport at the moment of asking inside a webview, where Google
    cannot load. Dark scrim + one card + one primary action; the dismiss is

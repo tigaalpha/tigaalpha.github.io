@@ -122,6 +122,12 @@ export default function LandingPage1() {
   /* conversion */
   const [signup, setSignup] = useState(null);  // null | { q }
   const [sticky, setSticky] = useState(false);
+  /* Model B gate: "play first, then ask." It drops the moment the teaser
+     riff finishes — proof delivered, now the ask. The skip link underneath
+     is one tap and permanent for the session; the gate never re-fires after
+     it, because a gate that will not go away teaches people to leave. */
+  const [gate, setGate] = useState(false);
+  const gateSkipped = useRef(false);
   /* The inline nudge after the first real AI answer. The dashboard killed the
      old plan of asking after three answers: nobody was still there by the
      third — the median visit died around one. One answer received is the
@@ -421,18 +427,32 @@ export default function LandingPage1() {
      first tap anywhere is the cheapest possible yes. So the very first tap
      anywhere on the page plays a two-second riff immediately — the "wow"
      lands inside the first three seconds instead of after a scroll — and
-     only the first one; after that taps go back to being taps. */
+     only the first one; after that taps go back to being taps.
+
+     And the riff's last note is when the gate comes down. That is the whole
+     "play first, then ask" model: the visitor has heard the piano answer
+     them, the proof just happened, and the ask arrives at the peak instead
+     of fifteen seconds into reading. The skip link on the gate keeps every
+     promise honest — browsing on without an account stays possible, it just
+     is no longer the road the page points down. */
   const teased = useRef(false);
   const playTeaser = useCallback(() => {
     if (teased.current) return;
     teased.current = true;
     /* ลองกดดูสิ 5 ตัวแรกของโน้ตไทยทุกคนชินหู — เร็ว พอให้เป็นคำถามว่า "เดี๋ยว
        นะ เล่นได้จริงเหรอ" แต่หยุดก่อนจบ ให้คนต้องกดเองต่อ */
-    playDemo([
+    const steps = [
       { n: ["E5"], d: 170 }, { n: ["D5"], d: 170 }, { n: ["C5"], d: 170 },
       { n: ["D5"], d: 170 }, { n: ["E5"], d: 170 }, { n: ["E5"], d: 170 },
       { n: ["E5"], d: 340 },
-    ], null);
+    ];
+    const total = steps.reduce((a, s) => a + s.d, 0);
+    setTimeout(() => {
+      if (!teased.current) return;
+      land("gate:shown");
+      setGate(true);
+    }, total);
+    playDemo(steps, null);
   }, []);
 
   useEffect(() => {
@@ -684,9 +704,33 @@ export default function LandingPage1() {
         <a href={APP_URL}>{t.enterApp}</a> · <a href="/privacy-policy.html">{t.privacy}</a>
       </p>
 
-      {sticky && !signup && (
+      {sticky && !signup && !gate && (
         <div className="lp-sticky">
           <button className="lp-btn primary" onClick={() => openSignup("", "cta")}>{t.sticky}</button>
+        </div>
+      )}
+
+      {/* ── the Model B gate ──
+          Not a wall over nothing: by the time this is on screen the visitor
+          has already heard the piano play for them. The card below is the
+          same SignupCard everywhere else on the page — one way to make an
+          account, unchanged — and the skip link keeps the no-account path
+          open so "play first" never turns into "forced". */}
+      {gate && !signup && (
+        <div className="lp-gate" role="dialog" aria-modal="true" aria-label={t.gateTitle}>
+          <div className="lp-gatebox">
+            <div className="lp-gatemark">TIGA</div>
+            <h2>{t.gateTitle}</h2>
+            <p className="lp-gatesub">{t.gateSub}</p>
+            {/* One primary button that hands off to the sign-up card — the
+                same card, the same auth calls, exactly one way an account is
+                made. A second Google button here would be a second code path
+                to maintain for zero extra accounts. */}
+            <button className="lp-btn primary" onClick={() => { land("gate:cta"); setSignup({ q: "", quota: false }); requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>
+              {t.gateBtn}
+            </button>
+            <button className="lp-gateskip" onClick={() => { gateSkipped.current = true; land("gate:skip"); setGate(false); }}>{t.gateSkip}</button>
+          </div>
         </div>
       )}
     </div>
