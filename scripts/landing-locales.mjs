@@ -31,6 +31,8 @@ const LOCALES = {
     ogTitle: "Try a piano lesson with an AI teacher — TIGA",
     ogDesc: "Play the keys right now, ask the AI teacher, and watch it play the answer finger by finger. No sign-up, nothing to install.",
     boot: "Getting your piano ready",
+    bootHeadA: "Ask an AI piano teacher — ",
+    bootHeadB: "it plays the answer",
   },
   zh: {
     dir: "landing-zh",
@@ -39,6 +41,8 @@ const LOCALES = {
     ogTitle: "和 AI 钢琴老师试上一课 — TIGA",
     ogDesc: "琴键现在就能弹，问 AI 老师，看它一个音一个音弹给你看。不用注册，不用下载。",
     boot: "正在为你准备钢琴",
+    bootHeadA: "问 AI 钢琴老师 — ",
+    bootHeadB: "它弹给你看",
   },
 };
 
@@ -66,6 +70,9 @@ for (const [lang, L] of Object.entries(LOCALES)) {
     `property="og:description" content="${L.ogDesc}"`, "og:description");
   out = swapOnce(out, '<div class="say">กำลังเตรียมเปียโนให้คุณ</div>',
     `<div class="say">${L.boot}</div>`, "boot line");
+  out = swapOnce(out,
+    '<h1>ถามครูเปียโน AI — <em>เล่นให้ดูทีละนิ้ว</em></h1>',
+    `<h1>${L.bootHeadA}<em>${L.bootHeadB}</em></h1>`, "boot headline");
 
   // One bundle for all three. These sit one directory across from /landing/,
   // so the same relative depth with a different folder name.

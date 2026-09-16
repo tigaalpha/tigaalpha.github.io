@@ -34,7 +34,7 @@ const APP_URL = "/";
    mid-conversation, with more they want to say. The function enforces its own
    larger ceiling independently, so this number is the product decision, not
    the protection. */
-const FREE_ASKS = 3;
+const FREE_ASKS = 2;
 
 /* ── and a time limit on the whole trial ──
    Three minutes is long enough to play the keyboard, read a lesson and ask a
@@ -122,6 +122,12 @@ export default function LandingPage1() {
   /* conversion */
   const [signup, setSignup] = useState(null);  // null | { q }
   const [sticky, setSticky] = useState(false);
+  /* The inline nudge after the first real AI answer. The dashboard killed the
+     old plan of asking after three answers: nobody was still there by the
+     third — the median visit died around one. One answer received is the
+     first moment the visitor has proof the thing works, so that is when the
+     account gets its one quiet, dismissible mention. */
+  const [nudged, setNudged] = useState(false);
 
   /* escaping an in-app browser (Facebook / LINE / TikTok / Instagram) */
   const [inApp] = useState(() => inAppBrowser());
@@ -145,12 +151,22 @@ export default function LandingPage1() {
     openInRealBrowser();
   };
 
+  /* The full-screen version of the same escape, shown inside webviews above
+     the sign-up card. The small header button was easy to miss; this one owns
+     the whole viewport at the exact moment the visitor is trying to commit. */
+  const [escapeFull, setEscapeFull] = useState(false);
+
   const demoRef = useRef({ stop: false, voices: [] });
   const streamRef = useRef(null);
   const bottomRef = useRef(null);
   const signupRef = useRef(null);
   const firstKey = useRef(false);
   const t0 = useRef(Date.now());
+  /* Whether the hero piano has actually scrolled into view. "Played" (8%)
+     was measurable but "saw it and didn't play" vs "never scrolled to it"
+     was not — and that distinction decides what to fix next. */
+  const heroSeen = useRef(false);
+  const heroRef = useRef(null);
 
   const lessonById = (id) => LESSONS.find(l => l.id === id);
   const msgText = (m) => {
@@ -207,6 +223,27 @@ export default function LandingPage1() {
   useEffect(() => {
     const tm = setTimeout(() => setSticky(true), 15000);
     return () => clearTimeout(tm);
+  }, []);
+
+  /* hero:seen — logged once, the first time the piano actually enters the
+     viewport. Pairs with "piano" (tapped) so the funnel can finally split
+     "never saw it" from "saw it and walked past". */
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((entries) => {
+      if (heroSeen.current) return;
+      for (const en of entries) {
+        if (en.isIntersecting) {
+          heroSeen.current = true;
+          land("hero:seen");
+          io.disconnect();
+          break;
+        }
+      }
+    }, { threshold: 0.4 });
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
   /* The trial clock. It only RAISES a flag — the gate itself waits below for a
@@ -359,9 +396,42 @@ export default function LandingPage1() {
 
   function openSignup(q, from) {
     land(from);
+    /* Inside a webview, the ask and the escape are THE SAME PROBLEM: Google
+       will not load there, and email-only converts a fraction of the people
+       Google would have. So the moment of asking is also the moment the
+       way-out gets its full-screen, one-tap pitch — with the link already
+       copied, so "paste it in Chrome" is two taps, not a tutorial. A real
+       browser skips straight to the card; it has no such problem. */
+    if (inAppBrowser()) { land("gate:inapp"); setEscapeFull(true); }
     setSignup({ q: q || "", quota: from === "quota" });
     requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
+
+  /* ── tap-anywhere teaser ──
+     The single highest-leverage number on this page is "played a key": 8%.
+     Visitors from TikTok and Instagram arrive wanting to DO something, and a
+     first tap anywhere is the cheapest possible yes. So the very first tap
+     anywhere on the page plays a two-second riff immediately — the "wow"
+     lands inside the first three seconds instead of after a scroll — and
+     only the first one; after that taps go back to being taps. */
+  const teased = useRef(false);
+  const playTeaser = useCallback(() => {
+    if (teased.current) return;
+    teased.current = true;
+    /* ลองกดดูสิ 5 ตัวแรกของโน้ตไทยทุกคนชินหู — เร็ว พอให้เป็นคำถามว่า "เดี๋ยว
+       นะ เล่นได้จริงเหรอ" แต่หยุดก่อนจบ ให้คนต้องกดเองต่อ */
+    playDemo([
+      { n: ["E5"], d: 170 }, { n: ["D5"], d: 170 }, { n: ["C5"], d: 170 },
+      { n: ["D5"], d: 170 }, { n: ["E5"], d: 170 }, { n: ["E5"], d: 170 },
+      { n: ["E5"], d: 340 },
+    ], null);
+  }, []);
+
+  useEffect(() => {
+    const onFirst = () => playTeaser();
+    window.addEventListener("pointerdown", onFirst, { passive: true, once: true });
+    return () => window.removeEventListener("pointerdown", onFirst);
+  }, [playTeaser]);
 
   /* ── the typed question goes to the real AI ──
      This is the page's actual promise. The four chips are canned lessons, and
@@ -417,6 +487,9 @@ export default function LandingPage1() {
       setAsked(n => n + 1);
       land("ai");
       setSticky(true);
+      /* First answer received = the moment of proof. The nudge fires once,
+         only after a real answer, never over a typing indicator. */
+      if (!nudged) { setNudged(true); land("nudge:shown"); }
     } catch (err) {
       setTyping(false);
       if (err && err.limit) {
@@ -479,15 +552,38 @@ export default function LandingPage1() {
       {inApp && <p className="lp-openwhy">⚠️ {t.openWhy}</p>}
       {copied && <p className="lp-opencopied" role="status">{t.openCopied}</p>}
 
-      <h1 className="lp-h1">{t.h1a}<em>{t.h1b}</em></h1>
-      <p className="lp-sub">{t.sub}</p>
+      {/* ── the webview escape, full-screen ──
+          Raised over everything the moment the visitor lands on the sign-up
+          card inside a webview — because that is when the browser problem
+          actually blocks them. One tap opens Chrome/Safari with the link
+          already on the clipboard; the dismiss underneath keeps email sign-up
+          available for anyone who prefers to stay. */}
+      {signup && inApp && (
+        <div className="lp-escfull" role="dialog" aria-modal="true" aria-label={t.openReal}>
+          <div className="lp-escbox">
+            <div className="lp-escmark">TIGA</div>
+            <h2>{t.escTitle}</h2>
+            <p>{t.escBody}</p>
+            <button className="lp-btn primary" onClick={escapeBrowser}>⧉ {t.openReal}</button>
+            <button className="lp-nudgedis" onClick={() => setEscapeFull(false)}>{t.escStay}</button>
+          </div>
+        </div>
+      )}
 
-      <div className="lp-stage">
+      <h1 className="lp-h1">{t.h1a}<em>{t.h1b}</em></h1>
+
+      {/* ── the piano comes FIRST ──
+          The old order was headline → paragraph → piano, which on a phone
+          meant the keyboard — the entire product — started a full screen
+          down, and 92% of visitors left before reaching it. The piano is the
+          pitch; it now leads and the paragraph explains right under it. */}
+      <div className="lp-stage" ref={heroRef}>
         <div className={`lp-pianowrap${touched ? " played" : ""}`} data-hint={t.tapHint}>
           {nowPlaying && <div className="lp-nowplaying">{nowPlaying}</div>}
           <Piano small litSet={lit} fingerMap={fingers} onNote={onHeroNote} baseOct={4} />
         </div>
       </div>
+      <p className="lp-sub">{t.sub}</p>
 
       <div className="lp-chat">
         <div className="lp-row">
@@ -509,6 +605,20 @@ export default function LandingPage1() {
           <div className="lp-row">
             <div className="lp-av">TIGA<br />AI</div>
             <div className="lp-bub lp-dots"><i /><i /><i /></div>
+          </div>
+        )}
+
+        {/* The one quiet inline ask, fired right after the first real answer
+            lands — proof first, then the offer. Dismissible in one tap, never
+            shown twice, and it stays out of the way of the chips below. */}
+        {nudged && !signup && (
+          <div className="lp-row">
+            <div className="lp-av">TIGA<br />AI</div>
+            <div className="lp-bub lp-nudge">
+              <span>{t.nudgeLine}</span>
+              <button className="lp-btn primary" onClick={() => openSignup("", "nudge")}>{t.nudgeBtn}</button>
+              <button className="lp-nudgedis" onClick={() => setNudged(false)}>{t.nudgeDismiss}</button>
+            </div>
           </div>
         )}
 
@@ -638,6 +748,44 @@ function SignupCard({ q, quota, timeUp, t }) {
     }
   }
 
+  /* ── email, one field ──
+     The old form asked for name + email + password + a PDPA tick before it
+     would move, and the dashboard showed what that costs: of the 51 people
+     who reached the card, 3 tapped sign-up. Every field is a leak. So the
+     email form is now ONE field — signInWithOtp sends a magic link, and the
+     account (name, PDPA consent, marketing choice) is finished inside the
+     app's own profile screen, which already exists and already handles all
+     of it. The full form stays available one tap away for people who prefer
+     a password. */
+  async function signupOtp(e) {
+    e.preventDefault();
+    if (busy) return;
+    setErr(""); setDone("");
+    if (!email.trim()) { setErr(t.errFields); return; }
+    land("try:email-otp");
+    setBusy(true);
+    setSkipOnboard();
+    try {
+      const sb = await getSb();
+      const { error } = await sb.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          // Straight into the app once the link is tapped — the landing page
+          // has done its job the moment the email leaves this screen.
+          emailRedirectTo: window.location.origin + "/",
+          data: { pdpa_version: PDPA_VERSION, marketing_consent: !!marketing, via: "landing-otp" },
+        },
+      });
+      if (error) { setErr(friendlyAuthError(error.message)); return; }
+      land("signup:email-otp");
+      setDone(t.otpDone);
+    } catch (e2) {
+      setErr(friendlyAuthError(e2 && e2.message));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function signupEmail(e) {
     e.preventDefault();
     if (busy) return;
@@ -705,7 +853,21 @@ function SignupCard({ q, quota, timeUp, t }) {
               </button>
             : <button className="lp-btn line" onClick={lineLogin} disabled={busy}><LineMark /> {t.lineBtn}</button>}
           <div className="lp-or">{t.or}</div>
-          <button className="lp-btn ghost" onClick={() => setMode("email")}>{t.emailBtn}</button>
+          {/* The one-field email path is the DEFAULT — it is the lowest-
+              friction way in, and inside webviews it is the only one that
+              works without leaving. The full password form stays one tap
+              away, in the ghost link under it. */}
+          <form onSubmit={signupOtp} className="lp-otp">
+            <label className="lp-field">
+              <input value={email} onChange={e => setEmail(e.target.value)}
+                type="email" placeholder={t.emailPh} autoComplete="email"
+                inputMode="email" enterKeyHint="go" />
+            </label>
+            <button className="lp-btn primary" type="submit" disabled={busy}>
+              {busy ? t.submitBusy : t.otpBtn}
+            </button>
+          </form>
+          <button className="lp-btn ghost" onClick={() => setMode("email")}>{t.emailFullBtn}</button>
         </>
       )}
 

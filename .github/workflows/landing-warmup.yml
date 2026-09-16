@@ -1,0 +1,43 @@
+# ── .github/workflows/landing-warmup.yml ──
+# The landing page's AI answers come from the `landing-chat` edge function,
+# and Supabase puts an idle function to sleep. The dashboard showed what
+# that costs: the first question of a burst waits 3-4s for a cold start
+# before a single character streams — an eternity to someone arriving from
+# TikTok, and exactly the moment the page has promised "answered instantly".
+#
+# A ping every 5 minutes keeps one warm instance. The ping asks a trivial
+# question and throws the answer away; cost is bounded by the edge
+# function's own rate limiting (the same limiter real visitors hit), and a
+# failed ping is expected whenever the function is redeploying — hence the
+# deliberately quiet failure. No secrets: the function is anon-callable
+# by design.
+
+name: landing-warmup
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: landing-warmup
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Keep landing-chat warm
+        run: |
+          code=$(curl -s -o /tmp/warm.json -w "%{http_code}" --max-time 20 \
+            -X POST "https://gsaqgbracxnucdmtmcxz.supabase.co/functions/v1/landing-chat" \
+            -H "Content-Type: application/json" \
+            -d '{"question":"ping","lang":"en","history":[]}' || echo "000")
+          echo "landing-chat responded: $code"
+          # 200 = warm. Anything else (429 rate-limit included) still means the
+          # function is up and answering, which is the point. Silence on
+          # failure: a missed ping costs at most one cold visitor, a loud
+          # alert costs a human's attention every time Supabase blinks.
+          exit 0

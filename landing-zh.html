@@ -16,12 +16,17 @@
     <link rel="apple-touch-icon" href="/icon.svg" />
 
     <!-- Ads and chat apps render this card, so it is written for a feed, not a
-         search result. -->
+         search result. The image is a PNG on purpose: Facebook, Instagram and
+         LINE refuse SVG previews, and the old icon.svg og:image rendered as an
+         empty box in every feed. Regenerate with scripts/make-og-image.mjs. -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="和 AI 钢琴老师试上一课 — TIGA" />
     <meta property="og:description" content="琴键现在就能弹，问 AI 老师，看它一个音一个音弹给你看。不用注册，不用下载。" />
-    <meta property="og:image" content="https://tigaalpha.github.io/icon.svg" />
+    <meta property="og:image" content="https://tigaalpha.github.io/og-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://tigaalpha.github.io/og-card.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -44,6 +49,26 @@
       #boot.gone { opacity: 0; pointer-events: none; }
       #boot .mark { font-size: 40px; font-weight: 700; letter-spacing: .22em; padding-left: .22em; }
       #boot .say { font-size: 14px; opacity: .62; }
+      /* The boot screen is the FIRST FRAME 81% of bounced visitors saw — the
+         old one was a spinner with no pitch in it. Now it sells while it
+         loads: the promise in one line, and a piano drawn in raw CSS so it
+         needs no font, no image and no JS. If the bundle never arrives (the
+         visitor list is full of 0-event sessions), this is still the ad. */
+      #boot h1 { margin: 0; font-size: clamp(19px, 5.4vw, 26px); font-weight: 700;
+                 letter-spacing: -.01em; text-align: center; padding: 0 24px;
+                 color: #1a1a1a; }
+      #boot h1 em { font-style: normal; color: #d97757; }
+      #boot .keys { display: flex; gap: 2px; width: min(340px, 76vw); height: 92px;
+                    margin-top: 4px; }
+      #boot .keys i { flex: 1 1 0; background: #fff; border: 1px solid #d4cfc5;
+                      border-radius: 0 0 4px 4px; }
+      #boot .keys i.b { background: #1b1917; border-color: #000; height: 58%;
+                        flex: 0 0 7.5%; margin: 0 -3.75% -0px; z-index: 1;
+                        align-self: flex-start; border-radius: 0 0 3px 3px; }
+      #boot .keys i.lit { background: #d97757; border-color: #d97757;
+                          animation: bootlit 1.15s ease-in-out infinite; }
+      @keyframes bootlit { 0%,100% { filter: brightness(1) } 50% { filter: brightness(1.25) } }
+      @media (prefers-reduced-motion: reduce) { #boot .keys i.lit { animation: none } }
       #boot .bar { width: 152px; height: 3px; border-radius: 3px; overflow: hidden; background: rgba(26,26,26,.1); }
       #boot .bar i { display: block; height: 100%; width: 40%; border-radius: 3px; background: #1a1a1a; animation: bootslide 1.15s ease-in-out infinite; }
       @keyframes bootslide { 0% { transform: translateX(-105%) } 100% { transform: translateX(305%) } }
@@ -51,16 +76,23 @@
       @media (prefers-color-scheme: dark) {
         html, body, #root, #boot { background: #0d0d0c; }
         #boot { color: #faf9f5; }
+        #boot h1 { color: #faf9f5; }
+        #boot .keys i { background: #f2efe9; border-color: #4a453e; }
+        #boot .keys i.b { background: #0a0908; border-color: #000; }
         #boot .bar { background: rgba(250,249,245,.14); }
         #boot .bar i { background: #faf9f5; }
       }
     </style>
-    <script type="module" crossorigin src="./landing/bundle/index.template-x1kJjy_I.js"></script>
-    <link rel="stylesheet" crossorigin href="./landing/bundle/index-DV0pOup5.css">
+    <script type="module" crossorigin src="./landing/bundle/index.template-dKLkYnTc.js"></script>
+    <link rel="stylesheet" crossorigin href="./landing/bundle/index-BdTiZhGW.css">
   </head>
   <body>
     <div id="boot">
       <div class="mark">TIGA</div>
+      <h1>问 AI 钢琴老师 — <em>它弹给你看</em></h1>
+      <div class="keys" aria-hidden="true">
+        <i></i><i></i><i class="b"></i><i></i><i class="lit"></i><i class="b"></i><i></i><i></i><i class="b"></i><i></i><i class="b"></i><i></i><i></i><i class="b"></i><i></i>
+      </div>
       <div class="bar"><i></i></div>
       <div class="say">正在为你准备钢琴</div>
     </div>
