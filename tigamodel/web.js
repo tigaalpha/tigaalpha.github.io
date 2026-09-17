@@ -75,6 +75,40 @@ export async function ensureTigamodelWeb() {
 
 export function getTigamodel() { return _tiga; }
 
+/* ── P2 wiring (owner-approved direction, 2026-09-17): run the teaching loop
+   on REAL practice signals from inside the app. Used by use-practice-mode's
+   finishPractice() after every drill: app-native signals (accuracy, repeated
+   errors, pauses, rhythm) go in, the policy selects a strategy, the KB adds
+   a teach tip, and a { text, strategy_id } object comes back — all locally,
+   synchronously, no network call, never throws. Returns null when anything
+   is off (no singleton, no stats) so the caller can skip silently. ── */
+export function runTeachingLoopForPractice(practiceStats, { selfReport = null } = {}) {
+  try {
+    if (!practiceStats) return null;
+    if (!_tiga) initTigamodelWeb();
+    const tiga = _tiga;
+    if (!tiga || !tiga.loop) return null;
+    return tiga.loop.runOnce({ practiceStats, selfReport });
+  } catch (e) { return null; }
+}
+
+/* The strategy_id from the loop, in the UI's three languages — rendered by
+   PracticeOverlay's result card so the learner sees WHICH teaching move the
+   model chose, not just its text. Kept here (not in i18n.ts) because it is
+   tigamodel's vocabulary, not the piano app's. */
+export const TIGA_STRATEGY_LABELS = {
+  "simplify-on-confusion": { th: "🧩 ลดความซับซ้อน — แบ่งท่อนใหม่", en: "🧩 Simplify — break it into chunks", zh: "🧩 降低难度 — 分段练习" },
+  "return-to-prerequisite": { th: "↩️ กลับไปพื้นฐานก่อน", en: "↩️ Back to the prerequisite", zh: "↩️ 回到基础练习" },
+  "ease-off-on-low-engagement": { th: "🌙 ผ่อนความเข้ม วันนี้สั้นพอ", en: "🌙 Ease off — keep today short", zh: "🌙 放松强度 — 今天短练即可" },
+  "raise-challenge": { th: "🚀 เพิ่มความท้าทายให้", en: "🚀 Raise the challenge", zh: "🚀 增加挑战" },
+  "simplify-on-hard-report": { th: "🧩 ช้าลงแล้วแบ่งท่อน", en: "🧩 Slow down and isolate", zh: "🧩 减速分段" },
+  "continue-current-plan": { th: "✅ ทำต่อตามแผนเดิมได้", en: "✅ Continue the current plan", zh: "✅ 按原计划继续" },
+};
+export function tigaStrategyLabel(id, lang) {
+  const t = TIGA_STRATEGY_LABELS[id];
+  return t ? (t[lang] || t.en) : null;
+}
+
 /* University knowledge source registry (for the Model Lab's ความรู้ tab). */
 export function getUniversitySources() { return { sources: SOURCES, coverage: COVERAGE, globalCoverage: GLOBAL_COVERAGE, ids: listSourceIds() }; }
 

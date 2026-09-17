@@ -1,5 +1,6 @@
 import { L } from "./i18n";
 import { Piano, pcOf } from "./music-engine";
+import { tigaStrategyLabel } from "./tigamodel/web";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
@@ -78,6 +79,17 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
         <div className="presultbars">
           {dynPct != null && <ResultBar label={lc.practiceDynLbl} pct={dynPct} color="#8ad4ff" />}
           {rhythmPct != null && <ResultBar label={lc.practiceRhythmLbl} pct={rhythmPct} color="#ffd23f" />}
+        </div>
+      )}
+
+      {/* TIGA Model verdict — the teaching loop ran locally on this drill's
+          real signals (accuracy/misses/pauses/rhythm). Always visible when it
+          has something to say, guests included; the AI flourish below it is
+          signed-in only. */}
+      {r.tigaTip && r.tigaTip.text && (
+        <div className="presultai" style={{ borderColor: "#d97757" }}>
+          <div className="presultai-h">🧠 {lang === "th" ? "TIGA Model วิเคราะห์" : lang === "zh" ? "TIGA 模型分析" : "TIGA Model analysis"}{tigaStrategyLabel(r.tigaTip.strategyId, lang) ? ` · ${tigaStrategyLabel(r.tigaTip.strategyId, lang)}` : ""}</div>
+          <div className="presultai-tx">{r.tigaTip.text}</div>
         </div>
       )}
 
