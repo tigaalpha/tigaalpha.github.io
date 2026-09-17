@@ -195,9 +195,15 @@ function ForceGraph({ nodes, edges, focusId, setFocusId, S }) {
     const rect = cv.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
     const i = pick(mx, my);
-    cv.setPointerCapture(e.pointerId);
-    if (i >= 0) { const p = sim.current.pts[i]; drag.current = { idx: i, moved: false }; p.fx = p.x; p.fy = p.y; sim.current.alpha = Math.max(sim.current.alpha, 0.35); }
-    else drag.current = { pan: true, sx: mx, sy: my, ox: view.current.ox, oy: view.current.oy };
+    if (i >= 0) { // only capture the pointer when the gesture starts ON a node;
+      // background touches keep native page scrolling (pan-y) alive.
+      cv.setPointerCapture(e.pointerId);
+      const p = sim.current.pts[i]; drag.current = { idx: i, moved: false }; p.fx = p.x; p.fy = p.y; sim.current.alpha = Math.max(sim.current.alpha, 0.35);
+    } else if (e.pointerType === "mouse") {
+      drag.current = { pan: true, sx: mx, sy: my, ox: view.current.ox, oy: view.current.oy };
+    } else {
+      drag.current = null;
+    }
   };
   const onPointerMove = (e) => {
     const cv = cvRef.current; if (!cv || !sim.current || !drag.current) return;
@@ -208,6 +214,7 @@ function ForceGraph({ nodes, edges, focusId, setFocusId, S }) {
       view.current.oy = drag.current.oy + (my - drag.current.sy);
       return;
     }
+    if (drag.current.idx == null) return;
     const v = view.current, s = sim.current, p = s.pts[drag.current.idx];
     const dx = mx - ((p.x - s.W / 2) * v.scale + rect.width / 2 + v.ox);
     const dy = my - ((p.y - s.H / 2) * v.scale + rect.height / 2 + v.oy);
@@ -218,6 +225,7 @@ function ForceGraph({ nodes, edges, focusId, setFocusId, S }) {
   };
   const onPointerUp = (e) => {
     const cv = cvRef.current; if (!cv || !drag.current) return;
+    try { cv.releasePointerCapture(e.pointerId); } catch (err) {}
     if (drag.current.idx != null) {
       const p = sim.current.pts[drag.current.idx];
       if (!drag.current.moved) setFocusId(focusId === nodes[drag.current.idx].id ? null : nodes[drag.current.idx].id);
@@ -242,7 +250,12 @@ function ForceGraph({ nodes, edges, focusId, setFocusId, S }) {
   const onTouchEnd = () => { pinch.current = null; };
 
   return (
-    <div ref={wrapRef} style={{ position: "relative", background: "var(--card2)", border: "1px solid var(--bd1)", borderRadius: 12, overflow: "hidden", touchAction: "none" }}>
+    <div ref={wrapRef} style={{ position: "relative", background: "var(--card2)", border: "1px solid var(--bd1)", borderRadius: 12, overflow: "hidden", touchAction: "pan-y" }}>
+      {/* touchAction pan-y: one-finger drags stay vertical-page-scroll UNTIL they
+          start on a node (pointerdown on the canvas node sets touch-action none
+          via pointer capture); two-finger pinch still zooms the graph. Without
+          this the wrapper ate every swipe and the page could not scroll past
+          the graph on a phone. */}
       <canvas ref={cvRef} style={{ display: "block", width: "100%", height: 420, cursor: drag.current ? "grabbing" : "grab" }}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
         onWheel={onWheel} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} />
@@ -299,7 +312,7 @@ function Outline({ nodes, edges, focusId, setFocusId, T }) {
               return (
                 <li key={n.id} style={{ marginBottom: 3 }}>
                   <button onClick={() => setFocusId(open ? null : n.id)}
-                    style={{ display: "flex", gap: 7, alignItems: "baseline", textAlign: "left", background: "none", border: "none", padding: "3px 4px", cursor: "pointer", width: "100%", borderRadius: 8, background: open ? "color-mix(in srgb, var(--accent, #d97757) 10%, transparent)" : "none" }}>
+                    style={{ display: "flex", gap: 7, alignItems: "baseline", textAlign: "left", border: "none", padding: "3px 4px", cursor: "pointer", width: "100%", borderRadius: 8, background: open ? "color-mix(in srgb, var(--accent, #d97757) 10%, transparent)" : "none" }}>
                     <span style={{ color: TYPE_COLOR[n.type] || "var(--text2)", fontSize: 12 }}>{TYPE_ICON[n.type] || "•"}</span>
                     <span style={{ fontSize: 13.5, color: "var(--text)", lineHeight: 1.45 }}>{n.title}</span>
                     {rels.length > 0 && <span style={{ ...S.mono, marginLeft: "auto", whiteSpace: "nowrap" }}>↔ {rels.length}</span>}

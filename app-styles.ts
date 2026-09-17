@@ -510,6 +510,12 @@ html, body, #root{background:var(--bg)}
 .keypanel-foot{text-align:center;font-size:9.5px;color:var(--muted);font-family:'Share Tech Mono',monospace;letter-spacing:.5px;line-height:1.5}
 /* ── admin page ── */
 .adminpage{flex:1;display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+/* Scroll container for admin tabs that render a plain page (TIGA Model Lab /
+   Back Office). .adminpage is a column flex with overflow hidden, and the
+   chat tab gets its scrolling from .mmsgs - these two tabs had neither, so
+   anything below the fold was unreachable on a phone. Same feel as .mmsgs. */
+.adminscroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:14px;scrollbar-width:thin;scrollbar-color:#d97757 var(--card3)}
+.adminscroll::-webkit-scrollbar{width:3px}
 .adminbar{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:var(--card2);border-bottom:1px solid #ff525244;flex-shrink:0;box-shadow:0 2px 16px rgba(255,82,82,.12)}
 .adminbar-l{display:flex;align-items:center;gap:11px}
 .adminorb{width:34px;height:34px;border-radius:9px;background: #ff5252;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 14px #ff525266;animation:pulse 2.5s infinite}

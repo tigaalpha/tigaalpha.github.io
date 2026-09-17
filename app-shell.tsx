@@ -31,6 +31,33 @@ export class ErrorBoundary extends Component {
   componentDidCatch(error, info) { console.error("Uncaught render error:", error, info); }
   render() {
     if (!this.state.hasError) return this.props.children;
+    // Recovery must beat the two real ways this screen appears:
+    // 1) A deploy raced the page load: cached HTML pointed at a hashed bundle
+    //    the new deploy deleted -> import failed -> crash. A plain reload can
+    //    get the SAME stale HTML back (browser HTTP cache), so before giving
+    //    up we re-fetch index.html with cache:"no-store" once and hard-
+    //    navigate if its bundle hash differs from ours.
+    // 2) A genuine render bug: reloading lands on the same crash, so after
+    //    one automatic attempt we stop (two crashless loads in a row means
+    //    the bug is gone; a third bounce would be a reload loop).
+    const K = "tiga_crash_recover";
+    let attempts = 0;
+    try { attempts = Number(sessionStorage.getItem(K) || "0"); } catch (e) {}
+    const go = (url) => { try { sessionStorage.setItem(K, String(attempts + 1)); } catch (e) {} window.location.replace(url); };
+    const reload = () => {
+      if (attempts >= 1) { try { sessionStorage.removeItem(K); } catch (e) {} return; }
+      try {
+        fetch(window.location.href, { cache: "no-store" })
+          .then(r => r.text())
+          .then(html => {
+            const m = html && html.match(/bundle\/index\.template-[A-Za-z0-9_-]+\.js/);
+            const mine = (document.querySelector('script[src*="bundle/index.template"]') || {}).src || "";
+            if (m && mine && mine.indexOf(m[0]) === -1) go(window.location.href); // fresher build exists -> hard navigate
+            else go(window.location.href);                                        // same build -> one honest retry
+          })
+          .catch(() => go(window.location.href));
+      } catch (e) { go(window.location.href); }
+    };
     return (
       <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
         <div className="scan" />
@@ -38,7 +65,7 @@ export class ErrorBoundary extends Component {
           <div style={{ fontSize: 52 }}>🎹</div>
           <div className="locktitle">เกิดข้อผิดพลาด · Something went wrong</div>
           <div className="locksub">ขออภัยในความไม่สะดวก กรุณาโหลดหน้าใหม่อีกครั้ง<br />Sorry about that — please reload the page to continue.</div>
-          <button className="lockbtn" onClick={() => window.location.reload()}>โหลดใหม่ · Reload</button>
+          <button className="lockbtn" onClick={reload}>โหลดใหม่ · Reload</button>
         </div>
       </div>
     );

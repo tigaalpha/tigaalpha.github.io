@@ -9440,8 +9440,8 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
-        : adminTab === "tigamodel" && tier >= 3 ? <TigamodelLab lang={lang} />
-        : adminTab === "tigabackoffice" && tier >= 3 ? <TigamodelBackoffice lang={lang} />
+        : adminTab === "tigamodel" && tier >= 3 ? <div className="adminscroll"><TigamodelLab lang={lang} /></div>
+        : adminTab === "tigabackoffice" && tier >= 3 ? <div className="adminscroll"><TigamodelBackoffice lang={lang} /></div>
         : adminTab === "activity" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminActivity lang={lang} onOpenAnon={() => setAdminTab("anonvisit")} /></Suspense>
         : adminTab === "anonvisit" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminAnonVisitors lang={lang} /></Suspense>
         : adminTab === "simbots" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminSimBots lang={lang} /></Suspense>
