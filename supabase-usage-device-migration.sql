@@ -37,8 +37,12 @@ create index if not exists usage_events_dev_idx on public.usage_events (dev, cre
 -- double-counted across the login split.
 create or replace function public.admin_device_mix(p_since timestamptz default null)
 returns jsonb
-language sql stable security definer set search_path = public as $$
-  select jsonb_build_object(
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_top_admin() then
+    raise exception 'top admin only';
+  end if;
+  return jsonb_build_object(
     'devices', coalesce((
       select jsonb_agg(jsonb_build_object(
         'dev',      t.dev,
@@ -68,7 +72,11 @@ language sql stable security definer set search_path = public as $$
                                  where (p_since is null or created_at >= p_since)
                                    and ua like '%webview%'), 0)
   );
+end;
 $$;
+
+revoke execute on function public.admin_device_mix(timestamptz) from public, anon;
+grant execute on function public.admin_device_mix(timestamptz) to authenticated;
 
 -- ── 3. screen-width histogram: what people actually open the app on ────────
 -- Buckets line up with the piano-key layout decision this data was collected
@@ -76,8 +84,12 @@ $$;
 -- inside each bucket is the number to design against.
 create or replace function public.admin_device_widths(p_since timestamptz default null)
 returns jsonb
-language sql stable security definer set search_path = public as $$
-  select coalesce(jsonb_agg(jsonb_build_object(
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_top_admin() then
+    raise exception 'top admin only';
+  end if;
+  return (select coalesce(jsonb_agg(jsonb_build_object(
       'bucket',   t.bucket,
       'people',   t.people,
       'events',   t.events,
@@ -98,8 +110,12 @@ language sql stable security definer set search_path = public as $$
     where (p_since is null or e.created_at >= p_since)
     group by 1
     order by min(coalesce(e.dev_w, 0))
-  ) t;
+  ) t);
+end;
 $$;
+
+revoke execute on function public.admin_device_widths(timestamptz) from public, anon;
+grant execute on function public.admin_device_widths(timestamptz) to authenticated;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- MANUAL TEST after applying (as the owner account, admin_tier >= 3):
