@@ -9,6 +9,7 @@ import { EARN, takeEarn, logPractice, scoreDynamics, pathDoneSet, markPathDone, 
 import { logActivity } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
+import { runTeachingLoopForPractice } from "./tigamodel/web";
 /* ── use-practice-mode.ts ──
    Owns the "listen to the learner play and grade it against a target
    sequence" session: mic/MIDI/tap-driven note matching (broken = one note
@@ -68,6 +69,15 @@ function scoreRhythm(times) {
 export function readPracticeBests() { try { return JSON.parse(localStorage.getItem("tg_practice_best") || "{}") || {}; } catch (e) { return {}; } }
 function writePracticeBest(key, rec) { try { const m = readPracticeBests(); m[key] = rec; localStorage.setItem("tg_practice_best", JSON.stringify(m)); } catch (e) {} }
 
+// TIGA teaching-loop signal: a gap longer than PAUSE_GAP_MS between two
+// consecutive correct hits counts as one "pause" — the loop uses pauses >= 3
+// as its hesitation evidence ("หยุดคิดบ่อยระหว่างเล่น", alternatives: reading
+// ahead / thinking technically / tired). Counted on correct hits only, so a
+// wrong-note stall or the mic sitting silent before the first note never
+// inflates the signal. 4 s is comfortably above normal reading time between
+// phrases but well below "walked away from the piano".
+const PAUSE_GAP_MS = 4000;
+
 export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly }) {
   // ── practice mode (listen to the learner play) ──
   const [practiceOpen, setPracticeOpen] = useState(false);
@@ -99,6 +109,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practicePaidRef = useRef(false);
   const practiceChordGrpRef = useRef(-1); // progression block practice: start index of the chord window currently being struck, or -1 when this drill is not a chord-by-chord progression
   const practiceMissRef = useRef(0);
+  const practicePauseRef = useRef(0);  // gaps > 4 s between consecutive correct hits this drill — TIGA teaching-loop "hesitation" signal (see finishPractice)
+  const practiceLastHitRef = useRef(0); // Date.now() of the previous correct hit, for the pause detection above
   const practiceVelsRef = useRef([]); // MIDI velocities of hit notes this drill — see scoreDynamics()
   const practiceTimesRef = useRef([]); // Date.now() of each correct hit this drill — see scoreRhythm()
   const practiceStreakRef = useRef(0);
@@ -110,6 +122,17 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const lastInputRef = useRef(null);   // for the cross-source de-duplication below
   const practiceHeardTimer = useRef(null);
   const tuneOffsetRef = useRef(0); // learned piano tuning offset (cents), mic only
+
+  // Called after every correct hit (both broken and block paths): bumps the
+  // pause counter when the gap since the previous correct hit exceeded
+  // PAUSE_GAP_MS, then records this hit's time. The refs reset in the same
+  // places practiceMissRef does (start/restart/switch). TIGA loop input —
+  // see finishPractice's runTeachingLoopForPractice() call.
+  const countHitPause = () => {
+    const now = Date.now();
+    if (practiceLastHitRef.current && now - practiceLastHitRef.current > PAUSE_GAP_MS) practicePauseRef.current += 1;
+    practiceLastHitRef.current = now;
+  };
 
   // Practice Mode: recompute the on-key finger numbers when the hand is switched.
   // Recomputes from the ASCENDING-only notes (fingering data is keyed to that
@@ -247,6 +270,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         setPracticeStreak(practiceStreakRef.current);
         playPianoNote(targets[matchedIdx], 0.5);
         setPracticeHeard({ note: heardNote, ok: true });
+        countHitPause();
         // "how many done" across the WHOLE drill: for a plain chord lo is 0, so
         // this is the original hit.size; for a progression the earlier chords
         // (all indices below the window) are already banked.
@@ -302,6 +326,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         setPracticeStreak(practiceStreakRef.current);
         playPianoNote(targets[idx], 0.5);
         setPracticeHeard({ note: heardNote, ok: true });
+        countHitPause();
         const next = idx + 1;
         practiceIdxRef.current = next;
         setPracticeIdx(next);
@@ -397,6 +422,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceHitSetRef.current = seed0 ? new Set(notes.slice(0, gs0).map((_, i) => i)) : new Set();
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
+    practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above
+    practiceLastHitRef.current = 0;
     practiceVelsRef.current = [];
     practiceTimesRef.current = [];
     practiceStreakRef.current = 0;
@@ -455,6 +482,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceHitSetRef.current = seedR ? new Set(tgtR.slice(0, gsR).map((_, i) => i)) : new Set();
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
+    practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above
+    practiceLastHitRef.current = 0;
     practiceVelsRef.current = [];
     practiceTimesRef.current = [];
     practiceStreakRef.current = 0;
@@ -654,19 +683,56 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     // into a muddle instead of one clean cue. Loudest event wins.
     playUi(bossDefeated || (memoryStreak && memoryStreak.tierUp) || pathUnlocked ? "levelup" : isNewBest || memoryStreak ? "reward" : "click");
 
-    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest });
+    /* ── TIGA teaching loop (P2 wiring, owner-approved direction): analyze
+       this drill with the model BEFORE anything renders. Real signals in —
+       accuracy, repeated errors, pauses (now actually counted per hit gap),
+       rhythm and dynamics percentages — the policy picks a strategy, the KB
+       appends a teach tip. All local/synchronous: zero latency on the result
+       screen, zero network cost, and it still works for guests (whose AI
+       flourish below is skipped). prevBest tells the loop whether accuracy
+       moved vs. the learner's own bar. Null on any failure — the loop is an
+       enhancement, never a crash path (same convention as kbTipFor). ── */
+    const weekAgoAccuracy = (() => { try {
+      const m = JSON.parse(localStorage.getItem("tg_memory") || "null");
+      if (!m || !Array.isArray(m.recent)) return null;
+      const prev = m.recent.find(r => r.label === label);
+      return prev && prev.acc != null ? prev.acc : null;   // ~"last time" — the closest honest weekly proxy the app tracks
+    } catch (e) { return null; } })();
+    const rhythmPct = rhythm ? Math.round((rhythm.ok / (rhythm.ok + rhythm.miss)) * 100) : null;
+    const tigaLoop = runTeachingLoopForPractice({
+      accuracy,
+      repeatedErrors: bestStreak === 0 && miss >= 2 ? miss : (miss >= 4 ? miss : 0),
+      // miss >= 2 with a broken combo is the loop's own "repeated error"
+      // shape; a high miss count alone (>= 4) reads as repeated errors even
+      // when the streak survived. passMisses → repeatedErrorLabel for the KB tip.
+      repeatedErrorLabel: label,
+      pauses: practicePauseRef.current,
+      rhythmScore: rhythmPct,
+      speedRatio: null,
+      weekAgoAccuracy,
+    });
+    const tigaTip = tigaLoop && tigaLoop.response ? { text: tigaLoop.response.text, strategyId: tigaLoop.decision ? tigaLoop.decision.strategy_id : null, states: tigaLoop.states } : null;
+
+    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest, tigaTip });
 
     // Bonus AI flourish on top of an already-complete local result — fetched
     // standalone (not through the shared chat thread/callClaude) so it can
     // render right inside the result screen instead of forcing a page/chat
     // navigation. Skipped quietly for guests, same as before: practice itself
     // stays fully free during the trial, this is just a nice-to-have on top.
+    // The loop's verdict now also feeds the prompt: the AI gets the SAME
+    // structured signals + chosen strategy + KB tip as data, so its message
+    // extends the model's teaching decision instead of possibly contradicting
+    // it (spec §21 — the loop OBSERVE→…→RESPOND, the provider renders it).
     if (!isGuest) {
+      const loopCtx = tigaTip
+        ? `\n\n[TIGA MODEL ANALYSIS — follow this teaching decision, do not contradict it.\nStrategy: ${tigaTip.strategyId || "none"}\nSignals: accuracy ${accuracy}%, misses ${miss}, pauses ${practicePauseRef.current}${rhythmPct != null ? `, rhythm ${rhythmPct}%` : ""}${weekAgoAccuracy != null ? `, last time ${weekAgoAccuracy}%` : ""}\nStates: ${tigaTip.states.map(s => `${s.state}@${s.probability.toFixed(2)}`).join(", ") || "none"}\nModel message: ${tigaTip.text}]`
+        : "";
       const fb = lang === "th"
-        ? `ผู้เรียนเพิ่งฝึกเล่น "${label}" บนเปียโน เล่นถูกครบ ${total} โน้ต ความแม่นยำ ${accuracy}% (เล่นผิดระหว่างทาง ${miss} ครั้ง) คอมโบสูงสุด ${bestStreak} โน้ตติด ในฐานะครูเปียโน TiGA ช่วยชมและให้กำลังใจสั้นๆ อบอุ่น แล้วแนะนำ 1-2 จุดที่ควรฝึกต่อให้ดีขึ้น ตอบกระชับเป็นภาษาไทย ไม่ต้องระบุชื่อโน้ต`
+        ? `ผู้เรียนเพิ่งฝึกเล่น "${label}" บนเปียโน เล่นถูกครบ ${total} โน้ต ความแม่นยำ ${accuracy}% (เล่นผิดระหว่างทาง ${miss} ครั้ง) คอมโบสูงสุด ${bestStreak} โน้ตติด ในฐานะครูเปียโน TiGA ช่วยชมและให้กำลังใจสั้นๆ อบอุ่น แล้วแนะนำ 1-2 จุดที่ควรฝึกต่อให้ดีขึ้น ตอบกระชับเป็นภาษาไทย ไม่ต้องระบุชื่อโน้ต${loopCtx}`
         : lang === "zh"
-        ? `学员刚在钢琴上练习了"${label}"，完成全部 ${total} 个音，准确率 ${accuracy}%（中途失误 ${miss} 次），最高连击 ${bestStreak} 个音。作为 TiGA 钢琴老师，请简短温暖地表扬鼓励，并给出 1-2 个可继续提升的小建议。简洁中文回答，不要列音名`
-        : `The learner just practiced "${label}" on piano, completing all ${total} notes at ${accuracy}% accuracy (${miss} wrong notes along the way), with a best combo of ${bestStreak} notes in a row. As TiGA the piano teacher, give a short, warm word of praise and encouragement, then 1-2 tips to improve next. Be concise; no note names needed.`;
+        ? `学员刚在钢琴上练习了"${label}"，完成全部 ${total} 个音，准确率 ${accuracy}%（中途失误 ${miss} 次），最高连击 ${bestStreak} 个音。作为 TiGA 钢琴老师，请简短温暖地表扬鼓励，并给出 1-2 个可继续提升的小建议。简洁中文回答，不要列音名${loopCtx}`
+        : `The learner just practiced "${label}" on piano, completing all ${total} notes at ${accuracy}% accuracy (${miss} wrong notes along the way), with a best combo of ${bestStreak} notes in a row. As TiGA the piano teacher, give a short, warm word of praise and encouragement, then 1-2 tips to improve next. Be concise; no note names needed.${loopCtx}`;
       fetchChatCompletion({ message: fb, conversationHistory: [], system: THEORY_REF, stream: false, feature: "practice-tip" })
         .then(txt => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiText: txt || null, aiLoading: false } : prev)))
         .catch(() => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiLoading: false } : prev)));
