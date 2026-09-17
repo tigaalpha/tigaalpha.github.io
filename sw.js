@@ -1,19 +1,16 @@
 // v10: network-first for JS/CSS to prevent stale cached bundles.
-// v14: "network-first" was still handing fetch() to the BROWSER'S OWN HTTP
-// cache, which GitHub Pages' default Cache-Control lets satisfy a request
-// for several minutes with no request ever reaching the origin - so a user
-// who reopens the app within that window can get old HTML/CSS even though
-// the SW's own logic never touched a stale byte. cache:"no-store" forces an
-// actual round trip every time. Bumped cache name to v14 so every client
-// reinstalls this SW once.
+// v16: clients.claim() raced a page's message listener - a tab left open from
+// the night before could miss SW_UPDATED and run yesterday's bundle until a
+// manual reload. controllerchange now also notifies (top-level listener), and
+// the cache name bumps so every client reinstalls this worker once.
 // v15: and that "bumped once, by hand" was the whole problem. A browser only
 // reinstalls a worker whose BYTES changed, and the build copied this file
 // verbatim, so it never changed, so `activate` below never ran, so the
 // SW_UPDATED message App.tsx reloads on was never sent. Anyone with the app
-// open kept running the build they first loaded. b379881bb2ec is replaced at
+// open kept running the build they first loaded. b8b712b9f545 is replaced at
 // build time with a hash of the page itself (scripts/stamp-sw.mjs), so this
 // file now changes exactly when the app does.
-const CACHE = "tiga-v15-b379881bb2ec";
+const CACHE = "tiga-v16-b8b712b9f545";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {

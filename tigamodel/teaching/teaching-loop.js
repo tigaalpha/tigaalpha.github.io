@@ -59,12 +59,19 @@ export function createTeachingLoop({ policy, kb } = {}) {
       }
     }
 
-    // 4. DIAGNOSE (rule codes the KB/exercise selectors can consume later)
+    // 4. DIAGNOSE (rule codes the KB/exercise selectors can consume later).
+    // Gap round 2 #8: three more codes from signals the app already produces —
+    // hesitation (pauses), early-speed (rushing when accuracy is fine), and
+    // progress-stall (a week of practice without accuracy growth when the
+    // caller supplies history). Each maps to a KB tip via ISSUE_KB below.
     const issues = [];
     if (practiceStats) {
       if ((practiceStats.repeatedErrors || 0) >= 2) issues.push({ code: "repeated_error", detail: String(practiceStats.repeatedErrorLabel || "ท่อนเดิมพลาดซ้ำ"), evidence: ["repeated_errors >= 2"], confidence: 0.6 });
       if (typeof practiceStats.rhythmScore === "number" && practiceStats.rhythmScore < 60) issues.push({ code: "rhythm_uneven", detail: "จังหวะไม่สม่ำเสมอ", evidence: [`rhythmScore ${practiceStats.rhythmScore}`], confidence: 0.55 });
       if (typeof practiceStats.accuracy === "number" && practiceStats.accuracy < 50) issues.push({ code: "note_accuracy_low", detail: "ความแม่นยำโน้ตต่ำ", evidence: [`accuracy ${practiceStats.accuracy}`], confidence: 0.6 });
+      if ((practiceStats.pauses || 0) >= 3 && !(typeof practiceStats.accuracy === "number" && practiceStats.accuracy < 50)) issues.push({ code: "hesitation", detail: "หยุดคิดบ่อยระหว่างเล่น", evidence: [`pauses ${practiceStats.pauses}`], confidence: 0.5 });
+      if (typeof practiceStats.accuracy === "number" && practiceStats.accuracy >= 85 && typeof practiceStats.speedRatio === "number" && practiceStats.speedRatio > 1.15) issues.push({ code: "speed_uneven", detail: "เร่งจังหวะเมื่อท่องคุ้น", evidence: [`speedRatio ${practiceStats.speedRatio}`], confidence: 0.5 });
+      if (typeof practiceStats.accuracy === "number" && typeof practiceStats.weekAgoAccuracy === "number" && practiceStats.weekAgoAccuracy > 0 && practiceStats.accuracy - practiceStats.weekAgoAccuracy < 3) issues.push({ code: "progress_stall", detail: "ความแม่นยำไม่คืบหน้าเป็นสัปดาห์", evidence: [`acc ${practiceStats.accuracy} vs ${practiceStats.weekAgoAccuracy} a week ago`], confidence: 0.5 });
     }
     const diagnosis = makeDiagnosis({ issues });
 
@@ -100,6 +107,9 @@ const ISSUE_KB = {
   repeated_error: "sci:deliberate-practice",   // ซ้อมจุดเดิมพลาดซ้ำ → ซ้อมที่จุดอ่อนแบบตั้งเป้า
   rhythm_uneven: "ex:slow-count-aloud",        // จังหวะไม่นิ่ง → เล่นช้า+นับออกเสียง
   note_accuracy_low: "sci:chunking",           // โน้ตพลาดเยอะ → ย่อยเป็นท่อนเล็ก
+  hesitation: "tcraft:ear-ladder",             // หยุดคิดบ่อย → ฐานฟังยังไม่แน่น (audiation ค้ำการอ่านข้างหน้า)
+  speed_uneven: "err:rushing",                 // เร่งเมื่อคุ้น → มือเร็วกว่าสมองนับ ไม่ใช่เจตนา
+  progress_stall: "tcraft:session-shape",      // ไม่คืบหน้า → รูปเซสชันอาจขาดช่วงจุดติดแบบตั้งใจ
 };
 
 function kbTipFor(issues, kb) {

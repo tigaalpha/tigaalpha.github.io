@@ -25,6 +25,8 @@ import { seedGlobalTheory } from "./knowledge/global-theory-seed.js";
 import { seedGlobalPedagogy } from "./knowledge/global-pedagogy-seed.js";
 import { seedPianoCraft } from "./knowledge/piano-craft-seed.js";
 import { seedTeacherCraft } from "./knowledge/teacher-craft-seed.js";
+import { seedRepertoireForms } from "./knowledge/repertoire-forms-seed.js";
+import { seedLearnerSkills } from "./knowledge/learner-skills-seed.js";
 import { SOURCES, COVERAGE, GLOBAL_COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
 import { sb } from "../supabase-client";
 
@@ -48,6 +50,8 @@ export function initTigamodelWeb() {
     seedGlobalPedagogy(_tiga.kb); // teaching methods + practice science
     seedPianoCraft(_tiga.kb);     // GROUP 1: pedal/dynamics/jazz — app-teached topics (gap audit)
     seedTeacherCraft(_tiga.kb);   // GROUP 2+3: memory/ear/stage-fright/motivation/deep-theory
+    seedRepertoireForms(_tiga.kb); // gap round 2 #1/#4/#5: eras, forms, left-hand patterns
+    seedLearnerSkills(_tiga.kb);   // gap round 2 #6/#7/#10: improv how-to, transpose, special populations
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
   return _tiga;
 }
@@ -75,45 +79,85 @@ export function getTigamodel() { return _tiga; }
 export function getUniversitySources() { return { sources: SOURCES, coverage: COVERAGE, globalCoverage: GLOBAL_COVERAGE, ids: listSourceIds() }; }
 
 /* ── KB → student-facing teacher prompt (GROUP 4.1 of the owner's gap
-   audit 2026-09-17: the 52+ KB entries existed but never reached the chat
-   students actually use — THEORY_REF was static text only). Renders the
-   KB's strongest TEACHABLE entries as a compact system-prompt block:
-   topic title + the entry's own `teach` line (how to teach it), capped so
-   the per-message token cost stays bounded. Cached per page load — the KB
-   seeds are static this session, and rebuilding per message would allocate
-   for nothing. ── */
-let _kbContextCache = null;
-export function getKBContext() {
-  if (_kbContextCache !== null) return _kbContextCache;
+   audit 2026-09-17; retrieval refinement is gap round 2, item #2). The KB
+   seeds are static per page load, so the per-entry index is built once and
+   cached; per MESSAGE the caller passes the student's text and only the
+   entries whose keywords/domain match are rendered — asking about pedal no
+   longer ships the jazz block. No match at all → a small always-useful
+   core (motivation/planning) instead of nothing. ── */
+let _kbIndex = null;
+const KB_DOMAIN_LABEL = {
+  pedal: "PEDAL", expression: "EXPRESSION", technique: "TECHNIQUE",
+  jazz: "JAZZ", "ear-training": "EAR TRAINING", memorization: "MEMORIZATION",
+  "practice-planning": "PRACTICE PLANS", performance: "PERFORMANCE",
+  motivation: "MOTIVATION", culture: "THAI MUSIC", rhythm: "RHYTHM",
+  theory: "THEORY", harmony: "HARMONY", repertoire: "REPERTOIRE",
+  form: "FORM", accompaniment: "ACCOMPANIMENT", improvisation: "IMPROVISATION",
+  "learner-differences": "LEARNER DIFFERENCES",
+};
+const KB_DOMAIN_KEYWORDS = {
+  pedal: ["pedal", "แป้น", "เหยียบ", "sustain", "sostenuto", "una corda"],
+  expression: ["dynamic", "crescendo", "ดัง", "เบา", "rubato", "expression", "แสดงออก", "cresc", "sfz", "เน้นเสียง"],
+  technique: ["ท่า", "นั่ง", "ศอก", "ไหล่", "ข้อมือ", "นิ้ว", "posture", "hand position", "เจ็บ", "เมื่อย", "tension", "technique", "curved"],
+  jazz: ["jazz", "blues", "swing", "comping", "voicing", "บลูส์", "แจ๊ส", "12-bar", "riff"],
+  "ear-training": ["ฟัง", "หู", "ear", "interval", "คู่เสียง", "dictation", "แยกเสียง"],
+  memorization: ["จำ", "ท่องจำ", "memoriz", "ลืม", "memory"],
+  "practice-planning": ["ซ้อม", "practice", "แผน", "กี่นาที", "นาที", "ตาราง", "ฝึก", "plan", "วันละ"],
+  performance: ["ขึ้นเล่น", "เวที", "ใจสั่น", "ประหม่า", "stage", "anxiety", "ประกวด", "การแสดง"],
+  motivation: ["เบื่อ", "เลิก", "ท้อ", "แรงใจ", "motivat", "รางวัล", "แต้ม", "ชม", "streak", "อยากเล่น"],
+  culture: ["เพลงไทย", "ลูกทุ่ง", "หมอลำ", "thai music", "ขิม", "จะเข้"],
+  rhythm: ["จังหวะ", "rhythm", "beat", "note value", "ครึ่งจังหวะ", "crotchet", "quaver", "โน้ตตัว"],
+  theory: ["ทฤษฎี", "theory", "บันไดเสียง", "scale", "mode", "คู่เสียง", "interval", "key", "คีย์", "เซมิโทน", "solfege", "transpose", "ย้ายคีย์"],
+  harmony: ["คอร์ด", "chord", "harmony", "inversion", "voice leading", "modulation", "เปลี่ยนคีย์", "cadence", "7th", "slash", "tension"],
+  repertoire: ["เพลงคลาสสิก", "ยุค", "baroque", "คลาสสิก", "โรแมนติก", "bach", "mozart", "beethoven", "chopin", "ผู้แต่ง", "composer"],
+  form: ["ฟอร์ม", "form", "ABA", "rondo", "โซนาต", "sonatina", "sonata", "variation", "โครงเพลง"],
+  accompaniment: ["ประกอบ", "มือซ้าย", "left hand", "alberti", "ostinato", "เบส", "bass", "arpeggio", "บล็อกคอร์ด", "accomp"],
+  improvisation: ["ด้นสด", "improvis", "แต่งเพลง", "แต่งสด"],
+  "learner-differences": ["adhd", "สมาธิ", "เด็ก", "ลูก", "มือเล็ก", "ยืดไม่ถึง", "ผู้สูง", "พิเศษ", "hyperfocus", "child"],
+};
+
+function buildKbIndex(tiga) {
+  const byDomain = new Map();
+  for (const e of (tiga.kb ? tiga.kb._entries.values() : [])) {
+    if (!e.teach || !KB_DOMAIN_LABEL[e.domain]) continue;
+    if (!byDomain.has(e.domain)) byDomain.set(e.domain, []);
+    byDomain.get(e.domain).push(e);
+  }
+  return byDomain;
+}
+
+export function getKBContext(matchText) {
   try {
     // sync init — ensureTigamodelWeb() is async and would return a Promise here
     if (!_tiga) initTigamodelWeb();
     const tiga = _tiga;
     if (!tiga || !tiga.kb) return "";
-    const groups = {
-      pedal: "PEDAL / เปียโนเฉพาะ",
-      expression: "EXPRESSION / การแสดงออก",
-      technique: "TECHNIQUE / ท่าทาง-เทคนิค",
-      jazz: "JAZZ",
-      "ear-training": "EAR TRAINING / ฝึกหู",
-      memorization: "MEMORIZATION / การจำ",
-      "practice-planning": "PRACTICE PLANS / แผนซ้อม",
-      performance: "PERFORMANCE / ขึ้นเล่น",
-      motivation: "MOTIVATION / แรงจูงใจ",
-      culture: "THAI MUSIC / ดนตรีไทย",
-      rhythm: "RHYTHM",
-      theory: "THEORY+",
-      harmony: "HARMONY+",
-    };
-    const lines = [];
-    for (const e of tiga.kb._entries.values()) {
-      if (!e.teach || !groups[e.domain]) continue; // only teachable, gap-domain entries
-      lines.push(`• [${groups[e.domain]}] ${e.title} — วิธีสอน: ${e.teach}`);
+    if (!_kbIndex) _kbIndex = buildKbIndex(tiga);
+    if (!_kbIndex.size) return "";
+
+    const text = String(matchText || "").toLowerCase();
+    let domains = [];
+    if (text) {
+      for (const [d, kws] of Object.entries(KB_DOMAIN_KEYWORDS)) {
+        if (kws.some(k => text.includes(k))) domains.push(d);
+      }
     }
-    if (!lines.length) return (_kbContextCache = "");
-    return (_kbContextCache =
+    // no topical hit → serve a small always-relevant core, not the whole KB
+    if (!domains.length) domains = ["motivation", "practice-planning"];
+    const top = domains.slice(0, 4); // cap: at most 4 domains per message
+
+    const lines = [];
+    for (const d of top) {
+      const label = KB_DOMAIN_LABEL[d];
+      for (const e of (_kbIndex.get(d) || [])) {
+        lines.push(`• [${label}] ${e.title} — วิธีสอน: ${e.teach}`);
+      }
+    }
+    if (!lines.length) return "";
+    return (
       "\n\n[TIGA KNOWLEDGE BASE — curated teaching knowledge with sources. Use these when relevant; follow the วิธีสอน (how to teach) guidance. Do not contradict them.]\n" +
-      lines.join("\n") + "\n");
+      lines.join("\n") + "\n"
+    );
   } catch (e) { return ""; }
 }
 

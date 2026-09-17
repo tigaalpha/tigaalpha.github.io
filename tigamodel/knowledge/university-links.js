@@ -147,5 +147,47 @@ export function linkUniversityKnowledge(kb) {
   rel("tcraft:modulation-pivot", "theory:function-bsd", "relates",
       "คอร์ด pivot ต้องมีฟังก์ชันในสองคีย์พร้อมกัน");
 
+  /* ── Gap round 2 cross-links: repertoire/forms/patterns + learner skills ── */
+  rel("rep:era-classical", "rep:alberti-bass", "relates",
+      "Alberti bass คือเสียงประกอบจำเพาะของยุคคลาสสิก — สอง entry นี้ต้องมาคู่กัน");
+  rel("rep:era-baroque", "theory:consonance-dissonance", "relates",
+      "เส้นเสียงหลายเส้นของบาโรกคือที่ที่ ตึง-คลาย เกิดระหว่างเส้น ไม่ใช่แค่ในคอร์ด");
+  rel("rep:era-romantic", "craft:dynamics-vocabulary", "improves",
+      "ยุคโรแมนติกคือสนามใช้จริงของพลัง dynamic กว้างและ rubato");
+  rel("rep:form-ternary-aba", "sci:chunking", "improves",
+      "รู้ฟอร์ม ABA = ซ้อม A ครั้งเดียวใช้สองครั้ง — chunking ที่ระดับทั้งเพลง");
+  rel("rep:form-theme-variations", "lskill:improv-ladder", "relates",
+      "ทำ variation ของตัวเองคือการด้นสดขั้นแรก — ฟอร์มนี้คือสะพาน");
+  rel("rep:form-sonatina", "tcraft:inversions-bass", "relates",
+      "เปลี่ยนธีม A→B ใน sonatina มักใช้ inversion เพื่อเดินเบสลื่น");
+  rel("rep:form-rondo", "rep:form-ternary-aba", "requires",
+      "จับ ABA ได้ก่อน จึงจะเห็นว่า rondo คือ ABA ที่วนหลายรอบ");
+  rel("rep:ballad-pattern", "craft:melody-above-accompaniment", "requires",
+      "สูตรมือซ้ายต้องเบากว่าทำนอง — หลักเดียวกับ melody-above");
+  rel("rep:block-chord-accomp", "craft:posture-foundation", "requires",
+      "บล็อกคอร์ดใช้น้ำหนักแขน ไม่ใช่ตบนิ้ว — ท่าที่ถูกคือเงื่อนไข");
+  rel("rep:ostinato-riff", "ex:hands-separate-then-together", "relates",
+      "ostinato ต้องวนได้เองก่อนรวมมือ — หลักแยกมือแล้วรวมใช้ตรงนี้");
+  rel("lskill:improv-question-answer", "ped:orff-elemental-doing", "relates",
+      "ถาม-ตอบวลีสั้นคือ elemental doing — เล่นก่อนอธิบาย");
+  rel("lskill:improv-ladder", "theory:improv-history", "relates",
+      "ประวัติบอกว่าด้นสดคือทักษะดั้งเดิม — ladder นี้คือวิธีคืนมันให้ผู้เรียน");
+  rel("lskill:transposition-basics", "theory:circle-of-fifths-map", "relates",
+      "เลือกคีย์ปลายทางที่ดี = อ่านวงกลม fifths เป็น");
+  rel("lskill:transposition-basics", "lskill:small-hands", "improves",
+      "ย้ายคีย์คือทางแก้จริงของ 'มือยืดไม่ถึง'");
+  rel("lskill:adhd-practice-design", "tcraft:session-by-age", "relates",
+      "บล็อกสั้น 3-5 นาทีของ ADHD คือปลายเส้นต่อจากแผนตามวัย");
+  rel("lskill:adhd-practice-design", "tcraft:sdt-three-needs", "relates",
+      "เป้าหมายที่เด็กเลือกเอง = autonomy ซึ่งเป็นเชื้อเพลิงของเด็กกลุ่มนี้โดยเฉพาะ");
+  rel("lskill:small-hands", "craft:pain-is-motion", "requires",
+      "ฝืนยืด = เคลื่อนไหวผิด — หลักหยุด-แก้ ใช้ทันที");
+  rel("lskill:older-beginners", "tcraft:sdt-three-needs", "relates",
+      "เลือกเพลงเองคือ autonomy — แรงจูงใจหลักของผู้สูงวัยเริ่มใหม่");
+  rel("lskill:young-children-multimode", "ped:dalcroze-body-first", "relates",
+      "ร้อง-ขยับ-แตะพร้อมกัน = Dalcroze ในห้องเรียนเด็กเล็ก");
+  rel("lskill:young-children-multimode", "ped:suzuki-mother-tongue", "relates",
+      "ฟังก่อนอ่านของ Suzuki ทำงานในหลายช่องทางพร้อมกันเสมอ");
+
   return kb;
 }
