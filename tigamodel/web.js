@@ -21,7 +21,9 @@ import { evaluateProvider, evaluateAllProviders } from "./evaluation/eval-suite.
 import { makeTIGARequest } from "./core/schema.js";
 import { createUniversitySeededKnowledgeBase } from "./knowledge/university-seed.js";
 import { linkUniversityKnowledge } from "./knowledge/university-links.js";
-import { SOURCES, COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
+import { seedGlobalTheory } from "./knowledge/global-theory-seed.js";
+import { seedGlobalPedagogy } from "./knowledge/global-pedagogy-seed.js";
+import { SOURCES, COVERAGE, GLOBAL_COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
 import { sb } from "../supabase-client";
 
 /* Singleton per page load — the lab rebuilds providers when the session
@@ -38,7 +40,10 @@ export function initTigamodelWeb() {
   // Upgrade the KB to the university-sourced seed (Thai first, then US/RU/FR/
   // CN/JP/KR/UK — every entry carries a source actually read on 2026-09-17).
   try {
-    _tiga.kb = linkUniversityKnowledge(createUniversitySeededKnowledgeBase());
+    _tiga.kb = createUniversitySeededKnowledgeBase();
+    linkUniversityKnowledge(_tiga.kb);
+    seedGlobalTheory(_tiga.kb);   // global music-theory facts (2026-09-17 sweep)
+    seedGlobalPedagogy(_tiga.kb); // teaching methods + practice science
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
   return _tiga;
 }
@@ -63,7 +68,7 @@ export async function ensureTigamodelWeb() {
 export function getTigamodel() { return _tiga; }
 
 /* University knowledge source registry (for the Model Lab's ความรู้ tab). */
-export function getUniversitySources() { return { sources: SOURCES, coverage: COVERAGE, ids: listSourceIds() }; }
+export function getUniversitySources() { return { sources: SOURCES, coverage: COVERAGE, globalCoverage: GLOBAL_COVERAGE, ids: listSourceIds() }; }
 
 /* ── Lab/Backoffice local stores ──
    Chat sessions and eval runs from the admin's testing persist on-device
