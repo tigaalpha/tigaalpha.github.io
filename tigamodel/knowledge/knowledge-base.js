@@ -21,10 +21,11 @@ export function createKnowledgeBase() {
   const entries = new Map(); // id → entry
   const relations = []; // { from, to, type, note }
 
-  function add({ id, type, domain, title, body, confidence = 0.7, source = "tiga-original", ageGroups = null, difficulty = null, prerequisites = [], improves = [], relates = [] }) {
+  function add({ id, type, domain, title, body, teach = null, confidence = 0.7, source = "tiga-original", ageGroups = null, difficulty = null, prerequisites = [], improves = [], relates = [] }) {
     if (!ENTRY_TYPES.includes(type)) throw new Error(`unknown entry type: ${type}`);
     entries.set(id, {
       id, type, domain, title, body,
+      teach, // how to teach it to a beginner — seeds carry it; getKBContext() serves it to the student-facing teacher
       confidence: Math.max(0, Math.min(1, Number(confidence))),
       source, // { source_id, license, permission_status } objects allowed; string = tiga-original
       age_groups: ageGroups,

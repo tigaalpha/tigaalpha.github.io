@@ -23,6 +23,8 @@ import { createUniversitySeededKnowledgeBase } from "./knowledge/university-seed
 import { linkUniversityKnowledge } from "./knowledge/university-links.js";
 import { seedGlobalTheory } from "./knowledge/global-theory-seed.js";
 import { seedGlobalPedagogy } from "./knowledge/global-pedagogy-seed.js";
+import { seedPianoCraft } from "./knowledge/piano-craft-seed.js";
+import { seedTeacherCraft } from "./knowledge/teacher-craft-seed.js";
 import { SOURCES, COVERAGE, GLOBAL_COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
 import { sb } from "../supabase-client";
 
@@ -44,6 +46,8 @@ export function initTigamodelWeb() {
     linkUniversityKnowledge(_tiga.kb);
     seedGlobalTheory(_tiga.kb);   // global music-theory facts (2026-09-17 sweep)
     seedGlobalPedagogy(_tiga.kb); // teaching methods + practice science
+    seedPianoCraft(_tiga.kb);     // GROUP 1: pedal/dynamics/jazz — app-teached topics (gap audit)
+    seedTeacherCraft(_tiga.kb);   // GROUP 2+3: memory/ear/stage-fright/motivation/deep-theory
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
   return _tiga;
 }
@@ -69,6 +73,49 @@ export function getTigamodel() { return _tiga; }
 
 /* University knowledge source registry (for the Model Lab's ความรู้ tab). */
 export function getUniversitySources() { return { sources: SOURCES, coverage: COVERAGE, globalCoverage: GLOBAL_COVERAGE, ids: listSourceIds() }; }
+
+/* ── KB → student-facing teacher prompt (GROUP 4.1 of the owner's gap
+   audit 2026-09-17: the 52+ KB entries existed but never reached the chat
+   students actually use — THEORY_REF was static text only). Renders the
+   KB's strongest TEACHABLE entries as a compact system-prompt block:
+   topic title + the entry's own `teach` line (how to teach it), capped so
+   the per-message token cost stays bounded. Cached per page load — the KB
+   seeds are static this session, and rebuilding per message would allocate
+   for nothing. ── */
+let _kbContextCache = null;
+export function getKBContext() {
+  if (_kbContextCache !== null) return _kbContextCache;
+  try {
+    // sync init — ensureTigamodelWeb() is async and would return a Promise here
+    if (!_tiga) initTigamodelWeb();
+    const tiga = _tiga;
+    if (!tiga || !tiga.kb) return "";
+    const groups = {
+      pedal: "PEDAL / เปียโนเฉพาะ",
+      expression: "EXPRESSION / การแสดงออก",
+      technique: "TECHNIQUE / ท่าทาง-เทคนิค",
+      jazz: "JAZZ",
+      "ear-training": "EAR TRAINING / ฝึกหู",
+      memorization: "MEMORIZATION / การจำ",
+      "practice-planning": "PRACTICE PLANS / แผนซ้อม",
+      performance: "PERFORMANCE / ขึ้นเล่น",
+      motivation: "MOTIVATION / แรงจูงใจ",
+      culture: "THAI MUSIC / ดนตรีไทย",
+      rhythm: "RHYTHM",
+      theory: "THEORY+",
+      harmony: "HARMONY+",
+    };
+    const lines = [];
+    for (const e of tiga.kb._entries.values()) {
+      if (!e.teach || !groups[e.domain]) continue; // only teachable, gap-domain entries
+      lines.push(`• [${groups[e.domain]}] ${e.title} — วิธีสอน: ${e.teach}`);
+    }
+    if (!lines.length) return (_kbContextCache = "");
+    return (_kbContextCache =
+      "\n\n[TIGA KNOWLEDGE BASE — curated teaching knowledge with sources. Use these when relevant; follow the วิธีสอน (how to teach) guidance. Do not contradict them.]\n" +
+      lines.join("\n") + "\n");
+  } catch (e) { return ""; }
+}
 
 /* ── Lab/Backoffice local stores ──
    Chat sessions and eval runs from the admin's testing persist on-device

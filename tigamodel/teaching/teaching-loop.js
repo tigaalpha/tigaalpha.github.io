@@ -73,20 +73,46 @@ export function createTeachingLoop({ policy, kb } = {}) {
 
     // 6. RESPOND — Phase 0 composes the message FROM the decision (no model
     // needed); Phase 1 passes this decision+context to a provider for the
-    // natural-language rendering.
+    // natural-language rendering. The KB now feeds the response: issue codes
+    // map to knowledge entries, whose `teach` line becomes the appended tip
+    // (GROUP 4.2 of the owner's gap audit 2026-09-17 — the loop previously
+    // never read the KB at all). Unknown id / missing kb → no tip, no crash.
     const message = composeMessage(decision, { selfReport, practiceStats, studentContext });
+    const kbTip = kbTipFor(issues, kb);
+    const finalText = kbTip ? `${message}\n\n${kbTip}` : message;
 
     return {
       observations: obs,
       states,
       diagnosis,
       decision,
-      response: { text: message, strategy_id: decision.strategy_id },
+      response: { text: finalText, strategy_id: decision.strategy_id },
       trace: { ts: new Date().toISOString(), signals },
     };
   }
 
   return { runOnce };
+}
+
+/* Issue code → KB entry id. Every id here must exist in the seeds; the lookup
+   is defensive anyway (knowledge-base drops unknown ids silently). */
+const ISSUE_KB = {
+  repeated_error: "sci:deliberate-practice",   // ซ้อมจุดเดิมพลาดซ้ำ → ซ้อมที่จุดอ่อนแบบตั้งเป้า
+  rhythm_uneven: "ex:slow-count-aloud",        // จังหวะไม่นิ่ง → เล่นช้า+นับออกเสียง
+  note_accuracy_low: "sci:chunking",           // โน้ตพลาดเยอะ → ย่อยเป็นท่อนเล็ก
+};
+
+function kbTipFor(issues, kb) {
+  try {
+    if (!kb || !Array.isArray(issues)) return null;
+    for (const issue of issues) {
+      const id = ISSUE_KB[issue && issue.code];
+      if (!id) continue;
+      const e = typeof kb.get === "function" ? kb.get(id) : null;
+      if (e && e.teach) return `[KB] ${e.title} — ${e.teach}`;
+    }
+  } catch (err) { /* KB tip is an enhancement, never a failure path */ }
+  return null;
 }
 
 function composeMessage(decision, { selfReport, practiceStats } = {}) {

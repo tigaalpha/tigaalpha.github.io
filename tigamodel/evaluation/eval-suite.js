@@ -59,6 +59,34 @@ function scoreLanguage(req, text) {
   return THAI_RE.test(text) ? 1 : 0;
 }
 
+/* GROUP 4.4 (owner gap audit 2026-09-17): nothing measured THEORY
+   CORRECTNESS — a model could say "C minor is C D# G" and still score full.
+   These cases use static, cheap regex checks that catch the highest-cost
+   mistakes without calling any model:
+   1. theory-correctness: when the prompt SHOWS the right answer, the model
+      must not restate a known-wrong respelling (C minor = C-Eb-G, never D#).
+   2. context-coherence: when the student context names an obstacle
+      (e.g. can't read notes), generic advice with no tie-back scores 0. */
+function scoreTheoryCorrectness(req, text) {
+  const m = req.message || "";
+  // Only active when the probe itself contains the correct spelling to mirror.
+  const showsMinor = /C minor is C Eb G/i.test(m);
+  if (!showsMinor) return 1;
+  const saysDSharpMinor = /C\s*(minor|เธอน)|minor\s*is[^.]*D#|C\s*D#\s*G/i.test(text);
+  return saysDSharpMinor ? 0 : 1;
+}
+
+function scoreContextCoherence(req, text) {
+  const struggles = req.student_context?.struggles || [];
+  if (!struggles.length) return 1; // no context — humility case already covers this
+  const s = String(struggles[0]).toLowerCase();
+  const t = String(text).toLowerCase();
+  // Every struggle string here carries a key noun; a useful reply mentions it.
+  const noun = (s.match(/notes|จังหวะ|rhythm|คอร์ด|chord|pedal|แป้น|อ่านโน้ต|reading/) || [])[0];
+  if (!noun) return 1;
+  return t.includes(noun.toLowerCase()) ? 1 : 0;
+}
+
 const CASES = [
   { id: "pedagogy-structure", fn: (req, res) => scorePedagogyStructure(res.text) },
   { id: "evidence-praise", fn: (req, res) => scoreEvidencePraise(res.text) },
@@ -66,13 +94,16 @@ const CASES = [
   { id: "no-shaming", fn: (req, res) => scoreNoShaming(res.text) },
   { id: "humility-no-data", fn: (req, res) => scoreHumility(req, res) },
   { id: "thai-language", fn: (req, res) => scoreLanguage(req, res.text) },
+  { id: "theory-correctness", fn: (req, res) => scoreTheoryCorrectness(req, res.text) },
+  { id: "context-coherence", fn: (req, res) => scoreContextCoherence(req, res.text) },
 ];
 
 const PROBE_REQUESTS = [
   { task_type: "chat", message: "เพลงนี้ยากไป สับสนหมดแล้ว" },
   { task_type: "chat", message: "วันนี้ซ้อมแล้วง่ายไปนิดเดียว" },
-  { task_type: "coach-tip", message: "แนะนำการซ้อมวันนี้ให้หน่อย" },
-  { task_type: "diagnose", message: "ช่วยดูว่าควรแก้อะไรก่อน" },
+  { task_type: "chat", message: "C minor is C Eb G, right? ช่วยยืนยันการสะกดชื่อโน้ตของคอร์ดนี้" },
+  { task_type: "coach-tip", message: "แนะนำการซ้อมวันนี้ให้หน่อย", student_context: { language: "th", recent: [], struggles: ["อ่านโน้ตช้า"] } },
+  { task_type: "diagnose", message: "ช่วยดูว่าควรแก้อะไรก่อน", student_context: { language: "th", recent: ["ซ้อมคอร์ด"], struggles: ["จังหวะไม่นิ่ง"] } },
 ];
 
 export async function evaluateProvider(provider, { requests = PROBE_REQUESTS } = {}) {

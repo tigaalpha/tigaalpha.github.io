@@ -8,7 +8,7 @@
    an institution's known tradition are typed "expert-opinion" (honest
    typing per §10: opinion ≠ fact). ── */
 
-import { createKnowledgeBase } from "./knowledge-base.js";
+import { createKnowledgeBase, seedKnowledgeBase } from "./knowledge-base.js";
 import { SOURCES } from "./university-sources.js";
 
 export function seedUniversityKnowledge(kb) {
@@ -129,9 +129,15 @@ export function seedUniversityKnowledge(kb) {
   return kb;
 }
 
-/* Factory: fresh KB seeded with tiga-original pedagogy + university knowledge. */
+/* Factory: fresh KB seeded with tiga-original pedagogy + university knowledge.
+   The BASE seed (the skill/exercise/strategy entries the app's own loop
+   relies on) must be in too — web.js REPLACES the singleton's kb with this
+   factory's result, so anything missing here is missing in production
+   (found by the GROUP-4 test 2026-09-17: exercise/strategy relations from
+   university-links.js dangled because the base seed never made it in). */
 export function createUniversitySeededKnowledgeBase() {
   const kb = createKnowledgeBase();
+  seedKnowledgeBase(kb);
   seedUniversityKnowledge(kb);
   return kb;
 }
