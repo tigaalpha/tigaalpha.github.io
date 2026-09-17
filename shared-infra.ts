@@ -1,6 +1,6 @@
 import { sb } from "./supabase-client";
-import { anonId, trafficSource, uaKind, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY } from "./local-identity";
-export { anonId, trafficSource, uaKind, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY };
+import { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY } from "./local-identity";
+export { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY };
 /* anonId/trafficSource/uaKind and the skip-onboard flag moved VERBATIM to
    local-identity.ts, which imports nothing — the landing bundle needs them
    and must not reach this file's supabase import. Re-exported so every
@@ -94,12 +94,26 @@ export function logUsage(kind, itemId, durationMs = null) {
   const row = {
     kind, item_id: String(itemId),
     anon_id: anonId(), src: trafficSource(), ua: uaKind(),
+    dev: deviceInfo(), dev_w: deviceWidth(),
   };
   if (durationMs != null) row.duration_ms = Math.max(0, Math.round(durationMs)); // page dwell time (admin analytics)
   const send = (uid) => {
     // user_id must stay null for a signed-out visitor: the anon insert policy
     // only accepts rows that claim no user.
-    sb.from("usage_events").insert(uid ? { ...row, user_id: uid } : row).then(() => {}, () => {});
+    const base = uid ? { ...row, user_id: uid } : row;
+    sb.from("usage_events").insert(base).then(() => {}, (err) => {
+      /* PGRST204 = "column not found in the schema cache": the dev/dev_w
+         columns ship in this bundle BEFORE supabase-usage-device-migration.sql
+         has been applied to the live project. Dropping just the two new
+         fields and resending keeps every event flowing (analytics loses two
+         columns on a few early rows; losing whole rows loses everything).
+         The dev/dev_w pair is the only addition this row has made, so one
+         stripped retry is a complete fallback, not a heuristic. */
+      if (err && err.code === "PGRST204") {
+        const { dev, dev_w, ...rest } = base;
+        sb.from("usage_events").insert(rest).then(() => {}, () => {});
+      }
+    });
   };
   sb.auth.getSession().then(
     ({ data }) => send((data && data.session && data.session.user && data.session.user.id) || null),

@@ -293,6 +293,73 @@ function SignupMethodCards({ signup, range, T }) {
   );
 }
 
+/* ── device mix — what KIND of device the audience actually owns ──
+   The piano-key layout decision (iPad 4 octaves, desktop 6-8, phone unchanged)
+   was made from an anecdote; these cards are the measured answer. People are
+   distinct anon_id (same person before/after signup is one person), and each
+   row shows the signed-in/signed-out split because the owner asked to see
+   BOTH. dev='?' rows are traffic from before the columns existed — shown but
+   never allowed to win the bar scale (see barDiv), so stale rows don't dwarf
+   real phones/tablets/desktops. Hidden entirely until the RPC exists (same
+   convention as the hourly histogram). */
+const DEV_META = {
+  phone:    { icon: "📱", th: "มือถือ",    en: "Phone",    zh: "手机" },
+  tablet:   { icon: "📱💻", th: "แท็บเล็ต", en: "Tablet",   zh: "平板" },
+  desktop:  { icon: "🖥️", th: "คอมพิวเตอร์", en: "Desktop", zh: "电脑" },
+  "?":       { icon: "❓", th: "ก่อนมีข้อมูล", en: "Pre-tracking", zh: "追踪前" },
+};
+const DEV_BUCKETS = ["phone", "tablet", "desktop", "?"];
+function DeviceMixCards({ devMix, devWidths, T }) {
+  if (!devMix && !devWidths) return null;
+  const rows = ((devMix && devMix.devices) || []).slice()
+    .sort((a, b) => DEV_BUCKETS.indexOf(a.dev) - DEV_BUCKETS.indexOf(b.dev));
+  // '?' rows are old data: exclude them from the bar scaling so a backlog of
+  // pre-migration events can't flatten every real device's bar to a sliver.
+  const realTotal = rows.filter(r => r.dev !== "?").reduce((n, r) => n + (Number(r.people) || 0), 0);
+  const barDiv = Math.max(1, realTotal);
+  const buckets = ((devWidths && devWidths) || []).filter(b => b.bucket !== "?");
+  return (
+    <div className="adminpay-cfg" style={{ marginTop: 10 }}>
+      <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 2 }}>
+        📱💻 {T("อุปกรณ์ที่คนใช้เข้า (คน = จับจากคุกกี้ภายใน)", "Device mix (people per device)", "设备分布")}
+      </div>
+      {!devMix || !rows.length ? (
+        <div className="admstu-empty">{T("ยังไม่มีข้อมูลอุปกรณ์ — ข้อมูลจะเริ่มเก็บหลังอัปเดตนี้", "No device data yet — collection starts with this update", "暂无设备数据")}</div>
+      ) : rows.map((r) => {
+        const m = DEV_META[r.dev] || DEV_META["?"];
+        const people = Number(r.people) || 0;
+        const pct = Math.round((people / barDiv) * 100);
+        const si = Number(r.signed_in) || 0, so = Number(r.signed_out) || 0;
+        return (
+          <div key={r.dev} className="anrow">
+            <span className="anrow-name" style={{ maxWidth: "34%" }}>{m.icon} {T(m.th, m.en, m.zh)}</span>
+            <span className="anrow-barwrap">
+              <span className="anrow-bar" style={{ width: `${Math.max(3, pct)}%` }} />
+            </span>
+            <span className="anrow-hits">
+              {people}{" "}{T("คน", "", "人")}{pct ? ` · ${pct}%` : ""}
+              <span className="admstu-row-sub">
+                {" · "}{T(`ล็อกอิน ${si}`, `${si} signed-in`, `已登录 ${si}`)}{" · "}{T(`ไม่ล็อกอิน ${so}`, `${so} signed-out`, `未登录 ${so}`)}
+              </span>
+            </span>
+          </div>
+        );
+      })}
+      {!!buckets.length && (
+        <div className="admstu-row-sub" style={{ marginTop: 10 }}>
+          {T("ขนาดหน้าจอที่เปิดใช้ (คน · กว้างค่ากลาง)", "Screen widths in use (people · median width)", "屏幕宽度分布")}{":"}
+          {buckets.map((b) => ` ${b.bucket} ${Number(b.people) || 0}${b.med_w ? ` (${Math.round(Number(b.med_w))}px)` : ""}`).join(" ·")}
+        </div>
+      )}
+      {devMix && !!Number(devMix.webviews_people) && (
+        <div className="admstu-row-sub" style={{ marginTop: 6 }}>
+          ⚠️ {devMix.webviews_people}/{devMix.total_people} {T("คนมาจากเบราว์เซอร์ในแอป (สมัครสมาชิกยาก)", "arrived via in-app browsers (hard to sign up)", "来自应用内浏览器")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AdminAnonVisitors({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [range, setRange] = useState("7");
@@ -695,6 +762,11 @@ export function AdminActivity({ lang, onOpenAnon }) {
   const [showSim, setShowSim] = useState(true);
   const [hours, setHours] = useState(null);   // [{h:0..23, events, users, time_ms}] — null until admin_activity_hourly exists (RPC error → card stays hidden)
   const [hourSel, setHourSel] = useState(null); // tapped hour for the detail line
+  // device mix + screen-width histogram — null until admin_device_* RPCs exist
+  // (supabase-usage-device-migration.sql not applied yet → cards stay hidden,
+  // same graceful convention as the hourly histogram above)
+  const [devMix, setDevMix] = useState(null);
+  const [devWidths, setDevWidths] = useState(null);
 
   // compute the ISO cutoff INSIDE each callback — computing it during render made
   // `since` a new string every render (Date.now() advances), giving `load` a new
@@ -731,6 +803,14 @@ export function AdminActivity({ lang, onOpenAnon }) {
        convention the hourly histogram uses. */
     sb.rpc("admin_landing_funnel", { p_since: since })
       .then(({ data }) => setLanding(data || null), () => setLanding(null));
+    /* Device mix (phone/tablet/desktop, signed-in vs signed-out) + screen-width
+       buckets — the measured answer to "what does the audience actually own",
+       so piano-key layout decisions stop being made from anecdotes. Same
+       null-on-failure convention as every optional RPC above. */
+    sb.rpc("admin_device_mix", { p_since: since })
+      .then(({ data }) => setDevMix(data || null), () => setDevMix(null));
+    sb.rpc("admin_device_widths", { p_since: since })
+      .then(({ data }) => setDevWidths(data || null), () => setDevWidths(null));
   }, [range, showSim]);
 
   useEffect(() => { load(); }, [load]);
@@ -796,6 +876,13 @@ export function AdminActivity({ lang, onOpenAnon }) {
           Google refuses to sign anyone in, so these two numbers are what say
           whether that route is carrying its weight. */}
       <SignupMethodCards signup={signup} range={range} T={T} />
+
+      {/* ── device mix — measured, not anecdotal ──
+          The layout decision (iPad 4 octaves, desktop 6-8, phone unchanged) is
+          the kind of call this data was collected to make from evidence. Sits
+          beside the sign-up-methods cards: same "who is actually arriving"
+          question, one row down. */}
+      <DeviceMixCards devMix={devMix} devWidths={devWidths} T={T} />
 
       {/* ── marketing landing page 1 ──
           The experiment this card exists to settle: does letting a stranger

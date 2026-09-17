@@ -90,3 +90,65 @@ export function consumeSkipOnboard() {
 /* Guest profile lives under its own key; the landing page writes only the
    language field so a language picked on the landing survives into the app. */
 export const GUEST_PROFILE_KEY = "tg_guest_profile";
+
+/* ── device classification, for usage analytics ──
+   usage_events.ua already says WHICH BROWSER APP a visit came through
+   (uaKind above — the Facebook/iPad webview question), but nothing anywhere
+   said what KIND OF DEVICE the audience actually owns: the admin was choosing
+   piano-key layouts and screen sizes blind. That decision was made from an
+   anecdote ("an iPad user complained"), and the whole point of this column
+   is to stop guessing.
+
+   Three coarse buckets only, because a column nobody can remember the
+   meaning of is a column nobody reads:
+     phone    — phones (iPhone, Android handsets, mobile-width anything)
+     tablet   — iPads (including iPadOS 13+ masquerading as desktop Safari —
+                Apple reports those UAs as a Mac on purpose, so the Mac UA has
+                to be interrogated for touch support) and Android tablets
+     desktop  — real mice-and-keyboards (Windows/Mac/Linux desktop browsers)
+
+   CAPTURED ONCE per visit, same convention as trafficSource(): a value that
+   changes when a tablet rotates is a value that can't be grouped by. The
+   width is read at first paint, when the layout being measured is the one
+   the visitor actually got. Landing and app share this via local-identity so
+   a landing visitor and the app session they become land on the same rows
+   with the same vocabulary. */
+const DEV_KEY = "tg_dev";
+export function deviceInfo() {
+  try {
+    const saved = localStorage.getItem(DEV_KEY);
+    if (saved) return saved;
+    const ua = navigator.userAgent || "";
+    const touch = (navigator.maxTouchPoints || 0) > 1;
+    let v;
+    /* iPadOS 13+ lies about being a Mac: "Macintosh" in the UA but touch
+       points like a tablet. Every other iPad ships iPad|iPhone|iPod in the
+       UA directly. iPhone/iPod are phones, not tablets — they share the
+       iPad branch only because both are Apple touchscreen classifications. */
+    if (/iPad|iPhone|iPod/.test(ua)) {
+      v = (/iPhone|iPod/.test(ua)) ? "phone" : "tablet";
+    } else if (/Macintosh/.test(ua) && touch) {
+      v = "tablet";                       // iPadOS 13+ pretending to be a Mac
+    } else if (/Android/i.test(ua)) {
+      v = (Math.min(window.screen.width, window.screen.height) >= 600) ? "tablet" : "phone";
+    } else if (/Windows Phone|IEMobile|Mobile/i.test(ua)) {
+      v = "phone";
+    } else if (touch && Math.min(window.screen.width, window.screen.height) < 600) {
+      v = "phone";                        // touch+small: a phone-like device
+    } else {
+      v = "desktop";
+    }
+    v = v.slice(0, 20);
+    localStorage.setItem(DEV_KEY, v);
+    return v;
+  } catch (e) { return "?"; }
+}
+
+/* Screen width at capture time, in CSS px — one number, capped, so the SQL
+   side can bucket portrait phones vs tablets vs desktops without a second
+   column. Read once per visit alongside deviceInfo(), for the same reason. */
+export function deviceWidth() {
+  try {
+    return Math.min(4000, Math.max(200, Math.round(window.innerWidth || 0)));
+  } catch (e) { return null; }
+}

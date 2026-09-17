@@ -14,8 +14,8 @@
    re-exported for any caller that still reaches for them from this module);
    nothing in this file may import from the app's supabase client. ── */
 
-import { anonId, trafficSource, uaKind } from "../local-identity";
-export { anonId, trafficSource, uaKind };
+import { anonId, trafficSource, uaKind, deviceInfo, deviceWidth } from "../local-identity";
+export { anonId, trafficSource, uaKind, deviceInfo, deviceWidth };
 
 /* VERBATIM values from supabase-client.ts — both are PUBLIC by design; the
    anon key ships in every frontend bundle regardless. */
@@ -32,6 +32,7 @@ export function logLand(kind, itemId, durationMs = null) {
     const row = {
       kind, item_id: String(itemId),
       anon_id: anonId(), src: trafficSource(), ua: uaKind(),
+      dev: deviceInfo(), dev_w: deviceWidth(),
     };
     if (durationMs != null) row.duration_ms = Math.max(0, Math.round(durationMs));
     fetch(SUPABASE_URL + "/rest/v1/usage_events", {
