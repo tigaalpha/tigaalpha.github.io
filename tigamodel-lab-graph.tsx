@@ -269,7 +269,8 @@ function ForceGraph({ nodes, edges, focusId, setFocusId, S }) {
 }
 
 /* ── linked bullet-point outline (domain → entry → relations) ── */
-function Outline({ nodes, edges, focusId, setFocusId, T }) {
+function Outline({ nodes, edges, focusId, setFocusId, T, S }) {
+  if (!S) return null; // styles prop missing → render nothing rather than crash the whole app
   const byDomain = useMemo(() => {
     const m = new Map();
     nodes.forEach(n => { if (!m.has(n.domain)) m.set(n.domain, []); m.get(n.domain).push(n); });
@@ -429,7 +430,7 @@ export function KnowledgeGraphView({ lang = "th", S }) {
       {focus && <DetailCard node={focus} edges={edges} nodes={nodes} setFocusId={setFocusId} T={T} S={S} />}
       {mode === "graph"
         ? <ForceGraph nodes={nodes} edges={edges} focusId={focusId} setFocusId={setFocusId} S={S} />
-        : <Outline nodes={nodes} edges={edges} focusId={focusId} setFocusId={setFocusId} T={T} />}
+        : <Outline nodes={nodes} edges={edges} focusId={focusId} setFocusId={setFocusId} T={T} S={S} />}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 10 }}>
         {Object.entries(TYPE_COLOR).map(([t, c]) => (
           <span key={t} style={{ fontSize: 11.5, color: "var(--muted)" }}>
