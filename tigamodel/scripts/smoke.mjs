@@ -22,6 +22,8 @@ const files = [
   "teaching/teaching-loop.js",
   "student/student-model.js",
   "knowledge/knowledge-base.js",
+  "knowledge/university-sources.js",
+  "knowledge/university-seed.js",
   "evaluation/eval-suite.js",
   "index.js",
 ];
@@ -126,6 +128,26 @@ ok("KB: seeded, relations queryable", () => {
   const entry = kb.get("ex:slow-count-aloud");
   assert.equal(entry.type, "strategy");
   assert.ok(entry.confidence > 0 && entry.confidence <= 1);
+});
+
+/* 5b. university-sourced knowledge: every entry must cite a real source id */
+await ok("KB: university entries cite sources that exist (no fake citations)", async () => {
+  const uniSeed = await M("knowledge/university-seed.js");
+  const uniSources = await M("knowledge/university-sources.js");
+  const kb = uniSeed.createUniversitySeededKnowledgeBase();
+  const uniEntries = Array.from(kb._entries.values()).filter(e => e.id.startsWith("uni:"));
+  assert.ok(uniEntries.length >= 10, `expected >=10 university entries, got ${uniEntries.length}`);
+  for (const e of uniEntries) {
+    assert.ok(e.source, `entry ${e.id} missing source`);
+    assert.ok(uniSources.getSource(e.source), `entry ${e.id} cites unknown source ${e.source} — fake citation!`);
+    const s = uniSources.getSource(e.source);
+    assert.ok(s.url && s.url.startsWith("https://"), `source ${e.source} missing real URL`);
+    assert.ok(e.confidence <= 0.85, `university-sourced claims must stay <=0.85 (${e.id})`);
+    assert.ok(["fact", "expert-opinion"].includes(e.type), `unexpected type ${e.type} on ${e.id}`);
+  }
+  // coverage spans >= 8 distinct country labels
+  const countries = new Set(uniSources.COVERAGE.map(c => c.country));
+  assert.ok(countries.size >= 8, "university knowledge must span >=8 countries");
 });
 
 /* 6. eval suite over all registered providers */

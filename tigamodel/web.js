@@ -19,6 +19,8 @@ import { createTeachingPolicy } from "./teaching/policy.js";
 import { createTeachingLoop } from "./teaching/teaching-loop.js";
 import { evaluateProvider, evaluateAllProviders } from "./evaluation/eval-suite.js";
 import { makeTIGARequest } from "./core/schema.js";
+import { createUniversitySeededKnowledgeBase } from "./knowledge/university-seed.js";
+import { SOURCES, COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
 import { sb } from "../supabase-client";
 
 /* Singleton per page load — the lab rebuilds providers when the session
@@ -32,6 +34,11 @@ export function initTigamodelWeb() {
     ],
     routerPolicy: { prefer_privacy: "balanced", prefer_cost: "balanced", min_quality: 0, provider_overrides: {}, fallback_provider: "mock" },
   });
+  // Upgrade the KB to the university-sourced seed (Thai first, then US/RU/FR/
+  // CN/JP/KR/UK — every entry carries a source actually read on 2026-09-17).
+  try {
+    _tiga.kb = createUniversitySeededKnowledgeBase();
+  } catch (e) { /* keep the base seed if anything unexpected happens */ }
   return _tiga;
 }
 
@@ -53,5 +60,8 @@ export async function ensureTigamodelWeb() {
 }
 
 export function getTigamodel() { return _tiga; }
+
+/* University knowledge source registry (for the Model Lab's ความรู้ tab). */
+export function getUniversitySources() { return { sources: SOURCES, coverage: COVERAGE, ids: listSourceIds() }; }
 
 export { evaluateProvider, evaluateAllProviders, makeTIGARequest, createTeachingLoop, createTeachingPolicy };

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources } from "./tigamodel/web.js";
 
 /* ── TigamodelLab.tsx ──
    Admin-only "TIGA Model Lab" (tab: tigamodel, tier >= 3): the owner's
@@ -124,13 +124,16 @@ export function TigamodelLab({ lang = "th" }) {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 16, flexWrap: "wrap" }}>
         <button style={chip(tab === "chat")} onClick={() => setTab("chat")}>💬 {T("ทดสอบแชท", "Chat test", "聊天测试")}</button>
         <button style={chip(tab === "eval")} onClick={() => setTab("eval")}>📊 {T("ประเมินโมเดล", "Eval", "评估")}</button>
         <button style={chip(tab === "loop")} onClick={() => setTab("loop")}>🔁 {T("จำลองวงจรสอน", "Teaching loop", "教学循环")}</button>
+        <button style={chip(tab === "kb")} onClick={() => setTab("kb")}>📚 {T("ความรู้", "Knowledge", "知识")}</button>
       </div>
 
       {!ready && <div style={card}>{T("กำลังเริ่มระบบ…", "Starting…", "启动中…")}</div>}
+
+      {ready && tab === "kb" && <KnowledgePanel lang={lang} />}
 
       {ready && tab === "chat" && (
         <div style={card}>
@@ -248,6 +251,63 @@ export function TigamodelLab({ lang = "th" }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Knowledge panel: university-sourced entries + their real source links ── */
+function KnowledgePanel({ lang }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const tiga = getTigamodel();
+  const { sources } = getUniversitySources();
+  const [openId, setOpenId] = useState(null);
+  if (!tiga || !tiga.kb) return null;
+  const entries = Array.from(tiga.kb._entries.values()).filter(e => e.source && sources[e.source]);
+  const bySource = {};
+  entries.forEach(e => { (bySource[e.source] = bySource[e.source] || []).push(e); });
+
+  const card = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 14, marginBottom: 10 };
+  const mono = { fontFamily: "ui-monospace, monospace", fontSize: 12, color: "rgba(255,255,255,0.7)" };
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 12 }}>
+        {T(
+          "องค์ความรู้ดนตรีที่รวบรวมจากสถาบันดนตรีชั้นนำของแต่ละประเทศ (หน้าเว็บสาธารณะ อ่านจริง 17 ก.ย. 2026) — เนื้อหาเรียบเรียงใหม่ทั้งหมด ไม่คัดลอกข้อความดิบ ทุกข้อมูลมีลิงก์แหล่งอ้างอิงจริง",
+          "Music knowledge gathered from leading conservatories of each country (public pages, read 17 Sep 2026) — fully paraphrased, every entry linked to its real source",
+          "从各国顶尖音乐学院收集的音乐知识（公开网页，2026年9月17日阅读）— 全部改写并附真实来源链接"
+        )}
+      </div>
+      {Object.entries(sources).map(([sid, s]) => {
+        const ents = bySource[sid] || [];
+        const open = openId === sid;
+        return (
+          <div key={sid} style={card}>
+            <button style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", color: "#fff" }}
+              onClick={() => setOpenId(open ? null : sid)}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <b style={{ fontSize: 14.5 }}>🏛 {s.institution}</b>
+                <span style={mono}>{T(ents.length + " รายการ", ents.length + " entries", ents.length + " 条")}</span>
+              </div>
+              <div style={{ ...mono, marginTop: 3 }}>{s.country} · {s.read_at} · reliability: {s.reliability}</div>
+            </button>
+            {open && (
+              <div style={{ marginTop: 10 }}>
+                {ents.map(e => (
+                  <div key={e.id} style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(0,0,0,0.22)", marginBottom: 6 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700 }}>{e.title}</div>
+                    <div style={{ fontSize: 13.5, marginTop: 4, opacity: 0.9 }}>{e.body}</div>
+                    <div style={{ ...mono, marginTop: 5 }}>type: {e.type} · confidence: {e.confidence} · domain: {e.domain}</div>
+                  </div>
+                ))}
+                <a href={s.url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#6a9bcc", wordBreak: "break-all" }}>
+                  🔗 {s.url}
+                </a>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
