@@ -20,6 +20,7 @@ import { createTeachingLoop } from "./teaching/teaching-loop.js";
 import { evaluateProvider, evaluateAllProviders } from "./evaluation/eval-suite.js";
 import { makeTIGARequest } from "./core/schema.js";
 import { createUniversitySeededKnowledgeBase } from "./knowledge/university-seed.js";
+import { linkUniversityKnowledge } from "./knowledge/university-links.js";
 import { SOURCES, COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
 import { sb } from "../supabase-client";
 
@@ -37,7 +38,7 @@ export function initTigamodelWeb() {
   // Upgrade the KB to the university-sourced seed (Thai first, then US/RU/FR/
   // CN/JP/KR/UK — every entry carries a source actually read on 2026-09-17).
   try {
-    _tiga.kb = createUniversitySeededKnowledgeBase();
+    _tiga.kb = linkUniversityKnowledge(createUniversitySeededKnowledgeBase());
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
   return _tiga;
 }

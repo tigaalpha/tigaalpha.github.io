@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun } from "./tigamodel/web.js";
+import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
 import { sb } from "./supabase-client";
 import { AI_PROVIDERS } from "./AdminAIModels";
 
@@ -223,11 +224,14 @@ export function TigamodelLab({ lang = "th" }) {
         <button style={S.chip(tab === "eval")} onClick={() => setTab("eval")}>📊 {T("ประเมินโมเดล", "Eval", "评估")}</button>
         <button style={S.chip(tab === "loop")} onClick={() => setTab("loop")}>🔁 {T("จำลองวงจรสอน", "Teaching loop", "教学循环")}</button>
         <button style={S.chip(tab === "kb")} onClick={() => setTab("kb")}>📚 {T("ความรู้", "Knowledge", "知识")}</button>
+        <button style={S.chip(tab === "map")} onClick={() => setTab("map")}>🕸 {T("แผนที่ความรู้", "Knowledge map", "知识图谱")}</button>
       </div>
 
       {!ready && <div style={S.card}>{T("กำลังเริ่มระบบ…", "Starting…", "启动中…")}</div>}
 
       {ready && tab === "kb" && <KnowledgePanel lang={lang} S={S} />}
+
+      {ready && tab === "map" && <KnowledgeGraphView lang={lang} S={S} />}
 
       {ready && tab === "chat" && (
         <div style={S.card}>
