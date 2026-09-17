@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun } from "./tigamodel/web.js";
 import { sb } from "./supabase-client";
+import { AI_PROVIDERS } from "./AdminAIModels";
 
 /* ── TigamodelLab.tsx ──
    Admin-only "TIGA Model Lab" (tab: tigamodel, tier >= 3): the owner's
@@ -69,8 +70,54 @@ export function TigamodelLab({ lang = "th" }) {
   const [evalErr, setEvalErr] = useState("");
 
   // "which model are we on right now" — read from the same app_settings row
-  // piano-chat resolves from, so the label cannot drift from reality
+  // piano-chat resolves from, so the label cannot drift from reality.
+  // Owner request 2026-09-17: it is ALSO editable right here — the pill opens
+  // a picker (provider shelf + free-text model id) and saves via the same
+  // admin_set_app_setting RPC the Back Office and AI-Models panels use, so
+  // every writer converges on one config and one truth.
   const [activeModels, setActiveModels] = useState(null); // { default: {provider,model}, [taskType]: {...} }
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerDraft, setPickerDraft] = useState(null);   // {provider, model}
+  const [pickerBusy, setPickerBusy] = useState(false);
+  const [pickerSaved, setPickerSaved] = useState(false);
+  const [pickerErr, setPickerErr] = useState("");
+
+  function resolvedModelFor(tt) {
+    if (!activeModels) return null;
+    if (tt === "chat" && !activeModels.chat && !activeModels.default) {
+      return { provider: "openrouter", model: "nvidia/nemotron-3-super-120b-a12b:free", builtin: true };
+    }
+    const v = activeModels[tt] || activeModels.default;
+    return v && v.provider && v.model ? { ...v, builtin: false } : null;
+  }
+
+  function openPicker() {
+    const cur = resolvedModelFor(taskType) || { provider: "openrouter", model: "" };
+    setPickerDraft({ provider: cur.provider, model: cur.model || "" });
+    setPickerSaved(false); setPickerErr("");
+    setPickerOpen(true);
+  }
+
+  async function savePicker() {
+    if (!pickerDraft || !pickerDraft.model.trim() || pickerBusy) return;
+    setPickerBusy(true); setPickerErr("");
+    // re-read latest server value first — never clobber a change made from
+    // another panel since this page loaded
+    let base = {};
+    try {
+      const r = await sb.from("app_settings").select("value").eq("key", "ai_models").maybeSingle();
+      const v = r && r.data && r.data.value;
+      if (v && typeof v === "object") base = v;
+    } catch (e) { /* server value unreadable → start from what we loaded */ base = activeModels || {}; }
+    const next = { ...base, [taskType]: { provider: pickerDraft.provider, model: pickerDraft.model.trim() } };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "ai_models", p_value: next });
+    setPickerBusy(false);
+    if (error) { setPickerErr(error.message || "error"); return; }
+    setActiveModels(next);
+    setPickerSaved(true);
+    setTimeout(() => setPickerSaved(false), 2500);
+    setTimeout(() => setPickerOpen(false), 900);
+  }
 
   // loop panel
   const policyRef = useRef(null);
@@ -90,7 +137,7 @@ export function TigamodelLab({ lang = "th" }) {
       setVersion(t.version);
       setReady(true);
     });
-    // load the saved model config (read-only here — switching lives in the TIGA Back Office)
+    // load the saved model config (also the edit target for the inline picker)
     sb.from("app_settings").select("value").eq("key", "ai_models").maybeSingle()
       .then(r => {
         if (!alive) return;
@@ -185,20 +232,53 @@ export function TigamodelLab({ lang = "th" }) {
       {ready && tab === "chat" && (
         <div style={S.card}>
           <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 10 }}>
-            {T("ข้อความเดินทางจริงผ่าน: router → piano-chat → โมเดลที่ตั้งไว้ (สลับโมเดลได้ในหลังบ้าน TIGA)", "Real path: router → piano-chat → configured model (switch models in the TIGA Back Office)", "真实路径：路由 → piano-chat → 已配置模型（可在 TIGA 后台切换）")}
+            {T("ข้อความเดินทางจริงผ่าน: router → piano-chat → โมเดลที่ตั้งไว้", "Real path: router → piano-chat → configured model", "真实路径：路由 → piano-chat → 已配置模型")}
           </div>
           {activeModels && (() => {
-            const v = activeModels[taskType] || activeModels.default;
-            const chatBuiltin = taskType === "chat" && !activeModels.chat && !activeModels.default;
+            const cur = resolvedModelFor(taskType);
             return (
-              <div style={{ ...S.inner, marginBottom: 10, display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: 12.5, color: "var(--text2)" }}>{T("ยืนอยู่บนโมเดล", "Currently on", "当前模型")}:</span>
-                <b style={{ fontSize: 13.5, color: "var(--text)" }}>
-                  {chatBuiltin ? "🌐 nvidia/nemotron-3-super-120b-a12b:free" : v && v.provider && v.model ? `${v.provider === "openrouter" ? "🌐" : v.provider === "gemini" ? "🔵" : v.provider === "deepseek" ? "🟣" : "🟠"} ${v.model}` : T("ค่า built-in ของระบบ", "system built-in", "系统内置")}
-                </b>
+              <div style={{ ...S.inner, marginBottom: 10 }}>
+                <button onClick={openPicker} disabled={!cur}
+                  style={{ width: "100%", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}
+                  title={T("แตะเพื่อเปลี่ยนโมเดลของ task นี้", "Tap to switch this task's model", "点击切换此任务的模型")}>
+                  <span style={{ fontSize: 12.5, color: "var(--text2)" }}>{T("ยืนอยู่บนโมเดล (แตะเพื่อเปลี่ยน)", "Currently on (tap to switch)", "当前模型（点击切换）")}:</span>
+                  <b style={{ fontSize: 13.5, color: "var(--accent, #d97757)" }}>
+                    {cur ? `${cur.provider === "openrouter" ? "🌐" : cur.provider === "gemini" ? "🔵" : cur.provider === "deepseek" ? "🟣" : cur.provider === "anthropic" ? "🟠" : "🎙️"} ${cur.model}${cur.builtin ? T(" · ค่า built-in", " · built-in", " · 内置") : ""}` : T("กำลังโหลด…", "loading…", "加载中…")}
+                  </b>
+                </button>
               </div>
             );
           })()}
+          {pickerOpen && pickerDraft && (
+            <div style={{ ...S.inner, marginBottom: 10, borderColor: "color-mix(in srgb, var(--accent, #d97757) 35%, var(--bd1))" }}>
+              <div style={{ fontSize: 12.5, color: "var(--text2)", marginBottom: 6 }}>
+                {T("เปลี่ยนโมเดลสำหรับ", "Switch model for", "切换模型：")} <b style={{ color: "var(--text)" }}>{taskType}</b> — {T("มีผลทันทีกับ request ถัดไป", "applies to the very next request", "下一个请求立即生效")}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                {Object.entries(AI_PROVIDERS).map(([pid, P]) => (
+                  <button key={pid} style={S.chip(pickerDraft.provider === pid)}
+                    onClick={() => setPickerDraft(d => ({ provider: pid, model: (P.models[0] || {}).id || "" }))}>
+                    {P.icon} {P.label}
+                  </button>
+                ))}
+              </div>
+              <select style={S.input} value={(AI_PROVIDERS[pickerDraft.provider]?.models || []).some(m => m.id === pickerDraft.model) ? pickerDraft.model : ""}
+                onChange={e => e.target.value && setPickerDraft(d => ({ ...d, model: e.target.value }))}>
+                <option value="">{T("— เลือกจากชั้นวาง —", "— pick from the shelf —", "— 从列表选择 —")}</option>
+                {(AI_PROVIDERS[pickerDraft.provider]?.models || []).map(m => <option key={m.id} value={m.id}>{m.label} ({m.id})</option>)}
+              </select>
+              <input style={{ ...S.input, marginTop: 6 }} placeholder={T("หรือพิมพ์ model id เอง (เช่น โมเดลใหม่ที่ยังไม่อยู่ในชั้นวาง)", "or type any model id (e.g. a brand-new release)", "或输入任意模型 id")}
+                value={pickerDraft.model} onChange={e => setPickerDraft(d => ({ ...d, model: e.target.value }))} />
+              {pickerErr && <div style={{ color: S.bad, fontSize: 12.5, marginTop: 6 }}>⚠️ {pickerErr}</div>}
+              <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+                <button style={S.btn} onClick={savePicker} disabled={pickerBusy || !pickerDraft.model.trim()}>
+                  {pickerBusy ? "…" : T("💾 บันทึก", "💾 Save", "💾 保存")}
+                </button>
+                <button style={S.btnGhost} onClick={() => setPickerOpen(false)}>{T("ยกเลิก", "Cancel", "取消")}</button>
+                {pickerSaved && <span style={{ color: S.good, fontSize: 13, fontWeight: 700 }}>✓ {T("บันทึกแล้ว — ทดสอบได้เลย", "saved — test away", "已保存 — 可以测试")}</span>}
+              </div>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
             {["chat", "coach-tip", "practice-plan", "diagnose"].map(t => (
               <button key={t} style={S.chip(taskType === t)} onClick={() => setTaskType(t)}>{t}</button>
