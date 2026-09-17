@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { sb } from "./supabase-client";
 import { playUi } from "./music-engine";
 import { AI_PROVIDERS, AI_FEATURES } from "./AdminAIModels";
-import { getTigamodel, evaluateAllProviders, loadChatSessions, deleteChatSession, clearChatSessions, loadEvalRuns, clearEvalRuns } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, loadChatSessions, deleteChatSession, clearChatSessions, loadEvalRuns, clearEvalRuns } from "./tigamodel/web.js";
 
 /* ── TigamodelBackoffice.tsx ──
    TIGA's own back office (แยกจากหลังบ้านทั่วไปของแอป): the single surface
@@ -87,8 +87,17 @@ export function TigamodelBackoffice({ lang = "th" }) {
   }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    const t = getTigamodel();
-    if (t) setVersion(t.version);
+    /* The Back Office can be the FIRST tigamodel surface opened in a session
+       (owner hit exactly this: entered Back Office without ever opening the
+       Model Lab, the singleton was still null, and tiga.providers threw
+       "Cannot read properties of null" — taking the whole app to the crash
+       screen). ensureTigamodelWeb() builds the singleton on first call and
+       is idempotent, so calling it here is always safe. */
+    let alive = true;
+    ensureTigamodelWeb().then(t => {
+      if (alive && t) setVersion(t.version);
+    }).catch(() => {});
+    return () => { alive = false; };
   }, []);
 
   function setDraft(fid, patch) {
@@ -294,7 +303,9 @@ function EvalHistory({ T, S, lang }) {
   async function runNow() {
     setBusy(true); setErr("");
     try {
-      const tiga = getTigamodel();
+      /* ensure, not get — this button may be the first tigamodel touch of the
+         session (null here was the reported crash). */
+      const tiga = (await ensureTigamodelWeb()) || getTigamodel();
       const results = await evaluateAllProviders(tiga.providers.list());
       setRuns(saveEvalRun({ results }));
     } catch (e) { setErr(String(e?.message || e)); }
