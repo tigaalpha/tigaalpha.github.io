@@ -64,4 +64,46 @@ export function getTigamodel() { return _tiga; }
 /* University knowledge source registry (for the Model Lab's ความรู้ tab). */
 export function getUniversitySources() { return { sources: SOURCES, coverage: COVERAGE, ids: listSourceIds() }; }
 
+/* ── Lab/Backoffice local stores ──
+   Chat sessions and eval runs from the admin's testing persist on-device
+   (localStorage, same pattern as the referral code and guest profile) so the
+   owner can review past model tests and compare eval scores before/after a
+   model switch (spec §25: never switch on vibes). Server-side history comes
+   with the teaching_outcomes migration — these stores keep the lab useful
+   today without waiting on it. */
+const CHAT_STORE_KEY = "tiga_lab_chat_sessions";
+const EVAL_STORE_KEY = "tiga_lab_eval_runs";
+
+function readStore(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v : fallback;
+  } catch (e) { return fallback; }
+}
+function writeStore(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* quota/private mode — store is best-effort */ }
+}
+
+export function loadChatSessions() { return readStore(CHAT_STORE_KEY, []); }
+export function appendChatSession(session) {
+  const next = [session, ...loadChatSessions()].slice(0, 50); // newest first, cap 50
+  writeStore(CHAT_STORE_KEY, next);
+  return next;
+}
+export function deleteChatSession(id) {
+  writeStore(CHAT_STORE_KEY, loadChatSessions().filter(s => s.id !== id));
+  return loadChatSessions();
+}
+export function clearChatSessions() { writeStore(CHAT_STORE_KEY, []); }
+
+export function loadEvalRuns() { return readStore(EVAL_STORE_KEY, []); }
+export function saveEvalRun(run) {
+  const next = [{ ...run, saved_at: new Date().toISOString() }, ...loadEvalRuns()].slice(0, 30);
+  writeStore(EVAL_STORE_KEY, next);
+  return next;
+}
+export function clearEvalRuns() { writeStore(EVAL_STORE_KEY, []); }
+
 export { evaluateProvider, evaluateAllProviders, makeTIGARequest, createTeachingLoop, createTeachingPolicy };

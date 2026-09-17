@@ -305,6 +305,7 @@ const ADMIN_NAV_GROUPS = [
     { id: "ai", icon: "🤖", tier: 3, th: "สอน AI", en: "Teach AI", zh: "训练 AI" },
     { id: "aimodel", icon: "🧠", tier: 3, th: "โมเดล AI", en: "AI Models", zh: "AI 模型" },
     { id: "tigamodel", icon: "🧪", tier: 3, th: "TIGA Model Lab", en: "TIGA Model Lab", zh: "TIGA 模型实验室" },
+    { id: "tigabackoffice", icon: "🧠", tier: 3, th: "หลังบ้าน TIGA", en: "TIGA Back Office", zh: "TIGA 后台" },
     { id: "videos", icon: "🎬", tier: 3, th: "วิดีโอ", en: "Videos", zh: "视频" },
     { id: "autoteach", icon: "⏱️", tier: 2, th: "ตั้งเวลาสอน", en: "Auto Teaching", zh: "自动教学" },
   ]},

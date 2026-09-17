@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun } from "./tigamodel/web.js";
+import { sb } from "./supabase-client";
 
 /* ── TigamodelLab.tsx ──
    Admin-only "TIGA Model Lab" (tab: tigamodel, tier >= 3): the owner's
@@ -22,7 +23,13 @@ import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingP
    THEME (fixed after owner report — iPad light theme made white-on-light
    text invisible): every colour reads the app's own CSS variables
    (--text/--text2/--muted/--card/--card2/--bd1..) so the lab is correct in
-   BOTH light and dark themes, exactly like every other admin page. ── */
+   BOTH light and dark themes, exactly like every other admin page.
+
+   HISTORY + MODEL STATUS (owner request 2026-09-17): every chat test is
+   saved to the local session store (viewable in the TIGA Back Office),
+   eval runs are saved on completion, and the chat panel shows the model
+   the system currently stands on for the selected task type (read from
+   app_settings.ai_models — the same resolution piano-chat does). ── */
 
 export function TigamodelLab({ lang = "th" }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -61,6 +68,10 @@ export function TigamodelLab({ lang = "th" }) {
   const [evalResults, setEvalResults] = useState(null);
   const [evalErr, setEvalErr] = useState("");
 
+  // "which model are we on right now" — read from the same app_settings row
+  // piano-chat resolves from, so the label cannot drift from reality
+  const [activeModels, setActiveModels] = useState(null); // { default: {provider,model}, [taskType]: {...} }
+
   // loop panel
   const policyRef = useRef(null);
   const loopRef = useRef(null);
@@ -79,6 +90,13 @@ export function TigamodelLab({ lang = "th" }) {
       setVersion(t.version);
       setReady(true);
     });
+    // load the saved model config (read-only here — switching lives in the TIGA Back Office)
+    sb.from("app_settings").select("value").eq("key", "ai_models").maybeSingle()
+      .then(r => {
+        if (!alive) return;
+        const v = r && r.data && r.data.value;
+        setActiveModels(v && typeof v === "object" ? v : {});
+      }, () => { if (alive) setActiveModels({}); });
     return () => { alive = false; };
   }, []);
 
@@ -87,17 +105,31 @@ export function TigamodelLab({ lang = "th" }) {
     if (!t || chatBusy) return;
     setChatBusy(true);
     const tiga = getTigamodel();
+    const prevRows = chatRows;
     try {
       const t0 = performance.now();
       const { response, routed } = await tiga.chat({ message: t, taskType });
       const latency = Math.round(performance.now() - t0);
-      setChatRows(rows => [...rows.slice(-9), {
+      const row = {
         q: t, a: response.text || T("(ไม่มีข้อความตอบกลับ)", "(empty reply)", "(无回复)"),
         provider: routed.selected_provider || "—",
         model: response.model || "",
         latency, status: response.status,
         attempts: routed.attempts,
-      }]);
+      };
+      setChatRows(rows => [...rows.slice(-9), row]);
+      // persist the running session (visible in the TIGA Back Office)
+      const msgs = [
+        ...prevRows.flatMap(r => ([{ role: "user", text: r.q }, { role: "assistant", text: r.a, provider: r.provider, model: r.model, latency: r.latency, status: r.status }])),
+        { role: "user", text: row.q },
+        { role: "assistant", text: row.a, provider: row.provider, model: row.model, latency: row.latency, status: row.status },
+      ];
+      appendChatSession({
+        id: `lab-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        ts: new Date().toISOString(), task_type: taskType,
+        providers_used: routed.attempts ? routed.attempts.filter(a => a.status === "ok").map(a => ({ provider: a.provider })) : [],
+        messages: msgs.slice(-40),
+      });
     } catch (e) {
       setChatRows(rows => [...rows.slice(-9), { q: t, a: "⚠️ " + (e?.message || "error"), provider: "—", latency: 0, status: "error", attempts: [] }]);
     }
@@ -112,6 +144,7 @@ export function TigamodelLab({ lang = "th" }) {
       const tiga = getTigamodel();
       const results = await evaluateAllProviders(tiga.providers.list());
       setEvalResults(results);
+      saveEvalRun({ results }); // visible in the Back Office eval history
     } catch (e) {
       setEvalErr(String(e?.message || e));
     }
@@ -152,8 +185,20 @@ export function TigamodelLab({ lang = "th" }) {
       {ready && tab === "chat" && (
         <div style={S.card}>
           <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 10 }}>
-            {T("ข้อความเดินทางจริงผ่าน: router → piano-chat → โมเดลที่ตั้งไว้ในแท็บโมเดล AI", "Real path: router → piano-chat → your configured model", "真实路径：路由 → piano-chat → 已配置模型")}
+            {T("ข้อความเดินทางจริงผ่าน: router → piano-chat → โมเดลที่ตั้งไว้ (สลับโมเดลได้ในหลังบ้าน TIGA)", "Real path: router → piano-chat → configured model (switch models in the TIGA Back Office)", "真实路径：路由 → piano-chat → 已配置模型（可在 TIGA 后台切换）")}
           </div>
+          {activeModels && (() => {
+            const v = activeModels[taskType] || activeModels.default;
+            const chatBuiltin = taskType === "chat" && !activeModels.chat && !activeModels.default;
+            return (
+              <div style={{ ...S.inner, marginBottom: 10, display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 12.5, color: "var(--text2)" }}>{T("ยืนอยู่บนโมเดล", "Currently on", "当前模型")}:</span>
+                <b style={{ fontSize: 13.5, color: "var(--text)" }}>
+                  {chatBuiltin ? "🌐 nvidia/nemotron-3-super-120b-a12b:free" : v && v.provider && v.model ? `${v.provider === "openrouter" ? "🌐" : v.provider === "gemini" ? "🔵" : v.provider === "deepseek" ? "🟣" : "🟠"} ${v.model}` : T("ค่า built-in ของระบบ", "system built-in", "系统内置")}
+                </b>
+              </div>
+            );
+          })()}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
             {["chat", "coach-tip", "practice-plan", "diagnose"].map(t => (
               <button key={t} style={S.chip(taskType === t)} onClick={() => setTaskType(t)}>{t}</button>
