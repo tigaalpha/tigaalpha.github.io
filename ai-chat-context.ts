@@ -59,7 +59,13 @@ export function memoryContext(lang) {
   if (due.length) parts.push((lang === "th" ? "⏰ ครบกำหนดทบทวน (แทรกการทบทวนสั้น ๆ ให้เขาแบบเนียน ๆ): " : lang === "zh" ? "⏰ 到复习时间（自然地带入简短回顾）：" : "⏰ Due for spaced review (weave in a quick revisit): ") + due.map(s => `${s.label} (${dAgo(s.last)}d)`).join(", "));
   if (m.struggles && m.struggles.length) parts.push((lang === "th" ? "เคยติด: " : lang === "zh" ? "曾困难: " : "Struggled with: ") + m.struggles.slice(0, 3).map(s => s.label).join(", "));
   if (m.mastered && m.mastered.length) parts.push((lang === "th" ? "ทำได้ดีแล้ว: " : lang === "zh" ? "已掌握: " : "Mastered: ") + m.mastered.slice(0, 3).join(", "));
-  if (m.recent && m.recent.length) parts.push((lang === "th" ? "ฝึกล่าสุด: " : lang === "zh" ? "最近练习: " : "Recently practiced: ") + m.recent.slice(0, 2).map(r => r.label).join(", "));
+  if (m.recent && m.recent.length) {
+    // Gap #9 (2026-09-17 round 2): include the ACCURACY of the last attempts,
+    // not just labels — "เพลงที่เธอซ้อมอยู่เมื่อวานได้ 72%" lets the teacher
+    // reference real progress like a human does, and pick up where it hurt.
+    const recentLabel = lang === "th" ? "ฝึกล่าสุด" : lang === "zh" ? "最近练习" : "Recently practiced";
+    parts.push(recentLabel + ": " + m.recent.slice(0, 3).map(r => `${r.label} ${r.acc != null ? r.acc + "%" : ""}`.trim()).join(", "));
+  }
   const gap = dAgo(m.lastSession);
   if (gap != null && gap >= 1) parts.push((lang === "th" ? "ห่างหายไป " + gap + " วัน (ทักทายอบอุ่นแบบคิดถึง)" : lang === "zh" ? "已隔 " + gap + " 天（温暖地问候，像想念他）" : "Returning after " + gap + " days (greet warmly like you missed them)"));
   return parts.length ? ("\n\n[" + (lang === "th" ? "ความจำผู้เรียน (อ้างถึงเพื่อความต่อเนื่อง + ทบทวนตามจังหวะ)" : lang === "zh" ? "学员记忆（用于连贯与按时复习）" : "Learner memory (use for continuity + spaced review)") + ": " + parts.join(" · ") + "]") : "";

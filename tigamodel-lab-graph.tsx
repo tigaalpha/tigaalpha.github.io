@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { getTigamodel, getUniversitySources } from "./tigamodel/web.js";
+import { getTigamodel, ensureTigamodelWeb, getUniversitySources } from "./tigamodel/web.js";
 
 /* ── tigamodel-lab-graph.tsx ──
    "แผนที่ความรู้ของโมเดล" — the sub-page the owner asked for (2026-09-17):
@@ -394,7 +394,11 @@ export function KnowledgeGraphView({ lang = "th", S }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [mode, setMode] = useState("graph"); // graph | outline
   const [focusId, setFocusId] = useState(null);
-  const tiga = getTigamodel();
+  // sync build (not getTigamodel() alone): if the Lab page was entered straight
+  // here the singleton may not exist yet — build it on first render instead of
+  // showing the old empty-KB state (found via owner screenshot 2026-09-17:
+  // device showed "13 entries" = base seed only).
+  const [tiga, setTiga] = useState(() => { try { return ensureTigamodelWeb(); } catch (e) { return getTigamodel(); } });
   const { nodes, edges } = useMemo(() => collectGraph(tiga), [tiga]);
   const focus = nodes.find(n => n.id === focusId) || null;
 

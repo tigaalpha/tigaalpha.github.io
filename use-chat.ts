@@ -210,7 +210,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
          JSON transport. Only if every transport fails does the friendly
          error bubble appear. */
       const isAbort = (e) => e && (e.name === "AbortError" || /abort/i.test(String(e.message || "")));
-      const kbContext = getKBContext(); // curated KB → prompt (computed once per send; cached inside)
+      const kbContext = getKBContext(userText); // topical KB slice for THIS question (gap #2)
       let acc = "";
       let haveBubble = false; // did any streaming attempt reach the response?
       const runStream = () => streamChatCompletion(

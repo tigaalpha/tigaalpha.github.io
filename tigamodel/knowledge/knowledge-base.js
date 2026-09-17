@@ -69,7 +69,7 @@ export function seedKnowledgeBase(kb) {
   kb.add({ id: "ex:chord-pairs", type: "strategy", domain: "harmony", title: "จับคู่คอร์ดสลับ", body: "เลือกคอร์ด 2 ตัว สลับช้า ๆ ตาม beat 8 ครั้ง แล้วเปลี่ยนคู่", confidence: 0.7, improves: ["skill:basic-chords"], difficulty: "beginner" });
 
   // common errors → possible causes (§11: Error Z may be caused by Concept Q)
-  kb.add({ id: "err:rushing", type: "hypothesis", domain: "rhythm", title: "เร่งจังหวะตอนท่องที่ถนัด", body: "มักเกิดจากความคุ้นเคย (มือเร็วกว่าสมองนับ) ไม่ใช่เจตนา", confidence: 0.6, improves: ["skill:steady-beat"] });
+  kb.add({ id: "err:rushing", type: "hypothesis", domain: "rhythm", title: "เร่งจังหวะตอนท่องที่ถนัด", body: "มักเกิดจากความคุ้นเคย (มือเร็วกว่าสมองนับ) ไม่ใช่เจตนา", teach: "อย่าบอกว่า 'อย่ารีบ' — ให้เล่นช้าลงพร้อมนับออกเสียงทุก beat แล้วชมจุดที่นิ่งขึ้นจริง", confidence: 0.6, improves: ["skill:steady-beat"] });
 
   // teaching strategies mapped to philosophy ids
   PRINCIPLES.forEach(p => {
