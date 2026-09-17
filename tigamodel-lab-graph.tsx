@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { getTigamodel, ensureTigamodelWeb, getUniversitySources } from "./tigamodel/web.js";
+import { getTigamodel, initTigamodelWeb, ensureTigamodelWeb, getUniversitySources } from "./tigamodel/web.js";
 
 /* ── tigamodel-lab-graph.tsx ──
    "แผนที่ความรู้ของโมเดล" — the sub-page the owner asked for (2026-09-17):
@@ -394,11 +394,14 @@ export function KnowledgeGraphView({ lang = "th", S }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [mode, setMode] = useState("graph"); // graph | outline
   const [focusId, setFocusId] = useState(null);
-  // sync build (not getTigamodel() alone): if the Lab page was entered straight
-  // here the singleton may not exist yet — build it on first render instead of
-  // showing the old empty-KB state (found via owner screenshot 2026-09-17:
-  // device showed "13 entries" = base seed only).
-  const [tiga, setTiga] = useState(() => { try { return ensureTigamodelWeb(); } catch (e) { return getTigamodel(); } });
+  // sync build on first render (found via owner screenshot 2026-09-17 17:34:
+  // ensureTigamodelWeb() is ASYNC — returning its Promise here left tiga.kb
+  // undefined and the map stuck on "Starting…" forever). initTigamodelWeb()
+  // is the synchronous builder; the async session-token upgrade below only
+  // re-registers the provider, it does not change the KB, so no re-render
+  // is needed when it resolves.
+  const [tiga, setTiga] = useState(() => { try { return initTigamodelWeb(); } catch (e) { return getTigamodel(); } });
+  useEffect(() => { let alive = true; ensureTigamodelWeb().then(t => { if (alive && t && t !== tiga) setTiga(t); }).catch(() => {}); return () => { alive = false; }; }, []);
   const { nodes, edges } = useMemo(() => collectGraph(tiga), [tiga]);
   const focus = nodes.find(n => n.id === focusId) || null;
 
