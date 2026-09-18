@@ -213,12 +213,13 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (d.notes && d.notes.length) {
       const tg = practiceTargetRef.current;
       const hitSet = practiceHitSetRef.current;
-      if (practiceModeRef.current === "chord" && chordStyle === "block") {
+      if ((practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && chordStyle === "block") {
         // Window = the slice of the target this strike is graded against. A
         // chord PROGRESSION opens one chord at a time (practiceChordGrpRef ≥ 0
-        // is the window's start, size from lastSeq.chordGroupSize); a plain
-        // chord/interval lesson keeps grp -1 = the whole target, which reduces
-        // every line below to exactly the original whole-target behavior.
+        // is the window's start, size from lastSeq.chordGroupSize — set from
+        // seq.chordSizes in startPractice); a plain chord/interval lesson keeps
+        // grp -1 = the whole target, which reduces every line below to exactly
+        // the original whole-target behavior.
         const grp = practiceChordGrpRef.current;
         const win = grp >= 0 ? (((lastSeq.current || {}).chordGroupSize) || tg.length) : tg.length;
         const lo = grp >= 0 ? grp : 0;
@@ -245,7 +246,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
 
     const targets = practiceTargetRef.current;
     const heardNote = d.note;
-    const isBlock = practiceModeRef.current === "chord" && chordStyle === "block";
+    const isBlock = (practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && chordStyle === "block";
 
     if (isBlock) {
       const hit = practiceHitSetRef.current;
@@ -415,11 +416,19 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     // chord's indices (so only its notes are accepted) and each completion
     // advances to the next chord's window — see handlePlayedNote(). A plain
     // chord/interval lesson stays unseeded (whole target open, any order), and
-    // broken-style grading never reads the set.
-    const gs0 = seq.chordGroupSize || 0;
-    const seed0 = practiceModeRef.current === "chord" && (chordStyleOverride || chordStyle) === "block" && gs0 > 0 && gs0 < notes.length;
+    // broken-style grading never reads the set. Progression lessons (mode
+    // "prog") carry per-chord sizes in seq.chordSizes — derive the uniform
+    // window from them when they're all equal (all our progressions are
+    // triads, so they are), and set seq.chordGroupSize once so the rest of
+    // the block-grading code can treat both modes identically.
+    const gs0 = seq.chordGroupSize || ((practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && Array.isArray(seq.chordSizes) && seq.chordSizes.length && seq.chordSizes.every(s => s === seq.chordSizes[0]) ? seq.chordSizes[0] : 0);
+    const seed0 = (practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && (chordStyleOverride || chordStyle) === "block" && gs0 > 0 && gs0 < notes.length;
     practiceChordGrpRef.current = seed0 ? 0 : -1;
     practiceHitSetRef.current = seed0 ? new Set(notes.slice(0, gs0).map((_, i) => i)) : new Set();
+    // Persist the derived uniform window back onto lastSeq so every other
+    // reader (handlePlayedNote's window, restartPractice, the drill-deck save)
+    // sees the same size without re-deriving chordSizes each time.
+    if (seed0 && !seq.chordGroupSize) lastSeq.current = { ...seq, chordGroupSize: gs0 };
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above
@@ -446,10 +455,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     tuneOffsetRef.current = 0; // re-learn tuning for whatever piano is used now
     setPracticeOpen(true);
     getAC(); // unlock/resume audio inside the click gesture
-    // Block-style chord/interval practice needs the polyphonic mic path so
-    // several notes struck together on a real piano can each be heard — the
-    // default monophonic detector only ever names the loudest one.
-    await acquireListener((seq.mode || "seq") === "chord" && (chordStyleOverride || chordStyle) === "block");
+    // Block-style chord/interval/progression practice needs the polyphonic mic
+    // path so several notes struck together on a real piano can each be heard —
+    // the default monophonic detector only ever names the loudest one.
+    await acquireListener((seq.mode === "chord" || seq.mode === "prog") && (chordStyleOverride || chordStyle) === "block");
   }
 
   // Resets a drill's progress and starts it over — from either the mid-drill
@@ -475,9 +484,9 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     // switchPracticeChordStyle) lands here after its setChordStyle() has NOT
     // yet been applied to state, so the style must arrive as an argument.
     const seqR = lastSeq.current;
-    const gsR = (seqR && seqR.chordGroupSize) || 0;
+    const gsR = (seqR && seqR.chordGroupSize) || ((seqR && (seqR.mode === "chord" || seqR.mode === "prog") && Array.isArray(seqR.chordSizes) && seqR.chordSizes.length && seqR.chordSizes.every(s => s === seqR.chordSizes[0])) ? seqR.chordSizes[0] : 0);
     const tgtR = practiceTargetRef.current;
-    const seedR = practiceModeRef.current === "chord" && (chordStyleOverride || chordStyle) === "block" && gsR > 0 && gsR < tgtR.length;
+    const seedR = (practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && (chordStyleOverride || chordStyle) === "block" && gsR > 0 && gsR < tgtR.length;
     practiceChordGrpRef.current = seedR ? 0 : -1;
     practiceHitSetRef.current = seedR ? new Set(tgtR.slice(0, gsR).map((_, i) => i)) : new Set();
     practiceHitsRef.current = 0;
@@ -505,7 +514,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   // different mic modes (polyphonic vs. monophonic) — so it's the only
   // caller that still tears down and reacquires.
   async function switchPracticeChordStyle() {
-    if (practiceModeRef.current !== "chord") return;
+    if (practiceModeRef.current !== "chord" && practiceModeRef.current !== "prog") return;
     playUi("click");
     const next = chordStyle === "block" ? "broken" : "block";
     setChordStyle(next);
