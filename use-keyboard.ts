@@ -122,10 +122,20 @@ export function useKeyboard() {
       // parsed.chordGroupSize (notes per chord, from the Hit Chords lesson)
       // splits the target into uniform windows; a plain chord/interval lesson
       // has no chordGroupSize and keeps the original single-strike behavior.
-      const gs = parsed.chordGroupSize || (mode === "prog" && parsed.chordSizes && parsed.chordSizes.length === notes.length ? null : 0);
-      // prog carries per-chord sizes (chordSizes) rather than one uniform size;
-      // derive the uniform group size from them when they're all equal.
-      const groupSize = gs != null ? gs : (parsed.chordSizes.every(s => s === parsed.chordSizes[0]) ? parsed.chordSizes[0] : 0);
+      // Block style grouping: a chord PROGRESSION carries per-chord sizes in
+      // parsed.chordSizes (one entry per chord — [3,3,3,3] for triads, which
+      // sums to notes.length); derive the uniform strike window from them when
+      // they're all equal. A plain chord/interval lesson has neither and keeps
+      // the original single-strike behavior. (The old check —
+      // chordSizes.length === notes.length, 4 vs 12 — was never true, so every
+      // block progression fell through to "strike everything at once" and
+      // merged all four chords' finger numbers onto the keyboard: repeated
+      // notes showed conflicting fingers, e.g. G as 3 in I but 1 in V.)
+      const sizes = Array.isArray(parsed.chordSizes) ? parsed.chordSizes : null;
+      const uniform = sizes && sizes.length > 0
+        && sizes.reduce((a, b) => a + b, 0) === notes.length
+        && sizes.every(s => s === sizes[0]) ? sizes[0] : 0;
+      const groupSize = parsed.chordGroupSize > 0 ? parsed.chordGroupSize : uniform;
       const useGs = groupSize > 0 && groupSize < notes.length && notes.length % groupSize === 0 ? groupSize : 0;
       if (useGs > 0) {
         const dur = 2.2, gap = 900; // per-chord strike, then let it ring before the next

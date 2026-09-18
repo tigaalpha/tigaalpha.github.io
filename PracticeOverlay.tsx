@@ -104,7 +104,11 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
 }
 export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, switchPracticeChordStyle, chordGroupSize = 0 }) {
   const lc = L[lang];
-        const isBlockMode = practiceModeRef.current === "chord" && chordStyle === "block";
+        // Grading (use-practice-mode) treats BOTH chord and progression drills
+        // as block-style when the toggle says so — the display must gate on the
+        // same modes, or a block progression would show broken-style single-note
+        // hints while the grader accepts whole-chord windows.
+        const isBlockMode = (practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && chordStyle === "block";
         // A chord-PROGRESSION drill lights only the CURRENT chord's remaining
         // notes (windows are uniform and full, so floor(practiceIdx / size)
         // recovers the window's start from the whole-drill progress count); a
