@@ -10894,7 +10894,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         label: `${tr(chordType.label, lang)} ${tr(stage.title, lang)} · ${keyLabel}`,
         key: null,
         stageId: stage.id,
-        keyId, keyLabel, fullTitle,
+        // fullTitle is declared near the bottom of this function — computing
+        // it here (same expression) avoids the TDZ ReferenceError that made
+        // every key tap in the Progression picker fail silently in production.
+        keyId, keyLabel, fullTitle: `${tr(chordType.label, lang)} ${tr(stage.title, lang)}`,
       };
     }
     const demoNotes = transposeNotes(demoSrc.demo || stage.demo, semis);
