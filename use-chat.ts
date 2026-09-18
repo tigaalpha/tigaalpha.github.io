@@ -69,7 +69,7 @@ function loadSavedChat(lang) {
   return null;
 }
 
-export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin }) {
+export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, onUpsell }) {
   const lc = L[lang];
 
   const [msgs, setMsgs] = useState(() => loadSavedChat(lang) || [{ role: "ai", text: lc.welcome }]);
@@ -103,6 +103,18 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
   const lastAskRef = useRef(null);
   const callClaudeRef = useRef(null);
   const [slow, setSlow] = useState(false);
+
+  // Free-plan chat metering (owner-approved 2026-09-18): the pricing card has
+  // always said "AI tutor 5/day" — now it is actually counted. Premium = no cap.
+  // Uses the same tg_usage day-bucket as every other FREE_LIMITS key.
+  function chatUsedToday() {
+    try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === new Date().toISOString().slice(0, 10) ? (u.chat || 0) : 0; } catch (e) { return 0; }
+  }
+  function bumpChatUsage() {
+    if (premium) return; // premium never counts toward the free cap
+    try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); const d = new Date().toISOString().slice(0, 10); if (u.d !== d) u = { d }; u.chat = (u.chat || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {}
+  }
+  function canUseChat(isPremium) { return !!isPremium || chatUsedToday() < 5; }
 
   function pushMessage(msg) { setMsgs(prev => [...prev, msg]); }
   function setLessonContext(hint, key = null) { topicHint.current = hint; lessonKey.current = key; }
@@ -381,10 +393,18 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       topicHint.current = LESSON_MODE; // curated reading content — don't auto-detect notes from it
       setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
       payForAsk(); // reward engaging with the AI sensei
-    } else if (!requireLogin("ai")) {
+    } else if (requireLogin("ai")) {
+      // not signed in — requireLogin already showed the gate
+    } else if (canUseChat(premium)) {
       lastAskRef.current = t; // remembered for the failed-bubble retry button
+      bumpChatUsage();
       callClaude(t); // tier 2: no prepared match — ask the live AI
       payForAsk(); // reward engaging with the AI sensei
+    } else {
+      // Free daily cap hit (5/day, FREE_LIMITS.chat) — same upsell path as the
+      // other metered AI features: pricing opens, quota is NOT burned.
+      setMsgs(prev => [...prev, { role: "ai", text: lc.freeChatCapped || "🔒 You've used all 5 free AI-tutor messages for today. Upgrade to Premium for unlimited AI tutoring!", upsell: true }]);
+      if (onUpsell) onUpsell();
     }
   }
 
@@ -414,10 +434,16 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       topicHint.current = LESSON_MODE;
       setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
       payForAsk();
-    } else if (!requireLogin("ai")) {
+    } else if (requireLogin("ai")) {
+      // not signed in — requireLogin already showed the gate
+    } else if (canUseChat(premium)) {
       lastAskRef.current = t;
+      bumpChatUsage();
       callClaude(t);
       payForAsk();
+    } else {
+      setMsgs(prev => [...prev, { role: "ai", text: lc.freeChatCapped || "🔒 You've used all 5 free AI-tutor messages for today. Upgrade to Premium for unlimited AI tutoring!", upsell: true }]);
+      if (onUpsell) onUpsell();
     }
   }
   return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, retryLast, callClaude, pushMessage, setLessonContext };
