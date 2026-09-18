@@ -112,6 +112,7 @@ import { LanguageSettings } from "./LanguageSettings";
 import { AdminAIModels, AdminNav } from "./AdminAIModels";
 import { TigamodelLab } from "./TigamodelLab";
 import { TigamodelBackoffice } from "./TigamodelBackoffice";
+import { learnFromAdminTeaching } from "./tigamodel/web";
 import { ProfileDashboardPanel } from "./ProfileDashboardPanel";
 import { SenseiView } from "./SenseiView";
 import { VoiceTutorOverlay } from "./VoiceTutorOverlay";
@@ -9442,6 +9443,11 @@ function AdminPage({ lang, onExit, adminTier }) {
       }
 
       setMsgs(p => [...p, { role: "ai", text: (reply || "").trim() || lc.err }]);
+      // Self-learning (owner's switch in Model Lab gates everything): when ON,
+      // the model harvests teaching candidates from what it just produced
+      // under the owner's supervision in the admin console — that reply IS
+      // the teaching material. Fire-and-forget: never blocks the chat.
+      learnFromAdminTeaching(reply || "").catch(() => {});
     } catch (e) {
       console.error("Admin chat error:", e); // full detail for devs only
       const msg = "" + (e?.message || "");

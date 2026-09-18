@@ -28,6 +28,7 @@ import { seedTeacherCraft } from "./knowledge/teacher-craft-seed.js";
 import { seedRepertoireForms } from "./knowledge/repertoire-forms-seed.js";
 import { seedLearnerSkills } from "./knowledge/learner-skills-seed.js";
 import { SOURCES, COVERAGE, GLOBAL_COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
+import { createSelfLearner } from "./learning/self-learner.js";
 import { sb } from "../supabase-client";
 
 /* Singleton per page load — the lab rebuilds providers when the session
@@ -75,13 +76,51 @@ export async function ensureTigamodelWeb() {
 
 export function getTigamodel() { return _tiga; }
 
+/* ── Self-Learning (owner directive 2026-09-18): the model can learn from
+   the owner's admin-chat teaching and reinforce strategies from practice
+   outcomes — gated behind ONE master switch the owner flips in Model Lab
+   (app_settings.ai_self_learn.enabled). Singleton alongside _tiga. ── */
+let _learner = null;
+
+function ensureSelfLearner() {
+  if (_learner) return _learner;
+  _learner = createSelfLearner({
+    load: async () => {
+      try {
+        const r = await sb.from("app_settings").select("value").eq("key", "ai_self_learn").maybeSingle();
+        return r && r.data && r.data.value ? r.data.value : null;
+      } catch (e) { return null; }
+    },
+    save: async (snapshot) => {
+      const { error } = await sb.rpc("admin_set_app_setting", { p_key: "ai_self_learn", p_value: snapshot });
+      if (error) throw new Error(error.message || "save failed");
+    },
+  });
+  return _learner;
+}
+
+export function getSelfLearner() { return ensureSelfLearner(); }
+export async function isSelfLearningEnabled() { try { return await ensureSelfLearner().isEnabled(); } catch (e) { return false; } }
+export async function setSelfLearningEnabled(on) { return ensureSelfLearner().setEnabled(on); }
+export async function learnFromAdminTeaching(replyText) {
+  try { return await ensureSelfLearner().learnFromAdmin(replyText); } catch (e) { return { learned: 0, error: String(e?.message || e) }; }
+}
+export async function reinforceTeachingOutcome(signal) {
+  try { return await ensureSelfLearner().reinforceOutcome(signal); } catch (e) { return { applied: false }; }
+}
+export async function getLearnedKBContextAsync(matchText) {
+  try { return await ensureSelfLearner().getLearnedKBContext(matchText); } catch (e) { return ""; }
+}
+
 /* ── P2 wiring (owner-approved direction, 2026-09-17): run the teaching loop
    on REAL practice signals from inside the app. Used by use-practice-mode's
    finishPractice() after every drill: app-native signals (accuracy, repeated
    errors, pauses, rhythm) go in, the policy selects a strategy, the KB adds
    a teach tip, and a { text, strategy_id } object comes back — all locally,
    synchronously, no network call, never throws. Returns null when anything
-   is off (no singleton, no stats) so the caller can skip silently. ── */
+   is off (no singleton, no stats) so the caller can skip silently.
+   (Self-learning outcome reinforcement is a SEPARATE async export —
+   reinforceTeachingOutcome — called by finishPractice fire-and-forget.) ── */
 export function runTeachingLoopForPractice(practiceStats, { selfReport = null } = {}) {
   try {
     if (!practiceStats) return null;
@@ -187,12 +226,28 @@ export function getKBContext(matchText) {
         lines.push(`• [${label}] ${e.title} — วิธีสอน: ${e.teach}`);
       }
     }
-    if (!lines.length) return "";
+    if (!lines.length) {
+      // switch-gated learned knowledge still injects even without a topical
+      // seed hit — fire-and-forget cache warm (async fn, safe to ignore)
+      if (_learner) _learner.getLearnedKBContext(matchText).catch(() => {});
+      return "";
+    }
     return (
       "\n\n[TIGA KNOWLEDGE BASE — curated teaching knowledge with sources. Use these when relevant; follow the วิธีสอน (how to teach) guidance. Do not contradict them.]\n" +
       lines.join("\n") + "\n"
     );
   } catch (e) { return ""; }
+}
+
+/* Learned-knowledge injection for callers that CAN await (use-chat / admin
+   chat build their system prompt asynchronously anyway). Returns the static
+   KB slice + the switch-gated learned block in one string, so production
+   surfaces only ever call this. Empty when nothing matches / switch OFF. */
+export async function getFullKBContext(matchText) {
+  const base = getKBContext(matchText);
+  let learned = "";
+  try { if (_learner) learned = await _learner.getLearnedKBContext(matchText); } catch (e) { /* off or error → skip */ }
+  return base + learned;
 }
 
 /* ── Lab/Backoffice local stores ──

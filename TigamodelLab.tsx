@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled } from "./tigamodel/web.js";
+import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
 import { sb } from "./supabase-client";
 import { AI_PROVIDERS } from "./AdminAIModels";
@@ -58,6 +59,12 @@ export function TigamodelLab({ lang = "th" }) {
   const [tab, setTab] = useState("chat");
   const [ready, setReady] = useState(false);
   const [version, setVersion] = useState("");
+
+  // self-learning tab (owner's master switch lives here)
+  const [slOn, setSlOn] = useState(null);       // null = loading
+  const [slSnap, setSlSnap] = useState(null);   // { enabled, stats, entries }
+  const [slBusy, setSlBusy] = useState(false);
+  const [slMsg, setSlMsg] = useState("");
 
   // chat panel
   const [prompt, setPrompt] = useState("");
@@ -145,8 +152,45 @@ export function TigamodelLab({ lang = "th" }) {
         const v = r && r.data && r.data.value;
         setActiveModels(v && typeof v === "object" ? v : {});
       }, () => { if (alive) setActiveModels({}); });
+    // self-learning state (switch position + learned entries)
+    (async () => {
+      try {
+        const learner = getSelfLearner();
+        const on = await isSelfLearningEnabled();
+        if (!alive) return;
+        setSlOn(on);
+        setSlSnap(await learner.snapshot());
+      } catch (e) { if (alive) setSlOn(false); }
+    })();
     return () => { alive = false; };
   }, []);
+
+  async function toggleSelfLearn() {
+    if (slBusy) return;
+    setSlBusy(true);
+    try {
+      const next = await setSelfLearningEnabled(!slOn);
+      setSlOn(next);
+      setSlSnap(await getSelfLearner().snapshot());
+      setSlMsg(next
+        ? T("🟢 เปิดแล้ว — โมเดลจะเรียนรู้จากการสอนของคุณใน Admin Chat และจากผลการซ้อมของนักเรียน", "🟢 ON — the model now learns from your admin-chat teaching and from learner practice outcomes", "🟢 已开启 — 模型将从管理员教学和练习结果中学习")
+        : T("🔴 ปิดแล้ว — โมเดลหยุดเรียนรู้และหยุดใช้ความรู้ที่เรียนมาทันที", "🔴 OFF — the model stops learning and stops injecting learned knowledge immediately", "🔴 已关闭 — 模型立即停止学习并停止使用已学知识"));
+    } catch (e) { setSlMsg("⚠️ " + (e?.message || "error")); }
+    setSlBusy(false);
+    setTimeout(() => setSlMsg(""), 6000);
+  }
+  async function slRefresh() {
+    setSlSnap(await getSelfLearner().snapshot());
+  }
+  async function slRemove(id) {
+    await getSelfLearner().removeEntry(id);
+    await slRefresh();
+  }
+  async function slClear() {
+    if (!confirm(T("ลบความรู้ที่โมเดลเรียนมาทั้งหมด?", "Delete ALL learned knowledge?", "删除所有已学知识？"))) return;
+    await getSelfLearner().clearLearned();
+    await slRefresh();
+  }
 
   async function sendPrompt() {
     const t = prompt.trim();
@@ -225,6 +269,8 @@ export function TigamodelLab({ lang = "th" }) {
         <button style={S.chip(tab === "loop")} onClick={() => setTab("loop")}>🔁 {T("จำลองวงจรสอน", "Teaching loop", "教学循环")}</button>
         <button style={S.chip(tab === "kb")} onClick={() => setTab("kb")}>📚 {T("ความรู้", "Knowledge", "知识")}</button>
         <button style={S.chip(tab === "map")} onClick={() => setTab("map")}>🕸 {T("แผนที่ความรู้", "Knowledge map", "知识图谱")}</button>
+        <button style={S.chip(tab === "selflearn")} onClick={() => setTab("selflearn")}>🧬 {T("เรียนรู้เอง", "Self-learning", "自我学习")}</button>
+        <button style={S.chip(tab === "roadmap")} onClick={() => setTab("roadmap")}>🗺 {T("แผน 100 สิ่ง", "100-item plan", "百项计划")}</button>
       </div>
 
       {!ready && <div style={S.card}>{T("กำลังเริ่มระบบ…", "Starting…", "启动中…")}</div>}
@@ -232,6 +278,13 @@ export function TigamodelLab({ lang = "th" }) {
       {ready && tab === "kb" && <KnowledgePanel lang={lang} S={S} />}
 
       {ready && tab === "map" && <KnowledgeGraphView lang={lang} S={S} />}
+
+      {ready && tab === "selflearn" && slOn !== null && (
+        <SelfLearningPanel lang={lang} S={S} T={T} on={slOn} snap={slSnap} busy={slBusy}
+          msg={slMsg} onToggle={toggleSelfLearn} onRemove={slRemove} onClear={slClear} />
+      )}
+
+      {ready && tab === "roadmap" && <RoadmapPanel lang={lang} S={S} T={T} />}
 
       {ready && tab === "chat" && (
         <div style={S.card}>
@@ -394,6 +447,155 @@ export function TigamodelLab({ lang = "th" }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Self-Learning panel: the owner's master switch + everything the model
+   has learned so far (admin-taught entries + reinforcement stats). Switch OFF
+   = the model stops learning AND stops using learned knowledge at once. ── */
+function SelfLearningPanel({ lang, S, T, on, snap, busy, msg, onToggle, onRemove, onClear }) {
+  const entries = (snap && snap.entries) || [];
+  const stats = (snap && snap.stats) || {};
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          "โมเดลเรียนรู้และอัปเดตตัวเองได้ — เรียนจากการสอนของคุณใน Admin Chat และปรับน้ำหนักกลยุทธ์จากผลการซ้อมจริงของนักเรียน คุณเป็นคนควบคุมสวิตช์นี้เพียงผู้เดียว",
+          "The model can learn and update itself — from your admin-chat teaching and by re-weighting strategies from real practice outcomes. You alone control this switch.",
+          "模型可以自我学习——从管理员教学和练习结果中更新知识。此开关由您独自控制。"
+        )}
+      </div>
+      {/* THE master switch */}
+      <div style={{ ...S.inner, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", borderColor: on ? "color-mix(in srgb, var(--ok, #3f9d63) 45%, var(--bd1))" : "var(--bd1)" }}>
+        <div>
+          <b style={{ fontSize: 15, color: "var(--text)" }}>{on ? "🟢 " : "⚪ "}{T("การเรียนรู้อัตโนมัติ", "Self-learning", "自动学习")}</b>
+          <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 3 }}>
+            {on
+              ? T("เปิด — โมเดลกำลังเรียนรู้และใช้ความรู้ที่เรียนมา", "ON — learning and injecting learned knowledge", "开启 — 正在学习并注入已学知识")
+              : T("ปิด — โมเดลหยุดเรียนรู้ ไม่มีข้อมูลใดถูกเก็บ", "OFF — not learning; nothing is stored", "关闭 — 不学习，不存储")}
+          </div>
+        </div>
+        <button onClick={onToggle} disabled={busy}
+          style={{ padding: "10px 22px", borderRadius: 999, border: "none", cursor: busy ? "wait" : "pointer", fontWeight: 800, fontSize: 14,
+            background: on ? "var(--ok, #3f9d63)" : "var(--bd3)", color: on ? "#fff" : "var(--text)" }}>
+          {busy ? "…" : on ? T("เปิดอยู่ — กดปิด", "ON — tap to turn OFF", "开启 — 点击关闭") : T("ปิดอยู่ — กดเปิด", "OFF — tap to turn ON", "关闭 — 点击开启")}
+        </button>
+      </div>
+      {msg && <div style={{ fontSize: 13, marginTop: 8, color: "var(--text2)" }}>{msg}</div>}
+      {/* stats */}
+      <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+        <div style={{ ...S.inner, flex: 1, minWidth: 120, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)" }}>{entries.length}</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>{T("ความรู้ที่เรียนมา", "learned entries", "已学条目")}</div>
+        </div>
+        <div style={{ ...S.inner, flex: 1, minWidth: 120, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)" }}>{stats.learned || 0}</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>{T("เรียนจากการสอน", "taught events", "教学学习")}</div>
+        </div>
+        <div style={{ ...S.inner, flex: 1, minWidth: 120, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)" }}>{stats.reinforced || 0}</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>{T("ปรับจากผลซ้อม", "outcome events", "结果强化")}</div>
+        </div>
+      </div>
+      {/* learned entries */}
+      {entries.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <b style={{ fontSize: 13.5, color: "var(--text)" }}>{T("🧠 สิ่งที่โมเดลเรียนรู้", "🧠 What the model learned", "🧠 模型已学内容")}</b>
+            <button style={{ ...S.btnGhost, padding: "5px 12px", fontSize: 12.5 }} onClick={onClear}>🗑 {T("ลบทั้งหมด", "Clear all", "全部清除")}</button>
+          </div>
+          {entries.map(e => (
+            <div key={e.id} style={{ ...S.inner, marginBottom: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, color: "var(--text)", whiteSpace: "pre-wrap" }}>{e.body}</div>
+                  <div style={{ ...S.mono, marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <span>{e.domain}</span>
+                    <span>conf: {Number(e.confidence || 0).toFixed(2)}</span>
+                    {e.up > 0 && <span style={{ color: S.good }}>▲{e.up}</span>}
+                    {e.down > 0 && <span style={{ color: S.bad }}>▼{e.down}</span>}
+                    <span>{(e.created_at || "").slice(0, 10)}</span>
+                  </div>
+                </div>
+                <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, color: "var(--muted)", padding: 2 }}
+                  onClick={() => onRemove(e.id)} aria-label="remove">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {entries.length === 0 && (
+        <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, padding: 16 }}>
+          {T("ยังไม่มีความรู้ที่เรียนมา — เปิดสวิตช์แล้วไปสอนโมเดลในแท็บ Admin Chat (สอน AI) ได้เลย", "Nothing learned yet — flip the switch, then teach the model in the Admin Chat (Teach AI) tab", "暂无已学知识——打开开关后，在管理员聊天中教学即可")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Roadmap panel: the 100-item development plan, grouped, with live status ── */
+function RoadmapPanel({ lang, S, T }) {
+  const prog = roadmapProgress();
+  const [openGroup, setOpenGroup] = useState("F"); // default open the loop group (most ⭐⭐⭐ done/next)
+  const starStr = (n) => "⭐".repeat(n);
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          "แผนพัฒนา 100 สิ่ง — ทุกข้อคือสิ่งที่ครูเปียโนระดับโลกทำได้ และโมเดลนี้ต้องทำได้ ⭐⭐⭐ = ทำก่อน (เพิ่มความฉลาดเร็วสุด) · เข็มขัดสถานะอัปเดตจากโค้ดจริง",
+          "The 100-item plan — every item is something a world-class human piano teacher can do, so this model must too. ⭐⭐⭐ = do first. Status chips reflect real code state.",
+          "百项发展计划——每项都是世界级人类钢琴老师能做到的事。⭐⭐⭐=优先做。状态反映真实代码状态。"
+        )}
+      </div>
+      {/* progress bar */}
+      <div style={{ ...S.inner, marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--text)", marginBottom: 6 }}>
+          <b>{T("ความคืบหน้า", "Progress", "进度")}</b>
+          <span style={S.mono}>{prog.done + prog.partial}/{prog.total}</span>
+        </div>
+        <div style={{ height: 10, borderRadius: 999, background: "var(--bd1)", overflow: "hidden", display: "flex" }}>
+          <div style={{ width: (prog.done / prog.total * 100) + "%", background: "var(--ok, #3f9d63)" }} />
+          <div style={{ width: (prog.partial / prog.total * 100) + "%", background: "var(--warn, #b8860b)" }} />
+        </div>
+        <div style={{ ...S.mono, marginTop: 6, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ color: ROADMAP_STATUS.done.color }}>■ {ROADMAP_STATUS.done[lang] || ROADMAP_STATUS.done.en} {prog.done}</span>
+          <span style={{ color: ROADMAP_STATUS.partial.color }}>■ {ROADMAP_STATUS.partial[lang] || ROADMAP_STATUS.partial.en} {prog.partial}</span>
+          <span style={{ color: "var(--muted)", marginLeft: "auto" }}>{T("ทำก่อน (⭐⭐⭐) ค้าง", "priority (⭐⭐⭐) left", "优先（⭐⭐⭐）剩余")}: {prog.nextSprint}</span>
+        </div>
+      </div>
+      {ROADMAP_GROUPS.map(g => {
+        const open = openGroup === g.id;
+        const done = g.items.filter(i => i.status === "done").length;
+        return (
+          <div key={g.id} style={{ ...S.inner, marginBottom: 8, padding: 0, overflow: "hidden" }}>
+            <button style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", color: "var(--text)", padding: "12px 14px" }}
+              onClick={() => setOpenGroup(open ? null : g.id)}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                <b style={{ fontSize: 14 }}>{g.icon} {lang === "en" ? g.en : g.th}</b>
+                <span style={S.mono}>{done}/{g.items.length}</span>
+              </div>
+            </button>
+            {open && (
+              <div style={{ padding: "0 14px 12px" }}>
+                {g.items.map(it => {
+                  const st = ROADMAP_STATUS[it.status] || ROADMAP_STATUS.todo;
+                  return (
+                    <div key={it.n} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 0", borderTop: "1px solid var(--bd1)" }}>
+                      <span style={{ ...S.mono, minWidth: 28, color: "var(--muted)" }}>{it.n}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13.5, color: "var(--text)" }}>{lang === "en" ? it.en : it.th}</div>
+                        <div style={{ fontSize: 11.5, marginTop: 2 }}>{it.stars > 0 && <span>{starStr(it.stars)}</span>}{it.gated ? <span style={{ color: S.warn }}> 🔒</span> : null}</div>
+                      </div>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: st.color, whiteSpace: "nowrap" }}>{st[lang] || st.en}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

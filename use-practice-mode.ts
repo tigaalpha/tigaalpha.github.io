@@ -9,7 +9,7 @@ import { EARN, takeEarn, logPractice, scoreDynamics, pathDoneSet, markPathDone, 
 import { logActivity } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
-import { runTeachingLoopForPractice } from "./tigamodel/web";
+import { runTeachingLoopForPractice, reinforceTeachingOutcome } from "./tigamodel/web";
 /* ── use-practice-mode.ts ──
    Owns the "listen to the learner play and grade it against a target
    sequence" session: mic/MIDI/tap-driven note matching (broken = one note
@@ -741,6 +741,14 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       weekAgoAccuracy,
     });
     const tigaTip = tigaLoop && tigaLoop.response ? { text: tigaLoop.response.text, strategyId: tigaLoop.decision ? tigaLoop.decision.strategy_id : null, states: tigaLoop.states } : null;
+
+    // Self-learning outcome reinforcement (owner's Model Lab switch gates it
+    // inside the learner): this attempt's accuracy vs the learner's own bar
+    // nudges the chosen strategy's confidence a bounded step. Fire-and-forget
+    // — the result screen never waits on it and guests store nothing.
+    if (tigaTip && tigaTip.strategyId) {
+      reinforceTeachingOutcome({ strategyId: tigaTip.strategyId, accuracy, prevAccuracy: weekAgoAccuracy }).catch(() => {});
+    }
 
     setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest, tigaTip });
 
