@@ -68,9 +68,26 @@ import {
 } from "./speech";
 import {
   tr, L, FLAGS, FLAG_NAMES, PATH_GROUPS, BENEFIT_CASES, STAGES_BY_GROUP,
-  localPathwayLesson, matchFaqTopic, COACH_FEATURE_LABELS, EXAM_GRADES,
+  localPathwayLesson, matchFaqTopic, COACH_FEATURE_LABELS, EXAM_GRADES, FAQ_TOPICS,
 } from "./i18n";
 import { Msg, Typing, Input } from "./chat-ui";
+/* Hidden case studies (owner request 2026-09): the whole "Marketing for
+   Artists" stage/group (music-marketing) plus the Carabao case are removed
+   from every surface. This block runs at App module load, after i18n has
+   built PATHWAY-derived caches, so it also: splices the stage out of
+   PATHWAY, rebuilds STAGES_BY_GROUP.benefits, deletes the BENEFIT_CASES
+   group (chat starters + case panels) and splices matching FAQ_TOPICS
+   entries (built at i18n load). pathway-data.ts / i18n.ts data stays
+   verbatim - empty the Sets to bring everything back instantly. */
+const HIDDEN_STAGE_IDS = new Set(["music-marketing"]);
+for (let _pi = PATHWAY.length - 1; _pi >= 0; _pi--) if (HIDDEN_STAGE_IDS.has(PATHWAY[_pi].id)) PATHWAY.splice(_pi, 1);
+STAGES_BY_GROUP.benefits = PATHWAY.filter(s => s.group === "benefits");
+const HIDDEN_CASE_IDS = new Set(["carabao"]);
+const _mmIds = (BENEFIT_CASES["music-marketing"] || []).map(c => c.id);
+const HIDDEN_FAQ_KEYS = new Set([...HIDDEN_STAGE_IDS, ...Array.from(HIDDEN_CASE_IDS), ..._mmIds]);
+delete BENEFIT_CASES["music-marketing"];
+for (const _hid in BENEFIT_CASES) BENEFIT_CASES[_hid] = BENEFIT_CASES[_hid].filter(c => !HIDDEN_CASE_IDS.has(c.id));
+for (let _fi = FAQ_TOPICS.length - 1; _fi >= 0; _fi--) if (HIDDEN_FAQ_KEYS.has(FAQ_TOPICS[_fi].key)) FAQ_TOPICS.splice(_fi, 1);
 import {
   readMemory, recordMemory, touchSessionMemory, memoryContext,
   readHomework, setHomeworkLS, homeworkContext,
