@@ -9633,6 +9633,11 @@ export default function App() {
     stopCloudSync(); // flush pending cloud-sync writes first, then stop watching
     try { await sb.auth.signOut(); } catch (e) {}
     setSession(null); setProfile(null);
+    // The admin unlock and the current page are tab-session state — a sign-out
+    // must end both, or the next person on this tab would land straight in the
+    // console the previous session had unlocked.
+    try { sessionStorage.removeItem("tiga_admin_unlocked"); sessionStorage.removeItem("tiga_page"); } catch (e) {}
+    setAdminUnlocked(false); setPage("pathway");
   }
 
   if (!authReady) return <Splash />;
@@ -9791,7 +9796,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const onMsg = (e) => {
       if (!e.data || e.data.type !== "SW_UPDATED") return;
       const go = () => {
-        if (document.querySelector(".pvppage.fight")) { setTimeout(go, 4000); return; }
+        // The Admin Console is work, not a round to lose: a reload mid-figure
+        // kicks the owner out of what they were reading and reads as "the app
+        // logs me out by itself". Defer to the first gap instead (same rule as
+        // an active PvP fight). The state is also restored after the reload
+        // (page + adminUnlocked in sessionStorage), so the console reopens
+        // where it was.
+        if (document.querySelector(".pvppage.fight") || document.querySelector(".admstu") || document.querySelector(".adminpay")) { setTimeout(go, 5000); return; }
         window.location.reload();
       };
       go();
@@ -9961,7 +9972,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // Pathway is the app's one and only starting screen — free navigation via the
   // drawer. Navigation stays drawer-only — a bottom tab bar was tried and
   // removed after it read as more confusing, not less.
-  const [page, setPage] = useState("pathway");
+  // A reload (OTA SW_UPDATED / SW_RELOAD / crash recovery) used to dump the
+   // owner back to pathway AND out of the Admin Console they were mid-work in —
+   // both states lived only in React memory. sessionStorage keeps the last page
+   // and the admin unlock for the tab session only (a new tab or an explicit
+   // sign-out still starts clean).
+  const [page, setPage] = useState(() => {
+    try { const p = sessionStorage.getItem("tiga_page"); return p || "pathway"; } catch (e) { return "pathway"; }
+  });
+  useEffect(() => { try { sessionStorage.setItem("tiga_page", page); } catch (e) {} }, [page]);
   // usage analytics: log each page WITH dwell time.
   //
   // Dwell is VISIBLE time, not wall-clock. It used to be (leave − enter), which
@@ -10178,7 +10197,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan, autoTeachMin, lang]);
 
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  // Survives the auto-reload: the owner enters the code once per tab session,
+   // not once per deploy. sessionStorage (not localStorage) on purpose — an
+   // entirely new tab still has to prove it is the same person.
+  const [adminUnlocked, setAdminUnlocked] = useState(() => {
+    try { return sessionStorage.getItem("tiga_admin_unlocked") === "1"; } catch (e) { return false; }
+  });
+  useEffect(() => { try { if (adminUnlocked) sessionStorage.setItem("tiga_admin_unlocked", "1"); else sessionStorage.removeItem("tiga_admin_unlocked"); } catch (e) {} }, [adminUnlocked]);
   const [showLock, setShowLock] = useState(false);
   const tapCount = useRef(0);
   const tapTimer = useRef(null);
