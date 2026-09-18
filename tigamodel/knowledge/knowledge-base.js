@@ -21,7 +21,7 @@ export function createKnowledgeBase() {
   const entries = new Map(); // id → entry
   const relations = []; // { from, to, type, note }
 
-  function add({ id, type, domain, title, body, teach = null, confidence = 0.7, source = "tiga-original", ageGroups = null, difficulty = null, prerequisites = [], improves = [], relates = [] }) {
+  function add({ id, type, domain, title, body, teach = null, confidence = 0.7, source = "tiga-original", ageGroups = null, difficulty = null, prerequisites = [], improves = [], relates = [], tags = [] }) {
     if (!ENTRY_TYPES.includes(type)) throw new Error(`unknown entry type: ${type}`);
     entries.set(id, {
       id, type, domain, title, body,
@@ -30,6 +30,7 @@ export function createKnowledgeBase() {
       source, // { source_id, license, permission_status } objects allowed; string = tiga-original
       age_groups: ageGroups,
       difficulty,
+      tags: Array.isArray(tags) ? tags : [], // used by lab search + smoke checks
       created_at: new Date().toISOString(),
     });
     prerequisites.forEach(p => relations.push({ from: id, to: p, type: "requires" }));

@@ -27,6 +27,16 @@ import { seedPianoCraft } from "./knowledge/piano-craft-seed.js";
 import { seedTeacherCraft } from "./knowledge/teacher-craft-seed.js";
 import { seedRepertoireForms } from "./knowledge/repertoire-forms-seed.js";
 import { seedLearnerSkills } from "./knowledge/learner-skills-seed.js";
+import { seedMatrixExpansion } from "./knowledge/expansion-matrix.js";
+import { seedDeepExpansion } from "./knowledge/expansion-deep.js";
+import { seedFinalExpansion } from "./knowledge/expansion-final.js";
+import { seedScaleExpansion } from "./knowledge/expansion-scale.js";
+import { seedCanvasExpansion } from "./knowledge/expansion-canvas.js";
+import { seedSummitExpansion } from "./knowledge/expansion-summit.js";
+import { seedKnowledgeExpansion } from "./knowledge/expansion-core.js";
+import { seedRepertoireExpansion } from "./knowledge/expansion-repertoire.js";
+import { seedPedagogyExpansion } from "./knowledge/expansion-pedagogy.js";
+import { seedPeaksExpansion } from "./knowledge/expansion-peaks.js";
 import { SOURCES, COVERAGE, GLOBAL_COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
 import { createSelfLearner } from "./learning/self-learner.js";
 import { sb } from "../supabase-client";
@@ -53,6 +63,18 @@ export function initTigamodelWeb() {
     seedTeacherCraft(_tiga.kb);   // GROUP 2+3: memory/ear/stage-fright/motivation/deep-theory
     seedRepertoireForms(_tiga.kb); // gap round 2 #1/#4/#5: eras, forms, left-hand patterns
     seedLearnerSkills(_tiga.kb);   // gap round 2 #6/#7/#10: improv how-to, transpose, special populations
+    // 10,000-item knowledge expansion (owner directive 2026-09-18): computed
+    // music-theory grid — every entry real & verifiable, zero filler.
+    seedMatrixExpansion(_tiga.kb);
+    seedDeepExpansion(_tiga.kb);
+    seedFinalExpansion(_tiga.kb);
+    seedScaleExpansion(_tiga.kb);
+    seedCanvasExpansion(_tiga.kb);
+    seedSummitExpansion(_tiga.kb);
+    seedKnowledgeExpansion(_tiga.kb);
+    seedRepertoireExpansion(_tiga.kb);
+    seedPedagogyExpansion(_tiga.kb);
+    seedPeaksExpansion(_tiga.kb);
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
   return _tiga;
 }

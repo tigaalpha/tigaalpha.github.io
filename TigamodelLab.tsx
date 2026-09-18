@@ -606,13 +606,66 @@ function KnowledgePanel({ lang, S }) {
   const tiga = getTigamodel();
   const { sources } = getUniversitySources();
   const [openId, setOpenId] = useState(null);
+  const [view, setView] = useState("all"); // "all" = full expansion KB · "uni" = university sources only
+  const [q, setQ] = useState("");
+  const [dom, setDom] = useState("");
   if (!tiga || !tiga.kb) return null;
-  const entries = Array.from(tiga.kb._entries.values()).filter(e => e.source && sources[e.source]);
+  const allEntries = Array.from(tiga.kb._entries.values());
+  const uniEntries = allEntries.filter(e => e.source && sources[e.source]);
   const bySource = {};
-  entries.forEach(e => { (bySource[e.source] = bySource[e.source] || []).push(e); });
+  uniEntries.forEach(e => { (bySource[e.source] = bySource[e.source] || []).push(e); });
+
+  /* Full-KB search view (16,000+ computed knowledge entries) */
+  const doms = {};
+  allEntries.forEach(e => { doms[e.domain] = (doms[e.domain] || 0) + 1; });
+  const needle = q.trim().toLowerCase();
+  const matched = needle || dom
+    ? allEntries.filter(e =>
+        (!dom || e.domain === dom) &&
+        (!needle || e.title.toLowerCase().includes(needle) || e.body.toLowerCase().includes(needle) || (e.tags || []).some(t => t.toLowerCase().includes(needle))))
+      .slice(0, 120)
+    : allEntries.slice(0, 40);
+
+  if (view === "all") return (
+    <div>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 10 }}>
+        {T(
+          `คลังความรู้ทั้งหมด ${allEntries.length.toLocaleString()} รายการ — คำนวณจากคณิตทฤษฎีดนตรีจริง (สเกล คอร์ด คีย์ จังหวะ เทคนิค การสอน) ทุกรายการตรวจสอบได้ ไม่มีข้อความมั่ว`,
+          `Full knowledge base: ${allEntries.length.toLocaleString()} entries — computed from real music-theory math (scales, chords, keys, rhythm, technique, pedagogy). Every entry verifiable, zero filler.`,
+          `全部知识库：${allEntries.length.toLocaleString()} 条 — 由真实音乐理论计算生成，每条可验证`
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder={T("ค้นหา... (เช่น C major, dorian, hanon)", "Search... (e.g. C major, dorian, hanon)", "搜索...")}
+          style={{ ...S.input, flex: 1, minWidth: 160 }} />
+        <select value={dom} onChange={e => setDom(e.target.value)} style={{ ...S.input, maxWidth: 180 }}>
+          <option value="">{T("ทุกหมวด", "All domains", "所有领域")} ({allEntries.length.toLocaleString()})</option>
+          {Object.entries(doms).sort((a, b) => b[1] - a[1]).map(([d, n]) => (
+            <option key={d} value={d}>{d} ({n.toLocaleString()})</option>
+          ))}
+        </select>
+        <button style={S.chip(false)} onClick={() => setView("uni")}>🏛 {T("แหล่งมหาวิทยาลัย", "University sources", "大学来源")}</button>
+      </div>
+      <div style={{ ...S.mono, marginBottom: 8 }}>
+        {matched.length < allEntries.length
+          ? T(`แสดง ${matched.length} รายการ`, `showing ${matched.length}`, `显示 ${matched.length} 条`)
+          : T("แสดงตัวอย่างแรก", "showing first", "显示开头")}
+      </div>
+      {matched.map(e => (
+        <div key={e.id} style={{ ...S.inner, marginBottom: 6 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)" }}>{e.title}</div>
+          <div style={{ fontSize: 13.5, marginTop: 4, color: "var(--text)" }}>{e.body}</div>
+          <div style={{ ...S.mono, marginTop: 5 }}>type: {e.type} · confidence: {e.confidence} · domain: {e.domain}</div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <button style={S.chip(false)} onClick={() => setView("all")}>📚 {T(`คลังทั้งหมด (${allEntries.length.toLocaleString()})`, `Full KB (${allEntries.length.toLocaleString()})`, `全部 (${allEntries.length.toLocaleString()})`)}</button>
+      </div>
       <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
         {T(
           "องค์ความรู้ดนตรีที่รวบรวมจากสถาบันดนตรีชั้นนำของแต่ละประเทศ (หน้าเว็บสาธารณะ อ่านจริง 17 ก.ย. 2026) — เนื้อหาเรียบเรียงใหม่ทั้งหมด ไม่คัดลอกข้อความดิบ ทุกข้อมูลมีลิงก์แหล่งอ้างอิงจริง",
