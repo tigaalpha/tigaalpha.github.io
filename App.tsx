@@ -958,11 +958,15 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
    so the page always reads as a real challenge list, even for a brand-new
    learner who hasn't unlocked anything yet.
 ════════════════════════════════════════════════════════════ */
-const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, earnCoins, userName = "", focusGroupId, onConsumeFocus }) {
+const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, earnCoins, userName = "", focusGroupId, onConsumeFocus, premium = false, onUpsell = null }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   const pathDone = pathDoneSet();
   const bossDone = bossDoneSet();
+  // Certificates are the shareable proof parents post — the weekly report card
+   // itself stays viewable by everyone; saving the image is the premium act
+   // (owner-approved packaging, 2026-09-18). certBusy lives on ChallengingPage;
+   // the premium check rides the save button below.
   const [certBusy, setCertBusy] = useState(false);
   const fullReady = pathDone.size >= PATHWAY.length;
   useEffect(() => {
@@ -998,7 +1002,7 @@ const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, e
                   <button className="cert-dl-btn" disabled={certBusy} onClick={() => downloadGroupCert(g, lang, userName, certBusy, setCertBusy, gainExp, earnCoins)}>
                     📜 {lc.certDownload}
                   </button>
-                  <button className="cert-share-btn" onClick={() => shareCard({ title: lc.groupCertCompleted, big: g.icon, sub: g.label, lines: ["TiGA Piano AI"] })}>
+                  <button className="cert-share-btn" onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } shareCard({ title: lc.groupCertCompleted, big: g.icon, sub: g.label, lines: ["TiGA Piano AI"] }); }}>
                     📤 {lc.shareBtn}
                   </button>
                 </div>
@@ -1038,7 +1042,7 @@ const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, e
           <button className="cert-dl-btn" onClick={() => downloadCertificate(lang, userName, gainExp, earnCoins)}>
             📜 {lc.certDownload}
           </button>
-          <button className="cert-share-btn" onClick={() => shareCard({ title: lc.certCompleted, big: "🏆", sub: lc.certTitle, lines: ["TiGA Piano AI"] })}>
+          <button className="cert-share-btn" onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } shareCard({ title: lc.certCompleted, big: "🏆", sub: lc.certTitle, lines: ["TiGA Piano AI"] }); }}>
             📤 {lc.shareBtn}
           </button>
         </div>
@@ -2240,7 +2244,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
               <div style={{ fontSize: "13.5px", color: earned ? "#d97757" : "var(--text2)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>{g.label}</div>
               <div style={{ fontSize: "10px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace" }}>{done}/{stages.length}{earned ? "" : " · " + T.certLock}</div>
             </div>
-            {earned && <button className="tdgo" style={{ borderColor: "#d97757", color: "#d97757", background: "rgba(217,119,87,.08)" }} disabled={busy} onClick={() => saveCert(g)}>{busy ? T.making : T.certGet}</button>}
+            {earned && <button className="tdgo" style={{ borderColor: "#d97757", color: "#d97757", background: "rgba(217,119,87,.08)" }} disabled={busy} onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } saveCert(g); }}>{busy ? T.making : T.certGet}</button>}
           </div>
         );
       })}
@@ -5145,7 +5149,11 @@ function buildSongResultRecommendation(lang, songMeta, songResult) {
 }
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
 function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
-export const FREE_LIMITS = { song: 2, critique: 3, compose: 2, styleTransform: 2 };   // free actions per day
+/* Free-tier daily caps, owner-approved 2026-09-18. song/compose/styleTransform
+   are 0 on purpose: creation endpoints are the premium product now (the free
+   card no longer advertises them). chat=5 makes the pricing card's "AI tutor
+   5/day" REAL — it was advertised but never counted. critique: 3→1. */
+export const FREE_LIMITS = { song: 0, critique: 1, compose: 0, styleTransform: 0, chat: 5 };   // free actions per day
 function usageToday(key) { try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === dayKey() ? (u[key] || 0) : 0; } catch (e) { return 0; } }
 export function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
 // `premium` must be the caller's real, server-synced plan state — never isPremium(),
@@ -10249,7 +10257,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
   }
 
-  const { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, retryLast, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin });
+  const { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, retryLast, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, onUpsell: () => setPricingOpen(true) });
   // Which Pathway topic is currently being studied on the Sensei page, so a
   // "back" button can jump straight to that topic's key picker re-opened —
   // instead of the ☰ menu → Pathway → find-the-card-again round trip.
@@ -11421,7 +11429,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}
       {page === "challenging" && (
-        <ChallengingPage lang={lang} onBoss={startBossChallenge} gainExp={gainExp} earnCoins={earnCoins} userName={(profile && profile.full_name) || ""} focusGroupId={challengeFocusGroup} onConsumeFocus={() => setChallengeFocusGroup(null)} />
+        <ChallengingPage lang={lang} onBoss={startBossChallenge} gainExp={gainExp} earnCoins={earnCoins} userName={(profile && profile.full_name) || ""} focusGroupId={challengeFocusGroup} onConsumeFocus={() => setChallengeFocusGroup(null)} premium={premium} onUpsell={() => setPricingOpen(true)} />
       )}
 
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
@@ -11605,7 +11613,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "studio", sv: "songs", ic: "🎵", c: "#d97757", t: lc.studioPlayAlong },
           { p: "studio", sv: "menu", ic: "▶", c: "#d97757", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
-          { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
+          { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !premium && !(profile && profile.is_admin) },
           // no pet entry here on purpose — the pet lab is reached from the pod
           // beside the avatar on the profile, where the character lives
           // Challenging moved into the Studio card grid (right after Parent
@@ -12309,21 +12317,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           th: {
             title: "ติดตั้ง TIGA.AI บนมือถือ", sub: "เลือกแพลตฟอร์มของคุณ",
             andT: "Android", andS: apkAvailable ? (apkIsBeta ? "รุ่นทดสอบ (เบต้า)" : "แอพเต็มรูปแบบ") : "เร็วๆ นี้",
-            andF1: "🎙️ AI Voice Tutor", andF2: "🔔 แจ้งเตือนซ้อม", andBtn: "ดาวน์โหลด APK", andNote: "แตะ \"อนุญาตติดตั้งจากแหล่งนี้\" เมื่อ Android ถาม",
+            andF1: "🤖 ครู AI ตอบสด", andF2: "🔔 แจ้งเตือนซ้อม", andBtn: "ดาวน์โหลด APK", andNote: "แตะ \"อนุญาตติดตั้งจากแหล่งนี้\" เมื่อ Android ถาม",
             iosT: "iPhone / iPad", iosS: "เพิ่มไปหน้าจอโฮมจาก Safari",
             iosF1: "🏠 เปิดแบบเต็มจอ", iosF2: "🔔 แจ้งเตือนได้ (iOS 16.4+)", iosBtn: "ดูวิธีติดตั้ง →",
           },
           en: {
             title: "Install TIGA.AI on your phone", sub: "Pick your platform",
             andT: "Android", andS: apkAvailable ? (apkIsBeta ? "Beta build" : "Full app") : "Coming soon",
-            andF1: "🎙️ AI Voice Tutor", andF2: "🔔 Practice reminders", andBtn: "Download APK", andNote: "Tap \"allow install from this source\" when Android asks",
+            andF1: "🤖 Live AI teacher", andF2: "🔔 Practice reminders", andBtn: "Download APK", andNote: "Tap \"allow install from this source\" when Android asks",
             iosT: "iPhone / iPad", iosS: "Add to Home Screen from Safari",
             iosF1: "🏠 Full-screen app", iosF2: "🔔 Notifications too (iOS 16.4+)", iosBtn: "See install steps →",
           },
           zh: {
             title: "在手机上安装 TIGA.AI", sub: "选择你的平台",
             andT: "Android", andS: apkAvailable ? (apkIsBeta ? "测试版" : "完整版应用") : "即将推出",
-            andF1: "🎙️ AI 语音导师", andF2: "🔔 练习提醒", andBtn: "下载 APK", andNote: "系统询问时点击\"允许安装未知来源应用\"",
+            andF1: "🤖 AI 实时老师", andF2: "🔔 练习提醒", andBtn: "下载 APK", andNote: "系统询问时点击\"允许安装未知来源应用\"",
             iosT: "iPhone / iPad", iosS: "从 Safari 添加到主屏幕",
             iosF1: "🏠 全屏应用体验", iosF2: "🔔 也支持通知（iOS 16.4+）", iosBtn: "查看安装步骤 →",
           },
