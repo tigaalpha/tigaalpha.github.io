@@ -19,7 +19,7 @@ function est({ state, probability, confidence, evidence, alternatives }) {
   return makeStudentStateEstimate({ state, probability, confidence, evidence, modalities: ["performance", "conversation"], alternatives });
 }
 
-export function createTeachingLoop({ policy, kb } = {}) {
+export function createTeachingLoop({ policy, kb, skillGraph } = {}) {
   async function runOnce({ observations = [], practiceStats = null, selfReport = null, studentContext = null, history = [] } = {}) {
     // 1-2. UNDERSTAND: normalize whatever arrived into observations
     const obs = (observations || []).map(o => makeObservation(o));
@@ -88,11 +88,24 @@ export function createTeachingLoop({ policy, kb } = {}) {
     const kbTip = kbTipFor(issues, kb);
     const finalText = kbTip ? `${message}\n\n${kbTip}` : message;
 
+    // Roadmap #62/#75 wiring: when the policy sends the learner BACK to a
+    // prerequisite, the skill graph names the concrete weakest ancestor
+    // (from the caller-supplied mastery map) instead of a vague "go back".
+    // No graph/mastery data → absent field, never a guess.
+    let prerequisiteSuggestion = null;
+    try {
+      if (decision.strategy_id === "return-to-prerequisite" && skillGraph && practiceStats && practiceStats.mastery && practiceStats.strugglingSkillId) {
+        const wa = skillGraph.weakestAncestor(practiceStats.mastery, practiceStats.strugglingSkillId);
+        if (wa) prerequisiteSuggestion = { skill_id: wa.id, th: wa.th, en: wa.en, domain: wa.domain };
+      }
+    } catch (e) { prerequisiteSuggestion = null; }
+
     return {
       observations: obs,
       states,
       diagnosis,
       decision,
+      prerequisite_suggestion: prerequisiteSuggestion,
       response: { text: finalText, strategy_id: decision.strategy_id },
       trace: { ts: new Date().toISOString(), signals },
     };

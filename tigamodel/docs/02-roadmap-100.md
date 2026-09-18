@@ -146,3 +146,36 @@
 → 36+37+46+47 (คราฟต์ครู) → 81-83+85-86 (ระบบวัดผล) → 61+62 (student graph)
 → 1-4+15+18 (ทฤษฎีแกน) → 21-22 (ฟิงเกอร์ริ่ง) → 🔒89 (outcome dataset — รออนุมัติ SQL)
 เหตุผล: สิ่งเหล่านี้คือ "กลไก" ที่ทำให้ทุกความรู้ที่เติมต่อไปถูกใช้แบบถูกที่ ไม่ใช่แค่จำไปเล่า
+
+## บันทึกการทำจริง (2026-09-18, รอบใบ้เหตุผลการสอน)
+- **#62 Skill graph — done:** `teaching/skill-graph.js` 80 โหนด/8 ระดับ + 100+ prerequisite edges,
+  APIs: path (ไปข้างหน้าเท่านั้น ไม่ปลอมเส้นทาง), readySkills, nextSkill, unlockOrder (topological),
+  weakestAncestor (หาสาเหตุรากของทักษะที่ติด)
+- **#73 Hint ladder — done:** `teaching/coach.js` บันได 4 ชั้น ถามกลับ→ชี้จุด→โชว์วิธี→เล่นให้ดู,
+  เลือกชั้นจาก attempts/same-spot-fails/self-report, ขึ้นได้แต่ไม่ลงกลางทาง, เร่งชั้นเมื่อบอกว่ายาก
+- **#75 Adaptive difficulty — partial:** tempoTarget() ตัดสินใจที่ ±10% flow band (≥95%×3 → +5 BPM,
+  <75% → −8 BPM, กลาง → คง) พร้อมเหตุผลแนบทุกครั้ง; เหลือผูกกับ engine จริงของ use-practice-mode
+- **#78 Recap generator — done:** recap() จากตัวเลขจริง 3 บรรทัด (คืบ/ถอย/คง + drill จุดแย่สุด +
+  ก้าวถัดไปจากกราฟ) + การบ้าน ≤15 นาที (#49)
+- **#46 Mastery criteria — done:** เกณฑ์ "เก่งพอที่จะไปต่อ" ครบทุก domain ของกราฟ (ตรวจด้วย smoke)
+- ทั้งหมดถูกผูกเข้า web.js (getSkillGraph/getCoach/coach*) + teaching loop ส่ง
+  prerequisite_suggestion เมื่อ strategy = return-to-prerequisite; แท็บ 🎯 โค้ชอัจฉริยะ ใน Model Lab
+- Smoke: `node tigamodel/scripts/smoke-reasoning.mjs` (14 checks) — และพบ+แก้บั๊กเดิม:
+  แท็บจำลองวงจรสอนยังไม่เคย await runOnce() (แสดงผลไม่ครบมาตั้งแต่แรก)
+
+### ระบบวัดผล — 2026-09-18 (รอบที่ 4)
+- **#81 Eval 124 เคส — done:** `evaluation/eval-expanded.js` ขยายจาก 8 เคส →
+  124 (12 probes × 8 base families + golden 20 + theory 8 + 5 families ใหม่:
+  conciseness/no-guarantee/child-safe/action-ending/actionable-steps)
+- **#82 Golden answers — done:** 20 สถานการณ์สอนจริง (g01-g20) แต่ละข้อมี must/not
+  keyword checks แบบ deterministic (สิ่งที่ครูเก่งต้องพูด/ห้ามพูด)
+- **#83 Theory auto-grader — done:** เทียบ **ตัวอักษรโน้ต** ไม่ใช่ pitch class —
+  "C minor = C D# G" ถูกจับว่าผิดแม้เสียงจะเท่า (เอนฮาร์โมนิก) ครบ 8 facts
+- **#85 Regression alarm — done:** regressionVerdict() เทียบ baseline
+  (localStorage) → pass/warn/**block** — child-safe/no-shaming/no-mind-reading/
+  theory/thai เป็นกลุ่ม block (ห้ามขึ้นโปรดักชันเมื่อตก)
+- **#86 Rubric 6 มิติ — done:** rubricReply() ให้คะแนน accuracy/clarity/empathy/
+  structure/actionability/encouragement ต่อคำตอบแบบ deterministic
+- ผูกแล้ว: แท็บ 📊 ประเมินโมเดล เป็นปุ่ม "รันเต็ม 124 เคส" + การ์ดการตัดสินถดถอย
+- Smoke: `node tigamodel/scripts/smoke-measure.mjs` (25 checks) — จับบั๊ก regex
+  `\b` หลัง accidental ที่ตัด "D#" เหลือ "D" ระหว่างทาง

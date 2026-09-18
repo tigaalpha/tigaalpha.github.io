@@ -39,6 +39,10 @@ import { seedPedagogyExpansion } from "./knowledge/expansion-pedagogy.js";
 import { seedPeaksExpansion } from "./knowledge/expansion-peaks.js";
 import { SOURCES, COVERAGE, GLOBAL_COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
 import { createSelfLearner } from "./learning/self-learner.js";
+import { sharedSkillGraph } from "./teaching/skill-graph.js";
+import { createCoach } from "./teaching/coach.js";
+import { plmItem, plmParse, plmRank, plmSample, plmStats, PLM_TOTAL, PLM_DIMENSIONS } from "./roadmap-1m.js";
+import { evaluateProviderExtended, evaluateAllProvidersExtended, regressionVerdict, rubricReply, EXTENDED_PROBES, THEORY_FACTS, GOLDEN_SITUATIONS } from "./evaluation/eval-expanded.js";
 import { sb } from "../supabase-client";
 
 /* Singleton per page load — the lab rebuilds providers when the session
@@ -76,7 +80,28 @@ export function initTigamodelWeb() {
     seedPedagogyExpansion(_tiga.kb);
     seedPeaksExpansion(_tiga.kb);
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
+  // Reasoning layer (roadmap #62/#73/#75/#78): skill graph + coach (hint
+  // ladder, adaptive tempo, recap) — pure, sync, no model call. Attached to
+  // the singleton AND used to rebuild the loop so prerequisite suggestions
+  // work inside runTeachingLoopForPractice.
+  try {
+    const sg = sharedSkillGraph();
+    _tiga.skillGraph = sg;
+    _tiga.coach = createCoach({ skillGraph: sg });
+    _tiga.loop = createTeachingLoop({ policy: _tiga.policy, kb: _tiga.kb, skillGraph: sg });
+  } catch (e) { /* reasoning layer is an enhancement, never a failure path */ }
   return _tiga;
+}
+
+/* Direct accessors for surfaces that only need the reasoning layer (Model
+   Lab coach tab) without the full tiga instance. */
+export function getSkillGraph() {
+  if (!_tiga) initTigamodelWeb();
+  return _tiga && _tiga.skillGraph ? _tiga.skillGraph : sharedSkillGraph();
+}
+export function getCoach() {
+  if (!_tiga) initTigamodelWeb();
+  return _tiga && _tiga.coach ? _tiga.coach : createCoach({ skillGraph: sharedSkillGraph() });
 }
 
 /* Async session-aware init: registers the existing-backend adapter with the
@@ -153,6 +178,22 @@ export function runTeachingLoopForPractice(practiceStats, { selfReport = null } 
   } catch (e) { return null; }
 }
 
+/* Coaching helpers for practice surfaces (roadmap #73/#75/#78): the hint
+   rung for the current obstacle, the tempo decision in the flow band, and a
+   3-line recap + homework. All pure/sync — fire and render, never throws. */
+export function coachHintFor(practiceStats) {
+  try { return getCoach().rungFor(practiceStats || {}); } catch (e) { return 0; }
+}
+export function coachHintText(rung, ctx) {
+  try { return getCoach().renderHint(rung, ctx || {}); } catch (e) { return null; }
+}
+export function coachTempoTarget(args) {
+  try { return getCoach().tempoTarget(args || {}); } catch (e) { return null; }
+}
+export function coachRecap(args) {
+  try { return getCoach().recap(args || {}); } catch (e) { return null; }
+}
+
 /* The strategy_id from the loop, in the UI's three languages — rendered by
    PracticeOverlay's result card so the learner sees WHICH teaching move the
    model chose, not just its text. Kept here (not in i18n.ts) because it is
@@ -169,6 +210,17 @@ export function tigaStrategyLabel(id, lang) {
   const t = TIGA_STRATEGY_LABELS[id];
   return t ? (t[lang] || t.en) : null;
 }
+
+/* ── 1,000,000-item development plan (owner directive 2026-09-18): the
+   combinatorial capability-spec space in roadmap-1m.js. Thin pass-throughs
+   so the Model Lab never imports the raw module (same pattern as the coach
+   accessors above). All pure/sync, never throws. ── */
+export function plm1mItem(i) { try { return plmItem(i); } catch (e) { return null; } }
+export function plm1mParse(code) { try { return plmParse(code); } catch (e) { return null; } }
+export function plm1mRank(args) { try { return plmRank(args || {}); } catch (e) { return { rows: [], nextOffset: null, exhausted: true }; } }
+export function plm1mSample(seed) { try { return plmSample(seed); } catch (e) { return null; } }
+export function plm1mStats() { try { return plmStats(); } catch (e) { return { total: PLM_TOTAL, started: 0, open: PLM_TOTAL, startedPct: 0, buckets: [], byDim: [], modules: [] }; } }
+export { PLM_TOTAL as PLM1M_TOTAL, PLM_DIMENSIONS as PLM1M_DIMENSIONS };
 
 /* University knowledge source registry (for the Model Lab's ความรู้ tab). */
 export function getUniversitySources() { return { sources: SOURCES, coverage: COVERAGE, globalCoverage: GLOBAL_COVERAGE, ids: listSourceIds() }; }
@@ -271,6 +323,35 @@ export async function getFullKBContext(matchText) {
   try { if (_learner) learned = await _learner.getLearnedKBContext(matchText); } catch (e) { /* off or error → skip */ }
   return base + learned;
 }
+
+/* ── Measurement system (roadmap #81/#82/#83/#85/#86): extended 124-case eval
+   + regression alarm with a localStorage baseline (key separate from the
+   quick-eval history so the two never clobber each other). ── */
+const EVAL_X_BASELINE_KEY = "tiga_lab_eval_extended_baseline";
+export function loadEvalExtendedBaseline() {
+  try {
+    const raw = localStorage.getItem(EVAL_X_BASELINE_KEY);
+    const v = raw ? JSON.parse(raw) : null;
+    return v && typeof v === "object" ? v : null;
+  } catch (e) { return null; }
+}
+export async function runExtendedEvalWithRegression() {
+  try {
+    if (!_tiga) initTigamodelWeb();
+    const tiga = _tiga;
+    if (!tiga || !tiga.providers) return { error: "not initialized" };
+    const results = await evaluateAllProvidersExtended(tiga.providers.list());
+    const baseline = loadEvalExtendedBaseline();
+    const head = results[0] || null;
+    const verdict = regressionVerdict(head || { scores: {} }, baseline && baseline.scores ? baseline : null);
+    try {
+      localStorage.setItem(EVAL_X_BASELINE_KEY, JSON.stringify(head ? { provider: head.provider, scores: head.scores, overall: head.overall, cases_run: head.cases_run, saved_at: new Date().toISOString() } : {}));
+    } catch (e) { /* quota/private mode — baseline stays in-memory for this session */ }
+    return { results, verdict };
+  } catch (e) { return { error: String(e?.message || e) };
+  }
+}
+export { evaluateProviderExtended, regressionVerdict, rubricReply, EXTENDED_PROBES as EVALX_PROBES, THEORY_FACTS as EVALX_THEORY_FACTS, GOLDEN_SITUATIONS as EVALX_GOLDEN_SITUATIONS };
 
 /* ── Lab/Backoffice local stores ──
    Chat sessions and eval runs from the admin's testing persist on-device

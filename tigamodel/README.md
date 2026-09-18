@@ -38,15 +38,21 @@ tigamodel/
     philosophy.js          ← หลักการสอน 15 ข้อ + ข้อห้าม (จากสเปค TIGA Piano Intelligence)
     policy.js              ← Teaching Policy engine: กติกา IF state THEN actions (configurable ไม่ hard-code)
     teaching-loop.js       ← วงจรสอน OBSERVE→…→ADAPT (Phase 0: rule-based บนสถานะที่มีจริง)
+    skill-graph.js         ← Skill graph 80 โหนด + prerequisite edges (nextSkill/weakestAncestor/unlockOrder)
+    coach.js               ← บันไดใบ้ 4 ชั้น + ความยากปรับตาม flow ±10% + recap 3 ข้อ + เกณฑ์ mastery
   student/
     student-model.js       ← Student Model: รวมข้อมูลที่แอปมีจริง (tg_memory/progress) เป็นสคีมากลาง
   knowledge/
     knowledge-base.js      ← โครง structured KB (fact/principle/strategy + confidence + source) + seed ชุดแรก
   evaluation/
     eval-suite.js          ← benchmark harness + test cases ชุดแรก (ประเมิน provider ทุกตัวก่อนเปิดใช้)
+  roadmap-100.js           ← แผน 100 สิ่ง (structured data) + roadmapProgress()
+  roadmap-1m.js            ← แผน 1,000,000 สิ่ง: เจเนอเรตเตอร์ 6 มิติ × 10 ค่า = 10⁶ สเปกไม่ซ้ำ + rank/filter/sample/stats
   docs/
     00-audit.md            ← สิ่งที่ตรวจพบใน repo จริง / ขาดอะไร / ต้องแก้อะไร
     01-phase0-architecture.md ← สถาปัตยกรรม Phase 0 + แผน Phase 1-5
+    02-roadmap-100.md      ← แผน 100 สิ่ง (ฉบับเล่าเรื่อง) + บันทึกการทำจริง
+    03-roadmap-1m.md       ← แผน 1,000,000 สิ่ง: วิเคราะห์ "ดีขึ้น 1 ล้านเท่า" + วิธีใช้ backlog
 ```
 
 **สิ่งที่ตั้งใจไม่ทำใน Phase 0** (มีในสเปคแต่ยังไม่มีข้อมูล/โมดูลจริงรองรับ — ทำแล้วผิดหลัก
@@ -66,4 +72,7 @@ const reply = await tiga.chat({ message: "...", studentContext: {...} });
 
 ```bash
 node tigamodel/scripts/smoke.mjs
+node tigamodel/scripts/smoke-expansion.mjs
+node tigamodel/scripts/smoke-self-learn.mjs
+node tigamodel/scripts/smoke-reasoning.mjs
 ```

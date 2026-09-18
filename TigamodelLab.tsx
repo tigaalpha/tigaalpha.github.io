@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
 import { sb } from "./supabase-client";
@@ -76,6 +76,7 @@ export function TigamodelLab({ lang = "th" }) {
   const [evalBusy, setEvalBusy] = useState(false);
   const [evalResults, setEvalResults] = useState(null);
   const [evalErr, setEvalErr] = useState("");
+  const [evalVerdict, setEvalVerdict] = useState(null);
 
   // "which model are we on right now" — read from the same app_settings row
   // piano-chat resolves from, so the label cannot drift from reality.
@@ -135,6 +136,7 @@ export function TigamodelLab({ lang = "th" }) {
   const [pauses, setPauses] = useState(4);
   const [selfReport, setSelfReport] = useState("");
   const [loopOut, setLoopOut] = useState(null);
+  const [loopErr, setLoopErr] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -233,23 +235,41 @@ export function TigamodelLab({ lang = "th" }) {
     if (evalBusy) return;
     setEvalBusy(true); setEvalErr("");
     try {
-      const tiga = getTigamodel();
-      const results = await evaluateAllProviders(tiga.providers.list());
-      setEvalResults(results);
-      saveEvalRun({ results }); // visible in the Back Office eval history
+      // EXTENDED run (roadmap #81-#86): 124 cases + regression alarm against
+      // the stored baseline; falls back to the quick eval when anything's off.
+      const ext = await runExtendedEvalWithRegression();
+      if (ext && ext.results) {
+        setEvalResults(ext.results);
+        setEvalVerdict(ext.verdict || null);
+        saveEvalRun({ results: ext.results, extended: true, verdict: ext.verdict });
+      } else {
+        const tiga = getTigamodel();
+        const results = await evaluateAllProviders(tiga.providers.list());
+        setEvalResults(results);
+        setEvalVerdict(null);
+        saveEvalRun({ results });
+      }
     } catch (e) {
       setEvalErr(String(e?.message || e));
     }
     setEvalBusy(false);
   }
 
-  function runLoop() {
+  async function runLoop() {
     if (!loopRef.current) return;
-    const out = loopRef.current.runOnce({
-      practiceStats: { accuracy: acc, repeatedErrors: repeats, pauses, rhythmScore: Math.max(20, 100 - repeats * 12) },
-      selfReport: selfReport || null,
-    });
-    setLoopOut(out);
+    setLoopErr("");
+    try {
+      // runOnce is async — the awaited result (states/diagnosis/decision) is
+      // what renders; a bare Promise would make this tab show nothing.
+      const out = await loopRef.current.runOnce({
+        practiceStats: { accuracy: acc, repeatedErrors: repeats, pauses, rhythmScore: Math.max(20, 100 - repeats * 12) },
+        selfReport: selfReport || null,
+      });
+      setLoopOut(out);
+    } catch (e) {
+      // never let the button die silently — show what went wrong
+      setLoopErr(String(e?.message || e));
+    }
   }
 
   return (
@@ -269,8 +289,10 @@ export function TigamodelLab({ lang = "th" }) {
         <button style={S.chip(tab === "loop")} onClick={() => setTab("loop")}>🔁 {T("จำลองวงจรสอน", "Teaching loop", "教学循环")}</button>
         <button style={S.chip(tab === "kb")} onClick={() => setTab("kb")}>📚 {T("ความรู้", "Knowledge", "知识")}</button>
         <button style={S.chip(tab === "map")} onClick={() => setTab("map")}>🕸 {T("แผนที่ความรู้", "Knowledge map", "知识图谱")}</button>
+        <button style={S.chip(tab === "coach")} onClick={() => setTab("coach")}>🎯 {T("โค้ชอัจฉริยะ", "Coach", "智能教练")}</button>
         <button style={S.chip(tab === "selflearn")} onClick={() => setTab("selflearn")}>🧬 {T("เรียนรู้เอง", "Self-learning", "自我学习")}</button>
         <button style={S.chip(tab === "roadmap")} onClick={() => setTab("roadmap")}>🗺 {T("แผน 100 สิ่ง", "100-item plan", "百项计划")}</button>
+        <button style={S.chip(tab === "plan1m")} onClick={() => setTab("plan1m")}>🧭 {T("แผน 1,000,000", "1M plan", "百万计划")}</button>
       </div>
 
       {!ready && <div style={S.card}>{T("กำลังเริ่มระบบ…", "Starting…", "启动中…")}</div>}
@@ -285,6 +307,9 @@ export function TigamodelLab({ lang = "th" }) {
       )}
 
       {ready && tab === "roadmap" && <RoadmapPanel lang={lang} S={S} T={T} />}
+      {ready && tab === "plan1m" && <OneMPlanPanel lang={lang} S={S} T={T} />}
+
+      {ready && tab === "coach" && <CoachPanel lang={lang} S={S} T={T} />}
 
       {ready && tab === "chat" && (
         <div style={S.card}>
@@ -367,8 +392,26 @@ export function TigamodelLab({ lang = "th" }) {
           <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 10 }}>
             {T("รันชุดประเมินกับทุก provider ที่ลงทะเบียน — ห้ามเชื่อโมเดลใหม่ก่อนดูคะแนนที่นี่", "Runs the eval suite against every registered provider — never trust a new model before this table", "对每个已注册提供方运行评估 — 换模型前先看这张表")}
           </div>
-          <button style={S.btn} onClick={runEval} disabled={evalBusy}>{evalBusy ? T("กำลังประเมิน…", "Evaluating…", "评估中…") : T("▶ รันประเมิน", "Run eval", "运行评估")}</button>
+          <button style={S.btn} onClick={runEval} disabled={evalBusy}>{evalBusy ? T("กำลังประเมิน 124 เคส…", "Running 124 cases…", "评估 124 案例中…") : T("▶ รันประเมินเต็ม 124 เคส", "Run full 124-case eval", "运行完整评估")}</button>
           {evalErr && <div style={{ color: S.bad, marginTop: 10, fontSize: 13 }}>{evalErr}</div>}
+          {evalVerdict && (
+            <div style={{ ...S.inner, marginTop: 10, borderLeft: "3px solid " + (evalVerdict.verdict === "block" ? S.bad : evalVerdict.verdict === "warn" ? S.warn : S.good) }}>
+              <b style={{ fontSize: 13.5, color: "var(--text)" }}>
+                {evalVerdict.verdict === "block" ? "🚨 " : evalVerdict.verdict === "warn" ? "⚠️ " : evalVerdict.verdict === "pass" ? "✅ " : "📌 "}
+                {T("การตัดสินถดถอย", "Regression verdict", "回归判定")}: {evalVerdict.verdict}
+              </b>
+              <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{lang === "en" ? evalVerdict.message.en : evalVerdict.message.th}</div>
+              {evalVerdict.regressions && evalVerdict.regressions.length > 0 && (
+                <div style={{ ...S.mono, marginTop: 5 }}>
+                  {evalVerdict.regressions.map(r => (
+                    <div key={r.family} style={{ color: r.family && evalVerdict.blocking.some(b => b.family === r.family) ? S.bad : S.warn }}>
+                      {r.family}: {r.from} → {r.to} (−{r.drop})
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {evalResults && (
             <div style={{ marginTop: 14 }}>
               {evalResults.map(r => (
@@ -415,6 +458,12 @@ export function TigamodelLab({ lang = "th" }) {
             </label>
           </div>
           <button style={S.btn} onClick={runLoop}>{T("▶ รันวงจร", "Run loop", "运行循环")}</button>
+          {loopErr && (
+            <div style={{ ...S.inner, marginBottom: 10, borderLeft: "3px solid " + S.bad }}>
+              <b style={{ fontSize: 13, color: S.bad }}>⚠ {T("วงจรหยุดด้วยข้อผิดพลาด", "Loop failed", "循环出错")}</b>
+              <div style={{ ...S.mono, marginTop: 4, whiteSpace: "pre-wrap" }}>{loopErr}</div>
+            </div>
+          )}
           {loopOut && (
             <div style={{ marginTop: 12 }}>
               <div style={{ ...S.inner, marginBottom: 8 }}>
@@ -447,6 +496,158 @@ export function TigamodelLab({ lang = "th" }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Coach panel (roadmap #62/#73/#75/#78): the reasoning layer made visible.
+   Skill graph stats + mastery slider demo → next-skill suggestion, hint
+   ladder walker, flow-band tempo decision, and a recap from real numbers.
+   Everything runs locally/synchronously — no model call, honest when data
+   is absent. ── */
+function CoachPanel({ lang, S, T }) {
+  const sg = getSkillGraph();
+  const coach = getCoach();
+  const [acc, setAcc] = useState(88);
+  const [reps, setReps] = useState(2);
+  const [mastery, setMastery] = useState({}); // {skill_id: 0..1} — simulated learner
+  const [bpm, setBpm] = useState(72);
+  const [goalBpm, setGoalBpm] = useState(96);
+  const [hintCtx, setHintCtx] = useState({ attempts: 1, sameSpotFails: 0, selfReport: null, lastRung: null });
+
+  const order = sg ? sg.unlockOrder() : null;
+  const ready = sg ? sg.readySkills(mastery, { max: 6 }) : [];
+  const next = sg ? sg.nextSkill(mastery) : null;
+  const rung = coach.rungFor ? coach.rungFor(hintCtx) : 0;
+  const hint = coach.renderHint ? coach.renderHint(rung, { barLabel: T("ห้อง 5-6", "bars 5-6", "第5-6小节") }) : null;
+  const tempo = coach.tempoTarget ? coach.tempoTarget({ currentBpm: bpm, goalBpm, accuracy: acc, cleanReps: reps }) : null;
+  const rc = coach.recap ? coach.recap({
+    session: { accuracy: acc, weekAgoAccuracy: acc - 6, worstSpotLabel: T("ห้อง 5-6", "bars 5-6", "第5-6小节") },
+    nextSkill: next, tempo: tempo ? tempo.bpm : null,
+  }) : null;
+
+  if (!sg || !order) return <div style={S.card}>{T("กราฟทักษะยังไม่พร้อม", "Skill graph unavailable", "技能图不可用")}</div>;
+
+  const domainCounts = {};
+  // walk the public order API to count domains (no internals needed)
+  for (const id of order) { const n = sg.get(id); if (n) domainCounts[n.domain] = (domainCounts[n.domain] || 0) + 1; }
+
+  function bumpNext() {
+    // "จำลองผู้เรียน": mark the current best next skill mastered → watch the
+    // graph pick the logical follower (this is the adaptive-pathway demo)
+    if (!next) return;
+    setMastery(m => ({ ...m, [next.id]: 0.9 }));
+  }
+  function resetLearner() { setMastery({}); }
+
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          `ชั้นใบ้เหตุผลการสอน: กราฟทักษะ ${sg.count()} โหนด + ขั้นบันไดใบ้ 4 ชั้น + ความยากปรับตาม flow (±10%) + สรุปท้ายคลาสอัตโนมัติ — ทุกอย่างคำนวณจากข้อมูลจริง ไม่เดา ไม่ยิงโมเดล`,
+          `The teaching reasoning layer: ${sg.count()}-node skill graph + 4-rung hint ladder + flow-band adaptive difficulty (±10%) + auto recap — all computed from real data, no guessing, no model call.`,
+          `教学推理层：${sg.count()} 节点技能图 + 4 级提示阶梯 + 心流自适应难度（±10%）+ 自动总结——全部由真实数据计算。`
+        )}
+      </div>
+
+      {/* Skill graph overview */}
+      <div style={{ ...S.inner, marginBottom: 10 }}>
+        <b style={{ fontSize: 13.5, color: "var(--text)" }}>🕸 {T("กราฟทักษะ", "Skill graph", "技能图")}</b>
+        <div style={{ ...S.mono, marginTop: 6, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <span>{sg.count()} {T("โหนด", "nodes", "节点")}</span>
+          <span>{order.length} {T("เรียงลำดับสอนได้", "in teaching order", "已排序")}</span>
+          <span>{Object.keys(domainCounts).length} {T("หมวด", "domains", "领域")}</span>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          {Object.entries(domainCounts).sort((a, b) => b[1] - a[1]).map(([d, n]) => (
+            <span key={d} style={{ ...S.mono, border: "1px solid var(--bd2)", borderRadius: 999, padding: "2px 10px" }}>{d}: {n}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Next-skill demo */}
+      <div style={{ ...S.inner, marginBottom: 10 }}>
+        <b style={{ fontSize: 13.5, color: "var(--text)" }}>🧭 {T("ทักษะถัดไปที่ควรสอน", "Next skill to teach", "下一个应教技能")}</b>
+        {next ? (
+          <div style={{ marginTop: 6 }}>
+            <div style={{ fontSize: 14.5, color: "var(--text)", fontWeight: 700 }}>{lang === "en" ? next.en : next.th}</div>
+            <div style={S.mono}>{next.domain} · tier {next.tier} · {T("พื้นฐานครบ", "prerequisites met", "前置已满足")}</div>
+            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+              <button style={{ ...S.btn, padding: "7px 14px", fontSize: 13 }} onClick={bumpNext}>{T("✔ จำลองว่าเรียนผ่านแล้ว", "✔ Simulate mastered", "✔ 模拟已掌握")}</button>
+              <button style={{ ...S.btnGhost, padding: "7px 14px", fontSize: 13 }} onClick={resetLearner}>{T("รีเซ็ตผู้เรียนจำลอง", "Reset simulated learner", "重置模拟学习者")}</button>
+              <span style={S.mono}>{T("ผ่านแล้ว", "mastered", "已掌握")}: {Object.keys(mastery).length}</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ ...S.mono, marginTop: 6 }}>{T("ยังไม่มีข้อมูลความถนัด — ระบบจะไม่เดา (ตามหลัก observation ≠ inference)", "No mastery data yet — the system will not guess (observation ≠ inference)", "暂无掌握度数据——系统不猜测")}</div>
+        )}
+        {ready.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 12.5, color: "var(--text2)" }}>{T("พร้อมเรียน (พื้นฐานครบ)", "Ready to learn (prereqs met)", "可学习（前置满足）")}:</div>
+            {ready.map(r => (
+              <div key={r.id} style={{ ...S.mono, marginTop: 3 }}>• {lang === "en" ? r.en : r.th} <span style={{ color: "var(--muted)" }}>({r.domain}, tier {r.tier})</span></div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Hint ladder demo */}
+      <div style={{ ...S.inner, marginBottom: 10 }}>
+        <b style={{ fontSize: 13.5, color: "var(--text)" }}>🪜 {T("บันไดใบ้ 4 ชั้น", "4-rung hint ladder", "4 级提示阶梯")}</b>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("ลองผิดครั้งที่", "Attempt #", "第几次尝试")}: <b>{hintCtx.attempts}</b>
+            <input type="range" min="1" max="6" value={hintCtx.attempts} onChange={e => setHintCtx(h => ({ ...h, attempts: +e.target.value }))} style={{ width: "100%" }} />
+          </label>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("ผิดจุดเดิม", "Same-spot fails", "同处失败")}: <b>{hintCtx.sameSpotFails}</b>
+            <input type="range" min="0" max="4" value={hintCtx.sameSpotFails} onChange={e => setHintCtx(h => ({ ...h, sameSpotFails: +e.target.value }))} style={{ width: "100%" }} />
+          </label>
+        </div>
+        <div style={{ ...S.mono, marginTop: 6 }}>{T("ชั้นที่เลือก", "Selected rung", "所选级别")}: <b style={{ color: "var(--accent, #d97757)" }}>{rung + 1}/4 — {lang === "en" ? (rung === 0 ? "Ask back" : rung === 1 ? "Point" : rung === 2 ? "Show how" : "Play it") : (rung === 0 ? "ถามกลับ" : rung === 1 ? "ชี้จุด" : rung === 2 ? "โชว์วิธี" : "เล่นให้ดู")}</b></div>
+        {hint && <div style={{ fontSize: 14, marginTop: 6, whiteSpace: "pre-wrap", color: "var(--text)" }}>🤖 {hint[lang === "en" ? "en" : lang === "zh" ? "zh" : "th"]}</div>}
+      </div>
+
+      {/* Adaptive tempo demo */}
+      <div style={{ ...S.inner, marginBottom: 10 }}>
+        <b style={{ fontSize: 13.5, color: "var(--text)" }}>🎚 {T("ความยากปรับตาม flow (±10%)", "Flow-band adaptive tempo (±10%)", "心流自适应速度（±10%）")}</b>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("ความแม่นยำ", "Accuracy", "准确度")}: <b>{acc}%</b>
+            <input type="range" min="0" max="100" value={acc} onChange={e => setAcc(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("ครั้งสมบูรณ์ติดกัน", "Clean reps", "连续完美次数")}: <b>{reps}</b>
+            <input type="range" min="0" max="5" value={reps} onChange={e => setReps(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("เทมโปปัจจุบัน", "Current tempo", "当前速度")}: <b>{bpm} BPM</b>
+            <input type="range" min="40" max="200" value={bpm} onChange={e => setBpm(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("เทมโปเป้าหมาย", "Goal tempo", "目标速度")}: <b>{goalBpm} BPM</b>
+            <input type="range" min="50" max="208" value={goalBpm} onChange={e => setGoalBpm(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+        </div>
+        {tempo && (
+          <div style={{ ...S.mono, marginTop: 8 }}>
+            → <b style={{ fontSize: 15, color: "var(--accent, #d97757)" }}>{tempo.bpm} BPM</b> ({tempo.step >= 0 ? "+" : ""}{tempo.step}) · {tempo.reason}
+            {tempo.band && <span> · {tempo.band.pctOfGoal}% {T("ของเป้า", "of goal", "占目标")}</span>}
+          </div>
+        )}
+      </div>
+
+      {/* Recap demo */}
+      <div style={{ ...S.inner }}>
+        <b style={{ fontSize: 13.5, color: "var(--text)" }}>📝 {T("สรุปท้ายคลาส (3 ข้อ + การบ้าน ≤15 นาที)", "Session recap (3 lines + ≤15-min homework)", "课程总结（3 行 + 15 分钟内作业）")}</b>
+        {rc && (
+          <div style={{ marginTop: 8 }}>
+            {rc.lines.map((l, i) => (
+              <div key={i} style={{ fontSize: 14, color: "var(--text)", marginBottom: 5, whiteSpace: "pre-wrap" }}>
+                {i + 1}. {l[lang === "en" ? "en" : lang === "zh" ? "zh" : "th"]}
+              </div>
+            ))}
+            <div style={{ ...S.inner, marginTop: 8, borderColor: "color-mix(in srgb, var(--accent, #d97757) 35%, var(--bd1))" }}>
+              <div style={{ fontSize: 13.5, color: "var(--text)" }}>📚 {rc.homework[lang === "en" ? "en" : lang === "zh" ? "zh" : "th"]}</div>
+            </div>
+            {rc.summary.masteryDelta != null && <div style={S.mono}>mastery Δ: {rc.summary.masteryDelta}</div>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -535,6 +736,131 @@ function SelfLearningPanel({ lang, S, T, on, snap, busy, msg, onToggle, onRemove
 }
 
 /* ── Roadmap panel: the 100-item development plan, grouped, with live status ── */
+/* ── 1M-plan panel (owner directive 2026-09-18): the 1,000,000-item
+   combinatorial development plan from tigamodel/roadmap-1m.js. Walks the
+   ranked work order (highest priority-score first), filters per dimension,
+   shows live coverage stats, and can draw a deterministic audit sample. ── */
+function OneMPlanPanel({ lang, S, T }) {
+  const st = plm1mStats();
+  const PAGE = 12;
+  const [sort, setSort] = useState("rank");
+  const [onlyOpen, setOnlyOpen] = useState(true);
+  const [dims, setDims] = useState({});            // { t?, w?, h?, m?, s?, q? } numeric filters
+  const [walk, setWalk] = useState({ rows: [], next: null, done: false, key: "" });
+  const [sampleItem, setSampleItem] = useState(null);
+
+  const queryKey = JSON.stringify([dims, onlyOpen, sort]);
+  const filter = { ...dims, onlyOpen: onlyOpen ? true : undefined };
+  useEffect(() => {
+    const r = plm1mRank({ offset: 0, limit: PAGE, sort, filter });
+    setWalk({ rows: r.rows, next: r.nextOffset, done: r.exhausted, key: queryKey });
+  }, [queryKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function loadMore() {
+    const r = plm1mRank({ offset: walk.next || 0, limit: PAGE, sort, filter });
+    setWalk(w => ({ rows: w.rows.concat(r.rows), next: r.nextOffset, done: r.exhausted, key: w.key }));
+  }
+
+  const fmt = (n) => n.toLocaleString();
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          `แผนพัฒนา 1,000,000 สิ่ง — สเปกความสามารถแบบผสม 6 มิติ × 10 ค่า (สอนอะไร × เพื่อใคร × สอนอย่างไร × ชั้นโมเดล × ช่องทาง × เกณฑ์คุณภาพ) ทุกรายการไม่ซ้ำ ตรวจรับได้ และเรียงตามคะแนนความสำคัญ คู่มือฉบับเต็ม: docs/03-roadmap-1m.md`,
+          `The 1,000,000-item plan — a 6-dimension × 10-value capability-spec space (WHAT × WHO × HOW × LAYER × WHERE × QUALITY BAR). Every item unique, acceptance-testable, ranked by priority. Full write-up: docs/03-roadmap-1m.md.`,
+          `百万项发展计划——6维×10值能力规格空间，每项唯一、可验收、按优先级排序。`
+        )}
+      </div>
+
+      {/* live coverage stats */}
+      <div style={{ ...S.inner, marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--text)", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
+          <b>{T("ทั้งหมด", "Total", "总计")}: {fmt(st.total)}</b>
+          <span style={S.mono}>
+            <span style={{ color: S.good }}>■ {T("เริ่มแล้ว", "started", "已启动")} {fmt(st.started)} ({st.startedPct}%)</span>
+            {"  ·  "}
+            <span style={{ color: "var(--muted)", marginLeft: 10 }}>■ {T("ยังเปิด", "open", "待办")} {fmt(st.open)}</span>
+          </span>
+        </div>
+        <div style={{ height: 10, borderRadius: 999, background: "var(--bd1)", overflow: "hidden", display: "flex" }}>
+          <div style={{ width: st.startedPct + "%", background: "var(--ok, #3f9d63)" }} />
+        </div>
+        <div style={{ ...S.mono, marginTop: 8, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {st.byDim.map(d => (
+            <span key={d.id} style={{ color: d.touched === d.of ? S.good : S.warn }}>
+              {d.icon} {d.id.toUpperCase()} {d.touched}/{d.of}
+            </span>
+          ))}
+          <span style={{ color: "var(--muted)", marginLeft: "auto" }}>
+            {T("งานกลุ่มคะแนนสูงสุด", "top-priority bucket", "最高优先组")} p{st.buckets[0] && st.buckets[0].p}: {st.buckets[0] ? fmt(st.buckets[0].count) : 0}
+          </span>
+        </div>
+      </div>
+
+      {/* controls */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+        <button style={S.chip(onlyOpen)} onClick={() => setOnlyOpen(v => !v)}>
+          {onlyOpen ? "⭕ " : "○ "}{T("เฉพาะที่ยังไม่ได้แตะ", "open items only", "仅待办")}
+        </button>
+        <button style={S.chip(sort === "index")} onClick={() => setSort(s => (s === "rank" ? "index" : "rank"))}>
+          {sort === "rank" ? "🏆 " + T("เรียงตามอันดับ", "by rank", "按排名") : "#️⃣ " + T("เรียงตามดัชนี", "by index", "按编号")}
+        </button>
+        <button style={S.chip(false)} onClick={() => setSampleItem(plm1mSample(Math.floor(Math.random() * 999983) + 1))}>
+          🎲 {T("สุ่มตรวจ 1 รายการ", "random audit sample", "随机抽查")}
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+        {PLM1M_DIMENSIONS.map(d => (
+          <select key={d.id} value={dims[d.id] ?? ""}
+            onChange={e => setDims(prev => { const n = { ...prev }; if (e.target.value === "") delete n[d.id]; else n[d.id] = parseInt(e.target.value, 10); return n; })}
+            style={{ ...S.input, flex: "1 1 150px", minWidth: 140, fontSize: 12.5, padding: "7px 8px" }}>
+            <option value="">{d.icon} {lang === "en" ? d.en : d.th} — {T("ทั้งหมด", "all", "全部")}</option>
+            {d.values.map((v, vi) => <option key={vi} value={vi}>{vi} · {lang === "en" ? v.en : v.th}</option>)}
+          </select>
+        ))}
+      </div>
+
+      {/* random audit card */}
+      {sampleItem && (
+        <div style={{ ...S.inner, marginBottom: 10, borderLeft: "3px solid var(--accent, #d97757)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+            <b style={{ fontSize: 13.5, color: "var(--text)" }}>🎲 #{fmt(sampleItem.index)} <span style={S.mono}>{sampleItem.code}</span></b>
+            <button style={{ ...S.btnGhost, padding: "3px 10px", fontSize: 12 }} onClick={() => setSampleItem(null)}>✕</button>
+          </div>
+          <div style={{ fontSize: 13.5, color: "var(--text)", marginTop: 4 }}>{sampleItem.title.th}</div>
+          <div style={{ ...S.mono, marginTop: 3 }}>{sampleItem.body.th} · {T("ลำดับ", "priority", "优先")} {sampleItem.priority}</div>
+          <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{T("เกณฑ์ตรวจรับ", "acceptance", "验收")}: {sampleItem.criterion.th}</div>
+        </div>
+      )}
+
+      {/* ranked rows */}
+      <div style={{ ...S.mono, marginBottom: 6 }}>
+        {walk.done ? T(`แสดง ${walk.rows.length} รายการ (ครบที่ตรงเงื่อนไข)`, `showing ${walk.rows.length} (all matches)`, `显示 ${walk.rows.length} 条（全部）`) : T(`แสดง ${walk.rows.length} รายการ`, `showing ${walk.rows.length}`, `显示 ${walk.rows.length} 条`)}
+      </div>
+      {walk.rows.map(it => (
+        <div key={it.code} style={{ ...S.inner, marginBottom: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+            <b style={{ fontSize: 13.5, color: "var(--text)" }}>#{fmt(it.index)} — {lang === "en" ? it.title.en : it.title.th}</b>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: it.covered ? S.good : "var(--muted)", whiteSpace: "nowrap" }}>
+              {it.covered ? T("เริ่มแล้ว", "started", "已启动") : T("ยังเปิด", "open", "待办")}
+            </span>
+          </div>
+          <div style={{ ...S.mono, marginTop: 3 }}>{it.code} · {lang === "en" ? it.body.en : it.body.th} · {T("ลำดับ", "prio", "优先")} {it.priority}</div>
+          <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{T("เกณฑ์", "bar", "标准")}: {lang === "en" ? it.criterion.en : it.criterion.th}</div>
+          {it.roadmapRefs.length > 0 && (
+            <div style={{ fontSize: 11.5, color: S.warn, marginTop: 3 }}>↳ roadmap-100: {it.roadmapRefs.map(n => "#" + n).join(", ")}</div>
+          )}
+        </div>
+      ))}
+      {!walk.done && walk.rows.length > 0 && (
+        <button style={{ ...S.btnGhost, width: "100%" }} onClick={loadMore}>
+          ⬇ {T("โหลดอีก (จาก 1,000,000)", "load more (of 1,000,000)", "加载更多")}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function RoadmapPanel({ lang, S, T }) {
   const prog = roadmapProgress();
   const [openGroup, setOpenGroup] = useState("F"); // default open the loop group (most ⭐⭐⭐ done/next)
