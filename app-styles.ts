@@ -569,7 +569,11 @@ html, body, #root{background:var(--bg)}
 .admstu-row-go{color:#d97757;font-size:20px;flex-shrink:0}
 .admstu-badge{display:inline-block;background:#ff5252;color:#fff;font-size:9px;font-family:'Orbitron',sans-serif;padding:2px 6px;border-radius:6px;vertical-align:middle;margin-left:6px}
 .admstu-back{background:none;border:none;color:#d97757;font-family:'Orbitron',sans-serif;font-size:12px;cursor:pointer;padding:4px 0;margin-bottom:8px}
-.admstu-head{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+/* Wraps on narrow phones: without flex-wrap the range picker + checkboxes
+   squeezed the title to one character per line (2026-09-18 screenshot). */
+.admstu-head{display:flex;align-items:center;gap:13px;margin-bottom:14px;flex-wrap:wrap}
+.admstu-head>div:first-child{flex:1 1 100%;min-width:0}
+.admstu-title,.admstu-sub{overflow-wrap:anywhere}
 .admstu-nm{color:var(--text2);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px}
 .admstu-em{color:var(--muted);font-size:12.5px}
 .admstu-lv{color:var(--muted);font-size:11.5px;margin-top:2px}

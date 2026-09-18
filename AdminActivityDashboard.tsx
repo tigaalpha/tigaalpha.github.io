@@ -808,13 +808,20 @@ export function AdminActivity({ lang, onOpenAnon }) {
     // previous data visible while refreshing can only ever look calm.
     // retryNoAdmins: PostgREST rejects RPCs with named args the function does
     // not define, so until the exclude-admins migration is applied the first
-    // call 404s (PostgREST schema-cache miss) and we retry legacy-style.
-    const callRpc = (fn, base, withFlag) =>
-      sb.rpc(fn, withFlag ? { ...base, p_exclude_admins: noAdmins } : base)
-        .then(({ data }) => data, (err) => {
-          if (withFlag) return sb.rpc(fn, base).then((r) => r.data, () => null);
-          return null;
-        });
+    // call fails (PostgREST schema-cache miss) and we retry legacy-style.
+    // NOTE: supabase-js RESOLVES with {error} instead of rejecting, so the
+    // legacy fallback must check the resolved error too — checking only the
+    // rejection path swallowed every failure and blanked the page with zeros
+    // (the "everything reads 0" bug of 2026-09-18).
+    const callRpc = (fn, base, withFlag) => {
+      const legacy = () => (withFlag ? sb.rpc(fn, base) : Promise.resolve({ data: null }));
+      const apply = (r) => {
+        if (r && r.error && withFlag) return legacy().then((r2) => (r2 && r2.data) || null, () => null);
+        return (r && r.data) || null;
+      };
+      return sb.rpc(fn, withFlag ? { ...base, p_exclude_admins: noAdmins } : base)
+        .then(apply, () => legacy().then((r2) => (r2 && r2.data) || null, () => null));
+    };
     callRpc("admin_activity_overview", { p_since: since, p_include_sim: showSim }, true)
       .then((d) => setOverview(d || {}), () => setOverview((o) => o || {}));
     callRpc("admin_activity_users", { p_since: since, p_include_sim: showSim }, true)
