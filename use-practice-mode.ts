@@ -385,6 +385,15 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   // update lands. Every other caller omits it and gets today's normal
   // behavior (read the current chordStyle state).
   async function startPractice(chordStyleOverride) {
+    // IMPORTANT: SenseiView's practice button is wired as onClick={startPractice},
+    // so React hands the MouseEvent here as the first argument — truthy, so
+    // `(chordStyleOverride || chordStyle) === "block"` was always false when
+    // tapped from the lesson page. A block progression then never seeded its
+    // chord-by-chord windows and the practice piano merged all four chords'
+    // finger numbers onto the keyboard (repeated notes showed conflicting
+    // fingers, e.g. G = 3 in chord I but 1 in chord V). Accept ONLY real
+    // style strings; any other truthy garbage (the event) falls back to state.
+    const style0 = (chordStyleOverride === "block" || chordStyleOverride === "broken") ? chordStyleOverride : chordStyle;
     const seq = lastSeq.current;
     if (!seq || !seq.notes || !seq.notes.length) return;
     clearSeq(); // actually silence any still-ringing demo chord before the mic starts listening (clearSeq now really stops the audio, not just the UI state)
@@ -422,7 +431,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     // triads, so they are), and set seq.chordGroupSize once so the rest of
     // the block-grading code can treat both modes identically.
     const gs0 = seq.chordGroupSize || ((practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && Array.isArray(seq.chordSizes) && seq.chordSizes.length && seq.chordSizes.every(s => s === seq.chordSizes[0]) ? seq.chordSizes[0] : 0);
-    const seed0 = (practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && (chordStyleOverride || chordStyle) === "block" && gs0 > 0 && gs0 < notes.length;
+    const seed0 = (practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && style0 === "block" && gs0 > 0 && gs0 < notes.length;
     practiceChordGrpRef.current = seed0 ? 0 : -1;
     practiceHitSetRef.current = seed0 ? new Set(notes.slice(0, gs0).map((_, i) => i)) : new Set();
     // Persist the derived uniform window back onto lastSeq so every other
@@ -458,7 +467,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     // Block-style chord/interval/progression practice needs the polyphonic mic
     // path so several notes struck together on a real piano can each be heard —
     // the default monophonic detector only ever names the loudest one.
-    await acquireListener((seq.mode === "chord" || seq.mode === "prog") && (chordStyleOverride || chordStyle) === "block");
+    await acquireListener((seq.mode === "chord" || seq.mode === "prog") && style0 === "block");
   }
 
   // Resets a drill's progress and starts it over — from either the mid-drill
@@ -478,6 +487,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   // startPractice()/replayDrill() just keeps running, correctly configured,
   // for every subsequent round — nothing to reacquire, nothing to race.
   function restartPractice(chordStyleOverride) {
+    // Same MouseEvent guard as startPractice above — switchPracticeChordStyle
+    // passes a proper string, but restartPractice is ALSO wired directly to
+    // buttons (ผิดพลาด/Play Again), which would smuggle the event in here too.
+    const styleR = (chordStyleOverride === "block" || chordStyleOverride === "broken") ? chordStyleOverride : chordStyle;
     practiceIdxRef.current = 0;
     // Re-derive the chord-by-chord windows from the CURRENT seq (lastSeq), not
     // from startPractice's closure — a mid-drill Block⇄Broken switch (see
@@ -486,9 +499,16 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const seqR = lastSeq.current;
     const gsR = (seqR && seqR.chordGroupSize) || ((seqR && (seqR.mode === "chord" || seqR.mode === "prog") && Array.isArray(seqR.chordSizes) && seqR.chordSizes.length && seqR.chordSizes.every(s => s === seqR.chordSizes[0])) ? seqR.chordSizes[0] : 0);
     const tgtR = practiceTargetRef.current;
-    const seedR = (practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && (chordStyleOverride || chordStyle) === "block" && gsR > 0 && gsR < tgtR.length;
+    const seedR = (practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && styleR === "block" && gsR > 0 && gsR < tgtR.length;
     practiceChordGrpRef.current = seedR ? 0 : -1;
     practiceHitSetRef.current = seedR ? new Set(tgtR.slice(0, gsR).map((_, i) => i)) : new Set();
+    // Persist the derived window back onto lastSeq (same as startPractice does)
+    // so the PracticeOverlay's chordGroupSize prop — read from lastSeq at render
+    // time, right after this restart — lights only the CURRENT chord's notes.
+    // Without this, a mid-drill Block⇄Broken switch on a progression merged all
+    // four chords' finger numbers onto the keyboard (repeated notes across
+    // chords showed conflicting fingers — e.g. G as 3 in I but 1 in V).
+    if (seedR && seqR && !seqR.chordGroupSize) lastSeq.current = { ...seqR, chordGroupSize: gsR };
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above

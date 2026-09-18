@@ -277,8 +277,11 @@ export const FINGERINGS_LH = {
 export const TRIAD_FINGER_RH = [1,3,5];
 export const TRIAD_FINGER_LH = [5,3,1];
 // per-chord fingering for broken progressions (each chord's 3 notes, bottom-up):
-// RH 1-2-3 within a chord, thumb resets at each new chord; LH mirrors 5-3-1.
-export const PROG_FINGER_RH = [1,2,3];
+// every chord is taught in ROOT position (same as lesson 07), so the triad
+// fingering applies chord-by-chord: RH 1-3-5, LH 5-3-1 — identical to
+// TRIAD_FINGER_* and to FINGERING_REF below. (The old 1-2-3 here contradicted
+// both the app's own triad lesson and standard pedagogy.)
+export const PROG_FINGER_RH = [1,3,5];
 export const PROG_FINGER_LH = [5,3,1];
 
 export const FINGERING_REF =
