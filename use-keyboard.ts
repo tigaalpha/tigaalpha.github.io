@@ -87,7 +87,7 @@ export function useKeyboard() {
     setHasSeq(true);            // enable the Practice button
     setSeqPlaying(true);
     const { notes, mode } = parsed;
-    setSeqIsChord(mode === "chord");
+    setSeqIsChord(mode === "chord" || mode === "prog");
 
     // recompute fingering for the currently selected hand
     let fingers = parsed.fingers;
@@ -115,30 +115,34 @@ export function useKeyboard() {
     // the full triad/7th/tension/slash/pad-chord shape is heard and seen at
     // once). Triads, sevenths, tension, block/slash/pad-chord topics all
     // share this same "chord" demo mode, so the toggle covers all of them.
-    if (mode === "chord" && (styleOverride || chordStyle) === "block") {
+    if ((mode === "chord" || mode === "prog") && (styleOverride || chordStyle) === "block") {
       // A chord PROGRESSION taught block-style plays one chord at a time —
       // hear the I chord bloom, then the V, then the vi — instead of every
       // triad in the progression sounding at once (which is just noise).
       // parsed.chordGroupSize (notes per chord, from the Hit Chords lesson)
       // splits the target into uniform windows; a plain chord/interval lesson
       // has no chordGroupSize and keeps the original single-strike behavior.
-      const gs = parsed.chordGroupSize || 0;
-      if (gs > 0 && gs < notes.length && notes.length % gs === 0) {
+      const gs = parsed.chordGroupSize || (mode === "prog" && parsed.chordSizes && parsed.chordSizes.length === notes.length ? null : 0);
+      // prog carries per-chord sizes (chordSizes) rather than one uniform size;
+      // derive the uniform group size from them when they're all equal.
+      const groupSize = gs != null ? gs : (parsed.chordSizes.every(s => s === parsed.chordSizes[0]) ? parsed.chordSizes[0] : 0);
+      const useGs = groupSize > 0 && groupSize < notes.length && notes.length % groupSize === 0 ? groupSize : 0;
+      if (useGs > 0) {
         const dur = 2.2, gap = 900; // per-chord strike, then let it ring before the next
         const fmap0 = {};
         if (fingers) notes.forEach((n, i) => { if (fingers[i] != null) fmap0[n] = fingers[i]; });
-        for (let c = 0; c < notes.length; c += gs) {
-          const chordNotes = notes.slice(c, c + gs);
+        for (let c = 0; c < notes.length; c += useGs) {
+          const chordNotes = notes.slice(c, c + useGs);
           const t = setTimeout(() => {
             chordNotes.forEach(n => playPianoNote(n, dur));
             setLitSet(chordNotes);
             const cf = {};
             if (fingers) chordNotes.forEach((n, i) => { if (fingers[c + i] != null) cf[n] = fingers[c + i]; });
             setFingerMap(cf);
-          }, (c / gs) * gap);
+          }, (c / useGs) * gap);
           seqTimers.current.push(t);
         }
-        const tEnd = setTimeout(() => { setLitSet(null); setFingerMap({}); setSeqPlaying(false); }, (notes.length / gs) * gap + dur * 1000 + 200);
+        const tEnd = setTimeout(() => { setLitSet(null); setFingerMap({}); setSeqPlaying(false); }, (notes.length / useGs) * gap + dur * 1000 + 200);
         seqTimers.current.push(tEnd);
         return;
       }
@@ -213,7 +217,9 @@ export function useKeyboard() {
     playUi("click");
     const next = chordStyle === "block" ? "broken" : "block";
     setChordStyle(next);
-    if (lastSeq.current && lastSeq.current.mode === "chord") playSequence(lastSeq.current, next);
+    // Progression lessons (mode "prog") teach in both voicings too — same
+    // replay behaviour as "chord" mode lessons below.
+    if (lastSeq.current && (lastSeq.current.mode === "chord" || lastSeq.current.mode === "prog")) playSequence(lastSeq.current, next);
   }
 
   // replay the last taught sequence (for the replay button on the piano)
