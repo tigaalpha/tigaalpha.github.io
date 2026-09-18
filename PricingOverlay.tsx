@@ -93,7 +93,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                           {b2bPriceBlk("standard")}
                         </div>
                         {b2bYearNote("standard")}
-                        <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li><li>{lc.prF4}</li></ul>
+                        <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li></ul>
                         <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
                         <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk4}</li></ul>
                         <button className="songbtn go" onClick={() => { setPricingOpen(false); setSchoolCheckout({ tier: "standard" }); }}>{lc.prB2bCta}</button>
@@ -117,7 +117,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                       </div>
                       <div className="prtier-top"><span className="prtier-nm">⭐ Premium</span>{priceBlk("premium")}</div>
                       {saveLine("premium")}
-                      <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li><li>{lc.prF4}</li><li>{lc.prF5}</li></ul>
+                      <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li><li>{lc.prF5}</li></ul>
                       {plan === "premium"
                         ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
                         : <button className="songbtn go" style={{ fontWeight: 900 }} onClick={() => startCheckout("premium", yr ? "year" : "month")}>

@@ -8594,6 +8594,13 @@ function AdminAnalytics({ lang }) {
      the panel had no way to leave them out, because get_usage_stats took no
      parameter for it. Real people are the default now; the bots are a choice. */
   const [withBots, setWithBots] = useState(false);
+  /* Owner request: their own tier-3 admin account uses the app daily for
+     development — it must not contaminate customer metrics. Excluded by
+     default on all three admin pages; the checkbox brings it back. Calls the
+     NEW in-repo admin_usage_stats (same row shape as get_usage_stats + the
+     exclusion flag); get_usage_stats stays as the automatic fallback while
+     the migration is not yet applied. */
+  const [noAdmins, setNoAdmins] = useState(true);
   const NAV_LABELS = { pathway: "⬡ PATHWAY", sensei: "◈ TIGA CHAT", studio: "▶ STUDIO", videos: "🎬 " + T("วิดีโอสอน", "Video Lessons", "视频课程"), profile: "PROFILE", admin: "ADMIN" };
 
   const load = useCallback(() => {
@@ -8601,9 +8608,20 @@ function AdminAnalytics({ lang }) {
     const since = range === "all" ? null : new Date(Date.now() - Number(range) * 86400000).toISOString();
     // p_limit 500 against 225 distinct item/kind pairs — the old hard-coded
      // 200 was silently dropping 25 of them off the bottom of every list.
-    sb.rpc("get_usage_stats", { p_kind: null, p_since: since, p_include_sim: withBots, p_limit: 500 })
-      .then(({ data, error }) => setStats(error ? [] : (data || [])), () => setStats([]));
-  }, [range, withBots]);
+    // admin_usage_stats first (it understands p_exclude_admins); on a
+    // PostgREST schema-cache miss (migration not applied yet) fall back to
+    // the original get_usage_stats, bots flag forwarded as-is.
+    sb.rpc("admin_usage_stats", { p_kind: null, p_since: since, p_include_sim: withBots, p_exclude_admins: noAdmins, p_limit: 500 })
+      .then(
+        ({ data, error }) => {
+          if (!error) { setStats(data || []); return; }
+          return sb.rpc("get_usage_stats", { p_kind: null, p_since: since, p_include_sim: withBots, p_limit: 500 })
+            .then(({ data: d2 }) => setStats(d2 || []), () => setStats([]));
+        },
+        () => sb.rpc("get_usage_stats", { p_kind: null, p_since: since, p_include_sim: withBots, p_limit: 500 })
+          .then(({ data: d2 }) => setStats(d2 || []), () => setStats([]))
+      );
+  }, [range, withBots, noAdmins]);
   useEffect(() => { load(); }, [load]);
 
   const byKind = (k) => (stats || []).filter(r => r.kind === k);
@@ -8650,6 +8668,11 @@ function AdminAnalytics({ lang }) {
       {/* Off by default: these lists are for reading real behaviour, and 50
           simulated bots against 18 real members drowns it. Same wording as the
           activity page's checkbox so the two mean the same thing. */}
+      {/* Owner: development logins must never count as customers. */}
+      <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 2px 10px", fontSize: 12.5, cursor: "pointer" }}>
+        <input type="checkbox" checked={noAdmins} onChange={e => setNoAdmins(e.target.checked)} />
+        {T("ไม่รวมบัญชีแอดมิน (ของฉัน)", "Exclude admin accounts (mine)", "不含管理员账号（我的）")}
+      </label>
       <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 2px 10px", fontSize: 12.5, cursor: "pointer" }}>
         <input type="checkbox" checked={withBots} onChange={e => setWithBots(e.target.checked)} />
         {T("รวมข้อมูลจำลอง (บอท)", "Include simulated data (bots)", "包含模拟数据（机器人）")}
