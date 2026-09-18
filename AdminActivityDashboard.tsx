@@ -376,6 +376,9 @@ export function AdminAnonVisitors({ lang }) {
   // too (signup_methods), and admin_anon_visitors names it per row (provider),
   // so the click just reveals what was already being fetched.
   const [showConvBreak, setShowConvBreak] = useState(false);
+  // Same owner-requested exclusion as AdminActivity (see the note there):
+  // tier-3 admin rows leave every tile + the per-visitor list when ON (default).
+  const [noAdmins, setNoAdmins] = useState(true);
 
   const since = useCallback(() => {
     if (range === "all") return null;
@@ -387,21 +390,32 @@ export function AdminAnonVisitors({ lang }) {
     try {
       const p_since = since();
       const [a, b, c] = await Promise.all([
-        sb.rpc("admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS }),
-        sb.rpc("admin_anon_visitors", { p_since, p_limit: 200 }),
-        sb.rpc("admin_signup_methods", { p_since }),
+        sb.rpc("admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS, p_exclude_admins: noAdmins }),
+        sb.rpc("admin_anon_visitors", { p_since, p_limit: 200, p_exclude_admins: noAdmins }),
+        sb.rpc("admin_signup_methods", { p_since, p_exclude_admins: noAdmins }),
       ]);
-      if (a.error) throw a.error;
-      if (b.error) throw b.error;
-      setOv(a.data || null);
-      setRows(b.data || []);
+      // Legacy-RPC fallback: PostgREST rejects named args a function doesn't
+      // define, so if the exclude-admins migration isn't applied yet, retry
+      // once without the flag (the pre-migration behavior) instead of erroring.
+      const legacy = (r, fn, base) =>
+        r.error && /structure|signature|schema cache|Could not find/i.test(r.error.message || "")
+          ? sb.rpc(fn, base) : Promise.resolve(r);
+      const [a2, b2, c2] = await Promise.all([
+        legacy(a, "admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS }),
+        legacy(b, "admin_anon_visitors", { p_since, p_limit: 200 }),
+        legacy(c, "admin_signup_methods", { p_since }),
+      ]);
+      if (a2.error) throw a2.error;
+      if (b2.error) throw b2.error;
+      setOv(a2.data || null);
+      setRows(b2.data || []);
       // Not fatal: this page is about visitors, and the sign-up split is extra
       // context. If the RPC is missing the cards just don't render.
-      setSignup(c.error ? null : (c.data || null));
+      setSignup(c2.error ? null : (c2.data || null));
     } catch (e) {
       setErr((e && e.message) || "load failed");
     } finally { setBusy(false); }
-  }, [since]);
+  }, [since, noAdmins]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -436,6 +450,10 @@ export function AdminAnonVisitors({ lang }) {
             "What people did before they signed up — or left", "访客在注册或离开前做了什么")}</div>
         </div>
         <RangePicker range={range} setRange={setRange} T={T} />
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--tg-sub, #888)", whiteSpace: "nowrap", cursor: "pointer" }}>
+          <input type="checkbox" checked={noAdmins} onChange={(e) => setNoAdmins(e.target.checked)} />
+          {T("ไม่รวมบัญชีแอดมิน", "Exclude admins", "不含管理员")}
+        </label>
       </div>
 
       {err && <div className="lockerr" style={{ margin: "8px 0" }}>{err}</div>}
@@ -760,6 +778,14 @@ export function AdminActivity({ lang, onOpenAnon }) {
   const [sel, setSel] = useState(null);      // selected user uuid
   const [detail, setDetail] = useState(null);
   const [showSim, setShowSim] = useState(true);
+  // Exclude the owner's tier-3 admin account from every number on this page.
+  // Default ON — the owner reads these figures for business decisions and uses
+  // the app daily for development, which would otherwise inflate them. The
+  // flag rides to the RPCs as p_exclude_admins (supabase-admin-exclude-admins-
+  // migration.sql); if that migration is not applied yet the RPC call still
+  // works (older functions ignored unknown... actually PostgREST REJECTS
+  // unknown named args, so the call retries once without the flag).
+  const [noAdmins, setNoAdmins] = useState(true);
   const [hours, setHours] = useState(null);   // [{h:0..23, events, users, time_ms}] — null until admin_activity_hourly exists (RPC error → card stays hidden)
   const [hourSel, setHourSel] = useState(null); // tapped hour for the detail line
   // device mix + screen-width histogram — null until admin_device_* RPCs exist
@@ -780,38 +806,49 @@ export function AdminActivity({ lang, onOpenAnon }) {
     // Nulling them shows the ⏳ spinner on every refetch — if anything ever
     // re-triggers `load` in a tight cycle that IS the flicker. Keeping the
     // previous data visible while refreshing can only ever look calm.
-    sb.rpc("admin_activity_overview", { p_since: since, p_include_sim: showSim })
-      .then(({ data }) => setOverview(data || {}), () => setOverview((o) => o || {}));
-    sb.rpc("admin_activity_users", { p_since: since, p_include_sim: showSim })
-      .then(({ data }) => setUsers(data || []), () => setUsers((u) => u || []));
+    // retryNoAdmins: PostgREST rejects RPCs with named args the function does
+    // not define, so until the exclude-admins migration is applied the first
+    // call 404s (PostgREST schema-cache miss) and we retry legacy-style.
+    const callRpc = (fn, base, withFlag) =>
+      sb.rpc(fn, withFlag ? { ...base, p_exclude_admins: noAdmins } : base)
+        .then(({ data }) => data, (err) => {
+          if (withFlag) return sb.rpc(fn, base).then((r) => r.data, () => null);
+          return null;
+        });
+    callRpc("admin_activity_overview", { p_since: since, p_include_sim: showSim }, true)
+      .then((d) => setOverview(d || {}), () => setOverview((o) => o || {}));
+    callRpc("admin_activity_users", { p_since: since, p_include_sim: showSim }, true)
+      .then((d) => setUsers(d || []), () => setUsers((u) => u || []));
     // by-hour buckets ( Bangkok wall-clock, computed server-side — see
     // supabase-activity-hourly-migration.sql ). On failure (RPC not yet applied)
     // hours stays null and the histogram card is simply not rendered.
-    sb.rpc("admin_activity_hourly", { p_since: since, p_include_sim: showSim })
-      .then(({ data }) => setHours((data && data.hours) || []), () => setHours(null));
+    callRpc("admin_activity_hourly", { p_since: since, p_include_sim: showSim }, true)
+      .then((d) => setHours((d && d.hours) || []), () => setHours(null));
     // Signed-out visitors are the top line of this page now: they are most of
     // the traffic and none of them are in the member list below.
-    sb.rpc("admin_anon_overview", { p_since: since, p_gate_ms: GUEST_TRIAL_MS })
-      .then(({ data }) => setAnon(data || null), () => setAnon(null));
+    callRpc("admin_anon_overview", { p_since: since, p_gate_ms: GUEST_TRIAL_MS }, true)
+      .then((d) => setAnon(d || null), () => setAnon(null));
     // How the people who DID get an account actually got one. The email path
     // exists because Google will not work inside an in-app browser, so the
     // split between the two is the measure of whether that was worth building.
-    sb.rpc("admin_signup_methods", { p_since: since })
-      .then(({ data }) => setSignup(data || null), () => setSignup(null));
+    callRpc("admin_signup_methods", { p_since: since }, true)
+      .then((d) => setSignup(d || null), () => setSignup(null));
     /* Marketing landing page 1 (/landing/). On failure — the RPC not applied
        yet — `landing` stays null and the card simply is not rendered, the same
-       convention the hourly histogram uses. */
+       convention the hourly histogram uses. This RPC has NO exclude-admins
+       variant (no in-repo definition to extend safely), so it is called
+       plainly. */
     sb.rpc("admin_landing_funnel", { p_since: since })
       .then(({ data }) => setLanding(data || null), () => setLanding(null));
     /* Device mix (phone/tablet/desktop, signed-in vs signed-out) + screen-width
        buckets — the measured answer to "what does the audience actually own",
        so piano-key layout decisions stop being made from anecdotes. Same
        null-on-failure convention as every optional RPC above. */
-    sb.rpc("admin_device_mix", { p_since: since })
-      .then(({ data }) => setDevMix(data || null), () => setDevMix(null));
-    sb.rpc("admin_device_widths", { p_since: since })
-      .then(({ data }) => setDevWidths(data || null), () => setDevWidths(null));
-  }, [range, showSim]);
+    callRpc("admin_device_mix", { p_since: since }, true)
+      .then((d) => setDevMix(d || null), () => setDevMix(null));
+    callRpc("admin_device_widths", { p_since: since }, true)
+      .then((d) => setDevWidths(d || null), () => setDevWidths(null));
+  }, [range, showSim, noAdmins]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -820,7 +857,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
   useEffect(() => {
     const iv = setInterval(() => {
       if (document.visibilityState === "hidden") return; // don't churn while backgrounded
-      sb.rpc("admin_activity_overview", { p_since: sinceFor(range), p_include_sim: showSim })
+      sb.rpc("admin_activity_overview", { p_since: sinceFor(range), p_include_sim: showSim, p_exclude_admins: noAdmins })
         .then(({ data }) => setOverview(data || {}), () => {});
     }, 30000);
     return () => clearInterval(iv);
@@ -894,6 +931,10 @@ export function AdminActivity({ lang, onOpenAnon }) {
 
       <RangePicker range={range} setRange={setRange} T={T} />
 
+      <label style={{ display: "flex", alignItems: "center", gap: 6, margin: "8px 0", fontSize: 12, color: "var(--tg-sub, #888)" }}>
+        <input type="checkbox" checked={noAdmins} onChange={(e) => setNoAdmins(e.target.checked)} />
+        {T("ไม่รวมบัญชีแอดมิน (ของฉัน)", "Exclude admin accounts (mine)", "不含管理员账号（我的）")}
+      </label>
       <label style={{ display: "flex", alignItems: "center", gap: 6, margin: "8px 0", fontSize: 12, color: "var(--tg-sub, #888)" }}>
         <input type="checkbox" checked={showSim} onChange={(e) => setShowSim(e.target.checked)} />
         {T("รวมข้อมูลจำลอง (บอท)", "Include simulated (bot) data", "包括模拟数据")}
