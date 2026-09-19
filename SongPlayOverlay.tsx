@@ -75,8 +75,11 @@ function OnlinePvpPanel({ pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnlin
   );
 }
 
-export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songNextLit2, songFingerMap, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand, setSongPhase }) {
+export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songNextLit2, songFingerMap, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand, setSongPhase, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf }) {
   const lc = L[lang];
+  // #1: mm:ss for drill segment labels; #4: how many facts the player collected.
+  const kShelfCount = Array.isArray(kShelf) ? kShelf.length : 0;
+  const fmtTime = (sec) => { const s2 = Math.max(0, Math.floor(Number(sec) || 0)); return Math.floor(s2 / 60) + ":" + String(s2 % 60).padStart(2, "0"); };
   // Landscape orientation prompt for Play Along — detect portrait on mobile
   // The rotate hint is a one-time lesson, not a recurring nag: once it has
   // been seen it never appears again on this device, however many songs are
@@ -160,6 +163,25 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
               {songFever && <div className="feverbadge">🔥 FEVER ×2</div>}
               {songBonus && <div className="songbonus" key={songBonus.id}>{lc.dhBonus} {songBonus.text}</div>}
               {songAnnounce && <div className="songannounce" key={songAnnounce.id}>{songAnnounce.text}</div>}
+              {/* #3 Boss Battle — HP bar (throttled reactive sync from the game loop) */}
+              {bossOn && songPhase === "playing" && (() => {
+                const maxHp = (typeof bossMax === "number" && bossMax > 0) ? bossMax : Math.max(1, bossHp || 1);
+                return (
+                  <div className="bosshud">
+                    <span className="bosshud-face">{bossHp <= 0 ? "😵" : (bossFx && bossFx.kind === "attack") ? "😡" : "👾"}</span>
+                    <div className="bosshud-track"><div className={"bosshud-fill" + (bossHp / maxHp < 0.3 ? " low" : "")} style={{ width: Math.max(0, (bossHp / maxHp) * 100) + "%" }} /></div>
+                    <span className="bosshud-pct">{Math.max(0, Math.round((bossHp / maxHp) * 100))}%</span>
+                  </div>
+                );
+              })()}
+              {bossOn && bossFx && <div className={"bossfx " + bossFx.kind} key={bossFx.id}>
+                {bossFx.kind === "hit" ? "💥" : bossFx.kind === "attack" ? "⚔️!" : "🎉"}
+              </div>}
+              {/* #4 Knowledge Drop — one-line fact about the note just landed */}
+              {kDrop && <div className="kdrop" key={kDrop.id}>
+                <span className="kdrop-badge">💡</span>
+                <span className="kdrop-text">{kDrop.text}</span>
+              </div>}
               {songPops.map(p => (
                 <div key={p.id} className={`songpop${p.perfect ? " perfect" : ""}`} style={{ left: p.x + "%" }}>{p.text}</div>
               ))}
@@ -290,6 +312,40 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
                   </button>
                 </>) : null}
               </div>
+              {/* #1 Mistake Loop — drill just the worst segments on a rising tempo ladder */}
+              {drillPlan && drillPlan.length > 0 && (
+                <div className="drillcard">
+                  <div className="drillcard-title">🎯 {lang === "th" ? "ซ้อมเฉพาะท่อนที่พลาด" : lang === "zh" ? "只练错误片段" : "Drill the tricky parts"}</div>
+                  {drillActive && (
+                    <button className="songbtn ghost" style={{ width: "100%", marginBottom: 8, borderColor: "#f59e0b", color: "#f59e0b" }} onClick={endDrill}>
+                      ⏹ {lang === "th" ? "หยุดดริล — กลับไปหน้าเริ่ม" : lang === "zh" ? "停止练习" : "Stop drill — back to start"}
+                    </button>
+                  )}
+                  <div className="drillcard-segs">
+                    {drillPlan.map((seg, i) => (
+                      <button key={seg.idx} className="drillseg" onClick={() => { setSongPhase("ready"); startDrill(seg); }}
+                        style={{ "--w": Math.min(100, 25 + seg.misses * 18) + "%" }}>
+                        <span className="drillseg-num">#{i + 1}</span>
+                        <span className="drillseg-bar" style={{ opacity: 0.35 + Math.min(0.65, seg.misses * 0.18) }} />
+                        <span className="drillseg-info">{fmtTime(seg.start)}–{fmtTime(seg.end)} · ✗{seg.misses}{seg.notes.length ? " · " + seg.notes.slice(0, 3).join(" ") : ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="drillcard-hint">
+                    {lang === "th"
+                      ? "กดท่อนที่พลาดเพื่อวนซ้อมเฉพาะท่อนนั้น เท็มโปไล่ขึ้นเองเมื่อเล่นผ่าน (75% → 85% → 100%)"
+                      : lang === "zh"
+                      ? "点击错误片段循环练习，通过后速度自动提升（75% → 85% → 100%）"
+                      : "Tap a segment to loop just that part — tempo climbs on each pass (75% → 85% → 100%)"}
+                  </div>
+                </div>
+              )}
+              {/* #4 Knowledge shelf — facts collected from perfect hits */}
+              {(kShelfCount > 0 || kShelfOpen) && (
+                <button className="songbtn ghost" style={{ width: "100%", marginTop: 8, fontSize: 12 }} onClick={openKnowledgeShelf}>
+                  💡 {lang === "th" ? "ความรู้ที่เก็บได้" : lang === "zh" ? "收集到的知识" : "Knowledge collected"}{kShelfCount > 0 ? " · " + kShelfCount : ""}
+                </button>
+              )}
               <div className="songready-btns">
                 <button className="songbtn ghost" onClick={exitSong}>↩ {lc.songBackList}</button>
                 <button className="songbtn ghost" onClick={() => shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: "★".repeat(songResult.stars) + "☆".repeat(3 - songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] })}>📤 {lc.shareBtn}</button>
@@ -355,6 +411,26 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
           {/* A one-time tip, not an instruction: both orientations work fully —
               landscape just gives a wider keyboard — so it says so plainly and
               never appears again once it has been read. */}
+          {/* #4 Knowledge shelf modal */}
+          {kShelfOpen && (
+            <div className="kshelf-modal" onClick={() => setKShelfOpen(false)}>
+              <div className="kshelf-card" onClick={e => e.stopPropagation()}>
+                <div className="kshelf-hd">
+                  <span>💡 {lang === "th" ? "ความรู้ที่เก็บได้" : lang === "zh" ? "收集到的知识" : "Knowledge collected"}</span>
+                  <button className="cbtn" onClick={() => setKShelfOpen(false)}>✕</button>
+                </div>
+                <div className="kshelf-list">
+                  {kShelf && kShelf.length ? kShelf.map((k, i) => (
+                    <div key={i} className="kshelf-item">
+                      <span className="kshelf-key">{k.pc}</span>
+                      <span className="kshelf-txt">{lang === "th" ? (k.th || k.text) : lang === "zh" ? (k.zh || k.text) : (k.en || k.text)}</span>
+                    </div>
+                  )) : <div className="kshelf-empty">{lang === "th" ? "เล่นให้แม่นเพื่อเก็บการ์ดความรู้!" : lang === "zh" ? "弹得准就能收集知识卡片！" : "Nail perfect hits to collect fact cards!"}</div>}
+                </div>
+              </div>
+            </div>
+          )}
+
           {showOrientPrompt && (
             <div className="orientation-prompt">
               <div className="op-icon">📱↻</div>
