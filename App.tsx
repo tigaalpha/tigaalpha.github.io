@@ -28,6 +28,7 @@ import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
+import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift } from "./use-conversion";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { withAiCache } from "./ai-cache";
 import {
@@ -2478,7 +2479,10 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   async function composeGenerate() {
     if (!composeMood || !composeStyle || composeLoading) return;
     if (onRequireLogin && onRequireLogin()) return;
-    if (!canUse("compose", premium)) { setComposeOpen(false); if (onUpsell) onUpsell(); return; }
+    /* Same exact-once gift on the second creation endpoint (1A). */
+    if (!premium && !canUse("compose", premium) && canUseSongGift()) {
+      consumeSongGift();
+    } else if (!canUse("compose", premium)) { setComposeOpen(false); if (onUpsell) onUpsell(); return; }
     setComposeLoading(true); setComposeErr(false);
     try {
       const moods: Record<string,string> = { happy: "happy, bright, uplifting", sad: "melancholic, gentle, wistful", calm: "peaceful, serene, tranquil", energetic: "lively, energetic, playful" };
@@ -3709,7 +3713,12 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   async function generateSong() {
     if (!genText.trim() || generating) return;
     if (onRequireLogin && onRequireLogin()) return;
-    if (!canUse("song", premium)) { setCreateOpen(false); if (onUpsell) onUpsell(); return; }
+    /* Conversion gift (1A): a free member gets song creation exactly once,
+       ever. The regular cap stays 0 — the gift is checked before canUse and
+       burns its own lifetime flag, not the daily bucket. */
+    if (!premium && !canUse("song", premium) && canUseSongGift()) {
+      consumeSongGift();
+    } else if (!canUse("song", premium)) { setCreateOpen(false); if (onUpsell) onUpsell(); return; }
     setGenerating(true); setGenErr(false);
     try {
       const sys = "You turn a song request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON, no prose, no markdown: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names from C4 to B5 only; use \"R\" for a rest; beats are 0.5, 1, 1.5 or 2. Keep it 16-48 notes and recognizable.";
@@ -9773,6 +9782,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [loginModalOpen, setLoginModalOpen] = useState(false); // optional-side login (corner pill) — GuestGateScreen is the forced-side equivalent, see app-shell.tsx
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
   const [buyCurrencyOpen, setBuyCurrencyOpen] = useState(false);
+  /* Conversion funnel (owner-approved 2026-09-19): one trial-stage popup at a
+     time — welcome (d1-3), halfway price-lock (d15-28), closing + direct
+     checkout (d29-30) — plus the expired-trial win-back. Never fires for
+     paying members or admins: effectivePlan maps them to non-trial/non-free,
+     so neither probe matches. Recomputed when plan/profile changes, which
+     also auto-clears the popup the moment a payment lands. */
+  const [convPopup, setConvPopup] = useState(null);
+  useEffect(() => {
+    const next = convPopupFor(profile, plan) || convWinBack(profile, plan);
+    setConvPopup(next);
+  }, [profile, plan]);
+  function dismissConvPopup() {
+    if (convPopup) markConvSeen(convPopup.id);
+    setConvPopup(null);
+  }
   function openBuyCurrency() { if (requireLogin()) return; setBuyCurrencyOpen(true); }
   // useGamification() is called before usePayment() (mascot must exist in time
   // to pass into usePayment's params) — so earnCoins/gainExp read plan via this
@@ -11402,10 +11426,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {plan === "trial" && (() => {
         const dLeft = trialDaysLeft(profile);
         if (dLeft <= 0) return null;
+        /* Last 5 days switch to loss aversion (strategy phase 4): the banner
+           names exactly what expires and the CTA jumps straight to checkout
+           instead of the generic pricing sheet. */
+        const urgent = dLeft <= 5;
+        const cc = CONV_COPY[lang] || CONV_COPY.en;
         return (
-          <div className="trial-banner">
-            <span className="trial-banner-txt">{lc.trialBanner} · {dLeft} {lc.trialDaysLeft}</span>
-            <button className="trial-banner-btn" onClick={() => { playUi("click"); setPricingOpen(true); }}>{lc.trialUpgrade}</button>
+          <div className={"trial-banner" + (urgent ? " urgent" : "")}>
+            <span className="trial-banner-txt">{urgent ? cc.bannerUrgent.replace("{n}", String(dLeft)) : <>{lc.trialBanner} · {dLeft} {lc.trialDaysLeft}</>}</span>
+            <button className="trial-banner-btn" onClick={() => { playUi("click"); urgent ? startCheckout("premium", billCycle) : setPricingOpen(true); }}>{urgent ? cc.bannerUrgentBtn : lc.trialUpgrade}</button>
           </div>
         );
       })()}
@@ -11667,7 +11696,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>
 
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
-      {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} />}
+      {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} onKeepGoing={() => { playUi("click"); setPricingOpen(true); }} showKeepGoing={!premium && !!practiceResult && practiceResult.accuracy >= 80 && practiceResult.bestStreak >= 5} />}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
       {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} />}
@@ -12534,6 +12563,44 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
       )}
+
+      {/* Conversion-funnel popup (owner-approved 2026-09-19): trial-stage
+          messaging from ครู TIGA AI — welcome / halfway price-lock / closing
+          (checkout in one tap) / expired win-back. One instance, highest-
+          priority phase first; dismissal is remembered per device. */}
+      {convPopup && (() => {
+        const cc = CONV_COPY[lang] || CONV_COPY.en;
+        const c = cc[convPopup.kind];
+        return (
+          <div className="atpopup" onClick={dismissConvPopup}>
+            <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
+                <div className="atpopup-tt">{c.title}</div>
+                <button className="atpopup-x" onClick={dismissConvPopup} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+              {convPopup.kind === "closing" && <div className="convpop-items">{c.items}</div>}
+              {/* Primary action per phase: closing → direct checkout (3A);
+                  halfway → pricing sheet (2A price-lock); welcome → plain
+                  dismiss; win-back gets a secondary browse-plans button. */}
+              {convPopup.kind === "closing"
+                ? <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); startCheckout("premium", billCycle); }}>{c.cta}</button>
+                    <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{c.alt}</button>
+                  </div>
+                : convPopup.kind === "halfway"
+                ? <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{c.cta}</button>
+                  </div>
+                : <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <button className="atpopup-ok" style={{ flex: 1 }} onClick={dismissConvPopup}>{c.cta}</button>
+                    {convPopup.kind === "winback" && <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{(CONV_COPY[lang] || CONV_COPY.en).halfway.cta}</button>}
+                  </div>}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Auto Teaching — real-time coaching card (Max plan, fires on a timer while on the Pathway page) */}
       {autoTeachTip && !broadcast && (

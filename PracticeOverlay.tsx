@@ -28,7 +28,7 @@ function ResultBar({ label, pct, color }) {
     </div>
   );
 }
-function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice }) {
+function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing }) {
   const r = practiceResult;
   const dynPct = r.dyn ? Math.round(r.dyn.ok / (r.dyn.ok + r.dyn.miss) * 100) : null;
   const rhythmPct = r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null;
@@ -82,6 +82,11 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
         </div>
       )}
 
+      {/* Conversion pill (strategy phase 2): only for free-plan learners and
+          only after a genuinely good run (accuracy gate passed via prop) —
+          the exact peak moment where an upgrade feels earned, not gated. */}
+      {showKeepGoing && <button className="presultkeep" onClick={onKeepGoing}>{lang === "th" ? "🔥 ฟอร์มนี้กำลังมา — รักษาต่อกับครู TIGA AI ได้ทุกวัน" : lang === "zh" ? "🔥 状态正佳——每天与TIGA AI老师保持下去" : "🔥 You're on a roll — keep it going with Teacher TIGA AI daily"}</button>}
+
       {/* TIGA Model verdict — the teaching loop ran locally on this drill's
           real signals (accuracy/misses/pauses/rhythm). Always visible when it
           has something to say, guests included; the AI flourish below it is
@@ -108,7 +113,7 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
     </div>
   );
 }
-export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, switchPracticeChordStyle, chordGroupSize = 0 }) {
+export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, switchPracticeChordStyle, chordGroupSize = 0, onKeepGoing, showKeepGoing = false }) {
   const lc = L[lang];
         // Grading (use-practice-mode) treats BOTH chord and progression drills
         // as block-style when the toggle says so — the display must gate on the
@@ -137,7 +142,7 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
           <div className="practicehtitle">{lc.practiceTitle}<small>{practiceLabel}</small></div>
           <button className="cbtn" onClick={exitPractice}>{lc.close}</button>
         </div>
-        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} />
+        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} />
         <div className="practicefoot">
           <button className="practicerestart" onClick={restartPractice}>↻ {lc.practiceRestart}</button>
           <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
