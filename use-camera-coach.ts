@@ -4,6 +4,7 @@ import { getAC, playUi, THEORY_REF } from "./music-engine";
 import { L } from "./i18n";
 import { fetchChatCompletion } from "./ai-backend";
 import { logActivity, dayKey } from "./shared-infra";
+import { freshGameState, gameStep, missionView, missionSolvedPraise, scoreRank, comboTier, praiseFor, rankUpPraise } from "./camera-coach-game";
 import { API_MODEL } from "./App";
 import { speakCloud, speakDeviceOrNative, stopSpeaking, stopCloudTTS } from "./speech";
 /* ── use-camera-coach.ts ──
@@ -99,6 +100,10 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
   const [camTry, setCamTry] = useState(0);                    // bump to retry
   const [camRecap, setCamRecap] = useState(null);             // {pct, trend:"up"|"same"|"first"} | null — shown on exit before actually closing
   const [camSpeaking, setCamSpeaking] = useState(false);
+  const [camGame, setCamGame] = useState(freshGameState);     // LIVE GAME STATE (score bar/combo/stars/mission) — pure layer in camera-coach-game.ts
+  const [camPraise, setCamPraise] = useState("");             // one-shot celebration text, auto-clears
+  const camGameRef = useRef(camGame);                          // per-frame writes stay ref-only; state copy is for React rendering
+  const camGameKeyRef = useRef("");
 
   // camera runtime refs
   const camVideoRef = useRef(null);
@@ -112,7 +117,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
   const camSignalWindowRef = useRef([]); // last ~20 frames' {round,wrist,thumb} for the debounced live tip
 
   // ════ HAND-POSTURE COACH (camera) ════
-  function openCamera() { handRoundFramesRef.current = { good: 0, total: 0 }; camSignalWindowRef.current = []; setCamOpen(true); setCamRecap(null); }
+  function openCamera() { handRoundFramesRef.current = { good: 0, total: 0 }; camSignalWindowRef.current = []; const g = freshGameState(); camGameRef.current = g; setCamGame(g); setCamPraise(""); camGameKeyRef.current = ""; camLastTRef.current = 0; setCamOpen(true); setCamRecap(null); }
   function exitCamera() {
     // FIX (owner report: "กดปิดแล้วไม่ย้อนกลับ"): when a qualifying session
     // shows the recap and returns, every further tap on any close button
@@ -151,7 +156,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
       playUi(tierUp ? "levelup" : "reward");
       if (tierUp) { xp += 30; coins += 15; }
       if (onReward) onReward(xp, coins);
-      setCamRecap({ pct, trend: prev == null ? "first" : pct > prev + 3 ? "up" : pct < prev - 3 ? "down" : "same", streak, tier, tierUp, xp, coins });
+      setCamRecap({ pct, trend: prev == null ? "first" : pct > prev + 3 ? "up" : pct < prev - 3 ? "down" : "same", streak, tier, tierUp, xp, coins, stars: camGameRef.current.stars, solved: camGameRef.current.solved, bestCombo: camGameRef.current.bestCombo });
       handRoundFramesRef.current = { good: 0, total: 0 }; // paid once — zero so the next close exits instead of re-paying
       return; // recap card shown; closeCameraForReal() is what actually hides the overlay
     }
@@ -265,6 +270,28 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
               camSignalWindowRef.current = [];
               if (L[lang].camNoHands !== camMsgRef.current) { camMsgRef.current = L[lang].camNoHands; setCamMsg(L[lang].camNoHands); }
             }
+            // ═══ GAME LAYER (fun pass) ═══ — one pure step per frame, driven by
+            // the SAME measurements above (no new truth source). Writes go to
+            // camGameRef.current (the SAME object setCamGame holds) and React
+            // picks them up via a rAF-idle batched setCamGame — one render per
+            // visual change, not per frame.
+            if (camGameRef.current) {
+              const now = performance.now();
+              const dtMs = camLastTRef.current ? now - camLastTRef.current : 16;
+              camLastTRef.current = now;
+              const goodNow = hands.length > 0 && avgRound >= 0.6;
+              const evs = gameStep(camGameRef.current, { hasHands: hands.length > 0, good: goodNow, wristOk: hands.length > 0 && avgWrist <= 0.15, bothGood: hands.length >= 2 && avgRound >= 0.6 }, dtMs, now);
+              for (const e of evs) {
+                if (e.type === "praise") setCamPraise(e.text);
+                else if (e.type === "solved") { setCamPraise(missionSolvedPraise(lang)); playUi("badge"); }
+                else if (e.type === "rank") { setCamPraise(rankUpPraise(e.rank, lang)); playUi("levelup"); }
+                else if (e.type === "expire") { /* mission swaps silently */ }
+              }
+              // batch render: only when something visible changed
+              const g = camGameRef.current;
+              const visibleKey = Math.round(g.score) + "/" + g.combo + "/" + g.stars + "/" + g.chIdx + "/" + (g.praiseText ? 1 : 0);
+              if (visibleKey !== camGameKeyRef.current) { camGameKeyRef.current = visibleKey; setCamGame({ ...g }); }
+            }
           }
           camRafRef.current = requestAnimationFrame(loop);
         };
@@ -284,5 +311,12 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
   // the moment the camera opens — camRecap.streak below is the POST-session
   // number, shown separately once the session actually qualifies.
   const camStreakInfo = (() => { const s = postureStreak(); return { count: s.count || 0, tier: postureStreakTier(s.count || 0) }; })();
-  return { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera };
+  // praise auto-clear (2.4s) — one-shot celebration, never sticks on screen
+  useEffect(() => {
+    if (!camPraise) return;
+    const t = setTimeout(() => setCamPraise(""), 2400);
+    return () => clearTimeout(t);
+  }, [camPraise]);
+  const camMission = camGame ? missionView(camGame, 0) : null;
+  return { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera, camGame, camPraise, camMission };
 }

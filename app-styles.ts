@@ -2696,6 +2696,30 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .atpopup-ok{width:100%;background: #d97757;color:#fff;border:none;border-radius:12px;padding:11px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer}
 .camfoot-btns{display:flex;gap:8px;justify-content:center}
 .cammsg{position:absolute;left:0;right:0;bottom:14px;text-align:center;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:#fff;text-shadow:0 2px 10px #000;padding:0 16px}
+/* ═══ camera coach GAME HUD (fun pass) ═══ */
+.camgame-hud{position:absolute;top:10px;left:10px;right:10px;display:flex;flex-direction:column;gap:6px;pointer-events:none;z-index:3}
+.camgame-score{display:flex;align-items:center;gap:8px}
+.camgame-rank{font-size:20px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+.camgame-bar{flex:1;height:12px;border-radius:8px;background:rgba(8,14,26,.75);border:1px solid rgba(217,119,87,.45);overflow:hidden;backdrop-filter:blur(3px)}
+.camgame-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,#d97757,#ffb347,#ffd23f);transition:width .35s ease;box-shadow:0 0 12px -2px #d97757}
+.camgame-num{font-size:13px;font-weight:700;color:#fff;text-shadow:0 2px 6px #000;min-width:26px;text-align:right;font-family:'Share Tech Mono',monospace}
+.camgame-side{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:22px}
+.camgame-combo{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:#ffd23f;text-shadow:0 2px 8px #000}
+.camgame-combo small{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:#fff;opacity:.9;margin-left:4px}
+.camgame-combo.c1{animation:flamepulse .6s ease-in-out infinite alternate}
+.camgame-combo.c2{color:#ffb347;font-size:16px;animation:flamepulse .5s ease-in-out infinite alternate}
+.camgame-combo.c3{color:#ffd23f;font-size:18px;text-shadow:0 0 14px #ffd23f;animation:flamepulse .4s ease-in-out infinite alternate}
+.camgame-stars{font-family:'Share Tech Mono',monospace;font-size:13px;font-weight:700;color:#ffd23f;background:rgba(255,210,63,.12);border:1px solid rgba(255,210,63,.4);border-radius:20px;padding:2px 10px}
+.cammission{position:absolute;top:64px;left:50%;transform:translateX(-50%);width:min(86%,340px);background:rgba(8,14,26,.88);border:1px solid #d9775766;border-radius:12px;padding:8px 12px;backdrop-filter:blur(4px);z-index:2;pointer-events:none}
+.cammission-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.cammission-lbl{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:.5px;color:#d97757}
+.cammission-timer{font-size:12px;color:#fff;opacity:.85;font-family:'Share Tech Mono',monospace}
+.cammission-txt{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:5px}
+.cammission-bar{height:6px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+.cammission-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#d97757,#ffd23f);transition:width .3s ease}
+.campraise{position:absolute;top:38%;left:50%;font-family:'Orbitron',sans-serif;font-size:clamp(18px,5vw,26px);font-weight:900;color:#ffd23f;text-shadow:0 3px 16px #000,0 0 24px rgba(255,210,63,.5);z-index:5;pointer-events:none;animation:campraise-pop .45s cubic-bezier(.2,1.6,.4,1)}
+@keyframes campraise-pop{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.camrecap-game{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:#ffd23f;margin-bottom:8px}
 .camfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bd3);flex-shrink:0}
 /* leaderboard */
 .lbmine{margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:400;color:#d97757}
