@@ -88,7 +88,8 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
           signed-in only. */}
       {r.tigaTip && r.tigaTip.text && (
         <div className="presultai" style={{ borderColor: "#d97757" }}>
-          <div className="presultai-h">🧠 {lang === "th" ? "TIGA Model วิเคราะห์" : lang === "zh" ? "TIGA 模型分析" : "TIGA Model analysis"}{tigaStrategyLabel(r.tigaTip.strategyId, lang) ? ` · ${tigaStrategyLabel(r.tigaTip.strategyId, lang)}` : ""}</div>
+          {/* Owner: the teacher is "ครู TIGA AI" everywhere on this screen. */}
+          <div className="presultai-h">🧠 {lang === "th" ? "ครู TIGA AI วิเคราะห์" : lang === "zh" ? "TIGA AI模型分析" : "Teacher TIGA AI analysis"}{tigaStrategyLabel(r.tigaTip.strategyId, lang) ? ` · ${tigaStrategyLabel(r.tigaTip.strategyId, lang)}` : ""}</div>
           <div className="presultai-tx">{r.tigaTip.text}</div>
         </div>
       )}
@@ -96,7 +97,12 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
       {(r.aiLoading || r.aiText) && (
         <div className="presultai">
           <div className="presultai-h">💬 {lc.practiceCoachSays}</div>
-          {r.aiLoading ? <div className="presultai-loading">…</div> : <div className="presultai-tx">{r.aiText}</div>}
+          {/* Waiting state is a real sentence, not an ellipsis: the analysis
+              needs a moment, and "รอครู TIGA AI ประมวลผลสักครู่…" tells the
+              learner (and their parent watching) exactly what's happening. */}
+          {r.aiLoading
+            ? <div className="presultai-loading">{lang === "th" ? "⏳ รอครู TIGA AI ประมวลผลสักครู่…" : lang === "zh" ? "⏳ 等待TIGA AI老师分析中…" : "⏳ Teacher TIGA AI is analyzing, one moment…"}</div>
+            : <div className="presultai-tx">{r.aiText}</div>}
         </div>
       )}
     </div>
