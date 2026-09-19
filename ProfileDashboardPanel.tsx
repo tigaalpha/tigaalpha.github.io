@@ -46,7 +46,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
                     </div>
                   </div>
                   {chestAvail
-                    ? <button className="dh-chest" onClick={openChestNow}>🎁<span>{lc.dhClaim}</span></button>
+                    ? <button className="dh-chest chestpulse" onClick={openChestNow}>🎁<span>{lc.dhClaim}</span></button>
                     : <button className="dh-chest done" onClick={() => { setPage("studio"); setStudioView("menu"); }}>🎮<span>{lc.dhPlay}</span></button>}
                 </div>
                 {(schoolHW || (homework && homework.text)) && (
