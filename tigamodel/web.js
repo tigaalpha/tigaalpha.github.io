@@ -37,6 +37,14 @@ import { seedKnowledgeExpansion } from "./knowledge/expansion-core.js";
 import { seedRepertoireExpansion } from "./knowledge/expansion-repertoire.js";
 import { seedPedagogyExpansion } from "./knowledge/expansion-pedagogy.js";
 import { seedPeaksExpansion } from "./knowledge/expansion-peaks.js";
+import { seedLearnerWave } from "./knowledge/expansion-learner.js";
+import { seedStageWave } from "./knowledge/expansion-stage.js";
+import { seedStageTwoWave } from "./knowledge/expansion-stage2.js";
+import { buildStudentContextFromApp } from "./student/student-model.js";
+import { createCapabilityEngine } from "./teaching/capability-engine.js";
+import { generateExercise, generateSheet } from "./teaching/generator.js";
+import { createUnifiedPlan } from "./roadmap-unified.js";
+import { buildCoachContextBlock, practiceTimeBudget, buildDiagnosis, buildStudentSnapshot } from "./coach/diagnosis.js";
 import { SOURCES, COVERAGE, GLOBAL_COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
 import { createSelfLearner } from "./learning/self-learner.js";
 import { sharedSkillGraph } from "./teaching/skill-graph.js";
@@ -79,6 +87,14 @@ export function initTigamodelWeb() {
     seedRepertoireExpansion(_tiga.kb);
     seedPedagogyExpansion(_tiga.kb);
     seedPeaksExpansion(_tiga.kb);
+    // learner wave (owner directive "ใช้ได้จริงๆ"): memory/ear/sight-reading/
+    // special-populations/Thai-keyboard/plans/motivation — the knowledge the
+    // production chat teacher actually adapts with.
+    seedLearnerWave(_tiga.kb);
+    // stage & craft wave: deepens performance/improv/accompaniment (capability
+    // engine flagged these as the thinnest real domains)
+    seedStageWave(_tiga.kb);
+    seedStageTwoWave(_tiga.kb); // completes performance-domain depth (T8 kb=1.0)
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
   // Reasoning layer (roadmap #62/#73/#75/#78): skill graph + coach (hint
   // ladder, adaptive tempo, recap) — pure, sync, no model call. Attached to
@@ -119,6 +135,77 @@ export async function ensureTigamodelWeb() {
     }
   } catch (e) {}
   return _tiga;
+}
+
+/* ── Capability engine (owner directive: แผน 1M 13% → 100%): scores every
+   t×m×s route across kb/reasoning/surface/measure/evolve from REAL module
+   state — the honest successor to module-route coverage. The KB index is
+   injected from the real seeded KB so depth numbers are live. ── */
+let _capEngine = null;
+function kbEntriesIndex(kb) {
+  const idx = new Map();
+  if (!kb || !kb._entries) return idx;
+  for (const [, e] of kb._entries) {
+    if (!idx.has(e.domain)) idx.set(e.domain, []);
+    idx.get(e.domain).push(e);
+  }
+  return idx;
+}
+export function getCapabilityEngine() {
+  if (!_capEngine) {
+    const tiga = _tiga || initTigamodelWeb();
+    _capEngine = createCapabilityEngine({ kbEntries: kbEntriesIndex(tiga && tiga.kb) });
+  }
+  return _capEngine;
+}
+export function capabilitySummary() { return getCapabilityEngine().summary(); }
+export function capabilityWorklist(limit = 50) { return getCapabilityEngine().worklist(limit); }
+
+/* ── Exercise generation (capability "gen"): real KB-backed exercises from
+   computed data — deterministic per seed, level 1-5, every topic. ── */
+export function generateStudentExercise(topic, level, seed) {
+  try { return generateExercise(topic, level, seed); } catch (e) { return null; }
+}
+export function generateStudentSheet(level, seed) {
+  try { return generateSheet(level, seed); } catch (e) { return null; }
+}
+
+/* ── THE UNIFIED PLAN (owner directive: รวมแผน 100 + แผน 1M เป็นแผ่นเดียว):
+   100 streams × their 1M cells, one work order, statuses verified by the
+   capability engine (a "done" tick without real capability never shows done). ── */
+let _unified = null;
+export function getUnifiedPlan() {
+  if (!_unified) {
+    const tiga = _tiga || initTigamodelWeb();
+    _unified = createUnifiedPlan({ kbEntries: kbEntriesIndex(tiga && tiga.kb) });
+  }
+  return _unified;
+}
+export function unifiedSummary() { return getUnifiedPlan().summary(); }
+export function unifiedWorkOrder(limit) { return getUnifiedPlan().workOrder(limit); }
+
+/* ── AI PIANO COACH P0 (master product directive): WHAT/WHY/HOW diagnosis +
+   time-adaptive practice budget + honest student snapshot — all from data
+   the app already records (tg_memory + tg_practice_log). No new schema. ── */
+export function getCoachDiagnosis() {
+  try {
+    const memory = (typeof localStorage !== "undefined") ? JSON.parse(localStorage.getItem("tg_memory") || "null") : null;
+    const practiceLog = (typeof localStorage !== "undefined") ? JSON.parse(localStorage.getItem("tg_practice_log") || "null") : null;
+    return buildDiagnosis({ memory, practiceLog });
+  } catch (e) { return null; }
+}
+export function getPracticeTimeBudget(minutes) {
+  try {
+    const memory = (typeof localStorage !== "undefined") ? JSON.parse(localStorage.getItem("tg_memory") || "null") : null;
+    return practiceTimeBudget(minutes, { memory });
+  } catch (e) { return practiceTimeBudget(minutes, {}); }
+}
+export function getCoachContextBlock() {
+  try {
+    const memory = (typeof localStorage !== "undefined") ? JSON.parse(localStorage.getItem("tg_memory") || "null") : null;
+    const practiceLog = (typeof localStorage !== "undefined") ? JSON.parse(localStorage.getItem("tg_practice_log") || "null") : null;
+    return buildCoachContextBlock({ memory, practiceLog });
+  } catch (e) { return ""; }
 }
 
 export function getTigamodel() { return _tiga; }
@@ -241,8 +328,10 @@ const KB_DOMAIN_LABEL = {
   theory: "THEORY", harmony: "HARMONY", repertoire: "REPERTOIRE",
   form: "FORM", accompaniment: "ACCOMPANIMENT", improvisation: "IMPROVISATION",
   "learner-differences": "LEARNER DIFFERENCES",
+  "sight-reading": "SIGHT READING",
 };
 const KB_DOMAIN_KEYWORDS = {
+  "sight-reading": ["อ่านโน้ต", "อ่านสายตา", "sight", "reading", "ledger", "บรรทัดโน้ต", "ตัวโน้ต", "กวาดตา"],
   pedal: ["pedal", "แป้น", "เหยียบ", "sustain", "sostenuto", "una corda"],
   expression: ["dynamic", "crescendo", "ดัง", "เบา", "rubato", "expression", "แสดงออก", "cresc", "sfz", "เน้นเสียง"],
   technique: ["ท่า", "นั่ง", "ศอก", "ไหล่", "ข้อมือ", "นิ้ว", "posture", "hand position", "เจ็บ", "เมื่อย", "tension", "technique", "curved"],
@@ -303,7 +392,8 @@ export function getKBContext(matchText) {
     if (!lines.length) {
       // switch-gated learned knowledge still injects even without a topical
       // seed hit — fire-and-forget cache warm (async fn, safe to ignore)
-      if (_learner) _learner.getLearnedKBContext(matchText).catch(() => {});
+      const lr = ensureSelfLearner();
+      lr.getLearnedKBContext(matchText).catch(() => {});
       return "";
     }
     return (
@@ -313,6 +403,33 @@ export function getKBContext(matchText) {
   } catch (e) { return ""; }
 }
 
+/* ── Student-aware teaching block for PRODUCTION callers (use-chat). Reads
+   the same localStorage memory the app already tracks (tg_memory), formats
+   it through the real student-model schema, and returns a compact prompt
+   block. The teacher then answers as a teacher who KNOWS this student —
+   struggles by name, respects the mastered list, never re-explains what is
+   already solid. Honest-gap rule: fields the app doesn't track stay absent,
+   never guessed. Empty string when there is no memory at all (new student). ── */
+export function getStudentContextBlock() {
+  try {
+    const raw = (typeof localStorage !== "undefined") ? localStorage.getItem("tg_memory") : null;
+    if (!raw) return ""; // brand-new student — nothing to personalize (honest gap, not a guess)
+    const mem = JSON.parse(raw);
+    const hasSignal = mem && ((mem.struggles && mem.struggles.length) || (mem.mastered && mem.mastered.length) || (mem.recent && mem.recent.length) || mem.sessions);
+    if (!hasSignal) return "";
+    const ctx = buildStudentContextFromApp({});
+    if (!ctx) return "";
+    const lines = [];
+    if (ctx.mastered && ctx.mastered.length) lines.push(`ทักษะที่ทราบว่าทำได้แล้ว (อย่าอธิบายซ้ำ ให้ต่อยอด): ${ctx.mastered.join(", ")}`);
+    if (ctx.struggles && ctx.struggles.length) lines.push(`จุดที่เคยติดขัด (โอกาสที่ควรเสนอช่วย แต่ถามก่อนว่าอยากซ้อมจุดนี้ไหม): ${ctx.struggles.join(", ")}`);
+    if (ctx.recent && ctx.recent.length) lines.push(`ผลการซ้อมล่าสุด: ${ctx.recent.join(" · ")}`);
+    if (ctx.practice_habits && ctx.practice_habits.sessions_total) lines.push(`จำนวนเซสชันซ้อมทั้งหมด: ${ctx.practice_habits.sessions_total}`);
+    if (ctx.experience_level) lines.push(`ระดับที่แอปบันทึกไว้: ${ctx.experience_level}`);
+    if (!lines.length) return "";
+    return `\n\n[ข้อมูลนักเรียนจากแอป — ใช้ปรับการสอนเป็นของคนนี้ อ้างอิงได้ว่า 'เธอทำผ่าน X มาแล้ว' ห้ามกุข้อมูลนอกนี้]\n${lines.map(l => "• " + l).join("\n")}\n`;
+  } catch (e) { return ""; /* memory malformed → teach without it, never break the chat */ }
+}
+
 /* Learned-knowledge injection for callers that CAN await (use-chat / admin
    chat build their system prompt asynchronously anyway). Returns the static
    KB slice + the switch-gated learned block in one string, so production
@@ -320,7 +437,11 @@ export function getKBContext(matchText) {
 export async function getFullKBContext(matchText) {
   const base = getKBContext(matchText);
   let learned = "";
-  try { if (_learner) learned = await _learner.getLearnedKBContext(matchText); } catch (e) { /* off or error → skip */ }
+  // BUGFIX (owner directive "ใช้ได้จริงๆ"): was `if (_learner)` — but _learner
+  // is null until someone calls ensureSelfLearner(), so production chat NEVER
+  // received learned knowledge even with the switch ON. Create it now; the
+  // learner reads its own switch and returns "" when disabled.
+  try { learned = await ensureSelfLearner().getLearnedKBContext(matchText); } catch (e) { /* off or error → skip */ }
   return base + learned;
 }
 
