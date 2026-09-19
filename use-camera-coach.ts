@@ -114,6 +114,13 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
   // ════ HAND-POSTURE COACH (camera) ════
   function openCamera() { handRoundFramesRef.current = { good: 0, total: 0 }; camSignalWindowRef.current = []; setCamOpen(true); setCamRecap(null); }
   function exitCamera() {
+    // FIX (owner report: "กดปิดแล้วไม่ย้อนกลับ"): when a qualifying session
+    // shows the recap and returns, every further tap on any close button
+    // re-entered the payment branch (paying rewards AGAIN) and re-showed the
+    // recap forever — the overlay looked unclosable. Now: if a recap is
+    // already on screen, ANY close just exits. And the frame counter is
+    // zeroed right after paying, so a stale ≥30 count can never double-pay.
+    if (camRecap) { setCamRecap(null); setCamOpen(false); return; }
     stopSpeaking(); stopCloudTTS(); setCamSpeaking(false);
     setCamCoach(null);
     // Technique skill: normalize to a fixed 10-point contribution regardless of
@@ -145,6 +152,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
       if (tierUp) { xp += 30; coins += 15; }
       if (onReward) onReward(xp, coins);
       setCamRecap({ pct, trend: prev == null ? "first" : pct > prev + 3 ? "up" : pct < prev - 3 ? "down" : "same", streak, tier, tierUp, xp, coins });
+      handRoundFramesRef.current = { good: 0, total: 0 }; // paid once — zero so the next close exits instead of re-paying
       return; // recap card shown; closeCameraForReal() is what actually hides the overlay
     }
     setCamOpen(false);
