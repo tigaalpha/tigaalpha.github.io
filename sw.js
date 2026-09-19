@@ -7,10 +7,10 @@
 // reinstalls a worker whose BYTES changed, and the build copied this file
 // verbatim, so it never changed, so `activate` below never ran, so the
 // SW_UPDATED message App.tsx reloads on was never sent. Anyone with the app
-// open kept running the build they first loaded. d1737676e807 is replaced at
+// open kept running the build they first loaded. fac5e0984a9a is replaced at
 // build time with a hash of the page itself (scripts/stamp-sw.mjs), so this
 // file now changes exactly when the app does.
-const CACHE = "tiga-v16-d1737676e807";
+const CACHE = "tiga-v16-fac5e0984a9a";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
