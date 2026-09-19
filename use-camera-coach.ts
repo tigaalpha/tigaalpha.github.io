@@ -115,6 +115,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
   const handRoundFramesRef = useRef({ good: 0, total: 0 }); // Technique skill: hand-shape frames this session — see exitCamera()
   const camLastRoundRef = useRef({ hands: 0, avgRoundness: null, wristDroop: null, thumbTuck: false }); // latest live geometry reading — fed to analyzeHands() so the AI critique is grounded in real numbers, not re-derived from the photo alone
   const camSignalWindowRef = useRef([]); // last ~20 frames' {round,wrist,thumb} for the debounced live tip
+  const camLastTRef = useRef(0); // last gameStep timestamp (rAF clock) — FIX: was referenced in openCamera()/the game loop but never declared, so every openCamera() call threw ReferenceError and the overlay could never open from the Studio card
 
   // ════ HAND-POSTURE COACH (camera) ════
   function openCamera() { handRoundFramesRef.current = { good: 0, total: 0 }; camSignalWindowRef.current = []; const g = freshGameState(); camGameRef.current = g; setCamGame(g); setCamPraise(""); camGameKeyRef.current = ""; camLastTRef.current = 0; setCamOpen(true); setCamRecap(null); }
