@@ -36,6 +36,9 @@ const FILES = [
   "tigamodel/knowledge/expansion-canvas.js",
   "tigamodel/knowledge/expansion-summit.js",
   "tigamodel/knowledge/expansion-peaks.js",
+  "tigamodel/knowledge/expansion-learner.js",
+  "tigamodel/knowledge/expansion-stage.js",
+  "tigamodel/knowledge/expansion-stage2.js",
 ];
 
 execSync(`npx esbuild ${FILES.join(" ")} --outdir=${OUT}/k --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });  const k = (f) => import(pathToFileURL(`${OUT}/k/knowledge/${f}`).href);
@@ -57,7 +60,8 @@ async function main() {
     k("expansion-core.js"), k("expansion-repertoire.js"), k("expansion-pedagogy.js"),
     k("expansion-matrix.js"), k("expansion-deep.js"), k("expansion-final.js"),
     k("expansion-scale.js"), k("expansion-canvas.js"), k("expansion-summit.js"),
-    k("expansion-peaks.js"),
+    k("expansion-peaks.js"), k("expansion-learner.js"),
+    k("expansion-stage.js"), k("expansion-stage2.js"),
   ]);
 
   const kb = base.createKnowledgeBase();
@@ -159,6 +163,21 @@ async function main() {
     }
     assert.ok(games >= 10, `games: ${games}`);
     assert.ok(hanon >= 240, `hanon: ${hanon}`);
+  });
+
+  await ok("learner wave lands: memory/ear/sight/special-pop/thai/plan/motiv ≥ 300", async () => {
+    let lrn = 0;
+    for (const [, e] of kb._entries) if (e.id.startsWith("lrn:")) lrn++;
+    assert.ok(lrn >= 300, `learner wave entries: ${lrn}`);
+  });
+
+  await ok("learner wave is REAL knowledge (Thai honest-12-TET + special-pop teach lines)", async () => {
+    const thai = kb.get("lrn:thai:molam:12tet");
+    assert.ok(thai && /12-TET/.test(thai.body), "molam 12-TET honesty entry missing");
+    const adhd = [...kb._entries.values()].find(e => e.id.startsWith("lrn:adapt:adhd:"));
+    assert.ok(adhd && adhd.teach && adhd.teach.length >= 20, "special-pop entry lacks teach");
+    const ear = kb.get("lrn:ear:tritone:asc");
+    assert.ok(ear && ear.body.includes("6 เซมิโทน"), "tritone semitone math wrong");
   });
 
   await ok("getKBContext still serves matched entries (no regression)", async () => {

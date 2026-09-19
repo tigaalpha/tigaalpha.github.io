@@ -41,13 +41,16 @@ tigamodel/
     skill-graph.js         ← Skill graph 80 โหนด + prerequisite edges (nextSkill/weakestAncestor/unlockOrder)
     coach.js               ← บันไดใบ้ 4 ชั้น + ความยากปรับตาม flow ±10% + recap 3 ข้อ + เกณฑ์ mastery
   student/
-    student-model.js       ← Student Model: รวมข้อมูลที่แอปมีจริง (tg_memory/progress) เป็นสคีมากลาง
+    student-model.js       ← Student Model: รวมข้อมูลที่แอปมีจริง (tg_memory/progress) เป็นสคีมากลาง → ฉีดเข้าแชทจริงผ่าน getStudentContextBlock() (web.js)
   knowledge/
-    knowledge-base.js      ← โครง structured KB (fact/principle/strategy + confidence + source) + seed ชุดแรก
+    knowledge-base.js      ← โครง structured KB (fact/principle/strategy + confidence + source) + seed ชุดแรก + คลื่น computed 10 ลูก (expansion-*.js, รวม learner wave +302) = 16,882 entries
   evaluation/
     eval-suite.js          ← benchmark harness + test cases ชุดแรก (ประเมิน provider ทุกตัวก่อนเปิดใช้)
   roadmap-100.js           ← แผน 100 สิ่ง (structured data) + roadmapProgress()
   roadmap-1m.js            ← แผน 1,000,000 สิ่ง: เจเนอเรตเตอร์ 6 มิติ × 10 ค่า = 10⁶ สเปกไม่ซ้ำ + rank/filter/sample/stats
+  roadmap-unified.js       ← 🪟 แผ่นใหญ่แผนเดียว: 100 สตรีม × เซลล์ 1M ของตัวเอง — สถานะรวม = ค่าอ่อนกว่าระหว่าง hand-set กับเอนจินตรวจ + คิวงานเดียว
+  teaching/capability-engine.js ← เอนจินความพร้อมจริง: คะแนน 1,000 เส้นทาง t×m×s จากโมดูลจริง (100% READY พิสูจน์ด้วย smoke-capability)
+  teaching/generator.js    ← เจเนอเรเตอร์แบบฝึกหัดจริง: 10 หัวข้อ × 5 ระดับ × deterministic seed
   docs/
     00-audit.md            ← สิ่งที่ตรวจพบใน repo จริง / ขาดอะไร / ต้องแก้อะไร
     01-phase0-architecture.md ← สถาปัตยกรรม Phase 0 + แผน Phase 1-5

@@ -107,7 +107,7 @@ export const ROADMAP_GROUPS = [
       { n: 62, th: "Skill graph 80 โหนด + prerequisite edges", en: "Skill graph", stars: 3, status: "done" },
       { n: 63, th: "ตรวจความเหนื่อย/สมาธิจาก pattern การเล่น", en: "Fatigue/focus signal", stars: 2, status: "todo" },
       { n: 64, th: "Emotion estimate (probability+evidence)", en: "Emotion estimate", stars: 2, status: "todo" },
-      { n: 65, th: "Persona detection ปรับโทนอัตโนมัติ", en: "Persona detection", stars: 3, status: "todo" },
+      { n: 65, th: "Persona detection ปรับโทนอัตโนมัติ", en: "Persona detection", stars: 3, status: "done" },
       { n: 66, th: "Goal tree + drift tracking", en: "Goal tree", stars: 2, status: "todo" },
       { n: 67, th: "Long-term memory เรื่องส่วนตัวผู้เรียน", en: "Long-term memory", stars: 2, status: "partial" },
       { n: 68, th: "Confusion detector: สรุป 'ยังงงอะไร'", en: "Confusion detector", stars: 3, status: "todo" },

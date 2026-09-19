@@ -141,7 +141,7 @@ export const PLM_DIMENSIONS = [
    items this module implements. ── */
 
 const COVERAGE_MODULES = [
-  { name: "KB 16,580 (university + computed)", ts: [0, 1, 3, 7, 9], ms: [0, 7], ss: [1, 2, 5], roadmap: [1, 2, 4, 15] },
+  { name: "KB 16,580+ (university + computed + learner wave)", ts: [0, 1, 2, 3, 5, 6, 7, 8, 9], ms: [0, 7], ss: [1, 2, 5], roadmap: [1, 2, 4, 15] },
   { name: "skill-graph (80 โหนด + เส้นทาง)", ts: [1, 2, 5], ms: [1, 4], ss: [1, 2], roadmap: [62] },
   { name: "โค้ชอัจฉริยะ (บันไดใบ้/tempo/สรุป)", ts: [1, 2, 5, 6], ms: [4, 5, 6], ss: [1, 2], roadmap: [73, 75, 78, 46] },
   { name: "teaching-loop (สัญญาณจริง → กลยุทธ์)", ts: [5, 6], ms: [1, 4], ss: [2, 5], roadmap: [78] },
@@ -149,6 +149,7 @@ const COVERAGE_MODULES = [
   { name: "eval-suite (ประเมินโมเดลจริง)", ts: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], ms: [5], ss: [5], roadmap: [83] },
   { name: "รายงาน & สถิติผู้เรียน", ts: [5], ms: [2], ss: [6], roadmap: [] },
   { name: "แชทครู AI (โปรดักชัน)", ts: [0, 4, 6, 7], ms: [0, 1, 2, 3, 7], ss: [5], roadmap: [] },
+  { name: "ครูรู้จักนักเรียน (student context + learner wave → chat)", ts: [3, 5, 8, 9], ms: [2], ss: [5], roadmap: [64, 65] },
   { name: "Voice Tutor (เสียงพูด)", ts: [3], ms: [0, 2], ss: [7], roadmap: [] },
   { name: "Camera Coach (กล้อง & มือ)", ts: [1], ms: [5], ss: [8], roadmap: [] },
 ];
