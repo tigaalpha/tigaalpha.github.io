@@ -29,6 +29,7 @@ import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift } from "./use-conversion";
+import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { withAiCache } from "./ai-cache";
 import {
@@ -6547,7 +6548,7 @@ function ChestIcon({ size = 16, className = "" }) {
    so an arena duel is stored, listed and resolved exactly like a song duel,
    with no backend change at all. `song_id` is unconstrained text server-side,
    which is what makes "arena" a legal subject. */
-const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout }) {
+const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout, onPracticeWeakness }) {
   const [friends, setFriends] = useState(null);
   const [duels, setDuels] = useState(null);
   const load = useCallback(() => {
@@ -6557,7 +6558,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
   useEffect(() => { load(); }, [load]);
   return (
     <Suspense fallback={<LazyBits tall />}>
-    <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi}
+    <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi} onPracticeWeakness={onPracticeWeakness}
       friends={friends} duels={duels} onApplyLoadout={onApplyLoadout}
       onChallenge={async (friend, score) => {
         const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: "arena", p_score: Math.round(score), p_mode: "duel" });
@@ -8702,6 +8703,11 @@ function AdminAnalytics({ lang }) {
             labelFor={(id) => NAV_LABELS[id] || id} />
           <Panel title={T("📄 หน้าที่เข้าชม", "📄 Pages visited", "📄 访问的页面")} rows={byKind("page")}
             labelFor={(id) => NAV_LABELS[id] || id} />
+          {/* Game-feature adoption (owner plan 2026-09-19): are people actually
+              finding pets/PvP/shop/storage? nav events are already logged at
+              every entry point, so this needs zero new instrumentation. */}
+          <Panel title={T("🎮 การใช้ฟีเจอร์เกม (สัตว์เลี้ยง/PvP/ร้านค้า)", "🎮 Game-feature adoption (pets/PvP/shop)", "🎮 游戏功能使用（宠物/PvP/商店）")} rows={(stats || []).filter(r => r.kind === "nav" && ["pet", "pvp", "shop", "storage"].includes(r.item_id))}
+            labelFor={(id) => ({ pet: "🐾 " + T("สัตว์เลี้ยง", "Pets", "宠物"), pvp: "⚔ " + T("สนามประลอง PvP", "PvP Arena", "PvP 竞技场"), shop: "🛍 " + T("ร้านค้า", "Shop", "商店"), storage: "📦 " + T("คลังของ", "Storage", "仓库") }[id] || id)} />
         </>
       )}
     </div>
@@ -9797,6 +9803,32 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (convPopup) markConvSeen(convPopup.id);
     setConvPopup(null);
   }
+  /* Game-feature education (owner-approved 2026-09-19): one tip at a time,
+     priority-guarded — a conversion popup or broadcast always wins, and the
+     tip waits for the next quiet render. Fired from the same trigger points
+     the plan names: first coin payout, profile visit with chest available,
+     coin milestones, shop open. */
+  const [eduTip, setEduTip] = useState(null);
+  const firstCoinsSeenRef = useRef(false);
+  useEffect(() => {
+    firstCoinsSeenRef.current = eduSeen("firstCoins");
+  }, []);
+  // earnCoins itself is deep in use-gamification; the cheap correct signal
+  // for "first payout happened" is coins crossing zero upward after a
+  // practice session — checked here so the tip shows at the next quiet gap.
+  const eduEvalRef = useRef(null);
+  useEffect(() => {
+    eduEvalRef.current = () => {
+      if (convPopup || broadcast || autoTeachTip || eduTip) return;   // priority guard
+      const next = eduTipFor({ coins, chestAvail, firstCoinsSeen: firstCoinsSeenRef.current, shopOpenNow: false });
+      if (next) { setEduTip(next); markEduSeen(next.id); }
+    };
+  });
+  useEffect(() => {
+    const t = setTimeout(() => { if (eduEvalRef.current) eduEvalRef.current(); }, 2500);
+    return () => clearTimeout(t);
+  }, [coins, chestAvail, page]);
+  function dismissEduTip() { setEduTip(null); }
   function openBuyCurrency() { if (requireLogin()) return; setBuyCurrencyOpen(true); }
   // useGamification() is called before usePayment() (mascot must exist in time
   // to pass into usePayment's params) — so earnCoins/gainExp read plan via this
@@ -11583,6 +11615,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           onBack={() => { setPage("profile"); playUi("click"); }}
           playUi={playUi}
           onApplyLoadout={applyLoadout}
+          onPracticeWeakness={() => { setPage("pathway"); playUi("click"); }}
+          
           onReward={(xp, c, res) => {
             // the arena pays its own SP; gainExp is Learning EXP only now
             if (xp) gainExp(xp, { quest: true });
@@ -11981,6 +12015,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
            control in the top right, where a view switch belongs. */
         const T2 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
         /* ── Consolidated categories: 4 main tabs instead of 15 ── */
+        const shopIntroSeen = eduSeen("shopIntro");
+        const shopIntro = !shopIntroSeen;
         const ALL_CATS = [
           { key: "battle",  icon: "🤖", label: T2("สู้รบ", "Battle", "战斗") },
           { key: "studio",  icon: "🎹", label: T2("สตูดิโอ", "Studio", "工作室") },
@@ -12056,6 +12092,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 </button>
                 <button className="cbtn" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>{lc.close}</button>
               </div>
+              {/* Shop intro banner (owner plan 2026-09-19 point 6): first visit only —
+                  teaches Battle-vs-Studio in one line, dismissible. */}
+              {shopIntro && (
+                <div className="shopintro" onClick={() => markEduSeen("shopIntro")}>
+                  <span>{lang === "th" ? "🛍️ ร้านค้ามี 2 โลก — Battle คือของใช้สู้จริง · Studio คือของตกแต่ง" : lang === "zh" ? "🛍️ 商店有两个世界——战斗装备真的能打 · 工作室装备负责好看" : "🛍️ Two worlds — Battle gear actually fights · Studio gear decorates"}</span>
+                  <b className="shopintro-x">×</b>
+                </div>
+              )}
               {/* ── Main category tabs ── */}
               <div className="shop-tabs">
                 {ALL_CATS.map(c => (
@@ -12122,7 +12166,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="setcard mdlpick" onClick={e => e.stopPropagation()}>
               <div className="mdlpick-hdr">
                 <div className="mdlpick-ttl">{T("เลือกโครงร่างของคุณ", "Choose your chassis", "选择你的机体")}</div>
-                <div className="mdlpick-sub">{T("เลือกได้ครั้งเดียว ตัวนี้ฟรี — รุ่นอื่นต้องซื้อในร้านค้าหมวดสกินหุ่นยนต์",
+                <div className="mdlpick-sub">{T("เลือกได้ครั้งเดียว ตัวนี้ฟรี — ยิ่งซ้อมเปียโนเก่ง หุ่นของคุณยิ่งเก่งตาม ลองสู้บอทเบา ๆ ดูสนามก่อน (รุ่นอื่นซื้อได้ในร้านค้าหมวดสกินหุ่นยนต์)",
                                                  "This one is free, and you choose it once. Every other model is bought on the Robot skins shelf.",
                                                  "这一台免费，只能选一次。其他机型需在商店的机器人皮肤分类购买。")}</div>
               </div>
@@ -12563,6 +12607,34 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
       )}
+
+      {/* Game-feature education tip (owner-approved 2026-09-19): teaches the
+          pets/PvP/chest/shop loop at the exact moment it matters. Every CTA
+          navigates straight to the feature — plan rule 3. */}
+      {eduTip && !convPopup && !broadcast && !autoTeachTip && (() => {
+        const ec = (EDU_COPY[lang] || EDU_COPY.en)[eduTip.kind];
+        const go = () => {
+          playUi("click"); dismissEduTip();
+          if (ec.go === "pet") { logUsage("nav", "pet"); setPage("pet"); }
+          else if (ec.go === "shop") { logUsage("nav", "shop"); setShopOpen(true); }
+          else { setPage("profile"); }
+        };
+        return (
+          <div className="atpopup" onClick={dismissEduTip}>
+            <div className="atpopup-card edupop" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">{ec.ic}</span>
+                <div className="atpopup-tt">{ec.title}</div>
+                <button className="atpopup-x" onClick={dismissEduTip} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{ec.body}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="atpopup-ok" style={{ flex: 1 }} onClick={go}>{ec.cta}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Conversion-funnel popup (owner-approved 2026-09-19): trial-stage
           messaging from ครู TIGA AI — welcome / halfway price-lock / closing

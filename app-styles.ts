@@ -873,6 +873,13 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .trial-banner.urgent{background:linear-gradient(90deg,#b45309,#d97757)}
 .convpop-items{background:var(--card2);border:1px solid var(--bd2);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13px;line-height:1.9;white-space:pre-wrap}
 .presultkeep{width:100%;margin-top:10px;padding:11px 12px;border:1px solid #d9775755;background:linear-gradient(135deg,#d9775722,#8b5cf622);border-radius:12px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer}
+/* game-feature education (owner plan 2026-09-19) */
+@keyframes chestpulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 #d9775766}50%{transform:scale(1.04);box-shadow:0 0 0 8px #d9775700}}
+.dh-chest.chestpulse{animation:chestpulse 1.6s ease-in-out infinite}
+.pvpres-practice{width:100%;margin-top:10px;padding:12px;border:1px solid #d9775755;background:linear-gradient(135deg,#d9775722,#8b5cf622);border-radius:12px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer}
+.shopintro{display:flex;align-items:center;gap:8px;width:100%;margin-bottom:10px;padding:9px 12px;border:1px solid #d9775755;background:linear-gradient(135deg,#d9775722,#8b5cf622);border-radius:12px;font-size:12.5px;color:var(--text);cursor:pointer;text-align:left}
+.shopintro-x{margin-left:auto;opacity:.6;font-size:16px}
+.edupop{border-color:#8b5cf677;box-shadow:0 -10px 34px -10px #000,0 0 26px -10px #8b5cf666}
 .presultai-tx{font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap}
 /* Pathway-stage-unlock celebration — bigger/louder than the plain "new
    personal best" line above, since crossing a whole stage is a bigger deal

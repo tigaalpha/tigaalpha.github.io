@@ -1052,7 +1052,7 @@ const CLASS_WIN_LINES = {
 };
 
 export const PvpPage = memo(function PvpPage({
-  lang, charModel = "vanguard", gear = [], onBack, onReward, playUi, friends = null, onChallenge, duels = null, onRespondDuel, onShare, onApplyLoadout,
+  lang, charModel = "vanguard", gear = [], onBack, onReward, playUi, friends = null, onChallenge, duels = null, onRespondDuel, onShare, onApplyLoadout, onPracticeWeakness = null,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [phase, setPhase] = useState("lobby");    // lobby | fight | result
@@ -1631,6 +1631,12 @@ export const PvpPage = memo(function PvpPage({
             </div>
             {result.practice && (
               <div className="pvpres-flawless">🎓 {T("โหมดซ้อม — ไม่มีรางวัล", "Practice mode — no rewards", "陪练模式 — 无奖励")}</div>
+            )}
+            {/* Loss → practice hand-off (owner plan 2026-09-19 point 5): turn a
+                defeat into the REASON to practice — the arena's wrong answers
+                came from real note-reading, so point straight back at it. */}
+            {!result.win && !result.practice && onPracticeWeakness && (
+              <button className="pvpres-practice" onClick={onPracticeWeakness}>{T("💪 ใกล้แล้ว! กลับไปซ้อมแล้วมาแก้มือ — หุ่นคุณมีสัตว์เลี้ยงช่วย", "💪 So close! Go practice, then rematch — your pet has your back", "💪 就差一点！先去练，再来复仇——你的宠物会帮你")}</button>
             )}
             {result.flawless && (
               <div className="pvpres-flawless">✨ {T("ไร้ที่ติ — ตอบถูกครบทุกข้อ", "FLAWLESS — every question right", "完美无瑕 — 全部答对")}</div>
