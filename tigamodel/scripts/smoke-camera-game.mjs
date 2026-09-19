@@ -18,8 +18,8 @@ fs.mkdirSync(out, { recursive: true });
 execSync(`npx esbuild camera-coach-game.ts --bundle --format=esm --outfile=${JSON.stringify(path.join(out, "game.js"))} --log-level=error`, { cwd: root, stdio: "pipe" });
 const G = await import(url.pathToFileURL(path.join(out, "game.js")).href);
 
-let fails = 0;
-const check = (name, cond) => { if (!cond) { fails++; console.log("FAIL: " + name); } };
+let fails = 0, checks = 0;
+const check = (name, cond) => { checks++; if (!cond) { fails++; console.log("FAIL: " + name); } };
 
 // combo tiers
 check("tier ×2 at combo 12", G.comboTier(12).mult === 2);
@@ -63,6 +63,24 @@ const mv = G.missionView(g, 0);
 check("missionView complete", !!mv.ch && typeof mv.prog === "number" && mv.secLeft >= 0);
 for (const lang of ["th", "en", "zh"]) check("praise text " + lang, G.missionSolvedPraise(lang).length > 3);
 
+// ── wiring guard (regression: "โค้ชท่ามือกดเข้าไปดูไม่ได้") — every game prop
+// the PianoApp render passes to CameraCoachOverlay must actually be destructured
+// from useCameraCoach in App.tsx, or the camera dies with a ReferenceError the
+// moment camOpen becomes true (no typecheck in this repo — this is the guard).
+{
+  const app = fs.readFileSync(path.join(root, "App.tsx"), "utf8");
+  const hookLine = app.split("\n").find(l => l.includes("} = useCameraCoach("));
+  check("hook destructure exists in App.tsx", !!hookLine);
+  for (const n of ["camGame", "camPraise", "camMission"]) {
+    check("App.tsx destructures " + n + " from useCameraCoach", !!hookLine && hookLine.includes(n));
+  }
+  const renderLine = app.split("\n").find(l => l.includes("<CameraCoachOverlay"));
+  check("render passes camGame/camPraise/camMission", !!renderLine && renderLine.includes("camGame={camGame}") && renderLine.includes("camPraise={camPraise}") && renderLine.includes("camMission={camMission}"));
+  const overlay = fs.readFileSync(path.join(root, "CameraCoachOverlay.tsx"), "utf8");
+  const sig = overlay.split("\n").find(l => l.includes("export function CameraCoachOverlay"));
+  for (const n of ["camGame", "camPraise", "camMission"]) check("overlay accepts " + n, !!sig && sig.includes(n + " ="));
+}
+
 fs.rmSync(out, { recursive: true, force: true });
-console.log(fails === 0 ? `smoke-camera-game: ALL ${17 + 2} CHECKS PASSED` : `smoke-camera-game: ${fails} FAILURES`);
+console.log(fails === 0 ? `smoke-camera-game: ALL ${checks} CHECKS PASSED` : `smoke-camera-game: ${fails} of ${checks} FAILED`);
 process.exit(fails === 0 ? 0 : 1);
