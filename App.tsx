@@ -9865,10 +9865,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // earnCoins itself is deep in use-gamification; the cheap correct signal
   // for "first payout happened" is coins crossing zero upward after a
   // practice session — checked here so the tip shows at the next quiet gap.
+  // TDZ note: broadcast/autoTeachTip are declared LATER in PianoApp, so
+  // they must be read through refs inside effects — referencing the binding
+  // directly here crashed the whole app at boot (Cannot access before
+  // initialization) and the owner got a blank Home page.
+  const eduBlockersRef = useRef({ broadcast: null, autoTeachTip: null, eduTip: null });
+  useEffect(() => { eduBlockersRef.current = { broadcast, autoTeachTip, eduTip }; });
   const eduEvalRef = useRef(null);
   useEffect(() => {
     eduEvalRef.current = () => {
-      if (convPopup || broadcast || autoTeachTip || eduTip) return;   // priority guard
+      const b = eduBlockersRef.current;
+      if (convPopup || b.broadcast || b.autoTeachTip || b.eduTip) return;   // priority guard
       const next = eduTipFor({ coins, chestAvail, firstCoinsSeen: firstCoinsSeenRef.current, shopOpenNow: false });
       if (next) { setEduTip(next); markEduSeen(next.id); }
     };
@@ -9876,7 +9883,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => {
     const t = setTimeout(() => { if (eduEvalRef.current) eduEvalRef.current(); }, 2500);
     return () => clearTimeout(t);
-  }, [coins, chestAvail, page]);
+  }, [coins, chestAvail]);   // page intentionally not here: declared later in PianoApp (TDZ crash)
   function dismissEduTip() { setEduTip(null); }
   function openBuyCurrency() { if (requireLogin()) return; setBuyCurrencyOpen(true); }
   // useGamification() is called before usePayment() (mascot must exist in time
