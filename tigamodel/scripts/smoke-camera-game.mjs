@@ -72,7 +72,18 @@ for (const lang of ["th", "en", "zh"]) check("praise text " + lang, G.missionSol
   const hookLine = app.split("\n").find(l => l.includes("} = useCameraCoach("));
   check("hook destructure exists in App.tsx", !!hookLine);
   for (const n of ["camGame", "camPraise", "camMission"]) {
-    check("App.tsx destructures " + n + " from useCameraCoach", !!hookLine && hookLine.includes(n));
+    // \s*[,}] — tolerate both ", camGame" and ", camGame }" before the closing brace
+    check("App.tsx destructures " + n + " from useCameraCoach", !!hookLine && new RegExp("[,{\\s]" + n + "\\s*[,}]").test(hookLine));
+  }
+  // AND: every JSX prop the render passes must exist in PianoApp scope (the
+  // exact ReferenceError class that killed the camera button) — verified by
+  // asking the transpiled bundle to carry the destructured keys through.
+  {
+    const renderLine2 = app.split("\n").find(l => l.includes("<CameraCoachOverlay"));
+    for (const n of ["camGame", "camPraise", "camMission"]) {
+      const passed = new RegExp(n + "=\\{" + n + "\\}").test(renderLine2 || "");
+      check("render passes " + n + "={...} and hook provides it", passed && !!hookLine && new RegExp("[,{\\s]" + n + "\\s*[,}]").test(hookLine));
+    }
   }
   const renderLine = app.split("\n").find(l => l.includes("<CameraCoachOverlay"));
   check("render passes camGame/camPraise/camMission", !!renderLine && renderLine.includes("camGame={camGame}") && renderLine.includes("camPraise={camPraise}") && renderLine.includes("camMission={camMission}"));
