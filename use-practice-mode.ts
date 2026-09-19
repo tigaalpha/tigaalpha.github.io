@@ -10,6 +10,7 @@ import { logActivity } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
 import { runTeachingLoopForPractice, reinforceTeachingOutcome } from "./tigamodel/web";
+import { recordNoteMisses, recordTipOutcome, weightedStruggles } from "./use-autoteach";
 /* ── use-practice-mode.ts ──
    Owns the "listen to the learner play and grade it against a target
    sequence" session: mic/MIDI/tap-driven note matching (broken = one note
@@ -109,6 +110,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practicePaidRef = useRef(false);
   const practiceChordGrpRef = useRef(-1); // progression block practice: start index of the chord window currently being struck, or -1 when this drill is not a chord-by-chord progression
   const practiceMissRef = useRef(0);
+  const practiceNoteMissesRef = useRef([]); // Auto-Teach แม่นยำ (แผนข้อ 1+3): pitch-class ที่พลาดระหว่างซ้อม — flush ตอน finishPractice
   const practicePauseRef = useRef(0);  // gaps > 4 s between consecutive correct hits this drill — TIGA teaching-loop "hesitation" signal (see finishPractice)
   const practiceLastHitRef = useRef(0); // Date.now() of the previous correct hit, for the pause detection above
   const practiceVelsRef = useRef([]); // MIDI velocities of hit notes this drill — see scoreDynamics()
@@ -311,6 +313,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
           setPracticeMiss(practiceMissRef.current);
           practiceStreakRef.current = 0;
           setPracticeStreak(0);
+          practiceNoteMissesRef.current.push(String(heardNote || "")); // Auto-Teach แม่นยำ (แผนข้อ 3): จดโน้ตที่พลาดจริงระหว่างซ้อม
         }
         setPracticeHeard({ note: heardNote, ok: isRepeat });
       }
@@ -337,6 +340,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         setPracticeMiss(practiceMissRef.current);
         practiceStreakRef.current = 0;
         setPracticeStreak(0);
+        practiceNoteMissesRef.current.push(String(targets[idx] || "")); // Auto-Teach แม่นยำ (แผนข้อ 3): โน้ตเป้าหมายที่ตอบผิด
         setPracticeHeard({ note: heardNote, ok: false });
       }
     }
@@ -440,6 +444,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (seed0 && !seq.chordGroupSize) lastSeq.current = { ...seq, chordGroupSize: gs0 };
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
+    practiceNoteMissesRef.current = [];   // Auto-Teach แม่นยำ (แผนข้อ 3): เริ่มรอบใหม่ = จดใหม่
     practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above
     practiceLastHitRef.current = 0;
     practiceVelsRef.current = [];
@@ -511,6 +516,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (seedR && seqR && !seqR.chordGroupSize) lastSeq.current = { ...seqR, chordGroupSize: gsR };
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
+    practiceNoteMissesRef.current = [];   // Auto-Teach แม่นยำ (แผนข้อ 3): เริ่มรอบใหม่ = จดใหม่
     practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above
     practiceLastHitRef.current = 0;
     practiceVelsRef.current = [];
@@ -605,6 +611,13 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const rhythm = scoreRhythm(practiceTimesRef.current);
     if (rhythm) logActivity("drill", label || "drill", rhythm.ok, rhythm.miss, 0, "rhythm");
     recordMemory(label, accuracy);
+    // Auto-Teach แม่นยำ (แผนข้อ 1+3): flush โน้ตที่พลาดรอบนี้เข้า memory — ครูจะรู้ว่า "โน้ตไหน" ไม่ใช่แค่ "เพลงไหน"
+    try {
+      const noteMisses = (practiceNoteMissesRef.current || []).slice(0, 12);
+      practiceNoteMissesRef.current = [];
+      recordNoteMisses(noteMisses);
+      recordTipOutcome(label, weightedStruggles());   // วงจรปิด (ข้อ 6): tip ที่เคยแนะนำเรื่องนี้ไว้ → เทียบก่อน/หลัง
+    } catch (e) { /* best-effort — ไม่มีทางพังหน้าสรุปผล */ }
 
     // Personal best, per drill (+chord-style when relevant — block vs. broken
     // grade completely differently, see switchPracticeChordStyle). Accuracy and
@@ -740,7 +753,19 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       speedRatio: null,
       weekAgoAccuracy,
     });
-    const tigaTip = tigaLoop && tigaLoop.response ? { text: tigaLoop.response.text, strategyId: tigaLoop.decision ? tigaLoop.decision.strategy_id : null, states: tigaLoop.states } : null;
+    /* BUGFIX (found by verify-autoteach 2026-09-19): runOnce is async — it
+       always returns a Promise, so reading .response synchronously here made
+       tigaTip permanently null and the result screen NEVER showed the model's
+       verdict (the 🧠 card's local analysis was silently absent). Await the
+       promise and patch the result in place instead. */
+    const toTip = loop => loop && loop.response ? { text: loop.response.text, strategyId: loop.decision ? loop.decision.strategy_id : null, states: loop.states } : null;
+    const tigaTip = tigaLoop && typeof tigaLoop.then === "function" ? null : toTip(tigaLoop);
+    if (tigaLoop && typeof tigaLoop.then === "function") {
+      tigaLoop.then(loop => {
+        const tip = toTip(loop);
+        if (tip) setPracticeResult(prev => (prev && prev.label === label ? { ...prev, tigaTip: tip } : prev));
+      }).catch(() => {});
+    }
 
     // Self-learning outcome reinforcement (owner's Model Lab switch gates it
     // inside the learner): this attempt's accuracy vs the learner's own bar
@@ -750,6 +775,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       reinforceTeachingOutcome({ strategyId: tigaTip.strategyId, accuracy, prevAccuracy: weekAgoAccuracy }).catch(() => {});
     }
 
+    // Auto-Teach แม่นยำ (แผนข้อ 8): ประกาศจังหวะ "เพิ่งจบซ้อม" ให้ครูคาราใน App.tsx (ผลซ้อมเพิ่งรู้ = จังหวะสอนที่ดีที่สุด)
+    try { window.dispatchEvent(new CustomEvent("tiga:practice-done", { detail: { accuracy, isNewBest, label } })); } catch (e) {}
     setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest, tigaTip });
 
     // Bonus AI flourish on top of an already-complete local result — fetched

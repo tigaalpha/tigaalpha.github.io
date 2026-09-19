@@ -30,6 +30,8 @@ import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
+import { runTeachingLoopForPractice } from "./tigamodel/web";
+import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction } from "./use-autoteach";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { withAiCache } from "./ai-cache";
 import {
@@ -4986,17 +4988,60 @@ function claimReportCard(days7, acc7) {
 // Shared core of the AI coaching analysis — used by both the Auto Teaching popup (timer-driven,
 // PianoApp) and the dedicated Coach nav page (on-demand, CoachPage). Module-level (not inside
 // either component) since it only needs `lang`/`profile` and the module-level helpers above.
+// Auto-Teach แม่นยำ (แผนข้อ 5): fallback ที่ "ถูกต้องเสมอ" — ถ้า AI ตอบกว้าง/หลุดขอบเขต
+// ประกาศจากข้อมูลจริงของผู้เรียนแทน (จุดอ่อนหนักสุด + โน้ตที่พลาด + คำสอนของโมเดล)
+// ไม่มีทางโชว์ popup ว่างหรือคำแนะนำสากล
+function buildFallbackTip(lang, struggle, strat, noteMisses) {
+  const nm = noteMisses && noteMisses.length ? noteMisses.map(n => n.label).join(", ") : null;
+  const th = {
+    weakness: struggle ? `ท่อน "${struggle.label}" ยังไม่ค่อยผ่าน (แม่นยำ ${struggle.acc}%)` : (nm ? `โน้ต ${nm} พลาดบ่อยในรอบล่าสุด` : "ช่วงนี้ยังไม่มีจุดอ่อนชัดเจน — ไปต่อขั้นถัดไปกัน"),
+    steps: struggle
+      ? [`ซ้อม "${struggle.label}" ช้า ๆ ทีละ 2 ท่อนเล็ก แล้วค่อยเพิ่มความเร็ว`, nm ? `ระวังโน้ต ${nm} เป็นพิเศษ — ลองเล่นแค่โน้ตนั้น 3 ครั้งก่อนรวมท่อน` : "เมื่อแม่นยำเกิน 80% ค่อยเพิ่มความเร็วขึ้นรอบละนิด"]
+      : (nm ? [`ฝึกโน้ต ${nm} แยกทีละเสียง 3 ครั้ง แล้วค่อยเล่นรวมท่อน`, "แตะช้า ๆ ให้ได้ยินเสียงชัดก่อนเร่ง"] : ["ไปเรียนขั้นถัดไปในเส้นทางการเรียนรู้ได้เลย"]),
+  };
+  const zh = {
+    weakness: struggle ? `「${struggle.label}」还不稳（准确率 ${struggle.acc}%）` : (nm ? `最近常错音：${nm}` : "目前没有明显弱点 — 继续下一步吧"),
+    steps: struggle
+      ? [`把「${struggle.label}」拆成两小段慢练，再逐渐加速`, nm ? `特别留意 ${nm} — 先单独弹 3 次再合段` : "准确率超过 80% 后再小幅提速"]
+      : (nm ? [`先单独练 ${nm} 各 3 次，再合回整段`, "慢速弹清楚再提速"] : ["直接去学习路径的下一课吧"]),
+  };
+  const en = {
+    weakness: struggle ? `"${struggle.label}" is still shaky (${struggle.acc}% accuracy)` : (nm ? `Notes ${nm} keep slipping lately` : "No clear weak spot right now — onward to the next step"),
+    steps: struggle
+      ? [`Practice "${struggle.label}" slowly in 2 tiny chunks, then speed up bit by bit`, nm ? `Watch ${nm} especially — play just that note 3 times before joining the phrase` : "Once you pass 80% accuracy, nudge the tempo up slightly"]
+      : (nm ? [`Isolate ${nm} — 3 clean reps each, then rejoin the phrase`, "Slow and clear first, speed later"] : ["Head straight to the next step on your Pathway"]),
+  };
+  const c = lang === "th" ? th : lang === "zh" ? zh : en;
+  return { weakness: c.weakness, steps: c.steps.slice(0, 2), feature: struggle ? "pathway" : "pathway", topic: struggle ? struggle.label : null, strategyId: strat ? strat.name : null, fallback: true };
+}
+
 async function generateCoachTip(lang, profile) {
   const mem = readMemory();
+  // Auto-Teach แม่นยำ (แผนข้อ 2): จุดอ่อนเรียงด้วยน้ำหนักความสด (recency half-life 6d)
+  // + ความรุนแรง + ความถี่ และตัดของเก่าเกิน 21 วันทิ้ง — ไม่ใช่เรียงเก่าสุดก่อนแบบเดิม
   // Prefer a struggle that hasn't already been surfaced in the last few tips — repeating
   // the identical weak spot every time it fires reads as nagging. Falls back to the top
   // struggle anyway when it's genuinely the only one on record (still real, worth saying).
   const recentTopics = new Set(readAutoTeachLog().slice(-5).map(t => t.topic).filter(Boolean));
-  const struggle = (mem.struggles || []).find(s => !recentTopics.has(s.label)) || (mem.struggles || [])[0];
+  const wStruggles = weightedStruggles();
+  const struggle = wStruggles.find(s => !recentTopics.has(s.label)) || wStruggles[0] || (mem.struggles || [])[0];
+  // Auto-Teach แม่นยำ (แผนข้อ 1+3): โน้ต pitch-class ที่พลาดจริงล่าสุด — ครูรู้ "โน้ตไหน" ไม่ใช่แค่ "เพลงไหน"
+  const noteMissTxt = topNoteMisses(2).map(n => `${n.label}(×${n.count})`).join(", ") || "—";
   const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
-  const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "—";
+  const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x${struggle.ageDays != null ? `, ${struggle.ageDays}d ago` : ""})` : "—";
   const profileTxt = coachStatsToText(computeCoachStats(profile, lang));
   const featureKeys = Object.keys(COACH_FEATURE_LABELS).join(", ");
+  // Auto-Teach แม่นยำ (แผนข้อ 4): TIGA Piano Model (teaching loop) วิเคราะห์สัญญาณจริงก่อนเสมอ
+  // — โมเดลเลือกกลยุทธ์การสอน + ดึง KB tip แล้ว AI ภายนอกแค่เรียบเรียงภาษาตามคำตัดสิน
+  const dec = await decideStrategy({
+    accuracy: (mem.recent || [])[0] ? (mem.recent || [])[0].acc : null,
+    repeatedErrors: struggle ? Math.min(struggle.count || 0, 4) : 0,
+    repeatedErrorLabel: struggle ? struggle.label : null,
+    pauses: 0, rhythmScore: null, speedRatio: null, weekAgoAccuracy: (mem.recent || [])[1] ? (mem.recent || [])[1].acc : null,
+  }, runTeachingLoopForPractice);
+  const strat = strategyHint(dec);
+  // Auto-Teach แม่นยำ (แผนข้อ 9): ปรับโทน/ความยาวตามระดับผู้เรียนจริง
+  const tone = learnerTone(profile);
   // Short system = far fewer tokens → avoids Gemini rate-limit. All learner data goes in
   // message. Persona/tone line added deliberately (researched): specialized in absolute
   // beginners, praise-before-correction, always specific, never advanced theory — still
@@ -5007,9 +5052,9 @@ async function generateCoachTip(lang, profile) {
     en: `You are TiGA AI piano teacher, specialized in teaching absolute beginners from zero. Always acknowledge what's going well before suggesting what's next, encouraging not critical, never suggest advanced theory, always specific never generic. Reply ONLY with raw JSON, no other text: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
   };
   const msgByLang = {
-    th: `ข้อมูลผู้เรียน: ${profileTxt}\nซ้อมล่าสุด: ${recentTxt}\nจุดอ่อน: ${struggleTxt}\nfeature ที่เลือกได้: ${featureKeys}\n\nวิเคราะห์แล้วตอบ JSON: weakness ไม่เกิน 12 คำ, steps สูงสุด 3 ข้อ (เจาะจงชื่อเพลง/หัวข้อ ไม่ใช่คำแนะนำทั่วไป), feature เลือกจากรายการเท่านั้น`,
-    zh: `学员数据：${profileTxt}\n最近练习：${recentTxt}\n薄弱点：${struggleTxt}\n可选feature：${featureKeys}\n\n分析后回JSON：weakness≤12字，steps最多3条（具体指明曲目/主题），feature必须从列表选`,
-    en: `Learner data: ${profileTxt}\nRecent sessions: ${recentTxt}\nWeak spot: ${struggleTxt}\nAvailable features: ${featureKeys}\n\nAnalyze and reply JSON: weakness ≤12 words, steps max 3 (name specific song/topic, not generic advice), feature from list only`,
+    th: `ข้อมูลผู้เรียน: ${profileTxt}\nซ้อมล่าสุด: ${recentTxt}\nจุดอ่อน: ${struggleTxt}\nโน้ตที่พลาดบ่อยล่าสุด: ${noteMissTxt}\n${strat ? `กลยุทธ์ที่โมเดลสอนเลือก (ต้องทำตาม ห้ามขัด): ${strat.name || "-"}${strat.modelText ? ` — ${strat.modelText}` : ""}\n` : ""}กฎโทนเสียง: ${tone.rule}\nfeature ที่เลือกได้: ${featureKeys}\n\nวิเคราะห์แล้วตอบ JSON: weakness ไม่เกิน 12 คำ, steps สูงสุด ${tone.tier === "beginner" ? 2 : 3} ข้อ (เจาะจงชื่อเพลง/หัวข้อ ห้ามคำแนะนำกว้าง ๆ อย่าง "ฝึกสม่ำเสมอ"), feature เลือกจากรายการเท่านั้น`,
+    zh: `学员数据：${profileTxt}\n最近练习：${recentTxt}\n薄弱点：${struggleTxt}\n最近常错音：${noteMissTxt}\n${strat ? `模型已选教学策略（必须遵循）：${strat.name || "-"}${strat.modelText ? ` — ${strat.modelText}` : ""}\n` : ""}语气规则：${tone.rule}\n可选feature：${featureKeys}\n\n分析后回JSON：weakness≤12字，steps最多${tone.tier === "beginner" ? 2 : 3}条（具体指明曲目/主题，禁止泛泛建议），feature必须从列表选`,
+    en: `Learner data: ${profileTxt}\nRecent sessions: ${recentTxt}\nWeak spot: ${struggleTxt}\nFrequently missed notes: ${noteMissTxt}\n${strat ? `Teaching strategy chosen by the model (must follow, do not contradict): ${strat.name || "-"}${strat.modelText ? ` — ${strat.modelText}` : ""}\n` : ""}Tone rule: ${tone.rule}\nAvailable features: ${featureKeys}\n\nAnalyze and reply JSON: weakness ≤12 words, steps max ${tone.tier === "beginner" ? 2 : 3} (name specific song/topic, never generic advice like "practice regularly"), feature from list only`,
   };
   const sys = sysByLang[lang] || sysByLang.en;
   const msg = msgByLang[lang] || msgByLang.en;
@@ -5043,8 +5088,12 @@ async function generateCoachTip(lang, profile) {
   if (!jsonTxt) return null;
   const obj = JSON.parse(jsonTxt);
   if (!COACH_FEATURE_LABELS[obj.feature]) obj.feature = "pathway"; // guard against a hallucinated key
-  obj.steps = obj.steps.slice(0, 3); // enforce the "at most 3" cap even if the model overshoots
+  obj.steps = obj.steps.slice(0, tone.tier === "beginner" ? 2 : 3); // enforce the per-level cap
   obj.topic = struggle ? struggle.label : null; // so the caller can log it and this fn can dodge repeats next time
+  obj.strategyId = strat ? strat.name : null;
+  // Auto-Teach แม่นยำ (แผนข้อ 5): ตรวจก่อนแสดงเสมอ — กว้างเกิน/หลุดขอบเขต/โครงไม่ครบ
+  // → ใช้ fallback จากข้อมูลจริงแทน ไม่โชว์คำแนะนำสากลเด็ดขาด
+  if (!validateTip(obj, Object.keys(COACH_FEATURE_LABELS))) return buildFallbackTip(lang, struggle, strat, topNoteMisses(2));
   return obj;
 }
 // Adaptive routing: a soft nudge toward fixing a critically weak skill instead
@@ -8752,6 +8801,11 @@ function AdminAnalytics({ lang }) {
               every entry point, so this needs zero new instrumentation. */}
           <Panel title={T("🎮 การใช้ฟีเจอร์เกม (สัตว์เลี้ยง/PvP/ร้านค้า)", "🎮 Game-feature adoption (pets/PvP/shop)", "🎮 游戏功能使用（宠物/PvP/商店）")} rows={(stats || []).filter(r => r.kind === "nav" && ["pet", "pvp", "shop", "storage"].includes(r.item_id))}
             labelFor={(id) => ({ pet: "🐾 " + T("สัตว์เลี้ยง", "Pets", "宠物"), pvp: "⚔ " + T("สนามประลอง PvP", "PvP Arena", "PvP 竞技场"), shop: "🛍 " + T("ร้านค้า", "Shop", "商店"), storage: "📦 " + T("คลังของ", "Storage", "仓库") }[id] || id)} />
+          {/* Auto-Teach effectiveness (owner plan 2026-09-19 #10): tips shown vs
+              followed vs dismissed, and whether the NEXT practice on that topic
+              actually improved. Events land in usage_events as kind="atip". */}
+          <Panel title={T("🎯 ประสิทธิภาพ Auto Teaching", "🎯 Auto Teaching effectiveness", "🎯 自动教学效果")} rows={(stats || []).filter(r => r.kind === "atip")}
+            labelFor={(id) => ({ show: "🎯 " + T("คำแนะนำที่แสดง", "Tips shown", "显示建议"), follow: "✅ " + T("กดตามไปฝึก", "Followed", "跟练了"), dismiss: "✖ " + T("ปิดทิ้ง", "Dismissed", "关闭了"), win: "📈 " + T("ซ้อมถัดไปดีขึ้น", "Next practice improved", "下次练习进步"), loss: "➖ " + T("ซ้อมถัดไปยังเท่าเดิม", "Next practice unchanged", "下次练习无进步") }[id] || id)} />
         </>
       )}
     </div>
@@ -10301,6 +10355,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       if (obj) {
         setAutoTeachTip(obj);
         logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature, obj.topic);
+        try { openAdvice(obj, weightedStruggles()); logUsage("atip", "show"); } catch (e2) {} // วงจรปิด (ข้อ 6): จดสถานะจุดอ่อน ณ ตอนยิงไว้เทียบผลซ้อมถัดไป
       }
     } catch (e) { /* a missed real-time tip silently skips — not worth an error popup mid-practice */ }
     autoTeachBusyRef.current = false;
@@ -10316,6 +10371,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => clearInterval(autoTeachTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan, autoTeachMin, lang]);
+  // Auto-Teach แม่นยำ (แผนข้อ 8): ยิงตาม "จังหวะการสอน" ไม่ใช่แค่ตัวจับเวลา —
+  // (a) เพิ่งจบซ้อมที่พลาดเยอะ (<65%) → คำแนะนำมาตอนสมองกำลังถามหาคำตอบ
+  // (b) เพิ่งทำลายสถิติ → โมเมนต์ภูมิใจ รับคำท้าต่อยอดได้ดี
+  // (c) กลับมาหลังห่างหาย ≥3 วัน → ทักตามพร้อมจุดอ่อนล่าสุด ไม่เริ่มจากศูนย์
+  useEffect(() => {
+    if (!premium || !(autoTeachMin > 0)) return;
+    const onPracticeDone = (e) => {
+      const d = (e && e.detail) || {};
+      if (d.accuracy != null && d.accuracy < 65) { setTimeout(() => fetchAutoTeachTip(), 1500); return; }
+      if (d.isNewBest) setTimeout(() => fetchAutoTeachTip(), 2500);
+    };
+    window.addEventListener("tiga:practice-done", onPracticeDone);
+    try {
+      const m = readMemory();
+      const gap = m && m.lastSession ? Date.now() - m.lastSession : 0;
+      if (gap >= 3 * 86400000) setTimeout(() => fetchAutoTeachTip(), 3000);
+    } catch (err) {}
+    return () => window.removeEventListener("tiga:practice-done", onPracticeDone);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [premium, autoTeachMin, lang]);
 
   // Survives the auto-reload: the owner enters the code once per tab session,
    // not once per deploy. sessionStorage (not localStorage) on purpose — an
@@ -12732,19 +12807,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* Auto Teaching — real-time coaching card (Max plan, fires on a timer while on the Pathway page) */}
       {autoTeachTip && !broadcast && (
-        <div className="atpopup" onClick={() => setAutoTeachTip(null)}>
+        <div className="atpopup" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>
             <div className="atpopup-hd">
               <span className="atpopup-ic" aria-hidden="true">🎯</span>
               <div className="atpopup-tt">{lang === "th" ? "ครู TiGA แนะนำ" : lang === "zh" ? "TiGA老师建议" : "Coach TiGA's Tip"}</div>
-              <button className="atpopup-x" onClick={() => setAutoTeachTip(null)} aria-label="close">×</button>
+              <button className="atpopup-x" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }} aria-label="close">×</button>
             </div>
             <div className="atpopup-weak">{autoTeachTip.weakness}</div>
             <ol className="atpopup-steps">
               {autoTeachTip.steps.map((s, i) => (
                 <li key={i}>
                   <button type="button" className="atpopup-step"
-                    onClick={() => { setAutoTeachTip(null); goToCoachStep(s, autoTeachTip.feature); }}>
+                    onClick={() => { try { recordTipAction("follow", autoTeachTip.feature); logUsage("atip", "follow"); } catch (e) {} setAutoTeachTip(null); goToCoachStep(s, autoTeachTip.feature); }}>
                     <span className="atpopup-step-tx">{s}</span>
                     <span className="atpopup-step-go">➜</span>
                   </button>
@@ -12752,10 +12827,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               ))}
             </ol>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { setAutoTeachTip(null); setPage("coach"); }}>
+              <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { try { recordTipAction("follow", autoTeachTip && autoTeachTip.feature); logUsage("atip", "follow"); } catch (e) {} setAutoTeachTip(null); setPage("coach"); }}>
                 {lang === "th" ? "ดูรายละเอียด" : lang === "zh" ? "查看详情" : "Details"}
               </button>
-              <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { setAutoTeachTip(null); handleCoachNavigate(autoTeachTip.feature); }}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
+              <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { try { recordTipAction("follow", autoTeachTip.feature); logUsage("atip", "follow"); } catch (e) {} setAutoTeachTip(null); handleCoachNavigate(autoTeachTip.feature); }}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
             </div>
           </div>
         </div>
