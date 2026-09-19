@@ -5,7 +5,7 @@ import {
 import { tr, L, matchFaqTopic } from "./i18n";
 import { stopCloudTTS } from "./speech";
 import { memoryContext, homeworkContext } from "./ai-chat-context";
-import { getKBContext } from "./tigamodel/web.js";
+import { getFullKBContext, getStudentContextBlock, getCoachContextBlock } from "./tigamodel/web.js";
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRecommendationHint } from "./App";
 /* ── use-chat.ts ──
@@ -222,11 +222,20 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
          JSON transport. Only if every transport fails does the friendly
          error bubble appear. */
       const isAbort = (e) => e && (e.name === "AbortError" || /abort/i.test(String(e.message || "")));
-      const kbContext = getKBContext(userText); // topical KB slice for THIS question (gap #2)
+      // TIGA Model knowledge for THIS question: topical KB slice + the
+      // switch-gated learned block (getFullKBContext awaits the learner) +
+      // who this student is, from the app's own practice memory — so the
+      // teacher answers as a teacher who knows THIS student.
+      const kbContext = await getFullKBContext(userText);
+      const studentBlock = getStudentContextBlock();
+      // AI PIANO COACH (P0): WHAT/WHY/HOW diagnosis from the student's real
+      // practice numbers — lets the teacher answer "ฉันมีปัญหาอะไร/ทำไม/ควรฝึก
+      // ยังไง/BPM เท่าไร" with the student's actual stats, not generic advice.
+      const coachBlock = getCoachContextBlock();
       let acc = "";
       let haveBubble = false; // did any streaming attempt reach the response?
       const runStream = () => streamChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + THEORY_REF + kbContext + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: true },
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + THEORY_REF + kbContext + studentBlock + coachBlock + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: true },
         {
           // insert an empty AI bubble we will fill as tokens arrive —
           // reused, not duplicated, if a retry follows a pre-token failure
@@ -243,7 +252,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         }
       );
       const runJson = () => fetchChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + THEORY_REF + kbContext + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: false }
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + THEORY_REF + kbContext + studentBlock + coachBlock + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang), feature: "chat", stream: false }
       );
       /* One full resilience pass: streaming → silent streaming retry on a
          transient blip → non-streaming JSON. Three transports because the

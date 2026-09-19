@@ -112,7 +112,9 @@ import { LanguageSettings } from "./LanguageSettings";
 import { AdminAIModels, AdminNav } from "./AdminAIModels";
 import { TigamodelLab } from "./TigamodelLab";
 import { TigamodelBackoffice } from "./TigamodelBackoffice";
+import { learnFromAdminTeaching } from "./tigamodel/web";
 import { ProfileDashboardPanel } from "./ProfileDashboardPanel";
+import { getCoachDiagnosis, getPracticeTimeBudget } from "./tigamodel/web.js";
 import { SenseiView } from "./SenseiView";
 import { VoiceTutorOverlay } from "./VoiceTutorOverlay";
 import { usePayment } from "./use-payment";
@@ -397,7 +399,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.334";
+const APP_VER = "13.7.345";
 
 async function signInWith(provider) {
   try {
@@ -1143,6 +1145,22 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   const allDone = nDone === steps.length;
   const pct = Math.round((nDone / steps.length) * 100);
 
+  // AI PIANO COACH (P0, additive): WHAT/WHY/HOW diagnosis + time-adaptive
+  // budget from the student's real numbers. Null when no data yet — the card
+  // simply doesn't render, and the plan above is 100% unchanged.
+  const dx = getCoachDiagnosis();
+  const dxT = {
+    th: { tag: "AI วินิจฉัย", why: "ทำไม", how: "วิธีฝึก" },
+    en: { tag: "AI diagnosis", why: "Why", how: "How to fix" },
+    zh: { tag: "AI 诊断", why: "为什么", how: "怎么练" },
+  }[lang];
+  const budget = dx ? getPracticeTimeBudget(20) : null;
+  const budT = {
+    th: { tag: "แผน 20 นาที (ปรับตามจุดอ่อน)", warmup: "วอร์มอัพ", problem: "จุดพัง", review: "ทบทวน", reading: "อ่านโน้ต", performance: "เล่นโชว์", focus: "โฟกัส" },
+    en: { tag: "20-min plan (adapts to your weak spot)", warmup: "Warm-up", problem: "Problem", review: "Review", reading: "Reading", performance: "Perform", focus: "Focus" },
+    zh: { tag: "20分钟计划（按弱点调整）", warmup: "热身", problem: "难点", review: "复习", reading: "读谱", performance: "展示", focus: "重点" },
+  }[lang];
+
   return (
     <div className="pathpage">
       {onBack && (
@@ -1162,6 +1180,32 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
         </div>
         <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
       </div>
+      {dx && (
+        <div className="v12card" style={{ borderColor: "#d9775744" }}>
+          <div style={{ fontSize: "11px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>🩺 {dxT.tag}</div>
+          <div style={{ fontSize: "13.5px", color: "var(--text)", fontWeight: 700, marginBottom: "5px" }}>
+            {dx.what.label} · {dx.what.acc}%
+            <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 400 }}>
+              {" "}({dx.what.count}x · {dx.what.trend === "improving" ? "↑" : dx.what.trend === "worsening" ? "↓" : "→"})
+            </span>
+          </div>
+          <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}><b style={{ color: "#d97757" }}>{dxT.why}:</b> {dx.why[0]}</div>
+          {dx.why[1] && <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}>· {dx.why[1]}</div>}
+          {dx.how.map((h, i) => <div key={i} style={{ fontSize: "12px", color: "var(--text2)" }}><b style={{ color: "#d97757" }}>{i === 0 ? dxT.how + ":" : ""}</b> {h}</div>)}
+          {budget && (
+            <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid var(--bd1)" }}>
+              <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "4px" }}>⏱ {budT.tag}{budget.focus ? ` · ${budT.focus}: ${budget.focus}` : ""}</div>
+              <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                {budget.parts.map(p => (
+                  <span key={p.key} style={{ fontSize: "11px", background: "rgba(217,119,87,.12)", color: "#d97757", borderRadius: "6px", padding: "3px 7px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                    {budT[p.key] || p.key} {p.minutes}′
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {steps.map(s => (
         <div key={s.id} className={`tdstep${s.isDone ? " done" : ""}`}>
           <span className="tdico">{s.isDone ? "✅" : s.icon}</span>
@@ -9442,6 +9486,11 @@ function AdminPage({ lang, onExit, adminTier }) {
       }
 
       setMsgs(p => [...p, { role: "ai", text: (reply || "").trim() || lc.err }]);
+      // Self-learning (owner's switch in Model Lab gates everything): when ON,
+      // the model harvests teaching candidates from what it just produced
+      // under the owner's supervision in the admin console — that reply IS
+      // the teaching material. Fire-and-forget: never blocks the chat.
+      learnFromAdminTeaching(reply || "").catch(() => {});
     } catch (e) {
       console.error("Admin chat error:", e); // full detail for devs only
       const msg = "" + (e?.message || "");
@@ -9973,7 +10022,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   const [setAdvancedOpen, setSetAdvancedOpen] = useState(false); // progressive disclosure for Metronome BPM/tap-tempo
   const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightMode, sightSprintLeft, sightSprintSecs, sightBelts, sightBestStreakMap, sightBestSprintMap, sightTotalRead, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly });
-  const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera } = useCameraCoach({ lang, premium, setPricingOpen, onReward: (xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); } });
+  const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera, camGame, camPraise, camMission } = useCameraCoach({ lang, premium, setPricingOpen, onReward: (xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); } });
 
 
   // ── routing + secret admin unlock ──
@@ -11676,7 +11725,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
 
       {/* HAND-POSTURE COACH overlay (camera) */}
-      {camOpen && <CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} camStreakInfo={camStreakInfo} closeCameraAfterRecap={closeCameraAfterRecap} />}
+      {camOpen && <CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} camStreakInfo={camStreakInfo} closeCameraAfterRecap={closeCameraAfterRecap} camGame={camGame} camPraise={camPraise} camMission={camMission} />}
 
       {/* AI VOICE TUTOR overlay */}
       {vmOpen && <VoiceTutorOverlay lang={lang} setLang={setLang} vmLangOpen={vmLangOpen} setVmLangOpen={setVmLangOpen} exitVoice={exitVoice} onBack={() => { exitVoice(); setPage("studio"); }} vmState={vmState} vmErr={vmErr} vmOrbTap={vmOrbTap} vmInstant={vmInstant} vmCaption={vmCaption} vmStaff={vmStaff} vmNotes={vmNotes} vmMsgs={vmMsgs} vmEndRef={vmEndRef} vmLit={vmLit} vmOnNote={vmOnNote} vmMenuOpen={vmMenuOpen} setVmMenuOpen={setVmMenuOpen} vmSpeed={vmSpeed} setVmSpeed={setVmSpeed} vmSpeedRef={vmSpeedRef} vmVoice={vmVoice} setVmVoice={setVmVoice} vmFast={vmFast} setVmFast={setVmFast} vmFastRef={vmFastRef} vmCloudDeadRef={vmCloudDeadRef} vmPoly={vmPoly} vmTogglePoly={vmTogglePoly} vmInput={vmInput} setVmInput={setVmInput} vmEarResetRef={vmEarResetRef} vmActiveRef={vmActiveRef} vmProcess={vmProcess} vmToggle={vmToggle} />}

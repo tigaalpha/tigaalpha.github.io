@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise } from "./tigamodel/web.js";
+import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
+import { getUnifiedPlan } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
 import { sb } from "./supabase-client";
 import { AI_PROVIDERS } from "./AdminAIModels";
@@ -59,6 +61,12 @@ export function TigamodelLab({ lang = "th" }) {
   const [ready, setReady] = useState(false);
   const [version, setVersion] = useState("");
 
+  // self-learning tab (owner's master switch lives here)
+  const [slOn, setSlOn] = useState(null);       // null = loading
+  const [slSnap, setSlSnap] = useState(null);   // { enabled, stats, entries }
+  const [slBusy, setSlBusy] = useState(false);
+  const [slMsg, setSlMsg] = useState("");
+
   // chat panel
   const [prompt, setPrompt] = useState("");
   const [taskType, setTaskType] = useState("chat");
@@ -69,6 +77,7 @@ export function TigamodelLab({ lang = "th" }) {
   const [evalBusy, setEvalBusy] = useState(false);
   const [evalResults, setEvalResults] = useState(null);
   const [evalErr, setEvalErr] = useState("");
+  const [evalVerdict, setEvalVerdict] = useState(null);
 
   // "which model are we on right now" — read from the same app_settings row
   // piano-chat resolves from, so the label cannot drift from reality.
@@ -128,6 +137,7 @@ export function TigamodelLab({ lang = "th" }) {
   const [pauses, setPauses] = useState(4);
   const [selfReport, setSelfReport] = useState("");
   const [loopOut, setLoopOut] = useState(null);
+  const [loopErr, setLoopErr] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -145,8 +155,45 @@ export function TigamodelLab({ lang = "th" }) {
         const v = r && r.data && r.data.value;
         setActiveModels(v && typeof v === "object" ? v : {});
       }, () => { if (alive) setActiveModels({}); });
+    // self-learning state (switch position + learned entries)
+    (async () => {
+      try {
+        const learner = getSelfLearner();
+        const on = await isSelfLearningEnabled();
+        if (!alive) return;
+        setSlOn(on);
+        setSlSnap(await learner.snapshot());
+      } catch (e) { if (alive) setSlOn(false); }
+    })();
     return () => { alive = false; };
   }, []);
+
+  async function toggleSelfLearn() {
+    if (slBusy) return;
+    setSlBusy(true);
+    try {
+      const next = await setSelfLearningEnabled(!slOn);
+      setSlOn(next);
+      setSlSnap(await getSelfLearner().snapshot());
+      setSlMsg(next
+        ? T("🟢 เปิดแล้ว — โมเดลจะเรียนรู้จากการสอนของคุณใน Admin Chat และจากผลการซ้อมของนักเรียน", "🟢 ON — the model now learns from your admin-chat teaching and from learner practice outcomes", "🟢 已开启 — 模型将从管理员教学和练习结果中学习")
+        : T("🔴 ปิดแล้ว — โมเดลหยุดเรียนรู้และหยุดใช้ความรู้ที่เรียนมาทันที", "🔴 OFF — the model stops learning and stops injecting learned knowledge immediately", "🔴 已关闭 — 模型立即停止学习并停止使用已学知识"));
+    } catch (e) { setSlMsg("⚠️ " + (e?.message || "error")); }
+    setSlBusy(false);
+    setTimeout(() => setSlMsg(""), 6000);
+  }
+  async function slRefresh() {
+    setSlSnap(await getSelfLearner().snapshot());
+  }
+  async function slRemove(id) {
+    await getSelfLearner().removeEntry(id);
+    await slRefresh();
+  }
+  async function slClear() {
+    if (!confirm(T("ลบความรู้ที่โมเดลเรียนมาทั้งหมด?", "Delete ALL learned knowledge?", "删除所有已学知识？"))) return;
+    await getSelfLearner().clearLearned();
+    await slRefresh();
+  }
 
   async function sendPrompt() {
     const t = prompt.trim();
@@ -189,23 +236,41 @@ export function TigamodelLab({ lang = "th" }) {
     if (evalBusy) return;
     setEvalBusy(true); setEvalErr("");
     try {
-      const tiga = getTigamodel();
-      const results = await evaluateAllProviders(tiga.providers.list());
-      setEvalResults(results);
-      saveEvalRun({ results }); // visible in the Back Office eval history
+      // EXTENDED run (roadmap #81-#86): 124 cases + regression alarm against
+      // the stored baseline; falls back to the quick eval when anything's off.
+      const ext = await runExtendedEvalWithRegression();
+      if (ext && ext.results) {
+        setEvalResults(ext.results);
+        setEvalVerdict(ext.verdict || null);
+        saveEvalRun({ results: ext.results, extended: true, verdict: ext.verdict });
+      } else {
+        const tiga = getTigamodel();
+        const results = await evaluateAllProviders(tiga.providers.list());
+        setEvalResults(results);
+        setEvalVerdict(null);
+        saveEvalRun({ results });
+      }
     } catch (e) {
       setEvalErr(String(e?.message || e));
     }
     setEvalBusy(false);
   }
 
-  function runLoop() {
+  async function runLoop() {
     if (!loopRef.current) return;
-    const out = loopRef.current.runOnce({
-      practiceStats: { accuracy: acc, repeatedErrors: repeats, pauses, rhythmScore: Math.max(20, 100 - repeats * 12) },
-      selfReport: selfReport || null,
-    });
-    setLoopOut(out);
+    setLoopErr("");
+    try {
+      // runOnce is async — the awaited result (states/diagnosis/decision) is
+      // what renders; a bare Promise would make this tab show nothing.
+      const out = await loopRef.current.runOnce({
+        practiceStats: { accuracy: acc, repeatedErrors: repeats, pauses, rhythmScore: Math.max(20, 100 - repeats * 12) },
+        selfReport: selfReport || null,
+      });
+      setLoopOut(out);
+    } catch (e) {
+      // never let the button die silently — show what went wrong
+      setLoopErr(String(e?.message || e));
+    }
   }
 
   return (
@@ -225,6 +290,12 @@ export function TigamodelLab({ lang = "th" }) {
         <button style={S.chip(tab === "loop")} onClick={() => setTab("loop")}>🔁 {T("จำลองวงจรสอน", "Teaching loop", "教学循环")}</button>
         <button style={S.chip(tab === "kb")} onClick={() => setTab("kb")}>📚 {T("ความรู้", "Knowledge", "知识")}</button>
         <button style={S.chip(tab === "map")} onClick={() => setTab("map")}>🕸 {T("แผนที่ความรู้", "Knowledge map", "知识图谱")}</button>
+        <button style={S.chip(tab === "coach")} onClick={() => setTab("coach")}>🎯 {T("โค้ชอัจฉริยะ", "Coach", "智能教练")}</button>
+        <button style={S.chip(tab === "selflearn")} onClick={() => setTab("selflearn")}>🧬 {T("เรียนรู้เอง", "Self-learning", "自我学习")}</button>
+        <button style={S.chip(tab === "roadmap")} onClick={() => setTab("roadmap")}>🗺 {T("แผน 100 สิ่ง", "100-item plan", "百项计划")}</button>
+        <button style={S.chip(tab === "plan1m")} onClick={() => setTab("plan1m")}>🧭 {T("แผน 1,000,000", "1M plan", "百万计划")}</button>
+        <button style={S.chip(tab === "student")} onClick={() => setTab("student")}>👤 {T("นักเรียนของครู", "Student view", "学生视角")}</button>
+        <button style={S.chip(tab === "cap")} onClick={() => setTab("cap")}>⚡ {T("ความพร้อมโมเดล", "Readiness", "模型能力")}</button>
       </div>
 
       {!ready && <div style={S.card}>{T("กำลังเริ่มระบบ…", "Starting…", "启动中…")}</div>}
@@ -232,6 +303,20 @@ export function TigamodelLab({ lang = "th" }) {
       {ready && tab === "kb" && <KnowledgePanel lang={lang} S={S} />}
 
       {ready && tab === "map" && <KnowledgeGraphView lang={lang} S={S} />}
+
+      {ready && tab === "selflearn" && slOn !== null && (
+        <SelfLearningPanel lang={lang} S={S} T={T} on={slOn} snap={slSnap} busy={slBusy}
+          msg={slMsg} onToggle={toggleSelfLearn} onRemove={slRemove} onClear={slClear} />
+      )}
+
+      {ready && tab === "roadmap" && <RoadmapPanel lang={lang} S={S} T={T} />}
+      {ready && tab === "plan1m" && <OneMPlanPanel lang={lang} S={S} T={T} />}
+
+      {ready && tab === "student" && <StudentViewPanel lang={lang} S={S} T={T} />}
+
+      {ready && tab === "cap" && <CapabilityPanel lang={lang} S={S} T={T} />}
+
+      {ready && tab === "coach" && <CoachPanel lang={lang} S={S} T={T} />}
 
       {ready && tab === "chat" && (
         <div style={S.card}>
@@ -314,8 +399,26 @@ export function TigamodelLab({ lang = "th" }) {
           <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 10 }}>
             {T("รันชุดประเมินกับทุก provider ที่ลงทะเบียน — ห้ามเชื่อโมเดลใหม่ก่อนดูคะแนนที่นี่", "Runs the eval suite against every registered provider — never trust a new model before this table", "对每个已注册提供方运行评估 — 换模型前先看这张表")}
           </div>
-          <button style={S.btn} onClick={runEval} disabled={evalBusy}>{evalBusy ? T("กำลังประเมิน…", "Evaluating…", "评估中…") : T("▶ รันประเมิน", "Run eval", "运行评估")}</button>
+          <button style={S.btn} onClick={runEval} disabled={evalBusy}>{evalBusy ? T("กำลังประเมิน 124 เคส…", "Running 124 cases…", "评估 124 案例中…") : T("▶ รันประเมินเต็ม 124 เคส", "Run full 124-case eval", "运行完整评估")}</button>
           {evalErr && <div style={{ color: S.bad, marginTop: 10, fontSize: 13 }}>{evalErr}</div>}
+          {evalVerdict && (
+            <div style={{ ...S.inner, marginTop: 10, borderLeft: "3px solid " + (evalVerdict.verdict === "block" ? S.bad : evalVerdict.verdict === "warn" ? S.warn : S.good) }}>
+              <b style={{ fontSize: 13.5, color: "var(--text)" }}>
+                {evalVerdict.verdict === "block" ? "🚨 " : evalVerdict.verdict === "warn" ? "⚠️ " : evalVerdict.verdict === "pass" ? "✅ " : "📌 "}
+                {T("การตัดสินถดถอย", "Regression verdict", "回归判定")}: {evalVerdict.verdict}
+              </b>
+              <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{lang === "en" ? evalVerdict.message.en : evalVerdict.message.th}</div>
+              {evalVerdict.regressions && evalVerdict.regressions.length > 0 && (
+                <div style={{ ...S.mono, marginTop: 5 }}>
+                  {evalVerdict.regressions.map(r => (
+                    <div key={r.family} style={{ color: r.family && evalVerdict.blocking.some(b => b.family === r.family) ? S.bad : S.warn }}>
+                      {r.family}: {r.from} → {r.to} (−{r.drop})
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {evalResults && (
             <div style={{ marginTop: 14 }}>
               {evalResults.map(r => (
@@ -362,6 +465,12 @@ export function TigamodelLab({ lang = "th" }) {
             </label>
           </div>
           <button style={S.btn} onClick={runLoop}>{T("▶ รันวงจร", "Run loop", "运行循环")}</button>
+          {loopErr && (
+            <div style={{ ...S.inner, marginBottom: 10, borderLeft: "3px solid " + S.bad }}>
+              <b style={{ fontSize: 13, color: S.bad }}>⚠ {T("วงจรหยุดด้วยข้อผิดพลาด", "Loop failed", "循环出错")}</b>
+              <div style={{ ...S.mono, marginTop: 4, whiteSpace: "pre-wrap" }}>{loopErr}</div>
+            </div>
+          )}
           {loopOut && (
             <div style={{ marginTop: 12 }}>
               <div style={{ ...S.inner, marginBottom: 8 }}>
@@ -398,19 +507,694 @@ export function TigamodelLab({ lang = "th" }) {
   );
 }
 
+/* ── Coach panel (roadmap #62/#73/#75/#78): the reasoning layer made visible.
+   Skill graph stats + mastery slider demo → next-skill suggestion, hint
+   ladder walker, flow-band tempo decision, and a recap from real numbers.
+   Everything runs locally/synchronously — no model call, honest when data
+   is absent. ── */
+function CoachPanel({ lang, S, T }) {
+  const sg = getSkillGraph();
+  const coach = getCoach();
+  const [acc, setAcc] = useState(88);
+  const [reps, setReps] = useState(2);
+  const [mastery, setMastery] = useState({}); // {skill_id: 0..1} — simulated learner
+  const [bpm, setBpm] = useState(72);
+  const [goalBpm, setGoalBpm] = useState(96);
+  const [hintCtx, setHintCtx] = useState({ attempts: 1, sameSpotFails: 0, selfReport: null, lastRung: null });
+
+  const order = sg ? sg.unlockOrder() : null;
+  const ready = sg ? sg.readySkills(mastery, { max: 6 }) : [];
+  const next = sg ? sg.nextSkill(mastery) : null;
+  const rung = coach.rungFor ? coach.rungFor(hintCtx) : 0;
+  const hint = coach.renderHint ? coach.renderHint(rung, { barLabel: T("ห้อง 5-6", "bars 5-6", "第5-6小节") }) : null;
+  const tempo = coach.tempoTarget ? coach.tempoTarget({ currentBpm: bpm, goalBpm, accuracy: acc, cleanReps: reps }) : null;
+  const rc = coach.recap ? coach.recap({
+    session: { accuracy: acc, weekAgoAccuracy: acc - 6, worstSpotLabel: T("ห้อง 5-6", "bars 5-6", "第5-6小节") },
+    nextSkill: next, tempo: tempo ? tempo.bpm : null,
+  }) : null;
+
+  if (!sg || !order) return <div style={S.card}>{T("กราฟทักษะยังไม่พร้อม", "Skill graph unavailable", "技能图不可用")}</div>;
+
+  const domainCounts = {};
+  // walk the public order API to count domains (no internals needed)
+  for (const id of order) { const n = sg.get(id); if (n) domainCounts[n.domain] = (domainCounts[n.domain] || 0) + 1; }
+
+  function bumpNext() {
+    // "จำลองผู้เรียน": mark the current best next skill mastered → watch the
+    // graph pick the logical follower (this is the adaptive-pathway demo)
+    if (!next) return;
+    setMastery(m => ({ ...m, [next.id]: 0.9 }));
+  }
+  function resetLearner() { setMastery({}); }
+
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          `ชั้นใบ้เหตุผลการสอน: กราฟทักษะ ${sg.count()} โหนด + ขั้นบันไดใบ้ 4 ชั้น + ความยากปรับตาม flow (±10%) + สรุปท้ายคลาสอัตโนมัติ — ทุกอย่างคำนวณจากข้อมูลจริง ไม่เดา ไม่ยิงโมเดล`,
+          `The teaching reasoning layer: ${sg.count()}-node skill graph + 4-rung hint ladder + flow-band adaptive difficulty (±10%) + auto recap — all computed from real data, no guessing, no model call.`,
+          `教学推理层：${sg.count()} 节点技能图 + 4 级提示阶梯 + 心流自适应难度（±10%）+ 自动总结——全部由真实数据计算。`
+        )}
+      </div>
+
+      {/* Skill graph overview */}
+      <div style={{ ...S.inner, marginBottom: 10 }}>
+        <b style={{ fontSize: 13.5, color: "var(--text)" }}>🕸 {T("กราฟทักษะ", "Skill graph", "技能图")}</b>
+        <div style={{ ...S.mono, marginTop: 6, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <span>{sg.count()} {T("โหนด", "nodes", "节点")}</span>
+          <span>{order.length} {T("เรียงลำดับสอนได้", "in teaching order", "已排序")}</span>
+          <span>{Object.keys(domainCounts).length} {T("หมวด", "domains", "领域")}</span>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          {Object.entries(domainCounts).sort((a, b) => b[1] - a[1]).map(([d, n]) => (
+            <span key={d} style={{ ...S.mono, border: "1px solid var(--bd2)", borderRadius: 999, padding: "2px 10px" }}>{d}: {n}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Next-skill demo */}
+      <div style={{ ...S.inner, marginBottom: 10 }}>
+        <b style={{ fontSize: 13.5, color: "var(--text)" }}>🧭 {T("ทักษะถัดไปที่ควรสอน", "Next skill to teach", "下一个应教技能")}</b>
+        {next ? (
+          <div style={{ marginTop: 6 }}>
+            <div style={{ fontSize: 14.5, color: "var(--text)", fontWeight: 700 }}>{lang === "en" ? next.en : next.th}</div>
+            <div style={S.mono}>{next.domain} · tier {next.tier} · {T("พื้นฐานครบ", "prerequisites met", "前置已满足")}</div>
+            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+              <button style={{ ...S.btn, padding: "7px 14px", fontSize: 13 }} onClick={bumpNext}>{T("✔ จำลองว่าเรียนผ่านแล้ว", "✔ Simulate mastered", "✔ 模拟已掌握")}</button>
+              <button style={{ ...S.btnGhost, padding: "7px 14px", fontSize: 13 }} onClick={resetLearner}>{T("รีเซ็ตผู้เรียนจำลอง", "Reset simulated learner", "重置模拟学习者")}</button>
+              <span style={S.mono}>{T("ผ่านแล้ว", "mastered", "已掌握")}: {Object.keys(mastery).length}</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ ...S.mono, marginTop: 6 }}>{T("ยังไม่มีข้อมูลความถนัด — ระบบจะไม่เดา (ตามหลัก observation ≠ inference)", "No mastery data yet — the system will not guess (observation ≠ inference)", "暂无掌握度数据——系统不猜测")}</div>
+        )}
+        {ready.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 12.5, color: "var(--text2)" }}>{T("พร้อมเรียน (พื้นฐานครบ)", "Ready to learn (prereqs met)", "可学习（前置满足）")}:</div>
+            {ready.map(r => (
+              <div key={r.id} style={{ ...S.mono, marginTop: 3 }}>• {lang === "en" ? r.en : r.th} <span style={{ color: "var(--muted)" }}>({r.domain}, tier {r.tier})</span></div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Hint ladder demo */}
+      <div style={{ ...S.inner, marginBottom: 10 }}>
+        <b style={{ fontSize: 13.5, color: "var(--text)" }}>🪜 {T("บันไดใบ้ 4 ชั้น", "4-rung hint ladder", "4 级提示阶梯")}</b>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("ลองผิดครั้งที่", "Attempt #", "第几次尝试")}: <b>{hintCtx.attempts}</b>
+            <input type="range" min="1" max="6" value={hintCtx.attempts} onChange={e => setHintCtx(h => ({ ...h, attempts: +e.target.value }))} style={{ width: "100%" }} />
+          </label>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("ผิดจุดเดิม", "Same-spot fails", "同处失败")}: <b>{hintCtx.sameSpotFails}</b>
+            <input type="range" min="0" max="4" value={hintCtx.sameSpotFails} onChange={e => setHintCtx(h => ({ ...h, sameSpotFails: +e.target.value }))} style={{ width: "100%" }} />
+          </label>
+        </div>
+        <div style={{ ...S.mono, marginTop: 6 }}>{T("ชั้นที่เลือก", "Selected rung", "所选级别")}: <b style={{ color: "var(--accent, #d97757)" }}>{rung + 1}/4 — {lang === "en" ? (rung === 0 ? "Ask back" : rung === 1 ? "Point" : rung === 2 ? "Show how" : "Play it") : (rung === 0 ? "ถามกลับ" : rung === 1 ? "ชี้จุด" : rung === 2 ? "โชว์วิธี" : "เล่นให้ดู")}</b></div>
+        {hint && <div style={{ fontSize: 14, marginTop: 6, whiteSpace: "pre-wrap", color: "var(--text)" }}>🤖 {hint[lang === "en" ? "en" : lang === "zh" ? "zh" : "th"]}</div>}
+      </div>
+
+      {/* Adaptive tempo demo */}
+      <div style={{ ...S.inner, marginBottom: 10 }}>
+        <b style={{ fontSize: 13.5, color: "var(--text)" }}>🎚 {T("ความยากปรับตาม flow (±10%)", "Flow-band adaptive tempo (±10%)", "心流自适应速度（±10%）")}</b>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("ความแม่นยำ", "Accuracy", "准确度")}: <b>{acc}%</b>
+            <input type="range" min="0" max="100" value={acc} onChange={e => setAcc(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("ครั้งสมบูรณ์ติดกัน", "Clean reps", "连续完美次数")}: <b>{reps}</b>
+            <input type="range" min="0" max="5" value={reps} onChange={e => setReps(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("เทมโปปัจจุบัน", "Current tempo", "当前速度")}: <b>{bpm} BPM</b>
+            <input type="range" min="40" max="200" value={bpm} onChange={e => setBpm(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+          <label style={{ fontSize: 13, color: "var(--text)" }}>{T("เทมโปเป้าหมาย", "Goal tempo", "目标速度")}: <b>{goalBpm} BPM</b>
+            <input type="range" min="50" max="208" value={goalBpm} onChange={e => setGoalBpm(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+        </div>
+        {tempo && (
+          <div style={{ ...S.mono, marginTop: 8 }}>
+            → <b style={{ fontSize: 15, color: "var(--accent, #d97757)" }}>{tempo.bpm} BPM</b> ({tempo.step >= 0 ? "+" : ""}{tempo.step}) · {tempo.reason}
+            {tempo.band && <span> · {tempo.band.pctOfGoal}% {T("ของเป้า", "of goal", "占目标")}</span>}
+          </div>
+        )}
+      </div>
+
+      {/* Recap demo */}
+      <div style={{ ...S.inner }}>
+        <b style={{ fontSize: 13.5, color: "var(--text)" }}>📝 {T("สรุปท้ายคลาส (3 ข้อ + การบ้าน ≤15 นาที)", "Session recap (3 lines + ≤15-min homework)", "课程总结（3 行 + 15 分钟内作业）")}</b>
+        {rc && (
+          <div style={{ marginTop: 8 }}>
+            {rc.lines.map((l, i) => (
+              <div key={i} style={{ fontSize: 14, color: "var(--text)", marginBottom: 5, whiteSpace: "pre-wrap" }}>
+                {i + 1}. {l[lang === "en" ? "en" : lang === "zh" ? "zh" : "th"]}
+              </div>
+            ))}
+            <div style={{ ...S.inner, marginTop: 8, borderColor: "color-mix(in srgb, var(--accent, #d97757) 35%, var(--bd1))" }}>
+              <div style={{ fontSize: 13.5, color: "var(--text)" }}>📚 {rc.homework[lang === "en" ? "en" : lang === "zh" ? "zh" : "th"]}</div>
+            </div>
+            {rc.summary.masteryDelta != null && <div style={S.mono}>mastery Δ: {rc.summary.masteryDelta}</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Self-Learning panel: the owner's master switch + everything the model
+   has learned so far (admin-taught entries + reinforcement stats). Switch OFF
+   = the model stops learning AND stops using learned knowledge at once. ── */
+function SelfLearningPanel({ lang, S, T, on, snap, busy, msg, onToggle, onRemove, onClear }) {
+  const entries = (snap && snap.entries) || [];
+  const stats = (snap && snap.stats) || {};
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          "โมเดลเรียนรู้และอัปเดตตัวเองได้ — เรียนจากการสอนของคุณใน Admin Chat และปรับน้ำหนักกลยุทธ์จากผลการซ้อมจริงของนักเรียน คุณเป็นคนควบคุมสวิตช์นี้เพียงผู้เดียว",
+          "The model can learn and update itself — from your admin-chat teaching and by re-weighting strategies from real practice outcomes. You alone control this switch.",
+          "模型可以自我学习——从管理员教学和练习结果中更新知识。此开关由您独自控制。"
+        )}
+      </div>
+      {/* THE master switch */}
+      <div style={{ ...S.inner, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", borderColor: on ? "color-mix(in srgb, var(--ok, #3f9d63) 45%, var(--bd1))" : "var(--bd1)" }}>
+        <div>
+          <b style={{ fontSize: 15, color: "var(--text)" }}>{on ? "🟢 " : "⚪ "}{T("การเรียนรู้อัตโนมัติ", "Self-learning", "自动学习")}</b>
+          <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 3 }}>
+            {on
+              ? T("เปิด — โมเดลกำลังเรียนรู้และใช้ความรู้ที่เรียนมา", "ON — learning and injecting learned knowledge", "开启 — 正在学习并注入已学知识")
+              : T("ปิด — โมเดลหยุดเรียนรู้ ไม่มีข้อมูลใดถูกเก็บ", "OFF — not learning; nothing is stored", "关闭 — 不学习，不存储")}
+          </div>
+        </div>
+        <button onClick={onToggle} disabled={busy}
+          style={{ padding: "10px 22px", borderRadius: 999, border: "none", cursor: busy ? "wait" : "pointer", fontWeight: 800, fontSize: 14,
+            background: on ? "var(--ok, #3f9d63)" : "var(--bd3)", color: on ? "#fff" : "var(--text)" }}>
+          {busy ? "…" : on ? T("เปิดอยู่ — กดปิด", "ON — tap to turn OFF", "开启 — 点击关闭") : T("ปิดอยู่ — กดเปิด", "OFF — tap to turn ON", "关闭 — 点击开启")}
+        </button>
+      </div>
+      {msg && <div style={{ fontSize: 13, marginTop: 8, color: "var(--text2)" }}>{msg}</div>}
+      {/* stats */}
+      <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+        <div style={{ ...S.inner, flex: 1, minWidth: 120, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)" }}>{entries.length}</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>{T("ความรู้ที่เรียนมา", "learned entries", "已学条目")}</div>
+        </div>
+        <div style={{ ...S.inner, flex: 1, minWidth: 120, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)" }}>{stats.learned || 0}</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>{T("เรียนจากการสอน", "taught events", "教学学习")}</div>
+        </div>
+        <div style={{ ...S.inner, flex: 1, minWidth: 120, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)" }}>{stats.reinforced || 0}</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>{T("ปรับจากผลซ้อม", "outcome events", "结果强化")}</div>
+        </div>
+      </div>
+      {/* learned entries */}
+      {entries.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <b style={{ fontSize: 13.5, color: "var(--text)" }}>{T("🧠 สิ่งที่โมเดลเรียนรู้", "🧠 What the model learned", "🧠 模型已学内容")}</b>
+            <button style={{ ...S.btnGhost, padding: "5px 12px", fontSize: 12.5 }} onClick={onClear}>🗑 {T("ลบทั้งหมด", "Clear all", "全部清除")}</button>
+          </div>
+          {entries.map(e => (
+            <div key={e.id} style={{ ...S.inner, marginBottom: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, color: "var(--text)", whiteSpace: "pre-wrap" }}>{e.body}</div>
+                  <div style={{ ...S.mono, marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <span>{e.domain}</span>
+                    <span>conf: {Number(e.confidence || 0).toFixed(2)}</span>
+                    {e.up > 0 && <span style={{ color: S.good }}>▲{e.up}</span>}
+                    {e.down > 0 && <span style={{ color: S.bad }}>▼{e.down}</span>}
+                    <span>{(e.created_at || "").slice(0, 10)}</span>
+                  </div>
+                </div>
+                <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, color: "var(--muted)", padding: 2 }}
+                  onClick={() => onRemove(e.id)} aria-label="remove">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {entries.length === 0 && (
+        <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, padding: 16 }}>
+          {T("ยังไม่มีความรู้ที่เรียนมา — เปิดสวิตช์แล้วไปสอนโมเดลในแท็บ Admin Chat (สอน AI) ได้เลย", "Nothing learned yet — flip the switch, then teach the model in the Admin Chat (Teach AI) tab", "暂无已学知识——打开开关后，在管理员聊天中教学即可")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Roadmap panel: the 100-item development plan, grouped, with live status ── */
+/* ── 1M-plan panel (owner directive 2026-09-18): the 1,000,000-item
+   combinatorial development plan from tigamodel/roadmap-1m.js. Walks the
+   ranked work order (highest priority-score first), filters per dimension,
+   shows live coverage stats, and can draw a deterministic audit sample. ── */
+/* ── 👤 Student view: exactly what the production chat teacher knows about
+   THIS student right now (same function use-chat injects). No simulation —
+   a live mirror of getStudentContextBlock() + the learner-wave domains the
+   KB serves when the owner asks a real teaching question. ── */
+function StudentViewPanel({ lang, S, T }) {
+  const [probe, setProbe] = useState("");
+  const block = getStudentContextBlock(); // same call the production chat makes
+  const hasBlock = !!block.trim();
+  const tiga = getTigamodel();
+  const kbCount = tiga && tiga.kb ? tiga.kb.count() : 0;
+  const probeOut = probe.trim()
+    ? (() => { try { return getKBContext(probe); } catch (e) { return null; } })()
+    : null;
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          "สิ่งที่ครู AI ในแชทจริงรู้เกี่ยวกับนักเรียนคนนี้ — อ่านจากความจำการซ้อมของแอปด้วยฟังก์ชันเดียวกับที่ฉีดเข้า prompt ทุกครั้งที่ผู้เรียนคุยกับครู (ไม่มีการจำลอง)",
+          "Exactly what the production chat teacher knows about THIS student — read from the app's practice memory through the same function injected into every chat prompt (no simulation).",
+          "生产聊天老师对该学生的全部认知——用与聊天注入相同的函数从练习记忆读取（非模拟）。"
+        )}
+      </div>
+      <div style={{ fontSize: 14, marginBottom: 8 }}>
+        {T("📚 ความรู้รวมที่ครูใช้ได้: ", "📚 Total KB entries the teacher can draw on: ", "📚 可用知识条目: ")}
+        <b style={{ color: "var(--primary)" }}>{kbCount.toLocaleString()}</b>
+      </div>
+      <div style={{ ...S.card, background: "var(--bg2, rgba(0,0,0,0.04))" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+          {T("ข้อมูลนักเรียนที่จะถูกฉีดเข้าแชท:", "Student block injected into chat:", "注入聊天的学生信息:")}
+        </div>
+        {hasBlock
+          ? <div style={{ fontSize: 13, whiteSpace: "pre-wrap", fontFamily: "monospace" }}>{block.trim()}</div>
+          : <div style={{ fontSize: 13, color: "var(--text2)" }}>
+              {T("ยังว่าง — นักเรียนนี้ยังไม่มีประวัติการซ้อมพอ (ระบบไม่เดา: ครูจะสอนแบบกลางๆ จนมีข้อมูลจริง)", "Empty — this student has no practice history yet (the system does not guess: the teacher stays neutral until real data exists).", "尚无练习记录——系统不猜测，老师保持中立。")}
+            </div>}
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+          {T("ลองถามครู (ทดสอบความรู้ที่จะถูกเสิร์ฟ):", "Ask the teacher (probe what KB slice would be served):", "试问老师(测试将注入的知识):")}
+        </div>
+        <input style={S.input} value={probe} onChange={(e) => setProbe(e.target.value)}
+          placeholder={T("เช่น ลูกอ่านโน้ตไม่ค่อยได้ / ท่องจำไม่อยู่ / อยากเล่นเพลงไทย", "e.g. can't read notes / can't memorize / Thai songs", "例:识谱差/记不住/泰国歌")} />
+        {probeOut && (
+          <div style={{ ...S.card, marginTop: 8, maxHeight: 260, overflowY: "auto" }}>
+            <div style={{ fontSize: 12, color: "var(--text2)", marginBottom: 4 }}>
+              {T("ความรู้ที่ถูกเลือกเสิร์ฟสำหรับคำถามนี้:", "KB slice selected for this question:", "该问题将注入的知识:")}
+            </div>
+            <div style={{ fontSize: 12, whiteSpace: "pre-wrap", fontFamily: "monospace" }}>{probeOut}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── ⚡ Readiness: the capability engine's live verdict over all 1,000
+   t×m×s routes (kb/reasoning/surface/measure/evolve from REAL modules) —
+   plus the worklist of weakest routes and a real generated exercise. ── */
+function CapabilityPanel({ lang, S, T }) {
+  const st = capabilitySummary();
+  const wl = capabilityWorklist(10);
+  const [seed, setSeed] = useState(1);
+  const ex = (() => { try { return generateStudentExercise(0, 3, seed); } catch (e) { return null; } })();
+  const bar = (v, color) => (
+    <div style={{ height: 8, background: "rgba(128,128,128,0.15)", borderRadius: 4, overflow: "hidden", flex: 1 }}>
+      <div style={{ height: "100%", width: `${Math.round(v * 100)}%`, background: color || "var(--primary)" }} />
+    </div>
+  );
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          "เอนจินประเมินความพร้อมจริง: เดินทุกเส้นทาง t×m×s (1,000 เส้นทาง) ถามว่า 'ผู้เรียนมาถึงช่องทางนี้ ถามเรื่องนี้ — โมเดลมีอะไรจริงไหม' คะแนนจากโมดูลจริง ไม่ใช่การติ๊กรายการ",
+          "The real readiness engine: walks every t×m×s route (1,000) and asks 'if a learner arrives on this surface asking about this topic at this layer — does the model have anything real?' Scored from actual modules, not tickboxes.",
+          "真实能力引擎：遍历全部 1000 条路线，按真实模块评分，非打勾。"
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+        <div style={{ fontSize: 40, fontWeight: 800, color: st.readyPct >= 100 ? "var(--primary)" : "var(--text)", minWidth: 120 }}>
+          {st.readyPct}%
+        </div>
+        <div style={{ flex: 1, fontSize: 13 }}>
+          <div>{T("เส้นทางพร้อม", "Routes ready", "就绪路线")}: <b>{st.ready.toLocaleString()}</b> / {st.total.toLocaleString()}</div>
+          <div>{T("คะแนนเฉลี่ย", "Avg score", "平均分")}: <b>{st.avgScore}</b> · {T("ช่องว่าง", "gaps", "空白")}: <b>{st.gaps}</b></div>
+        </div>
+      </div>
+      <div style={{ ...S.card, background: "var(--bg2, rgba(0,0,0,0.04))", marginBottom: 10 }}>
+        {Object.entries(st.capAvg).sort((a, b) => a[1] - b[1]).map(([cap, v]) => (
+          <div key={cap} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+            <div style={{ width: 90, fontSize: 12, color: "var(--text2)" }}>{cap}</div>
+            {bar(v, v >= 0.95 ? "var(--primary)" : v >= 0.7 ? "#e8a03c" : "#d9534f")}
+            <div style={{ width: 44, fontSize: 12, textAlign: "right" }}>{Math.round(v * 100)}%</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+        {T("งานที่อ่อนที่สุดถัดไป (worklist สด)", "Weakest routes next (live worklist)", "最弱路线工作清单")}
+      </div>
+      {wl.length === 0
+        ? <div style={{ fontSize: 13, color: "var(--primary)", marginBottom: 10 }}>✅ {T("ทุกเส้นทางพร้อมแล้ว — เหลืองานเจาะลึกคุณภาพตามแผน 1M (WHO/HOW/QUALITY ต่อเซลล์)", "All routes ready — remaining work is per-cell depth (WHO/HOW/QUALITY) on the 1M plan.", "全部路线就绪——余下为逐格深度。")}</div>
+        : <div style={{ marginBottom: 10 }}>
+            {wl.map(r => (
+              <div key={`${r.t}${r.m}${r.s}`} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, marginBottom: 3 }}>
+                <div style={{ fontFamily: "monospace" }}>T{r.t}M{r.m}S{r.s}</div>
+                {bar(r.score, "#d9534f")}
+                <div style={{ color: "var(--text2)", minWidth: 70 }}>{r.worstCap} {Math.round(r.worstScore * 100)}%</div>
+              </div>
+            ))}
+          </div>}
+      <div style={{ fontSize: 13, fontWeight: 700, margin: "8px 0 6px" }}>
+        {T("ตัวอย่างแบบฝึกหัดที่โมเดลสร้างเอง (จากทฤษฎีคำนวณจริง):", "A real generated exercise (from computed theory):", "模型生成的练习示例:")}
+      </div>
+      {ex && (
+        <div style={{ ...S.card, background: "var(--bg2, rgba(0,0,0,0.04))" }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>{ex.title}</div>
+          <div style={{ fontSize: 13, margin: "4px 0" }}>{ex.task}</div>
+          {ex.steps.map((s, i) => <div key={i} style={{ fontSize: 12, color: "var(--text2)" }}>• {s}</div>)}
+          <div style={{ fontSize: 12, marginTop: 4 }}>✔ {ex.check}</div>
+        </div>
+      )}
+      <button style={{ ...S.btn, marginTop: 8 }} onClick={() => setSeed(s => s + 1)}>{T("🎲 สุ่มแบบฝึกหัดใหม่", "🎲 New exercise", "🎲 换一个")}</button>
+    </div>
+  );
+}
+
+function OneMPlanPanel({ lang, S, T }) {
+  const st = plm1mStats();
+  const PAGE = 12;
+  const [sort, setSort] = useState("rank");
+  const [onlyOpen, setOnlyOpen] = useState(true);
+  const [dims, setDims] = useState({});            // { t?, w?, h?, m?, s?, q? } numeric filters
+  const [walk, setWalk] = useState({ rows: [], next: null, done: false, key: "" });
+  const [sampleItem, setSampleItem] = useState(null);
+
+  const queryKey = JSON.stringify([dims, onlyOpen, sort]);
+  const filter = { ...dims, onlyOpen: onlyOpen ? true : undefined };
+  useEffect(() => {
+    const r = plm1mRank({ offset: 0, limit: PAGE, sort, filter });
+    setWalk({ rows: r.rows, next: r.nextOffset, done: r.exhausted, key: queryKey });
+  }, [queryKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function loadMore() {
+    const r = plm1mRank({ offset: walk.next || 0, limit: PAGE, sort, filter });
+    setWalk(w => ({ rows: w.rows.concat(r.rows), next: r.nextOffset, done: r.exhausted, key: w.key }));
+  }
+
+  const fmt = (n) => n.toLocaleString();
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          `แผนพัฒนา 1,000,000 สิ่ง — สเปกความสามารถแบบผสม 6 มิติ × 10 ค่า (สอนอะไร × เพื่อใคร × สอนอย่างไร × ชั้นโมเดล × ช่องทาง × เกณฑ์คุณภาพ) ทุกรายการไม่ซ้ำ ตรวจรับได้ และเรียงตามคะแนนความสำคัญ คู่มือฉบับเต็ม: docs/03-roadmap-1m.md`,
+          `The 1,000,000-item plan — a 6-dimension × 10-value capability-spec space (WHAT × WHO × HOW × LAYER × WHERE × QUALITY BAR). Every item unique, acceptance-testable, ranked by priority. Full write-up: docs/03-roadmap-1m.md.`,
+          `百万项发展计划——6维×10值能力规格空间，每项唯一、可验收、按优先级排序。`
+        )}
+      </div>
+
+      {/* live coverage stats */}
+      <div style={{ ...S.inner, marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--text)", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
+          <b>{T("ทั้งหมด", "Total", "总计")}: {fmt(st.total)}</b>
+          <span style={S.mono}>
+            <span style={{ color: S.good }}>■ {T("เริ่มแล้ว", "started", "已启动")} {fmt(st.started)} ({st.startedPct}%)</span>
+            {"  ·  "}
+            <span style={{ color: "var(--muted)", marginLeft: 10 }}>■ {T("ยังเปิด", "open", "待办")} {fmt(st.open)}</span>
+          </span>
+        </div>
+        <div style={{ height: 10, borderRadius: 999, background: "var(--bd1)", overflow: "hidden", display: "flex" }}>
+          <div style={{ width: st.startedPct + "%", background: "var(--ok, #3f9d63)" }} />
+        </div>
+        <div style={{ ...S.mono, marginTop: 8, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {st.byDim.map(d => (
+            <span key={d.id} style={{ color: d.touched === d.of ? S.good : S.warn }}>
+              {d.icon} {d.id.toUpperCase()} {d.touched}/{d.of}
+            </span>
+          ))}
+          <span style={{ color: "var(--muted)", marginLeft: "auto" }}>
+            {T("งานกลุ่มคะแนนสูงสุด", "top-priority bucket", "最高优先组")} p{st.buckets[0] && st.buckets[0].p}: {st.buckets[0] ? fmt(st.buckets[0].count) : 0}
+          </span>
+        </div>
+      </div>
+
+      {/* controls */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+        <button style={S.chip(onlyOpen)} onClick={() => setOnlyOpen(v => !v)}>
+          {onlyOpen ? "⭕ " : "○ "}{T("เฉพาะที่ยังไม่ได้แตะ", "open items only", "仅待办")}
+        </button>
+        <button style={S.chip(sort === "index")} onClick={() => setSort(s => (s === "rank" ? "index" : "rank"))}>
+          {sort === "rank" ? "🏆 " + T("เรียงตามอันดับ", "by rank", "按排名") : "#️⃣ " + T("เรียงตามดัชนี", "by index", "按编号")}
+        </button>
+        <button style={S.chip(false)} onClick={() => setSampleItem(plm1mSample(Math.floor(Math.random() * 999983) + 1))}>
+          🎲 {T("สุ่มตรวจ 1 รายการ", "random audit sample", "随机抽查")}
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+        {PLM1M_DIMENSIONS.map(d => (
+          <select key={d.id} value={dims[d.id] ?? ""}
+            onChange={e => setDims(prev => { const n = { ...prev }; if (e.target.value === "") delete n[d.id]; else n[d.id] = parseInt(e.target.value, 10); return n; })}
+            style={{ ...S.input, flex: "1 1 150px", minWidth: 140, fontSize: 12.5, padding: "7px 8px" }}>
+            <option value="">{d.icon} {lang === "en" ? d.en : d.th} — {T("ทั้งหมด", "all", "全部")}</option>
+            {d.values.map((v, vi) => <option key={vi} value={vi}>{vi} · {lang === "en" ? v.en : v.th}</option>)}
+          </select>
+        ))}
+      </div>
+
+      {/* random audit card */}
+      {sampleItem && (
+        <div style={{ ...S.inner, marginBottom: 10, borderLeft: "3px solid var(--accent, #d97757)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+            <b style={{ fontSize: 13.5, color: "var(--text)" }}>🎲 #{fmt(sampleItem.index)} <span style={S.mono}>{sampleItem.code}</span></b>
+            <button style={{ ...S.btnGhost, padding: "3px 10px", fontSize: 12 }} onClick={() => setSampleItem(null)}>✕</button>
+          </div>
+          <div style={{ fontSize: 13.5, color: "var(--text)", marginTop: 4 }}>{sampleItem.title.th}</div>
+          <div style={{ ...S.mono, marginTop: 3 }}>{sampleItem.body.th} · {T("ลำดับ", "priority", "优先")} {sampleItem.priority}</div>
+          <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{T("เกณฑ์ตรวจรับ", "acceptance", "验收")}: {sampleItem.criterion.th}</div>
+        </div>
+      )}
+
+      {/* ranked rows */}
+      <div style={{ ...S.mono, marginBottom: 6 }}>
+        {walk.done ? T(`แสดง ${walk.rows.length} รายการ (ครบที่ตรงเงื่อนไข)`, `showing ${walk.rows.length} (all matches)`, `显示 ${walk.rows.length} 条（全部）`) : T(`แสดง ${walk.rows.length} รายการ`, `showing ${walk.rows.length}`, `显示 ${walk.rows.length} 条`)}
+      </div>
+      {walk.rows.map(it => (
+        <div key={it.code} style={{ ...S.inner, marginBottom: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+            <b style={{ fontSize: 13.5, color: "var(--text)" }}>#{fmt(it.index)} — {lang === "en" ? it.title.en : it.title.th}</b>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: it.covered ? S.good : "var(--muted)", whiteSpace: "nowrap" }}>
+              {it.covered ? T("เริ่มแล้ว", "started", "已启动") : T("ยังเปิด", "open", "待办")}
+            </span>
+          </div>
+          <div style={{ ...S.mono, marginTop: 3 }}>{it.code} · {lang === "en" ? it.body.en : it.body.th} · {T("ลำดับ", "prio", "优先")} {it.priority}</div>
+          <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{T("เกณฑ์", "bar", "标准")}: {lang === "en" ? it.criterion.en : it.criterion.th}</div>
+          {it.roadmapRefs.length > 0 && (
+            <div style={{ fontSize: 11.5, color: S.warn, marginTop: 3 }}>↳ roadmap-100: {it.roadmapRefs.map(n => "#" + n).join(", ")}</div>
+          )}
+        </div>
+      ))}
+      {!walk.done && walk.rows.length > 0 && (
+        <button style={{ ...S.btnGhost, width: "100%" }} onClick={loadMore}>
+          ⬇ {T("โหลดอีก (จาก 1,000,000)", "load more (of 1,000,000)", "加载更多")}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function RoadmapPanel({ lang, S, T }) {
+  /* ── 🪟 THE UNIFIED PLAN (แผ่นใหญ่แผนเดียว): 100 streams × their 1M cells —
+     statuses are the WEAKER of hand-set vs engine-verified, every stream row
+     expands into its real cells, and one work order spans both grains. ── */
+  const uni = getUnifiedPlan();
+  const sum = uni.summary();
+  const groups = uni.groups();
+  const [openGroup, setOpenGroup] = useState("F");
+  const [openCells, setOpenCells] = useState(null); // stream n → { rows, total, nextOffset }
+  const [cellPage, setCellPage] = useState({});
+  const wo = uni.workOrder(6);
+  const starStr = (n) => "⭐".repeat(n);
+  const prog = sum.streams;
+
+  const loadCells = (n, offset) => {
+    const page = uni.streamCells(n, { limit: 8, offset: offset || 0 });
+    setOpenCells(page.total && page.rows.length ? { n, ...page } : null);
+  };
+
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          "🪟 แผ่นใหญ่แผนเดียว: 100 สตรีมพัฒนา (สิ่งที่ครูระดับโลกทำได้) × 1,000,000 เซลล์เจาะลึก (T×W×H×M×S×Q) — สถานะแต่ละสตรีมคือค่าที่อ่อนกว่าระหว่าง 'สิ่งที่แชปจริง' กับ 'สิ่งที่เอนจินตรวจได้' กดสตรีมเพื่อดูเซลล์จริงของมัน",
+          "🪟 One unified sheet: 100 development streams (world-class-teacher capabilities) × 1,000,000 deepening cells (T×W×H×M×S×Q). Each stream's status is the WEAKER of what's shipped vs what the engine verifies. Tap a stream to drill into its real cells.",
+          "🪟 统一大表：100条发展流 × 1,000,000个深化单元。状态取“已交付”与“引擎验证”中较弱者。"
+        )}
+      </div>
+
+      {/* unified progress: streams + cells on one bar */}
+      <div style={{ ...S.inner, marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+          <b>{T("แผ่นใหญ่ — สตรีม + เซลล์", "Unified — streams + cells", "统一 — 流 + 单元")}</b>
+          <span style={S.mono}>{prog.done + prog.partial}/{prog.total} {T("สตรีม", "streams", "流")}</span>
+        </div>
+        <div style={{ height: 10, borderRadius: 999, background: "var(--bd1)", overflow: "hidden", display: "flex" }}>
+          <div style={{ width: (prog.done / prog.total * 100) + "%", background: "var(--ok, #3f9d63)" }} />
+          <div style={{ width: (prog.partial / prog.total * 100) + "%", background: "var(--warn, #b8860b)" }} />
+        </div>
+        <div style={{ ...S.mono, marginTop: 6, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ color: ROADMAP_STATUS.done.color }}>■ {ROADMAP_STATUS.done[lang] || ROADMAP_STATUS.done.en} {prog.done}</span>
+          <span style={{ color: ROADMAP_STATUS.partial.color }}>■ {ROADMAP_STATUS.partial[lang] || ROADMAP_STATUS.partial.en} {prog.partial}</span>
+          <span style={{ color: "var(--muted)", marginLeft: "auto" }}>
+            {T("เซลล์พร้อม", "cells ready", "单元就绪")}: {sum.cells.readyPct}%
+          </span>
+        </div>
+      </div>
+
+      {/* ONE work order across both grains */}
+      <div style={{ ...S.inner, marginBottom: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{T("คิวงานเดียว (รวมสองแผน)", "One work order (both plans merged)", "统一工作队列")}</div>
+        {wo.map(r => (
+          <div key={r.n} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5, padding: "4px 0", borderTop: "1px solid var(--bd1)" }}>
+            <span style={{ ...S.mono, minWidth: 26, color: "var(--muted)" }}>#{r.n}</span>
+            <div style={{ flex: 1 }}>
+              <span style={{ color: "var(--text)" }}>{lang === "en" ? r.en : r.th}</span>
+              <span style={{ color: "var(--muted)" }}> · {r.cells.toLocaleString()} {T("เซลล์", "cells", "单元")}</span>
+            </div>
+            <span style={{ color: "var(--text2)", fontSize: 11.5 }}>{r.nextWork}</span>
+          </div>
+        ))}
+      </div>
+
+      {groups.map(g => {
+        const open = openGroup === g.id;
+        const done = g.items.filter(i => i.status === "done").length;
+        return (
+          <div key={g.id} style={{ ...S.inner, marginBottom: 8, padding: 0, overflow: "hidden" }}>
+            <button style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", color: "var(--text)", padding: "12px 14px" }}
+              onClick={() => setOpenGroup(open ? null : g.id)}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                <b style={{ fontSize: 14 }}>{g.icon} {lang === "en" ? g.en : g.th}</b>
+                <span style={S.mono}>{done}/{g.items.length}</span>
+              </div>
+            </button>
+            {open && (
+              <div style={{ padding: "0 14px 12px" }}>
+                {g.items.map(it => {
+                  const st = ROADMAP_STATUS[it.status] || ROADMAP_STATUS.todo;
+                  const cellsOpen = openCells && openCells.n === it.n;
+                  return (
+                    <div key={it.n} style={{ borderTop: "1px solid var(--bd1)" }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 0" }}>
+                        <span style={{ ...S.mono, minWidth: 28, color: "var(--muted)" }}>{it.n}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13.5, color: "var(--text)" }}>
+                            {lang === "en" ? it.en : it.th}
+                            {it.status !== it.handSetStatus && (
+                              <span title="engine-verified status differs from hand-set" style={{ fontSize: 10.5, color: "var(--text2)" }}>
+                                {" "}· {T("เอนจินประเมิน", "engine-verified", "引擎验证")}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11.5, marginTop: 2 }}>
+                            {it.stars > 0 && <span>{starStr(it.stars)}</span>}
+                            <span style={{ color: "var(--muted)" }}> · {it.cells.toLocaleString()} {T("เซลล์", "cells", "单元")}</span>
+                            {it.nextWork && <span style={{ color: "var(--text2)" }}> · {T("งานถัดไป", "next", "下一步")}: {it.nextWork}</span>}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: st.color, whiteSpace: "nowrap" }}>{st[lang] || st.en}</span>
+                        <button style={{ ...S.btn, fontSize: 11, padding: "3px 8px" }}
+                          onClick={() => (cellsOpen ? setOpenCells(null) : loadCells(it.n, 0))}>
+                          {cellsOpen ? "▲" : T("เซลล์", "cells", "单元")}
+                        </button>
+                      </div>
+                      {cellsOpen && (
+                        <div style={{ padding: "0 0 10px 36px" }}>
+                          {openCells.rows.map(c => (
+                            <div key={c.index} style={{ display: "flex", gap: 6, fontSize: 11.5, padding: "2px 0", color: "var(--text2)" }}>
+                              <span style={{ ...S.mono, minWidth: 92 }}>{c.code}</span>
+                              <span style={{ flex: 1 }}>{lang === "en" ? c.title.en : c.title.th}</span>
+                              <span>{c.covered ? "✅" : "—"}</span>
+                            </div>
+                          ))}
+                          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                            {openCells.nextOffset != null && (
+                              <button style={{ ...S.btn, fontSize: 11, padding: "3px 8px" }}
+                                onClick={() => { const next = (cellPage[it.n] || 0) + 8; setCellPage(p => ({ ...p, [it.n]: next })); loadCells(it.n, next); }}>
+                                {T("ถัดไป", "more", "更多")} ({openCells.total.toLocaleString()} {T("เซลล์", "cells", "单元")})
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── Knowledge panel: university-sourced entries + their real source links ── */
 function KnowledgePanel({ lang, S }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const tiga = getTigamodel();
   const { sources } = getUniversitySources();
   const [openId, setOpenId] = useState(null);
+  const [view, setView] = useState("all"); // "all" = full expansion KB · "uni" = university sources only
+  const [q, setQ] = useState("");
+  const [dom, setDom] = useState("");
   if (!tiga || !tiga.kb) return null;
-  const entries = Array.from(tiga.kb._entries.values()).filter(e => e.source && sources[e.source]);
+  const allEntries = Array.from(tiga.kb._entries.values());
+  const uniEntries = allEntries.filter(e => e.source && sources[e.source]);
   const bySource = {};
-  entries.forEach(e => { (bySource[e.source] = bySource[e.source] || []).push(e); });
+  uniEntries.forEach(e => { (bySource[e.source] = bySource[e.source] || []).push(e); });
+
+  /* Full-KB search view (16,000+ computed knowledge entries) */
+  const doms = {};
+  allEntries.forEach(e => { doms[e.domain] = (doms[e.domain] || 0) + 1; });
+  const needle = q.trim().toLowerCase();
+  const matched = needle || dom
+    ? allEntries.filter(e =>
+        (!dom || e.domain === dom) &&
+        (!needle || e.title.toLowerCase().includes(needle) || e.body.toLowerCase().includes(needle) || (e.tags || []).some(t => t.toLowerCase().includes(needle))))
+      .slice(0, 120)
+    : allEntries.slice(0, 40);
+
+  if (view === "all") return (
+    <div>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 10 }}>
+        {T(
+          `คลังความรู้ทั้งหมด ${allEntries.length.toLocaleString()} รายการ — คำนวณจากคณิตทฤษฎีดนตรีจริง (สเกล คอร์ด คีย์ จังหวะ เทคนิค การสอน) ทุกรายการตรวจสอบได้ ไม่มีข้อความมั่ว`,
+          `Full knowledge base: ${allEntries.length.toLocaleString()} entries — computed from real music-theory math (scales, chords, keys, rhythm, technique, pedagogy). Every entry verifiable, zero filler.`,
+          `全部知识库：${allEntries.length.toLocaleString()} 条 — 由真实音乐理论计算生成，每条可验证`
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder={T("ค้นหา... (เช่น C major, dorian, hanon)", "Search... (e.g. C major, dorian, hanon)", "搜索...")}
+          style={{ ...S.input, flex: 1, minWidth: 160 }} />
+        <select value={dom} onChange={e => setDom(e.target.value)} style={{ ...S.input, maxWidth: 180 }}>
+          <option value="">{T("ทุกหมวด", "All domains", "所有领域")} ({allEntries.length.toLocaleString()})</option>
+          {Object.entries(doms).sort((a, b) => b[1] - a[1]).map(([d, n]) => (
+            <option key={d} value={d}>{d} ({n.toLocaleString()})</option>
+          ))}
+        </select>
+        <button style={S.chip(false)} onClick={() => setView("uni")}>🏛 {T("แหล่งมหาวิทยาลัย", "University sources", "大学来源")}</button>
+      </div>
+      <div style={{ ...S.mono, marginBottom: 8 }}>
+        {matched.length < allEntries.length
+          ? T(`แสดง ${matched.length} รายการ`, `showing ${matched.length}`, `显示 ${matched.length} 条`)
+          : T("แสดงตัวอย่างแรก", "showing first", "显示开头")}
+      </div>
+      {matched.map(e => (
+        <div key={e.id} style={{ ...S.inner, marginBottom: 6 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)" }}>{e.title}</div>
+          <div style={{ fontSize: 13.5, marginTop: 4, color: "var(--text)" }}>{e.body}</div>
+          <div style={{ ...S.mono, marginTop: 5 }}>type: {e.type} · confidence: {e.confidence} · domain: {e.domain}</div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <button style={S.chip(false)} onClick={() => setView("all")}>📚 {T(`คลังทั้งหมด (${allEntries.length.toLocaleString()})`, `Full KB (${allEntries.length.toLocaleString()})`, `全部 (${allEntries.length.toLocaleString()})`)}</button>
+      </div>
       <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
         {T(
           "องค์ความรู้ดนตรีที่รวบรวมจากสถาบันดนตรีชั้นนำของแต่ละประเทศ (หน้าเว็บสาธารณะ อ่านจริง 17 ก.ย. 2026) — เนื้อหาเรียบเรียงใหม่ทั้งหมด ไม่คัดลอกข้อความดิบ ทุกข้อมูลมีลิงก์แหล่งอ้างอิงจริง",

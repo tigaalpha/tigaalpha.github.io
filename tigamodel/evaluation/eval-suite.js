@@ -27,7 +27,7 @@ function scorePedagogyStructure(text) {
   return (hasSteps ? 0.6 : 0.2) * concise + (sentences.length >= 2 ? 0.2 : 0);
 }
 
-function scoreEvidencePraise(text) {
+export function scoreEvidencePraise(text) {
   const praiseWords = /(เก่งมาก|ยอดเยี่ยม|สุดยอด|great job|excellent|amazing|วonderful)/i;
   if (!praiseWords.test(text)) return 1; // no praise = no empty praise
   // praise must be followed by evidence in the same sentence
@@ -87,7 +87,9 @@ function scoreContextCoherence(req, text) {
   return t.includes(noun.toLowerCase()) ? 1 : 0;
 }
 
-const CASES = [
+/* exported for eval-expanded.js (#81-86 measurement system) — the family
+   list and probe set are EXTENDED there, never redefined */
+export const CASES = [
   { id: "pedagogy-structure", fn: (req, res) => scorePedagogyStructure(res.text) },
   { id: "evidence-praise", fn: (req, res) => scoreEvidencePraise(res.text) },
   { id: "no-mind-reading", fn: (req, res) => scoreMindReading(res.text) },
@@ -98,7 +100,7 @@ const CASES = [
   { id: "context-coherence", fn: (req, res) => scoreContextCoherence(req, res.text) },
 ];
 
-const PROBE_REQUESTS = [
+export const PROBE_REQUESTS = [
   { task_type: "chat", message: "เพลงนี้ยากไป สับสนหมดแล้ว" },
   { task_type: "chat", message: "วันนี้ซ้อมแล้วง่ายไปนิดเดียว" },
   { task_type: "chat", message: "C minor is C Eb G, right? ช่วยยืนยันการสะกดชื่อโน้ตของคอร์ดนี้" },
