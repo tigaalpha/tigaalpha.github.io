@@ -9,6 +9,12 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
   return (
         <div className="songov camov">
           <div className="songhdr">
+            {/* back arrow (top-left, always works — same exitCamera as the
+                header close; the recap-aware fix in use-camera-coach.ts makes
+                it reliable even when a session recap is showing) */}
+            <button className="cbtn" style={{ fontSize: 20, lineHeight: 1, padding: "2px 10px" }}
+              aria-label={lc.back} title={lc.back}
+              onClick={exitCamera}>←</button>
             <div className="songhtitle">
               ✋ {lc.camTitle}
               {camStreakInfo && camStreakInfo.count > 0 && (
