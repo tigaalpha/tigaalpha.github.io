@@ -3,6 +3,7 @@ import { sb } from "./supabase-client";
 import { playUi } from "./music-engine";
 import { AI_PROVIDERS, AI_FEATURES } from "./AdminAIModels";
 import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, loadChatSessions, deleteChatSession, clearChatSessions, loadEvalRuns, clearEvalRuns } from "./tigamodel/web.js";
+import { readAutoTeachOutcomes } from "./use-autoteach";
 
 /* ── TigamodelBackoffice.tsx ──
    TIGA's own back office (แยกจากหลังบ้านทั่วไปของแอป): the single surface
@@ -67,6 +68,15 @@ export function TigamodelBackoffice({ lang = "th" }) {
   const [savedKey, setSavedKey] = useState("");
   const [err, setErr] = useState("");
   const [version, setVersion] = useState("");
+  const [outc, setOutc] = useState(null);       // admin_strategy_effectiveness rows
+  const [outcErr, setOutcErr] = useState("");
+
+  useEffect(() => {
+    if (tab !== "outcomes" || outc || outcErr) return;
+    sb.rpc("admin_strategy_effectiveness")
+      .then(({ data, error }) => { if (error) setOutcErr(error.message || "rpc error"); else setOutc(Array.isArray(data) ? data : []); })
+      .catch((e) => setOutcErr(String((e && e.message) || e)));
+  }, [tab, outc, outcErr]);
 
   const load = useCallback(() => {
     Promise.all([
@@ -156,9 +166,69 @@ export function TigamodelBackoffice({ lang = "th" }) {
         <button style={S.chip(tab === "models")} onClick={() => setTab("models")}>🧠 {T("โมเดลพื้นฐาน", "Foundation models", "基础模型")}</button>
         <button style={S.chip(tab === "history")} onClick={() => setTab("history")}>💬 {T("ประวัติทดสอบแชท", "Chat test history", "聊天测试历史")}</button>
         <button style={S.chip(tab === "evals")} onClick={() => setTab("evals")}>📊 {T("ประวัติประเมิน", "Eval history", "评估历史")}</button>
+        <button style={S.chip(tab === "outcomes")} onClick={() => setTab("outcomes")}>🏆 {T("กลยุทธ์ไหนชนะ", "Winning strategies", "有效策略")}</button>
       </div>
 
       {err && <div style={{ color: S.bad, fontSize: 13, marginBottom: 10 }}>⚠️ {err}</div>}
+
+      {/* ══ 4) WINNING STRATEGIES: teaching_outcomes (plan §4.4, Phase C) ══ */}
+      {tab === "outcomes" && (() => {
+        const local = readAutoTeachOutcomes();
+        const resolved = local.filter(r => r.resolved && r.outcome);
+        const improvedLocal = resolved.filter(r => r.outcome.improved === true).length;
+        const followed = local.filter(r => r.action === "follow").length;
+        const rows = Array.isArray(outc) ? outc : [];
+        return (
+          <div style={S.card}>
+            <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>🏆 {T("กลยุทธ์ไหนได้ผลจริง (ทุกเครื่อง)", "Which strategies actually work (all devices)", "哪些策略真正有效（所有设备）")}</div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 10 }}>
+              {T("จากตาราง teaching_outcomes — ทุกครั้งที่ครู TiGA แนะนำแล้วนักเรียนซ้อมตาม ระบบเทียบความแม่นยำก่อน/หลังให้อัตโนมัติ (ข้อมูลสะสมจากทุกเครื่อง · เฉพาะ top admin)", "From the teaching_outcomes table — every time Coach TiGA advises and the learner practices, before/after accuracy is compared automatically (cross-device · top admin only)", "来自 teaching_outcomes 表——每次教学建议后自动对比练习前后的准确率（跨设备 · 仅限最高管理员）")}
+            </div>
+            {outcErr ? (
+              <div style={{ fontSize: 12.5, color: S.bad }}>⚠️ {outcErr}</div>
+            ) : outc === null ? (
+              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>⏳ {T("กำลังโหลด...", "Loading...", "加载中...")}</div>
+            ) : rows.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                {T("ยังไม่มีข้อมูล — เมื่อนักเรียนเริ่มซ้อมตามคำแนะนำ ตัวเลขจะเริ่มสะสมที่นี่", "No data yet — numbers start accumulating once learners practice after tips", "暂无数据——学员按建议练习后数据会开始积累")}
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                  <thead>
+                    <tr style={{ color: "var(--muted)", textAlign: "left" }}>
+                      <th style={{ padding: "6px 8px" }}>{T("กลยุทธ์", "Strategy", "策略")}</th>
+                      <th style={{ padding: "6px 8px" }}>n</th>
+                      <th style={{ padding: "6px 8px" }}>{T("ก่อน", "Before", "前")}</th>
+                      <th style={{ padding: "6px 8px" }}>{T("หลัง", "After", "后")}</th>
+                      <th style={{ padding: "6px 8px" }}>Δ</th>
+                      <th style={{ padding: "6px 8px" }}>{T("ดีขึ้น", "Improved", "改善")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(r => (
+                      <tr key={r.strategy_id} style={{ borderTop: "1px solid var(--bd2,rgba(0,0,0,0.06))" }}>
+                        <td style={{ padding: "6px 8px", fontWeight: 700 }}>{r.strategy_id}</td>
+                        <td style={{ padding: "6px 8px" }}>{r.n}</td>
+                        <td style={{ padding: "6px 8px" }}>{Number(r.avg_before).toFixed(1)}%</td>
+                        <td style={{ padding: "6px 8px" }}>{Number(r.avg_after).toFixed(1)}%</td>
+                        <td style={{ padding: "6px 8px", fontWeight: 800, color: r.delta > 0 ? S.good : r.delta < 0 ? S.bad : "var(--muted)" }}>{r.delta > 0 ? "+" : ""}{Number(r.delta).toFixed(1)}</td>
+                        <td style={{ padding: "6px 8px" }}>{r.improved}/{r.n}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{ ...S.inner, marginTop: 12 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>📱 {T("เครื่องนี้ (ออฟไลน์แคช)", "This device (local cache)", "本设备（本地缓存）")}</div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                {T(`กดตามคำแนะนำ ${followed} ครั้ง · จบวงจรปิด ${resolved.length} รอบ · ดีขึ้น ${improvedLocal} รอบ`, `Followed ${followed} tips · ${resolved.length} closed loops · ${improvedLocal} improved`, `跟随建议 ${followed} 次 · 闭环 ${resolved.length} 轮 · 改善 ${improvedLocal} 轮`)}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ══ 1) FOUNDATION MODELS: current + switch ══ */}
       {cfg && tab === "models" && (

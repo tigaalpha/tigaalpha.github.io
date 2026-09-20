@@ -24,6 +24,7 @@ const files = [
   "knowledge/knowledge-base.js",
   "knowledge/university-sources.js",
   "knowledge/university-seed.js",
+  "knowledge/teach-cards.js",
   "evaluation/eval-suite.js",
   "index.js",
 ];
@@ -40,6 +41,8 @@ const loopM = await M("teaching/teaching-loop.js");
 const kbM = await M("knowledge/knowledge-base.js");
 const evalM = await M("evaluation/eval-suite.js");
 const indexM = await M("index.js");
+const srcM = await M("knowledge/university-sources.js");
+const tcM = await M("knowledge/teach-cards.js");
 
 let passed = 0;
 async function ok(label, fn) { await fn(); passed++; console.log(`  ✓ ${label}`); }
@@ -203,6 +206,56 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
   const res2 = await adapter2.complete(schema.makeTIGARequest({ taskType: "chat", message: "x" }));
   assert.equal(res2.status, "error");
 });
+
+  // ── Auto Teaching 2.0 — teach cards (plan §4.1): no fake citations, valid quizzes ──
+  await ok("teach-cards: unique ids, 3 languages, REAL source citations, valid quizzes", async () => {
+    const srcIds = new Set(srcM.listSourceIds());
+    const ids = new Set();
+    for (const c of tcM.TEACH_CARDS) {
+      assert.ok(!ids.has(c.id), "duplicate card id " + c.id);
+      ids.add(c.id);
+      for (const f of ["concept", "why"]) assert.ok(c[f] && c[f].th && c[f].en && c[f].zh, c.id + " missing " + f + " langs");
+      assert.ok(srcIds.has(c.source), c.id + " cites UNKNOWN source " + c.source + " (fake citation = spec §12 violation)");
+      assert.ok(c.quiz && c.quiz.choices && c.quiz.choices.length === 3, c.id + " quiz needs 3 choices");
+      assert.ok(c.quiz.correct >= 0 && c.quiz.correct < 3, c.id + " quiz.correct out of range");
+      assert.ok(c.quiz.q && c.quiz.q.th && c.quiz.q.en && c.quiz.q.zh, c.id + " quiz.q missing langs");
+      assert.ok(c.quiz.choices.every(ch => ch.th && ch.en && ch.zh), c.id + " quiz choices missing langs");
+      assert.ok(c.tier >= 0 && c.tier <= 2, c.id + " tier out of range");
+    }
+    assert.ok(tcM.TEACH_CARDS.length >= 10, "expected at least 10 cards, got " + tcM.TEACH_CARDS.length);
+  });
+
+  await ok("teach-cards picker: tier gating + weakness matching + 7-day no-repeat", async () => {
+    // beginner (level 1) must never get a tier-2 card
+    for (let i = 0; i < 40; i++) {
+      const c = tcM.pickTeachCard({ level: 1, now: 1758000000000 + i * 86400000 });
+      assert.ok(c && c.tier === 0, "beginner got tier " + c.tier + " card " + c.id);
+    }
+    // weakness keyword match: rhythm struggle → a rhythm-tagged card
+    const rhy = tcM.pickTeachCard({ level: 1, struggleLabel: "จังหวะ rhythm ไม่แม่น", now: 1758000000000 });
+    assert.ok(rhy.tags.some(t => "จังหวะ rhythm ไม่แม่น".includes(t)), "rhythm struggle did not match a rhythm card");
+    // 7-day no-repeat: seen today → same (level, struggle, day) yields a DIFFERENT card
+    const now = 1758000000000;
+    const first = tcM.pickTeachCard({ level: 5, struggleLabel: "", now });
+    const again = tcM.pickTeachCard({ level: 5, struggleLabel: "", now, seenOverride: { [first.id]: new Date(now).toISOString().slice(0, 10) } });
+    assert.notEqual(first.id, again.id, "seen card was not skipped");
+  });
+
+  await ok("teach-cards stats: streak continuity + correct/answered counters", async () => {
+    tcM.writeKnowledgeStats({ streak: 0, bestStreak: 0, lastDay: null, correct: 0, answered: 0, seen: {} });
+    const s1 = tcM.bumpKnowledgeStats(true);
+    assert.equal(s1.streak, 1); assert.equal(s1.correct, 1); assert.equal(s1.answered, 1);
+    const s2 = tcM.bumpKnowledgeStats(false);
+    assert.equal(s2.streak, 1, "same-day answer must not raise streak");
+    assert.equal(s2.correct, 1); assert.equal(s2.answered, 2);
+    // yesterday → streak 2
+    const y = new Date(Date.now() - 86400000);
+    const pad = n => String(n).padStart(2, "0");
+    tcM.writeKnowledgeStats({ streak: 1, bestStreak: 1, lastDay: y.getFullYear() + "-" + pad(y.getMonth() + 1) + "-" + pad(y.getDate()), correct: 5, answered: 6, seen: {} });
+    const s3 = tcM.bumpKnowledgeStats(true);
+    assert.equal(s3.streak, 2, "yesterday streak should continue");
+    tcM.writeKnowledgeStats({ streak: 0, bestStreak: 0, lastDay: null, correct: 0, answered: 0, seen: {} });
+  });
 }
 
 main().then(() => {

@@ -11,6 +11,7 @@ import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
 import { runTeachingLoopForPractice, reinforceTeachingOutcome } from "./tigamodel/web";
 import { recordNoteMisses, recordTipOutcome, weightedStruggles } from "./use-autoteach";
+import { sb } from "./supabase-client";
 /* ── use-practice-mode.ts ──
    Owns the "listen to the learner play and grade it against a target
    sequence" session: mic/MIDI/tap-driven note matching (broken = one note
@@ -616,7 +617,33 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       const noteMisses = (practiceNoteMissesRef.current || []).slice(0, 12);
       practiceNoteMissesRef.current = [];
       recordNoteMisses(noteMisses);
-      recordTipOutcome(label, weightedStruggles());   // วงจรปิด (ข้อ 6): tip ที่เคยแนะนำเรื่องนี้ไว้ → เทียบก่อน/หลัง
+      // Auto Teaching 2.0 (Phase C): the closed loop also APPENDS the measured
+      // before/after to the server-side teaching_outcomes table (append-only;
+      // RLS restricts inserts to own rows) so the back office's
+      // admin_strategy_effectiveness sees cross-device data, not just this
+      // device's localStorage. Best-effort — analytics never breaks practice.
+      const atRec = recordTipOutcome(label, weightedStruggles());   // วงจรปิด (ข้อ 6): tip ที่เคยแนะนำเรื่องนี้ไว้ → เทียบก่อน/หลัง
+      if (atRec && atRec.resolved && atRec.strategyId) {
+        sb.auth.getUser().then(({ data: u }) => {
+          const uid = u && u.user && u.user.id;
+          if (!uid) return;
+          const beforeAcc = atRec.before && atRec.before[0] ? atRec.before[0].acc : null;
+          const afterAcc = atRec.outcome && atRec.outcome.after != null ? atRec.outcome.after : null;
+          const outcome = atRec.outcome && atRec.outcome.improved === true ? "improved" : atRec.outcome && atRec.outcome.improved === false ? "worse" : "same";
+          return sb.from("teaching_outcomes").insert({
+            student_id: uid,
+            session_id: atRec.id,
+            strategy_id: atRec.strategyId || "unknown",
+            actions: [],
+            initial_states: (atRec.before || []).map(b => ({ label: b.label, accuracy: b.acc })),
+            signals: { topic: atRec.topic || null, source: "practice-drill" },
+            message_shown: atRec.topic || null,
+            performance_before: beforeAcc,
+            performance_after: afterAcc,
+            outcome,
+          }).then(() => {}, () => {});
+        }).catch(() => {});
+      }
     } catch (e) { /* best-effort — ไม่มีทางพังหน้าสรุปผล */ }
 
     // Personal best, per drill (+chord-style when relevant — block vs. broken

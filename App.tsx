@@ -31,7 +31,9 @@ import { sb, SUPABASE_URL } from "./supabase-client";
 import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
 import { runTeachingLoopForPractice } from "./tigamodel/web";
-import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction } from "./use-autoteach";
+import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes } from "./use-autoteach";
+import { pickTeachCard, markCardSeen, readKnowledgeStats, bumpKnowledgeStats, readNoteMissMap, cardSourceInfo } from "./tigamodel/knowledge/teach-cards.js";
+import TeachVisual from "./TeachVisual";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { withAiCache } from "./ai-cache";
 import {
@@ -384,6 +386,16 @@ export const BADGES = [
   { id: "lv10",  icon: "👑", metric: "level",   need: 10,   th: "ถึงเลเวล 10",       en: "Reach Lv 10",   zh: "达到10级" },
   { id: "e1000", icon: "💎", metric: "exp",     need: 1000, th: "สะสม 1,000 EXP",    en: "1,000 EXP",     zh: "1,000 EXP" },
   { id: "e5000", icon: "🏆", metric: "exp",     need: 5000, th: "สะสม 5,000 EXP",    en: "5,000 EXP",     zh: "5,000 EXP" },
+  // Auto Teaching 2.0 knowledge badges — metrics come from tg_kstats
+  // (localStorage: quiz answers + knowledge-answer streak) via readKnowledgeStats().
+  { id: "kq1",   icon: "🧠", metric: "kcorrect", need: 1,   th: "ตอบควิซแรก",         en: "First Quiz",     zh: "首次问答" },
+  { id: "kq10",  icon: "🎯", metric: "kcorrect", need: 10,  th: "นักความรู้รุ่นเล็ก",   en: "Quiz Learner",   zh: "问答学徒" },
+  { id: "kq25",  icon: "📘", metric: "kcorrect", need: 25,  th: "นักความรู้",          en: "Knowledge Seeker", zh: "求知者" },
+  { id: "kq100", icon: "📗", metric: "kcorrect", need: 100, th: "ปรมาจารย์ความรู้",    en: "Knowledge Master", zh: "知识大师" },
+  { id: "ks3",   icon: "🧩", metric: "kstreak",  need: 3,   th: "สตรีคความรู้ 3 วัน",   en: "3-Day Knowledge Streak", zh: "知识连续3天" },
+  { id: "ks7",   icon: "🌈", metric: "kstreak",  need: 7,   th: "สตรีคความรู้ 7 วัน",   en: "7-Day Knowledge Streak", zh: "知识连续7天" },
+  { id: "ks14",  icon: "🚀", metric: "kstreak",  need: 14,  th: "สตรีคความรู้ 14 วัน",  en: "14-Day Knowledge Streak", zh: "知识连续14天" },
+  { id: "ks30",  icon: "🏅", metric: "kstreak",  need: 30,  th: "สตรีคความรู้ 30 วัน",  en: "30-Day Knowledge Streak", zh: "知识连续30天" },
 ];
 function badgeMetric(p, metric) {
   const exp = (p && p.exp) || 0;
@@ -391,6 +403,8 @@ function badgeMetric(p, metric) {
   if (metric === "lessons") return (p && p.lessons_done) || 0;
   if (metric === "streak") return (p && p.streak) || 0;
   if (metric === "level") return levelInfo(exp).level;
+  if (metric === "kcorrect") return readKnowledgeStats().correct;
+  if (metric === "kstreak") return readKnowledgeStats().streak;
   return 0;
 }
 export function unlockedBadgeIds(p) {
@@ -5044,6 +5058,33 @@ function buildFallbackTip(lang, struggle, strat, noteMisses) {
   };
   const c = lang === "th" ? th : lang === "zh" ? zh : en;
   return { weakness: c.weakness, steps: c.steps.slice(0, 2), feature: struggle ? "pathway" : "pathway", topic: struggle ? struggle.label : null, strategyId: strat ? strat.name : null, fallback: true };
+}
+
+/* Auto Teaching 2.0 (plan §4.3): pick the learner DATA chart for the coaching
+   popup — strictly from real records, never invented; falls through
+   mini-keyboard → accuracy bars → before/after → level donut, and returns
+   null rather than showing an empty chart. */
+function buildAutoTeachVisual(tip, profile) {
+  try {
+    const miss = readNoteMissMap();
+    if (miss && Object.keys(miss).length) return { type: "mini-keyboard", data: { miss } };
+    const log = readActLog() || [];
+    const byDay = {};
+    for (const e of log) {
+      if (!e || !e.d) continue;
+      const tot = (e.ok || 0) + (e.miss || 0);
+      if (tot < 5) continue; // noise floor — a stray tap isn't a datapoint
+      if (!byDay[e.d]) byDay[e.d] = { ok: 0, tot: 0 };
+      byDay[e.d].ok += e.ok || 0; byDay[e.d].tot += tot;
+    }
+    const days = Object.keys(byDay).sort().slice(-7).map(d => ({ d: d.slice(5), pct: Math.round(100 * byDay[d].ok / Math.max(1, byDay[d].tot)) }));
+    if (days.length >= 2) return { type: "bars", data: { days } };
+    const topic = tip && tip.topic;
+    const rec = [...readAutoTeachOutcomes()].reverse().find(r => r.resolved && r.outcome && r.outcome.after != null && (!topic || r.topic === topic || topic.includes(r.topic) || (r.topic || "").includes(topic)));
+    if (rec && rec.before && rec.before[0]) return { type: "before-after", data: { before: rec.before[0].acc, after: rec.outcome.after, label: rec.topic } };
+    const li = levelInfo((profile && profile.exp) || 0);
+    return { type: "donut", data: { pct: Math.round(100 * (li.progress || 0)), label: `Lv ${li.level}` } };
+  } catch (e) { return null; }
 }
 
 async function generateCoachTip(lang, profile) {
@@ -10038,6 +10079,57 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [autoTeachTip, setAutoTeachTip] = useState(null);   // {weakness, tip} currently shown, or null
   const autoTeachBusyRef = useRef(false);
   const autoTeachTimer = useRef(null);
+  // ── Auto Teaching 2.0: the knowledge micro-quiz inside the coaching card.
+  // One 30-second question per card; a correct answer pays +5 gems via the
+  // server (grant_quiz_gem — additive, hard daily cap) for signed-in learners,
+  // or local coins for guests. It never blocks or breaks the tip itself. ──
+  const [teachQuiz, setTeachQuiz] = useState(null); // {card, picked, correct, tleft} | null
+  const teachQuizTimer = useRef(null);
+  useEffect(() => {
+    if (autoTeachTip) return;
+    setTeachQuiz(null);
+    if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; }
+  }, [autoTeachTip]);
+  function openTeachQuiz(card) {
+    if (!card || !card.quiz) return;
+    try { logUsage("atip", "quiz"); } catch (e) {}
+    setTeachQuiz({ card, picked: null, correct: null, tleft: 30 });
+    if (teachQuizTimer.current) clearInterval(teachQuizTimer.current);
+    teachQuizTimer.current = setInterval(() => {
+      setTeachQuiz(q => {
+        if (!q || q.picked !== null) { if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; } return q; }
+        if (q.tleft <= 1) { if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; } bumpKnowledgeStats(false); return { ...q, picked: -1, correct: false, tleft: 0 }; }
+        return { ...q, tleft: q.tleft - 1 };
+      });
+    }, 1000);
+  }
+  function answerTeachQuiz(i) {
+    const q = teachQuiz;
+    if (!q || q.picked !== null || i < 0 || !q.card || !q.card.quiz) return;
+    const ok = i === q.card.quiz.correct;
+    if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; }
+    bumpKnowledgeStats(ok);
+    try { logUsage("atip", ok ? "quiz_ok" : "quiz_no"); } catch (e) {}
+    setTeachQuiz({ ...q, picked: i, correct: ok, tleft: 0 });
+    if (ok) rewardTeachGem(q.card);
+  }
+  async function rewardTeachGem(card) {
+    try {
+      if (session && session.user && session.user.id) {
+        const { data: r } = await sb.rpc("grant_quiz_gem", { p_card_id: card ? card.id : null });
+        if (r && r.granted > 0) {
+          setProfile(p => ({ ...(p || {}), gems: r.gems }));
+          playUi("reward");
+          setLuckyToast({ kind: "gem", n: r.granted, left: r.remaining });
+          setTimeout(() => setLuckyToast(null), 3200);
+          return;
+        }
+        // RPC missing (migration not applied yet) or today's cap spent — pay coins instead
+      }
+      earnCoins(15);
+      playUi("reward");
+    } catch (e) { try { earnCoins(15); } catch (e2) {} }
+  }
   // ── Admin broadcast: an announcement (text + optional image) an admin can push to
   // every learner's home page on demand — checked on load and polled while the app is
   // open, so it appears without needing a reload; shown once per broadcast id per device. ──
@@ -10384,6 +10476,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try {
       const obj = await generateCoachTip(lang, profile);
       if (obj) {
+        // Auto Teaching 2.0: attach the รู้ไว้ใช่ว่า micro-lesson (it explains
+        // THIS weakness, cited to a real university source) and the learner's
+        // own data chart. Both best-effort — the tip must never fail because
+        // the knowledge layer hiccuped.
+        try {
+          const kcard = pickTeachCard({ level: (profile && profile.level) || 0, struggleLabel: obj.topic || obj.weakness || "" });
+          if (kcard) { markCardSeen(kcard.id); obj.knowledge = kcard; }
+        } catch (e2) {}
+        try { obj.visual = buildAutoTeachVisual(obj, profile); } catch (e2) {}
         setAutoTeachTip(obj);
         logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature, obj.topic);
         try { openAdvice(obj, weightedStruggles()); logUsage("atip", "show"); } catch (e2) {} // วงจรปิด (ข้อ 6): จดสถานะจุดอ่อน ณ ตอนยิงไว้เทียบผลซ้อมถัดไป
@@ -12836,7 +12937,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         );
       })()}
 
-      {/* Auto Teaching — real-time coaching card (Max plan, fires on a timer while on the Pathway page) */}
+      {/* Auto Teaching 2.0 — coaching card: weakness + the learner's own data chart + a cited รู้ไว้ใช่ว่า micro-lesson + 30s knowledge quiz (plan §4; TTS excluded per owner) */}
       {autoTeachTip && !broadcast && (
         <div className="atpopup" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>
@@ -12846,6 +12947,60 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className="atpopup-x" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }} aria-label="close">×</button>
             </div>
             <div className="atpopup-weak">{autoTeachTip.weakness}</div>
+            {autoTeachTip.visual && <div style={{ margin: "8px 0 2px", borderRadius: 12, overflow: "hidden" }}><TeachVisual type={autoTeachTip.visual.type} data={autoTeachTip.visual.data} lang={lang} /></div>}
+            {autoTeachTip.knowledge && (() => {
+              const k = autoTeachTip.knowledge;
+              const src = cardSourceInfo(k);
+              const q = k.quiz || null;
+              const KC = {
+                th: { knowIt: "รู้ไว้ใช่ว่า", quiz: "ควิซ 30 วิ +5💎", ok: "ถูกต้อง! +5 เพชร", no: "เกือบแล้ว! คำตอบคือ", streak: "สตรีคความรู้", days: "วัน", timeUp: "หมดเวลา!", src: "ที่มา" },
+                en: { knowIt: "Did you know", quiz: "30s quiz +5💎", ok: "Correct! +5 gems", no: "Close! The answer is", streak: "Knowledge streak", days: "days", timeUp: "Time's up!", src: "Source" },
+                zh: { knowIt: "你知道吗", quiz: "30秒问答 +5💎", ok: "答对了！+5钻石", no: "就差一点！答案是", streak: "知识连续", days: "天", timeUp: "时间到！", src: "来源" },
+              }[lang] || {};
+              const ks = readKnowledgeStats();
+              return (
+                <div style={{ margin: "10px 0 4px", padding: "10px 12px", borderRadius: 12, background: "var(--card2,rgba(0,0,0,0.03))", border: "1px solid var(--bd2,rgba(0,0,0,0.06))" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <b style={{ fontSize: 11.5, color: "var(--accent)" }}>💡 {KC.knowIt}</b>
+                    {ks.streak > 0 && <span style={{ fontSize: 10.5, color: "var(--muted)" }}>🔥 {KC.streak} {ks.streak} {KC.days}</span>}
+                  </div>
+                  {k.diagram && <div style={{ margin: "6px 0 2px" }}><TeachVisual type={k.diagram.type} data={k.diagram} lang={lang} /></div>}
+                  <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4, color: "var(--text)" }}>{k.concept[lang] || k.concept.th}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>{k.why[lang] || k.why.th}</div>
+                  {q && !teachQuiz && (
+                    <button type="button" onClick={() => openTeachQuiz(k)} style={{ marginTop: 8, width: "100%", padding: "8px 10px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>🧠 {KC.quiz}</button>
+                  )}
+                  {q && teachQuiz && teachQuiz.card && teachQuiz.card.id === k.id && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{q.q[lang] || q.q.th}</span>
+                        {teachQuiz.picked === null && <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>{teachQuiz.tleft}s</span>}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                        {q.choices.map((ch, i) => {
+                          const revealed = teachQuiz.picked !== null;
+                          const isRight = i === q.correct;
+                          const bg = revealed ? (isRight ? "rgba(34,197,94,0.16)" : teachQuiz.picked === i ? "rgba(249,115,22,0.16)" : "transparent") : "transparent";
+                          return (
+                            <button key={i} type="button" disabled={revealed} onClick={() => answerTeachQuiz(i)} style={{ textAlign: "left", padding: "7px 10px", borderRadius: 9, border: "1px solid " + (revealed && isRight ? "rgba(34,197,94,0.5)" : "var(--bd2,rgba(0,0,0,0.1))"), background: bg, color: "var(--text)", fontSize: 12, fontWeight: revealed && isRight ? 700 : 500, cursor: revealed ? "default" : "pointer" }}>
+                              {String.fromCharCode(65 + i)}. {ch[lang] || ch.th}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {teachQuiz.picked !== null && (
+                        <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: teachQuiz.correct ? "var(--ok,#16a34a)" : "var(--accent)" }}>
+                          {teachQuiz.picked === -1 ? KC.timeUp : teachQuiz.correct ? KC.ok : `${KC.no} ${q.choices[q.correct][lang] || q.choices[q.correct].th}`}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {src && src.institution && (
+                    <a href={src.url} target="_blank" rel="noreferrer noopener" style={{ display: "inline-block", marginTop: 8, fontSize: 10.5, color: "var(--muted)", textDecoration: "underline", textUnderlineOffset: 2 }}>📚 {KC.src}: {src.institution}</a>
+                  )}
+                </div>
+              );
+            })()}
             <ol className="atpopup-steps">
               {autoTeachTip.steps.map((s, i) => (
                 <li key={i}>
