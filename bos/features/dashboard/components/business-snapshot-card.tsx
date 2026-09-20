@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
+import { useT, useLang } from "@/lib/language-context";
+import { tfmt, langLocale } from "@/lib/i18n";
 import type { Tables } from "@/types/database";
 
 interface BusinessSnapshotCardProps {
@@ -40,6 +42,8 @@ function toForm(s: Tables<"business_snapshot"> | null): FormState {
 }
 
 export function BusinessSnapshotCard({ snapshot, onChanged }: BusinessSnapshotCardProps) {
+  const t = useT();
+  const { lang } = useLang();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<FormState>(() => toForm(snapshot));
   const [saving, setSaving] = useState(false);
@@ -72,7 +76,7 @@ export function BusinessSnapshotCard({ snapshot, onChanged }: BusinessSnapshotCa
       setEditing(false);
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
+      setError(err instanceof Error ? err.message : t("snapshot.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -82,34 +86,34 @@ export function BusinessSnapshotCard({ snapshot, onChanged }: BusinessSnapshotCa
     return (
       <Card>
         <CardHeader>
-          <CardTitle>สถานะธุรกิจปัจจุบัน</CardTitle>
-          <CardDescription>แก้ไขตัวเลขสรุปธุรกิจ — อัปเดตเองเป็นระยะตามที่คำนวณได้</CardDescription>
+          <CardTitle>{t("snapshot.title")}</CardTitle>
+          <CardDescription>{t("snapshot.descEdit")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="นักเรียน Active (คน)">
+            <Field label={t("snapshot.fActive")}>
               <Input type="number" value={form.active_students} onChange={(e) => setForm({ ...form, active_students: e.target.value })} />
             </Field>
-            <Field label="ชั่วโมงสอน/สัปดาห์">
+            <Field label={t("snapshot.fHoursWeek")}>
               <Input type="number" step="0.1" value={form.teaching_hours_per_week} onChange={(e) => setForm({ ...form, teaching_hours_per_week: e.target.value })} />
             </Field>
-            <Field label="ชั่วโมงสอนเฉลี่ย/เดือน">
+            <Field label={t("snapshot.fAvgMonth")}>
               <Input type="number" step="0.1" value={form.avg_monthly_hours} onChange={(e) => setForm({ ...form, avg_monthly_hours: e.target.value })} />
             </Field>
-            <Field label="CAC (บาท/ลูกค้า)">
+            <Field label={t("snapshot.fCac")}>
               <Input type="number" step="0.01" value={form.cac} onChange={(e) => setForm({ ...form, cac: e.target.value })} />
             </Field>
-            <Field label="LTV ต่ำสุด (บาท)">
+            <Field label={t("snapshot.fLtvMin")}>
               <Input type="number" step="0.01" value={form.ltv_min} onChange={(e) => setForm({ ...form, ltv_min: e.target.value })} />
             </Field>
-            <Field label="LTV สูงสุด (บาท)">
+            <Field label={t("snapshot.fLtvMax")}>
               <Input type="number" step="0.01" value={form.ltv_max} onChange={(e) => setForm({ ...form, ltv_max: e.target.value })} />
             </Field>
           </div>
-          <Field label="นโยบายขายปัจจุบัน">
+          <Field label={t("snapshot.fPolicy")}>
             <Input value={form.sales_policy} onChange={(e) => setForm({ ...form, sales_policy: e.target.value })} />
           </Field>
-          <Field label="หมายเหตุ">
+          <Field label={t("snapshot.fNote")}>
             <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           </Field>
 
@@ -117,10 +121,10 @@ export function BusinessSnapshotCard({ snapshot, onChanged }: BusinessSnapshotCa
 
           <div className="flex gap-2 pt-1">
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "กำลังบันทึก…" : "บันทึก"}
+              {saving ? t("snapshot.saving") : t("snapshot.save")}
             </Button>
             <Button variant="outline" onClick={() => setEditing(false)} disabled={saving}>
-              ยกเลิก
+              {t("snapshot.cancel")}
             </Button>
           </div>
         </CardContent>
@@ -132,9 +136,11 @@ export function BusinessSnapshotCard({ snapshot, onChanged }: BusinessSnapshotCa
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <div>
-          <CardTitle>สถานะธุรกิจปัจจุบัน</CardTitle>
+          <CardTitle>{t("snapshot.title")}</CardTitle>
           <CardDescription>
-            {snapshot?.updated_at ? `อัปเดตล่าสุด ${new Date(snapshot.updated_at).toLocaleDateString("th-TH")}` : "ยังไม่มีข้อมูล"}
+            {snapshot?.updated_at
+              ? tfmt(lang, "snapshot.lastUpdated", { date: new Date(snapshot.updated_at).toLocaleDateString(langLocale(lang)) })
+              : t("snapshot.noData")}
           </CardDescription>
         </div>
         <Button variant="ghost" size="icon" onClick={startEdit}>
@@ -143,31 +149,31 @@ export function BusinessSnapshotCard({ snapshot, onChanged }: BusinessSnapshotCa
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <MiniStat icon={Users2} label="นักเรียน Active" value={snapshot?.active_students != null ? `${snapshot.active_students} คน` : "—"} />
+          <MiniStat icon={Users2} label={t("snapshot.statActive")} value={snapshot?.active_students != null ? `${snapshot.active_students} ${t("snapshot.persons")}` : "—"} />
           <MiniStat
             icon={Clock3}
-            label="ชั่วโมงสอน/สัปดาห์"
-            value={snapshot?.teaching_hours_per_week != null ? `${snapshot.teaching_hours_per_week} ชม.` : "—"}
+            label={t("snapshot.statHoursWeek")}
+            value={snapshot?.teaching_hours_per_week != null ? `${snapshot.teaching_hours_per_week} ${t("snapshot.hours")}` : "—"}
           />
           <MiniStat
             icon={Clock3}
-            label="เฉลี่ย/เดือน"
-            value={snapshot?.avg_monthly_hours != null ? `~${snapshot.avg_monthly_hours} ชม.` : "—"}
+            label={t("snapshot.statAvgMonth")}
+            value={snapshot?.avg_monthly_hours != null ? `~${snapshot.avg_monthly_hours} ${t("snapshot.hours")}` : "—"}
           />
           <MiniStat
             icon={TrendingUp}
             label="LTV/CAC"
-            value={ltvCacMin != null && ltvCacMax != null ? `${ltvCacMin.toFixed(1)}–${ltvCacMax.toFixed(1)} เท่า` : "—"}
+            value={ltvCacMin != null && ltvCacMax != null ? `${ltvCacMin.toFixed(1)}–${ltvCacMax.toFixed(1)} ${t("snapshot.x")}` : "—"}
           />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm">
           <div>
-            <p className="text-secondary/50">CAC โดยประมาณ</p>
-            <p className="font-medium text-secondary">{snapshot?.cac != null ? `${formatCurrency(snapshot.cac)}/ลูกค้า` : "—"}</p>
+            <p className="text-secondary/50">{t("snapshot.approxCac")}</p>
+            <p className="font-medium text-secondary">{snapshot?.cac != null ? `${formatCurrency(snapshot.cac)}${t("snapshot.perCustomer")}` : "—"}</p>
           </div>
           <div>
-            <p className="text-secondary/50">LTV ขั้นต่ำ–สูงสุด</p>
+            <p className="text-secondary/50">{t("snapshot.ltvRange")}</p>
             <p className="font-medium text-secondary">
               {snapshot?.ltv_min != null && snapshot?.ltv_max != null
                 ? `${formatCurrency(snapshot.ltv_min)} – ${formatCurrency(snapshot.ltv_max)}`
@@ -175,7 +181,7 @@ export function BusinessSnapshotCard({ snapshot, onChanged }: BusinessSnapshotCa
             </p>
           </div>
           <div>
-            <p className="text-secondary/50">นโยบายขายปัจจุบัน</p>
+            <p className="text-secondary/50">{t("snapshot.policy")}</p>
             <p className="font-medium text-secondary">{snapshot?.sales_policy ?? "—"}</p>
           </div>
         </div>

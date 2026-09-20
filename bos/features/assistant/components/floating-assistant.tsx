@@ -9,6 +9,8 @@ import { createRepositories } from "@/services/repositories";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { cn, describeFunctionError } from "@/lib/utils";
+import { useT } from "@/lib/language-context";
+import type { DictKey } from "@/lib/i18n";
 import { CHAT_MODELS, DEFAULT_CHAT_MODEL_ID } from "@/lib/chat-models";
 
 interface AssistantMessage {
@@ -23,24 +25,25 @@ interface AiChatResponse {
 }
 
 interface QuickAction {
-  label: string;
+  labelKey: DictKey;
+  /** Command payload sent to the AI backend — kept Thai; the backend prompts are Thai-oriented. */
   text: string;
   sendImmediately: boolean;
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: "🎯 งานวันนี้", text: "แนะนำ 3 งานที่ควรทำวันนี้ เรียงตามคุณค่ามากไปหาน้อย ง่ายไปหายาก", sendImmediately: true },
-  { label: "📊 สรุปวันนี้", text: "สรุปภาพรวมธุรกิจวันนี้ให้หน่อย", sendImmediately: true },
-  { label: "👥 นักเรียนทั้งหมด", text: "ดูรายชื่อนักเรียนทั้งหมดหน่อย", sendImmediately: true },
-  { label: "📅 คาบเรียนวันนี้", text: "ดูคาบเรียนวันนี้มีอะไรบ้าง", sendImmediately: true },
-  { label: "💰 รายรับเดือนนี้", text: "ดูสรุปการเงินเดือนนี้หน่อย", sendImmediately: true },
-  { label: "📝 สร้าง Content", text: "สร้าง content ใหม่สัก 1 ชิ้น", sendImmediately: true },
-  { label: "🧠 วางแผน", text: "วางแผนสร้างนักเรียนใหม่ + จองคาบ + สร้าง content", sendImmediately: true },
-  { label: "🎯 Lead ที่ควรติดตาม", text: "มี lead คนไหนที่ควรติดตามตอนนี้บ้าง", sendImmediately: true },
-  { label: "🎬 Video Package", text: "สร้าง Video Package ครบชุด: script + voice + images", sendImmediately: true },
-  { label: "🔄 Repurpose Content", text: "แปลง content นี้เป็นทุก platform", sendImmediately: false },
-  { label: "📈 Marketing Dashboard", text: "ดูสรุปการตลาดสัปดาห์นี้", sendImmediately: true },
-  { label: "เพิ่มความรู้", text: "เพิ่มความรู้ใหม่: ", sendImmediately: false },
+  { labelKey: "fab.qaTodayTasks", text: "แนะนำ 3 งานที่ควรทำวันนี้ เรียงตามคุณค่ามากไปหาน้อย ง่ายไปหายาก", sendImmediately: true },
+  { labelKey: "fab.qaSummary", text: "สรุปภาพรวมธุรกิจวันนี้ให้หน่อย", sendImmediately: true },
+  { labelKey: "fab.qaAllStudents", text: "ดูรายชื่อนักเรียนทั้งหมดหน่อย", sendImmediately: true },
+  { labelKey: "fab.qaLessonsToday", text: "ดูคาบเรียนวันนี้มีอะไรบ้าง", sendImmediately: true },
+  { labelKey: "fab.qaMonthIncome", text: "ดูสรุปการเงินเดือนนี้หน่อย", sendImmediately: true },
+  { labelKey: "fab.qaCreateContent", text: "สร้าง content ใหม่สัก 1 ชิ้น", sendImmediately: true },
+  { labelKey: "fab.qaPlan", text: "วางแผนสร้างนักเรียนใหม่ + จองคาบ + สร้าง content", sendImmediately: true },
+  { labelKey: "fab.qaFollowLeads", text: "มี lead คนไหนที่ควรติดตามตอนนี้บ้าง", sendImmediately: true },
+  { labelKey: "fab.qaVideoPackage", text: "สร้าง Video Package ครบชุด: script + voice + images", sendImmediately: true },
+  { labelKey: "fab.qaRepurpose", text: "แปลง content นี้เป็นทุก platform", sendImmediately: false },
+  { labelKey: "fab.qaMktDashboard", text: "ดูสรุปการตลาดสัปดาห์นี้", sendImmediately: true },
+  { labelKey: "fab.qaAddKnowledge", text: "เพิ่มความรู้ใหม่: ", sendImmediately: false },
 ];
 
 /**
@@ -48,6 +51,7 @@ const QUICK_ACTIONS: QuickAction[] = [
  * floats on every workspace page. Talks to ai-chat with mode:"owner".
  */
 export function FloatingAssistant() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -126,7 +130,7 @@ export function FloatingAssistant() {
   function handleRejectPlan() {
     setCurrentPlan(null);
     setShowPlanHint(false);
-    setMessages((prev) => [...prev, { role: "user", content: "ยกเลิกแผน" }, { role: "ai", content: "ยกเลิกแผนแล้วครับ 🔄 พิมพ์คำสั่งใหม่ได้เลย" }]);
+    setMessages((prev) => [...prev, { role: "user", content: t("fab.cancelPlan") }, { role: "ai", content: t("fab.cancelPlanReply") }]);
   }
 
   async function changeChatModel(value: string) {
@@ -177,7 +181,7 @@ export function FloatingAssistant() {
   return (
     <>
       {open ? (
-        <div className="fixed bottom-24 right-6 z-50 flex h-[32rem] w-96 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-line/10 bg-card shadow-card">
+        <div className="fixed bottom-20 right-4 z-50 flex h-[32rem] max-h-[calc(100dvh-6rem)] w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-line/10 bg-card shadow-card sm:right-6">
           <div className="flex items-center justify-between gap-2 border-b border-line/5 px-4 py-3">
             <span className="flex shrink-0 items-center gap-2 text-sm font-semibold text-secondary">
               <Sparkles className="h-4 w-4 text-primary-accent" />
@@ -187,8 +191,8 @@ export function FloatingAssistant() {
               value={chatModel}
               onChange={(e) => void changeChatModel(e.target.value)}
               disabled={savingModel}
-              aria-label="เลือกโมเดล AI"
-              title="กำลังคุยกับโมเดล AI นี้อยู่ — เปลี่ยนได้ที่นี่"
+              aria-label={t("fab.modelAria")}
+              title={t("fab.modelTitle")}
               className="min-w-0 flex-1 truncate rounded-lg border border-line/10 bg-line/5 px-2 py-1 text-xs text-secondary/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               {CHAT_MODELS.map((m) => (
@@ -199,12 +203,12 @@ export function FloatingAssistant() {
             </select>
             <button
               onClick={startNewConversation}
-              aria-label="แชทใหม่"
+              aria-label={t("fab.newChatAria")}
               className="shrink-0 rounded-lg bg-line/10 px-2 py-1 text-[10px] text-secondary/60 hover:bg-line/20 transition-colors"
             >
-              ใหม่
+              {t("fab.newChat")}
             </button>
-            <button onClick={() => setOpen(false)} aria-label="ปิด TIGA AI Agent" className="shrink-0">
+            <button onClick={() => setOpen(false)} aria-label={t("fab.closeAria")} className="shrink-0">
               <X className="h-4 w-4 text-secondary/60" />
             </button>
           </div>
@@ -219,18 +223,15 @@ export function FloatingAssistant() {
               <div className="space-y-2">
                 {/* Daily Priorities Card — auto-loaded from Supabase */}
                 <DailyPrioritiesCard onAction={(text) => void send(text)} />
-                <p className="rounded-xl bg-line/5 p-3 text-xs text-secondary/60">
-                  หรือสั่งงานได้เลย เช่น &quot;สร้าง TikTok Script&quot;, &quot;สร้าง Video Package&quot;,
-                  &quot;วิเคราะห์เทรนด์&quot;, &quot;repurpose content&quot; หรือถามข้อมูลในคลังความรู้
-                </p>
+                <p className="rounded-xl bg-line/5 p-3 text-xs text-secondary/60">{t("fab.hint")}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {QUICK_ACTIONS.filter((a) => !a.label.includes("งานวันนี้")).map((action) => (
+                  {QUICK_ACTIONS.filter((a) => a.labelKey !== "fab.qaTodayTasks").map((action) => (
                     <button
-                      key={action.label}
+                      key={action.labelKey}
                       onClick={() => handleQuickAction(action)}
                       className="rounded-full border border-line/10 bg-line/5 px-3 py-1 text-xs text-secondary/70 hover:bg-line/10"
                     >
-                      {action.label}
+                      {t(action.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -274,7 +275,7 @@ export function FloatingAssistant() {
               ref={textareaRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="สั่งงาน AI…"
+              placeholder={t("fab.placeholder")}
               className="min-h-10"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -292,9 +293,9 @@ export function FloatingAssistant() {
 
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="เปิด TIGA AI Agent"
+        aria-label={t("fab.openAria")}
         className={cn(
-          "fixed right-6 z-50 h-14 w-14 items-center justify-center rounded-full bg-primary-gradient text-white shadow-card transition-transform hover:scale-105",
+          "fixed right-4 z-50 h-14 w-14 items-center justify-center rounded-full bg-primary-gradient text-white shadow-card transition-transform hover:scale-105 sm:right-6",
           "bottom-[4.75rem] md:bottom-6",
           open ? "hidden md:flex" : "flex"
         )}

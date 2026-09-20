@@ -2,18 +2,21 @@ import Link from "next/link";
 import { TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useT } from "@/lib/language-context";
+import type { DictKey } from "@/lib/i18n";
 import type { SalesStatus } from "@/types/database";
 
-const STAGES: { key: SalesStatus; label: string }[] = [
-  { key: "new_lead", label: "New Leads" },
-  { key: "contacted", label: "Contacted" },
-  { key: "interested", label: "Interested" },
-  { key: "trial_booked", label: "Trial Booked" },
-  { key: "trial_completed", label: "Trial Done" },
-  { key: "won", label: "Won" },
+const STAGES: { key: SalesStatus; labelKey: DictKey }[] = [
+  { key: "new_lead", labelKey: "pipeline.newLead" },
+  { key: "contacted", labelKey: "pipeline.contacted" },
+  { key: "interested", labelKey: "pipeline.interested" },
+  { key: "trial_booked", labelKey: "pipeline.trialBooked" },
+  { key: "trial_completed", labelKey: "pipeline.trialDone" },
+  { key: "won", labelKey: "pipeline.won" },
 ];
 
 export function StudentsProgressCard({ counts }: { counts: Record<SalesStatus, number> }) {
+  const t = useT();
   const values = STAGES.map((stage) => counts[stage.key] ?? 0);
   const max = Math.max(...values, 1);
   const total = values.reduce((sum, v) => sum + v, 0);
@@ -21,14 +24,14 @@ export function StudentsProgressCard({ counts }: { counts: Record<SalesStatus, n
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle>Students Pipeline</CardTitle>
+        <CardTitle>{t("pipeline.title")}</CardTitle>
         <Link href="/sales" className="text-xs font-medium text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300">
-          View all
+          {t("activity.viewAll")}
         </Link>
       </CardHeader>
       <CardContent>
         {total === 0 ? (
-          <EmptyState icon={TrendingUp} title="No pipeline data yet" />
+          <EmptyState icon={TrendingUp} title={t("pipeline.empty")} />
         ) : (
           <ul className="space-y-4">
             {STAGES.map((stage, i) => {
@@ -37,7 +40,7 @@ export function StudentsProgressCard({ counts }: { counts: Record<SalesStatus, n
               return (
                 <li key={stage.key}>
                   <div className="mb-1.5 flex items-center justify-between text-xs">
-                    <span className="font-medium text-secondary/60">{stage.label}</span>
+                    <span className="font-medium text-secondary/60">{t(stage.labelKey)}</span>
                     <span className="font-semibold text-secondary dark:text-white">{value}</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-line/[0.06] dark:bg-white/[0.06]">

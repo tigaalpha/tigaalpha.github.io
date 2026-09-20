@@ -17,6 +17,8 @@ import { FinanceCharts } from "@/features/dashboard/components/finance-charts";
 import { ActionRequiredCard } from "@/features/dashboard/components/action-required-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
+import { useT, useLang } from "@/lib/language-context";
+import { tfmt } from "@/lib/i18n";
 import type { RenewalOpportunity } from "@/services/repositories/courses.repository";
 import type { InactiveLead } from "@/services/repositories/customers.repository";
 import type { SalesStatus, Tables } from "@/types/database";
@@ -53,6 +55,8 @@ function weekRange(): { start: string; end: string } {
 }
 
 export default function DashboardPage() {
+  const t = useT();
+  const { lang } = useLang();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -127,7 +131,7 @@ export default function DashboardPage() {
         // (most commonly a 401/403 or missing table on this Supabase
         // project) so the owner can act on it instead of assuming the
         // school has no data.
-        setLoadError(err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ");
+        setLoadError(err instanceof Error ? err.message : t("dash.loadFailed"));
       }
     );
   }, []);
@@ -140,9 +144,9 @@ export default function DashboardPage() {
     return (
       <div className="space-y-6">
         <div className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
-          ⚠️ โหลดข้อมูลแดชบอร์ดไม่สำเร็จ — {loadError}
+          ⚠️ {t("dash.loadFailed")}{loadError}
           <button className="ml-2 underline underline-offset-2" onClick={() => reload()}>
-            ลองใหม่
+            {t("dash.retry")}
           </button>
         </div>
         <Skeleton className="h-8 w-56 bg-white/5" />
@@ -200,22 +204,22 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-secondary dark:text-white">Good morning, Tiga! 👋</h1>
-          <p className="mt-1 text-sm text-secondary/45">Here&apos;s what&apos;s happening with your school today.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-secondary dark:text-white">{t("dash.greeting")}</h1>
+          <p className="mt-1 text-sm text-secondary/45">{t("dash.sub")}</p>
         </div>
         <CommandSearch />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total Students" value={totalStudents} icon={Users} tone="purple" subtext="All-time in CRM" href="/students" />
-        <MetricCard label="Lessons This Week" value={lessonsThisWeek} icon={CalendarDays} tone="blue" subtext={`${today.length} today`} href="/calendar" />
-        <MetricCard label="Revenue" value={formatCurrency(revenue)} icon={Wallet} tone="green" subtext="From Accounting" href="/accounting" />
+        <MetricCard label={t("dash.totalStudents")} value={totalStudents} icon={Users} tone="purple" subtext={t("dash.allTimeCrm")} href="/students" />
+        <MetricCard label={t("dash.lessonsThisWeek")} value={lessonsThisWeek} icon={CalendarDays} tone="blue" subtext={tfmt(lang, "dash.todayCount", { n: today.length })} href="/calendar" />
+        <MetricCard label={t("dash.revenue")} value={formatCurrency(revenue)} icon={Wallet} tone="green" subtext={t("dash.fromAccounting")} href="/accounting" />
         <MetricCard
-          label="Pending Payments"
+          label={t("dash.pendingPayments")}
           value={pendingPayments}
           icon={CreditCard}
           tone="orange"
-          subtext={pendingPayments > 0 ? `${pendingPayments} need confirmation` : "All clear"}
+          subtext={pendingPayments > 0 ? tfmt(lang, "dash.needConfirm", { n: pendingPayments }) : t("dash.allClear")}
           subtextPositive={pendingPayments === 0}
           href="/accounting"
         />
@@ -230,16 +234,16 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <LessonListCard title="Today&apos;s Lessons" lessons={today.map(toLessonItem)} />
+          <LessonListCard titleKey="dash.todaysLessons" lessons={today.map(toLessonItem)} />
         </div>
         <StudentsProgressCard counts={funnel} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Needs Review" value={conversations.length} icon={MessagesSquare} tone="purple" href="/chat" />
-        <MetricCard label="Near Renewal" value={nearRenewal.length} icon={Clock3} tone="orange" subtext="Courses ending soon" href="/students" />
-        <MetricCard label="New Leads" value={funnel.new_lead} icon={UserPlus} tone="blue" href="/sales" />
-        <MetricCard label="AI Performance" value={`${aiResolutionRate}%`} icon={Bot} tone="green" subtext="Resolved without escalation" href="/chat" />
+        <MetricCard label={t("dash.needsReview")} value={conversations.length} icon={MessagesSquare} tone="purple" href="/chat" />
+        <MetricCard label={t("dash.nearRenewal")} value={nearRenewal.length} icon={Clock3} tone="orange" subtext={t("dash.coursesEndingSoon")} href="/students" />
+        <MetricCard label={t("dash.newLeads")} value={funnel.new_lead} icon={UserPlus} tone="blue" href="/sales" />
+        <MetricCard label={t("dash.aiPerformance")} value={`${aiResolutionRate}%`} icon={Bot} tone="green" subtext={t("dash.resolvedNoEscalation")} href="/chat" />
       </div>
 
       <ActionRequiredCard
@@ -253,7 +257,7 @@ export default function DashboardPage() {
       <FinanceCharts />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <LessonListCard title="Tomorrow&apos;s Lessons" lessons={tomorrow.map(toLessonItem)} />
+        <LessonListCard titleKey="dash.tomorrowsLessons" lessons={tomorrow.map(toLessonItem)} />
         <div className="flex flex-col gap-6">
           <DropOffStageCard counts={dropOffStages} />
           <SalesFunnelCard counts={funnel} />

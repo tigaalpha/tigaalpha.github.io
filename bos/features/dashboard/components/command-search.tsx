@@ -3,24 +3,37 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
+import { useT, useLang } from "@/lib/language-context";
+import { translate, DICT, type DictKey } from "@/lib/i18n";
 
-const LINKS: { href: string; label: string }[] = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/chat", label: "Inbox" },
-  { href: "/students", label: "Students / CRM" },
-  { href: "/calendar", label: "Calendar" },
-  { href: "/booking", label: "Bookings" },
-  { href: "/attendance", label: "ยืนยันการมาเรียน" },
-  { href: "/sales", label: "Sales Pipeline" },
-  { href: "/knowledge", label: "Knowledge Base" },
-  { href: "/accounting", label: "Accounting" },
-  { href: "/reports", label: "Reports" },
-  { href: "/notifications", label: "Notifications" },
-  { href: "/settings", label: "Settings" },
+// Labels are dictionary keys so the picker matches the user's language.
+// Matching runs against BOTH languages at once — typing "students" or "นักเรียน"
+// finds the same destination regardless of which language is active.
+const LINKS: { href: string; labelKey: DictKey }[] = [
+  { href: "/dashboard", labelKey: "nav.dashboard" },
+  { href: "/chat", labelKey: "nav.inbox" },
+  { href: "/students", labelKey: "nav.students" },
+  { href: "/calendar", labelKey: "nav.calendar" },
+  { href: "/booking", labelKey: "nav.bookings" },
+  { href: "/attendance", labelKey: "nav.attendance" },
+  { href: "/sales", labelKey: "nav.salesPipeline" },
+  { href: "/knowledge", labelKey: "nav.knowledgeBase" },
+  { href: "/accounting", labelKey: "nav.accounting" },
+  { href: "/reports", labelKey: "nav.reports" },
+  { href: "/notifications", labelKey: "nav.notifications" },
+  { href: "/settings", labelKey: "nav.settings" },
 ];
+
+function matchesBothLanguages(labelKey: DictKey, query: string): boolean {
+  const entry = DICT[labelKey];
+  if (!entry) return false;
+  return entry.th.toLowerCase().includes(query) || entry.en.toLowerCase().includes(query);
+}
 
 export function CommandSearch() {
   const router = useRouter();
+  const t = useT();
+  const { lang } = useLang();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +60,8 @@ export function CommandSearch() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const results = LINKS.filter((l) => l.label.toLowerCase().includes(query.toLowerCase()));
+  const queryLower = query.toLowerCase();
+  const results = LINKS.filter((l) => matchesBothLanguages(l.labelKey, queryLower));
 
   return (
     <div ref={boxRef} className="relative w-full max-w-sm">
@@ -61,7 +75,7 @@ export function CommandSearch() {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search anything..."
+          placeholder={t("search.placeholder")}
           className="w-full bg-transparent text-sm text-secondary placeholder:text-secondary/35 focus:outline-none"
         />
         <kbd className="hidden shrink-0 rounded-md border border-line/15 bg-line/5 px-1.5 py-0.5 text-[10px] font-medium text-secondary/40 sm:block">
@@ -71,7 +85,7 @@ export function CommandSearch() {
       {open && query.trim() !== "" ? (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-line/10 bg-card shadow-card">
           {results.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-secondary/45">No matches</p>
+            <p className="px-4 py-3 text-sm text-secondary/45">{t("search.noMatches")}</p>
           ) : (
             results.map((r) => (
               <button
@@ -84,7 +98,7 @@ export function CommandSearch() {
                 }}
                 className="flex w-full items-center px-4 py-2.5 text-left text-sm text-secondary/80 transition-colors hover:bg-line/5 hover:text-secondary"
               >
-                {r.label}
+                {translate(lang, r.labelKey)}
               </button>
             ))
           )}
