@@ -244,19 +244,36 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
               <Menu className="h-5 w-5 text-secondary/70 dark:text-white/70" />
             </button>
             <div className="flex min-w-0 items-center gap-2.5 md:hidden">
-              <div className="shrink-0"><BrandMark size="sm" /></div>
+              {/* BrandMark removed from the mobile header per the owner's sketch —
+                  it crowded the row (alongside menu, title, solo/theme/bell and the
+                  user avatar) into the right-edge overflow. The logo stays in the
+                  mobile drawer and on desktop. */}
               <span className="truncate text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
             </div>
           </div>
           <div className="hidden md:block" />
           <div className="flex shrink-0 items-center gap-1.5">
-            <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
+            {/* Solo toggle stays in the header on desktop only — on phones it
+                moves below the header (see the floating chip after </header>). */}
+            <div className="hidden md:block">
+              <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
+            </div>
             <LanguageToggle />
             <ThemeToggle />
             <BellLink alertCount={alertCount} />
             <UserMenu userName={userName} userEmail={userEmail} />
           </div>
         </header>
+
+        {/* Solo-mode toggle on phones — per the owner's sketch it lives just
+            below the header at the right edge (the header row itself was too
+            crowded and contributed to the mobile overflow). Only rendered once
+            the stored preference has loaded so an empty chip never flashes. */}
+        {soloMode !== null ? (
+          <div className="fixed top-20 right-4 z-40 rounded-xl border border-line/10 bg-white/90 p-1 shadow-card backdrop-blur md:hidden dark:border-white/10 dark:bg-[#0d1017]/90">
+            <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
+          </div>
+        ) : null}
         <main className="w-full flex-1 overflow-x-clip overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">{children}</main>
       </div>
 
