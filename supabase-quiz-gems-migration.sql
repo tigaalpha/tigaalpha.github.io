@@ -94,5 +94,5 @@ begin
   return jsonb_build_object('granted', v_cap, 'remaining', v_cap - (v_today + v_cap), 'gems', v_gems);
 end $$;
 
-revoke all on function public.grant_quiz_gem(text) from public;
+revoke all on function public.grant_quiz_gem(text) from public, anon;
 grant execute on function public.grant_quiz_gem(text) to authenticated;
