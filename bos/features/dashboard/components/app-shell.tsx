@@ -234,22 +234,22 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-line/10 bg-white/85 px-4 backdrop-blur md:px-6 dark:border-white/5 dark:bg-[#0b0e14]/85">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-line/10 bg-white/85 px-4 backdrop-blur md:px-6 dark:border-white/5 dark:bg-[#0b0e14]/85">
+          <div className="flex min-w-0 items-center gap-3">
             <button
-              className={cn("rounded-lg p-2 hover:bg-line/5 dark:hover:bg-white/5 md:hidden")}
+              className={cn("shrink-0 rounded-lg p-2 hover:bg-line/5 dark:hover:bg-white/5 md:hidden")}
               onClick={() => setMobileOpen(true)}
               aria-label={translate(lang, "shell.openMenu")}
             >
               <Menu className="h-5 w-5 text-secondary/70 dark:text-white/70" />
             </button>
-            <div className="flex items-center gap-2.5 md:hidden">
-              <BrandMark size="sm" />
-              <span className="text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
+            <div className="flex min-w-0 items-center gap-2.5 md:hidden">
+              <div className="shrink-0"><BrandMark size="sm" /></div>
+              <span className="truncate text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
             </div>
           </div>
           <div className="hidden md:block" />
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
             <LanguageToggle />
             <ThemeToggle />
@@ -257,7 +257,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
             <UserMenu userName={userName} userEmail={userEmail} />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">{children}</main>
+        <main className="w-full flex-1 overflow-x-clip overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">{children}</main>
       </div>
 
       <MobileBottomNav alertCount={alertCount} onMore={() => setMobileOpen(true)} />
