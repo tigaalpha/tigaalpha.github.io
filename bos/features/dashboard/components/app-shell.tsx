@@ -234,22 +234,26 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-line/10 bg-white/85 px-4 backdrop-blur md:px-6 dark:border-white/5 dark:bg-[#0b0e14]/85">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 overflow-hidden border-b border-line/10 bg-white/85 px-3 backdrop-blur sm:px-4 md:px-6 dark:border-white/5 dark:bg-[#0b0e14]/85">
+          <div className="flex min-w-0 items-center gap-2">
             <button
-              className={cn("rounded-lg p-2 hover:bg-line/5 dark:hover:bg-white/5 md:hidden")}
+              className={cn("shrink-0 rounded-lg p-2 hover:bg-line/5 dark:hover:bg-white/5 md:hidden")}
               onClick={() => setMobileOpen(true)}
               aria-label={translate(lang, "shell.openMenu")}
             >
               <Menu className="h-5 w-5 text-secondary/70 dark:text-white/70" />
             </button>
-            <div className="flex items-center gap-2.5 md:hidden">
+            <div className="flex min-w-0 items-center gap-2 md:hidden">
               <BrandMark size="sm" />
-              <span className="text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
+              {/* Logo always; the wordmark only once the phone is wide enough for
+                  it plus every topbar action — below that it made the actions
+                  overflow past the right screen edge (clipped avatar). The drawer
+                  still shows the full name. */}
+              <span className="hidden min-[420px]:block min-w-0 truncate whitespace-nowrap text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
             </div>
           </div>
           <div className="hidden md:block" />
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
             <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
             <LanguageToggle />
             <ThemeToggle />
