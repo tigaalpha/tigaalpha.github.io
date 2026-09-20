@@ -6,22 +6,26 @@ import { createClient } from "@/services/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BASE_PATH } from "@/lib/constants";
+import { useLang } from "@/lib/language-context";
+import { translate } from "@/lib/i18n";
 
 function AuthErrorBanner() {
   const searchParams = useSearchParams();
   const authError = searchParams.get("authError");
+  const { lang } = useLang();
 
   if (!authError) return null;
 
   return (
     <p className="mb-3 rounded-xl bg-danger/10 px-3 py-2 text-xs text-danger">
-      Sign-in failed: {authError}
+      {translate(lang, "login.failed")}{authError}
     </p>
   );
 }
 
 export function LoginCard() {
   const [loading, setLoading] = useState(false);
+  const { lang } = useLang();
 
   async function signInWithGoogle() {
     setLoading(true);
@@ -41,14 +45,14 @@ export function LoginCard() {
       <CardHeader className="items-center text-center">
         <div className="mb-2 h-12 w-12 rounded-2xl bg-primary-gradient" aria-hidden />
         <CardTitle className="text-xl">Tiga Automation</CardTitle>
-        <CardDescription>Sign in to manage your studio</CardDescription>
+        <CardDescription>{translate(lang, "login.subtitle")}</CardDescription>
       </CardHeader>
       <CardContent>
         <Suspense fallback={null}>
           <AuthErrorBanner />
         </Suspense>
         <Button className="w-full" onClick={signInWithGoogle} disabled={loading}>
-          {loading ? "Redirecting…" : "Continue with Google"}
+          {loading ? translate(lang, "login.redirecting") : translate(lang, "login.continueGoogle")}
         </Button>
       </CardContent>
     </Card>

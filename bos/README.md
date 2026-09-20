@@ -191,6 +191,8 @@ section above for secrets. No vendor key ever ships in the static bundle.
 
 ## Notes
 
+- **Language (th/en)** — the workspace chrome (sidebar groups/items, topbar, mobile tabs, user menu, login, Settings) is bilingual via `lib/i18n.ts` + `lib/language-context.tsx`. A 🌐 TH/EN toggle sits in the topbar right corner (next to the theme toggle) and on the login page; the full picker also lives in Settings → Language. Choice persists in `localStorage` (`tiga-bos-lang`, same pattern as the theme key) — no DB write. Page bodies are still Thai-first; new shared strings go into `DICT` rather than being hardcoded.
+
 - PWA installable: `public/icons/icon-{192,512}.png` (generated) + `public/sw.js` (minimal network-first service worker, registered from `components/service-worker-register.tsx`) satisfy Chrome/Edge's "Add to Home Screen" criteria.
 - Settings → Integrations is the in-app connection UI for LINE, Google Calendar, and Gemini: live connection status, a "Connect Google Calendar" button that runs the OAuth consent flow end to end, the exact webhook/redirect URLs to paste into LINE Developers Console and Google Cloud Console, and step-by-step setup instructions for whichever secrets genuinely can't be entered through the app (LINE tokens, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY` — Supabase Edge Function secrets, never DB rows).
 - The dynamic `/students/[id]` route was intentionally changed to `/students/detail?id=...` — static export can't pre-render dynamic segments for IDs that don't exist at build time.
