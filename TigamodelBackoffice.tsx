@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { sb } from "./supabase-client";
 import { playUi } from "./music-engine";
 import { AI_PROVIDERS, AI_FEATURES } from "./AdminAIModels";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, loadChatSessions, deleteChatSession, clearChatSessions, loadEvalRuns, clearEvalRuns } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, loadChatSessions, deleteChatSession, clearChatSessions, loadEvalRuns, saveEvalRun, clearEvalRuns } from "./tigamodel/web.js";
 import { readAutoTeachOutcomes } from "./use-autoteach";
 
 /* ── TigamodelBackoffice.tsx ──
@@ -167,6 +167,7 @@ export function TigamodelBackoffice({ lang = "th" }) {
         <button style={S.chip(tab === "history")} onClick={() => setTab("history")}>💬 {T("ประวัติทดสอบแชท", "Chat test history", "聊天测试历史")}</button>
         <button style={S.chip(tab === "evals")} onClick={() => setTab("evals")}>📊 {T("ประวัติประเมิน", "Eval history", "评估历史")}</button>
         <button style={S.chip(tab === "outcomes")} onClick={() => setTab("outcomes")}>🏆 {T("กลยุทธ์ไหนชนะ", "Winning strategies", "有效策略")}</button>
+        <button style={S.chip(tab === "growth")} onClick={() => setTab("growth")}>📈 {T("การเติบโต", "Growth", "增长")}</button>
       </div>
 
       {err && <div style={{ color: S.bad, fontSize: 13, marginBottom: 10 }}>⚠️ {err}</div>}
@@ -303,6 +304,143 @@ export function TigamodelBackoffice({ lang = "th" }) {
 
       {/* ══ 3) EVAL HISTORY ══ */}
       {tab === "evals" && <EvalHistory T={T} S={S} lang={lang} />}
+
+      {/* ══ 5) GROWTH: real-time signup/payer analytics + year-end forecast ══ */}
+      {tab === "growth" && <GrowthTab T={T} S={S} lang={lang} />}
+    </div>
+  );
+}
+
+/* ── Growth: live numbers from admin_growth_overview + forecast ──
+   All figures come straight from the DB via the top-admin-gated RPC;
+   scenarios are computed client-side from the weekly series. Industry
+   benchmarks are hardcoded WITH sources (spec §10: no unsourced claims). */
+function GrowthTab({ T, S, lang }) {
+  const [g, setG] = useState(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    sb.rpc("admin_growth_overview")
+      .then(({ data, error }) => { if (error) setErr(error.message || "rpc error"); else setG(data); })
+      .catch(e => setErr(String((e && e.message) || e)));
+  }, []);
+
+  if (err) return <div style={S.card}><div style={{ color: S.bad, fontSize: 13 }}>⚠️ {err}</div></div>;
+  if (!g) return <div style={S.card}><div style={{ color: "var(--muted)", fontSize: 13 }}>⏳ {T("กำลังโหลดข้อมูลจริง...", "Loading live data...", "正在加载真实数据...")}</div></div>;
+
+  const total = g.total_users || 0;
+  const weekly = Array.isArray(g.weekly) ? g.weekly : [];
+  const payers = g.payers_ever || 0;
+  const conv = total > 0 ? (payers / total * 100) : 0;
+  const last7 = g.signups_last7 || 0;
+  const prev7 = g.signups_prev7 || 0;
+
+  // Forecast to Dec 31 (UTC year end): three scenarios from the real series.
+  // baseline = mean of complete weeks EXCLUDING the current (partial) week and
+  // the spike week (max), so one good week can't blow the number up.
+  const now = new Date();
+  const yearEnd = new Date(Date.UTC(now.getUTCFullYear(), 11, 31, 23, 59, 59));
+  const weeksLeft = Math.max(1, Math.round((yearEnd - now) / (7 * 24 * 3600 * 1000)));
+  const complete = weekly.slice(0, -1).map(w => w.signups);
+  const spike = complete.length ? Math.max(...complete) : 0;
+  const meanAll = complete.length ? complete.reduce((a, b) => a + b, 0) / complete.length : 0;
+  const noSpike = complete.filter(v => v < spike);
+  const baseline = noSpike.length ? noSpike.reduce((a, b) => a + b, 0) / noSpike.length : meanAll;
+  const momentum = last7; // current weekly rate
+  const decay = (baseline + momentum) / 2;
+  const scen = r => Math.round(total + r * weeksLeft);
+  const pct = x => (total > 0 ? Math.round(x * weeksLeft / (total + x * weeksLeft) * 100) : 0);
+
+  const K = (icon, label, val, sub) => (
+    <div style={{ ...S.inner, flex: "1 1 150px", minWidth: 140 }}>
+      <div style={{ fontSize: 12, color: "var(--muted)" }}>{icon} {label}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)" }}>{val}</div>
+      {sub && <div style={{ fontSize: 11.5, color: "var(--muted)" }}>{sub}</div>}
+    </div>
+  );
+
+  const maxW = Math.max(1, ...weekly.map(w => w.signups));
+  const bw = 100 / Math.max(1, weekly.length);
+
+  return (
+    <div>
+      <div style={S.card}>
+        <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 2 }}>📈 {T("การเติบโตแบบเรียลไทม์", "Real-time growth", "实时增长")}</div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
+          {T("ข้อมูลจริงจากฐานข้อมูล ณ ", "Live from the database at ", "数据库实时数据 ")}{new Date(g.generated_at).toLocaleString()}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {K("👥", T("ผู้ใช้ login สะสม", "Registered (logged-in)", "累计注册"), total, `+${last7} ${T("สัปดาห์นี้", "this week", "本周")} (ก่อนหน้า +${prev7})`)}
+          {K("💳", T("เคยจ่ายเงินตรง", "Direct payers ever", "曾直接付费"), payers, `${conv.toFixed(1)}% ${T("ของผู้ใช้", "of users", "占用户")}`)}
+          {K("⭐", T("แผนพรีเมียม active", "Active premium plans", "有效会员"), g.active_paid_plans ?? "—", T("รวมโรงเรียน/มอบให้", "incl. school/grant", "含学校/赠送"))}
+          {K("💰", T("รายได้ตรงรวม", "Direct revenue", "直接收入"), `฿${Number(g.revenue_thb || 0).toLocaleString()}`, T("payments อนุมัติ", "approved payments", "已批准付款"))}
+          {K("🔥", T("กลับมาใช้ 7 วันล่าสุด", "Seen in last 7 days", "近7天活跃"), g.active_last7 ?? "—", g.active_prev7 != null ? `${T("ก่อนหน้า", "prev week", "上周")} ${g.active_prev7}` : null)}
+        </div>
+      </div>
+
+      <div style={S.card}>
+        <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8 }}>📊 {T("สมัครใหม่รายสัปดาห์", "Weekly signups", "每周新增")}</div>
+        <svg viewBox={`0 0 100 44`} style={{ width: "100%", height: 120, display: "block" }} preserveAspectRatio="none">
+          {weekly.map((w, i) => {
+            const h = (w.signups / maxW) * 38;
+            const isCur = i === weekly.length - 1;
+            return <rect key={i} x={i * bw + 0.15} y={40 - h} width={Math.max(0.4, bw - 0.4)} height={Math.max(w.signups > 0 ? 0.8 : 0.15, h)} fill={isCur ? "var(--accent, #d97757)" : "color-mix(in srgb, var(--accent, #d97757) 38%, var(--card2))"} rx={0.5} />;
+          })}
+          <line x1={0} y1={40.5} x2={100} y2={40.5} stroke="var(--bd2,rgba(0,0,0,0.08))" strokeWidth={0.4} />
+        </svg>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+          <span style={S.mono}>{weekly[0] ? weekly[0].week_start : ""}</span>
+          <span>{T("แท่งสีเข้ม = สัปดาห์นี้ (ยังไม่จบ)", "highlighted = current (partial) week", "高亮=本周（未结束）")} · max {maxW}</span>
+          <span style={S.mono}>{T("ล่าสุด", "now", "今天")}</span>
+        </div>
+      </div>
+
+      <div style={S.card}>
+        <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>🔮 {T(`คาดการณ์สิ้นปี (อีก ~${weeksLeft} สัปดาห์)`, `Year-end forecast (~${weeksLeft} weeks left)`, `年末预测（约${weeksLeft}周）`)}</div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
+          {T("คำนวณจากอนุกรมสัปดาห์จริงด้านบน — ฉากทัศน์ ไม่ใช่คำสัญญา", "Computed from the real weekly series above — scenarios, not promises", "基于上方真实周数据计算——情景而非承诺")}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {K("🐢", T(`ถ้ากลับ baseline ~${baseline.toFixed(1)}/สัปดาห์`, `back to baseline ~${baseline.toFixed(1)}/wk`, `回到基线 ~${baseline.toFixed(1)}/周`), scen(baseline), `~${pct(baseline)}% ${T("จะจ่าย", "would pay", "会付费")} (2-5%)`)}
+          {K("🚶", T(`โมเมนตัมจางครึ่ง ~${decay.toFixed(1)}/สัปดาห์`, `momentum halves ~${decay.toFixed(1)}/wk`, `动量减半 ~${decay.toFixed(1)}/周`), scen(decay), `~${pct(decay)}% ${T("จะจ่าย", "would pay", "会付费")} (2-5%)`)}
+          {K("🚀", T(`คงอัตรานี้ ~${momentum}/สัปดาห์`, `sustained ~${momentum}/wk`, `保持 ~${momentum}/周`), scen(momentum), `~${pct(momentum)}% ${T("จะจ่าย", "would pay", "会付费")} (2-5%)`)}
+        </div>
+        <div style={{ ...S.inner, marginTop: 10, fontSize: 12, color: "var(--text2)" }}>
+          {T(`ช่วงคาดการณ์ผู้จ่ายตรงสิ้นปี: ${Math.round(scen(baseline) * 0.02)}–${Math.round(scen(momentum) * 0.05)} ราย (2% ค่ากลางอุตสาหกรรมการศึกษา → 5% แอปที่ทำดี)`, `Year-end direct-payer range: ${Math.round(scen(baseline) * 0.02)}–${Math.round(scen(momentum) * 0.05)} (2% education median → 5% strong)`, `年末直接付费区间：${Math.round(scen(baseline) * 0.02)}–${Math.round(scen(momentum) * 0.05)}（2% 教育行业中位 → 5% 优秀）`)}
+        </div>
+      </div>
+
+      <div style={S.card}>
+        <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>🏭 {T("เกณฑ์เทียบอุตสาหกรรม (แหล่งจริง)", "Industry benchmarks (sourced)", "行业基准（有出处）")}</div>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, marginTop: 8 }}>
+          <thead><tr style={{ color: "var(--muted)", textAlign: "left" }}>
+            <th style={{ padding: "6px 8px" }}>{T("ตัวชี้วัด", "Metric", "指标")}</th>
+            <th style={{ padding: "6px 8px" }}>{T("ค่าอุตสาหกรรม", "Industry", "行业")}</th>
+            <th style={{ padding: "6px 8px" }}>{T("ของเรา", "Ours", "我们")}</th>
+          </tr></thead>
+          <tbody>
+            <tr style={{ borderTop: "1px solid var(--bd2,rgba(0,0,0,0.06))" }}>
+              <td style={{ padding: "6px 8px" }}>{T("สมัคร → จ่าย (สะสม)", "Signup → paid (lifetime)", "注册→付费（累计）")}</td>
+              <td style={{ padding: "6px 8px" }}>2–5% {T("การศึกษา", "education", "教育")}</td>
+              <td style={{ padding: "6px 8px", fontWeight: 800, color: conv >= 5 ? S.good : conv >= 2 ? S.warn : S.bad }}>{conv.toFixed(1)}%</td>
+            </tr>
+            <tr style={{ borderTop: "1px solid var(--bd2,rgba(0,0,0,0.06))" }}>
+              <td style={{ padding: "6px 8px" }}>{T("ระดับชั้นนำ (Duolingo)", "Best-in-class (Duolingo)", "顶级水平（Duolingo）")}</td>
+              <td style={{ padding: "6px 8px" }}>~8.5% {T("ของ MAU จ่าย", "of MAU pay", "的MAU付费")}</td>
+              <td style={{ padding: "6px 8px", color: "var(--muted)" }}>{conv >= 8.5 ? "✅" : "—"}</td>
+            </tr>
+            <tr style={{ borderTop: "1px solid var(--bd2,rgba(0,0,0,0.06))" }}>
+              <td style={{ padding: "6px 8px" }}>{T("Retention วันที่ 30 (แอปการศึกษา)", "Day-30 retention (education)", "30日留存（教育）")}</td>
+              <td style={{ padding: "6px 8px" }}>~2% {T("ต่ำสุดในทุกหมวด", "lowest of all categories", "全类别最低")}</td>
+              <td style={{ padding: "6px 8px", color: "var(--muted)" }}>{total > 0 && g.active_last7 != null ? `${(g.active_last7 / total * 100).toFixed(0)}% ${T("ยังมา 7 วันล่าสุด", "seen last 7d", "近7天活跃")}` : "—"}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style={{ ...S.mono, marginTop: 10, fontSize: 11.5, lineHeight: 1.6 }}>
+          📎 RevenueCat — State of Subscription Apps 2025 (75,000 แอป): <a style={{ color: "var(--accent, #d97757)" }} href="https://www.revenuecat.com/state-of-subscription-apps-2025/" target="_blank" rel="noreferrer">revenuecat.com/state-of-subscription-apps-2025</a><br />
+          📎 Duolingo 2025 (Business of Apps): <a style={{ color: "var(--accent, #d97757)" }} href="https://www.businessofapps.com/data/duolingo-statistics/" target="_blank" rel="noreferrer">businessofapps.com/data/duolingo-statistics</a><br />
+          📎 Education App Benchmarks (Business of Apps): <a style={{ color: "var(--accent, #d97757)" }} href="https://www.businessofapps.com/data/education-app-benchmarks/" target="_blank" rel="noreferrer">businessofapps.com/data/education-app-benchmarks</a>
+        </div>
+      </div>
     </div>
   );
 }
