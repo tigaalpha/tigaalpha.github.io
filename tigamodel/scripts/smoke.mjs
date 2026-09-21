@@ -413,6 +413,39 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
     assert.ok(threw, "§20: claiming audio analysis without an engine must throw");
   });
 
+  await ok("P4 vision bridge: real frames → real observations; <5 frames → no claim; no mood codes ever", async () => {
+    const flat = webM.visionObservationsFromWindow(Array.from({ length: 12 }, () => ({ round: 0.4, wrist: 0.8, thumb: 0 })));
+    assert.ok(flat && flat.some(o => o.value.code === "hand_posture_flat"), "round 0.4 avg → hand_posture_flat");
+    const collapsed = webM.visionObservationsFromWindow(Array.from({ length: 10 }, () => ({ round: 0.9, wrist: 0.3, thumb: 0 })));
+    assert.ok(collapsed && collapsed.some(o => o.value.code === "wrist_collapsed"), "wrist 0.3 → wrist_collapsed");
+    const good = webM.visionObservationsFromWindow(Array.from({ length: 10 }, () => ({ round: 0.9, wrist: 0.9, thumb: 0 })));
+    assert.equal(good, null, "healthy frames → no observation (nothing to say)");
+    assert.equal(webM.visionObservationsFromWindow([{ round: 0.1 }, { round: 0.1 }]), null, "<5 frames → no claim (§20 honesty)");
+    const all = JSON.stringify(flat) + JSON.stringify(collapsed);
+    assert.ok(!/mood|attention|engage|อารมณ์|สนใจ/i.test(all), "§16: vision never infers mood/attention");
+  });
+
+  await ok("P4 speech mapper: real Thai/English/Chinese phrasings map to the self-report vocabulary", async () => {
+    assert.equal(webM.selfReportFromTranscript("เข้าใจแล้วครับ"), "understand");
+    assert.equal(webM.selfReportFromTranscript("ยากไปนิดนึง"), "too_hard");
+    assert.equal(webM.selfReportFromTranscript("ง่ายเกินไป"), "too_easy");
+    assert.equal(webM.selfReportFromTranscript("too hard for me"), "too_hard");
+    assert.equal(webM.selfReportFromTranscript("太难了"), "too_hard");
+    assert.equal(webM.selfReportFromTranscript("อยากลองอีกครั้ง"), "retry");
+    assert.equal(webM.selfReportFromTranscript("หงุดหงิดมาก"), "frustrated");
+    assert.equal(webM.selfReportFromTranscript("สนุกมากเลย"), "great");
+    assert.equal(webM.selfReportFromTranscript("กากกก อุเง้"), null, "unmatched babble → null (tap UI fallback)");
+  });
+
+  await ok("P4 loop observations: a vision observation with a code becomes a real diagnosis issue", async () => {
+    const loop = await webM.rerunLoopWithSelfReport(null, null); // stats null + no obs → null guard inside web.js
+    assert.equal(loop, null);
+    // direct loop call with observations only (exercises the 4b block)
+    const tiga = webM.getTigamodel();
+    const res = await tiga.loop.runOnce({ observations: [{ modality: "vision", signal: "hand_shape", value: { code: "hand_posture_flat", detail: "รูปมือแบน", confidence: 0.6 } }] });
+    assert.ok(res && res.diagnosis && JSON.stringify(res.diagnosis).includes("hand_posture_flat"), "observation code lands in diagnosis");
+  });
+
   await ok("Phase 3 parent report from SYNCED snapshot: real bars, honest trend, tenant-safe (no localStorage reads)", async () => {
     const k = (n) => { const d = new Date(Date.now() - n * 864e5); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
     const pr = { practiceLog: { [k(0)]: { n: 1, accSum: 85 }, [k(10)]: { n: 1, accSum: 70 } }, memory: { struggles: [], mastered: [], noteMisses: [{ label: "B", count: 2 }] }, summary: { avgAcc: 78, games: 4 } };

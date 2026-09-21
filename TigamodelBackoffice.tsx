@@ -4,6 +4,7 @@ import { playUi } from "./music-engine";
 import { AI_PROVIDERS, AI_FEATURES } from "./AdminAIModels";
 import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, loadChatSessions, deleteChatSession, clearChatSessions, loadEvalRuns, saveEvalRun, clearEvalRuns } from "./tigamodel/web.js";
 import { readAutoTeachOutcomes } from "./use-autoteach";
+import { MULTIMODAL_REGISTRY, multimodalSummary } from "./tigamodel/multimodal/interfaces.js";
 
 /* ── TigamodelBackoffice.tsx ──
    TIGA's own back office (แยกจากหลังบ้านทั่วไปของแอป): the single surface
@@ -168,6 +169,7 @@ export function TigamodelBackoffice({ lang = "th" }) {
         <button style={S.chip(tab === "evals")} onClick={() => setTab("evals")}>📊 {T("ประวัติประเมิน", "Eval history", "评估历史")}</button>
         <button style={S.chip(tab === "outcomes")} onClick={() => setTab("outcomes")}>🏆 {T("กลยุทธ์ไหนชนะ", "Winning strategies", "有效策略")}</button>
         <button style={S.chip(tab === "growth")} onClick={() => setTab("growth")}>📈 {T("การเติบโต", "Growth", "增长")}</button>
+        <button style={S.chip(tab === "multimodal")} onClick={() => setTab("multimodal")}>🎛 {T("มัลติโมดัล", "Multimodal", "多模态")}</button>
       </div>
 
       {err && <div style={{ color: S.bad, fontSize: 13, marginBottom: 10 }}>⚠️ {err}</div>}
@@ -307,6 +309,7 @@ export function TigamodelBackoffice({ lang = "th" }) {
 
       {/* ══ 5) GROWTH: real-time signup/payer analytics + year-end forecast ══ */}
       {tab === "growth" && <GrowthTab T={T} S={S} lang={lang} />}
+      {tab === "multimodal" && <MultimodalTab T={T} S={S} lang={lang} />}
     </div>
   );
 }
@@ -545,6 +548,48 @@ function EvalHistory({ T, S, lang }) {
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ── Multimodal tab (Phase 4, spec §18–20): the honest capability registry —
+   what runs today, what is planned, what is permanently out of bounds. Plus
+   the real self-report count this device has stored. No claims beyond the
+   registry's own status fields. ── */
+function MultimodalTab({ T, S, lang }) {
+  const srCount = (() => { try { return (JSON.parse(localStorage.getItem("tg_self_reports") || "[]") || []).length; } catch (e) { return 0; } })();
+  const sum = multimodalSummary();
+  const badge = { implemented: { c: S.good, t: T("ใช้ได้แล้ว", "live", "已实现") }, planned: { c: S.warn, t: T("วางแผนไว้", "planned", "已规划") }, forbidden: { c: S.bad, t: T("ห้ามตลอดไป", "forbidden", "永久禁止") } };
+  return (
+    <div style={S.card}>
+      <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>🎛 {T("ความสามารถมัลติโมดัล — สถานะจริง", "Multimodal capability — real status", "多模态能力——真实状态")}</div>
+      <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 10 }}>
+        {T("ห้ามอ้างว่าวิเคราะห์ได้หากยังไม่มีโมดูลจริง (สเปค §20) — ตารางนี้คือแหล่งความจริงเดียว", "Never claim analysis a module does not provide (spec §20) — this table is the single source of truth", "禁止声称未实现的能力（规范§20）——本表是唯一事实来源")}
+        {" · "}{T("คำตอบตรงที่เก็บไว้ในเครื่องนี้", "self-reports stored on this device", "本设备存储的直接反馈")}: <b>{srCount}</b>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <span style={{ ...S.mono, color: S.good }}>● {T("ใช้ได้", "live", "已实现")} {sum.implemented}</span>
+        <span style={{ ...S.mono, color: S.warn }}>◐ {T("วางแผน", "planned", "已规划")} {sum.planned}</span>
+        <span style={{ ...S.mono, color: S.bad }}>✕ {T("ห้าม", "forbidden", "禁止")} {sum.forbidden}</span>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+          <thead><tr style={{ color: "var(--muted)", textAlign: "left" }}>
+            <th style={{ padding: "6px 8px" }}>{T("ความสามารถ", "Capability", "能力")}</th>
+            <th style={{ padding: "6px 8px" }}>{T("สถานะ", "Status", "状态")}</th>
+            <th style={{ padding: "6px 8px" }}>{T("หมายเหตุ", "Note", "备注")}</th>
+          </tr></thead>
+          <tbody>
+            {MULTIMODAL_REGISTRY.map(m => (
+              <tr key={m.id} style={{ borderTop: "1px solid var(--bd2,rgba(0,0,0,0.06))" }}>
+                <td style={{ padding: "6px 8px", fontWeight: 700 }}>{m.label[lang] || m.label.en}{m.spec ? <span style={{ color: "var(--muted)", fontWeight: 400 }}> · {m.spec}</span> : null}</td>
+                <td style={{ padding: "6px 8px", color: badge[m.status].c, fontWeight: 800 }}>{badge[m.status].t}</td>
+                <td style={{ padding: "6px 8px", color: "var(--muted)", fontSize: 11.5 }}>{m.note || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

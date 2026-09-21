@@ -84,6 +84,17 @@ export function createTeachingLoop({ policy, kb, skillGraph } = {}) {
       if (typeof practiceStats.accuracy === "number" && practiceStats.accuracy >= 85 && typeof practiceStats.speedRatio === "number" && practiceStats.speedRatio > 1.15) issues.push({ code: "speed_uneven", detail: "เร่งจังหวะเมื่อท่องคุ้น", evidence: [`speedRatio ${practiceStats.speedRatio}`], confidence: 0.5 });
       if (typeof practiceStats.accuracy === "number" && typeof practiceStats.weekAgoAccuracy === "number" && practiceStats.weekAgoAccuracy > 0 && practiceStats.accuracy - practiceStats.weekAgoAccuracy < 3) issues.push({ code: "progress_stall", detail: "ความแม่นยำไม่คืบหน้าเป็นสัปดาห์", evidence: [`acc ${practiceStats.accuracy} vs ${practiceStats.weekAgoAccuracy} a week ago`], confidence: 0.5 });
     }
+    // 4b. OBSERVATION-DRIVEN ISSUES (Phase 4, spec §18/§21): any modality may
+    // send observations — camera hand-posture, STT answers, session events.
+    // Each observation that carries {code, detail} in its value becomes a
+    // real diagnosis issue; unknown shapes are ignored. Vision NEVER infers
+    // mood/attention (§16) — only what the detector actually measured.
+    for (const o of obs) {
+      const v = o && o.value;
+      if (v && typeof v === "object" && v.code && typeof v.code === "string") {
+        issues.push({ code: String(v.code).slice(0, 40), detail: String(v.detail || v.signal || o.signal || "observation"), evidence: [`${o.modality}: ${o.signal}`].slice(0, 4), confidence: Math.min(0.7, Math.max(0.3, Number(v.confidence) || 0.5)) });
+      }
+    }
     const diagnosis = makeDiagnosis({ issues });
 
     // 5b. SELF-REPORT FUSION (Phase 4, spec §17): the student's own words

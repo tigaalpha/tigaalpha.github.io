@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { L } from "./i18n";
 import { Piano, pcOf } from "./music-engine";
 import { tigaStrategyLabel, SELF_REPORT_CHOICES, newStudentFeedback, rerunLoopWithSelfReport } from "./tigamodel/web";
+import { sttSupported, getSR } from "./speech";
+import { selfReportFromTranscript } from "./tigamodel/web";
 import { usePracticeCoach } from "./use-practice-coach";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
@@ -306,6 +308,29 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
     } catch (e) {}
     setBusy(false);
   }
+  const canSTT = (() => { try { return sttSupported(); } catch (e) { return false; } })();
+  const [listening, setListening] = useState(false);
+  function listenOnce() {
+    if (busy || listening || answered || !canSTT) return;
+    try {
+      const SR = getSR();
+      if (!SR) return;
+      setListening(true);
+      const rec = new SR();
+      rec.lang = lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US";
+      rec.maxAlternatives = 1;
+      rec.onresult = (ev) => {
+        try {
+          const said = ev.results && ev.results[0] && ev.results[0][0] && ev.results[0][0].transcript;
+          const key = selfReportFromTranscript(said);
+          if (key) answer(key);
+        } catch (e) {}
+      };
+      rec.onend = () => setListening(false);
+      rec.onerror = () => setListening(false);
+      rec.start();
+    } catch (e) { setListening(false); }
+  }
   return (
     <div className="presultai psr">
       <div className="presultai-h">🙋 {q.h}</div>
@@ -316,6 +341,9 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
           {q.opts.map(([k, label]) => (
             <button key={k} className={`psr-btn${answered === k ? " on" : ""}`} disabled={busy} onClick={() => answer(k)}>{label}</button>
           ))}
+          {canSTT && (
+            <button className="psr-btn" disabled={busy || listening} title={T3("กดแล้วพูดตอบได้เลย", "Tap and speak your answer", "按下后语音回答")} onClick={listenOnce}>{listening ? "🔴" : "🎙"}</button>
+          )}
         </div>
       )}
     </div>

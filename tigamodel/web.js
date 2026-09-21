@@ -264,6 +264,47 @@ export async function rerunLoopWithSelfReport(practiceStats, selfReport) {
 }
 const SELF_REPORT_STATE_KEYS = { confused: 1, too_easy: 1, too_hard: 1, understand: 1, frustrated: 1, retry: 1, great: 1 };
 
+/* P4a — CAMERA→LOOP BRIDGE (spec §18/§19, real wiring): the camera coach's
+   hand-posture detector already measures real frames ({round, wrist, thumb}
+   averages in camSignalWindow). This turns those MEASURED values into loop
+   observations — only what the detector actually saw, never mood/attention
+   (§16). Caller passes the window the UI already computed; null/empty → no
+   observation (honest). Returns [{modality, signal, value}] for runOnce. */
+export function visionObservationsFromWindow(win) {
+  try {
+    if (!Array.isArray(win) || win.length < 5) return null;   // too few frames = no claim
+    const n = win.length;
+    const avg = k => win.reduce((s, w) => s + (typeof w[k] === "number" ? w[k] : 0), 0) / n;
+    const mRound = avg("round"), mWrist = avg("wrist");
+    const obs = [];
+    if (mRound < 0.6) obs.push({ modality: "vision", signal: "hand_shape", value: { code: "hand_posture_flat", detail: "รูปมือแบนระหว่างเล่น (ค่าเฉลี่ยจากกล้อง)", confidence: Math.min(0.7, 0.4 + (0.6 - mRound)) } });
+    if (mWrist < 0.55) obs.push({ modality: "vision", signal: "wrist_position", value: { code: "wrist_collapsed", detail: "ข้อมือยุบล่างระหว่างเล่น", confidence: Math.min(0.7, 0.4 + (0.55 - mWrist)) } });
+    return obs.length ? obs : null;
+  } catch (e) { return null; }
+}
+
+/* P4b — STT ANSWER PATH (spec §17/§18): a self-report answer SPOKEN instead
+   of tapped. Maps the transcript to the self-report vocabulary; anything
+   unmatched → null (the caller falls back to the tap UI). Thai/English/
+   Chinese keywords, all exact words a learner would actually say. */
+const SR_SPEECH_MAP = [
+  [/เข้าใจ(แล้ว)?|แล้ว|got ?it|underst(o|a)od|understand|明白|懂了/, "understand"],
+  [/งง|confus|ไม่เข้าใจ|不明白|懵/, "confused"],
+  [/ง่าย(ไป|เกิน)|too ?easy|太简单/, "too_easy"],
+  [/ยาก(ไป|เกิน)|too ?hard|太难/, "too_hard"],
+  [/ลอง(อีก|ใหม่)|อีกครั้ง|retry|again|再来|再试/, "retry"],
+  [/หงุดหงิด|โมโห|frustrat|烦躁|烦/, "frustrated"],
+  [/สนุก|มันส์|fun|好玩|有趣/, "great"],
+];
+export function selfReportFromTranscript(text) {
+  try {
+    const t = String(text || "").toLowerCase();
+    if (!t.trim()) return null;
+    for (const [re, key] of SR_SPEECH_MAP) if (re.test(t)) return key;
+    return null;
+  } catch (e) { return null; }
+}
+
 /* ── THE UNIFIED PLAN (owner directive: รวมแผน 100 + แผน 1M เป็นแผ่นเดียว):
    100 streams × their 1M cells, one work order, statuses verified by the
    capability engine (a "done" tick without real capability never shows done). ── */
@@ -349,13 +390,13 @@ export async function getLearnedKBContextAsync(matchText) {
    is off (no singleton, no stats) so the caller can skip silently.
    (Self-learning outcome reinforcement is a SEPARATE async export —
    reinforceTeachingOutcome — called by finishPractice fire-and-forget.) ── */
-export function runTeachingLoopForPractice(practiceStats, { selfReport = null } = {}) {
+export function runTeachingLoopForPractice(practiceStats, { selfReport = null, observations = null } = {}) {
   try {
-    if (!practiceStats) return null;
+    if (!practiceStats && !(Array.isArray(observations) && observations.length)) return null;
     if (!_tiga) initTigamodelWeb();
     const tiga = _tiga;
     if (!tiga || !tiga.loop) return null;
-    return tiga.loop.runOnce({ practiceStats, selfReport });
+    return tiga.loop.runOnce({ practiceStats, selfReport, observations: observations || [] });
   } catch (e) { return null; }
 }
 
