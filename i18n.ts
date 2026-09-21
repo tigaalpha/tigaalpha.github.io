@@ -158,6 +158,513 @@ export const BENEFIT_CASES = {
       content: { th: `💳 เสียงที่ดังทุกครั้งที่จ่ายเงิน\n• ปี 2019 Mastercard เปิดตัว "sonic brand" — เสียงสั้น ๆ ที่เล่นตอนจ่ายเงินสำเร็จทั่วโลก\n• สร้างความรู้สึกมั่นใจ-ปลอดภัยในเสี้ยววินาที\n• งานวิจัยชี้ แบรนด์ที่มี sonic logo ถูกจดจำมากขึ้นถึง ~8 เท่า\n💡 แม้แต่ "เสียงจ่ายเงิน" ก็เป็นการตลาด`,
         en: `💳 The sound of every payment\n• In 2019 Mastercard launched a "sonic brand" — a short sound at successful checkout worldwide\n• Creates trust and reassurance in a split second\n• Brands with a sonic logo are recalled up to ~8× more\n💡 Even a payment sound is marketing.`,
         zh: `💳 每次付款都会响起的声音\n• 2019年万事达推出"声音品牌"——全球付款成功时的短促之声\n• 在一瞬间营造信任与安心\n• 拥有声音标志的品牌记忆度可高出约8倍\n💡 连"付款声"都是营销。` } },
+
+    { id: "paganinicraze", icon: "🎻", title: { th: "Paganini: ศิลปินคนแรกที่ขายตั๋วแพงได้", en: "Paganini: the first superstar pricing", zh: "帕格尼尼：首位巨星定价" },
+      content: { th: `🎻 Niccolò Paganini (1782-1840) — คนแรกที่พิสูจน์ว่า "ความเป็นดาว" ขายได้จริง
+
+ต้นศตวรรษที่ 19 นักไวโอลินทั่วยุโรปรับจ้างเล่นตามราชสำนักราคาเท่ากันหมด แต่ Paganini ปฏิเสธระบบนั้น — เขาทัวร์เอง ตั้งราคาตั๋วเองสูงหลายเท่าของคอนเสิร์ตทั่วไป และสร้างกระแสด้วยการปล่อยข่าวลือว่า "ขายวิญญาณให้ปีศาจ" เพื่อแลกกับฝีมือระดับเหนือมนุษย์ เขาจำกัดจำนวนคอนเสิร์ตอย่างจงใจเพื่อรักษาความหายาก (scarcity) รายได้ต่อการแสดงสูงกว่านักดนตรีทั่วไปนับสิบเท่า เมื่อเสียชีวิตทิ้งมรดกมหาศาล ลูกชายต้องประกาศราคาอัตราค่าจ้างเล่นพิเศษเป็นสาธารณะ
+
+โมเดลของเขาคือแบบแผนเดียวกับทัวร์ระดับโลกทุกยุค: ความหายาก + เรื่องเล่า + ความเชื่อว่า "ต้องเห็นกับตาก่อนตาย"
+
+💡 บทเรียน: กลยุทธ์การตลาดด้วยความหายาก (scarcity marketing) และ "เรื่องเล่าเหนือธรรมชาติของผลิตภัณฑ์" มีต้นแบบทางดนตรีครบเครื่องตั้งแต่เกือบ 200 ปีก่อน Instagram จะเกิด`,
+        en: `🎻 Niccolò Paganini (1782-1840) — the man who proved stardom itself could be sold
+
+In the early 1800s most European violinists were court employees at standardized rates. Paganini refused that system: he toured himself, priced tickets several multiples above ordinary concerts, and seeded the (false) legend that he had sold his soul to the devil for his impossible technique. He deliberately limited the number of performances to manufacture scarcity — earning roughly ten times a typical musician's fee per night. His estate was so vast that his son had to publish the rates for hiring ghost-Paganinis.
+
+His playbook is the same one behind every global tour since: scarcity + a story + the belief that "you had to see it to believe it."
+
+💡 Lesson: scarcity marketing and supernatural product mythology have a complete prototype in music from two centuries before Instagram existed.`,
+        zh: `🎻 尼科洛·帕格尼尼（1782-1840）——证明"明星光环本身可以卖钱"的第一人
+
+十九世纪初，欧洲小提琴家大多是宫廷雇员，报酬千篇一律。帕格尼尼拒绝了这套体系：他自主巡演，票价定在普通音乐会的数倍，还刻意散播（虚假的）传闻——"他把灵魂卖给魔鬼换来了超凡琴技"。他有意控制演出场次制造稀缺，单场收入约为普通乐手的十倍。遗产之巨，以致他儿子不得不公开"聘请帕格尼尼幽灵"的价目表。
+
+他的打法正是此后全球巡演的共同剧本：稀缺＋故事＋"眼见为实"的信仰。
+
+💡 启示：稀缺营销与超自然产品神话，早在 Instagram 出现两百年前就在音乐行业有了完整原型。` } },
+    { id: "lisztfans", icon: "🌟", title: { th: "Lisztomania: แฟนคลับยุค 1840", en: "Lisztomania: fandom before fandom", zh: "李斯特狂热：粉丝文化始祖" },
+      content: { th: `🌟 Franz Liszt (1811-1886) — "Lisztomania" คือแฟนคลับยุคแรกของโลก
+
+ปี 1840-1845 เมืองใหญ่ทั่วยุโรปเกิดปรากฏการณ์ที่หมอเยอรมัน Heinrich Heine ตั้งชื่อว่า "Lisztomania" ผู้หญิงแย่งชิงผ้าเช็ดมือ ผมหวี และปลายซิการ์ของ Liszt เป็นของที่ระลึก เข็มกลัดรูปเขากลายเป็นสินค้าระดับแนวหน้า ร้านค้าแห่งธุรกิจใหม่เรียกว่า "สินค้าศิลปิน" (artist merchandise) ผู้จัดคอนเสิร์ตพบว่าการขึ้นเวทีของ Liszt ตัวเองยกยอดจนเรียกว่า "คอนเสิร์ตบรรยาย" สามารถขายบัตรราคาสูงพร้อมรายได้จากสินค้าฝากยี่ห้อได้พร้อมกัน
+
+นี่คือต้นแบบของ "fan economy" ที่วงการเพลงทั้งโลกใช้กันทุกวันนี้: การที่ความรักในศิลปินแปรงานเป็นสินค้า สื่อ และสถานะทางสังคมได้อย่างเป็นระบบ
+
+💡 บทเรียน: เมื่อแฟน "อยากเป็นส่วนหนึ่งของศิลปิน" — การตลาดจะเปลี่ยนความรู้สึกนั้นเป็นรายได้ได้หลายชั้น ไม่ใช่แค่ตั๋วเข้างาน`,
+        en: `🌟 Franz Liszt (1811-1886) — "Lisztomania" was the world's first fan economy
+
+In the 1840s European cities saw what critic Heinrich Heine named "Lisztomania": women fought over his handkerchiefs, hair and cigar ends as keepsakes; brooches bearing his image became mainstream consumer goods — the invention of artist merchandise. Concert promoters learned that a Liszt appearance could sell premium tickets AND merchandise at once.
+
+This is the template for today's fan economy: the systematic conversion of fan love into products, media, and social status.
+
+💡 Lesson: when fans "want to be part of the artist," marketing can monetize that feeling in layers — far beyond the ticket itself.`,
+        zh: `🌟 弗朗茨·李斯特（1811-1886）——"李斯特狂热"是全球最早的粉丝经济
+
+1840年代，欧洲各大城市出现被评论家海涅称为"Lisztomania"的现象：女性争抢他的手帕、发丝和雪茄头作为纪念品；印有他形象的胸针成为大众消费品——"艺人周边"由此发明。演出主办方发现，李斯特的登台能同时卖出高价门票和周边商品。
+
+这正是今日粉丝经济的模板：把粉丝的爱系统地转化为商品、媒体与社会身份。
+
+💡 启示：当粉丝"想成为艺人的一部分"，营销就能把这份感情层层变现——远不止一张门票。` } },
+    { id: "straussbrand", icon: "🕺", title: { th: "Johann Strauss: วงดนตรีเป็นแบรนด์แฟรนไชส์", en: "Johann Strauss: the touring franchise", zh: "施特劳斯：乐队即连锁品牌" },
+      content: { th: `🕺 Johann Strauss II (1825-1899) — คนแรกที่ทำ "วงดนตรี" เป็นแบรนด์แฟรนไชส์
+
+ครัวเรือน Strauss ที่เวียนนาเผชิญปัญหาเดียวกับร้านอาหารยุคนี้ — คอนเสิร์ตของ "ตัวจริง" มีวันเดียว ขายได้ทีละที่ เพราะงั้น Johann Strauss Jr. ทำ 3 อย่างที่ไม่เคยมีใครทำ: 1) แบ่งวงออกเป็นหลายหน่วยที่ออกแสดงพร้อมกันในเมืองต่างๆ (รวมถึงทัวร์รัสเซีย-อเมริกา) ภายใต้ชื่อเดียวกัน 2) ลิขสิทธิ์การเรียงชุดเพลง (Strauss medley) ที่สื่อยุคนั้นต้องจ่ายเงินซื้อ 3) สร้าง "คู่หู" บริษัทผู้จัด (Carl Haslinger) ที่จัดการการเงินให้เป็นระบบ
+
+นวัตกรรมที่แท้จริงคือ "ชื่อ Strauss" กลายเป็นแบรนด์คู่ขนานกับตัวบุคคล แฟนจ่ายเงินเพื่อ "ชื่อ" ไม่ใช่ "ตัวคน" — หลักการเดียวกับแฟรนไชส์เครื่องดื่มและร้านอาหารทั่วโลกปัจจุบัน
+
+💡 บทเรียน: แบรนด์ที่แข็งแรงสามารถ "แยกตัวจากผู้ก่อตั้ง" ได้ — คอนเสิร์ตเจ้าแรกของโลกที่พิสูจน์ว่าชื่อเสียงขยายพร้อมกันได้หลายเมือง`,
+        en: `🕺 Johann Strauss II (1825-1899) — the first to run a music act as a franchise
+
+The Strauss household in Vienna faced the classic one-show-one-city problem. Johann Jr.'s fixes: (1) split the orchestra into multiple units performing simultaneously in different cities (including tours to Russia and America) under one name, (2) licensed Strauss medleys to publishers, (3) partnered with Carl Haslinger's firm for professional business management.
+
+The real innovation: "Strauss" became a brand separable from the man — fans paid for the name, not the person. The same logic behind every global food & beverage franchise today.
+
+💡 Lesson: a strong brand can outgrow its founder — Strauss proved a music name could scale across cities simultaneously.`,
+        zh: `🕺 小约翰·施特劳斯（1825-1899）——首位把乐队经营成连锁品牌的人
+
+维也纳施特劳斯家族遇到了典型的"一场演出一座城"问题。小约翰的解法：(1) 把乐团拆成多支同时在不同城市演出（包括远征俄国与美国）的同名分团；(2) 将施特劳斯串烧曲授权给出版商；(3) 与 Carl Haslinger 公司合作，建立专业的商业管理。
+
+真正的创新在于："施特劳斯"变成了可以脱离个人存在的品牌——粉丝为名字买单，而非为本人买单。这与今天全球餐饮连锁的逻辑一致。
+
+💡 启示：强大的品牌可以超越创始人本人——施特劳斯证明了一个音乐品牌可以同时在多个城市扩张。` } },
+    { id: "tinfpanalley", icon: "🎙️", title: { th: "Tin Pan Alley: โรงงานผลิตเพลงแห่งแรก", en: "Tin Pan Alley: the song factory", zh: "锡盘巷：第一座歌曲工厂" },
+      content: { th: `🎙️ Tin Pan Alley (1880s-1920s, นิวยอร์ก) — อุตสาหกรรมเพลงแบบ "โรงงาน" แห่งแรกของโลก
+
+ย่าน West 28th Street ในนิวยอร์ก รวมนักแต่งเพลงไว้ในระบบที่เรียกว่า "song plugger" มีการแบ่งงานเป็นสายการผลิต: คนแต่งทำนอง คนแต่งเนื้อ คนทดลองเล่นหน้าร้าน คนขายให้นักแสดง คนผลักดันเข้าวิทยุและละครบรอดเวย์ เป้าหมายเดียวคือขายแผ่นโน้ตเพลง (sheet music) ให้ได้มากที่สุด เพลงหนึ่งขายได้หลักล้านแผ่น — Charles K. Harris กับ "After the Ball" (1892) ทำรายได้เกินคนละสิบล้านดอลลาร์ในยุคนั้น (เทียบมูลค่าปัจจุบันได้หลายร้อยล้าน)
+
+โมเดลนี้คือบรรพบุรุษของ "ค่ายเพลง" ทุกค่ายในโลก และเป็นต้นแบบ K-pop factory ที่วันนี้นักวิเคราะห์พูดถึง — เพราะหลักการเดียวกัน: แบ่งงานเป็นสายการผลิต วัดผลทันที ออกของถี่
+
+💡 บทเรียน: ธุรกิจเพลงเป็น "อุตสาหกรรม" มาก่อนที่คำว่า creative industry จะเกิดขึ้นหลายสิบปี`,
+        en: `🎙️ Tin Pan Alley (1880s-1920s, New York) — the world's first "song factory"
+
+West 28th Street concentrated songwriters into a production system: separate melody writers, lyricists, in-store song pluggers, Broadway pitchers. The goal was mass sheet-music sales — Charles K. Harris's "After the Ball" (1892) reportedly earned tens of millions in today's dollars.
+
+This was the ancestor of every modern record label, and of today's K-pop factory model: assembly-line specialization, instant measurement, high output.
+
+💡 Lesson: music became an "industry" decades before anyone coined the term creative industry.`,
+        zh: `🎙️ 锡盘巷（1880s-1920s，纽约）——世界首座"歌曲工厂"
+
+西28街把词曲创作变成流水线：旋律作者、作词者、店面试弹员、百老汇推销员各司其职，目标只有一个——大批量销售乐谱。Charles K. Harris 的《After the Ball》（1892）据称赚到了相当于今日数千万美元的收入。
+
+这就是现代唱片公司乃至今日 K-pop 工厂模式的祖先：分工、即时测量、高频产出。
+
+💡 启示：早在"创意产业"一词诞生几十年前，音乐就已经是真正的"工业"。` } },
+    { id: "victrola", icon: "📻", title: { th: "Victor Talking Machine: เครื่องเล่นเปลี่ยนโลก", en: "Victor Talking Machine: hardware meets music", zh: "维克多：硬件与音乐的联姻" },
+      content: { th: `📻 Victor Talking Machine Company (1901-1929, สหรัฐฯ) — บริษัทแรกที่ขาย "เครื่องเสียง + ศิลปิน" เป็นระบบธุรกิจเดียว
+
+ผู้บริหาร Eldridge Johnson สร้างแบรนด์ Victrola ขึ้นจาก 3 กลยุทธ์ที่บริษัทเทคครั้งนี้ยังใช้กันอยู่: 1) ผูกตัวศิลปินระดับโลกเป็น "แบรนด์แอมบาสเดอร์" — เอนริโก คารูโซ (Enrico Caruso, 1873-1921) เทนนำโลก เป็นศิลปินคนแรกที่ขายแผ่นเสียงได้ล้านชุด 2) ออกแบบเครื่องเล่นให้เป็น "เฟอร์นิเจอร์สุขภาพ" สวยงามพอวางในห้องรับได้ 3) ระบบลิขสิทธิ์บันทึกเสียงเป็นของบริษัท ทำให้คู่แข่งคัดลอกไม่ได้
+
+ผลลัพธ์: จากบริษัทเล็กกลายเป็นผู้ค้าเครื่องเสียงอันดับโลก และถูก RCA ซื้อกิจการในปี 1929 ด้วยมูลค่าที่สูงที่สุดแห่งยุค
+
+💡 บทเรียน: การรวม "hardware + content + exclusive IP" ในธุรกิจเดียว คือสูตรที่บริษัทเทครุ่นนี้ (Apple, Sonos, Spotify) ยังเดินตาม — ต้นฉบับมาจากโน้ตยาวของ Victor ก่อนปี 1930`,
+        en: `📻 Victor Talking Machine Company (1901-1929) — the first hardware+artist business system
+
+Eldridge Johnson's playbook looks remarkably modern: (1) exclusive world-class artists — Enrico Caruso (1873-1921), the first recording artist to sell a million records — as brand ambassadors, (2) players designed as living-room furniture, not gadgets, (3) company-owned recording IP competitors couldn't copy.
+
+Result: a small shop became the world's leading phonograph maker, acquired by RCA in 1929 at the era's richest price.
+
+💡 Lesson: hardware + content + exclusive IP in one business — the formula Apple, Sonos and Spotify still follow was perfected by Victor before 1930.`,
+        zh: `📻 维克多留声机公司（1901-1929）——首个"硬件+艺人"一体化商业体系
+
+Eldridge Johnson 的打法极具现代感：(1) 独占世界级艺人——恩里科·卡鲁索（1873-1921），史上首位唱片销量破百万的歌手——担任品牌大使；(2) 把播放器设计成客厅家具而非 gadgets；(3) 公司自有录音版权，竞品无法复制。
+
+结果：一家小店成长为全球留声机霸主，1929年以当时天价被 RCA 收购。
+
+💡 启示："硬件+内容+独家IP"三位一体——苹果、Sonos、Spotify 仍在沿用的公式，维克多在1930年前就已完善。` } },
+    { id: "carusoceleb", icon: "🎩", title: { th: "Caruso: นักร้องคนแรกที่ขายล้านแผ่น", en: "Caruso: the first million-selling voice", zh: "卡鲁索：首位百万唱片歌手" },
+      content: { th: `🎩 Enrico Caruso (1873-1921) — นักร้องคนแรกในประวัติศาสตร์ที่ขายแผ่นเสียงได้ล้านชุด
+
+โอเปร่าเป็นธุรกิจ "ตั๋ว" มาหลายร้อยปี แต่ Caruso เข้าใจก่อนใครว่าเสียงของเขาสามารถขายได้ 2 ชั้น: ตั๋วเข้าโรงละคร (Metropolitan Opera นิวยอร์ก) และ "แผ่นเสียง" ที่แฟนฟังได้ที่บ้าน เขาเซ็นสัญญากับ Victor Talking Machine ในปี 1904 ในเงื่อนไขที่ได้ส่วนแบ่งจากยอดขายแผ่น — โมเดล royalty ที่กลายเป็นมาตรฐานอุตสาหกรรมจนถึงทุกวันนี้ แผ่นเสียงของเขาทำให้ Victor ขายเครื่องเล่นได้เพิ่มหลายเท่า (คนอยากฟังเสียง Caruso ที่บ้าน = ต้องมีเครื่อง Victrola)
+
+โมเดล "ศิลปินขับเคลื่อน hardware" นี้ต่อยอดเป็นกลยุทธ์ของ Apple Music, Beats, Bose ในทุกรูปแบบ
+
+💡 บทเรียน: เมื่อมี "ศิลปินที่คนอยากฟัง" ในแพลตฟอร์มของคุณ — แพลตฟอร์มขายของอื่นได้ตามไปด้วย`,
+        en: `🎩 Enrico Caruso (1873-1921) — history's first million-selling recording artist
+
+Opera was a ticket business for centuries; Caruso understood before anyone else that his voice could sell twice: at the Metropolitan Opera box office AND in fans' living rooms. His 1904 Victor deal paid royalties on record sales — the model that became the industry standard. His records drove Victrola player sales through the roof (want to hear Caruso at home? Buy the machine).
+
+This "artist drives hardware" logic is the ancestor of every Apple Music / Beats / Bose strategy.
+
+💡 Lesson: put a voice people crave on your platform, and the platform sells everything else along with it.`,
+        zh: `🎩 恩里科·卡鲁索（1873-1921）——史上首位唱片销量破百万的歌手
+
+歌剧几百年来一直是门票生意，而卡鲁索比所有人都早明白：他的嗓音可以卖两次——大都会歌剧院的门票，以及粉丝家中的唱片。1904年他与维克多签约，按唱片销量抽成——这成为日后整个行业的标准模式。他的唱片直接带动 Victrola 播放器销量暴涨（想在家听卡鲁索？先买机器）。
+
+这种"艺人拉动硬件"的逻辑，是 Apple Music、Beats、Bose 等所有现代战略的祖先。
+
+💡 启示：把人人渴望的声音放上你的平台，平台就能连带卖出一切。` } },
+    { id: "armstrongbrand", icon: "🎺", title: { th: "Louis Armstrong: ศิลปินคือแบรนด์โลก", en: "Louis Armstrong: the global personal brand", zh: "路易斯·阿姆斯特朗：全球个人品牌" },
+      content: { th: `🎺 Louis Armstrong (1901-1971) — ศิลปินคนแรกที่ "ชื่อตัวเอง" กลายเป็นแบรนด์ระดับโลกที่ขายได้ทุกอย่าง
+
+Armstrong ไม่ใช่แค่นักทรัมเป็ตยอดฝีมือ — เขาสร้าง "ตัวตน" ที่จดจำง่ายขึ้นทุกช่องทาง: เสียงหัวเราะ ผ้าเช็ดมือสีขาว การแต่งกาย เสียงพูดเป็นเอกลักษณ์ เขาเป็นนักดนตรีแจ๊สคนแรกที่ปรากฏในภาพยนตร์ฮอลลีวูด โฆษณาระดับชาติ และทัวร์ระดับโลกอย่างต่อเนื่องหลายทศวรรษ ยุคหลังของเขาเซ็นสัญญาโฆษณากลุ่มสินค้าอุปโภคขนาดใหญ่ที่เปิดทางให้ศิลปินดนตรีร่วมงานกับแบรนด์ทั่วโลก (บางชิ้นในยุคนั้นยังมีประเด็นเรื่องการเมืองเชื้อชาติ — บทเรียนเชิงลบที่ทีมการตลาดศึกษาถึงปัจจุบัน)
+
+สิ่งที่เขาทิ้งไว้คือแบบแผน "ศิลปินเป็นแบรนด์ระดับโลก" ที่ศิลปินทุกคนใช้กันทุกวันนี้
+
+💡 บทเรียน: ตัวตนที่ชัดเจน (identity) คือสินทรัพย์ทางธุรกิจที่ทรงพลังกว่าฝีมือเพียงอย่างเดียว`,
+        en: `🎺 Louis Armstrong (1901-1971) — the first musician whose NAME was a global brand selling everything
+
+Armstrong wasn't just a trumpet virtuoso — he built a legible identity across every channel: the laugh, the white handkerchief, the wardrobe, the unmistakable voice. First jazz musician to become a Hollywood film, national advertising, and global-tour regular for decades. His later career signed major consumer-goods endorsements, opening doors for musicians-brand partnerships worldwide (some involving real controversies about race and politics — negative lessons marketers still study).
+
+He left behind the template "artist as global brand" that every musician uses today.
+
+💡 Lesson: a clear identity is a more powerful business asset than raw talent alone.`,
+        zh: `🎺 路易斯·阿姆斯特朗（1901-1971）——首位把"自己名字"变成全球品牌、什么都能卖的音乐人
+
+阿姆斯特朗不只是小号大师——他在每个渠道都建立了清晰可辨的形象：标志性的笑声、白色手帕、服装风格、独一无二的声音。他是首位持续多年出现在好莱坞电影、全国广告与全球巡演中的爵士音乐家。职业生涯后期签下大型消费品牌代言，为音乐人与品牌的全球合作打开大门（其中也涉及种族与政治的真实争议——这些教训至今仍是营销课堂的负面案例）。
+
+他留下了"艺人即全球品牌"的模板，今天的每位音乐人都在使用。
+
+💡 启示：清晰的身份认同，是比纯技艺更强大的商业资产。` } },
+    { id: "beatlesmarketing", icon: "🎪", title: { th: "Beatles: 4 หนุ่มที่เปลี่ยนกติกาธุรกิจเพลง", en: "The Beatles: rewriting music business rules", zh: "披头士：改写音乐商业规则" },
+      content: { th: `🎪 The Beatles (1960-1970) — วงที่เปลี่ยนกติกาธุรกิจเพลงทั้งระบบใน 10 ปี
+
+สิ่งที่ The Beatles ทำต่อโครงสร้างธุรกิจเพลง: 1) พิสูจน์ว่า "วงเล่นเพลงตัวเอง" ขายได้มากกว่าวงที่บริษัทปั้นให้ร้องเพลงคนอื่น — ค่ายทั่วโลกเปลี่ยนกลยุทธ์ตาม 2) ปล่อยอัลบั้มแทนซิงเกิลเดี่ยว (album era) ทำให้รายได้ต่อแฟนสูงขึ้นหลายเท่า 3) Sgt. Pepper's (1967) คืออัลบั้มแรกที่มีบทกวีพิมพ์ในเล่ม (full lyrics printed) ยกระดับ "แผ่นเสียง" เป็นผลิตภัณฑ์ศิลปะที่ต้องสะสม 4) Apple Corps ที่ตั้งเองปี 1968 เป็นความพยายามแรกของศิลปินที่จะ "เป็นเจ้าของธุรกิจตัวเอง" แทนการอยู่ใต้ค่าย
+
+สมการ "ศิลปินเขียนเพลงเอง + อัลบั้มเป็นผลิตภัณฑ์ + ศิลปินเป็นเจ้าของธุรกิจ" คือสามเสาที่วงการเพลงทั้งโลกใช้ต่อจนปัจจุบัน
+
+💡 บทเรียน: ผู้เล่นที่กล้าเปลี่ยน "ฟอร์แมตการขาย" (ซิงเกิล→อัลบั้ม) มักได้กำไรหลายเท่าโดยไม่ต้องเปลี่ยนเพลง`,
+        en: `🎪 The Beatles (1960-1970) — the band that rewired the music business in a decade
+
+What they changed: (1) proved that "bands writing their own songs" outsold label-manufactured acts — labels worldwide pivoted; (2) shifted revenue from singles to ALBUMS, multiplying per-fan income; (3) Sgt. Pepper's (1967) printed full lyrics inside — turning a record into collectible art; (4) Apple Corps (1968) was the first serious artist attempt to own their own business instead of renting one.
+
+The equation "self-written songs + album-as-product + artist-owned business" still holds up the entire industry today.
+
+💡 Lesson: whoever dares change the SALES FORMAT (single→album) often multiplies profit without changing the music at all.`,
+        zh: `🎪 披头士（1960-1970）——十年间重构音乐商业规则的乐队
+
+他们改变了什么：(1) 证明"自己写歌的乐队"比公司包装的歌手卖得更多——全球唱片公司随之转向；(2) 把收入重心从单曲转向专辑，单个粉丝收入翻倍；(3)《Sgt. Pepper's》(1967) 内页印上完整歌词——唱片从此升级为可收藏的艺术品；(4) 1968年成立的 Apple Corps 是艺人认真尝试"拥有自己的生意"而非寄居唱片公司之下的先例。
+
+"自写歌+专辑即产品+艺人拥有生意"这三大支柱，至今仍撑起整个行业。
+
+💡 启示：敢于改变"销售格式"（单曲→专辑）的玩家，常常不换音乐就能让利润翻倍。` } },
+    { id: "motownfactory", icon: "🏙️", title: { th: "Motown: โรงงานเพลงที่ข้ามสายพันธุ์", en: "Motown: the sound of young America", zh: "摩城：美国之声工厂" },
+      content: { th: `🏙️ Motown Records (1959-1972, Detroit) — บริษัทเพลงที่พิสูจน์ว่า "โรงงานเพลง" สร้างตลาดใหม่ได้จริง
+
+Berry Gordy ตั้งต้นด้วยเงินกู้ $800 สร้างระบบแบบโรงงานรถยนต์ Ford ที่เขาเคยทำงานอยู่: มีห้องเขียนเพลงประจำ (Holland-Dozier-Holland) วงดนตรีประจำ (Funk Brothers) ห้องอบรมการแสดง (Artist Development — ท่าเต้น การแต่งตัว มารยาทสัมภาษณ์) ผลคือเพลงหลายสิบเพลงอันดับ 1 ของอเมริกาใน 15 ปี ขายได้ทั้งตลาดผิวดำ "และ" ตลาดผิวขาวซึ่งเป็นกลุ่มที่วงการเพลงเดิมคิดว่าไปไม่ถึง — นี่คือจุดที่ Motown ทำลายข้อจำกัดทางเชื้อชาติในธุรกิจบันเทิงอเมริกาไปพร้อมกับทำกำไร
+
+โมเดล "ในบ้านเดียวมีครบ: เขียนเพลง ผลิต ฝึก ออกแบบตัวตน และขาย" กลายเป็นแบบแผน K-pop factory ที่วันนี้นักวิจารณ์ยกให้เป็นต้นแบบตรงๆ
+
+💡 บทเรียน: ระบบในบ้านเดียว (in-house system) ให้คุณภาพสม่ำเสมอ + ราคาต่อหน่วยต่ำ + ควบคุมตัวตนศิลปินได้เต็มที่ — ธุรกิจเพลงและธุรกิจสินค้าใช้หลักเดียวกัน`,
+        en: `🏙️ Motown Records (1959-1972, Detroit) — proof a "song factory" can create a whole new market
+
+Berry Gordy started with an $800 loan and built Ford-assembly-line logic: in-house songwriting (Holland-Dozier-Holland), a house band (Funk Brothers), and Artist Development training (choreography, dress, interview manners). Result: dozens of American #1s in 15 years — sold to BOTH Black and white audiences that the old industry believed were separate markets, breaking entertainment's racial barriers while turning a profit.
+
+The "everything under one roof" model is the direct ancestor critics cite for today's K-pop factory system.
+
+💡 Lesson: an in-house system delivers consistent quality + low unit cost + full artist-identity control — the same principle in music and manufacturing.`,
+        zh: `🏙️ 摩城唱片（1959-1972，底特律）——证明"歌曲工厂"能凭一己之力创造全新市场
+
+Berry Gordy 用借来的800美元起步，把他打工时学到的福特流水线逻辑搬进音乐：内部词曲团队（Holland-Dozier-Holland）、常驻乐队（Funk Brothers）、艺人发展培训（舞蹈、着装、采访礼仪）。十五年间产出数十首全美冠军单曲——同时卖给了黑人市场"和"白人市场，在盈利的同时击穿了美国娱乐业的种族壁垒。
+
+"一屋之内包办词曲、制作、培训、形象、销售"的模式，正是今日 K-pop 工厂体系被广泛引用的直接祖先。
+
+💡 启示：内部一体化系统带来稳定品质+低单位成本+对艺人形象的完全掌控——音乐与制造业遵循同一条原理。` } },
+    { id: "columbiarazor", icon: "🔪", title: { th: "King Camp Gillette & ดนตรีวิทยุ: ใบมีดขายฟรี", en: "Razors and radio: free music sells hardware", zh: "剃刀与电台：免费音乐卖出硬件" },
+      content: { th: `🔪 ทศวรรษ 1920-1930 — วิทยุเปลี่ยนธุรกิจเพลงเป็น "โฆษณาของเครื่องเล่น" ครั้งแรก
+
+ยุคแรกของวิทยุ สถานีต้องหาเพลงมาออกอากาศทั้งวัน ผู้ผลิตเครื่องวิทยุ (RCA, GE, Westinghouse) เห็นโอกาส: ถ้าเพลงฟรีดึงคนฟัง → คนซื้อเครื่องวิทยุเพิ่ม → บริษัทขายเครื่องและอุปกรณ์ได้ทั่วประเทศ และบริษัทสินค้าอุปโภคจ่ายค่าโฆษณาเข้าสถานี (โมเดล "ใบมีดขายถูก ของมีคมขายแพง" ของ Gillette ในยุคเดียวกัน) รายได้จากเพลงทางวิทยุหายไปที่ "ค่าลิขสิทธิ์" ซึ่งกลายเป็นโครงสร้าง royalty ใหม่ทั้งระบบ (ASCAP ขยายตัว, BMI ก่อตั้ง 1939) เพราะวงการเพลงต้องต่อรองกับธุรกิจที่ให้เพลงฟรี
+
+กลไก "ของฟรีดึงคน → ขายของอื่นตามไป" คือแม่แบบของ Spotify (ฟรีดึง user → ขาย premium + โฆษณา) และทุกแพลตฟอร์มสตรีมมิ่งปัจจุบัน
+
+💡 บทเรียน: เมื่อให้สินค้าหนึ่งฟรี มักมีสินค้าอีกชิ้นที่ได้เงินจริง — วางโครงสร้างลิขสิทธิ์ให้คุ้มตั้งแต่ต้น`,
+        en: `🔪 The 1920s-30s — radio turned music into free advertising for hardware
+
+Early stations needed all-day music. Radio manufacturers (RCA, GE, Westinghouse) saw the loop: free music draws listeners → listeners buy radios → manufacturers sell nationwide, while consumer brands (Gillette's razor-blade era logic) pay for ads on stations. Music's own income shifted to licensing structures — ASCAP expanded, BMI was founded in 1939 — because the industry had to negotiate with businesses giving music away.
+
+"Free thing draws users → sell something else" is the exact template of Spotify and every streaming platform.
+
+💡 Lesson: give one product away, and another one pays the bills — build the licensing structure early enough to capture it.`,
+        zh: `🔪 1920-30年代——广播让音乐第一次成为硬件的免费广告
+
+早期电台需要全天节目。收音机制造商（RCA、GE、西屋）看到了闭环：免费音乐吸引听众→听众买收音机→制造商全国销售，同时消费品品牌（同一时代吉列"刀架便宜刀片贵"的逻辑）为电台投放广告。音乐自身的收入转向了授权体系——ASCAP 扩张，1939年 BMI 成立——因为行业必须与"免费送音乐"的生意谈判。
+
+"免费品吸引用户→销售其他产品"正是 Spotify 及所有流媒体平台的母版。
+
+💡 启示：让一件产品免费，另一件产品负责赚钱——授权结构要从一开始就设计好。` } },
+    { id: "hollywoodmusicals", icon: "🎬", title: { th: "Hollywood Musicals: ดนตรีขายหนัง", en: "Hollywood musicals: music sells cinema", zh: "好莱坞歌舞片：音乐卖出电影票" },
+      content: { th: `🎬 ยุคทอง Hollywood Musicals (1930s-1950s) — ดนตรีเปลี่ยนหนังเป็น "ผลิตภัณฑ์ข้ามช่องทาง"
+
+เมื่อเศรษฐกิจตกต่ำครั้งใหญ่ (Great Depression) ประชาชนไม่มีเงิน แต่บริษัทหนังใหญ่ (MGM, Warner) พบว่า "หนังร้องเพลง" ขายได้ดีเป็นพิเศษ เพราะดนตรีให้ความหวังที่คนทั้งประเทศอยากจ่ายซื้อ — Fred Astaire, Judy Garland และเพลงประกอบจาก The Wizard of Oz (1939) กลายเป็นสินค้าที่ต่อยอดได้ 3 ชั้น: บัตรโรงหนัง + แผ่นเสียงเพลงประกอบ (soundtrack) + เพลงที่นักร้องคนอื่น cover ต่อ (การเกิดของ "standards")
+
+โมเดล "หนังดันเพลง เพลงดันหนัง" คือแม่แบบของ Disney และทุก franchise ที่ใช้เพลงเป็นเครื่องยนต์ขายทุกวันนี้
+
+💡 บทเรียน: ผลิตภัณฑ์วงจรหลายชั้น (ticket + soundtrack + covers) มาจากยุค Depression — ยิ่งเศรษฐกิจยาก ธุรกิจดนตรียิ่งต้องมีรายได้หลายชั้น`,
+        en: `🎬 The golden age of Hollywood musicals (1930s-50s) — music made film a cross-channel product
+
+During the Great Depression, MGM and Warner found "sing-and-dance" films sold best — music offered hope people would pay for. Fred Astaire, Judy Garland, and songs from The Wizard of Oz (1939) became three-layer products: cinema tickets + soundtrack records + endless covers by other singers (the birth of "standards").
+
+The "film pushes song, song pushes film" loop is the direct ancestor of Disney's and every franchise's music-engine strategy today.
+
+💡 Lesson: the multi-layer product (ticket + soundtrack + covers) was born in the Depression — the harder the economy, the more layers a music business needs.`,
+        zh: `🎬 好莱坞歌舞片黄金时代（1930-50年代）——音乐把电影变成跨渠道产品
+
+大萧条时期，米高梅与华纳发现"歌舞片"格外卖座——音乐给了全国人民愿意付费的希望。弗雷德·阿斯泰尔、朱迪·嘉兰，以及《绿野仙踪》(1939) 的歌曲，成为三层产品：电影票+原声唱片+无数歌手的翻唱（"标准曲"由此诞生）。
+
+"电影带歌、歌带电影"的循环，是迪士尼及今天所有音乐引擎型 franchise 的直接祖先。
+
+💡 启示：多层产品结构（票+原声+翻唱）诞生于大萧条——经济越难，音乐生意越需要多层收入。` } },
+    { id: "toscanini", icon: "🎼", title: { th: "Toscanini & NBC: วงออร์เคสตราของสถานีวิทยุ", en: "Toscanini & NBC: a radio network buys an orchestra", zh: "托斯卡尼尼与NBC：电台买下交响乐团" },
+      content: { th: `🎼 Arturo Toscanini (1867-1957) — สถานีวิทยุจ้างวงออร์เคสตรา "ตั้งใหม่ทั้งวง" เพื่อดึงคนฟัง
+
+ปี 1937 NBC สถานีวิทยุใหญ่ที่สุดของอเมริกา สร้าง NBC Symphony Orchestra ขึ้นมาใหม่ทั้งวงเพื่อให้ Toscanini ผู้กำกับระดับตำนานเซ็นสัญญามาออกอากาศ งบประมาณสูงสุดของอุตสาหกรรมวิทยุในยุคนั้น แฟนคลาสสิกทั่วอเมริกาเปิดวิทยุฟังทุกสัปดาห์ ยอดขายเครื่องวิทยุและโฆษณาพุ่ง — NBC ขายได้ว่า "เพลงระดับโลก" คือของที่ดึงผู้ฟังได้มากพอคุ้มค่าจ้างนักดนตรีระดับโลกเองทั้งวง
+
+โมเดล "แพลตฟอร์มจ้าง content ระดับ world-class เพื่อดึง user" คือหัวใจของ Netflix (ซีรีส์ตัวเอง), Spotify (podcast พิเศษ), และทุก streaming war ปัจจุบัน
+
+💡 บทเรียน: ของระดับ world-class มีราคาแพง แต่ถ้าดึง user ได้มากพอ คือการลงทุนที่คุ้มที่สุดในแพลตฟอร์ม business ทุกยุค`,
+        en: `🎼 Arturo Toscanini (1867-1957) — a radio network built an entire orchestra to win listeners
+
+In 1937 NBC created the NBC Symphony Orchestra from scratch — at the radio industry's highest budget — to sign the legendary conductor for weekly national broadcasts. Classical fans nationwide tuned in; radio and advertising sales climbed. NBC proved world-class music could pull enough listeners to justify hiring a world-class ensemble outright.
+
+"Platform hires world-class content to attract users" is the exact heart of Netflix originals, Spotify exclusives, and every streaming war since.
+
+💡 Lesson: world-class content is expensive — but when it draws enough users, it's the best platform investment of any era.`,
+        zh: `🎼 阿尔图罗·托斯卡尼尼（1867-1957）——电台为抢听众，组建了一支全新交响乐团
+
+1937年，美国最大的广播网NBC从零组建NBC交响乐团——以当时广播业的最高预算——只为让传奇指挥每周全国开播。古典乐迷全国收听，收音机与广告销售双双攀升。NBC证明了：世界级音乐足以吸引用户，值得为此雇佣整支世界级乐团。
+
+"平台雇佣世界级内容来吸引用户"正是 Netflix 自制剧、Spotify 独家播客以及每场流媒体大战的核心。
+
+💡 启示：世界级内容很贵——但只要拉来的用户足够多，它就是任何时代最好的平台投资。` } },
+    { id: "walkmandisc", icon: "💿", title: { th: "CD & Walkman: ฟอร์แมตใหม่ขายเพลงซ้ำ", en: "CD & Walkman: new formats, resold catalogs", zh: "CD与随身听：新格式，再卖一次曲库" },
+      content: { th: `💿 Sony Walkman (1979) + CD (1982) — ธุรกิจเพลงฉุกเฉินกำไรสูงสุดในประวัติศาสตร์
+
+ยุคก่อนสตรีมมิ่ง ธุรกิจเพลงเจอปัญหา "ตลาดอิ่มตัว" — แฟนซื้อแผ่นเสียง/เทปไปแล้ว ทางออกของ Sony และ Philips/ PolyGram คือสร้าง "ฟอร์แมตใหม่" ที่ทำให้แฟนต้องซื้อเพลงเดิมอีกรอบ: Walkman ทำให้เพลงพกพาได้ (ขายเทปซ้ำ) CD ขายว่าเสียงดีกว่า+ใช้งานสะดวกกว่า (ขายคลังเพลงทั้งคลังซ้ำในราคาแพงกว่าเดิม) กำไรของอุตสาหกรรมพุ่งถึงจุดสูงสุดในปี 1999 — เพราะ "ขายของเดิมให้คนเดิมในฟอร์แมตใหม่"
+
+เทคนิคนี้ใช้ซ้ำในทุกแพลตฟอร์ม: Disney ปล่อย VHS→DVD→Blu-ray→Disney+, เกมยอดฮิต remaster ขายใหม่ทุก generation ของเครื่อง
+
+💡 บทเรียน: "ฟอร์แมตใหม่" คือกุญแจที่ทำให้ขายทรัพย์สินเดิมซ้ำได้ — ธุรกิจดนตรีไม่ต้องมีเพลงใหม่เพื่อโต`,
+        en: `💿 Sony Walkman (1979) + CD (1982) — the most profitable emergency in music history
+
+Pre-streaming, music hit a saturation wall: fans already owned vinyl and tapes. Sony and Philips/PolyGram's answer was NEW FORMATS forcing repurchase: Walkman made music portable (sell tapes again); CDs sold "better sound + convenience" (resell entire catalogs at higher prices). Industry profits peaked in 1999 — from selling the same songs to the same people in new formats.
+
+The trick repeats everywhere: Disney's VHS→DVD→Blu-ray→Disney+ ladder, game remasters on each console generation.
+
+💡 Lesson: a new format is the key to reselling existing assets — music businesses don't need new songs to grow.`,
+        zh: `💿 索尼Walkman（1979）+ CD（1982）——音乐史上最暴利的"紧急自救"
+
+流媒体出现之前，音乐业撞上饱和墙：粉丝已经买过黑胶和磁带。索尼与飞利浦/宝丽金的答案是"新格式"逼人重新购买：Walkman 让音乐可随身携带（磁带再卖一遍）；CD 以"更好音质+更方便"让整个曲库以更高价重卖一遍。1999年行业利润登顶——靠的是"把同一首歌卖给同一批人"。
+
+这招到处在用：迪士尼的 VHS→DVD→蓝光→Disney+ 阶梯，每一代主机上的游戏重制版。
+
+💡 启示：新格式是"重卖存量资产"的钥匙——音乐生意不需要新歌也能增长。` } },
+    { id: "disneymusic", icon: "🏰", title: { th: "Disney: เพลงเป็นเครื่องยนต์ของ franchise", en: "Disney: music as franchise engine", zh: "迪士尼：音乐即IP引擎" },
+      content: { th: `🏰 Walt Disney (1901-1966) — คนแรกที่ทำเพลงประกอบเป็น "เครื่องยนต์รายได้" ของทั้งบริษัท
+
+Snow White (1937) เป็นหนังยาวแอนิเมชันเรื่องแรกที่มี "ซาวด์แทร็กวางขายจริง" — อัลบั้มเพลงประกอบที่คนซื้อกลับบ้านฟังต่อ แม้ดูหนังจบไปแล้ว ต่อด้วย Mary Poppins (1964) และซาวด์แทร็กที่ทำรายได้ต่อเนื่องหลายสิบปี วอลท์เข้าใจว่าเพลงทำให้ "เด็กจำตัวละครได้" และ "ผู้ใหญ่จ่ายเงินซ้ำ" — เพลงจึงถูกออกแบบให้กลายเป็นของสะสม ไม่ใช่แค่ฉากในหนัง วงการทั้งหมดหยิบโมเดลนี้ไปใช้: เพลงประกอบ = แม่เหล็กขายตั๋ว+ขายแผ่น+ขายสินค้า+ขายประสบการณ์สวนสนุก
+
+โมเดลของ Disney ใช้โครงสร้างเดียวกับที่ K-pop, อนิเมะ (Yoasobi) และเกมกำลังใช้อยู่ทุกวันนี้
+
+💡 บทเรียน: เพลงที่เขียนมาเพื่อ "ให้คนจำได้" ทำรายได้ยาวนานกว่าเพลงที่เขียนเพื่อ "ให้ฟังสวย" เสมอ`,
+        en: `🏰 Walt Disney (1901-1966) — the first to make soundtrack a company-wide revenue engine
+
+Snow White (1937) was the first feature animation with a commercially released soundtrack — an album fans bought to keep listening after the film. Mary Poppins (1964) and decades of follow-ups proved the same point. Walt understood: songs make children remember characters and adults pay again. Music was designed as collectible, not just scene filler — and the whole industry copied it: soundtracks as magnets for tickets, records, merch, and theme-park experiences.
+
+Disney's structure is exactly what K-pop, anime (Yoasobi) and games use today.
+
+💡 Lesson: songs written to be remembered always out-earn songs written merely to sound beautiful.`,
+        zh: `🏰 华特·迪士尼（1901-1966）——首位把原声带变成全公司收入引擎的人
+
+《白雪公主》(1937) 是首部拥有商业发行原声带的长篇动画——观众看完电影还会买专辑回家继续听。《欢乐满人间》(1964) 及其后数十年一再验证同一逻辑。华特明白：歌曲让孩子记住角色、让大人重复付费。音乐被设计成收藏品，而非只是电影填充物——整个行业随之效仿：原声带成为拉动门票、唱片、周边与主题乐园体验的磁石。
+
+迪士尼的结构正是今天 K-pop、动画（YOASOBI）与游戏通用的模式。
+
+💡 启示：为"被记住"而写的歌，永远比只为"好听"而写的歌赚得更久。` } },
+    { id: "mtvlaunch", icon: "📺", title: { th: "MTV: ภาพขายเพลง เพลงขายภาพ", en: "MTV: images selling songs, songs selling images", zh: "MTV：影像卖歌，歌卖影像" },
+      content: { th: `📺 MTV (1981) — แพลตฟอร์มที่พิสูจน์ว่า "ภาพ" ทำให้เพลงขายได้เพิ่มหลายเท่า
+
+ก่อน MTV วิดีโอเพลงเป็นของแถมหลังกล้อง หลัง MTV วิดีโอกลายเป็น "สนามรบหลัก" — Michael Jackson, Madonna และวงร็อกอเมริกันใช้ภาพจัดวางแบบใหม่ทั้งหมดเพื่อขายอัลบั้มในราคาที่สูงขึ้น และ MTV ขาย "โฆษณา" ให้แบรนด์สินค้าทั่วโลกโดยใช้เพลงเป็นแม่เหล็กผู้ชม บริษัทเพลงเริ่มงบโปรดักชัน MV สูงเท่างบหนัง เพราะคำนวณได้ว่า MV ที่ดีขายอัลบั้มได้หลายเท่า
+
+โมเดล "ภาพขายเพลง เพลงขายผู้ชม ผู้ชมขายโฆษณา" คือกลไกเดียวกับ TikTok และ YouTube Shorts ปัจจุบันทุกประการ
+
+💡 บทเรียน: แพลตฟอร์มใหม่ที่แพร่กระจายเพลงได้เร็วขึ้น จะเปลี่ยนว่าใครดังได้เสมอ — ผู้ที่ชำนาญ "ภาษาใหม่ของแพลตฟอร์ม" ก่อนใครคือผู้ชนะ`,
+        en: `📺 MTV (1981) — the platform that proved images multiply music sales
+
+Before MTV, music videos were an afterthought; after MTV, they were the main battlefield. Michael Jackson, Madonna and American rock acts used wholly new visual staging to sell albums at higher prices — while MTV sold advertising worldwide using music as its audience magnet. Labels began spending film-level budgets on videos because a great video measurably multiplied album sales.
+
+"Images sell songs, songs sell viewers, viewers sell ads" is precisely TikTok's and YouTube Shorts' mechanism today.
+
+💡 Lesson: every platform that spreads music faster rewrites who can be famous — whoever masters the platform's new language first wins.`,
+        zh: `📺 MTV（1981）——证明"影像"能让音乐销量翻倍的平台
+
+MTV 之前，音乐录影带是附属品；MTV 之后，它成了主战场。迈克尔·杰克逊、麦当娜与美国摇滚乐队用全新的视觉语言卖出更贵的专辑——MTV 则以音乐为磁石向全球品牌出售广告。唱片公司开始投入电影级 MV 预算，因为一支好 MV 可量化地成倍拉动专辑销量。
+
+"影像卖歌、歌卖观众、观众卖广告"——这正是今天 TikTok 与 YouTube Shorts 的机制。
+
+💡 启示：每个能更快传播音乐的平台都会改写"谁能成名"——最先掌握平台新语言的人赢。` } },
+    { id: "qvcshopping", icon: "🛒", title: { th: "ห้างสรรพสินค้า & เพลงจังหวะช้า", en: "Department stores & the slow-music effect", zh: "百货公司与慢节奏效应" },
+      content: { th: `🛒 ทศวรรษ 1960-1980 — ธุรกิจค้าปลีกพิสูจน์ด้วยตัวเลขว่า "เพลงเปลี่ยนพฤติกรรมการซื้อ"
+
+งานวิจัยคลาสสิกของ Milliman (1982) วัดจริงในซูเปอร์มาร์เก็ตและร้านอาหาร: เปิดเพลงจังหวะช้า ลูกค้าเดินช้าลง ใช้เวลาในร้านนานขึ้น ยอดขายเพิ่มสูงถึง ~38% ในร้านอาหาร เพลงช้าทำให้ลูกค้านั่งนานและสั่งเครื่องดื่มต่อ — ก่อนหน้านี้ธุรกิจค้าปลีกใหญ่ (Muzak ในออฟฟิศ ห้าง ลิฟต์ ตั้งแต่ทศวรรษ 1930) ใช้ดนตรีเพื่อ "ปรับอารมณ์พนักงานและลูกค้า" โดยไม่มีงานวิจัยรองรับ — ตัวเลข Milliman เปลี่ยนทั้งอุตสาหกรรม: ห้าง โรงแรม สายการบิน โรงพยาบาล จ้างนักวิชาการดนตรีออกแบบเพลย์ลิสต์เป็นเรื่องปกติ
+
+กลายเป็นอุตสาหกรรมใหม่ "music curation for business" ที่ Spotify และ Soundtrack Your Brand ยังทำต่อทุกวันนี้
+
+💡 บทเรียน: เสียงในสถานที่ค้าปลีกคือ "ตัวแปรการขาย" ที่วัดผลได้จริง ไม่ใช่แค่บรรยากาศ`,
+        en: `🛒 1960s-1980s — retail proved with hard numbers that music changes buying behavior
+
+Milliman's classic 1982 study measured real supermarkets and restaurants: slow-tempo music made shoppers walk slower, stay longer, and lifted sales by up to ~38%; in restaurants slow music kept guests seated and ordering drinks. Before that, big retail (Muzak in offices, malls, lifts since the 1930s) used music to "set mood" with no research behind it — Milliman's numbers remade the industry: hotels, airlines, hospitals hired music academics to design playlists.
+
+This became the "music curation for business" industry that Spotify and Soundtrack Your Brand still run today.
+
+💡 Lesson: in-store sound is a measurable sales variable, not just ambience.`,
+        zh: `🛒 1960-80年代——零售业用硬数据证明：音乐能改变购买行为
+
+Milliman 1982年的经典研究在真实超市与餐厅测量发现：慢节奏音乐让顾客走得更慢、停留更久，销售额提升高达约38%；餐厅里慢音乐让客人久坐并多点饮品。此前，大型零售（1930年代起办公、商场、电梯中的 Muzak）只是凭感觉"营造氛围"——Milliman 的数字重塑了整个行业：酒店、航空、医院开始聘请音乐学者设计歌单。
+
+这催生了"商业音乐策展"行业，Spotify 与 Soundtrack Your Brand 至今仍在经营。
+
+💡 启示：零售场所的声音是可测量的销售变量，不只是氛围。` } },
+    { id: "sonysithears", icon: "🎧", title: { th: "Sony ซื้อ CBS Records: ค่ายเพลงในมือผู้ผลิตเครื่อง", en: "Sony buys CBS Records: hardware owns content", zh: "索尼收购CBS唱片：硬件方入主内容方" },
+      content: { th: `🎧 Sony ซื้อ CBS Records (1988, ราว $2 พันล้าน) + Warner-Universal รวมค่ายยุคเดียวกัน — จุดเปลี่ยนที่ "ผู้ผลิตเครื่อง" กลายเป็นเจ้าของเพลง
+
+ก่อนปี 1988 เครื่องเสียงกับค่ายเพลงเป็นธุรกิจแยกกัน Sony ที่ทำ Walkman และ CD player อยู่แล้วเข้าใจว่ากำไรจริงอยู่ที่ "สิทธิ์ในเพลง" ไม่ใช่ตัวเครื่อง — จึงซื้อ CBS Records (รวม Columbia, Epic) จาก CBS ด้วยราคาที่สูงที่สุดในประวัติศาสตร์อุตสาหกรรมยุคนั้น ต่อด้วยการซื้อ MGM/UMG อีกชุดในยุคหลัง โครงสร้าง "บริษัทเทคโนโลยีเป็นเจ้าของคลังเพลง" ที่เราเห็นใน Apple Music, Amazon Music, YouTube Music ทุกวันนี้ คือแบบแผนที่เริ่มจากดีลนี้
+
+ธุรกิจเพลงเปลี่ยนมือจาก "บริษัทเพลงล้วนๆ" ไปเป็น "แผนกหนึ่งของบริษัทเทคโนโลยีระดับโลก" ตั้งแต่ปลายทศวรรษ 1980
+
+💡 บทเรียน: ในธุรกิจ creative — ผู้ที่ควบคุม "สิทธิ์" (IP) คือผู้ชนะในระยะยาว ไม่ใช่ผู้ที่ควบคุม "เครื่องมือ" เพียงอย่างเดียว`,
+        en: `🎧 Sony's 1988 purchase of CBS Records (~$2B) — when hardware makers became content owners
+
+Before 1988, audio hardware and music labels were separate businesses. Sony — already making Walkmans and CD players — understood that real profit lived in music RIGHTS, not the device, so it bought CBS Records (Columbia, Epic) at the era's highest industry price, later adding MGM/UMG. The structure behind Apple Music, Amazon Music and YouTube Music today — tech companies owning song catalogs — started with this deal.
+
+Music stopped being "pure music companies" and became a division inside global tech — from the late 1980s.
+
+💡 Lesson: in creative businesses, whoever controls the RIGHTS (IP) wins long-term — not just whoever controls the hardware.`,
+        zh: `🎧 索尼1988年以约20亿美元收购CBS唱片——硬件制造商成为内容拥有者的转折点
+
+1988年之前，音响硬件与唱片公司是两个独立生意。已生产 Walkman 和 CD 机的索尼明白：真正的利润在"音乐版权"，而非设备本身——于是以当时业界最高价买下 CBS 唱片（含 Columbia、Epic），后续又收购 MGM/UMG。今天 Apple Music、Amazon Music、YouTube Music 背后"科技公司拥有曲库"的结构，正是从这笔交易开始的。
+
+自1980年代末起，音乐生意从"纯音乐公司"变成了全球科技巨头的一个部门。
+
+💡 启示：在创意产业，长期赢家是控制"权利"(IP) 的人——而不是只控制"工具"的人。` } },
+    { id: "chopinpub", icon: "🎹", title: { th: "Chopin & Pleyel: เปียโนกลายเป็นสินค้าครัวเรือน", en: "Chopin & Pleyel: piano becomes a household product", zh: "肖邦与普莱耶尔：钢琴走进家庭" },
+      content: { th: `🎹 Frédéric Chopin (1810-1849) + Pleyel et Cie — ความร่วมมือแรกๆ ที่ทำให้ "เปียโน" ขายได้ทั่วยุโรป
+
+Camille Pleyel ผู้ผลิตเปียโนชาวฝรั่งเศส เป็นผู้สนับสนุนหลักของ Chopin ทั้งชีวิต: ให้เปียโนใช้ฟรี จัดห้องซ้อม จัดคอนเสิร์ตใน Salle Pleyel (หอแสดงดนตรีของบริษัทเอง) แลกกับการที่ Chopin ใช้เปียโน Pleyel บนเวที — การตลาดแบบ "artistic endorsement" ที่เป็นต้นแบบของ Yamaha/Steinway กับศิลปินระดับโลกทุกยุค ผลพลอยได้ทางธุรกิจคือชนชั้นกลางยุโรปซื้อเปียโนไว้ที่บ้านเพิ่มขึ้นมหาศาลในศตวรรษที่ 19 เพราะ "เพลงของ Chopin เล่นที่บ้านได้" — โน้ต Chopin ขายดีพอที่สำนักพิมพ์อย่าง Schlesinger กลายเป็นธุรกิจใหญ่
+
+โมเดล "ศิลปิน + ผู้ผลิตเครื่องดนตรี + สำนักพิมพ์โน้ต" คือระบบเดียวกับที่ Fender/Kawai/Yamaha และแอปอย่าง TIGA ใช้ทุกวันนี้
+
+💡 บทเรียน: ธุรกิจเครื่องดนตรีโตได้เพราะ "มีเพลงที่คนอยากเล่นเองที่บ้าน" ไม่ใช่เพราะเครื่องดีเพียงอย่างเดียว`,
+        en: `🎹 Frédéric Chopin (1810-1849) + Pleyel et Cie — one of the first partnerships that sold pianos across Europe
+
+Camille Pleyel, the French piano maker, backed Chopin for life: free instruments, practice rooms, concerts at the company's own Salle Pleyel — in exchange for Chopin performing on Pleyel pianos. This "artistic endorsement" is the direct ancestor of every Yamaha/Steinway artist program. The business byproduct: Europe's middle class bought home pianos in enormous 19th-century numbers because "Chopin's music could be played at home" — his sheet music made publishers like Schlesinger major businesses.
+
+"Artist + instrument maker + sheet-music publisher" is the same system Fender, Kawai, Yamaha — and apps like TIGA — run today.
+
+💡 Lesson: instrument businesses grow because there's music people want to play at home — not because the hardware is good alone.`,
+        zh: `🎹 弗雷德里克·肖邦（1810-1849）与普莱耶尔钢琴——最早让钢琴畅销全欧洲的合作之一
+
+法国钢琴制造商卡米耶·普莱耶尔一生支持肖邦：免费提供乐器、练习室，并在自家的普莱耶尔音乐厅为其办音乐会——换取肖邦在舞台上使用普莱耶尔钢琴。这种"艺术代言"正是今日雅马哈/斯坦威艺术家计划的直系祖先。商业副产品：19世纪欧洲中产阶级大量购买家用钢琴，因为"肖邦的音乐可以在家里弹"——他的乐谱让 Schlesinger 等出版商成为大生意。
+
+"艺人+乐器制造商+乐谱出版社"的三位一体，正是 Fender、Kawai、雅马哈以及 TIGA 这类应用今天在用的系统。
+
+💡 启示：乐器生意的增长来自"有人们想在家弹的音乐"——而非只靠硬件本身。` } },
+    { id: "jazztourdipl", icon: "🌍", title: { th: "Jazz Ambassadors: ดนตรีขายประเทศ", en: "Jazz diplomacy: music sells a nation", zh: "爵士外交：音乐卖出国家形象" },
+      content: { th: `🌍 ยุคสงครามเย็น (1950s-1960s) — รัฐบาลสหรัฐฯ จ้างนักดนตรีแจ๊สเป็น "ทูตวัฒนธรรม"
+
+กระทรวงการต่างประเทศสหรัฐฯ ส่ง Dizzy Gillespie, Louis Armstrong, Dave Brubeck และ Benny Goodman ออกทัวร์โลกอย่างเป็นทางการ เพื่อประชาสัมพันธ์ประเทศในยุคที่สหภาพโซเวียตโปรโมตลัทธิคอมมิวนิสต์ ผลทางธุรกิจคือดนตรีแจ๊สอเมริกันขายแผ่นเสียงและบัตรคอนเสิร์ตได้ทั่วโลก — เพลงกลายเป็น "สินค้าส่งออก" ที่มีรัฐหนุน คล้ายโมเดล K-pop ของเกาหลีหลายสิบปีต่อมา แต่เริ่มก่อนหลายทศวรรษ
+
+โครงสร้าง "รัฐ + ธุรกิจเพลง + ศิลปิน" ร่วมมือขายวัฒนธรรมเป็นรายได้จริง — ต้นแบบของ soft power ทางดนตรีทุกแบบทุกอย่างทุกวันนี้
+
+💡 บทเรียน: เมื่อดนตรีเป็นตัวแทนของประเทศ — มันขายได้ทั้ง "ภาพลักษณ์ประเทศ" และ "สินค้าเพลงจริงๆ" พร้อมกัน`,
+        en: `🌍 The Cold War era (1950s-60s) — the US government sent jazz musicians as cultural ambassadors
+
+The State Department dispatched Dizzy Gillespie, Louis Armstrong, Dave Brubeck and Benny Goodman on official world tours to counter Soviet cultural promotion. The business result: American jazz sold records and concert tickets worldwide — music as state-backed export, decades before Korea's K-pop model followed the same structure.
+
+"Government + music industry + artists" jointly selling culture for real revenue — the prototype of every musical soft-power play since.
+
+💡 Lesson: when music represents a nation, it sells both national image and actual music products at the same time.`,
+        zh: `🌍 冷战年代（1950-60年代）——美国政府派爵士音乐家担任"文化大使"
+
+美国国务院正式派遣迪兹·吉莱斯皮、路易斯·阿姆斯特朗、戴夫·布鲁贝克与班尼·古德曼全球巡演，以对冲苏联的文化输出。商业结果是：美国爵士乐的唱片与演出门票在全球畅销——音乐成为国家扶持的出口商品，比韩国的 K-pop 模式早了几十年。
+
+"政府+音乐产业+艺人"联合销售文化换取真实收入——这是今日一切音乐软实力操作的原始模板。
+
+💡 启示：当音乐代表一个国家，它同时卖出"国家形象"和真实的音乐商品。` } },
+    { id: "tokyokaraoke", icon: "🎤", title: { th: "Karaoke & ร้านคาราโอเกะญี่ปุ่น: ดนตรีเป็นสถานที่", en: "Karaoke Japan: music as a place, not a product", zh: "日本卡拉OK：音乐即场所" },
+      content: { th: `🎤 Karaoke เกิดในญี่ปุ่นทศวรรษ 1970 (Daisuke Inoue สร้างเครื่องจ๊าบแรก 1971) — โมเดลธุรกิจที่ "ขายสถานที่และประสบการณ์" แทนการขายเพลง
+
+ก่อนหน้านี้ธุรกิจเพลงขาย "ของ" (แผ่น ตั๋ว เครื่องเล่น) คาราโอเกะเปลี่ยนสมการ: ร้านคาราโอเกะขาย "ห้อง + เครื่องดื่ม + เวลา + ความสนุกที่เพื่อนเห็นฝีมือเรา" — เพลงเป็นเพียงเหตุผลให้คนมาที่ร้าน รายได้จริงมาจากเครื่องดื่มและค่าห้อง ธุรกิจนี้แพร่ไปทั้งเอเชียและทั่วโลกภายใน 20 ปี กลายเป็นช่องทางรายได้ที่ "ไม่ต้องขายเพลง" แต่ขายประสบการณ์รอบเพลง
+
+ปรัชญาเดียวกันคือหัวใจของ Escape Room, คอนเสิร์ตจัดงานส่วนตัว, และประสบการณ์ซ้อมเปียโนสดที่แอปอย่าง TIGA กำลังสร้าง — ดนตรีไม่ใช่สินค้า แต่เป็น "เหตุผลให้คนมาพบกัน"
+
+💡 บทเรียน: ธุรกิจดนตรีไม่จำเป็นต้องขายเพลง — ขาย "สถานที่ที่เพลงเกิดขึ้น" ก็เป็นอุตสาหกรรมใหญ่ได้`,
+        en: `🎤 Karaoke, born in 1970s Japan (Daisuke Inoue's first machine, 1971) — a business model selling a PLACE, not the music
+
+Before karaoke, music sold THINGS (records, tickets, players). Karaoke rewrote the equation: karaoke boxes sell "room + drinks + time + the fun of friends seeing you perform" — music is just the reason people show up; the real revenue is drinks and room fees. Within 20 years it spread across Asia and the world, becoming a huge revenue channel that never sells the song itself.
+
+The same philosophy powers escape rooms, private concerts, and the live piano-practice experience TIGA is building — music isn't the product; it's the reason people come together.
+
+💡 Lesson: music businesses don't have to sell music — selling "the place where music happens" is a giant industry too.`,
+        zh: `🎤 卡拉OK诞生于1970年代的日本（井上大佑1971年造出第一台机器）——卖"场所"而非卖音乐的商业模式
+
+在此之前，音乐生意卖的是"物"（唱片、门票、播放器）。卡拉OK重写了方程式：包厢卖的是"房间+酒水+时间+朋友见证你表演的快乐"——音乐只是人们到店的理由，真正的收入来自酒水和包厢费。二十年间，它席卷亚洲并走向全球，成为一条从不直接卖歌的巨大收入渠道。
+
+同一哲学支撑着密室逃脱、私人音乐会，以及 TIGA 正在打造的实时练琴体验——音乐不是商品，而是"让人们相聚的理由"。
+
+💡 启示：音乐生意不一定非要卖音乐——卖"音乐发生的场所"同样是一门大生意。` } },
+    { id: "gramophonepub", icon: "📀", title: { th: "โน้ตเพลง → แผ่นเสียง: ทรัพย์สินที่ขายซ้ำได้", en: "Sheet music to records: resellable IP is born", zh: "乐谱到唱片：可重复销售的IP诞生" },
+      content: { th: `📀 ปลายศตวรรษที่ 19 - ต้นศตวรรษที่ 20 — การเปลี่ยนผ่านจาก "โน้ตเพลง" ไปเป็น "แผ่นเสียง" สร้างแนวคิด IP ที่ขายซ้ำได้
+
+ยุคก่อนแผ่นเสียง ธุรกิจเพลงคือธุรกิจโน้ต (sheet music) ขายให้คนเล่นเองที่บ้าน เมื่อ Emile Berliner ประดิษฐ์แผ่นเสียงแบบ disc (1888) และ Victor/Columbia สร้างระบบบันทึกเสียงขึ้น — เกิดสิ่งใหม่ที่ไม่เคยมีมาก่อน: "เพลงหนึ่งเพลง ขายได้หลายล้านชุดโดยผู้แต่งไม่ต้องเล่นเลยสักครั้ง" โครงสร้างลิขสิทธิ์ใหม่ (copyright on recordings) ทำให้ธุรกิจเพลงเปลี่ยนจาก "ขายของที่ต้องมีคนเล่น" เป็น "ขายทรัพย์สินที่มีอายุยาวหลายสิบปี"
+
+แนวคิด "เพลงคือสินทรัพย์" ทำให้เกิดโมเดลทุกอย่างที่ตามมา: ค่ายเพลง, ระบบ royalty, การซื้อขายคลังเพลง (catalog acquisition), และกองทุนลิขสิทธิ์เพลงที่บริษัท investment ทั่วโลกซื้อขายกันทุกวันนี้
+
+💡 บทเรียน: ทรัพย์สินที่ขายซ้ำได้ (resellable IP) คือหัวใจของธุรกิจสร้างสรรค์ — สร้างครั้งเดียวขายได้ตลอดชีวิต`,
+        en: `📀 Late 1800s-early 1900s — the shift from sheet music to records created resellable IP
+
+Pre-records, the music business sold sheet music for people to play at home. When Emile Berliner invented the disc record (1888) and Victor/Columbia built recording systems, something brand new appeared: one song could sell millions of copies without its composer playing a single note. New recording copyrights turned music from "a product that needed a performer" into "an asset with decades of life."
+
+"Music as an asset" enabled everything that followed: record labels, royalty systems, catalog acquisitions, and the song-IP funds that investment firms trade today.
+
+💡 Lesson: resellable IP is the heart of creative business — build once, sell for life.`,
+        zh: `📀 19世纪末至20世纪初——从乐谱到唱片的转变，催生了"可重复销售的IP"
+
+唱片出现之前，音乐生意卖的是让人在家弹奏的乐谱。当埃米尔·柏林纳发明圆盘唱片（1888），维克多与哥伦比亚建立录音体系后，前所未有的事情出现了：一首歌可以卖出数百万份，而作曲家一个音都不用弹。新的录音版权让音乐从"需要演奏者的产品"变成"拥有数十年寿命的资产"。
+
+"音乐即资产"这一理念，催生了之后的一切：唱片公司、版税体系、曲库收购，以及今日全球投资机构交易的音乐版权基金。
+
+💡 启示：可重复销售的IP是创意产业的核心——创造一次，终身销售。` } },
+    { id: "steinwayartist", icon: "🎹", title: { th: "Steinway Artists: ระบบตัวแทนศิลปินที่เก่าแก่ที่สุด", en: "Steinway Artists: the oldest endorsement system", zh: "斯坦威艺术家：最古老的代言体系" },
+      content: { th: `🎹 Steinway & Sons (ตั้ง 1853, นิวยอร์ก) — ระบบ "Steinway Artists" เก่าแก่ที่สุดในโลก (เริ่มต้นช่วงต้นศตวรรษที่ 20 ร่วมสมัย Rachmaninoff และ Horowitz) — ระบบที่ศิลปินระดับโลกใช้เปียโน Steinway แลกกับการเป็น "แอมบาสเดอร์" ของแบรนด์
+
+หลักการเดียวกับที่ Nike ใช้กับนักกีฬาหรือที่เครื่องสำอางใช้กับดารา แต่ Steinway ทำก่อนทุกคน ด้วยรูปแบบที่แตกต่าง: ไม่จ่ายเงินศิลปินโดยตรง แต่ "ให้ใช้เปียโนฟรีทั่วโลก + สนับสนุนทัวร์" — ศิลปินระดับโลกหลายร้อยคนติดตาม ทั้งที่ Steinway ขายเปียโนราคาสูงกว่าคู่แข่งเป็นหลักหมื่นดอลลาร์ ผลทางธุรกิจ: ยอดขายตั้งแต่ยุค Rachmaninoff ยันวันนี้ ยังนำตลาดระดับ premium ทั้งโลก
+
+ระบบ "ให้ศิลปินใช้ฟรี → ศิลปินสร้างความน่าเชื่อถือ → ลูกค้าซื้อเครื่องที่ศิลปินใช้" คือโมเดลที่ทุกธุรกิจ hardware ใช้กันปัจจุบัน (ทุกแบรนด์กล้อง จักรยาน เครื่องเสียง ฯลฯ)
+
+💡 บทเรียน: ระบบ endorsement ที่ดีที่สุดคือระบบที่ศิลปิน "ได้ประโยชน์จริง" — ไม่ใช่แค่เงิน`,
+        en: `🎹 Steinway & Sons (est. 1853, New York) — the "Steinway Artists" system, the world's oldest endorsement program (early 20th century, contemporaneous with Rachmaninoff and Horowitz): world-class artists play Steinway exclusively in exchange for being the brand's face.
+
+The same logic Nike uses with athletes and cosmetics with stars — but Steinway did it first, and differently: no direct payment, instead "free pianos worldwide + tour support." Hundreds of top artists participate even though Steinway pianos cost tens of thousands more than rivals. Result: premium market leadership from the Rachmaninoff era to today.
+
+"Artists use it free → artists build credibility → customers buy what artists use" is the model behind every hardware endorsement today.
+
+💡 Lesson: the best endorsement system gives artists REAL benefits — not just money.`,
+        zh: `🎹 斯坦威父子公司（1853年创立，纽约）——"斯坦威艺术家"体系是全球最古老的代言体系（20世纪初与拉赫玛尼诺夫、霍洛维茨同时代）：世界级艺术家专属使用斯坦威钢琴，换取成为品牌之脸。
+
+这与耐克之于运动员、化妆品之于明星的逻辑相同——但斯坦威做得最早，方式也不同：不直接付钱，而是"全球免费提供钢琴+支持巡演"。数百位顶级艺术家参与其中，即便斯坦威钢琴比竞品贵数万美元。结果：从拉赫玛尼诺夫时代至今，始终领导全球高端市场。
+
+"艺术家免费使用→建立可信度→顾客购买艺术家同款"——这是今天所有硬件代言背后的模型。
+
+💡 启示：最好的代言体系是给艺术家"真实利益"的体系——而不只是钱。` } },
+    { id: "gospelradio", icon: "📖", title: { th: "โรงละครขายบัตร + เพลงสากลยุค 1900", en: "Vaudeville & the birth of paid popular touring", zh: "歌舞杂耍与付费巡演的诞生" },
+      content: { th: `📖 Vaudeville (1880s-1930s, สหรัฐฯ) — เครือโรงละครทั่วประเทศที่ทำให้ "นักร้องเดินทางขายบัตร" เป็นอาชีพจริง
+
+เครือโรงละคร Keith-Albee, Orpheum Circuit วางระบบ "ศิลปินทัวร์รายสัปดาห์" — ศิลปินหมุนเวียนเมืองทุกสัปดาห์ รายได้แบ่งกันระหว่างโรงละครกับศิลปินตามสัญญา โครงสร้างนี้คือรากฐานของ "ทัวร์คอนเสิร์ต" ทั้งอุตสาหกรรมทุกวันนี้ (รวมถึงระบบ booking agent, สัญญาแบ่งรายได้, และการจัดทัวร์เป็นรอบ) และพิสูจน์ว่าดนตรีสดขายได้ทั้งประเทศ ไม่ใช่แค่เมืองใหญ่
+
+Vaudeville ยังฝึกศิลปินที่จะกลายเป็นดาววิทยุ หนัง และทีวีทุกคนในยุคหลัง — ระบบสร้างศิลปินในบ้านเดียวกัน
+
+💡 บทเรียน: โครงสร้างการจัดทัวร์ที่ใช้อยู่ทุกวันนี้ — วางรากจากธุรกิจโรงละครเมื่อ 100+ ปีก่อน ไม่ใช่ความคิดใหม่ของยุคคอนเสิร์ตยุคใหม่`,
+        en: `📖 Vaudeville (1880s-1930s, USA) — the national theater circuits that made "touring singer" a real career
+
+Circuits like Keith-Albee and Orpheum ran weekly artist rotations, splitting revenue between theater and artist by contract. This structure is the root of today's entire concert-tour industry (booking agents, revenue splits, tour routing) — and proved live music could sell nationwide, not just in big cities.
+
+Vaudeville also trained the artists who became the radio, film and TV stars of the next era — one in-house star system.
+
+💡 Lesson: today's touring structure has roots in a theater business over 100 years old — not in the modern concert era at all.`,
+        zh: `📖 歌舞杂耍剧场（1880-1930年代，美国）——让"巡演唱片"成为真正职业的全国剧场网络
+
+Keith-Albee、Orpheum 等剧场网络建立了每周艺人轮换制度，剧场与艺人按合同分成。这一结构是今天整个演唱会巡演行业（订票经纪、分成合同、巡演排线）的根基——并证明现场音乐可以卖遍全国，而不只在大城市。
+
+歌舞杂耍还培养出下一代广播、电影、电视明星——同一家屋檐下的造星系统。
+
+💡 启示：今天的巡演结构，其根源在100多年前的剧场生意——并非现代演唱会时代的新发明。` } },
   ],
   "music-military": [
     { id: "bagpipes", icon: "🎻", title: { th: "ปี่สก็อต อาวุธสงคราม", en: "Bagpipes of war", zh: "苏格兰风笛" },
@@ -214,6 +721,249 @@ export const BENEFIT_CASES = {
       content: { th: `🧓 เพลงเก่าที่ปลุกคนที่หลงลืม\n• ผู้ป่วยสมองเสื่อม/อัลไซเมอร์มักจำเพลงในวัยหนุ่มสาวได้แม้จำคนใกล้ตัวไม่ได้\n• สารคดี "Alive Inside" แสดงผู้ป่วยที่ "ตื่น" ขึ้นมามีชีวิตชีวาเมื่อได้ฟังเพลงโปรด\n• ความทรงจำดนตรีฝังลึกในสมองส่วนที่โรคทำลายช้าที่สุด\n💡 ดนตรีคือกุญแจสู่ความทรงจำที่ล็อกไว้`,
         en: `🧓 Old songs that reawaken lost minds\n• People with dementia often recall youth songs even when they forget loved ones\n• The film "Alive Inside" shows patients "wake up" to favorite music\n• Musical memory sits in brain areas the disease harms last\n💡 Music is a key to locked memories.`,
         zh: `🧓 唤醒失忆心灵的老歌\n• 失智/阿尔茨海默患者常记得年轻时的歌，却认不出亲人\n• 纪录片《Alive Inside》记录患者听到喜爱音乐时"苏醒"\n• 音乐记忆位于疾病最晚损害的脑区\n💡 音乐是开启被锁记忆的钥匙。` } },
+
+    { id: "berkleemood", icon: "🎓", title: { th: "Berklee: นักดนตรีบำบัดเก่งที่สุดในโลก", en: "Berklee: training the world's music therapists", zh: "伯克利：全球顶尖音乐治疗师摇篮" },
+      content: { th: `🎓 Berklee College of Music — ปั๊มนักดนตรีบำบัดจาก "เพลง" ให้เป็น "ยา"
+
+Berklee ที่บอสตันคือหนึ่งในโปรแกรมดนตรีบำบัดที่ใหญ่และเก่าแก่ที่สุดในสหรัฐฯ (เปิดตั้งแต่ปี 1971 หลังรวมคณะกับ Boston Conservatory) นักศึกษาเรียนทั้งเปียโน กีตาร์ การร้อง การประพันธ์ วิชาจิตวิทยาและกายวิภาคศาสตร์ ควบคู่ฝึกงานจริงในโรงพยาบาล บ้านพักคนชรา และโรงเรียนคนพิการทุกปี จบแล้วต้องผ่านการสอบใบอนุญาตระดับชาติ (MT-BC) จึงจะรักษาคนได้จริง — ดนตรีบำบัดที่นี่จึงไม่ใช่ "เล่นเพลงให้ฟังน่าฟัง" แต่เป็นวิชาชีพสุขภาพที่มีหลักสูตร มีการสอบ และมีมาตรฐานเดียวกับพยาบาล
+
+นวัตกรรมที่ออกจากห้องเรียน Berklee ถึงมือผู้ป่วยจริง: การใช้แอปและเทคโนโลยีช่วยผู้ป่วยพูด (Neurologic Music Therapy) การบำบัดเด็กออทิซึมด้วยการเล่นดนตรีร่วมกัน และงานวิจัยที่พิสูจน์ว่า "คนสองคนเล่นเพลงด้วยกัน" ทำให้สมองสองสมองเชื่อมกันได้
+
+💡 บทเรียน: อาชีพ "ดนตรีบำบัด" มีจริงและมีโรงเรียนต้นแบบ — ถ้าลูกคุณรักดนตรีและชอบช่วยคน นี่คืออาชีพที่มหาวิทยาลัยชั้นนำของโลกเปิดสอนและมีงานรองรับ`,
+        en: `🎓 Berklee College of Music — turning music into medicine, one therapist at a time
+
+Berklee in Boston runs one of the oldest and largest music therapy programs in the US (since 1971, deepened by the 2016 merger with Boston Conservatory). Students train in piano, guitar, voice and composition alongside psychology and anatomy, then complete supervised clinical internships in hospitals, nursing homes and special-education schools. Graduates must pass the national board exam (MT-BC) before practicing — so this is a licensed health profession with curricula, exams and standards, not "playing nice music at patients."
+
+Innovations out of Berklee classrooms have reached real patients: Neurologic Music Therapy techniques that rebuild speech, shared music-making for children with autism, and research showing two people playing music together literally synchronize their brains.
+
+💡 Lesson: music therapy is a real career with a flagship school behind it — if your child loves music and people, the world's top universities teach it and hospitals hire it.`,
+        zh: `🎓 伯克利音乐学院——把音乐炼成良药
+
+波士顿的伯克利音乐学院拥有美国历史最悠久、规模最大的音乐治疗专业之一（1971年设立，2016年与波士顿音乐学院合并后进一步加强）。学生在钢琴、吉他、声乐、作曲之外修习心理学与解剖学，并在医院、养老院、特教学校完成带教临床实习。毕业还须通过国家执照考试（MT-BC）才能执业——这里培养的不是"给病人放点好听的音乐"，而是与护士同标准、有课程有考核有执照的医疗专业。
+
+从伯克利课堂走向真实病人的创新包括：重建语言的神经学音乐治疗技术、面向自闭症儿童的共同演奏疗法，以及"两人合奏能让大脑同步"的实证研究。
+
+💡 启示：音乐治疗是真实存在、有顶尖学府背书的职业——如果你的孩子既爱音乐又爱助人，这是世界一流大学开设、医院争相聘用的专业。` } },
+    { id: "harvardsing", icon: "🏫", title: { th: "Harvard: ร้องเพลงช่วยหัวใจ", en: "Harvard: singing for the heart", zh: "哈佛：为心脏而唱" },
+      content: { th: `🏫 Harvard พิสูจน์ด้วย MRI ว่า "ร้องเพลง" เปลี่ยนสมอง
+
+ทีมวิจัยที่ Harvard University และ Harvard-affiliated hospitals (รวม Beth Israel Deaconess) ใช้ MRI สแกนสมองผู้รอดชีวิตจากหลอดเลือดสมอง พบว่าการร้องเพลงเป็นประจำช่วยสมอง "ต่อสายไฟใหม่" (neuroplasticity) บริเวณที่เกี่ยวกับภาษาและการสื่อสาร โดยเฉพาะเมื่อซ้อมเป็นกลุ่มสม่ำเสมอ — เป็นหลักฐานระดับมหาวิทยาลัยอันดับต้นของโลกที่ทำให้ "Melodic Intonation Therapy" ไม่ใช่แค่ความเชื่อ แต่เป็นวิทยาศาสตร์ที่ใช้ในโรงพยาบาลได้
+
+ความพิเศษ: การร้องเป็นกลุ่มยังลดความรู้สึกโดดเดี่ยวซึ่งเป็น "ปัจจัยเสี่ยงทางสุขภาพจิตที่ใหญ่เท่าการสูบบุหรี่" ตามงานวิจัยด้านสุขภาพสาธารณะ
+
+💡 บทเรียน: การร้องเพลงไม่ใช่แค่ความสนุก — เป็นการออกกำลังกายของสมองและหัวใจที่มีหลักฐานทางวิทยาศาสตร์รองรับจาก Harvard เอง`,
+        en: `🏫 Harvard used MRI to prove singing rewires the brain
+
+Research teams at Harvard University and its affiliated hospitals (including Beth Israel Deaconess) used MRI to scan stroke survivors and found that regular singing — especially in weekly groups — helps the brain rewire (neuroplasticity) around language and communication networks. This is top-university evidence that Melodic Intonation Therapy isn't just a belief; it's hospital-grade science.
+
+A bonus finding from public-health research: group singing also reduces loneliness, which epidemiologists rank alongside smoking as a serious health risk.
+
+💡 Lesson: singing isn't just fun — it's brain and heart exercise with Harvard-grade evidence behind it.`,
+        zh: `🏫 哈佛用核磁共振证明：唱歌重塑大脑
+
+哈佛大学及其附属医院（包括贝斯以色列女执事医疗中心）的研究团队对中风幸存者进行核磁共振扫描发现：规律唱歌——尤其是每周参加合唱小组——能帮助大脑围绕语言与交流网络重新布线（神经可塑性）。这是世界顶级学府的证据，让"旋律语调疗法"不再是信念，而是医院级的科学。
+
+公共卫生研究的额外发现：合唱还能缓解孤独感，而流行病学研究将孤独与吸烟并列为严重健康风险。
+
+💡 启示：唱歌不只是快乐——它是经哈佛科学证据支持的大脑与心脏锻炼。` } },
+    { id: "stanfordbrain", icon: "🧠", title: { th: "Stanford: เปิดเพลงทั้งสมอง", en: "Stanford: the whole brain lights up", zh: "斯坦福：音乐点亮全脑" },
+      content: { th: `🧠 Stanford พบว่าดนตรีกระตุ้นสมอง "ทั้งวง" ไม่ใช่จุดเดียว
+
+งานวิจัยจาก Stanford University School of Medicine ชี้ว่าการฟังดนตรีและการเล่นดนตรีปลุกสมองหลายส่วนพร้อมกัน — ทั้งศูนย์ความจำ (hippocampus), ศูนย์อารมณ์ (amygdala), ระบบรางวัล (dopamine) และเขตสมองที่ใช้สมาธิ นี่คือเหตุผลที่ดนตรี "ทำงาน" ในการบำบัด: มันคือ stimulus ที่กระจายพลังกว้างที่สุดที่มนุษย์รู้จัก
+
+ส่วนที่น่าสนใจที่สุดต่อการเรียนเปียโน: นักดนตรีอาชีพมี corpus callosum (เส้นเชื่อมสมองซ้าย-ขวา) ใหญ่กว่าคนทั่วไปอย่างมีนัยสำคัญ — การซ้อมเปียโนที่ใช้สองมือพร้อมกัน ฝึกสมองให้เชื่อมสองซีกเข้าหากันจริงๆ
+
+💡 บทเรียน: ทุกครั้งที่ลูกนั่งลงซ้อมเปียโน — สมองทั้งซีกซ้ายขวากำลังยืดเส้นพร้อมกัน ไม่มีกิจกรรมอื่นได้ผลแบบนี้`,
+        en: `🧠 Stanford found music lights up the whole brain at once
+
+Research from Stanford University School of Medicine shows listening and playing music activates multiple brain systems simultaneously — the hippocampus (memory), amygdala (emotion), the dopamine reward circuit, and attention networks. That's exactly why music works in therapy: it is one of the broadest, most distributed stimuli humans know.
+
+The most piano-relevant finding: professional musicians have a measurably larger corpus callosum — the bridge between the brain's hemispheres. Two-handed piano practice literally trains the two halves of the brain to talk to each other.
+
+💡 Lesson: every time your child sits down to practice piano, both hemispheres are wiring together — few other activities do this.`,
+        zh: `🧠 斯坦福发现：音乐同时点亮整个大脑
+
+斯坦福大学医学院的研究表明：听与演奏音乐能同时激活多个脑区——海马体（记忆）、杏仁核（情绪）、多巴胺奖赏回路以及注意力网络。这正是音乐在治疗中"有效"的原因：它是人类已知刺激面最广的刺激源之一。
+
+与学琴最相关的发现：职业音乐人的胼胝体（连接左右脑的桥梁）显著更大。需要双手同时演奏的钢琴练习，真实地训练着大脑左右两半球的对话。
+
+💡 启示：孩子每次坐下练琴，左右脑都在同时"接线"——几乎没有其他活动能做到这一点。` } },
+    { id: "clevelandlullaby", icon: "👶", title: { th: "Cleveland Clinic: เพลงกล่อมทารก ICU", en: "Cleveland Clinic: lullabies in the ICU", zh: "克利夫兰诊所：ICU里的摇篮曲" },
+      content: { th: `👶 เพลงกล่อมช่วยทารกพรีเมียหายใจเก่งขึ้น
+
+โรงพยาบาล Cleveland Clinic (อันดับต้นๆ ของโลก) และ NICU ทั่วสหรัฐใช้ดนตรีบำบัดกับทารกคลอดก่อนกำหนด นักดนตรีบำบัดร้องเพลงกล่อมเบาๆ ขณะเป็นสัมผัสกับทารก งานวิจัยรวบรวมหลายศูนย์ (multi-center study) พบว่าเพลงกล่อม + จังหวะการหายใจของพ่อแม่ช่วยให้ทารกอิ่มตัวดีขึ้น (sucking rhythm) หัวใจเต้นสม่ำเสมอขึ้น นอนหลับลึกขึ้น และ "ออกจากตู้อาบุฟีได้เร็วขึ้นจริง" — แปลเป็นภาษาธรรมดา: อยู่โรงพยาบาลน้อยวันลง
+
+ที่น่าทึ่งคือบทบาทของ "พ่อแม่": ทารกได้ยินเสียงแม่ร้อง รู้จักเสียงของแม่ได้แม้ตายังไม่เปิด ดนตรีจึงเป็น "สายใย" ที่เชื่อมครอบครัวกับทารกในตู้แก้ว
+
+💡 บทเรียน: เสียงร้องของพ่อแม่ไม่ใช่แค่ความรัก — เป็นการรักษาที่แพทย์นับว่าได้ผลจริงในห้องผู้ป่วยวิกฤตของโรงพยาบาลอันดับหนึ่งของโลก`,
+        en: `👶 Lullabies help premature babies breathe, feed and go home sooner
+
+Cleveland Clinic — consistently ranked among the world's best hospitals — and NICUs across the US use music therapy for premature infants. Therapists sing gentle lullabies timed to each baby's breathing and heartbeat. Multi-center research found lullabies plus parents' voices improved babies' sucking rhythm, steadied heart rates, deepened sleep — and measurably shortened NICU stays.
+
+The most remarkable ingredient is the parents: even with eyes still closed, babies recognize their mother's voice. Music becomes the bond that connects a family to a baby inside a glass incubator.
+
+💡 Lesson: a parent's singing isn't just love — world-class hospitals count it as real treatment for their tiniest patients.`,
+        zh: `👶 摇篮曲帮助早产儿呼吸、进食、更早回家
+
+常年位列全球最佳医院之列的克利夫兰诊所，以及全美的新生儿重症监护室（NICU），都在为早产儿提供音乐治疗：治疗师配合婴儿的呼吸与心跳轻唱摇篮曲。多中心研究显示，摇篮曲加上父母的声音能改善婴儿的吮吸节律、稳定心率、加深睡眠——并真实缩短了住院时间。
+
+最动人的部分是父母的角色：即使眼睛还没睁开，婴儿就能认出母亲的声音。音乐成了连接家庭与保温箱里婴儿的纽带。
+
+💡 启示：父母的歌声不只是爱——世界一流医院把它当作对最小病人的真实治疗。` } },
+    { id: "unclouddementia", icon: "🧑‍🦳", title: { th: "UNC & Johns Hopkins: เพลงคือสะพานสู่ความทรงจำ", en: "UNC & Johns Hopkins: music as a bridge to dementia", zh: "北卡与约翰霍普金斯：通往失智之桥" },
+      content: { th: `🧑‍🦳 มหาวิทยาลัยชั้นนำพิสูจน์: เพลงเข้าถึงผู้ป่วยสมองเสื่อมได้ทางเดียว
+
+จุฟส์ (Johns Hopkins — โรงพยาบาลอันดับ 1 ของสหรัฐฯ หลายปีซ้อน) และ University of North Carolina ทำงานวิจัยที่สรุปตรงกัน: ในผู้ป่วยอัลไซเมอร์ สมองส่วนที่จดจำ "ดนตรี" (เช่น anterior cingulate, ventral pre-supplementary motor area) ยังทำงานได้ดีแม้สมองส่วนอื่นเสื่อมมากแล้ว เพลงจึงเป็น "ทางเดิน" เข้าถึงตัวตน ความทรงจำ และอารมณ์ที่คำพูดธรรมดาเดินไม่ได้
+
+ในการปฏิบัติ: พยาบาลและครอบครัวจัดเพลย์ลิสต์ "เพลงสมัยหนุ่มสาว" ให้ผู้ป่วยฟังผ่านหูฟัง ผลลัพธ์ที่วัดได้คือ อารมณ์ดีขึ้น ก้าวร้าวน้อยลง ยากล่อมประสาทลดลง และในบางราย ผู้ป่วยพูดจาโต้ตอบได้ชั่วขณะเหมือนตัวเองกลับมา
+
+💡 บทเรียน: เมื่อคุยกับคนที่คุณรักไม่ได้แล้ว — เพลงยังเดินทางไปหาเขาได้ นี่ไม่ใช่ความหวังลอยๆ แต่เป็นข้อสรุปจากมหาวิทยาลัยอันดับหนึ่ง`,
+        en: `🧑‍🦳 Top universities found music reaches minds words can't
+
+Johns Hopkins (ranked the #1 US hospital for years running) and the University of North Carolina converged on the same conclusion: in Alzheimer's patients, the brain regions that hold musical memory (like the anterior cingulate and ventral pre-supplementary motor area) remain functional even as other regions deteriorate. Music becomes a walkway to identity, memory and emotion where ordinary speech can't go.
+
+In practice, families and nurses build "youth-era" playlists for headphone listening. Measurable results: better mood, less aggression, reduced need for sedatives — and in some cases moments where the person seems to come back and converse.
+
+💡 Lesson: when words no longer reach someone you love, music still can — and that's a top-university finding, not a hopeful metaphor.`,
+        zh: `🧑‍🦳 顶级学府证明：音乐能抵达语言到不了的心
+
+连年蝉联美国最佳医院第一的约翰霍普金斯大学与北卡罗来纳大学得出一致结论：在阿尔茨海默病患者脑中，负责音乐记忆的区域（如前扣带皮层等）即使在其他脑区严重退化后仍然保持功能。音乐成为一条通路，通往普通语言无法抵达的自我、记忆与情感。
+
+在实务中，家属与护士会为患者准备"年轻时代"的歌单通过耳机聆听。可测量的结果包括：情绪改善、攻击行为减少、镇静剂用量下降——某些时刻，患者甚至会开口交谈，仿佛回到了原来的自己。
+
+💡 启示：当语言再也无法抵达你所爱的人，音乐仍能前往——这是顶级学府的结论，不是修辞。` } },
+    { id: "oxfordstroke", icon: "🗣️", title: { th: "Oxford: ร้องเพลงฟื้นคนพูดไม่ได้", en: "Oxford: singing back stroke speech", zh: "牛津：用歌声找回语言" },
+      content: { th: `🗣️ Oxford ใช้ดนตรีสร้าง "ทางหลวงสำรอง" ในสมอง
+
+มหาวิทยาลัย Oxford (UK) และกลุ่มวิจัยด้าน neurologic music therapy พบว่าหลังหลอดเลือดสมอง การร้องเพลงเป็นประจำช่วยสมองสร้าง "alternate route" — เส้นทางใหม่ในสมองซีกขวาที่รับหน้าที่แทนเขตภาษาซีกซ้ายที่เสียหาย หลักการนี้คือแกนของ Melodic Intonation Therapy (MIT) ที่ใช้จริงในคลินิกฟื้นฟูทั่วโลก
+
+หัวใจของเทคนิค: เริ่มจากร้องคำสั้นๆ ที่ใช้ในชีวิตประจำวัน ("สวัสดี" "ขอบคุณ" "น้ำ") ด้วยทำนองง่ายๆ ที่เน้นพยางค์ชัด — จากนั้นค่อยลดทำนองลงจนเหลือการพูดปกติ งานวิจัยแสดงการเปลี่ยนแปลงในสมองที่วัดได้จริงด้วย fMRI หลังฝึกหลายสัปดาห์
+
+💡 บทเรียน: การร้องเพลงไม่ใช่แค่พิธีกรรม — เป็นการฝึกสมองให้สร้าง "เส้นทางสำรอง" ที่แพทย์ใช้ช่วยคนพูดไม่ได้กลับมาพูดได้จริง`,
+        en: `🗣️ Oxford uses song to build the brain's backup highway
+
+Research from the University of Oxford and neurologic music therapy groups shows that after a stroke, regular singing helps the brain build an alternate route — new right-hemisphere pathways that take over for damaged left-hemisphere language areas. This principle is the core of Melodic Intonation Therapy (MIT), used in rehabilitation clinics worldwide.
+
+The technique starts tiny: short everyday words ("hello," "thank you," "water") sung on simple, syllable-emphasizing melodies, with the melody gradually faded until only normal speech remains. After weeks of practice, fMRI scans show real, measurable brain change.
+
+💡 Lesson: singing isn't ceremonial — it's brain training that builds a backup route clinicians use to bring speech back after stroke.`,
+        zh: `🗣️ 牛津用歌声为大脑修建备用高速路
+
+牛津大学与神经学音乐治疗团队的研究发现：中风后坚持唱歌能帮助大脑建立"替代通路"——右脑新路径接管受损的左脑语言区功能。这正是全球康复诊所使用的"旋律语调疗法"（MIT）的核心原理。
+
+技术从极小的步骤开始：把日常短词（"你好""谢谢""水"）放在强调音节的简单旋律中歌唱，再逐步淡化旋律，只留正常说话。数周练习后，功能磁共振能检测到真实的大脑变化。
+
+💡 启示：唱歌不是仪式——它是真实的脑训练，为失去语言的人重建"备用道路"。` } },
+    { id: "cincinnatikids", icon: "👶", title: { th: "Cincinnati Children's: เสียงเพลงปลุกสมองทารก", en: "Cincinnati Children's: sound and the infant brain", zh: "辛辛那提儿童医院：声音与婴儿大脑" },
+      content: { th: `👶 Cincinnati Children's ศึกษาว่าเสียงเพลง "ปั้น" สมองทารกจริงไหม
+
+โรงพยาบาลเด็ก Cincinnati Children's Hospital Medical Center (ติดอันดับโรงพยาบาลเด็กที่ดีที่สุดในสหรัฐฯ ทุกปี) ทำงานวิจัยที่ติดตามทารกคลอดก่อนกำหนดที่ได้รับดนตรีบำบัดใน NICU ใช้ EEG วัดคลื่นสมอง พบว่าเพลงและเสียงพูดของแม่ช่วย "จัดระเบียบ" คลื่นสมองทารกให้เข้าใกล้ทารกที่ครบกำหนดมากขึ้น — สมองของทารกโตตอบสนองต่อเสียงเพลงเป็นรูปเป็นร่างตั้งแต่วันแรกของชีวิต
+
+ทีมวิจัยเชื่อมั่นจนเปิดเป็นโปรแกรมประจำ (NICU Music Therapy) ไม่ใช่กิจกรรมพิเศษเฉพาะกรณี
+
+💡 บทเรียน: เสียงเพลงในวัยทารกไม่ใช่แค่บรรยากาศ — เป็นสารอาหารของสมองที่โรงพยาบาลเด็กอันดับหนึ่งถือเป็น "มาตรการรักษา"`,
+        en: `👶 Cincinnati Children's measures how music shapes the newborn brain
+
+Cincinnati Children's Hospital Medical Center — perennially ranked among America's best children's hospitals — studied premature infants receiving music therapy in the NICU using EEG. Music and maternal voice helped "organize" brain waves toward the patterns of full-term babies: the infant brain responds to music structurally from the very first days of life.
+
+The team's confidence shows in practice: NICU Music Therapy there is a standing program, not a special-case activity.
+
+💡 Lesson: music in infancy isn't ambience — it's brain nutrition that a top children's hospital treats as genuine care.`,
+        zh: `👶 辛辛那提儿童医院：用脑电波测量音乐如何塑造新生儿大脑
+
+辛辛那提儿童医院医学中心（常年位列全美最佳儿童医院）用脑电图（EEG）研究在 NICU 接受音乐治疗的早产儿，发现音乐与母亲的声音能帮助婴儿脑电波"有序化"，更接近足月儿的模式——婴儿大脑从生命最初几天起就对音乐有结构性反应。
+
+团队的信心体现在实务中：那里的 NICU 音乐治疗是常设项目，而非特殊个案活动。
+
+💡 启示：婴儿期的音乐不只是氛围——它是顶级儿童医院视为真正疗护的"大脑营养"。` } },
+    { id: "floridaparkinson", icon: "🚶", title: { th: "University of Florida: จังหวะช่วยพาร์กินสันก้าวได้", en: "University of Florida: rhythm for Parkinson's gait", zh: "佛罗里达大学：节拍助帕金森步态" },
+      content: { th: `🚶 University of Florida วัดจริง: เดินตามจังหวะ = ก้าวมั่นคงขึ้น
+
+หลายมหาวิทยาลัย (University of Florida, Colorado State University — ศูนย์วิจัยชั้นนำของโลกด้าน Neurologic Music Therapy) ทำการทดลองกับผู้ป่วยพาร์กินสัน ที่เดินตามจังหวะเมโทรนอมหรือเพลง (Rhythmic Auditory Stimulation — RAS) ผลที่วัดได้: ความเร็วในการเดินเพิ่มขึ้น ความยาวก้าวยาวขึ้น การแข็งตรึงกลางทาง (freezing) ลดลง และล้มน้อยลงจริงๆ
+
+เหตุผลทางสมอง: สมองส่วนที่สั่งจังหวะการเดินเสียหายไปแล้ว — แต่สมองยังเหลือ "วงจรจับจังหวะจากภายนอก" อยู่ ดนตรีจึงเป็นตัวจับเวลาทดแทนที่ร่างกายเชื่อได้
+
+💡 บทเรียน: แค่เปิดเพลงจังหวะชัดๆ ให้คนที่รักเดินตาม — เป็นการฟื้นฟูที่มหาวิทยาลัยวิจัยชั้นนำของโลกตรวจสอบด้วยตัวเลขแล้ว`,
+        en: `🚶 University of Florida measured it: walking to a beat steadies gait
+
+Universities including the University of Florida and Colorado State University (home to leading Neurologic Music Therapy research) ran trials with Parkinson's patients walking to a metronome or song (Rhythmic Auditory Stimulation — RAS). Measured outcomes: faster walking speed, longer strides, fewer mid-stride freezing episodes — and genuinely fewer falls.
+
+The brain logic: the circuit that generates internal walking rhythm is damaged, but external-rhythm circuits still work. Music becomes a replacement clock the body can trust.
+
+💡 Lesson: simply putting on a strong-beat song for someone you love to walk to is rehab that leading university labs have verified with numbers.`,
+        zh: `🚶 佛罗里达大学实测：跟着节拍走，步态更稳
+
+包括佛罗里达大学与科罗拉多州立大学（全球神经学音乐治疗研究重镇）在内的多所高校，对帕金森患者跟随节拍器或音乐行走（节奏听觉刺激，RAS）进行了实验。可测量的结果：步行速度提升、步幅变长、中途"冻结"减少——真实跌倒次数也下降。
+
+大脑层面的解释：负责产生行走节奏的内部回路受损，但处理外部节拍的回路仍在工作。音乐成为身体可以信任的替代时钟。
+
+💡 启示：为你爱的人放一首节奏清晰的歌曲陪他行走——这是世界顶尖大学实验室用数字验证过的康复手段。` } },
+    { id: "clevelandpain", icon: "💊", title: { th: "Cleveland Clinic & Cochrane: เพลงลดยาแก้ปวด", en: "Cleveland Clinic & Cochrane: music for pain", zh: "克利夫兰与科克伦：音乐镇痛" },
+      content: { th: `💊 งานวิจัยระดับโลกรวบรวม 70+ การทดลอง: เพลงช่วยลดความเจ็บปวดจริง
+
+Cleveland Clinic เป็นผู้นำทีมวิจัยรวบรวมข้อมูลจากการทดลองคลินิกหลายสิบชิ้น (ตีพิมพ์ใน JAMA และต่อมา Cochrane Review — การรวบรวมหลักฐานที่เชื่อถือที่สุดในวงการแพทย์) สรุปว่าผู้ป่วยที่ฟังเพลง "ก่อน-ระหว่าง-หลัง" การผ่าตัด รู้สึกเจ็บปวดน้อยลง วิตกกังวลน้อยลง และต้องใช้ยาแก้ปวด (opioid) น้อยลงอย่างมีนัยสำคัญ
+
+เหตุผลทางสมอง: ความเจ็บปวดประมวลผลในสมองส่วนที่ "แย่งทรัพยากรกับ" ดนตรี เมื่อสมองยุ่งกับจังหวะและทำนอง สัญญาณปวดถูกกรองออกไปได้มากขึ้น
+
+💡 บทเรียน: การเปิดเพลงให้คนที่กำลังเจ็บปวดไม่ใช่แค่ "ทำให้ใจคลาย" — เป็นการลดความเจ็บปวดที่วัดผลได้และเทียบเคียงกับยาได้บางส่วน ในบริบทที่แพทย์ทั่วโลกยอมรับ`,
+        en: `💊 World-class evidence from 70+ trials: music measurably reduces pain
+
+Cleveland Clinic led a landmark meta-analysis (published in JAMA and later updated by the Cochrane Review — medicine's most rigorous evidence synthesis) covering dozens of clinical trials: patients who listened to music before, during, and after surgery reported less pain, less anxiety, and needed significantly fewer opioid painkillers.
+
+The brain logic: pain and music compete for the same processing resources. When the brain is busy with rhythm and melody, pain signals get filtered more aggressively.
+
+💡 Lesson: playing music for someone in pain isn't just comfort — it's a measurable intervention that the global medical community accepts as part of real pain management.`,
+        zh: `💊 汇集70余项试验的顶级证据：音乐真实降低疼痛
+
+克利夫兰诊所主导的重大荟萃分析（发表于《JAMA》，后经科克伦协作网更新——医学界最严格的证据综合）覆盖数十项临床试验：在手术前、中、后聆听音乐的患者，疼痛感更轻、焦虑更少，阿片类镇痛药的使用量显著下降。
+
+大脑层面的解释：疼痛与音乐争夺同一批处理资源。当大脑忙于节奏与旋律时，疼痛信号会被更强烈地过滤。
+
+💡 启示：为疼痛中的人播放音乐不只是安慰——这是全球医学界认可、可量化、部分可与药物媲美的镇痛干预。` } },
+    { id: "uscsteel", icon: "🎻", title: { th: "USC: เปียโนเปลี่ยนสมองเด็กจริงไหม", en: "USC: what music lessons do to a child's brain", zh: "南加大：音乐课如何塑造儿童大脑" },
+      content: { th: `🎻 USC (มหาวิทยาลัยอันดับต้นของสหรัฐฯ) ติดตามเด็กเรียนดนตรีหลายปี — สมอง "โตจริง"
+
+University of Southern California (USC) ทำงานวิจัยระยะยาวกับเด็กที่เรียนดนตรี ใช้ fMRI และ EEG วัดสมอง พบว่าเด็กที่เรียนดนตรีสม่ำเสมอมีพัฒนาการของสมองส่วน "auditory processing" (การประมวลผลเสียง) และ "executive function" (ความจำ สมาธิ การวางแผน) เหนือกว่ากลุ่มเปรียบเทียบอย่างชัดเจน — และความต่างนี้ตรวจพบได้ตั้งแต่ปีแรกของการเรียน
+
+โดยเฉพาะการเรียน "เครื่องดนตรีที่ต้องใช้ทั้งสองมือและอ่านโน้ตพร้อมกัน" เช่น เปียโน — เพราะเป็นการฝึกทั้งการมองเห็น การฟัง การเคลื่อนไหว และการจำ พร้อมกันในเวลาเดียว สมองจึงต้องสร้างเส้นเชื่อมหลายเส้นในคราวเดียว
+
+💡 บทเรียน: ทุกๆ เซสชันเปียโนที่ลูกซ้อม — ไม่ใช่แค่ทักษะดนตรีที่เพิ่มขึ้น แต่เป็น "โครงสร้างสมอง" ที่สร้างขึ้นช้าๆ อย่างมีหลักฐานทางวิทยาศาสตร์จากมหาวิทยาลัยชั้นนำ`,
+        en: `🎻 USC tracked children learning music for years — brains measurably changed
+
+The University of Southern California ran longitudinal studies of children in music training using fMRI and EEG. Children who practiced consistently showed measurably stronger development of auditory-processing and executive-function systems (memory, attention, planning) than comparison groups — detectable within the first year of lessons.
+
+Instruments that demand two hands plus simultaneous music reading, like piano, are especially potent: vision, hearing, movement, and memory are all trained at once, forcing the brain to build multiple connections simultaneously.
+
+💡 Lesson: every piano session your child completes isn't just musical progress — it's brain architecture, built slowly and backed by top-university science.`,
+        zh: `🎻 南加州大学多年追踪：学琴儿童的大脑真实改变
+
+南加州大学用功能磁共振与脑电图对接受音乐训练的儿童进行纵向研究：规律练习的孩子在听觉处理与执行功能系统（记忆、专注、规划）上的发展显著优于对照组——而且这种差异在学琴第一年就能检测到。
+
+需要双手同时演奏并同步读谱的乐器（如钢琴）尤为强大：视觉、听觉、动作与记忆同时受到训练，迫使大脑一次性构建多重连接。
+
+💡 启示：孩子完成的每一次钢琴练习，不只是音乐技能的积累——更是由顶尖学府科学证据支持的"大脑建筑"。` } },
+    { id: "austintherapy", icon: "👨‍👩‍👧", title: { th: "UT Austin & ศูนย์ดนตรีบำบัด: ทั้งครอบครัวหายด้วยกัน", en: "UT Austin & therapy centers: families heal together", zh: "德州大学与治疗中心：全家一起疗愈" },
+      content: { th: `👨‍👩‍👧 ดนตรีบำบัดไม่ได้รักษา "คนเดียว" — แต่รักษาทั้งครอบครัว
+
+โปรแกรมดนตรีบำบัดที่มหาวิทยาลัย Texas (UT Austin), Florida State University และศูนย์บำบัดที่เชื่อมกับมหาวิทยาลัยต่างๆ ทั่วสหรัฐฯ ใช้แนวทาง "family-centered music therapy" ให้พ่อแม่พี่น้องร่วมเล่นดนตรีกับผู้ป่วยในครอบครัว ผลลัพธ์ที่วัดได้คือ ความสัมพันธ์ในครอบครัวดีขึ้น ความเครียดของผู้ดูแลลดลง และผู้ป่วยตอบสนองต่อการรักษาดีขึ้น เมื่อคนที่รักอยู่ในห้องด้วย
+
+โดยเฉพาะเด็กออทิซึม: การที่พ่อแม่เล่นเปียโนหรือร้องเพลง "ร่วมกับ" ลูก ไม่ใช่แค่ให้ลูกเรียน — ช่วยเปิดช่องทางสื่อสารที่คำพูดเดินไม่ถึง จนกลายเป็นมาตรการมาตรฐานในคลินิกดนตรีบำบัดที่มหาวิทยาลัยชั้นนำ
+
+💡 บทเรียน: การเล่นดนตรี "ร่วมกัน" ในครอบครัว ไม่ใช่กิจกรรมสวยๆ — เป็นการบำบัดที่มหาวิทยาลัยและคลินิกชั้นนำใช้เป็นเครื่องมือรักษาจริง`,
+        en: `👨‍👩‍👧 Music therapy doesn't treat one person — it treats the family
+
+University music therapy programs (UT Austin, Florida State University, and many university-affiliated centers across the US) practice "family-centered music therapy": parents and siblings join the patient in making music. Measured outcomes include stronger family bonds, reduced caregiver stress, and better patient response when loved ones are in the room.
+
+For children with autism especially: parents playing piano or singing WITH their child — not just enrolling them in lessons — opens a communication channel where words can't go. It's now a standard measure at leading university-affiliated music therapy clinics.
+
+💡 Lesson: making music together as a family isn't just a wholesome activity — it's therapy that leading universities and clinics use as a real treatment tool.`,
+        zh: `👨‍👩‍👧 音乐治疗不止疗愈一个人——它疗愈整个家庭
+
+德州大学奥斯汀分校、佛罗里达州立大学等高校及其附属治疗中心推行"以家庭为中心的音乐治疗"：父母与兄弟姐妹共同参与演奏。可测量的结果包括：家庭关系改善、照护者压力下降，以及当亲人参与时患者治疗反应更好。
+
+对自闭症儿童尤其显著：父母与孩子"一起"弹琴或唱歌——而不只是送孩子去上课——能打开语言无法抵达的沟通通道。如今这已是顶尖大学附属音乐治疗诊所的标准措施之一。
+
+💡 启示：一家人一起玩音乐，不只是温馨活动——它是顶尖大学与诊所真正用于治疗的专业工具。` } },
   ],
   "music-marketing": [
     { id: "taylor", icon: "🩷", title: { th: "Taylor Swift: เป็นเจ้าของผลงาน", en: "Taylor Swift: own your masters", zh: "霉霉：拥有母带" },
@@ -383,7 +1133,7 @@ export const L = {
     practiceMicTip: "💡 รองรับเปียโนเพี้ยนเล็กน้อย (ปรับจูนอัตโนมัติ) · ไม่มีไมค์/MIDI ก็แตะคีย์บนจอได้",
     practiceCombo: "คอมโบ", practiceResultTitle: "เยี่ยมมาก! 🎉", practiceNewBest: "🏆 สถิติใหม่ส่วนตัว!",
     practiceBestLbl: "สถิติเดิม", practiceStreakLbl: "คอมโบสูงสุด", practiceDynLbl: "น้ำหนักนิ้วสม่ำเสมอ",
-    practiceRhythmLbl: "จังหวะสม่ำเสมอ", practiceCoachSays: "ครู TiGA พูดว่า",
+    practiceRhythmLbl: "จังหวะสม่ำเสมอ", practiceCoachSays: "ครู TIGA AI",
     pathUnlockedTitle: "🎉 ผ่านหัวข้อนี้แล้ว!", groupCertCompleted: "จบหมวดนี้แล้ว!",
     bossDefeatedTitle: "👑 พิชิตบอสแล้ว!", bossReadyTitle: "ปลดล็อกบอสท้าทายแล้ว!", bossDoneTitle: "พิชิตบอสของหมวดนี้แล้ว", bossFight: "ท้าบอส", bossRematch: "ท้าอีกครั้ง",
     challengingTitle: "โหมดท้าทาย", challengingSub: "รวมใบประกาศนียบัตรและบอสท้าทายทั้งหมดไว้ที่นี่ — เรียนจบหมวดไหนในหน้า Pathway ก็กลับมาพิสูจน์ฝีมือที่นี่ รับรางวัลได้ทุกครั้ง!",
@@ -548,7 +1298,7 @@ export const L = {
     practiceMicTip: "💡 Tolerates a slightly out-of-tune piano (auto-tuning) · no mic/MIDI? tap the keys",
     practiceCombo: "Combo", practiceResultTitle: "Nice work! 🎉", practiceNewBest: "🏆 New personal best!",
     practiceBestLbl: "Previous best", practiceStreakLbl: "Best combo", practiceDynLbl: "Touch consistency",
-    practiceRhythmLbl: "Timing consistency", practiceCoachSays: "Coach TiGA says",
+    practiceRhythmLbl: "Timing consistency", practiceCoachSays: "Teacher TIGA AI",
     pathUnlockedTitle: "🎉 Stage complete!", groupCertCompleted: "Section complete!",
     bossDefeatedTitle: "👑 Boss defeated!", bossReadyTitle: "Boss Challenge unlocked!", bossDoneTitle: "Boss defeated", bossFight: "Fight", bossRematch: "Rematch",
     challengingTitle: "CHALLENGING MODE", challengingSub: "Every certificate and Boss Challenge in one place — finish a section on the Pathway, then come back here to prove it and claim your reward.",
@@ -713,7 +1463,7 @@ export const L = {
     practiceMicTip: "💡 可容忍轻微走音（自动校音）· 没有麦克风/MIDI？点击琴键也行",
     practiceCombo: "连击", practiceResultTitle: "太棒了！🎉", practiceNewBest: "🏆 创造个人新纪录！",
     practiceBestLbl: "此前纪录", practiceStreakLbl: "最高连击", practiceDynLbl: "力度稳定性",
-    practiceRhythmLbl: "节奏稳定性", practiceCoachSays: "TiGA老师说",
+    practiceRhythmLbl: "节奏稳定性", practiceCoachSays: "TIGA AI老师",
     pathUnlockedTitle: "🎉 已通过此主题！", groupCertCompleted: "已完成本单元！",
     bossDefeatedTitle: "👑 击败首领！", bossReadyTitle: "首领挑战已解锁！", bossDoneTitle: "已击败本单元首领", bossFight: "挑战", bossRematch: "再战",
     challengingTitle: "闯关挑战模式", challengingSub: "所有证书和首领挑战都在这里 — 在学习路径页面完成一个单元后，回到这里证明实力，领取奖励！",

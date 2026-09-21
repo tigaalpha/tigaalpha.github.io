@@ -13,7 +13,38 @@ import { SONGS, SONG_TIMESIG } from "./songs-data";
 import { logActivity, recordNoteMisses } from "./shared-infra";
 import { recordMemory, readMemory } from "./ai-chat-context";
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
+import { hostOnlineDuel, joinOnlineDuel, leaveOnlineRoom, sendAccept, sendStart, sendScore, sendResult, sendRematch } from "./pvp-online";
+import { analyzeSongRun, buildSongFallback } from "./song-analysis";
+import { buildDrillPlan, nextDrillTempo, bossHpFor, bossComboChip, bossRewardCoins, knowledgeDropFor, smartBackingPlan } from "./mistake-drill";
+import { runTeachingLoopForPractice, tigaHub } from "./tigamodel/web.js"; // tigaHub: intent-based model access — smarter engines upgrade the result screen with no UI change
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
+
+/* ── Daily Song Quest (Play Along plan #8): one featured song per day, chosen
+   deterministically from SONGS so every device sees the same song without any
+   server call (same trick as activeChallenges' weekKey hash). Playing it to
+   the finish once pays a bonus; stars are remembered for the day card. ── */
+export function dailySongFor(d = new Date()) {
+  if (!SONGS || !SONGS.length) return null;
+  const key = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  /* TIGA hub first: the repertoire specialist picks from the REAL learner
+     record (weak-spot coverage, not-yet-3-star rotation). Anything missing →
+     the deterministic day-hash below, exactly as before. */
+  try {
+    const starMap = (() => { const m = {}; try { for (const k of Object.keys(localStorage)) { if (k.startsWith("tg_best_")) { const v = Number(localStorage.getItem(k) || 0); m[k.slice(8)] = v >= 3 ? 3 : 0; } } } catch (e) {} return m; })();
+    const rec = tigaHub.recommendDailySong(SONGS, { memory: readMemory(), practiceLog: {}, starMap, dayKey: key });
+    if (rec && rec.song) return rec.song; // reason arrives with the pick — result screen may surface it later
+  } catch (e) { /* hub absent → hash fallback */ }
+  let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
+  return SONGS[Math.abs(h) % SONGS.length];
+}
+export function readDailySongState(todayKey) {
+  try {
+    const raw = JSON.parse(localStorage.getItem("tg_daily_song") || "null");
+    if (raw && raw.d === todayKey) return raw;
+  } catch (e) {}
+  return { d: todayKey, done: false, stars: 0 };
+}
+export const DAILY_SONG_REWARD = { coins: 30, exp: 60 };
 /* ── use-play-along.ts ──
    Owns play-along: the falling-notes song-game itself (chooseSong through
    finishSong, the rAF game loop, mic/MIDI input grading), plus everything
@@ -60,6 +91,15 @@ import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell }) {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
+    // ?pvp=CODE — an online-duel invite: prefill the room code and open the PvP panel
+    // so joining is one tap away on the song's ready screen (plan #10).
+    const rawPvp = p.get("pvp");
+    if (rawPvp) {
+      const url2 = new URL(window.location.href); url2.searchParams.delete("pvp");
+      window.history.replaceState({}, "", url2.pathname + (url2.search || ""));
+      const pvpCode = String(rawPvp).trim().toUpperCase();
+      if (/^[A-Z0-9]{6}$/.test(pvpCode)) { setCodeInput(pvpCode); openPvpOnline(); }
+    }
     const raw = p.get("challenge");
     if (!raw) return;
     const url = new URL(window.location.href);
@@ -90,6 +130,34 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   // D1: AI Accompaniment — backing chord loop during song play
   const [backingOn, setBackingOn] = useState(false);
   const backingTimerRef = useRef<any>(null);
+  // ── Play Along plan items 1/3/4/8 (this session) ──
+  // #1 Mistake Loop — after a run, the missed notes are bucketed into
+  // loopable segments (buildDrillPlan) and the player can drill JUST the
+  // worst segment on a rising tempo ladder instead of replaying the song.
+  const [drillPlan, setDrillPlan] = useState(null);      // null | [{idx,start,end,misses,notes}]
+  const [drillActive, setDrillActive] = useState(false); // true while a drill window is loaded
+  const drillTempoRef = useRef(1);                       // ladder rung for the active drill
+  const drillSavedTempoRef = useRef(1);                  // song tempo to restore when the drill ends
+  // #3 Boss Battle — HP is chipped by every hit (bigger for perfects and
+  // every 10× combo) and the boss attacks back on misses. Refs: the game
+  // loop mutates them every frame.
+  const [bossOn, setBossOn] = useState(false);
+  const [bossHp, setBossHp] = useState(0);               // reactive: HP bar in the HUD
+  const [bossMax, setBossMax] = useState(0);             // reactive: HP ceiling for the bar
+  const [bossFx, setBossFx] = useState(null);            // {id, kind} hit/defeat/attack flash
+  const bossHpRef = useRef(0);
+  const bossMaxRef = useRef(1);
+  const bossFxT = useRef(null);
+  const bossHpDirtyRef = useRef(false);                  // throttle setState to ~5Hz
+  const bossHpDirtyAtRef = useRef(0);
+  // #4 Knowledge Drops — perfect hits sometimes drop a one-line fact about
+  // the pitch just played; facts collect into a per-device shelf.
+  const [kDrop, setKDrop] = useState(null);              // {id, note, text} toast mid-game
+  const [kShelfOpen, setKShelfOpen] = useState(false);
+  const [kShelf, setKShelf] = useState([]);              // [{pc, note, text, at}]
+  const kDropT = useRef(null);
+  const kDroppedRef = useRef({});                        // one drop per pitch-class per run
+  const LANG_KEY = (l) => l === "th" ? "th" : l === "zh" ? "zh" : "en";
   // E5: Song Detector — "What song am I playing?"
   const [detectOpen, setDetectOpen] = useState(false);
   const [detectNotes, setDetectNotes] = useState<string[]>([]);
@@ -122,6 +190,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songGhostDataRef = useRef(null);
   const [songBonus, setSongBonus] = useState(null);   // surprise reward popup {id, text}
   const [songLoopRecap, setSongLoopRecap] = useState(null); // brief run-summary toast shown between auto-loop restarts, since the full result screen is skipped there — {acc,score,maxCombo,stars,exp}
+  const [songTigaTip, setSongTigaTip] = useState(null); // TIGA hub coach line for the finished song ({tip,stars,acc,via} | null) — cleared on every startSongPlay
   // Setlist / Concert mode — chain N songs into one continuous run. The queue
   // itself lives in a ref (read every frame's worth of bookkeeping in
   // finishSong, no need to trigger a re-render just to advance it);
@@ -161,6 +230,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songTotalRef = useRef(0);
   const songLastTimeRef = useRef(0);
   const songStartClockRef = useRef(0);
+  const drillPlanRef = useRef(null);       // #1 mirrors drillPlan state for HUD-timer closures
+  const drillStartSecRef = useRef(null);   // #1 Mistake Loop window start (sec) or null
+  const drillEndSecRef = useRef(null);     // #1 window end (sec) or null
+  const songPopsRef = useRef(0);           // #4 cheap eligibility guard
   const songTempoRef = useRef(1);
   const songRunRef = useRef(false);
   const songRafRef = useRef(0);
@@ -184,6 +257,84 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songInputRef = useRef(() => {});
   const songFinishRef = useRef(() => {});
 
+  /* ════ ONLINE PvP (plan #10) — realtime duel rooms ════
+     Supabase Realtime broadcast channels (pvp-online.ts): host creates a
+     6-char room, guest joins by code, both play the same song, host fires a
+     synchronized start (startAt = wall clock + ~4s), live scores stream both
+     ways, final results decide the winner. Trust model deliberately matches
+     the existing ?challenge= links (self-reported) — friendly duel, not a
+     ranked ladder. */
+  const [pvpOnline, setPvpOnline] = useState(null); // null | {phase:"idle"|"hosting"|"joining"|"waiting"|"racing"|"waiting-result"|"done", code, role, guestName, hostName, songId, startAt, opp, oppResult, myResult, err, accepted, peerSeen}
+  const [codeInput, setCodeInput] = useState("");
+  const pvpScoreTickRef = useRef(null);
+  const clearPvpScoreTick = () => { clearInterval(pvpScoreTickRef.current); pvpScoreTickRef.current = null; };
+  useEffect(() => () => { clearPvpScoreTick(); leaveOnlineRoom(); }, []);
+  function openPvpOnline() {
+    if (pvpOnline && (pvpOnline.phase === "hosting" || pvpOnline.phase === "waiting")) return;
+    setPvpOnline({ phase: "idle", code: null, role: null, guestName: null, hostName: null, songId: null, startAt: null, opp: null, oppResult: null, myResult: null, err: null, accepted: false, peerSeen: false });
+  }
+  function closePvpOnline() { clearPvpScoreTick(); leaveOnlineRoom(); setPvpOnline(null); }
+  async function hostPvpOnline() {
+    const name = (profile && (profile.full_name || profile.email)) || "Host";
+    setPvpOnline({ phase: "hosting", code: null, role: "host", guestName: null, hostName: name, songId: songMeta ? songMeta.id : null, startAt: null, opp: null, oppResult: null, myResult: null, err: null, accepted: false, peerSeen: false });
+    try {
+      await hostOnlineDuel(name, {
+        onReady: ({ code }) => setPvpOnline(p => p && { ...p, phase: "waiting", code }),
+        onPresence: ({ count }) => setPvpOnline(p => p && p.phase === "waiting" ? { ...p, peerSeen: count > 1 } : p),
+        onJoinRequest: ({ name: gn }) => setPvpOnline(p => p && { ...p, guestName: gn || "Challenger" }),
+        onLeave: () => setPvpOnline(p => p && ["idle", "hosting", "joining", "waiting"].includes(p.phase) ? { ...p, guestName: null, peerSeen: false } : p),
+      });
+    } catch (e) { setPvpOnline(p => p && { ...p, err: String(e && e.message || e) }); }
+  }
+  async function joinPvpOnline(code) {
+    const name = (profile && (profile.full_name || profile.email)) || "Challenger";
+    setPvpOnline({ phase: "joining", code, role: "guest", guestName: name, hostName: null, songId: null, startAt: null, opp: null, oppResult: null, myResult: null, err: null, accepted: false, peerSeen: false });
+    try {
+      await joinOnlineDuel(code, name, {
+        onReady: () => setPvpOnline(p => p && { ...p, phase: "waiting" }),
+        onAccept: ({ ok, name: hn }) => setPvpOnline(p => p && (ok ? { ...p, hostName: hn || "Host", accepted: true } : { ...p, err: "declined" })),
+        onStart: ({ songId, startAt }) => beginPvpRace({ songId, startAt }),
+        onScore: (o) => setPvpOnline(p => p && { ...p, opp: o }),
+        onResult: (r) => setPvpOnline(p => p && { ...p, oppResult: r }),
+        onRematch: () => setPvpOnline(p => p && { ...p, phase: "waiting", opp: null, oppResult: null, myResult: null, startAt: null }),
+        onLeave: () => setPvpOnline(p => p && (p.phase === "racing" || p.phase === "waiting-result") ? { ...p, err: "opponent-left" } : p),
+      });
+    } catch (e) { setPvpOnline(p => p && { ...p, err: String(e && e.message || e) }); }
+  }
+  function acceptPvpOnline(ok) {
+    if (ok) { setPvpOnline(p => p && ({ ...p, phase: "waiting", accepted: true })); sendAccept(true, (profile && (profile.full_name || profile.email)) || "Host"); }
+    else { sendAccept(false); closePvpOnline(); }
+  }
+  function startPvpTogether() {
+    const p = pvpOnline;
+    if (!p || !songMeta) return;
+    const startAt = Date.now() + 4000;
+    sendStart(songMeta.id, startAt);
+    beginPvpRace({ songId: songMeta.id, startAt });
+  }
+  function beginPvpRace({ songId, startAt }) {
+    clearPvpScoreTick();
+    // the host's chosen song becomes THIS client's song too (both clients
+    // already have every built-in song locally — nothing to download)
+    const target = (SONGS.find(x => x.id === songId)) || songMeta;
+    if (!target) { setPvpOnline(p => p && { ...p, err: "song-not-found" }); return; }
+    setPvpOnline(p => p && ({ ...p, phase: "racing", songId, startAt, opp: null, oppResult: null, myResult: null }));
+    chooseSong(target);
+    const wait = Math.max(0, startAt - Date.now());
+    setTimeout(() => startSongPlay(), wait);
+    pvpScoreTickRef.current = setInterval(() => {
+      const done = songHitsRef.current + songMissRef.current;
+      sendScore(songScoreRef.current, songComboRef.current, done > 0 ? Math.round(songHitsRef.current / done * 100) : 100);
+    }, 1000);
+  }
+  function reportPvpResult(res) {
+    if (!pvpOnline || pvpOnline.phase === "done") return;
+    setPvpOnline(p => p && ({ ...p, phase: "waiting-result", myResult: { score: res.score, acc: res.acc, stars: res.stars } }));
+    sendResult(res.score, res.acc, res.stars);
+    clearPvpScoreTick();
+  }
+  function rematchPvpOnline() { sendRematch(); setPvpOnline(p => p && ({ ...p, phase: "waiting", opp: null, oppResult: null, myResult: null, startAt: null })); }
+
   // ════ PLAY-ALONG (falling-notes) controls ════
   function clearSongPreview() {
     songPreviewRef.current.forEach(id => clearTimeout(id));
@@ -193,7 +344,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     clearSongPreview();
     songDataRef.current = expandSong(meta, playAlongHand);
     setSongMeta(meta);
-    setSongResult(null);
+    setSongResult(null); setSongTigaTip(null);
     setSongAnalysis(null);
     setSongPhase("ready");
     setSongSrc(null);
@@ -247,12 +398,22 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     songTimingRef.current = { ok: 0, miss: 0 }; songVelsRef.current = [];
     songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
     songLaneFlashRef.current = {}; songCountdownRef.current = null; songFinishedRef.current = false;
+    // #3 Boss Battle: HP scales with song length — armed every run; the HP
+    // bar only renders while bossOn (result-screen rematch keeps it fair).
+    bossHpRef.current = bossHpFor(songTotalRef.current || (data && data.total) || 0);
+    bossMaxRef.current = Math.max(1, bossHpRef.current);
+    setBossHp(bossHpRef.current);
+    setBossMax(bossMaxRef.current);
+    setBossOn(true);
+    // #1: fresh run = no drill window, reset per-run knowledge-drop memory
+    drillStartSecRef.current = null; drillEndSecRef.current = null;
+    kDroppedRef.current = {};
     songRocketsRef.current = []; songBlastsRef.current = [];
     if (!songStarsRef.current.length) songStarsRef.current = Array.from({ length: 50 }, () => ({ fx: Math.random(), fy: Math.random(), r: 0.4 + Math.random() * 1.3, tw: Math.random() * Math.PI * 2 }));
     songDebounceRef.current = {}; songEchoRef.current = {};
     songTempoRef.current = songTempo || 1;
     setSongHud({ score: continueSetlist ? songScoreRef.current : 0, combo: continueSetlist ? songComboRef.current : 0, acc: 100, progress: 0 });
-    setSongResult(null);
+    setSongResult(null); setSongTigaTip(null);
     setSongAnalysis(null);
     setSongCountdown(null);
     setSongSrc(null);
@@ -260,15 +421,15 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     getAC();
     songStartClockRef.current = getAC().currentTime;
     songRunRef.current = true;
-    // D1: Start backing chord loop if enabled
+    // D1 (upgraded, plan #8): real per-song progression — major songs get
+    // I–V–vi–IV, minor songs i–VI–III–VII (smartBackingPlan reads the song's
+    // own notes to pick tonic + mode) instead of the old I–IV–V–I loop.
     if (backingOn && songMeta) {
-      const tonic = songTonic(songMeta);
-      const ri = _PC.indexOf(tonic); if (ri >= 0) {
-        const IVpc = _PC[(ri + 5) % 12]; const Vpc = _PC[(ri + 7) % 12];
-        const chords = [tonic, IVpc, Vpc, tonic];
+      const plan = smartBackingPlan(songMeta);
+      if (plan && plan.chords.length) {
         const beatMs = (60 / (songMeta.bpm || 90)) * 1000;
         let ci = 0;
-        const tick = () => { if (!songRunRef.current) return; playBackingChord(chords[ci % chords.length]); ci++; backingTimerRef.current = setTimeout(tick, beatMs * 4); };
+        const tick = () => { if (!songRunRef.current) return; playBackingChord(plan.chords[ci % plan.chords.length]); ci++; backingTimerRef.current = setTimeout(tick, beatMs * 4); };
         backingTimerRef.current = setTimeout(tick, 200);
       }
     }
@@ -360,6 +521,31 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         for (const g of notation.left) if (inWin(g)) staffList.push({ ...g, hand: "left", state: stateOf(g, allNotes) });
       }
       setSongStaffNotes({ startBeat: winStartBeat, spanBeats, list: staffList });
+      // #3: flush boss HP to React ~5Hz max (refs are mutated per hit)
+      if (bossOn && bossHpDirtyRef.current) {
+        bossHpDirtyRef.current = false;
+        const nowMs = performance.now();
+        if (nowMs - bossHpDirtyAtRef.current > 200) { bossHpDirtyAtRef.current = nowMs; setBossHp(bossHpRef.current); }
+      }
+      // #1: drill window reached its end → one pass done; climb the ladder or
+      // graduate (1× pass = restore the song's own tempo and stop drilling).
+      if (drillActive && drillEndSecRef.current != null) {
+        const songTimeNow = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
+        if (songTimeNow >= drillEndSecRef.current + 1.2) {
+          const doneSeg = (drillPlanRef.current || []).find(x => Math.abs((x.start - 0.5) - (drillStartSecRef.current || -99)) < 0.6);
+          const rung = drillTempoRef.current;
+          if (rung >= 1) {
+            endDrill();
+            announce(lang === "th" ? "✅ ผ่านดริลแล้ว!" : lang === "zh" ? "✅ 练习通过！" : "✅ Drill cleared!");
+            setSongPhase("ready");
+          } else {
+            const nxt = nextDrillTempo(rung);
+            announce(lang === "th" ? ("⏫ เท็มโป " + Math.round(nxt * 100) + "%") : lang === "zh" ? ("⏫ 速度 " + Math.round(nxt * 100) + "%") : ("⏫ Tempo " + Math.round(nxt * 100) + "%"));
+            if (doneSeg) setTimeout(() => startDrill(doneSeg, nxt), 900);
+            else setTimeout(() => startSongPlay(), 900);
+          }
+        }
+      }
       // ghost race vs your best run
       const st = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
       songSamplesRef.current.push({ t: +st.toFixed(2), s: songScoreRef.current });
@@ -379,13 +565,17 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     clearTimeout(backingTimerRef.current); backingTimerRef.current = null;
     setSongOpen(false);
     setSongPhase("ready");
-    setSongResult(null);
+    setSongResult(null); setSongTigaTip(null);
     setSongCountdown(null);
     setSongNextLit(null);
     setSongStaffNotes(EMPTY_STAFF_WIN);
     setSongJudge(null);
     setSongBursts([]); setSongShake(false); setSongGo(false); setSongGhost(null); setSongBonus(null);
     songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
+    setDrillPlan(null); setDrillActive(false); drillStartSecRef.current = null; drillEndSecRef.current = null;
+    drillPlanRef.current = null;
+    setBossOn(false); setBossHp(0); setBossFx(null); setKDrop(null); setKShelfOpen(false);
+    clearTimeout(bossFxT.current); clearTimeout(kDropT.current);
   }
   function songLoop() {
     if (!songRunRef.current) return;
@@ -468,13 +658,16 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     }
     ctx.strokeStyle = "rgba(217,119,87,0.55)"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, hitY); ctx.lineTo(W, hitY); ctx.stroke(); ctx.lineWidth = 1;
+    const drillStart = drillStartSecRef.current, drillEnd = drillEndSecRef.current;
     for (const n of notes) {
+      if (drillEnd != null && (n.t < drillStart || n.t > drillEnd)) { if (!n.hit && !n.missed) n.missed = true; continue; } // #1 drill: only the segment falls
       const hitAt = n.t + SONG_LEAD;
       if (!n.hit && !n.missed && songTime > hitAt + SONG_MISSWINDOW) {
         n.missed = true; songComboRef.current = 0; songMissRef.current++;
         if (songFeverRef.current) { songFeverRef.current = false; setSongFever(false); }
         songLaneFlashRef.current[n.lane] = { ok: false, until: now + 220 };
         playMiss(); flashJudge("miss");
+        if (bossOn && bossHpRef.current > 0) bossFlash("attack"); // #3: the boss strikes back on every dropped note
       }
       if (n.hit) continue;
       const yFrac = (songTime - n.t) / SONG_LEAD;
@@ -727,6 +920,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       // where the old comboWord/score-mult tiers used to flatline) — a second
       // "the game still notices you" beat without also inflating the numeric
       // multiplier, which stays a clean, easy-to-read flat 2x.
+      if (bossOn) bossDamage(perfect ? 2 : 1 + bossComboChip(combo)); // #3: perfects hit 2, every 10× combo chips +2
+      if (perfect) maybeKnowledgeDrop(best.note);                     // #4: facts drop on perfects
       if (!songFeverRef.current && combo >= 15) { songFeverRef.current = true; setSongFever(true); playUi("levelup"); triggerShake(); announce("🔥 FEVER!"); }
       else if (songFeverRef.current && combo === 60) { triggerShake(); spawnBurst("combo"); spawnBurst("combo"); playUi("levelup"); announce("🔥🔥 MEGA FEVER!"); }
       const feverMult = songFeverRef.current ? 2 : 1;
@@ -772,6 +967,91 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (lane >= 0) songLaneFlashRef.current[lane] = { ok: false, until: now + 150 };
     }
   }
+  // ════ plan items 1/3/4/8 helpers ════
+  // #3: one boss-fx flash at a time (hit / defeat / attack)
+  function bossFlash(kind) {
+    setBossFx({ id: Date.now(), kind });
+    clearTimeout(bossFxT.current);
+    bossFxT.current = setTimeout(() => setBossFx(null), 700);
+  }
+  function bossDamage(base) {
+    if (!bossOn) return;
+    bossHpRef.current = Math.max(0, bossHpRef.current - base);
+    bossHpDirtyRef.current = true;
+    if (bossHpRef.current <= 0) { bossFlash("defeat"); }
+    else bossFlash("hit");
+  }
+  // #4: maybe drop a knowledge card on a PERFECT hit — max one per pitch
+  // class per run, ~8% of eligible perfects, capped at 3 cards mid-game.
+  function maybeKnowledgeDrop(noteName) {
+    if (kDroppedRef.current[noteName]) return;
+    const live = songPopsRef.current || [];
+    if (Object.keys(kDroppedRef.current).length >= 3) return;
+    if (Math.random() >= 0.08) return;
+    const f0 = knowledgeDropFor(noteName);
+    if (!f0) return;
+    /* TIGA hub (P6): the theory specialist ranks the candidate fact —
+       unheard ones first (this learner's shelf is the filter). No engine →
+       the played note's own fact, exactly as before. */
+    let f = f0;
+    try {
+      const shelf = JSON.parse(localStorage.getItem("tg_kdrops") || "[]");
+      const ranked = tigaHub.knowledgeForNote(noteName, { candidates: { [f0.pc]: f0 }, shelf });
+      if (ranked && ranked.fact) f = ranked.fact; else if (ranked === null && shelf.some(x => x.pc === f0.pc)) return; // specialist says "already learned" → keep the drop budget for fresh facts
+    } catch (e) { /* hub absent → own-note fact */ }
+    kDroppedRef.current[noteName] = true;
+    const text = f[LANG_KEY(lang)];
+    setKDrop({ id: Date.now(), note: noteName, text });
+    clearTimeout(kDropT.current); kDropT.current = setTimeout(() => setKDrop(null), 2600);
+    try {
+      const shelf = JSON.parse(localStorage.getItem("tg_kdrops") || "[]");
+      if (!shelf.some(x => x.pc === f.pc)) {
+        shelf.unshift({ pc: f.pc, note: noteName, text, at: Date.now() });
+        localStorage.setItem("tg_kdrops", JSON.stringify(shelf.slice(0, 30)));
+      }
+    } catch (e) {}
+  }
+  function openKnowledgeShelf() {
+    try { setKShelf(JSON.parse(localStorage.getItem("tg_kdrops") || "[]")); } catch (e) { setKShelf([]); }
+    setKShelfOpen(true);
+  }
+  // #1: called from finishSong with this run's graded notes — builds the
+  // drill plan shown on the result screen.
+  function captureDrillPlan(notes) {
+    const plan = buildDrillPlan(notes, { max: 4 });
+    drillPlanRef.current = plan; // HUD-timer closures read the ref, not state
+    setDrillPlan(plan);
+    setDrillActive(false);
+  }
+  // #1: drill JUST one segment — start/end seconds become a temporary note
+  // window on a slower ladder rung; finishing one pass climbs the ladder,
+  // 1× pass clears the drill and restores the song tempo.
+  function startDrill(seg, forcedRung) {
+    if (!seg) return;
+    // Save the SONG's tempo (state value — what the tempo buttons last set),
+    // then pick the ladder rung: always start at 75% (or the song's own tempo
+    // if it's already slower) and climb to 1× only after real passes.
+    drillSavedTempoRef.current = songTempo || 1;
+    const rung = forcedRung || firstDrillTempo(drillSavedTempoRef.current);
+    drillTempoRef.current = rung;
+    setSongTempo(rung);
+    setDrillActive(true);
+    // startSongPlay synchronously resets the drill window and songTempoRef —
+    // so the drill-specific values go back AFTER that call returns (it only
+    // yields at its first await, well past those resets).
+    startSongPlay();
+    songTempoRef.current = rung;
+    drillStartSecRef.current = Math.max(0, seg.start - 0.5);
+    drillEndSecRef.current = seg.end + 0.5;
+    announce(lang === "th" ? ("🎯 ดริล " + (seg.idx + 1) + " · " + (Math.round(rung * 100)) + "%") : lang === "zh" ? ("🎯 练习 " + (seg.idx + 1)) : ("🎯 Drill " + (seg.idx + 1) + " · " + Math.round(rung * 100) + "%"));
+  }
+  function endDrill() {
+    setDrillActive(false);
+    drillStartSecRef.current = null; drillEndSecRef.current = null;
+    setSongTempo(drillSavedTempoRef.current);
+    songTempoRef.current = drillSavedTempoRef.current;
+  }
+
   // Used to hard-cap at "UNSTOPPABLE!" forever past combo 50 — the shout-out
   // stopped growing long before a skilled player's combo actually did.
   function comboWord(c) {
@@ -834,6 +1114,24 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     }
     const dyn = scoreDynamics(songVelsRef.current);
     if (dyn) logActivity("game", songId, dyn.ok, dyn.miss, 0, "dynamics");
+    // Daily Song Quest (plan #8): finishing TODAY's featured song at least
+    // once completes the daily quest — one-time bonus + star record for the
+    // day card on SongListPage. Deterministic day-key, no server round-trip.
+    try {
+      const ds = dailySongFor();
+      if (ds && songMeta && ds.id === songMeta.id) {
+        const dkey = new Date().toISOString().slice(0, 10);
+        const st = readDailySongState(dkey);
+        if (!st.done) {
+          st.done = true; st.stars = stars;
+          localStorage.setItem("tg_daily_song", JSON.stringify(st));
+          earnCoins(DAILY_SONG_REWARD.coins); gainExp(DAILY_SONG_REWARD.exp); // play itself already ticked the daily quest via the song reward
+          setSongBonus({ id: Date.now(), text: "📆 +" + DAILY_SONG_REWARD.coins + " 🪙 +" + DAILY_SONG_REWARD.exp + " EXP!" });
+          clearTimeout(songBonusT.current); songBonusT.current = setTimeout(() => setSongBonus(null), 2200);
+          playUi("reward");
+        } else if (stars > (st.stars || 0)) { st.stars = stars; localStorage.setItem("tg_daily_song", JSON.stringify(st)); }
+      }
+    } catch (e) { /* quest is best-effort — never block the result screen */ }
     const coinReward = 5 + stars * 10 + (allPerfect ? 20 : fullCombo ? 10 : 0);
     earnCoins(coinReward);
     bumpWeekly("games", 1); if (perfects) bumpWeekly("perfect", perfects);
@@ -842,6 +1140,19 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongStaffNotes(EMPTY_STAFF_WIN);
     const missedNotes = songNotesRef.current.filter(n => n.missed).map(n => n.note);
     if (missedNotes.length) recordNoteMisses(missedNotes);
+    captureDrillPlan(songNotesRef.current); // #1: heat-map source for the result screen
+    if (drillActive) endDrill();
+    if (bossOn) { // #3: defeat bounty — killed the boss (≥80% of notes) pays by stars
+      if (bossHpRef.current <= 0 && stars >= 1) {
+        const bounty = bossRewardCoins(stars);
+        if (bounty > 0) {
+          earnCoins(bounty);
+          setSongBonus({ id: Date.now(), text: "👾 +" + bounty + " 🪙" });
+          clearTimeout(songBonusT.current); songBonusT.current = setTimeout(() => setSongBonus(null), 2000);
+        }
+      }
+      setBossOn(false); setBossHp(0);
+    }
     // Setlist mode: this song's own log entry, always recorded even though the
     // combined concert score (songScoreRef.current, not reset between songs —
     // see startSongPlay's continueSetlist param) is what actually gets shown.
@@ -853,6 +1164,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       // combined numbers, for a dedicated recap treatment on the result screen
       setlist: setlistDone ? songSetlistLogRef.current.slice() : null,
     });
+    reportPvpResult({ score, acc, stars }); // online PvP: my final result → the room (decides the winner on both sides)
+    // TIGA hub: real-data coach line for this run (what engine answered shows
+    // in the badge). Real MIDI velocity/timing evidence rides along; — never invents.
+    try { setSongTigaTip(tigaHub.explainSongResult({ acc, stars, maxCombo, missedNotes, dyn: scoreDynamics(songVelsRef.current), timing: (songTimingRef.current.ok + songTimingRef.current.miss >= 3) ? songTimingRef.current : null, topic: 8 }, readMemory())); } catch (e) { setSongTigaTip(null); }
     gainExp(reward, { quest: true });
     // Gamification: variable reward — mystery chest (20% chance on acc >= 70%)
     if (acc >= 70 && Math.random() < 0.20) {
@@ -909,23 +1224,19 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       setSongPhase("done");
     }
   }
-  // Per-song mistake breakdown — separate from Auto Teaching, only ever shown on this
-  // song-result screen. Fires once automatically when a song finishes.
+  // Per-song mistake breakdown — Play Along plan #7 (strategy-first, same
+  // architecture as the Auto Teaching accuracy upgrade): the TIGA teaching
+  // loop decides strategy/diagnosis from the real run numbers, the external
+  // AI only renders the language (validated — generic advice can never show),
+  // and a real-data fallback catches every failure layer. Guests skip the AI
+  // call entirely and get the real-data fallback directly.
   async function fetchSongAnalysis(result, label) {
-    if (isGuest) return; // silent bonus feature — same no-op-for-guests treatment as finishPractice's AI comment
+    if (isGuest) { setSongAnalysis(buildSongFallback(lang, label, result)); return; }
     setSongAnalysisBusy(true);
     try {
-      const missed = (result.missedNotes || []).slice(0, 30);
-      const missedTxt = missed.length ? missed.join(", ") : "none — every note was hit";
-      const sysByLang = {
-        th: `คุณคือ "ครู TiGA" ผู้เรียนเพิ่งเล่นเพลง "${label}" จบ ความแม่นยำ ${result.acc}% (เล่นถูก ${result.hits}/${result.total} โน้ต) โน้ตที่พลาด (เรียงตามลำดับที่เล่น): ${missedTxt}\n\nวิเคราะห์ว่าพลาดตรงไหน/รูปแบบอะไร แล้วให้วิธีฝึกแก้ ตอบเป็น JSON เท่านั้น {"weakness":"...","steps":["...","..."]} — weakness สั้นไม่เกิน 15 คำ บอกจุด/รูปแบบที่พลาด (หรือชมถ้าไม่พลาดเลย) steps มี 2-4 ข้อ วิธีฝึกแก้ทีละขั้น แต่ละข้อไม่เกิน 15 คำ ภาษาไทย ห้ามมีข้อความอื่นนอก JSON`,
-        zh: `你是"TiGA老师"，学员刚弹完歌曲"${label}"，准确率 ${result.acc}%（弹对 ${result.hits}/${result.total} 个音）。弹错的音（按演奏顺序）：${missedTxt}\n\n分析弹错的位置/模式，并给出练习建议。只回JSON {"weakness":"...","steps":["...","..."]} — weakness 不超过15字，说明错误的位置/模式（若全对则给予表扬），steps 为2-4个简短练习步骤，每条不超过15字，用中文，JSON外不要任何文字`,
-        en: `You are "Teacher TiGA". The learner just finished playing "${label}" at ${result.acc}% accuracy (${result.hits}/${result.total} notes hit). Notes they missed, in play order: ${missedTxt}.\n\nAnalyze where/what pattern they missed, then give a fix. Reply with JSON only: {"weakness":"...","steps":["...","..."]} — weakness under 15 words naming the spot/pattern they missed (or praise if nothing was missed), steps has 2-4 short fix-it practice steps, each under 15 words, in English. No text outside the JSON.`,
-      };
-      const txt = await fetchChatCompletion({ message: "Analyze my run of this song.", conversationHistory: [], system: (sysByLang[lang] || sysByLang.en) + THEORY_REF, feature: "song-analysis" });
-      const m = txt.match(/\{[\s\S]*\}/);
-      const obj = m ? JSON.parse(m[0]) : null;
-      if (obj && obj.weakness && Array.isArray(obj.steps) && obj.steps.length) setSongAnalysis(obj);
+      const analysis = await analyzeSongRun(lang, label, result, runTeachingLoopForPractice, ({ system, message }) =>
+        fetchChatCompletion({ message, conversationHistory: [], system, feature: "song-analysis" }), profile);
+      if (analysis) setSongAnalysis(analysis); // analyzeSongRun never returns null
     } catch (e) { /* silent — the score/stars result above already shown, this is a bonus */ }
     setSongAnalysisBusy(false);
   }
@@ -984,7 +1295,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       } catch (e) {}
       if (!premium) bumpUsage("styleTransform");
       songDataRef.current = expandSong(newSong, playAlongHandRef.current);
-      setSongResult(null); setSongAnalysis(null); setSongPhase("ready");
+      setSongResult(null); setSongTigaTip(null); setSongAnalysis(null); setSongPhase("ready");
       setSongMeta(newSong);
     } catch (e) { /* silent fail — user stays on result screen */ }
     setStyleLoading(false);
@@ -1007,5 +1318,6 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       songDataRef.current = expandSong(songMeta, h);
     }
   }
-  return { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand };
+  return { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songTigaTip, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand,
+    drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, startPvpTogether: startPvpTogether };
 }

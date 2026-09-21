@@ -6,14 +6,18 @@ import { createRepositories } from "@/services/repositories";
 import { TeachersManager } from "@/features/settings/components/teachers-manager";
 import { AuditLogCard } from "@/features/settings/components/audit-log-card";
 import { IntegrationsCard } from "@/features/settings/components/integrations-card";
+import { LanguageCard } from "@/features/settings/components/language-card";
 import { SafeModeCard } from "@/features/settings/components/safe-mode-card";
 import { ChatbotSettingsCard } from "@/features/settings/components/chatbot-settings-card";
 import { OwnerOnlyGuard } from "@/features/auth/components/owner-only-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/types/database";
+import { useLang } from "@/lib/language-context";
+import { translate } from "@/lib/i18n";
 
 export default function SettingsPage() {
+  const { lang } = useLang();
   const [teachers, setTeachers] = useState<Tables<"teachers">[] | null>(null);
   const [auditLog, setAuditLog] = useState<Tables<"audit_log">[] | null>(null);
 
@@ -31,9 +35,11 @@ export default function SettingsPage() {
     <OwnerOnlyGuard>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-secondary">Settings</h1>
-          <p className="text-sm text-secondary/50">Studio configuration</p>
+          <h1 className="text-2xl font-semibold text-secondary">{translate(lang, "page.settings")}</h1>
+          <p className="text-sm text-secondary/50">{translate(lang, "page.settingsSub")}</p>
         </div>
+
+        <LanguageCard />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {teachers ? <TeachersManager teachers={teachers} onChanged={reload} /> : <Skeleton className="h-48" />}

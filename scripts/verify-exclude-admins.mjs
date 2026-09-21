@@ -44,7 +44,7 @@ for (const fn of ["admin_activity_overview", "admin_activity_users", "admin_acti
 }
 
 // 5. Client: fallbacks exist for the two fetch styles
-ok(/if \(withFlag\) return sb\.rpc\(fn, base\)/.test(D), "Dashboard callRpc: retries without flag");
+ok(/withFlag \? sb\.rpc\(fn, base\)/.test(D), "Dashboard callRpc: retries without flag");
 ok(/r\.error && \/structure\|signature\|schema cache/.test(D), "AnonVisitors: legacy fallback on signature error");
 ok(/admin_usage_stats[\s\S]{0,900}get_usage_stats/.test(A), "App: get_usage_stats fallback retained");
 

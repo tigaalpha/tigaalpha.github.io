@@ -11,6 +11,8 @@ import { logActivity, dayKey } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
 import { runTeachingLoopForPractice, reinforceTeachingOutcome } from "./tigamodel/web";
+import { recordNoteMisses, recordTipOutcome, weightedStruggles } from "./use-autoteach";
+import { sb } from "./supabase-client";
 /* ── use-practice-mode.ts ──
    Owns the "listen to the learner play and grade it against a target
    sequence" session: mic/MIDI/tap-driven note matching (broken = one note
@@ -110,6 +112,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practicePaidRef = useRef(false);
   const practiceChordGrpRef = useRef(-1); // progression block practice: start index of the chord window currently being struck, or -1 when this drill is not a chord-by-chord progression
   const practiceMissRef = useRef(0);
+  const practiceNoteMissesRef = useRef([]); // Auto-Teach แม่นยำ (แผนข้อ 1+3): pitch-class ที่พลาดระหว่างซ้อม — flush ตอน finishPractice
   const practicePauseRef = useRef(0);  // gaps > 4 s between consecutive correct hits this drill — TIGA teaching-loop "hesitation" signal (see finishPractice)
   const practiceLastHitRef = useRef(0); // Date.now() of the previous correct hit, for the pause detection above
   const practiceVelsRef = useRef([]); // MIDI velocities of hit notes this drill — see scoreDynamics()
@@ -310,6 +313,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
           setPracticeMiss(practiceMissRef.current);
           practiceStreakRef.current = 0;
           setPracticeStreak(0);
+          practiceNoteMissesRef.current.push(String(heardNote || "")); // Auto-Teach แม่นยำ (แผนข้อ 3): จดโน้ตที่พลาดจริงระหว่างซ้อม
         }
         setPracticeHeard({ note: heardNote, ok: isRepeat });
       }
@@ -336,6 +340,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         setPracticeMiss(practiceMissRef.current);
         practiceStreakRef.current = 0;
         setPracticeStreak(0);
+        practiceNoteMissesRef.current.push(String(targets[idx] || "")); // Auto-Teach แม่นยำ (แผนข้อ 3): โน้ตเป้าหมายที่ตอบผิด
         setPracticeHeard({ note: heardNote, ok: false });
       }
     }
@@ -439,6 +444,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (seed0 && !seq.chordGroupSize) lastSeq.current = { ...seq, chordGroupSize: gs0 };
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
+    practiceNoteMissesRef.current = [];   // Auto-Teach แม่นยำ (แผนข้อ 3): เริ่มรอบใหม่ = จดใหม่
     practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above
     practiceLastHitRef.current = 0;
     practiceVelsRef.current = [];
@@ -510,6 +516,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (seedR && seqR && !seqR.chordGroupSize) lastSeq.current = { ...seqR, chordGroupSize: gsR };
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
+    practiceNoteMissesRef.current = [];   // Auto-Teach แม่นยำ (แผนข้อ 3): เริ่มรอบใหม่ = จดใหม่
     practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above
     practiceLastHitRef.current = 0;
     practiceVelsRef.current = [];
@@ -604,6 +611,39 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const rhythm = scoreRhythm(practiceTimesRef.current);
     if (rhythm) logActivity("drill", label || "drill", rhythm.ok, rhythm.miss, 0, "rhythm");
     recordMemory(label, accuracy);
+    // Auto-Teach แม่นยำ (แผนข้อ 1+3): flush โน้ตที่พลาดรอบนี้เข้า memory — ครูจะรู้ว่า "โน้ตไหน" ไม่ใช่แค่ "เพลงไหน"
+    try {
+      const noteMisses = (practiceNoteMissesRef.current || []).slice(0, 12);
+      practiceNoteMissesRef.current = [];
+      recordNoteMisses(noteMisses);
+      // Auto Teaching 2.0 (Phase C): the closed loop also APPENDS the measured
+      // before/after to the server-side teaching_outcomes table (append-only;
+      // RLS restricts inserts to own rows) so the back office's
+      // admin_strategy_effectiveness sees cross-device data, not just this
+      // device's localStorage. Best-effort — analytics never breaks practice.
+      const atRec = recordTipOutcome(label, weightedStruggles());   // วงจรปิด (ข้อ 6): tip ที่เคยแนะนำเรื่องนี้ไว้ → เทียบก่อน/หลัง
+      if (atRec && atRec.resolved && atRec.strategyId) {
+        sb.auth.getUser().then(({ data: u }) => {
+          const uid = u && u.user && u.user.id;
+          if (!uid) return;
+          const beforeAcc = atRec.before && atRec.before[0] ? atRec.before[0].acc : null;
+          const afterAcc = atRec.outcome && atRec.outcome.after != null ? atRec.outcome.after : null;
+          const outcome = atRec.outcome && atRec.outcome.improved === true ? "improved" : atRec.outcome && atRec.outcome.improved === false ? "worse" : "same";
+          return sb.from("teaching_outcomes").insert({
+            student_id: uid,
+            session_id: atRec.id,
+            strategy_id: atRec.strategyId || "unknown",
+            actions: [],
+            initial_states: (atRec.before || []).map(b => ({ label: b.label, accuracy: b.acc })),
+            signals: { topic: atRec.topic || null, source: "practice-drill" },
+            message_shown: atRec.topic || null,
+            performance_before: beforeAcc,
+            performance_after: afterAcc,
+            outcome,
+          }).then(() => {}, () => {});
+        }).catch(() => {});
+      }
+    } catch (e) { /* best-effort — ไม่มีทางพังหน้าสรุปผล */ }
 
     // Personal best, per drill (+chord-style when relevant — block vs. broken
     // grade completely differently, see switchPracticeChordStyle). Accuracy and
@@ -751,6 +791,9 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       speedRatio: null,
       weekAgoAccuracy,
     }, { lang });   // verdict speaks the app's current language (th/en/zh)
+    /* runTeachingLoopForPractice is now properly async (the same bug was
+       found independently by verify-autoteach on main and by this branch's
+       e2e) — awaited above, so tigaTip is the REAL resolved loop result. */
     const tigaTip = tigaLoop && tigaLoop.response ? { text: tigaLoop.response.text, strategyId: tigaLoop.decision ? tigaLoop.decision.strategy_id : null, states: tigaLoop.states } : null;
 
     setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest, tigaTip });
@@ -763,6 +806,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       reinforceTeachingOutcome({ strategyId: tigaTip.strategyId, accuracy, prevAccuracy: weekAgoAccuracy }).catch(() => {});
     }
 
+    // Auto-Teach แม่นยำ (แผนข้อ 8): ประกาศจังหวะ "เพิ่งจบซ้อม" ให้ครูคาราใน App.tsx (ผลซ้อมเพิ่งรู้ = จังหวะสอนที่ดีที่สุด)
+    try { window.dispatchEvent(new CustomEvent("tiga:practice-done", { detail: { accuracy, isNewBest, label } })); } catch (e) {}
     // Bonus AI flourish on top of an already-complete local result — fetched
     // standalone (not through the shared chat thread/callClaude) so it can
     // render right inside the result screen instead of forcing a page/chat

@@ -4,6 +4,7 @@ import { getAC, playUi, THEORY_REF } from "./music-engine";
 import { L } from "./i18n";
 import { fetchChatCompletion } from "./ai-backend";
 import { logActivity, dayKey } from "./shared-infra";
+import { visionObservationsFromWindow, runTeachingLoopForPractice } from "./tigamodel/web";
 import { freshGameState, gameStep, missionView, missionSolvedPraise, scoreRank, comboTier, praiseFor, rankUpPraise } from "./camera-coach-game";
 import { API_MODEL } from "./App";
 import { speakCloud, speakDeviceOrNative, stopSpeaking, stopCloudTTS } from "./speech";
@@ -170,6 +171,14 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
     if (!premium) { setPricingOpen(true); return; }
     const v = camVideoRef.current;
     if (!v || !v.videoWidth || (camCoach && camCoach.loading)) return;
+    // Phase 4 bridge: the measured hand-posture window also flows into the
+    // TIGA teaching loop as real vision observations (spec §18/§21) — the
+    // loop's diagnosis/KB tip can then reference actual posture issues.
+    // Best-effort: camera coach must keep working even if the loop fails.
+    try {
+      const obs = visionObservationsFromWindow(camSignalWindowRef.current);
+      if (obs && obs.length) runTeachingLoopForPractice(null, { observations: obs });
+    } catch (e) {}
     getAC(); // unlock audio inside this tap gesture (iOS Safari) — the TTS call itself happens later, after the reply arrives
     setCamCoach({ loading: true });
     try {

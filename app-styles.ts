@@ -772,7 +772,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .apkpill-ic{font-size:22px;filter:drop-shadow(0 1px 2px #0006)}
 @keyframes apkpillpop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes apkpillpulse{0%,100%{box-shadow:0 8px 24px -6px #d9775766,0 0 0 1px #ffffff22 inset}50%{box-shadow:0 8px 28px -4px #d97757aa,0 0 0 1px #ffffff22 inset,0 0 0 7px #d9775722}}
-.apkpopov{position:fixed;inset:0;z-index:1300;background:rgba(9,4,8,.62);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:flex-start;padding:12px;padding-bottom:calc(72px + env(safe-area-inset-bottom,0px));animation:fadein .2s}
+.apkpopov{position:fixed;inset:0;z-index:1300;background:rgba(9,4,8,.62);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:18px 16px;animation:fadein .2s}
 .apkpop{position:relative;width:min(280px,calc(100vw - 24px));background:var(--card);border:1px solid #d9775755;border-radius:20px;padding:20px 18px 16px;box-shadow:0 20px 50px -12px #000,0 0 30px -10px #d9775755;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;animation:installin .3s ease-out}
 .apkpop-x{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:4px}
 .apkpop-icon{width:56px;height:56px;border-radius:16px;box-shadow:0 4px 14px -4px #000;margin-bottom:6px}
@@ -869,7 +869,34 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .presultai{background:var(--card2);border:1px solid var(--bd2);border-radius:12px;padding:12px 14px;text-align:left}
 .presultai-h{font-family:'Share Tech Mono',monospace;font-size:10px;color:#d97757;letter-spacing:1px;margin-bottom:6px}
 .presultai-loading{color:var(--muted);animation:blink 1.2s infinite}
+/* conversion funnel (owner-approved 2026-09-19): urgent trial banner, closing-popup item list, practice-result keep-going pill */
+.trial-banner.urgent{background:linear-gradient(90deg,#b45309,#d97757)}
+.convpop-items{background:var(--card2);border:1px solid var(--bd2);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13px;line-height:1.9;white-space:pre-wrap}
+.presultkeep{width:100%;margin-top:10px;padding:11px 12px;border:1px solid #d9775755;background:linear-gradient(135deg,#d9775722,#8b5cf622);border-radius:12px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer}
+/* game-feature education (owner plan 2026-09-19) */
+@keyframes chestpulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 #d9775766}50%{transform:scale(1.04);box-shadow:0 0 0 8px #d9775700}}
+.dh-chest.chestpulse{animation:chestpulse 1.6s ease-in-out infinite}
+.pvpres-practice{width:100%;margin-top:10px;padding:12px;border:1px solid #d9775755;background:linear-gradient(135deg,#d9775722,#8b5cf622);border-radius:12px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer}
+.shopintro{display:flex;align-items:center;gap:8px;width:100%;margin-bottom:10px;padding:9px 12px;border:1px solid #d9775755;background:linear-gradient(135deg,#d9775722,#8b5cf622);border-radius:12px;font-size:12.5px;color:var(--text);cursor:pointer;text-align:left}
+.shopintro-x{margin-left:auto;opacity:.6;font-size:16px}
+.edupop{border-color:#8b5cf677;box-shadow:0 -10px 34px -10px #000,0 0 26px -10px #8b5cf666}
 .presultai-tx{font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap}
+/* TIGA Practice Coach (Phase 2) — tempo/recap/exercise card on the practice
+   result screen; sibling of .presultai, blue accent = "coach" vs orange AI. */
+.pcoach-tempo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,#8ad4ff 12%,var(--card2));font-size:13.5px}
+.pcoach-tempo b{font-size:16px;color:var(--text)}
+.pcoach-why{font-size:11.5px;color:var(--muted)}
+.pcoach-btn{margin-left:auto;padding:6px 12px;border:none;border-radius:8px;background:#8ad4ff22;color:var(--text);font-size:12.5px;font-weight:700;cursor:pointer}
+.pcoach-recap{margin:6px 0;display:flex;flex-direction:column;gap:2px}
+.pcoach-hw{margin-top:6px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb,#ffd23f 12%,var(--card2));font-size:12.5px;color:var(--text)}
+.pcoach-ex{margin-top:8px;padding:9px 10px;border-radius:10px;border:1px solid var(--bd2);background:color-mix(in srgb,#8ad4ff 7%,var(--card2))}
+.pcoach-ex-t{font-size:13px;color:var(--text);margin-bottom:3px}
+.pcoach-steps{margin:5px 0 4px;padding-left:20px;font-size:12.5px;line-height:1.55;color:var(--text2)}
+.pcoach-check{font-size:12px;color:var(--ok,#3f9d63)}
+/* Self-report micro-poll (Phase 4, spec §17) */
+.psr-opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.psr-btn{padding:7px 12px;border-radius:999px;border:1px solid var(--bd3);background:var(--card2);color:var(--text);font-size:12.5px;font-weight:600;cursor:pointer}
+.psr-btn.on{border-color:#d97757;background:color-mix(in srgb,#d97757 16%,var(--card2));font-weight:800}
 /* Pathway-stage-unlock celebration — bigger/louder than the plain "new
    personal best" line above, since crossing a whole stage is a bigger deal
    than one drill's record. Reuses the level-up card's bounce entrance. */
@@ -2338,6 +2365,100 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .cw-seg{position:absolute;top:50%;left:50%;width:24px;height:24px;margin:-12px 0 0 -12px;display:flex;align-items:center;justify-content:center;font-size:19px}
 .chestwheel-ptr{position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:20px;color:#ffd23f;filter:drop-shadow(0 0 6px #ffd23f);z-index:2}
 .chestwheel-hub{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:var(--card);border:2px solid #d97757;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 14px -2px #000;z-index:1}
+
+/* ── #3 Boss Battle ─────────────────────────────────────────────────────── */
+.bosshud {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px; border-radius: 999px;
+  background: rgba(20, 8, 30, 0.72); border: 1px solid rgba(168, 85, 247, 0.45);
+  backdrop-filter: blur(6px); z-index: 6; pointer-events: none;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+}
+.bosshud-face { font-size: 17px; line-height: 1; filter: drop-shadow(0 0 6px rgba(168,85,247,0.7)); }
+.bosshud-track { width: 130px; height: 9px; border-radius: 999px; background: rgba(255,255,255,0.14); overflow: hidden; }
+.bosshud-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #a855f7, #ec4899); transition: width 0.18s ease; }
+.bosshud-fill.low { background: linear-gradient(90deg, #f97316, #ef4444); }
+.bosshud-pct { font-size: 11px; font-weight: 800; color: #e9d5ff; min-width: 32px; text-align: right; }
+.bossfx {
+  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+  font-size: 54px; z-index: 7; pointer-events: none;
+  animation: bossfx-pop 0.7s ease-out forwards;
+}
+.bossfx.hit { filter: drop-shadow(0 0 14px rgba(236,72,153,0.9)); }
+.bossfx.attack { filter: drop-shadow(0 0 14px rgba(239,68,68,0.9)); }
+.bossfx.defeat { filter: drop-shadow(0 0 18px rgba(250,204,21,0.95)); }
+@keyframes bossfx-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  25% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+  60% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -80%) scale(0.9); }
+}
+/* ── #4 Knowledge Drops ─────────────────────────────────────────────────── */
+.kdrop {
+  position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; max-width: 86%;
+  padding: 8px 14px; border-radius: 12px; z-index: 6; pointer-events: none;
+  background: rgba(8, 20, 30, 0.85); border: 1px solid rgba(56, 189, 248, 0.5);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 22px rgba(14, 165, 233, 0.25);
+  animation: kdrop-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.kdrop-badge { font-size: 18px; line-height: 1; }
+.kdrop-text { font-size: 12.5px; font-weight: 600; color: #e0f2fe; line-height: 1.35; }
+@keyframes kdrop-in {
+  0% { opacity: 0; transform: translateX(-50%) translateY(14px); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.kshelf-modal {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.kshelf-card {
+  width: 100%; max-width: 400px; max-height: 72vh; display: flex; flex-direction: column;
+  background: var(--card, #16161f); border: 1px solid var(--bd1, #33334a);
+  border-radius: 18px; overflow: hidden; box-shadow: 0 18px 60px rgba(0,0,0,0.5);
+}
+.kshelf-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px; font-weight: 800; font-size: 15px;
+  border-bottom: 1px solid var(--bd1, #33334a); background: rgba(56,189,248,0.06);
+}
+.kshelf-list { overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.kshelf-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 11px;
+  border-radius: 11px; background: rgba(56,189,248,0.07); border: 1px solid rgba(56,189,248,0.18);
+}
+.kshelf-key {
+  min-width: 34px; height: 26px; display: flex; align-items: center; justify-content: center;
+  border-radius: 7px; font-size: 11.5px; font-weight: 800; color: #04121d;
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
+}
+.kshelf-txt { font-size: 12.5px; color: var(--text, #dde3ea); line-height: 1.4; }
+.kshelf-empty { padding: 22px 10px; text-align: center; font-size: 13px; color: var(--muted, #8b93a3); }
+/* ── #1 Mistake Loop drill card ─────────────────────────────────────────── */
+.drillcard {
+  margin-top: 12px; padding: 12px;
+  border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.06);
+}
+.drillcard-title { font-size: 13.5px; font-weight: 800; margin-bottom: 9px; color: #fbbf24; }
+.drillcard-segs { display: flex; flex-direction: column; gap: 7px; }
+.drillseg {
+  position: relative; overflow: hidden; display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 10px 12px; border-radius: 10px; cursor: pointer;
+  border: 1px solid rgba(245, 158, 11, 0.28); background: rgba(30, 20, 8, 0.5);
+  color: var(--text, #dde3ea); font-size: 12.5px; font-weight: 600; text-align: left;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.drillseg:active { transform: scale(0.98); }
+.drillseg:hover { border-color: rgba(245, 158, 11, 0.7); }
+.drillseg-num { font-weight: 800; color: #fbbf24; min-width: 22px; }
+.drillseg-bar { position: absolute; left: 0; top: 0; bottom: 0; width: var(--w, 50%); background: linear-gradient(90deg, rgba(245,158,11,0.16), rgba(239,68,68,0.22)); z-index: -1; }
+.drillseg-info { flex: 1; }
+.drillcard-hint { margin-top: 8px; font-size: 11px; color: var(--muted, #8b93a3); line-height: 1.45; }
+
 .songbonus{position:absolute;left:0;right:0;top:28%;text-align:center;font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:#d97757;text-shadow:0 0 18px #d97757;pointer-events:none;animation:judgepop .9s ease-out forwards;z-index:6}
 /* Between-run recap toast (auto-loop / setlist chaining) — sits centered over
    the paused canvas for the ~1.8s gap before the next song starts. */
@@ -2681,7 +2802,7 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .camrecap-tierup-tag{display:inline-block;margin-left:6px;font-size:10px;font-weight:900;color:#d97757}
 .camrecap-reward{font-family:'Share Tech Mono',monospace;font-size:12px;color:#d97757;margin-bottom:10px}
 /* Auto Teaching real-time coaching card */
-.atpopup{position:fixed;inset:0;z-index:1300;display:flex;align-items:flex-end;justify-content:center;background:rgba(10,5,9,.72);backdrop-filter:blur(3px);animation:fadein .25s;padding:0 12px calc(14px + env(safe-area-inset-bottom,0px))}
+.atpopup{position:fixed;inset:0;z-index:1300;display:flex;align-items:center;justify-content:center;background:rgba(10,5,9,.72);backdrop-filter:blur(3px);animation:fadein .25s;padding:18px 16px}
 .atpopup-card{width:100%;max-width:420px;background:var(--card);border:1px solid #d9775755;border-radius:18px;padding:16px 17px;box-shadow:0 -10px 34px -10px #000,0 0 26px -10px #d9775766;animation:installin .28s ease-out}
 .atpopup-hd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .atpopup-ic{font-size:20px}
@@ -3475,6 +3596,13 @@ html[data-theme="dark"] .anonwv-n{color:#ffc97a}
 @media(max-width:339px){.sumeth{grid-template-columns:1fr}.sumeth-k{min-height:0}}
 @media(max-width:430px){.anonhero{gap:10px;padding:11px 12px}.anonhero-v{font-size:28px}.anonhero-go{display:none}}
 
+/* ── TIGA Capability Hub tip bar (sight-reading + song result) ── */
+.tigatipbar{display:flex;align-items:center;gap:8px;margin:10px 12px;padding:9px 12px;border-radius:12px;background:linear-gradient(135deg,rgba(124,92,255,.14),rgba(124,92,255,.05));border:1px solid rgba(124,92,255,.35);font-size:12.5px;line-height:1.5;color:var(--text,#eee)}
+.tigatipbar.song{margin:8px auto 2px;max-width:340px}
+.tigatipbar.prof{margin:2px 14px 10px;font-size:12px}
+.tigahub-chip{display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(124,92,255,.16);border:1px solid rgba(124,92,255,.4);color:#cdb9ff}
+.tigatipbadge{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.5px;padding:3px 8px;border-radius:999px;background:rgba(124,92,255,.25);border:1px solid rgba(124,92,255,.5);color:#cdb9ff}
+
 `;
 
 export function useInjectCSS() {
@@ -3489,3 +3617,4 @@ export function useInjectCSS() {
   }, []);
   return ready;
 }
+

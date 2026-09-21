@@ -20,6 +20,7 @@ import {
 import { SidebarNav } from "./sidebar-nav";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { LanguageToggle } from "@/components/ui/language-toggle";
 
 import { FloatingAssistant } from "@/features/assistant/components/floating-assistant";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,8 @@ import { getStoredSoloMode, setStoredSoloMode } from "@/lib/solo-mode";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import type { UserRole } from "@/types/database";
+import { useLang } from "@/lib/language-context";
+import { translate, type DictKey } from "@/lib/i18n";
 
 interface AppShellProps {
   userName: string;
@@ -39,12 +42,11 @@ interface AppShellProps {
 // a per-customer count -- matches how the spec phrases it as one alert
 // condition, alongside the individually-countable problems/needs_review.
 const MANY_NEAR_END_OF_HOURS_THRESHOLD = 5;
-
-const ROLE_LABEL: Record<UserRole, string> = {
-  owner: "Owner",
-  admin: "Admin",
-  teacher: "Teacher",
-  staff: "Staff",
+const ROLE_LABEL: Record<UserRole, DictKey> = {
+  owner: "role.owner",
+  admin: "role.admin",
+  teacher: "role.teacher",
+  staff: "role.staff",
 };
 
 function BrandMark({ size = "md" }: { size?: "sm" | "md" }) {
@@ -64,6 +66,7 @@ function BrandMark({ size = "md" }: { size?: "sm" | "md" }) {
 }
 
 function SoloModeToggle({ soloMode, onToggle }: { soloMode: boolean | null; onToggle: () => void }) {
+  const { lang } = useLang();
   if (soloMode === null) {
     return <div className="h-9 w-9" aria-hidden />;
   }
@@ -71,8 +74,8 @@ function SoloModeToggle({ soloMode, onToggle }: { soloMode: boolean | null; onTo
     <button
       onClick={onToggle}
       className="flex h-9 w-9 items-center justify-center rounded-lg text-secondary/60 hover:bg-line/5 hover:text-secondary dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white"
-      aria-label={soloMode ? "สลับไปโหมดเต็ม" : "สลับไปโหมด Solo"}
-      title={soloMode ? "โหมด Solo — คลิกเพื่อดูเมนูทั้งหมด" : "คลิกเพื่อเข้าโหมด Solo (ย่อเมนูให้เหลือแต่ที่ใช้ทุกวัน)"}
+      aria-label={translate(lang, soloMode ? "shell.soloToFull" : "shell.soloToSolo")}
+      title={translate(lang, soloMode ? "shell.soloHintFull" : "shell.soloHintEnter")}
     >
       {soloMode ? <Zap className="h-4 w-4" /> : <ZapOff className="h-4 w-4" />}
     </button>
@@ -96,15 +99,16 @@ function BellLink({ alertCount }: { alertCount: number }) {
   );
 }
 
-const MOBILE_TABS: { href: string; label: string; icon: LucideIcon; badge?: boolean }[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/students", label: "Students", icon: Users },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/chat", label: "Messages", icon: MessagesSquare, badge: true },
+const MOBILE_TABS: { href: string; label: string; labelKey: DictKey; icon: LucideIcon; badge?: boolean }[] = [
+  { href: "/dashboard", label: "Dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/students", label: "Students", labelKey: "tab.students", icon: Users },
+  { href: "/calendar", label: "Calendar", labelKey: "nav.calendar", icon: CalendarDays },
+  { href: "/chat", label: "Messages", labelKey: "tab.messages", icon: MessagesSquare, badge: true },
 ];
 
 function MobileBottomNav({ alertCount, onMore }: { alertCount: number; onMore: () => void }) {
   const pathname = usePathname();
+  const { lang } = useLang();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-line/10 bg-white/95 px-2 py-1.5 backdrop-blur dark:border-white/5 dark:bg-[#0d1017]/95 md:hidden">
       {MOBILE_TABS.map((tab) => {
@@ -127,7 +131,7 @@ function MobileBottomNav({ alertCount, onMore }: { alertCount: number; onMore: (
                 </span>
               ) : null}
             </span>
-            {tab.label}
+            {translate(lang, tab.labelKey)}
           </Link>
         );
       })}
@@ -136,13 +140,14 @@ function MobileBottomNav({ alertCount, onMore }: { alertCount: number; onMore: (
         className="flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium text-secondary/45 transition-colors hover:text-secondary/80 dark:text-white/45 dark:hover:text-white/80"
       >
         <MoreHorizontal className="h-5 w-5" />
-        More
+        {translate(lang, "tab.more")}
       </button>
     </nav>
   );
 }
 
 export function AppShell({ userName, userEmail, role, children }: AppShellProps) {
+  const { lang } = useLang();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [soloMode, setSoloMode] = useState<boolean | null>(null);
   const [alertCount, setAlertCount] = useState(0);
@@ -168,7 +173,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
     setSoloMode(next);
   }
 
-  const roleLabel = role ? ROLE_LABEL[role] : "Admin";
+  const roleLabel = role ? translate(lang, ROLE_LABEL[role]) : translate(lang, "role.fallbackAdmin");
 
   return (
     <div className="flex min-h-screen bg-page">
@@ -206,7 +211,7 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
                 <BrandMark size="sm" />
                 <span className="text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
               </div>
-              <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="rounded-lg p-1.5 text-secondary/50 hover:bg-line/5 dark:text-white/50 dark:hover:bg-white/5">
+              <button onClick={() => setMobileOpen(false)} aria-label={translate(lang, "shell.closeMenu")} className="rounded-lg p-1.5 text-secondary/50 hover:bg-line/5 dark:text-white/50 dark:hover:bg-white/5">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -229,29 +234,47 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-line/10 bg-white/85 px-4 backdrop-blur md:px-6 dark:border-white/5 dark:bg-[#0b0e14]/85">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-line/10 bg-white/85 px-4 backdrop-blur md:px-6 dark:border-white/5 dark:bg-[#0b0e14]/85">
+          <div className="flex min-w-0 items-center gap-3">
             <button
-              className={cn("rounded-lg p-2 hover:bg-line/5 dark:hover:bg-white/5 md:hidden")}
+              className={cn("shrink-0 rounded-lg p-2 hover:bg-line/5 dark:hover:bg-white/5 md:hidden")}
               onClick={() => setMobileOpen(true)}
-              aria-label="Open menu"
+              aria-label={translate(lang, "shell.openMenu")}
             >
               <Menu className="h-5 w-5 text-secondary/70 dark:text-white/70" />
             </button>
-            <div className="flex items-center gap-2.5 md:hidden">
-              <BrandMark size="sm" />
-              <span className="text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
+            <div className="flex min-w-0 items-center gap-2.5 md:hidden">
+              {/* BrandMark removed from the mobile header per the owner's sketch —
+                  it crowded the row (alongside menu, title, solo/theme/bell and the
+                  user avatar) into the right-edge overflow. The logo stays in the
+                  mobile drawer and on desktop. */}
+              <span className="truncate text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
             </div>
           </div>
           <div className="hidden md:block" />
-          <div className="flex items-center gap-1.5">
-            <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* Solo toggle stays in the header on desktop only — on phones it
+                moves below the header (see the floating chip after </header>). */}
+            <div className="hidden md:block">
+              <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
+            </div>
+            <LanguageToggle />
             <ThemeToggle />
             <BellLink alertCount={alertCount} />
             <UserMenu userName={userName} userEmail={userEmail} />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">{children}</main>
+
+        {/* Solo-mode toggle on phones — per the owner's sketch it lives just
+            below the header at the right edge (the header row itself was too
+            crowded and contributed to the mobile overflow). Only rendered once
+            the stored preference has loaded so an empty chip never flashes. */}
+        {soloMode !== null ? (
+          <div className="fixed top-20 right-4 z-40 rounded-xl border border-line/10 bg-white/90 p-1 shadow-card backdrop-blur md:hidden dark:border-white/10 dark:bg-[#0d1017]/90">
+            <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
+          </div>
+        ) : null}
+        <main className="w-full flex-1 overflow-x-clip overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">{children}</main>
       </div>
 
       <MobileBottomNav alertCount={alertCount} onMore={() => setMobileOpen(true)} />

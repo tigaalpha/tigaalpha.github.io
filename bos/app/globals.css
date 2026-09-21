@@ -21,6 +21,17 @@ body {
   height: 100%;
 }
 
+/* Mobile: the page must never scroll horizontally. A single wide element
+   (a chart, a long translated string — Google Translate's <font> wrapping is
+   a notorious offender on Android Chrome) used to push the whole page wider
+   than the viewport, making the dashboard "stick out" past the right edge.
+   `clip` (not `hidden`) is used deliberately: it does not create a scroll
+   container, so the sticky header and fixed FABs keep working. */
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   background-color: rgb(var(--page));
   background-image:

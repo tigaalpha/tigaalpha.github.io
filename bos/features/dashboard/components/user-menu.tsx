@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useLang } from "@/lib/language-context";
+import { translate } from "@/lib/i18n";
 
 interface UserMenuProps {
   userName: string;
@@ -14,6 +16,7 @@ interface UserMenuProps {
 export function UserMenu({ userName, userEmail }: UserMenuProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const { lang } = useLang();
 
   async function signOut() {
     const supabase = createClient();
@@ -42,7 +45,7 @@ export function UserMenu({ userName, userEmail }: UserMenuProps) {
           </div>
           <Button variant="ghost" size="sm" className="w-full justify-start" onClick={signOut}>
             <LogOut className="h-4 w-4" />
-            Sign out
+            {translate(lang, "user.signOut")}
           </Button>
         </div>
       ) : null}

@@ -7,8 +7,79 @@ import { CountUp } from "./app-shell";
    (songOpen && songMeta), extracted verbatim from PianoApp's inline JSX as
    part of Phase 2 componentization — no logic changes. lc is derived from
    lang internally, same convention as the other overlay components. ── */
-export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songNextLit2, songFingerMap, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand, setSongPhase }) {
+/* ── Online PvP room panel (Play Along plan #10) — the ready-screen UI for
+   realtime duel rooms: host a 6-char room / join by code / accept the
+   challenger / synchronized start. State + handlers live in use-play-along
+   (see pvp-online.ts for the transport). ── */
+function OnlinePvpPanel({ pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, songMeta, lang, codeInput, setCodeInput }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const p = pvpOnline;
+  const copyLink = () => {
+    try { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?pvp=${p.code}`); } catch (e) {}
+  };
+  if (!p) return (
+    <button className="songbtn ghost" style={{ width: "100%", marginTop: 8 }} onClick={openPvpOnline}>
+      ⚔ {T("ดวลออนไลน์กับเพื่อน", "Online duel with a friend", "与好友在线对决")}
+    </button>
+  );
+  return (
+    <div style={{ marginTop: 10, padding: 12, borderRadius: 12, border: "1px solid var(--bd1,#444)", background: "rgba(139,92,246,0.07)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <b>⚔ {T("ดวลออนไลน์", "Online Duel", "在线对决")}</b>
+        <button className="cbtn" onClick={closePvpOnline}>×</button>
+      </div>
+      {p.err && <div style={{ color: "#ff5252", fontSize: 13, marginTop: 6 }}>{p.err === "opponent-left" ? T("ฝ่ายตรงข้ามออกจากห้อง", "Opponent left", "对方已离开") : p.err === "declined" ? T("ถูกปฏิเสธ", "Declined", "被拒绝") : p.err}</div>}
+      {p.phase === "idle" && (
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button className="songbtn go" style={{ flex: 1 }} onClick={hostPvpOnline}>{T("สร้างห้อง", "Host room", "创建房间")}</button>
+          <div style={{ flex: 1, display: "flex", gap: 4 }}>
+            <input value={codeInput} onChange={e => setCodeInput(e.target.value.toUpperCase().slice(0, 6))} placeholder={T("รหัสห้อง", "ROOM CODE", "房间码")}
+              style={{ flex: 1, minWidth: 0, padding: "8px", borderRadius: 10, border: "1px solid var(--bd1,#444)", background: "var(--card,#222)", color: "#fff", textAlign: "center", fontWeight: 800, letterSpacing: 2 }} />
+            <button className="songbtn go" onClick={() => joinPvpOnline(codeInput)}>{T("เข้า", "Join", "加入")}</button>
+          </div>
+        </div>
+      )}
+      {p.phase === "hosting" && <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted,#aaa)" }}>{T("กำลังสร้างห้อง...", "Creating room...", "正在创建...")}</div>}
+      {p.phase === "joining" && <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted,#aaa)" }}>{T("กำลังเข้าห้อง...", "Joining...", "正在加入...")}</div>}
+      {p.phase === "waiting" && p.role === "host" && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 13, color: "var(--muted,#aaa)" }}>{T("รหัสห้อง — ส่งให้เพื่อน", "Room code — share it", "房间码 — 发给好友")}</div>
+          <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 6, textAlign: "center", margin: "6px 0" }}>{p.code}</div>
+          <button className="songbtn ghost" style={{ width: "100%" }} onClick={copyLink}>🔗 {T("คัดลอกลิงก์เชิญ", "Copy invite link", "复制邀请链接")}</button>
+          {p.guestName ? (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ marginBottom: 6 }}>🤝 {p.guestName} {T("ต้องการดวลด้วย — เพลง:", "wants to duel — song:", "请求对决 — 曲目：")} <b>{tr(songMeta, lang)}</b></div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="songbtn go" style={{ flex: 1 }} onClick={() => acceptPvpOnline(true)}>✓ {T("รับ", "Accept", "接受")}</button>
+                <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => acceptPvpOnline(false)}>✕ {T("ปฏิเสธ", "Decline", "拒绝")}</button>
+              </div>
+            </div>
+          ) : <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted,#aaa)" }}>{T("รอผู้ท้าชิง...", "Waiting for a challenger...", "等待挑战者...")}</div>}
+        </div>
+      )}
+      {p.phase === "waiting" && p.role === "guest" && (
+        <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted,#aaa)" }}>
+          {p.accepted ? T("รับแล้ว — รอหัวห้องเริ่ม...", "Accepted — waiting for host to start...", "已接受 — 等待房主开始...") : T("ส่งคำขอแล้ว รอตอบรับ...", "Request sent, waiting...", "请求已发送...")}
+        </div>
+      )}
+      {p.phase === "racing" && (() => {
+        const waitMs = Math.max(0, (p.startAt || 0) - Date.now());
+        return (
+          <div style={{ marginTop: 8, textAlign: "center" }}>
+            {waitMs > 300 ? <b style={{ fontSize: 20 }}>⚔ {T("เริ่มใน", "Starting in", "即将开始")} {Math.ceil(waitMs / 1000)}s</b> : <b style={{ fontSize: 16 }}>⚔ {T("สู้ ๆ!", "Go!", "加油！")}</b>}
+          </div>
+        );
+      })()}
+      {p.phase === "waiting-result" && <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted,#aaa)", textAlign: "center" }}>{T("ส่งผลแล้ว — รอฝ่ายตรงข้ามจบ", "Result sent — waiting for opponent", "已发送 — 等待对方")}</div>}
+    </div>
+  );
+}
+
+export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songNextLit2, songFingerMap, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songTigaTip = null, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand, setSongPhase, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf }) {
   const lc = L[lang];
+  // #1: mm:ss for drill segment labels; #4: how many facts the player collected.
+  const kShelfCount = Array.isArray(kShelf) ? kShelf.length : 0;
+  const fmtTime = (sec) => { const s2 = Math.max(0, Math.floor(Number(sec) || 0)); return Math.floor(s2 / 60) + ":" + String(s2 % 60).padStart(2, "0"); };
   // Landscape orientation prompt for Play Along — detect portrait on mobile
   // The rotate hint is a one-time lesson, not a recurring nag: once it has
   // been seen it never appears again on this device, however many songs are
@@ -72,6 +143,7 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                 </span>
                 <span>{lc.practiceAcc} <b>{songHud.acc}%</b></span>
                 {songGhost && <span className={`ghoststat ${songGhost.diff >= 0 ? "ahead" : "behind"}`}>👻 {songGhost.diff >= 0 ? "▲" : "▼"}{Math.abs(songGhost.diff)}</span>}
+                {pvpOnline && pvpOnline.phase === "racing" && pvpOnline.opp && <span className="pvplive">⚔ {pvpOnline.opp.score}</span>}
                 {songSetlistPos && <span className="setlistpos">🎤 {songSetlistPos.idx + 1}/{songSetlistPos.total}</span>}
               </div>
               <div className="songprog"><div style={{ width: songHud.progress + "%" }} /></div>
@@ -91,6 +163,25 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
               {songFever && <div className="feverbadge">🔥 FEVER ×2</div>}
               {songBonus && <div className="songbonus" key={songBonus.id}>{lc.dhBonus} {songBonus.text}</div>}
               {songAnnounce && <div className="songannounce" key={songAnnounce.id}>{songAnnounce.text}</div>}
+              {/* #3 Boss Battle — HP bar (throttled reactive sync from the game loop) */}
+              {bossOn && songPhase === "playing" && (() => {
+                const maxHp = (typeof bossMax === "number" && bossMax > 0) ? bossMax : Math.max(1, bossHp || 1);
+                return (
+                  <div className="bosshud">
+                    <span className="bosshud-face">{bossHp <= 0 ? "😵" : (bossFx && bossFx.kind === "attack") ? "😡" : "👾"}</span>
+                    <div className="bosshud-track"><div className={"bosshud-fill" + (bossHp / maxHp < 0.3 ? " low" : "")} style={{ width: Math.max(0, (bossHp / maxHp) * 100) + "%" }} /></div>
+                    <span className="bosshud-pct">{Math.max(0, Math.round((bossHp / maxHp) * 100))}%</span>
+                  </div>
+                );
+              })()}
+              {bossOn && bossFx && <div className={"bossfx " + bossFx.kind} key={bossFx.id}>
+                {bossFx.kind === "hit" ? "💥" : bossFx.kind === "attack" ? "⚔️!" : "🎉"}
+              </div>}
+              {/* #4 Knowledge Drop — one-line fact about the note just landed */}
+              {kDrop && <div className="kdrop" key={kDrop.id}>
+                <span className="kdrop-badge">💡</span>
+                <span className="kdrop-text">{kDrop.text}</span>
+              </div>}
               {songPops.map(p => (
                 <div key={p.id} className={`songpop${p.perfect ? " perfect" : ""}`} style={{ left: p.x + "%" }}>{p.text}</div>
               ))}
@@ -149,6 +240,7 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                       ))}
                     </div>
                   </div>
+                  <OnlinePvpPanel pvpOnline={pvpOnline} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} songMeta={songMeta} lang={lang} codeInput={codeInput} setCodeInput={setCodeInput} />
                   <div className="songready-btns">
                     <button className="songbtn ghost" onClick={previewSong}>▶ {lc.songPreview}</button>
                     <button className="songbtn go" onClick={startSongPlay}>▶ {lc.songStart}</button>
@@ -190,6 +282,13 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
               {songResult.allPerfect ? <div className="songfc ap">✦ {lc.songAllPerfect} ✦</div>
                 : songResult.fullCombo ? <div className="songfc">★ {lc.songFullCombo} ★</div> : null}
               {songResult.newBest && <div className="songnewbest">🏆 {lc.songNewBest}</div>}
+              {/* TIGA Capability Hub coach line — real run numbers, engine badge shows what answered */}
+              {songTigaTip && songTigaTip.tip && (
+                <div className="tigatipbar song">
+                  <span className="tigatipbadge">🧠 TIGA</span>
+                  <span>{songTigaTip.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || songTigaTip.tip.en}</span>
+                </div>
+              )}
               <div className="songstars">{"★".repeat(songResult.stars)}{"☆".repeat(3 - songResult.stars)}</div>
               <div className="songresult-acc"><CountUp value={songResult.acc} dur={700} />%</div>
               <div className="songresult-grid">
@@ -206,11 +305,54 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                 ) : songAnalysis ? (<>
                   <div className="songanalysis-hd">🎯 {lang === "th" ? "จุดที่ควรแก้" : lang === "zh" ? "需要改进的地方" : "What to fix"}</div>
                   <div className="songanalysis-weak">{songAnalysis.weakness}</div>
+                  {songAnalysis.strategy && (
+                    <div className="songanalysis-strat" style={{ fontSize: 11, color: "#a78bfa", fontWeight: 700, letterSpacing: 0.3 }}>
+                      ✦ {lang === "th" ? "กลยุทธ์ครู TiGA" : lang === "zh" ? "TiGA老师策略" : "Teacher TiGA's strategy"}: {songAnalysis.strategy}
+                    </div>
+                  )}
                   <ol className="songanalysis-steps">
                     {songAnalysis.steps.map((s, i) => <li key={i}>{s}</li>)}
                   </ol>
+                  <button className="songbtn ghost" style={{ width: "100%", marginTop: 8, fontSize: 12 }}
+                    onClick={() => { setSongPhase("ready"); }}>
+                    {lang === "th" ? "🔁 ฝึกท่อนนี้อีกครั้งตามคำแนะนำ" : lang === "zh" ? "🔁 按建议再练一遍" : "🔁 Practice this song again with the tip"}
+                  </button>
                 </>) : null}
               </div>
+              {/* #1 Mistake Loop — drill just the worst segments on a rising tempo ladder */}
+              {drillPlan && drillPlan.length > 0 && (
+                <div className="drillcard">
+                  <div className="drillcard-title">🎯 {lang === "th" ? "ซ้อมเฉพาะท่อนที่พลาด" : lang === "zh" ? "只练错误片段" : "Drill the tricky parts"}</div>
+                  {drillActive && (
+                    <button className="songbtn ghost" style={{ width: "100%", marginBottom: 8, borderColor: "#f59e0b", color: "#f59e0b" }} onClick={endDrill}>
+                      ⏹ {lang === "th" ? "หยุดดริล — กลับไปหน้าเริ่ม" : lang === "zh" ? "停止练习" : "Stop drill — back to start"}
+                    </button>
+                  )}
+                  <div className="drillcard-segs">
+                    {drillPlan.map((seg, i) => (
+                      <button key={seg.idx} className="drillseg" onClick={() => { setSongPhase("ready"); startDrill(seg); }}
+                        style={{ "--w": Math.min(100, 25 + seg.misses * 18) + "%" }}>
+                        <span className="drillseg-num">#{i + 1}</span>
+                        <span className="drillseg-bar" style={{ opacity: 0.35 + Math.min(0.65, seg.misses * 0.18) }} />
+                        <span className="drillseg-info">{fmtTime(seg.start)}–{fmtTime(seg.end)} · ✗{seg.misses}{seg.notes.length ? " · " + seg.notes.slice(0, 3).join(" ") : ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="drillcard-hint">
+                    {lang === "th"
+                      ? "กดท่อนที่พลาดเพื่อวนซ้อมเฉพาะท่อนนั้น เท็มโปไล่ขึ้นเองเมื่อเล่นผ่าน (75% → 85% → 100%)"
+                      : lang === "zh"
+                      ? "点击错误片段循环练习，通过后速度自动提升（75% → 85% → 100%）"
+                      : "Tap a segment to loop just that part — tempo climbs on each pass (75% → 85% → 100%)"}
+                  </div>
+                </div>
+              )}
+              {/* #4 Knowledge shelf — facts collected from perfect hits */}
+              {(kShelfCount > 0 || kShelfOpen) && (
+                <button className="songbtn ghost" style={{ width: "100%", marginTop: 8, fontSize: 12 }} onClick={openKnowledgeShelf}>
+                  💡 {lang === "th" ? "ความรู้ที่เก็บได้" : lang === "zh" ? "收集到的知识" : "Knowledge collected"}{kShelfCount > 0 ? " · " + kShelfCount : ""}
+                </button>
+              )}
               <div className="songready-btns">
                 <button className="songbtn ghost" onClick={exitSong}>↩ {lc.songBackList}</button>
                 <button className="songbtn ghost" onClick={() => shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: "★".repeat(songResult.stars) + "☆".repeat(3 - songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] })}>📤 {lc.shareBtn}</button>
@@ -232,6 +374,26 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
                 }}>
                 🏆 {lang === "th" ? "ท้าเพื่อน!" : lang === "zh" ? "挑战朋友!" : "Challenge a Friend!"}
               </button>
+              {pvpOnline && (pvpOnline.phase === "done" || pvpOnline.phase === "waiting-result") && (() => {
+                const mine = pvpOnline.myResult, theirs = pvpOnline.oppResult;
+                const winner = mine && theirs ? (mine.score > theirs.score ? "me" : theirs.score > mine.score ? "them" : "tie") : null;
+                const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+                return (
+                  <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 12, border: "1px solid var(--bd1,#444)", background: "rgba(139,92,246,0.08)" }}>
+                    <div style={{ fontWeight: 800, marginBottom: 4 }}>
+                      ⚔ {T("ดวลเพลงออนไลน์", "Online Duel", "在线对决")}
+                      {winner === "me" && <span style={{ color: "#4ade80" }}> — {T("คุณชนะ!", "You win!", "你赢了！")}</span>}
+                      {winner === "them" && <span style={{ color: "#ff5252" }}> — {T("แพ้แล้ว ลองใหม่!", "Defeated — rematch!", "惜败 — 再来！")}</span>}
+                      {winner === "tie" && <span> — {T("เสมอ!", "Tie!", "平局！")}</span>}
+                      {!winner && <span> — {T("รอผลฝ่ายตรงข้าม...", "Waiting for opponent...", "等待对方...")}</span>}
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--muted,#aaa)" }}>
+                      {T("ฉัน", "Me", "我")}: {mine ? mine.score : "–"} · {T("ฝ่ายตรงข้าม", "Opponent", "对手")}: {theirs ? theirs.score : (pvpOnline.opp ? pvpOnline.opp.score : "–")}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* D2: Style Transformer — shown after getting ≥1 star */}
               {songResult.stars >= 1 && (
                 <div style={{ marginTop: 10 }}>
@@ -256,6 +418,26 @@ export function SongPlayOverlay({ songMeta, lang, songPhase, songResult, songHud
           {/* A one-time tip, not an instruction: both orientations work fully —
               landscape just gives a wider keyboard — so it says so plainly and
               never appears again once it has been read. */}
+          {/* #4 Knowledge shelf modal */}
+          {kShelfOpen && (
+            <div className="kshelf-modal" onClick={() => setKShelfOpen(false)}>
+              <div className="kshelf-card" onClick={e => e.stopPropagation()}>
+                <div className="kshelf-hd">
+                  <span>💡 {lang === "th" ? "ความรู้ที่เก็บได้" : lang === "zh" ? "收集到的知识" : "Knowledge collected"}</span>
+                  <button className="cbtn" onClick={() => setKShelfOpen(false)}>✕</button>
+                </div>
+                <div className="kshelf-list">
+                  {kShelf && kShelf.length ? kShelf.map((k, i) => (
+                    <div key={i} className="kshelf-item">
+                      <span className="kshelf-key">{k.pc}</span>
+                      <span className="kshelf-txt">{lang === "th" ? (k.th || k.text) : lang === "zh" ? (k.zh || k.text) : (k.en || k.text)}</span>
+                    </div>
+                  )) : <div className="kshelf-empty">{lang === "th" ? "เล่นให้แม่นเพื่อเก็บการ์ดความรู้!" : lang === "zh" ? "弹得准就能收集知识卡片！" : "Nail perfect hits to collect fact cards!"}</div>}
+                </div>
+              </div>
+            </div>
+          )}
+
           {showOrientPrompt && (
             <div className="orientation-prompt">
               <div className="op-icon">📱↻</div>

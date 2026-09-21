@@ -6,6 +6,8 @@ import {
 import { logPractice } from "./App";
 import { logActivity, recordNoteMisses } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
+import { tigaHub } from "./tigamodel/web"; // Capability Hub: intent-based model access — smarter engines upgrade this screen with no UI change
+import { readMemory } from "./ai-chat-context";
 
 // Belt ranking — a cumulative, all-time count of correct reads across every
 // clef and mode (tg_sight_total), the closest honest single number to "how
@@ -93,6 +95,7 @@ export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWee
   const [sightPhrasePos, setSightPhrasePos] = useState(0);    // 0-based position within the current SIGHT_PHRASE_LEN-note phrase
   const [sightMode, setSightMode] = useState("round");        // "round" (fixed SIGHT_ROUND notes) | "sprint" (fixed 60s, however many you can read)
   const [sightSprintLeft, setSightSprintLeft] = useState(SIGHT_SPRINT_SECS);
+  const [sightTip, setSightTip] = useState(null); // TIGA hub recommendation for this round ({tip:{th,en,zh}, via} | null)
 
   const sightTargetRef = useRef(null);
   const sightClefRef = useRef("treble");   // selected clef mode (treble|bass|both)
@@ -184,6 +187,11 @@ export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWee
     sightTargetRef.current = null;
     sightActiveRef.current = true;
     setSightScore(0); setSightIdx(0); setSightDone(null); setSightSrc(null); setSightStreak(0); setSightPhrasePos(0);
+    // TIGA hub: ask for a sight-reading setup recommendation from whatever
+    // engine is registered (skill-graph today) — falls back to a baseline
+    // line from real memory when no engine answers. Never throws, never
+    // invents: no memory → generic-but-honest starter tip.
+    try { setSightTip(tigaHub.recommendSightReading(readMemory(), { clef: sightClefRef.current })); } catch (e) { setSightTip(null); }
     armSightSprintClock();
     newSightNote();
     setSightOpen(true);
@@ -280,5 +288,5 @@ export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWee
     setSightDone(null);
   }
   sightHandlerRef.current = sightInput;
-  return { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen: SIGHT_PHRASE_LEN, sightMode, sightSprintLeft, sightSprintSecs: SIGHT_SPRINT_SECS, sightBelts: SIGHT_BELTS, sightBestStreakMap: sightBestMap("tg_sight_best_streak"), sightBestSprintMap: sightBestMap("tg_sight_best_sprint"), sightTotalRead: sightTotalRead(), sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight };
+  return { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen: SIGHT_PHRASE_LEN, sightMode, sightSprintLeft, sightSprintSecs: SIGHT_SPRINT_SECS, sightTip, sightBelts: SIGHT_BELTS, sightBestStreakMap: sightBestMap("tg_sight_best_streak"), sightBestSprintMap: sightBestMap("tg_sight_best_sprint"), sightTotalRead: sightTotalRead(), sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight };
 }

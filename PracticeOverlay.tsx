@@ -1,6 +1,10 @@
+import { useState, useEffect } from "react";
 import { L } from "./i18n";
 import { Piano, pcOf } from "./music-engine";
-import { tigaStrategyLabel } from "./tigamodel/web";
+import { tigaStrategyLabel, SELF_REPORT_CHOICES, newStudentFeedback, rerunLoopWithSelfReport } from "./tigamodel/web";
+import { sttSupported, getSR } from "./speech";
+import { selfReportFromTranscript } from "./tigamodel/web";
+import { usePracticeCoach } from "./use-practice-coach";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
@@ -28,7 +32,7 @@ function ResultBar({ label, pct, color }) {
     </div>
   );
 }
-function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice }) {
+function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo, onTipUpdate }) {
   const r = practiceResult;
   const dynPct = r.dyn ? Math.round(r.dyn.ok / (r.dyn.ok + r.dyn.miss) * 100) : null;
   const rhythmPct = r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null;
@@ -82,27 +86,49 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
         </div>
       )}
 
+      {/* Conversion pill (strategy phase 2): only for free-plan learners and
+          only after a genuinely good run (accuracy gate passed via prop) —
+          the exact peak moment where an upgrade feels earned, not gated. */}
+      {showKeepGoing && <button className="presultkeep" onClick={onKeepGoing}>{lang === "th" ? "🔥 ฟอร์มนี้กำลังมา — รักษาต่อกับครู TIGA AI ได้ทุกวัน" : lang === "zh" ? "🔥 状态正佳——每天与TIGA AI老师保持下去" : "🔥 You're on a roll — keep it going with Teacher TIGA AI daily"}</button>}
+
       {/* TIGA Model verdict — the teaching loop ran locally on this drill's
           real signals (accuracy/misses/pauses/rhythm). Always visible when it
           has something to say, guests included; the AI flourish below it is
           signed-in only. */}
       {r.tigaTip && r.tigaTip.text && (
         <div className="presultai" style={{ borderColor: "#d97757" }}>
-          <div className="presultai-h">🧠 {lang === "th" ? "TIGA Model วิเคราะห์" : lang === "zh" ? "TIGA 模型分析" : "TIGA Model analysis"}{tigaStrategyLabel(r.tigaTip.strategyId, lang) ? ` · ${tigaStrategyLabel(r.tigaTip.strategyId, lang)}` : ""}</div>
+          {/* Owner: the teacher is "ครู TIGA AI" everywhere on this screen. */}
+          <div className="presultai-h">🧠 {lang === "th" ? "ครู TIGA AI วิเคราะห์" : lang === "zh" ? "TIGA AI模型分析" : "Teacher TIGA AI analysis"}{tigaStrategyLabel(r.tigaTip.strategyId, lang) ? ` · ${tigaStrategyLabel(r.tigaTip.strategyId, lang)}` : ""}</div>
           <div className="presultai-tx">{r.tigaTip.text}</div>
         </div>
       )}
 
+      {/* ── Self-report micro-poll (Phase 4, §17): the direct question beats
+          any inference; answering re-runs the loop and adapts the verdict. ── */}
+      <SelfReportPoll lang={lang} practiceResult={r} onTipUpdate={(tip) => onTipUpdate && onTipUpdate(tip)} />
+
+      {/* ── TIGA Practice Coach (Phase 2, spec §34): tempo decision + 3-line
+          recap + homework + next exercise — all from the model's real engines
+          fed with THIS drill's real data. Sections hide honestly when the
+          data doesn't exist (no BPM → no tempo line; the coach never shows
+          invented numbers). ── */}
+      <PracticeCoachCard lang={lang} lc={lc} practiceResult={r} rhythmPct={rhythmPct} dynPct={dynPct} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} restartPractice={restartPractice} />
+
       {(r.aiLoading || r.aiText) && (
         <div className="presultai">
           <div className="presultai-h">💬 {lc.practiceCoachSays}</div>
-          {r.aiLoading ? <div className="presultai-loading">…</div> : <div className="presultai-tx">{r.aiText}</div>}
+          {/* Waiting state is a real sentence, not an ellipsis: the analysis
+              needs a moment, and "รอครู TIGA AI ประมวลผลสักครู่…" tells the
+              learner (and their parent watching) exactly what's happening. */}
+          {r.aiLoading
+            ? <div className="presultai-loading">{lang === "th" ? "⏳ รอครู TIGA AI ประมวลผลสักครู่…" : lang === "zh" ? "⏳ 等待TIGA AI老师分析中…" : "⏳ Teacher TIGA AI is analyzing, one moment…"}</div>
+            : <div className="presultai-tx">{r.aiText}</div>}
         </div>
       )}
     </div>
   );
 }
-export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, switchPracticeChordStyle, chordGroupSize = 0 }) {
+export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, switchPracticeChordStyle, chordGroupSize = 0, onKeepGoing, showKeepGoing = false, metroBpm = null, onSetTempo = null }) {
   const lc = L[lang];
         // Grading (use-practice-mode) treats BOTH chord and progression drills
         // as block-style when the toggle says so — the display must gate on the
@@ -131,7 +157,7 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
           <div className="practicehtitle">{lc.practiceTitle}<small>{practiceLabel}</small></div>
           <button className="cbtn" onClick={exitPractice}>{lc.close}</button>
         </div>
-        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} />
+        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} onTipUpdate={onTipUpdate} />
         <div className="practicefoot">
           <button className="practicerestart" onClick={restartPractice}>↻ {lc.practiceRestart}</button>
           <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
@@ -239,5 +265,143 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
             <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
           </div>
         </div>
+  );
+}
+
+/* ── SelfReportPoll (Phase 4, spec §17): the DIRECT questions the spec
+   lists — "ตรงนี้เข้าใจไหม / ง่ายไปหรือยากไป / อยากลองอีกครั้งไหม". The
+   student's own answer outranks every inference (§17), so on answer we:
+   1) save a StudentFeedback record (tg_self_reports, last 30),
+   2) re-run the teaching loop WITH the answer → the strategy decision
+      changes live (e.g. "too hard" → simplify-on-hard-report),
+   3) patch the result's tigaTip in place so the 🧠 card reflects it. ── */
+const SR_Q = {
+  th: { h: "ครู TiGA ขอถามตรง ๆ (สำคัญกว่าการเดาจากการเล่น)", opts: [["understand", "เข้าใจแล้ว ✓"], ["confused", "ยังงง ๆ"], ["too_easy", "ง่ายไป"], ["too_hard", "ยากไป"], ["retry", "อยากลองอีกครั้ง"], ["frustrated", "หงุดหงิด"], ["great", "สนุกมาก 😄"]], done: "ขอบคุณ — ครูปรับการสอนให้แล้ว ✓" },
+  en: { h: "Teacher TiGA asks directly (worth more than guessing)", opts: [["understand", "Got it ✓"], ["confused", "Still confused"], ["too_easy", "Too easy"], ["too_hard", "Too hard"], ["retry", "Want to retry"], ["frustrated", "Frustrated"], ["great", "Fun! 😄"]], done: "Thanks — the lesson adapted ✓" },
+  zh: { h: "TIGA 老师直接提问（比猜测更可靠）", opts: [["understand", "明白了 ✓"], ["confused", "还有点懵"], ["too_easy", "太简单"], ["too_hard", "太难"], ["retry", "想再试一次"], ["frustrated", "有点烦躁"], ["great", "很有趣 😄"]], done: "谢谢——已为你调整教学 ✓" },
+};
+function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
+  const [answered, setAnswered] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const q = SR_Q[lang] || SR_Q.th;
+  const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  useEffect(() => { setAnswered(null); }, [practiceResult && practiceResult.label]);
+  async function answer(choice) {
+    if (busy || answered) return;
+    setAnswered(choice); setBusy(true);
+    try {
+      const fb = newStudentFeedback({ question: q.h, answer: (q.opts.find(o => o[0] === choice) || [])[1] || choice, feedbackType: choice === "understand" || choice === "confused" ? "understanding" : choice === "great" ? "enjoyment" : choice === "retry" ? "confidence" : "difficulty" });
+      try {
+        const list = JSON.parse(localStorage.getItem("tg_self_reports") || "[]");
+        list.push(fb); localStorage.setItem("tg_self_reports", JSON.stringify(list.slice(-30)));
+      } catch (e) {}
+      const r = practiceResult || {};
+      const loop = await rerunLoopWithSelfReport({
+        accuracy: r.accuracy,
+        repeatedErrors: r.miss >= 2 ? r.miss : 0,
+        pauses: 0, rhythmScore: r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null,
+        label: r.label,
+      }, choice);
+      if (loop && loop.response && onTipUpdate) {
+        onTipUpdate({ text: loop.response.text, strategyId: loop.decision ? loop.decision.strategy_id : null, states: loop.states });
+      }
+    } catch (e) {}
+    setBusy(false);
+  }
+  const canSTT = (() => { try { return sttSupported(); } catch (e) { return false; } })();
+  const [listening, setListening] = useState(false);
+  function listenOnce() {
+    if (busy || listening || answered || !canSTT) return;
+    try {
+      const SR = getSR();
+      if (!SR) return;
+      setListening(true);
+      const rec = new SR();
+      rec.lang = lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US";
+      rec.maxAlternatives = 1;
+      rec.onresult = (ev) => {
+        try {
+          const said = ev.results && ev.results[0] && ev.results[0][0] && ev.results[0][0].transcript;
+          const key = selfReportFromTranscript(said);
+          if (key) answer(key);
+        } catch (e) {}
+      };
+      rec.onend = () => setListening(false);
+      rec.onerror = () => setListening(false);
+      rec.start();
+    } catch (e) { setListening(false); }
+  }
+  return (
+    <div className="presultai psr">
+      <div className="presultai-h">🙋 {q.h}</div>
+      {answered ? (
+        <div className="presultai-tx">✅ {q.done}</div>
+      ) : (
+        <div className="psr-opts">
+          {q.opts.map(([k, label]) => (
+            <button key={k} className={`psr-btn${answered === k ? " on" : ""}`} disabled={busy} onClick={() => answer(k)}>{label}</button>
+          ))}
+          {canSTT && (
+            <button className="psr-btn" disabled={busy || listening} title={T3("กดแล้วพูดตอบได้เลย", "Tap and speak your answer", "按下后语音回答")} onClick={listenOnce}>{listening ? "🔴" : "🎙"}</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── TIGA Practice Coach card (Phase 2, spec §34): the model's tempo
+   decision, 3-line recap, homework and the next exercise — rendered from
+   usePracticeCoach's real-data builder. Sections hide when data is absent. ── */
+function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practiceTarget, metroBpm, onSetTempo, restartPractice }) {
+  const r = practiceResult || {};
+  const missed = (r.miss != null && r.miss > 0) ? null : null; // missed NOTES (pitch-level) come from noteMisses in tg_memory; the builder reads them itself
+  const data = usePracticeCoach({
+    label: r.label || null,
+    accuracy: r.accuracy,
+    missedNotes: (r.tigaTip && r.tigaTip.states && r.tigaTip.states.repeatedErrorLabel) ? [r.tigaTip.states.repeatedErrorLabel] : [],
+    rhythmPct, dynPct, practiceTarget, metroBpm,
+    prevAccuracy: (r.prevBest && r.prevBest.accuracy) || null,
+    strategyId: (r.tigaTip && r.tigaTip.strategyId) || null,
+  });
+  if (!data) return null;
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const L = lang || "th";
+  const tempo = data.tempo;
+  const recap = data.recap;
+  const ex = data.exercise;
+  const tx = (o) => (o ? (o[L] || o.en || o.th) : null);
+  return (
+    <div className="presultai pcoach" style={{ borderColor: "#8ad4ff" }}>
+      <div className="presultai-h">🎯 {T("ครู TIGA Practice Coach", "Teacher TIGA Practice Coach", "TIGA 练习教练")}</div>
+
+      {tempo && (
+        <div className="pcoach-tempo">
+          <b>{tempo.bpm} BPM</b>
+          <span className="pcoach-why">{tempo.step > 0 ? `▲ +${tempo.step}` : tempo.step < 0 ? `▼ ${tempo.step}` : "▬"} {tempo.reason}</span>
+          {onSetTempo && <button className="pcoach-btn" onClick={() => onSetTempo(tempo.bpm)}>⏱ {T("ตั้งเมโทรนอม", "Set metronome", "设置节拍器")}</button>}
+        </div>
+      )}
+
+      {recap && recap.lines && recap.lines.length > 0 && (
+        <div className="pcoach-recap">
+          {recap.lines.map((ln, i) => <div key={i} className="presultai-tx">• {tx(ln)}</div>)}
+          {recap.homework && <div className="pcoach-hw">📝 {tx(recap.homework)}</div>}
+        </div>
+      )}
+
+      {ex && (
+        <div className="pcoach-ex">
+          <div className="pcoach-ex-t">➡️ {T("แบบฝึกหัดถัดไป", "Next exercise", "下一个练习")}: <b>{tx(ex.title) || ex.title}</b></div>
+          <div className="presultai-tx">{tx(ex.task) || ex.task}</div>
+          {Array.isArray(ex.steps) && ex.steps.length > 0 && (
+            <ol className="pcoach-steps">
+              {ex.steps.map((s, i) => <li key={i}>{s}</li>)}
+            </ol>
+          )}
+          {ex.check && <div className="pcoach-check">✓ {ex.check}</div>}
+        </div>
+      )}
+    </div>
   );
 }

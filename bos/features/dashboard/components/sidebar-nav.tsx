@@ -68,10 +68,13 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { UserRole } from "@/types/database";
+import { useLang } from "@/lib/language-context";
+import { translate, type DictKey } from "@/lib/i18n";
 
 interface NavItem {
   href: string;
   label: string;
+  labelKey?: DictKey;
   icon: LucideIcon;
   /** Hidden from anyone but owner/admin — mirrors is_owner_or_admin()-gated tables (transactions, integration_settings, business_snapshot, agent_schedules). RLS is still the real security boundary; this only keeps staff/teacher accounts from seeing pages they can't use. */
   ownerOnly?: boolean;
@@ -80,6 +83,7 @@ interface NavItem {
 interface NavGroup {
   id: string;
   label: string;
+  labelKey?: DictKey;
   items: NavItem[];
   /** Shown as a badge next to the group label inside Solo Mode's Advanced section. Absent = "Stable" (the default — most groups here are shipped, working tools). */
   maturity?: "beta";
@@ -89,143 +93,152 @@ interface NavGroup {
 const CORE_HREFS = ["/ai-automation-chat", "/dashboard", "/chat", "/students", "/sales", "/calendar", "/booking", "/knowledge", "/accounting", "/settings"];
 
 const TOP_LEVEL_ITEMS: NavItem[] = [
-  { href: "/ai-automation-chat", label: "AI Automation Chat", icon: MessageSquare, ownerOnly: true },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/marketing-dashboard", label: "Marketing Dashboard", icon: LineChart },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/ai-automation-chat", label: "AI Automation Chat", labelKey: "nav.aiAutomationChat", icon: MessageSquare, ownerOnly: true },
+  { href: "/dashboard", label: "Dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/marketing-dashboard", label: "Marketing Dashboard", labelKey: "nav.marketingDashboard", icon: LineChart },
+  { href: "/calendar", label: "Calendar", labelKey: "nav.calendar", icon: CalendarDays },
+  { href: "/notifications", label: "Notifications", labelKey: "nav.notifications", icon: Bell },
 ];
 
 const NAV_GROUPS: NavGroup[] = [
   {
     id: "ai-agent",
     label: "AI AGENT",
+    labelKey: "group.aiAgent",
     maturity: "beta",
     items: [
-      { href: "/tiga-agent", label: "TIGA AI Agent", icon: Bot, ownerOnly: true },
-      { href: "/automation", label: "Automation", icon: Workflow, ownerOnly: true },
-      { href: "/ai-company", label: "AI Company", icon: Building2, ownerOnly: true },
+      { href: "/tiga-agent", label: "TIGA AI Agent", labelKey: "nav.tigaAgent", icon: Bot, ownerOnly: true },
+      { href: "/automation", label: "Automation", labelKey: "nav.automation", icon: Workflow, ownerOnly: true },
+      { href: "/ai-company", label: "AI Company", labelKey: "nav.aiCompany", icon: Building2, ownerOnly: true },
     ],
   },
   {
     id: "ai-control",
     label: "🤖 AI Control",
+    labelKey: "group.aiControl",
     items: [
-      { href: "/ai-control-panel", label: "AI Control Panel", icon: Cpu },
-      { href: "/ai-task-router", label: "AI Task Router", icon: GitBranch },
-      { href: "/predictive-scoring", label: "Predictive Scoring", icon: Target },
-      { href: "/sentiment-dashboard", label: "Sentiment Dashboard", icon: HeartPulse },
-      { href: "/sales-coach", label: "AI Sales Coach", icon: GraduationCap },
-      { href: "/smart-scheduler", label: "Smart Scheduler", icon: CalendarClock },
-      { href: "/ai-phone-call", label: "AI Phone Call", icon: Phone },
-      { href: "/mimo-ai", label: "Mimo AI (OpenRouter)", icon: Bot, ownerOnly: true },
+      { href: "/ai-control-panel", label: "AI Control Panel", labelKey: "nav.aiControlPanel", icon: Cpu },
+      { href: "/ai-task-router", label: "AI Task Router", labelKey: "nav.aiTaskRouter", icon: GitBranch },
+      { href: "/predictive-scoring", label: "Predictive Scoring", labelKey: "nav.predictiveScoring", icon: Target },
+      { href: "/sentiment-dashboard", label: "Sentiment Dashboard", labelKey: "nav.sentimentDashboard", icon: HeartPulse },
+      { href: "/sales-coach", label: "AI Sales Coach", labelKey: "nav.aiSalesCoach", icon: GraduationCap },
+      { href: "/smart-scheduler", label: "Smart Scheduler", labelKey: "nav.smartScheduler", icon: CalendarClock },
+      { href: "/ai-phone-call", label: "AI Phone Call", labelKey: "nav.aiPhoneCall", icon: Phone },
+      { href: "/mimo-ai", label: "Mimo AI (OpenRouter)", labelKey: "nav.mimoAi", icon: Bot, ownerOnly: true },
     ],
   },
   {
     id: "strategy",
     label: "Strategy",
+    labelKey: "group.strategy",
     maturity: "beta",
     items: [
-      { href: "/strategy", label: "AI Strategy Room", icon: Brain },
-      { href: "/strategy-actions", label: "Strategy Actions", icon: ListChecks },
-      { href: "/chatbot-brain", label: "Chatbot Brain", icon: Bot },
-      { href: "/competitors", label: "วิเคราะห์คู่แข่ง", icon: Swords },
+      { href: "/strategy", label: "AI Strategy Room", labelKey: "nav.aiStrategyRoom", icon: Brain },
+      { href: "/strategy-actions", label: "Strategy Actions", labelKey: "nav.strategyActions", icon: ListChecks },
+      { href: "/chatbot-brain", label: "Chatbot Brain", labelKey: "nav.chatbotBrain", icon: Bot },
+      { href: "/competitors", label: "วิเคราะห์คู่แข่ง", labelKey: "nav.competitorAnalysis", icon: Swords },
     ],
   },
   {
     id: "lead-sale",
     label: "🎯 Lead Sale",
+    labelKey: "group.leadSale",
     items: [
-      { href: "/lead-sale", label: "แดชบอร์ด Lead", icon: TrendingUp },
-      { href: "/funnel", label: "Sales Funnel", icon: Filter },
-      { href: "/revenue-attribution", label: "Revenue Attribution", icon: DollarSign, ownerOnly: true },
-      { href: "/lead-sale/private", label: "คอร์ส Private ตัวต่อตัว", icon: Users, ownerOnly: true },
-      { href: "/lead-sale/video", label: "คอร์สวิดีโอ", icon: Clapperboard, ownerOnly: true },
-      { href: "/lead-sale/tiga-ai", label: "TIGA AI (ฟรี)", icon: Smartphone },
-      { href: "/referral-tracking", label: "Referral Tracking", icon: Gift },
-      { href: "/lead-quiz", label: "Lead Quiz", icon: Target },
+      { href: "/lead-sale", label: "แดชบอร์ด Lead", labelKey: "nav.leadDashboard", icon: TrendingUp },
+      { href: "/funnel", label: "Sales Funnel", labelKey: "nav.salesFunnel", icon: Filter },
+      { href: "/revenue-attribution", label: "Revenue Attribution", labelKey: "nav.revenueAttribution", icon: DollarSign, ownerOnly: true },
+      { href: "/lead-sale/private", label: "คอร์ส Private ตัวต่อตัว", labelKey: "nav.privateCourse", icon: Users, ownerOnly: true },
+      { href: "/lead-sale/video", label: "คอร์สวิดีโอ", labelKey: "nav.videoCourse", icon: Clapperboard, ownerOnly: true },
+      { href: "/lead-sale/tiga-ai", label: "TIGA AI (ฟรี)", labelKey: "nav.tigaAiFree", icon: Smartphone },
+      { href: "/referral-tracking", label: "Referral Tracking", labelKey: "nav.referralTracking", icon: Gift },
+      { href: "/lead-quiz", label: "Lead Quiz", labelKey: "nav.leadQuiz", icon: Target },
     ],
   },
   {
     id: "sales-crm",
     label: "Sales & CRM",
+    labelKey: "group.salesCrm",
     items: [
-      { href: "/chat", label: "Inbox", icon: MessagesSquare },
-      { href: "/attendance", label: "ยืนยันการมาเรียน", icon: UserCheck },
-      { href: "/students", label: "Students / CRM", icon: Users },
-      { href: "/sales", label: "Sales Pipeline", icon: KanbanSquare },
-      { href: "/booking", label: "Bookings", icon: CalendarPlus },
+      { href: "/chat", label: "Inbox", labelKey: "nav.inbox", icon: MessagesSquare },
+      { href: "/attendance", label: "ยืนยันการมาเรียน", labelKey: "nav.attendance", icon: UserCheck },
+      { href: "/students", label: "Students / CRM", labelKey: "nav.students", icon: Users },
+      { href: "/sales", label: "Sales Pipeline", labelKey: "nav.salesPipeline", icon: KanbanSquare },
+      { href: "/booking", label: "Bookings", labelKey: "nav.bookings", icon: CalendarPlus },
     ],
   },
   {
     id: "marketing",
     label: "📣 Marketing",
+    labelKey: "group.marketing",
     items: [
-      { href: "/marketing-roi", label: "Marketing ROI", icon: DollarSign, ownerOnly: true },
-      { href: "/weekly-report", label: "AI Weekly Report", icon: FileBarChart },
-      { href: "/ab-test-ai", label: "A/B Test AI", icon: Target },
-      { href: "/competitive-intel", label: "Competitive Intel", icon: Radar },
-      { href: "/competitive-analysis", label: "Competitive Analysis", icon: Swords },
-      { href: "/conversion-tracking", label: "Conversion Tracking", icon: Target },
-      { href: "/performance-dashboard", label: "Performance Dashboard", icon: BarChart3 },
-      { href: "/ads", label: "แคมเปญโฆษณา", icon: Megaphone },
-      { href: "/marketing-channels", label: "Marketing Channels", icon: Radar },
-      { href: "/social-trends", label: "Social Trends", icon: TrendingUp },
-      { href: "/marketing-skills", label: "Marketing Skills", icon: Sparkles },
-      { href: "/landing-pages", label: "Landing Pages", icon: Layout },
-      { href: "/drip-campaign", label: "Drip Campaign", icon: Mail },
+      { href: "/marketing-roi", label: "Marketing ROI", labelKey: "nav.marketingRoi", icon: DollarSign, ownerOnly: true },
+      { href: "/weekly-report", label: "AI Weekly Report", labelKey: "nav.aiWeeklyReport", icon: FileBarChart },
+      { href: "/ab-test-ai", label: "A/B Test AI", labelKey: "nav.abTestAi", icon: Target },
+      { href: "/competitive-intel", label: "Competitive Intel", labelKey: "nav.competitiveIntel", icon: Radar },
+      { href: "/competitive-analysis", label: "Competitive Analysis", labelKey: "nav.competitiveAnalysis", icon: Swords },
+      { href: "/conversion-tracking", label: "Conversion Tracking", labelKey: "nav.conversionTracking", icon: Target },
+      { href: "/performance-dashboard", label: "Performance Dashboard", labelKey: "nav.performanceDashboard", icon: BarChart3 },
+      { href: "/ads", label: "แคมเปญโฆษณา", labelKey: "nav.adCampaigns", icon: Megaphone },
+      { href: "/marketing-channels", label: "Marketing Channels", labelKey: "nav.marketingChannels", icon: Radar },
+      { href: "/social-trends", label: "Social Trends", labelKey: "nav.socialTrends", icon: TrendingUp },
+      { href: "/marketing-skills", label: "Marketing Skills", labelKey: "nav.marketingSkills", icon: Sparkles },
+      { href: "/landing-pages", label: "Landing Pages", labelKey: "nav.landingPages", icon: Layout },
+      { href: "/drip-campaign", label: "Drip Campaign", labelKey: "nav.dripCampaign", icon: Mail },
     ],
   },
   {
     id: "content",
     label: "✏️ Content",
+    labelKey: "group.content",
     items: [
-      { href: "/auto-schedule", label: "AI Auto-Schedule", icon: CalendarClock },
-      { href: "/auto-publish", label: "Auto-Publish Pipeline", icon: Rocket },
-      { href: "/content-repurpose", label: "Content Repurpose", icon: Sparkles },
-      { href: "/personalization-engine", label: "Personalization", icon: UserCheck },
-      { href: "/content-optimization", label: "Content Optimization", icon: Sparkles },
-      { href: "/mobile-content", label: "Mobile-First Content", icon: Smartphone },
-      { href: "/internal-linking", label: "Internal Linking", icon: Link2 },
-      { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
-      { href: "/content", label: "SEO/AEO Content", icon: FileText },
-      { href: "/seo-publish", label: "SEO Publish Pipeline", icon: Globe },
-      { href: "/course-writer", label: "Online Course Writer", icon: GraduationCap },
-      { href: "/app-ad-kit", label: "App Ad Kit", icon: Smartphone },
-      { href: "/images", label: "Image Studio", icon: ImageIcon },
-      { href: "/vertical-video", label: "Vertical Video", icon: Clapperboard },
-      { href: "/video-articles", label: "Voice Over", icon: Mic },
-      { href: "/video-script-writer", label: "Video Script Writer", icon: Captions },
-      { href: "/post", label: "Post ทุกช่องทาง", icon: Share2 },
+      { href: "/auto-schedule", label: "AI Auto-Schedule", labelKey: "nav.aiAutoSchedule", icon: CalendarClock },
+      { href: "/auto-publish", label: "Auto-Publish Pipeline", labelKey: "nav.autoPublish", icon: Rocket },
+      { href: "/content-repurpose", label: "Content Repurpose", labelKey: "nav.contentRepurpose", icon: Sparkles },
+      { href: "/personalization-engine", label: "Personalization", labelKey: "nav.personalization", icon: UserCheck },
+      { href: "/content-optimization", label: "Content Optimization", labelKey: "nav.contentOptimization", icon: Sparkles },
+      { href: "/mobile-content", label: "Mobile-First Content", labelKey: "nav.mobileContent", icon: Smartphone },
+      { href: "/internal-linking", label: "Internal Linking", labelKey: "nav.internalLinking", icon: Link2 },
+      { href: "/knowledge", label: "Knowledge Base", labelKey: "nav.knowledgeBase", icon: BookOpen },
+      { href: "/content", label: "SEO/AEO Content", labelKey: "nav.seoContent", icon: FileText },
+      { href: "/seo-publish", label: "SEO Publish Pipeline", labelKey: "nav.seoPublish", icon: Globe },
+      { href: "/course-writer", label: "Online Course Writer", labelKey: "nav.courseWriter", icon: GraduationCap },
+      { href: "/app-ad-kit", label: "App Ad Kit", labelKey: "nav.appAdKit", icon: Smartphone },
+      { href: "/images", label: "Image Studio", labelKey: "nav.imageStudio", icon: ImageIcon },
+      { href: "/vertical-video", label: "Vertical Video", labelKey: "nav.verticalVideo", icon: Clapperboard },
+      { href: "/video-articles", label: "Voice Over", labelKey: "nav.voiceOver", icon: Mic },
+      { href: "/video-script-writer", label: "Video Script Writer", labelKey: "nav.videoScriptWriter", icon: Captions },
+      { href: "/post", label: "Post ทุกช่องทาง", labelKey: "nav.postAllChannels", icon: Share2 },
     ],
   },
   {
     id: "finance-legal",
     label: "Finance & Legal",
+    labelKey: "group.financeLegal",
     items: [
-      { href: "/accounting", label: "Accounting", icon: Wallet, ownerOnly: true },
-      { href: "/receipts", label: "ใบเสร็จ", icon: ReceiptIcon, ownerOnly: true },
-      { href: "/payments", label: "การชำระเงิน", icon: HandCoins, ownerOnly: true },
-      { href: "/voice", label: "AI Receptionist", icon: Phone, ownerOnly: true },
-      { href: "/tax", label: "ภาษีอัตโนมัติ", icon: Landmark, ownerOnly: true },
-      { href: "/events", label: "งานแสดง/กิจกรรม", icon: CalendarHeart, ownerOnly: true },
-      { href: "/legal", label: "เอกสาร/สัญญา", icon: Scale },
-      { href: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
+      { href: "/accounting", label: "Accounting", labelKey: "nav.accounting", icon: Wallet, ownerOnly: true },
+      { href: "/receipts", label: "ใบเสร็จ", labelKey: "nav.receipts", icon: ReceiptIcon, ownerOnly: true },
+      { href: "/payments", label: "การชำระเงิน", labelKey: "nav.payments", icon: HandCoins, ownerOnly: true },
+      { href: "/voice", label: "AI Receptionist", labelKey: "nav.aiReceptionist", icon: Phone, ownerOnly: true },
+      { href: "/tax", label: "ภาษีอัตโนมัติ", labelKey: "nav.autoTax", icon: Landmark, ownerOnly: true },
+      { href: "/events", label: "งานแสดง/กิจกรรม", labelKey: "nav.events", icon: CalendarHeart, ownerOnly: true },
+      { href: "/legal", label: "เอกสาร/สัญญา", labelKey: "nav.documentsContracts", icon: Scale },
+      { href: "/reports", label: "Reports", labelKey: "nav.reports", icon: BarChart3, ownerOnly: true },
     ],
   },
   {
     id: "system",
     label: "System",
+    labelKey: "group.system",
     maturity: "beta",
     items: [
-      { href: "/control-center", label: "Control Center", icon: Gauge, ownerOnly: true },
-      { href: "/ai-cost", label: "ต้นทุน AI", icon: Coins, ownerOnly: true },
-      { href: "/ai-quality", label: "คุณภาพ AI", icon: BadgeCheck, ownerOnly: true },
-      { href: "/winback", label: "Win-back ลูกค้า", icon: Sparkles, ownerOnly: true },
-      { href: "/approvals", label: "การอนุมัติ", icon: ShieldCheck },
-      { href: "/data-health", label: "Data Health", icon: HeartPulse },
-      { href: "/system-health", label: "System Health", icon: Activity },
-      { href: "/settings", label: "Settings", icon: Settings, ownerOnly: true },
+      { href: "/control-center", label: "Control Center", labelKey: "nav.controlCenter", icon: Gauge, ownerOnly: true },
+      { href: "/ai-cost", label: "ต้นทุน AI", labelKey: "nav.aiCost", icon: Coins, ownerOnly: true },
+      { href: "/ai-quality", label: "คุณภาพ AI", labelKey: "nav.aiQuality", icon: BadgeCheck, ownerOnly: true },
+      { href: "/winback", label: "Win-back ลูกค้า", labelKey: "nav.winback", icon: Sparkles, ownerOnly: true },
+      { href: "/approvals", label: "การอนุมัติ", labelKey: "nav.approvals", icon: ShieldCheck },
+      { href: "/data-health", label: "Data Health", labelKey: "nav.dataHealth", icon: HeartPulse },
+      { href: "/system-health", label: "System Health", labelKey: "nav.systemHealth", icon: Activity },
+      { href: "/settings", label: "Settings", labelKey: "nav.settings", icon: Settings, ownerOnly: true },
     ],
   },
 ];
@@ -237,11 +250,13 @@ function isActive(pathname: string | null, href: string): boolean {
 function NavLink({
   href,
   label,
+  labelKey,
   icon: Icon,
   active,
   onNavigate,
   badgeCount,
 }: NavItem & { active: boolean; onNavigate?: () => void; badgeCount?: number }) {
+  const { lang } = useLang();
   return (
     <Link
       href={href}
@@ -254,7 +269,7 @@ function NavLink({
       )}
     >
       <Icon className={cn("h-4 w-4 shrink-0", active ? "text-blue-600 dark:text-blue-300" : "text-secondary/40 group-hover:text-secondary/70 dark:text-white/40 dark:group-hover:text-white/70")} />
-      <span className="flex-1 truncate">{label}</span>
+      <span className="flex-1 truncate">{labelKey ? translate(lang, labelKey) : label}</span>
       {badgeCount ? (
         <span
           className={cn(
@@ -284,6 +299,7 @@ function GroupSection({
   onNavigate?: () => void;
   showMaturity?: boolean;
 }) {
+  const { lang } = useLang();
   return (
     <div>
       <button
@@ -292,7 +308,7 @@ function GroupSection({
         className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-secondary/35 transition-colors hover:text-secondary/70 dark:text-white/35 dark:hover:text-white/70"
       >
         <span className="flex items-center gap-1.5">
-          {group.label}
+          {group.labelKey ? translate(lang, group.labelKey) : group.label}
           {showMaturity ? (
             <Badge variant={group.maturity === "beta" ? "warning" : "outline"} className="normal-case tracking-normal">
               {group.maturity === "beta" ? "Beta" : "Stable"}
@@ -345,6 +361,7 @@ export function SidebarNav({ role = null, onNavigate, soloMode = false, alertCou
     .filter((group) => group.items.length > 0);
   const isOnCoreRoute = CORE_HREFS.some((href) => isActive(pathname, href));
   const [advancedOpen, setAdvancedOpen] = useState<boolean>(() => !isOnCoreRoute);
+  const { lang } = useLang();
 
   function toggleGroup(id: string) {
     setOpenGroups((prev) => {
@@ -368,7 +385,7 @@ export function SidebarNav({ role = null, onNavigate, soloMode = false, alertCou
             onClick={() => setAdvancedOpen((prev) => !prev)}
             className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-secondary/35 hover:text-secondary/70 dark:text-white/35 dark:hover:text-white/70"
           >
-            Advanced
+            {translate(lang, "shell.advanced")}
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", advancedOpen ? "rotate-180" : "")} />
           </button>
           {advancedOpen ? (
