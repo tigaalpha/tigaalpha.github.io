@@ -32,6 +32,7 @@ import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay,
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
 import { runTeachingLoopForPractice } from "./tigamodel/web";
 import { buildParentReport } from "./use-practice-coach";
+import { teacherAdviceFor } from "./tigamodel/web";
 import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes } from "./use-autoteach";
 import { pickTeachCard, markCardSeen, readKnowledgeStats, bumpKnowledgeStats, readNoteMissMap, cardSourceInfo } from "./tigamodel/knowledge/teach-cards.js";
 import TeachVisual from "./TeachVisual";
@@ -8099,6 +8100,7 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
   const [questBusy, setQuestBusy] = useState(false);
   const [questMsg, setQuestMsg] = useState("");
   const [curQuest, setCurQuest] = useState(null);
+  const [tigaAdv, setTigaAdv] = useState(null); // per-student TIGA pre-lesson advice (Phase 3)
   const loadQuest = useCallback(() => {
     sb.rpc("get_school_quest", { p_school_id: schoolId }).then(({ data, error }) => setCurQuest(error ? null : data));
   }, [schoolId]);
@@ -8220,9 +8222,9 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
       </div>
       <div style={{ fontSize: 12, color: "var(--muted)", margin: "2px 0 10px" }}>{lc.schoolDashSub}</div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-        {["roster", "invite"].map(t => (
+        {["roster", "tiga", "invite"].map(t => (
           <button key={t} className={`songfilter${tab === t ? " on" : ""}`} onClick={() => setTab(t)}>
-            {t === "roster" ? lc.schoolRoster : lc.schoolInvite}
+            {t === "roster" ? lc.schoolRoster : t === "tiga" ? T("🧠 TIGA", "🧠 TIGA", "🧠 TIGA") : lc.schoolInvite}
           </button>
         ))}
       </div>
@@ -8252,6 +8254,68 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
           {!list.length && <div className="admstu-empty">{lc.schoolNoRoster}</div>}
         </div>
       </>)}
+
+      {/* ── 🧠 TIGA tab (Phase 3, spec §34): class overview + per-student
+          pre-lesson advice, computed from each student's SYNCED progress —
+          the same data school_roster already shows, plus the TIGA layer:
+          risk flags, the coach's diagnosis, and a 30-min lesson plan. ── */}
+      {tab === "tiga" && (() => {
+        const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const students = rows.filter(r => r.role === "student");
+        const advs = students.map(st => ({ st, adv: teacherAdviceFor(st.progress || {}) }));
+        const flagged = advs.filter(({ adv }) => adv && adv.flags.some(f => !f.positive)); // positive "ready" flags are good news, not a problem
+        const seen = advs.filter(({ adv }) => adv && !adv.flags.some(f => !f.positive) && adv.summary.daysIdle != null && adv.summary.daysIdle <= 2);
+        const quiet = advs.filter(({ adv }) => !adv || adv.summary.daysIdle == null || adv.summary.daysIdle > 7);
+        return (
+          <>
+            <div className="admmg" style={{ marginBottom: 12 }}>
+              <div className="admmg-h">🧠 {T3("ภาพรวมห้องเรียนโดยครู TIGA", "Class overview by Teacher TIGA", "TIGA 班级概览")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                <button className={`songfilter${true && " on"}`} style={{ cursor: "default" }}>🚩 {T3("ต้องดูแล", "Needs attention", "需关注")} · {flagged.length}</button>
+                <button className="songfilter">✅ {T3("กำลังเดินหน้า", "On track", "正常")} · {seen.length}</button>
+                <button className="songfilter">😴 {T3("เงียบหาย", "Quiet", "沉默")} · {quiet.length}</button>
+              </div>
+              {flagged.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8 }}>{T3("ยังไม่มีใครติดธง — ดูรายคนด้านล่างได้เลย", "No flags right now — see per-student advice below", "暂无预警——查看下方每个学生的建议")}</div>}
+            </div>
+            <div className="admstu-list">
+              {advs.map(({ st, adv }) => {
+                const li = levelInfo(st.exp || 0);
+                return (
+                  <div key={st.member_id} className="admmg" style={{ padding: "10px 12px" }}>
+                    <button className="admstu-row" style={{ width: "100%", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }} onClick={() => { setSel(st); setTab("roster"); }}>
+                      <div className="admstu-av sm">{(st.full_name || st.email || "?").trim().charAt(0).toUpperCase()}</div>
+                      <div className="admstu-row-body">
+                        <div className="admstu-row-nm">{st.full_name || st.email || "—"}</div>
+                        <div className="admstu-row-meta">Lv {li.level} · {T3("แม่นเฉลี่ย", "avg acc", "平均准确")} {adv && adv.summary.avgAcc != null ? adv.summary.avgAcc + "%" : "—"}</div>
+                      </div>
+                    </button>
+                    {adv && adv.flags.length > 0 && (
+                      <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {adv.flags.map((f, i) => (
+                          <span key={i} className="pd-tag focus" title={f.en}>{f.icon} {T3(f.th, f.en, f.zh)}</span>
+                        ))}
+                      </div>
+                    )}
+                    {adv && adv.focus && (
+                      <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6 }}>
+                        🎯 <b>{adv.focus.label}</b>{adv.focus.acc != null ? ` · ${adv.focus.acc}%` : ""}{adv.focus.bpm ? ` · ${adv.focus.bpm} BPM` : ""}
+                        {(adv.focus.how || []).slice(0, 1).map((h, i) => <div key={i} style={{ color: "var(--muted)", marginTop: 2 }}>→ {h}</div>)}
+                      </div>
+                    )}
+                    {adv && adv.plan && (
+                      <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>
+                        ⏱ {T3("แผนคาบ 30 นาที", "30-min plan", "30分钟计划")}: {adv.plan.parts.map(p => `${p.key} ${p.minutes}′`).join(" · ")}{adv.plan.focus ? ` (${T3("โฟกัส", "focus", "重点")}: ${adv.plan.focus})` : ""}
+                      </div>
+                    )}
+                    {!adv && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>{T3("ยังไม่มีข้อมูล sync ของนักเรียนคนนี้", "No synced data for this student yet", "该学生暂无同步数据")}</div>}
+                  </div>
+                );
+              })}
+              {!advs.length && <div className="admstu-empty">{T3("ยังไม่มีนักเรียนในโรงเรียน", "No students yet", "暂无学生")}</div>}
+            </div>
+          </>
+        );
+      })()}
 
       {tab === "invite" && (<>
         <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>{lc.schoolCodeHint}</div>

@@ -178,6 +178,64 @@ export function studentExerciseKinds() {
   try { return _GENERATOR_KINDS(); } catch (e) { return []; }
 }
 
+/* ══ PHASE 3 — TEACHER DASHBOARD ADVICE (spec §34) ══
+   The teacher's SchoolDashboard already shows every student's SYNCED real
+   state (school_roster → profiles.progress: practiceLog/gameLog/memory/
+   summary). What it lacks is the TIGA layer: WHAT the teacher should DO
+   about each student in the next lesson. teacherAdviceFor(pr) turns one
+   student's synced progress into a pre-lesson brief, using the same engines
+   the student-facing coach uses (getCoachDiagnosis builds what/why/how from
+   real numbers) plus honest risk flags. EVERY field is derived from the
+   student's own record — nothing guessed, null when no data. Pure + sync.
+
+   pr = the progress snapshot shape App.tsx buildProgressSnapshot() writes:
+   { practiceLog:{YYYY-MM-DD:{n,accSum}}, memory:{struggles[],mastered[],
+     noteMisses[]}, summary:{games,avgAcc,pathDone}, streak:{count} } ── */
+export function teacherAdviceFor(pr) {
+  try {
+    if (!pr || typeof pr !== "object") return null;
+    const mem = pr.memory || {};
+    const plog = pr.practiceLog || {};
+    const sum = pr.summary || {};
+
+    /* risk flags — each one a concrete, checkable condition */
+    const now = Date.now();
+    const days = (ts) => Math.floor((now - ts) / 86400000);
+    const flags = [];
+    let lastDayTs = null;
+    for (const k of Object.keys(plog)) {
+      if (k.startsWith("_")) continue;
+      const ts = new Date(k + "T00:00:00").getTime();
+      if (!Number.isNaN(ts) && (lastDayTs == null || ts > lastDayTs)) lastDayTs = ts;
+    }
+    const daysIdle = lastDayTs != null ? Math.floor((now - 86400000 * new Date().getTimezoneOffset() / 1440 - lastDayTs) / 86400000) : null;
+    if (daysIdle != null && daysIdle >= 5) flags.push({ id: "idle", icon: "😴", th: `ห่างหาย ${daysIdle} วัน — ควรถามก่อนว่าติดอะไร`, en: `Away ${daysIdle} days — ask what's blocking first`, zh: `缺席 ${daysIdle} 天——先了解原因` });
+    const topMiss = (mem.noteMisses || []).slice().sort((a, b) => (b.count || 0) - (a.count || 0))[0] || null;
+    if (topMiss && (topMiss.count || 0) >= 3) flags.push({ id: "note", icon: "🎼", th: `โน้ต ${topMiss.label} พลาดซ้ำ ${topMiss.count} ครั้ง`, en: `Note ${topMiss.label} missed ${topMiss.count}×`, zh: `音符 ${topMiss.label} 已错 ${topMiss.count} 次` });
+    const hardStruggles = (mem.struggles || []).filter(s => (s.acc || 0) < 50 && s.last && days(s.last) <= 14);
+    if (hardStruggles.length > 0) flags.push({ id: "stuck", icon: "🧱", th: `ติดจริง: ${hardStruggles[0].label} (${hardStruggles[0].acc}%)`, en: `Stuck: ${hardStruggles[0].label} (${hardStruggles[0].acc}%)`, zh: `卡住：${hardStruggles[0].label}（${hardStruggles[0].acc}%）` });
+    if ((sum.avgAcc || 0) >= 85 && (sum.games || 0) >= 5) flags.push({ id: "ready", icon: "🚀", positive: true, th: "เก่งขึ้นจริง — พร้อมท้าทายเพลงใหม่", en: "Ready for a new challenge piece", zh: "可以挑战新曲目" });
+
+    /* the coach's diagnosis engine — what/why/how from real numbers
+       (getCoachDiagnosis reads localStorage; here we pass the student's
+       SYNCED memory directly to the underlying builder instead) */
+    let focus = null;
+    try {
+      const d = buildDiagnosis({ memory: mem, practiceLog: plog });
+      if (d) focus = { label: d.what.label, acc: d.what.acc, trend: d.what.trend, why: d.why, how: d.how, bpm: d.meta ? d.meta.bpm : null };
+    } catch (e) {}
+
+    /* lesson plan for the next session — from the real time-budget engine */
+    let plan = null;
+    try {
+      const b = practiceTimeBudget(30, { memory: mem });
+      if (b && Array.isArray(b.parts)) plan = { total: b.total, focus: b.focus || null, parts: b.parts.map(p => ({ key: p.key, minutes: p.minutes, label: p.label || null })) };
+    } catch (e) {}
+
+    return { flags, focus, plan, summary: { avgAcc: sum.avgAcc || null, games: sum.games || null, pathDone: sum.pathDone || null, daysIdle } };
+  } catch (e) { return null; }
+}
+
 /* ── THE UNIFIED PLAN (owner directive: รวมแผน 100 + แผน 1M เป็นแผ่นเดียว):
    100 streams × their 1M cells, one work order, statuses verified by the
    capability engine (a "done" tick without real capability never shows done). ── */

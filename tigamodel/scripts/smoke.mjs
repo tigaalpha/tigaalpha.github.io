@@ -4,7 +4,7 @@
 
 import assert from "node:assert";
 import { execSync } from "node:child_process";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync as ioSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const OUT = "node_modules/.tmp-tigamodel";
@@ -36,6 +36,18 @@ execSync(`npx esbuild ${files.map(f => `tigamodel/${f}`).join(" ")} --outdir=${O
    external; only the pure builder is exercised here. */
 execSync(`npx esbuild use-practice-coach.ts --bundle --outfile=${OUT}/use-practice-coach.js --format=esm --platform=node --loader:.ts=ts --packages=external`, { stdio: "pipe" });
 const pcM = await import(pathToFileURL(`${OUT}/use-practice-coach.js`).href);
+/* web.js imports ../supabase-client (which imports @supabase/supabase-js and
+   env vars). To assemble the REAL web.js under Node we temporarily swap in a
+   stub at the resolved path, bundle, then restore the real file. */
+const SB_REAL = readFileSync("supabase-client.ts", "utf8");
+ioSync("supabase-client.ts", "export const sb = null;\n");
+let webM = null;
+try {
+  execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/web.js --format=esm --platform=node --loader:.js=js --packages=external`, { stdio: "pipe" });
+  webM = await import(pathToFileURL(`${OUT}/web.js`).href);
+} finally {
+  ioSync("supabase-client.ts", SB_REAL);   // always restore — even on failure
+}
 /* minimal localStorage for the helper modules under Node — installed BEFORE
    they are imported (module init doesn't touch it, but calls will) */
 globalThis.localStorage = { _m: new Map(), getItem(k) { return this._m.has(k) ? this._m.get(k) : null; }, setItem(k, v) { this._m.set(k, String(v)); }, removeItem(k) { this._m.delete(k); } };
@@ -340,6 +352,30 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
       const rep = pcM.buildParentReport({});
       assert.ok(rep && rep.series.length === 14 && rep.trend == null && rep.focus == null && rep.improvements.length === 0, "empty data → nulls, not fabrications");
     } finally { pcM2.writePracticeLogForTest({}); pcM2.writeOutcomesForTest([]); }
+  });
+
+  await ok("Phase 3 teacherAdviceFor: flags, focus, and 30-min plan from synced progress", async () => {
+    const k = (n) => { const d = new Date(Date.now() - n * 864e5); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+    const pr = {
+      practiceLog: { [k(9)]: { n: 1, accSum: 70 } },   // last practice 9 days ago → idle flag
+      memory: { struggles: [{ label: "ท่อน A", acc: 45, count: 3, last: Date.now() - 2 * 864e5 }], mastered: [], noteMisses: [{ label: "F", count: 4, last: Date.now() }] },
+      summary: { games: 6, avgAcc: 58, pathDone: 3 },
+      streak: { count: 0 },
+    };
+    const adv = webM.teacherAdviceFor(pr);
+    assert.ok(adv && adv.flags.length >= 2, "idle + stuck/note flags expected, got " + JSON.stringify(adv && adv.flags));
+    assert.ok(adv.flags.some(f => f.id === "idle"), "9-day gap → idle flag");
+    assert.ok(adv.focus && adv.focus.label === "ท่อน A" && adv.focus.bpm >= 50, "diagnosis focus = the real stuck spot with a BPM");
+    assert.ok(adv.plan && adv.plan.parts.length >= 2, "30-min lesson plan has parts");
+    const onTrack = webM.teacherAdviceFor({ practiceLog: { [k(0)]: { n: 2, accSum: 180 } }, memory: { struggles: [], mastered: [], noteMisses: [] }, summary: { games: 6, avgAcc: 88, pathDone: 9 }, streak: { count: 4 } });
+    assert.ok(onTrack && onTrack.flags.every(f => f.positive), "healthy student → only positive flags (none negative)");
+  });
+
+  await ok("Phase 3 teacherAdviceFor: null/garbage → null, empty record → empty-but-valid advice", async () => {
+    assert.equal(webM.teacherAdviceFor(null), null);
+    assert.equal(webM.teacherAdviceFor("x"), null);
+    const empty = webM.teacherAdviceFor({});
+    assert.ok(empty && Array.isArray(empty.flags) && empty.flags.length === 0 && empty.focus == null, "no data → no flags, no focus (nothing invented)");
   });
 
   await ok("coach data: garbage in → null (never throws into the result screen)", async () => {
