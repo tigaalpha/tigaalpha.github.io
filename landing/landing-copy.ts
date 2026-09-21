@@ -39,6 +39,8 @@ export const C = {
   th: {
     htmlTitle: "ลองเรียนเปียโนกับครู AI — TIGA",
     kicker: "ครูเปียโน AI",
+    welcomeBack: "ยินดีที่ได้เจออีกครั้ง — บัญชีของคุณพร้อมใช้",
+    welcomeGo: "เข้าไปเล่นต่อ →",
     h1a: "ถามครูเปียโน AI แล้ว",
     h1b: "เล่นให้ดูบนคีย์จริง",
     sub: "กดคีย์ข้างล่างได้เลย — ไม่ต้องสมัคร ไม่ต้องโหลดอะไรทั้งนั้น เลือกคำถามสักข้อ แล้ว TIGA จะอธิบายพร้อมเล่นให้ดูทีละนิ้ว",
@@ -105,6 +107,8 @@ export const C = {
   en: {
     htmlTitle: "Try a piano lesson with an AI teacher — TIGA",
     kicker: "AI PIANO TEACHER",
+    welcomeBack: "Welcome back — your account is ready",
+    welcomeGo: "Continue to the app →",
     h1a: "Ask an AI piano teacher, and watch it ",
     h1b: "play the answer on real keys",
     sub: "Play the keyboard below right now — no sign-up, nothing to install. Pick a question and TIGA explains it while playing it for you, finger by finger.",
@@ -171,6 +175,8 @@ export const C = {
   zh: {
     htmlTitle: "和 AI 钢琴老师试上一课 — TIGA",
     kicker: "AI 钢琴老师",
+    welcomeBack: "欢迎回来 — 你的账号已就绪",
+    welcomeGo: "进入应用 →",
     h1a: "问 AI 钢琴老师，看它",
     h1b: "在真实琴键上弹给你看",
     sub: "下面的琴键现在就能弹——不用注册，不用下载。挑一个问题，TIGA 会一边讲解一边一个音一个音弹给你看。",

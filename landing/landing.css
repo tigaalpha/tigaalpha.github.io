@@ -131,7 +131,18 @@ body {
   font-size: 12.5px; line-height: 1.45;
   background: var(--acc-soft); color: var(--text); border: 1px solid var(--acc);
 }
-.lp-opencopied {
+/* A2 returning-member welcome strip — one line + one button, sits where
+   the openwhy banner sits; everything sales-shaped is suppressed around it. */
+.lp-welcome {
+  margin: 0 0 4px; padding: 10px 14px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  background: var(--card2); border: 1px solid var(--acc);
+  font-size: 13px; color: var(--text);
+  animation: lp-rise .35s cubic-bezier(.2,.8,.3,1) both;
+}
+.lp-welcome .lp-btn { padding: 8px 14px; font-size: 13px; flex: 0 0 auto; }
+
+..lp-opencopied {
   margin: 0 0 4px; padding: 8px 12px; border-radius: 12px;
   font-size: 12.5px; background: var(--card2); color: var(--text); border: 1px solid var(--line2);
 }

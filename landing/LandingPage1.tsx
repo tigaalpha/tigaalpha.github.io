@@ -154,6 +154,28 @@ export default function LandingPage1() {
   const [gate, setGate] = useState(false);
   const [gateBusy, setGateBusy] = useState(false);
   const gateSkipped = useRef(false);
+  /* A2 (conversion plan v4, Stream A): a signed-in member who lands here is
+     not a lead — showing them the sign-up funnel again is selling twice, and
+     their "gate:skip" rows poison the funnel's denominator. Detected once on
+     mount via a dynamic supabase import (same lazy pattern as getSb()); when
+     a real session exists the page swaps to a welcome strip and every ask
+     (gate, sticky, nudge) is suppressed for the whole visit. */
+  const [returningUser, setReturningUser] = useState(false);
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        const sb = await getSb();
+        const { data } = await sb.auth.getSession();
+        const s = data && data.session;
+        if (!dead && s && s.user && !s.user.is_anonymous) {
+          setReturningUser(true);
+          land("returning_user");
+        }
+      } catch (e) { /* no session readable — treat as guest */ }
+    })();
+    return () => { dead = true; };
+  }, []);
   /* The inline nudge after the first real AI answer. The dashboard killed the
      old plan of asking after three answers: nobody was still there by the
      third — the median visit died around one. One answer received is the
@@ -193,6 +215,7 @@ export default function LandingPage1() {
   const bottomRef = useRef(null);
   const signupRef = useRef(null);
   const firstKey = useRef(false);
+  const ahaWatched = useRef(false); // B4: fired once, first full demo watched
   const t0 = useRef(Date.now());
   /* Whether the hero piano has actually scrolled into view. "Played" (8%)
      was measurable but "saw it and didn't play" vs "never scrolled to it"
@@ -256,6 +279,11 @@ export default function LandingPage1() {
     const tm = setTimeout(() => setSticky(true), 15000);
     return () => clearTimeout(tm);
   }, []);
+  // A2: the sticky CTA and the chat nudge are signup asks — a signed-in
+  // member sees neither. Their one visible CTA is the welcome strip's.
+  useEffect(() => {
+    if (returningUser) { setSticky(false); setNudged(false); }
+  }, [returningUser]);
 
   /* hero:seen — logged once, the first time the piano actually enters the
      viewport. Pairs with "piano" (tapped) so the funnel can finally split
@@ -399,6 +427,10 @@ export default function LandingPage1() {
     scrollDown();
 
     playDemo(lesson.demo, lesson.demoLabel[lang]);
+    // B4: aha:watched — they asked and are watching the answer played out.
+    // Fired once per visit; pairs with aha:heard as the two strongest
+    // predictors of signup (conversion plan v4, Stream B).
+    if (!ahaWatched.current) { ahaWatched.current = true; land("aha:watched"); }
 
     /* Reveal over a fixed ~2.2s rather than at a fixed speed, so a longer
        answer is not a longer wait — the pacing should feel like the model
@@ -429,9 +461,13 @@ export default function LandingPage1() {
 
   const onHeroNote = useCallback(() => {
     setTouched(true);
+    /* B4 (conversion plan v4): aha:heard — the first note the VISITOR themself
+       sounded (the demo riff's own notes don't count; this callback only fires
+       on their taps). The single best predictor downstream of "piano". */
     if (firstKey.current) return;
     firstKey.current = true;
     land("piano");
+    land("aha:heard");
   }, []);
 
   function openSignup(q, from) {
@@ -484,14 +520,14 @@ export default function LandingPage1() {
     const onFirst = () => {
       playTeaser();
       setTimeout(() => {
-        if (gateSkipped.current || !teased.current) return;
+        if (returningUser || gateSkipped.current || !teased.current) return; // A2: never gate a member
         land("gate:shown");
         setGate(true);
       }, 15000);
     };
     window.addEventListener("pointerdown", onFirst, { passive: true, once: true });
     return () => window.removeEventListener("pointerdown", onFirst);
-  }, [playTeaser]);
+  }, [playTeaser, returningUser]);
 
   /* ── the typed question goes to the real AI ──
      This is the page's actual promise. The four chips are canned lessons, and
@@ -546,10 +582,10 @@ export default function LandingPage1() {
       });
       setAsked(n => n + 1);
       land("ai");
-      setSticky(true);
+      if (!returningUser) setSticky(true);
       /* First answer received = the moment of proof. The nudge fires once,
          only after a real answer, never over a typing indicator. */
-      if (!nudged) { setNudged(true); land("nudge:shown"); }
+      if (!nudged && !returningUser) { setNudged(true); land("nudge:shown"); }
     } catch (err) {
       setTyping(false);
       if (err && err.limit) {
@@ -612,6 +648,16 @@ export default function LandingPage1() {
       {inApp && <p className="lp-openwhy">⚠️ {t.openWhy}</p>}
       {copied && <p className="lp-opencopied" role="status">{t.openCopied}</p>}
 
+      {/* A2: members get a welcome strip instead of the sales funnel — one
+          quiet line, one button into the app. Everything else on this page
+          (gate, sticky, nudge, signup card) is suppressed for them. */}
+      {returningUser && (
+        <div className="lp-welcome" role="status">
+          <span>👋 {t.welcomeBack}</span>
+          <a className="lp-btn primary" href={APP_URL}>{t.welcomeGo}</a>
+        </div>
+      )}
+
       {/* ── the webview escape, full-screen ──
           Raised over everything the moment the visitor lands on the sign-up
           card inside a webview — because that is when the browser problem
@@ -671,7 +717,7 @@ export default function LandingPage1() {
         {/* The one quiet inline ask, fired right after the first real answer
             lands — proof first, then the offer. Dismissible in one tap, never
             shown twice, and it stays out of the way of the chips below. */}
-        {nudged && !signup && (
+        {nudged && !signup && !returningUser && (
           <div className="lp-row">
             <div className="lp-av">TIGA<br />AI</div>
             <div className="lp-bub lp-nudge">
@@ -736,7 +782,7 @@ export default function LandingPage1() {
         <a href={APP_URL}>{t.enterApp}</a> · <a href="/privacy-policy.html">{t.privacy}</a>
       </p>
 
-      {sticky && !signup && !gate && (
+      {sticky && !signup && !gate && !returningUser && (
         <div className="lp-sticky">
           <button className="lp-btn primary" onClick={() => openSignup("", "cta")}>{t.sticky}</button>
         </div>

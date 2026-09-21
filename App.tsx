@@ -107,7 +107,7 @@ import {
   readActLog, logActivity, recordNoteMisses, readPracticeLog,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
   guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
-  readLandingOrigin, clearLandingOrigin,
+  readLandingOrigin, clearLandingOrigin, anonId,
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync } from "./cloud-sync";
 import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone } from "./app-shell";
@@ -422,7 +422,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.378";
+const APP_VER = "13.7.379";
 
 async function signInWith(provider) {
   try {
@@ -9907,6 +9907,29 @@ export default function App() {
         // or the account already carries the answer): don't let a stale
         // stamp linger — it would mislabel a much later signup.
         clearLandingOrigin();
+      }
+      /* ── A3 (conversion plan v4): count Google-door signups in the funnel.
+         The stamp only survives to a first login, so its presence here — even
+         when the profiles.update above was skipped (row not ready yet, or the
+         account predates the feature) — still means THIS login came through a
+         landing page. Fire the event unconditionally when a stamp existed so
+         sum(signup events) reconciles with real new members. */
+      if (data && landingOrigin) {
+        logUsage("land", "signup:google");
+      }
+      /* ── A4 (conversion plan v4): identity stitching. The device's anon_id
+         is the only pre-signup identity that exists; pairing it with the real
+         uid at first login lets the dashboard JOIN a signup back onto every
+         guest event that same browser ever emitted (view/piano/ask/ai/gate). */
+      if (data) {
+        const aid = anonId();
+        const stitchKey = "tg_stitched_" + uid;
+        let already = false;
+        try { already = !!localStorage.getItem(stitchKey); } catch (e) {}
+        if (aid && !already) {
+          logUsage("land", "signed_up_from:" + aid);
+          try { localStorage.setItem(stitchKey, "1"); } catch (e) {}
+        }
       }
       setProfile(finalData || null);
       setProfileReady(true);
