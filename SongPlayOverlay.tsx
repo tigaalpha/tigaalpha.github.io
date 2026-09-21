@@ -182,11 +182,11 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
                 <span className="kdrop-badge">💡</span>
                 <span className="kdrop-text">{kDrop.text}</span>
               </div>}
-              {songPops.map(p => (
+              {Array.isArray(songPops) && songPops.map(p => (
                 <div key={p.id} className={`songpop${p.perfect ? " perfect" : ""}`} style={{ left: p.x + "%" }}>{p.text}</div>
               ))}
               {songJudge && <div className={`songjudge ${songJudge.kind}`} key={songJudge.id}>{songJudge.kind === "perfect" ? lc.judgePerfect : songJudge.kind === "good" ? lc.judgeGood : lc.judgeMiss}</div>}
-              {songBursts.map(b => (
+              {Array.isArray(songBursts) && songBursts.map(b => (
                 <div key={b.id} className={`burst ${b.kind}`}>
                   {Array.from({ length: 10 }).map((_, i) => (
                     <i key={i} style={{ "--a": (i * 36) + "deg", "--d": (28 + (i % 3) * 14) + "px" }} />
@@ -273,7 +273,7 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
                 <div className="concertrecap">
                   <div className="concertrecap-title">🎤 {lc.concertComplete}</div>
                   <div className="concertrecap-songs">
-                    {songResult.setlist.map((s, i) => (
+                    {Array.isArray(songResult.setlist) && songResult.setlist.map((s, i) => (
                       <span key={i} className="concertrecap-song">{tr(s.song, lang)} {"★".repeat(s.stars)}{"☆".repeat(3 - s.stars)}</span>
                     ))}
                   </div>
@@ -304,7 +304,7 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
                     </div>
                   )}
                   <ol className="songanalysis-steps">
-                    {songAnalysis.steps.map((s, i) => <li key={i}>{s}</li>)}
+                    {Array.isArray(songAnalysis.steps) && songAnalysis.steps.map((s, i) => <li key={i}>{String(s)}</li>)}
                   </ol>
                   <button className="songbtn ghost" style={{ width: "100%", marginTop: 8, fontSize: 12 }}
                     onClick={() => { setSongPhase("ready"); }}>
@@ -322,7 +322,7 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
                     </button>
                   )}
                   <div className="drillcard-segs">
-                    {drillPlan.map((seg, i) => (
+                    {Array.isArray(drillPlan) && drillPlan.map((seg, i) => (
                       <button key={seg.idx} className="drillseg" onClick={() => { setSongPhase("ready"); startDrill(seg); }}
                         style={{ "--w": Math.min(100, 25 + seg.misses * 18) + "%" }}>
                         <span className="drillseg-num">#{i + 1}</span>
@@ -420,7 +420,7 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
                   <button className="cbtn" onClick={() => setKShelfOpen(false)}>✕</button>
                 </div>
                 <div className="kshelf-list">
-                  {kShelf && kShelf.length ? kShelf.map((k, i) => (
+                  {Array.isArray(kShelf) && kShelf.length ? kShelf.map((k, i) => (
                     <div key={i} className="kshelf-item">
                       <span className="kshelf-key">{k.pc}</span>
                       <span className="kshelf-txt">{lang === "th" ? (k.th || k.text) : lang === "zh" ? (k.zh || k.text) : (k.en || k.text)}</span>

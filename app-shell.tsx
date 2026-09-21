@@ -26,8 +26,8 @@ import { saveGuestProfile } from "./shared-infra";
 // blast radius of a future crash, not add any protection that's missing
 // today, so they're left as a possible follow-up rather than done here.
 export class ErrorBoundary extends Component {
-  constructor(props) { super(props); this.state = { hasError: false }; }
-  static getDerivedStateFromError() { return { hasError: true }; }
+  constructor(props) { super(props); this.state = { hasError: false, errText: "", errStack: "", copied: false }; }
+  static getDerivedStateFromError(error) { return { hasError: true, errText: String((error && error.message) || error), errStack: String((error && error.stack) || "") }; }
   componentDidCatch(error, info) { console.error("Uncaught render error:", error, info); }
   render() {
     if (!this.state.hasError) return this.props.children;
@@ -58,6 +58,10 @@ export class ErrorBoundary extends Component {
           .catch(() => go(window.location.href));
       } catch (e) { go(window.location.href); }
     };
+    // Show the actual error (collapsed by default) so a crash report is one
+    // screenshot away instead of a dead end — every session of debugging this
+    // app has started with "เกิดข้อผิดพลาด" and zero information about where.
+    const report = (this.state.errStack || this.state.errText || "unknown").slice(0, 1200);
     return (
       <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
         <div className="scan" />
@@ -66,6 +70,15 @@ export class ErrorBoundary extends Component {
           <div className="locktitle">เกิดข้อผิดพลาด · Something went wrong</div>
           <div className="locksub">ขออภัยในความไม่สะดวก กรุณาโหลดหน้าใหม่อีกครั้ง<br />Sorry about that — please reload the page to continue.</div>
           <button className="lockbtn" onClick={reload}>โหลดใหม่ · Reload</button>
+          <details style={{ marginTop: 14, maxWidth: 420, width: "92%", textAlign: "left" }}>
+            <summary style={{ cursor: "pointer", opacity: 0.75, fontSize: 13, fontFamily: "'Share Tech Mono',monospace" }}>
+              รายละเอียด error (แตะเพื่อคัดลอก) · Show error
+            </summary>
+            <pre onClick={() => { try { navigator.clipboard.writeText(report); this.setState({ copied: true }); } catch (e) {} }}
+              style={{ marginTop: 8, padding: 10, borderRadius: 10, background: "rgba(0,0,0,0.45)", color: "#fca5a5", fontSize: 11, lineHeight: 1.5, maxHeight: 220, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", cursor: "pointer", fontFamily: "'Share Tech Mono',monospace" }}>
+              {report}{this.state.copied ? "\n\n✓ copied" : ""}
+            </pre>
+          </details>
         </div>
       </div>
     );
