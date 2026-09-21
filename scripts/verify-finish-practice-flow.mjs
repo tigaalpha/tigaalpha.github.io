@@ -391,9 +391,16 @@ console.log(`  (practiceResult via server probe: ${api.practiceResult ? "set" : 
         metroBpm: 80, onSetTempo: () => {}, onTipUpdate: () => {},
         onKeepGoing: () => {}, showKeepGoing: false,
       }));
-      await new Promise(res => setTimeout(res, 250)); // effect → build → set → re-render
-      const card = mount.querySelector(".pcoach");
-      const text = card ? card.textContent : "";
+      // the card fills via an ASYNC effect (build → set → re-render) — poll up
+      // to 2s for real content instead of a fixed sleep (fixed 250ms flaked
+      // whenever the machine was under load; assertions themselves unchanged)
+      let text = "";
+      for (let i = 0; i < 40; i++) {
+        await new Promise(res => setTimeout(res, 50));
+        const card = mount.querySelector(".pcoach");
+        text = card ? card.textContent : "";
+        if (text.length > 40) break;
+      }
       croot.unmount(); mount.remove();
       return text;
     };
