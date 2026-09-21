@@ -1,0 +1,5 @@
+<<<<<<<< HEAD:bundle/web-BrgKvoNP.js
+import{W as o}from"./index.template-TN84jUu3.js";class e extends o{constructor(){super(),this._lastWindow=null}async open(s){this._lastWindow=window.open(s.url,s.windowName||"_blank")}async close(){return new Promise((s,n)=>{this._lastWindow!=null?(this._lastWindow.close(),this._lastWindow=null,s()):n("No active window to close!")})}}const i=new e;export{i as Browser,e as BrowserWeb};
+========
+import{W as o}from"./index.template-ButtXHsF.js";class e extends o{constructor(){super(),this._lastWindow=null}async open(s){this._lastWindow=window.open(s.url,s.windowName||"_blank")}async close(){return new Promise((s,n)=>{this._lastWindow!=null?(this._lastWindow.close(),this._lastWindow=null,s()):n("No active window to close!")})}}const i=new e;export{i as Browser,e as BrowserWeb};
+>>>>>>>> eba4f4e9 (Phase 2 finishers: outcomes-driven exercise selection + visual parent report):bundle/web-B4ne5RaS.js

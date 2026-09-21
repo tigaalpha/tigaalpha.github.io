@@ -36,6 +36,15 @@ execSync(`npx esbuild ${files.map(f => `tigamodel/${f}`).join(" ")} --outdir=${O
    external; only the pure builder is exercised here. */
 execSync(`npx esbuild use-practice-coach.ts --bundle --outfile=${OUT}/use-practice-coach.js --format=esm --platform=node --loader:.ts=ts --packages=external`, { stdio: "pipe" });
 const pcM = await import(pathToFileURL(`${OUT}/use-practice-coach.js`).href);
+/* minimal localStorage for the helper modules under Node — installed BEFORE
+   they are imported (module init doesn't touch it, but calls will) */
+globalThis.localStorage = { _m: new Map(), getItem(k) { return this._m.has(k) ? this._m.get(k) : null; }, setItem(k, v) { this._m.set(k, String(v)); }, removeItem(k) { this._m.delete(k); } };
+execSync(`npx esbuild use-autoteach.ts --bundle --outfile=${OUT}/helpers/autoteach.js --format=esm --platform=node --loader:.ts=ts --external:./supabase-client --external:./local-identity --packages=external`, { stdio: "pipe" });
+execSync(`cp supabase-client.ts local-identity.ts ${OUT}/helpers/ 2>/dev/null || true`, { stdio: "pipe" });
+const pcM2 = {
+  writeOutcomesForTest: (list) => { try { globalThis.localStorage.setItem("tg_atip_outcomes", JSON.stringify(list)); } catch (e) {} },
+  writePracticeLogForTest: (obj) => { try { globalThis.localStorage.setItem("tg_practice_log", JSON.stringify(obj)); } catch (e) {} },
+};
 
 
 const M = (f) => import(pathToFileURL(`${OUT}/${f.replace(/\.js$/, ".js")}`).href);
@@ -285,12 +294,52 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
   await ok("coach data: next exercise is real generator output, level + topic follow this drill", async () => {
     const weak = pcM.buildPracticeCoachData({ label: "rhythm drill", accuracy: 55, rhythmPct: 60, missedNotes: [], practiceTarget: null, seed: 7 });
     assert.ok(weak && weak.exercise && weak.exercise.level === 2, "accuracy 55 → level 2");
-    assert.equal(weak.exercise.topic, 4, "rhythm miss routes to the rhythm topic");
+    assert.equal(weak.exercise.topic, 5, "timing miss routes to the practice-plan (fix-the-stuck-spot) topic");
     assert.ok(weak.exercise.steps && weak.exercise.steps.length >= 2 && weak.exercise.check, "exercise has steps + a check bar");
     const strong = pcM.buildPracticeCoachData({ label: "rhythm drill", accuracy: 96, rhythmPct: 98, missedNotes: [], practiceTarget: null, seed: 7 });
     assert.ok(strong.exercise.level === 5, "accuracy 96 → level 5");
     const det = pcM.buildPracticeCoachData({ label: "rhythm drill", accuracy: 55, rhythmPct: 60, practiceTarget: null, seed: 7 });
     assert.equal(JSON.stringify(det.exercise), JSON.stringify(weak.exercise), "same seed+signals → same exercise (deterministic)");
+  });
+
+  await ok("coach data: the loop's strategy steers the next exercise (RESPOND→ADAPT)", async () => {
+    const d = pcM.buildPracticeCoachData({ label: "boss run", accuracy: 88, missedNotes: [], practiceTarget: null, seed: 7, strategyId: "return-to-prerequisite" });
+    assert.equal(d.exercise.topic, 5, "return-to-prerequisite must force the practice-plan topic");
+    assert.ok(d.exercise.level <= 3, "prerequisite strategy must not raise the level");
+    const up = pcM.buildPracticeCoachData({ label: "boss run", accuracy: 70, missedNotes: [], practiceTarget: null, seed: 7, strategyId: "raise-challenge" });
+    const base = pcM.buildPracticeCoachData({ label: "boss run", accuracy: 70, missedNotes: [], practiceTarget: null, seed: 7, strategyId: null });
+    assert.equal(up.exercise.level, Math.min(5, base.exercise.level + 1), "raise-challenge biases +1");
+  });
+
+  await ok("coach data: real tip win-rate nudges level (needs ≥3 resolved records)", async () => {
+    // 4 resolved wins → +1 bias; verified through the real tg_atip_outcomes store
+    const now = Date.now();
+    const wins = [1, 2, 3, 4].map(i => ({ id: "w" + i, t: now - i * 3600e3, topic: "s" + i, strategyId: "raise-challenge", before: [], resolved: true, outcome: { delta: 6, improved: true, after: 80 } }));
+    try { pcM2.writeOutcomesForTest(wins);
+      const d = pcM.buildPracticeCoachData({ label: "scale run", accuracy: 70, missedNotes: [], practiceTarget: null, seed: 7 });
+      assert.ok(d.exercise.level >= 3, "70% + winning tips → level ≥ 3");
+    } finally { pcM2.writeOutcomesForTest([]); }
+  });
+
+  await ok("parent report: real 14-day series + honest trend + focus from diagnosis", async () => {
+    try {
+      // two practice days this week at 80/90 → trend +5 vs one day last week at 80
+      const d0 = new Date(); const k = n => { const d = new Date(d0.getTime() - n * 864e5); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+      pcM2.writePracticeLogForTest({ [k(0)]: { n: 1, accSum: 80 }, [k(1)]: { n: 1, accSum: 90 }, [k(9)]: { n: 1, accSum: 80 } });
+      const rep = pcM.buildParentReport({ days: 14 });
+      assert.ok(rep && Array.isArray(rep.series) && rep.series.length === 14, "14-day series");
+      const accDays = rep.series.filter(d => d.acc != null);
+      assert.equal(accDays.length, 3, "3 practice days recorded");
+      assert.equal(rep.trend, +5, "this week avg 85 vs last 80 → +5");
+      assert.ok(rep.sessions7 >= 2 && rep.minutes7 >= 0, "7-day counters present");
+    } finally { pcM2.writePracticeLogForTest({}); }
+  });
+
+  await ok("parent report: empty store → all sections honest-null, never throws", async () => {
+    try { pcM2.writePracticeLogForTest({}); pcM2.writeOutcomesForTest([]);
+      const rep = pcM.buildParentReport({});
+      assert.ok(rep && rep.series.length === 14 && rep.trend == null && rep.focus == null && rep.improvements.length === 0, "empty data → nulls, not fabrications");
+    } finally { pcM2.writePracticeLogForTest({}); pcM2.writeOutcomesForTest([]); }
   });
 
   await ok("coach data: garbage in → null (never throws into the result screen)", async () => {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { coachTempoTarget, coachRecap, generateStudentExercise, studentExerciseKinds, getCoach } from "./tigamodel/web";
+import { coachTempoTarget, coachRecap, generateStudentExercise, studentExerciseKinds, getCoach, getCoachDiagnosis } from "./tigamodel/web";
+import { readAutoTeachOutcomes } from "./use-autoteach";
 
 /* ── use-practice-coach.ts — TIGA Practice Coach (Phase 2, spec §34) ──
    Wires the ALREADY-BUILT model engines (coach.tempoTarget / coach.recap /
@@ -23,13 +24,30 @@ import { coachTempoTarget, coachRecap, generateStudentExercise, studentExerciseK
    smoke test can esbuild-import the REAL file. The hook is a thin wrapper.
    Everything is best-effort: null means "no data — hide the section". ── */
 
+/* Topic ids are the GENERATOR's own table (GENERATOR_KINDS, smoke-verified):
+   0 theory · 1 technique · 2 sight · 3 ear · 4 expression · 5 practice-plan
+   · 6 psych · 7 thai · 8 performance · 9 improv. First matching rule wins:
+   dynamics → expression (crescendo/echo drills), missed pitches → sight
+   reading, repeated failure/timing → the practice-plan "fix the stuck spot"
+   (slow + isolate — the honest pedagogy for rhythm problems too). */
 const TOPIC_RULES = [
-  { test: s => s.rhythmMiss, topic: 4 },  // genRhythm
-  { test: s => s.dynMiss, topic: 8 },     // genDynamics (t8 = genDynamics in GENERATORS)
-  { test: s => s.missedNotes, topic: 5 }, // genSight (read the notes you missed)
-  { test: s => s.anyMiss, topic: 1 },     // genIntervals — ear/hand connection
-  { test: () => true, topic: 0 },         // genTheory — solid default
+  { test: s => s.dynMiss, topic: 4 },        // genExpression — dynamics
+  { test: s => s.missedNotes, topic: 2 },    // genSight — read the notes you missed
+  { test: s => s.anyMiss, topic: 5 },        // genPractice — "แก้จุดติดขัด" plan (slow/isolate)
+  { test: () => true, topic: 0 },            // genTheory — solid default
 ];
+
+/* The teaching loop's chosen strategy ALSO steers the exercise: a strategy is
+   a teaching decision, so the next exercise must obey it (spec §21 loop —
+   RESPOND then ADAPT, not just advise). Effects compose with signal rules. */
+const STRATEGY_EFFECTS = {
+  "return-to-prerequisite":       { topic: 5, levelBias: -1 },
+  "simplify-on-confusion":        { topic: 5, levelBias: -1 },
+  "simplify-on-hard-report":      { topic: 5, levelBias: -1 },
+  "ease-off-on-low-engagement":   { topic: 6, levelBias: 0 },  // psych — motivation drills
+  "raise-challenge":              { topic: null, levelBias: +1 },
+  "continue-current-plan":        { topic: null, levelBias: 0 },
+};
 
 function pickTopic({ rhythmPct, dynPct, missedNotes }) {
   const sig = {
@@ -45,6 +63,22 @@ function pickTopic({ rhythmPct, dynPct, missedNotes }) {
 function levelFromAccuracy(acc) {
   const a = typeof acc === "number" ? acc : 60;
   return a >= 95 ? 5 : a >= 85 ? 4 : a >= 70 ? 3 : a >= 50 ? 2 : 1;
+}
+
+/* OUTCOMES-DRIVEN LEVEL (Phase 2 finisher): how have THIS learner's past
+   coach-guided attempts actually gone? Local, real data only:
+     winRate = resolved tips where the next accuracy beat the last attempt —
+   a high win rate earns a +1 level nudge (the tips are landing), a poor one
+   a −1 (they aren't — don't push harder on a struggling learner). Bounded
+   ±1, needs ≥3 resolved records to speak at all (small-n honesty). */
+function levelBiasFromOutcomes() {
+  try {
+    const list = readAutoTeachOutcomes().filter(r => r && r.resolved && r.outcome);
+    if (list.length < 3) return 0;
+    const wins = list.filter(r => r.outcome.improved === true).length;
+    const rate = wins / list.length;
+    return rate >= 0.7 ? +1 : rate < 0.4 ? -1 : 0;
+  } catch (e) { return 0; }
 }
 
 function drillBpm(target) {
@@ -96,7 +130,7 @@ function nextSkillLabel() {
    { tempo, recap, exercise } where any member may be null (honest hide). */
 export function buildPracticeCoachData(args) {
   try {
-    const { label, accuracy, missedNotes = [], rhythmPct = null, dynPct = null, practiceTarget = null, metroBpm = null, prevAccuracy = null, seed = null } = (args && typeof args === "object") ? args : {};
+    const { label, accuracy, missedNotes = [], rhythmPct = null, dynPct = null, practiceTarget = null, metroBpm = null, prevAccuracy = null, seed = null, strategyId = null } = (args && typeof args === "object") ? args : {};
     if (typeof label !== "string" || !label) return null;
 
     /* 1) TEMPO — only when the drill itself carries a BPM suggestion */
@@ -120,10 +154,18 @@ export function buildPracticeCoachData(args) {
     const nextSkill = nextSkillLabel();
     const recap = coachRecap({ session, nextSkill: nextSkill ? { th: nextSkill } : null, tempo: tempo ? tempo.bpm : null });
 
-    /* 3) NEXT EXERCISE — topic from what actually went wrong this drill,
-       level from how the drill actually went, deterministic per label+day */
-    const topic = pickTopic({ rhythmPct, dynPct, missedNotes });
-    const level = levelFromAccuracy(accuracy);
+    /* 3) NEXT EXERCISE — three honest signals compose:
+       (a) what went wrong in THIS drill (signals → topic),
+       (b) the teaching loop's strategy (a teaching DECISION — the exercise
+           must obey it, spec §21 RESPOND→ADAPT),
+       (c) this learner's real tip win-rate (tips landing → +1 level).
+       Level = accuracy level + strategy bias + outcome bias, clamped 1..5. */
+    const eff = (strategyId && STRATEGY_EFFECTS[strategyId]) || {};
+    const topic = (eff.topic != null) ? eff.topic : pickTopic({ rhythmPct, dynPct, missedNotes });
+    const level = Math.max(1, Math.min(5,
+      levelFromAccuracy(accuracy)
+      + (eff.levelBias || 0)
+      + levelBiasFromOutcomes()));
     const daySeed = Math.floor(Date.now() / 86400000);
     const ex = generateStudentExercise(topic, level, (seed != null ? seed : daySeed) + topic * 17 + level);
     const kinds = studentExerciseKinds();
@@ -146,4 +188,74 @@ export function usePracticeCoach(args) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [args && args.label, args && args.accuracy, args && args.rhythmPct, args && args.dynPct, args && args.metroBpm]);
   return data;
+}
+
+/* ══ PARENT REPORT BUILDER (Phase 2 finisher #2) ══
+   The existing parent popup shows TODAY's counters; this adds the VISUAL
+   trend + the coach's story, computed from the same local records the app
+   already keeps (no new storage): 14-day accuracy bars from tg_practice_log,
+   minutes from tg_act_log, the coach's diagnosis of the top struggle
+   (getCoachDiagnosis — every claim backed by a real number), what actually
+   IMPROVED this week (tg_memory: masteries + resolved tips that went up),
+   and next week's homework focus. Everything nullable — a field the data
+   can't support is simply absent. */
+export function buildParentReport({ days = 14 } = {}) {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    const plog = JSON.parse(localStorage.getItem("tg_practice_log") || "{}") || {};
+    const act = JSON.parse(localStorage.getItem("tg_act_log") || "[]") || [];
+    const mem = JSON.parse(localStorage.getItem("tg_memory") || "null") || {};
+
+    /* 14-day series — practice-log accuracy per day + minutes from act log */
+    const dayMs = 86400000;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const series = [];
+    let wkAcc = [], prevAcc = [], minutes7 = 0;
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * dayMs);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const e = plog[k];
+      const acc = e && e.n > 0 ? Math.round(e.accSum / e.n) : null;
+      series.push({ day: k, acc, sessions: e ? e.n : 0 });
+      if (acc != null) { (i < 7 ? wkAcc : prevAcc).push(acc); }
+    }
+    const cutoff = Date.now() - 7 * dayMs;
+    for (const a of act) { if (a && a.t >= cutoff) minutes7 += Math.round(a.sec || 0) / 60; }
+
+    /* honest trend: needs both weeks present to speak */
+    const avg = xs => xs.length ? Math.round(xs.reduce((s, x) => s + x, 0) / xs.length) : null;
+    const thisWeek = avg(wkAcc), lastWeek = avg(prevAcc);
+    const trend = (thisWeek != null && lastWeek != null) ? thisWeek - lastWeek : null;
+
+    /* what actually improved — real signals only */
+    const improvements = [];
+    for (const r of readAutoTeachOutcomes()) {
+      if (r && r.resolved && r.outcome && r.outcome.improved === true && r.topic) {
+        improvements.push({ label: r.topic, delta: r.outcome.delta });
+      }
+    }
+    for (const s of (mem.struggles || [])) {
+      if (s.acc != null && s.acc >= 65 && s.last && Date.now() - s.last <= 7 * dayMs) {
+        improvements.push({ label: s.label, delta: null, note: "past-65" });
+      }
+    }
+
+    /* coach's diagnosis of the top struggle (null when nothing on record);
+       shape: { what:{label,acc,count,trend}, why[], how[], meta:{bpm,...} } */
+    const diag = getCoachDiagnosis();
+
+    /* homework focus = the worst real spot, from the same builder the result
+       screen uses — one voice for parent and child */
+    const topMiss = (mem.noteMisses || []).slice().sort((a, b) => (b.count || 0) - (a.count || 0))[0] || null;
+
+    return {
+      series,
+      weeklyAvg: thisWeek, prevAvg: lastWeek, trend,
+      minutes7: Math.round(minutes7),
+      sessions7: series.slice(-7).reduce((s, d) => s + d.sessions, 0),
+      improvements: improvements.slice(0, 4),
+      focus: diag ? { label: diag.what ? diag.what.label : null, acc: diag.what ? diag.what.acc : null, why: diag.why || [], how: diag.how || [], bpm: diag.meta ? diag.meta.bpm : null } : null,
+      homeworkNote: topMiss ? `โฟกัสโน้ต ${topMiss.label} — เล่นช้า 3 รอบให้สมบูรณ์ทุกวัน` : null,
+    };
+  } catch (e) { return null; }
 }

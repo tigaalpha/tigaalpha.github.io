@@ -31,6 +31,7 @@ import { sb, SUPABASE_URL } from "./supabase-client";
 import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
 import { runTeachingLoopForPractice } from "./tigamodel/web";
+import { buildParentReport } from "./use-practice-coach";
 import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes } from "./use-autoteach";
 import { pickTeachCard, markCardSeen, readKnowledgeStats, bumpKnowledgeStats, readNoteMissMap, cardSourceInfo } from "./tigamodel/knowledge/teach-cards.js";
 import TeachVisual from "./TeachVisual";
@@ -12137,6 +12138,56 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <div className="heatgrid" style={{ gridTemplateRows: "repeat(7,1fr)" }}>
                   {heat.map((l, i) => <div key={i} className="heatcell" style={{ background: heatColor(l) }} />)}
                 </div>
+                {/* ── Phase 2 finisher: 14-day accuracy trend + the coach's story
+                    (buildParentReport — same local records, no new storage).
+                    Sections render only when the data supports them. ── */}
+                {(() => {
+                  const rep = buildParentReport({ days: 14 });
+                  if (!rep) return null;
+                  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+                  const bars = rep.series.filter(d => d.acc != null);
+                  return (
+                    <>
+                      <div className="pd-sec">{T("ความแม่นยำ 14 วันล่าสุด", "Accuracy — last 14 days", "近14天准确率")}{rep.trend != null && (
+                        <span style={{ marginLeft: 8, fontWeight: 800, color: rep.trend > 0 ? "var(--ok,#3f9d63)" : rep.trend < 0 ? "var(--bad,#c4423a)" : "var(--muted)" }}>
+                          {rep.trend > 0 ? "▲" : rep.trend < 0 ? "▼" : "▬"} {Math.abs(rep.trend)}%
+                        </span>)}</div>
+                      {bars.length > 0 && (
+                        <svg viewBox="0 0 140 46" style={{ width: "100%", height: 92, display: "block" }} preserveAspectRatio="none">
+                          {rep.series.map((d, i) => {
+                            const bw = 140 / rep.series.length;
+                            const h = d.acc != null ? (d.acc / 100) * 38 : 0;
+                            return <rect key={i} x={i * bw + 0.2} y={40 - h} width={Math.max(0.5, bw - 0.5)} height={Math.max(d.acc != null ? 0.8 : 0.2, h)}
+                              fill={d.acc != null ? "color-mix(in srgb, var(--accent,#d97757) 75%, var(--card2))" : "var(--bd2,rgba(0,0,0,0.08))"} rx={0.6} />;
+                          })}
+                          <line x1={0} y1={40.6} x2={140} y2={40.6} stroke="var(--bd2,rgba(0,0,0,0.1))" strokeWidth={0.4} />
+                        </svg>
+                      )}
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "8px 0 4px" }}>
+                        <span className="pd-tag">{T("ซ้อม 7 วันล่าสุด", "Sessions (7d)", "近7天练习")} · <b>{rep.sessions7}</b></span>
+                        <span className="pd-tag">{T("เวลาสะสม", "Time (7d)", "近7天时长")} · <b>{rep.minutes7} {T("นาที", "min", "分钟")}</b></span>
+                        {rep.weeklyAvg != null && <span className="pd-tag">{T("เฉลี่ยสัปดาห์นี้", "This week avg", "本周均值")} · <b>{rep.weeklyAvg}%</b></span>}
+                      </div>
+                      {rep.improvements && rep.improvements.length > 0 && (
+                        <>
+                          <div className="pd-sec">📈 {T("สิ่งที่ดีขึ้นจริงสัปดาห์นี้", "Actually improved this week", "本周真实进步")}</div>
+                          <div className="pd-tags">{rep.improvements.map((im, i) => (
+                            <span key={i} className="pd-tag good">{im.label}{im.delta != null ? ` (+${Math.round(im.delta)}%)` : " ✓"}</span>
+                          ))}</div>
+                        </>
+                      )}
+                      {rep.focus && (
+                        <>
+                          <div className="pd-sec">🎯 {T("โฟกัสของครู TiGA สัปดาห์นี้", "Coach TiGA's focus this week", "本周教练重点")}</div>
+                          <div className="pd-tag focus" style={{ display: "inline-block" }}>{rep.focus.label}{rep.focus.acc != null ? ` · ${rep.focus.acc}%` : ""}</div>
+                          {(rep.focus.why || []).slice(0, 2).map((w, i) => <div key={i} style={{ fontSize: 12, color: "var(--text2)", marginTop: 4 }}>• {w}</div>)}
+                          {(rep.focus.how || []).slice(0, 2).map((w, i) => <div key={i} style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>→ {w}</div>)}
+                        </>
+                      )}
+                      {rep.homeworkNote && <div className="pd-sec" style={{ fontSize: 12.5 }}>📝 {rep.homeworkNote}</div>}
+                    </>
+                  );
+                })()}
                 {mem.struggles && mem.struggles.length > 0 && <><div className="pd-sec">{lc.pdFocus}</div><div className="pd-tags">{mem.struggles.slice(0, 5).map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div></>}
                 {mem.mastered && mem.mastered.length > 0 && <><div className="pd-sec">{lc.pdMastered}</div><div className="pd-tags">{mem.mastered.slice(0, 6).map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
                 <div style={{ display: "flex", gap: 8, marginTop: 14 }}>

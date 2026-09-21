@@ -273,6 +273,7 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
     missedNotes: (r.tigaTip && r.tigaTip.states && r.tigaTip.states.repeatedErrorLabel) ? [r.tigaTip.states.repeatedErrorLabel] : [],
     rhythmPct, dynPct, practiceTarget, metroBpm,
     prevAccuracy: (r.prevBest && r.prevBest.accuracy) || null,
+    strategyId: (r.tigaTip && r.tigaTip.strategyId) || null,
   });
   if (!data) return null;
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
