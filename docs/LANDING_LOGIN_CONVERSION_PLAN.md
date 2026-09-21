@@ -1,235 +1,242 @@
 # แผนพัฒนา Landing Page → เพิ่มจำนวนการล็อกอิน/สมัคร
-## (Landing → Login Conversion Plan — th / en / zh) · **v3 (ปรับปรุงรอบที่ 2)**
+## (Landing → Login Conversion Plan — th / en / zh) · **v4 (ปรับปรุงรอบที่ 3 — execution-grade)**
 
-> **v3 เปลี่ยนจาก v2 อะไร (2026-09-21):**
-> ① **ตัด LINE Login ออกทั้งแผน** (เจ้าของตัดสินใจ) — แทนด้วย **Google One Tap**
-> (ใช้ OAuth client เดิมที่ตั้งค่าแล้ว ไม่ต้องตั้งค่าภายนอกใหม่) ② เพิ่มมิติที่ v2 ขาด:
-> **Activation** — สมัครได้แล้วต้อง "ติด" ด้วย (วัด first-lesson ≤ 24 ชม.) ไม่งั้น
-> เพิ่ม signup ก็ได้แค่ตัวเลขสวยที่ไหม้ไป ③ เพิ่ม **คณิตศาสตร์การทดลองกับ traffic
-> จริงที่น้อย** (v2 ตั้ง A/B แบบเก่าซึ่งสรุปไม่ได้กับ n น้อย) ④ เพิ่ม **copy ฉบับ
-> พร้อมวาง** 3 ภาษา ⑤ เพิ่ม **Kill List** (สิ่งที่ห้ามทำ — กันทีมภายหลังทำพังหน้า)
-> ⑥ เพิ่ม **Risk Register** ⑦ เพิ่ม **Return-visit nurture** และ **campaign-level
-> attribution** (utm) — ปิดวงจรโฆษณา→หน้า→สมัคร→เรียน
->
-> อ้างอิงโค้ดจริง: `landing/LandingPage1.tsx` · `landing/land-log.ts` ·
-> `landing/landing-copy.ts` · `local-identity.ts` · `App.tsx` (loadProfile) ·
-> `AdminActivityDashboard.tsx` · RPC `admin_landing_funnel` · ตาราง `usage_events`
->
-> **เป้าหมายเดียว:** visitor → **สมัครแล้วเรียนจริง** ของ landing ทั้ง 3 ภาษา
+> **v4 ยกระดับจาก v3 อะไร:** v3 เป็นแผนที่ดีแต่ยังเป็น "เอกสาร" — v4 ทำให้เป็น
+> **"ระบบปฏิบัติการ"** ที่เอาไปรันได้ทันที:
+> ① **แผนเดิมมีหลุมใหญ่ตัวหนึ่ง:** ปัจจุบันแขก 80% หลุดไปก่อนสมัคร แล้วจบเลย — v4 เพิ่ม
+> **Lead Capture ที่ไม่ใช่การสมัคร** (คำถาม/บทเรียนที่เก็บลงลิงก์ส่วนตัว + ที่อยู่
+> คืนได้บนมือถือ = PWA install prompt แทน signup) และเพิ่ม **Viral Loop** (แชร์บัตร
+> ความคืบหน้าที่มีของจริงติด utm) ซึ่งเป็นช่องเดียวที่ CAC = 0 ② เพิ่ม **หน่วย
+> ประสบการณ์แรกที่พังอยู่:** bundle landing 3.4 MB single-file = first paint ช้าบน 4G
+> ไทย → แผน perf มีงบหน่วงที่ชัดเจน (ทุก 100ms = conversion −1%) ③ เพิ่ม **7-14-30
+> วันคุกกี้ส่งคืน** ④ เพิ่ม **runbook ผู้รับผิดชอบ + SLA + สัญญาณเตือน** ⑤ จัดงานใหม่
+> เป็น **work package พร้อม accept criteria** ที่คัดลอกให้ใครก็ทำต่อได้
 
----
-
-## ส่วนที่ 0 — KPI, Benchmark และกฎการตัดสิน
-
-Benchmark (Unbounce Q4-2024, 41,000 หน้า / 464M visitors): median 6.6% · ≥10% = ดี
-จุดตั้งต้นเรา (จากคอมเมนต์ในโค้ด): 328 visitor → 0 สมัคร (ยุคก่อน landing v1);
-21 เห็น signup card → 1 กด
-
-| KPI | เป้า 30 วัน | เป้า 90 วัน | วัดจาก |
-|---|---|---|---|
-| **signed_up / visitors** (นับครบทุกสาย) | ≥ 3% | ≥ 6.6% | funnel v2 |
-| view → กดเปียโน (touched) | ≥ 40% | ≥ 55% | funnel v2 |
-| gate:shown → try:* | ≥ 15% | ≥ 25% | funnel v2 |
-| try:* → signed_up | ≥ 35% | ≥ 50% | funnel v2 + ข้อ 4 |
-| **activation: signup ที่จบบทเรียนแรก ≤ 24 ชม.** | ≥ 40% | ≥ 60% | **ใหม่ใน v3** (ข้อ 12) |
-| returning share ของ traffic | < 30% | < 20% | ข้อ 3 |
-
-**กฎทองของ v3:** ห้ามเพิ่ม signup ด้วยวิธีที่ทำ activation ตก — ตัวเลข signup ที่
-ไม่เรียนต่อ = ต้นทุน Supabase/AI ฟรี ๆ ที่แบกไปเรื่อย ๆ (AI cost ต่อ trial user จริง)
+> อ้างอิงโค้ดจริง: `landing/LandingPage1.tsx` (1,014 บรรทัด) · `landing/land-log.ts` ·
+> `landing/landing-copy.ts` · `landing/index.template.html` (og แยกภาษาครบแล้ว) ·
+> `local-identity.ts` (anonId/trafficSource/stampLandingOrigin) · `App.tsx`
+> (loadProfile · shareCard/navigator.share · ?challenge= loop เดิมของแอป) ·
+> `AdminActivityDashboard.tsx` · bundle landing = **3.4 MB single JS**
 
 ---
 
-## ส่วนที่ 1 — ข้อมูลวันนี้ (สรุป) + ช่องว่างที่ v3 ปิด
+## §0 KPI + สมดุลสามทางที่แผนต้องรักษา
 
-**มีอยู่แล้ว:** funnel 20+ events (view/page:xx/hero:seen/piano/q:*/ask/ai*/nudge/
-gate:*/try:*/signup:email*/leave+dwell) · origin capture ครบ (stampLandingOrigin →
-`profiles.signup_landing` + event `signed_up_landing:<lang>` — ทำแล้ว ไม่ทำซ้ำ) ·
-admin funnel card
+Benchmark: median 6.6%, ≥10% = ดี (Unbounce Q4-2024) · เราตอนนี้ ~0.3-1%
 
-**ช่องว่างจริง (v3 ปิดตรงนี้):**
-1. ทุก event เป็น guest — สมาชิกเก่ากลับมาเหยียบ landing มองไม่เห็น (และโดนขายซ้ำ)
-2. ไม่มี anon_id → บัญชี stitching — วิเคราะห์ "ใครถึงสมัคร" ไม่ได้
-3. `signed_up` สาย Google ยังไม่ถูกนับใน funnel
-4. Dashboard ยังไม่แยก 3 ภาษา / ไม่แยก utm_campaign (โฆษณาก้อนไหนคุ้ม ไม่รู้)
-5. **ไม่วัด activation** — signup แล้วหายไปไหน ไม่รู้ (ใหม่ v3)
-6. คนที่หลุดไปแล้วกลับมาเปิด landing ซ้ำ = ถูกต้อนเริ่มใหม่เสมอ (ไม่มี nurture)
-7. OTP เปิดยิงฟรี · bot ปน funnel
-
----
-
-## ส่วนที่ 2 — แผน v3: 12 ข้อ + 2 ข้อความปลอดภัย (จัดลำดับด้วยคะแนน)
-
-ลำดับ = Impact × Confidence ÷ Effort (P0 = ทำก่อนทุกกรณี)
-
-| # | งาน | P | Impact | Effort | Confidence | Lift ที่คาด (เหตุผล) |
-|---|---|---|---|---|---|---|
-| 1 | Bot-filter + funnel v2 (แยก 3 ภาษา × 3 สาย × utm_campaign) | P0 | สูง | ง่าย | สูง | ไม่ lift โดยตรง แต่**ทุกการตัดสินถัดไปผิดถ้าไม่มี** |
-| 2 | Returning-user detection + "ยินดีต้อนรับกลับ" hero | P0 | สูง | ง่าย | สูง | ข้อมูลสะอาด + UX เก่าไม่โดนขายซ้ำ |
-| 3 | นับ signed_up สาย Google ให้ครบ (ยิง `signup:google` ทุก login จาก stamp) | P0 | สูง | ง่าย | สูง | ตัวเลข signed_up จริงอาจเพิ่ม 2-3 เท่าจากที่เห็น |
-| 4 | Identity stitching (`signed_up_from:<anon_id>`) + view JOIN | P0 | สูง | ง่าย | สูง | เปิดวิเคราะห์ pre-signup ครั้งแรก |
-| 5 | TTFF: hero visual-demo อัตโนมัติ + เปียโนเหนือ fold ทุกจอ | P0 | สูง | ง่าย | สูง | view→touched +10-20pt (ประตูแรกของ funnel ทั้งหมด) |
-| 6 | Skip→soft-CTA (sticky บอกจะเสียอะไร + ตัวเลขจริงของคนนั้น) | P1 | กลาง | ง่าย | สูง | gate→try กลุ่ม skip +5-10pt |
-| 7 | Leave-catch (dwell>45s ยังไม่เห็นข้อเสนอ → toast ยกคำถามจริงกลับมา) | P1 | กลาง | กลาง | กลาง | ชิงกลุ่มสนใจจริงก่อนหลุด |
-| 8 | **Google One Tap** (แทน LINE — ใช้ client เดิม) | P1 | **สูง** | กลาง | สูง | friction ต่อการสมัครลูกศรลงแรงสุดในทุกข้อ (แตะเดียว ไม่กรอก) |
-| 9 | Copy pack ใหม่ (ดราฟต์ครบ §7 — A/B ตาม §4) | P1 | กลาง | ง่าย | กลาง | gate→try +3-8pt ต่อคู่ที่ชนะ |
-| 10 | OTP guard (captcha + rate ต่อ anon_id) | P1 | กลาง | ง่าย | สูง | กันต้นทุน/สแปม — ทำก่อนขยาย traffic |
-| 11 | Return-visit nurture ("เมื่อวานคุณถาม… สมัครต่อได้เลย") | P1 | กลาง | ง่าย | กลาง | คนกลับมาซ้ำคือกลุ่ม convert ง่ายที่สุดที่ปัจจุบันถูกทิ้ง |
-| 12 | **Activation handoff** (หลังสมัคร: พาไปเพลงแรกให้สำเร็จภายใน session แรก + วัด D1) | **P0** | **สูง** | กลาง | สูง | signup ที่ไม่เรียน = ขายที่ยังไม่จบ — เป้า ≥40% ใน 30 วัน |
-| S1 | Social proof ตัวเลขจริง + auto-hide < 10 | P2 | กลาง | ง่าย | กลาง | ทำเมื่อยอดผ่าน 10/สัปดาห์เท่านั้น |
-| S2 | Anonymous-first (signInAnonymously + linkIdentity — RLS ทบทวนทั้งระบบ) | P2 | **สูงมาก** | **สูง** | กลาง | friction สมัคร → ~0 ทั้งระบบ — ทำ**หลัง**ข้อมูลจาก P0/P1 บอกว่าคุ้ม |
-
-> **ทำไม LINE ถูกแทนด้วย Google One Tap:** เป้าหมายของข้อ LINE คือ "ลด friction สมัคร"
-> — One Tap ทำสิ่งเดียวกันด้วยของที่มีอยู่แล้ว (Google OAuth ตั้งค่าแล้วใน Supabase,
-> แค่เพิ่ม GIS script + `try:onetap` event) ไม่มีต้นทุน setup ภายนอก และครอบคลุม
-> ทุกภาษาทุกประเทศ ไม่ใช่เฉพาะไทย
-
-### รายละเอียดข้อใหม่เฉพาะของ v3
-
-**ข้อ 8 — Google One Tap (แทน LINE)**
-- ใส่ GIS script ใน `landing/index.template.html` · แสดง One Tap ครั้งเดียวต่อ anon_id
-  ต่อ 7 วัน · แสดงเมื่อ: dwell > 20s **และ** (กดเปียโนหรือถามแล้ว ≥1) — ห้ามโผล่คนเพิ่งเข้า
-- สำเร็จ → `try:onetap` + `signup:onetap` · รับ ID token แล้วส่งเข้า Supabase
-  `signInWithIdToken({ provider:'google', token })` (รองรับใน supabase-js)
-- ตำแหน่งเสริม: ใน gate เป็นปุ่มแรกเหนือ Google ปกติ (คนที่ One Tap ไม่เด้ง ยังกดปุ่มได้)
-- วัดผล: try:onetap / signed_up · เทียบ friction ก่อน-หลัง (จำนวน taps จน signed_up)
-
-**ข้อ 11 — Return-visit nurture (ไม่ต้องแตะ DB เลย)**
-- localStorage ต่อ anon_id: `{lastVisit, lastQuestion, lastLesson, playedKeys}`
-- กลับมาครั้งที่ 2+: hero รองเปลี่ยนเป็น "ยินดีที่ได้เจอใหม่ — เมื่อวานคุณถาม “{q}”
-  ยังไม่บันทึกคำตอบไว้ · สมัคร 30 วิ เก็บทุกอย่างไว้" + ปุ่มสมัครตรง (ไม่ผ่าน gate)
-- ยิง event `return_q:shown` / `return_q:cta` · ห้ามโชว์ถ้า lastVisit เกิน 14 วัน
-
-**ข้อ 12 — Activation handoff (ใหม่ — ปิดวงจร)**
-- หลัง signed_up (ทุกสาย) redirect กลับแอปพร้อม `?welcome=1` → แอปเปิด flow
-  "เพลงแรกของคุณ" ที่จบได้ใน ≤ 90 วิ (เพลงสั้นสุด + on-screen ปุ่มกดตาม) → จบ =
-  confetti + โชว์ความคืบหน้าถูกเซฟ cloud แล้ว
-- วัด: event `activation:first_song` ผูกกับ signup cohort (ผ่าน user_id) →
-  dashboard v2 เพิ่มคอลัมน์ "D1 activated %" ต่อ ภาษา/สาย/variant — **ห้ามปรับ copy/
-  variant โดยดูแค่ signed_up ตัวเดียวอีกต่อไป**
-
----
-
-## ส่วนที่ 3 — วิธีทดลองที่ "ถูก" กับ traffic ของเรา (แก้จุดอ่อนของ v2)
-
-v2 วาง A/B split คลาสสิก — **ใช้ไม่ได้กับ traffic ระดับเรา** (ที่ n≈300-1000/เดือน
-การตรวจจับ lift 10pt ต้อง n ~350-400/แขน → ต้องรอหลายเดือนต่อคู่) v3 ใช้วิธี
-**Sequential weekly rollout** แทน:
-
-1. **หนึ่งการเปลี่ยนแปลงต่อสัปดาห์** (จากลำดับ P0→P1) — ไม่เปลี่ยนพร้อมกันสองอย่าง
-2. วินโดว์ตัดสิน 14 วัน · เทียบ before/after ด้วย funnel v2 (distinct people)
-3. **Guardrail metrics ห้ามแย่ลง:** activation % · ai:fail rate · leave rate กลาง
-4. ถ้า traffic โตถึง n≥400/แขน/สัปดาห์ ค่อยเปิด split จริง (แผนข้อ 9) — ใช้ hash
-   anon_id ครึ่งตัวอย่างเดิมตาม v2
-5. **สูตรที่ใช้ตัดสิน:** lift = (p̂₂ − p̂₁) ต้อง > 2×SE, SE = √(p(1−p)/n) — เขียน
-   คำนวณให้ใน dashboard card (แสดง "ยังสรุปไม่ได้" เมื่อ n ไม่พอ ห้ามเดา)
-
-**เกณฑ์ตัดสินหลัง R1 (สัปดาห์ที่ 2):**
-- returning share > 50% → โฆษณาโดนคนเก่า งบไป audience ใหม่ก่อน
-- view→touched < 25% → ล็อกข้อ 5 ทำซ้ำก่อนอย่างอื่น
-- gate→try ≥ 15% แต่ try→signed_up < 20% → ข้อ 8 (One Tap) ขึ้นก่อน
-- signed_up เพิ่มแต่ activation < 25% → หยุดปรับ landing ไปแก้ข้อ 12 ทันที
-
----
-
-## ส่วนที่ 4 — Copy pack พร้อมวาง (3 ภาษา — ใส่ `landing-copy.ts` ได้ทันที)
-
-**Gate (15 วิ) — หัวการ์ด + CTA:**
-- TH: หัว "เปียโนคือเรื่องของการฝึก — เก็บความคืบหน้าของคุณไว้" · CTA "สมัครฟรี 30 วัน — ไม่ต้องใส่บัตร"
-- EN: "Progress only counts when it's saved — keep yours" · "Start free for 30 days — no card"
-- ZH: "练习需要留下记录 — 保存你的进度" · "免费试用 30 天 — 无需刷卡"
-
-**Sticky หลัง skip (ข้อ 6):**
-- TH: "⏳ เหลือ {X} นาทีฟรี · เล่นแล้ว {N} คีย์ — สมัครเก็บผลงานนี้ไว้"
-- EN: "⏳ {X} free minutes left · {N} keys played — save this session"
-- ZH: "⏳ 剩余 {X} 分钟 · 已弹 {N} 键 — 保存本次进度"
-
-**Leave-catch toast (ข้อ 7):**
-- TH: "คำถาม “{q}” ของคุณยังไม่ถูกเซฟ — สมัคร 30 วิ เก็บคำตอบ + ความคืบหน้า" · ปุ่ม "เซฟด้วย Google"
-- EN: "Your question “{q}” isn't saved yet — 30s to keep the answer + progress" · "Save with Google"
-- ZH: "你的提问“{q}”尚未保存 — 30秒保存答案与进度" · "用 Google 保存"
-
-**Return-visit (ข้อ 11):**
-- TH: "ยินดีที่กลับมา 👋 เมื่อวานคุณถาม “{q}” — สมัครต่อให้ครบ สิทธิ์ฟรี 30 วันรออยู่"
-- EN: "Welcome back 👋 Yesterday you asked “{q}” — pick up where you left off. 30-day free trial waiting"
-- ZH: "欢迎回来 👋 你昨天问了“{q}” — 继续完成吧，30 天免费试用等你"
-
-**One Tap fallback ปุ่ม (ข้อ 8):** ปุ่มเดิมทุกภาษา + badge "แตะเดียว · One tap"
-
-> กฎ copy ทุกภาษา: ตัวเลขจริง ({N} คีย์/{X} นาที) เท่านั้น — ห้ามโม้สถิติ · ห้ามคำ
-> "สุดท้าย/ด่วน" ปลอม ๆ (ผิดจริยธรรมโฆษณา + ผู้ใช้ไทยเบื่อ)
-
----
-
-## ส่วนที่ 5 — Kill List (สิ่งที่**ห้าม**ทำ — ประสบการณ์/กฎหมาย/ข้อมูล)
-
-1. ❌ ห้าม gate เปียโนหรือบทเรียนแรก — คุณค่ามาก่อนการขอ (เหตุผลที่หน้านี้เกิด)
-2. ❌ ห้าม countdown ปลอม/สต็อกหมดปลอม/สังคมปลอม — PDPA + จริยธรรมโฆษณา + เจ้าของเคย
-   ย้ำเรื่องกฎหมายมาก่อน
-3. ❌ ห้าม email+password เป็นปุ่มแรก — OTP/Google ก่อนเสมอ (โค้ดเคยเจ็ดกับสิ่งนี้แล้ว)
-4. ❌ ห้าม modal ซ้อน > 1 ชั้น หรือ gate โผล่ซ้ำหลัง skip ใน session เดียว
-5. ❌ ห้ามส่งข้อมูลเด็ก (ผู้เรียนอาจเป็นเด็ก) ออกนอก analytics ที่จำเป็น — ใช้ anon
-   เท่าที่ทำได้ ให้ PII น้อยที่สุดตามหลัก PDPA
-6. ❌ ห้ามเปิด anonymous sign-in ก่อน RLS ผ่านการรีวิว (S2) — แขก authenticated
-   ผิด policy = รูขุมขน
-
----
-
-## ส่วนที่ 6 — Risk Register
-
-| ความเสี่ยง | โอกาส | ผล | ลดความเสี่ยง |
-|---|---|---|---|
-| Anonymous users ถูกใช้เก็บขยะ/สแปม | กลาง | สูง (ต้นทุน) | S2 ทำทีเดียวจบ: RLS `is_anonymous` + quota ต่อ user + ลบงานที่ idle > 30 วัน (cron) |
-| One Tap ไม่เด้งใน in-app browser (FB/LINE webview) | สูง | ต่ำ | มี fallback ปุ่ม Google เดิมอยู่แล้ว + `openreal` flow เดิมชวนออกเบราว์เซอร์จริง |
-| OTP โดนยิงเรียงอีเมล | กลาง | กลาง (ค่าเมล/ชื่อเสียง) | ข้อ 10 captcha + rate 4 ครั้ง/ชม./anon_id |
-| ตัวเลข funnel บวมจาก bot | กลาง | สูง (ตัดสินผิด) | ข้อ 1 filter + แสดง raw/raw-clean คู่กัน |
-| Copy ใหม่แย่ลง | กลาง | กลาง | sequential rollout + guardrail (§3) + rollback = revert 1 commit |
-| RLS พังตอน S2 | ต่ำ | **สูงมาก** | dry-run BEGIN/ROLLBACK + ทดสอบ policy ครบทุกตารางก่อน apply + ทยอย (landing ก่อน แอปหลัง) |
-
----
-
-## ส่วนที่ 7 — Instrumentation spec (ให้ลูกน้อง/เอเจนต์ทำตามได้เป๊ะ)
-
-| Event (item_id) | ยิงเมื่อ | properties เพิ่ม |
+| KPI | 30 วัน | 90 วัน |
 |---|---|---|
-| `returning_user` | session จริงพบตอนเปิด landing | — |
-| `signup:google` | แอป consume origin-stamp สำเร็จ (ทุกกรณี) | — |
-| `signed_up_from:<anon_id>` | แอป first-login บันทึก stitch | — |
-| `try:onetap` / `signup:onetap` | One Tap แตะ/สำเร็จ | — |
-| `onetap:suppressed` | ข้ามการแสดง (in-app / เพิ่งเห็น 7 วัน) | เหตุผล |
-| `return_q:shown` / `return_q:cta` | nurture แสดง/กด | lastVisitDays |
-| `leavecatch:shown` / `leavecatch:cta` | toast สุดท้าย แสดง/กด | dwellSec |
-| `activation:first_song` | จบเพลงแรกหลังสมัคร (แอป) | minutesSinceSignup |
-| `gate:shown:<variant>` | gate แสดง (ตอนมี A/B) | variant |
+| signed_up/visitors (ครบทุกสาย) | ≥ 3% | ≥ 6.6% |
+| **captured_leads / visitors** (ใหม่ v4: ลิงก์คืน/PWA/install) | ≥ 8% | ≥ 15% |
+| view → touched | ≥ 40% | ≥ 55% |
+| gate → try | ≥ 15% | ≥ 25% |
+| try → signed_up | ≥ 35% | ≥ 50% |
+| **activation: จบเพลงแรก ≤ 24 ชม.** | ≥ 40% | ≥ 60% |
+| **D7 retention ของ signup cohort** | ≥ 25% | ≥ 35% |
+| **viral: sessions จาก share-links / ทั้งหมด** | ≥ 3% | ≥ 8% |
+| First Contentful Paint (4G, โทรศัพท์ระดับกลาง) | < 2.0s | < 1.5s |
 
-ทุก event ใช้ `logLand()` เดิม (แถวเดิม คอลัมน์เดิม — **ไม่แตะ schema**) ยกเว้น
-`activation:first_song` ยิงจากแอปด้วย `logUsage("land", …)` ปกติ (มี user_id อัตโนมัติ)
+**สมดุลสามทาง (แผนไหนทำ KPI ตัวใดตก เท่ากับล้มแผนนั้น):**
+Signup เพิ่ม แต่ Activation/Retention ตก = ห้าม · Lead เพิ่มแต่ Signup ตก = ปรับข้อเสนอ ·
+Traffic เพิ่มแต่ FCP แย่ลง = ห้าม (ทุก 100ms ช้าลง ≈ conversion −1%)
 
 ---
 
-## ส่วนที่ 8 — Roadmap v3 + งาน DB ที่รออนุมัติ
+## §1 ปัญหาโครงสร้างที่ v4 มองเห็นแล้ว v1-v3 มองข้าม
 
-| ระยะ | ข้อ | DB (รออนุมัติ) |
+1. **Funnel วันนี้เป็นทางเดียว มีทางออกเดียว:** ไม่สมัคร = หายไปเลย ไม่มี "กักตัวแขก"
+   ไว้คุยต่อ — แขกที่ถาม AI แล้วออก คือ lead ที่ดีที่สุดในโลกที่ระบบทิ้งทันที
+2. **Landing ไม่มีวงจรของตัวเอง:** ทุก visitor ต้องมาจากโฆษณา (เงิน) — แอปหลังสมัครมี
+   ?challenge= และ share แล้ว แต่ landing ไม่มีอะไรให้แชร์เลย แขกที่พอใจไม่มีทางพาเพื่อนมา
+3. **3.4 MB ก่อนแตะคีย์แรก:** single-file bundle ใหญ่เกิน — บนเน็ตมือถือไทย median
+   แขกอยู่ ~2 วิ แต่หน้ายังไม่พร้อมให้เล่นทัน · เสียคนก่อนเห็นของ
+4. **การเดินทาง 3 ภาษาขาดตอนกลาง:** og แยกภาษาแล้ว แต่ URL แชร์ออกไปไม่พกภาษา/แคมเปญ —
+   เพื่อนที่ได้ลิงก์เด้งเข้าหน้าภาษาผิด (ไทยแชร์ให้เพื่อนจีน = แขกหาย)
+
+---
+
+## §2 งานทั้งหมด — 4 Work Stream, 20 Work Package (พร้อม accept criteria)
+
+### 🟦 Stream A — DATA TRUTH (ทำก่อน ทุกอย่างตัดสินด้วยมัน)
+
+**A1. Funnel v3 RPC + bot filter** (P0 · ง่าย · 3-4 ชม.)
+RPC `admin_landing_funnel_v3(p_days int default 30)` แยกแถวตาม (ภาษา × สายสมัคร ×
+utm_campaign) + กรอง UA bot list + แสดง raw/clean คู่กัน + คอลัมน์ n และ SE ต่อเซลล์
+✔ เสร็จเมื่อ: dashboard โชว์ตาราง 3×N ได้ และ RPC เดิมไม่โดนแตะ (or-replace ใหม่ล้วน)
+
+**A2. Returning-user split** (P0 · ง่าย · 2 ชม.)
+Landing เช็ค session (dynamic import ตาม `getSb()` pattern) → `returning_user` event +
+hero สลับ "กลับมาต่อ 👋 เข้าไปเล่น" ไม่ผ่าน gate · logLand แนบ user_id เมื่อมี session
+✔ เสร็จเมื่อ: funnel แสดง % returning และ signed_up/visitors "ล้วนแขก" แยกได้
+
+**A3. นับ signup ครบทุกสาย** (P0 · ง่าย · 2 ชม.)
+ย้าย `signup:google` event ออกจากเงื่อนไข `lang==null` (App.tsx block เดิม) มายิงทุก
+login ที่มี stamp ✔ เสร็จเมื่อ: sum(signup events) = count(profiles ที่มี signup_landing)
+
+**A4. Identity stitching** (P0 · ง่าย · 3 ชม.)
+ตอน first-login ยิง `signed_up_from:<anon_id>` (anon_id จาก localStorage เดิม) + view
+`landing_signup_journeys` JOIN พฤติกรรม pre-signup ครบ ✔ เสร็จเมื่อ: ≥90% signup มี
+journey ครบจาก view เดียว
+
+### 🟩 Stream B — FIRST EXPERIENCE (ประตูที่ 1: ให้แขกเห็นของให้ไวและเล่นจบ)
+
+**B1. Perf: 3.4MB → เป้า <1.2MB ก่อน interactive** (P0 · กลาง · 2-3 วัน)
+แยก: (ก) AI module + supabase เป็น dynamic เพิ่มขึ้นจากเดิม (ข) เสียงตัวอย่าง/คลิป
+ออกเป็น lazy (ค) precompress + long-cache (หน้าแชร์ผ่าน GitHub Pages มี CDN ฟรี)
+งบ: FCP <2.0s บน throttled 4G ✔ เสร็จเมื่อ: วัด Lighthouse mobile ≥ 85 + FCP เป้า
+
+**B2. TTFF: visual demo auto-play** (P0 · ง่าย · 3 ชม.)
+คีย์ hero กดเอง (visual-only ไม่มีเสียง = ไม่ติด autoplay policy) วนซ้ำ 8 วิ · เมื่อ
+แขกแตะเองครั้งแรก demo หยุดทันที ✔ เสร็จเมื่อ: view→touched ≥ 40%
+
+**B3. Copy บทเรียนแรก 3 ภาษา เหนือ fold** (P1 · ง่าย · 2 ชม.)
+hero ≤ 1 บรรทัด + ปุ่มใหญ่ "เริ่มเลย ไม่ต้องสมัคร" — ตาม copy pack §6 ✔ เสร็จเมื่อ:
+touched ที่ hero ไม่ต้อง scroll ≥ 60% ของ touched ทั้งหมด
+
+**B4. Aha-instrumentation** (P0 · ง่าย · 2 ชม.)
+เพิ่ม event ระดับ "อ้าว มันเล่นได้จริง": `aha:heard` (เสียงเปียโนดังครั้งแรก) ·
+`aha:watched` (ดู AI เล่นคำตอบจบ ≥1 คำถาม) — สองตัวนี้คือตัวทำนาย signup ที่แม่นกว่า
+dwell มาก ✔ เสร็จเมื่อ: dashboard เทียบ conversion ของคนที่มี/ไม่มี aha ได้
+
+### 🟨 Stream C — CAPTURE & RETURN (จาก 80% ที่หลุด → กลายเป็น lead ที่คุยต่อได้)
+
+**C1. "ส่งผลงานให้ตัวเอง" = lead ที่ไม่ใช่การสมัคร** (P0 · กลาง · 1-2 วัน) ★หัวใจ v4
+หลังแขกเล่นจบคำถามแรก (aha:watched) ปุ่ม "บันทึกผลงานนี้ส่งให้ฉัน": สร้างลิงก์
+`/landing/?replay=<anon_id>` ที่เปิดกลับมาเจอ "คำถาม-คำตอบ-บทเรียนที่เล่นไป" ครบ + ปุ่ม
+แชร์ (Web Share) + ปุ่มบันทึกเป็น PWA/โฮมสกรีน (มือถือ) — ไม่ต้องอีเมล ไม่ต้องรหัส
+(เก็บ state ฝั่ง client ผ่าน URL + localStorage; server ไม่เพิ่มตารางใน phase นี้)
+✔ เสร็จเมื่อ: captured_leads ≥ 8% · 30% ของลิงก์ถูกเปิดซ้ำภายใน 7 วัน
+
+**C2. Return-visit nurture** (P1 · ง่าย · 4 ชม.)
+เปิด landing รอบสอง (มี replay/lastQuestion) → "เมื่อวานคุณถาม “{q}” — เริ่มต่อเลยไหม"
++ CTA สมัครตรง หมดอายุ 14 วัน ✔ เสร็จเมื่อ: return_q:cta → try ≥ 15%
+
+**C3. Gate/skip/leave เดิม อัปเกรดตาม v3** (P1 — คงข้อ 6,7,10 เดิมทั้งหมด: sticky บอก
+เงื่อนไขเสีย + leave-catch + OTP captcha guard) ✔ ไม่ซ้ำในเอกสารนี้ — อ้าง v3 §2 ข้อ 6,7,10
+
+**C4. 7-14-30 นูเจิลด้วยหน้าเดิม** (P2 · ง่าย · 4 ชม.)
+ลิงก์ replay อายุ 30 วัน: วัน 7/14/30 เปิดมาเจอข้อความ/ข้อเสนอต่างกัน (7: "ยังเล่นฟรีได้
+อีก X นาที" · 14: ชวนสมัครจริงจัง · 30: "ข้อมูลของคุณจะถูกลบ — สมัครเก็บไว้") — ทุกอย่าง
+คำนวณจาก timestamp ใน URL ไม่ต้องเก็บเซิร์ฟเวอร์ ✔ เสร็จเมื่อ: replay-link → signed_up
+มีค่านอนศูนย์ใน funnel v3
+
+### 🟪 Stream D — GROWTH LOOP (วงจรที่ CAC=0 — สิ่งที่ v1-v3 ไม่มีเลย)
+
+**D1. Progress Share Card บน landing** (P1 · กลาง · 1 วัน)
+หลัง aha:watched: "ภูมิใจเสนอความคืบหน้าของคุณ" — สร้างการ์ด (canvas → PNG) มี: คีย์ที่
+เล่น · คำถามที่ถาม · บทเรียนที่ผ่าน · โลโก้ + ลิงก์ utm ที่**แนบภาษาผู้รับให้เลือก**
+(ปุ่ม 3 ธง) — ใช้ navigator.share (มีไฟล์) ตกมอง clipboard ✔ เสร็จเมื่อ: share_cta ≥
+5% ของคนที่เห็น · เพื่อนที่มาจาก card (utm=share,anon=<id>) เดิน funnel ถึง touched ≥ 40%
+
+**D2. เพื่อนมาถึงถูกที่ถูกต้อง (deeplink ภาษา+แคมเปญ)** (P1 · ง่าย · 2 ชม.)
+ทุกลิงก์แชร์พก `?lang=<ของผู้รับ>&utm_source=share&utm_campaign=<anon ผู้ส่ง>` — og
+ของ 3 ภาษามีอยู่แล้ว (landing/index.template.html) หน้าเลือกภาษาเมื่อ lang=share ไม่ตรง
+สถานที่ ✔ เสร็จเมื่อ: bounce ของ traffic สาย share < traffic สาย ad
+
+**D3. Double-sided bonus (เมื่อ D1 ผ่าน)** (P2 · กลาง · 1 วัน)
+ผู้ส่ง (เมื่อเป็นสมาชิก +30 วันฟรีหากเพื่อนสมัคร) / ผู้รับ (ลิงก์เปิดโบนัสเริ่มต้น) —
+**กติกาป้องกันตุ๋น:** นับเมื่อเพื่อน *จบบทเรียนแรก* (activation) เท่านั้น ไม่ใช่แค่สมัคร
+✔ เสร็จเมื่อ: ≥3% sessions มาจาก share · มีส่วนแบ่ง activation เท่ากันทั้งสองฝั่ง
+
+**D4. One Tap ตาม v3 ข้อ 8** (P1 — คงเดิม: GIS + signInWithIdToken + `try:onetap`)
+
+---
+
+## §3 วิธีทดสอบ (คงของ v3 + เพิ่ม 2 กฎ)
+
+1. Sequential weekly rollout — หนึ่งการเปลี่ยนต่อสัปดาห์ วินโดว์ 14 วัน
+2. lift ต้อง > 2×SE (dashboard คำนวณ + แสดง "ยังสรุปไม่ได้" เมื่อ n ไม่พอ)
+3. **กฎใหม่ A:** ทุกการทดลองต้องประกาศ guardrail ก่อนเริ่ม (activation % · ai:fail ·
+   FCP) — ตัวไหนแย่ลง > 10% ยกเลิกทันทีแม้ signed_up ขึ้น
+4. **กฎใหม่ B:** stream C/D วัดเป็น cohort 30 วัน ห้ามสรุปก่อนอายุ cohort ครบ
+   (nurture/loop ต้องเวลา การสรุปไว = ทิ้งงานที่กำลังออกผล)
+
+**เกณฑ์ตัดสินหลัง R1 (สัปดาห์ที่ 2)** — คง v3 เต็ม: returning>50% → งบไป audience ใหม่;
+touched<25% → ล็อก B2; gate→try ดีแต่ try→signup<20% → D4; signup ขึ้น activation<25%
+→ หยุด landing แก้ข้อ 12 (activation handoff) ทันที
+
+---
+
+## §4 Runbook (ใครทำอะไร เมื่อไร — ผู้รับงานอาจเป็นเอเจนต์รอบถัดไป)
+
+| สัปดาห์ | งาน | ผู้รับ | SLA | สัญญาณเตือน (alert) |
+|---|---|---|---|---|
+| 1 | A1-A4 + B4 | 1 เอเจนต์ | PR ภายใน 5 วันทำการ | funnel v2 ว่าง 7 วัน = แจ้งเจ้าของ |
+| 2 | B1 (perf) | 1 เอเจนต์ | PR + Lighthouse แนบ | FCP >2.5s บน throttled = กลับมาแก้ |
+| 3 | B2 + B3 + C1 | 1 เอเจนต์ | PR ภายใน 5 วัน | view→touched ตก >10pt = revert |
+| 4 | C2 + C4 + D1 | 1 เอเจนต์ | PR + ทดสอบ headless แนบ | captured_leads <3% = ปรับข้อเสนอ |
+| 5-6 | D2 + D3 + C3/D4 (v3) | 1 เอเจนต์ | ตามลำดับ | share-loop share<1% = หยุด D3 |
+| ต่อเนื่อง | อ่าน funnel ทุกจันทร์ + ตัดสิน sequential test | เจ้าของ+เอเจนต์ | รายงาน 1 หน้า/สัปดาห์ | — |
+
+ทุก PR: build ผ่าน + headless flow ผ่าน 0 error + ไม่แตะ schema โดยไม่มีอนุมัติ (กฎ
+AGENTS.md) + bump APP_VER + push main (เจ้าของอนุญาตล่วงหน้าแล้ว)
+
+---
+
+## §5 งาน DB ที่รออนุมัติ (ครบชุดเดียว — ตาม AGENTS.md ไม่รันเอง)
+
+| ไฟล์ | ข้อ | เนื้อหา |
 |---|---|---|
-| **R1 (สัปดาห์ 1) วัดให้ขาว** | 1, 2, 3, 4 | `supabase-landing-funnel-v3.sql`: RPC `admin_landing_funnel_v3(p_days)` — แยกภาษา×สาย×utm + bot-filter + view `landing_signup_journeys` |
-| **R2 (สัปดาห์ 2-3) ชิง lead + จบให้สมัครติด** | 5, 6, 7, 10, 11, 12 | — (frontend ล้วน) |
-| **R3 (สัปดาห์ 4-6) ลด friction ถาวร** | 8, 9, S1, S2 | `supabase-landing-social-proof.sql` (RPC อ่านอย่างเดียว) · `supabase-anonymous-users-migration.sql` (S2 — dry-run + รีวิว RLS ทุกตาราง) |
+| `supabase-landing-funnel-v3.sql` | A1, A4 | RPC `admin_landing_funnel_v3(p_days)` + view `landing_signup_journeys` (or-replace, ไม่แตะของเดิม) |
+| `supabase-landing-social-proof.sql` | S1(v3) | RPC อ่านอย่างเดียว นับ signup 7 วัน |
+| `supabase-anonymous-users-migration.sql` | S2(v3) | anonymous sign-in + RLS รีวิว (dry-run BEGIN/ROLLBACK แนบ) — อนุมัติทีหลังได้ |
 
-**Checklist ขออนุมัติจากเจ้าของ (ครั้งเดียวจบ):**
-☐ `supabase-landing-funnel-v3.sql` ☐ `supabase-landing-social-proof.sql`
-☐ `supabase-anonymous-users-migration.sql` (R3 — อนุมัติทีหลังได้)
+**ไม่มีตารางใหม่ใน phase C (replay-link) ตามดีไซน์ client-side — จงใจ เพื่อให้
+Stream C ขึ้นได้โดยไม่ต้องรออนุมัติ SQL แม้แต่ไฟล์เดียว**
 
-## ส่วนที่ 9 — เส้นทางข้อมูลปลายทาง (ไม่มี LINE)
+---
+
+## §6 Copy pack 3 ภาษา (เพิ่มจาก v3 — ส่วนของ Stream C/D)
+
+**C1 ปุ่มส่งผลงาน:**
+- TH: "📤 ส่งผลงานนี้ให้ฉัน — เปิดใหม่ได้ทุกเมื่อ ไม่ต้องสมัคร"
+- EN: "📤 Send this to me — open it again anytime, no sign-up"
+- ZH: "📤 发给我 — 随时重开，无需注册"
+
+**C4 ข้อความ 7/14/30 วัน:**
+- 7 TH: "สัปดาห์แล้ว — ผลงานของคุณยังอยู่ เล่นต่ออีก {X} นาทีฟรี" / EN: "One week on —
+  your work is still here. {X} free minutes left" / ZH: "一周了 — 你的作品还在，剩 {X} 分钟免费"
+- 14 TH: "ครึ่งทาง — สมัคร 30 วิ เก็บทุกอย่างถาวร + ฟรี 30 วัน" / EN: "Halfway — 30s to
+  keep everything forever + 30 free days" / ZH: "过半 — 30秒永久保存 + 免费30天"
+- 30 TH: "ข้อมูลฝึกของคุณจะถูกลบใน 7 วัน — สมัครเก็บไว้" / EN: "Your practice data is
+  deleted in 7 days — save it with an account" / ZH: "练习数据将于7天后删除 — 立即注册保存"
+
+**D1 การ์ดแชร์ (หัวการ์ด):**
+- TH: "ฉันเพิ่งเรียน “{q}” กับครูเปียโน AI — มันเล่นให้ดูจริง 🎹" · EN: "I just learned
+  “{q}” with an AI piano teacher — it really plays 🎹" · ZH: "我刚跟AI钢琴老师学了
+  “{q}” — 它真的会弹 🎹"
+
+**กฎเดิมคงอยู่:** ตัวเลขจริงเท่านั้น ห้าม countdown ปลอม (PDPA + จริยธรรมโฆษณา)
+
+---
+
+## §7 Kill List (คง v3 เต็ม + เพิ่ม 2)
+
+1-6 ตาม v3 (ห้าม gate บทเรียนแรก · ห้ามปลอม/ตุ๋น · ห้าม email-first · ห้าม modal ซ้อน ·
+PII น้อยสุด · ห้ามเปิด anonymous ก่อน RLS รีวิว)
+7. ❌ ห้ามแชร์ออกไปโดยไม่มี lang/utm ในลิงก์ — เพื่อนเข้าผิดภาษา = แขกหาย + ข้อมูลเละ
+8. ❌ ห้ามทำ replay-link เก็บ PII ใด ๆ (ไม่อีเมล ไม่ชื่อ) ใน phase C — ถ้าจำเป็นต้องมี
+   ให้ย้ายไป phase anonymous (S2) ที่ RLS ผ่านการรีวิวแล้วเท่านั้น
+
+---
+
+## §8 Risk Register (เพิ่ม 2 แถวจาก v3)
+
+| ความเสี่ยง | โอกาส | ผล | ลด |
+|---|---|---|---|
+| (v3 ครบ 6 แถว — anonymous spam · One Tap in-app · OTP ยิง · bot บวม · copy แย่ · RLS พัง) | | | |
+| **replay-link ถูกใช้เป็นช่องเก็บขยะ/ขนาด URL บวม** | กลาง | กลาง | จำกัด state ≤ 2KB + TTL 30 วัน + ยิง event ตรวจขนาด |
+| **perf patch ทำ hero เพี้ยนบน iOS เก่า** | กลาง | กลาง | ทดสอบ headless บน iOS UA + feature-detect ทุก API ใหม่ |
+
+---
+
+## §9 ลำดับความคืบหน้าสรุปย่อ (ตัวเดียวเห็นทุกอย่าง)
 
 ```
-visitor ──anon_id──► landing (TH/EN/ZH × utm_campaign)
-  │  returning member? → hero "กลับมาต่อ" → แอป (นอก funnel)
-  ▼
-visual demo → piano → q → AI → gate/One Tap/skip-CTA/leave-catch/return-nurture
-  │                                        │
-  │            try:google / onetap / otp / email
-  ▼                                        ▼
- signed_up (นับครบทุกสาย) ──► ?welcome=1 ──► เพลงแรก ≤ 90 วิ
-                                              │
-                              activation:first_song (D1) ──► dashboard
-   funnel v3: ภาษา × สาย × campaign × variant × activation — ทุกช่องมี n และ SE
+Stream A (วัดให้ขาว)    □ A1 □ A2 □ A3 □ A4          ← สัปดาห์ 1
+Stream B (แรกพบ)        □ B1 □ B2 □ B3 □ B4          ← สัปดาห์ 2-3
+Stream C (กัก lead)     □ C1 □ C2 □ C3(v3) □ C4      ← สัปดาห์ 3-4
+Stream D (วงจรโต)       □ D1 □ D2 □ D3 □ D4(v3)      ← สัปดาห์ 5-6
+S (v3):                 □ OTP guard □ social proof □ anonymous-first (R3)
+เป้า 90 วัน: signed_up ≥ 6.6% · capture ≥ 15% · activation ≥ 60% · share ≥ 8% · FCP < 1.5s
 ```
