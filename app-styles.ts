@@ -2733,7 +2733,16 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .recbtn:active:not(:disabled){transform:scale(.96)}
 .recdot{font-family:'Share Tech Mono',monospace;font-size:11px;color:#ff5252;font-weight:700}
 .songsrcbar{text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);padding:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom,0px));flex-shrink:0}
-.songresult{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;padding:24px;text-align:center}
+/* Result screen must SCROLL when its content outgrows the screen: stars +
+   score grid + AI analysis + drill segments + share/challenge buttons easily
+   exceed one viewport on a phone. justify-content:center used to clip both
+   the top AND bottom of the overflow with no way to reach it (classic
+   flexbox centering + overflow trap); margin:auto on the ends keeps the
+   centered look when content fits while letting it scroll when it does not. */
+.songresult{flex:1;display:flex;flex-direction:column;align-items:center;gap:15px;padding:24px;text-align:center;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.songresult>*{flex-shrink:0;margin-left:auto;margin-right:auto}
+.songresult>:first-child{margin-top:auto}
+.songresult>:last-child{margin-bottom:auto}
 .songstars{font-size:46px;color:#d97757;letter-spacing:6px;text-shadow:0 0 24px #d9775766;animation:popcount .6s ease-out}
 /* Setlist finale banner — score/max-combo shown lower on this same result
    screen are already the whole concert's totals; this just names them and
