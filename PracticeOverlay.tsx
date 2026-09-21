@@ -363,6 +363,7 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
     rhythmPct, dynPct, practiceTarget, metroBpm,
     prevAccuracy: (r.prevBest && r.prevBest.accuracy) || null,
     strategyId: (r.tigaTip && r.tigaTip.strategyId) || null,
+    lang,
   });
   if (!data) return null;
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -370,7 +371,7 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
   const tempo = data.tempo;
   const recap = data.recap;
   const ex = data.exercise;
-  const tx = (o) => (o ? (o[L] || o.en || o.th) : null);
+  const tx = (o) => (o ? (typeof o === "string" ? o : (o[L] || o.en || o.th)) : null);
   return (
     <div className="presultai pcoach" style={{ borderColor: "#8ad4ff" }}>
       <div className="presultai-h">🎯 {T("ครู TIGA Practice Coach", "Teacher TIGA Practice Coach", "TIGA 练习教练")}</div>
@@ -378,7 +379,7 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
       {tempo && (
         <div className="pcoach-tempo">
           <b>{tempo.bpm} BPM</b>
-          <span className="pcoach-why">{tempo.step > 0 ? `▲ +${tempo.step}` : tempo.step < 0 ? `▼ ${tempo.step}` : "▬"} {tempo.reason}</span>
+          <span className="pcoach-why">{tempo.step > 0 ? `▲ +${tempo.step}` : tempo.step < 0 ? `▼ ${tempo.step}` : "▬"} {tx(tempo.reasonT) || tempo.reason}</span>
           {onSetTempo && <button className="pcoach-btn" onClick={() => onSetTempo(tempo.bpm)}>⏱ {T("ตั้งเมโทรนอม", "Set metronome", "设置节拍器")}</button>}
         </div>
       )}
@@ -396,10 +397,10 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
           <div className="presultai-tx">{tx(ex.task) || ex.task}</div>
           {Array.isArray(ex.steps) && ex.steps.length > 0 && (
             <ol className="pcoach-steps">
-              {ex.steps.map((s, i) => <li key={i}>{s}</li>)}
+              {ex.steps.map((s, i) => <li key={i}>{tx(s) || s}</li>)}
             </ol>
           )}
-          {ex.check && <div className="pcoach-check">✓ {ex.check}</div>}
+          {ex.check && <div className="pcoach-check">✓ {tx(ex.check) || ex.check}</div>}
         </div>
       )}
     </div>

@@ -781,6 +781,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
   const [anon, setAnon] = useState(null);   // headline count of signed-out visitors
   const [signup, setSignup] = useState(null); // Google vs email sign-up split
   const [landing, setLanding] = useState(null);   // marketing landing page 1 funnel
+  const [langSplit, setLangSplit] = useState(null); // th/en/zh landing-origin split — null until supabase-signup-landing-migration.sql is applied (card hides)
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState(null);
   const [sel, setSel] = useState(null);      // selected user uuid
@@ -863,6 +864,11 @@ export function AdminActivity({ lang, onOpenAnon }) {
       .then((d) => setDevMix(d || null), () => setDevMix(null));
     callRpc("admin_device_widths", { p_since: since }, true)
       .then((d) => setDevWidths(d || null), () => setDevWidths(null));
+    /* Signup origin by landing-page language (th/en/zh). Optional RPC — same
+       null-on-failure convention as the cards above: until
+       supabase-signup-landing-migration.sql is applied the card simply hides. */
+    sb.rpc("admin_signup_languages", { p_since: since })
+      .then(({ data }) => setLangSplit(data || null), () => setLangSplit(null));
   }, [range, showSim, noAdmins]);
 
   useEffect(() => { load(); }, [load]);
@@ -1050,6 +1056,37 @@ export function AdminActivity({ lang, onOpenAnon }) {
             <RankRows rows={overview.scores || []} valueFor={(r) => r.hits} T={T} valueLabel={(n) => String(n)} />
           </div>
 
+          {/* signup origin by landing-page language (owner request 2026-09-21).
+              Renders only once supabase-signup-landing-migration.sql is applied
+              (admin_signup_languages exists); before that langSplit stays null
+              and the card is invisible — same convention as every optional card. */}
+          {langSplit && Array.isArray(langSplit.split) && langSplit.split.length > 0 && (() => {
+            const FLAG_L = { th: "🇹🇭 ไทย (/landing/)", en: "🇬🇧 English (/landing-en/)", zh: "🇨🇳 中文 (/landing-zh/)", unknown: T("ไม่ทราบแหล่ง (ก่อนระบบนี้ / ล็อกอินตรง)", "Unknown origin (pre-feature / direct)", "未知来源（功能前/直接登录）") };
+            const total = Number(langSplit.total) || 0;
+            return (
+              <div className="adminpay-cfg" style={{ marginBottom: 10 }}>
+                <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>
+                  🌍 {T("แหล่งสมัครตามภาษาแลนดิ้งเพจ", "Signup by landing-page language", "按落地页语言的注册来源")}
+                  <span className="admstu-row-sub" style={{ marginLeft: 8, fontWeight: 400 }}>
+                    {Number(langSplit.with_landing) || 0}/{total} {T("มีตัวตนแหล่งที่มา", "origin known", "已知来源")}
+                  </span>
+                </div>
+                {langSplit.split.map((x) => {
+                  const n = Number(x.people) || 0;
+                  return (
+                    <div key={x.landing} className="anrow">
+                      <span className="anrow-name" style={{ maxWidth: "55%" }}>{FLAG_L[x.landing] || x.landing}</span>
+                      <span className="anrow-barwrap">
+                        <span className="anrow-bar" style={{ width: Math.max(2, (n / Math.max(1, total)) * 100) + "%", background: x.landing === "unknown" ? undefined : "#16a34a" }} />
+                      </span>
+                      <span className="anrow-hits">{n}{total > 0 && <span className="admstu-row-sub"> · {Math.round((n / total) * 100)}%</span>}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
           {/* users */}
           <div className="adminpay-cfg">
             <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>👥 {T("รายผู้ใช้ (กดเพื่อดูรายละเอียด)", "Users (tap for detail)", "用户列表")}</div>
@@ -1063,6 +1100,15 @@ export function AdminActivity({ lang, onOpenAnon }) {
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {u.display_name}{u.simulated && <span style={{ fontSize: 10, opacity: 0.5 }}> (จำลอง)</span>}
+                    {/* Landing-origin flag (owner request 2026-09-21): which
+                        marketing landing page (th/en/zh) the account was born
+                        on. Only renders once the column exists (undefined →
+                        nothing); ❔ marks a genuinely unknown origin. */}
+                    {u.signup_landing != null && (
+                      <span title={"signup_landing: " + u.signup_landing} style={{ marginLeft: 6, fontSize: 11 }}>
+                        {u.signup_landing === "th" ? "🇹🇭" : u.signup_landing === "en" ? "🇬🇧" : u.signup_landing === "zh" ? "🇨🇳" : "❔"}
+                      </span>
+                    )}
                   </span>
                   <span style={{ display: "block", fontSize: 10, opacity: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {u.user_id?.slice(0, 8)}… {u.email ? "· " + u.email : ""}
@@ -1080,6 +1126,11 @@ export function AdminActivity({ lang, onOpenAnon }) {
             <div className="adminpay-cfg" style={{ borderColor: "var(--tg-primary, #7c5cff)" }}>
               <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>
                 {sel.simulated ? "🤖" : "👤"} {sel.display_name} — {T("รายละเอียด", "Detail", "详情")}
+                {sel.signup_landing != null && (
+                  <span title={"signup_landing: " + sel.signup_landing} style={{ marginLeft: 8, fontSize: 12, fontWeight: 400 }}>
+                    {T("มาจากแลนดิ้ง", "via landing", "来自落地页")} {sel.signup_landing === "th" ? "🇹🇭 th" : sel.signup_landing === "en" ? "🇬🇧 en" : sel.signup_landing === "zh" ? "🇨🇳 zh" : "❔"}
+                  </span>
+                )}
                 <button onClick={() => setSel(null)} style={{ float: "right", background: "none", border: "none", fontSize: 16 }}>✕</button>
               </div>
               {detail === null ? <div className="admstu-msg">⏳</div> : (

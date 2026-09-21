@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { Piano, startPianoNote, releasePianoNote } from "../music-engine";
 import { logLand } from "./land-log";
-import { GUEST_PROFILE_KEY, setSkipOnboard } from "../local-identity";
+import { GUEST_PROFILE_KEY, setSkipOnboard, stampLandingOrigin } from "../local-identity";
 import { inAppBrowser, openInRealBrowser, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
 import { LESSONS } from "./landing-lessons";
 import { C, LANGS, FLAGS, FLAG_NAMES, pickLang } from "./landing-copy";
@@ -67,6 +67,18 @@ let viewLogged = false;
    one code path, exactly one way an account is made. */
 async function startGoogleAuth() {
   setSkipOnboard();
+  /* Owner request (2026-09-21): the admin console must see WHICH landing page
+     (th/en/zh) each account came from. The account is born inside this OAuth
+     handoff — the only door — so stamp the page's own language here, right
+     before redirecting. The app consumes the stamp once at first login and
+     clears it (local-identity.ts), so re-logins never overwrite the answer.
+     Deliberately NOT stamped on page load: a drive-by visitor would leave a
+     stamp that mislabels a later, different-language signup on this device.
+     This is module-level (both doors call it), so the language comes from
+     <html lang> — which this page keeps honest from the URL, its own single
+     source of truth — not from any component's state. */
+  const pgLang = (typeof document !== "undefined" && document.documentElement && document.documentElement.lang) || "";
+  stampLandingOrigin(pgLang);
   const sb = await getSb();
   await sb.auth.signInWithOAuth({
     provider: "google",

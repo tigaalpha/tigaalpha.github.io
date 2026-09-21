@@ -208,6 +208,52 @@ console.log("finishPractice end-to-end (real hook + real teaching loop):");
   ok("unknown lang → Thai fallback", /[ก-๙]/.test(rX.response.text));
 }
 
+/* ── 1b. Practice Coach card speaks the app's language (owner request 2026-09-21:
+   "Next step: กลุ่มถัดไป" showed Thai inside English mode). Covers the WHOLE
+   coach pipeline: recap next-step (trilingual skill-graph node), homework,
+   tempo reason, and the generated exercise (title/task/steps/check). ── */
+{
+  /* use-practice-coach.ts imports "./tigamodel/web" (extensionless) — node ESM
+     can't resolve that, so bundle it (rewriting the import to the ALREADY-
+     BUNDLED ovroot/web.js built above) and import the bundle instead. */
+  execSync(
+    `npx esbuild use-practice-coach.ts --bundle --outfile=${OUT}/coach/use-practice-coach.js --format=esm --platform=browser --loader:.ts=ts --external:react`,
+    { stdio: "pipe" }
+  );
+  const { buildPracticeCoachData } = await import(pathToFileURL(`${OUT}/coach/use-practice-coach.js`).href);
+  const args = {
+    label: "โนนเมเจอร์ (Harmonic) สเกล (Scale)", accuracy: 88,
+    missedNotes: [], rhythmPct: 95, dynPct: null,
+    practiceTarget: [{ bpm: 80 }], metroBpm: 80,
+    prevAccuracy: 90, strategyId: "continue-current-plan",
+  };
+  const dTh = buildPracticeCoachData({ ...args, lang: "th" });
+  const dEn = buildPracticeCoachData({ ...args, lang: "en" });
+  const dZh = buildPracticeCoachData({ ...args, lang: "zh" });
+  ok("coach: builder returns data (th/en/zh)", !!dTh && !!dEn && !!dZh);
+  if (dEn && dZh && dTh) {
+    const lines = (d) => (d.recap && d.recap.lines ? d.recap.lines.map(l => l[l && l.length ? 0 : 0]) : []);
+    const pick = (d) => ({
+      next: d.recap.lines[2], hw: d.recap.homework,
+      ex: d.exercise,
+    });
+    const P = pick(dEn);
+    ok("coach en: next-step line is English", P.next.en.startsWith("Next step: ") && !/[ก-๙]/.test(P.next.en), P.next.en);
+    ok("coach en: exercise title English (no Thai)", !!P.ex && !/[ก-๙]/.test(P.ex.title.en), P.ex.title.en);
+    ok("coach en: steps + check trilingual objects", !!P.ex && Array.isArray(P.ex.steps) && P.ex.steps.every(s => s.th && s.en && s.zh) && !!(P.ex.check.th && P.ex.check.en && P.ex.check.zh));
+    const Z = pick(dZh);
+    ok("coach zh: next-step line is Chinese", /[一-龥]/.test(Z.next.zh) && !/[ก-๙]/.test(Z.next.zh), Z.next.zh);
+    ok("coach zh: homework Chinese", /[一-龥]/.test(Z.hw.zh) && !/[ก-๙]/.test(Z.hw.zh), Z.hw.zh);
+    ok("coach zh: exercise task Chinese", /[一-龥]/.test(Z.ex.task.zh) && !/[ก-๙]/.test(Z.ex.task.zh), Z.ex.task.zh);
+    const T = pick(dTh);
+    ok("coach th: next-step line is Thai", /[ก-๙]/.test(T.next.th), T.next.th);
+    /* tempo decision carries trilingual display reason */
+    if (dTh.tempo) ok("coach: tempo reasonT trilingual", !!(dTh.tempo.reasonT && dTh.tempo.reasonT.th && dTh.tempo.reasonT.en && dTh.tempo.reasonT.zh));
+    /* each language picks its OWN text for the same data (no shared fallback) */
+    ok("coach: th/en/zh next-step texts all differ", T.next.th !== P.next.en && P.next.en !== Z.next.zh);
+  }
+}
+
 /* ── 2. full hook flow: complete a G-major harmonic scale, finish, inspect ── */
 const isGuest = true;
 let api = null;
@@ -326,6 +372,47 @@ console.log(`  (practiceResult via server probe: ${api.practiceResult ? "set" : 
     ok("overlay renders TIGA verdict header", html.includes("ครู TIGA AI วิเคราะห์") || html.includes("TIGA Model วิเคราะห์"), "markup: " + html.slice(0, 300));
     ok("overlay renders verdict text", r2.tigaTip && html.includes(r2.tigaTip.text.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     ok("NO crash-boundary artifacts", !html.includes("Something went wrong"));
+
+    /* ── 4b. coach card renders per language — CLIENT mount (usePracticeCoach
+       fills data in a useEffect, invisible to renderToStaticMarkup), then read
+       the real .pcoach node from the DOM ── */
+    const coachCardText = async (lang) => {
+      const mount = globalThis.document.createElement("div");
+      globalThis.document.body.appendChild(mount);
+      const { createRoot } = await import("react-dom/client");
+      const croot = createRoot(mount);
+      croot.render(React.createElement(PracticeOverlay, {
+        practiceModeRef: { current: "scale" }, chordStyle: "broken",
+        practiceTarget: [{ bpm: 80 }], practiceHitIdxs: [], practiceFingers: [], lang,
+        practiceLabel: r2.label, exitPractice: () => {}, practiceSrc: null, practiceTune: null,
+        hand: "right", setHand: () => {}, practiceIdx: 0, practiceHeard: null, practiceMiss: 0,
+        practiceStreak: 0, practiceResult: r2, restartPractice: () => {}, practiceHandlerRef: { current: () => {} },
+        switchPracticeChordStyle: () => {}, chordGroupSize: 0,
+        metroBpm: 80, onSetTempo: () => {}, onTipUpdate: () => {},
+        onKeepGoing: () => {}, showKeepGoing: false,
+      }));
+      // the card fills via an ASYNC effect (build → set → re-render) — poll up
+      // to 2s for real content instead of a fixed sleep (fixed 250ms flaked
+      // whenever the machine was under load; assertions themselves unchanged)
+      let text = "";
+      for (let i = 0; i < 40; i++) {
+        await new Promise(res => setTimeout(res, 50));
+        const card = mount.querySelector(".pcoach");
+        text = card ? card.textContent : "";
+        if (text.length > 40) break;
+      }
+      croot.unmount(); mount.remove();
+      return text;
+    };
+    const tEn = await coachCardText("en");
+    const tZh = await coachCardText("zh");
+    const tTh = await coachCardText("th");
+    ok("coach card mounts with content", tEn.length > 40, "card empty/absent");
+    ok("coach en card: English next-step, zero Thai glyphs", tEn.includes("Next step: ") && !/[ก-๙]/.test(tEn), tEn.slice(0, 160));
+    ok("coach en card: no [object Object] leak", !tEn.includes("object Object"));
+    ok("coach zh card: Chinese next-step, zero Thai glyphs", tZh.includes("下一步：") && /[一-龥]/.test(tZh) && !/[ก-๙]/.test(tZh), tZh.slice(0, 160));
+    ok("coach th card: Thai next-step", tTh.includes("ก้าวถัดไป:") && /[ก-๙]/.test(tTh), tTh.slice(0, 160));
+    ok("coach card text differs across all 3 modes", tEn !== tZh && tZh !== tTh && tEn !== tTh);
   }
   root.unmount();
 }

@@ -24,6 +24,8 @@ w(`${OUT}/use-conversion.mjs`, src);
 const C = await import(pathToFileURL(`${OUT}/use-conversion.mjs`).href);
 
 let pass = 0, fail = 0;
+let pp = null;
+let ps = null;
 function ok(cond, label) { if (cond) { pass++; console.log(`  ok: ${label}`); } else { fail++; console.error(`FAIL: ${label}`); } }
 
 const DAY = 86400000;
@@ -83,6 +85,56 @@ for (const lang of ["th", "en", "zh"]) {
   const cc = C.CONV_COPY[lang];
   ok(cc && cc.bannerUrgent.includes("{n}") && cc.welcome.title && cc.halfway.title && cc.closing.items && cc.winback.title && cc.closing.cta, `copy ${lang}: all keys present`);
 }
+
+// ══ v3: Personalized Proof Funnel ══
+ok(typeof C.proofStats === "function" && typeof C.proofPopupEligible === "function" && typeof C.firstPaidActivation === "function" && typeof C.personalizedBody === "function" && typeof C.logConvEvent === "function" && !!C.ACTIVATION_COPY, "v3 exports present");
+
+// proofStats: reads the real outcome rows; honest nulls when empty
+localStorage.setItem("tg_atip_outcomes", JSON.stringify([
+  { resolved: true, outcome: { improved: true, delta: 12 } },
+  { resolved: true, outcome: { improved: false, delta: -2 } },
+  { resolved: false },
+]));
+ps = C.proofStats();
+ok(ps.resolved === 2 && ps.improvedCount === 1 && ps.bestDelta === 12 && ps.totalDelta === 12, "proofStats: counts resolved/improved/best from real rows");
+localStorage.setItem("tg_atip_outcomes", "[]");
+ps = C.proofStats();
+ok(ps.improvedCount === 0 && ps.bestDelta === null, "proofStats: empty data -> honest zeros/nulls");
+
+// convD7 via convPopupFor: only day 5-9 + real proof + unseen + slot free
+localStorage.setItem("tg_atip_outcomes", JSON.stringify([{ resolved: true, outcome: { improved: true, delta: 9 } }]));
+p = C.convPopupFor(prof(7), "trial");
+ok(p && p.id === "d7" && p.kind === "d7proof" && p.proof.bestDelta === 9, "v3: day 8 + proof -> d7proof popup (fills the quiet phase)");
+ok(C.convPopupFor(prof(12), "trial") === null, "v3: day 13 -> no d7 popup (outside window)");
+localStorage.setItem("tg_atip_outcomes", "[]");
+ok(C.convPopupFor(prof(7), "trial") === null, "v3: day 8 without proof -> nothing (no evidence, no pitch)");
+
+// 1-sell-per-day governor
+localStorage.setItem("tg_atip_outcomes", JSON.stringify([{ resolved: true, outcome: { improved: true, delta: 9 } }]));
+ok(C.sellSlotToday() === 1, "v3: sell slot consumed by the d7 popup");
+ok(C.proofPopupEligible(prof(7), "trial") === null, "v3: proof popup blocked when today's slot is used");
+localStorage.setItem("tg_sell_day", JSON.stringify({ d: new Date().toDateString(), used: 0 }));
+pp = C.proofPopupEligible(prof(7), "trial");
+ok(pp && pp.id === "proof" && pp.kind === "proof", "v3: proof popup fires on a freed slot (win moment)");
+ok(C.proofPopupEligible(prof(7), "trial") === null, "v3: proof popup capped at once per 7 days");
+ok(C.proofPopupEligible(prof(7), "premium") === null, "v3: proof popup never for paying members");
+localStorage.setItem("tg_atip_outcomes", JSON.stringify([{ resolved: true, outcome: { improved: true, delta: 2 } }]));
+localStorage.setItem("tg_sell_day", JSON.stringify({ d: new Date().toDateString(), used: 0 }));
+localStorage.setItem("tg_proof_last", "0");
+ok(C.proofPopupEligible(prof(7), "trial") === null, "v3: bestDelta < 5 -> no proof popup (bar is real improvement)");
+
+// personalized copy: real numbers when proof exists, original copy otherwise
+ok(C.personalizedBody("d7proof", "en", { improvedCount: 2, bestDelta: 12, sessions: 5 }, "GEN").includes("+12%"), "v3: en body carries the real number");
+ok(C.personalizedBody("d7proof", "th", { improvedCount: 1, bestDelta: 12 }, "GEN").includes("+12%") && /[ก-๙]/.test(C.personalizedBody("d7proof", "th", { improvedCount: 1, bestDelta: 12 }, "GEN")), "v3: th body Thai + number");
+ok(C.personalizedBody("d7proof", "zh", { improvedCount: 1, bestDelta: 12 }, "GEN").includes("+12%"), "v3: zh body carries the number");
+ok(C.personalizedBody("halfway", "en", { improvedCount: 0, bestDelta: null }, "GENERIC") === "GENERIC", "v3: no proof -> honest generic fallback (never a proud zero)");
+ok(C.personalizedBody("closing", "en", { improvedCount: 3, bestDelta: 8, sessions: 23 }, null).includes("23 sessions"), "v3: closing personalized names sessions when known");
+
+// post-purchase activation: exactly once, paid only, admins excluded
+ok(C.firstPaidActivation("premium") === true, "v3: first paid moment fires activation");
+ok(C.firstPaidActivation("premium") === false, "v3: second call - no replay (once per account)");
+ok(C.firstPaidActivation("trial") === false && C.firstPaidActivation("free") === false && C.firstPaidActivation("maxfamily") === false, "v3: trial/free/admin never fire activation");
+ok(!!(C.ACTIVATION_COPY.th && C.ACTIVATION_COPY.en && C.ACTIVATION_COPY.zh), "v3: activation copy in all 3 languages");
 
 rmSync(OUT, { recursive: true, force: true });
 console.log(`\n${pass} PASS, ${fail} FAIL`);

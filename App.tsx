@@ -28,7 +28,7 @@ import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
-import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift } from "./use-conversion";
+import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
 import { runTeachingLoopForPractice , tigaHub } from "./tigamodel/web";
 import { buildParentReport } from "./use-practice-coach";
@@ -107,6 +107,7 @@ import {
   readActLog, logActivity, recordNoteMisses, readPracticeLog,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
   guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
+  readLandingOrigin, clearLandingOrigin,
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync } from "./cloud-sync";
 import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone } from "./app-shell";
@@ -9884,6 +9885,29 @@ export default function App() {
       if (data && guestHasProgress(loadGuestProfile())) {
         finalData = await mergeGuestProgressIntoProfile(uid, data);
       }
+      /* ── Landing-origin capture (owner request 2026-09-21) ──
+         The marketing landing stamps WHICH language page the visitor signed
+         up from (local-identity.stampLandingOrigin at the OAuth button).
+         Consume it exactly once, at the first login where the server row
+         doesn't carry the answer yet: persist profiles.signup_landing, log
+         a usage event (kind "land", item_id "signed_up_landing:<lang>" —
+         lands in the existing admin analytics stream), then clear the stamp
+         so re-logins never overwrite the original. Written only when lang
+         was never user-chosen (lang === null): a chosen lang means the
+         account predates this feature. */
+      const landingOrigin = readLandingOrigin();
+      if (data && !data.signup_landing && landingOrigin && data.lang == null) {
+        sb.from("profiles").update({ signup_landing: landingOrigin, updated_at: new Date().toISOString() }).eq("id", uid)
+          .then(() => {}, () => {});
+        finalData = { ...(finalData || data), signup_landing: landingOrigin };
+        logUsage("land", "signed_up_landing:" + landingOrigin);
+        clearLandingOrigin();
+      } else if (landingOrigin) {
+        // No eligible row (row creation still pending via handle_new_user,
+        // or the account already carries the answer): don't let a stale
+        // stamp linger — it would mislabel a much later signup.
+        clearLandingOrigin();
+      }
       setProfile(finalData || null);
       setProfileReady(true);
       // cloud-sync: two-way sync of the learner's localStorage learning state
@@ -10076,11 +10100,41 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => {
     const next = convPopupFor(profile, plan) || convWinBack(profile, plan);
     setConvPopup(next);
+    if (next) logConvEvent(next.id, "shown");           // v3 funnel instrumentation
   }, [profile, plan]);
   function dismissConvPopup() {
-    if (convPopup) markConvSeen(convPopup.id);
+    if (convPopup) { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "dismissed"); }
     setConvPopup(null);
   }
+  /* v3 win-moment proof popup (owner plan §3): fires after a practice session
+     when the teaching loop closed with a real improvement (≥ +5%). Gated by
+     the 1-sell-per-day governor inside proofPopupEligible. Never for paying
+     members — same effectivePlan rule as the skeleton funnel. */
+  /* v3 post-purchase activation (owner plan §5): exactly once per account,
+     the first render where the plan is a PAID one — teacher speaks within
+     60s of payment (this effect runs the moment activatePremium/checkout
+     flips the plan). Guards admins (maxfamily) like the funnel does. */
+  const [activatePopup, setActivatePopup] = useState(false);
+  useEffect(() => {
+    if (plan === "trial" || plan === "free" || plan === "maxfamily") return;
+    if (firstPaidActivation(plan)) { setActivatePopup(true); logConvEvent("activation", "shown"); }
+  }, [plan]);
+  /* v3 win-moment proof popup (owner plan §3): fires after a practice session
+     when the teaching loop closed with a real improvement (≥ +5%). Gated by
+     the 1-sell-per-day governor inside proofPopupEligible. Trial only — same
+     effectivePlan rule as the skeleton funnel. */
+  const [proofPopup, setProofPopup] = useState(null);
+  useEffect(() => {
+    if (plan !== "trial") return;                         // trial only
+    const onProofCheck = () => {
+      if (convPopup) return;                            // skeleton popup wins
+      const next = proofPopupEligible(profile, plan);
+      if (next) { setProofPopup(next); logConvEvent("proof", "shown"); }
+    };
+    window.addEventListener("tiga:practice-done", onProofCheck);
+    return () => window.removeEventListener("tiga:practice-done", onProofCheck);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, plan, convPopup]);
   /* Game-feature education (owner-approved 2026-09-19): one tip at a time,
      priority-guarded — a conversion popup or broadcast always wins, and the
      tip waits for the next quiet render. Fired from the same trigger points
@@ -13084,7 +13138,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           priority phase first; dismissal is remembered per device. */}
       {convPopup && (() => {
         const cc = CONV_COPY[lang] || CONV_COPY.en;
-        const c = cc[convPopup.kind];
+        const cRaw = cc[convPopup.kind];
+        const c = { ...cRaw, body: personalizedBody(convPopup.kind, lang, convPopup.proof, cRaw.body) };
         return (
           <div className="atpopup" onClick={dismissConvPopup}>
             <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
@@ -13100,17 +13155,63 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   dismiss; win-back gets a secondary browse-plans button. */}
               {convPopup.kind === "closing"
                 ? <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); startCheckout("premium", billCycle); }}>{c.cta}</button>
+                    <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "cta"); setConvPopup(null); startCheckout("premium", billCycle); }}>{c.cta}</button>
                     <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{c.alt}</button>
                   </div>
                 : convPopup.kind === "halfway"
                 ? <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{c.cta}</button>
+                    <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "cta"); setConvPopup(null); setPricingOpen(true); }}>{c.cta}</button>
                   </div>
                 : <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     <button className="atpopup-ok" style={{ flex: 1 }} onClick={dismissConvPopup}>{c.cta}</button>
                     {convPopup.kind === "winback" && <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{(CONV_COPY[lang] || CONV_COPY.en).halfway.cta}</button>}
                   </div>}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* v3 win-moment proof popup (owner plan §3): the learner's OWN before/
+          after numbers, one per day max, trial only, evidence-gated. CTA opens
+          the existing pricing sheet; secondary goes straight to checkout. */}
+      {proofPopup && !convPopup && (() => {
+        const cc = CONV_COPY[lang] || CONV_COPY.en;
+        const k = cc[proofPopup.kind] || cc.proof;
+        const c = { ...k, body: personalizedBody(proofPopup.kind, lang, proofPopup.proof, k.body) };
+        return (
+          <div className="atpopup" onClick={() => { logConvEvent("proof", "dismissed"); setProofPopup(null); }}>
+            <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
+                <div className="atpopup-tt">{c.title}</div>
+                <button className="atpopup-x" onClick={() => { logConvEvent("proof", "dismissed"); setProofPopup(null); }} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { logConvEvent("proof", "cta"); setProofPopup(null); setPricingOpen(true); }}>{c.cta}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* v3 post-purchase activation (owner plan §5): the teacher's first words
+          after payment — anti-regret + first next step in one tap. */}
+      {activatePopup && (() => {
+        const c = ACTIVATION_COPY[lang] || ACTIVATION_COPY.en;
+        return (
+          <div className="atpopup" onClick={() => setActivatePopup(false)}>
+            <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
+                <div className="atpopup-tt">{c.title}</div>
+                <button className="atpopup-x" onClick={() => setActivatePopup(false)} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { logConvEvent("activation", "cta"); setActivatePopup(false); setPage("pathway"); try { fetchAutoTeachTip(); } catch (e) {} }}>{c.cta}</button>
+                <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => setActivatePopup(false)}>{c.alt}</button>
+              </div>
             </div>
           </div>
         );

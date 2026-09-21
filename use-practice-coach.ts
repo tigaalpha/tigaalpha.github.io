@@ -118,11 +118,11 @@ function worstMissedNote(missedNotes) {
   } catch (e) { return null; }
 }
 
-function nextSkillLabel() {
+function nextSkillNode() {
   try {
     const coach = getCoach();
     const next = coach && coach.nextSkill ? coach.nextSkill({}) : null;
-    return next ? (next.th || next.en || null) : null;
+    return next || null; // full skill-graph node {th,en,zh,...} — recap picks the language
   } catch (e) { return null; }
 }
 
@@ -130,7 +130,7 @@ function nextSkillLabel() {
    { tempo, recap, exercise } where any member may be null (honest hide). */
 export function buildPracticeCoachData(args) {
   try {
-    const { label, accuracy, missedNotes = [], rhythmPct = null, dynPct = null, practiceTarget = null, metroBpm = null, prevAccuracy = null, seed = null, strategyId = null } = (args && typeof args === "object") ? args : {};
+    const { label, accuracy, missedNotes = [], rhythmPct = null, dynPct = null, practiceTarget = null, metroBpm = null, prevAccuracy = null, seed = null, strategyId = null, lang = "th" } = (args && typeof args === "object") ? args : {};
     if (typeof label !== "string" || !label) return null;
 
     /* 1) TEMPO — only when the drill itself carries a BPM suggestion */
@@ -151,8 +151,8 @@ export function buildPracticeCoachData(args) {
       weekAgoAccuracy: prevAccuracy != null ? prevAccuracy : memoryAccuracyFor(label),
       worstSpotLabel: worst,
     };
-    const nextSkill = nextSkillLabel();
-    const recap = coachRecap({ session, nextSkill: nextSkill ? { th: nextSkill } : null, tempo: tempo ? tempo.bpm : null });
+    const nextSkill = nextSkillNode();
+    const recap = coachRecap({ session, nextSkill, tempo: tempo ? tempo.bpm : null, lang });
 
     /* 3) NEXT EXERCISE — three honest signals compose:
        (a) what went wrong in THIS drill (signals → topic),
@@ -225,7 +225,7 @@ export function usePracticeCoach(args) {
   useEffect(() => {
     setData(args && args.label ? buildPracticeCoachData(args) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [args && args.label, args && args.accuracy, args && args.rhythmPct, args && args.dynPct, args && args.metroBpm]);
+  }, [args && args.label, args && args.accuracy, args && args.rhythmPct, args && args.dynPct, args && args.metroBpm, args && args.lang]);
   return data;
 }
 
