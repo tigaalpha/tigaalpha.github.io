@@ -701,6 +701,61 @@ tigaHub.registerEngine("diagnosis", {
   },
 }, { note: "buildDiagnosis learner lines (real engine)" });
 
+/* ── Phase 5: attach the capability engine (real t×m×s scoring from the
+   seeded KB) so hub.capability()/summary() report 🟢🟡⚪ from live state,
+   and mount the first deep SPECIALISTS — one engine deep in ONE topic
+   domain, consulted specialist-first by every topic-tagged intent. New
+   specialists land here as one registerSpecialist call: zero UI change. ── */
+try { tigaHub.attachCapabilityEngine(() => getCapabilityEngine()); } catch (e) { /* capability view degrades to engine/baseline status */ }
+tigaHub.registerSpecialist("technique", {
+  explainSongResult(result, mem) {
+    const acc = result && (typeof result.acc === "number" ? result.acc : result.accuracy);
+    if (acc == null) return null;
+    const tempo = attempt(() => coachTempoTarget({ accuracy: acc, bpm: result.bpm })) || null;
+    const bpmTxt = tempo && tempo.bpm ? ` ที่ ${tempo.bpm} BPM` : "";
+    const decision = tempo && tempo.decision ? tempo.decision : "";
+    return {
+      specialist: "technique",
+      tip: acc < 75
+        ? { th: `🎹 (ผู้เชี่ยวชาญเทคนิค) ลดจังหวะ${bpmTxt || " 15%"} แล้วซ้อมมือแยกสองมือ — มือซ้ายช้าได้ก่อน ค่อยรวมเมื่อเล่นได้ 3 รอบติด`, en: `🎹 (technique specialist) Drop the tempo${bpmTxt || " 15%"} and hands-separate — left hand first, combine after 3 clean passes`, zh: `🎹（技术专长）放慢速度${bpmTxt || "15%"}，分手练习——先练左手，3次全对后再合手` }
+        : { th: `🎹 (ผู้เชี่ยวชาญเทคนิค) เล่นได้แล้ว${bpmTxt ? " " + bpmTxt.trim() : ""} — เพิ่มน้ำหนักกดคีย์ให้เสียงลึกเท่ากันทั้ง 5 นิ้ว จะได้น้ำเสียงสม่ำเสมอ`, en: `🎹 (technique specialist) Solid${bpmTxt ? " at " + bpmTxt.trim() : ""} — now even out key weight across all five fingers for a consistent tone`, zh: `🎹（技术专长）已稳定${bpmTxt ? "（" + bpmTxt.trim() + "）" : ""}——让五指下键力度均匀，音色统一` },
+      tempo,
+    };
+  },
+}, { note: "hands-separate / tempo-ladder depth (real coach tempo engine)" });
+tigaHub.registerSpecialist("theory", {
+  explainSongResult(result, mem) {
+    const acc = result && (typeof result.acc === "number" ? result.acc : result.accuracy);
+    if (acc == null) return null;
+    return {
+      specialist: "theory",
+      tip: acc >= 90
+        ? { th: "🎼 (ผู้เชี่ยวชาญทฤษฎี) ลองหาคอร์ด I–IV–V ในท่อนนี้ก่อนเล่นรอบหน้า — เห็นโครงสร้างแล้วจะอ่านโน้ตเร็วขึ้นเอง", en: "🎼 (theory specialist) Before the next run, find the I–IV–V chords in this piece — seeing structure makes reading faster", zh: "🎼（理论专长）下次演奏前先找 I–IV–V 和弦——看清结构，读谱更快" }
+        : { th: "🎼 (ผู้เชี่ยวชาญทฤษฎี) ไล่ชื่อโน้ต 5 ตัวแรกของแต่ละท่อนก่อนเล่น — สมองจะเตรียมตำแหน่งมือให้ล่วงหน้า", en: "🎼 (theory specialist) Name the first five notes of each section before playing — your hand learns where to go", zh: "🎼（理论专长）弹奏前先说出每段前五个音——手会提前到位" },
+    };
+  },
+}, { note: "structure-first reading (chord functions, key geography)" });
+tigaHub.registerSpecialist("sight-reading", {
+  recommendSightReading(mem, cur) {
+    const struggles = ((mem && mem.struggles) || []).map(s => (s && typeof s === "object") ? (s.label || s.th || s.en || s.code || "") : (typeof s === "string" ? s : "")).filter(Boolean);
+    return {
+      specialist: "sight-reading",
+      clef: (cur && cur.clef) || "treble",
+      tip: struggles.length
+        ? { th: `👁️ (ผู้เชี่ยวชาญอ่านโน้ต) วันนี้เน้น "${struggles[0]}" — อ่านชื่อโน้ตออกเสียงก่อนกดคีย์ทุกครั้ง จะจำตำแหน่งได้เร็วขึ้น 2 เท่า`, en: `👁️ (sight-reading specialist) Focus on "${struggles[0]}" — say each note name aloud before pressing; recognition doubles`, zh: `👁️（识谱专长）今天专注"${struggles[0]}"——按键前先读出音名，识谱速度翻倍` }
+        : { th: "👁️ (ผู้เชี่ยวชาญอ่านโน้ต) ลองโหมด sprint — อ่านโน้ตให้เร็วที่สุดใน 60 วินาที ฝึกสายตาให้ไวกว่ามือ", en: "👁️ (sight-reading specialist) Try sprint mode — read as fast as you can in 60s; train the eyes ahead of the hands", zh: "👁️（识谱专长）试试冲刺模式——60秒内读谱，让眼睛快过手" },
+    };
+  },
+}, { note: "eyes-ahead-of-hands drill depth" });
+
+/* topic → exercise topic of the capability engine (t index): a tag hint →
+   real exercise kind from the real generator */
+tigaHub.registerSpecialist("ear-training", {
+  recommendSightReading(mem, cur) {
+    return { specialist: "ear-training", clef: (cur && cur.clef) || "treble", tip: { th: "👂 (ผู้เชี่ยวชาญฝึกหู) ปิดตา 10 วินาทีก่อนเริ่ม — ฟังโน้ตในหัวก่อนเห็นบนหน้าจอ", en: "👁️ (ear specialist) Close your eyes for 10s first — hear the note before you see it", zh: "👂（练耳专长）先闭眼10秒——先在脑中听音再看屏幕" } };
+  },
+}, { note: "sound-before-sight drills" });
+
 export function loadChatSessions() { return readStore(CHAT_STORE_KEY, []); }
 export function appendChatSession(session) {
   const next = [session, ...loadChatSessions()].slice(0, 50); // newest first, cap 50

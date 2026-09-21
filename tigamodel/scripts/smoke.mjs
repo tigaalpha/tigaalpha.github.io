@@ -523,6 +523,46 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
     const aim = fs.readFileSync("AdminAIModels.tsx", "utf8");
     assert.ok(aim.includes("tigaHub.summary()"), "admin models page shows live hub status");
   });
+
+  await ok("Phase 5 specialists: topic-tagged intents consult the specialist FIRST, then general engines, then baseline", async () => {
+    const { createTigaHub } = await import("../hub.js");
+    const hub = createTigaHub();
+    hub.registerEngine("coach", { explainSongResult: () => ({ tip: { th: "general", en: "general", zh: "general" }, stars: 2, acc: 88 }) }, { note: "general" });
+    hub.registerSpecialist("technique", { explainSongResult: () => ({ specialist: "technique", tip: { th: "spec", en: "spec", zh: "spec" } }) }, { note: "deep" });
+    // topic-tagged result → specialist wins
+    const t1 = hub.explainSongResult({ acc: 88, topic: 1 }, null);
+    assert.ok(t1.via === "technique" && t1.specialist === "technique", "topic 1 (technique) routes specialist-first");
+    // untagged result → general engine (specialist has no claim)
+    const t2 = hub.explainSongResult({ acc: 88 }, null);
+    assert.ok(t2.via === "coach" && t2.tip.th === "general", "untagged route keeps the general engine");
+    // topic with no specialist → general engine, never the wrong specialist
+    const t3 = hub.explainSongResult({ acc: 88, topic: 7 }, null);
+    assert.ok(t3.via === "coach", "topic 7 (culture, no specialist) falls to general");
+    // sight-reading specialist serves the sight intent on topic 2
+    hub.registerSpecialist("sight-reading", { recommendSightReading: () => ({ specialist: "sight-reading", clef: "both", tip: { th: "s", en: "s", zh: "s" } }) }, { note: "deep" });
+    const t4 = hub.recommendSightReading({}, { topic: 2 });
+    assert.ok(t4.via === "sight-reading" && t4.clef === "both", "sight intent on topic 2 hits the sight specialist");
+  });
+
+  await ok("Phase 5 hub in web.js: capability engine attached lazily + real specialists mounted", async () => {
+    const st = webM.tigaHub.status();
+    assert.ok(st.capabilityAttached, "capability engine factory attached (lazy — import stays cheap)");
+    assert.ok(st.specialists.some(s => s.topic === "technique") && st.specialists.some(s => s.topic === "theory") && st.specialists.some(s => s.topic === "sight-reading"), "technique/theory/sight-reading specialists registered");
+    const cap = webM.tigaHub.capability("sight-reading", { t: 2, m: 0, s: 3 });
+    assert.ok(cap.via === "capability-engine" && cap.parts && "kb" in cap.parts, "capability() reports real parts from the engine");
+    // topic-tagged song result through the REAL hub: technique specialist speaks
+    const sp = webM.tigaHub.explainSongResult({ acc: 60, topic: 1 }, null);
+    assert.ok(sp && sp.via === "technique" && sp.tip.th.includes("เทคนิค"), "technique specialist answers topic-1 runs");
+    // garbage → honest null / baseline
+    assert.equal(webM.tigaHub.explainSongResult("x", null), null);
+  });
+
+  await ok("Phase 5 lab surface: SpecialistPanel reads hub status + real readiness sweep", async () => {
+    const fs = await import("node:fs");
+    const lab = fs.readFileSync("TigamodelLab.tsx", "utf8");
+    assert.ok(lab.includes("tigaHub.status()") && lab.includes("getCapabilityEngine().summary()"), "lab tab shows live specialists + 1,000-route readiness");
+    assert.ok(lab.includes('tab === "specialist"'), "specialist tab reachable");
+  });
 }
 
 main().then(() => {

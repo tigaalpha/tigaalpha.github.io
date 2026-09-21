@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
-import { getUnifiedPlan } from "./tigamodel/web.js";
+import { getUnifiedPlan, getCapabilityEngine } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
+import { tigaHub } from "./tigamodel/web.js"; // Phase 5: live specialist/capability view from the Capability Hub
 import { sb } from "./supabase-client";
 import { AI_PROVIDERS } from "./AdminAIModels";
 import { pickTeachCard, cardSourceInfo, TEACH_CARDS } from "./tigamodel/knowledge/teach-cards.js";
@@ -298,6 +299,7 @@ export function TigamodelLab({ lang = "th" }) {
         <button style={S.chip(tab === "plan1m")} onClick={() => setTab("plan1m")}>🧭 {T("แผน 1,000,000", "1M plan", "百万计划")}</button>
         <button style={S.chip(tab === "student")} onClick={() => setTab("student")}>👤 {T("นักเรียนของครู", "Student view", "学生视角")}</button>
         <button style={S.chip(tab === "cap")} onClick={() => setTab("cap")}>⚡ {T("ความพร้อมโมเดล", "Readiness", "模型能力")}</button>
+        <button style={S.chip(tab === "specialist")} onClick={() => setTab("specialist")}>🎛 {T("โมเดลเชี่ยวชาญ", "Specialists", "专长模型")}</button>
         <button style={S.chip(tab === "atip")} onClick={() => setTab("atip")}>🎓 {T("Auto-Teach 2.0", "Auto-Teach 2.0", "Auto-Teach 2.0")}</button>
       </div>
 
@@ -308,6 +310,8 @@ export function TigamodelLab({ lang = "th" }) {
       {ready && tab === "atip" && <AtipPreview lang={lang} S={S} />}
 
       {ready && tab === "map" && <KnowledgeGraphView lang={lang} S={S} />}
+
+      {ready && tab === "specialist" && <SpecialistPanel lang={lang} S={S} T={T} />}
 
       {ready && tab === "selflearn" && slOn !== null && (
         <SelfLearningPanel lang={lang} S={S} T={T} on={slOn} snap={slSnap} busy={slBusy}
@@ -1313,6 +1317,69 @@ function AtipPreview({ lang = "th", S }) {
           <button type="button" style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", opacity: 0.7 }}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ── SpecialistPanel (Phase 5) — the live registry of TIGA MODEL specialists
+   plus the honest readiness sweep. Specialists are deep engines for ONE
+   topic domain, mounted in web.js via tigaHub.registerSpecialist; every
+   topic-tagged intent consults them FIRST, so each new specialist upgrades
+   the whole app with zero surface changes. The readiness table is the real
+   capability-engine summary (t×m×s routes), not a claim. ── */
+function SpecialistPanel({ lang, S, T }) {
+  const status = tigaHub.status();
+  const caps = tigaHub.summary().capabilities;
+  let routes = null;
+  try { routes = getCapabilityEngine().summary(); } catch (e) { routes = null; } // KB may still be building
+  return (
+    <div>
+      <div style={S.card}>
+        <div style={{ ...S.h2, marginBottom: 10 }}>🎛 {T("โมเดลเชี่ยวชาญที่ลงทะเบียนแล้ว", "Registered specialists", "已注册的专长模型")}</div>
+        <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12, lineHeight: 1.6 }}>
+          {T("โมเดลเชี่ยวชาญ = เอนจินลึกหนึ่งหัวข้อ ถูกเรียกก่อนเอนจินทั่วไปในทุก intent ที่รู้หัวข้อ — เพิ่มตัวใหม่ได้ที่ tigamodel/web.js บรรทัดเดียว ทุกหน้าแอปฉลาดขึ้นทันทีโดยไม่แก้ UI",
+             "A specialist is a deep engine for ONE topic domain, consulted FIRST by every topic-tagged intent. Adding one is a single registerSpecialist call in tigamodel/web.js — every screen benefits immediately with zero UI changes.",
+             "专长模型 = 深耕单一主题的引擎，所有相关意图优先调用。在 tigamodel/web.js 一行注册即可，全部页面立即受益。")}
+        </div>
+        {status.specialists.length
+          ? status.specialists.map(sp => (
+              <div key={sp.topic} style={{ ...S.inner, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <div>
+                  <b>{sp.topic}</b>
+                  {sp.note && <div style={{ fontSize: 12, color: "var(--muted)" }}>{sp.note}</div>}
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 999, background: "rgba(52,199,120,.15)", border: "1px solid rgba(52,199,120,.4)", color: "#4cd98a" }}>
+                  {T("🟢 พร้อมใช้", "🟢 live", "🟢 生效")}
+                </span>
+              </div>
+            ))
+          : <div style={{ color: "var(--muted)" }}>{T("ยังไม่มี — ทุก intent ใช้เอนจินทั่วไป + baseline", "None yet — general engines + baseline serve all intents", "暂无 — 通用引擎+基线")}</div>}
+      </div>
+      <div style={S.card}>
+        <div style={{ ...S.h2, marginBottom: 10 }}>🧭 {T("เส้นทางที่โมเดลตอบได้ (จากเอนจินจริง)", "What intents the hub serves (live)", "各意图服务状态（实时）")}</div>
+        {caps.map(c => (
+          <div key={c.name} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid var(--bd1)" }}>
+            <span>{c.name}</span>
+            <span style={{ fontWeight: 700 }}>{c.status === "ready" ? "🟢 ready" : c.status === "partial" ? "🟡 partial" : "⚪ baseline"} · {c.score}%</span>
+          </div>
+        ))}
+      </div>
+      {routes && (
+        <div style={S.card}>
+          <div style={{ ...S.h2, marginBottom: 10 }}>⚡ {T("ความพร้อมรวม 1,000 เส้นทาง", "1,000-route readiness", "1000条路径就绪度")}</div>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13 }}>
+            <span>🟢 {T("พร้อม", "ready", "就绪")} <b>{routes.ready}</b> ({routes.readyPct}%)</span>
+            <span>🟡 {T("บางส่วน", "partial", "部分")} <b>{routes.partial}</b></span>
+            <span>⚪ {T("ช่องว่าง", "gaps", "空白")} <b>{routes.gaps}</b></span>
+            <span>📊 avg <b>{routes.avgScore}</b></span>
+          </div>
+          {routes.weakestCap && (
+            <div style={{ marginTop: 10, fontSize: 13, color: "var(--text2)" }}>
+              🧩 {T("ความสามารถที่อ่อนที่สุด (ลำดับงานถัดไป):", "Weakest capability (next work item):", "最弱能力（下一步）：")} <b>{routes.weakestCap[0]}</b> ({Math.round(routes.weakestCap[1] * 100)}%)
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

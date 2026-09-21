@@ -18,10 +18,13 @@
 
 export function createTigaHub({ kbEntries = null } = {}) {
   const engines = new Map();   // domain → engine object (latest registration wins)
+  const specialists = new Map(); // topic domain → specialist engine (Phase 5)
+  const specialistMeta = new Map();
   const engineMeta = new Map(); // domain → { note, at }
   const listeners = [];         // notified on every registration
   let kbIndex = kbEntries;
   let capEngine = null;         // teaching/capability-engine instance when kb known
+  let capEngineFactory = null;  // lazy builder for the same (import stays cheap)
 
   /* ── registration ── */
   function registerEngine(domain, engine, meta = {}) {
@@ -42,13 +45,26 @@ export function createTigaHub({ kbEntries = null } = {}) {
     } catch (e) { capEngine = null; }
     return api;
   }
-  /* attach the real capability engine (web.js builds it with the seeded KB) */
-  function attachCapabilityEngine(ce) { capEngine = ce || null; return api; }
+  /* attach the real capability engine — an engine object OR a factory
+     function. A factory is resolved lazily on the FIRST capability query so
+     importing the hub never forces the KB to build (import-time cost stays
+     zero for every surface that only asks intents). */
+  function attachCapabilityEngine(ce) {
+    if (typeof ce === "function") capEngineFactory = ce;
+    else capEngine = ce || null;
+    return api;
+  }
+  function resolveCap() {
+    if (!capEngine && capEngineFactory) {
+      try { capEngine = capEngineFactory() || null; } catch (e) { capEngineFactory = null; }
+    }
+    return capEngine;
+  }
 
   /* ── honest capability view (what the model can do RIGHT NOW) ── */
   function capability(name, route = {}) {
     const t = route.t | 0, m = route.m | 0, s = route.s | 0;
-    if (capEngine) {
+    if (resolveCap()) {
       try {
         const { score, parts } = capEngine.scoreRoute ? capEngine.scoreRoute(t, m, s) : { score: 0, parts: {} };
         return { name, status: score >= 0.7 ? "ready" : score > 0 ? "partial" : "absent", score: Math.round((score || 0) * 100), parts, via: "capability-engine" };
@@ -69,6 +85,15 @@ export function createTigaHub({ kbEntries = null } = {}) {
     };
   }
 
+  /* Phase 5 additions: specialists, capability routing, honest status */
+  function status() {
+    return {
+      engines: [...engines.keys()].map(d => ({ domain: d, note: (engineMeta.get(d) || {}).note || "" })),
+      specialists: specialistsList(),
+      capabilityAttached: !!(capEngine || capEngineFactory),
+    };
+  }
+
   /* ── attempt helper: run fn, null on empty/throw. NEVER throws. ── */
   function attempt(fn) {
     try { const v = fn(); return v == null ? null : v; } catch (e) { return null; }
@@ -79,10 +104,12 @@ export function createTigaHub({ kbEntries = null } = {}) {
     if (s && typeof s === "object") return s.label || s.th || s.en || s.code || "";
     return typeof s === "string" ? s : "";
   }
-  /* try each domain's handler until one returns a non-null answer */
+  /* try each domain's handler until one returns a non-null answer —
+     specialists and general engines share the same lookup (a specialist IS
+     the domain's engine; it just registered through the specialist door) */
   function route(domains, handler) {
     for (const d of domains) {
-      const eng = engines.get(d);
+      const eng = engines.get(d) || specialists.get(d);
       if (!eng) continue;
       const out = attempt(() => handler(eng, d));
       if (out != null) return { ...out, via: d };
@@ -90,9 +117,58 @@ export function createTigaHub({ kbEntries = null } = {}) {
     return null;
   }
 
+  /* ── Phase 5: specialists — one model deep in ONE topic domain ──
+     registerSpecialist(topicKey, specialist) mounts a deep engine for its
+     topic ("technique", "theory", ...). Intents that know the topic ask
+     the specialist FIRST ("specialist-first"), because a deep engine beats
+     a general one; everything still falls back to the general domains and
+     the baseline. This is the mechanism that lets future TIGA MODEL
+     releases add depth without touching any surface: register it, done. */
+  function registerSpecialist(topicKey, specialist, meta = {}) {
+    if (!topicKey || !specialist || typeof specialist !== "object") return api;
+    specialists.set(topicKey, specialist);
+    specialistMeta.set(topicKey, { note: meta.note || "", at: Date.now() });
+    for (const fn of listeners) { try { fn("specialist:" + topicKey, specialist); } catch (e) { /* never break */ } }
+    return api;
+  }
+  function specialistFor(topicKey) { return specialists.get(topicKey) || null; }
+  function specialistsList() {
+    return [...specialists.keys()].map(k => ({ topic: k, note: (specialistMeta.get(k) || {}).note || "" }));
+  }
+  /* topic → the model domain it lives in (mirrors capability-engine's
+     TOPIC_DOMAINS; a topic may span several domains) */
+  const TOPIC_DOMAINS = {
+    0: ["theory", "harmony"],
+    1: ["technique"],
+    2: ["sight-reading"],
+    3: ["ear-training"],
+    4: ["expression", "form", "repertoire"],
+    5: ["practice-planning", "memorization"],
+    6: ["motivation", "learner-differences"],
+    7: ["culture"],
+    8: ["performance"],
+    9: ["improvisation", "accompaniment"],
+  };
+  /* pick the topic of an intent call: explicit topic wins, else infer from
+     the practice label ("Chopin Nocturne" → repertoire/performance look),
+     else null (pure general intent — no specialist claim) */
+  function topicOf(topic, label) {
+    if (topic != null && TOPIC_DOMAINS[topic]) return topic;
+    return null; // topic inference from free text is a claim — don't make it
+  }
+  /* intent + topic → [specialist domain, ...general domains] in order */
+  function domainsFor(intent, topic) {
+    const general = INTENT_DOMAINS[intent] || [];
+    const doms = TOPIC_DOMAINS[topic];
+    if (!doms || !doms.length) return general;
+    const spec = doms.filter(d => specialists.has(d));
+    return [...spec, ...general]; // specialist-first, deduped by route()
+  }
+
   /* ── intent 1: sight-reading setup (clef + level + why) ── */
   function recommendSightReading(memory, current = {}) {
-    const hit = route(["skill-graph", "coach"], (eng) =>
+    const topic = topicOf(current && current.topic, current && current.label);
+    const hit = route(domainsFor("sight-reading", topic), (eng) =>
       eng.recommendSightReading ? eng.recommendSightReading(memory, current) : null);
     if (hit) return hit;
     return baselineSight(memory, current);
@@ -113,7 +189,8 @@ export function createTigaHub({ kbEntries = null } = {}) {
 
   /* ── intent 2: explain a song/run result (post-game coach line) ── */
   function explainSongResult(result, memory) {
-    const hit = route(["coach", "diagnosis"], (eng) =>
+    const topic = topicOf(result && result.topic, result && result.label);
+    const hit = route(domainsFor("song-result", topic), (eng) =>
       eng.explainSongResult ? eng.explainSongResult(result, memory) : null);
     if (hit) return hit;
     return baselineSong(result);
@@ -132,8 +209,8 @@ export function createTigaHub({ kbEntries = null } = {}) {
   }
 
   /* ── intent 3: today's quest/mission hint (skill-graph aware) ── */
-  function nextQuestHint(memory, profile) {
-    const hit = route(["skill-graph", "teaching-loop"], (eng) =>
+  function nextQuestHint(memory, profile, topic = null) {
+    const hit = route(domainsFor("quest-hint", topicOf(topic, null)), (eng) =>
       eng.nextQuestHint ? eng.nextQuestHint(memory, profile) : null);
     if (hit) return hit;
     const struggles = ((memory && memory.struggles) || []).map(lbl).filter(Boolean);
@@ -147,8 +224,8 @@ export function createTigaHub({ kbEntries = null } = {}) {
   }
 
   /* ── intent 4: learner summary (dashboard/profile lines) ── */
-  function learnerSummary(memory, practiceLog, profile) {
-    const hit = route(["diagnosis", "state-estimator"], (eng) =>
+  function learnerSummary(memory, practiceLog, profile, topic = null) {
+    const hit = route(domainsFor("learner-summary", topicOf(topic, null)), (eng) =>
       eng.learnerSummary ? eng.learnerSummary(memory, practiceLog, profile) : null);
     if (hit) return hit;
     const log = practiceLog && typeof practiceLog === "object" ? practiceLog : {};
@@ -194,6 +271,7 @@ export function createTigaHub({ kbEntries = null } = {}) {
     registerEngine, onEngineRegistered, engineFor, setKnowledgeIndex, attachCapabilityEngine,
     capability, summary,
     recommendSightReading, explainSongResult, nextQuestHint, learnerSummary, upgradesUnlocked,
+    registerSpecialist, specialistFor, specialistsList, status,
   };
   return api;
 }
