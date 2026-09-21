@@ -7,6 +7,7 @@ import {
   songTechniqueProfile, estimateSongDifficulty,
   THEORY_REF,
 } from "./music-engine";
+import { teacherJudgeNote } from "./piano-guard";
 import { tr } from "./i18n";
 import { SONGS, SONG_TIMESIG } from "./songs-data";
 import { logActivity, recordNoteMisses } from "./shared-infra";
@@ -846,6 +847,17 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (songTime > songLastTimeRef.current + SONG_LEAD + 1.0) { songFinishRef.current(); return; }
     songRafRef.current = requestAnimationFrame(() => songLoopRef.current());
   }
+  // Tuning-aware pitch-class match for play-along grading (piano-guard.ts).
+  // MIDI/tap are digital — exact class, as always. A MIC note is judged by the
+  // shared listening-teacher rule: right pitch class AFTER re-centering by the
+  // per-piano tuning offset (learned with practice mode, persisted), ±95c
+  // tolerance. This is what makes a detuned piano playable in songs, not just
+  // in drills — a raw reading that lands between two pitch classes may match
+  // either candidate, and the hit-window search picks the nearest one in time.
+  function songPCMatches(d, targetPC) {
+    if (d.freq == null) return pcOf(d.note) === targetPC;
+    return teacherJudgeNote({ freq: d.freq, targetPC }).ok;
+  }
   function handleSongInput(d) {
     if (!songRunRef.current) return;
     const ac = getAC();
@@ -881,7 +893,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     }
     if (!best) {
       for (const n of songNotesRef.current) {
-        if (n.hit || n.missed || pcOf(n.note) !== inPC) continue;
+        if (n.hit || n.missed || !songPCMatches(d, pcOf(n.note))) continue;
         const dt = Math.abs(songTime - (n.t + SONG_LEAD));
         if (dt < bestd) { bestd = dt; best = n; }
       }

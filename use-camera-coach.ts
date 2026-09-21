@@ -119,7 +119,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
   const camLastTRef = useRef(0); // last gameStep timestamp (rAF clock) — FIX: was referenced in openCamera()/the game loop but never declared, so every openCamera() call threw ReferenceError and the overlay could never open from the Studio card
 
   // ════ HAND-POSTURE COACH (camera) ════
-  function openCamera() { handRoundFramesRef.current = { good: 0, total: 0 }; camSignalWindowRef.current = []; const g = freshGameState(); camGameRef.current = g; setCamGame(g); setCamPraise(""); camGameKeyRef.current = ""; camLastTRef.current = 0; setCamOpen(true); setCamRecap(null); }
+  function openCamera() { handRoundFramesRef.current = { good: 0, total: 0 }; camSignalWindowRef.current = []; const g = freshGameState(lang); camGameRef.current = g; setCamGame(g); setCamPraise(""); camGameKeyRef.current = ""; camLastTRef.current = 0; setCamOpen(true); setCamRecap(null); }
   function exitCamera() {
     // FIX (owner report: "กดปิดแล้วไม่ย้อนกลับ"): when a qualifying session
     // shows the recap and returns, every further tap on any close button

@@ -386,17 +386,27 @@ export async function getLearnedKBContextAsync(matchText) {
    finishPractice() after every drill: app-native signals (accuracy, repeated
    errors, pauses, rhythm) go in, the policy selects a strategy, the KB adds
    a teach tip, and a { text, strategy_id } object comes back — all locally,
-   synchronously, no network call, never throws. Returns null when anything
-   is off (no singleton, no stats) so the caller can skip silently.
+   no network call, never throws. Returns null when anything is off (no
+   singleton, no stats) so the caller can skip silently.
    (Self-learning outcome reinforcement is a SEPARATE async export —
-   reinforceTeachingOutcome — called by finishPractice fire-and-forget.) ── */
-export function runTeachingLoopForPractice(practiceStats, { selfReport = null, observations = null } = {}) {
+   reinforceTeachingOutcome — called by finishPractice fire-and-forget.)
+
+   ASYNC — bug fix (found twice, independently): runOnce() has been `async`
+   since the Phase 0 skeleton (3d8c3cd8), but this wrapper was sync and
+   returned the raw Promise — finishPractice() read .response/.decision off
+   the Promise → undefined → the "🧠 TIGA Model วิเคราะห์" verdict NEVER
+   rendered on any practice result. (Found by this branch's verify-finish-
+   practice-flow e2e AND by verify-autoteach on main.) Now a real async
+   function returning the resolved loop result (or null) — callers await it.
+   Also passes `lang` through so the verdict speaks the app's language, and
+   `observations` (main's addition) straight to the loop. ── */
+export async function runTeachingLoopForPractice(practiceStats, { selfReport = null, lang = "th", observations = null } = {}) {
   try {
     if (!practiceStats && !(Array.isArray(observations) && observations.length)) return null;
     if (!_tiga) initTigamodelWeb();
     const tiga = _tiga;
     if (!tiga || !tiga.loop) return null;
-    return tiga.loop.runOnce({ practiceStats, selfReport, observations: observations || [] });
+    return await tiga.loop.runOnce({ practiceStats, selfReport, lang, observations: observations || [] });
   } catch (e) { return null; }
 }
 

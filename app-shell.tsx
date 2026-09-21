@@ -25,6 +25,33 @@ import { saveGuestProfile } from "./shared-infra";
 // those already sits inside; per-feature boundaries would only narrow the
 // blast radius of a future crash, not add any protection that's missing
 // today, so they're left as a possible follow-up rather than done here.
+
+/* SafeZone — the per-feature boundary mentioned above, added 2026-09-21
+   after the owner hit a full-app crash ON the practice result screen: one
+   glitchy data field (e.g. a malformed saved record from localStorage) took
+   the WHOLE app down to the "Something went wrong" screen, losing the drill
+   and the session. A SafeZone renders the SAME children but contains any
+   throw to a small in-place fallback (with a dismiss), so a broken panel
+   costs its panel — not the app. Used around the practice result, the
+   camera overlay and the song overlay (the three data-driven surfaces).
+   The app-wide boundary stays as the last line of defense. */
+export class SafeZone extends Component {
+  constructor(props) { super(props); this.state = { failed: false }; }
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error, info) { console.error("SafeZone caught:", error, info && info.componentStack); }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="presultai" style={{ borderColor: "#e55" }}>
+        <div className="presultai-h">⚠️ {this.props.label || "ส่วนนี้แสดงผลไม่สำเร็จ"}</div>
+        <div className="presultai-tx" style={{ fontSize: 12, opacity: 0.8 }}>
+          {this.props.fallbackText || "ข้อมูลส่วนนี้มีปัญหา แต่แอปยังใช้งานได้ตามปกติ — กดปิดเพื่อซ่อนกล่องนี้"}
+        </div>
+        <button className="cbtn" style={{ marginTop: 8 }} onClick={() => this.setState({ failed: false })}>✕ ปิด</button>
+      </div>
+    );
+  }
+}
 export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false }; }
   static getDerivedStateFromError() { return { hasError: true }; }

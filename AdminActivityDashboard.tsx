@@ -31,6 +31,14 @@ const fmtMs = (ms) => {
   if (n < 60000) return Math.round(n / 1000) + " วิ";
   return (n / 60000).toFixed(1) + " นาที";
 };
+/* User list order (owner request): longest total usage FIRST, least last.
+   Sorts by the same dwell figure the row displays (page_time_ms; the anon/
+   per-user views may carry dwell_ms instead — read both). Sort happens ONCE
+   when the RPC data lands, not during render (a .sort() during render would
+   re-sort the same array object every render and thrash React's keys). */
+const sortUsersByDwell = (arr) => (Array.isArray(arr) ? arr.slice().sort((a, b) =>
+  (Number(b && (b.page_time_ms ?? b.dwell_ms)) || 0) - (Number(a && (a.page_time_ms ?? a.dwell_ms)) || 0)
+) : arr);
 const fmtTime = (iso) => {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -825,7 +833,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
     callRpc("admin_activity_overview", { p_since: since, p_include_sim: showSim }, true)
       .then((d) => setOverview(d || {}), () => setOverview((o) => o || {}));
     callRpc("admin_activity_users", { p_since: since, p_include_sim: showSim }, true)
-      .then((d) => setUsers(d || []), () => setUsers((u) => u || []));
+      .then((d) => setUsers(sortUsersByDwell(d || [])), () => setUsers((u) => u || []));
     // by-hour buckets ( Bangkok wall-clock, computed server-side — see
     // supabase-activity-hourly-migration.sql ). On failure (RPC not yet applied)
     // hours stays null and the histogram card is simply not rendered.
