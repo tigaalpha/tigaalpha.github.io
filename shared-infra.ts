@@ -1,6 +1,6 @@
 import { sb } from "./supabase-client";
-import { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY } from "./local-identity";
-export { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY };
+import { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY, readLandingOrigin, clearLandingOrigin } from "./local-identity";
+export { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY, readLandingOrigin, clearLandingOrigin };
 /* anonId/trafficSource/uaKind and the skip-onboard flag moved VERBATIM to
    local-identity.ts, which imports nothing — the landing bundle needs them
    and must not reach this file's supabase import. Re-exported so every
