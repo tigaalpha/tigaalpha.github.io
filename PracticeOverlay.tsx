@@ -1,6 +1,7 @@
+import { useState, useEffect } from "react";
 import { L } from "./i18n";
 import { Piano, pcOf } from "./music-engine";
-import { tigaStrategyLabel } from "./tigamodel/web";
+import { tigaStrategyLabel, SELF_REPORT_CHOICES, newStudentFeedback, rerunLoopWithSelfReport } from "./tigamodel/web";
 import { usePracticeCoach } from "./use-practice-coach";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
@@ -29,7 +30,7 @@ function ResultBar({ label, pct, color }) {
     </div>
   );
 }
-function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo }) {
+function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo, onTipUpdate }) {
   const r = practiceResult;
   const dynPct = r.dyn ? Math.round(r.dyn.ok / (r.dyn.ok + r.dyn.miss) * 100) : null;
   const rhythmPct = r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null;
@@ -100,6 +101,10 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
         </div>
       )}
 
+      {/* ── Self-report micro-poll (Phase 4, §17): the direct question beats
+          any inference; answering re-runs the loop and adapts the verdict. ── */}
+      <SelfReportPoll lang={lang} practiceResult={r} onTipUpdate={(tip) => onTipUpdate && onTipUpdate(tip)} />
+
       {/* ── TIGA Practice Coach (Phase 2, spec §34): tempo decision + 3-line
           recap + homework + next exercise — all from the model's real engines
           fed with THIS drill's real data. Sections hide honestly when the
@@ -150,7 +155,7 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
           <div className="practicehtitle">{lc.practiceTitle}<small>{practiceLabel}</small></div>
           <button className="cbtn" onClick={exitPractice}>{lc.close}</button>
         </div>
-        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} />
+        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} onTipUpdate={onTipUpdate} />
         <div className="practicefoot">
           <button className="practicerestart" onClick={restartPractice}>↻ {lc.practiceRestart}</button>
           <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
@@ -258,6 +263,62 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
             <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
           </div>
         </div>
+  );
+}
+
+/* ── SelfReportPoll (Phase 4, spec §17): the DIRECT questions the spec
+   lists — "ตรงนี้เข้าใจไหม / ง่ายไปหรือยากไป / อยากลองอีกครั้งไหม". The
+   student's own answer outranks every inference (§17), so on answer we:
+   1) save a StudentFeedback record (tg_self_reports, last 30),
+   2) re-run the teaching loop WITH the answer → the strategy decision
+      changes live (e.g. "too hard" → simplify-on-hard-report),
+   3) patch the result's tigaTip in place so the 🧠 card reflects it. ── */
+const SR_Q = {
+  th: { h: "ครู TiGA ขอถามตรง ๆ (สำคัญกว่าการเดาจากการเล่น)", opts: [["understand", "เข้าใจแล้ว ✓"], ["confused", "ยังงง ๆ"], ["too_easy", "ง่ายไป"], ["too_hard", "ยากไป"], ["retry", "อยากลองอีกครั้ง"], ["frustrated", "หงุดหงิด"], ["great", "สนุกมาก 😄"]], done: "ขอบคุณ — ครูปรับการสอนให้แล้ว ✓" },
+  en: { h: "Teacher TiGA asks directly (worth more than guessing)", opts: [["understand", "Got it ✓"], ["confused", "Still confused"], ["too_easy", "Too easy"], ["too_hard", "Too hard"], ["retry", "Want to retry"], ["frustrated", "Frustrated"], ["great", "Fun! 😄"]], done: "Thanks — the lesson adapted ✓" },
+  zh: { h: "TIGA 老师直接提问（比猜测更可靠）", opts: [["understand", "明白了 ✓"], ["confused", "还有点懵"], ["too_easy", "太简单"], ["too_hard", "太难"], ["retry", "想再试一次"], ["frustrated", "有点烦躁"], ["great", "很有趣 😄"]], done: "谢谢——已为你调整教学 ✓" },
+};
+function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
+  const [answered, setAnswered] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const q = SR_Q[lang] || SR_Q.th;
+  const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  useEffect(() => { setAnswered(null); }, [practiceResult && practiceResult.label]);
+  async function answer(choice) {
+    if (busy || answered) return;
+    setAnswered(choice); setBusy(true);
+    try {
+      const fb = newStudentFeedback({ question: q.h, answer: (q.opts.find(o => o[0] === choice) || [])[1] || choice, feedbackType: choice === "understand" || choice === "confused" ? "understanding" : choice === "great" ? "enjoyment" : choice === "retry" ? "confidence" : "difficulty" });
+      try {
+        const list = JSON.parse(localStorage.getItem("tg_self_reports") || "[]");
+        list.push(fb); localStorage.setItem("tg_self_reports", JSON.stringify(list.slice(-30)));
+      } catch (e) {}
+      const r = practiceResult || {};
+      const loop = await rerunLoopWithSelfReport({
+        accuracy: r.accuracy,
+        repeatedErrors: r.miss >= 2 ? r.miss : 0,
+        pauses: 0, rhythmScore: r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null,
+        label: r.label,
+      }, choice);
+      if (loop && loop.response && onTipUpdate) {
+        onTipUpdate({ text: loop.response.text, strategyId: loop.decision ? loop.decision.strategy_id : null, states: loop.states });
+      }
+    } catch (e) {}
+    setBusy(false);
+  }
+  return (
+    <div className="presultai psr">
+      <div className="presultai-h">🙋 {q.h}</div>
+      {answered ? (
+        <div className="presultai-tx">✅ {q.done}</div>
+      ) : (
+        <div className="psr-opts">
+          {q.opts.map(([k, label]) => (
+            <button key={k} className={`psr-btn${answered === k ? " on" : ""}`} disabled={busy} onClick={() => answer(k)}>{label}</button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

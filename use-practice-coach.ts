@@ -180,6 +180,45 @@ export function buildPracticeCoachData(args) {
   } catch (e) { return null; }
 }
 
+/* TEACHER-SIDE parent report (Phase 3 finisher): the SAME story the
+   in-app parent popup tells, but computed from a student's SYNCED progress
+   snapshot (school_roster → profiles.progress) instead of this device's
+   localStorage. No storage access at all — the caller hands the snapshot
+   in, so it stays tenant-safe by construction. Same honest-null contract. */
+export function buildParentReportData(pr, { days = 14 } = {}) {
+  try {
+    if (!pr || typeof pr !== "object") return null;
+    const plog = pr.practiceLog || {};
+    const mem = pr.memory || {};
+    const sum = pr.summary || {};
+    const series = [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    let wkAcc = [], prevAcc = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const e = plog[k];
+      const acc = e && e.n > 0 ? Math.round(e.accSum / e.n) : null;
+      series.push({ day: k, acc, sessions: e ? e.n : 0 });
+      if (acc != null) { (i < 7 ? wkAcc : prevAcc).push(acc); }
+    }
+    const avg = xs => xs.length ? Math.round(xs.reduce((s2, x) => s2 + x, 0) / xs.length) : null;
+    const thisWeek = avg(wkAcc), lastWeek = avg(prevAcc);
+    const topMiss = (mem.noteMisses || []).slice().sort((a, b) => (b.count || 0) - (a.count || 0))[0] || null;
+    const improvements = (mem.struggles || [])
+      .filter(s2 => s2.acc != null && s2.acc >= 65 && s2.last && Date.now() - s2.last <= 7 * 86400000)
+      .map(s2 => ({ label: s2.label, delta: null }));
+    return {
+      series, weeklyAvg: thisWeek, prevAvg: lastWeek,
+      trend: (thisWeek != null && lastWeek != null) ? thisWeek - lastWeek : null,
+      sessions7: series.slice(-7).reduce((s2, d) => s2 + d.sessions, 0),
+      avgAcc: sum.avgAcc || null, games: sum.games || null,
+      improvements: improvements.slice(0, 4),
+      topMiss: topMiss ? topMiss.label : null,
+    };
+  } catch (e) { return null; }
+}
+
 /* Hook wrapper for PracticeOverlay: recomputes when the result changes. */
 export function usePracticeCoach(args) {
   const [data, setData] = useState(null);

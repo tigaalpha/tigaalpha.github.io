@@ -893,6 +893,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pcoach-ex-t{font-size:13px;color:var(--text);margin-bottom:3px}
 .pcoach-steps{margin:5px 0 4px;padding-left:20px;font-size:12.5px;line-height:1.55;color:var(--text2)}
 .pcoach-check{font-size:12px;color:var(--ok,#3f9d63)}
+/* Self-report micro-poll (Phase 4, spec §17) */
+.psr-opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.psr-btn{padding:7px 12px;border-radius:999px;border:1px solid var(--bd3);background:var(--card2);color:var(--text);font-size:12.5px;font-weight:600;cursor:pointer}
+.psr-btn.on{border-color:#d97757;background:color-mix(in srgb,#d97757 16%,var(--card2));font-weight:800}
 /* Pathway-stage-unlock celebration — bigger/louder than the plain "new
    personal best" line above, since crossing a whole stage is a bigger deal
    than one drill's record. Reuses the level-up card's bounce entrance. */

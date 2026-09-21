@@ -236,6 +236,34 @@ export function teacherAdviceFor(pr) {
   } catch (e) { return null; }
 }
 
+/* ══ PHASE 4 — ADAPTIVE TEACHER (spec §14–15, §17, §21) ══
+   Three exports power the self-report micro-poll on the practice result
+   screen: the state estimator (multi-source fusion), the feedback record
+   factory, and a loop re-run where the student's answer steers the decision
+   (direct answer REPLACES performance guesses — spec §17's "คำตอบโดยตรงของ
+   นักเรียนควรมีน้ำหนักสูงกว่าการเดาจากใบหน้าเพียงอย่างเดียว"). ── */
+import { estimateStates as _estimateStates, makeStudentFeedback, SELF_REPORT_OPTIONS } from "./student/state-estimator.js";
+export function estimateStudentStates(args) {
+  try { return _estimateStates(args || {}); } catch (e) { return null; }
+}
+export function newStudentFeedback(args) {
+  try { return makeStudentFeedback(args || {}); } catch (e) { return null; }
+}
+export const SELF_REPORT_CHOICES = SELF_REPORT_OPTIONS;
+
+/* Re-run the loop with the learner's answer folded in. stats = the SAME
+   practiceStats the first run got (plus weekAgoAccuracy) — the caller holds
+   them; here we only fuse the report. Returns the full new loop result. */
+export async function rerunLoopWithSelfReport(practiceStats, selfReport) {
+  try {
+    if (!selfReport || !SELF_REPORT_STATE_KEYS[selfReport]) return null;
+    if (!_tiga) initTigamodelWeb();          // idempotent; the poll may be the first tigamodel touch of the session
+    if (!_tiga || !_tiga.loop) return null;
+    return await _tiga.loop.runOnce({ practiceStats, selfReport });
+  } catch (e) { return null; }
+}
+const SELF_REPORT_STATE_KEYS = { confused: 1, too_easy: 1, too_hard: 1, understand: 1, frustrated: 1, retry: 1, great: 1 };
+
 /* ── THE UNIFIED PLAN (owner directive: รวมแผน 100 + แผน 1M เป็นแผ่นเดียว):
    100 streams × their 1M cells, one work order, statuses verified by the
    capability engine (a "done" tick without real capability never shows done). ── */

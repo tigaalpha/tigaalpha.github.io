@@ -15,6 +15,17 @@
 
 import { makeStudentStateEstimate, makeDiagnosis, makeObservation } from "../core/schema.js";
 
+/* Phase 4 (spec §17): self-report vocabulary → the state it directly
+   evidences. The student's own answer outranks inference — these values
+   REPLACE any performance-guessed estimate of the same state (5b below). */
+const SELF_REPORT_STATE = {
+  confused:   { state: "confusion",            probability: 0.85, confidence: 0.9 },
+  too_easy:   { state: "perceived_difficulty", probability: 0.2,  confidence: 0.85 },
+  too_hard:   { state: "perceived_difficulty", probability: 0.85, confidence: 0.85 },
+  understand: { state: "understanding",        probability: 0.85, confidence: 0.9 },
+  frustrated: { state: "frustration",          probability: 0.75, confidence: 0.85 },
+};
+
 function est({ state, probability, confidence, evidence, alternatives }) {
   return makeStudentStateEstimate({ state, probability, confidence, evidence, modalities: ["performance", "conversation"], alternatives });
 }
@@ -74,6 +85,24 @@ export function createTeachingLoop({ policy, kb, skillGraph } = {}) {
       if (typeof practiceStats.accuracy === "number" && typeof practiceStats.weekAgoAccuracy === "number" && practiceStats.weekAgoAccuracy > 0 && practiceStats.accuracy - practiceStats.weekAgoAccuracy < 3) issues.push({ code: "progress_stall", detail: "ความแม่นยำไม่คืบหน้าเป็นสัปดาห์", evidence: [`acc ${practiceStats.accuracy} vs ${practiceStats.weekAgoAccuracy} a week ago`], confidence: 0.5 });
     }
     const diagnosis = makeDiagnosis({ issues });
+
+    // 5b. SELF-REPORT FUSION (Phase 4, spec §17): the student's own words
+    // outrank inference. When a self-report maps to a state the loop already
+    // estimated from performance, the reported value REPLACES the guessed
+    // one (direct answer > guessing); when no such estimate existed, the
+    // report CREATES one — a "too hard" answer must reach the policy even
+    // if the accuracy number looked fine. see use of updateOrAdd below.
+    if (selfReport && SELF_REPORT_STATE[selfReport]) {
+      const { state, probability, confidence } = SELF_REPORT_STATE[selfReport];
+      const est2 = makeStudentStateEstimate({
+        state, probability, confidence,
+        evidence: ["student answered directly (self-report)"],
+        modalities: ["self_report"],
+        alternatives: [],
+      });
+      const i = states.findIndex(s => s.state === state);
+      if (i >= 0) states[i] = est2; else states.push(est2);
+    }
 
     // 5. SELECT STRATEGY via configurable policy
     const decision = policy.evaluate(states, signals, selfReport);

@@ -29,6 +29,7 @@ const files = [
   "index.js",
 ];
 
+const REAL_SB = readFileSync("supabase-client.ts", "utf8");
 execSync(`npx esbuild ${files.map(f => `tigamodel/${f}`).join(" ")} --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
 
 /* Phase 2 Practice Coach: transpile the app-side .ts builder and test the
@@ -36,18 +37,18 @@ execSync(`npx esbuild ${files.map(f => `tigamodel/${f}`).join(" ")} --outdir=${O
    external; only the pure builder is exercised here. */
 execSync(`npx esbuild use-practice-coach.ts --bundle --outfile=${OUT}/use-practice-coach.js --format=esm --platform=node --loader:.ts=ts --packages=external`, { stdio: "pipe" });
 const pcM = await import(pathToFileURL(`${OUT}/use-practice-coach.js`).href);
-/* web.js imports ../supabase-client (which imports @supabase/supabase-js and
-   env vars). To assemble the REAL web.js under Node we temporarily swap in a
-   stub at the resolved path, bundle, then restore the real file. */
-const SB_REAL = readFileSync("supabase-client.ts", "utf8");
+/* tigamodel web modules that need no browser: bundle the real files with
+   supabase-client stubbed so teacherAdviceFor / estimator / registry are
+   testable under Node (repo convention: test the real file, not a copy). */
+mkdirSync(`${OUT}/p4`, { recursive: true });
 ioSync("supabase-client.ts", "export const sb = null;\n");
-let webM = null;
 try {
-  execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/web.js --format=esm --platform=node --loader:.js=js --packages=external`, { stdio: "pipe" });
-  webM = await import(pathToFileURL(`${OUT}/web.js`).href);
+  execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/p4/web.js --format=esm --platform=node --loader:.js=js --packages=external`);
+  execSync(`npx esbuild tigamodel/multimodal/interfaces.js --bundle --outfile=${OUT}/p4/mm.js --format=esm --platform=node --loader:.js=js --packages=external`);
 } finally {
-  ioSync("supabase-client.ts", SB_REAL);   // always restore — even on failure
+  ioSync("supabase-client.ts", REAL_SB);   // always restore — even on failure
 }
+const webM = await import(pathToFileURL(`${OUT}/p4/web.js`).href);
 /* minimal localStorage for the helper modules under Node — installed BEFORE
    they are imported (module init doesn't touch it, but calls will) */
 globalThis.localStorage = { _m: new Map(), getItem(k) { return this._m.has(k) ? this._m.get(k) : null; }, setItem(k, v) { this._m.set(k, String(v)); }, removeItem(k) { this._m.delete(k); } };
@@ -369,6 +370,58 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
     assert.ok(adv.plan && adv.plan.parts.length >= 2, "30-min lesson plan has parts");
     const onTrack = webM.teacherAdviceFor({ practiceLog: { [k(0)]: { n: 2, accSum: 180 } }, memory: { struggles: [], mastered: [], noteMisses: [] }, summary: { games: 6, avgAcc: 88, pathDone: 9 }, streak: { count: 4 } });
     assert.ok(onTrack && onTrack.flags.every(f => f.positive), "healthy student → only positive flags (none negative)");
+  });
+
+  await ok("Phase 4 estimator: self-report outranks performance guess; alternatives mandatory on weak inference", async () => {
+    // no data at all → no estimates invented
+    assert.equal(webM.estimateStudentStates({}).length, 0);
+    // confused answer → strong confusion with self_report modality
+    const conf = webM.estimateStudentStates({ selfReport: "confused" });
+    const c = conf.find(s => s.state === "confusion");
+    assert.ok(c && c.probability >= 0.8 && c.modalities.includes("self_report"), "direct answer dominates");
+    // performance-only confusion must carry alternative explanations (§15)
+    const perf = webM.estimateStudentStates({ session: { accuracy: 55, repeatedErrors: 3 } });
+    const pc = perf.find(s => s.state === "confusion");
+    assert.ok(pc && pc.alternative_explanations.length >= 2, "weak inference → alternatives listed");
+    // fused: direct answer + bad session → probability leans to the ANSWER, not the average-with-noise
+    const both = webM.estimateStudentStates({ selfReport: "confused", session: { accuracy: 55, repeatedErrors: 3 } });
+    const bc = both.find(s => s.state === "confusion");
+    assert.ok(bc && bc.probability >= c.probability - 0.01 && bc.modalities.includes("session"), "fusion keeps both modalities");
+    // faces are never a source (§16): no estimator output may cite vision
+    assert.ok(both.every(s => !s.modalities.includes("vision")), "no vision modality anywhere");
+  });
+
+  await ok("Phase 4 self-report re-run: 'too_hard' answer flips the strategy to simplify-on-hard-report", async () => {
+    const loop = await webM.rerunLoopWithSelfReport({ accuracy: 92, repeatedErrors: 0, pauses: 0 }, "too_hard");
+    assert.ok(loop && loop.decision, "loop re-ran");
+    assert.equal(loop.decision.strategy_id, "simplify-on-hard-report", "§22 policy rule: too_hard → simplify");
+    assert.ok(loop.states.some(s => s.state === "perceived_difficulty" && s.probability >= 0.8 && s.modalities.includes("self_report")), "state replaced by the direct answer");
+    // nonsense report → null (no crash, no strategy change)
+    assert.equal(await webM.rerunLoopWithSelfReport({ accuracy: 90 }, "hax"), null);
+  });
+
+  await ok("Phase 4 multimodal registry: honest statuses + analyzePerformance guard throws (spec §20)", async () => {
+    const mm = await import(pathToFileURL(`${OUT}/p4/web.js`).href); // web re-exports? check direct too
+    const reg = (await import(pathToFileURL(`${OUT}/p4/mm.js`).href));
+    const sum = reg.multimodalSummary();
+    assert.ok(sum.forbidden >= 2, "face mood + biometric ID marked forbidden");
+    assert.equal(reg.multimodalStatus("face_mood_inference"), "forbidden");
+    assert.equal(reg.multimodalStatus("self_report"), "implemented");
+    assert.equal(reg.multimodalStatus("performance_audio_analysis"), "planned");
+    let threw = false;
+    try { reg.analyzePerformance({ fake: true }); } catch (e) { threw = e.code === "TIGA_CAPABILITY_PLANNED"; }
+    assert.ok(threw, "§20: claiming audio analysis without an engine must throw");
+  });
+
+  await ok("Phase 3 parent report from SYNCED snapshot: real bars, honest trend, tenant-safe (no localStorage reads)", async () => {
+    const k = (n) => { const d = new Date(Date.now() - n * 864e5); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+    const pr = { practiceLog: { [k(0)]: { n: 1, accSum: 85 }, [k(10)]: { n: 1, accSum: 70 } }, memory: { struggles: [], mastered: [], noteMisses: [{ label: "B", count: 2 }] }, summary: { avgAcc: 78, games: 4 } };
+    const rep = pcM.buildParentReportData(pr);
+    assert.ok(rep && rep.series.length === 14 && rep.weeklyAvg === 85 && rep.trend === +15, "real weekly avg + trend from the snapshot");
+    assert.ok(rep.topMiss === "B" && rep.avgAcc === 78, "top missed note + overall avg");
+    assert.equal(pcM.buildParentReportData(null), null, "garbage → null");
+    const empty = pcM.buildParentReportData({ practiceLog: {}, memory: {}, summary: {} });
+    assert.ok(empty && empty.weeklyAvg == null && empty.trend == null && empty.topMiss == null, "empty student → honest nulls");
   });
 
   await ok("Phase 3 teacherAdviceFor: null/garbage → null, empty record → empty-but-valid advice", async () => {

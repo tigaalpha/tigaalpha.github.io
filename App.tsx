@@ -33,6 +33,7 @@ import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-ed
 import { runTeachingLoopForPractice } from "./tigamodel/web";
 import { buildParentReport } from "./use-practice-coach";
 import { teacherAdviceFor } from "./tigamodel/web";
+import { buildParentReportData } from "./use-practice-coach";
 import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes } from "./use-autoteach";
 import { pickTeachCard, markCardSeen, readKnowledgeStats, bumpKnowledgeStats, readNoteMissMap, cardSourceInfo } from "./tigamodel/knowledge/teach-cards.js";
 import TeachVisual from "./TeachVisual";
@@ -8205,6 +8206,38 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
         <ProgressDashboard lang={lang} plog={plog} gameLog={pr.gameLog || []} />
         {struggles.length > 0 && <><div className="admstu-sec">{T("ต้องฝึกเพิ่ม", "Needs work", "需加强")}</div><div className="pd-tags">{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label || s}</span>)}</div></>}
         {mastered.length > 0 && <><div className="admstu-sec">{T("ทำได้ดีแล้ว", "Mastered", "已掌握")}</div><div className="pd-tags">{mastered.map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
+        {sel.role === "student" && (() => {
+          const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+          const rep = buildParentReportData(pr);
+          return (
+            <div className="admmg" style={{ marginTop: 12 }}>
+              <div className="admmg-h">👨‍👩‍👧 {T3("รายงานสำหรับผู้ปกครอง", "Parent report", "家长报告")}</div>
+              {!rep || rep.series.filter(d => d.acc != null).length === 0 ? (
+                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>{T3("ยังไม่มีข้อมูลซ้อม sync ของนักเรียนคนนี้", "No synced practice data for this student yet", "该学生暂无同步练习数据")}</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 12.5, color: "var(--text2)", marginBottom: 6 }}>
+                    {T3("เฉลี่ยสัปดาห์นี้", "This week", "本周")} <b>{rep.weeklyAvg != null ? rep.weeklyAvg + "%" : "—"}</b>
+                    {rep.trend != null && <b style={{ color: rep.trend > 0 ? "var(--ok,#3f9d63)" : rep.trend < 0 ? "var(--bad,#c4423a)" : "var(--muted)" }}> {rep.trend > 0 ? "▲" : rep.trend < 0 ? "▼" : "▬"} {Math.abs(rep.trend)}%</b>}
+                    {" · "}{T3("ซ้อม", "sessions", "练习")} <b>{rep.sessions7}</b> {T3("รอบ/7วัน", "/7d", "/7天")}
+                    {rep.avgAcc != null && <>{" · "}{T3("แม่นเฉลี่ยรวม", "overall avg", "总平均")} <b>{rep.avgAcc}%</b></>}
+                  </div>
+                  <svg viewBox="0 0 140 40" style={{ width: "100%", height: 72, display: "block" }} preserveAspectRatio="none">
+                    {rep.series.map((d, i) => {
+                      const bw = 140 / rep.series.length;
+                      const h = d.acc != null ? (d.acc / 100) * 32 : 0;
+                      return <rect key={i} x={i * bw + 0.2} y={34 - h} width={Math.max(0.5, bw - 0.5)} height={Math.max(d.acc != null ? 0.8 : 0.2, h)} fill={d.acc != null ? "color-mix(in srgb, var(--accent,#d97757) 75%, var(--card2))" : "var(--bd2,rgba(0,0,0,0.08))"} rx={0.5} />;
+                    })}
+                    <line x1={0} y1={34.5} x2={140} y2={34.5} stroke="var(--bd2,rgba(0,0,0,0.1))" strokeWidth={0.4} />
+                  </svg>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{T3("ความแม่นยำ 14 วันล่าสุด (วันที่ไม่ได้ซ้อม = แท่งว่าง)", "Accuracy, last 14 days (no practice = empty bar)", "近14天准确率（未练习=空柱）")}</div>
+                  {rep.improvements.length > 0 && <div className="pd-tags" style={{ marginTop: 6 }}>{rep.improvements.map((im, i) => <span key={i} className="pd-tag good">{im.label} ✓</span>)}</div>}
+                  {rep.topMiss && <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 4 }}>🎯 {T3("โฟกัสบ้านนี้สัปดาห์:", "home focus:", "家庭练习重点：")} {T3("โน้ต", "note", "音符")} {rep.topMiss}</div>}
+                </>
+              )}
+            </div>
+          );
+        })()}
         {sel.role === "student" && (
           <button className="songbtn ghost" style={{ width: "100%", marginTop: 12 }} disabled={busy} onClick={removeMember}>✕ {lc.schoolRemoveBtn}</button>
         )}
@@ -12058,7 +12091,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>
 
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
-      {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} metroBpm={metroBpm} onSetTempo={(b) => { try { setMetroBpm(Math.max(40, Math.min(208, Math.round(b)))); } catch (e) {} }} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} onKeepGoing={() => { playUi("click"); setPricingOpen(true); }} showKeepGoing={!premium && !!practiceResult && practiceResult.accuracy >= 80 && practiceResult.bestStreak >= 5} />}
+      {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} metroBpm={metroBpm} onSetTempo={(b) => { try { setMetroBpm(Math.max(40, Math.min(208, Math.round(b)))); } catch (e) {} }} onTipUpdate={(tip) => { try { setPracticeResult(prev => (prev ? { ...prev, tigaTip: tip } : prev)); } catch (e) {} }} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} onKeepGoing={() => { playUi("click"); setPricingOpen(true); }} showKeepGoing={!premium && !!practiceResult && practiceResult.accuracy >= 80 && practiceResult.bestStreak >= 5} />}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
       {songOpen && songMeta && <SongPlayOverlay pvpOnline={pvpOnline} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} drillPlan={drillPlan} drillActive={drillActive} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossHp={bossHp} bossMax={bossMax} bossFx={bossFx} kDrop={kDrop} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} openKnowledgeShelf={openKnowledgeShelf} />}
