@@ -59,7 +59,8 @@ hookSrc = hookSrc
   .replace('from "./tigamodel/web"', `from "${process.cwd()}/${OUT}/ovroot/web.js"`)
   .replace('from "./shared-infra"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
   .replace('from "./ai-chat-context"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
-  .replace('from "./ai-backend"', `from "${process.cwd()}/${OUT}/infra-stub.js"`);
+  .replace('from "./ai-backend"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
+  .replace('from "./use-autoteach"', `from "${process.cwd()}/use-autoteach.ts"`);   // real module (pure localStorage, jsdom-safe)
 writeFileSync(`${OUT}/use-practice-mode.testable.ts`, hookSrc);
 writeFileSync(`${OUT}/music-engine-stub.js`, `/* minimal stand-in for the pieces of music-engine the hook imports:
    audio output + listener lifecycle, no real audio (jsdom) */
@@ -82,6 +83,12 @@ export const SEVENTH_FEEL = {};
 export function progressionChordLabels() { return []; }
 export function Piano() { return null; }
 `);
+writeFileSync(`${OUT}/speech-stub.js`, `/* speech pieces PracticeOverlay reads (real Web Speech APIs are browser-only) */
+export const sttSupported = false;
+export function getSR() { return null; }
+`);
+/* use-practice-coach imports tigamodel/web + use-autoteach at ITS project-root
+   paths — those resolve fine from the repo root (esbuild runs there), no stubs needed */
 writeFileSync(`${OUT}/infra-stub.js`, `/* shared-infra / ai-chat-context / ai-backend pieces the hook uses */
 export function logActivity() {}
 export function dayKey(d) { const x = d || new Date(); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); }
@@ -102,10 +109,12 @@ execSync(
   { stdio: "pipe" }
 );
 {
-  let ovSrc = readFileSync("PracticeOverlay.tsx", "utf8").replace('from "./tigamodel/web"', `from "${process.cwd()}/${OUT}/ovroot/web.js"`)
+  let ovSrc = readFileSync("PracticeOverlay.tsx", "utf8").replaceAll('from "./tigamodel/web"', `from "${process.cwd()}/${OUT}/ovroot/web.js"`)
     /* i18n + music-engine live at the project root — point at the REAL files
        (esbuild bundles their trees; music-engine's React import is external) */
     .replace('from "./i18n"', `from "${process.cwd()}/i18n.ts"`)
+    .replace('from "./speech"', `from "${process.cwd()}/${OUT}/speech-stub.js"`)
+    .replace('from "./use-practice-coach"', `from "${process.cwd()}/use-practice-coach.ts"`)
     .replace('from "./music-engine"', `from "${process.cwd()}/${OUT}/music-engine-stub.js"`);
   writeFileSync(`${OUT}/PracticeOverlay.testable.tsx`, ovSrc);
   execSync(
@@ -308,10 +317,13 @@ console.log(`  (practiceResult via server probe: ${api.practiceResult ? "set" : 
       hand: "right", setHand: () => {}, practiceIdx: 0, practiceHeard: null, practiceMiss: 0,
       practiceStreak: 0, practiceResult: r2, restartPractice: () => {}, practiceHandlerRef: { current: () => {} },
       switchPracticeChordStyle: () => {}, chordGroupSize: 0,
+      /* props main's overlay now takes (kept optional-safe in the test) */
+      metroBpm: 100, onSetTempo: () => {}, onTipUpdate: () => {},
+      onKeepGoing: () => {}, showKeepGoing: false,
     }));
     ok("overlay renders result title", html.includes("เยี่ยมมาก!"));
     ok("overlay shows score 100%", html.includes("100%"));
-    ok("overlay renders TIGA verdict header", html.includes("TIGA Model วิเคราะห์"), "markup: " + html.slice(0, 200));
+    ok("overlay renders TIGA verdict header", html.includes("ครู TIGA AI วิเคราะห์") || html.includes("TIGA Model วิเคราะห์"), "markup: " + html.slice(0, 300));
     ok("overlay renders verdict text", r2.tigaTip && html.includes(r2.tigaTip.text.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     ok("NO crash-boundary artifacts", !html.includes("Something went wrong"));
   }
