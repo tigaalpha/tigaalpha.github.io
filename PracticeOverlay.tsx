@@ -1,6 +1,7 @@
 import { L } from "./i18n";
 import { Piano, pcOf } from "./music-engine";
 import { tigaStrategyLabel } from "./tigamodel/web";
+import { usePracticeCoach } from "./use-practice-coach";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
@@ -28,7 +29,7 @@ function ResultBar({ label, pct, color }) {
     </div>
   );
 }
-function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing }) {
+function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo }) {
   const r = practiceResult;
   const dynPct = r.dyn ? Math.round(r.dyn.ok / (r.dyn.ok + r.dyn.miss) * 100) : null;
   const rhythmPct = r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null;
@@ -99,6 +100,13 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
         </div>
       )}
 
+      {/* ── TIGA Practice Coach (Phase 2, spec §34): tempo decision + 3-line
+          recap + homework + next exercise — all from the model's real engines
+          fed with THIS drill's real data. Sections hide honestly when the
+          data doesn't exist (no BPM → no tempo line; the coach never shows
+          invented numbers). ── */}
+      <PracticeCoachCard lang={lang} lc={lc} practiceResult={r} rhythmPct={rhythmPct} dynPct={dynPct} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} restartPractice={restartPractice} />
+
       {(r.aiLoading || r.aiText) && (
         <div className="presultai">
           <div className="presultai-h">💬 {lc.practiceCoachSays}</div>
@@ -113,7 +121,7 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
     </div>
   );
 }
-export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, switchPracticeChordStyle, chordGroupSize = 0, onKeepGoing, showKeepGoing = false }) {
+export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, switchPracticeChordStyle, chordGroupSize = 0, onKeepGoing, showKeepGoing = false, metroBpm = null, onSetTempo = null }) {
   const lc = L[lang];
         // Grading (use-practice-mode) treats BOTH chord and progression drills
         // as block-style when the toggle says so — the display must gate on the
@@ -142,7 +150,7 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
           <div className="practicehtitle">{lc.practiceTitle}<small>{practiceLabel}</small></div>
           <button className="cbtn" onClick={exitPractice}>{lc.close}</button>
         </div>
-        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} />
+        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} />
         <div className="practicefoot">
           <button className="practicerestart" onClick={restartPractice}>↻ {lc.practiceRestart}</button>
           <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
@@ -250,5 +258,60 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
             <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
           </div>
         </div>
+  );
+}
+
+/* ── TIGA Practice Coach card (Phase 2, spec §34): the model's tempo
+   decision, 3-line recap, homework and the next exercise — rendered from
+   usePracticeCoach's real-data builder. Sections hide when data is absent. ── */
+function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practiceTarget, metroBpm, onSetTempo, restartPractice }) {
+  const r = practiceResult || {};
+  const missed = (r.miss != null && r.miss > 0) ? null : null; // missed NOTES (pitch-level) come from noteMisses in tg_memory; the builder reads them itself
+  const data = usePracticeCoach({
+    label: r.label || null,
+    accuracy: r.accuracy,
+    missedNotes: (r.tigaTip && r.tigaTip.states && r.tigaTip.states.repeatedErrorLabel) ? [r.tigaTip.states.repeatedErrorLabel] : [],
+    rhythmPct, dynPct, practiceTarget, metroBpm,
+    prevAccuracy: (r.prevBest && r.prevBest.accuracy) || null,
+  });
+  if (!data) return null;
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const L = lang || "th";
+  const tempo = data.tempo;
+  const recap = data.recap;
+  const ex = data.exercise;
+  const tx = (o) => (o ? (o[L] || o.en || o.th) : null);
+  return (
+    <div className="presultai pcoach" style={{ borderColor: "#8ad4ff" }}>
+      <div className="presultai-h">🎯 {T("ครู TIGA Practice Coach", "Teacher TIGA Practice Coach", "TIGA 练习教练")}</div>
+
+      {tempo && (
+        <div className="pcoach-tempo">
+          <b>{tempo.bpm} BPM</b>
+          <span className="pcoach-why">{tempo.step > 0 ? `▲ +${tempo.step}` : tempo.step < 0 ? `▼ ${tempo.step}` : "▬"} {tempo.reason}</span>
+          {onSetTempo && <button className="pcoach-btn" onClick={() => onSetTempo(tempo.bpm)}>⏱ {T("ตั้งเมโทรนอม", "Set metronome", "设置节拍器")}</button>}
+        </div>
+      )}
+
+      {recap && recap.lines && recap.lines.length > 0 && (
+        <div className="pcoach-recap">
+          {recap.lines.map((ln, i) => <div key={i} className="presultai-tx">• {tx(ln)}</div>)}
+          {recap.homework && <div className="pcoach-hw">📝 {tx(recap.homework)}</div>}
+        </div>
+      )}
+
+      {ex && (
+        <div className="pcoach-ex">
+          <div className="pcoach-ex-t">➡️ {T("แบบฝึกหัดถัดไป", "Next exercise", "下一个练习")}: <b>{tx(ex.title) || ex.title}</b></div>
+          <div className="presultai-tx">{tx(ex.task) || ex.task}</div>
+          {Array.isArray(ex.steps) && ex.steps.length > 0 && (
+            <ol className="pcoach-steps">
+              {ex.steps.map((s, i) => <li key={i}>{s}</li>)}
+            </ol>
+          )}
+          {ex.check && <div className="pcoach-check">✓ {ex.check}</div>}
+        </div>
+      )}
+    </div>
   );
 }

@@ -881,6 +881,18 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .shopintro-x{margin-left:auto;opacity:.6;font-size:16px}
 .edupop{border-color:#8b5cf677;box-shadow:0 -10px 34px -10px #000,0 0 26px -10px #8b5cf666}
 .presultai-tx{font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap}
+/* TIGA Practice Coach (Phase 2) — tempo/recap/exercise card on the practice
+   result screen; sibling of .presultai, blue accent = "coach" vs orange AI. */
+.pcoach-tempo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,#8ad4ff 12%,var(--card2));font-size:13.5px}
+.pcoach-tempo b{font-size:16px;color:var(--text)}
+.pcoach-why{font-size:11.5px;color:var(--muted)}
+.pcoach-btn{margin-left:auto;padding:6px 12px;border:none;border-radius:8px;background:#8ad4ff22;color:var(--text);font-size:12.5px;font-weight:700;cursor:pointer}
+.pcoach-recap{margin:6px 0;display:flex;flex-direction:column;gap:2px}
+.pcoach-hw{margin-top:6px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb,#ffd23f 12%,var(--card2));font-size:12.5px;color:var(--text)}
+.pcoach-ex{margin-top:8px;padding:9px 10px;border-radius:10px;border:1px solid var(--bd2);background:color-mix(in srgb,#8ad4ff 7%,var(--card2))}
+.pcoach-ex-t{font-size:13px;color:var(--text);margin-bottom:3px}
+.pcoach-steps{margin:5px 0 4px;padding-left:20px;font-size:12.5px;line-height:1.55;color:var(--text2)}
+.pcoach-check{font-size:12px;color:var(--ok,#3f9d63)}
 /* Pathway-stage-unlock celebration — bigger/louder than the plain "new
    personal best" line above, since crossing a whole stage is a bigger deal
    than one drill's record. Reuses the level-up card's bounce entrance. */

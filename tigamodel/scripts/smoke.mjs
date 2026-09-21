@@ -31,6 +31,13 @@ const files = [
 
 execSync(`npx esbuild ${files.map(f => `tigamodel/${f}`).join(" ")} --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
 
+/* Phase 2 Practice Coach: transpile the app-side .ts builder and test the
+   REAL file (repo convention — never a hand-mirrored copy). React stays
+   external; only the pure builder is exercised here. */
+execSync(`npx esbuild use-practice-coach.ts --bundle --outfile=${OUT}/use-practice-coach.js --format=esm --platform=node --loader:.ts=ts --packages=external`, { stdio: "pipe" });
+const pcM = await import(pathToFileURL(`${OUT}/use-practice-coach.js`).href);
+
+
 const M = (f) => import(pathToFileURL(`${OUT}/${f.replace(/\.js$/, ".js")}`).href);
 const schema = await M("core/schema.js");
 const iface = await M("providers/provider-interface.js");
@@ -255,6 +262,40 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
     const s3 = tcM.bumpKnowledgeStats(true);
     assert.equal(s3.streak, 2, "yesterday streak should continue");
     tcM.writeKnowledgeStats({ streak: 0, bestStreak: 0, lastDay: null, correct: 0, answered: 0, seen: {} });
+  });
+
+  /* ── Phase 2: TIGA Practice Coach (use-practice-coach.ts, real file) ── */
+
+  await ok("coach data: tempo appears only when the drill carries a BPM (honest hide)", async () => {
+    const withBpm = pcM.buildPracticeCoachData({ label: "C major scale", accuracy: 62, practiceTarget: [{ bpm: 72 }] });
+    assert.ok(withBpm && withBpm.tempo && withBpm.tempo.bpm < 72, "accuracy 62 must step tempo DOWN from 72");
+    const noBpm = pcM.buildPracticeCoachData({ label: "C major scale", accuracy: 62, practiceTarget: null });
+    assert.ok(noBpm && noBpm.tempo == null, "no BPM in → no tempo section");
+  });
+
+  await ok("coach data: recap lines use real before/after + real worst missed note", async () => {
+    const d = pcM.buildPracticeCoachData({ label: "Twinkle", accuracy: 80, prevAccuracy: 62, missedNotes: ["E4", "E4", "G4"], practiceTarget: null });
+    assert.ok(d && d.recap && Array.isArray(d.recap.lines) && d.recap.lines.length === 3, "recap = 3 lines");
+    const improved = d.recap.lines[0];
+    assert.ok(/\+18|18/.test(improved.th + improved.en), "line 1 states the real +18 delta");
+    assert.ok(d.recap.lines[1].th.includes("E4"), "drill line names the real worst missed note");
+    assert.ok(d.recap.homework && d.recap.homework.th.includes("15"), "homework within 15 min");
+  });
+
+  await ok("coach data: next exercise is real generator output, level + topic follow this drill", async () => {
+    const weak = pcM.buildPracticeCoachData({ label: "rhythm drill", accuracy: 55, rhythmPct: 60, missedNotes: [], practiceTarget: null, seed: 7 });
+    assert.ok(weak && weak.exercise && weak.exercise.level === 2, "accuracy 55 → level 2");
+    assert.equal(weak.exercise.topic, 4, "rhythm miss routes to the rhythm topic");
+    assert.ok(weak.exercise.steps && weak.exercise.steps.length >= 2 && weak.exercise.check, "exercise has steps + a check bar");
+    const strong = pcM.buildPracticeCoachData({ label: "rhythm drill", accuracy: 96, rhythmPct: 98, missedNotes: [], practiceTarget: null, seed: 7 });
+    assert.ok(strong.exercise.level === 5, "accuracy 96 → level 5");
+    const det = pcM.buildPracticeCoachData({ label: "rhythm drill", accuracy: 55, rhythmPct: 60, practiceTarget: null, seed: 7 });
+    assert.equal(JSON.stringify(det.exercise), JSON.stringify(weak.exercise), "same seed+signals → same exercise (deterministic)");
+  });
+
+  await ok("coach data: garbage in → null (never throws into the result screen)", async () => {
+    assert.equal(pcM.buildPracticeCoachData(null), null);
+    assert.equal(pcM.buildPracticeCoachData({ accuracy: "x" }), null);
   });
 }
 

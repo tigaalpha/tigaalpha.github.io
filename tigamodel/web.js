@@ -170,6 +170,14 @@ export function generateStudentSheet(level, seed) {
   try { return generateSheet(level, seed); } catch (e) { return null; }
 }
 
+/* The 10 real exercise topics the generator can build (Phase 2 Practice
+   Coach needs to offer an honest "next exercise" — the topic list IS the
+   generator's own topic table, not invented labels). Stable order. */
+import { GENERATOR_KINDS as _GENERATOR_KINDS } from "./teaching/generator.js";
+export function studentExerciseKinds() {
+  try { return _GENERATOR_KINDS(); } catch (e) { return []; }
+}
+
 /* ── THE UNIFIED PLAN (owner directive: รวมแผน 100 + แผน 1M เป็นแผ่นเดียว):
    100 streams × their 1M cells, one work order, statuses verified by the
    capability engine (a "done" tick without real capability never shows done). ── */
