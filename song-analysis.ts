@@ -1,4 +1,5 @@
 import { readMemory } from "./ai-chat-context";
+import { getStudentContextBlock } from "./tigamodel/web.js"; // one shared learner memory across ALL model surfaces
 import { validateTip } from "./use-autoteach";
 
 /* ── song-analysis.ts — วิเคราะห์จบเพลงด้วย TIGA Piano Model (Play Along plan #7)
@@ -121,7 +122,10 @@ export async function analyzeSongRun(lang, label, result, loopFn, askAi, profile
   if (askAi) {
     try {
       const sys = buildSys(stratLine)[L3];
-      const msg = buildMsg(stratLine)[L3];
+      // StudentContext block (model layer spec §13): the SAME memory the
+      // teaching loop and coach see now personalizes the external AI too —
+      // appended to the message; empty for brand-new students (honest gap).
+      const msg = buildMsg(stratLine)[L3] + (getStudentContextBlock() || "");
       const txt = await askAi({ system: sys, message: msg });
       const jm = typeof txt === "string" && txt.match(/\{[\s\S]*\}/);
       if (jm) {

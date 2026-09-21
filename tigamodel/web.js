@@ -724,6 +724,17 @@ tigaHub.registerSpecialist("technique", {
   },
 }, { note: "hands-separate / tempo-ladder depth (real coach tempo engine)" });
 tigaHub.registerSpecialist("theory", {
+  /* Knowledge-drop ranking (P6): the played note's own fact unless this
+     learner already collected it — then no drop claim (caller keeps its
+     own behavior). Teaches unheard facts first. */
+  knowledgeForNote(noteName, ctx) {
+    const cands = (ctx && ctx.candidates) || {};
+    const shelf = (ctx && ctx.shelf) || [];
+    const pc = String(noteName || "").replace(/-?\d+$/, "");
+    if (!cands[pc]) return null;
+    if (shelf.some(x => x && x.pc === pc)) return null; // already learned — rotate elsewhere
+    return { fact: cands[pc], reason: "unheard", via: "theory" };
+  },
   explainSongResult(result, mem) {
     const acc = result && (typeof result.acc === "number" ? result.acc : result.accuracy);
     if (acc == null) return null;
@@ -750,6 +761,50 @@ tigaHub.registerSpecialist("sight-reading", {
 
 /* topic → exercise topic of the capability engine (t index): a tag hint →
    real exercise kind from the real generator */
+tigaHub.registerSpecialist("repertoire", {
+  /* Smart Daily Song: pick from the app's REAL song list using the real
+     learner record — struggle coverage first, then the skill graph's next
+     domain, never the 3-star set from the past week. Ties → deterministic
+     day-hash so two devices agree. No candidate fits → null (caller keeps
+     its day-hash pick; nothing invented). */
+  recommendDailySong(songs, ctx) {
+    if (!Array.isArray(songs) || !songs.length) return null;
+    const mem = (ctx && ctx.memory) || {};
+    const log = (ctx && ctx.practiceLog) || {};
+    const starMap = (ctx && ctx.starMap) || {};
+    const struggles = ((mem.struggles) || []).map(x => (x && typeof x === "object") ? (x.label || "") : String(x || "")).filter(Boolean);
+    const dayKey = (ctx && ctx.dayKey) || "";
+    let h = 0; for (let i = 0; i < dayKey.length; i++) h = (h * 31 + dayKey.charCodeAt(i)) | 0;
+    const dayHash = Math.abs(h);
+    const starOf = (song) => starMap[song.id || song.en || ""] || 0;
+    const mastered3 = songs.filter(s => starOf(s) >= 3);
+    let pool = songs.filter(s => starOf(s) < 3);
+    if (!pool.length) pool = songs.slice(); // everyone at 3 stars → all eligible again
+    // 1) songs whose title matches a real struggle label (the "fix my weak spot" pick)
+    const labelOf = (s) => (s && (s.en || s.th || s.zh || s.id)) || "";
+    const cover = pool.filter(s => { const t = labelOf(s); return struggles.some(x => x && (t.includes(x) || x.includes(t))); });
+    if (cover.length) { const s = cover[dayHash % cover.length]; return { song: s, reason: { th: `ซ้อมจุดที่ติง "${struggles[0]}" ผ่านเพลงนี้`, en: `Targets your weak spot "${struggles[0]}"`, zh: `针对弱点“${struggles[0]}”` }, via: "repertoire" }; }
+    // 2) otherwise rotate not-yet-3-star songs deterministically per day
+    const fresh = pool.filter(s => starOf(s) < 3);
+    const pick = (fresh.length ? fresh : pool)[dayHash % (fresh.length ? fresh.length : pool.length)];
+    if (pick && mastered3.includes(pick)) return null;
+    return { song: pick, reason: { th: "เพลงที่ยังไม่ได้ดาวเต็ม — เก็บ 3 ดาวให้ครบวันนี้", en: "Not yet 3-starred — collect the last star today", zh: "还没满星——今天拿下最后一颗星" }, via: "repertoire" };
+  },
+  nextQuestHint(mem, profile, opts) {
+    if (!opts || !opts.dailySong) return null; // only the tie-in voice
+    return { tip: { th: `🎵 เพลงประจำวันวันนี้ (🎵 ${opts.dailySong}) จบ 1 รอบ = ภารกิจสำเร็จ`, en: `🎵 One run of today's song (🎵 ${opts.dailySong}) completes the quest`, zh: `🎵 弹一次今日曲目（🎵 ${opts.dailySong}）即完成任务` } };
+  },
+  chatStartersFor(mem, plog, profile) {
+    const struggles = ((mem && mem.struggles) || []).map(x => (x && typeof x === "object") ? (x.label || x.th || "") : String(x || "")).filter(Boolean);
+    const recent = (mem && mem.recent) || [];
+    if (!struggles.length && !recent.length) return null; // nothing real → static pool
+    const out = [];
+    if (struggles[0]) out.push({ question: { th: `เห็นว่า "${struggles[0]}" ยังติงอยู่ — อยากลองวิธีซ้อมแบบอื่นไหม`, en: `"${struggles[0]}" is still tricky — want a different way to drill it?`, zh: `“${struggles[0]}”还有点难——换个练法？` }, contextLabel: struggles[0] });
+    if (recent[0]) out.push({ question: { th: `รอบล่าสุดเล่น "${typeof recent[0] === "object" ? (recent[0].label || recent[0].song || "") : recent[0]}" มา — อยากเล่าประสบการณ์ให้ฟังไหม`, en: `You just played "${typeof recent[0] === "object" ? (recent[0].label || recent[0].song || "") : recent[0]}" — want to tell me how it went?`, zh: `刚弹完“${typeof recent[0] === "object" ? (recent[0].label || recent[0].song || "") : recent[0]}”——想聊聊感觉吗？` }, contextLabel: "recent" });
+    if (out.length) return { starters: out, via: "repertoire" };
+    return null;
+  },
+}, { note: "Smart Daily Song + personalized openers (real song list + real memory)" });
 tigaHub.registerSpecialist("ear-training", {
   recommendSightReading(mem, cur) {
     return { specialist: "ear-training", clef: (cur && cur.clef) || "treble", tip: { th: "👂 (ผู้เชี่ยวชาญฝึกหู) ปิดตา 10 วินาทีก่อนเริ่ม — ฟังโน้ตในหัวก่อนเห็นบนหน้าจอ", en: "👁️ (ear specialist) Close your eyes for 10s first — hear the note before you see it", zh: "👂（练耳专长）先闭眼10秒——先在脑中听音再看屏幕" } };

@@ -30,7 +30,7 @@ import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
-import { runTeachingLoopForPractice } from "./tigamodel/web";
+import { runTeachingLoopForPractice , tigaHub } from "./tigamodel/web";
 import { buildParentReport } from "./use-practice-coach";
 import { teacherAdviceFor } from "./tigamodel/web";
 import { buildParentReportData } from "./use-practice-coach";
@@ -10694,6 +10694,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       }
     }
     const picked = [];
+    /* TIGA hub first (P4): personalized openers from the learner's REAL
+       record (top struggle / just-played song). Merged ahead of the curated
+       pool and badged 🧠; onStarterTap handles them as a direct chat prefill
+       (stage/case null-safe). */
+    try {
+      const tiga = tigaHub.chatStartersFor(readMemory(), readPracticeLog(), profile);
+      const tigaStarters = (tiga && tiga.starters || []).slice(0, 2).map((st, i) => ({
+        tiga: true,
+        stage: { id: "tiga-" + i, th: "ครู TiGA", en: "Teacher TiGA", zh: "TiGA老师" },
+        c: { id: "starter-" + i, th: st.question.th, en: st.question.en, zh: st.question.zh },
+      }));
+      picked.push(...tigaStarters);
+    } catch (e) { /* hub absent → curated pool only */ }
     while (picked.length < 3 && pool.length) picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
     return picked;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -11627,6 +11640,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // open a "benefits of music" knowledge chapter — show curated content in the chat
   function readChapter(stage, caseObj) {
+    /* TIGA hub starters (P4) are chat openers, not book chapters: they carry
+       no real content — route them straight into the chat as a user message
+       so Teacher TiGA answers from the student's own context. */
+    if (stage && stage.tiga && caseObj && caseObj.tiga) {
+      pushMessage({ role: "user", text: tr(caseObj.title, lang) });
+      setPage("sensei");
+      return;
+    }
     if (!caseObj && stage && stage.id) logUsage("pathway", stage.id); // top-level card tap only, not a case-study drill-down
     /* Coins for reading a chapter, but only the FIRST time it is read —
        re-reading is free and always will be, and paying for it again would

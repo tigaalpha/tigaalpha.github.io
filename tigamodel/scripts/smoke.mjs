@@ -563,6 +563,42 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
     assert.ok(lab.includes("tigaHub.status()") && lab.includes("getCapabilityEngine().summary()"), "lab tab shows live specialists + 1,000-route readiness");
     assert.ok(lab.includes('tab === "specialist"'), "specialist tab reachable");
   });
+
+  await ok("P1 Smart Daily Song: weak-spot pick beats rotation; no data → null (caller keeps day-hash)", async () => {
+    const songs = [{ id: "scale", en: "C Major Scale" }, { id: "twinkle", en: "Twinkle Twinkle" }, { id: "ocean", en: "Ocean Etude" }];
+    const r1 = webM.tigaHub.recommendDailySong(songs, { memory: { struggles: [{ label: "Ocean" }] }, practiceLog: {}, starMap: {}, dayKey: "2026-09-21" });
+    assert.ok(r1 && r1.via === "repertoire" && r1.song.id === "ocean", "struggle-matching song wins");
+    const r2 = webM.tigaHub.recommendDailySong(songs, { memory: {}, practiceLog: {}, starMap: { twinkle: 3, scale: 3 }, dayKey: "2026-09-21" });
+    assert.ok(r2 && r2.via === "repertoire" && r2.song.id === "ocean", "not-3-star rotation (never re-picks a 3-star when alternatives exist)");
+    const r3 = webM.tigaHub.recommendDailySong(null, {});
+    assert.equal(r3, null, "no songs → null (day-hash fallback upstream)");
+    const d1 = webM.tigaHub.recommendDailySong(songs, { memory: {}, practiceLog: {}, starMap: {}, dayKey: "2026-09-21" });
+    const d2 = webM.tigaHub.recommendDailySong(songs, { memory: {}, practiceLog: {}, starMap: {}, dayKey: "2026-09-21" });
+    assert.ok(d1.song.id === d2.song.id, "same day → same pick across devices (deterministic)");
+  });
+
+  await ok("P2/P3/P4/P5/P6: dynamics evidence, StudentContext wiring, hub starters, quest tie-in, drop ranking", async () => {
+    const fs = await import("node:fs");
+    const upa = fs.readFileSync("use-play-along.ts", "utf8");
+    assert.ok(upa.includes("scoreDynamics(songVelsRef.current)"), "real MIDI velocities flow into explainSongResult");
+    assert.ok(upa.includes("topic: 8"), "song runs are topic-tagged (performance) for specialist routing");
+    const sa = fs.readFileSync("song-analysis.ts", "utf8");
+    assert.ok(sa.includes("getStudentContextBlock()"), "external AI analysis carries the model's StudentContext block");
+    const app = fs.readFileSync("App.tsx", "utf8");
+    assert.ok(app.includes("tigaHub.chatStartersFor"), "chat starters come from the hub");
+    assert.ok(app.includes("caseObj.tiga"), "TIGA starters route into chat, not book chapters");
+    const pdp = fs.readFileSync("ProfileDashboardPanel.tsx", "utf8");
+    assert.ok(pdp.includes("dailySongFor()"), "quest hint ties to the real daily song");
+    // P5 engine voice: quest hint with dailySong mentions it
+    const q = webM.tigaHub.nextQuestHint({}, null, { dailySong: "Twinkle" });
+    assert.ok(q && q.tip.th.includes("Twinkle"), "repertoire quest tie-in names the song");
+    // P6: theory specialist ranks knowledge drops
+    const fact = { pc: "F", th: "F", en: "F", zh: "F" };
+    const k1 = webM.tigaHub.knowledgeForNote("F4", { candidates: { F: fact }, shelf: [] });
+    assert.ok(k1 && k1.via === "theory" && k1.fact === fact, "unheard fact gets dropped");
+    const k2 = webM.tigaHub.knowledgeForNote("F4", { candidates: { F: fact }, shelf: [{ pc: "F" }] });
+    assert.equal(k2, null, "already-collected fact → no claim (budget saved for fresh facts)");
+  });
 }
 
 main().then(() => {

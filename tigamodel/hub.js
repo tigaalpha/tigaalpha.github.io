@@ -209,9 +209,10 @@ export function createTigaHub({ kbEntries = null } = {}) {
   }
 
   /* ── intent 3: today's quest/mission hint (skill-graph aware) ── */
-  function nextQuestHint(memory, profile, topic = null) {
-    const hit = route(domainsFor("quest-hint", topicOf(topic, null)), (eng) =>
-      eng.nextQuestHint ? eng.nextQuestHint(memory, profile) : null);
+  function nextQuestHint(memory, profile, opts = null) {
+    const o = (opts && typeof opts === "object") ? opts : null;
+    const hit = route(domainsFor("quest-hint", topicOf(o && o.topic, null)), (eng) =>
+      eng.nextQuestHint ? eng.nextQuestHint(memory, profile, o) : null);
     if (hit) return hit;
     const struggles = ((memory && memory.struggles) || []).map(lbl).filter(Boolean);
     const mastered = (memory && memory.mastered) || [];
@@ -220,6 +221,11 @@ export function createTigaHub({ kbEntries = null } = {}) {
       : mastered.length >= 3
         ? { th: "ภารกิจวันนี้: ลองเพลงใหม่ที่ยากขึ้นหนึ่งระดับ", en: "Today's quest: try a song one level harder", zh: "今日任务：挑战难度高一级的新歌" }
         : { th: "ภารกิจวันนี้: จบซ้อม 3 รอบให้ครบ", en: "Today's quest: finish 3 practice rounds", zh: "今日任务：完成3次练习" };
+    if (o && o.dailySong) {
+      tip.th += ` · เพลงประจำวันวันนี้ (🎵 ${o.dailySong}) ทำภารกิจได้เลย`;
+      tip.en += ` · Today's song (🎵 ${o.dailySong}) counts for it`;
+      tip.zh += ` · 今日曲目（🎵 ${o.dailySong}）也可完成任务`;
+    }
     return { tip, via: "baseline" };
   }
 
@@ -248,6 +254,34 @@ export function createTigaHub({ kbEntries = null } = {}) {
     };
   }
 
+  /* ── intent: smart daily song ──
+     songs: app's real SONGS array; ctx: {memory, practiceLog, starMap, dayKey}.
+     Engines return {song, reason:{th,en,zh}}; null → caller keeps its
+     deterministic day-hash pick (never break the daily ritual). */
+  function recommendDailySong(songs, ctx) {
+    const hit = route(domainsFor("daily-song", topicOf(ctx && ctx.topic, null)), (eng) =>
+      eng.recommendDailySong ? eng.recommendDailySong(songs, ctx) : null);
+    return hit; // no baseline pick here: the day-hash fallback lives with the song list
+  }
+
+  /* ── intent: personalized chat openers ──
+     Returns [{question:{th,en,zh}, contextLabel}] or null → caller uses its
+     static curated pool. Questions must be answerable from real data only. */
+  function chatStartersFor(memory, practiceLog, profile) {
+    const hit = route(domainsFor("chat-starters", null), (eng) =>
+      eng.chatStartersFor ? eng.chatStartersFor(memory, practiceLog, profile) : null);
+    return hit;
+  }
+
+  /* ── intent: which knowledge fact to drop on a note hit ──
+     ctx: {candidates: {pc: fact}, shelf: [...], struggles: [...], label}.
+     Specialist ranks; null → caller uses the played note's own fact. */
+  function knowledgeForNote(noteName, ctx) {
+    const hit = route(domainsFor("knowledge-note", null), (eng) =>
+      eng.knowledgeForNote ? eng.knowledgeForNote(noteName, ctx) : null);
+    return hit;
+  }
+
   /* ── intent 5: what the model gains when a NEW engine lands ──
      Surfaces can show "you now benefit from X" — makes model upgrades
      visible to users instead of silent. */
@@ -263,8 +297,11 @@ export function createTigaHub({ kbEntries = null } = {}) {
   const INTENT_DOMAINS = {
     "sight-reading": ["skill-graph", "coach"],
     "song-result": ["coach", "diagnosis"],
-    "quest-hint": ["skill-graph", "teaching-loop"],
+    "quest-hint": ["repertoire", "skill-graph", "teaching-loop"],
     "learner-summary": ["diagnosis", "state-estimator"],
+    "daily-song": ["repertoire", "skill-graph"],
+    "chat-starters": ["skill-graph", "coach"],
+    "knowledge-note": ["theory", "coach"],
   };
 
   const api = {
@@ -272,6 +309,7 @@ export function createTigaHub({ kbEntries = null } = {}) {
     capability, summary,
     recommendSightReading, explainSongResult, nextQuestHint, learnerSummary, upgradesUnlocked,
     registerSpecialist, specialistFor, specialistsList, status,
+    recommendDailySong, chatStartersFor, knowledgeForNote,
   };
   return api;
 }

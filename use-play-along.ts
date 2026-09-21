@@ -25,6 +25,14 @@ import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 export function dailySongFor(d = new Date()) {
   if (!SONGS || !SONGS.length) return null;
   const key = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  /* TIGA hub first: the repertoire specialist picks from the REAL learner
+     record (weak-spot coverage, not-yet-3-star rotation). Anything missing →
+     the deterministic day-hash below, exactly as before. */
+  try {
+    const starMap = (() => { const m = {}; try { for (const k of Object.keys(localStorage)) { if (k.startsWith("tg_best_")) { const v = Number(localStorage.getItem(k) || 0); m[k.slice(8)] = v >= 3 ? 3 : 0; } } } catch (e) {} return m; })();
+    const rec = tigaHub.recommendDailySong(SONGS, { memory: readMemory(), practiceLog: {}, starMap, dayKey: key });
+    if (rec && rec.song) return rec.song; // reason arrives with the pick — result screen may surface it later
+  } catch (e) { /* hub absent → hash fallback */ }
   let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
   return SONGS[Math.abs(h) % SONGS.length];
 }
@@ -968,8 +976,17 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const live = songPopsRef.current || [];
     if (Object.keys(kDroppedRef.current).length >= 3) return;
     if (Math.random() >= 0.08) return;
-    const f = knowledgeDropFor(noteName);
-    if (!f) return;
+    const f0 = knowledgeDropFor(noteName);
+    if (!f0) return;
+    /* TIGA hub (P6): the theory specialist ranks the candidate fact —
+       unheard ones first (this learner's shelf is the filter). No engine →
+       the played note's own fact, exactly as before. */
+    let f = f0;
+    try {
+      const shelf = JSON.parse(localStorage.getItem("tg_kdrops") || "[]");
+      const ranked = tigaHub.knowledgeForNote(noteName, { candidates: { [f0.pc]: f0 }, shelf });
+      if (ranked && ranked.fact) f = ranked.fact; else if (ranked === null && shelf.some(x => x.pc === f0.pc)) return; // specialist says "already learned" → keep the drop budget for fresh facts
+    } catch (e) { /* hub absent → own-note fact */ }
     kDroppedRef.current[noteName] = true;
     const text = f[LANG_KEY(lang)];
     setKDrop({ id: Date.now(), note: noteName, text });
@@ -1137,8 +1154,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     });
     reportPvpResult({ score, acc, stars }); // online PvP: my final result → the room (decides the winner on both sides)
     // TIGA hub: real-data coach line for this run (what engine answered shows
-    // in the badge). Baseline speaks from acc/stars only — never invents.
-    try { setSongTigaTip(tigaHub.explainSongResult({ acc, stars, maxCombo }, readMemory())); } catch (e) { setSongTigaTip(null); }
+    // in the badge). Real MIDI velocity/timing evidence rides along; — never invents.
+    try { setSongTigaTip(tigaHub.explainSongResult({ acc, stars, maxCombo, missedNotes, dyn: scoreDynamics(songVelsRef.current), timing: (songTimingRef.current.ok + songTimingRef.current.miss >= 3) ? songTimingRef.current : null, topic: 8 }, readMemory())); } catch (e) { setSongTigaTip(null); }
     gainExp(reward, { quest: true });
     // Gamification: variable reward — mystery chest (20% chance on acc >= 70%)
     if (acc >= 70 && Math.random() < 0.20) {
