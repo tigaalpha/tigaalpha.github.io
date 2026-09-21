@@ -468,6 +468,61 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
     assert.equal(pcM.buildPracticeCoachData(null), null);
     assert.equal(pcM.buildPracticeCoachData({ accuracy: "x" }), null);
   });
+
+  await ok("Capability Hub: zero engines → honest baselines from real memory; registration upgrades intents", async () => {
+    const { createTigaHub } = await import(pathToFileURL("tigamodel/hub.js").href.replace(/^file:/, "file://"));
+    const hub = createTigaHub();
+    // baseline: real-data answers with no engine registered
+    const b1 = hub.recommendSightReading({ struggles: [{ label: "F#" }] }, {});
+    assert.ok(b1.via === "baseline" && b1.tip && b1.tip.th.includes("F#"), "sight baseline speaks the real struggle");
+    const b2 = hub.explainSongResult({ acc: 88, stars: 2 }, null);
+    assert.ok(b2.via === "baseline" && b2.stars === 2 && b2.tip, "song baseline from acc/stars only");
+    const b3 = hub.nextQuestHint({ struggles: ["C major"] }, null);
+    assert.ok(b3.via === "baseline" && b3.tip.th.includes("C major"), "quest hint from real struggles");
+    const b4 = hub.learnerSummary({ struggles: [] }, { d1: { acc: 80 } }, { streak: 3 });
+    assert.ok(b4.avgAcc === 80 && b4.streak === 3 && b4.line, "summary from real practice log");
+    // garbage in → honest nulls, never throw
+    assert.equal(hub.explainSongResult("nope"), null);
+    assert.ok(hub.learnerSummary(null, null, null) != null, "empty learner → valid summary object");
+    // registration upgrades the SAME call sites with zero code change
+    hub.registerEngine("skill-graph", {
+      recommendSightReading: () => ({ clef: "both", tip: { th: "engine", en: "engine", zh: "engine" } }),
+      nextQuestHint: () => ({ tip: { th: "engine-quest", en: "engine-quest", zh: "engine-quest" } }),
+    }, { note: "test" });
+    const u1 = hub.recommendSightReading(null, {});
+    assert.ok(u1.via === "skill-graph" && u1.clef === "both", "registered engine answers the sight intent");
+    const u2 = hub.nextQuestHint(null, null);
+    assert.ok(u2.via === "skill-graph" && u2.tip.th === "engine-quest", "registered engine answers the quest intent");
+    // throwing engine degrades to baseline instead of breaking the surface
+    hub.registerEngine("coach", { explainSongResult: () => { throw new Error("boom"); } }, { note: "bad" });
+    const u3 = hub.explainSongResult({ acc: 70 }, null);
+    assert.ok(u3 && u3.via === "baseline", "throwing engine → baseline fallback");
+  });
+
+  await ok("Capability Hub in web.js: real engines answer real intents from tigamodel modules", async () => {
+    const sg = webM.tigaHub.summary();
+    assert.ok(sg.engines.some(e => e.domain === "skill-graph") && sg.engines.some(e => e.domain === "coach") && sg.engines.some(e => e.domain === "diagnosis"), "skill-graph/coach/diagnosis registered");
+    const rec = webM.tigaHub.recommendSightReading({ struggles: [{ label: "Bb" }], mastered: [] }, {});
+    assert.ok(rec && rec.tip && rec.via === "skill-graph", "sight intent served by the real skill-graph engine");
+    const song = webM.tigaHub.explainSongResult({ acc: 88, stars: 2 }, null);
+    assert.ok(song && song.via === "coach" && song.tip, "song-result intent served by the coach engine");
+    const hint = webM.tigaHub.nextQuestHint({ struggles: [{ label: "F#" }] }, null);
+    assert.ok(hint && hint.via === "skill-graph" && hint.tip, "quest intent served by the real skill-graph engine");
+    const summ = webM.tigaHub.learnerSummary({ struggles: [{ label: "F#" }] }, { d1: { acc: 80 } }, { streak: 2 });
+    assert.ok(summ && summ.avgAcc === 80 && summ.via === "diagnosis", "summary intent served by the diagnosis engine");
+  });
+
+  await ok("Capability Hub surfaces: sight-reading, song result, profile, and admin all speak hub intents", async () => {
+    const fs = await import("node:fs");
+    const usr = fs.readFileSync("use-sight-reading.ts", "utf8");
+    assert.ok(usr.includes('tigaHub.recommendSightReading(readMemory()'), "sight-reading asks the hub on round open");
+    const upa = fs.readFileSync("use-play-along.ts", "utf8");
+    assert.ok(upa.includes("tigaHub.explainSongResult"), "play-along asks the hub on song finish");
+    const pdp = fs.readFileSync("ProfileDashboardPanel.tsx", "utf8");
+    assert.ok(pdp.includes("tigaHub.learnerSummary") && pdp.includes("tigaHub.nextQuestHint"), "profile dashboard uses summary + quest intents");
+    const aim = fs.readFileSync("AdminAIModels.tsx", "utf8");
+    assert.ok(aim.includes("tigaHub.summary()"), "admin models page shows live hub status");
+  });
 }
 
 main().then(() => {

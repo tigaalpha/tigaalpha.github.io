@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { tigaHub } from "./tigamodel/web"; // Capability Hub: live view of which TIGA engines are registered and what each intent can answer
 import { sb } from "./supabase-client";
 import { playUi } from "./music-engine";
 
@@ -187,6 +188,33 @@ export function AdminAIModels({ lang }) {
           </div>
         );
       })}
+
+      {/* ── TIGA Capability Hub — live engine/intent status ──
+          Every TIGA MODEL engine registers into the hub; surfaces ask the hub
+          for intents, so a newly registered (smarter) engine upgrades every
+          surface at once. This table is the proof: which domains are live
+          right now and which intents they serve. */}
+      {(() => {
+        const sum = tigaHub.summary();
+        const intentNames = { "sight-reading": ["อ่านโน้ตล่วงหน้า", "Sight-reading", "识谱"], "song-result": ["คำแนะนำหลังจบเพลง", "Song-result coach", "曲目点评"], "quest-hint": ["เคล็ดภารกิจรายวัน", "Daily quest hint", "每日任务提示"], "learner-summary": ["สรุปผู้เรียน", "Learner summary", "学员总结"] };
+        return (
+          <div className="admsum-row tigahub" style={{ marginTop: 10, whiteSpace: "normal", lineHeight: 1.7 }}>
+            🧠 <b>TIGA MODEL</b> — {T("เอนจินที่ลงทะเบียนแล้ว:", "registered engines:", "已注册引擎：")}
+            {sum.engines.length
+              ? sum.engines.map(e => <span key={e.domain} className="tigahub-chip" title={e.note}>{e.domain}</span>)
+              : <span className="admsum-def">{T("ยังไม่มี — ใช้ baseline", "none yet — baseline in use", "暂无 — 使用基线")}</span>}
+            <br />
+            {sum.capabilities.map(c => {
+              const nm = intentNames[c.name] || [c.name, c.name, c.name];
+              return (
+                <span key={c.name} style={{ marginRight: 10 }}>
+                  {c.status === "ready" ? "🟢" : c.status === "partial" ? "🟡" : "⚪"} {T(nm[0], nm[1], nm[2])}
+                </span>
+              );
+            })}
+          </div>
+        );
+      })()}
       <div className="admstu-row-sub" style={{ marginTop: 10, whiteSpace: "normal", lineHeight: 1.7 }}>
         🧭 {T("แต่ละตัวเลือกเหมาะกับอะไร:", "What each option is for:", "各选项用途：")}
         <br />🟣 {T("DeepSeek (ตรง) — API ของ DeepSeek โดยตรง ถูก แต่มีค่า peak ช่วงกลางวัน", "DeepSeek (direct) — cheap direct API, but peak pricing during Thai daytime", "DeepSeek（直连）— 直连 API 价格低，但泰国白天有高峰价")}

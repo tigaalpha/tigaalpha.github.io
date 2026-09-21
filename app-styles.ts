@@ -3594,6 +3594,13 @@ html[data-theme="dark"] .anonwv-n{color:#ffc97a}
 @media(max-width:339px){.sumeth{grid-template-columns:1fr}.sumeth-k{min-height:0}}
 @media(max-width:430px){.anonhero{gap:10px;padding:11px 12px}.anonhero-v{font-size:28px}.anonhero-go{display:none}}
 
+/* ── TIGA Capability Hub tip bar (sight-reading + song result) ── */
+.tigatipbar{display:flex;align-items:center;gap:8px;margin:10px 12px;padding:9px 12px;border-radius:12px;background:linear-gradient(135deg,rgba(124,92,255,.14),rgba(124,92,255,.05));border:1px solid rgba(124,92,255,.35);font-size:12.5px;line-height:1.5;color:var(--text,#eee)}
+.tigatipbar.song{margin:8px auto 2px;max-width:340px}
+.tigatipbar.prof{margin:2px 14px 10px;font-size:12px}
+.tigahub-chip{display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(124,92,255,.16);border:1px solid rgba(124,92,255,.4);color:#cdb9ff}
+.tigatipbadge{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.5px;padding:3px 8px;border-radius:999px;background:rgba(124,92,255,.25);border:1px solid rgba(124,92,255,.5);color:#cdb9ff}
+
 `;
 
 export function useInjectCSS() {

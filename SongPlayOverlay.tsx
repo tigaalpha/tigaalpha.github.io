@@ -75,7 +75,7 @@ function OnlinePvpPanel({ pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnlin
   );
 }
 
-export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songNextLit2, songFingerMap, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand, setSongPhase, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf }) {
+export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songHud, songGhost, songStaffNotes, songShake, songFever, songCanvasRef, songCountdown, songGo, songBonus, songAnnounce, songPops, songJudge, songBursts, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, backingOn, setBackingOn, songSrc, songNextLit, songNextLit2, songFingerMap, songInputRef, songAnalysisBusy, songAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, goToRecommendation, startSongPlay, previewSong, shareCard, shareLine, styleTransform, buildSongResultRecommendation, songLoopRecap, songTigaTip = null, songSetlistPos, metroOn, setMetroOn, getAC, metroBpm, playAlongHand, changePlayAlongHand, setSongPhase, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf }) {
   const lc = L[lang];
   // #1: mm:ss for drill segment labels; #4: how many facts the player collected.
   const kShelfCount = Array.isArray(kShelf) ? kShelf.length : 0;
@@ -282,6 +282,13 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
               {songResult.allPerfect ? <div className="songfc ap">✦ {lc.songAllPerfect} ✦</div>
                 : songResult.fullCombo ? <div className="songfc">★ {lc.songFullCombo} ★</div> : null}
               {songResult.newBest && <div className="songnewbest">🏆 {lc.songNewBest}</div>}
+              {/* TIGA Capability Hub coach line — real run numbers, engine badge shows what answered */}
+              {songTigaTip && songTigaTip.tip && (
+                <div className="tigatipbar song">
+                  <span className="tigatipbadge">🧠 TIGA</span>
+                  <span>{songTigaTip.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || songTigaTip.tip.en}</span>
+                </div>
+              )}
               <div className="songstars">{"★".repeat(songResult.stars)}{"☆".repeat(3 - songResult.stars)}</div>
               <div className="songresult-acc"><CountUp value={songResult.acc} dur={700} />%</div>
               <div className="songresult-grid">

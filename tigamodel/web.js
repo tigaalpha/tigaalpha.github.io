@@ -631,6 +631,76 @@ function writeStore(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* quota/private mode — store is best-effort */ }
 }
 
+/* ── TIGA Capability Hub — the intent façade the whole app speaks to ──
+   Surfaces ask for INTENTS (sight-reading setup, song-result explanation,
+   quest hints, learner summaries) — never for a module by name. Each intent
+   consults its domains in priority order and falls back to an honest
+   baseline, so registering a smarter engine later upgrades every surface
+   with zero UI changes (spec: the app must keep benefiting from every
+   future TIGA MODEL improvement).
+   Registered NOW (real engines, already smoke-tested):
+     skill-graph  → skill-graph.js (80-node map: clef/level/next-skill)
+     coach        → coach/diagnosis.js (tempo bands, weak-spot targeting)
+     diagnosis    → coach/diagnosis.js buildDiagnosis (learner summary lines)
+     teaching-loop→ (reserved: state-aware quest framing — registers when
+                    the loop exposes a sync probe) */
+import { createTigaHub } from "./hub.js";
+import { buildDiagnosis as _hubDiag } from "./coach/diagnosis.js";
+/* engine calls are wrapped so a throwing engine degrades to the next domain
+   (or the baseline) instead of breaking the surface that asked */
+function attempt(fn) { try { const v = fn(); return v == null ? null : v; } catch (e) { return null; } }
+const _hubSG = sharedSkillGraph();
+export const tigaHub = createTigaHub();
+tigaHub.registerEngine("skill-graph", {
+  recommendSightReading(mem, cur) {
+    const struggles = ((mem && mem.struggles) || []).map(s => (s && typeof s === "object") ? (s.label || s.th || s.en || s.code || "") : (typeof s === "string" ? s : "")).filter(Boolean);
+    const nxt = attempt(() => _hubSG.nextSkill({}) || null);
+    const hint = nxt && nxt.id ? ` → ก้าวถัดไป: ${nxt.th || nxt.en || nxt.id}` : "";
+    const tip = struggles.length
+      ? { th: `อ่านโน้ตชุดที่พลาดบ่อย (${struggles.slice(0, 2).join(", ")}) ก่อน${hint}`, en: `Drill the notes you miss most (${struggles.slice(0, 2).join(", ")})${hint}`, zh: `先练最容易错的音（${struggles.slice(0, 2).join("、")}）${hint}` }
+      : { th: `ทักษะถัดไป: ${nxt ? (nxt.th || nxt.en || nxt.id) : "ทบทวนที่ชำนาญ"}`, en: `Next skill: ${nxt ? (nxt.en || nxt.th || nxt.id) : "review what you know"}`, zh: `下一技能：${nxt ? (nxt.th || nxt.en || nxt.id) : "复习已掌握内容"}` };
+    return { clef: (cur && cur.clef) || "treble", tip, nextSkill: nxt || null };
+  },
+  nextQuestHint(mem, profile) {
+    const nxt = attempt(() => _hubSG.nextSkill({}) || null);
+    const struggles = ((mem && mem.struggles) || []).map(s => (s && typeof s === "object") ? (s.label || s.th || s.en || s.code || "") : (typeof s === "string" ? s : "")).filter(Boolean);
+    const tip = struggles.length
+      ? { th: `ภารกิจวันนี้: ซ้อมท่อนที่มี "${struggles[0] && (struggles[0].label || struggles[0])}" ให้ชนะ 1 รอบ${nxt ? ` (มุ่งสู่ ${nxt.th || nxt.en || nxt.id})` : ""}`, en: `Today's quest: win one run containing "${struggles[0] && (struggles[0].label || struggles[0])}"${nxt ? ` (toward ${nxt.en || nxt.th || nxt.id})` : ""}`, zh: `今日任务：赢一局含“${struggles[0] && (struggles[0].label || struggles[0])}”的曲子${nxt ? `（迈向${nxt.th || nxt.en || nxt.id}）` : ""}` }
+      : { th: `ภารกิจวันนี้: ${nxt ? `ฝึกทักษะ "${nxt.th || nxt.en || nxt.id}"` : "จบซ้อม 3 รอบให้ครบ"}`, en: `Today's quest: ${nxt ? `practice "${nxt.en || nxt.th || nxt.id}"` : "finish 3 practice rounds"}`, zh: `今日任务：${nxt ? `练习“${nxt.th || nxt.en || nxt.id}”` : "完成3次练习"}` };
+    return { tip, nextSkill: nxt || null };
+  },
+}, { note: "80-node skill map (real nextSkill engine)" });
+tigaHub.registerEngine("coach", {
+  explainSongResult(result, mem) {
+    const acc = result && (typeof result.acc === "number" ? result.acc : result.accuracy);
+    if (acc == null) return null;
+    const d = attempt(() => _hubDiag({ memory: mem || null })) || null;
+    const stars = result.stars != null ? result.stars : (acc >= 95 ? 3 : acc >= 85 ? 2 : acc >= 70 ? 1 : 0);
+    const what = d && d.what ? d.what : null;
+    const focusLabel = what ? what.label : null;
+    const tip = stars >= 3
+      ? { th: "🔥 ครบ 3 ดาว! รอบหน้าลองเปิดเมโทรนอมเร็วขึ้น 5 BPM", en: "🔥 3 stars! Next round, try +5 BPM on the metronome", zh: "🔥 三星！下次节拍器加快5" }
+      : focusLabel
+        ? { th: `🎯 โฟกัส "${focusLabel}"${what && typeof what.acc === "number" ? ` (ล่าสุด ${what.acc}%)` : ""} — ซ้อมช้า 3 ครั้งให้สมบูรณ์ แล้วค่อยเร่ง`, en: `🎯 Focus "${focusLabel}"${what && typeof what.acc === "number" ? ` (last ${what.acc}%)` : ""} — 3 slow perfect passes before speeding up`, zh: `🎯 专注“${focusLabel}”${what && typeof what.acc === "number" ? `（上次${what.acc}%）` : ""}，慢速完美弹3次再加速` }
+        : { th: "🎯 ผ่อนความเร็ว 15% แล้วซ้อมท่อนสั้นที่พลาด กลับมาเต็มความเร็วหลังผ่าน 2 รอบ", en: "🎯 Slow to 85%, drill the missed short section, return after 2 clean passes", zh: "🎯 放慢15%练错段，两次全对后回原速" };
+    return { tip, stars, acc, focus: focusLabel || null };
+  },
+}, { note: "diagnosis engine: real tempo bands + weak-spot targeting" });
+tigaHub.registerEngine("diagnosis", {
+  learnerSummary(mem, plog, profile) {
+    const d = attempt(() => _hubDiag({ memory: mem || null, practiceLog: plog || null })) || null;
+    const accs = plog && typeof plog === "object" ? Object.values(plog).map(v => v && v.acc).filter(a => typeof a === "number") : [];
+    const avg = accs.length ? Math.round(accs.reduce((a, b) => a + b, 0) / accs.length) : null;
+    const struggles = (mem && mem.struggles) || [];
+    return {
+      avgAcc: avg, rounds: accs.length, topStruggle: struggles[0] || null,
+      streak: profile && typeof profile.streak === "number" ? profile.streak : null,
+      line: avg == null ? null : {
+        th: `ความแม่นเฉลี่ย ${avg}% จาก ${accs.length} รอบซ้อม${struggles[0] ? ` · จุดต้องเก็บ: ${struggles[0]}` : ""}`, en: `${avg}% average accuracy over ${accs.length} rounds${struggles[0] ? ` · weak spot: ${struggles[0]}` : ""}`, zh: `平均准确率 ${avg}%（${accs.length} 次练习）${struggles[0] ? ` · 薄弱点：${struggles[0]}` : ""}` },
+    };
+  },
+}, { note: "buildDiagnosis learner lines (real engine)" });
+
 export function loadChatSessions() { return readStore(CHAT_STORE_KEY, []); }
 export function appendChatSession(session) {
   const next = [session, ...loadChatSessions()].slice(0, 50); // newest first, cap 50

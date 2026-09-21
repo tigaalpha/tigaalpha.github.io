@@ -15,7 +15,7 @@ import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { hostOnlineDuel, joinOnlineDuel, leaveOnlineRoom, sendAccept, sendStart, sendScore, sendResult, sendRematch } from "./pvp-online";
 import { analyzeSongRun, buildSongFallback } from "./song-analysis";
 import { buildDrillPlan, nextDrillTempo, bossHpFor, bossComboChip, bossRewardCoins, knowledgeDropFor, smartBackingPlan } from "./mistake-drill";
-import { runTeachingLoopForPractice } from "./tigamodel/web.js";
+import { runTeachingLoopForPractice, tigaHub } from "./tigamodel/web.js"; // tigaHub: intent-based model access — smarter engines upgrade the result screen with no UI change
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 
 /* ── Daily Song Quest (Play Along plan #8): one featured song per day, chosen
@@ -181,6 +181,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songGhostDataRef = useRef(null);
   const [songBonus, setSongBonus] = useState(null);   // surprise reward popup {id, text}
   const [songLoopRecap, setSongLoopRecap] = useState(null); // brief run-summary toast shown between auto-loop restarts, since the full result screen is skipped there — {acc,score,maxCombo,stars,exp}
+  const [songTigaTip, setSongTigaTip] = useState(null); // TIGA hub coach line for the finished song ({tip,stars,acc,via} | null) — cleared on every startSongPlay
   // Setlist / Concert mode — chain N songs into one continuous run. The queue
   // itself lives in a ref (read every frame's worth of bookkeeping in
   // finishSong, no need to trigger a re-render just to advance it);
@@ -334,7 +335,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     clearSongPreview();
     songDataRef.current = expandSong(meta, playAlongHand);
     setSongMeta(meta);
-    setSongResult(null);
+    setSongResult(null); setSongTigaTip(null);
     setSongAnalysis(null);
     setSongPhase("ready");
     setSongSrc(null);
@@ -403,7 +404,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     songDebounceRef.current = {}; songEchoRef.current = {};
     songTempoRef.current = songTempo || 1;
     setSongHud({ score: continueSetlist ? songScoreRef.current : 0, combo: continueSetlist ? songComboRef.current : 0, acc: 100, progress: 0 });
-    setSongResult(null);
+    setSongResult(null); setSongTigaTip(null);
     setSongAnalysis(null);
     setSongCountdown(null);
     setSongSrc(null);
@@ -555,7 +556,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     clearTimeout(backingTimerRef.current); backingTimerRef.current = null;
     setSongOpen(false);
     setSongPhase("ready");
-    setSongResult(null);
+    setSongResult(null); setSongTigaTip(null);
     setSongCountdown(null);
     setSongNextLit(null);
     setSongStaffNotes(EMPTY_STAFF_WIN);
@@ -1135,6 +1136,9 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       setlist: setlistDone ? songSetlistLogRef.current.slice() : null,
     });
     reportPvpResult({ score, acc, stars }); // online PvP: my final result → the room (decides the winner on both sides)
+    // TIGA hub: real-data coach line for this run (what engine answered shows
+    // in the badge). Baseline speaks from acc/stars only — never invents.
+    try { setSongTigaTip(tigaHub.explainSongResult({ acc, stars, maxCombo }, readMemory())); } catch (e) { setSongTigaTip(null); }
     gainExp(reward, { quest: true });
     // Gamification: variable reward — mystery chest (20% chance on acc >= 70%)
     if (acc >= 70 && Math.random() < 0.20) {
@@ -1262,7 +1266,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       } catch (e) {}
       if (!premium) bumpUsage("styleTransform");
       songDataRef.current = expandSong(newSong, playAlongHandRef.current);
-      setSongResult(null); setSongAnalysis(null); setSongPhase("ready");
+      setSongResult(null); setSongTigaTip(null); setSongAnalysis(null); setSongPhase("ready");
       setSongMeta(newSong);
     } catch (e) { /* silent fail — user stays on result screen */ }
     setStyleLoading(false);
@@ -1285,6 +1289,6 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       songDataRef.current = expandSong(songMeta, h);
     }
   }
-  return { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand,
+  return { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songTigaTip, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand,
     drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, startPvpTogether: startPvpTogether };
 }
