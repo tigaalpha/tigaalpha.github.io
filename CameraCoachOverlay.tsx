@@ -46,7 +46,10 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
                 </div>
               </div>
             )}
-            {/* ═══ MISSION CARD (under the HUD) — always a next thing to chase ═══ */}
+            {/* ═══ MISSION CARD (center stage, big & readable — owner: "ย้ายคำสั่งมาอยู่ตรงกลางจอ
+                ตัวหนังสือใหญ่ขึ้น มองยาก" — mission text centered + enlarged, with a plain-words
+                HOW-TO line so the goal is never ambiguous, and a progress bar + countdown that
+                survive without reading the number) ═══ */}
             {camGame && camMission && camStatus === "running" && !camRecap && (
               <div className="cammission">
                 <div className="cammission-top">
@@ -54,6 +57,7 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
                   <span className="cammission-timer" style={{ fontFamily: "'Share Tech Mono',monospace" }}>{camMission.secLeft}s</span>
                 </div>
                 <div className="cammission-txt">{lang === "th" ? camMission.ch.th : lang === "zh" ? camMission.ch.zh : camMission.ch.en}</div>
+                <div className="cammission-how">{lang === "th" ? camMission.how.th : lang === "zh" ? camMission.how.zh : camMission.how.en}</div>
                 <div className="cammission-bar"><div className="cammission-fill" style={{ width: `${Math.round(camMission.prog * 100)}%` }} /></div>
               </div>
             )}

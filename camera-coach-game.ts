@@ -66,13 +66,22 @@ export function scoreRank(score) {
 // ── Micro-challenges ──
 // needSec = seconds of continuous qualifying frames to solve (0 = instant
 // goal types: combo/score thresholds).
+// `how` (owner request: "ทำให้เข้าใจง่ายกว่านี้") — a plain-words HOW-TO line
+// shown under the mission text so the goal is never ambiguous; the mission
+// text says WHAT to do, `how` says exactly HOW in friendly everyday language.
 export const CHALLENGES = [
-  { id: "hold",    needSec: 15, th: "ถือท่าดี 15 วินาที",       en: "Hold good shape for 15s", zh: "保持良好手型15秒" },
-  { id: "wrist",   needSec: 12, th: "ข้อมือระดับ 12 วินาที",    en: "Level wrist for 12s",     zh: "手腕保持水平12秒" },
-  { id: "combo30", needSec: 0,  th: "เก็บคอมโบ 30",             en: "Reach a 30 combo",        zh: "连击达到30" },
-  { id: "both",    needSec: 8,  th: "มือสองข้างดีพร้อมกัน 8 วิ", en: "Both hands good for 8s",  zh: "双手同好8秒" },
-  { id: "combo60", needSec: 0,  th: "เก็บคอมโบ 60",             en: "Reach a 60 combo",        zh: "连击达到60" },
-  { id: "score80", needSec: 0,  th: "ทำคะแนนถึง 80",            en: "Score 80 points",         zh: "得分达到80" },
+  { id: "hold",    needSec: 15, th: "ถือท่าดี 15 วินาที",       en: "Hold good shape for 15s", zh: "保持良好手型15秒",
+    how: { th: "งอนิ้วโค้ง ๆ เหมือนถือลูกบอล แล้วกุมมือทิ้งไว้เรื่อย ๆ — จนบาร์เต็ม", en: "Curve your fingers like holding a ball and keep it there until the bar fills", zh: "手指像握球一样弯曲，保持到进度条充满" } },
+  { id: "wrist",   needSec: 12, th: "ข้อมือระดับ 12 วินาที",    en: "Level wrist for 12s",     zh: "手腕保持水平12秒",
+    how: { th: "อย่าให้ข้อมือตก ให้ปลายนิ้วชี้ขึ้นเหมือนมือเดินหน้าไปเล่น — กุมไว้จนบาร์เต็ม", en: "Don't let your wrist sag — fingers pointing up, like walking hands forward. Keep it until the bar fills", zh: "手腕不要下垂，手指朝上，保持到进度条充满" } },
+  { id: "combo30", needSec: 0,  th: "เก็บคอมโบ 30",             en: "Reach a 30 combo",        zh: "连击达到30",
+    how: { th: "รักษาท่าดีไว้ต่อเนื่อง ห้ามแบน — ยิ่งอยู่ดีนาน คอมโบยิ่งขึ้น", en: "Keep the good shape going without flattening — the longer you hold, the higher the combo", zh: "保持良好手型不要放平，坚持越久连击越高" } },
+  { id: "both",    needSec: 8,  th: "มือสองข้างดีพร้อมกัน 8 วิ", en: "Both hands good for 8s",  zh: "双手同好8秒",
+    how: { th: "วางมือทั้งสองข้างบนโน้ตแล้วให้กล้องเห็นพร้อมกัน ถือไว้ 8 วิ", en: "Put both hands on the keys where the camera sees them, hold together for 8s", zh: "双手都让摄像头看到并保持8秒" } },
+  { id: "combo60", needSec: 0,  th: "เก็บคอมโบ 60",             en: "Reach a 60 combo",        zh: "连击达到60",
+    how: { th: "ทำสถิติคอมโบสูงสุดของคุณ — อย่าปล่อยมือแบนเลย", en: "Beat your best combo — never let your hands flatten", zh: "打破你的最高连击记录，别让手放平" } },
+  { id: "score80", needSec: 0,  th: "ทำคะแนนถึง 80",            en: "Score 80 points",         zh: "得分达到80",
+    how: { th: "เก็บท่าดีไปเรื่อย ๆ คะแนนจะไต่ขึ้นเองจนถึง 80", en: "Just keep the shape good — the score climbs to 80 on its own", zh: "保持好手型，分数自然会到80" } },
 ];
 export const CHALLENGE_SEC = 20;    // seconds per mission window
 export const CHALLENGE_BONUS = 150; // score bonus on solve
@@ -80,8 +89,12 @@ export const CHALLENGE_STARS = 3;   // stars per solve
 export const COMBO_GRACE = 12;      // bad frames a combo survives (camera noise hysteresis)
 
 // Fresh per-session game state — created by the hook on openCamera().
-export function freshGameState() {
+// lang: carried on state so gameStep's praiseFor gets the learner's language
+// (BUGFIX: praise was previously rendered in English for Thai learners because
+// gameStep called praiseFor(combo) with no lang available).
+export function freshGameState(lang) {
   return {
+    lang: lang || "en",
     score: scoreStart(), combo: 0, grace: 0, bestCombo: 0,
     stars: 0, solved: 0,
     chIdx: 0, chT: 0, // window time elapsed (hands-visible seconds only)
@@ -109,7 +122,7 @@ export function gameStep(g, frame, dtMs, nowMs) {
   else if (g.grace > 0) g.grace -= 1; // noise tolerance — one bad frame doesn't kill a combo
   else g.combo = 0;
   if (g.combo > g.bestCombo) g.bestCombo = g.combo;
-  const pr = praiseFor(g.combo);
+  const pr = praiseFor(g.combo, g.lang);
   if (pr) { g.praiseText = pr; g.praiseUntil = nowMs + 2200; ev.push({ type: "praise", text: pr }); }
 
   // mission window (only hands-visible time counts)
@@ -159,10 +172,14 @@ export function evalChallenge(ctx) {
 }
 
 // ── Praise (one-shot, escalating at combo milestones) ──
+// lang may be undefined from older callers — default "en" so every path gets a
+// real string (BUGFIX: gameStep called praiseFor(combo) with NO lang, so Thai
+// learners saw English praise text).
 export function praiseFor(combo, lang) {
-  if (combo === 12) return { th: "🔥 คอมโบ ×2 แล้ว!", en: "🔥 Combo ×2!", zh: "🔥 连击 ×2！" }[lang] || "🔥 Combo ×2!";
-  if (combo === 30) return { th: "✨ มือทอง! ลุ้น ×4 ต่อไป", en: "✨ Golden hands! Next: ×4", zh: "✨ 金手！冲 ×4" }[lang] || "✨";
-  if (combo === 60) return { th: "👑 นักเปียโนตัวจริง! ×4 สุดขีด", en: "👑 True pianist! Max ×4", zh: "👑 真钢琴家！满 ×4" }[lang] || "👑";
+  const l = lang || "en";
+  if (combo === 12) return { th: "🔥 คอมโบ ×2 แล้ว!", en: "🔥 Combo ×2!", zh: "🔥 连击 ×2！" }[l] || "🔥 Combo ×2!";
+  if (combo === 30) return { th: "✨ มือทอง! ลุ้น ×4 ต่อไป", en: "✨ Golden hands! Next: ×4", zh: "✨ 金手！冲 ×4" }[l] || "✨";
+  if (combo === 60) return { th: "👑 นักเปียโนตัวจริง! ×4 สุดขีด", en: "👑 True pianist! Max ×4", zh: "👑 真钢琴家！满 ×4" }[l] || "👑";
   return null;
 }
 export function rankUpPraise(rank, lang) {

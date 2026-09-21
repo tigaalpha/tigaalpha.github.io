@@ -5,8 +5,9 @@ import {
   DUP_WINDOW_MS,
   THEORY_REF,
 } from "./music-engine";
+import { teacherJudgeNote, getPianoTuneOffset } from "./piano-guard";
 import { EARN, takeEarn, logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
-import { logActivity } from "./shared-infra";
+import { logActivity, dayKey } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
 import { runTeachingLoopForPractice, reinforceTeachingOutcome } from "./tigamodel/web";
@@ -121,7 +122,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceHandlerRef = useRef(() => {});
   const lastInputRef = useRef(null);   // for the cross-source de-duplication below
   const practiceHeardTimer = useRef(null);
-  const tuneOffsetRef = useRef(0); // learned piano tuning offset (cents), mic only
+  const tuneOffsetRef = useRef(0);
+  // shared per-piano tuning (piano-guard.ts): seed once on mount — practice
+  // and play-along learn ONE piano together, and it survives reloads.
+  useEffect(() => { tuneOffsetRef.current = getPianoTuneOffset(); setPracticeTune(Math.round(tuneOffsetRef.current)); }, []); // learned piano tuning offset (cents), mic only
 
   // Called after every correct hit (both broken and block paths): bumps the
   // pause counter when the gap since the previous correct hit exceeded
@@ -166,21 +170,16 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       // MIDI, on-screen tap, or polyphonic-mic → digital/exact pitch class
       return pcOf(d.note) === targetPC;
     }
-    // microphone (monophonic) → tolerant, tuning-aware. Measure how many cents
-    // the played pitch is from the target note, re-centered by the piano's
-    // learned offset, so a slightly out-of-tune string still counts as correct.
-    const raw = centsFromPC(d.freq, targetPC);
-    const eff = raw - tuneOffsetRef.current;
-    const correct = Math.abs(eff) <= PITCH_TOL_CENTS;
-    if (correct) {
-      // learn this piano's tuning drift (smoothed EMA, clamped) so it gets
-      // more accurate the more the learner plays
-      let off = tuneOffsetRef.current * 0.7 + raw * 0.3;
-      off = Math.max(-TUNE_OFFSET_CAP, Math.min(TUNE_OFFSET_CAP, off));
-      tuneOffsetRef.current = off;
-      setPracticeTune(Math.round(off));
-    }
-    return correct;
+    // microphone (monophonic) → THE LISTENING TEACHER (piano-guard.ts):
+    // tolerant, tuning-aware judging against the SHARED per-piano offset —
+    // the same drift knowledge play-along learns with, persisted across
+    // sessions, so a detuned piano passes in every mode once it's known.
+    // Math (cents re-centered by the learned offset, ±95c tolerance, 0.7/0.3
+    // EMA, ±45c cap) is byte-for-byte the original rule, now shared.
+    const v = teacherJudgeNote({ freq: d.freq, note: d.note, targetPC });
+    tuneOffsetRef.current = getPianoTuneOffset();
+    if (v.learned) setPracticeTune(Math.round(v.tuneOffset));
+    return v.ok;
   }
   function handlePlayedNote(d) {
     if (!practiceActiveRef.current) return;
@@ -713,22 +712,34 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     playUi(bossDefeated || (memoryStreak && memoryStreak.tierUp) || pathUnlocked ? "levelup" : isNewBest || memoryStreak ? "reward" : "click");
 
     /* ── TIGA teaching loop (P2 wiring, owner-approved direction): analyze
-       this drill with the model BEFORE anything renders. Real signals in —
+       this drill with the model alongside the result reveal. Real signals in —
        accuracy, repeated errors, pauses (now actually counted per hit gap),
        rhythm and dynamics percentages — the policy picks a strategy, the KB
-       appends a teach tip. All local/synchronous: zero latency on the result
-       screen, zero network cost, and it still works for guests (whose AI
-       flourish below is skipped). prevBest tells the loop whether accuracy
-       moved vs. the learner's own bar. Null on any failure — the loop is an
-       enhancement, never a crash path (same convention as kbTipFor). ── */
+       appends a teach tip. All local/no network cost, and it still works for
+       guests (whose AI flourish below is skipped). prevBest tells the loop
+       whether accuracy moved vs. the learner's own bar. Null on any failure —
+       the loop is an enhancement, never a crash path (same convention as
+       kbTipFor). ── */
+    runFinishTeachingAndResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak });
+  }
+  /* The teaching loop + result hand-off, as its own async step (bug fix
+     2026-09-21): runTeachingLoopForPractice() is async (runOnce() has been
+     `async` since the Phase 0 skeleton), so its verdict can only be read
+     after an await. finishPractice() itself stays synchronous — the drill
+     bookkeeping above (rewards, records, sounds) all still happens in the
+     same tick the last note lands — and only the loop call + the result
+     reveal happen a microtask later. The AI flourish runs after the loop so
+     its prompt still gets the real tigaTip context. */
+  async function runFinishTeachingAndResult(ctx) {
+    const { label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak } = ctx;
     const weekAgoAccuracy = (() => { try {
       const m = JSON.parse(localStorage.getItem("tg_memory") || "null");
       if (!m || !Array.isArray(m.recent)) return null;
-      const prev = m.recent.find(r => r.label === label);
-      return prev && prev.acc != null ? prev.acc : null;   // ~"last time" — the closest honest weekly proxy the app tracks
+      const prev = m.recent.find(r => r.label === label && r.t !== dayKey());
+      return prev && prev.acc != null ? prev.acc : null;   // "last time BEFORE this attempt" — the day-keyed guard keeps today's own just-recorded entry from reading as "a week ago"
     } catch (e) { return null; } })();
     const rhythmPct = rhythm ? Math.round((rhythm.ok / (rhythm.ok + rhythm.miss)) * 100) : null;
-    const tigaLoop = runTeachingLoopForPractice({
+    const tigaLoop = await runTeachingLoopForPractice({
       accuracy,
       repeatedErrors: bestStreak === 0 && miss >= 2 ? miss : (miss >= 4 ? miss : 0),
       // miss >= 2 with a broken combo is the loop's own "repeated error"
@@ -739,8 +750,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       rhythmScore: rhythmPct,
       speedRatio: null,
       weekAgoAccuracy,
-    });
+    }, { lang });   // verdict speaks the app's current language (th/en/zh)
     const tigaTip = tigaLoop && tigaLoop.response ? { text: tigaLoop.response.text, strategyId: tigaLoop.decision ? tigaLoop.decision.strategy_id : null, states: tigaLoop.states } : null;
+
+    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest, tigaTip });
 
     // Self-learning outcome reinforcement (owner's Model Lab switch gates it
     // inside the learner): this attempt's accuracy vs the learner's own bar
@@ -749,8 +762,6 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (tigaTip && tigaTip.strategyId) {
       reinforceTeachingOutcome({ strategyId: tigaTip.strategyId, accuracy, prevAccuracy: weekAgoAccuracy }).catch(() => {});
     }
-
-    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest, tigaTip });
 
     // Bonus AI flourish on top of an already-complete local result — fetched
     // standalone (not through the shared chat thread/callClaude) so it can

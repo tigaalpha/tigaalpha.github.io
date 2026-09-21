@@ -251,17 +251,26 @@ export async function getLearnedKBContextAsync(matchText) {
    finishPractice() after every drill: app-native signals (accuracy, repeated
    errors, pauses, rhythm) go in, the policy selects a strategy, the KB adds
    a teach tip, and a { text, strategy_id } object comes back — all locally,
-   synchronously, no network call, never throws. Returns null when anything
-   is off (no singleton, no stats) so the caller can skip silently.
+   no network call, never throws. Returns null when anything is off (no
+   singleton, no stats) so the caller can skip silently.
    (Self-learning outcome reinforcement is a SEPARATE async export —
-   reinforceTeachingOutcome — called by finishPractice fire-and-forget.) ── */
-export function runTeachingLoopForPractice(practiceStats, { selfReport = null } = {}) {
+   reinforceTeachingOutcome — called by finishPractice fire-and-forget.)
+
+   ASYNC — bug fix 2026-09-21: runOnce() has been `async` since the Phase 0
+   skeleton (3d8c3cd8), but this wrapper was sync and returned the raw
+   Promise. finishPractice() read .response/.decision off the Promise →
+   undefined → the "🧠 TIGA Model วิเคราะห์" verdict NEVER rendered on any
+   practice result since that feature shipped. Every other runOnce caller
+   (TigamodelLab, smoke tests) already awaited it; this is the one surface
+   that didn't. Now a real async function returning the resolved loop
+   result (or null) — callers await it. ── */
+export async function runTeachingLoopForPractice(practiceStats, { selfReport = null, lang = "th" } = {}) {
   try {
     if (!practiceStats) return null;
     if (!_tiga) initTigamodelWeb();
     const tiga = _tiga;
     if (!tiga || !tiga.loop) return null;
-    return tiga.loop.runOnce({ practiceStats, selfReport });
+    return await tiga.loop.runOnce({ practiceStats, selfReport, lang });
   } catch (e) { return null; }
 }
 
