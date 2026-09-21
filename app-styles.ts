@@ -881,6 +881,22 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .shopintro-x{margin-left:auto;opacity:.6;font-size:16px}
 .edupop{border-color:#8b5cf677;box-shadow:0 -10px 34px -10px #000,0 0 26px -10px #8b5cf666}
 .presultai-tx{font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap}
+/* TIGA Practice Coach (Phase 2) — tempo/recap/exercise card on the practice
+   result screen; sibling of .presultai, blue accent = "coach" vs orange AI. */
+.pcoach-tempo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,#8ad4ff 12%,var(--card2));font-size:13.5px}
+.pcoach-tempo b{font-size:16px;color:var(--text)}
+.pcoach-why{font-size:11.5px;color:var(--muted)}
+.pcoach-btn{margin-left:auto;padding:6px 12px;border:none;border-radius:8px;background:#8ad4ff22;color:var(--text);font-size:12.5px;font-weight:700;cursor:pointer}
+.pcoach-recap{margin:6px 0;display:flex;flex-direction:column;gap:2px}
+.pcoach-hw{margin-top:6px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb,#ffd23f 12%,var(--card2));font-size:12.5px;color:var(--text)}
+.pcoach-ex{margin-top:8px;padding:9px 10px;border-radius:10px;border:1px solid var(--bd2);background:color-mix(in srgb,#8ad4ff 7%,var(--card2))}
+.pcoach-ex-t{font-size:13px;color:var(--text);margin-bottom:3px}
+.pcoach-steps{margin:5px 0 4px;padding-left:20px;font-size:12.5px;line-height:1.55;color:var(--text2)}
+.pcoach-check{font-size:12px;color:var(--ok,#3f9d63)}
+/* Self-report micro-poll (Phase 4, spec §17) */
+.psr-opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.psr-btn{padding:7px 12px;border-radius:999px;border:1px solid var(--bd3);background:var(--card2);color:var(--text);font-size:12.5px;font-weight:600;cursor:pointer}
+.psr-btn.on{border-color:#d97757;background:color-mix(in srgb,#d97757 16%,var(--card2));font-weight:800}
 /* Pathway-stage-unlock celebration — bigger/louder than the plain "new
    personal best" line above, since crossing a whole stage is a bigger deal
    than one drill's record. Reuses the level-up card's bounce entrance. */
@@ -2775,10 +2791,10 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .camcoach{position:absolute;left:10px;right:10px;bottom:10px;max-height:55%;overflow-y:auto;background:rgba(8,14,26,.93);border:1px solid #d9775766;border-radius:14px;padding:13px 15px;backdrop-filter:blur(4px)}
 .camcoach-load{font-family:'Rajdhani',sans-serif;font-size:14px;color:#d97757;text-align:center;animation:flamepulse .8s ease-in-out infinite alternate}
 .camcoach-hd{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:#d97757;margin-bottom:6px}
-.camcoach-tx{font-family:'Rajdhani',sans-serif;font-size:14px;line-height:1.5;color:var(--text);white-space:pre-wrap;margin-bottom:8px}
+.camcoach-tx{font-family:'Rajdhani',sans-serif;font-size:14px;line-height:1.5;color:#f5ede8;white-space:pre-wrap;margin-bottom:8px}
 .camspeaking{animation:flamepulse .6s ease-in-out infinite alternate}
 .camrecap{text-align:center}
-.camrecap-pct{font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;color:var(--text);margin:4px 0}
+.camrecap-pct{font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;color:#f5ede8;margin:4px 0}
 .camrecap-trend{font-family:'Rajdhani',sans-serif;font-size:13px;color:#d97757;margin-bottom:10px}
 .camstreak-badge{display:inline-flex;align-items:center;gap:3px;margin-left:8px;font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;color:#ffd23f;background:rgba(255,210,63,.12);border:1px solid rgba(255,210,63,.4);border-radius:20px;padding:2px 9px}
 .camrecap-streak{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:#ffd23f;margin-bottom:6px}
@@ -2800,7 +2816,8 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .atpopup-step-go{color:#d97757;font-weight:900;font-size:15px;flex-shrink:0}
 .atpopup-ok{width:100%;background: #d97757;color:#fff;border:none;border-radius:12px;padding:11px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer}
 .camfoot-btns{display:flex;gap:8px;justify-content:center}
-.cammsg{position:absolute;left:0;right:0;bottom:14px;text-align:center;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:#fff;text-shadow:0 2px 10px #000;padding:0 16px}
+.camfoot .songsrcbar{font-size:13.5px;font-weight:600;color:#e8d5cc;font-family:'Rajdhani',sans-serif;letter-spacing:.2px}
+.cammsg{position:absolute;left:0;right:0;bottom:14px;text-align:center;font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:800;color:#fff;text-shadow:0 2px 10px #000,0 0 22px rgba(0,0,0,.7);padding:0 16px}
 /* ═══ camera coach GAME HUD (fun pass) ═══ */
 .camgame-hud{position:absolute;top:10px;left:10px;right:10px;display:flex;flex-direction:column;gap:6px;pointer-events:none;z-index:3}
 .camgame-score{display:flex;align-items:center;gap:8px}
@@ -2815,14 +2832,15 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .camgame-combo.c2{color:#ffb347;font-size:16px;animation:flamepulse .5s ease-in-out infinite alternate}
 .camgame-combo.c3{color:#ffd23f;font-size:18px;text-shadow:0 0 14px #ffd23f;animation:flamepulse .4s ease-in-out infinite alternate}
 .camgame-stars{font-family:'Share Tech Mono',monospace;font-size:13px;font-weight:700;color:#ffd23f;background:rgba(255,210,63,.12);border:1px solid rgba(255,210,63,.4);border-radius:20px;padding:2px 10px}
-.cammission{position:absolute;top:64px;left:50%;transform:translateX(-50%);width:min(86%,340px);background:rgba(8,14,26,.88);border:1px solid #d9775766;border-radius:12px;padding:8px 12px;backdrop-filter:blur(4px);z-index:2;pointer-events:none}
+.cammission{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(88%,380px);background:rgba(8,14,26,.82);border:1.5px solid #d97757aa;border-radius:16px;padding:14px 18px;backdrop-filter:blur(6px);z-index:2;pointer-events:none;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.45)}
 .cammission-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
-.cammission-lbl{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:.5px;color:#d97757}
-.cammission-timer{font-size:12px;color:#fff;opacity:.85;font-family:'Share Tech Mono',monospace}
-.cammission-txt{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:5px}
-.cammission-bar{height:6px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
-.cammission-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#d97757,#ffd23f);transition:width .3s ease}
-.campraise{position:absolute;top:38%;left:50%;font-family:'Orbitron',sans-serif;font-size:clamp(18px,5vw,26px);font-weight:900;color:#ffd23f;text-shadow:0 3px 16px #000,0 0 24px rgba(255,210,63,.5);z-index:5;pointer-events:none;animation:campraise-pop .45s cubic-bezier(.2,1.6,.4,1)}
+.cammission-lbl{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;color:#ffb98a}
+.cammission-timer{font-size:15px;font-weight:700;color:#fff;opacity:.95;font-family:'Share Tech Mono',monospace;background:rgba(217,119,87,.18);border-radius:10px;padding:1px 9px}
+.cammission-txt{font-family:'Rajdhani',sans-serif;font-size:23px;font-weight:900;line-height:1.25;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5);margin-bottom:4px}
+.cammission-how{font-family:'Rajdhani',sans-serif;font-size:14.5px;font-weight:600;line-height:1.45;color:#e8d5cc;margin-bottom:9px}
+.cammission-bar{height:9px;border-radius:6px;background:rgba(255,255,255,.14);overflow:hidden}
+.cammission-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,#d97757,#ffd23f);transition:width .3s ease;box-shadow:0 0 10px -2px #ffd23f}
+.campraise{position:absolute;top:22%;left:50%;font-family:'Orbitron',sans-serif;font-size:clamp(18px,5vw,26px);font-weight:900;color:#ffd23f;text-shadow:0 3px 16px #000,0 0 24px rgba(255,210,63,.5);z-index:5;pointer-events:none;animation:campraise-pop .45s cubic-bezier(.2,1.6,.4,1)}
 @keyframes campraise-pop{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 .camrecap-game{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:#ffd23f;margin-bottom:8px}
 .camfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bd3);flex-shrink:0}
@@ -3577,6 +3595,13 @@ html[data-theme="dark"] .anonwv-n{color:#ffc97a}
    side by side, matching the stat cards already on this page. */
 @media(max-width:339px){.sumeth{grid-template-columns:1fr}.sumeth-k{min-height:0}}
 @media(max-width:430px){.anonhero{gap:10px;padding:11px 12px}.anonhero-v{font-size:28px}.anonhero-go{display:none}}
+
+/* ── TIGA Capability Hub tip bar (sight-reading + song result) ── */
+.tigatipbar{display:flex;align-items:center;gap:8px;margin:10px 12px;padding:9px 12px;border-radius:12px;background:linear-gradient(135deg,rgba(124,92,255,.14),rgba(124,92,255,.05));border:1px solid rgba(124,92,255,.35);font-size:12.5px;line-height:1.5;color:var(--text,#eee)}
+.tigatipbar.song{margin:8px auto 2px;max-width:340px}
+.tigatipbar.prof{margin:2px 14px 10px;font-size:12px}
+.tigahub-chip{display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(124,92,255,.16);border:1px solid rgba(124,92,255,.4);color:#cdb9ff}
+.tigatipbadge{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.5px;padding:3px 8px;border-radius:999px;background:rgba(124,92,255,.25);border:1px solid rgba(124,92,255,.5);color:#cdb9ff}
 
 `;
 

@@ -138,14 +138,19 @@ export function recordTipOutcome(topic, afterStruggles) {
     const before = (rec.before || []).find(b => b.label === topic);
     const afterEntry = (afterStruggles || []).find(s => s.label === topic);
     const afterAcc = afterEntry ? afterEntry.acc : null;
-    if (before && afterAcc == null) { /* หายจากจุดอ่อนไปเลย = ดีขึ้นเต็มที่ */ rec.outcome = { delta: 100, improved: true }; }
-    else if (before && afterAcc != null) { const delta = afterAcc - before.acc; rec.outcome = { delta, improved: delta > 0 }; }
-    else rec.outcome = { delta: null, improved: null };
+    if (before && afterAcc == null) { /* หายจากจุดอ่อนไปเลย = ดีขึ้นเต็มที่ */ rec.outcome = { delta: 100, improved: true, after: null }; }
+    else if (before && afterAcc != null) { const delta = afterAcc - before.acc; rec.outcome = { delta, improved: delta > 0, after: afterAcc }; }
+    else rec.outcome = { delta: null, improved: null, after: null };
     rec.resolved = true;
     writeOutcomes(list);
     // ข้อ 10: ผลก่อน/หลังขึ้น server ด้วย (usage_events kind="atip") เพื่อการ์ด admin รวมทุกเครื่อง
     try { if (rec.outcome && rec.outcome.improved === true) logUsage("atip", "win"); else if (rec.outcome && rec.outcome.improved === false) logUsage("atip", "loss"); } catch (e) {}
-    return true;
+    // Auto Teaching 2.0 (Phase C): return the resolved record (after-accuracy
+    // included) so the caller can append it to the server-side
+    // teaching_outcomes table (append-only, RLS: own rows only). The old
+    // truthiness contract is unchanged — every existing
+    // `if (recordTipOutcome(...))` still behaves identically.
+    return rec;
   } catch (e) { return false; }
 }
 

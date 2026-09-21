@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } from "react";
+import { isPianoLike } from "./piano-guard";
 import { SONGS, SONG_TIMESIG } from "./songs-data";
 
 /* ── music-engine.tsx ──
@@ -1089,6 +1090,36 @@ export function freqToNoteName(freq) {
 }
 export function pcOf(note) { return note.replace(/-?\d+$/, ""); } // pitch class (drop octave)
 
+
+// V2 of autoCorrelate: identical algorithm + gates as the original above,
+// but ALSO returns the CLARITY ratio (autocorrelation peak vs lag-0 energy,
+// 0..1) so the caller can run piano-guard (isPianoLike) without a second
+// pass. f<0 means "no pitch", exactly like the original; clarity is null then.
+export function autoCorrelateV2(buf, sampleRate) {
+  let SIZE = buf.length, rms = 0;
+  for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.006) return { f: -1, clarity: null };
+  let r1 = 0, r2 = SIZE - 1; const thres = 0.2;
+  for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+  for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+  const b = buf.slice(r1, r2); SIZE = b.length;
+  if (SIZE < 8) return { f: -1, clarity: null };
+  const c = new Array(SIZE).fill(0);
+  for (let i = 0; i < SIZE; i++) for (let j = 0; j < SIZE - i; j++) c[i] += b[j] * b[j + i];
+  let d = 0; while (d < SIZE - 1 && c[d] > c[d + 1]) d++;
+  let maxval = -1, maxpos = -1;
+  for (let i = d; i < SIZE; i++) if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
+  let T0 = maxpos;
+  if (T0 <= 0) return { f: -1, clarity: null };
+  const clarity = c[0] > 0 ? maxval / c[0] : 0;
+  if (clarity < 0.78) return { f: -1, clarity };   // same gate as the original
+  const x1 = c[T0 - 1] || 0, x2 = c[T0] || 0, x3 = c[T0 + 1] || 0;
+  const a = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2;
+  if (a) T0 = T0 - bb / (2 * a);
+  return { f: T0 ? sampleRate / T0 : -1, clarity };
+}
+
 export function autoCorrelate(buf, sampleRate) {
   let SIZE = buf.length, rms = 0;
   for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
@@ -1383,12 +1414,22 @@ export async function startMicListener(onDetect, onReady, onError, opts) {
       const recent = []; // last few raw frequencies → median smooths jitter & octave glitches
       const tick = () => {
         analyser.getFloatTimeDomainData(buf);
-        let f = autoCorrelate(buf, ac.sampleRate);
+        // piano-guard pass: V2 also returns the clarity ratio the guard needs
+        const _pg = autoCorrelateV2(buf, ac.sampleRate);
+        let f = _pg.f;
         if (f > 0 && _accIsSuppressed(f)) f = -1; // ignore the game's own backing track, not a real key press
         const note = f > 0 ? freqToNoteName(f) : null;
         if (note) {
           silence = 0;
           recent.push(f); if (recent.length > 4) recent.shift();
+          // piano-guard: how far the raw pitch drifts across this window — a
+          // ringing string holds steady (<~15c); speech/vibrato glides (50c+)
+          let spread = 0;
+          if (recent.length >= 2) {
+            let lo = 0, hi = 0;
+            for (const rf of recent) { const c = 1200 * Math.log2(rf / recent[0]); if (c < lo) lo = c; if (c > hi) hi = c; }
+            spread = hi - lo;
+          }
           // PITCH-STABILITY GATE: compare raw frequency (not just the quantized note
           // name) within a 30-cent window. A struck piano string holds dead-steady
           // once it rings; a sung/hummed/spoken note wanders — even gentle vibrato is
@@ -1403,8 +1444,14 @@ export async function startMicListener(onDetect, onReady, onError, opts) {
             const medNote = freqToNoteName(med) || note;
             analyser.getFloatFrequencyData(db);
             if (!hasFormantSpike(db, ac.sampleRate, analyser.fftSize, med)) {
-              fired = true;
-              onDetect({ note: medNote, freq: med, source: "mic" });
+              // THE LISTENING TEACHER — final gate before a note is graded:
+              // harmonicity + steadiness must both say "piano", not voice/room.
+              // (The formant spike check already rejects pure speech; this adds
+              // the steady-ring test so sung/hummed on-pitch notes are rejected too.)
+              if (isPianoLike({ clarity: _pg.clarity, centsSpread: spread })) {
+                fired = true;
+                onDetect({ note: medNote, freq: med, source: "mic", clarity: _pg.clarity, centsSpread: spread });
+              }
             }
           }
         } else {

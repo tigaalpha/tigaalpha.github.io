@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
-import { getUnifiedPlan } from "./tigamodel/web.js";
+import { getUnifiedPlan, getCapabilityEngine } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
+import { tigaHub } from "./tigamodel/web.js"; // Phase 5: live specialist/capability view from the Capability Hub
 import { sb } from "./supabase-client";
 import { AI_PROVIDERS } from "./AdminAIModels";
+import { pickTeachCard, cardSourceInfo, TEACH_CARDS } from "./tigamodel/knowledge/teach-cards.js";
+import TeachVisual from "./TeachVisual";
 
 /* ── TigamodelLab.tsx ──
    Admin-only "TIGA Model Lab" (tab: tigamodel, tier >= 3): the owner's
@@ -296,13 +299,19 @@ export function TigamodelLab({ lang = "th" }) {
         <button style={S.chip(tab === "plan1m")} onClick={() => setTab("plan1m")}>🧭 {T("แผน 1,000,000", "1M plan", "百万计划")}</button>
         <button style={S.chip(tab === "student")} onClick={() => setTab("student")}>👤 {T("นักเรียนของครู", "Student view", "学生视角")}</button>
         <button style={S.chip(tab === "cap")} onClick={() => setTab("cap")}>⚡ {T("ความพร้อมโมเดล", "Readiness", "模型能力")}</button>
+        <button style={S.chip(tab === "specialist")} onClick={() => setTab("specialist")}>🎛 {T("โมเดลเชี่ยวชาญ", "Specialists", "专长模型")}</button>
+        <button style={S.chip(tab === "atip")} onClick={() => setTab("atip")}>🎓 {T("Auto-Teach 2.0", "Auto-Teach 2.0", "Auto-Teach 2.0")}</button>
       </div>
 
       {!ready && <div style={S.card}>{T("กำลังเริ่มระบบ…", "Starting…", "启动中…")}</div>}
 
       {ready && tab === "kb" && <KnowledgePanel lang={lang} S={S} />}
 
+      {ready && tab === "atip" && <AtipPreview lang={lang} S={S} />}
+
       {ready && tab === "map" && <KnowledgeGraphView lang={lang} S={S} />}
+
+      {ready && tab === "specialist" && <SpecialistPanel lang={lang} S={S} T={T} />}
 
       {ready && tab === "selflearn" && slOn !== null && (
         <SelfLearningPanel lang={lang} S={S} T={T} on={slOn} snap={slSnap} busy={slBusy}
@@ -1232,6 +1241,145 @@ function KnowledgePanel({ lang, S }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ── Auto-Teach 2.0 preview (plan §3): exactly what learners see — the
+   coaching card with a demo data chart + a REAL knowledge card straight
+   from the picker (real cited university source). Read-only: nothing is
+   recorded and no card is marked seen. ── */
+function AtipPreview({ lang = "th", S }) {
+  const [seed, setSeed] = useState(0);
+  const [picked, setPicked] = useState(null);
+  const card = useMemo(
+    () => pickTeachCard({ level: [0, 4, 9][seed % 3], struggleLabel: ["จังหวะ rhythm ไม่แม่น", "อ่านโน้ต sight reading ช้า", "สองมือ hands"][seed % 3], now: Date.now() + seed * 86400000 }),
+    [seed]
+  );
+  const src = card ? cardSourceInfo(card) : null;
+  const q = card && card.quiz ? card.quiz : null;
+  const KC = {
+    th: { t: "ตัวอย่างการ์ดที่นักเรียนเห็น", knowIt: "รู้ไว้ใช่ว่า", ok: "ถูกต้อง! ได้ +5 เพชร (จ่ายจริงผ่าน RPC)", no: "ยังไม่ถูก — คำตอบคือ", src: "ที่มา", weak: "ท่อนชอรัสพลาดบ่อยที่โน้ต C และ F (62%)", next: "สุ่มโปรไฟล์ตัวอย่างใหม่", noCard: "ไม่มีการ์ดตรงเงื่อนไข" },
+    en: { t: "What learners actually see", knowIt: "Did you know", ok: "Correct! +5 gems (paid via RPC)", no: "Not quite — the answer is", src: "Source", weak: "Chorus keeps missing C and F (62%)", next: "Shuffle sample profile", noCard: "No card matches" },
+    zh: { t: "学生看到的卡片预览", knowIt: "你知道吗", ok: "答对了！+5钻石（RPC 实发）", no: "还差一点——答案是", src: "来源", weak: "副歌常错 C 和 F（62%）", next: "换一个示例", noCard: "没有匹配的卡片" },
+  }[lang] || {};
+  return (
+    <div style={S.card}>
+      <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>🎓 {KC.t}</div>
+      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
+        {TEACH_CARDS.length} {lang === "th" ? "การ์ดความรู้ในระบบ · ปรับได้ที่ tigamodel/knowledge/teach-cards.js" : lang === "zh" ? "张知识卡 · 可在 teach-cards.js 调整" : "knowledge cards · editable in tigamodel/knowledge/teach-cards.js"}
+      </div>
+      <div style={{ maxWidth: 420, margin: "0 auto", background: "var(--card,#fff)", border: "1px solid var(--bd2,rgba(0,0,0,0.08))", borderRadius: 16, padding: 14, boxShadow: "0 8px 30px rgba(0,0,0,0.08)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <b style={{ fontSize: 13 }}>🎯 {lang === "th" ? "ครู TiGA แนะนำ" : lang === "zh" ? "TiGA老师建议" : "Coach TiGA's Tip"}</b>
+          <span style={{ fontSize: 11, color: "var(--muted)" }}>×</span>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{KC.weak}</div>
+        <div style={{ margin: "8px 0 2px", borderRadius: 12, overflow: "hidden" }}>
+          <TeachVisual type="mini-keyboard" data={{ miss: { C: 3, F: 1 } }} lang={lang} />
+        </div>
+        {card ? (
+          <div style={{ margin: "10px 0 4px", padding: "10px 12px", borderRadius: 12, background: "var(--card2,rgba(0,0,0,0.03))", border: "1px solid var(--bd2,rgba(0,0,0,0.06))" }}>
+            <b style={{ fontSize: 11.5, color: "var(--accent)" }}>💡 {KC.knowIt}</b>
+            {card.diagram && <div style={{ margin: "6px 0 2px" }}><TeachVisual type={card.diagram.type} data={card.diagram} lang={lang} /></div>}
+            <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{card.concept[lang] || card.concept.th}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>{card.why[lang] || card.why.th}</div>
+            {q && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700 }}>{q.q[lang] || q.q.th}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                  {q.choices.map((ch, i) => {
+                    const revealed = picked !== null;
+                    const isRight = i === q.correct;
+                    return (
+                      <button key={i} type="button" disabled={revealed} onClick={() => setPicked(i)} style={{ textAlign: "left", padding: "7px 10px", borderRadius: 9, border: "1px solid " + (revealed && isRight ? "rgba(34,197,94,0.5)" : "var(--bd2,rgba(0,0,0,0.1))"), background: revealed ? (isRight ? "rgba(34,197,94,0.16)" : picked === i ? "rgba(249,115,22,0.16)" : "transparent") : "transparent", color: "var(--text)", fontSize: 12, fontWeight: revealed && isRight ? 700 : 500, cursor: revealed ? "default" : "pointer" }}>
+                        {String.fromCharCode(65 + i)}. {ch[lang] || ch.th}
+                      </button>
+                    );
+                  })}
+                </div>
+                {picked !== null && (
+                  <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: picked === q.correct ? "var(--ok,#16a34a)" : "var(--accent)" }}>
+                    {picked === q.correct ? KC.ok : `${KC.no} ${q.choices[q.correct][lang] || q.choices[q.correct].th}`}
+                  </div>
+                )}
+              </div>
+            )}
+            {src && src.institution && (
+              <a href={src.url} target="_blank" rel="noreferrer noopener" style={{ display: "inline-block", marginTop: 8, fontSize: 10.5, color: "var(--muted)", textDecoration: "underline" }}>📚 {KC.src}: {src.institution}</a>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "10px 0" }}>{KC.noCard}</div>
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button type="button" onClick={() => { setSeed(s => s + 1); setPicked(null); }} style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "1px solid var(--bd2,rgba(0,0,0,0.1))", background: "transparent", color: "var(--text)", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>🎲 {KC.next}</button>
+          <button type="button" style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", opacity: 0.7 }}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── SpecialistPanel (Phase 5) — the live registry of TIGA MODEL specialists
+   plus the honest readiness sweep. Specialists are deep engines for ONE
+   topic domain, mounted in web.js via tigaHub.registerSpecialist; every
+   topic-tagged intent consults them FIRST, so each new specialist upgrades
+   the whole app with zero surface changes. The readiness table is the real
+   capability-engine summary (t×m×s routes), not a claim. ── */
+function SpecialistPanel({ lang, S, T }) {
+  const status = tigaHub.status();
+  const caps = tigaHub.summary().capabilities;
+  let routes = null;
+  try { routes = getCapabilityEngine().summary(); } catch (e) { routes = null; } // KB may still be building
+  return (
+    <div>
+      <div style={S.card}>
+        <div style={{ ...S.h2, marginBottom: 10 }}>🎛 {T("โมเดลเชี่ยวชาญที่ลงทะเบียนแล้ว", "Registered specialists", "已注册的专长模型")}</div>
+        <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12, lineHeight: 1.6 }}>
+          {T("โมเดลเชี่ยวชาญ = เอนจินลึกหนึ่งหัวข้อ ถูกเรียกก่อนเอนจินทั่วไปในทุก intent ที่รู้หัวข้อ — เพิ่มตัวใหม่ได้ที่ tigamodel/web.js บรรทัดเดียว ทุกหน้าแอปฉลาดขึ้นทันทีโดยไม่แก้ UI",
+             "A specialist is a deep engine for ONE topic domain, consulted FIRST by every topic-tagged intent. Adding one is a single registerSpecialist call in tigamodel/web.js — every screen benefits immediately with zero UI changes.",
+             "专长模型 = 深耕单一主题的引擎，所有相关意图优先调用。在 tigamodel/web.js 一行注册即可，全部页面立即受益。")}
+        </div>
+        {status.specialists.length
+          ? status.specialists.map(sp => (
+              <div key={sp.topic} style={{ ...S.inner, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <div>
+                  <b>{sp.topic}</b>
+                  {sp.note && <div style={{ fontSize: 12, color: "var(--muted)" }}>{sp.note}</div>}
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 999, background: "rgba(52,199,120,.15)", border: "1px solid rgba(52,199,120,.4)", color: "#4cd98a" }}>
+                  {T("🟢 พร้อมใช้", "🟢 live", "🟢 生效")}
+                </span>
+              </div>
+            ))
+          : <div style={{ color: "var(--muted)" }}>{T("ยังไม่มี — ทุก intent ใช้เอนจินทั่วไป + baseline", "None yet — general engines + baseline serve all intents", "暂无 — 通用引擎+基线")}</div>}
+      </div>
+      <div style={S.card}>
+        <div style={{ ...S.h2, marginBottom: 10 }}>🧭 {T("เส้นทางที่โมเดลตอบได้ (จากเอนจินจริง)", "What intents the hub serves (live)", "各意图服务状态（实时）")}</div>
+        {caps.map(c => (
+          <div key={c.name} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid var(--bd1)" }}>
+            <span>{c.name}</span>
+            <span style={{ fontWeight: 700 }}>{c.status === "ready" ? "🟢 ready" : c.status === "partial" ? "🟡 partial" : "⚪ baseline"} · {c.score}%</span>
+          </div>
+        ))}
+      </div>
+      {routes && (
+        <div style={S.card}>
+          <div style={{ ...S.h2, marginBottom: 10 }}>⚡ {T("ความพร้อมรวม 1,000 เส้นทาง", "1,000-route readiness", "1000条路径就绪度")}</div>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13 }}>
+            <span>🟢 {T("พร้อม", "ready", "就绪")} <b>{routes.ready}</b> ({routes.readyPct}%)</span>
+            <span>🟡 {T("บางส่วน", "partial", "部分")} <b>{routes.partial}</b></span>
+            <span>⚪ {T("ช่องว่าง", "gaps", "空白")} <b>{routes.gaps}</b></span>
+            <span>📊 avg <b>{routes.avgScore}</b></span>
+          </div>
+          {routes.weakestCap && (
+            <div style={{ marginTop: 10, fontSize: 13, color: "var(--text2)" }}>
+              🧩 {T("ความสามารถที่อ่อนที่สุด (ลำดับงานถัดไป):", "Weakest capability (next work item):", "最弱能力（下一步）：")} <b>{routes.weakestCap[0]}</b> ({Math.round(routes.weakestCap[1] * 100)}%)
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

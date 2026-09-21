@@ -28,10 +28,15 @@ import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
-import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift } from "./use-conversion";
+import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
-import { runTeachingLoopForPractice } from "./tigamodel/web";
-import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction } from "./use-autoteach";
+import { runTeachingLoopForPractice , tigaHub } from "./tigamodel/web";
+import { buildParentReport } from "./use-practice-coach";
+import { teacherAdviceFor } from "./tigamodel/web";
+import { buildParentReportData } from "./use-practice-coach";
+import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes } from "./use-autoteach";
+import { pickTeachCard, markCardSeen, readKnowledgeStats, bumpKnowledgeStats, readNoteMissMap, cardSourceInfo } from "./tigamodel/knowledge/teach-cards.js";
+import TeachVisual from "./TeachVisual";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { withAiCache } from "./ai-cache";
 import {
@@ -102,9 +107,10 @@ import {
   readActLog, logActivity, recordNoteMisses, readPracticeLog,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
   guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
+  readLandingOrigin, clearLandingOrigin,
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync } from "./cloud-sync";
-import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal } from "./app-shell";
+import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone } from "./app-shell";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
@@ -384,6 +390,16 @@ export const BADGES = [
   { id: "lv10",  icon: "👑", metric: "level",   need: 10,   th: "ถึงเลเวล 10",       en: "Reach Lv 10",   zh: "达到10级" },
   { id: "e1000", icon: "💎", metric: "exp",     need: 1000, th: "สะสม 1,000 EXP",    en: "1,000 EXP",     zh: "1,000 EXP" },
   { id: "e5000", icon: "🏆", metric: "exp",     need: 5000, th: "สะสม 5,000 EXP",    en: "5,000 EXP",     zh: "5,000 EXP" },
+  // Auto Teaching 2.0 knowledge badges — metrics come from tg_kstats
+  // (localStorage: quiz answers + knowledge-answer streak) via readKnowledgeStats().
+  { id: "kq1",   icon: "🧠", metric: "kcorrect", need: 1,   th: "ตอบควิซแรก",         en: "First Quiz",     zh: "首次问答" },
+  { id: "kq10",  icon: "🎯", metric: "kcorrect", need: 10,  th: "นักความรู้รุ่นเล็ก",   en: "Quiz Learner",   zh: "问答学徒" },
+  { id: "kq25",  icon: "📘", metric: "kcorrect", need: 25,  th: "นักความรู้",          en: "Knowledge Seeker", zh: "求知者" },
+  { id: "kq100", icon: "📗", metric: "kcorrect", need: 100, th: "ปรมาจารย์ความรู้",    en: "Knowledge Master", zh: "知识大师" },
+  { id: "ks3",   icon: "🧩", metric: "kstreak",  need: 3,   th: "สตรีคความรู้ 3 วัน",   en: "3-Day Knowledge Streak", zh: "知识连续3天" },
+  { id: "ks7",   icon: "🌈", metric: "kstreak",  need: 7,   th: "สตรีคความรู้ 7 วัน",   en: "7-Day Knowledge Streak", zh: "知识连续7天" },
+  { id: "ks14",  icon: "🚀", metric: "kstreak",  need: 14,  th: "สตรีคความรู้ 14 วัน",  en: "14-Day Knowledge Streak", zh: "知识连续14天" },
+  { id: "ks30",  icon: "🏅", metric: "kstreak",  need: 30,  th: "สตรีคความรู้ 30 วัน",  en: "30-Day Knowledge Streak", zh: "知识连续30天" },
 ];
 function badgeMetric(p, metric) {
   const exp = (p && p.exp) || 0;
@@ -391,6 +407,8 @@ function badgeMetric(p, metric) {
   if (metric === "lessons") return (p && p.lessons_done) || 0;
   if (metric === "streak") return (p && p.streak) || 0;
   if (metric === "level") return levelInfo(exp).level;
+  if (metric === "kcorrect") return readKnowledgeStats().correct;
+  if (metric === "kstreak") return readKnowledgeStats().streak;
   return 0;
 }
 export function unlockedBadgeIds(p) {
@@ -404,7 +422,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.358";
+const APP_VER = "13.7.375";
 
 async function signInWith(provider) {
   try {
@@ -5046,6 +5064,33 @@ function buildFallbackTip(lang, struggle, strat, noteMisses) {
   return { weakness: c.weakness, steps: c.steps.slice(0, 2), feature: struggle ? "pathway" : "pathway", topic: struggle ? struggle.label : null, strategyId: strat ? strat.name : null, fallback: true };
 }
 
+/* Auto Teaching 2.0 (plan §4.3): pick the learner DATA chart for the coaching
+   popup — strictly from real records, never invented; falls through
+   mini-keyboard → accuracy bars → before/after → level donut, and returns
+   null rather than showing an empty chart. */
+function buildAutoTeachVisual(tip, profile) {
+  try {
+    const miss = readNoteMissMap();
+    if (miss && Object.keys(miss).length) return { type: "mini-keyboard", data: { miss } };
+    const log = readActLog() || [];
+    const byDay = {};
+    for (const e of log) {
+      if (!e || !e.d) continue;
+      const tot = (e.ok || 0) + (e.miss || 0);
+      if (tot < 5) continue; // noise floor — a stray tap isn't a datapoint
+      if (!byDay[e.d]) byDay[e.d] = { ok: 0, tot: 0 };
+      byDay[e.d].ok += e.ok || 0; byDay[e.d].tot += tot;
+    }
+    const days = Object.keys(byDay).sort().slice(-7).map(d => ({ d: d.slice(5), pct: Math.round(100 * byDay[d].ok / Math.max(1, byDay[d].tot)) }));
+    if (days.length >= 2) return { type: "bars", data: { days } };
+    const topic = tip && tip.topic;
+    const rec = [...readAutoTeachOutcomes()].reverse().find(r => r.resolved && r.outcome && r.outcome.after != null && (!topic || r.topic === topic || topic.includes(r.topic) || (r.topic || "").includes(topic)));
+    if (rec && rec.before && rec.before[0]) return { type: "before-after", data: { before: rec.before[0].acc, after: rec.outcome.after, label: rec.topic } };
+    const li = levelInfo((profile && profile.exp) || 0);
+    return { type: "donut", data: { pct: Math.round(100 * (li.progress || 0)), label: `Lv ${li.level}` } };
+  } catch (e) { return null; }
+}
+
 async function generateCoachTip(lang, profile) {
   const mem = readMemory();
   // Auto-Teach แม่นยำ (แผนข้อ 2): จุดอ่อนเรียงด้วยน้ำหนักความสด (recency half-life 6d)
@@ -8057,6 +8102,7 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
   const [questBusy, setQuestBusy] = useState(false);
   const [questMsg, setQuestMsg] = useState("");
   const [curQuest, setCurQuest] = useState(null);
+  const [tigaAdv, setTigaAdv] = useState(null); // per-student TIGA pre-lesson advice (Phase 3)
   const loadQuest = useCallback(() => {
     sb.rpc("get_school_quest", { p_school_id: schoolId }).then(({ data, error }) => setCurQuest(error ? null : data));
   }, [schoolId]);
@@ -8161,6 +8207,38 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
         <ProgressDashboard lang={lang} plog={plog} gameLog={pr.gameLog || []} />
         {struggles.length > 0 && <><div className="admstu-sec">{T("ต้องฝึกเพิ่ม", "Needs work", "需加强")}</div><div className="pd-tags">{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label || s}</span>)}</div></>}
         {mastered.length > 0 && <><div className="admstu-sec">{T("ทำได้ดีแล้ว", "Mastered", "已掌握")}</div><div className="pd-tags">{mastered.map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
+        {sel.role === "student" && (() => {
+          const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+          const rep = buildParentReportData(pr);
+          return (
+            <div className="admmg" style={{ marginTop: 12 }}>
+              <div className="admmg-h">👨‍👩‍👧 {T3("รายงานสำหรับผู้ปกครอง", "Parent report", "家长报告")}</div>
+              {!rep || rep.series.filter(d => d.acc != null).length === 0 ? (
+                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>{T3("ยังไม่มีข้อมูลซ้อม sync ของนักเรียนคนนี้", "No synced practice data for this student yet", "该学生暂无同步练习数据")}</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 12.5, color: "var(--text2)", marginBottom: 6 }}>
+                    {T3("เฉลี่ยสัปดาห์นี้", "This week", "本周")} <b>{rep.weeklyAvg != null ? rep.weeklyAvg + "%" : "—"}</b>
+                    {rep.trend != null && <b style={{ color: rep.trend > 0 ? "var(--ok,#3f9d63)" : rep.trend < 0 ? "var(--bad,#c4423a)" : "var(--muted)" }}> {rep.trend > 0 ? "▲" : rep.trend < 0 ? "▼" : "▬"} {Math.abs(rep.trend)}%</b>}
+                    {" · "}{T3("ซ้อม", "sessions", "练习")} <b>{rep.sessions7}</b> {T3("รอบ/7วัน", "/7d", "/7天")}
+                    {rep.avgAcc != null && <>{" · "}{T3("แม่นเฉลี่ยรวม", "overall avg", "总平均")} <b>{rep.avgAcc}%</b></>}
+                  </div>
+                  <svg viewBox="0 0 140 40" style={{ width: "100%", height: 72, display: "block" }} preserveAspectRatio="none">
+                    {rep.series.map((d, i) => {
+                      const bw = 140 / rep.series.length;
+                      const h = d.acc != null ? (d.acc / 100) * 32 : 0;
+                      return <rect key={i} x={i * bw + 0.2} y={34 - h} width={Math.max(0.5, bw - 0.5)} height={Math.max(d.acc != null ? 0.8 : 0.2, h)} fill={d.acc != null ? "color-mix(in srgb, var(--accent,#d97757) 75%, var(--card2))" : "var(--bd2,rgba(0,0,0,0.08))"} rx={0.5} />;
+                    })}
+                    <line x1={0} y1={34.5} x2={140} y2={34.5} stroke="var(--bd2,rgba(0,0,0,0.1))" strokeWidth={0.4} />
+                  </svg>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{T3("ความแม่นยำ 14 วันล่าสุด (วันที่ไม่ได้ซ้อม = แท่งว่าง)", "Accuracy, last 14 days (no practice = empty bar)", "近14天准确率（未练习=空柱）")}</div>
+                  {rep.improvements.length > 0 && <div className="pd-tags" style={{ marginTop: 6 }}>{rep.improvements.map((im, i) => <span key={i} className="pd-tag good">{im.label} ✓</span>)}</div>}
+                  {rep.topMiss && <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 4 }}>🎯 {T3("โฟกัสบ้านนี้สัปดาห์:", "home focus:", "家庭练习重点：")} {T3("โน้ต", "note", "音符")} {rep.topMiss}</div>}
+                </>
+              )}
+            </div>
+          );
+        })()}
         {sel.role === "student" && (
           <button className="songbtn ghost" style={{ width: "100%", marginTop: 12 }} disabled={busy} onClick={removeMember}>✕ {lc.schoolRemoveBtn}</button>
         )}
@@ -8178,9 +8256,9 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
       </div>
       <div style={{ fontSize: 12, color: "var(--muted)", margin: "2px 0 10px" }}>{lc.schoolDashSub}</div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-        {["roster", "invite"].map(t => (
+        {["roster", "tiga", "invite"].map(t => (
           <button key={t} className={`songfilter${tab === t ? " on" : ""}`} onClick={() => setTab(t)}>
-            {t === "roster" ? lc.schoolRoster : lc.schoolInvite}
+            {t === "roster" ? lc.schoolRoster : t === "tiga" ? T("🧠 TIGA", "🧠 TIGA", "🧠 TIGA") : lc.schoolInvite}
           </button>
         ))}
       </div>
@@ -8210,6 +8288,68 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
           {!list.length && <div className="admstu-empty">{lc.schoolNoRoster}</div>}
         </div>
       </>)}
+
+      {/* ── 🧠 TIGA tab (Phase 3, spec §34): class overview + per-student
+          pre-lesson advice, computed from each student's SYNCED progress —
+          the same data school_roster already shows, plus the TIGA layer:
+          risk flags, the coach's diagnosis, and a 30-min lesson plan. ── */}
+      {tab === "tiga" && (() => {
+        const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const students = rows.filter(r => r.role === "student");
+        const advs = students.map(st => ({ st, adv: teacherAdviceFor(st.progress || {}) }));
+        const flagged = advs.filter(({ adv }) => adv && adv.flags.some(f => !f.positive)); // positive "ready" flags are good news, not a problem
+        const seen = advs.filter(({ adv }) => adv && !adv.flags.some(f => !f.positive) && adv.summary.daysIdle != null && adv.summary.daysIdle <= 2);
+        const quiet = advs.filter(({ adv }) => !adv || adv.summary.daysIdle == null || adv.summary.daysIdle > 7);
+        return (
+          <>
+            <div className="admmg" style={{ marginBottom: 12 }}>
+              <div className="admmg-h">🧠 {T3("ภาพรวมห้องเรียนโดยครู TIGA", "Class overview by Teacher TIGA", "TIGA 班级概览")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                <button className={`songfilter${true && " on"}`} style={{ cursor: "default" }}>🚩 {T3("ต้องดูแล", "Needs attention", "需关注")} · {flagged.length}</button>
+                <button className="songfilter">✅ {T3("กำลังเดินหน้า", "On track", "正常")} · {seen.length}</button>
+                <button className="songfilter">😴 {T3("เงียบหาย", "Quiet", "沉默")} · {quiet.length}</button>
+              </div>
+              {flagged.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8 }}>{T3("ยังไม่มีใครติดธง — ดูรายคนด้านล่างได้เลย", "No flags right now — see per-student advice below", "暂无预警——查看下方每个学生的建议")}</div>}
+            </div>
+            <div className="admstu-list">
+              {advs.map(({ st, adv }) => {
+                const li = levelInfo(st.exp || 0);
+                return (
+                  <div key={st.member_id} className="admmg" style={{ padding: "10px 12px" }}>
+                    <button className="admstu-row" style={{ width: "100%", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }} onClick={() => { setSel(st); setTab("roster"); }}>
+                      <div className="admstu-av sm">{(st.full_name || st.email || "?").trim().charAt(0).toUpperCase()}</div>
+                      <div className="admstu-row-body">
+                        <div className="admstu-row-nm">{st.full_name || st.email || "—"}</div>
+                        <div className="admstu-row-meta">Lv {li.level} · {T3("แม่นเฉลี่ย", "avg acc", "平均准确")} {adv && adv.summary.avgAcc != null ? adv.summary.avgAcc + "%" : "—"}</div>
+                      </div>
+                    </button>
+                    {adv && adv.flags.length > 0 && (
+                      <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {adv.flags.map((f, i) => (
+                          <span key={i} className="pd-tag focus" title={f.en}>{f.icon} {T3(f.th, f.en, f.zh)}</span>
+                        ))}
+                      </div>
+                    )}
+                    {adv && adv.focus && (
+                      <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6 }}>
+                        🎯 <b>{adv.focus.label}</b>{adv.focus.acc != null ? ` · ${adv.focus.acc}%` : ""}{adv.focus.bpm ? ` · ${adv.focus.bpm} BPM` : ""}
+                        {(adv.focus.how || []).slice(0, 1).map((h, i) => <div key={i} style={{ color: "var(--muted)", marginTop: 2 }}>→ {h}</div>)}
+                      </div>
+                    )}
+                    {adv && adv.plan && (
+                      <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>
+                        ⏱ {T3("แผนคาบ 30 นาที", "30-min plan", "30分钟计划")}: {adv.plan.parts.map(p => `${p.key} ${p.minutes}′`).join(" · ")}{adv.plan.focus ? ` (${T3("โฟกัส", "focus", "重点")}: ${adv.plan.focus})` : ""}
+                      </div>
+                    )}
+                    {!adv && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>{T3("ยังไม่มีข้อมูล sync ของนักเรียนคนนี้", "No synced data for this student yet", "该学生暂无同步数据")}</div>}
+                  </div>
+                );
+              })}
+              {!advs.length && <div className="admstu-empty">{T3("ยังไม่มีนักเรียนในโรงเรียน", "No students yet", "暂无学生")}</div>}
+            </div>
+          </>
+        );
+      })()}
 
       {tab === "invite" && (<>
         <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>{lc.schoolCodeHint}</div>
@@ -9745,6 +9885,29 @@ export default function App() {
       if (data && guestHasProgress(loadGuestProfile())) {
         finalData = await mergeGuestProgressIntoProfile(uid, data);
       }
+      /* ── Landing-origin capture (owner request 2026-09-21) ──
+         The marketing landing stamps WHICH language page the visitor signed
+         up from (local-identity.stampLandingOrigin at the OAuth button).
+         Consume it exactly once, at the first login where the server row
+         doesn't carry the answer yet: persist profiles.signup_landing, log
+         a usage event (kind "land", item_id "signed_up_landing:<lang>" —
+         lands in the existing admin analytics stream), then clear the stamp
+         so re-logins never overwrite the original. Written only when lang
+         was never user-chosen (lang === null): a chosen lang means the
+         account predates this feature. */
+      const landingOrigin = readLandingOrigin();
+      if (data && !data.signup_landing && landingOrigin && data.lang == null) {
+        sb.from("profiles").update({ signup_landing: landingOrigin, updated_at: new Date().toISOString() }).eq("id", uid)
+          .then(() => {}, () => {});
+        finalData = { ...(finalData || data), signup_landing: landingOrigin };
+        logUsage("land", "signed_up_landing:" + landingOrigin);
+        clearLandingOrigin();
+      } else if (landingOrigin) {
+        // No eligible row (row creation still pending via handle_new_user,
+        // or the account already carries the answer): don't let a stale
+        // stamp linger — it would mislabel a much later signup.
+        clearLandingOrigin();
+      }
       setProfile(finalData || null);
       setProfileReady(true);
       // cloud-sync: two-way sync of the learner's localStorage learning state
@@ -9794,7 +9957,12 @@ export default function App() {
     // must end both, or the next person on this tab would land straight in the
     // console the previous session had unlocked.
     try { sessionStorage.removeItem("tiga_admin_unlocked"); sessionStorage.removeItem("tiga_page"); } catch (e) {}
-    setAdminUnlocked(false); setPage("pathway");
+    // The adminUnlocked/page STATE both live in PianoApp — App can only clear
+    // the sessionStorage flags; PianoApp's effect (watching `session`) closes
+    // the console itself, and the unmount on session=null resets the page.
+    // BUG FIX 2026-09-21: this function used to call setAdminUnlocked() and
+    // setPage() directly — setters from ANOTHER component's scope — so every
+    // sign-out threw ReferenceError right after auth.signOut().
   }
 
   if (!authReady) return <Splash />;
@@ -9932,11 +10100,41 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => {
     const next = convPopupFor(profile, plan) || convWinBack(profile, plan);
     setConvPopup(next);
+    if (next) logConvEvent(next.id, "shown");           // v3 funnel instrumentation
   }, [profile, plan]);
   function dismissConvPopup() {
-    if (convPopup) markConvSeen(convPopup.id);
+    if (convPopup) { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "dismissed"); }
     setConvPopup(null);
   }
+  /* v3 win-moment proof popup (owner plan §3): fires after a practice session
+     when the teaching loop closed with a real improvement (≥ +5%). Gated by
+     the 1-sell-per-day governor inside proofPopupEligible. Never for paying
+     members — same effectivePlan rule as the skeleton funnel. */
+  /* v3 post-purchase activation (owner plan §5): exactly once per account,
+     the first render where the plan is a PAID one — teacher speaks within
+     60s of payment (this effect runs the moment activatePremium/checkout
+     flips the plan). Guards admins (maxfamily) like the funnel does. */
+  const [activatePopup, setActivatePopup] = useState(false);
+  useEffect(() => {
+    if (plan === "trial" || plan === "free" || plan === "maxfamily") return;
+    if (firstPaidActivation(plan)) { setActivatePopup(true); logConvEvent("activation", "shown"); }
+  }, [plan]);
+  /* v3 win-moment proof popup (owner plan §3): fires after a practice session
+     when the teaching loop closed with a real improvement (≥ +5%). Gated by
+     the 1-sell-per-day governor inside proofPopupEligible. Trial only — same
+     effectivePlan rule as the skeleton funnel. */
+  const [proofPopup, setProofPopup] = useState(null);
+  useEffect(() => {
+    if (plan !== "trial") return;                         // trial only
+    const onProofCheck = () => {
+      if (convPopup) return;                            // skeleton popup wins
+      const next = proofPopupEligible(profile, plan);
+      if (next) { setProofPopup(next); logConvEvent("proof", "shown"); }
+    };
+    window.addEventListener("tiga:practice-done", onProofCheck);
+    return () => window.removeEventListener("tiga:practice-done", onProofCheck);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, plan, convPopup]);
   /* Game-feature education (owner-approved 2026-09-19): one tip at a time,
      priority-guarded — a conversion popup or broadcast always wins, and the
      tip waits for the next quiet render. Fired from the same trigger points
@@ -10026,7 +10224,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => navigator.serviceWorker.removeEventListener("message", onNav);
   }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
-  const { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songSetlistPos, startSetlist, playAlongHand, changePlayAlongHand, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
+  const { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songTigaTip, songSetlistPos, startSetlist, playAlongHand, changePlayAlongHand, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
 
   // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
@@ -10038,6 +10236,57 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [autoTeachTip, setAutoTeachTip] = useState(null);   // {weakness, tip} currently shown, or null
   const autoTeachBusyRef = useRef(false);
   const autoTeachTimer = useRef(null);
+  // ── Auto Teaching 2.0: the knowledge micro-quiz inside the coaching card.
+  // One 30-second question per card; a correct answer pays +5 gems via the
+  // server (grant_quiz_gem — additive, hard daily cap) for signed-in learners,
+  // or local coins for guests. It never blocks or breaks the tip itself. ──
+  const [teachQuiz, setTeachQuiz] = useState(null); // {card, picked, correct, tleft} | null
+  const teachQuizTimer = useRef(null);
+  useEffect(() => {
+    if (autoTeachTip) return;
+    setTeachQuiz(null);
+    if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; }
+  }, [autoTeachTip]);
+  function openTeachQuiz(card) {
+    if (!card || !card.quiz) return;
+    try { logUsage("atip", "quiz"); } catch (e) {}
+    setTeachQuiz({ card, picked: null, correct: null, tleft: 30 });
+    if (teachQuizTimer.current) clearInterval(teachQuizTimer.current);
+    teachQuizTimer.current = setInterval(() => {
+      setTeachQuiz(q => {
+        if (!q || q.picked !== null) { if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; } return q; }
+        if (q.tleft <= 1) { if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; } bumpKnowledgeStats(false); return { ...q, picked: -1, correct: false, tleft: 0 }; }
+        return { ...q, tleft: q.tleft - 1 };
+      });
+    }, 1000);
+  }
+  function answerTeachQuiz(i) {
+    const q = teachQuiz;
+    if (!q || q.picked !== null || i < 0 || !q.card || !q.card.quiz) return;
+    const ok = i === q.card.quiz.correct;
+    if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; }
+    bumpKnowledgeStats(ok);
+    try { logUsage("atip", ok ? "quiz_ok" : "quiz_no"); } catch (e) {}
+    setTeachQuiz({ ...q, picked: i, correct: ok, tleft: 0 });
+    if (ok) rewardTeachGem(q.card);
+  }
+  async function rewardTeachGem(card) {
+    try {
+      if (session && session.user && session.user.id) {
+        const { data: r } = await sb.rpc("grant_quiz_gem", { p_card_id: card ? card.id : null });
+        if (r && r.granted > 0) {
+          setProfile(p => ({ ...(p || {}), gems: r.gems }));
+          playUi("reward");
+          setLuckyToast({ kind: "gem", n: r.granted, left: r.remaining });
+          setTimeout(() => setLuckyToast(null), 3200);
+          return;
+        }
+        // RPC missing (migration not applied yet) or today's cap spent — pay coins instead
+      }
+      earnCoins(15);
+      playUi("reward");
+    } catch (e) { try { earnCoins(15); } catch (e2) {} }
+  }
   // ── Admin broadcast: an announcement (text + optional image) an admin can push to
   // every learner's home page on demand — checked on load and polled while the app is
   // open, so it appears without needing a reload; shown once per broadcast id per device. ──
@@ -10384,6 +10633,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try {
       const obj = await generateCoachTip(lang, profile);
       if (obj) {
+        // Auto Teaching 2.0: attach the รู้ไว้ใช่ว่า micro-lesson (it explains
+        // THIS weakness, cited to a real university source) and the learner's
+        // own data chart. Both best-effort — the tip must never fail because
+        // the knowledge layer hiccuped.
+        try {
+          const kcard = pickTeachCard({ level: (profile && profile.level) || 0, struggleLabel: obj.topic || obj.weakness || "" });
+          if (kcard) { markCardSeen(kcard.id); obj.knowledge = kcard; }
+        } catch (e2) {}
+        try { obj.visual = buildAutoTeachVisual(obj, profile); } catch (e2) {}
         setAutoTeachTip(obj);
         logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature, obj.topic);
         try { openAdvice(obj, weightedStruggles()); logUsage("atip", "show"); } catch (e2) {} // วงจรปิด (ข้อ 6): จดสถานะจุดอ่อน ณ ตอนยิงไว้เทียบผลซ้อมถัดไป
@@ -10430,6 +10688,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { return sessionStorage.getItem("tiga_admin_unlocked") === "1"; } catch (e) { return false; }
   });
   useEffect(() => { try { if (adminUnlocked) sessionStorage.setItem("tiga_admin_unlocked", "1"); else sessionStorage.removeItem("tiga_admin_unlocked"); } catch (e) {} }, [adminUnlocked]);
+  // A sign-out (session → null) must also close the admin console — App's
+  // signOut() clears the sessionStorage flag, this closes the in-memory state
+  // (one call from App used to cross component scopes and throw on every
+  // sign-out — see signOut()'s header).
+  useEffect(() => { if (!session && adminUnlocked) setAdminUnlocked(false); }, [session]);
   const [showLock, setShowLock] = useState(false);
   const tapCount = useRef(0);
   const tapTimer = useRef(null);
@@ -10495,6 +10758,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       }
     }
     const picked = [];
+    /* TIGA hub first (P4): personalized openers from the learner's REAL
+       record (top struggle / just-played song). Merged ahead of the curated
+       pool and badged 🧠; onStarterTap handles them as a direct chat prefill
+       (stage/case null-safe). */
+    try {
+      const tiga = tigaHub.chatStartersFor(readMemory(), readPracticeLog(), profile);
+      const tigaStarters = (tiga && tiga.starters || []).slice(0, 2).map((st, i) => ({
+        tiga: true,
+        stage: { id: "tiga-" + i, th: "ครู TiGA", en: "Teacher TiGA", zh: "TiGA老师" },
+        c: { id: "starter-" + i, th: st.question.th, en: st.question.en, zh: st.question.zh },
+      }));
+      picked.push(...tigaStarters);
+    } catch (e) { /* hub absent → curated pool only */ }
     while (picked.length < 3 && pool.length) picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
     return picked;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -11428,6 +11704,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // open a "benefits of music" knowledge chapter — show curated content in the chat
   function readChapter(stage, caseObj) {
+    /* TIGA hub starters (P4) are chat openers, not book chapters: they carry
+       no real content — route them straight into the chat as a user message
+       so Teacher TiGA answers from the student's own context. */
+    if (stage && stage.tiga && caseObj && caseObj.tiga) {
+      pushMessage({ role: "user", text: tr(caseObj.title, lang) });
+      setPage("sensei");
+      return;
+    }
     if (!caseObj && stage && stage.id) logUsage("pathway", stage.id); // top-level card tap only, not a case-study drill-down
     /* Coins for reading a chapter, but only the FIRST time it is read —
        re-reading is free and always will be, and paying for it again would
@@ -11892,16 +12176,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>
 
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
-      {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} onKeepGoing={() => { playUi("click"); setPricingOpen(true); }} showKeepGoing={!premium && !!practiceResult && practiceResult.accuracy >= 80 && practiceResult.bestStreak >= 5} />}
+      {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} /></SafeZone>}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
-      {songOpen && songMeta && <SongPlayOverlay pvpOnline={pvpOnline} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} drillPlan={drillPlan} drillActive={drillActive} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossHp={bossHp} bossMax={bossMax} bossFx={bossFx} kDrop={kDrop} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} openKnowledgeShelf={openKnowledgeShelf} />}
+      {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossHp={bossHp} bossMax={bossMax} bossFx={bossFx} kDrop={kDrop} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} /></SafeZone>}
 
       {/* SIGHT-READING overlay */}
-      {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
+      {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightTip={sightTip} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
 
       {/* HAND-POSTURE COACH overlay (camera) */}
-      {camOpen && <CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} camStreakInfo={camStreakInfo} closeCameraAfterRecap={closeCameraAfterRecap} camGame={camGame} camPraise={camPraise} camMission={camMission} />}
+      {camOpen && <SafeZone label="โค้ชท่ามือ" fallbackText="โค้ชท่ามือแสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดใหม่"><CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} camStreakInfo={camStreakInfo} closeCameraAfterRecap={closeCameraAfterRecap} camGame={camGame} camPraise={camPraise} camMission={camMission} /></SafeZone>}
 
       {/* AI VOICE TUTOR overlay */}
       {vmOpen && <VoiceTutorOverlay lang={lang} setLang={setLang} vmLangOpen={vmLangOpen} setVmLangOpen={setVmLangOpen} exitVoice={exitVoice} onBack={() => { exitVoice(); setPage("studio"); }} vmState={vmState} vmErr={vmErr} vmOrbTap={vmOrbTap} vmInstant={vmInstant} vmCaption={vmCaption} vmStaff={vmStaff} vmNotes={vmNotes} vmMsgs={vmMsgs} vmEndRef={vmEndRef} vmLit={vmLit} vmOnNote={vmOnNote} vmMenuOpen={vmMenuOpen} setVmMenuOpen={setVmMenuOpen} vmSpeed={vmSpeed} setVmSpeed={setVmSpeed} vmSpeedRef={vmSpeedRef} vmVoice={vmVoice} setVmVoice={setVmVoice} vmFast={vmFast} setVmFast={setVmFast} vmFastRef={vmFastRef} vmCloudDeadRef={vmCloudDeadRef} vmPoly={vmPoly} vmTogglePoly={vmTogglePoly} vmInput={vmInput} setVmInput={setVmInput} vmEarResetRef={vmEarResetRef} vmActiveRef={vmActiveRef} vmProcess={vmProcess} vmToggle={vmToggle} />}
@@ -12036,6 +12320,56 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <div className="heatgrid" style={{ gridTemplateRows: "repeat(7,1fr)" }}>
                   {heat.map((l, i) => <div key={i} className="heatcell" style={{ background: heatColor(l) }} />)}
                 </div>
+                {/* ── Phase 2 finisher: 14-day accuracy trend + the coach's story
+                    (buildParentReport — same local records, no new storage).
+                    Sections render only when the data supports them. ── */}
+                {(() => {
+                  const rep = buildParentReport({ days: 14 });
+                  if (!rep) return null;
+                  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+                  const bars = rep.series.filter(d => d.acc != null);
+                  return (
+                    <>
+                      <div className="pd-sec">{T("ความแม่นยำ 14 วันล่าสุด", "Accuracy — last 14 days", "近14天准确率")}{rep.trend != null && (
+                        <span style={{ marginLeft: 8, fontWeight: 800, color: rep.trend > 0 ? "var(--ok,#3f9d63)" : rep.trend < 0 ? "var(--bad,#c4423a)" : "var(--muted)" }}>
+                          {rep.trend > 0 ? "▲" : rep.trend < 0 ? "▼" : "▬"} {Math.abs(rep.trend)}%
+                        </span>)}</div>
+                      {bars.length > 0 && (
+                        <svg viewBox="0 0 140 46" style={{ width: "100%", height: 92, display: "block" }} preserveAspectRatio="none">
+                          {rep.series.map((d, i) => {
+                            const bw = 140 / rep.series.length;
+                            const h = d.acc != null ? (d.acc / 100) * 38 : 0;
+                            return <rect key={i} x={i * bw + 0.2} y={40 - h} width={Math.max(0.5, bw - 0.5)} height={Math.max(d.acc != null ? 0.8 : 0.2, h)}
+                              fill={d.acc != null ? "color-mix(in srgb, var(--accent,#d97757) 75%, var(--card2))" : "var(--bd2,rgba(0,0,0,0.08))"} rx={0.6} />;
+                          })}
+                          <line x1={0} y1={40.6} x2={140} y2={40.6} stroke="var(--bd2,rgba(0,0,0,0.1))" strokeWidth={0.4} />
+                        </svg>
+                      )}
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "8px 0 4px" }}>
+                        <span className="pd-tag">{T("ซ้อม 7 วันล่าสุด", "Sessions (7d)", "近7天练习")} · <b>{rep.sessions7}</b></span>
+                        <span className="pd-tag">{T("เวลาสะสม", "Time (7d)", "近7天时长")} · <b>{rep.minutes7} {T("นาที", "min", "分钟")}</b></span>
+                        {rep.weeklyAvg != null && <span className="pd-tag">{T("เฉลี่ยสัปดาห์นี้", "This week avg", "本周均值")} · <b>{rep.weeklyAvg}%</b></span>}
+                      </div>
+                      {rep.improvements && rep.improvements.length > 0 && (
+                        <>
+                          <div className="pd-sec">📈 {T("สิ่งที่ดีขึ้นจริงสัปดาห์นี้", "Actually improved this week", "本周真实进步")}</div>
+                          <div className="pd-tags">{rep.improvements.map((im, i) => (
+                            <span key={i} className="pd-tag good">{im.label}{im.delta != null ? ` (+${Math.round(im.delta)}%)` : " ✓"}</span>
+                          ))}</div>
+                        </>
+                      )}
+                      {rep.focus && (
+                        <>
+                          <div className="pd-sec">🎯 {T("โฟกัสของครู TiGA สัปดาห์นี้", "Coach TiGA's focus this week", "本周教练重点")}</div>
+                          <div className="pd-tag focus" style={{ display: "inline-block" }}>{rep.focus.label}{rep.focus.acc != null ? ` · ${rep.focus.acc}%` : ""}</div>
+                          {(rep.focus.why || []).slice(0, 2).map((w, i) => <div key={i} style={{ fontSize: 12, color: "var(--text2)", marginTop: 4 }}>• {w}</div>)}
+                          {(rep.focus.how || []).slice(0, 2).map((w, i) => <div key={i} style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>→ {w}</div>)}
+                        </>
+                      )}
+                      {rep.homeworkNote && <div className="pd-sec" style={{ fontSize: 12.5 }}>📝 {rep.homeworkNote}</div>}
+                    </>
+                  );
+                })()}
                 {mem.struggles && mem.struggles.length > 0 && <><div className="pd-sec">{lc.pdFocus}</div><div className="pd-tags">{mem.struggles.slice(0, 5).map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div></>}
                 {mem.mastered && mem.mastered.length > 0 && <><div className="pd-sec">{lc.pdMastered}</div><div className="pd-tags">{mem.mastered.slice(0, 6).map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
                 <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
@@ -12804,7 +13138,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           priority phase first; dismissal is remembered per device. */}
       {convPopup && (() => {
         const cc = CONV_COPY[lang] || CONV_COPY.en;
-        const c = cc[convPopup.kind];
+        const cRaw = cc[convPopup.kind];
+        const c = { ...cRaw, body: personalizedBody(convPopup.kind, lang, convPopup.proof, cRaw.body) };
         return (
           <div className="atpopup" onClick={dismissConvPopup}>
             <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
@@ -12820,12 +13155,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   dismiss; win-back gets a secondary browse-plans button. */}
               {convPopup.kind === "closing"
                 ? <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); startCheckout("premium", billCycle); }}>{c.cta}</button>
+                    <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "cta"); setConvPopup(null); startCheckout("premium", billCycle); }}>{c.cta}</button>
                     <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{c.alt}</button>
                   </div>
                 : convPopup.kind === "halfway"
                 ? <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{c.cta}</button>
+                    <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "cta"); setConvPopup(null); setPricingOpen(true); }}>{c.cta}</button>
                   </div>
                 : <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     <button className="atpopup-ok" style={{ flex: 1 }} onClick={dismissConvPopup}>{c.cta}</button>
@@ -12836,7 +13171,53 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         );
       })()}
 
-      {/* Auto Teaching — real-time coaching card (Max plan, fires on a timer while on the Pathway page) */}
+      {/* v3 win-moment proof popup (owner plan §3): the learner's OWN before/
+          after numbers, one per day max, trial only, evidence-gated. CTA opens
+          the existing pricing sheet; secondary goes straight to checkout. */}
+      {proofPopup && !convPopup && (() => {
+        const cc = CONV_COPY[lang] || CONV_COPY.en;
+        const k = cc[proofPopup.kind] || cc.proof;
+        const c = { ...k, body: personalizedBody(proofPopup.kind, lang, proofPopup.proof, k.body) };
+        return (
+          <div className="atpopup" onClick={() => { logConvEvent("proof", "dismissed"); setProofPopup(null); }}>
+            <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
+                <div className="atpopup-tt">{c.title}</div>
+                <button className="atpopup-x" onClick={() => { logConvEvent("proof", "dismissed"); setProofPopup(null); }} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { logConvEvent("proof", "cta"); setProofPopup(null); setPricingOpen(true); }}>{c.cta}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* v3 post-purchase activation (owner plan §5): the teacher's first words
+          after payment — anti-regret + first next step in one tap. */}
+      {activatePopup && (() => {
+        const c = ACTIVATION_COPY[lang] || ACTIVATION_COPY.en;
+        return (
+          <div className="atpopup" onClick={() => setActivatePopup(false)}>
+            <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
+                <div className="atpopup-tt">{c.title}</div>
+                <button className="atpopup-x" onClick={() => setActivatePopup(false)} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { logConvEvent("activation", "cta"); setActivatePopup(false); setPage("pathway"); try { fetchAutoTeachTip(); } catch (e) {} }}>{c.cta}</button>
+                <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => setActivatePopup(false)}>{c.alt}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Auto Teaching 2.0 — coaching card: weakness + the learner's own data chart + a cited รู้ไว้ใช่ว่า micro-lesson + 30s knowledge quiz (plan §4; TTS excluded per owner) */}
       {autoTeachTip && !broadcast && (
         <div className="atpopup" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>
@@ -12846,6 +13227,60 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className="atpopup-x" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }} aria-label="close">×</button>
             </div>
             <div className="atpopup-weak">{autoTeachTip.weakness}</div>
+            {autoTeachTip.visual && <div style={{ margin: "8px 0 2px", borderRadius: 12, overflow: "hidden" }}><TeachVisual type={autoTeachTip.visual.type} data={autoTeachTip.visual.data} lang={lang} /></div>}
+            {autoTeachTip.knowledge && (() => {
+              const k = autoTeachTip.knowledge;
+              const src = cardSourceInfo(k);
+              const q = k.quiz || null;
+              const KC = {
+                th: { knowIt: "รู้ไว้ใช่ว่า", quiz: "ควิซ 30 วิ +5💎", ok: "ถูกต้อง! +5 เพชร", no: "เกือบแล้ว! คำตอบคือ", streak: "สตรีคความรู้", days: "วัน", timeUp: "หมดเวลา!", src: "ที่มา" },
+                en: { knowIt: "Did you know", quiz: "30s quiz +5💎", ok: "Correct! +5 gems", no: "Close! The answer is", streak: "Knowledge streak", days: "days", timeUp: "Time's up!", src: "Source" },
+                zh: { knowIt: "你知道吗", quiz: "30秒问答 +5💎", ok: "答对了！+5钻石", no: "就差一点！答案是", streak: "知识连续", days: "天", timeUp: "时间到！", src: "来源" },
+              }[lang] || {};
+              const ks = readKnowledgeStats();
+              return (
+                <div style={{ margin: "10px 0 4px", padding: "10px 12px", borderRadius: 12, background: "var(--card2,rgba(0,0,0,0.03))", border: "1px solid var(--bd2,rgba(0,0,0,0.06))" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <b style={{ fontSize: 11.5, color: "var(--accent)" }}>💡 {KC.knowIt}</b>
+                    {ks.streak > 0 && <span style={{ fontSize: 10.5, color: "var(--muted)" }}>🔥 {KC.streak} {ks.streak} {KC.days}</span>}
+                  </div>
+                  {k.diagram && <div style={{ margin: "6px 0 2px" }}><TeachVisual type={k.diagram.type} data={k.diagram} lang={lang} /></div>}
+                  <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4, color: "var(--text)" }}>{k.concept[lang] || k.concept.th}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>{k.why[lang] || k.why.th}</div>
+                  {q && !teachQuiz && (
+                    <button type="button" onClick={() => openTeachQuiz(k)} style={{ marginTop: 8, width: "100%", padding: "8px 10px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>🧠 {KC.quiz}</button>
+                  )}
+                  {q && teachQuiz && teachQuiz.card && teachQuiz.card.id === k.id && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{q.q[lang] || q.q.th}</span>
+                        {teachQuiz.picked === null && <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>{teachQuiz.tleft}s</span>}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                        {q.choices.map((ch, i) => {
+                          const revealed = teachQuiz.picked !== null;
+                          const isRight = i === q.correct;
+                          const bg = revealed ? (isRight ? "rgba(34,197,94,0.16)" : teachQuiz.picked === i ? "rgba(249,115,22,0.16)" : "transparent") : "transparent";
+                          return (
+                            <button key={i} type="button" disabled={revealed} onClick={() => answerTeachQuiz(i)} style={{ textAlign: "left", padding: "7px 10px", borderRadius: 9, border: "1px solid " + (revealed && isRight ? "rgba(34,197,94,0.5)" : "var(--bd2,rgba(0,0,0,0.1))"), background: bg, color: "var(--text)", fontSize: 12, fontWeight: revealed && isRight ? 700 : 500, cursor: revealed ? "default" : "pointer" }}>
+                              {String.fromCharCode(65 + i)}. {ch[lang] || ch.th}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {teachQuiz.picked !== null && (
+                        <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: teachQuiz.correct ? "var(--ok,#16a34a)" : "var(--accent)" }}>
+                          {teachQuiz.picked === -1 ? KC.timeUp : teachQuiz.correct ? KC.ok : `${KC.no} ${q.choices[q.correct][lang] || q.choices[q.correct].th}`}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {src && src.institution && (
+                    <a href={src.url} target="_blank" rel="noreferrer noopener" style={{ display: "inline-block", marginTop: 8, fontSize: 10.5, color: "var(--muted)", textDecoration: "underline", textUnderlineOffset: 2 }}>📚 {KC.src}: {src.institution}</a>
+                  )}
+                </div>
+              );
+            })()}
             <ol className="atpopup-steps">
               {autoTeachTip.steps.map((s, i) => (
                 <li key={i}>

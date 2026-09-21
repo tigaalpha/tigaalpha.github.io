@@ -4,7 +4,7 @@
 
 import assert from "node:assert";
 import { execSync } from "node:child_process";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync as ioSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const OUT = "node_modules/.tmp-tigamodel";
@@ -24,11 +24,41 @@ const files = [
   "knowledge/knowledge-base.js",
   "knowledge/university-sources.js",
   "knowledge/university-seed.js",
+  "knowledge/teach-cards.js",
   "evaluation/eval-suite.js",
   "index.js",
 ];
 
+const REAL_SB = readFileSync("supabase-client.ts", "utf8");
 execSync(`npx esbuild ${files.map(f => `tigamodel/${f}`).join(" ")} --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
+
+/* Phase 2 Practice Coach: transpile the app-side .ts builder and test the
+   REAL file (repo convention — never a hand-mirrored copy). React stays
+   external; only the pure builder is exercised here. */
+execSync(`npx esbuild use-practice-coach.ts --bundle --outfile=${OUT}/use-practice-coach.js --format=esm --platform=node --loader:.ts=ts --packages=external`, { stdio: "pipe" });
+const pcM = await import(pathToFileURL(`${OUT}/use-practice-coach.js`).href);
+/* tigamodel web modules that need no browser: bundle the real files with
+   supabase-client stubbed so teacherAdviceFor / estimator / registry are
+   testable under Node (repo convention: test the real file, not a copy). */
+mkdirSync(`${OUT}/p4`, { recursive: true });
+ioSync("supabase-client.ts", "export const sb = null;\n");
+try {
+  execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/p4/web.js --format=esm --platform=node --loader:.js=js --packages=external`);
+  execSync(`npx esbuild tigamodel/multimodal/interfaces.js --bundle --outfile=${OUT}/p4/mm.js --format=esm --platform=node --loader:.js=js --packages=external`);
+} finally {
+  ioSync("supabase-client.ts", REAL_SB);   // always restore — even on failure
+}
+const webM = await import(pathToFileURL(`${OUT}/p4/web.js`).href);
+/* minimal localStorage for the helper modules under Node — installed BEFORE
+   they are imported (module init doesn't touch it, but calls will) */
+globalThis.localStorage = { _m: new Map(), getItem(k) { return this._m.has(k) ? this._m.get(k) : null; }, setItem(k, v) { this._m.set(k, String(v)); }, removeItem(k) { this._m.delete(k); } };
+execSync(`npx esbuild use-autoteach.ts --bundle --outfile=${OUT}/helpers/autoteach.js --format=esm --platform=node --loader:.ts=ts --external:./supabase-client --external:./local-identity --packages=external`, { stdio: "pipe" });
+execSync(`cp supabase-client.ts local-identity.ts ${OUT}/helpers/ 2>/dev/null || true`, { stdio: "pipe" });
+const pcM2 = {
+  writeOutcomesForTest: (list) => { try { globalThis.localStorage.setItem("tg_atip_outcomes", JSON.stringify(list)); } catch (e) {} },
+  writePracticeLogForTest: (obj) => { try { globalThis.localStorage.setItem("tg_practice_log", JSON.stringify(obj)); } catch (e) {} },
+};
+
 
 const M = (f) => import(pathToFileURL(`${OUT}/${f.replace(/\.js$/, ".js")}`).href);
 const schema = await M("core/schema.js");
@@ -40,6 +70,8 @@ const loopM = await M("teaching/teaching-loop.js");
 const kbM = await M("knowledge/knowledge-base.js");
 const evalM = await M("evaluation/eval-suite.js");
 const indexM = await M("index.js");
+const srcM = await M("knowledge/university-sources.js");
+const tcM = await M("knowledge/teach-cards.js");
 
 let passed = 0;
 async function ok(label, fn) { await fn(); passed++; console.log(`  ✓ ${label}`); }
@@ -203,6 +235,370 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
   const res2 = await adapter2.complete(schema.makeTIGARequest({ taskType: "chat", message: "x" }));
   assert.equal(res2.status, "error");
 });
+
+  // ── Auto Teaching 2.0 — teach cards (plan §4.1): no fake citations, valid quizzes ──
+  await ok("teach-cards: unique ids, 3 languages, REAL source citations, valid quizzes", async () => {
+    const srcIds = new Set(srcM.listSourceIds());
+    const ids = new Set();
+    for (const c of tcM.TEACH_CARDS) {
+      assert.ok(!ids.has(c.id), "duplicate card id " + c.id);
+      ids.add(c.id);
+      for (const f of ["concept", "why"]) assert.ok(c[f] && c[f].th && c[f].en && c[f].zh, c.id + " missing " + f + " langs");
+      assert.ok(srcIds.has(c.source), c.id + " cites UNKNOWN source " + c.source + " (fake citation = spec §12 violation)");
+      assert.ok(c.quiz && c.quiz.choices && c.quiz.choices.length === 3, c.id + " quiz needs 3 choices");
+      assert.ok(c.quiz.correct >= 0 && c.quiz.correct < 3, c.id + " quiz.correct out of range");
+      assert.ok(c.quiz.q && c.quiz.q.th && c.quiz.q.en && c.quiz.q.zh, c.id + " quiz.q missing langs");
+      assert.ok(c.quiz.choices.every(ch => ch.th && ch.en && ch.zh), c.id + " quiz choices missing langs");
+      assert.ok(c.tier >= 0 && c.tier <= 2, c.id + " tier out of range");
+    }
+    assert.ok(tcM.TEACH_CARDS.length >= 10, "expected at least 10 cards, got " + tcM.TEACH_CARDS.length);
+  });
+
+  await ok("teach-cards picker: tier gating + weakness matching + 7-day no-repeat", async () => {
+    // beginner (level 1) must never get a tier-2 card
+    for (let i = 0; i < 40; i++) {
+      const c = tcM.pickTeachCard({ level: 1, now: 1758000000000 + i * 86400000 });
+      assert.ok(c && c.tier === 0, "beginner got tier " + c.tier + " card " + c.id);
+    }
+    // weakness keyword match: rhythm struggle → a rhythm-tagged card
+    const rhy = tcM.pickTeachCard({ level: 1, struggleLabel: "จังหวะ rhythm ไม่แม่น", now: 1758000000000 });
+    assert.ok(rhy.tags.some(t => "จังหวะ rhythm ไม่แม่น".includes(t)), "rhythm struggle did not match a rhythm card");
+    // 7-day no-repeat: seen today → same (level, struggle, day) yields a DIFFERENT card
+    const now = 1758000000000;
+    const first = tcM.pickTeachCard({ level: 5, struggleLabel: "", now });
+    const again = tcM.pickTeachCard({ level: 5, struggleLabel: "", now, seenOverride: { [first.id]: new Date(now).toISOString().slice(0, 10) } });
+    assert.notEqual(first.id, again.id, "seen card was not skipped");
+  });
+
+  await ok("teach-cards stats: streak continuity + correct/answered counters", async () => {
+    tcM.writeKnowledgeStats({ streak: 0, bestStreak: 0, lastDay: null, correct: 0, answered: 0, seen: {} });
+    const s1 = tcM.bumpKnowledgeStats(true);
+    assert.equal(s1.streak, 1); assert.equal(s1.correct, 1); assert.equal(s1.answered, 1);
+    const s2 = tcM.bumpKnowledgeStats(false);
+    assert.equal(s2.streak, 1, "same-day answer must not raise streak");
+    assert.equal(s2.correct, 1); assert.equal(s2.answered, 2);
+    // yesterday → streak 2
+    const y = new Date(Date.now() - 86400000);
+    const pad = n => String(n).padStart(2, "0");
+    tcM.writeKnowledgeStats({ streak: 1, bestStreak: 1, lastDay: y.getFullYear() + "-" + pad(y.getMonth() + 1) + "-" + pad(y.getDate()), correct: 5, answered: 6, seen: {} });
+    const s3 = tcM.bumpKnowledgeStats(true);
+    assert.equal(s3.streak, 2, "yesterday streak should continue");
+    tcM.writeKnowledgeStats({ streak: 0, bestStreak: 0, lastDay: null, correct: 0, answered: 0, seen: {} });
+  });
+
+  /* ── Phase 2: TIGA Practice Coach (use-practice-coach.ts, real file) ── */
+
+  await ok("coach data: tempo appears only when the drill carries a BPM (honest hide)", async () => {
+    const withBpm = pcM.buildPracticeCoachData({ label: "C major scale", accuracy: 62, practiceTarget: [{ bpm: 72 }] });
+    assert.ok(withBpm && withBpm.tempo && withBpm.tempo.bpm < 72, "accuracy 62 must step tempo DOWN from 72");
+    const noBpm = pcM.buildPracticeCoachData({ label: "C major scale", accuracy: 62, practiceTarget: null });
+    assert.ok(noBpm && noBpm.tempo == null, "no BPM in → no tempo section");
+  });
+
+  await ok("coach data: recap lines use real before/after + real worst missed note", async () => {
+    const d = pcM.buildPracticeCoachData({ label: "Twinkle", accuracy: 80, prevAccuracy: 62, missedNotes: ["E4", "E4", "G4"], practiceTarget: null });
+    assert.ok(d && d.recap && Array.isArray(d.recap.lines) && d.recap.lines.length === 3, "recap = 3 lines");
+    const improved = d.recap.lines[0];
+    assert.ok(/\+18|18/.test(improved.th + improved.en), "line 1 states the real +18 delta");
+    assert.ok(d.recap.lines[1].th.includes("E4"), "drill line names the real worst missed note");
+    assert.ok(d.recap.homework && d.recap.homework.th.includes("15"), "homework within 15 min");
+  });
+
+  await ok("coach data: next exercise is real generator output, level + topic follow this drill", async () => {
+    const weak = pcM.buildPracticeCoachData({ label: "rhythm drill", accuracy: 55, rhythmPct: 60, missedNotes: [], practiceTarget: null, seed: 7 });
+    assert.ok(weak && weak.exercise && weak.exercise.level === 2, "accuracy 55 → level 2");
+    assert.equal(weak.exercise.topic, 5, "timing miss routes to the practice-plan (fix-the-stuck-spot) topic");
+    assert.ok(weak.exercise.steps && weak.exercise.steps.length >= 2 && weak.exercise.check, "exercise has steps + a check bar");
+    const strong = pcM.buildPracticeCoachData({ label: "rhythm drill", accuracy: 96, rhythmPct: 98, missedNotes: [], practiceTarget: null, seed: 7 });
+    assert.ok(strong.exercise.level === 5, "accuracy 96 → level 5");
+    const det = pcM.buildPracticeCoachData({ label: "rhythm drill", accuracy: 55, rhythmPct: 60, practiceTarget: null, seed: 7 });
+    assert.equal(JSON.stringify(det.exercise), JSON.stringify(weak.exercise), "same seed+signals → same exercise (deterministic)");
+  });
+
+  await ok("coach data: the loop's strategy steers the next exercise (RESPOND→ADAPT)", async () => {
+    const d = pcM.buildPracticeCoachData({ label: "boss run", accuracy: 88, missedNotes: [], practiceTarget: null, seed: 7, strategyId: "return-to-prerequisite" });
+    assert.equal(d.exercise.topic, 5, "return-to-prerequisite must force the practice-plan topic");
+    assert.ok(d.exercise.level <= 3, "prerequisite strategy must not raise the level");
+    const up = pcM.buildPracticeCoachData({ label: "boss run", accuracy: 70, missedNotes: [], practiceTarget: null, seed: 7, strategyId: "raise-challenge" });
+    const base = pcM.buildPracticeCoachData({ label: "boss run", accuracy: 70, missedNotes: [], practiceTarget: null, seed: 7, strategyId: null });
+    assert.equal(up.exercise.level, Math.min(5, base.exercise.level + 1), "raise-challenge biases +1");
+  });
+
+  await ok("coach data: real tip win-rate nudges level (needs ≥3 resolved records)", async () => {
+    // 4 resolved wins → +1 bias; verified through the real tg_atip_outcomes store
+    const now = Date.now();
+    const wins = [1, 2, 3, 4].map(i => ({ id: "w" + i, t: now - i * 3600e3, topic: "s" + i, strategyId: "raise-challenge", before: [], resolved: true, outcome: { delta: 6, improved: true, after: 80 } }));
+    try { pcM2.writeOutcomesForTest(wins);
+      const d = pcM.buildPracticeCoachData({ label: "scale run", accuracy: 70, missedNotes: [], practiceTarget: null, seed: 7 });
+      assert.ok(d.exercise.level >= 3, "70% + winning tips → level ≥ 3");
+    } finally { pcM2.writeOutcomesForTest([]); }
+  });
+
+  await ok("parent report: real 14-day series + honest trend + focus from diagnosis", async () => {
+    try {
+      // two practice days this week at 80/90 → trend +5 vs one day last week at 80
+      const d0 = new Date(); const k = n => { const d = new Date(d0.getTime() - n * 864e5); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+      pcM2.writePracticeLogForTest({ [k(0)]: { n: 1, accSum: 80 }, [k(1)]: { n: 1, accSum: 90 }, [k(9)]: { n: 1, accSum: 80 } });
+      const rep = pcM.buildParentReport({ days: 14 });
+      assert.ok(rep && Array.isArray(rep.series) && rep.series.length === 14, "14-day series");
+      const accDays = rep.series.filter(d => d.acc != null);
+      assert.equal(accDays.length, 3, "3 practice days recorded");
+      assert.equal(rep.trend, +5, "this week avg 85 vs last 80 → +5");
+      assert.ok(rep.sessions7 >= 2 && rep.minutes7 >= 0, "7-day counters present");
+    } finally { pcM2.writePracticeLogForTest({}); }
+  });
+
+  await ok("parent report: empty store → all sections honest-null, never throws", async () => {
+    try { pcM2.writePracticeLogForTest({}); pcM2.writeOutcomesForTest([]);
+      const rep = pcM.buildParentReport({});
+      assert.ok(rep && rep.series.length === 14 && rep.trend == null && rep.focus == null && rep.improvements.length === 0, "empty data → nulls, not fabrications");
+    } finally { pcM2.writePracticeLogForTest({}); pcM2.writeOutcomesForTest([]); }
+  });
+
+  await ok("Phase 3 teacherAdviceFor: flags, focus, and 30-min plan from synced progress", async () => {
+    const k = (n) => { const d = new Date(Date.now() - n * 864e5); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+    const pr = {
+      practiceLog: { [k(9)]: { n: 1, accSum: 70 } },   // last practice 9 days ago → idle flag
+      memory: { struggles: [{ label: "ท่อน A", acc: 45, count: 3, last: Date.now() - 2 * 864e5 }], mastered: [], noteMisses: [{ label: "F", count: 4, last: Date.now() }] },
+      summary: { games: 6, avgAcc: 58, pathDone: 3 },
+      streak: { count: 0 },
+    };
+    const adv = webM.teacherAdviceFor(pr);
+    assert.ok(adv && adv.flags.length >= 2, "idle + stuck/note flags expected, got " + JSON.stringify(adv && adv.flags));
+    assert.ok(adv.flags.some(f => f.id === "idle"), "9-day gap → idle flag");
+    assert.ok(adv.focus && adv.focus.label === "ท่อน A" && adv.focus.bpm >= 50, "diagnosis focus = the real stuck spot with a BPM");
+    assert.ok(adv.plan && adv.plan.parts.length >= 2, "30-min lesson plan has parts");
+    const onTrack = webM.teacherAdviceFor({ practiceLog: { [k(0)]: { n: 2, accSum: 180 } }, memory: { struggles: [], mastered: [], noteMisses: [] }, summary: { games: 6, avgAcc: 88, pathDone: 9 }, streak: { count: 4 } });
+    assert.ok(onTrack && onTrack.flags.every(f => f.positive), "healthy student → only positive flags (none negative)");
+  });
+
+  await ok("Phase 4 estimator: self-report outranks performance guess; alternatives mandatory on weak inference", async () => {
+    // no data at all → no estimates invented
+    assert.equal(webM.estimateStudentStates({}).length, 0);
+    // confused answer → strong confusion with self_report modality
+    const conf = webM.estimateStudentStates({ selfReport: "confused" });
+    const c = conf.find(s => s.state === "confusion");
+    assert.ok(c && c.probability >= 0.8 && c.modalities.includes("self_report"), "direct answer dominates");
+    // performance-only confusion must carry alternative explanations (§15)
+    const perf = webM.estimateStudentStates({ session: { accuracy: 55, repeatedErrors: 3 } });
+    const pc = perf.find(s => s.state === "confusion");
+    assert.ok(pc && pc.alternative_explanations.length >= 2, "weak inference → alternatives listed");
+    // fused: direct answer + bad session → probability leans to the ANSWER, not the average-with-noise
+    const both = webM.estimateStudentStates({ selfReport: "confused", session: { accuracy: 55, repeatedErrors: 3 } });
+    const bc = both.find(s => s.state === "confusion");
+    assert.ok(bc && bc.probability >= c.probability - 0.01 && bc.modalities.includes("session"), "fusion keeps both modalities");
+    // faces are never a source (§16): no estimator output may cite vision
+    assert.ok(both.every(s => !s.modalities.includes("vision")), "no vision modality anywhere");
+  });
+
+  await ok("Phase 4 self-report re-run: 'too_hard' answer flips the strategy to simplify-on-hard-report", async () => {
+    const loop = await webM.rerunLoopWithSelfReport({ accuracy: 92, repeatedErrors: 0, pauses: 0 }, "too_hard");
+    assert.ok(loop && loop.decision, "loop re-ran");
+    assert.equal(loop.decision.strategy_id, "simplify-on-hard-report", "§22 policy rule: too_hard → simplify");
+    assert.ok(loop.states.some(s => s.state === "perceived_difficulty" && s.probability >= 0.8 && s.modalities.includes("self_report")), "state replaced by the direct answer");
+    // nonsense report → null (no crash, no strategy change)
+    assert.equal(await webM.rerunLoopWithSelfReport({ accuracy: 90 }, "hax"), null);
+  });
+
+  await ok("Phase 4 multimodal registry: honest statuses + analyzePerformance guard throws (spec §20)", async () => {
+    const mm = await import(pathToFileURL(`${OUT}/p4/web.js`).href); // web re-exports? check direct too
+    const reg = (await import(pathToFileURL(`${OUT}/p4/mm.js`).href));
+    const sum = reg.multimodalSummary();
+    assert.ok(sum.forbidden >= 2, "face mood + biometric ID marked forbidden");
+    assert.equal(reg.multimodalStatus("face_mood_inference"), "forbidden");
+    assert.equal(reg.multimodalStatus("self_report"), "implemented");
+    assert.equal(reg.multimodalStatus("performance_audio_analysis"), "planned");
+    let threw = false;
+    try { reg.analyzePerformance({ fake: true }); } catch (e) { threw = e.code === "TIGA_CAPABILITY_PLANNED"; }
+    assert.ok(threw, "§20: claiming audio analysis without an engine must throw");
+  });
+
+  await ok("P4 vision bridge: real frames → real observations; <5 frames → no claim; no mood codes ever", async () => {
+    const flat = webM.visionObservationsFromWindow(Array.from({ length: 12 }, () => ({ round: 0.4, wrist: 0.8, thumb: 0 })));
+    assert.ok(flat && flat.some(o => o.value.code === "hand_posture_flat"), "round 0.4 avg → hand_posture_flat");
+    const collapsed = webM.visionObservationsFromWindow(Array.from({ length: 10 }, () => ({ round: 0.9, wrist: 0.3, thumb: 0 })));
+    assert.ok(collapsed && collapsed.some(o => o.value.code === "wrist_collapsed"), "wrist 0.3 → wrist_collapsed");
+    const good = webM.visionObservationsFromWindow(Array.from({ length: 10 }, () => ({ round: 0.9, wrist: 0.9, thumb: 0 })));
+    assert.equal(good, null, "healthy frames → no observation (nothing to say)");
+    assert.equal(webM.visionObservationsFromWindow([{ round: 0.1 }, { round: 0.1 }]), null, "<5 frames → no claim (§20 honesty)");
+    const all = JSON.stringify(flat) + JSON.stringify(collapsed);
+    assert.ok(!/mood|attention|engage|อารมณ์|สนใจ/i.test(all), "§16: vision never infers mood/attention");
+  });
+
+  await ok("P4 speech mapper: real Thai/English/Chinese phrasings map to the self-report vocabulary", async () => {
+    assert.equal(webM.selfReportFromTranscript("เข้าใจแล้วครับ"), "understand");
+    assert.equal(webM.selfReportFromTranscript("ยากไปนิดนึง"), "too_hard");
+    assert.equal(webM.selfReportFromTranscript("ง่ายเกินไป"), "too_easy");
+    assert.equal(webM.selfReportFromTranscript("too hard for me"), "too_hard");
+    assert.equal(webM.selfReportFromTranscript("太难了"), "too_hard");
+    assert.equal(webM.selfReportFromTranscript("อยากลองอีกครั้ง"), "retry");
+    assert.equal(webM.selfReportFromTranscript("หงุดหงิดมาก"), "frustrated");
+    assert.equal(webM.selfReportFromTranscript("สนุกมากเลย"), "great");
+    assert.equal(webM.selfReportFromTranscript("กากกก อุเง้"), null, "unmatched babble → null (tap UI fallback)");
+  });
+
+  await ok("P4 loop observations: a vision observation with a code becomes a real diagnosis issue", async () => {
+    const loop = await webM.rerunLoopWithSelfReport(null, null); // stats null + no obs → null guard inside web.js
+    assert.equal(loop, null);
+    // direct loop call with observations only (exercises the 4b block)
+    const tiga = webM.getTigamodel();
+    const res = await tiga.loop.runOnce({ observations: [{ modality: "vision", signal: "hand_shape", value: { code: "hand_posture_flat", detail: "รูปมือแบน", confidence: 0.6 } }] });
+    assert.ok(res && res.diagnosis && JSON.stringify(res.diagnosis).includes("hand_posture_flat"), "observation code lands in diagnosis");
+  });
+
+  await ok("Phase 3 parent report from SYNCED snapshot: real bars, honest trend, tenant-safe (no localStorage reads)", async () => {
+    const k = (n) => { const d = new Date(Date.now() - n * 864e5); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+    const pr = { practiceLog: { [k(0)]: { n: 1, accSum: 85 }, [k(10)]: { n: 1, accSum: 70 } }, memory: { struggles: [], mastered: [], noteMisses: [{ label: "B", count: 2 }] }, summary: { avgAcc: 78, games: 4 } };
+    const rep = pcM.buildParentReportData(pr);
+    assert.ok(rep && rep.series.length === 14 && rep.weeklyAvg === 85 && rep.trend === +15, "real weekly avg + trend from the snapshot");
+    assert.ok(rep.topMiss === "B" && rep.avgAcc === 78, "top missed note + overall avg");
+    assert.equal(pcM.buildParentReportData(null), null, "garbage → null");
+    const empty = pcM.buildParentReportData({ practiceLog: {}, memory: {}, summary: {} });
+    assert.ok(empty && empty.weeklyAvg == null && empty.trend == null && empty.topMiss == null, "empty student → honest nulls");
+  });
+
+  await ok("Phase 3 teacherAdviceFor: null/garbage → null, empty record → empty-but-valid advice", async () => {
+    assert.equal(webM.teacherAdviceFor(null), null);
+    assert.equal(webM.teacherAdviceFor("x"), null);
+    const empty = webM.teacherAdviceFor({});
+    assert.ok(empty && Array.isArray(empty.flags) && empty.flags.length === 0 && empty.focus == null, "no data → no flags, no focus (nothing invented)");
+  });
+
+  await ok("coach data: garbage in → null (never throws into the result screen)", async () => {
+    assert.equal(pcM.buildPracticeCoachData(null), null);
+    assert.equal(pcM.buildPracticeCoachData({ accuracy: "x" }), null);
+  });
+
+  await ok("Capability Hub: zero engines → honest baselines from real memory; registration upgrades intents", async () => {
+    const { createTigaHub } = await import(pathToFileURL("tigamodel/hub.js").href.replace(/^file:/, "file://"));
+    const hub = createTigaHub();
+    // baseline: real-data answers with no engine registered
+    const b1 = hub.recommendSightReading({ struggles: [{ label: "F#" }] }, {});
+    assert.ok(b1.via === "baseline" && b1.tip && b1.tip.th.includes("F#"), "sight baseline speaks the real struggle");
+    const b2 = hub.explainSongResult({ acc: 88, stars: 2 }, null);
+    assert.ok(b2.via === "baseline" && b2.stars === 2 && b2.tip, "song baseline from acc/stars only");
+    const b3 = hub.nextQuestHint({ struggles: ["C major"] }, null);
+    assert.ok(b3.via === "baseline" && b3.tip.th.includes("C major"), "quest hint from real struggles");
+    const b4 = hub.learnerSummary({ struggles: [] }, { d1: { acc: 80 } }, { streak: 3 });
+    assert.ok(b4.avgAcc === 80 && b4.streak === 3 && b4.line, "summary from real practice log");
+    // garbage in → honest nulls, never throw
+    assert.equal(hub.explainSongResult("nope"), null);
+    assert.ok(hub.learnerSummary(null, null, null) != null, "empty learner → valid summary object");
+    // registration upgrades the SAME call sites with zero code change
+    hub.registerEngine("skill-graph", {
+      recommendSightReading: () => ({ clef: "both", tip: { th: "engine", en: "engine", zh: "engine" } }),
+      nextQuestHint: () => ({ tip: { th: "engine-quest", en: "engine-quest", zh: "engine-quest" } }),
+    }, { note: "test" });
+    const u1 = hub.recommendSightReading(null, {});
+    assert.ok(u1.via === "skill-graph" && u1.clef === "both", "registered engine answers the sight intent");
+    const u2 = hub.nextQuestHint(null, null);
+    assert.ok(u2.via === "skill-graph" && u2.tip.th === "engine-quest", "registered engine answers the quest intent");
+    // throwing engine degrades to baseline instead of breaking the surface
+    hub.registerEngine("coach", { explainSongResult: () => { throw new Error("boom"); } }, { note: "bad" });
+    const u3 = hub.explainSongResult({ acc: 70 }, null);
+    assert.ok(u3 && u3.via === "baseline", "throwing engine → baseline fallback");
+  });
+
+  await ok("Capability Hub in web.js: real engines answer real intents from tigamodel modules", async () => {
+    const sg = webM.tigaHub.summary();
+    assert.ok(sg.engines.some(e => e.domain === "skill-graph") && sg.engines.some(e => e.domain === "coach") && sg.engines.some(e => e.domain === "diagnosis"), "skill-graph/coach/diagnosis registered");
+    const rec = webM.tigaHub.recommendSightReading({ struggles: [{ label: "Bb" }], mastered: [] }, {});
+    assert.ok(rec && rec.tip && rec.via === "skill-graph", "sight intent served by the real skill-graph engine");
+    const song = webM.tigaHub.explainSongResult({ acc: 88, stars: 2 }, null);
+    assert.ok(song && song.via === "coach" && song.tip, "song-result intent served by the coach engine");
+    const hint = webM.tigaHub.nextQuestHint({ struggles: [{ label: "F#" }] }, null);
+    assert.ok(hint && hint.via === "skill-graph" && hint.tip, "quest intent served by the real skill-graph engine");
+    const summ = webM.tigaHub.learnerSummary({ struggles: [{ label: "F#" }] }, { d1: { acc: 80 } }, { streak: 2 });
+    assert.ok(summ && summ.avgAcc === 80 && summ.via === "diagnosis", "summary intent served by the diagnosis engine");
+  });
+
+  await ok("Capability Hub surfaces: sight-reading, song result, profile, and admin all speak hub intents", async () => {
+    const fs = await import("node:fs");
+    const usr = fs.readFileSync("use-sight-reading.ts", "utf8");
+    assert.ok(usr.includes('tigaHub.recommendSightReading(readMemory()'), "sight-reading asks the hub on round open");
+    const upa = fs.readFileSync("use-play-along.ts", "utf8");
+    assert.ok(upa.includes("tigaHub.explainSongResult"), "play-along asks the hub on song finish");
+    const pdp = fs.readFileSync("ProfileDashboardPanel.tsx", "utf8");
+    assert.ok(pdp.includes("tigaHub.learnerSummary") && pdp.includes("tigaHub.nextQuestHint"), "profile dashboard uses summary + quest intents");
+    const aim = fs.readFileSync("AdminAIModels.tsx", "utf8");
+    assert.ok(aim.includes("tigaHub.summary()"), "admin models page shows live hub status");
+  });
+
+  await ok("Phase 5 specialists: topic-tagged intents consult the specialist FIRST, then general engines, then baseline", async () => {
+    const { createTigaHub } = await import("../hub.js");
+    const hub = createTigaHub();
+    hub.registerEngine("coach", { explainSongResult: () => ({ tip: { th: "general", en: "general", zh: "general" }, stars: 2, acc: 88 }) }, { note: "general" });
+    hub.registerSpecialist("technique", { explainSongResult: () => ({ specialist: "technique", tip: { th: "spec", en: "spec", zh: "spec" } }) }, { note: "deep" });
+    // topic-tagged result → specialist wins
+    const t1 = hub.explainSongResult({ acc: 88, topic: 1 }, null);
+    assert.ok(t1.via === "technique" && t1.specialist === "technique", "topic 1 (technique) routes specialist-first");
+    // untagged result → general engine (specialist has no claim)
+    const t2 = hub.explainSongResult({ acc: 88 }, null);
+    assert.ok(t2.via === "coach" && t2.tip.th === "general", "untagged route keeps the general engine");
+    // topic with no specialist → general engine, never the wrong specialist
+    const t3 = hub.explainSongResult({ acc: 88, topic: 7 }, null);
+    assert.ok(t3.via === "coach", "topic 7 (culture, no specialist) falls to general");
+    // sight-reading specialist serves the sight intent on topic 2
+    hub.registerSpecialist("sight-reading", { recommendSightReading: () => ({ specialist: "sight-reading", clef: "both", tip: { th: "s", en: "s", zh: "s" } }) }, { note: "deep" });
+    const t4 = hub.recommendSightReading({}, { topic: 2 });
+    assert.ok(t4.via === "sight-reading" && t4.clef === "both", "sight intent on topic 2 hits the sight specialist");
+  });
+
+  await ok("Phase 5 hub in web.js: capability engine attached lazily + real specialists mounted", async () => {
+    const st = webM.tigaHub.status();
+    assert.ok(st.capabilityAttached, "capability engine factory attached (lazy — import stays cheap)");
+    assert.ok(st.specialists.some(s => s.topic === "technique") && st.specialists.some(s => s.topic === "theory") && st.specialists.some(s => s.topic === "sight-reading"), "technique/theory/sight-reading specialists registered");
+    const cap = webM.tigaHub.capability("sight-reading", { t: 2, m: 0, s: 3 });
+    assert.ok(cap.via === "capability-engine" && cap.parts && "kb" in cap.parts, "capability() reports real parts from the engine");
+    // topic-tagged song result through the REAL hub: technique specialist speaks
+    const sp = webM.tigaHub.explainSongResult({ acc: 60, topic: 1 }, null);
+    assert.ok(sp && sp.via === "technique" && sp.tip.th.includes("เทคนิค"), "technique specialist answers topic-1 runs");
+    // garbage → honest null / baseline
+    assert.equal(webM.tigaHub.explainSongResult("x", null), null);
+  });
+
+  await ok("Phase 5 lab surface: SpecialistPanel reads hub status + real readiness sweep", async () => {
+    const fs = await import("node:fs");
+    const lab = fs.readFileSync("TigamodelLab.tsx", "utf8");
+    assert.ok(lab.includes("tigaHub.status()") && lab.includes("getCapabilityEngine().summary()"), "lab tab shows live specialists + 1,000-route readiness");
+    assert.ok(lab.includes('tab === "specialist"'), "specialist tab reachable");
+  });
+
+  await ok("P1 Smart Daily Song: weak-spot pick beats rotation; no data → null (caller keeps day-hash)", async () => {
+    const songs = [{ id: "scale", en: "C Major Scale" }, { id: "twinkle", en: "Twinkle Twinkle" }, { id: "ocean", en: "Ocean Etude" }];
+    const r1 = webM.tigaHub.recommendDailySong(songs, { memory: { struggles: [{ label: "Ocean" }] }, practiceLog: {}, starMap: {}, dayKey: "2026-09-21" });
+    assert.ok(r1 && r1.via === "repertoire" && r1.song.id === "ocean", "struggle-matching song wins");
+    const r2 = webM.tigaHub.recommendDailySong(songs, { memory: {}, practiceLog: {}, starMap: { twinkle: 3, scale: 3 }, dayKey: "2026-09-21" });
+    assert.ok(r2 && r2.via === "repertoire" && r2.song.id === "ocean", "not-3-star rotation (never re-picks a 3-star when alternatives exist)");
+    const r3 = webM.tigaHub.recommendDailySong(null, {});
+    assert.equal(r3, null, "no songs → null (day-hash fallback upstream)");
+    const d1 = webM.tigaHub.recommendDailySong(songs, { memory: {}, practiceLog: {}, starMap: {}, dayKey: "2026-09-21" });
+    const d2 = webM.tigaHub.recommendDailySong(songs, { memory: {}, practiceLog: {}, starMap: {}, dayKey: "2026-09-21" });
+    assert.ok(d1.song.id === d2.song.id, "same day → same pick across devices (deterministic)");
+  });
+
+  await ok("P2/P3/P4/P5/P6: dynamics evidence, StudentContext wiring, hub starters, quest tie-in, drop ranking", async () => {
+    const fs = await import("node:fs");
+    const upa = fs.readFileSync("use-play-along.ts", "utf8");
+    assert.ok(upa.includes("scoreDynamics(songVelsRef.current)"), "real MIDI velocities flow into explainSongResult");
+    assert.ok(upa.includes("topic: 8"), "song runs are topic-tagged (performance) for specialist routing");
+    const sa = fs.readFileSync("song-analysis.ts", "utf8");
+    assert.ok(sa.includes("getStudentContextBlock()"), "external AI analysis carries the model's StudentContext block");
+    const app = fs.readFileSync("App.tsx", "utf8");
+    assert.ok(app.includes("tigaHub.chatStartersFor"), "chat starters come from the hub");
+    assert.ok(app.includes("caseObj.tiga"), "TIGA starters route into chat, not book chapters");
+    const pdp = fs.readFileSync("ProfileDashboardPanel.tsx", "utf8");
+    assert.ok(pdp.includes("dailySongFor()"), "quest hint ties to the real daily song");
+    // P5 engine voice: quest hint with dailySong mentions it
+    const q = webM.tigaHub.nextQuestHint({}, null, { dailySong: "Twinkle" });
+    assert.ok(q && q.tip.th.includes("Twinkle"), "repertoire quest tie-in names the song");
+    // P6: theory specialist ranks knowledge drops
+    const fact = { pc: "F", th: "F", en: "F", zh: "F" };
+    const k1 = webM.tigaHub.knowledgeForNote("F4", { candidates: { F: fact }, shelf: [] });
+    assert.ok(k1 && k1.via === "theory" && k1.fact === fact, "unheard fact gets dropped");
+    const k2 = webM.tigaHub.knowledgeForNote("F4", { candidates: { F: fact }, shelf: [{ pc: "F" }] });
+    assert.equal(k2, null, "already-collected fact → no claim (budget saved for fresh facts)");
+  });
 }
 
 main().then(() => {

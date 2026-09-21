@@ -59,7 +59,7 @@ console.log("Teaching loop on real practice-signal shapes (as finishPractice fee
 // 1. struggling run: low accuracy, broken combo, several misses, 3 pauses
 await runCase("struggle: 45% acc, 4 miss, combo 0, 3 pauses, rhythm 50",
   { accuracy: 45, repeatedErrors: 4, repeatedErrorLabel: "C Major Scale", pauses: 3, rhythmScore: 50, speedRatio: null, weekAgoAccuracy: 70 },
-  { strategy: "simplify-on-confusion", tipIncludes: "KB" });
+  { strategy: "simplify-on-confusion", tipIncludes: "ความรู้ที่เกี่ยว" });   // Thai KB-tip prefix (kbTipFor's L.kbPrefix)
 
 // 2. great run: 98% accuracy, no misses, no pauses
 await runCase("mastery: 98% acc, 0 miss, 0 pauses",

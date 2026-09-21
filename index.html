@@ -1,9 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" translate="no">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#faf9f5" />
+    <!-- Block Google Translate (and Chrome's built-in page translation).
+         The app ships its own th/en/zh i18n, so machine translation is
+         redundant — and worse, it is actively harmful: Google Translate
+         rewrites text nodes in place (wrapping them in <font>), and the next
+         React commit touching those nodes throws NotFoundError (removeChild)
+         and white-screens the app behind the error boundary. Reported from a
+         device with the "Page translated to Thai" bar visible while Play
+         Along crashed. translate=no on <html> + this meta is the documented
+         opt-out for both Google Translate and Chrome page translation. -->
+    <meta name="google" content="notranslate" />
     <!-- Declares the scheme for the boot screen below, which paints before any
          stylesheet loads. An in-app browser (Messenger, LINE) running in dark
          mode will otherwise algorithmically darken it. The app's own CSS sets
@@ -70,7 +80,7 @@
         #boot .bar i { background: #f5f0ed; }
       }
     </style>
-    <script type="module" crossorigin src="./bundle/index.template-C4Myr2pJ.js"></script>
+    <script type="module" crossorigin src="./bundle/index.template-BoTHyv_p.js"></script>
   </head>
   <body>
     <div id="boot">

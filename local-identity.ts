@@ -91,6 +91,25 @@ export function consumeSkipOnboard() {
    language field so a language picked on the landing survives into the app. */
 export const GUEST_PROFILE_KEY = "tg_guest_profile";
 
+/* ── which marketing landing page an account was born on ──
+   The landing page STAMPS its own language here at the sign-up moment (not on
+   first paint — a visitor who browses and leaves must not leave a stamp that
+   would mislabel a later, different-language signup on the same device). The
+   app reads it ONCE at first login, writes profiles.signup_landing + a
+   usage_events row ("signed_up_landing", item_id "landing-en" …), then
+   clears it — one-shot, so re-logins never overwrite the original answer.
+   Lives in this module (imports nothing) so the landing bundle can use it
+   without dragging supabase-js in. Value: "th" | "en" | "zh" only. */
+export const LANDING_ORIGIN_KEY = "tg_landing_origin";
+export function stampLandingOrigin(lg) {
+  if (lg !== "th" && lg !== "en" && lg !== "zh") return;
+  try { localStorage.setItem(LANDING_ORIGIN_KEY, lg); } catch (e) {}
+}
+export function readLandingOrigin() {
+  try { const v = localStorage.getItem(LANDING_ORIGIN_KEY); return (v === "th" || v === "en" || v === "zh") ? v : null; } catch (e) { return null; }
+}
+export function clearLandingOrigin() { try { localStorage.removeItem(LANDING_ORIGIN_KEY); } catch (e) {} }
+
 /* ── device classification, for usage analytics ──
    usage_events.ua already says WHICH BROWSER APP a visit came through
    (uaKind above — the Facebook/iPad webview question), but nothing anywhere

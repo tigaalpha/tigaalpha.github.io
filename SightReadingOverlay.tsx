@@ -15,7 +15,7 @@ import { Piano, StaffSVG, pcOf } from "./music-engine";
    alongside the normal fixed-length round — same clef picker row pattern,
    restarts the round on switch for the same fairness reason a clef switch
    already did. ── */
-export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGHT_ROUND, sightScore, sightClef, pickSightClef, sightFeedback, sightTarget, sightHint, sightNoteClef, sightHandlerRef, sightSrc, openSight, sightStreak = 0, sightPhrasePos = 0, sightPhraseLen = 3, sightMode = "round", pickSightMode, sightSprintLeft = 0, sightSprintSecs = 60, sightBelts = [], sightBestStreakMap = {}, sightBestSprintMap = {}, sightTotalRead = 0 }) {
+export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGHT_ROUND, sightScore, sightClef, pickSightClef, sightFeedback, sightTarget, sightHint, sightNoteClef, sightHandlerRef, sightSrc, openSight, sightStreak = 0, sightPhrasePos = 0, sightPhraseLen = 3, sightMode = "round", pickSightMode, sightSprintLeft = 0, sightSprintSecs = 60, sightTip = null, sightBelts = [], sightBestStreakMap = {}, sightBestSprintMap = {}, sightTotalRead = 0 }) {
   const lc = L[lang];
   const belt = (() => { let b = sightBelts[0]; for (const x of sightBelts) if (sightTotalRead >= x.need) b = x; return b; })();
   const nextBelt = sightBelts.find(b => b.need > sightTotalRead) || null;
@@ -92,6 +92,13 @@ export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGH
                     </button>
                   ))}
                 </div>
+                {/* TIGA Capability Hub recommendation — which engine answered shows in the badge (via) */}
+                {sightTip && sightTip.tip && (
+                  <div className="tigatipbar">
+                    <span className="tigatipbadge">🧠 TIGA</span>
+                    <span>{sightTip.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || sightTip.tip.en}</span>
+                  </div>
+                )}
                 <div className={`staffwrap${sightFeedback ? (sightFeedback.ok ? " ok" + (sightFeedback.phraseClean ? " phraseclean" : "") : " bad") : ""}`}>
                   <StaffSVG note={sightTarget} clef={sightNoteClef} />
                 </div>

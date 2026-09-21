@@ -123,15 +123,27 @@ export function tempoTarget({ currentBpm, goalBpm, accuracy, cleanReps = 0, minB
   else if (acc < 75 && cur > min) { step = -8; reason = "below-band: accuracy <75% — step down to rebuild"; }
   const bpm = Math.max(min, Math.min(max, cur + step));
   const pctOfGoal = Math.round((bpm / goal) * 100);
+  /* reasonId = stable machine key (smoke-reasoning asserts on it);
+     reasonT = trilingual display text — the UI renders the app's language,
+     never this English-only id (owner request: analysis follows app lang). */
+  const REASON_TEXT = {
+    "hold-in-flow-band": { th: "อยู่ในโซนไหลลื่น — คงเทมโปนี้ไว้ก่อน", en: "Inside the flow band — hold this tempo", zh: "处于流畅区间——保持这个速度" },
+    "no-accuracy-yet": { th: "ยังไม่มีข้อมูลความแม่น — ซ้อมต่อแล้วระบบจะปรับให้", en: "No accuracy data yet — keep playing and we'll adjust", zh: "暂无准确度数据——继续练习，系统会自动调整" },
+    "flow-high: ≥95% × 3 clean reps — nudge up": { th: "แม่น ≥95% ต่อเนื่อง 3 ครั้ง — ขยับเร็วขึ้นอีกนิด", en: "≥95% × 3 clean reps — nudging faster", zh: "准确度≥95%连续3次——稍微加快" },
+    "below-band: accuracy <75% — step down to rebuild": { th: "แม่นต่ำกว่า 75% — ช้าลงเพื่อสร้างฐานให้แน่น", en: "Accuracy below 75% — slowing down to rebuild", zh: "准确度低于75%——放慢重建基础" },
+    "no-data": { th: "ยังไม่มีข้อมูล", en: "No data", zh: "暂无数据" },
+  };
   return {
     bpm, step: bpm - cur, reason,
+    reasonT: REASON_TEXT[reason] || null,
     band: { pctOfGoal, inFlow: pctOfGoal >= 55 && pctOfGoal <= 100 }, // flow band = working comfortably inside ±10% of current capability
   };
 }
 
 /* ── 3) RECAP GENERATOR (#78) — 3 lines + ≤15-min homework, all computed ── */
 
-export function recap({ studentName = null, skillLabel = null, session = {}, masteryBefore = null, masteryAfter = null, nextSkill = null, tempo = null } = {}) {
+export function recap({ studentName = null, skillLabel = null, session = {}, masteryBefore = null, masteryAfter = null, nextSkill = null, tempo = null, lang = "th" } = {}) {
+  const L = (lang === "zh" || lang === "en") ? lang : "th";
   const acc = typeof session.accuracy === "number" ? session.accuracy : null;
   const prev = typeof session.weekAgoAccuracy === "number" ? session.weekAgoAccuracy : null;
   const worst = session.worstSpotLabel || null;
@@ -154,8 +166,12 @@ export function recap({ studentName = null, skillLabel = null, session = {}, mas
   // Line 2 — the ONE drill (from the worst real spot)
   const drillSpot = worst ? `${worst} ` : "";
   lines.push({ kind: "drill", th: `โฟกัสซ้อม: ${drillSpot}เล่นช้า 3 ครั้งให้สมบูรณ์ แล้วค่อยเร็วขึ้นทีละนิด`, en: `Drill: ${drillSpot}play it slowly 3× perfectly before any speed-up`, zh: `重点练习：${drillSpot}慢速完美弹 3 次后再加速` });
-  // Line 3 — the next step (from the skill graph, not invented)
-  const nextLabel = (nextSkill && (nextSkill.th || nextSkill.en)) || skillLabel || null;
+  // Line 3 — the next step (from the skill graph, not invented). The label
+  // follows the language of each line entry (owner request: analysis follows
+  // the app language) — nextSkill nodes carry th/en/zh; older callers may
+  // pass a bare string or {th} only, so fall back gracefully.
+  const L3 = (o) => (o && typeof o === "object" ? (o[L] || o.en || o.th || null) : (o || null));
+  const nextLabel = (nextSkill && (nextSkill[L] || nextSkill.en || nextSkill.th)) || L3(skillLabel) || null;
   lines.push(nextLabel
     ? { kind: "next", th: `ก้าวถัดไป: ${nextLabel}`, en: `Next step: ${nextLabel}`, zh: `下一步：${nextLabel}` }
     : { kind: "next", th: "ก้าวถัดไป: ทบทวนเพลงเดิมให้ลื่นขึ้นอีกระดับ", en: "Next step: polish the current piece one level smoother", zh: "下一步：把当前曲目弹得更流畅" });
