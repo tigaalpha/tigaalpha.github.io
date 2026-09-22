@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import qrcode from "qrcode-generator";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { apiHeaders } from "./ai-backend";
+import { logUsage } from "./shared-infra";
 
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
    No gateway, no fees: money goes directly to the configured PromptPay ID. ── */
@@ -759,9 +760,9 @@ export const GEM_PACKAGES = [
   { gems: 300, thb: 299, bonus: true },
 ];
 
-export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
+export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focusGems = false, shortBy = 0 }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const [currencyType, setCurrencyType] = useState<"coins"|"gems">("coins");
+  const [currencyType, setCurrencyType] = useState<"coins"|"gems">(focusGems ? "gems" : "coins");
   const [pkgIdx, setPkgIdx] = useState(0);
   const [st, setSt] = useState("idle");   // idle · submitting · uploading · done · error
   const [reqId, setReqId] = useState(null);
@@ -779,12 +780,19 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
   useEffect(() => { stripeMode().then(setPayMode); }, []);
   const uid = session && session.user && session.user.id;
 
+  /* Conversion plan v4 (item 2): the top-up funnel was invisible — every step
+     below was a guess. One event per real transition, client-side only; the
+     `gem:paid` leg is written by a server trigger (supabase-gem-funnel-v1.sql)
+     because that is the only moment gems actually move. */
+  useEffect(() => { logUsage("gem", "open" + (focusGems ? ":short:" + shortBy : "")); }, []); // eslint-disable-line
+
   const packages = currencyType === "coins" ? COIN_PACKAGES : GEM_PACKAGES;
   const pkg = packages[pkgIdx] || packages[0];
 
   function switchType(t) {
     if (t === currencyType) return;
     setCurrencyType(t); setPkgIdx(0); setReqId(null); setPrice(null); setChanKey("");
+    logUsage("gem", "tab:" + t);
   }
 
   const ppId = payCfg && payCfg.promptpay;
@@ -834,6 +842,7 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
     setSt("submitting");
     const amount = currencyType === "coins" ? pkg.coins : pkg.gems;
     const { data, error } = await sb.rpc("submit_currency_purchase", { p_currency_type: currencyType, p_amount: amount, p_method: k });
+    logUsage("gem", "pkg:" + currencyType + ":" + amount + ":" + k);
     submitRef.current = false;
     if (error || !data) { setSt("error"); return; }
     setReqId(data.id); setPrice(data.price); setChanKey(k); setSt("idle");
@@ -853,6 +862,7 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
       if (up.error) throw up.error;
       const { error } = await sb.rpc("attach_currency_purchase_slip", { p_id: reqId, p_slip_path: path });
       if (error) throw error;
+      logUsage("gem", "slip");
       setSt("done"); playUi("levelup");
     } catch (e) { setSt("error"); uploadRef.current = false; }
   }

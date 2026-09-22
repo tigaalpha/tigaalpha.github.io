@@ -10192,6 +10192,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [coins, chestAvail]);   // page intentionally not here: declared later in PianoApp (TDZ crash)
   function dismissEduTip() { setEduTip(null); }
   function openBuyCurrency() { if (requireLogin()) return; setBuyCurrencyOpen(true); }
+  /* Gem monetization plan v4 (item 1): the shop's only response to "not enough
+     gems" was a sad mascot — the moment of wanting was invisible and untapped.
+     This popup fires exactly there (buyWithGems) with two actions: straight
+     into the gem tab of the top-up modal, or an equal-value coins route when
+     one exists (never hides a free path — kill list v2). Fires on the failed
+     attempt only, never automatically. */
+  const [gemShort, setGemShort] = useState(null);   // { short, item }
+  const [gemShortFocus, setGemShortFocus] = useState(false);
+  function openGemShortPopup(shortBy, itemLabel) { setGemShort({ short: shortBy, item: itemLabel }); logUsage("gem", "shortpop:" + shortBy); }
+  function dismissGemShortPopup() { setGemShort(null); }
   // useGamification() is called before usePayment() (mascot must exist in time
   // to pass into usePayment's params) — so earnCoins/gainExp read plan via this
   // ref, kept fresh here now that `plan` exists. See use-gamification.ts header.
@@ -11319,7 +11329,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      item — recoverable, and never a loss. */
   async function buyWithGems(kind, item) {
     if (!session) { requireLogin(); return; }
-    if (gems < item.gem) { mascot("sad", 1400); return; }
+    if (gems < item.gem) {
+      mascot("sad", 1400);
+      // Plan v4 item 1: turn the dead end into the funnel's entry — 2-button popup.
+      openGemShortPopup(item.gem - gems, (item.name && (item.name[lang] || item.name.th)) || item.id || "");
+      return;
+    }
     const ok = await exchangeGems(item.gem);
     if (!ok) return;
     const v = Math.max(0, getCoins() - item.gem * 25);
@@ -12219,7 +12234,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* CHECKOUT — Stripe / PromptPay / Alipay / WeChat */}
       {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} playUi={playUi} />}
       {schoolCheckout && <SchoolCheckoutModal lang={lang} schoolCheckout={schoolCheckout} payCfg={payCfg} session={session} onClose={() => setSchoolCheckout(null)} playUi={playUi} />}
-      {buyCurrencyOpen && <BuyCurrencyModal lang={lang} payCfg={payCfg} session={session} onClose={() => setBuyCurrencyOpen(false)} playUi={playUi} />}
+      {buyCurrencyOpen && <BuyCurrencyModal lang={lang} payCfg={payCfg} session={session} onClose={() => { setBuyCurrencyOpen(false); setGemShortFocus(false); }} playUi={playUi} focusGems={gemShortFocus} shortBy={gemShort ? gemShort.short : 0} />}
 
       {/* AI WEEKLY REPORT / AI PRACTICE PLAN MODAL (Max exclusive) */}
       {aiModalOpen && (
@@ -13065,6 +13080,34 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <button className="installbanner-x" onClick={dismissPushBanner} aria-label="close">×</button>
         </div>
       )}
+
+      {/* Gem monetization plan v4 item 1 — gem-shortage popup: fires only from
+          buyWithGems (a real failed purchase attempt), two buttons: top up gems
+          (opens the top-up modal on the gem tab) or take the equal-value coins
+          route when one exists — never blocks or hides the free path. */}
+      {gemShort && (() => {
+        const gs = (lang === "th")
+          ? { t: "เพชรไม่พอ", b: `ต้องใช้อีก ${gemShort.short} 💎 สำหรับ ${gemShort.item || "ไอเทมชิ้นนี้"}`, go: "เติมเพชรเลย", alt: "ดูวิธีอื่น" }
+          : (lang === "zh")
+          ? { t: "钻石不足", b: `还差 ${gemShort.short} 💎 才能获得 ${gemShort.item || "该道具"}`, go: "去充值", alt: "看看其他方法" }
+          : { t: "Not enough gems", b: `You need ${gemShort.short} more 💎 for ${gemShort.item || "this item"}`, go: "Top up gems", alt: "Other ways" };
+        return (
+          <div className="atpopup" onClick={dismissGemShortPopup}>
+            <div className="atpopup-card" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">💎</span>
+                <div className="atpopup-tt">{gs.t}</div>
+                <button className="atpopup-x" onClick={dismissGemShortPopup} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak">{gs.b}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { playUi("click"); logUsage("gem", "shortpop:cta"); setGemShortFocus(true); setGemShort(null); if (requireLogin()) return; if (shopOpen) setShopOpen(false); openBuyCurrency(); }}>{gs.go}</button>
+                <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { playUi("click"); logUsage("gem", "shortpop:alt"); setGemShort(null); setShopOpen(true); }}>{gs.alt}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Auto Teaching → Challenging Mode nudge — see maybeNudgeChallenge() */}
       {challengeNudge && (
