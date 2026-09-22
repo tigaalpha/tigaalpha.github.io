@@ -3,6 +3,8 @@ import qrcode from "qrcode-generator";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { apiHeaders } from "./ai-backend";
 import { logUsage } from "./shared-infra";
+import { hasParentPin, PIN_THRESHOLD_THB, getMonthSpend, getSpendCap, isOverCap, recordSpend } from "./kid-safety";
+import { ParentGateModal } from "./parent-gate";
 
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
    No gateway, no fees: money goes directly to the configured PromptPay ID. ── */
@@ -780,6 +782,20 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focus
   useEffect(() => { stripeMode().then(setPayMode); }, []);
   const uid = session && session.user && session.user.id;
 
+  /* Kid-Safety Gate (gem plan v4 §3): every real checkout attempt goes through
+     guardThen() — ซื้อครั้งแรกตั้ง PIN ผู้ปกครองก่อน (ครั้งเดียว), หลังจากนั้น
+     ซื้อ >99฿ ต้องใส่ PIN ทุกครั้ง, และถ้ายอดเดือนนี้ถึงเพดานแล้ว lock พร้อม
+     ปุ่มให้ผู้ปกครองเข้าไปแก้ ไม่มีทางลัดข้าม (kill list §12: ห้ามกระตุ้นซื้อ
+     เด็กนอกเบรก §3) */
+  const [gate, setGate] = useState(null);          // null | { mode: "setup"|"verify", after: fn }
+  const [overCap, setOverCap] = useState(false);
+  function guardThen(thb, startFn) {
+    if (isOverCap(getMonthSpend(), getSpendCap())) { setOverCap(true); logUsage("kid", "gate:overcap"); return; }
+    if (!hasParentPin(uid)) { logUsage("kid", "gate:setup-first"); setGate({ mode: "setup", after: startFn }); return; }
+    if (thb > PIN_THRESHOLD_THB) { logUsage("kid", "gate:verify:" + thb); setGate({ mode: "verify", after: startFn }); return; }
+    startFn();
+  }
+
   /* Conversion plan v4 (item 2): the top-up funnel was invisible — every step
      below was a guess. One event per real transition, client-side only; the
      `gem:paid` leg is written by a server trigger (supabase-gem-funnel-v1.sql)
@@ -823,6 +839,7 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focus
       const amount = currencyType === "coins" ? pkg.coins : pkg.gems;
       const { data, error } = await sb.rpc("submit_currency_purchase", { p_currency_type: currencyType, p_amount: amount, p_method: "stripe" });
       if (error || !data) throw error || new Error("no request");
+      recordSpend(data.price || pkg.thb); /* kid-safety M2: card charges instantly — count toward cap before redirect (safe direction: abandoned checkout over-counts) */
       const res = await fetch(SUPABASE_URL + "/functions/v1/currency-stripe-checkout", {
         method: "POST",
         headers: { ...apiHeaders(), "Content-Type": "application/json" },
@@ -863,6 +880,7 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focus
       const { error } = await sb.rpc("attach_currency_purchase_slip", { p_id: reqId, p_slip_path: path });
       if (error) throw error;
       logUsage("gem", "slip");
+      recordSpend(price || pkg.thb); /* kid-safety M2: count toward monthly cap (safe direction: rejected slip over-counts) */
       setSt("done"); playUi("levelup");
     } catch (e) { setSt("error"); uploadRef.current = false; }
   }
@@ -910,14 +928,14 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focus
               )}
 
               {showQrPicker && payMode === "live" && (
-                <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={stripeLoading || st === "submitting"} onClick={payByCard}>
+                <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={stripeLoading || st === "submitting"} onClick={() => guardThen(pkg.thb, payByCard)}>
                   {stripeLoading ? "⏳ " + T("กำลังเปิดหน้าชำระเงินปลอดภัย...", "Opening secure checkout...", "正在打开安全支付页...") : "💳 " + T("จ่ายด้วยบัตร (เข้าบัญชีทันที)", "Pay by card — credited instantly", "银行卡支付（即时到账）")}
                 </button>
               )}
               {showQrPicker && (
                 <>
                   {channels.map(c => (
-                    <button key={c.k} className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={st === "submitting"} onClick={() => chooseChannel(c.k)}>
+                    <button key={c.k} className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={st === "submitting"} onClick={() => guardThen(pkg.thb, () => chooseChannel(c.k))}>
                       {st === "submitting" ? "⏳ " + T("กำลังเตรียม...", "Preparing...", "准备中...") : c.ic + " " + T("จ่ายผ่าน ", "Pay via ", "通过 ") + c.label}
                     </button>
                   ))}
@@ -983,6 +1001,34 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focus
                 </>
               )}
             </>
+          )}
+
+          {gate && (
+            <ParentGateModal
+              lang={lang}
+              uid={uid}
+              mode={gate.mode}
+              onClose={() => setGate(null)}
+              onVerified={() => { const fn = gate.after; setGate(null); if (fn) fn(); }}
+              playUi={playUi}
+            />
+          )}
+          {overCap && (
+            <div className="setov" onClick={() => setOverCap(false)}>
+              <div className="setcard pricing" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+                <div className="sethdr"><span>🔒 {T("ครบโควตาเดือนนี้", "Monthly limit reached", "本月额度已用完")}</span><button className="cbtn" onClick={() => setOverCap(false)}>✕</button></div>
+                <div className="setbody">
+                  <p className="pr-sub" style={{ marginTop: 0 }}>
+                    {T("ยอดซื้อเดือนนี้ถึงเพดานที่ผู้ปกครองตั้งไว้แล้ว — ผู้ปกครองเข้าโหมดผู้ปกครองเพื่อปรับเพดานได้",
+                       "This month's purchases reached the parent-set cap — parents can raise it in Parent Mode.",
+                       "本月消费已达家长设置的上限——家长可在家长模式中调整。")}
+                  </p>
+                  <button className="songbtn go" style={{ width: "100%" }} onClick={() => { setOverCap(false); logUsage("kid", "gate:open-manage"); setGate({ mode: "verify", after: null }); }}>
+                    {T("เข้าโหมดผู้ปกครอง", "Open Parent Mode", "打开家长模式")}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
