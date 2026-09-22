@@ -568,53 +568,6 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
     return m;
   }, [groups]);
 
-  /* Hero keyboard. The octave is deliberately fixed and middle-ish: an octave
-     picker here would be one more decision placed in front of someone who has
-     not yet heard a note. There is no caption either — a keyboard on screen
-     already says what it is, and a line of text under it only delays the tap.
-     Only the FIRST press is logged, so the admin can see what share of
-     arrivals actually touch the piano without one keen visitor writing a
-     hundred rows.
-
-     The RANGE, though, is not one-size: a phone keeps the classic 2 octaves,
-     an iPad grows to 4 (the width was already there — the keys were just
-     stretched, and a stretched key is not finger-sized), and a desktop
-     window gets 6. baseOct stays 4 everywhere so a note lights the same
-     letter on every device; the synth covers C2..C7, so 6 octaves from C4
-     clears the top of the map without leaving it. Measured with a matchMedia
-     pair (not one numeric breakpoint chain) so the three shapes are exact. */
-  const heroOct = 4;
-  const [heroOcts, setHeroOcts] = useState(() =>
-    (typeof window !== "undefined" && window.matchMedia)
-      ? (window.matchMedia("(min-width:1024px)").matches ? 6
-        : window.matchMedia("(min-width:600px)").matches ? 4
-        : 2)
-      : 2);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mqT = window.matchMedia("(min-width:600px)");
-    const mqD = window.matchMedia("(min-width:1024px)");
-    const apply = () => setHeroOcts(mqD.matches ? 6 : mqT.matches ? 4 : 2);
-    apply();
-    mqT.addEventListener ? mqT.addEventListener("change", apply) : mqT.addListener(apply);
-    mqD.addEventListener ? mqD.addEventListener("change", apply) : mqD.addListener(apply);
-    return () => {
-      mqT.removeEventListener ? mqT.removeEventListener("change", apply) : mqT.removeListener(apply);
-      mqD.removeEventListener ? mqD.removeEventListener("change", apply) : mqD.removeListener(apply);
-    };
-  }, []);
-  const heroLogged = useRef(false);
-  /* Until somebody has actually played it, the keyboard has to say that it CAN
-     be played. It reads as a picture otherwise: 105 people had it on screen on
-     13 Sep and two touched it. The cue is an overlay, so it costs no height and
-     leaves the orange rule sitting directly under the keys. */
-  const [heroPlayed, setHeroPlayed] = useState(false);
-  const onHeroNote = useCallback(() => {
-    setHeroPlayed(true);
-    if (heroLogged.current) return;
-    heroLogged.current = true;
-    logUsage("hero", "piano");
-  }, []);
   // initialOpenStageId re-opens the topic the learner just came from (via the
   // Sensei page's "change key" back button) so its key picker is right there —
   // this only matters on first mount, same as any other useState initializer.
@@ -662,25 +615,6 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
   }
   return (
     <div className="pathpage">
-      {/* The first thing anyone sees is now an instrument, not a heading.
-
-          A full day of signed-out arrivals said the old top of this page was
-          where they were lost: 90 people came in, 9 opened a lesson, 0 signed
-          up. The page opened on a title and a table of contents — nothing on
-          it made a sound, so someone who tapped an advert about learning piano
-          had to read a curriculum before they could touch a key. The title is
-          gone and the keys are here instead: no lesson to pick, no account to
-          make, press one and it plays.
-
-          The caption becomes a nudge toward the first lesson once they have
-          actually played something, because that is the moment the invitation
-          has been accepted and the next step is worth naming. */}
-      <div className="pathhero">
-        <div className="pathhero-glow" />
-        <div className={`pathpiano${heroPlayed ? " played" : ""}`} data-hint={lc.tapHint}>
-          <Piano small onNote={onHeroNote} baseOct={heroOct} octs={heroOcts} />
-        </div>
-      </div>
 
       {groups.map((g, gi) => {
         const stages = STAGES_BY_GROUP[g.id] || [];
