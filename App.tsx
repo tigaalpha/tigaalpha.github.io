@@ -12149,7 +12149,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         {[
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
-          { p: "sensei", ic: "◈", c: "#d97757", t: lc.navSensei },
+          // TIGA CHAT opens the full-screen chat (.mov modal) directly — owner request
+          // 2026-09-22: landing on SenseiView first made the nav item feel broken
+          // ("chat" that doesn't chat). The modal sits above any page, so sensei
+          // stays the page underneath; its back/close returns to SenseiView.
+          { p: "sensei", chat: true, ic: "◈", c: "#d97757", t: lc.navSensei },
           // free preview inside; the Max-only AI report/plan is upsold there, not walled off at the nav
           { p: "coach", ic: "🎯", c: "#d97757", t: "AI Daily Mentor" },
           // the profile row is where your character lives, so it wears a
@@ -12175,7 +12179,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             onClick={() => {
               playUi("click"); haptic(6);
               if (it.locked) { setNavOpen(false); setPricingOpen(true); return; }
-              logUsage("nav", it.p + (it.sv ? "-" + it.sv : "")); stopPracticeListeners(); setPage(it.p); if (it.p === "studio") setStudioView(it.sv); setNavOpen(false);
+              logUsage("nav", it.p + (it.sv ? "-" + it.sv : "")); stopPracticeListeners(); setPage(it.p); if (it.p === "studio") setStudioView(it.sv); if (it.chat) setModal(true); setNavOpen(false);
             }}>
             <span className="drawericon" aria-hidden="true">{it.ic}</span>
             <span className="drawerlabel">{it.t}{it.locked && " 🔒"}</span>
