@@ -142,7 +142,7 @@ body {
 }
 .lp-welcome .lp-btn { padding: 8px 14px; font-size: 13px; flex: 0 0 auto; }
 
-..lp-opencopied {
+.lp-opencopied {
   margin: 0 0 4px; padding: 8px 12px; border-radius: 12px;
   font-size: 12.5px; background: var(--card2); color: var(--text); border: 1px solid var(--line2);
 }

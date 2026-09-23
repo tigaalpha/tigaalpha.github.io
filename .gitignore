@@ -1,6 +1,11 @@
 node_modules/
 dist/
 
+# Local env files hold API keys — never commit (owner pastes keys in-session)
+.env
+.env.local
+.env.*.local
+
 dist-landing/
 
 landing-en/bundle/
