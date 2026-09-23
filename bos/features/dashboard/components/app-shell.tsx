@@ -234,13 +234,8 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-<<<<<<< HEAD
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 overflow-hidden border-b border-line/10 bg-white/85 px-3 backdrop-blur sm:px-4 md:px-6 dark:border-white/5 dark:bg-[#0b0e14]/85">
-          <div className="flex min-w-0 items-center gap-2">
-=======
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-line/10 bg-white/85 px-4 backdrop-blur md:px-6 dark:border-white/5 dark:bg-[#0b0e14]/85">
           <div className="flex min-w-0 items-center gap-3">
->>>>>>> 5b38010bb56bb84cadbb7af34110d167601d4690
             <button
               className={cn("shrink-0 rounded-lg p-2 hover:bg-line/5 dark:hover:bg-white/5 md:hidden")}
               onClick={() => setMobileOpen(true)}
@@ -248,20 +243,6 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
             >
               <Menu className="h-5 w-5 text-secondary/70 dark:text-white/70" />
             </button>
-<<<<<<< HEAD
-            <div className="flex min-w-0 items-center gap-2 md:hidden">
-              <BrandMark size="sm" />
-              {/* Logo always; the wordmark only once the phone is wide enough for
-                  it plus every topbar action — below that it made the actions
-                  overflow past the right screen edge (clipped avatar). The drawer
-                  still shows the full name. */}
-              <span className="hidden min-[420px]:block min-w-0 truncate whitespace-nowrap text-sm font-bold tracking-wide text-secondary dark:text-white">TIGA AUTOMATION</span>
-            </div>
-          </div>
-          <div className="hidden md:block" />
-          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
-            <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
-=======
             <div className="flex min-w-0 items-center gap-2.5 md:hidden">
               {/* BrandMark removed from the mobile header per the owner's sketch —
                   it crowded the row (alongside menu, title, solo/theme/bell and the
@@ -277,7 +258,6 @@ export function AppShell({ userName, userEmail, role, children }: AppShellProps)
             <div className="hidden md:block">
               <SoloModeToggle soloMode={soloMode} onToggle={toggleSoloMode} />
             </div>
->>>>>>> 5b38010bb56bb84cadbb7af34110d167601d4690
             <LanguageToggle />
             <ThemeToggle />
             <BellLink alertCount={alertCount} />

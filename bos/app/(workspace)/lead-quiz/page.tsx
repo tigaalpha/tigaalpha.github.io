@@ -50,6 +50,10 @@ const STATUS_MAP: Record<string, { label: string; variant: "success" | "warning"
 
 function classifyLevel(source: string | null): string {
   const s = (source || "").toLowerCase();
+  // The public /quiz page stamps exactly "quiz-<level>" — read the level
+  // keyword directly. Legacy sources keep the old keyword scanning.
+  const quizMatch = s.match(/quiz-(beginner|elementary|intermediate|advanced)/);
+  if (quizMatch?.[1]) return quizMatch[1];
   if (s.includes("advanced") || s.includes("jazz")) return "advanced";
   if (s.includes("intermediate")) return "intermediate";
   if (s.includes("elementary") || s.includes("hero")) return "elementary";
@@ -242,7 +246,7 @@ export default function LeadQuizPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><ExternalLink className="h-5 w-5 text-primary-accent" />Share Quiz Links</CardTitle>
-          <CardDescription>แชร์ Quiz ไปทุกช่องทาง — พร้อม UTM tracking</CardDescription>
+          <CardDescription>แชร์ Quiz ไปทุกช่องทาง — พร้อม UTM tracking (หน้า /quiz ใช้งานจริงแล้ว)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {[
